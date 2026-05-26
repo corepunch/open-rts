@@ -28,6 +28,7 @@ enum {
     MAP_RENDER_USE_CELL_COLORS = 1 << 0,
     MAP_RENDER_SMOOTH_TRANSITIONS = 1 << 1,
     MAP_RENDER_SKIP_ZERO_TILES = 1 << 2,
+    MAP_RENDER_INTERLEAVED_OVERLAYS = 1 << 3,
 };
 
 typedef struct {

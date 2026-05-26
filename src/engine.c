@@ -289,7 +289,8 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                 sx > app->win_w + tileset->tile_w || sy > app->win_h + tileset->tile_h) {
                 continue;
             }
-            int tile = map->tile_ids[map_index(map, x, y)];
+            int idx = map_index(map, x, y);
+            int tile = map->tile_ids[idx];
             if ((map->render_features & MAP_RENDER_SKIP_ZERO_TILES) && tile == 0) continue;
             SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
             SDL_Rect dst = {
@@ -299,10 +300,21 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                 tileset->tile_h,
             };
             render_tile_at(app, tileset, tile, src, dst);
+            if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
+                for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
+                    if (!map->tile_overlays[layer]) continue;
+                    int overlay = map->tile_overlays[layer][idx];
+                    if (overlay <= 0) continue;
+                    render_tile_at(app, tileset, overlay, src, dst);
+                }
+            }
         }
     }
 
-    for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
+    for (int layer = 0;
+         !(map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) &&
+         layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS;
+         ++layer) {
         if (!map->tile_overlays[layer]) continue;
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {

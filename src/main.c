@@ -1033,7 +1033,7 @@ static bool load_dark_colony_map(const char *map_path, GameMap *out) {
     }
     out->width = width;
     out->height = height;
-    out->render_features |= MAP_RENDER_SKIP_ZERO_TILES;
+    out->render_features |= MAP_RENDER_SKIP_ZERO_TILES | MAP_RENDER_INTERLEAVED_OVERLAYS;
     out->tile_ids = calloc(cell_count, sizeof(uint16_t));
     out->blocked = calloc(cell_count, sizeof(uint8_t));
     out->tile_overlay_count = 1;
