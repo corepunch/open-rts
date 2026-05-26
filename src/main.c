@@ -1038,23 +1038,29 @@ static bool load_dark_colony_map(const char *map_path, GameMap *out) {
     out->blocked = calloc(cell_count, sizeof(uint8_t));
     out->tile_overlay_count = 1;
     out->tile_overlays[0] = calloc(cell_count, sizeof(uint16_t));
+    out->tile_flip_flags[0] = calloc(cell_count, sizeof(uint8_t));
+    out->tile_flip_flags[1] = calloc(cell_count, sizeof(uint8_t));
     if (!out->tile_ids || !out->blocked) {
         free_blob(&blob);
         destroy_map(out);
         return false;
     }
-    if (!out->tile_overlays[0]) {
+    if (!out->tile_overlays[0] || !out->tile_flip_flags[0] || !out->tile_flip_flags[1]) {
         free_blob(&blob);
         destroy_map(out);
         return false;
     }
     const uint8_t *tile_pairs = blob.bytes + 8;
+    const uint8_t *tile_flags = blob.bytes + 8 + source_count * 4;
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             size_t idx = (size_t)y * (size_t)width + (size_t)x;
             const uint8_t *cell = tile_pairs + idx * 4;
             out->tile_ids[idx] = read_u16_le(cell);
             out->tile_overlays[0][idx] = read_u16_le(cell + 2);
+            uint16_t flags = read_u16_le(tile_flags + idx * 2);
+            out->tile_flip_flags[0][idx] = (flags & (1u << 5)) ? 1 : 0;
+            out->tile_flip_flags[1][idx] = (flags & (1u << 6)) ? 1 : 0;
             uint16_t base = out->tile_ids[idx];
             if (base == 0) out->blocked[idx] = 1;
         }

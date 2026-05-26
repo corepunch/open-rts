@@ -263,6 +263,20 @@ void render_tile_at(App *app, const Tileset *tileset, int tile, SDL_Rect src_par
     SDL_RenderCopy(app->renderer, tileset->texture, &src, &dst_part);
 }
 
+static void render_tile_at_flipped(App *app, const Tileset *tileset, int tile,
+                                   SDL_Rect src_part, SDL_Rect dst_part, uint8_t flip_flags) {
+    tile = tileset_resolve_tile(tileset, tile);
+    if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
+    SDL_Rect src = {
+        (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
+        (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
+        src_part.w,
+        src_part.h,
+    };
+    SDL_RendererFlip flip = (flip_flags & 1) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RenderCopyEx(app->renderer, tileset->texture, &src, &dst_part, 0.0, NULL, flip);
+}
+
 void render_map(App *app, const GameMap *map, const Tileset *tileset) {
     int cell_w = app_cell_w(app);
     int cell_h = app_cell_h(app);
@@ -299,13 +313,16 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                 tileset->tile_w,
                 tileset->tile_h,
             };
-            render_tile_at(app, tileset, tile, src, dst);
+            uint8_t base_flip = map->tile_flip_flags[0] ? map->tile_flip_flags[0][idx] : 0;
+            render_tile_at_flipped(app, tileset, tile, src, dst, base_flip);
             if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
                 for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
                     if (!map->tile_overlays[layer]) continue;
                     int overlay = map->tile_overlays[layer][idx];
                     if (overlay <= 0) continue;
-                    render_tile_at(app, tileset, overlay, src, dst);
+                    uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
+                        map->tile_flip_flags[layer + 1][idx] : 0;
+                    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
                 }
             }
         }
@@ -324,7 +341,8 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                     sx > app->win_w + tileset->tile_w || sy > app->win_h + tileset->tile_h) {
                     continue;
                 }
-                int overlay = map->tile_overlays[layer][map_index(map, x, y)];
+                int idx = map_index(map, x, y);
+                int overlay = map->tile_overlays[layer][idx];
                 if (overlay <= 0) continue;
                 SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
                 SDL_Rect dst = {
@@ -333,7 +351,9 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                     tileset->tile_w,
                     tileset->tile_h,
                 };
-                render_tile_at(app, tileset, overlay, src, dst);
+                uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
+                    map->tile_flip_flags[layer + 1][idx] : 0;
+                render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
             }
         }
     }
@@ -614,6 +634,7 @@ void destroy_tileset(Tileset *tileset) {
 void destroy_map(GameMap *map) {
     free(map->tile_ids);
     for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);
+    for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_flip_flags[i]);
     free(map->blocked);
     free(map->cell_colors);
     free(map->decorations);

@@ -84,6 +84,7 @@ typedef struct GameMap {
     int height;
     uint16_t *tile_ids;
     uint16_t *tile_overlays[MAX_TILE_OVERLAYS];
+    uint8_t *tile_flip_flags[MAX_TILE_OVERLAYS + 1];
     int tile_overlay_count;
     uint8_t *blocked;
     uint32_t *cell_colors;
