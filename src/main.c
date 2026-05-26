@@ -1092,28 +1092,118 @@ static bool load_dark_colony_map(const char *map_path, GameMap *out) {
     return true;
 }
 
+static const char *dark_colony_unit_sprite_for_type(int type, int race) {
+    if (race == 1) {
+        if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
+        if (type == 6) return "SPRITES/SLUG.SPR";
+    } else {
+        if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/TRSC.SPR";
+        if (type == 6) return "SPRITES/EXPL.SPR";
+    }
+
+    switch (type) {
+        case 2: return "SPRITES/REAP.SPR";
+        case 3: return "SPRITES/BARR.SPR";
+        case 4: return "SPRITES/SARG.SPR";
+        case 5: return "SPRITES/SCGM.SPR";
+        case 8: return "SPRITES/GRAY.SPR";
+        case 9: return "SPRITES/XENO.SPR";
+        case 10: return "SPRITES/SCYT.SPR";
+        case 11: return "SPRITES/ATRIL.SPR";
+        case 12: return "SPRITES/PSYC.SPR";
+        case 13: return "SPRITES/ORTU.SPR";
+        case 14: return "SPRITES/SLUG.SPR";
+        case 15: return "SPRITES/ATRIL.SPR";
+        case 43: return "SPRITES/ENGI.SPR";
+        case 44: return "SPRITES/SLOM.SPR";
+        case 49: return "SPRITES/BEON.SPR";
+        case 50: return "SPRITES/ZISP.SPR";
+        case 73:
+        case 74:
+        case 75:
+        case 76:
+            return "SPRITES/GRAY.SPR";
+        case 77: return "SPRITES/SARG.SPR";
+        case 78: return "SPRITES/PSYC.SPR";
+        default: return NULL;
+    }
+}
+
 static int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
     char *text = load_text_file(scn_path);
     if (!text) return 0;
 
+    int team_race[16] = { 0 };
+    int current_team = -1;
+    int team_count = 0;
+    bool expect_race = false;
+    bool object_mode = false;
+    int trailing_blank_lines = 0;
     int count = 0;
     for (char *line = text; line && *line && count < max_units;) {
         char *next = strpbrk(line, "\r\n");
         if (next) {
+            char newline = *next;
             *next++ = '\0';
-            while (*next == '\r' || *next == '\n') next++;
+            if (newline == '\r' && *next == '\n') next++;
+        }
+
+        char token[128] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, strlen(line));
+        if (token[0] == '\0') {
+            if (team_count >= 8 && !object_mode && ++trailing_blank_lines >= 2) {
+                object_mode = true;
+            }
+            line = next;
+            continue;
+        }
+
+        if (strncmp(token, "TEAM ", 5) == 0) {
+            int active = 0;
+            if (sscanf(token, "TEAM %d %d", &current_team, &active) >= 1 &&
+                current_team >= 0 && current_team < 16) {
+                team_count++;
+                expect_race = true;
+            } else {
+                current_team = -1;
+                expect_race = false;
+            }
+            trailing_blank_lines = 0;
+            line = next;
+            continue;
+        }
+        if (!object_mode && expect_race) {
+            int race = 0;
+            if (sscanf(token, "%d", &race) == 1 && current_team >= 0 && current_team < 16) {
+                team_race[current_team] = race;
+                expect_race = false;
+                trailing_blank_lines = 0;
+                line = next;
+                continue;
+            }
+        }
+        if (!object_mode) {
+            trailing_blank_lines = 0;
+            line = next;
+            continue;
         }
 
         int x = 0, y = 0, type = 0, team = 0, owner = 0, extra = 0;
         if (sscanf(line, " %d %d %d %d %d %d", &x, &y, &type, &team, &owner, &extra) == 6 &&
-            type == 69 && team >= 0 && x >= 0 && y >= 0) {
+            team >= 0 && team < 16 && x >= 0 && y >= 0) {
+            const char *sprite = dark_colony_unit_sprite_for_type(type, team_race[team]);
+            if (!sprite) {
+                line = next;
+                continue;
+            }
             Unit *u = &units[count];
             u->gx = (float)x + 0.5f;
             u->gy = (float)y + 0.5f;
             u->speed = 5.5f;
             u->selected = count == 0;
+            snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
             count++;
         }
         line = next;
@@ -1408,6 +1498,8 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
         free_blob(&blob);
         return false;
     }
+    int flags = read_u16_le(blob.bytes + 0);
+    bool compressed = (flags & 0x80) != 0;
     int frame_count = read_u16_le(blob.bytes + 2);
     size_t desc_off = 8 + 256 * 3;
     size_t data_off = desc_off + (size_t)frame_count * 8;
@@ -1418,10 +1510,11 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     }
 
     dark_colony_palette_from_spr(blob.bytes, blob.size, palette_out);
+    int visible_frames = compressed && frame_count > 32 ? 32 : frame_count;
     int max_w = 1;
     int max_h = 1;
     size_t total_pixels = 0;
-    for (int i = 0; i < frame_count; ++i) {
+    for (int i = 0; i < visible_frames; ++i) {
         const uint8_t *d = blob.bytes + desc_off + (size_t)i * 8;
         int w = read_u16_le(d + 0);
         int h = read_u16_le(d + 2);
@@ -1433,18 +1526,18 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
         if (h > max_h) max_h = h;
         total_pixels += (size_t)w * (size_t)h;
     }
-    if (data_off + total_pixels > blob.size) {
+    if (!compressed && data_off + total_pixels > blob.size) {
         fprintf(stderr, "%s has truncated Dark Colony sprite pixels\n", path);
         free_blob(&blob);
         return false;
     }
 
-    int cols = (int)ceilf(sqrtf((float)frame_count));
-    int rows = (frame_count + cols - 1) / cols;
+    int cols = (int)ceilf(sqrtf((float)visible_frames));
+    int rows = (visible_frames + cols - 1) / cols;
     int atlas_w = cols * max_w;
     int atlas_h = rows * max_h;
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    SDL_Rect *frames = calloc((size_t)frame_count, sizeof(SDL_Rect));
+    SDL_Rect *frames = calloc((size_t)visible_frames, sizeof(SDL_Rect));
     if (!rgba || !frames) {
         free(rgba);
         free(frames);
@@ -1453,30 +1546,114 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     }
 
     size_t src_pos = data_off;
-    for (int i = 0; i < frame_count; ++i) {
+    for (int i = 0; i < visible_frames; ++i) {
         const uint8_t *d = blob.bytes + desc_off + (size_t)i * 8;
         int w = read_u16_le(d + 0);
         int h = read_u16_le(d + 2);
-        int ox = (int16_t)read_u16_le(d + 4);
-        int oy = (int16_t)read_u16_le(d + 6);
-        int fx = (i % cols) * max_w + ox;
-        int fy = (i / cols) * max_h + oy;
-        const uint8_t *src = blob.bytes + src_pos;
-        blit_indexed_to_rgba(rgba, atlas_w, atlas_h, fx, fy, src, w, h, palette_out);
+        int fx = (i % cols) * max_w + (max_w - w) / 2;
+        int fy = (i / cols) * max_h + (max_h - h) / 2;
+        if (compressed) {
+            if (src_pos + 4 > blob.size) {
+                free(rgba);
+                free(frames);
+                free_blob(&blob);
+                return false;
+            }
+            uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
+            src_pos += 4;
+            if (src_pos + chunk_size > blob.size) {
+                free(rgba);
+                free(frames);
+                free_blob(&blob);
+                return false;
+            }
+
+            const uint8_t *src = blob.bytes + src_pos;
+            size_t pos = 0;
+            int x = 0;
+            int y = 0;
+            while (pos < chunk_size && y < h) {
+                int8_t cmd = (int8_t)src[pos++];
+                if (cmd < 0) {
+                    x += -cmd;
+                } else {
+                    int count = cmd + 1;
+                    if (pos + (size_t)count > chunk_size) break;
+                    for (int p = 0; p < count; ++p) {
+                        if (x >= 0 && x < w && y >= 0 && y < h) {
+                            int dst_x = fx + x;
+                            int dst_y = fy + y;
+                            if (dst_x >= 0 && dst_x < atlas_w && dst_y >= 0 && dst_y < atlas_h) {
+                                rgba[dst_y * atlas_w + dst_x] = palette_out[src[pos + (size_t)p]];
+                            }
+                        }
+                        x++;
+                    }
+                    pos += (size_t)count;
+                }
+                while (x >= w) {
+                    x -= w;
+                    y++;
+                }
+            }
+            src_pos += chunk_size;
+        } else {
+            const uint8_t *src = blob.bytes + src_pos;
+            blit_indexed_to_rgba(rgba, atlas_w, atlas_h, fx, fy, src, w, h, palette_out);
+            src_pos += (size_t)w * (size_t)h;
+        }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
-        src_pos += (size_t)w * (size_t)h;
     }
 
     out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
     out->frames = frames;
-    out->frame_count = frame_count;
+    out->frame_count = visible_frames;
     out->frame_w = max_w;
     out->frame_h = max_h;
     out->rotations = 1;
-    out->primary_frames_per_rotation = frame_count;
+    out->primary_frames_per_rotation = visible_frames;
     free(rgba);
     free_blob(&blob);
     return out->texture != NULL;
+}
+
+static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *renderer,
+                                          const char *data_root, const char *name) {
+    if (!name || name[0] == '\0') return true;
+    if (sprite_cache_find(cache, name)) return true;
+    if (cache->count >= MAX_DECORATION_SPRITES) {
+        fprintf(stderr, "too many Dark Colony sprites; skipped %s\n", name);
+        return false;
+    }
+
+    char sprite_path[1024];
+    if (name[0] == '/') {
+        snprintf(sprite_path, sizeof(sprite_path), "%s", name);
+    } else {
+        path_join(sprite_path, sizeof(sprite_path), data_root, name);
+    }
+
+    CachedSprite *entry = &cache->entries[cache->count];
+    snprintf(entry->name, sizeof(entry->name), "%s", name);
+    uint32_t palette[256] = { 0 };
+    if (!load_dark_colony_sprite(renderer, sprite_path, &entry->sprite, palette)) {
+        fprintf(stderr, "failed to load %s\n", sprite_path);
+        memset(entry, 0, sizeof(*entry));
+        return false;
+    }
+    cache->count++;
+    return true;
+}
+
+static bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
+                                          const Unit *units, int unit_count, SpriteCache *cache) {
+    bool ok = true;
+    for (int i = 0; i < unit_count; ++i) {
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].sprite_name)) {
+            ok = false;
+        }
+    }
+    return ok;
 }
 
 static bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
@@ -1806,6 +1983,11 @@ int main(int argc, char **argv) {
         !load_dark_reign_decoration_sprites(app.renderer, data_root, &map, units, unit_count,
                                             &decoration_sprites)) {
         fprintf(stderr, "warning: some Dark Reign map/unit sprites were not loaded\n");
+    }
+    if (strcmp(plugin->id, "dark-colony") == 0 &&
+        !load_dark_colony_unit_sprites(app.renderer, data_root, units, unit_count,
+                                       &decoration_sprites)) {
+        fprintf(stderr, "warning: some Dark Colony unit sprites were not loaded\n");
     }
 
     float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
