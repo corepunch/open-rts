@@ -1,0 +1,295 @@
+; SCENARIO d:\darkv102\dark\scenario\SINGLE\2canyon\2canyon.scn
+; Built at 06:17:08, on Sep  1 1997;
+SetVersion(2)
+;
+;
+; *** The Terrain type
+;
+SetDefaultTerrain(BARREN)
+;
+; *** Tech-level
+;
+SetTechLevel(100)
+;
+;Team information for team 0
+;
+SetTeam(0)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(0)
+  SetCredit(15000)
+  SetCPULoad(2350)
+  SetStartLocation(201 908)
+  SetAlliance(2 0 0 0 0 0 0 0)
+}
+
+;
+;Team information for team 1
+;
+SetTeam(1)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(1)
+  SetCredit(15000)
+  SetCPULoad(2100)
+  SetStartLocation(2003 147)
+  SetAlliance(0 2 0 0 0 0 0 0)
+}
+
+;
+;Team information for team 2
+;
+SetTeam(2)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(2)
+  SetCredit(15000)
+  SetCPULoad(2100)
+  SetAlliance(0 0 2 0 0 0 0 0)
+}
+
+;
+;Team information for team 3
+;
+SetTeam(3)
+{
+  SetTeamSide(2)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(3)
+  SetCredit(15000)
+  SetCPULoad(2100)
+  SetAlliance(0 0 0 2 0 0 0 0)
+}
+
+;
+;Team information for team 4
+;
+SetTeam(4)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(4)
+  SetCredit(15000)
+  SetCPULoad(2100)
+  SetAlliance(0 0 0 0 2 0 0 0)
+}
+
+;
+;Team information for team 5
+;
+SetTeam(5)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(5)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 0 2 0 0)
+}
+
+;
+;Team information for team 6
+;
+SetTeam(6)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(6)
+  SetCredit(50000)
+  SetCPULoad(2100)
+  SetAlliance(0 0 0 0 0 0 2 0)
+}
+
+;
+;Team information for team 7
+;
+SetTeam(7)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(7)
+  SetCredit(50000)
+  SetCPULoad(2100)
+  SetAlliance(0 0 0 0 0 0 0 2)
+}
+
+;
+;Team information for team 8
+;
+SetTeam(8)
+{
+  SetTeamSide(2)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(8)
+  SetCredit(0)
+  SetCPULoad(0)
+  SetAlliance(1 1 1 1 1 1 1 1)
+}
+
+;
+; *** Unit Declarations
+;
+;
+; Units for Team 0
+;
+SetDefaultTeam(0)
+PutUnitAt(28549 FGConstructionCrew 10 36)
+PutUnitAt(28547 FGConstructionCrew 6 36)
+;
+; Units for Team 1
+;
+SetDefaultTeam(1)
+PutUnitAt(28557 IMPConstructionCrew 82 8)
+PutUnitAt(28551 IMPConstructionCrew 80 6)
+;
+; Units for Team 2
+;
+SetDefaultTeam(2)
+;
+; Units for Team 3
+;
+SetDefaultTeam(3)
+;
+; Units for Team 4
+;
+SetDefaultTeam(4)
+;
+; Units for Team 5
+;
+SetDefaultTeam(5)
+;
+; Units for Team 6
+;
+SetDefaultTeam(6)
+;
+; Units for Team 7
+;
+SetDefaultTeam(7)
+;
+; Units for Team 8
+;
+SetDefaultTeam(8)
+;
+; *** Building Declarations
+;
+;
+; Buildings for Team 8
+;
+SetDefaultTeam(8)
+
+AddBuildingAt(28541 impww 77 11 dummy_msc)
+AddBuildingAt(28542 impmn 49 5 dummy_msc)
+AddBuildingAt(28543 impww 56 29 dummy_msc)
+AddBuildingAt(28544 impww 34 13 dummy_msc)
+AddBuildingAt(28545 impmn 11 7 dummy_msc)
+AddBuildingAt(28546 impww 12 30 dummy_msc)
+;
+; *** Thing (overlay) Declarations
+;
+;
+; Overlays
+;
+AddThingAt(3208 tree4 5 23)
+AddThingAt(3207 tree1 6 22)
+AddThingAt(3205 rock3 9 23)
+AddThingAt(3204 rock2 6 24)
+AddThingAt(3202 rock3 19 43)
+AddThingAt(3199 rock5 18 42)
+AddThingAt(3194 tree1 20 40)
+AddThingAt(3193 tree4 20 43)
+AddThingAt(3191 tree3 21 40)
+AddThingAt(3190 tree2 21 41)
+AddThingAt(3186 rock3 32 20)
+AddThingAt(3185 rock2 32 21)
+AddThingAt(3180 rock1 49 35)
+AddThingAt(3178 plnt3 63 36)
+AddThingAt(3170 rock3 52 38)
+AddThingAt(3169 rock5 75 25)
+AddThingAt(3163 tree6 87 22)
+AddThingAt(3162 tree3 88 18)
+AddThingAt(3161 tree1 86 20)
+AddThingAt(3156 rock3 68 2)
+AddThingAt(3149 tree1 64 1)
+AddThingAt(3141 tree6 64 16)
+AddThingAt(3140 tree1 62 17)
+AddThingAt(3139 tree2 76 24)
+AddThingAt(3138 tree4 75 28)
+AddThingAt(3133 tree6 77 23)
+AddThingAt(3131 tree1 73 27)
+AddThingAt(3130 rock3 75 22)
+AddThingAt(3129 rock2 76 22)
+AddThingAt(3124 rock6 62 19)
+AddThingAt(3123 rock3 58 19)
+AddThingAt(3111 rock5 22 5)
+AddThingAt(3109 rock3 25 5)
+AddThingAt(3105 tree1 23 39)
+AddThingAt(3103 tree3 26 38)
+AddThingAt(3102 tree4 25 39)
+AddThingAt(3101 tree1 26 25)
+AddThingAt(3099 tree2 23 26)
+AddThingAt(3098 tree3 23 28)
+AddThingAt(3094 tree6 11 20)
+AddThingAt(3093 tree2 10 19)
+AddThingAt(3092 tree3 8 20)
+AddThingAt(3091 tree4 9 21)
+AddThingAt(3088 tree6 54 20)
+AddThingAt(3086 tree6 45 1)
+AddThingAt(3084 tree6 8 1)
+AddThingAt(3080 tree4 11 1)
+AddThingAt(3078 tree2 17 10)
+AddThingAt(3073 tree6 22 8)
+AddThingAt(3072 tree4 18 9)
+AddThingAt(3071 tree1 20 8)
+AddThingAt(3070 tree3 19 10)
+AddThingAt(3069 tree2 31 3)
+AddThingAt(3065 tree4 30 3)
+AddThingAt(3062 tree6 33 3)
+AddThingAt(3061 tree3 34 5)
+AddThingAt(3060 tree1 31 4)
+AddThingAt(3059 tree6 56 37)
+AddThingAt(3055 tree2 58 38)
+AddThingAt(3054 tree3 57 37)
+AddThingAt(3051 tree6 55 36)
+AddThingAt(3050 tree6 32 42)
+AddThingAt(3049 tree3 33 43)
+AddThingAt(3048 tree1 35 39)
+AddThingAt(3046 tree3 31 42)
+AddThingAt(3043 tree6 32 43)
+AddThingAt(3039 tree4 34 34)
+AddThingAt(3038 tree4 36 40)
+AddThingAt(3037 tree3 35 41)
+AddThingAt(3036 tree2 35 34)
+AddThingAt(3035 tree1 33 36)
+AddThingAt(3028 tree2 35 21)
+AddThingAt(3027 tree4 33 21)
+AddThingAt(3025 tree6 35 22)
+AddThingAt(3024 tree3 28 23)
+AddThingAt(3023 tree3 70 43)
+AddThingAt(3021 tree6 77 43)
+AddThingAt(3018 tree2 80 39)
+AddThingAt(3015 tree1 78 41)
+AddThingAt(3014 tree4 80 41)
+AddThingAt(3013 tree3 78 43)
+AddThingAt(3011 tree6 75 41)
+AddThingAt(3010 tree1 71 40)
+AddThingAt(3006 tree2 72 41)
+AddThingAt(3005 tree6 75 39)
+AddThingAt(3004 tree4 76 41)
+AddThingAt(3003 tree3 76 38)
+AddThingAt(3002 tree1 78 39)
+AddThingAt(2999 tree4 2 9)
+AddThingAt(2995 tree3 52 16)
+AddThingAt(2991 tree6 51 2)
+AddThingAt(2990 tree4 52 1)
+AddThingAt(2988 tree2 44 10)
+AddThingAt(2987 tree3 51 17)
+AddThingAt(2986 tree3 48 15)
+AddThingAt(2985 tree3 45 12)
+AddThingAt(2984 tree3 48 12)
+AddThingAt(2983 tree3 43 10)
+AddThingAt(2978 tree1 1 1)
+AddThingAt(2977 tree3 5 1)
+AddThingAt(2976 tree2 2 2)
+AddThingAt(2975 tree1 3 4)
+AddThingAt(2973 tree1 47 13)
+AddThingAt(2972 tree1 43 8)
+AddThingAt(2971 tree1 55 17)
+AddThingAt(2970 tree1 55 21)
+AddThingAt(2969 tree1 60 36)
+AddThingAt(2968 tree1 67 41)
+AddThingAt(2967 tree1 53 37)
+AddThingAt(2966 tree1 30 20)

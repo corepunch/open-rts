@@ -1,0 +1,268 @@
+;
+; Damage Table File
+;
+; Format:
+;
+; DeclareOffenses()
+; {
+;   _list_of_offense_categories_
+; }
+;
+;
+; DefineVulnerability( _DefenseClass_  _DefaultVulnerability%_  _DefaultVariation%_  _CriticalHit%_ )
+; {
+;    _Offense_  _Vulnerability%_  _Variation%_  _CriticalHit%_
+;    ...
+; }
+;
+; NOTE: If Offense has no category (ie. Z instead of Z1), the defense entries
+;       apply to all categories of that offense
+;
+;
+; A1 is the air defence laser, used on ImpMAD and AntiAircraftSite
+;
+; B1 is the suicide bomber's bomb
+; B2 is the artillery shell
+;
+; C1 is the Construction MAD's chaff attack
+;
+; E1 is the rail gun
+; E2 is the laser rifle/pistol
+; E3 is the plasma cannon
+; E4 is the tachyon cannon
+; E5 is the electro shock
+;
+; G1 is the neutron weapons
+;
+; H1 is the medic's healing weapon
+; H2 is the mechanic's repairing weapon
+;
+; K1 is the normal grenade
+; K2 is the Artillery Blast
+;
+; M1 is the air to ground missile
+; M2 is the air to air missile
+; M3 is the PolyAcid
+; M4 is the ground to air missile
+;
+; R1 is the mechanic's repair
+; R2 is the construction crew's repair
+;
+; S1 is the sniper rifle
+; S2 is the shredder
+;
+; V1 is the offense for the vortex (temporal rift)
+; W1 is the offense for the Seismic Wave
+
+
+DeclareOffenses()
+{
+ A1 B1 B2 C1 E1 E2 E3 E4 E5 F1 G1 G2 G3 H1 K1 K2 M1 M2 M3 M4 R1 R2 S1 S2 V1 W1 Z0
+}
+
+
+DefineVulnerability(ToughHuman 100 10 0)
+{
+  A1 50    10   0
+  B1 100    0   0
+  C1   0    0   0
+  E1 100   10   0
+  E2 100   10   0
+  E3 100   10   0
+  E4 100   10   0
+  E5 100   10   0
+  S1 100   10   0
+  F  100   30   0
+  G1 100   10   0
+  G2  80   10   3
+  M1 100   10   0
+  M2 100   10   0
+  M3 100   10   0
+  M4 100   10   0
+  K1  90    5   2
+  K2  100  10   0
+  R2  0    0    0
+  Z0  0    0    0
+}
+
+DefineVulnerability(ToughHumanWet 100 10 0)
+{
+  A1 50    10   0
+  B1 100    0   0
+  C1   0    0   0
+  E1 100   10   0
+  E2 100   10   0
+  E3 100   10   0
+  E4 100   10   0
+  E5 100   10   0
+  S1 100   10   0
+  F  100   30   0
+  G1 100   10   0
+  G2  80   10   3
+  M1 100   10   0
+  M2 100   10   0
+  M3 100   10   0
+  M4 100   10   0
+  K1  90    5   2
+  K2  100  10   0
+  R2  0    0    0
+  Z0 80    0    0
+}
+
+
+DefineVulnerability(PowerHuman 100 10 0)
+{
+  A1 50    10   0
+  B1 100    0   0
+  C1   0    0   0
+  E1 100   10   0
+  E2 100   10   0
+  E3 100   10   0
+  E4 100   10   0
+  E5 100   10   0
+  S1 100   10   0
+  F  100   30   0
+  G1 100   10   0
+  G2  80   10   3
+  M1 100   10   0
+  M2 100   10   0
+  M3 100   10   0
+  M4 100   10   0
+  K1  90    5   2
+  K2 100   10   0
+  R2   0    0   0
+  Z0  0    0    0
+}
+
+DefineVulnerability(PowerHumanWet 100 10 0)
+{
+  A1 50    10   0
+  B1 100    0   0
+  C1   0    0   0
+  E1 100   10   0
+  E2 100   10   0
+  E3 100   10   0
+  E4 100   10   0
+  E5 100   10   0
+  S1 100   10   0
+  F  100   30   0
+  G1 100   10   0
+  G2  80   10   3
+  M1 100   10   0
+  M2 100   10   0
+  M3 100   10   0
+  M4 100   10   0
+  K1  90    5   2
+  K2 100   10   0
+  R2  0    0    0
+  Z   80    0   0
+}
+
+DefineVulnerability(FlyingArmour 100 10 0)
+{
+  G1 100   10   0
+  C1 100   10   0
+  M2 100   10   0
+  E2  50   10   0
+  E3  50   10   0
+  A1 100   10   0
+  R2  0    0    0
+  S2  0    0    0
+  Z0  0    0    0
+}
+
+
+DefineVulnerability(TankPlating 100 10 0)
+{
+  A1  50   10   0
+  B1 100    0   0
+  C1   0    0   0
+  E1 200   10   0
+  E2  50   10   0
+  E3  75   10   0
+  E4 100   10   0
+  E5 150   10   0
+  S1  10   10   0
+  F  100   30   0
+  G1 150   10   0
+  G2  80   10   3
+  M1 100   10   0
+  M2 100   10   0
+  M3 250   10   0
+  M4 100   10   0
+  K1  90    5   2
+  K2  75   10  0
+  R2  0     0   0
+  S2  0     0   0
+  Z0  0    0    0
+}
+
+DefineVulnerability(TankPlatingWet 100 10 0)
+{
+  A1  50   10   0
+  B1 100    0   0
+  C1   0    0   0
+  E1 200   10   0
+  E2  50   10   0
+  E3  75   10   0
+  E4 100   10   0
+  E5 150   10   0
+  S1  10   10   0
+  F  100   30   0
+  G1 150   10   0
+  G2  80   10   3
+  M1 100   10   0
+  M2 100   10   0
+  M3 250   10   0
+  M4 100   10   0
+  K1  90    5   2
+  K2  75   10   0
+  R2  0     0   0
+  S2  0     0   0
+  Z   80    0  10
+}
+
+
+DefineVulnerability(BuildingArmour 50 10 0)
+{
+  C1   0    0   0
+  R2   0    0   0
+  S2   0    0   0
+  S1  10   10   0
+  A1 25   10   0
+  B1 50    0   0
+  B2 65    0   0
+  E1 70   10   0
+  E2 50   10   0
+  E3 40   10   0
+  E4 40   10   0
+  E5 40   10   0
+  F  50   30   0
+  G1 50   10   0
+  G2 40   10   3
+  M1 50   10   0
+  M2 50   10   0
+  M3 50   10   0
+  M4 50   10   0
+  K1 45    5   2
+  K2 50   10   0
+  Z0  0    0    0
+}
+
+
+DefineVulnerability(SuperArmour 0 0 0)
+{
+  C1   0    0   0
+  R2 100    0   0
+  S2   0    0   0
+  Z0  0    0    0
+}
+
+
+DefineVulnerability(SuperArmour2 0 0 0)
+{
+  C1   0    0   0
+  R2   0    0   0
+  S2   0    0   0
+  Z0   0    0   0
+}

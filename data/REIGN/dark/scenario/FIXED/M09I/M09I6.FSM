@@ -1,0 +1,39 @@
+;
+; FSM  Conditions for team 6
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State 1
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(2 0 0 0 give_hospital_mr)  
+   	{
+	CritNOT()
+      	{          
+	 CritTeamInRegion(40646 2)
+        }   
+  	}
+ 
+	SetAlliance(2 1 1 1 1 1 2 1)
+
+  }
+
+ ;
+  ; Conditional State 2
+  ;
+  DefineCondState()
+  {
+  
+    DefineCondition(2 0 0 0 looping)  
+   	
+      	{          
+	 CritTimer(100000)
+        }   
+  	
+	 SetAlliance(2 1 1 1 1 1 2 1) 
+
+  }
+}

@@ -1,0 +1,77 @@
+;
+; AI Conditional FSM for team 2
+;
+DefineEndCondTree(0)
+{
+
+; state 1
+; the "okay" state
+; just chill and see if there is a trespass (before the money's been paid)
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 I_gots_to_get_paid!!!)
+    { 
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritHaveCredits(300000) 
+        }
+        CritTeamInRegion(28979 0)  ; the near region (#1)
+      }
+     }
+  }
+
+; state 2
+; the "warn" state
+; this means the player has run around too much and needs to head back
+  DefineCondState()
+  {
+   
+
+    ; optional condition to repeat the warning every so often
+    DefineCondition(2 0 0 0 I'm_warning_you)
+    {
+      CritTimer(400)
+    }
+
+    ; if they go any farther, they're gonna lose
+    DefineCondition(3 0 0 0 You_don't_listen_too_well)
+    {
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritHaveCredits(300000) 
+        }
+        CritTeamInRegion(28978 0)  ; the far region (#2)
+      }
+    }
+
+    ; if player clears out, though, then go back to okay
+    DefineCondition(1 0 0 0 Good_thinkin')
+    {
+      CritNOT()
+      {
+        CritTeamInRegion(28979 0)  ; the near region (#1)
+      }
+    }
+  
+ TriggerMessage(gvt3aol9)  ; "turn around" or something like that
+
+}
+
+; state 3
+; point of no return... say one last thing then fail them
+  DefineCondState()
+  {
+    
+      
+    DefineCondition(0 0 0 0 I_told_you_so)
+    {
+      CritTimer(200)  ; just long enough to say my peace
+    }      
+   TriggerMessage(gvt3bol0)  ; "well, I warned you" or something  
+  }
+
+}

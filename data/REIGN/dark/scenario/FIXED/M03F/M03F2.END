@@ -1,0 +1,105 @@
+
+;
+; Game End Conditions for team 2
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+     DefineCondition(4 0 0 0 you_lose)  ;  JEB DIES -  PLAYER LOSES
+      	{  
+         CritDestroyUnit()
+          {
+            69616
+          }
+        }
+
+
+     DefineCondition(3 0 0 0 "D")  ;  ALL PRIOSONERS HAVE BEEN RESCUED
+      	{
+      	CritONCE()
+      	{
+	CritAND()
+	{       	
+	CritKillTeamUnits(2 0)
+       	CritKillTeamUnits(3 0)
+	CritKillTeamUnits(4 0)
+	CritKillTeamUnits(5 0)
+	CritKillTeamUnits(6 0)
+	}
+      	}       
+	}
+
+
+
+;     DefineCondition(3 0 0 0 "D")  ;  ALL PRIOSONERS HAVE BEEN RESCUED
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritHaveCredits(7000)
+;       	}
+;      	}       
+
+;    DefineCondition(2 0 0 0 "D")  ;  JEB HAS BEEN RESCUED
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritHaveCredits(8000)
+;       	}
+;      	}    
+  
+
+
+}
+  
+
+
+;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+     
+       DefineCondition(1 0 0 0 "D")  ; GIVE UNIT TO PLAYER FOR WIN CONDITION
+      	{
+      	CritTimer(0)
+      	}    
+ 
+  GiveSpecialForces(909 7)
+
+ }
+
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+      
+       DefineCondition(1 0 0 0 all_prisoners_rescued) 
+      	{
+      	CritTimer(0)
+      	}    
+ 
+    TriggerMessage(GVINTCL3)  ; objective sucesful
+
+  }
+
+  ;
+  ; Conditional State #4
+  ;
+  DefineCondState()
+  {
+      
+       DefineCondition(0 0 0 0 you_lose) 
+      	{
+      	CritTimer(50)
+      	}    
+ 
+    TriggerMessage(GVINTCL6)  
+
+  }
+
+}

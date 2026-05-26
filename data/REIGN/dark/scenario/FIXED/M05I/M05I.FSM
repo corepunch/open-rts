@@ -1,0 +1,429 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; State 1
+; set aip and regions
+  DefineCondState()
+  {
+    ; instantly go to state 2
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    SetAIPFile(m05I.aip)
+
+    ;focus on regions with wells
+    AdjustRegionPri(2752 120 100 900)
+    AdjustRegionPri(2757 120 100 900)
+    AdjustRegionPri(2758 120 100 900)
+    AdjustRegionPri(2759 120 100 900)
+    AdjustRegionPri(2750 120 100 900)
+    AdjustRegionPri(2751 120 100 900)
+    AdjustRegionPri(2756 120 100 900)
+    AdjustRegionPri(2760 120 100 900)
+    AdjustRegionPri(2762 150 100 900)
+  }
+
+;
+;State 2
+;
+  DefineCondState()
+  {
+
+    DefineCondition(3 0 0 0 bottom_left_well_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2752)  
+      }
+    }
+
+    DefineCondition(4 0 0 0 bottom_middle_well_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2757)  
+      }
+    }
+
+    DefineCondition(5 0 0 0 bottom_right_well_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2758) 
+      }
+    }
+
+    DefineCondition(6 0 0 0 top_left_well-approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2750) 
+      }
+    }
+
+    DefineCondition(7 0 0 0 top_left_well_entry_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2751) 
+      }
+    }
+
+    DefineCondition(8 0 0 0 top_middle_well_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2756)  
+      }
+    }
+
+    DefineCondition(9 0 0 0 middle_right_well_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2759) 
+      }
+    }
+
+    DefineCondition(10 0 0 0 right_pad_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2761)  
+      }
+    }
+
+    DefineCondition(11 0 0 0 top_right_well_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2760) 
+      }
+    }
+
+    DefineCondition(12 0 0 0 right_base_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2764) 
+      }
+    }
+
+    DefineCondition(13 0 0 0 middle_base_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2765)  
+      }
+    }
+
+    DefineCondition(14 0 0 0 left_base_approached)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(2763) 
+      }
+    }
+
+    DefineCondition(15 0 0 0 change_aip)
+    {
+      CritONCE()
+      {
+       CritTimerGame(3000) 
+      }
+    }
+
+    DefineCondition(16 0 0 0 change_aip)
+    {
+      CritONCE()
+      {
+       CritTimerGame(6000) 
+      }
+    }
+
+    DefineCondition(17 0 0 0 change_aip)
+    {
+      CritONCE()
+      {
+       CritTimerGame(12000) 
+      }
+    }
+
+    DefineCondition(18 0 0 0 change_aip)
+    {
+      CritONCE()
+      {
+       CritTimerGame(15000) 
+      }
+    }
+  
+    ;base attacked. release all forces. attack building.
+    DefineCondition(19 0 0 0 kill_dat_building)
+    {
+      CritONCE()
+      {
+        CritOR()
+        {
+          CritDestroyBuilding() 
+          {
+            207
+          }
+          CritDestroyBuilding() 
+          {
+            2478
+          }
+        }
+      }
+    }
+
+    ;base attacked. attack building.
+    DefineCondition(20 0 0 0 kill_dat_building)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding() 
+        {
+          208
+        }       
+      }
+    }
+  }
+
+; state 3
+;bottom left well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(200) 
+  }
+
+; state 4
+; bottom middle well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(201)
+  }
+
+; state 5
+;bottom right well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(202)  
+  }
+
+; state 6
+; top left well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(203)  
+  }
+
+; state 7
+; area outside top left well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(204)  
+  }
+
+; state 8
+; top middle well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(205)  
+  }
+
+; state 9
+; middle right well approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	
+    }
+
+    ReleaseSpecialForces(206)  
+  }
+
+; state 10
+; middle right launch pad approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)
+    }
+
+    ReleaseSpecialForces(207) 
+  }
+
+; state 11
+; top right well approached. release defenders
+  DefineCondState()
+  {
+
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	
+    }
+
+    ReleaseSpecialForces(208) 
+  }
+
+; state 12
+; right base approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(209) 
+  }
+
+; state 13
+; middle base approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	
+    }
+
+    ReleaseSpecialForces(210)  
+  }
+
+; state 14
+; left base approached. release defenders
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(211)  
+  }
+
+;State 15
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m05Id.aip)
+  }
+
+;State 16
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m05I.aip)
+  }
+
+;State 17
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m05Id.aip)
+  }
+
+;State 18
+;
+  DefineCondState()
+  {  
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m05I.aip)
+  }
+
+;State 19
+;ally with building. AI attacks building. release 
+;all special forces
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    BonusCredits(6 50000)
+    SetAlliance(0 2 0 0 0 0 0 0)
+    ReleaseSpecialForces(211)
+    ReleaseSpecialForces(210)
+    ReleaseSpecialForces(209)
+    ReleaseSpecialForces(208)
+    ReleaseSpecialForces(207)
+    ReleaseSpecialForces(206)
+    ReleaseSpecialForces(205)
+    ReleaseSpecialForces(204)
+    ReleaseSpecialForces(203)
+    ReleaseSpecialForces(202)
+    ReleaseSpecialForces(201)
+    ReleaseSpecialForces(200)
+  }
+
+
+;State 20
+;ally with building. AI attacks building.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    BonusCredits(6 50000)
+    SetAlliance(0 2 0 0 0 0 0 0)
+  }
+}

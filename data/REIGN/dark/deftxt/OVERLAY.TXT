@@ -1,0 +1,440 @@
+; March 24, 1997
+; The number of overlay levels
+;
+
+
+SetMaxThingLevels(10)
+
+DefineThingType(repairgraphic)
+{
+   SetThingImage(repricon_animation)
+   SetLevel(14)
+   NoEdit()
+}
+
+DefineThingType(watercrater)
+{
+   SetThingImage(watercrater_animation)
+   SetLevel(0)
+   IsCrater(10)
+}
+
+DefineThingType(smcrater)
+{
+   SetThingImage(smcrater_animation)
+   SetLevel(0)
+   IsCrater(0)
+}
+
+DefineThingType(medcrater)
+{
+   SetThingImage(medcrater_animation)
+   SetThingShadowImage(medcrater_shadow_animation)
+   SetLevel(0)
+   IsCrater(1)
+}
+
+DefineThingType(bigcrater)
+{
+   SetThingImage(largecrater_animation)
+   SetLevel(0)
+   IsCrater(2)
+}
+
+DefineThingType(largercrater)
+{
+   SetThingImage(largercrater_animation)
+   SetLevel(0)
+   IsCrater(3)
+}
+
+DefineThingType(hugecrater1)
+{
+   SetThingImage(hugecrater1_animation)
+   SetLevel(0)
+   IsCrater(4)
+}
+
+;Civilian Horizontal Bridge Crater
+
+DefineThingType(hugecrater2)
+{
+   SetThingImage(bridgehcrater2_animation)
+   SetThingShadowImage(aoctr5_shadow_animation)
+   SetLevel(0)
+   IsCrater(5)
+}
+
+; Civilian Vertical Bridge Crater
+DefineThingType(hugecrater3)
+{
+   SetThingImage(bridgevcrater3_animation)
+   SetThingShadowImage(aoctr6_shadow_animation)
+   SetLevel(0)
+   IsCrater(6)
+}
+
+; Center Bridge Crater
+DefineThingType(hugecrater4)
+{
+   SetThingImage(bridgeccrater4_animation)
+   SetThingShadowImage(aoctr7_shadow_animation)
+   SetLevel(0)
+   IsCrater(7)
+}
+
+; Horizontal Bridge Crater
+DefineThingType(hugecrater5)
+{
+   SetThingImage(bridgehcrater5_animation)
+   SetThingShadowImage(aoctr8_shadow_animation)
+   SetLevel(0)
+   IsCrater(8)
+}
+
+; Civilian Vertical Bridge Crater
+DefineThingType(hugecrater6)
+{
+   SetThingImage(bridgevcrater6_animation)
+   SetThingShadowImage(aoctr9_shadow_animation)
+   SetLevel(0)
+   IsCrater(9)
+}
+
+DefineThingType(brdh)
+{
+   SetThingImage(brdh_animation)
+   SetThingShadowImage(brdh_shadow_animation)
+   SetLevel(0)
+}
+
+DefineThingType(brdv)
+{
+   SetThingImage(brdv_animation)
+   SetThingShadowImage(brdv_shadow_animation)
+   SetLevel(0)
+}
+
+;DefineThingType(pbrdh)
+;{
+;   SetThingImage(pbrdh_animation)
+;   SetThingShadowImage(pbrdh_shadow_animation)
+;   SetLevel(0)
+;}
+
+;DefineThingType(pbrdv)
+;{
+;   SetThingImage(pbrdv_animation)
+;   SetThingShadowImage(pbrdv_shadow_animation)
+;   SetLevel(0)
+;}
+;DefineThingType(wal)
+;{
+;  SetThingImage(wal_animation)
+;  SetLevel(0)
+;  SetHitPoints(400 0)
+;}
+
+
+;
+; ===  CLIFFS
+;
+
+DefineThingType(clif1)
+{
+  SetThingImage(clif1_animation)
+  SetThingShadowImage(clif1_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(clif2)
+{
+  SetThingImage(clif2_animation)
+  SetThingShadowImage(clif2_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(clif3)
+{
+  SetThingImage(clif3_animation)
+  SetThingShadowImage(clif3_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(clif4)
+{
+  SetThingImage(clif4_animation)
+  SetThingShadowImage(clif4_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(clif5)
+{
+  SetThingImage(clif5_animation)
+  SetThingShadowImage(clif5_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(clif6)
+{
+  SetThingImage(clif6_animation)
+  SetThingShadowImage(clif6_shadow_animation)
+  SetLevel(2)
+}
+
+
+
+
+;
+; ==== plants
+;
+
+DefineThingType(plnt1)
+{
+  SetThingImage(plnt1_animation)
+  SetThingShadowImage(plnt1_shadow_animation)
+  SetLevel(0)
+  CanBeMorphedInto()
+  SetHitPoints(100 0)
+}
+
+DefineThingType(plnt2)
+{
+  SetThingImage(plnt2_animation)
+  SetThingShadowImage(plnt2_shadow_animation)
+  SetLevel(0)
+  CanBeMorphedInto()
+  SetHitPoints(100 0)
+}
+
+DefineThingType(plnt3)
+{
+  SetThingImage(plnt3_animation)
+  SetThingShadowImage(plnt3_shadow_animation)
+  SetLevel(0)
+  CanBeMorphedInto()
+  SetHitPoints(100 0)
+}
+
+;
+; ===== rock overlays
+;
+
+DefineThingType(rock1)
+{
+  SetThingImage(rock1_animation)
+  SetThingShadowImage(rock1_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(rock2)
+{
+  SetThingImage(rock2_animation)
+  SetThingShadowImage(rock2_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(3000 0)
+}
+
+DefineThingType(rock3)
+{
+  SetThingImage(rock3_animation)
+  SetThingShadowImage(rock3_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(3000 0)
+}
+
+DefineThingType(rock4)
+{
+  SetThingImage(rock4_animation)
+  SetThingShadowImage(rock4_shadow_animation)
+  SetLevel(2)
+  SetHitPoints(3000 0)
+}
+
+DefineThingType(rock5)
+{
+  SetThingImage(rock5_animation)
+  SetThingShadowImage(rock5_shadow_animation)
+  SetLevel(2)
+  SetHitPoints(3000 0)
+}
+
+DefineThingType(rock6)
+{
+  SetThingImage(rock6_animation)
+  SetThingShadowImage(rock6_shadow_animation)
+  SetLevel(2)
+  SetHitPoints(3000 0)
+}
+
+
+;
+; ===== tree overlays
+;
+
+DefineThingType(tree1)
+{
+  SetThingImage(tree1_animation)
+  SetThingShadowImage(tree1_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(400 0)
+}
+
+DefineThingType(tree2)
+{
+  SetThingImage(tree2_animation)
+  SetThingShadowImage(tree2_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(400 0)
+}
+
+DefineThingType(tree3)
+{
+  SetThingImage(tree3_animation)
+  SetThingShadowImage(tree3_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(350 0)
+}
+
+DefineThingType(tree4)
+{
+  SetThingImage(tree4_animation)
+  SetThingShadowImage(tree4_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(350 0)
+}
+
+DefineThingType(tree5)
+{
+  SetThingImage(tree5_animation)
+  SetThingShadowImage(tree5_shadow_animation)
+  SetLevel(0)
+  SetHitPoints(400 0)
+}
+
+DefineThingType(tree6)
+{
+  SetThingImage(tree6_animation)
+  SetThingShadowImage(tree6_shadow_animation)
+  SetLevel(2)
+  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+;
+; Rubble
+;
+
+DefineThingType(rubble1)
+{
+  SetThingImage(rubble1_animation)
+  SetThingShadowImage(rubble1_shadow_animation)
+  SetLevel(0)
+;  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+DefineThingType(rubble2)
+{
+  SetThingImage(rubble2_animation)
+  SetThingShadowImage(rubble2_shadow_animation)
+  SetLevel(0)
+;  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+DefineThingType(rubble3)
+{
+  SetThingImage(rubble3_animation)
+  SetThingShadowImage(rubble3_shadow_animation)
+  SetLevel(0)
+;  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+
+DefineThingType(wreck1)
+{
+  SetThingImage(wreck1_animation)
+  SetThingShadowImage(wreck1_shadow_animation)
+  SetLevel(2)
+;  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+DefineThingType(wreck2)
+{
+  SetThingImage(wreck2_animation)
+  SetThingShadowImage(wreck2_shadow_animation)
+  SetLevel(2)
+;  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+DefineThingType(wreck3)
+{
+  SetThingImage(wreck3_animation)
+  SetThingShadowImage(wreck3_shadow_animation)
+  SetLevel(2)
+;  CanBeMorphedInto()
+  SetHitPoints(300 0)
+}
+
+DefineThingType(special1)
+{
+  SetThingImage(special1_animation)
+  SetThingShadowImage(special1_shadow_animation)
+  SetLevel(2)
+  SetHitPoints(300 0)
+}
+
+;======== water overlays
+DefineThingType(water1)
+{
+  SetThingImage(water1_animation)
+  SetThingShadowImage(water1_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(water2)
+{
+  SetThingImage(water2_animation)
+  SetThingShadowImage(water2_shadow_animation)
+  SetLevel(2)
+}
+
+DefineThingType(water3)
+{
+  SetThingImage(water3_animation)
+  SetThingShadowImage(water3_shadow_animation)
+  SetLevel(2)
+}
+
+;=========== miscellaneous ovls
+
+DefineThingType(misc1)
+{
+  SetThingImage(misc1_animation)
+  SetThingShadowImage(misc1_shadow_animation)
+  SetLevel(0)
+}
+
+DefineThingType(misc2)
+{
+  SetThingImage(misc2_animation)
+  SetThingShadowImage(misc2_shadow_animation)
+  SetLevel(0)
+}
+
+DefineThingType(misc3)
+{
+  SetThingImage(misc3_animation)
+  SetThingShadowImage(misc3_shadow_animation)
+  SetLevel(0)
+}

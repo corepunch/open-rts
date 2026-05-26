@@ -1,0 +1,108 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 waits for the player to enter the region at the end of the road 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritTeamInRegion( 195 0 )
+      ;; Criteria
+    }
+    SetAlliance( 2 1 2 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ; State 2 this checks to see if the player brought the transport 
+  DefineCondState()
+  {
+    ; This checks to see if the player has entered the region w/o the transport 
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritAND()
+      {
+        CritTimer( 150 )
+        CritNOT()
+        {
+          CritMoveUnitsToRegion( 195 1 )
+          {
+            1100 
+            ;; Unit_ID
+          }
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; This checks to see if the player entered with the spy 
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritMoveUnitsToRegion( 195 1 )
+      {
+        1100 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 3 tells the player they need to bring the spy to this region 
+  DefineCondState()
+  {
+    ; This checks to see if the player has left the region to revert to state 1 
+    DefineCondition( 1 0 0 0 "State_1"  )
+    {
+      CritNOT()
+      {
+        CritTeamInRegion( 195 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; This checks to see if the player has brought the spy to the region 
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritMoveUnitsToRegion( 195 1 )
+      {
+        1100 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( MSG_NODESICATOR  )
+    ;; State_Actions
+  }
+
+  ; State 4 this state gives the player the rigs & takes the spy and moves it 
+  DefineCondState()
+  {
+    DefineCondition( 5 0 0 0 "State_5"  )
+    {
+      CritNOT()
+      {
+        CritTeamInRegion( 195 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( MSG_MARTEL  )
+    TriggerMessage( MSG_MARTELTWO  )
+    GiveSpecialForces( 102 0 )
+    GiveSpecialForces( 103 2 )
+    TriggerSpecialForces( 103 615 )
+    BonusCredits( 3 100000 )
+    SetAlliance( 1 1 2 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ; State 5 this state moves the spy to the region in the corner and kills it 
+  DefineCondState()
+  {
+    TriggerSpecialForces( 103 612 )
+    TriggerSpecialForces( 98 612 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

@@ -1,0 +1,55 @@
+
+;
+; FSM  Conditions for team 7
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1-Jeb is in prison
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(1 0 0 0 jeb_free)  
+;      	{          
+;	 CritTeamInRegion(67901 0) 
+;        }   
+
+	{
+	CritTimer(1000000)
+	}
+    SetAlliance(1 1 1 1 1 1 1 2)   
+  }  
+
+
+  ;
+  ; Conditional State #2-Jeb is in killing zone MANIAC Style
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(3 0 0 0 time_to_run)  
+      	{          
+	 CritInRegion(67902) 
+        }   
+ 
+  SetAlliance(2 0 1 1 1 1 1 2) 
+
+  }
+  ;
+  ; Conditional State #3 -    RUN  JEB  RUN
+  ;
+  DefineCondState()
+  {
+       
+       DefineCondition(3 0 0 0 0) 
+      	{
+      	 CritTimer(9000000)
+        }    
+  
+       SetAlliance(2 0 1 1 1 1 1 2)
+       SetAIPFile(maniac.aip)     
+       AdjustRegionPri(67976 10000 100 100000)   
+       ReleaseSpecialForces(808)
+  }
+}

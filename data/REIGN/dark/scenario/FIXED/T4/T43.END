@@ -1,0 +1,33 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 waits for the player to get to the obelisk 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 FileName )
+    {
+      CritTeamInRegion( 40032 0 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 2 waits the appropriate ammount of time 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 FileName )
+    {
+      CritTimer( 303 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 3 allies with the player 
+  DefineCondState()
+  {
+    SetAlliance( 2 1 1 2 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

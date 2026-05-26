@@ -1,0 +1,72 @@
+
+;
+; Game End Conditions for team 0
+;
+DefineEndCondTree(0)
+{
+  ; state 1
+  DefineCondState()
+  {
+    
+    DefineCondition(2 0 0 0 objective_met)
+    {
+        CritONCE()
+	{
+	CritDestroyBuilding()
+	{
+	33440 33436 
+	}
+	}
+    }
+    
+    DefineCondition(2 0 0 0 objective_met)
+    { 
+        CritONCE()
+	{
+	CritKillUnitType(RowdyMaleCivilian 2)
+    	}
+   }
+    DefineCondition(3 0 0 0 you_win)
+    {
+	
+	CritAND()
+	{
+	CritKillUnitType(RowdyMaleCivilian 2)
+	CritDestroyBuilding()
+		{
+		33440 33436 
+		}
+   	
+    	}
+    }
+  
+SetAlliance(2 0 0 0 1 1 1 1)
+
+}
+; state 2
+DefineCondState()
+  {
+    
+    DefineCondition(1 0 0 0 you_win)
+    {
+	CritTimer(0)
+   	
+    }
+  
+TriggerMessage(GVINTCL3)
+}	
+
+
+;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 you_win)
+    {
+	CritTimer(30)
+    }
+
+  }
+
+}

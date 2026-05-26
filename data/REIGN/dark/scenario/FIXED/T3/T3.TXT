@@ -1,0 +1,8 @@
+Path Management
+Preplanning attacks using waypoints can allow you to 
+hit your enemy in several different places at the same 
+time or just make it easier for you to patrol the 
+perimeter of your own base. You can even edit and 
+save the "paths" you’ve created, and this mission 
+will show you how it all works.
+

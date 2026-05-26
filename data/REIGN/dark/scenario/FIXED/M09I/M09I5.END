@@ -1,0 +1,45 @@
+
+;
+; Game End Conditions for team 2
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    
+     DefineCondition(2 0 0 0 you_lose)  
+      	{  
+ 	CritOR()
+	{
+        CritDestroyBuilding()
+		{
+		47464 
+		}
+	CritDestroyBuilding()
+		{
+		45997 
+		}	
+ 	CritDestroyUnit()
+          	{
+                24570
+          	}
+	}
+  	}
+}
+
+;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 you_lose)
+    {
+	CritTimer(100)
+    }
+ TriggerMessage(GVINTCL6)
+  }
+
+} 

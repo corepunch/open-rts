@@ -1,0 +1,148 @@
+
+;
+; Game End Conditions for team 1
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 "D") ; when player is in region to free group #4
+    {
+	CritONCE()
+	{      
+        CritEnemyInRegion(67897)
+    	}
+    }
+    DefineCondition(3 0 0 0 "D") ; when player is in region to free group #5
+    {
+	CritONCE()
+	{      
+        CritEnemyInRegion(67898)
+    	}
+    } 
+    DefineCondition(4 0 0 0 "D") ; when player is in region to free group #6
+    {
+	CritONCE()
+	{      
+        CritEnemyInRegion(67900)
+    	}
+    }
+    DefineCondition(5 0 0 0 "D") ; when player is in region to free group #7
+    {
+	CritONCE()
+	{      
+        CritEnemyInRegion(67899)
+    	}
+    }
+
+    DefineCondition(6 0 0 0 "D") ; when player is in region to free JEB
+    {
+	CritONCE()
+	{      
+        CritTeamInRegion(67901 0)
+    	}
+    }
+
+    DefineCondition(7 0 0 0 you_lose) ;   player loses
+        { 
+        CritAND()
+          {
+    	   CritKillTeamUnits(0 0)  
+           CritDestroyTeamBuildings(0 0)  
+          }
+        }
+      }
+  
+  
+
+
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D") ; this is to change #4 alliance while running back to base
+    {
+	CritTimer(0)
+    }
+
+ SetAlliance(0 2 1 0 1 1 1 1)  
+
+}
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D") ; this is to change #5 alliance while running back to base
+    {
+	CritTimer(0)
+    }
+ 
+ SetAlliance(0 2 1 1 0 1 1 1)
+
+ }
+
+  ;
+  ; Conditional State #4
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(1 0 0 0 "D") ; this is to change #6 alliance while running back to base
+    {
+	CritTimer(0)
+    }
+  
+SetAlliance(0 2 1 1 1 0 1 1)
+
+}
+
+  ;
+  ; Conditional State #5
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D") ; this is to change #7 alliance while running back to base
+    {
+	CritTimer(0)
+    }
+ 
+ SetAlliance(0 2 1 1 1 1 0 1)
+
+ }
+  ;
+  ; Conditional State #6
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(1 0 0 0 "D") ; this is to change JEB alliance while running back to base
+    {
+	CritTimer(0)
+    }
+
+  SetAlliance(0 2 1 1 1 1 1 0)  
+}
+
+ ;
+  ; Conditional State #7
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(0 0 0 0 you_lose) 
+    {
+	CritTimer(50)
+    }
+
+ TriggerMessage(GVINTCL6)
+}
+}

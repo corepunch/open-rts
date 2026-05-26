@@ -1,0 +1,49 @@
+;
+; AI Conditional FSM for team 4
+;
+DefineEndCondTree(0)
+{
+
+; state 1
+; 
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 release)
+        {
+          CritDestroyBuildingType(fh1 0) 
+        }
+   DefineCondition(2 0 0 0 release)
+        {
+          CritDestroyBuildingType(fc1 0) 
+        }
+   DefineCondition(2 0 0 0 release)
+        {
+          CritDestroyBuildingType(fu1 0) 
+        }
+}
+
+; state 2
+; 
+  DefineCondState()
+  {
+
+    
+     DefineCondition(3 0 0 0 nothing)
+        {
+          CritTimer(0) 
+        }
+;    TriggerMessage(gvt3aol2)
+  }
+; state 3
+; 
+  DefineCondState()
+  {
+   
+    
+     DefineCondition(0 0 0 0 nothing)
+        {
+          CritTimer(250) 
+        }
+   TriggerMessage(gvt3aol5) 
+ }
+}

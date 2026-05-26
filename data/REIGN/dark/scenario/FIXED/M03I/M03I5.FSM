@@ -1,0 +1,21 @@
+DefineAICondTree()
+{
+  
+  ; state 1
+  ; 
+  ; 
+  DefineCondState()
+  {
+ 
+    DefineCondition(1 0 0 0 not_Looping)
+    {
+    CritTimer(1000000)
+    }
+ 
+  
+    SetAlliance(0 2 2 2 1 2 1 1)
+
+      
+
+  }
+}

@@ -1,0 +1,16 @@
+:Base README.HLP
+:Title Dark Reign
+:Index HelpIndex=Help.hlp
+:Index VendorIndex=Vendor.hlp
+:Index VocabIndex=Vocab.hlp
+1 Table of Contents
+2 System & Setup Requirements=Gamename_Information
+2 Installing & Uninstalling the Game=Installing___Uninstalling_the_Game@Readme.hlp
+2 How to Start the Game=How_to_Start_the_Game@Readme.hlp
+2 Game Play=Game_Contents@Game.hlp
+2 Information for Dark Reign Multi-play=Information_for_Dark_Reign_Multi_play
+2 Common Troubleshooting Tips=Common_Troubleshooting_Tips@Readme.hlp
+2 Vendor List=Vendor_List@VENDOR.HLP
+2 Activision Customer Support=Customer_Support@Readme.hlp
+2 Hints=Hints@HELP.HLP
+2 Credits=Credits@Readme.hlp

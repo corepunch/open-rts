@@ -1,0 +1,34 @@
+;Title used in install script
+Dark Colony
+;Version used in install script
+;IMPORTANT the version should stay the same while testing install
+;if the version in install script changes autorun stops working!
+1.0
+;Uninstall Key used in install script
+Dark Colony
+;game exe name
+DC.exe
+;install button
+Install
+;uninstall button
+Uninstall
+;register button use 0 if you don't want a register button
+Free Stuff!
+;play button
+Play
+;acrobat button use 0 if you don't want an acrobat button
+View Readme.txt
+;cancel button
+Cancel
+;demo1 use 0 if you don't want this button
+0
+;demo2 use 0 if you don't want this button
+0
+;placeholder do not change
+0
+;art width
+640
+;art height
+480
+;button align leave 0 for now
+0

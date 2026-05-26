@@ -1,0 +1,40 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 waits to have fun 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 FileName  )
+    {
+      CritAND()
+      {
+        CritTeamInRegion( 2008 0 )
+        CritHaveCredits( 100000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 2 has some fun 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 FileName  )
+    {
+      CritTimer( 200 )
+      ;; Criteria
+    }
+    TriggerMessage( ENJOY_LEVEL  )
+    TriggerMessage( ROOBARB  )
+    ;; State_Actions
+  }
+
+  ; State 3 gives thanks 
+  DefineCondState()
+  {
+    TriggerMessage( SHAFT_THANKS  )
+    ;; State_Actions
+  }
+
+  ;; State
+}

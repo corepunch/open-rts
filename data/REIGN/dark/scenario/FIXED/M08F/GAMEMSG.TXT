@@ -1,0 +1,12 @@
+; M08i
+
+CreateMsg("MSG_DESICATORFLEE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_DESICATORFLEETWO")
+{
+  GetMLString(0)
+}
+

@@ -1,0 +1,850 @@
+;
+; AI Conditional FSM for team 1
+;
+
+; 3x + 1 is an instructional state
+; 3x + 2 is a wait state
+; 3x is a taunt state for the previous ones...
+
+DefineEndCondTree(0)
+{
+
+;
+; Conditional State 1
+; the first instructional state
+  DefineCondState()
+  {
+    ; instantly go to the wait state
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct19)
+    TriggerMessage(instruct0)
+    TriggerMessage(instruct14)
+    TriggerMessage(instruct1)
+  }
+
+;
+; Conditional State #2
+; the first wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(4 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(330 8)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(3 0 0 0 "taunt0")
+    {
+      CritTimer(1400)
+    }
+  }
+
+
+;
+; Conditional State #3
+; the first taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(2 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt0)
+  }
+
+; Conditional State 4
+; the second instructional state
+  DefineCondState()
+  {
+    ; instantly go to the wait state
+    DefineCondition(5 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct2)
+    TriggerMessage(instruct3)
+    TriggerMessage(instruct15)
+
+    SetAlliance( 2 0 2 1 1 1 1 1 )
+   
+    BonusCredits(2 50000)
+  }
+
+; Conditional State #5
+; the second wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(7 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(395 4)
+      {
+        10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(40 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(395 1)
+      {
+        0 2 6 8 
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(6 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #6
+; the second taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(5 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt1)
+  }
+
+; Conditional State #7
+; the third instructional state
+  DefineCondState()
+  {   
+    ; instantly go to the wait state
+    DefineCondition(8 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct4)
+    TriggerMessage(instruct16)
+  }
+
+; Conditional State #8
+; the third wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(10 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(395 4)
+      {
+        0 2 6 8
+      }
+    }
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(9 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+
+; Conditional State #9
+; the thirdtaunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(8 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt2)
+  }
+
+; Conditional State #10
+; the fourth instructional state
+  DefineCondState()
+  { 
+    ; instantly go to the wait state
+    DefineCondition(11 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct5)
+    TriggerMessage(instruct13)
+  }
+
+
+; Conditional State #11
+; the fourth wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(36 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(428 4)
+      {
+        10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(12 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #12
+; the fourth taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(11 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt3)
+  }
+
+; Conditional State #13
+; the fifth instructional state
+  DefineCondState()
+  {
+    ; instantly go to the wait state
+    DefineCondition(14 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct17)
+    TriggerMessage(instruct6)
+    TriggerMessage(instruct12)
+    TriggerMessage(instruct7)
+  }
+
+; Conditional State #14
+; the fifth wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(38 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(428 4)
+      {
+        0 2 6 8
+      }
+    }
+
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(15 0 0 0 "taunt1")
+    {
+      CritTimer(2000)
+    }
+  }
+
+; Conditional State #15
+; the fifth taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(14 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt4)
+  }
+
+; Conditional State #16
+; the sixth instructional state
+  DefineCondState()
+  {
+    ; instantly go to the wait state
+    DefineCondition(17 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct8)
+
+    SetAlliance( 2 0 2 2 1 1 1 1 )
+
+    BonusCredits(3 50000)
+  }
+
+; Conditional State #17
+; the sixth wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(19 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(461 8)
+      {
+         0 2 6 8 10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(430 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(18 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #18
+; the sixth taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(17 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt5)
+  }
+
+; Conditional State #19
+; the seventh instructional state
+  DefineCondState()
+  {   
+    ; instantly go to the wait state
+    DefineCondition(23 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct9)
+
+    BonusCredits(7 50000)
+  }
+
+; Conditional State #20
+; A useless state, kind of like a vestigial organ, 
+; here only to confuse and take up hard disk space.
+; Renee Zellweger, if you're reading this, call me.
+; Robert (310) 255-2000 ext.4543
+  DefineCondState()
+  {
+  }
+
+; Conditional State #21
+; the seventh taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(23 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt6)
+  }
+
+
+; Conditional State #22
+; the eighth instructional state
+  DefineCondState()
+  {   
+    ; instantly go to the wait state
+    DefineCondition(0 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct10)
+  }
+
+; Conditional State #23
+; the eighth wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(25 0 0 0 "good2")
+    {
+      CritOR()
+      {
+	; trigger when any one of the spider
+	; bikes gets killed
+        CritDestroyUnit()
+        {
+          10
+        }
+        CritDestroyUnit()
+        {
+          12
+        }
+        CritDestroyUnit()
+        {
+          14
+        }
+        CritDestroyUnit()
+        {
+          16
+        }
+      }
+    }  
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(432 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(21 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+
+; Conditional State #24
+; the eighth taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(20 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt7)
+  }
+
+
+; Conditional State #25
+; the ninth instructional state
+  DefineCondState()
+  {
+    ; instantly go to the wait state
+    DefineCondition(26 0 0 0 "wait2")
+    {
+      CritTimer(0)
+    }
+
+    ; play the first sound
+    TriggerMessage(instruct11)
+    TriggerMessage(instruct18)
+  }
+
+; Conditional State #26
+; the ninth wait state
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(27 0 0 0 "good2")
+    {
+      ;any unit moving toward guard towers
+      CritMoveUnitsToRegion(199 1)
+      {
+         0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; this is where we want them to go
+    DefineCondition(28 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         10 12 14 16
+      }
+    }
+
+    ;wrong units to region
+    DefineCondition(29 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         0 2 6 8 
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(30 0 0 0 "taunt1")
+    {
+      CritTimer(3000)
+    }
+  }
+
+; Conditional State #27
+; the tenth taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(31 0 0 0 "wait1")
+    {
+      CritTimer(100)
+    }
+
+    TriggerMessage(taunt8)
+  }
+
+; Conditional State #28
+; the win state
+  DefineCondState()
+  {
+    ;good work message, game over
+    DefineCondition(0 0 0 0 "wait1")
+    {
+      CritTimer(100)
+    }
+
+    TriggerMessage(congrats1)
+  }
+
+; Conditional State #29
+; the eleventh taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(33 0 0 0 "wait1")
+    {
+      CritTimer(100)
+    }
+
+    TriggerMessage(taunt9)
+  }
+
+; Conditional State #30
+; the 12th taunt
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(35 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt10)
+  }
+
+; Conditional State #31
+; modified state 26
+  DefineCondState()
+  {
+    
+    ; this is where we want them to go
+    DefineCondition(28 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         10 12 14 16
+      }
+    }
+
+    ;wrong units to region
+    DefineCondition(29 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         0 2 6 8 
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(32 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #32
+; modified state 30
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(31 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt10)
+  }
+
+; Conditional State #33
+; modified state 26
+  DefineCondState()
+  {
+
+    ; this is where we want them to go
+    DefineCondition(28 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         10 12 14 16
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(34 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #34
+; modified state 30
+  DefineCondState()
+  {
+    ; we've taunted the player, so go wait some more
+    DefineCondition(33 0 0 0 "wait1")
+    {
+      CritTimer(0)
+    }
+
+    TriggerMessage(taunt10)
+  }
+
+; Conditional State #35
+; modified state 26
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(27 0 0 0 "good2")
+    {
+      ;any unit moving toward guard towers
+      CritMoveUnitsToRegion(199 1)
+      {
+         0 2 6 8 10 12 14 16
+      }
+    }
+
+    ; this is where we want them to go
+    DefineCondition(28 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         10 12 14 16
+      }
+    }
+
+    ;wrong units to region
+    DefineCondition(29 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(494 1)
+      {
+         0 2 6 8 
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(30 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #36
+; patrol around repair bays
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(37 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(429 4)
+      {
+        10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(430 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(12 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #37
+; patrol around repair bays
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(13 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(428 4)
+      {
+        10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(430 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+    ;bad. don't do that. you fail
+    DefineCondition(39 0 0 0 "good0")
+    {
+      CritMoveUnitsToRegion(431 1)
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(12 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #38
+; infantry patrol
+  DefineCondState()
+  {
+    ; if the units get moved, then go to
+    ; next instructional state
+    DefineCondition(16 0 0 0 "good2")
+    {
+      CritMoveUnitsToRegion(429 4)
+      {
+        0 2 6 8
+      }
+    }
+
+    ; in about twenty seconds, taunt the player
+    DefineCondition(15 0 0 0 "taunt1")
+    {
+      CritTimer(1400)
+    }
+  }
+
+; Conditional State #39 you lose
+;
+  DefineCondState()
+  { 
+    BonusCredits(1 50000)
+  }
+
+; Conditional State 40
+; special fail message
+  DefineCondState()
+  {
+    ; play the fail message
+    TriggerMessage(fail1)
+   
+    BonusCredits(1 50000) 
+  }
+
+}
+
+
+
+
+

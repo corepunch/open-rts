@@ -1,0 +1,18 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 0 livecivilians.txt)
+    {
+      CritTimerGame(108000)  ; neutrals win if they are still alive at this time
+    }
+    SetAIPFile(defend2.aip)  ; chill out
+  }
+  
+}

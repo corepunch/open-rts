@@ -1,0 +1,113 @@
+/**********************************************************************
+
+ m12i.aip
+
+ AUTO GENERATED - HAND EDIT AT YOUR OWN RISK
+
+**********************************************************************/
+
+#include "aipdef.h"
+
+
+// PRIORITIES
+
+
+// EDIT BOXES
+int ground_unit_threat = 50;
+int threat_priority = 200;
+int distance_priority = -2;
+int defend_buildings_priority = 150;
+int attack_enemy_base_priority = 100;
+int persistence_priority = 80;
+int exploration_priority = 50;
+int scripted_priority = 50;
+int single_use_group_priority = 50;
+int perimeter_priority = 80;
+int resource_priority = 100;
+int danger_priority = 10;
+int danger_diminishment = 1;
+double min_matching_force_ratio = 2.00;
+double max_matching_force_ratio = 5.00;
+int min_building_defense_force = 70;
+int max_building_defense_force = 600;
+int min_exploration_force = 70;
+int max_exploration_force = 300;
+int min_perimeter_force = 70;
+int max_perimeter_force = 300;
+int min_resource_force = 70;
+int max_resource_force = 900;
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.00;
+double generic_ground_ratio = 1.00;
+int recompute_strategy_period = 1;
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNTS
+
+/////////////////////////////////////////////////////////////////////////////
+
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account           BUDGET             BUDGET CAP
+//--------------------------------------------------------
+     "units",                UNLIMITED,         UNLIMITED;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// units
+//
+ACCOUNT units[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    15,           "FGTankHunterTank",     NUMBER_TO_HAVE,           10;
+    15,           "FGMercenary",          NUMBER_TO_HAVE,           8;
+    15,           "FGMediumTank",         NUMBER_TO_HAVE,           15;
+    15,           "FGFreedomFighter",     NUMBER_TO_HAVE,           9;
+    15,           "FGSpiderBike",	  NUMBER_TO_HAVE,           10;
+    15,           "FGSuicideNuker",       NUMBER_TO_HAVE,           1;
+    15,           "FGAmbushTank",         NUMBER_TO_HAVE,           2;
+    15,           "FGTripleRailHoverTank",NUMBER_TO_HAVE,           17;
+    15,           "FGSkyBike",            NUMBER_TO_HAVE,           10;
+    15,           "FGDualSkyBike",        NUMBER_TO_HAVE,           10;
+
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// FORCE MATCHING
+
+/////////////////////////////////////////////////////////////////////////////
+FORCE_MATCHING My_Matchings[MAX_FORCE_MATCHING];
+
+#DATA
+
+// Unit Name                       Multiplier
+//-------------------------------------------
+#END_DATA
+
+
+BUILDING_MATCHING My_Building_Matchings[MAX_BUILDINGS];
+
+#DATA
+
+// Building Name                   Multiplier         Where to Build
+//------------------------------------------------------------------
+#END_DATA
+
+

@@ -1,0 +1,390 @@
+;
+; Game End Conditions for team 1
+;
+DefineEndCondTree(0)
+{
+  ; state 1
+  ; one big main state, fulfill all obligations
+  DefineCondState()
+  {
+    DefineCondition(7 0 0 0 holding)
+    {
+        CritInRegion(80583)
+    }
+   
+   DefineCondition(2 0 0 0 convoy_dead)
+   {
+        CritONCE()
+      	{
+        CritDestroyUnit()  ; the convoy
+        {
+         14735 14726
+        }
+       	}
+   }
+   DefineCondition(2 0 0 0 objective_complete)
+    {
+      CritONCE()
+      {
+      CritAND()
+      {
+      CritDestroyUnit()  ; the partisans in the hills (group 1)
+      {
+      24308 24306 24304 24302 24300
+      }
+      CritDestroyUnit()  ; the partisans in the hills (group 2)
+      {
+      24298 24296 24294 24292 24290
+      }
+      CritDestroyUnit()  ; the partisans in the hills (group 3)
+      {
+      24288 24286 24284 24282 24280
+      }
+      }
+      }
+   }
+
+   DefineCondition(0 0 0 0 both_achieved)
+     {
+     CritAND()
+     {
+     CritDestroyUnit()  ; the convoy
+     {
+     14735 14726
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 1)
+     {
+     24308 24306 24304 24302 24300
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 2)
+     {
+     24298 24296 24294 24292 24290
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 3)
+     {
+     24288 24286 24284 24282 24280
+     }
+     }
+     }
+  }
+  ; state 2
+  ; succeeded in one objective
+  DefineCondState()
+  {
+    
+    
+    DefineCondition(1 0 0 0 objective_complete)
+    {
+     CritTimer(0)  
+    }
+  
+TriggerMessage(GVINTCL3)
+ 
+  }
+  ; state 3    Convoy on the move
+  ; 
+  DefineCondState()
+  {
+   
+    DefineCondition(4 0 0 0 convoy_go_left_)
+    {
+     	CritAND()
+	{
+ 	CritInRegion(80584)  
+    	CritNOT()
+	{
+	CritInRegion(80585)
+	}	
+	}
+   
+    }
+    DefineCondition(5 0 0 0 convoy_go_right_)
+    {
+     	CritAND()
+	{
+ 	CritInRegion(80585)  
+    	CritNOT()
+	{
+	CritInRegion(80584)
+	}	
+	}
+    }
+     
+    DefineCondition(5 0 0 0 convoy_go_right_)
+    {
+     	CritAND()
+	{
+ 	CritNOT()
+		{
+        	CritInRegion(80585)
+		}  
+    	CritNOT()
+		{
+		CritInRegion(80584)
+		}	
+	 CritHaveCredits(5000)
+         }
+    	
+     }
+ 
+     DefineCondition(6 0 0 0 convoy_go_left)
+    {
+     	CritAND()
+	{
+ 	CritNOT()
+		{
+        	CritInRegion(80585)
+		}  
+    	CritNOT()
+		{
+		CritInRegion(80584)
+		}	
+	CritNOT()
+		{
+		CritHaveCredits(5000)
+         	}
+    	}
+     }
+   DefineCondition(6 0 0 0 convoy_go_left)
+    {
+      CritAND()
+	{
+ 	CritInRegion(80585)  
+        CritInRegion(80584)
+        CritHaveCredits(5000)
+        }
+    }
+    DefineCondition(8 0 0 0 convoy_go_right)
+    {
+	CritAND()
+	{
+ 	CritInRegion(80585)  
+        CritInRegion(80584)	
+	CritNOT()
+		{
+ 		CritHaveCredits(5000)
+        	}
+        }
+    }
+ 
+    DefineCondition(0 0 0 0 both_achieved)
+     {
+     CritAND()
+     {
+     CritDestroyUnit()  ; the convoy
+     {
+     14735 14726
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 1)
+     {
+     24308 24306 24304 24302 24300
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 2)
+     {
+     24298 24296 24294 24292 24290
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 3)
+     {
+     24288 24286 24284 24282 24280
+     }
+     }
+     }
+
+
+}
+  ; state 4    Convoy on the move
+  ; 
+  DefineCondState()
+  {
+   
+ 
+   DefineCondition(9 0 0 0 moving)
+    	{
+     	CritTimer(0)
+	}
+   
+   ReleaseSpecialForces(44)
+   ReleaseSpecialForces(55)
+   TriggerMessage(GXEVAOC0)
+   TriggerMessage(Convoy_Leaving_Base)
+   TriggerSpecialForces(77 24279)
+   TriggerSpecialForces(66 14744)
+   TriggerSpecialForces(88 14744)
+
+
+   }
+
+
+
+  ; state 5    Convoy on the move
+  ; 
+  DefineCondState()
+  {
+   
+   
+   DefineCondition(9 0 0 0 moving)
+    	{
+     	CritTimer(0)
+	}
+  
+
+   ReleaseSpecialForces(44)
+   ReleaseSpecialForces(55)
+   TriggerMessage(GXEVAOC0)
+   TriggerMessage(Convoy_Leaving_Base)
+   TriggerSpecialForces(77 24279)
+   TriggerSpecialForces(66 14744)
+   TriggerSpecialForces(88 24279)
+
+
+ }
+
+  ; state 6    Convoy on the move
+  ; 
+  DefineCondState()
+  {
+  
+   DefineCondition(9 0 0 0 moving)
+    	{
+     	CritTimer(0)
+	}
+   
+  
+   ReleaseSpecialForces(44)
+   ReleaseSpecialForces(55)
+   TriggerMessage(GXEVAOC0)
+   TriggerMessage(Convoy_Leaving_Base)
+   TriggerSpecialForces(77 14744)
+   TriggerSpecialForces(66 24279)
+   TriggerSpecialForces(88 14744)
+
+  }
+  
+  ; state 7
+  ; holding pattern
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 convoy_moves)
+    {
+        
+	CritAND()
+	{
+	CritTimer(70)
+	CritInRegion(80583)
+    	}
+    
+    
+    }
+ 
+    DefineCondition(1 0 0 0 false_alarm)
+    {
+        CritAND()
+	{
+	CritTimer(200)
+	CritNOT()
+		{
+		CritInRegion(80583)
+    		}
+       }
+       }
+
+     DefineCondition(0 0 0 0 both_achieved)
+     {
+     CritAND()
+     {
+     CritDestroyUnit()  ; the convoy
+     {
+     14735 14726
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 1)
+     {
+     24308 24306 24304 24302 24300
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 2)
+     {
+     24298 24296 24294 24292 24290
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 3)
+     {
+     24288 24286 24284 24282 24280
+     }
+     }
+     }
+
+
+}
+
+  ; state 8    Convoy on the move
+  ; 
+  DefineCondState()
+  {
+  
+    DefineCondition(9 0 0 0 moving)
+    	{
+     	CritTimer(0)
+	}
+   
+   ReleaseSpecialForces(44)
+   ReleaseSpecialForces(55)
+   TriggerMessage(GXEVAOC0)
+   TriggerMessage(Convoy_Leaving_Base)
+   TriggerSpecialForces(77 14744)
+   TriggerSpecialForces(66 24279)
+   TriggerSpecialForces(88 24279)
+}
+
+ ; state 9   
+  ; 
+  DefineCondState()
+  {
+  
+   DefineCondition(10 0 0 0 convoy_dead)
+   {
+        CritONCE()
+      	{
+        CritDestroyUnit()  ; the convoy
+        {
+         14735 14726
+        }
+       	}
+   }
+   
+
+   DefineCondition(0 0 0 0 both_achieved)
+     {
+     CritAND()
+     {
+     CritDestroyUnit()  ; the convoy
+     {
+     14735 14726
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 1)
+     {
+     24308 24306 24304 24302 24300
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 2)
+     {
+     24298 24296 24294 24292 24290
+     }
+     CritDestroyUnit()  ; the partisans in the hills (group 3)
+     {
+     24288 24286 24284 24282 24280
+     }
+     }
+     }
+  }
+  ; state 10
+  ; succeeded in one objective
+  DefineCondState()
+  {
+    
+    
+    DefineCondition(9 0 0 0 objective_complete)
+    {
+     CritTimer(0)  
+    }
+  
+TriggerMessage(GVINTCL3)
+ 
+  }
+}

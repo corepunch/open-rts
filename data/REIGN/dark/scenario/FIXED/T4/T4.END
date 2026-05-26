@@ -1,0 +1,1289 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this introduces the player's objectives, error states plus 30 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OL0  )
+    TriggerMessage( GVIT5OL1  )
+    TriggerMessage( GVIT5OL2  )
+    SetAlliance( 2 0 1 1 1 1 1 1 )
+    GiveSpecialForces( 101 0 )
+    TriggerMessage( GVIT5OL4  )
+    ;; State_Actions
+  }
+
+  ; State 2 this state checks to see if the player is scouting 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritOR()
+      {
+        CritMoveUnitsToRegion( 111 1 )
+        {
+          2027 
+          ;; Unit_ID
+        }
+        CritMoveUnitsToRegion( 99 1 )
+        {
+          2027 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 31 0 0 0 FileName  )
+    {
+      CritDestroyUnit()
+      {
+        2027 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    DefineCondition( 32 0 0 0 FileName  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 3 this state checks to see if the player has completed scouting 
+  DefineCondState()
+  {
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritOR()
+      {
+        CritDestroyUnit()
+        {
+          2027 
+          ;; Unit_ID
+        }
+        CritAND()
+        {
+          CritMoveUnitsToRegion( 111 1 )
+          {
+            2027 
+            ;; Unit_ID
+          }
+          CritMoveUnitsToRegion( 99 1 )
+          {
+            2027 
+            ;; Unit_ID
+          }
+          ;; Criteria
+        }
+        CritTimer( 800 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OL5  )
+    ;; State_Actions
+  }
+
+  ; State 4 tells the player they've completed scouting and introduces harass 
+  DefineCondState()
+  {
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritHarassRegion( 11 1 3 )
+      ;; Criteria
+    }
+    DefineCondition( 34 0 0 0 FileName  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL2  )
+    TriggerMessage( GVIT5OL6  )
+    GiveSpecialForces( 101 2 )
+    GiveSpecialForces( 202 0 )
+    TriggerMessage( GVIT5OL7  )
+    ;; State_Actions
+  }
+
+  ; State 5 tells the player more about harass and waits for completion 
+  DefineCondState()
+  {
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritAND()
+      {
+        CritHarassRegion( 11 100 3 )
+        CritTimer( 500 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 35 0 0 0 FileName  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OL8  )
+    TriggerMessage( GVIT5OL9  )
+    TriggerMessage( GVIT5OLA  )
+    ;; State_Actions
+  }
+
+  ; State 6 tells the player about search and destroy 
+  DefineCondState()
+  {
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritOR()
+      {
+        CritDestroyUnit()
+        {
+          1355 
+          ;; Unit_ID
+        }
+        CritDestroyUnit()
+        {
+          2197 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 36 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL2  )
+    TriggerMessage( GVIT5OLB  )
+    GiveSpecialForces( 202 2 )
+    GiveSpecialForces( 303 0 )
+    TriggerMessage( GVIT5OLC  )
+    ;; State_Actions
+  }
+
+  ; State 7 tells more about search & destroy and wait for them to complete it 
+  DefineCondState()
+  {
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritAND()
+      {
+        CritDestroyUnit()
+        {
+          1355 
+          ;; Unit_ID
+        }
+        CritDestroyUnit()
+        {
+          2197 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 37 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLD  )
+    ;; State_Actions
+  }
+
+  ; State 8 tells about other features and starts pursuit range 
+  DefineCondState()
+  {
+    DefineCondition( 9 0 0 0 "state_9"  )
+    {
+      CritAND()
+      {
+        CritTimer( 700 )
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 38 0 0 0 FileName  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL2  )
+    TriggerMessage( GVT5AOL8  )
+    TriggerMessage( GVIT5OLG  )
+    GiveSpecialForces( 303 2 )
+    TriggerMessage( GVIT5OLH  )
+    TriggerMessage( GVIT5OLF  )
+    GiveSpecialForces( 404 0 )
+    SetAlliance( 2 0 1 1 0 1 1 1 )
+    TriggerMessage( GVIT5OLI  )
+    TriggerMessage( GVT5DOL0  )
+    ;; State_Actions
+  }
+
+  ; State 9 continues low pursuit range 
+  DefineCondState()
+  {
+    DefineCondition( 10 0 0 0 "state_10"  )
+    {
+      CritAND()
+      {
+        CritEnemyInRegion( 66 )
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 39 0 0 0 FileName  )
+    {
+      CritAND()
+      {
+        CritTimer( 500 )
+        CritNOT()
+        {
+          CritInRegion( 22 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLJ  )
+    TriggerSpecialForces( 808 66 )
+    ;; State_Actions
+  }
+
+  ; State 10 starts medium pursuit range 
+  DefineCondState()
+  {
+    DefineCondition( 11 0 0 0 "state_11"  )
+    {
+      CritTimer( 150 )
+      ;; Criteria
+    }
+    DefineCondition( 40 0 0 0 FileName  )
+    {
+      CritNOT()
+      {
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLK  )
+    ;; State_Actions
+  }
+
+  ; State 11 continues medium pursuit range 
+  DefineCondState()
+  {
+    DefineCondition( 12 0 0 0 "state_12"  )
+    {
+      CritAND()
+      {
+        CritEnemyInRegion( 55 )
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 41 0 0 0 FileName  )
+    {
+      CritAND()
+      {
+        CritTimer( 700 )
+        CritNOT()
+        {
+          CritInRegion( 22 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLL  )
+    TriggerSpecialForces( 808 55 )
+    ;; State_Actions
+  }
+
+  ; State 12 starts pursuit range high 
+  DefineCondState()
+  {
+    DefineCondition( 13 0 0 0 "state_13"  )
+    {
+      CritTimer( 150 )
+      ;; Criteria
+    }
+    DefineCondition( 42 0 0 0 FileName  )
+    {
+      CritNOT()
+      {
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLM  )
+    ;; State_Actions
+  }
+
+  ; State 13 continues with pursuit range high 
+  DefineCondState()
+  {
+    DefineCondition( 14 0 0 0 "state_14"  )
+    {
+      CritOR()
+      {
+        CritTimer( 200 )
+        CritEnemyInRegion( 66 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLN  )
+    TriggerSpecialForces( 808 66 )
+    ;; State_Actions
+  }
+
+  ; State 14 finishes up with high pursuit range 
+  DefineCondState()
+  {
+    DefineCondition( 15 0 0 0 "State 15"  )
+    {
+      CritTimer( 200 )
+      ;; Criteria
+    }
+    TriggerSpecialForces( 808 22 )
+    ;; State_Actions
+  }
+
+  ; State 15 introduces damage tollerance and waits to finish the first group 
+  DefineCondState()
+  {
+    DefineCondition( 16 0 0 0 "state_16"  )
+    {
+      CritAND()
+      {
+        CritMoveUnitsToRegion( 3333 1 )
+        {
+          2051 
+          ;; Unit_ID
+        }
+        CritInRegion( 2222 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 45 0 0 0 FileName  )
+    {
+      CritTimer( 1400 )
+      ;; Criteria
+    }
+    DefineCondition( 47 0 0 0 FileName  )
+    {
+      CritDestroyUnit()
+      {
+        2051 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL2  )
+    TriggerMessage( GVIT5OLO  )
+    GiveSpecialForces( 404 2 )
+    GiveSpecialForces( 505 0 )
+    SetAlliance( 2 0 1 1 1 1 2 1 )
+    TriggerMessage( GVIT5OLR  )
+    TriggerMessage( GVIT5OLP  )
+    TriggerMessage( GVIT5OLQ  )
+    ;; State_Actions
+  }
+
+  ; State 16 introduces medium damage tollerance and waits for its completion 
+  DefineCondState()
+  {
+    DefineCondition( 17 0 0 0 "state_17"  )
+    {
+      CritAND()
+      {
+        CritMoveUnitsToRegion( 4444 1 )
+        {
+          2051 
+          ;; Unit_ID
+        }
+        CritInRegion( 2222 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 46 0 0 0 FileName  )
+    {
+      CritTimer( 1600 )
+      ;; Criteria
+    }
+    DefineCondition( 47 0 0 0 FileName  )
+    {
+      CritDestroyUnit()
+      {
+        2051 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerSpecialForces( 9998 5555 )
+    TriggerMessage( GVIT5OLT  )
+    TriggerMessage( GVIT5OLU  )
+    TriggerMessage( GVIT5OLV  )
+    ;; State_Actions
+  }
+
+  ; State 17 continues with high damage tollerance 
+  DefineCondState()
+  {
+    DefineCondition( 18 0 0 0 "state_18"  )
+    {
+      CritOR()
+      {
+        CritDestroyUnit()
+        {
+          2051 
+          ;; Unit_ID
+        }
+        CritDestroyUnit()
+        {
+          35284 
+          35286 
+          35282 
+          35262 
+          ;; Unit_ID
+        }
+        CritTimer( 1600 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLW  )
+    TriggerMessage( GVIT5OLX  )
+    TriggerSpecialForces( 9999 5555 )
+    ;; State_Actions
+  }
+
+  ; State 18 introduces independence 
+  DefineCondState()
+  {
+    DefineCondition( 19 0 0 0 "state_19"  )
+    {
+      CritInRegion( 33 )
+      ;; Criteria
+    }
+    DefineCondition( 48 0 0 0 FileName  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL2  )
+    TriggerMessage( GVIT5OLY  )
+    GiveSpecialForces( 505 2 )
+    GiveSpecialForces( 606 0 )
+    TriggerMessage( GVIT5OLZ  )
+    TriggerMessage( GVT5AOL1  )
+    TriggerMessage( GVT5AOL2  )
+    SetAlliance( 2 0 1 1 1 1 1 2 )
+    ;; State_Actions
+  }
+
+  ; State 19 talks about medium independence 
+  DefineCondState()
+  {
+    DefineCondition( 20 0 0 0 "state_20"  )
+    {
+      CritInRegion( 44 )
+      ;; Criteria
+    }
+    DefineCondition( 49 0 0 0 FileName  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5AOL3  )
+    TriggerMessage( GVIT5OLS  )
+    TriggerMessage( GVT5AOL4  )
+    ;; State_Actions
+  }
+
+  ; State 20 talks about high independence 
+  DefineCondState()
+  {
+    DefineCondition( 21 0 0 0 "state_21"  )
+    {
+      CritAND()
+      {
+        CritInRegion( 8888 )
+        CritTimer( 400 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 50 0 0 0 FileName  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    DefineCondition( 24 0 0 0 "here_we_go"  )
+    {
+      CritAND()
+      {
+        CritInRegion( 40032 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5AOL5  )
+    TriggerMessage( GVT5DOL1  )
+    TriggerMessage( GVT5AOL6  )
+    ;; State_Actions
+  }
+
+  ; State 21 congradulates the player and ends the game 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "you_win"  )
+    {
+      CritTimer( 120 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL2  )
+    TriggerMessage( GVT5AOL9  )
+    GiveSpecialForces( 606 2 )
+    SetAlliance( 2 0 1 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ; State 22 t 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 23 t 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 24 waits the appropriate amount of time 
+  DefineCondState()
+  {
+    DefineCondition( 25 0 0 0 FileName )
+    {
+      CritTimer( 303 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 25 starts something fun 
+  DefineCondState()
+  {
+    DefineCondition( 26 0 0 0 FileName  )
+    {
+      CritTimer( 303 )
+      ;; Criteria
+    }
+    DefineCondition( 21 0 0 0 "state_21"  )
+    {
+      CritInRegion( 8888 )
+      ;; Criteria
+    }
+    TriggerMessage( THREE_ZERO_THREE  )
+    SetAlliance( 2 0 1 2 1 1 1 2 )
+    ;; State_Actions
+  }
+
+  ; State 26 does something fun 
+  DefineCondState()
+  {
+    DefineCondition( 27 0 0 0 FileName  )
+    {
+      CritTimer( 120 )
+      ;; Criteria
+    }
+    DefineCondition( 21 0 0 0 "state_21"  )
+    {
+      CritInRegion( 8888 )
+      ;; Criteria
+    }
+    TriggerSpecialForces( 45000 40000 )
+    TriggerSpecialForces( 45001 40001 )
+    TriggerSpecialForces( 45002 40002 )
+    TriggerSpecialForces( 45003 40003 )
+    TriggerSpecialForces( 45004 40004 )
+    TriggerSpecialForces( 45005 40005 )
+    TriggerSpecialForces( 45006 40006 )
+    TriggerSpecialForces( 45007 40007 )
+    TriggerSpecialForces( 45008 40008 )
+    TriggerSpecialForces( 45009 40009 )
+    TriggerSpecialForces( 45010 40010 )
+    TriggerSpecialForces( 45011 40011 )
+    TriggerSpecialForces( 45012 40012 )
+    TriggerSpecialForces( 45013 40013 )
+    TriggerSpecialForces( 45014 40014 )
+    TriggerSpecialForces( 45015 40015 )
+    TriggerSpecialForces( 45016 40016 )
+    TriggerSpecialForces( 45017 40017 )
+    TriggerSpecialForces( 45018 40018 )
+    TriggerSpecialForces( 45019 40019 )
+    TriggerSpecialForces( 45020 40020 )
+    TriggerSpecialForces( 45021 40021 )
+    TriggerSpecialForces( 45022 40022 )
+    TriggerSpecialForces( 45023 40023 )
+    TriggerSpecialForces( 45024 40024 )
+    TriggerSpecialForces( 45025 40025 )
+    TriggerSpecialForces( 45026 40026 )
+    TriggerSpecialForces( 45027 40027 )
+    TriggerSpecialForces( 45028 40028 )
+    TriggerSpecialForces( 45029 40029 )
+    TriggerSpecialForces( 45030 40030 )
+    TriggerSpecialForces( 45031 40031 )
+    TriggerMessage( ACID )
+    ;; State_Actions
+  }
+
+  ; State 27 does something fun 
+  DefineCondState()
+  {
+    DefineCondition( 28 0 0 0 FileName  )
+    {
+      CritTimer( 100 )
+      ;; Criteria
+    }
+    DefineCondition( 21 0 0 0 "state_21"  )
+    {
+      CritInRegion( 8888 )
+      ;; Criteria
+    }
+    TriggerSpecialForces( 45000 40000 )
+    TriggerSpecialForces( 45001 40001 )
+    TriggerSpecialForces( 45002 40002 )
+    TriggerSpecialForces( 45003 40003 )
+    TriggerSpecialForces( 45004 40004 )
+    TriggerSpecialForces( 45005 40005 )
+    TriggerSpecialForces( 45006 40006 )
+    TriggerSpecialForces( 45007 40007 )
+    TriggerSpecialForces( 45008 40008 )
+    TriggerSpecialForces( 45009 40009 )
+    TriggerSpecialForces( 45010 40010 )
+    TriggerSpecialForces( 45011 40011 )
+    TriggerSpecialForces( 45012 40012 )
+    TriggerSpecialForces( 45013 40013 )
+    TriggerSpecialForces( 45014 40014 )
+    TriggerSpecialForces( 45015 40015 )
+    TriggerSpecialForces( 45016 40016 )
+    TriggerSpecialForces( 45017 40017 )
+    TriggerSpecialForces( 45018 40018 )
+    TriggerSpecialForces( 45019 40019 )
+    TriggerSpecialForces( 45020 40020 )
+    TriggerSpecialForces( 45021 40021 )
+    TriggerSpecialForces( 45022 40022 )
+    TriggerSpecialForces( 45023 40023 )
+    TriggerSpecialForces( 45024 40024 )
+    TriggerSpecialForces( 45025 40025 )
+    TriggerSpecialForces( 45026 40026 )
+    TriggerSpecialForces( 45027 40027 )
+    TriggerSpecialForces( 45028 40028 )
+    TriggerSpecialForces( 45029 40029 )
+    TriggerSpecialForces( 45030 40030 )
+    TriggerSpecialForces( 45031 40031 )
+    ;; State_Actions
+  }
+
+  ; State 28 finishes something fun 
+  DefineCondState()
+  {
+    DefineCondition( 21 0 0 0 "state_21"  )
+    {
+      CritInRegion( 8888 )
+      ;; Criteria
+    }
+    TriggerSpecialForces( 45000 40000 )
+    TriggerSpecialForces( 45001 40001 )
+    TriggerSpecialForces( 45002 40002 )
+    TriggerSpecialForces( 45003 40003 )
+    TriggerSpecialForces( 45004 40004 )
+    TriggerSpecialForces( 45005 40005 )
+    TriggerSpecialForces( 45006 40006 )
+    TriggerSpecialForces( 45007 40007 )
+    TriggerSpecialForces( 45008 40008 )
+    TriggerSpecialForces( 45009 40009 )
+    TriggerSpecialForces( 45010 40010 )
+    TriggerSpecialForces( 45011 40011 )
+    TriggerSpecialForces( 45012 40012 )
+    TriggerSpecialForces( 45013 40013 )
+    TriggerSpecialForces( 45014 40014 )
+    TriggerSpecialForces( 45015 40015 )
+    TriggerSpecialForces( 45016 40016 )
+    TriggerSpecialForces( 45017 40017 )
+    TriggerSpecialForces( 45018 40018 )
+    TriggerSpecialForces( 45019 40019 )
+    TriggerSpecialForces( 45020 40020 )
+    TriggerSpecialForces( 45021 40021 )
+    TriggerSpecialForces( 45022 40022 )
+    TriggerSpecialForces( 45023 40023 )
+    TriggerSpecialForces( 45024 40024 )
+    TriggerSpecialForces( 45025 40025 )
+    TriggerSpecialForces( 45026 40026 )
+    TriggerSpecialForces( 45027 40027 )
+    TriggerSpecialForces( 45028 40028 )
+    TriggerSpecialForces( 45029 40029 )
+    TriggerSpecialForces( 45030 40030 )
+    TriggerSpecialForces( 45031 40031 )
+    TriggerMessage( FUNKY )
+    TriggerMessage( DAFT_THANKS )
+    ;; State_Actions
+  }
+
+  ; State 29 t 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 30 t 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 31 tells the player to try again later and moves them to state 4 
+  DefineCondState()
+  {
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritTimer( 100 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL3  )
+    ;; State_Actions
+  }
+
+  ; State 32 is the error state for 2 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritOR()
+      {
+        CritMoveUnitsToRegion( 111 1 )
+        {
+          2027 
+          ;; Unit_ID
+        }
+        CritMoveUnitsToRegion( 99 1 )
+        {
+          2027 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 31 0 0 0 FileName  )
+    {
+      CritDestroyUnit()
+      {
+        2027 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    DefineCondition( 32 0 0 0 FileName  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5BOL1  )
+    ;; State_Actions
+  }
+
+  ; State 33 is the error state for 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 34 is the error state for 4 
+  DefineCondState()
+  {
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritHarassRegion( 11 1 3 )
+      ;; Criteria
+    }
+    DefineCondition( 34 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5BOL2  )
+    ;; State_Actions
+  }
+
+  ; State 35 is the error state for 5 
+  DefineCondState()
+  {
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritAND()
+      {
+        CritHarassRegion( 11 100 3 )
+        CritTimer( 150 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 35 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL3  )
+    ;; State_Actions
+  }
+
+  ; State 36 is the error state for 6 
+  DefineCondState()
+  {
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritOR()
+      {
+        CritDestroyUnit()
+        {
+          1355 
+          ;; Unit_ID
+        }
+        CritDestroyUnit()
+        {
+          2197 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 36 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5BOL3  )
+    ;; State_Actions
+  }
+
+  ; State 37 is the error state for 7 
+  DefineCondState()
+  {
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritAND()
+      {
+        CritDestroyUnit()
+        {
+          1355 
+          ;; Unit_ID
+        }
+        CritDestroyUnit()
+        {
+          2197 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 37 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL2  )
+    ;; State_Actions
+  }
+
+  ; State 38 is the error state for 8 
+  DefineCondState()
+  {
+    DefineCondition( 9 0 0 0 "state_9"  )
+    {
+      CritAND()
+      {
+        CritTimer( 150 )
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 38 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL9  )
+    ;; State_Actions
+  }
+
+  ; State 39 is the error state for 9 
+  DefineCondState()
+  {
+    DefineCondition( 10 0 0 0 "state_10"  )
+    {
+      CritAND()
+      {
+        CritEnemyInRegion( 66 )
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 39 0 0 0 FileName  )
+    {
+      CritAND()
+      {
+        CritTimer( 800 )
+        CritNOT()
+        {
+          CritInRegion( 22 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL9  )
+    ;; State_Actions
+  }
+
+  ; State 40 is the error state for 10 
+  DefineCondState()
+  {
+    DefineCondition( 11 0 0 0 "state_11"  )
+    {
+      CritInRegion( 22 )
+      ;; Criteria
+    }
+    DefineCondition( 40 0 0 0 FileName  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL9  )
+    ;; State_Actions
+  }
+
+  ; State 41 is the error state for 11 
+  DefineCondState()
+  {
+    DefineCondition( 12 0 0 0 "state_12"  )
+    {
+      CritAND()
+      {
+        CritEnemyInRegion( 55 )
+        CritInRegion( 22 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 41 0 0 0 FileName  )
+    {
+      CritAND()
+      {
+        CritTimer( 800 )
+        CritNOT()
+        {
+          CritInRegion( 22 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL9  )
+    ;; State_Actions
+  }
+
+  ; State 42 is the error state for 12 
+  DefineCondState()
+  {
+    DefineCondition( 13 0 0 0 "state_13"  )
+    {
+      CritInRegion( 22 )
+      ;; Criteria
+    }
+    DefineCondition( 42 0 0 0 FileName  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 44 0 0 0 "state_44"  )
+    {
+      CritDestroyUnit()
+      {
+        2124 
+        2295 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL9  )
+    ;; State_Actions
+  }
+
+  ; State 43 t 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 44 this is the error state for states 9, 10, 11, 12, 13 if the bikes die 
+  DefineCondState()
+  {
+    DefineCondition( 15 0 0 0 "state_15"  )
+    {
+      CritTimer( 100 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL3  )
+    ;; State_Actions
+  }
+
+  ; State 45 is the error state for 15 
+  DefineCondState()
+  {
+    DefineCondition( 16 0 0 0 "state_16"  )
+    {
+      CritAND()
+      {
+        CritMoveUnitsToRegion( 3333 1 )
+        {
+          2051 
+          ;; Unit_ID
+        }
+        CritInRegion( 2222 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 45 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    DefineCondition( 47 0 0 0 FileName  )
+    {
+      CritDestroyUnit()
+      {
+        2051 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVIT5OLP  )
+    TriggerMessage( GVIT5OLQ  )
+    ;; State_Actions
+  }
+
+  ; State 46 is the error state for 16 
+  DefineCondState()
+  {
+    DefineCondition( 17 0 0 0 "state_17"  )
+    {
+      CritAND()
+      {
+        CritMoveUnitsToRegion( 4444 1 )
+        {
+          2051 
+          ;; Unit_ID
+        }
+        CritInRegion( 2222 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 46 0 0 0 FileName  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    DefineCondition( 47 0 0 0 FileName  )
+    {
+      CritDestroyUnit()
+      {
+        2051 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( GVT5COL7  )
+    ;; State_Actions
+  }
+
+  ; State 47 is the error state for 15 & 16 if the unit dies 
+  DefineCondState()
+  {
+    DefineCondition( 18 0 0 0 FileName  )
+    {
+      CritTimer( 100 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5DOL3  )
+    ;; State_Actions
+  }
+
+  ; State 48 is the error state for 18 
+  DefineCondState()
+  {
+    DefineCondition( 19 0 0 0 "state_19"  )
+    {
+      CritInRegion( 33 )
+      ;; Criteria
+    }
+    DefineCondition( 48 0 0 0 FileName  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5BOL7  )
+    ;; State_Actions
+  }
+
+  ; State 49 is the error state for 19 
+  DefineCondState()
+  {
+    DefineCondition( 20 0 0 0 "state_20"  )
+    {
+      CritInRegion( 44 )
+      ;; Criteria
+    }
+    DefineCondition( 49 0 0 0 FileName  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5BOL6  )
+    ;; State_Actions
+  }
+
+  ; State 50 is the error state for 20 
+  DefineCondState()
+  {
+    DefineCondition( 21 0 0 0 "state_21"  )
+    {
+      CritAND()
+      {
+        CritInRegion( 8888 )
+        CritTimer( 400 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 50 0 0 0 FileName  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    TriggerMessage( GVT5BOL4  )
+    TriggerMessage( GVT5DOL1  )
+    ;; State_Actions
+  }
+
+  ;; State
+}

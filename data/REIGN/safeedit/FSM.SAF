@@ -1,0 +1,20 @@
+//
+// FSM.saf
+//
+// SafeEdit text editor configuration for Dark Reign FSMs.
+//
+// This file configures the safeedit system to allow the syntax safe editing
+// of Finite state Machines for the Dark Reign System
+
+// Include the basic SafeEdit data structures
+#include "SEStruct.h"
+
+// What sort of file is this?
+#define SAFE_DOCUMENT_TYPE "FSM"
+
+// What's the default Element for this syntax safe text file?
+#define DEFAULT_ELEMENT_NAME "DefineAICondTree"
+
+#include "commnFSM.saf"
+
+

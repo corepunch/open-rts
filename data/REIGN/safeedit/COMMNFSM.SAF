@@ -1,0 +1,1150 @@
+//
+// commnFSM.saf
+//
+// SafeEdit text editor configuration for Dark Reign FSMs.
+//
+// This file configures the safeedit system to allow the syntax safe editing
+// of Finite State Machines & Endcondition Trees for the Dark Reign System
+
+// How much should we indent?
+#define INDENTATION 2
+
+///////////////////////////////////////////////////////////////////////////////
+// The Safe Syntax Elements
+// --------------------
+// This specifies all user-defined elements for this syntax safe editor
+SAFE_ELEMENTS_NAME_LIST user_elements[MAX_SAFE_ELEMENTS];
+
+#DATA
+
+//   Element Name
+//----------------------------------------------------
+  "DefineAICondTree";
+  "DefineEndCondTree";
+  "DefineCondState";
+  "SetAlliance";
+  "State_Actions";
+  "TriggerSpecialForces";
+  "ReleaseSpecialForces";
+  "GiveSpecialForces";
+  "Comment";
+  "AdjustRegionPri";
+  "SetAIPFile";
+  "SetMessageFile";
+  "DefineCondition";
+  "BonusCredits";
+  "TriggerMessage";
+  "Simple_Int";
+  "Criteria";
+  "CritOR";
+  "CritAND";
+  "CritNOT";
+  "CritONCE";
+  "CritMoreUnitsThanEnemy";
+  "CritLessUnitsThanEnemy";
+  "CritTimer";
+  "CritTimerGame";
+  "CritStealPlan";
+  "CritHoldRegion";
+  "CritHarassRegion";
+  "CritBuildBuilding";
+  "CritBeginBuildBuilding";
+  "CritBuildUnit";
+  "CritMoveUnitsToRegion";
+  "CritDestroyBuilding";
+  "CritDestroyThing";
+  "CritDestroyUnit";
+  "CritCollectMineral";
+  "CritCollectWater";
+  "CritKillEnemyUnits";
+  "CritKillTeamUnits";
+  "CritDestroyEnemyBuildings";
+  "CritDestroyTeamBuildings";
+  "CritKillAll";
+  "CritKillAllAndAllies";
+  "CritDestroyBuildingType";
+  "CritKillUnitType";
+  "CritEnemyInRegion";
+  "CritInRegion";
+  "CritTeamInRegion";
+  "CritHaveCredits";
+
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Add Anywhere Elements
+// ---------------------
+// This specifies elements (such as comments) which can be added anywhere into
+// the safe document
+SAFE_ELEMENTS_NAME_LIST add_anywhere_elements[MAX_SAFE_ELEMENTS];
+
+#DATA
+
+//   Element Name
+//----------------------------------------------------
+	 "Comment";
+
+#END_DATA
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Comment
+// --------------------
+//
+// An FSM comment.
+//
+SAFE_ELEMENT Comment[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name      Type            MIN/MAX        Lower Bound        Upper Bound      Separator  Indent?
+"", "; ",                 "SAFE_TEXT",    NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   "",        INDENT, 0, "";
+"", "Comment",            "STRING",       NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+" 
+";
+"", "",                  "SAFE_TEXT",    NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   
+"
+", DONT_INDENT, 0, "";
+
+
+#END_DATA
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DefineEndCondTree
+// --------------------
+//
+// The root of an endcondition
+//
+SAFE_ELEMENT DefineEndCondTree[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name               Type                MIN/MAX        Lower Bound        Upper Bound      Separator
+"", "DefineEndCondTree( ",          "SAFE_TEXT",        NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   
+"", INDENT, 0, "";
+
+"", "Time_Limit",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+
+"", ")
+{",                                "SAFE_TEXT",        NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   
+"
+", DONT_INDENT, 0, "";
+
+";; ", "State",                     "DefineCondState",  0, UNLIMITED,  BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}
+",                                 "SAFE_TEXT",        NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   
+"", INDENT, 0, "";
+#END_DATA
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DefineAICondTree
+// --------------------
+//
+// The root of an AI FSM.
+//
+SAFE_ELEMENT DefineAICondTree[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name               Type                MIN/MAX        Lower Bound        Upper Bound      Separator
+"", "DefineAICondTree()
+{",                                "SAFE_TEXT",        NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   
+"
+", INDENT, 0, "";
+
+";; ", "State",                     "DefineCondState",  0, UNLIMITED,  BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}
+",                                 "SAFE_TEXT",        NA, NA,        UNBOUNDED, NA,     UNBOUNDED, NA,   
+"", INDENT, 0, "";
+#END_DATA
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DefineCondState
+// --------------------
+//
+// A single State in an FSM.
+//
+SAFE_ELEMENT DefineCondState[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                 Type                MIN/MAX          Lower Bound        Upper Bound      Separator
+"", "DefineCondState()",			 "SAFE_TEXT",        NA, NA,          UNBOUNDED, NA,     UNBOUNDED, NA,   
+"
+", INDENT, 0, "";
+
+"", "{",							 "SAFE_TEXT",        NA, NA,          UNBOUNDED, NA,     UNBOUNDED, NA,   
+"
+", INDENT, 0, "";
+
+";; ", "State_Actions",               "OPTION_LIST",      0, UNLIMITED,    BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}
+",									 "SAFE_TEXT",        NA, NA,          UNBOUNDED, NA,     UNBOUNDED, NA,   
+"
+", INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// State_Actions
+// --------------------
+//
+// An OPTION LIST of actions available in an FSM state.
+//
+SAFE_ELEMENT State_Actions[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name              Type                       MIN/MAX           Lower Bound        Upper Bound      Separator
+"", "Alliances",                  "SetAlliance",              0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Trigger Special Forces",     "TriggerSpecialForces",     0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Release Special Forces",     "ReleaseSpecialForces",     0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Give Special Forces",        "GiveSpecialForces",        0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Adjust Region Priorities",   "AdjustRegionPri",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Set AIP File",               "SetAIPFile",               0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Set Message File",           "SetMessageFile",           0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Bonus Credits",              "BonusCredits",             0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Trigger Message",            "TriggerMessage",           0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "Define Condition",           "DefineCondition",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// SetAlliance
+// --------------------
+//
+// Set the alliances for a team.
+//
+SAFE_ELEMENT SetAlliance[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name           Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "SetAlliance(",            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Team0",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team1",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team2",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team3",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team4",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team5",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team6",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", "Team7",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+//"", "Team8",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, " ";
+"", ")",                       "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// TriggerSpecialForces
+// --------------------
+//
+// Send Special Forces somewhere.
+//
+SAFE_ELEMENT TriggerSpecialForces[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "TriggerSpecialForces(",        "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Special_Forces_ID",            "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Region_ID",                    "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// ReleaseSpecialForces
+// --------------------
+//
+// Release Special Forces into the general group of AI troops.
+//
+SAFE_ELEMENT ReleaseSpecialForces[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "ReleaseSpecialForces(",        "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Special_Forces_ID",            "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// GiveSpecialForces
+// --------------------
+//
+// Give Special Forces to some team.
+//
+SAFE_ELEMENT GiveSpecialForces[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "GiveSpecialForces(",           "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Special_Forces_ID",            "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// AdjustRegionPri
+// --------------------
+//
+// Adjust the priority of a given region.
+//
+SAFE_ELEMENT AdjustRegionPri[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "AdjustRegionPri(",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                    "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Priority",                     "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Min_Forces",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Max_Forces",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// SetAIPFile
+// --------------------
+//
+// Set an AIP file for a state.
+//
+SAFE_ELEMENT SetAIPFile[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "SetAIPFile(",                  "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "FileName",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+")";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// SetMessageFile
+// --------------------
+//
+// Set a message file for a state.
+//
+SAFE_ELEMENT SetMessageFile[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "SetMessageFile(",              "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "FileName",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+")";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// TriggerMessage
+// --------------------
+//
+// Play a sound message.
+//
+SAFE_ELEMENT TriggerMessage[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "TriggerMessage(",              "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "FileName",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+")";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// BonusCredits
+// --------------------
+//
+// Give Money to a specified team
+//
+SAFE_ELEMENT BonusCredits[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "BonusCredits(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Free_Money",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// DefineCondition
+// --------------------
+//
+// Define a condition for going from one state to another.
+//
+SAFE_ELEMENT DefineCondition[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "DefineCondition(",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Next_State",                   "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "0",                            "SAFE_TEXT",      1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "0",                            "SAFE_TEXT",      1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "0",                            "SAFE_TEXT",      1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "FileName",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+")";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Criteria",               "OPTION_LIST",      0, UNLIMITED,    BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Criteria
+// --------------------
+//
+// An OPTION LIST of criteria available in an FSM condition.
+//
+SAFE_ELEMENT Criteria[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name              Type                       MIN/MAX           Lower Bound        Upper Bound      Separator
+"", "CritOR",                     "CritOR",                   0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritAND",                    "CritAND",                  0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritNOT",                    "CritNOT",                  0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritONCE",                   "CritONCE",                 0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritMoreUnitsThanEnemy",        "CritMoreUnitsThanEnemy",        0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritLessUnitsThanEnemy",   "CritLessUnitsThanEnemy",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritTimer",               "CritTimer",               0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritTimerGame",           "CritTimerGame",           0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritStealPlan",              "CritStealPlan",             0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritHoldRegion",            "CritHoldRegion",           0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritHarassRegion",           "CritHarassRegion",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritBuildBuilding",           "CritBuildBuilding",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritBeginBuildBuilding",           "CritBeginBuildBuilding",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritBuildUnit",           "CritBuildUnit",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritMoveUnitsToRegion",           "CritMoveUnitsToRegion",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritDestroyBuilding",           "CritDestroyBuilding",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritDestroyThing",           "CritDestroyThing",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritDestroyUnit",           "CritDestroyUnit",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritCollectMineral",           "CritCollectMineral",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritCollectWater",           "CritCollectWater",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritKillEnemyUnits",           "CritKillEnemyUnits",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritKillTeamUnits",           "CritKillTeamUnits",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritDestroyEnemyBuildings",           "CritDestroyEnemyBuildings",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritDestroyTeamBuildings",           "CritDestroyTeamBuildings",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritKillAll",           "CritKillAll",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritKillAllAndAllies",           "CritKillAllAndAllies",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritDestroyBuildingType",           "CritDestroyBuildingType",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritKillUnitType",           "CritKillUnitType",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritEnemyInRegion",           "CritEnemyInRegion",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritInRegion",           "CritInRegion",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritTeamInRegion",           "CritTeamInRegion",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+"", "CritHaveCredits",           "CritHaveCredits",          0, 1,             BOUNDED,   1,      UNBOUNDED, NA,   ""       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritOR
+// --------------------
+//
+// Define a condition for going from one state to another.
+//
+SAFE_ELEMENT CritOR[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritOR()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Criteria",               "OPTION_LIST",      0, UNLIMITED,    BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritAND
+// --------------------
+//
+// Define a condition for going from one state to another.
+//
+SAFE_ELEMENT CritAND[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritAND()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Criteria",               "OPTION_LIST",      0, UNLIMITED,    BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritNOT
+// --------------------
+//
+// Define a condition for going from one state to another.
+//
+SAFE_ELEMENT CritNOT[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritNOT()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Criteria",               "OPTION_LIST",      0, UNLIMITED,    BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritONCE
+// --------------------
+//
+// Define a condition for going from one state to another.
+//
+SAFE_ELEMENT CritONCE[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritONCE()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Criteria",               "OPTION_LIST",      0, UNLIMITED,    BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritMoreUnitsThanEnemy
+// --------------------
+//
+//
+SAFE_ELEMENT CritMoreUnitsThanEnemy[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritMoreUnitsThanEnemy(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Percent",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritLessUnitsThanEnemy
+// --------------------
+//
+//
+SAFE_ELEMENT CritLessUnitsThanEnemy[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritLessUnitsThanEnemy(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Percent",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritTimer
+// --------------------
+//
+//
+SAFE_ELEMENT CritTimer[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritTimer(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Game_Cycles",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritTimerGame
+// --------------------
+//
+//
+SAFE_ELEMENT CritTimerGame[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritTimerGame(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Game_Cycles",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritTimerGame
+// --------------------
+//
+//
+SAFE_ELEMENT CritStealPlan[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritStealPlan(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Item_Name",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+")";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritHoldRegion
+// --------------------
+//
+//
+SAFE_ELEMENT CritHoldRegion[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritHoldRegion(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Limiter",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Flags",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritHarassRegion
+// --------------------
+//
+//
+SAFE_ELEMENT CritHarassRegion[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritHarassRegion(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Limiter",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Flags",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritBuildBuilding
+// --------------------
+//
+//
+SAFE_ELEMENT CritBuildBuilding[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritBuildBuilding(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Building_Name",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+" ";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Amount",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritBeginBuildBuilding
+// --------------------
+//
+//
+SAFE_ELEMENT CritBeginBuildBuilding[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritBeginBuildBuilding(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Building_Name",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+" ";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Amount",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritBuildUnit
+// --------------------
+//
+//
+SAFE_ELEMENT CritBuildUnit[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritBuildUnit(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Unit_Name",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+" ";
+"", "Amount",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritMoveUnitsToRegion
+// --------------------
+//
+// Define a condition for going from one state to another.
+//
+SAFE_ELEMENT CritMoveUnitsToRegion[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritMoveUnitsToRegion(",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Survivors",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Unit_ID",                     "Simple_Int",  0, UNLIMITED,  BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Simple_Int
+// --------------------
+//
+// Define a simple integer
+//
+SAFE_ELEMENT Simple_Int[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "ID_Number",                    "INTEGER",        1, 1,                UNBOUNDED, NA,     UNBOUNDED, NA,   " 
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritDestroyBuilding
+// --------------------
+//
+// 
+//
+SAFE_ELEMENT CritDestroyBuilding[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritDestroyBuilding()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Building_ID",                     "Simple_Int",  0, UNLIMITED,  BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritDestroyThing
+// --------------------
+//
+// 
+//
+SAFE_ELEMENT CritDestroyThing[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritDestroyThing()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Thing_ID",                     "Simple_Int",  0, UNLIMITED,  BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritDestroyUnit
+// --------------------
+//
+SAFE_ELEMENT CritDestroyUnit[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritDestroyUnit()",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+"", "{",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+";; ", "Unit_ID",                     "Simple_Int",  0, UNLIMITED,  BOUNDED,   1,      UNBOUNDED, NA,   
+"
+", INDENT, 1, "";
+
+"", "}",             "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritCollectMineral
+// --------------------
+//
+//
+SAFE_ELEMENT CritCollectMineral[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritCollectMineral(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Amount",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritCollectWater
+// --------------------
+//
+//
+SAFE_ELEMENT CritCollectWater[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritCollectWater(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Amount",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritKillEnemyUnits
+// --------------------
+//
+//
+SAFE_ELEMENT CritKillEnemyUnits[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritKillEnemyUnits(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Percentage",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritKillTeamUnits
+// --------------------
+//
+//
+SAFE_ELEMENT CritKillTeamUnits[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritKillTeamUnits(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Percentage",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritDestroyEnemyBuildings
+// --------------------
+//
+//
+SAFE_ELEMENT CritDestroyEnemyBuildings[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritDestroyEnemyBuildings(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Percentage",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritDestroyTeamBuildings
+// --------------------
+//
+//
+SAFE_ELEMENT CritDestroyTeamBuildings[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritDestroyTeamBuildings(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Percentage",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritKillAll
+// --------------------
+//
+//
+SAFE_ELEMENT CritKillAll[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritKillAll()",               "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritKillAllAndAllies
+// --------------------
+//
+//
+SAFE_ELEMENT CritKillAllAndAllies[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritKillAllAndAllies()",               "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritDestroyBuildingType
+// --------------------
+//
+//
+SAFE_ELEMENT CritDestroyBuildingType[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritDestroyBuildingType(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Building_Name",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+" ";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritKillUnitType
+// --------------------
+//
+SAFE_ELEMENT CritKillUnitType[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritKillUnitType(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Unit_Name",                     "STRING",         NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       DONT_INDENT, 0,
+" ";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritEnemyInRegion
+// --------------------
+//
+SAFE_ELEMENT CritEnemyInRegion[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritEnemyInRegion(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritInRegion
+// --------------------
+//
+SAFE_ELEMENT CritInRegion[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritInRegion(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritTeamInRegion
+// --------------------
+//
+SAFE_ELEMENT CritTeamInRegion[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritTeamInRegion(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Region_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", "Team_ID",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// CritHaveCredits
+// --------------------
+//
+SAFE_ELEMENT CritHaveCredits[MAX_SAFE_SUBELEMENTS];
+
+#DATA
+// Element Text/Name                Type              MIN/MAX              Lower Bound        Upper Bound      Separator  Indentation?
+"", "CritHaveCredits(",                "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   " ",       INDENT, 0, "";
+"", "Amount",                      "INTEGER",        1, 1,                BOUNDED, 0,        BOUNDED,    2,   " ",       DONT_INDENT, 0, "";
+"", ")",                            "SAFE_TEXT",      NA, NA,              UNBOUNDED, NA,     UNBOUNDED, NA,   "
+",       DONT_INDENT, 0, "";
+#END_DATA
+
+
+

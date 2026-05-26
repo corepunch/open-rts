@@ -1,0 +1,122 @@
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {    
+      CritTimerGame(300)
+    }
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+  } ; END of state 1
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "c1to2.txt")
+    {    
+      CritTimer(700)
+    }
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+    TriggerSpecialForces(20010 20100)
+    TriggerSpecialForces(20020 20200)
+  } ; END of state 2
+;
+; Conditional State #3
+;
+  DefineCondState()
+  {
+    ; Go to WIN state 0
+    ; Game ends if this long time has passed
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritTimerGame(108000)
+    }
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+	; Go to RETREAT state 4
+    ; If the enemy are nearby, retreat
+	DefineCondition(4 0 0 50 "retreat.txt")
+	{
+	  CritEnemyInRegion(22100)
+	}
+
+    TriggerSpecialForces(20030 20300)
+  } ; END of state 3
+
+
+;
+; Conditional State #4
+;
+; RETREAT artillery and triple rails from advanced position
+;
+  DefineCondState()
+  {
+    ; Game ends if this long time has passed
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritTimerGame(108000)
+    }
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+	; Go to Advance state 5
+    ; If the enemy are not nearby, advance
+	DefineCondition(5 0 0 50 "retreat.txt")
+	{
+	  CritNOT()
+	  {
+	    CritEnemyInRegion(22100)
+	  }
+	}
+
+    ; Send those bad boys SOUTH on the map to a RETREAT position
+    TriggerSpecialForces(20010 21100)
+    TriggerSpecialForces(20020 21200)
+  } ; END of state 4
+
+
+;
+; Conditional State #5
+;
+; ADVANCE to a forward position
+;
+  DefineCondState()
+  {
+    ; Game ends if this long time has passed
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritTimerGame(108000)
+    }
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+	; Go to RETREAT state 4
+    ; If the enemy are nearby, retreat
+	DefineCondition(4 0 0 50 "retreat.txt")
+	{
+	  CritEnemyInRegion(22100)
+	}
+
+    ; Send those bad boys NORTH on the map to the FORWARD position
+    TriggerSpecialForces(20010 20100)
+    TriggerSpecialForces(20020 20200)
+
+  } ; END of state 5
+}

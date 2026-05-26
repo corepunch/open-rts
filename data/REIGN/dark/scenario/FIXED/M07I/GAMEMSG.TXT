@@ -1,0 +1,6 @@
+; M7
+
+CreateMsg("Infiltrator_Message")
+{
+  GetMLString(0)
+}

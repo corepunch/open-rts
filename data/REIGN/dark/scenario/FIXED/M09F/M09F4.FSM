@@ -1,0 +1,46 @@
+;
+; FSM  Conditions for team 4
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State 1
+  ;
+  DefineCondState()
+  {
+   
+   DefineCondition(1 0 0 0 looping_for_guards)  
+      	{          
+	 CritTimer(100000) 
+        }   
+
+   DefineCondition(2 0 0 0 looping_for_guards)  
+      	{          
+	CritONCE()
+	{ 
+	CritTeamInRegion(37992 0) 
+        }
+	}
+
+	SetAIPFile(team4.aip)
+   	SetAlliance(0 1 2 2 2 1 1 1) 
+
+ }
+
+  ;
+  ; Conditional State 2
+  ;
+  DefineCondState()
+  {
+   
+   DefineCondition(1 0 0 0 looping_for_guards)  
+      	{          
+	 CritTimer(0) 
+        }   
+   
+	AdjustRegionPri(37992 1000 100 1000)
+   	ReleaseSpecialForces(404)
+   	SetAIPFile(team4.aip)
+
+  }
+}

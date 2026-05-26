@@ -1,0 +1,97 @@
+DefineAICondTree()
+{
+  ; State 1 attacks the FG base and waits for the player to start exploring 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritOR()
+      {
+        CritTeamInRegion( 2002 0 )
+        CritTeamInRegion( 2003 0 )
+        CritTeamInRegion( 2004 0 )
+        CritTimer( 15000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M13tc1.aip  )
+    AdjustRegionPri( 2007 300 1000 500000 )
+    ;; State_Actions
+  }
+
+  ; State 2 makes the player an enemy 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritNOT()
+      {
+        CritEnemyInRegion( 2007 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAlliance( 0 2 0 1 0 0 0 0 )
+    AdjustRegionPri( 2001 200 500 10000 )
+    ;; State_Actions
+  }
+
+  ; State 3 this state attacks the FG baset 
+  DefineCondState()
+  {
+    DefineCondition( 4 0 0 0 "state_4" )
+    {
+      CritOR()
+      {
+        CritTimer( 12000 )
+        CritTeamInRegion( 2005 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    AdjustRegionPri( 2007 0 0 0 )
+    AdjustRegionPri( 2009 250 1000 500000 )
+    AdjustRegionPri( 2001 0 0 0 )
+    ;; State_Actions
+  }
+
+  ; State 4 this state attacks the player 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3" )
+    {
+      CritOR()
+      {
+        CritAND()
+        {
+          CritTimer( 2000 )
+          CritTeamInRegion( 2006 0 )
+          CritNOT()
+          {
+            CritTeamInRegion( 2005 0 )
+            ;; Criteria
+          }
+          ;; Criteria
+        }
+        CritAND()
+        {
+          CritTimer( 10000 )
+          CritNOT()
+          {
+            CritTeamInRegion( 2005 0 )
+            ;; Criteria
+          }
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    AdjustRegionPri( 2009 100 500 10000 )
+    AdjustRegionPri( 2001 250 1000 500000 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

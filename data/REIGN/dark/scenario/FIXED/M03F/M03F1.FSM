@@ -1,0 +1,113 @@
+
+;
+; Game Conditions for team 1
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1  DO NOTHING 
+  ;
+  DefineCondState()
+  {
+     
+    DefineCondition(2 0 0 0 "go_to_harass")  ; TRANSITION TO HARASS
+      	{          
+	 CritOR() 
+         {
+	  CritTeamInRegion(67903 0)  ;  outer prison #1
+          CritTeamInRegion(64129 0)  ;  outer prison #2
+    	  CritTeamInRegion(64154 0)  ;  outer prison #3
+	 }
+        }   
+    DefineCondition(4 0 0 0 "go_to_defend")    ;TRANSITION TO DEFEND 
+      	{
+         CritEnemyInRegion(17654)
+        }
+ 
+SetAIPFile(M03fNO.aip)   
+
+}
+  ;
+  ; Conditional State #2 -    HARASS STATE 
+  ;
+  DefineCondState()
+  {
+       
+       DefineCondition(4 0 0 0 "defend")    ;TRANSITION TO DEFEND 
+      	{
+         CritEnemyInRegion(17654)
+        }
+       
+       DefineCondition(3 0 0 0 "offensive")    ;TRANSITION TO ATTACK   	
+        { 
+	 CritAND()
+	{          
+	CritEnemyInRegion(67975)
+        CritTimer(11000)
+        }
+        }
+ 
+SetAIPFile(M03fHAR.aip)      
+AdjustRegionPri(17611 5000 100 600)
+AdjustRegionPri(67796 5000 100 600)
+
+}
+  ;
+  ; Conditional State #3 -    ATTACK STATE
+  ;
+  DefineCondState()
+  {
+       
+        DefineCondition(4 0 0 0 "Defend")    ;TRANSITION TO DEFEND      	
+        { 
+        CritEnemyInRegion(17654)
+        }
+  
+
+       DefineCondition(5 0 0 0 "regroup")    ;TRANSITION TO re-group 	
+        { 
+        CritTimer(4500)
+        }
+
+  SetAIPFile(M03fOFF.aip)
+
+}
+
+  ;
+  ; Conditional State #4 -    DEFEND STATE
+  ;
+  DefineCondState()
+  {
+       
+       DefineCondition(3 0 0 0 "offensive")    ;TRANSITION TO attack    	
+        { 
+         CritNOT()
+         {
+          CritEnemyInRegion(17654)
+         }
+        } 
+
+       SetAIPFile(M03fdef.aip)  
+
+}
+;
+  ; Conditional State #5 -    Re-group
+  ;
+  DefineCondState()
+  {
+       
+      
+       DefineCondition(3 0 0 0 "offensive")    ;TRANSITION TO attack    	
+       
+         {
+          CritTimer(2000)
+         }
+      
+       DefineCondition(4 0 0 0 "defend")    ;TRANSITION TO DEFEND 
+      	{
+         CritEnemyInRegion(17654)
+        }    
+   
+     SetAIPFile(M03fhar.aip)
+  }
+}

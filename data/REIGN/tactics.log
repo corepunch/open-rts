@@ -1,0 +1,25 @@
+DIAG  Tactics  612|       0|RB+ Sep  2 1997 Time 15:52:38.
+DIAG  Tactics  615|       3|START     dir set to "E:\REIGN"
+DIAG  Tactics  616|       4|HOME      dir set to "e:\REIGN"
+DIAG  Tactics  617|       5|GAME      dir set to "e:\REIGN\dark"
+DIAG  Video    126|     143|DirectDraw - Setting display mode...
+DIAG  Video    139|     414|DirectDraw - SetDisplayMode successful
+DIAG  Sound   1993|     638|DirectSound - Primary Sound Driver (8v)
+DIAG  Sound   2022|     654|We have control of Redbook Audio
+DIAG  Sound   2031|     655|Not playing CD Music
+DIAG  Tactics  653|     656|Sound cache set to 256k
+DIAG  packman  260|     691|sounds pack added [shell\sounds.ftg]
+DIAG  Tactics  456|   42223|MC: IDENT
+DIAG  Tactics  977|   42298|Loading scenario [m01i]
+DIAG  packman  260|   42382|sprites pack added [graphics\sprites.ftg]
+DIAG  packman  260|   42387|sounds pack added [sndfx\sounds.ftg]
+DIAG  packman  260|   42393|sprites pack added [graphics\Snow\sprites.ftg]
+DIAG  Mp_teams 358|   42864|MP_Teams - Using default units
+DIAG  Tactics 1874|   42874|Disabling team [2] (no units or buildings)
+DIAG  Tactics 1874|   42875|Disabling team [3] (no units or buildings)
+DIAG  Tactics 1874|   42876|Disabling team [4] (no units or buildings)
+DIAG  Tactics 1874|   42877|Disabling team [6] (no units or buildings)
+DIAG  Tactics 1874|   42878|Disabling team [7] (no units or buildings)
+DIAG  Tactics 2018|  477570|Team 0 victory. (you share in the spoils)
+DIAG  packman  260|  479014|sounds pack added [shell\sounds.ftg]
+DIAG  Tactics 1621|  531710|Standard exit point

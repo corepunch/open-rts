@@ -1,0 +1,15 @@
+DefineEndCondTree(0)
+{
+  ; just do nothing
+  DefineCondState()
+  {
+    
+
+    DefineCondition(1 0 0 0 Just_Looping)
+    {
+      CritTimer(10000000)
+    }
+ 
+SetAlliance(0 1 2 1 0 0 0 0)
+   }
+}

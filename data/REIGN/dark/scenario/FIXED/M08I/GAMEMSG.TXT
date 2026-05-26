@@ -1,0 +1,17 @@
+; M08i
+
+CreateMsg("MSG_NODESICATOR")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_MARTEL")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_MARTELTWO")
+{
+  GetMLString(0)
+}
+

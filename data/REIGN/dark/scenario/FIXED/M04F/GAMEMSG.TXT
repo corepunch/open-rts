@@ -1,0 +1,20 @@
+CreateMsg("GVSTSCLT")
+{
+  SetSound("GVSTSCLT.wav")
+  QueueSound()
+}
+CreateMsg("GVINTCL3")
+{
+  SetSound("GVINTCL3.WAV")
+  QueueSound()
+}
+CreateMsg("GVINTCL5")
+{
+  SetSound("GVINTCL5.WAV")
+  QueueSound()
+}
+CreateMsg("GVINTCL6")
+{
+  SetSound("GVINTCL6.WAV")
+  QueueSound()
+}

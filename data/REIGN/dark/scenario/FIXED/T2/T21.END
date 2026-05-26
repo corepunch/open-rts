@@ -1,0 +1,48 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "")
+    {
+    CritHaveCredits(200000)
+    }
+   
+  }
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "")
+    {
+    CritTimer(500)
+    }
+  
+    DefineCondition(0 0 0 50 "")
+    {
+    CritHaveCredits(200000)
+    }
+    TriggerMessage(gvt3aol5)
+  }
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "")
+    {
+    CritTimer(50)
+    }
+  
+ DefineCondition(0 0 0 50 "")
+    {
+    CritHaveCredits(200000)
+    } 
+ }
+}

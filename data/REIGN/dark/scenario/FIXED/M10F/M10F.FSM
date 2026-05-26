@@ -1,0 +1,140 @@
+;
+;  Conditional FSM for team 0
+;
+DefineAICondTree()
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 50 "c1to2.txt")
+    {
+     CritAND ()
+      {    
+      CritTimerGame(1800)
+      CritNOT()
+	{
+	CritEnemyInRegion(22161)
+	}
+      }
+    }
+    DefineCondition(7 0 0 50 "c1to2.txt")
+    {    
+      CritTimerGame(500)
+    }
+  SetAIPFile(M10F.aip)
+  } ; END of state 1
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "c1to2.txt")
+    {    
+      CritTimer(300)
+    }
+    TriggerSpecialForces(20 20100)
+    TriggerSpecialForces(21 20200)
+  } ; END of state 2
+;
+; Conditional State #3
+;
+  DefineCondState()
+  {
+    ; Go to RETREAT state 4
+    ; If the enemy are nearby, retreat
+	DefineCondition(4 0 0 50 "retreat.txt")
+	{
+	  CritEnemyInRegion(22100)
+	}
+  } ; END of state 3
+
+
+;
+; Conditional State #4
+;
+; RETREAT artillery and triple rails from advanced position
+;
+  DefineCondState()
+  {
+    ; Go to Advance state 5
+    ; If the enemy are not nearby, advance
+	DefineCondition(5 0 0 50 "retreat.txt")
+	{
+	  CritNOT()
+	  {
+	    CritEnemyInRegion(22100)
+	  }
+	}
+
+    ; Send those bad boys NORTH on the map to a RETREAT position
+    TriggerSpecialForces(20 21100)
+    TriggerSpecialForces(21 21200)
+  } ; END of state 4
+
+
+;
+; Conditional State #5
+;
+; ADVANCE to a forward position
+;
+  DefineCondState()
+  {
+    ; Go to RETREAT state 4
+    ; If the enemy are nearby, retreat
+	DefineCondition(4 0 0 50 "retreat.txt")
+	{
+	  CritEnemyInRegion(22100)
+	}
+	DefineCondition(8 0 0 50 "retreat.txt")
+	{
+         CritTimerGame(36000)
+	}
+    ; Send those bad boys SOUTH on the map to the FORWARD position
+    TriggerSpecialForces(20 20100)
+    TriggerSpecialForces(21 20200)
+
+  } ; END of state 5
+
+;
+; Conditional State #6
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {    
+      CritTimer(2000)
+    }
+  TriggerSpecialForces(22 20300)
+  } ; END of state 6
+;
+; Conditional State #7
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {    
+      CritTimer(2000)
+    }
+  TriggerSpecialForces(22 20100)
+  } ; END of state 7
+;
+; Conditional State #8
+;
+  DefineCondState()
+  {
+    DefineCondition(9 0 0 50 "c1to2.txt")
+    {    
+      CritTimer(12000)
+    }
+  SetAIPFile(M10Fdef.aip)
+  } ; END of state 8
+;
+; Conditional State #9
+;
+  DefineCondState()
+  {
+  SetAIPFile(M10Fair.aip)
+  } ; END of state 9
+}

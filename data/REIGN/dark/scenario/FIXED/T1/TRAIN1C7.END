@@ -1,0 +1,15 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this checks to see if the player should lose 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "You_lose" )
+    {
+      CritHaveCredits( 100000 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ;; State
+}

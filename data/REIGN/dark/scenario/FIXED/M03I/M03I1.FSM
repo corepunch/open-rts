@@ -1,0 +1,416 @@
+DefineAICondTree()
+{
+  ; state 1, easy ai to start
+  ; harrass the player's base a bit
+  DefineCondState()
+  {
+    
+   
+    	DefineCondition(13 0 0 0 no_aip)
+    	{  
+    	CritTimer(6000)
+    	}
+    		
+    	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+    	CritTeamInRegion(80188 0)
+    	}
+    		
+    	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}
+   
+        DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+
+SetAlliance(0 2 2 2 2 2 1 1)
+SetAIPFile(EZ.aip)
+
+  }
+
+
+; state 2, where we'll be for most the time
+; harrass the player's base a bit more
+  
+  DefineCondState()
+  {
+    
+        DefineCondition(5 0 0 0 no_aip)
+    	{
+      	CritTimer(2500)
+    	}	
+ 
+   	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+
+    	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}
+ 
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+
+SetAIPFile(harass.aip)
+AdjustRegionPri(80741 0 0 0)
+AdjustRegionPri(14744 0 0 0)  ; left exit
+AdjustRegionPri(24279 0 0 0)  ; right exit	
+
+}
+
+
+; state 3, the convoy has been released, so freak out
+; we never leave this state
+ 
+    DefineCondState()
+    {
+ 
+    	DefineCondition(3 0 0 0 go_go_go)
+    	{
+      	CritTimer(1000000)
+    	}
+    
+
+    SetAIPFile(freak.aip)
+    AdjustRegionPri(14744 20000 100 10000)  ; left exit
+    AdjustRegionPri(24279 20000 100 10000)  ; right exit
+}
+
+
+; state 4,   build up forces to protect convoy
+; 
+   DefineCondState()
+   {
+   
+   	DefineCondition(2 0 0 0 back_harass)
+   	{
+    	CritNOT()
+    	{  
+    	CritEnemyInRegion(79263)
+    	}
+    	}		
+  
+     	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+
+    	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+
+SetAIPFile(fallback.aip)
+AdjustRegionPri(14744 20000 100 10000)  ; left exit
+AdjustRegionPri(24279 20000 100 10000)  ; right exit
+
+}
+; state 5,  
+; 
+;
+  
+  DefineCondState()
+  {
+ 
+	DefineCondition(6 0 0 0 back_to_harass)
+    	{
+     	CritTimer(3000)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+  
+  SetAIPFile(no.aip)
+  AdjustRegionPri(80743 1000 100 200)
+
+} 
+; state 6,  
+; 
+;
+  
+  DefineCondState()
+  {
+ 
+	DefineCondition(7 0 0 0 back_to_ez)
+    	{
+     	CritTimer(2500)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+	
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+ 
+  SetAIPFile(harass.aip)
+  AdjustRegionPri(80743 0 0 0)
+
+ } 
+; state 7,  
+; 
+;
+  
+  DefineCondState()
+  {
+ 
+	DefineCondition(8 0 0 0 back_to_harass)
+    	{
+     	CritTimer(3000)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+  
+  SetAIPFile(no.aip)
+  AdjustRegionPri(80742 2000 100 300)
+
+} 
+
+; state 8,  
+; 
+;
+  
+  DefineCondState()
+  {
+  
+	DefineCondition(9 0 0 0 back_to_ez)
+    	{
+     	CritTimer(2500)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+  
+  SetAIPFile(harass.aip)
+  AdjustRegionPri(80742 0 0 0)
+
+} 
+
+; state 9,  
+; 
+;
+  
+  DefineCondState()
+  {
+  
+	DefineCondition(2 0 0 0 back_to_harass)
+    	{
+     	CritTimer(3000)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+	
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+  
+  SetAIPFile(no.aip)
+  AdjustRegionPri(80741 1000 100 200)
+} 
+
+
+
+; state 10,  
+; 
+;
+  
+  DefineCondState()
+  {
+  
+	DefineCondition(11 0 0 0  to_harass)
+    	{
+     	CritTimer(2000)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+  
+  SetAIPFile(hard.aip)
+  AdjustRegionPri(14744 0 0 0)  ; left exit
+  AdjustRegionPri(24279 0 0 0)  ; right exit	
+  AdjustRegionPri(80741 1000 100 300)
+
+}
+ 
+; state 11,  
+; 
+;
+  
+  DefineCondState()
+  {
+ 
+        DefineCondition(12 0 0 0  to_harass)
+    	{
+     	CritTimer(6000)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+
+  SetAIPFile(ez.aip)
+  AdjustRegionPri(80742 2000 100 500)
+  AdjustRegionPri(80741 0 0 0)	
+
+}
+; state 12,  
+; 
+;
+  
+  DefineCondState()
+  {
+  
+        DefineCondition(10 0 0 0  to_hard)
+    	{
+     	CritTimer(5000)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+  
+  SetAIPFile(harass.aip)
+  AdjustRegionPri(80743 1000 100 300)
+  AdjustRegionPri(80742 0 0 0)	
+
+
+} 
+; state 13,  
+; 
+;
+  
+  DefineCondState()
+  {
+ 
+	DefineCondition(6 0 0 0 back_to_harass)
+    	{
+     	CritTimer(2500)
+    	}
+ 
+ 	DefineCondition(3 0 0 0 convoy_moves)
+    	{
+	CritTeamInRegion(80188 0)
+    	}
+        
+     	DefineCondition(4 0 0 0 fallback)
+    	{  
+    	CritEnemyInRegion(79263)
+    	}   
+
+	DefineCondition(10 0 0 0 hard)
+    	{  
+    	CritDestroyBuilding()
+    	{
+	79025
+ 	}
+ 	}
+  
+  SetAIPFile(no.aip)
+  AdjustRegionPri(80743 1000 100 200)
+
+  } 
+}

@@ -1,0 +1,2360 @@
+;;
+;; Animation Types
+;;
+
+
+;; Big fire
+
+DefineAnimationType(eomedfl0_animation)
+{
+  SetSprite(eomedfl0.spr)
+  Frames(0 16 1)
+  Link(eomedfl0_animation)
+}
+
+;; Small smoke puff used in Skirmish tank
+
+DefineAnimationType(eosmosm0_animation)
+{
+  SetSprite(eosmosm0.spr)
+  Frames(0 15 1)
+}
+
+DefineAnimationType(eosmosm1_animation)
+{
+  SetSprite(eosmosm1.spr)
+  Frames(0 15 1)
+}
+
+DefineAnimationType(eosmosm2_animation)
+{
+  SetSprite(eosmosm2.spr)
+  Frames(0 15 1)
+}
+
+DefineAnimationType(eosmosm2loop_animation)
+{
+  SetSprite(eosmosm2.spr)
+  Frames(0 19 1)
+  Link(eosmosm2loop_animation)
+}
+
+DefineAnimationType(eosmosm3_animation)
+{
+  SetSprite(eosmosm3.spr)
+  Frames(0 20 1)
+  Link(eosmosm3_animation)
+}
+
+DefineAnimationType(eomedsm0_animation)
+{
+  SetSprite(eomedsm2.spr)
+  Frames(0 21 1)
+  Link(eomedsm0_animation)
+}
+
+DefineAnimationType(eomedsm1_animation)
+{
+  SetSprite(eomedsm1.spr)
+  Frames(0 21 1)
+  Link(eomedsm1_animation)
+}
+
+DefineAnimationType(eomedsm2_animation)
+{
+  SetSprite(eomedsm2.spr)
+  Frames(0 21 1)
+  Link(eomedsm2_animation)
+}
+
+;; Changing smoke pattern
+
+DefineAnimationType(holyrandom4_animation)
+{
+  SetSprite(eomedsm2.spr)
+  Frames(0 21 1)
+  Link(eosmosm3_animation)
+}
+
+DefineAnimationType(holyrandom3_animation)
+{
+  SetSprite(eomedsm2.spr)
+  Frames(0 21 1)
+  Link(holyrandom4_animation)
+}
+
+DefineAnimationType(holyrandom2_animation)
+{
+  SetSprite(eosmosm1.spr)
+  Frames(0 21 1)
+  Link(holyrandom3_animation)
+}
+
+DefineAnimationType(holyrandom1_animation)
+{
+  SetSprite(eomedsm0.spr)
+  Frames(0 21 1)
+  Link(holyrandom2_animation)
+}
+
+;; Water well crater
+
+DefineAnimationType(watercrater_animation)
+{
+  SetSprite(eowcocr0.spr)
+  Frame(0 10000)
+  Link(watercrater_animation)
+}
+
+DefineAnimationType(aoctr5_shadow_animation)
+{
+  SetSprite(aoctr5sh.spr)
+  Frame(0 10000)
+  Link(aoctr5_shadow_animation)
+}
+
+DefineAnimationType(aoctr6_shadow_animation)
+{
+  SetSprite(aoctr6sh.spr)
+  Frame(0 10000)
+  Link(aoctr6_shadow_animation)
+}
+
+DefineAnimationType(aoctr7_shadow_animation)
+{
+  SetSprite(aoctr7sh.spr)
+  Frame(0 10000)
+  Link(aoctr7_shadow_animation)
+}
+
+;; Horizontal bridge crater shadow
+DefineAnimationType(aoctr8_shadow_animation)
+{
+  SetSprite(aoctr8sh.spr)
+  Frame(0 10000)
+  Link(aoctr8_shadow_animation)
+}
+
+;; Vertical Bridge crater shadow
+DefineAnimationType(aoctr9_shadow_animation)
+{
+  SetSprite(aoctr9sh.spr)
+  Frame(0 10000)
+  Link(aoctr9_shadow_animation)
+}
+
+;; New flames
+
+DefineAnimationType(eosmlfl0_animation)
+{
+  SetSprite(eosmlfl0.spr)
+  Frames(0 7 1)
+  Link(eosmlfl0_animation)
+}
+
+DefineAnimationType(eosmlfl1_animation)
+{
+  SetSprite(eosmlfl1.spr)
+  Frames(0 7 1)
+  Link(eosmlfl1_animation)
+}
+
+DefineAnimationType(eosmlfl2_animation)
+{
+  SetSprite(eosmlfl2.spr)
+  Frames(0 7 1)
+  Link(eosmlfl2_animation)
+}
+
+DefineAnimationType(eosmlfl3_animation)
+{
+  SetSprite(eosmlfl3.spr)
+  Frames(0 7 1)
+  Link(eosmlfl3_animation)
+}
+
+;; Water contaminator sprites
+
+DefineAnimationType(wco2_animation)
+{
+  SetSprite(eowcost2.spr)
+  Frames(0 4 3)
+  Link(wco2_animation)
+}
+
+DefineAnimationType(wco1_animation)
+{
+  SetSprite(eowcost1.spr)
+  Frames(0 3 3)
+  Link(wco2_animation)
+}
+
+DefineAnimationType(wco3_animation)
+{
+  SetSprite(eowcost1.spr)
+  Frames(0 5 1)
+}
+
+DefineAnimationType(splata_animation)
+{
+  SetSprite(splata.spr)
+  Frames(0 14 2)
+}
+
+DefineAnimationType(splatb_animation)
+{
+  SetSprite(splatb.spr)
+  Frames(0 14 2)
+}
+
+DefineAnimationType(splatc_animation)
+{
+  SetSprite(splatc.spr)
+  Frames(0 12 2)
+}
+
+DefineAnimationType(splatd_animation)
+{
+  SetSprite(splatd.spr)
+  Frames(0 12 2)
+}
+
+
+DefineAnimationType(eoskypr0_animation)
+{
+  SetSprite(eoskypr0.spr)
+  Frames(0 10 1)
+}
+
+; Debris animation
+
+DefineAnimationType(eodebsp7_animation)
+{
+  SetSprite(eodebsp7.spr)
+  Frames(0 17 1)
+;  Link(eodebsp7_animation)
+}
+
+; Neutron gun
+
+DefineAnimationType(eoncnpr0_animation)
+{
+  SetSprite(eoncnpr0.spr)
+  Frames(0 4 1)
+  Link(eoncnpr0_animation)
+}
+
+;Special Animations
+
+DefineAnimationType(repricon_animation)
+{
+  SetSprite(repricon.spr)
+  Frames(0 7 2)
+  Link(repricon_animation)
+}
+
+; Big Puff Animations
+DefineAnimationType(eobpfsm0_animation)
+{
+  SetSprite(eobpfsm0.spr)
+  Frames(0 19 1)
+}
+
+DefineAnimationType(eobpfsm1_animation)
+{
+  SetSprite(eobpfsm1.spr)
+  Frames(0 19 1)
+}
+
+DefineAnimationType(eobpfsm2_animation)
+{
+  SetSprite(eobpfsm2.spr)
+  Frames(0 19 1)
+}
+
+DefineAnimationType(eobpfsm3_animation)
+{
+  SetSprite(eobpfsm3.spr)
+  Frames(0 21 1)
+}
+
+DefineAnimationType(eobpfsm4_animation)
+{
+  SetSprite(eobpfsm4.spr)
+  Frames(0 21 1)
+}
+
+
+
+
+
+
+; --------------- Blast Animations ---------------
+; These blasts are currently used in building health explosions
+
+DefineAnimationType(eoblamd0_animation)
+{
+  SetSprite(eoblamd0.spr)
+  Frames(0 12 1)
+}
+
+DefineAnimationType(eoblamd1_animation)
+{
+  SetSprite(eoblalg2.spr)
+  Frames(0 10 1)
+}
+
+DefineAnimationType(eoblamd2_animation)
+{
+  SetSprite(eoblamd1.spr)
+  Frames(0 11 1)
+}
+
+DefineAnimationType(eoblalg0_animation)
+{
+  SetSprite(eoblalg0.spr)
+  Frames(0 12 1)
+}
+
+DefineAnimationType(eoblalg1_animation)
+{
+  SetSprite(eoblalg1.spr)
+  Frames(0 14 1)
+}
+
+DefineAnimationType(eoblatr0_animation)
+{
+  SetSprite(eoblatr0.spr)
+  Frames(0 10 1)
+}
+
+DefineAnimationType(eoblatr1_animation)
+{
+  SetSprite(eoblatr1.spr)
+  Frames(0 10 1)
+}
+
+
+;Weapon Glows
+DefineAnimationType(lite1_animation)
+{
+  SetSprite(lite1.spr)
+  Frames(0 5 2)
+}
+
+DefineAnimationType(lite2_animation)
+{
+  SetSprite(lite2.spr)
+  Frames(0 4 2)
+}
+
+DefineAnimationType(lite3_animation)
+{
+  SetSprite(lite3.spr)
+  Frames(0 4 2)
+}
+
+
+;Others
+
+DefineAnimationType(wal_animation)
+{
+  SetSprite(aowal000.spr)
+  Frame(0 10000)
+  Link(wal_animation)
+}
+
+; These animations are used for the vertical overlay vehicle bridge(brdv),
+; and its shadow
+DefineAnimationType(brdv_animation)
+{
+  SetSprite(tcvbvst0.spr)
+  Frame(0 10000)
+  Link(brdv_animation)
+}
+
+DefineAnimationType(brdv_shadow_animation)
+{
+  SetSprite(tcvbvsh0.spr)
+  Frame(0 10000)
+  Link(brdv_shadow_animation)
+}
+
+
+; These animations are used for the horizontal overlay vehicle bridge(brdh),
+; and its shadow
+DefineAnimationType(brdh_animation)
+{
+  SetSprite(tcvbhst0.spr)
+  Frame(0 10000)
+  Link(brdh_animation)
+}
+
+DefineAnimationType(brdh_shadow_animation)
+{
+  SetSprite(tcvbhsh0.spr)
+  Frame(0 10000)
+  Link(brdh_shadow_animation)
+}
+
+
+; These animations are used for the vertical overlay pedestrian bridge(pbrdv),
+; and its shadow
+DefineAnimationType(pbrdv_animation)
+{
+  SetSprite(tcpbvst0.spr)
+  Frame(0 10000)
+  Link(pbrdv_animation)
+}
+
+DefineAnimationType(pbrdv_shadow_animation)
+{
+  SetSprite(tcpbvsh0.spr)
+  Frame(0 10000)
+  Link(pbrdv_shadow_animation)
+}
+
+;These animations are used for the horizontal overlay pedestrian bridge(pbrdh),
+; and its shadow
+DefineAnimationType(pbrdh_animation)
+{
+  SetSprite(tcpbhst0.spr)
+  Frame(0 10000)
+  Link(pbrdh_animation)
+}
+
+DefineAnimationType(pbrdh_shadow_animation)
+{
+  SetSprite(tcpbhsh0.spr)
+  Frame(0 10000)
+  Link(pbrdh_shadow_animation)
+}
+
+
+DefineAnimationType(ecexpsp1_animation)
+{
+  SetSprite(eoexpsp1.spr)
+  Frames(0 16 1)
+}
+
+
+;  small flames 1 animation
+DefineAnimationType(smallflames_1_animation)
+{
+  SetSprite(ecfirsm0.spr)
+  Frames(0 7 1)
+  Link(smallflames_1_animation)
+}
+
+;smoke column 1 animation
+DefineAnimationType(smokecolumn_1_animation)
+{
+  SetSprite(ecsmolg3.spr)
+  Frames(0 9 1)
+  Link(smokecolumn_1_animation)
+}
+
+;small smoke column animation
+DefineAnimationType(e_smor_animation)
+{
+  SetSprite(ecsmolg1.spr)
+  Frames(0 14 1)
+  Link(e_smor_animation)
+}
+
+
+;death 1 animation
+DefineAnimationType(death_1_animation)
+{
+  SetSprite(ecexpmd1.spr)
+  Frames(0 12 1)
+}
+
+; medium smoke column
+DefineAnimationType(e_smoq_animation)
+{
+  SetSprite(ecsmolg0.spr)
+  Frames(0 10 1)
+  Link(e_smoq_animation)
+}
+
+; small flames
+DefineAnimationType(e_smfb_animation)
+{
+  SetSprite(ecfirsm1.spr)
+  Frames(0 6 1)
+  Link(e_smfb_animation)
+}
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;smoke puffs
+DefineAnimationType(e_spfa_animation)
+{
+  SetSprite(ecsmosm0.spr)
+  Frames(0 9 1)
+}
+
+;building explosion
+DefineAnimationType(e_nexp_animation)
+{
+  SetSprite(ecexplg2.spr)
+  Frames(0 12 1)
+}
+
+
+
+; large flames
+DefineAnimationType(e_firb_animation)
+{
+  SetSprite(ecfirlg0.spr)
+  Frames(0 7 1)
+  Link(e_firb_animation)
+}
+
+; big death explosion
+DefineAnimationType(e_nvxp_animation)
+{
+  SetSprite(ecexpmd0.spr)
+  Frames(0 14 1)
+}
+
+
+;-------------- projectiles
+
+;big laser projectile animation
+DefineAnimationType(big_laser_animation)
+{
+  SetSprite(ecprj001.spr)
+  Frame(0 10000)
+  Link(big_laser_animation)
+}
+
+;rifle laser projectile animation
+DefineAnimationType(rifle_laser_animation)
+{
+  SetSprite(ecprj006.spr)
+  Frame(0 1000)
+  Link(rifle_laser_animation)
+}
+
+;pistol laser projectile animation
+DefineAnimationType(pistol_laser_animation)
+{
+  SetSprite(ecprj003.spr)
+  Frame(0 10000)
+  Link(pistol_laser_animation)
+}
+
+;biggest laser animation
+DefineAnimationType(biggest_laser_animation)
+{
+  SetSprite(ecprj004.spr)
+  Frame(0 1)
+  Link(biggest_laser_animation)
+}
+
+
+;photon torpedo animation
+DefineAnimationType(photon_torpedo_animation)
+{
+  SetSprite(ecprjsp2.spr)
+  Frames(0 8 5)
+  Link(photon_torpedo_animation)
+}
+
+;blaster animation
+DefineAnimationType(pulse_blaster_animation)
+{
+  SetSprite(ecprjsp0.spr)
+  Frames(0 5 2)
+  Link(pulse_blaster_animation)
+}
+
+;pulse laser animation
+DefineAnimationType(pulse_laser_animation)
+{
+  SetSprite(ecprjsp3.spr)
+  Frames(0 6 3)
+  Link(pulse_laser_animation)
+}
+
+;lightning bolt animation
+DefineAnimationType(lightning_bolt_animation)
+{
+  SetSprite(ecprjsp1.spr)
+  Frames(0 8 2)
+  Link(lightning_bolt_animation)
+}
+
+;vtol gun animation
+DefineAnimationType(vtol_gun_animation)
+{
+  SetSprite(ecprjsp5.spr)
+  Frame(0 10000)
+  Link(vtol_gun_animation)
+}
+
+; ----------------------
+; Building Explosions
+
+DefineAnimationType(eofirlg0_animation)
+{
+  SetSprite(eofirlg0.spr)
+  Frames(0 10 1)
+  Link(eofirlg0_animation)
+}
+
+DefineAnimationType(eofirmd0_animation)
+{
+  SetSprite(eofirmd0.spr)
+  Frames(0 10 1)
+  Link(eofirmd0_animation)
+}
+
+DefineAnimationType(eofirsm0_animation)
+{
+  SetSprite(eofirsm0.spr)
+  Frames(0 10 1)
+  Link(eofirsm0_animation)
+}
+
+DefineAnimationType(eodebmd0_animation)
+{
+  SetSprite(eodebmd0.spr)
+  Frames(0 11 2)
+}
+
+DefineAnimationType(eodeblg0_animation)
+{
+  SetSprite(eodeblg0.spr)
+  Frames(0 10 2)
+}
+
+DefineAnimationType(eodebmd1_animation)
+{
+  SetSprite(eodebmd1.spr)
+  Frames(0 9 2)
+}
+
+DefineAnimationType(eodebmd2_animation)
+{
+  SetSprite(eodebmd2.spr)
+  Frames(0 17 1)
+}
+
+DefineAnimationType(eodeblg1_animation)
+{
+  SetSprite(eodeblg1.spr)
+  Frames(0 9 2)
+}
+
+DefineAnimationType(eodeblg2_animation)
+{
+  SetSprite(eodeblg2.spr)
+  Frames(0 9 2)
+}
+
+DefineAnimationType(eodeblg3_animation)
+{
+  SetSprite(eodeblg3.spr)
+  Frames(0 22 1)
+}
+
+DefineAnimationType(eodebsp3_animation)
+{
+  SetSprite(eodebsp3.spr)
+  Frames(0 22 1)
+}
+
+;-------- gun hits
+
+
+;smoke puff1
+DefineAnimationType(smoke_puff_2_animation)
+{
+  SetSprite(ecsmosm1.spr)
+  Frames(0 9 1)
+}
+
+
+
+
+
+;tachyon explosion
+DefineAnimationType(tachyon_animation)
+{
+  SetSprite(ecexplg1.spr)
+  Frames(0 12 1)
+}
+
+
+DefineAnimationType(death_with_sparks_animation)
+{
+  SetSprite(ecexpmd1.spr)
+  Frames(0 12 1)
+}
+
+; Medium explosion, flames
+DefineAnimationType(airexplode_animation)
+{
+  SetSprite(ecexpsm1.spr)
+  Frames(0 10 1)
+}
+
+; Standard Bullet
+DefineAnimationType(stdbullet_animation)
+{
+  SetSprite(ecprj000.spr)
+  Frame(0 10000)
+  Link(stdbullet_animation)
+}
+
+; Small Crater
+DefineAnimationType(smcrater_animation)
+{
+  SetSprite(aoctr000.spr)
+  Frame(0 10000)
+  Link(smcrater_animation)
+}
+
+; Medium Crater
+DefineAnimationType(medcrater_animation)
+{
+  SetSprite(aoctr001.spr)
+  Frame(0 10000)
+  Link(medcrater_animation)
+}
+
+DefineAnimationType(medcrater_shadow_animation)
+{
+  SetSprite(aoctr1sh.spr)
+  Frame(0 10000)
+  Link(medcrater_shadow_animation)
+}
+
+; Large Crater
+DefineAnimationType(largecrater_animation)
+{
+  SetSprite(aoctr002.spr)
+  Frame(0 10000)
+  Link(largecrater_animation)
+}
+
+DefineAnimationType(largercrater_animation)
+{
+  SetSprite(aoctr003.spr)
+  Frame(0 10000)
+  Link(largercrater_animation)
+}
+
+DefineAnimationType(hugecrater1_animation)
+{
+  SetSprite(aoctr004.spr)
+  Frame(0 10000)
+  Link(hugecrater1_animation)
+}
+
+; Civilian Bridge H Crater
+DefineAnimationType(bridgehcrater2_animation)
+{
+  SetSprite(aoctr005.spr)
+  Frame(0 10000)
+  Link(bridgehcrater2_animation)
+}
+
+; Civilian Bridge V crater
+DefineAnimationType(bridgevcrater3_animation)
+{
+  SetSprite(aoctr006.spr)
+  Frame(0 10000)
+  Link(bridgevcrater3_animation)
+}
+
+; Bridge center crater
+DefineAnimationType(bridgeccrater4_animation)
+{
+  SetSprite(aoctr007.spr)
+  Frame(0 10000)
+  Link(bridgeccrater4_animation)
+}
+
+; Bridge H crater
+DefineAnimationType(bridgehcrater5_animation)
+{
+  SetSprite(aoctr008.spr)
+  Frame(0 10000)
+  Link(bridgehcrater5_animation)
+}
+
+; Bridge crater
+DefineAnimationType(bridgevcrater6_animation)
+{
+  SetSprite(aoctr009.spr)
+  Frame(0 10000)
+  Link(bridgevcrater6_animation)
+}
+
+
+
+DefineAnimationType(smoq_animation)     ; light smoke upwards
+{
+    SetSprite(ecsmolg0.spr)
+    Frames(0 10 1)                      ; firstframe, lastframe, cycles
+    Link(smoq_animation)                ; animationid
+}
+
+
+DefineAnimationType(missile1_animation) ; missile
+{
+    SetSprite(ecprj007.spr)
+    Frames(0 2 1)
+    Link(missile1_animation)                ; animationid
+}
+
+
+DefineAnimationType(smor_animation)     ; medium smoke upwards
+{
+    SetSprite(eosmopf1.spr)
+    Frames(0 9 1)
+    Link(smor_animation)
+}
+
+DefineAnimationType(smos_animation)     ; heavy smoke upwards
+{
+    SetSprite(ecsmolg2.spr)
+    Frames(0 14 1)
+    Link(smos_animation)
+}
+
+DefineAnimationType(smot_animation)     ; light smoke upwards to left
+{
+    SetSprite(ecsmolg3.spr)
+    Frames(0 9 1)
+    Link(smot_animation)
+}
+
+DefineAnimationType(smou_animation)    ; heavy smoke upwards (with light flame)
+{
+    SetSprite(ecsmolg4.spr)
+    Frames(0 14 1)
+    Link(smou_animation)
+}
+
+DefineAnimationType(smov_animation)    ; heavy smoke upwards (with heavier flame)
+{
+    SetSprite(ecsmolg5.spr)
+    Frames(0 10 1)
+    Link(smov_animation)
+}
+
+DefineAnimationType(mdfc_animation)   ; fire explosion with light scattered fireballs
+{
+    SetSprite(ecexpsp0.spr)
+    Frames(0 15 1)
+}
+
+DefineAnimationType(nuke_animation)   ; medium explosion with 2 plumes, and concentric circles of smoke
+{
+    SetSprite(ecexpsp1.spr)
+    Frames(0 16 1)
+}
+
+DefineAnimationType(electric_blue_animation)  ; blue electric plasma explosion
+{
+    SetSprite(ecexplg1.spr)
+    Frames(0 12 1)
+}
+
+DefineAnimationType(electric_purple_animation)  ; small orange smoke explosion with purple sparks
+{
+    SetSprite(ecexpsm0.spr)
+    Frames(0 14 1)
+}
+
+DefineAnimationType(gun_dest_med_animation)  ; medium gun shot on target
+{
+    SetSprite(ecprj005.spr)
+    Frames(0 10 1)
+}
+
+DefineAnimationType(smallfired_animation)  ; medium fire
+{
+    SetSprite(ecfirsm2.spr)
+    Frames(0 8 1)
+    Link(smallfired_animation)
+}
+
+; ===================================
+;
+; Overlay animations
+;
+; ===================================
+
+DefineAnimationType(clif1_animation)
+{
+  SetSprite(aoclf000.spr)
+  Frame(0 10000)
+  Link(clif1_animation)
+}
+
+DefineAnimationType(clif1_shadow_animation)
+{
+  SetSprite(aoclf0sh.spr)
+  Frame(0 10000)
+  Link(clif1_shadow_animation)
+}
+
+
+DefineAnimationType(clif2_animation)
+{
+  SetSprite(aoclf001.spr)
+  Frame(0 10000)
+  Link(clif2_animation)
+}
+
+DefineAnimationType(clif2_shadow_animation)
+{
+  SetSprite(aoclf1sh.spr)
+  Frame(0 10000)
+  Link(clif2_shadow_animation)
+}
+
+DefineAnimationType(clif3_animation)
+{
+  SetSprite(aoclf002.spr)
+  Frame(0 10000)
+  Link(clif3_animation)
+}
+
+DefineAnimationType(clif3_shadow_animation)
+{
+  SetSprite(aoclf2sh.spr)
+  Frame(0 10000)
+  Link(clif3_shadow_animation)
+}
+
+DefineAnimationType(clif4_animation)
+{
+  SetSprite(aoclf003.spr)
+  Frame(0 10000)
+  Link(clif4_animation)
+}
+
+DefineAnimationType(clif4_shadow_animation)
+{
+  SetSprite(aoclf3sh.spr)
+  Frame(0 10000)
+  Link(clif4_shadow_animation)
+}
+
+DefineAnimationType(clif5_animation)
+{
+  SetSprite(aoclf004.spr)
+  Frame(0 10000)
+  Link(clif5_animation)
+}
+
+DefineAnimationType(clif5_shadow_animation)
+{
+  SetSprite(aoclf4sh.spr)
+  Frame(0 10000)
+  Link(clif5_shadow_animation)
+}
+
+DefineAnimationType(clif6_animation)
+{
+  SetSprite(aoclf005.spr)
+  Frame(0 10000)
+  Link(clif6_animation)
+}
+
+DefineAnimationType(clif6_shadow_animation)
+{
+  SetSprite(aoclf5sh.spr)
+  Frame(0 10000)
+  Link(clif6_shadow_animation)
+}
+
+
+
+DefineAnimationType(plnt1_animation)
+{
+  SetSprite(aopln000.spr)
+  Frame(0 10000)
+  Link(plnt1_animation)
+}
+
+DefineAnimationType(plnt1_shadow_animation)
+{
+  SetSprite(aopln0sh.spr)
+  Frame(0 10000)
+  Link(plnt1_shadow_animation)
+}
+
+
+DefineAnimationType(plnt2_animation)
+{
+  SetSprite(aopln001.spr)
+  Frame(0 10000)
+  Link(plnt2_animation)
+}
+
+DefineAnimationType(plnt2_shadow_animation)
+{
+  SetSprite(aopln1sh.spr)
+  Frame(0 10000)
+  Link(plnt2_shadow_animation)
+}
+
+DefineAnimationType(plnt3_animation)
+{
+  SetSprite(aopln002.spr)
+  Frame(0 10000)
+  Link(plnt3_animation)
+}
+
+
+DefineAnimationType(plnt3_shadow_animation)
+{
+  SetSprite(aopln2sh.spr)
+  Frame(0 10000)
+  Link(plnt3_shadow_animation)
+}
+
+DefineAnimationType(rock1_animation)
+{
+  SetSprite(aoroc000.spr)
+  Frame(0 10000)
+  Link(rock1_animation)
+}
+
+DefineAnimationType(rock1_shadow_animation)
+{
+  SetSprite(aoroc0sh.spr)
+  Frame(0 10000)
+  Link(rock1_shadow_animation)
+}
+
+DefineAnimationType(rock2_animation)
+{
+  SetSprite(aoroc001.spr)
+  Frame(0 10000)
+  Link(rock2_animation)
+}
+
+DefineAnimationType(rock2_shadow_animation)
+{
+  SetSprite(aoroc1sh.spr)
+  Frame(0 10000)
+  Link(rock2_shadow_animation)
+}
+
+DefineAnimationType(rock3_animation)
+{
+  SetSprite(aoroc002.spr)
+  Frame(0 10000)
+  Link(rock3_animation)
+}
+
+DefineAnimationType(rock3_shadow_animation)
+{
+  SetSprite(aoroc2sh.spr)
+  Frame(0 10000)
+  Link(rock3_shadow_animation)
+}
+
+DefineAnimationType(rock4_animation)
+{
+  SetSprite(aoroc003.spr)
+  Frame(0 10000)
+  Link(rock4_animation)
+}
+
+DefineAnimationType(rock4_shadow_animation)
+{
+  SetSprite(aoroc3sh.spr)
+  Frame(0 10000)
+  Link(rock4_shadow_animation)
+}
+
+DefineAnimationType(rock5_animation)
+{
+  SetSprite(aoroc004.spr)
+  Frame(0 10000)
+  Link(rock5_animation)
+}
+
+DefineAnimationType(rock5_shadow_animation)
+{
+  SetSprite(aoroc4sh.spr)
+  Frame(0 10000)
+  Link(rock5_shadow_animation)
+}
+
+DefineAnimationType(rock6_animation)
+{
+  SetSprite(aoroc005.spr)
+  Frame(0 10000)
+  Link(rock6_animation)
+}
+
+DefineAnimationType(rock6_shadow_animation)
+{
+  SetSprite(aoroc5sh.spr)
+  Frame(0 10000)
+  Link(rock6_shadow_animation)
+}
+
+
+
+DefineAnimationType(tree1_animation)
+{
+  SetSprite(aotre000.spr)
+  Frame(0 10000)
+  Link(tree1_animation)
+}
+
+DefineAnimationType(tree1_shadow_animation)
+{
+  SetSprite(aotre0sh.spr)
+  Frame(0 10000)
+  Link(tree1_shadow_animation)
+}
+
+
+DefineAnimationType(tree2_animation)
+{
+  SetSprite(aotre001.spr)
+  Frame(0 10000)
+  Link(tree2_animation)
+}
+
+DefineAnimationType(tree2_shadow_animation)
+{
+  SetSprite(aotre1sh.spr)
+  Frame(0 10000)
+  Link(tree2_shadow_animation)
+}
+
+DefineAnimationType(tree3_animation)
+{
+  SetSprite(aotre002.spr)
+  Frame(0 10000)
+  Link(tree3_animation)
+}
+
+DefineAnimationType(tree3_shadow_animation)
+{
+  SetSprite(aotre2sh.spr)
+  Frame(0 10000)
+  Link(tree3_shadow_animation)
+}
+
+DefineAnimationType(tree4_animation)
+{
+  SetSprite(aotre003.spr)
+  Frame(0 10000)
+  Link(tree4_animation)
+}
+
+DefineAnimationType(tree4_shadow_animation)
+{
+  SetSprite(aotre3sh.spr)
+  Frame(0 10000)
+  Link(tree4_shadow_animation)
+}
+
+DefineAnimationType(tree5_animation)
+{
+  SetSprite(aotre004.spr)
+  Frame(0 10000)
+  Link(tree5_animation)
+}
+
+DefineAnimationType(tree5_shadow_animation)
+{
+  SetSprite(aotre4sh.spr)
+  Frame(0 10000)
+  Link(tree5_shadow_animation)
+}
+
+DefineAnimationType(tree6_animation)
+{
+  SetSprite(aotre005.spr)
+  Frame(0 10000)
+  Link(tree6_animation)
+}
+
+DefineAnimationType(tree6_shadow_animation)
+{
+  SetSprite(aotre5sh.spr)
+  Frame(0 10000)
+  Link(tree6_shadow_animation)
+}
+
+
+DefineAnimationType(wreck1_animation)
+{
+  SetSprite(aowrk000.spr)
+  Frame(0 10000)
+  Link(wreck1_animation)
+}
+
+DefineAnimationType(wreck1_shadow_animation)
+{
+  SetSprite(aowrk0sh.spr)
+  Frame(0 10000)
+  Link(wreck1_shadow_animation)
+}
+
+DefineAnimationType(wreck2_animation)
+{
+  SetSprite(aowrk001.spr)
+  Frame(0 10000)
+  Link(wreck2_animation)
+}
+
+DefineAnimationType(wreck2_shadow_animation)
+{
+  SetSprite(aowrk1sh.spr)
+  Frame(0 10000)
+  Link(wreck2_shadow_animation)
+}
+
+DefineAnimationType(wreck3_animation)
+{
+  SetSprite(aowrk002.spr)
+  Frame(0 10000)
+  Link(wreck3_animation)
+}
+
+DefineAnimationType(wreck3_shadow_animation)
+{
+  SetSprite(aowrk2sh.spr)
+  Frame(0 10000)
+  Link(wreck3_shadow_animation)
+}
+
+DefineAnimationType(rubble1_animation)
+{
+  SetSprite(aorub000.spr)
+  Frame(0 10000)
+  Link(rubble1_animation)
+}
+
+DefineAnimationType(rubble1_shadow_animation)
+{
+  SetSprite(aorub0sh.spr)
+  Frame(0 10000)
+  Link(rubble1_shadow_animation)
+}
+
+DefineAnimationType(rubble2_animation)
+{
+  SetSprite(aorub001.spr)
+  Frame(0 10000)
+  Link(rubble2_animation)
+}
+
+DefineAnimationType(rubble2_shadow_animation)
+{
+  SetSprite(aorub1sh.spr)
+  Frame(0 10000)
+  Link(rubble2_shadow_animation)
+}
+
+DefineAnimationType(rubble3_animation)
+{
+  SetSprite(aorub002.spr)
+  Frame(0 10000)
+  Link(rubble3_animation)
+}
+
+DefineAnimationType(rubble3_shadow_animation)
+{
+  SetSprite(aorub2sh.spr)
+  Frame(0 10000)
+  Link(rubble3_shadow_animation)
+}
+
+
+DefineAnimationType(special1_animation)
+{
+  SetSprite(aospc000.spr)
+  Frame(0 10000)
+  Link(special1_animation)
+}
+
+DefineAnimationType(special1_shadow_animation)
+{
+  SetSprite(aospc0sh.spr)
+  Frame(0 10000)
+  Link(special1_shadow_animation)
+}
+
+DefineAnimationType(water1_animation)
+{
+  SetSprite(aowtr000.spr)
+  Frame(0 10000)
+  Link(water1_animation)
+}
+
+DefineAnimationType(water1_shadow_animation)
+{
+  SetSprite(aowtr0sh.spr)
+  Frame(0 10000)
+  Link(water1_shadow_animation)
+}
+
+DefineAnimationType(water2_animation)
+{
+  SetSprite(aowtr001.spr)
+  Frame(0 10000)
+  Link(water2_animation)
+}
+
+DefineAnimationType(water2_shadow_animation)
+{
+  SetSprite(aowtr1sh.spr)
+  Frame(0 10000)
+  Link(water2_shadow_animation)
+}
+
+DefineAnimationType(water3_animation)
+{
+  SetSprite(aowtr002.spr)
+  Frame(0 10000)
+  Link(water3_animation)
+}
+
+DefineAnimationType(water3_shadow_animation)
+{
+  SetSprite(aowtr2sh.spr)
+  Frame(0 10000)
+  Link(water3_shadow_animation)
+}
+
+DefineAnimationType(misc1_animation)
+{
+  SetSprite(aomsc000.spr)
+  Frame(0 10000)
+  Link(misc1_animation)
+}
+
+DefineAnimationType(misc1_shadow_animation)
+{
+  SetSprite(aomsc0sh.spr)
+  Frame(0 10000)
+  Link(misc1_shadow_animation)
+}
+
+DefineAnimationType(misc2_animation)
+{
+  SetSprite(aomsc001.spr)
+  Frame(0 10000)
+  Link(misc2_animation)
+}
+
+DefineAnimationType(misc2_shadow_animation)
+{
+  SetSprite(aomsc1sh.spr)
+  Frame(0 10000)
+  Link(misc2_shadow_animation)
+}
+
+DefineAnimationType(misc3_animation)
+{
+  SetSprite(aomsc002.spr)
+  Frame(0 10000)
+  Link(misc3_animation)
+}
+
+DefineAnimationType(misc3_shadow_animation)
+{
+  SetSprite(aomsc2sh.spr)
+  Frame(0 10000)
+  Link(misc3_shadow_animation)
+}
+
+;; Tristan's new amended projectiles
+
+; animation for hte exterminator's weapon explosion
+DefineAnimationType(eorfgex0_animation)
+{
+  SetSprite(eorfgex0.spr)
+  Frames(0 21 1)
+}
+
+; animation for the exterminator's weapon persistence
+DefineAnimationType(eorfgex1_animation)
+{
+  SetSprite(eorfgex1.spr)
+  Frames(0 25 1)
+}
+
+; animation for the exterminator's projectile
+DefineAnimationType(eorfgpr0_animation)
+{
+  SetSprite(eorfgpr0.spr)
+  Frame(0 1)
+  Link(eorfgpr0_animation)
+}
+
+DefineAnimationType(eofarpr0_animation)
+{
+  SetSprite(eofarpr0.spr)
+  Frames(0 2 1)
+  Link(eofarpr0_animation)
+}
+
+
+DefineAnimationType(eofarex1_animation)
+{
+  SetSprite(eofarex1.spr)
+  Frames(0 25 1)
+}
+
+DefineAnimationType(eofarex0_animation)
+{
+  SetSprite(eofarex0.spr)
+  Frames(0 20 1)
+}
+
+DefineAnimationType(eolasex0_animation)
+{
+  SetSprite(eolasex0.spr)
+  Frames(0 6 1)
+}
+
+DefineAnimationType(eolasex1_animation)
+{
+  SetSprite(eolasex1.spr)
+  Frames(0 6 1)
+}
+
+; this laser puff is large and should be used for large laser fire
+DefineAnimationType(eolasex2_animation)
+{
+  SetSprite(eolasex2.spr)
+  Frames(0 18 1)
+}
+
+; this laser puff is very small and should be used for rifle fire
+DefineAnimationType(eolasex3_animation)
+{
+  SetSprite(eolasex3.spr)
+  Frames(0 12 1)
+}
+
+DefineAnimationType(eolasex5_animation)
+{
+  SetSprite(eolasex5.spr)
+  Frames(0 6 1)
+}
+
+
+
+;This is a small smoke puff used for a missile puff
+DefineAnimationType(eovapex0_animation)
+{
+  SetSprite(eovapex0.spr)
+  Frames(0 10 1)
+}
+
+DefineAnimationType(eopamex0_animation)
+{
+  SetSprite(eopamex0.spr)
+  Frames(0 6 1)
+}
+
+
+DefineAnimationType(eomispr0_animation)
+{
+  SetSprite(eomispr0.spr)
+  Frames(0 2 1)
+  Link(eomispr0_animation)
+}
+
+DefineAnimationType(eomispr1_animation)
+{
+  SetSprite(eomispr1.spr)
+  Frames(0 2 1)
+  Link(eomispr1_animation)
+}
+
+DefineAnimationType(eomispr2_animation)
+{
+  SetSprite(eomispr2.spr)
+  Frames(0 2 1)
+  Link(eomispr2_animation)
+}
+
+DefineAnimationType(eomispr4_animation)
+{
+  SetSprite(eomispr4.spr)
+  Frames(0 3 1)
+  Link(eomispr4_animation)
+}
+
+DefineAnimationType(eoncnpr1_animation)
+{
+  SetSprite(eoncnpr1.spr)
+  Frames(0 5 1)
+  Link(eoncnpr1_animation)
+}
+
+DefineAnimationType(eoorbpr0_animation)
+{
+  SetSprite(eoorbpr0.spr)
+  Frames(0 5 1)
+  Link(eoorbpr0_animation)
+}
+
+; really cool plasma splats
+DefineAnimationType(eoplsex4_animation)
+{
+  SetSprite(eoplsex4.spr)
+  Frames(0 17 1)
+}
+
+DefineAnimationType(eoplsex0_animation)
+{
+  SetSprite(eoplsex0.spr)
+  Frames(0 15 1)
+}
+
+DefineAnimationType(eoplsex1_animation)
+{
+  SetSprite(eoplsex1.spr)
+  Frames(0 15 1)
+}
+
+DefineAnimationType(eoplsex2_animation)
+{
+  SetSprite(eoplsex2.spr)
+  Frames(0 15 1)
+}
+
+DefineAnimationType(eoplsex3_animation)
+{
+  SetSprite(eoplsex3.spr)
+  Frames(0 15 1)
+}
+
+
+DefineAnimationType(eoplspr0_animation)
+{
+  SetSprite(eoplspr0.spr)
+  Frames(0 3 1)
+  Link(eoplspr0_animation)
+}
+
+DefineAnimationType(eoplspr1_animation)
+{
+  SetSprite(eoplspr1.spr)
+  Frames(0 3 1)
+  Link(eoplspr1_animation)
+}
+
+DefineAnimationType(eoplspr2_animation)
+{
+  SetSprite(eoplspr2.spr)
+  Frames(0 3 1)
+  Link(eoplspr2_animation)
+}
+
+DefineAnimationType(eoiarex0_animation)
+{
+  SetSprite(eoiarex0.spr)
+  Frames(0 19 1)
+}
+
+
+DefineAnimationType(eoiarex1_animation)
+{
+  SetSprite(eoiarex1.spr)
+  Frames(0 17 1)
+}
+
+DefineAnimationType(eoiarex2_animation)
+{
+  SetSprite(eoiarex2.spr)
+  Frames(0 20 1)
+}
+
+DefineAnimationType(eoiarpr0_animation)
+{
+  SetSprite(eoiarpr0.spr)
+  Frames(0 17 1)
+  Link(eoiarpr0_animation)
+}
+
+DefineAnimationType(eorgnpr0_animation)
+{
+  SetSprite(eorgnpr0.spr)
+  Frames(0 2 1)
+  Link(eorgnpr0_animation)
+}
+
+DefineAnimationType(eorgnpr1_animation)
+{
+  SetSprite(eorgnpr1.spr)
+  Frames(0 2 1)
+  Link(eorgnpr1_animation)
+}
+
+DefineAnimationType(eorgnpr2_animation)
+{
+  SetSprite(eorgnpr2.spr)
+  Frames(0 2 1)
+  Link(eorgnpr2_animation)
+}
+
+DefineAnimationType(eorgnpr3_animation)
+{
+  SetSprite(eorgnpr3.spr)
+  Frames(0 2 1)
+  Link(eorgnpr3_animation)
+}
+
+DefineAnimationType(eorgnpr4_animation)
+{
+  SetSprite(eorgnpr4.spr)
+  Frames(0 2 1)
+  Link(eorgnpr4_animation)
+}
+
+DefineAnimationType(eorgnpr5_animation)
+{
+  SetSprite(eorgnpr5.spr)
+  Frames(0 1 1)
+  Link(eorgnpr5_animation)
+}
+
+
+DefineAnimationType(eorgnex0_animation)
+{
+  SetSprite(eorgnex0.spr)
+  Frames(0 13 1)
+
+}
+
+DefineAnimationType(eorgnex1_animation)
+{
+  SetSprite(eorgnex1.spr)
+  Frames(0 13 1)
+}
+
+DefineAnimationType(eorgnex2_animation)
+{
+  SetSprite(eorgnex2.spr)
+  Frames(0 10 1)
+}
+
+DefineAnimationType(eothnex0_animation)
+{
+  SetSprite(eothnex0.spr)
+  Frames(0 27 1)
+}
+
+DefineAnimationType(eothnpr0_animation)
+{
+  SetSprite(eothnpr0.spr)
+  Frames(0 6 1)
+  Link(eothnpr0_animation)
+}
+
+DefineAnimationType(eolaspr0_animation)
+{
+  SetSprite(eolaspr0.spr)
+  Frames(0 2 1)
+  Link(eolaspr0_animation)
+}
+
+DefineAnimationType(eolaspr1_animation)
+{
+  SetSprite(eolaspr1.spr)
+  Frames(0 2 1)
+  Link(eolaspr1_animation)
+}
+
+DefineAnimationType(eolaspr2_animation)
+{
+  SetSprite(eolaspr2.spr)
+  Frame(0 1)
+  Link(eolaspr2_animation)
+}
+
+DefineAnimationType(eolaspr3_animation)
+{
+  SetSprite(eolaspr3.spr)
+  Frame(0 1)
+  Link(eolaspr3_animation)
+}
+
+DefineAnimationType(eolaspr4_animation)
+{
+  SetSprite(eolaspr4.spr)
+  Frame(0 1)
+  Link(eolaspr4_animation)
+}
+
+
+
+DefineAnimationType(eoncnex0_animation)
+{
+  SetSprite(eoncnex0.spr)
+  Frames(0 21 1)
+}
+
+;used in the tachyon tank's hit explosion
+DefineAnimationType(eotacex0_animation)
+{
+  SetSprite(eotacex0.spr)
+  Frames(0 16 1)
+}
+
+DefineAnimationType(eotacpr0_animation)
+{
+  SetSprite(eotacpr0.spr)
+  Frames(0 5 1)
+  Link(eotacpr0_animation)
+}
+
+
+DefineAnimationType(eochfex0_animation)
+{
+  SetSprite(eochfex0.spr)
+  Frames(0 14 1)
+}
+
+;for the explosion part
+DefineAnimationType(eochfex1_animation)
+{
+  SetSprite(eochfex1.spr)
+  Frames(0 14 1)
+}
+
+;for the persisten damage part of the chaff explosion
+DefineAnimationType(eochfex1_persistent_animation)
+{
+  SetSprite(eochfex1.spr)
+  Frames(10 1 2)
+}
+
+
+DefineAnimationType(eochfex2_animation)
+{
+  SetSprite(eochfex2.spr)
+  Frames(0 15 1)
+}
+
+
+DefineAnimationType(eochfex3_animation)
+{
+  SetSprite(eochfex3.spr)
+  Frames(0 14 1)
+}
+
+DefineAnimationType(eochfpr0_animation)
+{
+  SetSprite(eochfpr0.spr)
+  Frames(0 2 1)
+}
+
+
+; skirmish tank hit explosion
+DefineAnimationType(eosktex0_animation)
+{
+  SetSprite(eosktex0.spr)
+  Frames(0 14 1)
+}
+
+;outrider blast hit explosion
+DefineAnimationType(eooutex0_animation)
+{
+  SetSprite(eooutex0.spr)
+  Frames(0 10 1)
+}
+
+;;
+;; Explosion Types
+;;
+;;
+;; Transparency Options
+;;
+;; translucentA0
+;; translucentA1
+;; translucentB0
+;; translucentB1
+;; light
+;; opaque
+
+DefineExplosionType(splata_explosion)
+{
+    PlayAnimation(0 0 100 splata_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(splatb_explosion)
+{
+    PlayAnimation(0 0 100 splatb_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(splatc_explosion)
+{
+    PlayAnimation(0 0 100 splatc_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(splatd_explosion)
+{
+    PlayAnimation(0 0 100 splatd_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+
+DefineExplosionType(smoq_explosion)
+{
+    PlayAnimation(0 0 100 smoq_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(smor_explosion)
+{
+    PlayAnimation(0 2 2 smor_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(smos_explosion)
+{
+    PlayAnimation(0 0 100 smos_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(smot_explosion)
+{
+    PlayAnimation(0 0 100 smot_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(smou_explosion)
+{
+    PlayAnimation(0 0 100 smou_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(smov_explosion)
+{
+    PlayAnimation(0 0 100 smov_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(mdfc_explosion)
+{
+    PlayAnimation(0 0 100 mdfc_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(nuke_explosion)
+{
+    PlayAnimation(0 0 100 nuke_animation translucentA0)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(electric_blue_explosion)
+{
+    PlayAnimation(0 0 100 electric_blue_animation opaque)
+}
+
+DefineExplosionType(smallfired_explosion)
+{
+    PlayAnimation(0 3 3 smallfired_animation translucentA1)   ;; startcycle, minhotspot, maxhotspot, animationid
+    PlayAnimation(0 2 2 smor_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(gun_dest_med_explosion)
+{
+    PlayAnimation(0 3 3 gun_dest_med_animation opaque)   ;; startcycle, minhotspot, maxhotspot, animationid
+}
+
+DefineExplosionType(air_explosion)
+{
+    PlayAnimation(0 3 3 airexplode_animation opaque)
+}
+
+DefineExplosionType(death_with_sparks_explosion)
+{
+    PlayAnimation(0 3 3 death_with_sparks_animation opaque)
+}
+
+DefineExplosionType(death_1_explosion)
+{
+    PlayAnimation(0 3 3 death_1_animation opaque)
+    PlayAnimation(0 3 3 lite2_animation light)
+}
+
+DefineExplosionType(tachyon_explosion)
+{
+    PlayAnimation(0 3 3 tachyon_animation opaque)
+    PlayAnimation(0 3 3 lite2_animation light)
+}
+
+DefineExplosionType(smoke_puff_2_explosion)
+{
+    PlayAnimation(0 3 3 smoke_puff_2_animation opaque)
+}
+
+;; Transparency Options
+;;
+;; translucentA0
+;; translucentA1
+;; translucentB0
+;; translucentB1
+;; light
+;; opaque
+
+;Gas Cloud for the exterminator
+DefineExplosionType(eorfgex0_explosion)
+{
+  PlayAnimation(0 3 3 eorfgex0_animation translucentA1)
+  PlayAnimation(22 3 3 eorfgex1_animation translucentA1)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+;HellStorm Artillery
+DefineExplosionType(eofarex0_explosion)
+{
+  PlayAnimation(0 1 0 eofarex1_animation opaque)
+  PlayAnimation(0 1 0 eofarex0_animation translucentB1)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+;Laser Hit
+DefineExplosionType(eolasex0_explosion)
+{
+  PlayAnimation(0 3 3 eolasex0_animation translucentB1)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+;LaserHit. Bigger
+DefineExplosionType(eolasex1_explosion)
+{
+  PlayAnimation(0 3 3 eolasex1_animation translucentB1)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+; laser puff, large, drifting right
+DefineExplosionType(eolasex2_explosion)
+{
+  PlayAnimation(0 3 3 eolasex2_animation translucentB1)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+;ambush tank
+DefineExplosionType(ambushtank_explosion)
+{
+  PlayAnimation(0 0 0 eolasex2_animation translucentB1)
+  PlayAnimation(0 0 0 eolasex5_animation opaque)
+  PlayAnimation(0 0 0 lite2_animation light)
+}
+
+; sky fortress cannon hit explosion
+DefineExplosionType(fortress_hit_explosion)
+{
+  PlayAnimation(0 3 3 eoplsex4_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+  PlayAnimation(0 3 3 eoplsex0_animation opaque)
+  PlayAnimation(0 3 3 eoplsex2_animation opaque)
+}
+
+
+
+;laser puff, very small, drifting right
+DefineExplosionType(eolasex3_explosion)
+{
+  PlayAnimation(0 3 3 eolasex3_animation translucentB1)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+
+;Plasma (bion)
+DefineExplosionType(eoplsex0_explosion)
+{
+  PlayAnimation(0 3 3 eoplsex0_animation translucentA1)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+;Plasma Bigger
+DefineExplosionType(eoplsex1_explosion)
+{
+  PlayAnimation(0 3 3 eoplsex4_animation opaque)
+  PlayAnimation(0 3 3 eoplsex1_animation translucentA0)
+  PlayAnimation(0 3 3 eoplsex2_animation translucentA1)
+  PlayAnimation(0 3 3 eoplsex3_animation translucentB1)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+;Plasma Tank
+DefineExplosionType(eoplsex2_explosion)
+{
+  PlayAnimation(0 3 3 eoplsex2_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+
+;Scarab
+DefineExplosionType(eoiarex0_explosion)
+{
+  PlayAnimation(0 3 3 eoiarex0_animation opaque)
+  PlayAnimation(0 3 3 eoiarex1_animation opaque)
+  PlayAnimation(15 3 3 eoiarex2_animation opaque)
+}
+
+;
+DefineExplosionType(eosmosm0_explosion)
+{
+  PlayAnimation(0 3 3 eosmosm0_animation translucentA1)
+}
+
+DefineExplosionType(eosmosm1_explosion)
+{
+  PlayAnimation(0 3 3 eosmosm1_animation translucentA1)
+}
+
+;Drifting Smoke Puff
+DefineExplosionType(eosmosm2_explosion)
+{
+  PlayAnimation(0 3 3 eosmosm2_animation translucentA1)
+}
+
+;Drifting Smoke Puff
+DefineExplosionType(eosmosm3_explosion)
+{
+  PlayAnimation(0 3 3 eosmosm3_animation translucentA1)
+}
+
+;Tank Hunter
+DefineExplosionType(eothnex0_explosion)
+{
+  PlayAnimation(0 3 3 eothnex0_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+;Rail Gun - Triple Rail
+DefineExplosionType(eorgnex0_explosion)
+{
+  PlayAnimation(0 3 3 eorgnex0_animation translucentB1)
+  PlayAnimation(0 0 0 eodebsp7_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+;RailGun
+DefineExplosionType(eorgnex1_explosion)
+{
+  PlayAnimation(0 3 3 eorgnex1_animation translucentB1)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+;RailGun - ?
+DefineExplosionType(eorgnex2_explosion)
+{
+  PlayAnimation(0 3 3 eorgnex2_animation translucentB1)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+DefineExplosionType(ecexpsp1_explosion)
+{
+  PlayAnimation(0 3 3 ecexpsp1_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+
+}
+
+DefineExplosionType(eoncnex0_explosion)
+{
+  PlayAnimation(0 3 3 eoncnex0_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+;Tachyon Tank Hit Explosion
+DefineExplosionType(eotacex0_explosion)
+{
+  PlayAnimation(0 0 0 eotacex0_animation opaque)
+  PlayAnimation(0 0 0 lite3_animation light)
+  PlayAnimation(0 0 0 eodebsp3_animation opaque)
+}
+
+DefineExplosionType(eodebmd0_explosion)
+{
+  PlayAnimation(0 3 3 eodebmd0_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+DefineExplosionType(eodeblg0_explosion)
+{
+  PlayAnimation(0 3 3 eodeblg0_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+DefineExplosionType(eodebmd1_explosion)
+{
+  PlayAnimation(0 3 3 eodebmd1_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+DefineExplosionType(eodeblg1_explosion)
+{
+  PlayAnimation(0 3 3 eodeblg1_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+}
+
+DefineExplosionType(eodeblg2_explosion)
+{
+  PlayAnimation(0 3 3 eodeblg2_animation opaque)
+  PlayAnimation(0 3 3 lite2_animation light)
+  PlayAnimation(0 3 3 lite1_animation light)
+}
+
+
+;----------- Building Health explosions
+
+DefineExplosionType(building_80_explosion)
+{
+  PlayAnimation(0 1 1 eoblamd0_animation opaque)
+  PlayAnimation(0 1 1 lite3_animation light)
+  PlayAnimation(0 1 3 holyrandom1_animation opaque)
+  PlayAnimation(0 1 3 eosmosm2loop_animation opaque)
+  PlayAnimation(0 1 3 eosmlfl0_animation opaque)
+  PlayAnimation(14 1 3 eobpfsm2_animation opaque)
+}
+
+DefineExplosionType(building_60_explosion)
+{
+  PlayAnimation(0 2 2 eoblamd1_animation opaque)
+  PlayAnimation(0 2 2 lite3_animation light)
+  PlayAnimation(0 1 3 eosmlfl1_animation opaque)
+  PlayAnimation(1 2 2 smallflames_1_animation opaque)
+  PlayAnimation(0 1 3 eomedsm1_animation opaque)
+  PlayAnimation(0 1 3 eosmlfl2_animation opaque)
+}
+
+DefineExplosionType(building_33_explosion)
+{
+  PlayAnimation(0 3 3 eoblalg0_animation opaque)
+  PlayAnimation(0 3 3 lite3_animation light)
+  PlayAnimation(0 1 3 eosmosm1_animation opaque)
+  PlayAnimation(0 1 3 eomedsm2_animation opaque)
+  PlayAnimation(0 1 3 eosmlfl1_animation opaque)
+  PlayAnimation(0 1 3 eosmlfl2_animation opaque)
+  PlayAnimation(0 1 3 eosmlfl3_animation opaque)
+  PlayAnimation(0 1 3 holyrandom1_animation opaque)
+  PlayAnimation(0 1 3 eosmosm2loop_animation opaque)
+  PlayAnimation(0 1 1 lite3_animation light)
+  PlayAnimation(0 1 3 eomedfl0_animation opaque)
+  PlayAnimation(34 1 3 eobpfsm1_animation opaque)
+}
+
+DefineExplosionType(building_0_explosion)
+{
+  PlayAnimation(0 3 3 eoblalg1_animation opaque)
+  PlayAnimation(0 3 3 lite3_animation light)
+  PlayAnimation(2 2 2 eoblalg0_animation opaque)
+  PlayAnimation(2 2 2 lite3_animation light)
+  PlayAnimation(4 1 1 eoblamd0_animation opaque)
+  PlayAnimation(4 1 1 lite3_animation light)
+  PlayAnimation(2 1 3 eobpfsm2_animation opaque)
+}
+
+; ------ Head quarters health explosions
+
+DefineExplosionType(headquarter_80_explosion)
+{
+  PlayAnimation(0 0 0 eoblamd0_animation opaque)
+  PlayAnimation(0 0 0 lite3_animation light)
+  PlayAnimation(4 1 3 holyrandom1_animation opaque)
+  PlayAnimation(0 1 3 eosmosm2loop_animation opaque)
+  PlayAnimation(0 1 3 eosmlfl0_animation opaque)
+  PlayAnimation(14 1 3 eobpfsm0_animation opaque)
+}
+
+DefineExplosionType(headquarter_60_explosion)
+{
+  PlayAnimation(0 2 2 eoblamd1_animation opaque)
+  PlayAnimation(0 2 2 lite3_animation light)
+  PlayAnimation(0 1 3 eosmlfl1_animation opaque)
+  PlayAnimation(6 1 3 eosmlfl2_animation opaque)
+}
+
+DefineExplosionType(headquarter_33_explosion)
+{
+  PlayAnimation(0 4 4 eoblalg0_animation opaque)
+  PlayAnimation(0 4 4 lite3_animation light)
+  PlayAnimation(0 1 3 eosmlfl1_animation opaque)
+  PlayAnimation(10 1 3 eosmlfl2_animation opaque)
+  PlayAnimation(4 1 3 holyrandom1_animation opaque)
+  PlayAnimation(0 1 3 holyrandom1_animation translucentA1)
+  PlayAnimation(0 1 3 eomedfl0_animation opaque)
+  PlayAnimation(34 1 3 eobpfsm2_animation opaque)
+}
+
+DefineExplosionType(headquarter_0_explosion)
+{
+  PlayAnimation(0 5 5 eoblalg1_animation opaque)
+  PlayAnimation(0 5 5 lite3_animation light)
+  PlayAnimation(2 3 3 eoblalg0_animation opaque)
+  PlayAnimation(2 3 3 lite3_animation light)
+  PlayAnimation(4 1 1 eoblamd0_animation opaque)
+  PlayAnimation(4 1 1 lite3_animation light)
+}
+
+; ------------- Flack Jack explosion +persistendamage
+DefineExplosionType(chaff_explosion)
+{
+  PlayAnimation(0 0 0 eochfex0_animation opaque)
+  PlayAnimation(0 0 0 eochfex1_animation translucentA1)
+;  PlayAnimation(0 0 0 eochfex3_animation translucentB1)
+; Persistent Damage
+  PlayAnimation(5 0 0 eochfex1_persistent_animation translucentA1)
+  PlayAnimation(5 0 0 eochfex2_animation opaque)
+  PlayAnimation(22 0 0 eochfex2_animation opaque)
+}
+
+; ----------- This is a small laser hit + small laser puff
+DefineExplosionType(smalllaser_hitpuff_explosion)
+{
+  PlayAnimation(0 0 0 eolasex0_animation opaque)
+  PlayAnimation(0 0 0 eolasex3_animation translucentA1)
+}
+
+; ----------- This is a small laser hit + small laser puff
+DefineExplosionType(largelaser_hitpuff_explosion)
+{
+  PlayAnimation(0 0 0 eolasex0_animation opaque)
+  PlayAnimation(0 0 0 eolasex2_animation translucentA1)
+}
+
+; ----------- This is the explosion used for the amper hit
+DefineExplosionType(eopamex0_explosion)
+{
+  PlayAnimation(0 0 0 eopamex0_animation translucentB0)
+}
+
+;------- This explosion is used for the a missile puff in flight
+DefineExplosionType(eovapex0_explosion)
+{
+  PlayAnimation(0 0 0 eovapex0_animation translucentA1)
+}
+
+; ---------- skirmish tank hit explosion
+DefineExplosionType(eosktex0_explosion)
+{
+  PlayAnimation(0 0 0 eoblatr0_animation opaque)
+  PlayAnimation(0 0 0 eosmosm0_animation translucentA0)
+  PlayAnimation(0 0 0 lite1_animation light)
+}
+
+DefineExplosionType(eosktex1_explosion)
+{
+  PlayAnimation(0 0 0 eoblatr1_animation opaque)
+  PlayAnimation(0 0 0 eosmosm0_animation translucentA0)
+  PlayAnimation(0 0 0 lite1_animation light)
+}
+
+
+; ------------ outrider hit explosion
+DefineExplosionType(eooutex0_explosion)
+{
+  PlayAnimation(0 0 0 eooutex0_animation opaque)
+  PlayAnimation(0 0 0 eosmosm0_animation translucentA0)
+  PlayAnimation(0 0 0 lite1_animation light)
+}
+
+; -------------- medium debris explosion
+DefineExplosionType(eodebmd2_explosion)
+{
+  PlayAnimation(0 0 0 eodebmd2_animation opaque)
+}
+
+; --------------- large debris explosion
+DefineExplosionType(eodeblg3_explosion)
+{
+  PlayAnimation(0 0 0 eodeblg3_animation opaque)
+}
+
+; Imperium Anti-air explosion
+
+DefineExplosionType(eoblatr0_explosion)
+{
+  PlayAnimation(0 0 0 eoblatr0_animation opaque)
+  PlayAnimation(0 0 0 lite1_animation light)
+}
+; Smoke Puffs
+DefineExplosionType(eobpfsm0_explosion)
+{
+  PlayAnimation(0 0 0 eobpfsm0_animation opaque)
+}
+
+DefineExplosionType(eobpfsm3_explosion)
+{
+  PlayAnimation(0 0 0 eobpfsm3_animation opaque)
+}
+
+DefineExplosionType(eobpfsm4_explosion)
+{
+  PlayAnimation(0 0 0 eobpfsm4_animation opaque)
+}
+
+; water well health explosions
+DefineExplosionType(wco1_explosion)
+{
+  PlayAnimation(0 5 5 wco1_animation opaque)
+}
+
+DefineExplosionType(wco2_explosion)
+{
+  PlayAnimation(0 5 5 wco2_animation opaque)
+}
+
+DefineExplosionType(wco3_explosion)
+{
+  PlayAnimation(0 5 5 wco3_animation opaque)
+}
+
+DefineExplosionType(eosmlfl0_explosion)
+{
+  PlayAnimation(0 3 5 eosmlfl0_animation opaque)
+}
+
+DefineExplosionType(eosmlfl1_explosion)
+{
+  PlayAnimation(0 3 5 eosmlfl1_animation opaque)
+}
+
+DefineExplosionType(eosmlfl2_explosion)
+{
+  PlayAnimation(0 3 5 eosmlfl2_animation opaque)
+}
+
+DefineExplosionType(eosmlfl3_explosion)
+{
+  PlayAnimation(0 3 5 eosmlfl3_animation opaque)
+}
+
+DefineExplosionType(eoblamd0_explosion)
+{
+  PlayAnimation(0 0 0 eoblamd0_animation opaque)
+}
+
+DefineExplosionType(eoblamd1_explosion)
+{
+  PlayAnimation(0 0 0 eoblamd1_animation opaque)
+}
+
+DefineExplosionType(bridge_explosion)
+{
+  PlayAnimation(0 1 1 eoblamd2_animation opaque)
+  PlayAnimation(0 2 2 eoblamd1_animation opaque)
+  PlayAnimation(0 3 3 eoblamd2_animation opaque)
+  PlayAnimation(0 1 3 eoblamd2_animation opaque)
+}
+
+DefineExplosionType(bridge2_explosion)
+{
+  PlayAnimation(0 1 1 eoblamd1_animation opaque)
+  PlayAnimation(0 2 2 eoblamd1_animation opaque)
+  PlayAnimation(0 3 3 eoblamd1_animation opaque)
+  PlayAnimation(0 4 4 eoblamd1_animation opaque)
+  PlayAnimation(0 1 4 eoblamd1_animation opaque)
+}

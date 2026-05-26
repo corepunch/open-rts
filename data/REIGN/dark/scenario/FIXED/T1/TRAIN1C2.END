@@ -1,0 +1,27 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this state waits for the player to begin the terrain test 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritAND()
+      {
+        CritHaveCredits( 100000 )
+        CritTeamInRegion( 3081 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 2 this state makes team 3 ally with the player 
+  DefineCondState()
+  {
+    SetAlliance( 2 1 2 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

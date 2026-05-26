@@ -1,0 +1,583 @@
+
+; AI Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+  TriggerMessage(GVIT5OL0)
+  TriggerMessage(GVIT5OL1)  
+  TriggerMessage(GVIT5OL2)
+}
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+ 
+  }
+;
+; Conditional State #3
+;
+  DefineCondState()
+  {
+    DefineCondition(4 0 0 50 "c1to2.txt")
+    {
+      CritTimer (200)
+    }  
+   TriggerMessage(GVIT5OL4) 
+}
+;
+; Conditional State #4
+;
+  DefineCondState()
+  {
+    DefineCondition(5 0 0 50 "c1to2.txt")
+    {
+     CritTimer(200)
+    }
+     GiveSpecialForces (101 0)  
+     SetAlliance(2 0 2 1 1 1 1 1 1)
+}
+;
+; Conditional State #5
+;
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 50 "c1to2.txt")
+    {
+      CritTimer(500)  
+    }
+    TriggerMessage(GVIT5OL5)
+}
+
+;
+; Conditional State #6
+;
+  DefineCondState()
+  {
+    DefineCondition(7 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+   TriggerMessage(GVIT5OL6)
+   GiveSpecialForces(101 1)  
+   GiveSpecialForces(202 0)
+   SetAlliance(2 0 1 1 1 1 1 1 1)
+}
+;
+; Conditional State #7
+;
+  DefineCondState()
+  {
+    DefineCondition(8 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }  
+   TriggerMessage(GVIT5OL7)
+  }
+;
+; Conditional State #8
+;
+  DefineCondState()
+  {
+    DefineCondition(9 0 0 50 "c1to2.txt")
+    {
+      CritTimer(500)
+    }
+     TriggerMessage(GVIT5OL8)
+  }
+;
+; Conditional State #9
+;
+  DefineCondState()
+  {
+    DefineCondition(10 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+   TriggerMessage(GVIT5OL9)
+  }
+
+
+;
+; Conditional State #10
+;
+  DefineCondState()
+  {
+    DefineCondition(11 0 0 50 "c1to2.txt")
+    {
+     CritHarassRegion(11 300 1)
+    }
+   TriggerMessage(GVIT5OLA)
+  
+
+}
+
+;
+; Conditional State #11
+;
+  DefineCondState()
+  {
+    DefineCondition(12 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    } 
+     TriggerMessage(GVIT5OLB)
+     GiveSpecialForces(202 2)
+     GiveSpecialForces(303 0)
+     SetAlliance(2 0 1 1 1 1 1 1 1)
+}
+;
+; Conditional State #12
+;
+  DefineCondState()
+  {
+    DefineCondition(13 0 0 50 "c1to2.txt")
+    {
+     CritTimer(300)
+      
+    }
+  TriggerMessage(GVIT5OLC)
+  }
+;
+; Conditional State #13
+;
+  DefineCondState()
+  {
+    DefineCondition(14 0 0 50 "c1to2.txt")
+    {
+      CritDestroyUnit()
+      {
+       1355 2197
+      }
+    }
+   TriggerMessage(GVIT5OLD)
+  }
+;
+; Conditional State #14
+;
+  DefineCondState()
+  {
+    DefineCondition(15 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+    TriggerMessage(GVT5BOL9)
+    GiveSpecialForces(303 1)
+}
+
+;
+; Conditional State #15
+;
+  DefineCondState()
+  {
+    DefineCondition(16 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+    TriggerMessage(GVT5AOL4)
+  }
+
+;
+; Conditional State #16
+;
+  DefineCondState()
+  {
+    DefineCondition(17 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  
+  TriggerMessage(GVIT5OLE)
+  }
+
+;
+; Conditional State #17
+;
+  DefineCondState()
+  {
+    DefineCondition(18 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+   TriggerMessage(GVT5AOL8)
+ }
+
+;
+; Conditional State #18
+;
+  DefineCondState()
+  {
+    DefineCondition(19 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLF)
+  }
+
+
+;
+; Conditional State #19
+;
+  DefineCondState()
+  {
+    DefineCondition(20 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  GiveSpecialForces(404 0)
+  TriggerMessage(GVIT5OLG)
+  SetAlliance(2 0 1 1 0 1 1 1 1)
+}
+
+;
+; Conditional State #20
+;
+  DefineCondState()
+  {
+    DefineCondition(21 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLH)
+}
+;
+; Conditional State #21
+;
+  DefineCondState()
+  {
+    DefineCondition(22 0 0 50 "c1to2.txt")
+    {
+      CritInRegion(22)
+    }
+  TriggerMessage(GVT5BOLA)
+  SetAlliance(2 0 1 1 1 1 2 0 1)
+}
+
+;
+; Conditional State #22
+;
+  DefineCondState()
+  {
+    DefineCondition(23 0 0 50 "c1to2.txt")
+    {
+      CritMoveUnitsToRegion(66 1)
+       {
+         2295 2124
+       }
+    }
+   TriggerMessage(GVIT5OLJ)
+   TriggerSpecialForces(808 66)
+}
+
+;
+; Conditional State #23
+;
+  DefineCondState()
+  {
+    DefineCondition(24 0 0 50 "c1to2.txt")
+    {
+     CritTimer(100)
+   }
+  TriggerMessage(GVIT5OLK)
+}
+;
+; Conditional State #24
+;
+  DefineCondState()
+  {
+    DefineCondition(25 0 0 50 "c1to2.txt")
+    {
+       CritMoveUnitsToRegion(55 1)
+     {
+       2295 2124
+     }
+   }
+  TriggerMessage(GVIT5OLL)
+  TriggerSpecialForces(808 55)
+}
+;
+; Conditional State #25
+;
+  DefineCondState()
+  {
+    DefineCondition(26 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+  TriggerMessage(GVIT5OLM)
+}
+;
+; Conditional State #26
+;
+  DefineCondState()
+  {
+    DefineCondition(47 0 0 50 "c1to2.txt")
+    {
+      CritMoveUnitsToRegion(66 1)
+        {
+         2295 2124
+        }
+    }
+  TriggerMessage(GVIT5OLN)
+  TriggerSpecialForces(808 66)
+}
+;
+; Conditional State #27
+;
+  DefineCondState()
+  {
+    DefineCondition(28 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLO)
+  GiveSpecialForces(505 0)
+  GiveSpecialForces(404 1)
+  SetAlliance(2 0 1 1 1 1 2 1 1)
+}
+;
+; Conditional State #28
+;
+  DefineCondState()
+  {
+    DefineCondition(29 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLP)
+}
+;
+; Conditional State #29
+;
+  DefineCondState()
+  {
+    DefineCondition(30 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+  TriggerMessage(GVIT5OLQ)
+}
+;
+; Conditional State #30
+;
+  DefineCondState()
+  {
+    DefineCondition(31 0 0 50 "c1to2.txt")
+    {
+      CritTimer(300)
+    }
+  TriggerMessage(GVIT5OLR)
+}
+;
+; Conditional State #31
+;
+  DefineCondState()
+  {
+    DefineCondition(32 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+       {
+         2127
+       } 
+   }
+  TriggerMessage(GVIT5OLS)
+}
+;
+; Conditional State #32
+;
+  DefineCondState()
+  {
+    DefineCondition(33 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLT)
+}
+;
+; Conditional State #33
+;
+  DefineCondState()
+  {
+    DefineCondition(34 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+  TriggerMessage(GVIT5OLU)
+}
+;
+; Conditional State #34
+;
+  DefineCondState()
+  {
+    DefineCondition(35 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+       {
+        2130
+       }    
+ }
+  TriggerMessage(GVIT5OLV)
+}
+;
+; Conditional State #35
+;
+  DefineCondState()
+  {
+    DefineCondition(36 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLW)
+}
+;
+; Conditional State #36
+;
+  DefineCondState()
+  {
+    DefineCondition(37 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+       {
+        2133
+       }    
+}
+  TriggerMessage(GVIT5OLX)
+}
+;
+; Conditional State #37
+;
+  DefineCondState()
+  {
+    DefineCondition(38 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLY)
+  GiveSpecialForces(505 1)
+  GiveSpecialForces(606 0)
+  SetAlliance(2 0 1 1 1 1 1 2)
+}
+;
+; Conditional State #38
+;
+  DefineCondState()
+  {
+    DefineCondition(39 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVIT5OLZ)
+}
+;
+; Conditional State #39
+;
+  DefineCondState()
+  {
+    DefineCondition(40 0 0 50 "c1to2.txt")
+    {
+      CritInRegion(33)
+    }
+  TriggerMessage(GVT5AOL1)
+  }
+;
+; Conditional State #40
+;
+  DefineCondState()
+  {
+    DefineCondition(41 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVT5AOL2)
+}
+;
+; Conditional State #41
+;
+  DefineCondState()
+  {
+    DefineCondition(42 0 0 50 "c1to2.txt")
+    {
+      CritInRegion(44)
+    }
+  TriggerMessage(GVT5AOL3)
+}
+;
+; Conditional State #42
+;
+  DefineCondState()
+  {
+    DefineCondition(43 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerMessage(GVT5AOLB)
+}
+;
+; Conditional State #43
+;
+  DefineCondState()
+  {
+    DefineCondition(44 0 0 50 "c1to2.txt")
+    {
+      CritInRegion(33)
+    }
+  TriggerMessage(GVT5AOL5)
+  TriggerMessage(GVT5AOL6)
+}
+;
+; Conditional State #44
+;
+  DefineCondState()
+  {
+    DefineCondition(45 0 0 50 "c1to2.txt")
+    {
+      CritTimer(400)
+    }
+  TriggerMessage(GVT5AOL7)
+}
+;
+; Conditional State #45
+;
+  DefineCondState()
+  {
+    DefineCondition(46 0 0 50 "c1to2.txt")
+    {
+      CritTimer(500)
+    }
+  TriggerMessage(GVT5AOL9)  
+}
+;
+; Conditional State #46
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+      CritTimer(100)
+    }
+  }
+}
+;
+; Conditional State #47
+;
+  DefineCondState()
+  {
+    DefineCondition(27 0 0 50 "c1to2.txt")
+    {
+      CritTimer(200)
+    }
+  TriggerSpecialForces(808 66)
+}

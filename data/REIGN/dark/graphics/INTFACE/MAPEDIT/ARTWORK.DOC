@@ -1,0 +1,10 @@
+Terrain:
+    - The altitude level's disabled and mouse over disabled image
+    have digits (1 to 4) in a different position to the other two.
+
+    - All buttons should be in the order of normal, mouse over &
+    selected.
+
+Objects:
+    - Need button widths 41 & 72.
+

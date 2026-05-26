@@ -1,0 +1,18 @@
+
+;
+; Game End Conditions for team 6
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 livecivilians.txt)
+    {
+      CritTimerGame(108000)  ; neutrals win if they are still alive at this time
+    }
+    SetAIPFile(defend2.aip)  ; chill out
+  }
+}

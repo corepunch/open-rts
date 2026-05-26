@@ -1,0 +1,18 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 "c1to2.txt")
+    {
+      CritTimer (100000)
+    }
+  
+   SetAIPFile(T4.aip)
+ }
+}

@@ -1,0 +1,21 @@
+
+;
+; FSM  Conditions for team 2
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State 
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D")  
+      	{          
+	 CritTimer(900000) 
+        }   
+ 
+   SetAlliance(1 1 2 1 1 1 1 1)  
+
+  }
+}

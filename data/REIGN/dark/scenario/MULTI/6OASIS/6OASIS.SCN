@@ -1,0 +1,251 @@
+; SCENARIO d:\darkv102\dark\scenario\MULTI\6oasis\6oasis.scn
+; Built at 06:17:08, on Sep  1 1997;
+SetVersion(2)
+;
+;
+; *** The Terrain type
+;
+SetDefaultTerrain(BARREN)
+;
+; *** Tech-level
+;
+SetTechLevel(100)
+;
+;Team information for team 0
+;
+SetTeam(0)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(0)
+  SetCredit(15000)
+  SetCPULoad(2250)
+  SetStartLocation(335 394)
+  SetAlliance(2 0 0 0 0 0 0 0)
+}
+
+;
+;Team information for team 1
+;
+SetTeam(1)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(1)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetStartLocation(257 2820)
+  SetAlliance(0 2 0 0 0 0 0 0)
+}
+
+;
+;Team information for team 2
+;
+SetTeam(2)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(2)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetStartLocation(738 5870)
+  SetAlliance(0 0 2 0 0 0 0 0)
+}
+
+;
+;Team information for team 3
+;
+SetTeam(3)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(3)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetStartLocation(5311 877)
+  SetAlliance(0 0 0 2 0 0 0 0)
+}
+
+;
+;Team information for team 4
+;
+SetTeam(4)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(4)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetStartLocation(4907 2553)
+  SetAlliance(0 0 0 0 2 0 0 0)
+}
+
+;
+;Team information for team 5
+;
+SetTeam(5)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(5)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetStartLocation(5366 5459)
+  SetAlliance(0 0 0 0 0 2 0 0)
+}
+
+;
+;Team information for team 6
+;
+SetTeam(6)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(6)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 0 0 2 0)
+}
+
+;
+;Team information for team 7
+;
+SetTeam(7)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(7)
+  SetCredit(15000)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 0 0 0 2)
+}
+
+;
+;Team information for team 8
+;
+SetTeam(8)
+{
+  SetTeamSide(2)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(8)
+  SetCredit(15000)
+  SetCPULoad(0)
+  SetAlliance(1 1 1 1 1 1 1 1)
+}
+
+;
+; *** Unit Declarations
+;
+;
+; Units for Team 0
+;
+SetDefaultTeam(0)
+PutUnitAt(24032 FGConstructionCrew 15 12)
+PutUnitAt(24034 FGConstructionCrew 17 17)
+PutUnitAt(24036 FGConstructionCrew 13 17)
+;
+; Units for Team 1
+;
+SetDefaultTeam(1)
+PutUnitAt(24038 IMPConstructionCrew 10 115)
+PutUnitAt(24040 IMPConstructionCrew 14 117)
+PutUnitAt(24042 IMPConstructionCrew 8 118)
+;
+; Units for Team 2
+;
+SetDefaultTeam(2)
+PutUnitAt(24044 FGConstructionCrew 30 243)
+PutUnitAt(24046 FGConstructionCrew 33 245)
+PutUnitAt(24048 FGConstructionCrew 33 242)
+;
+; Units for Team 3
+;
+SetDefaultTeam(3)
+PutUnitAt(24050 FGConstructionCrew 221 32)
+PutUnitAt(24052 FGConstructionCrew 223 37)
+PutUnitAt(24054 FGConstructionCrew 219 38)
+;
+; Units for Team 4
+;
+SetDefaultTeam(4)
+PutUnitAt(24056 FGConstructionCrew 202 104)
+PutUnitAt(24058 FGConstructionCrew 206 107)
+PutUnitAt(24060 FGConstructionCrew 203 109)
+;
+; Units for Team 5
+;
+SetDefaultTeam(5)
+PutUnitAt(24062 FGConstructionCrew 219 227)
+PutUnitAt(24064 FGConstructionCrew 221 229)
+PutUnitAt(24066 FGConstructionCrew 221 226)
+;
+; Units for Team 6
+;
+SetDefaultTeam(6)
+;
+; Units for Team 7
+;
+SetDefaultTeam(7)
+;
+; Units for Team 8
+;
+SetDefaultTeam(8)
+;
+; *** Building Declarations
+;
+;
+; Buildings for Team 8
+;
+SetDefaultTeam(8)
+
+AddBuildingAt(24009 impww 213 30 dummy_msc)
+AddBuildingAt(24010 impww 201 98 dummy_msc)
+AddBuildingAt(24011 impmn 187 116 dummy_msc)
+AddBuildingAt(24012 impmn 222 18 dummy_msc)
+AddBuildingAt(24013 impww 21 14 dummy_msc)
+AddBuildingAt(24015 impww 8 109 dummy_msc)
+AddBuildingAt(24016 impmn 21 106 dummy_msc)
+AddBuildingAt(24017 impww 28 238 dummy_msc)
+AddBuildingAt(24018 impmn 42 242 dummy_msc)
+AddBuildingAt(24019 impww 97 149 dummy_msc)
+AddBuildingAt(24020 impww 120 163 dummy_msc)
+AddBuildingAt(24021 impww 93 128 dummy_msc)
+AddBuildingAt(24022 impww 92 66 dummy_msc)
+AddBuildingAt(24023 impmn 207 228 dummy_msc)
+AddBuildingAt(24024 impmn 30 6 dummy_msc)
+AddBuildingAt(24025 impww 223 223 dummy_msc)
+AddBuildingAt(24068 impww 120 45 dummy_msc)
+AddBuildingAt(24069 impww 114 83 dummy_msc)
+;
+; *** Thing (overlay) Declarations
+;
+;
+; Overlays
+;
+AddThingAt(24070 misc1 99 10)
+AddThingAt(24071 misc1 140 49)
+AddThingAt(24072 misc1 147 117)
+AddThingAt(24073 misc1 109 182)
+AddThingAt(24074 misc1 71 241)
+AddThingAt(24075 misc1 14 163)
+AddThingAt(24076 misc1 5 247)
+AddThingAt(24077 misc1 150 241)
+AddThingAt(24078 misc1 226 169)
+AddThingAt(24079 misc1 235 74)
+AddThingAt(24080 misc3 187 158)
+AddThingAt(24081 misc3 44 149)
+AddThingAt(24082 misc3 46 93)
+AddThingAt(24083 misc2 120 61)
+AddThingAt(24084 rubble1 124 48)
+AddThingAt(24085 rubble3 119 48)
+AddThingAt(24086 rubble2 96 66)
+AddThingAt(24087 rubble2 93 125)
+AddThingAt(24088 rubble3 97 130)
+AddThingAt(24089 rubble3 120 167)
+AddThingAt(24092 rock6 165 119)
+AddThingAt(24093 clif6 71 107)
+AddThingAt(24094 rock3 78 39)
+AddThingAt(24095 rock2 77 41)
+AddThingAt(24096 rock1 82 41)
+AddThingAt(24097 rock6 80 40)
+AddThingAt(24098 rubble1 81 37)
+AddThingAt(24099 tree4 233 159)
+AddThingAt(24100 tree1 232 162)
+AddThingAt(24101 tree3 228 158)
+AddThingAt(24102 tree2 227 161)
+AddThingAt(24103 tree6 228 163)
+AddThingAt(24104 plnt3 233 160)
+AddThingAt(24105 plnt1 232 158)
+AddThingAt(24106 plnt1 228 159)
+AddThingAt(24107 plnt2 230 163)

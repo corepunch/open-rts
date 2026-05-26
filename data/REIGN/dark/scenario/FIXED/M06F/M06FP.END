@@ -1,0 +1,66 @@
+
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State 1
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritStealPlan(0 ImpHoverTransporter)    
+    }
+
+    DefineCondition(3 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+      {
+      2316
+      }
+    }
+
+    DefineCondition(3 0 0 50 "c1to2.txt")
+    {
+      CritAND()
+      {
+        CritDestroyUnit()
+        {
+          5984
+        }
+        CritDestroyUnit()
+        {
+          8817
+        }
+      }
+    }
+  }
+  
+
+; Conditional State 2
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+      {
+      2316
+      }
+    }
+
+    TriggerMessage("GVINTCL3")
+    BonusCredits(1 600000)
+  }  
+
+; Conditional State 3
+;
+  DefineCondState()
+  {
+    BonusCredits(5 50000)
+  }  
+
+
+} ; DefineEndCondTree

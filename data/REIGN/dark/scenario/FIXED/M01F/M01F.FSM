@@ -1,0 +1,46 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritTimerGame(1500)
+    }
+    SetAIPFile(m01f.aip)
+  }
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "c1to2.txt")
+    {
+      CritTimerGame(3000)
+    }
+    TriggerSpecialForces(500 1242)
+  }
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+    DefineCondition(4 0 0 50 "c1to2.txt")
+    {
+      CritTimerGame(4500)
+    }
+    TriggerSpecialForces(500 1243)
+  }
+  ;
+  ; Conditional State #4
+  ;
+  DefineCondState()
+  {
+    TriggerSpecialForces(501 1241)
+  }
+}

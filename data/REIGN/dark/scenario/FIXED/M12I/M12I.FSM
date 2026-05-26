@@ -1,0 +1,284 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; State 1
+; a buffer state. does nothing.
+  DefineCondState()
+  {
+   
+    ; instantly go to state 2
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+  }
+
+;
+;State 2
+
+  DefineCondState()
+  {
+    ; instantly go to state 3
+    DefineCondition(3 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    SetAIPFile(m12ist.aip)
+  }
+
+;State 3
+;region and building triggers for special forces,
+;priority changes, and aip changes
+  DefineCondState()
+  {
+    DefineCondition(4 0 0 0 passage_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10005)  
+      }
+    }
+
+    DefineCondition(5 0 0 0 some_region_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10008)  
+      }
+    }
+
+    DefineCondition(6 0 0 0 well_or_pad_entered)
+    {
+      CritONCE()
+      {
+       CritOR()
+         {
+         CritEnemyInRegion(10004)  
+         CritEnemyInRegion(10004)
+         } 
+      }
+    }
+
+    DefineCondition(7 0 0 0 bottom_rails_approached)
+    {
+      CritONCE()
+      {
+       CritOR()
+         {
+         CritEnemyInRegion(10003)  
+         CritEnemyInRegion(27847)
+         } 
+      }
+    }
+    
+    DefineCondition(8 0 0 0 "wait0")
+    {
+      CritONCE()
+      {
+        CritTimerGame(10000)
+      }
+    }
+
+    DefineCondition(14 0 0 0 "here_comes_daddy")
+    {
+      CritONCE()
+      {
+        CritTimerGame(5000)
+      }
+    }
+
+    DefineCondition(9 0 0 0 upper_left_area_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10006)  
+      }
+    }
+
+    DefineCondition(10 0 0 0 forest_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(31678)  
+      }
+    }
+
+
+    DefineCondition(11 0 0 0 gt_below_base_destroyed)
+    {
+      CritONCE()
+      {
+       CritDestroyBuilding() 
+         { 
+          27142
+         }
+      }
+    }
+
+    DefineCondition(12 0 0 0 second_well_controlled)
+    {
+      CritONCE()
+      {
+       CritDestroyBuilding() 
+         { 
+          26968
+         }
+      }
+    }
+
+    DefineCondition(13 0 0 0 third_well_controlled)
+    {
+      CritONCE()
+      {
+       CritDestroyBuilding() 
+         { 
+          27088
+         }
+      }
+    }
+  }
+
+; state 4
+;passage entered. release 3Rails
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(100)
+  }
+
+; state 5
+;somewhere entered. release 3Rails
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(101)
+  }
+
+
+; state 6
+;well area entered. send air attack
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(102 27952)  
+    ReleaseSpecialForces(102)
+  }
+
+; state 7
+; bottom passage entered. release 3Rails
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(104)
+  }
+
+; state 8
+; air force is bored. go kill stuff
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(103 10007)  
+    ReleaseSpecialForces(103)
+  }
+
+; state 9
+; upper left mini base entered. release stuff
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(110)
+  }
+
+; state 10
+;forest entered. release stuff
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(111)
+  }
+
+; state 11
+;Guard Tower killed. send troops there
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(111 27952)  
+    ReleaseSpecialForces(111)
+    BonusCredits(1 20000)
+  }
+
+; state 12
+;player has two wells. change aip
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m12i2.aip)
+    BonusCredits(1 20000)
+  }
+
+; state 13
+;player has three wells. change aip
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m12i3.aip)
+    BonusCredits(1 40000)
+  }
+
+; state 14
+; bring on the juice
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m12i.aip)
+  }
+}
+

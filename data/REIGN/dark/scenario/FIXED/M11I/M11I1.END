@@ -1,0 +1,36 @@
+;
+;  Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+     DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+     {
+       25632
+     } 
+    }
+  }
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {    
+      CritKillAll()
+    }
+    SetAlliance(0 2 0 0 0 0 0 0 ) 
+    BonusCredits(2 3000)  
+    BonusCredits(3 3000)    
+  }
+}

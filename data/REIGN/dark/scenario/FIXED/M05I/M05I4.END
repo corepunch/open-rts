@@ -1,0 +1,19 @@
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "you_blew_it_sucker")
+    {
+      CritDestroyBuilding()   
+      {
+        28660
+      }
+    }  
+  }
+}

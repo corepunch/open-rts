@@ -1,0 +1,21 @@
+DefineEndCondTree( 0 )
+{
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "you_win"  )
+    {
+      CritAND()
+      {
+        CritKillTeamUnits( 1 0 )
+        CritDestroyTeamBuildings( 1 0 )
+        CritKillTeamUnits( 3 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAlliance( 2 0 2 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

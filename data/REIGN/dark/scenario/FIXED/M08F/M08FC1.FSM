@@ -1,0 +1,253 @@
+DefineAICondTree()
+{
+  ; State 1 this state explores the map 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritOR()
+      {
+        CritTeamInRegion( 606 0 )
+        CritTeamInRegion( 611 0 )
+        CritTeamInRegion( 617 0 )
+        CritLessUnitsThanEnemy( 200 )
+        CritTimerGame( 20000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritTimer( 4000 )
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M08fexp.aip  )
+    ;; State_Actions
+  }
+
+  ; State 2 builds up explore forces 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritOR()
+      {
+        CritTeamInRegion( 606 0 )
+        CritTeamInRegion( 611 0 )
+        CritTeamInRegion( 617 0 )
+        CritLessUnitsThanEnemy( 200 )
+        CritTimerGame( 20000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 1 0 0 0 "state_1"  )
+    {
+      CritTimer( 6000 )
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M08fexp2.aip  )
+    ;; State_Actions
+  }
+
+  ; State 3 this state attacks the player 
+  DefineCondState()
+  {
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritOR()
+      {
+        CritTeamInRegion( 608 0 )
+        CritTeamInRegion( 616 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritTimer( 4000 )
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M08fbase.aip  )
+    AdjustRegionPri( 614 3000 100 1000 )
+    ;; State_Actions
+  }
+
+  ; State 4 builds up an attack force 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritTimer( 6000 )
+      ;; Criteria
+    }
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritOR()
+      {
+        CritTeamInRegion( 616 0 )
+        CritTeamInRegion( 608 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M08fbld.aip  )
+    ;; State_Actions
+  }
+
+  ; State 5 this state defends the base 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritTeamInRegion( 608 0 )
+          ;; Criteria
+        }
+        CritNOT()
+        {
+          CritTeamInRegion( 616 0 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritAND()
+      {
+        CritTimer( 800 )
+        CritNOT()
+        {
+          CritDestroyUnit()
+          {
+            4825 
+            ;; Unit_ID
+          }
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M08fdef.aip  )
+    AdjustRegionPri( 614 0 0 0 )
+    ;; State_Actions
+  }
+
+  ; State 6 this state makes the convoy escape 
+  DefineCondState()
+  {
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritMoveUnitsToRegion( 613 1 )
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    AdjustRegionPri( 613 4000 10 1000 )
+    TriggerMessage( MSG_DESICATORFLEE  )
+    TriggerMessage( MSG_DESICATORFLEETWO  )
+    TriggerSpecialForces( 100 613 )
+    ReleaseSpecialForces( 98 )
+    ;; State_Actions
+  }
+
+  ; State 7 this state moves the desicator to the final destination 
+  DefineCondState()
+  {
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritTimer( 1600 )
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritDestroyUnit()
+      {
+        4825 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerSpecialForces( 100 615 )
+    TriggerMessage( MSG_DESICATORFLEETWO  )
+    AdjustRegionPri( 613 0 0 0 )
+    AdjustRegionPri( 195 3000 100 1000 )
+    ;; State_Actions
+  }
+
+  ; State 8 tells the player they've destroyed the convoy 
+  DefineCondState()
+  {
+    TriggerMessage( MSG_ObjectSuccess  )
+    AdjustRegionPri( 613 0 0 0 )
+    AdjustRegionPri( 608 1000 70 100000 )
+    AdjustRegionPri( 195 0 0 0 )
+    AdjustRegionPri( 614 0 0 0 )
+    SetAIPFile( M08fdef.aip  )
+    ;; State_Actions
+  }
+
+  ;; State
+}

@@ -1,0 +1,37 @@
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritDestroyUnit() 
+      {
+        0 2 6 8 10 12 14 16
+      }
+    }
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritHaveCredits (50000)
+    }
+  }
+
+; Conditional State 2
+; the first instructional state
+  DefineCondState()
+  {
+    ; instantly go to the win state
+    DefineCondition(0 0 0 0 "wait0")
+    {
+      CritTimer(200)
+    }
+
+    ; play the first sound
+    TriggerMessage(fail0)
+  }
+}

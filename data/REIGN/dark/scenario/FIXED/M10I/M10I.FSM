@@ -1,0 +1,25 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritLessUnitsThanEnemy(300)
+    }
+    SetAIPFile(M10I.aip)
+  }
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 "c1to2.txt")
+    {
+      CritMoreUnitsThanEnemy(300)
+    }
+    SetAIPFile(M10Ia.aip)
+  }
+}

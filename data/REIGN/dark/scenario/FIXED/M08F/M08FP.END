@@ -1,0 +1,25 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this state detects to see if the player has destroyed the ai 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "you_win"  )
+    {
+      CritAND()
+      {
+        CritDestroyTeamBuildings( 1 0 )
+        CritDestroyUnit()
+        {
+          4825 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAlliance( 2 0 1 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

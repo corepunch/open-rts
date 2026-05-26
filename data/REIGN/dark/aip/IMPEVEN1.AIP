@@ -1,0 +1,241 @@
+/*****************************************************************************
+
+  Defarley.AIP
+
+ *****************************************************************************/
+
+#include "aipdef.h"
+
+// How often do we recompute the strategy?
+int recompute_strategy_period = 40;
+
+
+int infiltrator_period = 2;
+
+// PRIORITIES
+int ground_unit_threat = 1;
+int threat_priority = 1;
+int distance_priority = -2;
+int defend_buildings_priority = 500;
+int attack_enemy_base_priority = 78;
+int persistence_priority = 30;
+int exploration_priority = 600;
+int scripted_priority = 0;
+int single_use_group_priority = 30;
+int perimeter_priority = 5000;
+int resource_priority = 400;
+int danger_priority = 100;  
+int danger_diminishment = 1;
+
+// TROOP COMMITMENT STUFF 
+double min_matching_force_ratio = 1.0;
+double max_matching_force_ratio = 2.0;
+
+// When generic troops are called for, what should be ratio of troops that can
+// shoot ground targets to troops that can shoot air targets?
+double generic_ground_ratio = 1.0;
+
+int min_building_defense_force = 40;
+int max_building_defense_force = 100;
+
+int min_exploration_force = 1;
+int max_exploration_force = 100;
+
+int min_perimeter_force = 40;
+int max_perimeter_force = 70;
+
+int min_resource_force = 100;
+int max_resource_force = 300;
+
+// RELAXATION STUFF 
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.0;
+
+// The transport we should use
+#define transport "ImpGroundTransporter"
+
+// Should we repair buildings during this aip
+int repair_buildings = NO;
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// New Construction Program stuff
+
+
+///////////////////////////////////////////////////////////////////////////////
+// The UCP Data
+// --------------------
+// This specifies what type of units to build.
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account          BUDGET          BUDGET CAP
+//----------------------------------------------------
+     "Slush_fund",          UNLIMITED,      UNLIMITED;
+     "Base_building",       40,             4000;
+     "Offensive",           60,             6000;
+
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES.
+// --------------
+// For each line item in an account, you must specify a build type from one of
+// the following... NUMBER_TO_HAVE, NUMBER_TO_BUILD, RATIO_TO_BUILD, or RATIO_TO_HAVE.
+//
+// The "RATIO" items can only occur in the lowest priority level of an account.
+// Also, all line-items with the same priority must have the same build type
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Slush_fund
+// --------------------
+// This specifies the baseline super-critical account
+
+ACCOUNT Slush_fund[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name              Build Type              Build Amount
+//--------------------------------------------------------------------
+    19,          "ih1",                  NUMBER_TO_HAVE,         1;
+    19,          "IMPConstructionCrew",   NUMBER_TO_HAVE,         2;
+
+ // water collection
+
+    18,          "implp",                 NUMBER_TO_HAVE,         1;
+    17,          "ImpGroundTransporter",  NUMBER_TO_HAVE,         1;
+
+
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// BASE_BUILDING
+// --------------------
+// How do we want to go about building our base?
+
+ACCOUNT Base_building[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name              Build Type              Build Amount
+//--------------------------------------------------------------------
+
+    // the basic base - power and troop production
+
+    18,          "imppp",                 NUMBER_TO_HAVE,         1;
+    18,          "iu1",                   NUMBER_TO_HAVE,         1;
+
+
+    // factory level one,
+
+    16,          "ic1",                  NUMBER_TO_HAVE,         1;
+
+    // for the firestriker mad
+
+    15,          "ih2",                  NUMBER_TO_HAVE,         1;
+
+    // for the tachyon tank
+
+    14,          "ic2",                  NUMBER_TO_HAVE,         1;
+    14,          "imppp",                NUMBER_TO_HAVE,         2;
+    14,          "ig",                   NUMBER_TO_HAVE,         2;
+
+    // a defense point
+
+    13,          "ia",                   NUMBER_TO_HAVE,         1;
+
+    // air support facility
+
+    12,          "ih3",                  NUMBER_TO_HAVE,         1;
+    12,          "iu2",                  NUMBER_TO_HAVE,         1;
+    12,          "impar",                NUMBER_TO_HAVE,         1;
+
+    // Base Defense facility
+
+    10,          "ia",                   RATIO_TO_BUILD,         4;
+    10,          "is",                   RATIO_TO_BUILD,         1;
+    10,          "imppp",                RATIO_TO_BUILD,         1;
+
+
+#END_DATA
+  
+
+
+///////////////////////////////////////////////////////////////////////////////
+// OFFENSIVE
+// --------------------
+// What sort of offensive units and support structures do we want
+
+ACCOUNT Offensive[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name              Build Type        Build Amount
+//--------------------------------------------------------------------
+
+    5,           "IMPStrikeMarine",      RATIO_TO_BUILD,  80;
+    5,           "IMPFireSupportMarine", RATIO_TO_BUILD,  80;
+    5,           "IMPHoverMarine",       RATIO_TO_BUILD,  20;
+    5,           "IMPTachyonTank", 	 RATIO_TO_BUILD,  90;
+    5,           "IMPPlasmaTank",        RATIO_TO_BUILD,  30;
+    5,           "IMPScoutTank",         RATIO_TO_BUILD,  10;
+    5,           "IMPSkyFortress",       RATIO_TO_BUILD,  10;
+    5,           "ImpVTOL",              RATIO_TO_BUILD,  10;
+    5,           "IMPSPA",               RATIO_TO_BUILD,  20;
+
+#END_DATA
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// FORCE MATCHING
+// --------------
+// Which units do we want to emphasize & target with this aip?
+// Note that this can be used for BOTH the AI team's unit strengths and 
+// the opponents'
+FORCE_MATCHING My_Matchings[MAX_FORCE_MATCHING];
+
+#DATA
+
+// Unit Name             Multiplier
+//----------------------------------
+   "FGMercenary",        1.0;
+   "FGSpiderBike",       1.0;
+
+#END_DATA
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Unit Match-ups
+// --------------
+// When we see a unit of one of the following types, build the corresponding 
+// unit in the corresponding quantity
+UNIT_MATCH_UP My_Match_ups[MAX_BUILDINGS];
+
+#DATA
+
+// Enemy Unit           What to build           How many to build
+//------------------------------------------------------------------
+   "TSkyBike",       	"IMPMAD",          	0.5;
+   "TDualSkyBike",   	"IMPMAD",          	0.5;
+   "TVTOL",       	"IMPMAD",          	0.5;
+   "TSkyFortress",   	"IMPMAD",          	0.5;
+   "TReconSaucer",   	"IMPMAD",          	0.5;
+   "TFreedomFighter",  "IMPShredder",          	0.05;
+   "TMercenary",       "IMPShredder",          	0.05;
+   "TStrikeMarine",        "IMPShredder",       0.05;
+   "TFireSupportMarine",   "IMPShredder",       0.05;
+
+
+
+#END_DATA

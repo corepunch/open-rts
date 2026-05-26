@@ -1,0 +1,34 @@
+;
+; FSM  Conditions for team 2
+;
+DefineAICondTree()
+{
+;
+; Conditional State 1
+;
+DefineCondState()
+{
+  	
+  	DefineCondition(2 0 0 0 "Give_Moebeus")  
+   	{
+	CritTeamInRegion(40646 0)
+	}
+
+	SetAlliance(2 1 2 2 1 1 1 1)
+}  
+
+
+;
+; Conditional State 2
+;
+  DefineCondState()
+  {
+    
+    DefineCondition(2 0 0 0 "jus_loopy")  
+      	{          
+	 CritTimer(10000000) 
+        }   
+  
+	GiveSpecialForces(202 0)
+  }
+}

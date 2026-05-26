@@ -1,0 +1,32 @@
+; M13t
+
+CreateMsg("MSG_PROTECT_MATRIX")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_DESTROY_FORCES")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_TO_WORKSHOP")
+{
+  GetMLString(0)
+}
+
+CreateMsg("ENJOY_LEVEL")
+{
+  GetMLString(0)
+}
+
+CreateMsg("SHAFT_THANKS")
+{
+  GetMLString(0)
+}
+
+CreateMsg("ROOBARB")
+{
+  SetSound("Roobarb.wav")
+  QueueSound()
+}

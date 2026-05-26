@@ -1,0 +1,36 @@
+DefineAICondTree()
+{
+  
+  ; state 1
+  ; 
+  ; they move to region in base
+  DefineCondState()
+  {
+   
+    DefineCondition(2 0 0 0 not_Looping)
+    {
+      CritTimer(0)
+    }
+  
+ SetAlliance(0 2 1 2 0 0 0 0)
+
+}
+
+
+
+  ; state 2
+  ; only state, run when convoy gets released from special forces
+  ; this team wins if it gets a convoy off the map
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 Looping)
+    {
+      CritTimer(100000)
+    }
+    TriggerMessage(GXEVAOC0)
+    SetAIPFile(convoy.aip)
+    AdjustRegionPri(14744 2000 0 100)  ; left exit
+    AdjustRegionPri(24279 2000 0 100)  ; right exit
+    
+  }
+}

@@ -1,0 +1,146 @@
+/*****************************************************************************
+
+  Default.AIP
+
+ *****************************************************************************/
+
+#include "aipdef.h"
+
+// How often do we recompute the strategy?
+int recompute_strategy_period = 50;
+
+// PRIORITIES
+int ground_unit_threat = 1;
+int threat_priority = 200;
+int distance_priority = -1;
+int defend_buildings_priority = 0;
+int attack_enemy_base_priority = 500;
+int persistence_priority = 100;
+int exploration_priority = 0;
+int scripted_priority = 900;
+int single_use_group_priority = 0;
+int perimeter_priority = 600;
+int resource_priority = 300;
+int danger_priority = 0;    // avoid bad bridges
+int danger_diminishment = 1;
+
+// TROOP COMMITMENT STUFF 
+double min_matching_force_ratio = 2.0;
+double max_matching_force_ratio = 4.0;
+
+// When generic troops are called for, what should be ratio of troops that can
+// shoot ground targets to troops that can shoot air targets?
+double generic_ground_ratio = 1.0;
+
+int min_building_defense_force = 70;
+int max_building_defense_force = 70;
+
+int min_exploration_force = 70;
+int max_exploration_force = 70;
+
+int min_perimeter_force = 140;
+int max_perimeter_force = 210;
+
+int min_resource_force = 70;
+int max_resource_force = 70;
+
+// RELAXATION STUFF 
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.0;
+
+// The transport we should use
+#define transport "ImpGroundTransporter"
+
+// Should we repair buildings during this aip
+int repair_buildings = YES;
+
+//  On average how long will we wait between re-exploring a cell?
+int recon_period = 100;
+
+// 1 out N strategic cycles, we'll find out a morphed spy?
+int infiltrator_period = 50;
+
+// Use good targeting (TACTAI_HIGH) or default (TACTI_LOW)
+int tactical_ai = TACTAI_HIGH;
+///////////////////////////////////////////////////////////////////////////////
+// New Construction Program stuff
+
+
+///////////////////////////////////////////////////////////////////////////////
+// The UCP Data
+// --------------------
+// This specifies what type of units to build.
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account          BUDGET          BUDGET CAP
+//----------------------------------------------------
+     "Offensive",          UNLIMITED,      UNLIMITED;
+
+
+#END_DATA
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES.
+// --------------
+// For each line item in an account, you must specify a build type from one of
+// the following... NUMBER_TO_HAVE, NUMBER_TO_BUILD, RATIO_TO_BUILD, or RATIO_TO_HAVE.
+//
+// The "RATIO" items can only occur in the lowest priority level of an account.
+// Also, all line-items with the same priority must have the same build type
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// OFFENSIVE
+// --------------------
+// What sort of offensive units and support structures do we want
+
+ACCOUNT Offensive[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name              Build Type        Build Amount
+//--------------------------------------------------------------------
+    5,           "IMPPlasmaTank",        NUMBER_TO_HAVE,           3;
+    5,           "IMPFireSupportMarine", NUMBER_TO_HAVE,           8;
+    5,           "IMPScoutTank",         NUMBER_TO_HAVE,           3;
+    5,           "IMPStrikeMarine",      NUMBER_TO_HAVE,           10;
+
+#END_DATA
+
+
+BUILDING_MATCHING My_Building_Matchings[MAX_BUILDINGS];
+
+#DATA
+
+// Building Name                   Multiplier         Where to Build
+//------------------------------------------------------------------
+   "fh1",                          1.00,              CENTER_OF_BASE;
+   "fu1",                          1.00,              CENTER_OF_BASE;
+   "fc1",                          1.00,              CENTER_OF_BASE;
+   "fgpp",                         1.00,              CENTER_OF_BASE;
+   "fg",                           5.00,             PERIMETER;
+   "fgho",                        1.00,              CENTER_OF_BASE;
+   "fgre",                        1.00,              CENTER_OF_BASE;
+   
+#END_DATA
+
+// unit in the corresponding quanity
+UNIT_MATCH_UP My_Match_ups[MAX_BUILDINGS];
+
+#DATA
+
+// Enemy Unit                  What to Build	How Many to Build
+//------------------------------------------------------------------
+   "FGFreedomFighter",          "IMPShredder",		.15;
+   "FGMercenary",     		"IMPShredder",		.15;
+   "FGSpiderBike",             	"IMPScoutTank",		.5;           
+   "FGMediumTank",            "IMPPlasmaTank",		.2;          
+   "FGTankHunterTank",	      "IMPStrikeMarine",	5;	
+   
+#END_DATA
+

@@ -1,0 +1,134 @@
+DefineAICondTree()
+{
+  ; State 1 attacks the FG base and waits for the player to start exploring 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritOR()
+      {
+        CritTeamInRegion( 2002 0 )
+        CritTeamInRegion( 2003 0 )
+        CritTeamInRegion( 2004 0 )
+        CritTimer( 15000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAIPFile( M13tc2.aip  )
+    AdjustRegionPri( 2005 200 100 200000 )
+    ;; State_Actions
+  }
+
+  ; State 2 makes the player an enemy and attacks the Imperium 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritAND()
+      {
+        CritTimer( 1000 )
+        CritEnemyInRegion( 2006 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritOR()
+      {
+        CritAND()
+        {
+          CritTimer( 2000 )
+          CritTeamInRegion( 2005 0 )
+          ;; Criteria
+        }
+        CritTimer( 10000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    AdjustRegionPri( 2001 0 0 0 )
+    SetAlliance( 0 0 2 1 2 0 0 0 )
+    AdjustRegionPri( 2005 200 100 200000 )
+    AdjustRegionPri( 2006 0 0 0 )
+    ;; State_Actions
+  }
+
+  ; State 3 defends the base 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritEnemyInRegion( 2006 )
+          ;; Criteria
+        }
+        CritTeamInRegion( 2005 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 4 0 0 0 "state_4" )
+    {
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritEnemyInRegion( 2006 )
+          ;; Criteria
+        }
+        CritNOT()
+        {
+          CritTeamInRegion( 2005 1 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    AdjustRegionPri( 2001 0 0 0 )
+    AdjustRegionPri( 2005 0 0 0 )
+    AdjustRegionPri( 2006 200 100 200000 )
+    ;; State_Actions
+  }
+
+  ; State 4 this state attacks the player 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritAND()
+      {
+        CritTimer( 1000 )
+        CritEnemyInRegion( 2006 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritOR()
+      {
+        CritTimer( 8000 )
+        CritAND()
+        {
+          CritTimer( 4000 )
+          CritTeamInRegion( 2001 1 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    AdjustRegionPri( 2006 0 0 0 )
+    AdjustRegionPri( 2005 0 0 0 )
+    AdjustRegionPri( 2001 200 100 200000 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

@@ -1,0 +1,42 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+
+; state 1
+; win if the civilian buildings are all killed
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 Hospitals_Smashed)
+    {
+      CritDestroyTeamBuildings(6 50)
+    }
+    DefineCondition(0 0 0 0 Hospitals_Smashed)
+    {
+      CritAND()
+      {
+      CritDestroyTeamBuildings ( 0 0 )
+      CritKillTeamUnits( 0 0 )
+      }
+    }
+    DefineCondition(2 0 0 0 Oh_well,_you_can't_win_them_all)
+    {
+      CritTimerGame(108000)
+    }
+  }
+
+; state 2
+; win when the player is dead
+ DefineCondState()
+  {
+    DefineCondition(0 0 0 0 Hospitals_Smashed)
+    {
+      CritAND()
+      {
+      CritDestroyTeamBuildings ( 0 0 )
+      CritKillTeamUnits( 0 0 )
+      }
+    }
+  }
+}

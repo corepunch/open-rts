@@ -1,0 +1,102 @@
+/**********************************************************************
+
+ T2.aip
+
+ AUTO GENERATED - HAND EDIT AT YOUR OWN RISK
+
+**********************************************************************/
+
+#include "aipdef.h"
+// How often do we recompute the strategy?
+int recompute_strategy_period = 50;
+
+// PRIORITIES
+int ground_unit_threat = 1;
+int threat_priority = 10;
+int distance_priority = -1;
+int defend_buildings_priority = 500;
+int attack_enemy_base_priority = -1;
+int persistence_priority = 100;
+int exploration_priority = 0;
+int scripted_priority = 0;
+int single_use_group_priority = 1;
+int perimeter_priority = 0;
+
+
+// EDIT BOXES
+double min_matching_force_ratio = 1.00;
+int min_building_defense_force = 70;
+int min_exploration_force = 70;
+int min_perimeter_force = 70;
+double max_matching_force_ratio = 2.00;
+int max_building_defense_force = 70;
+int max_exploration_force = 70;
+int max_perimeter_force = 70;
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.00;
+float generic_ground_ratio = 1.00;
+
+// Should we repair buildings during this aip
+int repair_buildings = NO;
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNTS
+
+/////////////////////////////////////////////////////////////////////////////
+
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account           BUDGET             BUDGET CAP
+//--------------------------------------------------------
+     "Slush_fund",           UNLIMITED,         UNLIMITED;
+     "Base_building",        100,                20000;
+  
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Slush_fund
+//
+ACCOUNT Slush_fund[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    19,          "ih1", 	 NUMBER_TO_HAVE,           1;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Base_building
+//
+ACCOUNT Base_building[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    20,          "IMPStrikeMarine",                  NUMBER_TO_HAVE,           1;
+    
+    
+ #END_DATA
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,273 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; State 1
+; a buffer state. does nothing.
+  DefineCondState()
+  {
+   
+    ; instantly go to state 2
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+  }
+
+;
+;State 2
+
+  DefineCondState()
+  {
+    ; instantly go to state 3
+    DefineCondition(3 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    SetAIPFile(m12f.aip)
+  }
+
+;State 3
+;region and building triggers for special forces,
+;priority changes, and aip changes
+  DefineCondState()
+  {
+    DefineCondition(4 0 0 0 passage_entered)
+    {
+      CritONCE()
+      {
+       CritOR()
+        {
+        CritEnemyInRegion(10003)  
+        CritEnemyInRegion(27847)
+        }
+      }
+    }
+
+    DefineCondition(5 0 0 0 uuper_left_area_attacked)
+    {
+      CritONCE()
+      {
+       CritOR()
+        {
+        CritEnemyInRegion(10006)  
+        CritDestroyBuilding()
+          {
+          32261
+          }
+        CritDestroyBuilding()
+          {
+          32249
+          }
+        CritDestroyBuilding()
+          {
+          32231
+          }
+        CritDestroyBuilding()
+          {
+          32264
+          }
+        }
+      }
+    }
+
+    DefineCondition(6 0 0 0 well_attacked)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+        32275
+        }
+      }
+    }
+
+ DefineCondition(7 0 0 0 middle_area_attacked)
+    {
+      CritONCE()
+      {
+       CritOR()
+        { 
+        CritDestroyBuilding()
+          {
+          32748
+          }
+        CritDestroyBuilding()
+          {
+          32789
+          }
+        CritDestroyBuilding()
+          {
+          32792
+          }
+        }
+      }
+    }
+
+    DefineCondition(8 0 0 0 lower_base_attacked)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+        32209
+        }
+      }
+    }
+
+    DefineCondition(9 0 0 0 player_has_3_wells)
+    {
+      CritONCE()
+      {
+       CritDestroyBuilding()
+        {
+         32278
+        }
+      }
+    }
+
+    DefineCondition(10 0 0 0 player_invading_AI_half_of_the_map)
+    {
+      CritONCE()
+      {
+       CritDestroyBuilding()
+        {
+         32218
+        }
+      }
+    }
+
+   DefineCondition(11 0 0 0 player_attacking_AI_base)
+    {
+     CritONCE()
+     {
+      CritOR()
+      { 
+        CritDestroyBuilding()
+          {
+          32148
+          }
+        CritDestroyBuilding()
+          {
+          32139
+          }
+        CritDestroyBuilding()
+          {
+          32151
+          }
+        CritDestroyBuilding()
+          {
+          32166
+          }
+        }
+      }
+    }
+  }
+
+; state 4
+;passage entered. release tachys
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(103)
+  }
+
+; state 5
+;upper left attacked. relese troops there
+  DefineCondState()
+  { 
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(102)
+    BonusCredits(1 20000)
+  }
+
+; state 6
+;well area attacked. send troops there.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(102 10001)  
+    ReleaseSpecialForces(102)
+  }
+
+; state 7
+;middle area attacked. send sky fortresses there.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(105 10001)  
+    ReleaseSpecialForces(105)
+  }
+
+; state 8
+;bottom area attacked. send cyclones there.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(104 10003)  
+    ReleaseSpecialForces(104)
+  }
+
+; state 9
+;player has three wells. change to stronger aip
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m12f2.aip)
+    BonusCredits(1 50000)
+  }
+
+; state 10
+;player thinks he's tough. change aip
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m12f3.aip)
+    BonusCredits(1 30000)
+  }
+
+; state 11
+;AI base under attack. go to meanest aip
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m12f4.aip)
+    BonusCredits(1 50000)
+  }
+}
+

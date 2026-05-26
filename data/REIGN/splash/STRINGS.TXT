@@ -1,0 +1,394 @@
+//
+//
+//	==THIS IS THE LOCALIZATION-FRIENDLY "STRINGS" FILE==
+//	========USED BY INSTALLSHIELD AND SPLASH.EXE========
+//
+//
+//	INSTRUCTIONS:
+//
+//	* Any line that starts with a // (double front slash) is
+//	  ignored (commented) by Splash.exe and InstallShield.
+//
+//	* The commented lines (this one included) are there only
+//	  to assist the person who edits this file.
+//
+//	* LEAVE NO BLANK LINES.  Every line MUST be commented
+//	  unless it is to be read and interpreted by Splash.exe
+//	  and InstallShield.
+//
+//	* DO NOT ADD/DELETE ANY LINES.  You may only alter existing
+//	  lines.  If an extra string is needed, contact Cross
+//	  Production.
+//
+//	* DO NOT CHANGE THE ORDER OF ANY LINES.
+//
+//	* DO NOT ADD NUMBERS TO THE BEGINNINGS OF LINES.
+//
+//	* THIS DOCUMENT MUST BE SAVED AS A .TXT FILE.
+//
+//	* Max string length = 1024.
+//
+//
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+//
+//	szFontName
+//	This is here so that we can easily change the font used in
+//	our home-made dialog boxes.
+//
+Dark Reign Font
+////////////////////////////////////////////////////////////////////
+//
+//	szCompanyName
+//	After installation, this ends up as a registry key directly
+//	under the HKEY_LOCAL_MACHINE/SOFTWARE key.
+//
+Activision
+////////////////////////////////////////////////////////////////////
+//
+//	szAppName
+//	After installation, this ends up as a registry key directly
+//	under the HKEY_LOCAL_MACHINE/SOFTWARE/szCompanyName key.
+//	This also ends up as the program folder icon name for the
+//	main executable.
+//
+Dark Reign
+////////////////////////////////////////////////////////////////////
+//
+//	szRootDir
+//	The default "install to" path in InstallShield will be
+//	\Program Files\szCompanyName\szRootDir.
+//
+Dark Reign
+////////////////////////////////////////////////////////////////////
+//
+//	szFTPReference
+//	The game updater uses this to recognize this game.
+//
+DARKW95
+////////////////////////////////////////////////////////////////////
+//
+//	szProgramExecutable
+//	This is the actual name of the main executable program.
+//
+DKReign.exe
+////////////////////////////////////////////////////////////////////
+//
+//	szProductKey
+//	After installation, this ends up as a registry key directly
+//	under the HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/
+//	CurrentVersion/App Paths key.
+//	In some cases, this is the same as szProgramExecutable.
+//
+DKReign_exe
+////////////////////////////////////////////////////////////////////
+//
+//	szProductVersion
+//	After installation, this ends up as a registry key directly
+//	under the HKEY_LOCAL_MACHINE/SOFTWARE/szCompanyName/
+//	szAppName key.
+//
+1.0
+////////////////////////////////////////////////////////////////////
+//
+//	szProgramFolderName
+//	This is what gets put into the Windows95 Taskbar Start Menu.
+//	In other words, after installation there will be a folder
+//	called Windows\Start Menu\Programs\szProgramFolderName.
+//
+Dark Reign
+////////////////////////////////////////////////////////////////////
+//
+//	szTechnicalHelp
+//	This goes into the program folder with the Tech Help icon.
+//
+Technical Help
+////////////////////////////////////////////////////////////////////
+//
+//	szOnlineHelp
+//	This goes into the program folder with the Online Help icon.
+//
+Online Manual
+////////////////////////////////////////////////////////////////////
+//
+//	Other shortcuts relavent to this game.
+//
+Dark Reign Editors Read-me
+<DO NOT ALTER THIS LINE>
+<DO NOT ALTER THIS LINE EITHER>
+<AGAIN, DO NOT ALTER THIS LINE>
+////////////////////////////////////////////////////////////////////
+//
+//	szUninstall
+//	This goes into the program folder with the Uninstall icon.
+//
+Uninstall Dark Reign
+////////////////////////////////////////////////////////////////////
+//
+//	szUninstallName
+//	This is what shows up in the Add/Remove Programs list box
+//	located in the control panel after installation.
+//
+Dark Reign
+////////////////////////////////////////////////////////////////////
+//
+//	szUninstallKey
+//	After installation, this ends up as a registry key directly
+//	under the HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/
+//	CurrentVersion/Uninstall key.
+//
+DarkReignUninstallKey
+////////////////////////////////////////////////////////////////////
+//
+//	szAppWindowName
+//	To find out what this should be, run the game and press
+//	Ctrl-Alt-Delete.  The game's window name will show in the
+//	list box.  This variable is used to prevent Splash.exe from
+//	running when the game is already running.
+//
+Tactics Engine
+////////////////////////////////////////////////////////////////////
+//
+//	szAppWindowClass
+//	This is similar to szAppWindowName.  Ask the Game's
+//	developers what they called the game's window class or use
+//	Spy++.  This is also used to detect if the games is running.
+//
+WinTactics
+////////////////////////////////////////////////////////////////////
+//
+//	szSplashScreenName
+//	This is the name of the window and the window class of the
+//	splash screen.  This string shows up in the Ctrl-Alt-Delete
+//	dialog box when the splash screen is running.
+//
+The Dark Reign Splash Screen
+////////////////////////////////////////////////////////////////////
+//
+//	sz16ColorWarning
+//	This is self-explanatory.
+//
+Dark Reign does not support 16-color mode.
+////////////////////////////////////////////////////////////////////
+//
+//	szMovieWarning
+//	This is displayed to the user's system is in 256-color mode
+//	and attempts to play a high-color movie.
+//
+In order to play this movie, your system must be in 16-bit color mode or higher.  Please change your system's color mode and restart Splash.
+////////////////////////////////////////////////////////////////////
+//
+//	szFindBitmapWarning
+//	This is displayed to the user if there is an error (for
+//	whatever reason) loading a bmp from the disk.
+//
+Unable to load a necessary bitmap.
+////////////////////////////////////////////////////////////////////
+//
+//	szOutOfMemoryWarning
+//	This is displayed to the user whenever a call to "malloc"
+//	or "new" fails.
+//
+Unable to allocate enough RAM.
+////////////////////////////////////////////////////////////////////
+//
+//	szFindBrowserWarning
+//	This is displayed to the user if a web button is pressed and
+//	neither Netscape nor IExplore is found on their system.
+//
+Sorry, Splash was unable to find an appropriate web browser to perform this action.
+////////////////////////////////////////////////////////////////////
+//
+//	szInformation
+//	The localized translation of the word "Information."
+//
+Information
+////////////////////////////////////////////////////////////////////
+//
+//	DirectX Dialog Box Strings.
+//	Displayed when the user does not have DirectX installed.
+//
+Microsoft DirectX 3a was not detected on your system.
+Dark Reign requires Microsoft DirectX 3a drivers, which enhance the sound and graphics capabilities of your system. These drivers may not be compatible with some video cards and certain display modes.
+DirectX 3a will be installed over your existing video card drivers and any previous versions of DirectX, after which you may be instructed to restart your computer.
+If you do not want to install DirectX 3a or you believe that DirectX 3a is incompatible with your hardware, please click the Cancel button below.
+For more information on DirectX 3a and answers to questions regarding your hardware's compatibility please click the Help button below.
+If you experience problems with DirectX, please contact Microsoft at:
+Microsoft Customer Sales and Service
+One Microsoft Way
+Redmond, WA  98052-6399, USA
+Call 1-800-426-9400, in the US
+Call +1-206-882-8080 outside the United States
+Click OK to continue installing DirectX 3a.  Click Cancel to cancel DirectX 3a installation.
+DirectX 3a was successfully installed.
+DirectX 3a was successfully installed.  You will need to restart you computer before playing Dark Reign.
+Please insert the Dark Reign CD in your CDROM drive.  Click OK when ready.
+////////////////////////////////////////////////////////////////////
+//
+//	Welcome Dialog Box Strings
+//	Displayed on the InstallShield Welcome dialog box.
+//
+Initiating Dark Reign Setup...
+Successful completion of the setup process will install Dark Reign on your computer.
+It is strongly recommended to shut down all other Windows programs in order to continue with the Setup Program.  You may click cancel to quit Setup and close any programs you have running.
+Click next to continue with the Setup program.
+WARNING: This program is protected by copyright law and international treaties.
+Unauthorized reproduction or distribution of this program, or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under law.
+////////////////////////////////////////////////////////////////////
+//
+//	SetupType Dialog Box Strings
+//	Displayed on the InstallShield SetupType dialog box.
+//
+Choose an installation type by clicking either the Large button or the Typical button below.
+The Large installation of Dark Reign requires 245 MB of hard disk space.  All game data and all movies will be placed on your hard drive.  Movies will play back at optimum performance.
+The Typical installation requires 110 MB of hard disk space.  All game data will be placed on your hard drive, and the movies will play off your Dark Reign CD.  Most likely, you will not notice any loss of performance in movie playback.
+////////////////////////////////////////////////////////////////////
+//
+//	AskDestPath Dialog Box Strings
+//	Displayed on the InstallShield AskDestPath dialog box.
+//
+Setup will install Dark Reign to the following directory:
+To install to this directory, click Install.
+To install to a different directory, click the Change Directory button below and select a different directory.
+You can choose not to install Dark Reign by clicking Cancel to exit Setup.
+The current destination drive contains insufficient disk space.  Please choose a different directory.
+Copying Dark Reign program files...
+////////////////////////////////////////////////////////////////////
+//
+//	Finish Dialog Box Strings
+//	Displayed on the InstallShield Finish dialog box.
+//
+Installation is now complete.  Click Finish to exit setup and begin Dark Reign.
+Installation is now complete.  Before playing Dark Reign you must restart your computer.  Click Restart to restart your computer now or click Finish to exit Setup.
+////////////////////////////////////////////////////////////////////
+//
+//	InstallShield warnings.
+//	Displayed when the user's system is missing one or more of
+//	the game's system requirements.
+//
+The following requirement(s) were not detected on your system.  Click Help for more information on Dark Reign's system requirements or click Install to continue with the installation.
+Windows95 operating system
+Pentium 90 MHz processor or better
+16 MB of RAM or more
+256-color capability or better
+1 MB of Video RAM or more
+2X CDROM drive or better
+////////////////////////////////////////////////////////////////////
+//
+//	More InstallShield error messages.
+//
+Dark Reign requires a 32-bit operating system to install.
+The following error occurred during the move data process :
+UnInstaller setup failed to initialize.  You may not be able to uninstall this product.
+Would you like to terminate the Dark Reign setup process?
+The Dark Reign setup process has been terminated.
+This product requires the English Language Windows 95 operating system. To find out if a version localized for your operating system is available for purchase, please contact your local Activision office.
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
+//
+//	====BELOW ARE SOME OF THE SYMOBLS THAT MAY BE NEEDED====
+//	==========FOR YOUR COPY-N-PASTING PLEASURES=============
+//
+//	ASCII Value	Symbol
+//	161		¡
+//	162		¢
+//	163		£
+//	164		¤
+//	165		¥
+//	166		¦
+//	167		§
+//	168		¨
+//	169		©
+//	170		ª
+//	171		«
+//	172		¬
+//	173		­
+//	174		®
+//	175		¯
+//	176		°
+//	177		±
+//	178		²
+//	179		³
+//	180		´
+//	181		µ
+//	182		¶
+//	183		·
+//	184		¸
+//	185		¹
+//	186		º
+//	187		»
+//	188		¼
+//	189		½
+//	190		¾
+//	191		¿
+//	192		À
+//	193		Á
+//	194		Â
+//	195		Ã
+//	196		Ä
+//	197		Å
+//	198		Æ
+//	199		Ç
+//	200		È
+//	201		É
+//	202		Ê
+//	203		Ë
+//	204		Ì
+//	205		Í
+//	206		Î
+//	207		Ï
+//	208		Ð
+//	209		Ñ
+//	210		Ò
+//	211		Ó
+//	212		Ô
+//	213		Õ
+//	214		Ö
+//	215		×
+//	216		Ø
+//	217		Ù
+//	218		Ú
+//	219		Û
+//	220		Ü
+//	221		Ý
+//	222		Þ
+//	223		ß
+//	224		à
+//	225		á
+//	226		â
+//	227		ã
+//	228		ä
+//	229		å
+//	230		æ
+//	231		ç
+//	232		è
+//	233		é
+//	234		ê
+//	235		ë
+//	236		ì
+//	237		í
+//	238		î
+//	239		ï
+//	240		ð
+//	241		ñ
+//	242		ò
+//	243		ó
+//	244		ô
+//	245		õ
+//	246		ö
+//	247		÷
+//	248		ø
+//	249		ù
+//	250		ú
+//	251		û
+//	252		ü
+//	253		ý
+//	254		þ
+//	255		ÿ
+//
+////////////////////////////////////////////////////////////////////
+//
+//	=======DO NOT ALTER ANYTHING BELOW THIS LINE=======
+//	====THIS IS THE LAST LINE OF THE "STRINGS" FILE====

@@ -1,0 +1,46 @@
+;
+; AI Conditional FSM for team 0
+; 64800
+DefineEndCondTree(64800)
+{
+
+; state 1
+; if you have destroyed the enemy HQ and are still alive after an hour, you win
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 I_gots_to_get_paid!)
+    {
+      CritAND()
+      {
+       CritOR()
+        {
+        CritTimerGame(64810)
+        CritDestroyTeamBuildings(1 0)
+        }
+       CritDestroyBuilding()
+        {
+          4810
+        }
+      } ; and
+    } ; cond
+
+    DefineCondition(2 0 0 0 I_gots_to_get_paid!)
+    {
+	CritONCE()
+	{      
+	CritTimer(64800) ; 
+	} 
+    } ; cond
+    SetAlliance(2 0 0 0 0 0 2 0 )
+ } ; state
+
+ ; state 2
+ DefineCondState()
+  {
+    DefineCondition(1 0 0 0 I_gots_to_get_paid!)
+    {
+      CritTimer(10)
+    } ; cond
+    TriggerMessage(MSG_OBJECTSUCCESS)
+  } ; cond
+} ; tree

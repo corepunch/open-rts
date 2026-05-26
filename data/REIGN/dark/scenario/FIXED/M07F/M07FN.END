@@ -1,0 +1,18 @@
+;
+; AI Conditional FSM for team 6
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    SetAlliance(2 0 0 0 0 0 2 0 )
+    DefineCondition(1 0 0 0 nothing)
+    {
+      CritTimer(108000)
+    }
+  SetAIPFile(defend2.aip)  ; chill out, build forces
+  }
+}

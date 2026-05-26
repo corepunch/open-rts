@@ -1,0 +1,954 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this tells the player to begin building an HQ, warning +20 
+  DefineCondState()
+  {
+    ; this detects for the player starting to build an HQ 
+    DefineCondition( 2 0 0 0 "State_2"  )
+    {
+      CritBeginBuildBuilding( ih1 3080 1 )
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 21 0 0 0 "warning"  )
+    {
+      CritOR()
+      {
+        CritInRegion( 3070 )
+        CritTimer( 1000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a tranistion to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( iu1 3080 1 )
+        CritBeginBuildBuilding( imppp 3080 1 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        CritBeginBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_0  )
+    TriggerMessage( State_1  )
+    TriggerMessage( State_2  )
+    ; this sets up the players initial alliances 
+    SetAlliance( 2 0 2 2 2 2 2 1 )
+    ;; State_Actions
+  }
+
+  ; State 2 this tells the player what the HQ does 
+  DefineCondState()
+  {
+    ; this detects for the completion of the players HQ 
+    DefineCondition( 3 0 0 0 "State_3"  )
+    {
+      CritBuildBuilding( ih1 3080 1 )
+      ;; Criteria
+    }
+    TriggerMessage( State_3  )
+    ;; State_Actions
+  }
+
+  ; State 3 this tells the player to build 3 rigs 
+  DefineCondState()
+  {
+    ; this detects if the player has built 3 rigs 
+    DefineCondition( 4 0 0 0 "State_4"  )
+    {
+      CritBuildUnit( IMPConstructionCrew 3 )
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 23 0 0 0 "warning"  )
+    {
+      CritOR()
+      {
+        CritInRegion( 3070 )
+        CritTimer( 2000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a tranistion to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( ih1 3080 2 )
+        CritBeginBuildBuilding( iu1 3080 1 )
+        CritBeginBuildBuilding( imppp 3080 1 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        CritBeginBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_6  )
+    TriggerMessage( State_4  )
+    TriggerMessage( State_5  )
+    ;; State_Actions
+  }
+
+  ; State 4 this tells the player to build Power, Training, Assembly see state 18 
+  DefineCondState()
+  {
+    ; this detects for the player begining to build the power, training, & assembly 
+    DefineCondition( 18 0 0 0 "state_18"  )
+    {
+      CritAND()
+      {
+        CritBeginBuildBuilding( imppp 3080 1 )
+        CritBeginBuildBuilding( iu1 3080 1 )
+        CritBeginBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; This detects for a transition to the warning state 
+    DefineCondition( 24 0 0 0 "warning"  )
+    {
+      CritOR()
+      {
+        CritInRegion( 3070 )
+        CritTimer( 700 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( ih1 3080 2 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        CritBuildUnit( IMPScoutTank 1 )
+        CritBuildUnit( IMPGroundTransporter 1 )
+        CritBuildUnit( IMPStrikeMarine 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_7  )
+    TriggerMessage( State_8  )
+    ;; State_Actions
+  }
+
+  ; State 5 this tells the player to build a guardian and go north 
+  DefineCondState()
+  {
+    ; this detects to see if they've built a guardian and entered the region 
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritAND()
+      {
+        CritBuildUnit( IMPStrikeMarine 1 )
+        CritInRegion( 3081 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 25 0 0 0 "warning"  )
+    {
+      CritTimer( 800 )
+      ;; Criteria
+    }
+    ; this detects for a transition to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBuildUnit( IMPScoutTank 1 )
+        CritBuildUnit( IMPGroundTransporter 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_B  )
+    ;; State_Actions
+  }
+
+  ; State 6 this state gives the player 3 units and tells them to head north 
+  DefineCondState()
+  {
+    ; this detects if they've entered the mud region 
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritMoveUnitsToRegion( 3071 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 26 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    GiveSpecialForces( 101 0 )
+    BonusCredits( 2 100000 )
+    TriggerMessage( State_C  )
+    TriggerMessage( State_D  )
+    ;; State_Actions
+  }
+
+  ; State 7 this state tells the player about mud 
+  DefineCondState()
+  {
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritMoveUnitsToRegion( 3072 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 27 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( State_E  )
+    ;; State_Actions
+  }
+
+  ; State 8 this state tells the player about pourous surfaces 
+  DefineCondState()
+  {
+    DefineCondition( 9 0 0 0 "state_9"  )
+    {
+      CritMoveUnitsToRegion( 3073 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 28 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( State_F  )
+    ;; State_Actions
+  }
+
+  ; State 9 this state tells the player about road 
+  DefineCondState()
+  {
+    DefineCondition( 10 0 0 0 "state_10"  )
+    {
+      CritMoveUnitsToRegion( 3074 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 29 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( State_G  )
+    ;; State_Actions
+  }
+
+  ; State 10 this state tells the player about picking the fastest path 
+  DefineCondState()
+  {
+    DefineCondition( 11 0 0 0 "state_11"  )
+    {
+      CritMoveUnitsToRegion( 3075 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 30 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( State_H  )
+    ;; State_Actions
+  }
+
+  ; State 11 this state talks about hover vehicles crossing water 
+  DefineCondState()
+  {
+    DefineCondition( 12 0 0 0 "state_12"  )
+    {
+      CritMoveUnitsToRegion( 3076 3 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 31 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( State_I  )
+    ;; State_Actions
+  }
+
+  ; State 12 this state describes elevations effect on LOS 
+  DefineCondState()
+  {
+    DefineCondition( 13 0 0 0 "state_13"  )
+    {
+      CritMoveUnitsToRegion( 3077 3 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 32 0 0 0 "warning"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerMessage( State_J  )
+    TriggerMessage( State_K  )
+    TriggerMessage( State_L  )
+    ;; State_Actions
+  }
+
+  ; State 13 this state tells the player to head north to the camera tower 
+  DefineCondState()
+  {
+    DefineCondition( 14 0 0 0 "state_14"  )
+    {
+      CritNOT()
+      {
+        CritInRegion( 3077 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 33 0 0 0 "warning"  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    TriggerMessage( State_M  )
+    ;; State_Actions
+  }
+
+  ; State 14 this state tells the player about moving over elevations 
+  DefineCondState()
+  {
+    DefineCondition( 15 0 0 0 "state_15"  )
+    {
+      CritAND()
+      {
+        CritTimer( 800 )
+        CritMoveUnitsToRegion( 3078 3 )
+        {
+          2968 
+          2966 
+          2964 
+          ;; Unit_ID
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 34 0 0 0 "warning"  )
+    {
+      CritTimer( 1200 )
+      ;; Criteria
+    }
+    TriggerMessage( State_N  )
+    TriggerMessage( State_O  )
+    TriggerMessage( State_P  )
+    ;; State_Actions
+  }
+
+  ; State 15 this state tells the player to destroy the enemy base 
+  DefineCondState()
+  {
+    DefineCondition( 16 0 0 0 "state_16"  )
+    {
+      CritDestroyTeamBuildings( 1 0 )
+      ;; Criteria
+    }
+    ; this detects for a transition to the warning state 
+    DefineCondition( 35 0 0 0 "warning"  )
+    {
+      CritTimer( 2500 )
+      ;; Criteria
+    }
+    ReleaseSpecialForces( 102 )
+    BonusCredits( 5 100000 )
+    TriggerMessage( State_Q  )
+    ;; State_Actions
+  }
+
+  ; State 16 this state tells the player they won 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "you_win"  )
+    {
+      CritTimer( 150 )
+      ;; Criteria
+    }
+    TriggerMessage( State_R  )
+    ;; State_Actions
+  }
+
+  ; State 17 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 18 this state is an addition to state 4 and tells the player about LOS 
+  DefineCondState()
+  {
+    ; this detects for the player building the power, training, & assembly 
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritAND()
+      {
+        CritBuildBuilding( imppp 3080 1 )
+        CritBuildBuilding( iu1 3080 1 )
+        CritBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; This detects for a transition to the warning state 
+    DefineCondition( 38 0 0 0 "warning"  )
+    {
+      CritOR()
+      {
+        CritInRegion( 3070 )
+        CritTimer( 2000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for a transition to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( ih1 3080 2 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        CritBuildUnit( IMPScoutTank 1 )
+        CritBuildUnit( IMPGroundTransporter 1 )
+        CritBuildUnit( IMPStrikeMarine 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_9  )
+    TriggerMessage( State_A  )
+    ;; State_Actions
+  }
+
+  ; State 19 this state makes the player lose 
+  DefineCondState()
+  {
+    BonusCredits( 7 100000 )
+    ;; State_Actions
+  }
+
+  ; State 20 this state tells the player the have lost 
+  DefineCondState()
+  {
+    ; this provides a delay for the audio before failing the player 
+    DefineCondition( 19 0 0 0 "bye_bye"  )
+    {
+      CritTimer( 100 )
+      ;; Criteria
+    }
+    TriggerMessage( State_S  )
+    ;; State_Actions
+  }
+
+  ; State 21 this is the error state for state 1t 
+  DefineCondState()
+  {
+    ; this detects to see if the player should lose if entering a region 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritInRegion( 3081 )
+      ;; Criteria
+    }
+    ; this detects to see if the player is sitting sitting there, loops 
+    DefineCondition( 21 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    ; this detects to see if the player has started the HQ 
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritBeginBuildBuilding( ih1 3080 1 )
+      ;; Criteria
+    }
+    ; this detects for a tranistion to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( iu1 3080 1 )
+        CritBeginBuildBuilding( imppp 3080 1 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        CritBeginBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_T  )
+    ;; State_Actions
+  }
+
+  ; State 22 this is the error state for state 2 Not currently used 
+  DefineCondState()
+  {
+    ; this detects to see if the player built an HQ 
+    DefineCondition( 3 0 0 0 "State_3"  )
+    {
+      CritBuildBuilding( ih1 3080 1 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 23 this is the error state for state 3t 
+  DefineCondState()
+  {
+    ; this detects to see if the player should lose by entering a region 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritInRegion( 3081 )
+      ;; Criteria
+    }
+    ; this detects for a tranistion to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( ih1 3080 2 )
+        CritBeginBuildBuilding( iu1 3080 1 )
+        CritBeginBuildBuilding( imppp 3080 1 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        CritBeginBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 23 0 0 0 "not_responding"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    DefineCondition( 4 0 0 0 "State_4"  )
+    {
+      CritBuildUnit( IMPConstructionCrew 3 )
+      ;; Criteria
+    }
+    TriggerMessage( State_U  )
+    ;; State_Actions
+  }
+
+  ; State 24 this is the error state for state 4 
+  DefineCondState()
+  {
+    ; this detects to see if the player should lose by entering a region 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritInRegion( 3081 )
+      ;; Criteria
+    }
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 24 0 0 0 "not_responding"  )
+    {
+      CritTimer( 600 )
+      ;; Criteria
+    }
+    ; this detects for a transition to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( ih1 3080 2 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ; this detects for the player begining to build the power, training, & assembly 
+    DefineCondition( 18 0 0 0 "state_18"  )
+    {
+      CritAND()
+      {
+        CritBeginBuildBuilding( imppp 3080 1 )
+        CritBeginBuildBuilding( iu1 3080 1 )
+        CritBeginBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_V  )
+    ;; State_Actions
+  }
+
+  ; State 25 this is the error state for state 5 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 25 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritAND()
+      {
+        CritBuildUnit( IMPStrikeMarine 1 )
+        CritInRegion( 3081 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_W  )
+    ;; State_Actions
+  }
+
+  ; State 26 this is the error state for state 6 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 26 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritMoveUnitsToRegion( 3071 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 27 this is the error state for state 7 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 27 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritMoveUnitsToRegion( 3072 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 28 this is the error state for state 8 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 28 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 9 0 0 0 "state_9"  )
+    {
+      CritMoveUnitsToRegion( 3073 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 29 this is the error state for state 9 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 29 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 10 0 0 0 "state_10"  )
+    {
+      CritMoveUnitsToRegion( 3074 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 30 this is the error state for state 10 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 30 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 11 0 0 0 "state_11"  )
+    {
+      CritMoveUnitsToRegion( 3075 1 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 31 this is the error state for state 11 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 31 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 12 0 0 0 "state_12"  )
+    {
+      CritMoveUnitsToRegion( 3076 3 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 32 this is the error state for state 12 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 32 0 0 0 "not_responding"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    DefineCondition( 13 0 0 0 "state_13"  )
+    {
+      CritMoveUnitsToRegion( 3077 3 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_X  )
+    ;; State_Actions
+  }
+
+  ; State 33 this is the error state for state 13 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 33 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 14 0 0 0 "state_14"  )
+    {
+      CritNOT()
+      {
+        CritInRegion( 3077 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_Y  )
+    ;; State_Actions
+  }
+
+  ; State 34 this is the error state for state 14 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 34 0 0 0 "not_responding"  )
+    {
+      CritTimer( 400 )
+      ;; Criteria
+    }
+    DefineCondition( 15 0 0 0 "state_15"  )
+    {
+      CritMoveUnitsToRegion( 3078 3 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_Y  )
+    ;; State_Actions
+  }
+
+  ; State 35 this is the error state for state 15 
+  DefineCondState()
+  {
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 35 0 0 0 "not_responding"  )
+    {
+      CritTimer( 2000 )
+      ;; Criteria
+    }
+    DefineCondition( 16 0 0 0 "state_16"  )
+    {
+      CritDestroyTeamBuildings( 1 0 )
+      ;; Criteria
+    }
+    TriggerMessage( State_Z  )
+    ;; State_Actions
+  }
+
+  ; State 36 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 37 
+  DefineCondState()
+  {
+    ;; State_Actions
+  }
+
+  ; State 38 this is the error state for state 18 see also 4 & 24 
+  DefineCondState()
+  {
+    ; this detects to see if the player should lose by entering a region 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritInRegion( 3081 )
+      ;; Criteria
+    }
+    ; this detects to see if the player is sitting there, loops 
+    DefineCondition( 24 0 0 0 "not_responding"  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    ; this detects for a transition to the lose state 
+    DefineCondition( 20 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritBeginBuildBuilding( ih1 3080 2 )
+        CritBeginBuildBuilding( implp 3080 1 )
+        CritBeginBuildBuilding( ig 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritAND()
+      {
+        CritBuildBuilding( imppp 3080 1 )
+        CritBuildBuilding( iu1 3080 1 )
+        CritBuildBuilding( ic1 3080 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( State_V  )
+    ;; State_Actions
+  }
+
+  ;; State
+}

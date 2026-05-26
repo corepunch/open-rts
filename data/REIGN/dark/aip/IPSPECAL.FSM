@@ -1,0 +1,59 @@
+;
+; AI Conditional FSM for freedom guard teams
+;
+DefineAICondTree()
+{
+  Description("Imperium: This AI will use highest level units it can build")
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "youwin1.txt")
+    {      
+      CritBuildBuilding(fc2 0 1)
+    }
+    SetAIPFile(IDHar1.aip)
+  }
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "youwin1.txt")
+    {
+      CritBuildBuilding(fgar 0 1)
+    }
+    DefineCondition(1 0 0 50 "youwin1.txt")
+    {
+     CritNOT()
+      {
+      CritBuildBuilding(fc2 0 1)
+      }
+    }
+    SetAIPFile(IDHar2.aip)
+  }
+
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 "youwin1.txt")
+    {
+     CritNOT()
+      {
+      CritBuildBuilding(fc2 0 1)
+      }
+    }
+    DefineCondition(2 0 0 50 "youwin1.txt")
+    { 
+      CritNOT()
+       {
+        CritBuildBuilding(fgar 0 1)
+       }
+    }
+    SetAIPFile(IDHar3.aip)
+  }
+}

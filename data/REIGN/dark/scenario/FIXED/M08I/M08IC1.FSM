@@ -1,0 +1,239 @@
+DefineAICondTree()
+{
+  ; State 1 this state waits to launch the attack 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritTimer( 450 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 2 this state destroys the players base 
+  DefineCondState()
+  {
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritDestroyBuilding()
+      {
+        327 
+        326 
+        320 
+        3707 
+        ;; Building_ID
+      }
+      ;; Criteria
+    }
+    TriggerSpecialForces( 100 608 )
+    TriggerSpecialForces( 101 608 )
+    ;; State_Actions
+  }
+
+  ; State 3 this state finishes off the base 
+  DefineCondState()
+  {
+    DefineCondition( 4 0 0 0 "state_4"  )
+    {
+      CritNOT()
+      {
+        CritTeamInRegion( 617 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerSpecialForces( 100 616 )
+    TriggerSpecialForces( 101 616 )
+    ;; State_Actions
+  }
+
+  ; State 4 this state switches to a defensive AIP and begins the move home 
+  DefineCondState()
+  {
+    DefineCondition( 5 0 0 0 "state_5"  )
+    {
+      CritTimer( 1600 )
+      ;; Criteria
+    }
+    SetAIPFile( M08iexp.aip  )
+    TriggerSpecialForces( 100 606 )
+    TriggerSpecialForces( 101 606 )
+    ;; State_Actions
+  }
+
+  ; State 5 moves the units to the base and waits for player to build 
+  DefineCondState()
+  {
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritOR()
+      {
+        CritLessUnitsThanEnemy( 300 )
+        CritAND()
+        {
+          CritEnemyInRegion( 610 )
+          CritEnemyInRegion( 611 )
+          CritTimer( 20000 )
+          ;; Criteria
+        }
+        CritTimer( 25000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 8 0 0 0 "state_8"  )
+    {
+      CritTeamInRegion( 614 0 )
+      ;; Criteria
+    }
+    TriggerSpecialForces( 100 614 )
+    TriggerSpecialForces( 101 614 )
+    ;; State_Actions
+  }
+
+  ; State 6 attacks player 
+  DefineCondState()
+  {
+    DefineCondition( 8 0 0 0 "State_8"  )
+    {
+      CritTimer( 5000 )
+      ;; Criteria
+    }
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritTeamInRegion( 614 0 )
+      ;; Criteria
+    }
+    SetAIPFile( M08iatt.aip  )
+    AdjustRegionPri( 607 200 300 500 )
+    AdjustRegionPri( 606 200 200 400 )
+    AdjustRegionPri( 611 100 100 300 )
+    AdjustRegionPri( 610 100 100 300 )
+    AdjustRegionPri( 613 0 0 0 )
+    AdjustRegionPri( 608 300 400 600 )
+    ;; State_Actions
+  }
+
+  ; State 7 this state defends the base and waits for the player to leave 
+  DefineCondState()
+  {
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritNOT()
+      {
+        CritTeamInRegion( 614 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 9 0 0 0 "state_9"  )
+    {
+      CritAND()
+      {
+        CritTimer( 500 )
+        CritTeamInRegion( 618 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ReleaseSpecialForces( 101 )
+    SetAIPFile( M08idef.aip  )
+    AdjustRegionPri( 607 0 0 0 )
+    AdjustRegionPri( 606 0 0 0 )
+    AdjustRegionPri( 611 0 0 0 )
+    AdjustRegionPri( 610 0 0 0 )
+    AdjustRegionPri( 613 0 0 0 )
+    AdjustRegionPri( 608 0 0 0 )
+    ;; State_Actions
+  }
+
+  ; State 8 this state prepares for a sneak attack and builds up 
+  DefineCondState()
+  {
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritOR()
+      {
+        CritAND()
+        {
+          CritTimer( 5000 )
+          CritOR()
+          {
+            CritEnemyInRegion( 611 )
+            CritEnemyInRegion( 610 )
+            CritEnemyInRegion( 607 )
+            ;; Criteria
+          }
+          ;; Criteria
+        }
+        CritTimer( 8000 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritTeamInRegion( 614 0 )
+      ;; Criteria
+    }
+    SetAIPFile( M08ibld.aip  )
+    ReleaseSpecialForces( 100 )
+    AdjustRegionPri( 608 0 0 0 )
+    AdjustRegionPri( 613 300 400 600 )
+    ;; State_Actions
+  }
+
+  ; State 9 this state makes a last ditch defense 
+  DefineCondState()
+  {
+    DefineCondition( 6 0 0 0 "state_6"  )
+    {
+      CritNOT()
+      {
+        CritTeamInRegion( 614 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 7 0 0 0 "state_7"  )
+    {
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritTeamInRegion( 618 0 )
+          ;; Criteria
+        }
+        CritTeamInRegion( 614 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    DefineCondition( 10 0 0 0 "state_10"  )
+    {
+      CritONCE()
+      {
+        CritTimer( 1 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 10 gives the computer some money and releases special forces 
+  DefineCondState()
+  {
+    DefineCondition( 9 0 0 0 "State_9"  )
+    {
+      CritTimer( 1 )
+      ;; Criteria
+    }
+    BonusCredits( 1 15000 )
+    ReleaseSpecialForces( 99 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

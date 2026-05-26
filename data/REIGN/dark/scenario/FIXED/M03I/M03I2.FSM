@@ -1,0 +1,77 @@
+;
+; Game Conditions for team 1
+;
+DefineAICondTree()
+{
+  ; state 1
+ DefineCondState()
+  {  
+   DefineCondition(2 0 0 0 player_win)
+    {
+     CritTimer(0)
+    }
+   SetAlliance(1 1 2 1 1 1 1 1)
+ }
+
+  ; state 2
+  ;  move escaped prisoners 
+  DefineCondState()
+  {
+   
+   DefineCondition(3 0 0 0 player_win)
+    {
+     CritTimer(800)
+    }
+ 
+   TriggerSpecialForces(99 79210)  
+   TriggerSpecialForces(102 80583)
+   TriggerSpecialForces(100 80583)
+   TriggerSpecialForces(101 80583) 
+
+ }
+  ; state 3
+  ; 
+  DefineCondState()
+  {
+   
+   DefineCondition(4 0 0 0 player_win)
+    {
+     CritTimer(450)
+    }
+  
+   TriggerSpecialForces(102 70057)
+   TriggerSpecialForces(100 70062)
+   TriggerSpecialForces(101 70067) 
+
+}
+  ; state 4
+  ; 
+  DefineCondState()
+  {
+   
+   DefineCondition(5 0 0 0 player_win)
+    {
+     CritTimer(450)
+    }
+  
+   TriggerSpecialForces(102 70054)
+   TriggerSpecialForces(100 70061)
+   TriggerSpecialForces(101 70059) 
+
+}
+; state 5
+  ; 
+  DefineCondState()
+  {
+   
+   DefineCondition(3 0 0 0 player_win)
+    {
+     CritTimer(450)
+    }
+ 
+   TriggerSpecialForces(102 70055)
+   TriggerSpecialForces(100 70056)
+   TriggerSpecialForces(101 70058) 
+
+  }
+}

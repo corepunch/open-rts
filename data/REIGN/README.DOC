@@ -1,0 +1,199 @@
+DARK REIGN: THE FUTURE OF WAR
+
+Copyright (c) 1997 Activision Studios. All rights reserved.
+
+Dark Reign is a trademark of Activision Studios.
+
+August 24, 1997
+
+This document contains additional information about the use of the Construction Kit and other editing tools included with Dark Reign as well as supplemental technical information about any hardware conflicts and compatibility problems for Dark Reign for Win95 that came to our attention after the completion of the Dark Reign Manual and the README.hlp.
+============================================================================
+
+CONTENTS:
+1.  Troubleshooting
+2.  The Mission Construction Kit
+2.1  Sample scenario walk-through
+2.2  Hints and tips
+3.  Supplemental Editors
+3.1  The FSM Editor
+3.2  The AIP Editor
+3.3  The End Condition Editor
+3.4  The Unit Editor
+4.  Gameplay Miscellaneous 
+
+1.  TROUBLESHOOTING
+
+1.1 DRIVER CONFLICTS
+
+We are aware of compatibility conflicts with the following mouse drivers:
+Fellowes 3 button mouse driver
+Artec 3 button mouse driver
+Cirque Glidepoint desktop driver
+Alps Glidepoint driver
+If you have any of these four mouse drivers loaded, you will need to load the Microsoft Standard Mouse Driver or compatible driver to play Dark Reign.
+
+If you have a Matrox Mystique video card and wish to play Dark Reign in 800 x 600 mode, you will need to launch the game from the executable in the directory to which you have Dark Reign installed, not from the Windows 95 Start Menu.
+
+If you are attempting to run Dark Reign on a Compaq Presario 4700 series system, you will probably need to download the latest DirectX3 update from the Compaq website and then re-run DirectX setup. 
+
+
+
+  
+2.  THE MISSION CONSTRUCTION KIT
+	
+2.1  SAMPLE SCENARIO WALKTHROUGH
+
+From the Dark Reign main menu, left-click the "Construction Kit" button. It will take a moment for the Construction Kit to load. Before you can use the construction kit, you must first agree to the terms stated in the pop-up window that appears when the program first opens. After you have left-clicked the "Yes" button, you will have access to the Construction Kit file menu. You must first decide the type of scenario you wish to create. From the "Scenario Type" selection box at the right, choose a singleplayer mission, multiplayer mission, or a multiplayer campaign. Singleplayer missions can be played by one person against one or more computer opponents and permit the designer to establish "end conditions" (the objective[s] that must be achieved by a side in order to win a mission). Multiplayer campaigns allow for multiple human and/or computer players and also permit the designer to set end conditions. Multiplayer missions allow for multiple human and/or computer players but do not permit the establishment of end conditions. The following is a step-by-step walk-through for creating a multiplayer mission.
+
+After you have selected "Multiplayer Mission" from the "Scenario Type" selection box at the right, that type scenario will appear on the button. Next, left-click the "create" button at the right. A new window will appear in the center of your screen with options for naming your scenario and determining the size of your map. In the name window type the name "Test1". The size of your map could technically be as large as 250x250 and still run smoothly with 16MB of RAM, but for our purposes, we'll start with a modest 60x60. Backspace over the number in the height box and type "60". Backspace over the number in the width box and type "60" again. Left-click "OK".
+Depending on the speed of your computer, it may take a moment for the Construction Kit to load the basic scenario you have selected. You will now see a field of plain, flat, brown terrain. This is the basic "firm/open" terrain for the "Snow" tileset. For your first map, we will work with a different tileset. To change tilesets, you will need to open the "terrain" menu. To do this, left-click on the image of the mountain in the graphic menu bar at the top of your screen. A new menu will now appear displaying a number of different terrain modeling tool menus. At the top right you will see the "Terrain" selection bar. There are three different tilesets to choose from: Snow, Barren, or Jungle. Press the plus sign button to load the "Barren" tileset. Depending on the speed of your computer, it may take a moment for the Barren tileset to be loaded. When it is loaded, you will see the terrain in your main map window has changed to a sandy beige color. This is the basic "firm/open" terrain for the Barren tileset. Below the terrain selection bar, you will see a square of sixteen boxes arranged in the following fashion:
+
+LQ	F/O	F/O	F/O
+SG	SG	BG	BG
+RD	RD	RM	RM
+RM	RM	RM	RM
+
+These form the terrain type selection menu. Different types of terrain will affect unit movement differently, so your placement of terrain types will be very important. From the top left square (labeled in the above diagram as "LQ") you can select liquid terrain. In the barren tileset this liquid resembles water, but in other tilesets it may look more like sludge or oil. This terrain type is impassable to all units except those that fly or hover. From the three terrain boxes to the right of the liquid terrain box (labeled in the above diagram as "F/O") you can select firm/open terrain. This terrain type is passable at standard speed by all units. From the next row you can select "soft ground" terrain (the two boxes on the left labeled in the above diagram as "SG") or "broken ground" terrain (the two boxes on the right labeled in the above diagram as "BG"). Soft ground will slow all ground units except hover units. Broken ground, on the other hand, will slow only hover units. From the two boxes on the left in the third row (labeled in the above diagram as "RD") you can select "road" terrain. Road terrain provides a speed bonus for all ground units except hover units. The remaining boxes on this row and the row below (labeled in the above diagram as "RM") show "rimming" tiles. These terrain types should not be laid down manually but will appear later to help make different elevation levels and grades on your map more apparent. 
+
+Elevation
+
+Before laying down terrain types, you will often find it useful to make map elevation decisions first. It is not absolutely necessary to create elevation changes for your map, but the addition of these features will make the map environment you are creating more strategically interesting for the person who will be playing in it. The default setting for laying out terrain does not include elevation rendering. You can adjust the setting by left-clicking on the red "x" below the terrain type selection menu labeled "altitude". The x will change to a green check mark. You will see that the box next to "terrain" has also been checked. It is possible to disable this function by left-clicking the box to change the green check mark to a red "x", but for the purposes of this exercise leave both functions enabled. 
+You can adjust elevation levels by using the vertical slider bar next to the terrain type selection menu. Elevation levels are numbered 0 through 9, although it will be easiest on your first maps to only use the 0, 3, 6, and 9 elevations. This is because you will want changes in elevation to be easily discerned. Slide the vertical slider bar up to the level 6 position and then move your cursor over into the main map window. You can see the area of the overall map in which you are working by observing the location of the highlighted square in the minimap in the bottom right corner of the screen. Move your cursor into the top left corner of the main map window to scroll to the top left corner of your map. The highlighted box in the minimap should now appear in that corner. Now try laying down a hill in the corner by left-clicking in the main map window a dragging the cursor across the screen. As you do this, a "hill" at the sixth elevation level will appear along the path of your cursor. While the terrain type of the hill will be same as the rest of the map at this time, shadows have appeared to show its general outline. 
+To make the elevation of the hill more readily apparent, you will need to toggle back to the "file" menu. Next, find about half way down the sidebar menu on the right a button labeled "Autoridge". Left-click this button. You will now observe that the terrain type around the edge of the hill has changed to show more clearly the difference in elevation between the hill and the land at "0" elevation below. Now go ahead and toggle back to the "terrain" menu and add a few more small hills at level 6. You'll need to go back to the "file" menu and left-click the autoridge button to "rim" these hills. Now go to the terrain type selection menu and left-click on one of the "broken ground" terrain types. Go back to your main map window and make another small hill. Observe that this time you are you are laying down both elevation and differentiated terrain, creating a rocky or mossy hill.
+
+Resources and Teams
+
+Before you go too much farther into raising hills and laying out terrain, you need to give some thought as to the positioning of the teams on your map as well as to the locations of the resources they will draw from. The map you are currently creating is only large enough to two players. Later you can make maps that can easily provide a fighting arena for as many as eight. For two players, we will set out two pure water springs and two Taelon mines, and then set the starting locations for each team near these resources. We will then add in a few starting units and a building or two. 
+Each unit and building belongs to a team. Springs and Taelon mines are grouped in with the buildings. These resources are assigned to the civilian side. To find them, left-click on the image of the head in the menu bar at the top of the screen. You will now have accessed the "Player Options" menu. At the top of the menu you will see a column of four buttons: Freedom Guard, Imperium, Civilian, and Togran. Left click the "civilian" button. This is the side with which springs and Taelon mines are grouped. Next find the team selection box at the bottom of the screen. This is a collection of nine small buttons arranged as follows:
+
+1  2  3
+4  5  6
+7  8  N
+
+Each number corresponds to a team that you could designate on your map. The first eight are player (human or computer) teams. Team "N" is neutral. This is the team to which you should assign civilians and civilian buildings - including springs and Taelon mines. Left-click the "N" button. Next left-click the image of the house at in the menu bar at the top of the screen. This takes you to the "building" menu. You will now see in the builbing menu to the left the selection of civilian buildings you can build, including the spring and the Taelon mine. If you are uncertain as to what a particular building is, hold your cursor over the image of that building and text will appear at the bottom of the screen displaying the name of the building. Left-click the image of the pure water spring. Now move your cursor over into the top right of the main map window. Left-click again to set down the spring. Lay down a second spring in the opposite corner. Near each of these, lay down one Taelon mine. 
+The next step will be to determine the sides and starting points for each team. Because you are creating a two player scenario, you will need to place two teams. To change teams, click the number of the desired team in the team selection box. We will use teams "1" and "2". Left-click on the "1" button. We will set team 1's side to be Imperium. Left-click the Head again to access the "Player Options" menu. In the column of side selection buttons toward the top, click the button labeled "Imperium". Now whichever player is assigned to team "1" will build Imperium buildings and units. Next, assign the Freedom Guard to team "2". Left-click the "2" button in the team selection box, then select the button labeled "Freedom Guard". Whichever player is assigned to team "2" will build Freedom Guard buildings and units. While you still have team "2" selected, left-click the "Start Pos." button on the right side of the screen. Your cursor will now change to a green flag. Now move your cursor back into the main map window and scroll back to the top right area of the map near the spot where you have placed one of your pure water springs. Left-click on a spot and an "x" will appear with the label "Team 2". When your multiplayer mission starts, this is the spot on the map from which team 2 will begin. Left-click on the "Start Pos." button again and mark a starting spot for team 1 in the bottom left area of the map near the pure water spring down there.
+
+Starting Units, Buildings, and Credits
+
+At this point you will have completed almost every necessary step for creating a multiplayer mission, but there are a few extra items we will add to this one. If you are ever uncertain as to whether or not you have met all the criteria necessary for the completion of a scenario, go to the "Status" menu by left-clicking on the picture of the graph on the right end of the menu bar at the top of the screen. This display will show you the number of units, buildings, and overlays you have placed on your map, as well as a list of any remaining necessary items or settings. Now return to the "Player Options" menu. Below the "Start Pos." button you will see a window in which you can select a default number of starting credits for your mission. Backspace over the number in this window and type "10,000". 
+Next left-click on the image of the little man (just to the right of the mountain) in the menu bar at the top of the screen. In the team selection box, the number "1" should still be depressed. On the right hand side of the screen you will now see a selection of Imperium units. You can start multiplayer missions with any number of these, but the best standard arrangement is to start each team with three Construction Rigs. This will allow each player to build an HQ, Power Plant, and Water Launch Pad - the basic building blocks of any base. Move your cursor over the image of the construction rig in the top left of the unit selection menu. The name of the unit will now appear at the bottom of the menu. Left-click on the Rig and then move your cursor over into the main map window to a spot near the marked starting position for team 1. Left-click to place the Rig. To place more Rigs, you can either hold down the left mouse button and scroll, left-click again, or left-click the "dup" button just below the team selection box. Now left-click the "2" button in the team selection box. Notice that the menu of units now changes to display the units of the Freedom Guard. Again left-click on the Construction Rig and this time set out three Rigs in the top right area of the map near the designated starting position for team 2. 
+Finally we will add in a building or two for each team to start with. With team 2 still selected, left-click the
+image of the house in the menu bar at the top of the screen. Select a Camera Tower and place it on the map near the team two starting spot. Do the same for team one.
+
+The Playing Environment
+
+Your map is now perfectly playable, but you may yet want to make some adjustments and additions to make the playing experience richer and to make your map look more realistic. The first thing you may wish to do is alter the terrain in some places. Go back to the "Terrain" menu by left-clicking the image of the mountain in the menu bar at the top of the screen. Before you select anything, move the altitude slider to the right of the terrain type selection menu from "6" back down to "0". From the terrain type selection menu, select a "road" tile. You can change the size, shape, and consistency of the tile you're laying down by using the other tools in this menu. Below the terrain type selection menu you will find a numbered horizontal slider bar. Using this bar you can select the type of "mask" or texture pattern your tiles will be drawn with. For your first maps, leave the setting all the way to the left on "R". This is the random mask setting and is the one that will make your maps look the most natural. Below this bar you will see four boxes. One of these will be highlighted. Use these to control the shape of your tiles as you draw them. You may want to use the straighter-sided tile shapes for roads and artificially formed areas. More natural regions should be drawn using a more jagged-edged tile shape. Left-click on the box of the shape you wish to use and try drawing some tiles.  You can also change the size and shape of your "brush" using the controls at the bottom of the menu. Left click the up and down arrows next to the image of the paint brush to adjust your brush size. Changing the shape of your brush will only really matter when you are using a brush size larger than size "1". If you want to quickly scatter a terrain type in an area of your map, left-click the button labeled "solid" at the bottom of the screen. The label for this button will now change to "spray". This tool is also only effective with larger brush sizes. You may also want to "zoom out" to work on your map on a larger scale. Left click the up and down arrows next to the image of the magnifying glass to adjust your zoom level. For whatever terrain you decide to implement, remember that different terrains will have differing effects on unit movement (see designations above), so lay out terrain types with care. 
+
+The final step in getting your map looking right is to add in overlays. Left-click on the image of the tree in the menu bar at the top of the screen. This will bring up the "Add Overlay" menu. Here you will find trees, rocks, craters - even crashed spaceships. Try placing these around your map in various spots, It's best not to place too many near the team starting points. You will want to make sure to leave enough room for base-building. Also keep in mind that units can be blocked out of certain areas by walls of overlays and that units can hide behind many overlays. In many respects your placement of overlays can have as profound an effect on the way your mission plays as your placement of terrain tiles. When you've set your last tree and rock in place, our test mission is complete. You'll need to go back to the "File" menu to save your mission. It will probably take some practice to get used to using all the tools and options. The following is a collection of tips and suggestions from our designers:   
+
+
+2.2 Hints and Tips
+
+If you are making a map larger than 120x120 (especially larger than 200x200) it is helpful to place markers on the map in the corners and the center before you do anything else.  This will help you create the terrain and place teams. 
+
+You can randomly paint more than one tile at the same time by holding down control and selecting all the tiles you want to paint with.
+
+Use slow tiles under trees and around rocks to give a dense look and for added effect.   
+
+You can select multiple masks and tiles by holding down the control key and selecting the combination you want. 
+
+You can paint overlays by holding down the control key and selecting the objects you want.   You may want to clump trees together but leave rocks by themselves.
+
+Don't put too many pure water springs in one place. Spread the water springs evenly over the map.
+
+Using many different elevations will give your terrain a bumpy effect and will also effect units' line of sight and unit movement.   
+
+Be careful with elevations. Try to play the game in your head and make sure you have considered both hover and ground unit movement for your map.
+
+Be careful with the liquid tile. Unlike most conventional settings, it impedes one side (Freedom Guard) far more than the other (Imperium).You should use the liquid tile sparingly.  It is not good to use it for looks as it severely effects gameplay.
+
+You can make areas of the map where players cannot build by changing the elevation or placing overlays there.   Keep in mind that most overlays can be destroyed.  
+
+Placing pure spring overlays in areas that have no place to build near them means that no one team will be able to build fortifications around them.
+
+A good default setting for credits is 10,000.  
+
+It's a good idea to have at least 1.5 water springs per player and no more than 3 per player. If you do add multiple springs, you may want to put secondary ones in hard to reach places.
+
+If you use a lot of elevation  changes you may want to make ramps on the sides of hills so that hover units have a way of getting up.
+
+Remember to leave enough flat clear space for people to build their bases.
+
+Stick to elevations 0, 3, 6 , & 9
+
+Never forget: Start Locations, Starting Credits, placing water & crystals
+
+Use slow terrain for specific purposes, don't just scatter it everywhere.
+
+With regards to elevation, only certain types of units can cross certain elevation changes (the difference between one tile and the next)
+
+(elevation difference = x)
+
+x>3 then hover can't cross (rimmed accordingly).
+x>6 wheeled and tracked vehicles cant cross (rimmed accordingly).
+infantry can cross anything.
+
+For your base building area, a rather large area that is flat and free of overlays is needed.  At least on game screen is size to two game screens in size.  Remember to leave areas that you can move all unit types off of (i.e. not on islands or hills the hover vehicles can't get down from)
+
+Bumpy terrain can really obscure line-of-sight.  Best to limit this type of terrain to areas that are intended not to be crossed, very slow terrain, etc. 
+
+You can't move or see through trees.  It is very possible to lay trees (and other overlays for that matter)appear to be passable, but aren't.  You can hit Shift - A in the Construction Kit to display the passability of overlays.
+
+Slow terrain can really slow play down.  Slow terrain makes guard towers more powerful (since units will move slowly closer to the tower while being fired at the entire time).  
+
+Water can be crossed by both Freedom Guard and Imperium, but it provides the Imperium an advantage because the Imperium uses so many hover units.  The AI can not cross water nearly as well as humans (It doesn't build bridges or load units into transports).
+
+Talon is not required on your map but its presence does reduce some micro-management in the game (don't have to find space to build lots of power plants).  
+
+Water wells should be close enough to be easily found on multi-player maps.
+
+AUTORIDGE EVERYTHING.
+
+
+
+For Campaign and Singleplayer Scenarios:
+
+Be absolutely sure you understand FSM's & End conditions before using them.  (improper use of them can make your game messy and unsatisfying.)
+
+Comment your FSM's.
+
+It is quite difficult to balance campaign missions when players on the same team have different end conditions.
+
+Some of the most enjoyable Multiplayer campaigns are those where everyone shares the same objective.
+
+Write detailed mission briefings, it never hurts.
+
+Include each player's objectives in your briefings
+
+Some of the end conditions specifically reference one side's units or buildings.  Remember players can change sides in the Multiplayer Setup screen.  So if you don't want them to change sides tell them in your briefings.
+
+Units with preset orders or wapoints  have to be special forces if the belong to a team with an AIP.   Otherwise the units will be taken over by the AI.
+
+
+4.  GAMEPLAY MISCELLANEOUS:
+
+On the pre-printed keyboard quick reference card, one of the hot keys listed is "H" for returning to your primary HQ in the main map window. This feature was never implemented.
+
+In multiplayer games, unless you specify otherwise by specifically assigning them to different teams, all AI players will ally with each other.
+
+If your machine is at or near minimum memory requirements to run Dark Reign, you may notice that the game may pause for a second while changing audio tracks.
+
+You can assign the Rift Creator to a hot key in the same way you would a unit (cntrl+a number). Once you have gained line of sight for your target, select the Rift Creator group # and fire.
+
+Units cannot be cued in the build menu if you have walls or resources selected. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+       

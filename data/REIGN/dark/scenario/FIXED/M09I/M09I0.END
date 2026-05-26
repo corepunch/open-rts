@@ -1,0 +1,43 @@
+
+
+;
+; Game End Conditions for team 0
+;
+DefineEndCondTree(129600)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+     
+
+	
+	DefineCondition(2 0 0 0 "D")  ;  Dr. in region
+      	  {  
+          CritMoveUnitsToRegion(42768 1)
+          {
+           24570
+          }
+	  }
+ 
+	 SetAlliance(2 0 2 2 0 1 1 1)
+
+ }
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+      
+      DefineCondition(0 0 0 0 "D")  ;  Dr. in region
+      	  {  
+          CritTimer(100)
+	  }
+
+
+	TriggerMessage(GVINTCL3)
+        TriggerMessage(GXTELOC1)
+   
+}
+}

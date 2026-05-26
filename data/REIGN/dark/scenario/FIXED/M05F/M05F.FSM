@@ -1,0 +1,472 @@
+;
+;  Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; state 1
+; hold still for two minutes...
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 You're_in_for_it_now!)
+    {
+      CritTimerGame(2000)	; 1500 = an attempt at ~2 minutes (at 20cps)
+    }
+
+    DefineCondition(8 0 0 0 base_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10030)  ; bogies in base
+      }
+    }
+   
+    DefineCondition(9 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10200)  ; bogies in base
+      }
+    }
+
+    DefineCondition(10 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10335)  ; bogies in base
+      }
+    }
+   
+    DefineCondition(11 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10207)  ; bogies in base
+      }
+    }
+
+    SetAIPFile(m05f.aip)
+  }
+
+; state 2
+; start killing people.  Send the tanks up the channels
+  DefineCondState()
+  {
+    DefineCondition(5 0 0 0 right_well_secured)
+    {
+      CritONCE()
+      {
+        CritHoldRegion(10007 120 0)  ; hold the right well for ~4 minutes
+      }
+    }
+ 
+    DefineCondition(3 0 0 0 middle_well_secured)
+    {
+      CritONCE()
+      {
+       CritHoldRegion(10003 125 0)  ; hold the middle well for ~4 minutes
+      }
+    }
+
+    DefineCondition(4 0 0 0 left_well_secured)
+    {
+      CritONCE()
+      {
+       CritHoldRegion(10002 130 0)  ; hold the right well for ~4 minutes
+      }
+    }
+
+    DefineCondition(8 0 0 0 base_entered)
+    {
+      CritONCE()
+      {
+        CritOR()	
+        {
+          CritEnemyInRegion(10030)  ; bogies in base
+          CritDestroyBuilding()
+          {
+            3076
+          }
+        }
+      }
+    }
+   
+    DefineCondition(9 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+        CritOR()	
+        {
+          CritEnemyInRegion(10200)  ; bogies in base
+          CritDestroyBuilding()
+          {
+            3073
+          }
+        }
+      }
+    }
+
+    DefineCondition(10 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10335)  ; bogies in base
+      }
+    }
+   
+    DefineCondition(11 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10207)  ; bogies_in_base
+      }
+    }
+
+    DefineCondition(14 0 0 0 you_fucked_up_now)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          3058
+        }
+      }
+    }
+    
+    ;step up the attack
+    DefineCondition(19 0 0 0 bottom_level_secured)
+    {
+      CritTimerGame(10000)
+    }
+
+    TriggerSpecialForces(100 10007)  ; right-hand squad
+    TriggerSpecialForces(101 10003)  ; middle squad
+    TriggerSpecialForces(102 10002)  ; left-hand squad
+  }
+
+; state 3
+;Bottom middle well held. Trigger second wave.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 You're_in_for_it_now!)
+    {
+      CritTimer(0)	; go back to main state
+    }
+
+    TriggerSpecialForces(103 10004)  ; Big Plasma group to top middle.
+  }
+
+; state 4
+;Bottom left well held. Trigger second wave.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 You're_in_for_it_now!)
+    {
+      CritTimer(0)	; go back to main state
+    }
+
+    TriggerSpecialForces(108 10001)  ; Tach and 2 Plasma to top left.
+  }
+
+; state 5
+;Bottom right well held. Trigger second wave.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 You're_in_for_it_now!)
+    {
+      CritTimer(0)	; go back to main state
+    }
+
+    TriggerSpecialForces(107 10006)  ; Tachs and Plasmas to middle right.
+  }
+
+; state 6
+; bottom of map controlled. Start getting ugly.
+  DefineCondState()
+  {
+    DefineCondition(12 0 0 0 release_more_special_forces)
+    {
+      CritONCE()
+      {
+       CritTimerGame(15000)  ; 
+      }
+    }
+
+    DefineCondition(13 0 0 0 release_more_special_forces)
+    {
+      CritONCE()
+      {
+       CritTimerGame(16000)  ; 
+      }
+    }
+
+    DefineCondition(7 0 0 0 trouble)
+    {
+      CritLessUnitsThanEnemy(70)   
+    }  
+
+    DefineCondition(19 0 0 0 trouble)
+    {
+      CritMoreUnitsThanEnemy(250)   
+    } 
+
+    DefineCondition(15 0 0 0 base_entered)
+    {
+      CritONCE()
+      {
+        CritOR()	
+        {
+          CritEnemyInRegion(10030)  ; bogies in base
+          CritDestroyBuilding()
+          {
+            3076
+          }
+        }
+      }
+    }
+   
+    DefineCondition(16 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+        CritOR()	
+        {
+          CritEnemyInRegion(10200)  ; bogies in base
+          CritDestroyBuilding()
+          {
+            3073
+          }
+        }
+      }
+    }
+
+    DefineCondition(17 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10335)  ; bogies in base
+      }
+    }
+   
+    DefineCondition(18 0 0 0 base_invaded)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(10207)  ; bogies_in_base
+      }
+    }
+
+    DefineCondition(14 0 0 0 you_fucked_up_now)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          3058
+        }
+      }
+    }
+
+    TriggerSpecialForces(105 10005) 
+    TriggerSpecialForces(106 10004) 
+    TriggerSpecialForces(103 10004)
+    TriggerSpecialForces(108 10001)
+    TriggerSpecialForces(107 10006)  
+    ReleaseSpecialForces(100)
+    ReleaseSpecialForces(101)
+    ReleaseSpecialForces(102)
+  }
+
+; state 7
+; The player's getting saucy. Put the hurt on him.
+; new aip.
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 trouble)
+    {
+      CritTimer(0)   ;
+    }  
+
+    BonusCredits(1 20000)
+    SetAIPFile(m05fyow.aip)
+  }
+
+; state 8
+;base invaded. respond.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	; 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(104)  ; let Tachys loose
+  }
+
+
+; state 9
+;base invaded. respond.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	; 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(110)  ; let Tachys loose
+  }
+
+; state 10
+;base invaded. invade theirs.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	; 
+    }
+
+    BonusCredits(1 10000)
+    TriggerSpecialForces(109 10011)  ; top infantry to base
+  }
+
+; state 11
+;base invaded. invade theirs.
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(111)  ; Go Tachys go
+    TriggerSpecialForces(109 10011)  ; top infantry to base
+  }
+ 
+; state 12
+;release special forces to spice things up
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 back_to_state6)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(103)  ; 
+    ReleaseSpecialForces(105)  ;
+    ReleaseSpecialForces(108)  ;
+  }   
+
+; state 13
+;release special forces to spice things up
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 back_to_state6)
+    {
+      CritTimer(0)	 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(106)  ; 
+    ReleaseSpecialForces(107)  ;
+  } 
+
+
+; state 14
+;base attacked. release all special forces
+  DefineCondState()
+  {
+    DefineCondition(19 0 0 0 back_to_state6)
+    {
+      CritTimer(0)	 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(100)  ; 
+    ReleaseSpecialForces(101)  ;
+    ReleaseSpecialForces(102)  ;
+    ReleaseSpecialForces(103)  ;
+    ReleaseSpecialForces(104)  ;
+    ReleaseSpecialForces(105)  ;
+    ReleaseSpecialForces(106)  ;
+    ReleaseSpecialForces(107)  ;
+    ReleaseSpecialForces(108)  ;
+    ReleaseSpecialForces(109)  ;
+    ReleaseSpecialForces(110)  ;
+    ReleaseSpecialForces(111)  ;
+  } 
+
+; state 15
+;base invaded. respond.
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	; 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(104)  ; let Tachys loose
+  }
+
+
+; state 16
+;base invaded. respond.
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	; 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(110)  ; let Tachys loose
+  }
+
+; state 17
+;base invaded. invade theirs.
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	; 
+    }
+
+    BonusCredits(1 10000)
+    TriggerSpecialForces(109 10011)  ; top infantry to base
+  }
+
+; state 18
+;base invaded. invade theirs.
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 back_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+
+    BonusCredits(1 10000)
+    ReleaseSpecialForces(111)  ; Go Tachys go
+    TriggerSpecialForces(109 10011)  ; top infantry to base
+  }
+
+
+; state 19
+; change aip and go to wait state
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 0 go_to_base_state)
+    {
+      CritTimer(0)	 
+    }
+    SetAIPFile(m05f2.aip)    
+  }
+}
+
+
+
+
+
+

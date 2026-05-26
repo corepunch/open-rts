@@ -1,0 +1,18 @@
+
+;
+; AI Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "")
+    {
+    CritHaveCredits(2000)
+    }
+   SetAlliance(0 2 1 1 1 1 1 1)  
+}
+}

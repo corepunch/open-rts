@@ -1,0 +1,27 @@
+;
+; AI Conditional FSM for team 2
+;
+DefineEndCondTree(0)
+{
+
+; state 1
+; 
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 release)
+        {
+          CritTeamInRegion(15112 0) 
+        }
+  }
+; state 2
+; 
+  DefineCondState()
+  {
+    
+     DefineCondition(2 0 0 0 nothing)
+        {
+          CritTimer(1000000) 
+        }
+   ReleaseSpecialForces(606)
+   }
+}

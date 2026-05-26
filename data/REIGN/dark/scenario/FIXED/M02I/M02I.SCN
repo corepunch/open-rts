@@ -1,0 +1,554 @@
+; SCENARIO D:\darkv101-1\dark\scenario\SINGLE\M02i\M02i.scn
+; Built at 22:07:41, on Aug 29 1997;
+SetVersion(2)
+;
+;
+; *** The Terrain type
+;
+SetDefaultTerrain(BARREN)
+;
+; *** Tech-level
+;
+SetTechLevel(1)
+;
+;Team information for team 0
+;
+SetTeam(0)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(0)
+  SetCredit(10000)
+  SetCPULoad(2000)
+  SetStartLocation(227 774)
+  SetEnd(M02i.end)
+  SetAlliance(2 0 0 0 0 0 0 0)
+}
+
+;
+;Team information for team 1
+;
+SetTeam(1)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(1)
+  SetCredit(25000)
+  SetCPULoad(2025)
+  SetStartLocation(1548 1489)
+  SetFSM(M02i.fsm M02i.fsm M02i.fsm)
+  SetAlliance(0 2 0 0 0 0 0 0)
+}
+
+;
+;Team information for team 2
+;
+SetTeam(2)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(2)
+  SetCredit(0)
+  SetCPULoad(2000)
+  SetAlliance(0 0 2 0 0 0 0 0)
+}
+
+;
+;Team information for team 3
+;
+SetTeam(3)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(3)
+  SetCredit(0)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 2 0 0 0 0)
+}
+
+;
+;Team information for team 4
+;
+SetTeam(4)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(4)
+  SetCredit(0)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 2 0 0 0)
+}
+
+;
+;Team information for team 5
+;
+SetTeam(5)
+{
+  SetTeamSide(0)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(5)
+  SetCredit(0)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 0 2 0 0)
+}
+
+;
+;Team information for team 6
+;
+SetTeam(6)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(6)
+  SetCredit(0)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 0 0 2 0)
+}
+
+;
+;Team information for team 7
+;
+SetTeam(7)
+{
+  SetTeamSide(1)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(7)
+  SetCredit(0)
+  SetCPULoad(2000)
+  SetAlliance(0 0 0 0 0 0 0 2)
+}
+
+;
+;Team information for team 8
+;
+SetTeam(8)
+{
+  SetTeamSide(2)    ; (0=FreedomGuard, 1=Imperium, 2=Togran)
+  SetGroup(8)
+  SetCredit(0)
+  SetCPULoad(0)
+  SetAlliance(1 1 1 1 1 1 1 1)
+}
+
+;
+; *** Unit Declarations
+;
+;
+; Units for Team 0
+;
+SetDefaultTeam(0)
+PutUnitAt(59 IMPConstructionCrew 8 31)
+PutUnitAt(76 IMPConstructionCrew 18 31)
+PutUnitAt(77 IMPConstructionCrew 2 31)
+PutUnitAt(224 IMPConstructionCrew 6 36)
+PutUnitAt(226 IMPConstructionCrew 24 23)
+;
+; Units for Team 1
+;
+SetDefaultTeam(1)
+PutUnitAt(22700 FGFreedomFighter 58 4)
+;
+; Units for Team 2
+;
+SetDefaultTeam(2)
+;
+; Units for Team 3
+;
+SetDefaultTeam(3)
+;
+; Units for Team 4
+;
+SetDefaultTeam(4)
+;
+; Units for Team 5
+;
+SetDefaultTeam(5)
+;
+; Units for Team 6
+;
+SetDefaultTeam(6)
+;
+; Units for Team 7
+;
+SetDefaultTeam(7)
+;
+; Units for Team 8
+;
+SetDefaultTeam(8)
+;
+; *** Building Declarations
+;
+;
+; Buildings for Team 1
+;
+SetDefaultTeam(1)
+
+AddBuildingAt(22685 fh1 60 60 dummy_msc)
+AddBuildingAt(22686 fu1 65 56 dummy_msc)
+AddBuildingAt(22687 fc1 54 65 dummy_msc)
+AddBuildingAt(22688 fgpp 59 53 dummy_msc)
+AddBuildingAt(22691 fglp 54 58 dummy_msc)
+AddBuildingAt(22694 fg 52 62 dummy_msc)
+AddBuildingAt(22697 fg 59 51 dummy_msc)
+;
+; Buildings for Team 8
+;
+SetDefaultTeam(8)
+
+AddBuildingAt(20627 impww 7 3 dummy_msc)
+AddBuildingAt(20587 impww 28 17 dummy_msc)
+AddBuildingAt(20589 impmn 58 1 dummy_msc)
+AddBuildingAt(21270 impww 34 65 dummy_msc)
+AddBuildingAt(21271 impww 67 51 dummy_msc)
+;
+; *** Thing (overlay) Declarations
+;
+;
+; Overlays
+;
+AddThingAt(21269 tree4 6 2)
+AddThingAt(21266 tree4 4 5)
+AddThingAt(21263 tree6 5 7)
+AddThingAt(21253 bigcrater 61 22)
+AddThingAt(21247 bigcrater 55 14)
+AddThingAt(21245 bigcrater 58 13)
+AddThingAt(21243 bigcrater 54 18)
+AddThingAt(21239 bigcrater 60 27)
+AddThingAt(21236 bigcrater 64 27)
+AddThingAt(21232 bigcrater 64 18)
+AddThingAt(21227 smcrater 60 18)
+AddThingAt(21225 rubble3 66 22)
+AddThingAt(21222 wreck2 65 21)
+AddThingAt(21219 wreck1 59 24)
+AddThingAt(21215 water2 26 45)
+AddThingAt(21211 water1 35 15)
+AddThingAt(21207 water3 34 25)
+AddThingAt(21201 rubble2 38 55)
+AddThingAt(21198 rubble2 37 57)
+AddThingAt(21195 rubble2 39 58)
+AddThingAt(21189 rubble2 38 56)
+AddThingAt(21185 rubble2 40 57)
+AddThingAt(21182 rubble2 41 56)
+AddThingAt(21179 rubble1 41 57)
+AddThingAt(21176 rock4 39 55)
+AddThingAt(21165 plnt3 32 69)
+AddThingAt(21163 plnt3 33 68)
+AddThingAt(21157 plnt3 35 69)
+AddThingAt(21149 plnt3 36 67)
+AddThingAt(21138 tree2 32 68)
+AddThingAt(21135 tree2 68 55)
+AddThingAt(21129 plnt1 65 50)
+AddThingAt(21121 plnt3 66 55)
+AddThingAt(21115 plnt3 65 52)
+AddThingAt(21112 plnt1 54 51)
+AddThingAt(21108 plnt1 56 50)
+AddThingAt(21106 plnt1 58 49)
+AddThingAt(21104 plnt1 60 48)
+AddThingAt(21102 plnt1 59 46)
+AddThingAt(21100 plnt1 67 56)
+AddThingAt(21096 plnt2 56 49)
+AddThingAt(21094 plnt2 57 49)
+AddThingAt(21090 plnt2 58 47)
+AddThingAt(21084 plnt3 53 59)
+AddThingAt(21078 plnt3 54 57)
+AddThingAt(21076 plnt3 55 55)
+AddThingAt(21074 plnt3 55 54)
+AddThingAt(21072 plnt3 56 53)
+AddThingAt(21070 plnt1 57 53)
+AddThingAt(21064 plnt1 56 54)
+AddThingAt(21058 plnt1 55 56)
+AddThingAt(21050 plnt1 54 58)
+AddThingAt(21046 plnt1 62 33)
+AddThingAt(21041 plnt1 60 32)
+AddThingAt(21037 plnt1 57 31)
+AddThingAt(21033 plnt1 58 31)
+AddThingAt(21031 plnt1 57 28)
+AddThingAt(21027 plnt1 62 29)
+AddThingAt(21021 plnt3 65 3)
+AddThingAt(21018 plnt3 64 4)
+AddThingAt(21016 plnt3 57 7)
+AddThingAt(21011 plnt3 54 5)
+AddThingAt(21007 plnt3 63 8)
+AddThingAt(21003 plnt3 63 6)
+AddThingAt(20999 plnt1 55 25)
+AddThingAt(20997 plnt1 54 25)
+AddThingAt(20993 plnt1 52 23)
+AddThingAt(20991 plnt1 53 23)
+AddThingAt(20983 plnt1 57 23)
+AddThingAt(20979 plnt1 60 24)
+AddThingAt(20977 plnt1 60 23)
+AddThingAt(20975 plnt1 60 22)
+AddThingAt(20973 plnt1 59 21)
+AddThingAt(20971 plnt1 58 18)
+AddThingAt(20969 plnt1 58 17)
+AddThingAt(20967 plnt3 61 23)
+AddThingAt(20965 plnt3 59 27)
+AddThingAt(20959 plnt3 57 26)
+AddThingAt(20953 plnt3 61 16)
+AddThingAt(20949 plnt3 60 16)
+AddThingAt(20947 plnt3 62 22)
+AddThingAt(20945 plnt3 63 23)
+AddThingAt(20943 plnt3 64 23)
+AddThingAt(20941 plnt3 65 23)
+AddThingAt(20939 plnt3 65 25)
+AddThingAt(20931 plnt3 63 19)
+AddThingAt(20929 misc1 61 19)
+AddThingAt(20927 misc1 38 6)
+AddThingAt(20922 misc2 13 10)
+AddThingAt(20919 tree5 3 5)
+AddThingAt(20917 tree5 12 1)
+AddThingAt(20915 tree5 4 1)
+AddThingAt(20912 tree5 14 13)
+AddThingAt(20910 tree5 9 16)
+AddThingAt(20908 tree5 11 15)
+AddThingAt(20905 tree5 2 17)
+AddThingAt(20903 tree5 3 15)
+AddThingAt(20899 tree5 3 8)
+AddThingAt(20896 tree5 7 8)
+AddThingAt(20893 tree5 10 11)
+AddThingAt(20891 tree5 14 9)
+AddThingAt(20889 tree5 14 7)
+AddThingAt(20885 tree5 2 11)
+AddThingAt(20883 tree5 1 11)
+AddThingAt(20877 tree5 2 9)
+AddThingAt(20871 tree5 1 6)
+AddThingAt(20865 tree5 1 2)
+AddThingAt(20863 tree5 16 5)
+AddThingAt(20859 tree5 15 5)
+AddThingAt(20845 tree5 15 15)
+AddThingAt(20843 rubble1 15 14)
+AddThingAt(20837 rubble1 14 15)
+AddThingAt(20835 rubble3 13 16)
+AddThingAt(20833 rubble3 13 17)
+AddThingAt(20831 tree5 12 17)
+AddThingAt(20829 tree5 10 17)
+AddThingAt(20827 rubble3 8 17)
+AddThingAt(20817 rubble1 7 16)
+AddThingAt(20813 tree5 11 17)
+AddThingAt(20811 rubble3 11 16)
+AddThingAt(20809 rubble3 18 12)
+AddThingAt(20807 tree5 19 11)
+AddThingAt(20805 rubble3 20 11)
+AddThingAt(20803 tree5 20 10)
+AddThingAt(20801 rubble3 21 10)
+AddThingAt(20799 rubble1 21 9)
+AddThingAt(20795 rubble1 20 8)
+AddThingAt(20793 rubble1 18 7)
+AddThingAt(20789 rubble3 19 4)
+AddThingAt(20787 tree5 20 3)
+AddThingAt(20775 rubble3 19 10)
+AddThingAt(20769 tree5 19 9)
+AddThingAt(20760 rubble3 17 10)
+AddThingAt(20758 rubble3 15 11)
+AddThingAt(20752 rubble3 15 10)
+AddThingAt(20748 tree5 18 8)
+AddThingAt(20746 tree5 19 8)
+AddThingAt(20742 tree5 17 7)
+AddThingAt(20738 rubble1 16 6)
+AddThingAt(20734 rubble3 17 5)
+AddThingAt(20730 rubble1 17 3)
+AddThingAt(20728 tree5 17 2)
+AddThingAt(20726 rubble3 15 2)
+AddThingAt(20724 rubble1 14 2)
+AddThingAt(20722 rubble1 11 1)
+AddThingAt(20720 rubble3 15 3)
+AddThingAt(20718 tree5 13 4)
+AddThingAt(20710 tree5 12 10)
+AddThingAt(20708 tree5 12 12)
+AddThingAt(20704 rubble3 11 12)
+AddThingAt(20702 rubble1 10 12)
+AddThingAt(20700 rubble3 8 11)
+AddThingAt(20698 tree5 7 10)
+AddThingAt(20696 rubble3 6 9)
+AddThingAt(20692 rubble3 8 14)
+AddThingAt(20690 tree5 7 13)
+AddThingAt(20688 rubble1 5 12)
+AddThingAt(20686 rubble3 4 11)
+AddThingAt(20684 tree5 4 9)
+AddThingAt(20674 rubble1 23 6)
+AddThingAt(55 smcrater 62 26)
+AddThingAt(54 smcrater 55 26)
+AddThingAt(53 smcrater 49 13)
+AddThingAt(52 smcrater 60 12)
+AddThingAt(26 smcrater 59 31)
+AddThingAt(12 smcrater 47 18)
+AddThingAt(94 plnt1 56 14)
+AddThingAt(95 plnt1 56 18)
+AddThingAt(96 plnt1 59 19)
+AddThingAt(98 plnt1 53 15)
+AddThingAt(99 plnt1 48 18)
+AddThingAt(100 plnt1 46 18)
+AddThingAt(101 plnt1 45 18)
+AddThingAt(102 plnt1 46 20)
+AddThingAt(114 plnt2 59 14)
+AddThingAt(115 plnt2 49 7)
+AddThingAt(116 plnt2 47 7)
+AddThingAt(117 plnt2 45 8)
+AddThingAt(118 plnt2 43 10)
+AddThingAt(119 plnt2 49 3)
+AddThingAt(120 plnt2 50 2)
+AddThingAt(121 plnt2 53 3)
+AddThingAt(122 plnt2 52 5)
+AddThingAt(123 plnt2 51 6)
+AddThingAt(124 plnt2 45 18)
+AddThingAt(125 plnt2 44 22)
+AddThingAt(126 plnt2 45 23)
+AddThingAt(127 plnt2 46 25)
+AddThingAt(128 plnt2 42 22)
+AddThingAt(129 plnt2 43 26)
+AddThingAt(130 plnt2 45 28)
+AddThingAt(131 plnt2 46 29)
+AddThingAt(301 plnt2 8 3)
+AddThingAt(311 plnt3 15 9)
+AddThingAt(312 plnt3 15 12)
+AddThingAt(313 plnt3 13 13)
+AddThingAt(314 plnt1 14 3)
+AddThingAt(315 plnt1 2 6)
+AddThingAt(320 plnt1 16 13)
+AddThingAt(22126 plnt1 11 58)
+AddThingAt(22142 plnt1 17 67)
+AddThingAt(22154 plnt3 7 61)
+AddThingAt(22156 plnt3 7 60)
+AddThingAt(22158 plnt2 6 61)
+AddThingAt(22160 plnt2 5 62)
+AddThingAt(22174 plnt1 6 58)
+AddThingAt(22192 plnt2 9 61)
+AddThingAt(22194 plnt3 7 63)
+AddThingAt(22196 plnt3 7 64)
+AddThingAt(22198 plnt3 9 67)
+AddThingAt(22200 plnt1 17 69)
+AddThingAt(22202 plnt3 17 61)
+AddThingAt(22212 plnt2 21 58)
+AddThingAt(22222 plnt3 18 57)
+AddThingAt(22238 plnt1 45 53)
+AddThingAt(22240 plnt2 44 55)
+AddThingAt(22242 plnt2 47 57)
+AddThingAt(22246 plnt2 51 55)
+AddThingAt(22248 plnt1 47 58)
+AddThingAt(22250 plnt3 49 58)
+AddThingAt(22252 plnt2 50 57)
+AddThingAt(22254 plnt1 50 56)
+AddThingAt(22256 plnt3 46 54)
+AddThingAt(22258 plnt1 44 52)
+AddThingAt(22260 plnt2 45 49)
+AddThingAt(22262 plnt1 45 48)
+AddThingAt(22264 plnt1 46 48)
+AddThingAt(22266 plnt1 49 49)
+AddThingAt(22268 plnt2 51 51)
+AddThingAt(22270 plnt2 51 52)
+AddThingAt(22272 plnt3 48 53)
+AddThingAt(22274 plnt1 29 50)
+AddThingAt(22282 plnt3 25 57)
+AddThingAt(22284 plnt2 24 57)
+AddThingAt(22286 plnt2 22 57)
+AddThingAt(22288 plnt2 21 57)
+AddThingAt(22290 plnt1 24 56)
+AddThingAt(22304 plnt1 31 53)
+AddThingAt(22314 plnt2 1 57)
+AddThingAt(22328 plnt1 7 65)
+AddThingAt(22330 plnt3 9 64)
+AddThingAt(22335 plnt3 9 62)
+AddThingAt(22337 plnt1 10 61)
+AddThingAt(22339 rock2 25 50)
+AddThingAt(22342 rock2 19 53)
+AddThingAt(22345 rock2 30 49)
+AddThingAt(22347 rock1 25 51)
+AddThingAt(22353 plnt3 8 55)
+AddThingAt(22356 plnt3 6 56)
+AddThingAt(22358 plnt3 4 52)
+AddThingAt(22360 plnt3 2 52)
+AddThingAt(22363 plnt3 7 51)
+AddThingAt(22367 plnt2 20 45)
+AddThingAt(22369 plnt2 18 47)
+AddThingAt(22372 plnt2 20 49)
+AddThingAt(22377 plnt2 22 48)
+AddThingAt(22379 plnt3 24 47)
+AddThingAt(22385 plnt2 26 42)
+AddThingAt(22388 plnt2 28 43)
+AddThingAt(22391 plnt3 29 40)
+AddThingAt(22393 plnt3 35 37)
+AddThingAt(22395 plnt3 34 29)
+AddThingAt(22400 plnt3 33 30)
+AddThingAt(22402 plnt3 38 25)
+AddThingAt(22405 plnt3 31 26)
+AddThingAt(22408 plnt3 36 22)
+AddThingAt(22411 plnt3 33 23)
+AddThingAt(22415 plnt3 38 14)
+AddThingAt(22418 plnt3 40 12)
+AddThingAt(22421 plnt3 42 12)
+AddThingAt(22424 plnt3 36 11)
+AddThingAt(22428 plnt3 36 7)
+AddThingAt(22430 plnt3 36 8)
+AddThingAt(22432 plnt3 40 6)
+AddThingAt(22436 plnt3 41 8)
+AddThingAt(22440 plnt3 44 4)
+AddThingAt(22442 plnt3 42 2)
+AddThingAt(22446 plnt3 40 3)
+AddThingAt(22448 plnt3 39 5)
+AddThingAt(22452 plnt2 41 6)
+AddThingAt(22454 plnt1 42 8)
+AddThingAt(22456 plnt2 28 20)
+AddThingAt(22463 tree2 29 21)
+AddThingAt(22465 tree6 27 17)
+AddThingAt(22467 tree4 27 21)
+AddThingAt(22470 rubble2 32 20)
+AddThingAt(22473 tree4 2 69)
+AddThingAt(22477 tree6 3 70)
+AddThingAt(22482 plnt2 2 68)
+AddThingAt(22489 plnt3 1 69)
+AddThingAt(22491 plnt3 2 70)
+AddThingAt(22497 rock1 1 67)
+AddThingAt(22500 rock1 4 69)
+AddThingAt(22507 rock3 3 68)
+AddThingAt(22513 plnt2 67 36)
+AddThingAt(22519 plnt2 67 37)
+AddThingAt(22524 plnt2 68 37)
+AddThingAt(22526 plnt3 69 33)
+AddThingAt(22528 plnt3 68 33)
+AddThingAt(22532 plnt3 66 35)
+AddThingAt(22534 plnt3 57 37)
+AddThingAt(22536 plnt3 57 39)
+AddThingAt(22538 plnt3 54 37)
+AddThingAt(22541 plnt3 56 33)
+AddThingAt(22543 plnt3 52 33)
+AddThingAt(22545 plnt3 50 36)
+AddThingAt(22547 plnt3 49 36)
+AddThingAt(22553 plnt3 44 30)
+AddThingAt(22557 plnt3 44 33)
+AddThingAt(22559 plnt3 47 34)
+AddThingAt(22563 plnt3 47 35)
+AddThingAt(22567 plnt3 48 35)
+AddThingAt(22571 plnt3 47 26)
+AddThingAt(22573 plnt3 49 28)
+AddThingAt(22575 plnt3 49 29)
+AddThingAt(22577 plnt3 51 30)
+AddThingAt(22579 plnt3 47 33)
+AddThingAt(22582 plnt3 44 25)
+AddThingAt(22586 plnt3 40 37)
+AddThingAt(22588 plnt3 41 39)
+AddThingAt(22590 plnt3 41 40)
+AddThingAt(22594 plnt3 42 37)
+AddThingAt(22596 plnt3 43 41)
+AddThingAt(22598 plnt3 41 42)
+AddThingAt(22600 plnt3 40 42)
+AddThingAt(22604 plnt3 41 46)
+AddThingAt(22606 plnt3 42 47)
+AddThingAt(22610 plnt3 44 44)
+AddThingAt(22612 plnt3 43 50)
+AddThingAt(22614 plnt3 42 50)
+AddThingAt(22616 plnt3 42 53)
+AddThingAt(22618 plnt3 49 51)
+AddThingAt(22624 plnt3 50 53)
+AddThingAt(22626 plnt3 49 54)
+AddThingAt(22630 plnt3 47 50)
+AddThingAt(22634 plnt3 52 45)
+AddThingAt(22638 plnt3 55 47)
+AddThingAt(22640 plnt3 57 47)
+AddThingAt(22642 plnt3 54 44)
+AddThingAt(22645 tree2 52 58)
+AddThingAt(22654 tree2 5 4)
+AddThingAt(22656 tree2 6 5)
+AddThingAt(22659 wreck1 38 58)
+AddThingAt(22662 special1 12 5)
+AddThingAt(22664 misc2 56 27)
+AddThingAt(22666 misc2 63 24)
+AddThingAt(22668 misc2 59 16)
+AddThingAt(22670 misc2 61 14)
+AddThingAt(22673 misc2 55 24)
+AddThingAt(22675 misc2 62 28)
+AddThingAt(22678 misc2 59 33)
+AddThingAt(22680 misc2 52 25)
+AddThingAt(22682 misc2 66 19)
+AddThingAt(22684 wreck3 61 27)

@@ -1,0 +1,106 @@
+/**********************************************************************
+
+ m05f.aip
+
+ AUTO GENERATED - HAND EDIT AT YOUR OWN RISK
+
+**********************************************************************/
+
+#include "aipdef.h"
+
+
+// PRIORITIES
+int threat_priority = 100;
+int distance_priority = -1;
+int defend_buildings_priority = 30;
+int attack_enemy_base_priority = -1;
+int persistence_priority = 0;
+int exploration_priority = 40;
+int scripted_priority = 50;
+int single_use_group_priority = 0;
+int perimeter_priority = 50;
+int resource_priority = 130;
+int danger_priority = 10;
+int danger_diminishment = 1;
+
+
+// EDIT BOXES
+double min_matching_force_ratio = 1.00;
+int min_building_force = 70;
+int min_exploration_force = 70;
+int min_perimeter_force = 70;
+double max_matching_force_ratio = 3.00;
+int max_building_force = 300;
+int max_exploration_force = 299;
+int max_perimeter_force = 70;
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.00;
+float generic_ground_ratio = 1.00;
+int min_resource_force = 100;
+int max_resource_force = 300;
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNTS
+
+/////////////////////////////////////////////////////////////////////////////
+
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account           BUDGET             BUDGET CAP
+//--------------------------------------------------------
+     "Units",	             UNLIMITED,		UNLIMITED;
+   
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Units
+//
+ACCOUNT Units[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    15,           "IMPStrikeMarine",       NUMBER_TO_HAVE,           6;
+    15,           "IMPFireSupportMarine",  NUMBER_TO_HAVE,           7;
+    15,           "IMPTachyonTank",        NUMBER_TO_HAVE,           13;
+    15,           "IMPPlasmaTank",         NUMBER_TO_HAVE,           23;
+
+#END_DATA
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// FORCE MATCHING
+
+/////////////////////////////////////////////////////////////////////////////
+FORCE_MATCHING My_Matchings[MAX_FORCE_MATCHING];
+
+#DATA
+
+// Unit Name                       Multiplier
+//-------------------------------------------
+#END_DATA
+
+
+BUILDING_MATCHING My_Building_Matchings[MAX_BUILDINGS];
+
+#DATA
+
+// Building Name                   Multiplier         Where to Build
+//------------------------------------------------------------------
+#END_DATA
+
+

@@ -1,0 +1,972 @@
+; Effects of buildings and overlays on landscape
+; (Determines whether units can walk on certain tiles etc.)
+;
+; Format is:
+;
+;   DefineOvlEffect(filename width height) {
+;       _effect_  _altitude_modifier_  ...
+;   }
+;
+;
+; Effects Are:
+;
+;   -1 - Passable (No Effect)
+;    2 - Building Bay (part of building, but units can walk on it)
+;    3 - Solid (unit can't walk there)
+
+; --- ------------ ---
+; --- New Overlays ---
+; --------------------
+
+
+
+
+; Water Crater for Water Contaminator
+
+DefineOvlEffect(eowcocr0.spr 3 3) {
+ -1 0 -1 0 -1 0 
+ -1 0 -1 0 -1 0 
+ -1 0 -1 0 -1 0 
+}
+
+; New Civilian Buildings
+
+; Civilian Vertical Bridge
+
+DefineOvlEffect(nobrd1l1.spr 4 6) {
+ 3 0 2 0 2 0 3 0
+ 3 0 2 0 2 0 3 0
+ 3 0 2 0 2 0 3 0
+ 3 0 2 0 2 0 3 0
+ 3 0 2 0 2 0 3 0
+ 3 0 2 0 2 0 3 0
+}
+
+; Civilian Horizontal Bridge
+
+DefineOvlEffect(nobrd1l0.spr 6 5) {
+ -1 0 -1 0 -1 0 -1 0 -1 0 -1 0
+  3 0  3 0  3 0  3 0  3 0  3 0
+  2 0  2 0  2 0  2 0  2 0  2 0
+  2 0  2 0  2 0  2 0  2 0  2 0
+  3 0  3 0  3 0  3 0  3 0  3 0
+}
+
+; Civilian Farmhouse
+
+DefineOvlEffect(nofrm1l2.spr 5 5) {
+-1 0 -1 0 -1 0 -1 0 -1 0
+ 3 0  3 0  3 0  3 0  3 0
+ 3 0  3 0  3 0  3 0  3 0
+ 3 0  3 0  3 0  3 0  3 0
+ 3 0  3 0  3 0  3 0  3 0
+}
+
+; Civilian Commerical
+
+DefineOvlEffect(nocbs1l0.spr 4 4) {
+  -1 0 -1 0 -1 0 -1 0
+   3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0
+}
+
+; Civilian Factory
+
+DefineOvlEffect(nowar1l0.spr 4 3) {
+ 3 0 3 0 3 0 2 0
+ 3 0 3 0 3 0 3 0
+ 3 0 3 0 3 0 2 0
+}
+
+; Civilian Rural
+
+DefineOvlEffect(nochm4l0.spr 5 4) {
+  3 0  3 0  3 0 3 0 -1 0
+  3 0  3 0  3 0 3 0  3 0
+  3 0  3 0  3 0 3 0  3 0
+ -1 0  3 0  3 0 3 0  3 0
+}
+
+; Civilian Grain Farm
+
+DefineOvlEffect(nofrm1l0.spr 5 4) {
+-1 0  3 0  3 0  3 0  3 0
+ 3 0  3 0  3 0  3 0  3 0
+ 3 0  3 0  3 0  3 0  3 0
+-1 0  3 0  3 0  3 0  3 0
+ }
+
+; Civilian Hydro Farm
+
+DefineOvlEffect(nofrm1l1.spr 5 3) {
+ -1 0  3 0  3 0  3 0 -1 0
+  3 0  3 0  3 0  3 0  3 0
+ -1 0  3 0  3 0  3 0 -1 0
+}
+
+; BEGIN Mission specific overlays
+;
+
+; Imperium Prison
+
+DefineOvlEffect(nopri1l0.spr 6 5) {
+ -1 0 -1 0 -1 0  3 0  3 0 -1 0
+ -1 0  3 0  3 0  3 0  3 0 -1 0
+  3 0  3 0  3 0  3 0  3 0  3 0
+  3 0  3 0  3 0  3 0  3 0  3 0
+ -1 0  3 0  3 0  3 0  2 0 -1 0
+}
+
+; Rendezvous Point
+
+DefineOvlEffect(norvp1l0.spr 3 3) {
+  3 0 3 0 3 0
+  3 0 3 0 3 0
+  3 0 3 0 3 0
+}
+
+; Imperium Water Research Facility
+
+DefineOvlEffect(nowat1l0.spr 5 4) {
+  -1 0  3 0  3 0  3 0 -1 0
+   3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0
+   3 0  2 0  3 0  3 0 -1 0
+}
+
+; Imperium Hover Research Facility
+
+DefineOvlEffect(nohov1l0.spr 6 5) {
+  -1 0 -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0  3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  2 0  2 0  3 0  3 0
+   3 0  3 0  3 0  2 0  2 0 -1 0
+  -1 0  3 0  3 0  3 0 -1 0 -1 0
+}
+
+; Imperium Dessicator Research Facility
+
+DefineOvlEffect(nodes1l0.spr 6 5) {
+  -1 0 -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0  3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0 -1 0
+  -1 0  3 0  3 0  3 0 -1 0 -1 0
+}
+
+; Imperium Medical Research Facility
+
+DefineOvlEffect(nomdr1l0.spr 4 4) {
+  -1 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0
+}
+
+; Civilian Public Shelter
+
+DefineOvlEffect(noshl1l0.spr 2 2) {
+    3 0  3 0
+    3 0  3 0
+}
+
+; Civilian SubTransit Station
+
+DefineOvlEffect(nosub1l0.spr 3 2) {
+   3 0  3 0 -1 0
+   3 0  3 0  3 0
+}
+
+; Civilian Transit Centre
+
+DefineOvlEffect(notcn1l0.spr 4 4) {
+  -1 0 -1 0  3 0 -1 0
+   3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0
+  -1 0 -1 0  3 0 -1 0
+}
+
+; Freedom Guard Treaty Hall
+
+DefineOvlEffect(notyh1l0.spr 6 6) {
+  -1 0 -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0  3 0 -1 0 -1 0 -1 0
+  -1 0  3 0  3 0  3 0  3 0 -1 0
+  -1 0  3 0  3 0  3 0  3 0 -1 0
+  -1 0  3 0  3 0  3 0  3 0 -1 0
+  -1 0  3 0  3 0  3 0 -1 0 -1 0
+}
+
+; Freedom Guard Planetary Defence
+
+DefineOvlEffect(nopld1l0.spr 5 7) {
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0  3 0  3 0 -1 0 -1 0
+   3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0
+  -1 0  3 0  3 0  3 0 -1 0
+}
+
+
+; Togran Headquarters
+
+DefineOvlEffect(nothq1l0.spr 6 6) {
+  -1 0 -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0  3 0  3 0 -1 0 -1 0
+  -1 0  3 0  3 0  3 0 -1 0 -1 0
+   3 0  3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0  3 0
+  -1 0  3 0  3 0  3 0  3 0 -1 0
+}
+
+; Togran Monolith
+
+DefineOvlEffect(nomlt1l0.spr 3 3) {
+  -1 0 -1 0 -1 0
+  -1 0  3 0 -1 0
+  -1 0  3 0 -1 0
+}
+
+DefineOvlEffect(notdr1l0.spr 3 3) {
+  2 0 2 0 2 0
+  2 0 3 0 2 0
+  2 0 2 0 2 0
+}
+
+; END Mission specific overlays
+
+DefineOvlEffect(aowal000.spr 1 1) {
+ 3 0
+}
+
+DefineOvlEffect(ncwal1l0.spr 1 1) {
+ 3 0
+}
+
+DefineOvlEffect(niaar1l0.spr 3 3) {
+ 3 0  3 0  2 0
+ 3 0  3 0  3 0
+ 2 0  3 0  3 0
+}
+
+DefineOvlEffect(biaar1l0.spr 3 3) {
+ 3 0  3 0  3 0
+ 3 0  3 0  3 0
+ 3 0  3 0  3 0
+}
+
+;DefineOvlEffect(biaarsp0.spr 3 3) {
+; 3 0 3 0 3 0
+; 3 0 3 0 3 0
+; 3 0 3 0 3 0
+;}
+
+; Civilian Entertainment
+
+DefineOvlEffect(nocen1l0.spr 5 4) {
+-1 0 2 0 3 0 3 0 -1 0
+ 3 0 3 0 3 0 3 0  3 0
+ 3 0 3 0 3 0 3 0  3 0
+ 3 0 3 0 3 0 3 0  3 0
+}
+
+
+DefineOvlEffect(ncswl1l0.spr 2 3) {
+-1 0 -1 0
+ 3 0  3 0
+ 3 0  3 0
+}
+
+DefineOvlEffect(ncswm1l0.spr 2 3) {
+ -1 0 -1 0
+  3 0  3 0
+  3 0  3 0
+
+}
+
+;Walls
+
+DefineOvlEffect(ncbwl1l0.spr 5 4) {
+-1 0 -1 0 -1 0 -1 0 -1 0
+-1 0  3 2  3 2 -1 0 -1 0
+-1 0  3 2  3 2  3 2 -1 0
+-1 0 -1 0  3 2  3 2 -1 0
+}
+
+DefineOvlEffect(ncbwm1l0.spr 5 4) {
+-1 0 -1 0 -1 0 -1 0 -1 0
+-1 0 -1 0  3 2  3 2 -1 0
+-1 0  3 2  3 2  3 2 -1 0
+-1 0  3 2  3 2 -1 0 -1 0
+}
+
+; Small Centre Bridge
+
+DefineOvlEffect(ncsbc1l0.spr 4 4) {
+ 3 0 2 0 2 0 3 0
+ 2 0 2 0 2 0 2 0
+ 2 0 2 0 2 0 2 0
+ 3 0 2 0 2 0 3 0
+}
+
+; Small Horizontal Bridge
+
+DefineOvlEffect(ncsbh1l0.spr 3 5) {
+   -1 0 -1 0 -1 0
+    3 0  3 0  3 0
+    2 0  2 0  2 0
+    2 0  2 0  2 0
+    3 0  3 0  3 0
+}
+
+; Small Vertical Bridge
+
+DefineOvlEffect(ncsbv1l0.spr 4 3) {
+     3 0  2 0  2 0  3 0
+     3 0  2 0  2 0  3 0
+     3 0  2 0  2 0  3 0
+}
+
+; Freedom Guard Advanced Guard Tower
+DefineOvlEffect(nfagt1l0.spr 3 3) {
+    3 0 3 0 3 0
+    3 0 3 0 3 0
+    3 0 3 0 3 0
+}
+
+
+; Temporal rift creator
+DefineOvlEffect(nitrc1l0.spr 4 4) {
+   2 0 2 0 2 0 -1 0
+   2 0 3 0 3 0 -1 0
+   3 0 3 0 3 0  3 0
+   3 0 3 0 3 0  3 0
+}
+
+DefineOvlEffect(nocbs1l0.spr 4 4) {
+   3 0 3 0 3 0 3 0
+   3 0 3 0 3 0 3 0
+   3 0 3 0 3 0 3 0
+   3 0 3 0 3 0 3 0
+}
+
+DefineOvlEffect(nochm1l0.spr 4 4) {
+   3 0 3 0 3 0 3 0
+   3 0 3 0 3 0 3 0
+   3 0 3 0 3 0 3 0
+   3 0 3 0 3 0 3 0
+}
+
+DefineOvlEffect(tcvbvst0.spr 5 8) {
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+    3 0  2 0  3 0  3 0 -1 0
+    3 0  3 0  2 0  3 0  3 0
+   -1 0  3 0  3 0  2 0  3 0
+}
+
+DefineOvlEffect(tcvbhst0.spr 5 8) {
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0 -1 0 -1 0 -1 0 -1 0
+   -1 0  3 0  3 0  2 0  3 0
+    3 0  3 0  2 0  3 0  3 0
+    3 0  2 0  3 0  3 0 -1 0
+}
+
+DefineOvlEffect(tcpbvst0.spr 5 4) {
+    3 0  3 0 3 0 2 0 2 0
+    3 0  3 0 2 0 3 0 3 0
+    3 0  2 0 3 0 3 0 3 0
+    2 0  3 0 3 0 3 0 3 0
+}
+
+DefineOvlEffect(tcpbhst0.spr 5 4) {
+    2 0  2 0 3 0 3 0 3 0
+    3 0  3 0 2 0 3 0 3 0
+    3 0  3 0 3 0 2 0 3 0
+    3 0  3 0 3 0 3 0 2 0
+}
+
+DefineOvlEffect(aoctr000.spr 3 3) {
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+}
+DefineOvlEffect(aoctr002.spr 3 3) {
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+}
+DefineOvlEffect(aoctr001.spr 3 3) {
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+}
+
+DefineOvlEffect(aoctr003.spr 3 3) {
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+   -1  0  -1   0  -1  0
+}
+
+DefineOvlEffect(aoctr004.spr 4 4) {
+   -1  0  -1   0  -1  0  -1  0
+   -1  0  -1   0  -1  0  -1  0
+   -1  0  -1   0  -1  0  -1  0
+   -1  0  -1   0  -1  0  -1  0
+}
+
+; Civ Horizontal Bridge Crater
+
+DefineOvlEffect(aoctr005.spr 6 5) {
+   -1  0  -1  0  -1  0  -1  0 -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0 -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0 -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0 -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0 -1  0  -1  0
+}
+
+; Civ Vertical Bridge crater
+
+DefineOvlEffect(aoctr006.spr 4 6) {
+   -1  0  -1  0  -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0
+   -1  0  -1  0  -1  0  -1  0
+}
+
+; Center Bridge crater
+
+DefineOvlEffect(aoctr007.spr 4 4) {
+  -1 0  -1 0  -1 0  -1 0
+  -1 0  -1 0  -1 0  -1 0
+  -1 0  -1 0  -1 0  -1 0
+  -1 0  -1 0  -1 0  -1 0
+}
+
+; Horizontal Bridge crater
+
+DefineOvlEffect(aoctr008.spr 3 5) {
+ -1 0  -1 0  -1 0
+ -1 0  -1 0  -1 0
+ -1 0  -1 0  -1 0
+ -1 0  -1 0  -1 0
+ -1 0  -1 0  -1 0
+}
+
+; Vertical Bridge crater
+
+DefineOvlEffect(aoctr009.spr 4 3) {
+ -1 0  -1 0  -1 0 -1 0
+ -1 0  -1 0  -1 0 -1 0
+ -1 0  -1 0  -1 0 -1 0
+}
+
+; Old Overlays and current buildings
+
+;DefineOvlEffect(simphq0.spr 4 5) {
+;  -1 0 -1 0 -1 0 -1 0
+;  -1 0 -1 0 -1 0 -1 0
+;   3 0  3 0  3 0  3 0
+;   3 0  3 0  2 0  3 0
+;  -1 0  3 0  3 0  2 0
+;}
+
+; Freedom Guard HQ, level 1
+DefineOvlEffect(nfhqt1l0.spr 5 6) {
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0 -1 0 -1 0 -1 0
+   3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0
+   2 0  3 0  3 0  2 0  3 0
+  -1 0  2 0  3 0  2 0  2 0
+}
+
+; Freedom Guard HQ, level 2
+DefineOvlEffect(nfhqt2l0.spr 5 6) {
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0 -1 0 -1 0 -1 0
+   3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0
+   2 0  3 0  3 0  2 0  3 0
+  -1 0  2 0  3 0  2 0  2 0
+}
+
+; Freedom Guard HQ, level 3
+DefineOvlEffect(nfhqt3l0.spr 5 6) {
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0 -1 0 -1 0 -1 0 -1 0
+   3 0  3 0  3 0  3 0  3 0
+   3 0  3 0  3 0  3 0  3 0
+   2 0  3 0  3 0  2 0  3 0
+  -1 0  2 0  3 0  2 0  2 0
+}
+
+
+DefineOvlEffect(nivcy1l0.spr 5 5) {
+  2 0  2 0  2 0  2 0  2 0
+  2 0  3 0  3 0  3 0  3 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  2 0  3 0  3 0  3 0
+  2 0  3 0  3 0  2 0  2 0
+}
+
+DefineOvlEffect(nivcy2l0.spr 5 5) {
+  2 0  2 0  2 0  2 0  2 0
+  2 0  3 0  3 0  3 0  3 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  2 0  3 0  3 0  3 0
+  2 0  3 0  3 0  2 0  2 0
+}
+
+DefineOvlEffect(nihqt1l0.spr 5 6) {
+ -1 0 -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0 -1 0
+  2 0  3 0  2 0  3 0  2 0
+  2 0  3 0  3 0  3 0  3 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  2 0  3 0  3 0  3 0
+}
+
+DefineOvlEffect(nihqt2l0.spr 5 6) {
+ -1 0 -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0 -1 0
+  2 0  3 0  2 0  3 0  2 0
+  2 0  3 0  3 0  3 0  3 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  2 0  3 0  3 0  3 0
+}
+
+DefineOvlEffect(nihqt3l0.spr 5 6) {
+ -1 0 -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0 -1 0
+  2 0  3 0  2 0  3 0  2 0
+  2 0  3 0  3 0  3 0  3 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  2 0  3 0  3 0  3 0
+}
+
+
+DefineOvlEffect(ncpow1l0.spr 4 5) {
+  -1 0 -1 0 -1 0 -1 0
+  -1 0  2 0  2 0 -1 0
+   2 0  3 0  3 0  3 0
+   2 0  2 0  3 0  2 0
+   2 0  2 0  2 0  2 0
+}
+
+DefineOvlEffect(nclnc1l0.spr 5 4) {
+  -1 0 -1 0 -1 0 -1 0 -1 0
+  -1 0  2 0  3 0  3 0  2 0
+   3 0  3 0  3 0  2 0  2 0
+   2 0  3 0  3 0  2 0 -1 0
+}
+
+DefineOvlEffect(ncmin1l0.spr 3 3) {
+  2 0 2 0 2 0
+  2 0 2 0 2 0
+  2 0 2 0 2 0
+}
+
+DefineOvlEffect(ncwel1l0.spr 3 3) {
+  2 0 2 0 2 0
+  2 0 2 0 2 0
+  2 0 2 0 2 0
+}
+
+DefineOvlEffect(nfrrm1l0.spr 3 4) {
+  -1 0 -1 0 -1 0
+   3 0  3 0  3 0
+   3 0  3 0  3 0
+  -1 0  3 0 -1 0
+}
+
+DefineOvlEffect(nfgdt1l0.spr 2 2) {
+  3 0 3 0
+  3 0 3 0
+}
+
+DefineOvlEffect(nfaar1l0.spr 2 2) {
+  3 0 3 0
+  3 0 3 0
+}
+
+DefineOvlEffect(nfhsp1l0.spr 5 4) {
+ -1 0 -1 0  3 0  3 0  3 0
+  2 0  3 0  3 0  3 0  3 0
+  2 0  3 0  3 0  2 0  2 0
+  2 0  2 0  2 0  2 0 -1 0
+}
+
+DefineOvlEffect(nfrep1l0.spr 5 4) {
+   2 0  2 0  2 0  2 0  2 0
+   2 0  3 0  3 0  2 0  2 0
+   2 0  3 0  2 0  3 0  2 0
+  -1 0  2 0  3 0  3 0 -1 0
+}
+
+DefineOvlEffect(nccam1l0.spr 1 2) {
+  3 0
+  3 0
+}
+
+
+DefineOvlEffect(nirrm1l0.spr 3 3) {
+  2 0 2 0 2 0
+  3 0 3 0 3 0
+  3 0 3 0 3 0
+}
+
+
+DefineOvlEffect(nigdt1l0.spr 2 2) {
+  3 0 3 0
+  3 0 3 0
+}
+
+DefineOvlEffect(nccap1l0.spr 2 2) {
+  3 0 3 0
+  3 0 3 0
+}
+
+DefineOvlEffect(nccap2l0.spr 2 2) {
+ -1 0 -1 0
+ -1 0 -1 0
+}
+
+DefineOvlEffect(niagt1l0.spr 3 3) {
+  3 0 3 0 3 0
+  3 0 3 0 3 0
+  3 0 3 0 3 0
+}
+
+DefineOvlEffect(nitgt1l0.spr 3 2) {
+  3 0 3 0 3 0
+  3 0 2 0 3 0
+}
+
+DefineOvlEffect(nihsp1l0.spr 4 3) {
+  3 0 3 0 3 0 -1 0
+  3 0 2 0 3 0  3 0
+  2 0 3 0 3 0  3 0
+}
+
+DefineOvlEffect(nirep1l0.spr 4 4) {
+   3 0  3 0  3 0  2 0
+   3 0  3 0  2 0  3 0
+   3 0  2 0  3 0  3 0
+   2 0  3 0  3 0  2 0
+}
+
+DefineOvlEffect(nfphf1l0.spr 5 4) {
+  -1 0  2 0  2 0  2 0 -1 0
+   2 0  3 0  3 0  3 0  2 0
+   2 0  3 0  2 0  3 0  2 0
+  -1 0  3 0  3 0  2 0  2 0
+}
+
+DefineOvlEffect(nfphf2l0.spr 5 4) {
+  -1 0  2 0  2 0  2 0 -1 0
+   2 0  3 0  3 0  3 0  2 0
+   2 0  3 0  2 0  3 0  2 0
+  -1 0  3 0  3 0  2 0  2 0
+}
+
+; Imperium Unit Training 1 and 2
+
+DefineOvlEffect(niutf1l0.spr 5 5) {
+  -1 0  2 0  3 0  2 0 -1 0
+   2 0  3 0  3 0  3 0  3 0
+   3 0  3 0  2 0  3 0  3 0
+   3 0  3 0  3 0  2 0  2 0
+   2 0  2 0  3 0  3 0  2 0
+}
+
+DefineOvlEffect(niutf2l0.spr 5 5) {
+  -1 0  2 0  3 0  2 0 -1 0
+   2 0  3 0  3 0  3 0  3 0
+   3 0  3 0  2 0  3 0  3 0
+   3 0  3 0  3 0  2 0  2 0
+   2 0  2 0  3 0  3 0  2 0
+}
+
+; Freedom Guard
+
+; Training Facilities 1 and 2
+
+DefineOvlEffect(nfutf1l0.spr 5 5) {
+  -1 0  2 0  2 0  2 0 -1 0
+   3 0  3 0  3 0  3 0  2 0
+   3 0  3 0  2 0  3 0  3 0
+   3 0  3 0  3 0  2 0  2 0
+   3 0  3 0  3 0  2 0  2 0
+}
+
+DefineOvlEffect(nfutf2l0.spr 5 5) {
+  -1 0  2 0  2 0  2 0 -1 0
+   3 0  3 0  3 0  3 0  2 0
+   3 0  3 0  2 0  3 0  3 0
+   3 0  3 0  3 0  2 0  2 0
+   3 0  3 0  3 0  2 0  2 0
+}
+
+
+
+DefineOvlEffect(nfvcy1l0.spr 6 5) {
+  -1 0  2 0  3 0  3 0  2 0 -1 0
+   3 0  3 0  3 0  3 0  3 0  2 0
+   3 0  3 0  2 0  3 0  3 0  3 0
+   3 0  2 0  3 0  3 0  3 0  2 0
+   2 0  3 0  3 0  3 0  2 0 -1 0
+}
+
+DefineOvlEffect(nfvcy2l0.spr 6 5) {
+  -1 0  2 0  3 0  3 0  2 0 -1 0
+   3 0  3 0  3 0  3 0  3 0  2 0
+   3 0  3 0  2 0  3 0  3 0  3 0
+   3 0  2 0  3 0  3 0  3 0  2 0
+   2 0  3 0  3 0  3 0  2 0 -1 0
+}
+
+
+
+;
+;
+; ============== This is the civilian building... it loooks like the old
+; fg factory
+;
+DefineOvlEffect(efgcon0.spr 5 5) {
+ -1 0 -1 0 -1 0 -1 0 -1 0
+  3 0  3 0  3 0  3 0 -1 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  3 0  2 0  3 0  3 0
+  3 0  3 0  2 0  3 0 -1 0
+}
+
+
+
+
+;===============================================
+; NEW NEW OVERLAYS
+
+
+;====== cliffs
+
+
+DefineOvlEffect(aoclf000.spr 1 4) {
+ -1 0 
+ -1 0 
+  3 2 
+  3 2 
+}
+
+DefineOvlEffect(aoclf001.spr 1 3) {
+ -1 0 
+  3 2 
+  3 2 
+}
+
+DefineOvlEffect(aoclf002.spr 1 3) {
+ -1 0 
+  3 2 
+  3 2 
+}
+
+DefineOvlEffect(aoclf003.spr 3 4) {
+ -1 0 -1 0 -1 0
+  3 0  3 2 -1 0
+  3 0  3 2  3 2
+  3 0  3 2 -1 0
+}
+
+DefineOvlEffect(aoclf004.spr 3 5) {
+ -1 0 -1 0 -1 0
+ -1 0  3 2 -1 2
+  3 2  3 2  3 0
+  3 0  3 2 -1 0
+ -1 0  3 0  3 0
+}
+
+DefineOvlEffect(aoclf005.spr 3 3) {
+ -1 0 -1 0 -1 0 
+  3 2  3 2  3 2 
+  3 2  3 2  3 2 
+}
+
+; plants
+
+DefineOvlEffect(aopln000.spr 1 1) {
+  -1 0
+}
+
+DefineOvlEffect(aopln001.spr 1 1) {
+  -1 0
+}
+
+DefineOvlEffect(aopln002.spr 1 1) {
+  -1 0
+}
+
+; === rocks
+
+DefineOvlEffect(aoroc000.spr 1 1) {
+  3 0
+}
+
+DefineOvlEffect(aoroc001.spr 1 1) {
+  3 0
+}
+
+DefineOvlEffect(aoroc002.spr 1 1) {
+  3 0
+}
+
+DefineOvlEffect(aoroc003.spr 3 3) {
+ -1 0 -1 0 -1 0
+ -1 0  3 1  3 0
+ -1 0  3 1  3 0
+}
+
+DefineOvlEffect(aoroc004.spr 3 3) {
+ -1 0 -1 0 -1 0
+  3 0  3 0  3 0
+  3 0  3 0 -1 0
+}
+
+DefineOvlEffect(aoroc005.spr 3 3) {
+ -1 0 -1 0 -1 0
+  3 0  3 2 -1 0
+  3 0  3 2 -1 0
+}
+
+; ==== trees
+
+DefineOvlEffect(aotre000.spr 1 1) {
+  3 2
+}
+
+DefineOvlEffect(aotre001.spr 1 1) {
+ -1 2
+}
+
+DefineOvlEffect(aotre002.spr 1 1) {
+ -1 2
+}
+
+DefineOvlEffect(aotre003.spr 1 1) {
+ 3 2
+}
+
+DefineOvlEffect(aotre004.spr 1 1) {
+ -1 0
+}
+
+DefineOvlEffect(aotre005.spr 1 1) {
+ -1 2
+}
+
+;============rubble
+
+DefineOvlEffect(aorub000.spr 1 1) {
+  -1 0
+}
+
+DefineOvlEffect(aorub001.spr 1 1) {
+  -1 0
+}
+
+DefineOvlEffect(aorub002.spr 1 1) {
+  -1 0
+}
+
+;============ruins
+
+DefineOvlEffect(aorun000.spr 4 4) {
+ -1 0 -1 0 -1 0 -1 0
+ -1 0  3 0  3 0 -1 0
+  3 0  3 2  3 0 -1 0
+ -1 0 -1 0 -1 0 -1 0
+}
+
+DefineOvlEffect(aorun001.spr 2 2) {
+  3 0  3 2 
+ -1 0  3 0 
+}
+
+DefineOvlEffect(aorun002.spr 1 3) {
+ -1 0 
+  3 2 
+ -1 0 
+}
+
+;===========special
+
+DefineOvlEffect(aospc000.spr 4 8) {
+ -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0
+ -1 0 -1 0 -1 0 -1 0
+ -1 0  3 2  3 2  3 0
+ -1 0  3 0  3 0 -1 0
+}
+
+
+;======== wrecks
+
+DefineOvlEffect(aowrk000.spr 1 3) {
+  3 0
+  3 0
+  3 0
+}
+
+DefineOvlEffect(aowrk001.spr 1 3) {
+ -1 0
+  3 0
+  3 0
+}
+
+DefineOvlEffect(aowrk002.spr 1 3) {
+ -1 0
+  3 0
+  3 0
+}
+
+;============== water
+DefineOvlEffect(aowtr000.spr 1 1) {
+  3 2
+}
+
+DefineOvlEffect(aowtr001.spr 1 1) {
+ 3 2
+}
+
+DefineOvlEffect(aowtr002.spr 1 1) {
+  3 2
+
+}
+
+;===================misc ovls
+
+DefineOvlEffect(aomsc000.spr 1 1) {
+ -1 0
+}
+
+DefineOvlEffect(aomsc001.spr 1 1) {
+ -1 0
+}
+
+DefineOvlEffect(aomsc002.spr 1 1) {
+ -1 0
+}

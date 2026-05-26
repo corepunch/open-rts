@@ -1,0 +1,555 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; State 1
+; a buffer state. does nothing.
+  DefineCondState()
+  {
+   
+    ; instantly go to state 2
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    ;infiltrator tip message
+    TriggerMessage(Infiltrator_Message)
+  }
+
+;
+;State 2
+;set aip 
+  DefineCondState()
+  {
+    ; instantly go to state 3
+    DefineCondition(3 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    SetAIPFile(m06fst.aip)
+  }
+
+;State 3
+;region and building triggers for special forces,
+;priority changes, and aip changes
+  DefineCondState()
+  {
+    
+    DefineCondition(20 0 0 0 left_corner_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(8474)  
+      }
+    }
+
+    DefineCondition(21 0 0 0 right_corner_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(8476)  
+      }
+    }
+
+    DefineCondition(22 0 0 0 left_side_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(8477)  
+      }
+    }
+   
+    DefineCondition(4 0 0 0 top_passage_entered)
+    {
+      CritONCE()
+      {
+        CritOR() 
+        {
+          CritDestroyBuilding()
+          {
+            5999
+          }    
+          CritDestroyBuilding()
+          {
+            6068
+          } 
+        } 
+      }
+    }
+
+    DefineCondition(5 0 0 0 top_well_entered)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          2899
+        }  
+      }
+    }
+
+    DefineCondition(6 0 0 0 left_pad_approached)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          2991
+        }  
+      }
+    }
+
+    DefineCondition(7 0 0 0 base_entry_entered)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          6492
+        } 
+      }
+    }
+
+    DefineCondition(8 0 0 0 right_training_facility_approached)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+         5525
+        } 
+      }
+    }
+
+    DefineCondition(9 0 0 0 bottom_pad_approached)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          6052
+        }  
+      }
+    }
+
+    DefineCondition(10 0 0 0 right_well_approached)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          7226
+        }  
+      }
+    }
+
+    DefineCondition(11 0 0 0 training_facility_attacked)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          5522
+        } 
+      }
+    }
+
+    DefineCondition(12 0 0 0 bottom_pad_attacked)
+    {
+      CritONCE()
+      {
+        CritOR() 
+        {
+          CritDestroyBuilding()
+          {
+            6738
+          } 
+          CritDestroyBuilding()
+          {
+            6055
+          } 
+        }
+      }
+    }
+
+    DefineCondition(13 0 0 0 bottom_well_attacked)
+    {
+      CritONCE()
+      {
+        CritOR() 
+        {
+          CritDestroyBuilding()
+          {
+           6049
+          }
+          CritDestroyBuilding()
+          {
+            6157
+          }    
+        }
+      }
+    }
+
+    DefineCondition(14 0 0 0 base_entry_attacked)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          6495
+        } 
+      }
+    }
+
+    DefineCondition(15 0 0 0 top_well_attacked)
+    {
+      CritONCE()
+      {
+        CritDestroyBuilding()
+        {
+          6498
+        } 
+      }
+    }
+
+    DefineCondition(16 0 0 0 training_facility_destroyed)
+    {
+      CritONCE()
+      {
+        CritAND() 
+        {
+          CritDestroyBuilding()
+          {
+            5522
+          }    
+          CritDestroyBuilding()
+          {
+            5525
+          } 
+        }
+      }
+    }
+
+    DefineCondition(17 0 0 0 left_pad_destroyed)
+    {
+      CritONCE()
+      {
+        CritAND() 
+        {
+          CritDestroyBuilding()
+          {
+            6065
+          }    
+          CritDestroyBuilding()
+          {
+            2950
+          } 
+          CritDestroyBuilding()
+          {
+            2994
+          } 
+        }
+      }
+    }
+    
+    ;plans stolen. 
+    DefineCondition(18 0 0 0 plans_stolen)
+    {
+      CritONCE()
+      {
+       CritHaveCredits(500000)  
+      }
+    }
+
+    DefineCondition(19 0 0 0 center_area_attacked)
+    {
+      CritONCE()
+      {
+        CritOR() 
+        {
+          CritDestroyBuilding()
+          {
+           6915
+          }
+          CritDestroyBuilding()
+          {
+            6912
+          }    
+          CritDestroyBuilding()
+          {
+            6909
+          }    
+          CritDestroyBuilding()
+          {
+            6906
+          }    
+          CritDestroyBuilding()
+          {
+            6918
+          }    
+        }
+      }
+    }
+  }
+
+; state 4
+;top passage entered. send light forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(112 6058)  ;
+    ReleaseSpecialForces(112)
+  }
+
+; state 5
+;top well entered. send light forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(111 6002)  ;
+    ReleaseSpecialForces(111)
+  }
+
+; state 6
+;left pad approached. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(108 6003)  ;
+    ReleaseSpecialForces(108)
+  }
+
+; state 7
+;base entry entered. send forces to left pad.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(109 6003)  ;
+    ReleaseSpecialForces(109)
+  }
+
+; state 8
+;right training facility approached. send forces there.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(105 6156)  ;
+    ReleaseSpecialForces(105)
+  }
+
+; state 9
+;bottom pad approached. send forces there.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(104 6060)  ;
+    ReleaseSpecialForces(104)
+  }
+
+; state 10
+;right well approached. send forces there.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(100 6059)  ;
+    ReleaseSpecialForces(100)
+  }
+
+; state 11
+;training facility attacked. send troops
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(102 6156)  ;
+    ReleaseSpecialForces(102)
+  }
+
+; state 12
+;bottom pad attacked. send troops
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(103 6060)  ;
+    ReleaseSpecialForces(103)
+  }
+
+; state 13
+;bottom well attacked. send troops
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(101 6059)  ;
+    ReleaseSpecialForces(101)
+  }
+
+; state 14
+;base entry attacked. send troops to player base and top well
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(110 6002)  ;
+    TriggerSpecialForces(106 6545) 
+    ReleaseSpecialForces(110)    
+    ReleaseSpecialForces(106)
+  }
+
+; state 15
+;top well attacked. send troops there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(107 6002)  ;
+    ReleaseSpecialForces(107)
+  }
+
+; state 16
+;training facility destroyed. ignore it
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    AdjustRegionPri(6156 0 100 1200)
+  }
+
+; state 17
+;left pad destroyed. ignore it
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    AdjustRegionPri(6003 0 100 1200)
+  }
+
+; state 18
+;plans stolen. reinforce middle. change aip
+  DefineCondState()
+  {    
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m06f.aip)
+    TriggerSpecialForces(122 6925)  ;
+    ReleaseSpecialForces(122)
+    AdjustRegionPri(6925 300 600 2000)
+  }
+
+; state 19
+;center base attacked. reinforce
+  DefineCondState()
+  {  
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }  
+
+    SetAIPFile(m06f.aip)
+    TriggerSpecialForces(121 6925)  ;
+    ReleaseSpecialForces(121)
+  }
+
+; state 20
+; left corner entered. release troops there.
+  DefineCondState()
+  {    
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(108)
+    ReleaseSpecialForces(109)
+    ReleaseSpecialForces(110)
+    ReleaseSpecialForces(111)
+    ReleaseSpecialForces(112)
+  }
+
+; state 21
+; right corner entered. release troops there.
+  DefineCondState()
+  {    
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(100)
+    ReleaseSpecialForces(101)
+    ReleaseSpecialForces(102)
+    ReleaseSpecialForces(103)
+    ReleaseSpecialForces(104)
+    ReleaseSpecialForces(105)
+    ReleaseSpecialForces(106)
+    ReleaseSpecialForces(107)
+  }
+; state 22
+; left corner entered. release troops there.
+  DefineCondState()
+  {  
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(121)
+  }
+}

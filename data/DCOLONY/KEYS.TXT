@@ -1,0 +1,65 @@
+Here are some keyboard shortcuts for Dark Colony:
+
+
+A - Assault Mode
+
+D - Call Dropship
+
+G then a number key - assigns currently selected units to a number key
+
+J - View Scenario Objectives
+
+M - Move mode (obey your orders directly)
+
+O - Options
+
+Q - Quit Current Scenario
+
+S - Stop movements of selected units
+
+T - Pause
+
+W - Waypoints
+
+
+
+      Esc - Pause Game
+
+    Enter - Deploy
+
+ Spacebar - Build
+
+Page Down - Screen capture in PPS format (Paintshop Pro)
+
+
+
+ F1 - Selects Commander
+
+ F2 - Selects all Trooper/Gray warrior units currently on screen
+
+ F3 - Selects all Reapers/Sy Demon heavy assualt units
+
+ F4 - Selects Medical Units
+
+ F5 - Selects all Osprey IV/Ortu airborne scout units currently on screen
+
+ F6 - Selects all Barrager/Atrill artillery units currently on screen
+
+ F7 - Selects all Sentinel/Slom mine defense units currently on screen
+
+ F8 - Selects all S.A.R.G.E/Gorrem units currently on screen
+
+ F9 - Selects all Exploiter/Brozaar resource extraction units currently on screen
+
+F10 - Selects all Firestorm/Xeno-wort defense units currently on screen
+
+F11 - Save Game
+
+
+CTRL+Left-click and Drag - Selects all air units currently on screen
+
+ALT+Left-click and Drag  - Selects all ground units currenty on screen
+
+
+Anything else you may have trouble with can be explained in the training missions included
+in the game....enjoy!

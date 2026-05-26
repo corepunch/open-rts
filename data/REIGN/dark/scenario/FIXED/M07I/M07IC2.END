@@ -1,0 +1,16 @@
+;
+; Game End Conditions for team 0
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 youwin.txt)
+    {
+      CritHaveCredits(5000)
+    }
+  }
+}

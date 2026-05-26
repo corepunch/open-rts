@@ -1,0 +1,1382 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+ DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritTimer(20)
+    }
+;  DefineCondition(2 0 0 50 "c1to2.txt")
+  ;  {
+ ;   CritDestroyUnit()
+ ;    {
+  ;    22174 
+  ;    }
+  ;  }
+
+  }
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(57 0 0 50 "c1to2.txt")
+    {
+      CritTimer(250)
+    }
+     TriggerMessage(gvft3ol0)
+     TriggerMessage(gvft3ol6)
+ }
+;
+; Conditional State #3
+;
+  DefineCondState()
+  {
+   DefineCondition(4 0 0 50 "c1to2.txt")
+     {
+      CritBeginBuildBuilding(fgpp 15116 1)
+     }   
+    
+   DefineCondition(53 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2000)
+      }
+    }
+
+    DefineCondition(32 0 0 50 "c1to2.txt")
+     {
+      CritTimer(420)
+     }
+   BonusCredits(0 2000) 
+ }
+;
+; Conditional State #4
+;
+  DefineCondState()
+  {
+    DefineCondition(50 0 0 50 "c1to2.txt")
+    {
+    CritTimer(200)
+    }
+    DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+     CritNOT()
+       {
+       CritHaveCredits(5)
+       }
+     }
+    DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGGroundTransporter 1)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGConstructionCrew 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGFreedomFighter 1)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGSpiderBike 1)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fgpp 15116 2)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fglp 15116 1)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fh1 15116 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fu1 15116 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fc1 15116 2)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fg 15116 6)
+    }
+
+ 
+  }
+;
+; Conditional State #5
+;
+  DefineCondState()
+  {
+    DefineCondition(6 0 0 50 "youwin1.txt")
+     {
+     CritInRegion(15117)
+     }      
+     DefineCondition(35 0 0 50 "c1to2.txt")
+     {
+     CritTimer(580)
+     }
+
+     
+   TriggerMessage(gvft3ola)
+   TriggerMessage(gvft3olb)
+
+  }
+;
+; Conditional State #6
+;
+  DefineCondState()
+  {
+    DefineCondition(7 0 0 50 "youwin1.txt")
+    {
+      CritCollectMineral(50)
+    }
+   DefineCondition(68 0 0 50 "youwin1.txt")
+    {
+     CritAND()
+     {   
+      CritNOT()
+         {
+         CritInRegion(28977)
+         }        
+      CritTimer(900) 
+     }
+      
+     }
+   TriggerMessage(gvft3olc)
+   TriggerMessage(gvft3old)
+ 
+ }
+;
+; Conditional State #7
+;
+  DefineCondState()
+  {
+    DefineCondition(58 0 0 50 "youwin1.txt")
+    {
+     CritTimer(200)
+    }   
+   TriggerMessage(gvft3ole)
+}
+
+;
+; Conditional State #8
+;
+  DefineCondState()
+  {
+    DefineCondition(9 0 0 50 "youwin1.txt")
+    {
+     CritBeginBuildBuilding(fglp 15116 1)
+    }   
+   DefineCondition(55 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2500)
+      }
+    } 
+   DefineCondition(29 0 0 50 "c1to2.txt")
+    {
+     CritTimer(600)
+    }
+    BonusCredits(0 2500) 
+}
+
+;
+; Conditional State #9
+;
+  DefineCondState()
+  {
+    DefineCondition(10 0 0 50 "youwin1.txt")
+    {
+     CritTimer(350)
+    }   
+    
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+     CritNOT()
+       {
+       CritHaveCredits(5)
+       }
+     }
+    DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGGroundTransporter 3)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGConstructionCrew 1)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGFreedomFighter 1)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGSpiderBike 1)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fgpp 15116 2)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fglp 15116 2)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fh1 15116 2)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fu1 15116 2)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fc1 15116 2)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fg 15116 6)
+    }
+ TriggerMessage(gvft3ol2)
+}
+
+;
+; Conditional State #10
+;
+  DefineCondState()
+  {
+    DefineCondition(11 0 0 50 "youwin1.txt")
+    {
+      CritBuildBuilding(fglp 15116 1)
+    }   
+    DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+     CritNOT()
+       {
+       CritHaveCredits(5)
+       }
+     }
+    DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGGroundTransporter 3)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGConstructionCrew 1)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGFreedomFighter 1)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGSpiderBike 1)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fgpp 15116 2)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fglp 15116 2)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fh1 15116 2)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fu1 15116 2)
+    }
+   DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fc1 15116 2)
+    }
+  DefineCondition(65 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fg 15116 6)
+    }   
+;TriggerMessage(gvt3aol8)    
+
+  }
+
+;
+; Conditional State #11
+;
+  DefineCondState()
+  {
+    DefineCondition(70 0 0 50 "youwin1.txt")
+     {
+     CritCollectWater(1500)
+     }      
+    TriggerMessage(gvft3ol4)
+}
+
+;
+; Conditional State #12
+;
+  DefineCondState()
+  {
+    DefineCondition(15 0 0 50 "youwin1.txt")
+    {
+     CritCollectWater(2500)
+     }      
+    TriggerMessage(gvft3ol3)
+     TriggerSpecialForces(202 15118)
+}
+
+;
+; Conditional State #13
+;
+  DefineCondState()
+  {
+    
+   DefineCondition(14 0 0 50 "c1to2.txt")
+     {
+     CritTimer(500)
+     }
+   TriggerMessage(gvft3olg)
+}
+
+
+;
+; Conditional State #14
+;
+  DefineCondState()
+  {
+    DefineCondition(15 0 0 50 "c1to2.text")
+     {
+      CritBuildUnit(FGGroundTransporter 3)
+     }
+   DefineCondition(38 0 0 50 "c1to2.txt")
+     {
+     CritTimer(600)
+     }
+
+   TriggerMessage(gvft3olh)
+   
+}
+
+;
+; Conditional State #15
+;
+  DefineCondState()
+  {
+    DefineCondition(59 0 0 50 "youwin1.txt")
+    {
+      CritEnemyInRegion(15113)
+    }      
+  
+  ; TriggerMessage(gvft3olz)
+}
+ 
+
+;
+; Conditional State #16
+;
+  DefineCondState()
+  {
+    DefineCondition(17 0 0 50 "youwin1.txt")
+    {
+       
+          CritDestroyUnit()
+           {
+           22123 22121 22209
+           }        
+       
+    }      
+      TriggerMessage(gvft3oli)
+      TriggerMessage(gvft3olj)
+      TriggerMessage(gvft3olk)
+ }
+ 
+;
+; Conditional State #17
+;
+  DefineCondState()
+  {
+    DefineCondition(18 0 0 50 "youwin1.txt")
+    {
+     CritDestroyUnit()
+      {
+       28948  28950
+       }
+    }      
+   
+   TriggerMessage(gvft3oll)
+   TriggerMessage(gvft3olm)
+   TriggerSpecialForces (303 15118)
+}
+
+;
+; Conditional State #18
+;
+   DefineCondState()
+    {
+      DefineCondition(44 0 0 50 "youwin1.txt")
+      {
+      CritTimer(420)
+      }    
+   TriggerMessage(gvft3ol8)
+   TriggerMessage(gvft3ol9)
+
+}
+;
+; Conditional State #19
+;
+  DefineCondState()
+  {
+     DefineCondition(41 0 0 50 "youwin1.txt")
+    {
+      CritTimer(600)
+    }
+    DefineCondition(20 0 0 50 "youwin1.txt")
+    {
+      CritDestroyUnit()
+      {
+        22240
+      }
+   }
+    TriggerMessage(gvft3oln)
+   }    
+  
+
+;
+; Conditional State #20
+;
+  DefineCondState()
+  {
+    DefineCondition(21 0 0 50 "youwin1.txt")
+    {
+     CritInRegion (15115)
+    }
+    
+    TriggerMessage(gvft3olo)
+    
+   }
+
+;
+; Conditional State #21
+;
+  DefineCondState()
+  {
+    DefineCondition(52 0 0 50 "youwin1.txt")
+    {
+     CritTimer(300) 
+     
+    }
+    TriggerMessage(gvft3olp)
+   
+}
+
+;
+; Conditional State #22
+;
+  DefineCondState()
+  {
+    DefineCondition(23 0 0 50 "youwin1.txt")
+    {
+     CritAND()
+     {
+       CritTimer(250)
+       CritDestroyUnit()
+       {
+        22407 
+       }
+      }
+   }
+TriggerSpecialForces (404 15119)
+}
+
+;
+; Conditional State #23
+;
+  DefineCondState()
+  {
+    DefineCondition(44 0 0 50 "youwin1.txt")
+    {
+     CritDestroyUnit ()
+     {
+      22176 22178 22180
+     }    
+    }
+     TriggerSpecialForces (505 15119)
+     TriggerMessage(gvft3olr)
+   }
+
+;
+; Conditional State #24
+;
+  DefineCondState()
+  {
+    DefineCondition(25 0 0 50 "youwin1.txt")
+    {
+     CritDestroyEnemyBuildings(20)
+    }
+;    GiveSpecialForces(707 1) 
+  }
+
+;
+; Conditional State #25    Destroy 20 % of buildings 
+;
+  DefineCondState()
+  {
+    DefineCondition(26 0 0 50 "youwin1.txt")
+    {
+    CritDestroyEnemyBuildings(40)
+    }
+   TriggerMessage(gvftrel2) ;"I love the sound of exlploding buildings"
+  }
+
+
+;
+; Conditional State #26
+;
+  DefineCondState()
+  {
+    DefineCondition(27 0 0 0 "")
+    {
+      CritDestroyEnemyBuildings (60)
+    }
+ TriggerMessage(gvftrel3) ; nice work there tough guy
+ }
+
+;
+; Conditional State #27
+;
+  DefineCondState()
+  {
+    DefineCondition(28 0 0 0 "")
+    {
+      CritDestroyEnemyBuildings (80)
+    }
+ TriggerMessage(gvftrel4) ; oh my look at it burn
+ }
+
+;
+;  
+; Conditional State #28
+;
+  DefineCondState()
+  {
+    DefineCondition(67 0 0 0 "")
+    {
+      CritDestroyEnemyBuildings (100)
+    }
+    TriggerMessage(gvftrel0) ;i like it
+   
+}
+
+
+
+;
+; Conditional State #29 - LaunchPad Taunt
+;
+  DefineCondState()
+  {
+    DefineCondition(9 0 0 0 "")
+       {
+        CritBeginBuildBuilding(fglp 15116 1)
+       }
+    
+  DefineCondition(55 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2500)
+      }
+    }  
+  DefineCondition(30 0 0 0 "")
+    {
+      CritTimer(200)
+    }
+  
+     TriggerMessage(gvft3olv)  ; launch pad i said build a launch pad
+}
+;
+; Conditional State #30 - LP taunt two
+;
+  DefineCondState()
+  {
+    
+     DefineCondition(9 0 0 0 "")
+       {
+        CritBeginBuildBuilding(fglp 15116 1)
+       }
+    DefineCondition(55 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2500)
+      }
+    }  
+    DefineCondition(31 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+  }
+;
+; Conditional State #31 - LP taunt three
+;
+  DefineCondState()
+  {
+    
+     DefineCondition(9 0 0 0 "")
+       {
+        CritBeginBuildBuilding(fglp 15116 1)
+       }
+     
+     DefineCondition(55 0 0 50 "c1to2.txt")
+     {
+     CritNOT()
+      {
+       CritHaveCredits(2500)
+      }
+     }
+    DefineCondition(29 0 0 0 "")
+       {
+        CritTimer(150)       
+       }
+      TriggerMessage(gvftrnl1)   ;boy your as dumb as a stick
+}
+
+
+;
+; Conditional State #32 - Power Plant taunt
+;
+  DefineCondState()
+   {
+     
+     DefineCondition(4 0 0 0 "")
+       {
+        CritBeginBuildBuilding(fgpp 15116 1)
+       }
+    DefineCondition(53 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2000)
+      }
+    }
+     
+
+   DefineCondition(33 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+   TriggerMessage(gvft3olx)  ;  cmon sparky build a power generator
+   
+ }
+;
+; Conditional State #33 -PP taunt 2
+;
+  DefineCondState()
+  {
+    
+     DefineCondition(4 0 0 0 "")
+       {
+        CritBeginBuildBuilding(fgpp 15116 1)
+       }
+     DefineCondition(53 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2000)
+      }
+    }
+
+    DefineCondition(34 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+       
+     }
+;
+; Conditional State #34 -PP taunt 3
+;
+  DefineCondState()
+  {
+    
+     DefineCondition(4 0 0 0 "")
+       {
+        CritBeginBuildBuilding(fgpp 15116 1)
+       }
+     DefineCondition(53 0 0 50 "c1to2.txt")
+    {
+    CritNOT()
+      {
+       CritHaveCredits(2000)
+      }
+    }
+
+
+    DefineCondition(32 0 0 0 "")
+       {
+        CritTimer(90)       
+       }
+        TriggerMessage(gvftrnl3) ; excuse me what are you doing
+     }
+
+
+
+
+;
+; Conditional State #35 - Go south taunt
+;
+  DefineCondState()
+   {
+     DefineCondition(6 0 0 0 "")
+       {
+        CritInRegion(15117)
+       }
+     DefineCondition(36 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+   TriggerMessage(gvftrnl8) ; head south genious
+}
+;
+; Conditional State #36 -Go South taunt 2
+;
+  DefineCondState()
+  {
+    
+    DefineCondition(6 0 0 0 "")
+       {
+        CritInRegion(15117)
+       }
+    DefineCondition(37 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+}
+
+
+;
+; Conditional State #37 - Go South taunt 3
+;
+  DefineCondState()
+   {
+     DefineCondition(6 0 0 0 "")
+       {
+        CritInRegion(15117)
+       }
+     DefineCondition(35 0 0 0 "")
+       {
+        CritTimer(50)       
+       }
+   TriggerMessage(gvftrnl5) ;you seem a bit confused there cheif
+}
+
+
+
+;
+; Conditional State #38 -Build Unit Taunt 
+;
+  DefineCondState()
+  {
+     DefineCondition(15 0 0 0 "")
+       {
+        CritBuildUnit(FGGroundTransporter 3)
+       }
+    DefineCondition(39 0 0 0 "")
+       {
+        CritTimer(400)       
+       }
+  
+   TriggerMessage(gvft3olw) ; get that freighter built
+  }
+
+
+;
+; Conditional State #39 -Build Unit Taunt -2
+;
+  DefineCondState()
+  {
+    DefineCondition(15 0 0 0 "")
+       {
+        CritBuildUnit(FGGroundTransporter 3)
+       }
+    DefineCondition(40 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+  }
+
+;
+; Conditional State #40 
+;
+  DefineCondState()
+  {
+    DefineCondition(15 0 0 0 "")
+       {
+        CritBuildUnit(FGGroundTransporter 3)
+       }
+
+    DefineCondition(38 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+   TriggerMessage(gvftrnl2) ;  knock that crap off and follow orders
+ }
+    
+
+
+
+;
+; Conditional State #41 -   West 1
+;
+  DefineCondState()
+  {
+    DefineCondition(20 0 0 0 "")
+       {
+       CritDestroyUnit()
+        {
+        22240
+       }
+      }
+    DefineCondition(42 0 0 0 "")
+       {
+        CritTimer(200)       
+       }
+   TriggerMessage(gvft3oly)  ; excuse me what are you doing i told u to go west
+}
+;
+; Conditional State #42 -  West 2
+;
+  DefineCondState()
+  {
+    
+   DefineCondition(20 0 0 0 "")
+      {
+       CritDestroyUnit()
+        {
+        22240
+        }
+      }
+   DefineCondition(43 0 0 0 "")
+       {
+        CritTimer(300)       
+       }
+   }
+;
+; Conditional State #43 -   West 3
+;
+  DefineCondState()
+  {
+    DefineCondition(20 0 0 0 "")
+      {
+       CritDestroyUnit()
+        {
+        22240
+        }
+      }   
+
+     DefineCondition(41 0 0 0 "")
+     {
+        CritTimer(300)       
+       }
+   TriggerMessage(gvftrnla)  ;head west killer
+}
+
+
+
+
+;
+; Conditional State #44
+;
+  DefineCondState()
+  {
+    DefineCondition(24 0 0 50 "youwin1.txt")
+    {
+     CritInRegion(15112)
+    }
+   
+   DefineCondition(45 0 0 0 "")
+       {
+        CritTimer(1800)       
+       }
+   BonusCredits(2 300000)
+   TriggerMessage(gvft3ols)
+}
+
+
+;
+; Conditional State #45 -kick ass?
+;
+  DefineCondState()
+  {
+    DefineCondition(24 0 0 50 "youwin1.txt")
+    {
+     CritInRegion(15112)
+    }
+
+   DefineCondition(46 0 0 0 "")
+       {
+        CritTimer(1500)       
+       }
+     TriggerMessage(gvft3olu)  ; hey meat are you gonna take out the imperium
+
+}
+;
+; Conditional State #46 -kick ass? - 2
+;
+  DefineCondState()
+  {
+    
+   DefineCondition(24 0 0 50 "youwin1.txt")
+    {
+     CritInRegion(15112)
+    }
+   DefineCondition(47 0 0 0 "")
+       {
+        CritTimer(800)       
+       }
+   TriggerMessage(gvftrnl2) ; knock that crap off and follow orders
+}
+
+;
+; Conditional State #47 -kick ass3 
+;
+  DefineCondState()
+  {
+    DefineCondition(24 0 0 50 "youwin1.txt")
+    {
+     CritInRegion(15112)
+    }
+    DefineCondition(48 0 0 0 "")
+       {
+        CritTimer(1200)       
+       }
+     
+    TriggerMessage(gvt3aol2) ; i said,  go flaten that base
+}
+
+;
+; Conditional State #48 -kick ass 4
+;
+  DefineCondState()
+  {
+     DefineCondition(24 0 0 50 "youwin1.txt")
+    {
+     CritInRegion(15112)
+    }  
+     DefineCondition(49 0 0 0 "")
+       {
+        CritTimer(1200)       
+       }
+     TriggerMessage(gvftrnla) ;  head west killer
+ }
+
+;
+; Conditional State #49 -kick ass 4
+;
+  DefineCondState()
+  {
+    DefineCondition(24 0 0 50 "youwin1.txt")
+    {
+     CritInRegion(15112)
+    }
+     DefineCondition(45 0 0 0 "")
+       {
+        CritTimer(0)       
+       }
+    
+  ;   TriggerMessage(gvftrnl4) ; im going to assume your an idiot and not ignoring my order
+}
+;
+; Conditional State #50
+;
+  DefineCondState()
+  {
+    DefineCondition(51 0 0 51 "c1to2.txt")
+    {
+    CritTimer(300)
+    }
+    DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGGroundTransporter 1)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGConstructionCrew 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGFreedomFighter 1)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGSpiderBike 1)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fgpp 15116 2)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fglp 15116 1)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fh1 15116 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fu1 15116 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fc1 15116 2)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fg 15116 6)
+    }   
+   
+    TriggerMessage(gvft3olf)
+   ;TriggerMessage(gvt3aol0)
+   ;TriggerMessage(gvt3aol1)
+  }
+
+;
+; Conditional State #51
+;
+  DefineCondState()
+  {
+    DefineCondition(5 0 0 51 "c1to2.txt")
+       
+         {
+         CritBuildBuilding(fgpp 15116 1)
+         }
+      
+   DefineCondition(60 0 0 51 "c1to2.txt")
+     {
+     CritNOT()
+        {
+        CritHaveCredits(5)
+        }
+    }
+    DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGGroundTransporter 1)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGConstructionCrew 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGFreedomFighter 1)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGSpiderBike 1)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fgpp 15116 2)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fglp 15116 1)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fh1 15116 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fu1 15116 2)
+    }
+   DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fc1 15116 2)
+    }
+  DefineCondition(60 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fg 15116 6)
+    }  
+}
+;
+; Conditional State #52
+;
+  DefineCondState()
+  {
+    DefineCondition(22 0 0 51 "c1to2.txt")
+    {
+    CritTimer(311)
+    }
+   TriggerMessage(gvft3olq)
+  }
+
+;
+; Conditional State #53
+;
+  DefineCondState()
+  {
+    DefineCondition(54 0 0 51 "c1to2.txt")
+    {
+    CritTimer(150)
+    }
+  TriggerMessage(gvt3aol3)
+}
+;
+; Conditional State #54
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 "c1to2.txt")
+    {
+    CritTimer(50)
+    }  
+  BonusCredits(1 200000)
+}
+
+;
+; Conditional State #55
+;
+  DefineCondState()
+  {
+    DefineCondition(56 0 0 51 "")
+    {
+    CritTimer(150)
+    }
+   TriggerMessage(gvt3aol4)
+}
+;
+; Conditional State #56
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 "")
+    {
+    CritTimer(50)
+    }
+   BonusCredits(1 200000)
+ }
+;
+; Conditional State #57
+;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 "")
+    {
+    CritTimer(160)
+    }
+  TriggerMessage(gvft3ol7)
+ }
+;
+; Conditional State #58
+;
+  DefineCondState()
+  {
+    DefineCondition(8 0 0 0 "")
+    {
+    CritTimer(250)
+    }
+   TriggerMessage(gvft3olt)
+   TriggerMessage(gvft3ol1)
+ }
+;
+; Conditional State #59
+;
+  DefineCondState()
+  {
+    DefineCondition(16 0 0 0 "")
+    {
+    CritTimer(90)
+    }
+ }
+;
+; Conditional State #60
+;
+  DefineCondState()
+  {
+    DefineCondition(61 0 0 0 "")
+    {
+    CritTimer(150)
+    }
+  TriggerMessage(gvt3aol3)
+ }
+;
+; Conditional State #61
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 "")
+    {
+    CritTimer(50)
+    }
+  BonusCredits(1 200000)
+ }
+;
+; Conditional State #62
+;
+  DefineCondState()
+  {
+  
+    DefineCondition(10 0 0 51 "c1to2.txt")
+       
+         {
+         CritBuildBuilding(fgpp 15116 1)
+         }
+      
+   DefineCondition(63 0 0 51 "c1to2.txt")
+     {
+     CritNOT()
+        {
+        CritHaveCredits(5)
+        }
+    }
+    DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGGroundTransporter 1)
+    }
+   DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGConstructionCrew 2)
+    }
+   DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGFreedomFighter 1)
+    }
+   DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBuildUnit(FGSpiderBike 1)
+    }
+  DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fgpp 15116 2)
+    }
+  DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fglp 15116 1)
+    }
+  DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fh1 15116 2)
+    }
+   DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fu1 15116 2)
+    }
+   DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fc1 15116 2)
+    }
+  DefineCondition(63 0 0 50 "c1to2.txt")
+    {
+    CritBeginBuildBuilding(fg 15116 6)
+    }  
+}
+;
+; Conditional State #63
+;
+  DefineCondState()
+  {
+  
+    DefineCondition(56 0 0 51 "")
+    {
+    CritTimer(150)
+    }
+   TriggerMessage(gvt3aol4)
+}
+
+;
+; Conditional State #64
+;
+  DefineCondState()
+  {
+DefineCondition(0 0 0 0 "c1to2.txt")
+    {
+    CritTimer(50)
+    }  
+  BonusCredits(1 200000)
+}
+;
+; Conditional State #65
+;
+  DefineCondState()
+  {
+    DefineCondition(56 0 0 51 "")
+    {
+    CritTimer(150)
+    }
+   TriggerMessage(gvt3aol4)
+}
+;
+; Conditional State #66
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 "")
+    {
+    CritTimer(50)
+    }
+   BonusCredits(1 200000)
+ }
+;
+; Conditional State #67
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 "")
+    {
+    CritTimer(200)
+    }
+  TriggerMessage(gvt3aol6) ; nice shootin tex....
+}
+;
+;Conditional State #68
+;
+  DefineCondState()
+  {
+    DefineCondition(68 0 0 0 "")
+    {
+    CritTimer(800)
+    }
+
+    DefineCondition(69 0 0 0 "")
+    {
+    CritInRegion(28977)
+    }
+  TriggerMessage(gvt3aol7)    
+ }
+;
+; Conditional State #69
+;
+  DefineCondState()
+  {
+    DefineCondition(7 0 0 50 "youwin1.txt")
+    {
+      CritCollectMineral(50)
+    }
+ }
+;
+; Conditional State #70
+;
+  DefineCondState()
+  {
+    DefineCondition(12 0 0 50 "youwin1.txt")
+    {
+      CritCollectWater(2250)
+    }
+  TriggerMessage(gvft3ol5)
+ }
+}

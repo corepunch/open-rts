@@ -1,0 +1,16 @@
+; General Game Configuration (Items that must be identical over network)
+
+SetHealSpeed(15)      ; Hitpoints restored to human
+SetHealCost(0)        ; The cost of healing
+
+SetRepairSpeed(15)    ; Hitpoints restored to units
+SetRepairCost(0)      ; The cost of repairing
+
+SetRearmSpeed(100)    ; Arms to add during rearmament (% of max)
+
+SetTactAI(0 0 1)      ; Tenacity / SelfPres / Autonomy (0-2)
+
+SetInitialGameSpd(30) ; Sets the initial game speed (0-60)
+
+SetUnitResponseRadius(3)  ; tile radius for response to unit explosion
+SetBuildingResponseRadius(6)  ; tile radius response to building explosion

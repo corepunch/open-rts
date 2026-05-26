@@ -1,0 +1,30 @@
+;
+; AI Conditional FSM for freedom guard defend base and perimeter.
+;
+DefineAICondTree()
+{
+   Description("FG: The AI will only defend its base and the perimeter.")
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 defend_base)
+    {
+      CritLessUnitsThanEnemy(100)
+    }
+    SetAIPFile(FGDPer.aip)
+  }
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 defend_perimeter)
+    {
+      CritMoreUnitsThanEnemy(120)
+    }
+    SetAIPFile(FGDBase.aip)
+  }
+}

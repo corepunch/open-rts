@@ -1,0 +1,54 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this waits for the spy to be taken by team 2 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritHaveCredits( 100000 )
+      ;; Criteria
+    }
+    SetAlliance( 1 1 1 2 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ; State 2 makes the sniper kill the transport 
+  DefineCondState()
+  {
+    ; This waits for the sniper to kill the transports 
+    DefineCondition( 3 0 0 0 "state_3"  )
+    {
+      CritDestroyUnit()
+      {
+        1100 
+        4319 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAlliance( 1 1 0 2 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ; State 3 moves up to the base 
+  DefineCondState()
+  {
+    DefineCondition( 4 0 0 0 FileName  )
+    {
+      CritTimer( 1000 )
+      ;; Criteria
+    }
+    TriggerSpecialForces( 104 614 )
+    GiveSpecialForces( 104 1 )
+    ;; State_Actions
+  }
+
+  ; State 4 this state gives the sniper to the computer 
+  DefineCondState()
+  {
+    ReleaseSpecialForces( 104 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

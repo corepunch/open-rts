@@ -1,0 +1,330 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; State 1
+; a buffer state. does nothing.
+  DefineCondState()
+  {
+   
+    ; instantly go to state 2
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+  }
+
+;
+;State 2
+;set aip and priority regions
+  DefineCondState()
+  {
+    ; instantly go to state 3
+    DefineCondition(3 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+
+    SetAIPFile(m06ist.aip)
+
+    ;focus on regions with wells and buildings
+    AdjustRegionPri(6170 200 100 900)
+    AdjustRegionPri(6246 200 100 900)
+    AdjustRegionPri(6171 200 100 900)
+    AdjustRegionPri(6173 200 100 900)
+    AdjustRegionPri(6172 200 100 900)
+    AdjustRegionPri(6247 200 100 900)
+    AdjustRegionPri(10856 300 70 600)
+  }
+
+;State 3
+;region and building triggers for special forces,
+;priority changes, and aip changes
+  DefineCondState()
+  {
+    DefineCondition(4 0 0 0 left_passage_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(6246)  
+      }
+    }
+
+    DefineCondition(5 0 0 0 top_well_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(6170)  
+      }
+    }
+
+    DefineCondition(6 0 0 0 top_pad_attacked)
+    {
+      CritONCE()
+      {
+        CritOR() 
+        {
+          CritDestroyBuilding()
+          {
+           6092
+          }
+          CritDestroyBuilding()
+          {
+            6095
+          }    
+          CritDestroyBuilding()
+          {
+            6131
+          } 
+        }
+      }
+    }
+
+    DefineCondition(7 0 0 0 right_passage_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(6247)  
+      }
+    }
+
+DefineCondition(8 0 0 0 left_base_attacked)
+    {
+      CritONCE()
+      {
+        CritOR() 
+        {
+          CritDestroyBuilding()
+          {
+           6134
+          }
+          CritDestroyBuilding()
+          {
+            3247
+          }    
+        }
+      }
+    }
+
+DefineCondition(9 0 0 0 right_exit_attacked)
+    {
+      CritONCE()
+      {
+        CritAND() 
+        {
+          CritDestroyBuilding()
+          {
+           6104
+          }
+          CritDestroyBuilding()
+          {
+            6107
+          }    
+        }
+      }
+    }
+
+    DefineCondition(10 0 0 0 island_entered)
+    {
+      CritONCE()
+      {
+       CritEnemyInRegion(6363)  
+      }
+    }
+    
+    ;change to aggressive aip after a few minutes
+    DefineCondition(11 0 0 0 "its_go_time")
+    {
+      CritONCE()
+      {     
+        CritTimerGame(5000)
+      }
+    }
+
+    ;really balls out aip
+    DefineCondition(12 0 0 0 "suck_on_this")
+    { 
+      CritONCE()
+      {
+        CritTimerGame(25000)
+      }
+    }
+
+    ;really balls out aip
+    DefineCondition(12 0 0 0 "suck_on_this")
+    { 
+      CritONCE()
+      {
+        CritOR()
+        {
+          CritDestroyBuilding()
+          {
+            6134
+          }
+
+          CritDestroyBuilding()
+          {
+            6183
+          }
+
+          CritDestroyBuilding()
+          {
+            3247
+          }
+
+          CritDestroyBuilding()
+          {
+            6089
+          }
+
+          CritDestroyBuilding()
+          {
+            6086
+          }
+        }
+      }
+    }
+
+    ;defensive aip
+    DefineCondition(13 0 0 0 "Ease_off")
+    { 
+      CritONCE()
+      {
+        CritTimerGame(13000)
+      }
+    }
+  }
+
+; state 4
+;left passage entered. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(101 6246)  
+    ReleaseSpecialForces(101)
+  }
+
+; state 5
+;top well entered. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(102 6170)  
+    ReleaseSpecialForces(102)
+  }
+
+; state 6
+;top well attacked. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(100 6170)  
+    ReleaseSpecialForces(100)
+  }
+
+
+; state 7
+; right passage entered. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(107 6247)  
+    ReleaseSpecialForces(107)
+  }
+
+; state 8
+; left base attacked. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(106 6171)  
+    ReleaseSpecialForces(106)
+  }
+
+; state 9
+; right exit attacked. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    TriggerSpecialForces(110 6247)  
+    ReleaseSpecialForces(110)
+  }
+
+; state 10
+; right exit attacked. send forces there
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    ReleaseSpecialForces(106)
+    ReleaseSpecialForces(107)
+    ReleaseSpecialForces(110)
+  }
+
+; state 11
+; player had time to set up. pump it up.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m06i.aip)
+  }
+
+
+; state 12
+; really bad ass aip.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m06iend.aip)
+  }
+
+; state 13
+;aip change
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 back_to_trigger_state)
+    {
+      CritTimer(0)	 
+    }
+
+    SetAIPFile(m06i2.aip)
+  }
+}
+

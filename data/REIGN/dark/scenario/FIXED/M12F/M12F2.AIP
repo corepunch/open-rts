@@ -1,0 +1,150 @@
+/**********************************************************************
+
+ m12i.aip
+
+ AUTO GENERATED - HAND EDIT AT YOUR OWN RISK
+
+**********************************************************************/
+
+#include "aipdef.h"
+
+
+// PRIORITIES
+
+
+// EDIT BOXES
+int ground_unit_threat = 50;
+int threat_priority = 170;
+int distance_priority = -2;
+int defend_buildings_priority = 150;
+int attack_enemy_base_priority = 150;
+int persistence_priority = 80;
+int exploration_priority = 50;
+int scripted_priority = 50;
+int single_use_group_priority = 50;
+int perimeter_priority = 80;
+int resource_priority = 130;
+int danger_priority = 10;
+int danger_diminishment = 1;
+double min_matching_force_ratio = 2.00;
+double max_matching_force_ratio = 7.50;
+int min_building_defense_force = 70;
+int max_building_defense_force = 600;
+int min_exploration_force = 70;
+int max_exploration_force = 300;
+int min_perimeter_force = 70;
+int max_perimeter_force = 300;
+int min_resource_force = 70;
+int max_resource_force = 900;
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.00;
+double generic_ground_ratio = 1.00;
+int recompute_strategy_period = 1;
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNTS
+
+/////////////////////////////////////////////////////////////////////////////
+
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account           BUDGET             BUDGET CAP
+//--------------------------------------------------------
+     "Slush_fund",           UNLIMITED,          UNLIMITED;
+     "units",                100,                500000;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// Slush_fund
+// --------------------
+// This specifies the baseline super-critical account
+
+ACCOUNT Slush_fund[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name              Build Type              Build Amount
+//--------------------------------------------------------------------
+     19,		"IMPConstructionCrew", 		         NUMBER_TO_HAVE,	1;
+    
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// units
+//
+ACCOUNT units[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    15,           "IMPScoutTank",	    NUMBER_TO_HAVE,           4;
+    15,           "IMPStrikeMarine",	    NUMBER_TO_HAVE,           9;
+    15,           "IMPHoverMarine",	    NUMBER_TO_HAVE,           6;
+    15,           "IMPFireSupportMarine",   NUMBER_TO_HAVE,           12;
+    15,           "IMPPlasmaTank",          NUMBER_TO_HAVE,           11;
+    15,           "IMPTachyonTank",         NUMBER_TO_HAVE,           16;
+    15,           "ImpVTOL",                NUMBER_TO_HAVE,           11;
+    15,           "IMPSkyFortress",         NUMBER_TO_HAVE,           4;
+    15,           "IMPReconSaucer",         NUMBER_TO_HAVE,           1;
+
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// FORCE MATCHING
+
+/////////////////////////////////////////////////////////////////////////////
+FORCE_MATCHING My_Matchings[MAX_FORCE_MATCHING];
+
+#DATA
+
+// Unit Name                       Multiplier
+//-------------------------------------------
+#END_DATA
+
+
+BUILDING_MATCHING My_Building_Matchings[MAX_BUILDINGS];
+
+#DATA
+
+// Building Name                   Multiplier         Where to Build
+//------------------------------------------------------------------
+#END_DATA
+
+///////////////////////////////////////////////////////////////////////////////
+// Unit Match-ups
+// --------------
+// When we see a unit of one of the following types, build the corresponding 
+// unit in the corresponding quantity
+UNIT_MATCH_UP My_Match_ups[MAX_BUILDINGS];
+
+#DATA
+
+// Enemy Unit           What to build           How many to build
+//------------------------------------------------------------------
+   "FGDualSkyBike",   "IMPMAD",                1.0;
+   "FGSkyBike",       "IMPMAD",                0.5;
+  
+#END_DATA
+

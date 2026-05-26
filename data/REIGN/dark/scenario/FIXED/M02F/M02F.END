@@ -1,0 +1,11 @@
+
+DefineEndCondTree(0)	; no time limit
+{
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 youwin.txt)  ; go to 0 (win) when complete
+    {
+	CritDestroyEnemyBuildings(100)  ; destroy 100% of buildings
+    } ; DefineCondition
+  } ; DefineCondState
+} ; DefineEndCondTree

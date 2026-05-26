@@ -1,0 +1,75 @@
+~TAURAN
+       
+~TLead Programmers
+    
+~NCarl Chimes
+~NAndrew Payne
+    
+~TProgrammers
+    
+~NGordon Moyes
+~NMatthew Versluys
+~NCraig Allsop
+~NMichael Judd
+~NAdam Iarossi
+
+~TAdditional Programming
+    
+~NMike Thomas
+~NJames Podesta
+    
+~TEngine Configuration
+    
+~NTristan Mott
+~NDavid Harrison
+
+~TArtists
+    
+~NLachlan Creagh
+~NBrad Welch
+~NShawn Eustace
+~NFiona Whipp
+~NJamie Lack
+~NJacob Hutson
+
+~THelp Desk
+    
+~NRachael Nixon
+    
+~TArt Director
+    
+~NJacob Hutson
+
+~TProducer
+    
+~NBrendan Andrews
+
+~TDirector / Tactics
+~TEngine Concept
+       
+~NGreg Lane
+
+~TSpecial Thanks
+
+~NActivision
+~Sfor this opportunity 
+
+~NGraham Edelsten
+~Sfor feeding coins 
+~Sinto our game machine
+
+~NJulian Da Silva
+~Sfor paying the way 
+~Sin the early days
+
+~NKirsty Barker
+~Sfor tolerating our habits (!)
+
+~NOur partners
+~Sfor suffering beyond 
+~Sthe call of duty
+
+~NFerrari & Ducati
+~S.. in advance ..
+
+

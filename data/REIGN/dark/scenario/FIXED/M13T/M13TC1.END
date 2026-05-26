@@ -1,0 +1,28 @@
+DefineEndCondTree( 0 )
+{
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritDestroyBuilding()
+        {
+          3125 
+          ;; Building_ID
+        }
+        CritAND()
+        {
+          CritKillTeamUnits( 0 0 )
+          CritDestroyTeamBuildings( 0 0 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ;; State
+}

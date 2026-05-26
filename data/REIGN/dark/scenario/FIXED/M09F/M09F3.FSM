@@ -1,0 +1,39 @@
+;
+; FSM  Conditions for team 3
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State 1
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(2 0 0 0 show_rendevous)  
+   	{
+        CritDestroyBuilding()
+ 		{
+		47464
+		} 
+	}
+ 
+	SetAlliance(1 1 2 2 2 1 1 1)
+
+}
+
+  ;
+  ; Conditional State 2
+  ;
+  DefineCondState()
+  {
+    
+	DefineCondition(2 0 0 0 "jus_loopy")  
+      	{          
+	 CritTimer(100000) 
+        }   
+  
+	SetAlliance(2 1 2 2 2 1 1 1)
+    	TriggerMessage(GVINTCL3)
+
+  }
+}

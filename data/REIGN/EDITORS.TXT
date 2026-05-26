@@ -1,0 +1,24 @@
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++                                                                   ++
+++                            Dark Reign                             ++
+++                           Game Editors                            ++
+++                                                                   ++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+Along with the Dark Reign game, three powerful game editors have been installed to your hard drive.  These editors give you control over many aspects of the game including configuring unit and building values, creating your own units, creating end conditions for single player missions, and much more.  Along with the construction kit, these were the tools used by the game designers to create every mission included with this game. 
+
+THESE EDITORS WERE INTENDED TO BE USED BY ADVANCED PLAYERS ONLY.  CHANGES MADE TO THE GAME THROUGH THE EDITORS MAY CAUSE THE GAME TO FUNCTION IMPROPERLY.  BE SURE TO BACK UP ANYTHING WITHIN THE GAME FOLDER BEFORE USING THE EDITORS.
+
+YOU WILL NOT BE ABLE TO PLAY MULTI-PLAYER GAMES IF CHANGES ARE MADE TO THE GAME AND THOSE CHANGES ARE NOT MADE BY ALL OTHER PLAYERS.
+
+NO CUSTOMER SUPPORT WILL BE PROVIDED FOR THESE EDITORS.
+
+The editors are: 				Location\File:                    
+Artificial Intelligence Profile Editor......... Dark Reign\AIPEdit.exe
+Unit and Building Editor....................... Dark Reign\UBEEdit.exe
+FSM and End Condition Editor......... Dark Reign\SafeEdit\SafeEdit.exe
+
+Instructions for using the game editors can be found in the file EdtInstr.doc in the Dark Reign game folder.
+
+The editors can only be run off of your hard drive and not from the Dark Reign CD. 

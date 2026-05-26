@@ -1,0 +1,422 @@
+
+;
+; Game End Conditions for team 0
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+	
+        DefineCondition(2 0 0 0 "D")  ;Rescue group 1 (medic / infantry)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(67903)
+       	}
+      	}
+    	
+	DefineCondition(3 0 0 0 "D") ; rescue group 2 (tanks / mechanic)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(64129)
+       	}
+       	}
+
+	DefineCondition(4 0 0 0 "D") ; rescue group 3  (Rigs / Freighters)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(64154)
+       	}
+       	}
+	
+	DefineCondition(5 0 0 0 "D") ; rescue group 4 (upper left in base)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(67897)
+       	}
+       	}
+
+	DefineCondition(6 0 0 0 "D") ; rescue group 5 (upper right  in base)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(67898)
+       	}
+       	}
+
+	DefineCondition(7 0 0 0 "D")  ; rescue group 6 (lower right in base)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(67900)
+       	}
+       	}
+
+	DefineCondition(8 0 0 0 "D") ; rescue group 7 (lower left in base)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(67899)
+       	}
+       	}
+
+	DefineCondition(10 0 0 0 "D")  ; rescue group 8 (JEB RADEC)
+      	{
+      	CritONCE()
+      	{
+       	CritInRegion(67901)
+       	}
+       	}
+        
+;        DefineCondition(10 0 0 0 "D")  ; Jeb is in the house (killing zone)
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritMoveUnitsToRegion(67902 1) 
+;       	  {
+; 	   69616
+;	  }
+;        }
+;       	}
+      
+;        DefineCondition(11 0 0 0 "D")  ; Group #1 (upper left) makes it to base
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritMoveUnitsToRegion(67976 1)
+;	  {
+;	   69568 69566 69564 69560 69558 69554
+;	  }      
+; 	}
+;       	}
+;      
+;	DefineCondition(12 0 0 0 "D")  ; Group #2 (upper right) makes it to base
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritMoveUnitsToRegion(67976 1)
+;       	  {
+;           69590 69588 69586 69584 69582 69576
+;	  }
+;	}
+;       	}
+
+;        DefineCondition(13 0 0 0 "D")  ; Group #3 (lower right) makes it to base
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritMoveUnitsToRegion(67976 1)
+;       	  {
+;	   69602 69600 69598 69596 69594 69592
+;	  }
+;	}
+;       	}
+
+;        DefineCondition(14 0 0 0 "D")  ; Group #4 (lower left) makes it to base
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritMoveUnitsToRegion(67976 1)
+;       	 {
+;	  69614 69612 69610 69608 69606 69604
+;	 }
+;        }
+;       	}
+
+;        DefineCondition(15 0 0 0 "D")  ; JEB makes it to base
+;      	{
+;      	CritONCE()
+;      	{
+;       	CritMoveUnitsToRegion(67976 1)
+;	  {
+;	   69616
+;	  }       
+;	}
+;       	}
+
+        DefineCondition(17 0 0 0 "D")  ; Player has destroyed ai base
+      	{
+	CritONCE()
+	{
+	CritDestroyTeamBuildings(1 0)
+	}
+	}
+        DefineCondition(16 0 0 0 "D")  ; Player has destroyed AI and rescued all
+      	{
+      	CritAND()
+      	{
+       	CritAND()
+		{       	
+		CritKillTeamUnits(2 0)
+       		CritKillTeamUnits(3 0)
+		CritKillTeamUnits(4 0)
+		CritKillTeamUnits(5 0)
+		CritKillTeamUnits(6 0)
+		CritKillTeamUnits(7 0)
+		}
+	CritDestroyTeamBuildings(1 0)
+        }
+       	}
+	
+SetAlliance(2 0 1 1 1 1 1 2)
+}
+  ;
+  ; Conditional State #2 -This is the first group of outside prisoners
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+
+GiveSpecialForces(101 0)
+; BonusCredits(2 1000)    
+TriggerMessage(GVSTSCLT)  ; units liberated  
+}
+  ;
+  ; Conditional State #3- This is the second group of outside prisoners
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+GiveSpecialForces(202 0)
+; BonusCredits(2 1000)    
+TriggerMessage(GVSTSCLT)  ; units liberated
+}
+  ;
+  ; Conditional State #4  - This is the third group of outside prisoners
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+GiveSpecialForces(303 0)
+; BonusCredits(2 1000)    
+TriggerMessage(GVSTSCLT)  ; units liberated
+
+}
+
+  ;
+  ; Conditional State #5  -  upper left prisoners in base
+  ;
+  DefineCondState()
+  {
+
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+;   TriggerSpecialForces(404 67976)
+    GiveSpecialForces(404 0)
+;    BonusCredits(2 1000)    
+    TriggerMessage(GVSTSCLT)  ; units liberated
+
+}
+  ;
+  ; Conditional State #6  -  upper right prisoners in base
+  ;
+  DefineCondState()
+  {
+
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+ ;  TriggerSpecialForces(505 67976)
+    GiveSpecialForces(505 0)
+ ;   BonusCredits(2 1000)    
+   TriggerMessage(GVSTSCLT)  ; units liberated
+
+}
+  ;
+  ; Conditional State #7  -  lower right prisoners in base
+  ;
+  DefineCondState()
+  {
+ 
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+;  TriggerSpecialForces(606 67976)
+    GiveSpecialForces(606 0)
+;    BonusCredits(2 1000)    
+   TriggerMessage(GVSTSCLT)  ; units liberated
+
+}
+ ;
+  ; Conditional State #8  -  lower left prisoners in base
+  ;
+  DefineCondState()
+  {
+
+    DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+ ;  TriggerSpecialForces(707 67976)
+    GiveSpecialForces(707 0)   
+;   BonusCredits(2 1000)    
+   TriggerMessage(GVSTSCLT)  ; units liberated
+
+}
+
+  ;
+  ; Conditional State #9 -  Our hero JEB RADEC  in the zone
+  ;
+  DefineCondState()
+  {
+ 
+    DefineCondition(10 0 0 0 "region_one")
+    {
+      CritTeamInRegion(67902 7)
+    }
+ 
+;  TriggerSpecialForces(808 67902)
+ ;  BonusCredits(2 1000)    
+;   TriggerMessage(GVINTCL3)  ; objective sucesful
+
+}
+
+  ;
+  ; Conditional State #10 -  JEB's AI takes over he slauters everyone
+  ;
+  DefineCondState()
+  {
+
+   DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+;   BonusCredits(2 1000)    
+   GiveSpecialForces(808 0)
+   TriggerMessage(GVINTCL3)  ; objective succesful
+ ;  ReleaseSpecialForces(808)
+
+}
+  ;
+  ; Conditional State #11 -  Group #1 (upper left is in the players base)
+  ;
+  DefineCondState()
+  {
+  
+   DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+ GiveSpecialForces(404 0)
+
+}
+
+  ;
+  ; Conditional State #12 -  Group #2 (upper right is in the players base)
+  ;
+  DefineCondState()
+  {
+  
+   DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+  
+ GiveSpecialForces(505 0)
+
+}
+
+  ;
+  ; Conditional State #13 -  Group #3 (lower right is in the players base)
+  ;
+  DefineCondState()
+  {
+  
+   DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+
+ GiveSpecialForces(606 0)
+
+  }
+  ;
+  ; Conditional State #14 -  Group #4 (lower left is in players base)
+  ;
+  DefineCondState()
+  {
+   
+   DefineCondition(1 0 0 0 "D")
+    {
+      CritTimer(0)
+    }
+ 
+GiveSpecialForces(707 0)
+
+ }
+  ;
+  ; Conditional State #15 -  Group #5 
+  ;
+  DefineCondState()
+  {
+  
+   DefineCondition(1 0 0 0 "give_jeb")
+    {
+      CritTimer(0)
+    }
+  
+ GiveSpecialForces(808 0)
+
+}
+
+
+
+  ;
+  ; Conditional State #16  "mission succesful" 
+  ;
+  DefineCondState()
+  {
+  
+   DefineCondition(0 0 0 0 you_win)
+    {
+      CritTimer(50)
+    }
+  
+; TriggerMessage(GVINTCL5)
+
+}
+ ;
+  ; Conditional State #17  "objective succesful" 
+  ;
+  DefineCondState()
+  {
+  
+   DefineCondition(1 0 0 0 you_win)
+    {
+      CritTimer(0)
+    }
+  
+   TriggerMessage(GVINTCL3)
+
+}
+}

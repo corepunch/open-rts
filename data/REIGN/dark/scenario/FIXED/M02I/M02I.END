@@ -1,0 +1,15 @@
+
+DefineEndCondTree(0)	; no time limit
+{
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 youwin.txt)  ; go to 0 (win) when complete
+    {
+       CritAND()
+       {
+         CritBuildBuilding(ig 0 5)  ; build five Imperial guard towers
+	 CritDestroyEnemyBuildings(100)  ; destroy 100% of buildings
+       } ; CritAND
+    } ; DefineCondition
+  } ; DefineCondState
+} ; DefineEndCondTree

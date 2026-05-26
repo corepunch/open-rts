@@ -1,0 +1,31 @@
+;
+; AI Conditional FSM for Imperium defend base and perimeter.
+;
+DefineAICondTree()
+{
+
+  Description("Imperium: The AI will only defend its base and the perimeter.")
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 defend_base)
+    {
+      CritLessUnitsThanEnemy(100)
+    }
+    SetAIPFile(IPDPer.aip)
+  }
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 defend_perimeter)
+    {
+      CritMoreUnitsThanEnemy(120)
+    }
+    SetAIPFile(IPDBase.aip)
+  }
+}

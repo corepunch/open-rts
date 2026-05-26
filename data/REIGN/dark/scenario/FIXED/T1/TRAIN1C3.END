@@ -1,0 +1,28 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this state waits for the player to get to the guard tower by the river 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritMoveUnitsToRegion( 3076 3 )
+      {
+        2968 
+        2966 
+        2964 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 2 this state makes team 3 ally with the player 
+  DefineCondState()
+  {
+    SetAlliance( 2 1 1 2 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

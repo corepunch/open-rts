@@ -1,0 +1,10 @@
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1 - no condition, no action => wait forever
+  ;
+
+  DefineCondState()
+  {
+  }
+}

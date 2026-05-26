@@ -1,0 +1,77 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+
+; State 1
+; a buffer state. does nothing.
+  DefineCondState()
+  {
+   
+    ; instantly go to state 2
+    DefineCondition(2 0 0 0 "wait0")
+    {
+      CritTimer(0)
+    }
+  }
+
+
+;State 2
+; after a while, pump up the jam.
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 "eat_this")
+    {
+      CritTimerGame(9000)
+    }
+
+    SetAIPFile(m12f.aip)
+  } 
+
+; state 3
+;give the ai the rift creator. fun ensues
+  DefineCondState()
+  {
+    DefineCondition(4 0 0 0 no_rift_for_you)
+    {
+      CritOR()
+      {
+        CritEnemyInRegion(33133) 
+        CritEnemyInRegion(33764) 
+        CritNOT()
+        {
+          CritTeamInRegion(33339 1)
+        }
+      }
+    }
+
+  SetAlliance(0 2 0 0 0 0 2 0)
+  }
+
+
+;State 4
+; enemy in base. don't use the rift creator. 
+; you'll put your eye out
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 0 "here_come_trouble")
+    {
+      CritAND()
+      {
+        CritNOT()
+        {
+          CritEnemyInRegion(33133) 
+        }
+        CritNOT()
+        {
+          CritEnemyInRegion(33764) 
+        }
+        CritTeamInRegion(33339 1)
+      }
+    }
+
+    SetAlliance(1 1 0 0 0 0 2 0)
+  } 
+}
+

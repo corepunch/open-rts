@@ -1,0 +1,14 @@
+
+                                                                   
+DARK REIGN                           
+GAME EDITORS                                
+                                                                           
+
+
+THIS EDITOR WAS INTENDED TO BE USED BY ADVANCED PLAYERS ONLY.  CHANGES MADE TO THE GAME THROUGH THIS EDITOR MAY CAUSE THE GAME TO FUNCTION IMPROPERLY.  BE SURE TO BACK UP ANYTHING WITHIN THE GAME FOLDER BEFORE CONTINUING.
+
+YOU WILL NOT BE ABLE TO PLAY MULTI-PLAYER GAMES IF CHANGES ARE MADE WITH THIS EDITOR AND THOSE CHANGES ARE NOT MADE BY ALL OTHER PLAYERS.
+
+NO CUSTOMER SUPPORT WILL BE PROVIDED FOR THIS EDITOR.
+
+Instructions for using this editor can be found in the file EdtInstr.doc in the Dark Reign game folder.

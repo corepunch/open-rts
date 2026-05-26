@@ -1,0 +1,33 @@
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+
+    CritOR ()
+     {
+     CritOR ()
+      {
+       CritDestroyBuilding()
+       {
+       14192 
+       } 
+       CritDestroyBuilding()
+       {
+       14193
+       } 
+      }  ; OR
+
+     CritTimerGame(108000)
+
+     }  ; OR
+    }  ; Cond
+  }  ; State
+}  ; Tree

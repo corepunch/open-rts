@@ -1,0 +1,184 @@
+/**********************************************************************
+
+ M03fDef.aip
+
+ AUTO GENERATED - HAND EDIT AT YOUR OWN RISK
+
+**********************************************************************/
+
+#include "aipdef.h"
+// How often do we recompute the strategy?
+int recompute_strategy_period = 50;
+
+// PRIORITIES
+int ground_unit_threat = 10;
+int threat_priority = 150;
+int distance_priority = 5;
+int defend_buildings_priority = 10;
+int attack_enemy_base_priority = -1;
+int persistence_priority = 100;
+int exploration_priority = 500;
+int scripted_priority = 400;
+int single_use_group_priority = 5;
+int perimeter_priority = 100
+int resource_priority = 400;            
+int danger_priority = 100;               
+float danger_diminishment = 0.5;           
+
+// TROOP COMMITMENT STUFF 
+double min_matching_force_ratio =0.5;
+double max_matching_force_ratio = 1.0;
+
+// When generic troops are called for, what should be ratio of troops that can
+// shoot ground targets to troops that can shoot air targets?
+double generic_ground_ratio = 1.0;
+
+int min_building_defense_force = 70;
+int max_building_defense_force = 140;
+
+int min_exploration_force = 70;
+int max_exploration_force = 140;
+
+int min_perimeter_force = 70;
+int max_perimeter_force = 140;
+
+int min_resource_force = 70;           
+int max_resource_force = 140;
+
+// RELAXATION STUFF 
+int relaxation_cycles = 1;
+float relaxation_coefficient = .1;
+
+// The transport we should use
+#define transport "FGGroundTransporter"
+
+// Should we repair buildings during this aip
+int repair_buildings = YES;
+
+//  On average how long will we wait between re-exploring a cell?
+int recon_period = 100;
+
+// 1 out N strategic cycles, we'll find out a morphed spy?
+int infiltrator_period = 50;
+
+// Use good targeting (TACTAI_HIGH) or default (TACTI_LOW)
+int tactical_ai = TACTAI_HIGH;
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNTS
+
+/////////////////////////////////////////////////////////////////////////////
+
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account           BUDGET             BUDGET CAP
+//--------------------------------------------------------
+     "Slush_fund",           UNLIMITED,         UNLIMITED;
+     "Base_building",        40,                10000;
+     "Units",                60,                10000;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Slush_fund
+//
+ACCOUNT Slush_fund[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    19,          "IMPConstructionCrew",  NUMBER_TO_HAVE,           1;
+    
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Base_building
+//
+ACCOUNT Base_building[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    20,          "ih1",                  NUMBER_TO_HAVE,           1;
+    19,          "imppp",                NUMBER_TO_HAVE,           1;
+    18,          "iu1",                  NUMBER_TO_HAVE,           1;
+    17,          "implp",                NUMBER_TO_HAVE,           1;
+    15,          "ic1",                  NUMBER_TO_HAVE,           1;
+    
+    14,          "imppp",                NUMBER_TO_HAVE,           2;
+    13,  	 "impre",		 NUMBER_TO_HAVE,           1;
+    12,  	 "impho",		 NUMBER_TO_HAVE,           1;
+    11,          "ig",                   NUMBER_TO_HAVE,           2;
+   
+    9,           "imppp",                NUMBER_TO_HAVE,           3;
+    8,           "iu1",                  NUMBER_TO_HAVE,           2;
+    7,           "ig",                   NUMBER_TO_HAVE,           4;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Units
+//
+ACCOUNT Units[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+  5,           "IMPScoutTank",      NUMBER_TO_HAVE,           2;
+  5,           "IMPAssaultVehicle",      NUMBER_TO_HAVE,           1; 
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// FORCE MATCHING
+
+/////////////////////////////////////////////////////////////////////////////
+FORCE_MATCHING My_Matchings[MAX_FORCE_MATCHING];
+
+#DATA
+
+// Unit Name                       Multiplier
+//-------------------------------------------
+ "IMPScoutTank",                   4;
+ "IMPAssaultVehicle",              4;
+ "IMPStrikeMarine",                2;
+ "IMPPlasmaTank",                  6;
+ "IMPFireSupportMarine",           2;
+
+#END_DATA
+
+
+BUILDING_MATCHING My_Building_Matchings[MAX_BUILDINGS];
+
+#DATA
+
+// Building Name                   Multiplier         Where to Build
+//------------------------------------------------------------------
+   "ih1",                          1.00,              CENTER_OF_BASE;
+   "iu1",                          1.00,              CENTER_OF_BASE;
+   "ic1",                          1.00,              CENTER_OF_BASE;
+   "imppp",                        1.00,              CENTER_OF_BASE;
+   "ig",                           1.00,              PERIMETER;
+   "impho",                        1.00,              CENTER_OF_BASE;
+   "impre",                        1.00,              CENTER_OF_BASE;
+ 
+#END_DATA
+
+

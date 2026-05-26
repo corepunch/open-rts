@@ -1,0 +1,30 @@
+
+;
+; Game End Conditions for team 1
+;
+DefineEndCondTree(0)
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+     DefineCondition(2 0 0 0 "D")  ;  Time is up-  PLAYER LOSES
+      	{  
+         CritTimerGame(129600)
+        }
+  }
+
+;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 you_lose)
+    {
+	CritTimer(100)
+    }
+ TriggerMessage(GVINTCL6)
+  }
+
+}

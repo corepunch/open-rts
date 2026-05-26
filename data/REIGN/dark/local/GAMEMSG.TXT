@@ -1,0 +1,889 @@
+;
+; Tactics Engine - Game Message Config File
+;
+; Game messages are triggered by certain events during gameplay.  This
+; file allows the user to configure what the response will be when each
+; individual item is triggered.
+;
+; Each game message has an identifier, most of which are in the actual
+; game code.  However, some identifiers are user-configured through
+; other text files (eg. in units.txt you can attach the function
+; SetMsgConstruct to a unit type, and the specified message will be
+; triggered whenever that unit type is constructed).
+;
+; This file is read from both the game\local dir and the scenario dir.
+; If a file exists in the scenario dir its contents will be added to
+; those read from the game\local dir.  (scenario definitions have
+; preference - so you can make a scenario that instead of saying
+; 'Primary Facility Selected' says 'Cabbage Selected' - although I
+; can't think why you'd want to :)
+;
+;
+; ------- Config Format Example -------
+;
+; CreateMsg("ident")          ; Defines message with identifier
+; {
+;   SetSound("noise.wav")     ; Add a sound effect file to the message
+;                             ; Multiple SetSound definitions will cause
+;                             ; sounds to be queued.
+;
+;   QueueSound()              ; Queue sound if reserved channel busy
+;                             ; Only use on rare important messages
+;
+;   SetTimeLimit(10)          ; Set minimum time between being played
+;                             ; or
+;   SetTimeQuiet(10)          ; Only trigger if no attempt to trigger
+;                             ; in the last 10 seconds
+;
+;   SetSfxType(SFX)           ; VOICE    - reserved channel (default)
+;                             ; SFX      - normal sound effect
+;                             ; LOCALSFX - for x,y location messages
+;
+;   GetMLString(0)            ; Get multi-language string (0/1 = Should string
+;                             ; always be shown or only when no snd effect)
+;
+;   CreateBlip(form)          ; Define a blip type for this message
+;                             ; Possible forms : CIRCLE (doh, no time for more)
+;   {
+;     CircleRGB(31 0 10)      ; set RGB values (0-31)
+;     CircleLife(30)          ; set pixel radius at which blip dies
+;     CircleSpeed(150)        ; speed modifier (100 = 1 pixel per display cycle)
+;     CircleRepeats(2)        ; set number of times it cycles (1 is default)
+;   }
+; }
+;
+; The string that is attatched to a game message is defined in the
+; multi-language text file (mlstring.cfg) using the identifier of the
+; game message as the lookup key.
+;
+; This is a list of all the game messages that support the addition
+; of blips (ie. each one of these is triggered with an x,y location)
+; A lot of them would be really annoying if they had blips though!
+;
+; MSG_SFXWATERLAUNCH
+; MSG_FACCOMPLETE
+; MSG_UNITCOMPLETE
+; MSG_VEHICLECOMP
+; MSG_SFXPACKUP
+; MSG_SFXUNPACK
+; MSG_SFXPOWERDOWN
+; MSG_SFXPOWERUP
+; MSG_BUILDDESTROYED
+; MSG_SFXTEMPGATE
+; MSG_SFXDECONSTRUCT
+; MSG_MESSAGE
+; MSG_PRIMSEL
+; MSG_CANTBUILDTHERE
+; MSG_UNITBUILD
+; MSG_SQUAD1SELECTED
+; MSG_SQUAD2SELECTED
+; MSG_SQUAD3SELECTED
+; MSG_SQUAD4SELECTED
+; MSG_SQUAD5SELECTED
+; MSG_SQUAD6SELECTED
+; MSG_SQUAD7SELECTED
+; MSG_SQUAD8SELECTED
+; MSG_SQUAD9SELECTED
+; MSG_SQUAD0SELECTED
+; MSG_UNITRECEIVED
+; MSG_UNITTRANSFER
+; MSG_ORDGIVENCREDITS
+; MSG_ALLYREQUEST
+; MSG_ALLIANCECHANGED
+; MSG_NEWENEMY
+; MSG_SFXMORPH
+; MSG_FACBUILD
+; MSG_PLANSBACKHQ
+; MSG_UACTSPYINFIL
+; MSG_UACTSPYCOMP
+; MSG_BUILDINGSABOTAGED
+; MSG_SFXVETACHIEVED
+; MSG_UNITCAPTURED
+; MSG_PHASEVEHICLEAVAIL
+; MSG_UNITDESTROYED
+; MSG_TEMPORALINSTABILITY
+; MSG_SFXTEMPRIFT
+; MSG_ALLYATTACK
+; MSG_UNDERATTACK
+; MSG_ALLYUNDERATTACK
+; MSG_ATTACKED
+
+CreateMsg("TESTBLIP")
+{
+  SetSound("gvwrncl3.wav")
+  QueueSound()
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(10 0 31)
+    CircleLife(150)
+    CircleSpeed(200)
+    CircleRepeats(2)
+  }
+}
+
+CreateMsg("MSG_SCRNSHOT")
+{
+  SetSound("gxcrdoc0.wav")
+}
+
+CreateMsg("MSG_SEISMICDETECT")
+{
+  SetSound("gvwrncl3.wav")
+  QueueSound()
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(10 0 31)
+    CircleLife(150)
+    CircleSpeed(200)
+    CircleRepeats(2)
+  }
+}
+
+CreateMsg("MSG_GAVECREDITS")
+{
+  SetSound("gvstsclm.wav")
+}
+
+CreateMsg("MSG_PRIMSEL")
+{
+  SetSound("gvstscld.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_MESSAGE")
+{
+  SetSound("gxcrdoc0.wav")
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 0 31)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_ALLYATTACK")
+{
+  SetSound("gvwrncl8.wav")
+  QueueSound()
+  SetTimeLimit(10)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 20 0)
+    CircleLife(150)
+    CircleSpeed(250)
+    CircleRepeats(2)
+  }
+}
+
+CreateMsg("MSG_ATTACKED")
+{
+  SetSound("gvwrnclb.wav")
+  QueueSound()
+  SetTimeQuiet(10)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 0 0)
+    CircleLife(150)
+    CircleSpeed(250)
+    CircleRepeats(3)
+  }
+}
+
+CreateMsg("MSG_CANTBUILDTHERE")
+{
+  SetSound("gxnegoc0.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NEEDUNIT")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NEEDSINGLEUNIT")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NOPATHAVAIL")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITSELECT")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NOUNITSELECT")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SELECTGLOBAL")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_GROUPMADE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SAVEINVALID")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SAVEOUTOFDATE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SINGLEPLAYERMODE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_CHANGEINMULTIPLAYER")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SPYSTOLEPLANS")
+{
+  SetSound("gvstscl9.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_BUILDINGSABOTAGED")
+{
+  SetTimeLimit(10)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 0 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_ENTERENDCONDSTATE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_LEAVEENDCONDSTATE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ENDCONDCOMPSTATE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ENDCONDNOWSTATE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_IGILOADINGGAME")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_IGISAVINGGAME")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_FACBUILD")
+{
+  SetSound("gvstscl2.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITBUILD")
+{
+  SetSound("gvstscl3.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NOCREDIT")
+{
+  SetSound("gvwrncl6.wav")
+  SetTimeQuiet(3)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITCOMPLETE")
+{
+  SetSound("gvstscl5.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_TEMPGATEREADY")
+{
+  SetSound("gvstscla.wav")
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_PLANSBACKHQ")
+{
+  SetSound("gvstsclu.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SAVEDONE")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ORDGIVENCREDITS")
+{
+  SetSound("gvstscln.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 0 31)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_GAVECREDITS")
+{
+  SetSound("gvstsclm.wav")
+  SetTimeQuiet(3)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UACTSPYINFIL")
+{
+;  SetSound("gccseccm.wav")
+  QueueSound()
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 0 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_UACTSPYCOMP")
+{
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 0 31)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_FACCOMPLETE")
+{
+  SetSound("gvstscl0.wav")
+  SetTimeLimit(2)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UPGRADECOMPLETE")
+{
+;  SetSound("gccfacmp.wav")
+  SetTimeLimit(2)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ALLYREQUEST")
+{
+  SetSound("gvstscli.wav")
+  SetTimeLimit(2)
+  QueueSound()
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 31 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_OBJECTSUCCESS")
+{
+  SetSound("gvintcl3.wav")
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_OBJECTFAIL")
+{
+  SetSound("gvintcl4.wav")
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_MISSIONSUCCESS")
+{
+  SetSound("gvintcl5.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_MISSIONFAILED")
+{
+  SetSound("gvintcl6.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NEWUNITSAVAIL")
+{
+  SetSound("gvstscl1.wav")
+  SetTimeQuiet(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NEWFACILAVAIL")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_BUILDCANC")
+{
+  SetSound("gvstscl4.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_VEHICLECOMP")
+{
+  SetSound("gvstscl5.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITDESTROYED")
+{
+  SetSound("gvstscl7.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_BUILDDESTROYED")
+{
+  SetSound("gvstscl8.wav")
+  SetTimeQuiet(5)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 0 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_UNDERATTACK")
+{
+  SetSound("gvwrncl0.wav")
+  SetTimeQuiet(10)
+  QueueSound()
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 0 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_LOWPOWER")
+{
+  SetSound("gvwrncl4.wav")
+  SetTimeLimit(15)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_POWERCRITICAL")
+{
+  SetSound("gvwrncl5.wav")
+  SetTimeLimit(15)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ALLIANCECHANGED")
+{
+  SetSound("gvstsclg.wav")
+  SetTimeLimit(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ALLYUNDERATTACK")
+{
+  SetSound("gvwrncl8.wav")
+  QueueSound()
+  SetTimeQuiet(10)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 31 0)
+    CircleLife(150)
+    CircleSpeed(200)
+  }
+}
+
+CreateMsg("MSG_ALLYDEFEATED")
+{
+  SetSound("gvstsclh.wav")
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_NEWENEMY")
+{
+  SetSound("gvstsclj.wav")
+  SetTimeLimit(5)
+  QueueSound()
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(31 0 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_UNITTRANSFER")
+{
+  SetSound("gvstsclo.wav")
+  SetTimeLimit(5)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITRECEIVED")
+{
+  SetSound("gvstsclp.wav")
+  SetTimeLimit(3)
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 0 31)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_UNITCAPTURED")
+{
+  SetSound("gvstscls.wav")
+  QueueSound()
+  SetTimeLimit(3)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITLIBERATED")
+{
+  SetSound("gvstsclt.wav")
+  QueueSound()
+  SetTimeLimit(3)
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD1SELECTED")
+{
+  SetSound("gvselcl0.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD2SELECTED")
+{
+  SetSound("gvselcl1.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD3SELECTED")
+{
+  SetSound("gvselcl2.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD4SELECTED")
+{
+  SetSound("gvselcl3.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD5SELECTED")
+{
+  SetSound("gvselcl4.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD6SELECTED")
+{
+  SetSound("gvselcl5.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD7SELECTED")
+{
+  SetSound("gvselcl6.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD8SELECTED")
+{
+  SetSound("gvselcl7.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD9SELECTED")
+{
+  SetSound("gvselcl8.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_SQUAD0SELECTED")
+{
+  SetSound("gvselcl9.wav")
+  GetMLString(0)
+}
+
+CreateMsg("MSG_PAUSED")
+{
+;  does not require a string
+;  GetMLString(0)
+;  SetSound("gxnegoc0.wav")
+}
+
+CreateMsg("MSG_UNPAUSED")
+{
+;  does not require a string
+;  GetMLString(0)
+;  SetSound("gxnegoc0.wav")
+}
+
+CreateMsg("MSG_RIFTCHARGED")
+{
+  SetSound("gvstsclb.wav")
+  SetTimeQuiet(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_PHASEVEHICLEAVAIL")
+{
+  SetSound("gvstsclc.wav")
+  SetTimeLimit(4)
+  QueueSound()
+  GetMLString(0)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(0 31 0)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_PHASEONLINE")
+{
+  SetSound("gvstscle.wav")
+  SetTimeQuiet(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_PHASEOFFLINE")
+{
+  SetSound("gvwrncl7.wav")
+  SetTimeQuiet(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UPGRADEAVAIL")
+{
+  SetSound("gvstsclf.wav")
+  SetTimeQuiet(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_REPAIRING")
+{
+  SetSound("gvstsclk.wav")
+  SetTimeQuiet(5)
+  QueueSound()
+  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITREPAIRED")
+{
+  SetSound("gxrepoc0.wav")
+;  QueueSound()
+;  GetMLString(0)
+}
+
+CreateMsg("MSG_HEALING")
+{
+  SetSound("gxheaoc0.wav")
+;  QueueSound()
+;  GetMLString(0)
+}
+
+CreateMsg("MSG_UNITHEALED")
+{
+  SetSound("gxheaoc0.wav")
+;  QueueSound()
+;  GetMLString(0)
+}
+
+CreateMsg("MSG_PHASESTATEALT")
+{
+;  SetSound("phasesta.wav")
+}
+
+CreateMsg("MSG_INTERFACETERM")
+{
+;  SetSound("terminat.wav")
+  QueueSound()
+}
+
+CreateMsg("MSG_SFXKLAXON")
+{
+  SetSound("gxklxoc0.wav")
+  SetSfxType(SFX)
+  QueueSound()
+}
+
+CreateMsg("MSG_SFXTEMPGATE")
+{
+  SetSound("gxtgtoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_TEMPORALINSTABILITY")
+{
+  SetSound("gvwrncl2.wav")
+  SetTimeQuiet(5)
+  CreateBlip(CIRCLE)
+  {
+    CircleRGB(10 0 31)
+    CircleLife(150)
+    CircleSpeed(400)
+  }
+}
+
+CreateMsg("MSG_SFXPHASE")
+{
+  SetSound("gxphsoc1.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXPOWERDOWN")
+{
+  SetSound("gxpwdoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_SFXPOWERUP")
+{
+  SetSound("gxpwuoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_SFXVETACHIEVED")
+{
+;  SetSound("gxvetoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_SFXPACKUP")
+{
+;  SetSound("gxpacoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_SFXUNPACK")
+{
+;  SetSound("gxupcoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_SFXSTARTBUILD")
+{
+;  SetSound("gxbldoc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXDECONSTRUCT")
+{
+;  SetSound("gxubloc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXMORPH")
+{
+  SetSound("gxmphoc0.wav")
+  SetSfxType(LOCALSFX)
+}
+
+CreateMsg("MSG_WATERLAUNCH")
+{
+;  SetSound("gxwlnoc0.wav")
+
+; testing only - stealing this sfx from some other thing
+  SetSound("gxcrdoc0.wav")
+  SetSfxType(LOCALSFX)
+
+; displays the number of credits gained
+  GetMLString(1)
+}
+
+CreateMsg("MSG_SFXRUMBLE")
+{
+  SetSound("gxshkoc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXTEMPRIFT")
+{
+  SetSound("gxtmpoc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXBUTTONCLICK")
+{
+;  SetSound("gxclkoc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXMENUTOGGLE")
+{
+;  SetSound("gxtogoc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXNEGINDICATOR")
+{
+  SetSound("gxnegoc0.wav")
+  SetSfxType(SFX)
+}
+
+CreateMsg("MSG_SFXPATH")
+{
+;  SetSound("gxpatoc0.wav")
+  SetSfxType(SFX)
+}
+

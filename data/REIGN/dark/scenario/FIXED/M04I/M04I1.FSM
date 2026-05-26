@@ -1,0 +1,387 @@
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+;  
+; state 1
+; 
+  DefineCondState()
+  {
+    	
+
+	DefineCondition(2 0 0 0 harass_aip)
+        {
+	CritTimer(6000)
+        }
+           
+
+	DefineCondition(3 0 0 0 defend_base)
+        {
+	CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30559 0)        
+		}
+	CritNOT()
+		{
+		CritTeamInRegion(30558 0)
+		}
+	CritTeamInRegion(30560 0)
+     	}       
+ 	}
+	
+	DefineCondition(5 0 0 0 protect_both_bridges)
+        {
+        CritAND()
+	{
+	CritEnemyInRegion(30558)
+        CritEnemyInRegion(30559)
+        }
+  	}
+  
+        DefineCondition(6 0 0 0 protect_upper_bridge)
+     	{
+        CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30559 0)
+		}
+	CritTeamInRegion(30558 0)
+	}
+	}
+
+        DefineCondition(7 0 0 0 protect_lower_bridge)
+	{
+        CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30558 0)
+		}
+	CritTeamInRegion(30559 0)
+	}
+	}
+
+	DefineCondition(8 0 0 0 upper_gone_protect_lower_bridge)
+	{
+        CritAND()
+	{
+	CritDestroyBuilding()
+		{
+		33440
+		}
+	CritTeamInRegion(30559 0)
+	}
+	}
+
+	DefineCondition(9 0 0 0 lower_gone_protect_upper_bridge)
+	{
+        CritAND()
+	{
+	CritDestroyBuilding()
+		{
+		33436
+		}
+	CritTeamInRegion(30558 0)
+	}
+	}
+
+;        DefineCondition(10 0 0 0 either)
+;	{
+;        CritOR()
+;	{
+;	CritTeamInRegion(24358 0)
+;	CritTeamInRegion(24359 0)
+;	}
+;	}
+
+	SetAlliance(0 2 2 1 1 1 1 1)
+	SetAIPFile(pause.aip)
+	AdjustRegionPri(30486 0 0 0)
+	AdjustRegionPri(30559 0 0 0)
+	AdjustRegionPri(30558 0 0 0)
+	AdjustRegionPri(24359 0 0 0)
+ 	AdjustRegionPri(24358 0 0 0)
+
+}
+
+;  
+; state 2
+; 
+
+DefineCondState()
+{
+	
+	DefineCondition(11 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+	SetAIPFile(Harass.aip)
+	AdjustRegionPri(30486 500 100 200)
+	AdjustRegionPri(24359 500 50 100)
+	AdjustRegionPri(24358 500 50 100)
+
+}
+;  
+; state 3
+; 
+
+DefineCondState()
+{
+	
+	
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritNOT()
+	{
+	CritTeamInRegion(30560 0)
+	}
+	}
+
+	SetAIPFile(Defend.aip)
+}
+;  
+; state 4
+; 
+
+DefineCondState()
+{
+	
+	
+	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+	CritTimer(2000)
+	}
+	
+	SetAIPFile(attack.aip)
+		
+	AdjustRegionPri(34297 500 100 200)	
+	AdjustRegionPri(34298 500 100 200)	
+
+}
+;  
+; state 5
+; 
+
+DefineCondState()
+{
+	
+
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+	SetAIPFile(bridge.aip)
+	AdjustRegionPri(30559 500 100 200)
+	AdjustRegionPri(30558 500 100 200)
+
+}
+;  
+; state 6
+; 
+
+DefineCondState()
+{
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+
+	
+	AdjustRegionPri(30558 500 100 300)
+	SetAIPFile(bridge.aip)
+
+}
+
+;  
+; state 7
+; 
+
+DefineCondState()
+{
+	
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+	
+	AdjustRegionPri(30559 500 100 300)
+	SetAIPFile(bridge.aip)
+
+}
+
+;  
+; state 8
+; 
+
+DefineCondState()
+{
+	
+	
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+	AdjustRegionPri(30559 500 100 400)
+	SetAIPFile(bridge.aip)
+
+}
+;  
+; state 9
+; 
+
+DefineCondState()
+{
+	
+	
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+	AdjustRegionPri(30558 500 100 400)
+	SetAIPFile(bridge.aip)
+
+}
+;  
+; state 10
+; 
+
+DefineCondState()
+{
+	
+	DefineCondition(1 0 0 0 back_to_pause)
+        {
+	CritTimer(2000)
+	}
+
+	AdjustRegionPri(24358 500 100 300)
+	AdjustRegionPri(24359 500 100 300)
+	SetAIPFile(defend.aip)
+
+}
+
+;  
+; state 11
+; 
+  DefineCondState()
+  {
+    	
+
+	
+        DefineCondition(3 0 0 0 defend_base)
+        {
+	CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30559 0)        
+		}
+	CritNOT()
+		{
+		CritTeamInRegion(30558 0)
+		}
+	CritTeamInRegion(30560 0)
+     	}       
+ 	}
+	
+
+
+ 	DefineCondition(4 0 0 0 attack_player)
+        {
+	CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30559 0)
+		}	
+	CritNOT()
+		{
+		CritTeamInRegion(30558 0)
+     		}
+  	CritTimer(3000)
+ 	}
+	}
+
+	DefineCondition(5 0 0 0 protect_both_bridges)
+        {
+        CritAND()
+	{
+	CritEnemyInRegion(30558)
+        CritEnemyInRegion(30559)
+        }
+  	}
+  
+        DefineCondition(6 0 0 0 protect_upper_bridge)
+     	{
+        CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30559 0)
+		}
+	CritTeamInRegion(30558 0)
+	}
+	}
+
+        DefineCondition(7 0 0 0 protect_lower_bridge)
+	{
+        CritAND()
+	{
+	CritNOT()
+		{
+		CritTeamInRegion(30558 0)
+		}
+	CritTeamInRegion(30559 0)
+	}
+	}
+
+	DefineCondition(8 0 0 0 upper_gone_protect_lower_bridge)
+	{
+        CritAND()
+	{
+	CritDestroyBuilding()
+		{
+		33436
+		}
+	CritTeamInRegion(30559 0)
+	}
+	}
+
+	DefineCondition(9 0 0 0 protect_upper_bridge)
+	{
+        CritAND()
+	{
+	CritDestroyBuilding()
+		{
+		33440
+		}
+	CritTeamInRegion(30558 0)
+	}
+	}
+
+ ;       DefineCondition(10 0 0 0 protect_upper_bridge)
+; 	{
+;        CritOR()
+;	{
+;	CritTeamInRegion(24358 0)
+;	CritTeamInRegion(24359 0)
+;	}
+;	}
+
+	SetAlliance(0 2 2 1 1 1 1 1)
+	SetAIPFile(pause.aip)
+	AdjustRegionPri(30486 0 0 0)
+	AdjustRegionPri(30559 0 0 0)
+	AdjustRegionPri(30558 0 0 0)
+	AdjustRegionPri(24359 0 0 0)
+ 	AdjustRegionPri(24358 0 0 0)
+}
+}

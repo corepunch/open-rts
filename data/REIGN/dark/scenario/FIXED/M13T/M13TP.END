@@ -1,0 +1,36 @@
+DefineEndCondTree( 0 )
+{
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "get_over_there"  )
+    {
+      CritAND()
+      {
+        CritDestroyTeamBuildings( 1 0 )
+        CritDestroyTeamBuildings( 2 0 )
+        CritKillTeamUnits( 1 0 )
+        CritKillTeamUnits( 2 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    TriggerMessage( MSG_DESTROY_FORCES  )
+    TriggerMessage( MSG_PROTECT_MATRIX  )
+    ;; State_Actions
+  }
+
+  ; State 2 this waits for the player to get to togras workshop 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 You_win  )
+    {
+      CritInRegion( 2010 )
+      ;; Criteria
+    }
+    TriggerMessage( MSG_TO_WORKSHOP  )
+    BonusCredits( 5 100000 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

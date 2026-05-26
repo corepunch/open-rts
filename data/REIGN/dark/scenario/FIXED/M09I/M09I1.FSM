@@ -1,0 +1,269 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+;
+; Conditional State #1    EZ AIP
+;
+DefineCondState()
+  {
+    
+
+        DefineCondition(2 0 0 0 base_attack) 
+	{
+	CritAND()
+	{
+	CritNOT()
+		{
+		CritEnemyInRegion(37687)
+		}
+	CritNOT()
+		{	
+		CritEnemyInRegion(37688)
+		}
+	CritTimer(3000)
+	}
+    	}
+
+	DefineCondition(3 0 0 0 medium_lower) 
+	{
+	CritAND()	
+	{
+	CritEnemyInRegion(37687)
+	CritTimer(3000)
+        CritNOT()
+	{
+		CritDestroyBuilding()
+		{
+		47875 43442 47920 47909
+		}
+	}
+     	}
+	}
+       DefineCondition(4 0 0 0 medium_upper) 
+	{
+	CritAND()	
+	{
+	CritEnemyInRegion(37688)
+	CritTimer(3000)
+	CritNOT()
+	{
+		CritDestroyBuilding()
+		{
+		47917 43424 43427 47878
+		}
+	}        
+	}
+     	}
+
+
+        DefineCondition(5 0 0 0 hard_lower_well) 
+	{
+	CritAND()
+	{
+	CritEnemyInRegion(37687)
+	CritTimer(3000)
+	CritDestroyBuilding()
+		{
+		47875 43442 47920 47909
+		}
+	}
+  	}
+
+	DefineCondition(6 0 0 0 hard_upper_well) 
+	{
+	CritAND()
+	{
+	CritEnemyInRegion(37688)
+	CritTimer(3000)
+	CritDestroyBuilding()
+		{
+		47917 43424 43427 47878
+		}
+	}
+  	}
+        
+
+	DefineCondition(7 0 0 0 defend) 
+  	{ 
+	CritEnemyInRegion(44200)
+	}
+     
+	DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+
+
+     AdjustRegionPri(37993 0 0 0) 
+     AdjustRegionPri(37687 0 0 0) 
+     AdjustRegionPri(37688 0 0 0) 
+     SetAlliance(0 2 1 1 1 1 1 1)
+     SetAIPFile(9iez.aip)  
+
+}
+
+
+
+
+;
+; Conditional State #2  Base Attack
+;
+DefineCondState()
+  {
+    
+	DefineCondition(1 0 0 0 back_to_ez) 
+  	{ 
+	CritTimer(3000)
+	}
+	
+	DefineCondition(7 0 0 0 defend) 
+  	{ 
+	CritEnemyInRegion(44200)
+	}
+     
+	DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+
+	SetAIPFile(9ibase.aip)  
+
+}
+
+
+;
+; Conditional State #3
+DefineCondState()
+{
+    
+
+   	 DefineCondition(1 0 0 0 back_to_ez) 
+  	{ 
+	CritTimer(2000)
+	}  
+	
+	DefineCondition(7 0 0 0 defend) 
+  	{ 
+	CritEnemyInRegion(44200)
+	}
+     
+	DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+
+	AdjustRegionPri(37687 500 100 300) 
+    	SetAIPFile(9imed.aip)
+}
+;
+; Conditional State #4  
+DefineCondState()
+{
+    
+
+    	DefineCondition(1 0 0 0 back_to_ez) 
+  	{ 
+	CritTimer(2000)
+	}  
+
+	DefineCondition(7 0 0 0 defend) 
+  	{ 
+	CritEnemyInRegion(44200)
+	}
+     DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+
+	AdjustRegionPri(37688 500 100 300) 
+    	SetAIPFile(9imed.aip)
+
+}
+
+;
+; Conditional State #5 
+DefineCondState()
+{
+    
+
+    	DefineCondition(1 0 0 0 back_to_ez) 
+  	{ 
+	CritTimer(2000)
+	}  
+
+	DefineCondition(7 0 0 0 defend) 
+  	{ 
+	CritEnemyInRegion(44200)
+	}
+     
+	DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+
+	AdjustRegionPri(37687 500 100 300) 
+    	SetAIPFile(9ihard.aip)
+}
+;
+; Conditional State #6
+DefineCondState()
+{
+    
+
+    	DefineCondition(1 0 0 0 back_to_ez) 
+  	{ 
+	CritTimer(2000)
+	}  
+
+	DefineCondition(7 0 0 0 defen") 
+  	{ 
+	CritEnemyInRegion(44200)
+	}
+     
+	DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+
+	AdjustRegionPri(37688 500 100 300) 
+    	SetAIPFile(9ihard.aip)
+}
+
+;
+; Conditional State #7    ;  DEFEND 
+DefineCondState()
+{
+   
+
+    	DefineCondition(1 0 0 0 back_to_ez) 
+	{
+   	CritNOT()
+	{
+        CritEnemyInRegion(44200)
+	}
+        }
+     
+	DefineCondition(8 0 0 0 kill) 
+  	{ 
+	CritEnemyInRegion(40646)
+	}
+	
+	
+    SetAIPFile(9idef.aip)
+}
+;
+; Conditional State #8    ;  KILL
+DefineCondState()
+{
+    
+   
+        DefineCondition(8 0 0 0 stay_kill)
+	{
+	CritTimer(1000000)	
+	}
+  
+	 SetAIPFile(9ikill.aip)
+}
+}

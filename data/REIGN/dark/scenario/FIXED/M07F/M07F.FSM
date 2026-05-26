@@ -1,0 +1,256 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+  ; state 1
+  ; build up units in the central river
+  DefineCondState()
+  {
+    ; when central river has been held, move to beachheads
+    DefineCondition(2 0 0 0 Hitting_Beachheads)
+    {
+      CritAND()
+      {
+        CritInRegion(1788)  ; hold river
+        CritTimer(4600)
+      }
+    }
+
+    ; change tactics if we can't seem to kill the civilians
+    DefineCondition(3 0 0 0 AI_Getting_Hurt)
+    {
+      CritLessUnitsThanEnemy(200)  ; less than 80% of player strength
+    }
+
+    ; Base Defense
+    DefineCondition(6 0 0 0 AI_Getting_Hurt)
+    {
+      CritOR()
+      {
+      CritEnemyInRegion(4703)
+      CritEnemyInRegion(4704)
+      }
+    }
+
+    ; Well Defense
+    DefineCondition(7 0 0 0 AI_Getting_Hurt)
+    {
+      CritONCE()
+      { 
+      CritEnemyInRegion(4705)
+      }
+    }
+
+    ; if time runs out on the civilians, start killing the player
+    DefineCondition(4 0 0 0 AI_Time_Up)
+    {
+      CritTimerGame(54000)
+    }
+
+    SetAIPFile(attack.aip)  ; try and kill civilians
+    AdjustRegionPri(1788 700 600 1500)  ; central river
+    AdjustRegionPri(1707 1000 600 1500)  ; civilian base
+    AdjustRegionPri(1709 0 0 0)  ; western beachhead
+    AdjustRegionPri(1710 0 0 0)  ; eastern beachhead
+  }
+
+  ; state 2
+  ; attack has been staged against civilians... launch it
+  DefineCondState()
+  {
+
+    ; go back to staging after three minutes
+    DefineCondition(1 0 0 0 Stage_Again)
+    {
+      CritTimer(3600)  ; 20cps * 180s
+    }
+
+    ; Well Defense
+    DefineCondition(7 0 0 0 AI_Getting_Hurt)
+    {
+      CritONCE()
+      { 
+      CritEnemyInRegion(4705)
+      }
+    }
+
+    ; Base Defense
+    DefineCondition(6 0 0 0 AI_Getting_Hurt)
+    {
+      CritOR()
+      {
+      CritEnemyInRegion(4703)
+      CritEnemyInRegion(4704)
+      }
+    }
+    AdjustRegionPri(1788 0 0 0)  ; central river
+    AdjustRegionPri(1707 0 0 0)  ; civilian base
+    AdjustRegionPri(1709 1000 100 800)  ; western beachhead
+    AdjustRegionPri(1710 1000 100 800)  ; eastern beachhead
+
+  }
+
+  ; state 3
+  ; start out on the defensive, and lash out when necessary
+  DefineCondState()
+  {
+    ; regroup, attack the civilians (if still time)
+    DefineCondition(1 0 0 0 AI_Whoop_Civilian_Ass)
+    {
+      CritAND()
+      {
+        CritMoreUnitsThanEnemy(250)  ; more than what the player has
+        CritNOT()
+        {
+          CritTimerGame(54000)
+        }
+      }
+    }    
+
+    ; Base Defense
+    DefineCondition(6 0 0 0 AI_Getting_Hurt)
+    {
+      CritOR()
+      {
+      CritEnemyInRegion(4703)
+      CritEnemyInRegion(4704)
+      }
+    }
+
+    DefineCondition(7 0 0 0 AI_Getting_Hurt)
+    {
+       
+      CritEnemyInRegion(4705)
+      
+    }
+
+    ; wait for an opportunity to attack the player (if time has run out)
+    DefineCondition(4 0 0 0 AI_Whoop_Player_Ass)
+    {
+      CritAND()
+      {
+        CritMoreUnitsThanEnemy(150)  ; more than what the player has
+        CritTimerGame(108000)
+      }
+    }
+    SetAIPFile(defend.aip)  ; chill out, build forces   
+    AdjustRegionPri(1708 0 0 0)  ; player base
+    AdjustRegionPri(1788 0 0 0)  ; central river (minimal presence)
+    AdjustRegionPri(1709 0 0 0)  ; western beachhead (minimal presence)
+    AdjustRegionPri(1710 0 0 0)  ; eastern beachhead (minimal presence)
+;    BonusCredits(1 3000)
+  }
+
+
+  ; state 4
+  ; try to kill the player, ignore the civilians (they're neutral now)
+  DefineCondState()
+  {    
+    ; when central river has been held, move to beachheads
+    ; Base Defense
+    DefineCondition(6 0 0 0 AI_Getting_Hurt)
+    {
+      CritOR()
+      {
+      CritEnemyInRegion(4703)
+      CritEnemyInRegion(4704)
+      }
+    }
+
+    DefineCondition(5 0 0 0 Hitting_Beachheads)
+    {
+      CritAND()
+      {
+        CritInRegion(1709)  ; hold river
+        CritTimer(3600)
+      }
+    }
+   DefineCondition(7 0 0 0 AI_Getting_Hurt)
+    {
+       
+      CritEnemyInRegion(4705)
+      
+    }
+    ; fall back when necessary
+    DefineCondition(3 0 0 0 AI_Fall_Back)
+    {
+      CritLessUnitsThanEnemy(50)  ; less this time (more kamikaze)
+    }
+    SetAlliance(0 2 0 0 0 0 1 0 )  ; neutral to the civs now (don't waste time)
+
+    SetAIPFile(attack.aip)  ; kick ass (use imperium units? no)
+
+    AdjustRegionPri(1788 0 0 0)  ; central river
+    AdjustRegionPri(1707 0 0 0)  ; civilian base
+    AdjustRegionPri(1709 500 100 200)  ; western beachhead
+    AdjustRegionPri(1710 0 0 0)  ; eastern beachhead
+    AdjustRegionPri(1708 500 100 300)  ; player base
+  }
+
+  ; state 5
+  ; attack has been staged against player... launch it
+  DefineCondState()
+  {
+    ; go back to staging after three minutes
+    DefineCondition(4 0 0 0 Stage_Again)
+    {
+      CritTimer(3600)  ; 20cps * 180s
+    }
+
+    ; Base Defense
+    DefineCondition(6 0 0 0 AI_Getting_Hurt)
+    {
+      CritOR()
+      {
+      CritEnemyInRegion(4703)
+      CritEnemyInRegion(4704)
+      }
+    }
+    DefineCondition(7 0 0 0 AI_Getting_Hurt)
+    {
+       
+      CritEnemyInRegion(4705)
+      
+    }
+    AdjustRegionPri(1788 0 0 0)  ; central river
+    AdjustRegionPri(1707 0 0 0)  ; civilian base
+    AdjustRegionPri(1709 0 0 0)  ; western beachhead
+    AdjustRegionPri(1710 0 0 0)  ; eastern beachhead
+    AdjustRegionPri(1708 500 200 300)  ; player base
+  }
+
+  ;
+  ; state 6
+  ; Base Defense
+  DefineCondState()
+  {
+    ; go back to staging after 30 secs
+    DefineCondition(3 0 0 0 Stage_Again)
+    {
+      CritTimer(600)  ; 20cps * 30s
+    }
+    ReleaseSpecialForces(101)
+    AdjustRegionPri(4703 1000 200 400)  ; Computer base
+    AdjustRegionPri(4705 0 0 0)  ; Computer Resources
+    AdjustRegionPri(1788 0 0 0)  ; central river
+    AdjustRegionPri(1707 0 0 0)  ; civilian base
+    AdjustRegionPri(1709 0 0 0)  ; western beachhead
+    AdjustRegionPri(1710 0 0 0)  ; eastern beachhead
+    AdjustRegionPri(1708 0 0 0)  ; Player Base
+  }
+  ;
+  ; state 7
+  ; Resource Defense
+  DefineCondState()
+  {
+    ; go back to staging after 30 secs
+    DefineCondition(3 0 0 0 Stage_Again)
+    {
+      CritTimer(600)  ; 20cps * 10s
+    }
+    AdjustRegionPri(4705 10 10 200)  ; Computer Resources   
+  }
+}
+
+

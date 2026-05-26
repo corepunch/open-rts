@@ -1,0 +1,30 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this state detects to see if the ai has destroyed the player 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "you_lose"  )
+    {
+      CritOR()
+      {
+        CritMoveUnitsToRegion( 615 1 )
+        {
+          4825 
+          ;; Unit_ID
+        }
+        CritAND()
+        {
+          CritDestroyTeamBuildings( 0 0 )
+          CritKillTeamUnits( 0 0 )
+          ;; Criteria
+        }
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAlliance( 0 2 1 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

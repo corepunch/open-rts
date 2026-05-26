@@ -1,0 +1,41 @@
+;
+; AI Conditional FSM for freedom guard teams
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "youwin1.txt")
+    {      
+      CritTimer(14000)
+    }
+    SetAIPFile(TDMed1.aip)
+  }
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 "youwin1.txt")
+    {
+      CritLessUnitsThanEnemy(100)
+    }
+    SetAIPFile(TDMed1.aip)
+  }
+
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "youwin1.txt")
+    {
+      CritMoreUnitsThanEnemy(150)
+    }
+    SetAIPFile(TDMed2.aip)
+  }
+}

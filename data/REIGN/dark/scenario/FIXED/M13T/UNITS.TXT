@@ -1,0 +1,4341 @@
+;ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
+;ณ UNITS.TXT : Defines all units which are in the game                       ณ
+;ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ Sample Unit Type Definition
+
+;DefineUnitType(unitident)
+;{
+;  SetDescription(string)             ; description of the unit
+;
+;  SetMenuImage(sprite)               ; image which is displayed on the menu
+;  SetSelectSounds(wav wav wav wav)   ; sounds used when unit is selected
+;  SetResponseSounds(wav wav wav wav) ; sounds used when unit responds to orders
+;  SetCommandPointLoad(3)             ; number of command points this loads the system with
+;  SetSide(1)                         ; side this unit belongs to
+;  SetCost(cost time)                 ; cost to build and time to build
+;  UseEffects(Hover)                  ; effects this unit uses when moving
+;  SetMoveMode(Hover)                 ; movement mode of this unit (Ground, Hover, Fly, Fixed)
+;  SetStrength(hitpoints)             ; number of hitpoints the unit has
+;  SetPhysics(mass speed)             ; mass and maxspeed of the unit
+;  SetHitSize(radius)                 ; damage radius of the unit (pixels)
+;  SetSeeingRange(radius)             ; seeing range of the radius (tiles)
+;  SetVulnerability(type strength)    ; defense type and strength
+;  SetCarry(units mass)               ; hold units/mass
+;
+;  SetBuildingSrcAndDst {             ; building src and dst pairs for auto resource pathing
+;    (src dest)
+;    (src dest)
+;    (src dest)
+;    (src dest)
+;  }
+;  SetResourceTransport(id max)       ; can store max of id resource
+;
+;  SetRequirements {
+;    SetType(1014)                    ; prereq type of this unit
+;    SetPrereqs(11012)                ; required prereqs for this unit
+;    SetMaker(11003)                  ; possible makers of this unit
+;    SetEquivalence()                 ; defaults to no equivalence (optional)
+;    SetTechLevel()                   ; defaults to tech level 0   (optional)
+;  }
+;
+;  IsHuman()                          ; is unit human this?
+;  CanGrab(unittypesym time)          ; can this unit grab other units ? (what does it convert them to and in what time)
+;  CanMorph()                         ; can this unit morph ?
+;  CanSpy(mintime maxtime busttime)   ; can this unit spy ? (also has mintime and maxtime which are used as bounds to get a random time before unit gets busted while spying and a busttime which defines how long the unit must wait before it can reenter a building after being busted)
+;  CanSabotage()                      ; can this unit sabotage ?
+;  CanBoomerang()                     ; can this unit boomerang ?
+;  CanAlternate(unittypesym)          ; can this unit alternate ? (what does it alternate to)
+;  CanVeteran(unittypesym exp)        ; can this unit become a veteran ? (what does it become when its verteran, how much xp does it need)
+;  ChargeWeapon(unit_cycles_to_charge_for)
+
+;  SetRundownInfo {                   ; rundown information
+;    SetAttack()                      ; the rundown attack of this unit
+;    SetDefence()                     ; the rundown defence of this unit
+;    SetSquishSound()                 ; the sound made when run over
+;  }
+
+;  AddPart {
+;    SetRotationRate(10)              ; rotational rate of this part
+;    SetRotationalArc(180)            ; rotational arc of this part
+;    SetScanDelay(500)                ; delay between rescanning
+;    SetImage(tacmrow.spr)            ; image of this part
+;    SetMoveAnimation(0)              ; move animation frame
+;    ;SetHealthExplosion(0 expl attached)  ; health explosions
+;    AddWeapon(name spriteframe fireframe); weapon name, sprite frame, fireframe (delay before projectile appears)
+;  }
+;}
+
+;ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
+;ณ FREEDOM GUARD Unit Definitions                                            ณ
+;ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD SUPPORT UNITS
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Construction Rig
+
+DefineUnitType(FGConstructionCrew)
+{
+  SetDescription(Construction_Rig)
+  SetMenuImage(ucfcnmn0.spr)
+  SetSelectSounds(gvfg1sl0.wav gvfg1sl1.wav gvfg1sl2.wav)
+  SetResponseSounds(gvfg1rl0.wav gvfg1rl1.wav gvfg1rl2.wav)
+  SetDefaultUnit(3)
+  SetEquivalentUnit(IMPConstructionCrew)
+  SetSide(0)
+  SetCost(300 9)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetShadowImage(ucfcnsh0.spr)
+ ;SetHealthExplosion(0 eodeblg3_explosion attached)
+  SetRequirements {
+    SetType(11)
+    SetPrereqs(10001)
+    SetMaker(10001 10002 10003)
+    SetEquivalence(1)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucfcnst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(1)
+    SetHealthExplosion(0 splatd_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Freighter
+
+DefineUnitType(FGGroundTransporter)
+{
+  SetDescription(Freighter)
+  SetMenuImage(ucfrgmn0.spr)
+  SetResponseSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetSelectSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(ImpGroundTransporter)
+  SetSide(0)
+  SetCost(1000 30)
+  UseEffects(Wheel)
+  SetMoveMode(Ground)
+  SetStrength(750)
+  SetPhysics(10 10)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetBuildingSrcAndDst {
+    (impww fglp 0)
+    (impww tfglp 0)
+    (impww implp 0)
+    (impmn fgpp 1)
+    (impmn tfgpp 1)
+    (impmn imppp 1)
+  }
+  SetResourceTransport(0 750 270 270)
+  SetResourceTransport(1 50 10 25)
+  SetTransportLoadAnimation(135 1)
+  SetTransportUnLoadAnimation(135 1)
+  SetRequirements {
+    SetType(13)
+    SetPrereqs(10006)
+    SetMaker(10006 10007)
+    SetEquivalence(5)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucfrgst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucfrgst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: HOVER Freighter
+
+DefineUnitType(FGHoverTransporter)
+{
+  SetDescription(Hover_Freighter)
+  SetMenuImage(uchfrmn0.spr)
+  SetSelectSounds()
+  SetResponseSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetSelectSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(ImpHoverTransporter)
+  SetSide(0)
+  SetCost(1500 45)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(500)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetBuildingSrcAndDst {
+    (impww fglp 0)
+    (impww tfglp 0)
+    (impww implp 0)
+    (impmn fgpp 1)
+    (impmn tfgpp 1)
+    (impmn imppp 1)
+  }
+  SetResourceTransport(0 750 270 270)
+  SetResourceTransport(1 50 10 25)
+  SetTransportLoadAnimation(135 1)
+  SetTransportUnLoadAnimation(135 1)
+  SetRequirements {
+    SetType(14)
+    SetPrereqs(10007)
+    SetMaker(10006 10007)
+    SetEquivalence(6)
+    SetTechLevel(6)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uchfrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrac0.SPR)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Raider
+
+DefineUnitType(FGFreedomFighter)
+{
+  SetDescription(Raider)
+  SetMenuImage(ufradmn0.spr)
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPStrikeMarine)
+  SetSide(0)
+  SetCost(150 5)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  CanPhase(30 25 ft1 0)
+  SetIdleAnimation(100 200 2 2)
+  SetRequirements {
+    SetType(9)
+    SetPrereqs(10004)
+    SetMaker(10004 10005)
+    SetEquivalence(2)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufradst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+    SetStandingAnimation(3)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Mercenary
+
+DefineUnitType(FGMercenary)
+{
+  SetDescription(Mercenary)
+  SetMenuImage(ufmrcmn0.spr)
+  SetSelectSounds(gvmrcsl0.wav gvmrcsl1.wav gvmrcsl2.wav gvmrcsl3.wav)
+  SetResponseSounds(gvmrcrl0.wav gvmrcrl1.wav gvmrcrl2.wav gvmrcrl4.wav)
+;  SetEquivalentUnit(IMPFireSupportMarine)
+  SetSide(0)
+  SetCost(300 9)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(125)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanPhase(30 25 ft1 0)
+  CanBeMorphedInto()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(10)
+    SetPrereqs(10004)
+    SetMaker(10004 10005)
+    SetEquivalence(3)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+   SetShadowImage(ucmensh0.spr)
+   AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmrcst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(RailGun 1 0)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Sniper
+
+DefineUnitType(FGSniper)
+{
+  SetDescription(Sniper)
+  SetMenuImage(ufsnpmn0.spr)
+  SetSelectSounds(gvfg4sl0.wav gvfg4sl1.wav gvfg4sl2.wav gvsnpsl0.wav)
+  SetResponseSounds(gvfg4rl0.wav gvfg4rl1.wav gvfg4rl2.wav gvsnprl0.wav)
+  SetSide(0)
+  NoAutoTarget()
+  SetCost(700 21)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(12)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  CanMorphIntoOverlay(electric_blue_explosion 10)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(8)
+    SetPrereqs(10005)
+    SetMaker(10004 10005)
+    SetTechLevel(6)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsnpst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SniperRifle 1 0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Scout
+
+DefineUnitType(FGScout)
+{
+  SetDescription(Scout)
+  SetMenuImage(ufsctmn0.spr)
+  SetSelectSounds(gvfg4sl0.wav gvfg4sl1.wav gvfg4sl2.wav)
+  SetResponseSounds(gvfg4rl0.wav gvfg4rl1.wav gvfg4rl2.wav)
+;  SetEquivalentUnit(IMPReconSaucer)
+  SetSide(0)
+  SetCost(300 9)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(12)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  CanMorphIntoOverlay(electric_blue_explosion 10)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(6)
+    SetPrereqs(10004)
+    SetMaker(10004 10005)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+    AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsctst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Field Medic
+
+DefineUnitType(FGMedic)
+{
+  SetDescription(Field_Medic)
+  SetMenuImage(ufmedmn0.spr)
+  SetSelectSounds(gvmedsl0.wav gvmedsl1.wav gvmedsl2.wav gvmedsl3.wav)
+  SetResponseSounds(gvmedrl0.wav gvmedrl1.wav gvmedrl2.wav)
+;  SetEquivalentUnit(IMPAmper)
+  SetSide(0)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  SetIdleAnimation(150 300 2 2)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(7)
+    SetPrereqs(10004 10008)
+    SetMaker(10004 10005)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmedst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(MedicHeal 1 0)
+    SetStandingAnimation(3)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Saboteur
+
+DefineUnitType(FGSaboteur)
+{
+  SetDescription(Saboteur)
+  SetMenuImage(ufsabmn0.spr)
+  SetSelectSounds(gvfg5sl0.wav gvfg5sl1.wav gvfg5sl2.wav gvfg5sl3.wav)
+  SetResponseSounds(gvfg5rl0.wav gvfg5rl1.wav gvfg5rl2.wav)
+  SetSide(0)
+  SetCost(800 24)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  SetIdleAnimation(150 300 2 2)
+  CanMorphIntoOverlay(electric_blue_explosion 10)
+  CanSabotage(120 1 0)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(3)
+    SetPrereqs(10005)
+    SetMaker(10004 10005)
+    SetTechLevel(7)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsabst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(3)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Mechanic
+
+DefineUnitType(FGMechanic)
+{
+  SetDescription(Mechanic)
+  SetMenuImage(ufmecmn0.spr)
+  SetSelectSounds(gvfg5sl0.wav gvfg5sl1.wav gvfg5sl2.wav gvfg5sl3.wav)
+  SetResponseSounds(gvfg5rl0.wav gvfg5rl1.wav gvfg5rl4.wav gvfg5rl5.wav)
+  SetSide(0)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  SetIdleAnimation(150 300 2 2)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(2)
+    SetPrereqs(10004 10009)
+    SetMaker(10004 10005)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmecst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(3)
+    AddWeapon(MechanicRepair 1 0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Martyr
+
+DefineUnitType(FGSuicideNuker)
+{
+  SetDescription(Martyr)
+  SetMenuImage(ufmtrmn0.spr)
+  SetSelectSounds(gvmtrsl0.wav gvmtrsl1.wav gvmtrsl2.wav gvmtrsl3.wav)
+  SetResponseSounds(gvmtral0.wav gvmtral4.wav gvmtral5.wav gvmtral6.wav)
+;  SetEquivalentUnit(IMPHostageTaker)
+  SetSide(0)
+  SetCost(600 18)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 16)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  CanBeMorphedInto()
+  SetIdleAnimation(150 300 2 2)
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(5)
+    SetPrereqs(10004)
+    SetMaker(10004 10005)
+    SetTechLevel(4)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmtrst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(3)
+    AddWeapon(SuicideNuke 1 1)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Infiltrator
+
+DefineUnitType(FGSpy)
+{
+  SetDescription(Infiltrator)
+  SetMenuImage(ucinfmn0.spr)
+  SetSelectSounds(gvfinsl0.wav gvfinsl1.wav gvfinsl2.wav)
+  SetResponseSounds(gvfinrl0.wav gvfinrl1.wav gvfinrl2.wav)
+;  SetEquivalentUnit(IMPSpy)
+  SetSide(0)
+  NoAutoTarget()
+  SetCost(1000 30)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  SetIdleAnimation(150 300 1 1)
+  CanMorphIntoUnit(electric_blue_explosion 10)
+  CanSpy(300 1200 500)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(4)
+    SetPrereqs(10005)
+    SetMaker(10004 10005)
+    SetEquivalence(4)
+    SetTechLevel(14)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+    AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucinfst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD NON-HUMAN UNITS
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: SPIDER BIKE
+
+
+DefineUnitType(FGSpiderBike)
+{
+  SetDescription(Spider_Bike)
+  SetMenuImage(ufspbmn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPScoutTank)
+  SetSide(0)
+  SetCost(500 15)
+  UseEffects(Wheela)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 24)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1)
+    SetPrereqs(10006)
+    SetMaker(10006 10007)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufspbsh0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufspbst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(DoubleRailGun 0 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Rapid Armored Transport  RAT
+
+DefineUnitType(FGIFV)
+{
+  SetDescription(Rapid_Armored_Transport)
+  SetMenuImage(ufratmn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPAssaultVehicle)
+  SetSide(0)
+  SetCost(450 14)
+  UseEffects(Wheelf)
+  SetMoveMode(Ground)
+  SetStrength(200)
+  SetPhysics(100 18)
+  SetHitSize(18)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  SetCarry(5 4)
+  CanBlend()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(15)
+    SetPrereqs(10006)
+    SetMaker(10006 10007)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufratst0.spr)
+  AddPart {
+    SetRotationRate(12)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufratst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Skirmish Tank
+
+
+DefineUnitType(FGMediumTank)
+{
+  SetDescription(Skirmish_Tank)
+  SetMenuImage(ufsktmn0.spr)
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPPlasmaTank)
+  SetSide(0)
+  SetCost(600 18)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(20)
+    SetPrereqs(10006)
+    SetMaker(10006 10007)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufsktst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsktst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm0_explosion unattached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsktac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SkirmishGun1 1 0)
+    SetHealthExplosion(30 eobpfsm0_explosion unattached)
+  }
+ AddPart {
+   SetRotationRate(10)
+   SetRotationalArc(0)
+   SetScanDelay(500)
+   SetImage(ufsktac1.spr)
+   SetMoveAnimation(0)
+   AddWeapon(SkirmishGun2 1 0)
+   SetHealthExplosion(75 eobpfsm0_explosion unattached)
+ }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Tank Hunter Tank
+
+DefineUnitType(FGTankHunterTank)
+{
+  SetDescription(Tank_Hunter)
+  SetMenuImage(ufthnmn0.spr)
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPShredder)
+  SetSide(0)
+  SetCost(700 21)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(150)
+  SetPhysics(10 20)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(17)
+    SetPrereqs(10006)
+    SetMaker(10006 10007)
+    SetTechLevel(3)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufthnst0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufthnst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(TankHunterGun 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Phase Tank
+
+DefineUnitType(FGAmbushTank)
+{
+  SetDescription(Phase_Tank)
+  SetMenuImage(ufphtmn0.spr)
+  SetSelectSounds(gxphtsc0.wav gxphtsc1.wav)
+  SetResponseSounds(gxphtrc0.wav gxphtrc1.wav)
+;  SetEquivalentUnit(IMPHoverMarine)
+  SetSide(0)
+  SetCost(600 18)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(166)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  CanPhase(30 25 ft1 0)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetIdleAnimation(0 0 2 2)
+  SetRequirements {
+    SetType(21)
+    SetPrereqs(10006 10015)
+    SetMaker(10006 10007)
+    SetTechLevel(5)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufphtst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufphtst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(PhaseTankCannon 1 0)
+    SetStandingAnimation(3)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD : Flak Jack
+
+DefineUnitType(FGConstructionMAD)
+{
+  SetDescription(Flak_Jack)
+  SetMenuImage(ufflkmn0.spr)
+  SetSelectSounds(gvflksl0.wav gvflksl1.wav gvflksl3.wav gvflksl4.wav)
+  SetResponseSounds(gvflkrl0.wav gvflkrl1.wav gvflkrl4.wav gvflkrl5.wav)
+;  SetEquivalentUnit(IMPMAD)
+  SetSide(0)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+;  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(12)
+    SetPrereqs(10002 10006)
+    SetMaker(10006 10007)
+    SetTechLevel(8)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufflksh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufflkst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(Chaff 1 0)
+    SetHealthExplosion(0 splatd_explosion unattached)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Triple Rail Hover Tank
+
+
+DefineUnitType(FGTripleRailHoverTank)
+{
+  SetDescription(Triple_Rail_Hover_Tank)
+  SetMenuImage(uftrtmn0.spr)
+  SetResponseSounds(gvtrtrl0.wav gvtrtrl1.wav gvtrtrl2.wav gvtrtrl3.wav)
+  SetSelectSounds(gvtrtsl1.wav gvtrtsl2.wav gvtrtsl3.wav gvtrtal0.wav)
+;  SetEquivalentUnit(IMPTachyonTank)
+  SetSide(0)
+  SetCost(1300 39)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(200)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(16)
+    SetPrereqs(10007)
+    SetMaker(10006 10007)
+    SetTechLevel(6)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uftrtst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uftrtst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm3_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uftrtac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(TripleRailGun 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: SPA
+
+
+DefineUnitType(FGSPA)
+{
+  SetDescription(Hellstorm_Artillery)
+  SetMenuImage(uffarmn0.spr)
+  SetSelectSounds(gvfarsl0.wav gvfarsl1.wav gvfarsl2.wav gvfarsl3.wav)
+  SetResponseSounds(gvfarrl0.wav gvfarrl1.wav gvfarrl2.wav gvfarrl3.wav)
+;  SetEquivalentUnit(IMPSPA)
+  SetSide(0)
+  SetCost(1100 33)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 8)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(19)
+    SetPrereqs(10007)
+    SetMaker(10006 10007)
+    SetTechLevel(8)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uffarst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uffarst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(ArtilleryShell 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Single Man SKY BIKE
+
+DefineUnitType(FGSkyBike)
+{
+  SetDescription(Sky_Bike)
+  SetMenuImage(ufskbmn0.spr)
+  SetResponseSounds(gvfg3rl0.wav gvfg3rl1.wav gvfg3rl2.wav gvfg3rl3.wav)
+  SetSelectSounds(gvfg3sl0.wav gvfg3sl1.wav gvfg3sl2.wav gvfg3sl3.wav)
+;  SetEquivalentUnit(ImpVTOL)
+  SetSide(0)
+  NoAutoTarget()
+  SetCost(800 24)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(100)
+  SetPhysics(10 28)
+  SetHitSize(16)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(23)
+    SetPrereqs(10006 10011)
+    SetMaker(10006 10007)
+    SetTechLevel(9)
+  }
+  SetShadowImage(ufskbst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufskbst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(BkLaser 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Outrider
+
+
+DefineUnitType(FGDualSkyBike)
+{
+  SetDescription(Outrider)
+  SetMenuImage(ufoutmn0.spr)
+  SetResponseSounds(gvfg3rl0.wav gvfg3rl2.wav gvfg3rl3.wav gvfg3rl4.wav)
+  SetSelectSounds(gvfg3sl1.wav gvfg3sl2.wav gvfg3sl0.wav gvfg3al0.wav)
+;  SetEquivalentUnit(ImpVTOL)
+  SetSide(0)
+  NoAutoTarget()
+  SetCost(1400 42)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(200)
+  SetPhysics(10 24)
+  SetHitSize(16)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(24)
+    SetPrereqs(10006 10011)
+    SetMaker(10006 10007)
+    SetTechLevel(9)
+  }
+  SetShadowImage(ufoutst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufoutst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(OutriderMissile 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Phase Runner
+
+
+DefineUnitType(FGundergtunnel)
+{
+  SetDescription(Phase_Runner)
+  SetMenuImage(uchfrmn0.spr)
+  SetSelectSounds(gxphrsc0.wav gxphrsc1.wav)
+  SetResponseSounds(gxphrrc0.wav gxphrrc1.wav)
+  SetSide(0)
+  SetCost(0 0)
+  UseEffects(Flying)
+  SetMoveMode(Tunnel)
+  SetStrength(150)
+  SetPhysics(100 8)
+  SetHitSize(18)
+  NoEdit()
+  SetSeeingRange(1)
+  SetVulnerability(TankPlating 100)
+  SetCarry(5 50)
+  CanBoomerang()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(22)
+    SetPrereqs()
+    SetMaker()
+  }
+;  SetShadowImage(ufphrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufphrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Anti Air Site
+
+
+DefineUnitType(FGAntiAirSite)
+{
+  SetDescription(FG_Anti_Air_Site)
+  SetMenuImage(bc000000.spr)
+  SetSelectSounds()
+  SetResponseSounds()
+  SetSide(0)
+  SetCost(600 18)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(300)
+  SetPhysics(20 0)
+  SetSeeingRange(12)
+  SetVulnerability(TankPlating 100)
+  SetRequirements {
+    SetType(4100)
+    SetPrereqs()
+    SetMaker()
+  }
+  NoEdit()
+  SetShadowImage(bfaarsp0.spr)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(bfaarsp0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(FixedGroundToAirLaser 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Units to be attached to buildings
+;ออออออออออออออออออออออออออออออออออออออออออออออออออออ
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Guard Tower
+
+DefineUnitType(FGGuardTower)
+{
+  SetDescription(GuardTower)
+  SetMenuImage(bc000000.spr)
+  SetSide(0)
+  SetCost(500 15)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(300)
+  SetPhysics(20 0)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  NoEdit()
+  SetRequirements {
+    SetType(4101)
+    SetPrereqs()
+    SetMaker()
+  }
+  SetShadowImage(bfgdtsp0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(bfgdtsp0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(GatLaser 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: Advanced Guard Tower
+
+DefineUnitType(FGAdvancedGuardTower)
+{
+  SetDescription(AdvancedGuardTower)
+  SetMenuImage(bc000000.spr)
+  SetSide(0)
+  SetCost(1000 30)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(550)
+  SetPhysics(20 0)
+  SetSeeingRange(12)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  NoEdit()
+  SetRequirements {
+    SetType(4102)
+    SetPrereqs()
+    SetMaker()
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(bfagtsp0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(FixedLaserPlat 1 0)
+  }
+}
+
+
+;อออออออออออออออออออออออออออ;อออออออออออออออออออออ
+;þ FREEDOM GUARD: Base Mover;
+
+DefineUnitType(FGBaseMover)
+{
+  SetDescription(Base_Mover)
+  SetMenuImage(ufbammn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+  SetSide(0)
+  SetCost(5 5)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(500)
+  SetPhysics(100 6)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetRequirements {
+    SetType(25)
+    SetPrereqs()
+    SetMaker()
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufbamst0.spr)
+  AddPart {
+    SetRotationRate(5)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufbamst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+;ฺฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฟ
+;ณ IMPERIUM Unit Definitions                                                 ณ
+;ภฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤู
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM : Construction Rig
+
+DefineUnitType(IMPConstructionCrew)
+{
+  SetDescription(Construction_Rig)
+  SetMenuImage(ucfcnmn0.spr)
+  SetSelectSounds(gvicnsl0.wav gvicnsl1.wav gvicnsl2.wav)
+  SetResponseSounds(gvicnrl0.wav gvicnrl1.wav gvicnrl2.wav)
+  SetEquivalentUnit(FGConstructionCrew)
+  SetSide(1)
+  SetCost(300 9)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+ ;SetHealthExplosion(0 eodeblg3_explosion)
+ SetRequirements {
+    SetType(1005)
+    SetPrereqs(11001)
+    SetMaker(11001 11002 11003)
+    SetEquivalence(1)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucfcnsh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucfcnst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(1)
+    SetHealthExplosion(0 splatd_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM : Freighter
+
+DefineUnitType(ImpGroundTransporter)
+{
+  SetDescription(Freighter)
+  SetMenuImage(ucfrgmn0.spr)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl5.wav)
+;  SetEquivalentUnit(FGGroundTransporter)
+  SetSide(1)
+  SetCost(1000 30)
+  UseEffects(Wheel)
+  SetMoveMode(Ground)
+  SetStrength(750)
+  SetPhysics(10 10)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetBuildingSrcAndDst {
+    (impww fglp 0)
+    (impww tfglp 0)
+    (impww implp 0)
+    (impmn fgpp 1)
+    (impmn tfgpp 1)
+    (impmn imppp 1)
+  }
+  SetResourceTransport(0 750 270 270)
+  SetResourceTransport(1 50 10 25)
+  SetTransportLoadAnimation(135 1)
+  SetTransportUnLoadAnimation(135 1)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1006)
+    SetPrereqs(11006)
+    SetMaker(11006 11007)
+    SetEquivalence(5)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucfrgst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucfrgst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Hover Freighter
+
+DefineUnitType(ImpHoverTransporter)
+{
+  SetDescription(Hover_Freighter)
+  SetMenuImage(uchfrmn0.spr)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+;  SetEquivalentUnit(FGHoverTransporter)
+  SetSide(1)
+  SetCost(1500 45)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(500)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  SetBuildingSrcAndDst {
+    (impww fglp 0)
+    (impww tfglp 0)
+    (impww implp 0)
+    (impmn fgpp 1)
+    (impmn tfgpp 1)
+    (impmn imppp 1)
+  }
+
+  SetResourceTransport(0 750 270 270)
+  SetResourceTransport(1 50 10 25)
+  SetTransportLoadAnimation(135 1)
+  SetTransportUnLoadAnimation(135 1)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1007)
+    SetPrereqs(11007)
+    SetMaker(11006 11007)
+    SetEquivalence(6)
+    SetTechLevel(4)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uchfrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrac0.SPR)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM : Guardian
+
+DefineUnitType(IMPStrikeMarine)
+{
+  SetDescription(Guardian)
+  SetMenuImage(uigrdmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+;  SetEquivalentUnit(FGFreedomFighter)
+  SetSide(1)
+  SetCost(150 5)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(PowerHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1002)
+    SetPrereqs(11004)
+    SetMaker(11004 11005)
+    SetEquivalence(2)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uigrdst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+    SetStandingAnimation(2)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM : Bion
+
+DefineUnitType(IMPFireSupportMarine)
+{
+  SetDescription(Bion)
+  SetMenuImage(uibonmn0.spr)
+  SetSelectSounds(gxbonsc0.wav gxbonsc1.wav)
+  SetResponseSounds(gxbonrc0.wav gxbonrc1.wav)
+;  SetEquivalentUnit(FGMercenary)
+  SetSide(1)
+  SetCost(350 11)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(150)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(PowerHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1003)
+    SetPrereqs(11004)
+    SetMaker(11004 11005)
+    SetEquivalence(3)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uibonst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(4)
+    AddWeapon(PlasmaRifle 1 0)
+    SetHealthExplosion(0 splatb_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM : Exterminator
+
+DefineUnitType(IMPHoverMarine)
+{
+  SetDescription(Exterminator)
+  SetMenuImage(uiextmn0.spr)
+  SetSelectSounds(gvextsl0.wav gvextsl1.wav gvextsl2.wav)
+  SetResponseSounds(gvextrl0.wav gvextrl1.wav gvextrl2.wav gvextal3.wav)
+;  SetEquivalentUnit(FGTankHunterTank)
+  SetSide(1)
+  SetCost(500 15)
+  UseEffects(Hovers)
+  SetMoveMode(Hover)
+  SetStrength(75)
+  SetPhysics(1 16)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(PowerHuman 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1004)
+    SetPrereqs(11005)
+    SetMaker(11004 11005)
+    SetTechLevel(5)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiextst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(PolyAcid 1 0)
+    SetHealthExplosion(0 splatb_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ Imperial : Suicide Zombie
+
+DefineUnitType(IMPSuicideZombie)
+{
+  SetDescription(Suicide_Zombie)
+  SetMenuImage(ufmtrmn0.spr)
+  SetSelectSounds(gvszmsl0.wav)
+  SetResponseSounds(gvszmrl0.wav)
+;  SetEquivalentUnit(IMPHostageTaker)
+  SetSide(1)
+  SetCost(600 18)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1099)
+    SetPrereqs()
+    SetMaker()
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmtrst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SuicideNuke 1 1)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: SCOUT TANK
+
+
+DefineUnitType(IMPScoutTank)
+{
+  SetDescription(Scout_Tank)
+  SetMenuImage(uisttmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+;  SetEquivalentUnitlentUnit(FGSpiderBike)
+  SetSide(1)
+  SetCost(500 15)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(150)
+  SetPhysics(10 20)
+  SetHitSize(11)
+  SetSeeingRange(13)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1010)
+    SetPrereqs(11006)
+    SetMaker(11006 11007)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uisttst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uisttst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(LaserCannon 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Invader Troop Transport
+
+;; FIX MEE!!!!!!!!!!!!MY SPRITE IS WRONG!!!!!!!!!!!!!!!!
+
+
+DefineUnitType(IMPAssaultVehicle)
+{
+  SetDescription(Invader_Troop_Transport)
+  SetMenuImage(uiittmn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+;  SetEquivalentUnit(FGIFV)
+  SetSide(1)
+  SetCost(600 18)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(150)
+  SetPhysics(100 20)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  SetCarry(5 4)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1009)
+    SetPrereqs(11006)
+    SetMaker(11006 11007)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uiittst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiittst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 0 0 )
+  }
+
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Plasma Tank
+
+
+DefineUnitType(IMPPlasmaTank)
+{
+  SetDescription(Plasma_Tank)
+  SetMenuImage(uipltmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+;  SetEquivalentUnit(FGMediumTank)
+  SetSide(1)
+  SetCost(700 21)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(250)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1011)
+    SetPrereqs(11006)
+    SetMaker(11006 11007)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uipltst0.spr)
+  AddPart {
+    SetRotationRate(8)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uipltst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uipltac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(PlasmaCannon 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: AMPER
+
+DefineUnitType(IMPAmper)
+{
+  SetDescription(Amper)
+  SetMenuImage(uiampmn0.spr)
+  SetSelectSounds(gvampsl1.wav gvampsl2.wav gvampsl3.wav)
+  SetResponseSounds(gvamprl0.wav gvamprl2.wav gvampal0.wav)
+;  SetEquivalentUnit(FGMedic)
+  SetSide(1)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 8)
+  SetHitSize(8)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  CanBoost()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1008)
+    SetPrereqs(11006 11009)
+    SetMaker(11006 11007)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uiampsh0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiampst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(AmperAmp 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: MAD
+
+
+DefineUnitType(IMPMAD)
+{
+  SetDescription(MAD)
+  SetMenuImage(uimadmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+;  SetEquivalentUnit(FGConstructionMAD)
+  SetSide(1)
+  SetCost(800 24)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(150)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1013)
+    SetPrereqs(11006 11002)
+    SetMaker(11006 11007)
+    SetTechLevel(9)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uimadst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uimadst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(GroundToAirLaser 0 0 )
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Recon Drone
+
+
+DefineUnitType(IMPReconSaucer)
+{
+  SetDescription(Recon_Drone)
+  SetMenuImage(uirdrmn0.spr)
+  SetSelectSounds(gxrdrsc0.wav gxrdrsc1.wav gxrdrsc2.wav)
+  SetResponseSounds(gxrdrrc0.wav gxrdrrc1.wav gxrdrrc2.wav)
+  SetSelectSounds()
+;  SetEquivalentUnit(FGScout)
+  SetSide(1)
+  SetCost(400 12)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(66)
+  SetPhysics(10 16)
+  SetHitSize(12)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1019)
+    SetPrereqs(11006 11002)
+    SetMaker(11006 11007)
+    SetTechLevel(7)
+  }
+  SetShadowImage(uirdrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uirdrst0.spr)
+    SetMoveAnimation(0)
+    ;SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Shredder
+
+DefineUnitType(IMPShredder)
+{
+  SetDescription(Shredder)
+  SetMenuImage(uishrmn0.spr)
+  SetSelectSounds(gxshrsc0.wav gxshrsc1.wav gxshrsc2.wav)
+  SetResponseSounds(gxshrrc0.wav gxshrrc1.wav)
+;  SetEquivalentUnit(FGSuicideNuker)
+  SetSide(1)
+  SetCost(700 21)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(100)
+  SetPhysics(10 20)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1015)
+    SetPrereqs(11006)
+    SetMaker(11006 11007)
+    SetTechLevel(3)
+  }
+  SetRundownInfo {
+    SetAttack(50)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uishrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uishrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(Shredder 1 0)
+    SetStandingAnimation(0)
+  }
+}
+
+
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Tachyon Tank
+
+
+DefineUnitType(IMPTachyonTank)
+{
+  SetDescription(Tachyon_Tank)
+  SetMenuImage(uitctmn0.spr)
+  SetResponseSounds(gvtctrl0.wav gvtctal2.wav gvtctrl2.wav gvtctrl3.wav)
+  SetSelectSounds(gvtctsl0.wav gvtctsl1.wav gvtctsl2.wav)
+;  SetEquivalentUnit(FGTripleRailHoverTank)
+  SetSide(1)
+  SetCost(1500 45)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(410)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1012)
+    SetPrereqs(11007)
+    SetMaker(11006 11007)
+    SetTechLevel(4)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uitctst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uitctst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm4_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uitctac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(TachyonCannon 1 0 )
+    AddWeapon(SelfDestruct1 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Tachyon Tank Decoy
+
+
+DefineUnitType(IMPTachyonTankDecoy)
+{
+  IsDecoyOf(IMPTachyonTank 9000)
+  SetDescription(Tachyon_Tank_Decoy)
+  SetMenuImage(ditctmn0.spr)
+  SetResponseSounds(gvtctrl0.wav gvtctal2.wav gvtctrl2.wav gvtctrl3.wav)
+  SetSelectSounds(gvtctsl0.wav gvtctsl1.wav gvtctsl2.wav)
+  SetSide(1)
+  SetCost(200 6)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(100)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(8)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1112)
+    SetPrereqs(11007)
+    SetMaker(11006 11007)
+    SetTechLevel(4)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uitctst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uitctst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm4_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uitctac0.spr)
+    SetMoveAnimation(0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: SCARAB SHIELD
+
+
+DefineUnitType(IMPShieldedSPA)
+{
+  SetDescription(S_C_A_R_A_B_Shield)
+  SetMenuImage(uiiarmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+  SetSide(1)
+  SetCost(800 24)
+  UseEffects(Fixed)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  NoEdit()
+  SetSeeingRange(6)
+  SetVulnerability(TankPlating 10)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1026)
+    SetPrereqs()
+    SetMaker()
+  }
+  SetShadowImage(uiiarac0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiiarac0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: SCARAB
+
+
+DefineUnitType(IMPSPA)
+{
+  SetDescription(S_C_A_R_A_B)
+  SetMenuImage(uiiarmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl6.wav)
+;  SetEquivalentUnit(FGSPA)
+  SetSide(1)
+  SetCost(1300 39)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(133)
+  SetPhysics(10 6)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  CanAlternate(ImpShieldedSPA 2)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1017)
+    SetPrereqs(11007)
+    SetMaker(11006 11007)
+    SetTechLevel(7)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uiiarst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiiarst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(IMPArtilleryShell 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Cyclone
+
+
+DefineUnitType(ImpVTOL)
+{
+  SetDescription(Cyclone)
+  SetMenuImage(uicycmn0.spr)
+  SetSelectSounds()
+  SetResponseSounds(gvcycrl0.wav gvcycrl1.wav gvcycrl2.wav gvcycrl3.wav)
+  SetSelectSounds(gvcycsl0.wav gvcycsl1.wav gvcycsl2.wav)
+;  SetEquivalentUnit(FGSkyBike)
+  SetSide(1)
+  NoAutoTarget()
+  SetCost(1500 45)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(150)
+  SetPhysics(10 24)
+  SetHitSize(16)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1020)
+    SetPrereqs(11006 11012 11003)
+    SetMaker(11006 11007)
+    SetTechLevel(8)
+  }
+  SetShadowImage(uicycst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uicycst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(CycloneCannon 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Sky Fortress
+
+
+DefineUnitType(IMPSkyFortress)
+{
+  SetDescription(Sky_Fortress)
+  SetMenuImage(uiskymn0.spr)
+  SetResponseSounds(gvskyrl0.wav gvskyrl1.wav gvskyrl2.wav gvskyrl3.wav)
+  SetSelectSounds(gvskysl0.wav gvskysl2.wav gvskyal3.wav gvskyal4.wav)
+;  SetEquivalentUnit(FGDualSkyBike)
+  SetSide(1)
+  NoAutoTarget()
+  SetCost(2500 75)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(266)
+  SetPhysics(10 10)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  ChargeWeapon(700)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(1018)
+    SetPrereqs(11006 11012 11003)
+    SetMaker(11006 11007)
+    SetTechLevel(9)
+  }
+  SetShadowImage(uiskyst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiskyst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(FortressCannon 1 0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Units to be attached to buildings
+;ออออออออออออออออออออออออออออออออออออออออออออออออออออ
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Anti Air Site
+
+DefineUnitType(IMPAntiAirSite)
+{
+  SetDescription(Imp_Anti_Air_Site)
+  SetMenuImage(bc000000.spr)
+  SetSelectSounds()
+  SetResponseSounds()
+  SetSide(1)
+  SetCost(600 18)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(300)
+  SetPhysics(20 0)
+  SetSeeingRange(12)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(5100)
+    SetPrereqs()
+    SetMaker()
+  }
+  NoEdit()
+  SetShadowImage(biaarsp0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(biaarsp0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(IMPFixedGroundToAirLaser 0 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Guard Tower
+
+DefineUnitType(IMPGuardTower)
+{
+  SetDescription(Guard_Tower)
+  SetMenuImage(bc000000.spr)
+  SetSide(1)
+  SetCost(750 22)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(400)
+  SetPhysics(20 0)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(5101)
+    SetPrereqs()
+    SetMaker()
+  }
+  NoEdit()
+  SetShadowImage(bigdtsp0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(bigdtsp0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(GatPlasma 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ IMPERIUM: Advanced Guard Tower
+
+DefineUnitType(IMPAdvancedGuardTower)
+{
+  SetDescription(Advanced_Guard_Tower)
+  SetMenuImage(bc000000.spr)
+  SetSide(1)
+  SetCost(1500 45)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(750)
+  SetPhysics(20 0)
+  SetSeeingRange(12)
+  SetVulnerability(TankPlating 100)
+  SetShadowImage(biagtsp0.spr)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(5102)
+    SetPrereqs()
+    SetMaker()
+  }
+  NoEdit()
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(biagtsp0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(NeutronAss 1 4)
+  }
+}
+
+
+
+; -----------------
+; TOGRA TEST STUFF
+; -----------------
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ Togra : Construction Rig
+
+DefineUnitType(TConstructionCrew)
+{
+  SetDescription(Construction_Rig)
+  SetMenuImage(ucfcnmn0.spr)
+  SetSelectSounds(gvfg1sl0.wav gvfg1sl1.wav gvfg1sl2.wav)
+  SetResponseSounds(gvfg1rl0.wav gvfg1rl1.wav gvfg1rl2.wav)
+  SetDefaultUnit(3)
+;  SetEquivalentUnit(IMPConstructionCrew)
+;  SetEquivalentUnit(TogConstructionCrew)
+  SetSide(3)
+  SetCost(300 9)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetShadowImage(ucfcnsh0.spr)
+;  ;SetHealthExplosion(0 eodeblg3_explosion attached)
+  SetRequirements {
+    SetType(40500)
+    SetPrereqs(40001)
+    SetMaker(40001 40002 40003)
+    SetEquivalence(1)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucfcnst0.spr)
+    SetMoveAnimation(0)
+    SetStandingAnimation(1)
+    SetHealthExplosion(0 splatd_explosion unattached)
+  }
+}
+
+DefineUnitType(TGroundTransporter)
+{
+  SetDescription(Freighter)
+  SetMenuImage(ucfrgmn0.spr)
+  SetResponseSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetSelectSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(ImpGroundTransporter)
+  SetSide(3)
+  SetCost(1000 30)
+  UseEffects(Wheel)
+  SetMoveMode(Ground)
+  SetStrength(750)
+  SetPhysics(10 10)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetBuildingSrcAndDst {
+    (impww fglp 0)
+    (impww tfglp 0)
+    (impww implp 0)
+    (impmn fgpp 1)
+    (impmn tfgpp 1)
+    (impmn imppp 1)
+  }
+  SetResourceTransport(0 750 270 270)
+  SetResourceTransport(1 50 10 25)
+  SetTransportLoadAnimation(135 1)
+  SetTransportUnLoadAnimation(135 1)
+;  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40502)
+    SetPrereqs(40013)
+    SetMaker(40013 40014)
+    SetEquivalence(5)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucfrgst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucfrgst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: HOVER Freighter
+
+DefineUnitType(TFGHoverTransporter)
+{
+  SetDescription(Hover_Freighter)
+  SetMenuImage(uchfrmn0.spr)
+  SetSelectSounds()
+  SetResponseSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetSelectSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(ImpHoverTransporter)
+  SetSide(3)
+  SetCost(1500 45)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(500)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetBuildingSrcAndDst {
+    (impww fglp 0)
+    (impww tfglp 0)
+    (impww implp 0)
+    (impmn fgpp 1)
+    (impmn tfgpp 1)
+    (impmn imppp 1)
+  }
+  SetResourceTransport(0 750 270 270)
+  SetResourceTransport(1 50 10 25)
+  SetTransportLoadAnimation(135 1)
+  SetTransportUnLoadAnimation(135 1)
+  SetRequirements {
+    SetType(40501)
+    SetPrereqs(40014)
+    SetMaker(40013 40014)
+    SetEquivalence(6)
+    SetTechLevel(6)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uchfrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrac0.SPR)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Raider
+
+DefineUnitType(TFreedomFighter)
+{
+  SetDescription(Raider)
+  SetMenuImage(ufradmn0.spr)
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPStrikeMarine)
+  SetSide(3)
+  SetCost(150 5)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  CanPhase(30 25 tft1 0)
+  SetIdleAnimation(100 200 2 2)
+  SetRequirements {
+    SetType(40504)
+    SetPrereqs(40009)
+    SetMaker(40009 40010)
+    SetEquivalence(2)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufradst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+    SetStandingAnimation(3)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Mercenary
+
+DefineUnitType(TMercenary)
+{
+  SetDescription(Mercenary)
+  SetMenuImage(ufmrcmn0.spr)
+  SetSelectSounds(gvmrcsl0.wav gvmrcsl1.wav gvmrcsl2.wav gvmrcsl3.wav)
+  SetResponseSounds(gvmrcrl0.wav gvmrcrl1.wav gvmrcrl2.wav gvmrcrl4.wav)
+;  SetEquivalentUnit(IMPFireSupportMarine)
+  SetSide(3)
+  SetCost(300 9)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(125)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanPhase(30 25 tft1 0)
+  CanBeMorphedInto()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40505)
+    SetPrereqs()
+    SetMaker(40009 40010)
+    SetEquivalence(3)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+   SetShadowImage(ucmensh0.spr)
+   AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmrcst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(RailGun 1 0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Sniper
+
+DefineUnitType(TSniper)
+{
+  SetDescription(Sniper)
+  SetMenuImage(ufsnpmn0.spr)
+  SetSelectSounds(gvfg4sl0.wav gvfg4sl1.wav gvfg4sl2.wav gvsnpsl0.wav)
+  SetResponseSounds(gvfg4rl0.wav gvfg4rl1.wav gvfg4rl2.wav gvsnprl0.wav)
+  SetSide(3)
+  SetCost(700 21)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(12)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  CanMorphIntoOverlay(electric_blue_explosion 10)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40506)
+    SetPrereqs(40010)
+    SetMaker(40009 40010)
+    SetTechLevel(6)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsnpst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SniperRifle 1 0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Scout
+
+DefineUnitType(TScout)
+{
+  SetDescription(Scout)
+  SetMenuImage(ufsctmn0.spr)
+  SetSelectSounds(gvfg4sl0.wav gvfg4sl1.wav gvfg4sl2.wav)
+  SetResponseSounds(gvfg4rl0.wav gvfg4rl1.wav gvfg4rl2.wav)
+;  SetEquivalentUnit(IMPReconSaucer)
+  SetSide(3)
+  SetCost(300 9)
+  NoAutoTarget()
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(12)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  CanMorphIntoOverlay(electric_blue_explosion 10)
+;  CanVeteran(FGSniper 500)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40507)
+    SetPrereqs(40009)
+    SetMaker(40009 40010)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+    AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsctst0.spr)
+    SetMoveAnimation(0)
+ ;   AddWeapon(LaserPistol 1 0)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Field Medic
+
+DefineUnitType(TMedic)
+{
+  SetDescription(Field_Medic)
+  SetMenuImage(ufmedmn0.spr)
+  SetSelectSounds(gvmedsl0.wav gvmedsl1.wav gvmedsl2.wav gvmedsl3.wav)
+  SetResponseSounds(gvmedrl0.wav gvmedrl1.wav gvmedrl2.wav)
+;  SetEquivalentUnit(IMPAmper)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  SetIdleAnimation(150 300 2 2)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40508)
+    SetPrereqs(40009 40029)
+    SetMaker(40009 40010)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmedst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(MedicHeal 1 0)
+    SetStandingAnimation(3)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Saboteur
+
+DefineUnitType(TSaboteur)
+{
+  SetDescription(Saboteur)
+  SetMenuImage(ufsabmn0.spr)
+  SetSelectSounds(gvfg5sl0.wav gvfg5sl1.wav gvfg5sl2.wav gvfg5sl3.wav)
+  SetResponseSounds(gvfg5rl0.wav gvfg5rl1.wav gvfg5rl2.wav)
+  SetSide(3)
+  SetCost(800 24)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  CanSabotage(120 1 0)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40509)
+    SetPrereqs(40010)
+    SetMaker(40009 40010)
+    SetTechLevel(7)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsabst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Mechanic
+
+DefineUnitType(TMechanic)
+{
+  SetDescription(Mechanic)
+  SetMenuImage(ufmecmn0.spr)
+  SetSelectSounds(gvfg5sl0.wav gvfg5sl1.wav gvfg5sl2.wav gvfg5sl3.wav)
+  SetResponseSounds(gvfg5rl0.wav gvfg5rl1.wav gvfg5rl2.wav)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+;  CanVeteran(FGSaboteur 500)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40510)
+    SetPrereqs(40009 40033)
+    SetMaker(40009 40010)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmecst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(MechanicRepair 1 0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Martyr
+
+DefineUnitType(TSuicideNuker)
+{
+  SetDescription(Martyr)
+  SetMenuImage(ufmtrmn0.spr)
+  SetSelectSounds(gvmtrsl0.wav gvmtrsl1.wav gvmtrsl2.wav gvmtrsl3.wav)
+  SetResponseSounds(gvmtral0.wav gvmtral4.wav gvmtral5.wav gvmtral6.wav)
+;  SetEquivalentUnit(IMPHostageTaker)
+  SetSide(3)
+  SetCost(600 18)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 16)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40511)
+    SetPrereqs(40009)
+    SetMaker(40009 40010)
+    SetTechLevel(4)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmtrst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SuicideNuke 1 1)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Infiltrator
+
+DefineUnitType(TSpy)
+{
+  SetDescription(Infiltrator)
+  SetMenuImage(ucinfmn0.spr)
+  SetSelectSounds(gvfinsl0.wav gvfinsl1.wav gvfinsl2.wav)
+  SetResponseSounds(gvfinrl0.wav gvfinrl1.wav gvfinrl2.wav)
+;  SetEquivalentUnit(IMPSpy)
+  SetSide(3)
+  NoAutoTarget()
+  SetCost(1000 30)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(ToughHumanWet 100)
+  IsHuman()
+  CanBeMorphedInto()
+  CanMorphIntoUnit(electric_blue_explosion 10)
+  CanSpy(300 1200 500)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40512)
+    SetPrereqs(40010)
+    SetMaker(40009 40010)
+    SetEquivalence(4)
+    SetTechLevel(14)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+    AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ucinfst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 splata_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD NON-HUMAN UNITS
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ FREEDOM GUARD: SPIDER BIKE
+
+
+DefineUnitType(TSpiderBike)
+{
+  SetDescription(Spider_Bike)
+  SetMenuImage(ufspbmn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPScoutTank)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Wheela)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 24)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40520)
+    SetPrereqs(40013)
+    SetMaker(40013 40014)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufspbsh0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufspbst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(DoubleRailGun 0 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Rapid Armored Transport  RAT
+
+DefineUnitType(TFGIFV)
+{
+  SetDescription(Rapid_Armored_Transport)
+  SetMenuImage(ufratmn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPAssaultVehicle)
+  SetSide(3)
+  SetCost(450 14)
+  UseEffects(Wheelf)
+  SetMoveMode(Ground)
+  SetStrength(200)
+  SetPhysics(100 18)
+  SetHitSize(18)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  SetCarry(5 4)
+  CanBlend()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40521)
+    SetPrereqs(40013)
+    SetMaker(40013 40014)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufratst0.spr)
+  AddPart {
+    SetRotationRate(12)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufratst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Skirmish Tank
+
+
+DefineUnitType(TMediumTank)
+{
+  SetDescription(Skirmish_Tank)
+  SetMenuImage(ufsktmn0.spr)
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPPlasmaTank)
+  SetSide(3)
+  SetCost(600 18)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40522)
+    SetPrereqs(40013)
+    SetMaker(40013 40014)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufsktst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsktst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm0_explosion unattached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufsktac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SkirmishGun1 1 0)
+    SetHealthExplosion(30 eobpfsm0_explosion unattached)
+  }
+ AddPart {
+   SetRotationRate(10)
+   SetRotationalArc(0)
+   SetScanDelay(500)
+   SetImage(ufsktac1.spr)
+   SetMoveAnimation(0)
+   AddWeapon(SkirmishGun2 1 0)
+   SetHealthExplosion(75 eobpfsm0_explosion unattached)
+ }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Tank Hunter Tank
+
+DefineUnitType(TTankHunterTank)
+{
+  SetDescription(Tank_Hunter)
+  SetMenuImage(ufthnmn0.spr)
+  SetSelectSounds(gvfg2sl0.wav gvfg2sl1.wav gvfg2sl2.wav gvfg2sl3.wav)
+  SetResponseSounds(gvfg2rl0.wav gvfg2rl1.wav gvfg2rl2.wav gvfg2rl4.wav)
+;  SetEquivalentUnit(IMPShredder)
+  SetSide(3)
+  SetCost(700 21)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(150)
+  SetPhysics(10 20)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40523)
+    SetPrereqs(40013)
+    SetMaker(40013 40014)
+    SetTechLevel(3)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufthnst0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufthnst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(TankHunterGun 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Phase Tank
+
+DefineUnitType(TAmbushTank)
+{
+  SetDescription(Phase_Tank)
+  SetMenuImage(ufphtmn0.spr)
+  SetSelectSounds(gxphtsc0.wav gxphtsc1.wav)
+  SetResponseSounds(gxphtrc0.wav gxphtrc1.wav)
+;  SetEquivalentUnit(IMPHoverMarine)
+  SetSide(3)
+  SetCost(600 18)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(166)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  CanPhase(30 25 tft1 0)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+;  SetIdleAnimation(2)
+  SetRequirements {
+    SetType(40524)
+    SetPrereqs(40013 40040)
+    SetMaker(40013 40014)
+    SetTechLevel(5)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufphtst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufphtst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(PhaseTankCannon 1 0)
+    SetStandingAnimation(2)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD : Flak Jack
+
+DefineUnitType(TConstructionMAD)
+{
+  SetDescription(Flak_Jack)
+  SetMenuImage(ufflkmn0.spr)
+  SetSelectSounds(gvflksl0.wav gvflksl1.wav gvflksl3.wav gvflksl4.wav)
+  SetResponseSounds(gvflkrl0.wav gvflkrl1.wav gvflkrl4.wav gvflkrl5.wav)
+;  SetEquivalentUnit(IMPMAD)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 12)
+  SetHitSize(5)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+;  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40525)
+    SetPrereqs(40005 40013)
+    SetMaker(40013 40014)
+    SetTechLevel(8)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ufflksh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufflkst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(Chaff 0 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Triple Rail Hover Tank
+
+
+DefineUnitType(TTripleRailHoverTank)
+{
+  SetDescription(Triple_Rail_Hover_Tank)
+  SetMenuImage(uftrtmn0.spr)
+  SetResponseSounds(gvtrtrl0.wav gvtrtrl1.wav gvtrtrl2.wav gvtrtrl3.wav)
+  SetSelectSounds(gvtrtsl1.wav gvtrtsl2.wav gvtrtsl3.wav gvtrtal0.wav)
+;  SetEquivalentUnit(IMPTachyonTank)
+  SetSide(3)
+  SetCost(1300 39)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(200)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40526)
+    SetPrereqs(40014)
+    SetMaker(40013 40014)
+    SetTechLevel(6)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uftrtst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uftrtst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm3_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uftrtac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(TripleRailGun 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: SPA
+
+
+DefineUnitType(TFGSPA)
+{
+  SetDescription(Hellstorm_Artillery)
+  SetMenuImage(uffarmn0.spr)
+  SetSelectSounds(gvfarsl0.wav gvfarsl1.wav gvfarsl2.wav gvfarsl3.wav)
+  SetResponseSounds(gvfarrl0.wav gvfarrl1.wav gvfarrl2.wav gvfarrl3.wav)
+;  SetEquivalentUnit(IMPSPA)
+  SetSide(3)
+  SetCost(1100 33)
+  UseEffects(Track)
+  SetMoveMode(Ground)
+  SetStrength(133)
+  SetPhysics(10 8)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40527)
+    SetPrereqs(40014)
+    SetMaker(40013 40014)
+    SetTechLevel(8)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uffarst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uffarst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(ArtilleryShell 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Single Man SKY BIKE
+
+DefineUnitType(TSkyBike)
+{
+  SetDescription(Sky_Bike)
+  SetMenuImage(ufskbmn0.spr)
+  SetResponseSounds(gvfg3rl0.wav gvfg3rl1.wav gvfg3rl2.wav gvfg3rl3.wav)
+  SetSelectSounds(gvfg3sl0.wav gvfg3sl1.wav gvfg3sl2.wav gvfg3sl3.wav)
+;  SetEquivalentUnit(ImpVTOL)
+  SetSide(3)
+  SetCost(800 24)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(100)
+  SetPhysics(10 28)
+  SetHitSize(16)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40528)
+    SetPrereqs(40013 40047)
+    SetMaker(40013 40014)
+    SetTechLevel(9)
+  }
+  SetShadowImage(ufskbst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufskbst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(BkLaser 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Outrider
+
+
+DefineUnitType(TDualSkyBike)
+{
+  SetDescription(Outrider)
+  SetMenuImage(ufoutmn0.spr)
+  SetResponseSounds(gvfg3rl0.wav gvfg3rl1.wav gvfg3rl2.wav gvfg3rl3.wav)
+  SetSelectSounds(gvfg3sl0.wav gvfg3sl1.wav gvfg3sl2.wav gvfg3sl3.wav)
+;  SetEquivalentUnit(ImpVTOL)
+  SetSide(3)
+  SetCost(1400 42)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(200)
+  SetPhysics(10 24)
+  SetHitSize(16)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40529)
+    SetPrereqs(40013 40047)
+    SetMaker(40013 40014)
+    SetTechLevel(9)
+  }
+  SetShadowImage(ufoutst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufoutst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(OutriderMissile 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN FREEDOM GUARD: Phase Runner
+
+
+DefineUnitType(Tundergtunnel)
+{
+  SetDescription(Phase_Runner)
+  SetMenuImage(uchfrmn0.spr)
+  SetSelectSounds(gxphrsc0.wav gxphrsc1.wav)
+  SetResponseSounds(gxphrrc0.wav gxphrrc1.wav)
+  SetSide(3)
+  SetCost(0 0)
+  UseEffects(Flying)
+  SetMoveMode(Tunnel)
+  SetStrength(150)
+  SetPhysics(100 8)
+  SetHitSize(18)
+  SetSeeingRange(1)
+  SetVulnerability(TankPlating 100)
+  SetCarry(5 50)
+  NoEdit()
+  CanBoomerang()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40540)
+    SetPrereqs()
+    SetMaker()
+  }
+;  SetShadowImage(ufphrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufphrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM : Guardian
+
+DefineUnitType(TStrikeMarine)
+{
+  SetDescription(Guardian)
+  SetMenuImage(uigrdmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+;  SetEquivalentUnit(FGFreedomFighter)
+  SetSide(3)
+  SetCost(150 5)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 8)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(PowerHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40610)
+    SetPrereqs(40007)
+    SetMaker(40007 40008)
+    SetEquivalence(2)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uigrdst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 1 0)
+    SetStandingAnimation(2)
+    SetHealthExplosion(0 splatc_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM : Bion
+
+DefineUnitType(TFireSupportMarine)
+{
+  SetDescription(Bion)
+  SetMenuImage(uibonmn0.spr)
+  SetSelectSounds(gxbonsc0.wav gxbonsc1.wav)
+  SetResponseSounds(gxbonrc0.wav gxbonrc1.wav)
+;  SetEquivalentUnit(FGMercenary)
+  SetSide(3)
+  SetCost(350 11)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(150)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(PowerHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40611)
+    SetPrereqs(40007)
+    SetMaker(40007 40008)
+    SetEquivalence(3)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uibonst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(PlasmaRifle 1 0)
+    SetHealthExplosion(0 splatb_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM : Exterminator
+
+DefineUnitType(THoverMarine)
+{
+  SetDescription(Exterminator)
+  SetMenuImage(uiextmn0.spr)
+  SetSelectSounds(gvextsl0.wav gvextsl1.wav gvextsl2.wav)
+  SetResponseSounds(gvextrl0.wav gvextrl1.wav gvextrl2.wav)
+;  SetEquivalentUnit(FGTankHunterTank)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Hovers)
+  SetMoveMode(Hover)
+  SetStrength(75)
+  SetPhysics(1 16)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(PowerHuman 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40612)
+    SetPrereqs(40008)
+    SetMaker(40007 40008)
+    SetTechLevel(5)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiextst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(PolyAcid 1 0)
+    SetHealthExplosion(0 splatb_explosion unattached)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN Imperium : Suicide Zombie
+
+DefineUnitType(TSuicideZombie)
+{
+  SetDescription(Suicide_Zombie)
+  SetMenuImage(ufmtrmn0.spr)
+  SetSelectSounds(gvszmsl0.wav)
+  SetResponseSounds(gvszmrl0.wav)
+  SetSide(3)
+  SetCost(600 18)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(100)
+  SetPhysics(1 6)
+  SetHitSize(5)
+  SetSeeingRange(8)
+  SetVulnerability(ToughHumanWet 100)
+  CanBeMorphedInto()
+  IsHuman()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40614)
+    SetPrereqs()
+    SetMaker()
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(20)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(ucmensh0.spr)
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(ufmtrst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(SuicideNuke 1 1)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: SCOUT TANK
+
+
+DefineUnitType(TScoutTank)
+{
+  SetDescription(Scout_Tank)
+  SetMenuImage(uisttmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+;  SetEquivalentUnitlentUnit(FGSpiderBike)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(150)
+  SetPhysics(10 20)
+  SetHitSize(11)
+  SetSeeingRange(13)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40620)
+    SetPrereqs(40011)
+    SetMaker(40011 40012)
+    SetTechLevel(0)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uisttst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uisttst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(LaserCannon 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Invader Troop Transport
+
+DefineUnitType(TAssaultVehicle)
+{
+  SetDescription(Invader_Troop_Transport)
+  SetMenuImage(uiittmn0.spr)
+  SetSelectSounds()
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+;  SetEquivalentUnit(FGIFV)
+  SetSide(3)
+  SetCost(600 18)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(150)
+  SetPhysics(100 20)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  SetCarry(5 4)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40621)
+    SetPrereqs(40011)
+    SetMaker(40011 40012)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uiittst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiittst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(LaserRifle 0 0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Plasma Tank
+
+
+DefineUnitType(TPlasmaTank)
+{
+  SetDescription(Plasma_Tank)
+  SetMenuImage(uipltmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+;  SetEquivalentUnit(FGMediumTank)
+  SetSide(3)
+  SetCost(700 21)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(250)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40623)
+    SetPrereqs(40011)
+    SetMaker(40011 40012)
+    SetTechLevel(1)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uipltst0.spr)
+  AddPart {
+    SetRotationRate(8)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uipltst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uipltac0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(PlasmaCannon 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: AMPER
+
+DefineUnitType(TAmper)
+{
+  SetDescription(Amper)
+  SetMenuImage(uiampmn0.spr)
+  SetSelectSounds(gvampsl1.wav gvampsl2.wav gvampsl3.wav)
+  SetResponseSounds(gvamprl0.wav gvamprl2.wav gvampal0.wav)
+;  SetEquivalentUnit(FGMedic)
+  SetSide(3)
+  SetCost(500 15)
+  UseEffects(Foot)
+  SetMoveMode(Ground)
+  SetStrength(66)
+  SetPhysics(1 8)
+  SetHitSize(8)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  CanBoost()
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40624)
+    SetPrereqs(40011 40030)
+    SetMaker(40011 40012)
+    SetTechLevel(2)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uiampsh0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiampst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(AmperAmp 1 0)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: MAD
+
+
+DefineUnitType(TIMPMAD)
+{
+  SetDescription(MAD)
+  SetMenuImage(uimadmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+;  SetEquivalentUnit(FGConstructionMAD)
+  SetSide(3)
+  SetCost(800 24)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(150)
+  SetPhysics(10 16)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40625)
+    SetPrereqs(40011 40002)
+    SetMaker(40011 40012)
+    SetTechLevel(9)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uimadst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uimadst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(30)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uchfrac0.SPR)
+    SetMoveAnimation(0)
+    AddWeapon(GroundToAirLaser 0 0 )
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Recon Drone
+
+
+DefineUnitType(TReconSaucer)
+{
+  SetDescription(Recon_Drone)
+  SetMenuImage(uirdrmn0.spr)
+  SetSelectSounds(gxrdrsc0.wav gxrdrsc1.wav gxrdrsc2.wav)
+  SetResponseSounds(gxrdrrc0.wav gxrdrrc1.wav gxrdrrc2.wav)
+  SetSelectSounds()
+;  SetEquivalentUnit(FGScout)
+  SetSide(3)
+  SetCost(400 12)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(66)
+  SetPhysics(10 16)
+  SetHitSize(12)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40626)
+    SetPrereqs(40011 40002)
+    SetMaker(40011 40012)
+    SetTechLevel(7)
+  }
+  SetShadowImage(uirdrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uirdrst0.spr)
+    SetMoveAnimation(0)
+    ;SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Shredder
+
+DefineUnitType(TShredder)
+{
+  SetDescription(Shredder)
+  SetMenuImage(uishrmn0.spr)
+  SetSelectSounds(gxshrsc0.wav gxshrsc1.wav gxshrsc2.wav)
+  SetResponseSounds(gxshrrc0.wav gxshrrc1.wav)
+;  SetEquivalentUnit(FGSuicideNuker)
+  SetSide(3)
+  SetCost(700 21)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(100)
+  SetPhysics(10 20)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40627)
+    SetPrereqs(40011)
+    SetMaker(40011 40012)
+    SetTechLevel(3)
+  }
+  SetRundownInfo {
+    SetAttack(50)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uishrst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uishrst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(Shredder 1 0)
+    SetStandingAnimation(0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM:Hostage Taker
+
+
+DefineUnitType(THostageTaker)
+{
+  SetDescription(Hostage_Taker)
+  SetMenuImage(uihosmn0.spr)
+  SetSelectSounds()
+  SetResponseSounds(gvhosrl0.wav gvhosrl2.wav gvhosal0.wav)
+  SetSelectSounds(gvhossl0.wav gvhossl1.wav)
+;  SetEquivalentUnit(FGSuicideNuker)
+  SetSide(3)
+  SetCost(600 18)
+  UseEffects(Wheel)
+  SetMoveMode(Ground)
+  SetStrength(450)
+  SetPhysics(10 20)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlatingWet 100)
+  SetCarry(1 2)
+  CanGrab(TSuicideZombie 300)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40628)
+    SetPrereqs(40012)
+    SetMaker(40011 40012)
+    SetTechLevel(14)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uihosst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uihosst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Tachyon Tank
+
+
+DefineUnitType(TTachyonTank)
+{
+  SetDescription(Tachyon_Tank)
+  SetMenuImage(uitctmn0.spr)
+  SetResponseSounds(gvtctrl0.wav gvtctal2.wav gvtctrl2.wav gvtctrl3.wav)
+  SetSelectSounds(gvtctsl0.wav gvtctsl1.wav gvtctsl2.wav)
+;  SetEquivalentUnit(FGTripleRailHoverTank)
+  SetSide(3)
+  SetCost(1500 45)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(410)
+  SetPhysics(10 12)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40629)
+    SetPrereqs(40012)
+    SetMaker(40011 40012)
+    SetTechLevel(4)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uitctst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uitctst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(0 eobpfsm4_explosion unattached)
+  }
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uitctac0.spr)
+    SetMoveAnimation(1)
+    AddWeapon(TachyonCannon 1 0 )
+    AddWeapon(SelfDestruct1 1 0)
+  }
+}
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: SCARAB
+
+
+DefineUnitType(TIMPSPA)
+{
+  SetDescription(S_C_A_R_A_B)
+  SetMenuImage(uiiarmn0.spr)
+  SetSelectSounds(gvig1sl0.wav gvig1sl1.wav gvig1sl2.wav gvig1sl3.wav)
+  SetResponseSounds(gvig1rl0.wav gvig1rl1.wav gvig1rl2.wav gvig1rl3.wav)
+;  SetEquivalentUnit(FGSPA)
+  SetSide(3)
+  SetCost(1300 39)
+  UseEffects(Hover)
+  SetMoveMode(Hover)
+  SetStrength(133)
+  SetPhysics(10 6)
+  SetHitSize(15)
+  SetSeeingRange(9)
+  SetVulnerability(TankPlating 100)
+  CanAlternate(ImpShieldedSPA 0)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40631)
+    SetPrereqs(40012)
+    SetMaker(40011 40012)
+    SetTechLevel(7)
+  }
+  SetRundownInfo {
+    SetAttack(0)
+    SetDefence(100)
+    SetSquishSound("gxscmdc0.wav")
+  }
+  SetShadowImage(uiiarst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiiarst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 eobpfsm4_explosion unattached)
+    AddWeapon(IMPArtilleryShell 1 0)
+  }
+}
+
+
+
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Cyclone
+
+DefineUnitType(TVTOL)
+{
+  SetDescription(Cyclone)
+  SetMenuImage(uicycmn0.spr)
+  SetSelectSounds()
+  SetResponseSounds(gvcycrl0.wav gvcycrl1.wav gvcycrl2.wav gvcycrl3.wav)
+  SetSelectSounds(gvcycsl0.wav gvcycsl1.wav gvcycsl2.wav)
+;  SetEquivalentUnit(FGSkyBike)
+  SetSide(3)
+  SetCost(1500 45)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(150)
+  SetPhysics(10 24)
+  SetHitSize(16)
+  SetSeeingRange(9)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40632)
+    SetPrereqs(40011 40036 40003)
+    SetMaker(40011 40012)
+    SetTechLevel(8)
+  }
+  SetShadowImage(uicycst0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uicycst0.spr)
+    SetMoveAnimation(0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+    AddWeapon(CycloneCannon 1 0)
+  }
+}
+
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ TOGRAN IMPERIUM: Sky Fortress
+
+
+DefineUnitType(TSkyFortress)
+{
+  SetDescription(Sky_Fortress)
+  SetMenuImage(uiskymn0.spr)
+;  SetSelectSounds()
+  SetResponseSounds(gvskyrl0.wav gvskyrl1.wav gvskyrl2.wav gvskyrl3.wav)
+  SetSelectSounds(gvskysl0.wav gvskysl2.wav gvskyal3.wav gvskyal4.wav)
+;  SetEquivalentUnit(FGDualSkyBike)
+  SetSide(3)
+  SetCost(2500 75)
+  UseEffects(Flying)
+  SetMoveMode(Fly)
+  SetStrength(266)
+  SetPhysics(10 10)
+  SetHitSize(10)
+  SetSeeingRange(9)
+  ChargeWeapon(700)
+  SetVulnerability(FlyingArmour 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(40644)
+    SetPrereqs(40011 40036 40003)
+    SetMaker(40011 40012)
+   SetTechLevel(9)
+  }
+  SetShadowImage(uiskyst0.spr)
+  AddPart {
+    SetRotationRate(10)
+   SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(uiskyst0.spr)
+    SetMoveAnimation(0)
+    AddWeapon(FortressCannon 0 0)
+    SetHealthExplosion(60 smor_explosion attached)
+    SetHealthExplosion(30 smallfired_explosion attached)
+    SetHealthExplosion(0 death_with_sparks_explosion unattached)
+  }
+}
+
+
+
+;Common Bldg
+;ออออออออออออออออออออออออออออออออออออออออออออออออ
+;þ COMMON: Camera Tower
+
+DefineUnitType(CameraTower)
+{
+  SetDescription(Camera_Tower)
+  SetMenuImage(bc000000.spr)
+  SetSide(-1)
+  SetCost(750 22)
+  SetMoveMode(Fixed)
+  UseEffects(Fixed)
+  SetStrength(400)
+  SetPhysics(20 0)
+  SetSeeingRange(0)
+  SetVulnerability(TankPlating 100)
+  ;SetHealthExplosion(0 eodeblg3_explosion)
+  SetRequirements {
+    SetType(3006)
+    SetPrereqs()
+    SetMaker()
+  }
+;  SetShadowImage(bigdtsp0.spr)
+  AddPart {
+    SetRotationRate(10)
+    SetRotationalArc(180)
+    SetScanDelay(500)
+    SetImage(bccamsp0.spr)
+    SetMoveAnimation(0)
+;    AddWeapon(NoWeapon 1 0)
+  }
+}
+
+
+
+

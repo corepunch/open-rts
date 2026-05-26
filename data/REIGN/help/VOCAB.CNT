@@ -1,0 +1,14 @@
+:Base VOCAB.HLP
+:Title Dark Reign
+:Index VendorIndex=Vendor.hlp
+:Index HelpIndex=Help.hlp
+1 BIOS=BIOS
+1 CMOS=CMOS
+1 For Best Reading=For_Best_Reading
+1 ISP=ISP
+1 PCI=PCI
+1 QEMM=QEMM
+1 RAM=RAM
+1 URL=URL
+1 VESA=VESA
+1 VLB=VLB

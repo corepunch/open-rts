@@ -1,0 +1,28 @@
+
+;
+; AI Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 You_Idiot!)
+    {
+      CritOR()
+      {
+        CritDestroyBuilding()
+        {
+          28997  ; the headquarters (don't sell it, you fool!)
+        }
+        CritDestroyBuilding()
+        {
+          31835  ; the power plant
+        }
+      }
+    }
+    SetAlliance(1 1 1 1 1 1 1 1)
+  }
+}

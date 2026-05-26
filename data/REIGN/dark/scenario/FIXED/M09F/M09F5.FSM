@@ -1,0 +1,79 @@
+;
+; FSM  Conditions for team 5
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State 1
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(2 0 0 0 change_alliance)  
+      	{
+	CritAND()
+        {
+        CritTeamInRegion(40646 0)
+        CritOR()
+	{ 
+	CritDestroyBuilding()
+ 		{
+		47466
+		} 
+	CritDestroyBuilding()
+ 		{
+		47467
+		} 
+	CritDestroyBuilding()
+ 		{
+		47469
+		} 
+	CritDestroyBuilding()
+ 		{
+		47510
+		} 
+	CritDestroyBuilding()
+ 		{
+		47511
+		} 
+	CritDestroyBuilding()
+ 		{
+		47512
+		} 
+	CritDestroyBuilding()
+ 		{
+		47513
+		} 
+	CritDestroyBuilding()
+ 		{
+		47514
+		} 
+	CritDestroyBuilding()
+ 		{
+		47515
+		} 
+	CritDestroyBuilding()
+ 		{
+		47464
+		} 
+	}
+	}   
+        }
+
+	SetAlliance(1 1 1 1 1 2 1 1)
+
+}
+ ;
+  ; Conditional State 2
+  ;
+  DefineCondState()
+  {
+   
+    DefineCondition(2 0 0 0 looping)  
+      	{          
+	 CritTimer(1000000) 
+        }   
+   
+	 SetAlliance(2 1 1 1 1 2 1 1)
+  }
+}

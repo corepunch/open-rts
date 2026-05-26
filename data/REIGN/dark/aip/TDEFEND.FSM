@@ -1,0 +1,30 @@
+;
+; AI Conditional FSM for Togran defend base and perimeter.
+;
+DefineAICondTree()
+{
+    Description(Togra: "The AI will only defend its base and the perimeter.")
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 defend_base)
+    {
+      CritLessUnitsThanEnemy(100)
+    }
+    SetAIPFile(TDPer.aip)
+  }
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 defend_perimeter)
+    {
+      CritMoreUnitsThanEnemy(120)
+    }
+    SetAIPFile(TDBase.aip)
+  }
+}

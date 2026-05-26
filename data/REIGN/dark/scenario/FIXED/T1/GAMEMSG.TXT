@@ -1,0 +1,217 @@
+; T1
+
+CreateMsg("State_0")
+{
+  SetSound("GVIT1OL0.wav")
+  QueueSound()
+}
+
+CreateMsg("State_1")
+{
+  SetSound("GVIT1OL1.wav")
+  QueueSound()
+}
+
+CreateMsg("State_2")
+{
+  SetSound("GVIT1OL2.wav")
+  QueueSound()
+}
+
+CreateMsg("State_3")
+{
+  SetSound("GVIT1OL3.wav")
+  QueueSound()
+}
+
+CreateMsg("State_4")
+{
+  SetSound("GVIT1OL4.wav")
+  QueueSound()
+}
+
+CreateMsg("State_5")
+{
+  SetSound("GVIT1OL5.wav")
+  QueueSound()
+}
+
+CreateMsg("State_6")
+{
+  SetSound("GVIT1OL6.wav")
+  QueueSound()
+}
+
+CreateMsg("State_7")
+{
+  SetSound("GVIT1OL7.wav")
+  QueueSound()
+}
+
+CreateMsg("State_8")
+{
+  SetSound("GVIT1OL8.wav")
+  QueueSound()
+}
+
+CreateMsg("State_9")
+{
+  SetSound("GVIT1OL9.wav")
+  QueueSound()
+}
+
+CreateMsg("State_A")
+{
+  SetSound("GVIT1OLa.wav")
+  QueueSound()
+}
+
+CreateMsg("State_B")
+{
+  SetSound("GVIT1OLb.wav")
+  QueueSound()
+}
+
+CreateMsg("State_C")
+{
+  SetSound("GVIT1OLc.wav")
+  QueueSound()
+}
+
+CreateMsg("State_D")
+{
+  SetSound("GVIT1OLd.wav")
+  QueueSound()
+}
+
+CreateMsg("State_E")
+{
+  SetSound("GVIT1OLe.wav")
+  QueueSound()
+}
+
+CreateMsg("State_F")
+{
+  SetSound("GVIT1OLf.wav")
+  QueueSound()
+}
+
+CreateMsg("State_G")
+{
+  SetSound("GVIT1OLg.wav")
+  QueueSound()
+}
+
+CreateMsg("State_H")
+{
+  SetSound("GVIT1OLh.wav")
+  QueueSound()
+}
+
+CreateMsg("State_I")
+{
+  SetSound("GVIT1OLi.wav")
+  QueueSound()
+}
+
+CreateMsg("State_J")
+{
+  SetSound("GVIT1OLj.wav")
+  QueueSound()
+}
+
+CreateMsg("State_K")
+{
+  SetSound("GVIT1OLk.wav")
+  QueueSound()
+}
+
+CreateMsg("State_L")
+{
+  SetSound("GVIT1OLl.wav")
+  QueueSound()
+}
+
+CreateMsg("State_M")
+{
+  SetSound("GVIT1OLm.wav")
+  QueueSound()
+}
+
+CreateMsg("State_N")
+{
+  SetSound("GVIT1OLn.wav")
+  QueueSound()
+}
+
+CreateMsg("State_O")
+{
+  SetSound("GVIT1OLo.wav")
+  QueueSound()
+}
+
+CreateMsg("State_P")
+{
+  SetSound("GVIT1OLp.wav")
+  QueueSound()
+}
+
+CreateMsg("State_Q")
+{
+  SetSound("GVIT1OLq.wav")
+  QueueSound()
+}
+
+CreateMsg("State_R")
+{
+  SetSound("GVIT1OLr.wav")
+  QueueSound()
+}
+
+CreateMsg("State_S")
+{
+  SetSound("GVIT1OLs.wav")
+  QueueSound()
+}
+
+CreateMsg("State_T")
+{
+  SetSound("GVIT1OLt.wav")
+  QueueSound()
+}
+
+CreateMsg("State_U")
+{
+  SetSound("GVIT1OLu.wav")
+  QueueSound()
+}
+
+CreateMsg("State_V")
+{
+  SetSound("GVIT1OLv.wav")
+  QueueSound()
+}
+
+CreateMsg("State_W")
+{
+  SetSound("GVIT1OLw.wav")
+  QueueSound()
+}
+
+CreateMsg("State_X")
+{
+  SetSound("GVIT1OLx.wav")
+  QueueSound()
+}
+
+CreateMsg("State_Y")
+{
+  SetSound("GVIT1OLy.wav")
+  QueueSound()
+}
+
+CreateMsg("State_Z")
+{
+  SetSound("GVIT1OLz.wav")
+  QueueSound()
+}

@@ -1,0 +1,36 @@
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritDestroyBuilding()
+     {
+       25632
+     } 
+    }     
+  }
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+     CritAND()
+      {
+      CritDestroyTeamBuildings(1 0)
+      CritKillTeamUnits(1 3)
+      }
+    } 
+  SetAlliance( 2 0 2 2 0 0 0 0 )
+  TriggerMessage(MSG_ALLIANCECHANGED)  
+  TriggerMessage(MSG_MUT)  
+  }
+}

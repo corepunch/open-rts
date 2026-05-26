@@ -1,0 +1,35 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+      CritOR()
+      { 
+      CritTimer(108000)
+      CritHaveCredits(100000)
+      }
+    }
+    
+    SetAIPFile(M11iOff.aip)
+    AdjustRegionPri(27002 0 0 0)  ; player base
+  }
+;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 "c1to2.txt")
+    {
+      CritTimer(10800)
+    }
+    
+    AdjustRegionPri(27002 5000 200 20000)  ; player base
+  }
+} 

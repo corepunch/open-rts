@@ -1,0 +1,15 @@
+;
+;  Conditional FSM for team 1
+;
+DefineEndCondTree(0)
+{
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+     CritKillAll ()    
+    }  
+  }
+}

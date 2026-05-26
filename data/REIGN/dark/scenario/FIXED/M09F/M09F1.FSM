@@ -1,0 +1,509 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+;
+; Conditional State #1 EZ  STATE
+;
+DefineCondState()
+{
+    	
+ 	
+	DefineCondition(2 0 0 0 base) 
+	{
+	CritONCE()
+	{
+	CritHaveCredits(50000)
+	}
+	}
+
+
+	
+     	
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+ 	DefineCondition(6 0 0 0 "attack") ; destroy guard towers
+     	{
+   	CritAND()
+	{
+	CritDestroyBuilding()
+		{
+		41553 46676 49107
+		}
+	CritTimer(22000)
+	CritEnemyInRegion(37688)
+	}
+	}
+
+	DefineCondition(7 0 0 0 "attack") ; destroy guard towers
+	{	
+   	CritAND()
+	{
+	CritDestroyBuilding()
+		{
+		45273 46679 49110
+		}
+   	CritTimer(22000)
+	CritEnemyInRegion(37687)
+	}
+	}
+
+	DefineCondition(8 0 0 0 harass_upper_water) ; upper focus
+  	{
+	CritAND()
+	{
+	CritEnemyInRegion(37688)
+	CritNOT()
+		{
+		CritEnemyInRegion(37687)
+		}
+	CritTimer(3000)
+	}
+	}
+	
+	DefineCondition(9 0 0 0 harass_lower_water) 
+  	{
+	CritAND()
+	{
+	CritEnemyInRegion(37687)
+	CritNOT()
+		{
+		CritEnemyInRegion(37688)
+		}
+	CritTimer(3000)
+	}
+	}
+
+	DefineCondition(10 0 0 0 harass_both_waters) 
+ 	{
+	CritAND()
+	{
+	CritEnemyInRegion(37688)
+	CritEnemyInRegion(37687)
+	CritTimer(3000)
+	}
+	}
+	
+	DefineCondition(11 0 0 0 attack_both_waters) 
+ 	{
+	CritAND()
+	{	
+	CritDestroyBuilding()
+		{
+		
+		45273 46679 49110
+		}
+   	CritDestroyBuilding()
+		{
+		41553 46676 49107
+		}
+	CritTimer(3000)
+	}
+	}
+
+	DefineCondition(12 0 0 0 base) 
+ 	{
+	CritAND()
+	{	
+	CritDestroyBuilding()
+		{
+		45273 46679 49110
+		}
+   	CritDestroyBuilding()
+		{
+		41553 46676 49107
+		}
+	CritTimer(3000)
+	CritNOT()
+		{
+		CritEnemyInRegion(37688)
+		}
+	CritNOT()
+		{
+		CritEnemyInRegion(37687)
+		}
+	}
+	}
+
+
+	AdjustRegionPri(37687 0 0 0)
+	AdjustRegionPri(37688 0 0 0)
+	AdjustRegionPri(37992 0 0 0)
+	SetAlliance(0 2 1 1 1 1 1 2)
+    	SetAIPFile(ez.aip)  
+
+}
+
+
+;
+; Conditional State #2  
+;
+DefineCondState()
+{
+   
+    	
+	DefineCondition(1 0 0 0 pause) 
+ 	
+	{
+	CritTimer(4000)
+        }
+
+
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(base.aip)  
+}
+
+;
+; Conditional State #3    ;  DEFEND Base
+;
+DefineCondState()
+{
+;    
+    	
+    	
+
+	DefineCondition(1 0 0 0 back_to_pause) 
+	{					  
+        CritNOT()
+	{
+	CritEnemyInRegion(37993)
+       	}
+	}
+
+     
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(defend.aip)
+}
+;
+; Conditional State #4  -  
+;
+DefineCondState()
+{
+     	
+	
+
+	DefineCondition(1 0 0 0 back_to_pause) 
+	{					
+   	CritOR()
+	{
+	CritNOT()
+		{
+		CritEnemyInRegion(37992)
+    		}
+	CritTimer(3000)
+	}
+	}
+
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	AdjustRegionPri(37992 1000 100 100)
+     	SetAIPFile(air.aip)
+}
+;
+; Conditional State #5   -  Get DR.  MOEBEUS
+;
+DefineCondState()
+{
+
+    
+    
+	DefineCondition(5 0 0 0 "stay_here")
+    	{
+    	CritTimer(1000000)
+	}
+
+	SetAIPFile(kill.aip)
+}
+
+;
+; Conditional State #6   - attack cuz upper  water is threatened
+;
+DefineCondState()
+{
+	
+
+ 	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+       	CritTimer(4000)
+    	}
+ 
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(attack.aip)
+    	AdjustRegionPri(37688 500 100 400)  
+
+}
+;
+; Conditional State #7   - attack cuz lower  water  is threatened
+;
+DefineCondState()
+{
+	
+
+ 	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+       	CritTimer(4000)
+    	}
+ 
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(attack.aip)
+    	AdjustRegionPri(37687 500 100 400)  
+}
+;
+; Conditional State #8   - enemy in upper
+;
+DefineCondState()
+{
+	
+
+ 	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+       	CritTimer(4000)
+    	}
+ 
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(harass.aip)
+    	AdjustRegionPri(37688 500 100 300)  
+}
+;
+; Conditional State #9   -  enemy in lower
+;
+DefineCondState()
+{
+	
+
+ 	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+       	CritTimer(4000)
+    	}
+ 
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(harass.aip)
+    	AdjustRegionPri(37687 500 100 300)  
+}
+
+;
+; Conditional State #10   -  enemy in both
+;
+DefineCondState()
+{
+	
+ 	
+ 	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+       	CritTimer(4000)
+    	}
+ 
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(harass.aip)
+    	AdjustRegionPri(37688 500 100 300)  
+	AdjustRegionPri(37687 500 100 300)  
+
+}
+
+;
+; Conditional State #11   -  enemy has both waters
+;
+DefineCondState()
+{
+	
+ 	
+ 	DefineCondition(1 0 0 0 back_to_pause)
+    	{
+       	CritTimer(4000)
+    	}
+	
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     
+	DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(attack.aip)
+    	AdjustRegionPri(37688 500 100 500)  
+	AdjustRegionPri(37687 500 100 500)  
+}
+
+
+;
+; Conditional State #12  
+;
+DefineCondState()
+{
+   
+    	
+	DefineCondition(1 0 0 0 pause) 
+ 	
+	{
+	CritTimer(4000)
+        }
+
+	DefineCondition(3 0 0 0 "defend")  ;   base under attack
+    	{					  
+       	CritTeamInRegion(37993 0)
+       	}
+     
+	DefineCondition(4 0 0 0 "air_attack")  ; protect dr. moebeus
+    	{					
+   	CritTeamInRegion(37992 0)
+    	}
+     DefineCondition(5 0 0 0 "kill")  ; kill kill kill
+    	{
+       	CritNOT()
+       	{
+	CritTeamInRegion(37992 2)
+	}
+    	}
+
+	SetAIPFile(base.aip)  
+}
+}

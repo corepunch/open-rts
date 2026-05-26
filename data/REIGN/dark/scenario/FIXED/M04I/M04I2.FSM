@@ -1,0 +1,41 @@
+
+;
+; Conditions for team 2
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(2 0 0 0 Civilians_riot)
+    {
+      		
+       CritDestroyTeamBuildings(4 90)
+     
+    }
+    SetAIPFile(M04i2.aip)
+    SetAlliance(1 2 2 1 1 1 1 1)
+
+}  
+
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    
+    DefineCondition(2 0 0 0 civ's_get_rowdy)
+    {
+      CritTimer(1000000)
+    }
+    
+	SetAIPFile(Riot.aip)
+    	ReleaseSpecialForces(202)
+    	SetAlliance(0 2 2 1 1 1 1 1)  
+  }
+  
+}

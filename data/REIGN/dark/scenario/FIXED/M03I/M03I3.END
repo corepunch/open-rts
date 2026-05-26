@@ -1,0 +1,33 @@
+DefineEndCondTree(0)
+{
+  ; state 1
+  ; team wins if convoy gets free
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 Convoy_succeeded)
+    {
+      CritOR()
+      {
+        CritMoveUnitsToRegion(14744 1)
+        {
+           14738  14735  14726
+        }
+        CritMoveUnitsToRegion(24279 1)
+        {
+           14738  14735   14726
+        }
+      }
+    }
+  }
+
+ ; state 2
+  ; 
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 you_lose)
+    	{
+	CritTimer(50)
+	}
+  TriggerMessage(GVINTCL6)
+   }
+}

@@ -1,0 +1,643 @@
+~TShell Art
+~NEquinoxe
+~NHenry Cheng
+~NAndy Chung
+~NBrian Heins
+~NAnthony Phung
+~NAryeh Richmond
+~NSean Ro
+
+~TCut Scene Scripts
+~NTrey Watkins
+
+~TIntro Movie
+~NBlur Studios
+~NRyan Berg
+~NSteve Blackmon
+~NCat Chapman
+~NSam Gebhardt
+~NJuan Granja
+~NTim Miller
+~NTim Montijo
+~NLarry Paolicelli
+~NEric Pinkel
+~NDuane Powell
+~NJennifer Rama
+~NDavid Stinnett
+~NGreg Tsadilas
+
+~TSegue/Outro Movie
+~NTim Hoffman
+~NLarry Paolicelli
+
+~TSound Design
+~NSoundelux Media Labs
+
+~TAudio Supervisor & Sound Design
+~NScott Gershin
+~NGregory J. Hainer
+
+~TSound Designers
+~NBryan Celano
+~NBryan Bowen
+~NPeter Zinda
+~NRon Hill
+
+~TVoice Over Recording & Processing
+~NScott Gershin
+~NPeter Zinda
+
+~TCinematics Mixing
+~NMelissa Hofmann
+
+~TAdditional Sound Effects & Engineering
+~NMichael B. Schwartz
+
+~TOriginal Musical Score
+~NJeehun Hwang
+
+~TVideo Processing & Compression
+~NChris Hepburn
+
+~TAV Assistants
+~NBrian Bright
+~NKenny Ramirez
+
+~TQA Senior Lead Tester
+~NMarc Turndorf
+
+~TQA Lead Tester
+~NTyler Scott
+
+~TAssociate QA Project Lead
+~NCurtis Shenton
+
+~TQuality Assurance Test Team
+~NEric Baudoin
+~NAaron Casillas
+~NChris Keim
+~NTodd Komesu
+~NDaniel Hagerty
+~NSean Hendon
+~NT. Q. Jefferson
+~NSam Nourani
+~NFrank Oh
+~NMatt Powers
+~NClay Retzer
+~NJohn Sherwood
+~NDale Son
+~NKelly Wand
+~NMoh Wright
+
+~TDirector Of Cross Production
+~NNathalie Deschâtres
+
+~TProducer, Cross Production
+~NMark Lamia
+
+~TAssociate Producer, Cross Production
+~NAdam Goldberg
+
+~TProduction Coordinator, Cross Production
+~NTanya Martino
+~NRonnie Lane
+
+~TInstaller/Splash Screen Programming
+~NEric Schmidt
+
+~TInstaller Art
+~NJarett Farmer
+
+~TVoice-Over Talent
+~NKimberly Brooks (Computer Voice)
+~NRobert Berger
+~NGreg Borrud
+~NStuart Calof
+~NJoseph Donaldson
+~NBrian Diggs
+~NHardy LeBel
+~NRon Millar
+~NJosh Resnick
+~NReiner Schone
+~NJay Sosnicki
+~NMike Vaez
+
+~TLocalization Team
+
+~TAssociate Producer
+~NSeth Gerson
+
+~TProduction Coordinator
+~NBrian Diggs
+
+~TLocalization Consulting
+~NDaryl Pitts
+~NSeth Grenald
+
+~TManaging Director, Europe
+~NBob Dewar
+
+~TMarketing Director, Europe
+~NJanine Johnson
+
+~TSales Director, Europe
+~NJohn Burns
+
+~TEuropean Development Manager
+~NSimon Harris
+
+~TProduction Coordinator, Europe
+~NNicky Kerth
+
+~TManaging Director, Australia
+~NJohn Watts
+
+~TGeneral Manager, Latin America
+~NErnie Maldonado
+
+~TProduct Manager, Latin America
+~NSalvador Fernandez
+
+~TAsset Localization (German/French/Spanish/Italian)
+~NFrederic Journoud
+~NTricia McKinley
+~NJanis Shea
+~NLarry Wade
+~NIDOC, Inc.
+
+~TAudio Production Supervisor (Spanish)
+~NMichael B. Schwartz
+
+~TVoice Director (German/French)
+~NCharles De Vries
+~NInternational Voice Localization
+
+~TVoice Director (Spanish)
+~NFrancisco Colmenero
+
+~TSound Engineering (German/French/Spanish)
+~NBill Black
+~NBig Fat Kitty Productions
+
+~TFrench Assistant to Voice Director
+~NVeronique Colas
+
+~TRecording Studio (German/French)
+~NSpringWest
+
+~TRecording Studio (Spanish)
+~NGrabaciones y Doblajes, S.A.
+
+~TSpringWest Recording Engineer
+~NJuan Hendo
+
+~TProduction Manger - Grabaciones y Doblejes, S.A.
+~NMagdelena Questa
+
+~TGrabaciones y Doblajes, S.A. Engineer
+~NLorenzo Ortiz
+
+~TGerman
+~NTorsten Voges
+~NBettina Spier
+~NReiner Shöne
+~NGeorge Salden
+~NKai Wulff
+~NAndreas Reinl
+~NW. v. Chmielewski
+
+~TFrench
+~NCorinne Lorain
+~NFrank Bruynbroek
+~NMark Eckelberry
+~NChristian Aubert
+~NXavier Nathan
+~NHenri Heyraud
+~NGerard Ismaël
+
+~TSpanish
+~NArturo Mercado
+~NNancy Mackenzie
+~NPatricia Bolaños
+~NFrancisco Colmenero
+~NRaúl Aldana
+~NGenaro Vásquez
+~NYamil Atala
+~NJessie Conde
+~NRaúl De La Fuente
+
+~TGerman Linguistic QA
+~NAxel Wippich
+
+~TSpanish Linguistic QA
+~NNelson Recinos
+
+~TFrench Linguistic QA's
+~NArmelle Arriola, Nicole Kempler
+
+
+~TMarketing, Public Relations, and Packaging
+
+~TProduct Manager
+~NMichael Radiloff
+
+~TPublicist
+~NJamey Gottlieb
+
+~TAssociate Product Manager
+~NJohn Heinecke
+
+~TPackaging Design
+~NErik Jensen
+~NCindy Whitlock
+
+~TPackaging Illustration
+~NBlur Studio
+~NJeff Wack
+
+~TPackaging Copywriter
+~NVeronica Milito
+
+~TDocumentation
+~NMichael Rivera
+~NBelinda M. Van Sickle
+
+~TCreative Affairs
+
+~TSenior Creative Executive
+~NChristopher B. Hewish
+
+~TSenior Games Analyst
+~NJonathan Moses
+
+~TGames Analyst
+~NEric Gewirtz
+~NBrad Santos
+
+~TSenior Vice President of Studio
+~NAlan Gershenfeld
+
+~TDirector of Production
+~NScott Lahman
+
+~TDirector of QA & Customer Service
+~NJim Summers
+
+~TQA Manager
+~NDavid Arnspiger
+
+~TSpecial Thanks
+~NBill Anker
+~NJohn Baker
+~NKirsty Barker
+~NRick Baumgartner
+~NDion Brain
+~NBryant Bustamante
+~NMatt Candler
+~NElizabeth Capps
+~NChristian Casparian
+~NSarah Cigliano
+~NEd Clune 
+~NGreg Corgain
+~NSteve Crane
+~NScott Culbertson
+~NEveline Cureteu
+~NJulian Da Silva
+~NMarci Ditter
+~NMichael Douglas
+~NGraham Edelsten
+~NKelly Egan
+~NLydia Estrada
+~NMaria Flagg
+~NJudy Gates
+~NAshleigh Gibbs
+~NLarry Goldberg
+~NRon Gould
+~NAndrew Greening
+~NSeth Grenald
+~NLieutenant Paul Hay
+~NMolly Hinchey
+~NBob Jensen
+~NEric Johnson
+~NCatheryn Kanuck
+~NBrian Kelly
+~NBobby Kotick
+~NTeresa Landgraff
+~NMitch Lasky
+~NMaryanne Lataif
+~NLava Lounge
+~NSuzette Lavine
+~NMargaret Lawson
+~NLeviticus
+~NBen LeRougetel
+~NHoward Marks
+~NTanya Martino
+~NNoel Maxam
+~NHeather Maxwell
+~NMondo Media
+~NKarl Meissner
+~NPage Morris
+~NStephanie O'Malley
+~NSandra O'Toole
+~NChristine Pavlina
+~NBarry Plaga
+~NJean Powell
+~NSamantha Resnick
+~NMatt Rosenburg
+~NKelly Rogers
+~NGeorge Rose
+~NMartin Sansing
+~NWendy Scherdorf
+~NRon Scott
+~NKim Shattuck
+~NDavid Silverman
+~NDan Stanfill
+~NDavid Vonderhaar
+~NDenise Walsh
+~NWilliam Westwater
+~NSteven White
+~NSteve Willsey
+~NDr. Mark Woodhouse
+
+
+~TWar Room
+~NRachel Lewis
+~NWilliam Liu
+~NJorge Maldonado
+~NMichael Malone
+~NThomas Mix
+~NJohn Nguyen
+~NDavid Rodecker
+~NClifton Shaw
+~NConan Teng
+
+
+~TExternal Play Balancers
+~NMark Agustin
+~NKevin Amico
+~NRigel Anderson
+~NDeidre Anderson
+~NJean-Ray Arseneau
+~NJon Bachrach
+~NMarc Baime
+~NNicholas Bali
+~NKenneth "K.C." Baltz
+~NDavid Barron
+~NRobert Berger
+~NAndrew Bohne
+~NChad Bordwell
+~NMichael Brinton
+~NJoey Buck
+~NJean-Claude "Frenchie" Bureau
+~NCurt Burgess
+~NStuart Calof
+~NMichele Case
+~NRobert Cashman
+~NChris Chao
+~NMyron Chen
+~NJohn Chiu
+~NAnne Marie Clogston
+~NDave Cohen
+~NKevin Cohen
+~NTerry Cohen
+~NKevin Combs
+~NJustin Cooney
+~NDoug Cronkhite
+~NRick Culler Jr.
+~NJustin Dahlke
+~NSean Daniels
+~NTodd Dayton
+~NMaxwell DeChant
+~NKevin Dorsey
+~NPaul Dunlap
+~NMichael Dwiel
+~NCraig Edrington
+~NSteve Elwell
+~NMark Falk
+~NJason Feosback
+~NLance Fernald
+~NRichard Fielder
+~NSteve Flowers
+~NBrian Gartland
+~NChuck Geary
+~NShemek Gedek
+~NRich Gerow
+~NEric Gewirtz
+~NMichael Gibson
+~NBrian Grapatin
+~NMatthew Gray
+~NJohn Hamilton
+~NPhilip Hansen
+~NPany Haritatos
+~NBrian  Harris
+~NJohn Harris
+~NJonathan Hemingway
+~NJason Henderson
+~NTom Hepner
+~NToby Herman
+~NJoel Hills
+~NRandal Hoekstra
+~NChris Huber
+~NBill Hutchison
+~NJohn Ireton
+~NNic Jansma
+~NMichael Patrick Johnson
+~NMark Kaelin
+~NTed Kao
+~NScott Kasai
+~NMichael Kelly
+~NAdam Kemp
+~NKenneth Kil
+~NEddie Klaynberg
+~NXaeriq Knight
+~NBrad Kohn
+~NJesse Labrocca
+~NGary Lapidus
+~NTom Laverty
+~NHoward Lee
+~NPaul Lee
+~NJacqueline Lee
+~NJaret Lehman
+~NBruce LeSourd
+~NMatthew Lewis
+~NLarry Lieb
+~NCharles Little
+~NYi Liu
+~NPeter Lolley
+~NShawn Lovill
+~NWoody Lovill
+~NDerek Lung
+~NPaul Main
+~NDavid Mank
+~NIrek Markowski
+~NRobert Mason
+~NKarl Mathias
+~NMichael McCart
+~NGary McCoy
+~NBrad McGraw
+~NSean McKay
+~NRichard Mi
+~NEric Michard
+~NScott Musack
+~NJustin Nafziger
+~NJuan (Giovanni) Negron
+~NVinh Nguyen
+~NDean O'Donnel
+~NKaren Oettel
+~NJared Ong
+~NRichard Payne
+~NGary Peifer
+~NAlexander Pelton
+~NRon Pepper
+~NMike Perla
+~NHoang Pham
+~NFred Philipp
+~NRoderick Pommier
+~NAlan Precourt
+~NTony Price
+~NLonnie Radford
+~NRaevyn Ralphs
+~NMarc Reissig
+~NJohn Rekalske
+~NDavid Rekalske
+~NMark Richards
+~NTim Richardson
+~NGeoffrey Richcreek
+~NDan Rodrigues
+~NJoe  Ruffolo
+~NBrant Rusch
+~NTodd Sampson
+~NThevin Sattayatam
+~NBret Schnepf
+~NMatt Schreiner
+~NBob Selby
+~NAndy Serwatuk
+~NJoe Shackelford
+~NJohn Shackleton
+~NJeff Shaffer
+~NTakeshi Shimamura
+~NJee Shin
+~NNathan Shnidman
+~NCarl Sipp
+~NMartin Sleeman
+~NMarc Smith
+~NDakota Smith
+~NRyan Smolar
+~NDavid SooHoo
+~NBrent Southard
+~NAndrew Stein
+~NJeff Sterck
+~NMatt Stipes
+~NEric Strandberg
+~NLeo Sutedja
+~NKevin Swisher
+~NJeff Sylvan
+~NDave Thomas
+~NAndy Trapani
+~NChris Umali
+~NJack Utley
+~NAaron Vanek
+~NJoel Vinyard
+~NBrian Wade
+~NJustin Wahlstrom
+~NYuzo Watanabe
+~NAlan Wexelblat
+~NScott Wilkins
+~NTodd Wilson
+~NTimothy Wilson
+~NMalik Woods
+~NDavid Wright
+~NJohn Yan
+~NMike Zemina
+~NEric Zolnowski
+~NJeffrey Zwelling
+
+~NJay Adams
+~NCory Aiken
+~NAnthony Anzalone
+~NBrian Bartlow
+~NBrian Bates
+~NSteven Beigelmacher
+~NRobert Broglia
+~NBrian Brushwood
+~NMarko Buric
+~NTerry Carl, Jr.
+~NJohn Chapman
+~NRob Contaldi
+~NLarry Cooper
+~NAaron Corcoran
+~NGreg Crowder
+~NBobby Danforth
+~NMike Darling
+~NBrian Decker
+~NDavid Drell
+~NMatt Duncan
+~NStephen Farquhar
+~NSteven Ferreira
+~NBrian Fisher
+~NJason Gentry
+~NJoe Giddings
+~NJohn Gingrich
+~NGary Gong
+~NJeff Graham
+~NDaniel Grant
+~NMark Greenberg
+~NAndy Greening
+~NAntonia Harris
+~NMatt Holmes
+~NLei Hu
+~NDavid Isenor
+~NRobert Jansen
+~NChristopher Johnson
+~NDarren Jones
+~NWilliam Jordan
+~NEric Junker
+~NJohn Karcz
+~NWayne King
+~NRandal Kinley
+~NDeon Knecht
+~NEric Kristoff
+~NBrandon LaGrange
+~NJon Lambert
+~NStanley Law
+~NDennis Lee
+~NMitch Leon
+~NGuy Link
+~NCris Litvin
+~NMichael Mancini
+~NTodd Manion
+~NBryan Marshall
+~NJames McCutcheon
+~NDavid Miller
+~NPatrick Neil
+~NJonathan Nelson
+~NMatt Newman
+~NDanny Osborne
+~NChris Parson
+~NSteven E. Petty
+~NJon Robben
+~NRandy Rose
+~NDouglas Roy
+~NKevin Saba
+~NDylan Savage
+~NSteven Schulte
+~NMichael Siegel
+~NJoe Spina
+~NJonathan Taggart
+~NBrian Taylor
+~NDon Tulloch
+~NVictor Vergara
+~NNick Vertodoulos
+~NTodd Wagner
+~NNicole Williams
+~NAlexander Wills
+
+
+~TBased on Design created by
+~NGreg Borrud
+~NChris Hewish
+~NJosh Resnick
+~NTrey Watkins
+
+~TBased on Technology created by
+~NAuran

@@ -1,0 +1,342 @@
+; T3
+CreateMsg("gvft3ol0")
+{
+  SetSound("gvft3ol0.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol1")
+{
+  SetSound("gvft3ol1.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol2")
+{
+  SetSound("gvft3ol2.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol3")
+{
+  SetSound("gvft3Ol3.WAV")
+  QueueSound()
+}
+CreateMsg("gvft3ol4")
+{
+  SetSound("gvft3Ol4.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol5")
+{
+  SetSound("gvft3Ol5.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol6")
+{
+  SetSound("gvft3Ol6.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol7")
+{
+  SetSound("gvft3Ol7.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol8")
+{
+  SetSound("gvft3Ol8.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ol9")
+{
+  SetSound("gvft3Ol9.wav")
+  QueueSound()
+}
+
+CreateMsg("gvft3ola")
+{
+  SetSound("gvft3Ola.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olb")
+{
+  SetSound("gvft3Olb.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olc")
+{
+  SetSound("gvft3olC.wav")
+  QueueSound()
+}
+CreateMsg("gvft3old")
+{
+  SetSound("gvft3OlD.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ole")
+{
+  SetSound("gvft3Ole.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olf")
+{
+  SetSound("gvft3olf.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olg")
+{
+  SetSound("gvft3olg.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olh")
+{
+  SetSound("gvft3Olh.wav")
+  QueueSound()
+}
+CreateMsg("gvft3oli")
+{
+  SetSound("gvft3Oli.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olj")
+{
+  SetSound("gvft3Olj.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olk")
+{
+  SetSound("gvft3Olk.wav")
+  QueueSound()
+}
+CreateMsg("gvft3oll")
+{
+  SetSound("gvft3Oll.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olm")
+{
+  SetSound("gvft3Olm.wav")
+  QueueSound()
+}
+
+CreateMsg("gvft3oln")
+{
+  SetSound("gvft3Oln.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olo")
+{
+  SetSound("gvft3Olo.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olp")
+{
+  SetSound("gvft3Olp.wav")
+  QueueSound()
+}
+
+CreateMsg("gvft3olq")
+{
+  SetSound("gvft3Olq.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olr")
+{
+  SetSound("gvft3Olr.wav")
+  QueueSound()
+}
+CreateMsg("gvft3ols")
+{
+  SetSound("gvft3Ols.wav")
+  QueueSound()
+}
+
+CreateMsg("gvft3olt")
+{
+  SetSound("gvft3Olt.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olu")
+{
+  SetSound("gvft3Olu.wav")
+  QueueSound()
+}
+
+
+CreateMsg("gvft3olv")
+{
+  SetSound("gvft3olv.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olw")
+{
+  SetSound("gvft3olw.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olx")
+{
+  SetSound("gvft3olx.wav")
+  QueueSound()
+}
+CreateMsg("gvft3oly")
+{
+  SetSound("gvft3oly.wav")
+  QueueSound()
+}
+CreateMsg("gvft3olz")
+{
+  SetSound("gvft3olz.wav")
+  QueueSound()
+}
+
+
+
+
+
+; TAUNTS
+
+CreateMsg("gvftrnl0")
+{
+  SetSound("gvftrnl0.wav")
+  QueueSound()
+}
+
+CreateMsg("gvftrnl1")
+{
+  SetSound("gvftrnl1.wav")
+  QueueSound()
+}
+
+CreateMsg("gvftrnl2")
+{
+  SetSound("gvftrnl2.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnl3")
+{
+  SetSound("gvftrnl3.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnl4")
+{
+  SetSound("gvftrnl4.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnl5")
+{
+  SetSound("gvftrnl5.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnl6")
+{
+  SetSound("gvftrnl6.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnl7")
+{
+  SetSound("gvftrnl7.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnl8")
+{
+  SetSound("gvftrnl8.wav")
+  QueueSound()
+}
+CreateMsg("gvftrnla")
+{
+  SetSound("gvftrnla.wav")
+  QueueSound()
+}
+CreateMsg("gvftrel0")
+{
+  SetSound("gvftrel0.wav")
+  QueueSound()
+}
+CreateMsg("gvftrel1")
+{
+  SetSound("gvftrel1.wav")
+  QueueSound()
+}
+CreateMsg("gvftrel2")
+{
+  SetSound("gvftrel2.wav")
+  QueueSound()
+}
+CreateMsg("gvftrel3")
+{
+  SetSound("gvftrel3.wav")
+  QueueSound()
+}
+CreateMsg("gvftrel4")
+{
+  SetSound("gvftrel4.wav")
+  QueueSound()
+}
+CreateMsg("gvftrel5")
+{
+  SetSound("gvftrel5.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol0")
+{
+  SetSound("gvt3aol0.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol1")
+{
+  SetSound("gvt3aol1.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol2")
+{
+  SetSound("gvt3aol2.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol3")
+{
+  SetSound("gvt3aol3.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol4")
+{
+  SetSound("gvt3aol4.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol5")
+{
+  SetSound("gvt3aol5.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol6")
+{
+  SetSound("gvt3aol6.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol7")
+{
+  SetSound("gvt3aol7.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol8")
+{
+  SetSound("gvt3aol8.wav")
+  QueueSound()
+}
+CreateMsg("gvt3aol9")
+{
+  SetSound("gvt3aol9.wav")
+  QueueSound()
+}
+CreateMsg("gvt3bol0")
+{
+  SetSound("gvt3bol0.wav")
+  QueueSound()
+}
+
+CreateMsg("GVINTCL5")
+{
+  SetSound("GVINTCL5.WAV")
+  QueueSound()
+}
+CreateMsg("GVINTCL6")
+{
+  SetSound("GVINTCL6.WAV")
+  QueueSound()
+}

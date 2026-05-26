@@ -1,0 +1,30 @@
+CreateMsg("GXEVAOC0")
+{
+  SetSound("GXEVAOC0.WAV")
+  QueueSound()
+}
+CreateMsg("GVINTCL3")
+{
+  SetSound("GVINTCL3.WAV")
+  QueueSound()
+}
+CreateMsg("GVSTSCLT")
+{
+  SetSound("GVSTSCLT.wav")
+  QueueSound()
+}
+CreateMsg("Convoy_Leaving_Base")
+{
+  GetMLString(0)
+}
+
+CreateMsg("GVINTCL5")
+{
+  SetSound("GVINTCL5.WAV")
+  QueueSound()
+}
+CreateMsg("GVINTCL6")
+{
+  SetSound("GVINTCL6.WAV")
+  QueueSound()
+}

@@ -1,0 +1,22 @@
+ 
+;
+; Conditions for team 3
+;
+DefineAICondTree()
+{
+  ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    
+   
+    DefineCondition(1 0 0 0 duhh)
+    {
+    CritTimer(10000000)
+    }
+ 
+ 	SetAlliance(1 2 2 1 2 1 1 1)
+}  
+  
+}

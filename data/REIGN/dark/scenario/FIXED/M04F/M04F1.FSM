@@ -1,0 +1,380 @@
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+; state 1		
+; 
+;  
+DefineCondState()
+{
+	
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+    	{
+	CritAND()
+	{
+	CritEnemyInRegion(30486)
+	}
+	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+   	{	
+	CritAND()
+	{
+	CritDestroyBuilding()
+		{    
+ 		32115 32112 18046 18043
+       		}
+ 	CritDestroyBuilding()
+		{
+		32104 32107 30437 30440
+      		}    	
+	CritEnemyInRegion(30486)
+	}
+ 	}
+
+  	DefineCondition(4 0 0 0 staging_bottom_protect_top)
+    	{
+    	CritAND()
+	{
+	CritNOT()
+	{
+		CritDestroyBuilding()
+		{
+		32104 32107 30437 30440
+      		}
+	}
+        CritEnemyInRegion(30558)
+    	CritTimer(1500)
+	}
+	}
+	
+	DefineCondition(5 0 0 0 staging_top_protect_bottom)
+    	{
+    	CritAND()
+	{
+	CritNOT()
+	{
+		CritDestroyBuilding()
+		{    
+ 		32115 32112 18046 18043
+      		}
+	}
+	CritEnemyInRegion(30559)
+	CritTimer(1500)
+	}
+	}
+
+	DefineCondition(6 0 0 0 attack_player)
+    	{
+      	CritAND()
+        { 
+      	CritNOT()
+		{	
+		CritTeamInRegion(30558 0)
+      		}
+	CritNOT()
+		{    
+ 		CritTeamInRegion(30559 0)
+        	}
+    	CritTimer(3000)
+       	}
+     	}
+	
+	DefineCondition(7 0 0 0 lost_top_protect_bottom)
+    	{
+     	CritAND()
+	{
+	CritTeamInRegion(30558 0)
+	CritDestroyBuilding()
+		{
+		32104 32107 30437 30440
+      		}
+    	CritTimer(1500)
+	}
+	} 
+
+	DefineCondition(8 0 0 0 lost_bottom_protect_top)
+   	{	
+	CritAND()
+	{
+	CritTimer(1500)
+	CritTeamInRegion(30559 0)
+	CritDestroyBuilding()
+		{    
+ 		32115 32112 18046 18043
+        	}
+    	}
+	}
+
+        SetAlliance(0 2 1 1 1 1 1 1)
+    	SetAIPFile(pause.aip)
+	AdjustRegionPri(30558 0 0 0)  ; top bridge
+    	AdjustRegionPri(30559 0 0 0)  ; bottom bridge
+	AdjustRegionPri(34207 0 0 0)  ;  upper attack
+    	AdjustRegionPri(34206 0 0 0)  ;  lower attack
+	AdjustRegionPri(24358 0 0 0)  ;  lower attack
+	AdjustRegionPri(24359 0 0 0)  ;  lower attack	
+
+}
+; state 2
+; defend the base
+;  
+DefineCondState()
+{
+	
+    	DefineCondition(1 0 0 0 base_secured)
+    	{
+      	CritNOT()
+      	{
+        CritEnemyInRegion(30486)
+      	}
+    	}
+
+	DefineCondition(3 0 0 0 criminal_manslaughter)
+    	{
+      	CritOR()
+	{
+	CritDestroyTeamBuildings(1 10)
+    	}
+	}
+
+        SetAlliance(0 2 1 1 1 1 1 1)
+    	SetAIPFile(defend.aip)
+    	BonusCredits(1 15000)
+    	AdjustRegionPri(30558 0 0 0)  ; top bridge
+    	AdjustRegionPri(30559 0 0 0)  ; bottom bridge
+}
+; state 3
+; kill civilians at all costs
+; we never leave this state
+  
+DefineCondState()
+{
+    	
+	DefineCondition(0 0 0 0 kamikazee)        
+	{
+	CritTimer(1000000)
+	}
+
+SetAlliance(0 2 0 0 1 1 1 1)
+SetAIPFile(attack.aip)
+
+}
+
+; state 4
+; protect upper bridge with lower attack
+; 
+DefineCondState()
+{
+     	
+
+	DefineCondition(9 0 0 0 going_to_attack)
+    	{
+	CritTimer(2500)	
+	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+    	{
+      	CritEnemyInRegion(30486)
+    	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+   	{	
+	CritAND()
+	{
+		CritDestroyBuilding()
+		{    
+ 		32115 32112 18046 18043
+       		}
+ 		CritDestroyBuilding()
+		{
+		32104 32107 30437 30440
+      		}    	
+	}
+ 	}
+
+	AdjustRegionPri(30558 1000 500 200)  ; top bridge
+	AdjustRegionPri(34206 1000 100 350)   ; lower attack
+	SetAIPFile(stage.aip)
+}
+
+; state 5
+; protect lower bridge with upper attack
+; 
+  
+DefineCondState()
+{
+    	
+
+	DefineCondition(9 0 0 0 going_to_attack)
+    	{
+	CritTimer(2500)	
+	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+    	{
+      	CritEnemyInRegion(30486)
+    	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+   	{	
+	CritAND()
+	{
+	CritDestroyBuilding()
+	{    
+ 	32115 32112 18046 18043
+       	}
+ 	CritDestroyBuilding()
+	{
+	32104 32107 30437 30440
+      	}    	
+	}
+ 	}
+
+	AdjustRegionPri(30559 1000 100 200)  ; lower bridge
+    	AdjustRegionPri(34207 1000 100 350)  ;  upper attack
+    	SetAIPFile(stage.aip)
+
+}
+
+; state 6
+; attacking the players base
+; 
+  
+DefineCondState()
+{
+    	
+    	
+	DefineCondition(1 0 0 0 loading_pause_aip)
+    	{
+	CritTimer(2500)
+	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+    	{
+      	CritEnemyInRegion(30486)
+    	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+   	{	
+	CritAND()
+	{
+	CritDestroyBuilding()
+	{    
+ 	32115 32112 18046 18043
+       	}
+ 	CritDestroyBuilding()
+	{
+	32104 32107 30437 30440
+      	}    	
+	}
+ 	}
+
+	SetAIPFile(attack.aip)
+    	AdjustRegionPri(30558 500 50 150)  ; top bridge
+    	AdjustRegionPri(30559 500 50 150)  ; bottom bridge
+	AdjustRegionPri(34206 500 100 200)  ;  upper attack
+    	AdjustRegionPri(34207 500 100 200)  ;  lower attack
+
+
+}
+
+; state 7
+;  
+; 
+
+DefineCondState()
+{
+    	
+
+	DefineCondition(9 0 0 0 going_to_attack)
+    	{
+	CritTimer(2500)
+	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+    	{
+      	CritEnemyInRegion(30486)
+    	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+   	{	
+	CritAND()
+	{
+	CritDestroyBuilding()
+	{    
+ 	32115 32112 18046 18043
+       	}
+ 	CritDestroyBuilding()
+	{
+	32104 32107 30437 30440
+      	}    	
+	}
+ 	}
+
+	SetAIPFile(stage.aip)
+    	AdjustRegionPri(34206 1000 100 400)  ;  lower attack
+    	AdjustRegionPri(30558 1000 100 250)  ;  top bridge
+
+}
+
+; state 8
+;  
+; 
+  
+DefineCondState()
+{
+    	
+    	
+	DefineCondition(9 0 0 0 going_to_attack)
+    	{
+	CritTimer(2500)
+	}
+	
+	DefineCondition(2 0 0 0 load_defend_aip)
+    	{
+      	CritEnemyInRegion(30486)
+    	}
+
+	DefineCondition(2 0 0 0 load_defend_aip)
+   	{	
+	CritAND()
+	{
+	CritDestroyBuilding()
+	{    
+ 	32115 32112 18046 18043
+       	}
+ 	CritDestroyBuilding()
+	{
+	32104 32107 30437 30440
+      	}    	
+	}
+ 	}
+
+	SetAIPFile(stage.aip)
+    	AdjustRegionPri(30559 1000 100 250)  ; bottom bridge
+    	AdjustRegionPri(34207 1000 100 400)  ;  top attack
+
+}
+
+; state 9   attack player from the bottom when threatening top bridge
+;  
+; 
+  
+DefineCondState()
+{
+    	
+	
+	DefineCondition(1 0 0 0 back_to_pause_aip)
+    	{
+	CritTimer(4000)
+	}
+
+	SetAIPFile(attack.aip)
+    	AdjustRegionPri(24358 0 0 0)  ;  upper bridge
+    	AdjustRegionPri(34206 0 0 0)  ;  lower attack
+	AdjustRegionPri(24359 0 0 0)  ; lower bridge
+    	AdjustRegionPri(34207 0 0 0)  ;  upper attack
+}
+}

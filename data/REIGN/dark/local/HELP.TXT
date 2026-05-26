@@ -1,0 +1,75 @@
+To scroll - use the up and down arrow
+or hold down the right mouse button and scroll. 
+
+MENU SELECTION
+
+B	Build menu
+ESC	Options menu
+C	Comms menu
+O	Orders menu
+P	Paths menu
+~	Special menu
+
+
+UNITS
+
+A	Attack mode
+Shift+A Attack without moving
+M	Unit move mode
+S	Stop selected units
+E	Select all units on screen
+F	Formation move mode
+H	Center on start position
+Ctrl+H	Reset start position
+I	Unit special function
+Shift+D	Tachion Tank self-destruct
+N	Select next unit
+R	Order selected units to repair/heal
+T	Unit turn mode
+W	Order selected units to rearm
+X	Scatter selected units
+D	Enter Decoy Construction Menu
+SPACE	Last game event or point of action
+
+
+BUILDINGS
+
+HOME	Set exit point for building
+END	Set gather point after repair or rearm
+D	Enter Decoy Construction Menu
+
+
+TACTICAL GROUPS
+
+	10 tactical groups can be created
+	by using keys 0 to 9
+
+Ctrl+<n>Create tactical group <n>
+<n>	Select tactical group <n>
+
+
+RESOURCES
+
+Shift+L	Force sale of water
+
+
+QUIT
+
+Shift+Q	Exit to main menu
+Ctrl+Q	Exit to map editor
+
+
+CD PLAYER
+
+kpad *	Stop CD player
+kpad +	Next CD track
+kpad -	Previous CD track
+
+
+MISCELLANEOUS
+
+F1	Hotkey list
+F2	Save game
+F3	Restart mission
+PAUSE	Pause
+PRNTSCR	Screen shot

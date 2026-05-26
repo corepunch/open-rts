@@ -1,0 +1,12 @@
+; M11
+
+CreateMsg("MSG_MUT")
+{
+  GetMLString(0)
+}
+
+CreateMsg("MSG_ALLIANCECHANGED")
+{
+  GetMLString(0)
+}
+

@@ -1,0 +1,3 @@
+WARNING!
+
+You are about to make a change to a multiplayer map.  If you make a change you will not be able to play multiplayer on this map unless you trade all the contents of its folder with other players.

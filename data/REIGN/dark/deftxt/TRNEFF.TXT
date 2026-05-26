@@ -1,0 +1,298 @@
+
+; $Header: /Dark Reign Version/Dark/Deftxt/TRNEFF.TXT 7     17/06/97 10:00 Tmott $
+;
+; Default terrain EFFECTS definition file
+;
+; Terrain effects are from 0..7
+; Overlay effects are 8,
+;
+;           2 - Building
+;           3 - Impassable rock/wall
+;           5 - passable to all units, 25% speed
+
+SetTerrainOffense(0 -1 Z0 10)
+
+DefineEffectType(Wheel 100 2)
+{
+  SetEffect(0 -1 0 6)
+  SetEffect(1 -1 100 6)
+  SetEffect(2 -1 100 6)
+  SetEffect(3 -1 100 6)
+  SetEffect(4 -1 25 6)
+  SetEffect(5 -1 25 6)
+  SetEffect(6 -1 25 6)
+  SetEffect(7 -1 25 6)
+  SetEffect(8 -1 200 6)
+  SetEffect(9 -1 200 6)
+  SetEffect(10 -1 100 6)
+  SetEffect(11 -1 100 6)
+  SetEffect(12 -1 100 6)
+  SetEffect(13 -1 100 6)
+  SetEffect(14 -1 100 6)
+  SetEffect(15 -1 100 6)
+
+; special effects
+
+  SetEffect(16 0 0 0)
+  SetEffect(16 1 0 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 6)
+  SetEffect(16 6 50 2)
+  SetEffect(16 7 0 0)
+}
+
+DefineEffectType(Wheelf 100 2)
+{
+  SetEffect(0 -1 20 6)
+  SetEffect(1 -1 100 6)
+  SetEffect(2 -1 100 6)
+  SetEffect(3 -1 100 6)
+  SetEffect(4 -1 25 6)
+  SetEffect(5 -1 25 6)
+  SetEffect(6 -1 25 6)
+  SetEffect(7 -1 25 6)
+  SetEffect(8 -1 200 6)
+  SetEffect(9 -1 200 6)
+  SetEffect(10 -1 100 6)
+  SetEffect(11 -1 100 6)
+  SetEffect(12 -1 100 6)
+  SetEffect(13 -1 100 6)
+  SetEffect(14 -1 100 6)
+  SetEffect(15 -1 100 6)
+
+; special effects
+
+  SetEffect(16 0 0 0)
+  SetEffect(16 1 0 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 6)
+  SetEffect(16 6 50 2)
+  SetEffect(16 7 0 0)
+}
+
+DefineEffectType(Wheela 100 2)
+{
+  SetEffect(0 -1 0 9)
+  SetEffect(1 -1 100 9)
+  SetEffect(2 -1 100 9)
+  SetEffect(3 -1 100 9)
+  SetEffect(4 -1 25 9)
+  SetEffect(5 -1 25 9)
+  SetEffect(6 -1 25 9)
+  SetEffect(7 -1 25 9)
+  SetEffect(8 -1 200 9)
+  SetEffect(9 -1 200 9)
+  SetEffect(10 -1 100 9)
+  SetEffect(11 -1 100 9)
+  SetEffect(12 -1 100 9)
+  SetEffect(13 -1 100 9)
+  SetEffect(14 -1 100 9)
+  SetEffect(15 -1 100 9)
+
+; special effects
+
+  SetEffect(16 0 0 0)
+  SetEffect(16 1 0 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 9)
+  SetEffect(16 6 50 2)
+  SetEffect(16 7 0 0)
+}
+DefineEffectType(Track 100 2)
+{
+  SetEffect(0 -1 0 6)
+  SetEffect(1 -1 100 6)
+  SetEffect(2 -1 100 6)
+  SetEffect(3 -1 100 6)
+  SetEffect(4 -1 50 6)
+  SetEffect(5 -1 50 6)
+  SetEffect(6 -1 25 6)
+  SetEffect(7 -1 25 6)
+  SetEffect(8 -1 150 6)
+  SetEffect(9 -1 150 6)
+  SetEffect(10 -1 100 6)
+  SetEffect(11 -1 100 6)
+  SetEffect(12 -1 100 6)
+  SetEffect(13 -1 100 6)
+  SetEffect(14 -1 100 6)
+  SetEffect(15 -1 100 6)
+
+; special effects
+
+  SetEffect(16 0 0 0)
+  SetEffect(16 1 0 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 6)
+  SetEffect(16 6 100 2)
+  SetEffect(16 7 0 0)
+}
+
+DefineEffectType(Foot 100 3)
+{
+  SetEffect(0 -1 0 9)
+  SetEffect(1 -1 100 9)
+  SetEffect(2 -1 100 9)
+  SetEffect(3 -1 100 9)
+  SetEffect(4 -1 50 9)
+  SetEffect(5 -1 50 9)
+  SetEffect(6 -1 50 9)
+  SetEffect(7 -1 50 9)
+  SetEffect(8 -1 150 9)
+  SetEffect(9 -1 150 9)
+  SetEffect(10 -1 100 9)
+  SetEffect(11 -1 100 9)
+  SetEffect(12 -1 100 9)
+  SetEffect(13 -1 100 9)
+  SetEffect(14 -1 100 9)
+  SetEffect(15 -1 100 9)
+
+; special effects
+
+  SetEffect(16 0 95 2)
+  SetEffect(16 1 60 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 9)
+  SetEffect(16 6 0 0)
+  SetEffect(16 7 60 2)
+}
+
+DefineEffectType(Hover 100 3)
+{
+  SetEffect(0 -1 100 3)
+  SetEffect(1 -1 100 3)
+  SetEffect(2 -1 100 3)
+  SetEffect(3 -1 100 3)
+  SetEffect(4 -1 100 3)
+  SetEffect(5 -1 100 3)
+  SetEffect(6 -1 25 3)
+  SetEffect(7 -1 25 3)
+  SetEffect(8 -1 100 3)
+  SetEffect(9 -1 100 3)
+  SetEffect(10 -1 100 3)
+  SetEffect(11 -1 100 3)
+  SetEffect(12 -1 100 3)
+  SetEffect(13 -1 100 3)
+  SetEffect(14 -1 100 3)
+  SetEffect(15 -1 100 3)
+
+; special effects
+
+  SetEffect(16 0 0 0)
+  SetEffect(16 1 60 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 3)
+  SetEffect(16 6 20 2)
+  SetEffect(16 7 0 0)
+}
+
+
+DefineEffectType(Hovers 100 3)
+{
+  SetEffect(0 -1 100 9)
+  SetEffect(1 -1 100 9)
+  SetEffect(2 -1 100 9)
+  SetEffect(3 -1 100 9)
+  SetEffect(4 -1 100 9)
+  SetEffect(5 -1 100 9)
+  SetEffect(6 -1 100 9)
+  SetEffect(7 -1 100 9)
+  SetEffect(8 -1 100 9)
+  SetEffect(9 -1 100 9)
+  SetEffect(10 -1 100 9)
+  SetEffect(11 -1 100 9)
+  SetEffect(12 -1 100 9)
+  SetEffect(13 -1 100 9)
+  SetEffect(14 -1 100 9)
+  SetEffect(15 -1 100 9)
+
+; special effects
+
+  SetEffect(16 0 0 0)
+  SetEffect(16 1 60 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 100 9)
+  SetEffect(16 6 20 2)
+  SetEffect(16 7 0 0)
+}
+
+
+
+DefineEffectType(Flying 100 3)
+{
+  SetEffect(0 -1 100 9)
+  SetEffect(1 -1 100 9)
+  SetEffect(2 -1 100 9)
+  SetEffect(3 -1 100 9)
+  SetEffect(4 -1 100 9)
+  SetEffect(5 -1 100 9)
+  SetEffect(6 -1 100 9)
+  SetEffect(7 -1 100 9)
+  SetEffect(8 -1 100 9)
+  SetEffect(9 -1 100 9)
+  SetEffect(10 -1 100 9)
+  SetEffect(11 -1 100 9)
+  SetEffect(12 -1 100 9)
+  SetEffect(13 -1 100 9)
+  SetEffect(14 -1 100 9)
+  SetEffect(15 -1 100 9)
+
+; special effects
+
+  SetEffect(16 0 100 8)
+  SetEffect(16 1 100 8)
+  SetEffect(16 2 100 8)
+  SetEffect(16 3 100 8)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 100 9)
+  SetEffect(16 6 100 8)
+  SetEffect(16 7 100 8)
+}
+
+DefineEffectType(LeggedDroid 100 3)        ;; Percent speed , max slope
+{
+  SetEffect(0 -1 0 9)
+  SetEffect(1 -1 100 9)
+  SetEffect(2 -1 100 9)
+  SetEffect(3 -1 100 9)
+  SetEffect(4 -1 50 9)
+  SetEffect(5 -1 50 9)
+  SetEffect(6 -1 50 9)
+  SetEffect(7 -1 50 9)
+  SetEffect(8 -1 150 9)
+  SetEffect(9 -1 150 9)
+  SetEffect(10 -1 100 9)
+  SetEffect(11 -1 100 9)
+  SetEffect(12 -1 100 9)
+  SetEffect(13 -1 100 9)
+  SetEffect(14 -1 100 9)
+  SetEffect(15 -1 100 9)
+
+; special effects
+
+  SetEffect(16 0 80 2)
+  SetEffect(16 1 60 2)
+  SetEffect(16 2 100 2)
+  SetEffect(16 3 0 0)
+  SetEffect(16 4 0 0)
+  SetEffect(16 5 25 9)
+  SetEffect(16 6 90 2)
+  SetEffect(16 7 20 2)
+}
+
+DefineEffectType(Fixed 0 0)
+{
+}

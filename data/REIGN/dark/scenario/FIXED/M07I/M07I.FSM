@@ -1,0 +1,71 @@
+;
+; AI Conditional FSM for team 1
+;
+DefineAICondTree()
+{
+  ; state 1
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 Test_Message)
+    {
+      CritTimer(0)
+    }
+  }
+
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(3 0 0 50 Defend)
+    {
+      CritAND()
+      {
+      CritMoreUnitsThanEnemy(200)
+      CritTimerGame(40000)
+      }
+    }
+    DefineCondition(4 0 0 50 Counter)
+    {
+     CritONCE()
+     {
+      CritAND()
+      {
+      CritTimerGame(35000)
+      CritEnemyInRegion(1707)
+      }
+     }
+    }
+    AdjustRegionPri(4703 0 0 0)  ; player base
+    AdjustRegionPri(4704 0 0 0)  ; player base
+    SetAIPFile(defend.aip)
+  }
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 50 Attack)
+    {
+      CritLessUnitsThanEnemy(160)
+    }
+    DefineCondition(4 0 0 50 Counter)
+    {
+      CritEnemyInRegion(1707)
+    }
+    SetAIPFile(attack.aip)
+    AdjustRegionPri(4703 1000 2000 2500)  ; player base
+    AdjustRegionPri(4704 1000 2000 2500)  ; player base
+  }
+ ;
+  ; Conditional State #4
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 Test_Message)
+    {
+      CritTimer(0)
+    }
+    ReleaseSpecialForces(101)
+  }
+}

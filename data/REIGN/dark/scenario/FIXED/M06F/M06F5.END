@@ -1,0 +1,12 @@
+DefineEndCondTree( 0 )
+{
+  ; This state fails the player for destroying the 
+  ;research facillity before stealing the plans
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+      CritHaveCredits (50000)
+    }
+  }
+}

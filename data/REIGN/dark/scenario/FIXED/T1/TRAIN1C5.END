@@ -1,0 +1,22 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this state waits for the player to begin the destroy base test 
+  DefineCondState()
+  {
+    DefineCondition( 2 0 0 0 "state_2"  )
+    {
+      CritHaveCredits( 100000 )
+      ;; Criteria
+    }
+    ;; State_Actions
+  }
+
+  ; State 2 this state makes team 5 ally with the player 
+  DefineCondState()
+  {
+    SetAlliance( 2 1 2 2 2 2 2 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

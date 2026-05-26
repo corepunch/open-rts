@@ -1,0 +1,230 @@
+/**********************************************************************
+
+ M08iDef.aip
+
+ AUTO GENERATED - HAND EDIT AT YOUR OWN RISK
+
+**********************************************************************/
+
+#include "aipdef.h"
+// How often do we recompute the strategy?
+int recompute_strategy_period = 40;
+
+// On avg how long will we wait between re-exploring a cell?
+int recon_period = 100;
+
+// 1 out of N strategic cycles, we'll find out a morphed spy!
+int infiltrator_period = 100;
+
+// Use good targeting (TACTAI_HIGH) or default (TACTAI_LOW)
+int tactical_ai = TACTAI_HIGH;
+
+// PRIORITIES
+int ground_unit_threat = 1;
+int threat_priority = 100;
+int distance_priority = -2;
+int defend_buildings_priority = 240;
+int attack_enemy_base_priority = 10;
+int persistence_priority = 100;
+int exploration_priority = 100;
+int scripted_priority = 10;
+int single_use_group_priority = 0;
+int perimeter_priority = 100;
+int resource_priority = 100;
+int danger_priority = 10;  
+float danger_diminishment = .5;
+
+// EDIT BOXES
+double min_matching_force_ratio = 1.00;
+double max_matching_force_ratio = 2.00;
+
+int min_building_defense_force = 300;
+int max_building_defense_force = 1000;
+
+int min_exploration_force = 70;
+int max_exploration_force = 150;
+
+int min_resource_force = 100;           // Min & max troops for resource protection
+int max_resource_force = 140;
+
+int min_perimeter_force = 100;
+int max_perimeter_force = 500;
+
+int relaxation_cycles = 1;
+float relaxation_coefficient = 1.00;
+float generic_ground_ratio = 1.00;
+
+// The transport we should use
+#define transport "FGGroundTransporter"
+
+// Should we repair buildings during this aip
+int repair_buildings = YES;
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNTS
+
+/////////////////////////////////////////////////////////////////////////////
+
+UNIT_CONSTRUCTION_PROGRAM unit_construction_program[MAX_UCP_LENGTH];
+
+#DATA
+
+//   Which Account           BUDGET             BUDGET CAP
+//--------------------------------------------------------
+     "Slush_fund",           UNLIMITED,         UNLIMITED;
+     "Base_building",        30,                10000;
+     "Offensive_Inf",        30,                5000;
+     "Offensive_Veh",        40,                15000;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ACCOUNT NOTES
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Slush_fund
+//
+ACCOUNT Slush_fund[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    19,          "FGConstructionCrew",   NUMBER_TO_HAVE,           1;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Base_building
+//
+ACCOUNT Base_building[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    20,          "fh1",                  NUMBER_TO_HAVE,           1;
+    19,          "fgpp",                 NUMBER_TO_HAVE,           3;
+    18,          "fglp",                 NUMBER_TO_HAVE,           1;
+    16,          "fu1",                  NUMBER_TO_HAVE,           1;
+    15,          "fgpp",                 NUMBER_TO_HAVE,           1;
+    14,          "fg",                   NUMBER_TO_HAVE,           4;
+    13,          "fc1",                  NUMBER_TO_HAVE,           1;
+    12,          "fc2",                  NUMBER_TO_HAVE,           1;
+    11,          "fu2",                  NUMBER_TO_HAVE,           1;
+
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Offensive Infantry
+//
+ACCOUNT Offensive_Inf[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    5,           "FGFreedomFighter",     NUMBER_TO_HAVE,           10;
+    5,           "FGMercenary",          NUMBER_TO_HAVE,           8;
+    5,           "FGSuicideNuker",       NUMBER_TO_HAVE,           2;
+    5,           "FGSniper",             NUMBER_TO_HAVE,           2;
+#END_DATA
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Offensive Vehicles
+//
+ACCOUNT Offensive_Veh[MAX_ACCOUNT_LENGTH];
+
+#DATA
+
+//  Priority     Item Name               Build Type                Build Amount
+//------------------------------------------------------------------------------
+    5,           "FGTripleRailHoverTank",NUMBER_TO_HAVE,           3;
+    5,           "FGTankHunterTank",     NUMBER_TO_HAVE,           4;
+    5,           "FGMediumTank",         NUMBER_TO_HAVE,           4;
+    5,           "FGSpiderBike",         NUMBER_TO_HAVE,           6;
+#END_DATA
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// FORCE MATCHING
+
+/////////////////////////////////////////////////////////////////////////////
+FORCE_MATCHING My_Matchings[MAX_FORCE_MATCHING];
+
+#DATA
+
+// Unit Name                       Multiplier
+//-------------------------------------------
+   "FGSuicideNuker",               2.00;
+   "IMPTachyonTank",               1.50;
+   "IMPTachyonTankDecoy",          1.50;
+   "IMPShredder",                  3.00;
+#END_DATA
+
+
+BUILDING_MATCHING My_Building_Matchings[MAX_BUILDINGS];
+
+#DATA
+
+// Building Name                   Multiplier         Where to Build
+//------------------------------------------------------------------
+   "fh1",                          1.00,              CENTER_OF_BASE;
+   "fh2",                          1.00,              CENTER_OF_BASE;
+   "fh3",                          1.00,              CENTER_OF_BASE;
+   "fu1",                          1.00,              CENTER_OF_BASE;
+   "fu2",                          1.00,              CENTER_OF_BASE;
+   "fc1",                          1.00,              CENTER_OF_BASE;
+   "fc2",                          1.00,              CENTER_OF_BASE;
+   "fc1",                          1.00,              CENTER_OF_BASE;
+   "fgpp",                         1.00,              CENTER_OF_BASE;
+   "fgpp",                         1.00,              CENTER_OF_BASE;
+   "fglp",                         1.00,              CENTER_OF_BASE;
+   "fg",                           1.00,              PERIMETER;
+   "fa",                           1.00,              PERIMETER;
+   "fs",                           1.00,              PERIMETER;
+   "fgho",                         1.00,              CENTER_OF_BASE;
+   "fgre",                         1.00,              CENTER_OF_BASE;
+   "ih1",                          1.00,              CENTER_OF_BASE;
+   "ih2",                          1.00,              CENTER_OF_BASE;
+   "ih3",                          1.00,              CENTER_OF_BASE;
+   "iu1",                          1.00,              CENTER_OF_BASE;
+   "iu2",                          1.00,              CENTER_OF_BASE;
+   "ic1",                          1.00,              CENTER_OF_BASE;
+   "ic2",                          1.00,              CENTER_OF_BASE;
+   "imppp",                        1.00,              CENTER_OF_BASE;
+   "impar",                        1.00,              CENTER_OF_BASE;
+   "ig",                           1.00,              PERIMETER;
+   "ia",                           1.00,              PERIMETER;
+   "it",                           1.00,              CENTER_OF_BASE;
+   "itrc",                         1.00,              CENTER_OF_BASE;
+   "impho",                        1.00,              CENTER_OF_BASE;
+   "impre",                        1.00,              CENTER_OF_BASE;
+#END_DATA
+
+///////////////////////////////////////////////////////////////////////////////
+// Unit Match-ups
+// --------------
+// When we see a unit of one of the following types, build the corresponding 
+// unit in the corresponding quantity
+UNIT_MATCH_UP My_Match_ups[MAX_BUILDINGS];
+
+#DATA
+
+// Enemy Unit           What to build           How many to build
+//------------------------------------------------------------------
+   "IMPSPA",       "FGTripleRailHoverTank",          1.0;
+#END_DATA
+

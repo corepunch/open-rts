@@ -1,0 +1,52 @@
+;
+;  Conditional FSM for team 0
+;
+DefineEndCondTree(0)
+{
+;
+; Conditional State #1
+;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 50 "c1to2.txt")
+    {
+
+     CritAND()
+     {
+        CritDestroyUnit ()
+        {
+        103 101 99 97 95 87
+        }
+        CritHaveCredits (8000)
+        CritBuildBuilding(fu1 0 1)
+        CritBuildBuilding(fc1 0 1)
+     } ; and
+    } ; Condition
+
+
+    DefineCondition(2 0 0 50 "c1to2.txt")
+    {
+     CritONCE()
+     {
+      CritAND()
+      {
+      CritBuildBuilding(fu1 0 1)
+      CritBuildBuilding(fc1 0 1)
+      } ; and
+     } ; once
+    }  ;Cond
+  } ; state
+;
+; Conditional State #2
+;
+  DefineCondState()
+  {
+    DefineCondition(1 0 0 50 "c1to2.txt")
+    {
+    CritTimer(10)
+    }
+;    TriggerMessage( MSG_OBJECTSUCCESS )
+  }
+}
+
+

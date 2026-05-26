@@ -1,0 +1,48 @@
+DefineEndCondTree( 0 )
+{
+  ; State 1 this sets up the computer's alliances and waits for the playert 
+  DefineCondState()
+  {
+    ; This checks to see if the transport has been killed on the way to the region 
+    DefineCondition( 0 0 0 0 "comp_wins" )
+    {
+      CritDestroyUnit()
+      {
+        1100 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    ; This checks to see if the player got the spy to the region 
+    DefineCondition( 2 0 0 0 "state_2" )
+    {
+      CritMoveUnitsToRegion( 195 1 )
+      {
+        1100 
+        ;; Unit_ID
+      }
+      ;; Criteria
+    }
+    SetAlliance( 0 2 1 1 1 1 1 1 )
+    ;; State_Actions
+  }
+
+  ; State 2 this state checks to see if the players units are destroyed 
+  DefineCondState()
+  {
+    DefineCondition( 0 0 0 0 "compwins" )
+    {
+      CritAND()
+      {
+        CritKillTeamUnits( 0 0 )
+        CritDestroyTeamBuildings( 0 0 )
+        ;; Criteria
+      }
+      ;; Criteria
+    }
+    SetAlliance( 0 2 1 2 0 1 1 1 )
+    ;; State_Actions
+  }
+
+  ;; State
+}

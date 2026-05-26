@@ -1,0 +1,53 @@
+;
+; Game End Conditions for team 0
+;
+DefineEndCondTree(108000)
+{
+ ;
+  ; Conditional State #1
+  ;
+  DefineCondState()
+  {
+    DefineCondition(2 0 0 0 deadhq.txt)
+    {
+        CritTimerGame(10)
+    }
+  TriggerMessage(Infiltrator_Message)  
+  }
+  ;
+  ; Conditional State #2
+  ;
+  DefineCondState()
+  {
+    DefineCondition(0 0 0 0 youwin.txt)
+    {
+        CritDestroyTeamBuildings(6 0)
+    }
+    DefineCondition(3 0 0 0 youwin.txt)
+    {
+        CritAND()
+        {
+        CritKillUnitType(IMPSpy 0)
+        CritAND()
+          {
+             CritNOT()
+             {
+             CritStealPlan(0 fu1)
+             }
+             CritNOT()
+             {
+             CritStealPlan(0 fc1)
+             }
+          }
+        }
+    }
+  }
+
+  ;
+  ; Conditional State #3
+  ;
+  DefineCondState()
+  {
+   BonusCredits(2 10000)
+  }
+}

@@ -1,0 +1,211 @@
+; T4
+
+CreateMsg("instruct0")
+{
+  SetSound("Gvft4ol0.wav")
+  QueueSound()
+}
+
+CreateMsg("instruct1")
+{
+  SetSound("Gvft4ola.wav")
+  QueueSound()
+}
+
+CreateMsg("taunt0")
+{
+  SetSound("Gvft4olg.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct2")
+{
+  SetSound("Gvft4ol1.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct3")
+{
+  SetSound("Gvft4olb.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt1")
+{
+  SetSound("Gvft4olh.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct4")
+{
+  SetSound("Gvft4ol2.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt2")
+{
+  SetSound("Gvft4oli.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct5")
+{
+  SetSound("Gvft4ol3.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt3")
+{
+  SetSound("Gvft4olk.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct6")
+{
+  SetSound("Gvft4olc.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct7")
+{
+  SetSound("Gvft4old.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt4")
+{
+  SetSound("Gvft4oll.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct8")
+{
+  SetSound("Gvft4olf.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt5")
+{
+  SetSound("Gvft4olm.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct9")
+{
+  SetSound("Gvft4ol4.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt6")
+{
+  SetSound("Gvft4oln.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct10")
+{
+  SetSound("Gvft4olq.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt7")
+{
+  SetSound("Gvft4olo.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct11")
+{
+  SetSound("Gvft4ol6.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt8")
+{
+  SetSound("Gvft4ol8.WAV")
+  QueueSound()
+}
+
+CreateMsg("congrats1")
+{
+  SetSound("Gvftrel3.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt9")
+{
+  SetSound("Gvft4olp.WAV")
+  QueueSound()
+}
+
+CreateMsg("taunt10")
+{
+  SetSound("Gvft4olj.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct12")
+{
+  SetSound("Gvft4olr.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct13")
+{
+  SetSound("Gvft4ols.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct14")
+{
+  SetSound("Gvft4olt.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct15")
+{
+  SetSound("Gvft4olu.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct16")
+{
+  SetSound("Gvft4olv.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct17")
+{
+  SetSound("Gvft4olw.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct18")
+{
+  SetSound("Gvft4olx.WAV")
+  QueueSound()
+}
+
+CreateMsg("fail0")
+{
+  SetSound("Gvft4olo.WAV")
+  QueueSound()
+}
+
+CreateMsg("instruct19")
+{
+  SetSound("Gvft4olz.WAV")
+  QueueSound()
+}
+
+CreateMsg("fail1")
+{
+  SetSound("Gvt4zolz.WAV")
+  QueueSound()
+}
+
+CreateMsg("fail2")
+{
+  SetSound("GVFTRNL3.WAV")
+  QueueSound()
+}
