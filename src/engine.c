@@ -503,6 +503,16 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
     return x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
 }
 
+static int direction_code_from_vector(float dx, float dy) {
+    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
+    float angle = atan2f(-dy, dx);
+    const float quarter_turn = 0.7853981633974483f;
+    int sector = (int)floorf(angle / quarter_turn + 0.5f);
+    sector %= 8;
+    if (sector < 0) sector += 8;
+    return sector * 2;
+}
+
 void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
     int selected_index = 0;
     for (int i = 0; i < unit_count; ++i) {
@@ -527,6 +537,7 @@ void update_units(Unit *units, int unit_count, float dt) {
         float dx = tx - u->gx;
         float dy = ty - u->gy;
         float dist = sqrtf(dx * dx + dy * dy);
+        if (dist >= 0.001f) u->facing_code = direction_code_from_vector(dx, dy);
         float step = u->speed * dt;
         if (dist <= step || dist < 0.001f) {
             u->gx = tx;
@@ -541,6 +552,59 @@ void update_units(Unit *units, int unit_count, float dt) {
             u->gy += dy / dist * step;
         }
     }
+}
+
+static const SpriteSequence *sprite_sequence_find(const SpriteSheet *sprite, const char *name) {
+    if (!sprite || !name) return NULL;
+    for (int i = 0; i < sprite->sequence_count; ++i) {
+        if (strcmp(sprite->sequences[i].name, name) == 0) return &sprite->sequences[i];
+    }
+    return NULL;
+}
+
+static int sequence_facing_index(const SpriteSequence *seq, int direction_code) {
+    if (!seq || seq->facings <= 0) return 0;
+    int best = 0;
+    int best_delta = 1000;
+    for (int i = 0; i < seq->facings && i < MAX_SEQUENCE_FACINGS; ++i) {
+        int code = seq->direction_codes[i];
+        int delta = abs(code - direction_code);
+        if (delta > 8) delta = 16 - delta;
+        if (delta < best_delta) {
+            best = i;
+            best_delta = delta;
+        }
+    }
+    return best;
+}
+
+static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, uint32_t ticks) {
+    bool moving = unit->path_index > 0 && unit->path_index < unit->path_len;
+    const SpriteSequence *seq = sprite_sequence_find(sprite, moving ? "run" : "stand");
+    if (!seq && moving) seq = sprite_sequence_find(sprite, "walk");
+    if (!seq) seq = sprite_sequence_find(sprite, "idle");
+    if (seq && seq->facings > 0 && seq->length > 0) {
+        int direction_code = unit->facing_code;
+        if (moving) {
+            Cell c = unit->path[unit->path_index];
+            float dx = ((float)c.x + 0.5f) - unit->gx;
+            float dy = ((float)c.y + 0.5f) - unit->gy;
+            direction_code = direction_code_from_vector(dx, dy);
+        }
+        int facing = sequence_facing_index(seq, direction_code);
+        int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
+        int anim = moving && seq->length > 1 ? (int)((ticks / (uint32_t)tick_ms) % (uint32_t)seq->length) : 0;
+        int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
+        int frame = seq->frame_starts[facing] + anim * frame_stride;
+        if (frame >= 0 && frame < sprite->frame_count) return frame;
+    }
+
+    int anim_frames = sprite->primary_frames_per_rotation > 0 ?
+        sprite->primary_frames_per_rotation : sprite->frame_count;
+    if (moving && anim_frames > 0 && sprite->sequence_count == 0) {
+        return (int)((ticks / 120) % (uint32_t)anim_frames);
+    }
+    return 0;
 }
 
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
@@ -563,12 +627,7 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
 
         float sx, sy;
         grid_to_screen(app, u->gx, u->gy, &sx, &sy);
-        int frame = 0;
-        int anim_frames = sprite->primary_frames_per_rotation > 0 ?
-            sprite->primary_frames_per_rotation : sprite->frame_count;
-        if (u->path_len != 0 && anim_frames > 0) {
-            frame = (int)((ticks / 120) % (uint32_t)anim_frames);
-        }
+        int frame = sprite_frame_for_unit(sprite, u, ticks);
         if (frame >= sprite->frame_count) frame = 0;
         int scale = app_scale(app);
         int sprite_w = sprite->frame_w * scale;
@@ -581,6 +640,7 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
         };
         const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
         if (shadow && shadow->texture && shadow->frame_count > 0) {
+            int shadow_frame = frame < shadow->frame_count ? frame : 0;
             int shadow_w = shadow->frame_w * scale;
             int shadow_h = shadow->frame_h * scale;
             SDL_Rect shadow_dst = {
@@ -589,7 +649,7 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
                 shadow_w,
                 shadow_h,
             };
-            SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[0], &shadow_dst);
+            SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
         }
         SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[frame], &dst);
         if (u->selected) {

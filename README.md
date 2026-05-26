@@ -75,7 +75,8 @@ The code keeps the old-game-specific pieces as adapters:
 - `BOTG`/FTG archive loader: extracts contained files.
 - `RSPR`/`SSPR` sprite loader: decodes paletted RLE sprite frames.
 - Dark Colony `.SPR` loader: embedded palette, frame descriptors, and raw
-  indexed pixels.
+  indexed pixels, with C sequence tables for stand/run frame ranges based on
+  the game's `.FIN` animation labels.
 - Dark Colony `.MAP` loader: width/height plus 6-byte map records. It uses the
   sibling `.O16` overview for first-pass terrain colors while the true terrain
   tile/remap resources are reverse engineered.
@@ -99,6 +100,8 @@ or other 8-bit paletted games without changing the simulation loop.
 
 Sources:
 
+- Project reverse-engineering links and local data notes:
+  [REFERENCES.md](REFERENCES.md)
 - Paul Bettner and Mark Terrano, “1500 Archers on a 28.8: Network Programming
   in Age of Empires and Beyond”:
   https://zoo.cs.yale.edu/classes/cs538/readings/papers/terrano_1500arch.pdf

@@ -302,19 +302,28 @@ static bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const ui
     return out->texture != NULL;
 }
 
+static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
+    if (size < 8 + 256 * 3) return;
+    const uint8_t *p = spr + 8;
+    for (int i = 0; i < 256; ++i) {
+        int r = clamp255((int)p[i * 3 + 0] * 4);
+        int g = clamp255((int)p[i * 3 + 1] * 4);
+        int b = clamp255((int)p[i * 3 + 2] * 4);
+        colors[i] = i == 0 ? 0x00000000u :
+            (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
+    }
+}
+
 static void dark_reign_add_water_animations(Tileset *tileset) {
     const int frame_ms = 180;
-    for (int terrain_type = 11; terrain_type <= 14; ++terrain_type) {
-        int base = 8 + terrain_type * 8;
-        for (int variation = 0; variation < 8; ++variation) {
-            int frames[4] = {
-                base + variation,
-                base + ((variation + 1) & 7),
-                base + ((variation + 2) & 7),
-                base + ((variation + 1) & 7),
-            };
-            tileset_add_animation(tileset, base + variation, frames, 4, frame_ms);
-        }
+    for (int variation = 0; variation < 8 && variation < tileset->count; ++variation) {
+        int frames[4] = {
+            variation,
+            (variation + 1) & 7,
+            (variation + 2) & 7,
+            (variation + 1) & 7,
+        };
+        tileset_add_animation(tileset, variation, frames, 4, frame_ms);
     }
 
     for (int group = 0; group < 14; ++group) {
@@ -333,15 +342,90 @@ static void dark_reign_add_water_animations(Tileset *tileset) {
     }
 }
 
-static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
-    if (size < 8 + 256 * 3) return;
-    const uint8_t *p = spr + 8;
-    for (int i = 0; i < 256; ++i) {
-        int r = clamp255((int)p[i * 3 + 0] * 4);
-        int g = clamp255((int)p[i * 3 + 1] * 4);
-        int b = clamp255((int)p[i * 3 + 2] * 4);
-        colors[i] = i == 0 ? 0x00000000u :
-            (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
+static bool dark_colony_palette_index_is_water(uint8_t index, const uint32_t palette[256]) {
+    uint32_t color = palette[index];
+    uint8_t r = (uint8_t)(color >> 16);
+    uint8_t g = (uint8_t)(color >> 8);
+    uint8_t b = (uint8_t)color;
+    return index >= 201 && index <= 211 && r < 80 && g > 36 && b > 36 && g + b > r * 2;
+}
+
+static int dark_colony_palette_wave_score(uint8_t index, const uint32_t palette[256]) {
+    uint32_t color = palette[index];
+    uint8_t r = (uint8_t)(color >> 16);
+    uint8_t g = (uint8_t)(color >> 8);
+    uint8_t b = (uint8_t)color;
+    return (int)g + (int)b - (int)r * 2;
+}
+
+enum { DARK_COLONY_WATER_WAVE_COUNT = 7 };
+
+static bool dark_colony_palette_index_is_wave(uint8_t index, const uint32_t palette[256]) {
+    if (index < 201 || index > 207 || !dark_colony_palette_index_is_water(index, palette)) return false;
+    int score = dark_colony_palette_wave_score(index, palette);
+    int rank = 0;
+    for (uint8_t other = 201; other <= 207; ++other) {
+        if (!dark_colony_palette_index_is_water(other, palette)) continue;
+        int other_score = dark_colony_palette_wave_score(other, palette);
+        if (other_score > score || (other_score == score && other < index)) rank++;
+    }
+    return rank < DARK_COLONY_WATER_WAVE_COUNT;
+}
+
+static int dark_colony_palette_wave_count(const uint32_t palette[256]) {
+    int count = 0;
+    for (uint8_t index = 201; index <= 207; ++index) {
+        if (dark_colony_palette_index_is_wave(index, palette)) count++;
+    }
+    return count;
+}
+
+static bool dark_colony_tile_has_water(const uint8_t *src, const uint32_t palette[256],
+                                       size_t tile_bytes) {
+    int water = 0;
+    int opaque = 0;
+    for (size_t i = 0; i < tile_bytes; ++i) {
+        uint8_t index = src[i];
+        uint32_t color = palette[index];
+        uint8_t r = (uint8_t)(color >> 16);
+        uint8_t g = (uint8_t)(color >> 8);
+        uint8_t b = (uint8_t)color;
+        if (index == 0 || (r > 240 && g < 16 && b > 240)) continue;
+        opaque++;
+        if (dark_colony_palette_index_is_water(index, palette)) water++;
+    }
+    return water >= 96 && water * 4 >= opaque;
+}
+
+static uint8_t dark_colony_cycle_water_index(uint8_t index, const uint32_t palette[256], int phase) {
+    if (!dark_colony_palette_index_is_wave(index, palette)) return index;
+    uint8_t wave_indices[DARK_COLONY_WATER_WAVE_COUNT];
+    int wave_count = 0;
+    int index_pos = -1;
+    for (uint8_t other = 201; other <= 207; ++other) {
+        if (!dark_colony_palette_index_is_wave(other, palette)) continue;
+        if (wave_count < DARK_COLONY_WATER_WAVE_COUNT) {
+            if (other == index) index_pos = wave_count;
+            wave_indices[wave_count++] = other;
+        }
+    }
+    if (index_pos < 0 || wave_count == 0) return index;
+    return wave_indices[(index_pos + phase) % wave_count];
+}
+
+static void blit_dark_colony_tile_phase(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
+                                        const uint8_t *src, int src_w, int src_h,
+                                        const uint32_t palette[256], int phase) {
+    for (int y = 0; y < src_h; ++y) {
+        for (int x = 0; x < src_w; ++x) {
+            uint8_t index = dark_colony_cycle_water_index(src[y * src_w + x], palette, phase);
+            uint32_t color = palette[index];
+            int dx = dst_x + x;
+            int dy = dst_y + y;
+            if (dx >= 0 && dy >= 0 && dx < dst_w && dy < dst_h) {
+                dst[dy * dst_w + dx] = color;
+            }
+        }
     }
 }
 
@@ -367,23 +451,6 @@ static bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, T
         free_blob(&blob);
         return false;
     }
-    int rows = (count + TILE_ATLAS_COLS - 1) / TILE_ATLAS_COLS;
-    int atlas_w = TILE_ATLAS_COLS * tile_w;
-    int atlas_h = rows * tile_h;
-    int max_key = 0;
-    for (int tile = 0; tile < count; ++tile) {
-        uint32_t key = read_u32_le(blob.bytes + header_bytes + (size_t)tile * record_bytes);
-        if (key <= UINT16_MAX && (int)key > max_key) max_key = (int)key;
-    }
-    int *tile_lookup = calloc((size_t)max_key + 1, sizeof(int));
-    uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    if (!rgba || !tile_lookup) {
-        free(tile_lookup);
-        free(rgba);
-        free_blob(&blob);
-        return false;
-    }
-    for (int i = 0; i <= max_key; ++i) tile_lookup[i] = -1;
     uint32_t palette[256];
     for (int i = 0; i < palette_count; ++i) {
         const uint8_t *p = blob.bytes + 8 + i * 3;
@@ -394,54 +461,91 @@ static bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, T
         palette[i] = (transparent ? 0x00000000u : 0xff000000u) |
                      ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
     }
+
+    int wave_phase_count = dark_colony_palette_wave_count(palette);
+    if (wave_phase_count > MAX_TILE_ANIMATION_FRAMES) wave_phase_count = MAX_TILE_ANIMATION_FRAMES;
+    int extra_phase_count = wave_phase_count > 1 ? wave_phase_count - 1 : 0;
+
+    int max_key = 0;
+    int animated_count = 0;
+    uint8_t *animate_tile = calloc((size_t)count, sizeof(uint8_t));
+    uint32_t *record_keys = calloc((size_t)count, sizeof(uint32_t));
+    if (!animate_tile || !record_keys) {
+        free(animate_tile);
+        free(record_keys);
+        free_blob(&blob);
+        return false;
+    }
+    for (int tile = 0; tile < count; ++tile) {
+        const uint8_t *record = blob.bytes + header_bytes + (size_t)tile * record_bytes;
+        uint32_t key = read_u32_le(record);
+        record_keys[tile] = key;
+        if (key <= UINT16_MAX && (int)key > max_key) max_key = (int)key;
+        if (extra_phase_count > 0 && dark_colony_tile_has_water(record + 4, palette, tile_bytes)) {
+            animate_tile[tile] = 1;
+            animated_count++;
+        }
+    }
+    int total_tiles = count + animated_count * extra_phase_count;
+    int synthetic_key_base = max_key + 1;
+    int lookup_count = synthetic_key_base + animated_count * extra_phase_count;
+    int rows = (total_tiles + TILE_ATLAS_COLS - 1) / TILE_ATLAS_COLS;
+    int atlas_w = TILE_ATLAS_COLS * tile_w;
+    int atlas_h = rows * tile_h;
+    int *tile_lookup = calloc((size_t)lookup_count, sizeof(int));
+    uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
+    if (!rgba || !tile_lookup) {
+        free(tile_lookup);
+        free(rgba);
+        free(animate_tile);
+        free(record_keys);
+        free_blob(&blob);
+        return false;
+    }
+    for (int i = 0; i < lookup_count; ++i) tile_lookup[i] = -1;
+    int extra_tile = count;
+    int extra_key = synthetic_key_base;
     for (int tile = 0; tile < count; ++tile) {
         int tx = (tile % TILE_ATLAS_COLS) * tile_w;
         int ty = (tile / TILE_ATLAS_COLS) * tile_h;
         const uint8_t *record = blob.bytes + header_bytes + (size_t)tile * record_bytes;
-        uint32_t key = read_u32_le(record);
+        uint32_t key = record_keys[tile];
         if (key <= (uint32_t)max_key) tile_lookup[key] = tile;
         const uint8_t *src = record + 4;
         blit_indexed_to_rgba(rgba, atlas_w, atlas_h, tx, ty, src, tile_w, tile_h, palette);
+        if (animate_tile[tile]) {
+            int frames[MAX_TILE_ANIMATION_FRAMES] = { (int)key };
+            for (int phase = 1; phase < wave_phase_count; ++phase) {
+                int anim_tile = extra_tile++;
+                int ax = (anim_tile % TILE_ATLAS_COLS) * tile_w;
+                int ay = (anim_tile / TILE_ATLAS_COLS) * tile_h;
+                int phase_key = extra_key + phase - 1;
+                frames[phase] = phase_key;
+                tile_lookup[phase_key] = anim_tile;
+                blit_dark_colony_tile_phase(rgba, atlas_w, atlas_h, ax, ay,
+                                            src, tile_w, tile_h, palette, phase);
+            }
+            tileset_add_animation(out, (int)key, frames, wave_phase_count, 180);
+            extra_key += extra_phase_count;
+        }
     }
     out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
     out->tile_lookup = tile_lookup;
-    out->tile_lookup_count = max_key + 1;
-    out->count = count;
+    out->tile_lookup_count = lookup_count;
+    out->count = total_tiles;
     out->atlas_cols = TILE_ATLAS_COLS;
     out->tile_w = tile_w;
     out->tile_h = tile_h;
     out->draw_y_offset = 0;
     free(rgba);
+    free(animate_tile);
+    free(record_keys);
     free_blob(&blob);
     if (!out->texture) {
         destroy_tileset(out);
         return false;
     }
     return true;
-}
-
-static bool dark_colony_key_exists(const int *tile_lookup, int tile_lookup_count, int key) {
-    return key >= 0 && key < tile_lookup_count && tile_lookup[key] >= 0;
-}
-
-static void dark_colony_add_wave_animation(Tileset *tileset, int key, int step, int frame_ms) {
-    int frames[4] = { key, key + step, key + step * 2, key + step };
-    for (int i = 0; i < 4; ++i) {
-        if (!dark_colony_key_exists(tileset->tile_lookup, tileset->tile_lookup_count, frames[i])) return;
-    }
-    tileset_add_animation(tileset, key, frames, 4, (uint16_t)frame_ms);
-}
-
-static void dark_colony_add_water_animations(Tileset *tileset) {
-    const int frame_ms = 180;
-    for (int key = 0; key < tileset->tile_lookup_count; ++key) {
-        if (!dark_colony_key_exists(tileset->tile_lookup, tileset->tile_lookup_count, key)) continue;
-        int low = key & 1023;
-        bool water_family = (low >= 250 && low <= 330) || (low >= 400 && low <= 446);
-        if (!water_family) continue;
-        dark_colony_add_wave_animation(tileset, key, 1, frame_ms);
-        dark_colony_add_wave_animation(tileset, key, 2, frame_ms);
-    }
 }
 
 static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t tileset_size) {
@@ -1309,6 +1413,48 @@ typedef struct {
     int hotspots;
 } SprSection;
 
+static void sprite_sheet_add_sequence(SpriteSheet *sheet, const char *name, int facings, int length,
+                                      int tick_ms, const int *frame_starts,
+                                      const int *direction_codes) {
+    if (!sheet || !name || sheet->sequence_count >= MAX_SPRITE_SEQUENCES ||
+        facings <= 0 || facings > MAX_SEQUENCE_FACINGS || length <= 0) {
+        return;
+    }
+    SpriteSequence *seq = &sheet->sequences[sheet->sequence_count++];
+    memset(seq, 0, sizeof(*seq));
+    snprintf(seq->name, sizeof(seq->name), "%s", name);
+    seq->facings = facings;
+    seq->length = length;
+    seq->frame_stride = 1;
+    seq->tick_ms = tick_ms > 0 ? tick_ms : 120;
+    for (int i = 0; i < facings; ++i) {
+        seq->frame_starts[i] = frame_starts ? frame_starts[i] : i * length;
+        seq->direction_codes[i] = direction_codes ? direction_codes[i] : i * 16 / facings;
+    }
+}
+
+static void sprite_sheet_set_last_sequence_stride(SpriteSheet *sheet, int frame_stride) {
+    if (!sheet || sheet->sequence_count <= 0 || frame_stride <= 0) return;
+    sheet->sequences[sheet->sequence_count - 1].frame_stride = frame_stride;
+}
+
+static void sprite_sheet_add_linear_sequence(SpriteSheet *sheet, const char *name, int start,
+                                             int facings, int length, int tick_ms) {
+    int starts[MAX_SEQUENCE_FACINGS];
+    for (int i = 0; i < facings && i < MAX_SEQUENCE_FACINGS; ++i) {
+        starts[i] = start + i * length;
+    }
+    sprite_sheet_add_sequence(sheet, name, facings, length, tick_ms, starts, NULL);
+}
+
+static bool sprite_sheet_has_sequence(const SpriteSheet *sheet, const char *name) {
+    if (!sheet || !name) return false;
+    for (int i = 0; i < sheet->sequence_count; ++i) {
+        if (strcmp(sheet->sequences[i].name, name) == 0) return true;
+    }
+    return false;
+}
+
 static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
                              const uint32_t palette[256], SpriteSheet *out) {
     memset(out, 0, sizeof(*out));
@@ -1431,6 +1577,21 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
     out->frame_h = szy;
     out->rotations = nrots;
     out->primary_frames_per_rotation = sects[0].last_anim - sects[0].first_anim + 1;
+    int sequence_start = 0;
+    static const char *section_names[] = { "run", "shoot", "idle", "stand" };
+    for (int s = 0; s < nsects && s < (int)(sizeof(section_names) / sizeof(section_names[0])); ++s) {
+        int section_frames = sects[s].last_anim - sects[s].first_anim + 1;
+        if (section_frames > 0) {
+            sprite_sheet_add_linear_sequence(out, section_names[s], sequence_start,
+                                             nrots, section_frames, sects[s].framerate);
+            sequence_start += nrots * section_frames;
+        }
+    }
+    if (!sprite_sheet_has_sequence(out, "stand") && out->sequence_count > 0) {
+        SpriteSequence stand = out->sequences[out->sequence_count - 1];
+        snprintf(stand.name, sizeof(stand.name), "stand");
+        if (out->sequence_count < MAX_SPRITE_SEQUENCES) out->sequences[out->sequence_count++] = stand;
+    }
     free(rgba);
     free(indices);
     free(sects);
@@ -1551,7 +1712,7 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     }
 
     dark_colony_palette_from_spr(blob.bytes, blob.size, palette_out);
-    int visible_frames = compressed && frame_count > 32 ? 32 : frame_count;
+    int visible_frames = frame_count;
     int max_w = 1;
     int max_h = 1;
     size_t total_pixels = 0;
@@ -1653,6 +1814,41 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     out->frame_h = max_h;
     out->rotations = 1;
     out->primary_frames_per_rotation = visible_frames;
+    const char *base = strrchr(path, '/');
+    base = base ? base + 1 : path;
+    static const int dc_codes_east_first[8] = { 12, 14, 0, 2, 4, 6, 8, 10 };
+    static const int dc_codes_trooper[8] = { 6, 8, 10, 12, 14, 0, 2, 4 };
+    static const int trsc_stand[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    static const int trsc_run[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
+    static const int gray_run[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
+    static const int trooper_stand[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    static const int trooper_run[8] = { 8, 9, 10, 11, 12, 13, 14, 15 };
+    if (strcasecmp(base, "TRSC.SPR") == 0) {
+        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trsc_stand, dc_codes_east_first);
+        sprite_sheet_add_sequence(out, "run", 8, 8, 120, trsc_run, dc_codes_east_first);
+        sprite_sheet_set_last_sequence_stride(out, 8);
+    } else if (strcasecmp(base, "GRAY.SPR") == 0) {
+        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trsc_stand, dc_codes_east_first);
+        sprite_sheet_add_sequence(out, "run", 8, 7, 120, gray_run, dc_codes_east_first);
+        sprite_sheet_set_last_sequence_stride(out, 8);
+    } else if (strcasecmp(base, "TROOPER1.SPR") == 0) {
+        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trooper_stand, dc_codes_trooper);
+        sprite_sheet_add_sequence(out, "run", 8, 2, 120, trooper_run, dc_codes_trooper);
+        sprite_sheet_set_last_sequence_stride(out, 8);
+    } else if (visible_frames >= 16) {
+        int stand[8];
+        int run[8];
+        for (int i = 0; i < 8; ++i) {
+            stand[i] = i;
+            run[i] = i + 8;
+        }
+        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, stand, dc_codes_east_first);
+        int run_length = (visible_frames - 8) / 8;
+        if (run_length < 1) run_length = 1;
+        if (run_length > 8) run_length = 8;
+        sprite_sheet_add_sequence(out, "run", 8, run_length, 120, run, dc_codes_east_first);
+        sprite_sheet_set_last_sequence_stride(out, 8);
+    }
     free(rgba);
     free_blob(&blob);
     return out->texture != NULL;
@@ -1717,7 +1913,9 @@ bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root
         snprintf(til_path, sizeof(til_path), "%s/graphics/BARREN.TIL", data_root);
         if (!load_dark_tileset(renderer, til_path, terrain_palette, tileset)) return false;
     }
-    dark_reign_add_water_animations(tileset);
+    if (strcasecmp(map->tileset_name, "SNOW") != 0) {
+        dark_reign_add_water_animations(tileset);
+    }
 
     if (!load_unit_sprite(renderer, data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);
@@ -1733,7 +1931,6 @@ bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_roo
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", data_root, map->tileset_name);
     if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;
-    dark_colony_add_water_animations(tileset);
 
     char sprite_path[1024];
     uint32_t sprite_palette[256] = { 0 };

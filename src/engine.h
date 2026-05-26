@@ -17,6 +17,8 @@
 #define MAX_DECORATION_SPRITES 512
 #define MAX_TILE_OVERLAYS 3
 #define MAX_TILE_ANIMATION_FRAMES 8
+#define MAX_SPRITE_SEQUENCES 8
+#define MAX_SEQUENCE_FACINGS 16
 #define MAX_PATH_CELLS 4096
 #define FIXED_DT (1.0f / 30.0f)
 
@@ -58,6 +60,16 @@ typedef struct {
 } Tileset;
 
 typedef struct {
+    char name[16];
+    int facings;
+    int length;
+    int frame_stride;
+    int tick_ms;
+    int frame_starts[MAX_SEQUENCE_FACINGS];
+    int direction_codes[MAX_SEQUENCE_FACINGS];
+} SpriteSequence;
+
+typedef struct {
     SDL_Texture *texture;
     SDL_Rect *frames;
     int frame_count;
@@ -65,6 +77,8 @@ typedef struct {
     int frame_h;
     int rotations;
     int primary_frames_per_rotation;
+    SpriteSequence sequences[MAX_SPRITE_SEQUENCES];
+    int sequence_count;
 } SpriteSheet;
 
 typedef struct {
@@ -110,6 +124,7 @@ typedef struct {
     float gx;
     float gy;
     float speed;
+    int facing_code;
     bool selected;
     char sprite_name[32];
     char shadow_name[32];
