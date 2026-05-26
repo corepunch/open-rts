@@ -8,8 +8,14 @@ SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
 
 BUILD_DIR := build
 TARGET := $(BUILD_DIR)/open-rts
-SOURCES := src/main.c src/engine.c
-OBJECTS := $(SOURCES:src/%.c=$(BUILD_DIR)/%.o)
+SOURCES := \
+	src/main.c \
+	src/engine.c \
+	src/plugin.c \
+	src/renderer_sdl.c \
+	plugins/DarkReign/plugin.c \
+	plugins/DarkColony/plugin.c
+OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCES))
 DATA_DIR := data
 DARK_REIGN_ROOT := $(DATA_DIR)/REIGN/dark
 DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
@@ -21,7 +27,8 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CC) $(OBJECTS) -o $@ $(SDL_LIBS) -lm
 
-$(BUILD_DIR)/%.o: src/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR):

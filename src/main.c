@@ -1,5 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#include "plugin.h"
+#include "renderer.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -12,29 +14,7 @@
 #include <strings.h>
 
 #define DEFAULT_DATA_ROOT "data/REIGN/dark"
-#define DEFAULT_MAP "scenario/MULTI/2NIC/2NIC.MAP"
 #define DEFAULT_UNIT_SPR "ucfcnst0.spr"
-#define DEFAULT_DARK_COLONY_ROOT "data/DCOLONY"
-#define DEFAULT_DARK_COLONY_MAP "SCENARIO/MPLAYER/D2PLAY01.MAP"
-#define DEFAULT_DARK_COLONY_SPR "SPRITES/TROOPER1.SPR"
-
-typedef enum {
-    GAME_DARK_REIGN,
-    GAME_DARK_COLONY,
-} GameKind;
-
-typedef struct RtsGamePlugin {
-    const char *id;
-    const char *default_root;
-    const char *default_map;
-    const char *default_sprite;
-    int cell_w;
-    int cell_h;
-    bool (*load_map)(const char *map_path, GameMap *out);
-    bool (*load_assets)(SDL_Renderer *renderer, const char *data_root, const GameMap *map,
-                        const char *sprite_name, Tileset *tileset, SpriteSheet *unit_sprite);
-    int (*load_initial_units)(const char *map_path, Unit *units, int max_units);
-} RtsGamePlugin;
 
 static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const Tileset *tileset,
                                              int x, int y, int dx, int dy);
@@ -827,7 +807,7 @@ static void detect_tileset_from_scn(const char *map_path, char *tileset, size_t 
     free_blob(&blob);
 }
 
-static int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_units) {
+int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_units) {
     if (max_units <= 0) return 0;
     DarkReignDefinitions defs;
     dark_reign_load_definitions(map_path, &defs);
@@ -953,7 +933,7 @@ static void load_dark_reign_decorations(const char *map_path, GameMap *map) {
     qsort(map->decorations, (size_t)map->decoration_count, sizeof(MapDecoration), compare_map_decorations);
 }
 
-static bool load_dark_map(const char *map_path, GameMap *out) {
+bool load_dark_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
     Blob blob;
     if (!load_blob(map_path, &blob)) return false;
@@ -1009,7 +989,7 @@ static bool load_dark_map(const char *map_path, GameMap *out) {
     return true;
 }
 
-static bool load_dark_colony_map(const char *map_path, GameMap *out) {
+bool load_dark_colony_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
     Blob blob;
     if (!load_blob(map_path, &blob)) return false;
@@ -1135,7 +1115,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
     }
 }
 
-static int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
+int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
     char *text = load_text_file(scn_path);
@@ -1459,9 +1439,9 @@ static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *rende
     return true;
 }
 
-static bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                               const GameMap *map, const Unit *units,
-                                               int unit_count, SpriteCache *cache) {
+bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
+                                        const GameMap *map, const Unit *units,
+                                        int unit_count, SpriteCache *cache) {
     memset(cache, 0, sizeof(*cache));
 
     uint32_t sprite_palette[256];
@@ -1651,8 +1631,8 @@ static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *rend
     return true;
 }
 
-static bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                          const Unit *units, int unit_count, SpriteCache *cache) {
+bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
+                                   const Unit *units, int unit_count, SpriteCache *cache) {
     bool ok = true;
     for (int i = 0; i < unit_count; ++i) {
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].sprite_name)) {
@@ -1662,9 +1642,9 @@ static bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *da
     return ok;
 }
 
-static bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                          const GameMap *map, const char *sprite_name,
-                                          Tileset *tileset, SpriteSheet *unit_sprite) {
+bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
+                                   const GameMap *map, const char *sprite_name,
+                                   Tileset *tileset, SpriteSheet *unit_sprite) {
     uint32_t terrain_palette[256];
     uint32_t sprite_palette[256];
     char palette_path[1024];
@@ -1691,9 +1671,9 @@ static bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *da
     return true;
 }
 
-static bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                           const GameMap *map, const char *sprite_name,
-                                           Tileset *tileset, SpriteSheet *unit_sprite) {
+bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
+                                    const GameMap *map, const char *sprite_name,
+                                    Tileset *tileset, SpriteSheet *unit_sprite) {
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", data_root, map->tileset_name);
     if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;
@@ -1711,39 +1691,6 @@ static bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *d
         return false;
     }
     return true;
-}
-
-static const RtsGamePlugin GAME_PLUGINS[] = {
-    {
-        .id = "dark-reign",
-        .default_root = DEFAULT_DATA_ROOT,
-        .default_map = DEFAULT_MAP,
-        .default_sprite = DEFAULT_UNIT_SPR,
-        .cell_w = 24,
-        .cell_h = 24,
-        .load_map = load_dark_map,
-        .load_assets = dark_reign_plugin_load_assets,
-        .load_initial_units = load_dark_reign_initial_units,
-    },
-    {
-        .id = "dark-colony",
-        .default_root = DEFAULT_DARK_COLONY_ROOT,
-        .default_map = DEFAULT_DARK_COLONY_MAP,
-        .default_sprite = DEFAULT_DARK_COLONY_SPR,
-        .cell_w = 32,
-        .cell_h = 32,
-        .load_map = load_dark_colony_map,
-        .load_assets = dark_colony_plugin_load_assets,
-        .load_initial_units = load_dark_colony_initial_units,
-    },
-};
-
-static const RtsGamePlugin *find_game_plugin(const char *id) {
-    size_t count = sizeof(GAME_PLUGINS) / sizeof(GAME_PLUGINS[0]);
-    for (size_t i = 0; i < count; ++i) {
-        if (strcmp(GAME_PLUGINS[i].id, id) == 0) return &GAME_PLUGINS[i];
-    }
-    return NULL;
 }
 
 typedef enum {
@@ -1906,9 +1853,9 @@ int main(int argc, char **argv) {
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
-    const RtsGamePlugin *plugin = find_game_plugin("dark-reign");
+    const RtsPlugin *plugin = rts_find_plugin("dark-reign");
     if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
-        plugin = find_game_plugin(argv[arg_base + 1]);
+        plugin = rts_find_plugin(argv[arg_base + 1]);
         if (!plugin) {
             fprintf(stderr, "unknown game '%s'\n", argv[arg_base + 1]);
             return 1;
@@ -1927,33 +1874,23 @@ int main(int argc, char **argv) {
         path_join(map_path, sizeof(map_path), data_root, map_rel_or_abs);
     }
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-        fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
-        return 1;
-    }
-
+    RtsRenderer renderer;
     App app = { 0 };
     app.win_w = 1280;
     app.win_h = 800;
     app.show_grid = false;
     app.running = true;
-    app.window = SDL_CreateWindow("open-rts - paletted RTS base",
-                                  SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                  app.win_w, app.win_h,
-                                  SDL_WINDOW_RESIZABLE | ((check_only || screenshot_only) ? SDL_WINDOW_HIDDEN : 0));
-    Uint32 renderer_flags = (check_only || screenshot_only) ? SDL_RENDERER_SOFTWARE :
-                                                        (SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    app.renderer = SDL_CreateRenderer(app.window, -1, renderer_flags);
-    if (!app.window || !app.renderer) {
-        fprintf(stderr, "SDL window/renderer: %s\n", SDL_GetError());
-        SDL_Quit();
+    if (!rts_renderer_create(&renderer, rts_sdl_renderer_backend(), "open-rts - paletted RTS base",
+                             app.win_w, app.win_h, check_only || screenshot_only,
+                             check_only || screenshot_only)) {
         return 1;
     }
-    SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_BLEND);
+    app.window = renderer.window;
+    app.renderer = renderer.sdl;
 
     GameMap map;
     if (!plugin->load_map(map_path, &map)) {
-        SDL_Quit();
+        rts_renderer_destroy(&renderer);
         return 1;
     }
 
@@ -1963,7 +1900,7 @@ int main(int argc, char **argv) {
     memset(&unit_sprite, 0, sizeof(unit_sprite));
     if (!plugin->load_assets(app.renderer, data_root, &map, sprite_name, &tileset, &unit_sprite)) {
         destroy_map(&map);
-        SDL_Quit();
+        rts_renderer_destroy(&renderer);
         return 1;
     }
     app.cell_w = plugin->cell_w > 0 ? plugin->cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
@@ -1985,15 +1922,10 @@ int main(int argc, char **argv) {
     }
 
     SpriteCache decoration_sprites = { 0 };
-    if (strcmp(plugin->id, "dark-reign") == 0 &&
-        !load_dark_reign_decoration_sprites(app.renderer, data_root, &map, units, unit_count,
-                                            &decoration_sprites)) {
-        fprintf(stderr, "warning: some Dark Reign map/unit sprites were not loaded\n");
-    }
-    if (strcmp(plugin->id, "dark-colony") == 0 &&
-        !load_dark_colony_unit_sprites(app.renderer, data_root, units, unit_count,
-                                       &decoration_sprites)) {
-        fprintf(stderr, "warning: some Dark Colony unit sprites were not loaded\n");
+    if (plugin->load_runtime_sprites &&
+        !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
+                                      &decoration_sprites)) {
+        fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", plugin->name);
     }
 
     float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
@@ -2008,23 +1940,13 @@ int main(int argc, char **argv) {
 
     if (check_only || screenshot_only) {
         if (screenshot_only) {
-            SDL_SetRenderDrawColor(app.renderer, 11, 14, 16, 255);
-            SDL_RenderClear(app.renderer);
+            rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_decorations(&app, &map, &decoration_sprites);
             render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites, SDL_GetTicks());
-            SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, app.win_w, app.win_h, 32, SDL_PIXELFORMAT_ARGB8888);
-            if (!surface) {
-                fprintf(stderr, "SDL_CreateRGBSurfaceWithFormat: %s\n", SDL_GetError());
-            } else if (SDL_RenderReadPixels(app.renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
-                                            surface->pixels, surface->pitch) != 0) {
-                fprintf(stderr, "SDL_RenderReadPixels: %s\n", SDL_GetError());
-            } else if (SDL_SaveBMP(surface, screenshot_path) != 0) {
-                fprintf(stderr, "SDL_SaveBMP %s: %s\n", screenshot_path, SDL_GetError());
-            } else {
+            if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
-            SDL_FreeSurface(surface);
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s.\n",
                tileset.count, unit_sprite.frame_count, sprite_name);
@@ -2032,9 +1954,7 @@ int main(int argc, char **argv) {
         destroy_sprite(&unit_sprite);
         destroy_tileset(&tileset);
         destroy_map(&map);
-        SDL_DestroyRenderer(app.renderer);
-        SDL_DestroyWindow(app.window);
-        SDL_Quit();
+        rts_renderer_destroy(&renderer);
         return 0;
     }
 
@@ -2059,8 +1979,7 @@ int main(int argc, char **argv) {
             accumulator -= FIXED_DT;
         }
 
-        SDL_SetRenderDrawColor(app.renderer, 11, 14, 16, 255);
-        SDL_RenderClear(app.renderer);
+        rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         render_map(&app, &map, &tileset);
         render_decorations(&app, &map, &decoration_sprites);
         render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites, SDL_GetTicks());
@@ -2070,15 +1989,13 @@ int main(int argc, char **argv) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 220);
             SDL_RenderDrawRect(app.renderer, &app.selection_rect);
         }
-        SDL_RenderPresent(app.renderer);
+        rts_renderer_end_frame(&renderer);
     }
 
     destroy_sprite_cache(&decoration_sprites);
     destroy_sprite(&unit_sprite);
     destroy_tileset(&tileset);
     destroy_map(&map);
-    SDL_DestroyRenderer(app.renderer);
-    SDL_DestroyWindow(app.window);
-    SDL_Quit();
+    rts_renderer_destroy(&renderer);
     return 0;
 }
