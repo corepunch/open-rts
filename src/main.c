@@ -11,10 +11,10 @@
 #include <string.h>
 #include <strings.h>
 
-#define DEFAULT_DATA_ROOT "/Users/igor/Downloads/REIGN/dark"
+#define DEFAULT_DATA_ROOT "data/REIGN/dark"
 #define DEFAULT_MAP "scenario/MULTI/2NIC/2NIC.MAP"
 #define DEFAULT_UNIT_SPR "ucfcnst0.spr"
-#define DEFAULT_DARK_COLONY_ROOT "/Users/igor/Downloads/DCOLONY"
+#define DEFAULT_DARK_COLONY_ROOT "data/DCOLONY"
 #define DEFAULT_DARK_COLONY_MAP "SCENARIO/MPLAYER/D2PLAY01.MAP"
 #define DEFAULT_DARK_COLONY_SPR "SPRITES/TROOPER1.SPR"
 

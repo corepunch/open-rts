@@ -14,10 +14,12 @@ make build-dark-reign
 make build-dark-colony
 ```
 
-The default run expects the Dark Reign data at:
+The default run expects the game data under the repository-local `data/`
+directory:
 
 ```text
-/Users/igor/Downloads/REIGN/dark
+data/REIGN/dark
+data/DCOLONY
 ```
 
 You can override the data root, map, and unit sprite:

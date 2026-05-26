@@ -10,6 +10,9 @@ BUILD_DIR := build
 TARGET := $(BUILD_DIR)/open-rts
 SOURCES := src/main.c src/engine.c
 OBJECTS := $(SOURCES:src/%.c=$(BUILD_DIR)/%.o)
+DATA_DIR := data
+DARK_REIGN_ROOT := $(DATA_DIR)/REIGN/dark
+DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
 
 .PHONY: all run dark-reign dark-colony build-dark-reign build-dark-colony clean
 
@@ -28,10 +31,10 @@ run: $(TARGET)
 	$(TARGET)
 
 dark-reign: $(TARGET)
-	$(TARGET) --game dark-reign /Users/igor/Downloads/REIGN/dark scenario/MULTI/2NIC/2NIC.MAP ucfcnst0.spr
+	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/MULTI/2NIC/2NIC.MAP ucfcnst0.spr
 
 dark-colony: $(TARGET)
-	$(TARGET) --game dark-colony /Users/igor/Downloads/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MAP SPRITES/TROOPER1.SPR
+	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/MPLAYER/D2PLAY01.MAP SPRITES/TROOPER1.SPR
 
 build-dark-reign: dark-reign
 
