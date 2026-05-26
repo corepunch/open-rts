@@ -302,6 +302,37 @@ static bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const ui
     return out->texture != NULL;
 }
 
+static void dark_reign_add_water_animations(Tileset *tileset) {
+    const int frame_ms = 180;
+    for (int terrain_type = 11; terrain_type <= 14; ++terrain_type) {
+        int base = 8 + terrain_type * 8;
+        for (int variation = 0; variation < 8; ++variation) {
+            int frames[4] = {
+                base + variation,
+                base + ((variation + 1) & 7),
+                base + ((variation + 2) & 7),
+                base + ((variation + 1) & 7),
+            };
+            tileset_add_animation(tileset, base + variation, frames, 4, frame_ms);
+        }
+    }
+
+    for (int group = 0; group < 14; ++group) {
+        int base = 1032 + group * 4;
+        if (base + 3 >= tileset->count) break;
+        int frames[4] = { base, base + 1, base + 2, base + 3 };
+        for (int i = 0; i < 4; ++i) {
+            int rotated[4] = {
+                frames[i],
+                frames[(i + 1) & 3],
+                frames[(i + 2) & 3],
+                frames[(i + 3) & 3],
+            };
+            tileset_add_animation(tileset, frames[i], rotated, 4, frame_ms);
+        }
+    }
+}
+
 static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
     if (size < 8 + 256 * 3) return;
     const uint8_t *p = spr + 8;
@@ -387,6 +418,30 @@ static bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, T
         return false;
     }
     return true;
+}
+
+static bool dark_colony_key_exists(const int *tile_lookup, int tile_lookup_count, int key) {
+    return key >= 0 && key < tile_lookup_count && tile_lookup[key] >= 0;
+}
+
+static void dark_colony_add_wave_animation(Tileset *tileset, int key, int step, int frame_ms) {
+    int frames[4] = { key, key + step, key + step * 2, key + step };
+    for (int i = 0; i < 4; ++i) {
+        if (!dark_colony_key_exists(tileset->tile_lookup, tileset->tile_lookup_count, frames[i])) return;
+    }
+    tileset_add_animation(tileset, key, frames, 4, (uint16_t)frame_ms);
+}
+
+static void dark_colony_add_water_animations(Tileset *tileset) {
+    const int frame_ms = 180;
+    for (int key = 0; key < tileset->tile_lookup_count; ++key) {
+        if (!dark_colony_key_exists(tileset->tile_lookup, tileset->tile_lookup_count, key)) continue;
+        int low = key & 1023;
+        bool water_family = (low >= 250 && low <= 330) || (low >= 400 && low <= 446);
+        if (!water_family) continue;
+        dark_colony_add_wave_animation(tileset, key, 1, frame_ms);
+        dark_colony_add_wave_animation(tileset, key, 2, frame_ms);
+    }
 }
 
 static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t tileset_size) {
@@ -1662,6 +1717,7 @@ bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root
         snprintf(til_path, sizeof(til_path), "%s/graphics/BARREN.TIL", data_root);
         if (!load_dark_tileset(renderer, til_path, terrain_palette, tileset)) return false;
     }
+    dark_reign_add_water_animations(tileset);
 
     if (!load_unit_sprite(renderer, data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);
@@ -1677,6 +1733,7 @@ bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_roo
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", data_root, map->tileset_name);
     if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;
+    dark_colony_add_water_animations(tileset);
 
     char sprite_path[1024];
     uint32_t sprite_palette[256] = { 0 };
@@ -1773,7 +1830,8 @@ static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const
     int edge_frame_count = 0;
 
     SDL_Rect whole = { 0, 0, tileset->tile_w, tileset->tile_h };
-    SDL_Rect dst = { dx, dy, tileset->tile_w, tileset->tile_h };
+    int scale = app->render_scale > 0 ? app->render_scale : 1;
+    SDL_Rect dst = { dx, dy, tileset->tile_w * scale, tileset->tile_h * scale };
 
     for (size_t i = 0; i < sizeof(DARK_REIGN_EDGE_RULES) / sizeof(DARK_REIGN_EDGE_RULES[0]); ++i) {
         const EdgeMatchRule *rule = &DARK_REIGN_EDGE_RULES[i];
@@ -1853,14 +1911,24 @@ int main(int argc, char **argv) {
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
+    int render_scale = 2;
     const RtsPlugin *plugin = rts_find_plugin("dark-reign");
-    if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
-        plugin = rts_find_plugin(argv[arg_base + 1]);
-        if (!plugin) {
-            fprintf(stderr, "unknown game '%s'\n", argv[arg_base + 1]);
-            return 1;
+    while (argc > arg_base) {
+        if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
+            plugin = rts_find_plugin(argv[arg_base + 1]);
+            if (!plugin) {
+                fprintf(stderr, "unknown game '%s'\n", argv[arg_base + 1]);
+                return 1;
+            }
+            arg_base += 2;
+        } else if (argc > arg_base + 1 && strcmp(argv[arg_base], "--scale") == 0) {
+            render_scale = atoi(argv[arg_base + 1]);
+            if (render_scale < 1) render_scale = 1;
+            if (render_scale > 6) render_scale = 6;
+            arg_base += 2;
+        } else {
+            break;
         }
-        arg_base += 2;
     }
 
     const char *data_root = argc > arg_base ? argv[arg_base] : plugin->default_root;
@@ -1878,6 +1946,7 @@ int main(int argc, char **argv) {
     App app = { 0 };
     app.win_w = 1280;
     app.win_h = 800;
+    app.render_scale = render_scale;
     app.show_grid = false;
     app.running = true;
     if (!rts_renderer_create(&renderer, rts_sdl_renderer_backend(), "open-rts - paletted RTS base",
@@ -1935,11 +2004,12 @@ int main(int argc, char **argv) {
     app.cam_x = (float)app.win_w * 0.5f - sx;
     app.cam_y = (float)app.win_h * 0.5f - sy;
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations). Controls: left select/drag, right move, WASD/arrows pan, G grid, Ctrl+A select all.\n",
-           map_path, map.width, map.height, map.tileset_name, unit_count, map.decoration_count);
+    printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations). Controls: left select/drag, right move, WASD/arrows pan, G grid, Ctrl+A select all.\n",
+           map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count, map.decoration_count);
 
     if (check_only || screenshot_only) {
         if (screenshot_only) {
+            app.ticks_ms = SDL_GetTicks();
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_decorations(&app, &map, &decoration_sprites);
@@ -1979,6 +2049,7 @@ int main(int argc, char **argv) {
             accumulator -= FIXED_DT;
         }
 
+        app.ticks_ms = SDL_GetTicks();
         rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         render_map(&app, &map, &tileset);
         render_decorations(&app, &map, &decoration_sprites);

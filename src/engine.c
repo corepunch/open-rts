@@ -103,15 +103,60 @@ SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w,
     return texture;
 }
 
+bool tileset_add_animation(Tileset *tileset, int value, const int *frames,
+                           int frame_count, uint16_t frame_ms) {
+    if (!tileset || !frames || frame_count < 2 || frame_count > MAX_TILE_ANIMATION_FRAMES || frame_ms == 0) {
+        return false;
+    }
+    TileAnimation *animations = realloc(tileset->animations,
+                                        (size_t)(tileset->animation_count + 1) * sizeof(TileAnimation));
+    if (!animations) return false;
+    tileset->animations = animations;
+
+    TileAnimation *anim = &tileset->animations[tileset->animation_count++];
+    memset(anim, 0, sizeof(*anim));
+    anim->value = value;
+    anim->frame_count = frame_count;
+    anim->frame_ms = frame_ms;
+    for (int i = 0; i < frame_count; ++i) anim->frames[i] = frames[i];
+    return true;
+}
+
 static int app_cell_w(const App *app) {
-    return app->cell_w > 0 ? app->cell_w : CELL_W;
+    int scale = app->render_scale > 0 ? app->render_scale : 1;
+    return (app->cell_w > 0 ? app->cell_w : CELL_W) * scale;
 }
 
 static int app_cell_h(const App *app) {
-    return app->cell_h > 0 ? app->cell_h : CELL_H;
+    int scale = app->render_scale > 0 ? app->render_scale : 1;
+    return (app->cell_h > 0 ? app->cell_h : CELL_H) * scale;
 }
 
-static int tileset_resolve_tile(const Tileset *tileset, int value) {
+static int app_scale(const App *app) {
+    return app->render_scale > 0 ? app->render_scale : 1;
+}
+
+static int app_tile_w(const App *app, const Tileset *tileset) {
+    return tileset->tile_w * app_scale(app);
+}
+
+static int app_tile_h(const App *app, const Tileset *tileset) {
+    return tileset->tile_h * app_scale(app);
+}
+
+static int tileset_animate_value(const Tileset *tileset, int value, uint32_t ticks_ms) {
+    if (!tileset->animations || tileset->animation_count <= 0) return value;
+    for (int i = 0; i < tileset->animation_count; ++i) {
+        const TileAnimation *anim = &tileset->animations[i];
+        if (anim->value != value) continue;
+        int frame = (int)((ticks_ms / anim->frame_ms) % (uint32_t)anim->frame_count);
+        return anim->frames[frame];
+    }
+    return value;
+}
+
+static int tileset_resolve_tile(const Tileset *tileset, int value, uint32_t ticks_ms) {
+    value = tileset_animate_value(tileset, value, ticks_ms);
     if (value < 0 || tileset->count <= 0) return -1;
     if (tileset->tile_lookup) {
         if (value < tileset->tile_lookup_count) {
@@ -252,7 +297,7 @@ void render_grid_cell(App *app, int gx, int gy, SDL_Color color) {
 }
 
 void render_tile_at(App *app, const Tileset *tileset, int tile, SDL_Rect src_part, SDL_Rect dst_part) {
-    tile = tileset_resolve_tile(tileset, tile);
+    tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
     if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
     SDL_Rect src = {
         (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
@@ -265,7 +310,7 @@ void render_tile_at(App *app, const Tileset *tileset, int tile, SDL_Rect src_par
 
 static void render_tile_at_flipped(App *app, const Tileset *tileset, int tile,
                                    SDL_Rect src_part, SDL_Rect dst_part, uint8_t flip_flags) {
-    tile = tileset_resolve_tile(tileset, tile);
+    tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
     if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
     SDL_Rect src = {
         (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
@@ -280,6 +325,9 @@ static void render_tile_at_flipped(App *app, const Tileset *tileset, int tile,
 void render_map(App *app, const GameMap *map, const Tileset *tileset) {
     int cell_w = app_cell_w(app);
     int cell_h = app_cell_h(app);
+    int tile_w = app_tile_w(app, tileset);
+    int tile_h = app_tile_h(app, tileset);
+    int draw_y_offset = tileset->draw_y_offset * app_scale(app);
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
@@ -299,8 +347,8 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                 SDL_RenderFillRect(app->renderer, &dst);
                 continue;
             }
-            if (sx < -tileset->tile_w || sy < -tileset->tile_h ||
-                sx > app->win_w + tileset->tile_w || sy > app->win_h + tileset->tile_h) {
+            if (sx < -tile_w || sy < -tile_h ||
+                sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                 continue;
             }
             int idx = map_index(map, x, y);
@@ -309,9 +357,9 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
             SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
             SDL_Rect dst = {
                 (int)sx,
-                (int)(sy + tileset->draw_y_offset),
-                tileset->tile_w,
-                tileset->tile_h,
+                (int)(sy + draw_y_offset),
+                tile_w,
+                tile_h,
             };
             uint8_t base_flip = map->tile_flip_flags[0] ? map->tile_flip_flags[0][idx] : 0;
             render_tile_at_flipped(app, tileset, tile, src, dst, base_flip);
@@ -337,8 +385,8 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
                 grid_to_screen(app, (float)x, (float)y, &sx, &sy);
-                if (sx < -tileset->tile_w || sy < -tileset->tile_h ||
-                    sx > app->win_w + tileset->tile_w || sy > app->win_h + tileset->tile_h) {
+                if (sx < -tile_w || sy < -tile_h ||
+                    sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                     continue;
                 }
                 int idx = map_index(map, x, y);
@@ -347,9 +395,9 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
                 SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
                 SDL_Rect dst = {
                     (int)sx,
-                    (int)(sy + tileset->draw_y_offset),
-                    tileset->tile_w,
-                    tileset->tile_h,
+                    (int)(sy + draw_y_offset),
+                    tile_w,
+                    tile_h,
                 };
                 uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
                     map->tile_flip_flags[layer + 1][idx] : 0;
@@ -367,12 +415,12 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
                 grid_to_screen(app, (float)x, (float)y, &sx, &sy);
-                if (sx < -tileset->tile_w || sy < -tileset->tile_h ||
-                    sx > app->win_w + tileset->tile_w || sy > app->win_h + tileset->tile_h) {
+                if (sx < -tile_w || sy < -tile_h ||
+                    sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                     continue;
                 }
                 int dx = (int)sx;
-                int dy = (int)(sy + tileset->draw_y_offset);
+                int dy = (int)(sy + draw_y_offset);
                 map->render_transitions(app, map, tileset, x, y, dx, dy);
             }
         }
@@ -385,8 +433,8 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
                 grid_to_screen(app, (float)x, (float)y, &sx, &sy);
-                if (sx < -tileset->tile_w || sy < -tileset->tile_h ||
-                    sx > app->win_w + tileset->tile_w || sy > app->win_h + tileset->tile_h) {
+                if (sx < -tile_w || sy < -tile_h ||
+                    sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                     continue;
                 }
                 render_grid_cell(app, x, y, (SDL_Color){ 50, 78, 72, 80 });
@@ -418,11 +466,14 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     grid_to_screen(app, (float)dec->gx, (float)dec->gy, &sx, &sy);
     int footprint_w = dec->footprint_w > 0 ? dec->footprint_w : 1;
     int footprint_h = dec->footprint_h > 0 ? dec->footprint_h : 1;
+    int scale = app_scale(app);
+    int sprite_w = sprite->frame_w * scale;
+    int sprite_h = sprite->frame_h * scale;
     SDL_Rect dst = {
-        (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite->frame_w) * 0.5f),
-        (int)(sy + (float)(footprint_h * app_cell_h(app) - sprite->frame_h)),
-        sprite->frame_w,
-        sprite->frame_h,
+        (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
+        (int)(sy + (float)(footprint_h * app_cell_h(app) - sprite_h)),
+        sprite_w,
+        sprite_h,
     };
     if (dst.x > app->win_w || dst.y > app->win_h ||
         dst.x + dst.w < 0 || dst.y + dst.h < 0) {
@@ -519,19 +570,24 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
             frame = (int)((ticks / 120) % (uint32_t)anim_frames);
         }
         if (frame >= sprite->frame_count) frame = 0;
+        int scale = app_scale(app);
+        int sprite_w = sprite->frame_w * scale;
+        int sprite_h = sprite->frame_h * scale;
         SDL_Rect dst = {
-            (int)(sx - sprite->frame_w / 2),
-            (int)(sy - sprite->frame_h / 2),
-            sprite->frame_w,
-            sprite->frame_h,
+            (int)(sx - sprite_w / 2),
+            (int)(sy - sprite_h / 2),
+            sprite_w,
+            sprite_h,
         };
         const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
         if (shadow && shadow->texture && shadow->frame_count > 0) {
+            int shadow_w = shadow->frame_w * scale;
+            int shadow_h = shadow->frame_h * scale;
             SDL_Rect shadow_dst = {
-                (int)(sx - shadow->frame_w / 2),
-                (int)(sy - shadow->frame_h / 2),
-                shadow->frame_w,
-                shadow->frame_h,
+                (int)(sx - shadow_w / 2),
+                (int)(sy - shadow_h / 2),
+                shadow_w,
+                shadow_h,
             };
             SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[0], &shadow_dst);
         }
@@ -608,8 +664,8 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
             }
             break;
         case SDL_MOUSEWHEEL:
-            app->cam_y += (float)e->wheel.y * 48.0f;
-            app->cam_x += (float)e->wheel.x * 48.0f;
+            app->cam_y += (float)e->wheel.y * 48.0f * (float)app_scale(app);
+            app->cam_x += (float)e->wheel.x * 48.0f * (float)app_scale(app);
             break;
         default:
             break;
@@ -618,7 +674,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
 
 void update_camera_from_keyboard(App *app, float dt) {
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
-    float speed = 600.0f * dt;
+    float speed = 600.0f * dt * (float)app_scale(app);
     if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) app->cam_x += speed;
     if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) app->cam_x -= speed;
     if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) app->cam_y += speed;
@@ -628,6 +684,7 @@ void update_camera_from_keyboard(App *app, float dt) {
 void destroy_tileset(Tileset *tileset) {
     if (tileset->texture) SDL_DestroyTexture(tileset->texture);
     free(tileset->tile_lookup);
+    free(tileset->animations);
     memset(tileset, 0, sizeof(*tileset));
 }
 

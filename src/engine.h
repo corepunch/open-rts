@@ -16,6 +16,7 @@
 #define MAX_DECORATIONS 8192
 #define MAX_DECORATION_SPRITES 512
 #define MAX_TILE_OVERLAYS 3
+#define MAX_TILE_ANIMATION_FRAMES 8
 #define MAX_PATH_CELLS 4096
 #define FIXED_DT (1.0f / 30.0f)
 
@@ -37,9 +38,18 @@ typedef struct {
 } Blob;
 
 typedef struct {
+    int value;
+    int frames[MAX_TILE_ANIMATION_FRAMES];
+    int frame_count;
+    uint16_t frame_ms;
+} TileAnimation;
+
+typedef struct {
     SDL_Texture *texture;
     int *tile_lookup;
     int tile_lookup_count;
+    TileAnimation *animations;
+    int animation_count;
     int count;
     int atlas_cols;
     int tile_w;
@@ -115,6 +125,7 @@ struct App {
     int win_h;
     int cell_w;
     int cell_h;
+    int render_scale;
     float cam_x;
     float cam_y;
     bool show_grid;
@@ -125,6 +136,7 @@ struct App {
     int mouse_down_y;
     int mouse_x;
     int mouse_y;
+    uint32_t ticks_ms;
     SDL_Rect selection_rect;
 };
 
@@ -140,6 +152,8 @@ void indexed_to_rgba(uint32_t *dst, const uint8_t *src, size_t count, const uint
 void blit_indexed_to_rgba(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                           const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
 SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
+bool tileset_add_animation(Tileset *tileset, int value, const int *frames,
+                           int frame_count, uint16_t frame_ms);
 
 int map_index(const GameMap *map, int x, int y);
 bool map_contains(const GameMap *map, int x, int y);

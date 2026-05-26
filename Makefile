@@ -3,6 +3,7 @@ PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 CPPFLAGS += -I./src
+DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
 
@@ -16,6 +17,7 @@ SOURCES := \
 	plugins/DarkReign/plugin.c \
 	plugins/DarkColony/plugin.c
 OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCES))
+DEPS := $(OBJECTS:.o=.d)
 DATA_DIR := data
 DARK_REIGN_ROOT := $(DATA_DIR)/REIGN/dark
 DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
@@ -29,7 +31,7 @@ $(TARGET): $(OBJECTS)
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -49,3 +51,5 @@ build-dark-colony: dark-colony
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+-include $(DEPS)
