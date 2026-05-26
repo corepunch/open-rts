@@ -43,6 +43,8 @@ env SDL_VIDEODRIVER=dummy build/open-rts --screenshot /private/tmp/open-rts-smok
 - Left drag: box select
 - Shift + left select: add to selection
 - Right click: order selected units to move with grid A*
+- Alt + left click: debug-spawn an enemy unit from the active plugin's actor
+  table
 - WASD/arrows: pan
 - Middle drag: pan
 - Mouse wheel: scroll camera
@@ -56,6 +58,10 @@ The code keeps the old-game-specific pieces as adapters:
 - Core renderer, picking, selection, movement, and A* all use one orthogonal
   tile grid. Each game is registered as a client-side plugin that supplies
   defaults, map loading, terrain visuals, and sprites.
+- Actor type definitions are supplied by plugins as C arrays. The core now has
+  first-pass reusable traits for `Selectable`, `Mobile`, `Renderable`, and
+  `Attack`, so game plugins can share movement, selection, and render plumbing
+  instead of reimplementing those systems.
 - `PALS` palette loader: 8-bit palette to ARGB.
 - `TILE` tileset loader: Dark Reign `.TIL` terrain chunks, masks, shore tiles,
   generated transition frames, and shadow frames, decoded using OpenDR's frame

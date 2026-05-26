@@ -517,6 +517,7 @@ void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal
     int selected_index = 0;
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
+        if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
         Cell target = { goal.x + selected_index % 3 - 1, goal.y + selected_index / 3 };
         if (!map_contains(map, target.x, target.y)) target = goal;
         Cell start = { (int)floorf(units[i].gx), (int)floorf(units[i].gy) };
@@ -611,6 +612,7 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
                   const SpriteCache *cache, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
         const Unit *u = &units[i];
+        if ((u->traits & RTS_TRAIT_RENDERABLE) == 0) continue;
         const SpriteSheet *sprite = sprite_cache_lookup(cache, u->sprite_name);
         if (!sprite) sprite = fallback_sprite;
         if (!sprite || !sprite->texture || sprite->frame_count <= 0) continue;
@@ -652,7 +654,7 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
             SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
         }
         SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[frame], &dst);
-        if (u->selected) {
+        if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
             SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 255);
             SDL_Rect box = { dst.x - 3, dst.y - 3, dst.w + 6, dst.h + 6 };
             SDL_RenderDrawRect(app->renderer, &box);
@@ -711,6 +713,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                     for (int i = 0; i < unit_count; ++i) units[i].selected = false;
                 }
                 for (int i = 0; i < unit_count; ++i) {
+                    if ((units[i].traits & RTS_TRAIT_SELECTABLE) == 0) continue;
                     float sx, sy;
                     grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
                     if ((box && point_in_rect((int)sx, (int)sy, rect)) ||

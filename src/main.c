@@ -1005,6 +1005,7 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
                 units[count].gx = (float)gx + 0.5f;
                 units[count].gy = (float)gy + 0.5f;
                 units[count].speed = 5.5f;
+                units[count].owner = 0;
                 units[count].selected = count == 0;
                 DarkReignVisualSpec visual;
                 if (dark_reign_resolve_unit_visual(&defs, unit_type, &visual)) {
@@ -1347,6 +1348,7 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
             u->gx = (float)x + 0.5f;
             u->gy = (float)y + 0.5f;
             u->speed = 5.5f;
+            u->owner = team == 0 ? 0 : 1;
             u->selected = count == 0;
             snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
             count++;
@@ -2012,6 +2014,67 @@ static bool dark_reign_rule_matches(EdgeMatchType match, int neighbor_type, int 
     return neighbor_type >= self_value;
 }
 
+static const RtsActorType *plugin_actor_type_by_id(const RtsPlugin *plugin, uint16_t type_id) {
+    if (!plugin || !plugin->actor_types) return NULL;
+    for (int i = 0; i < plugin->actor_type_count; ++i) {
+        if (plugin->actor_types[i].id == type_id) return &plugin->actor_types[i];
+    }
+    return NULL;
+}
+
+static const RtsActorType *plugin_actor_type_for_unit(const RtsPlugin *plugin, const Unit *unit) {
+    const RtsActorType *type = plugin_actor_type_by_id(plugin, unit ? unit->type_id : 0);
+    if (type) return type;
+    if (!plugin || !plugin->actor_types || !unit) return NULL;
+    for (int i = 0; i < plugin->actor_type_count; ++i) {
+        const char *sprite = plugin->actor_types[i].sprite_name;
+        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0) {
+            return &plugin->actor_types[i];
+        }
+    }
+    return plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
+}
+
+static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
+    if (!unit || !type) return;
+    unit->type_id = type->id;
+    unit->traits = type->traits;
+    if (unit->speed <= 0.0f) unit->speed = type->speed;
+    if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
+    if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (unit->sprite_name[0] == '\0' && type->sprite_name) {
+        snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
+    }
+    if (unit->shadow_name[0] == '\0' && type->shadow_name) {
+        snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
+    }
+}
+
+static void apply_plugin_actor_defaults(const RtsPlugin *plugin, Unit *units, int unit_count) {
+    for (int i = 0; i < unit_count; ++i) {
+        apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(plugin, &units[i]));
+    }
+}
+
+static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, const App *app,
+                                   Unit *units, int *unit_count, int sx, int sy) {
+    if (!plugin || !map || !app || !units || !unit_count || *unit_count >= MAX_UNITS) return false;
+    const RtsActorType *type = plugin_actor_type_by_id(plugin, plugin->debug_enemy_type_id);
+    if (!type && plugin->actor_type_count > 0) type = &plugin->actor_types[0];
+    if (!type) return false;
+    Cell cell = screen_to_grid(app, sx, sy);
+    if (!map_contains(map, cell.x, cell.y)) return false;
+    Unit *unit = &units[*unit_count];
+    memset(unit, 0, sizeof(*unit));
+    unit->gx = (float)cell.x + 0.5f;
+    unit->gy = (float)cell.y + 0.5f;
+    unit->owner = 1;
+    unit->facing_code = 8;
+    apply_actor_type_defaults(unit, type);
+    (*unit_count)++;
+    return true;
+}
+
 static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const Tileset *tileset,
                                              int x, int y, int dx, int dy) {
     int frame = map->tile_ids[map_index(map, x, y)] % tileset->count;
@@ -2178,14 +2241,22 @@ int main(int argc, char **argv) {
         unit_count = 6;
         int cx = map.width / 2;
         int cy = map.height / 2;
+        const RtsActorType *fallback_type = plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
         for (int i = 0; i < unit_count; ++i) {
             units[i].gx = (float)(cx + i % 3) + 0.5f;
             units[i].gy = (float)(cy + i / 3) + 0.5f;
             units[i].speed = 5.5f;
+            units[i].owner = 0;
             units[i].selected = i == 0;
-            snprintf(units[i].sprite_name, sizeof(units[i].sprite_name), "%s", sprite_name);
+            if (fallback_type) {
+                apply_actor_type_defaults(&units[i], fallback_type);
+            } else {
+                units[i].traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE;
+                snprintf(units[i].sprite_name, sizeof(units[i].sprite_name), "%s", sprite_name);
+            }
         }
     }
+    apply_plugin_actor_defaults(plugin, units, unit_count);
 
     SpriteCache decoration_sprites = { 0 };
     if (plugin->load_runtime_sprites &&
@@ -2201,7 +2272,7 @@ int main(int argc, char **argv) {
     app.cam_x = (float)app.win_w * 0.5f - sx;
     app.cam_y = (float)app.win_h * 0.5f - sy;
 
-    printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations). Controls: left select/drag, right move, WASD/arrows pan, G grid, Ctrl+A select all.\n",
+    printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations). Controls: left select/drag, right move, Alt+left spawn enemy, WASD/arrows pan, G grid, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count, map.decoration_count);
 
     if (check_only || screenshot_only) {
@@ -2238,6 +2309,17 @@ int main(int argc, char **argv) {
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
+                (SDL_GetModState() & KMOD_ALT) != 0) {
+                if (spawn_debug_enemy_unit(plugin, &map, &app, units, &unit_count, e.button.x, e.button.y)) {
+                    if (plugin->load_runtime_sprites &&
+                        !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
+                                                      &decoration_sprites)) {
+                        fprintf(stderr, "warning: failed to load debug enemy sprite\n");
+                    }
+                }
+                continue;
+            }
             handle_event(&app, &map, units, unit_count, &e);
         }
         update_camera_from_keyboard(&app, frame_dt);

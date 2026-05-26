@@ -81,6 +81,23 @@ typedef struct {
     int sequence_count;
 } SpriteSheet;
 
+typedef enum {
+    RTS_TRAIT_SELECTABLE = 1u << 0,
+    RTS_TRAIT_MOBILE = 1u << 1,
+    RTS_TRAIT_RENDERABLE = 1u << 2,
+    RTS_TRAIT_ATTACK = 1u << 3,
+} RtsTrait;
+
+typedef struct {
+    uint16_t id;
+    const char *name;
+    const char *sprite_name;
+    const char *shadow_name;
+    uint32_t traits;
+    float speed;
+    int max_hp;
+} RtsActorType;
+
 typedef struct {
     int gx;
     int gy;
@@ -125,6 +142,11 @@ typedef struct {
     float gy;
     float speed;
     int facing_code;
+    uint16_t type_id;
+    uint8_t owner;
+    uint32_t traits;
+    int hp;
+    int max_hp;
     bool selected;
     char sprite_name[32];
     char shadow_name[32];

@@ -31,6 +31,9 @@ typedef struct RtsPlugin {
     uint32_t subsystems;
     int cell_w;
     int cell_h;
+    const RtsActorType *actor_types;
+    int actor_type_count;
+    uint16_t debug_enemy_type_id;
     bool (*load_map)(const char *map_path, GameMap *out);
     bool (*load_assets)(SDL_Renderer *renderer, const char *data_root, const GameMap *map,
                         const char *sprite_name, Tileset *tileset, SpriteSheet *unit_sprite);

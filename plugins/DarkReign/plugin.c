@@ -9,6 +9,22 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                         const GameMap *map, const Unit *units, int unit_count,
                                         SpriteCache *cache);
 
+enum {
+    DR_ACTOR_CONSTRUCTION_RIG = 1,
+};
+
+static const RtsActorType DARK_REIGN_ACTOR_TYPES[] = {
+    {
+        .id = DR_ACTOR_CONSTRUCTION_RIG,
+        .name = "Construction Rig",
+        .sprite_name = "ucfcnst0.spr",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .speed = 5.5f,
+        .max_hp = 200,
+    },
+};
+
 static bool dark_reign_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                                             const GameMap *map, const Unit *units, int unit_count,
                                             SpriteCache *cache) {
@@ -37,6 +53,9 @@ const RtsPlugin *open_rts_dark_reign_plugin(void) {
                       RTS_SUBSYSTEM_UI,
         .cell_w = 24,
         .cell_h = 24,
+        .actor_types = DARK_REIGN_ACTOR_TYPES,
+        .actor_type_count = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
+        .debug_enemy_type_id = DR_ACTOR_CONSTRUCTION_RIG,
         .load_map = load_dark_map,
         .load_assets = dark_reign_plugin_load_assets,
         .load_initial_units = load_dark_reign_initial_units,
