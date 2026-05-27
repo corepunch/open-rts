@@ -1822,11 +1822,11 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     static const int dc_codes_trooper[8] = { 6, 8, 10, 12, 14, 0, 2, 4 };
     static const int trsc_stand[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
     static const int trsc_run[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
-    static const int trsc_shoot[8] = { 88, 96, 104, 112, 120, 128, 136, 144 };
-    static const int trsc_die[1] = { 223 };
+    static const int trsc_shoot[8] = { 80, 81, 82, 83, 84, 85, 86, 87 };
+    static const int trsc_die[8] = { 223, 234, 246, 257, 268, 279, 291, 302 };
     static const int gray_run[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
-    static const int gray_shoot[8] = { 78, 79, 80, 81, 82, 83, 84, 85 };
-    static const int gray_die[1] = { 254 };
+    static const int gray_shoot[8] = { 80, 81, 82, 83, 84, 85, 86, 87 };
+    static const int gray_die[8] = { 254, 266, 278, 290, 302, 314, 326, 338 };
     static const int trooper_stand[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
     static const int trooper_run[8] = { 8, 9, 10, 11, 12, 13, 14, 15 };
     static const int trooper_shoot[8] = { 24, 25, 26, 27, 28, 29, 30, 31 };
@@ -1834,15 +1834,15 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
         sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trsc_stand, dc_codes_east_first);
         sprite_sheet_add_sequence(out, "run", 8, 8, 120, trsc_run, dc_codes_east_first);
         sprite_sheet_set_last_sequence_stride(out, 8);
-        sprite_sheet_add_sequence(out, "shoot", 8, 3, 70, trsc_shoot, dc_codes_east_first);
-        sprite_sheet_add_sequence(out, "die", 1, 11, 90, trsc_die, NULL);
+        sprite_sheet_add_sequence(out, "shoot", 8, 8, 70, trsc_shoot, dc_codes_east_first);
+        sprite_sheet_add_sequence(out, "die", 8, 11, 90, trsc_die, dc_codes_east_first);
     } else if (strcasecmp(base, "GRAY.SPR") == 0) {
         sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trsc_stand, dc_codes_east_first);
         sprite_sheet_add_sequence(out, "run", 8, 7, 120, gray_run, dc_codes_east_first);
         sprite_sheet_set_last_sequence_stride(out, 8);
-        sprite_sheet_add_sequence(out, "shoot", 8, 3, 70, gray_shoot, dc_codes_east_first);
+        sprite_sheet_add_sequence(out, "shoot", 8, 8, 70, gray_shoot, dc_codes_east_first);
         sprite_sheet_set_last_sequence_stride(out, 8);
-        sprite_sheet_add_sequence(out, "die", 1, 12, 90, gray_die, NULL);
+        sprite_sheet_add_sequence(out, "die", 8, 12, 90, gray_die, dc_codes_east_first);
     } else if (strcasecmp(base, "TROOPER1.SPR") == 0) {
         sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trooper_stand, dc_codes_trooper);
         sprite_sheet_add_sequence(out, "run", 8, 2, 120, trooper_run, dc_codes_trooper);
@@ -1865,6 +1865,245 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     free(rgba);
     free_blob(&blob);
     return out->texture != NULL;
+}
+
+typedef struct {
+    SDL_Texture *texture;
+    int glyph_w;
+    int glyph_h;
+    int columns;
+} DebugFont;
+
+typedef struct {
+    bool active;
+    char query[64];
+    int scroll_y;
+    DebugFont font;
+} DebugOverlay;
+
+static void debug_font_glyph(char c, uint8_t rows[7]) {
+    memset(rows, 0, 7);
+    switch (c) {
+    case 'A': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x1f; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x11; break;
+    case 'B': rows[0] = 0x1e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x1e; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x1e; break;
+    case 'C': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x10; rows[3] = 0x10; rows[4] = 0x10; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case 'D': rows[0] = 0x1c; rows[1] = 0x12; rows[2] = 0x11; rows[3] = 0x11; rows[4] = 0x11; rows[5] = 0x12; rows[6] = 0x1c; break;
+    case 'E': rows[0] = 0x1f; rows[1] = 0x10; rows[2] = 0x10; rows[3] = 0x1e; rows[4] = 0x10; rows[5] = 0x10; rows[6] = 0x1f; break;
+    case 'F': rows[0] = 0x1f; rows[1] = 0x10; rows[2] = 0x10; rows[3] = 0x1e; rows[4] = 0x10; rows[5] = 0x10; rows[6] = 0x10; break;
+    case 'G': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x10; rows[3] = 0x17; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case 'H': rows[0] = 0x11; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x1f; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x11; break;
+    case 'I': rows[0] = 0x0e; rows[1] = 0x04; rows[2] = 0x04; rows[3] = 0x04; rows[4] = 0x04; rows[5] = 0x04; rows[6] = 0x0e; break;
+    case 'J': rows[0] = 0x07; rows[1] = 0x02; rows[2] = 0x02; rows[3] = 0x02; rows[4] = 0x12; rows[5] = 0x12; rows[6] = 0x0c; break;
+    case 'K': rows[0] = 0x11; rows[1] = 0x12; rows[2] = 0x14; rows[3] = 0x18; rows[4] = 0x14; rows[5] = 0x12; rows[6] = 0x11; break;
+    case 'L': rows[0] = 0x10; rows[1] = 0x10; rows[2] = 0x10; rows[3] = 0x10; rows[4] = 0x10; rows[5] = 0x10; rows[6] = 0x1f; break;
+    case 'M': rows[0] = 0x11; rows[1] = 0x1b; rows[2] = 0x15; rows[3] = 0x15; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x11; break;
+    case 'N': rows[0] = 0x11; rows[1] = 0x19; rows[2] = 0x15; rows[3] = 0x13; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x11; break;
+    case 'O': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x11; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case 'P': rows[0] = 0x1e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x1e; rows[4] = 0x10; rows[5] = 0x10; rows[6] = 0x10; break;
+    case 'Q': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x11; rows[4] = 0x15; rows[5] = 0x12; rows[6] = 0x0d; break;
+    case 'R': rows[0] = 0x1e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x1e; rows[4] = 0x14; rows[5] = 0x12; rows[6] = 0x11; break;
+    case 'S': rows[0] = 0x0f; rows[1] = 0x10; rows[2] = 0x10; rows[3] = 0x0e; rows[4] = 0x01; rows[5] = 0x01; rows[6] = 0x1e; break;
+    case 'T': rows[0] = 0x1f; rows[1] = 0x04; rows[2] = 0x04; rows[3] = 0x04; rows[4] = 0x04; rows[5] = 0x04; rows[6] = 0x04; break;
+    case 'U': rows[0] = 0x11; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x11; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case 'V': rows[0] = 0x11; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x11; rows[4] = 0x11; rows[5] = 0x0a; rows[6] = 0x04; break;
+    case 'W': rows[0] = 0x11; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x15; rows[4] = 0x15; rows[5] = 0x1b; rows[6] = 0x11; break;
+    case 'X': rows[0] = 0x11; rows[1] = 0x11; rows[2] = 0x0a; rows[3] = 0x04; rows[4] = 0x0a; rows[5] = 0x11; rows[6] = 0x11; break;
+    case 'Y': rows[0] = 0x11; rows[1] = 0x11; rows[2] = 0x0a; rows[3] = 0x04; rows[4] = 0x04; rows[5] = 0x04; rows[6] = 0x04; break;
+    case 'Z': rows[0] = 0x1f; rows[1] = 0x01; rows[2] = 0x02; rows[3] = 0x04; rows[4] = 0x08; rows[5] = 0x10; rows[6] = 0x1f; break;
+    case '0': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x13; rows[3] = 0x15; rows[4] = 0x19; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case '1': rows[0] = 0x04; rows[1] = 0x0c; rows[2] = 0x04; rows[3] = 0x04; rows[4] = 0x04; rows[5] = 0x04; rows[6] = 0x0e; break;
+    case '2': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x01; rows[3] = 0x02; rows[4] = 0x04; rows[5] = 0x08; rows[6] = 0x1f; break;
+    case '3': rows[0] = 0x1e; rows[1] = 0x01; rows[2] = 0x01; rows[3] = 0x0e; rows[4] = 0x01; rows[5] = 0x01; rows[6] = 0x1e; break;
+    case '4': rows[0] = 0x02; rows[1] = 0x06; rows[2] = 0x0a; rows[3] = 0x12; rows[4] = 0x1f; rows[5] = 0x02; rows[6] = 0x02; break;
+    case '5': rows[0] = 0x1f; rows[1] = 0x10; rows[2] = 0x10; rows[3] = 0x1e; rows[4] = 0x01; rows[5] = 0x01; rows[6] = 0x1e; break;
+    case '6': rows[0] = 0x06; rows[1] = 0x08; rows[2] = 0x10; rows[3] = 0x1e; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case '7': rows[0] = 0x1f; rows[1] = 0x01; rows[2] = 0x02; rows[3] = 0x04; rows[4] = 0x08; rows[5] = 0x08; rows[6] = 0x08; break;
+    case '8': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x0e; rows[4] = 0x11; rows[5] = 0x11; rows[6] = 0x0e; break;
+    case '9': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x11; rows[3] = 0x0f; rows[4] = 0x01; rows[5] = 0x02; rows[6] = 0x0c; break;
+    case '/': rows[0] = 0x01; rows[1] = 0x02; rows[2] = 0x04; rows[3] = 0x08; rows[4] = 0x10; break;
+    case '.': rows[6] = 0x04; break;
+    case '-': rows[3] = 0x1f; break;
+    case '_': rows[6] = 0x1f; break;
+    case ':': rows[2] = 0x04; rows[4] = 0x04; break;
+    case ',': rows[5] = 0x04; rows[6] = 0x08; break;
+    case '+': rows[2] = 0x04; rows[3] = 0x1f; rows[4] = 0x04; break;
+    case '=': rows[2] = 0x1f; rows[4] = 0x1f; break;
+    case '(': rows[0] = 0x02; rows[1] = 0x04; rows[2] = 0x08; rows[3] = 0x08; rows[4] = 0x08; rows[5] = 0x04; rows[6] = 0x02; break;
+    case ')': rows[0] = 0x08; rows[1] = 0x04; rows[2] = 0x02; rows[3] = 0x02; rows[4] = 0x02; rows[5] = 0x04; rows[6] = 0x08; break;
+    case '?': rows[0] = 0x0e; rows[1] = 0x11; rows[2] = 0x01; rows[3] = 0x02; rows[4] = 0x04; rows[6] = 0x04; break;
+    case '!': rows[0] = 0x04; rows[1] = 0x04; rows[2] = 0x04; rows[3] = 0x04; rows[4] = 0x04; rows[6] = 0x04; break;
+    case ' ': break;
+    default: rows[0] = 0x1f; rows[1] = 0x01; rows[2] = 0x02; rows[3] = 0x04; rows[4] = 0x08; rows[5] = 0x00; rows[6] = 0x04; break;
+    }
+}
+
+static bool debug_font_init(SDL_Renderer *renderer, DebugFont *font) {
+    if (!renderer || !font) return false;
+    memset(font, 0, sizeof(*font));
+    font->glyph_w = 6;
+    font->glyph_h = 8;
+    font->columns = 16;
+    int rows = 6;
+    int atlas_w = font->columns * font->glyph_w;
+    int atlas_h = rows * font->glyph_h;
+    uint32_t *pixels = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
+    if (!pixels) return false;
+
+    for (int ch = 32; ch < 128; ++ch) {
+        uint8_t glyph[7];
+        char mapped = (char)ch;
+        if (mapped >= 'a' && mapped <= 'z') mapped = (char)toupper((unsigned char)mapped);
+        debug_font_glyph(mapped, glyph);
+        int idx = ch - 32;
+        int gx = (idx % font->columns) * font->glyph_w;
+        int gy = (idx / font->columns) * font->glyph_h;
+        for (int y = 0; y < 7; ++y) {
+            for (int x = 0; x < 5; ++x) {
+                if (glyph[y] & (1u << (4 - x))) {
+                    pixels[(gy + y) * atlas_w + gx + x] = 0xffffffffu;
+                }
+            }
+        }
+    }
+
+    font->texture = rgba_texture(renderer, pixels, atlas_w, atlas_h, true);
+    free(pixels);
+    return font->texture != NULL;
+}
+
+static void debug_font_destroy(DebugFont *font) {
+    if (!font) return;
+    if (font->texture) SDL_DestroyTexture(font->texture);
+    memset(font, 0, sizeof(*font));
+}
+
+static void debug_font_draw_text(SDL_Renderer *renderer, const DebugFont *font, int x, int y,
+                                 const char *text, SDL_Color color, int scale) {
+    if (!renderer || !font || !font->texture || !text || scale <= 0) return;
+    SDL_SetTextureColorMod(font->texture, color.r, color.g, color.b);
+    SDL_SetTextureAlphaMod(font->texture, color.a);
+    int cx = x;
+    int cy = y;
+    for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
+        if (*p == '\n') {
+            cy += font->glyph_h * scale;
+            cx = x;
+            continue;
+        }
+        unsigned char ch = *p;
+        if (ch >= 'a' && ch <= 'z') ch = (unsigned char)toupper(ch);
+        if (ch < 32 || ch >= 128) ch = '?';
+        int idx = (int)ch - 32;
+        SDL_Rect src = {
+            (idx % font->columns) * font->glyph_w,
+            (idx / font->columns) * font->glyph_h,
+            font->glyph_w,
+            font->glyph_h,
+        };
+        SDL_Rect dst = { cx, cy, font->glyph_w * scale, font->glyph_h * scale };
+        SDL_RenderCopy(renderer, font->texture, &src, &dst);
+        cx += font->glyph_w * scale;
+    }
+}
+
+static void debug_append_ints(char *dst, size_t dst_size, const int *values, int count) {
+    size_t len = strlen(dst);
+    for (int i = 0; i < count && len + 8 < dst_size; ++i) {
+        int written = snprintf(dst + len, dst_size - len, "%s%d", i == 0 ? "" : " ", values[i]);
+        if (written < 0) break;
+        len += (size_t)written;
+    }
+}
+
+static void debug_overlay_render(const App *app, const SpriteSheet *sprite, const char *sprite_name,
+                                 const DebugOverlay *overlay) {
+    if (!app || !app->renderer || !sprite || !sprite->texture || !overlay || !overlay->font.texture) return;
+
+    SDL_SetRenderDrawColor(app->renderer, 10, 12, 16, 255);
+    SDL_RenderClear(app->renderer);
+
+    SDL_Color white = { 236, 240, 244, 255 };
+    SDL_Color cyan = { 98, 224, 161, 255 };
+    SDL_Color gray = { 180, 190, 196, 255 };
+
+    char line[512];
+    snprintf(line, sizeof(line), "DEBUG OVERLAY %s", overlay->query);
+    debug_font_draw_text(app->renderer, &overlay->font, 16, 14, line, white, 2);
+
+    snprintf(line, sizeof(line), "%s  FRAMES %d  SEQUENCES %d",
+             sprite_name ? sprite_name : "(UNKNOWN)", sprite->frame_count, sprite->sequence_count);
+    debug_font_draw_text(app->renderer, &overlay->font, 16, 34, line, gray, 1);
+
+    int info_y = 52;
+    for (int i = 0; i < sprite->sequence_count && i < 6; ++i) {
+        const SpriteSequence *seq = &sprite->sequences[i];
+        char starts[256] = { 0 };
+        char dirs[256] = { 0 };
+        char name[32];
+        snprintf(name, sizeof(name), "%s", seq->name);
+        for (char *p = name; *p; ++p) *p = (char)toupper((unsigned char)*p);
+        snprintf(starts, sizeof(starts), "IDX");
+        snprintf(dirs, sizeof(dirs), "DIR");
+        debug_append_ints(starts, sizeof(starts), seq->frame_starts, seq->facings);
+        debug_append_ints(dirs, sizeof(dirs), seq->direction_codes, seq->facings);
+
+        snprintf(line, sizeof(line), "%s  %s", name, dirs);
+        debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, cyan, 1);
+        info_y += 10;
+
+        snprintf(line, sizeof(line), "   %s", starts);
+        debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
+        info_y += 10;
+    }
+
+    int cols = 8;
+    int frame_scale = 2;
+    int available_w = app->win_w - 32;
+    while (frame_scale > 1 && cols * (sprite->frame_w * frame_scale + 22) > available_w) {
+        frame_scale--;
+    }
+    int frame_w = sprite->frame_w * frame_scale;
+    int frame_h = sprite->frame_h * frame_scale;
+    int start_x = 16;
+    int start_y = info_y + 8;
+    int cell_w = frame_w + 22;
+    int cell_h = frame_h + 18;
+    int rows = sprite->frame_count > 0 ? (sprite->frame_count + cols - 1) / cols : 0;
+    int content_h = rows * cell_h;
+
+    SDL_SetRenderDrawColor(app->renderer, 18, 21, 27, 255);
+    SDL_Rect panel = { 10, start_y - 6, app->win_w - 20, app->win_h - start_y - 14 };
+    SDL_RenderFillRect(app->renderer, &panel);
+
+    int viewport_y = start_y - 6;
+    int viewport_h = app->win_h - start_y - 14;
+    int max_scroll = content_h > viewport_h ? content_h - viewport_h : 0;
+    int scroll_y = overlay->scroll_y;
+    if (scroll_y < 0) scroll_y = 0;
+    if (scroll_y > max_scroll) scroll_y = max_scroll;
+
+    SDL_Rect viewport = { 10, viewport_y, app->win_w - 20, viewport_h };
+    SDL_Rect old_clip = { 0, 0, 0, 0 };
+    SDL_RenderGetClipRect(app->renderer, &old_clip);
+    SDL_RenderSetClipRect(app->renderer, &viewport);
+
+    for (int i = 0; i < sprite->frame_count; ++i) {
+        int row = i / cols;
+        int col = i % cols;
+        int x = start_x + col * cell_w;
+        int y = start_y + row * cell_h - scroll_y;
+        if (y + cell_h < viewport_y || y > viewport_y + viewport_h) continue;
+        SDL_Rect dst = { x, y, frame_w, frame_h };
+        SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[i], &dst);
+        snprintf(line, sizeof(line), "%d", i);
+        debug_font_draw_text(app->renderer, &overlay->font, x, y + frame_h + 2, line, white, 1);
+    }
+
+    SDL_RenderSetClipRect(app->renderer, &old_clip);
+
+    SDL_Rect border = { 10, 10, app->win_w - 20, app->win_h - 20 };
+    SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
+    SDL_RenderDrawRect(app->renderer, &border);
 }
 
 static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *renderer,
@@ -2188,6 +2427,7 @@ int main(int argc, char **argv) {
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
     int render_scale = 1;
+    const char *debug_query = NULL;
     const RtsPlugin *plugin = rts_find_plugin("dark-reign");
     while (argc > arg_base) {
         if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
@@ -2202,6 +2442,16 @@ int main(int argc, char **argv) {
             if (render_scale < 1) render_scale = 1;
             if (render_scale > 6) render_scale = 6;
             arg_base += 2;
+        } else if (strncmp(argv[arg_base], "--debug=", 8) == 0) {
+            debug_query = argv[arg_base] + 8;
+            arg_base += 1;
+        } else if (strncmp(argv[arg_base], "-debug=", 7) == 0) {
+            debug_query = argv[arg_base] + 7;
+            arg_base += 1;
+        } else if ((strcmp(argv[arg_base], "--debug") == 0 || strcmp(argv[arg_base], "-debug") == 0) &&
+                   argc > arg_base + 1) {
+            debug_query = argv[arg_base + 1];
+            arg_base += 2;
         } else {
             break;
         }
@@ -2210,6 +2460,17 @@ int main(int argc, char **argv) {
     const char *data_root = argc > arg_base ? argv[arg_base] : plugin->default_root;
     const char *map_rel_or_abs = argc > arg_base + 1 ? argv[arg_base + 1] : plugin->default_map;
     const char *sprite_name = argc > arg_base + 2 ? argv[arg_base + 2] : plugin->default_sprite;
+    char debug_sprite_name[1024];
+    if (debug_query && debug_query[0] != '\0') {
+        if (strchr(debug_query, '/') || strchr(debug_query, '.')) {
+            snprintf(debug_sprite_name, sizeof(debug_sprite_name), "%s", debug_query);
+        } else if (plugin && strcmp(plugin->id, "dark-colony") == 0) {
+            snprintf(debug_sprite_name, sizeof(debug_sprite_name), "SPRITES/%s.SPR", debug_query);
+        } else {
+            snprintf(debug_sprite_name, sizeof(debug_sprite_name), "%s", debug_query);
+        }
+        sprite_name = debug_sprite_name;
+    }
 
     char map_path[1024];
     if (map_rel_or_abs[0] == '/') {
@@ -2241,12 +2502,22 @@ int main(int argc, char **argv) {
 
     Tileset tileset;
     SpriteSheet unit_sprite;
+    DebugOverlay debug_overlay = { 0 };
     memset(&tileset, 0, sizeof(tileset));
     memset(&unit_sprite, 0, sizeof(unit_sprite));
     if (!plugin->load_assets(app.renderer, data_root, &map, sprite_name, &tileset, &unit_sprite)) {
         destroy_map(&map);
         rts_renderer_destroy(&renderer);
         return 1;
+    }
+    if (debug_query && debug_query[0] != '\0') {
+        debug_overlay.active = true;
+        snprintf(debug_overlay.query, sizeof(debug_overlay.query), "%s", debug_query);
+        debug_overlay.scroll_y = 0;
+        if (!debug_font_init(app.renderer, &debug_overlay.font)) {
+            fprintf(stderr, "warning: failed to create debug font overlay\n");
+            debug_overlay.active = false;
+        }
     }
     app.cell_w = plugin->cell_w > 0 ? plugin->cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
     app.cell_h = plugin->cell_h > 0 ? plugin->cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
@@ -2290,6 +2561,35 @@ int main(int argc, char **argv) {
 
     printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations). Controls: left select/drag, right move, Alt+left spawn enemy, WASD/arrows pan, G grid, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count, map.decoration_count);
+
+    if (debug_overlay.active) {
+        while (app.running) {
+            SDL_Event e;
+            while (SDL_PollEvent(&e)) {
+                if (e.type == SDL_QUIT) {
+                    app.running = false;
+                } else if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
+                    app.running = false;
+                } else if (e.type == SDL_MOUSEWHEEL) {
+                    int wheel = e.wheel.y;
+                    if (e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) wheel = -wheel;
+                    debug_overlay.scroll_y -= wheel * 32;
+                    if (debug_overlay.scroll_y < 0) debug_overlay.scroll_y = 0;
+                }
+            }
+            rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
+            debug_overlay_render(&app, &unit_sprite, sprite_name, &debug_overlay);
+            rts_renderer_end_frame(&renderer);
+            SDL_Delay(16);
+        }
+        debug_font_destroy(&debug_overlay.font);
+        destroy_sprite_cache(&decoration_sprites);
+        destroy_sprite(&unit_sprite);
+        destroy_tileset(&tileset);
+        destroy_map(&map);
+        rts_renderer_destroy(&renderer);
+        return 0;
+    }
 
     if (check_only || screenshot_only) {
         if (screenshot_only) {

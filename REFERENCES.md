@@ -32,10 +32,12 @@ Local game-data files that have already been useful:
   direction suffixes can be misleading. Infantry walking and firing for
   `TRSC.SPR`, `GRAY.SPR`, and `TROOPER1.SPR` are phase-major: one phase contains
   all eight rotations, so each facing advances with stride `8`. For example,
-  `GRAYFIREA0 = 78..85` is a row of rotations for one firing phase, not eight
-  animation frames for direction `0`. The runtime shoot sequence uses only the
-  first few `FIREA` phases; later sparse/recovery poses in the block read like
-  disappearing or hit/death motion when looped at weapon speed.
+  `GRAYFIREA0 = 80..87` is a row of rotations for one firing phase, not eight
+  animation frames for direction `0`. The runtime shoot sequence uses the full
+  eight `FIREA` phases, and the death strips for `TRSC.SPR` and `GRAY.SPR`
+  are directional strips rather than single static corpse frames.
+  Later sparse/recovery poses in the block read like disappearing or hit/death
+  motion when looped at weapon speed.
 
 ## Dark Reign
 
