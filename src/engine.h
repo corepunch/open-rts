@@ -96,6 +96,10 @@ typedef struct {
     uint32_t traits;
     float speed;
     int max_hp;
+    float attack_range;
+    int attack_damage;
+    int attack_cooldown_ms;
+    int attack_anim_ms;
 } RtsActorType;
 
 typedef struct {
@@ -147,7 +151,17 @@ typedef struct {
     uint32_t traits;
     int hp;
     int max_hp;
+    float attack_range;
+    int attack_damage;
+    int attack_cooldown_ms;
+    int attack_anim_ms;
+    int attack_cooldown_left_ms;
+    int attack_anim_left_ms;
+    int death_anim_ms;
+    int death_anim_left_ms;
+    int attack_target;
     bool selected;
+    bool death_started;
     char sprite_name[32];
     char shadow_name[32];
     Cell path[MAX_PATH_CELLS];

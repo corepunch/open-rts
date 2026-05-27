@@ -1822,21 +1822,32 @@ static bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, Sp
     static const int dc_codes_trooper[8] = { 6, 8, 10, 12, 14, 0, 2, 4 };
     static const int trsc_stand[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
     static const int trsc_run[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
+    static const int trsc_shoot[8] = { 88, 96, 104, 112, 120, 128, 136, 144 };
+    static const int trsc_die[1] = { 223 };
     static const int gray_run[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
+    static const int gray_shoot[8] = { 78, 79, 80, 81, 82, 83, 84, 85 };
+    static const int gray_die[1] = { 254 };
     static const int trooper_stand[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
     static const int trooper_run[8] = { 8, 9, 10, 11, 12, 13, 14, 15 };
+    static const int trooper_shoot[8] = { 24, 25, 26, 27, 28, 29, 30, 31 };
     if (strcasecmp(base, "TRSC.SPR") == 0) {
         sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trsc_stand, dc_codes_east_first);
         sprite_sheet_add_sequence(out, "run", 8, 8, 120, trsc_run, dc_codes_east_first);
         sprite_sheet_set_last_sequence_stride(out, 8);
+        sprite_sheet_add_sequence(out, "shoot", 8, 3, 70, trsc_shoot, dc_codes_east_first);
+        sprite_sheet_add_sequence(out, "die", 1, 11, 90, trsc_die, NULL);
     } else if (strcasecmp(base, "GRAY.SPR") == 0) {
         sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trsc_stand, dc_codes_east_first);
         sprite_sheet_add_sequence(out, "run", 8, 7, 120, gray_run, dc_codes_east_first);
         sprite_sheet_set_last_sequence_stride(out, 8);
+        sprite_sheet_add_sequence(out, "shoot", 8, 3, 70, gray_shoot, dc_codes_east_first);
+        sprite_sheet_set_last_sequence_stride(out, 8);
+        sprite_sheet_add_sequence(out, "die", 1, 12, 90, gray_die, NULL);
     } else if (strcasecmp(base, "TROOPER1.SPR") == 0) {
         sprite_sheet_add_sequence(out, "stand", 8, 1, 120, trooper_stand, dc_codes_trooper);
         sprite_sheet_add_sequence(out, "run", 8, 2, 120, trooper_run, dc_codes_trooper);
         sprite_sheet_set_last_sequence_stride(out, 8);
+        sprite_sheet_add_sequence(out, "shoot", 8, 1, 120, trooper_shoot, dc_codes_trooper);
     } else if (visible_frames >= 16) {
         int stand[8];
         int run[8];
@@ -2042,6 +2053,11 @@ static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (unit->attack_range <= 0.0f) unit->attack_range = type->attack_range;
+    if (unit->attack_damage <= 0) unit->attack_damage = type->attack_damage;
+    if (unit->attack_cooldown_ms <= 0) unit->attack_cooldown_ms = type->attack_cooldown_ms;
+    if (unit->attack_anim_ms <= 0) unit->attack_anim_ms = type->attack_anim_ms;
+    if (unit->attack_target <= 0) unit->attack_target = -1;
     if (unit->sprite_name[0] == '\0' && type->sprite_name) {
         snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
     }
@@ -2171,7 +2187,7 @@ int main(int argc, char **argv) {
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
-    int render_scale = 2;
+    int render_scale = 1;
     const RtsPlugin *plugin = rts_find_plugin("dark-reign");
     while (argc > arg_base) {
         if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {

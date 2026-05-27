@@ -517,6 +517,7 @@ void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal
     int selected_index = 0;
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
+        if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
         Cell target = { goal.x + selected_index % 3 - 1, goal.y + selected_index / 3 };
         if (!map_contains(map, target.x, target.y)) target = goal;
@@ -529,8 +530,24 @@ void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal
 }
 
 void update_units(Unit *units, int unit_count, float dt) {
+    int dt_ms = (int)lroundf(dt * 1000.0f);
     for (int i = 0; i < unit_count; ++i) {
         Unit *u = &units[i];
+        if (u->hp <= 0) {
+            if (u->death_started && u->death_anim_left_ms > 0) {
+                u->death_anim_left_ms -= dt_ms;
+                if (u->death_anim_left_ms < 0) u->death_anim_left_ms = 0;
+            }
+            continue;
+        }
+        if (u->attack_cooldown_left_ms > 0) {
+            u->attack_cooldown_left_ms -= dt_ms;
+            if (u->attack_cooldown_left_ms < 0) u->attack_cooldown_left_ms = 0;
+        }
+        if (u->attack_anim_left_ms > 0) {
+            u->attack_anim_left_ms -= dt_ms;
+            if (u->attack_anim_left_ms < 0) u->attack_anim_left_ms = 0;
+        }
         if (u->path_index <= 0 || u->path_index >= u->path_len) continue;
         Cell c = u->path[u->path_index];
         float tx = (float)c.x + 0.5f;
@@ -552,6 +569,55 @@ void update_units(Unit *units, int unit_count, float dt) {
             u->gx += dx / dist * step;
             u->gy += dy / dist * step;
         }
+    }
+
+    for (int i = 0; i < unit_count; ++i) {
+        Unit *attacker = &units[i];
+        if (attacker->hp <= 0 || (attacker->traits & RTS_TRAIT_ATTACK) == 0 ||
+            attacker->attack_damage <= 0 || attacker->attack_range <= 0.0f) {
+            continue;
+        }
+
+        int target_index = -1;
+        float best_dist2 = attacker->attack_range * attacker->attack_range;
+        for (int j = 0; j < unit_count; ++j) {
+            if (i == j || units[j].hp <= 0 || units[j].owner == attacker->owner) continue;
+            float dx = units[j].gx - attacker->gx;
+            float dy = units[j].gy - attacker->gy;
+            float dist2 = dx * dx + dy * dy;
+            if (dist2 <= best_dist2) {
+                best_dist2 = dist2;
+                target_index = j;
+            }
+        }
+        attacker->attack_target = target_index;
+        if (target_index < 0) continue;
+
+        Unit *target = &units[target_index];
+        attacker->facing_code = direction_code_from_vector(target->gx - attacker->gx,
+                                                           target->gy - attacker->gy);
+        if (attacker->attack_cooldown_left_ms > 0) continue;
+
+        target->hp -= attacker->attack_damage;
+        if (target->hp <= 0) {
+            target->hp = 0;
+            target->selected = false;
+            target->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_ATTACK);
+            target->path_len = 0;
+            target->path_index = 0;
+            target->attack_target = -1;
+            target->attack_cooldown_left_ms = 0;
+            target->attack_anim_left_ms = 0;
+            target->death_started = true;
+            if (target->death_anim_ms <= 0) {
+                target->death_anim_ms = 900;
+            }
+            target->death_anim_left_ms = target->death_anim_ms;
+        }
+        attacker->attack_cooldown_left_ms = attacker->attack_cooldown_ms > 0 ?
+            attacker->attack_cooldown_ms : 500;
+        attacker->attack_anim_left_ms = attacker->attack_anim_ms > 0 ?
+            attacker->attack_anim_ms : attacker->attack_cooldown_left_ms;
     }
 }
 
@@ -581,12 +647,28 @@ static int sequence_facing_index(const SpriteSequence *seq, int direction_code) 
 
 static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, uint32_t ticks) {
     bool moving = unit->path_index > 0 && unit->path_index < unit->path_len;
-    const SpriteSequence *seq = sprite_sequence_find(sprite, moving ? "run" : "stand");
-    if (!seq && moving) seq = sprite_sequence_find(sprite, "walk");
+    bool attacking = unit->attack_anim_left_ms > 0;
+    bool dead = unit->hp <= 0;
+    const SpriteSequence *seq = NULL;
+    bool using_death_sequence = false;
+    if (dead) {
+        seq = sprite_sequence_find(sprite, "die");
+        if (seq) using_death_sequence = true;
+        if (!seq) {
+            seq = sprite_sequence_find(sprite, "death");
+            if (seq) using_death_sequence = true;
+        }
+        if (!seq) seq = sprite_sequence_find(sprite, "shoot");
+    } else {
+        seq = sprite_sequence_find(sprite, attacking ? "shoot" : (moving ? "run" : "stand"));
+        if (!seq && attacking) seq = sprite_sequence_find(sprite, "attack");
+        if (!seq && moving) seq = sprite_sequence_find(sprite, "walk");
+    }
     if (!seq) seq = sprite_sequence_find(sprite, "idle");
+    if (!seq && dead) seq = sprite_sequence_find(sprite, "stand");
     if (seq && seq->facings > 0 && seq->length > 0) {
         int direction_code = unit->facing_code;
-        if (moving) {
+        if (moving && !dead) {
             Cell c = unit->path[unit->path_index];
             float dx = ((float)c.x + 0.5f) - unit->gx;
             float dy = ((float)c.y + 0.5f) - unit->gy;
@@ -594,7 +676,22 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
         }
         int facing = sequence_facing_index(seq, direction_code);
         int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
-        int anim = moving && seq->length > 1 ? (int)((ticks / (uint32_t)tick_ms) % (uint32_t)seq->length) : 0;
+        int anim = 0;
+        if (dead && using_death_sequence && unit->death_started && seq->length > 1) {
+            int elapsed_ms = unit->death_anim_ms - unit->death_anim_left_ms;
+            if (elapsed_ms < 0) elapsed_ms = 0;
+            anim = elapsed_ms / tick_ms;
+            if (anim >= seq->length) anim = seq->length - 1;
+        } else if (dead && seq->length > 1) {
+            anim = seq->length - 1;
+        } else if (attacking && seq->length > 1) {
+            int elapsed_ms = unit->attack_anim_ms - unit->attack_anim_left_ms;
+            if (elapsed_ms < 0) elapsed_ms = 0;
+            anim = elapsed_ms / tick_ms;
+            if (anim >= seq->length) anim = seq->length - 1;
+        } else if (moving && seq->length > 1) {
+            anim = (int)((ticks / (uint32_t)tick_ms) % (uint32_t)seq->length);
+        }
         int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
         int frame = seq->frame_starts[facing] + anim * frame_stride;
         if (frame >= 0 && frame < sprite->frame_count) return frame;
@@ -654,6 +751,18 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
             SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
         }
         SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[frame], &dst);
+        if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
+            int bar_w = sprite_w / 2;
+            int bar_h = app_scale(app) < 2 ? 2 : 3;
+            int bx = (int)(sx - bar_w / 2);
+            int by = dst.y - bar_h - 2;
+            SDL_Rect back = { bx, by, bar_w, bar_h };
+            SDL_Rect fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
+            SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
+            SDL_RenderFillRect(app->renderer, &back);
+            SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 230);
+            SDL_RenderFillRect(app->renderer, &fill);
+        }
         if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
             SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 255);
             SDL_Rect box = { dst.x - 3, dst.y - 3, dst.w + 6, dst.h + 6 };
@@ -713,6 +822,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                     for (int i = 0; i < unit_count; ++i) units[i].selected = false;
                 }
                 for (int i = 0; i < unit_count; ++i) {
+                    if (units[i].hp <= 0) continue;
                     if ((units[i].traits & RTS_TRAIT_SELECTABLE) == 0) continue;
                     float sx, sy;
                     grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
