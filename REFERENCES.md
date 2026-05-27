@@ -17,15 +17,25 @@ plugin-specific behavior.
 
 Local game-data files that have already been useful:
 
-- `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` for unit IDs and names.
+- `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` for unit IDs, names, health, and weapon
+  IDs.
+- `data/DCOLONY/GAMESTAT/WEAPSTAT.TXT` for weapon range, damage, and rate of
+  fire. Trooper/Grey weapon rows use range `4`, damage `100`, and rate `15`.
 - `data/DCOLONY/GAMESTAT/DEPEND.TXT` for unit/building dependency names.
 - `data/DCOLONY/SCENARIO/*.MAP`, `*.SCN`, and `*.BTS` for maps, starting
   objects, tilesets, and water palette bands.
 - `data/DCOLONY/SPRITES/*.SPR` for unit sprites.
 - `data/DCOLONY/ANIMATE/*.FIN` for sprite animation labels and frame ranges.
   For example, `TROOPER1.FIN` maps `TROOPER1MOVE6` to frames `8..9`, while
-  `GRAY.FIN` maps `GRAYMOVE0`, `GRAYMOVE14`, etc. to per-direction walking
-  ranges.
+  `GRAY.FIN` maps `GRAYMOVE0`, `GRAYMOVE14`, etc. to the walking/fire blocks.
+  Dark Colony `.FIN` labels are useful for identifying blocks, but their
+  direction suffixes can be misleading. Infantry walking and firing for
+  `TRSC.SPR`, `GRAY.SPR`, and `TROOPER1.SPR` are phase-major: one phase contains
+  all eight rotations, so each facing advances with stride `8`. For example,
+  `GRAYFIREA0 = 78..85` is a row of rotations for one firing phase, not eight
+  animation frames for direction `0`. The runtime shoot sequence uses only the
+  first few `FIREA` phases; later sparse/recovery poses in the block read like
+  disappearing or hit/death motion when looped at weapon speed.
 
 ## Dark Reign
 

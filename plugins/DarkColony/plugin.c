@@ -22,7 +22,11 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
                   RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
         .speed = 5.5f,
-        .max_hp = 100,
+        .max_hp = 800,
+        .attack_range = 4.0f,
+        .attack_damage = 100,
+        .attack_cooldown_ms = 500,
+        .attack_anim_ms = 210,
     },
     {
         .id = DC_ACTOR_GREY,
@@ -31,16 +35,19 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
                   RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
         .speed = 5.5f,
-        .max_hp = 100,
+        .max_hp = 800,
+        .attack_range = 4.0f,
+        .attack_damage = 100,
+        .attack_cooldown_ms = 500,
+        .attack_anim_ms = 210,
     },
     {
         .id = DC_ACTOR_EXPLOITER,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
         .speed = 5.5f,
-        .max_hp = 120,
+        .max_hp = 800,
     },
 };
 

@@ -60,8 +60,8 @@ The code keeps the old-game-specific pieces as adapters:
   defaults, map loading, terrain visuals, and sprites.
 - Actor type definitions are supplied by plugins as C arrays. The core now has
   first-pass reusable traits for `Selectable`, `Mobile`, `Renderable`, and
-  `Attack`, so game plugins can share movement, selection, and render plumbing
-  instead of reimplementing those systems.
+  `Attack`, so game plugins can share movement, selection, combat, and render
+  plumbing instead of reimplementing those systems.
 - `PALS` palette loader: 8-bit palette to ARGB.
 - `TILE` tileset loader: Dark Reign `.TIL` terrain chunks, masks, shore tiles,
   generated transition frames, and shadow frames, decoded using OpenDR's frame
@@ -83,6 +83,9 @@ The code keeps the old-game-specific pieces as adapters:
 - Dark Colony `.SPR` loader: embedded palette, frame descriptors, and raw
   indexed pixels, with C sequence tables for stand/run frame ranges based on
   the game's `.FIN` animation labels.
+- Dark Colony `GAMESTAT.TXT`/`WEAPSTAT.TXT` actor and weapon values are mirrored
+  into the plugin C actor table for first-pass health, attack range, damage,
+  cooldown, and attack animation timing.
 - Dark Colony `.MAP` loader: width/height plus 6-byte map records. It uses the
   sibling `.O16` overview for first-pass terrain colors while the true terrain
   tile/remap resources are reverse engineered.

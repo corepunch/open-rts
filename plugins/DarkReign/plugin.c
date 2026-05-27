@@ -22,6 +22,10 @@ static const RtsActorType DARK_REIGN_ACTOR_TYPES[] = {
                   RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
         .speed = 5.5f,
         .max_hp = 200,
+        .attack_range = 9.0f,
+        .attack_damage = 20,
+        .attack_cooldown_ms = 700,
+        .attack_anim_ms = 400,
     },
 };
 
