@@ -7,34 +7,80 @@ DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
 
-BUILD_DIR := build
-TARGET := $(BUILD_DIR)/open-rts
+BUILD_DIR     := build
+BIN_DIR       := $(BUILD_DIR)/bin
+LIBS_DIR      := $(BUILD_DIR)/libs
+TARGET        := $(BIN_DIR)/open-rts
 ANIM_EXTRACT_TARGET := $(BUILD_DIR)/anim_extract
-SOURCES := \
+
+DATA_DIR          := data
+DARK_REIGN_ROOT   := $(DATA_DIR)/REIGN/dark
+DARK_COLONY_ROOT  := $(DATA_DIR)/DCOLONY
+
+# Shared library extension (dylib on macOS, so on Linux)
+UNAME := $(shell uname)
+ifeq ($(UNAME),Darwin)
+  LIB_EXT      := .dylib
+  LIB_FLAGS    := -dynamiclib -undefined dynamic_lookup
+else
+  LIB_EXT      := .so
+  LIB_FLAGS    := -shared
+endif
+
+# ── main binary ─────────────────────────────────────────────────────────────
+MAIN_SOURCES := \
 	src/main.c \
 	src/engine.c \
 	src/plugin.c \
-	src/renderer_sdl.c \
+	src/renderer_sdl.c
+MAIN_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(MAIN_SOURCES))
+MAIN_DEPS    := $(MAIN_OBJECTS:.o=.d)
+
+# ── dark-reign plugin ────────────────────────────────────────────────────────
+DR_SOURCES := \
 	plugins/DarkReign/plugin.c \
-	plugins/DarkColony/plugin.c
-OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SOURCES))
-DEPS := $(OBJECTS:.o=.d)
+	plugins/DarkReign/dr_loader.c
+DR_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DR_SOURCES))
+DR_DEPS    := $(DR_OBJECTS:.o=.d)
+DR_LIB     := $(LIBS_DIR)/dark-reign$(LIB_EXT)
+
+# ── dark-colony plugin ───────────────────────────────────────────────────────
+DC_SOURCES := \
+	plugins/DarkColony/plugin.c \
+	plugins/DarkColony/dc_loader.c
+DC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_SOURCES))
+DC_DEPS    := $(DC_OBJECTS:.o=.d)
+DC_LIB     := $(LIBS_DIR)/dark-colony$(LIB_EXT)
+
+# ── anim_extract tool ────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE := tools/anim_extract.c
 ANIM_EXTRACT_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(ANIM_EXTRACT_SOURCE))
-ANIM_EXTRACT_DEPS := $(ANIM_EXTRACT_OBJECT:.o=.d)
-DATA_DIR := data
-DARK_REIGN_ROOT := $(DATA_DIR)/REIGN/dark
-DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
+ANIM_EXTRACT_DEPS   := $(ANIM_EXTRACT_OBJECT:.o=.d)
 
-.PHONY: all run dark-reign dark-colony build-dark-reign build-dark-colony anim-extract clean
+.PHONY: all run dark-reign dark-colony anim-extract clean
 
-all: $(TARGET)
+all: $(TARGET) $(DR_LIB) $(DC_LIB)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $@ $(SDL_LIBS) -lm
+# ── link main binary ─────────────────────────────────────────────────────────
+$(TARGET): $(MAIN_OBJECTS) | $(BIN_DIR)
+	$(CC) $(MAIN_OBJECTS) -o $@ $(SDL_LIBS) -lm -ldl
 
+# ── link plugin shared libs ──────────────────────────────────────────────────
+$(DR_LIB): $(DR_OBJECTS) | $(LIBS_DIR)
+	$(CC) $(LIB_FLAGS) -fPIC $(DR_OBJECTS) -o $@ $(SDL_LIBS) -lm
+
+$(DC_LIB): $(DC_OBJECTS) | $(LIBS_DIR)
+	$(CC) $(LIB_FLAGS) -fPIC $(DC_OBJECTS) -o $@ $(SDL_LIBS) -lm
+
+# ── anim_extract ─────────────────────────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(ANIM_EXTRACT_OBJECT)
 	$(CC) $(ANIM_EXTRACT_OBJECT) -o $@
+
+# ── compile rules ────────────────────────────────────────────────────────────
+# Plugin objects need -fPIC for shared libs
+$(BUILD_DIR)/plugins/%.o: plugins/%.c | $(BUILD_DIR)
+	mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -fPIC -c $< -o $@
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	mkdir -p $(dir $@)
@@ -43,21 +89,28 @@ $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-run: $(TARGET)
-	$(TARGET)
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
-dark-reign: $(TARGET)
-	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/MULTI/2NIC/2NIC.MAP ucfcnst0.spr
+$(LIBS_DIR):
+	mkdir -p $(LIBS_DIR)
 
-dark-colony: $(TARGET)
-	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/MPLAYER/D2PLAY01.MAP SPRITES/TROOPER1.SPR
+# ── run targets ──────────────────────────────────────────────────────────────
+run: all
+	$(TARGET) --game dark-reign
 
-build-dark-reign: dark-reign
+dark-reign: all
+	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/MULTI/2NIC/2NIC.SCN ucfcnst0.spr
 
-build-dark-colony: dark-colony
+dark-colony: all
+	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/MPLAYER/D2PLAY01.MTG SPRITES/TROOPER1.SPR
+
+anim-extract: $(ANIM_EXTRACT_TARGET)
 
 clean:
 	rm -rf $(BUILD_DIR)
 
--include $(DEPS)
+-include $(MAIN_DEPS)
+-include $(DR_DEPS)
+-include $(DC_DEPS)
 -include $(ANIM_EXTRACT_DEPS)

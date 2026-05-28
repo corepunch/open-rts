@@ -10,8 +10,6 @@ make
 make run
 make dark-reign
 make dark-colony
-make build-dark-reign
-make build-dark-colony
 ```
 
 The default run expects the game data under the repository-local `data/`
@@ -25,16 +23,16 @@ data/DCOLONY
 You can override the data root, map, and unit sprite:
 
 ```sh
-build/open-rts --game dark-reign /path/to/dark scenario/MULTI/8JUNGLE/8JUNGLE.MAP ucfcnst0.spr
-build/open-rts --game dark-colony /path/to/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MAP SPRITES/TROOPER1.SPR
+build/bin/open-rts --game dark-reign /path/to/dark scenario/MULTI/8JUNGLE/8JUNGLE.SCN ucfcnst0.spr
+build/bin/open-rts --game dark-colony /path/to/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MTG SPRITES/TROOPER1.SPR
 ```
 
 For a non-interactive loader/renderer check:
 
 ```sh
-env SDL_VIDEODRIVER=dummy build/open-rts --check
-env SDL_VIDEODRIVER=dummy build/open-rts --check --game dark-colony
-env SDL_VIDEODRIVER=dummy build/open-rts --screenshot /private/tmp/open-rts-smoke.bmp
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --check
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game dark-colony
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-smoke.bmp
 ```
 
 ## Controls

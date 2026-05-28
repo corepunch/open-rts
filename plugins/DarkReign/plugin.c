@@ -35,35 +35,31 @@ static bool dark_reign_load_runtime_sprites(SDL_Renderer *renderer, const char *
     return load_dark_reign_decoration_sprites(renderer, data_root, map, units, unit_count, cache);
 }
 
-const RtsPlugin *open_rts_dark_reign_plugin(void) {
-    static const RtsPlugin plugin = {
-        .id = "dark-reign",
-        .name = "Dark Reign",
-        .version = "0.1",
-        .default_root = "data/REIGN/dark",
-        .default_map = "scenario/MULTI/2NIC/2NIC.MAP",
-        .default_sprite = "ucfcnst0.spr",
-        .subsystems = RTS_SUBSYSTEM_FILESYSTEM |
-                      RTS_SUBSYSTEM_GRAPHICS |
-                      RTS_SUBSYSTEM_PALETTES |
-                      RTS_SUBSYSTEM_TILESETS |
-                      RTS_SUBSYSTEM_MAPS |
-                      RTS_SUBSYSTEM_SPRITES |
-                      RTS_SUBSYSTEM_WORLD |
-                      RTS_SUBSYSTEM_PLAYERS |
-                      RTS_SUBSYSTEM_ORDERS |
-                      RTS_SUBSYSTEM_SIMULATION |
-                      RTS_SUBSYSTEM_RENDERER |
-                      RTS_SUBSYSTEM_UI,
-        .cell_w = 24,
-        .cell_h = 24,
-        .actor_types = DARK_REIGN_ACTOR_TYPES,
-        .actor_type_count = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
-        .debug_enemy_type_id = DR_ACTOR_CONSTRUCTION_RIG,
-        .load_map = load_dark_map,
-        .load_assets = dark_reign_plugin_load_assets,
-        .load_initial_units = load_dark_reign_initial_units,
-        .load_runtime_sprites = dark_reign_load_runtime_sprites,
-    };
-    return &plugin;
-}
+static const RtsPlugin DARK_REIGN_PLUGIN = {
+    .id             = "dark-reign",
+    .name           = "Dark Reign",
+    .version        = "0.1",
+    .default_root   = "data/REIGN/dark",
+    .default_map    = "scenario/MULTI/2NIC/2NIC.SCN",
+    .default_sprite = "ucfcnst0.spr",
+    .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
+                      RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
+                      RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
+                      RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
+                      RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
+                      RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
+    .cell_w            = 24,
+    .cell_h            = 24,
+    .actor_types       = DARK_REIGN_ACTOR_TYPES,
+    .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
+    .debug_enemy_type_id = DR_ACTOR_CONSTRUCTION_RIG,
+    .load_map            = load_dark_map,
+    .load_assets         = dark_reign_plugin_load_assets,
+    .load_initial_units  = load_dark_reign_initial_units,
+    .load_runtime_sprites = dark_reign_load_runtime_sprites,
+};
+
+const RtsPlugin *open_rts_plugin_entry(void) { return &DARK_REIGN_PLUGIN; }
+
+/* keep old name for any static-link usage */
+const RtsPlugin *open_rts_dark_reign_plugin(void) { return &DARK_REIGN_PLUGIN; }

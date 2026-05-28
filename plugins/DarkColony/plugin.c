@@ -9,8 +9,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
                                    const Unit *units, int unit_count, SpriteCache *cache);
 
 enum {
-    DC_ACTOR_TROOPER = 1,
-    DC_ACTOR_GREY = 2,
+    DC_ACTOR_TROOPER  = 1,
+    DC_ACTOR_GREY     = 2,
     DC_ACTOR_EXPLOITER = 3,
 };
 
@@ -58,35 +58,31 @@ static bool dark_colony_load_runtime_sprites(SDL_Renderer *renderer, const char 
     return load_dark_colony_unit_sprites(renderer, data_root, units, unit_count, cache);
 }
 
-const RtsPlugin *open_rts_dark_colony_plugin(void) {
-    static const RtsPlugin plugin = {
-        .id = "dark-colony",
-        .name = "Dark Colony",
-        .version = "0.1",
-        .default_root = "data/DCOLONY",
-        .default_map = "SCENARIO/MPLAYER/D2PLAY01.MAP",
-        .default_sprite = "SPRITES/TROOPER1.SPR",
-        .subsystems = RTS_SUBSYSTEM_FILESYSTEM |
-                      RTS_SUBSYSTEM_GRAPHICS |
-                      RTS_SUBSYSTEM_PALETTES |
-                      RTS_SUBSYSTEM_TILESETS |
-                      RTS_SUBSYSTEM_MAPS |
-                      RTS_SUBSYSTEM_SPRITES |
-                      RTS_SUBSYSTEM_WORLD |
-                      RTS_SUBSYSTEM_PLAYERS |
-                      RTS_SUBSYSTEM_ORDERS |
-                      RTS_SUBSYSTEM_SIMULATION |
-                      RTS_SUBSYSTEM_RENDERER |
-                      RTS_SUBSYSTEM_UI,
-        .cell_w = 32,
-        .cell_h = 32,
-        .actor_types = DARK_COLONY_ACTOR_TYPES,
-        .actor_type_count = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
-        .debug_enemy_type_id = DC_ACTOR_GREY,
-        .load_map = load_dark_colony_map,
-        .load_assets = dark_colony_plugin_load_assets,
-        .load_initial_units = load_dark_colony_initial_units,
-        .load_runtime_sprites = dark_colony_load_runtime_sprites,
-    };
-    return &plugin;
-}
+static const RtsPlugin DARK_COLONY_PLUGIN = {
+    .id             = "dark-colony",
+    .name           = "Dark Colony",
+    .version        = "0.1",
+    .default_root   = "data/DCOLONY",
+    .default_map    = "SCENARIO/MPLAYER/D2PLAY01.MTG",
+    .default_sprite = "SPRITES/TROOPER1.SPR",
+    .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
+                      RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
+                      RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
+                      RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
+                      RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
+                      RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
+    .cell_w            = 32,
+    .cell_h            = 32,
+    .actor_types       = DARK_COLONY_ACTOR_TYPES,
+    .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
+    .debug_enemy_type_id = DC_ACTOR_GREY,
+    .load_map            = load_dark_colony_map,
+    .load_assets         = dark_colony_plugin_load_assets,
+    .load_initial_units  = load_dark_colony_initial_units,
+    .load_runtime_sprites = dark_colony_load_runtime_sprites,
+};
+
+const RtsPlugin *open_rts_plugin_entry(void) { return &DARK_COLONY_PLUGIN; }
+
+/* keep old name for any static-link usage */
+const RtsPlugin *open_rts_dark_colony_plugin(void) { return &DARK_COLONY_PLUGIN; }

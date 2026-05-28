@@ -1,0 +1,686 @@
+#define _DEFAULT_SOURCE
+#include "plugin.h"
+
+#include <ctype.h>
+#include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+
+/* ── helpers shared with Dark Reign loader ─────────────────────────────── */
+
+static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
+    snprintf(dst, dst_size, "%s", path);
+    char *dot = strrchr(dst, '.');
+    char *slash = strrchr(dst, '/');
+    if (dot && (!slash || dot > slash)) {
+        snprintf(dot, dst_size - (size_t)(dot - dst), "%s", ext);
+    } else {
+        strncat(dst, ext, dst_size - strlen(dst) - 1);
+    }
+}
+
+static void copy_trimmed_token(char *dst, size_t dst_size, const char *src, size_t len) {
+    while (len > 0 && isspace((unsigned char)*src)) { src++; len--; }
+    while (len > 0 && isspace((unsigned char)src[len - 1])) len--;
+    if (len >= dst_size) len = dst_size - 1;
+    memcpy(dst, src, len);
+    dst[len] = '\0';
+}
+
+static void uppercase_trimmed_token(char *dst, size_t dst_size, const char *src, size_t len) {
+    while (len > 0 && isspace((unsigned char)*src)) { src++; len--; }
+    while (len > 0 && isspace((unsigned char)src[len - 1])) len--;
+    if (len >= dst_size) len = dst_size - 1;
+    for (size_t i = 0; i < len; ++i) dst[i] = (char)toupper((unsigned char)src[i]);
+    dst[len] = '\0';
+}
+
+static char *load_text_file(const char *path) {
+    Blob blob;
+    if (!load_blob(path, &blob)) return NULL;
+    char *text = malloc(blob.size + 1);
+    if (!text) { free_blob(&blob); return NULL; }
+    memcpy(text, blob.bytes, blob.size);
+    text[blob.size] = '\0';
+    free_blob(&blob);
+    return text;
+}
+
+/* ── palette ────────────────────────────────────────────────────────────── */
+
+static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
+    if (size < 8 + 256 * 3) return;
+    const uint8_t *p = spr + 8;
+    for (int i = 0; i < 256; ++i) {
+        int r = clamp255((int)p[i * 3 + 0] * 4);
+        int g = clamp255((int)p[i * 3 + 1] * 4);
+        int b = clamp255((int)p[i * 3 + 2] * 4);
+        colors[i] = i == 0 ? 0x00000000u :
+            (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
+    }
+}
+
+/* ── water animation helpers ────────────────────────────────────────────── */
+
+enum { DARK_COLONY_WATER_WAVE_COUNT = 7 };
+
+static bool dark_colony_palette_index_is_water(uint8_t index, const uint32_t palette[256]) {
+    uint32_t color = palette[index];
+    uint8_t r = (uint8_t)(color >> 16);
+    uint8_t g = (uint8_t)(color >> 8);
+    uint8_t b = (uint8_t)color;
+    return index >= 201 && index <= 211 && r < 80 && g > 36 && b > 36 && g + b > r * 2;
+}
+
+static int dark_colony_palette_wave_score(uint8_t index, const uint32_t palette[256]) {
+    uint32_t color = palette[index];
+    uint8_t r = (uint8_t)(color >> 16);
+    uint8_t g = (uint8_t)(color >> 8);
+    uint8_t b = (uint8_t)color;
+    return (int)g + (int)b - (int)r * 2;
+}
+
+static bool dark_colony_palette_index_is_wave(uint8_t index, const uint32_t palette[256]) {
+    if (index < 201 || index > 207 || !dark_colony_palette_index_is_water(index, palette)) return false;
+    int score = dark_colony_palette_wave_score(index, palette);
+    int rank = 0;
+    for (uint8_t other = 201; other <= 207; ++other) {
+        if (!dark_colony_palette_index_is_water(other, palette)) continue;
+        int other_score = dark_colony_palette_wave_score(other, palette);
+        if (other_score > score || (other_score == score && other < index)) rank++;
+    }
+    return rank < DARK_COLONY_WATER_WAVE_COUNT;
+}
+
+static int dark_colony_palette_wave_count(const uint32_t palette[256]) {
+    int count = 0;
+    for (uint8_t index = 201; index <= 207; ++index) {
+        if (dark_colony_palette_index_is_wave(index, palette)) count++;
+    }
+    return count;
+}
+
+static bool dark_colony_tile_has_water(const uint8_t *src, const uint32_t palette[256],
+                                       size_t tile_bytes) {
+    int water = 0, opaque = 0;
+    for (size_t i = 0; i < tile_bytes; ++i) {
+        uint8_t index = src[i];
+        uint32_t color = palette[index];
+        uint8_t r = (uint8_t)(color >> 16);
+        uint8_t g = (uint8_t)(color >> 8);
+        uint8_t b = (uint8_t)color;
+        if (index == 0 || (r > 240 && g < 16 && b > 240)) continue;
+        opaque++;
+        if (dark_colony_palette_index_is_water(index, palette)) water++;
+    }
+    return water >= 96 && water * 4 >= opaque;
+}
+
+static uint8_t dark_colony_cycle_water_index(uint8_t index, const uint32_t palette[256], int phase) {
+    if (!dark_colony_palette_index_is_wave(index, palette)) return index;
+    uint8_t wave_indices[DARK_COLONY_WATER_WAVE_COUNT];
+    int wave_count = 0, index_pos = -1;
+    for (uint8_t other = 201; other <= 207; ++other) {
+        if (!dark_colony_palette_index_is_wave(other, palette)) continue;
+        if (wave_count < DARK_COLONY_WATER_WAVE_COUNT) {
+            if (other == index) index_pos = wave_count;
+            wave_indices[wave_count++] = other;
+        }
+    }
+    if (index_pos < 0 || wave_count == 0) return index;
+    return wave_indices[(index_pos + phase) % wave_count];
+}
+
+static void blit_dark_colony_tile_phase(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
+                                        const uint8_t *src, int src_w, int src_h,
+                                        const uint32_t palette[256], int phase) {
+    for (int y = 0; y < src_h; ++y) {
+        for (int x = 0; x < src_w; ++x) {
+            uint8_t index = dark_colony_cycle_water_index(src[y * src_w + x], palette, phase);
+            uint32_t color = palette[index];
+            int dx = dst_x + x, dy = dst_y + y;
+            if (dx >= 0 && dy >= 0 && dx < dst_w && dy < dst_h)
+                dst[dy * dst_w + dx] = color;
+        }
+    }
+}
+
+/* ── tileset ────────────────────────────────────────────────────────────── */
+
+bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, Tileset *out) {
+    memset(out, 0, sizeof(*out));
+    Blob blob;
+    if (!load_blob(path, &blob)) return false;
+    const int tile_w = 32, tile_h = 32, palette_count = 256;
+    const size_t tile_bytes = (size_t)tile_w * (size_t)tile_h;
+    const size_t header_bytes = 8 + (size_t)palette_count * 3;
+    if (blob.size < header_bytes) {
+        fprintf(stderr, "%s is not a Dark Colony BTS terrain tile set\n", path);
+        free_blob(&blob);
+        return false;
+    }
+    int count = (int)read_u32_le(blob.bytes + 4);
+    const size_t record_bytes = 4 + tile_bytes;
+    if (count <= 0 || count > 4096 ||
+        blob.size < header_bytes + (size_t)count * record_bytes) {
+        fprintf(stderr, "%s has unsupported Dark Colony BTS tile records\n", path);
+        free_blob(&blob);
+        return false;
+    }
+    uint32_t palette[256];
+    for (int i = 0; i < palette_count; ++i) {
+        const uint8_t *p = blob.bytes + 8 + i * 3;
+        int r = clamp255((int)p[0] * 4);
+        int g = clamp255((int)p[1] * 4);
+        int b = clamp255((int)p[2] * 4);
+        bool transparent = (i == 0) || (r > 240 && g < 16 && b > 240);
+        palette[i] = (transparent ? 0x00000000u : 0xff000000u) |
+                     ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    }
+
+    int wave_phase_count = dark_colony_palette_wave_count(palette);
+    if (wave_phase_count > MAX_TILE_ANIMATION_FRAMES) wave_phase_count = MAX_TILE_ANIMATION_FRAMES;
+    int extra_phase_count = wave_phase_count > 1 ? wave_phase_count - 1 : 0;
+
+    int max_key = 0, animated_count = 0;
+    uint8_t *animate_tile = calloc((size_t)count, sizeof(uint8_t));
+    uint32_t *record_keys = calloc((size_t)count, sizeof(uint32_t));
+    if (!animate_tile || !record_keys) {
+        free(animate_tile); free(record_keys); free_blob(&blob);
+        return false;
+    }
+    for (int tile = 0; tile < count; ++tile) {
+        const uint8_t *record = blob.bytes + header_bytes + (size_t)tile * record_bytes;
+        uint32_t key = read_u32_le(record);
+        record_keys[tile] = key;
+        if (key <= UINT16_MAX && (int)key > max_key) max_key = (int)key;
+        if (extra_phase_count > 0 && dark_colony_tile_has_water(record + 4, palette, tile_bytes)) {
+            animate_tile[tile] = 1;
+            animated_count++;
+        }
+    }
+    int total_tiles = count + animated_count * extra_phase_count;
+    int synthetic_key_base = max_key + 1;
+    int lookup_count = synthetic_key_base + animated_count * extra_phase_count;
+    int rows = (total_tiles + TILE_ATLAS_COLS - 1) / TILE_ATLAS_COLS;
+    int atlas_w = TILE_ATLAS_COLS * tile_w;
+    int atlas_h = rows * tile_h;
+    int *tile_lookup = calloc((size_t)lookup_count, sizeof(int));
+    uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
+    if (!rgba || !tile_lookup) {
+        free(tile_lookup); free(rgba);
+        free(animate_tile); free(record_keys); free_blob(&blob);
+        return false;
+    }
+    for (int i = 0; i < lookup_count; ++i) tile_lookup[i] = -1;
+    int extra_tile = count, extra_key = synthetic_key_base;
+    for (int tile = 0; tile < count; ++tile) {
+        int tx = (tile % TILE_ATLAS_COLS) * tile_w;
+        int ty = (tile / TILE_ATLAS_COLS) * tile_h;
+        const uint8_t *record = blob.bytes + header_bytes + (size_t)tile * record_bytes;
+        uint32_t key = record_keys[tile];
+        if (key <= (uint32_t)max_key) tile_lookup[key] = tile;
+        const uint8_t *src = record + 4;
+        blit_indexed_to_rgba(rgba, atlas_w, atlas_h, tx, ty, src, tile_w, tile_h, palette);
+        if (animate_tile[tile]) {
+            int frames[MAX_TILE_ANIMATION_FRAMES] = { (int)key };
+            for (int phase = 1; phase < wave_phase_count; ++phase) {
+                int anim_tile = extra_tile++;
+                int ax = (anim_tile % TILE_ATLAS_COLS) * tile_w;
+                int ay = (anim_tile / TILE_ATLAS_COLS) * tile_h;
+                int phase_key = extra_key + phase - 1;
+                frames[phase] = phase_key;
+                tile_lookup[phase_key] = anim_tile;
+                blit_dark_colony_tile_phase(rgba, atlas_w, atlas_h, ax, ay,
+                                            src, tile_w, tile_h, palette, phase);
+            }
+            tileset_add_animation(out, (int)key, frames, wave_phase_count, 180);
+            extra_key += extra_phase_count;
+        }
+    }
+    out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+    out->tile_lookup = tile_lookup;
+    out->tile_lookup_count = lookup_count;
+    out->count = total_tiles;
+    out->atlas_cols = TILE_ATLAS_COLS;
+    out->tile_w = tile_w;
+    out->tile_h = tile_h;
+    out->draw_y_offset = 0;
+    free(rgba); free(animate_tile); free(record_keys); free_blob(&blob);
+    if (!out->texture) { destroy_tileset(out); return false; }
+    return true;
+}
+
+/* ── sprite sequence helpers ────────────────────────────────────────────── */
+
+static void sprite_sheet_add_sequence(SpriteSheet *sheet, const char *name, int facings,
+                                      int length, int tick_ms, const int *frame_starts,
+                                      const int *direction_codes) {
+    if (!sheet || !name || sheet->sequence_count >= MAX_SPRITE_SEQUENCES ||
+        facings <= 0 || facings > MAX_SEQUENCE_FACINGS || length <= 0) return;
+    SpriteSequence *seq = &sheet->sequences[sheet->sequence_count++];
+    memset(seq, 0, sizeof(*seq));
+    snprintf(seq->name, sizeof(seq->name), "%s", name);
+    seq->facings = facings;
+    seq->length = length;
+    seq->frame_stride = 1;
+    seq->tick_ms = tick_ms > 0 ? tick_ms : 120;
+    for (int i = 0; i < facings; ++i) {
+        seq->frame_starts[i] = frame_starts ? frame_starts[i] : i * length;
+        seq->direction_codes[i] = direction_codes ? direction_codes[i] : i * 16 / facings;
+    }
+}
+
+/* ── SPR loader ─────────────────────────────────────────────────────────── */
+
+bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
+                             uint32_t palette_out[256]) {
+    memset(out, 0, sizeof(*out));
+    Blob blob;
+    if (!load_blob(path, &blob)) return false;
+    if (blob.size < 8 + 256 * 3) { free_blob(&blob); return false; }
+
+    int flags = read_u16_le(blob.bytes + 0);
+    bool compressed = (flags & 0x80) != 0;
+    int frame_count = read_u16_le(blob.bytes + 2);
+    size_t desc_off = 8 + 256 * 3;
+    size_t data_off = desc_off + (size_t)frame_count * 8;
+    if (frame_count <= 0 || frame_count > 1024 || data_off > blob.size) {
+        fprintf(stderr, "%s is not a supported Dark Colony raw SPR\n", path);
+        free_blob(&blob);
+        return false;
+    }
+
+    dark_colony_palette_from_spr(blob.bytes, blob.size, palette_out);
+    int visible_frames = frame_count;
+    int max_w = 1, max_h = 1;
+    size_t total_pixels = 0;
+    for (int i = 0; i < visible_frames; ++i) {
+        const uint8_t *d = blob.bytes + desc_off + (size_t)i * 8;
+        int w = read_u16_le(d + 0);
+        int h = read_u16_le(d + 2);
+        if (w <= 0 || h <= 0 || w > 512 || h > 512) { free_blob(&blob); return false; }
+        if (w > max_w) max_w = w;
+        if (h > max_h) max_h = h;
+        total_pixels += (size_t)w * (size_t)h;
+    }
+    if (!compressed && data_off + total_pixels > blob.size) {
+        fprintf(stderr, "%s has truncated Dark Colony sprite pixels\n", path);
+        free_blob(&blob);
+        return false;
+    }
+
+    int cols = (int)ceilf(sqrtf((float)visible_frames));
+    int rows = (visible_frames + cols - 1) / cols;
+    int atlas_w = cols * max_w;
+    int atlas_h = rows * max_h;
+    uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
+    SDL_Rect *frames = calloc((size_t)visible_frames, sizeof(SDL_Rect));
+    if (!rgba || !frames) {
+        free(rgba); free(frames); free_blob(&blob);
+        return false;
+    }
+
+    size_t src_pos = data_off;
+    for (int i = 0; i < visible_frames; ++i) {
+        const uint8_t *d = blob.bytes + desc_off + (size_t)i * 8;
+        int w = read_u16_le(d + 0);
+        int h = read_u16_le(d + 2);
+        int fx = (i % cols) * max_w + (max_w - w) / 2;
+        int fy = (i / cols) * max_h + (max_h - h) / 2;
+        if (compressed) {
+            if (src_pos + 4 > blob.size) { free(rgba); free(frames); free_blob(&blob); return false; }
+            uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
+            src_pos += 4;
+            if (src_pos + chunk_size > blob.size) { free(rgba); free(frames); free_blob(&blob); return false; }
+            const uint8_t *src = blob.bytes + src_pos;
+            size_t pos = 0;
+            int x = 0, y = 0;
+            while (pos < chunk_size && y < h) {
+                int8_t cmd = (int8_t)src[pos++];
+                if (cmd < 0) {
+                    x += -cmd;
+                } else {
+                    int count = cmd + 1;
+                    if (pos + (size_t)count > chunk_size) break;
+                    for (int p = 0; p < count; ++p) {
+                        if (x >= 0 && x < w && y >= 0 && y < h) {
+                            int dst_x = fx + x, dst_y = fy + y;
+                            if (dst_x >= 0 && dst_x < atlas_w && dst_y >= 0 && dst_y < atlas_h)
+                                rgba[dst_y * atlas_w + dst_x] = palette_out[src[pos + (size_t)p]];
+                        }
+                        x++;
+                    }
+                    pos += (size_t)count;
+                }
+                while (x >= w) { x -= w; y++; }
+            }
+            src_pos += chunk_size;
+        } else {
+            blit_indexed_to_rgba(rgba, atlas_w, atlas_h, fx, fy,
+                                 blob.bytes + src_pos, w, h, palette_out);
+            src_pos += (size_t)w * (size_t)h;
+        }
+        frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
+    }
+
+    out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+    out->frames = frames;
+    out->frame_count = visible_frames;
+    out->frame_w = max_w;
+    out->frame_h = max_h;
+    out->rotations = 1;
+    out->primary_frames_per_rotation = visible_frames;
+
+    /* Build animation sequences from FIN-correct per-direction start frames. */
+    const char *base = strrchr(path, '/');
+    base = base ? base + 1 : path;
+
+    /* direction_code_from_vector produces sector*2: E=0,SE=2,S=4,SW=6,W=8,NW=10,N=12,NE=14 */
+    static const int dc_dir_east_first[8]  = {  0, 14, 12, 10,  8,  6,  4,  2 };
+    static const int dc_dir_trooper1[8]    = {  6,  4,  2,  0, 14, 12, 10,  8 };
+
+    if (strcasecmp(base, "TRSC.SPR") == 0) {
+        static const int stand[8] = { 0,  1,  2,  3,  4,  5,  6,  7 };
+        static const int run[8]   = { 16, 24, 32, 40, 48, 56, 64, 72 };
+        static const int fire[8]  = { 88, 96,104,112,120,128,136,144 };
+        static const int die[8]   = {223,234,246,257,268,279,291,302 };
+        sprite_sheet_add_sequence(out, "stand", 8, 1,  120, stand, dc_dir_east_first);
+        sprite_sheet_add_sequence(out, "run",   8, 8,  120, run,   dc_dir_east_first);
+        sprite_sheet_add_sequence(out, "shoot", 8, 8,   70, fire,  dc_dir_east_first);
+        sprite_sheet_add_sequence(out, "die",   8, 11,  90, die,   dc_dir_east_first);
+    } else if (strcasecmp(base, "GRAY.SPR") == 0) {
+        static const int stand[8] = { 0,  1,  2,  3,  4,  5,  6,  7 };
+        static const int run[8]   = { 16, 23, 31, 39, 47, 55, 63, 71 };
+        static const int fire[8]  = { 78, 86, 94,102,110,118,126,134 };
+        static const int die[8]   = {254,266,278,290,302,314,326,338 };
+        sprite_sheet_add_sequence(out, "stand", 8, 1,  120, stand, dc_dir_east_first);
+        sprite_sheet_add_sequence(out, "run",   8, 7,  120, run,   dc_dir_east_first);
+        sprite_sheet_add_sequence(out, "shoot", 8, 8,   70, fire,  dc_dir_east_first);
+        sprite_sheet_add_sequence(out, "die",   8, 12,  90, die,   dc_dir_east_first);
+    } else if (strcasecmp(base, "TROOPER1.SPR") == 0) {
+        static const int stand[8] = { 0,  1,  2,  3,  4,  5,  6,  7 };
+        static const int run[8]   = { 8, 10, 12, 14, 16, 18, 20, 22 };
+        static const int fire[8]  = {24, 25, 26, 27, 28, 29, 30, 31 };
+        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, stand, dc_dir_trooper1);
+        sprite_sheet_add_sequence(out, "run",   8, 2, 120, run,   dc_dir_trooper1);
+        sprite_sheet_add_sequence(out, "shoot", 8, 1, 120, fire,  dc_dir_trooper1);
+    } else if (visible_frames >= 16) {
+        int stand[8], run[8];
+        for (int i = 0; i < 8; ++i) { stand[i] = i; run[i] = i + 8; }
+        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, stand, dc_dir_east_first);
+        int run_length = (visible_frames - 8) / 8;
+        if (run_length < 1) run_length = 1;
+        if (run_length > 8) run_length = 8;
+        sprite_sheet_add_sequence(out, "run", 8, run_length, 120, run, dc_dir_east_first);
+    }
+
+    free(rgba);
+    free_blob(&blob);
+    return out->texture != NULL;
+}
+
+/* ── sprite cache helper ────────────────────────────────────────────────── */
+
+static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *renderer,
+                                          const char *data_root, const char *name) {
+    if (!name || name[0] == '\0') return true;
+    if (sprite_cache_find(cache, name)) return true;
+    if (cache->count >= MAX_DECORATION_SPRITES) {
+        fprintf(stderr, "too many Dark Colony sprites; skipped %s\n", name);
+        return false;
+    }
+    char sprite_path[1024];
+    if (name[0] == '/') {
+        snprintf(sprite_path, sizeof(sprite_path), "%s", name);
+    } else {
+        path_join(sprite_path, sizeof(sprite_path), data_root, name);
+    }
+    CachedSprite *entry = &cache->entries[cache->count];
+    snprintf(entry->name, sizeof(entry->name), "%s", name);
+    uint32_t palette[256] = { 0 };
+    if (!load_dark_colony_sprite(renderer, sprite_path, &entry->sprite, palette)) {
+        fprintf(stderr, "failed to load %s\n", sprite_path);
+        memset(entry, 0, sizeof(*entry));
+        return false;
+    }
+    cache->count++;
+    return true;
+}
+
+/* ── public entry points ────────────────────────────────────────────────── */
+
+bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
+                                   const Unit *units, int unit_count, SpriteCache *cache) {
+    bool ok = true;
+    for (int i = 0; i < unit_count; ++i) {
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].sprite_name))
+            ok = false;
+    }
+    return ok;
+}
+
+/* ── map loader ─────────────────────────────────────────────────────────── */
+
+bool load_dark_colony_map(const char *map_path, GameMap *out) {
+    memset(out, 0, sizeof(*out));
+    Blob blob;
+    if (!load_blob(map_path, &blob)) return false;
+    if (blob.size < 2) { free_blob(&blob); return false; }
+    int width = 0;
+    int height = 0;
+    size_t source_count = 0;
+    bool legacy_map_format = false;
+    if (blob.size >= 8) {
+        int maybe_width = read_i32_le(blob.bytes + 0);
+        int maybe_height = read_i32_le(blob.bytes + 4);
+        size_t maybe_count = (size_t)maybe_width * (size_t)maybe_height;
+        if (maybe_width > 0 && maybe_height > 0 && maybe_width <= 512 && maybe_height <= 512 &&
+            blob.size >= 8 + maybe_count * 2 * 3) {
+            width = maybe_width;
+            height = maybe_height;
+            source_count = maybe_count;
+            legacy_map_format = true;
+        }
+    }
+    if (!legacy_map_format) {
+        width = (int)blob.bytes[0];
+        height = (int)blob.bytes[1];
+        source_count = (size_t)width * (size_t)height;
+        if (width <= 0 || height <= 0 || width > 512 || height > 512 || blob.size < 2 + source_count) {
+            fprintf(stderr, "%s has unsupported Dark Colony map dimensions\n", map_path);
+            free_blob(&blob); return false;
+        }
+    }
+
+    out->width = width;
+    out->height = height;
+    out->render_features |= MAP_RENDER_SKIP_ZERO_TILES | MAP_RENDER_INTERLEAVED_OVERLAYS;
+    out->tile_ids        = calloc(source_count, sizeof(uint16_t));
+    out->blocked         = calloc(source_count, sizeof(uint8_t));
+    out->tile_overlay_count = 1;
+    out->tile_overlays[0]   = calloc(source_count, sizeof(uint16_t));
+    out->tile_flip_flags[0] = calloc(source_count, sizeof(uint8_t));
+    out->tile_flip_flags[1] = calloc(source_count, sizeof(uint8_t));
+    if (!out->tile_ids || !out->blocked ||
+        !out->tile_overlays[0] || !out->tile_flip_flags[0] || !out->tile_flip_flags[1]) {
+        free_blob(&blob); destroy_map(out); return false;
+    }
+    if (legacy_map_format) {
+        const uint8_t *tile_pairs = blob.bytes + 8;
+        const uint8_t *tile_flags = blob.bytes + 8 + source_count * 4;
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = (size_t)y * (size_t)width + (size_t)x;
+                const uint8_t *cell = tile_pairs + idx * 4;
+                out->tile_ids[idx] = read_u16_le(cell);
+                out->tile_overlays[0][idx] = read_u16_le(cell + 2);
+                uint16_t flags = read_u16_le(tile_flags + idx * 2);
+                out->tile_flip_flags[0][idx] = (flags & (1u << 5)) ? 1 : 0;
+                out->tile_flip_flags[1][idx] = (flags & (1u << 6)) ? 1 : 0;
+                if (out->tile_ids[idx] == 0) out->blocked[idx] = 1;
+            }
+        }
+    } else {
+        const uint8_t *mtg_tiles = blob.bytes + 2;
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = (size_t)y * (size_t)width + (size_t)x;
+                out->tile_ids[idx] = mtg_tiles[idx];
+                out->tile_overlays[0][idx] = 0;
+                if (out->tile_ids[idx] == 0) out->blocked[idx] = 1;
+            }
+        }
+    }
+
+    char scn_path[1024];
+    replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
+    char *scn = load_text_file(scn_path);
+    if (scn) {
+        char first_token[64] = { 0 };
+        const char *line_end = strpbrk(scn, "\r\n");
+        size_t token_len = line_end ? (size_t)(line_end - scn) : strlen(scn);
+        copy_trimmed_token(first_token, sizeof(first_token), scn, token_len);
+        char *dot = strrchr(first_token, '.');
+        if (dot) *dot = '\0';
+        uppercase_trimmed_token(out->tileset_name, sizeof(out->tileset_name),
+                                first_token, strlen(first_token));
+        free(scn);
+    }
+
+    const char *base = strrchr(map_path, '/');
+    base = base ? base + 1 : map_path;
+    if (out->tileset_name[0] == '\0') {
+        if      (toupper((unsigned char)base[0]) == 'J') strncpy(out->tileset_name, "JUNGLE",   sizeof(out->tileset_name) - 1);
+        else if (toupper((unsigned char)base[0]) == 'A') strncpy(out->tileset_name, "ATLANTIS", sizeof(out->tileset_name) - 1);
+        else if (toupper((unsigned char)base[0]) == 'H') strncpy(out->tileset_name, "HTRAIN",   sizeof(out->tileset_name) - 1);
+        else                                             strncpy(out->tileset_name, "DESERT",   sizeof(out->tileset_name) - 1);
+    }
+    free_blob(&blob);
+    return true;
+}
+
+/* ── unit SCN parser ────────────────────────────────────────────────────── */
+
+static const char *dark_colony_unit_sprite_for_type(int type, int race) {
+    if (race == 1) {
+        if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
+        if (type == 6) return "SPRITES/SLUG.SPR";
+    } else {
+        if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/TRSC.SPR";
+        if (type == 6) return "SPRITES/EXPL.SPR";
+    }
+    switch (type) {
+        case  2: return "SPRITES/REAP.SPR";
+        case  3: return "SPRITES/BARR.SPR";
+        case  4: return "SPRITES/SARG.SPR";
+        case  5: return "SPRITES/SCGM.SPR";
+        case  8: return "SPRITES/GRAY.SPR";
+        case  9: return "SPRITES/XENO.SPR";
+        case 10: return "SPRITES/SCYT.SPR";
+        case 11: return "SPRITES/ATRIL.SPR";
+        case 12: return "SPRITES/PSYC.SPR";
+        case 13: return "SPRITES/ORTU.SPR";
+        case 14: return "SPRITES/SLUG.SPR";
+        case 15: return "SPRITES/ATRIL.SPR";
+        case 43: return "SPRITES/ENGI.SPR";
+        case 44: return "SPRITES/SLOM.SPR";
+        case 49: return "SPRITES/BEON.SPR";
+        case 50: return "SPRITES/ZISP.SPR";
+        case 73: case 74: case 75: case 76: return "SPRITES/GRAY.SPR";
+        case 77: return "SPRITES/SARG.SPR";
+        case 78: return "SPRITES/PSYC.SPR";
+        default: return NULL;
+    }
+}
+
+int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
+    char scn_path[1024];
+    replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
+    char *text = load_text_file(scn_path);
+    if (!text) return 0;
+
+    int team_race[16] = { 0 };
+    int current_team = -1, team_count = 0;
+    bool expect_race = false, object_mode = false;
+    int trailing_blank_lines = 0, count = 0;
+
+    for (char *line = text; line && *line && count < max_units;) {
+        char *next = strpbrk(line, "\r\n");
+        if (next) {
+            char nl = *next; *next++ = '\0';
+            if (nl == '\r' && *next == '\n') next++;
+        }
+        char token[128] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, strlen(line));
+        if (token[0] == '\0') {
+            if (team_count >= 8 && !object_mode && ++trailing_blank_lines >= 2)
+                object_mode = true;
+            line = next; continue;
+        }
+        if (strncmp(token, "TEAM ", 5) == 0) {
+            int active = 0;
+            if (sscanf(token, "TEAM %d %d", &current_team, &active) >= 1 &&
+                current_team >= 0 && current_team < 16) {
+                team_count++; expect_race = true;
+            } else { current_team = -1; expect_race = false; }
+            trailing_blank_lines = 0; line = next; continue;
+        }
+        if (!object_mode && expect_race) {
+            int race = 0;
+            if (sscanf(token, "%d", &race) == 1 && current_team >= 0 && current_team < 16) {
+                team_race[current_team] = race;
+                expect_race = false; trailing_blank_lines = 0;
+                line = next; continue;
+            }
+        }
+        if (!object_mode) { trailing_blank_lines = 0; line = next; continue; }
+
+        int x = 0, y = 0, type = 0, team = 0, owner = 0, extra = 0;
+        if (sscanf(line, " %d %d %d %d %d %d", &x, &y, &type, &team, &owner, &extra) == 6 &&
+            team >= 0 && team < 16 && x >= 0 && y >= 0) {
+            const char *sprite = dark_colony_unit_sprite_for_type(type, team_race[team]);
+            if (sprite) {
+                Unit *u = &units[count];
+                u->gx = (float)x + 0.5f;
+                u->gy = (float)y + 0.5f;
+                u->speed = 5.5f;
+                u->owner = team == 0 ? 0 : 1;
+                u->selected = count == 0;
+                snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
+                count++;
+            }
+        }
+        line = next;
+    }
+    free(text);
+    return count;
+}
+
+/* ── plugin asset loader ────────────────────────────────────────────────── */
+
+bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
+                                    const GameMap *map, const char *sprite_name,
+                                    Tileset *tileset, SpriteSheet *unit_sprite) {
+    char bts_path[1024];
+    snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", data_root, map->tileset_name);
+    if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;
+
+    char sprite_path[1024];
+    uint32_t sprite_palette[256] = { 0 };
+    if (sprite_name[0] == '/') {
+        snprintf(sprite_path, sizeof(sprite_path), "%s", sprite_name);
+    } else {
+        path_join(sprite_path, sizeof(sprite_path), data_root, sprite_name);
+    }
+    if (!load_dark_colony_sprite(renderer, sprite_path, unit_sprite, sprite_palette)) {
+        fprintf(stderr, "failed to load %s\n", sprite_path);
+        destroy_tileset(tileset);
+        return false;
+    }
+    return true;
+}

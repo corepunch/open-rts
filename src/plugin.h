@@ -43,8 +43,11 @@ typedef struct RtsPlugin {
                                  SpriteCache *cache);
 } RtsPlugin;
 
+typedef const RtsPlugin *(*rts_plugin_entry_fn)(void);
+
 int rts_plugin_count(void);
 const RtsPlugin *rts_plugin_at(int index);
 const RtsPlugin *rts_find_plugin(const char *id);
+bool rts_plugin_load(const char *so_path);
 
 #endif
