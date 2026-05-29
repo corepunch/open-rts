@@ -213,6 +213,9 @@ int astar_find(const GameMap *map, Cell start, Cell goal, Cell *out_path, int ma
 
 void grid_to_screen(const App *app, float gx, float gy, float *sx, float *sy);
 Cell screen_to_grid(const App *app, int sx, int sy);
+void refresh_app_viewport(App *app);
+void window_to_render_point(const App *app, int wx, int wy, int *rx, int *ry);
+void window_to_render_delta(const App *app, int wx, int wy, float *rx, float *ry);
 void render_grid_cell(App *app, int gx, int gy, SDL_Color color);
 void render_tile_at(App *app, const Tileset *tileset, int tile, SDL_Rect src_part, SDL_Rect dst_part);
 void render_map(App *app, const GameMap *map, const Tileset *tileset);

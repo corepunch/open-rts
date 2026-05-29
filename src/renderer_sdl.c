@@ -29,6 +29,7 @@ static bool sdl_renderer_create(RtsRenderer *renderer, const char *title, int wi
     }
 
     SDL_SetRenderDrawBlendMode(renderer->sdl, SDL_BLENDMODE_BLEND);
+    SDL_GetRendererOutputSize(renderer->sdl, &renderer->width, &renderer->height);
     return true;
 }
 
@@ -49,7 +50,14 @@ static void sdl_renderer_end_frame(RtsRenderer *renderer) {
 }
 
 static bool sdl_renderer_save_screenshot(RtsRenderer *renderer, const char *path) {
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, renderer->width, renderer->height,
+    int width = renderer->width;
+    int height = renderer->height;
+    SDL_GetRendererOutputSize(renderer->sdl, &width, &height);
+    if (width <= 0 || height <= 0) {
+        width = renderer->width;
+        height = renderer->height;
+    }
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, width, height,
                                                           32, SDL_PIXELFORMAT_ARGB8888);
     if (!surface) {
         fprintf(stderr, "SDL_CreateRGBSurfaceWithFormat: %s\n", SDL_GetError());

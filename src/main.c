@@ -402,6 +402,7 @@ int main(int argc, char **argv) {
     }
     app.window = renderer.window;
     app.renderer = renderer.sdl;
+    refresh_app_viewport(&app);
 
     GameMap map;
     if (!plugin->load_map(map_path, &map)) {

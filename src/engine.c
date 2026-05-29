@@ -136,6 +136,30 @@ static int app_scale(const App *app) {
     return app->render_scale > 0 ? app->render_scale : 1;
 }
 
+static float viewport_scale_x(const App *app) {
+    int window_w = 0, window_h = 0;
+    int render_w = 0, render_h = 0;
+    if (!app || !app->window || !app->renderer) return 1.0f;
+    SDL_GetWindowSize(app->window, &window_w, &window_h);
+    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
+        window_w <= 0 || window_h <= 0 || render_w <= 0 || render_h <= 0) {
+        return 1.0f;
+    }
+    return (float)render_w / (float)window_w;
+}
+
+static float viewport_scale_y(const App *app) {
+    int window_w = 0, window_h = 0;
+    int render_w = 0, render_h = 0;
+    if (!app || !app->window || !app->renderer) return 1.0f;
+    SDL_GetWindowSize(app->window, &window_w, &window_h);
+    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
+        window_w <= 0 || window_h <= 0 || render_w <= 0 || render_h <= 0) {
+        return 1.0f;
+    }
+    return (float)render_h / (float)window_h;
+}
+
 static int app_tile_w(const App *app, const Tileset *tileset) {
     return tileset->tile_w * app_scale(app);
 }
@@ -286,6 +310,31 @@ void grid_to_screen(const App *app, float gx, float gy, float *sx, float *sy) {
 Cell screen_to_grid(const App *app, int sx, int sy) {
     return (Cell){ (int)floorf(((float)sx - app->cam_x) / (float)app_cell_w(app)),
                    (int)floorf(((float)sy - app->cam_y) / (float)app_cell_h(app)) };
+}
+
+void refresh_app_viewport(App *app) {
+    if (!app || !app->window || !app->renderer) return;
+    int render_w = 0, render_h = 0;
+    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
+        render_w <= 0 || render_h <= 0) {
+        SDL_GetWindowSize(app->window, &render_w, &render_h);
+    }
+    if (render_w > 0) app->win_w = render_w;
+    if (render_h > 0) app->win_h = render_h;
+}
+
+void window_to_render_point(const App *app, int wx, int wy, int *rx, int *ry) {
+    float sx = viewport_scale_x(app);
+    float sy = viewport_scale_y(app);
+    if (rx) *rx = (int)lroundf((float)wx * sx);
+    if (ry) *ry = (int)lroundf((float)wy * sy);
+}
+
+void window_to_render_delta(const App *app, int wx, int wy, float *rx, float *ry) {
+    float sx = viewport_scale_x(app);
+    float sy = viewport_scale_y(app);
+    if (rx) *rx = (float)wx * sx;
+    if (ry) *ry = (float)wy * sy;
 }
 
 void render_grid_cell(App *app, int gx, int gy, SDL_Color color) {
@@ -779,8 +828,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
             break;
         case SDL_WINDOWEVENT:
             if (e->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                app->win_w = e->window.data1;
-                app->win_h = e->window.data2;
+                refresh_app_viewport(app);
             }
             break;
         case SDL_KEYDOWN:
@@ -791,31 +839,37 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
             }
             break;
         case SDL_MOUSEMOTION:
-            app->mouse_x = e->motion.x;
-            app->mouse_y = e->motion.y;
+            window_to_render_point(app, e->motion.x, e->motion.y, &app->mouse_x, &app->mouse_y);
             if (app->panning) {
-                app->cam_x += (float)e->motion.xrel;
-                app->cam_y += (float)e->motion.yrel;
+                float dx = 0.0f, dy = 0.0f;
+                window_to_render_delta(app, e->motion.xrel, e->motion.yrel, &dx, &dy);
+                app->cam_x += dx;
+                app->cam_y += dy;
             }
             if (app->dragging_select) {
-                app->selection_rect = normalized_rect(app->mouse_down_x, app->mouse_down_y, e->motion.x, e->motion.y);
+                int mx = 0, my = 0;
+                window_to_render_point(app, e->motion.x, e->motion.y, &mx, &my);
+                app->selection_rect = normalized_rect(app->mouse_down_x, app->mouse_down_y, mx, my);
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
-            app->mouse_down_x = e->button.x;
-            app->mouse_down_y = e->button.y;
+            window_to_render_point(app, e->button.x, e->button.y, &app->mouse_down_x, &app->mouse_down_y);
             if (e->button.button == SDL_BUTTON_LEFT) {
                 app->dragging_select = true;
-                app->selection_rect = (SDL_Rect){ e->button.x, e->button.y, 0, 0 };
+                app->selection_rect = (SDL_Rect){ app->mouse_down_x, app->mouse_down_y, 0, 0 };
             } else if (e->button.button == SDL_BUTTON_RIGHT) {
-                issue_move_order(map, units, unit_count, screen_to_grid(app, e->button.x, e->button.y));
+                int rx = 0, ry = 0;
+                window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
+                issue_move_order(map, units, unit_count, screen_to_grid(app, rx, ry));
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = true;
             }
             break;
         case SDL_MOUSEBUTTONUP:
             if (e->button.button == SDL_BUTTON_LEFT && app->dragging_select) {
-                SDL_Rect rect = normalized_rect(app->mouse_down_x, app->mouse_down_y, e->button.x, e->button.y);
+                int bx = 0, by = 0;
+                window_to_render_point(app, e->button.x, e->button.y, &bx, &by);
+                SDL_Rect rect = normalized_rect(app->mouse_down_x, app->mouse_down_y, bx, by);
                 bool box = rect.w > 5 || rect.h > 5;
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
                 if (!additive) {
@@ -827,7 +881,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                     float sx, sy;
                     grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
                     if ((box && point_in_rect((int)sx, (int)sy, rect)) ||
-                        (!box && hypotf((float)e->button.x - sx, (float)e->button.y - sy) < 30.0f)) {
+                        (!box && hypotf((float)bx - sx, (float)by - sy) < 30.0f)) {
                         units[i].selected = true;
                     }
                 }
