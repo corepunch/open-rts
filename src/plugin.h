@@ -31,6 +31,7 @@ typedef struct RtsPlugin {
     uint32_t subsystems;
     int cell_w;
     int cell_h;
+    const RtsGameInfo *game_info;
     const RtsActorType *actor_types;
     int actor_type_count;
     uint16_t debug_enemy_type_id;

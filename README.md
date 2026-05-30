@@ -79,8 +79,8 @@ The code keeps the old-game-specific pieces as adapters:
 - `BOTG`/FTG archive loader: extracts contained files.
 - `RSPR`/`SSPR` sprite loader: decodes paletted RLE sprite frames.
 - Dark Colony `.SPR` loader: embedded palette, frame descriptors, and raw
-  indexed pixels, with C sequence tables for stand/run frame ranges based on
-  the game's `.FIN` animation labels.
+  indexed pixels. Unit animation is driven by generated Doom-style
+  `sprnames[]`, `states[]`, and `mobjinfo[]` tables.
 - Dark Colony `GAMESTAT.TXT`/`WEAPSTAT.TXT` actor and weapon values are mirrored
   into the plugin C actor table for first-pass health, attack range, damage,
   cooldown, and attack animation timing.

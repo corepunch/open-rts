@@ -13,14 +13,18 @@
 #define TILE_PIX_H 24
 #define TILE_ATLAS_COLS 24
 #define MAX_UNITS 128
+#define MAX_VISUAL_EFFECTS 256
 #define MAX_DECORATIONS 8192
 #define MAX_DECORATION_SPRITES 512
 #define MAX_TILE_OVERLAYS 3
 #define MAX_TILE_ANIMATION_FRAMES 8
 #define MAX_SPRITE_SEQUENCES 8
 #define MAX_SEQUENCE_FACINGS 16
+#define RTS_MAX_STATE_FACINGS 16
 #define MAX_PATH_CELLS 4096
 #define FIXED_DT (1.0f / 30.0f)
+
+#define RTS_FRAME_FLIP_X (1u << 0)
 
 typedef struct {
     int x;
@@ -100,6 +104,9 @@ typedef struct {
     int attack_damage;
     int attack_cooldown_ms;
     int attack_anim_ms;
+    int death_anim_ms;
+    const char *muzzle_flash_name;
+    int muzzle_flash_ms;
 } RtsActorType;
 
 typedef struct {
@@ -108,8 +115,13 @@ typedef struct {
     int footprint_w;
     int footprint_h;
     bool solid;
+    bool center_anchor;
+    int frame_index;
+    int facing_code;
+    uint32_t render_flags;
     char sprite_name[32];
     char shadow_name[32];
+    char sequence_name[16];
 } MapDecoration;
 
 typedef struct {
@@ -123,6 +135,60 @@ typedef struct {
 } SpriteCache;
 
 typedef struct App App;
+typedef struct Unit Unit;
+typedef struct RtsStateContext RtsStateContext;
+typedef void (*RtsStateAction)(RtsStateContext *ctx, Unit *unit);
+
+typedef struct {
+    int sprite;
+    int frame;
+    int tics;
+    RtsStateAction action;
+    int nextstate;
+    uint32_t flags;
+    int misc1;
+    int misc2;
+    int facings;
+    int direction_codes[RTS_MAX_STATE_FACINGS];
+    int facing_frames[RTS_MAX_STATE_FACINGS];
+    uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
+} RtsState;
+
+typedef struct {
+    int doomednum;
+    int spawnstate;
+    int spawnhealth;
+    int seestate;
+    int seesound;
+    int reactiontime;
+    int attacksound;
+    int painstate;
+    int painchance;
+    int painsound;
+    int meleestate;
+    int missilestate;
+    int deathstate;
+    int xdeathstate;
+    int deathsound;
+    int speed;
+    int radius;
+    int height;
+    int mass;
+    int damage;
+    int activesound;
+    int flags;
+    int raisestate;
+} RtsMobjInfo;
+
+typedef struct {
+    const char *const *sprnames;
+    int sprite_count;
+    const RtsState *states;
+    int state_count;
+    const RtsMobjInfo *mobjinfo;
+    int mobj_type_count;
+    int null_state;
+} RtsGameInfo;
 
 typedef struct GameMap {
     int width;
@@ -141,12 +207,17 @@ typedef struct GameMap {
                                int x, int y, int dx, int dy);
 } GameMap;
 
-typedef struct {
+typedef struct Unit {
     float gx;
     float gy;
     float speed;
     int facing_code;
     uint16_t type_id;
+    int state_id;
+    int tics;
+    int sprite_id;
+    int frame;
+    uint32_t render_flags;
     uint8_t owner;
     uint32_t traits;
     int hp;
@@ -159,15 +230,47 @@ typedef struct {
     int attack_anim_left_ms;
     int death_anim_ms;
     int death_anim_left_ms;
+    int muzzle_flash_ms;
     int attack_target;
     bool selected;
     bool death_started;
+    bool remove;
     char sprite_name[32];
     char shadow_name[32];
+    char muzzle_flash_name[32];
     Cell path[MAX_PATH_CELLS];
     int path_len;
     int path_index;
 } Unit;
+
+typedef struct {
+    bool active;
+    bool use_state;
+    float gx;
+    float gy;
+    int facing_code;
+    int state_id;
+    int tics;
+    int sprite_id;
+    int frame;
+    uint32_t render_flags;
+    int age_ms;
+    int duration_ms;
+    int frame_ms;
+    int decoration_frame_index;
+    bool add_decoration_on_finish;
+    char sprite_name[32];
+    char sequence_name[16];
+} RtsVisualEffect;
+
+struct RtsStateContext {
+    GameMap *map;
+    Unit *units;
+    int *unit_count;
+    RtsVisualEffect *effects;
+    int max_effects;
+    const RtsGameInfo *game_info;
+};
 
 struct App {
     SDL_Window *window;
@@ -221,13 +324,23 @@ void render_tile_at(App *app, const Tileset *tileset, int tile, SDL_Rect src_par
 void render_map(App *app, const GameMap *map, const Tileset *tileset);
 void render_decorations(App *app, const GameMap *map, const SpriteCache *cache);
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
-                  const SpriteCache *cache, uint32_t ticks);
+                  const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks);
+void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_effects,
+                           const SpriteCache *cache, const RtsGameInfo *game_info);
 
 CachedSprite *sprite_cache_find(SpriteCache *cache, const char *name);
 const SpriteSheet *sprite_cache_lookup(const SpriteCache *cache, const char *name);
 
 void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal);
-void update_units(Unit *units, int unit_count, float dt);
+void rts_apply_mobjinfo_defaults(const RtsGameInfo *game_info, Unit *unit);
+bool rts_set_unit_state(RtsStateContext *ctx, Unit *unit, int state_id);
+bool rts_spawn_state_effect(RtsStateContext *ctx, int state_id, float gx, float gy, int facing_code);
+bool rts_unit_fire_attack(RtsStateContext *ctx, Unit *attacker);
+bool rts_unit_add_corpse_decoration(RtsStateContext *ctx, const Unit *unit);
+void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *effects,
+                  int max_effects, const RtsGameInfo *game_info, float dt);
+void update_visual_effects(GameMap *map, RtsVisualEffect *effects, int max_effects,
+                           const RtsGameInfo *game_info, float dt);
 void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, const SDL_Event *e);
 void update_camera_from_keyboard(App *app, float dt);
 

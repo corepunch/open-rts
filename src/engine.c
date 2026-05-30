@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,25 @@ typedef struct {
     int parent;
     uint8_t state;
 } AStarNode;
+
+static bool debug_effects_enabled(void) {
+    static int enabled = -1;
+    if (enabled < 0) {
+        const char *value = getenv("OPEN_RTS_DEBUG_EFFECTS");
+        enabled = value && value[0] != '\0' && strcmp(value, "0") != 0;
+    }
+    return enabled != 0;
+}
+
+static void debug_effects_log(const char *fmt, ...) {
+    if (!debug_effects_enabled()) return;
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "[effects] ");
+    vfprintf(stderr, fmt, args);
+    fputc('\n', stderr);
+    va_end(args);
+}
 
 uint16_t read_u16_le(const uint8_t *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
@@ -508,6 +528,173 @@ CachedSprite *sprite_cache_find(SpriteCache *cache, const char *name) {
     return NULL;
 }
 
+static const SpriteSequence *sprite_sequence_find(const SpriteSheet *sprite, const char *name) {
+    if (!sprite || !name) return NULL;
+    for (int i = 0; i < sprite->sequence_count; ++i) {
+        if (strcmp(sprite->sequences[i].name, name) == 0) return &sprite->sequences[i];
+    }
+    return NULL;
+}
+
+static int sequence_facing_index(const SpriteSequence *seq, int direction_code) {
+    if (!seq || seq->facings <= 0) return 0;
+    int best = 0;
+    int best_delta = 1000;
+    for (int i = 0; i < seq->facings && i < MAX_SEQUENCE_FACINGS; ++i) {
+        int code = seq->direction_codes[i];
+        int delta = abs(code - direction_code);
+        if (delta > 8) delta = 16 - delta;
+        if (delta < best_delta) {
+            best = i;
+            best_delta = delta;
+        }
+    }
+    return best;
+}
+
+static int sprite_sequence_frame(const SpriteSheet *sprite, const char *sequence_name,
+                                 int facing_code, int sequence_frame) {
+    const SpriteSequence *seq = sprite_sequence_find(sprite, sequence_name);
+    if (!seq || seq->facings <= 0 || seq->length <= 0) {
+        debug_effects_log("sequence miss sprite_frames=%d sequence=%s facing=%d anim=%d",
+                          sprite ? sprite->frame_count : 0,
+                          sequence_name ? sequence_name : "(null)",
+                          facing_code, sequence_frame);
+        return -1;
+    }
+    int facing = sequence_facing_index(seq, facing_code);
+    int anim = sequence_frame < 0 ? seq->length - 1 : sequence_frame;
+    if (anim >= seq->length) anim = seq->length - 1;
+    int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
+    int start = seq->frame_starts[facing];
+    if (start < 0 || start >= sprite->frame_count) {
+        debug_effects_log("sequence bad start sequence=%s facing=%d/%d code=%d start=%d frame_count=%d",
+                          sequence_name, facing, seq->facings, facing_code, start,
+                          sprite ? sprite->frame_count : 0);
+        return -1;
+    }
+    int frame = start + anim * frame_stride;
+    if (frame < 0) return start;
+    if (frame >= sprite->frame_count) return sprite->frame_count - 1;
+    return frame;
+}
+
+static const RtsState *rts_state_at(const RtsGameInfo *game_info, int state_id) {
+    if (!game_info || !game_info->states || state_id < 0 || state_id >= game_info->state_count)
+        return NULL;
+    return &game_info->states[state_id];
+}
+
+static void rts_resolve_state_frame(const RtsState *state, int facing_code,
+                                    int *frame_out, uint32_t *flags_out) {
+    int frame = state ? state->frame : 0;
+    uint32_t flags = state ? state->flags : 0;
+    if (state && state->facings > 0) {
+        int best = 0;
+        int best_delta = 1000;
+        for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+            int code = state->direction_codes[i];
+            int delta = abs(code - facing_code);
+            if (delta > 8) delta = 16 - delta;
+            if (delta < best_delta) {
+                best = i;
+                best_delta = delta;
+            }
+        }
+        frame = state->facing_frames[best];
+        flags = state->facing_flags[best];
+    }
+    if (frame_out) *frame_out = frame;
+    if (flags_out) *flags_out = flags;
+}
+
+static void rts_apply_state_visuals(const RtsGameInfo *game_info, Unit *unit,
+                                    const RtsState *state) {
+    if (!game_info || !unit || !state) return;
+    unit->sprite_id = state->sprite;
+    rts_resolve_state_frame(state, unit->facing_code, &unit->frame, &unit->render_flags);
+    if (unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
+        game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
+        snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s",
+                 game_info->sprnames[unit->sprite_id]);
+    }
+}
+
+static void rts_apply_effect_state_visuals(const RtsGameInfo *game_info, RtsVisualEffect *effect,
+                                           const RtsState *state) {
+    if (!game_info || !effect || !state) return;
+    effect->sprite_id = state->sprite;
+    rts_resolve_state_frame(state, effect->facing_code, &effect->frame, &effect->render_flags);
+    if (effect->sprite_id >= 0 && effect->sprite_id < game_info->sprite_count &&
+        game_info->sprnames && game_info->sprnames[effect->sprite_id]) {
+        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "%s",
+                 game_info->sprnames[effect->sprite_id]);
+    }
+}
+
+bool rts_set_unit_state(RtsStateContext *ctx, Unit *unit, int state_id) {
+    const RtsGameInfo *game_info = ctx ? ctx->game_info : NULL;
+    if (!game_info || !unit) return false;
+    int guard = 0;
+    while (guard++ < game_info->state_count + 1) {
+        if (state_id == game_info->null_state || state_id < 0 ||
+            state_id >= game_info->state_count) {
+            unit->state_id = game_info->null_state;
+            unit->tics = 0;
+            unit->remove = true;
+            return false;
+        }
+        const RtsState *state = &game_info->states[state_id];
+        unit->state_id = state_id;
+        unit->tics = state->tics;
+        rts_apply_state_visuals(game_info, unit, state);
+        debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
+                          unit->type_id, unit->state_id, unit->sprite_id, unit->frame, unit->tics);
+        if (state->action) state->action(ctx, unit);
+        if (unit->remove || unit->state_id != state_id) return !unit->remove;
+        if (unit->tics != 0) return true;
+        state_id = state->nextstate;
+    }
+    unit->remove = true;
+    return false;
+}
+
+static bool rts_set_effect_state(const RtsGameInfo *game_info, RtsVisualEffect *effect,
+                                 int state_id) {
+    if (!game_info || !effect) return false;
+    int guard = 0;
+    while (guard++ < game_info->state_count + 1) {
+        if (state_id == game_info->null_state || state_id < 0 ||
+            state_id >= game_info->state_count) {
+            memset(effect, 0, sizeof(*effect));
+            return false;
+        }
+        const RtsState *state = &game_info->states[state_id];
+        effect->state_id = state_id;
+        effect->tics = state->tics;
+        rts_apply_effect_state_visuals(game_info, effect, state);
+        if (effect->tics != 0) return true;
+        state_id = state->nextstate;
+    }
+    memset(effect, 0, sizeof(*effect));
+    return false;
+}
+
+void rts_apply_mobjinfo_defaults(const RtsGameInfo *game_info, Unit *unit) {
+    if (!game_info || !unit || !game_info->mobjinfo ||
+        unit->type_id <= 0 || unit->type_id >= game_info->mobj_type_count) {
+        return;
+    }
+    const RtsMobjInfo *info = &game_info->mobjinfo[unit->type_id];
+    if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
+    if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (unit->speed <= 0.0f) unit->speed = (float)info->speed;
+    if (unit->state_id <= 0) {
+        RtsStateContext ctx = { .game_info = game_info };
+        rts_set_unit_state(&ctx, unit, info->spawnstate);
+    }
+}
+
 static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite) {
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
@@ -518,17 +705,31 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     int scale = app_scale(app);
     int sprite_w = sprite->frame_w * scale;
     int sprite_h = sprite->frame_h * scale;
-    SDL_Rect dst = {
-        (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
-        (int)(sy + (float)(footprint_h * app_cell_h(app) - sprite_h)),
-        sprite_w,
-        sprite_h,
-    };
+    SDL_Rect dst;
+    if (dec->center_anchor) {
+        grid_to_screen(app, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
+        dst = (SDL_Rect){ (int)(sx - sprite_w / 2), (int)(sy - sprite_h / 2), sprite_w, sprite_h };
+    } else {
+        dst = (SDL_Rect){
+            (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
+            (int)(sy + (float)(footprint_h * app_cell_h(app) - sprite_h)),
+            sprite_w,
+            sprite_h,
+        };
+    }
     if (dst.x > app->win_w || dst.y > app->win_h ||
         dst.x + dst.w < 0 || dst.y + dst.h < 0) {
         return;
     }
-    SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[0], &dst);
+    int frame = -1;
+    if (dec->sequence_name[0] != '\0') {
+        frame = sprite_sequence_frame(sprite, dec->sequence_name, dec->facing_code,
+                                      dec->frame_index);
+    }
+    if (frame < 0) frame = dec->frame_index >= 0 && dec->frame_index < sprite->frame_count ?
+        dec->frame_index : 0;
+    SDL_RendererFlip flip = (dec->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
 }
 
 void render_decorations(App *app, const GameMap *map, const SpriteCache *cache) {
@@ -578,15 +779,339 @@ void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal
     }
 }
 
-void update_units(Unit *units, int unit_count, float dt) {
+static void direction_vector_from_code(int code, float *dx, float *dy) {
+    float angle = -(float)code * 0.39269908169872414f;
+    *dx = cosf(angle);
+    *dy = -sinf(angle);
+}
+
+static bool spawn_visual_effect(RtsVisualEffect *effects, int max_effects,
+                                const char *sprite_name, const char *sequence_name,
+                                float gx, float gy, int facing_code, int duration_ms,
+                                int frame_ms, bool add_decoration_on_finish,
+                                int decoration_frame_index) {
+    if (!effects || max_effects <= 0 || !sprite_name || sprite_name[0] == '\0') {
+        debug_effects_log("spawn skipped sprite=%s max=%d", sprite_name ? sprite_name : "(null)", max_effects);
+        return false;
+    }
+    for (int i = 0; i < max_effects; ++i) {
+        RtsVisualEffect *effect = &effects[i];
+        if (effect->active) continue;
+        memset(effect, 0, sizeof(*effect));
+        effect->active = true;
+        effect->gx = gx;
+        effect->gy = gy;
+        effect->facing_code = facing_code;
+        effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
+        effect->frame_ms = frame_ms > 0 ? frame_ms : 90;
+        effect->decoration_frame_index = decoration_frame_index;
+        effect->add_decoration_on_finish = add_decoration_on_finish;
+        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "%s", sprite_name);
+        if (sequence_name && sequence_name[0] != '\0') {
+            snprintf(effect->sequence_name, sizeof(effect->sequence_name), "%s", sequence_name);
+        }
+        debug_effects_log("spawn slot=%d sprite=%s sequence=%s pos=%.2f,%.2f facing=%d duration=%d frame_ms=%d corpse=%d",
+                          i, effect->sprite_name,
+                          effect->sequence_name[0] ? effect->sequence_name : "(none)",
+                          effect->gx, effect->gy, effect->facing_code,
+                          effect->duration_ms, effect->frame_ms,
+                          effect->add_decoration_on_finish ? 1 : 0);
+        return true;
+    }
+    debug_effects_log("spawn failed no free slot sprite=%s sequence=%s",
+                      sprite_name, sequence_name ? sequence_name : "(none)");
+    return false;
+}
+
+bool rts_spawn_state_effect(RtsStateContext *ctx, int state_id, float gx, float gy, int facing_code) {
+    if (!ctx || !ctx->effects || ctx->max_effects <= 0 || !ctx->game_info) return false;
+    for (int i = 0; i < ctx->max_effects; ++i) {
+        RtsVisualEffect *effect = &ctx->effects[i];
+        if (effect->active) continue;
+        memset(effect, 0, sizeof(*effect));
+        effect->active = true;
+        effect->use_state = true;
+        effect->gx = gx;
+        effect->gy = gy;
+        effect->facing_code = facing_code;
+        bool ok = rts_set_effect_state(ctx->game_info, effect, state_id);
+        debug_effects_log("spawn state effect slot=%d state=%d ok=%d sprite=%s frame=%d",
+                          i, state_id, ok ? 1 : 0, effect->sprite_name, effect->frame);
+        return ok;
+    }
+    debug_effects_log("spawn state effect failed no free slot state=%d", state_id);
+    return false;
+}
+
+static const char *death_sequence_name_for_unit(const Unit *unit) {
+    (void)unit;
+    return "die";
+}
+
+static void add_effect_finish_decoration(GameMap *map, const RtsVisualEffect *effect) {
+    if (!map || !effect || !effect->add_decoration_on_finish ||
+        effect->sprite_name[0] == '\0' || map->decoration_count >= MAX_DECORATIONS) {
+        return;
+    }
+    MapDecoration *decorations = realloc(map->decorations,
+                                         (size_t)(map->decoration_count + 1) * sizeof(MapDecoration));
+    if (!decorations) return;
+    map->decorations = decorations;
+    MapDecoration *dec = &map->decorations[map->decoration_count++];
+    memset(dec, 0, sizeof(*dec));
+    dec->gx = (int)floorf(effect->gx);
+    dec->gy = (int)floorf(effect->gy);
+    dec->footprint_w = 1;
+    dec->footprint_h = 1;
+    dec->center_anchor = true;
+    dec->frame_index = effect->decoration_frame_index;
+    dec->facing_code = effect->facing_code;
+    snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", effect->sprite_name);
+    snprintf(dec->sequence_name, sizeof(dec->sequence_name), "%s", effect->sequence_name);
+    debug_effects_log("corpse decoration sprite=%s sequence=%s grid=%d,%d facing=%d frame_index=%d count=%d",
+                      dec->sprite_name, dec->sequence_name, dec->gx, dec->gy,
+                      dec->facing_code, dec->frame_index, map->decoration_count);
+}
+
+bool rts_unit_add_corpse_decoration(RtsStateContext *ctx, const Unit *unit) {
+    if (!ctx || !ctx->map || !unit || unit->sprite_name[0] == '\0' ||
+        ctx->map->decoration_count >= MAX_DECORATIONS) {
+        return false;
+    }
+    MapDecoration *decorations = realloc(ctx->map->decorations,
+                                         (size_t)(ctx->map->decoration_count + 1) * sizeof(MapDecoration));
+    if (!decorations) return false;
+    ctx->map->decorations = decorations;
+    MapDecoration *dec = &ctx->map->decorations[ctx->map->decoration_count++];
+    memset(dec, 0, sizeof(*dec));
+    dec->gx = (int)floorf(unit->gx);
+    dec->gy = (int)floorf(unit->gy);
+    dec->footprint_w = 1;
+    dec->footprint_h = 1;
+    dec->center_anchor = true;
+    dec->frame_index = unit->frame;
+    dec->facing_code = unit->facing_code;
+    dec->render_flags = unit->render_flags;
+    snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", unit->sprite_name);
+    debug_effects_log("corpse unit sprite=%s frame=%d flags=%u grid=%d,%d count=%d",
+                      dec->sprite_name, dec->frame_index, dec->render_flags,
+                      dec->gx, dec->gy, ctx->map->decoration_count);
+    return true;
+}
+
+bool rts_unit_fire_attack(RtsStateContext *ctx, Unit *attacker) {
+    if (!ctx || !attacker || !ctx->units || !ctx->unit_count) return false;
+    int count = *ctx->unit_count;
+    int target_index = attacker->attack_target;
+    if (target_index < 0 || target_index >= count || ctx->units[target_index].hp <= 0 ||
+        ctx->units[target_index].owner == attacker->owner) {
+        target_index = -1;
+        float best_dist2 = attacker->attack_range * attacker->attack_range;
+        for (int i = 0; i < count; ++i) {
+            Unit *candidate = &ctx->units[i];
+            if (candidate == attacker || candidate->hp <= 0 || candidate->owner == attacker->owner)
+                continue;
+            float dx = candidate->gx - attacker->gx;
+            float dy = candidate->gy - attacker->gy;
+            float dist2 = dx * dx + dy * dy;
+            if (dist2 <= best_dist2) {
+                best_dist2 = dist2;
+                target_index = i;
+            }
+        }
+    }
+    if (target_index < 0) return false;
+
+    Unit *target = &ctx->units[target_index];
+    target->hp -= attacker->attack_damage;
+    if (attacker->attack_cooldown_ms > 0)
+        attacker->attack_cooldown_left_ms = attacker->attack_cooldown_ms;
+    debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
+                      attacker->type_id, target_index, attacker->attack_damage,
+                      target->hp, target->max_hp);
+    if (target->hp <= 0) {
+        target->hp = 0;
+        target->selected = false;
+        target->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_ATTACK);
+        target->path_len = 0;
+        target->path_index = 0;
+        if (ctx->game_info && target->type_id > 0 &&
+            target->type_id < ctx->game_info->mobj_type_count) {
+            int deathstate = ctx->game_info->mobjinfo[target->type_id].deathstate;
+            rts_set_unit_state(ctx, target, deathstate);
+        } else {
+            target->remove = true;
+        }
+    }
+    return true;
+}
+
+void update_visual_effects(GameMap *map, RtsVisualEffect *effects, int max_effects,
+                           const RtsGameInfo *game_info, float dt) {
+    if (!effects || max_effects <= 0) return;
     int dt_ms = (int)lroundf(dt * 1000.0f);
-    for (int i = 0; i < unit_count; ++i) {
+    for (int i = 0; i < max_effects; ++i) {
+        RtsVisualEffect *effect = &effects[i];
+        if (!effect->active) continue;
+        if (effect->use_state && game_info) {
+            if (effect->tics > 0) effect->tics--;
+            if (effect->tics == 0) {
+                const RtsState *state = rts_state_at(game_info, effect->state_id);
+                int next = state ? state->nextstate : game_info->null_state;
+                rts_set_effect_state(game_info, effect, next);
+            }
+            continue;
+        }
+        effect->age_ms += dt_ms;
+        if (effect->age_ms < effect->duration_ms) continue;
+        debug_effects_log("finish sprite=%s sequence=%s age=%d duration=%d corpse=%d",
+                          effect->sprite_name,
+                          effect->sequence_name[0] ? effect->sequence_name : "(none)",
+                          effect->age_ms, effect->duration_ms,
+                          effect->add_decoration_on_finish ? 1 : 0);
+        add_effect_finish_decoration(map, effect);
+        memset(effect, 0, sizeof(*effect));
+    }
+}
+
+void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *effects,
+                  int max_effects, const RtsGameInfo *game_info, float dt) {
+    if (game_info) {
+        if (!units || !unit_count || *unit_count <= 0) return;
+        int count = *unit_count;
+        int dt_ms = (int)lroundf(dt * 1000.0f);
+        RtsStateContext ctx = {
+            .map = map,
+            .units = units,
+            .unit_count = unit_count,
+            .effects = effects,
+            .max_effects = max_effects,
+            .game_info = game_info,
+        };
+
+        for (int i = 0; i < count; ++i) {
+            Unit *u = &units[i];
+            if (u->remove) continue;
+            if (u->state_id <= 0) rts_apply_mobjinfo_defaults(game_info, u);
+            if (u->tics > 0) {
+                u->tics--;
+                if (u->tics == 0) {
+                    const RtsState *state = rts_state_at(game_info, u->state_id);
+                    int next = state ? state->nextstate : game_info->null_state;
+                    rts_set_unit_state(&ctx, u, next);
+                }
+            }
+            if (u->remove || u->hp <= 0) continue;
+
+            if (u->attack_cooldown_left_ms > 0) {
+                u->attack_cooldown_left_ms -= dt_ms;
+                if (u->attack_cooldown_left_ms < 0) u->attack_cooldown_left_ms = 0;
+            }
+            if (u->attack_anim_left_ms > 0) {
+                u->attack_anim_left_ms -= dt_ms;
+                if (u->attack_anim_left_ms < 0) u->attack_anim_left_ms = 0;
+            }
+
+            bool moving = u->path_index > 0 && u->path_index < u->path_len;
+            if (moving) {
+                Cell c = u->path[u->path_index];
+                float tx = (float)c.x + 0.5f;
+                float ty = (float)c.y + 0.5f;
+                float dx = tx - u->gx;
+                float dy = ty - u->gy;
+                float dist = sqrtf(dx * dx + dy * dy);
+                if (dist >= 0.001f) u->facing_code = direction_code_from_vector(dx, dy);
+                float step = u->speed * dt;
+                if (dist <= step || dist < 0.001f) {
+                    u->gx = tx;
+                    u->gy = ty;
+                    u->path_index++;
+                    if (u->path_index >= u->path_len) {
+                        u->path_len = 0;
+                        u->path_index = 0;
+                        moving = false;
+                    }
+                } else {
+                    u->gx += dx / dist * step;
+                    u->gy += dy / dist * step;
+                }
+            }
+
+            if (u->type_id > 0 && u->type_id < game_info->mobj_type_count &&
+                u->attack_anim_left_ms <= 0) {
+                const RtsMobjInfo *mi = &game_info->mobjinfo[u->type_id];
+                const RtsState *state = rts_state_at(game_info, u->state_id);
+                int group = state ? state->misc1 : 0;
+                if (moving && group != 2) {
+                    rts_set_unit_state(&ctx, u, mi->seestate);
+                } else if (!moving && group == 2) {
+                    rts_set_unit_state(&ctx, u, mi->spawnstate);
+                } else {
+                    rts_apply_state_visuals(game_info, u, rts_state_at(game_info, u->state_id));
+                }
+            }
+        }
+
+        for (int i = 0; i < count; ++i) {
+            Unit *attacker = &units[i];
+            if (attacker->remove || attacker->hp <= 0 ||
+                (attacker->traits & RTS_TRAIT_ATTACK) == 0 ||
+                attacker->attack_damage <= 0 || attacker->attack_range <= 0.0f ||
+                attacker->type_id <= 0 || attacker->type_id >= game_info->mobj_type_count) {
+                continue;
+            }
+            const RtsMobjInfo *mi = &game_info->mobjinfo[attacker->type_id];
+            const RtsState *state = rts_state_at(game_info, attacker->state_id);
+            if (state && state->misc1 == 3) continue;
+
+            int target_index = -1;
+            float best_dist2 = attacker->attack_range * attacker->attack_range;
+            for (int j = 0; j < count; ++j) {
+                if (i == j || units[j].remove || units[j].hp <= 0 ||
+                    units[j].owner == attacker->owner) {
+                    continue;
+                }
+                float dx = units[j].gx - attacker->gx;
+                float dy = units[j].gy - attacker->gy;
+                float dist2 = dx * dx + dy * dy;
+                if (dist2 <= best_dist2) {
+                    best_dist2 = dist2;
+                    target_index = j;
+                }
+            }
+            attacker->attack_target = target_index;
+            if (target_index < 0) continue;
+
+            Unit *target = &units[target_index];
+            attacker->facing_code = direction_code_from_vector(target->gx - attacker->gx,
+                                                               target->gy - attacker->gy);
+            if (attacker->attack_cooldown_left_ms > 0 ||
+                attacker->attack_anim_left_ms > 0 ||
+                mi->missilestate == game_info->null_state) {
+                continue;
+            }
+            attacker->attack_anim_left_ms = attacker->attack_anim_ms > 0 ? attacker->attack_anim_ms : 240;
+            rts_set_unit_state(&ctx, attacker, mi->missilestate);
+        }
+
+        int write = 0;
+        for (int read = 0; read < count; ++read) {
+            if (units[read].remove) continue;
+            if (write != read) units[write] = units[read];
+            write++;
+        }
+        if (write != count) debug_effects_log("state compacted units before=%d after=%d", count, write);
+        *unit_count = write;
+        return;
+    }
+
+    (void)map;
+    if (!units || !unit_count || *unit_count <= 0) return;
+    int count = *unit_count;
+    int dt_ms = (int)lroundf(dt * 1000.0f);
+    for (int i = 0; i < count; ++i) {
         Unit *u = &units[i];
         if (u->hp <= 0) {
-            if (u->death_started && u->death_anim_left_ms > 0) {
-                u->death_anim_left_ms -= dt_ms;
-                if (u->death_anim_left_ms < 0) u->death_anim_left_ms = 0;
-            }
             continue;
         }
         if (u->attack_cooldown_left_ms > 0) {
@@ -620,7 +1145,7 @@ void update_units(Unit *units, int unit_count, float dt) {
         }
     }
 
-    for (int i = 0; i < unit_count; ++i) {
+    for (int i = 0; i < count; ++i) {
         Unit *attacker = &units[i];
         if (attacker->hp <= 0 || (attacker->traits & RTS_TRAIT_ATTACK) == 0 ||
             attacker->attack_damage <= 0 || attacker->attack_range <= 0.0f) {
@@ -629,7 +1154,7 @@ void update_units(Unit *units, int unit_count, float dt) {
 
         int target_index = -1;
         float best_dist2 = attacker->attack_range * attacker->attack_range;
-        for (int j = 0; j < unit_count; ++j) {
+        for (int j = 0; j < count; ++j) {
             if (i == j || units[j].hp <= 0 || units[j].owner == attacker->owner) continue;
             float dx = units[j].gx - attacker->gx;
             float dy = units[j].gy - attacker->gy;
@@ -647,7 +1172,21 @@ void update_units(Unit *units, int unit_count, float dt) {
                                                            target->gy - attacker->gy);
         if (attacker->attack_cooldown_left_ms > 0) continue;
 
+        if (attacker->muzzle_flash_name[0] != '\0') {
+            float vx = 0.0f, vy = 0.0f;
+            direction_vector_from_code(attacker->facing_code, &vx, &vy);
+            bool spawned = spawn_visual_effect(effects, max_effects, attacker->muzzle_flash_name, "flash",
+                                               attacker->gx + vx * 0.42f, attacker->gy + vy * 0.42f,
+                                               attacker->facing_code,
+                                               attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120,
+                                               40, false, 0);
+            debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
+                              i, target_index, spawned ? 1 : 0, attacker->muzzle_flash_name);
+        }
         target->hp -= attacker->attack_damage;
+        debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",
+                          i, target_index, attacker->attack_damage, target->hp,
+                          target->max_hp, target->sprite_name);
         if (target->hp <= 0) {
             target->hp = 0;
             target->selected = false;
@@ -662,36 +1201,31 @@ void update_units(Unit *units, int unit_count, float dt) {
                 target->death_anim_ms = 900;
             }
             target->death_anim_left_ms = target->death_anim_ms;
+            bool spawned = spawn_visual_effect(effects, max_effects, target->sprite_name,
+                                               death_sequence_name_for_unit(target),
+                                               target->gx, target->gy, target->facing_code,
+                                               target->death_anim_ms, 90, true, -1);
+            debug_effects_log("death target=%d spawned=%d sprite=%s sequence=%s facing=%d duration=%d",
+                              target_index, spawned ? 1 : 0, target->sprite_name,
+                              death_sequence_name_for_unit(target), target->facing_code,
+                              target->death_anim_ms);
         }
         attacker->attack_cooldown_left_ms = attacker->attack_cooldown_ms > 0 ?
             attacker->attack_cooldown_ms : 500;
         attacker->attack_anim_left_ms = attacker->attack_anim_ms > 0 ?
             attacker->attack_anim_ms : attacker->attack_cooldown_left_ms;
     }
-}
 
-static const SpriteSequence *sprite_sequence_find(const SpriteSheet *sprite, const char *name) {
-    if (!sprite || !name) return NULL;
-    for (int i = 0; i < sprite->sequence_count; ++i) {
-        if (strcmp(sprite->sequences[i].name, name) == 0) return &sprite->sequences[i];
+    int write = 0;
+    for (int read = 0; read < count; ++read) {
+        if (units[read].hp <= 0) continue;
+        if (write != read) units[write] = units[read];
+        write++;
     }
-    return NULL;
-}
-
-static int sequence_facing_index(const SpriteSequence *seq, int direction_code) {
-    if (!seq || seq->facings <= 0) return 0;
-    int best = 0;
-    int best_delta = 1000;
-    for (int i = 0; i < seq->facings && i < MAX_SEQUENCE_FACINGS; ++i) {
-        int code = seq->direction_codes[i];
-        int delta = abs(code - direction_code);
-        if (delta > 8) delta = 16 - delta;
-        if (delta < best_delta) {
-            best = i;
-            best_delta = delta;
-        }
+    if (write != count) {
+        debug_effects_log("compacted units before=%d after=%d", count, write);
     }
-    return best;
+    *unit_count = write;
 }
 
 static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, uint32_t ticks) {
@@ -755,11 +1289,16 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
 }
 
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
-                  const SpriteCache *cache, uint32_t ticks) {
+                  const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
         const Unit *u = &units[i];
         if ((u->traits & RTS_TRAIT_RENDERABLE) == 0) continue;
-        const SpriteSheet *sprite = sprite_cache_lookup(cache, u->sprite_name);
+        const char *sprite_name = u->sprite_name;
+        if (game_info && u->sprite_id >= 0 && u->sprite_id < game_info->sprite_count &&
+            game_info->sprnames && game_info->sprnames[u->sprite_id]) {
+            sprite_name = game_info->sprnames[u->sprite_id];
+        }
+        const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
         if (!sprite) sprite = fallback_sprite;
         if (!sprite || !sprite->texture || sprite->frame_count <= 0) continue;
 
@@ -775,8 +1314,10 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
 
         float sx, sy;
         grid_to_screen(app, u->gx, u->gy, &sx, &sy);
-        int frame = sprite_frame_for_unit(sprite, u, ticks);
+        int frame = game_info ? u->frame : sprite_frame_for_unit(sprite, u, ticks);
+        uint32_t render_flags = game_info ? u->render_flags : 0;
         if (frame >= sprite->frame_count) frame = 0;
+        if (frame < 0) frame = 0;
         int scale = app_scale(app);
         int sprite_w = sprite->frame_w * scale;
         int sprite_h = sprite->frame_h * scale;
@@ -799,7 +1340,8 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
             };
             SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
         }
-        SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[frame], &dst);
+        SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
         if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
             int bar_w = sprite_w / 2;
             int bar_h = app_scale(app) < 2 ? 2 : 3;
@@ -818,6 +1360,76 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
             SDL_RenderDrawRect(app->renderer, &box);
             render_grid_cell(app, (int)floorf(u->gx), (int)floorf(u->gy), (SDL_Color){ 98, 224, 161, 255 });
         }
+    }
+}
+
+static int sprite_frame_for_effect(const SpriteSheet *sprite, const RtsVisualEffect *effect) {
+    if (!sprite || !effect) return 0;
+    int frame_ms = effect->frame_ms > 0 ? effect->frame_ms : 90;
+    int anim = effect->age_ms / frame_ms;
+    if (effect->sequence_name[0] != '\0') {
+        int frame = sprite_sequence_frame(sprite, effect->sequence_name, effect->facing_code, anim);
+        if (frame >= 0) return frame;
+        if (strcmp(effect->sequence_name, "die") == 0) {
+            frame = sprite_sequence_frame(sprite, "death", effect->facing_code, anim);
+            if (frame >= 0) return frame;
+        }
+    }
+    if (sprite->frame_count <= 0) return 0;
+    if (anim >= sprite->frame_count) anim = sprite->frame_count - 1;
+    return anim < 0 ? 0 : anim;
+}
+
+void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_effects,
+                           const SpriteCache *cache, const RtsGameInfo *game_info) {
+    if (!effects || max_effects <= 0) return;
+    for (int i = 0; i < max_effects; ++i) {
+        const RtsVisualEffect *effect = &effects[i];
+        if (!effect->active) continue;
+        const char *sprite_name = effect->sprite_name;
+        if (effect->use_state && game_info && effect->sprite_id >= 0 &&
+            effect->sprite_id < game_info->sprite_count &&
+            game_info->sprnames && game_info->sprnames[effect->sprite_id]) {
+            sprite_name = game_info->sprnames[effect->sprite_id];
+        }
+        const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
+        if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
+            debug_effects_log("render skip slot=%d sprite=%s sequence=%s reason=missing-cache",
+                              i, effect->sprite_name,
+                              effect->sequence_name[0] ? effect->sequence_name : "(none)");
+            continue;
+        }
+
+        float sx, sy;
+        grid_to_screen(app, effect->gx, effect->gy, &sx, &sy);
+        int scale = app_scale(app);
+        int sprite_w = sprite->frame_w * scale;
+        int sprite_h = sprite->frame_h * scale;
+        SDL_Rect dst = {
+            (int)(sx - sprite_w / 2),
+            (int)(sy - sprite_h / 2),
+            sprite_w,
+            sprite_h,
+        };
+        if (dst.x > app->win_w || dst.y > app->win_h ||
+            dst.x + dst.w < 0 || dst.y + dst.h < 0) {
+            debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
+                              i, effect->sprite_name,
+                              effect->sequence_name[0] ? effect->sequence_name : "(none)",
+                              sprite->frame_count, effect->gx, effect->gy,
+                              dst.x, dst.y, dst.w, dst.h);
+            continue;
+        }
+        int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
+        if (frame < 0 || frame >= sprite->frame_count) frame = 0;
+        debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d dst=%d,%d,%d,%d",
+                          i, effect->sprite_name,
+                          effect->sequence_name[0] ? effect->sequence_name : "(none)",
+                          effect->age_ms, effect->duration_ms, effect->facing_code,
+                          effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
+                          frame, sprite->frame_count, dst.x, dst.y, dst.w, dst.h);
+        SDL_RendererFlip flip = (effect->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     }
 }
 

@@ -77,63 +77,58 @@ Labels follow the pattern `<STEM><ACTION><DIRECTION>` where:
   pose), `FIREA`, `FIREB` (two fire phases), `HITB` (hit reaction), `MOVEC`
   (alternate move), `DIEA`, `DIEB`, `DIEC` (death strips per quadrant), `BLOOD*`
   (blood effects), `FUNK` (misc), etc.
-- `DIRECTION` is a clock-face code in `{0, 2, 4, 6, 8, 10, 12, 14}` mapping to
-  compass octants.  The engine's `direction_code_from_vector()` produces these
-  same values: `East=0, SE=2, S=4, SW=6, W=8, NW=10, N=12, NE=14`.
+- Engine facing codes are `{0, 2, 4, 6, 8, 10, 12, 14}` with
+  `right=0`, `up-right=2`, `up=4`, `up-left=6`, `left=8`,
+  `down-left=10`, `down=12`, `down-right=14`.
+- Dark Colony 8-direction frame slots are frame-major and use a different
+  visual order: slot `0=down`, `1=down-right`, `2=right`, `3=up-right`,
+  `4=up`, `5=up-left`, `6=left`, `7=down-left`.
 
 The direction code set and ordering **differ by sprite**:
 
-| Sprite       | Direction order in FIN label table          | Frame layout |
+| Sprite       | Generated frame-slot direction order        | Frame layout |
 |--------------|---------------------------------------------|--------------|
-| `GRAY.SPR`   | `0,14,12,10,8,6,4,2` (East-first, CCW)      | direction-major |
-| `TRSC.SPR`   | `0,14,12,10,8,6,4,2` (East-first, CCW)      | direction-major |
-| `TROOPER1.SPR` | `6,4,2,0,14,12,10,8` (SW-first, CCW)       | direction-major |
+| `GRAY.SPR`   | `down,down-right,right,up-right,up,up-left,left,down-left` | frame-major |
+| `TRSC.SPR`   | `down,down-right,right,up-right,up,up-left,left,down-left` | frame-major |
+| `TROOPER1.SPR` | `down,down-right,right,up-right,up,up-left,left,down-left` | frame-major |
 
-**Direction-major layout**: all frames for one direction are contiguous, then the
-next direction follows.  Within a direction the frames advance as a normal
-animation strip (stride = 1).  Example for `GRAYMOVE`:
+**Frame-major layout**: all directions for one animation phase are contiguous,
+then the next animation phase follows. This matches Doom's mental model:
+`TROO A1..A8`, then `TROO B1..B8`. For an 8-direction action:
 
 ```
-GRAYMOVE0  → frames 16..22  (7 frames, direction East=0)
-GRAYMOVE14 → frames 23..30  (8 frames, direction NE=14)
-GRAYMOVE12 → frames 31..38  (direction N=12)
+raw_frame = action_base + frame_loop_index * 8 + direction_index
+```
+
+Example for `TRSCMOVE`:
+
+```
+TRSC_RUN1 → frames 16..23  (animation phase 1, all directions)
+TRSC_RUN2 → frames 24..31  (animation phase 2, all directions)
+TRSC_RUN3 → frames 32..39
 ...
-GRAYMOVE2  → frames 71..77  (direction SE=2)
+TRSC_RUN8 → frames 72..79
 ```
 
-To build a `SpriteSequence` from FIN labels for a given action:
+To build generated Doom-style `states[]` for Dark Colony:
 
 ```c
-// Read one direction label at a time; use its start frame and direction code.
-// stride = 1 (frames advance within a direction block, not across directions).
-// length = min(end - start + 1) across all direction labels for that action,
-//          or use the per-direction length if they are uniform.
-//
-// Example for GRAYMOVE (8 directions):
-int frame_starts[8] = { 16, 23, 31, 39, 47, 55, 63, 71 };
-int direction_codes[8] = {  0, 14, 12, 10,  8,  6,  4,  2 };
-// sprite_sheet_add_sequence(out, "run", 8, 7, 120, frame_starts, direction_codes);
-// No extra stride call needed (default stride=1 is correct).
+// One state per animation phase; the state's frame set contains rotations.
+int direction_codes[8] = { 12, 14, 0, 2, 4, 6, 8, 10 };
+int trsc_run1_frames[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
+int trsc_run2_frames[8] = { 24, 25, 26, 27, 28, 29, 30, 31 };
 ```
 
-### Known Bugs in Current Hardcoded Sequences
+### Historical Rotation Bug
 
-The hardcoded arrays in `load_dark_colony_sprite()` (src/main.c ~line 1821) use
-`stride=8` with consecutive starting frame numbers (e.g. `gray_run={16..23}`),
-which incorrectly cross direction boundaries during animation playback.  The
-correct approach reads each direction label's `start` field from the FIN and uses
-`stride=1`:
+The old sequence path treated Dark Colony unit frames as:
 
-| Sprite | Sequence | Current (wrong) start frames | Correct start frames (from FIN) |
-|--------|----------|------------------------------|----------------------------------|
-| GRAY   | run      | `{16,17,18,19,20,21,22,23}` stride=8 | `{16,23,31,39,47,55,63,71}` stride=1 |
-| GRAY   | shoot    | `{80,81,82,83,84,85,86,87}` stride=8 | `{78,86,94,102,110,118,126,134}` stride=1 |
-| TRSC   | run      | `{16,17,18,19,20,21,22,23}` stride=8 | `{16,24,32,40,48,56,64,72}` stride=1 |
-| TRSC   | shoot    | `{80,81,82,83,84,85,86,87}` stride=8 | `{88,96,104,112,120,128,136,144}` stride=1 |
-| TROOPER1 | run    | `{8,9,10,11,12,13,14,15}` stride=8 | `{8,10,12,14,16,18,20,22}` stride=1 |
+```
+raw_frame = frame_loop_index + direction_index * 8
+```
 
-`TROOPER1` also uses a different direction-code set (`dc_codes_trooper={6,8,10,12,14,0,2,4}`)
-but the correct set from the FIN label order is `{6,4,2,0,14,12,10,8}`.
+That makes a moving unit rotate around its axis instead of walking. The generated
+Dark Colony `info.c` must use the frame-major formula instead.
 
 ### Bulk-Loading Plan (FIN-driven, no hardcoded indices)
 

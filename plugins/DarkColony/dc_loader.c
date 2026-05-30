@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "plugin.h"
+#include "info.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -255,26 +256,6 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, Tileset 
     return true;
 }
 
-/* ── sprite sequence helpers ────────────────────────────────────────────── */
-
-static void sprite_sheet_add_sequence(SpriteSheet *sheet, const char *name, int facings,
-                                      int length, int tick_ms, const int *frame_starts,
-                                      const int *direction_codes) {
-    if (!sheet || !name || sheet->sequence_count >= MAX_SPRITE_SEQUENCES ||
-        facings <= 0 || facings > MAX_SEQUENCE_FACINGS || length <= 0) return;
-    SpriteSequence *seq = &sheet->sequences[sheet->sequence_count++];
-    memset(seq, 0, sizeof(*seq));
-    snprintf(seq->name, sizeof(seq->name), "%s", name);
-    seq->facings = facings;
-    seq->length = length;
-    seq->frame_stride = 1;
-    seq->tick_ms = tick_ms > 0 ? tick_ms : 120;
-    for (int i = 0; i < facings; ++i) {
-        seq->frame_starts[i] = frame_starts ? frame_starts[i] : i * length;
-        seq->direction_codes[i] = direction_codes ? direction_codes[i] : i * 16 / facings;
-    }
-}
-
 /* ── SPR loader ─────────────────────────────────────────────────────────── */
 
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
@@ -376,49 +357,6 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     out->rotations = 1;
     out->primary_frames_per_rotation = visible_frames;
 
-    /* Build animation sequences from FIN-correct per-direction start frames. */
-    const char *base = strrchr(path, '/');
-    base = base ? base + 1 : path;
-
-    /* direction_code_from_vector produces sector*2: E=0,SE=2,S=4,SW=6,W=8,NW=10,N=12,NE=14 */
-    static const int dc_dir_east_first[8]  = {  0, 14, 12, 10,  8,  6,  4,  2 };
-    static const int dc_dir_trooper1[8]    = {  6,  4,  2,  0, 14, 12, 10,  8 };
-
-    if (strcasecmp(base, "TRSC.SPR") == 0) {
-        static const int stand[8] = { 0,  1,  2,  3,  4,  5,  6,  7 };
-        static const int run[8]   = { 16, 24, 32, 40, 48, 56, 64, 72 };
-        static const int fire[8]  = { 88, 96,104,112,120,128,136,144 };
-        static const int die[8]   = {223,234,246,257,268,279,291,302 };
-        sprite_sheet_add_sequence(out, "stand", 8, 1,  120, stand, dc_dir_east_first);
-        sprite_sheet_add_sequence(out, "run",   8, 8,  120, run,   dc_dir_east_first);
-        sprite_sheet_add_sequence(out, "shoot", 8, 8,   70, fire,  dc_dir_east_first);
-        sprite_sheet_add_sequence(out, "die",   8, 11,  90, die,   dc_dir_east_first);
-    } else if (strcasecmp(base, "GRAY.SPR") == 0) {
-        static const int stand[8] = { 0,  1,  2,  3,  4,  5,  6,  7 };
-        static const int run[8]   = { 16, 23, 31, 39, 47, 55, 63, 71 };
-        static const int fire[8]  = { 78, 86, 94,102,110,118,126,134 };
-        static const int die[8]   = {254,266,278,290,302,314,326,338 };
-        sprite_sheet_add_sequence(out, "stand", 8, 1,  120, stand, dc_dir_east_first);
-        sprite_sheet_add_sequence(out, "run",   8, 7,  120, run,   dc_dir_east_first);
-        sprite_sheet_add_sequence(out, "shoot", 8, 8,   70, fire,  dc_dir_east_first);
-        sprite_sheet_add_sequence(out, "die",   8, 12,  90, die,   dc_dir_east_first);
-    } else if (strcasecmp(base, "TROOPER1.SPR") == 0) {
-        static const int stand[8] = { 0,  1,  2,  3,  4,  5,  6,  7 };
-        static const int run[8]   = { 8, 10, 12, 14, 16, 18, 20, 22 };
-        static const int fire[8]  = {24, 25, 26, 27, 28, 29, 30, 31 };
-        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, stand, dc_dir_trooper1);
-        sprite_sheet_add_sequence(out, "run",   8, 2, 120, run,   dc_dir_trooper1);
-        sprite_sheet_add_sequence(out, "shoot", 8, 1, 120, fire,  dc_dir_trooper1);
-    } else if (visible_frames >= 16) {
-        int stand[8], run[8];
-        for (int i = 0; i < 8; ++i) { stand[i] = i; run[i] = i + 8; }
-        sprite_sheet_add_sequence(out, "stand", 8, 1, 120, stand, dc_dir_east_first);
-        int run_length = (visible_frames - 8) / 8;
-        if (run_length < 1) run_length = 1;
-        if (run_length > 8) run_length = 8;
-        sprite_sheet_add_sequence(out, "run", 8, run_length, 120, run, dc_dir_east_first);
-    }
-
     free(rgba);
     free_blob(&blob);
     return out->texture != NULL;
@@ -457,8 +395,19 @@ static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *rend
 bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
                                    const Unit *units, int unit_count, SpriteCache *cache) {
     bool ok = true;
+    for (int i = 0; i < NUMSTATES; ++i) {
+        int sprite = states[i].sprite;
+        if (sprite >= 0 && sprite < NUMSPRITES &&
+            !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[sprite])) {
+            ok = false;
+        }
+    }
     for (int i = 0; i < unit_count; ++i) {
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].sprite_name))
+            ok = false;
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].shadow_name))
+            ok = false;
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].muzzle_flash_name))
             ok = false;
     }
     return ok;
@@ -495,11 +444,27 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
             fprintf(stderr, "%s has unsupported Dark Colony map dimensions\n", map_path);
             free_blob(&blob); return false;
         }
+        bool blank_mtg = true;
+        for (size_t i = 0; i < source_count; ++i) {
+            if (blob.bytes[2 + i] != 0) {
+                blank_mtg = false;
+                break;
+            }
+        }
+        const char *dot = strrchr(map_path, '.');
+        if (blank_mtg && dot && strcasecmp(dot, ".MTG") == 0) {
+            char map_fallback[1024];
+            replace_extension(map_fallback, sizeof(map_fallback), map_path, ".MAP");
+            free_blob(&blob);
+            if (load_dark_colony_map(map_fallback, out)) return true;
+            memset(out, 0, sizeof(*out));
+            if (!load_blob(map_path, &blob)) return false;
+        }
     }
 
     out->width = width;
     out->height = height;
-    out->render_features |= MAP_RENDER_SKIP_ZERO_TILES | MAP_RENDER_INTERLEAVED_OVERLAYS;
+    out->render_features |= MAP_RENDER_INTERLEAVED_OVERLAYS;
     out->tile_ids        = calloc(source_count, sizeof(uint16_t));
     out->blocked         = calloc(source_count, sizeof(uint8_t));
     out->tile_overlay_count = 1;
@@ -522,7 +487,6 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
                 uint16_t flags = read_u16_le(tile_flags + idx * 2);
                 out->tile_flip_flags[0][idx] = (flags & (1u << 5)) ? 1 : 0;
                 out->tile_flip_flags[1][idx] = (flags & (1u << 6)) ? 1 : 0;
-                if (out->tile_ids[idx] == 0) out->blocked[idx] = 1;
             }
         }
     } else {
@@ -532,7 +496,6 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
                 size_t idx = (size_t)y * (size_t)width + (size_t)x;
                 out->tile_ids[idx] = mtg_tiles[idx];
                 out->tile_overlays[0][idx] = 0;
-                if (out->tile_ids[idx] == 0) out->blocked[idx] = 1;
             }
         }
     }

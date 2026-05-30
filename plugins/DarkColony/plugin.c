@@ -1,4 +1,7 @@
 #include "plugin.h"
+#include "info.h"
+
+#include <math.h>
 
 bool load_dark_colony_map(const char *map_path, GameMap *out);
 bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
@@ -13,6 +16,45 @@ enum {
     DC_ACTOR_GREY     = 2,
     DC_ACTOR_EXPLOITER = 3,
 };
+
+static void dc_direction_vector_from_code(int code, float *dx, float *dy) {
+    float angle = -(float)code * 0.39269908169872414f;
+    *dx = cosf(angle);
+    *dy = -sinf(angle);
+}
+
+void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit) {
+    if (!ctx || !unit) return;
+    float vx = 0.0f, vy = 0.0f;
+    dc_direction_vector_from_code(unit->facing_code, &vx, &vy);
+    rts_spawn_state_effect(ctx, S_DC_MUZA1,
+                           unit->gx + vx * 0.42f,
+                           unit->gy + vy * 0.42f,
+                           unit->facing_code);
+}
+
+void A_DC_Attack(RtsStateContext *ctx, Unit *unit) {
+    rts_unit_fire_attack(ctx, unit);
+}
+
+void A_DC_Fall(RtsStateContext *ctx, Unit *unit) {
+    (void)ctx;
+    if (!unit) return;
+    unit->selected = false;
+    unit->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_ATTACK);
+    unit->path_len = 0;
+    unit->path_index = 0;
+    unit->attack_target = -1;
+    unit->attack_cooldown_left_ms = 0;
+    unit->attack_anim_left_ms = 0;
+    unit->death_started = true;
+}
+
+void A_DC_Corpse(RtsStateContext *ctx, Unit *unit) {
+    if (!unit) return;
+    rts_unit_add_corpse_decoration(ctx, unit);
+    unit->remove = true;
+}
 
 static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
     {
@@ -63,7 +105,7 @@ static const RtsPlugin DARK_COLONY_PLUGIN = {
     .name           = "Dark Colony",
     .version        = "0.1",
     .default_root   = "data/DCOLONY",
-    .default_map    = "SCENARIO/MPLAYER/D2PLAY01.MTG",
+    .default_map    = "SCENARIO/MPLAYER/D2PLAY01.MAP",
     .default_sprite = "SPRITES/TROOPER1.SPR",
     .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
                       RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
@@ -73,6 +115,7 @@ static const RtsPlugin DARK_COLONY_PLUGIN = {
                       RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
     .cell_w            = 32,
     .cell_h            = 32,
+    .game_info         = &dark_colony_game_info,
     .actor_types       = DARK_COLONY_ACTOR_TYPES,
     .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
     .debug_enemy_type_id = DC_ACTOR_GREY,

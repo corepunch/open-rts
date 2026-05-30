@@ -157,8 +157,32 @@ static void debug_append_ints(char *dst, size_t dst_size, const int *values, int
     }
 }
 
+static int debug_sprite_id_for_name(const RtsGameInfo *game_info, const char *sprite_name) {
+    if (!game_info || !game_info->sprnames || !sprite_name) return -1;
+    const char *sprite_base = strrchr(sprite_name, '/');
+    sprite_base = sprite_base ? sprite_base + 1 : sprite_name;
+    for (int i = 0; i < game_info->sprite_count; ++i) {
+        const char *name = game_info->sprnames[i];
+        if (!name) continue;
+        if (strcasecmp(name, sprite_name) == 0) return i;
+        const char *base = strrchr(name, '/');
+        base = base ? base + 1 : name;
+        if (strcasecmp(base, sprite_base) == 0) return i;
+    }
+    return -1;
+}
+
+static int debug_count_states_for_sprite(const RtsGameInfo *game_info, int sprite_id) {
+    if (!game_info || !game_info->states || sprite_id < 0) return 0;
+    int count = 0;
+    for (int i = 0; i < game_info->state_count; ++i) {
+        if (game_info->states[i].sprite == sprite_id) count++;
+    }
+    return count;
+}
+
 static void debug_overlay_render(const App *app, const SpriteSheet *sprite, const char *sprite_name,
-                                 const DebugOverlay *overlay) {
+                                 const RtsGameInfo *game_info, const DebugOverlay *overlay) {
     if (!app || !app->renderer || !sprite || !sprite->texture || !overlay || !overlay->font.texture) return;
 
     SDL_SetRenderDrawColor(app->renderer, 10, 12, 16, 255);
@@ -172,12 +196,15 @@ static void debug_overlay_render(const App *app, const SpriteSheet *sprite, cons
     snprintf(line, sizeof(line), "DEBUG OVERLAY %s", overlay->query);
     debug_font_draw_text(app->renderer, &overlay->font, 16, 14, line, white, 2);
 
-    snprintf(line, sizeof(line), "%s  FRAMES %d  SEQUENCES %d",
-             sprite_name ? sprite_name : "(UNKNOWN)", sprite->frame_count, sprite->sequence_count);
+    int debug_sprite_id = debug_sprite_id_for_name(game_info, sprite_name);
+    int state_count = debug_count_states_for_sprite(game_info, debug_sprite_id);
+    snprintf(line, sizeof(line), "%s  FRAMES %d  SEQUENCES %d  STATES %d",
+             sprite_name ? sprite_name : "(UNKNOWN)", sprite->frame_count,
+             sprite->sequence_count, state_count);
     debug_font_draw_text(app->renderer, &overlay->font, 16, 34, line, gray, 1);
 
     int info_y = 52;
-    for (int i = 0; i < sprite->sequence_count && i < 6; ++i) {
+    for (int i = 0; i < sprite->sequence_count && i < 4; ++i) {
         const SpriteSequence *seq = &sprite->sequences[i];
         char starts[256] = { 0 };
         char dirs[256] = { 0 };
@@ -196,6 +223,30 @@ static void debug_overlay_render(const App *app, const SpriteSheet *sprite, cons
         snprintf(line, sizeof(line), "   %s", starts);
         debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
         info_y += 10;
+    }
+    if (game_info && game_info->states && debug_sprite_id >= 0) {
+        int shown = 0;
+        for (int i = 0; i < game_info->state_count && shown < 8; ++i) {
+            const RtsState *state = &game_info->states[i];
+            if (state->sprite != debug_sprite_id) continue;
+            snprintf(line, sizeof(line), "S%03d G%d T%d N%d F%d",
+                     i, state->misc1, state->tics, state->nextstate, state->frame);
+            debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, cyan, 1);
+            info_y += 10;
+            if (state->facings > 0) {
+                char dirs[256] = "DIR";
+                char frames[256] = "FRM";
+                debug_append_ints(dirs, sizeof(dirs), state->direction_codes, state->facings);
+                debug_append_ints(frames, sizeof(frames), state->facing_frames, state->facings);
+                snprintf(line, sizeof(line), "   %s", dirs);
+                debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
+                info_y += 10;
+                snprintf(line, sizeof(line), "   %s", frames);
+                debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
+                info_y += 10;
+            }
+            shown++;
+        }
     }
 
     int cols = 8;
@@ -280,6 +331,8 @@ static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
     if (unit->attack_damage <= 0) unit->attack_damage = type->attack_damage;
     if (unit->attack_cooldown_ms <= 0) unit->attack_cooldown_ms = type->attack_cooldown_ms;
     if (unit->attack_anim_ms <= 0) unit->attack_anim_ms = type->attack_anim_ms;
+    if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
+    if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
     if (unit->attack_target <= 0) unit->attack_target = -1;
     if (unit->sprite_name[0] == '\0' && type->sprite_name) {
         snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
@@ -287,11 +340,15 @@ static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
     if (unit->shadow_name[0] == '\0' && type->shadow_name) {
         snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
     }
+    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name) {
+        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name), "%s", type->muzzle_flash_name);
+    }
 }
 
 static void apply_plugin_actor_defaults(const RtsPlugin *plugin, Unit *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
         apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(plugin, &units[i]));
+        rts_apply_mobjinfo_defaults(plugin ? plugin->game_info : NULL, &units[i]);
     }
 }
 
@@ -310,6 +367,7 @@ static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, 
     unit->owner = 1;
     unit->facing_code = 8;
     apply_actor_type_defaults(unit, type);
+    rts_apply_mobjinfo_defaults(plugin->game_info, unit);
     (*unit_count)++;
     return true;
 }
@@ -454,6 +512,7 @@ int main(int argc, char **argv) {
         }
     }
     apply_plugin_actor_defaults(plugin, units, unit_count);
+    RtsVisualEffect effects[MAX_VISUAL_EFFECTS] = { 0 };
 
     SpriteCache decoration_sprites = { 0 };
     if (plugin->load_runtime_sprites &&
@@ -473,6 +532,21 @@ int main(int argc, char **argv) {
            map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count, map.decoration_count);
 
     if (debug_overlay.active) {
+        if (screenshot_only) {
+            rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
+            debug_overlay_render(&app, &unit_sprite, sprite_name,
+                                 plugin->game_info, &debug_overlay);
+            if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
+                printf("Saved screenshot %s.\n", screenshot_path);
+            }
+            debug_font_destroy(&debug_overlay.font);
+            destroy_sprite_cache(&decoration_sprites);
+            destroy_sprite(&unit_sprite);
+            destroy_tileset(&tileset);
+            destroy_map(&map);
+            rts_renderer_destroy(&renderer);
+            return 0;
+        }
         while (app.running) {
             SDL_Event e;
             while (SDL_PollEvent(&e)) {
@@ -488,7 +562,8 @@ int main(int argc, char **argv) {
                 }
             }
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
-            debug_overlay_render(&app, &unit_sprite, sprite_name, &debug_overlay);
+            debug_overlay_render(&app, &unit_sprite, sprite_name,
+                                 plugin->game_info, &debug_overlay);
             rts_renderer_end_frame(&renderer);
             SDL_Delay(16);
         }
@@ -507,7 +582,10 @@ int main(int argc, char **argv) {
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_decorations(&app, &map, &decoration_sprites);
-            render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites, SDL_GetTicks());
+            render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites,
+                         plugin->game_info, SDL_GetTicks());
+            render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
+                                  &decoration_sprites, plugin->game_info);
             if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
@@ -550,7 +628,10 @@ int main(int argc, char **argv) {
         }
         update_camera_from_keyboard(&app, frame_dt);
         while (accumulator >= FIXED_DT) {
-            update_units(units, unit_count, FIXED_DT);
+            update_units(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
+                         plugin->game_info, FIXED_DT);
+            update_visual_effects(&map, effects, MAX_VISUAL_EFFECTS,
+                                  plugin->game_info, FIXED_DT);
             accumulator -= FIXED_DT;
         }
 
@@ -558,7 +639,10 @@ int main(int argc, char **argv) {
         rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         render_map(&app, &map, &tileset);
         render_decorations(&app, &map, &decoration_sprites);
-        render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites, SDL_GetTicks());
+        render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites,
+                     plugin->game_info, SDL_GetTicks());
+        render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
+                              &decoration_sprites, plugin->game_info);
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);

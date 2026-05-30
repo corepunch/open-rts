@@ -12,6 +12,7 @@ BIN_DIR       := $(BUILD_DIR)/bin
 LIBS_DIR      := $(BUILD_DIR)/libs
 TARGET        := $(BIN_DIR)/open-rts
 ANIM_EXTRACT_TARGET := $(BUILD_DIR)/anim_extract
+DC_INFO_GEN_TARGET := $(BUILD_DIR)/dc_info_gen
 
 DATA_DIR          := data
 DARK_REIGN_ROOT   := $(DATA_DIR)/REIGN/dark
@@ -47,7 +48,8 @@ DR_LIB     := $(LIBS_DIR)/dark-reign$(LIB_EXT)
 # ── dark-colony plugin ───────────────────────────────────────────────────────
 DC_SOURCES := \
 	plugins/DarkColony/plugin.c \
-	plugins/DarkColony/dc_loader.c
+	plugins/DarkColony/dc_loader.c \
+	plugins/DarkColony/info.c
 DC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_SOURCES))
 DC_DEPS    := $(DC_OBJECTS:.o=.d)
 DC_LIB     := $(LIBS_DIR)/dark-colony$(LIB_EXT)
@@ -57,7 +59,11 @@ ANIM_EXTRACT_SOURCE := tools/anim_extract.c
 ANIM_EXTRACT_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(ANIM_EXTRACT_SOURCE))
 ANIM_EXTRACT_DEPS   := $(ANIM_EXTRACT_OBJECT:.o=.d)
 
-.PHONY: all run dark-reign dark-colony anim-extract clean
+DC_INFO_GEN_SOURCE := tools/dc_info_gen.c
+DC_INFO_GEN_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_GEN_SOURCE))
+DC_INFO_GEN_DEPS   := $(DC_INFO_GEN_OBJECT:.o=.d)
+
+.PHONY: all run dark-reign dark-colony dark-colony-info anim-extract clean
 
 all: $(TARGET) $(DR_LIB) $(DC_LIB)
 
@@ -75,6 +81,12 @@ $(DC_LIB): $(DC_OBJECTS) | $(LIBS_DIR)
 # ── anim_extract ─────────────────────────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(ANIM_EXTRACT_OBJECT)
 	$(CC) $(ANIM_EXTRACT_OBJECT) -o $@
+
+$(DC_INFO_GEN_TARGET): $(DC_INFO_GEN_OBJECT)
+	$(CC) $(DC_INFO_GEN_OBJECT) -o $@
+
+dark-colony-info: $(DC_INFO_GEN_TARGET)
+	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) plugins/DarkColony/info.h plugins/DarkColony/info.c
 
 # ── compile rules ────────────────────────────────────────────────────────────
 # Plugin objects need -fPIC for shared libs
@@ -103,7 +115,7 @@ dark-reign: all
 	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/MULTI/2NIC/2NIC.SCN ucfcnst0.spr
 
 dark-colony: all
-	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/MPLAYER/D2PLAY01.MTG SPRITES/TROOPER1.SPR
+	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/MPLAYER/D2PLAY01.MAP SPRITES/TROOPER1.SPR
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
@@ -114,3 +126,4 @@ clean:
 -include $(DR_DEPS)
 -include $(DC_DEPS)
 -include $(ANIM_EXTRACT_DEPS)
+-include $(DC_INFO_GEN_DEPS)
