@@ -365,7 +365,7 @@ static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, 
     unit->gx = (float)cell.x + 0.5f;
     unit->gy = (float)cell.y + 0.5f;
     unit->owner = 1;
-    unit->facing_code = 8;
+    unit->facing_code = plugin->game_info ? 6 : 8;
     apply_actor_type_defaults(unit, type);
     rts_apply_mobjinfo_defaults(plugin->game_info, unit);
     (*unit_count)++;

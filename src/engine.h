@@ -180,6 +180,11 @@ typedef struct {
     int raisestate;
 } RtsMobjInfo;
 
+typedef enum {
+    RTS_DIRECTION_COMPASS_16 = 0,
+    RTS_DIRECTION_DARK_COLONY_8 = 1,
+} RtsDirectionMode;
+
 typedef struct {
     const char *const *sprnames;
     int sprite_count;
@@ -188,6 +193,7 @@ typedef struct {
     const RtsMobjInfo *mobjinfo;
     int mobj_type_count;
     int null_state;
+    RtsDirectionMode direction_mode;
 } RtsGameInfo;
 
 typedef struct GameMap {
@@ -337,6 +343,8 @@ bool rts_set_unit_state(RtsStateContext *ctx, Unit *unit, int state_id);
 bool rts_spawn_state_effect(RtsStateContext *ctx, int state_id, float gx, float gy, int facing_code);
 bool rts_unit_fire_attack(RtsStateContext *ctx, Unit *attacker);
 bool rts_unit_add_corpse_decoration(RtsStateContext *ctx, const Unit *unit);
+int rts_direction_code_from_vector(const RtsGameInfo *game_info, float dx, float dy);
+void rts_direction_vector_from_code(const RtsGameInfo *game_info, int code, float *dx, float *dy);
 void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *effects,
                   int max_effects, const RtsGameInfo *game_info, float dt);
 void update_visual_effects(GameMap *map, RtsVisualEffect *effects, int max_effects,

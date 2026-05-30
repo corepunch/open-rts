@@ -1,8 +1,6 @@
 #include "plugin.h"
 #include "info.h"
 
-#include <math.h>
-
 bool load_dark_colony_map(const char *map_path, GameMap *out);
 bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
                                     const GameMap *map, const char *sprite_name,
@@ -17,16 +15,10 @@ enum {
     DC_ACTOR_EXPLOITER = 3,
 };
 
-static void dc_direction_vector_from_code(int code, float *dx, float *dy) {
-    float angle = -(float)code * 0.39269908169872414f;
-    *dx = cosf(angle);
-    *dy = -sinf(angle);
-}
-
 void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit) {
     if (!ctx || !unit) return;
     float vx = 0.0f, vy = 0.0f;
-    dc_direction_vector_from_code(unit->facing_code, &vx, &vy);
+    rts_direction_vector_from_code(ctx->game_info, unit->facing_code, &vx, &vy);
     rts_spawn_state_effect(ctx, S_DC_MUZA1,
                            unit->gx + vx * 0.42f,
                            unit->gy + vy * 0.42f,

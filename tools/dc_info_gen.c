@@ -154,20 +154,25 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "#endif\n");
 }
 
-static void f8_frame_major(FILE *out, const char *spr, int tics, const char *action,
-                           const char *next, int group, int base, int offset) {
-    static const int dirs[8] = {12,14,0,2,4,6,8,10};
+static void f8_frame_major_abs(FILE *out, const char *spr, int tics, const char *action,
+                               const char *next, int group, int frame_base) {
+    static const int dirs[8] = {0,1,2,3,4,5,6,7};
     fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
-            spr, base + offset * 8, tics, action, next, group);
+            spr, frame_base, tics, action, next, group);
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
     fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", base + offset * 8 + i);
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frame_base + i);
     fprintf(out, "}, {0} },\n");
+}
+
+static void f8_frame_major(FILE *out, const char *spr, int tics, const char *action,
+                           const char *next, int group, int base, int offset) {
+    f8_frame_major_abs(out, spr, tics, action, next, group, base + offset * 8);
 }
 
 static void f6(FILE *out, const char *spr, int tics, const char *action, const char *next,
                int group, const int starts[6], int offset) {
-    static const int dirs[6] = {0,14,10,6,4,2};
+    static const int dirs[6] = {2,1,7,5,4,3};
     fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 6, {", spr, starts[0] + offset, tics, action, next, group);
     for (int i = 0; i < 6; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
     fprintf(out, "}, {");
@@ -184,7 +189,7 @@ static void fabs_state(FILE *out, const char *spr, int frame, int tics, const ch
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
     int frame_b = n < 9 ? 271 + n : 289 + (n - 9);
-    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {14,2,10,6}, {%d,%d,%d,%d}, {0,0,RTS_FRAME_FLIP_X,RTS_FRAME_FLIP_X} },\n",
+    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {1,3,7,5}, {%d,%d,%d,%d}, {0,0,RTS_FRAME_FLIP_X,RTS_FRAME_FLIP_X} },\n",
             frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
 }
 
@@ -206,9 +211,10 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f8_frame_major(out, sprites[trsc].symbol, -1, "NOACTION", "S_DC_TRSC_STND", 1, 0, 0);
     const char *trsc_run_next[8] = {"S_DC_TRSC_RUN2","S_DC_TRSC_RUN3","S_DC_TRSC_RUN4","S_DC_TRSC_RUN5","S_DC_TRSC_RUN6","S_DC_TRSC_RUN7","S_DC_TRSC_RUN8","S_DC_TRSC_RUN1"};
     for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[trsc].symbol, 3, "NOACTION", trsc_run_next[i], 2, 16, i);
-    const char *trsc_atk_next[8] = {"S_DC_TRSC_ATK2","S_DC_TRSC_ATK3","S_DC_TRSC_ATK4","S_DC_TRSC_ATK5","S_DC_TRSC_ATK6","S_DC_TRSC_ATK7","S_DC_TRSC_ATK8","S_DC_TRSC_STND"};
-    const char *trsc_atk_action[8] = {"NOACTION","A_DC_MuzzleFlash","NOACTION","A_DC_Attack","NOACTION","NOACTION","NOACTION","NOACTION"};
-    for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[trsc].symbol, 2, trsc_atk_action[i], trsc_atk_next[i], 3, 88, i);
+    const int trsc_atk_frames[8] = {80,88,96,104,112,120,120,120};
+    const char *trsc_atk_next[8] = {"S_DC_TRSC_ATK2","S_DC_TRSC_ATK3","S_DC_TRSC_ATK4","S_DC_TRSC_ATK5","S_DC_TRSC_ATK6","S_DC_TRSC_STND","S_DC_TRSC_STND","S_DC_TRSC_STND"};
+    const char *trsc_atk_action[8] = {"NOACTION","A_DC_MuzzleFlash","A_DC_Attack","NOACTION","NOACTION","NOACTION","NOACTION","NOACTION"};
+    for (int i = 0; i < 8; ++i) f8_frame_major_abs(out, sprites[trsc].symbol, 2, trsc_atk_action[i], trsc_atk_next[i], 3, trsc_atk_frames[i]);
     const char *trsc_die_next[11] = {"S_DC_TRSC_DIE2","S_DC_TRSC_DIE3","S_DC_TRSC_DIE4","S_DC_TRSC_DIE5","S_DC_TRSC_DIE6","S_DC_TRSC_DIE7","S_DC_TRSC_DIE8","S_DC_TRSC_DIE9","S_DC_TRSC_DIE10","S_DC_TRSC_CORPSE","S_NULL"};
     for (int i = 0; i < 10; ++i) f6(out, sprites[trsc].symbol, 3, i == 0 ? "A_DC_Fall" : "NOACTION", trsc_die_next[i], 4, trsc_die, i);
     f6(out, sprites[trsc].symbol, 1, "A_DC_Corpse", trsc_die_next[10], 4, trsc_die, 9);
@@ -216,9 +222,10 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f8_frame_major(out, sprites[gray].symbol, -1, "NOACTION", "S_DC_GRAY_STND", 1, 0, 0);
     const char *gray_run_next[7] = {"S_DC_GRAY_RUN2","S_DC_GRAY_RUN3","S_DC_GRAY_RUN4","S_DC_GRAY_RUN5","S_DC_GRAY_RUN6","S_DC_GRAY_RUN7","S_DC_GRAY_RUN1"};
     for (int i = 0; i < 7; ++i) f8_frame_major(out, sprites[gray].symbol, 3, "NOACTION", gray_run_next[i], 2, 16, i);
-    const char *gray_atk_next[8] = {"S_DC_GRAY_ATK2","S_DC_GRAY_ATK3","S_DC_GRAY_ATK4","S_DC_GRAY_ATK5","S_DC_GRAY_ATK6","S_DC_GRAY_ATK7","S_DC_GRAY_ATK8","S_DC_GRAY_STND"};
-    const char *gray_atk_action[8] = {"NOACTION","A_DC_MuzzleFlash","NOACTION","A_DC_Attack","NOACTION","NOACTION","NOACTION","NOACTION"};
-    for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[gray].symbol, 2, gray_atk_action[i], gray_atk_next[i], 3, 78, i);
+    const int gray_atk_frames[8] = {78,86,94,102,110,118,118,118};
+    const char *gray_atk_next[8] = {"S_DC_GRAY_ATK2","S_DC_GRAY_ATK3","S_DC_GRAY_ATK4","S_DC_GRAY_ATK5","S_DC_GRAY_ATK6","S_DC_GRAY_STND","S_DC_GRAY_STND","S_DC_GRAY_STND"};
+    const char *gray_atk_action[8] = {"NOACTION","A_DC_MuzzleFlash","A_DC_Attack","NOACTION","NOACTION","NOACTION","NOACTION","NOACTION"};
+    for (int i = 0; i < 8; ++i) f8_frame_major_abs(out, sprites[gray].symbol, 2, gray_atk_action[i], gray_atk_next[i], 3, gray_atk_frames[i]);
     const char *gray_die_next[13] = {"S_DC_GRAY_DIE2","S_DC_GRAY_DIE3","S_DC_GRAY_DIE4","S_DC_GRAY_DIE5","S_DC_GRAY_DIE6","S_DC_GRAY_DIE7","S_DC_GRAY_DIE8","S_DC_GRAY_DIE9","S_DC_GRAY_ROT1","S_DC_GRAY_ROT2","S_DC_GRAY_ROT3","S_DC_GRAY_CORPSE","S_NULL"};
     for (int i = 0; i < 12; ++i) gray_die(out, gray_die_next[i], i, i == 0 ? "A_DC_Fall" : "NOACTION");
     gray_die(out, gray_die_next[12], 11, "A_DC_Corpse");
@@ -235,7 +242,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL },\n");
     fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_STND, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_STND, S_DC_EXPL_STND, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL },\n");
     fprintf(out, "};\n\n");
-    fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL };\n");
+    fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_8 };\n");
 }
 
 int main(int argc, char **argv) {

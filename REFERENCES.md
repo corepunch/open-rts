@@ -77,12 +77,11 @@ Labels follow the pattern `<STEM><ACTION><DIRECTION>` where:
   pose), `FIREA`, `FIREB` (two fire phases), `HITB` (hit reaction), `MOVEC`
   (alternate move), `DIEA`, `DIEB`, `DIEC` (death strips per quadrant), `BLOOD*`
   (blood effects), `FUNK` (misc), etc.
-- Engine facing codes are `{0, 2, 4, 6, 8, 10, 12, 14}` with
-  `right=0`, `up-right=2`, `up=4`, `up-left=6`, `left=8`,
-  `down-left=10`, `down=12`, `down-right=14`.
-- Dark Colony 8-direction frame slots are frame-major and use a different
-  visual order: slot `0=down`, `1=down-right`, `2=right`, `3=up-right`,
+- Dark Colony state-facing codes are sprite slots `0..7`:
+  `0=down`, `1=down-right`, `2=right`, `3=up-right`,
   `4=up`, `5=up-left`, `6=left`, `7=down-left`.
+- The legacy sequence path still uses the older engine compass codes
+  `{0, 2, 4, 6, 8, 10, 12, 14}` and is kept for Dark Reign compatibility.
 
 The direction code set and ordering **differ by sprite**:
 
@@ -114,10 +113,15 @@ To build generated Doom-style `states[]` for Dark Colony:
 
 ```c
 // One state per animation phase; the state's frame set contains rotations.
-int direction_codes[8] = { 12, 14, 0, 2, 4, 6, 8, 10 };
+int direction_codes[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 int trsc_run1_frames[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
 int trsc_run2_frames[8] = { 24, 25, 26, 27, 28, 29, 30, 31 };
 ```
+
+Attack strips are frame-major too, but they are not always eight full body
+phases. `TRSC.SPR` uses body fire rows `80..127`; `128..151` are death rows.
+`GRAY.SPR` uses body fire rows `78..125`; `126..141` are loose effect pixels.
+Generated attack chains must return to stand before crossing those boundaries.
 
 ### Historical Rotation Bug
 

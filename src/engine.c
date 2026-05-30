@@ -585,22 +585,37 @@ static const RtsState *rts_state_at(const RtsGameInfo *game_info, int state_id) 
     return &game_info->states[state_id];
 }
 
+static int rts_state_facing_slot(const RtsState *state, int facing_code) {
+    if (!state || state->facings <= 0) return -1;
+    int wrap = 16;
+    for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        if (state->direction_codes[i] > 7 || facing_code > 7) {
+            wrap = 16;
+            break;
+        }
+        wrap = 8;
+    }
+    int best = 0;
+    int best_delta = 1000;
+    for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        int code = state->direction_codes[i];
+        int delta = abs(code - facing_code);
+        if (delta > wrap / 2) delta = wrap - delta;
+        if (delta < best_delta) {
+            best = i;
+            best_delta = delta;
+        }
+    }
+    return best;
+}
+
 static void rts_resolve_state_frame(const RtsState *state, int facing_code,
                                     int *frame_out, uint32_t *flags_out) {
     int frame = state ? state->frame : 0;
     uint32_t flags = state ? state->flags : 0;
     if (state && state->facings > 0) {
-        int best = 0;
-        int best_delta = 1000;
-        for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-            int code = state->direction_codes[i];
-            int delta = abs(code - facing_code);
-            if (delta > 8) delta = 16 - delta;
-            if (delta < best_delta) {
-                best = i;
-                best_delta = delta;
-            }
-        }
+        int best = rts_state_facing_slot(state, facing_code);
+        if (best < 0) best = 0;
         frame = state->facing_frames[best];
         flags = state->facing_flags[best];
     }
@@ -650,6 +665,17 @@ bool rts_set_unit_state(RtsStateContext *ctx, Unit *unit, int state_id) {
         rts_apply_state_visuals(game_info, unit, state);
         debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
                           unit->type_id, unit->state_id, unit->sprite_id, unit->frame, unit->tics);
+        if (state->misc1 == 3) {
+            int dir_slot = rts_state_facing_slot(state, unit->facing_code);
+            const char *sprite_name = "(unknown)";
+            if (unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
+                game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
+                sprite_name = game_info->sprnames[unit->sprite_id];
+            }
+            debug_effects_log("shoot state unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d",
+                              unit->type_id, unit->state_id, unit->facing_code,
+                              dir_slot, sprite_name, unit->frame);
+        }
         if (state->action) state->action(ctx, unit);
         if (unit->remove || unit->state_id != state_id) return !unit->remove;
         if (unit->tics != 0) return true;
@@ -753,7 +779,7 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
     return x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
 }
 
-static int direction_code_from_vector(float dx, float dy) {
+static int compass16_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
     float angle = atan2f(-dy, dx);
     const float quarter_turn = 0.7853981633974483f;
@@ -761,6 +787,45 @@ static int direction_code_from_vector(float dx, float dy) {
     sector %= 8;
     if (sector < 0) sector += 8;
     return sector * 2;
+}
+
+static int dark_colony8_direction_code_from_vector(float dx, float dy) {
+    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
+    const float quarter_turn = 0.7853981633974483f;
+    int sector = (int)floorf(atan2f(dx, dy) / quarter_turn + 0.5f);
+    sector %= 8;
+    if (sector < 0) sector += 8;
+    return sector;
+}
+
+int rts_direction_code_from_vector(const RtsGameInfo *game_info, float dx, float dy) {
+    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8)
+        return dark_colony8_direction_code_from_vector(dx, dy);
+    return compass16_direction_code_from_vector(dx, dy);
+}
+
+void rts_direction_vector_from_code(const RtsGameInfo *game_info, int code, float *dx, float *dy) {
+    if (!dx || !dy) return;
+    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8) {
+        static const float dirs[8][2] = {
+            {  0.0f,  1.0f },
+            {  0.70710678f,  0.70710678f },
+            {  1.0f,  0.0f },
+            {  0.70710678f, -0.70710678f },
+            {  0.0f, -1.0f },
+            { -0.70710678f, -0.70710678f },
+            { -1.0f,  0.0f },
+            { -0.70710678f,  0.70710678f },
+        };
+        int dir = code % 8;
+        if (dir < 0) dir += 8;
+        *dx = dirs[dir][0];
+        *dy = dirs[dir][1];
+        return;
+    }
+    float angle = -(float)code * 0.39269908169872414f;
+    *dx = cosf(angle);
+    *dy = -sinf(angle);
 }
 
 void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
@@ -777,12 +842,6 @@ void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal
         units[i].path_index = len > 1 ? 1 : 0;
         selected_index++;
     }
-}
-
-static void direction_vector_from_code(int code, float *dx, float *dy) {
-    float angle = -(float)code * 0.39269908169872414f;
-    *dx = cosf(angle);
-    *dy = -sinf(angle);
 }
 
 static bool spawn_visual_effect(RtsVisualEffect *effects, int max_effects,
@@ -923,6 +982,17 @@ bool rts_unit_fire_attack(RtsStateContext *ctx, Unit *attacker) {
     if (target_index < 0) return false;
 
     Unit *target = &ctx->units[target_index];
+    const RtsState *attack_state = rts_state_at(ctx->game_info, attacker->state_id);
+    int dir_slot = rts_state_facing_slot(attack_state, attacker->facing_code);
+    const char *sprite_name = "(unknown)";
+    if (ctx->game_info && attacker->sprite_id >= 0 &&
+        attacker->sprite_id < ctx->game_info->sprite_count &&
+        ctx->game_info->sprnames && ctx->game_info->sprnames[attacker->sprite_id]) {
+        sprite_name = ctx->game_info->sprnames[attacker->sprite_id];
+    }
+    debug_effects_log("shoot fire unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d target=%d",
+                      attacker->type_id, attacker->state_id, attacker->facing_code,
+                      dir_slot, sprite_name, attacker->frame, target_index);
     target->hp -= attacker->attack_damage;
     if (attacker->attack_cooldown_ms > 0)
         attacker->attack_cooldown_left_ms = attacker->attack_cooldown_ms;
@@ -1020,7 +1090,8 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
                 float dx = tx - u->gx;
                 float dy = ty - u->gy;
                 float dist = sqrtf(dx * dx + dy * dy);
-                if (dist >= 0.001f) u->facing_code = direction_code_from_vector(dx, dy);
+                if (dist >= 0.001f)
+                    u->facing_code = rts_direction_code_from_vector(game_info, dx, dy);
                 float step = u->speed * dt;
                 if (dist <= step || dist < 0.001f) {
                     u->gx = tx;
@@ -1083,8 +1154,9 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
             if (target_index < 0) continue;
 
             Unit *target = &units[target_index];
-            attacker->facing_code = direction_code_from_vector(target->gx - attacker->gx,
-                                                               target->gy - attacker->gy);
+            attacker->facing_code = rts_direction_code_from_vector(game_info,
+                                                                   target->gx - attacker->gx,
+                                                                   target->gy - attacker->gy);
             if (attacker->attack_cooldown_left_ms > 0 ||
                 attacker->attack_anim_left_ms > 0 ||
                 mi->missilestate == game_info->null_state) {
@@ -1129,7 +1201,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         float dx = tx - u->gx;
         float dy = ty - u->gy;
         float dist = sqrtf(dx * dx + dy * dy);
-        if (dist >= 0.001f) u->facing_code = direction_code_from_vector(dx, dy);
+        if (dist >= 0.001f) u->facing_code = rts_direction_code_from_vector(NULL, dx, dy);
         float step = u->speed * dt;
         if (dist <= step || dist < 0.001f) {
             u->gx = tx;
@@ -1168,13 +1240,14 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         if (target_index < 0) continue;
 
         Unit *target = &units[target_index];
-        attacker->facing_code = direction_code_from_vector(target->gx - attacker->gx,
-                                                           target->gy - attacker->gy);
+        attacker->facing_code = rts_direction_code_from_vector(NULL,
+                                                               target->gx - attacker->gx,
+                                                               target->gy - attacker->gy);
         if (attacker->attack_cooldown_left_ms > 0) continue;
 
         if (attacker->muzzle_flash_name[0] != '\0') {
             float vx = 0.0f, vy = 0.0f;
-            direction_vector_from_code(attacker->facing_code, &vx, &vy);
+            rts_direction_vector_from_code(NULL, attacker->facing_code, &vx, &vy);
             bool spawned = spawn_visual_effect(effects, max_effects, attacker->muzzle_flash_name, "flash",
                                                attacker->gx + vx * 0.42f, attacker->gy + vy * 0.42f,
                                                attacker->facing_code,
@@ -1255,7 +1328,7 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
             Cell c = unit->path[unit->path_index];
             float dx = ((float)c.x + 0.5f) - unit->gx;
             float dy = ((float)c.y + 0.5f) - unit->gy;
-            direction_code = direction_code_from_vector(dx, dy);
+            direction_code = rts_direction_code_from_vector(NULL, dx, dy);
         }
         int facing = sequence_facing_index(seq, direction_code);
         int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
