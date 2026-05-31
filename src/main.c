@@ -393,7 +393,7 @@ static void debug_animation_grid_render(const App *app, const SpriteSheet *sprit
 
         snprintf(line, sizeof(line), "%s", row->name);
         debug_font_draw_text(app->renderer, &overlay->font, start_x, y + 8, line, white, 1);
-        snprintf(line, sizeof(line), "%dF%s", row->state_count, row->loop ? " LOOP" : "");
+        snprintf(line, sizeof(line), "%d STEPS%s", row->state_count, row->loop ? " LOOP" : "");
         debug_font_draw_text(app->renderer, &overlay->font, start_x, y + 20, line, dim, 1);
 
         const RtsState *state = debug_anim_state_for_time(game_info, row, SDL_GetTicks());

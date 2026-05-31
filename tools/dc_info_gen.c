@@ -535,7 +535,7 @@ static void state_name(char *dst, size_t dst_size, const char *prefix,
 static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
                          const char *label_prefix, int step, int fallback_frame,
                          int tics, const char *action, const char *next, int group,
-                         bool mirror_left) {
+                         int sequence_count, bool mirror_left) {
     static const int dirs[8] = {0,1,2,3,4,5,6,7};
     static const int mirror_dirs[8] = {0,1,2,3,4,3,2,1};
     int frames[8];
@@ -548,6 +548,10 @@ static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
             frames[dir] = fallback_frame;
         } else {
             int frame_index = step < count ? step : count - 1;
+            if (!mirror_left && dir > 4 && count == sequence_count * 2 &&
+                step + sequence_count < count) {
+                frame_index = step + sequence_count;
+            }
             frames[dir] = candidates[frame_index];
         }
     }
@@ -578,7 +582,7 @@ static void write_fin_sequence(FILE *out, const char *spr, const FinAnim *fin,
         if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
         else snprintf(next, sizeof(next), "%s", exit_state);
         f8_fin_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
-                     i == 0 ? first_action : "A_None", next, group, mirror_left);
+                     i == 0 ? first_action : "A_None", next, group, count, mirror_left);
     }
 }
 
@@ -586,7 +590,7 @@ static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
                              const char *label_prefix, int last_step, int fallback_frame,
                              bool mirror_left) {
     f8_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
-                 "A_DC_Corpse", "S_NULL", 4, mirror_left);
+                 "A_DC_Corpse", "S_NULL", 4, last_step + 1, mirror_left);
 }
 
 static void write_muzzle(FILE *out, const char *spr, int frame, const int offsets_x[8],
