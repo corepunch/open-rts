@@ -24,7 +24,8 @@
 #define MAX_PATH_CELLS 4096
 #define FIXED_DT (1.0f / 30.0f)
 
-#define RTS_FRAME_FLIP_X (1u << 0)
+#define RTS_SPRITEFRAME_FLIP_X (1u << 0) /* Doom-style spriteframe_t.flip[rotation]. */
+#define RTS_FRAME_FLIP_X RTS_SPRITEFRAME_FLIP_X
 #define RTS_FRAME_ADDITIVE (1u << 1)
 #define RTS_FRAME_TINT_YELLOW (1u << 2)
 

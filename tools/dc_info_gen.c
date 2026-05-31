@@ -37,7 +37,7 @@ typedef struct {
 } FinAnim;
 
 enum {
-    DC_REAP_RUN_STATES = 8,
+    DC_REAP_RUN_STATES = 4,
     DC_REAP_ATTACK_STATES = 3,
     DC_REAP_DEATH_STATES = 11,
     DC_BARR_RUN_STATES = 13,
@@ -438,7 +438,7 @@ static void fabs_state(FILE *out, const char *spr, int frame, int tics, const ch
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
     int frame_b = n < 9 ? 271 + n : 289 + (n - 9);
-    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {1,3,7,5}, {%d,%d,%d,%d}, {0,0,RTS_FRAME_FLIP_X,RTS_FRAME_FLIP_X}, {0}, {0} },\n",
+    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {1,3,7,5}, {%d,%d,%d,%d}, {0,0,RTS_SPRITEFRAME_FLIP_X,RTS_SPRITEFRAME_FLIP_X}, {0}, {0} },\n",
             frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
 }
 
@@ -450,12 +450,15 @@ static void state_name(char *dst, size_t dst_size, const char *prefix,
 
 static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
                          const char *label_prefix, int step, int fallback_frame,
-                         int tics, const char *action, const char *next, int group) {
+                         int tics, const char *action, const char *next, int group,
+                         bool mirror_left) {
     static const int dirs[8] = {0,1,2,3,4,5,6,7};
+    static const int mirror_dirs[8] = {0,1,2,3,4,3,2,1};
     int frames[8];
     for (int dir = 0; dir < 8; ++dir) {
         int candidates[64];
-        int count = fin_body_frames_for_direction(fin, label_prefix, dir,
+        int source_dir = mirror_left && dir > 4 ? mirror_dirs[dir] : dir;
+        int count = fin_body_frames_for_direction(fin, label_prefix, source_dir,
                                                   candidates, (int)(sizeof(candidates) / sizeof(candidates[0])));
         if (count <= 0) {
             frames[dir] = fallback_frame;
@@ -470,27 +473,36 @@ static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
     fprintf(out, "}, {");
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
-    fprintf(out, "}, {0}, {0}, {0} },\n");
+    fprintf(out, "}, {");
+    if (mirror_left) {
+        for (int i = 0; i < 8; ++i) {
+            fprintf(out, "%s%s", i ? "," : "", i > 4 ? "RTS_SPRITEFRAME_FLIP_X" : "0");
+        }
+    } else {
+        fprintf(out, "0");
+    }
+    fprintf(out, "}, {0}, {0} },\n");
 }
 
 static void write_fin_sequence(FILE *out, const char *spr, const FinAnim *fin,
                                const char *label_prefix, const char *state_prefix,
                                const char *kind, int count, int fallback_frame,
                                int tics, int group, const char *first_action,
-                               const char *exit_state) {
+                               const char *exit_state, bool mirror_left) {
     char next[64];
     for (int i = 0; i < count; ++i) {
         if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
         else snprintf(next, sizeof(next), "%s", exit_state);
         f8_fin_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
-                     i == 0 ? first_action : "A_None", next, group);
+                     i == 0 ? first_action : "A_None", next, group, mirror_left);
     }
 }
 
 static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
-                             const char *label_prefix, int last_step, int fallback_frame) {
+                             const char *label_prefix, int last_step, int fallback_frame,
+                             bool mirror_left) {
     f8_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
-                 "A_DC_Corpse", "S_NULL", 4);
+                 "A_DC_Corpse", "S_NULL", 4, mirror_left);
 }
 
 static void write_muzzle(FILE *out, const char *spr, int frame, const int offsets_x[8],
@@ -608,44 +620,44 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 
     fabs_state(out, sprites[reap].symbol, 0, -1, "A_None", "S_DC_REAP_STND", 1);
     write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
-                       DC_REAP_RUN_STATES, 0, 3, 2, "A_None", "S_DC_REAP_RUN1");
+                       DC_REAP_RUN_STATES, 0, 3, 2, "A_None", "S_DC_REAP_RUN1", false);
     write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",
-                       DC_REAP_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_REAP_STND");
+                       DC_REAP_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_REAP_STND", false);
     write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", "REAP", "DIE",
-                       DC_REAP_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_REAP_CORPSE");
-    write_fin_corpse(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", DC_REAP_DEATH_STATES - 1, 0);
+                       DC_REAP_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_REAP_CORPSE", false);
+    write_fin_corpse(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", DC_REAP_DEATH_STATES - 1, 0, false);
 
     fabs_state(out, sprites[barr].symbol, 0, -1, "A_None", "S_DC_BARR_STND", 1);
     write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
-                       DC_BARR_RUN_STATES, 0, 3, 2, "A_None", "S_DC_BARR_RUN1");
+                       DC_BARR_RUN_STATES, 0, 3, 2, "A_None", "S_DC_BARR_RUN1", true);
     write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRFIREA", "BARR", "ATK",
-                       DC_BARR_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_BARR_STND");
+                       DC_BARR_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_BARR_STND", true);
     write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRDIE", "BARR", "DIE",
-                       DC_BARR_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE");
-    write_fin_corpse(out, sprites[barr].symbol, &barr_fin, "BARRDIE", DC_BARR_DEATH_STATES - 1, 0);
+                       DC_BARR_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE", true);
+    write_fin_corpse(out, sprites[barr].symbol, &barr_fin, "BARRDIE", DC_BARR_DEATH_STATES - 1, 0, true);
 
     fabs_state(out, sprites[sarg].symbol, 0, -1, "A_None", "S_DC_SARG_STND", 1);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGMOVE", "SARG", "RUN",
-                       DC_SARG_RUN_STATES, 0, 3, 2, "A_None", "S_DC_SARG_RUN1");
+                       DC_SARG_RUN_STATES, 0, 3, 2, "A_None", "S_DC_SARG_RUN1", false);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGFIREA", "SARG", "ATK",
-                       DC_SARG_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_SARG_STND");
+                       DC_SARG_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_SARG_STND", false);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", "SARG", "DIE",
-                       DC_SARG_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_SARG_CORPSE");
-    write_fin_corpse(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", DC_SARG_DEATH_STATES - 1, 0);
+                       DC_SARG_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_SARG_CORPSE", false);
+    write_fin_corpse(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", DC_SARG_DEATH_STATES - 1, 0, false);
 
     fabs_state(out, sprites[scgm].symbol, 0, -1, "A_None", "S_DC_SCGM_STND", 1);
     write_fin_sequence(out, sprites[scgm].symbol, &scgm_fin, "SCGMMOVE", "SCGM", "RUN",
-                       DC_SCGM_RUN_STATES, 0, 3, 2, "A_None", "S_DC_SCGM_RUN1");
+                       DC_SCGM_RUN_STATES, 0, 3, 2, "A_None", "S_DC_SCGM_RUN1", false);
     write_fin_sequence(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", "SCGM", "DIE",
-                       DC_SCGM_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_SCGM_CORPSE");
-    write_fin_corpse(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", DC_SCGM_DEATH_STATES - 1, 0);
+                       DC_SCGM_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_SCGM_CORPSE", false);
+    write_fin_corpse(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", DC_SCGM_DEATH_STATES - 1, 0, false);
 
     fabs_state(out, sprites[expl].symbol, 0, -1, "A_None", "S_DC_EXPL_STND", 1);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLMOVE", "EXPL", "RUN",
-                       DC_EXPL_RUN_STATES, 0, 3, 2, "A_None", "S_DC_EXPL_RUN1");
+                       DC_EXPL_RUN_STATES, 0, 3, 2, "A_None", "S_DC_EXPL_RUN1", false);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
-                       DC_EXPL_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE");
-    write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", DC_EXPL_DEATH_STATES - 1, 0);
+                       DC_EXPL_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
+    write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", DC_EXPL_DEATH_STATES - 1, 0, false);
     write_muzzle(out, sprites[blaz].symbol, trsc_muzzle_frame, trsc_muzzle_x, trsc_muzzle_y);
     write_muzzle(out, sprites[blaz].symbol, gray_muzzle_frame, gray_muzzle_x, gray_muzzle_y);
     fprintf(out, "};\n\n");
