@@ -548,6 +548,99 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
 
 /* ── unit SCN parser ────────────────────────────────────────────────────── */
 
+enum { DARK_COLONY_MAX_GAMESTAT_UNITS = 128 };
+
+typedef struct {
+    float speed;
+} DarkColonyUnitConfig;
+
+static char ascii_lower_char(char c) {
+    return (char)tolower((unsigned char)c);
+}
+
+static char *find_ascii_case_insensitive(char *haystack, const char *needle) {
+    size_t needle_len = strlen(needle);
+    if (needle_len == 0) return haystack;
+    for (char *p = haystack; *p; ++p) {
+        size_t i = 0;
+        while (i < needle_len && p[i] &&
+               ascii_lower_char(p[i]) == ascii_lower_char(needle[i])) {
+            i++;
+        }
+        if (i == needle_len) return p;
+    }
+    return NULL;
+}
+
+static bool dark_colony_root_from_map_path(const char *map_path, char *root, size_t root_size) {
+    if (!map_path || !root || root_size == 0) return false;
+    snprintf(root, root_size, "%s", map_path);
+    char *marker = find_ascii_case_insensitive(root, "/SCENARIO/");
+    if (!marker) marker = find_ascii_case_insensitive(root, "\\SCENARIO\\");
+    if (!marker) return false;
+    *marker = '\0';
+    return root[0] != '\0';
+}
+
+static float dark_colony_speed_from_gamestat(int speed) {
+    return speed > 0 ? (float)speed / 5.0f : 0.0f;
+}
+
+static void load_dark_colony_unit_config(const char *map_path,
+                                         DarkColonyUnitConfig configs[DARK_COLONY_MAX_GAMESTAT_UNITS]) {
+    memset(configs, 0, sizeof(DarkColonyUnitConfig) * DARK_COLONY_MAX_GAMESTAT_UNITS);
+
+    char root[1024];
+    if (!dark_colony_root_from_map_path(map_path, root, sizeof(root))) return;
+
+    char gamestat_path[1024];
+    snprintf(gamestat_path, sizeof(gamestat_path), "%s/GAMESTAT/GAMESTAT.TXT", root);
+    char *text = load_text_file(gamestat_path);
+    if (!text) return;
+
+    int type_index = 0;
+    for (char *line = text; line && *line && type_index < DARK_COLONY_MAX_GAMESTAT_UNITS;) {
+        char *next = strpbrk(line, "\r\n");
+        if (next) {
+            char nl = *next; *next++ = '\0';
+            if (nl == '\r' && *next == '\n') next++;
+        }
+
+        char token[256] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, strlen(line));
+        if (token[0] != '\0' && token[0] != '%') {
+            char sprite[32] = { 0 };
+            int race = 0, turn = 0, speed = 0;
+            if (!isdigit((unsigned char)token[0]) &&
+                sscanf(token, "%31s %d %d %d", sprite, &race, &turn, &speed) == 4) {
+                (void)race;
+                (void)turn;
+                configs[type_index].speed = dark_colony_speed_from_gamestat(speed);
+                type_index++;
+            }
+        }
+        line = next;
+    }
+    free(text);
+}
+
+static int dark_colony_mobj_type_for_type(int type, int race) {
+    if (race == 1) {
+        if (type == 0 || (type >= 69 && type <= 76)) return MT_DC_GREY;
+        return 0;
+    }
+
+    if (type == 0 || (type >= 69 && type <= 72)) return MT_DC_TROOPER;
+    switch (type) {
+        case 2: return MT_DC_REAPER;
+        case 3: return MT_DC_THUNDERBOLT;
+        case 4: return MT_DC_CYBORG;
+        case 5: return MT_DC_SCOUT;
+        case 6: return MT_DC_EXPLOITER;
+        default: return 0;
+    }
+}
+
 static const char *dark_colony_unit_sprite_for_type(int type, int race) {
     if (race == 1) {
         if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
@@ -585,6 +678,9 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
     char *text = load_text_file(scn_path);
     if (!text) return 0;
+
+    DarkColonyUnitConfig unit_config[DARK_COLONY_MAX_GAMESTAT_UNITS];
+    load_dark_colony_unit_config(map_path, unit_config);
 
     int team_race[16] = { 0 };
     int current_team = -1, team_count = 0;
@@ -626,11 +722,15 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
         if (sscanf(line, " %d %d %d %d %d %d", &x, &y, &type, &team, &owner, &extra) == 6 &&
             team >= 0 && team < 16 && x >= 0 && y >= 0) {
             const char *sprite = dark_colony_unit_sprite_for_type(type, team_race[team]);
-            if (sprite) {
+            int mobj_type = dark_colony_mobj_type_for_type(type, team_race[team]);
+            if (sprite && mobj_type > 0) {
                 Unit *u = &units[count];
                 u->gx = (float)x + 0.5f;
                 u->gy = (float)y + 0.5f;
-                u->speed = 5.5f;
+                if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS) {
+                    u->speed = unit_config[type].speed;
+                }
+                u->type_id = (uint16_t)mobj_type;
                 u->owner = team == 0 ? 0 : 1;
                 u->selected = count == 0;
                 snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);

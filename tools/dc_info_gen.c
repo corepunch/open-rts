@@ -36,6 +36,22 @@ typedef struct {
     int command_count;
 } FinAnim;
 
+enum {
+    DC_REAP_RUN_STATES = 8,
+    DC_REAP_ATTACK_STATES = 3,
+    DC_REAP_DEATH_STATES = 11,
+    DC_BARR_RUN_STATES = 13,
+    DC_BARR_ATTACK_STATES = 5,
+    DC_BARR_DEATH_STATES = 8,
+    DC_SARG_RUN_STATES = 8,
+    DC_SARG_ATTACK_STATES = 4,
+    DC_SARG_DEATH_STATES = 31,
+    DC_SCGM_RUN_STATES = 2,
+    DC_SCGM_DEATH_STATES = 9,
+    DC_EXPL_RUN_STATES = 2,
+    DC_EXPL_DEATH_STATES = 6,
+};
+
 static uint16_t read_u16_le(const unsigned char *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
 }
@@ -241,6 +257,39 @@ static bool fin_label_is_fire(const FinLabel *label, const char *prefix) {
     return strncmp(label->name, prefix, n) == 0 && strncmp(label->name + n, "FIRE", 4) == 0;
 }
 
+static int fin_body_frames_for_label(const FinAnim *fin, const char *label,
+                                     int *frames, int max_frames) {
+    const FinLabel *l = fin_find_label(fin, label);
+    if (!fin || !l || !frames || max_frames <= 0 ||
+        l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
+        return 0;
+    }
+    int count = 0;
+    for (int i = l->start; i <= l->end && count < max_frames; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) {
+            frames[count++] = cmd->frame;
+        }
+    }
+    return count;
+}
+
+static int fin_body_frames_for_direction(const FinAnim *fin, const char *prefix, int dir,
+                                         int *frames, int max_frames) {
+    static const char *const suffixes[8] = {"0","14","12","10","8","6","4","2"};
+    char label[32];
+    for (int distance = 0; distance <= 4; ++distance) {
+        for (int sign = -1; sign <= 1; sign += 2) {
+            if (distance == 0 && sign > 0) continue;
+            int candidate = (dir + sign * distance) & 7;
+            snprintf(label, sizeof(label), "%s%s", prefix, suffixes[candidate]);
+            int count = fin_body_frames_for_label(fin, label, frames, max_frames);
+            if (count > 0) return count;
+        }
+    }
+    return 0;
+}
+
 static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int body_base,
                                     int flash_w, int flash_h, int *frame_out,
                                     int offset_x[8], int offset_y[8]) {
@@ -317,10 +366,32 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_DC_GRAY_STND, S_DC_GRAY_RUN1, S_DC_GRAY_RUN2, S_DC_GRAY_RUN3, S_DC_GRAY_RUN4, S_DC_GRAY_RUN5, S_DC_GRAY_RUN6, S_DC_GRAY_RUN7, S_DC_GRAY_RUN8,\n");
     fprintf(out, "    S_DC_GRAY_ATK1, S_DC_GRAY_ATK2, S_DC_GRAY_ATK3, S_DC_GRAY_ATK4, S_DC_GRAY_ATK5, S_DC_GRAY_ATK6, S_DC_GRAY_ATK7, S_DC_GRAY_ATK8,\n");
     fprintf(out, "    S_DC_GRAY_DIE1, S_DC_GRAY_DIE2, S_DC_GRAY_DIE3, S_DC_GRAY_DIE4, S_DC_GRAY_DIE5, S_DC_GRAY_DIE6, S_DC_GRAY_DIE7, S_DC_GRAY_DIE8, S_DC_GRAY_DIE9, S_DC_GRAY_ROT1, S_DC_GRAY_ROT2, S_DC_GRAY_ROT3, S_DC_GRAY_CORPSE,\n");
+    fprintf(out, "    S_DC_REAP_STND,\n");
+    for (int i = 1; i <= DC_REAP_RUN_STATES; ++i) fprintf(out, "    S_DC_REAP_RUN%d,\n", i);
+    for (int i = 1; i <= DC_REAP_ATTACK_STATES; ++i) fprintf(out, "    S_DC_REAP_ATK%d,\n", i);
+    for (int i = 1; i <= DC_REAP_DEATH_STATES; ++i) fprintf(out, "    S_DC_REAP_DIE%d,\n", i);
+    fprintf(out, "    S_DC_REAP_CORPSE,\n");
+    fprintf(out, "    S_DC_BARR_STND,\n");
+    for (int i = 1; i <= DC_BARR_RUN_STATES; ++i) fprintf(out, "    S_DC_BARR_RUN%d,\n", i);
+    for (int i = 1; i <= DC_BARR_ATTACK_STATES; ++i) fprintf(out, "    S_DC_BARR_ATK%d,\n", i);
+    for (int i = 1; i <= DC_BARR_DEATH_STATES; ++i) fprintf(out, "    S_DC_BARR_DIE%d,\n", i);
+    fprintf(out, "    S_DC_BARR_CORPSE,\n");
+    fprintf(out, "    S_DC_SARG_STND,\n");
+    for (int i = 1; i <= DC_SARG_RUN_STATES; ++i) fprintf(out, "    S_DC_SARG_RUN%d,\n", i);
+    for (int i = 1; i <= DC_SARG_ATTACK_STATES; ++i) fprintf(out, "    S_DC_SARG_ATK%d,\n", i);
+    for (int i = 1; i <= DC_SARG_DEATH_STATES; ++i) fprintf(out, "    S_DC_SARG_DIE%d,\n", i);
+    fprintf(out, "    S_DC_SARG_CORPSE,\n");
+    fprintf(out, "    S_DC_SCGM_STND,\n");
+    for (int i = 1; i <= DC_SCGM_RUN_STATES; ++i) fprintf(out, "    S_DC_SCGM_RUN%d,\n", i);
+    for (int i = 1; i <= DC_SCGM_DEATH_STATES; ++i) fprintf(out, "    S_DC_SCGM_DIE%d,\n", i);
+    fprintf(out, "    S_DC_SCGM_CORPSE,\n");
     fprintf(out, "    S_DC_EXPL_STND,\n");
+    for (int i = 1; i <= DC_EXPL_RUN_STATES; ++i) fprintf(out, "    S_DC_EXPL_RUN%d,\n", i);
+    for (int i = 1; i <= DC_EXPL_DEATH_STATES; ++i) fprintf(out, "    S_DC_EXPL_DIE%d,\n", i);
+    fprintf(out, "    S_DC_EXPL_CORPSE,\n");
     fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
-    fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, NUMMOBJTYPES } mobjtype_t;\n\n");
+    fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, NUMMOBJTYPES } mobjtype_t;\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
     fprintf(out, "extern const RtsState states[NUMSTATES];\n");
     fprintf(out, "extern const RtsMobjInfo mobjinfo[NUMMOBJTYPES];\n");
@@ -371,6 +442,57 @@ static void gray_die(FILE *out, const char *next, int n, const char *action) {
             frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
 }
 
+static void state_name(char *dst, size_t dst_size, const char *prefix,
+                       const char *kind, int index) {
+    if (index > 0) snprintf(dst, dst_size, "S_DC_%s_%s%d", prefix, kind, index);
+    else snprintf(dst, dst_size, "S_DC_%s_%s", prefix, kind);
+}
+
+static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
+                         const char *label_prefix, int step, int fallback_frame,
+                         int tics, const char *action, const char *next, int group) {
+    static const int dirs[8] = {0,1,2,3,4,5,6,7};
+    int frames[8];
+    for (int dir = 0; dir < 8; ++dir) {
+        int candidates[64];
+        int count = fin_body_frames_for_direction(fin, label_prefix, dir,
+                                                  candidates, (int)(sizeof(candidates) / sizeof(candidates[0])));
+        if (count <= 0) {
+            frames[dir] = fallback_frame;
+        } else {
+            int frame_index = step < count ? step : count - 1;
+            frames[dir] = candidates[frame_index];
+        }
+    }
+
+    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
+            spr, frames[0], tics, action, next, group);
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
+    fprintf(out, "}, {0}, {0}, {0} },\n");
+}
+
+static void write_fin_sequence(FILE *out, const char *spr, const FinAnim *fin,
+                               const char *label_prefix, const char *state_prefix,
+                               const char *kind, int count, int fallback_frame,
+                               int tics, int group, const char *first_action,
+                               const char *exit_state) {
+    char next[64];
+    for (int i = 0; i < count; ++i) {
+        if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
+        else snprintf(next, sizeof(next), "%s", exit_state);
+        f8_fin_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
+                     i == 0 ? first_action : "A_None", next, group);
+    }
+}
+
+static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
+                             const char *label_prefix, int last_step, int fallback_frame) {
+    f8_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
+                 "A_DC_Corpse", "S_NULL", 4);
+}
+
 static void write_muzzle(FILE *out, const char *spr, int frame, const int offsets_x[8],
                          const int offsets_y[8]) {
     static const int dirs[8] = {0,1,2,3,4,5,6,7};
@@ -392,14 +514,33 @@ static void write_muzzle(FILE *out, const char *spr, int frame, const int offset
 static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count, const char *root) {
     int trsc = find_sprite(sprites, sprite_count, "SPRITES/TRSC.SPR");
     int gray = find_sprite(sprites, sprite_count, "SPRITES/GRAY.SPR");
+    int reap = find_sprite(sprites, sprite_count, "SPRITES/REAP.SPR");
+    int barr = find_sprite(sprites, sprite_count, "SPRITES/BARR.SPR");
+    int sarg = find_sprite(sprites, sprite_count, "SPRITES/SARG.SPR");
+    int scgm = find_sprite(sprites, sprite_count, "SPRITES/SCGM.SPR");
     int expl = find_sprite(sprites, sprite_count, "SPRITES/EXPL.SPR");
     int blaz = find_sprite(sprites, sprite_count, "SPRITES/BLAZ.SPR");
     char trsc_fin_path[1024];
     char gray_fin_path[1024];
+    char reap_fin_path[1024];
+    char barr_fin_path[1024];
+    char sarg_fin_path[1024];
+    char scgm_fin_path[1024];
+    char expl_fin_path[1024];
     snprintf(trsc_fin_path, sizeof(trsc_fin_path), "%s/ANIMATE/TRSC.FIN", root);
     snprintf(gray_fin_path, sizeof(gray_fin_path), "%s/ANIMATE/GRAY.FIN", root);
+    snprintf(reap_fin_path, sizeof(reap_fin_path), "%s/ANIMATE/REAP.FIN", root);
+    snprintf(barr_fin_path, sizeof(barr_fin_path), "%s/ANIMATE/BARR.FIN", root);
+    snprintf(sarg_fin_path, sizeof(sarg_fin_path), "%s/ANIMATE/SARG.FIN", root);
+    snprintf(scgm_fin_path, sizeof(scgm_fin_path), "%s/ANIMATE/SCGM.FIN", root);
+    snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
     FinAnim trsc_fin = fin_load(trsc_fin_path, "TRSC");
     FinAnim gray_fin = fin_load(gray_fin_path, "GRAY");
+    FinAnim reap_fin = fin_load(reap_fin_path, "REAP");
+    FinAnim barr_fin = fin_load(barr_fin_path, "BARR");
+    FinAnim sarg_fin = fin_load(sarg_fin_path, "SARG");
+    FinAnim scgm_fin = fin_load(scgm_fin_path, "SCGM");
+    FinAnim expl_fin = fin_load(expl_fin_path, "EXPL");
     int trsc_move_base = fin_first_body_frame(&trsc_fin, "TRSCMOVE0");
     int trsc_attack_base = fin_first_body_frame(&trsc_fin, "TRSCFIREA0");
     int gray_move_base = fin_first_body_frame(&gray_fin, "GRAYMOVE0");
@@ -465,7 +606,46 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 0; i < 12; ++i) gray_die(out, gray_die_next[i], i, i == 0 ? "A_DC_Fall" : "A_None");
     gray_die(out, gray_die_next[12], 11, "A_DC_Corpse");
 
+    fabs_state(out, sprites[reap].symbol, 0, -1, "A_None", "S_DC_REAP_STND", 1);
+    write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
+                       DC_REAP_RUN_STATES, 0, 3, 2, "A_None", "S_DC_REAP_RUN1");
+    write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",
+                       DC_REAP_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_REAP_STND");
+    write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", "REAP", "DIE",
+                       DC_REAP_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_REAP_CORPSE");
+    write_fin_corpse(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", DC_REAP_DEATH_STATES - 1, 0);
+
+    fabs_state(out, sprites[barr].symbol, 0, -1, "A_None", "S_DC_BARR_STND", 1);
+    write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
+                       DC_BARR_RUN_STATES, 0, 3, 2, "A_None", "S_DC_BARR_RUN1");
+    write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRFIREA", "BARR", "ATK",
+                       DC_BARR_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_BARR_STND");
+    write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRDIE", "BARR", "DIE",
+                       DC_BARR_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE");
+    write_fin_corpse(out, sprites[barr].symbol, &barr_fin, "BARRDIE", DC_BARR_DEATH_STATES - 1, 0);
+
+    fabs_state(out, sprites[sarg].symbol, 0, -1, "A_None", "S_DC_SARG_STND", 1);
+    write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGMOVE", "SARG", "RUN",
+                       DC_SARG_RUN_STATES, 0, 3, 2, "A_None", "S_DC_SARG_RUN1");
+    write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGFIREA", "SARG", "ATK",
+                       DC_SARG_ATTACK_STATES, 0, 2, 3, "A_None", "S_DC_SARG_STND");
+    write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", "SARG", "DIE",
+                       DC_SARG_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_SARG_CORPSE");
+    write_fin_corpse(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", DC_SARG_DEATH_STATES - 1, 0);
+
+    fabs_state(out, sprites[scgm].symbol, 0, -1, "A_None", "S_DC_SCGM_STND", 1);
+    write_fin_sequence(out, sprites[scgm].symbol, &scgm_fin, "SCGMMOVE", "SCGM", "RUN",
+                       DC_SCGM_RUN_STATES, 0, 3, 2, "A_None", "S_DC_SCGM_RUN1");
+    write_fin_sequence(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", "SCGM", "DIE",
+                       DC_SCGM_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_SCGM_CORPSE");
+    write_fin_corpse(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", DC_SCGM_DEATH_STATES - 1, 0);
+
     fabs_state(out, sprites[expl].symbol, 0, -1, "A_None", "S_DC_EXPL_STND", 1);
+    write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLMOVE", "EXPL", "RUN",
+                       DC_EXPL_RUN_STATES, 0, 3, 2, "A_None", "S_DC_EXPL_RUN1");
+    write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
+                       DC_EXPL_DEATH_STATES, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE");
+    write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", DC_EXPL_DEATH_STATES - 1, 0);
     write_muzzle(out, sprites[blaz].symbol, trsc_muzzle_frame, trsc_muzzle_x, trsc_muzzle_y);
     write_muzzle(out, sprites[blaz].symbol, gray_muzzle_frame, gray_muzzle_x, gray_muzzle_y);
     fprintf(out, "};\n\n");
@@ -474,11 +654,20 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    {0},\n");
     fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK1, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
     fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_GRAY_MUZZLE },\n");
-    fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_STND, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_STND, S_DC_EXPL_STND, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "};\n\n");
     fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_8 };\n");
     fin_free(&trsc_fin);
     fin_free(&gray_fin);
+    fin_free(&reap_fin);
+    fin_free(&barr_fin);
+    fin_free(&sarg_fin);
+    fin_free(&scgm_fin);
+    fin_free(&expl_fin);
 }
 
 int main(int argc, char **argv) {

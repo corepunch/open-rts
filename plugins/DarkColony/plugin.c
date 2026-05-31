@@ -9,12 +9,6 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
 bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
                                    const Unit *units, int unit_count, SpriteCache *cache);
 
-enum {
-    DC_ACTOR_TROOPER  = 1,
-    DC_ACTOR_GREY     = 2,
-    DC_ACTOR_EXPLOITER = 3,
-};
-
 void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit) {
     if (!ctx || !unit) return;
     int muzzle_state = 0;
@@ -50,12 +44,12 @@ void A_DC_Corpse(RtsStateContext *ctx, Unit *unit) {
 
 static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
     {
-        .id = DC_ACTOR_TROOPER,
+        .id = MT_DC_TROOPER,
         .name = "Trooper",
         .sprite_name = "SPRITES/TRSC.SPR",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
                   RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
-        .speed = 5.5f,
+        .speed = 5.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
         .attack_damage = 100,
@@ -63,12 +57,12 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .attack_anim_ms = 210,
     },
     {
-        .id = DC_ACTOR_GREY,
+        .id = MT_DC_GREY,
         .name = "Grey",
         .sprite_name = "SPRITES/GRAY.SPR",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
                   RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
-        .speed = 5.5f,
+        .speed = 5.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
         .attack_damage = 100,
@@ -76,11 +70,43 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .attack_anim_ms = 210,
     },
     {
-        .id = DC_ACTOR_EXPLOITER,
+        .id = MT_DC_EXPLOITER,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
-        .speed = 5.5f,
+        .speed = 8.0f,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_DC_REAPER,
+        .name = "Mech",
+        .sprite_name = "SPRITES/REAP.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .speed = 6.0f,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_DC_THUNDERBOLT,
+        .name = "Thunderbolt",
+        .sprite_name = "SPRITES/BARR.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .speed = 3.0f,
+        .max_hp = 400,
+    },
+    {
+        .id = MT_DC_CYBORG,
+        .name = "Cyborg",
+        .sprite_name = "SPRITES/SARG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .speed = 9.0f,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_DC_SCOUT,
+        .name = "Scout",
+        .sprite_name = "SPRITES/SCGM.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .speed = 9.4f,
         .max_hp = 800,
     },
 };
@@ -110,7 +136,7 @@ static const RtsPlugin DARK_COLONY_PLUGIN = {
     .game_info         = &dark_colony_game_info,
     .actor_types       = DARK_COLONY_ACTOR_TYPES,
     .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
-    .debug_enemy_type_id = DC_ACTOR_GREY,
+    .debug_enemy_type_id = MT_DC_GREY,
     .load_map            = load_dark_colony_map,
     .load_assets         = dark_colony_plugin_load_assets,
     .load_initial_units  = load_dark_colony_initial_units,
