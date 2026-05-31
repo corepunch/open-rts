@@ -18,10 +18,18 @@ typedef struct {
 
 typedef struct {
     bool active;
+    bool animation_grid;
     char query[64];
     int scroll_y;
     DebugFont font;
 } DebugOverlay;
+
+typedef struct {
+    char name[16];
+    int state_ids[96];
+    int state_count;
+    bool loop;
+} DebugAnimRow;
 
 static void debug_font_glyph(char c, uint8_t rows[7]) {
     memset(rows, 0, 7);
@@ -179,6 +187,247 @@ static int debug_count_states_for_sprite(const RtsGameInfo *game_info, int sprit
         if (game_info->states[i].sprite == sprite_id) count++;
     }
     return count;
+}
+
+static bool debug_row_has_state(const DebugAnimRow *row, int state_id) {
+    if (!row) return false;
+    for (int i = 0; i < row->state_count; ++i) {
+        if (row->state_ids[i] == state_id) return true;
+    }
+    return false;
+}
+
+static bool debug_row_start_exists(const DebugAnimRow *rows, int row_count, int start_state) {
+    for (int i = 0; i < row_count; ++i) {
+        if (rows[i].state_count > 0 && rows[i].state_ids[0] == start_state) return true;
+    }
+    return false;
+}
+
+static bool debug_state_matches_sprite(const RtsGameInfo *game_info, int state_id, int sprite_id) {
+    if (!game_info || !game_info->states || state_id == game_info->null_state ||
+        state_id < 0 || state_id >= game_info->state_count) {
+        return false;
+    }
+    return game_info->states[state_id].sprite == sprite_id;
+}
+
+static bool debug_add_anim_row(const RtsGameInfo *game_info, int sprite_id, const char *name,
+                               int start_state, DebugAnimRow *rows, int *row_count, int max_rows) {
+    if (!game_info || !game_info->states || !rows || !row_count || *row_count >= max_rows) return false;
+    if (!debug_state_matches_sprite(game_info, start_state, sprite_id)) return false;
+    if (debug_row_start_exists(rows, *row_count, start_state)) return false;
+
+    const RtsState *first = &game_info->states[start_state];
+    int group = first->misc1;
+    DebugAnimRow row;
+    memset(&row, 0, sizeof(row));
+    snprintf(row.name, sizeof(row.name), "%s", name);
+
+    int state_id = start_state;
+    while (row.state_count < (int)(sizeof(row.state_ids) / sizeof(row.state_ids[0]))) {
+        if (!debug_state_matches_sprite(game_info, state_id, sprite_id)) break;
+        const RtsState *state = &game_info->states[state_id];
+        if (state->misc1 != group) break;
+        if (debug_row_has_state(&row, state_id)) {
+            row.loop = true;
+            break;
+        }
+        row.state_ids[row.state_count++] = state_id;
+        int next = state->nextstate;
+        if (next == game_info->null_state || next < 0 || next >= game_info->state_count) break;
+        if (debug_row_has_state(&row, next)) {
+            row.loop = true;
+            break;
+        }
+        state_id = next;
+    }
+
+    if (row.state_count <= 0) return false;
+    rows[*row_count] = row;
+    (*row_count)++;
+    return true;
+}
+
+static int debug_collect_anim_rows(const RtsGameInfo *game_info, int sprite_id,
+                                   DebugAnimRow *rows, int max_rows) {
+    if (!game_info || !game_info->mobjinfo || !rows || max_rows <= 0) return 0;
+    int row_count = 0;
+    for (int i = 0; i < game_info->mobj_type_count; ++i) {
+        const RtsMobjInfo *info = &game_info->mobjinfo[i];
+        debug_add_anim_row(game_info, sprite_id, "STAND", info->spawnstate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "RUN", info->seestate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "ATTACK", info->missilestate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "MELEE", info->meleestate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "PAIN", info->painstate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "DEATH", info->deathstate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "XDEATH", info->xdeathstate, rows, &row_count, max_rows);
+        debug_add_anim_row(game_info, sprite_id, "RAISE", info->raisestate, rows, &row_count, max_rows);
+    }
+    return row_count;
+}
+
+static int debug_state_facing_slot(const RtsState *state, int facing_code) {
+    if (!state || state->facings <= 0) return -1;
+    int best = 0;
+    int best_delta = 1000000;
+    for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        int code = state->direction_codes[i];
+        int delta = abs(code - facing_code);
+        if (code <= 7 && facing_code <= 7) {
+            int wrapped = 8 - delta;
+            if (wrapped < delta) delta = wrapped;
+        }
+        if (delta < best_delta) {
+            best_delta = delta;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static void debug_resolve_state_frame(const RtsState *state, int facing_code,
+                                      int *frame_out, uint32_t *flags_out) {
+    int frame = state ? state->frame : 0;
+    uint32_t flags = state ? state->flags : 0;
+    if (state && state->facings > 0) {
+        int slot = debug_state_facing_slot(state, facing_code);
+        if (slot >= 0) {
+            frame = state->facing_frames[slot];
+            flags = state->facing_flags[slot];
+        }
+    }
+    if (frame_out) *frame_out = frame;
+    if (flags_out) *flags_out = flags;
+}
+
+static const RtsState *debug_anim_state_for_time(const RtsGameInfo *game_info,
+                                                 const DebugAnimRow *row, uint32_t ticks_ms) {
+    if (!game_info || !game_info->states || !row || row->state_count <= 0) return NULL;
+    int total_ms = 0;
+    for (int i = 0; i < row->state_count; ++i) {
+        const RtsState *state = &game_info->states[row->state_ids[i]];
+        int tics = state->tics > 0 ? state->tics : 8;
+        total_ms += (tics * 1000) / 30;
+    }
+    if (total_ms <= 0) return &game_info->states[row->state_ids[0]];
+    int cursor = row->loop ? (int)(ticks_ms % (uint32_t)total_ms) : (int)(ticks_ms % (uint32_t)total_ms);
+    for (int i = 0; i < row->state_count; ++i) {
+        const RtsState *state = &game_info->states[row->state_ids[i]];
+        int tics = state->tics > 0 ? state->tics : 8;
+        int duration = (tics * 1000) / 30;
+        if (cursor < duration) return state;
+        cursor -= duration;
+    }
+    return &game_info->states[row->state_ids[row->state_count - 1]];
+}
+
+static void debug_animation_grid_render(const App *app, const SpriteSheet *sprite,
+                                        const char *sprite_name, const RtsGameInfo *game_info,
+                                        const DebugOverlay *overlay) {
+    if (!app || !app->renderer || !sprite || !sprite->texture || !overlay || !overlay->font.texture) return;
+
+    SDL_SetRenderDrawColor(app->renderer, 10, 12, 16, 255);
+    SDL_RenderClear(app->renderer);
+
+    SDL_Color white = { 236, 240, 244, 255 };
+    SDL_Color cyan = { 98, 224, 161, 255 };
+    SDL_Color gray = { 180, 190, 196, 255 };
+    SDL_Color dim = { 82, 92, 104, 255 };
+
+    int sprite_id = debug_sprite_id_for_name(game_info, sprite_name);
+    DebugAnimRow rows[16];
+    int row_count = debug_collect_anim_rows(game_info, sprite_id, rows, (int)(sizeof(rows) / sizeof(rows[0])));
+
+    char line[512];
+    snprintf(line, sizeof(line), "ANIMATION DEBUG %s", overlay->query);
+    debug_font_draw_text(app->renderer, &overlay->font, 16, 14, line, white, 2);
+    snprintf(line, sizeof(line), "%s  FRAMES %d  ROWS %d",
+             sprite_name ? sprite_name : "(UNKNOWN)", sprite->frame_count, row_count);
+    debug_font_draw_text(app->renderer, &overlay->font, 16, 36, line, gray, 1);
+
+    int label_w = 76;
+    int cols = 8;
+    int gap = 8;
+    int available_w = app->win_w - 32 - label_w - gap * (cols - 1);
+    int cell_w = available_w / cols;
+    if (cell_w < 48) cell_w = 48;
+    int scale = 1;
+    while ((scale + 1) * sprite->frame_w <= cell_w - 12 && (scale + 1) * sprite->frame_h <= 104) {
+        scale++;
+    }
+    if (scale < 1) scale = 1;
+    int draw_w = sprite->frame_w * scale;
+    int draw_h = sprite->frame_h * scale;
+    int cell_h = draw_h + 34;
+    if (cell_h < 72) cell_h = 72;
+    int start_x = 16;
+    int start_y = 64;
+    int content_h = row_count * cell_h;
+    int viewport_h = app->win_h - start_y - 18;
+    int max_scroll = content_h > viewport_h ? content_h - viewport_h : 0;
+    int scroll_y = overlay->scroll_y;
+    if (scroll_y < 0) scroll_y = 0;
+    if (scroll_y > max_scroll) scroll_y = max_scroll;
+
+    for (int dir = 0; dir < cols; ++dir) {
+        snprintf(line, sizeof(line), "DIR%d", dir);
+        int x = start_x + label_w + dir * (cell_w + gap);
+        debug_font_draw_text(app->renderer, &overlay->font, x + 4, start_y - 14, line, cyan, 1);
+    }
+
+    SDL_Rect viewport = { 10, start_y - 4, app->win_w - 20, viewport_h + 8 };
+    SDL_Rect old_clip = { 0, 0, 0, 0 };
+    SDL_RenderGetClipRect(app->renderer, &old_clip);
+    SDL_RenderSetClipRect(app->renderer, &viewport);
+
+    if (row_count <= 0) {
+        debug_font_draw_text(app->renderer, &overlay->font, 16, start_y + 12,
+                             "NO STATE ANIMATIONS FOUND FOR THIS SPRITE", gray, 1);
+    }
+
+    for (int row_idx = 0; row_idx < row_count; ++row_idx) {
+        const DebugAnimRow *row = &rows[row_idx];
+        int y = start_y + row_idx * cell_h - scroll_y;
+        if (y + cell_h < viewport.y || y > viewport.y + viewport.h) continue;
+
+        snprintf(line, sizeof(line), "%s", row->name);
+        debug_font_draw_text(app->renderer, &overlay->font, start_x, y + 8, line, white, 1);
+        snprintf(line, sizeof(line), "%dF%s", row->state_count, row->loop ? " LOOP" : "");
+        debug_font_draw_text(app->renderer, &overlay->font, start_x, y + 20, line, dim, 1);
+
+        const RtsState *state = debug_anim_state_for_time(game_info, row, SDL_GetTicks());
+        for (int dir = 0; dir < cols; ++dir) {
+            int x = start_x + label_w + dir * (cell_w + gap);
+            SDL_Rect cell = { x, y, cell_w, cell_h - 6 };
+            SDL_SetRenderDrawColor(app->renderer, 18, 21, 27, 255);
+            SDL_RenderFillRect(app->renderer, &cell);
+            SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
+            SDL_RenderDrawRect(app->renderer, &cell);
+
+            int frame = 0;
+            uint32_t flags = 0;
+            debug_resolve_state_frame(state, dir, &frame, &flags);
+            if (frame < 0 || frame >= sprite->frame_count) continue;
+
+            SDL_Rect dst = {
+                x + (cell_w - draw_w) / 2,
+                y + 18 + ((cell_h - 28) - draw_h) / 2,
+                draw_w,
+                draw_h,
+            };
+            SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+            SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+            snprintf(line, sizeof(line), "F%d%s", frame, (flags & RTS_FRAME_FLIP_X) ? " M" : "");
+            debug_font_draw_text(app->renderer, &overlay->font, x + 4, y + 4, line, gray, 1);
+        }
+    }
+
+    SDL_RenderSetClipRect(app->renderer, &old_clip);
+
+    SDL_Rect border = { 10, 10, app->win_w - 20, app->win_h - 20 };
+    SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
+    SDL_RenderDrawRect(app->renderer, &border);
 }
 
 static void debug_overlay_render(const App *app, const SpriteSheet *sprite, const char *sprite_name,
@@ -389,6 +638,7 @@ int main(int argc, char **argv) {
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
     int render_scale = 1;
     const char *debug_query = NULL;
+    bool debug_animation_grid = false;
     const char *game_id = "dark-reign";
     while (argc > arg_base) {
         if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
@@ -411,6 +661,20 @@ int main(int argc, char **argv) {
         } else if ((strcmp(argv[arg_base], "--debug") == 0 || strcmp(argv[arg_base], "-debug") == 0) &&
                    argc > arg_base + 1) {
             debug_query = argv[arg_base + 1];
+            arg_base += 2;
+        } else if (strncmp(argv[arg_base], "--debug-anim=", 13) == 0) {
+            debug_query = argv[arg_base] + 13;
+            debug_animation_grid = true;
+            arg_base += 1;
+        } else if (strncmp(argv[arg_base], "--debug-animations=", 19) == 0) {
+            debug_query = argv[arg_base] + 19;
+            debug_animation_grid = true;
+            arg_base += 1;
+        } else if ((strcmp(argv[arg_base], "--debug-anim") == 0 ||
+                    strcmp(argv[arg_base], "--debug-animations") == 0) &&
+                   argc > arg_base + 1) {
+            debug_query = argv[arg_base + 1];
+            debug_animation_grid = true;
             arg_base += 2;
         } else {
             break;
@@ -480,6 +744,7 @@ int main(int argc, char **argv) {
     }
     if (debug_query && debug_query[0] != '\0') {
         debug_overlay.active = true;
+        debug_overlay.animation_grid = debug_animation_grid;
         snprintf(debug_overlay.query, sizeof(debug_overlay.query), "%s", debug_query);
         debug_overlay.scroll_y = 0;
         if (!debug_font_init(app.renderer, &debug_overlay.font)) {
@@ -534,8 +799,13 @@ int main(int argc, char **argv) {
     if (debug_overlay.active) {
         if (screenshot_only) {
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
-            debug_overlay_render(&app, &unit_sprite, sprite_name,
-                                 plugin->game_info, &debug_overlay);
+            if (debug_overlay.animation_grid) {
+                debug_animation_grid_render(&app, &unit_sprite, sprite_name,
+                                            plugin->game_info, &debug_overlay);
+            } else {
+                debug_overlay_render(&app, &unit_sprite, sprite_name,
+                                     plugin->game_info, &debug_overlay);
+            }
             if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
@@ -562,8 +832,13 @@ int main(int argc, char **argv) {
                 }
             }
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
-            debug_overlay_render(&app, &unit_sprite, sprite_name,
-                                 plugin->game_info, &debug_overlay);
+            if (debug_overlay.animation_grid) {
+                debug_animation_grid_render(&app, &unit_sprite, sprite_name,
+                                            plugin->game_info, &debug_overlay);
+            } else {
+                debug_overlay_render(&app, &unit_sprite, sprite_name,
+                                     plugin->game_info, &debug_overlay);
+            }
             rts_renderer_end_frame(&renderer);
             SDL_Delay(16);
         }
