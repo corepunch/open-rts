@@ -442,12 +442,27 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
                                    const GameMap *map, const Unit *units, int unit_count,
                                    SpriteCache *cache) {
     bool ok = true;
+    static const char *const ui_sprites[] = {
+        "INTRFACE/DCSS.SPR",
+        "INTRFACE/DCUT.SPR",
+        "INTRFACE/DCUK.SPR",
+        "INTRFACE/BUTTON.SPR",
+        "INTRFACE/FONT.SPR",
+        "INTRFACE/MFONT.SPR",
+        "INTRFACE/LEVEL.SPR",
+        "INTRFACE/ROUND.SPR",
+        "INTRFACE/SHUMANE.SPR",
+    };
     for (int i = 0; i < NUMSTATES; ++i) {
         int sprite = states[i].sprite;
         if (sprite >= 0 && sprite < NUMSPRITES &&
             !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[sprite])) {
             ok = false;
         }
+    }
+    for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(ui_sprites[0]); ++i) {
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, ui_sprites[i]))
+            ok = false;
     }
     if (map) {
         for (int i = 0; i < map->decoration_count; ++i) {
