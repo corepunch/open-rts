@@ -625,6 +625,7 @@ static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, 
 
 typedef struct {
     SDL_Rect outer;
+    SDL_Rect header;
     SDL_Rect status;
     SDL_Rect commands;
     SDL_Rect resources;
@@ -636,39 +637,43 @@ static bool is_dark_colony_plugin(const RtsPlugin *plugin) {
     return plugin && plugin->id && strcmp(plugin->id, "dark-colony") == 0;
 }
 
-static int dark_colony_ui_height(const App *app) {
-    int h = 118;
-    if (app && app->render_scale > 1) h += 8 * (app->render_scale - 1);
-    if (app && app->win_h > 0 && h > app->win_h / 3) h = app->win_h / 3;
-    if (h < 92) h = 92;
-    return h;
+static int dark_colony_ui_width(const App *app) {
+    int w = 238;
+    if (app && app->render_scale > 1) w += 8 * (app->render_scale - 1);
+    if (app && app->win_w > 0 && w > app->win_w / 3) w = app->win_w / 3;
+    if (w < 198) w = 198;
+    return w;
 }
 
 static DarkColonyUiLayout dark_colony_ui_layout(const App *app) {
     DarkColonyUiLayout layout;
     memset(&layout, 0, sizeof(layout));
-    int ui_h = dark_colony_ui_height(app);
-    int y = app->win_h - ui_h;
-    int margin = 10;
-    layout.outer = (SDL_Rect){ 0, y, app->win_w, ui_h };
-    layout.status = (SDL_Rect){ margin, y + margin, 260, ui_h - margin * 2 };
-    layout.minimap = (SDL_Rect){ app->win_w - 166, y + margin, 156, ui_h - margin * 2 };
-    layout.resources = (SDL_Rect){ layout.minimap.x - 178, y + margin, 168, ui_h - margin * 2 };
+    int ui_w = dark_colony_ui_width(app);
+    int x = app->win_w - ui_w;
+    int margin = 9;
+    int panel_w = ui_w - margin * 2;
+    layout.outer = (SDL_Rect){ x, 0, ui_w, app->win_h };
+    layout.header = (SDL_Rect){ x + margin, 8, panel_w, 76 };
+    layout.minimap = (SDL_Rect){ x + margin, layout.header.y + layout.header.h + 8, panel_w, 170 };
+    layout.resources = (SDL_Rect){ x + margin, layout.minimap.y + layout.minimap.h + 8, panel_w, 76 };
+    layout.status = (SDL_Rect){ x + margin, layout.resources.y + layout.resources.h + 8, panel_w, 144 };
     layout.commands = (SDL_Rect){
-        layout.status.x + layout.status.w + 10,
-        y + margin,
-        layout.resources.x - (layout.status.x + layout.status.w + 20),
-        ui_h - margin * 2,
+        x + margin,
+        layout.status.y + layout.status.h + 8,
+        panel_w,
+        app->win_h - (layout.status.y + layout.status.h + 16),
     };
-    if (layout.commands.w < 300) layout.commands.w = 300;
+    if (layout.commands.h < 176) layout.commands.h = 176;
 
     int button_count = 8;
-    int bw = 52, bh = 38, gap = 6;
-    int total_w = button_count * bw + (button_count - 1) * gap;
+    int cols = 2;
+    int bw = 72, bh = 42, gap_x = 8, gap_y = 8;
+    int total_w = cols * bw + (cols - 1) * gap_x;
     int bx = layout.commands.x + (layout.commands.w - total_w) / 2;
-    int by = layout.commands.y + layout.commands.h - bh - 10;
+    int by = layout.commands.y + 36;
     for (int i = 0; i < button_count; ++i)
-        layout.buttons[i] = (SDL_Rect){ bx + i * (bw + gap), by, bw, bh };
+        layout.buttons[i] = (SDL_Rect){ bx + (i % cols) * (bw + gap_x),
+                                         by + (i / cols) * (bh + gap_y), bw, bh };
     return layout;
 }
 
@@ -734,6 +739,36 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const SpriteSheet *spr
     SDL_RenderCopyEx(renderer, sprite->texture, &src, &dst, 0.0, NULL, flip);
 }
 
+static void dc_ui_draw_sprite_cover(SDL_Renderer *renderer, const SpriteSheet *sprite, int frame,
+                                    SDL_Rect box) {
+    if (!renderer || !sprite || !sprite->texture || sprite->frame_count <= 0) return;
+    if (frame < 0 || frame >= sprite->frame_count) frame = 0;
+    SDL_Rect src = sprite->frames[frame];
+    if (sprite->frame_bounds && sprite->frame_bounds[frame].w > 0 && sprite->frame_bounds[frame].h > 0) {
+        SDL_Rect bounds = sprite->frame_bounds[frame];
+        src.x += bounds.x;
+        src.y += bounds.y;
+        src.w = bounds.w;
+        src.h = bounds.h;
+    }
+    if (src.w <= 0 || src.h <= 0 || box.w <= 0 || box.h <= 0) return;
+    int draw_w = box.w;
+    int draw_h = src.h * draw_w / src.w;
+    if (draw_h < box.h) {
+        draw_h = box.h;
+        draw_w = src.w * draw_h / src.h;
+    }
+    SDL_Rect dst = {
+        box.x + (box.w - draw_w) / 2,
+        box.y + (box.h - draw_h) / 2,
+        draw_w,
+        draw_h,
+    };
+    SDL_RenderSetClipRect(renderer, &box);
+    SDL_RenderCopy(renderer, sprite->texture, &src, &dst);
+    SDL_RenderSetClipRect(renderer, NULL);
+}
+
 static const Unit *dc_first_selected_unit(const Unit *units, int unit_count, int *selected_count) {
     const Unit *first = NULL;
     int count = 0;
@@ -771,12 +806,14 @@ static void dc_stop_selected_units(Unit *units, int unit_count) {
 static bool dark_colony_ui_handle_event(const App *app, Unit *units, int unit_count,
                                         const SDL_Event *e) {
     if (!app || !e) return false;
-    if (e->type != SDL_MOUSEBUTTONDOWN || e->button.button != SDL_BUTTON_LEFT) return false;
+    if (e->type != SDL_MOUSEBUTTONDOWN) return false;
     int rx = 0, ry = 0;
     window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
     if (!point_in_rect(rx, ry, layout.outer)) return false;
-    if (point_in_rect(rx, ry, layout.buttons[6])) dc_stop_selected_units(units, unit_count);
+    if (e->button.button == SDL_BUTTON_LEFT && point_in_rect(rx, ry, layout.buttons[6])) {
+        dc_stop_selected_units(units, unit_count);
+    }
     return true;
 }
 
@@ -814,8 +851,9 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
                    (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
     }
+    int world_right = app->win_w - dark_colony_ui_width(app);
     Cell tl = screen_to_grid(app, 0, 0);
-    Cell br = screen_to_grid(app, app->win_w, rect.y);
+    Cell br = screen_to_grid(app, world_right, app->win_h);
     int vx = clip.x + tl.x * clip.w / map->width;
     int vy = clip.y + tl.y * clip.h / map->height;
     int vw = (br.x - tl.x) * clip.w / map->width;
@@ -836,9 +874,14 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
 
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
-    dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 7, 10, 12, 238 });
-    SDL_Rect top_line = { layout.outer.x, layout.outer.y, layout.outer.w, 2 };
-    dc_ui_fill(app->renderer, top_line, (SDL_Color){ 104, 133, 119, 255 });
+    const SpriteSheet *chrome = sprite_cache_lookup(cache, "INTRFACE/DCSS.SPR");
+    dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 6, 8, 10, 248 });
+    dc_ui_draw_sprite_cover(app->renderer, chrome, 2, (SDL_Rect){ layout.outer.x, 0, layout.outer.w, 120 });
+    dc_ui_draw_sprite_cover(app->renderer, chrome, 9, (SDL_Rect){ layout.outer.x, app->win_h - 128, layout.outer.w, 128 });
+    dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 3, 6, 8, 118 });
+    SDL_Rect left_line = { layout.outer.x, 0, 2, layout.outer.h };
+    dc_ui_fill(app->renderer, left_line, (SDL_Color){ 104, 133, 119, 255 });
+    dc_ui_panel(app->renderer, layout.header);
     dc_ui_panel(app->renderer, layout.status);
     dc_ui_panel(app->renderer, layout.commands);
     dc_ui_panel(app->renderer, layout.resources);
@@ -854,21 +897,53 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     const Unit *selected = dc_first_selected_unit(units, unit_count, &selected_count);
     const RtsActorType *selected_type = selected ? plugin_actor_type_for_unit(plugin, selected) : NULL;
     const char *selected_name = selected_type && selected_type->name ? selected_type->name : "UNIT";
+    char line[96];
 
-    SDL_Rect portrait = { layout.status.x + 12, layout.status.y + 18, 72, layout.status.h - 32 };
+    const SpriteSheet *logo = sprite_cache_lookup(cache, "INTRFACE/DCUT.SPR");
+    const SpriteSheet *buttons = sprite_cache_lookup(cache, "INTRFACE/BUTTON.SPR");
+    SDL_Rect logo_box = { layout.header.x + 8, layout.header.y + 12, layout.header.w - 16, 34 };
+    dc_ui_draw_sprite_fit(app->renderer, logo, 2, logo_box, 0);
+    debug_font_draw_text(app->renderer, font, layout.header.x + 12, layout.header.y + 54,
+                         "HUMAN COMMAND", amber, 1);
+
+    debug_font_draw_text(app->renderer, font, layout.minimap.x + 10, layout.minimap.y + 8,
+                         "TACTICAL", amber, 1);
+    SDL_Rect mini = {
+        layout.minimap.x + 8,
+        layout.minimap.y + 24,
+        layout.minimap.w - 16,
+        layout.minimap.h - 32,
+    };
+    dc_ui_draw_minimap(app, map, units, unit_count, mini);
+
+    int active_vents = 0;
+    for (int i = 0; i < map->resource_vent_count; ++i)
+        if (map->resource_vents[i].active) active_vents++;
+    SDL_Rect p7_icon = { layout.resources.x + 12, layout.resources.y + 18, 36, 36 };
+    dc_ui_draw_sprite_fit(app->renderer, buttons, 65, p7_icon, 0);
+    snprintf(line, sizeof(line), "P-7 %d", map->player_resources[0]);
+    debug_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 18,
+                         line, amber, 1);
+    snprintf(line, sizeof(line), "VENTS %d/%d", active_vents, map->resource_vent_count);
+    debug_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 36,
+                         line, text, 1);
+    snprintf(line, sizeof(line), "UNITS %d", unit_count);
+    debug_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 54,
+                         line, dim, 1);
+
+    SDL_Rect portrait = { layout.status.x + 12, layout.status.y + 20, 76, 88 };
     dc_ui_fill(app->renderer, portrait, (SDL_Color){ 5, 8, 9, 255 });
     dc_ui_stroke(app->renderer, portrait, (SDL_Color){ 45, 69, 66, 255 });
     if (selected) {
         const SpriteSheet *sprite = sprite_cache_lookup(cache, selected->sprite_name);
         dc_ui_draw_sprite_fit(app->renderer, sprite, selected->frame, portrait, selected->render_flags);
     } else {
-        const SpriteSheet *logo = sprite_cache_lookup(cache, "INTRFACE/SHUMANE.SPR");
-        dc_ui_draw_sprite_fit(app->renderer, logo, (app->ticks_ms / 180) % 6, portrait, 0);
+        const SpriteSheet *human = sprite_cache_lookup(cache, "INTRFACE/SHUMANE.SPR");
+        dc_ui_draw_sprite_fit(app->renderer, human, (app->ticks_ms / 180) % 6, portrait, 0);
     }
 
-    char line[96];
-    int tx = layout.status.x + 96;
-    int ty = layout.status.y + 18;
+    int tx = layout.status.x + 98;
+    int ty = layout.status.y + 20;
     if (selected_count > 1) {
         snprintf(line, sizeof(line), "%d UNITS SELECTED", selected_count);
         debug_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
@@ -887,7 +962,7 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
         int max_hp = selected->max_hp > 0 ? selected->max_hp : 1;
         snprintf(line, sizeof(line), "HP %d/%d", hp, max_hp);
         debug_font_draw_text(app->renderer, font, tx, ty + 30, line, text, 1);
-        SDL_Rect hp_bg = { tx, ty + 44, 126, 8 };
+        SDL_Rect hp_bg = { tx, ty + 44, layout.status.x + layout.status.w - tx - 12, 8 };
         SDL_Rect hp_fill = hp_bg;
         hp_fill.w = hp * hp_bg.w / max_hp;
         dc_ui_fill(app->renderer, hp_bg, (SDL_Color){ 36, 22, 22, 255 });
@@ -896,49 +971,19 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     }
 
     const char *button_labels[8] = { "AMOV", "MOVE", "ATTK", "GRD", "DPLY", "SCAT", "STOP", "WAY" };
+    const int button_frames[8] = { 66, 63, 32, 2, 76, 16, 62, 66 };
     debug_font_draw_text(app->renderer, font, layout.commands.x + 12, layout.commands.y + 12,
                          "COMMAND", amber, 1);
     for (int i = 0; i < 8; ++i) {
-        SDL_Color fill = (i == 6) ? (SDL_Color){ 47, 37, 31, 255 } : (SDL_Color){ 24, 31, 33, 255 };
+        SDL_Color fill = (i == 6) ? (SDL_Color){ 31, 18, 17, 230 } : (SDL_Color){ 10, 14, 15, 220 };
         dc_ui_fill(app->renderer, layout.buttons[i], fill);
-        dc_ui_stroke(app->renderer, layout.buttons[i], (SDL_Color){ 80, 99, 93, 255 });
-        SDL_Rect inset = {
-            layout.buttons[i].x + 4,
-            layout.buttons[i].y + 4,
-            layout.buttons[i].w - 8,
-            layout.buttons[i].h - 8,
-        };
-        dc_ui_stroke(app->renderer, inset, (SDL_Color){ 35, 50, 50, 255 });
+        dc_ui_draw_sprite_fit(app->renderer, buttons, button_frames[i], layout.buttons[i], 0);
+        dc_ui_stroke(app->renderer, layout.buttons[i], i == 6 ?
+                     (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
         int label_x = layout.buttons[i].x + (layout.buttons[i].w - (int)strlen(button_labels[i]) * 6) / 2;
-        debug_font_draw_text(app->renderer, font, label_x, layout.buttons[i].y + 15,
+        debug_font_draw_text(app->renderer, font, label_x, layout.buttons[i].y + layout.buttons[i].h - 10,
                              button_labels[i], i == 6 ? red : text, 1);
     }
-
-    int active_vents = 0;
-    for (int i = 0; i < map->resource_vent_count; ++i)
-        if (map->resource_vents[i].active) active_vents++;
-    SDL_Rect p7_icon = { layout.resources.x + 12, layout.resources.y + 14, 34, 34 };
-    const SpriteSheet *round = sprite_cache_lookup(cache, "INTRFACE/ROUND.SPR");
-    dc_ui_draw_sprite_fit(app->renderer, round, (app->ticks_ms / 90) % 9, p7_icon, 0);
-    snprintf(line, sizeof(line), "P-7 %d", map->player_resources[0]);
-    debug_font_draw_text(app->renderer, font, layout.resources.x + 52, layout.resources.y + 18,
-                         line, amber, 1);
-    snprintf(line, sizeof(line), "VENTS %d/%d", active_vents, map->resource_vent_count);
-    debug_font_draw_text(app->renderer, font, layout.resources.x + 52, layout.resources.y + 36,
-                         line, text, 1);
-    snprintf(line, sizeof(line), "UNITS %d", unit_count);
-    debug_font_draw_text(app->renderer, font, layout.resources.x + 52, layout.resources.y + 54,
-                         line, dim, 1);
-
-    debug_font_draw_text(app->renderer, font, layout.minimap.x + 10, layout.minimap.y + 8,
-                         "TACTICAL", amber, 1);
-    SDL_Rect mini = {
-        layout.minimap.x + 8,
-        layout.minimap.y + 24,
-        layout.minimap.w - 16,
-        layout.minimap.h - 32,
-    };
-    dc_ui_draw_minimap(app, map, units, unit_count, mini);
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 

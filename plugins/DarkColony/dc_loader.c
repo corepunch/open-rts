@@ -445,12 +445,7 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
     static const char *const ui_sprites[] = {
         "INTRFACE/DCSS.SPR",
         "INTRFACE/DCUT.SPR",
-        "INTRFACE/DCUK.SPR",
         "INTRFACE/BUTTON.SPR",
-        "INTRFACE/FONT.SPR",
-        "INTRFACE/MFONT.SPR",
-        "INTRFACE/LEVEL.SPR",
-        "INTRFACE/ROUND.SPR",
         "INTRFACE/SHUMANE.SPR",
     };
     for (int i = 0; i < NUMSTATES; ++i) {
