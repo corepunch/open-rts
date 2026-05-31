@@ -25,6 +25,7 @@ typedef struct {
     int x;
     int y;
     int layer;
+    int flags;
 } FinCommand;
 
 typedef struct {
@@ -49,6 +50,8 @@ typedef struct {
     int scgm_run;
     int scgm_death;
     int expl_run;
+    int expl_deploy;
+    int expl_work;
     int expl_death;
 } DcFinStateCounts;
 
@@ -217,6 +220,7 @@ static FinAnim fin_load(const char *path, const char *stem) {
         fin.commands[i].x = read_i16_le(data + off + 10);
         fin.commands[i].y = read_i16_le(data + off + 12);
         fin.commands[i].layer = read_i16_le(data + off + 18);
+        fin.commands[i].flags = read_i16_le(data + off + 20);
     }
 
     free(data);
@@ -263,8 +267,8 @@ static bool fin_label_is_fire(const FinLabel *label, const char *prefix) {
     return strncmp(label->name, prefix, n) == 0 && strncmp(label->name + n, "FIRE", 4) == 0;
 }
 
-static int fin_body_frames_for_label(const FinAnim *fin, const char *label,
-                                     int *frames, int max_frames) {
+static int fin_body_frames_for_label_full(const FinAnim *fin, const char *label,
+                                          int *frames, int *flags, int max_frames) {
     const FinLabel *l = fin_find_label(fin, label);
     if (!fin || !l || !frames || max_frames <= 0 ||
         l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
@@ -274,14 +278,35 @@ static int fin_body_frames_for_label(const FinAnim *fin, const char *label,
     for (int i = l->start; i <= l->end && count < max_frames; ++i) {
         const FinCommand *cmd = &fin->commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) {
-            frames[count++] = cmd->frame;
+            frames[count] = cmd->frame;
+            if (flags) flags[count] = (cmd->flags & 1) ? 1 : 0;
+            count++;
         }
     }
     return count;
 }
 
-static int fin_body_frames_for_direction(const FinAnim *fin, const char *prefix, int dir,
-                                         int *frames, int max_frames) {
+static int fin_stem_frames_for_label_full(const FinAnim *fin, const char *label,
+                                          int *frames, int *flags, int max_frames) {
+    const FinLabel *l = fin_find_label(fin, label);
+    if (!fin || !l || !frames || max_frames <= 0 ||
+        l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
+        return 0;
+    }
+    int count = 0;
+    for (int i = l->start; i <= l->end && count < max_frames; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) == 0) {
+            frames[count] = cmd->frame;
+            if (flags) flags[count] = (cmd->flags & 1) ? 1 : 0;
+            count++;
+        }
+    }
+    return count;
+}
+
+static int fin_body_frames_for_direction_full(const FinAnim *fin, const char *prefix, int dir,
+                                              int *frames, int *flags, int max_frames) {
     static const char *const suffixes[8] = {"0","14","12","10","8","6","4","2"};
     char label[32];
     for (int distance = 0; distance <= 4; ++distance) {
@@ -289,7 +314,44 @@ static int fin_body_frames_for_direction(const FinAnim *fin, const char *prefix,
             if (distance == 0 && sign > 0) continue;
             int candidate = (dir + sign * distance) & 7;
             snprintf(label, sizeof(label), "%s%s", prefix, suffixes[candidate]);
-            int count = fin_body_frames_for_label(fin, label, frames, max_frames);
+            int count = fin_body_frames_for_label_full(fin, label, frames, flags, max_frames);
+            if (count > 0) return count;
+        }
+    }
+    return 0;
+}
+
+static int fin_body_frames_for_direction(const FinAnim *fin, const char *prefix, int dir,
+                                         int *frames, int max_frames) {
+    return fin_body_frames_for_direction_full(fin, prefix, dir, frames, NULL, max_frames);
+}
+
+static int fin_stem_frames_for_direction_full(const FinAnim *fin, const char *prefix, int dir,
+                                              int *frames, int *flags, int max_frames) {
+    static const char *const suffixes[8] = {"0","14","12","10","8","6","4","2"};
+    char label[32];
+    for (int distance = 0; distance <= 4; ++distance) {
+        for (int sign = -1; sign <= 1; sign += 2) {
+            if (distance == 0 && sign > 0) continue;
+            int candidate = (dir + sign * distance) & 7;
+            snprintf(label, sizeof(label), "%s%s", prefix, suffixes[candidate]);
+            int count = fin_stem_frames_for_label_full(fin, label, frames, flags, max_frames);
+            if (count > 0) return count;
+        }
+    }
+    return 0;
+}
+
+static int fin_body_frames_for_direction16(const FinAnim *fin, const char *prefix, int code,
+                                           int *frames, int *flags, int max_frames) {
+    char label[32];
+    for (int distance = 0; distance <= 8; ++distance) {
+        for (int sign = -1; sign <= 1; sign += 2) {
+            if (distance == 0 && sign > 0) continue;
+            int candidate = (code + sign * distance) & 15;
+            int suffix = (16 - candidate) & 15;
+            snprintf(label, sizeof(label), "%s%d", prefix, suffix);
+            int count = fin_body_frames_for_label_full(fin, label, frames, flags, max_frames);
             if (count > 0) return count;
         }
     }
@@ -328,6 +390,45 @@ static int fin_state_count_for_sequence(const FinAnim *fin, const char *prefix, 
         all_frames[unique_count - 1] - all_frames[0] + 1 == unique_count) {
         int row_count = unique_count / 8;
         if (row_count <= count) return row_count;
+    }
+    return count;
+}
+
+static int fin_state_count_for_sequence16(const FinAnim *fin, const char *prefix) {
+    int frames[128];
+    int count = 0;
+    for (int code = 0; code < 16; ++code) {
+        int dir_count = fin_body_frames_for_direction16(fin, prefix, code,
+                                                        frames, NULL,
+                                                        (int)(sizeof(frames) / sizeof(frames[0])));
+        if (dir_count <= 0) {
+            fprintf(stderr, "dc_info_gen: no body frames for %s direction %d in %s\n",
+                    prefix, code, fin ? fin->stem : "(null)");
+            exit(1);
+        }
+        if (dir_count > count) count = dir_count;
+    }
+    return count;
+}
+
+static int fin_state_count_for_stem_sequence(const FinAnim *fin, const char *prefix, bool mirror_left) {
+    static const int mirror_dirs[8] = {0,1,2,3,4,3,2,1};
+    bool seen[8] = {false};
+    int frames[128];
+    int count = 0;
+    for (int dir = 0; dir < 8; ++dir) {
+        int source_dir = mirror_left && dir > 4 ? mirror_dirs[dir] : dir;
+        if (seen[source_dir]) continue;
+        seen[source_dir] = true;
+        int dir_count = fin_stem_frames_for_direction_full(fin, prefix, source_dir,
+                                                           frames, NULL,
+                                                           (int)(sizeof(frames) / sizeof(frames[0])));
+        if (dir_count > count) count = dir_count;
+    }
+    if (count <= 0) {
+        fprintf(stderr, "dc_info_gen: no stem frames for %s in %s\n",
+                prefix, fin ? fin->stem : "(null)");
+        exit(1);
     }
     return count;
 }
@@ -412,18 +513,20 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     FinAnim expl_fin = fin_load(expl_fin_path, "EXPL");
 
     DcFinStateCounts counts;
-    counts.reap_run = fin_state_count_for_sequence(&reap_fin, "REAPMOVE", false);
-    counts.reap_attack = fin_state_count_for_sequence(&reap_fin, "REAPFIRE", false);
-    counts.reap_death = fin_state_count_for_sequence(&reap_fin, "REAPDIEB", false);
-    counts.barr_run = fin_state_count_for_sequence(&barr_fin, "BARRMOVE", true);
-    counts.barr_attack = fin_state_count_for_sequence(&barr_fin, "BARRFIREA", true);
-    counts.barr_death = fin_state_count_for_sequence(&barr_fin, "BARRDIE", true);
+    counts.reap_run = fin_state_count_for_sequence16(&reap_fin, "REAPMOVE");
+    counts.reap_attack = fin_state_count_for_sequence16(&reap_fin, "REAPFIRE");
+    counts.reap_death = fin_state_count_for_sequence16(&reap_fin, "REAPDIEB");
+    counts.barr_run = fin_state_count_for_sequence16(&barr_fin, "BARRMOVE");
+    counts.barr_attack = fin_state_count_for_sequence16(&barr_fin, "BARRFIREA");
+    counts.barr_death = fin_state_count_for_sequence16(&barr_fin, "BARRDIE");
     counts.sarg_run = fin_state_count_for_sequence(&sarg_fin, "SARGMOVE", false);
     counts.sarg_attack = fin_state_count_for_sequence(&sarg_fin, "SARGFIREA", false);
     counts.sarg_death = fin_state_count_for_sequence(&sarg_fin, "SARGDIE", false);
     counts.scgm_run = fin_state_count_for_sequence(&scgm_fin, "SCGMMOVE", false);
     counts.scgm_death = fin_state_count_for_sequence(&scgm_fin, "SCGMDIE", false);
     counts.expl_run = fin_state_count_for_sequence(&expl_fin, "EXPLMOVE", false);
+    counts.expl_deploy = fin_state_count_for_stem_sequence(&expl_fin, "EXPLDEPLOY", true);
+    counts.expl_work = fin_state_count_for_stem_sequence(&expl_fin, "EDPLYSTAND", true);
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE", false);
 
     fin_free(&reap_fin);
@@ -471,6 +574,8 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_DC_SCGM_CORPSE,\n");
     fprintf(out, "    S_DC_EXPL_STND,\n");
     for (int i = 1; i <= counts->expl_run; ++i) fprintf(out, "    S_DC_EXPL_RUN%d,\n", i);
+    for (int i = 1; i <= counts->expl_deploy; ++i) fprintf(out, "    S_DC_EXPL_DEPLOY%d,\n", i);
+    for (int i = 1; i <= counts->expl_work; ++i) fprintf(out, "    S_DC_EXPL_WORK%d,\n", i);
     for (int i = 1; i <= counts->expl_death; ++i) fprintf(out, "    S_DC_EXPL_DIE%d,\n", i);
     fprintf(out, "    S_DC_EXPL_CORPSE,\n");
     fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE,\n");
@@ -489,7 +594,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
 
 static void f8_frame_major_abs(FILE *out, const char *spr, int tics, const char *action,
                                const char *next, int group, int frame_base) {
-    static const int dirs[8] = {0,1,2,3,4,5,6,7};
+    static const int dirs[8] = {0,2,4,6,8,10,12,14};
     fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
             spr, frame_base, tics, action, next, group);
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
@@ -505,7 +610,7 @@ static void f8_frame_major(FILE *out, const char *spr, int tics, const char *act
 
 static void f6(FILE *out, const char *spr, int tics, const char *action, const char *next,
                int group, const int starts[6], int offset) {
-    static const int dirs[6] = {2,1,7,5,4,3};
+    static const int dirs[6] = {4,2,14,10,8,6};
     fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 6, {", spr, starts[0] + offset, tics, action, next, group);
     for (int i = 0; i < 6; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
     fprintf(out, "}, {");
@@ -522,7 +627,7 @@ static void fabs_state(FILE *out, const char *spr, int frame, int tics, const ch
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
     int frame_b = n < 9 ? 271 + n : 289 + (n - 9);
-    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {1,3,7,5}, {%d,%d,%d,%d}, {0,0,RTS_SPRITEFRAME_FLIP_X,RTS_SPRITEFRAME_FLIP_X}, {0}, {0} },\n",
+    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {2,6,14,10}, {%d,%d,%d,%d}, {0,0,RTS_SPRITEFRAME_FLIP_X,RTS_SPRITEFRAME_FLIP_X}, {0}, {0} },\n",
             frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
 }
 
@@ -536,14 +641,17 @@ static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
                          const char *label_prefix, int step, int fallback_frame,
                          int tics, const char *action, const char *next, int group,
                          int sequence_count, bool mirror_left) {
-    static const int dirs[8] = {0,1,2,3,4,5,6,7};
+    static const int dirs[8] = {0,2,4,6,8,10,12,14};
     static const int mirror_dirs[8] = {0,1,2,3,4,3,2,1};
     int frames[8];
+    int flags[8] = {0};
     for (int dir = 0; dir < 8; ++dir) {
         int candidates[64];
+        int candidate_flags[64] = {0};
         int source_dir = mirror_left && dir > 4 ? mirror_dirs[dir] : dir;
-        int count = fin_body_frames_for_direction(fin, label_prefix, source_dir,
-                                                  candidates, (int)(sizeof(candidates) / sizeof(candidates[0])));
+        int count = fin_body_frames_for_direction_full(fin, label_prefix, source_dir,
+                                                       candidates, candidate_flags,
+                                                       (int)(sizeof(candidates) / sizeof(candidates[0])));
         if (count <= 0) {
             frames[dir] = fallback_frame;
         } else {
@@ -553,7 +661,9 @@ static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
                 frame_index = step + sequence_count;
             }
             frames[dir] = candidates[frame_index];
+            flags[dir] = candidate_flags[frame_index];
         }
+        if (mirror_left && dir > 4) flags[dir] = 1;
     }
 
     fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
@@ -562,13 +672,76 @@ static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
     fprintf(out, "}, {");
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
     fprintf(out, "}, {");
-    if (mirror_left) {
-        for (int i = 0; i < 8; ++i) {
-            fprintf(out, "%s%s", i ? "," : "", i > 4 ? "RTS_SPRITEFRAME_FLIP_X" : "0");
+    for (int i = 0; i < 8; ++i)
+        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "RTS_SPRITEFRAME_FLIP_X" : "0");
+    fprintf(out, "}, {0}, {0} },\n");
+}
+
+static void f8_fin_stem_state(FILE *out, const char *spr, const FinAnim *fin,
+                              const char *label_prefix, int step, int fallback_frame,
+                              int tics, const char *action, const char *next, int group,
+                              bool mirror_left) {
+    static const int dirs[8] = {0,2,4,6,8,10,12,14};
+    static const int mirror_dirs[8] = {0,1,2,3,4,3,2,1};
+    int frames[8];
+    int flags[8] = {0};
+    for (int dir = 0; dir < 8; ++dir) {
+        int candidates[128];
+        int candidate_flags[128] = {0};
+        int source_dir = mirror_left && dir > 4 ? mirror_dirs[dir] : dir;
+        int count = fin_stem_frames_for_direction_full(fin, label_prefix, source_dir,
+                                                       candidates, candidate_flags,
+                                                       (int)(sizeof(candidates) / sizeof(candidates[0])));
+        if (count <= 0) {
+            frames[dir] = fallback_frame;
+        } else {
+            int frame_index = step < count ? step : count - 1;
+            frames[dir] = candidates[frame_index];
+            flags[dir] = candidate_flags[frame_index];
         }
-    } else {
-        fprintf(out, "0");
+        if (mirror_left && dir > 4) flags[dir] = 1;
     }
+
+    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
+            spr, frames[0], tics, action, next, group);
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i)
+        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "RTS_SPRITEFRAME_FLIP_X" : "0");
+    fprintf(out, "}, {0}, {0} },\n");
+}
+
+static void f16_fin_state(FILE *out, const char *spr, const FinAnim *fin,
+                          const char *label_prefix, int step, int fallback_frame,
+                          int tics, const char *action, const char *next, int group) {
+    int frames[16];
+    int flags[16] = {0};
+    for (int code = 0; code < 16; ++code) {
+        int candidates[128];
+        int candidate_flags[128] = {0};
+        int count = fin_body_frames_for_direction16(fin, label_prefix, code,
+                                                    candidates, candidate_flags,
+                                                    (int)(sizeof(candidates) / sizeof(candidates[0])));
+        if (count <= 0) {
+            frames[code] = fallback_frame;
+            flags[code] = 0;
+        } else {
+            int frame_index = step < count ? step : count - 1;
+            frames[code] = candidates[frame_index];
+            flags[code] = candidate_flags[frame_index];
+        }
+    }
+
+    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 16, {",
+            spr, frames[0], tics, action, next, group);
+    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", i);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 16; ++i)
+        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "RTS_SPRITEFRAME_FLIP_X" : "0");
     fprintf(out, "}, {0}, {0} },\n");
 }
 
@@ -586,6 +759,20 @@ static void write_fin_sequence(FILE *out, const char *spr, const FinAnim *fin,
     }
 }
 
+static void write_fin_stem_sequence(FILE *out, const char *spr, const FinAnim *fin,
+                                    const char *label_prefix, const char *state_prefix,
+                                    const char *kind, int count, int fallback_frame,
+                                    int tics, int group, const char *first_action,
+                                    const char *exit_state, bool mirror_left) {
+    char next[64];
+    for (int i = 0; i < count; ++i) {
+        if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
+        else snprintf(next, sizeof(next), "%s", exit_state);
+        f8_fin_stem_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
+                          i == 0 ? first_action : "A_None", next, group, mirror_left);
+    }
+}
+
 static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
                              const char *label_prefix, int last_step, int fallback_frame,
                              bool mirror_left) {
@@ -593,9 +780,29 @@ static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
                  "A_DC_Corpse", "S_NULL", 4, last_step + 1, mirror_left);
 }
 
+static void write_fin_sequence16(FILE *out, const char *spr, const FinAnim *fin,
+                                 const char *label_prefix, const char *state_prefix,
+                                 const char *kind, int count, int fallback_frame,
+                                 int tics, int group, const char *first_action,
+                                 const char *exit_state) {
+    char next[64];
+    for (int i = 0; i < count; ++i) {
+        if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
+        else snprintf(next, sizeof(next), "%s", exit_state);
+        f16_fin_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
+                      i == 0 ? first_action : "A_None", next, group);
+    }
+}
+
+static void write_fin_corpse16(FILE *out, const char *spr, const FinAnim *fin,
+                               const char *label_prefix, int last_step, int fallback_frame) {
+    f16_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
+                  "A_DC_Corpse", "S_NULL", 4);
+}
+
 static void write_muzzle(FILE *out, const char *spr, int frame, const int offsets_x[8],
                          const int offsets_y[8]) {
-    static const int dirs[8] = {0,1,2,3,4,5,6,7};
+    static const int dirs[8] = {0,2,4,6,8,10,12,14};
     fprintf(out, "    { %s, %d, 2, A_None, S_NULL, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW, 5, 0, 8, {",
             spr, frame);
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
@@ -707,23 +914,25 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 0; i < 12; ++i) gray_die(out, gray_die_next[i], i, i == 0 ? "A_DC_Fall" : "A_None");
     gray_die(out, gray_die_next[12], 11, "A_DC_Corpse");
 
-    fabs_state(out, sprites[reap].symbol, 0, -1, "A_None", "S_DC_REAP_STND", 1);
-    write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
-                       counts->reap_run, 0, 3, 2, "A_None", "S_DC_REAP_RUN1", false);
-    write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",
-                       counts->reap_attack, 0, 2, 3, "A_None", "S_DC_REAP_STND", false);
-    write_fin_sequence(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", "REAP", "DIE",
-                       counts->reap_death, 0, 3, 4, "A_DC_Fall", "S_DC_REAP_CORPSE", false);
-    write_fin_corpse(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", counts->reap_death - 1, 0, false);
+    f16_fin_state(out, sprites[reap].symbol, &reap_fin, "REAPSTAND", 0, 0, -1,
+                  "A_None", "S_DC_REAP_STND", 1);
+    write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
+                         counts->reap_run, 0, 3, 2, "A_None", "S_DC_REAP_RUN1");
+    write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",
+                         counts->reap_attack, 0, 2, 3, "A_None", "S_DC_REAP_STND");
+    write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", "REAP", "DIE",
+                         counts->reap_death, 0, 3, 4, "A_DC_Fall", "S_DC_REAP_CORPSE");
+    write_fin_corpse16(out, sprites[reap].symbol, &reap_fin, "REAPDIEB", counts->reap_death - 1, 0);
 
-    fabs_state(out, sprites[barr].symbol, 0, -1, "A_None", "S_DC_BARR_STND", 1);
-    write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
-                       counts->barr_run, 0, 3, 2, "A_None", "S_DC_BARR_RUN1", true);
-    write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRFIREA", "BARR", "ATK",
-                       counts->barr_attack, 0, 2, 3, "A_None", "S_DC_BARR_STND", true);
-    write_fin_sequence(out, sprites[barr].symbol, &barr_fin, "BARRDIE", "BARR", "DIE",
-                       counts->barr_death, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE", true);
-    write_fin_corpse(out, sprites[barr].symbol, &barr_fin, "BARRDIE", counts->barr_death - 1, 0, true);
+    f16_fin_state(out, sprites[barr].symbol, &barr_fin, "BARRSTAND", 0, 0, -1,
+                  "A_None", "S_DC_BARR_STND", 1);
+    write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
+                         counts->barr_run, 0, 3, 2, "A_None", "S_DC_BARR_RUN1");
+    write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRFIREA", "BARR", "ATK",
+                         counts->barr_attack, 0, 2, 3, "A_None", "S_DC_BARR_STND");
+    write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRDIE", "BARR", "DIE",
+                         counts->barr_death, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE");
+    write_fin_corpse16(out, sprites[barr].symbol, &barr_fin, "BARRDIE", counts->barr_death - 1, 0);
 
     fabs_state(out, sprites[sarg].symbol, 0, -1, "A_None", "S_DC_SARG_STND", 1);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGMOVE", "SARG", "RUN",
@@ -744,6 +953,10 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fabs_state(out, sprites[expl].symbol, 0, -1, "A_None", "S_DC_EXPL_STND", 1);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLMOVE", "EXPL", "RUN",
                        counts->expl_run, 0, 3, 2, "A_None", "S_DC_EXPL_RUN1", false);
+    write_fin_stem_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDEPLOY", "EXPL", "DEPLOY",
+                            counts->expl_deploy, 0, 3, 5, "A_None", "S_DC_EXPL_WORK1", true);
+    write_fin_stem_sequence(out, sprites[expl].symbol, &expl_fin, "EDPLYSTAND", "EXPL", "WORK",
+                            counts->expl_work, 0, 8, 5, "A_None", "S_DC_EXPL_WORK1", true);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
                        counts->expl_death, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
     write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", counts->expl_death - 1, 0, false);
@@ -755,13 +968,13 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    {0},\n");
     fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK1, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
     fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_GRAY_MUZZLE },\n");
-    fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_HARVESTER, S_NULL, S_NULL },\n");
     fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "};\n\n");
-    fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_8 };\n");
+    fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_16 };\n");
     fin_free(&trsc_fin);
     fin_free(&gray_fin);
     fin_free(&reap_fin);

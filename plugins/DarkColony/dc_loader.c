@@ -274,6 +274,13 @@ static SDL_Rect dc_visible_bounds(const uint32_t *rgba, int atlas_w, SDL_Rect fr
     return (SDL_Rect){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
+typedef struct {
+    int w;
+    int h;
+    int dis_x;
+    int dis_y;
+} DcSprFrameInfo;
+
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
                              uint32_t palette_out[256]) {
     memset(out, 0, sizeof(*out));
@@ -294,20 +301,40 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
 
     dark_colony_palette_from_spr(blob.bytes, blob.size, palette_out);
     int visible_frames = frame_count;
-    int max_w = 1, max_h = 1;
+    int min_dis_x = INT32_MAX, min_dis_y = INT32_MAX;
+    int max_dis_x = INT32_MIN, max_dis_y = INT32_MIN;
     size_t total_pixels = 0;
+    DcSprFrameInfo *info = calloc((size_t)visible_frames, sizeof(*info));
+    if (!info) {
+        free_blob(&blob);
+        return false;
+    }
     for (int i = 0; i < visible_frames; ++i) {
         const uint8_t *d = blob.bytes + desc_off + (size_t)i * 8;
         int w = read_u16_le(d + 0);
         int h = read_u16_le(d + 2);
-        if (w <= 0 || h <= 0 || w > 512 || h > 512) { free_blob(&blob); return false; }
-        if (w > max_w) max_w = w;
-        if (h > max_h) max_h = h;
+        int dis_x = read_u16_le(d + 4);
+        int dis_y = read_u16_le(d + 6);
+        if (w <= 0 || h <= 0 || w > 512 || h > 512) {
+            free(info); free_blob(&blob);
+            return false;
+        }
+        info[i] = (DcSprFrameInfo){ w, h, dis_x, dis_y };
+        if (dis_x < min_dis_x) min_dis_x = dis_x;
+        if (dis_y < min_dis_y) min_dis_y = dis_y;
+        if (dis_x + w > max_dis_x) max_dis_x = dis_x + w;
+        if (dis_y + h > max_dis_y) max_dis_y = dis_y + h;
         total_pixels += (size_t)w * (size_t)h;
     }
     if (!compressed && data_off + total_pixels > blob.size) {
         fprintf(stderr, "%s has truncated Dark Colony sprite pixels\n", path);
-        free_blob(&blob);
+        free(info); free_blob(&blob);
+        return false;
+    }
+    int max_w = max_dis_x > min_dis_x ? max_dis_x - min_dis_x : 1;
+    int max_h = max_dis_y > min_dis_y ? max_dis_y - min_dis_y : 1;
+    if (max_w <= 0 || max_h <= 0 || max_w > 1024 || max_h > 1024) {
+        free(info); free_blob(&blob);
         return false;
     }
 
@@ -319,22 +346,21 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     SDL_Rect *frames = calloc((size_t)visible_frames, sizeof(SDL_Rect));
     SDL_Rect *bounds = calloc((size_t)visible_frames, sizeof(SDL_Rect));
     if (!rgba || !frames || !bounds) {
-        free(rgba); free(frames); free(bounds); free_blob(&blob);
+        free(info); free(rgba); free(frames); free(bounds); free_blob(&blob);
         return false;
     }
 
     size_t src_pos = data_off;
     for (int i = 0; i < visible_frames; ++i) {
-        const uint8_t *d = blob.bytes + desc_off + (size_t)i * 8;
-        int w = read_u16_le(d + 0);
-        int h = read_u16_le(d + 2);
-        int fx = (i % cols) * max_w + (max_w - w) / 2;
-        int fy = (i / cols) * max_h + (max_h - h) / 2;
+        int w = info[i].w;
+        int h = info[i].h;
+        int fx = (i % cols) * max_w + (info[i].dis_x - min_dis_x);
+        int fy = (i / cols) * max_h + (info[i].dis_y - min_dis_y);
         if (compressed) {
-            if (src_pos + 4 > blob.size) { free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
+            if (src_pos + 4 > blob.size) { free(info); free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
             uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
             src_pos += 4;
-            if (src_pos + chunk_size > blob.size) { free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
+            if (src_pos + chunk_size > blob.size) { free(info); free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
             const uint8_t *src = blob.bytes + src_pos;
             size_t pos = 0;
             int x = 0, y = 0;
@@ -376,6 +402,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     out->rotations = 1;
     out->primary_frames_per_rotation = visible_frames;
 
+    free(info);
     free(rgba);
     free_blob(&blob);
     return out->texture != NULL;
@@ -412,13 +439,22 @@ static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *rend
 /* ── public entry points ────────────────────────────────────────────────── */
 
 bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const Unit *units, int unit_count, SpriteCache *cache) {
+                                   const GameMap *map, const Unit *units, int unit_count,
+                                   SpriteCache *cache) {
     bool ok = true;
     for (int i = 0; i < NUMSTATES; ++i) {
         int sprite = states[i].sprite;
         if (sprite >= 0 && sprite < NUMSPRITES &&
             !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[sprite])) {
             ok = false;
+        }
+    }
+    if (map) {
+        for (int i = 0; i < map->decoration_count; ++i) {
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite_name))
+                ok = false;
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].shadow_name))
+                ok = false;
         }
     }
     for (int i = 0; i < unit_count; ++i) {
@@ -433,6 +469,69 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
 }
 
 /* ── map loader ─────────────────────────────────────────────────────────── */
+
+static bool token_has_only_trailing_space(const char *token, int consumed) {
+    if (!token || consumed < 0) return false;
+    for (const char *p = token + consumed; *p; ++p) {
+        if (!isspace((unsigned char)*p)) return false;
+    }
+    return true;
+}
+
+static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount) {
+    if (!map || !map_contains(map, x, y)) return false;
+    if (amount <= 0) amount = 1;
+
+    MapResourceVent *vents = realloc(map->resource_vents,
+                                     (size_t)(map->resource_vent_count + 1) * sizeof(MapResourceVent));
+    if (!vents) return false;
+    map->resource_vents = vents;
+    MapResourceVent *vent = &map->resource_vents[map->resource_vent_count++];
+    vent->gx = x;
+    vent->gy = y;
+    vent->amount = amount;
+    vent->rate = rate;
+    vent->active = rate > 0;
+
+    if (map->decoration_count < MAX_DECORATIONS) {
+        MapDecoration *decorations = realloc(map->decorations,
+                                             (size_t)(map->decoration_count + 1) * sizeof(MapDecoration));
+        if (decorations) {
+            map->decorations = decorations;
+            MapDecoration *dec = &map->decorations[map->decoration_count++];
+            memset(dec, 0, sizeof(*dec));
+            dec->gx = x;
+            dec->gy = y;
+            dec->footprint_w = 1;
+            dec->footprint_h = 1;
+            dec->center_anchor = true;
+            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s",
+                     rate > 0 ? "SPRITES/VENT.SPR" : "SPRITES/VENT2.SPR");
+        }
+    }
+    return true;
+}
+
+static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *map) {
+    if (!scn || !map) return;
+    for (const char *line = scn; line && *line;) {
+        const char *next = strpbrk(line, "\r\n");
+        size_t len = next ? (size_t)(next - line) : strlen(line);
+        char token[128] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, len);
+
+        int x = 0, y = 0, type = 0, rate = 0, amount = 0, consumed = 0;
+        if (sscanf(token, "%d %d %d %d %d%n", &x, &y, &type, &rate, &amount, &consumed) == 5 &&
+            type == 40 && token_has_only_trailing_space(token, consumed)) {
+            append_dark_colony_resource_vent(map, x, y, rate, amount);
+        }
+
+        if (!next) break;
+        char nl = *next++;
+        if (nl == '\r' && *next == '\n') next++;
+        line = next;
+    }
+}
 
 bool load_dark_colony_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
@@ -504,6 +603,7 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
                 out->tile_ids[idx] = read_u16_le(cell);
                 out->tile_overlays[0][idx] = read_u16_le(cell + 2);
                 uint16_t flags = read_u16_le(tile_flags + idx * 2);
+                out->blocked[idx] = (flags & (1u << 9)) ? 1 : 0;
                 out->tile_flip_flags[0][idx] = (flags & (1u << 5)) ? 1 : 0;
                 out->tile_flip_flags[1][idx] = (flags & (1u << 6)) ? 1 : 0;
             }
@@ -531,6 +631,7 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         if (dot) *dot = '\0';
         uppercase_trimmed_token(out->tileset_name, sizeof(out->tileset_name),
                                 first_token, strlen(first_token));
+        load_dark_colony_resource_vents_from_scn(scn, out);
         free(scn);
     }
 
@@ -584,6 +685,12 @@ static bool dark_colony_root_from_map_path(const char *map_path, char *root, siz
 
 static float dark_colony_speed_from_gamestat(int speed) {
     return speed > 0 ? (float)speed / 5.0f : 0.0f;
+}
+
+static bool dark_colony_map_path_is_multiplayer(const char *map_path) {
+    if (!map_path) return false;
+    return find_ascii_case_insensitive((char *)map_path, "/MPLAYER/") ||
+           find_ascii_case_insensitive((char *)map_path, "\\MPLAYER\\");
 }
 
 static void load_dark_colony_unit_config(const char *map_path,
@@ -686,6 +793,10 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
     int current_team = -1, team_count = 0;
     bool expect_race = false, object_mode = false;
     int trailing_blank_lines = 0, count = 0;
+    bool player_has_exploiter = false;
+    bool player_anchor_set = false;
+    int player_anchor_x = 0;
+    int player_anchor_y = 0;
 
     for (char *line = text; line && *line && count < max_units;) {
         char *next = strpbrk(line, "\r\n");
@@ -734,10 +845,31 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 u->owner = team == 0 ? 0 : 1;
                 u->selected = count == 0;
                 snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
+                if (u->owner == 0) {
+                    if (!player_anchor_set || x > player_anchor_x) {
+                        player_anchor_x = x;
+                        player_anchor_y = y;
+                        player_anchor_set = true;
+                    }
+                    if (mobj_type == MT_DC_EXPLOITER) player_has_exploiter = true;
+                }
                 count++;
             }
         }
         line = next;
+    }
+    if (dark_colony_map_path_is_multiplayer(map_path) && !player_has_exploiter &&
+        player_anchor_set && count < max_units) {
+        Unit *u = &units[count];
+        memset(u, 0, sizeof(*u));
+        u->gx = (float)(player_anchor_x + 2) + 0.5f;
+        u->gy = (float)player_anchor_y + 0.5f;
+        if (6 < DARK_COLONY_MAX_GAMESTAT_UNITS) u->speed = unit_config[6].speed;
+        u->type_id = MT_DC_EXPLOITER;
+        u->owner = 0;
+        u->selected = true;
+        snprintf(u->sprite_name, sizeof(u->sprite_name), "SPRITES/EXPL.SPR");
+        count++;
     }
     free(text);
     return count;

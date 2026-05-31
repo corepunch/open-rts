@@ -7,7 +7,8 @@ bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_roo
                                     Tileset *tileset, SpriteSheet *unit_sprite);
 int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units);
 bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const Unit *units, int unit_count, SpriteCache *cache);
+                                   const GameMap *map, const Unit *units, int unit_count,
+                                   SpriteCache *cache);
 
 void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit) {
     if (!ctx || !unit) return;
@@ -27,10 +28,13 @@ void A_DC_Fall(RtsStateContext *ctx, Unit *unit) {
     (void)ctx;
     if (!unit) return;
     unit->selected = false;
-    unit->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_ATTACK);
+    unit->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                      RTS_TRAIT_ATTACK | RTS_TRAIT_HARVESTER);
     unit->path_len = 0;
     unit->path_index = 0;
     unit->attack_target = -1;
+    unit->harvest_target = -1;
+    unit->harvest_timer_ms = 0;
     unit->attack_cooldown_left_ms = 0;
     unit->attack_anim_left_ms = 0;
     unit->death_started = true;
@@ -73,9 +77,11 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_EXPLOITER,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
         .speed = 8.0f,
         .max_hp = 800,
+        .harvest_state_id = S_DC_EXPL_DEPLOY1,
     },
     {
         .id = MT_DC_REAPER,
@@ -114,8 +120,7 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
 static bool dark_colony_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                                              const GameMap *map, const Unit *units, int unit_count,
                                              SpriteCache *cache) {
-    (void)map;
-    return load_dark_colony_unit_sprites(renderer, data_root, units, unit_count, cache);
+    return load_dark_colony_unit_sprites(renderer, data_root, map, units, unit_count, cache);
 }
 
 static const RtsPlugin DARK_COLONY_PLUGIN = {

@@ -94,6 +94,7 @@ typedef enum {
     RTS_TRAIT_MOBILE = 1u << 1,
     RTS_TRAIT_RENDERABLE = 1u << 2,
     RTS_TRAIT_ATTACK = 1u << 3,
+    RTS_TRAIT_HARVESTER = 1u << 4,
 } RtsTrait;
 
 typedef struct {
@@ -109,6 +110,7 @@ typedef struct {
     int attack_cooldown_ms;
     int attack_anim_ms;
     int death_anim_ms;
+    int harvest_state_id;
     const char *muzzle_flash_name;
     int muzzle_flash_ms;
 } RtsActorType;
@@ -127,6 +129,14 @@ typedef struct {
     char shadow_name[32];
     char sequence_name[16];
 } MapDecoration;
+
+typedef struct {
+    int gx;
+    int gy;
+    int amount;
+    int rate;
+    bool active;
+} MapResourceVent;
 
 typedef struct {
     char name[32];
@@ -190,6 +200,7 @@ typedef struct {
 typedef enum {
     RTS_DIRECTION_COMPASS_16 = 0,
     RTS_DIRECTION_DARK_COLONY_8 = 1,
+    RTS_DIRECTION_DARK_COLONY_16 = 2,
 } RtsDirectionMode;
 
 typedef struct {
@@ -215,6 +226,9 @@ typedef struct GameMap {
     uint32_t render_features;
     MapDecoration *decorations;
     int decoration_count;
+    MapResourceVent *resource_vents;
+    int resource_vent_count;
+    int player_resources[8];
     char tileset_name[32];
     void (*render_transitions)(App *app, const struct GameMap *map, const Tileset *tileset,
                                int x, int y, int dx, int dy);
@@ -245,6 +259,9 @@ typedef struct Unit {
     int death_anim_left_ms;
     int muzzle_flash_ms;
     int attack_target;
+    int harvest_target;
+    int harvest_timer_ms;
+    int harvest_state_id;
     bool selected;
     bool death_started;
     bool remove;
@@ -301,6 +318,7 @@ struct App {
     float cam_x;
     float cam_y;
     bool show_grid;
+    bool show_blocked;
     bool running;
     bool dragging_select;
     bool panning;
@@ -343,6 +361,9 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset);
 void render_decorations(App *app, const GameMap *map, const SpriteCache *cache);
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
                   const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks);
+void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
+                          const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
+                          const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks);
 void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_effects,
                            const SpriteCache *cache, const RtsGameInfo *game_info);
 

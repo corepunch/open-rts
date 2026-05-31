@@ -9,11 +9,38 @@ plugin-specific behavior.
   https://www.darkcolony.pl/downloads.php?cat_id=2
   - Community downloads and historical Dark Colony material. Check here when
     looking for tools, map/editor notes, or the Polish community project files.
+  - `DCjxspr_v002` names the third/fourth `.SPR` descriptor words `disX` and
+    `disY`; treat them as per-frame placement displacement, not unused padding.
 
 - endotermic/Dark-Colony:
   https://github.com/endotermic/Dark-Colony
   - Open-source Dark Colony reference lead. Use it when validating `.MAP`,
     `.BTS`, `.SPR`, object placement, palette cycling, and faction/unit logic.
+  - Contains original Classic/Council Wars game-data snapshots and a Ghidra
+    workspace. `REAP.SPR` and `REAP.FIN` match our local data byte-for-byte.
+
+- cookgreen/OpenDC:
+  https://github.com/cookgreen/OpenDC
+  - OpenRA Dark Colony mod/remake. Best current source-code reference for a
+    Dark Colony `.SPR` loader, though it does not parse `.FIN` animations.
+  - `OpenRA.Mods.DarkColony/SpriteLoaders/SPRLoader.cs` reads each frame
+    descriptor as `width`, `height`, `offsetX`, `offsetY`; stores offsets as
+    per-frame `ISpriteFrame.Offset`; and decodes compressed frames with the same
+    high-bit skip / low-7-bit run-count RLE shape used here.
+  - The repository bundles original `.SPR`, `.BTS`, maps, sounds, and music
+    under `mods/dc/bits/original`, but not `ANIMATE/*.FIN` or `ANIM.DAT`.
+    Its `REAP.SPR` is byte-identical to our local `REAP.SPR`.
+  - `mods/dc/sequences/units.yaml` is not a completed Dark Colony unit
+    animation mapping. It only has small placeholder-style entries such as
+    `AIRD` and `ALBU1..ALBU15`; no `REAP`, `BARR`, `GRAY`, or `TROOPER`
+    sequences were found there.
+
+- OpenRA forum thread for OpenDC:
+  https://forum.openra.net/viewtopic.php?t=21223
+  - Project discussion by DoDoCat/cookgreen. Useful context: early posts state
+    the project had mostly imported resources, and a commenter mentioned having
+    a working C# `BTS`/`SPR`/`MAP` loader. No public `.FIN` animation parser was
+    found from this trail.
 
 Local game-data files that have already been useful:
 
@@ -24,6 +51,19 @@ Local game-data files that have already been useful:
 - `data/DCOLONY/GAMESTAT/DEPEND.TXT` for unit/building dependency names.
 - `data/DCOLONY/SCENARIO/*.MAP`, `*.SCN`, and `*.BTS` for maps, starting
   objects, tilesets, and water palette bands.
+- Dark Colony `.SCN` object rows shaped `x y 40 rate amount` are Petra-7 vents,
+  not ordinary starting units. The original mission text explicitly calls them
+  Petra-7 vents and training orders say to move/deploy the Exploiter or Brozaar
+  over **active** vents to extract P-7. The fourth field is the vent extraction
+  rate; `0` means dormant/inactive. The fifth field is remaining P-7 amount.
+- Dark Colony `.TRO` scripts control vent eruptions. Commands such as
+  `newrate 25 38 29` and `newrate2 81 77 15` set the extraction rate at an
+  existing vent coordinate; `setmoney x y amount` sets the remaining P-7. This
+  matches training text like "Second Vent Has Become Active" and "Watch For
+  Erupting Vents."
+- Dark Colony `.MAP` files have a flags plane after the terrain tile planes.
+  For ground units, flag bit `9` (`0x0200`) marks impassable terrain. `.PTH`
+  files contain path/family data and are not the terrain passability mask.
 - `data/DCOLONY/SPRITES/*.SPR` for unit sprites.
 - `data/DCOLONY/ANIMATE/*.FIN` for sprite animation labels and frame ranges.
 - `data/DCOLONY/ANIM.DAT` — newline-delimited index of all `.fin` filenames
@@ -38,7 +78,7 @@ offset  size  field
 0x04    4     padding / unknown
 0x08    768   palette        256 × RGB (no alpha; index 0 = transparent)
 0x308   frame_count×8  frame descriptors:
-              u16LE width, u16LE height, u16LE unk, u16LE unk
+              u16LE width, u16LE height, u16LE dis_x, u16LE dis_y
 after descriptors: pixel data
   if compressed: per-frame [u32LE chunk_size][RLE data]
     RLE: signed byte cmd; cmd<0 → skip (-cmd) pixels; cmd≥0 → copy (cmd+1) pixels

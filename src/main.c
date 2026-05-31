@@ -581,8 +581,10 @@ static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
     if (unit->attack_cooldown_ms <= 0) unit->attack_cooldown_ms = type->attack_cooldown_ms;
     if (unit->attack_anim_ms <= 0) unit->attack_anim_ms = type->attack_anim_ms;
     if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
+    if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
     if (unit->attack_target <= 0) unit->attack_target = -1;
+    if (unit->harvest_target == 0) unit->harvest_target = -1;
     if (unit->sprite_name[0] == '\0' && type->sprite_name) {
         snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
     }
@@ -793,8 +795,9 @@ int main(int argc, char **argv) {
     app.cam_x = (float)app.win_w * 0.5f - sx;
     app.cam_y = (float)app.win_h * 0.5f - sy;
 
-    printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations). Controls: left select/drag, right move, Alt+left spawn enemy, WASD/arrows pan, G grid, Ctrl+A select all.\n",
-           map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count, map.decoration_count);
+    printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
+           map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count,
+           map.decoration_count, map.resource_vent_count);
 
     if (debug_overlay.active) {
         if (screenshot_only) {
@@ -856,17 +859,16 @@ int main(int argc, char **argv) {
             app.ticks_ms = SDL_GetTicks();
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
-            render_decorations(&app, &map, &decoration_sprites);
-            render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites,
-                         plugin->game_info, SDL_GetTicks());
+            render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
+                                 &decoration_sprites, plugin->game_info, SDL_GetTicks());
             render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, plugin->game_info);
             if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
         }
-        printf("Smoke check OK: %d terrain tiles, %d unit frames from %s.\n",
-               tileset.count, unit_sprite.frame_count, sprite_name);
+        printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
+               tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
         destroy_sprite_cache(&decoration_sprites);
         destroy_sprite(&unit_sprite);
         destroy_tileset(&tileset);
@@ -878,6 +880,7 @@ int main(int argc, char **argv) {
     uint64_t prev = SDL_GetPerformanceCounter();
     double freq = (double)SDL_GetPerformanceFrequency();
     float accumulator = 0.0f;
+    int title_resources = -1;
 
     while (app.running) {
         uint64_t now = SDL_GetPerformanceCounter();
@@ -909,13 +912,18 @@ int main(int argc, char **argv) {
                                   plugin->game_info, FIXED_DT);
             accumulator -= FIXED_DT;
         }
+        if (map.player_resources[0] != title_resources) {
+            char title[128];
+            title_resources = map.player_resources[0];
+            snprintf(title, sizeof(title), "open-rts - %s - P-7 %d", plugin->name, title_resources);
+            SDL_SetWindowTitle(app.window, title);
+        }
 
         app.ticks_ms = SDL_GetTicks();
         rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         render_map(&app, &map, &tileset);
-        render_decorations(&app, &map, &decoration_sprites);
-        render_units(&app, units, unit_count, &unit_sprite, &decoration_sprites,
-                     plugin->game_info, SDL_GetTicks());
+        render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
+                             &decoration_sprites, plugin->game_info, SDL_GetTicks());
         render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
                               &decoration_sprites, plugin->game_info);
         if (app.dragging_select) {

@@ -22,6 +22,11 @@ typedef struct {
     uint8_t queued;
 } FlowCell;
 
+enum {
+    RTS_HARVEST_INTERVAL_MS = 1000,
+    RTS_HARVEST_DEFAULT_RATE = 20,
+};
+
 static bool debug_effects_enabled(void) {
     static int enabled = -1;
     if (enabled < 0) {
@@ -236,11 +241,38 @@ static float unit_radius_cells(const Unit *unit) {
     return 0.42f;
 }
 
-static bool unit_position_walkable(const GameMap *map, float gx, float gy) {
+static bool map_circle_walkable(const GameMap *map, float gx, float gy, float radius) {
     if (!map) return true;
-    int cx = (int)floorf(gx);
-    int cy = (int)floorf(gy);
-    return map_walkable(map, cx, cy);
+    if (radius < 0.01f) radius = 0.01f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    float radius2 = radius * radius - 0.0001f;
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (map_walkable(map, x, y)) continue;
+            float closest_x = gx;
+            float closest_y = gy;
+            if (closest_x < (float)x) closest_x = (float)x;
+            if (closest_x > (float)x + 1.0f) closest_x = (float)x + 1.0f;
+            if (closest_y < (float)y) closest_y = (float)y;
+            if (closest_y > (float)y + 1.0f) closest_y = (float)y + 1.0f;
+            float dx = gx - closest_x;
+            float dy = gy - closest_y;
+            if (dx * dx + dy * dy < radius2) return false;
+        }
+    }
+    return true;
+}
+
+static bool unit_position_walkable(const GameMap *map, const Unit *unit, float gx, float gy) {
+    return map_circle_walkable(map, gx, gy, unit_radius_cells(unit));
 }
 
 static void clamp_unit_position_to_map(const GameMap *map, Unit *unit) {
@@ -381,6 +413,42 @@ static bool find_nearest_walkable_cell(const GameMap *map, Cell wanted, int radi
     return true;
 }
 
+static bool find_nearest_walkable_position(const GameMap *map, float wanted_gx, float wanted_gy,
+                                           float unit_radius, int search_radius,
+                                           float *gx_out, float *gy_out) {
+    if (!gx_out || !gy_out) return false;
+    if (map_circle_walkable(map, wanted_gx, wanted_gy, unit_radius)) {
+        *gx_out = wanted_gx;
+        *gy_out = wanted_gy;
+        return true;
+    }
+    Cell wanted = { (int)floorf(wanted_gx), (int)floorf(wanted_gy) };
+    float best_d2 = 1000000000.0f;
+    bool found = false;
+    float best_x = wanted_gx;
+    float best_y = wanted_gy;
+    for (int dy = -search_radius; dy <= search_radius; ++dy) {
+        for (int dx = -search_radius; dx <= search_radius; ++dx) {
+            float gx = (float)(wanted.x + dx) + 0.5f;
+            float gy = (float)(wanted.y + dy) + 0.5f;
+            if (!map_circle_walkable(map, gx, gy, unit_radius)) continue;
+            float ddx = gx - wanted_gx;
+            float ddy = gy - wanted_gy;
+            float d2 = ddx * ddx + ddy * ddy;
+            if (d2 < best_d2) {
+                best_d2 = d2;
+                best_x = gx;
+                best_y = gy;
+                found = true;
+            }
+        }
+    }
+    if (!found) return false;
+    *gx_out = best_x;
+    *gy_out = best_y;
+    return true;
+}
+
 static FlowCell *build_flow_field(const GameMap *map, Cell goal) {
     if (!map || !map_walkable(map, goal.x, goal.y)) return NULL;
     int total = map->width * map->height;
@@ -444,29 +512,29 @@ static FlowCell *build_flow_field(const GameMap *map, Cell goal) {
     return field;
 }
 
-static bool line_walkable(const GameMap *map, Cell a, Cell b) {
+static bool line_walkable(const GameMap *map, Cell a, Cell b, float radius) {
     if (!map) return true;
     int dx = abs(b.x - a.x);
     int dy = abs(b.y - a.y);
-    int steps = dx > dy ? dx : dy;
-    if (steps <= 0) return map_walkable(map, a.x, a.y);
+    int steps = (dx > dy ? dx : dy) * 4;
+    if (steps <= 0) return map_circle_walkable(map, (float)a.x + 0.5f, (float)a.y + 0.5f, radius);
     for (int i = 0; i <= steps; ++i) {
         float t = (float)i / (float)steps;
-        int x = (int)floorf((float)a.x + ((float)b.x - (float)a.x) * t + 0.5f);
-        int y = (int)floorf((float)a.y + ((float)b.y - (float)a.y) * t + 0.5f);
-        if (!map_walkable(map, x, y)) return false;
+        float x = (float)a.x + 0.5f + ((float)b.x - (float)a.x) * t;
+        float y = (float)a.y + 0.5f + ((float)b.y - (float)a.y) * t;
+        if (!map_circle_walkable(map, x, y, radius)) return false;
     }
     return true;
 }
 
-static int smooth_cell_path(const GameMap *map, Cell *path, int length) {
+static int smooth_cell_path(const GameMap *map, Cell *path, int length, float radius) {
     if (!map || !path || length <= 2) return length;
     int write = 0;
     int anchor = 0;
     path[write++] = path[0];
     while (anchor < length - 1) {
         int next = length - 1;
-        while (next > anchor + 1 && !line_walkable(map, path[anchor], path[next])) next--;
+        while (next > anchor + 1 && !line_walkable(map, path[anchor], path[next], radius)) next--;
         path[write++] = path[next];
         anchor = next;
     }
@@ -474,7 +542,7 @@ static int smooth_cell_path(const GameMap *map, Cell *path, int length) {
 }
 
 static int flow_path_find(const GameMap *map, const FlowCell *field, Cell start,
-                          Cell *out_path, int max_path) {
+                          Cell *out_path, int max_path, float radius) {
     if (!map || !field || !out_path || max_path <= 0 ||
         !map_walkable(map, start.x, start.y)) {
         return 0;
@@ -512,7 +580,7 @@ static int flow_path_find(const GameMap *map, const FlowCell *field, Cell start,
         current = best;
         out_path[length++] = (Cell){ current % map->width, current / map->width };
     }
-    return smooth_cell_path(map, out_path, length);
+    return smooth_cell_path(map, out_path, length, radius);
 }
 
 void grid_to_screen(const App *app, float gx, float gy, float *sx, float *sy) {
@@ -561,6 +629,32 @@ void render_grid_cell(App *app, int gx, int gy, SDL_Color color) {
     SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
     SDL_Rect r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
     SDL_RenderDrawRect(app->renderer, &r);
+}
+
+static void render_blocked_overlay(App *app, const GameMap *map) {
+    if (!app || !map || !map->blocked) return;
+    int cell_w = app_cell_w(app);
+    int cell_h = app_cell_h(app);
+    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
+    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            if (!map->blocked[map_index(map, x, y)]) continue;
+            float sx, sy;
+            grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+            if (sx < -cell_w || sy < -cell_h ||
+                sx > app->win_w + cell_w || sy > app->win_h + cell_h) {
+                continue;
+            }
+            SDL_Rect r = { (int)sx, (int)sy, cell_w, cell_h };
+            SDL_SetRenderDrawColor(app->renderer, 230, 45, 40, 92);
+            SDL_RenderFillRect(app->renderer, &r);
+            SDL_SetRenderDrawColor(app->renderer, 255, 205, 64, 180);
+            SDL_RenderDrawRect(app->renderer, &r);
+        }
+    }
+    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
 void render_tile_at(App *app, const Tileset *tileset, int tile, SDL_Rect src_part, SDL_Rect dst_part) {
@@ -630,7 +724,7 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
             };
             uint8_t base_flip = map->tile_flip_flags[0] ? map->tile_flip_flags[0][idx] : 0;
             render_tile_at_flipped(app, tileset, tile, src, dst, base_flip);
-            if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
+            if ((map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) == 0) {
                 for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
                     if (!map->tile_overlays[layer]) continue;
                     int overlay = map->tile_overlays[layer][idx];
@@ -693,6 +787,10 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
         }
         SDL_SetTextureAlphaMod(tileset->texture, 255);
         SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_NONE);
+    }
+
+    if (app->show_blocked) {
+        render_blocked_overlay(app, map);
     }
 
     if (app->show_grid) {
@@ -1010,13 +1108,14 @@ static bool circle_intersects_rect(float cx, float cy, float radius, SDL_Rect r)
     return dx * dx + dy * dy <= radius * radius;
 }
 
-static int pick_unit_at(const App *app, const Unit *units, int unit_count, int x, int y) {
+static int pick_unit_at(const App *app, const Unit *units, int unit_count, int x, int y,
+                        int owner_filter) {
     int best = -1;
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
         const Unit *unit = &units[i];
         if (unit->hp <= 0 || (unit->traits & RTS_TRAIT_SELECTABLE) == 0) continue;
-        if (unit->owner != 0) continue;
+        if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         float sx = 0.0f, sy = 0.0f;
         grid_to_screen(app, unit->gx, unit->gy, &sx, &sy);
         float radius = unit_pick_radius_px(app, unit);
@@ -1049,7 +1148,18 @@ static int dark_colony8_direction_code_from_vector(float dx, float dy) {
     return sector;
 }
 
+static int dark_colony16_direction_code_from_vector(float dx, float dy) {
+    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
+    const float sixteenth_turn = 0.39269908169872414f;
+    int sector = (int)floorf(atan2f(dx, dy) / sixteenth_turn + 0.5f);
+    sector %= 16;
+    if (sector < 0) sector += 16;
+    return sector;
+}
+
 int rts_direction_code_from_vector(const RtsGameInfo *game_info, float dx, float dy) {
+    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_16)
+        return dark_colony16_direction_code_from_vector(dx, dy);
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8)
         return dark_colony8_direction_code_from_vector(dx, dy);
     return compass16_direction_code_from_vector(dx, dy);
@@ -1057,6 +1167,12 @@ int rts_direction_code_from_vector(const RtsGameInfo *game_info, float dx, float
 
 void rts_direction_vector_from_code(const RtsGameInfo *game_info, int code, float *dx, float *dy) {
     if (!dx || !dy) return;
+    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_16) {
+        float angle = (float)code * 0.39269908169872414f;
+        *dx = sinf(angle);
+        *dy = cosf(angle);
+        return;
+    }
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8) {
         static const float dirs[8][2] = {
             {  0.0f,  1.0f },
@@ -1081,26 +1197,50 @@ void rts_direction_vector_from_code(const RtsGameInfo *game_info, int code, floa
 
 static void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
                                 float goal_gx, float goal_gy) {
+    int selected_count = 0;
+    for (int i = 0; i < unit_count; ++i) {
+        if (!units[i].selected) continue;
+        if (units[i].hp <= 0) continue;
+        if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
+        selected_count++;
+    }
+    if (selected_count <= 0) return;
+
     Cell goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return;
     FlowCell *field = build_flow_field(map, goal);
     if (!field) return;
 
+    int formation_columns = selected_count < 3 ? selected_count : 3;
+    int formation_rows = (selected_count + formation_columns - 1) / formation_columns;
     int selected_index = 0;
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
         if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
+        units[i].harvest_target = -1;
+        units[i].harvest_timer_ms = 0;
         Cell start = { (int)floorf(units[i].gx), (int)floorf(units[i].gy) };
-        int len = flow_path_find(map, field, start, units[i].path, MAX_PATH_CELLS);
-        int col = selected_index % 3 - 1;
-        int row = selected_index / 3;
+        int len = flow_path_find(map, field, start, units[i].path, MAX_PATH_CELLS,
+                                 unit_radius_cells(&units[i]));
+        int row = selected_index / formation_columns;
+        int row_start = row * formation_columns;
+        int row_count = selected_count - row_start;
+        if (row_count > formation_columns) row_count = formation_columns;
+        int col = selected_index - row_start;
         float spacing = unit_radius_cells(&units[i]) * 1.8f;
-        units[i].move_goal_gx = goal_gx + (float)col * spacing;
-        units[i].move_goal_gy = goal_gy + (float)row * spacing;
-        if (!unit_position_walkable(map, units[i].move_goal_gx, units[i].move_goal_gy)) {
-            units[i].move_goal_gx = (float)goal.x + 0.5f;
-            units[i].move_goal_gy = (float)goal.y + 0.5f;
+        float offset_x = ((float)col - ((float)row_count - 1.0f) * 0.5f) * spacing;
+        float offset_y = ((float)row - ((float)formation_rows - 1.0f) * 0.5f) * spacing;
+        units[i].move_goal_gx = goal_gx + offset_x;
+        units[i].move_goal_gy = goal_gy + offset_y;
+        if (!unit_position_walkable(map, &units[i], units[i].move_goal_gx, units[i].move_goal_gy)) {
+            float adjusted_gx = (float)goal.x + 0.5f;
+            float adjusted_gy = (float)goal.y + 0.5f;
+            find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
+                                           unit_radius_cells(&units[i]), 8,
+                                           &adjusted_gx, &adjusted_gy);
+            units[i].move_goal_gx = adjusted_gx;
+            units[i].move_goal_gy = adjusted_gy;
         }
         if (len == 1 && hypotf(units[i].move_goal_gx - units[i].gx,
                                units[i].move_goal_gy - units[i].gy) > 0.05f &&
@@ -1115,8 +1255,150 @@ static void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
     free(field);
 }
 
+static int find_resource_vent_at(const GameMap *map, float gx, float gy) {
+    if (!map || !map->resource_vents || map->resource_vent_count <= 0) return -1;
+    int cell_x = (int)floorf(gx);
+    int cell_y = (int)floorf(gy);
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const MapResourceVent *vent = &map->resource_vents[i];
+        if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
+        if (vent->gx == cell_x && vent->gy == cell_y) return i;
+    }
+
+    int best = -1;
+    float best_dist2 = 1.45f * 1.45f;
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const MapResourceVent *vent = &map->resource_vents[i];
+        if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
+        float dx = ((float)vent->gx + 0.5f) - gx;
+        float dy = ((float)vent->gy + 0.5f) - gy;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 < best_dist2) {
+            best_dist2 = dist2;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
+                                   float gx, float gy) {
+    int vent_index = find_resource_vent_at(map, gx, gy);
+    if (vent_index < 0) return false;
+
+    bool has_harvester = false;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].selected && units[i].owner == 0 && units[i].hp > 0 &&
+            (units[i].traits & (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) ==
+                (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) {
+            has_harvester = true;
+            break;
+        }
+    }
+    if (!has_harvester) return false;
+
+    const MapResourceVent *vent = &map->resource_vents[vent_index];
+    bool issued = false;
+    for (int i = 0; i < unit_count; ++i) {
+        Unit *unit = &units[i];
+        if (!unit->selected || unit->owner != 0 || unit->hp <= 0) continue;
+        if ((unit->traits & (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) !=
+            (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) {
+            continue;
+        }
+
+        float goal_gx = (float)vent->gx + 0.5f;
+        float goal_gy = (float)vent->gy + 0.5f;
+        if (!find_nearest_walkable_position(map, goal_gx, goal_gy,
+                                            unit_radius_cells(unit), 8,
+                                            &goal_gx, &goal_gy)) {
+            Cell fallback = { vent->gx, vent->gy };
+            if (!find_nearest_walkable_cell(map, fallback, 8, &fallback)) continue;
+            goal_gx = (float)fallback.x + 0.5f;
+            goal_gy = (float)fallback.y + 0.5f;
+        }
+
+        Cell goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
+        if (!find_nearest_walkable_cell(map, goal, 8, &goal)) continue;
+        FlowCell *field = build_flow_field(map, goal);
+        if (!field) continue;
+
+        Cell start = { (int)floorf(unit->gx), (int)floorf(unit->gy) };
+        int len = flow_path_find(map, field, start, unit->path, MAX_PATH_CELLS,
+                                 unit_radius_cells(unit));
+        free(field);
+        unit->move_goal_gx = goal_gx;
+        unit->move_goal_gy = goal_gy;
+        if (!unit_position_walkable(map, unit, unit->move_goal_gx, unit->move_goal_gy)) {
+            float adjusted_gx = (float)goal.x + 0.5f;
+            float adjusted_gy = (float)goal.y + 0.5f;
+            find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
+                                           unit_radius_cells(unit), 8,
+                                           &adjusted_gx, &adjusted_gy);
+            unit->move_goal_gx = adjusted_gx;
+            unit->move_goal_gy = adjusted_gy;
+        }
+        if (len == 1 && hypotf(unit->move_goal_gx - unit->gx,
+                               unit->move_goal_gy - unit->gy) > 0.05f &&
+            MAX_PATH_CELLS > 1) {
+            unit->path[1] = unit->path[0];
+            len = 2;
+        }
+        unit->path_len = len;
+        unit->path_index = len > 1 ? 1 : 0;
+        unit->attack_target = -1;
+        unit->harvest_target = vent_index;
+        unit->harvest_timer_ms = 0;
+        issued = true;
+    }
+    return issued;
+}
+
 void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
     issue_move_order_at(map, units, unit_count, (float)goal.x + 0.5f, (float)goal.y + 0.5f);
+}
+
+static bool unit_has_attack_target_in_range(const Unit *attacker, const Unit *units, int unit_count,
+                                            int *target_index_out) {
+    if (target_index_out) *target_index_out = -1;
+    if (!attacker || !units || unit_count <= 0 ||
+        (attacker->traits & RTS_TRAIT_ATTACK) == 0 ||
+        attacker->attack_damage <= 0 || attacker->attack_range <= 0.0f) {
+        return false;
+    }
+
+    int preferred = attacker->attack_target;
+    if (preferred >= 0 && preferred < unit_count) {
+        const Unit *target = &units[preferred];
+        if (!target->remove && target->hp > 0 && target->owner != attacker->owner) {
+            float dx = target->gx - attacker->gx;
+            float dy = target->gy - attacker->gy;
+            if (dx * dx + dy * dy <= attacker->attack_range * attacker->attack_range) {
+                if (target_index_out) *target_index_out = preferred;
+                return true;
+            }
+        }
+    }
+
+    int best = -1;
+    float best_dist2 = attacker->attack_range * attacker->attack_range;
+    for (int i = 0; i < unit_count; ++i) {
+        const Unit *candidate = &units[i];
+        if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
+            candidate->owner == attacker->owner) {
+            continue;
+        }
+        float dx = candidate->gx - attacker->gx;
+        float dy = candidate->gy - attacker->gy;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 <= best_dist2) {
+            best_dist2 = dist2;
+            best = i;
+        }
+    }
+    if (best < 0) return false;
+    if (target_index_out) *target_index_out = best;
+    return true;
 }
 
 static bool spawn_visual_effect(RtsVisualEffect *effects, int max_effects,
@@ -1277,9 +1559,12 @@ bool rts_unit_fire_attack(RtsStateContext *ctx, Unit *attacker) {
     if (target->hp <= 0) {
         target->hp = 0;
         target->selected = false;
-        target->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_ATTACK);
+        target->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                            RTS_TRAIT_ATTACK | RTS_TRAIT_HARVESTER);
         target->path_len = 0;
         target->path_index = 0;
+        target->harvest_target = -1;
+        target->harvest_timer_ms = 0;
         if (ctx->game_info && target->type_id > 0 &&
             target->type_id < ctx->game_info->mobj_type_count) {
             int deathstate = ctx->game_info->mobjinfo[target->type_id].deathstate;
@@ -1347,12 +1632,12 @@ static void separate_units(const GameMap *map, Unit *units, int count) {
                 float ay = a->gy - ny * push;
                 float bx = b->gx + nx * push;
                 float by = b->gy + ny * push;
-                if (unit_position_walkable(map, ax, ay)) {
+                if (unit_position_walkable(map, a, ax, ay)) {
                     a->gx = ax;
                     a->gy = ay;
                     clamp_unit_position_to_map(map, a);
                 }
-                if (unit_position_walkable(map, bx, by)) {
+                if (unit_position_walkable(map, b, bx, by)) {
                     b->gx = bx;
                     b->gy = by;
                     clamp_unit_position_to_map(map, b);
@@ -1360,6 +1645,83 @@ static void separate_units(const GameMap *map, Unit *units, int count) {
             }
         }
     }
+}
+
+static bool move_unit_if_walkable(const GameMap *map, Unit *unit, float gx, float gy) {
+    if (!unit) return false;
+    if (unit_position_walkable(map, unit, gx, gy)) {
+        unit->gx = gx;
+        unit->gy = gy;
+        return true;
+    }
+    if (unit_position_walkable(map, unit, gx, unit->gy)) {
+        unit->gx = gx;
+        return true;
+    }
+    if (unit_position_walkable(map, unit, unit->gx, gy)) {
+        unit->gy = gy;
+        return true;
+    }
+    return false;
+}
+
+static float unit_harvest_interaction_radius_cells(const Unit *unit) {
+    float radius = unit_radius_cells(unit) + 1.25f;
+    return radius < 1.25f ? 1.25f : radius;
+}
+
+static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
+                                const RtsGameInfo *game_info) {
+    if (!map || !unit || (unit->traits & RTS_TRAIT_HARVESTER) == 0 ||
+        unit->harvest_target < 0) {
+        return false;
+    }
+    if (unit->harvest_target >= map->resource_vent_count || !map->resource_vents) {
+        unit->harvest_target = -1;
+        unit->harvest_timer_ms = 0;
+        return false;
+    }
+
+    MapResourceVent *vent = &map->resource_vents[unit->harvest_target];
+    if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
+        unit->harvest_target = -1;
+        unit->harvest_timer_ms = 0;
+        return false;
+    }
+
+    float dx = ((float)vent->gx + 0.5f) - unit->gx;
+    float dy = ((float)vent->gy + 0.5f) - unit->gy;
+    float interaction_radius = unit_harvest_interaction_radius_cells(unit);
+    if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
+
+    unit->path_len = 0;
+    unit->path_index = 0;
+    unit->attack_target = -1;
+    if (game_info && unit->harvest_state_id > 0 &&
+        unit->harvest_state_id < game_info->state_count) {
+        const RtsState *state = rts_state_at(game_info, unit->state_id);
+        if (!state || state->misc1 != 5) {
+            unit->facing_code = (((float)vent->gx + 0.5f) < unit->gx) ? 14 : 2;
+            RtsStateContext ctx = { .map = map, .game_info = game_info };
+            rts_set_unit_state(&ctx, unit, unit->harvest_state_id);
+        }
+    }
+    unit->harvest_timer_ms += dt_ms;
+    while (unit->harvest_timer_ms >= RTS_HARVEST_INTERVAL_MS && vent->amount > 0) {
+        unit->harvest_timer_ms -= RTS_HARVEST_INTERVAL_MS;
+        int take = vent->rate;
+        if (take > vent->amount) take = vent->amount;
+        vent->amount -= take;
+        int owner = unit->owner < 8 ? unit->owner : 0;
+        map->player_resources[owner] += take;
+        if (vent->amount <= 0) {
+            vent->active = false;
+            unit->harvest_target = -1;
+            unit->harvest_timer_ms = 0;
+            break;
+        }
+    }
+    return true;
 }
 
 void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *effects,
@@ -1401,6 +1763,19 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
             }
 
             bool moving = u->path_index > 0 && u->path_index < u->path_len;
+            if (moving && u->attack_anim_left_ms <= 0) {
+                int stop_target = -1;
+                if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
+                    u->attack_target = stop_target;
+                    Unit *target = &units[stop_target];
+                    u->facing_code = rts_direction_code_from_vector(game_info,
+                                                                    target->gx - u->gx,
+                                                                    target->gy - u->gy);
+                    u->path_len = 0;
+                    u->path_index = 0;
+                    moving = false;
+                }
+            }
             if (moving) {
                 Cell c = u->path[u->path_index];
                 bool final = u->path_index == u->path_len - 1;
@@ -1413,18 +1788,31 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
                     u->facing_code = rts_direction_code_from_vector(game_info, dx, dy);
                 float step = u->speed * dt;
                 if (dist <= step || dist < 0.001f) {
-                    u->gx = tx;
-                    u->gy = ty;
-                    u->path_index++;
-                    if (u->path_index >= u->path_len) {
+                    if (move_unit_if_walkable(map, u, tx, ty)) {
+                        u->path_index++;
+                        if (u->path_index >= u->path_len) {
+                            u->path_len = 0;
+                            u->path_index = 0;
+                            moving = false;
+                        }
+                    } else {
                         u->path_len = 0;
                         u->path_index = 0;
                         moving = false;
                     }
                 } else {
-                    u->gx += dx / dist * step;
-                    u->gy += dy / dist * step;
+                    float nx = u->gx + dx / dist * step;
+                    float ny = u->gy + dy / dist * step;
+                    if (!move_unit_if_walkable(map, u, nx, ny)) {
+                        u->path_len = 0;
+                        u->path_index = 0;
+                        moving = false;
+                    }
                 }
+            }
+
+            if (update_unit_harvest(map, u, dt_ms, game_info)) {
+                moving = false;
             }
 
             if (u->type_id > 0 && u->type_id < game_info->mobj_type_count &&
@@ -1514,7 +1902,23 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
             u->attack_anim_left_ms -= dt_ms;
             if (u->attack_anim_left_ms < 0) u->attack_anim_left_ms = 0;
         }
-        if (u->path_index <= 0 || u->path_index >= u->path_len) continue;
+        if (u->path_index > 0 && u->path_index < u->path_len &&
+            u->attack_anim_left_ms <= 0) {
+            int stop_target = -1;
+            if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
+                u->attack_target = stop_target;
+                Unit *target = &units[stop_target];
+                u->facing_code = rts_direction_code_from_vector(NULL,
+                                                                target->gx - u->gx,
+                                                                target->gy - u->gy);
+                u->path_len = 0;
+                u->path_index = 0;
+            }
+        }
+        if (u->path_index <= 0 || u->path_index >= u->path_len) {
+            update_unit_harvest(map, u, dt_ms, NULL);
+            continue;
+        }
         Cell c = u->path[u->path_index];
         bool final = u->path_index == u->path_len - 1;
         float tx = final ? u->move_goal_gx : (float)c.x + 0.5f;
@@ -1525,17 +1929,25 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         if (dist >= 0.001f) u->facing_code = rts_direction_code_from_vector(NULL, dx, dy);
         float step = u->speed * dt;
         if (dist <= step || dist < 0.001f) {
-            u->gx = tx;
-            u->gy = ty;
-            u->path_index++;
-            if (u->path_index >= u->path_len) {
+            if (move_unit_if_walkable(map, u, tx, ty)) {
+                u->path_index++;
+                if (u->path_index >= u->path_len) {
+                    u->path_len = 0;
+                    u->path_index = 0;
+                }
+            } else {
                 u->path_len = 0;
                 u->path_index = 0;
             }
         } else {
-            u->gx += dx / dist * step;
-            u->gy += dy / dist * step;
+            float nx = u->gx + dx / dist * step;
+            float ny = u->gy + dy / dist * step;
+            if (!move_unit_if_walkable(map, u, nx, ny)) {
+                u->path_len = 0;
+                u->path_index = 0;
+            }
         }
+        (void)update_unit_harvest(map, u, dt_ms, NULL);
     }
 
     separate_units(map, units, count);
@@ -1586,10 +1998,13 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         if (target->hp <= 0) {
             target->hp = 0;
             target->selected = false;
-            target->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_ATTACK);
+            target->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                                RTS_TRAIT_ATTACK | RTS_TRAIT_HARVESTER);
             target->path_len = 0;
             target->path_index = 0;
             target->attack_target = -1;
+            target->harvest_target = -1;
+            target->harvest_timer_ms = 0;
             target->attack_cooldown_left_ms = 0;
             target->attack_anim_left_ms = 0;
             target->death_started = true;
@@ -1713,76 +2128,215 @@ static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float
     }
 }
 
+static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallback_sprite,
+                               const SpriteCache *cache, const RtsGameInfo *game_info,
+                               uint32_t ticks) {
+    if (!u || (u->traits & RTS_TRAIT_RENDERABLE) == 0) return;
+    const char *sprite_name = u->sprite_name;
+    if (game_info && u->sprite_id >= 0 && u->sprite_id < game_info->sprite_count &&
+        game_info->sprnames && game_info->sprnames[u->sprite_id]) {
+        sprite_name = game_info->sprnames[u->sprite_id];
+    }
+    const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
+    if (!sprite) sprite = fallback_sprite;
+    if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
+
+    float sx, sy;
+    grid_to_screen(app, u->gx, u->gy, &sx, &sy);
+    int frame = game_info ? u->frame : sprite_frame_for_unit(sprite, u, ticks);
+    uint32_t render_flags = game_info ? u->render_flags : 0;
+    if (frame >= sprite->frame_count) frame = 0;
+    if (frame < 0) frame = 0;
+    SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+    int scale = app_scale(app);
+    int sprite_w = sprite->frame_w * scale;
+    int sprite_h = sprite->frame_h * scale;
+    float content_w = (float)bounds.w * (float)scale;
+    float rx = unit_radius_cells(u) * (float)app_cell_w(app);
+    float min_rx = content_w * 0.34f;
+    if (rx < min_rx) rx = min_rx;
+    float ry = rx * 0.38f;
+    float ground_offset_y = ((float)bounds.y + (float)bounds.h) * (float)scale - ry * 0.35f;
+    SDL_Rect dst = {
+        (int)(sx - sprite_w / 2),
+        (int)(sy - ground_offset_y),
+        sprite_w,
+        sprite_h,
+    };
+    const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
+    if (shadow && shadow->texture && shadow->frame_count > 0) {
+        int shadow_frame = frame < shadow->frame_count ? frame : 0;
+        int shadow_w = shadow->frame_w * scale;
+        int shadow_h = shadow->frame_h * scale;
+        SDL_Rect shadow_dst = {
+            (int)(sx - shadow_w / 2),
+            (int)(sy - shadow_h / 2),
+            shadow_w,
+            shadow_h,
+        };
+        SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
+    }
+    float content_y = (float)dst.y + (float)bounds.y * (float)scale;
+    if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
+        draw_selection_ellipse(app, sx, sy, rx + 2.0f, ry + 1.0f, (SDL_Color){ 15, 35, 30, 180 });
+        draw_selection_ellipse(app, sx, sy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
+    }
+    SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
+        int bar_w = sprite_w / 2;
+        int bar_h = app_scale(app) < 2 ? 2 : 3;
+        int bx = (int)(sx - bar_w / 2);
+        int by = (int)content_y - bar_h - 4;
+        SDL_Rect back = { bx, by, bar_w, bar_h };
+        SDL_Rect fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
+        SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
+        SDL_RenderFillRect(app->renderer, &back);
+        SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 230);
+        SDL_RenderFillRect(app->renderer, &fill);
+    }
+}
+
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
                   const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
-        const Unit *u = &units[i];
-        if ((u->traits & RTS_TRAIT_RENDERABLE) == 0) continue;
-        const char *sprite_name = u->sprite_name;
-        if (game_info && u->sprite_id >= 0 && u->sprite_id < game_info->sprite_count &&
-            game_info->sprnames && game_info->sprnames[u->sprite_id]) {
-            sprite_name = game_info->sprnames[u->sprite_id];
-        }
-        const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
-        if (!sprite) sprite = fallback_sprite;
-        if (!sprite || !sprite->texture || sprite->frame_count <= 0) continue;
+        render_unit_sprite(app, &units[i], fallback_sprite, cache, game_info, ticks);
+    }
+}
 
-        float sx, sy;
-        grid_to_screen(app, u->gx, u->gy, &sx, &sy);
-        int frame = game_info ? u->frame : sprite_frame_for_unit(sprite, u, ticks);
-        uint32_t render_flags = game_info ? u->render_flags : 0;
-        if (frame >= sprite->frame_count) frame = 0;
-        if (frame < 0) frame = 0;
-        SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
-        int scale = app_scale(app);
-        int sprite_w = sprite->frame_w * scale;
-        int sprite_h = sprite->frame_h * scale;
-        SDL_Rect dst = {
-            (int)(sx - sprite_w / 2),
-            (int)(sy - sprite_h / 2),
-            sprite_w,
-            sprite_h,
-        };
-        const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
-        if (shadow && shadow->texture && shadow->frame_count > 0) {
-            int shadow_frame = frame < shadow->frame_count ? frame : 0;
-            int shadow_w = shadow->frame_w * scale;
-            int shadow_h = shadow->frame_h * scale;
-            SDL_Rect shadow_dst = {
-                (int)(sx - shadow_w / 2),
-                (int)(sy - shadow_h / 2),
-                shadow_w,
-                shadow_h,
-            };
-            SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
-        }
-        float content_y = (float)dst.y + (float)bounds.y * (float)scale;
-        float content_w = (float)bounds.w * (float)scale;
-        float content_h = (float)bounds.h * (float)scale;
-        if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
-            float rx = unit_radius_cells(u) * (float)app_cell_w(app);
-            float min_rx = content_w * 0.34f;
-            if (rx < min_rx) rx = min_rx;
-            float ry = rx * 0.38f;
-            float cy = content_y + content_h - ry * 0.35f;
-            draw_selection_ellipse(app, sx, cy, rx + 2.0f, ry + 1.0f, (SDL_Color){ 15, 35, 30, 180 });
-            draw_selection_ellipse(app, sx, cy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
-        }
-        SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-        if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
-            int bar_w = sprite_w / 2;
-            int bar_h = app_scale(app) < 2 ? 2 : 3;
-            int bx = (int)(sx - bar_w / 2);
-            int by = (int)content_y - bar_h - 4;
-            SDL_Rect back = { bx, by, bar_w, bar_h };
-            SDL_Rect fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
-            SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
-            SDL_RenderFillRect(app->renderer, &back);
-            SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 230);
-            SDL_RenderFillRect(app->renderer, &fill);
+typedef enum {
+    RENDER_ITEM_OVERLAY,
+    RENDER_ITEM_DECORATION,
+    RENDER_ITEM_UNIT,
+} RenderItemKind;
+
+typedef struct {
+    RenderItemKind kind;
+    float sort_y;
+    int index;
+    int x;
+    int y;
+    int layer;
+} RenderItem;
+
+static int compare_render_items(const void *a, const void *b) {
+    const RenderItem *ia = a;
+    const RenderItem *ib = b;
+    if (ia->sort_y < ib->sort_y) return -1;
+    if (ia->sort_y > ib->sort_y) return 1;
+    if (ia->kind != ib->kind) return (int)ia->kind - (int)ib->kind;
+    return ia->index - ib->index;
+}
+
+static void render_overlay_tile_item(App *app, const GameMap *map, const Tileset *tileset,
+                                     int x, int y, int layer) {
+    if (!app || !map || !tileset || layer < 0 || layer >= map->tile_overlay_count ||
+        layer >= MAX_TILE_OVERLAYS || !map->tile_overlays[layer]) {
+        return;
+    }
+    int idx = map_index(map, x, y);
+    int overlay = map->tile_overlays[layer][idx];
+    if (overlay <= 0) return;
+
+    int tile_w = app_tile_w(app, tileset);
+    int tile_h = app_tile_h(app, tileset);
+    int draw_y_offset = tileset->draw_y_offset * app_scale(app);
+    float sx, sy;
+    grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+    if (sx < -tile_w || sy < -tile_h ||
+        sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
+        return;
+    }
+    SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
+    SDL_Rect dst = {
+        (int)sx,
+        (int)(sy + draw_y_offset),
+        tile_w,
+        tile_h,
+    };
+    uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
+        map->tile_flip_flags[layer + 1][idx] : 0;
+    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
+}
+
+void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
+                          const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
+                          const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks) {
+    if (!app || !map) return;
+    int overlay_count = 0;
+    if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
+        for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
+            if (!map->tile_overlays[layer]) continue;
+            for (int y = 0; y < map->height; ++y) {
+                for (int x = 0; x < map->width; ++x) {
+                    if (map->tile_overlays[layer][map_index(map, x, y)] > 0) overlay_count++;
+                }
+            }
         }
     }
+
+    int decoration_count = map->decoration_count > 0 ? map->decoration_count : 0;
+    int total = overlay_count + decoration_count + (unit_count > 0 ? unit_count : 0);
+    if (total <= 0) return;
+    RenderItem *items = malloc((size_t)total * sizeof(*items));
+    if (!items) {
+        render_decorations(app, map, cache);
+        render_units(app, units, unit_count, fallback_sprite, cache, game_info, ticks);
+        return;
+    }
+
+    int count = 0;
+    if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
+        for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
+            if (!map->tile_overlays[layer]) continue;
+            for (int y = 0; y < map->height; ++y) {
+                for (int x = 0; x < map->width; ++x) {
+                    if (map->tile_overlays[layer][map_index(map, x, y)] <= 0) continue;
+                    items[count++] = (RenderItem){
+                        .kind = RENDER_ITEM_OVERLAY,
+                        .sort_y = (float)y + 1.0f + (float)layer * 0.001f,
+                        .index = map_index(map, x, y),
+                        .x = x,
+                        .y = y,
+                        .layer = layer,
+                    };
+                }
+            }
+        }
+    }
+    for (int i = 0; i < map->decoration_count; ++i) {
+        const MapDecoration *dec = &map->decorations[i];
+        float sort_y = dec->center_anchor ?
+            (float)dec->gy + 0.5f :
+            (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1);
+        items[count++] = (RenderItem){
+            .kind = RENDER_ITEM_DECORATION,
+            .sort_y = sort_y,
+            .index = i,
+        };
+    }
+    for (int i = 0; i < unit_count; ++i) {
+        items[count++] = (RenderItem){
+            .kind = RENDER_ITEM_UNIT,
+            .sort_y = units[i].gy,
+            .index = i,
+        };
+    }
+
+    qsort(items, (size_t)count, sizeof(*items), compare_render_items);
+    for (int i = 0; i < count; ++i) {
+        RenderItem *item = &items[i];
+        if (item->kind == RENDER_ITEM_OVERLAY) {
+            render_overlay_tile_item(app, map, tileset, item->x, item->y, item->layer);
+        } else if (item->kind == RENDER_ITEM_DECORATION) {
+            const MapDecoration *dec = &map->decorations[item->index];
+            render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name));
+            render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name));
+        } else {
+            render_unit_sprite(app, &units[item->index], fallback_sprite, cache, game_info, ticks);
+        }
+    }
+    free(items);
 }
 
 static int sprite_frame_for_effect(const SpriteSheet *sprite, const RtsVisualEffect *effect) {
@@ -1886,6 +2440,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
         case SDL_KEYDOWN:
             if (e->key.keysym.sym == SDLK_ESCAPE) app->running = false;
             if (e->key.keysym.sym == SDLK_g) app->show_grid = !app->show_grid;
+            if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
                     units[i].selected = units[i].owner == 0 &&
@@ -1918,6 +2473,27 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                 window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
                 float gx = 0.0f, gy = 0.0f;
                 screen_to_grid_point(app, rx, ry, &gx, &gy);
+                int target = pick_unit_at(app, units, unit_count, rx, ry, -1);
+                if (target >= 0 && units[target].owner != 0 && units[target].hp > 0) {
+                    for (int i = 0; i < unit_count; ++i) {
+                        if (!units[i].selected || units[i].owner != 0 || units[i].hp <= 0) continue;
+                        if ((units[i].traits & RTS_TRAIT_ATTACK) == 0) continue;
+                        units[i].attack_target = target;
+                        units[i].harvest_target = -1;
+                        units[i].harvest_timer_ms = 0;
+                    }
+                    gx = units[target].gx;
+                    gy = units[target].gy;
+                } else {
+                    if (issue_harvest_order_at(map, units, unit_count, gx, gy)) {
+                        break;
+                    }
+                    for (int i = 0; i < unit_count; ++i) {
+                        if (units[i].selected && units[i].owner == 0) {
+                            units[i].attack_target = -1;
+                        }
+                    }
+                }
                 issue_move_order_at(map, units, unit_count, gx, gy);
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = true;
@@ -1947,7 +2523,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                         }
                     }
                 } else {
-                    int picked = pick_unit_at(app, units, unit_count, bx, by);
+                    int picked = pick_unit_at(app, units, unit_count, bx, by, 0);
                     if (picked >= 0) {
                         units[picked].selected = true;
                     }
@@ -1989,6 +2565,7 @@ void destroy_map(GameMap *map) {
     free(map->blocked);
     free(map->cell_colors);
     free(map->decorations);
+    free(map->resource_vents);
     memset(map, 0, sizeof(*map));
 }
 
