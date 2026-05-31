@@ -808,24 +808,32 @@ static int rts_state_facing_slot(const RtsState *state, int facing_code) {
 }
 
 static void rts_resolve_state_frame(const RtsState *state, int facing_code,
-                                    int *frame_out, uint32_t *flags_out) {
+                                    int *frame_out, uint32_t *flags_out,
+                                    int *offset_x_out, int *offset_y_out) {
     int frame = state ? state->frame : 0;
     uint32_t flags = state ? state->flags : 0;
+    int offset_x = 0;
+    int offset_y = 0;
     if (state && state->facings > 0) {
         int best = rts_state_facing_slot(state, facing_code);
         if (best < 0) best = 0;
         frame = state->facing_frames[best];
         flags = state->facing_flags[best];
+        offset_x = state->offset_x[best];
+        offset_y = state->offset_y[best];
     }
     if (frame_out) *frame_out = frame;
     if (flags_out) *flags_out = flags;
+    if (offset_x_out) *offset_x_out = offset_x;
+    if (offset_y_out) *offset_y_out = offset_y;
 }
 
 static void rts_apply_state_visuals(const RtsGameInfo *game_info, Unit *unit,
                                     const RtsState *state) {
     if (!game_info || !unit || !state) return;
     unit->sprite_id = state->sprite;
-    rts_resolve_state_frame(state, unit->facing_code, &unit->frame, &unit->render_flags);
+    rts_resolve_state_frame(state, unit->facing_code, &unit->frame, &unit->render_flags,
+                            NULL, NULL);
     if (unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
         game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
         snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s",
@@ -837,7 +845,8 @@ static void rts_apply_effect_state_visuals(const RtsGameInfo *game_info, RtsVisu
                                            const RtsState *state) {
     if (!game_info || !effect || !state) return;
     effect->sprite_id = state->sprite;
-    rts_resolve_state_frame(state, effect->facing_code, &effect->frame, &effect->render_flags);
+    rts_resolve_state_frame(state, effect->facing_code, &effect->frame, &effect->render_flags,
+                            &effect->screen_offset_x, &effect->screen_offset_y);
     if (effect->sprite_id >= 0 && effect->sprite_id < game_info->sprite_count &&
         game_info->sprnames && game_info->sprnames[effect->sprite_id]) {
         snprintf(effect->sprite_name, sizeof(effect->sprite_name), "%s",
@@ -1835,14 +1844,32 @@ void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_eff
         }
         int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
-        debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d dst=%d,%d,%d,%d",
+        if (effect->screen_offset_x != 0 || effect->screen_offset_y != 0) {
+            dst.x += effect->screen_offset_x * scale;
+            dst.y += effect->screen_offset_y * scale;
+        }
+        debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
                           i, effect->sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
                           effect->age_ms, effect->duration_ms, effect->facing_code,
                           effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
-                          frame, sprite->frame_count, dst.x, dst.y, dst.w, dst.h);
+                          frame, sprite->frame_count,
+                          effect->screen_offset_x, effect->screen_offset_y,
+                          dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        if ((effect->render_flags & RTS_FRAME_ADDITIVE) != 0)
+            SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_ADD);
+        if ((effect->render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
+            SDL_SetTextureColorMod(sprite->texture, 255, 236, 72);
+            SDL_SetTextureAlphaMod(sprite->texture, 230);
+        }
         SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+        if ((effect->render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
+            SDL_SetTextureColorMod(sprite->texture, 255, 255, 255);
+            SDL_SetTextureAlphaMod(sprite->texture, 255);
+        }
+        if ((effect->render_flags & RTS_FRAME_ADDITIVE) != 0)
+            SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_BLEND);
     }
 }
 

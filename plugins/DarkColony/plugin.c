@@ -17,12 +17,12 @@ enum {
 
 void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit) {
     if (!ctx || !unit) return;
-    float vx = 0.0f, vy = 0.0f;
-    rts_direction_vector_from_code(ctx->game_info, unit->facing_code, &vx, &vy);
-    rts_spawn_state_effect(ctx, S_DC_MUZA1,
-                           unit->gx + vx * 0.42f,
-                           unit->gy + vy * 0.42f,
-                           unit->facing_code);
+    int muzzle_state = 0;
+    if (ctx->game_info && unit->type_id > 0 &&
+        unit->type_id < ctx->game_info->mobj_type_count) {
+        muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
+    }
+    rts_spawn_state_effect(ctx, muzzle_state, unit->gx, unit->gy, unit->facing_code);
 }
 
 void A_DC_Attack(RtsStateContext *ctx, Unit *unit) {

@@ -138,6 +138,15 @@ the Doom-style `base + phase * 8 + direction` formula. `GRAYFIREA0` therefore
 uses body base frame `80`, even though the FIN label range starts at command
 index `78`.
 
+Muzzle flashes are generated from the same command table. For the Doom state
+that calls `A_DC_MuzzleFlash`, the generator searches the FIN fire labels for
+the matching layer-1 body frame, then chooses the nearest following layer-3
+`BLAZ` command. The generated muzzle flash entries are ordinary `states[]`
+rows: `BLAZ.SPR` frame `0`, one screen-space offset per Dark Colony direction,
+and render flags for a bright additive yellow pass. `mobjinfo[].muzzleflash`
+points at the unit's muzzle flash state. `GLIT` and layer-5 unit-sprite commands
+remain separate overlays for later weapon polish, not the primary muzzle flash.
+
 ### Historical Rotation Bug
 
 The old sequence path treated Dark Colony unit frames as:

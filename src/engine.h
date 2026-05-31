@@ -25,6 +25,8 @@
 #define FIXED_DT (1.0f / 30.0f)
 
 #define RTS_FRAME_FLIP_X (1u << 0)
+#define RTS_FRAME_ADDITIVE (1u << 1)
+#define RTS_FRAME_TINT_YELLOW (1u << 2)
 
 typedef struct {
     int x;
@@ -153,6 +155,8 @@ typedef struct {
     int direction_codes[RTS_MAX_STATE_FACINGS];
     int facing_frames[RTS_MAX_STATE_FACINGS];
     uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
+    int offset_x[RTS_MAX_STATE_FACINGS];
+    int offset_y[RTS_MAX_STATE_FACINGS];
 } RtsState;
 
 typedef struct {
@@ -179,6 +183,7 @@ typedef struct {
     int activesound;
     int flags;
     int raisestate;
+    int muzzleflash;
 } RtsMobjInfo;
 
 typedef enum {
@@ -264,6 +269,8 @@ typedef struct {
     int sprite_id;
     int frame;
     uint32_t render_flags;
+    int screen_offset_x;
+    int screen_offset_y;
     int age_ms;
     int duration_ms;
     int frame_ms;
