@@ -13,8 +13,33 @@ typedef struct {
     int frames;
 } SpriteEntry;
 
+typedef struct {
+    char name[17];
+    int start;
+    int end;
+} FinLabel;
+
+typedef struct {
+    char sprite[9];
+    int frame;
+    int layer;
+} FinCommand;
+
+typedef struct {
+    char stem[9];
+    char stem_lower[9];
+    FinLabel *labels;
+    int label_count;
+    FinCommand *commands;
+    int command_count;
+} FinAnim;
+
 static uint16_t read_u16_le(const unsigned char *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+
+static int16_t read_i16_le(const unsigned char *p) {
+    return (int16_t)read_u16_le(p);
 }
 
 static void die(const char *msg, const char *path) {
@@ -84,27 +109,113 @@ static int find_sprite(const SpriteEntry *sprites, int count, const char *path) 
     exit(1);
 }
 
-static bool fin_has_label(const char *path, const char *label, int *start_out, int *end_out) {
+static void copy_padded_name(char *out, size_t out_size, const unsigned char *src, size_t src_size) {
+    size_t n = 0;
+    while (n + 1 < out_size && n < src_size && src[n] != '\0') {
+        out[n] = (char)src[n];
+        n++;
+    }
+    out[n] = '\0';
+}
+
+static void stem_lower_name(const char *stem, char out[9]) {
+    size_t n = 0;
+    for (; stem[n] && n < 8; ++n) out[n] = (char)tolower((unsigned char)stem[n]);
+    out[n] = '\0';
+}
+
+static const FinLabel *fin_find_label(const FinAnim *fin, const char *label) {
+    if (!fin || !label) return NULL;
+    for (int i = 0; i < fin->label_count; ++i) {
+        if (strcmp(fin->labels[i].name, label) == 0) return &fin->labels[i];
+    }
+    return NULL;
+}
+
+static FinAnim fin_load(const char *path, const char *stem) {
     size_t size = 0;
     unsigned char *data = read_file(path, &size);
     if (size < 8) die("FIN too small", path);
-    int entries = read_u16_le(data + 2);
+    int valid_labels = read_u16_le(data + 4);
     int deps = read_u16_le(data + 6);
-    size_t off = 8 + (size_t)deps * 8;
-    bool found = false;
-    for (int i = 0; i < entries && off + 20 <= size; ++i, off += 20) {
-        char name[17];
-        memcpy(name, data + off, 16);
-        name[16] = '\0';
-        if (strcmp(name, label) == 0) {
-            if (start_out) *start_out = read_u16_le(data + off + 16);
-            if (end_out) *end_out = read_u16_le(data + off + 18);
-            found = true;
+    size_t label_off = 8 + (size_t)deps * 8;
+    if (label_off + (size_t)valid_labels * 20 > size) die("FIN label table truncated", path);
+
+    FinAnim fin;
+    memset(&fin, 0, sizeof(fin));
+    snprintf(fin.stem, sizeof(fin.stem), "%s", stem);
+    stem_lower_name(stem, fin.stem_lower);
+    fin.label_count = valid_labels;
+    fin.labels = calloc((size_t)fin.label_count, sizeof(*fin.labels));
+    if (!fin.labels) die("out of memory", NULL);
+    for (int i = 0; i < fin.label_count; ++i) {
+        size_t off = label_off + (size_t)i * 20;
+        copy_padded_name(fin.labels[i].name, sizeof(fin.labels[i].name), data + off, 16);
+        fin.labels[i].start = read_u16_le(data + off + 16);
+        fin.labels[i].end = read_u16_le(data + off + 18);
+    }
+
+    unsigned char pattern[8] = {0};
+    memcpy(pattern, fin.stem_lower, strlen(fin.stem_lower));
+    size_t command_off = 0;
+    bool found_commands = false;
+    size_t search_off = label_off + (size_t)valid_labels * 20;
+    for (size_t off = search_off; off + 22 <= size; ++off) {
+        if ((size - off) % 22 != 0) continue;
+        if (memcmp(data + off, pattern, sizeof(pattern)) == 0) {
+            command_off = off;
+            found_commands = true;
             break;
         }
     }
+    if (!found_commands) die("FIN command table not found", path);
+
+    fin.command_count = (int)((size - command_off) / 22);
+    fin.commands = calloc((size_t)fin.command_count, sizeof(*fin.commands));
+    if (!fin.commands) die("out of memory", NULL);
+    for (int i = 0; i < fin.command_count; ++i) {
+        size_t off = command_off + (size_t)i * 22;
+        copy_padded_name(fin.commands[i].sprite, sizeof(fin.commands[i].sprite), data + off, 8);
+        fin.commands[i].frame = read_i16_le(data + off + 8);
+        fin.commands[i].layer = read_i16_le(data + off + 18);
+    }
+
     free(data);
-    return found;
+    return fin;
+}
+
+static void fin_free(FinAnim *fin) {
+    if (!fin) return;
+    free(fin->labels);
+    free(fin->commands);
+    memset(fin, 0, sizeof(*fin));
+}
+
+static bool fin_label_range(const FinAnim *fin, const char *label, int *start_out, int *end_out) {
+    const FinLabel *l = fin_find_label(fin, label);
+    if (!l) return false;
+    if (start_out) *start_out = l->start;
+    if (end_out) *end_out = l->end;
+    return true;
+}
+
+static int fin_first_body_frame(const FinAnim *fin, const char *label) {
+    const FinLabel *l = fin_find_label(fin, label);
+    if (!l) {
+        fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n", label, fin ? fin->stem : "(null)");
+        exit(1);
+    }
+    if (l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
+        fprintf(stderr, "dc_info_gen: FIN label %s has invalid command range %d..%d\n",
+                label, l->start, l->end);
+        exit(1);
+    }
+    for (int i = l->start; i <= l->end; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) return cmd->frame;
+    }
+    fprintf(stderr, "dc_info_gen: FIN label %s has no body frame for %s\n", label, fin->stem_lower);
+    exit(1);
 }
 
 static void validate_dark_colony_data(const char *root, const SpriteEntry *sprites, int sprite_count) {
@@ -117,11 +228,15 @@ static void validate_dark_colony_data(const char *root, const SpriteEntry *sprit
 
     char fin_path[1024];
     snprintf(fin_path, sizeof(fin_path), "%s/ANIMATE/GRAY.FIN", root);
+    FinAnim gray_fin = fin_load(fin_path, "GRAY");
     int start = 0, end = 0;
-    if (!fin_has_label(fin_path, "GRAYDIEA14", &start, &end) || start != 254 || end != 265)
+    if (!fin_label_range(&gray_fin, "GRAYDIEA14", &start, &end) || start != 254 || end != 265)
         die("GRAY.FIN missing expected GRAYDIEA14 range", fin_path);
-    if (!fin_has_label(fin_path, "GRAYDIE210", &start, &end) || start != 266 || end != 277)
+    if (!fin_label_range(&gray_fin, "GRAYDIE210", &start, &end) || start != 266 || end != 277)
         die("GRAY.FIN missing expected GRAYDIE210 range", fin_path);
+    if (fin_first_body_frame(&gray_fin, "GRAYFIREA0") != 80)
+        die("GRAY.FIN FIREA0 does not resolve to expected first body frame", fin_path);
+    fin_free(&gray_fin);
 }
 
 static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count) {
@@ -136,7 +251,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_DC_TRSC_STND, S_DC_TRSC_RUN1, S_DC_TRSC_RUN2, S_DC_TRSC_RUN3, S_DC_TRSC_RUN4, S_DC_TRSC_RUN5, S_DC_TRSC_RUN6, S_DC_TRSC_RUN7, S_DC_TRSC_RUN8,\n");
     fprintf(out, "    S_DC_TRSC_ATK1, S_DC_TRSC_ATK2, S_DC_TRSC_ATK3, S_DC_TRSC_ATK4, S_DC_TRSC_ATK5, S_DC_TRSC_ATK6, S_DC_TRSC_ATK7, S_DC_TRSC_ATK8,\n");
     fprintf(out, "    S_DC_TRSC_DIE1, S_DC_TRSC_DIE2, S_DC_TRSC_DIE3, S_DC_TRSC_DIE4, S_DC_TRSC_DIE5, S_DC_TRSC_DIE6, S_DC_TRSC_DIE7, S_DC_TRSC_DIE8, S_DC_TRSC_DIE9, S_DC_TRSC_DIE10, S_DC_TRSC_CORPSE,\n");
-    fprintf(out, "    S_DC_GRAY_STND, S_DC_GRAY_RUN1, S_DC_GRAY_RUN2, S_DC_GRAY_RUN3, S_DC_GRAY_RUN4, S_DC_GRAY_RUN5, S_DC_GRAY_RUN6, S_DC_GRAY_RUN7,\n");
+    fprintf(out, "    S_DC_GRAY_STND, S_DC_GRAY_RUN1, S_DC_GRAY_RUN2, S_DC_GRAY_RUN3, S_DC_GRAY_RUN4, S_DC_GRAY_RUN5, S_DC_GRAY_RUN6, S_DC_GRAY_RUN7, S_DC_GRAY_RUN8,\n");
     fprintf(out, "    S_DC_GRAY_ATK1, S_DC_GRAY_ATK2, S_DC_GRAY_ATK3, S_DC_GRAY_ATK4, S_DC_GRAY_ATK5, S_DC_GRAY_ATK6, S_DC_GRAY_ATK7, S_DC_GRAY_ATK8,\n");
     fprintf(out, "    S_DC_GRAY_DIE1, S_DC_GRAY_DIE2, S_DC_GRAY_DIE3, S_DC_GRAY_DIE4, S_DC_GRAY_DIE5, S_DC_GRAY_DIE6, S_DC_GRAY_DIE7, S_DC_GRAY_DIE8, S_DC_GRAY_DIE9, S_DC_GRAY_ROT1, S_DC_GRAY_ROT2, S_DC_GRAY_ROT3, S_DC_GRAY_CORPSE,\n");
     fprintf(out, "    S_DC_EXPL_STND,\n");
@@ -193,11 +308,21 @@ static void gray_die(FILE *out, const char *next, int n, const char *action) {
             frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
 }
 
-static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count) {
+static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count, const char *root) {
     int trsc = find_sprite(sprites, sprite_count, "SPRITES/TRSC.SPR");
     int gray = find_sprite(sprites, sprite_count, "SPRITES/GRAY.SPR");
     int expl = find_sprite(sprites, sprite_count, "SPRITES/EXPL.SPR");
     int muza = find_sprite(sprites, sprite_count, "SPRITES/MUZA.SPR");
+    char trsc_fin_path[1024];
+    char gray_fin_path[1024];
+    snprintf(trsc_fin_path, sizeof(trsc_fin_path), "%s/ANIMATE/TRSC.FIN", root);
+    snprintf(gray_fin_path, sizeof(gray_fin_path), "%s/ANIMATE/GRAY.FIN", root);
+    FinAnim trsc_fin = fin_load(trsc_fin_path, "TRSC");
+    FinAnim gray_fin = fin_load(gray_fin_path, "GRAY");
+    int trsc_move_base = fin_first_body_frame(&trsc_fin, "TRSCMOVE0");
+    int trsc_attack_base = fin_first_body_frame(&trsc_fin, "TRSCFIREA0");
+    int gray_move_base = fin_first_body_frame(&gray_fin, "GRAYMOVE0");
+    int gray_attack_base = fin_first_body_frame(&gray_fin, "GRAYFIREA0");
     fprintf(out, "/* Generated by tools/dc_info_gen.c. Do not edit by hand. */\n");
     fprintf(out, "#include \"info.h\"\n\n");
     fprintf(out, "const char *const sprnames[NUMSPRITES] = {\n");
@@ -210,8 +335,17 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     int trsc_die[6] = {128,138,149,159,179,195};
     f8_frame_major(out, sprites[trsc].symbol, -1, "NOACTION", "S_DC_TRSC_STND", 1, 0, 0);
     const char *trsc_run_next[8] = {"S_DC_TRSC_RUN2","S_DC_TRSC_RUN3","S_DC_TRSC_RUN4","S_DC_TRSC_RUN5","S_DC_TRSC_RUN6","S_DC_TRSC_RUN7","S_DC_TRSC_RUN8","S_DC_TRSC_RUN1"};
-    for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[trsc].symbol, 3, "NOACTION", trsc_run_next[i], 2, 16, i);
-    const int trsc_atk_frames[8] = {80,88,96,104,112,120,120,120};
+    for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[trsc].symbol, 3, "NOACTION", trsc_run_next[i], 2, trsc_move_base, i);
+    const int trsc_atk_frames[8] = {
+        trsc_attack_base,
+        trsc_attack_base + 8,
+        trsc_attack_base + 16,
+        trsc_attack_base + 24,
+        trsc_attack_base + 32,
+        trsc_attack_base + 40,
+        trsc_attack_base + 40,
+        trsc_attack_base + 40
+    };
     const char *trsc_atk_next[8] = {"S_DC_TRSC_ATK2","S_DC_TRSC_ATK3","S_DC_TRSC_ATK4","S_DC_TRSC_ATK5","S_DC_TRSC_ATK6","S_DC_TRSC_STND","S_DC_TRSC_STND","S_DC_TRSC_STND"};
     const char *trsc_atk_action[8] = {"NOACTION","A_DC_MuzzleFlash","A_DC_Attack","NOACTION","NOACTION","NOACTION","NOACTION","NOACTION"};
     for (int i = 0; i < 8; ++i) f8_frame_major_abs(out, sprites[trsc].symbol, 2, trsc_atk_action[i], trsc_atk_next[i], 3, trsc_atk_frames[i]);
@@ -220,9 +354,18 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f6(out, sprites[trsc].symbol, 1, "A_DC_Corpse", trsc_die_next[10], 4, trsc_die, 9);
 
     f8_frame_major(out, sprites[gray].symbol, -1, "NOACTION", "S_DC_GRAY_STND", 1, 0, 0);
-    const char *gray_run_next[7] = {"S_DC_GRAY_RUN2","S_DC_GRAY_RUN3","S_DC_GRAY_RUN4","S_DC_GRAY_RUN5","S_DC_GRAY_RUN6","S_DC_GRAY_RUN7","S_DC_GRAY_RUN1"};
-    for (int i = 0; i < 7; ++i) f8_frame_major(out, sprites[gray].symbol, 3, "NOACTION", gray_run_next[i], 2, 16, i);
-    const int gray_atk_frames[8] = {78,86,94,102,110,118,118,118};
+    const char *gray_run_next[8] = {"S_DC_GRAY_RUN2","S_DC_GRAY_RUN3","S_DC_GRAY_RUN4","S_DC_GRAY_RUN5","S_DC_GRAY_RUN6","S_DC_GRAY_RUN7","S_DC_GRAY_RUN8","S_DC_GRAY_RUN1"};
+    for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[gray].symbol, 3, "NOACTION", gray_run_next[i], 2, gray_move_base, i);
+    const int gray_atk_frames[8] = {
+        gray_attack_base,
+        gray_attack_base + 8,
+        gray_attack_base + 16,
+        gray_attack_base + 24,
+        gray_attack_base + 32,
+        gray_attack_base + 40,
+        gray_attack_base + 40,
+        gray_attack_base + 40
+    };
     const char *gray_atk_next[8] = {"S_DC_GRAY_ATK2","S_DC_GRAY_ATK3","S_DC_GRAY_ATK4","S_DC_GRAY_ATK5","S_DC_GRAY_ATK6","S_DC_GRAY_STND","S_DC_GRAY_STND","S_DC_GRAY_STND"};
     const char *gray_atk_action[8] = {"NOACTION","A_DC_MuzzleFlash","A_DC_Attack","NOACTION","NOACTION","NOACTION","NOACTION","NOACTION"};
     for (int i = 0; i < 8; ++i) f8_frame_major_abs(out, sprites[gray].symbol, 2, gray_atk_action[i], gray_atk_next[i], 3, gray_atk_frames[i]);
@@ -243,6 +386,8 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_STND, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_STND, S_DC_EXPL_STND, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL },\n");
     fprintf(out, "};\n\n");
     fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_8 };\n");
+    fin_free(&trsc_fin);
+    fin_free(&gray_fin);
 }
 
 int main(int argc, char **argv) {
@@ -282,7 +427,7 @@ int main(int argc, char **argv) {
 
     FILE *c = fopen(argv[3], "w");
     if (!c) die(strerror(errno), argv[3]);
-    write_source(c, sprites, count);
+    write_source(c, sprites, count, root);
     fclose(c);
 
     free(sprites);

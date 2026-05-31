@@ -258,6 +258,22 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, Tileset 
 
 /* ── SPR loader ─────────────────────────────────────────────────────────── */
 
+static SDL_Rect dc_visible_bounds(const uint32_t *rgba, int atlas_w, SDL_Rect frame) {
+    int min_x = frame.w, min_y = frame.h, max_x = -1, max_y = -1;
+    for (int y = 0; y < frame.h; ++y) {
+        for (int x = 0; x < frame.w; ++x) {
+            uint32_t px = rgba[(frame.y + y) * atlas_w + frame.x + x];
+            if ((px >> 24) == 0) continue;
+            if (x < min_x) min_x = x;
+            if (y < min_y) min_y = y;
+            if (x > max_x) max_x = x;
+            if (y > max_y) max_y = y;
+        }
+    }
+    if (max_x < min_x || max_y < min_y) return (SDL_Rect){ 0, 0, frame.w, frame.h };
+    return (SDL_Rect){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
+}
+
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
                              uint32_t palette_out[256]) {
     memset(out, 0, sizeof(*out));
@@ -301,8 +317,9 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     int atlas_h = rows * max_h;
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
     SDL_Rect *frames = calloc((size_t)visible_frames, sizeof(SDL_Rect));
-    if (!rgba || !frames) {
-        free(rgba); free(frames); free_blob(&blob);
+    SDL_Rect *bounds = calloc((size_t)visible_frames, sizeof(SDL_Rect));
+    if (!rgba || !frames || !bounds) {
+        free(rgba); free(frames); free(bounds); free_blob(&blob);
         return false;
     }
 
@@ -314,10 +331,10 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         int fx = (i % cols) * max_w + (max_w - w) / 2;
         int fy = (i / cols) * max_h + (max_h - h) / 2;
         if (compressed) {
-            if (src_pos + 4 > blob.size) { free(rgba); free(frames); free_blob(&blob); return false; }
+            if (src_pos + 4 > blob.size) { free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
             uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
             src_pos += 4;
-            if (src_pos + chunk_size > blob.size) { free(rgba); free(frames); free_blob(&blob); return false; }
+            if (src_pos + chunk_size > blob.size) { free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
             const uint8_t *src = blob.bytes + src_pos;
             size_t pos = 0;
             int x = 0, y = 0;
@@ -347,10 +364,12 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
             src_pos += (size_t)w * (size_t)h;
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
+        bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
     }
 
     out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
     out->frames = frames;
+    out->frame_bounds = bounds;
     out->frame_count = visible_frames;
     out->frame_w = max_w;
     out->frame_h = max_h;

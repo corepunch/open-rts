@@ -47,26 +47,39 @@ after descriptors: pixel data
 
 ### Dark Colony FIN Binary Format
 
-`.FIN` files map human-readable animation label names to frame ranges within the
-corresponding `.SPR`.  `ANIM.DAT` lists all `.fin` stems; the matching `.SPR` is
-in `data/DCOLONY/SPRITES/`.
+`.FIN` files map human-readable animation label names to ranges of FIN draw
+commands. Those commands then point at raw frames inside one of the companion
+`.SPR` files. `ANIM.DAT` lists all `.fin` stems; the matching unit `.SPR` is in
+`data/DCOLONY/SPRITES/`.
 
 ```
 offset  size  field
 0x00    u16LE magic          always 0x001d (29); treat as version/format ID
-0x02    u16LE total_records  size of the label table (including NONAME padding)
+0x02    u16LE aux_count?     not the command count; exact meaning still unknown
 0x04    u16LE valid_count    number of named (non-NONAME) labels
 0x06    u16LE ref_count      number of companion sprite references
 0x08    ref_count×8  sprite_refs   null-padded 8-byte ASCII names of companion
                                    SPR stems loaded alongside this animation
-0x08+ref_count×8  total_records×20  label table:
+0x08+ref_count×8  valid_count×20  named label table:
               bytes 0..15  name    null-padded ASCII label (e.g. "GRAYMOVE0")
-              bytes 16..17 start   u16LE first frame index (inclusive)
-              bytes 18..19 end     u16LE last frame index (inclusive)
-  Entries beyond valid_count are NONAME padding; ignore them.
-after label table: auxiliary data (hitbox / attachment-point records per frame)
-  Not needed for sprite loading; structure is not fully reversed.
+              bytes 16..17 start   u16LE first command index (inclusive)
+              bytes 18..19 end     u16LE last command index (inclusive)
+after the named labels: NONAME/padding/auxiliary data, then a 22-byte command
+table that runs to EOF:
+              bytes 0..7   sprite  null-padded lower-case companion SPR stem
+              bytes 8..9   frame   s16LE raw frame inside that sprite
+              bytes 10..13 x/y     s16LE draw offsets
+              bytes 14..15 flags?  usually 0 in current samples
+              bytes 16..17 tics?   usually 16 in current samples
+              bytes 18..19 layer   1 for main unit body, 3/5 for effects/overlays
+              bytes 20..21 misc?   unknown
 ```
+
+Important: label `start..end` values are **not raw `.SPR` frame ids**. For
+example, `GRAYFIREA0` starts at command index `78`, and command `78` points to
+raw `GRAY.SPR` frame `80`. Likewise `GRAYMOVE2 0x47..0x4d` is seven command
+records, not raw frames `71..77`; its body commands point at raw frames
+`23,31,39,47,55,63,71`.
 
 ### FIN Label Naming Convention
 
@@ -118,10 +131,12 @@ int trsc_run1_frames[8] = { 16, 17, 18, 19, 20, 21, 22, 23 };
 int trsc_run2_frames[8] = { 24, 25, 26, 27, 28, 29, 30, 31 };
 ```
 
-Attack strips are frame-major too, but they are not always eight full body
-phases. `TRSC.SPR` uses body fire rows `80..127`; `128..151` are death rows.
-`GRAY.SPR` uses body fire rows `78..125`; `126..141` are loose effect pixels.
-Generated attack chains must return to stand before crossing those boundaries.
+Attack strips are frame-major too, but their FIN labels include overlay commands
+for `BLAZ`, `GLIT`, and related sprites. Generated body states must dereference
+FIN commands and use only layer-1 commands for the unit sprite before applying
+the Doom-style `base + phase * 8 + direction` formula. `GRAYFIREA0` therefore
+uses body base frame `80`, even though the FIN label range starts at command
+index `78`.
 
 ### Historical Rotation Bug
 
@@ -138,10 +153,10 @@ Dark Colony `info.c` must use the frame-major formula instead.
 
 1. Read `data/DCOLONY/ANIM.DAT` to enumerate all `.fin` stems.
 2. For each stem, parse the corresponding `.FIN` label table (first `valid_count`
-   entries; skip `NONAME`).
-3. Group labels by `ACTION` substring.  For `MOVE`, `FIREA`, `FIREB`, etc. that
-   have 8 direction variants, collect the 8 `(direction_code, start, length)`
-   tuples and call `sprite_sheet_add_sequence` with those arrays and `stride=1`.
+   entries) and the trailing 22-byte command table.
+3. Group labels by `ACTION` substring.  For `MOVE`, `FIREA`, `FIREB`, etc.,
+   dereference label command ranges to raw SPR frames, keeping layer-1 commands
+   for the unit body and preserving overlays for later effect work.
 4. For single-frame actions (`STAND`, `HITB`, `SHUF`), length=1, stride=1.
 5. For directional death strips (`DIEA`, `DIEB`, `DIEC`), note they only cover 4
    of the 8 directions in `GRAY`/`TRSC`; map remaining directions to nearest.

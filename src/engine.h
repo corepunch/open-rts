@@ -76,6 +76,7 @@ typedef struct {
 typedef struct {
     SDL_Texture *texture;
     SDL_Rect *frames;
+    SDL_Rect *frame_bounds;
     int frame_count;
     int frame_w;
     int frame_h;
@@ -241,6 +242,9 @@ typedef struct Unit {
     bool selected;
     bool death_started;
     bool remove;
+    float radius;
+    float move_goal_gx;
+    float move_goal_gy;
     char sprite_name[32];
     char shadow_name[32];
     char muzzle_flash_name[32];

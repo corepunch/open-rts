@@ -16,6 +16,12 @@ typedef struct {
     uint8_t state;
 } AStarNode;
 
+typedef struct {
+    int cost;
+    uint8_t closed;
+    uint8_t queued;
+} FlowCell;
+
 static bool debug_effects_enabled(void) {
     static int enabled = -1;
     if (enabled < 0) {
@@ -225,6 +231,33 @@ bool map_walkable(const GameMap *map, int x, int y) {
     return map_contains(map, x, y) && (!map->blocked || map->blocked[map_index(map, x, y)] == 0);
 }
 
+static float unit_radius_cells(const Unit *unit) {
+    if (unit && unit->radius > 0.05f) return unit->radius;
+    return 0.42f;
+}
+
+static bool unit_position_walkable(const GameMap *map, float gx, float gy) {
+    if (!map) return true;
+    int cx = (int)floorf(gx);
+    int cy = (int)floorf(gy);
+    return map_walkable(map, cx, cy);
+}
+
+static void clamp_unit_position_to_map(const GameMap *map, Unit *unit) {
+    if (!map || !unit || map->width <= 0 || map->height <= 0) return;
+    float r = unit_radius_cells(unit);
+    float min_x = r;
+    float min_y = r;
+    float max_x = (float)map->width - r;
+    float max_y = (float)map->height - r;
+    if (max_x < min_x) max_x = min_x = (float)map->width * 0.5f;
+    if (max_y < min_y) max_y = min_y = (float)map->height * 0.5f;
+    if (unit->gx < min_x) unit->gx = min_x;
+    if (unit->gy < min_y) unit->gy = min_y;
+    if (unit->gx > max_x) unit->gx = max_x;
+    if (unit->gy > max_y) unit->gy = max_y;
+}
+
 static int heuristic(Cell a, Cell b) {
     int dx = abs(a.x - b.x);
     int dy = abs(a.y - b.y);
@@ -322,9 +355,174 @@ int astar_find(const GameMap *map, Cell start, Cell goal, Cell *out_path, int ma
     return length;
 }
 
+static bool find_nearest_walkable_cell(const GameMap *map, Cell wanted, int radius, Cell *out) {
+    if (!map || !out) return false;
+    if (map_walkable(map, wanted.x, wanted.y)) {
+        *out = wanted;
+        return true;
+    }
+    int best_h = 1000000;
+    bool found = false;
+    Cell best = wanted;
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            Cell c = { wanted.x + dx, wanted.y + dy };
+            if (!map_walkable(map, c.x, c.y)) continue;
+            int h = dx * dx + dy * dy;
+            if (h < best_h) {
+                best_h = h;
+                best = c;
+                found = true;
+            }
+        }
+    }
+    if (!found) return false;
+    *out = best;
+    return true;
+}
+
+static FlowCell *build_flow_field(const GameMap *map, Cell goal) {
+    if (!map || !map_walkable(map, goal.x, goal.y)) return NULL;
+    int total = map->width * map->height;
+    FlowCell *field = malloc((size_t)total * sizeof(*field));
+    int *open = malloc((size_t)total * sizeof(*open));
+    if (!field || !open) {
+        free(field);
+        free(open);
+        return NULL;
+    }
+    for (int i = 0; i < total; ++i) {
+        field[i].cost = 1000000000;
+        field[i].closed = 0;
+        field[i].queued = 0;
+    }
+
+    int open_count = 0;
+    int goal_idx = map_index(map, goal.x, goal.y);
+    field[goal_idx].cost = 0;
+    field[goal_idx].queued = 1;
+    open[open_count++] = goal_idx;
+
+    static const int dirs[8][3] = {
+        { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 },
+        { 1, 1, 14 }, { -1, 1, 14 }, { 1, -1, 14 }, { -1, -1, 14 },
+    };
+    while (open_count > 0) {
+        int best_open = 0;
+        for (int i = 1; i < open_count; ++i) {
+            if (field[open[i]].cost < field[open[best_open]].cost) best_open = i;
+        }
+        int current = open[best_open];
+        open[best_open] = open[--open_count];
+        field[current].queued = 0;
+        if (field[current].closed) continue;
+        field[current].closed = 1;
+
+        int cx = current % map->width;
+        int cy = current / map->width;
+        for (int d = 0; d < 8; ++d) {
+            int nx = cx + dirs[d][0];
+            int ny = cy + dirs[d][1];
+            if (!map_walkable(map, nx, ny)) continue;
+            if (dirs[d][0] != 0 && dirs[d][1] != 0 &&
+                (!map_walkable(map, cx + dirs[d][0], cy) ||
+                 !map_walkable(map, cx, cy + dirs[d][1]))) {
+                continue;
+            }
+            int ni = map_index(map, nx, ny);
+            int next_cost = field[current].cost + dirs[d][2];
+            if (next_cost >= field[ni].cost) continue;
+            field[ni].cost = next_cost;
+            if (!field[ni].queued && !field[ni].closed && open_count < total) {
+                field[ni].queued = 1;
+                open[open_count++] = ni;
+            }
+        }
+    }
+
+    free(open);
+    return field;
+}
+
+static bool line_walkable(const GameMap *map, Cell a, Cell b) {
+    if (!map) return true;
+    int dx = abs(b.x - a.x);
+    int dy = abs(b.y - a.y);
+    int steps = dx > dy ? dx : dy;
+    if (steps <= 0) return map_walkable(map, a.x, a.y);
+    for (int i = 0; i <= steps; ++i) {
+        float t = (float)i / (float)steps;
+        int x = (int)floorf((float)a.x + ((float)b.x - (float)a.x) * t + 0.5f);
+        int y = (int)floorf((float)a.y + ((float)b.y - (float)a.y) * t + 0.5f);
+        if (!map_walkable(map, x, y)) return false;
+    }
+    return true;
+}
+
+static int smooth_cell_path(const GameMap *map, Cell *path, int length) {
+    if (!map || !path || length <= 2) return length;
+    int write = 0;
+    int anchor = 0;
+    path[write++] = path[0];
+    while (anchor < length - 1) {
+        int next = length - 1;
+        while (next > anchor + 1 && !line_walkable(map, path[anchor], path[next])) next--;
+        path[write++] = path[next];
+        anchor = next;
+    }
+    return write;
+}
+
+static int flow_path_find(const GameMap *map, const FlowCell *field, Cell start,
+                          Cell *out_path, int max_path) {
+    if (!map || !field || !out_path || max_path <= 0 ||
+        !map_walkable(map, start.x, start.y)) {
+        return 0;
+    }
+    int current = map_index(map, start.x, start.y);
+    if (field[current].cost >= 1000000000) return 0;
+    int length = 0;
+    out_path[length++] = start;
+    static const int dirs[8][2] = {
+        { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
+        { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 },
+    };
+    int guard = map->width * map->height;
+    while (field[current].cost > 0 && length < max_path && guard-- > 0) {
+        int cx = current % map->width;
+        int cy = current / map->width;
+        int best = current;
+        int best_cost = field[current].cost;
+        for (int d = 0; d < 8; ++d) {
+            int nx = cx + dirs[d][0];
+            int ny = cy + dirs[d][1];
+            if (!map_walkable(map, nx, ny)) continue;
+            if (dirs[d][0] != 0 && dirs[d][1] != 0 &&
+                (!map_walkable(map, cx + dirs[d][0], cy) ||
+                 !map_walkable(map, cx, cy + dirs[d][1]))) {
+                continue;
+            }
+            int ni = map_index(map, nx, ny);
+            if (field[ni].cost < best_cost) {
+                best = ni;
+                best_cost = field[ni].cost;
+            }
+        }
+        if (best == current) break;
+        current = best;
+        out_path[length++] = (Cell){ current % map->width, current / map->width };
+    }
+    return smooth_cell_path(map, out_path, length);
+}
+
 void grid_to_screen(const App *app, float gx, float gy, float *sx, float *sy) {
     *sx = gx * (float)app_cell_w(app) + app->cam_x;
     *sy = gy * (float)app_cell_h(app) + app->cam_y;
+}
+
+static void screen_to_grid_point(const App *app, int sx, int sy, float *gx, float *gy) {
+    if (gx) *gx = ((float)sx - app->cam_x) / (float)app_cell_w(app);
+    if (gy) *gy = ((float)sy - app->cam_y) / (float)app_cell_h(app);
 }
 
 Cell screen_to_grid(const App *app, int sx, int sy) {
@@ -715,6 +913,11 @@ void rts_apply_mobjinfo_defaults(const RtsGameInfo *game_info, Unit *unit) {
     if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
     if (unit->speed <= 0.0f) unit->speed = (float)info->speed;
+    if (unit->radius <= 0.05f) {
+        unit->radius = (float)info->radius / 32.0f;
+        if (unit->radius < 0.32f) unit->radius = 0.32f;
+        if (unit->radius > 0.90f) unit->radius = 0.90f;
+    }
     if (unit->state_id <= 0) {
         RtsStateContext ctx = { .game_info = game_info };
         rts_set_unit_state(&ctx, unit, info->spawnstate);
@@ -779,6 +982,45 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
     return x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
 }
 
+static float unit_pick_radius_px(const App *app, const Unit *unit) {
+    float cell = ((float)app_cell_w(app) + (float)app_cell_h(app)) * 0.5f;
+    float radius = unit_radius_cells(unit) * cell;
+    float min_radius = 12.0f * (float)app_scale(app);
+    return radius < min_radius ? min_radius : radius;
+}
+
+static bool circle_intersects_rect(float cx, float cy, float radius, SDL_Rect r) {
+    float nearest_x = cx;
+    float nearest_y = cy;
+    if (nearest_x < (float)r.x) nearest_x = (float)r.x;
+    if (nearest_x > (float)(r.x + r.w)) nearest_x = (float)(r.x + r.w);
+    if (nearest_y < (float)r.y) nearest_y = (float)r.y;
+    if (nearest_y > (float)(r.y + r.h)) nearest_y = (float)(r.y + r.h);
+    float dx = cx - nearest_x;
+    float dy = cy - nearest_y;
+    return dx * dx + dy * dy <= radius * radius;
+}
+
+static int pick_unit_at(const App *app, const Unit *units, int unit_count, int x, int y) {
+    int best = -1;
+    float best_score = 1000000000.0f;
+    for (int i = unit_count - 1; i >= 0; --i) {
+        const Unit *unit = &units[i];
+        if (unit->hp <= 0 || (unit->traits & RTS_TRAIT_SELECTABLE) == 0) continue;
+        if (unit->owner != 0) continue;
+        float sx = 0.0f, sy = 0.0f;
+        grid_to_screen(app, unit->gx, unit->gy, &sx, &sy);
+        float radius = unit_pick_radius_px(app, unit);
+        float dx = (float)x - sx;
+        float dy = (float)y - sy;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 > radius * radius || dist2 >= best_score) continue;
+        best_score = dist2;
+        best = i;
+    }
+    return best;
+}
+
 static int compass16_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
     float angle = atan2f(-dy, dx);
@@ -828,20 +1070,44 @@ void rts_direction_vector_from_code(const RtsGameInfo *game_info, int code, floa
     *dy = -sinf(angle);
 }
 
-void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
+static void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
+                                float goal_gx, float goal_gy) {
+    Cell goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
+    if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return;
+    FlowCell *field = build_flow_field(map, goal);
+    if (!field) return;
+
     int selected_index = 0;
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
         if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
-        Cell target = { goal.x + selected_index % 3 - 1, goal.y + selected_index / 3 };
-        if (!map_contains(map, target.x, target.y)) target = goal;
         Cell start = { (int)floorf(units[i].gx), (int)floorf(units[i].gy) };
-        int len = astar_find(map, start, target, units[i].path, MAX_PATH_CELLS);
+        int len = flow_path_find(map, field, start, units[i].path, MAX_PATH_CELLS);
+        int col = selected_index % 3 - 1;
+        int row = selected_index / 3;
+        float spacing = unit_radius_cells(&units[i]) * 1.8f;
+        units[i].move_goal_gx = goal_gx + (float)col * spacing;
+        units[i].move_goal_gy = goal_gy + (float)row * spacing;
+        if (!unit_position_walkable(map, units[i].move_goal_gx, units[i].move_goal_gy)) {
+            units[i].move_goal_gx = (float)goal.x + 0.5f;
+            units[i].move_goal_gy = (float)goal.y + 0.5f;
+        }
+        if (len == 1 && hypotf(units[i].move_goal_gx - units[i].gx,
+                               units[i].move_goal_gy - units[i].gy) > 0.05f &&
+            MAX_PATH_CELLS > 1) {
+            units[i].path[1] = units[i].path[0];
+            len = 2;
+        }
         units[i].path_len = len;
         units[i].path_index = len > 1 ? 1 : 0;
         selected_index++;
     }
+    free(field);
+}
+
+void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
+    issue_move_order_at(map, units, unit_count, (float)goal.x + 0.5f, (float)goal.y + 0.5f);
 }
 
 static bool spawn_visual_effect(RtsVisualEffect *effects, int max_effects,
@@ -1044,6 +1310,49 @@ void update_visual_effects(GameMap *map, RtsVisualEffect *effects, int max_effec
     }
 }
 
+static void separate_units(const GameMap *map, Unit *units, int count) {
+    if (!units || count <= 1) return;
+    for (int iter = 0; iter < 3; ++iter) {
+        for (int i = 0; i < count; ++i) {
+            Unit *a = &units[i];
+            if (a->remove || a->hp <= 0 || (a->traits & RTS_TRAIT_MOBILE) == 0) continue;
+            for (int j = i + 1; j < count; ++j) {
+                Unit *b = &units[j];
+                if (b->remove || b->hp <= 0 || (b->traits & RTS_TRAIT_MOBILE) == 0) continue;
+                float min_dist = unit_radius_cells(a) + unit_radius_cells(b);
+                float dx = b->gx - a->gx;
+                float dy = b->gy - a->gy;
+                float dist2 = dx * dx + dy * dy;
+                if (dist2 >= min_dist * min_dist) continue;
+                float dist = sqrtf(dist2);
+                if (dist < 0.0001f) {
+                    float angle = (float)((i * 37 + j * 17) % 360) * 0.01745329252f;
+                    dx = cosf(angle);
+                    dy = sinf(angle);
+                    dist = 1.0f;
+                }
+                float push = (min_dist - dist) * 0.5f;
+                float nx = dx / dist;
+                float ny = dy / dist;
+                float ax = a->gx - nx * push;
+                float ay = a->gy - ny * push;
+                float bx = b->gx + nx * push;
+                float by = b->gy + ny * push;
+                if (unit_position_walkable(map, ax, ay)) {
+                    a->gx = ax;
+                    a->gy = ay;
+                    clamp_unit_position_to_map(map, a);
+                }
+                if (unit_position_walkable(map, bx, by)) {
+                    b->gx = bx;
+                    b->gy = by;
+                    clamp_unit_position_to_map(map, b);
+                }
+            }
+        }
+    }
+}
+
 void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *effects,
                   int max_effects, const RtsGameInfo *game_info, float dt) {
     if (game_info) {
@@ -1085,8 +1394,9 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
             bool moving = u->path_index > 0 && u->path_index < u->path_len;
             if (moving) {
                 Cell c = u->path[u->path_index];
-                float tx = (float)c.x + 0.5f;
-                float ty = (float)c.y + 0.5f;
+                bool final = u->path_index == u->path_len - 1;
+                float tx = final ? u->move_goal_gx : (float)c.x + 0.5f;
+                float ty = final ? u->move_goal_gy : (float)c.y + 0.5f;
                 float dx = tx - u->gx;
                 float dy = ty - u->gy;
                 float dist = sqrtf(dx * dx + dy * dy);
@@ -1122,6 +1432,8 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
                 }
             }
         }
+
+        separate_units(map, units, count);
 
         for (int i = 0; i < count; ++i) {
             Unit *attacker = &units[i];
@@ -1177,7 +1489,6 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         return;
     }
 
-    (void)map;
     if (!units || !unit_count || *unit_count <= 0) return;
     int count = *unit_count;
     int dt_ms = (int)lroundf(dt * 1000.0f);
@@ -1196,8 +1507,9 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         }
         if (u->path_index <= 0 || u->path_index >= u->path_len) continue;
         Cell c = u->path[u->path_index];
-        float tx = (float)c.x + 0.5f;
-        float ty = (float)c.y + 0.5f;
+        bool final = u->path_index == u->path_len - 1;
+        float tx = final ? u->move_goal_gx : (float)c.x + 0.5f;
+        float ty = final ? u->move_goal_gy : (float)c.y + 0.5f;
         float dx = tx - u->gx;
         float dy = ty - u->gy;
         float dist = sqrtf(dx * dx + dy * dy);
@@ -1216,6 +1528,8 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
             u->gy += dy / dist * step;
         }
     }
+
+    separate_units(map, units, count);
 
     for (int i = 0; i < count; ++i) {
         Unit *attacker = &units[i];
@@ -1326,8 +1640,11 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
         int direction_code = unit->facing_code;
         if (moving && !dead) {
             Cell c = unit->path[unit->path_index];
-            float dx = ((float)c.x + 0.5f) - unit->gx;
-            float dy = ((float)c.y + 0.5f) - unit->gy;
+            bool final = unit->path_index == unit->path_len - 1;
+            float tx = final ? unit->move_goal_gx : (float)c.x + 0.5f;
+            float ty = final ? unit->move_goal_gy : (float)c.y + 0.5f;
+            float dx = tx - unit->gx;
+            float dy = ty - unit->gy;
             direction_code = rts_direction_code_from_vector(NULL, dx, dy);
         }
         int facing = sequence_facing_index(seq, direction_code);
@@ -1361,6 +1678,32 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
     return 0;
 }
 
+static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame) {
+    if (sprite && sprite->frame_bounds && frame >= 0 && frame < sprite->frame_count) {
+        SDL_Rect r = sprite->frame_bounds[frame];
+        if (r.w > 0 && r.h > 0) return r;
+    }
+    return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+}
+
+static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float ry,
+                                   SDL_Color color) {
+    if (!app || !app->renderer || rx <= 0.0f || ry <= 0.0f) return;
+    SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
+    const int segments = 40;
+    float prev_x = cx + rx;
+    float prev_y = cy;
+    for (int i = 1; i <= segments; ++i) {
+        float a = ((float)i / (float)segments) * 6.283185307179586f;
+        float x = cx + cosf(a) * rx;
+        float y = cy + sinf(a) * ry;
+        SDL_RenderDrawLine(app->renderer, (int)lroundf(prev_x), (int)lroundf(prev_y),
+                           (int)lroundf(x), (int)lroundf(y));
+        prev_x = x;
+        prev_y = y;
+    }
+}
+
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
                   const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
@@ -1375,22 +1718,13 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
         if (!sprite) sprite = fallback_sprite;
         if (!sprite || !sprite->texture || sprite->frame_count <= 0) continue;
 
-        if (u->path_len > 1) {
-            SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 170);
-            for (int p = u->path_index; p < u->path_len - 1; ++p) {
-                float ax, ay, bx, by;
-                grid_to_screen(app, u->path[p].x + 0.5f, u->path[p].y + 0.5f, &ax, &ay);
-                grid_to_screen(app, u->path[p + 1].x + 0.5f, u->path[p + 1].y + 0.5f, &bx, &by);
-                SDL_RenderDrawLine(app->renderer, (int)ax, (int)ay, (int)bx, (int)by);
-            }
-        }
-
         float sx, sy;
         grid_to_screen(app, u->gx, u->gy, &sx, &sy);
         int frame = game_info ? u->frame : sprite_frame_for_unit(sprite, u, ticks);
         uint32_t render_flags = game_info ? u->render_flags : 0;
         if (frame >= sprite->frame_count) frame = 0;
         if (frame < 0) frame = 0;
+        SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
         int scale = app_scale(app);
         int sprite_w = sprite->frame_w * scale;
         int sprite_h = sprite->frame_h * scale;
@@ -1413,25 +1747,31 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
             };
             SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
         }
+        float content_y = (float)dst.y + (float)bounds.y * (float)scale;
+        float content_w = (float)bounds.w * (float)scale;
+        float content_h = (float)bounds.h * (float)scale;
+        if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
+            float rx = unit_radius_cells(u) * (float)app_cell_w(app);
+            float min_rx = content_w * 0.34f;
+            if (rx < min_rx) rx = min_rx;
+            float ry = rx * 0.38f;
+            float cy = content_y + content_h - ry * 0.35f;
+            draw_selection_ellipse(app, sx, cy, rx + 2.0f, ry + 1.0f, (SDL_Color){ 15, 35, 30, 180 });
+            draw_selection_ellipse(app, sx, cy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
+        }
         SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
         SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
         if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
             int bar_w = sprite_w / 2;
             int bar_h = app_scale(app) < 2 ? 2 : 3;
             int bx = (int)(sx - bar_w / 2);
-            int by = dst.y - bar_h - 2;
+            int by = (int)content_y - bar_h - 4;
             SDL_Rect back = { bx, by, bar_w, bar_h };
             SDL_Rect fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
             SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
             SDL_RenderFillRect(app->renderer, &back);
             SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 230);
             SDL_RenderFillRect(app->renderer, &fill);
-        }
-        if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
-            SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 255);
-            SDL_Rect box = { dst.x - 3, dst.y - 3, dst.w + 6, dst.h + 6 };
-            SDL_RenderDrawRect(app->renderer, &box);
-            render_grid_cell(app, (int)floorf(u->gx), (int)floorf(u->gy), (SDL_Color){ 98, 224, 161, 255 });
         }
     }
 }
@@ -1520,7 +1860,11 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
             if (e->key.keysym.sym == SDLK_ESCAPE) app->running = false;
             if (e->key.keysym.sym == SDLK_g) app->show_grid = !app->show_grid;
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
-                for (int i = 0; i < unit_count; ++i) units[i].selected = true;
+                for (int i = 0; i < unit_count; ++i) {
+                    units[i].selected = units[i].owner == 0 &&
+                        (units[i].traits & RTS_TRAIT_SELECTABLE) != 0 &&
+                        units[i].hp > 0;
+                }
             }
             break;
         case SDL_MOUSEMOTION:
@@ -1545,7 +1889,9 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
             } else if (e->button.button == SDL_BUTTON_RIGHT) {
                 int rx = 0, ry = 0;
                 window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
-                issue_move_order(map, units, unit_count, screen_to_grid(app, rx, ry));
+                float gx = 0.0f, gy = 0.0f;
+                screen_to_grid_point(app, rx, ry, &gx, &gy);
+                issue_move_order_at(map, units, unit_count, gx, gy);
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = true;
             }
@@ -1560,14 +1906,23 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                 if (!additive) {
                     for (int i = 0; i < unit_count; ++i) units[i].selected = false;
                 }
-                for (int i = 0; i < unit_count; ++i) {
-                    if (units[i].hp <= 0) continue;
-                    if ((units[i].traits & RTS_TRAIT_SELECTABLE) == 0) continue;
-                    float sx, sy;
-                    grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
-                    if ((box && point_in_rect((int)sx, (int)sy, rect)) ||
-                        (!box && hypotf((float)bx - sx, (float)by - sy) < 30.0f)) {
-                        units[i].selected = true;
+                if (box) {
+                    for (int i = 0; i < unit_count; ++i) {
+                        if (units[i].hp <= 0) continue;
+                        if ((units[i].traits & RTS_TRAIT_SELECTABLE) == 0) continue;
+                        if (units[i].owner != 0) continue;
+                        float sx, sy;
+                        grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
+                        float radius = unit_pick_radius_px(app, &units[i]);
+                        if (point_in_rect((int)sx, (int)sy, rect) ||
+                            circle_intersects_rect(sx, sy, radius, rect)) {
+                            units[i].selected = true;
+                        }
+                    }
+                } else {
+                    int picked = pick_unit_at(app, units, unit_count, bx, by);
+                    if (picked >= 0) {
+                        units[picked].selected = true;
                     }
                 }
                 app->dragging_select = false;
@@ -1613,6 +1968,7 @@ void destroy_map(GameMap *map) {
 void destroy_sprite(SpriteSheet *sprite) {
     if (sprite->texture) SDL_DestroyTexture(sprite->texture);
     free(sprite->frames);
+    free(sprite->frame_bounds);
     memset(sprite, 0, sizeof(*sprite));
 }
 

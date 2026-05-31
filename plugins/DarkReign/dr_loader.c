@@ -321,6 +321,22 @@ static bool sprite_sheet_has_sequence(const SpriteSheet *sheet, const char *name
     return false;
 }
 
+static SDL_Rect dark_reign_visible_bounds(const uint32_t *rgba, int atlas_w, SDL_Rect frame) {
+    int min_x = frame.w, min_y = frame.h, max_x = -1, max_y = -1;
+    for (int y = 0; y < frame.h; ++y) {
+        for (int x = 0; x < frame.w; ++x) {
+            uint32_t px = rgba[(frame.y + y) * atlas_w + frame.x + x];
+            if ((px >> 24) == 0) continue;
+            if (x < min_x) min_x = x;
+            if (y < min_y) min_y = y;
+            if (x > max_x) max_x = x;
+            if (y > max_y) max_y = y;
+        }
+    }
+    if (max_x < min_x || max_y < min_y) return (SDL_Rect){ 0, 0, frame.w, frame.h };
+    return (SDL_Rect){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
+}
+
 static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
                              const uint32_t palette[256], SpriteSheet *out) {
     memset(out, 0, sizeof(*out));
@@ -412,14 +428,17 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
     {
         uint32_t *rgba   = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
         SDL_Rect *frames = calloc((size_t)total_frames, sizeof(SDL_Rect));
-        if (!rgba || !frames) { free(rgba); free(frames); goto spr_fail; }
+        SDL_Rect *bounds = calloc((size_t)total_frames, sizeof(SDL_Rect));
+        if (!rgba || !frames || !bounds) { free(rgba); free(frames); free(bounds); goto spr_fail; }
         indexed_to_rgba(rgba, indices, (size_t)atlas_w * (size_t)atlas_h, palette);
         for (int i = 0; i < total_frames; ++i) {
             frames[i].x = (i % cols) * szx; frames[i].y = (i / cols) * szy;
             frames[i].w = szx; frames[i].h = szy;
+            bounds[i] = dark_reign_visible_bounds(rgba, atlas_w, frames[i]);
         }
         out->texture    = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
         out->frames     = frames;
+        out->frame_bounds = bounds;
         out->frame_count = total_frames;
         out->frame_w    = szx;
         out->frame_h    = szy;
