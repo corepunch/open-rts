@@ -148,6 +148,28 @@ typedef struct {
     int count;
 } SpriteCache;
 
+typedef struct {
+    SpriteSheet sprite;
+    int glyph_index[128];
+    uint8_t glyph_width[128];
+    int glyph_w;
+    int glyph_h;
+    int line_h;
+    int draw_divisor;
+} RtsBitmapFont;
+
+#define RTS_MAX_HUD_MESSAGES 8
+
+typedef struct {
+    char text[256];
+    int ttl_ms;
+} RtsHudMessage;
+
+typedef struct {
+    RtsHudMessage messages[RTS_MAX_HUD_MESSAGES];
+    int count;
+} RtsHudText;
+
 typedef struct App App;
 typedef struct Unit Unit;
 typedef struct RtsStateContext RtsStateContext;
@@ -344,6 +366,13 @@ void blit_indexed_to_rgba(uint32_t *dst, int dst_w, int dst_h, int dst_x, int ds
 SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
 bool tileset_add_animation(Tileset *tileset, int value, const int *frames,
                            int frame_count, uint16_t frame_ms);
+void rts_font_draw_text(SDL_Renderer *renderer, const RtsBitmapFont *font, int x, int y,
+                        const char *text, SDL_Color color, int scale);
+void rts_font_draw_text_wrapped(SDL_Renderer *renderer, const RtsBitmapFont *font, int x, int y,
+                                int max_w, const char *text, SDL_Color color, int scale);
+int rts_font_text_width(const RtsBitmapFont *font, const char *text, int scale);
+void rts_hud_text_push(RtsHudText *hud, const char *text, int ttl_ms);
+void rts_hud_text_update(RtsHudText *hud, float dt);
 
 int map_index(const GameMap *map, int x, int y);
 bool map_contains(const GameMap *map, int x, int y);
@@ -388,6 +417,7 @@ void update_camera_from_keyboard(App *app, float dt);
 void destroy_tileset(Tileset *tileset);
 void destroy_map(GameMap *map);
 void destroy_sprite(SpriteSheet *sprite);
+void destroy_font(RtsBitmapFont *font);
 void destroy_sprite_cache(SpriteCache *cache);
 
 #endif

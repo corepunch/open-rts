@@ -623,6 +623,19 @@ static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, 
     return true;
 }
 
+static bool focus_camera_on_first_player_unit(App *app, const Unit *units, int unit_count) {
+    if (!app || !units) return false;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
+        float sx = 0.0f, sy = 0.0f;
+        grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
+        app->cam_x = (float)app->win_w * 0.5f - sx;
+        app->cam_y = (float)app->win_h * 0.5f - sy;
+        return true;
+    }
+    return false;
+}
+
 typedef struct {
     SDL_Rect outer;
     SDL_Rect header;
@@ -867,8 +880,8 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
 
 static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, const GameMap *map,
                                          const Unit *units, int unit_count,
-                                         const SpriteCache *cache, const DebugFont *font) {
-    if (!app || !font || !font->texture) return;
+                                         const SpriteCache *cache, const RtsBitmapFont *font) {
+    if (!app || !font || !font->sprite.texture) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
@@ -903,10 +916,10 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     const SpriteSheet *buttons = sprite_cache_lookup(cache, "INTRFACE/BUTTON.SPR");
     SDL_Rect logo_box = { layout.header.x + 8, layout.header.y + 12, layout.header.w - 16, 34 };
     dc_ui_draw_sprite_fit(app->renderer, logo, 2, logo_box, 0);
-    debug_font_draw_text(app->renderer, font, layout.header.x + 12, layout.header.y + 54,
+    rts_font_draw_text(app->renderer, font, layout.header.x + 12, layout.header.y + 54,
                          "HUMAN COMMAND", amber, 1);
 
-    debug_font_draw_text(app->renderer, font, layout.minimap.x + 10, layout.minimap.y + 8,
+    rts_font_draw_text(app->renderer, font, layout.minimap.x + 10, layout.minimap.y + 8,
                          "TACTICAL", amber, 1);
     SDL_Rect mini = {
         layout.minimap.x + 8,
@@ -922,13 +935,13 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     SDL_Rect p7_icon = { layout.resources.x + 12, layout.resources.y + 18, 36, 36 };
     dc_ui_draw_sprite_fit(app->renderer, buttons, 65, p7_icon, 0);
     snprintf(line, sizeof(line), "P-7 %d", map->player_resources[0]);
-    debug_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 18,
+    rts_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 18,
                          line, amber, 1);
     snprintf(line, sizeof(line), "VENTS %d/%d", active_vents, map->resource_vent_count);
-    debug_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 36,
+    rts_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 36,
                          line, text, 1);
     snprintf(line, sizeof(line), "UNITS %d", unit_count);
-    debug_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 54,
+    rts_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 54,
                          line, dim, 1);
 
     SDL_Rect portrait = { layout.status.x + 12, layout.status.y + 20, 76, 88 };
@@ -946,22 +959,22 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     int ty = layout.status.y + 20;
     if (selected_count > 1) {
         snprintf(line, sizeof(line), "%d UNITS SELECTED", selected_count);
-        debug_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
+        rts_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
         snprintf(line, sizeof(line), "LEAD: %s", selected_name);
     } else if (selected) {
         snprintf(line, sizeof(line), "%s", selected_name);
-        debug_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
+        rts_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
         snprintf(line, sizeof(line), "%s", dc_unit_status(selected));
     } else {
-        debug_font_draw_text(app->renderer, font, tx, ty, "NO UNIT SELECTED", dim, 1);
+        rts_font_draw_text(app->renderer, font, tx, ty, "NO UNIT SELECTED", dim, 1);
         snprintf(line, sizeof(line), "AWAITING ORDERS");
     }
-    debug_font_draw_text(app->renderer, font, tx, ty + 14, line, selected ? green : dim, 1);
+    rts_font_draw_text(app->renderer, font, tx, ty + 14, line, selected ? green : dim, 1);
     if (selected) {
         int hp = selected->hp < 0 ? 0 : selected->hp;
         int max_hp = selected->max_hp > 0 ? selected->max_hp : 1;
         snprintf(line, sizeof(line), "HP %d/%d", hp, max_hp);
-        debug_font_draw_text(app->renderer, font, tx, ty + 30, line, text, 1);
+        rts_font_draw_text(app->renderer, font, tx, ty + 30, line, text, 1);
         SDL_Rect hp_bg = { tx, ty + 44, layout.status.x + layout.status.w - tx - 12, 8 };
         SDL_Rect hp_fill = hp_bg;
         hp_fill.w = hp * hp_bg.w / max_hp;
@@ -972,7 +985,7 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
 
     const char *button_labels[8] = { "AMOV", "MOVE", "ATTK", "GRD", "DPLY", "SCAT", "STOP", "WAY" };
     const int button_frames[8] = { 66, 63, 32, 2, 76, 16, 62, 66 };
-    debug_font_draw_text(app->renderer, font, layout.commands.x + 12, layout.commands.y + 12,
+    rts_font_draw_text(app->renderer, font, layout.commands.x + 12, layout.commands.y + 12,
                          "COMMAND", amber, 1);
     for (int i = 0; i < 8; ++i) {
         SDL_Color fill = (i == 6) ? (SDL_Color){ 31, 18, 17, 230 } : (SDL_Color){ 10, 14, 15, 220 };
@@ -980,10 +993,31 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
         dc_ui_draw_sprite_fit(app->renderer, buttons, button_frames[i], layout.buttons[i], 0);
         dc_ui_stroke(app->renderer, layout.buttons[i], i == 6 ?
                      (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
-        int label_x = layout.buttons[i].x + (layout.buttons[i].w - (int)strlen(button_labels[i]) * 6) / 2;
-        debug_font_draw_text(app->renderer, font, label_x, layout.buttons[i].y + layout.buttons[i].h - 10,
+        int label_w = rts_font_text_width(font, button_labels[i], 1);
+        int label_x = layout.buttons[i].x + (layout.buttons[i].w - label_w) / 2;
+        rts_font_draw_text(app->renderer, font, label_x, layout.buttons[i].y + layout.buttons[i].h - 10,
                              button_labels[i], i == 6 ? red : text, 1);
     }
+    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
+}
+
+static void render_hud_messages(App *app, const RtsHudText *hud, const RtsBitmapFont *font) {
+    if (!app || !hud || !font || !font->sprite.texture || hud->count <= 0) return;
+    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
+    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    int side_w = dark_colony_ui_width(app);
+    int box_w = app->win_w - side_w - 80;
+    if (box_w > 760) box_w = 760;
+    if (box_w < 280) box_w = app->win_w - side_w - 24;
+    int x = 24;
+    int y = 24;
+    SDL_Rect box = { x - 10, y - 10, box_w + 20, 70 };
+    dc_ui_fill(app->renderer, box, (SDL_Color){ 5, 8, 9, 210 });
+    dc_ui_stroke(app->renderer, box, (SDL_Color){ 95, 128, 113, 230 });
+    rts_font_draw_text_wrapped(app->renderer, font, x, y, box_w,
+                               hud->messages[hud->count - 1].text,
+                               (SDL_Color){ 233, 217, 158, 255 }, 1);
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
@@ -1218,22 +1252,34 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    DebugFont ui_font = { 0 };
+    RtsBitmapFont ui_font = { 0 };
     bool dark_colony_ui = is_dark_colony_plugin(plugin);
-    bool ui_font_ready = dark_colony_ui && debug_font_init(app.renderer, &ui_font);
+    bool ui_font_ready = dark_colony_ui && plugin->load_font &&
+                         plugin->load_font(app.renderer, data_root, &ui_font);
     if (dark_colony_ui && !ui_font_ready) {
         fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
     }
+    RtsHudText hud_text = { 0 };
+    void *mission = plugin->load_mission ? plugin->load_mission(map_path) : NULL;
 
     if (check_only || screenshot_only) {
         if (screenshot_only) {
             app.ticks_ms = SDL_GetTicks();
+            if (mission && plugin->update_mission) {
+                int before_count = unit_count;
+                plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
+                                       plugin->game_info, &hud_text, FIXED_DT);
+                if (unit_count != before_count) focus_camera_on_first_player_unit(&app, units, unit_count);
+            }
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
                                  &decoration_sprites, plugin->game_info, SDL_GetTicks());
             render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, plugin->game_info);
+            if (dark_colony_ui && ui_font_ready) {
+                render_hud_messages(&app, &hud_text, &ui_font);
+            }
             if (dark_colony_ui && ui_font_ready) {
                 render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
                                              &decoration_sprites, &ui_font);
@@ -1244,7 +1290,8 @@ int main(int argc, char **argv) {
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
-        debug_font_destroy(&ui_font);
+        if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+        destroy_font(&ui_font);
         destroy_sprite_cache(&decoration_sprites);
         destroy_sprite(&unit_sprite);
         destroy_tileset(&tileset);
@@ -1287,8 +1334,22 @@ int main(int argc, char **argv) {
         while (accumulator >= FIXED_DT) {
             update_units(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                          plugin->game_info, FIXED_DT);
+            if (mission && plugin->update_mission) {
+                int before_count = unit_count;
+                plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
+                                       plugin->game_info, &hud_text, FIXED_DT);
+                if (unit_count != before_count) {
+                    focus_camera_on_first_player_unit(&app, units, unit_count);
+                    if (plugin->load_runtime_sprites &&
+                        !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
+                                                      &decoration_sprites)) {
+                        fprintf(stderr, "warning: failed to load scripted runtime sprites\n");
+                    }
+                }
+            }
             update_visual_effects(&map, effects, MAX_VISUAL_EFFECTS,
                                   plugin->game_info, FIXED_DT);
+            rts_hud_text_update(&hud_text, FIXED_DT);
             accumulator -= FIXED_DT;
         }
         if (map.player_resources[0] != title_resources) {
@@ -1305,6 +1366,9 @@ int main(int argc, char **argv) {
                              &decoration_sprites, plugin->game_info, SDL_GetTicks());
         render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
                               &decoration_sprites, plugin->game_info);
+        if (dark_colony_ui && ui_font_ready) {
+            render_hud_messages(&app, &hud_text, &ui_font);
+        }
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);
@@ -1318,7 +1382,8 @@ int main(int argc, char **argv) {
         rts_renderer_end_frame(&renderer);
     }
 
-    debug_font_destroy(&ui_font);
+    if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+    destroy_font(&ui_font);
     destroy_sprite_cache(&decoration_sprites);
     destroy_sprite(&unit_sprite);
     destroy_tileset(&tileset);

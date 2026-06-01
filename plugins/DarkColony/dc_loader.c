@@ -447,6 +447,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         "INTRFACE/DCUT.SPR",
         "INTRFACE/BUTTON.SPR",
         "INTRFACE/SHUMANE.SPR",
+        "SPRITES/DROP.SPR",
+        "SPRITES/BEAC.SPR",
     };
     for (int i = 0; i < NUMSTATES; ++i) {
         int sprite = states[i].sprite;

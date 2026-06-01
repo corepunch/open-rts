@@ -42,6 +42,12 @@ typedef struct RtsPlugin {
     bool (*load_runtime_sprites)(SDL_Renderer *renderer, const char *data_root,
                                  const GameMap *map, const Unit *units, int unit_count,
                                  SpriteCache *cache);
+    bool (*load_font)(SDL_Renderer *renderer, const char *data_root, RtsBitmapFont *font);
+    void *(*load_mission)(const char *map_path);
+    void (*update_mission)(void *mission, GameMap *map, Unit *units, int *unit_count,
+                           RtsVisualEffect *effects, int max_effects,
+                           const RtsGameInfo *game_info, RtsHudText *hud, float dt);
+    void (*destroy_mission)(void *mission);
 } RtsPlugin;
 
 typedef const RtsPlugin *(*rts_plugin_entry_fn)(void);
