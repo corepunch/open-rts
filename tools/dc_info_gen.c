@@ -345,39 +345,17 @@ static int fin_stem_frames_for_direction_full(const FinAnim *fin, const char *pr
 static int fin_body_frames_for_direction16(const FinAnim *fin, const char *prefix, int code,
                                            int *frames, int *flags, int max_frames) {
     char label[32];
-    /* Two-pass: first try to find a direction with more than 1 frame (full animation),
-       then fall back to any non-empty direction. This ensures odd direction codes that
-       only have a single stand-like frame in the FIN borrow animation from the nearest
-       even direction rather than producing a frozen walk. */
-    int best_frames[128];
-    int best_flags[128];
-    int best_count = 0;
     for (int distance = 0; distance <= 8; ++distance) {
         for (int sign = -1; sign <= 1; sign += 2) {
             if (distance == 0 && sign > 0) continue;
             int candidate = (code + sign * distance) & 15;
             int suffix = (16 - candidate) & 15;
             snprintf(label, sizeof(label), "%s%d", prefix, suffix);
-            int tmp_frames[128];
-            int tmp_flags[128] = {0};
-            int count = fin_body_frames_for_label_full(fin, label, tmp_frames, tmp_flags, 128);
-            if (count > best_count) {
-                best_count = count;
-                int copy = count < max_frames ? count : max_frames;
-                for (int k = 0; k < copy; ++k) { best_frames[k] = tmp_frames[k]; best_flags[k] = tmp_flags[k]; }
-            }
-            /* Accept immediately if this label has more than 1 frame (animated). */
-            if (count > 1) {
-                int copy = count < max_frames ? count : max_frames;
-                for (int k = 0; k < copy; ++k) { frames[k] = tmp_frames[k]; if (flags) flags[k] = tmp_flags[k]; }
-                return copy;
-            }
+            int count = fin_body_frames_for_label_full(fin, label, frames, flags, max_frames);
+            if (count > 0) return count;
         }
     }
-    /* Fall back to best found (may be 0 or 1). */
-    int copy = best_count < max_frames ? best_count : max_frames;
-    for (int k = 0; k < copy; ++k) { frames[k] = best_frames[k]; if (flags) flags[k] = best_flags[k]; }
-    return copy;
+    return 0;
 }
 
 static int fin_state_count_for_sequence(const FinAnim *fin, const char *prefix, bool mirror_left) {
