@@ -2,6 +2,7 @@
 #include "info.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -241,11 +242,24 @@ typedef struct {
 } DarkColonyPendingSpawn;
 
 typedef struct {
+    bool active;
+    float center_gx;
+    float center_gy;
+    float radius;
+    float angle;        /* radians, advances each frame */
+    float speed;        /* radians per second */
+    int duration_ms;
+    int elapsed_ms;
+    int effect_slot;    /* index into effects array, -1 if untracked */
+} DarkColonyDropship;
+
+typedef struct {
     DarkColonyScriptMessage messages[64];
     int message_count;
     DarkColonyScriptBlock blocks[64];
     int block_count;
     DarkColonyPendingSpawn pending_spawns[128];
+    DarkColonyDropship dropships[8];
     int elapsed_ms;
 } DarkColonyMission;
 
@@ -292,24 +306,79 @@ static bool dark_colony_player_near(const GameMap *map, const Unit *units,
     return false;
 }
 
-static void dark_colony_spawn_drop_effect(RtsVisualEffect *effects, int max_effects,
-                                          int gx, int gy, int duration_ms) {
-    if (!effects || max_effects <= 0) return;
+static int dark_colony_spawn_aird_effect(RtsVisualEffect *effects, int max_effects,
+                                         float gx, float gy, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
         RtsVisualEffect *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
-        effect->gx = (float)gx + 0.5f;
-        effect->gy = (float)gy + 0.5f;
-        effect->duration_ms = duration_ms > 1400 ? duration_ms : 1400;
-        effect->frame_ms = effect->duration_ms + 1;
-        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/DROP.SPR");
-        if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
-            fprintf(stderr, "Dark Colony dropship effect at %d,%d duration=%d\n",
-                    gx, gy, effect->duration_ms);
-        }
+        effect->gx = gx;
+        effect->gy = gy;
+        effect->duration_ms = duration_ms;
+        effect->frame_ms = 120;
+        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/AIRD.SPR");
+        return i;
+    }
+    return -1;
+}
+
+static void dark_colony_spawn_beacon_effect(RtsVisualEffect *effects, int max_effects,
+                                            float gx, float gy, int duration_ms) {
+    for (int i = 0; i < max_effects; ++i) {
+        if (effects[i].active) continue;
+        RtsVisualEffect *effect = &effects[i];
+        memset(effect, 0, sizeof(*effect));
+        effect->active = true;
+        effect->gx = gx;
+        effect->gy = gy;
+        effect->duration_ms = duration_ms;
+        effect->frame_ms = 250;
+        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/BEAC.SPR");
         return;
+    }
+}
+
+static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
+                                          RtsVisualEffect *effects, int max_effects,
+                                          int gx, int gy, int duration_ms) {
+    if (!mission || !effects || max_effects <= 0) return;
+    int actual_duration = duration_ms > 1400 ? duration_ms : 1400;
+    float cx = (float)gx + 0.5f;
+    float cy = (float)gy + 0.5f;
+
+    /* Find a free dropship slot */
+    DarkColonyDropship *ship = NULL;
+    for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
+        if (!mission->dropships[i].active) { ship = &mission->dropships[i]; break; }
+    }
+    if (!ship) return;
+
+    /* Start the dropship on the orbit at a random-ish angle offset by slot index */
+    float start_angle = 0.0f;
+    for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
+        if (&mission->dropships[i] == ship) { start_angle = (float)i * 1.05f; break; }
+    }
+
+    ship->active      = true;
+    ship->center_gx   = cx;
+    ship->center_gy   = cy;
+    ship->radius      = 2.5f;   /* orbit radius in grid cells */
+    ship->angle       = start_angle;
+    ship->speed       = 1.2f;   /* radians/second — about one orbit per 5 seconds */
+    ship->duration_ms = actual_duration;
+    ship->elapsed_ms  = 0;
+
+    float sx = cx + cosf(start_angle) * ship->radius;
+    float sy = cy + sinf(start_angle) * ship->radius;
+    ship->effect_slot = dark_colony_spawn_aird_effect(effects, max_effects,
+                                                      sx, sy, actual_duration);
+    /* Beacon stays at the drop centre */
+    dark_colony_spawn_beacon_effect(effects, max_effects, cx, cy, actual_duration);
+
+    if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+        fprintf(stderr, "Dark Colony dropship effect at %d,%d duration=%d\n",
+                gx, gy, actual_duration);
     }
 }
 
@@ -414,7 +483,7 @@ static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkCol
                     drop_count += drop_cmd->a[3] > 0 ? drop_cmd->a[3] : 1;
                 }
                 int drop_duration = 420 + (drop_count > 0 ? drop_count - 1 : 0) * 280 + 700;
-                dark_colony_spawn_drop_effect(effects, max_effects, x, y, drop_duration);
+                dark_colony_spawn_drop_effect(mission, effects, max_effects, x, y, drop_duration);
                 drop_sequence = 0;
             }
             for (int n = 0; n < count; ++n) {
@@ -651,6 +720,25 @@ static void dark_colony_update_mission(void *ptr, GameMap *map, Unit *units, int
         }
     }
     dark_colony_update_pending_spawns(mission, map, units, unit_count, game_info);
+
+    /* Advance orbiting dropships */
+    for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
+        DarkColonyDropship *ship = &mission->dropships[i];
+        if (!ship->active) continue;
+        ship->elapsed_ms += (int)(dt * 1000.0f);
+        if (ship->elapsed_ms >= ship->duration_ms) {
+            ship->active = false;
+            continue;
+        }
+        ship->angle += ship->speed * dt;
+        float sx = ship->center_gx + cosf(ship->angle) * ship->radius;
+        float sy = ship->center_gy + sinf(ship->angle) * ship->radius;
+        if (ship->effect_slot >= 0 && ship->effect_slot < max_effects &&
+            effects[ship->effect_slot].active) {
+            effects[ship->effect_slot].gx = sx;
+            effects[ship->effect_slot].gy = sy;
+        }
+    }
 }
 
 static void dark_colony_destroy_mission(void *mission) {
