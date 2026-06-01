@@ -213,6 +213,80 @@ Dark Colony `info.c` must use the frame-major formula instead.
    list effect/overlay sprites that the original engine loaded in parallel;
    they are not needed for the unit's main `SpriteSheet`.
 
+### DC.EXE / DC16.EXE Findings
+
+`data/DCOLONY/DC.EXE` (566 KB) and `data/DCOLONY/DC16.EXE` (637 KB) are the
+original Dark Colony DOS MZ executables. Neither contains game data beyond the
+engine itself; all unit, sprite, and animation data lives in the external files.
+
+**Source files embedded as assert strings** (incomplete list — useful for
+orienting reverse-engineering efforts):
+`animate.c`, `juicel.c`, `mobiles.c`, `objects.c`, `vobj.c`, `engmain.c`,
+`sprite.c`, `sprites.c`, `collide.c`, `path.c`, `ai.c`, `trigger.c`.
+
+**FIN files are called "juice files" internally.** The engine loads them from
+`animate/%s` (i.e. `animate/reap.fin`) and refers to animation label ranges as
+"angles". Assert strings: `"Whoa, One of my animation angles is NULL."`,
+`"Whoa Batman, I don't have any record of juice file %s"`.
+
+**Animation name construction.** The engine builds animation label names by
+concatenating a unit stem, a state keyword, and an integer angle suffix — format
+string `%s%s%d` is present at `0x7d6d8` immediately before `%s%d` at `0x7d6e8`,
+both adjacent to `BManimation` and `ANIM_NAME_LEN`. This confirms the engine
+looks up labels like `REAPMOVE0`, `REAPMOVE1` … `REAPMOVE15` directly by
+number, using the unit's current heading converted to an angle index.
+
+**State keywords found in the EXE** (`0x7f270`, near the unit-definition
+loader): `MOVE`, `STAND`, `DIEA`, `DIEB`, `DIEC`, `DEPLOY`, `FUNK`,
+`BUILDSTAND`, `BUILD`, `SCRCH`, `BURN`, `BLOOD%c`. The `BLOOD%c` entry uses a
+`%c` suffix, not a number, suggesting blood effects have a letter variant code.
+
+**16-direction walk animation: what the FIN data tells us.** All 16-direction
+units (REAP, BARR, SARG, SCGM, SLUG, PSYC, and others) share the same FIN
+pattern:
+
+- Even-numbered angle labels (`REAPMOVE0`, `REAPMOVE2` … `REAPMOVE14`) contain
+  full 8-frame walk cycles.
+- Odd-numbered angle labels (`REAPMOVE1`, `REAPMOVE3` … `REAPMOVE15`) contain
+  exactly **1 frame each** — a distinct intermediate-angle body pose, not a
+  reused stand frame.
+
+This pattern is consistent across every 16-direction unit in the game; it is
+not a data anomaly specific to the Reaper. The engine queries all 16 angle
+labels by number. At odd angles the unit displays the single intermediate pose
+for all 8 walk states, producing a sliding/gliding appearance. Whether the
+engine has additional fallback logic (e.g. snapping to the nearest even angle
+when the queried label has only 1 frame) cannot be determined without
+disassembling the DOS segmented code; the present FIN data faithfully encodes
+the intended behaviour.
+
+By contrast, 8-direction units (TRSC, GRAY, SCYT, XENO) only have even-numbered
+MOVE labels in their FIN files; the engine presumably only queries even angles
+for those units.
+
+**Gamestat fields.** `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` column layout
+(0-indexed, whitespace-delimited):
+
+```
+col  0  name
+col  1  team (0=human, 1=alien)
+col  2  TurnSpeed
+col  3  ObsDay
+col  4  ObsNight
+col  5..7  WeaponID×3
+col  8..9  xsiz / ysiz (sprite cell size)
+col 10  fly (0=ground, 1–5=vehicle/air types)
+col 11  Health
+col 12  unknown
+col 13  unknown (31 for most armed units)
+col 21  unknown (correlates with unit class/mobility type)
+col 22  unknown (32=mech, 96=cyborg, 216=vehicle, 128=flier)
+col 31  signature (unit-type lookup index into unitid.txt)
+```
+
+`data/DCOLONY/GAMESTAT/UNITID.TXT` maps `(team, weapon_class, unit_type)`
+triples to weapon/armour lookup indices; it is not a unit–FIN-stem mapping.
+
 ## Dark Reign
 
 - OpenDR:
