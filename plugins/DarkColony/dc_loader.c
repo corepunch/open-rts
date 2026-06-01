@@ -459,6 +459,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         "INTRFACE/SHUMANE.SPR",
         "SPRITES/DROP.SPR",
         "SPRITES/BEAC.SPR",
+        "SPRITES/MUZA.SPR",
+        "SPRITES/BLOO.SPR",
     };
     for (int i = 0; i < NUMSTATES; ++i) {
         int sprite = states[i].sprite;
@@ -485,6 +487,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].shadow_name))
             ok = false;
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].muzzle_flash_name))
+            ok = false;
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].hit_effect_name))
             ok = false;
     }
     return ok;

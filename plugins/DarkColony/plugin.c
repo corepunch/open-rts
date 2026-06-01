@@ -66,6 +66,9 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .attack_damage = 100,
         .attack_cooldown_ms = 500,
         .attack_anim_ms = 210,
+        .muzzle_flash_name = "SPRITES/MUZA.SPR",
+        .muzzle_flash_ms = 120,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_GREY,
@@ -79,6 +82,9 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
         .attack_damage = 100,
         .attack_cooldown_ms = 500,
         .attack_anim_ms = 210,
+        .muzzle_flash_name = "SPRITES/MUZA.SPR",
+        .muzzle_flash_ms = 120,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_EXPLOITER,
@@ -153,6 +159,8 @@ static void dark_colony_apply_actor_type_defaults(Unit *unit, const RtsActorType
         snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
     if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)
         snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name), "%s", type->muzzle_flash_name);
+    if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
+        snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name), "%s", type->hit_effect_name);
 }
 
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {

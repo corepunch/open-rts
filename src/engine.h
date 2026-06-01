@@ -113,6 +113,7 @@ typedef struct {
     int harvest_state_id;
     const char *muzzle_flash_name;
     int muzzle_flash_ms;
+    const char *hit_effect_name;
 } RtsActorType;
 
 typedef struct {
@@ -296,6 +297,7 @@ typedef struct Unit {
     char sprite_name[32];
     char shadow_name[32];
     char muzzle_flash_name[32];
+    char hit_effect_name[32];
     Cell path[MAX_PATH_CELLS];
     int path_len;
     int path_index;

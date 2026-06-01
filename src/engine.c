@@ -2128,6 +2128,11 @@ void update_units(GameMap *map, Unit *units, int *unit_count, RtsVisualEffect *e
         debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",
                           i, target_index, attacker->attack_damage, target->hp,
                           target->max_hp, target->sprite_name);
+        if (target->hit_effect_name[0] != '\0') {
+            spawn_visual_effect(effects, max_effects, target->hit_effect_name, NULL,
+                                target->gx, target->gy, target->facing_code,
+                                400, 50, false, 0);
+        }
         if (target->hp <= 0) {
             target->hp = 0;
             target->selected = false;
