@@ -636,6 +636,20 @@ static bool focus_camera_on_first_player_unit(App *app, const Unit *units, int u
     return false;
 }
 
+static void focus_camera_on_grid(App *app, float gx, float gy) {
+    if (!app) return;
+    float sx = 0.0f, sy = 0.0f;
+    grid_to_screen(app, gx, gy, &sx, &sy);
+    app->cam_x = (float)app->win_w * 0.5f - sx;
+    app->cam_y = (float)app->win_h * 0.5f - sy;
+}
+
+static bool focus_camera_on_map_start(App *app, const GameMap *map) {
+    if (!app || !map || !map->has_camera) return false;
+    focus_camera_on_grid(app, map->camera_gx, map->camera_gy);
+    return true;
+}
+
 typedef struct {
     SDL_Rect outer;
     SDL_Rect header;
@@ -1186,12 +1200,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", plugin->name);
     }
 
-    float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
-    float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
-    float sx, sy;
-    grid_to_screen(&app, focus_gx, focus_gy, &sx, &sy);
-    app.cam_x = (float)app.win_w * 0.5f - sx;
-    app.cam_y = (float)app.win_h * 0.5f - sy;
+    if (!focus_camera_on_map_start(&app, &map)) {
+        float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
+        float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
+        focus_camera_on_grid(&app, focus_gx, focus_gy);
+    }
 
     printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count,
@@ -1269,7 +1282,8 @@ int main(int argc, char **argv) {
                 int before_count = unit_count;
                 plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                                        plugin->game_info, &hud_text, FIXED_DT);
-                if (unit_count != before_count) focus_camera_on_first_player_unit(&app, units, unit_count);
+                if (unit_count != before_count && !map.has_camera)
+                    focus_camera_on_first_player_unit(&app, units, unit_count);
             }
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
@@ -1339,7 +1353,7 @@ int main(int argc, char **argv) {
                 plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                                        plugin->game_info, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
-                    focus_camera_on_first_player_unit(&app, units, unit_count);
+                    if (!map.has_camera) focus_camera_on_first_player_unit(&app, units, unit_count);
                     if (plugin->load_runtime_sprites &&
                         !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
                                                       &decoration_sprites)) {

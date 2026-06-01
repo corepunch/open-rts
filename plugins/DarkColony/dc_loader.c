@@ -545,6 +545,40 @@ static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *m
     }
 }
 
+static void load_dark_colony_camera_from_scn(const char *scn, GameMap *map) {
+    if (!scn || !map) return;
+    int current_team = -1;
+    int aislot_lines = 0;
+    for (const char *line = scn; line && *line;) {
+        const char *next = strpbrk(line, "\r\n");
+        size_t len = next ? (size_t)(next - line) : strlen(line);
+        char token[64] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, len);
+
+        int team = -1;
+        if (sscanf(token, "TEAM %d", &team) == 1) {
+            current_team = team;
+            aislot_lines = 0;
+        } else if (strcmp(token, "%AISlots") == 0) {
+            aislot_lines = current_team == 0 ? 2 : 0;
+        } else if (aislot_lines > 0) {
+            int x = 0, y = 0;
+            if (sscanf(token, "%d %d", &x, &y) == 2 && (x != 0 || y != 0)) {
+                map->has_camera = true;
+                map->camera_gx = (float)x + 0.5f;
+                map->camera_gy = (float)y + 0.5f;
+                return;
+            }
+            aislot_lines--;
+        }
+
+        if (!next) break;
+        char nl = *next++;
+        if (nl == '\r' && *next == '\n') next++;
+        line = next;
+    }
+}
+
 bool load_dark_colony_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
     Blob blob;
@@ -643,6 +677,7 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         if (dot) *dot = '\0';
         uppercase_trimmed_token(out->tileset_name, sizeof(out->tileset_name),
                                 first_token, strlen(first_token));
+        load_dark_colony_camera_from_scn(scn, out);
         load_dark_colony_resource_vents_from_scn(scn, out);
         free(scn);
     }

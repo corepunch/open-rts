@@ -250,6 +250,9 @@ typedef struct GameMap {
     int decoration_count;
     MapResourceVent *resource_vents;
     int resource_vent_count;
+    bool has_camera;
+    float camera_gx;
+    float camera_gy;
     int player_resources[8];
     char tileset_name[32];
     void (*render_transitions)(App *app, const struct GameMap *map, const Tileset *tileset,

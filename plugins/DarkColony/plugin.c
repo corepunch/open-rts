@@ -196,6 +196,7 @@ typedef enum {
     DC_SCRIPT_CMD_NONE,
     DC_SCRIPT_CMD_MSG,
     DC_SCRIPT_CMD_REINFORCE,
+    DC_SCRIPT_CMD_REINFORCE2,
     DC_SCRIPT_CMD_NEWTYPE,
 } DarkColonyScriptCommandType;
 
@@ -308,11 +309,13 @@ static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkCol
         if (cmd->type == DC_SCRIPT_CMD_MSG) {
             const char *message = dark_colony_script_message(mission, cmd->a[0]);
             if (message) rts_hud_text_push(hud, message, 6500);
-        } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE) {
+        } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
+                   cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
             int team = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
             int count = cmd->a[3] > 0 ? cmd->a[3] : 1;
             int type = cmd->a[4];
-            dark_colony_spawn_drop_effect(effects, max_effects, x, y);
+            if (cmd->type == DC_SCRIPT_CMD_REINFORCE && cmd->a[5])
+                dark_colony_spawn_drop_effect(effects, max_effects, x, y);
             for (int n = 0; n < count; ++n)
                 dark_colony_spawn_script_unit(units, unit_count, team, x, y, type, n, game_info);
         }
@@ -356,6 +359,55 @@ static void dark_colony_script_add_command(DarkColonyScriptBlock *block,
     block->commands[block->command_count++] = command;
 }
 
+static int dark_colony_parse_command_ints(const char *token, const char *keyword,
+                                          int *out, int max_out) {
+    if (!token || !keyword || !out || max_out <= 0) return -1;
+    size_t keyword_len = strlen(keyword);
+    if (strncmp(token, keyword, keyword_len) != 0) return -1;
+    if (token[keyword_len] != '\0' && !isspace((unsigned char)token[keyword_len])) return -1;
+
+    const char *p = token + keyword_len;
+    int count = 0;
+    while (*p && count < max_out) {
+        while (isspace((unsigned char)*p)) p++;
+        if (*p == '\0') break;
+        char *end = NULL;
+        long value = strtol(p, &end, 10);
+        if (end == p) break;
+        out[count++] = (int)value;
+        p = end;
+    }
+    return count;
+}
+
+static void dark_colony_add_reinforce_commands(DarkColonyScriptBlock *block,
+                                               DarkColonyScriptCommandType type,
+                                               const int *v, int count) {
+    if (!block || !v || count < 5) return;
+    int team = v[0];
+    int x = v[1];
+    int y = v[2];
+    bool drop_added = false;
+    for (int pair = 3; pair + 1 < count; pair += 2) {
+        DarkColonyScriptCommand cmd;
+        memset(&cmd, 0, sizeof(cmd));
+        cmd.type = type;
+        cmd.a[0] = team;
+        cmd.a[1] = x;
+        cmd.a[2] = y;
+        cmd.a[3] = v[pair + 1];
+        cmd.a[4] = v[pair];
+        if (cmd.a[3] <= 0) continue;
+        cmd.a[5] = type == DC_SCRIPT_CMD_REINFORCE && !drop_added;
+        drop_added = drop_added || cmd.a[5];
+        dark_colony_script_add_command(block, cmd);
+    }
+    if (block->trigger_x < 0) {
+        block->trigger_x = x;
+        block->trigger_y = y;
+    }
+}
+
 static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) {
     char *text = dark_colony_load_text(path);
     if (!text) return;
@@ -392,25 +444,16 @@ static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) 
         } else if (block) {
             DarkColonyScriptCommand cmd;
             memset(&cmd, 0, sizeof(cmd));
-            int v[13] = { 0 };
+            int v[32] = { 0 };
+            int parsed = 0;
             if (sscanf(token, "msg %d %d %d %d %d", &v[0], &v[1], &v[2], &v[3], &v[4]) == 5) {
                 cmd.type = DC_SCRIPT_CMD_MSG;
                 cmd.a[0] = v[2];
                 dark_colony_script_add_command(block, cmd);
-            } else if (sscanf(token, "reinforce %d %d %d %d %d %d %d %d %d %d %d %d %d",
-                              &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6],
-                              &v[7], &v[8], &v[9], &v[10], &v[11], &v[12]) >= 6) {
-                cmd.type = DC_SCRIPT_CMD_REINFORCE;
-                cmd.a[0] = v[0];
-                cmd.a[1] = v[1];
-                cmd.a[2] = v[2];
-                cmd.a[3] = v[4];
-                cmd.a[4] = v[5];
-                dark_colony_script_add_command(block, cmd);
-                if (block->trigger_x < 0) {
-                    block->trigger_x = v[1];
-                    block->trigger_y = v[2];
-                }
+            } else if ((parsed = dark_colony_parse_command_ints(token, "reinforce2", v, 31)) >= 5) {
+                dark_colony_add_reinforce_commands(block, DC_SCRIPT_CMD_REINFORCE2, v, parsed);
+            } else if ((parsed = dark_colony_parse_command_ints(token, "reinforce", v, 31)) >= 5) {
+                dark_colony_add_reinforce_commands(block, DC_SCRIPT_CMD_REINFORCE, v, parsed);
             } else if (sscanf(token, "newtype %d %d %d", &v[0], &v[1], &v[2]) == 3) {
                 cmd.type = DC_SCRIPT_CMD_NEWTYPE;
                 cmd.a[0] = v[0];
