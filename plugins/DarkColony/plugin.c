@@ -223,10 +223,21 @@ typedef struct {
 } DarkColonyScriptMessage;
 
 typedef struct {
+    bool active;
+    int spawn_ms;
+    int team;
+    int x;
+    int y;
+    int type;
+    int index;
+} DarkColonyPendingSpawn;
+
+typedef struct {
     DarkColonyScriptMessage messages[64];
     int message_count;
     DarkColonyScriptBlock blocks[64];
     int block_count;
+    DarkColonyPendingSpawn pending_spawns[128];
     int elapsed_ms;
 } DarkColonyMission;
 
@@ -253,17 +264,28 @@ static uint16_t dark_colony_script_unit_type(int team, int type) {
     }
 }
 
-static bool dark_colony_player_near(const Unit *units, int unit_count, int gx, int gy) {
+static int dark_colony_script_y_to_map(const GameMap *map, int y) {
+    if (!map || map->height <= 0) return y;
+    int map_y = map->height - 1 - y;
+    if (map_y < 0) map_y = 0;
+    if (map_y >= map->height) map_y = map->height - 1;
+    return map_y;
+}
+
+static bool dark_colony_player_near(const GameMap *map, const Unit *units,
+                                    int unit_count, int gx, int gy) {
+    int map_y = dark_colony_script_y_to_map(map, gy);
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float dx = units[i].gx - ((float)gx + 0.5f);
-        float dy = units[i].gy - ((float)gy + 0.5f);
+        float dy = units[i].gy - ((float)map_y + 0.5f);
         if (dx * dx + dy * dy <= 16.0f) return true;
     }
     return false;
 }
 
-static void dark_colony_spawn_drop_effect(RtsVisualEffect *effects, int max_effects, int gx, int gy) {
+static void dark_colony_spawn_drop_effect(RtsVisualEffect *effects, int max_effects,
+                                          int gx, int gy, int duration_ms) {
     if (!effects || max_effects <= 0) return;
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
@@ -272,14 +294,18 @@ static void dark_colony_spawn_drop_effect(RtsVisualEffect *effects, int max_effe
         effect->active = true;
         effect->gx = (float)gx + 0.5f;
         effect->gy = (float)gy + 0.5f;
-        effect->duration_ms = 1400;
-        effect->frame_ms = 90;
+        effect->duration_ms = duration_ms > 1400 ? duration_ms : 1400;
+        effect->frame_ms = effect->duration_ms + 1;
         snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/DROP.SPR");
+        if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+            fprintf(stderr, "Dark Colony dropship effect at %d,%d duration=%d\n",
+                    gx, gy, effect->duration_ms);
+        }
         return;
     }
 }
 
-static void dark_colony_spawn_script_unit(Unit *units, int *unit_count, int team,
+static void dark_colony_spawn_script_unit(const GameMap *map, Unit *units, int *unit_count, int team,
                                           int gx, int gy, int type, int index,
                                           const RtsGameInfo *game_info) {
     if (!units || !unit_count || *unit_count >= MAX_UNITS) return;
@@ -287,9 +313,27 @@ static void dark_colony_spawn_script_unit(Unit *units, int *unit_count, int team
     memset(unit, 0, sizeof(*unit));
     int offset_x = index % 2;
     int offset_y = index / 2;
-    unit->gx = (float)(gx + offset_x) + 0.5f;
-    unit->gy = (float)(gy + offset_y) + 0.5f;
+    int spawn_x = gx + offset_x;
+    int spawn_y = gy - offset_y;
+    if (map) {
+        if (spawn_x < 0) spawn_x = 0;
+        if (spawn_x >= map->width) spawn_x = map->width - 1;
+        if (spawn_y < 0) spawn_y = 0;
+        if (spawn_y >= map->height) spawn_y = map->height - 1;
+    }
+    unit->gx = (float)spawn_x + 0.5f;
+    unit->gy = (float)spawn_y + 0.5f;
     unit->owner = team == 0 ? 0 : 1;
+    if (unit->owner == 0) {
+        bool has_selected_player = false;
+        for (int i = 0; i < *unit_count; ++i) {
+            if (units[i].owner == 0 && units[i].selected) {
+                has_selected_player = true;
+                break;
+            }
+        }
+        unit->selected = !has_selected_player;
+    }
     unit->facing_code = unit->owner == 0 ? 6 : 14;
     uint16_t type_id = dark_colony_script_unit_type(team, type);
     const RtsActorType *actor = dark_colony_actor_type_by_id(type_id);
@@ -298,12 +342,51 @@ static void dark_colony_spawn_script_unit(Unit *units, int *unit_count, int team
     (*unit_count)++;
 }
 
+static void dark_colony_queue_pending_spawn(DarkColonyMission *mission, int spawn_ms,
+                                            int team, int x, int y, int type, int index) {
+    if (!mission) return;
+    for (int i = 0; i < (int)(sizeof(mission->pending_spawns) / sizeof(mission->pending_spawns[0])); ++i) {
+        DarkColonyPendingSpawn *spawn = &mission->pending_spawns[i];
+        if (spawn->active) continue;
+        memset(spawn, 0, sizeof(*spawn));
+        spawn->active = true;
+        spawn->spawn_ms = spawn_ms;
+        spawn->team = team;
+        spawn->x = x;
+        spawn->y = y;
+        spawn->type = type;
+        spawn->index = index;
+        if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+            fprintf(stderr, "Dark Colony dropship queued team=%d type=%d index=%d at %d,%d ms=%d\n",
+                    team, type, index, x, y, spawn_ms);
+        }
+        return;
+    }
+}
+
+static void dark_colony_update_pending_spawns(DarkColonyMission *mission, GameMap *map,
+                                              Unit *units, int *unit_count,
+                                              const RtsGameInfo *game_info) {
+    if (!mission || !units || !unit_count) return;
+    for (int i = 0; i < (int)(sizeof(mission->pending_spawns) / sizeof(mission->pending_spawns[0])); ++i) {
+        DarkColonyPendingSpawn *spawn = &mission->pending_spawns[i];
+        if (!spawn->active || mission->elapsed_ms < spawn->spawn_ms) continue;
+        if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+            fprintf(stderr, "Dark Colony dropship spawned team=%d type=%d index=%d at %d,%d ms=%d\n",
+                    spawn->team, spawn->type, spawn->index, spawn->x, spawn->y, mission->elapsed_ms);
+        }
+        dark_colony_spawn_script_unit(map, units, unit_count, spawn->team, spawn->x, spawn->y,
+                                      spawn->type, spawn->index, game_info);
+        memset(spawn, 0, sizeof(*spawn));
+    }
+}
+
 static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkColonyScriptBlock *block,
                                              GameMap *map, Unit *units, int *unit_count,
                                              RtsVisualEffect *effects, int max_effects,
                                              const RtsGameInfo *game_info, RtsHudText *hud) {
-    (void)map;
     if (!mission || !block) return;
+    int drop_sequence = 0;
     for (int i = 0; i < block->command_count; ++i) {
         DarkColonyScriptCommand *cmd = &block->commands[i];
         if (cmd->type == DC_SCRIPT_CMD_MSG) {
@@ -311,13 +394,30 @@ static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkCol
             if (message) rts_hud_text_push(hud, message, 6500);
         } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
                    cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
-            int team = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
+            int team = cmd->a[0], x = cmd->a[1], y = dark_colony_script_y_to_map(map, cmd->a[2]);
             int count = cmd->a[3] > 0 ? cmd->a[3] : 1;
             int type = cmd->a[4];
-            if (cmd->type == DC_SCRIPT_CMD_REINFORCE && cmd->a[5])
-                dark_colony_spawn_drop_effect(effects, max_effects, x, y);
-            for (int n = 0; n < count; ++n)
-                dark_colony_spawn_script_unit(units, unit_count, team, x, y, type, n, game_info);
+            if (cmd->type == DC_SCRIPT_CMD_REINFORCE && cmd->a[5]) {
+                int drop_count = 0;
+                for (int j = i; j < block->command_count; ++j) {
+                    DarkColonyScriptCommand *drop_cmd = &block->commands[j];
+                    if (drop_cmd->type != DC_SCRIPT_CMD_REINFORCE) break;
+                    if (j != i && drop_cmd->a[5]) break;
+                    drop_count += drop_cmd->a[3] > 0 ? drop_cmd->a[3] : 1;
+                }
+                int drop_duration = 420 + (drop_count > 0 ? drop_count - 1 : 0) * 280 + 700;
+                dark_colony_spawn_drop_effect(effects, max_effects, x, y, drop_duration);
+                drop_sequence = 0;
+            }
+            for (int n = 0; n < count; ++n) {
+                if (cmd->type == DC_SCRIPT_CMD_REINFORCE) {
+                    int index = drop_sequence++;
+                    int spawn_ms = mission->elapsed_ms + 420 + index * 280;
+                    dark_colony_queue_pending_spawn(mission, spawn_ms, team, x, y, type, index);
+                } else {
+                    dark_colony_spawn_script_unit(map, units, unit_count, team, x, y, type, n, game_info);
+                }
+            }
         }
     }
     block->fired = true;
@@ -529,7 +629,7 @@ static void dark_colony_update_mission(void *ptr, GameMap *map, Unit *units, int
         bool fire = false;
         if (block->trip) {
             fire = block->trigger_x >= 0 &&
-                   dark_colony_player_near(units, *unit_count, block->trigger_x, block->trigger_y);
+                   dark_colony_player_near(map, units, *unit_count, block->trigger_x, block->trigger_y);
         } else if (block->c_gt >= 0) {
             fire = mission->elapsed_ms > block->c_gt * 33;
         }
@@ -542,6 +642,7 @@ static void dark_colony_update_mission(void *ptr, GameMap *map, Unit *units, int
                                              effects, max_effects, game_info, hud);
         }
     }
+    dark_colony_update_pending_spawns(mission, map, units, unit_count, game_info);
 }
 
 static void dark_colony_destroy_mission(void *mission) {

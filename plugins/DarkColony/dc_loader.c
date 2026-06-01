@@ -564,9 +564,12 @@ static void load_dark_colony_camera_from_scn(const char *scn, GameMap *map) {
         } else if (aislot_lines > 0) {
             int x = 0, y = 0;
             if (sscanf(token, "%d %d", &x, &y) == 2 && (x != 0 || y != 0)) {
+                int map_y = map->height - 1 - y;
+                if (map_y < 0) map_y = 0;
+                if (map_y >= map->height) map_y = map->height - 1;
                 map->has_camera = true;
                 map->camera_gx = (float)x + 0.5f;
-                map->camera_gy = (float)y + 0.5f;
+                map->camera_gy = (float)map_y + 0.5f;
                 return;
             }
             aislot_lines--;
@@ -780,7 +783,7 @@ static void load_dark_colony_unit_config(const char *map_path,
 
 static int dark_colony_mobj_type_for_type(int type, int race) {
     if (race == 1) {
-        if (type == 0 || (type >= 69 && type <= 76)) return MT_DC_GREY;
+        if (type == 0 || type == 8 || (type >= 69 && type <= 76)) return MT_DC_GREY;
         return 0;
     }
 
@@ -842,6 +845,7 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
     int trailing_blank_lines = 0, count = 0;
     bool player_has_exploiter = false;
     bool player_anchor_set = false;
+    bool player_selected = false;
     int player_anchor_x = 0;
     int player_anchor_y = 0;
 
@@ -890,7 +894,8 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 }
                 u->type_id = (uint16_t)mobj_type;
                 u->owner = team == 0 ? 0 : 1;
-                u->selected = count == 0;
+                u->selected = u->owner == 0 && !player_selected;
+                if (u->selected) player_selected = true;
                 snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
                 if (u->owner == 0) {
                     if (!player_anchor_set || x > player_anchor_x) {

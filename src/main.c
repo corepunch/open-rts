@@ -660,8 +660,96 @@ typedef struct {
     SDL_Rect buttons[8];
 } DarkColonyUiLayout;
 
+typedef struct {
+    int id;
+    int frame;
+    char label[40];
+} DarkColonySidebarCommand;
+
+typedef struct {
+    DarkColonySidebarCommand commands[6];
+    int command_count;
+} DarkColonySidebar;
+
 static bool is_dark_colony_plugin(const RtsPlugin *plugin) {
     return plugin && plugin->id && strcmp(plugin->id, "dark-colony") == 0;
+}
+
+static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
+    if (!sidebar) return;
+    const int ids[6] = { 150, 33, 35, 36, 37, 143 };
+    const int frames[6] = { 62, 63, 65, 66, 74, 2 };
+    const char *labels[6] = {
+        "Stop",
+        "Move Only",
+        "Move & Attack",
+        "Set waypoints",
+        "Deploy",
+        "Second Attack",
+    };
+    memset(sidebar, 0, sizeof(*sidebar));
+    sidebar->command_count = 6;
+    for (int i = 0; i < sidebar->command_count; ++i) {
+        sidebar->commands[i].id = ids[i];
+        sidebar->commands[i].frame = frames[i];
+        snprintf(sidebar->commands[i].label, sizeof(sidebar->commands[i].label), "%s", labels[i]);
+    }
+}
+
+static DarkColonySidebarCommand *dark_colony_sidebar_command(DarkColonySidebar *sidebar, int id) {
+    if (!sidebar) return NULL;
+    for (int i = 0; i < sidebar->command_count; ++i)
+        if (sidebar->commands[i].id == id) return &sidebar->commands[i];
+    return NULL;
+}
+
+static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *data_root) {
+    if (!sidebar || !data_root) return;
+    char path[1024];
+    path_join(path, sizeof(path), data_root, "INTRFACE/MAINE");
+    Blob blob;
+    if (!load_blob(path, &blob)) return;
+    char *text = malloc(blob.size + 1);
+    if (!text) {
+        free_blob(&blob);
+        return;
+    }
+    memcpy(text, blob.bytes, blob.size);
+    text[blob.size] = '\0';
+    free_blob(&blob);
+
+    for (char *line = text; line && *line;) {
+        char *next = strpbrk(line, "\r\n");
+        if (next) {
+            char nl = *next;
+            *next++ = '\0';
+            if (nl == '\r' && *next == '\n') next++;
+        }
+        while (isspace((unsigned char)*line)) line++;
+        if (*line != '%' && *line != '\0') {
+            int id = 0;
+            char label[40] = { 0 };
+            if (sscanf(line, "textmsg %d %39[^\r\n]", &id, label) == 2) {
+                DarkColonySidebarCommand *cmd = dark_colony_sidebar_command(sidebar, id);
+                if (cmd) {
+                    size_t len = strlen(label);
+                    while (len > 0 && isspace((unsigned char)label[len - 1])) label[--len] = '\0';
+                    snprintf(cmd->label, sizeof(cmd->label), "%s", label);
+                }
+            } else {
+                char kind[16] = { 0 };
+                int desc = 0, x = 0, y = 0, w = 0, h = 0, frame = 0, pushed = 0;
+                if (sscanf(line, "%15s %d %d %d %d %d %d %d %d",
+                           kind, &id, &desc, &x, &y, &w, &h, &frame, &pushed) == 9 &&
+                    (strcmp(kind, "pushb") == 0 || strcmp(kind, "checkb") == 0)) {
+                    DarkColonySidebarCommand *cmd = dark_colony_sidebar_command(sidebar, id);
+                    if (cmd) cmd->frame = frame;
+                }
+            }
+        }
+        line = next;
+    }
+    free(text);
 }
 
 static int dark_colony_ui_width(const App *app) {
@@ -692,12 +780,11 @@ static DarkColonyUiLayout dark_colony_ui_layout(const App *app) {
     };
     if (layout.commands.h < 176) layout.commands.h = 176;
 
-    int button_count = 8;
-    int cols = 2;
-    int bw = 72, bh = 42, gap_x = 8, gap_y = 8;
-    int total_w = cols * bw + (cols - 1) * gap_x;
-    int bx = layout.commands.x + (layout.commands.w - total_w) / 2;
-    int by = layout.commands.y + 36;
+    int button_count = 6;
+    int cols = 1;
+    int bw = 59, bh = 41, gap_x = 0, gap_y = 6;
+    int bx = layout.commands.x + 10;
+    int by = layout.commands.y + 12;
     for (int i = 0; i < button_count; ++i)
         layout.buttons[i] = (SDL_Rect){ bx + (i % cols) * (bw + gap_x),
                                          by + (i / cols) * (bh + gap_y), bw, bh };
@@ -838,7 +925,7 @@ static bool dark_colony_ui_handle_event(const App *app, Unit *units, int unit_co
     window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
     if (!point_in_rect(rx, ry, layout.outer)) return false;
-    if (e->button.button == SDL_BUTTON_LEFT && point_in_rect(rx, ry, layout.buttons[6])) {
+    if (e->button.button == SDL_BUTTON_LEFT && point_in_rect(rx, ry, layout.buttons[0])) {
         dc_stop_selected_units(units, unit_count);
     }
     return true;
@@ -894,7 +981,8 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
 
 static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, const GameMap *map,
                                          const Unit *units, int unit_count,
-                                         const SpriteCache *cache, const RtsBitmapFont *font) {
+                                         const SpriteCache *cache, const RtsBitmapFont *font,
+                                         const DarkColonySidebar *sidebar) {
     if (!app || !font || !font->sprite.texture) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
@@ -997,20 +1085,32 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
         dc_ui_stroke(app->renderer, hp_bg, (SDL_Color){ 88, 104, 91, 255 });
     }
 
-    const char *button_labels[8] = { "AMOV", "MOVE", "ATTK", "GRD", "DPLY", "SCAT", "STOP", "WAY" };
-    const int button_frames[8] = { 66, 63, 32, 2, 76, 16, 62, 66 };
-    rts_font_draw_text(app->renderer, font, layout.commands.x + 12, layout.commands.y + 12,
-                         "COMMAND", amber, 1);
-    for (int i = 0; i < 8; ++i) {
-        SDL_Color fill = (i == 6) ? (SDL_Color){ 31, 18, 17, 230 } : (SDL_Color){ 10, 14, 15, 220 };
+    DarkColonySidebar fallback_sidebar;
+    if (!sidebar) {
+        dark_colony_sidebar_defaults(&fallback_sidebar);
+        sidebar = &fallback_sidebar;
+    }
+    int hover_button = -1;
+    for (int i = 0; i < sidebar->command_count; ++i) {
+        if (point_in_rect(app->mouse_x, app->mouse_y, layout.buttons[i])) {
+            hover_button = i;
+            break;
+        }
+    }
+    if (hover_button >= 0) {
+        rts_font_draw_text(app->renderer, font, layout.commands.x + 12, layout.commands.y + 12,
+                             sidebar->commands[hover_button].label, amber, 1);
+    }
+    for (int i = 0; i < sidebar->command_count; ++i) {
+        SDL_Color fill = (i == 0) ? (SDL_Color){ 31, 18, 17, 230 } : (SDL_Color){ 10, 14, 15, 220 };
         dc_ui_fill(app->renderer, layout.buttons[i], fill);
-        dc_ui_draw_sprite_fit(app->renderer, buttons, button_frames[i], layout.buttons[i], 0);
-        dc_ui_stroke(app->renderer, layout.buttons[i], i == 6 ?
+        dc_ui_draw_sprite_fit(app->renderer, buttons, sidebar->commands[i].frame, layout.buttons[i], 0);
+        dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 ?
                      (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
-        int label_w = rts_font_text_width(font, button_labels[i], 1);
-        int label_x = layout.buttons[i].x + (layout.buttons[i].w - label_w) / 2;
-        rts_font_draw_text(app->renderer, font, label_x, layout.buttons[i].y + layout.buttons[i].h - 10,
-                             button_labels[i], i == 6 ? red : text, 1);
+        int label_x = layout.buttons[i].x + layout.buttons[i].w + 8;
+        int label_y = layout.buttons[i].y + (layout.buttons[i].h - font->line_h) / 2;
+        rts_font_draw_text(app->renderer, font, label_x, label_y,
+                             sidebar->commands[i].label, i == 0 ? red : text, 1);
     }
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
@@ -1272,6 +1372,9 @@ int main(int argc, char **argv) {
     if (dark_colony_ui && !ui_font_ready) {
         fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
     }
+    DarkColonySidebar dark_colony_sidebar;
+    dark_colony_sidebar_defaults(&dark_colony_sidebar);
+    if (dark_colony_ui) dark_colony_sidebar_load(&dark_colony_sidebar, data_root);
     RtsHudText hud_text = { 0 };
     void *mission = plugin->load_mission ? plugin->load_mission(map_path) : NULL;
 
@@ -1296,7 +1399,7 @@ int main(int argc, char **argv) {
             }
             if (dark_colony_ui && ui_font_ready) {
                 render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
-                                             &decoration_sprites, &ui_font);
+                                             &decoration_sprites, &ui_font, &dark_colony_sidebar);
             }
             if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
@@ -1391,7 +1494,7 @@ int main(int argc, char **argv) {
         }
         if (dark_colony_ui && ui_font_ready) {
             render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
-                                         &decoration_sprites, &ui_font);
+                                         &decoration_sprites, &ui_font, &dark_colony_sidebar);
         }
         rts_renderer_end_frame(&renderer);
     }
