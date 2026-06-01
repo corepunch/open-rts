@@ -2684,6 +2684,29 @@ void update_camera_from_keyboard(App *app, float dt) {
     if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S]) app->cam_y -= speed;
 }
 
+void clamp_camera_to_map(App *app, const GameMap *map, int viewport_w, int viewport_h) {
+    if (!app || !map || map->width <= 0 || map->height <= 0) return;
+    if (viewport_w <= 0) viewport_w = app->win_w;
+    if (viewport_h <= 0) viewport_h = app->win_h;
+
+    float map_w = (float)map->width * (float)app_cell_w(app);
+    float map_h = (float)map->height * (float)app_cell_h(app);
+    if (map_w <= (float)viewport_w) {
+        app->cam_x = ((float)viewport_w - map_w) * 0.5f;
+    } else {
+        float min_x = (float)viewport_w - map_w;
+        if (app->cam_x < min_x) app->cam_x = min_x;
+        if (app->cam_x > 0.0f) app->cam_x = 0.0f;
+    }
+    if (map_h <= (float)viewport_h) {
+        app->cam_y = ((float)viewport_h - map_h) * 0.5f;
+    } else {
+        float min_y = (float)viewport_h - map_h;
+        if (app->cam_y < min_y) app->cam_y = min_y;
+        if (app->cam_y > 0.0f) app->cam_y = 0.0f;
+    }
+}
+
 void destroy_tileset(Tileset *tileset) {
     if (tileset->texture) SDL_DestroyTexture(tileset->texture);
     free(tileset->tile_lookup);

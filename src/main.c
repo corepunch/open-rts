@@ -657,6 +657,9 @@ typedef struct {
     SDL_Rect commands;
     SDL_Rect resources;
     SDL_Rect minimap;
+    SDL_Rect message;
+    SDL_Rect build;
+    SDL_Rect tabs[3];
     SDL_Rect buttons[8];
 } DarkColonyUiLayout;
 
@@ -678,7 +681,7 @@ static bool is_dark_colony_plugin(const RtsPlugin *plugin) {
 static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
     if (!sidebar) return;
     const int ids[6] = { 150, 33, 35, 36, 37, 143 };
-    const int frames[6] = { 62, 63, 65, 66, 74, 2 };
+    const int frames[6] = { 62, 63, 65, 66, 67, 2 };
     const char *labels[6] = {
         "Stop",
         "Move Only",
@@ -694,6 +697,234 @@ static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
         sidebar->commands[i].frame = frames[i];
         snprintf(sidebar->commands[i].label, sizeof(sidebar->commands[i].label), "%s", labels[i]);
     }
+}
+
+static SDL_Rect dark_colony_scale_rect(const App *app, int x, int y, int w, int h) {
+    int sx_num = app && app->win_w > 0 ? app->win_w : 640;
+    int sy_num = app && app->win_h > 0 ? app->win_h : 480;
+    SDL_Rect r = {
+        x * sx_num / 640,
+        y * sy_num / 480,
+        w * sx_num / 640,
+        h * sy_num / 480,
+    };
+    if (r.w < 1 && w > 0) r.w = 1;
+    if (r.h < 1 && h > 0) r.h = 1;
+    return r;
+}
+
+static int gif_read_code(const uint8_t *data, size_t size, size_t *bit_pos, int code_size) {
+    int code = 0;
+    for (int bit = 0; bit < code_size; ++bit) {
+        size_t byte_pos = (*bit_pos) >> 3;
+        if (byte_pos >= size) return -1;
+        if (data[byte_pos] & (1u << ((*bit_pos) & 7))) code |= 1 << bit;
+        (*bit_pos)++;
+    }
+    return code;
+}
+
+static bool gif_decode_lzw(const uint8_t *data, size_t size, int min_code_size,
+                           uint8_t *out, size_t out_size) {
+    if (!data || !out || min_code_size < 2 || min_code_size > 8) return false;
+    enum { GIF_MAX_CODES = 4096 };
+    int prefix[GIF_MAX_CODES];
+    uint8_t suffix[GIF_MAX_CODES];
+    uint8_t stack[GIF_MAX_CODES];
+    int clear_code = 1 << min_code_size;
+    int end_code = clear_code + 1;
+    int code_size = min_code_size + 1;
+    int next_code = end_code + 1;
+    int old_code = -1;
+    uint8_t first_char = 0;
+    size_t bit_pos = 0, out_pos = 0;
+
+    for (int i = 0; i < GIF_MAX_CODES; ++i) {
+        prefix[i] = -1;
+        suffix[i] = (uint8_t)i;
+    }
+
+    while (out_pos < out_size) {
+        int code = gif_read_code(data, size, &bit_pos, code_size);
+        if (code < 0) return false;
+        if (code == clear_code) {
+            code_size = min_code_size + 1;
+            next_code = end_code + 1;
+            old_code = -1;
+            continue;
+        }
+        if (code == end_code) break;
+
+        int stack_len = 0;
+        int in_code = code;
+        if (old_code >= 0 && code == next_code) {
+            in_code = old_code;
+            stack[stack_len++] = first_char;
+        } else if (code > next_code) {
+            return false;
+        }
+
+        int walk = in_code;
+        while (walk >= clear_code) {
+            if (walk < 0 || walk >= next_code || stack_len >= GIF_MAX_CODES) return false;
+            stack[stack_len++] = suffix[walk];
+            walk = prefix[walk];
+        }
+        if (walk < 0 || walk >= clear_code || stack_len >= GIF_MAX_CODES) return false;
+        first_char = (uint8_t)walk;
+        stack[stack_len++] = first_char;
+
+        while (stack_len > 0 && out_pos < out_size) out[out_pos++] = stack[--stack_len];
+
+        if (old_code >= 0 && next_code < GIF_MAX_CODES) {
+            prefix[next_code] = old_code;
+            suffix[next_code] = first_char;
+            next_code++;
+            if (next_code == (1 << code_size) && code_size < 12) code_size++;
+        }
+        old_code = code;
+    }
+    return out_pos == out_size;
+}
+
+static bool load_gif_texture(SDL_Renderer *renderer, const char *path, SpriteSheet *out) {
+    memset(out, 0, sizeof(*out));
+    Blob blob;
+    if (!load_blob(path, &blob)) return false;
+    const uint8_t *bytes = blob.bytes;
+    size_t size = blob.size;
+    if (size < 13 || (memcmp(bytes, "GIF87a", 6) != 0 && memcmp(bytes, "GIF89a", 6) != 0)) {
+        free_blob(&blob);
+        return false;
+    }
+
+    int canvas_w = read_u16_le(bytes + 6);
+    int canvas_h = read_u16_le(bytes + 8);
+    uint8_t packed = bytes[10];
+    bool has_global_palette = (packed & 0x80) != 0;
+    int global_count = has_global_palette ? (2 << (packed & 0x07)) : 0;
+    int bg_index = bytes[11];
+    size_t pos = 13;
+    uint32_t global_palette[256] = { 0 };
+    if (global_count > 0) {
+        if (pos + (size_t)global_count * 3 > size) { free_blob(&blob); return false; }
+        for (int i = 0; i < global_count; ++i) {
+            const uint8_t *p = bytes + pos + (size_t)i * 3;
+            global_palette[i] = 0xff000000u | ((uint32_t)p[0] << 16) |
+                                ((uint32_t)p[1] << 8) | (uint32_t)p[2];
+        }
+        pos += (size_t)global_count * 3;
+    }
+
+    int transparent_index = -1;
+    uint32_t *canvas = calloc((size_t)canvas_w * (size_t)canvas_h, sizeof(uint32_t));
+    if (!canvas) { free_blob(&blob); return false; }
+    uint32_t bg = bg_index >= 0 && bg_index < global_count ? global_palette[bg_index] : 0xff000000u;
+    for (int i = 0; i < canvas_w * canvas_h; ++i) canvas[i] = bg;
+
+    bool decoded = false;
+    while (pos < size && !decoded) {
+        uint8_t marker = bytes[pos++];
+        if (marker == 0x3b) break;
+        if (marker == 0x21) {
+            if (pos >= size) break;
+            uint8_t label = bytes[pos++];
+            while (pos < size) {
+                uint8_t block_size = bytes[pos++];
+                if (block_size == 0) break;
+                if (label == 0xf9 && block_size == 4 && pos + 4 <= size) {
+                    if (bytes[pos] & 0x01) transparent_index = bytes[pos + 3];
+                }
+                pos += block_size;
+            }
+            continue;
+        }
+        if (marker != 0x2c || pos + 9 > size) break;
+
+        int left = read_u16_le(bytes + pos + 0);
+        int top = read_u16_le(bytes + pos + 2);
+        int image_w = read_u16_le(bytes + pos + 4);
+        int image_h = read_u16_le(bytes + pos + 6);
+        uint8_t image_packed = bytes[pos + 8];
+        pos += 9;
+        bool interlaced = (image_packed & 0x40) != 0;
+        bool has_local_palette = (image_packed & 0x80) != 0;
+        int local_count = has_local_palette ? (2 << (image_packed & 0x07)) : 0;
+        uint32_t local_palette[256] = { 0 };
+        uint32_t *palette = global_palette;
+        int palette_count = global_count;
+        if (has_local_palette) {
+            if (pos + (size_t)local_count * 3 > size) break;
+            for (int i = 0; i < local_count; ++i) {
+                const uint8_t *p = bytes + pos + (size_t)i * 3;
+                local_palette[i] = 0xff000000u | ((uint32_t)p[0] << 16) |
+                                   ((uint32_t)p[1] << 8) | (uint32_t)p[2];
+            }
+            pos += (size_t)local_count * 3;
+            palette = local_palette;
+            palette_count = local_count;
+        }
+        if (pos >= size) break;
+        int min_code_size = bytes[pos++];
+        uint8_t *compressed = NULL;
+        size_t compressed_size = 0;
+        while (pos < size) {
+            uint8_t block_size = bytes[pos++];
+            if (block_size == 0) break;
+            if (pos + block_size > size) { free(compressed); free(canvas); free_blob(&blob); return false; }
+            uint8_t *next = realloc(compressed, compressed_size + block_size);
+            if (!next) { free(compressed); free(canvas); free_blob(&blob); return false; }
+            compressed = next;
+            memcpy(compressed + compressed_size, bytes + pos, block_size);
+            compressed_size += block_size;
+            pos += block_size;
+        }
+
+        uint8_t *indices = malloc((size_t)image_w * (size_t)image_h);
+        if (!indices) { free(compressed); free(canvas); free_blob(&blob); return false; }
+        bool ok = gif_decode_lzw(compressed, compressed_size, min_code_size,
+                                 indices, (size_t)image_w * (size_t)image_h);
+        free(compressed);
+        if (!ok) { free(indices); break; }
+
+        int pass_starts[4] = { 0, 4, 2, 1 };
+        int pass_steps[4] = { 8, 8, 4, 2 };
+        size_t src = 0;
+        for (int pass = 0; pass < (interlaced ? 4 : 1); ++pass) {
+            int y_start = interlaced ? pass_starts[pass] : 0;
+            int y_step = interlaced ? pass_steps[pass] : 1;
+            for (int y = y_start; y < image_h; y += y_step) {
+                for (int x = 0; x < image_w && src < (size_t)image_w * (size_t)image_h; ++x, ++src) {
+                    int index = indices[src];
+                    int dx = left + x, dy = top + y;
+                    if (dx < 0 || dy < 0 || dx >= canvas_w || dy >= canvas_h ||
+                        index == transparent_index || index >= palette_count) {
+                        continue;
+                    }
+                    canvas[dy * canvas_w + dx] = palette[index];
+                }
+            }
+        }
+        free(indices);
+        decoded = true;
+    }
+
+    if (!decoded) {
+        free(canvas);
+        free_blob(&blob);
+        return false;
+    }
+    out->texture = rgba_texture(renderer, canvas, canvas_w, canvas_h, false);
+    free(canvas);
+    free_blob(&blob);
+    if (!out->texture) return false;
+    out->frames = calloc(1, sizeof(SDL_Rect));
+    if (!out->frames) { destroy_sprite(out); return false; }
+    out->frames[0] = (SDL_Rect){ 0, 0, canvas_w, canvas_h };
+    out->frame_count = 1;
+    out->frame_w = canvas_w;
+    out->frame_h = canvas_h;
+    return true;
 }
 
 static DarkColonySidebarCommand *dark_colony_sidebar_command(DarkColonySidebar *sidebar, int id) {
@@ -753,41 +984,35 @@ static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *dat
 }
 
 static int dark_colony_ui_width(const App *app) {
-    int w = 238;
-    if (app && app->render_scale > 1) w += 8 * (app->render_scale - 1);
-    if (app && app->win_w > 0 && w > app->win_w / 3) w = app->win_w / 3;
-    if (w < 198) w = 198;
-    return w;
+    return dark_colony_scale_rect(app, 516, 0, 124, 480).w;
+}
+
+static int world_viewport_width(const App *app, const RtsPlugin *plugin) {
+    if (!app) return 0;
+    int w = app->win_w;
+    if (is_dark_colony_plugin(plugin)) w -= dark_colony_ui_width(app);
+    return w > 0 ? w : 1;
 }
 
 static DarkColonyUiLayout dark_colony_ui_layout(const App *app) {
     DarkColonyUiLayout layout;
     memset(&layout, 0, sizeof(layout));
-    int ui_w = dark_colony_ui_width(app);
-    int x = app->win_w - ui_w;
-    int margin = 9;
-    int panel_w = ui_w - margin * 2;
-    layout.outer = (SDL_Rect){ x, 0, ui_w, app->win_h };
-    layout.header = (SDL_Rect){ x + margin, 8, panel_w, 76 };
-    layout.minimap = (SDL_Rect){ x + margin, layout.header.y + layout.header.h + 8, panel_w, 170 };
-    layout.resources = (SDL_Rect){ x + margin, layout.minimap.y + layout.minimap.h + 8, panel_w, 76 };
-    layout.status = (SDL_Rect){ x + margin, layout.resources.y + layout.resources.h + 8, panel_w, 144 };
-    layout.commands = (SDL_Rect){
-        x + margin,
-        layout.status.y + layout.status.h + 8,
-        panel_w,
-        app->win_h - (layout.status.y + layout.status.h + 16),
-    };
-    if (layout.commands.h < 176) layout.commands.h = 176;
+    layout.outer = dark_colony_scale_rect(app, 516, 0, 124, 480);
+    layout.minimap = dark_colony_scale_rect(app, 520, 5, 96, 84);
+    layout.commands = dark_colony_scale_rect(app, 516, 92, 124, 330);
+    layout.status = dark_colony_scale_rect(app, 518, 368, 59, 41);
+    layout.resources = dark_colony_scale_rect(app, 607, 422, 28, 51);
+    layout.message = dark_colony_scale_rect(app, 48, 456, 462, 16);
+    layout.build = dark_colony_scale_rect(app, 516, 422, 86, 27);
+    layout.header = dark_colony_scale_rect(app, 516, 0, 124, 92);
+    layout.tabs[0] = dark_colony_scale_rect(app, 518, 92, 40, 20);
+    layout.tabs[1] = dark_colony_scale_rect(app, 557, 92, 41, 20);
+    layout.tabs[2] = dark_colony_scale_rect(app, 598, 92, 40, 20);
 
-    int button_count = 6;
-    int cols = 1;
-    int bw = 59, bh = 41, gap_x = 0, gap_y = 6;
-    int bx = layout.commands.x + 10;
-    int by = layout.commands.y + 12;
-    for (int i = 0; i < button_count; ++i)
-        layout.buttons[i] = (SDL_Rect){ bx + (i % cols) * (bw + gap_x),
-                                         by + (i / cols) * (bh + gap_y), bw, bh };
+    const int button_y[6] = { 112, 153, 194, 235, 276, 317 };
+    for (int i = 0; i < 6; ++i) {
+        layout.buttons[i] = dark_colony_scale_rect(app, 518, button_y[i], 59, 41);
+    }
     return layout;
 }
 
@@ -807,19 +1032,6 @@ static void dc_ui_fill(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
 static void dc_ui_stroke(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
     dc_ui_set_draw(renderer, color);
     SDL_RenderDrawRect(renderer, &rect);
-}
-
-static void dc_ui_panel(SDL_Renderer *renderer, SDL_Rect rect) {
-    dc_ui_fill(renderer, rect, (SDL_Color){ 15, 20, 22, 236 });
-    dc_ui_stroke(renderer, rect, (SDL_Color){ 72, 91, 88, 255 });
-    SDL_Rect inner = { rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2 };
-    dc_ui_stroke(renderer, inner, (SDL_Color){ 21, 35, 36, 255 });
-    SDL_SetRenderDrawColor(renderer, 118, 139, 116, 210);
-    SDL_RenderDrawLine(renderer, rect.x + 2, rect.y + 2, rect.x + rect.w - 3, rect.y + 2);
-    SDL_RenderDrawLine(renderer, rect.x + 2, rect.y + 2, rect.x + 2, rect.y + rect.h - 3);
-    SDL_SetRenderDrawColor(renderer, 4, 7, 8, 230);
-    SDL_RenderDrawLine(renderer, rect.x + 2, rect.y + rect.h - 3, rect.x + rect.w - 3, rect.y + rect.h - 3);
-    SDL_RenderDrawLine(renderer, rect.x + rect.w - 3, rect.y + 2, rect.x + rect.w - 3, rect.y + rect.h - 3);
 }
 
 static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const SpriteSheet *sprite, int frame,
@@ -853,55 +1065,40 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const SpriteSheet *spr
     SDL_RenderCopyEx(renderer, sprite->texture, &src, &dst, 0.0, NULL, flip);
 }
 
-static void dc_ui_draw_sprite_cover(SDL_Renderer *renderer, const SpriteSheet *sprite, int frame,
-                                    SDL_Rect box) {
-    if (!renderer || !sprite || !sprite->texture || sprite->frame_count <= 0) return;
-    if (frame < 0 || frame >= sprite->frame_count) frame = 0;
-    SDL_Rect src = sprite->frames[frame];
-    if (sprite->frame_bounds && sprite->frame_bounds[frame].w > 0 && sprite->frame_bounds[frame].h > 0) {
-        SDL_Rect bounds = sprite->frame_bounds[frame];
-        src.x += bounds.x;
-        src.y += bounds.y;
-        src.w = bounds.w;
-        src.h = bounds.h;
+static void dc_ui_draw_image_part(SDL_Renderer *renderer, const SpriteSheet *image,
+                                  SDL_Rect src, SDL_Rect dst) {
+    if (!renderer || !image || !image->texture || src.w <= 0 || src.h <= 0 ||
+        dst.w <= 0 || dst.h <= 0) {
+        return;
     }
-    if (src.w <= 0 || src.h <= 0 || box.w <= 0 || box.h <= 0) return;
-    int draw_w = box.w;
-    int draw_h = src.h * draw_w / src.w;
-    if (draw_h < box.h) {
-        draw_h = box.h;
-        draw_w = src.w * draw_h / src.h;
-    }
-    SDL_Rect dst = {
-        box.x + (box.w - draw_w) / 2,
-        box.y + (box.h - draw_h) / 2,
-        draw_w,
-        draw_h,
-    };
-    SDL_RenderSetClipRect(renderer, &box);
-    SDL_RenderCopy(renderer, sprite->texture, &src, &dst);
-    SDL_RenderSetClipRect(renderer, NULL);
+    SDL_RenderCopy(renderer, image->texture, &src, &dst);
 }
 
-static const Unit *dc_first_selected_unit(const Unit *units, int unit_count, int *selected_count) {
-    const Unit *first = NULL;
-    int count = 0;
+static const Unit *dc_first_selected_unit(const Unit *units, int unit_count) {
+    if (!units) return NULL;
     for (int i = 0; i < unit_count; ++i) {
-        if (!units[i].selected || units[i].remove) continue;
-        if (!first) first = &units[i];
-        count++;
+        if (units[i].selected && !units[i].remove) return &units[i];
     }
-    if (selected_count) *selected_count = count;
-    return first;
+    return NULL;
 }
 
-static const char *dc_unit_status(const Unit *unit) {
-    if (!unit) return "NO SIGNAL";
-    if (unit->hp <= 0 || unit->death_started) return "DOWN";
-    if (unit->harvest_target >= 0) return "HARVEST";
-    if (unit->attack_target >= 0 || unit->attack_anim_left_ms > 0) return "ATTACK";
-    if (unit->path_len > 0 && unit->path_index < unit->path_len) return "MOVING";
-    return "READY";
+static int dc_sidebar_command_frame(const DarkColonySidebarCommand *cmd, const Unit *selected) {
+    if (!cmd) return 0;
+    (void)selected;
+    if (cmd->id == 37) {
+        return 67;
+    }
+    return cmd->frame;
+}
+
+static const char *dc_sidebar_command_label(const DarkColonySidebarCommand *cmd,
+                                            const Unit *selected) {
+    if (!cmd) return "";
+    (void)selected;
+    if (cmd->id == 37) {
+        return "Dig";
+    }
+    return cmd->label;
 }
 
 static void dc_stop_selected_units(Unit *units, int unit_count) {
@@ -982,108 +1179,69 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
 static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, const GameMap *map,
                                          const Unit *units, int unit_count,
                                          const SpriteCache *cache, const RtsBitmapFont *font,
-                                         const DarkColonySidebar *sidebar) {
+                                         const DarkColonySidebar *sidebar,
+                                         const SpriteSheet *background) {
     if (!app || !font || !font->sprite.texture) return;
+    (void)plugin;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
 
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
-    const SpriteSheet *chrome = sprite_cache_lookup(cache, "INTRFACE/DCSS.SPR");
-    dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 6, 8, 10, 248 });
-    dc_ui_draw_sprite_cover(app->renderer, chrome, 2, (SDL_Rect){ layout.outer.x, 0, layout.outer.w, 120 });
-    dc_ui_draw_sprite_cover(app->renderer, chrome, 9, (SDL_Rect){ layout.outer.x, app->win_h - 128, layout.outer.w, 128 });
-    dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 3, 6, 8, 118 });
-    SDL_Rect left_line = { layout.outer.x, 0, 2, layout.outer.h };
-    dc_ui_fill(app->renderer, left_line, (SDL_Color){ 104, 133, 119, 255 });
-    dc_ui_panel(app->renderer, layout.header);
-    dc_ui_panel(app->renderer, layout.status);
-    dc_ui_panel(app->renderer, layout.commands);
-    dc_ui_panel(app->renderer, layout.resources);
-    dc_ui_panel(app->renderer, layout.minimap);
+    if (background && background->texture) {
+        dc_ui_draw_image_part(app->renderer, background,
+                              (SDL_Rect){ 516, 0, 124, 480 }, layout.outer);
+        dc_ui_draw_image_part(app->renderer, background,
+                              (SDL_Rect){ 0, 455, 516, 25 },
+                              dark_colony_scale_rect(app, 0, 455, 516, 25));
+    } else {
+        dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 2, 2, 2, 255 });
+        dc_ui_fill(app->renderer, dark_colony_scale_rect(app, 0, 455, 640, 25),
+                   (SDL_Color){ 3, 3, 3, 255 });
+        dc_ui_stroke(app->renderer, layout.outer, (SDL_Color){ 178, 178, 178, 255 });
+        dc_ui_stroke(app->renderer, dark_colony_scale_rect(app, 0, 455, 640, 18),
+                     (SDL_Color){ 164, 164, 164, 255 });
+        dc_ui_stroke(app->renderer, layout.minimap, (SDL_Color){ 154, 154, 154, 255 });
+        dc_ui_stroke(app->renderer, dark_colony_scale_rect(app, 516, 0, 107, 92),
+                     (SDL_Color){ 86, 86, 86, 255 });
+        dc_ui_stroke(app->renderer, dark_colony_scale_rect(app, 516, 92, 124, 363),
+                     (SDL_Color){ 154, 154, 154, 255 });
 
-    SDL_Color text = { 198, 210, 190, 255 };
+        for (int i = 0; i < 3; ++i) {
+            dc_ui_fill(app->renderer, layout.tabs[i], (SDL_Color){ 126, 126, 126, 255 });
+            dc_ui_stroke(app->renderer, layout.tabs[i], (SDL_Color){ 38, 38, 38, 255 });
+            char tab[2] = { (char)('1' + i), '\0' };
+            rts_font_draw_text(app->renderer, font,
+                               layout.tabs[i].x + layout.tabs[i].w / 2 - rts_font_text_width(font, tab, 1) / 2,
+                               layout.tabs[i].y + layout.tabs[i].h / 2 - font->line_h / 2,
+                               tab, (SDL_Color){ 24, 24, 24, 255 }, 1);
+        }
+    }
+
     SDL_Color dim = { 112, 130, 125, 255 };
     SDL_Color amber = { 231, 194, 94, 255 };
-    SDL_Color green = { 103, 226, 160, 255 };
-    SDL_Color red = { 215, 79, 72, 255 };
-
-    int selected_count = 0;
-    const Unit *selected = dc_first_selected_unit(units, unit_count, &selected_count);
-    const RtsActorType *selected_type = selected ? plugin_actor_type_for_unit(plugin, selected) : NULL;
-    const char *selected_name = selected_type && selected_type->name ? selected_type->name : "UNIT";
     char line[96];
 
-    const SpriteSheet *logo = sprite_cache_lookup(cache, "INTRFACE/DCUT.SPR");
     const SpriteSheet *buttons = sprite_cache_lookup(cache, "INTRFACE/BUTTON.SPR");
-    SDL_Rect logo_box = { layout.header.x + 8, layout.header.y + 12, layout.header.w - 16, 34 };
-    dc_ui_draw_sprite_fit(app->renderer, logo, 2, logo_box, 0);
-    rts_font_draw_text(app->renderer, font, layout.header.x + 12, layout.header.y + 54,
-                         "HUMAN COMMAND", amber, 1);
-
-    rts_font_draw_text(app->renderer, font, layout.minimap.x + 10, layout.minimap.y + 8,
-                         "TACTICAL", amber, 1);
     SDL_Rect mini = {
-        layout.minimap.x + 8,
-        layout.minimap.y + 24,
-        layout.minimap.w - 16,
-        layout.minimap.h - 32,
+        layout.minimap.x + 2,
+        layout.minimap.y + 2,
+        layout.minimap.w - 4,
+        layout.minimap.h - 4,
     };
     dc_ui_draw_minimap(app, map, units, unit_count, mini);
 
     int active_vents = 0;
     for (int i = 0; i < map->resource_vent_count; ++i)
         if (map->resource_vents[i].active) active_vents++;
-    SDL_Rect p7_icon = { layout.resources.x + 12, layout.resources.y + 18, 36, 36 };
-    dc_ui_draw_sprite_fit(app->renderer, buttons, 65, p7_icon, 0);
-    snprintf(line, sizeof(line), "P-7 %d", map->player_resources[0]);
-    rts_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 18,
-                         line, amber, 1);
-    snprintf(line, sizeof(line), "VENTS %d/%d", active_vents, map->resource_vent_count);
-    rts_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 36,
-                         line, text, 1);
-    snprintf(line, sizeof(line), "UNITS %d", unit_count);
-    rts_font_draw_text(app->renderer, font, layout.resources.x + 58, layout.resources.y + 54,
-                         line, dim, 1);
-
-    SDL_Rect portrait = { layout.status.x + 12, layout.status.y + 20, 76, 88 };
-    dc_ui_fill(app->renderer, portrait, (SDL_Color){ 5, 8, 9, 255 });
-    dc_ui_stroke(app->renderer, portrait, (SDL_Color){ 45, 69, 66, 255 });
-    if (selected) {
-        const SpriteSheet *sprite = sprite_cache_lookup(cache, selected->sprite_name);
-        dc_ui_draw_sprite_fit(app->renderer, sprite, selected->frame, portrait, selected->render_flags);
-    } else {
-        const SpriteSheet *human = sprite_cache_lookup(cache, "INTRFACE/SHUMANE.SPR");
-        dc_ui_draw_sprite_fit(app->renderer, human, (app->ticks_ms / 180) % 6, portrait, 0);
-    }
-
-    int tx = layout.status.x + 98;
-    int ty = layout.status.y + 20;
-    if (selected_count > 1) {
-        snprintf(line, sizeof(line), "%d UNITS SELECTED", selected_count);
-        rts_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
-        snprintf(line, sizeof(line), "LEAD: %s", selected_name);
-    } else if (selected) {
-        snprintf(line, sizeof(line), "%s", selected_name);
-        rts_font_draw_text(app->renderer, font, tx, ty, line, text, 1);
-        snprintf(line, sizeof(line), "%s", dc_unit_status(selected));
-    } else {
-        rts_font_draw_text(app->renderer, font, tx, ty, "NO UNIT SELECTED", dim, 1);
-        snprintf(line, sizeof(line), "AWAITING ORDERS");
-    }
-    rts_font_draw_text(app->renderer, font, tx, ty + 14, line, selected ? green : dim, 1);
-    if (selected) {
-        int hp = selected->hp < 0 ? 0 : selected->hp;
-        int max_hp = selected->max_hp > 0 ? selected->max_hp : 1;
-        snprintf(line, sizeof(line), "HP %d/%d", hp, max_hp);
-        rts_font_draw_text(app->renderer, font, tx, ty + 30, line, text, 1);
-        SDL_Rect hp_bg = { tx, ty + 44, layout.status.x + layout.status.w - tx - 12, 8 };
-        SDL_Rect hp_fill = hp_bg;
-        hp_fill.w = hp * hp_bg.w / max_hp;
-        dc_ui_fill(app->renderer, hp_bg, (SDL_Color){ 36, 22, 22, 255 });
-        dc_ui_fill(app->renderer, hp_fill, hp * 3 > max_hp ? green : red);
-        dc_ui_stroke(app->renderer, hp_bg, (SDL_Color){ 88, 104, 91, 255 });
-    }
+    dc_ui_fill(app->renderer, layout.resources, (SDL_Color){ 4, 6, 7, 255 });
+    dc_ui_stroke(app->renderer, layout.resources, (SDL_Color){ 142, 142, 142, 255 });
+    snprintf(line, sizeof(line), "%03d", map->player_resources[0] % 1000);
+    rts_font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 8,
+                       line, (SDL_Color){ 41, 217, 230, 255 }, 1);
+    snprintf(line, sizeof(line), "%d/%d", active_vents, map->resource_vent_count);
+    rts_font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 28,
+                       line, dim, 1);
 
     DarkColonySidebar fallback_sidebar;
     if (!sidebar) {
@@ -1091,26 +1249,30 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
         sidebar = &fallback_sidebar;
     }
     int hover_button = -1;
+    const Unit *selected = dc_first_selected_unit(units, unit_count);
     for (int i = 0; i < sidebar->command_count; ++i) {
         if (point_in_rect(app->mouse_x, app->mouse_y, layout.buttons[i])) {
             hover_button = i;
             break;
         }
     }
+    dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
+    dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
+    dc_ui_draw_sprite_fit(app->renderer, buttons, 76, layout.build, 0);
     if (hover_button >= 0) {
-        rts_font_draw_text(app->renderer, font, layout.commands.x + 12, layout.commands.y + 12,
-                             sidebar->commands[hover_button].label, amber, 1);
+        rts_font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                           dc_sidebar_command_label(&sidebar->commands[hover_button], selected),
+                           amber, 1);
     }
     for (int i = 0; i < sidebar->command_count; ++i) {
-        SDL_Color fill = (i == 0) ? (SDL_Color){ 31, 18, 17, 230 } : (SDL_Color){ 10, 14, 15, 220 };
+        SDL_Color fill = (i == 0) ? (SDL_Color){ 150, 150, 145, 255 } :
+                         (SDL_Color){ 175, 175, 168, 255 };
         dc_ui_fill(app->renderer, layout.buttons[i], fill);
-        dc_ui_draw_sprite_fit(app->renderer, buttons, sidebar->commands[i].frame, layout.buttons[i], 0);
+        dc_ui_draw_sprite_fit(app->renderer, buttons,
+                              dc_sidebar_command_frame(&sidebar->commands[i], selected),
+                              layout.buttons[i], 0);
         dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 ?
                      (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
-        int label_x = layout.buttons[i].x + layout.buttons[i].w + 8;
-        int label_y = layout.buttons[i].y + (layout.buttons[i].h - font->line_h) / 2;
-        rts_font_draw_text(app->renderer, font, label_x, label_y,
-                             sidebar->commands[i].label, i == 0 ? red : text, 1);
     }
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
@@ -1120,18 +1282,12 @@ static void render_hud_messages(App *app, const RtsHudText *hud, const RtsBitmap
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-    int side_w = dark_colony_ui_width(app);
-    int box_w = app->win_w - side_w - 80;
-    if (box_w > 760) box_w = 760;
-    if (box_w < 280) box_w = app->win_w - side_w - 24;
-    int x = 24;
-    int y = 24;
-    SDL_Rect box = { x - 10, y - 10, box_w + 20, 70 };
-    dc_ui_fill(app->renderer, box, (SDL_Color){ 5, 8, 9, 210 });
-    dc_ui_stroke(app->renderer, box, (SDL_Color){ 95, 128, 113, 230 });
-    rts_font_draw_text_wrapped(app->renderer, font, x, y, box_w,
-                               hud->messages[hud->count - 1].text,
-                               (SDL_Color){ 233, 217, 158, 255 }, 1);
+    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    dc_ui_fill(app->renderer, layout.message, (SDL_Color){ 3, 5, 5, 255 });
+    dc_ui_stroke(app->renderer, layout.message, (SDL_Color){ 142, 142, 142, 255 });
+    rts_font_draw_text_wrapped(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                               layout.message.w - 8, hud->messages[hud->count - 1].text,
+                               (SDL_Color){ 41, 217, 230, 255 }, 1);
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
@@ -1226,8 +1382,13 @@ int main(int argc, char **argv) {
 
     RtsRenderer renderer;
     App app = { 0 };
-    app.win_w = 1280;
-    app.win_h = 800;
+    if (is_dark_colony_plugin(plugin)) {
+        app.win_w = 640;
+        app.win_h = 480;
+    } else {
+        app.win_w = 1280;
+        app.win_h = 800;
+    }
     app.render_scale = render_scale;
     app.show_grid = false;
     app.running = true;
@@ -1305,6 +1466,7 @@ int main(int argc, char **argv) {
         float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
         focus_camera_on_grid(&app, focus_gx, focus_gy);
     }
+    clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
 
     printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count,
@@ -1366,11 +1528,20 @@ int main(int argc, char **argv) {
     }
 
     RtsBitmapFont ui_font = { 0 };
+    SpriteSheet dark_colony_background = { 0 };
     bool dark_colony_ui = is_dark_colony_plugin(plugin);
     bool ui_font_ready = dark_colony_ui && plugin->load_font &&
                          plugin->load_font(app.renderer, data_root, &ui_font);
     if (dark_colony_ui && !ui_font_ready) {
         fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
+    }
+    if (dark_colony_ui) {
+        char ui_background_path[1024];
+        path_join(ui_background_path, sizeof(ui_background_path), data_root, "INTRFACE/INTRFACE.GIF");
+        if (!load_gif_texture(app.renderer, ui_background_path, &dark_colony_background)) {
+            fprintf(stderr, "warning: failed to load Dark Colony UI background %s\n",
+                    ui_background_path);
+        }
     }
     DarkColonySidebar dark_colony_sidebar;
     dark_colony_sidebar_defaults(&dark_colony_sidebar);
@@ -1387,6 +1558,7 @@ int main(int argc, char **argv) {
                                        plugin->game_info, &hud_text, FIXED_DT);
                 if (unit_count != before_count && !map.has_camera)
                     focus_camera_on_first_player_unit(&app, units, unit_count);
+                clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
             }
             rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
@@ -1395,11 +1567,10 @@ int main(int argc, char **argv) {
             render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, plugin->game_info);
             if (dark_colony_ui && ui_font_ready) {
-                render_hud_messages(&app, &hud_text, &ui_font);
-            }
-            if (dark_colony_ui && ui_font_ready) {
                 render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
-                                             &decoration_sprites, &ui_font, &dark_colony_sidebar);
+                                             &decoration_sprites, &ui_font, &dark_colony_sidebar,
+                                             &dark_colony_background);
+                render_hud_messages(&app, &hud_text, &ui_font);
             }
             if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
@@ -1408,6 +1579,7 @@ int main(int argc, char **argv) {
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
         if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+        destroy_sprite(&dark_colony_background);
         destroy_font(&ui_font);
         destroy_sprite_cache(&decoration_sprites);
         destroy_sprite(&unit_sprite);
@@ -1448,6 +1620,7 @@ int main(int argc, char **argv) {
             handle_event(&app, &map, units, unit_count, &e);
         }
         update_camera_from_keyboard(&app, frame_dt);
+        clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
         while (accumulator >= FIXED_DT) {
             update_units(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                          plugin->game_info, FIXED_DT);
@@ -1457,6 +1630,7 @@ int main(int argc, char **argv) {
                                        plugin->game_info, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
                     if (!map.has_camera) focus_camera_on_first_player_unit(&app, units, unit_count);
+                    clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
                     if (plugin->load_runtime_sprites &&
                         !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
                                                       &decoration_sprites)) {
@@ -1483,9 +1657,6 @@ int main(int argc, char **argv) {
                              &decoration_sprites, plugin->game_info, SDL_GetTicks());
         render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
                               &decoration_sprites, plugin->game_info);
-        if (dark_colony_ui && ui_font_ready) {
-            render_hud_messages(&app, &hud_text, &ui_font);
-        }
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);
@@ -1494,12 +1665,15 @@ int main(int argc, char **argv) {
         }
         if (dark_colony_ui && ui_font_ready) {
             render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
-                                         &decoration_sprites, &ui_font, &dark_colony_sidebar);
+                                         &decoration_sprites, &ui_font, &dark_colony_sidebar,
+                                         &dark_colony_background);
+            render_hud_messages(&app, &hud_text, &ui_font);
         }
         rts_renderer_end_frame(&renderer);
     }
 
     if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+    destroy_sprite(&dark_colony_background);
     destroy_font(&ui_font);
     destroy_sprite_cache(&decoration_sprites);
     destroy_sprite(&unit_sprite);

@@ -279,6 +279,7 @@ typedef struct {
     int h;
     int dis_x;
     int dis_y;
+    bool blank;
 } DcSprFrameInfo;
 
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
@@ -315,16 +316,17 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         int h = read_u16_le(d + 2);
         int dis_x = read_u16_le(d + 4);
         int dis_y = read_u16_le(d + 6);
-        if (w <= 0 || h <= 0 || w > 512 || h > 512) {
+        bool blank = w <= 0 || h <= 0;
+        if (w > 512 || h > 512) {
             free(info); free_blob(&blob);
             return false;
         }
-        info[i] = (DcSprFrameInfo){ w, h, dis_x, dis_y };
+        info[i] = (DcSprFrameInfo){ blank ? 1 : w, blank ? 1 : h, dis_x, dis_y, blank };
         if (dis_x < min_dis_x) min_dis_x = dis_x;
         if (dis_y < min_dis_y) min_dis_y = dis_y;
-        if (dis_x + w > max_dis_x) max_dis_x = dis_x + w;
-        if (dis_y + h > max_dis_y) max_dis_y = dis_y + h;
-        total_pixels += (size_t)w * (size_t)h;
+        if (dis_x + info[i].w > max_dis_x) max_dis_x = dis_x + info[i].w;
+        if (dis_y + info[i].h > max_dis_y) max_dis_y = dis_y + info[i].h;
+        if (!blank) total_pixels += (size_t)w * (size_t)h;
     }
     if (!compressed && data_off + total_pixels > blob.size) {
         fprintf(stderr, "%s has truncated Dark Colony sprite pixels\n", path);
@@ -361,6 +363,12 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
             uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
             src_pos += 4;
             if (src_pos + chunk_size > blob.size) { free(info); free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
+            if (info[i].blank) {
+                src_pos += chunk_size;
+                frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
+                bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
+                continue;
+            }
             const uint8_t *src = blob.bytes + src_pos;
             size_t pos = 0;
             int x = 0, y = 0;
@@ -385,9 +393,11 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
             }
             src_pos += chunk_size;
         } else {
-            blit_indexed_to_rgba(rgba, atlas_w, atlas_h, fx, fy,
-                                 blob.bytes + src_pos, w, h, palette_out);
-            src_pos += (size_t)w * (size_t)h;
+            if (!info[i].blank) {
+                blit_indexed_to_rgba(rgba, atlas_w, atlas_h, fx, fy,
+                                     blob.bytes + src_pos, w, h, palette_out);
+                src_pos += (size_t)w * (size_t)h;
+            }
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);

@@ -416,6 +416,7 @@ void update_visual_effects(GameMap *map, RtsVisualEffect *effects, int max_effec
                            const RtsGameInfo *game_info, float dt);
 void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, const SDL_Event *e);
 void update_camera_from_keyboard(App *app, float dt);
+void clamp_camera_to_map(App *app, const GameMap *map, int viewport_w, int viewport_h);
 
 void destroy_tileset(Tileset *tileset);
 void destroy_map(GameMap *map);
