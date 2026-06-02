@@ -699,14 +699,14 @@ static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
     }
 }
 
-static SDL_Rect dark_colony_scale_rect(const App *app, int x, int y, int w, int h) {
-    int sx_num = app && app->win_w > 0 ? app->win_w : 640;
-    int sy_num = app && app->win_h > 0 ? app->win_h : 480;
+static SDL_Rect dark_colony_ui_rect(const App *app, int x, int y, int w, int h) {
+    int win_w = app && app->win_w > 0 ? app->win_w : 640;
+    int win_h = app && app->win_h > 0 ? app->win_h : 480;
     SDL_Rect r = {
-        x * sx_num / 640,
-        y * sy_num / 480,
-        w * sx_num / 640,
-        h * sy_num / 480,
+        x >= 516 ? win_w - (640 - x) : x,
+        y >= 455 ? win_h - (480 - y) : y,
+        w,
+        h,
     };
     if (r.w < 1 && w > 0) r.w = 1;
     if (r.h < 1 && h > 0) r.h = 1;
@@ -984,7 +984,8 @@ static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *dat
 }
 
 static int dark_colony_ui_width(const App *app) {
-    return dark_colony_scale_rect(app, 516, 0, 124, 480).w;
+    (void)app;
+    return 124;
 }
 
 static int world_viewport_width(const App *app, const RtsPlugin *plugin) {
@@ -997,21 +998,21 @@ static int world_viewport_width(const App *app, const RtsPlugin *plugin) {
 static DarkColonyUiLayout dark_colony_ui_layout(const App *app) {
     DarkColonyUiLayout layout;
     memset(&layout, 0, sizeof(layout));
-    layout.outer = dark_colony_scale_rect(app, 516, 0, 124, 480);
-    layout.minimap = dark_colony_scale_rect(app, 520, 5, 96, 84);
-    layout.commands = dark_colony_scale_rect(app, 516, 92, 124, 330);
-    layout.status = dark_colony_scale_rect(app, 518, 368, 59, 41);
-    layout.resources = dark_colony_scale_rect(app, 607, 422, 28, 51);
-    layout.message = dark_colony_scale_rect(app, 48, 456, 462, 16);
-    layout.build = dark_colony_scale_rect(app, 516, 422, 86, 27);
-    layout.header = dark_colony_scale_rect(app, 516, 0, 124, 92);
-    layout.tabs[0] = dark_colony_scale_rect(app, 518, 92, 40, 20);
-    layout.tabs[1] = dark_colony_scale_rect(app, 557, 92, 41, 20);
-    layout.tabs[2] = dark_colony_scale_rect(app, 598, 92, 40, 20);
+    layout.outer = dark_colony_ui_rect(app, 516, 0, 124, 480);
+    layout.minimap = dark_colony_ui_rect(app, 520, 5, 96, 84);
+    layout.commands = dark_colony_ui_rect(app, 516, 92, 124, 330);
+    layout.status = dark_colony_ui_rect(app, 518, 368, 59, 41);
+    layout.resources = dark_colony_ui_rect(app, 607, 422, 28, 51);
+    layout.message = dark_colony_ui_rect(app, 48, 456, 462, 16);
+    layout.build = dark_colony_ui_rect(app, 516, 422, 86, 27);
+    layout.header = dark_colony_ui_rect(app, 516, 0, 124, 92);
+    layout.tabs[0] = dark_colony_ui_rect(app, 518, 92, 40, 20);
+    layout.tabs[1] = dark_colony_ui_rect(app, 557, 92, 41, 20);
+    layout.tabs[2] = dark_colony_ui_rect(app, 598, 92, 40, 20);
 
     const int button_y[6] = { 112, 153, 194, 235, 276, 317 };
     for (int i = 0; i < 6; ++i) {
-        layout.buttons[i] = dark_colony_scale_rect(app, 518, button_y[i], 59, 41);
+        layout.buttons[i] = dark_colony_ui_rect(app, 518, button_y[i], 59, 41);
     }
     return layout;
 }
@@ -1195,18 +1196,18 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
                               (SDL_Rect){ 516, 0, 124, 480 }, layout.outer);
         dc_ui_draw_image_part(app->renderer, background,
                               (SDL_Rect){ 0, 455, 516, 25 },
-                              dark_colony_scale_rect(app, 0, 455, 516, 25));
+                              dark_colony_ui_rect(app, 0, 455, 516, 25));
     } else {
         dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 2, 2, 2, 255 });
-        dc_ui_fill(app->renderer, dark_colony_scale_rect(app, 0, 455, 640, 25),
+        dc_ui_fill(app->renderer, dark_colony_ui_rect(app, 0, 455, 640, 25),
                    (SDL_Color){ 3, 3, 3, 255 });
         dc_ui_stroke(app->renderer, layout.outer, (SDL_Color){ 178, 178, 178, 255 });
-        dc_ui_stroke(app->renderer, dark_colony_scale_rect(app, 0, 455, 640, 18),
+        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 0, 455, 640, 18),
                      (SDL_Color){ 164, 164, 164, 255 });
         dc_ui_stroke(app->renderer, layout.minimap, (SDL_Color){ 154, 154, 154, 255 });
-        dc_ui_stroke(app->renderer, dark_colony_scale_rect(app, 516, 0, 107, 92),
+        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 516, 0, 107, 92),
                      (SDL_Color){ 86, 86, 86, 255 });
-        dc_ui_stroke(app->renderer, dark_colony_scale_rect(app, 516, 92, 124, 363),
+        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 516, 92, 124, 363),
                      (SDL_Color){ 154, 154, 154, 255 });
 
         for (int i = 0; i < 3; ++i) {
