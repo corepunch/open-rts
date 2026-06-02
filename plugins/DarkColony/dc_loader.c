@@ -600,6 +600,37 @@ static void load_dark_colony_camera_from_scn(const char *scn, GameMap *map) {
     }
 }
 
+static uint32_t dark_colony_rgb565_to_rgba(uint16_t value) {
+    uint8_t r5 = (uint8_t)((value >> 11) & 0x1f);
+    uint8_t g6 = (uint8_t)((value >> 5) & 0x3f);
+    uint8_t b5 = (uint8_t)(value & 0x1f);
+    uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
+    uint8_t g = (uint8_t)((g6 << 2) | (g6 >> 4));
+    uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
+    return 0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+}
+
+static bool load_dark_colony_overview_colors(const char *path, size_t cell_count,
+                                             uint32_t **colors_out) {
+    Blob blob;
+    if (!colors_out || !load_blob(path, &blob)) return false;
+    if (blob.size < cell_count * 2) {
+        free_blob(&blob);
+        return false;
+    }
+    uint32_t *colors = calloc(cell_count, sizeof(*colors));
+    if (!colors) {
+        free_blob(&blob);
+        return false;
+    }
+    for (size_t i = 0; i < cell_count; ++i) {
+        colors[i] = dark_colony_rgb565_to_rgba(read_u16_le(blob.bytes + i * 2));
+    }
+    free_blob(&blob);
+    *colors_out = colors;
+    return true;
+}
+
 bool load_dark_colony_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
     char map_path_buf[1024];
@@ -621,6 +652,8 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
     size_t source_count = 0;
     bool legacy_map_format = false;
     bool legacy_no_header = false; /* .O16: tile pairs start at byte 0, no flags plane */
+    bool use_overview_colors = false;
+    char overview_path[1024] = { 0 };
     if (blob.size >= 8) {
         int maybe_width = read_i32_le(blob.bytes + 0);
         int maybe_height = read_i32_le(blob.bytes + 4);
@@ -670,18 +703,12 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
                     free_blob(&alt_blob);
                 }
             }
-            /* If no .MAP, try .O16 (tile+overlay pairs, w*h*4 bytes, no header). */
+            /* If no .MAP exists, use the companion terrain overview.  The .O16
+               stream is overview/remap data too; treating it as BTS tile IDs
+               aliases huge 16-bit values into one repeated tile. */
             if (!used_alt) {
-                replace_extension(alt_path, sizeof(alt_path), map_path, ".O16");
-                if (load_blob(alt_path, &alt_blob) && alt_blob.size == source_count * 4) {
-                    free_blob(&blob);
-                    blob = alt_blob;
-                    map_path = alt_path;
-                    legacy_map_format = true;
-                    legacy_no_header = true;
-                } else {
-                    free_blob(&alt_blob);
-                }
+                replace_extension(overview_path, sizeof(overview_path), map_path, ".OVH");
+                use_overview_colors = true;
             }
         }
     }
@@ -724,6 +751,14 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
                 out->tile_ids[idx] = mtg_tiles[idx];
                 out->tile_overlays[0][idx] = 0;
             }
+        }
+    }
+    if (use_overview_colors) {
+        if (load_dark_colony_overview_colors(overview_path, source_count, &out->cell_colors)) {
+            out->render_features |= MAP_RENDER_USE_CELL_COLORS;
+        } else {
+            fprintf(stderr, "warning: failed to load Dark Colony overview colors from %s\n",
+                    overview_path);
         }
     }
 

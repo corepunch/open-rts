@@ -27,12 +27,21 @@ build/bin/open-rts --game dark-reign /path/to/dark scenario/MULTI/8JUNGLE/8JUNGL
 build/bin/open-rts --game dark-colony /path/to/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MTG SPRITES/TROOPER1.SPR
 ```
 
-For a non-interactive loader/renderer check:
+For a non-interactive loader/renderer check (uses SDL dummy driver — no display required):
 
 ```sh
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --check
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game dark-colony
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-smoke.bmp
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony-ui.bmp --game dark-colony
+```
+
+If the map renders the same tile everywhere on a particular machine (Metal/GPU driver bug),
+force the SDL software renderer:
+
+```sh
+build/bin/open-rts --software
+build/bin/open-rts --software --game dark-colony
 ```
 
 ## Controls

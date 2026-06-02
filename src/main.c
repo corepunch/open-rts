@@ -1315,11 +1315,15 @@ int main(int argc, char **argv) {
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
     int render_scale = 1;
+    bool software_renderer = false;
     const char *debug_query = NULL;
     bool debug_animation_grid = false;
     const char *game_id = "dark-reign";
     while (argc > arg_base) {
-        if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
+        if (strcmp(argv[arg_base], "--software") == 0) {
+            software_renderer = true;
+            arg_base += 1;
+        } else if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
             game_id = argv[arg_base + 1];
             arg_base += 2;
         } else if (strncmp(argv[arg_base], "--game=", 7) == 0) {
@@ -1402,7 +1406,7 @@ int main(int argc, char **argv) {
     app.running = true;
     if (!rts_renderer_create(&renderer, rts_sdl_renderer_backend(), "open-rts - paletted RTS base",
                              app.win_w, app.win_h, check_only || screenshot_only,
-                             check_only || screenshot_only)) {
+                             check_only || screenshot_only || software_renderer)) {
         return 1;
     }
     app.window = renderer.window;

@@ -101,10 +101,21 @@ void blit_indexed_to_rgba(uint32_t *dst, int dst_w, int dst_h, int dst_x, int ds
 
 SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
-    if (!texture) return NULL;
-    SDL_UpdateTexture(texture, NULL, pixels, w * (int)sizeof(uint32_t));
-    SDL_SetTextureBlendMode(texture, blend ? SDL_BLENDMODE_BLEND : SDL_BLENDMODE_NONE);
-    SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest);
+    if (!texture) {
+        fprintf(stderr, "SDL_CreateTexture %dx%d ARGB8888: %s\n", w, h, SDL_GetError());
+        return NULL;
+    }
+    if (SDL_UpdateTexture(texture, NULL, pixels, w * (int)sizeof(uint32_t)) != 0) {
+        fprintf(stderr, "SDL_UpdateTexture %dx%d ARGB8888: %s\n", w, h, SDL_GetError());
+        SDL_DestroyTexture(texture);
+        return NULL;
+    }
+    if (SDL_SetTextureBlendMode(texture, blend ? SDL_BLENDMODE_BLEND : SDL_BLENDMODE_NONE) != 0) {
+        fprintf(stderr, "SDL_SetTextureBlendMode: %s\n", SDL_GetError());
+    }
+    if (SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest) != 0) {
+        fprintf(stderr, "SDL_SetTextureScaleMode: %s\n", SDL_GetError());
+    }
     return texture;
 }
 

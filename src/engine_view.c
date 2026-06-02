@@ -170,7 +170,11 @@ static void render_tile_at_flipped(App *app, const Tileset *tileset, int tile,
         src_part.h,
     };
     SDL_RendererFlip flip = (flip_flags & 1) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderCopyEx(app->renderer, tileset->texture, &src, &dst_part, 0.0, NULL, flip);
+    if (flip == SDL_FLIP_NONE) {
+        SDL_RenderCopy(app->renderer, tileset->texture, &src, &dst_part);
+    } else {
+        SDL_RenderCopyEx(app->renderer, tileset->texture, &src, &dst_part, 0.0, NULL, flip);
+    }
 }
 
 void render_map(App *app, const GameMap *map, const Tileset *tileset) {
