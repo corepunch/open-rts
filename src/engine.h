@@ -291,9 +291,11 @@ typedef struct Unit {
     bool selected;
     bool death_started;
     bool remove;
+    bool move_order_arrived;
     float radius;
     float move_goal_gx;
     float move_goal_gy;
+    uint32_t move_order_id;
     char sprite_name[32];
     char shadow_name[32];
     char muzzle_flash_name[32];

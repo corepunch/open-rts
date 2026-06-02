@@ -1111,6 +1111,8 @@ static void dc_stop_selected_units(Unit *units, int unit_count) {
         units[i].harvest_timer_ms = 0;
         units[i].move_goal_gx = units[i].gx;
         units[i].move_goal_gy = units[i].gy;
+        units[i].move_order_id = 0;
+        units[i].move_order_arrived = false;
     }
 }
 

@@ -31,7 +31,10 @@ endif
 # ── main binary ─────────────────────────────────────────────────────────────
 MAIN_SOURCES := \
 	src/main.c \
-	src/engine.c \
+	src/engine_core.c \
+	src/engine_path.c \
+	src/engine_units.c \
+	src/engine_view.c \
 	src/plugin.c \
 	src/renderer_sdl.c
 MAIN_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(MAIN_SOURCES))
