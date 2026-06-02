@@ -598,8 +598,19 @@ static void load_dark_colony_camera_from_scn(const char *scn, GameMap *map) {
 
 bool load_dark_colony_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
+    char map_path_buf[1024];
     Blob blob;
-    if (!load_blob(map_path, &blob)) return false;
+    if (!load_blob(map_path, &blob)) {
+        /* If a .MAP was requested but doesn't exist, try the companion .MTG. */
+        const char *dot = strrchr(map_path, '.');
+        if (dot && strcasecmp(dot, ".MAP") == 0) {
+            replace_extension(map_path_buf, sizeof(map_path_buf), map_path, ".MTG");
+            if (!load_blob(map_path_buf, &blob)) return false;
+            map_path = map_path_buf;
+        } else {
+            return false;
+        }
+    }
     if (blob.size < 2) { free_blob(&blob); return false; }
     int width = 0;
     int height = 0;
