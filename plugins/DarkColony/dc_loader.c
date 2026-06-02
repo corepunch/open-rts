@@ -647,10 +647,21 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         if (blank_mtg && dot && strcasecmp(dot, ".MTG") == 0) {
             char map_fallback[1024];
             replace_extension(map_fallback, sizeof(map_fallback), map_path, ".MAP");
-            free_blob(&blob);
-            if (load_dark_colony_map(map_fallback, out)) return true;
-            memset(out, 0, sizeof(*out));
-            if (!load_blob(map_path, &blob)) return false;
+            Blob map_blob;
+            if (load_blob(map_fallback, &map_blob) && map_blob.size >= 8) {
+                int mw = read_i32_le(map_blob.bytes + 0);
+                int mh = read_i32_le(map_blob.bytes + 4);
+                size_t mc = (size_t)mw * (size_t)mh;
+                if (mw > 0 && mh > 0 && mw <= 512 && mh <= 512 && map_blob.size >= 8 + mc * 2 * 3) {
+                    free_blob(&blob);
+                    blob = map_blob;
+                    map_path = map_fallback;
+                    width = mw; height = mh; source_count = mc;
+                    legacy_map_format = true;
+                } else {
+                    free_blob(&map_blob);
+                }
+            }
         }
     }
 
