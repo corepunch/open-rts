@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool sdl_renderer_create(RtsRenderer *renderer, const char *title, int width, int height,
+static bool sdl_renderer_create(Renderer *renderer, const char *title, int width, int height,
                                 bool hidden, bool software) {
     memset(renderer, 0, sizeof(*renderer));
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -33,23 +33,23 @@ static bool sdl_renderer_create(RtsRenderer *renderer, const char *title, int wi
     return true;
 }
 
-static void sdl_renderer_destroy(RtsRenderer *renderer) {
+static void sdl_renderer_destroy(Renderer *renderer) {
     if (renderer->sdl) SDL_DestroyRenderer(renderer->sdl);
     if (renderer->window) SDL_DestroyWindow(renderer->window);
     SDL_Quit();
     memset(renderer, 0, sizeof(*renderer));
 }
 
-static void sdl_renderer_begin_frame(RtsRenderer *renderer, SDL_Color clear) {
+static void sdl_renderer_begin_frame(Renderer *renderer, SDL_Color clear) {
     SDL_SetRenderDrawColor(renderer->sdl, clear.r, clear.g, clear.b, clear.a);
     SDL_RenderClear(renderer->sdl);
 }
 
-static void sdl_renderer_end_frame(RtsRenderer *renderer) {
+static void sdl_renderer_end_frame(Renderer *renderer) {
     SDL_RenderPresent(renderer->sdl);
 }
 
-static bool sdl_renderer_save_screenshot(RtsRenderer *renderer, const char *path) {
+static bool sdl_renderer_save_screenshot(Renderer *renderer, const char *path) {
     int width = renderer->width;
     int height = renderer->height;
     SDL_GetRendererOutputSize(renderer->sdl, &width, &height);
@@ -77,8 +77,8 @@ static bool sdl_renderer_save_screenshot(RtsRenderer *renderer, const char *path
     return ok;
 }
 
-const RtsRendererBackend *rts_sdl_renderer_backend(void) {
-    static const RtsRendererBackend backend = {
+const RendererBackend *sdl_renderer_backend(void) {
+    static const RendererBackend backend = {
         .id = "sdl",
         .name = "SDL Renderer",
         .create = sdl_renderer_create,
@@ -90,34 +90,34 @@ const RtsRendererBackend *rts_sdl_renderer_backend(void) {
     return &backend;
 }
 
-const RtsRendererBackend *rts_renderer_backend_by_id(const char *id) {
-    const RtsRendererBackend *backend = rts_sdl_renderer_backend();
+const RendererBackend *renderer_backend_by_id(const char *id) {
+    const RendererBackend *backend = sdl_renderer_backend();
     if (!id || strcmp(id, backend->id) == 0) return backend;
     return NULL;
 }
 
-bool rts_renderer_create(RtsRenderer *renderer, const RtsRendererBackend *backend,
+bool renderer_create(Renderer *renderer, const RendererBackend *backend,
                          const char *title, int width, int height,
                          bool hidden, bool software) {
-    if (!backend) backend = rts_sdl_renderer_backend();
+    if (!backend) backend = sdl_renderer_backend();
     renderer->backend = backend;
     if (!backend->create(renderer, title, width, height, hidden, software)) return false;
     renderer->backend = backend;
     return true;
 }
 
-void rts_renderer_destroy(RtsRenderer *renderer) {
+void renderer_destroy(Renderer *renderer) {
     if (renderer->backend && renderer->backend->destroy) renderer->backend->destroy(renderer);
 }
 
-void rts_renderer_begin_frame(RtsRenderer *renderer, SDL_Color clear) {
+void renderer_begin_frame(Renderer *renderer, SDL_Color clear) {
     renderer->backend->begin_frame(renderer, clear);
 }
 
-void rts_renderer_end_frame(RtsRenderer *renderer) {
+void renderer_end_frame(Renderer *renderer) {
     renderer->backend->end_frame(renderer);
 }
 
-bool rts_renderer_save_screenshot(RtsRenderer *renderer, const char *path) {
+bool renderer_save_screenshot(Renderer *renderer, const char *path) {
     return renderer->backend->save_screenshot(renderer, path);
 }

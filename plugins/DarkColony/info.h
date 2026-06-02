@@ -355,13 +355,13 @@ typedef enum {
 typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, NUMMOBJTYPES } mobjtype_t;
 
 extern const char *const sprnames[NUMSPRITES];
-extern const RtsState states[NUMSTATES];
-extern const RtsMobjInfo mobjinfo[NUMMOBJTYPES];
-extern const RtsGameInfo dark_colony_game_info;
+extern const State states[NUMSTATES];
+extern const MobjInfo mobjinfo[NUMMOBJTYPES];
+extern const GameInfo dark_colony_game_info;
 
-void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit);
-void A_DC_Attack(RtsStateContext *ctx, Unit *unit);
-void A_DC_Fall(RtsStateContext *ctx, Unit *unit);
-void A_DC_Corpse(RtsStateContext *ctx, Unit *unit);
+void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);
+void A_DC_Attack(StateContext *ctx, Unit *unit);
+void A_DC_Fall(StateContext *ctx, Unit *unit);
+void A_DC_Corpse(StateContext *ctx, Unit *unit);
 
 #endif

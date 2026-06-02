@@ -2,7 +2,7 @@ CC ?= cc
 PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
-CPPFLAGS += -I./src
+CPPFLAGS += -I./common -I./client -I./server -I./utility
 DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
@@ -30,13 +30,13 @@ endif
 
 # ── main binary ─────────────────────────────────────────────────────────────
 MAIN_SOURCES := \
-	src/main.c \
-	src/engine_core.c \
-	src/engine_path.c \
-	src/engine_units.c \
-	src/engine_view.c \
-	src/plugin.c \
-	src/renderer_sdl.c
+	client/main.c \
+	client/engine_view.c \
+	client/renderer_sdl.c \
+	common/engine_core.c \
+	common/engine_path.c \
+	common/engine_units.c \
+	common/plugin.c
 MAIN_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(MAIN_SOURCES))
 MAIN_DEPS    := $(MAIN_OBJECTS:.o=.d)
 

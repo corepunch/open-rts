@@ -18,21 +18,21 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
                              uint32_t palette_out[256]);
 
-void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit) {
+void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit) {
     if (!ctx || !unit) return;
     int muzzle_state = 0;
     if (ctx->game_info && unit->type_id > 0 &&
         unit->type_id < ctx->game_info->mobj_type_count) {
         muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
     }
-    rts_spawn_state_effect(ctx, muzzle_state, unit->gx, unit->gy, unit->facing_code);
+    spawn_state_effect(ctx, muzzle_state, unit->gx, unit->gy, unit->facing_code);
 }
 
-void A_DC_Attack(RtsStateContext *ctx, Unit *unit) {
-    rts_unit_fire_attack(ctx, unit);
+void A_DC_Attack(StateContext *ctx, Unit *unit) {
+    unit_fire_attack(ctx, unit);
 }
 
-void A_DC_Fall(RtsStateContext *ctx, Unit *unit) {
+void A_DC_Fall(StateContext *ctx, Unit *unit) {
     (void)ctx;
     if (!unit) return;
     unit->selected = false;
@@ -48,13 +48,13 @@ void A_DC_Fall(RtsStateContext *ctx, Unit *unit) {
     unit->death_started = true;
 }
 
-void A_DC_Corpse(RtsStateContext *ctx, Unit *unit) {
+void A_DC_Corpse(StateContext *ctx, Unit *unit) {
     if (!unit) return;
-    rts_unit_add_corpse_decoration(ctx, unit);
+    unit_add_corpse_decoration(ctx, unit);
     unit->remove = true;
 }
 
-static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
+static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_DC_TROOPER,
         .name = "Trooper",
@@ -131,14 +131,14 @@ static const RtsActorType DARK_COLONY_ACTOR_TYPES[] = {
     },
 };
 
-static const RtsActorType *dark_colony_actor_type_by_id(uint16_t type_id) {
+static const ActorType *dark_colony_actor_type_by_id(uint16_t type_id) {
     for (int i = 0; i < (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])); ++i) {
         if (DARK_COLONY_ACTOR_TYPES[i].id == type_id) return &DARK_COLONY_ACTOR_TYPES[i];
     }
     return NULL;
 }
 
-static void dark_colony_apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
+static void dark_colony_apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
@@ -306,11 +306,11 @@ static bool dark_colony_player_near(const GameMap *map, const Unit *units,
     return false;
 }
 
-static int dark_colony_spawn_aird_effect(RtsVisualEffect *effects, int max_effects,
+static int dark_colony_spawn_aird_effect(VisualEffect *effects, int max_effects,
                                          float gx, float gy, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
-        RtsVisualEffect *effect = &effects[i];
+        VisualEffect *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
         effect->gx = gx;
@@ -323,11 +323,11 @@ static int dark_colony_spawn_aird_effect(RtsVisualEffect *effects, int max_effec
     return -1;
 }
 
-static void dark_colony_spawn_beacon_effect(RtsVisualEffect *effects, int max_effects,
+static void dark_colony_spawn_beacon_effect(VisualEffect *effects, int max_effects,
                                             float gx, float gy, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
-        RtsVisualEffect *effect = &effects[i];
+        VisualEffect *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
         effect->gx = gx;
@@ -340,7 +340,7 @@ static void dark_colony_spawn_beacon_effect(RtsVisualEffect *effects, int max_ef
 }
 
 static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
-                                          RtsVisualEffect *effects, int max_effects,
+                                          VisualEffect *effects, int max_effects,
                                           int gx, int gy, int duration_ms) {
     if (!mission || !effects || max_effects <= 0) return;
     int actual_duration = duration_ms > 1400 ? duration_ms : 1400;
@@ -384,7 +384,7 @@ static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
 
 static void dark_colony_spawn_script_unit(const GameMap *map, Unit *units, int *unit_count, int team,
                                           int gx, int gy, int type, int index,
-                                          const RtsGameInfo *game_info) {
+                                          const GameInfo *game_info) {
     if (!units || !unit_count || *unit_count >= MAX_UNITS) return;
     Unit *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
@@ -413,9 +413,9 @@ static void dark_colony_spawn_script_unit(const GameMap *map, Unit *units, int *
     }
     unit->facing_code = unit->owner == 0 ? 6 : 14;
     uint16_t type_id = dark_colony_script_unit_type(team, type);
-    const RtsActorType *actor = dark_colony_actor_type_by_id(type_id);
+    const ActorType *actor = dark_colony_actor_type_by_id(type_id);
     dark_colony_apply_actor_type_defaults(unit, actor);
-    rts_apply_mobjinfo_defaults(game_info, unit);
+    apply_mobjinfo_defaults(game_info, unit);
     (*unit_count)++;
 }
 
@@ -443,7 +443,7 @@ static void dark_colony_queue_pending_spawn(DarkColonyMission *mission, int spaw
 
 static void dark_colony_update_pending_spawns(DarkColonyMission *mission, GameMap *map,
                                               Unit *units, int *unit_count,
-                                              const RtsGameInfo *game_info) {
+                                              const GameInfo *game_info) {
     if (!mission || !units || !unit_count) return;
     for (int i = 0; i < (int)(sizeof(mission->pending_spawns) / sizeof(mission->pending_spawns[0])); ++i) {
         DarkColonyPendingSpawn *spawn = &mission->pending_spawns[i];
@@ -460,15 +460,15 @@ static void dark_colony_update_pending_spawns(DarkColonyMission *mission, GameMa
 
 static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkColonyScriptBlock *block,
                                              GameMap *map, Unit *units, int *unit_count,
-                                             RtsVisualEffect *effects, int max_effects,
-                                             const RtsGameInfo *game_info, RtsHudText *hud) {
+                                             VisualEffect *effects, int max_effects,
+                                             const GameInfo *game_info, HudText *hud) {
     if (!mission || !block) return;
     int drop_sequence = 0;
     for (int i = 0; i < block->command_count; ++i) {
         DarkColonyScriptCommand *cmd = &block->commands[i];
         if (cmd->type == DC_SCRIPT_CMD_MSG) {
             const char *message = dark_colony_script_message(mission, cmd->a[0]);
-            if (message) rts_hud_text_push(hud, message, 6500);
+            if (message) hud_text_push(hud, message, 6500);
         } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
                    cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
             int team = cmd->a[0], x = cmd->a[1], y = dark_colony_script_y_to_map(map, cmd->a[2]);
@@ -648,7 +648,7 @@ static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) 
     free(text);
 }
 
-static bool dark_colony_load_font(SDL_Renderer *renderer, const char *data_root, RtsBitmapFont *font) {
+static bool dark_colony_load_font(SDL_Renderer *renderer, const char *data_root, BitmapFont *font) {
     if (!renderer || !data_root || !font) return false;
     memset(font, 0, sizeof(*font));
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
@@ -703,8 +703,8 @@ static void *dark_colony_load_mission(const char *map_path) {
 }
 
 static void dark_colony_update_mission(void *ptr, GameMap *map, Unit *units, int *unit_count,
-                                       RtsVisualEffect *effects, int max_effects,
-                                       const RtsGameInfo *game_info, RtsHudText *hud, float dt) {
+                                       VisualEffect *effects, int max_effects,
+                                       const GameInfo *game_info, HudText *hud, float dt) {
     DarkColonyMission *mission = ptr;
     if (!mission || !units || !unit_count) return;
     mission->elapsed_ms += (int)(dt * 1000.0f);
@@ -760,7 +760,7 @@ static bool dark_colony_load_runtime_sprites(SDL_Renderer *renderer, const char 
     return load_dark_colony_unit_sprites(renderer, data_root, map, units, unit_count, cache);
 }
 
-static const RtsPlugin DARK_COLONY_PLUGIN = {
+static const Plugin DARK_COLONY_PLUGIN = {
     .id             = "dark-colony",
     .name           = "Dark Colony",
     .version        = "0.1",
@@ -780,6 +780,55 @@ static const RtsPlugin DARK_COLONY_PLUGIN = {
     .actor_types       = DARK_COLONY_ACTOR_TYPES,
     .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
     .debug_enemy_type_id = MT_DC_GREY,
+    .capabilities        = {
+        .map_format = MAP_FORMAT_DARK_COLONY_MAP_MTG_OVH,
+        .capabilities = PLUGIN_CAP_STATIC_METADATA |
+                        PLUGIN_CAP_RUNTIME_SPRITES |
+                        PLUGIN_CAP_MISSION_SCRIPT |
+                        PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
+        .data_capability = "dark-colony:data/DCOLONY",
+        .graphics_capability = "dark-colony:spr-mtg-ovh",
+    },
+    .definition          = {
+        .id             = "dark-colony",
+        .name           = "Dark Colony",
+        .version        = "0.1",
+        .default_root   = "data/DCOLONY",
+        .default_map    = "SCENARIO/HUMAN/HUMAN01.MAP",
+        .default_sprite = "SPRITES/TROOPER1.SPR",
+        .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
+                          RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
+                          RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
+                          RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
+                          RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
+                          RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI |
+                          RTS_SUBSYSTEM_SCRIPTING,
+        .cell_w            = 32,
+        .cell_h            = 32,
+        .game_info         = &dark_colony_game_info,
+        .actor_types       = DARK_COLONY_ACTOR_TYPES,
+        .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
+        .debug_enemy_type_id = MT_DC_GREY,
+        .capabilities        = {
+            .map_format = MAP_FORMAT_DARK_COLONY_MAP_MTG_OVH,
+            .capabilities = PLUGIN_CAP_STATIC_METADATA |
+                            PLUGIN_CAP_RUNTIME_SPRITES |
+                            PLUGIN_CAP_MISSION_SCRIPT |
+                            PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
+            .data_capability = "dark-colony:data/DCOLONY",
+            .graphics_capability = "dark-colony:spr-mtg-ovh",
+        },
+    },
+    .loaders             = {
+        .load_map            = load_dark_colony_map,
+        .load_assets         = dark_colony_plugin_load_assets,
+        .load_initial_units  = load_dark_colony_initial_units,
+        .load_runtime_sprites = dark_colony_load_runtime_sprites,
+        .load_font           = dark_colony_load_font,
+        .load_mission        = dark_colony_load_mission,
+        .update_mission      = dark_colony_update_mission,
+        .destroy_mission     = dark_colony_destroy_mission,
+    },
     .load_map            = load_dark_colony_map,
     .load_assets         = dark_colony_plugin_load_assets,
     .load_initial_units  = load_dark_colony_initial_units,
@@ -790,7 +839,7 @@ static const RtsPlugin DARK_COLONY_PLUGIN = {
     .destroy_mission     = dark_colony_destroy_mission,
 };
 
-const RtsPlugin *open_rts_plugin_entry(void) { return &DARK_COLONY_PLUGIN; }
+const Plugin *open_rts_plugin_entry(void) { return &DARK_COLONY_PLUGIN; }
 
 /* keep old name for any static-link usage */
-const RtsPlugin *open_rts_dark_colony_plugin(void) { return &DARK_COLONY_PLUGIN; }
+const Plugin *open_rts_dark_colony_plugin(void) { return &DARK_COLONY_PLUGIN; }

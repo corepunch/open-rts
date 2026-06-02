@@ -1,0 +1,26 @@
+#ifndef OPEN_RTS_ENGINE_CONFIG_H
+#define OPEN_RTS_ENGINE_CONFIG_H
+
+#define CELL_W 24
+#define CELL_H 24
+#define TILE_PIX_W 24
+#define TILE_PIX_H 24
+#define TILE_ATLAS_COLS 24
+#define MAX_UNITS 128
+#define MAX_VISUAL_EFFECTS 256
+#define MAX_DECORATIONS 8192
+#define MAX_DECORATION_SPRITES 512
+#define MAX_TILE_OVERLAYS 3
+#define MAX_TILE_ANIMATION_FRAMES 8
+#define MAX_SPRITE_SEQUENCES 8
+#define MAX_SEQUENCE_FACINGS 16
+#define RTS_MAX_STATE_FACINGS 16
+#define MAX_PATH_CELLS 4096
+#define FIXED_DT (1.0f / 30.0f)
+
+#define RTS_SPRITEFRAME_FLIP_X (1u << 0) /* Doom-style spriteframe_t.flip[rotation]. */
+#define RTS_FRAME_FLIP_X RTS_SPRITEFRAME_FLIP_X
+#define RTS_FRAME_ADDITIVE (1u << 1)
+#define RTS_FRAME_TINT_YELLOW (1u << 2)
+
+#endif

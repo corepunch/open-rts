@@ -582,13 +582,13 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
     fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, NUMMOBJTYPES } mobjtype_t;\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
-    fprintf(out, "extern const RtsState states[NUMSTATES];\n");
-    fprintf(out, "extern const RtsMobjInfo mobjinfo[NUMMOBJTYPES];\n");
-    fprintf(out, "extern const RtsGameInfo dark_colony_game_info;\n\n");
-    fprintf(out, "void A_DC_MuzzleFlash(RtsStateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_Attack(RtsStateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_Fall(RtsStateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_Corpse(RtsStateContext *ctx, Unit *unit);\n\n");
+    fprintf(out, "extern const State states[NUMSTATES];\n");
+    fprintf(out, "extern const MobjInfo mobjinfo[NUMMOBJTYPES];\n");
+    fprintf(out, "extern const GameInfo dark_colony_game_info;\n\n");
+    fprintf(out, "void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);\n");
+    fprintf(out, "void A_DC_Attack(StateContext *ctx, Unit *unit);\n");
+    fprintf(out, "void A_DC_Fall(StateContext *ctx, Unit *unit);\n");
+    fprintf(out, "void A_DC_Corpse(StateContext *ctx, Unit *unit);\n\n");
     fprintf(out, "#endif\n");
 }
 
@@ -870,7 +870,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 0; i < sprite_count; ++i) fprintf(out, "    \"%s\",\n", sprites[i].path);
     fprintf(out, "};\n\n");
     fprintf(out, "#define A_None NULL\n\n");
-    fprintf(out, "const RtsState states[NUMSTATES] = {\n");
+    fprintf(out, "const State states[NUMSTATES] = {\n");
     fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0} },\n");
 
     int trsc_die[6] = {128,138,149,159,179,195};
@@ -964,7 +964,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_muzzle(out, sprites[blaz].symbol, gray_muzzle_frame, gray_muzzle_x, gray_muzzle_y);
     fprintf(out, "};\n\n");
 
-    fprintf(out, "const RtsMobjInfo mobjinfo[NUMMOBJTYPES] = {\n");
+    fprintf(out, "const MobjInfo mobjinfo[NUMMOBJTYPES] = {\n");
     fprintf(out, "    {0},\n");
     fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK1, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
     fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_GRAY_MUZZLE },\n");
@@ -974,7 +974,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "};\n\n");
-    fprintf(out, "const RtsGameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_16 };\n");
+    fprintf(out, "const GameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_16 };\n");
     fin_free(&trsc_fin);
     fin_free(&gray_fin);
     fin_free(&reap_fin);

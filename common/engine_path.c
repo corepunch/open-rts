@@ -35,7 +35,7 @@ bool map_walkable(const GameMap *map, int x, int y) {
     return map_contains(map, x, y) && (!map->blocked || map->blocked[map_index(map, x, y)] == 0);
 }
 
-float rts_unit_radius_cells(const Unit *unit) {
+float unit_radius_cells(const Unit *unit) {
     if (unit && unit->radius > 0.05f) return unit->radius;
     return 0.42f;
 }
@@ -70,8 +70,8 @@ static bool map_circle_walkable(const GameMap *map, float gx, float gy, float ra
     return true;
 }
 
-bool rts_unit_position_walkable(const GameMap *map, const Unit *unit, float gx, float gy) {
-    return map_circle_walkable(map, gx, gy, rts_unit_radius_cells(unit));
+bool unit_position_walkable(const GameMap *map, const Unit *unit, float gx, float gy) {
+    return map_circle_walkable(map, gx, gy, unit_radius_cells(unit));
 }
 
 static bool position_overlaps_reserved_goal(const Unit *units, int unit_count, int self_index,
@@ -82,7 +82,7 @@ static bool position_overlaps_reserved_goal(const Unit *units, int unit_count, i
         if (i == self_index) continue;
         const Unit *other = &units[i];
         if (other->remove || other->hp <= 0 || other->move_order_id != order_id) continue;
-        float min_dist = radius + rts_unit_radius_cells(other);
+        float min_dist = radius + unit_radius_cells(other);
         float dx = other->move_goal_gx - gx;
         float dy = other->move_goal_gy - gy;
         if (dx * dx + dy * dy < min_dist * min_dist) return true;
@@ -90,9 +90,9 @@ static bool position_overlaps_reserved_goal(const Unit *units, int unit_count, i
     return false;
 }
 
-void rts_clamp_unit_position_to_map(const GameMap *map, Unit *unit) {
+void clamp_unit_position_to_map(const GameMap *map, Unit *unit) {
     if (!map || !unit || map->width <= 0 || map->height <= 0) return;
-    float r = rts_unit_radius_cells(unit);
+    float r = unit_radius_cells(unit);
     float min_x = r;
     float min_y = r;
     float max_x = (float)map->width - r;
@@ -446,7 +446,7 @@ static int flow_path_find(const GameMap *map, const FlowCell *field, Cell start,
 
 
 
-void rts_issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
+void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
                                 float goal_gx, float goal_gy) {
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
@@ -476,29 +476,29 @@ void rts_issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
         units[i].harvest_timer_ms = 0;
         Cell start = { (int)floorf(units[i].gx), (int)floorf(units[i].gy) };
         int len = flow_path_find(map, field, start, units[i].path, MAX_PATH_CELLS,
-                                 rts_unit_radius_cells(&units[i]));
+                                 unit_radius_cells(&units[i]));
         int row = selected_index / formation_columns;
         int row_start = row * formation_columns;
         int row_count = selected_count - row_start;
         if (row_count > formation_columns) row_count = formation_columns;
         int col = selected_index - row_start;
-        float spacing = rts_unit_radius_cells(&units[i]) * 2.1f;
+        float spacing = unit_radius_cells(&units[i]) * 2.1f;
         float offset_x = ((float)col - ((float)row_count - 1.0f) * 0.5f) * spacing;
         float offset_y = ((float)row - ((float)formation_rows - 1.0f) * 0.5f) * spacing;
         units[i].move_goal_gx = goal_gx + offset_x;
         units[i].move_goal_gy = goal_gy + offset_y;
-        if (!rts_unit_position_walkable(map, &units[i], units[i].move_goal_gx, units[i].move_goal_gy) ||
+        if (!unit_position_walkable(map, &units[i], units[i].move_goal_gx, units[i].move_goal_gy) ||
             position_overlaps_reserved_goal(units, unit_count, i,
                                             units[i].move_goal_gx, units[i].move_goal_gy,
-                                            rts_unit_radius_cells(&units[i]), order_id)) {
+                                            unit_radius_cells(&units[i]), order_id)) {
             float adjusted_gx = (float)goal.x + 0.5f;
             float adjusted_gy = (float)goal.y + 0.5f;
             if (!find_nearest_unreserved_walkable_position(map, units, unit_count, i, order_id,
                                                            adjusted_gx, adjusted_gy,
-                                                           rts_unit_radius_cells(&units[i]), 8,
+                                                           unit_radius_cells(&units[i]), 8,
                                                            &adjusted_gx, &adjusted_gy)) {
                 find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
-                                               rts_unit_radius_cells(&units[i]), 8,
+                                               unit_radius_cells(&units[i]), 8,
                                                &adjusted_gx, &adjusted_gy);
             }
             units[i].move_goal_gx = adjusted_gx;
@@ -544,7 +544,7 @@ static int find_resource_vent_at(const GameMap *map, float gx, float gy) {
     return best;
 }
 
-bool rts_issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
+bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
                                    float gx, float gy) {
     int vent_index = find_resource_vent_at(map, gx, gy);
     if (vent_index < 0) return false;
@@ -574,7 +574,7 @@ bool rts_issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
         float goal_gx = (float)vent->gx + 0.5f;
         float goal_gy = (float)vent->gy + 0.5f;
         if (!find_nearest_walkable_position(map, goal_gx, goal_gy,
-                                            rts_unit_radius_cells(unit), 8,
+                                            unit_radius_cells(unit), 8,
                                             &goal_gx, &goal_gy)) {
             Cell fallback = { vent->gx, vent->gy };
             if (!find_nearest_walkable_cell(map, fallback, 8, &fallback)) continue;
@@ -589,15 +589,15 @@ bool rts_issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
 
         Cell start = { (int)floorf(unit->gx), (int)floorf(unit->gy) };
         int len = flow_path_find(map, field, start, unit->path, MAX_PATH_CELLS,
-                                 rts_unit_radius_cells(unit));
+                                 unit_radius_cells(unit));
         free(field);
         unit->move_goal_gx = goal_gx;
         unit->move_goal_gy = goal_gy;
-        if (!rts_unit_position_walkable(map, unit, unit->move_goal_gx, unit->move_goal_gy)) {
+        if (!unit_position_walkable(map, unit, unit->move_goal_gx, unit->move_goal_gy)) {
             float adjusted_gx = (float)goal.x + 0.5f;
             float adjusted_gy = (float)goal.y + 0.5f;
             find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
-                                           rts_unit_radius_cells(unit), 8,
+                                           unit_radius_cells(unit), 8,
                                            &adjusted_gx, &adjusted_gy);
             unit->move_goal_gx = adjusted_gx;
             unit->move_goal_gy = adjusted_gy;
@@ -621,5 +621,5 @@ bool rts_issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
 }
 
 void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
-    rts_issue_move_order_at(map, units, unit_count, (float)goal.x + 0.5f, (float)goal.y + 0.5f);
+    issue_move_order_at(map, units, unit_count, (float)goal.x + 0.5f, (float)goal.y + 0.5f);
 }

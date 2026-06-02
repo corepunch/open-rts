@@ -39,4 +39,4 @@ data/DCOLONY       — Dark Colony game files
 ## Plugins
 
 Plugins are shared libraries in `build/libs/`. Each plugin exports a
-`rts_plugin_entry` symbol. The main binary loads them at runtime via `--game`.
+`plugin_entry` symbol. The main binary loads them at runtime via `--game`.

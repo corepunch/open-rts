@@ -348,7 +348,7 @@ static int sprite_sequence_frame(const SpriteSheet *sprite, const char *sequence
                                  int facing_code, int sequence_frame) {
     const SpriteSequence *seq = sprite_sequence_find(sprite, sequence_name);
     if (!seq || seq->facings <= 0 || seq->length <= 0) {
-        rts_debug_effects_log("sequence miss sprite_frames=%d sequence=%s facing=%d anim=%d",
+        debug_effects_log("sequence miss sprite_frames=%d sequence=%s facing=%d anim=%d",
                           sprite ? sprite->frame_count : 0,
                           sequence_name ? sequence_name : "(null)",
                           facing_code, sequence_frame);
@@ -360,7 +360,7 @@ static int sprite_sequence_frame(const SpriteSheet *sprite, const char *sequence
     int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
     int start = seq->frame_starts[facing];
     if (start < 0 || start >= sprite->frame_count) {
-        rts_debug_effects_log("sequence bad start sequence=%s facing=%d/%d code=%d start=%d frame_count=%d",
+        debug_effects_log("sequence bad start sequence=%s facing=%d/%d code=%d start=%d frame_count=%d",
                           sequence_name, facing, seq->facings, facing_code, start,
                           sprite ? sprite->frame_count : 0);
         return -1;
@@ -441,7 +441,7 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
 
 static float unit_pick_radius_px(const App *app, const Unit *unit) {
     float cell = ((float)app_cell_w(app) + (float)app_cell_h(app)) * 0.5f;
-    float radius = rts_unit_radius_cells(unit) * cell;
+    float radius = unit_radius_cells(unit) * cell;
     float min_radius = 12.0f * (float)app_scale(app);
     return radius < min_radius ? min_radius : radius;
 }
@@ -510,7 +510,7 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
             float ty = final ? unit->move_goal_gy : (float)c.y + 0.5f;
             float dx = tx - unit->gx;
             float dy = ty - unit->gy;
-            direction_code = rts_direction_code_from_vector(NULL, dx, dy);
+            direction_code = direction_code_from_vector(NULL, dx, dy);
         }
         int facing = sequence_facing_index(seq, direction_code);
         int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
@@ -570,7 +570,7 @@ static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float
 }
 
 static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallback_sprite,
-                               const SpriteCache *cache, const RtsGameInfo *game_info,
+                               const SpriteCache *cache, const GameInfo *game_info,
                                uint32_t ticks) {
     if (!u || (u->traits & RTS_TRAIT_RENDERABLE) == 0) return;
     const char *sprite_name = u->sprite_name;
@@ -593,7 +593,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     int sprite_w = sprite->frame_w * scale;
     int sprite_h = sprite->frame_h * scale;
     float content_w = (float)bounds.w * (float)scale;
-    float rx = rts_unit_radius_cells(u) * (float)app_cell_w(app);
+    float rx = unit_radius_cells(u) * (float)app_cell_w(app);
     float min_rx = content_w * 0.34f;
     if (rx < min_rx) rx = min_rx;
     float ry = rx * 0.38f;
@@ -639,34 +639,20 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
 }
 
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
-                  const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks) {
+                  const SpriteCache *cache, const GameInfo *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
         render_unit_sprite(app, &units[i], fallback_sprite, cache, game_info, ticks);
     }
 }
 
-typedef enum {
-    RENDER_ITEM_OVERLAY,
-    RENDER_ITEM_DECORATION,
-    RENDER_ITEM_UNIT,
-} RenderItemKind;
-
-typedef struct {
-    RenderItemKind kind;
-    float sort_y;
-    int index;
-    int x;
-    int y;
-    int layer;
-} RenderItem;
-
-static int compare_render_items(const void *a, const void *b) {
-    const RenderItem *ia = a;
-    const RenderItem *ib = b;
+static int compare_draw_commands(const void *a, const void *b) {
+    const DrawCommand *ia = a;
+    const DrawCommand *ib = b;
     if (ia->sort_y < ib->sort_y) return -1;
     if (ia->sort_y > ib->sort_y) return 1;
+    if (ia->layer != ib->layer) return (int)ia->layer - (int)ib->layer;
     if (ia->kind != ib->kind) return (int)ia->kind - (int)ib->kind;
-    return ia->index - ib->index;
+    return ia->stable_index - ib->stable_index;
 }
 
 static void render_overlay_tile_item(App *app, const GameMap *map, const Tileset *tileset,
@@ -702,7 +688,7 @@ static void render_overlay_tile_item(App *app, const GameMap *map, const Tileset
 
 void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
                           const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
-                          const SpriteCache *cache, const RtsGameInfo *game_info, uint32_t ticks) {
+                          const SpriteCache *cache, const GameInfo *game_info, uint32_t ticks) {
     if (!app || !map) return;
     int overlay_count = 0;
     if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
@@ -719,8 +705,8 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
     int decoration_count = map->decoration_count > 0 ? map->decoration_count : 0;
     int total = overlay_count + decoration_count + (unit_count > 0 ? unit_count : 0);
     if (total <= 0) return;
-    RenderItem *items = malloc((size_t)total * sizeof(*items));
-    if (!items) {
+    DrawCommand *commands = malloc((size_t)total * sizeof(*commands));
+    if (!commands) {
         render_decorations(app, map, cache);
         render_units(app, units, unit_count, fallback_sprite, cache, game_info, ticks);
         return;
@@ -733,13 +719,12 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
             for (int y = 0; y < map->height; ++y) {
                 for (int x = 0; x < map->width; ++x) {
                     if (map->tile_overlays[layer][map_index(map, x, y)] <= 0) continue;
-                    items[count++] = (RenderItem){
-                        .kind = RENDER_ITEM_OVERLAY,
+                    commands[count++] = (DrawCommand){
+                        .kind = DRAW_COMMAND_TILE_OVERLAY,
+                        .layer = RENDER_LAYER_TERRAIN_OVERLAY,
                         .sort_y = (float)y + 1.0f + (float)layer * 0.001f,
-                        .index = map_index(map, x, y),
-                        .x = x,
-                        .y = y,
-                        .layer = layer,
+                        .stable_index = map_index(map, x, y),
+                        .ref.tile_overlay = { .x = x, .y = y, .layer = layer },
                     };
                 }
             }
@@ -750,37 +735,42 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
         float sort_y = dec->center_anchor ?
             (float)dec->gy + 0.5f :
             (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1);
-        items[count++] = (RenderItem){
-            .kind = RENDER_ITEM_DECORATION,
+        commands[count++] = (DrawCommand){
+            .kind = DRAW_COMMAND_DECORATION,
+            .layer = RENDER_LAYER_DECORATION,
             .sort_y = sort_y,
-            .index = i,
+            .stable_index = i,
+            .ref.decoration = dec,
         };
     }
     for (int i = 0; i < unit_count; ++i) {
-        items[count++] = (RenderItem){
-            .kind = RENDER_ITEM_UNIT,
+        commands[count++] = (DrawCommand){
+            .kind = DRAW_COMMAND_UNIT,
+            .layer = RENDER_LAYER_UNIT,
             .sort_y = units[i].gy,
-            .index = i,
+            .stable_index = i,
+            .ref.unit = &units[i],
         };
     }
 
-    qsort(items, (size_t)count, sizeof(*items), compare_render_items);
+    qsort(commands, (size_t)count, sizeof(*commands), compare_draw_commands);
     for (int i = 0; i < count; ++i) {
-        RenderItem *item = &items[i];
-        if (item->kind == RENDER_ITEM_OVERLAY) {
-            render_overlay_tile_item(app, map, tileset, item->x, item->y, item->layer);
-        } else if (item->kind == RENDER_ITEM_DECORATION) {
-            const MapDecoration *dec = &map->decorations[item->index];
+        DrawCommand *command = &commands[i];
+        if (command->kind == DRAW_COMMAND_TILE_OVERLAY) {
+            render_overlay_tile_item(app, map, tileset, command->ref.tile_overlay.x,
+                                     command->ref.tile_overlay.y, command->ref.tile_overlay.layer);
+        } else if (command->kind == DRAW_COMMAND_DECORATION) {
+            const MapDecoration *dec = command->ref.decoration;
             render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name));
             render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name));
         } else {
-            render_unit_sprite(app, &units[item->index], fallback_sprite, cache, game_info, ticks);
+            render_unit_sprite(app, command->ref.unit, fallback_sprite, cache, game_info, ticks);
         }
     }
-    free(items);
+    free(commands);
 }
 
-static int sprite_frame_for_effect(const SpriteSheet *sprite, const RtsVisualEffect *effect) {
+static int sprite_frame_for_effect(const SpriteSheet *sprite, const VisualEffect *effect) {
     if (!sprite || !effect) return 0;
     int frame_ms = effect->frame_ms > 0 ? effect->frame_ms : 90;
     int anim = effect->age_ms / frame_ms;
@@ -797,11 +787,11 @@ static int sprite_frame_for_effect(const SpriteSheet *sprite, const RtsVisualEff
     return anim < 0 ? 0 : anim;
 }
 
-void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_effects,
-                           const SpriteCache *cache, const RtsGameInfo *game_info) {
+void render_visual_effects(App *app, const VisualEffect *effects, int max_effects,
+                           const SpriteCache *cache, const GameInfo *game_info) {
     if (!effects || max_effects <= 0) return;
     for (int i = 0; i < max_effects; ++i) {
-        const RtsVisualEffect *effect = &effects[i];
+        const VisualEffect *effect = &effects[i];
         if (!effect->active) continue;
         const char *sprite_name = effect->sprite_name;
         if (effect->use_state && game_info && effect->sprite_id >= 0 &&
@@ -811,7 +801,7 @@ void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_eff
         }
         const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
         if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
-            rts_debug_effects_log("render skip slot=%d sprite=%s sequence=%s reason=missing-cache",
+            debug_effects_log("render skip slot=%d sprite=%s sequence=%s reason=missing-cache",
                               i, effect->sprite_name,
                               effect->sequence_name[0] ? effect->sequence_name : "(none)");
             continue;
@@ -830,7 +820,7 @@ void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_eff
         };
         if (dst.x > app->win_w || dst.y > app->win_h ||
             dst.x + dst.w < 0 || dst.y + dst.h < 0) {
-            rts_debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
+            debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
                               i, effect->sprite_name,
                               effect->sequence_name[0] ? effect->sequence_name : "(none)",
                               sprite->frame_count, effect->gx, effect->gy,
@@ -843,7 +833,7 @@ void render_visual_effects(App *app, const RtsVisualEffect *effects, int max_eff
             dst.x += effect->screen_offset_x * scale;
             dst.y += effect->screen_offset_y * scale;
         }
-        rts_debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
+        debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
                           i, effect->sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
                           effect->age_ms, effect->duration_ms, effect->facing_code,
@@ -926,7 +916,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                     gx = units[target].gx;
                     gy = units[target].gy;
                 } else {
-                    if (rts_issue_harvest_order_at(map, units, unit_count, gx, gy)) {
+                    if (issue_harvest_order_at(map, units, unit_count, gx, gy)) {
                         break;
                     }
                     for (int i = 0; i < unit_count; ++i) {
@@ -935,7 +925,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                         }
                     }
                 }
-                rts_issue_move_order_at(map, units, unit_count, gx, gy);
+                issue_move_order_at(map, units, unit_count, gx, gy);
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = true;
             }
@@ -1030,6 +1020,7 @@ void destroy_map(GameMap *map) {
     free(map->cell_colors);
     free(map->decorations);
     free(map->resource_vents);
+    free(map->extras);
     memset(map, 0, sizeof(*map));
 }
 
@@ -1040,7 +1031,7 @@ void destroy_sprite(SpriteSheet *sprite) {
     memset(sprite, 0, sizeof(*sprite));
 }
 
-void destroy_font(RtsBitmapFont *font) {
+void destroy_font(BitmapFont *font) {
     if (!font) return;
     destroy_sprite(&font->sprite);
     memset(font, 0, sizeof(*font));

@@ -165,7 +165,7 @@ static void debug_append_ints(char *dst, size_t dst_size, const int *values, int
     }
 }
 
-static int debug_sprite_id_for_name(const RtsGameInfo *game_info, const char *sprite_name) {
+static int debug_sprite_id_for_name(const GameInfo *game_info, const char *sprite_name) {
     if (!game_info || !game_info->sprnames || !sprite_name) return -1;
     const char *sprite_base = strrchr(sprite_name, '/');
     sprite_base = sprite_base ? sprite_base + 1 : sprite_name;
@@ -180,7 +180,7 @@ static int debug_sprite_id_for_name(const RtsGameInfo *game_info, const char *sp
     return -1;
 }
 
-static int debug_count_states_for_sprite(const RtsGameInfo *game_info, int sprite_id) {
+static int debug_count_states_for_sprite(const GameInfo *game_info, int sprite_id) {
     if (!game_info || !game_info->states || sprite_id < 0) return 0;
     int count = 0;
     for (int i = 0; i < game_info->state_count; ++i) {
@@ -204,7 +204,7 @@ static bool debug_row_start_exists(const DebugAnimRow *rows, int row_count, int 
     return false;
 }
 
-static bool debug_state_matches_sprite(const RtsGameInfo *game_info, int state_id, int sprite_id) {
+static bool debug_state_matches_sprite(const GameInfo *game_info, int state_id, int sprite_id) {
     if (!game_info || !game_info->states || state_id == game_info->null_state ||
         state_id < 0 || state_id >= game_info->state_count) {
         return false;
@@ -212,13 +212,13 @@ static bool debug_state_matches_sprite(const RtsGameInfo *game_info, int state_i
     return game_info->states[state_id].sprite == sprite_id;
 }
 
-static bool debug_add_anim_row(const RtsGameInfo *game_info, int sprite_id, const char *name,
+static bool debug_add_anim_row(const GameInfo *game_info, int sprite_id, const char *name,
                                int start_state, DebugAnimRow *rows, int *row_count, int max_rows) {
     if (!game_info || !game_info->states || !rows || !row_count || *row_count >= max_rows) return false;
     if (!debug_state_matches_sprite(game_info, start_state, sprite_id)) return false;
     if (debug_row_start_exists(rows, *row_count, start_state)) return false;
 
-    const RtsState *first = &game_info->states[start_state];
+    const State *first = &game_info->states[start_state];
     int group = first->misc1;
     DebugAnimRow row;
     memset(&row, 0, sizeof(row));
@@ -227,7 +227,7 @@ static bool debug_add_anim_row(const RtsGameInfo *game_info, int sprite_id, cons
     int state_id = start_state;
     while (row.state_count < (int)(sizeof(row.state_ids) / sizeof(row.state_ids[0]))) {
         if (!debug_state_matches_sprite(game_info, state_id, sprite_id)) break;
-        const RtsState *state = &game_info->states[state_id];
+        const State *state = &game_info->states[state_id];
         if (state->misc1 != group) break;
         if (debug_row_has_state(&row, state_id)) {
             row.loop = true;
@@ -249,12 +249,12 @@ static bool debug_add_anim_row(const RtsGameInfo *game_info, int sprite_id, cons
     return true;
 }
 
-static int debug_collect_anim_rows(const RtsGameInfo *game_info, int sprite_id,
+static int debug_collect_anim_rows(const GameInfo *game_info, int sprite_id,
                                    DebugAnimRow *rows, int max_rows) {
     if (!game_info || !game_info->mobjinfo || !rows || max_rows <= 0) return 0;
     int row_count = 0;
     for (int i = 0; i < game_info->mobj_type_count; ++i) {
-        const RtsMobjInfo *info = &game_info->mobjinfo[i];
+        const MobjInfo *info = &game_info->mobjinfo[i];
         debug_add_anim_row(game_info, sprite_id, "STAND", info->spawnstate, rows, &row_count, max_rows);
         debug_add_anim_row(game_info, sprite_id, "RUN", info->seestate, rows, &row_count, max_rows);
         debug_add_anim_row(game_info, sprite_id, "ATTACK", info->missilestate, rows, &row_count, max_rows);
@@ -267,7 +267,7 @@ static int debug_collect_anim_rows(const RtsGameInfo *game_info, int sprite_id,
     return row_count;
 }
 
-static int debug_state_facing_slot(const RtsState *state, int facing_code) {
+static int debug_state_facing_slot(const State *state, int facing_code) {
     if (!state || state->facings <= 0) return -1;
     int best = 0;
     int best_delta = 1000000;
@@ -286,7 +286,7 @@ static int debug_state_facing_slot(const RtsState *state, int facing_code) {
     return best;
 }
 
-static void debug_resolve_state_frame(const RtsState *state, int facing_code,
+static void debug_resolve_state_frame(const State *state, int facing_code,
                                       int *frame_out, uint32_t *flags_out) {
     int frame = state ? state->frame : 0;
     uint32_t flags = state ? state->flags : 0;
@@ -301,19 +301,19 @@ static void debug_resolve_state_frame(const RtsState *state, int facing_code,
     if (flags_out) *flags_out = flags;
 }
 
-static const RtsState *debug_anim_state_for_time(const RtsGameInfo *game_info,
+static const State *debug_anim_state_for_time(const GameInfo *game_info,
                                                  const DebugAnimRow *row, uint32_t ticks_ms) {
     if (!game_info || !game_info->states || !row || row->state_count <= 0) return NULL;
     int total_ms = 0;
     for (int i = 0; i < row->state_count; ++i) {
-        const RtsState *state = &game_info->states[row->state_ids[i]];
+        const State *state = &game_info->states[row->state_ids[i]];
         int tics = state->tics > 0 ? state->tics : 8;
         total_ms += (tics * 1000) / 30;
     }
     if (total_ms <= 0) return &game_info->states[row->state_ids[0]];
     int cursor = row->loop ? (int)(ticks_ms % (uint32_t)total_ms) : (int)(ticks_ms % (uint32_t)total_ms);
     for (int i = 0; i < row->state_count; ++i) {
-        const RtsState *state = &game_info->states[row->state_ids[i]];
+        const State *state = &game_info->states[row->state_ids[i]];
         int tics = state->tics > 0 ? state->tics : 8;
         int duration = (tics * 1000) / 30;
         if (cursor < duration) return state;
@@ -323,7 +323,7 @@ static const RtsState *debug_anim_state_for_time(const RtsGameInfo *game_info,
 }
 
 static void debug_animation_grid_render(const App *app, const SpriteSheet *sprite,
-                                        const char *sprite_name, const RtsGameInfo *game_info,
+                                        const char *sprite_name, const GameInfo *game_info,
                                         const DebugOverlay *overlay) {
     if (!app || !app->renderer || !sprite || !sprite->texture || !overlay || !overlay->font.texture) return;
 
@@ -396,7 +396,7 @@ static void debug_animation_grid_render(const App *app, const SpriteSheet *sprit
         snprintf(line, sizeof(line), "%d STEPS%s", row->state_count, row->loop ? " LOOP" : "");
         debug_font_draw_text(app->renderer, &overlay->font, start_x, y + 20, line, dim, 1);
 
-        const RtsState *state = debug_anim_state_for_time(game_info, row, SDL_GetTicks());
+        const State *state = debug_anim_state_for_time(game_info, row, SDL_GetTicks());
         for (int dir = 0; dir < cols; ++dir) {
             int x = start_x + label_w + dir * (cell_w + gap);
             SDL_Rect cell = { x, y, cell_w, cell_h - 6 };
@@ -431,7 +431,7 @@ static void debug_animation_grid_render(const App *app, const SpriteSheet *sprit
 }
 
 static void debug_overlay_render(const App *app, const SpriteSheet *sprite, const char *sprite_name,
-                                 const RtsGameInfo *game_info, const DebugOverlay *overlay) {
+                                 const GameInfo *game_info, const DebugOverlay *overlay) {
     if (!app || !app->renderer || !sprite || !sprite->texture || !overlay || !overlay->font.texture) return;
 
     SDL_SetRenderDrawColor(app->renderer, 10, 12, 16, 255);
@@ -476,7 +476,7 @@ static void debug_overlay_render(const App *app, const SpriteSheet *sprite, cons
     if (game_info && game_info->states && debug_sprite_id >= 0) {
         int shown = 0;
         for (int i = 0; i < game_info->state_count && shown < 8; ++i) {
-            const RtsState *state = &game_info->states[i];
+            const State *state = &game_info->states[i];
             if (state->sprite != debug_sprite_id) continue;
             snprintf(line, sizeof(line), "S%03d G%d T%d N%d F%d",
                      i, state->misc1, state->tics, state->nextstate, state->frame);
@@ -548,7 +548,7 @@ static void debug_overlay_render(const App *app, const SpriteSheet *sprite, cons
     SDL_RenderDrawRect(app->renderer, &border);
 }
 
-static const RtsActorType *plugin_actor_type_by_id(const RtsPlugin *plugin, uint16_t type_id) {
+static const ActorType *plugin_actor_type_by_id(const Plugin *plugin, uint16_t type_id) {
     if (!plugin || !plugin->actor_types) return NULL;
     for (int i = 0; i < plugin->actor_type_count; ++i) {
         if (plugin->actor_types[i].id == type_id) return &plugin->actor_types[i];
@@ -556,8 +556,8 @@ static const RtsActorType *plugin_actor_type_by_id(const RtsPlugin *plugin, uint
     return NULL;
 }
 
-static const RtsActorType *plugin_actor_type_for_unit(const RtsPlugin *plugin, const Unit *unit) {
-    const RtsActorType *type = plugin_actor_type_by_id(plugin, unit ? unit->type_id : 0);
+static const ActorType *plugin_actor_type_for_unit(const Plugin *plugin, const Unit *unit) {
+    const ActorType *type = plugin_actor_type_by_id(plugin, unit ? unit->type_id : 0);
     if (type) return type;
     if (!plugin || !plugin->actor_types || !unit) return NULL;
     for (int i = 0; i < plugin->actor_type_count; ++i) {
@@ -569,7 +569,7 @@ static const RtsActorType *plugin_actor_type_for_unit(const RtsPlugin *plugin, c
     return plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
 }
 
-static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
+static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
@@ -596,17 +596,17 @@ static void apply_actor_type_defaults(Unit *unit, const RtsActorType *type) {
     }
 }
 
-static void apply_plugin_actor_defaults(const RtsPlugin *plugin, Unit *units, int unit_count) {
+static void apply_plugin_actor_defaults(const Plugin *plugin, Unit *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
         apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(plugin, &units[i]));
-        rts_apply_mobjinfo_defaults(plugin ? plugin->game_info : NULL, &units[i]);
+        apply_mobjinfo_defaults(plugin ? plugin->game_info : NULL, &units[i]);
     }
 }
 
-static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, const App *app,
+static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, const App *app,
                                    Unit *units, int *unit_count, int sx, int sy) {
     if (!plugin || !map || !app || !units || !unit_count || *unit_count >= MAX_UNITS) return false;
-    const RtsActorType *type = plugin_actor_type_by_id(plugin, plugin->debug_enemy_type_id);
+    const ActorType *type = plugin_actor_type_by_id(plugin, plugin->debug_enemy_type_id);
     if (!type && plugin->actor_type_count > 0) type = &plugin->actor_types[0];
     if (!type) return false;
     Cell cell = screen_to_grid(app, sx, sy);
@@ -618,7 +618,7 @@ static bool spawn_debug_enemy_unit(const RtsPlugin *plugin, const GameMap *map, 
     unit->owner = 1;
     unit->facing_code = plugin->game_info ? 6 : 8;
     apply_actor_type_defaults(unit, type);
-    rts_apply_mobjinfo_defaults(plugin->game_info, unit);
+    apply_mobjinfo_defaults(plugin->game_info, unit);
     (*unit_count)++;
     return true;
 }
@@ -674,7 +674,7 @@ typedef struct {
     int command_count;
 } DarkColonySidebar;
 
-static bool is_dark_colony_plugin(const RtsPlugin *plugin) {
+static bool is_dark_colony_plugin(const Plugin *plugin) {
     return plugin && plugin->id && strcmp(plugin->id, "dark-colony") == 0;
 }
 
@@ -988,7 +988,7 @@ static int dark_colony_ui_width(const App *app) {
     return 124;
 }
 
-static int world_viewport_width(const App *app, const RtsPlugin *plugin) {
+static int world_viewport_width(const App *app, const Plugin *plugin) {
     if (!app) return 0;
     int w = app->win_w;
     if (is_dark_colony_plugin(plugin)) w -= dark_colony_ui_width(app);
@@ -1176,9 +1176,9 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
     dc_ui_stroke(app->renderer, rect, (SDL_Color){ 72, 91, 88, 255 });
 }
 
-static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, const GameMap *map,
+static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const GameMap *map,
                                          const Unit *units, int unit_count,
-                                         const SpriteCache *cache, const RtsBitmapFont *font,
+                                         const SpriteCache *cache, const BitmapFont *font,
                                          const DarkColonySidebar *sidebar,
                                          const SpriteSheet *background) {
     if (!app || !font || !font->sprite.texture) return;
@@ -1211,8 +1211,8 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
             dc_ui_fill(app->renderer, layout.tabs[i], (SDL_Color){ 126, 126, 126, 255 });
             dc_ui_stroke(app->renderer, layout.tabs[i], (SDL_Color){ 38, 38, 38, 255 });
             char tab[2] = { (char)('1' + i), '\0' };
-            rts_font_draw_text(app->renderer, font,
-                               layout.tabs[i].x + layout.tabs[i].w / 2 - rts_font_text_width(font, tab, 1) / 2,
+            font_draw_text(app->renderer, font,
+                               layout.tabs[i].x + layout.tabs[i].w / 2 - font_text_width(font, tab, 1) / 2,
                                layout.tabs[i].y + layout.tabs[i].h / 2 - font->line_h / 2,
                                tab, (SDL_Color){ 24, 24, 24, 255 }, 1);
         }
@@ -1237,10 +1237,10 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     dc_ui_fill(app->renderer, layout.resources, (SDL_Color){ 4, 6, 7, 255 });
     dc_ui_stroke(app->renderer, layout.resources, (SDL_Color){ 142, 142, 142, 255 });
     snprintf(line, sizeof(line), "%03d", map->player_resources[0] % 1000);
-    rts_font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 8,
+    font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 8,
                        line, (SDL_Color){ 41, 217, 230, 255 }, 1);
     snprintf(line, sizeof(line), "%d/%d", active_vents, map->resource_vent_count);
-    rts_font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 28,
+    font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 28,
                        line, dim, 1);
 
     DarkColonySidebar fallback_sidebar;
@@ -1259,13 +1259,13 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     if (!background || !background->texture) {
         dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
         dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
-        rts_font_draw_text(app->renderer, font,
-                           layout.build.x + layout.build.w / 2 - rts_font_text_width(font, "BUILD", 5) / 2,
+        font_draw_text(app->renderer, font,
+                           layout.build.x + layout.build.w / 2 - font_text_width(font, "BUILD", 5) / 2,
                            layout.build.y + layout.build.h / 2 - font->line_h / 2,
                            "BUILD", (SDL_Color){ 24, 24, 24, 255 }, 1);
     }
     if (hover_button >= 0) {
-        rts_font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+        font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            dc_sidebar_command_label(&sidebar->commands[hover_button], selected),
                            amber, 1);
     }
@@ -1285,7 +1285,7 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
-static void render_hud_messages(App *app, const RtsHudText *hud, const RtsBitmapFont *font) {
+static void render_hud_messages(App *app, const HudText *hud, const BitmapFont *font) {
     if (!app || !hud || !font || !font->sprite.texture || hud->count <= 0) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
@@ -1293,7 +1293,7 @@ static void render_hud_messages(App *app, const RtsHudText *hud, const RtsBitmap
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
     dc_ui_fill(app->renderer, layout.message, (SDL_Color){ 3, 5, 5, 255 });
     dc_ui_stroke(app->renderer, layout.message, (SDL_Color){ 142, 142, 142, 255 });
-    rts_font_draw_text_wrapped(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+    font_draw_text_wrapped(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                                layout.message.w - 8, hud->messages[hud->count - 1].text,
                                (SDL_Color){ 41, 217, 230, 255 }, 1);
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
@@ -1305,7 +1305,7 @@ static void load_plugin_by_id(const char *game_id) {
     const char *extensions[] = { ".dylib", ".so", NULL };
     for (int i = 0; extensions[i]; ++i) {
         snprintf(lib_path, sizeof(lib_path), "build/libs/%s%s", game_id, extensions[i]);
-        if (rts_plugin_load(lib_path)) return;
+        if (plugin_load(lib_path)) return;
     }
 }
 
@@ -1364,7 +1364,7 @@ int main(int argc, char **argv) {
     }
 
     load_plugin_by_id(game_id);
-    const RtsPlugin *plugin = rts_find_plugin(game_id);
+    const Plugin *plugin = find_plugin(game_id);
     if (!plugin) {
         fprintf(stderr, "unknown game '%s' (could not load build/libs/%s.so)\n", game_id, game_id);
         return 1;
@@ -1392,7 +1392,7 @@ int main(int argc, char **argv) {
         path_join(map_path, sizeof(map_path), data_root, map_rel_or_abs);
     }
 
-    RtsRenderer renderer;
+    Renderer renderer;
     App app = { 0 };
     if (is_dark_colony_plugin(plugin)) {
         app.win_w = 640;
@@ -1404,7 +1404,7 @@ int main(int argc, char **argv) {
     app.render_scale = render_scale;
     app.show_grid = false;
     app.running = true;
-    if (!rts_renderer_create(&renderer, rts_sdl_renderer_backend(), "open-rts - paletted RTS base",
+    if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
                              app.win_w, app.win_h, check_only || screenshot_only,
                              check_only || screenshot_only || software_renderer)) {
         return 1;
@@ -1415,7 +1415,7 @@ int main(int argc, char **argv) {
 
     GameMap map;
     if (!plugin->load_map(map_path, &map)) {
-        rts_renderer_destroy(&renderer);
+        renderer_destroy(&renderer);
         return 1;
     }
 
@@ -1426,7 +1426,7 @@ int main(int argc, char **argv) {
     memset(&unit_sprite, 0, sizeof(unit_sprite));
     if (!plugin->load_assets(app.renderer, data_root, &map, sprite_name, &tileset, &unit_sprite)) {
         destroy_map(&map);
-        rts_renderer_destroy(&renderer);
+        renderer_destroy(&renderer);
         return 1;
     }
     if (debug_query && debug_query[0] != '\0') {
@@ -1448,7 +1448,7 @@ int main(int argc, char **argv) {
         unit_count = 6;
         int cx = map.width / 2;
         int cy = map.height / 2;
-        const RtsActorType *fallback_type = plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
+        const ActorType *fallback_type = plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
         for (int i = 0; i < unit_count; ++i) {
             units[i].gx = (float)(cx + i % 3) + 0.5f;
             units[i].gy = (float)(cy + i / 3) + 0.5f;
@@ -1464,7 +1464,7 @@ int main(int argc, char **argv) {
         }
     }
     apply_plugin_actor_defaults(plugin, units, unit_count);
-    RtsVisualEffect effects[MAX_VISUAL_EFFECTS] = { 0 };
+    VisualEffect effects[MAX_VISUAL_EFFECTS] = { 0 };
 
     SpriteCache decoration_sprites = { 0 };
     if (plugin->load_runtime_sprites &&
@@ -1486,7 +1486,7 @@ int main(int argc, char **argv) {
 
     if (debug_overlay.active) {
         if (screenshot_only) {
-            rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
+            renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
             if (debug_overlay.animation_grid) {
                 debug_animation_grid_render(&app, &unit_sprite, sprite_name,
                                             plugin->game_info, &debug_overlay);
@@ -1494,7 +1494,7 @@ int main(int argc, char **argv) {
                 debug_overlay_render(&app, &unit_sprite, sprite_name,
                                      plugin->game_info, &debug_overlay);
             }
-            if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
+            if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
             debug_font_destroy(&debug_overlay.font);
@@ -1502,7 +1502,7 @@ int main(int argc, char **argv) {
             destroy_sprite(&unit_sprite);
             destroy_tileset(&tileset);
             destroy_map(&map);
-            rts_renderer_destroy(&renderer);
+            renderer_destroy(&renderer);
             return 0;
         }
         while (app.running) {
@@ -1519,7 +1519,7 @@ int main(int argc, char **argv) {
                     if (debug_overlay.scroll_y < 0) debug_overlay.scroll_y = 0;
                 }
             }
-            rts_renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
+            renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
             if (debug_overlay.animation_grid) {
                 debug_animation_grid_render(&app, &unit_sprite, sprite_name,
                                             plugin->game_info, &debug_overlay);
@@ -1527,7 +1527,7 @@ int main(int argc, char **argv) {
                 debug_overlay_render(&app, &unit_sprite, sprite_name,
                                      plugin->game_info, &debug_overlay);
             }
-            rts_renderer_end_frame(&renderer);
+            renderer_end_frame(&renderer);
             SDL_Delay(16);
         }
         debug_font_destroy(&debug_overlay.font);
@@ -1535,11 +1535,11 @@ int main(int argc, char **argv) {
         destroy_sprite(&unit_sprite);
         destroy_tileset(&tileset);
         destroy_map(&map);
-        rts_renderer_destroy(&renderer);
+        renderer_destroy(&renderer);
         return 0;
     }
 
-    RtsBitmapFont ui_font = { 0 };
+    BitmapFont ui_font = { 0 };
     SpriteSheet dark_colony_background = { 0 };
     bool dark_colony_ui = is_dark_colony_plugin(plugin);
     bool ui_font_ready = dark_colony_ui && plugin->load_font &&
@@ -1558,7 +1558,7 @@ int main(int argc, char **argv) {
     DarkColonySidebar dark_colony_sidebar;
     dark_colony_sidebar_defaults(&dark_colony_sidebar);
     if (dark_colony_ui) dark_colony_sidebar_load(&dark_colony_sidebar, data_root);
-    RtsHudText hud_text = { 0 };
+    HudText hud_text = { 0 };
     void *mission = plugin->load_mission ? plugin->load_mission(map_path) : NULL;
 
     if (check_only || screenshot_only) {
@@ -1572,7 +1572,7 @@ int main(int argc, char **argv) {
                     focus_camera_on_first_player_unit(&app, units, unit_count);
                 clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
             }
-            rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
+            renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
                                  &decoration_sprites, plugin->game_info, SDL_GetTicks());
@@ -1584,7 +1584,7 @@ int main(int argc, char **argv) {
                                              &dark_colony_background);
                 render_hud_messages(&app, &hud_text, &ui_font);
             }
-            if (rts_renderer_save_screenshot(&renderer, screenshot_path)) {
+            if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
         }
@@ -1597,7 +1597,7 @@ int main(int argc, char **argv) {
         destroy_sprite(&unit_sprite);
         destroy_tileset(&tileset);
         destroy_map(&map);
-        rts_renderer_destroy(&renderer);
+        renderer_destroy(&renderer);
         return 0;
     }
 
@@ -1652,7 +1652,7 @@ int main(int argc, char **argv) {
             }
             update_visual_effects(&map, effects, MAX_VISUAL_EFFECTS,
                                   plugin->game_info, FIXED_DT);
-            rts_hud_text_update(&hud_text, FIXED_DT);
+            hud_text_update(&hud_text, FIXED_DT);
             accumulator -= FIXED_DT;
         }
         if (map.player_resources[0] != title_resources) {
@@ -1663,7 +1663,7 @@ int main(int argc, char **argv) {
         }
 
         app.ticks_ms = SDL_GetTicks();
-        rts_renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
+        renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         render_map(&app, &map, &tileset);
         render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
                              &decoration_sprites, plugin->game_info, SDL_GetTicks());
@@ -1681,7 +1681,7 @@ int main(int argc, char **argv) {
                                          &dark_colony_background);
             render_hud_messages(&app, &hud_text, &ui_font);
         }
-        rts_renderer_end_frame(&renderer);
+        renderer_end_frame(&renderer);
     }
 
     if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
@@ -1691,6 +1691,6 @@ int main(int argc, char **argv) {
     destroy_sprite(&unit_sprite);
     destroy_tileset(&tileset);
     destroy_map(&map);
-    rts_renderer_destroy(&renderer);
+    renderer_destroy(&renderer);
     return 0;
 }

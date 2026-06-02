@@ -10,7 +10,7 @@ static bool debug_effects_enabled(void) {
     return enabled != 0;
 }
 
-void rts_debug_effects_log(const char *fmt, ...) {
+void debug_effects_log(const char *fmt, ...) {
     if (!debug_effects_enabled()) return;
     va_list args;
     va_start(args, fmt);
@@ -138,7 +138,7 @@ bool tileset_add_animation(Tileset *tileset, int value, const int *frames,
     return true;
 }
 
-int rts_font_text_width(const RtsBitmapFont *font, const char *text, int scale) {
+int font_text_width(const BitmapFont *font, const char *text, int scale) {
     if (!font || !text || scale <= 0) return 0;
     int width = 0, line_width = 0;
     for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
@@ -156,7 +156,7 @@ int rts_font_text_width(const RtsBitmapFont *font, const char *text, int scale) 
     return line_width > width ? line_width : width;
 }
 
-void rts_font_draw_text(SDL_Renderer *renderer, const RtsBitmapFont *font, int x, int y,
+void font_draw_text(SDL_Renderer *renderer, const BitmapFont *font, int x, int y,
                         const char *text, SDL_Color color, int scale) {
     if (!renderer || !font || !font->sprite.texture || !text || scale <= 0) return;
     SDL_SetTextureColorMod(font->sprite.texture, color.r, color.g, color.b);
@@ -200,7 +200,7 @@ void rts_font_draw_text(SDL_Renderer *renderer, const RtsBitmapFont *font, int x
     SDL_SetTextureAlphaMod(font->sprite.texture, 255);
 }
 
-void rts_font_draw_text_wrapped(SDL_Renderer *renderer, const RtsBitmapFont *font, int x, int y,
+void font_draw_text_wrapped(SDL_Renderer *renderer, const BitmapFont *font, int x, int y,
                                 int max_w, const char *text, SDL_Color color, int scale) {
     if (!renderer || !font || !text || max_w <= 0 || scale <= 0) return;
     char line[256] = { 0 };
@@ -210,7 +210,7 @@ void rts_font_draw_text_wrapped(SDL_Renderer *renderer, const RtsBitmapFont *fon
     while (*word) {
         while (*word == ' ' || *word == '\r' || *word == '\n') {
             if (*word == '\n' && line_len > 0) {
-                rts_font_draw_text(renderer, font, x, cy, line, color, scale);
+                font_draw_text(renderer, font, x, cy, line, color, scale);
                 cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
                 line[0] = '\0';
                 line_len = 0;
@@ -227,8 +227,8 @@ void rts_font_draw_text_wrapped(SDL_Renderer *renderer, const RtsBitmapFont *fon
             snprintf(candidate, sizeof(candidate), "%s %.*s", line, (int)word_len, word);
         else
             snprintf(candidate, sizeof(candidate), "%.*s", (int)word_len, word);
-        if (line_len > 0 && rts_font_text_width(font, candidate, scale) > max_w) {
-            rts_font_draw_text(renderer, font, x, cy, line, color, scale);
+        if (line_len > 0 && font_text_width(font, candidate, scale) > max_w) {
+            font_draw_text(renderer, font, x, cy, line, color, scale);
             cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
             snprintf(line, sizeof(line), "%.*s", (int)word_len, word);
         } else {
@@ -237,10 +237,10 @@ void rts_font_draw_text_wrapped(SDL_Renderer *renderer, const RtsBitmapFont *fon
         line_len = (int)strlen(line);
         word = end;
     }
-    if (line_len > 0) rts_font_draw_text(renderer, font, x, cy, line, color, scale);
+    if (line_len > 0) font_draw_text(renderer, font, x, cy, line, color, scale);
 }
 
-void rts_hud_text_push(RtsHudText *hud, const char *text, int ttl_ms) {
+void hud_text_push(HudText *hud, const char *text, int ttl_ms) {
     if (!hud || !text || text[0] == '\0') return;
     if (ttl_ms <= 0) ttl_ms = 5000;
     int slot = hud->count;
@@ -256,7 +256,7 @@ void rts_hud_text_push(RtsHudText *hud, const char *text, int ttl_ms) {
     hud->messages[slot].ttl_ms = ttl_ms;
 }
 
-void rts_hud_text_update(RtsHudText *hud, float dt) {
+void hud_text_update(HudText *hud, float dt) {
     if (!hud || hud->count <= 0) return;
     int dt_ms = (int)lroundf(dt * 1000.0f);
     for (int i = 0; i < hud->count;) {
