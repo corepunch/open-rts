@@ -1,6 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "engine_internal.h"
 
+static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame);
+
 static int app_cell_w(const App *app) {
     int scale = app->render_scale > 0 ? app->render_scale : 1;
     return (app->cell_w > 0 ? app->cell_w : CELL_W) * scale;
@@ -380,10 +382,26 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     int scale = app_scale(app);
     int sprite_w = sprite->frame_w * scale;
     int sprite_h = sprite->frame_h * scale;
+
+    int frame = -1;
+    if (dec->sequence_name[0] != '\0') {
+        frame = sprite_sequence_frame(sprite, dec->sequence_name, dec->facing_code,
+                                      dec->frame_index);
+    }
+    if (frame < 0) frame = dec->frame_index >= 0 && dec->frame_index < sprite->frame_count ?
+        dec->frame_index : 0;
+
     SDL_Rect dst;
     if (dec->center_anchor) {
         grid_to_screen(app, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
-        dst = (SDL_Rect){ (int)(sx - sprite_w / 2), (int)(sy - sprite_h / 2), sprite_w, sprite_h };
+        SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+        float ground_offset_y = ((float)bounds.y + (float)bounds.h) * (float)scale;
+        dst = (SDL_Rect){
+            (int)(sx - sprite_w / 2),
+            (int)(sy - ground_offset_y),
+            sprite_w,
+            sprite_h,
+        };
     } else {
         dst = (SDL_Rect){
             (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
@@ -396,13 +414,6 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
         dst.x + dst.w < 0 || dst.y + dst.h < 0) {
         return;
     }
-    int frame = -1;
-    if (dec->sequence_name[0] != '\0') {
-        frame = sprite_sequence_frame(sprite, dec->sequence_name, dec->facing_code,
-                                      dec->frame_index);
-    }
-    if (frame < 0) frame = dec->frame_index >= 0 && dec->frame_index < sprite->frame_count ?
-        dec->frame_index : 0;
     SDL_RendererFlip flip = (dec->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
 }
