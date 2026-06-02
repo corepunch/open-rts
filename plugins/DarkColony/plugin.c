@@ -653,23 +653,32 @@ static bool dark_colony_load_font(SDL_Renderer *renderer, const char *data_root,
     memset(font, 0, sizeof(*font));
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
     char path[1024];
-    path_join(path, sizeof(path), data_root, "INTRFACE/MFONT.SPR");
+    path_join(path, sizeof(path), data_root, "INTRFACE/MFONTO7.SPR");
     uint32_t palette[256] = { 0 };
     if (!load_dark_colony_sprite(renderer, path, &font->sprite, palette)) return false;
+    const int font_offset = 31;
     int max_w = 0, max_h = 0;
-    for (int ch = 32; ch < 128; ++ch) {
-        int frame = ch - 32;
+    for (int ch = font_offset; ch < 128; ++ch) {
+        int frame = ch - font_offset;
         if (frame >= font->sprite.frame_count) break;
         font->glyph_index[ch] = frame;
         SDL_Rect bounds = font->sprite.frame_bounds ? font->sprite.frame_bounds[frame] : font->sprite.frames[frame];
         if (bounds.w > max_w) max_w = bounds.w;
         if (bounds.h > max_h) max_h = bounds.h;
     }
-    font->draw_divisor = 2;
-    font->glyph_w = max_w > 0 ? (max_w + 3) / 2 : 8;
-    font->glyph_h = max_h > 0 ? (max_h + 1) / 2 : font->sprite.frame_h / 2;
-    font->line_h = font->glyph_h + 3;
-    for (int i = 0; i < 128; ++i) font->glyph_width[i] = (uint8_t)font->glyph_w;
+    font->draw_divisor = 1;
+    font->glyph_w = max_w > 0 ? max_w : 6;
+    font->glyph_h = max_h > 0 ? max_h : font->sprite.frame_h;
+    font->line_h = font->glyph_h + 1;
+    for (int ch = 0; ch < 128; ++ch) {
+        int frame = font->glyph_index[ch];
+        int advance = font->glyph_w;
+        if (frame >= 0 && frame < font->sprite.frame_count && font->sprite.frame_bounds) {
+            SDL_Rect bounds = font->sprite.frame_bounds[frame];
+            if (bounds.w > 0) advance = bounds.w + 1;
+        }
+        font->glyph_width[ch] = (uint8_t)advance;
+    }
     return true;
 }
 
