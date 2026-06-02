@@ -375,25 +375,25 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
             }
             const uint8_t *src = blob.bytes + src_pos;
             size_t pos = 0;
-            int x = 0, y = 0;
-            while (pos < chunk_size && y < h) {
+            int write = 0;
+            int pixel_count = w * h;
+            while (pos < chunk_size && write < pixel_count) {
                 int8_t cmd = (int8_t)src[pos++];
                 if (cmd < 0) {
-                    x += -cmd;
+                    write += -cmd;
                 } else {
                     int count = cmd + 1;
                     if (pos + (size_t)count > chunk_size) break;
                     for (int p = 0; p < count; ++p) {
-                        if (x >= 0 && x < w && y >= 0 && y < h) {
-                            int dst_x = fx + x, dst_y = fy + y;
+                        if (write >= 0 && write < pixel_count) {
+                            int dst_x = fx + (write % w), dst_y = fy + (write / w);
                             if (dst_x >= 0 && dst_x < atlas_w && dst_y >= 0 && dst_y < atlas_h)
                                 rgba[dst_y * atlas_w + dst_x] = palette_out[src[pos + (size_t)p]];
                         }
-                        x++;
+                        write++;
                     }
                     pos += (size_t)count;
                 }
-                while (x >= w) { x -= w; y++; }
             }
             src_pos += chunk_size;
         } else {
@@ -459,7 +459,7 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
     static const char *const ui_sprites[] = {
         "INTRFACE/DCSS.SPR",
         "INTRFACE/DCUT.SPR",
-        "INTRFACE/BUTTON.SPR",
+        "INTRFACE/MAINBUT.SPR",
         "INTRFACE/SHUMANE.SPR",
         "SPRITES/DROP.SPR",
         "SPRITES/BEAC.SPR",

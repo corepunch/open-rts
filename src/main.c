@@ -681,7 +681,7 @@ static bool is_dark_colony_plugin(const RtsPlugin *plugin) {
 static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
     if (!sidebar) return;
     const int ids[6] = { 150, 33, 35, 36, 37, 143 };
-    const int frames[6] = { 62, 63, 65, 66, 67, 2 };
+    const int frames[6] = { 62, 63, 65, 66, 74, 2 };
     const char *labels[6] = {
         "Stop",
         "Move Only",
@@ -1086,9 +1086,6 @@ static const Unit *dc_first_selected_unit(const Unit *units, int unit_count) {
 static int dc_sidebar_command_frame(const DarkColonySidebarCommand *cmd, const Unit *selected) {
     if (!cmd) return 0;
     (void)selected;
-    if (cmd->id == 37) {
-        return 67;
-    }
     return cmd->frame;
 }
 
@@ -1225,7 +1222,7 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
     SDL_Color amber = { 231, 194, 94, 255 };
     char line[96];
 
-    const SpriteSheet *buttons = sprite_cache_lookup(cache, "INTRFACE/BUTTON.SPR");
+    const SpriteSheet *buttons = sprite_cache_lookup(cache, "INTRFACE/MAINBUT.SPR");
     SDL_Rect mini = {
         layout.minimap.x + 2,
         layout.minimap.y + 2,
@@ -1259,23 +1256,31 @@ static void render_dark_colony_ingame_ui(App *app, const RtsPlugin *plugin, cons
             break;
         }
     }
-    dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
-    dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
-    dc_ui_draw_sprite_fit(app->renderer, buttons, 76, layout.build, 0);
+    if (!background || !background->texture) {
+        dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
+        dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
+        rts_font_draw_text(app->renderer, font,
+                           layout.build.x + layout.build.w / 2 - rts_font_text_width(font, "BUILD", 5) / 2,
+                           layout.build.y + layout.build.h / 2 - font->line_h / 2,
+                           "BUILD", (SDL_Color){ 24, 24, 24, 255 }, 1);
+    }
     if (hover_button >= 0) {
         rts_font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            dc_sidebar_command_label(&sidebar->commands[hover_button], selected),
                            amber, 1);
     }
     for (int i = 0; i < sidebar->command_count; ++i) {
-        SDL_Color fill = (i == 0) ? (SDL_Color){ 150, 150, 145, 255 } :
-                         (SDL_Color){ 175, 175, 168, 255 };
-        dc_ui_fill(app->renderer, layout.buttons[i], fill);
-        dc_ui_draw_sprite_fit(app->renderer, buttons,
-                              dc_sidebar_command_frame(&sidebar->commands[i], selected),
-                              layout.buttons[i], 0);
-        dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 ?
-                     (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
+        if (buttons && buttons->texture) {
+            dc_ui_draw_sprite_fit(app->renderer, buttons,
+                                  dc_sidebar_command_frame(&sidebar->commands[i], selected),
+                                  layout.buttons[i], 0);
+        } else {
+            SDL_Color fill = (i == 0) ? (SDL_Color){ 150, 150, 145, 255 } :
+                             (SDL_Color){ 175, 175, 168, 255 };
+            dc_ui_fill(app->renderer, layout.buttons[i], fill);
+            dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 ?
+                         (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
+        }
     }
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
