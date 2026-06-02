@@ -218,6 +218,10 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, Tileset 
         return false;
     }
     for (int i = 0; i < lookup_count; ++i) tile_lookup[i] = -1;
+    /* Also map sequential indices 0..count-1 so MTG-format maps work.
+       MTG stores 1-byte record indices; BTS keys (302+) are far above this range
+       and will overwrite any collision when populated below. */
+    for (int i = 0; i < count && i < lookup_count; ++i) tile_lookup[i] = i;
     int extra_tile = count, extra_key = synthetic_key_base;
     for (int tile = 0; tile < count; ++tile) {
         int tx = (tile % TILE_ATLAS_COLS) * tile_w;
@@ -616,6 +620,7 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
     int height = 0;
     size_t source_count = 0;
     bool legacy_map_format = false;
+    bool legacy_no_header = false; /* .O16: tile pairs start at byte 0, no flags plane */
     if (blob.size >= 8) {
         int maybe_width = read_i32_le(blob.bytes + 0);
         int maybe_height = read_i32_le(blob.bytes + 4);
@@ -645,21 +650,37 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         }
         const char *dot = strrchr(map_path, '.');
         if (blank_mtg && dot && strcasecmp(dot, ".MTG") == 0) {
-            char map_fallback[1024];
-            replace_extension(map_fallback, sizeof(map_fallback), map_path, ".MAP");
-            Blob map_blob;
-            if (load_blob(map_fallback, &map_blob) && map_blob.size >= 8) {
-                int mw = read_i32_le(map_blob.bytes + 0);
-                int mh = read_i32_le(map_blob.bytes + 4);
+            /* Try .MAP (legacy format with header) first. */
+            char alt_path[1024];
+            replace_extension(alt_path, sizeof(alt_path), map_path, ".MAP");
+            Blob alt_blob;
+            bool used_alt = false;
+            if (load_blob(alt_path, &alt_blob) && alt_blob.size >= 8) {
+                int mw = read_i32_le(alt_blob.bytes + 0);
+                int mh = read_i32_le(alt_blob.bytes + 4);
                 size_t mc = (size_t)mw * (size_t)mh;
-                if (mw > 0 && mh > 0 && mw <= 512 && mh <= 512 && map_blob.size >= 8 + mc * 2 * 3) {
+                if (mw > 0 && mh > 0 && mw <= 512 && mh <= 512 && alt_blob.size >= 8 + mc * 2 * 3) {
                     free_blob(&blob);
-                    blob = map_blob;
-                    map_path = map_fallback;
+                    blob = alt_blob;
+                    map_path = alt_path;
                     width = mw; height = mh; source_count = mc;
                     legacy_map_format = true;
+                    used_alt = true;
                 } else {
-                    free_blob(&map_blob);
+                    free_blob(&alt_blob);
+                }
+            }
+            /* If no .MAP, try .O16 (tile+overlay pairs, w*h*4 bytes, no header). */
+            if (!used_alt) {
+                replace_extension(alt_path, sizeof(alt_path), map_path, ".O16");
+                if (load_blob(alt_path, &alt_blob) && alt_blob.size == source_count * 4) {
+                    free_blob(&blob);
+                    blob = alt_blob;
+                    map_path = alt_path;
+                    legacy_map_format = true;
+                    legacy_no_header = true;
+                } else {
+                    free_blob(&alt_blob);
                 }
             }
         }
@@ -679,18 +700,20 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         free_blob(&blob); destroy_map(out); return false;
     }
     if (legacy_map_format) {
-        const uint8_t *tile_pairs = blob.bytes + 8;
-        const uint8_t *tile_flags = blob.bytes + 8 + source_count * 4;
+        const uint8_t *tile_pairs = blob.bytes + (legacy_no_header ? 0 : 8);
+        const uint8_t *tile_flags = legacy_no_header ? NULL : blob.bytes + 8 + source_count * 4;
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
                 size_t idx = (size_t)y * (size_t)width + (size_t)x;
                 const uint8_t *cell = tile_pairs + idx * 4;
                 out->tile_ids[idx] = read_u16_le(cell);
                 out->tile_overlays[0][idx] = read_u16_le(cell + 2);
-                uint16_t flags = read_u16_le(tile_flags + idx * 2);
-                out->blocked[idx] = (flags & (1u << 9)) ? 1 : 0;
-                out->tile_flip_flags[0][idx] = (flags & (1u << 5)) ? 1 : 0;
-                out->tile_flip_flags[1][idx] = (flags & (1u << 6)) ? 1 : 0;
+                if (tile_flags) {
+                    uint16_t flags = read_u16_le(tile_flags + idx * 2);
+                    out->blocked[idx] = (flags & (1u << 9)) ? 1 : 0;
+                    out->tile_flip_flags[0][idx] = (flags & (1u << 5)) ? 1 : 0;
+                    out->tile_flip_flags[1][idx] = (flags & (1u << 6)) ? 1 : 0;
+                }
             }
         }
     } else {
