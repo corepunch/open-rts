@@ -542,6 +542,26 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
     return true;
 }
 
+static bool append_dark_colony_beacon(GameMap *map, int x, int y, int type) {
+    if (!map || !map_contains(map, x, y) || type != 84) return false;
+    if (map->decoration_count >= MAX_DECORATIONS) return false;
+
+    MapDecoration *decorations = realloc(map->decorations,
+                                         (size_t)(map->decoration_count + 1) * sizeof(MapDecoration));
+    if (!decorations) return false;
+    map->decorations = decorations;
+    MapDecoration *dec = &map->decorations[map->decoration_count++];
+    memset(dec, 0, sizeof(*dec));
+    dec->gx = x;
+    dec->gy = y;
+    dec->footprint_w = 1;
+    dec->footprint_h = 1;
+    dec->center_anchor = true;
+    dec->frame_index = -1;
+    snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/BEAC.SPR");
+    return true;
+}
+
 static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *map) {
     if (!scn || !map) return;
     for (const char *line = scn; line && *line;) {
@@ -554,6 +574,47 @@ static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *m
         if (sscanf(token, "%d %d %d %d %d%n", &x, &y, &type, &rate, &amount, &consumed) == 5 &&
             type == 40 && token_has_only_trailing_space(token, consumed)) {
             append_dark_colony_resource_vent(map, x, y, rate, amount);
+        }
+
+        if (!next) break;
+        char nl = *next++;
+        if (nl == '\r' && *next == '\n') next++;
+        line = next;
+    }
+}
+
+static void load_dark_colony_beacons_from_scn(const char *scn, GameMap *map) {
+    if (!scn || !map) return;
+    int team_count = 0;
+    bool object_mode = false;
+    int trailing_blank_lines = 0;
+    for (const char *line = scn; line && *line;) {
+        const char *next = strpbrk(line, "\r\n");
+        size_t len = next ? (size_t)(next - line) : strlen(line);
+        char token[128] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, len);
+
+        if (token[0] == '\0') {
+            if (team_count >= 8 && !object_mode && ++trailing_blank_lines >= 2)
+                object_mode = true;
+        } else if (strncmp(token, "TEAM ", 5) == 0) {
+            team_count++;
+            trailing_blank_lines = 0;
+        } else if (object_mode) {
+            int x = 0, y = 0, type = 0, team = 0, owner = 0, extra = 0, consumed = 0;
+            if (sscanf(token, "%d %d %d %d %d %d%n",
+                       &x, &y, &type, &team, &owner, &extra, &consumed) == 6 &&
+                token_has_only_trailing_space(token, consumed)) {
+                int map_y = map->height - 1 - y;
+                if (map_y < 0) map_y = 0;
+                if (map_y >= map->height) map_y = map->height - 1;
+                append_dark_colony_beacon(map, x, map_y, type);
+            }
+            (void)team;
+            (void)owner;
+            (void)extra;
+        } else {
+            trailing_blank_lines = 0;
         }
 
         if (!next) break;
@@ -776,6 +837,7 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
                                 first_token, strlen(first_token));
         load_dark_colony_camera_from_scn(scn, out);
         load_dark_colony_resource_vents_from_scn(scn, out);
+        load_dark_colony_beacons_from_scn(scn, out);
         free(scn);
     }
 

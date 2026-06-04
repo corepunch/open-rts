@@ -306,8 +306,8 @@ static bool dark_colony_player_near(const GameMap *map, const Unit *units,
     return false;
 }
 
-static int dark_colony_spawn_aird_effect(VisualEffect *effects, int max_effects,
-                                         float gx, float gy, int duration_ms) {
+static int dark_colony_spawn_dropship_effect(VisualEffect *effects, int max_effects,
+                                             float gx, float gy, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
         VisualEffect *effect = &effects[i];
@@ -316,8 +316,9 @@ static int dark_colony_spawn_aird_effect(VisualEffect *effects, int max_effects,
         effect->gx = gx;
         effect->gy = gy;
         effect->duration_ms = duration_ms;
-        effect->frame_ms = 120;
-        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/AIRD.SPR");
+        effect->frame_ms = duration_ms + 1;
+        effect->screen_offset_y = -75;
+        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/DROP.SPR");
         return i;
     }
     return -1;
@@ -363,16 +364,14 @@ static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
     ship->active      = true;
     ship->center_gx   = cx;
     ship->center_gy   = cy;
-    ship->radius      = 2.5f;   /* orbit radius in grid cells */
+    ship->radius      = 0.0f;
     ship->angle       = start_angle;
-    ship->speed       = 1.2f;   /* radians/second — about one orbit per 5 seconds */
+    ship->speed       = 0.0f;
     ship->duration_ms = actual_duration;
     ship->elapsed_ms  = 0;
 
-    float sx = cx + cosf(start_angle) * ship->radius;
-    float sy = cy + sinf(start_angle) * ship->radius;
-    ship->effect_slot = dark_colony_spawn_aird_effect(effects, max_effects,
-                                                      sx, sy, actual_duration);
+    ship->effect_slot = dark_colony_spawn_dropship_effect(effects, max_effects,
+                                                          cx, cy, actual_duration);
     /* Beacon stays at the drop centre */
     dark_colony_spawn_beacon_effect(effects, max_effects, cx, cy, actual_duration);
 

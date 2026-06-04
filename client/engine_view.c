@@ -388,8 +388,15 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
         frame = sprite_sequence_frame(sprite, dec->sequence_name, dec->facing_code,
                                       dec->frame_index);
     }
-    if (frame < 0) frame = dec->frame_index >= 0 && dec->frame_index < sprite->frame_count ?
-        dec->frame_index : 0;
+    if (frame < 0) {
+        if (dec->frame_index >= 0 && dec->frame_index < sprite->frame_count) {
+            frame = dec->frame_index;
+        } else if (dec->frame_index < 0) {
+            frame = (int)((app->ticks_ms / 250u) % (uint32_t)sprite->frame_count);
+        } else {
+            frame = 0;
+        }
+    }
 
     SDL_Rect dst;
     if (dec->center_anchor) {
