@@ -482,6 +482,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         for (int i = 0; i < map->decoration_count; ++i) {
             if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite_name))
                 ok = false;
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite2_name))
+                ok = false;
             if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].shadow_name))
                 ok = false;
         }
@@ -558,8 +560,11 @@ static bool append_dark_colony_beacon(GameMap *map, int x, int y, int type) {
     dec->footprint_w = 1;
     dec->footprint_h = 1;
     dec->center_anchor = true;
-    dec->frame_index = -1;
+    dec->frame_index = 0;
+    dec->frame2_index = 1;
+    dec->render2_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK;
     snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/BEAC.SPR");
+    snprintf(dec->sprite2_name, sizeof(dec->sprite2_name), "SPRITES/BEAC.SPR");
     return true;
 }
 

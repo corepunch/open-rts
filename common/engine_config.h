@@ -22,5 +22,6 @@
 #define RTS_FRAME_FLIP_X RTS_SPRITEFRAME_FLIP_X
 #define RTS_FRAME_ADDITIVE (1u << 1)
 #define RTS_FRAME_TINT_YELLOW (1u << 2)
+#define RTS_FRAME_BLINK (1u << 3)
 
 #endif

@@ -17,9 +17,10 @@ existing features and future construction/production work.
 ## Existing Feature Coverage
 
 - [x] Human01 loads with expected player units.
-- [x] Human01 dropship/beacon script spawns the dropship effect, beacon effect,
-      and pending reinforcements.
-- [ ] Human01 active beacon decorations are loaded at map-space coordinates.
+- [x] Human01 dropship script spawns the dropship effect and pending
+      reinforcements without spawning the beacon as a frame-flipping effect.
+- [x] Human01 active beacon decorations are loaded with a stable base sprite
+      and blinking sprite2 glow.
 - [x] Human02 loads with expected starting units, decorations, and vents.
 - [ ] Petra-7 vents load with active/inactive state and remaining amount.
 - [ ] Exploiter harvest/deploy path can add resources over fixed ticks.

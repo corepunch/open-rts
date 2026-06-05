@@ -336,6 +336,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
     out->map_width = model->map.width;
     out->map_height = model->map.height;
     out->decoration_count = model->map.decoration_count;
+    if (out->decoration_count > RTS_MODEL_MAX_SNAPSHOT_DECORATIONS)
+        out->decoration_count = RTS_MODEL_MAX_SNAPSHOT_DECORATIONS;
     out->resource_vent_count = model->map.resource_vent_count;
     for (int i = 0; i < RTS_MODEL_MAX_PLAYERS; ++i) {
         out->player_resources[i] = model->map.player_resources[i];
@@ -361,6 +363,24 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->has_move_order = src->move_order_id != 0;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
+    }
+    for (int i = 0; i < out->decoration_count; ++i) {
+        const MapDecoration *src = &model->map.decorations[i];
+        RtsRenderDecoration *dst = &out->decorations[i];
+        dst->gx = src->gx;
+        dst->gy = src->gy;
+        dst->footprint_w = src->footprint_w;
+        dst->footprint_h = src->footprint_h;
+        dst->center_anchor = src->center_anchor;
+        dst->frame_index = src->frame_index;
+        dst->frame2_index = src->frame2_index;
+        dst->facing_code = src->facing_code;
+        dst->render_flags = src->render_flags;
+        dst->render2_flags = src->render2_flags;
+        snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
+        snprintf(dst->sprite2_name, sizeof(dst->sprite2_name), "%s", src->sprite2_name);
+        snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
+        snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
     for (int i = 0; i < MAX_VISUAL_EFFECTS && out->effect_count < RTS_MODEL_MAX_SNAPSHOT_EFFECTS; ++i) {
         const VisualEffect *src = &model->effects[i];

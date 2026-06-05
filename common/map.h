@@ -44,9 +44,12 @@ typedef struct {
     bool solid;
     bool center_anchor;
     int frame_index;
+    int frame2_index;
     int facing_code;
     uint32_t render_flags;
+    uint32_t render2_flags;
     char sprite_name[32];
+    char sprite2_name[32];
     char shadow_name[32];
     char sequence_name[16];
 } MapDecoration;

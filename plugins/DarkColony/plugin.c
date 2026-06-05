@@ -374,22 +374,6 @@ static int dark_colony_spawn_dropship_effect(VisualEffect *effects, int max_effe
     return -1;
 }
 
-static void dark_colony_spawn_beacon_effect(VisualEffect *effects, int max_effects,
-                                            float gx, float gy, int duration_ms) {
-    for (int i = 0; i < max_effects; ++i) {
-        if (effects[i].active) continue;
-        VisualEffect *effect = &effects[i];
-        memset(effect, 0, sizeof(*effect));
-        effect->active = true;
-        effect->gx = gx;
-        effect->gy = gy;
-        effect->duration_ms = duration_ms;
-        effect->frame_ms = 250;
-        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/BEAC.SPR");
-        return;
-    }
-}
-
 static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
                                           VisualEffect *effects, int max_effects,
                                           int gx, int gy, int duration_ms) {
@@ -422,8 +406,6 @@ static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
 
     ship->effect_slot = dark_colony_spawn_dropship_effect(effects, max_effects,
                                                           cx, cy, actual_duration);
-    /* Beacon stays at the drop centre */
-    dark_colony_spawn_beacon_effect(effects, max_effects, cx, cy, actual_duration);
 
     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
         fprintf(stderr, "Dark Colony dropship effect at %d,%d duration=%d\n",

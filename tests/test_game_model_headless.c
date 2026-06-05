@@ -28,6 +28,20 @@ static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *s
     return false;
 }
 
+static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *snapshot) {
+    if (!snapshot) return false;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        const RtsRenderDecoration *dec = &snapshot->decorations[i];
+        if (strcmp(dec->sprite_name, "SPRITES/BEAC.SPR") != 0) continue;
+        if (strcmp(dec->sprite2_name, "SPRITES/BEAC.SPR") != 0) continue;
+        if (dec->frame_index == 0 && dec->frame2_index == 1 &&
+            (dec->render2_flags & RTS_FRAME_BLINK) != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static const RtsProductDefinition *find_product(const RtsProductDefinition *products,
                                                 int product_count, int ui_id) {
     for (int i = 0; i < product_count; ++i) {
@@ -119,6 +133,9 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot.units[0].sprite_name[0] == '\0') {
         return fail("Human01 snapshot unit has render sprite reference");
     }
+    if (!snapshot_has_blinking_beacon_decoration(&snapshot)) {
+        return fail("Human01 beacon is rendered as stable base plus blinking sprite2 glow");
+    }
 
     int initial_unit_count = snapshot.unit_count;
     int movable_player_unit = find_movable_player_unit(&snapshot);
@@ -140,8 +157,8 @@ static int assert_human01(RtsGameModel *model) {
     if (!snapshot_has_effect(&snapshot, "SPRITES/DROP.SPR")) {
         return fail("Human01 scripted dropship effect is visible");
     }
-    if (!snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
-        return fail("Human01 scripted beacon effect is visible");
+    if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
+        return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
     }
 
     RtsGameCommand select_first = {

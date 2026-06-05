@@ -4,8 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "engine_config.h"
+
 #define RTS_MODEL_MAX_SNAPSHOT_UNITS 128
 #define RTS_MODEL_MAX_SNAPSHOT_EFFECTS 256
+#define RTS_MODEL_MAX_SNAPSHOT_DECORATIONS MAX_DECORATIONS
 #define RTS_MODEL_MAX_PLAYERS 8
 #define RTS_MODEL_MAX_PRODUCT_PREREQUISITES 4
 #define RTS_MODEL_UI_SCRIPT_BYTES 4096
@@ -84,6 +87,23 @@ typedef struct {
 } RtsRenderEffect;
 
 typedef struct {
+    int gx;
+    int gy;
+    int footprint_w;
+    int footprint_h;
+    bool center_anchor;
+    int frame_index;
+    int frame2_index;
+    int facing_code;
+    uint32_t render_flags;
+    uint32_t render2_flags;
+    char sprite_name[32];
+    char sprite2_name[32];
+    char shadow_name[32];
+    char sequence_name[16];
+} RtsRenderDecoration;
+
+typedef struct {
     int map_width;
     int map_height;
     int unit_count;
@@ -93,6 +113,7 @@ typedef struct {
     int player_resources[RTS_MODEL_MAX_PLAYERS];
     RtsRenderUnit units[RTS_MODEL_MAX_SNAPSHOT_UNITS];
     RtsRenderEffect effects[RTS_MODEL_MAX_SNAPSHOT_EFFECTS];
+    RtsRenderDecoration decorations[RTS_MODEL_MAX_SNAPSHOT_DECORATIONS];
     /*
      * Quake-style declarative UI emitted by the model/server.
      * Example:

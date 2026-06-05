@@ -372,7 +372,23 @@ static int sprite_sequence_frame(const SpriteSheet *sprite, const char *sequence
 }
 
 
-static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite) {
+static int decoration_sprite_frame(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
+                                   int frame_index, const char *sequence_name) {
+    int frame = -1;
+    if (sequence_name && sequence_name[0] != '\0') {
+        frame = sprite_sequence_frame(sprite, sequence_name, dec->facing_code, frame_index);
+    }
+    if (frame >= 0) return frame;
+    if (frame_index >= 0 && frame_index < sprite->frame_count) return frame_index;
+    if (frame_index < 0) {
+        return (int)((app->ticks_ms / 250u) % (uint32_t)sprite->frame_count);
+    }
+    return 0;
+}
+
+static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
+                                     int frame_index, uint32_t render_flags,
+                                     const char *sequence_name) {
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
     float sx, sy;
@@ -383,20 +399,7 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     int sprite_w = sprite->frame_w * scale;
     int sprite_h = sprite->frame_h * scale;
 
-    int frame = -1;
-    if (dec->sequence_name[0] != '\0') {
-        frame = sprite_sequence_frame(sprite, dec->sequence_name, dec->facing_code,
-                                      dec->frame_index);
-    }
-    if (frame < 0) {
-        if (dec->frame_index >= 0 && dec->frame_index < sprite->frame_count) {
-            frame = dec->frame_index;
-        } else if (dec->frame_index < 0) {
-            frame = (int)((app->ticks_ms / 250u) % (uint32_t)sprite->frame_count);
-        } else {
-            frame = 0;
-        }
-    }
+    int frame = decoration_sprite_frame(app, dec, sprite, frame_index, sequence_name);
 
     SDL_Rect dst;
     if (dec->center_anchor) {
@@ -421,15 +424,37 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
         dst.x + dst.w < 0 || dst.y + dst.h < 0) {
         return;
     }
-    SDL_RendererFlip flip = (dec->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    if ((render_flags & RTS_FRAME_BLINK) != 0 && ((app->ticks_ms / 250u) % 2u) == 0u) {
+        return;
+    }
+    SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
+        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_ADD);
+    if ((render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
+        SDL_SetTextureColorMod(sprite->texture, 255, 236, 72);
+        SDL_SetTextureAlphaMod(sprite->texture, 230);
+    }
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    if ((render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
+        SDL_SetTextureColorMod(sprite->texture, 255, 255, 255);
+        SDL_SetTextureAlphaMod(sprite->texture, 255);
+    }
+    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
+        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_BLEND);
+}
+
+static void render_decoration(App *app, const MapDecoration *dec, const SpriteCache *cache) {
+    render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name),
+                             dec->frame_index, dec->render_flags, dec->sequence_name);
+    render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name),
+                             dec->frame_index, dec->render_flags, dec->sequence_name);
+    render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite2_name),
+                             dec->frame2_index, dec->render2_flags, NULL);
 }
 
 void render_decorations(App *app, const GameMap *map, const SpriteCache *cache) {
     for (int i = 0; i < map->decoration_count; ++i) {
-        const MapDecoration *dec = &map->decorations[i];
-        render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name));
-        render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name));
+        render_decoration(app, &map->decorations[i], cache);
     }
 }
 
@@ -767,9 +792,7 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
             render_overlay_tile_item(app, map, tileset, command->ref.tile_overlay.x,
                                      command->ref.tile_overlay.y, command->ref.tile_overlay.layer);
         } else if (command->kind == DRAW_COMMAND_DECORATION) {
-            const MapDecoration *dec = command->ref.decoration;
-            render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name));
-            render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name));
+            render_decoration(app, command->ref.decoration, cache);
         } else {
             render_unit_sprite(app, command->ref.unit, fallback_sprite, cache, game_info, ticks);
         }
