@@ -22,7 +22,7 @@ existing features and future construction/production work.
 - [x] Human01 active beacon decorations are loaded with a stable base sprite
       and blinking sprite2 glow.
 - [x] Human02 loads with expected starting units, decorations, and vents.
-- [ ] Petra-7 vents load with active/inactive state and remaining amount.
+- [x] Petra-7 vents load with active/inactive state and remaining amount.
 - [ ] Exploiter harvest/deploy path can add resources over fixed ticks.
 - [x] Basic movement order updates selected unit path/goals deterministically.
 

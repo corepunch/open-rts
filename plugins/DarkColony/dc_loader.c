@@ -538,6 +538,7 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
             dec->footprint_w = 1;
             dec->footprint_h = 1;
             dec->center_anchor = true;
+            dec->frame_index = rate > 0 ? -1 : 0;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s",
                      rate > 0 ? "SPRITES/VENT.SPR" : "SPRITES/VENT2.SPR");
         }
@@ -952,6 +953,7 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
         case 20: return MT_DC_SCNCPOD;
         case 21: return MT_DC_SCNCPOD2;
         case 22: return MT_DC_RSCHPOD;
+        case 86: return MT_DC_COMMS_DISH;
         default: break;
     }
 
@@ -973,6 +975,7 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
 
 static const char *dark_colony_unit_sprite_for_type(int type, int race) {
     if (type >= 16 && type <= 22) return "SPRITES/BUILDNG.SPR";
+    if (type == 86) return "SPRITES/DISH.SPR";
     if (race == 1) {
         if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
         if (type == 6) return "SPRITES/SLUG.SPR";
@@ -1059,21 +1062,30 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
         }
         if (!object_mode) { trailing_blank_lines = 0; line = next; continue; }
 
-        int x = 0, y = 0, type = 0, team = 0, owner = 0, extra = 0;
-        if (sscanf(line, " %d %d %d %d %d %d", &x, &y, &type, &team, &owner, &extra) == 6 &&
+        int x = 0, y = 0, type = 0, team = 0, status = 0, extra = 0;
+        if (sscanf(line, " %d %d %d %d %d %d", &x, &y, &type, &team, &status, &extra) == 6 &&
             team >= 0 && team < 16 && x >= 0 && y >= 0) {
+            if (status < 0) {
+                line = next;
+                continue;
+            }
             const char *sprite = dark_colony_unit_sprite_for_type(type, team_race[team]);
             int mobj_type = dark_colony_mobj_type_for_type(type, team_race[team]);
             if (sprite && mobj_type > 0) {
                 Unit *u = &units[count];
+                memset(u, 0, sizeof(*u));
                 u->gx = (float)x + 0.5f;
                 u->gy = (float)y + 0.5f;
+                u->sprite_id = -1;
+                u->attack_target = -1;
+                u->harvest_target = -1;
                 if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS) {
                     u->speed = unit_config[type].speed;
                 }
                 u->type_id = (uint16_t)mobj_type;
-                u->owner = team == 0 ? 0 : 1;
-                u->selected = u->owner == 0 && !player_selected;
+                u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
+                u->hp = status;
+                u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH && !player_selected;
                 if (u->selected) player_selected = true;
                 u->frame = dark_colony_unit_frame_for_type(type);
                 snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);

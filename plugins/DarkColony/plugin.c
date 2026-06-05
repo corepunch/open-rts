@@ -179,6 +179,13 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
         .max_hp = 3600,
     },
+    {
+        .id = MT_DC_COMMS_DISH,
+        .name = "Communication Dish",
+        .sprite_name = "SPRITES/DISH.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 1200,
+    },
 };
 
 static const ActorType *dark_colony_actor_type_by_id(uint16_t type_id) {

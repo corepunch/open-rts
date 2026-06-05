@@ -14,7 +14,7 @@ renderable, non-mobile entities.
       `RSCHPOD`.
 - [ ] Add alien building rows later or split into a follow-up if this gets too
       large.
-- [ ] Load starting building rows from `.SCN` into `Unit` or a dedicated model
+- [x] Load starting building rows from `.SCN` into `Unit` or a dedicated model
       entity type.
 - [ ] Apply owner, health, sprite, footprint, and render traits.
 - [ ] Ensure buildings are selectable but not mobile.
@@ -22,15 +22,15 @@ renderable, non-mobile entities.
 
 ## Acceptance Criteria
 
-- [ ] Human02 starting buildings appear in model state.
-- [ ] Buildings render in the client with correct sprites.
+- [x] Human02 starting buildings appear in model state.
+- [x] Buildings render in the client with correct sprites.
 - [ ] Buildings can be selected but cannot receive move orders.
 - [ ] Enemy buildings remain enemy-owned and attackable when relevant.
 - [ ] Existing mobile-unit selection/movement behavior is unchanged.
 
 ## Tests
 
-- [ ] Human02 headless test asserts expected building count/types/owners.
+- [x] Human02 headless test asserts expected building count/types/owners.
 - [ ] Selection test distinguishes mobile units from buildings.
 - [ ] Movement-order test proves buildings do not move.
 - [ ] Footprint/blocking test proves buildings occupy map space.

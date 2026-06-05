@@ -10,6 +10,7 @@ enum {
     MT_DC_SCNCPOD,
     MT_DC_SCNCPOD2,
     MT_DC_RSCHPOD,
+    MT_DC_COMMS_DISH,
 };
 
 #endif

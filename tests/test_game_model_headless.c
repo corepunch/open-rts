@@ -42,6 +42,28 @@ static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *sna
     return false;
 }
 
+static int snapshot_count_units_with_sprite(const RtsRenderSnapshot *snapshot,
+                                            const char *sprite_name) {
+    if (!snapshot || !sprite_name) return 0;
+    int count = 0;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (strcmp(snapshot->units[i].sprite_name, sprite_name) == 0) count++;
+    }
+    return count;
+}
+
+static bool snapshot_has_animated_decoration(const RtsRenderSnapshot *snapshot,
+                                             const char *sprite_name) {
+    if (!snapshot || !sprite_name) return false;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        const RtsRenderDecoration *dec = &snapshot->decorations[i];
+        if (strcmp(dec->sprite_name, sprite_name) == 0 && dec->frame_index < 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static const RtsProductDefinition *find_product(const RtsProductDefinition *products,
                                                 int product_count, int ui_id) {
     for (int i = 0; i < product_count; ++i) {
@@ -234,11 +256,20 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.unit_count <= 0) {
         return fail("Human02 loads expected starting units");
     }
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/GRAY.SPR") != 0) {
+        return fail("Human02 hidden Grey placeholders are not loaded as starting units");
+    }
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/DISH.SPR") != 3) {
+        return fail("Human02 loads communication dish/base attachment objects");
+    }
     if (snapshot.decoration_count <= 0) {
         return fail("Human02 loads map decorations");
     }
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
+    }
+    if (!snapshot_has_animated_decoration(&snapshot, "SPRITES/VENT.SPR")) {
+        return fail("Human02 active Petra-7 vents render with animated active sprite");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",
