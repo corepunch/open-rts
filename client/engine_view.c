@@ -386,6 +386,47 @@ static int decoration_sprite_frame(App *app, const MapDecoration *dec, const Spr
     return 0;
 }
 
+static uint8_t fin_intensity_color_mod(int intensity) {
+    if (intensity <= 0) intensity = 16;
+    return (uint8_t)clamp255((intensity * 255 + 8) / 16);
+}
+
+static void begin_sprite_command(const SpriteSheet *sprite, uint32_t render_flags,
+                                 int render_remap, int render_intensity) {
+    if (!sprite || !sprite->texture) return;
+    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
+        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_ADD);
+
+    uint8_t intensity = fin_intensity_color_mod(render_intensity);
+    uint8_t r = intensity;
+    uint8_t g = intensity;
+    uint8_t b = intensity;
+    uint8_t a = 255;
+    if ((render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
+        r = intensity;
+        g = (uint8_t)((intensity * 236 + 127) / 255);
+        b = (uint8_t)((intensity * 72 + 127) / 255);
+        a = 230;
+    }
+    SDL_SetTextureColorMod(sprite->texture, r, g, b);
+    SDL_SetTextureAlphaMod(sprite->texture, a);
+
+    /*
+     * FIN command word byte 14 is a palette remap selector. 0 is the normal
+     * sprite palette. Non-zero remaps need indexed sprite data or remapped
+     * atlas variants; RGBA atlas rendering intentionally leaves them unchanged.
+     */
+    (void)render_remap;
+}
+
+static void end_sprite_command(const SpriteSheet *sprite, uint32_t render_flags) {
+    if (!sprite || !sprite->texture) return;
+    SDL_SetTextureColorMod(sprite->texture, 255, 255, 255);
+    SDL_SetTextureAlphaMod(sprite->texture, 255);
+    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
+        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_BLEND);
+}
+
 static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
                                      int frame_index, uint32_t render_flags,
                                      const char *sequence_name, int anchor_frame_index,
@@ -431,19 +472,9 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
         return;
     }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
-        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_ADD);
-    if ((render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
-        SDL_SetTextureColorMod(sprite->texture, 255, 236, 72);
-        SDL_SetTextureAlphaMod(sprite->texture, 230);
-    }
+    begin_sprite_command(sprite, render_flags, 0, 16);
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-    if ((render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
-        SDL_SetTextureColorMod(sprite->texture, 255, 255, 255);
-        SDL_SetTextureAlphaMod(sprite->texture, 255);
-    }
-    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
-        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_BLEND);
+    end_sprite_command(sprite, render_flags);
 }
 
 static void render_decoration(App *app, const MapDecoration *dec, const SpriteCache *cache) {
@@ -807,8 +838,12 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet
         overlay->frame_h * scale,
     };
     SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    int remap = state->overlay_remap[slot];
+    int intensity = state->overlay_intensity[slot];
+    begin_sprite_command(overlay, flags, remap, intensity);
     SDL_RenderCopyEx(app->renderer, overlay->texture, &overlay->frames[frame],
                      &dst, 0.0, NULL, flip);
+    end_sprite_command(overlay, flags);
 }
 
 static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallback_sprite,
@@ -851,7 +886,9 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
         draw_selection_ellipse(app, sx, sy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
     }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    begin_sprite_command(sprite, render_flags, u->render_remap, u->render_intensity);
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    end_sprite_command(sprite, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, scale);
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
@@ -1069,19 +1106,10 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
                           effect->screen_offset_x, effect->screen_offset_y,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        if ((effect->render_flags & RTS_FRAME_ADDITIVE) != 0)
-            SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_ADD);
-        if ((effect->render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
-            SDL_SetTextureColorMod(sprite->texture, 255, 236, 72);
-            SDL_SetTextureAlphaMod(sprite->texture, 230);
-        }
+        begin_sprite_command(sprite, effect->render_flags,
+                             effect->render_remap, effect->render_intensity);
         SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-        if ((effect->render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
-            SDL_SetTextureColorMod(sprite->texture, 255, 255, 255);
-            SDL_SetTextureAlphaMod(sprite->texture, 255);
-        }
-        if ((effect->render_flags & RTS_FRAME_ADDITIVE) != 0)
-            SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_BLEND);
+        end_sprite_command(sprite, effect->render_flags);
     }
 }
 
