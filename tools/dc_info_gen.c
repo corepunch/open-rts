@@ -6,12 +6,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 typedef struct {
     char path[256];
     char symbol[128];
     int frames;
 } SpriteEntry;
+
+typedef struct {
+    SpriteEntry *items;
+    int count;
+    int cap;
+} SpriteList;
 
 typedef struct {
     char name[17];
@@ -104,7 +111,9 @@ static void sprite_symbol(const char *path, char *out, size_t out_size) {
     size_t len = 0;
     snprintf(out, out_size, "SPR_DC_");
     len = strlen(out);
-    for (const char *p = base; *p && *p != '.' && len + 1 < out_size; ++p) {
+    const char *p = strncmp(path, "SPRITES/", 8) == 0 ? base : path;
+    for (; *p && len + 1 < out_size; ++p) {
+        if (*p == '.') break;
         unsigned char ch = (unsigned char)*p;
         out[len++] = (char)(isalnum(ch) ? toupper(ch) : '_');
     }
@@ -130,6 +139,65 @@ static int spr_frame_count(const char *path) {
     int count = read_u16_le(data + 2);
     free(data);
     return count;
+}
+
+static void uppercase_path(char *s) {
+    for (; *s; ++s) *s = (char)toupper((unsigned char)*s);
+}
+
+static void add_sprite(SpriteList *list, const char *root, const char *rel_path) {
+    if (list->count >= list->cap) {
+        list->cap = list->cap ? list->cap * 2 : 256;
+        list->items = realloc(list->items, (size_t)list->cap * sizeof(*list->items));
+        if (!list->items) die("out of memory", NULL);
+    }
+    SpriteEntry *entry = &list->items[list->count];
+    snprintf(entry->path, sizeof(entry->path), "%s", rel_path);
+    uppercase_path(entry->path);
+    sprite_symbol(entry->path, entry->symbol, sizeof(entry->symbol));
+    char full[1024];
+    snprintf(full, sizeof(full), "%s/%s", root, entry->path);
+    entry->frames = spr_frame_count(full);
+    list->count++;
+}
+
+static void scan_sprites_recursive(SpriteList *list, const char *root, const char *rel_dir) {
+    char dir_path[1024];
+    if (rel_dir && rel_dir[0]) snprintf(dir_path, sizeof(dir_path), "%s/%s", root, rel_dir);
+    else snprintf(dir_path, sizeof(dir_path), "%s", root);
+    DIR *dir = opendir(dir_path);
+    if (!dir) die(strerror(errno), dir_path);
+
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != NULL) {
+        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
+        char child_rel[512];
+        if (rel_dir && rel_dir[0]) snprintf(child_rel, sizeof(child_rel), "%s/%s", rel_dir, ent->d_name);
+        else snprintf(child_rel, sizeof(child_rel), "%s", ent->d_name);
+
+        char child_full[1024];
+        snprintf(child_full, sizeof(child_full), "%s/%s", root, child_rel);
+        struct stat st;
+        if (stat(child_full, &st) != 0) die(strerror(errno), child_full);
+        if (S_ISDIR(st.st_mode)) {
+            scan_sprites_recursive(list, root, child_rel);
+        } else if (S_ISREG(st.st_mode) && ends_with_ci(ent->d_name, ".SPR")) {
+            add_sprite(list, root, child_rel);
+        }
+    }
+    closedir(dir);
+}
+
+static void validate_unique_sprite_symbols(const SpriteEntry *sprites, int sprite_count) {
+    for (int i = 0; i < sprite_count; ++i) {
+        for (int j = i + 1; j < sprite_count; ++j) {
+            if (strcmp(sprites[i].symbol, sprites[j].symbol) == 0) {
+                fprintf(stderr, "dc_info_gen: duplicate sprite symbol %s for %s and %s\n",
+                        sprites[i].symbol, sprites[i].path, sprites[j].path);
+                exit(1);
+            }
+        }
+    }
 }
 
 static void spr_frame_size(const char *path, int frame, int *w_out, int *h_out) {
@@ -1607,31 +1675,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 int main(int argc, char **argv) {
     if (argc != 4) die("usage: dc_info_gen DATA/DCOLONY plugins/DarkColony/info.h plugins/DarkColony/info.c", NULL);
     const char *root = argv[1];
-    char sprite_dir[1024];
-    snprintf(sprite_dir, sizeof(sprite_dir), "%s/SPRITES", root);
-    DIR *dir = opendir(sprite_dir);
-    if (!dir) die(strerror(errno), sprite_dir);
-
-    SpriteEntry *sprites = NULL;
-    int count = 0, cap = 0;
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (!ends_with_ci(ent->d_name, ".SPR")) continue;
-        if (count >= cap) {
-            cap = cap ? cap * 2 : 128;
-            sprites = realloc(sprites, (size_t)cap * sizeof(*sprites));
-            if (!sprites) die("out of memory", NULL);
-        }
-        snprintf(sprites[count].path, sizeof(sprites[count].path), "SPRITES/%s", ent->d_name);
-        for (char *p = sprites[count].path; *p; ++p) *p = (char)toupper((unsigned char)*p);
-        sprite_symbol(sprites[count].path, sprites[count].symbol, sizeof(sprites[count].symbol));
-        char full[1024];
-        snprintf(full, sizeof(full), "%s/%s", root, sprites[count].path);
-        sprites[count].frames = spr_frame_count(full);
-        count++;
-    }
-    closedir(dir);
+    SpriteList sprite_list = {0};
+    scan_sprites_recursive(&sprite_list, root, "");
+    SpriteEntry *sprites = sprite_list.items;
+    int count = sprite_list.count;
     qsort(sprites, (size_t)count, sizeof(*sprites), compare_sprite_entry);
+    validate_unique_sprite_symbols(sprites, count);
     validate_dark_colony_data(root, sprites, count);
     DcFinStateCounts state_counts = load_fin_state_counts(root);
 
@@ -1645,6 +1694,6 @@ int main(int argc, char **argv) {
     write_source(c, sprites, count, root, &state_counts);
     fclose(c);
 
-    free(sprites);
+    free(sprite_list.items);
     return 0;
 }

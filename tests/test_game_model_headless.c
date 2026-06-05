@@ -2,6 +2,7 @@
 #include "game_model.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int fail(const char *message) {
@@ -70,6 +71,48 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
         if (effect->render_intensity != 16)
             return fail("effect render intensity is exposed and defaults to FIN neutral");
     }
+    return 0;
+}
+
+static int assert_dark_colony_sprite_catalog(void) {
+    FILE *f = fopen("plugins/DarkColony/info.c", "rb");
+    if (!f) return fail("open generated Dark Colony info.c");
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return fail("seek generated Dark Colony info.c");
+    }
+    long size = ftell(f);
+    if (size < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return fail("read generated Dark Colony info.c size");
+    }
+    char *text = malloc((size_t)size + 1);
+    if (!text) {
+        fclose(f);
+        return fail("allocate generated Dark Colony info.c text");
+    }
+    if (size > 0 && fread(text, 1, (size_t)size, f) != (size_t)size) {
+        free(text);
+        fclose(f);
+        return fail("read generated Dark Colony info.c");
+    }
+    fclose(f);
+    text[size] = '\0';
+
+    bool has_gameplay = strstr(text, "\"SPRITES/GRAY.SPR\"") != NULL;
+    bool has_interface = strstr(text, "\"INTRFACE/FONT.SPR\"") != NULL;
+    bool has_encyclopedia = strstr(text, "\"ENCYCLO/REAP.SPR\"") != NULL;
+    bool has_cursor = strstr(text, "\"CURSOR/CURS.SPR\"") != NULL;
+    free(text);
+
+    if (!has_gameplay)
+        return fail("Dark Colony sprite catalog includes gameplay sprites");
+    if (!has_interface)
+        return fail("Dark Colony sprite catalog includes interface sprites");
+    if (!has_encyclopedia)
+        return fail("Dark Colony sprite catalog includes encyclopedia sprites");
+    if (!has_cursor)
+        return fail("Dark Colony sprite catalog includes cursor sprites");
     return 0;
 }
 
@@ -450,10 +493,13 @@ static int assert_human02(RtsGameModel *model) {
 }
 
 int main(void) {
+    int result = assert_dark_colony_sprite_catalog();
+    if (result != 0) return result;
+
     RtsGameModel *model = rts_game_model_create();
     if (!model) return fail("create model");
 
-    int result = assert_human01(model);
+    result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
     rts_game_model_destroy(model);
     return result;
