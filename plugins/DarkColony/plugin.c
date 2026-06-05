@@ -300,6 +300,10 @@ typedef enum {
     DC_SCRIPT_CMD_NEWTYPE,
 } DarkColonyScriptCommandType;
 
+enum {
+    DC_SCRIPT_COUNTER_MS = 1000,
+};
+
 typedef struct {
     DarkColonyScriptCommandType type;
     int a[8];
@@ -790,7 +794,7 @@ static void dark_colony_update_mission(void *ptr, GameMap *map, Unit *units, int
             fire = block->trigger_x >= 0 &&
                    dark_colony_player_near(map, units, *unit_count, block->trigger_x, block->trigger_y);
         } else if (block->c_gt >= 0) {
-            fire = mission->elapsed_ms > block->c_gt * 33;
+            fire = mission->elapsed_ms > block->c_gt * DC_SCRIPT_COUNTER_MS;
         }
         if (fire) {
             if (debug_script) {

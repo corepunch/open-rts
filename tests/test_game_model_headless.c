@@ -496,6 +496,19 @@ static int assert_human02(RtsGameModel *model) {
         !near_cell_center(snapshot.units[exploiter].gy, 35)) {
         return fail("Human02 Exploiter deploys at the target Petra-7 vent");
     }
+    for (int i = 0; i < 30 * 20; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human02 while checking mining persistence");
+        }
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Human02 snapshot after sustained mining");
+    }
+    exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+    if (exploiter < 0 || snapshot.units[exploiter].hp <= 0 ||
+        snapshot.units[exploiter].harvest_target < 0) {
+        return fail("Human02 scripted enemy waves do not interrupt early Exploiter mining");
+    }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",
            snapshot.map_width, snapshot.map_height, snapshot.unit_count,

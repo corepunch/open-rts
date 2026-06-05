@@ -323,6 +323,14 @@ The `dc16.exe` strings around `0x82434..0x8250c` (`Frame parts`,
 `BManimation`, `%s%s`, `%s%d`) and the `juicel.c` / bad-juice-file assertions
 confirm the original path as a frame-part renderer: animation labels are looked
 up by string, then each part supplies a sprite cell, draw x/y, layer, and flags.
+
+Dark Colony `.TRO` script `c>` conditions are mission counter values, not
+30 Hz render ticks. Human02 has an enemy reinforcement at `c>300` near the
+Petra-7 vent (`reinforce 3 69 52 ...`), and treating `c` as 33 ms spawns that
+wave around 10 seconds after load. Those Grays are exactly four cells above the
+mining vent and kill the Exploiter, which looks like the deployed mining
+animation cancels. Use a one-second counter scale until the original counter
+rate is identified more precisely.
 The cell metadata includes `xoffset`/`yoffset`, so multi-part sprites must place
 each part with its own cell descriptor rather than inheriting the body part's
 top-left rectangle.
