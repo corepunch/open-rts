@@ -311,6 +311,10 @@ static int assert_human02(RtsGameModel *model) {
     if (!snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT.SPR", 69, 48)) {
         return fail("Human02 active Petra-7 vent is fixed-frame at SCN map position");
     }
+    if (snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT.SPR", 53, 27) ||
+        snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27)) {
+        return fail("Human02 off-screen ambush vent is not rendered as an initial decoration");
+    }
 
     int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     for (int i = 0; exploiter < 0 && i < 30 * 5; ++i) {

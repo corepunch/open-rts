@@ -563,7 +563,65 @@ static bool dark_colony_map_dimensions(const char *map_path, int *width, int *he
     return ok;
 }
 
-static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount) {
+typedef struct {
+    int count;
+    int x[2];
+    int y[2];
+} DarkColonyPlayerStartSlots;
+
+static DarkColonyPlayerStartSlots dark_colony_player_start_slots_from_scn(const char *scn) {
+    DarkColonyPlayerStartSlots slots = { 0 };
+    if (!scn) return slots;
+
+    int current_team = -1;
+    int aislot_lines = 0;
+    for (const char *line = scn; line && *line;) {
+        const char *next = strpbrk(line, "\r\n");
+        size_t len = next ? (size_t)(next - line) : strlen(line);
+        char token[64] = { 0 };
+        copy_trimmed_token(token, sizeof(token), line, len);
+
+        int team = -1;
+        if (sscanf(token, "TEAM %d", &team) == 1) {
+            current_team = team;
+            aislot_lines = 0;
+        } else if (strcmp(token, "%AISlots") == 0) {
+            aislot_lines = current_team == 0 ? 2 : 0;
+        } else if (aislot_lines > 0) {
+            int x = 0, y = 0;
+            if (sscanf(token, "%d %d", &x, &y) == 2 && (x != 0 || y != 0) &&
+                slots.count < 2) {
+                slots.x[slots.count] = x;
+                slots.y[slots.count] = y;
+                slots.count++;
+            }
+            aislot_lines--;
+        }
+
+        if (!next) break;
+        char nl = *next++;
+        if (nl == '\r' && *next == '\n') next++;
+        line = next;
+    }
+    return slots;
+}
+
+static bool dark_colony_resource_vent_initially_visible(const DarkColonyPlayerStartSlots *slots,
+                                                        int x, int y) {
+    if (!slots || slots->count <= 0) return true;
+
+    enum { INITIAL_BASE_REVEAL_RADIUS_CELLS = 24 };
+    int radius2 = INITIAL_BASE_REVEAL_RADIUS_CELLS * INITIAL_BASE_REVEAL_RADIUS_CELLS;
+    for (int i = 0; i < slots->count; ++i) {
+        int dx = x - slots->x[i];
+        int dy = y - slots->y[i];
+        if (dx * dx + dy * dy <= radius2) return true;
+    }
+    return false;
+}
+
+static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount,
+                                             bool initially_visible) {
     if (!map || !map_contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
 
@@ -578,7 +636,7 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
     vent->rate = rate;
     vent->active = rate > 0;
 
-    if (map->decoration_count < MAX_DECORATIONS) {
+    if (initially_visible && map->decoration_count < MAX_DECORATIONS) {
         MapDecoration *decorations = realloc(map->decorations,
                                              (size_t)(map->decoration_count + 1) * sizeof(MapDecoration));
         if (decorations) {
@@ -623,6 +681,7 @@ static bool append_dark_colony_beacon(GameMap *map, int x, int y, int type) {
 
 static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *map) {
     if (!scn || !map) return;
+    DarkColonyPlayerStartSlots player_slots = dark_colony_player_start_slots_from_scn(scn);
     for (const char *line = scn; line && *line;) {
         const char *next = strpbrk(line, "\r\n");
         size_t len = next ? (size_t)(next - line) : strlen(line);
@@ -632,7 +691,8 @@ static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *m
         int x = 0, y = 0, type = 0, rate = 0, amount = 0, consumed = 0;
         if (sscanf(token, "%d %d %d %d %d%n", &x, &y, &type, &rate, &amount, &consumed) == 5 &&
             type == 40 && token_has_only_trailing_space(token, consumed)) {
-            append_dark_colony_resource_vent(map, x, y, rate, amount);
+            bool initially_visible = dark_colony_resource_vent_initially_visible(&player_slots, x, y);
+            append_dark_colony_resource_vent(map, x, y, rate, amount, initially_visible);
         }
 
         if (!next) break;
