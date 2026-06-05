@@ -66,7 +66,7 @@ DC_INFO_GEN_SOURCE := tools/dc_info_gen.c
 DC_INFO_GEN_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_GEN_SOURCE))
 DC_INFO_GEN_DEPS   := $(DC_INFO_GEN_OBJECT:.o=.d)
 
-.PHONY: all run dark-reign dark-colony dark-colony-info anim-extract clean
+.PHONY: all run dark-reign dark-colony dark-colony-human02 dark-colony-info anim-extract clean
 
 all: $(TARGET) $(DR_LIB) $(DC_LIB)
 
@@ -119,6 +119,9 @@ dark-reign: all
 
 dark-colony: all
 	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN01.MAP SPRITES/TROOPER1.SPR
+
+dark-colony-human02: all
+	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 

@@ -287,6 +287,58 @@ col 31  signature (unit-type lookup index into unitid.txt)
 `data/DCOLONY/GAMESTAT/UNITID.TXT` maps `(team, weapon_class, unit_type)`
 triples to weapon/armour lookup indices; it is not a unit–FIN-stem mapping.
 
+### Dark Colony Construction / Production UI
+
+The original right sidebar data for human construction is split between
+`data/DCOLONY/INTRFACE/MAINE` and `data/DCOLONY/GAMESTAT/DEPEND.TXT`.
+
+`MAINE` defines button placement, icon frame, and hover label/cost. Human
+building buttons are the right column of the command panel:
+
+| UI id | Label | Icon frame | Product type |
+|-------|-------|------------|--------------|
+| 206 | Exo-Ctr 2000 | 129 | building 16 `EXCOPOD` |
+| 80 | Barracks 1000 | 20 | building 17 `BRRKPOD` |
+| 81 | Sci-Pod 2000 | 21 | building 20 `SCNCPOD` |
+| 82 | Robo-Ftr 2000 | 22 | building 18 `ROBOPOD` |
+| 83 | Rsch-Bay 3000 | 23 | building 22 `RSCHPOD` |
+| 85 | Sci-Pod + 2000 | 26 | building 21 `SCNCPOD2` |
+| 86 | Robo-Ftr+ 2000 | 30 | building 19 `ROBOPOD2` |
+
+Human unit production buttons are mostly the left column:
+
+| UI id | Label | Icon frame | Product type |
+|-------|-------|------------|--------------|
+| 87 | Exploiter 1500 | 8 | unit 6 `EXPL` |
+| 89 | Trooper 350 | 6 | unit 0/69-72 `TRSC` |
+| 90 | Sentinel 450 | 5 | unit 1 tower builder / mine-deploy path |
+| 92 | Osprey IV 600 | 9 | unit 5 `SCGM` |
+| 91 | Reaper 600 | 11 | unit 2 `REAP` |
+| 88 | Firestorm 900 | 10 | unit 1 tower builder path |
+| 93 | Barrager 1000 | 7 | unit 3 `BARR` |
+| 94 | S.A.R.G.E 1500 | 12 | unit 4 `SARG` |
+| 135 | Medi-craft 900 | 29 | unit 49 `BEON` |
+
+`DEPEND.TXT` links each UI id to cost, product class, product type, faction,
+and prerequisite rows. Row examples:
+
+- `0 2000 206 0 0 0 0 -1` = Exo Center build entry.
+- `1 1000 80 0 1 0 0 0 -1` = Barracks depends on Exo Center.
+- `7 1500 87 1 6 0 -1` = Exploiter unit depends on Exo Center.
+- `9 350 89 1 0 1 -1` = Trooper unit depends on Barracks.
+
+Current engine gaps before this can be made interactive:
+
+1. Add Dark Colony building actor types for rows 16-22 and load starting
+   buildings from `.SCN` as selectable/renderable non-mobile units.
+2. Add a product definition table from `DEPEND.TXT` and `MAINE` button frames.
+3. Add right-sidebar modes for normal commands, building products, and unit
+   products.
+4. Implement click-to-place building ghosts, resource spend/refund, map
+   footprint blocking, and completed building insertion.
+5. Implement unit production from selected production buildings, including a
+   queue timer and spawn rally point.
+
 ## Dark Reign
 
 - OpenDR:
