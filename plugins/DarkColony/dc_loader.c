@@ -511,6 +511,58 @@ static bool token_has_only_trailing_space(const char *token, int consumed) {
     return true;
 }
 
+static int dark_colony_y_to_map_height(int height, int y) {
+    if (height <= 0) return y;
+    int map_y = height - 1 - y;
+    if (map_y < 0) map_y = 0;
+    if (map_y >= height) map_y = height - 1;
+    return map_y;
+}
+
+static int dark_colony_scn_y_to_map(const GameMap *map, int y) {
+    return dark_colony_y_to_map_height(map ? map->height : 0, y);
+}
+
+static bool dark_colony_map_dimensions(const char *map_path, int *width, int *height) {
+    if (!map_path || !width || !height) return false;
+    Blob blob;
+    char path_buf[1024];
+    if (!load_blob(map_path, &blob)) {
+        const char *dot = strrchr(map_path, '.');
+        if (dot && strcasecmp(dot, ".MAP") == 0) {
+            replace_extension(path_buf, sizeof(path_buf), map_path, ".MTG");
+            if (!load_blob(path_buf, &blob)) return false;
+        } else {
+            return false;
+        }
+    }
+    bool ok = false;
+    if (blob.size >= 8) {
+        int maybe_width = read_i32_le(blob.bytes + 0);
+        int maybe_height = read_i32_le(blob.bytes + 4);
+        size_t maybe_count = (size_t)maybe_width * (size_t)maybe_height;
+        if (maybe_width > 0 && maybe_height > 0 && maybe_width <= 512 && maybe_height <= 512 &&
+            blob.size >= 8 + maybe_count * 2 * 3) {
+            *width = maybe_width;
+            *height = maybe_height;
+            ok = true;
+        }
+    }
+    if (!ok && blob.size >= 2) {
+        int maybe_width = (int)blob.bytes[0];
+        int maybe_height = (int)blob.bytes[1];
+        size_t maybe_count = (size_t)maybe_width * (size_t)maybe_height;
+        if (maybe_width > 0 && maybe_height > 0 && maybe_width <= 512 && maybe_height <= 512 &&
+            blob.size >= 2 + maybe_count) {
+            *width = maybe_width;
+            *height = maybe_height;
+            ok = true;
+        }
+    }
+    free_blob(&blob);
+    return ok;
+}
+
 static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount) {
     if (!map || !map_contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
@@ -538,7 +590,7 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
             dec->footprint_w = 1;
             dec->footprint_h = 1;
             dec->center_anchor = true;
-            dec->frame_index = rate > 0 ? -1 : 0;
+            dec->frame_index = 0;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s",
                      rate > 0 ? "SPRITES/VENT.SPR" : "SPRITES/VENT2.SPR");
         }
@@ -612,10 +664,7 @@ static void load_dark_colony_beacons_from_scn(const char *scn, GameMap *map) {
             if (sscanf(token, "%d %d %d %d %d %d%n",
                        &x, &y, &type, &team, &owner, &extra, &consumed) == 6 &&
                 token_has_only_trailing_space(token, consumed)) {
-                int map_y = map->height - 1 - y;
-                if (map_y < 0) map_y = 0;
-                if (map_y >= map->height) map_y = map->height - 1;
-                append_dark_colony_beacon(map, x, map_y, type);
+                append_dark_colony_beacon(map, x, dark_colony_scn_y_to_map(map, y), type);
             }
             (void)team;
             (void)owner;
@@ -1012,6 +1061,53 @@ static int dark_colony_unit_frame_for_type(int type) {
     return 0;
 }
 
+static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_units,
+                                            int x, int y, int type, int team, int status,
+                                            int race, const DarkColonyUnitConfig *unit_config,
+                                            bool *player_selected,
+                                            bool *player_has_exploiter,
+                                            bool *player_anchor_set,
+                                            int *player_anchor_x,
+                                            int *player_anchor_y) {
+    if (!units || !count || *count >= max_units || x < 0 || y < 0 || status < 0) {
+        return false;
+    }
+    const char *sprite = dark_colony_unit_sprite_for_type(type, race);
+    int mobj_type = dark_colony_mobj_type_for_type(type, race);
+    if (!sprite || mobj_type <= 0) return false;
+
+    Unit *u = &units[*count];
+    memset(u, 0, sizeof(*u));
+    u->gx = (float)x + 0.5f;
+    u->gy = (float)y + 0.5f;
+    u->sprite_id = -1;
+    u->attack_target = -1;
+    u->harvest_target = -1;
+    if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config) {
+        u->speed = unit_config[type].speed;
+    }
+    u->type_id = (uint16_t)mobj_type;
+    u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
+    u->hp = status;
+    u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
+        (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
+    if (u->selected) *player_selected = true;
+    u->frame = dark_colony_unit_frame_for_type(type);
+    snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
+    if (u->owner == 0) {
+        if (player_anchor_set && player_anchor_x && player_anchor_y &&
+            (!*player_anchor_set || x > *player_anchor_x)) {
+            *player_anchor_x = x;
+            *player_anchor_y = y;
+            *player_anchor_set = true;
+        }
+        if (player_has_exploiter && mobj_type == MT_DC_EXPLOITER)
+            *player_has_exploiter = true;
+    }
+    (*count)++;
+    return true;
+}
+
 int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
@@ -1025,11 +1121,21 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
     int current_team = -1, team_count = 0;
     bool expect_race = false, object_mode = false;
     int trailing_blank_lines = 0, count = 0;
+    int team0_ai_slots[2][2] = { { 0, 0 }, { 0, 0 } };
+    int team0_ai_slot_count = 0;
+    int team0_city_enabled[2] = { 0, 0 };
+    int aislot_lines = 0;
+    int city_lines = 0;
+    bool city_buildings_added = false;
     bool player_has_exploiter = false;
     bool player_anchor_set = false;
     bool player_selected = false;
     int player_anchor_x = 0;
     int player_anchor_y = 0;
+    int map_width = 0;
+    int map_height = 0;
+    dark_colony_map_dimensions(map_path, &map_width, &map_height);
+    (void)map_width;
 
     for (char *line = text; line && *line && count < max_units;) {
         char *next = strpbrk(line, "\r\n");
@@ -1040,8 +1146,26 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
         char token[128] = { 0 };
         copy_trimmed_token(token, sizeof(token), line, strlen(line));
         if (token[0] == '\0') {
-            if (team_count >= 8 && !object_mode && ++trailing_blank_lines >= 2)
+            if (team_count >= 8 && !object_mode && ++trailing_blank_lines >= 2) {
                 object_mode = true;
+                if (!city_buildings_added) {
+                    int city_types[2] = { 16, 17 };
+                    for (int i = 0; i < 2 && i < team0_ai_slot_count; ++i) {
+                        if (!team0_city_enabled[i]) continue;
+                        append_dark_colony_initial_unit(units, &count, max_units,
+                                                        team0_ai_slots[i][0],
+                                                        team0_ai_slots[i][1],
+                                                        city_types[i], 0, 0,
+                                                        team_race[0], unit_config,
+                                                        &player_selected,
+                                                        &player_has_exploiter,
+                                                        &player_anchor_set,
+                                                        &player_anchor_x,
+                                                        &player_anchor_y);
+                    }
+                    city_buildings_added = true;
+                }
+            }
             line = next; continue;
         }
         if (strncmp(token, "TEAM ", 5) == 0) {
@@ -1050,6 +1174,8 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 current_team >= 0 && current_team < 16) {
                 team_count++; expect_race = true;
             } else { current_team = -1; expect_race = false; }
+            aislot_lines = 0;
+            city_lines = 0;
             trailing_blank_lines = 0; line = next; continue;
         }
         if (!object_mode && expect_race) {
@@ -1060,45 +1186,54 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 line = next; continue;
             }
         }
+        if (!object_mode && strcmp(token, "%AISlots") == 0) {
+            aislot_lines = current_team == 0 ? 2 : 0;
+            city_lines = 0;
+            trailing_blank_lines = 0;
+            line = next; continue;
+        }
+        if (!object_mode && aislot_lines > 0) {
+            int x = 0, y = 0;
+            if (sscanf(token, "%d %d", &x, &y) == 2 && team0_ai_slot_count < 2 &&
+                (x != 0 || y != 0)) {
+                team0_ai_slots[team0_ai_slot_count][0] = x;
+                team0_ai_slots[team0_ai_slot_count][1] = y;
+                team0_ai_slot_count++;
+            }
+            aislot_lines--;
+            trailing_blank_lines = 0;
+            line = next; continue;
+        }
+        if (!object_mode && strcmp(token, "%City") == 0) {
+            city_lines = current_team == 0 ? 1 : 0;
+            aislot_lines = 0;
+            trailing_blank_lines = 0;
+            line = next; continue;
+        }
+        if (!object_mode && city_lines > 0) {
+            int v[12] = { 0 };
+            int parsed = sscanf(token, "%d %d %d %d %d %d %d %d %d %d %d %d",
+                                &v[0], &v[1], &v[2], &v[3], &v[4], &v[5],
+                                &v[6], &v[7], &v[8], &v[9], &v[10], &v[11]);
+            if (parsed >= 3) {
+                team0_city_enabled[0] = v[0] > 0;
+                team0_city_enabled[1] = v[2] > 0;
+            }
+            city_lines--;
+            trailing_blank_lines = 0;
+            line = next; continue;
+        }
         if (!object_mode) { trailing_blank_lines = 0; line = next; continue; }
 
         int x = 0, y = 0, type = 0, team = 0, status = 0, extra = 0;
         if (sscanf(line, " %d %d %d %d %d %d", &x, &y, &type, &team, &status, &extra) == 6 &&
             team >= 0 && team < 16 && x >= 0 && y >= 0) {
-            if (status < 0) {
-                line = next;
-                continue;
-            }
-            const char *sprite = dark_colony_unit_sprite_for_type(type, team_race[team]);
-            int mobj_type = dark_colony_mobj_type_for_type(type, team_race[team]);
-            if (sprite && mobj_type > 0) {
-                Unit *u = &units[count];
-                memset(u, 0, sizeof(*u));
-                u->gx = (float)x + 0.5f;
-                u->gy = (float)y + 0.5f;
-                u->sprite_id = -1;
-                u->attack_target = -1;
-                u->harvest_target = -1;
-                if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS) {
-                    u->speed = unit_config[type].speed;
-                }
-                u->type_id = (uint16_t)mobj_type;
-                u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
-                u->hp = status;
-                u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH && !player_selected;
-                if (u->selected) player_selected = true;
-                u->frame = dark_colony_unit_frame_for_type(type);
-                snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
-                if (u->owner == 0) {
-                    if (!player_anchor_set || x > player_anchor_x) {
-                        player_anchor_x = x;
-                        player_anchor_y = y;
-                        player_anchor_set = true;
-                    }
-                    if (mobj_type == MT_DC_EXPLOITER) player_has_exploiter = true;
-                }
-                count++;
-            }
+            int map_y = type == 86 ? dark_colony_y_to_map_height(map_height, y) : y;
+            append_dark_colony_initial_unit(units, &count, max_units, x, map_y, type,
+                                            team, status, team_race[team], unit_config,
+                                            &player_selected, &player_has_exploiter,
+                                            &player_anchor_set, &player_anchor_x,
+                                            &player_anchor_y);
         }
         line = next;
     }

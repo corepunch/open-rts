@@ -573,8 +573,8 @@ static bool final_goal_reaches_arrived_order_cluster(const Unit *units, int coun
 }
 
 static float unit_harvest_interaction_radius_cells(const Unit *unit) {
-    float radius = unit_radius_cells(unit) + 1.25f;
-    return radius < 1.25f ? 1.25f : radius;
+    (void)unit;
+    return 0.05f;
 }
 
 static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,

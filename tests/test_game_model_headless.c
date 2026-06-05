@@ -60,12 +60,32 @@ static int snapshot_count_units_with_sprite(const RtsRenderSnapshot *snapshot,
     return count;
 }
 
-static bool snapshot_has_animated_decoration(const RtsRenderSnapshot *snapshot,
-                                             const char *sprite_name) {
+static bool near_cell_center(float value, int cell) {
+    float expected = (float)cell + 0.5f;
+    float delta = value - expected;
+    return delta > -0.05f && delta < 0.05f;
+}
+
+static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *sprite_name,
+                                 int gx, int gy) {
+    if (!snapshot || !sprite_name) return false;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        const RtsRenderUnit *unit = &snapshot->units[i];
+        if (strcmp(unit->sprite_name, sprite_name) == 0 &&
+            near_cell_center(unit->gx, gx) && near_cell_center(unit->gy, gy)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool snapshot_has_fixed_decoration_at(const RtsRenderSnapshot *snapshot,
+                                             const char *sprite_name, int gx, int gy) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, sprite_name) == 0 && dec->frame_index < 0) {
+        if (strcmp(dec->sprite_name, sprite_name) == 0 &&
+            dec->gx == gx && dec->gy == gy && dec->frame_index == 0) {
             return true;
         }
     }
@@ -270,14 +290,26 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/DISH.SPR") != 3) {
         return fail("Human02 loads communication dish/base attachment objects");
     }
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/BUILDNG.SPR") != 2) {
+        return fail("Human02 loads two starting base buildings from team city slots");
+    }
+    if (!snapshot_has_unit_at(&snapshot, "SPRITES/BUILDNG.SPR", 61, 53) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/BUILDNG.SPR", 56, 55)) {
+        return fail("Human02 starting base buildings use team AISlot coordinates");
+    }
+    if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 33, 25) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 38, 25) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 35, 28)) {
+        return fail("Human02 satellite dish object rows use flipped SCN Y coordinates");
+    }
     if (snapshot.decoration_count <= 0) {
         return fail("Human02 loads map decorations");
     }
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
     }
-    if (!snapshot_has_animated_decoration(&snapshot, "SPRITES/VENT.SPR")) {
-        return fail("Human02 active Petra-7 vents render with animated active sprite");
+    if (!snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT.SPR", 69, 48)) {
+        return fail("Human02 active Petra-7 vent is fixed-frame at SCN map position");
     }
 
     int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
@@ -338,6 +370,11 @@ static int assert_human02(RtsGameModel *model) {
     }
     if (snapshot.player_resources[0] <= initial_resources) {
         return fail("Human02 Exploiter mining adds player resources");
+    }
+    exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+    if (exploiter < 0 || !near_cell_center(snapshot.units[exploiter].gx, 69) ||
+        !near_cell_center(snapshot.units[exploiter].gy, 48)) {
+        return fail("Human02 Exploiter deploys at the target Petra-7 vent");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",
