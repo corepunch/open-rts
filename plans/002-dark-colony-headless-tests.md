@@ -8,10 +8,10 @@ existing features and future construction/production work.
 
 ## Scope
 
-- [ ] Add a test binary or test target for Dark Colony model tests.
-- [ ] Load Dark Colony data and maps without an SDL window.
-- [ ] Advance simulation with deterministic fixed ticks.
-- [ ] Expose enough model inspection to assert units, resources, effects, and
+- [x] Add a test binary or test target for Dark Colony model tests.
+- [x] Load Dark Colony data and maps without an SDL window.
+- [x] Advance simulation with deterministic fixed ticks.
+- [x] Expose enough model inspection to assert units, resources, effects, and
       mission script outcomes.
 
 ## Existing Feature Coverage
@@ -23,7 +23,7 @@ existing features and future construction/production work.
 - [ ] Human02 loads with expected starting units, decorations, and vents.
 - [ ] Petra-7 vents load with active/inactive state and remaining amount.
 - [ ] Exploiter harvest/deploy path can add resources over fixed ticks.
-- [ ] Basic movement order updates selected unit path/goals deterministically.
+- [x] Basic movement order updates selected unit path/goals deterministically.
 
 ## Future Feature Coverage
 
@@ -34,7 +34,7 @@ existing features and future construction/production work.
 
 ## Acceptance Criteria
 
-- [ ] `make test` or an equivalent target runs Dark Colony headless tests.
-- [ ] Tests fail with useful messages when expected map/script state changes.
-- [ ] Tests do not require `SDL_VIDEODRIVER=dummy`.
-- [ ] CI-friendly command is documented in `README.md` or `AGENTS.md`.
+- [x] `make test` or an equivalent target runs Dark Colony headless tests.
+- [x] Tests fail with useful messages when expected map/script state changes.
+- [x] Tests do not require `SDL_VIDEODRIVER=dummy`.
+- [x] CI-friendly command is documented in `README.md` or `AGENTS.md`.

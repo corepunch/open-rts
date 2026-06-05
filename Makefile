@@ -84,7 +84,7 @@ GAME_MODEL_TEST_SOURCES := \
 GAME_MODEL_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(GAME_MODEL_TEST_SOURCES))
 GAME_MODEL_TEST_DEPS    := $(GAME_MODEL_TEST_OBJECTS:.o=.d)
 
-.PHONY: all run test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info anim-extract clean
+.PHONY: all run test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info anim-extract clean
 
 all: $(TARGET) $(DR_LIB) $(DC_LIB) $(MODEL_LIB_TARGET)
 
@@ -149,6 +149,8 @@ dark-colony-human02: all
 	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
+
+test: test-headless
 
 test-headless: $(GAME_MODEL_TEST_TARGET)
 	$(GAME_MODEL_TEST_TARGET)
