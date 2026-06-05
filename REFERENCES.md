@@ -152,9 +152,11 @@ Local game-data files that have already been useful:
 - `data/DCOLONY/SPRITES/*.SPR` for unit sprites.
 - Dark Colony `.SPR` descriptor `disX/disY` values look like canonical
   screen-space placement coordinates for each frame. Unit rendering should treat
-  the model coordinate as the ground/feet point. In the renderer, derive that
-  point from the lowest opaque pixels of each decoded frame, falling back to the
-  visible frame's bottom-center if frame-ground metadata is unavailable.
+  the model coordinate as the ground/feet point and place the decoded frame from
+  `.SPR` descriptor metadata plus the active `.FIN` frame-part draw offset.
+  Do not infer the feet/ground point from opaque pixels: sprite pixels include
+  shadows, outlines, weapons, effects, and frame-specific protrusions that drift
+  independently of the unit's simulation anchor.
 - When a Dark Colony frame is rendered with the FIN/SPR flip flag, mirror both
   the frame ground point and visible hit-test bounds across the decoded SPR
   canvas before placing the sprite. The original engine's frame-part records
