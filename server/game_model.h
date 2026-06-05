@@ -23,6 +23,14 @@ typedef enum {
     RTS_GAME_COMMAND_MOVE_SELECTED,
 } RtsGameCommandKind;
 
+typedef enum {
+    RTS_RENDER_TRAIT_SELECTABLE = 1u << 0,
+    RTS_RENDER_TRAIT_MOBILE = 1u << 1,
+    RTS_RENDER_TRAIT_RENDERABLE = 1u << 2,
+    RTS_RENDER_TRAIT_ATTACK = 1u << 3,
+    RTS_RENDER_TRAIT_HARVESTER = 1u << 4,
+} RtsRenderTrait;
+
 typedef struct {
     RtsGameCommandKind kind;
     union {

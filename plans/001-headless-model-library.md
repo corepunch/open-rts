@@ -63,7 +63,7 @@ rules, while tests can load and drive the same library without a window.
 
 - [x] Add a smoke test that loads Dark Colony Human01 through the game/model API
       and advances a fixed number of ticks.
-- [ ] Add a command-in/render-snapshot-out test that selects units, issues a
+- [x] Add a command-in/render-snapshot-out test that selects units, issues a
       move command, ticks simulation, and verifies both state and snapshot
       contents without a window.
 - [ ] Add a test that verifies no renderer/window symbols are required by the
