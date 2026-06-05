@@ -25,7 +25,7 @@ rules, while tests can load and drive the same library without a window.
 - [x] Provide a headless API for loading a game plugin, loading a map/mission,
       ticking simulation time, issuing commands, and inspecting deterministic
       state.
-- [ ] Make Dark Colony plugin logic usable from this model/server API without
+- [x] Make Dark Colony plugin logic usable from this model/server API without
       depending on SDL windows, renderers, textures, or events.
 - [ ] Preserve existing playable client behavior.
 

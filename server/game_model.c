@@ -133,7 +133,7 @@ void rts_game_model_destroy(RtsGameModel *model) {
 bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) {
     if (!model || !config) return false;
     const char *game_id = config->game_id && config->game_id[0] ? config->game_id : "dark-colony";
-    load_plugin_by_id(game_id);
+    if (!find_plugin(game_id)) load_plugin_by_id(game_id);
     const Plugin *plugin = find_plugin(game_id);
     if (!plugin) {
         model_set_error(model, "unknown game '%s'", game_id);
