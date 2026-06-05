@@ -45,7 +45,7 @@ rules, while tests can load and drive the same library without a window.
 
 ## Acceptance Criteria
 
-- [ ] There is a build target for the game/model library.
+- [x] There is a build target for the game/model library.
 - [ ] `build/bin/open-rts` still runs through the client path.
 - [ ] A headless executable or test binary can load Dark Colony through the
       model/server API.

@@ -1,4 +1,5 @@
 CC ?= cc
+AR ?= ar
 PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
@@ -13,6 +14,7 @@ LIBS_DIR      := $(BUILD_DIR)/libs
 TARGET        := $(BIN_DIR)/open-rts
 ANIM_EXTRACT_TARGET := $(BUILD_DIR)/anim_extract
 DC_INFO_GEN_TARGET := $(BUILD_DIR)/dc_info_gen
+MODEL_LIB_TARGET := $(LIBS_DIR)/libopen-rts-model.a
 GAME_MODEL_TEST_TARGET := $(BIN_DIR)/test_game_model_headless
 
 DATA_DIR          := data
@@ -67,19 +69,23 @@ DC_INFO_GEN_SOURCE := tools/dc_info_gen.c
 DC_INFO_GEN_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_GEN_SOURCE))
 DC_INFO_GEN_DEPS   := $(DC_INFO_GEN_OBJECT:.o=.d)
 
-GAME_MODEL_TEST_SOURCES := \
-	tests/test_game_model_headless.c \
+MODEL_SOURCES := \
 	server/game_model.c \
 	common/engine_core.c \
 	common/engine_path.c \
 	common/engine_units.c \
 	common/plugin.c
+MODEL_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(MODEL_SOURCES))
+MODEL_DEPS    := $(MODEL_OBJECTS:.o=.d)
+
+GAME_MODEL_TEST_SOURCES := \
+	tests/test_game_model_headless.c
 GAME_MODEL_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(GAME_MODEL_TEST_SOURCES))
 GAME_MODEL_TEST_DEPS    := $(GAME_MODEL_TEST_OBJECTS:.o=.d)
 
 .PHONY: all run test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info anim-extract clean
 
-all: $(TARGET) $(DR_LIB) $(DC_LIB)
+all: $(TARGET) $(DR_LIB) $(DC_LIB) $(MODEL_LIB_TARGET)
 
 # ── link main binary ─────────────────────────────────────────────────────────
 $(TARGET): $(MAIN_OBJECTS) | $(BIN_DIR)
@@ -99,8 +105,11 @@ $(ANIM_EXTRACT_TARGET): $(ANIM_EXTRACT_OBJECT)
 $(DC_INFO_GEN_TARGET): $(DC_INFO_GEN_OBJECT)
 	$(CC) $(DC_INFO_GEN_OBJECT) -o $@
 
-$(GAME_MODEL_TEST_TARGET): $(GAME_MODEL_TEST_OBJECTS) $(DC_LIB) | $(BIN_DIR)
-	$(CC) $(GAME_MODEL_TEST_OBJECTS) -o $@ $(SDL_LIBS) -lm -ldl
+$(MODEL_LIB_TARGET): $(MODEL_OBJECTS) | $(LIBS_DIR)
+	$(AR) rcs $@ $(MODEL_OBJECTS)
+
+$(GAME_MODEL_TEST_TARGET): $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) $(DC_LIB) | $(BIN_DIR)
+	$(CC) $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) -o $@ $(SDL_LIBS) -lm -ldl
 
 dark-colony-info: $(DC_INFO_GEN_TARGET)
 	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) plugins/DarkColony/info.h plugins/DarkColony/info.c
@@ -150,4 +159,5 @@ clean:
 -include $(DC_DEPS)
 -include $(ANIM_EXTRACT_DEPS)
 -include $(DC_INFO_GEN_DEPS)
+-include $(MODEL_DEPS)
 -include $(GAME_MODEL_TEST_DEPS)
