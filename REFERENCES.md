@@ -302,9 +302,19 @@ with `expl` layer-0 top/turret frames `15..24`; `EDPLYSTAND14` uses body frame
 `14` plus top/turret frame `25`. These layer-0 same-sprite commands are not
 replacement body frames. The generator pairs them with the nearest body command
 for the same state and stores the offset as `overlay.x - body.x`,
-`overlay.y - body.y`; the renderer draws the overlay on top of the unit body.
+`overlay.y - body.y`. Those stored offsets are FIN command-space deltas, not
+final top-left screen deltas: the renderer must also account for the body frame
+and overlay frame `.SPR` descriptor/ground points before drawing the overlay.
 Layer-5 `hit*` commands in the opposite-facing attach labels are effect sprites,
 not the Exploiter's main body or top piece.
+
+The `dc16.exe` strings around `0x82434..0x8250c` (`Frame parts`,
+`BManimation`, `%s%s`, `%s%d`) and the `juicel.c` / bad-juice-file assertions
+confirm the original path as a frame-part renderer: animation labels are looked
+up by string, then each part supplies a sprite cell, draw x/y, layer, and flags.
+The cell metadata includes `xoffset`/`yoffset`, so multi-part sprites must place
+each part with its own cell descriptor rather than inheriting the body part's
+top-left rectangle.
 
 ### Historical Rotation Bug
 

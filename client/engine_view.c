@@ -763,7 +763,8 @@ static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float
     }
 }
 
-static void render_unit_state_overlay(App *app, const Unit *u, const SpriteCache *cache,
+static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet *body_sprite,
+                                      int body_frame, const SpriteCache *cache,
                                       const GameInfo *game_info, const SDL_Rect *body_dst,
                                       int scale) {
     if (!app || !u || !cache || !game_info || !body_dst ||
@@ -789,13 +790,22 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteCache
     if (!overlay || !overlay->texture || overlay->frame_count <= 0) return;
     if (frame >= overlay->frame_count) frame = 0;
 
+    uint32_t body_flags = game_info ? u->render_flags : 0;
+    SDL_Point body_ground = { 0, 0 };
+    if (body_sprite && body_frame >= 0 && body_frame < body_sprite->frame_count) {
+        body_ground = sprite_ground_point(body_sprite, body_frame);
+        if ((body_flags & RTS_FRAME_FLIP_X) != 0) body_ground.x = body_sprite->frame_w - body_ground.x;
+    }
+    uint32_t flags = state->overlay_facing_flags[slot];
+    SDL_Point overlay_ground = sprite_ground_point(overlay, frame);
+    if ((flags & RTS_FRAME_FLIP_X) != 0) overlay_ground.x = overlay->frame_w - overlay_ground.x;
+
     SDL_Rect dst = {
-        body_dst->x + state->overlay_offset_x[slot] * scale,
-        body_dst->y + state->overlay_offset_y[slot] * scale,
+        body_dst->x + (state->overlay_offset_x[slot] + body_ground.x - overlay_ground.x) * scale,
+        body_dst->y + (state->overlay_offset_y[slot] + body_ground.y - overlay_ground.y) * scale,
         overlay->frame_w * scale,
         overlay->frame_h * scale,
     };
-    uint32_t flags = state->overlay_facing_flags[slot];
     SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderCopyEx(app->renderer, overlay->texture, &overlay->frames[frame],
                      &dst, 0.0, NULL, flip);
@@ -842,7 +852,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-    render_unit_state_overlay(app, u, cache, game_info, &dst, scale);
+    render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, scale);
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
         int bar_h = app_scale(app) < 2 ? 2 : 3;
