@@ -8,7 +8,7 @@ checkboxes as complete when the corresponding code and tests land.
 
 | Status | Plan | Summary |
 |--------|------|---------|
-| [ ] | [001-headless-model-library.md](001-headless-model-library.md) | Split simulation/model into a headless loadable library. |
+| [ ] | [001-headless-model-library.md](001-headless-model-library.md) | Detach the game/model library from rendering with a command-in/render-snapshot-out API. |
 | [ ] | [002-dark-colony-headless-tests.md](002-dark-colony-headless-tests.md) | Add deterministic Dark Colony tests without SDL windows. |
 | [ ] | [003-dark-colony-buildings-as-entities.md](003-dark-colony-buildings-as-entities.md) | Load buildings as selectable, renderable, non-mobile model entities. |
 | [ ] | [004-dark-colony-product-definitions.md](004-dark-colony-product-definitions.md) | Model construction/production products from original data. |

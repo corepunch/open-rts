@@ -13,6 +13,7 @@ LIBS_DIR      := $(BUILD_DIR)/libs
 TARGET        := $(BIN_DIR)/open-rts
 ANIM_EXTRACT_TARGET := $(BUILD_DIR)/anim_extract
 DC_INFO_GEN_TARGET := $(BUILD_DIR)/dc_info_gen
+GAME_MODEL_TEST_TARGET := $(BIN_DIR)/test_game_model_headless
 
 DATA_DIR          := data
 DARK_REIGN_ROOT   := $(DATA_DIR)/REIGN/dark
@@ -66,7 +67,17 @@ DC_INFO_GEN_SOURCE := tools/dc_info_gen.c
 DC_INFO_GEN_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_GEN_SOURCE))
 DC_INFO_GEN_DEPS   := $(DC_INFO_GEN_OBJECT:.o=.d)
 
-.PHONY: all run dark-reign dark-colony dark-colony-human02 dark-colony-info anim-extract clean
+GAME_MODEL_TEST_SOURCES := \
+	tests/test_game_model_headless.c \
+	server/game_model.c \
+	common/engine_core.c \
+	common/engine_path.c \
+	common/engine_units.c \
+	common/plugin.c
+GAME_MODEL_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(GAME_MODEL_TEST_SOURCES))
+GAME_MODEL_TEST_DEPS    := $(GAME_MODEL_TEST_OBJECTS:.o=.d)
+
+.PHONY: all run test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info anim-extract clean
 
 all: $(TARGET) $(DR_LIB) $(DC_LIB)
 
@@ -87,6 +98,9 @@ $(ANIM_EXTRACT_TARGET): $(ANIM_EXTRACT_OBJECT)
 
 $(DC_INFO_GEN_TARGET): $(DC_INFO_GEN_OBJECT)
 	$(CC) $(DC_INFO_GEN_OBJECT) -o $@
+
+$(GAME_MODEL_TEST_TARGET): $(GAME_MODEL_TEST_OBJECTS) $(DC_LIB) | $(BIN_DIR)
+	$(CC) $(GAME_MODEL_TEST_OBJECTS) -o $@ $(SDL_LIBS) -lm -ldl
 
 dark-colony-info: $(DC_INFO_GEN_TARGET)
 	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) plugins/DarkColony/info.h plugins/DarkColony/info.c
@@ -125,6 +139,9 @@ dark-colony-human02: all
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
+test-headless: $(GAME_MODEL_TEST_TARGET)
+	$(GAME_MODEL_TEST_TARGET)
+
 clean:
 	rm -rf $(BUILD_DIR)
 
@@ -133,3 +150,4 @@ clean:
 -include $(DC_DEPS)
 -include $(ANIM_EXTRACT_DEPS)
 -include $(DC_INFO_GEN_DEPS)
+-include $(GAME_MODEL_TEST_DEPS)
