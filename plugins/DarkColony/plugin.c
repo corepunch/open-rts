@@ -1,5 +1,6 @@
 #include "plugin.h"
 #include "info.h"
+#include "dc_types.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -128,6 +129,55 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
         .speed = 9.4f,
         .max_hp = 800,
+    },
+    {
+        .id = MT_DC_EXCOPOD,
+        .name = "Exco Center",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 4800,
+    },
+    {
+        .id = MT_DC_BRRKPOD,
+        .name = "Barracks",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 2400,
+    },
+    {
+        .id = MT_DC_ROBOPOD,
+        .name = "Robot Factory",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 2400,
+    },
+    {
+        .id = MT_DC_ROBOPOD2,
+        .name = "Robot Factory II",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 3600,
+    },
+    {
+        .id = MT_DC_SCNCPOD,
+        .name = "Science Pod",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 2400,
+    },
+    {
+        .id = MT_DC_SCNCPOD2,
+        .name = "Science Pod II",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 3600,
+    },
+    {
+        .id = MT_DC_RSCHPOD,
+        .name = "Research Pod",
+        .sprite_name = "SPRITES/BUILDNG.SPR",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 3600,
     },
 };
 

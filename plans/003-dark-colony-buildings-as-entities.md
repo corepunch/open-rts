@@ -9,7 +9,7 @@ renderable, non-mobile entities.
 
 ## Scope
 
-- [ ] Add Dark Colony building actor types for human rows 16-22:
+- [x] Add Dark Colony building actor types for human rows 16-22:
       `EXCOPOD`, `BRRKPOD`, `ROBOPOD`, `ROBOPOD2`, `SCNCPOD`, `SCNCPOD2`,
       `RSCHPOD`.
 - [ ] Add alien building rows later or split into a follow-up if this gets too

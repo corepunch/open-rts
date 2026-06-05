@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "plugin.h"
 #include "info.h"
+#include "dc_types.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -938,6 +939,17 @@ static void load_dark_colony_unit_config(const char *map_path,
 }
 
 static int dark_colony_mobj_type_for_type(int type, int race) {
+    switch (type) {
+        case 16: return MT_DC_EXCOPOD;
+        case 17: return MT_DC_BRRKPOD;
+        case 18: return MT_DC_ROBOPOD;
+        case 19: return MT_DC_ROBOPOD2;
+        case 20: return MT_DC_SCNCPOD;
+        case 21: return MT_DC_SCNCPOD2;
+        case 22: return MT_DC_RSCHPOD;
+        default: break;
+    }
+
     if (race == 1) {
         if (type == 0 || type == 8 || (type >= 69 && type <= 76)) return MT_DC_GREY;
         return 0;
@@ -955,6 +967,7 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
 }
 
 static const char *dark_colony_unit_sprite_for_type(int type, int race) {
+    if (type >= 16 && type <= 22) return "SPRITES/BUILDNG.SPR";
     if (race == 1) {
         if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
         if (type == 6) return "SPRITES/SLUG.SPR";
@@ -984,6 +997,11 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
         case 78: return "SPRITES/PSYC.SPR";
         default: return NULL;
     }
+}
+
+static int dark_colony_unit_frame_for_type(int type) {
+    if (type >= 16 && type <= 22) return type - 16;
+    return 0;
 }
 
 int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
@@ -1052,6 +1070,7 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 u->owner = team == 0 ? 0 : 1;
                 u->selected = u->owner == 0 && !player_selected;
                 if (u->selected) player_selected = true;
+                u->frame = dark_colony_unit_frame_for_type(type);
                 snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
                 if (u->owner == 0) {
                     if (!player_anchor_set || x > player_anchor_x) {
