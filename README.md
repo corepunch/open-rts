@@ -12,6 +12,14 @@ make dark-reign
 make dark-colony
 ```
 
+## Tests
+
+Run the headless model tests without an SDL window:
+
+```sh
+make test
+```
+
 The default run expects the game data under the repository-local `data/`
 directory:
 
