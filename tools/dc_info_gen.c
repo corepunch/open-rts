@@ -67,27 +67,14 @@ typedef struct {
 } DcFinStateCounts;
 
 typedef struct {
-    const char *label;
     int frame;
-} FinFrameRef;
+    int x;
+    int y;
+    int remap;
+    int intensity;
+} FinPulseFrame;
 
-static const FinFrameRef expl_mining_pulse[] = {
-    {"EDPLYSTAND14", 25},
-    {"EXPLDIE0", 26},
-    {"EXPLDIE0", 27},
-    {"EXPLDIE0", 28},
-    {"EXPLDIE0", 29},
-    {"EXPLDIE0", 30},
-    {"EXPLDIE0", 32},
-    {"EXPLOTHERS", 33},
-    {"EDPLYBLOODB0", 32},
-    {"EDPLYBLOODB0", 30},
-    {"EDPLYBLOODD0", 28},
-    {"EDPLYBLOODD0", 27},
-    {"EDPLYBLOODC0", 26},
-    {"EDPLYBLOODC0", 25},
-    {"EDPLYBLOODC0", 24},
-};
+#define MAX_EXPL_MINING_PULSE_FRAMES 32
 
 static uint16_t read_u16_le(const unsigned char *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
@@ -367,6 +354,72 @@ static const FinCommand *fin_find_command_in_label(const FinAnim *fin, const cha
         }
     }
     return NULL;
+}
+
+static bool fin_label_is_deployed_blood0(const FinLabel *label) {
+    if (!label) return false;
+    return strlen(label->name) == 12 &&
+           strncmp(label->name, "EDPLYBLOOD", 10) == 0 &&
+           label->name[11] == '0';
+}
+
+static void fin_append_pulse_frame(FinPulseFrame *frames, int *count, int max_count,
+                                   const FinCommand *cmd) {
+    if (!frames || !count || !cmd) die("invalid EXPL mining pulse command", NULL);
+    if (*count > 0 && frames[*count - 1].frame == cmd->frame) return;
+    if (*count >= max_count) die("EXPL mining pulse has too many frames", NULL);
+    frames[*count].frame = cmd->frame;
+    frames[*count].x = cmd->x;
+    frames[*count].y = cmd->y;
+    frames[*count].remap = cmd->remap;
+    frames[*count].intensity = cmd->intensity;
+    (*count)++;
+}
+
+static void fin_append_layer0_frames_for_label(const FinAnim *fin, const char *label_name,
+                                               FinPulseFrame *frames, int *count,
+                                               int max_count) {
+    const FinLabel *label = fin_find_label(fin, label_name);
+    if (!fin || !label) {
+        fprintf(stderr, "dc_info_gen: EXPL.FIN missing mining pulse label %s\n", label_name);
+        exit(1);
+    }
+    if (label->start < 0 || label->end < label->start || label->end >= fin->command_count) {
+        fprintf(stderr, "dc_info_gen: EXPL.FIN mining pulse label %s has invalid range %d..%d\n",
+                label->name, label->start, label->end);
+        exit(1);
+    }
+    int before = *count;
+    for (int i = label->start; i <= label->end; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 0 && cmd->flags == 0) {
+            fin_append_pulse_frame(frames, count, max_count, cmd);
+        }
+    }
+    if (*count == before) {
+        fprintf(stderr, "dc_info_gen: EXPL.FIN mining pulse label %s has no unflipped top frame\n",
+                label->name);
+        exit(1);
+    }
+}
+
+static int fin_build_expl_mining_pulse(const FinAnim *fin, FinPulseFrame *frames,
+                                       int max_count) {
+    const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
+                                                       fin->stem_lower, 1, 14);
+    if (!body) die("EXPL.FIN missing EDPLYSTAND14 deployed body frame", NULL);
+
+    int count = 0;
+    fin_append_layer0_frames_for_label(fin, "EDPLYSTAND14", frames, &count, max_count);
+    fin_append_layer0_frames_for_label(fin, "EXPLDIE0", frames, &count, max_count);
+    for (int i = 0; i < fin->label_count; ++i) {
+        const FinLabel *label = &fin->labels[i];
+        if (fin_label_is_deployed_blood0(label)) {
+            fin_append_layer0_frames_for_label(fin, label->name, frames, &count, max_count);
+        }
+    }
+    if (count < 10) die("EXPL.FIN mining pulse did not resolve enough frames", NULL);
+    return count;
 }
 
 static int fin_first_body_frame(const FinAnim *fin, const char *label) {
@@ -760,21 +813,8 @@ static int fin_state_count_for_layered_stem_sequence(const FinAnim *fin, const c
 }
 
 static int fin_state_count_for_expl_mining_pulse(const FinAnim *fin) {
-    const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
-                                                       fin->stem_lower, 1, 14);
-    if (!body) die("EXPL.FIN missing EDPLYSTAND14 deployed body frame", NULL);
-    for (size_t i = 0; i < sizeof(expl_mining_pulse) / sizeof(expl_mining_pulse[0]); ++i) {
-        const FinFrameRef *ref = &expl_mining_pulse[i];
-        const FinCommand *overlay = fin_find_command_in_label(fin, ref->label,
-                                                              fin->stem_lower, 0,
-                                                              ref->frame);
-        if (!overlay) {
-            fprintf(stderr, "dc_info_gen: EXPL.FIN missing mining pulse top frame %d in %s\n",
-                    ref->frame, ref->label);
-            exit(1);
-        }
-    }
-    return (int)(sizeof(expl_mining_pulse) / sizeof(expl_mining_pulse[0]));
+    FinPulseFrame frames[MAX_EXPL_MINING_PULSE_FRAMES];
+    return fin_build_expl_mining_pulse(fin, frames, MAX_EXPL_MINING_PULSE_FRAMES);
 }
 
 static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int body_base,
@@ -1444,15 +1484,12 @@ static void write_expl_mining_pulse(FILE *out, const char *spr, const FinAnim *f
     const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
                                                        fin->stem_lower, 1, 14);
     if (!body) die("EXPL.FIN missing deployed Exploiter body", NULL);
-    if (count != (int)(sizeof(expl_mining_pulse) / sizeof(expl_mining_pulse[0])))
-        die("EXPL mining pulse count mismatch", NULL);
+    FinPulseFrame pulse[MAX_EXPL_MINING_PULSE_FRAMES];
+    int pulse_count = fin_build_expl_mining_pulse(fin, pulse, MAX_EXPL_MINING_PULSE_FRAMES);
+    if (count != pulse_count) die("EXPL mining pulse count mismatch", NULL);
 
     for (int i = 0; i < count; ++i) {
-        const FinFrameRef *ref = &expl_mining_pulse[i];
-        const FinCommand *overlay = fin_find_command_in_label(fin, ref->label,
-                                                              fin->stem_lower, 0,
-                                                              ref->frame);
-        if (!overlay) die("EXPL.FIN missing mining pulse overlay", NULL);
+        const FinPulseFrame *overlay = &pulse[i];
 
         char next[64];
         if (i + 1 < count) state_name(next, sizeof(next), "EXPL", "WORK", i + 2);

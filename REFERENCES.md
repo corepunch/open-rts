@@ -315,15 +315,17 @@ same-sprite `expl` commands and represent a different mirrored/side path.
 deployed view, body frame `34` with a layer-5 `hitd` effect. The upright mining
 pulse is not the `FUNK` labels: `EXPLFUNK*` and `SLUGFUNK*` carry smoke and/or
 flipped `expl` commands, matching the bad mirrored result seen in-game. The
-non-flipped pulse keeps body frame `14` fixed and walks the layer-0 tower top
-through FIN label references:
-`EDPLYSTAND14` frame `25`,
-`EXPLDIE0` frames `26,27,28,29,30,32`,
-`EXPLOTHERS` frame `33`,
-then `EDPLYBLOODB0`, `EDPLYBLOODD0`, and `EDPLYBLOODC0` frames
-`32,30,28,27,26,25,24`. Despite the names, `EXPLDIE0` is only the rising half
-of the deployed pulse; looping it alone snaps from frame `32` back to `25`
-instead of playing the full pulse return.
+non-flipped pulse keeps body frame `14` fixed and derives the layer-0 tower top
+from original animation labels rather than a hand-authored frame table. The
+path is: `GAMESTAT/GAMESTAT.TXT` names the deployed "Human mining tower" object
+`EDPLY`; `DC16.EXE` exposes state keyword roots including `STAND`, `DIE*`, and
+`BLOOD%c`; `EXPL.FIN` then provides the actual command ranges. The generated
+loop appends top frames from `EDPLYSTAND14`, `EXPLDIE0`, and every
+`EDPLYBLOOD?0` label in FIN table order, skipping only consecutive duplicate
+frames. This resolves to `25,26,27,28,29,30,32,33,32,30,28,27,26,25,24`;
+`EDPLYBLOODA0` supplies the peak frame `33`. Despite the names, `EXPLDIE0` is
+only the rising half of the deployed pulse; looping it alone snaps from frame
+`32` back to `25` instead of playing the full pulse return.
 
 The `dc16.exe` strings around `0x82434..0x8250c` (`Frame parts`,
 `BManimation`, `%s%s`, `%s%d`) and the `juicel.c` / bad-juice-file assertions
