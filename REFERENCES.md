@@ -307,6 +307,11 @@ final top-left screen deltas: the renderer must also account for the body frame
 and overlay frame `.SPR` descriptor/ground points before drawing the overlay.
 Layer-5 `hit*` commands in the opposite-facing attach labels are effect sprites,
 not the Exploiter's main body or top piece.
+After attach, `EDPLYSTAND*` is only the deployed idle pose. The active mining
+loop should use `SLUGFUNK*`, which cycles the deployed top/turret through
+frames `23..26` while the body remains planted on frame `14`; enter that loop
+through the frame-25 state so `EXPLDEPLOY14` ends on frame `24` and continues
+forward.
 
 The `dc16.exe` strings around `0x82434..0x8250c` (`Frame parts`,
 `BManimation`, `%s%s`, `%s%d`) and the `juicel.c` / bad-juice-file assertions
