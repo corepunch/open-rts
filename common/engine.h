@@ -73,7 +73,9 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
                   int max_effects, const GameInfo *game_info, float dt);
 void update_visual_effects(GameMap *map, VisualEffect *effects, int max_effects,
                            const GameInfo *game_info, float dt);
-void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, const SDL_Event *e);
+void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
+                  const SpriteSheet *fallback_sprite, const SpriteCache *cache,
+                  const GameInfo *game_info, const SDL_Event *e);
 void update_camera_from_keyboard(App *app, float dt);
 void clamp_camera_to_map(App *app, const GameMap *map, int viewport_w, int viewport_h);
 

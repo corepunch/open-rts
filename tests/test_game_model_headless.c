@@ -308,12 +308,12 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
     }
-    if (!snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT.SPR", 69, 48)) {
-        return fail("Human02 active Petra-7 vent is fixed-frame at SCN map position");
+    if (!snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 35)) {
+        return fail("Human02 active Petra-7 vent glow uses flipped map-object coordinates");
     }
     if (snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT.SPR", 53, 27) ||
         snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27)) {
-        return fail("Human02 off-screen ambush vent is not rendered as an initial decoration");
+        return fail("Human02 Petra-7 vent attributes are not drawn at direct SCN Y");
     }
 
     int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
@@ -346,7 +346,7 @@ static int assert_human02(RtsGameModel *model) {
         .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
         .data.harvest_selected = {
             .gx = 69.5f,
-            .gy = 48.5f,
+            .gy = 35.5f,
         },
     };
     if (!rts_game_model_command(model, &harvest)) {
@@ -354,7 +354,7 @@ static int assert_human02(RtsGameModel *model) {
     }
 
     bool saw_deploy_frame = false;
-    for (int i = 0; i < 30 * 12; ++i) {
+    for (int i = 0; i < 30 * 45; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while mining");
         }
@@ -377,7 +377,7 @@ static int assert_human02(RtsGameModel *model) {
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 || !near_cell_center(snapshot.units[exploiter].gx, 69) ||
-        !near_cell_center(snapshot.units[exploiter].gy, 48)) {
+        !near_cell_center(snapshot.units[exploiter].gy, 35)) {
         return fail("Human02 Exploiter deploys at the target Petra-7 vent");
     }
 

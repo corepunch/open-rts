@@ -1629,7 +1629,8 @@ int main(int argc, char **argv) {
             if (dark_colony_ui && dark_colony_ui_handle_event(&app, units, unit_count, &e)) {
                 continue;
             }
-            handle_event(&app, &map, units, unit_count, &e);
+            handle_event(&app, &map, units, unit_count, &unit_sprite,
+                         &decoration_sprites, plugin->game_info, &e);
         }
         update_camera_from_keyboard(&app, frame_dt);
         clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);

@@ -40,6 +40,7 @@ typedef struct SpriteSheet {
     SDL_Texture *texture;
     SDL_Rect *frames;
     SDL_Rect *frame_bounds;
+    SDL_Point *frame_ground_points;
     int frame_count;
     int frame_w;
     int frame_h;

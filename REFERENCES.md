@@ -18,6 +18,16 @@ plugin-specific behavior.
     `.BTS`, `.SPR`, object placement, palette cycling, and faction/unit logic.
   - Contains original Classic/Council Wars game-data snapshots and a Ghidra
     workspace. `REAP.SPR` and `REAP.FIN` match our local data byte-for-byte.
+  - The bundled "Dark Colony - Map editor" readme describes Petra-7 placement
+    as two separate steps: first place `lar(vent)` blocks on the terrain, then
+    use the Lar Attributes menu to attach vent info. That means `.SCN` rows like
+    `x y 40 rate amount` are model/resource metadata and should not be treated
+    as unconditional visual sprite placements.
+  - The map editor and Classic data snapshots both include identical
+    `SCENARIO/VENT.JUS` and `SCENARIO/ALL.JUS` files. These use the same
+    descriptor shape as `.SPR` (`flags`, `frame_count`, palette, then
+    `width/height/disX/disY` records), but are editor block/stamp palettes.
+    `VENT.JUS` frame 0 is the yellow glow and frame 7 is the brown crater stamp.
 
 - cookgreen/OpenDC:
   https://github.com/cookgreen/OpenDC
@@ -30,6 +40,10 @@ plugin-specific behavior.
   - The repository bundles original `.SPR`, `.BTS`, maps, sounds, and music
     under `mods/dc/bits/original`, but not `ANIMATE/*.FIN` or `ANIM.DAT`.
     Its `REAP.SPR` is byte-identical to our local `REAP.SPR`.
+  - `OpenRA.Mods.DarkColony/SpriteLoaders/BTSLoader.cs` confirms `.BTS` tiles
+    are `u32 id + 32x32 indexed pixels` after an 8-byte header and 768-byte
+    palette. `SPRLoader.cs` confirms `.SPR` descriptor offsets are first-class
+    frame placement data, not padding.
   - `mods/dc/sequences/units.yaml` is not a completed Dark Colony unit
     animation mapping. It only has small placeholder-style entries such as
     `AIRD` and `ALBU1..ALBU15`; no `REAP`, `BARR`, `GRAY`, or `TROOPER`
@@ -49,6 +63,9 @@ Local game-data files that have already been useful:
 - `data/DCOLONY/GAMESTAT/WEAPSTAT.TXT` for weapon range, damage, and rate of
   fire. Trooper/Grey weapon rows use range `4`, damage `100`, and rate `15`.
 - `data/DCOLONY/GAMESTAT/DEPEND.TXT` for unit/building dependency names.
+- `GAMESTAT.TXT` speed values are pixel-scale movement rates on 32px Dark
+  Colony cells. Convert to model cells/sec by dividing by 32, not by a small
+  gameplay fudge factor.
 - `data/DCOLONY/SCENARIO/*.MAP`, `*.SCN`, and `*.BTS` for maps, starting
   objects, tilesets, and water palette bands.
 - Dark Colony `.SCN` object rows shaped `x y 40 rate amount` are Petra-7 vents,
@@ -56,6 +73,11 @@ Local game-data files that have already been useful:
   Petra-7 vents and training orders say to move/deploy the Exploiter or Brozaar
   over **active** vents to extract P-7. The fourth field is the vent extraction
   rate; `0` means dormant/inactive. The fifth field is remaining P-7 amount.
+- Human02 shows why rendering every type-40 row as `VENT.SPR` is wrong: all four
+  type-40 rows have matching 3x3 terrain crater blocks in `.MAP` at
+  `x, height - 1 - y` (`4815` is the desert crater center), while the direct
+  row coordinate can be ordinary terrain. The visual vent block comes from map
+  terrain/stamp data; the row supplies resource state/rate/amount.
 - Dark Colony `.TRO` scripts control vent eruptions. Commands such as
   `newrate 25 38 29` and `newrate2 81 77 15` set the extraction rate at an
   existing vent coordinate; `setmoney x y amount` sets the remaining P-7. This
@@ -65,6 +87,21 @@ Local game-data files that have already been useful:
   For ground units, flag bit `9` (`0x0200`) marks impassable terrain. `.PTH`
   files contain path/family data and are not the terrain passability mask.
 - `data/DCOLONY/SPRITES/*.SPR` for unit sprites.
+- Dark Colony `.SPR` descriptor `disX/disY` values look like canonical
+  screen-space placement coordinates for each frame. Unit rendering should treat
+  the model coordinate as the ground/feet point. In the renderer, derive that
+  point from the lowest opaque pixels of each decoded frame, falling back to the
+  visible frame's bottom-center if frame-ground metadata is unavailable.
+- Selection circle radius comes from `MobjInfo.radius`/`GAMESTAT.TXT`, converted
+  from Dark Colony pixel units to model cells by dividing by 32. Rendering can
+  clamp to a sprite-width minimum for readability, but pathing and interaction
+  should keep using the model radius.
+- `VENT.SPR` is a state bundle, not a four-frame animation: large active, large
+  inactive, small active, small inactive. `VENT2.SPR` is the small yellow glow.
+  Pick one base state, then overlay the glow if the vent is active/blinking.
+- `BEAC.SPR` has a base beacon frame and a separate glow frame; preserve the
+  sprite palette for the glow and render it as an overlay rather than tinting the
+  base sprite.
 - `data/DCOLONY/ANIMATE/*.FIN` for sprite animation labels and frame ranges.
 - `data/DCOLONY/ANIM.DAT` — newline-delimited index of all `.fin` filenames
   (lowercase) used by the original engine at startup; useful for bulk-loading.

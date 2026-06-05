@@ -496,28 +496,6 @@ static bool circle_intersects_rect(float cx, float cy, float radius, SDL_Rect r)
     return dx * dx + dy * dy <= radius * radius;
 }
 
-static int pick_unit_at(const App *app, const Unit *units, int unit_count, int x, int y,
-                        int owner_filter) {
-    int best = -1;
-    float best_score = 1000000000.0f;
-    for (int i = unit_count - 1; i >= 0; --i) {
-        const Unit *unit = &units[i];
-        if (unit->hp <= 0 || (unit->traits & RTS_TRAIT_SELECTABLE) == 0) continue;
-        if (owner_filter >= 0 && unit->owner != owner_filter) continue;
-        float sx = 0.0f, sy = 0.0f;
-        grid_to_screen(app, unit->gx, unit->gy, &sx, &sy);
-        float radius = unit_pick_radius_px(app, unit);
-        float dx = (float)x - sx;
-        float dy = (float)y - sy;
-        float dist2 = dx * dx + dy * dy;
-        if (dist2 > radius * radius || dist2 >= best_score) continue;
-        best_score = dist2;
-        best = i;
-    }
-    return best;
-}
-
-
 static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, uint32_t ticks) {
     bool moving = unit->path_index > 0 && unit->path_index < unit->path_len;
     bool attacking = unit->attack_anim_left_ms > 0;
@@ -589,6 +567,122 @@ static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame) {
     return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
 }
 
+static SDL_Point sprite_ground_point(const SpriteSheet *sprite, int frame) {
+    if (sprite && sprite->frame_ground_points && frame >= 0 && frame < sprite->frame_count) {
+        SDL_Point p = sprite->frame_ground_points[frame];
+        if (p.x >= 0 && p.y >= 0) return p;
+    }
+    SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+    return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
+}
+
+static const SpriteSheet *unit_sprite_sheet_for_view(const Unit *unit,
+                                                     const SpriteSheet *fallback_sprite,
+                                                     const SpriteCache *cache,
+                                                     const GameInfo *game_info) {
+    if (!unit) return NULL;
+    const char *sprite_name = unit->sprite_name;
+    if (game_info && unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
+        game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
+        sprite_name = game_info->sprnames[unit->sprite_id];
+    }
+    const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
+    return sprite ? sprite : fallback_sprite;
+}
+
+static int unit_frame_for_view(const SpriteSheet *sprite, const Unit *unit,
+                               const GameInfo *game_info, uint32_t ticks) {
+    int frame = game_info ? unit->frame : sprite_frame_for_unit(sprite, unit, ticks);
+    if (!sprite || sprite->frame_count <= 0) return 0;
+    if (frame >= sprite->frame_count) frame = 0;
+    if (frame < 0) frame = 0;
+    return frame;
+}
+
+static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
+                                      const SpriteSheet *fallback_sprite,
+                                      const SpriteCache *cache,
+                                      const GameInfo *game_info, uint32_t ticks,
+                                      SDL_Rect *dst_out, SDL_Rect *visible_out,
+                                      float *sx_out, float *sy_out,
+                                      int *frame_out, const SpriteSheet **sprite_out) {
+    if (!app || !unit) return false;
+    float sx = 0.0f, sy = 0.0f;
+    grid_to_screen(app, unit->gx, unit->gy, &sx, &sy);
+    const SpriteSheet *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
+    if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
+        float radius = unit_pick_radius_px(app, unit);
+        SDL_Rect fallback = {
+            (int)floorf(sx - radius),
+            (int)floorf(sy - radius),
+            (int)ceilf(radius * 2.0f),
+            (int)ceilf(radius * 2.0f),
+        };
+        if (dst_out) *dst_out = fallback;
+        if (visible_out) *visible_out = fallback;
+        if (sx_out) *sx_out = sx;
+        if (sy_out) *sy_out = sy;
+        if (frame_out) *frame_out = 0;
+        if (sprite_out) *sprite_out = sprite;
+        return false;
+    }
+
+    int frame = unit_frame_for_view(sprite, unit, game_info, ticks);
+    SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+    SDL_Point ground = sprite_ground_point(sprite, frame);
+    int scale = app_scale(app);
+    int sprite_w = sprite->frame_w * scale;
+    int sprite_h = sprite->frame_h * scale;
+    SDL_Rect dst = {
+        (int)lroundf(sx - (float)ground.x * (float)scale),
+        (int)lroundf(sy - (float)ground.y * (float)scale),
+        sprite_w,
+        sprite_h,
+    };
+    SDL_Rect visible = {
+        dst.x + bounds.x * scale,
+        dst.y + bounds.y * scale,
+        bounds.w * scale,
+        bounds.h * scale,
+    };
+    if (dst_out) *dst_out = dst;
+    if (visible_out) *visible_out = visible;
+    if (sx_out) *sx_out = sx;
+    if (sy_out) *sy_out = sy;
+    if (frame_out) *frame_out = frame;
+    if (sprite_out) *sprite_out = sprite;
+    return true;
+}
+
+static bool rects_intersect(SDL_Rect a, SDL_Rect b) {
+    return a.x <= b.x + b.w && a.x + a.w >= b.x &&
+           a.y <= b.y + b.h && a.y + a.h >= b.y;
+}
+
+static int pick_unit_at(const App *app, const Unit *units, int unit_count,
+                        const SpriteSheet *fallback_sprite, const SpriteCache *cache,
+                        const GameInfo *game_info, int x, int y, int owner_filter) {
+    int best = -1;
+    float best_score = 1000000000.0f;
+    for (int i = unit_count - 1; i >= 0; --i) {
+        const Unit *unit = &units[i];
+        if (unit->hp <= 0 || (unit->traits & RTS_TRAIT_SELECTABLE) == 0) continue;
+        if (owner_filter >= 0 && unit->owner != owner_filter) continue;
+        SDL_Rect visible;
+        float sx = 0.0f, sy = 0.0f;
+        unit_screen_rect_for_view(app, unit, fallback_sprite, cache, game_info, app->ticks_ms,
+                                  NULL, &visible, &sx, &sy, NULL, NULL);
+        if (!point_in_rect(x, y, visible)) continue;
+        float dx = (float)x - sx;
+        float dy = (float)y - sy;
+        float score = dx * dx + dy * dy;
+        if (score >= best_score) continue;
+        best_score = score;
+        best = i;
+    }
+    return best;
+}
+
 static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float ry,
                                    SDL_Color color) {
     if (!app || !app->renderer || rx <= 0.0f || ry <= 0.0f) return;
@@ -611,37 +705,23 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
                                const SpriteCache *cache, const GameInfo *game_info,
                                uint32_t ticks) {
     if (!u || (u->traits & RTS_TRAIT_RENDERABLE) == 0) return;
-    const char *sprite_name = u->sprite_name;
-    if (game_info && u->sprite_id >= 0 && u->sprite_id < game_info->sprite_count &&
-        game_info->sprnames && game_info->sprnames[u->sprite_id]) {
-        sprite_name = game_info->sprnames[u->sprite_id];
-    }
-    const SpriteSheet *sprite = sprite_cache_lookup(cache, sprite_name);
-    if (!sprite) sprite = fallback_sprite;
+    const SpriteSheet *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
-    float sx, sy;
-    grid_to_screen(app, u->gx, u->gy, &sx, &sy);
-    int frame = game_info ? u->frame : sprite_frame_for_unit(sprite, u, ticks);
+    float sx = 0.0f, sy = 0.0f;
+    int frame = 0;
+    SDL_Rect dst;
+    SDL_Rect visible;
+    unit_screen_rect_for_view(app, u, fallback_sprite, cache, game_info, ticks,
+                              &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
-    if (frame >= sprite->frame_count) frame = 0;
-    if (frame < 0) frame = 0;
     SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
     int scale = app_scale(app);
-    int sprite_w = sprite->frame_w * scale;
-    int sprite_h = sprite->frame_h * scale;
     float content_w = (float)bounds.w * (float)scale;
     float rx = unit_radius_cells(u) * (float)app_cell_w(app);
     float min_rx = content_w * 0.34f;
     if (rx < min_rx) rx = min_rx;
     float ry = rx * 0.38f;
-    float ground_offset_y = ((float)bounds.y + (float)bounds.h) * (float)scale - ry * 0.35f;
-    SDL_Rect dst = {
-        (int)(sx - sprite_w / 2),
-        (int)(sy - ground_offset_y),
-        sprite_w,
-        sprite_h,
-    };
     const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
     if (shadow && shadow->texture && shadow->frame_count > 0) {
         int shadow_frame = frame < shadow->frame_count ? frame : 0;
@@ -655,7 +735,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
         };
         SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
     }
-    float content_y = (float)dst.y + (float)bounds.y * (float)scale;
+    float content_y = (float)visible.y;
     if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
         draw_selection_ellipse(app, sx, sy, rx + 2.0f, ry + 1.0f, (SDL_Color){ 15, 35, 30, 180 });
         draw_selection_ellipse(app, sx, sy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
@@ -663,7 +743,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
-        int bar_w = sprite_w / 2;
+        int bar_w = dst.w / 2;
         int bar_h = app_scale(app) < 2 ? 2 : 3;
         int bx = (int)(sx - bar_w / 2);
         int by = (int)content_y - bar_h - 4;
@@ -894,7 +974,9 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
     }
 }
 
-void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, const SDL_Event *e) {
+void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
+                  const SpriteSheet *fallback_sprite, const SpriteCache *cache,
+                  const GameInfo *game_info, const SDL_Event *e) {
     switch (e->type) {
         case SDL_QUIT:
             app->running = false;
@@ -940,7 +1022,8 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                 window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
                 float gx = 0.0f, gy = 0.0f;
                 screen_to_grid_point(app, rx, ry, &gx, &gy);
-                int target = pick_unit_at(app, units, unit_count, rx, ry, -1);
+                int target = pick_unit_at(app, units, unit_count, fallback_sprite, cache,
+                                          game_info, rx, ry, -1);
                 if (target >= 0 && units[target].owner != 0 && units[target].hp > 0) {
                     for (int i = 0; i < unit_count; ++i) {
                         if (!units[i].selected || units[i].owner != 0 || units[i].hp <= 0) continue;
@@ -981,16 +1064,20 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count, con
                         if (units[i].hp <= 0) continue;
                         if ((units[i].traits & RTS_TRAIT_SELECTABLE) == 0) continue;
                         if (units[i].owner != 0) continue;
-                        float sx, sy;
-                        grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
+                        SDL_Rect visible;
+                        float sx = 0.0f, sy = 0.0f;
+                        unit_screen_rect_for_view(app, &units[i], fallback_sprite, cache,
+                                                  game_info, app->ticks_ms, NULL, &visible,
+                                                  &sx, &sy, NULL, NULL);
                         float radius = unit_pick_radius_px(app, &units[i]);
-                        if (point_in_rect((int)sx, (int)sy, rect) ||
+                        if (rects_intersect(visible, rect) ||
                             circle_intersects_rect(sx, sy, radius, rect)) {
                             units[i].selected = true;
                         }
                     }
                 } else {
-                    int picked = pick_unit_at(app, units, unit_count, bx, by, 0);
+                    int picked = pick_unit_at(app, units, unit_count, fallback_sprite, cache,
+                                              game_info, bx, by, 0);
                     if (picked >= 0) {
                         units[picked].selected = true;
                     }
@@ -1064,6 +1151,7 @@ void destroy_sprite(SpriteSheet *sprite) {
     if (sprite->texture) SDL_DestroyTexture(sprite->texture);
     free(sprite->frames);
     free(sprite->frame_bounds);
+    free(sprite->frame_ground_points);
     memset(sprite, 0, sizeof(*sprite));
 }
 

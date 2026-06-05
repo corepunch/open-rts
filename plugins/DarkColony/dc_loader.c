@@ -279,6 +279,32 @@ static SDL_Rect dc_visible_bounds(const uint32_t *rgba, int atlas_w, SDL_Rect fr
     return (SDL_Rect){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
+static SDL_Point dc_ground_point(const uint32_t *rgba, int atlas_w, SDL_Rect frame,
+                                 SDL_Rect bounds) {
+    if (!rgba || atlas_w <= 0 || frame.w <= 0 || frame.h <= 0 ||
+        bounds.w <= 0 || bounds.h <= 0) {
+        return (SDL_Point){ frame.w / 2, frame.h };
+    }
+
+    int bottom_y = bounds.y + bounds.h - 1;
+    int top_y = bottom_y - 3;
+    if (top_y < bounds.y) top_y = bounds.y;
+    int min_x = frame.w;
+    int max_x = -1;
+    for (int y = bottom_y; y >= top_y; --y) {
+        for (int x = bounds.x; x < bounds.x + bounds.w; ++x) {
+            uint32_t px = rgba[(frame.y + y) * atlas_w + frame.x + x];
+            if ((px >> 24) == 0) continue;
+            if (x < min_x) min_x = x;
+            if (x > max_x) max_x = x;
+        }
+    }
+    if (max_x < min_x) {
+        return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
+    }
+    return (SDL_Point){ (min_x + max_x + 1) / 2, bounds.y + bounds.h };
+}
+
 typedef struct {
     int w;
     int h;
@@ -352,8 +378,9 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
     SDL_Rect *frames = calloc((size_t)visible_frames, sizeof(SDL_Rect));
     SDL_Rect *bounds = calloc((size_t)visible_frames, sizeof(SDL_Rect));
-    if (!rgba || !frames || !bounds) {
-        free(info); free(rgba); free(frames); free(bounds); free_blob(&blob);
+    SDL_Point *ground_points = calloc((size_t)visible_frames, sizeof(SDL_Point));
+    if (!rgba || !frames || !bounds || !ground_points) {
+        free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob);
         return false;
     }
 
@@ -364,14 +391,15 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         int fx = (i % cols) * max_w + (info[i].dis_x - min_dis_x);
         int fy = (i / cols) * max_h + (info[i].dis_y - min_dis_y);
         if (compressed) {
-            if (src_pos + 4 > blob.size) { free(info); free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
+            if (src_pos + 4 > blob.size) { free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob); return false; }
             uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
             src_pos += 4;
-            if (src_pos + chunk_size > blob.size) { free(info); free(rgba); free(frames); free(bounds); free_blob(&blob); return false; }
+            if (src_pos + chunk_size > blob.size) { free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob); return false; }
             if (info[i].blank) {
                 src_pos += chunk_size;
                 frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
                 bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
+                ground_points[i] = (SDL_Point){ max_w / 2, max_h };
                 continue;
             }
             const uint8_t *src = blob.bytes + src_pos;
@@ -406,11 +434,24 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
+        ground_points[i] = dc_ground_point(rgba, atlas_w, frames[i], bounds[i]);
     }
 
-    out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+    SDL_Texture *texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+    if (!texture) {
+        free(info);
+        free(rgba);
+        free(frames);
+        free(bounds);
+        free(ground_points);
+        free_blob(&blob);
+        return false;
+    }
+
+    out->texture = texture;
     out->frames = frames;
     out->frame_bounds = bounds;
+    out->frame_ground_points = ground_points;
     out->frame_count = visible_frames;
     out->frame_w = max_w;
     out->frame_h = max_h;
@@ -420,7 +461,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     free(info);
     free(rgba);
     free_blob(&blob);
-    return out->texture != NULL;
+    return true;
 }
 
 /* ── sprite cache helper ────────────────────────────────────────────────── */
@@ -563,65 +604,7 @@ static bool dark_colony_map_dimensions(const char *map_path, int *width, int *he
     return ok;
 }
 
-typedef struct {
-    int count;
-    int x[2];
-    int y[2];
-} DarkColonyPlayerStartSlots;
-
-static DarkColonyPlayerStartSlots dark_colony_player_start_slots_from_scn(const char *scn) {
-    DarkColonyPlayerStartSlots slots = { 0 };
-    if (!scn) return slots;
-
-    int current_team = -1;
-    int aislot_lines = 0;
-    for (const char *line = scn; line && *line;) {
-        const char *next = strpbrk(line, "\r\n");
-        size_t len = next ? (size_t)(next - line) : strlen(line);
-        char token[64] = { 0 };
-        copy_trimmed_token(token, sizeof(token), line, len);
-
-        int team = -1;
-        if (sscanf(token, "TEAM %d", &team) == 1) {
-            current_team = team;
-            aislot_lines = 0;
-        } else if (strcmp(token, "%AISlots") == 0) {
-            aislot_lines = current_team == 0 ? 2 : 0;
-        } else if (aislot_lines > 0) {
-            int x = 0, y = 0;
-            if (sscanf(token, "%d %d", &x, &y) == 2 && (x != 0 || y != 0) &&
-                slots.count < 2) {
-                slots.x[slots.count] = x;
-                slots.y[slots.count] = y;
-                slots.count++;
-            }
-            aislot_lines--;
-        }
-
-        if (!next) break;
-        char nl = *next++;
-        if (nl == '\r' && *next == '\n') next++;
-        line = next;
-    }
-    return slots;
-}
-
-static bool dark_colony_resource_vent_initially_visible(const DarkColonyPlayerStartSlots *slots,
-                                                        int x, int y) {
-    if (!slots || slots->count <= 0) return true;
-
-    enum { INITIAL_BASE_REVEAL_RADIUS_CELLS = 24 };
-    int radius2 = INITIAL_BASE_REVEAL_RADIUS_CELLS * INITIAL_BASE_REVEAL_RADIUS_CELLS;
-    for (int i = 0; i < slots->count; ++i) {
-        int dx = x - slots->x[i];
-        int dy = y - slots->y[i];
-        if (dx * dx + dy * dy <= radius2) return true;
-    }
-    return false;
-}
-
-static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount,
-                                             bool initially_visible) {
+static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount) {
     if (!map || !map_contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
 
@@ -636,7 +619,7 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
     vent->rate = rate;
     vent->active = rate > 0;
 
-    if (initially_visible && map->decoration_count < MAX_DECORATIONS) {
+    if (rate > 0 && map->decoration_count < MAX_DECORATIONS) {
         MapDecoration *decorations = realloc(map->decorations,
                                              (size_t)(map->decoration_count + 1) * sizeof(MapDecoration));
         if (decorations) {
@@ -649,8 +632,7 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
             dec->footprint_h = 1;
             dec->center_anchor = true;
             dec->frame_index = 0;
-            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s",
-                     rate > 0 ? "SPRITES/VENT.SPR" : "SPRITES/VENT2.SPR");
+            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
         }
     }
     return true;
@@ -681,7 +663,6 @@ static bool append_dark_colony_beacon(GameMap *map, int x, int y, int type) {
 
 static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *map) {
     if (!scn || !map) return;
-    DarkColonyPlayerStartSlots player_slots = dark_colony_player_start_slots_from_scn(scn);
     for (const char *line = scn; line && *line;) {
         const char *next = strpbrk(line, "\r\n");
         size_t len = next ? (size_t)(next - line) : strlen(line);
@@ -691,8 +672,7 @@ static void load_dark_colony_resource_vents_from_scn(const char *scn, GameMap *m
         int x = 0, y = 0, type = 0, rate = 0, amount = 0, consumed = 0;
         if (sscanf(token, "%d %d %d %d %d%n", &x, &y, &type, &rate, &amount, &consumed) == 5 &&
             type == 40 && token_has_only_trailing_space(token, consumed)) {
-            bool initially_visible = dark_colony_resource_vent_initially_visible(&player_slots, x, y);
-            append_dark_colony_resource_vent(map, x, y, rate, amount, initially_visible);
+            append_dark_colony_resource_vent(map, x, dark_colony_scn_y_to_map(map, y), rate, amount);
         }
 
         if (!next) break;
@@ -1006,7 +986,7 @@ static bool dark_colony_root_from_map_path(const char *map_path, char *root, siz
 }
 
 static float dark_colony_speed_from_gamestat(int speed) {
-    return speed > 0 ? (float)speed / 5.0f : 0.0f;
+    return speed > 0 ? (float)speed / 32.0f : 0.0f;
 }
 
 static bool dark_colony_map_path_is_multiplayer(const char *map_path) {
