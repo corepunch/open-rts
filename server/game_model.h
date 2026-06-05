@@ -8,6 +8,7 @@
 #define RTS_MODEL_MAX_SNAPSHOT_EFFECTS 256
 #define RTS_MODEL_MAX_PLAYERS 8
 #define RTS_MODEL_MAX_PRODUCT_PREREQUISITES 4
+#define RTS_MODEL_UI_SCRIPT_BYTES 4096
 
 typedef struct RtsGameModel RtsGameModel;
 
@@ -92,6 +93,13 @@ typedef struct {
     int player_resources[RTS_MODEL_MAX_PLAYERS];
     RtsRenderUnit units[RTS_MODEL_MAX_SNAPSHOT_UNITS];
     RtsRenderEffect effects[RTS_MODEL_MAX_SNAPSHOT_EFFECTS];
+    /*
+     * Quake-style declarative UI emitted by the model/server.
+     * Example:
+     *   x 516 y 92 btn 206 enabled 1 pic 129
+     *   x 524 y 126 text "Exo-Ctr 2000"
+     */
+    char ui_script[RTS_MODEL_UI_SCRIPT_BYTES];
 } RtsRenderSnapshot;
 
 typedef struct {

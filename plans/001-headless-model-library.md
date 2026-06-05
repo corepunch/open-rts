@@ -19,7 +19,7 @@ rules, while tests can load and drive the same library without a window.
 - [ ] Define a command API for player intent: selection, movement, attack,
       build placement, production, ticking simulation time, and mission/control
       actions.
-- [ ] Define a render snapshot API that returns only what the renderer needs to
+- [x] Define a render snapshot API that returns only what the renderer needs to
       draw: map references, entity sprites/positions, effects, selection
       markers, health bars, command panels, and other UI-visible state.
 - [x] Provide a headless API for loading a game plugin, loading a map/mission,
@@ -39,6 +39,9 @@ rules, while tests can load and drive the same library without a window.
 - The game library does not call rendering APIs. It returns stable ids,
   asset/sprite references, coordinates, animation frame ids, colors, text, and
   command-panel state in renderer-neutral structs.
+- UI is emitted as a Quake-style command string inside the render snapshot,
+  using generic verbs such as `x`, `y`, `pic`, `text`, and `btn`. The renderer
+  draws it and sends `btn` callback ids back to the model/server as commands.
 - Tests can create the same game instance, load `data/DCOLONY`, send commands,
   tick deterministic frames, and assert model state or render snapshots without
   a window.

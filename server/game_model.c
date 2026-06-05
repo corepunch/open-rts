@@ -93,6 +93,44 @@ static bool product_is_available(const RtsGameModel *model, const StaticProductD
     return true;
 }
 
+static void append_ui_script(char *dst, size_t dst_size, const char *fmt, ...) {
+    if (!dst || dst_size == 0) return;
+    size_t len = strlen(dst);
+    if (len >= dst_size - 1) return;
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(dst + len, dst_size - len, fmt, args);
+    va_end(args);
+}
+
+static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, size_t dst_size) {
+    if (!model || !dst || dst_size == 0) return;
+    dst[0] = '\0';
+    append_ui_script(dst, dst_size, "ui dark-colony 1\n");
+    append_ui_script(dst, dst_size, "x 520 y 464 text \"P-7 %d\"\n",
+                     model->map.player_resources[0]);
+
+    int source_count = (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
+                             sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+    for (int i = 0; i < source_count; ++i) {
+        const StaticProductDefinition *product = &DARK_COLONY_HUMAN_PRODUCTS[i];
+        int col = i % 3;
+        int row = i / 3;
+        int button_x = 516 + col * 36;
+        int button_y = 92 + row * 42;
+        int label_x = button_x + 8;
+        int label_y = button_y + 34;
+        bool available = product_is_available(model, product);
+        append_ui_script(dst, dst_size,
+                         "x %d y %d btn %d enabled %d pic %d\n",
+                         button_x, button_y, product->ui_id, available ? 1 : 0,
+                         product->icon_frame);
+        append_ui_script(dst, dst_size,
+                         "x %d y %d text \"%s %d\"\n",
+                         label_x, label_y, product->label, product->cost);
+    }
+}
+
 static void load_plugin_by_id(const char *game_id) {
     char lib_path[1024];
     const char *extensions[] = { ".dylib", ".so", NULL };
@@ -335,6 +373,9 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->render_flags = src->render_flags;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
+    }
+    if (model->plugin && model->plugin->id && strcmp(model->plugin->id, "dark-colony") == 0) {
+        build_dark_colony_ui_script(model, out->ui_script, sizeof(out->ui_script));
     }
     return true;
 }

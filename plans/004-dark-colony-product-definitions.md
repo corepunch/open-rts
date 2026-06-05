@@ -42,7 +42,7 @@ Human unit buttons:
 - [x] Store UI id, label, cost, icon frame, product class, product type,
       faction, and prerequisites.
 - [x] Expose product availability from current model state.
-- [ ] Expose product lists for sidebar modes.
+- [x] Expose product lists for sidebar modes.
 
 ## Acceptance Criteria
 

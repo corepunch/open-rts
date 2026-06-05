@@ -77,6 +77,22 @@ static int assert_dark_colony_products(RtsGameModel *model) {
     return 0;
 }
 
+static int assert_dark_colony_ui_script(const RtsRenderSnapshot *snapshot) {
+    if (!snapshot || snapshot->ui_script[0] == '\0')
+        return fail("snapshot includes model-generated UI script");
+    if (!strstr(snapshot->ui_script, "ui dark-colony 1\n"))
+        return fail("UI script has version header");
+    if (!strstr(snapshot->ui_script, "x 516 y 92 btn 206 enabled 1 pic 129\n"))
+        return fail("UI script includes enabled Exo Center button callback");
+    if (!strstr(snapshot->ui_script, "x 524 y 126 text \"Exo-Ctr 2000\"\n"))
+        return fail("UI script includes Exo Center text");
+    if (!strstr(snapshot->ui_script, "x 552 y 92 btn 80 enabled 0 pic 20\n"))
+        return fail("UI script includes disabled Barracks button callback");
+    if (!strstr(snapshot->ui_script, "x 560 y 126 text \"Barracks 1000\"\n"))
+        return fail("UI script includes Barracks text");
+    return 0;
+}
+
 static int assert_human01(RtsGameModel *model) {
     RtsGameModelConfig config = {
         .game_id = "dark-colony",
@@ -92,6 +108,8 @@ static int assert_human01(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("initial Human01 snapshot");
     }
+    int ui_result = assert_dark_colony_ui_script(&snapshot);
+    if (ui_result != 0) return ui_result;
     if (snapshot.map_width <= 0 || snapshot.map_height <= 0) {
         return fail("Human01 snapshot has map dimensions");
     }
