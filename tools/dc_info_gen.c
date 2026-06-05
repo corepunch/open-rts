@@ -66,6 +66,29 @@ typedef struct {
     int expl_death;
 } DcFinStateCounts;
 
+typedef struct {
+    const char *label;
+    int frame;
+} FinFrameRef;
+
+static const FinFrameRef expl_mining_pulse[] = {
+    {"EDPLYSTAND14", 25},
+    {"EXPLDIE0", 26},
+    {"EXPLDIE0", 27},
+    {"EXPLDIE0", 28},
+    {"EXPLDIE0", 29},
+    {"EXPLDIE0", 30},
+    {"EXPLDIE0", 32},
+    {"EXPLOTHERS", 33},
+    {"EDPLYBLOODB0", 32},
+    {"EDPLYBLOODB0", 30},
+    {"EDPLYBLOODD0", 28},
+    {"EDPLYBLOODD0", 27},
+    {"EDPLYBLOODC0", 26},
+    {"EDPLYBLOODC0", 25},
+    {"EDPLYBLOODC0", 24},
+};
+
 static uint16_t read_u16_le(const unsigned char *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
 }
@@ -326,6 +349,24 @@ static bool fin_label_range(const FinAnim *fin, const char *label, int *start_ou
     if (start_out) *start_out = l->start;
     if (end_out) *end_out = l->end;
     return true;
+}
+
+static const FinCommand *fin_find_command_in_label(const FinAnim *fin, const char *label,
+                                                   const char *sprite, int layer,
+                                                   int frame) {
+    const FinLabel *l = fin_find_label(fin, label);
+    if (!fin || !l || l->start < 0 || l->end < l->start ||
+        l->end >= fin->command_count) {
+        return NULL;
+    }
+    for (int i = l->start; i <= l->end; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, sprite) == 0 && cmd->layer == layer &&
+            cmd->frame == frame) {
+            return cmd;
+        }
+    }
+    return NULL;
 }
 
 static int fin_first_body_frame(const FinAnim *fin, const char *label) {
@@ -718,6 +759,24 @@ static int fin_state_count_for_layered_stem_sequence(const FinAnim *fin, const c
     return count;
 }
 
+static int fin_state_count_for_expl_mining_pulse(const FinAnim *fin) {
+    const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
+                                                       fin->stem_lower, 1, 14);
+    if (!body) die("EXPL.FIN missing EDPLYSTAND14 deployed body frame", NULL);
+    for (size_t i = 0; i < sizeof(expl_mining_pulse) / sizeof(expl_mining_pulse[0]); ++i) {
+        const FinFrameRef *ref = &expl_mining_pulse[i];
+        const FinCommand *overlay = fin_find_command_in_label(fin, ref->label,
+                                                              fin->stem_lower, 0,
+                                                              ref->frame);
+        if (!overlay) {
+            fprintf(stderr, "dc_info_gen: EXPL.FIN missing mining pulse top frame %d in %s\n",
+                    ref->frame, ref->label);
+            exit(1);
+        }
+    }
+    return (int)(sizeof(expl_mining_pulse) / sizeof(expl_mining_pulse[0]));
+}
+
 static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int body_base,
                                     int flash_w, int flash_h, int *frame_out,
                                     int offset_x[8], int offset_y[8]) {
@@ -880,7 +939,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.scgm_death = fin_state_count_for_sequence(&scgm_fin, "SCGMDIE", false);
     counts.expl_run = fin_state_count_for_sequence(&expl_fin, "EXPLMOVE", false);
     counts.expl_deploy = fin_state_count_for_layered_stem_sequence(&expl_fin, "EXPLDEPLOY", false);
-    counts.expl_work = 1 + fin_state_count_for_layered_stem_sequence(&expl_fin, "EXPLDIE", false);
+    counts.expl_work = fin_state_count_for_expl_mining_pulse(&expl_fin);
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE", false);
 
     fin_free(&reap_fin);
@@ -1379,19 +1438,56 @@ static void write_fin_layered_stem_sequence(FILE *out, const char *spr, const Fi
     }
 }
 
-static void write_fin_layered_stem_sequence_numbered(FILE *out, const char *spr, const FinAnim *fin,
-                                                     const char *label_prefix, const char *state_prefix,
-                                                     const char *kind, int first_number, int count,
-                                                     int fallback_frame, int tics, int group,
-                                                     const char *first_action,
-                                                     const char *exit_state, bool mirror_left) {
-    char next[64];
+static void write_expl_mining_pulse(FILE *out, const char *spr, const FinAnim *fin,
+                                    int count, int tics, int group) {
+    static const int dirs[8] = {0,2,4,6,8,10,12,14};
+    const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
+                                                       fin->stem_lower, 1, 14);
+    if (!body) die("EXPL.FIN missing deployed Exploiter body", NULL);
+    if (count != (int)(sizeof(expl_mining_pulse) / sizeof(expl_mining_pulse[0])))
+        die("EXPL mining pulse count mismatch", NULL);
+
     for (int i = 0; i < count; ++i) {
-        if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, first_number + i + 1);
-        else snprintf(next, sizeof(next), "%s", exit_state);
-        f8_fin_layered_stem_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
-                                  i == 0 ? first_action : "A_None", next, group,
-                                  mirror_left);
+        const FinFrameRef *ref = &expl_mining_pulse[i];
+        const FinCommand *overlay = fin_find_command_in_label(fin, ref->label,
+                                                              fin->stem_lower, 0,
+                                                              ref->frame);
+        if (!overlay) die("EXPL.FIN missing mining pulse overlay", NULL);
+
+        char next[64];
+        if (i + 1 < count) state_name(next, sizeof(next), "EXPL", "WORK", i + 2);
+        else snprintf(next, sizeof(next), "S_DC_EXPL_WORK1");
+
+        fprintf(out, "    { %s, %d, %d, A_None, %s, 0, %d, 0, 8, {",
+                spr, body->frame, tics, next, group);
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", dirs[dir]);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->frame);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s0", dir ? "," : "");
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s0", dir ? "," : "");
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s0", dir ? "," : "");
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->remap);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->intensity);
+        fprintf(out, "}, %s, %d, 0, 8, {", spr, overlay->frame);
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", dirs[dir]);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", overlay->frame);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s0", dir ? "," : "");
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", overlay->x - body->x);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", overlay->y - body->y);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", overlay->remap);
+        fprintf(out, "}, {");
+        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", overlay->intensity);
+        fprintf(out, "} },\n");
     }
 }
 
@@ -1658,11 +1754,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                        counts->expl_run, 0, 3, 2, "A_None", "S_DC_EXPL_RUN1", false);
     write_fin_layered_stem_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDEPLOY", "EXPL", "DEPLOY",
                                     counts->expl_deploy, 0, 3, 5, "A_None", "S_DC_EXPL_WORK1", false);
-    write_fin_layered_stem_sequence_numbered(out, sprites[expl].symbol, &expl_fin, "EDPLYSTAND", "EXPL",
-                                             "WORK", 1, 1, 0, 8, 5, "A_None", "S_DC_EXPL_WORK2", false);
-    write_fin_layered_stem_sequence_numbered(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL",
-                                             "WORK", 2, counts->expl_work - 1, 0, 8, 5,
-                                             "A_None", "S_DC_EXPL_WORK1", false);
+    write_expl_mining_pulse(out, sprites[expl].symbol, &expl_fin, counts->expl_work, 5, 5);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
                        counts->expl_death, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
     write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", counts->expl_death - 1, 0, false);

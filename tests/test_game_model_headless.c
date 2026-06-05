@@ -117,6 +117,68 @@ static int assert_dark_colony_sprite_catalog(void) {
     return 0;
 }
 
+static int assert_dark_colony_exploiter_pulse_states(void) {
+    const int expected[] = {25,26,27,28,29,30,32,33,32,30,28,27,26,25,24};
+    int count = S_DC_EXPL_DIE1 - S_DC_EXPL_WORK1;
+    if (count != (int)(sizeof(expected) / sizeof(expected[0]))) {
+        return fail("Dark Colony Exploiter mining pulse state count matches FIN pulse cycle");
+    }
+    FILE *f = fopen("plugins/DarkColony/info.c", "rb");
+    if (!f) return fail("open generated Dark Colony info.c for pulse states");
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return fail("seek generated Dark Colony info.c for pulse states");
+    }
+    long size = ftell(f);
+    if (size < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return fail("read generated Dark Colony info.c pulse size");
+    }
+    char *text = malloc((size_t)size + 1);
+    if (!text) {
+        fclose(f);
+        return fail("allocate generated Dark Colony info.c pulse text");
+    }
+    if (size > 0 && fread(text, 1, (size_t)size, f) != (size_t)size) {
+        free(text);
+        fclose(f);
+        return fail("read generated Dark Colony info.c pulse text");
+    }
+    fclose(f);
+    text[size] = '\0';
+
+    for (int i = 0; i < count; ++i) {
+        int next = i + 2;
+        if (next > count) next = 1;
+        char prefix[96];
+        snprintf(prefix, sizeof(prefix),
+                 "{ SPR_DC_EXPL, 14, 5, A_None, S_DC_EXPL_WORK%d,", next);
+        char *line = strstr(text, prefix);
+        if (!line) {
+            free(text);
+            return fail("Dark Colony Exploiter mining pulse uses deployed body plus expected top frames");
+        }
+        char *overlay = strstr(line, "}, SPR_DC_EXPL, ");
+        char *end = strchr(line, '\n');
+        if (!overlay || (end && overlay > end)) {
+            free(text);
+            return fail("Dark Colony Exploiter mining pulse states have Exploiter top overlay");
+        }
+        int overlay_frame = -1;
+        if (sscanf(overlay, "}, SPR_DC_EXPL, %d,", &overlay_frame) != 1 ||
+            overlay_frame != expected[i]) {
+            free(text);
+            return fail("Dark Colony Exploiter mining pulse uses expected top frame order");
+        }
+        if (strstr(line, "FLIPPED") && (!end || strstr(line, "FLIPPED") < end)) {
+            free(text);
+            return fail("Dark Colony Exploiter mining pulse is unflipped for every facing");
+        }
+    }
+    free(text);
+    return 0;
+}
+
 static int snapshot_count_units_with_sprite(const RtsRenderSnapshot *snapshot,
                                             const char *sprite_name) {
     if (!snapshot || !sprite_name) return 0;
@@ -467,7 +529,7 @@ static int assert_human02(RtsGameModel *model) {
                 }
                 int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
                 if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
-                    snapshot.units[exploiter].state_id <= S_DC_EXPL_WORK7 &&
+                    snapshot.units[exploiter].state_id < S_DC_EXPL_DIE1 &&
                     work_state >= 0 && work_state < (int)(sizeof(saw_mining_work_states) / sizeof(saw_mining_work_states[0])) &&
                     !saw_mining_work_states[work_state]) {
                     saw_mining_work_states[work_state] = true;
@@ -518,6 +580,8 @@ static int assert_human02(RtsGameModel *model) {
 
 int main(void) {
     int result = assert_dark_colony_sprite_catalog();
+    if (result != 0) return result;
+    result = assert_dark_colony_exploiter_pulse_states();
     if (result != 0) return result;
 
     RtsGameModel *model = rts_game_model_create();
