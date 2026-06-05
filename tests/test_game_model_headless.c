@@ -28,6 +28,55 @@ static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *s
     return false;
 }
 
+static const RtsProductDefinition *find_product(const RtsProductDefinition *products,
+                                                int product_count, int ui_id) {
+    for (int i = 0; i < product_count; ++i) {
+        if (products[i].ui_id == ui_id) return &products[i];
+    }
+    return NULL;
+}
+
+static int assert_dark_colony_products(RtsGameModel *model) {
+    RtsProductDefinition products[32];
+    int product_count = rts_game_model_products(model, products, 32);
+    if (product_count < 16) return fail("Dark Colony exposes human product table");
+
+    const RtsProductDefinition *exo = find_product(products, product_count, 206);
+    if (!exo) return fail("product table includes Exo Center");
+    if (strcmp(exo->label, "Exo-Ctr") != 0 || exo->cost != 2000 ||
+        exo->icon_frame != 129 || exo->product_class != RTS_PRODUCT_BUILDING ||
+        exo->product_type != 16 || !exo->available) {
+        return fail("Exo Center metadata and availability match original data");
+    }
+
+    const RtsProductDefinition *barracks = find_product(products, product_count, 80);
+    if (!barracks) return fail("product table includes Barracks");
+    if (barracks->cost != 1000 || barracks->icon_frame != 20 ||
+        barracks->prerequisite_count != 1 || barracks->prerequisites[0] != 16 ||
+        barracks->available) {
+        return fail("Barracks requires Exo Center");
+    }
+
+    const RtsProductDefinition *trooper = find_product(products, product_count, 89);
+    if (!trooper) return fail("product table includes Trooper");
+    if (trooper->cost != 350 || trooper->icon_frame != 6 ||
+        trooper->product_class != RTS_PRODUCT_UNIT ||
+        trooper->prerequisite_count != 1 || trooper->prerequisites[0] != 17 ||
+        trooper->available) {
+        return fail("Trooper requires Barracks");
+    }
+
+    const RtsProductDefinition *reaper = find_product(products, product_count, 91);
+    const RtsProductDefinition *barrager = find_product(products, product_count, 93);
+    if (!reaper || !barrager) return fail("product table includes robot factory units");
+    if (reaper->prerequisite_count != 1 || reaper->prerequisites[0] != 18 ||
+        barrager->prerequisite_count != 1 || barrager->prerequisites[0] != 18) {
+        return fail("Reaper and Barrager require Robot Factory");
+    }
+
+    return 0;
+}
+
 static int assert_human01(RtsGameModel *model) {
     RtsGameModelConfig config = {
         .game_id = "dark-colony",
@@ -126,7 +175,7 @@ static int assert_human01(RtsGameModel *model) {
     printf("PASS: Human01 headless model loaded %dx%d with %d units and %d effects\n",
            snapshot.map_width, snapshot.map_height, snapshot.unit_count,
            snapshot.effect_count);
-    return 0;
+    return assert_dark_colony_products(model);
 }
 
 static int assert_human02(RtsGameModel *model) {

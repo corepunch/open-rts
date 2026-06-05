@@ -7,6 +7,7 @@
 #define RTS_MODEL_MAX_SNAPSHOT_UNITS 128
 #define RTS_MODEL_MAX_SNAPSHOT_EFFECTS 256
 #define RTS_MODEL_MAX_PLAYERS 8
+#define RTS_MODEL_MAX_PRODUCT_PREREQUISITES 4
 
 typedef struct RtsGameModel RtsGameModel;
 
@@ -30,6 +31,11 @@ typedef enum {
     RTS_RENDER_TRAIT_ATTACK = 1u << 3,
     RTS_RENDER_TRAIT_HARVESTER = 1u << 4,
 } RtsRenderTrait;
+
+typedef enum {
+    RTS_PRODUCT_BUILDING = 1,
+    RTS_PRODUCT_UNIT = 2,
+} RtsProductClass;
 
 typedef struct {
     RtsGameCommandKind kind;
@@ -85,6 +91,19 @@ typedef struct {
     RtsRenderEffect effects[RTS_MODEL_MAX_SNAPSHOT_EFFECTS];
 } RtsRenderSnapshot;
 
+typedef struct {
+    int ui_id;
+    char label[40];
+    int cost;
+    int icon_frame;
+    RtsProductClass product_class;
+    int product_type;
+    int faction;
+    int prerequisite_count;
+    int prerequisites[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
+    bool available;
+} RtsProductDefinition;
+
 RtsGameModel *rts_game_model_create(void);
 void rts_game_model_destroy(RtsGameModel *model);
 
@@ -92,6 +111,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config);
 bool rts_game_model_tick(RtsGameModel *model, float dt);
 bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command);
 bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out);
+int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products);
 
 const char *rts_game_model_last_error(const RtsGameModel *model);
 

@@ -28,7 +28,7 @@ existing features and future construction/production work.
 ## Future Feature Coverage
 
 - [ ] Building actor load tests.
-- [ ] Construction product availability tests.
+- [x] Construction product availability tests.
 - [ ] Building placement success/failure tests.
 - [ ] Unit production queue/spawn tests.
 

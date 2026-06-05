@@ -37,24 +37,24 @@ Human unit buttons:
 
 ## Scope
 
-- [ ] Decide whether to parse `DEPEND.TXT` at runtime or generate/static-code a
+- [x] Decide whether to parse `DEPEND.TXT` at runtime or generate/static-code a
       product table.
-- [ ] Store UI id, label, cost, icon frame, product class, product type,
+- [x] Store UI id, label, cost, icon frame, product class, product type,
       faction, and prerequisites.
-- [ ] Expose product availability from current model state.
+- [x] Expose product availability from current model state.
 - [ ] Expose product lists for sidebar modes.
 
 ## Acceptance Criteria
 
-- [ ] Human product table includes the original building and unit buttons.
+- [x] Human product table includes the original building and unit buttons.
 - [ ] Prerequisites are resolved against model-owned buildings/upgrades.
-- [ ] UI can ask for available/disabled products without duplicating rules.
-- [ ] Costs and labels match original data.
+- [x] UI can ask for available/disabled products without duplicating rules.
+- [x] Costs and labels match original data.
 
 ## Tests
 
-- [ ] Exo Center is available at initial no-prerequisite state.
-- [ ] Barracks requires Exo Center.
-- [ ] Trooper requires Barracks.
-- [ ] Reaper/Barrager availability follows Robot Factory prerequisites.
-- [ ] Product metadata test verifies icon frames and costs for key products.
+- [x] Exo Center is available at initial no-prerequisite state.
+- [x] Barracks requires Exo Center.
+- [x] Trooper requires Barracks.
+- [x] Reaper/Barrager availability follows Robot Factory prerequisites.
+- [x] Product metadata test verifies icon frames and costs for key products.

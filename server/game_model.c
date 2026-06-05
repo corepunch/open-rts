@@ -10,6 +10,18 @@
 #include <string.h>
 #include <strings.h>
 
+typedef struct {
+    int ui_id;
+    const char *label;
+    int cost;
+    int icon_frame;
+    RtsProductClass product_class;
+    int product_type;
+    int faction;
+    int prerequisites[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
+    int prerequisite_count;
+} StaticProductDefinition;
+
 struct RtsGameModel {
     const Plugin *plugin;
     GameMap map;
@@ -22,12 +34,63 @@ struct RtsGameModel {
     char error[256];
 };
 
+static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
+    { 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0 },
+    {  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 16 }, 1 },
+    {  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 16 }, 1 },
+    {  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 16 }, 1 },
+    {  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 16 }, 1 },
+    {  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 20 }, 1 },
+    {  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 18 }, 1 },
+    {  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 16 }, 1 },
+    {  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 17 }, 1 },
+    {  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,      1, 0, { 20 }, 1 },
+    {  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 19 }, 1 },
+    {  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 18 }, 1 },
+    {  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 20 }, 1 },
+    {  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 18 }, 1 },
+    {  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 19 }, 1 },
+    { 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 22 }, 1 },
+};
+
 static void model_set_error(RtsGameModel *model, const char *fmt, ...) {
     if (!model) return;
     va_list args;
     va_start(args, fmt);
     vsnprintf(model->error, sizeof(model->error), fmt, args);
     va_end(args);
+}
+
+static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
+    switch (product_type) {
+    case 16: return 1000;
+    case 17: return 1001;
+    case 18: return 1002;
+    case 19: return 1003;
+    case 20: return 1004;
+    case 21: return 1005;
+    case 22: return 1006;
+    default: return 0;
+    }
+}
+
+static bool model_has_player_product_type(const RtsGameModel *model, int product_type) {
+    uint16_t actor_id = dark_colony_actor_id_for_product_type(product_type);
+    if (!model || actor_id == 0) return false;
+    for (int i = 0; i < model->unit_count; ++i) {
+        const Unit *unit = &model->units[i];
+        if (unit->owner == 0 && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
+            return true;
+    }
+    return false;
+}
+
+static bool product_is_available(const RtsGameModel *model, const StaticProductDefinition *product) {
+    if (!product) return false;
+    for (int i = 0; i < product->prerequisite_count; ++i) {
+        if (!model_has_player_product_type(model, product->prerequisites[i])) return false;
+    }
+    return true;
 }
 
 static void load_plugin_by_id(const char *game_id) {
@@ -278,4 +341,32 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
 
 const char *rts_game_model_last_error(const RtsGameModel *model) {
     return model && model->error[0] ? model->error : "";
+}
+
+int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products) {
+    if (!model || !out || max_products <= 0) return 0;
+    if (!model->plugin || !model->plugin->id || strcmp(model->plugin->id, "dark-colony") != 0)
+        return 0;
+
+    int source_count = (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
+                             sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+    int count = source_count < max_products ? source_count : max_products;
+    for (int i = 0; i < count; ++i) {
+        const StaticProductDefinition *src = &DARK_COLONY_HUMAN_PRODUCTS[i];
+        RtsProductDefinition *dst = &out[i];
+        memset(dst, 0, sizeof(*dst));
+        dst->ui_id = src->ui_id;
+        snprintf(dst->label, sizeof(dst->label), "%s", src->label);
+        dst->cost = src->cost;
+        dst->icon_frame = src->icon_frame;
+        dst->product_class = src->product_class;
+        dst->product_type = src->product_type;
+        dst->faction = src->faction;
+        dst->prerequisite_count = src->prerequisite_count;
+        for (int j = 0; j < src->prerequisite_count && j < RTS_MODEL_MAX_PRODUCT_PREREQUISITES; ++j) {
+            dst->prerequisites[j] = src->prerequisites[j];
+        }
+        dst->available = product_is_available(model, src);
+    }
+    return count;
 }
