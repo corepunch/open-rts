@@ -388,7 +388,8 @@ static int decoration_sprite_frame(App *app, const MapDecoration *dec, const Spr
 
 static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
                                      int frame_index, uint32_t render_flags,
-                                     const char *sequence_name) {
+                                     const char *sequence_name, int anchor_frame_index,
+                                     const char *anchor_sequence_name) {
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
     float sx, sy;
@@ -400,11 +401,13 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     int sprite_h = sprite->frame_h * scale;
 
     int frame = decoration_sprite_frame(app, dec, sprite, frame_index, sequence_name);
+    int anchor_frame = decoration_sprite_frame(app, dec, sprite, anchor_frame_index,
+                                               anchor_sequence_name);
 
     SDL_Rect dst;
     if (dec->center_anchor) {
         grid_to_screen(app, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
-        SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+        SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
         float ground_offset_y = ((float)bounds.y + (float)bounds.h) * (float)scale;
         dst = (SDL_Rect){
             (int)(sx - sprite_w / 2),
@@ -445,11 +448,14 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
 
 static void render_decoration(App *app, const MapDecoration *dec, const SpriteCache *cache) {
     render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name),
-                             dec->frame_index, dec->render_flags, dec->sequence_name);
+                             dec->frame_index, dec->render_flags, dec->sequence_name,
+                             dec->frame_index, dec->sequence_name);
     render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name),
-                             dec->frame_index, dec->render_flags, dec->sequence_name);
+                             dec->frame_index, dec->render_flags, dec->sequence_name,
+                             dec->frame_index, dec->sequence_name);
     render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite2_name),
-                             dec->frame2_index, dec->render2_flags, NULL);
+                             dec->frame2_index, dec->render2_flags, NULL,
+                             dec->frame_index, dec->sequence_name);
 }
 
 void render_decorations(App *app, const GameMap *map, const SpriteCache *cache) {
