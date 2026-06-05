@@ -312,7 +312,12 @@ miner should resolve to `EDPLYSTAND*`, not the mobile `EXPL` loop. Do not use
 `SLUGFUNK*` as the normal human mining loop: those labels carry flipped
 same-sprite `expl` commands and represent a different mirrored/side path.
 `EDPLYSTAND14` is the deployed tower body/top pair; `EDPLYSTAND2` is the other
-deployed view, body frame `34` with a layer-5 `hitd` effect.
+deployed view, body frame `34` with a layer-5 `hitd` effect. The full upright
+beacon cycle continues through the same body/top frame-part pattern in
+`EXPLDIE0`: top frames `26,27,28,29,30,32` with body frame `14`. Despite the
+label name, those frames are the non-flipped deployed tower top sequence used
+after `EDPLYSTAND14`'s frame `25`; `SLUGFUNK*` is still wrong for this path
+because its command flags mirror the whole body/top pair.
 
 The `dc16.exe` strings around `0x82434..0x8250c` (`Frame parts`,
 `BManimation`, `%s%s`, `%s%d`) and the `juicel.c` / bad-juice-file assertions

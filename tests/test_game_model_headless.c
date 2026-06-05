@@ -1,5 +1,6 @@
 #include "engine_config.h"
 #include "game_model.h"
+#include "../plugins/DarkColony/info.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -441,6 +442,8 @@ static int assert_human02(RtsGameModel *model) {
 
     bool saw_deploy_body_frame = false;
     bool saw_unflipped_mining_body = false;
+    bool saw_mining_work_states[16] = {0};
+    int mining_work_state_count = 0;
     for (int i = 0; i < 30 * 45; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while mining");
@@ -462,10 +465,18 @@ static int assert_human02(RtsGameModel *model) {
                 if ((snapshot.units[exploiter].render_flags & RTS_FRAME_FLIP_X) != 0) {
                     return fail("Human02 Exploiter deployed mining body is flipped");
                 }
+                int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
+                if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
+                    snapshot.units[exploiter].state_id <= S_DC_EXPL_WORK7 &&
+                    work_state >= 0 && work_state < (int)(sizeof(saw_mining_work_states) / sizeof(saw_mining_work_states[0])) &&
+                    !saw_mining_work_states[work_state]) {
+                    saw_mining_work_states[work_state] = true;
+                    mining_work_state_count++;
+                }
                 saw_unflipped_mining_body = true;
             }
         }
-        if (saw_deploy_body_frame && saw_unflipped_mining_body &&
+        if (saw_deploy_body_frame && saw_unflipped_mining_body && mining_work_state_count >= 4 &&
             snapshot.player_resources[0] > initial_resources) break;
     }
     if (!saw_deploy_body_frame) {
@@ -476,6 +487,9 @@ static int assert_human02(RtsGameModel *model) {
     }
     if (!saw_unflipped_mining_body) {
         return fail("Human02 Exploiter mining uses the deployed tower body without FIN mirroring");
+    }
+    if (mining_work_state_count < 4) {
+        return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 || !near_cell_center(snapshot.units[exploiter].gx, 69) ||

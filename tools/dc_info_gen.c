@@ -880,7 +880,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.scgm_death = fin_state_count_for_sequence(&scgm_fin, "SCGMDIE", false);
     counts.expl_run = fin_state_count_for_sequence(&expl_fin, "EXPLMOVE", false);
     counts.expl_deploy = fin_state_count_for_layered_stem_sequence(&expl_fin, "EXPLDEPLOY", false);
-    counts.expl_work = fin_state_count_for_layered_stem_sequence(&expl_fin, "EDPLYSTAND", false);
+    counts.expl_work = 1 + fin_state_count_for_layered_stem_sequence(&expl_fin, "EXPLDIE", false);
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE", false);
 
     fin_free(&reap_fin);
@@ -1379,6 +1379,22 @@ static void write_fin_layered_stem_sequence(FILE *out, const char *spr, const Fi
     }
 }
 
+static void write_fin_layered_stem_sequence_numbered(FILE *out, const char *spr, const FinAnim *fin,
+                                                     const char *label_prefix, const char *state_prefix,
+                                                     const char *kind, int first_number, int count,
+                                                     int fallback_frame, int tics, int group,
+                                                     const char *first_action,
+                                                     const char *exit_state, bool mirror_left) {
+    char next[64];
+    for (int i = 0; i < count; ++i) {
+        if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, first_number + i + 1);
+        else snprintf(next, sizeof(next), "%s", exit_state);
+        f8_fin_layered_stem_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
+                                  i == 0 ? first_action : "A_None", next, group,
+                                  mirror_left);
+    }
+}
+
 static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
                              const char *label_prefix, int last_step, int fallback_frame,
                              bool mirror_left) {
@@ -1642,8 +1658,11 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                        counts->expl_run, 0, 3, 2, "A_None", "S_DC_EXPL_RUN1", false);
     write_fin_layered_stem_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDEPLOY", "EXPL", "DEPLOY",
                                     counts->expl_deploy, 0, 3, 5, "A_None", "S_DC_EXPL_WORK1", false);
-    write_fin_layered_stem_sequence(out, sprites[expl].symbol, &expl_fin, "EDPLYSTAND", "EXPL", "WORK",
-                                    counts->expl_work, 0, 8, 5, "A_None", "S_DC_EXPL_WORK1", false);
+    write_fin_layered_stem_sequence_numbered(out, sprites[expl].symbol, &expl_fin, "EDPLYSTAND", "EXPL",
+                                             "WORK", 1, 1, 0, 8, 5, "A_None", "S_DC_EXPL_WORK2", false);
+    write_fin_layered_stem_sequence_numbered(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL",
+                                             "WORK", 2, counts->expl_work - 1, 0, 8, 5,
+                                             "A_None", "S_DC_EXPL_WORK1", false);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
                        counts->expl_death, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
     write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", counts->expl_death - 1, 0, false);
