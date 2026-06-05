@@ -53,6 +53,8 @@ typedef struct {
     uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
     int offset_x[RTS_MAX_STATE_FACINGS];
     int offset_y[RTS_MAX_STATE_FACINGS];
+    int remap[RTS_MAX_STATE_FACINGS];
+    int intensity[RTS_MAX_STATE_FACINGS];
     int overlay_sprite;
     int overlay_frame;
     uint32_t overlay_flags;
@@ -62,6 +64,8 @@ typedef struct {
     uint32_t overlay_facing_flags[RTS_MAX_STATE_FACINGS];
     int overlay_offset_x[RTS_MAX_STATE_FACINGS];
     int overlay_offset_y[RTS_MAX_STATE_FACINGS];
+    int overlay_remap[RTS_MAX_STATE_FACINGS];
+    int overlay_intensity[RTS_MAX_STATE_FACINGS];
 } State;
 
 typedef struct {
@@ -119,6 +123,8 @@ typedef struct Unit {
     int sprite_id;
     int frame;
     uint32_t render_flags;
+    int render_remap;
+    int render_intensity;
     uint8_t owner;
     uint32_t traits;
     int hp;
@@ -164,6 +170,8 @@ typedef struct {
     int sprite_id;
     int frame;
     uint32_t render_flags;
+    int render_remap;
+    int render_intensity;
     int screen_offset_x;
     int screen_offset_y;
     int age_ms;

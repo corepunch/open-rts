@@ -37,11 +37,14 @@ static int state_facing_slot(const State *state, int facing_code) {
 
 static void resolve_state_frame(const State *state, int facing_code,
                                     int *frame_out, uint32_t *flags_out,
-                                    int *offset_x_out, int *offset_y_out) {
+                                    int *offset_x_out, int *offset_y_out,
+                                    int *remap_out, int *intensity_out) {
     int frame = state ? state->frame : 0;
     uint32_t flags = state ? state->flags : 0;
     int offset_x = 0;
     int offset_y = 0;
+    int remap = 0;
+    int intensity = 16;
     if (state && state->facings > 0) {
         int best = state_facing_slot(state, facing_code);
         if (best < 0) best = 0;
@@ -49,11 +52,18 @@ static void resolve_state_frame(const State *state, int facing_code,
         flags = state->facing_flags[best];
         offset_x = state->offset_x[best];
         offset_y = state->offset_y[best];
+        remap = state->remap[best];
+        intensity = state->intensity[best];
+    } else if (state) {
+        remap = state->remap[0];
+        intensity = state->intensity[0] ? state->intensity[0] : 16;
     }
     if (frame_out) *frame_out = frame;
     if (flags_out) *flags_out = flags;
     if (offset_x_out) *offset_x_out = offset_x;
     if (offset_y_out) *offset_y_out = offset_y;
+    if (remap_out) *remap_out = remap;
+    if (intensity_out) *intensity_out = intensity;
 }
 
 static void apply_state_visuals(const GameInfo *game_info, Unit *unit,
@@ -61,7 +71,7 @@ static void apply_state_visuals(const GameInfo *game_info, Unit *unit,
     if (!game_info || !unit || !state) return;
     unit->sprite_id = state->sprite;
     resolve_state_frame(state, unit->facing_code, &unit->frame, &unit->render_flags,
-                            NULL, NULL);
+                            NULL, NULL, &unit->render_remap, &unit->render_intensity);
     if (unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
         game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
         snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s",
@@ -74,7 +84,8 @@ static void apply_effect_state_visuals(const GameInfo *game_info, VisualEffect *
     if (!game_info || !effect || !state) return;
     effect->sprite_id = state->sprite;
     resolve_state_frame(state, effect->facing_code, &effect->frame, &effect->render_flags,
-                            &effect->screen_offset_x, &effect->screen_offset_y);
+                            &effect->screen_offset_x, &effect->screen_offset_y,
+                            &effect->render_remap, &effect->render_intensity);
     if (effect->sprite_id >= 0 && effect->sprite_id < game_info->sprite_count &&
         game_info->sprnames && game_info->sprnames[effect->sprite_id]) {
         snprintf(effect->sprite_name, sizeof(effect->sprite_name), "%s",
@@ -146,6 +157,7 @@ void apply_mobjinfo_defaults(const GameInfo *game_info, Unit *unit) {
         unit->type_id <= 0 || unit->type_id >= game_info->mobj_type_count) {
         return;
     }
+    if (unit->render_intensity == 0) unit->render_intensity = 16;
     const MobjInfo *info = &game_info->mobjinfo[unit->type_id];
     if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
@@ -288,6 +300,7 @@ static bool spawn_visual_effect(VisualEffect *effects, int max_effects,
         effect->gx = gx;
         effect->gy = gy;
         effect->facing_code = facing_code;
+        effect->render_intensity = 16;
         effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
         effect->frame_ms = frame_ms > 0 ? frame_ms : 90;
         effect->decoration_frame_index = decoration_frame_index;
@@ -320,6 +333,7 @@ bool spawn_state_effect(StateContext *ctx, int state_id, float gx, float gy, int
         effect->gx = gx;
         effect->gy = gy;
         effect->facing_code = facing_code;
+        effect->render_intensity = 16;
         bool ok = set_effect_state(ctx->game_info, effect, state_id);
         debug_effects_log("spawn state effect slot=%d state=%d ok=%d sprite=%s frame=%d",
                           i, state_id, ok ? 1 : 0, effect->sprite_name, effect->frame);

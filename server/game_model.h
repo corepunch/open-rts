@@ -76,6 +76,8 @@ typedef struct {
     int frame;
     int state_id;
     uint32_t render_flags;
+    int render_remap;
+    int render_intensity;
     bool selected;
     bool has_move_order;
     int harvest_target;
@@ -89,6 +91,8 @@ typedef struct {
     float gy;
     int frame;
     uint32_t render_flags;
+    int render_remap;
+    int render_intensity;
     char sprite_name[32];
     char sequence_name[16];
 } RtsRenderEffect;

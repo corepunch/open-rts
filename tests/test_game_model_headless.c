@@ -51,6 +51,28 @@ static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *sna
     return false;
 }
 
+static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snapshot) {
+    if (!snapshot || snapshot->unit_count <= 0)
+        return fail("snapshot has units with render command metadata");
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        const RtsRenderUnit *unit = &snapshot->units[i];
+        if (unit->sprite_name[0] == '\0') continue;
+        if (unit->render_remap != 0)
+            return fail("unit render remap is exposed and neutral by default");
+        if (unit->render_intensity != 16)
+            return fail("unit render intensity is exposed and defaults to FIN neutral");
+    }
+    for (int i = 0; i < snapshot->effect_count; ++i) {
+        const RtsRenderEffect *effect = &snapshot->effects[i];
+        if (!effect->active || effect->sprite_name[0] == '\0') continue;
+        if (effect->render_remap != 0)
+            return fail("effect render remap is exposed and neutral by default");
+        if (effect->render_intensity != 16)
+            return fail("effect render intensity is exposed and defaults to FIN neutral");
+    }
+    return 0;
+}
+
 static int snapshot_count_units_with_sprite(const RtsRenderSnapshot *snapshot,
                                             const char *sprite_name) {
     if (!snapshot || !sprite_name) return 0;
@@ -199,6 +221,8 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot.units[0].sprite_name[0] == '\0') {
         return fail("Human01 snapshot unit has render sprite reference");
     }
+    int metadata_result = assert_snapshot_render_command_metadata(&snapshot);
+    if (metadata_result != 0) return metadata_result;
     if (!snapshot_has_blinking_beacon_decoration(&snapshot)) {
         return fail("Human01 beacon is rendered as stable base plus blinking sprite2 glow");
     }
@@ -300,6 +324,8 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.unit_count <= 0) {
         return fail("Human02 loads expected starting units");
     }
+    int metadata_result = assert_snapshot_render_command_metadata(&snapshot);
+    if (metadata_result != 0) return metadata_result;
     if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/GRAY.SPR") != 0) {
         return fail("Human02 hidden Grey placeholders are not loaded as starting units");
     }

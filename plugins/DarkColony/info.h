@@ -229,7 +229,46 @@ typedef enum {
     S_DC_REAP_DIE9,
     S_DC_REAP_DIE10,
     S_DC_REAP_DIE11,
+    S_DC_REAP_DIE12,
+    S_DC_REAP_DIE13,
+    S_DC_REAP_DIE14,
+    S_DC_REAP_DIE15,
+    S_DC_REAP_DIE16,
+    S_DC_REAP_DIE17,
     S_DC_REAP_CORPSE,
+    S_DC_REAP_DIEA14_FX1,
+    S_DC_REAP_DIEA14_FX2,
+    S_DC_REAP_DIEA14_FX3,
+    S_DC_REAP_DIEA14_FX4,
+    S_DC_REAP_DIEA14_FX5,
+    S_DC_REAP_DIEA14_FX6,
+    S_DC_REAP_DIEA14_FX7,
+    S_DC_REAP_DIEA14_FX8,
+    S_DC_REAP_DIEA14_FX9,
+    S_DC_REAP_DIEA14_FX10,
+    S_DC_REAP_DIEA6_FX1,
+    S_DC_REAP_DIEA6_FX2,
+    S_DC_REAP_DIEA6_FX3,
+    S_DC_REAP_DIEA6_FX4,
+    S_DC_REAP_DIEA6_FX5,
+    S_DC_REAP_DIEA6_FX6,
+    S_DC_REAP_DIEA6_FX7,
+    S_DC_REAP_DIEA6_FX8,
+    S_DC_REAP_DIEA6_FX9,
+    S_DC_REAP_DIEA6_FX10,
+    S_DC_REAP_DIEA6_FX11,
+    S_DC_REAP_DIEA6_FX12,
+    S_DC_REAP_DIEA6_FX13,
+    S_DC_REAP_DIEA6_FX14,
+    S_DC_REAP_DIEA6_FX15,
+    S_DC_REAP_DIEA6_FX16,
+    S_DC_REAP_DIEA6_FX17,
+    S_DC_REAP_DIEA6_FX18,
+    S_DC_REAP_DIEA6_FX19,
+    S_DC_REAP_DIEA6_FX20,
+    S_DC_REAP_DIEA6_FX21,
+    S_DC_REAP_DIEA6_FX22,
+    S_DC_REAP_DIEA6_FX23,
     S_DC_BARR_STND,
     S_DC_BARR_RUN1,
     S_DC_BARR_RUN2,
@@ -337,7 +376,7 @@ typedef enum {
     S_DC_EXPL_DIE5,
     S_DC_EXPL_DIE6,
     S_DC_EXPL_CORPSE,
-    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE,
+    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,
     NUMSTATES
 } statenum_t;
 
@@ -351,6 +390,7 @@ extern const GameInfo dark_colony_game_info;
 void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);
 void A_DC_Attack(StateContext *ctx, Unit *unit);
 void A_DC_Fall(StateContext *ctx, Unit *unit);
+void A_DC_ReaperDeath(StateContext *ctx, Unit *unit);
 void A_DC_Corpse(StateContext *ctx, Unit *unit);
 
 #endif

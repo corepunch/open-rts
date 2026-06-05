@@ -49,6 +49,31 @@ void A_DC_Fall(StateContext *ctx, Unit *unit) {
     unit->death_started = true;
 }
 
+static int reaper_death_effect_state_for_facing(int facing_code) {
+    int code = facing_code & 15;
+    for (int distance = 0; distance <= 8; ++distance) {
+        for (int sign = -1; sign <= 1; sign += 2) {
+            if (distance == 0 && sign > 0) continue;
+            int candidate = (code + sign * distance) & 15;
+            int suffix = (16 - candidate) & 15;
+            if (suffix == 14) return S_DC_REAP_DIEA14_FX1;
+            if (suffix == 6) return S_DC_REAP_DIEA6_FX1;
+            if (suffix == 10 || suffix == 2) return S_NULL;
+        }
+    }
+    return S_NULL;
+}
+
+void A_DC_ReaperDeath(StateContext *ctx, Unit *unit) {
+    if (ctx && unit) {
+        int fx_state = reaper_death_effect_state_for_facing(unit->facing_code);
+        if (fx_state != S_NULL) {
+            spawn_state_effect(ctx, fx_state, unit->gx, unit->gy, unit->facing_code);
+        }
+    }
+    A_DC_Fall(ctx, unit);
+}
+
 void A_DC_Corpse(StateContext *ctx, Unit *unit) {
     if (!unit) return;
     unit_add_corpse_decoration(ctx, unit);
@@ -102,9 +127,17 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_REAPER,
         .name = "Mech",
         .sprite_name = "SPRITES/REAP.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
         .speed = 6.0f,
         .max_hp = 800,
+        .attack_range = 4.0f,
+        .attack_damage = 100,
+        .attack_cooldown_ms = 500,
+        .attack_anim_ms = 210,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
+        .muzzle_flash_ms = 120,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_THUNDERBOLT,
@@ -209,6 +242,7 @@ static void dark_colony_apply_actor_type_defaults(Unit *unit, const ActorType *t
     if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
     if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
+    if (unit->render_intensity == 0) unit->render_intensity = 16;
     if (unit->attack_target <= 0) unit->attack_target = -1;
     if (unit->harvest_target == 0) unit->harvest_target = -1;
     if (unit->sprite_name[0] == '\0' && type->sprite_name)
@@ -374,6 +408,7 @@ static int dark_colony_spawn_dropship_effect(VisualEffect *effects, int max_effe
         effect->gy = gy;
         effect->duration_ms = duration_ms;
         effect->frame_ms = duration_ms + 1;
+        effect->render_intensity = 16;
         effect->screen_offset_y = -75;
         snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/DROP.SPR");
         return i;

@@ -188,6 +188,7 @@ static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
     if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
+    if (unit->render_intensity == 0) unit->render_intensity = 16;
     if (unit->attack_target <= 0) unit->attack_target = -1;
     if (unit->harvest_target == 0) unit->harvest_target = -1;
     if (unit->sprite_name[0] == '\0' && type->sprite_name) {
@@ -364,6 +365,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->frame = src->frame;
         dst->state_id = src->state_id;
         dst->render_flags = src->render_flags;
+        dst->render_remap = src->render_remap;
+        dst->render_intensity = src->render_intensity;
         dst->selected = src->selected;
         dst->has_move_order = src->move_order_id != 0;
         dst->harvest_target = src->harvest_target;
@@ -397,6 +400,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->gy = src->gy;
         dst->frame = src->frame;
         dst->render_flags = src->render_flags;
+        dst->render_remap = src->render_remap;
+        dst->render_intensity = src->render_intensity;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }

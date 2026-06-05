@@ -583,6 +583,7 @@ static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
     if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
+    if (unit->render_intensity == 0) unit->render_intensity = 16;
     if (unit->attack_target <= 0) unit->attack_target = -1;
     if (unit->harvest_target == 0) unit->harvest_target = -1;
     if (unit->sprite_name[0] == '\0' && type->sprite_name) {
