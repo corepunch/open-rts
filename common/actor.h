@@ -53,6 +53,15 @@ typedef struct {
     uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
     int offset_x[RTS_MAX_STATE_FACINGS];
     int offset_y[RTS_MAX_STATE_FACINGS];
+    int overlay_sprite;
+    int overlay_frame;
+    uint32_t overlay_flags;
+    int overlay_facings;
+    int overlay_direction_codes[RTS_MAX_STATE_FACINGS];
+    int overlay_facing_frames[RTS_MAX_STATE_FACINGS];
+    uint32_t overlay_facing_flags[RTS_MAX_STATE_FACINGS];
+    int overlay_offset_x[RTS_MAX_STATE_FACINGS];
+    int overlay_offset_y[RTS_MAX_STATE_FACINGS];
 } State;
 
 typedef struct {

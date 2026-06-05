@@ -287,6 +287,16 @@ and render flags for a bright additive yellow pass. `mobjinfo[].muzzleflash`
 points at the unit's muzzle flash state. `GLIT` and layer-5 unit-sprite commands
 remain separate overlays for later weapon polish, not the primary muzzle flash.
 
+`EXPL.FIN` uses the same command table layering for the Exploiter's Petra-7
+vent attach animation. `EXPLDEPLOY14` alternates `expl` layer-1 body frame `14`
+with `expl` layer-0 top/turret frames `15..24`; `EDPLYSTAND14` uses body frame
+`14` plus top/turret frame `25`. These layer-0 same-sprite commands are not
+replacement body frames. The generator pairs them with the nearest body command
+for the same state and stores the offset as `overlay.x - body.x`,
+`overlay.y - body.y`; the renderer draws the overlay on top of the unit body.
+Layer-5 `hit*` commands in the opposite-facing attach labels are effect sprites,
+not the Exploiter's main body or top piece.
+
 ### Historical Rotation Bug
 
 The old sequence path treated Dark Colony unit frames as:

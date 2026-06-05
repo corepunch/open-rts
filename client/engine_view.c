@@ -599,6 +599,30 @@ static int unit_frame_for_view(const SpriteSheet *sprite, const Unit *unit,
     return frame;
 }
 
+static int direction_slot_for_view(int facings, const int *direction_codes, int facing_code) {
+    if (!direction_codes || facings <= 0) return -1;
+    int wrap = 16;
+    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        if (direction_codes[i] > 7 || facing_code > 7) {
+            wrap = 16;
+            break;
+        }
+        wrap = 8;
+    }
+    int best = 0;
+    int best_delta = 1000;
+    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        int code = direction_codes[i];
+        int delta = abs(code - facing_code);
+        if (delta > wrap / 2) delta = wrap - delta;
+        if (delta < best_delta) {
+            best = i;
+            best_delta = delta;
+        }
+    }
+    return best;
+}
+
 static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
                                       const SpriteSheet *fallback_sprite,
                                       const SpriteCache *cache,
@@ -701,6 +725,44 @@ static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float
     }
 }
 
+static void render_unit_state_overlay(App *app, const Unit *u, const SpriteCache *cache,
+                                      const GameInfo *game_info, const SDL_Rect *body_dst,
+                                      int scale) {
+    if (!app || !u || !cache || !game_info || !body_dst ||
+        u->state_id < 0 || u->state_id >= game_info->state_count ||
+        !game_info->states || !game_info->sprnames) {
+        return;
+    }
+    const State *state = &game_info->states[u->state_id];
+    if (state->overlay_facings <= 0 || state->overlay_sprite < 0 ||
+        state->overlay_sprite >= game_info->sprite_count) {
+        return;
+    }
+    int slot = direction_slot_for_view(state->overlay_facings,
+                                       state->overlay_direction_codes,
+                                       u->facing_code);
+    if (slot < 0) slot = 0;
+    if (slot >= RTS_MAX_STATE_FACINGS) return;
+    int frame = state->overlay_facing_frames[slot];
+    if (frame < 0) return;
+
+    const char *sprite_name = game_info->sprnames[state->overlay_sprite];
+    const SpriteSheet *overlay = sprite_cache_lookup(cache, sprite_name);
+    if (!overlay || !overlay->texture || overlay->frame_count <= 0) return;
+    if (frame >= overlay->frame_count) frame = 0;
+
+    SDL_Rect dst = {
+        body_dst->x + state->overlay_offset_x[slot] * scale,
+        body_dst->y + state->overlay_offset_y[slot] * scale,
+        overlay->frame_w * scale,
+        overlay->frame_h * scale,
+    };
+    uint32_t flags = state->overlay_facing_flags[slot];
+    SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RenderCopyEx(app->renderer, overlay->texture, &overlay->frames[frame],
+                     &dst, 0.0, NULL, flip);
+}
+
 static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallback_sprite,
                                const SpriteCache *cache, const GameInfo *game_info,
                                uint32_t ticks) {
@@ -742,6 +804,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    render_unit_state_overlay(app, u, cache, game_info, &dst, scale);
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
         int bar_h = app_scale(app) < 2 ? 2 : 3;

@@ -353,7 +353,7 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 harvest command targets active Petra-7 vent");
     }
 
-    bool saw_deploy_frame = false;
+    bool saw_deploy_body_frame = false;
     for (int i = 0; i < 30 * 45; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while mining");
@@ -363,14 +363,19 @@ static int assert_human02(RtsGameModel *model) {
         }
         exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
         if (exploiter >= 0 &&
-            snapshot.units[exploiter].harvest_target >= 0 &&
-            snapshot.units[exploiter].frame >= 14) {
-            saw_deploy_frame = true;
+            snapshot.units[exploiter].harvest_target >= 0) {
+            int frame = snapshot.units[exploiter].frame;
+            if (frame >= 15 && frame <= 25) {
+                return fail("Human02 Exploiter turret frames do not replace body frames");
+            }
+            if (frame == 14 || frame == 34) {
+                saw_deploy_body_frame = true;
+            }
         }
-        if (saw_deploy_frame && snapshot.player_resources[0] > initial_resources) break;
+        if (saw_deploy_body_frame && snapshot.player_resources[0] > initial_resources) break;
     }
-    if (!saw_deploy_frame) {
-        return fail("Human02 Exploiter plays deploy/harvest animation at vent");
+    if (!saw_deploy_body_frame) {
+        return fail("Human02 Exploiter keeps body frame while deploy/harvest overlay animates");
     }
     if (snapshot.player_resources[0] <= initial_resources) {
         return fail("Human02 Exploiter mining adds player resources");
