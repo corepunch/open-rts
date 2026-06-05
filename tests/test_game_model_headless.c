@@ -440,8 +440,7 @@ static int assert_human02(RtsGameModel *model) {
     }
 
     bool saw_deploy_body_frame = false;
-    bool saw_mining_work_cycle = false;
-    int first_mining_work_state = -1;
+    bool saw_unflipped_mining_body = false;
     for (int i = 0; i < 30 * 45; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while mining");
@@ -460,15 +459,13 @@ static int assert_human02(RtsGameModel *model) {
                 saw_deploy_body_frame = true;
             }
             if (snapshot.player_resources[0] > initial_resources) {
-                int state_id = snapshot.units[exploiter].state_id;
-                if (first_mining_work_state < 0) {
-                    first_mining_work_state = state_id;
-                } else if (state_id != first_mining_work_state) {
-                    saw_mining_work_cycle = true;
+                if ((snapshot.units[exploiter].render_flags & RTS_FRAME_FLIP_X) != 0) {
+                    return fail("Human02 Exploiter deployed mining body is flipped");
                 }
+                saw_unflipped_mining_body = true;
             }
         }
-        if (saw_deploy_body_frame && saw_mining_work_cycle &&
+        if (saw_deploy_body_frame && saw_unflipped_mining_body &&
             snapshot.player_resources[0] > initial_resources) break;
     }
     if (!saw_deploy_body_frame) {
@@ -477,8 +474,8 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.player_resources[0] <= initial_resources) {
         return fail("Human02 Exploiter mining adds player resources");
     }
-    if (!saw_mining_work_cycle) {
-        return fail("Human02 Exploiter mining uses an animated work cycle");
+    if (!saw_unflipped_mining_body) {
+        return fail("Human02 Exploiter mining uses the deployed tower body without FIN mirroring");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 || !near_cell_center(snapshot.units[exploiter].gx, 69) ||
