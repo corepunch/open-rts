@@ -351,24 +351,35 @@ loader): `MOVE`, `STAND`, `DIEA`, `DIEB`, `DIEC`, `DEPLOY`, `FUNK`,
 `BUILDSTAND`, `BUILD`, `SCRCH`, `BURN`, `BLOOD%c`. The `BLOOD%c` entry uses a
 `%c` suffix, not a number, suggesting blood effects have a letter variant code.
 
-**16-direction walk animation: what the FIN data tells us.** All 16-direction
-units (REAP, BARR, SARG, SCGM, SLUG, PSYC, and others) share the same FIN
-pattern:
+**16-direction walk animation: what the FIN data tells us.** Reaper's apparent
+"missing" walk frames are not hidden in `REAP.SPR` and are not hardcoded in the
+EXE. They are encoded in `REAP.FIN` as repeated frame-part commands with the
+FIN flip flag set and a different draw x offset. Example: `REAPMOVE0` contains
+eight body commands:
 
-- Even-numbered angle labels (`REAPMOVE0`, `REAPMOVE2` … `REAPMOVE14`) contain
-  full 8-frame walk cycles.
-- Odd-numbered angle labels (`REAPMOVE1`, `REAPMOVE3` … `REAPMOVE15`) contain
-  exactly **1 frame each** — a distinct intermediate-angle body pose, not a
-  reused stand frame.
+```
+9, 17, 25, 33, 9 flipped, 17 flipped, 25 flipped, 33 flipped
+```
 
-This pattern is consistent across every 16-direction unit in the game; it is
-not a data anomaly specific to the Reaper. The engine queries all 16 angle
-labels by number. At odd angles the unit displays the single intermediate pose
-for all 8 walk states, producing a sliding/gliding appearance. Whether the
-engine has additional fallback logic (e.g. snapping to the nearest even angle
-when the queried label has only 1 frame) cannot be determined without
-disassembling the DOS segmented code; the present FIN data faithfully encodes
-the intended behaviour.
+The flipped half uses x offsets around `-24` while the unflipped half uses
+offsets around `-157`. So the original animation system is not "just raw SPR
+frame index"; it is `SPR cell + FIN flags + FIN draw offsets`. Several other
+16-direction units use the same idea (`PSYC` has five frames plus five flipped
+frames per even direction; `BARR` mixes short repeated cycles with flip flags).
+`SARG` is a counterexample with eight distinct body frame commands per even
+direction and no flip flags in the walk rows.
+
+Even-numbered angle labels (`REAPMOVE0`, `REAPMOVE2` … `REAPMOVE14`) hold the
+animated walk cycles. Odd-numbered angle labels (`REAPMOVE1`, `REAPMOVE3` …
+`REAPMOVE15`) are still single intermediate-angle body poses. The EXE strings
+confirm the engine builds animation names with `%s%d` / `%s%s%d` and asserts
+when any animation angle is NULL, so these labels are expected to exist and are
+queried by angle number.
+
+Renderer implication: flipped FIN frame parts must honor the FIN command offset
+as well as the flip flag. Mirroring the already-normalized SPR canvas around its
+center is not equivalent to the original renderer unless the FIN x/y draw
+offsets are also applied or converted into the engine's unit anchor space.
 
 By contrast, 8-direction units (TRSC, GRAY, SCYT, XENO) only have even-numbered
 MOVE labels in their FIN files; the engine presumably only queries even angles
