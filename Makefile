@@ -36,6 +36,7 @@ MAIN_SOURCES := \
 	client/main.c \
 	client/engine_view.c \
 	client/renderer_sdl.c \
+	common/engine_base.c \
 	common/engine_core.c \
 	common/engine_path.c \
 	common/engine_units.c \
@@ -71,7 +72,7 @@ DC_INFO_GEN_DEPS   := $(DC_INFO_GEN_OBJECT:.o=.d)
 
 MODEL_SOURCES := \
 	server/game_model.c \
-	common/engine_core.c \
+	common/engine_base.c \
 	common/engine_path.c \
 	common/engine_units.c \
 	common/plugin.c
@@ -106,10 +107,11 @@ $(DC_INFO_GEN_TARGET): $(DC_INFO_GEN_OBJECT)
 	$(CC) $(DC_INFO_GEN_OBJECT) -o $@
 
 $(MODEL_LIB_TARGET): $(MODEL_OBJECTS) | $(LIBS_DIR)
+	rm -f $@
 	$(AR) rcs $@ $(MODEL_OBJECTS)
 
 $(GAME_MODEL_TEST_TARGET): $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) $(DC_LIB) | $(BIN_DIR)
-	$(CC) $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) -o $@ $(SDL_LIBS) -lm -ldl
+	$(CC) $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) -o $@ -lm -ldl
 
 dark-colony-info: $(DC_INFO_GEN_TARGET)
 	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) plugins/DarkColony/info.h plugins/DarkColony/info.c

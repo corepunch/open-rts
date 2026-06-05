@@ -47,11 +47,11 @@ rules, while tests can load and drive the same library without a window.
 
 - [x] There is a build target for the game/model library.
 - [ ] `build/bin/open-rts` still runs through the client path.
-- [ ] A headless executable or test binary can load Dark Colony through the
+- [x] A headless executable or test binary can load Dark Colony through the
       model/server API.
-- [ ] No SDL window/renderer is required to load a Dark Colony mission and
+- [x] No SDL window/renderer is required to load a Dark Colony mission and
       advance simulation ticks.
-- [ ] The game/model library has no dependency on SDL renderer, SDL window, or
+- [x] The game/model library has no dependency on SDL renderer, SDL window, or
       texture objects.
 - [ ] The client/renderer sends commands into the game/model library instead of
       directly mutating gameplay state.
@@ -66,6 +66,6 @@ rules, while tests can load and drive the same library without a window.
 - [x] Add a command-in/render-snapshot-out test that selects units, issues a
       move command, ticks simulation, and verifies both state and snapshot
       contents without a window.
-- [ ] Add a test that verifies no renderer/window symbols are required by the
+- [x] Add a test that verifies no renderer/window symbols are required by the
       simulation-only path.
 - [ ] Existing dummy-video smoke checks continue to pass.
