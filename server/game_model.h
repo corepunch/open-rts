@@ -12,8 +12,11 @@
 typedef struct RtsGameModel RtsGameModel;
 
 typedef struct {
+    /* Plugin id, for example "dark-colony". Defaults to Dark Colony when NULL. */
     const char *game_id;
+    /* Root data directory for the selected game. Defaults to the plugin root. */
     const char *data_root;
+    /* Relative-to-data-root or absolute mission/map path. Defaults to the plugin map. */
     const char *map_path;
 } RtsGameModelConfig;
 
@@ -92,14 +95,17 @@ typedef struct {
 } RtsRenderSnapshot;
 
 typedef struct {
+    /* Original game UI/button id. For Dark Colony this comes from INTRFACE/MAINE. */
     int ui_id;
     char label[40];
     int cost;
     int icon_frame;
     RtsProductClass product_class;
+    /* Original game product row/type, not an internal actor id. */
     int product_type;
     int faction;
     int prerequisite_count;
+    /* Original product row/types required before this product is enabled. */
     int prerequisites[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
     bool available;
 } RtsProductDefinition;
@@ -107,10 +113,15 @@ typedef struct {
 RtsGameModel *rts_game_model_create(void);
 void rts_game_model_destroy(RtsGameModel *model);
 
+/* Loads or reloads a game/model instance. This does not create a window or renderer. */
 bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config);
+/* Advances deterministic model time by dt seconds. */
 bool rts_game_model_tick(RtsGameModel *model, float dt);
+/* Applies a player/game command. Renderers should translate input into these commands. */
 bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command);
+/* Produces presentation-neutral state for a renderer or test to inspect. */
 bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out);
+/* Returns product definitions with availability computed from current model state. */
 int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products);
 
 const char *rts_game_model_last_error(const RtsGameModel *model);

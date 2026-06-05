@@ -57,7 +57,7 @@ rules, while tests can load and drive the same library without a window.
       directly mutating gameplay state.
 - [ ] The client/renderer draws from render snapshots instead of reading
       renderer-owned gameplay internals.
-- [ ] The API is documented enough for new tests and client integration.
+- [x] The API is documented enough for new tests and client integration.
 
 ## Tests
 
