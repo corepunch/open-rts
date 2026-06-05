@@ -29,6 +29,7 @@ typedef enum {
     RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS,
     RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
     RTS_GAME_COMMAND_MOVE_SELECTED,
+    RTS_GAME_COMMAND_HARVEST_SELECTED,
 } RtsGameCommandKind;
 
 typedef enum {
@@ -55,6 +56,10 @@ typedef struct {
             float gx;
             float gy;
         } move_selected;
+        struct {
+            float gx;
+            float gy;
+        } harvest_selected;
     } data;
 } RtsGameCommand;
 
@@ -69,9 +74,11 @@ typedef struct {
     int hp;
     int max_hp;
     int frame;
+    int state_id;
     uint32_t render_flags;
     bool selected;
     bool has_move_order;
+    int harvest_target;
     char sprite_name[32];
     char shadow_name[32];
 } RtsRenderUnit;

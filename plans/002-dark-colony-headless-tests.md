@@ -23,7 +23,7 @@ existing features and future construction/production work.
       and blinking sprite2 glow.
 - [x] Human02 loads with expected starting units, decorations, and vents.
 - [x] Petra-7 vents load with active/inactive state and remaining amount.
-- [ ] Exploiter harvest/deploy path can add resources over fixed ticks.
+- [x] Exploiter harvest/deploy path can add resources over fixed ticks.
 - [x] Basic movement order updates selected unit path/goals deterministically.
 
 ## Future Feature Coverage

@@ -325,6 +325,10 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         issue_move_order(&model->map, model->units, model->unit_count, goal);
         return true;
     }
+    case RTS_GAME_COMMAND_HARVEST_SELECTED:
+        return issue_harvest_order_at(&model->map, model->units, model->unit_count,
+                                      command->data.harvest_selected.gx,
+                                      command->data.harvest_selected.gy);
     default:
         return false;
     }
@@ -358,9 +362,11 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->hp = src->hp;
         dst->max_hp = src->max_hp;
         dst->frame = src->frame;
+        dst->state_id = src->state_id;
         dst->render_flags = src->render_flags;
         dst->selected = src->selected;
         dst->has_move_order = src->move_order_id != 0;
+        dst->harvest_target = src->harvest_target;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
     }

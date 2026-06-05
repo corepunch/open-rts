@@ -20,6 +20,14 @@ static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {
     return -1;
 }
 
+static int find_unit_with_sprite(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
+    if (!snapshot || !sprite_name) return -1;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (strcmp(snapshot->units[i].sprite_name, sprite_name) == 0) return i;
+    }
+    return -1;
+}
+
 static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->effect_count; ++i) {
@@ -270,6 +278,66 @@ static int assert_human02(RtsGameModel *model) {
     }
     if (!snapshot_has_animated_decoration(&snapshot, "SPRITES/VENT.SPR")) {
         return fail("Human02 active Petra-7 vents render with animated active sprite");
+    }
+
+    int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+    for (int i = 0; exploiter < 0 && i < 30 * 5; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human02 while waiting for exploiter");
+        }
+        if (!rts_game_model_snapshot(model, &snapshot)) {
+            return fail("Human02 snapshot while waiting for exploiter");
+        }
+        exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+    }
+    if (exploiter < 0) {
+        return fail("Human02 scripted drop spawns an Exploiter");
+    }
+
+    RtsGameCommand select_exploiter = {
+        .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
+        .data.select_unit_index = {
+            .unit_index = exploiter,
+            .additive = false,
+        },
+    };
+    if (!rts_game_model_command(model, &select_exploiter)) {
+        return fail("Human02 select exploiter");
+    }
+
+    int initial_resources = snapshot.player_resources[0];
+    RtsGameCommand harvest = {
+        .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
+        .data.harvest_selected = {
+            .gx = 69.5f,
+            .gy = 48.5f,
+        },
+    };
+    if (!rts_game_model_command(model, &harvest)) {
+        return fail("Human02 harvest command targets active Petra-7 vent");
+    }
+
+    bool saw_deploy_frame = false;
+    for (int i = 0; i < 30 * 12; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human02 while mining");
+        }
+        if (!rts_game_model_snapshot(model, &snapshot)) {
+            return fail("Human02 snapshot while mining");
+        }
+        exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+        if (exploiter >= 0 &&
+            snapshot.units[exploiter].harvest_target >= 0 &&
+            snapshot.units[exploiter].frame >= 14) {
+            saw_deploy_frame = true;
+        }
+        if (saw_deploy_frame && snapshot.player_resources[0] > initial_resources) break;
+    }
+    if (!saw_deploy_frame) {
+        return fail("Human02 Exploiter plays deploy/harvest animation at vent");
+    }
+    if (snapshot.player_resources[0] <= initial_resources) {
+        return fail("Human02 Exploiter mining adds player resources");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",
