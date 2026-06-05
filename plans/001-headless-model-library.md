@@ -68,4 +68,4 @@ rules, while tests can load and drive the same library without a window.
       contents without a window.
 - [x] Add a test that verifies no renderer/window symbols are required by the
       simulation-only path.
-- [ ] Existing dummy-video smoke checks continue to pass.
+- [x] Existing dummy-video smoke checks continue to pass.
