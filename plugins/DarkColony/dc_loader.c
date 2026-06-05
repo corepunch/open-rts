@@ -667,7 +667,8 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
             dec->footprint_w = 1;
             dec->footprint_h = 1;
             dec->center_anchor = true;
-            dec->frame_index = 0;
+            dec->frame_index = -1;
+            dec->render_flags = RTS_FRAME_ADDITIVE;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
         }
     }

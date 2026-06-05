@@ -166,8 +166,9 @@ Local game-data files that have already been useful:
   clamp to a sprite-width minimum for readability, but pathing and interaction
   should keep using the model radius.
 - `VENT.SPR` is a state bundle, not a four-frame animation: large active, large
-  inactive, small active, small inactive. `VENT2.SPR` is the small yellow glow.
-  Pick one base state, then overlay the glow if the vent is active/blinking.
+  inactive, small active, small inactive. `VENT2.SPR` is a two-frame small
+  yellow glow and can be used as the active/blinking overlay when the local data
+  set does not include `SCENARIO/VENT.JUS`.
 - `BEAC.SPR` has a base beacon frame and a separate glow frame; preserve the
   sprite palette for the glow and render it as an overlay rather than tinting the
   base sprite.

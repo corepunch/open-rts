@@ -1,3 +1,4 @@
+#include "engine_config.h"
 #include "game_model.h"
 
 #include <stdio.h>
@@ -79,13 +80,28 @@ static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *
     return false;
 }
 
-static bool snapshot_has_fixed_decoration_at(const RtsRenderSnapshot *snapshot,
-                                             const char *sprite_name, int gx, int gy) {
+static bool snapshot_has_decoration_at(const RtsRenderSnapshot *snapshot,
+                                       const char *sprite_name, int gx, int gy) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
         if (strcmp(dec->sprite_name, sprite_name) == 0 &&
-            dec->gx == gx && dec->gy == gy && dec->frame_index == 0) {
+            dec->gx == gx && dec->gy == gy) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapshot,
+                                                const char *sprite_name, int gx, int gy,
+                                                uint32_t required_flags) {
+    if (!snapshot || !sprite_name) return false;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        const RtsRenderDecoration *dec = &snapshot->decorations[i];
+        if (strcmp(dec->sprite_name, sprite_name) == 0 &&
+            dec->gx == gx && dec->gy == gy && dec->frame_index < 0 &&
+            (dec->render_flags & required_flags) == required_flags) {
             return true;
         }
     }
@@ -308,11 +324,12 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
     }
-    if (!snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 35)) {
-        return fail("Human02 active Petra-7 vent glow uses flipped map-object coordinates");
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 35,
+                                             RTS_FRAME_ADDITIVE)) {
+        return fail("Human02 active Petra-7 vent glow animates at flipped map-object coordinates");
     }
-    if (snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT.SPR", 53, 27) ||
-        snapshot_has_fixed_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27)) {
+    if (snapshot_has_decoration_at(&snapshot, "SPRITES/VENT.SPR", 53, 27) ||
+        snapshot_has_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27)) {
         return fail("Human02 Petra-7 vent attributes are not drawn at direct SCN Y");
     }
 
