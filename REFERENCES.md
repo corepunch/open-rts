@@ -155,6 +155,12 @@ Local game-data files that have already been useful:
   the model coordinate as the ground/feet point. In the renderer, derive that
   point from the lowest opaque pixels of each decoded frame, falling back to the
   visible frame's bottom-center if frame-ground metadata is unavailable.
+- When a Dark Colony frame is rendered with the FIN/SPR flip flag, mirror both
+  the frame ground point and visible hit-test bounds across the decoded SPR
+  canvas before placing the sprite. The original engine's frame-part records
+  carry flip flags and placement offsets; applying SDL's horizontal flip while
+  keeping the unflipped anchor makes side-facing asymmetric sprites, such as the
+  Exploiter moving left, drift away from their selection circle.
 - Selection circle radius comes from `MobjInfo.radius`/`GAMESTAT.TXT`, converted
   from Dark Colony pixel units to model cells by dividing by 32. Rendering can
   clamp to a sprite-width minimum for readability, but pathing and interaction

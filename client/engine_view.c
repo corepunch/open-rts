@@ -683,6 +683,11 @@ static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
     int frame = unit_frame_for_view(sprite, unit, game_info, ticks);
     SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
     SDL_Point ground = sprite_ground_point(sprite, frame);
+    uint32_t render_flags = game_info ? unit->render_flags : 0;
+    if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
+        ground.x = sprite->frame_w - ground.x;
+        bounds.x = sprite->frame_w - bounds.x - bounds.w;
+    }
     int scale = app_scale(app);
     int sprite_w = sprite->frame_w * scale;
     int sprite_h = sprite->frame_h * scale;
