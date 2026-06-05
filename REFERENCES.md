@@ -28,6 +28,64 @@ plugin-specific behavior.
     descriptor shape as `.SPR` (`flags`, `frame_count`, palette, then
     `width/height/disX/disY` records), but are editor block/stamp palettes.
     `VENT.JUS` frame 0 is the yellow glow and frame 7 is the brown crater stamp.
+  - `DecompiledWithGhidra/` is a Ghidra project with two imported programs:
+    `dc16.exe` and `ENGEXP16.EXE`. It does not contain exported decompiler C
+    files, but its project state preserves useful renamed functions, navigation
+    history, and the binary string tables. Open it in Ghidra for deeper work;
+    export decompiler text from there before relying on exact control flow.
+  - The Ghidra project history says the prior reverser focused on CD checks and
+    interface/startup routines. Named functions currently visible in project
+    state include `FUN_CheckCd_1`, `FUN_InterfaceIntro_0`,
+    `FUN_InterfaceNewNetworkGame_0`, `FUN_RunProgram_0`,
+    `FUN_RunProgram_1`, and `FUN_CreateWindowRunProgram`. Useful addresses:
+    `dc16.exe` has `FUN_CheckCd_1` referenced 16 times; its current browser
+    focus is around `00405c40`. `ENGEXP16.EXE` has run/create-window helpers at
+    `00405264`, `0042e6c8`, and `0042e6e8`.
+  - Classic and Council Wars binaries expose many original source-module names
+    in strings: `scenario.c`, `animate.c`, `button.c`, `widget.c`, `gadget.c`,
+    `sprites.c`, `depend.c`, `trigger.c`, `objects.c`, `mobiles.c`, `city.c`,
+    `tile.c`, `mapit.c`, `lighting.c`, `pervasve.c`, and AI modules such as
+    `krusty_general.c`, `krusty_attack.c`, `krusty_defend.c`,
+    `krusty_scout.c`, and `krusty_army.c`. Use these names when naming our
+    loader/model files and when searching the decompile.
+  - Original engine assertions use object positions as 8.8 fixed point:
+    `gs->map->load[vent->z_pos>>8][vent->x_pos>>8]&(1<<ALIVE_MINE)` and
+    `a->action.setmoney.x == gs->all_objects[troop].x_pos>>8` /
+    `a->action.setmoney.z == gs->all_objects[troop].z_pos>>8`. This confirms
+    map-cell coordinates are produced by shifting fixed-point object x/z
+    positions by 8; internal vertical map coordinate is named `z`, not `y`.
+  - The original UI parser is file/layout driven. Strings name widget and
+    interface keywords including `size`, `pictures`, `background`, `palette`,
+    `text`, `font_offset`, `bright_pushed`, `bright_highlight`, `remap`,
+    `intens`, `read_only`, `immediate`, `read_write`, `images`, `pushb`,
+    `checkb`, `picture`, `in_text`, `count`, `scount`, `group`, `list`,
+    `scroll`, `colour`, `font`, `animation`, `textmsg`, `gadget`, `label`,
+    `banim`, `mask`, `unmask`, `anim_loop`, `anim_oneoff`, and
+    `anim_stopped`. Original interface assets include `intrface/main`,
+    `intrface/client`, `intrface/insee`, `intrface/lobj`, `intrface/lopt`,
+    `intrface/loadg`, `intrface/wingame.dat`, and multiplayer screens such as
+    `intrface/multi`, `intrface/multiwin.dat`, `intrface/net.dat`,
+    `intrface/server.dat`, and `intrface/tcpwait.dat`.
+  - Original trigger/script keywords visible in the binary include `newrate`,
+    `newtype`, `newrate2`, `setmoney`, `waypoint`, `setarray`, `setlifes`,
+    `exomoney`, `vision`, `nopickup`, `funkytower`, `ally`, `dfiddle`, `bail`,
+    `artifact`, `abduct`, `reinforce`, `noundeploy`, `found`, `norm`, and
+    `trip`. Treat `.TRO` support as a first-class gameplay scripting task, not
+    as ad hoc mission special cases.
+  - Original animation/state strings visible in the binary include `MOVE`,
+    `STAND`, `DIEA`, `DIEB`, `DIEC`, `DEPLOY`, `FUNK`, `BUILDSTAND`, `BUILD`,
+    `SCRCH`, and `BURN`. Weapon/effect tokens include `BULLET`, `EXPLODE`,
+    `EXPL`, `FIRE`, `FIREA`, `FIREB`, and `FIREC`.
+  - Binary strings confirm the original data filenames and entry points we keep
+    touching: `anim.dat`, `animate/%s`, `sprites/%s`, `sprites/cloc`,
+    `gamestat/gamestat.txt`, `gamestat/weapstat.txt`,
+    `gamestat/boomstat.txt`, `gamestat/mbullet.txt`, `gamestat/depend.txt`,
+    `gamestat/unitid.txt`, `scenario/mplayer/%s`, `sound/slist.dat`,
+    `sound/sound2.dat`, `fade.dat`, and `primes.dat`.
+  - CD-check strings differ between Classic and Council Wars:
+    `hbnfufl.a01` for Classic and `hbnfufl.a02` for Council Wars. This is only
+    useful when validating executable variants; it should not affect data
+    loading.
 
 - cookgreen/OpenDC:
   https://github.com/cookgreen/OpenDC
@@ -83,6 +141,11 @@ Local game-data files that have already been useful:
   existing vent coordinate; `setmoney x y amount` sets the remaining P-7. This
   matches training text like "Second Vent Has Become Active" and "Watch For
   Erupting Vents."
+- The original binary's `trigger.c` strings list the wider `.TRO` command set:
+  `newrate`, `newtype`, `newrate2`, `setmoney`, `waypoint`, `setarray`,
+  `setlifes`, `exomoney`, `vision`, `nopickup`, `funkytower`, `ally`,
+  `dfiddle`, `bail`, `artifact`, `abduct`, `reinforce`, `noundeploy`, `found`,
+  `norm`, and `trip`.
 - Dark Colony `.MAP` files have a flags plane after the terrain tile planes.
   For ground units, flag bit `9` (`0x0200`) marks impassable terrain. `.PTH`
   files contain path/family data and are not the terrain passability mask.
