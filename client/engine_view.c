@@ -623,6 +623,35 @@ static int direction_slot_for_view(int facings, const int *direction_codes, int 
     return best;
 }
 
+static void unit_state_body_offset_for_view(const GameInfo *game_info, const Unit *unit,
+                                            int *offset_x, int *offset_y) {
+    int ox = 0;
+    int oy = 0;
+    if (game_info && unit && game_info->states &&
+        unit->state_id >= 0 && unit->state_id < game_info->state_count) {
+        const State *state = &game_info->states[unit->state_id];
+        if (state->facings > 0) {
+            int slot = direction_slot_for_view(state->facings, state->direction_codes,
+                                               unit->facing_code);
+            if (slot < 0) slot = 0;
+            if (slot < RTS_MAX_STATE_FACINGS) {
+                ox = state->offset_x[slot];
+                oy = state->offset_y[slot];
+            }
+        }
+    }
+    if (offset_x) *offset_x = ox;
+    if (offset_y) *offset_y = oy;
+}
+
+static int normalize_sprite_canvas_offset(int offset, int span) {
+    if (span <= 0) return offset;
+    int half = span / 2;
+    while (offset > half) offset -= span;
+    while (offset < -half) offset += span;
+    return offset;
+}
+
 static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
                                       const SpriteSheet *fallback_sprite,
                                       const SpriteCache *cache,
@@ -657,9 +686,13 @@ static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
     int scale = app_scale(app);
     int sprite_w = sprite->frame_w * scale;
     int sprite_h = sprite->frame_h * scale;
+    int body_offset_x = 0;
+    int body_offset_y = 0;
+    unit_state_body_offset_for_view(game_info, unit, &body_offset_x, &body_offset_y);
+    body_offset_x = normalize_sprite_canvas_offset(body_offset_x, sprite->frame_w);
     SDL_Rect dst = {
-        (int)lroundf(sx - (float)ground.x * (float)scale),
-        (int)lroundf(sy - (float)ground.y * (float)scale),
+        (int)lroundf(sx - (float)ground.x * (float)scale) + body_offset_x * scale,
+        (int)lroundf(sy - (float)ground.y * (float)scale) + body_offset_y * scale,
         sprite_w,
         sprite_h,
     };
