@@ -388,11 +388,11 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
                 src_pos += chunk_size;
                 frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
                 bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
-                /* Atlas pixels are shifted by min disX/disY. SPR disX/disY
-                   are the original draw anchor, not the visible bottom. */
+                /* Atlas pixels are shifted by min disX/disY. Use the
+                   descriptor rectangle bottom as the unit's ground anchor. */
                 ground_points[i] = (SDL_Point){
-                    info[i].dis_x - min_dis_x,
-                    info[i].dis_y - min_dis_y,
+                    info[i].dis_x - min_dis_x + info[i].w / 2,
+                    info[i].dis_y - min_dis_y + info[i].h,
                 };
                 continue;
             }
@@ -440,11 +440,11 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
-        /* Atlas pixels are shifted by min disX/disY. SPR disX/disY are the
-           original draw anchor, not the visible bottom. */
+        /* Atlas pixels are shifted by min disX/disY. Use the descriptor
+           rectangle bottom as the unit's ground anchor. */
         ground_points[i] = (SDL_Point){
-            info[i].dis_x - min_dis_x,
-            info[i].dis_y - min_dis_y,
+            info[i].dis_x - min_dis_x + info[i].w / 2,
+            info[i].dis_y - min_dis_y + info[i].h,
         };
     }
 
