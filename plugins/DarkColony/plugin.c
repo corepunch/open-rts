@@ -33,6 +33,11 @@ void A_DC_Attack(StateContext *ctx, Unit *unit) {
     unit_fire_attack(ctx, unit);
 }
 
+void A_DC_TrooperAttackStart(StateContext *ctx, Unit *unit) {
+    if (!ctx || !unit) return;
+    set_unit_state(ctx, unit, (rand() & 1) ? S_DC_TRSC_ATKB1 : S_DC_TRSC_ATK1);
+}
+
 void A_DC_Fall(StateContext *ctx, Unit *unit) {
     (void)ctx;
     if (!unit) return;

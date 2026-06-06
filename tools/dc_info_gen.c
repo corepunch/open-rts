@@ -47,6 +47,8 @@ typedef struct {
 } FinAnim;
 
 typedef struct {
+    int trsc_attack_a;
+    int trsc_attack_b;
     int reap_run;
     int reap_attack;
     int reap_death;
@@ -769,6 +771,110 @@ static int fin_state_count_for_sequence16(const FinAnim *fin, const char *prefix
     return count;
 }
 
+static const FinCommand *fin_find_layer5_for_body(const FinAnim *fin,
+                                                  const FinLabel *label,
+                                                  int body_index) {
+    if (!fin || !label) return NULL;
+    const FinCommand *best = NULL;
+    int best_score = 1000000;
+    for (int i = label->start; i <= label->end; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) != 0 || cmd->layer != 5) continue;
+        int delta = i - body_index;
+        int score = (delta >= 0 ? 0 : 1000) + abs(delta);
+        if (score < best_score) {
+            best_score = score;
+            best = cmd;
+        }
+    }
+    return best;
+}
+
+static const FinCommand *fin_first_layer5_in_label(const FinAnim *fin,
+                                                   const FinLabel *label,
+                                                   int *command_index_out) {
+    if (!fin || !label) return NULL;
+    for (int i = label->start; i <= label->end; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 5) {
+            if (command_index_out) *command_index_out = i;
+            return cmd;
+        }
+    }
+    return NULL;
+}
+
+static const FinCommand *fin_nearest_body_in_label(const FinAnim *fin,
+                                                   const FinLabel *label,
+                                                   int command_index) {
+    if (!fin || !label) return NULL;
+    const FinCommand *best = NULL;
+    int best_score = 1000000;
+    for (int i = label->start; i <= label->end; ++i) {
+        const FinCommand *cmd = &fin->commands[i];
+        if (strcmp(cmd->sprite, fin->stem_lower) != 0 || cmd->layer != 1) continue;
+        int score = abs(i - command_index);
+        if (score < best_score) {
+            best_score = score;
+            best = cmd;
+        }
+    }
+    return best;
+}
+
+static bool fin_layer5_overlay_for_body_row(const FinAnim *fin, const char *label_prefix,
+                                            int body_base, int overlay_frames[8],
+                                            int overlay_flags[8], int overlay_x[8],
+                                            int overlay_y[8], int overlay_remap[8],
+                                            int overlay_intensity[8]) {
+    static const char *const suffixes[8] = {"0","14","12","10","8","6","4","2"};
+    bool found_any = false;
+    for (int dir = 0; dir < 8; ++dir) {
+        char label_name[32];
+        snprintf(label_name, sizeof(label_name), "%s%s", label_prefix, suffixes[dir]);
+        const FinLabel *label = fin_find_label(fin, label_name);
+        const FinCommand *body = NULL;
+        int body_index = -1;
+        int body_frame = body_base + dir;
+        if (label && label->start >= 0 && label->end >= label->start &&
+            label->end < fin->command_count) {
+            for (int i = label->start; i <= label->end; ++i) {
+                const FinCommand *cmd = &fin->commands[i];
+                if (strcmp(cmd->sprite, fin->stem_lower) == 0 &&
+                    cmd->layer == 1 && cmd->frame == body_frame) {
+                    body = cmd;
+                    body_index = i;
+                    break;
+                }
+            }
+        }
+
+        const FinCommand *overlay = body ? fin_find_layer5_for_body(fin, label, body_index) : NULL;
+        if (!overlay && label) {
+            int overlay_index = -1;
+            overlay = fin_first_layer5_in_label(fin, label, &overlay_index);
+            body = fin_nearest_body_in_label(fin, label, overlay_index);
+        }
+        if (body && overlay) {
+            overlay_frames[dir] = overlay->frame;
+            overlay_flags[dir] = (overlay->flags & 1) ? 1 : 0;
+            overlay_x[dir] = overlay->x - body->x;
+            overlay_y[dir] = overlay->y - body->y;
+            overlay_remap[dir] = overlay->remap;
+            overlay_intensity[dir] = overlay->intensity;
+            found_any = true;
+        } else {
+            overlay_frames[dir] = -1;
+            overlay_flags[dir] = 0;
+            overlay_x[dir] = 0;
+            overlay_y[dir] = 0;
+            overlay_remap[dir] = 0;
+            overlay_intensity[dir] = 16;
+        }
+    }
+    return found_any;
+}
+
 static int fin_effect_command_count_for_label(const FinAnim *fin, const char *label_name) {
     const FinLabel *label = fin_find_label(fin, label_name);
     if (!fin || !label || label->start < 0 || label->end < label->start ||
@@ -946,17 +1052,20 @@ static void validate_dark_colony_data(const char *root, const SpriteEntry *sprit
 }
 
 static DcFinStateCounts load_fin_state_counts(const char *root) {
+    char trsc_fin_path[1024];
     char reap_fin_path[1024];
     char barr_fin_path[1024];
     char sarg_fin_path[1024];
     char scgm_fin_path[1024];
     char expl_fin_path[1024];
+    snprintf(trsc_fin_path, sizeof(trsc_fin_path), "%s/ANIMATE/TRSC.FIN", root);
     snprintf(reap_fin_path, sizeof(reap_fin_path), "%s/ANIMATE/REAP.FIN", root);
     snprintf(barr_fin_path, sizeof(barr_fin_path), "%s/ANIMATE/BARR.FIN", root);
     snprintf(sarg_fin_path, sizeof(sarg_fin_path), "%s/ANIMATE/SARG.FIN", root);
     snprintf(scgm_fin_path, sizeof(scgm_fin_path), "%s/ANIMATE/SCGM.FIN", root);
     snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
 
+    FinAnim trsc_fin = fin_load(trsc_fin_path, "TRSC");
     FinAnim reap_fin = fin_load(reap_fin_path, "REAP");
     FinAnim barr_fin = fin_load(barr_fin_path, "BARR");
     FinAnim sarg_fin = fin_load(sarg_fin_path, "SARG");
@@ -964,6 +1073,8 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     FinAnim expl_fin = fin_load(expl_fin_path, "EXPL");
 
     DcFinStateCounts counts;
+    counts.trsc_attack_a = 6;
+    counts.trsc_attack_b = 4;
     counts.reap_run = fin_state_count_for_sequence16(&reap_fin, "REAPMOVE");
     counts.reap_attack = fin_state_count_for_sequence16(&reap_fin, "REAPFIRE");
     counts.reap_death = fin_state_count_for_sequence16(&reap_fin, "REAPDIEA");
@@ -982,6 +1093,12 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.expl_work = fin_state_count_for_expl_mining_pulse(&expl_fin);
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE", false);
 
+    if (fin_first_body_frame(&trsc_fin, "TRSCFIREA0") != 80)
+        die("TRSC.FIN FIREA0 does not resolve to expected first body frame", trsc_fin_path);
+    if (fin_first_body_frame(&trsc_fin, "TRSCFIREB0") != 92)
+        die("TRSC.FIN FIREB0 does not resolve to expected first body frame", trsc_fin_path);
+
+    fin_free(&trsc_fin);
     fin_free(&reap_fin);
     fin_free(&barr_fin);
     fin_free(&sarg_fin);
@@ -1001,7 +1118,9 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "typedef enum {\n");
     fprintf(out, "    S_NULL,\n");
     fprintf(out, "    S_DC_TRSC_STND, S_DC_TRSC_RUN1, S_DC_TRSC_RUN2, S_DC_TRSC_RUN3, S_DC_TRSC_RUN4, S_DC_TRSC_RUN5, S_DC_TRSC_RUN6, S_DC_TRSC_RUN7, S_DC_TRSC_RUN8,\n");
-    fprintf(out, "    S_DC_TRSC_ATK1, S_DC_TRSC_ATK2, S_DC_TRSC_ATK3, S_DC_TRSC_ATK4, S_DC_TRSC_ATK5, S_DC_TRSC_ATK6, S_DC_TRSC_ATK7, S_DC_TRSC_ATK8,\n");
+    fprintf(out, "    S_DC_TRSC_ATK_SELECT,\n");
+    for (int i = 1; i <= counts->trsc_attack_a; ++i) fprintf(out, "    S_DC_TRSC_ATK%d,\n", i);
+    for (int i = 1; i <= counts->trsc_attack_b; ++i) fprintf(out, "    S_DC_TRSC_ATKB%d,\n", i);
     fprintf(out, "    S_DC_TRSC_DIE1, S_DC_TRSC_DIE2, S_DC_TRSC_DIE3, S_DC_TRSC_DIE4, S_DC_TRSC_DIE5, S_DC_TRSC_DIE6, S_DC_TRSC_DIE7, S_DC_TRSC_DIE8, S_DC_TRSC_DIE9, S_DC_TRSC_DIE10, S_DC_TRSC_CORPSE,\n");
     fprintf(out, "    S_DC_GRAY_STND, S_DC_GRAY_RUN1, S_DC_GRAY_RUN2, S_DC_GRAY_RUN3, S_DC_GRAY_RUN4, S_DC_GRAY_RUN5, S_DC_GRAY_RUN6, S_DC_GRAY_RUN7, S_DC_GRAY_RUN8,\n");
     fprintf(out, "    S_DC_GRAY_ATK1, S_DC_GRAY_ATK2, S_DC_GRAY_ATK3, S_DC_GRAY_ATK4, S_DC_GRAY_ATK5, S_DC_GRAY_ATK6, S_DC_GRAY_ATK7, S_DC_GRAY_ATK8,\n");
@@ -1040,6 +1159,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const State states[NUMSTATES];\n");
     fprintf(out, "extern const MobjInfo mobjinfo[NUMMOBJTYPES];\n");
     fprintf(out, "extern const GameInfo dark_colony_game_info;\n\n");
+    fprintf(out, "void A_DC_TrooperAttackStart(StateContext *ctx, Unit *unit);\n");
     fprintf(out, "void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);\n");
     fprintf(out, "void A_DC_Attack(StateContext *ctx, Unit *unit);\n");
     fprintf(out, "void A_DC_Fall(StateContext *ctx, Unit *unit);\n");
@@ -1057,6 +1177,52 @@ static void f8_frame_major_abs(FILE *out, const char *spr, int tics, const char 
     fprintf(out, "}, {");
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frame_base + i);
     fprintf(out, "}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
+}
+
+static void f8_frame_major_abs_layer5(FILE *out, const char *spr, int tics,
+                                      const char *action, const char *next,
+                                      int group, int frame_base, const FinAnim *fin,
+                                      const char *label_prefix) {
+    static const int dirs[8] = {0,2,4,6,8,10,12,14};
+    int overlay_frames[8] = {0};
+    int overlay_flags[8] = {0};
+    int overlay_x[8] = {0};
+    int overlay_y[8] = {0};
+    int overlay_remap[8] = {0};
+    int overlay_intensity[8] = {0};
+    bool has_overlay = fin_layer5_overlay_for_body_row(fin, label_prefix, frame_base,
+                                                       overlay_frames, overlay_flags,
+                                                       overlay_x, overlay_y,
+                                                       overlay_remap,
+                                                       overlay_intensity);
+
+    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
+            spr, frame_base, tics, action, next, group);
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frame_base + i);
+    fprintf(out, "}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, ");
+    if (!has_overlay) {
+        fprintf(out, "DC_NO_OVERLAY },\n");
+        return;
+    }
+    fprintf(out, "%s, %d, %s, 8, {", spr, overlay_frames[0],
+            overlay_flags[0] ? "FLIPPED" : "0");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_frames[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i)
+        fprintf(out, "%s%s", i ? "," : "", overlay_flags[i] ? "FLIPPED" : "0");
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_x[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_y[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_remap[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_intensity[i]);
+    fprintf(out, "} },\n");
 }
 
 static void f8_frame_major(FILE *out, const char *spr, int tics, const char *action,
@@ -1671,6 +1837,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     FinAnim expl_fin = fin_load(expl_fin_path, "EXPL");
     int trsc_move_base = fin_first_body_frame(&trsc_fin, "TRSCMOVE0");
     int trsc_attack_base = fin_first_body_frame(&trsc_fin, "TRSCFIREA0");
+    int trsc_attack_b_base = fin_first_body_frame(&trsc_fin, "TRSCFIREB0");
     int gray_move_base = fin_first_body_frame(&gray_fin, "GRAYMOVE0");
     int gray_attack_base = fin_first_body_frame(&gray_fin, "GRAYFIREA0");
     char blaz_path[1024];
@@ -1704,19 +1871,36 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f8_frame_major(out, sprites[trsc].symbol, -1, "A_None", "S_DC_TRSC_STND", 1, 0, 0);
     const char *trsc_run_next[8] = {"S_DC_TRSC_RUN2","S_DC_TRSC_RUN3","S_DC_TRSC_RUN4","S_DC_TRSC_RUN5","S_DC_TRSC_RUN6","S_DC_TRSC_RUN7","S_DC_TRSC_RUN8","S_DC_TRSC_RUN1"};
     for (int i = 0; i < 8; ++i) f8_frame_major(out, sprites[trsc].symbol, 3, "A_None", trsc_run_next[i], 2, trsc_move_base, i);
-    const int trsc_atk_frames[8] = {
-        trsc_attack_base,
-        trsc_attack_base + 8,
-        trsc_attack_base + 16,
-        trsc_attack_base + 24,
-        trsc_attack_base + 32,
-        trsc_attack_base + 40,
-        trsc_attack_base + 40,
-        trsc_attack_base + 40
-    };
-    const char *trsc_atk_next[8] = {"S_DC_TRSC_ATK2","S_DC_TRSC_ATK3","S_DC_TRSC_ATK4","S_DC_TRSC_ATK5","S_DC_TRSC_ATK6","S_DC_TRSC_STND","S_DC_TRSC_STND","S_DC_TRSC_STND"};
-    const char *trsc_atk_action[8] = {"A_None","A_DC_MuzzleFlash","A_DC_Attack","A_None","A_None","A_None","A_None","A_None"};
-    for (int i = 0; i < 8; ++i) f8_frame_major_abs(out, sprites[trsc].symbol, 2, trsc_atk_action[i], trsc_atk_next[i], 3, trsc_atk_frames[i]);
+    f8_frame_major(out, sprites[trsc].symbol, 0, "A_DC_TrooperAttackStart",
+                   "S_DC_TRSC_STND", 3, trsc_attack_base, 0);
+    for (int i = 0; i < counts->trsc_attack_a; ++i) {
+        char next[64];
+        if (i + 1 < counts->trsc_attack_a) state_name(next, sizeof(next), "TRSC", "ATK", i + 2);
+        else snprintf(next, sizeof(next), "S_DC_TRSC_STND");
+        const char *action = i == 1 ? "A_DC_MuzzleFlash" :
+            (i == 2 ? "A_DC_Attack" : "A_None");
+        if (i == 1) {
+            f8_frame_major_abs_layer5(out, sprites[trsc].symbol, 2, action, next, 3,
+                                      trsc_attack_base + i * 8, &trsc_fin, "TRSCFIREA");
+        } else {
+            f8_frame_major_abs(out, sprites[trsc].symbol, 2, action, next, 3,
+                               trsc_attack_base + i * 8);
+        }
+    }
+    for (int i = 0; i < counts->trsc_attack_b; ++i) {
+        char next[64];
+        if (i + 1 < counts->trsc_attack_b) snprintf(next, sizeof(next), "S_DC_TRSC_ATKB%d", i + 2);
+        else snprintf(next, sizeof(next), "S_DC_TRSC_STND");
+        const char *action = i == 0 ? "A_DC_MuzzleFlash" :
+            (i == 1 ? "A_DC_Attack" : "A_None");
+        if (i == 0) {
+            f8_frame_major_abs_layer5(out, sprites[trsc].symbol, 2, action, next, 3,
+                                      trsc_attack_b_base + i * 8, &trsc_fin, "TRSCFIREB");
+        } else {
+            f8_frame_major_abs(out, sprites[trsc].symbol, 2, action, next, 3,
+                               trsc_attack_b_base + i * 8);
+        }
+    }
     const char *trsc_die_next[11] = {"S_DC_TRSC_DIE2","S_DC_TRSC_DIE3","S_DC_TRSC_DIE4","S_DC_TRSC_DIE5","S_DC_TRSC_DIE6","S_DC_TRSC_DIE7","S_DC_TRSC_DIE8","S_DC_TRSC_DIE9","S_DC_TRSC_DIE10","S_DC_TRSC_CORPSE","S_NULL"};
     for (int i = 0; i < 10; ++i) f6(out, sprites[trsc].symbol, 3, i == 0 ? "A_DC_Fall" : "A_None", trsc_die_next[i], 4, trsc_die, i);
     f6(out, sprites[trsc].symbol, 1, "A_DC_Corpse", trsc_die_next[10], 4, trsc_die, 9);
@@ -1802,7 +1986,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 
     fprintf(out, "const MobjInfo mobjinfo[NUMMOBJTYPES] = {\n");
     fprintf(out, "    {0},\n");
-    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK1, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
+    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
     fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_GRAY_MUZZLE },\n");
     fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_HARVESTER, S_NULL, S_NULL },\n");
     fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE|RTS_TRAIT_ATTACK, S_NULL, S_DC_REAP_MUZZLE },\n");

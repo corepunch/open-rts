@@ -359,8 +359,9 @@ the matching layer-1 body frame, then chooses the nearest following layer-3
 `BLAZ` command. The generated muzzle flash entries are ordinary `states[]`
 rows: `BLAZ.SPR` frame `0`, one screen-space offset per Dark Colony direction,
 and render flags for a bright additive yellow pass. `mobjinfo[].muzzleflash`
-points at the unit's muzzle flash state. `GLIT` and layer-5 unit-sprite commands
-remain separate overlays for later weapon polish, not the primary muzzle flash.
+points at the unit's muzzle flash state. Layer-5 unit-sprite commands are separate
+same-sprite weapon overlays; for Trooper fire states they are attached to the
+state overlay fields so the visible barrel flash appears with the BLAZ light.
 
 `EXPL.FIN` uses the same command table layering for the Exploiter's Petra-7
 vent attach animation. `EXPLDEPLOY14` alternates `expl` layer-1 body frame `14`

@@ -295,7 +295,17 @@ typedef enum {
 typedef enum {
     S_NULL,
     S_DC_TRSC_STND, S_DC_TRSC_RUN1, S_DC_TRSC_RUN2, S_DC_TRSC_RUN3, S_DC_TRSC_RUN4, S_DC_TRSC_RUN5, S_DC_TRSC_RUN6, S_DC_TRSC_RUN7, S_DC_TRSC_RUN8,
-    S_DC_TRSC_ATK1, S_DC_TRSC_ATK2, S_DC_TRSC_ATK3, S_DC_TRSC_ATK4, S_DC_TRSC_ATK5, S_DC_TRSC_ATK6, S_DC_TRSC_ATK7, S_DC_TRSC_ATK8,
+    S_DC_TRSC_ATK_SELECT,
+    S_DC_TRSC_ATK1,
+    S_DC_TRSC_ATK2,
+    S_DC_TRSC_ATK3,
+    S_DC_TRSC_ATK4,
+    S_DC_TRSC_ATK5,
+    S_DC_TRSC_ATK6,
+    S_DC_TRSC_ATKB1,
+    S_DC_TRSC_ATKB2,
+    S_DC_TRSC_ATKB3,
+    S_DC_TRSC_ATKB4,
     S_DC_TRSC_DIE1, S_DC_TRSC_DIE2, S_DC_TRSC_DIE3, S_DC_TRSC_DIE4, S_DC_TRSC_DIE5, S_DC_TRSC_DIE6, S_DC_TRSC_DIE7, S_DC_TRSC_DIE8, S_DC_TRSC_DIE9, S_DC_TRSC_DIE10, S_DC_TRSC_CORPSE,
     S_DC_GRAY_STND, S_DC_GRAY_RUN1, S_DC_GRAY_RUN2, S_DC_GRAY_RUN3, S_DC_GRAY_RUN4, S_DC_GRAY_RUN5, S_DC_GRAY_RUN6, S_DC_GRAY_RUN7, S_DC_GRAY_RUN8,
     S_DC_GRAY_ATK1, S_DC_GRAY_ATK2, S_DC_GRAY_ATK3, S_DC_GRAY_ATK4, S_DC_GRAY_ATK5, S_DC_GRAY_ATK6, S_DC_GRAY_ATK7, S_DC_GRAY_ATK8,
@@ -495,6 +505,7 @@ extern const State states[NUMSTATES];
 extern const MobjInfo mobjinfo[NUMMOBJTYPES];
 extern const GameInfo dark_colony_game_info;
 
+void A_DC_TrooperAttackStart(StateContext *ctx, Unit *unit);
 void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);
 void A_DC_Attack(StateContext *ctx, Unit *unit);
 void A_DC_Fall(StateContext *ctx, Unit *unit);
