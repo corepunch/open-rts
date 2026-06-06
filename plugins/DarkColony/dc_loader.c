@@ -388,12 +388,10 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
                 src_pos += chunk_size;
                 frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
                 bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
-                /* Atlas pixels are shifted by min disX/disY. Use the
-                   descriptor rectangle bottom as the unit's ground anchor. */
-                ground_points[i] = (SDL_Point){
-                    info[i].dis_x - min_dis_x + info[i].w / 2,
-                    info[i].dis_y - min_dis_y + info[i].h,
-                };
+                /* Ground anchor = center-bottom of the shared canvas.
+                   dis_x/dis_y place each frame within a canvas of max_w×max_h;
+                   the origin (foot of the unit) is at the canvas center-bottom. */
+                ground_points[i] = (SDL_Point){ max_w / 2, max_h };
                 continue;
             }
             const uint8_t *src = blob.bytes + src_pos;
@@ -440,12 +438,8 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
-        /* Atlas pixels are shifted by min disX/disY. Use the descriptor
-           rectangle bottom as the unit's ground anchor. */
-        ground_points[i] = (SDL_Point){
-            info[i].dis_x - min_dis_x + info[i].w / 2,
-            info[i].dis_y - min_dis_y + info[i].h,
-        };
+        /* Ground anchor = center-bottom of the shared canvas. */
+        ground_points[i] = (SDL_Point){ max_w / 2, max_h };
     }
 
     SDL_Texture *texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
