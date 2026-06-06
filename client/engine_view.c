@@ -600,8 +600,7 @@ static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame) {
 
 static SDL_Point sprite_ground_point(const SpriteSheet *sprite, int frame) {
     if (sprite && sprite->frame_ground_points && frame >= 0 && frame < sprite->frame_count) {
-        SDL_Point p = sprite->frame_ground_points[frame];
-        if (p.x >= 0 && p.y >= 0) return p;
+        return sprite->frame_ground_points[frame];
     }
     SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
     return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };

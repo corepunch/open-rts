@@ -303,32 +303,6 @@ static SDL_Rect dc_visible_bounds(const uint32_t *rgba, int atlas_w, SDL_Rect fr
     return (SDL_Rect){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
-static SDL_Point dc_ground_point(const uint32_t *rgba, int atlas_w, SDL_Rect frame,
-                                 SDL_Rect bounds) {
-    if (!rgba || atlas_w <= 0 || frame.w <= 0 || frame.h <= 0 ||
-        bounds.w <= 0 || bounds.h <= 0) {
-        return (SDL_Point){ frame.w / 2, frame.h };
-    }
-
-    int bottom_y = bounds.y + bounds.h - 1;
-    int top_y = bottom_y - 3;
-    if (top_y < bounds.y) top_y = bounds.y;
-    int min_x = frame.w;
-    int max_x = -1;
-    for (int y = bottom_y; y >= top_y; --y) {
-        for (int x = bounds.x; x < bounds.x + bounds.w; ++x) {
-            uint32_t px = rgba[(frame.y + y) * atlas_w + frame.x + x];
-            if ((px >> 24) == 0) continue;
-            if (x < min_x) min_x = x;
-            if (x > max_x) max_x = x;
-        }
-    }
-    if (max_x < min_x) {
-        return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
-    }
-    return (SDL_Point){ (min_x + max_x + 1) / 2, bounds.y + bounds.h };
-}
-
 typedef struct {
     int w;
     int h;
@@ -423,7 +397,9 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
                 src_pos += chunk_size;
                 frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
                 bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
-                ground_points[i] = (SDL_Point){ max_w / 2, max_h };
+                /* Atlas pixels are shifted by min disX/disY; descriptor (0,0)
+                   remains the original draw anchor. */
+                ground_points[i] = (SDL_Point){ -min_dis_x, -min_dis_y };
                 continue;
             }
             const uint8_t *src = blob.bytes + src_pos;
@@ -470,7 +446,9 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
-        ground_points[i] = dc_ground_point(rgba, atlas_w, frames[i], bounds[i]);
+        /* Atlas pixels are shifted by min disX/disY; descriptor (0,0)
+           remains the original draw anchor. */
+        ground_points[i] = (SDL_Point){ -min_dis_x, -min_dis_y };
     }
 
     SDL_Texture *texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
