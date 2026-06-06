@@ -1279,6 +1279,9 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 object_mode = true;
                 if (!city_buildings_added) {
                     for (int team = 0; team < DC_MAX_SCN_TEAMS; ++team) {
+                        /* Enemy/team city blocks describe scenario AI state; only the local
+                           player's city is materialized as starting map buildings here. */
+                        if (team != 0) continue;
                         if (!team_active[team]) continue;
                         if (team_ai_slot_count[team] <= 0) continue;
                         int city_anchor = team_ai_slot_count[team] > 1 &&

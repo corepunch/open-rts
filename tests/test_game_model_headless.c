@@ -506,37 +506,37 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/DISH.SPR") != 3) {
         return fail("Human02 loads communication dish/base attachment objects");
     }
-    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/HUBU.SPR") != 4 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/TOWR.SPR") != 3 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 2) {
-        return fail("Human02 loads active-team starting base buildings from team city slots");
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/HUBU.SPR") != 2 ||
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/TOWR.SPR") != 1 ||
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0) {
+        return fail("Human02 loads only the player starting base from city slots");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_EXCOPOD) != 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD) != 1) {
         return fail("Human02 starting base buildings are Exo Center plus Barracks");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_CITY_TOWER) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_EXCOPOD) != 2 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_CITY_TOWER) != 2 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 2) {
-        return fail("Human02 enemy human and Gray city slots use race-aware base buildings");
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_EXCOPOD) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_CITY_TOWER) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 0) {
+        return fail("Human02 non-player city slots are not materialized as starting bases");
     }
     if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 56, 28) ||
         !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, 56, 28) ||
         !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, 56, 28) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 26) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 36, 26) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 22) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 23) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 28) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
-        return fail("Human02 starting base buildings use active team AISlot coordinates");
+        snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 26) ||
+        snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 36, 26) ||
+        snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 22) ||
+        snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 23) ||
+        snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 28) ||
+        snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
+        return fail("Human02 starting base buildings use only the player city anchor");
     }
     if (!snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_EXCOPOD, 0, 56, 28) ||
         !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_BRRKPOD, 4, 56, 28) ||
         !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_CITY_TOWER, 0, 56, 28) ||
-        !snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
-        !snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
+        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
+        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
         return fail("Human02 human buildings use HUBU/TOWR stand frames");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
