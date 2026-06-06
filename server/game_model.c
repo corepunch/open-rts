@@ -102,6 +102,21 @@ static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
     }
 }
 
+static int dark_colony_building_frame_for_product_type(int product_type) {
+    /* BUILTILE.FIN names the human stand art; SHORTCIT.SPR is the shipped
+       human-only subset of those building tiles. */
+    switch (product_type) {
+    case 16: return 3;
+    case 17: return 0;
+    case 18: return 1;
+    case 19: return 1;
+    case 20: return 2;
+    case 21: return 2;
+    case 22: return 4;
+    default: return 0;
+    }
+}
+
 static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
     case 0: return 1;
@@ -352,7 +367,7 @@ static bool create_model_product(RtsGameModel *model,
     new_unit.attack_target = -1;
     new_unit.harvest_target = -1;
     new_unit.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
-        product->product_type - 16 : 0;
+        dark_colony_building_frame_for_product_type(product->product_type) : 0;
     apply_actor_type_defaults(&new_unit, actor_type);
     apply_mobjinfo_defaults(model->plugin ? model->plugin->game_info : NULL, &new_unit);
     if (dark_reign && product->product_class == RTS_PRODUCT_BUILDING)

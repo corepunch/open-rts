@@ -243,6 +243,19 @@ static bool snapshot_has_owner_type_at(const RtsRenderSnapshot *snapshot, uint8_
     return false;
 }
 
+static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, uint8_t owner,
+                                             uint16_t type_id, int frame, int gx, int gy) {
+    if (!snapshot) return false;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        const RtsRenderUnit *unit = &snapshot->units[i];
+        if (unit->owner == owner && unit->type_id == type_id && unit->frame == frame &&
+            near_cell_center(unit->gx, gx) && near_cell_center(unit->gy, gy)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool snapshot_has_decoration_at(const RtsRenderSnapshot *snapshot,
                                        const char *sprite_name, int gx, int gy) {
     if (!snapshot || !sprite_name) return false;
@@ -493,7 +506,7 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/DISH.SPR") != 3) {
         return fail("Human02 loads communication dish/base attachment objects");
     }
-    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/BUILDNG.SPR") != 4 ||
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/SHORTCIT.SPR") != 4 ||
         snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 2) {
         return fail("Human02 loads active-team starting base buildings from team city slots");
     }
@@ -512,6 +525,12 @@ static int assert_human02(RtsGameModel *model) {
         !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 23) ||
         !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 28)) {
         return fail("Human02 starting base buildings use active team AISlot coordinates");
+    }
+    if (!snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_EXCOPOD, 3, 61, 30) ||
+        !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_BRRKPOD, 0, 56, 28) ||
+        !snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 3, 36, 26) ||
+        !snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 3, 50, 28)) {
+        return fail("Human02 human buildings use SHORTCIT stand frames");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",

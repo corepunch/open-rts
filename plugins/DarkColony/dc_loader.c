@@ -1082,7 +1082,7 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
 }
 
 static const char *dark_colony_unit_sprite_for_type(int type, int race) {
-    if (type >= 16 && type <= 22) return "SPRITES/BUILDNG.SPR";
+    if (type >= 16 && type <= 22) return "SPRITES/SHORTCIT.SPR";
     if (type >= 28 && type <= 34) return "SPRITES/ALIEN1.SPR";
     if (type == 86) return "SPRITES/DISH.SPR";
     if (race == 1) {
@@ -1117,7 +1117,18 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 }
 
 static int dark_colony_unit_frame_for_type(int type) {
-    if (type >= 16 && type <= 22) return type - 16;
+    /* BUILTILE.FIN names the human stand art; SHORTCIT.SPR is the shipped
+       human-only subset of those building tiles. */
+    switch (type) {
+        case 16: return 3; /* EXOSTAND0 */
+        case 17: return 0; /* TRAININGSTAND0 */
+        case 18: return 1; /* ROBOTICSSTAND0 */
+        case 19: return 1; /* ROBOPOD2 reuses robotics art. */
+        case 20: return 2; /* SCIENCESTAND0 */
+        case 21: return 2; /* SCNCPOD2 reuses science art. */
+        case 22: return 4; /* HUMRESSTAND0 */
+        default: break;
+    }
     if (type >= 28 && type <= 34) return type - 28;
     return 0;
 }
