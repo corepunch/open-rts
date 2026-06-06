@@ -178,6 +178,72 @@ Local game-data files that have already been useful:
 - `data/DCOLONY/ANIM.DAT` — newline-delimited index of all `.fin` filenames
   (lowercase) used by the original engine at startup; useful for bulk-loading.
 
+### Dark Colony SPR Ground Anchor
+
+Each `.SPR` file's `dis_x`/`dis_y` descriptor values encode the placement of
+each frame's pixel data within a shared virtual canvas of size `max_w × max_h`
+(the bounding box across all frames). The unit's foot/ground point corresponds
+to the **canvas center-bottom**: `(max_w / 2, max_h)`. This value is constant
+for all frames of a sprite — it does not vary per frame.
+
+Do **not** compute the ground anchor as `dis_x - min_dis_x + w/2,
+dis_y - min_dis_y + h` (the per-frame bounding-box bottom-center). That
+formula varies by 20–30 px across animation frames of the same unit, causing
+visible vertical bobbing and the unit to appear to float above the vent.
+
+Verification: for `EXPL.SPR`, `TRSC.SPR`, and `VENT.SPR`:
+- Canvas size is determined by `max_dis - min_dis` in each axis.
+- `VENT.SPR` frame 0 fills its canvas fully (`dis=(2,22)`, `w=86`, `h=58`,
+  `min_dis=(2,22)`, `max=(88,80)`, cell=`86×58`); per-frame bottom-center and
+  canvas bottom-center coincide — which is why `VENT.SPR` looked "correct"
+  under the old formula while `EXPL.SPR` did not.
+
+### Dark Colony Exploiter Animation States
+
+The Exploiter (`EXPL.SPR`) uses a Doom-style state machine with these phases:
+
+**Mobile (body frame varies by direction, no overlay):**
+- `S_DC_EXPL_STND` — idle, `tics=-1` (infinite hold), `misc1=1`
+- `S_DC_EXPL_RUN1/RUN2` — walking 2-frame loop, `misc1=2`
+
+**Deploy sequence (body frame 14 fixed, overlay extends turret arm):**
+- `S_DC_EXPL_DEPLOY1..DEPLOY10` — 10 states, `tics=3` each, `misc1=5`
+- Overlay frames progress 15→16→17→…→23 for E/SE/S/SW-facing directions.
+  N/NW/W/SW-facing directions use frame 15 throughout the deploy sequence
+  (the turret arm is visually in its base/folded position for those angles).
+- All deploy states use `misc1=5`, which blocks `update_unit_harvest` from
+  re-triggering the deploy while it is already playing.
+
+**Work/harvest loop (body frame 14 fixed, overlay pulses):**
+- `S_DC_EXPL_WORK1..WORK15` — 15-state loop, `WORK1 tics=3`, `WORK2-15 tics=5`
+- `WORK1` and `WORK15` use overlay frame 24 (turret-top rest position, `Y=-27`);
+  `WORK2..WORK14` pulse through frames 25→26→27→28→29→30→32→33→…→25 at
+  `Y=-31..-33`. The brief 5-tick dwell at frame 24/`Y=-27` at the end of each
+  cycle creates a subtle visual "settle" before the next pulse.
+- `WORK15` loops back to `WORK1` (`nextstate = S_DC_EXPL_WORK1`). All work
+  states have `misc1=5`.
+- The harvest guard in `engine_units.c` triggers `set_unit_state(DEPLOY1)` only
+  when `state->misc1 != 5`, so the work loop runs uninterrupted.
+
+**Death sequence:**
+- `S_DC_EXPL_DIE1..DIE6, CORPSE` — `misc1=4`, triggers `A_DC_Fall` at DIE1.
+- `A_DC_Fall` strips `RTS_TRAIT_HARVESTER` and `RTS_TRAIT_MOBILE` from the
+  unit's traits and sets `death_started=true`.
+
+**`A_DC_Fall` side-effects:**
+Clears selection, path, attack/harvest targets and cooldowns; strips
+`SELECTABLE`, `MOBILE`, `ATTACK`, and `HARVESTER` traits. Must only fire from
+the death sequence — not from the WORK loop.
+
+### Dark Colony Harvesting Interaction Radius
+
+`unit_harvest_interaction_radius_cells()` returns `0.05f` cells. The Exploiter
+must be within 0.05 cells of the vent center (`vent->gx + 0.5,
+vent->gy + 0.5`) for harvesting to tick. `separate_units` can push a 0.5-cell
+radius Exploiter outside this window; when pushed out, the harvest timer stops
+but the animation state (misc1=5) is not reset, so the WORK loop continues
+playing without actually extracting resources.
+
 ### Dark Colony SPR Binary Format
 
 ```
