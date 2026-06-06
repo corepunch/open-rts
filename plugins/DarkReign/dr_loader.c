@@ -883,6 +883,41 @@ static void load_dark_reign_decorations(const char *map_path, GameMap *map) {
           compare_map_decorations);
 }
 
+static void load_dark_reign_team_credits(const char *map_path, GameMap *map) {
+    if (!map) return;
+    char scn_path[1024];
+    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    Blob blob;
+    if (!load_blob(scn_path, &blob)) return;
+    char *text = malloc(blob.size + 1);
+    if (!text) { free_blob(&blob); return; }
+    memcpy(text, blob.bytes, blob.size);
+    text[blob.size] = '\0';
+
+    int current_team = -1;
+    for (char *line = text; line && *line;) {
+        char *next = strpbrk(line, "\r\n");
+        if (next) {
+            char nl = *next;
+            *next++ = '\0';
+            if (nl == '\r' && *next == '\n') next++;
+        }
+        while (isspace((unsigned char)*line)) line++;
+        int team = -1;
+        int credit = 0;
+        if (sscanf(line, "SetTeam(%d", &team) == 1) {
+            current_team = team;
+        } else if (current_team >= 0 && current_team < 8 &&
+                   sscanf(line, "SetCredit(%d", &credit) == 1) {
+            map->player_resources[current_team] = credit;
+        }
+        line = next;
+    }
+
+    free(text);
+    free_blob(&blob);
+}
+
 /* ── tileset detection ──────────────────────────────────────────────────── */
 
 static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t tileset_size) {
@@ -1184,6 +1219,7 @@ bool load_dark_map(const char *map_path, GameMap *out) {
     out->render_features |= MAP_RENDER_SMOOTH_TRANSITIONS;
     out->render_transitions = render_dark_reign_edges_for_cell;
     load_dark_reign_decorations(map_path, out);
+    load_dark_reign_team_credits(map_path, out);
     free_blob(&blob);
     return true;
 }
@@ -1203,10 +1239,19 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
 
     int count = 0;
-    const char *tag = "PutUnitAt(";
+    int current_team = 0;
+    const char *team_tag = "SetDefaultTeam(";
+    const char *unit_tag = "PutUnitAt(";
     char *cursor = text;
     while (count < max_units) {
-        char *hit = strstr(cursor, tag);
+        char *team_hit = strstr(cursor, team_tag);
+        char *hit = strstr(cursor, unit_tag);
+        if (team_hit && (!hit || team_hit < hit)) {
+            int team = 0;
+            if (sscanf(team_hit, "SetDefaultTeam(%d", &team) == 1) current_team = team;
+            cursor = team_hit + strlen(team_tag);
+            continue;
+        }
         if (!hit) break;
         int object_id = 0, gx = 0, gy = 0;
         char unit_type[64] = { 0 };
@@ -1216,8 +1261,9 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
                 units[count].gx = (float)gx + 0.5f;
                 units[count].gy = (float)gy + 0.5f;
                 units[count].speed = 5.5f;
-                units[count].owner = 0;
-                units[count].selected = count == 0;
+                units[count].owner = current_team >= 0 && current_team < 8 ?
+                    (uint8_t)current_team : 1;
+                units[count].selected = units[count].owner == 0 && count == 0;
                 DarkReignVisualSpec visual;
                 if (dark_reign_resolve_unit_visual(&defs, unit_type, &visual)) {
                     snprintf(units[count].sprite_name, sizeof(units[count].sprite_name), "%s", visual.sprite_name);
@@ -1230,7 +1276,7 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
                 count++;
             }
         }
-        cursor = hit + strlen(tag);
+        cursor = hit + strlen(unit_tag);
     }
     free(text); free_blob(&blob); dark_reign_free_definitions(&defs);
     return count;

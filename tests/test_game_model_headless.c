@@ -2,6 +2,7 @@
 #include "game_model.h"
 #include "../plugins/DarkColony/info.h"
 #include "../plugins/DarkColony/dc_types.h"
+#include "../plugins/DarkReign/dr_types.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -195,6 +196,17 @@ static int snapshot_count_units_with_type(const RtsRenderSnapshot *snapshot, uin
     int count = 0;
     for (int i = 0; i < snapshot->unit_count; ++i) {
         if (snapshot->units[i].type_id == type_id) count++;
+    }
+    return count;
+}
+
+static int snapshot_count_units_with_owner_and_type(const RtsRenderSnapshot *snapshot,
+                                                    uint8_t owner, uint16_t type_id) {
+    if (!snapshot) return 0;
+    int count = 0;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (snapshot->units[i].owner == owner && snapshot->units[i].type_id == type_id)
+            count++;
     }
     return count;
 }
@@ -644,6 +656,113 @@ static int assert_human02(RtsGameModel *model) {
     return 0;
 }
 
+static int assert_dark_reign_model_products(RtsGameModel *model) {
+    RtsProductDefinition products[16];
+    int product_count = rts_game_model_products(model, products, 16);
+    if (product_count < 2) return fail("Dark Reign exposes product table");
+
+    const RtsProductDefinition *hq = find_product(products, product_count, 10001);
+    const RtsProductDefinition *rig = find_product(products, product_count, 11);
+    if (!hq || !rig) return fail("Dark Reign exposes FG headquarters and construction rig products");
+    if (strcmp(hq->label, "FG HQ 1") != 0 || hq->cost != 750 ||
+        hq->product_class != RTS_PRODUCT_BUILDING || hq->product_type != 10001 ||
+        hq->prerequisite_count != 0 || !hq->available) {
+        return fail("Dark Reign FG HQ product follows BUILD.TXT SetType/SetCost/SetMaker");
+    }
+    if (strcmp(rig->label, "Construction Rig") != 0 || rig->cost != 300 ||
+        rig->product_class != RTS_PRODUCT_UNIT || rig->product_type != 11 ||
+        rig->prerequisite_count != 1 || rig->prerequisites[0] != 10001 ||
+        rig->available) {
+        return fail("Dark Reign Construction Rig product follows UNITS.TXT prerequisites");
+    }
+    return 0;
+}
+
+static int assert_dark_reign(RtsGameModel *model) {
+    RtsGameModelConfig config = {
+        .game_id = "dark-reign",
+        .data_root = "data/REIGN/dark",
+        .map_path = "scenario/MULTI/2NIC/2NIC.SCN",
+    };
+    if (!rts_game_model_load(model, &config)) {
+        fprintf(stderr, "model load error: %s\n", rts_game_model_last_error(model));
+        return fail("load Dark Reign 2NIC");
+    }
+
+    RtsRenderSnapshot snapshot;
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("initial Dark Reign snapshot");
+    }
+    if (snapshot.map_width <= 0 || snapshot.map_height <= 0 || snapshot.unit_count != 6) {
+        return fail("Dark Reign snapshot has expected map and starting units");
+    }
+    if (snapshot.player_resources[0] != 12000 || snapshot.player_resources[1] != 12000) {
+        return fail("Dark Reign team credits load into model resources");
+    }
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3) {
+        return fail("Dark Reign starting construction crews preserve SCN team ownership");
+    }
+    if (!strstr(snapshot.ui_script, "ui dark-reign 1\n") ||
+        !strstr(snapshot.ui_script, "btn 10001 enabled 1") ||
+        !strstr(snapshot.ui_script, "btn 11 enabled 0")) {
+        return fail("Dark Reign model UI script exposes product availability");
+    }
+
+    int product_result = assert_dark_reign_model_products(model);
+    if (product_result != 0) return product_result;
+
+    int units_before_hq = snapshot.unit_count;
+    int resources_before_hq = snapshot.player_resources[0];
+    RtsGameCommand build_hq = {
+        .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+        .data.activate_ui_button = { .ui_id = 10001 },
+    };
+    if (!rts_game_model_command(model, &build_hq)) {
+        return fail("Dark Reign builds FG HQ through model UI button command");
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Dark Reign snapshot after building HQ");
+    }
+    if (snapshot.unit_count != units_before_hq + 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_HEADQUARTERS_1) != 1 ||
+        snapshot.player_resources[0] != resources_before_hq - 750) {
+        return fail("Dark Reign FG HQ production creates building and spends BUILD.TXT cost");
+    }
+
+    RtsProductDefinition products[16];
+    int product_count = rts_game_model_products(model, products, 16);
+    const RtsProductDefinition *rig = find_product(products, product_count, 11);
+    if (!rig || !rig->available) {
+        return fail("Dark Reign FG HQ unlocks Construction Rig production");
+    }
+
+    int rigs_before = snapshot_count_units_with_owner_and_type(
+        &snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW);
+    int units_before_rig = snapshot.unit_count;
+    int resources_before_rig = snapshot.player_resources[0];
+    RtsGameCommand train_rig = {
+        .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+        .data.activate_ui_button = { .ui_id = 11 },
+    };
+    if (!rts_game_model_command(model, &train_rig)) {
+        return fail("Dark Reign trains Construction Rig through model UI button command");
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Dark Reign snapshot after training Construction Rig");
+    }
+    if (snapshot.unit_count != units_before_rig + 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != rigs_before + 1 ||
+        snapshot.player_resources[0] != resources_before_rig - 300) {
+        return fail("Dark Reign Construction Rig production creates unit and spends UNITS.TXT cost");
+    }
+
+    printf("PASS: Dark Reign headless model loaded %dx%d with %d units and %d decorations\n",
+           snapshot.map_width, snapshot.map_height, snapshot.unit_count,
+           snapshot.decoration_count);
+    return 0;
+}
+
 int main(void) {
     int result = assert_dark_colony_sprite_catalog();
     if (result != 0) return result;
@@ -655,6 +774,7 @@ int main(void) {
 
     result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
+    if (result == 0) result = assert_dark_reign(model);
     rts_game_model_destroy(model);
     return result;
 }

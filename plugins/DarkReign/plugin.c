@@ -1,4 +1,5 @@
 #include "plugin.h"
+#include "dr_types.h"
 
 bool load_dark_map(const char *map_path, GameMap *out);
 bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
@@ -9,13 +10,9 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                         const GameMap *map, const Unit *units, int unit_count,
                                         SpriteCache *cache);
 
-enum {
-    DR_ACTOR_CONSTRUCTION_RIG = 1,
-};
-
 static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
     {
-        .id = DR_ACTOR_CONSTRUCTION_RIG,
+        .id = DR_ACTOR_FG_CONSTRUCTION_CREW,
         .name = "Construction Rig",
         .sprite_name = "ucfcnst0.spr",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
@@ -26,6 +23,14 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
         .attack_damage = 20,
         .attack_cooldown_ms = 700,
         .attack_anim_ms = 400,
+    },
+    {
+        .id = DR_ACTOR_FG_HEADQUARTERS_1,
+        .name = "FG Headquarters 1",
+        .sprite_name = "nfhqt1l0.spr",
+        .shadow_name = "bfhqtsh0.spr",
+        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .max_hp = 1200,
     },
 };
 
@@ -52,7 +57,7 @@ static const Plugin DARK_REIGN_PLUGIN = {
     .cell_h            = 24,
     .actor_types       = DARK_REIGN_ACTOR_TYPES,
     .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
-    .debug_enemy_type_id = DR_ACTOR_CONSTRUCTION_RIG,
+    .debug_enemy_type_id = DR_ACTOR_FG_CONSTRUCTION_CREW,
     .capabilities        = {
         .map_format = MAP_FORMAT_DARK_REIGN_SCN,
         .capabilities = PLUGIN_CAP_RUNTIME_SPRITES | PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
@@ -76,7 +81,7 @@ static const Plugin DARK_REIGN_PLUGIN = {
         .cell_h            = 24,
         .actor_types       = DARK_REIGN_ACTOR_TYPES,
         .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
-        .debug_enemy_type_id = DR_ACTOR_CONSTRUCTION_RIG,
+        .debug_enemy_type_id = DR_ACTOR_FG_CONSTRUCTION_CREW,
         .capabilities        = {
             .map_format = MAP_FORMAT_DARK_REIGN_SCN,
             .capabilities = PLUGIN_CAP_RUNTIME_SPRITES | PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
