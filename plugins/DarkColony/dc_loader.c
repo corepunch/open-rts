@@ -76,17 +76,8 @@ static bool path_basename_is(const char *path, const char *name) {
 static uint32_t dark_colony_sprite_pixel_rgba(const char *path, int frame, uint8_t index,
                                              const uint32_t palette[256]) {
     if (index == 0) return 0x00000000u;
-    if (frame == 1 && path_basename_is(path, "BEAC.SPR")) {
-        if (index == 112) return 0x00000000u;
-        uint32_t color = palette[index];
-        uint8_t r = (uint8_t)(color >> 16);
-        uint8_t g = (uint8_t)(color >> 8);
-        uint8_t b = (uint8_t)color;
-        uint8_t alpha = r > g ? r : g;
-        if (b > alpha) alpha = b;
-        if (alpha < 48) alpha = 48;
-        return ((uint32_t)alpha << 24) | (255u << 16) | (232u << 8) | 64u;
-    }
+    if (frame == 1 && path_basename_is(path, "BEAC.SPR") && index == 112)
+        return 0x00000000u;
     return palette[index];
 }
 
