@@ -515,26 +515,26 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD) != 1) {
         return fail("Human02 starting base buildings are Exo Center plus Barracks");
     }
-    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_EXCO_TOWER) != 1 ||
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_CITY_TOWER) != 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_EXCOPOD) != 2 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_EXCO_TOWER) != 2 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_CITY_TOWER) != 2 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 2) {
         return fail("Human02 enemy human and Gray city slots use race-aware base buildings");
     }
     if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 56, 28) ||
         !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, 56, 28) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCO_TOWER, 56, 28) ||
+        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, 56, 28) ||
         !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 26) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCO_TOWER, 36, 26) ||
+        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 36, 26) ||
         !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 22) ||
         !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 23) ||
         !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 28) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCO_TOWER, 50, 28)) {
+        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
         return fail("Human02 starting base buildings use active team AISlot coordinates");
     }
     if (!snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_EXCOPOD, 0, 56, 28) ||
         !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_BRRKPOD, 4, 56, 28) ||
-        !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_EXCO_TOWER, 0, 56, 28) ||
+        !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_CITY_TOWER, 0, 56, 28) ||
         !snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         !snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
         return fail("Human02 human buildings use HUBU/TOWR stand frames");

@@ -1061,6 +1061,7 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
         case 32: return MT_DC_ALIEN_MINDHIVE2;
         case 33: return MT_DC_ALIEN_MINDHIVE3;
         case 34: return MT_DC_ALIEN_RSCHIVE;
+        case 81: return MT_DC_CITY_TOWER;
         case 86: return MT_DC_COMMS_DISH;
         default: break;
     }
@@ -1085,6 +1086,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
     if (type == 16 || type == 17) return "SPRITES/HUBU.SPR";
     if (type >= 18 && type <= 22) return "SPRITES/SHORTCIT.SPR";
     if (type >= 28 && type <= 34) return "SPRITES/ALIEN1.SPR";
+    if (type == 81) return "SPRITES/TOWR.SPR";
     if (type == 86) return "SPRITES/DISH.SPR";
     if (race == 1) {
         if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
@@ -1126,6 +1128,7 @@ static int dark_colony_unit_frame_for_type(int type) {
         case 20: return 2; /* SCIENCESTAND0 */
         case 21: return 2; /* SCNCPOD2 reuses science art. */
         case 22: return 4; /* HUMRESSTAND0 */
+        case 81: return 0; /* TOWR.FIN TOWRSTAND0 */
         default: break;
     }
     if (type >= 28 && type <= 34) return type - 28;
@@ -1138,6 +1141,9 @@ static void dark_colony_unit_render_offset_for_type(int type, int *x, int *y) {
     if (type == 17) {
         if (x) *x = 35;
         if (y) *y = -35;
+    } else if (type == 81) {
+        if (x) *x = 30;
+        if (y) *y = -40;
     }
 }
 
@@ -1158,30 +1164,6 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
                                             int *player_anchor_x,
                                             int *player_anchor_y);
 
-static bool append_dark_colony_exco_tower(Unit *units, int *count, int max_units,
-                                          int x, int y, int team) {
-    if (!units || !count || *count >= max_units) return false;
-    Unit *u = &units[*count];
-    memset(u, 0, sizeof(*u));
-    u->gx = (float)x + 0.5f;
-    u->gy = (float)y + 0.5f;
-    u->sprite_id = -1;
-    u->attack_target = -1;
-    u->harvest_target = -1;
-    u->type_id = MT_DC_EXCO_TOWER;
-    u->owner = team == 0 ? 0 : 1;
-    u->traits = RTS_TRAIT_RENDERABLE;
-    u->hp = 1;
-    u->max_hp = 1;
-    u->frame = 0;
-    u->render_intensity = 16;
-    u->render_offset_x = 30;
-    u->render_offset_y = -40;
-    snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", "SPRITES/TOWR.SPR");
-    (*count)++;
-    return true;
-}
-
 static bool append_dark_colony_city_building(Unit *units, int *count, int max_units,
                                              int x, int y, int team, int race,
                                              int slot,
@@ -1194,7 +1176,9 @@ static bool append_dark_colony_city_building(Unit *units, int *count, int max_un
     int type = dark_colony_city_unit_type_for_slot(race, slot);
     if (type <= 0) return false;
     if (race != 1 && type == 16) {
-        append_dark_colony_exco_tower(units, count, max_units, x, y, team);
+        append_dark_colony_initial_unit(units, count, max_units, x, y, 81,
+                                        team, 0, race, unit_config,
+                                        NULL, NULL, NULL, NULL, NULL);
     }
     return append_dark_colony_initial_unit(units, count, max_units, x, y, type,
                                            team, 0, race, unit_config,

@@ -269,11 +269,11 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .max_hp = 1200,
     },
     {
-        .id = MT_DC_EXCO_TOWER,
-        .name = "Exco Center Tower",
+        .id = MT_DC_CITY_TOWER,
+        .name = "City Tower",
         .sprite_name = "SPRITES/TOWR.SPR",
         .traits = RTS_TRAIT_RENDERABLE,
-        .max_hp = 1,
+        .max_hp = 1600,
     },
 };
 
