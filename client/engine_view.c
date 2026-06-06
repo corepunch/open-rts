@@ -731,6 +731,8 @@ static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
         sprite_w,
         sprite_h,
     };
+    dst.x += unit->render_offset_x * scale;
+    dst.y += unit->render_offset_y * scale;
     SDL_Rect visible = {
         dst.x + bounds.x * scale,
         dst.y + bounds.y * scale,

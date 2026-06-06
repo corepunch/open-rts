@@ -82,6 +82,8 @@ typedef struct {
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
+    int render_offset_x;
+    int render_offset_y;
     bool selected;
     bool has_move_order;
     int harvest_target;

@@ -125,6 +125,8 @@ typedef struct Unit {
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
+    int render_offset_x;
+    int render_offset_y;
     uint8_t owner;
     uint32_t traits;
     int hp;

@@ -166,14 +166,14 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_DC_EXCOPOD,
         .name = "Exco Center",
-        .sprite_name = "SPRITES/SHORTCIT.SPR",
+        .sprite_name = "SPRITES/HUBU.SPR",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
         .max_hp = 4800,
     },
     {
         .id = MT_DC_BRRKPOD,
         .name = "Barracks",
-        .sprite_name = "SPRITES/SHORTCIT.SPR",
+        .sprite_name = "SPRITES/HUBU.SPR",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
         .max_hp = 2400,
     },
@@ -267,6 +267,13 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/DISH.SPR",
         .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
         .max_hp = 1200,
+    },
+    {
+        .id = MT_DC_EXCO_TOWER,
+        .name = "Exco Center Tower",
+        .sprite_name = "SPRITES/TOWR.SPR",
+        .traits = RTS_TRAIT_RENDERABLE,
+        .max_hp = 1,
     },
 };
 

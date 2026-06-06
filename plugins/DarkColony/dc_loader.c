@@ -1082,7 +1082,8 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
 }
 
 static const char *dark_colony_unit_sprite_for_type(int type, int race) {
-    if (type >= 16 && type <= 22) return "SPRITES/SHORTCIT.SPR";
+    if (type == 16 || type == 17) return "SPRITES/HUBU.SPR";
+    if (type >= 18 && type <= 22) return "SPRITES/SHORTCIT.SPR";
     if (type >= 28 && type <= 34) return "SPRITES/ALIEN1.SPR";
     if (type == 86) return "SPRITES/DISH.SPR";
     if (race == 1) {
@@ -1117,11 +1118,9 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 }
 
 static int dark_colony_unit_frame_for_type(int type) {
-    /* BUILTILE.FIN names the human stand art; SHORTCIT.SPR is the shipped
-       human-only subset of those building tiles. */
     switch (type) {
-        case 16: return 3; /* EXOSTAND0 */
-        case 17: return 0; /* TRAININGSTAND0 */
+        case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
+        case 17: return 4; /* HUBU.FIN human front module used by BRRKPOD art */
         case 18: return 1; /* ROBOTICSSTAND0 */
         case 19: return 1; /* ROBOPOD2 reuses robotics art. */
         case 20: return 2; /* SCIENCESTAND0 */
@@ -1131,6 +1130,15 @@ static int dark_colony_unit_frame_for_type(int type) {
     }
     if (type >= 28 && type <= 34) return type - 28;
     return 0;
+}
+
+static void dark_colony_unit_render_offset_for_type(int type, int *x, int *y) {
+    if (x) *x = 0;
+    if (y) *y = 0;
+    if (type == 17) {
+        if (x) *x = 35;
+        if (y) *y = -35;
+    }
 }
 
 static int dark_colony_city_unit_type_for_slot(int race, int slot) {
@@ -1150,6 +1158,30 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
                                             int *player_anchor_x,
                                             int *player_anchor_y);
 
+static bool append_dark_colony_exco_tower(Unit *units, int *count, int max_units,
+                                          int x, int y, int team) {
+    if (!units || !count || *count >= max_units) return false;
+    Unit *u = &units[*count];
+    memset(u, 0, sizeof(*u));
+    u->gx = (float)x + 0.5f;
+    u->gy = (float)y + 0.5f;
+    u->sprite_id = -1;
+    u->attack_target = -1;
+    u->harvest_target = -1;
+    u->type_id = MT_DC_EXCO_TOWER;
+    u->owner = team == 0 ? 0 : 1;
+    u->traits = RTS_TRAIT_RENDERABLE;
+    u->hp = 1;
+    u->max_hp = 1;
+    u->frame = 0;
+    u->render_intensity = 16;
+    u->render_offset_x = 30;
+    u->render_offset_y = -40;
+    snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", "SPRITES/TOWR.SPR");
+    (*count)++;
+    return true;
+}
+
 static bool append_dark_colony_city_building(Unit *units, int *count, int max_units,
                                              int x, int y, int team, int race,
                                              int slot,
@@ -1161,6 +1193,9 @@ static bool append_dark_colony_city_building(Unit *units, int *count, int max_un
                                              int *player_anchor_y) {
     int type = dark_colony_city_unit_type_for_slot(race, slot);
     if (type <= 0) return false;
+    if (race != 1 && type == 16) {
+        append_dark_colony_exco_tower(units, count, max_units, x, y, team);
+    }
     return append_dark_colony_initial_unit(units, count, max_units, x, y, type,
                                            team, 0, race, unit_config,
                                            player_selected, player_has_exploiter,
@@ -1200,6 +1235,7 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
     if (u->selected) *player_selected = true;
     u->frame = dark_colony_unit_frame_for_type(type);
+    dark_colony_unit_render_offset_for_type(type, &u->render_offset_x, &u->render_offset_y);
     snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
     if (u->owner == 0) {
         if (player_anchor_set && player_anchor_x && player_anchor_y &&
@@ -1262,11 +1298,17 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                         if (!team_active[team]) continue;
                         for (int slot = 0; slot < team_ai_slot_count[team] && slot < DC_CITY_SLOTS; ++slot) {
                             if (!team_city_enabled[team][slot]) continue;
-                            int slot_map_y = dark_colony_y_to_map_height(map_height,
-                                                                         team_ai_slots[team][slot][1]);
+                            int slot_x = team_ai_slots[team][slot][0];
+                            int slot_y = team_ai_slots[team][slot][1];
+                            if (team_race[team] == 0 && slot <= 1 &&
+                                team_city_enabled[team][1] &&
+                                team_ai_slot_count[team] > 1) {
+                                slot_x = team_ai_slots[team][1][0];
+                                slot_y = team_ai_slots[team][1][1];
+                            }
+                            int slot_map_y = dark_colony_y_to_map_height(map_height, slot_y);
                             append_dark_colony_city_building(units, &count, max_units,
-                                                             team_ai_slots[team][slot][0],
-                                                             slot_map_y,
+                                                             slot_x, slot_map_y,
                                                              team, team_race[team], slot,
                                                              unit_config,
                                                              &player_selected,

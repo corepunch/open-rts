@@ -103,17 +103,24 @@ static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
 }
 
 static int dark_colony_building_frame_for_product_type(int product_type) {
-    /* BUILTILE.FIN names the human stand art; SHORTCIT.SPR is the shipped
-       human-only subset of those building tiles. */
     switch (product_type) {
-    case 16: return 3;
-    case 17: return 0;
+    case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
+    case 17: return 4; /* HUBU.FIN human front module used by BRRKPOD art */
     case 18: return 1;
     case 19: return 1;
     case 20: return 2;
     case 21: return 2;
     case 22: return 4;
     default: return 0;
+    }
+}
+
+static void dark_colony_building_offset_for_product_type(int product_type, int *x, int *y) {
+    if (x) *x = 0;
+    if (y) *y = 0;
+    if (product_type == 17) {
+        if (x) *x = 35;
+        if (y) *y = -35;
     }
 }
 
@@ -368,6 +375,11 @@ static bool create_model_product(RtsGameModel *model,
     new_unit.harvest_target = -1;
     new_unit.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
         dark_colony_building_frame_for_product_type(product->product_type) : 0;
+    if (!dark_reign && product->product_class == RTS_PRODUCT_BUILDING) {
+        dark_colony_building_offset_for_product_type(product->product_type,
+                                                     &new_unit.render_offset_x,
+                                                     &new_unit.render_offset_y);
+    }
     apply_actor_type_defaults(&new_unit, actor_type);
     apply_mobjinfo_defaults(model->plugin ? model->plugin->game_info : NULL, &new_unit);
     if (dark_reign && product->product_class == RTS_PRODUCT_BUILDING)
@@ -685,6 +697,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->render_flags = src->render_flags;
         dst->render_remap = src->render_remap;
         dst->render_intensity = src->render_intensity;
+        dst->render_offset_x = src->render_offset_x;
+        dst->render_offset_y = src->render_offset_y;
         dst->selected = src->selected;
         dst->has_move_order = src->move_order_id != 0;
         dst->harvest_target = src->harvest_target;

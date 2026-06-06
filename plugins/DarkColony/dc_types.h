@@ -18,6 +18,7 @@ enum {
     MT_DC_ALIEN_MINDHIVE3,
     MT_DC_ALIEN_RSCHIVE,
     MT_DC_COMMS_DISH,
+    MT_DC_EXCO_TOWER,
 };
 
 #endif
