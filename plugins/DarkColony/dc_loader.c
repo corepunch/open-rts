@@ -1280,17 +1280,14 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                 if (!city_buildings_added) {
                     for (int team = 0; team < DC_MAX_SCN_TEAMS; ++team) {
                         if (!team_active[team]) continue;
-                        for (int slot = 0; slot < team_ai_slot_count[team] && slot < DC_CITY_SLOTS; ++slot) {
+                        if (team_ai_slot_count[team] <= 0) continue;
+                        int city_anchor = team_ai_slot_count[team] > 1 &&
+                            (team_ai_slots[team][1][0] != 0 || team_ai_slots[team][1][1] != 0) ? 1 : 0;
+                        int slot_x = team_ai_slots[team][city_anchor][0];
+                        int slot_y = team_ai_slots[team][city_anchor][1];
+                        int slot_map_y = dark_colony_y_to_map_height(map_height, slot_y);
+                        for (int slot = 0; slot < DC_CITY_SLOTS; ++slot) {
                             if (!team_city_enabled[team][slot]) continue;
-                            int slot_x = team_ai_slots[team][slot][0];
-                            int slot_y = team_ai_slots[team][slot][1];
-                            if (team_race[team] == 0 && slot <= 1 &&
-                                team_city_enabled[team][1] &&
-                                team_ai_slot_count[team] > 1) {
-                                slot_x = team_ai_slots[team][1][0];
-                                slot_y = team_ai_slots[team][1][1];
-                            }
-                            int slot_map_y = dark_colony_y_to_map_height(map_height, slot_y);
                             append_dark_colony_city_building(units, &count, max_units,
                                                              slot_x, slot_map_y,
                                                              team, team_race[team], slot,

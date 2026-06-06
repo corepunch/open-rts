@@ -750,6 +750,39 @@ static int assert_dark_reign_model_products(RtsGameModel *model) {
     return 0;
 }
 
+static int assert_human03_city_slots(RtsGameModel *model) {
+    RtsGameModelConfig config = {
+        .game_id = "dark-colony",
+        .data_root = "data/DCOLONY",
+        .map_path = "SCENARIO/HUMAN/HUMAN03.MAP",
+    };
+    if (!rts_game_model_load(model, &config)) {
+        fprintf(stderr, "model load error: %s\n", rts_game_model_last_error(model));
+        return fail("load Dark Colony Human03");
+    }
+
+    RtsRenderSnapshot snapshot;
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("initial Human03 snapshot");
+    }
+    int anchor_x = 75;
+    int anchor_y = snapshot.map_height - 1 - 6;
+    if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, anchor_x, anchor_y) ||
+        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, anchor_x, anchor_y) ||
+        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_ROBOPOD, anchor_x, anchor_y) ||
+        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, anchor_x, anchor_y)) {
+        return fail("Human03 city slots compose at the shared city anchor");
+    }
+    if (snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 81, snapshot.map_height - 1 - 9) ||
+        snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, 81, snapshot.map_height - 1 - 9)) {
+        return fail("Human03 first AISlot is not a second player city base");
+    }
+
+    printf("PASS: Human03 city slots compose at one city anchor with %d units\n",
+           snapshot.unit_count);
+    return 0;
+}
+
 static int assert_dark_reign(RtsGameModel *model) {
     RtsGameModelConfig config = {
         .game_id = "dark-reign",
@@ -846,6 +879,7 @@ int main(void) {
 
     result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
+    if (result == 0) result = assert_human03_city_slots(model);
     if (result == 0) result = assert_dark_reign(model);
     rts_game_model_destroy(model);
     return result;
