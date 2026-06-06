@@ -388,9 +388,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
                 src_pos += chunk_size;
                 frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
                 bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
-                /* Ground anchor = center-bottom of the shared canvas.
-                   dis_x/dis_y place each frame within a canvas of max_w×max_h;
-                   the origin (foot of the unit) is at the canvas center-bottom. */
+                /* Blank frame — no visible pixels; use cell center-bottom. */
                 ground_points[i] = (SDL_Point){ max_w / 2, max_h };
                 continue;
             }
@@ -438,8 +436,16 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         }
         frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
-        /* Ground anchor = center-bottom of the shared canvas. */
-        ground_points[i] = (SDL_Point){ max_w / 2, max_h };
+        ground_points[i] = (SDL_Point){
+            bounds[i].x + bounds[i].w / 2,
+            bounds[i].y + bounds[i].h,
+        };
+
+        /* BUILDNG.SPR contains city modules packed with varying visible bounds;
+           keep a stable tile anchor so base parts stay on their authored cells. */
+        if (path_basename_is(path, "BUILDNG.SPR")) {
+            ground_points[i] = (SDL_Point){ max_w / 2, max_h };
+        }
     }
 
     SDL_Texture *texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
@@ -1245,9 +1251,11 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
                         if (!team_active[team]) continue;
                         for (int slot = 0; slot < team_ai_slot_count[team] && slot < DC_CITY_SLOTS; ++slot) {
                             if (!team_city_enabled[team][slot]) continue;
+                            int slot_map_y = dark_colony_y_to_map_height(map_height,
+                                                                         team_ai_slots[team][slot][1]);
                             append_dark_colony_city_building(units, &count, max_units,
                                                              team_ai_slots[team][slot][0],
-                                                             team_ai_slots[team][slot][1],
+                                                             slot_map_y,
                                                              team, team_race[team], slot,
                                                              unit_config,
                                                              &player_selected,

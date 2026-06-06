@@ -271,6 +271,24 @@ static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapsho
     return false;
 }
 
+static bool snapshot_has_blinking_decoration_at(const RtsRenderSnapshot *snapshot,
+                                                const char *sprite_name,
+                                                const char *sprite2_name,
+                                                int gx, int gy,
+                                                uint32_t required_render2_flags) {
+    if (!snapshot || !sprite_name || !sprite2_name) return false;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        const RtsRenderDecoration *dec = &snapshot->decorations[i];
+        if (strcmp(dec->sprite_name, sprite_name) == 0 &&
+            strcmp(dec->sprite2_name, sprite2_name) == 0 &&
+            dec->gx == gx && dec->gy == gy &&
+            (dec->render2_flags & required_render2_flags) == required_render2_flags) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static const RtsProductDefinition *find_product(const RtsProductDefinition *products,
                                                 int product_count, int ui_id) {
     for (int i = 0; i < product_count; ++i) {
@@ -487,13 +505,19 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 2) {
         return fail("Human02 enemy human and Gray city slots use race-aware base buildings");
     }
-    if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 61, 53) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, 56, 55) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 57) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 61) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 60) ||
-        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 55)) {
+    if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 61, 30) ||
+        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, 56, 28) ||
+        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 26) ||
+        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 22) ||
+        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 23) ||
+        !snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 28)) {
         return fail("Human02 starting base buildings use active team AISlot coordinates");
+    }
+    if (!snapshot_has_blinking_decoration_at(&snapshot,
+                                             "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
+                                             64, 31,
+                                             RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK)) {
+        return fail("Human02 dropship beacon stays anchored beside the starting base");
     }
     RtsProductDefinition products[32];
     int product_count = rts_game_model_products(model, products, 32);

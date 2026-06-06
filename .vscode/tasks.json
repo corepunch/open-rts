@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "make",
       "args": [
-        "dark-colony"
+        "dark-colony-human02"
       ],
       "group": {
         "kind": "build",
