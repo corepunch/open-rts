@@ -47,7 +47,7 @@ Human unit buttons:
 ## Acceptance Criteria
 
 - [x] Human product table includes the original building and unit buttons.
-- [ ] Prerequisites are resolved against model-owned buildings/upgrades.
+- [x] Prerequisites are resolved against model-owned buildings/upgrades.
 - [x] UI can ask for available/disabled products without duplicating rules.
 - [x] Costs and labels match original data.
 

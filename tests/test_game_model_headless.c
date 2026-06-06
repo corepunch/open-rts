@@ -1,6 +1,7 @@
 #include "engine_config.h"
 #include "game_model.h"
 #include "../plugins/DarkColony/info.h"
+#include "../plugins/DarkColony/dc_types.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -189,6 +190,15 @@ static int snapshot_count_units_with_sprite(const RtsRenderSnapshot *snapshot,
     return count;
 }
 
+static int snapshot_count_units_with_type(const RtsRenderSnapshot *snapshot, uint16_t type_id) {
+    if (!snapshot) return 0;
+    int count = 0;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (snapshot->units[i].type_id == type_id) count++;
+    }
+    return count;
+}
+
 static bool near_cell_center(float value, int cell) {
     float expected = (float)cell + 0.5f;
     float delta = value - expected;
@@ -260,26 +270,28 @@ static int assert_dark_colony_products(RtsGameModel *model) {
     const RtsProductDefinition *barracks = find_product(products, product_count, 80);
     if (!barracks) return fail("product table includes Barracks");
     if (barracks->cost != 1000 || barracks->icon_frame != 20 ||
-        barracks->prerequisite_count != 1 || barracks->prerequisites[0] != 16 ||
+        barracks->prerequisite_count != 1 || barracks->prerequisites[0] != 0 ||
         barracks->available) {
-        return fail("Barracks requires Exo Center");
+        return fail("Barracks requires DEPEND row 0 Exo Center");
     }
 
     const RtsProductDefinition *trooper = find_product(products, product_count, 89);
     if (!trooper) return fail("product table includes Trooper");
     if (trooper->cost != 350 || trooper->icon_frame != 6 ||
         trooper->product_class != RTS_PRODUCT_UNIT ||
-        trooper->prerequisite_count != 1 || trooper->prerequisites[0] != 17 ||
+        trooper->prerequisite_count != 1 || trooper->prerequisites[0] != 1 ||
         trooper->available) {
-        return fail("Trooper requires Barracks");
+        return fail("Trooper requires DEPEND row 1 Barracks");
     }
 
     const RtsProductDefinition *reaper = find_product(products, product_count, 91);
     const RtsProductDefinition *barrager = find_product(products, product_count, 93);
     if (!reaper || !barrager) return fail("product table includes robot factory units");
-    if (reaper->prerequisite_count != 1 || reaper->prerequisites[0] != 18 ||
-        barrager->prerequisite_count != 1 || barrager->prerequisites[0] != 18) {
-        return fail("Reaper and Barrager require Robot Factory");
+    if (reaper->prerequisite_count != 2 || reaper->prerequisites[0] != 3 ||
+        reaper->prerequisites[1] != 2 ||
+        barrager->prerequisite_count != 2 || barrager->prerequisites[0] != 5 ||
+        barrager->prerequisites[1] != 4) {
+        return fail("Reaper and Barrager expose original DEPEND prerequisite rows");
     }
 
     return 0;
@@ -441,9 +453,31 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/BUILDNG.SPR") != 2) {
         return fail("Human02 loads two starting base buildings from team city slots");
     }
+    if (snapshot_count_units_with_type(&snapshot, MT_DC_EXCOPOD) != 1 ||
+        snapshot_count_units_with_type(&snapshot, MT_DC_BRRKPOD) != 1) {
+        return fail("Human02 starting base buildings are Exo Center plus Barracks");
+    }
     if (!snapshot_has_unit_at(&snapshot, "SPRITES/BUILDNG.SPR", 61, 53) ||
         !snapshot_has_unit_at(&snapshot, "SPRITES/BUILDNG.SPR", 56, 55)) {
         return fail("Human02 starting base buildings use team AISlot coordinates");
+    }
+    RtsProductDefinition products[32];
+    int product_count = rts_game_model_products(model, products, 32);
+    const RtsProductDefinition *barracks = find_product(products, product_count, 80);
+    const RtsProductDefinition *trooper = find_product(products, product_count, 89);
+    const RtsProductDefinition *reaper = find_product(products, product_count, 91);
+    if (!barracks || !trooper || !reaper) {
+        return fail("Human02 exposes expected product availability entries");
+    }
+    if (!barracks->available || !trooper->available || reaper->available) {
+        return fail("Human02 product availability follows DEPEND rows and starting buildings");
+    }
+    RtsGameCommand train_without_resources = {
+        .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+        .data.activate_ui_button = { .ui_id = 89 },
+    };
+    if (rts_game_model_command(model, &train_without_resources)) {
+        return fail("Human02 cannot train Trooper before enough Petra-7 is available");
     }
     if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 33, 25) ||
         !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 38, 25) ||
@@ -570,6 +604,38 @@ static int assert_human02(RtsGameModel *model) {
     if (exploiter < 0 || snapshot.units[exploiter].hp <= 0 ||
         snapshot.units[exploiter].harvest_target < 0) {
         return fail("Human02 scripted enemy waves do not interrupt early Exploiter mining");
+    }
+    for (int i = 0; snapshot.player_resources[0] < 350 && i < 30 * 90; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human02 while mining enough Petra-7 for production");
+        }
+        if (!rts_game_model_snapshot(model, &snapshot)) {
+            return fail("Human02 snapshot while mining enough Petra-7 for production");
+        }
+    }
+    if (snapshot.player_resources[0] < 350) {
+        return fail("Human02 mining produces enough Petra-7 to test unit production");
+    }
+
+    int units_before_production = snapshot.unit_count;
+    int troopers_before_production = snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER);
+    int resources_before_production = snapshot.player_resources[0];
+    RtsGameCommand train_trooper = {
+        .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+        .data.activate_ui_button = { .ui_id = 89 },
+    };
+    if (!rts_game_model_command(model, &train_trooper)) {
+        return fail("Human02 trains Trooper through model UI button command");
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Human02 snapshot after training Trooper");
+    }
+    if (snapshot.unit_count != units_before_production + 1 ||
+        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production + 1) {
+        return fail("Human02 Trooper production creates one player Trooper");
+    }
+    if (snapshot.player_resources[0] != resources_before_production - 350) {
+        return fail("Human02 Trooper production spends the DEPEND cost");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",

@@ -5,12 +5,14 @@
 #include "plugin.h"
 
 #include <stdarg.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 
 typedef struct {
+    int row_id;
     int ui_id;
     const char *label;
     int cost;
@@ -34,24 +36,32 @@ struct RtsGameModel {
     char error[256];
 };
 
+static const ActorType *plugin_actor_type_by_id(const Plugin *plugin, uint16_t type_id);
+static void apply_actor_type_defaults(Unit *unit, const ActorType *type);
+
 static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
-    { 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0 },
-    {  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 16 }, 1 },
-    {  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 16 }, 1 },
-    {  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 16 }, 1 },
-    {  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 16 }, 1 },
-    {  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 20 }, 1 },
-    {  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 18 }, 1 },
-    {  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 16 }, 1 },
-    {  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 17 }, 1 },
-    {  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,      1, 0, { 20 }, 1 },
-    {  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 19 }, 1 },
-    {  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 18 }, 1 },
-    {  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 20 }, 1 },
-    {  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 18 }, 1 },
-    {  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 19 }, 1 },
-    { 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 22 }, 1 },
+    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0 },
+    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1 },
+    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1 },
+    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2 },
+    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1 },
+    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1 },
+    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2 },
+    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1 },
+    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1 },
+    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2 },
+    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 0, 3, 4 }, 3 },
+    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2 },
+    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1 },
+    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2 },
+    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 4, 3, 6 }, 3 },
 };
+
+static int dark_colony_product_count(void) {
+    return (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
+                 sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+}
 
 static void model_set_error(RtsGameModel *model, const char *fmt, ...) {
     if (!model) return;
@@ -74,8 +84,46 @@ static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
     }
 }
 
-static bool model_has_player_product_type(const RtsGameModel *model, int product_type) {
-    uint16_t actor_id = dark_colony_actor_id_for_product_type(product_type);
+static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
+    switch (product_type) {
+    case 0: return 1;
+    case 2: return 4;
+    case 3: return 5;
+    case 4: return 6;
+    case 5: return 7;
+    case 6: return 3;
+    default: return 0;
+    }
+}
+
+static const StaticProductDefinition *dark_colony_product_by_row_id(int row_id) {
+    int count = dark_colony_product_count();
+    for (int i = 0; i < count; ++i) {
+        if (DARK_COLONY_HUMAN_PRODUCTS[i].row_id == row_id)
+            return &DARK_COLONY_HUMAN_PRODUCTS[i];
+    }
+    return NULL;
+}
+
+static const StaticProductDefinition *dark_colony_product_by_ui_id(int ui_id) {
+    int count = dark_colony_product_count();
+    for (int i = 0; i < count; ++i) {
+        if (DARK_COLONY_HUMAN_PRODUCTS[i].ui_id == ui_id)
+            return &DARK_COLONY_HUMAN_PRODUCTS[i];
+    }
+    return NULL;
+}
+
+static uint16_t dark_colony_actor_id_for_product(const StaticProductDefinition *product) {
+    if (!product) return 0;
+    if (product->product_class == RTS_PRODUCT_BUILDING)
+        return dark_colony_actor_id_for_product_type(product->product_type);
+    if (product->product_class == RTS_PRODUCT_UNIT)
+        return dark_colony_unit_actor_id_for_product_type(product->product_type);
+    return 0;
+}
+
+static bool model_has_player_actor_type(const RtsGameModel *model, uint16_t actor_id) {
     if (!model || actor_id == 0) return false;
     for (int i = 0; i < model->unit_count; ++i) {
         const Unit *unit = &model->units[i];
@@ -85,11 +133,164 @@ static bool model_has_player_product_type(const RtsGameModel *model, int product
     return false;
 }
 
+static bool model_has_player_product(const RtsGameModel *model,
+                                     const StaticProductDefinition *product) {
+    if (!product || product->product_class != RTS_PRODUCT_BUILDING) return false;
+    return model_has_player_actor_type(model, dark_colony_actor_id_for_product(product));
+}
+
 static bool product_is_available(const RtsGameModel *model, const StaticProductDefinition *product) {
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
-        if (!model_has_player_product_type(model, product->prerequisites[i])) return false;
+        const StaticProductDefinition *prereq =
+            dark_colony_product_by_row_id(product->prerequisites[i]);
+        if (!model_has_player_product(model, prereq)) return false;
     }
+    return true;
+}
+
+static int find_player_actor_index(const RtsGameModel *model, uint16_t actor_id) {
+    if (!model || actor_id == 0) return -1;
+    for (int i = 0; i < model->unit_count; ++i) {
+        const Unit *unit = &model->units[i];
+        if (unit->owner == 0 && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
+            return i;
+    }
+    return -1;
+}
+
+static int find_player_product_index(const RtsGameModel *model,
+                                     const StaticProductDefinition *product) {
+    return find_player_actor_index(model, dark_colony_actor_id_for_product(product));
+}
+
+static int find_product_producer_index(const RtsGameModel *model,
+                                       const StaticProductDefinition *product) {
+    if (!model || !product) return -1;
+    for (int i = 0; i < product->prerequisite_count; ++i) {
+        const StaticProductDefinition *prereq =
+            dark_colony_product_by_row_id(product->prerequisites[i]);
+        int index = find_player_product_index(model, prereq);
+        if (index >= 0) return index;
+    }
+    for (int i = 0; i < model->unit_count; ++i) {
+        const Unit *unit = &model->units[i];
+        if (unit->owner == 0 && !unit->remove && unit->hp > 0 &&
+            (unit->traits & RTS_TRAIT_RENDERABLE) != 0 &&
+            (unit->traits & RTS_TRAIT_MOBILE) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static bool model_position_available(const RtsGameModel *model, float gx, float gy,
+                                     float radius) {
+    if (!model) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)model->map.width || gy + radius > (float)model->map.height) {
+        return false;
+    }
+
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!map_walkable(&model->map, x, y)) return false;
+        }
+    }
+
+    for (int i = 0; i < model->unit_count; ++i) {
+        const Unit *other = &model->units[i];
+        if (other->remove || other->hp <= 0) continue;
+        float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
+        float min_dist = radius + other_radius;
+        float dx = other->gx - gx;
+        float dy = other->gy - gy;
+        if (dx * dx + dy * dy < min_dist * min_dist) return false;
+    }
+    return true;
+}
+
+static bool find_spawn_position_near(const RtsGameModel *model, const Unit *producer,
+                                     float radius, float *out_gx, float *out_gy) {
+    if (!model || !producer || !out_gx || !out_gy) return false;
+    int origin_x = (int)floorf(producer->gx);
+    int origin_y = (int)floorf(producer->gy);
+    static const int preferred[][2] = {
+        { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
+        { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
+    };
+    int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
+    for (int dist = 1; dist <= 8; ++dist) {
+        for (int i = 0; i < preferred_count; ++i) {
+            int x = origin_x + preferred[i][0] * dist;
+            int y = origin_y + preferred[i][1] * dist;
+            float candidate_gx = (float)x + 0.5f;
+            float candidate_gy = (float)y + 0.5f;
+            if (!model_position_available(model, candidate_gx, candidate_gy, radius)) continue;
+            *out_gx = candidate_gx;
+            *out_gy = candidate_gy;
+            return true;
+        }
+        for (int dy = -dist; dy <= dist; ++dy) {
+            for (int dx = -dist; dx <= dist; ++dx) {
+                if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
+                float candidate_gx = (float)(origin_x + dx) + 0.5f;
+                float candidate_gy = (float)(origin_y + dy) + 0.5f;
+                if (!model_position_available(model, candidate_gx, candidate_gy, radius)) continue;
+                *out_gx = candidate_gx;
+                *out_gy = candidate_gy;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool create_dark_colony_product(RtsGameModel *model,
+                                       const StaticProductDefinition *product) {
+    if (!model || !product) return false;
+    if (!model->plugin || !model->plugin->id ||
+        strcmp(model->plugin->id, "dark-colony") != 0) {
+        return false;
+    }
+    if (!product_is_available(model, product)) return false;
+    if (model->map.player_resources[0] < product->cost) return false;
+    if (model->unit_count >= MAX_UNITS) return false;
+
+    uint16_t actor_id = dark_colony_actor_id_for_product(product);
+    const ActorType *actor_type = plugin_actor_type_by_id(model->plugin, actor_id);
+    if (actor_id == 0 || !actor_type) return false;
+
+    int producer_index = find_product_producer_index(model, product);
+    if (producer_index < 0) return false;
+
+    Unit new_unit;
+    memset(&new_unit, 0, sizeof(new_unit));
+    new_unit.type_id = actor_id;
+    new_unit.owner = 0;
+    new_unit.sprite_id = -1;
+    new_unit.attack_target = -1;
+    new_unit.harvest_target = -1;
+    new_unit.frame = product->product_class == RTS_PRODUCT_BUILDING ?
+        product->product_type - 16 : 0;
+    apply_actor_type_defaults(&new_unit, actor_type);
+    apply_mobjinfo_defaults(model->plugin ? model->plugin->game_info : NULL, &new_unit);
+    float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
+
+    float gx = 0.0f;
+    float gy = 0.0f;
+    if (!find_spawn_position_near(model, &model->units[producer_index], radius, &gx, &gy))
+        return false;
+
+    new_unit.gx = gx;
+    new_unit.gy = gy;
+    model->map.player_resources[0] -= product->cost;
+    model->units[model->unit_count++] = new_unit;
     return true;
 }
 
@@ -110,8 +311,7 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
     append_ui_script(dst, dst_size, "x 520 y 464 text \"P-7 %d\"\n",
                      model->map.player_resources[0]);
 
-    int source_count = (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
-                             sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+    int source_count = dark_colony_product_count();
     for (int i = 0; i < source_count; ++i) {
         const StaticProductDefinition *product = &DARK_COLONY_HUMAN_PRODUCTS[i];
         int col = i % 3;
@@ -330,6 +530,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         return issue_harvest_order_at(&model->map, model->units, model->unit_count,
                                       command->data.harvest_selected.gx,
                                       command->data.harvest_selected.gy);
+    case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON:
+        return create_dark_colony_product(
+            model, dark_colony_product_by_ui_id(command->data.activate_ui_button.ui_id));
     default:
         return false;
     }
@@ -420,8 +623,7 @@ int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out
     if (!model->plugin || !model->plugin->id || strcmp(model->plugin->id, "dark-colony") != 0)
         return 0;
 
-    int source_count = (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
-                             sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+    int source_count = dark_colony_product_count();
     int count = source_count < max_products ? source_count : max_products;
     for (int i = 0; i < count; ++i) {
         const StaticProductDefinition *src = &DARK_COLONY_HUMAN_PRODUCTS[i];

@@ -8,14 +8,14 @@ client use the same behavior.
 
 ## Scope
 
-- [ ] Identify production building capabilities:
+- [x] Identify production building capabilities:
       Exo Center/Exploiter, Barracks/Trooper, Robot Factory/Reaper/Barrager,
       Science Pod/Sentinel/Osprey/Medi-craft where applicable.
 - [ ] Add per-building production queue state.
-- [ ] Add model command to enqueue a product from a selected/target building.
-- [ ] Spend resources at enqueue time or start time.
+- [x] Add model command to request a product from available building rules.
+- [x] Spend resources when production succeeds.
 - [ ] Advance queue progress during simulation ticks.
-- [ ] Spawn produced unit near the building with collision-safe placement.
+- [x] Spawn produced unit near the building with collision-safe placement.
 - [ ] Add rally point support if scope allows, otherwise create a follow-up.
 
 ## Acceptance Criteria
@@ -28,8 +28,8 @@ client use the same behavior.
 
 ## Tests
 
-- [ ] Barracks trains a Trooper in headless simulation.
+- [x] Barracks trains a Trooper in headless simulation.
 - [ ] Exo Center trains an Exploiter.
-- [ ] Insufficient resources prevent enqueue.
+- [x] Insufficient resources prevent production.
 - [ ] Queue progress advances only when simulation ticks.
-- [ ] Spawn fallback finds a nearby free cell if the preferred exit is blocked.
+- [x] Spawn fallback finds a nearby free cell.

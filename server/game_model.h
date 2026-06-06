@@ -30,6 +30,7 @@ typedef enum {
     RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
     RTS_GAME_COMMAND_MOVE_SELECTED,
     RTS_GAME_COMMAND_HARVEST_SELECTED,
+    RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
 } RtsGameCommandKind;
 
 typedef enum {
@@ -60,6 +61,9 @@ typedef struct {
             float gx;
             float gy;
         } harvest_selected;
+        struct {
+            int ui_id;
+        } activate_ui_button;
     } data;
 } RtsGameCommand;
 

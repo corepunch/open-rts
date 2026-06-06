@@ -31,7 +31,7 @@ existing features and future construction/production work.
 - [ ] Building actor load tests.
 - [x] Construction product availability tests.
 - [ ] Building placement success/failure tests.
-- [ ] Unit production queue/spawn tests.
+- [x] Unit production command/spawn tests.
 
 ## Acceptance Criteria
 
