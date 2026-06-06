@@ -256,6 +256,22 @@ static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, 
     return false;
 }
 
+static bool snapshot_has_owner_type_frame_offset_at(const RtsRenderSnapshot *snapshot,
+                                                    uint8_t owner, uint16_t type_id,
+                                                    int frame, int offset_x, int offset_y,
+                                                    int gx, int gy) {
+    if (!snapshot) return false;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        const RtsRenderUnit *unit = &snapshot->units[i];
+        if (unit->owner == owner && unit->type_id == type_id && unit->frame == frame &&
+            unit->render_offset_x == offset_x && unit->render_offset_y == offset_y &&
+            near_cell_center(unit->gx, gx) && near_cell_center(unit->gy, gy)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool snapshot_has_decoration_at(const RtsRenderSnapshot *snapshot,
                                        const char *sprite_name, int gx, int gy) {
     if (!snapshot || !sprite_name) return false;
@@ -532,12 +548,12 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
         return fail("Human02 starting base buildings use only the player city anchor");
     }
-    if (!snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_EXCOPOD, 0, 56, 28) ||
-        !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_BRRKPOD, 4, 56, 28) ||
-        !snapshot_has_owner_type_frame_at(&snapshot, 0, MT_DC_CITY_TOWER, 0, 56, 28) ||
+    if (!snapshot_has_owner_type_frame_offset_at(&snapshot, 0, MT_DC_EXCOPOD, 0, 0, 0, 56, 28) ||
+        !snapshot_has_owner_type_frame_offset_at(&snapshot, 0, MT_DC_BRRKPOD, 4, 78, 25, 56, 28) ||
+        !snapshot_has_owner_type_frame_offset_at(&snapshot, 0, MT_DC_CITY_TOWER, 0, 78, -21, 56, 28) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
-        return fail("Human02 human buildings use HUBU/TOWR stand frames");
+        return fail("Human02 human buildings use FIN stand frames and relative offsets");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",

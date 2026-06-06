@@ -1122,7 +1122,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 static int dark_colony_unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-        case 17: return 4; /* HUBU.FIN human front module used by BRRKPOD art */
+        case 17: return 4; /* HUBU.FIN TRSCBUILD0 front city module */
         case 18: return 1; /* ROBOTICSSTAND0 */
         case 19: return 1; /* ROBOPOD2 reuses robotics art. */
         case 20: return 2; /* SCIENCESTAND0 */
@@ -1139,11 +1139,12 @@ static void dark_colony_unit_render_offset_for_type(int type, int *x, int *y) {
     if (x) *x = 0;
     if (y) *y = 0;
     if (type == 17) {
-        if (x) *x = 35;
-        if (y) *y = -35;
+        /* FIN command deltas relative to EXCOPODSTAND0 at -114,12. */
+        if (x) *x = 78;
+        if (y) *y = 25;
     } else if (type == 81) {
-        if (x) *x = 30;
-        if (y) *y = -40;
+        if (x) *x = 78;
+        if (y) *y = -21;
     }
 }
 

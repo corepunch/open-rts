@@ -105,7 +105,7 @@ static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
 static int dark_colony_building_frame_for_product_type(int product_type) {
     switch (product_type) {
     case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-    case 17: return 4; /* HUBU.FIN human front module used by BRRKPOD art */
+    case 17: return 4; /* HUBU.FIN TRSCBUILD0 front city module */
     case 18: return 1;
     case 19: return 1;
     case 20: return 2;
@@ -119,8 +119,8 @@ static void dark_colony_building_offset_for_product_type(int product_type, int *
     if (x) *x = 0;
     if (y) *y = 0;
     if (product_type == 17) {
-        if (x) *x = 35;
-        if (y) *y = -35;
+        if (x) *x = 78;
+        if (y) *y = 25;
     }
 }
 
