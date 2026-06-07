@@ -50,6 +50,8 @@ typedef struct SpriteSheet {
     int primary_frames_per_rotation;
     SpriteSequence sequences[MAX_SPRITE_SEQUENCES];
     int sequence_count;
+    void *native_data;
+    void (*destroy_native_data)(void *);
 } SpriteSheet;
 
 typedef struct {

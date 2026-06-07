@@ -83,6 +83,8 @@ typedef struct GameMap {
     float camera_gy;
     int player_resources[8];
     char tileset_name[32];
+    void *native_data;
+    void (*destroy_native_data)(void *);
     void (*render_transitions)(App *app, const struct GameMap *map, const Tileset *tileset,
                                int x, int y, int dx, int dy);
 } GameMap;

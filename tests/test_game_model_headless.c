@@ -239,6 +239,11 @@ static bool near_cell_center(float value, int cell) {
     return delta > -0.05f && delta < 0.05f;
 }
 
+static bool near_float(float value, float expected) {
+    float delta = value - expected;
+    return delta > -0.001f && delta < 0.001f;
+}
+
 static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *sprite_name,
                                  int gx, int gy) {
     if (!snapshot || !sprite_name) return false;
@@ -278,18 +283,18 @@ static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, 
     return false;
 }
 
-static bool snapshot_has_owner_type_state_with_unit_offset_at(const RtsRenderSnapshot *snapshot,
-                                                              uint8_t owner, uint16_t type_id,
-                                                              int frame, int state_id,
-                                                              int gx, int gy,
-                                                              int render_offset_x,
-                                                              int render_offset_y) {
+static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
+                                         uint8_t owner, uint16_t type_id,
+                                         int frame, int state_id,
+                                         float gx, float gy,
+                                         int render_offset_x,
+                                         int render_offset_y) {
     if (!snapshot) return false;
     for (int i = 0; i < snapshot->unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot->units[i];
         if (unit->owner != owner || unit->type_id != type_id || unit->frame != frame ||
-            unit->state_id != state_id || !near_cell_center(unit->gx, gx) ||
-            !near_cell_center(unit->gy, gy)) {
+            unit->state_id != state_id || !near_float(unit->gx, gx) ||
+            !near_float(unit->gy, gy)) {
             continue;
         }
         if (unit->render_offset_x == render_offset_x &&
@@ -565,28 +570,23 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 0) {
         return fail("Human02 non-player city slots are not materialized as starting bases");
     }
-    if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 56, 28) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, 56, 28) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, 56, 28) ||
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
+                                      S_DC_EXCOPOD_STND, 56.5f, 29.03125f, 64, -15) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
+                                      S_DC_BRRKPOD_STND, 56.5f, 27.5f, 0, 0) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
+                                      S_DC_TOWR_STND, 56.5f, 29.03125f, 64, -15) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 26) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 36, 26) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 22) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 31, 23) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 50, 28) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
-        return fail("Human02 starting base buildings use only the player city anchor");
+        return fail("Human02 starting base uses Dark Colony city slot fixed-point offsets");
     }
-    if (!snapshot_has_owner_type_state_with_unit_offset_at(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                                           S_DC_EXCOPOD_STND, 56, 28,
-                                                           -TILE_PIX_W / 2, TILE_PIX_H / 2) ||
-        !snapshot_has_owner_type_state_with_unit_offset_at(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                                           S_DC_BRRKPOD_STND, 56, 28,
-                                                           -TILE_PIX_W / 2, TILE_PIX_H / 2) ||
-        !snapshot_has_owner_type_state_with_unit_offset_at(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                                           S_DC_TOWR_STND, 56, 28, 0, 0) ||
-        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
+    if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
-        return fail("Human02 human city modules use the FIN city origin without moving the tower foundation");
+        return fail("Human02 non-player city slots stay non-materialized");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
@@ -811,20 +811,22 @@ static int assert_human03_city_slots(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("initial Human03 snapshot");
     }
-    int anchor_x = 75;
-    int anchor_y = snapshot.map_height - 1 - 6;
-    if (!snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, anchor_x, anchor_y) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_BRRKPOD, anchor_x, anchor_y) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_ROBOPOD, anchor_x, anchor_y) ||
-        !snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, anchor_x, anchor_y)) {
-        return fail("Human03 city slots compose at the shared city anchor");
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
+                                      S_DC_EXCOPOD_STND, 75.5f, 92.03125f, 64, -15) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
+                                      S_DC_BRRKPOD_STND, 75.5f, 90.5f, 0, 0) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_ROBOPOD, 1,
+                                      S_NULL, 75.5f, 92.1875f, -64, -10) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
+                                      S_DC_TOWR_STND, 75.5f, 92.03125f, 64, -15)) {
+        return fail("Human03 city slots compose with Dark Colony fixed-point offsets");
     }
     if (snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 81, snapshot.map_height - 1 - 9) ||
         snapshot_has_owner_type_at(&snapshot, 0, MT_DC_CITY_TOWER, 81, snapshot.map_height - 1 - 9)) {
         return fail("Human03 first AISlot is not a second player city base");
     }
 
-    printf("PASS: Human03 city slots compose at one city anchor with %d units\n",
+    printf("PASS: Human03 city slots compose from Dark Colony fixed-point data with %d units\n",
            snapshot.unit_count);
     return 0;
 }

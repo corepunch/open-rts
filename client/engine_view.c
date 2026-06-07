@@ -1341,10 +1341,12 @@ void destroy_map(GameMap *map) {
     free(map->decorations);
     free(map->resource_vents);
     free(map->extras);
+    if (map->destroy_native_data) map->destroy_native_data(map->native_data);
     memset(map, 0, sizeof(*map));
 }
 
 void destroy_sprite(SpriteSheet *sprite) {
+    if (!sprite) return;
     if (sprite->texture) SDL_DestroyTexture(sprite->texture);
     for (int i = 0; i < 8; ++i)
         if (sprite->remap_textures[i]) SDL_DestroyTexture(sprite->remap_textures[i]);
@@ -1352,6 +1354,7 @@ void destroy_sprite(SpriteSheet *sprite) {
     free(sprite->frame_bounds);
     free(sprite->frame_ground_points);
     free(sprite->frame_displacements);
+    if (sprite->destroy_native_data) sprite->destroy_native_data(sprite->native_data);
     memset(sprite, 0, sizeof(*sprite));
 }
 
