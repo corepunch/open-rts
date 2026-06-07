@@ -115,15 +115,6 @@ static int dark_colony_building_frame_for_product_type(int product_type) {
     }
 }
 
-static void dark_colony_building_offset_for_product_type(int product_type, int *x, int *y) {
-    if (x) *x = 0;
-    if (y) *y = 0;
-    if (product_type == 17) {
-        if (x) *x = 78;
-        if (y) *y = 25;
-    }
-}
-
 static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
     case 0: return 1;
@@ -134,6 +125,29 @@ static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
     case 6: return 3;
     default: return 0;
     }
+}
+
+static int dark_colony_building_state_for_product_type(const GameInfo *game_info,
+                                                       int product_type) {
+    if (!game_info || !game_info->states || !game_info->sprnames) return -1;
+    const char *sprite_name = NULL;
+    switch (product_type) {
+    case 16:
+    case 17:
+        sprite_name = "SPRITES/HUBU.SPR";
+        break;
+    default:
+        return -1;
+    }
+    int frame = dark_colony_building_frame_for_product_type(product_type);
+    for (int i = 0; i < game_info->state_count; ++i) {
+        const State *state = &game_info->states[i];
+        if (state->sprite < 0 || state->sprite >= game_info->sprite_count) continue;
+        if (state->facings != 1 || state->facing_frames[0] != frame) continue;
+        if (strcmp(game_info->sprnames[state->sprite], sprite_name) == 0)
+            return i;
+    }
+    return -1;
 }
 
 static const StaticProductDefinition *dark_colony_product_by_row_id(int row_id) {
@@ -375,13 +389,16 @@ static bool create_model_product(RtsGameModel *model,
     new_unit.harvest_target = -1;
     new_unit.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
         dark_colony_building_frame_for_product_type(product->product_type) : 0;
-    if (!dark_reign && product->product_class == RTS_PRODUCT_BUILDING) {
-        dark_colony_building_offset_for_product_type(product->product_type,
-                                                     &new_unit.render_offset_x,
-                                                     &new_unit.render_offset_y);
-    }
     apply_actor_type_defaults(&new_unit, actor_type);
     apply_mobjinfo_defaults(model->plugin ? model->plugin->game_info : NULL, &new_unit);
+    if (!dark_reign && product->product_class == RTS_PRODUCT_BUILDING) {
+        int state_id = dark_colony_building_state_for_product_type(model->plugin->game_info,
+                                                                   product->product_type);
+        if (state_id > 0) {
+            StateContext ctx = { .game_info = model->plugin->game_info };
+            set_unit_state(&ctx, &new_unit, state_id);
+        }
+    }
     if (dark_reign && product->product_class == RTS_PRODUCT_BUILDING)
         new_unit.radius = 1.2f;
     float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;

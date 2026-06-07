@@ -182,14 +182,14 @@ Local game-data files that have already been useful:
 
 Each `.SPR` file's `dis_x`/`dis_y` descriptor values encode the placement of
 each frame's pixel data within a shared virtual canvas of size `max_w × max_h`
-(the bounding box across all frames). The unit's foot/ground point corresponds
-to the **canvas center-bottom**: `(max_w / 2, max_h)`. This value is constant
-for all frames of a sprite — it does not vary per frame.
+(the bounding box across all frames). For FIN-composed city/building sprites,
+use the **canvas center-bottom** `(max_w / 2, max_h)` so FIN command coordinates
+compose frames in the same coordinate space.
 
-Do **not** compute the ground anchor as `dis_x - min_dis_x + w/2,
-dis_y - min_dis_y + h` (the per-frame bounding-box bottom-center). That
-formula varies by 20–30 px across animation frames of the same unit, causing
-visible vertical bobbing and the unit to appear to float above the vent.
+Do not apply that canvas-bottom anchor to every rendered unit. Mobile units use
+their visible footprint for selection/grounding in our renderer; using the full
+canvas bottom there makes sprites such as `EXPL.SPR` visibly hover above their
+selection ellipse.
 
 Verification: for `EXPL.SPR`, `TRSC.SPR`, and `VENT.SPR`:
 - Canvas size is determined by `max_dis - min_dis` in each axis.

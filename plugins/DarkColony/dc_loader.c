@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "plugin.h"
 #include "info.h"
+#include "gamestat.h"
 #include "dc_types.h"
 
 #include <ctype.h>
@@ -353,8 +354,10 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         free(info); free_blob(&blob);
         return false;
     }
-    int max_w = max_dis_x > min_dis_x ? max_dis_x - min_dis_x : 1;
-    int max_h = max_dis_y > min_dis_y ? max_dis_y - min_dis_y : 1;
+    (void)min_dis_x;
+    (void)min_dis_y;
+    int max_w = max_dis_x > 0 ? max_dis_x : 1;
+    int max_h = max_dis_y > 0 ? max_dis_y : 1;
     if (max_w <= 0 || max_h <= 0 || max_w > 1024 || max_h > 1024) {
         free(info); free_blob(&blob);
         return false;
@@ -377,8 +380,8 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     for (int i = 0; i < visible_frames; ++i) {
         int w = info[i].w;
         int h = info[i].h;
-        int fx = (i % cols) * max_w + (info[i].dis_x - min_dis_x);
-        int fy = (i / cols) * max_h + (info[i].dis_y - min_dis_y);
+        int fx = (i % cols) * max_w + info[i].dis_x;
+        int fy = (i / cols) * max_h + info[i].dis_y;
         if (compressed) {
             if (src_pos + 4 > blob.size) { free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob); return false; }
             uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
@@ -441,9 +444,9 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
             bounds[i].y + bounds[i].h,
         };
 
-        /* BUILDNG.SPR contains city modules packed with varying visible bounds;
-           keep a stable tile anchor so base parts stay on their authored cells. */
-        if (path_basename_is(path, "BUILDNG.SPR")) {
+        if (path_basename_is(path, "BUILDNG.SPR") ||
+            path_basename_is(path, "HUBU.SPR") ||
+            path_basename_is(path, "TOWR.SPR")) {
             ground_points[i] = (SDL_Point){ max_w / 2, max_h };
         }
     }
@@ -987,16 +990,6 @@ static char *find_ascii_case_insensitive(char *haystack, const char *needle) {
     return NULL;
 }
 
-static bool dark_colony_root_from_map_path(const char *map_path, char *root, size_t root_size) {
-    if (!map_path || !root || root_size == 0) return false;
-    snprintf(root, root_size, "%s", map_path);
-    char *marker = find_ascii_case_insensitive(root, "/SCENARIO/");
-    if (!marker) marker = find_ascii_case_insensitive(root, "\\SCENARIO\\");
-    if (!marker) return false;
-    *marker = '\0';
-    return root[0] != '\0';
-}
-
 static float dark_colony_speed_from_gamestat(int speed) {
     return speed > 0 ? (float)speed / 32.0f : 0.0f;
 }
@@ -1007,42 +1000,17 @@ static bool dark_colony_map_path_is_multiplayer(const char *map_path) {
            find_ascii_case_insensitive((char *)map_path, "\\MPLAYER\\");
 }
 
-static void load_dark_colony_unit_config(const char *map_path,
-                                         DarkColonyUnitConfig configs[DARK_COLONY_MAX_GAMESTAT_UNITS]) {
+static void load_dark_colony_unit_config(DarkColonyUnitConfig configs[DARK_COLONY_MAX_GAMESTAT_UNITS]) {
     memset(configs, 0, sizeof(DarkColonyUnitConfig) * DARK_COLONY_MAX_GAMESTAT_UNITS);
 
-    char root[1024];
-    if (!dark_colony_root_from_map_path(map_path, root, sizeof(root))) return;
-
-    char gamestat_path[1024];
-    snprintf(gamestat_path, sizeof(gamestat_path), "%s/GAMESTAT/GAMESTAT.TXT", root);
-    char *text = load_text_file(gamestat_path);
-    if (!text) return;
-
-    int type_index = 0;
-    for (char *line = text; line && *line && type_index < DARK_COLONY_MAX_GAMESTAT_UNITS;) {
-        char *next = strpbrk(line, "\r\n");
-        if (next) {
-            char nl = *next; *next++ = '\0';
-            if (nl == '\r' && *next == '\n') next++;
+    int count = DC_GAMESTAT_UNIT_COUNT;
+    if (count > DARK_COLONY_MAX_GAMESTAT_UNITS) count = DARK_COLONY_MAX_GAMESTAT_UNITS;
+    for (int i = 0; i < count; ++i) {
+        const DcGamestatUnit *unit = &dc_gamestat_units[i];
+        if (unit->value_count > DC_GAMESTAT_UNIT_SPEED) {
+            configs[i].speed = dark_colony_speed_from_gamestat(unit->values[DC_GAMESTAT_UNIT_SPEED]);
         }
-
-        char token[256] = { 0 };
-        copy_trimmed_token(token, sizeof(token), line, strlen(line));
-        if (token[0] != '\0' && token[0] != '%') {
-            char sprite[32] = { 0 };
-            int race = 0, turn = 0, speed = 0;
-            if (!isdigit((unsigned char)token[0]) &&
-                sscanf(token, "%31s %d %d %d", sprite, &race, &turn, &speed) == 4) {
-                (void)race;
-                (void)turn;
-                configs[type_index].speed = dark_colony_speed_from_gamestat(speed);
-                type_index++;
-            }
-        }
-        line = next;
     }
-    free(text);
 }
 
 static int dark_colony_mobj_type_for_type(int type, int race) {
@@ -1135,16 +1103,12 @@ static int dark_colony_unit_frame_for_type(int type) {
     return 0;
 }
 
-static void dark_colony_unit_render_offset_for_type(int type, int *x, int *y) {
-    if (x) *x = 0;
-    if (y) *y = 0;
-    if (type == 17) {
-        /* FIN command deltas relative to EXCOPODSTAND0 at -114,12. */
-        if (x) *x = 78;
-        if (y) *y = 25;
-    } else if (type == 81) {
-        if (x) *x = 78;
-        if (y) *y = -21;
+static int dark_colony_unit_state_for_type(int type) {
+    switch (type) {
+        case 16: return S_DC_EXCOPOD_STND;
+        case 17: return S_DC_BRRKPOD_STND;
+        case 81: return S_DC_TOWR_STND;
+        default: return S_NULL;
     }
 }
 
@@ -1220,8 +1184,12 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
     if (u->selected) *player_selected = true;
     u->frame = dark_colony_unit_frame_for_type(type);
-    dark_colony_unit_render_offset_for_type(type, &u->render_offset_x, &u->render_offset_y);
     snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
+    int state_id = dark_colony_unit_state_for_type(type);
+    if (state_id != S_NULL) {
+        StateContext ctx = { .game_info = &dark_colony_game_info };
+        set_unit_state(&ctx, u, state_id);
+    }
     if (u->owner == 0) {
         if (player_anchor_set && player_anchor_x && player_anchor_y &&
             (!*player_anchor_set || x > *player_anchor_x)) {
@@ -1243,7 +1211,7 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
     if (!text) return 0;
 
     DarkColonyUnitConfig unit_config[DARK_COLONY_MAX_GAMESTAT_UNITS];
-    load_dark_colony_unit_config(map_path, unit_config);
+    load_dark_colony_unit_config(unit_config);
 
     enum { DC_MAX_SCN_TEAMS = 16, DC_CITY_SLOTS = 7 };
     int team_race[DC_MAX_SCN_TEAMS] = { 0 };

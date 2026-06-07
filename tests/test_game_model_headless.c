@@ -172,10 +172,6 @@ static int assert_dark_colony_exploiter_pulse_states(void) {
             free(text);
             return fail("Dark Colony Exploiter mining pulse uses expected top frame order");
         }
-        if (strstr(line, "FLIPPED") && (!end || strstr(line, "FLIPPED") < end)) {
-            free(text);
-            return fail("Dark Colony Exploiter mining pulse is unflipped for every facing");
-        }
     }
     free(text);
     return 0;
@@ -256,16 +252,19 @@ static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, 
     return false;
 }
 
-static bool snapshot_has_owner_type_frame_offset_at(const RtsRenderSnapshot *snapshot,
-                                                    uint8_t owner, uint16_t type_id,
-                                                    int frame, int offset_x, int offset_y,
-                                                    int gx, int gy) {
+static bool snapshot_has_owner_type_state_without_unit_offset_at(const RtsRenderSnapshot *snapshot,
+                                                                 uint8_t owner, uint16_t type_id,
+                                                                 int frame, int state_id,
+                                                                 int gx, int gy) {
     if (!snapshot) return false;
     for (int i = 0; i < snapshot->unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot->units[i];
-        if (unit->owner == owner && unit->type_id == type_id && unit->frame == frame &&
-            unit->render_offset_x == offset_x && unit->render_offset_y == offset_y &&
-            near_cell_center(unit->gx, gx) && near_cell_center(unit->gy, gy)) {
+        if (unit->owner != owner || unit->type_id != type_id || unit->frame != frame ||
+            unit->state_id != state_id || !near_cell_center(unit->gx, gx) ||
+            !near_cell_center(unit->gy, gy)) {
+            continue;
+        }
+        if (unit->render_offset_x == 0 && unit->render_offset_y == 0) {
             return true;
         }
     }
@@ -548,12 +547,15 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
         return fail("Human02 starting base buildings use only the player city anchor");
     }
-    if (!snapshot_has_owner_type_frame_offset_at(&snapshot, 0, MT_DC_EXCOPOD, 0, 0, 0, 56, 28) ||
-        !snapshot_has_owner_type_frame_offset_at(&snapshot, 0, MT_DC_BRRKPOD, 4, 78, 25, 56, 28) ||
-        !snapshot_has_owner_type_frame_offset_at(&snapshot, 0, MT_DC_CITY_TOWER, 0, 78, -21, 56, 28) ||
+    if (!snapshot_has_owner_type_state_without_unit_offset_at(&snapshot, 0, MT_DC_EXCOPOD, 0,
+                                                              S_DC_EXCOPOD_STND, 56, 28) ||
+        !snapshot_has_owner_type_state_without_unit_offset_at(&snapshot, 0, MT_DC_BRRKPOD, 4,
+                                                              S_DC_BRRKPOD_STND, 56, 28) ||
+        !snapshot_has_owner_type_state_without_unit_offset_at(&snapshot, 0, MT_DC_CITY_TOWER, 0,
+                                                              S_DC_TOWR_STND, 56, 28) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
-        return fail("Human02 human buildings use FIN stand frames and relative offsets");
+        return fail("Human02 human buildings use generated FIN stand states without duplicate offsets");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
@@ -637,7 +639,7 @@ static int assert_human02(RtsGameModel *model) {
     }
 
     bool saw_deploy_body_frame = false;
-    bool saw_unflipped_mining_body = false;
+    bool saw_mining_body = false;
     bool saw_mining_work_states[16] = {0};
     int mining_work_state_count = 0;
     for (int i = 0; i < 30 * 45; ++i) {
@@ -658,9 +660,6 @@ static int assert_human02(RtsGameModel *model) {
                 saw_deploy_body_frame = true;
             }
             if (snapshot.player_resources[0] > initial_resources) {
-                if ((snapshot.units[exploiter].render_flags & RTS_FRAME_FLIP_X) != 0) {
-                    return fail("Human02 Exploiter deployed mining body is flipped");
-                }
                 int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
                 if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
                     snapshot.units[exploiter].state_id < S_DC_EXPL_DIE1 &&
@@ -669,10 +668,10 @@ static int assert_human02(RtsGameModel *model) {
                     saw_mining_work_states[work_state] = true;
                     mining_work_state_count++;
                 }
-                saw_unflipped_mining_body = true;
+                saw_mining_body = true;
             }
         }
-        if (saw_deploy_body_frame && saw_unflipped_mining_body && mining_work_state_count >= 4 &&
+        if (saw_deploy_body_frame && saw_mining_body && mining_work_state_count >= 4 &&
             snapshot.player_resources[0] > initial_resources) break;
     }
     if (!saw_deploy_body_frame) {
@@ -681,8 +680,8 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.player_resources[0] <= initial_resources) {
         return fail("Human02 Exploiter mining adds player resources");
     }
-    if (!saw_unflipped_mining_body) {
-        return fail("Human02 Exploiter mining uses the deployed tower body without FIN mirroring");
+    if (!saw_mining_body) {
+        return fail("Human02 Exploiter mining uses the deployed body with FIN-authored flags");
     }
     if (mining_work_state_count < 4) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");

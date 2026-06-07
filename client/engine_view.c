@@ -674,14 +674,6 @@ static void unit_state_body_offset_for_view(const GameInfo *game_info, const Uni
     if (offset_y) *offset_y = oy;
 }
 
-static int normalize_sprite_canvas_offset(int offset, int span) {
-    if (span <= 0) return offset;
-    int half = span / 2;
-    while (offset > half) offset -= span;
-    while (offset < -half) offset += span;
-    return offset;
-}
-
 static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
                                       const SpriteSheet *fallback_sprite,
                                       const SpriteCache *cache,
@@ -724,13 +716,22 @@ static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
     int body_offset_x = 0;
     int body_offset_y = 0;
     unit_state_body_offset_for_view(game_info, unit, &body_offset_x, &body_offset_y);
-    body_offset_x = normalize_sprite_canvas_offset(body_offset_x, sprite->frame_w);
-    SDL_Rect dst = {
-        (int)lroundf(sx - (float)ground.x * (float)scale) + body_offset_x * scale,
-        (int)lroundf(sy - (float)ground.y * (float)scale) + body_offset_y * scale,
-        sprite_w,
-        sprite_h,
-    };
+    SDL_Rect dst;
+    if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+        dst = (SDL_Rect){
+            (int)lroundf(sx) + body_offset_x * scale,
+            (int)lroundf(sy) + body_offset_y * scale,
+            sprite_w,
+            sprite_h,
+        };
+    } else {
+        dst = (SDL_Rect){
+            (int)lroundf(sx - (float)ground.x * (float)scale) + body_offset_x * scale,
+            (int)lroundf(sy - (float)ground.y * (float)scale) + body_offset_y * scale,
+            sprite_w,
+            sprite_h,
+        };
+    }
     dst.x += unit->render_offset_x * scale;
     dst.y += unit->render_offset_y * scale;
     SDL_Rect visible = {
@@ -798,7 +799,9 @@ static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float
 static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet *body_sprite,
                                       int body_frame, const SpriteCache *cache,
                                       const GameInfo *game_info, const SDL_Rect *body_dst,
-                                      int scale) {
+                                      int scale, float origin_sx, float origin_sy) {
+    (void)body_sprite;
+    (void)body_frame;
     if (!app || !u || !cache || !game_info || !body_dst ||
         u->state_id < 0 || u->state_id >= game_info->state_count ||
         !game_info->states || !game_info->sprnames) {
@@ -822,22 +825,23 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet
     if (!overlay || !overlay->texture || overlay->frame_count <= 0) return;
     if (frame >= overlay->frame_count) frame = 0;
 
-    uint32_t body_flags = game_info ? u->render_flags : 0;
-    SDL_Point body_ground = { 0, 0 };
-    if (body_sprite && body_frame >= 0 && body_frame < body_sprite->frame_count) {
-        body_ground = sprite_ground_point(body_sprite, body_frame);
-        if ((body_flags & RTS_FRAME_FLIP_X) != 0) body_ground.x = body_sprite->frame_w - body_ground.x;
-    }
     uint32_t flags = state->overlay_facing_flags[slot];
-    SDL_Point overlay_ground = sprite_ground_point(overlay, frame);
-    if ((flags & RTS_FRAME_FLIP_X) != 0) overlay_ground.x = overlay->frame_w - overlay_ground.x;
-
-    SDL_Rect dst = {
-        body_dst->x + (state->overlay_offset_x[slot] + body_ground.x - overlay_ground.x) * scale,
-        body_dst->y + (state->overlay_offset_y[slot] + body_ground.y - overlay_ground.y) * scale,
-        overlay->frame_w * scale,
-        overlay->frame_h * scale,
-    };
+    SDL_Rect dst;
+    if (game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+        dst = (SDL_Rect){
+            (int)lroundf(origin_sx) + state->overlay_offset_x[slot] * scale,
+            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] * scale,
+            overlay->frame_w * scale,
+            overlay->frame_h * scale,
+        };
+    } else {
+        dst = (SDL_Rect){
+            body_dst->x + state->overlay_offset_x[slot] * scale,
+            body_dst->y + state->overlay_offset_y[slot] * scale,
+            overlay->frame_w * scale,
+            overlay->frame_h * scale,
+        };
+    }
     SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     int remap = state->overlay_remap[slot];
     int intensity = state->overlay_intensity[slot];
@@ -890,7 +894,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     begin_sprite_command(sprite, render_flags, u->render_remap, u->render_intensity);
     SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     end_sprite_command(sprite, render_flags);
-    render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, scale);
+    render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, scale, sx, sy);
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
         int bar_h = app_scale(app) < 2 ? 2 : 3;
@@ -1077,12 +1081,27 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
         int scale = app_scale(app);
         int sprite_w = sprite->frame_w * scale;
         int sprite_h = sprite->frame_h * scale;
-        SDL_Rect dst = {
-            (int)(sx - sprite_w / 2),
-            (int)(sy - sprite_h / 2),
-            sprite_w,
-            sprite_h,
-        };
+        SDL_Rect dst;
+        if (effect->use_state && game_info &&
+            game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+            dst = (SDL_Rect){
+                (int)lroundf(sx) + effect->screen_offset_x * scale,
+                (int)lroundf(sy) + effect->screen_offset_y * scale,
+                sprite_w,
+                sprite_h,
+            };
+        } else {
+            dst = (SDL_Rect){
+                (int)(sx - sprite_w / 2),
+                (int)(sy - sprite_h / 2),
+                sprite_w,
+                sprite_h,
+            };
+            if (effect->screen_offset_x != 0 || effect->screen_offset_y != 0) {
+                dst.x += effect->screen_offset_x * scale;
+                dst.y += effect->screen_offset_y * scale;
+            }
+        }
         if (dst.x > app->win_w || dst.y > app->win_h ||
             dst.x + dst.w < 0 || dst.y + dst.h < 0) {
             debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
@@ -1094,10 +1113,6 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
         }
         int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
-        if (effect->screen_offset_x != 0 || effect->screen_offset_y != 0) {
-            dst.x += effect->screen_offset_x * scale;
-            dst.y += effect->screen_offset_y * scale;
-        }
         debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
                           i, effect->sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
