@@ -211,13 +211,15 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("Barracks state uses raw TRSCBUILD0 FIN placement");
     }
 
-    SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0;
+    SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0, beac0, beac1;
     if (!load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 0, &expl0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 6, &expl6) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 14, &expl14) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 15, &expl15) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/HUBU.SPR", 4, &hubu4) ||
-        !load_spr_frame_info("data/DCOLONY/SPRITES/TOWR.SPR", 0, &towr0)) {
+        !load_spr_frame_info("data/DCOLONY/SPRITES/TOWR.SPR", 0, &towr0) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/BEAC.SPR", 0, &beac0) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/BEAC.SPR", 1, &beac1)) {
         return fail("load raw Dark Colony SPR frame descriptors");
     }
     if (expl0.width != 46 || expl0.height != 49 || expl0.dis_x != 137 || expl0.dis_y != 104) {
@@ -236,6 +238,11 @@ static int assert_dark_colony_city_fin_alignment(void) {
     if (towr0.width != 77 || towr0.height != 257 || towr0.dis_x != 0 || towr0.dis_y != 0) {
         return fail("TOWR frame 0 keeps raw SPR descriptor values");
     }
+    if (beac0.width != 38 || beac0.height != 91 || beac0.dis_x != 39 || beac0.dis_y != 30 ||
+        beac1.width != 20 || beac1.height != 40 || beac1.dis_x != 42 || beac1.dis_y != 27 ||
+        beac1.dis_x - beac0.dis_x != 3 || beac1.dis_y - beac0.dis_y != -3) {
+        return fail("BEAC glow frame stays anchored in frame 0 SPR canvas");
+    }
     const FinCommand *expl_right = fin_command(&expl_fin, "EXPLSTAND0", "expl", 1, 0);
     const FinCommand *expl_left = fin_command(&expl_fin, "EXPLSTAND6", "expl", 1, 6);
     const FinCommand *expl_deploy_body = fin_command(&expl_fin, "EXPLDEPLOY14", "expl", 1, 14);
@@ -246,13 +253,13 @@ static int assert_dark_colony_city_fin_alignment(void) {
     int right_draw_y = expl_right->y - expl0.height;
     int left_draw_x = expl_left->x;
     int left_draw_y = expl_left->y - expl6.height;
-    int body_canvas_h = expl14.dis_y + expl14.height;
     int body_draw_y = expl_deploy_body->y - expl14.height;
-    int top_draw_y = expl_deploy_top->y - body_canvas_h + expl15.dis_y;
+    int top_draw_x = expl_deploy_top->x + expl15.dis_x;
+    int top_draw_y = expl_deploy_top->y - expl15.height;
     if (right_draw_x != -22 || right_draw_y != -30 ||
         left_draw_x != -30 || left_draw_y != -32 ||
-        body_draw_y != -28 || top_draw_y != -42) {
-        return fail("Exploiter FIN/SPR placement uses body frame bottom and layer composition canvas");
+        body_draw_y != -28 || top_draw_x != -10 || top_draw_y != -17) {
+        return fail("Exploiter FIN/SPR placement uses each FIN frame bottom independently");
     }
     return 0;
 }

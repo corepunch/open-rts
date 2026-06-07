@@ -426,6 +426,8 @@ static void end_sprite_command(SDL_Texture *texture, uint32_t render_flags) {
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 }
 
+static SDL_Point sprite_frame_raw_displacement(const SpriteSheet *sprite, int frame);
+
 static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
                                      int frame_index, uint32_t render_flags,
                                      const char *sequence_name, int anchor_frame_index,
@@ -448,13 +450,20 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     if (dec->center_anchor) {
         grid_to_screen(app, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
         SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
+        SDL_Rect anchor_rect = sprite_frame_rect(sprite, anchor_frame);
         float ground_offset_y = (float)bounds.y + (float)bounds.h;
         dst = (SDL_Rect){
-            (int)(sx - sprite_w / 2),
+            (int)(sx - anchor_rect.w / 2),
             (int)(sy - ground_offset_y),
             sprite_w,
             sprite_h,
         };
+        if (frame != anchor_frame) {
+            SDL_Point anchor_dis = sprite_frame_raw_displacement(sprite, anchor_frame);
+            SDL_Point frame_dis = sprite_frame_raw_displacement(sprite, frame);
+            dst.x += frame_dis.x - anchor_dis.x;
+            dst.y += frame_dis.y - anchor_dis.y;
+        }
     } else {
         dst = (SDL_Rect){
             (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
@@ -605,6 +614,13 @@ static SDL_Rect sprite_frame_rect(const SpriteSheet *sprite, int frame) {
     return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
 }
 
+static SDL_Point sprite_frame_raw_displacement(const SpriteSheet *sprite, int frame) {
+    if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
+        return sprite->frame_displacements[frame];
+    }
+    return (SDL_Point){ 0, 0 };
+}
+
 static SDL_Point sprite_frame_displacement(const SpriteSheet *sprite, int frame,
                                            uint32_t render_flags) {
     SDL_Point p = { 0, 0 };
@@ -613,21 +629,6 @@ static SDL_Point sprite_frame_displacement(const SpriteSheet *sprite, int frame,
     }
     p.y = 0;
     if ((render_flags & RTS_FRAME_FLIP_X) != 0) p.x = 0;
-    return p;
-}
-
-static SDL_Point sprite_frame_raw_displacement(const SpriteSheet *sprite, int frame,
-                                               uint32_t render_flags,
-                                               int canvas_w) {
-    SDL_Point p = { 0, 0 };
-    if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
-        p = sprite->frame_displacements[frame];
-    }
-    if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
-        SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
-        if (canvas_w <= 0) canvas_w = frame_rect.w;
-        p.x = canvas_w - p.x - frame_rect.w;
-    }
     return p;
 }
 
@@ -865,16 +866,10 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet
     uint32_t flags = state->overlay_facing_flags[slot];
     SDL_Rect dst;
     if (game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-        SDL_Point body_dis = sprite_frame_raw_displacement(body_sprite, body_frame, 0, 0);
-        SDL_Rect body_frame_rect = sprite_frame_rect(body_sprite, body_frame);
-        int body_canvas_w = body_dis.x + body_frame_rect.w;
-        int body_canvas_h = body_dis.y + body_frame_rect.h;
-        if (body_canvas_w <= 0) body_canvas_w = frame_rect.w;
-        if (body_canvas_h <= 0) body_canvas_h = frame_rect.h;
-        SDL_Point dis = sprite_frame_raw_displacement(overlay, frame, flags, body_canvas_w);
+        SDL_Point dis = sprite_frame_displacement(overlay, frame, flags);
         dst = (SDL_Rect){
             (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + dis.x,
-            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y - body_canvas_h,
+            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y - frame_rect.h,
             frame_rect.w,
             frame_rect.h,
         };

@@ -1241,6 +1241,10 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
         StateContext ctx = { .game_info = &dark_colony_game_info };
         set_unit_state(&ctx, u, state_id);
     }
+    if (race != 1 && type >= 16 && type <= 22) {
+        u->render_offset_x -= TILE_PIX_W / 2;
+        u->render_offset_y += TILE_PIX_H / 2;
+    }
     if (u->owner == 0) {
         if (player_anchor_set && player_anchor_x && player_anchor_y &&
             (!*player_anchor_set || x > *player_anchor_x)) {

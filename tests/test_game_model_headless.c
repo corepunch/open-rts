@@ -278,10 +278,12 @@ static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, 
     return false;
 }
 
-static bool snapshot_has_owner_type_state_without_unit_offset_at(const RtsRenderSnapshot *snapshot,
-                                                                 uint8_t owner, uint16_t type_id,
-                                                                 int frame, int state_id,
-                                                                 int gx, int gy) {
+static bool snapshot_has_owner_type_state_with_unit_offset_at(const RtsRenderSnapshot *snapshot,
+                                                              uint8_t owner, uint16_t type_id,
+                                                              int frame, int state_id,
+                                                              int gx, int gy,
+                                                              int render_offset_x,
+                                                              int render_offset_y) {
     if (!snapshot) return false;
     for (int i = 0; i < snapshot->unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot->units[i];
@@ -290,7 +292,8 @@ static bool snapshot_has_owner_type_state_without_unit_offset_at(const RtsRender
             !near_cell_center(unit->gy, gy)) {
             continue;
         }
-        if (unit->render_offset_x == 0 && unit->render_offset_y == 0) {
+        if (unit->render_offset_x == render_offset_x &&
+            unit->render_offset_y == render_offset_y) {
             return true;
         }
     }
@@ -573,15 +576,17 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 50, 28)) {
         return fail("Human02 starting base buildings use only the player city anchor");
     }
-    if (!snapshot_has_owner_type_state_without_unit_offset_at(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                                              S_DC_EXCOPOD_STND, 56, 28) ||
-        !snapshot_has_owner_type_state_without_unit_offset_at(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                                              S_DC_BRRKPOD_STND, 56, 28) ||
-        !snapshot_has_owner_type_state_without_unit_offset_at(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                                              S_DC_TOWR_STND, 56, 28) ||
+    if (!snapshot_has_owner_type_state_with_unit_offset_at(&snapshot, 0, MT_DC_EXCOPOD, 0,
+                                                           S_DC_EXCOPOD_STND, 56, 28,
+                                                           -TILE_PIX_W / 2, TILE_PIX_H / 2) ||
+        !snapshot_has_owner_type_state_with_unit_offset_at(&snapshot, 0, MT_DC_BRRKPOD, 4,
+                                                           S_DC_BRRKPOD_STND, 56, 28,
+                                                           -TILE_PIX_W / 2, TILE_PIX_H / 2) ||
+        !snapshot_has_owner_type_state_with_unit_offset_at(&snapshot, 0, MT_DC_CITY_TOWER, 0,
+                                                           S_DC_TOWR_STND, 56, 28, 0, 0) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
-        return fail("Human02 human buildings use generated FIN stand states without duplicate offsets");
+        return fail("Human02 human city modules use the FIN city origin without moving the tower foundation");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
