@@ -675,6 +675,46 @@ typedef struct {
     int command_count;
 } DarkColonySidebar;
 
+typedef struct {
+    int ui_id;
+    const char *label;
+    int cost;
+    int icon_frame;
+    int product_type;
+    int producer_type_id;
+    int prerequisites[3];
+    int prerequisite_count;
+} DarkColonyProductButton;
+
+enum {
+    DC_CLIENT_MT_EXPLOITER = 3,
+    DC_CLIENT_MT_EXCOPOD = 1000,
+    DC_CLIENT_MT_BRRKPOD = 1001,
+    DC_CLIENT_MT_ROBOPOD = 1002,
+    DC_CLIENT_MT_ROBOPOD2 = 1003,
+    DC_CLIENT_MT_SCNCPOD = 1004,
+    DC_CLIENT_MT_SCNCPOD2 = 1005,
+    DC_CLIENT_MT_RSCHPOD = 1006,
+};
+
+static const DarkColonyProductButton DARK_COLONY_PRODUCTS[] = {
+    {  80, "Barracks",  1000, 20, 17, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  81, "Sci-Pod",   2000, 21, 20, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  82, "Robo-Ftr",  2000, 22, 18, DC_CLIENT_MT_EXCOPOD, { 2, 1 }, 2 },
+    {  83, "Rsch-Bay",  3000, 23, 22, DC_CLIENT_MT_EXCOPOD, { 4 }, 1 },
+    {  85, "Sci-Pod+",  2000, 26, 21, DC_CLIENT_MT_EXCOPOD, { 2 }, 1 },
+    {  86, "Robo-Ftr+", 2000, 30, 19, DC_CLIENT_MT_EXCOPOD, { 3, 2 }, 2 },
+    {  87, "Exploiter", 1500,  8,  6, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  89, "Trooper",    350,  6,  0, DC_CLIENT_MT_BRRKPOD, { 1 }, 1 },
+    {  90, "Sentinel",   450,  5, 43, DC_CLIENT_MT_BRRKPOD, { 1, 2 }, 2 },
+    {  94, "S.A.R.G.E", 1500, 12,  4, DC_CLIENT_MT_BRRKPOD, { 1, 6 }, 2 },
+    {  92, "Osprey IV",  600,  9,  5, DC_CLIENT_MT_ROBOPOD, { 0, 3, 4 }, 3 },
+    {  91, "Reaper",     600, 11,  2, DC_CLIENT_MT_ROBOPOD, { 3, 2 }, 2 },
+    {  88, "Firestorm",  900, 10,  1, DC_CLIENT_MT_ROBOPOD2, { 5 }, 1 },
+    {  93, "Barrager",  1000,  7,  3, DC_CLIENT_MT_ROBOPOD2, { 5, 4 }, 2 },
+    { 135, "Medi-craft", 900, 29, 49, DC_CLIENT_MT_ROBOPOD, { 4, 3, 6 }, 3 },
+};
+
 static bool is_dark_colony_plugin(const Plugin *plugin) {
     return plugin && plugin->id && strcmp(plugin->id, "dark-colony") == 0;
 }
@@ -1084,6 +1124,75 @@ static const Unit *dc_first_selected_unit(const Unit *units, int unit_count) {
     return NULL;
 }
 
+static int dc_product_row_actor_type(int row_id) {
+    switch (row_id) {
+    case 0: return DC_CLIENT_MT_EXCOPOD;
+    case 1: return DC_CLIENT_MT_BRRKPOD;
+    case 2: return DC_CLIENT_MT_SCNCPOD;
+    case 3: return DC_CLIENT_MT_ROBOPOD;
+    case 4: return DC_CLIENT_MT_SCNCPOD2;
+    case 5: return DC_CLIENT_MT_ROBOPOD2;
+    case 6: return DC_CLIENT_MT_RSCHPOD;
+    case 7: return DC_CLIENT_MT_EXPLOITER;
+    default: return 0;
+    }
+}
+
+static bool dc_player_has_actor_type(const Unit *units, int unit_count, int type_id) {
+    if (!units || type_id <= 0) return false;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].owner == 0 && !units[i].remove && units[i].hp > 0 &&
+            units[i].type_id == (uint16_t)type_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool dc_product_prerequisites_met(const Unit *units, int unit_count,
+                                         const DarkColonyProductButton *product) {
+    if (!product) return false;
+    for (int i = 0; i < product->prerequisite_count; ++i) {
+        int actor_type = dc_product_row_actor_type(product->prerequisites[i]);
+        if (!dc_player_has_actor_type(units, unit_count, actor_type)) return false;
+    }
+    return true;
+}
+
+static bool dc_selected_unit_is_player_building(const Unit *selected) {
+    return selected && selected->owner == 0 && !selected->remove && selected->hp > 0 &&
+        selected->type_id >= DC_CLIENT_MT_EXCOPOD;
+}
+
+static int dc_products_for_selected_building(const Unit *selected, const Unit *units,
+                                             int unit_count,
+                                             const DarkColonyProductButton *out[6]) {
+    if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
+    int count = 0;
+    int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
+    for (int i = 0; i < source_count && count < 6; ++i) {
+        const DarkColonyProductButton *product = &DARK_COLONY_PRODUCTS[i];
+        if (product->producer_type_id != selected->type_id) continue;
+        if (!dc_product_prerequisites_met(units, unit_count, product)) continue;
+        out[count++] = product;
+    }
+    return count;
+}
+
+static const char *dc_selected_building_label(const Unit *selected) {
+    if (!selected) return "";
+    switch (selected->type_id) {
+    case DC_CLIENT_MT_EXCOPOD: return "Exo-Ctr";
+    case DC_CLIENT_MT_BRRKPOD: return "Barracks";
+    case DC_CLIENT_MT_ROBOPOD: return "Robo-Ftr";
+    case DC_CLIENT_MT_ROBOPOD2: return "Robo-Ftr+";
+    case DC_CLIENT_MT_SCNCPOD: return "Sci-Pod";
+    case DC_CLIENT_MT_SCNCPOD2: return "Sci-Pod+";
+    case DC_CLIENT_MT_RSCHPOD: return "Rsch-Bay";
+    default: return "";
+    }
+}
+
 static int dc_sidebar_command_frame(const DarkColonySidebarCommand *cmd, const Unit *selected) {
     if (!cmd) return 0;
     (void)selected;
@@ -1123,6 +1232,10 @@ static bool dark_colony_ui_handle_event(const App *app, Unit *units, int unit_co
     window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
     if (!point_in_rect(rx, ry, layout.outer)) return false;
+    const Unit *selected = dc_first_selected_unit(units, unit_count);
+    if (dc_selected_unit_is_player_building(selected)) {
+        return true;
+    }
     if (e->button.button == SDL_BUTTON_LEFT && point_in_rect(rx, ry, layout.buttons[0])) {
         dc_stop_selected_units(units, unit_count);
     }
@@ -1251,7 +1364,11 @@ static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const G
     }
     int hover_button = -1;
     const Unit *selected = dc_first_selected_unit(units, unit_count);
-    for (int i = 0; i < sidebar->command_count; ++i) {
+    const DarkColonyProductButton *products[6] = { 0 };
+    int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
+    bool product_mode = dc_selected_unit_is_player_building(selected);
+    int visible_button_count = product_mode ? product_count : sidebar->command_count;
+    for (int i = 0; i < visible_button_count; ++i) {
         if (point_in_rect(app->mouse_x, app->mouse_y, layout.buttons[i])) {
             hover_button = i;
             break;
@@ -1266,20 +1383,44 @@ static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const G
                            "BUILD", (SDL_Color){ 24, 24, 24, 255 }, 1);
     }
     if (hover_button >= 0) {
-        font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+        if (product_mode && products[hover_button]) {
+            snprintf(line, sizeof(line), "%s %d",
+                     products[hover_button]->label, products[hover_button]->cost);
+            font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                           line,
+                           map->player_resources[0] >= products[hover_button]->cost ?
+                           amber : (SDL_Color){ 208, 103, 88, 255 },
+                           1);
+        } else {
+            font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            dc_sidebar_command_label(&sidebar->commands[hover_button], selected),
                            amber, 1);
+        }
+    } else if (product_mode) {
+        snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
+        if (line[0] != '\0') {
+            font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                           line, dim, 1);
+        }
     }
-    for (int i = 0; i < sidebar->command_count; ++i) {
+    for (int i = 0; i < 6; ++i) {
+        if (product_mode && i >= product_count) {
+            dc_ui_fill(app->renderer, layout.buttons[i], (SDL_Color){ 10, 12, 12, 185 });
+            dc_ui_stroke(app->renderer, layout.buttons[i], (SDL_Color){ 66, 72, 70, 255 });
+            continue;
+        }
+        int frame = product_mode && products[i] ? products[i]->icon_frame :
+            dc_sidebar_command_frame(&sidebar->commands[i], selected);
         if (buttons && buttons->texture) {
-            dc_ui_draw_sprite_fit(app->renderer, buttons,
-                                  dc_sidebar_command_frame(&sidebar->commands[i], selected),
-                                  layout.buttons[i], 0);
+            dc_ui_draw_sprite_fit(app->renderer, buttons, frame, layout.buttons[i], 0);
+            if (product_mode && products[i] && map->player_resources[0] < products[i]->cost) {
+                dc_ui_fill(app->renderer, layout.buttons[i], (SDL_Color){ 0, 0, 0, 105 });
+            }
         } else {
-            SDL_Color fill = (i == 0) ? (SDL_Color){ 150, 150, 145, 255 } :
+            SDL_Color fill = (i == 0 && !product_mode) ? (SDL_Color){ 150, 150, 145, 255 } :
                              (SDL_Color){ 175, 175, 168, 255 };
             dc_ui_fill(app->renderer, layout.buttons[i], fill);
-            dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 ?
+            dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 && !product_mode ?
                          (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
         }
     }
