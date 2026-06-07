@@ -2,19 +2,14 @@
 #include "engine_internal.h"
 
 static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame);
+static SDL_Rect sprite_frame_rect(const SpriteSheet *sprite, int frame);
 
 static int app_cell_w(const App *app) {
-    int scale = app->render_scale > 0 ? app->render_scale : 1;
-    return (app->cell_w > 0 ? app->cell_w : CELL_W) * scale;
+    return app->cell_w > 0 ? app->cell_w : CELL_W;
 }
 
 static int app_cell_h(const App *app) {
-    int scale = app->render_scale > 0 ? app->render_scale : 1;
-    return (app->cell_h > 0 ? app->cell_h : CELL_H) * scale;
-}
-
-static int app_scale(const App *app) {
-    return app->render_scale > 0 ? app->render_scale : 1;
+    return app->cell_h > 0 ? app->cell_h : CELL_H;
 }
 
 static float viewport_scale_x(const App *app) {
@@ -42,11 +37,13 @@ static float viewport_scale_y(const App *app) {
 }
 
 static int app_tile_w(const App *app, const Tileset *tileset) {
-    return tileset->tile_w * app_scale(app);
+    (void)app;
+    return tileset->tile_w;
 }
 
 static int app_tile_h(const App *app, const Tileset *tileset) {
-    return tileset->tile_h * app_scale(app);
+    (void)app;
+    return tileset->tile_h;
 }
 
 static int tileset_animate_value(const Tileset *tileset, int value, uint32_t ticks_ms) {
@@ -184,7 +181,7 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
     int cell_h = app_cell_h(app);
     int tile_w = app_tile_w(app, tileset);
     int tile_h = app_tile_h(app, tileset);
-    int draw_y_offset = tileset->draw_y_offset * app_scale(app);
+    int draw_y_offset = tileset->draw_y_offset;
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
@@ -391,11 +388,19 @@ static uint8_t fin_intensity_color_mod(int intensity) {
     return (uint8_t)clamp255((intensity * 255 + 8) / 16);
 }
 
-static void begin_sprite_command(const SpriteSheet *sprite, uint32_t render_flags,
-                                 int render_remap, int render_intensity) {
-    if (!sprite || !sprite->texture) return;
+static SDL_Texture *sprite_texture_for_remap(const SpriteSheet *sprite, int render_remap) {
+    if (!sprite) return NULL;
+    if (render_remap > 0 && render_remap < 8 && sprite->remap_textures[render_remap])
+        return sprite->remap_textures[render_remap];
+    return sprite->texture;
+}
+
+static SDL_Texture *begin_sprite_command(const SpriteSheet *sprite, uint32_t render_flags,
+                                         int render_remap, int render_intensity) {
+    SDL_Texture *texture = sprite_texture_for_remap(sprite, render_remap);
+    if (!texture) return NULL;
     if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
-        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_ADD);
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
 
     uint8_t intensity = fin_intensity_color_mod(render_intensity);
     uint8_t r = intensity;
@@ -408,23 +413,17 @@ static void begin_sprite_command(const SpriteSheet *sprite, uint32_t render_flag
         b = (uint8_t)((intensity * 72 + 127) / 255);
         a = 230;
     }
-    SDL_SetTextureColorMod(sprite->texture, r, g, b);
-    SDL_SetTextureAlphaMod(sprite->texture, a);
-
-    /*
-     * FIN command word byte 14 is a palette remap selector. 0 is the normal
-     * sprite palette. Non-zero remaps need indexed sprite data or remapped
-     * atlas variants; RGBA atlas rendering intentionally leaves them unchanged.
-     */
-    (void)render_remap;
+    SDL_SetTextureColorMod(texture, r, g, b);
+    SDL_SetTextureAlphaMod(texture, a);
+    return texture;
 }
 
-static void end_sprite_command(const SpriteSheet *sprite, uint32_t render_flags) {
-    if (!sprite || !sprite->texture) return;
-    SDL_SetTextureColorMod(sprite->texture, 255, 255, 255);
-    SDL_SetTextureAlphaMod(sprite->texture, 255);
+static void end_sprite_command(SDL_Texture *texture, uint32_t render_flags) {
+    if (!texture) return;
+    SDL_SetTextureColorMod(texture, 255, 255, 255);
+    SDL_SetTextureAlphaMod(texture, 255);
     if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
-        SDL_SetTextureBlendMode(sprite->texture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 }
 
 static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
@@ -437,19 +436,19 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     grid_to_screen(app, (float)dec->gx, (float)dec->gy, &sx, &sy);
     int footprint_w = dec->footprint_w > 0 ? dec->footprint_w : 1;
     int footprint_h = dec->footprint_h > 0 ? dec->footprint_h : 1;
-    int scale = app_scale(app);
-    int sprite_w = sprite->frame_w * scale;
-    int sprite_h = sprite->frame_h * scale;
 
     int frame = decoration_sprite_frame(app, dec, sprite, frame_index, sequence_name);
     int anchor_frame = decoration_sprite_frame(app, dec, sprite, anchor_frame_index,
                                                anchor_sequence_name);
+    SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
+    int sprite_w = frame_rect.w;
+    int sprite_h = frame_rect.h;
 
     SDL_Rect dst;
     if (dec->center_anchor) {
         grid_to_screen(app, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
         SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
-        float ground_offset_y = ((float)bounds.y + (float)bounds.h) * (float)scale;
+        float ground_offset_y = (float)bounds.y + (float)bounds.h;
         dst = (SDL_Rect){
             (int)(sx - sprite_w / 2),
             (int)(sy - ground_offset_y),
@@ -472,9 +471,9 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
         return;
     }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    begin_sprite_command(sprite, render_flags, 0, 16);
-    SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-    end_sprite_command(sprite, render_flags);
+    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, 0, 16);
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    end_sprite_command(texture, render_flags);
 }
 
 static void render_decoration(App *app, const MapDecoration *dec, const SpriteCache *cache) {
@@ -511,7 +510,7 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
 static float unit_pick_radius_px(const App *app, const Unit *unit) {
     float cell = ((float)app_cell_w(app) + (float)app_cell_h(app)) * 0.5f;
     float radius = unit_radius_cells(unit) * cell;
-    float min_radius = 12.0f * (float)app_scale(app);
+    float min_radius = 12.0f;
     return radius < min_radius ? min_radius : radius;
 }
 
@@ -596,6 +595,40 @@ static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame) {
         if (r.w > 0 && r.h > 0) return r;
     }
     return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+}
+
+static SDL_Rect sprite_frame_rect(const SpriteSheet *sprite, int frame) {
+    if (sprite && sprite->frames && frame >= 0 && frame < sprite->frame_count &&
+        sprite->frames[frame].w > 0 && sprite->frames[frame].h > 0) {
+        return sprite->frames[frame];
+    }
+    return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+}
+
+static SDL_Point sprite_frame_displacement(const SpriteSheet *sprite, int frame,
+                                           uint32_t render_flags) {
+    SDL_Point p = { 0, 0 };
+    if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
+        p = sprite->frame_displacements[frame];
+    }
+    p.y = 0;
+    if ((render_flags & RTS_FRAME_FLIP_X) != 0) p.x = 0;
+    return p;
+}
+
+static SDL_Point sprite_frame_raw_displacement(const SpriteSheet *sprite, int frame,
+                                               uint32_t render_flags,
+                                               int canvas_w) {
+    SDL_Point p = { 0, 0 };
+    if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
+        p = sprite->frame_displacements[frame];
+    }
+    if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
+        SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
+        if (canvas_w <= 0) canvas_w = frame_rect.w;
+        p.x = canvas_w - p.x - frame_rect.w;
+    }
+    return p;
 }
 
 static SDL_Point sprite_ground_point(const SpriteSheet *sprite, int frame) {
@@ -703,42 +736,45 @@ static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
     }
 
     int frame = unit_frame_for_view(sprite, unit, game_info, ticks);
+    SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
     SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
-    SDL_Point ground = sprite_ground_point(sprite, frame);
     uint32_t render_flags = game_info ? unit->render_flags : 0;
     if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
-        ground.x = sprite->frame_w - ground.x;
-        bounds.x = sprite->frame_w - bounds.x - bounds.w;
+        bounds.x = frame_rect.w - bounds.x - bounds.w;
     }
-    int scale = app_scale(app);
-    int sprite_w = sprite->frame_w * scale;
-    int sprite_h = sprite->frame_h * scale;
+    int sprite_w = frame_rect.w;
+    int sprite_h = frame_rect.h;
     int body_offset_x = 0;
     int body_offset_y = 0;
     unit_state_body_offset_for_view(game_info, unit, &body_offset_x, &body_offset_y);
     SDL_Rect dst;
     if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+        SDL_Point dis = sprite_frame_displacement(sprite, frame, render_flags);
         dst = (SDL_Rect){
-            (int)lroundf(sx) + body_offset_x * scale,
-            (int)lroundf(sy) + body_offset_y * scale,
+            (int)lroundf(sx) + body_offset_x + dis.x,
+            (int)lroundf(sy) + body_offset_y + dis.y - sprite_h,
             sprite_w,
             sprite_h,
         };
     } else {
+        SDL_Point ground = sprite_ground_point(sprite, frame);
+        if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
+            ground.x = frame_rect.w - ground.x;
+        }
         dst = (SDL_Rect){
-            (int)lroundf(sx - (float)ground.x * (float)scale) + body_offset_x * scale,
-            (int)lroundf(sy - (float)ground.y * (float)scale) + body_offset_y * scale,
+            (int)lroundf(sx - (float)ground.x) + body_offset_x,
+            (int)lroundf(sy - (float)ground.y) + body_offset_y,
             sprite_w,
             sprite_h,
         };
     }
-    dst.x += unit->render_offset_x * scale;
-    dst.y += unit->render_offset_y * scale;
+    dst.x += unit->render_offset_x;
+    dst.y += unit->render_offset_y;
     SDL_Rect visible = {
-        dst.x + bounds.x * scale,
-        dst.y + bounds.y * scale,
-        bounds.w * scale,
-        bounds.h * scale,
+        dst.x + bounds.x,
+        dst.y + bounds.y,
+        bounds.w,
+        bounds.h,
     };
     if (dst_out) *dst_out = dst;
     if (visible_out) *visible_out = visible;
@@ -799,7 +835,7 @@ static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float
 static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet *body_sprite,
                                       int body_frame, const SpriteCache *cache,
                                       const GameInfo *game_info, const SDL_Rect *body_dst,
-                                      int scale, float origin_sx, float origin_sy) {
+                                      float origin_sx, float origin_sy) {
     (void)body_sprite;
     (void)body_frame;
     if (!app || !u || !cache || !game_info || !body_dst ||
@@ -824,31 +860,39 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet
     const SpriteSheet *overlay = sprite_cache_lookup(cache, sprite_name);
     if (!overlay || !overlay->texture || overlay->frame_count <= 0) return;
     if (frame >= overlay->frame_count) frame = 0;
+    SDL_Rect frame_rect = sprite_frame_rect(overlay, frame);
 
     uint32_t flags = state->overlay_facing_flags[slot];
     SDL_Rect dst;
     if (game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+        SDL_Point body_dis = sprite_frame_raw_displacement(body_sprite, body_frame, 0, 0);
+        SDL_Rect body_frame_rect = sprite_frame_rect(body_sprite, body_frame);
+        int body_canvas_w = body_dis.x + body_frame_rect.w;
+        int body_canvas_h = body_dis.y + body_frame_rect.h;
+        if (body_canvas_w <= 0) body_canvas_w = frame_rect.w;
+        if (body_canvas_h <= 0) body_canvas_h = frame_rect.h;
+        SDL_Point dis = sprite_frame_raw_displacement(overlay, frame, flags, body_canvas_w);
         dst = (SDL_Rect){
-            (int)lroundf(origin_sx) + state->overlay_offset_x[slot] * scale,
-            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] * scale,
-            overlay->frame_w * scale,
-            overlay->frame_h * scale,
+            (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + dis.x,
+            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y - body_canvas_h,
+            frame_rect.w,
+            frame_rect.h,
         };
     } else {
         dst = (SDL_Rect){
-            body_dst->x + state->overlay_offset_x[slot] * scale,
-            body_dst->y + state->overlay_offset_y[slot] * scale,
-            overlay->frame_w * scale,
-            overlay->frame_h * scale,
+            body_dst->x + state->overlay_offset_x[slot],
+            body_dst->y + state->overlay_offset_y[slot],
+            frame_rect.w,
+            frame_rect.h,
         };
     }
     SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     int remap = state->overlay_remap[slot];
     int intensity = state->overlay_intensity[slot];
-    begin_sprite_command(overlay, flags, remap, intensity);
-    SDL_RenderCopyEx(app->renderer, overlay->texture, &overlay->frames[frame],
+    SDL_Texture *texture = begin_sprite_command(overlay, flags, remap, intensity);
+    SDL_RenderCopyEx(app->renderer, texture, &overlay->frames[frame],
                      &dst, 0.0, NULL, flip);
-    end_sprite_command(overlay, flags);
+    end_sprite_command(texture, flags);
 }
 
 static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallback_sprite,
@@ -866,8 +910,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
                               &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
     SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
-    int scale = app_scale(app);
-    float content_w = (float)bounds.w * (float)scale;
+    float content_w = (float)bounds.w;
     float rx = unit_radius_cells(u) * (float)app_cell_w(app);
     float min_rx = content_w * 0.34f;
     if (rx < min_rx) rx = min_rx;
@@ -875,8 +918,9 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
     if (shadow && shadow->texture && shadow->frame_count > 0) {
         int shadow_frame = frame < shadow->frame_count ? frame : 0;
-        int shadow_w = shadow->frame_w * scale;
-        int shadow_h = shadow->frame_h * scale;
+        SDL_Rect shadow_rect = sprite_frame_rect(shadow, shadow_frame);
+        int shadow_w = shadow_rect.w;
+        int shadow_h = shadow_rect.h;
         SDL_Rect shadow_dst = {
             (int)(sx - shadow_w / 2),
             (int)(sy - shadow_h / 2),
@@ -891,13 +935,14 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
         draw_selection_ellipse(app, sx, sy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
     }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    begin_sprite_command(sprite, render_flags, u->render_remap, u->render_intensity);
-    SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-    end_sprite_command(sprite, render_flags);
-    render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, scale, sx, sy);
+    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, u->render_remap,
+                                                u->render_intensity);
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    end_sprite_command(texture, render_flags);
+    render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
-        int bar_h = app_scale(app) < 2 ? 2 : 3;
+        int bar_h = 2;
         int bx = (int)(sx - bar_w / 2);
         int by = (int)content_y - bar_h - 4;
         SDL_Rect back = { bx, by, bar_w, bar_h };
@@ -938,7 +983,7 @@ static void render_overlay_tile_item(App *app, const GameMap *map, const Tileset
 
     int tile_w = app_tile_w(app, tileset);
     int tile_h = app_tile_h(app, tileset);
-    int draw_y_offset = tileset->draw_y_offset * app_scale(app);
+    int draw_y_offset = tileset->draw_y_offset;
     float sx, sy;
     grid_to_screen(app, (float)x, (float)y, &sx, &sy);
     if (sx < -tile_w || sy < -tile_h ||
@@ -1078,15 +1123,18 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
 
         float sx, sy;
         grid_to_screen(app, effect->gx, effect->gy, &sx, &sy);
-        int scale = app_scale(app);
-        int sprite_w = sprite->frame_w * scale;
-        int sprite_h = sprite->frame_h * scale;
+        int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
+        if (frame < 0 || frame >= sprite->frame_count) frame = 0;
+        SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
+        int sprite_w = frame_rect.w;
+        int sprite_h = frame_rect.h;
         SDL_Rect dst;
         if (effect->use_state && game_info &&
             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+            SDL_Point dis = sprite_frame_displacement(sprite, frame, effect->render_flags);
             dst = (SDL_Rect){
-                (int)lroundf(sx) + effect->screen_offset_x * scale,
-                (int)lroundf(sy) + effect->screen_offset_y * scale,
+                (int)lroundf(sx) + effect->screen_offset_x + dis.x,
+                (int)lroundf(sy) + effect->screen_offset_y + dis.y - sprite_h,
                 sprite_w,
                 sprite_h,
             };
@@ -1098,8 +1146,8 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
                 sprite_h,
             };
             if (effect->screen_offset_x != 0 || effect->screen_offset_y != 0) {
-                dst.x += effect->screen_offset_x * scale;
-                dst.y += effect->screen_offset_y * scale;
+                dst.x += effect->screen_offset_x;
+                dst.y += effect->screen_offset_y;
             }
         }
         if (dst.x > app->win_w || dst.y > app->win_h ||
@@ -1111,8 +1159,6 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
                               dst.x, dst.y, dst.w, dst.h);
             continue;
         }
-        int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
-        if (frame < 0 || frame >= sprite->frame_count) frame = 0;
         debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
                           i, effect->sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
@@ -1122,10 +1168,11 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
                           effect->screen_offset_x, effect->screen_offset_y,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        begin_sprite_command(sprite, effect->render_flags,
-                             effect->render_remap, effect->render_intensity);
-        SDL_RenderCopyEx(app->renderer, sprite->texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-        end_sprite_command(sprite, effect->render_flags);
+        SDL_Texture *texture = begin_sprite_command(sprite, effect->render_flags,
+                                                    effect->render_remap,
+                                                    effect->render_intensity);
+        SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+        end_sprite_command(texture, effect->render_flags);
     }
 }
 
@@ -1243,8 +1290,8 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
             }
             break;
         case SDL_MOUSEWHEEL:
-            app->cam_y += (float)e->wheel.y * 48.0f * (float)app_scale(app);
-            app->cam_x += (float)e->wheel.x * 48.0f * (float)app_scale(app);
+            app->cam_y += (float)e->wheel.y * 48.0f;
+            app->cam_x += (float)e->wheel.x * 48.0f;
             break;
         default:
             break;
@@ -1253,7 +1300,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
 
 void update_camera_from_keyboard(App *app, float dt) {
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
-    float speed = 600.0f * dt * (float)app_scale(app);
+    float speed = 600.0f * dt;
     if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) app->cam_x += speed;
     if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) app->cam_x -= speed;
     if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) app->cam_y += speed;
@@ -1304,9 +1351,12 @@ void destroy_map(GameMap *map) {
 
 void destroy_sprite(SpriteSheet *sprite) {
     if (sprite->texture) SDL_DestroyTexture(sprite->texture);
+    for (int i = 0; i < 8; ++i)
+        if (sprite->remap_textures[i]) SDL_DestroyTexture(sprite->remap_textures[i]);
     free(sprite->frames);
     free(sprite->frame_bounds);
     free(sprite->frame_ground_points);
+    free(sprite->frame_displacements);
     memset(sprite, 0, sizeof(*sprite));
 }
 

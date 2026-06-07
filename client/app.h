@@ -12,7 +12,6 @@ typedef struct App {
     int win_h;
     int cell_w;
     int cell_h;
-    int render_scale;
     float cam_x;
     float cam_y;
     bool show_grid;

@@ -59,9 +59,9 @@ static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32
     if (size < 8 + 256 * 3) return;
     const uint8_t *p = spr + 8;
     for (int i = 0; i < 256; ++i) {
-        int r = clamp255((int)p[i * 3 + 0] * 4);
-        int g = clamp255((int)p[i * 3 + 1] * 4);
-        int b = clamp255((int)p[i * 3 + 2] * 4);
+        int r = clamp255((int)p[i * 3 + 0] * 4 + 3);
+        int g = clamp255((int)p[i * 3 + 1] * 4 + 3);
+        int b = clamp255((int)p[i * 3 + 2] * 4 + 3);
         colors[i] = i == 0 ? 0x00000000u :
             (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
     }
@@ -74,11 +74,19 @@ static bool path_basename_is(const char *path, const char *name) {
     return strcasecmp(base, name) == 0;
 }
 
+static uint8_t dark_colony_remap_palette_index(uint8_t index, int remap) {
+    if (remap <= 0 || remap > 7 || index < 138 || index > 143) return index;
+    int remapped = (int)index + (remap - 7) * 6;
+    if (remapped < 0 || remapped > 255) return index;
+    return (uint8_t)remapped;
+}
+
 static uint32_t dark_colony_sprite_pixel_rgba(const char *path, int frame, uint8_t index,
-                                             const uint32_t palette[256]) {
+                                             const uint32_t palette[256], int remap) {
     if (index == 0) return 0x00000000u;
     if (frame == 1 && path_basename_is(path, "BEAC.SPR") && index == 112)
         return 0x00000000u;
+    index = dark_colony_remap_palette_index(index, remap);
     return palette[index];
 }
 
@@ -192,10 +200,10 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, Tileset 
     uint32_t palette[256];
     for (int i = 0; i < palette_count; ++i) {
         const uint8_t *p = blob.bytes + 8 + i * 3;
-        int r = clamp255((int)p[0] * 4);
-        int g = clamp255((int)p[1] * 4);
-        int b = clamp255((int)p[2] * 4);
-        bool transparent = (i == 0) || (r > 240 && g < 16 && b > 240);
+        int r = clamp255((int)p[0] * 4 + 3);
+        int g = clamp255((int)p[1] * 4 + 3);
+        int b = clamp255((int)p[2] * 4 + 3);
+        bool transparent = (i == 0) || (r == 255 && g == 3 && b == 255);
         palette[i] = (transparent ? 0x00000000u : 0xff000000u) |
                      ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
     }
@@ -323,8 +331,8 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
 
     dark_colony_palette_from_spr(blob.bytes, blob.size, palette_out);
     int visible_frames = frame_count;
-    int min_dis_x = INT32_MAX, min_dis_y = INT32_MAX;
-    int max_dis_x = INT32_MIN, max_dis_y = INT32_MIN;
+    int max_w = 1, max_h = 1;
+    int canvas_w = 1, canvas_h = 1;
     size_t total_pixels = 0;
     DcSprFrameInfo *info = calloc((size_t)visible_frames, sizeof(*info));
     if (!info) {
@@ -343,10 +351,10 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
             return false;
         }
         info[i] = (DcSprFrameInfo){ blank ? 1 : w, blank ? 1 : h, dis_x, dis_y, blank };
-        if (dis_x < min_dis_x) min_dis_x = dis_x;
-        if (dis_y < min_dis_y) min_dis_y = dis_y;
-        if (dis_x + info[i].w > max_dis_x) max_dis_x = dis_x + info[i].w;
-        if (dis_y + info[i].h > max_dis_y) max_dis_y = dis_y + info[i].h;
+        if (info[i].w > max_w) max_w = info[i].w;
+        if (info[i].h > max_h) max_h = info[i].h;
+        if (info[i].dis_x + info[i].w > canvas_w) canvas_w = info[i].dis_x + info[i].w;
+        if (info[i].dis_y + info[i].h > canvas_h) canvas_h = info[i].dis_y + info[i].h;
         if (!blank) total_pixels += (size_t)w * (size_t)h;
     }
     if (!compressed && data_off + total_pixels > blob.size) {
@@ -354,10 +362,6 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
         free(info); free_blob(&blob);
         return false;
     }
-    (void)min_dis_x;
-    (void)min_dis_y;
-    int max_w = max_dis_x > 0 ? max_dis_x : 1;
-    int max_h = max_dis_y > 0 ? max_dis_y : 1;
     if (max_w <= 0 || max_h <= 0 || max_w > 1024 || max_h > 1024) {
         free(info); free_blob(&blob);
         return false;
@@ -368,31 +372,33 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
     int atlas_w = cols * max_w;
     int atlas_h = rows * max_h;
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
+    uint8_t *indices = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint8_t));
     SDL_Rect *frames = calloc((size_t)visible_frames, sizeof(SDL_Rect));
     SDL_Rect *bounds = calloc((size_t)visible_frames, sizeof(SDL_Rect));
-    SDL_Point *ground_points = calloc((size_t)visible_frames, sizeof(SDL_Point));
-    if (!rgba || !frames || !bounds || !ground_points) {
-        free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob);
+    SDL_Point *displacements = calloc((size_t)visible_frames, sizeof(SDL_Point));
+    if (!rgba || !indices || !frames || !bounds || !displacements) {
+        free(info); free(rgba); free(indices); free(frames); free(bounds);
+        free(displacements); free_blob(&blob);
         return false;
     }
 
     size_t src_pos = data_off;
+    bool has_team_colors = false;
     for (int i = 0; i < visible_frames; ++i) {
         int w = info[i].w;
         int h = info[i].h;
-        int fx = (i % cols) * max_w + info[i].dis_x;
-        int fy = (i / cols) * max_h + info[i].dis_y;
+        int fx = (i % cols) * max_w;
+        int fy = (i / cols) * max_h;
+        displacements[i] = (SDL_Point){ info[i].dis_x, info[i].dis_y };
         if (compressed) {
-            if (src_pos + 4 > blob.size) { free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob); return false; }
+            if (src_pos + 4 > blob.size) { free(info); free(rgba); free(indices); free(frames); free(bounds); free(displacements); free_blob(&blob); return false; }
             uint32_t chunk_size = read_u32_le(blob.bytes + src_pos);
             src_pos += 4;
-            if (src_pos + chunk_size > blob.size) { free(info); free(rgba); free(frames); free(bounds); free(ground_points); free_blob(&blob); return false; }
+            if (src_pos + chunk_size > blob.size) { free(info); free(rgba); free(indices); free(frames); free(bounds); free(displacements); free_blob(&blob); return false; }
             if (info[i].blank) {
                 src_pos += chunk_size;
-                frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
-                bounds[i] = (SDL_Rect){ 0, 0, max_w, max_h };
-                /* Blank frame — no visible pixels; use cell center-bottom. */
-                ground_points[i] = (SDL_Point){ max_w / 2, max_h };
+                frames[i] = (SDL_Rect){ fx, fy, w, h };
+                bounds[i] = (SDL_Rect){ 0, 0, w, h };
                 continue;
             }
             const uint8_t *src = blob.bytes + src_pos;
@@ -409,10 +415,14 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
                     for (int p = 0; p < count; ++p) {
                         if (write >= 0 && write < pixel_count) {
                             int dst_x = fx + (write % w), dst_y = fy + (write / w);
-                            if (dst_x >= 0 && dst_x < atlas_w && dst_y >= 0 && dst_y < atlas_h)
-                                rgba[dst_y * atlas_w + dst_x] =
-                                    dark_colony_sprite_pixel_rgba(path, i, src[pos + (size_t)p],
-                                                                  palette_out);
+                            if (dst_x >= 0 && dst_x < atlas_w && dst_y >= 0 && dst_y < atlas_h) {
+                                size_t dst = (size_t)dst_y * (size_t)atlas_w + (size_t)dst_x;
+                                uint8_t index = src[pos + (size_t)p];
+                                if (index >= 138 && index <= 143) has_team_colors = true;
+                                indices[dst] = index;
+                                rgba[dst] = dark_colony_sprite_pixel_rgba(path, i, index,
+                                                                          palette_out, 0);
+                            }
                         }
                         write++;
                     }
@@ -428,52 +438,93 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteShe
                         int dst_x = fx + x;
                         int dst_y = fy + y;
                         if (dst_x >= 0 && dst_x < atlas_w && dst_y >= 0 && dst_y < atlas_h) {
-                            rgba[dst_y * atlas_w + dst_x] =
-                                dark_colony_sprite_pixel_rgba(path, i, src[y * w + x],
-                                                              palette_out);
+                            size_t dst = (size_t)dst_y * (size_t)atlas_w + (size_t)dst_x;
+                            uint8_t index = src[y * w + x];
+                            if (index >= 138 && index <= 143) has_team_colors = true;
+                            indices[dst] = index;
+                            rgba[dst] = dark_colony_sprite_pixel_rgba(path, i, index,
+                                                                      palette_out, 0);
                         }
                     }
                 }
                 src_pos += (size_t)w * (size_t)h;
             }
         }
-        frames[i] = (SDL_Rect){ (i % cols) * max_w, (i / cols) * max_h, max_w, max_h };
+        frames[i] = (SDL_Rect){ fx, fy, w, h };
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
-        ground_points[i] = (SDL_Point){
-            bounds[i].x + bounds[i].w / 2,
-            bounds[i].y + bounds[i].h,
-        };
-
-        if (path_basename_is(path, "BUILDNG.SPR") ||
-            path_basename_is(path, "HUBU.SPR") ||
-            path_basename_is(path, "TOWR.SPR")) {
-            ground_points[i] = (SDL_Point){ max_w / 2, max_h };
-        }
     }
 
     SDL_Texture *texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
     if (!texture) {
         free(info);
         free(rgba);
+        free(indices);
         free(frames);
         free(bounds);
-        free(ground_points);
+        free(displacements);
         free_blob(&blob);
         return false;
     }
 
+    SDL_Texture *remap_textures[8] = {0};
+    uint32_t *remap_rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
+    if (!remap_rgba) {
+        SDL_DestroyTexture(texture);
+        free(info);
+        free(rgba);
+        free(indices);
+        free(frames);
+        free(bounds);
+        free(displacements);
+        free_blob(&blob);
+        return false;
+    }
+    for (int remap = 1; has_team_colors && remap < 8; ++remap) {
+        for (int y = 0; y < atlas_h; ++y) {
+            int row = max_h > 0 ? y / max_h : 0;
+            for (int x = 0; x < atlas_w; ++x) {
+                int col = max_w > 0 ? x / max_w : 0;
+                int frame = row * cols + col;
+                size_t pos = (size_t)y * (size_t)atlas_w + (size_t)x;
+                remap_rgba[pos] = frame >= 0 && frame < visible_frames ?
+                    dark_colony_sprite_pixel_rgba(path, frame, indices[pos], palette_out, remap) :
+                    0x00000000u;
+            }
+        }
+        remap_textures[remap] = rgba_texture(renderer, remap_rgba, atlas_w, atlas_h, true);
+        if (!remap_textures[remap]) {
+            for (int i = 1; i < remap; ++i)
+                if (remap_textures[i]) SDL_DestroyTexture(remap_textures[i]);
+            SDL_DestroyTexture(texture);
+            free(remap_rgba);
+            free(info);
+            free(rgba);
+            free(indices);
+            free(frames);
+            free(bounds);
+            free(displacements);
+            free_blob(&blob);
+            return false;
+        }
+    }
+    free(remap_rgba);
+
     out->texture = texture;
+    for (int remap = 1; remap < 8; ++remap)
+        out->remap_textures[remap] = remap_textures[remap];
     out->frames = frames;
     out->frame_bounds = bounds;
-    out->frame_ground_points = ground_points;
+    out->frame_ground_points = NULL;
+    out->frame_displacements = displacements;
     out->frame_count = visible_frames;
-    out->frame_w = max_w;
-    out->frame_h = max_h;
+    out->frame_w = canvas_w;
+    out->frame_h = canvas_h;
     out->rotations = 1;
     out->primary_frames_per_rotation = visible_frames;
 
     free(info);
     free(rgba);
+    free(indices);
     free_blob(&blob);
     return true;
 }
@@ -1090,7 +1141,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 static int dark_colony_unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-        case 17: return 4; /* HUBU.FIN TRSCBUILD0 front city module */
+        case 17: return 4; /* HUBU.FIN TRSCBUILD0 ramp piece */
         case 18: return 1; /* ROBOTICSSTAND0 */
         case 19: return 1; /* ROBOPOD2 reuses robotics art. */
         case 20: return 2; /* SCIENCESTAND0 */

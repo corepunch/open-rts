@@ -33,6 +33,13 @@ typedef struct {
     int command_count;
 } FinInfo;
 
+typedef struct {
+    int width;
+    int height;
+    int dis_x;
+    int dis_y;
+} SprFrameInfo;
+
 static int fail(const char *message) {
     fprintf(stderr, "FAIL: %s\n", message);
     return 1;
@@ -97,6 +104,7 @@ static bool load_fin_info(const char *path, const char *stem, FinInfo *out) {
     for (size_t i = 0; stem[i] && i < sizeof(out->stem_lower) - 1; ++i) {
         out->stem_lower[i] = (char)tolower((unsigned char)stem[i]);
     }
+    int aux_count = layout_read_u16_le(data + 2);
     int label_count = layout_read_u16_le(data + 4);
     int deps = layout_read_u16_le(data + 6);
     size_t label_off = 8 + (size_t)deps * 8;
@@ -112,19 +120,8 @@ static bool load_fin_info(const char *path, const char *stem, FinInfo *out) {
         out->labels[i].start = layout_read_u16_le(data + off + 16);
         out->labels[i].end = layout_read_u16_le(data + off + 18);
     }
-    unsigned char pattern[8] = {0};
-    memcpy(pattern, out->stem_lower, strlen(out->stem_lower));
-    size_t command_off = 0;
-    bool found = false;
-    for (size_t off = label_off + (size_t)label_count * 20; off + 22 <= size; ++off) {
-        if ((size - off) % 22 != 0) continue;
-        if (memcmp(data + off, pattern, sizeof(pattern)) == 0) {
-            command_off = off;
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
+    size_t command_off = label_off + (size_t)label_count * 20 + (size_t)aux_count * 164;
+    if (command_off > size || (size - command_off) % 22 != 0) {
         free(data);
         return false;
     }
@@ -171,11 +168,31 @@ static const FinCommand *fin_command(const FinInfo *fin, const char *label,
     return NULL;
 }
 
+static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) {
+    size_t size = 0;
+    unsigned char *data = read_file(path, &size);
+    if (!data) return false;
+    int frame_count = size >= 4 ? layout_read_u16_le(data + 2) : 0;
+    size_t desc_off = 8 + 256 * 3;
+    if (frame < 0 || frame >= frame_count || desc_off + (size_t)(frame + 1) * 8 > size) {
+        free(data);
+        return false;
+    }
+    const unsigned char *desc = data + desc_off + (size_t)frame * 8;
+    out->width = layout_read_u16_le(desc + 0);
+    out->height = layout_read_u16_le(desc + 2);
+    out->dis_x = layout_read_u16_le(desc + 4);
+    out->dis_y = layout_read_u16_le(desc + 6);
+    free(data);
+    return true;
+}
+
 static int assert_dark_colony_city_fin_alignment(void) {
-    FinInfo hubu_fin, towr_fin;
+    FinInfo hubu_fin, towr_fin, expl_fin;
     if (!load_fin_info("data/DCOLONY/ANIMATE/HUBU.FIN", "HUBU", &hubu_fin) ||
-        !load_fin_info("data/DCOLONY/ANIMATE/TOWR.FIN", "TOWR", &towr_fin)) {
-        return fail("load Dark Colony city FIN files");
+        !load_fin_info("data/DCOLONY/ANIMATE/TOWR.FIN", "TOWR", &towr_fin) ||
+        !load_fin_info("data/DCOLONY/ANIMATE/EXPL.FIN", "EXPL", &expl_fin)) {
+        return fail("load Dark Colony FIN files");
     }
     const FinCommand *exco = fin_command(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
     const FinCommand *barracks = fin_command(&hubu_fin, "TRSCBUILD0", "hubu", 1, 4);
@@ -190,8 +207,52 @@ static int assert_dark_colony_city_fin_alignment(void) {
         states[S_DC_TOWR_STND].offset_y[0] != tower->y) {
         return fail("city building state offsets are raw FIN draw-command coordinates");
     }
-    if (barracks->x != tower->x) {
-        return fail("FIN data aligns Barracks and Tower on the same raw X coordinate");
+    if (barracks->x != -36 || barracks->y != 37) {
+        return fail("Barracks state uses raw TRSCBUILD0 FIN placement");
+    }
+
+    SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0;
+    if (!load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 0, &expl0) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 6, &expl6) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 14, &expl14) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 15, &expl15) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/HUBU.SPR", 4, &hubu4) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/TOWR.SPR", 0, &towr0)) {
+        return fail("load raw Dark Colony SPR frame descriptors");
+    }
+    if (expl0.width != 46 || expl0.height != 49 || expl0.dis_x != 137 || expl0.dis_y != 104) {
+        return fail("EXPL frame 0 keeps raw SPR descriptor values");
+    }
+    if (expl6.width != 61 || expl6.height != 60 || expl6.dis_x != 129 || expl6.dis_y != 102) {
+        return fail("EXPL frame 6 keeps raw SPR descriptor values");
+    }
+    if (expl14.width != 61 || expl14.height != 53 || expl14.dis_x != 130 || expl14.dis_y != 106 ||
+        expl15.width != 28 || expl15.height != 17 || expl15.dis_x != 149 || expl15.dis_y != 117) {
+        return fail("EXPL deploy frames keep raw SPR descriptor values");
+    }
+    if (hubu4.width != 72 || hubu4.height != 105 || hubu4.dis_x != 4 || hubu4.dis_y != 2) {
+        return fail("HUBU frame 4 keeps raw SPR descriptor values");
+    }
+    if (towr0.width != 77 || towr0.height != 257 || towr0.dis_x != 0 || towr0.dis_y != 0) {
+        return fail("TOWR frame 0 keeps raw SPR descriptor values");
+    }
+    const FinCommand *expl_right = fin_command(&expl_fin, "EXPLSTAND0", "expl", 1, 0);
+    const FinCommand *expl_left = fin_command(&expl_fin, "EXPLSTAND6", "expl", 1, 6);
+    const FinCommand *expl_deploy_body = fin_command(&expl_fin, "EXPLDEPLOY14", "expl", 1, 14);
+    const FinCommand *expl_deploy_top = fin_command(&expl_fin, "EXPLDEPLOY14", "expl", 0, 15);
+    if (!expl_right || !expl_left || !expl_deploy_body || !expl_deploy_top)
+        return fail("resolve Exploiter FIN commands");
+    int right_draw_x = expl_right->x + expl0.dis_x;
+    int right_draw_y = expl_right->y - expl0.height;
+    int left_draw_x = expl_left->x;
+    int left_draw_y = expl_left->y - expl6.height;
+    int body_canvas_h = expl14.dis_y + expl14.height;
+    int body_draw_y = expl_deploy_body->y - expl14.height;
+    int top_draw_y = expl_deploy_top->y - body_canvas_h + expl15.dis_y;
+    if (right_draw_x != -22 || right_draw_y != -30 ||
+        left_draw_x != -30 || left_draw_y != -32 ||
+        body_draw_y != -28 || top_draw_y != -42) {
+        return fail("Exploiter FIN/SPR placement uses body frame bottom and layer composition canvas");
     }
     return 0;
 }

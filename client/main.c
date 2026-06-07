@@ -1456,7 +1456,6 @@ int main(int argc, char **argv) {
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
-    int render_scale = 1;
     bool software_renderer = false;
     const char *debug_query = NULL;
     bool debug_animation_grid = false;
@@ -1471,11 +1470,6 @@ int main(int argc, char **argv) {
         } else if (strncmp(argv[arg_base], "--game=", 7) == 0) {
             game_id = argv[arg_base] + 7;
             arg_base += 1;
-        } else if (argc > arg_base + 1 && strcmp(argv[arg_base], "--scale") == 0) {
-            render_scale = atoi(argv[arg_base + 1]);
-            if (render_scale < 1) render_scale = 1;
-            if (render_scale > 6) render_scale = 6;
-            arg_base += 2;
         } else if (strncmp(argv[arg_base], "--debug=", 8) == 0) {
             debug_query = argv[arg_base] + 8;
             arg_base += 1;
@@ -1543,7 +1537,6 @@ int main(int argc, char **argv) {
         app.win_w = 1280;
         app.win_h = 800;
     }
-    app.render_scale = render_scale;
     app.show_grid = false;
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
@@ -1622,8 +1615,8 @@ int main(int argc, char **argv) {
     }
     clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
 
-    printf("Loaded %s (%dx%d, tileset %s, scale %dx, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
-           map_path, map.width, map.height, map.tileset_name, app.render_scale, unit_count,
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
+           map_path, map.width, map.height, map.tileset_name, unit_count,
            map.decoration_count, map.resource_vent_count);
 
     if (debug_overlay.active) {

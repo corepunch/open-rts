@@ -1037,8 +1037,7 @@ static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const
     int edge_frame_count = 0;
 
     SDL_Rect whole = { 0, 0, tileset->tile_w, tileset->tile_h };
-    int scale = app->render_scale > 0 ? app->render_scale : 1;
-    SDL_Rect dst = { dx, dy, tileset->tile_w * scale, tileset->tile_h * scale };
+    SDL_Rect dst = { dx, dy, tileset->tile_w, tileset->tile_h };
 
     for (size_t i = 0; i < sizeof(DARK_REIGN_EDGE_RULES) / sizeof(DARK_REIGN_EDGE_RULES[0]); ++i) {
         const EdgeMatchRule *rule = &DARK_REIGN_EDGE_RULES[i];

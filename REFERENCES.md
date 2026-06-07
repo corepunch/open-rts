@@ -12,6 +12,60 @@ plugin-specific behavior.
   - `DCjxspr_v002` names the third/fourth `.SPR` descriptor words `disX` and
     `disY`; treat them as per-frame placement displacement, not unused padding.
 
+- dreamerman / SPR2BMP:
+  http://www.dreamerman.cba.pl/
+  - Original Dark Colony file-format reverse engineering lead credited by both
+    DSPR and XSPR descendants. The host may return HTTP 421, so use mirrors,
+    bundled readmes, and downstream source when the site is unavailable.
+  - Wrote `SPR2BMP` and the early guide used by later viewers.
+
+- Dmytro Malikov / DSPR:
+  http://malikov.us/dspr/
+  - Dmytro's Sprite Viewer, credited by the Kotlin DSPR port. Use it as a
+    historical source for the Dreamerman-derived viewer lineage.
+
+- ACOM / XSPR:
+  http://xinth.net/xspr/
+  - 2017 ES6 browser viewer for Dark Colony files. Known supported formats from
+    downstream ports: `.SPR`, `.BTS`, `.FIN`, and `.MAP`.
+  - The Java/JavaFX `jxspr` port below is the practical source-code reference
+    for the XSPR parser behavior.
+
+- smdimos/jxspr:
+  https://github.com/smdimos/jxspr
+  - Java/JavaFX port of ACOM's XSPR viewer. Tiny repository with direct parser
+    source: `SPR.java`, `BTS.java`, `MAP.java`, `PixelCanvas.java`.
+  - `SPR.java` confirms `.SPR` header byte `0` value `129` marks compressed
+    RLE, frame descriptors start at byte `776`, and the descriptor words are
+    `width`, `height`, `disX`, `disY`.
+  - `SPR.java` and `BTS.java` scale palette channels as `stored * 4 + 3`, not
+    plain `stored * 4`.
+  - `SPR.java` confirms indices `138..143` are the six team-color slots and
+    remap by `id += (team - 7) * 6`, with team `7` as Aerogen/cyan default.
+  - `BTS.java` confirms magenta transparency is palette RGB `(255, 3, 255)`.
+  - `MAP.java` confirms tile flip bits in the map flag word: bit `5` flips the
+    main tile, bit `6` flips the overlay tile.
+
+- darekbx/DSPR:
+  https://github.com/darekbx/DSPR
+  - Kotlin/Android port of Dmytro's DSPR. The README credits Dmytro and
+    dreamerman, and says the module renders `.SPR`, `.BTS`, `.MAP`, and `.FIN`.
+  - `SPR.kt` independently confirms the same `.SPR` layout, `*4+3` palette
+    scaling, RLE decode, team-color slots `138..143`, and optional displacement
+    drawing.
+  - `FIN.kt` names the high-level `.FIN` layout: header words include a count
+    of 164-byte unknown/weird blocks, animation labels are 20 bytes each, and
+    animation frame commands are 22 bytes each. Our extractor uses this exact
+    `refs + labels + aux_count * 164` layout for the command table.
+  - `MAP.kt` exposes extra collision/debug interpretations for map flag bits,
+    but rendering-relevant bits `5` and `6` match `jxspr`.
+
+- darekbx/alien-colony:
+  https://github.com/darekbx/alien-colony
+  - LibGDX game using Dark Colony graphics. Useful as a practical rendering
+    reference if future work needs a full game-loop example rather than a file
+    viewer.
+
 - endotermic/Dark-Colony:
   https://github.com/endotermic/Dark-Colony
   - Open-source Dark Colony reference lead. Use it when validating `.MAP`,
@@ -157,12 +211,10 @@ Local game-data files that have already been useful:
   Do not infer the feet/ground point from opaque pixels: sprite pixels include
   shadows, outlines, weapons, effects, and frame-specific protrusions that drift
   independently of the unit's simulation anchor.
-- When a Dark Colony frame is rendered with the FIN/SPR flip flag, mirror both
-  the frame ground point and visible hit-test bounds across the decoded SPR
-  canvas before placing the sprite. The original engine's frame-part records
-  carry flip flags and placement offsets; applying SDL's horizontal flip while
-  keeping the unflipped anchor makes side-facing asymmetric sprites, such as the
-  Exploiter moving left, drift away from their selection circle.
+- When a Dark Colony frame is rendered with the FIN/SPR flip flag, mirror the
+  visible hit-test bounds across the decoded SPR canvas. Raw FIN state sprites
+  are positioned by FIN top-left coordinates plus SPR descriptor displacement,
+  not by inferred ground anchors.
 - Selection circle radius comes from `MobjInfo.radius`/`GAMESTAT.TXT`, converted
   from Dark Colony pixel units to model cells by dividing by 32. Rendering can
   clamp to a sprite-width minimum for readability, but pathing and interaction
@@ -178,25 +230,27 @@ Local game-data files that have already been useful:
 - `data/DCOLONY/ANIM.DAT` — newline-delimited index of all `.fin` filenames
   (lowercase) used by the original engine at startup; useful for bulk-loading.
 
-### Dark Colony SPR Ground Anchor
+### Dark Colony SPR/FIN Sprite Placement
 
-Each `.SPR` file's `dis_x`/`dis_y` descriptor values encode the placement of
-each frame's pixel data within a shared virtual canvas of size `max_w × max_h`
-(the bounding box across all frames). For FIN-composed city/building sprites,
-use the **canvas center-bottom** `(max_w / 2, max_h)` so FIN command coordinates
-compose frames in the same coordinate space.
+Each `.SPR` frame descriptor is raw data: `width`, `height`, `disX`, `disY`.
+Our Dark Colony loader keeps those values unmutated: frame pixels are decoded at
+the start of their atlas cell, the source rectangle is the raw `width × height`,
+and `disX/disY` are stored as frame metadata. It does not bake displacement into
+the bitmap, subtract a minimum displacement, or synthesize a ground anchor.
 
-Do not apply that canvas-bottom anchor to every rendered unit. Mobile units use
-their visible footprint for selection/grounding in our renderer; using the full
-canvas bottom there makes sprites such as `EXPL.SPR` visibly hover above their
-selection ellipse.
+Each `.FIN` frame command is also raw data. For `RTS_STATE_COORDS_FIN_TOP_LEFT`,
+the renderer places a state sprite from `grid_to_screen(unit) + FIN x/y` plus
+the horizontal SPR displacement only when the FIN command is unflipped. Flipped
+FIN commands already carry the mirrored X placement. The renderer does not add
+SPR `disY`; FIN Y is the frame's bottom edge in draw space, so runtime draws the
+source rectangle at `FIN.y - height`. Do not re-center, infer feet from opaque
+bounds, or apply building-specific canvas bottom tweaks.
 
-Verification: for `EXPL.SPR`, `TRSC.SPR`, and `VENT.SPR`:
-- Canvas size is determined by `max_dis - min_dis` in each axis.
-- `VENT.SPR` frame 0 fills its canvas fully (`dis=(2,22)`, `w=86`, `h=58`,
-  `min_dis=(2,22)`, `max=(88,80)`, cell=`86×58`); per-frame bottom-center and
-  canvas bottom-center coincide — which is why `VENT.SPR` looked "correct"
-  under the old formula while `EXPL.SPR` did not.
+Example: `EXPL.SPR` frame `0` is `46×49` with `dis=(137,104)`, while
+`EXPL.FIN` label `EXPLSTAND0` draws frame `0` at `(-159,19)`. Runtime draws the
+raw `46×49` source rectangle at `origin + (-22,-30)`, derived from
+`FIN.x + disX` and `FIN.y - height`. Flipped label `EXPLSTAND6` draws frame `6`
+at `origin + (-30,-32)` with no extra `disX` or `disY`.
 
 ### Dark Colony Exploiter Animation States
 
@@ -251,7 +305,8 @@ offset  size  field
 0x00    u16LE flags          bit 7 = per-frame RLE compression
 0x02    u16LE frame_count
 0x04    4     padding / unknown
-0x08    768   palette        256 × RGB (no alpha; index 0 = transparent)
+0x08    768   palette        256 × RGB, 6-bit channels scaled as stored*4+3
+                              (index 0 = transparent for sprites)
 0x308   frame_count×8  frame descriptors:
               u16LE width, u16LE height, u16LE dis_x, u16LE dis_y
 after descriptors: pixel data
@@ -259,6 +314,11 @@ after descriptors: pixel data
     RLE: signed byte cmd; cmd<0 → skip (-cmd) pixels; cmd≥0 → copy (cmd+1) pixels
   if uncompressed: raw indexed pixels, row-major, width×height per frame
 ```
+
+Palette indices `138..143` are the six team-color slots. XSPR/DSPR remap those
+with `id += (team - 7) * 6`; team `7` is the default Aerogen/cyan palette. Our
+renderer builds remapped atlas textures for Dark Colony sprites that contain
+those indices and selects them when FIN remap is non-zero.
 
 ### Dark Colony FIN Binary Format
 
@@ -270,7 +330,7 @@ commands. Those commands then point at raw frames inside one of the companion
 ```
 offset  size  field
 0x00    u16LE magic          always 0x001d (29); treat as version/format ID
-0x02    u16LE aux_count?     not the command count; exact meaning still unknown
+0x02    u16LE aux_count      DSPR names these 164-byte "weird blocks"
 0x04    u16LE valid_count    number of named (non-NONAME) labels
 0x06    u16LE ref_count      number of companion sprite references
 0x08    ref_count×8  sprite_refs   null-padded 8-byte ASCII names of companion
@@ -284,10 +344,10 @@ table that runs to EOF:
               bytes 0..7   sprite  null-padded lower-case companion SPR stem
               bytes 8..9   frame   s16LE raw frame inside that sprite
               bytes 10..13 x/y     s16LE draw offsets
-              bytes 14..15 flags?  usually 0 in current samples
-              bytes 16..17 tics?   usually 16 in current samples
+              bytes 14..15 remap   palette remap selector
+              bytes 16..17 intens  color intensity; 16 is normal
               bytes 18..19 layer   1 for main unit body, 3/5 for effects/overlays
-              bytes 20..21 misc?   unknown
+              bytes 20..21 flags   bit 0 is horizontal flip in current samples
 ```
 
 Important: label `start..end` values are **not raw `.SPR` frame ids**. For
