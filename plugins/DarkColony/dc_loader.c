@@ -1600,6 +1600,7 @@ enum { DARK_COLONY_MAX_GAMESTAT_UNITS = 128 };
 
 typedef struct {
     float speed;
+    int max_health;
 } DarkColonyUnitConfig;
 
 static char ascii_lower_char(char c) {
@@ -1640,7 +1641,127 @@ static void load_dark_colony_unit_config(DarkColonyUnitConfig configs[DARK_COLON
         if (unit->value_count > DC_GAMESTAT_UNIT_SPEED) {
             configs[i].speed = dark_colony_speed_from_gamestat(unit->values[DC_GAMESTAT_UNIT_SPEED]);
         }
+        if (unit->value_count > DC_GAMESTAT_UNIT_HEALTH) {
+            configs[i].max_health = unit->values[DC_GAMESTAT_UNIT_HEALTH];
+        }
     }
+}
+
+static int dark_colony_fixed_from_cell(int cell) {
+    return cell * 256 + DC_FIXED_TILE_CENTER;
+}
+
+static float dark_colony_fixed_to_cell(int fixed) {
+    return (float)fixed / 256.0f;
+}
+
+static int dark_colony_default_health_for_type(int type,
+                                               const DarkColonyUnitConfig *unit_config) {
+    if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config &&
+        unit_config[type].max_health > 0) {
+        return unit_config[type].max_health;
+    }
+    return 1;
+}
+
+static int dark_colony_initial_health_for_type(int type, int scenario_health,
+                                               const DarkColonyUnitConfig *unit_config) {
+    return scenario_health >= 0 ? scenario_health :
+        dark_colony_default_health_for_type(type, unit_config);
+}
+
+static void dark_colony_object_pool_init(DcObjectPool *pool) {
+    if (!pool) return;
+    memset(pool, 0, sizeof(*pool));
+    pool->object_limit = DC_DYNAMIC_OBJECT_FIRST;
+}
+
+static void dark_colony_object_pool_mark_active(DcObjectPool *pool, int object_index) {
+    if (!pool || object_index < 0 || object_index >= DC_MAX_OBJECTS) return;
+    if (pool->active_count < DC_MAX_OBJECTS)
+        pool->active_objects[pool->active_count++] = (uint16_t)object_index;
+    if (object_index >= pool->object_limit)
+        pool->object_limit = object_index + 1;
+}
+
+static bool dark_colony_object_pool_init_object(DcObjectPool *pool, int object_index,
+                                                int x_fixed, int z_fixed,
+                                                int type, int team, int health,
+                                                int subtype) {
+    if (!pool || object_index < 0 || object_index >= DC_MAX_OBJECTS ||
+        x_fixed < 0 || z_fixed < 0 || team < 0 || team >= 10 ||
+        type < 0 || type > 255) {
+        return false;
+    }
+
+    DcObject *object = &pool->objects[object_index];
+    memset(object, 0, sizeof(*object));
+    object->x_pos = (int16_t)x_fixed;
+    object->z_pos = (int16_t)z_fixed;
+    object->type = (uint8_t)type;
+    object->team = (uint8_t)team;
+    object->regen_timer = 0x40;
+    object->health_or_amount = health;
+    object->active = 1;
+    object->facing_or_anim = 0xff;
+    object->subtype = (uint8_t)subtype;
+    object->cell_x = (uint8_t)(x_fixed >> 8);
+    object->cell_z = (uint8_t)(z_fixed >> 8);
+    object->marker_d1 = 0xff;
+    object->target_a = -2;
+    object->target_b = -2;
+    dark_colony_object_pool_mark_active(pool, object_index);
+    return true;
+}
+
+static int dark_colony_city_object_index(int team, int slot) {
+    if (team < 0 || team >= 8 || slot < 0 || slot >= DC_BUILDINGS_PER_SIDE)
+        return -1;
+    return team * DC_BUILDINGS_PER_SIDE + slot;
+}
+
+static int dark_colony_object_pool_alloc_dynamic(DcObjectPool *pool) {
+    if (!pool) return -1;
+    int limit = pool->object_limit;
+    if (limit < DC_DYNAMIC_OBJECT_FIRST) limit = DC_DYNAMIC_OBJECT_FIRST;
+    for (int i = DC_DYNAMIC_OBJECT_FIRST; i < limit; ++i) {
+        if (pool->objects[i].active == 0) return i;
+    }
+    if (limit >= DC_MAX_OBJECTS) return -1;
+    pool->object_limit = limit + 1;
+    return limit;
+}
+
+static int dark_colony_object_pool_add_dynamic(DcObjectPool *pool, int x, int z,
+                                               int type, int team, int scenario_health,
+                                               int subtype,
+                                               const DarkColonyUnitConfig *unit_config) {
+    int object_index = dark_colony_object_pool_alloc_dynamic(pool);
+    if (object_index < 0) return -1;
+    int health = dark_colony_initial_health_for_type(type, scenario_health, unit_config);
+    if (!dark_colony_object_pool_init_object(pool, object_index,
+                                             dark_colony_fixed_from_cell(x),
+                                             dark_colony_fixed_from_cell(z),
+                                             type, team, health, subtype)) {
+        return -1;
+    }
+    return object_index;
+}
+
+static bool dark_colony_object_pool_add_city_slot(DcObjectPool *pool, int team, int slot,
+                                                  int x_fixed, int z_fixed, int type, int race,
+                                                  const DarkColonyUnitConfig *unit_config) {
+    int object_index = dark_colony_city_object_index(team, slot);
+    if (object_index < 0 || type <= 0) return false;
+    int health = dark_colony_default_health_for_type(type, unit_config);
+    (void)race;
+    return dark_colony_object_pool_init_object(pool, object_index, x_fixed, z_fixed,
+                                               type, team, health, 0);
+}
+
+static bool dark_colony_scenario_object_starts_visible(const DarkColonyScenarioObject *object) {
+    if (!object || object->status < 0) return false;
+    return object->type == 86;
 }
 
 static int dark_colony_mobj_type_for_type(int type, int race) {
@@ -1751,85 +1872,53 @@ static int dark_colony_city_unit_type_for_slot(int race, int slot) {
     return city_types[race == 1 ? 1 : 0][slot];
 }
 
-static void dark_colony_apply_city_slot_transform(Unit *unit, int slot) {
+static void dark_colony_city_slot_position_fixed(int anchor_x, int anchor_y, int slot,
+                                                 int *x_fixed, int *z_fixed) {
     /* DC.EXE city.c stores city object positions as 8.8 fixed-point map units.
-       fcn.004412d4 seeds each city slot with fcn.00441080 draw-origin values,
-       then fcn.004176bc spawns the building by adding fcn.00440ff0 placement.
-       The draw traversal subtracts the same origin again, so the visible sprite
-       position uses this placement table and the raw FIN command coordinates. */
-    static const int placement_fixed[][2] = {
-        {   0,  136 },
-        {   0, -256 },
-        {   0,  256 },
-        {   0,  176 },
-        {   0,  248 },
-        {   0, -256 },
-        {   0,    0 },
+       fcn.004412d4 writes:
+           x_pos = city_x * 0x100 + dc_city_slot_offsets[slot].x * 8
+           z_pos = city_z * 0x100 + dc_city_slot_offsets[slot].z * 8 */
+    static const int slot_offsets[][2] = {
+        { -64, 15 },
+        {   0,  0 },
+        {  32, 64 },
+        {  64, 10 },
+        { -32, 65 },
+        {   0, 32 },
+        {   0,  0 },
     };
-    if (!unit || slot < 0) return;
-    unit->render_sort_y = unit->gy;
-    if (slot < (int)(sizeof(placement_fixed) / sizeof(placement_fixed[0]))) {
-        unit->gx += (float)placement_fixed[slot][0] / 256.0f;
-        unit->gy += (float)placement_fixed[slot][1] / 256.0f;
+    int fx = dark_colony_fixed_from_cell(anchor_x);
+    int fz = dark_colony_fixed_from_cell(anchor_y);
+    if (slot < (int)(sizeof(slot_offsets) / sizeof(slot_offsets[0]))) {
+        fx += slot_offsets[slot][0] * 8;
+        fz += slot_offsets[slot][1] * 8;
     }
+    if (x_fixed) *x_fixed = fx;
+    if (z_fixed) *z_fixed = fz;
 }
 
-static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_units,
-                                            int x, int y, int type, int team, int status,
-                                            int race, const DarkColonyUnitConfig *unit_config,
-                                            bool *player_selected,
-                                            bool *player_has_exploiter,
-                                            bool *player_anchor_set,
-                                            int *player_anchor_x,
-                                            int *player_anchor_y);
-
-static bool append_dark_colony_city_building(Unit *units, int *count, int max_units,
-                                             int x, int y, int team, int race,
-                                             int slot,
-                                             const DarkColonyUnitConfig *unit_config,
-                                             bool *player_selected,
-                                             bool *player_has_exploiter,
-                                             bool *player_anchor_set,
-                                             int *player_anchor_x,
-                                             int *player_anchor_y) {
-    int type = dark_colony_city_unit_type_for_slot(race, slot);
-    if (type <= 0) return false;
-    if (race != 1 && type == 16) {
-        int tower_index = *count;
-        append_dark_colony_initial_unit(units, count, max_units, x, y, 81,
-                                        team, 0, race, unit_config,
-                                        NULL, NULL, NULL, NULL, NULL);
-        if (*count > tower_index) dark_colony_apply_city_slot_transform(&units[tower_index], slot);
-    }
-    int building_index = *count;
-    bool appended = append_dark_colony_initial_unit(units, count, max_units, x, y, type,
-                                                   team, 0, race, unit_config,
-                                                   player_selected, player_has_exploiter,
-                                                   player_anchor_set, player_anchor_x,
-                                                   player_anchor_y);
-    if (appended) dark_colony_apply_city_slot_transform(&units[building_index], slot);
-    return appended;
-}
-
-static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_units,
-                                            int x, int y, int type, int team, int status,
-                                            int race, const DarkColonyUnitConfig *unit_config,
-                                            bool *player_selected,
-                                            bool *player_has_exploiter,
-                                            bool *player_anchor_set,
-                                            int *player_anchor_x,
-                                            int *player_anchor_y) {
-    if (!units || !count || *count >= max_units || x < 0 || y < 0 || status < 0) {
+static bool append_dark_colony_object_unit(Unit *units, int *count, int max_units,
+                                           const DcObject *object, int race,
+                                           const DarkColonyUnitConfig *unit_config,
+                                           bool city_object,
+                                           bool *player_selected,
+                                           bool *player_has_exploiter,
+                                           bool *player_anchor_set,
+                                           int *player_anchor_x,
+                                           int *player_anchor_y) {
+    if (!units || !count || *count >= max_units || !object || object->active == 0) {
         return false;
     }
+    int type = object->type;
+    int team = object->team;
     const char *sprite = dark_colony_unit_sprite_for_type(type, race);
     int mobj_type = dark_colony_mobj_type_for_type(type, race);
     if (!sprite || mobj_type <= 0) return false;
 
     Unit *u = &units[*count];
     memset(u, 0, sizeof(*u));
-    u->gx = (float)x + 0.5f;
-    u->gy = (float)y + 0.5f;
+    u->gx = dark_colony_fixed_to_cell(object->x_pos);
+    u->gy = dark_colony_fixed_to_cell(object->z_pos);
     u->sprite_id = -1;
     u->attack_target = -1;
     u->harvest_target = -1;
@@ -1837,8 +1926,9 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
         u->speed = unit_config[type].speed;
     }
     u->type_id = (uint16_t)mobj_type;
+    if (city_object) u->render_sort_y = (float)object->cell_z + 0.5f;
     u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
-    u->hp = status;
+    u->hp = object->health_or_amount;
     u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
     if (u->selected) *player_selected = true;
@@ -1850,6 +1940,8 @@ static bool append_dark_colony_initial_unit(Unit *units, int *count, int max_uni
         set_unit_state(&ctx, u, state_id);
     }
     if (u->owner == 0) {
+        int x = object->cell_x;
+        int y = object->cell_z;
         if (player_anchor_set && player_anchor_x && player_anchor_y &&
             (!*player_anchor_set || x > *player_anchor_x)) {
             *player_anchor_x = x;
@@ -1871,6 +1963,8 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
 
     DarkColonyUnitConfig unit_config[DARK_COLONY_MAX_GAMESTAT_UNITS];
     load_dark_colony_unit_config(unit_config);
+    DcObjectPool object_pool;
+    dark_colony_object_pool_init(&object_pool);
 
     int count = 0;
     bool player_has_exploiter = false;
@@ -1884,62 +1978,80 @@ int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_un
     (void)map_width;
 
     for (int team = 0; team < scenario.team_count; ++team) {
-        /* Enemy/team city blocks describe scenario AI state; only the local
-           player's city is materialized as starting map buildings here. */
-        if (team != 0) continue;
         const DarkColonyScenarioTeam *team_info = &scenario.teams[team];
         if (!team_info->active || team_info->ai_slot_count <= 0) continue;
-        int city_anchor = team_info->ai_slot_count > 1 &&
-            (team_info->ai_slots[1][0] != 0 || team_info->ai_slots[1][1] != 0) ? 1 : 0;
-        int slot_x = team_info->ai_slots[city_anchor][0];
-        int slot_y = team_info->ai_slots[city_anchor][1];
+        int slot_x = team_info->ai_slots[0][0];
+        int slot_y = team_info->ai_slots[0][1];
+        if (slot_x == 0 && slot_y == 0) continue;
         int slot_map_y = dark_colony_y_to_map_height(map_height, slot_y);
         for (int slot = 0; slot < DARK_COLONY_SCN_CITY_SLOTS; ++slot) {
             int value_index = slot * 2;
             if (value_index >= team_info->city_value_count) break;
             if (team_info->city_values[value_index] <= 0) continue;
-            append_dark_colony_city_building(units, &count, max_units,
-                                             slot_x, slot_map_y,
-                                             team, team_info->race, slot,
-                                             unit_config,
-                                             &player_selected,
-                                             &player_has_exploiter,
-                                             &player_anchor_set,
-                                             &player_anchor_x,
-                                             &player_anchor_y);
-            if (count >= max_units) break;
+            int type = dark_colony_city_unit_type_for_slot(team_info->race, slot);
+            int x_fixed = 0, z_fixed = 0;
+            dark_colony_city_slot_position_fixed(slot_x, slot_map_y, slot,
+                                                 &x_fixed, &z_fixed);
+            dark_colony_object_pool_add_city_slot(&object_pool, team, slot,
+                                                  x_fixed, z_fixed, type,
+                                                  team_info->race, unit_config);
         }
     }
 
-    for (int i = 0; i < scenario.object_count && count < max_units; ++i) {
+    for (int i = 0; i < scenario.object_count; ++i) {
         const DarkColonyScenarioObject *object = &scenario.objects[i];
         if (object->value_count < 6 ||
             object->team < 0 || object->team >= DARK_COLONY_SCN_MAX_TEAMS ||
             object->x < 0 || object->y < 0) {
             continue;
         }
+        if (!dark_colony_scenario_object_starts_visible(object)) continue;
         int map_y = object->type == 86 ? dark_colony_y_to_map_height(map_height, object->y) :
             object->y;
-        append_dark_colony_initial_unit(units, &count, max_units,
-                                        object->x, map_y, object->type,
-                                        object->team, object->status,
-                                        scenario.teams[object->team].race, unit_config,
-                                        &player_selected, &player_has_exploiter,
-                                        &player_anchor_set, &player_anchor_x,
-                                        &player_anchor_y);
+        dark_colony_object_pool_add_dynamic(&object_pool, object->x, map_y,
+                                            object->type, object->team,
+                                            object->status, object->extra,
+                                            unit_config);
+    }
+
+    for (int i = 0; i < object_pool.active_count && count < max_units; ++i) {
+        int object_index = object_pool.active_objects[i];
+        const DcObject *object = &object_pool.objects[object_index];
+        int team = object->team;
+        int race = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
+            scenario.teams[team].race : 0;
+        if (object->type == DC_OBJECT_TYPE_PETRA7_VENT || object->type == 84)
+            continue;
+        if (race != 1 && object->type == 16 && count < max_units) {
+            DcObject tower = *object;
+            tower.type = 81;
+            append_dark_colony_object_unit(units, &count, max_units, &tower, race,
+                                           unit_config, object_index < DC_BUILDING_OBJECT_COUNT,
+                                           NULL, NULL, NULL, NULL, NULL);
+        }
+        append_dark_colony_object_unit(units, &count, max_units, object, race,
+                                       unit_config,
+                                       object_index < DC_BUILDING_OBJECT_COUNT,
+                                       &player_selected,
+                                       &player_has_exploiter,
+                                       &player_anchor_set,
+                                       &player_anchor_x,
+                                       &player_anchor_y);
     }
     if (dark_colony_map_path_is_multiplayer(map_path) && !player_has_exploiter &&
         player_anchor_set && count < max_units) {
-        Unit *u = &units[count];
-        memset(u, 0, sizeof(*u));
-        u->gx = (float)(player_anchor_x + 2) + 0.5f;
-        u->gy = (float)player_anchor_y + 0.5f;
-        if (6 < DARK_COLONY_MAX_GAMESTAT_UNITS) u->speed = unit_config[6].speed;
-        u->type_id = MT_DC_EXPLOITER;
-        u->owner = 0;
-        u->selected = true;
-        snprintf(u->sprite_name, sizeof(u->sprite_name), "SPRITES/EXPL.SPR");
-        count++;
+        int object_index = dark_colony_object_pool_add_dynamic(&object_pool, player_anchor_x + 2,
+                                                               player_anchor_y, 6, 0, -1, 0,
+                                                               unit_config);
+        if (object_index >= 0) {
+            const DcObject *object = &object_pool.objects[object_index];
+            append_dark_colony_object_unit(units, &count, max_units, object, 0,
+                                           unit_config, false, &player_selected,
+                                           &player_has_exploiter,
+                                           &player_anchor_set,
+                                           &player_anchor_x,
+                                           &player_anchor_y);
+        }
     }
     dark_colony_scenario_destroy(&scenario);
     return count;

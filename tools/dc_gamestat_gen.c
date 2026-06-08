@@ -529,9 +529,9 @@ static void emit_header_prelude(FILE *out, const GameStatData *data) {
     fprintf(out, "    DC_GAMESTAT_UNIT_WEAPON1 = 6,\n");
     fprintf(out, "    DC_GAMESTAT_UNIT_WEAPON2 = 7,\n");
     fprintf(out, "    DC_GAMESTAT_UNIT_DEFENSE = 8,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_HEALTH = 9,\n");
+    fprintf(out, "    DC_GAMESTAT_UNIT_UNKNOWN_9 = 9,\n");
     fprintf(out, "    DC_GAMESTAT_UNIT_FLY = 10,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_SIGNATURE = 11\n");
+    fprintf(out, "    DC_GAMESTAT_UNIT_HEALTH = 11\n");
     fprintf(out, "} DcGamestatUnitValueIndex;\n\n");
 
     fprintf(out, "typedef struct {\n");
