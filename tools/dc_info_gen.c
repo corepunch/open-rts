@@ -38,10 +38,18 @@ typedef struct {
 } FinCommand;
 
 typedef struct {
+    int part_count;
+    int ticks;
+    int command_start;
+} FinFrame;
+
+typedef struct {
     char stem[9];
     char stem_lower[9];
     FinLabel *labels;
     int label_count;
+    FinFrame *frames;
+    int frame_count;
     FinCommand *commands;
     int command_count;
 } FinAnim;
@@ -272,11 +280,13 @@ static FinAnim fin_load(const char *path, const char *stem) {
     size_t size = 0;
     unsigned char *data = read_file(path, &size);
     if (size < 8) die("FIN too small", path);
+    int default_tics = read_u16_le(data + 0);
     int aux_count = read_u16_le(data + 2);
     int valid_labels = read_u16_le(data + 4);
     int deps = read_u16_le(data + 6);
     size_t label_off = 8 + (size_t)deps * 8;
     if (label_off + (size_t)valid_labels * 20 > size) die("FIN label table truncated", path);
+    (void)default_tics;
 
     FinAnim fin;
     memset(&fin, 0, sizeof(fin));
@@ -292,13 +302,27 @@ static FinAnim fin_load(const char *path, const char *stem) {
         fin.labels[i].end = read_u16_le(data + off + 18);
     }
 
-    size_t command_off = label_off + (size_t)valid_labels * 20 + (size_t)aux_count * 164;
+    size_t frame_off = label_off + (size_t)valid_labels * 20;
+    size_t command_off = frame_off + (size_t)aux_count * 164;
     if (command_off > size || (size - command_off) % 22 != 0)
         die("FIN command table has invalid DSPR/XSPR block layout", path);
 
     fin.command_count = (int)((size - command_off) / 22);
+    fin.frame_count = aux_count;
+    fin.frames = calloc((size_t)fin.frame_count, sizeof(*fin.frames));
     fin.commands = calloc((size_t)fin.command_count, sizeof(*fin.commands));
-    if (!fin.commands) die("out of memory", NULL);
+    if (!fin.frames || !fin.commands) die("out of memory", NULL);
+    int command_start = 0;
+    for (int i = 0; i < fin.frame_count; ++i) {
+        size_t off = frame_off + (size_t)i * 164;
+        int part_count = read_u16_le(data + off);
+        if (part_count > 100) die("FIN frame has invalid part count", path);
+        fin.frames[i].part_count = part_count;
+        fin.frames[i].ticks = read_u16_le(data + off + 2);
+        fin.frames[i].command_start = command_start;
+        command_start += part_count;
+    }
+    if (command_start > fin.command_count) die("FIN frame part count exceeds command table", path);
     for (int i = 0; i < fin.command_count; ++i) {
         size_t off = command_off + (size_t)i * 22;
         copy_padded_name(fin.commands[i].sprite, sizeof(fin.commands[i].sprite), data + off, 8);
@@ -318,6 +342,7 @@ static FinAnim fin_load(const char *path, const char *stem) {
 static void fin_free(FinAnim *fin) {
     if (!fin) return;
     free(fin->labels);
+    free(fin->frames);
     free(fin->commands);
     memset(fin, 0, sizeof(*fin));
 }
@@ -330,29 +355,45 @@ static bool fin_label_range(const FinAnim *fin, const char *label, int *start_ou
     return true;
 }
 
+static bool fin_label_has_valid_frames(const FinAnim *fin, const FinLabel *label) {
+    return fin && label && label->start >= 0 && label->end >= label->start &&
+        label->end < fin->frame_count;
+}
+
+static int fin_commands_for_label(const FinAnim *fin, const FinLabel *label,
+                                  const FinCommand **out, int max_out) {
+    if (!fin_label_has_valid_frames(fin, label) || !out || max_out <= 0) return 0;
+    int count = 0;
+    for (int frame = label->start; frame <= label->end; ++frame) {
+        const FinFrame *fin_frame = &fin->frames[frame];
+        for (int part = 0; part < fin_frame->part_count; ++part) {
+            int command_index = fin_frame->command_start + part;
+            if (command_index < 0 || command_index >= fin->command_count) return count;
+            if (count < max_out) out[count++] = &fin->commands[command_index];
+        }
+    }
+    return count;
+}
+
+static int fin_commands_for_label_name(const FinAnim *fin, const char *label_name,
+                                       const FinCommand **out, int max_out) {
+    return fin_commands_for_label(fin, fin_find_label(fin, label_name), out, max_out);
+}
+
 static const FinCommand *fin_find_command_in_label(const FinAnim *fin, const char *label,
                                                    const char *sprite, int layer,
                                                    int frame) {
-    const FinLabel *l = fin_find_label(fin, label);
-    if (!fin || !l || l->start < 0 || l->end < l->start ||
-        l->end >= fin->command_count) {
-        return NULL;
-    }
-    for (int i = l->start; i <= l->end; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    const FinCommand *commands[512];
+    int count = fin_commands_for_label_name(fin, label, commands,
+                                            (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int i = 0; i < count; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, sprite) == 0 && cmd->layer == layer &&
             cmd->frame == frame) {
             return cmd;
         }
     }
     return NULL;
-}
-
-static bool fin_label_is_deployed_blood0(const FinLabel *label) {
-    if (!label) return false;
-    return strlen(label->name) == 12 &&
-           strncmp(label->name, "EDPLYBLOOD", 10) == 0 &&
-           label->name[11] == '0';
 }
 
 static void fin_append_pulse_frame(FinPulseFrame *frames, int *count, int max_count,
@@ -368,49 +409,55 @@ static void fin_append_pulse_frame(FinPulseFrame *frames, int *count, int max_co
     (*count)++;
 }
 
-static void fin_append_layer0_frames_for_label(const FinAnim *fin, const char *label_name,
-                                               FinPulseFrame *frames, int *count,
-                                               int max_count) {
+static void fin_append_expl_top_frames_for_label(const FinAnim *fin,
+                                                 const char *label_name,
+                                                 const int *wanted_frames,
+                                                 int wanted_count,
+                                                 FinPulseFrame *frames,
+                                                 int *count,
+                                                 int max_count) {
     const FinLabel *label = fin_find_label(fin, label_name);
-    if (!fin || !label) {
+    if (!fin || !label || !wanted_frames || wanted_count <= 0) {
         fprintf(stderr, "dc_info_gen: EXPL.FIN missing mining pulse label %s\n", label_name);
         exit(1);
     }
-    if (label->start < 0 || label->end < label->start || label->end >= fin->command_count) {
-        fprintf(stderr, "dc_info_gen: EXPL.FIN mining pulse label %s has invalid range %d..%d\n",
-                label->name, label->start, label->end);
-        exit(1);
-    }
-    int before = *count;
-    for (int i = label->start; i <= label->end; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
-        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 0 && cmd->flags == 0) {
-            fin_append_pulse_frame(frames, count, max_count, cmd);
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, label, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int wanted = 0; wanted < wanted_count; ++wanted) {
+        const FinCommand *match = NULL;
+        for (int i = 0; i < command_count; ++i) {
+            const FinCommand *cmd = commands[i];
+            if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 0 &&
+                cmd->flags == 0 && cmd->frame == wanted_frames[wanted]) {
+                match = cmd;
+                break;
+            }
         }
-    }
-    if (*count == before) {
-        fprintf(stderr, "dc_info_gen: EXPL.FIN mining pulse label %s has no unflipped top frame\n",
-                label->name);
-        exit(1);
+        if (!match) {
+            fprintf(stderr, "dc_info_gen: EXPL.FIN label %s missing top frame %d\n",
+                    label_name, wanted_frames[wanted]);
+            exit(1);
+        }
+        fin_append_pulse_frame(frames, count, max_count, match);
     }
 }
 
 static int fin_build_expl_mining_pulse(const FinAnim *fin, FinPulseFrame *frames,
                                        int max_count) {
     const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
-                                                       fin->stem_lower, 1, 14);
+                                                       fin->stem_lower, 1, 34);
     if (!body) die("EXPL.FIN missing EDPLYSTAND14 deployed body frame", NULL);
 
+    static const int deploy_tail[] = {25, 26, 27, 28, 29, 30, 32, 33};
+    static const int retract_tail[] = {32, 30, 28, 27, 26, 25, 24};
     int count = 0;
-    fin_append_layer0_frames_for_label(fin, "EDPLYSTAND14", frames, &count, max_count);
-    fin_append_layer0_frames_for_label(fin, "EXPLDIE0", frames, &count, max_count);
-    for (int i = 0; i < fin->label_count; ++i) {
-        const FinLabel *label = &fin->labels[i];
-        if (fin_label_is_deployed_blood0(label)) {
-            fin_append_layer0_frames_for_label(fin, label->name, frames, &count, max_count);
-        }
-    }
-    if (count < 10) die("EXPL.FIN mining pulse did not resolve enough frames", NULL);
+    fin_append_expl_top_frames_for_label(fin, "EXPLDEPLOY14", deploy_tail,
+                                         (int)(sizeof(deploy_tail) / sizeof(deploy_tail[0])),
+                                         frames, &count, max_count);
+    fin_append_expl_top_frames_for_label(fin, "EXPLRETRACT14", retract_tail,
+                                         (int)(sizeof(retract_tail) / sizeof(retract_tail[0])),
+                                         frames, &count, max_count);
     return count;
 }
 
@@ -420,13 +467,16 @@ static int fin_first_body_frame(const FinAnim *fin, const char *label) {
         fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n", label, fin ? fin->stem : "(null)");
         exit(1);
     }
-    if (l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
-        fprintf(stderr, "dc_info_gen: FIN label %s has invalid command range %d..%d\n",
+    if (!fin_label_has_valid_frames(fin, l)) {
+        fprintf(stderr, "dc_info_gen: FIN label %s has invalid frame range %d..%d\n",
                 label, l->start, l->end);
         exit(1);
     }
-    for (int i = l->start; i <= l->end; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, l, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int i = 0; i < command_count; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) return cmd->frame;
     }
     fprintf(stderr, "dc_info_gen: FIN label %s has no body frame for %s\n", label, fin->stem_lower);
@@ -460,12 +510,15 @@ static int fin_body_frames_for_label_full(const FinAnim *fin, const char *label,
                                           int max_frames) {
     const FinLabel *l = fin_find_label(fin, label);
     if (!fin || !l || !frames || max_frames <= 0 ||
-        l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
+        !fin_label_has_valid_frames(fin, l)) {
         return 0;
     }
     int count = 0;
-    for (int i = l->start; i <= l->end && count < max_frames; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, l, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int i = 0; i < command_count && count < max_frames; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) {
             frames[count] = cmd->frame;
             if (flags) flags[count] = (cmd->flags & 1) ? 1 : 0;
@@ -513,12 +566,15 @@ static int fin_stem_layer_frames_for_label_full(const FinAnim *fin, const char *
                                                 int max_frames) {
     const FinLabel *l = fin_find_label(fin, label);
     if (!fin || !l || !frames || max_frames <= 0 ||
-        l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
+        !fin_label_has_valid_frames(fin, l)) {
         return 0;
     }
     int count = 0;
-    for (int i = l->start; i <= l->end && count < max_frames; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, l, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int i = 0; i < command_count && count < max_frames; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == layer) {
             frames[count] = cmd->frame;
             if (flags) flags[count] = (cmd->flags & 1) ? 1 : 0;
@@ -566,7 +622,7 @@ static int fin_layer5_frames_for_label_full(const FinAnim *fin, const char *labe
                                             int max_frames) {
     const FinLabel *l = fin_find_label(fin, label);
     if (!fin || !l || !body_frames || max_frames <= 0 ||
-        l->start < 0 || l->end < l->start || l->end >= fin->command_count) {
+        !fin_label_has_valid_frames(fin, l)) {
         return 0;
     }
 
@@ -574,8 +630,11 @@ static int fin_layer5_frames_for_label_full(const FinAnim *fin, const char *labe
     const FinCommand *overlays[128];
     int body_count = 0;
     int overlay_count = 0;
-    for (int i = l->start; i <= l->end; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, l, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int i = 0; i < command_count; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) != 0) continue;
         if (cmd->layer == 1 && body_count < (int)(sizeof(bodies) / sizeof(bodies[0]))) {
             bodies[body_count++] = cmd;
@@ -724,13 +783,15 @@ static int fin_state_count_for_sequence16(const FinAnim *fin, const char *prefix
 
 static int fin_effect_command_count_for_label(const FinAnim *fin, const char *label_name) {
     const FinLabel *label = fin_find_label(fin, label_name);
-    if (!fin || !label || label->start < 0 || label->end < label->start ||
-        label->end >= fin->command_count) {
+    if (!fin_label_has_valid_frames(fin, label)) {
         return 0;
     }
     int count = 0;
-    for (int i = label->start; i <= label->end; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, label, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    for (int i = 0; i < command_count; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) continue;
         count++;
     }
@@ -755,15 +816,18 @@ static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int 
         for (int l = 0; l < fin->label_count; ++l) {
             const FinLabel *label = &fin->labels[l];
             if (!fin_label_is_fire(label, prefix)) continue;
-            if (label->start < 0 || label->end >= fin->command_count) continue;
-            for (int body_i = label->start; body_i <= label->end; ++body_i) {
-                const FinCommand *body = &fin->commands[body_i];
+            const FinCommand *commands[512];
+            int command_count = fin_commands_for_label(fin, label, commands,
+                                                       (int)(sizeof(commands) / sizeof(commands[0])));
+            if (command_count <= 0) continue;
+            for (int body_i = 0; body_i < command_count; ++body_i) {
+                const FinCommand *body = commands[body_i];
                 if (strcmp(body->sprite, fin->stem_lower) != 0 ||
                     body->layer != 1 || body->frame != body_frame) {
                     continue;
                 }
-                for (int flash_i = label->start; flash_i <= label->end; ++flash_i) {
-                    const FinCommand *flash = &fin->commands[flash_i];
+                for (int flash_i = 0; flash_i < command_count; ++flash_i) {
+                    const FinCommand *flash = commands[flash_i];
                     if (strcmp(flash->sprite, "blaz") != 0 || flash->layer != 3) continue;
                     int delta = flash_i - body_i;
                     int score = (delta >= 0 ? 0 : 1000) + abs(delta);
@@ -795,8 +859,7 @@ static const FinLabel *fin_label_for_direction16(const FinAnim *fin, const char 
             int suffix = (16 - candidate) & 15;
             snprintf(label_name, sizeof(label_name), "%s%d", prefix, suffix);
             const FinLabel *label = fin_find_label(fin, label_name);
-            if (label && label->start >= 0 && label->end >= label->start &&
-                label->end < fin->command_count) {
+            if (fin_label_has_valid_frames(fin, label)) {
                 return label;
             }
         }
@@ -819,8 +882,11 @@ static void fin_muzzle_for_sequence16_step(const FinAnim *fin, const char *prefi
         }
         const FinCommand *bodies[128];
         int body_count = 0;
-        for (int i = label->start; i <= label->end; ++i) {
-            const FinCommand *cmd = &fin->commands[i];
+        const FinCommand *commands[512];
+        int command_count = fin_commands_for_label(fin, label, commands,
+                                                   (int)(sizeof(commands) / sizeof(commands[0])));
+        for (int i = 0; i < command_count; ++i) {
+            const FinCommand *cmd = commands[i];
             if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1 &&
                 body_count < (int)(sizeof(bodies) / sizeof(bodies[0]))) {
                 bodies[body_count++] = cmd;
@@ -833,10 +899,17 @@ static void fin_muzzle_for_sequence16_step(const FinAnim *fin, const char *prefi
         const FinCommand *body = bodies[step < body_count ? step : body_count - 1];
         const FinCommand *best_flash = NULL;
         int best_score = 1000000;
-        for (int i = label->start; i <= label->end; ++i) {
-            const FinCommand *flash = &fin->commands[i];
+        int body_index = -1;
+        for (int i = 0; i < command_count; ++i) {
+            if (commands[i] == body) {
+                body_index = i;
+                break;
+            }
+        }
+        for (int i = 0; i < command_count; ++i) {
+            const FinCommand *flash = commands[i];
             if (strcmp(flash->sprite, "blaz") != 0 || flash->layer != 3) continue;
-            int delta = i - (int)(body - fin->commands);
+            int delta = body_index >= 0 ? i - body_index : 0;
             int score = (delta >= 0 ? 0 : 1000) + abs(delta);
             if (score < best_score) {
                 best_score = score;
@@ -918,7 +991,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
 
     if (fin_first_body_frame(&trsc_fin, "TRSCFIREA0") != 80)
         die("TRSC.FIN FIREA0 does not resolve to expected first body frame", trsc_fin_path);
-    if (fin_first_body_frame(&trsc_fin, "TRSCFIREB0") != 92)
+    if (fin_first_body_frame(&trsc_fin, "TRSCFIREB0") != 104)
         die("TRSC.FIN FIREB0 does not resolve to expected first body frame", trsc_fin_path);
 
     fin_free(&trsc_fin);
@@ -1424,7 +1497,7 @@ static void write_expl_mining_pulse(FILE *out, const char *spr, const FinAnim *f
                                     int count, int tics, int group) {
     static const int dirs[8] = {0,2,4,6,8,10,12,14};
     const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
-                                                       fin->stem_lower, 1, 14);
+                                                       fin->stem_lower, 1, 34);
     if (!body) die("EXPL.FIN missing deployed Exploiter body", NULL);
     FinPulseFrame pulse[MAX_EXPL_MINING_PULSE_FRAMES];
     int pulse_count = fin_build_expl_mining_pulse(fin, pulse, MAX_EXPL_MINING_PULSE_FRAMES);
@@ -1519,13 +1592,15 @@ static void write_fin_label_effect_chain(FILE *out, const char *root,
                                          int tics) {
     (void)root;
     const FinLabel *label = fin_find_label(fin, label_name);
-    if (!fin || !label || label->start < 0 || label->end < label->start ||
-        label->end >= fin->command_count) {
+    if (!fin_label_has_valid_frames(fin, label)) {
         return;
     }
+    const FinCommand *commands[512];
+    int command_count = fin_commands_for_label(fin, label, commands,
+                                               (int)(sizeof(commands) / sizeof(commands[0])));
     int effect_index = 0;
-    for (int i = label->start; i <= label->end; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
+    for (int i = 0; i < command_count; ++i) {
+        const FinCommand *cmd = commands[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) continue;
         effect_index++;
 
@@ -1620,7 +1695,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     const FinCommand *excopod_stand =
         fin_required_command_in_label(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
     const FinCommand *brrkpod_stand =
-        fin_required_command_in_label(&hubu_fin, "TRSCBUILD0", "hubu", 1, 4);
+        fin_required_command_in_label(&hubu_fin, "BRRKPODSTAND0", "hubu", 1, 4);
     const FinCommand *towr_stand =
         fin_required_command_in_label(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     char blaz_path[1024];

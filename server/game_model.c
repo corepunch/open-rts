@@ -105,7 +105,7 @@ static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
 static int dark_colony_building_frame_for_product_type(int product_type) {
     switch (product_type) {
     case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-    case 17: return 4; /* HUBU.FIN TRSCBUILD0 front city module */
+    case 17: return 4; /* HUBU.FIN BRRKPODSTAND0 */
     case 18: return 1;
     case 19: return 1;
     case 20: return 2;

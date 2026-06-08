@@ -26,9 +26,17 @@ typedef struct {
 } FinCommand;
 
 typedef struct {
+    int part_count;
+    int ticks;
+    int command_start;
+} FinFrame;
+
+typedef struct {
     char stem_lower[9];
     FinLabel labels[512];
     int label_count;
+    FinFrame frames[4096];
+    int frame_count;
     FinCommand commands[4096];
     int command_count;
 } FinInfo;
@@ -104,10 +112,17 @@ static bool load_fin_info(const char *path, const char *stem, FinInfo *out) {
     for (size_t i = 0; stem[i] && i < sizeof(out->stem_lower) - 1; ++i) {
         out->stem_lower[i] = (char)tolower((unsigned char)stem[i]);
     }
+    int default_tics = layout_read_u16_le(data + 0);
     int aux_count = layout_read_u16_le(data + 2);
     int label_count = layout_read_u16_le(data + 4);
     int deps = layout_read_u16_le(data + 6);
     size_t label_off = 8 + (size_t)deps * 8;
+    (void)default_tics;
+    int frame_count = aux_count;
+    if (frame_count > 4096) {
+        free(data);
+        return false;
+    }
     if (label_count < 0 || label_count > 512 ||
         label_off + (size_t)label_count * 20 > size) {
         free(data);
@@ -120,7 +135,8 @@ static bool load_fin_info(const char *path, const char *stem, FinInfo *out) {
         out->labels[i].start = layout_read_u16_le(data + off + 16);
         out->labels[i].end = layout_read_u16_le(data + off + 18);
     }
-    size_t command_off = label_off + (size_t)label_count * 20 + (size_t)aux_count * 164;
+    size_t frame_off = label_off + (size_t)label_count * 20;
+    size_t command_off = frame_off + (size_t)aux_count * 164;
     if (command_off > size || (size - command_off) % 22 != 0) {
         free(data);
         return false;
@@ -131,6 +147,24 @@ static bool load_fin_info(const char *path, const char *stem, FinInfo *out) {
         return false;
     }
     out->command_count = command_count;
+    out->frame_count = frame_count;
+    int command_start = 0;
+    for (int i = 0; i < frame_count; ++i) {
+        size_t off = frame_off + (size_t)i * 164;
+        int part_count = layout_read_u16_le(data + off);
+        if (part_count > 100) {
+            free(data);
+            return false;
+        }
+        out->frames[i].part_count = part_count;
+        out->frames[i].ticks = layout_read_u16_le(data + off + 2);
+        out->frames[i].command_start = command_start;
+        command_start += part_count;
+    }
+    if (command_start > command_count) {
+        free(data);
+        return false;
+    }
     for (int i = 0; i < command_count; ++i) {
         size_t off = command_off + (size_t)i * 22;
         FinCommand *cmd = &out->commands[i];
@@ -158,11 +192,18 @@ static const FinCommand *fin_command(const FinInfo *fin, const char *label,
                                      const char *sprite, int layer, int frame) {
     const FinLabel *range = fin_label(fin, label);
     if (!range) return NULL;
-    for (int i = range->start; i <= range->end && i < fin->command_count; ++i) {
-        const FinCommand *cmd = &fin->commands[i];
-        if (strcmp(cmd->sprite, sprite) == 0 && cmd->layer == layer &&
-            cmd->frame == frame) {
-            return cmd;
+    if (range->start < 0 || range->end < range->start || range->end >= fin->frame_count)
+        return NULL;
+    for (int frame_index = range->start; frame_index <= range->end; ++frame_index) {
+        const FinFrame *fin_frame = &fin->frames[frame_index];
+        for (int part = 0; part < fin_frame->part_count; ++part) {
+            int command_index = fin_frame->command_start + part;
+            if (command_index < 0 || command_index >= fin->command_count) return NULL;
+            const FinCommand *cmd = &fin->commands[command_index];
+            if (strcmp(cmd->sprite, sprite) == 0 && cmd->layer == layer &&
+                cmd->frame == frame) {
+                return cmd;
+            }
         }
     }
     return NULL;
@@ -195,7 +236,7 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("load Dark Colony FIN files");
     }
     const FinCommand *exco = fin_command(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
-    const FinCommand *barracks = fin_command(&hubu_fin, "TRSCBUILD0", "hubu", 1, 4);
+    const FinCommand *barracks = fin_command(&hubu_fin, "BRRKPODSTAND0", "hubu", 1, 4);
     const FinCommand *tower = fin_command(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     if (!exco || !barracks || !tower) return fail("resolve Dark Colony city FIN commands");
 
@@ -208,7 +249,7 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("city building state offsets are raw FIN draw-command coordinates");
     }
     if (barracks->x != -36 || barracks->y != 37) {
-        return fail("Barracks state uses raw TRSCBUILD0 FIN placement");
+        return fail("Barracks state uses raw BRRKPODSTAND0 FIN placement");
     }
 
     SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0, beac0, beac1;

@@ -1798,7 +1798,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 static int dark_colony_unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-        case 17: return 4; /* HUBU.FIN TRSCBUILD0 ramp piece */
+        case 17: return 4; /* HUBU.FIN BRRKPODSTAND0 */
         case 18: return 1; /* ROBOTICSSTAND0 */
         case 19: return 1; /* ROBOPOD2 reuses robotics art. */
         case 20: return 2; /* SCIENCESTAND0 */
@@ -1888,6 +1888,15 @@ static int dark_colony_city_render_x_fixed(const DcObject *object, int object_in
     return object->x_pos - slot_x * 8;
 }
 
+static int dark_colony_city_render_z_fixed(const DcObject *object, int object_index) {
+    if (!object || object_index < 0 || object_index >= DC_BUILDING_OBJECT_COUNT)
+        return object ? object->z_pos : 0;
+    int slot = object_index % DC_BUILDINGS_PER_SIDE;
+    int slot_z = 0;
+    dark_colony_city_slot_offset(slot, NULL, &slot_z);
+    return object->z_pos - slot_z * 8;
+}
+
 static bool append_dark_colony_object_unit(Unit *units, int *count, int max_units,
                                            int object_index,
                                            const DcObject *object, int race,
@@ -1911,8 +1920,10 @@ static bool append_dark_colony_object_unit(Unit *units, int *count, int max_unit
     memset(u, 0, sizeof(*u));
     int render_x_pos = city_object ? dark_colony_city_render_x_fixed(object, object_index) :
         object->x_pos;
+    int render_z_pos = city_object ? dark_colony_city_render_z_fixed(object, object_index) :
+        object->z_pos;
     u->gx = dark_colony_fixed_to_cell(render_x_pos);
-    u->gy = dark_colony_fixed_to_cell(object->z_pos);
+    u->gy = dark_colony_fixed_to_cell(render_z_pos);
     u->sprite_id = -1;
     u->attack_target = -1;
     u->harvest_target = -1;
