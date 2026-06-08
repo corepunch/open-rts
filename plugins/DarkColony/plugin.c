@@ -442,21 +442,13 @@ static uint16_t dark_colony_script_unit_type(int team, int type) {
     }
 }
 
-static int dark_colony_script_y_to_map(const GameMap *map, int y) {
-    if (!map || map->height <= 0) return y;
-    int map_y = map->height - 1 - y;
-    if (map_y < 0) map_y = 0;
-    if (map_y >= map->height) map_y = map->height - 1;
-    return map_y;
-}
-
 static bool dark_colony_player_near(const GameMap *map, const Unit *units,
                                     int unit_count, int gx, int gy) {
-    int map_y = dark_colony_script_y_to_map(map, gy);
+    (void)map;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float dx = units[i].gx - ((float)gx + 0.5f);
-        float dy = units[i].gy - ((float)map_y + 0.5f);
+        float dy = units[i].gy - ((float)gy + 0.5f);
         if (dx * dx + dy * dy <= 16.0f) return true;
     }
     return false;
@@ -609,7 +601,7 @@ static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkCol
             if (message) hud_text_push(hud, message, 6500);
         } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
                    cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
-            int team = cmd->a[0], x = cmd->a[1], y = dark_colony_script_y_to_map(map, cmd->a[2]);
+            int team = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
             int count = cmd->a[3] > 0 ? cmd->a[3] : 1;
             int type = cmd->a[4];
             if (cmd->type == DC_SCRIPT_CMD_REINFORCE && cmd->a[5]) {

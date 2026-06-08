@@ -41,6 +41,9 @@ int astar_find(const GameMap *map, Cell start, Cell goal, Cell *out_path, int ma
 
 void grid_to_screen(const App *app, float gx, float gy, float *sx, float *sy);
 Cell screen_to_grid(const App *app, int sx, int sy);
+void map_grid_to_screen(const App *app, const GameMap *map, float gx, float gy,
+                        float *sx, float *sy);
+Cell screen_to_map_grid(const App *app, const GameMap *map, int sx, int sy);
 void refresh_app_viewport(App *app);
 void window_to_render_point(const App *app, int wx, int wy, int *rx, int *ry);
 void window_to_render_delta(const App *app, int wx, int wy, float *rx, float *ry);
@@ -53,7 +56,8 @@ void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet
 void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
                           const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
                           const SpriteCache *cache, const GameInfo *game_info, uint32_t ticks);
-void render_visual_effects(App *app, const VisualEffect *effects, int max_effects,
+void render_visual_effects(App *app, const GameMap *map,
+                           const VisualEffect *effects, int max_effects,
                            const SpriteCache *cache, const GameInfo *game_info);
 
 CachedSprite *sprite_cache_find(SpriteCache *cache, const char *name);

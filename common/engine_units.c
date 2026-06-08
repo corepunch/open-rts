@@ -225,6 +225,13 @@ int direction_code_from_vector(const GameInfo *game_info, float dx, float dy) {
     return compass16_direction_code_from_vector(dx, dy);
 }
 
+static int direction_code_from_map_vector(const GameMap *map, const GameInfo *game_info,
+                                          float dx, float dy) {
+    (void)map;
+    dy = -dy;
+    return direction_code_from_vector(game_info, dx, dy);
+}
+
 void direction_vector_from_code(const GameInfo *game_info, int code, float *dx, float *dy) {
     if (!dx || !dy) return;
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_16) {
@@ -708,9 +715,9 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
                 if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                     u->attack_target = stop_target;
                     Unit *target = &units[stop_target];
-                    u->facing_code = direction_code_from_vector(game_info,
-                                                                    target->gx - u->gx,
-                                                                    target->gy - u->gy);
+                    u->facing_code = direction_code_from_map_vector(map, game_info,
+                                                                     target->gx - u->gx,
+                                                                     target->gy - u->gy);
                     u->path_len = 0;
                     u->path_index = 0;
                     u->move_order_arrived = false;
@@ -734,7 +741,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
                     moving = false;
                 } else {
                     if (dist >= 0.001f)
-                        u->facing_code = direction_code_from_vector(game_info, dx, dy);
+                        u->facing_code = direction_code_from_map_vector(map, game_info, dx, dy);
                     float step = u->speed * dt;
                     if (dist <= step || dist < 0.001f) {
                         if (move_unit_if_walkable(map, u, tx, ty)) {
@@ -816,7 +823,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
             if (target_index < 0) continue;
 
             Unit *target = &units[target_index];
-            attacker->facing_code = direction_code_from_vector(game_info,
+            attacker->facing_code = direction_code_from_map_vector(map, game_info,
                                                                    target->gx - attacker->gx,
                                                                    target->gy - attacker->gy);
             if (attacker->attack_cooldown_left_ms > 0 ||
@@ -865,7 +872,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
             if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                 u->attack_target = stop_target;
                 Unit *target = &units[stop_target];
-                u->facing_code = direction_code_from_vector(NULL,
+                u->facing_code = direction_code_from_map_vector(map, NULL,
                                                                 target->gx - u->gx,
                                                                 target->gy - u->gy);
                 u->path_len = 0;
@@ -893,7 +900,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
             (void)update_unit_harvest(map, u, dt_ms, NULL);
             continue;
         }
-        if (dist >= 0.001f) u->facing_code = direction_code_from_vector(NULL, dx, dy);
+        if (dist >= 0.001f) u->facing_code = direction_code_from_map_vector(map, NULL, dx, dy);
         float step = u->speed * dt;
         if (dist <= step || dist < 0.001f) {
             if (move_unit_if_walkable(map, u, tx, ty)) {
@@ -945,7 +952,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
         if (target_index < 0) continue;
 
         Unit *target = &units[target_index];
-        attacker->facing_code = direction_code_from_vector(NULL,
+        attacker->facing_code = direction_code_from_map_vector(map, NULL,
                                                                target->gx - attacker->gx,
                                                                target->gy - attacker->gy);
         if (attacker->attack_cooldown_left_ms > 0) continue;

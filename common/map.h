@@ -89,4 +89,16 @@ typedef struct GameMap {
                                int x, int y, int dx, int dy);
 } GameMap;
 
+static inline int map_screen_y_for_cell(const GameMap *map, int y) {
+    return map ? map->height - 1 - y : y;
+}
+
+static inline float map_screen_y_for_point(const GameMap *map, float y) {
+    return map ? (float)map->height - y : y;
+}
+
+static inline float map_world_y_from_screen_point(const GameMap *map, float y) {
+    return map ? (float)map->height - y : y;
+}
+
 #endif

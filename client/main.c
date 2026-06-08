@@ -610,7 +610,7 @@ static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, con
     const ActorType *type = plugin_actor_type_by_id(plugin, plugin->debug_enemy_type_id);
     if (!type && plugin->actor_type_count > 0) type = &plugin->actor_types[0];
     if (!type) return false;
-    Cell cell = screen_to_grid(app, sx, sy);
+    Cell cell = screen_to_map_grid(app, map, sx, sy);
     if (!map_contains(map, cell.x, cell.y)) return false;
     Unit *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
@@ -624,12 +624,13 @@ static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, con
     return true;
 }
 
-static bool focus_camera_on_first_player_unit(App *app, const Unit *units, int unit_count) {
-    if (!app || !units) return false;
+static bool focus_camera_on_first_player_unit(App *app, const GameMap *map,
+                                              const Unit *units, int unit_count) {
+    if (!app || !map || !units) return false;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
-        grid_to_screen(app, units[i].gx, units[i].gy, &sx, &sy);
+        map_grid_to_screen(app, map, units[i].gx, units[i].gy, &sx, &sy);
         app->cam_x = (float)app->win_w * 0.5f - sx;
         app->cam_y = (float)app->win_h * 0.5f - sy;
         return true;
@@ -637,17 +638,17 @@ static bool focus_camera_on_first_player_unit(App *app, const Unit *units, int u
     return false;
 }
 
-static void focus_camera_on_grid(App *app, float gx, float gy) {
-    if (!app) return;
+static void focus_camera_on_grid(App *app, const GameMap *map, float gx, float gy) {
+    if (!app || !map) return;
     float sx = 0.0f, sy = 0.0f;
-    grid_to_screen(app, gx, gy, &sx, &sy);
+    map_grid_to_screen(app, map, gx, gy, &sx, &sy);
     app->cam_x = (float)app->win_w * 0.5f - sx;
     app->cam_y = (float)app->win_h * 0.5f - sy;
 }
 
 static bool focus_camera_on_map_start(App *app, const GameMap *map) {
     if (!app || !map || !map->has_camera) return false;
-    focus_camera_on_grid(app, map->camera_gx, map->camera_gy);
+    focus_camera_on_grid(app, map, map->camera_gx, map->camera_gy);
     return true;
 }
 
@@ -1249,7 +1250,8 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
     SDL_Rect clip = { rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6 };
     if (clip.w <= 0 || clip.h <= 0) return;
     for (int py = 0; py < clip.h; ++py) {
-        int gy = py * map->height / clip.h;
+        int screen_y = py * map->height / clip.h;
+        int gy = map_screen_y_for_cell(map, screen_y);
         for (int px = 0; px < clip.w; ++px) {
             int gx = px * map->width / clip.w;
             uint32_t color = map->cell_colors ? map->cell_colors[map_index(map, gx, gy)] : 0xff202820u;
@@ -1263,7 +1265,7 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const MapResourceVent *vent = &map->resource_vents[i];
         int x = clip.x + vent->gx * clip.w / map->width;
-        int y = clip.y + vent->gy * clip.h / map->height;
+        int y = clip.y + (int)(map_screen_y_for_cell(map, vent->gy) * clip.h / map->height);
         SDL_Rect dot = { x - 1, y - 1, 3, 3 };
         dc_ui_fill(app->renderer, dot, vent->active ?
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
@@ -1271,7 +1273,8 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].remove || units[i].gx < 0.0f || units[i].gy < 0.0f) continue;
         int x = clip.x + (int)(units[i].gx * (float)clip.w / (float)map->width);
-        int y = clip.y + (int)(units[i].gy * (float)clip.h / (float)map->height);
+        int y = clip.y + (int)(map_screen_y_for_point(map, units[i].gy) *
+                               (float)clip.h / (float)map->height);
         SDL_Rect dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
                    (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
@@ -1611,7 +1614,7 @@ int main(int argc, char **argv) {
     if (!focus_camera_on_map_start(&app, &map)) {
         float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
         float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
-        focus_camera_on_grid(&app, focus_gx, focus_gy);
+        focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
     clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
 
@@ -1704,14 +1707,14 @@ int main(int argc, char **argv) {
                 plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                                        plugin->game_info, &hud_text, FIXED_DT);
                 if (unit_count != before_count && !map.has_camera)
-                    focus_camera_on_first_player_unit(&app, units, unit_count);
+                    focus_camera_on_first_player_unit(&app, &map, units, unit_count);
                 clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
             }
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
                                  &decoration_sprites, plugin->game_info, SDL_GetTicks());
-            render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
+            render_visual_effects(&app, &map, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, plugin->game_info);
             if (dark_colony_ui && ui_font_ready) {
                 render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
@@ -1777,7 +1780,7 @@ int main(int argc, char **argv) {
                 plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                                        plugin->game_info, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
-                    if (!map.has_camera) focus_camera_on_first_player_unit(&app, units, unit_count);
+                    if (!map.has_camera) focus_camera_on_first_player_unit(&app, &map, units, unit_count);
                     clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
                     if (plugin->load_runtime_sprites &&
                         !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
@@ -1803,7 +1806,7 @@ int main(int argc, char **argv) {
         render_map(&app, &map, &tileset);
         render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
                              &decoration_sprites, plugin->game_info, SDL_GetTicks());
-        render_visual_effects(&app, effects, MAX_VISUAL_EFFECTS,
+        render_visual_effects(&app, &map, effects, MAX_VISUAL_EFFECTS,
                               &decoration_sprites, plugin->game_info);
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);

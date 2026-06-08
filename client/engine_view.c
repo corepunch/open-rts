@@ -77,6 +77,12 @@ void grid_to_screen(const App *app, float gx, float gy, float *sx, float *sy) {
     *sy = gy * (float)app_cell_h(app) + app->cam_y;
 }
 
+void map_grid_to_screen(const App *app, const GameMap *map, float gx, float gy,
+                        float *sx, float *sy) {
+    float screen_y = map_screen_y_for_point(map, gy);
+    grid_to_screen(app, gx, screen_y, sx, sy);
+}
+
 static void screen_to_grid_point(const App *app, int sx, int sy, float *gx, float *gy) {
     if (gx) *gx = ((float)sx - app->cam_x) / (float)app_cell_w(app);
     if (gy) *gy = ((float)sy - app->cam_y) / (float)app_cell_h(app);
@@ -85,6 +91,19 @@ static void screen_to_grid_point(const App *app, int sx, int sy, float *gx, floa
 Cell screen_to_grid(const App *app, int sx, int sy) {
     return (Cell){ (int)floorf(((float)sx - app->cam_x) / (float)app_cell_w(app)),
                    (int)floorf(((float)sy - app->cam_y) / (float)app_cell_h(app)) };
+}
+
+Cell screen_to_map_grid(const App *app, const GameMap *map, int sx, int sy) {
+    float gx = 0.0f, gy = 0.0f;
+    screen_to_grid_point(app, sx, sy, &gx, &gy);
+    gy = map_world_y_from_screen_point(map, gy);
+    return (Cell){ (int)floorf(gx), (int)floorf(gy) };
+}
+
+static void screen_to_map_grid_point(const App *app, const GameMap *map, int sx, int sy,
+                                     float *gx, float *gy) {
+    screen_to_grid_point(app, sx, sy, gx, gy);
+    if (gy) *gy = map_world_y_from_screen_point(map, *gy);
 }
 
 void refresh_app_viewport(App *app) {
@@ -120,6 +139,15 @@ void render_grid_cell(App *app, int gx, int gy, SDL_Color color) {
     SDL_RenderDrawRect(app->renderer, &r);
 }
 
+static void render_map_grid_cell(App *app, const GameMap *map, int gx, int gy, SDL_Color color) {
+    float sx, sy;
+    map_grid_to_screen(app, map, (float)gx, (float)gy, &sx, &sy);
+    SDL_Rect r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderDrawRect(app->renderer, &r);
+}
+
 static void render_blocked_overlay(App *app, const GameMap *map) {
     if (!app || !map || !map->blocked) return;
     int cell_w = app_cell_w(app);
@@ -131,7 +159,7 @@ static void render_blocked_overlay(App *app, const GameMap *map) {
         for (int x = 0; x < map->width; ++x) {
             if (!map->blocked[map_index(map, x, y)]) continue;
             float sx, sy;
-            grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+            map_grid_to_screen(app, map, (float)x, (float)y, &sx, &sy);
             if (sx < -cell_w || sy < -cell_h ||
                 sx > app->win_w + cell_w || sy > app->win_h + cell_h) {
                 continue;
@@ -185,7 +213,7 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
-            grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+            map_grid_to_screen(app, map, (float)x, (float)y, &sx, &sy);
             if ((map->render_features & MAP_RENDER_USE_CELL_COLORS) && map->cell_colors) {
                 if (sx < -cell_w || sy < -cell_h ||
                     sx > app->win_w + cell_w || sy > app->win_h + cell_h) {
@@ -238,7 +266,7 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+                map_grid_to_screen(app, map, (float)x, (float)y, &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                     continue;
@@ -268,7 +296,7 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+                map_grid_to_screen(app, map, (float)x, (float)y, &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                     continue;
@@ -290,12 +318,12 @@ void render_map(App *app, const GameMap *map, const Tileset *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+                map_grid_to_screen(app, map, (float)x, (float)y, &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
                     continue;
                 }
-                render_grid_cell(app, x, y, (SDL_Color){ 50, 78, 72, 80 });
+                render_map_grid_cell(app, map, x, y, (SDL_Color){ 50, 78, 72, 80 });
             }
         }
     }
@@ -428,14 +456,15 @@ static void end_sprite_command(SDL_Texture *texture, uint32_t render_flags) {
 
 static SDL_Point sprite_frame_raw_displacement(const SpriteSheet *sprite, int frame);
 
-static void render_decoration_sprite(App *app, const MapDecoration *dec, const SpriteSheet *sprite,
+static void render_decoration_sprite(App *app, const GameMap *map,
+                                     const MapDecoration *dec, const SpriteSheet *sprite,
                                      int frame_index, uint32_t render_flags,
                                      const char *sequence_name, int anchor_frame_index,
                                      const char *anchor_sequence_name) {
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
     float sx, sy;
-    grid_to_screen(app, (float)dec->gx, (float)dec->gy, &sx, &sy);
+    map_grid_to_screen(app, map, (float)dec->gx, (float)dec->gy, &sx, &sy);
     int footprint_w = dec->footprint_w > 0 ? dec->footprint_w : 1;
     int footprint_h = dec->footprint_h > 0 ? dec->footprint_h : 1;
 
@@ -448,7 +477,7 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
 
     SDL_Rect dst;
     if (dec->center_anchor) {
-        grid_to_screen(app, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
+        map_grid_to_screen(app, map, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
         SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
         SDL_Rect anchor_rect = sprite_frame_rect(sprite, anchor_frame);
         float ground_offset_y = (float)bounds.y + (float)bounds.h;
@@ -485,21 +514,22 @@ static void render_decoration_sprite(App *app, const MapDecoration *dec, const S
     end_sprite_command(texture, render_flags);
 }
 
-static void render_decoration(App *app, const MapDecoration *dec, const SpriteCache *cache) {
-    render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->shadow_name),
+static void render_decoration(App *app, const GameMap *map,
+                              const MapDecoration *dec, const SpriteCache *cache) {
+    render_decoration_sprite(app, map, dec, sprite_cache_lookup(cache, dec->shadow_name),
                              dec->frame_index, dec->render_flags, dec->sequence_name,
                              dec->frame_index, dec->sequence_name);
-    render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite_name),
+    render_decoration_sprite(app, map, dec, sprite_cache_lookup(cache, dec->sprite_name),
                              dec->frame_index, dec->render_flags, dec->sequence_name,
                              dec->frame_index, dec->sequence_name);
-    render_decoration_sprite(app, dec, sprite_cache_lookup(cache, dec->sprite2_name),
+    render_decoration_sprite(app, map, dec, sprite_cache_lookup(cache, dec->sprite2_name),
                              dec->frame2_index, dec->render2_flags, NULL,
                              dec->frame_index, dec->sequence_name);
 }
 
 void render_decorations(App *app, const GameMap *map, const SpriteCache *cache) {
     for (int i = 0; i < map->decoration_count; ++i) {
-        render_decoration(app, &map->decorations[i], cache);
+        render_decoration(app, map, &map->decorations[i], cache);
     }
 }
 
@@ -708,7 +738,7 @@ static void unit_state_body_offset_for_view(const GameInfo *game_info, const Uni
     if (offset_y) *offset_y = oy;
 }
 
-static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
+static bool unit_screen_rect_for_view(const App *app, const GameMap *map, const Unit *unit,
                                       const SpriteSheet *fallback_sprite,
                                       const SpriteCache *cache,
                                       const GameInfo *game_info, uint32_t ticks,
@@ -717,7 +747,7 @@ static bool unit_screen_rect_for_view(const App *app, const Unit *unit,
                                       int *frame_out, const SpriteSheet **sprite_out) {
     if (!app || !unit) return false;
     float sx = 0.0f, sy = 0.0f;
-    grid_to_screen(app, unit->gx, unit->gy, &sx, &sy);
+    map_grid_to_screen(app, map, unit->gx, unit->gy, &sx, &sy);
     const SpriteSheet *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
         float radius = unit_pick_radius_px(app, unit);
@@ -791,7 +821,7 @@ static bool rects_intersect(SDL_Rect a, SDL_Rect b) {
            a.y <= b.y + b.h && a.y + a.h >= b.y;
 }
 
-static int pick_unit_at(const App *app, const Unit *units, int unit_count,
+static int pick_unit_at(const App *app, const GameMap *map, const Unit *units, int unit_count,
                         const SpriteSheet *fallback_sprite, const SpriteCache *cache,
                         const GameInfo *game_info, int x, int y, int owner_filter) {
     int best = -1;
@@ -802,7 +832,7 @@ static int pick_unit_at(const App *app, const Unit *units, int unit_count,
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         SDL_Rect visible;
         float sx = 0.0f, sy = 0.0f;
-        unit_screen_rect_for_view(app, unit, fallback_sprite, cache, game_info, app->ticks_ms,
+        unit_screen_rect_for_view(app, map, unit, fallback_sprite, cache, game_info, app->ticks_ms,
                                   NULL, &visible, &sx, &sy, NULL, NULL);
         if (!point_in_rect(x, y, visible)) continue;
         float dx = (float)x - sx;
@@ -941,7 +971,8 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet
     end_sprite_command(texture, flags);
 }
 
-static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallback_sprite,
+static void render_unit_sprite(App *app, const GameMap *map,
+                               const Unit *u, const SpriteSheet *fallback_sprite,
                                const SpriteCache *cache, const GameInfo *game_info,
                                uint32_t ticks) {
     if (!u || (u->traits & RTS_TRAIT_RENDERABLE) == 0) return;
@@ -952,7 +983,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     int frame = 0;
     SDL_Rect dst;
     SDL_Rect visible;
-    unit_screen_rect_for_view(app, u, fallback_sprite, cache, game_info, ticks,
+    unit_screen_rect_for_view(app, map, u, fallback_sprite, cache, game_info, ticks,
                               &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
     const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
@@ -997,7 +1028,7 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
 void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
                   const SpriteCache *cache, const GameInfo *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
-        render_unit_sprite(app, &units[i], fallback_sprite, cache, game_info, ticks);
+        render_unit_sprite(app, NULL, &units[i], fallback_sprite, cache, game_info, ticks);
     }
 }
 
@@ -1025,7 +1056,7 @@ static void render_overlay_tile_item(App *app, const GameMap *map, const Tileset
     int tile_h = app_tile_h(app, tileset);
     int draw_y_offset = tileset->draw_y_offset;
     float sx, sy;
-    grid_to_screen(app, (float)x, (float)y, &sx, &sy);
+    map_grid_to_screen(app, map, (float)x, (float)y, &sx, &sy);
     if (sx < -tile_w || sy < -tile_h ||
         sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
         return;
@@ -1064,7 +1095,9 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
     DrawCommand *commands = malloc((size_t)total * sizeof(*commands));
     if (!commands) {
         render_decorations(app, map, cache);
-        render_units(app, units, unit_count, fallback_sprite, cache, game_info, ticks);
+        for (int i = 0; i < unit_count; ++i) {
+            render_unit_sprite(app, map, &units[i], fallback_sprite, cache, game_info, ticks);
+        }
         return;
     }
 
@@ -1078,7 +1111,7 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
                     commands[count++] = (DrawCommand){
                         .kind = DRAW_COMMAND_TILE_OVERLAY,
                         .layer = RENDER_LAYER_TERRAIN_OVERLAY,
-                        .sort_y = (float)y + 1.0f + (float)layer * 0.001f,
+                        .sort_y = map_screen_y_for_cell(map, y) + 1.0f + (float)layer * 0.001f,
                         .stable_index = map_index(map, x, y),
                         .ref.tile_overlay = { .x = x, .y = y, .layer = layer },
                     };
@@ -1091,6 +1124,7 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
         float sort_y = dec->center_anchor ?
             (float)dec->gy + 0.5f :
             (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1);
+        sort_y = map_screen_y_for_point(map, sort_y);
         commands[count++] = (DrawCommand){
             .kind = DRAW_COMMAND_DECORATION,
             .layer = RENDER_LAYER_DECORATION,
@@ -1101,6 +1135,7 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
     }
     for (int i = 0; i < unit_count; ++i) {
         float sort_y = units[i].render_sort_y > 0.0f ? units[i].render_sort_y : units[i].gy;
+        sort_y = map_screen_y_for_point(map, sort_y);
         commands[count++] = (DrawCommand){
             .kind = DRAW_COMMAND_UNIT,
             .layer = RENDER_LAYER_UNIT,
@@ -1117,9 +1152,9 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
             render_overlay_tile_item(app, map, tileset, command->ref.tile_overlay.x,
                                      command->ref.tile_overlay.y, command->ref.tile_overlay.layer);
         } else if (command->kind == DRAW_COMMAND_DECORATION) {
-            render_decoration(app, command->ref.decoration, cache);
+            render_decoration(app, map, command->ref.decoration, cache);
         } else {
-            render_unit_sprite(app, command->ref.unit, fallback_sprite, cache, game_info, ticks);
+            render_unit_sprite(app, map, command->ref.unit, fallback_sprite, cache, game_info, ticks);
         }
     }
     free(commands);
@@ -1142,7 +1177,8 @@ static int sprite_frame_for_effect(const SpriteSheet *sprite, const VisualEffect
     return anim < 0 ? 0 : anim;
 }
 
-void render_visual_effects(App *app, const VisualEffect *effects, int max_effects,
+void render_visual_effects(App *app, const GameMap *map,
+                           const VisualEffect *effects, int max_effects,
                            const SpriteCache *cache, const GameInfo *game_info) {
     if (!effects || max_effects <= 0) return;
     for (int i = 0; i < max_effects; ++i) {
@@ -1163,7 +1199,7 @@ void render_visual_effects(App *app, const VisualEffect *effects, int max_effect
         }
 
         float sx, sy;
-        grid_to_screen(app, effect->gx, effect->gy, &sx, &sy);
+        map_grid_to_screen(app, map, effect->gx, effect->gy, &sx, &sy);
         int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
         SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
@@ -1264,8 +1300,8 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
                 int rx = 0, ry = 0;
                 window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
                 float gx = 0.0f, gy = 0.0f;
-                screen_to_grid_point(app, rx, ry, &gx, &gy);
-                int target = pick_unit_at(app, units, unit_count, fallback_sprite, cache,
+                screen_to_map_grid_point(app, map, rx, ry, &gx, &gy);
+                int target = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
                                           game_info, rx, ry, -1);
                 if (target >= 0 && units[target].owner != 0 && units[target].hp > 0) {
                     for (int i = 0; i < unit_count; ++i) {
@@ -1309,7 +1345,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
                         if (units[i].owner != 0) continue;
                         SDL_Rect visible;
                         float sx = 0.0f, sy = 0.0f;
-                        unit_screen_rect_for_view(app, &units[i], fallback_sprite, cache,
+                        unit_screen_rect_for_view(app, map, &units[i], fallback_sprite, cache,
                                                   game_info, app->ticks_ms, NULL, &visible,
                                                   &sx, &sy, NULL, NULL);
                         float radius = unit_pick_radius_px(app, &units[i]);
@@ -1319,7 +1355,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
                         }
                     }
                 } else {
-                    int picked = pick_unit_at(app, units, unit_count, fallback_sprite, cache,
+                    int picked = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
                                               game_info, bx, by, 0);
                     if (picked >= 0) {
                         units[picked].selected = true;

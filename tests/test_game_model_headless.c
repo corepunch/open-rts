@@ -292,19 +292,6 @@ static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
     return false;
 }
 
-static bool snapshot_has_decoration_at(const RtsRenderSnapshot *snapshot,
-                                       const char *sprite_name, int gx, int gy) {
-    if (!snapshot || !sprite_name) return false;
-    for (int i = 0; i < snapshot->decoration_count; ++i) {
-        const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, sprite_name) == 0 &&
-            dec->gx == gx && dec->gy == gy) {
-            return true;
-        }
-    }
-    return false;
-}
-
 static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapshot,
                                                 const char *sprite_name, int gx, int gy,
                                                 uint32_t required_flags) {
@@ -542,9 +529,9 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/DISH.SPR") != 3) {
         return fail("Human02 loads communication dish/base attachment objects");
     }
-    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/HUBU.SPR") != 4 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/TOWR.SPR") != 3 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 2) {
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/HUBU.SPR") != 2 ||
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/TOWR.SPR") != 1 ||
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0) {
         return fail("Human02 loads active city slots from Dark Colony city data");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_EXCOPOD) != 1 ||
@@ -552,30 +539,18 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 starting base buildings are Exo Center plus Barracks");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_CITY_TOWER) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_EXCOPOD) != 2 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_CITY_TOWER) != 2 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 2) {
-        return fail("Human02 active non-player city slots are materialized as starting bases");
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_EXCOPOD) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_CITY_TOWER) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 0) {
+        return fail("Human02 city slots with zero DC city anchors are not materialized");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 59.5f, 30.96875f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 56.0f, 53.96875f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 61.5f, 30.5f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, 56.0f, 53.5f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 59.5f, 30.96875f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 1, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 34.5f, 26.96875f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 1, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 34.5f, 26.96875f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 0,
-                                      S_NULL, 54.5f, 22.96875f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 0,
-                                      S_NULL, 29.5f, 23.96875f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 1, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 48.5f, 28.96875f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 1, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 48.5f, 28.96875f, 0, 0)) {
-        return fail("Human02 city bases use Dark Colony city slot fixed-point offsets");
+                                      S_DC_TOWR_STND, 56.0f, 53.96875f, 0, 0)) {
+        return fail("Human02 city bases use Dark Colony city anchor and slot offsets");
     }
     if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
@@ -583,7 +558,7 @@ static int assert_human02(RtsGameModel *model) {
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
-                                             64, 31,
+                                             64, 52,
                                              RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK)) {
         return fail("Human02 dropship beacon stays anchored beside the starting base");
     }
@@ -605,10 +580,10 @@ static int assert_human02(RtsGameModel *model) {
     if (rts_game_model_command(model, &train_without_resources)) {
         return fail("Human02 cannot train Trooper before enough Petra-7 is available");
     }
-    if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 33, 25) ||
-        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 38, 25) ||
-        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 35, 28)) {
-        return fail("Human02 satellite dish object rows use flipped SCN Y coordinates");
+    if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 33, 58) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 38, 58) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 35, 55)) {
+        return fail("Human02 satellite dish object rows use raw DC world Y coordinates");
     }
     if (snapshot.decoration_count <= 0) {
         return fail("Human02 loads map decorations");
@@ -616,13 +591,13 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
     }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 35,
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
                                              RTS_FRAME_ADDITIVE)) {
-        return fail("Human02 active Petra-7 vent glow animates at flipped map-object coordinates");
+        return fail("Human02 active Petra-7 vent glow animates at raw DC world coordinates");
     }
-    if (snapshot_has_decoration_at(&snapshot, "SPRITES/VENT.SPR", 53, 27) ||
-        snapshot_has_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27)) {
-        return fail("Human02 Petra-7 vent attributes are not drawn at direct SCN Y");
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
+                                             RTS_FRAME_ADDITIVE)) {
+        return fail("Human02 Petra-7 vent attributes use direct SCN Y");
     }
 
     int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
@@ -655,7 +630,7 @@ static int assert_human02(RtsGameModel *model) {
         .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
         .data.harvest_selected = {
             .gx = 69.5f,
-            .gy = 35.5f,
+            .gy = 48.5f,
         },
     };
     if (!rts_game_model_command(model, &harvest)) {
@@ -712,7 +687,7 @@ static int assert_human02(RtsGameModel *model) {
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 || !near_cell_center(snapshot.units[exploiter].gx, 69) ||
-        !near_cell_center(snapshot.units[exploiter].gy, 35)) {
+        !near_cell_center(snapshot.units[exploiter].gy, 48)) {
         return fail("Human02 Exploiter deploys at the target Petra-7 vent");
     }
     for (int i = 0; i < 30 * 20; ++i) {
@@ -805,20 +780,20 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 79.5f, 88.96875f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 75.0f, 9.96875f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 81.5f, 88.5f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, 75.0f, 9.5f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
-                                      S_NULL, 83.5f, 88.8125f, 0, 0) ||
+                                      S_NULL, 75.0f, 9.8125f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 79.5f, 88.96875f, 0, 0)) {
+                                      S_DC_TOWR_STND, 75.0f, 9.96875f, 0, 0)) {
         return fail("Human03 city slots compose with Dark Colony fixed-point offsets");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 79.5f, 88.96875f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 75.0f, 9.96875f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 79.5f, 88.96875f, 0, 0)) {
-        return fail("Human03 primary AISlot is the player city base");
+                                      S_DC_TOWR_STND, 75.0f, 9.96875f, 0, 0)) {
+        return fail("Human03 DC city AISlot is the player city base");
     }
 
     printf("PASS: Human03 city slots compose from Dark Colony fixed-point data with %d units\n",
