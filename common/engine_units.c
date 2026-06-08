@@ -11,6 +11,21 @@ static const State *state_at(const GameInfo *game_info, int state_id) {
     return &game_info->states[state_id];
 }
 
+static int state_chain_tics_for_group(const GameInfo *game_info, int state_id, int group) {
+    if (!game_info || !game_info->states) return 0;
+    int total = 0;
+    int guard = 0;
+    while (guard++ < game_info->state_count + 1) {
+        const State *state = state_at(game_info, state_id);
+        if (!state || state->misc1 != group) break;
+        if (state->tics > 0) total += state->tics;
+        int next = state->nextstate;
+        if (next == game_info->null_state || next == state_id) break;
+        state_id = next;
+    }
+    return total;
+}
+
 static int state_facing_slot(const State *state, int facing_code) {
     if (!state || state->facings <= 0) return -1;
     int wrap = 16;
@@ -587,8 +602,10 @@ static bool final_goal_reaches_arrived_order_cluster(const Unit *units, int coun
 }
 
 static float unit_harvest_interaction_radius_cells(const Unit *unit) {
-    (void)unit;
-    return 0.05f;
+    float radius = unit_radius_cells(unit) + 0.55f;
+    if (radius < 0.75f) radius = 0.75f;
+    if (radius > 1.10f) radius = 1.10f;
+    return radius;
 }
 
 static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
@@ -613,6 +630,7 @@ static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
     float dx = ((float)vent->gx + 0.5f) - unit->gx;
     float dy = ((float)vent->gy + 0.5f) - unit->gy;
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
+    if (unit_is_following_path(unit) && !unit->move_order_arrived) return false;
     if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
 
     unit->path_len = 0;
@@ -808,6 +826,11 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
             }
             attacker->attack_anim_left_ms = attacker->attack_anim_ms > 0 ? attacker->attack_anim_ms : 240;
             set_unit_state(&ctx, attacker, mi->missilestate);
+            int chain_tics = state_chain_tics_for_group(game_info, attacker->state_id, 3);
+            int chain_ms = chain_tics * dt_ms;
+            if (chain_ms > attacker->attack_anim_left_ms) {
+                attacker->attack_anim_left_ms = chain_ms;
+            }
         }
 
         int write = 0;

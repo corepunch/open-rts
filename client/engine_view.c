@@ -1055,10 +1055,11 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
         };
     }
     for (int i = 0; i < unit_count; ++i) {
+        float sort_y = units[i].render_sort_y > 0.0f ? units[i].render_sort_y : units[i].gy;
         commands[count++] = (DrawCommand){
             .kind = DRAW_COMMAND_UNIT,
             .layer = RENDER_LAYER_UNIT,
-            .sort_y = units[i].gy,
+            .sort_y = sort_y,
             .stable_index = i,
             .ref.unit = &units[i],
         };

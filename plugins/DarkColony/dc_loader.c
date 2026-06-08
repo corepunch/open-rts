@@ -1747,8 +1747,9 @@ static int dark_colony_city_unit_type_for_slot(int race, int slot) {
 
 static void dark_colony_apply_city_slot_transform(Unit *unit, int slot) {
     /* DC.EXE city.c stores city object positions as 8.8 fixed-point map units.
-       fcn.00440ff0 supplies per-slot placement; fcn.00441080 supplies the draw origin
-       subtracted by the city/base render loop for slots 0..5. */
+       fcn.00440ff0 supplies per-slot placement. fcn.00441080 is used later
+       by the city draw traversal to seed render ordering, not to offset each
+       object's screen-space sprite position. */
     static const int placement_fixed[][2] = {
         {   0,  136 },
         {   0, -256 },
@@ -1758,22 +1759,11 @@ static void dark_colony_apply_city_slot_transform(Unit *unit, int slot) {
         {   0, -256 },
         {   0,    0 },
     };
-    static const int draw_origin_fixed[][2] = {
-        { -512, 120 },
-        {    0,   0 },
-        {  256, 512 },
-        {  512,  80 },
-        { -256, 520 },
-        {    0, 256 },
-    };
     if (!unit || slot < 0) return;
+    unit->render_sort_y = unit->gy;
     if (slot < (int)(sizeof(placement_fixed) / sizeof(placement_fixed[0]))) {
         unit->gx += (float)placement_fixed[slot][0] / 256.0f;
         unit->gy += (float)placement_fixed[slot][1] / 256.0f;
-    }
-    if (slot < (int)(sizeof(draw_origin_fixed) / sizeof(draw_origin_fixed[0]))) {
-        unit->render_offset_x -= draw_origin_fixed[slot][0] / 8;
-        unit->render_offset_y -= draw_origin_fixed[slot][1] / 8;
     }
 }
 

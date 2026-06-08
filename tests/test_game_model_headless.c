@@ -571,11 +571,11 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 non-player city slots are not materialized as starting bases");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 56.5f, 29.03125f, 64, -15) ||
+                                      S_DC_EXCOPOD_STND, 56.5f, 29.03125f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
                                       S_DC_BRRKPOD_STND, 56.5f, 27.5f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 56.5f, 29.03125f, 64, -15) ||
+                                      S_DC_TOWR_STND, 56.5f, 29.03125f, 0, 0) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_EXCOPOD, 36, 26) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_CITY_TOWER, 36, 26) ||
         snapshot_has_owner_type_at(&snapshot, 1, MT_DC_ALIEN_MINDHIVE, 56, 22) ||
@@ -812,13 +812,13 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.5f, 92.03125f, 64, -15) ||
+                                      S_DC_EXCOPOD_STND, 75.5f, 92.03125f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
                                       S_DC_BRRKPOD_STND, 75.5f, 90.5f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_ROBOPOD, 1,
-                                      S_NULL, 75.5f, 92.1875f, -64, -10) ||
+                                      S_NULL, 75.5f, 92.1875f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.5f, 92.03125f, 64, -15)) {
+                                      S_DC_TOWR_STND, 75.5f, 92.03125f, 0, 0)) {
         return fail("Human03 city slots compose with Dark Colony fixed-point offsets");
     }
     if (snapshot_has_owner_type_at(&snapshot, 0, MT_DC_EXCOPOD, 81, snapshot.map_height - 1 - 9) ||

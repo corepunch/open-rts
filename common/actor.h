@@ -133,6 +133,7 @@ typedef struct Unit {
     int render_intensity;
     int render_offset_x;
     int render_offset_y;
+    float render_sort_y;
     uint8_t owner;
     uint32_t traits;
     int hp;
