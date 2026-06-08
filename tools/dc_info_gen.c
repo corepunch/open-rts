@@ -1620,7 +1620,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     const FinCommand *excopod_stand =
         fin_required_command_in_label(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
     const FinCommand *brrkpod_stand =
-        fin_required_command_in_label(&hubu_fin, "TRSCBUILD0", "hubu", 1, 4);
+        fin_required_command_in_label(&hubu_fin, "TRSCBUILD0", "hubu", 1, 5);
     const FinCommand *towr_stand =
         fin_required_command_in_label(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     char blaz_path[1024];

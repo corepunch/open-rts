@@ -815,21 +815,23 @@ static int pick_unit_at(const App *app, const Unit *units, int unit_count,
     return best;
 }
 
-static void draw_selection_ellipse(App *app, float cx, float cy, float rx, float ry,
-                                   SDL_Color color) {
-    if (!app || !app->renderer || rx <= 0.0f || ry <= 0.0f) return;
-    SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
-    const int segments = 40;
-    float prev_x = cx + rx;
-    float prev_y = cy;
-    for (int i = 1; i <= segments; ++i) {
-        float a = ((float)i / (float)segments) * 6.283185307179586f;
-        float x = cx + cosf(a) * rx;
-        float y = cy + sinf(a) * ry;
-        SDL_RenderDrawLine(app->renderer, (int)lroundf(prev_x), (int)lroundf(prev_y),
-                           (int)lroundf(x), (int)lroundf(y));
-        prev_x = x;
-        prev_y = y;
+static void draw_selection_triangle(App *app, const SDL_Rect *visible) {
+    if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
+    int cx = visible->x + visible->w / 2;
+    int base_y = visible->y - 5;
+    int top_y = base_y - 13;
+    int half_w = 6;
+
+    SDL_SetRenderDrawColor(app->renderer, 10, 28, 18, 230);
+    SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx + half_w + 1, top_y - 1);
+    SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx, base_y + 1);
+    SDL_RenderDrawLine(app->renderer, cx + half_w + 1, top_y - 1, cx, base_y + 1);
+
+    SDL_SetRenderDrawColor(app->renderer, 83, 245, 92, 255);
+    for (int y = top_y; y <= base_y; ++y) {
+        float t = (float)(y - top_y) / (float)(base_y - top_y);
+        int span = (int)lroundf((float)half_w * t);
+        SDL_RenderDrawLine(app->renderer, cx - span, y, cx + span, y);
     }
 }
 
@@ -904,12 +906,6 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     unit_screen_rect_for_view(app, u, fallback_sprite, cache, game_info, ticks,
                               &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
-    SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
-    float content_w = (float)bounds.w;
-    float rx = unit_radius_cells(u) * (float)app_cell_w(app);
-    float min_rx = content_w * 0.34f;
-    if (rx < min_rx) rx = min_rx;
-    float ry = rx * 0.38f;
     const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
     if (shadow && shadow->texture && shadow->frame_count > 0) {
         int shadow_frame = frame < shadow->frame_count ? frame : 0;
@@ -925,16 +921,15 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
         SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
     }
     float content_y = (float)visible.y;
-    if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
-        draw_selection_ellipse(app, sx, sy, rx + 2.0f, ry + 1.0f, (SDL_Color){ 15, 35, 30, 180 });
-        draw_selection_ellipse(app, sx, sy, rx, ry, (SDL_Color){ 98, 224, 161, 255 });
-    }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_Texture *texture = begin_sprite_command(sprite, render_flags, u->render_remap,
                                                 u->render_intensity);
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
+    if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
+        draw_selection_triangle(app, &visible);
+    }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
         int bar_h = 2;

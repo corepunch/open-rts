@@ -297,7 +297,7 @@ const char *const sprnames[NUMSPRITES] = {
 const State states[NUMSTATES] = {
     { 0, 0, -1, A_None, S_NULL, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },
     { SPR_DC_HUBU, 0, -1, A_None, S_DC_EXCOPOD_STND, 0, 1, 0, 1, {0}, {0}, {0}, {-114}, {12}, {0}, {16}, DC_NO_OVERLAY },
-    { SPR_DC_HUBU, 4, -1, A_None, S_DC_BRRKPOD_STND, 0, 1, 0, 1, {0}, {4}, {0}, {-36}, {37}, {0}, {16}, DC_NO_OVERLAY },
+    { SPR_DC_HUBU, 5, -1, A_None, S_DC_BRRKPOD_STND, 0, 1, 0, 1, {0}, {5}, {0}, {-36}, {122}, {0}, {16}, DC_NO_OVERLAY },
     { SPR_DC_TOWR, 0, -1, A_None, S_DC_TOWR_STND, 0, 1, 0, 1, {0}, {0}, {0}, {-36}, {-9}, {0}, {16}, DC_NO_OVERLAY },
     { SPR_DC_TRSC, 0, -1, A_None, S_DC_TRSC_STND, 0, 1, 0, 8, {0,2,4,6,8,10,12,14}, {0,1,2,3,4,5,6,7}, {0,0,0,0,0,0,0,0}, {-159,-159,-159,-159,-159,-159,-159,-159}, {4,2,0,1,0,-2,0,4}, {0,0,0,0,0,0,0,0}, {16,16,16,16,16,16,16,16}, DC_NO_OVERLAY },
     { SPR_DC_TRSC, 16, 3, A_None, S_DC_TRSC_RUN2, 0, 2, 0, 8, {0,2,4,6,8,10,12,14}, {16,17,18,19,20,21,22,23}, {0,0,0,0,0,0,0,0}, {-159,-159,-159,-159,-159,-159,-159,-159}, {4,1,0,4,5,1,0,4}, {0,0,0,0,0,0,0,0}, {16,16,16,16,16,16,16,16}, DC_NO_OVERLAY },

@@ -1715,7 +1715,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 static int dark_colony_unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-        case 17: return 4; /* HUBU.FIN TRSCBUILD0 ramp piece */
+        case 17: return 5; /* HUBU.FIN TRSCBUILD0 full ramp piece */
         case 18: return 1; /* ROBOTICSSTAND0 */
         case 19: return 1; /* ROBOPOD2 reuses robotics art. */
         case 20: return 2; /* SCIENCESTAND0 */

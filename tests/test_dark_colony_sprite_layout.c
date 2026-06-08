@@ -195,7 +195,7 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("load Dark Colony FIN files");
     }
     const FinCommand *exco = fin_command(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
-    const FinCommand *barracks = fin_command(&hubu_fin, "TRSCBUILD0", "hubu", 1, 4);
+    const FinCommand *barracks = fin_command(&hubu_fin, "TRSCBUILD0", "hubu", 1, 5);
     const FinCommand *tower = fin_command(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     if (!exco || !barracks || !tower) return fail("resolve Dark Colony city FIN commands");
 
@@ -207,7 +207,7 @@ static int assert_dark_colony_city_fin_alignment(void) {
         states[S_DC_TOWR_STND].offset_y[0] != tower->y) {
         return fail("city building state offsets are raw FIN draw-command coordinates");
     }
-    if (barracks->x != -36 || barracks->y != 37) {
+    if (barracks->x != -36 || barracks->y != 122) {
         return fail("Barracks state uses raw TRSCBUILD0 FIN placement");
     }
 
