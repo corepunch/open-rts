@@ -862,6 +862,11 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, ui_sprites[i]))
             ok = false;
     }
+    int selection_sprite = dark_colony_game_info.selection_marker.sprite;
+    if (selection_sprite >= 0 && selection_sprite < NUMSPRITES &&
+        !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[selection_sprite])) {
+        ok = false;
+    }
     if (map) {
         for (int i = 0; i < map->decoration_count; ++i) {
             if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite_name))

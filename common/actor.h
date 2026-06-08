@@ -107,6 +107,14 @@ typedef enum {
 } StateCoordMode;
 
 typedef struct {
+    int sprite;
+    int healthy_frame;
+    int wounded_frame;
+    int critical_frame;
+    int top_offset_y;
+} SelectionMarkerInfo;
+
+typedef struct {
     const char *const *sprnames;
     int sprite_count;
     const State *states;
@@ -116,6 +124,7 @@ typedef struct {
     int null_state;
     DirectionMode direction_mode;
     StateCoordMode state_coord_mode;
+    SelectionMarkerInfo selection_marker;
 } GameInfo;
 
 typedef struct Unit {

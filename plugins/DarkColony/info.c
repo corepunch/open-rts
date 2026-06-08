@@ -560,4 +560,15 @@ const MobjInfo mobjinfo[NUMMOBJTYPES] = {
     { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, RTS_TRAIT_SELECTABLE|RTS_TRAIT_MOBILE|RTS_TRAIT_RENDERABLE, S_NULL, S_NULL },
 };
 
-const GameInfo dark_colony_game_info = { sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES, S_NULL, RTS_DIRECTION_DARK_COLONY_16, RTS_STATE_COORDS_FIN_TOP_LEFT };
+const GameInfo dark_colony_game_info = {
+    sprnames,
+    NUMSPRITES,
+    states,
+    NUMSTATES,
+    mobjinfo,
+    NUMMOBJTYPES,
+    S_NULL,
+    RTS_DIRECTION_DARK_COLONY_16,
+    RTS_STATE_COORDS_FIN_TOP_LEFT,
+    { SPR_DC_INTRFACE_CLIENT, 0, 1, 3, -3 },
+};

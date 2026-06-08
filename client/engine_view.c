@@ -815,24 +815,73 @@ static int pick_unit_at(const App *app, const Unit *units, int unit_count,
     return best;
 }
 
-static void draw_selection_triangle(App *app, const SDL_Rect *visible) {
+static int selection_health_bucket(const Unit *u) {
+    if (!u || u->max_hp <= 0) return 0;
+    if (u->hp * 3 <= u->max_hp) return 2;
+    if (u->hp * 3 <= u->max_hp * 2) return 1;
+    return 0;
+}
+
+static SDL_Color selection_health_tint(int bucket) {
+    switch (bucket) {
+    case 2: return (SDL_Color){ 255, 76, 54, 255 };
+    case 1: return (SDL_Color){ 255, 218, 62, 255 };
+    default: return (SDL_Color){ 83, 245, 92, 255 };
+    }
+}
+
+static void draw_selection_triangle(App *app, const Unit *u, const SDL_Rect *visible) {
     if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
     int cx = visible->x + visible->w / 2;
-    int base_y = visible->y - 5;
-    int top_y = base_y - 13;
-    int half_w = 6;
+    int top_y = visible->y - 11;
+    int tip_y = top_y + 7;
+    int half_w = 8;
+    SDL_Color tint = selection_health_tint(selection_health_bucket(u));
 
-    SDL_SetRenderDrawColor(app->renderer, 10, 28, 18, 230);
+    SDL_SetRenderDrawColor(app->renderer, 8, 10, 8, 235);
     SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx + half_w + 1, top_y - 1);
-    SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx, base_y + 1);
-    SDL_RenderDrawLine(app->renderer, cx + half_w + 1, top_y - 1, cx, base_y + 1);
+    SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx, tip_y + 1);
+    SDL_RenderDrawLine(app->renderer, cx + half_w + 1, top_y - 1, cx, tip_y + 1);
 
-    SDL_SetRenderDrawColor(app->renderer, 83, 245, 92, 255);
-    for (int y = top_y; y <= base_y; ++y) {
-        float t = (float)(y - top_y) / (float)(base_y - top_y);
-        int span = (int)lroundf((float)half_w * t);
+    SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, tint.a);
+    for (int y = top_y; y <= tip_y; ++y) {
+        float t = (float)(y - top_y) / (float)(tip_y - top_y);
+        int span = (int)lroundf((float)half_w * (1.0f - t));
         SDL_RenderDrawLine(app->renderer, cx - span, y, cx + span, y);
     }
+}
+
+static bool draw_selection_marker_sprite(App *app, const Unit *u, const SpriteCache *cache,
+                                         const GameInfo *game_info, const SDL_Rect *visible) {
+    if (!app || !app->renderer || !u || !cache || !game_info || !visible ||
+        !game_info->sprnames) {
+        return false;
+    }
+    const SelectionMarkerInfo *info = &game_info->selection_marker;
+    if (info->sprite < 0 || info->sprite >= game_info->sprite_count) return false;
+    const char *sprite_name = game_info->sprnames[info->sprite];
+    const SpriteSheet *marker = sprite_cache_lookup(cache, sprite_name);
+    if (!marker || !marker->texture || marker->frame_count <= 0) return false;
+
+    int bucket = selection_health_bucket(u);
+    int frame = bucket == 2 ? info->critical_frame :
+                bucket == 1 ? info->wounded_frame : info->healthy_frame;
+    if (frame < 0 || frame >= marker->frame_count) return false;
+    SDL_Rect frame_rect = sprite_frame_rect(marker, frame);
+    if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
+
+    int cx = visible->x + visible->w / 2;
+    SDL_Rect dst = {
+        cx - frame_rect.w / 2,
+        visible->y - frame_rect.h + info->top_offset_y,
+        frame_rect.w,
+        frame_rect.h,
+    };
+    SDL_Texture *texture = begin_sprite_command(marker, 0, 0, 16);
+    if (!texture) return false;
+    SDL_RenderCopy(app->renderer, texture, &marker->frames[frame], &dst);
+    end_sprite_command(texture, 0);
+    return true;
 }
 
 static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet *body_sprite,
@@ -928,7 +977,8 @@ static void render_unit_sprite(App *app, const Unit *u, const SpriteSheet *fallb
     end_sprite_command(texture, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
     if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
-        draw_selection_triangle(app, &visible);
+        if (!draw_selection_marker_sprite(app, u, cache, game_info, &visible))
+            draw_selection_triangle(app, u, &visible);
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
         int bar_w = dst.w / 2;
