@@ -1715,7 +1715,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
 static int dark_colony_unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-        case 17: return 5; /* HUBU.FIN TRSCBUILD0 full ramp piece */
+        case 17: return 4; /* HUBU.FIN TRSCBUILD0 ramp piece */
         case 18: return 1; /* ROBOTICSSTAND0 */
         case 19: return 1; /* ROBOPOD2 reuses robotics art. */
         case 20: return 2; /* SCIENCESTAND0 */
@@ -1738,18 +1738,20 @@ static int dark_colony_unit_state_for_type(int type) {
 }
 
 static int dark_colony_city_unit_type_for_slot(int race, int slot) {
-    static const int human_city_types[] = { 16, 17, 20, 18, 22, 21, 19 };
-    static const int alien_city_types[] = { 28, 29, 32, 30, 34, 33, 31 };
-    int count = (int)(sizeof(human_city_types) / sizeof(human_city_types[0]));
-    if (slot < 0 || slot >= count) return 0;
-    return race == 1 ? alien_city_types[slot] : human_city_types[slot];
+    static const int city_types[2][15] = {
+        { 16, 17, 18, 20, 22, 81, 25, 25, 25, 25, 25, 25, 25, 0, 0 },
+        { 28, 29, 30, 32, 34, 81, 25, 25, 25, 25, 25, 25, 25, 0, 0 },
+    };
+    if (slot < 0 || slot >= 15) return 0;
+    return city_types[race == 1 ? 1 : 0][slot];
 }
 
 static void dark_colony_apply_city_slot_transform(Unit *unit, int slot) {
     /* DC.EXE city.c stores city object positions as 8.8 fixed-point map units.
-       fcn.00440ff0 supplies per-slot placement. fcn.00441080 is used later
-       by the city draw traversal to seed render ordering, not to offset each
-       object's screen-space sprite position. */
+       fcn.004412d4 seeds each city slot with fcn.00441080 draw-origin values,
+       then fcn.004176bc spawns the building by adding fcn.00440ff0 placement.
+       The draw traversal subtracts the same origin again, so the visible sprite
+       position uses this placement table and the raw FIN command coordinates. */
     static const int placement_fixed[][2] = {
         {   0,  136 },
         {   0, -256 },

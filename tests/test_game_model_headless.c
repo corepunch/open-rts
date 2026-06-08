@@ -572,7 +572,7 @@ static int assert_human02(RtsGameModel *model) {
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
                                       S_DC_EXCOPOD_STND, 56.5f, 29.03125f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 5,
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
                                       S_DC_BRRKPOD_STND, 56.5f, 27.5f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
                                       S_DC_TOWR_STND, 56.5f, 29.03125f, 0, 0) ||
@@ -813,9 +813,9 @@ static int assert_human03_city_slots(RtsGameModel *model) {
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
                                       S_DC_EXCOPOD_STND, 75.5f, 92.03125f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 5,
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
                                       S_DC_BRRKPOD_STND, 75.5f, 90.5f, 0, 0) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_ROBOPOD, 1,
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
                                       S_NULL, 75.5f, 92.1875f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
                                       S_DC_TOWR_STND, 75.5f, 92.03125f, 0, 0)) {
