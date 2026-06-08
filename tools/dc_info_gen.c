@@ -24,7 +24,7 @@ typedef struct {
     char name[17];
     int start;
     int end;
-} FinLabel;
+} DcFinAnimationHeader;
 
 typedef struct {
     char sprite[9];
@@ -35,24 +35,35 @@ typedef struct {
     int intensity;
     int layer;
     int flags;
-} FinCommand;
+} DcFinDrawPart;
 
 typedef struct {
     int part_count;
     int ticks;
-    int command_start;
-} FinFrame;
+    int draw_part_start;
+} DcFinFrame;
 
 typedef struct {
     char stem[9];
     char stem_lower[9];
-    FinLabel *labels;
-    int label_count;
-    FinFrame *frames;
+    DcFinAnimationHeader *animation_headers;
+    int animation_header_count;
+    DcFinFrame *frames;
     int frame_count;
-    FinCommand *commands;
-    int command_count;
-} FinAnim;
+    DcFinDrawPart *draw_parts;
+    int draw_part_count;
+} DcFinAnimation;
+
+typedef struct {
+    int default_ticks;
+    int frame_count;
+    int animation_header_count;
+    int dependency_count;
+    size_t animation_header_offset;
+    size_t frame_offset;
+    size_t draw_part_offset;
+    int draw_part_count;
+} DcFinDiskLayout;
 
 typedef struct {
     int trsc_attack_a;
@@ -82,9 +93,20 @@ typedef struct {
     int y;
     int remap;
     int intensity;
-} FinPulseFrame;
+} DcFinPulseFrame;
 
 #define MAX_EXPL_MINING_PULSE_FRAMES 32
+
+enum {
+    DC_FIN_HEADER_DISK_SIZE = 8,
+    DC_FIN_DEPENDENCY_DISK_SIZE = 8,
+    DC_FIN_ANIMATION_HEADER_DISK_SIZE = 20,
+    DC_FIN_FRAME_DISK_SIZE = 164,
+    DC_FIN_DRAW_PART_DISK_SIZE = 22,
+    DC_FIN_ANIMATION_HEADER_NAME_SIZE = 16,
+    DC_FIN_DRAW_PART_SPRITE_NAME_SIZE = 8,
+    DC_FIN_MAX_DRAW_PARTS_PER_FRAME = 100
+};
 
 static uint16_t read_u16_le(const unsigned char *p) {
     return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
@@ -268,126 +290,179 @@ static void stem_lower_name(const char *stem, char out[9]) {
     out[n] = '\0';
 }
 
-static const FinLabel *fin_find_label(const FinAnim *fin, const char *label) {
+static const DcFinAnimationHeader *dc_fin_find_animation_header(const DcFinAnimation *fin, const char *label) {
     if (!fin || !label) return NULL;
-    for (int i = 0; i < fin->label_count; ++i) {
-        if (strcmp(fin->labels[i].name, label) == 0) return &fin->labels[i];
+    for (int i = 0; i < fin->animation_header_count; ++i) {
+        if (strcmp(fin->animation_headers[i].name, label) == 0) return &fin->animation_headers[i];
     }
     return NULL;
 }
 
-static FinAnim fin_load(const char *path, const char *stem) {
+static DcFinDiskLayout dc_fin_read_disk_layout(const unsigned char *data, size_t size,
+                                               const char *path) {
+    if (size < DC_FIN_HEADER_DISK_SIZE) die("FIN too small", path);
+
+    DcFinDiskLayout layout;
+    memset(&layout, 0, sizeof(layout));
+    layout.default_ticks = read_u16_le(data + 0);
+    layout.frame_count = read_u16_le(data + 2);
+    layout.animation_header_count = read_u16_le(data + 4);
+    layout.dependency_count = read_u16_le(data + 6);
+    layout.animation_header_offset =
+        DC_FIN_HEADER_DISK_SIZE + (size_t)layout.dependency_count * DC_FIN_DEPENDENCY_DISK_SIZE;
+    layout.frame_offset = layout.animation_header_offset +
+        (size_t)layout.animation_header_count * DC_FIN_ANIMATION_HEADER_DISK_SIZE;
+    layout.draw_part_offset =
+        layout.frame_offset + (size_t)layout.frame_count * DC_FIN_FRAME_DISK_SIZE;
+
+    if (layout.animation_header_offset > size ||
+        layout.frame_offset > size ||
+        layout.draw_part_offset > size) {
+        die("FIN table offsets exceed file size", path);
+    }
+    if ((size - layout.draw_part_offset) % DC_FIN_DRAW_PART_DISK_SIZE != 0) {
+        die("FIN draw part table has invalid DSPR/XSPR block layout", path);
+    }
+    layout.draw_part_count =
+        (int)((size - layout.draw_part_offset) / DC_FIN_DRAW_PART_DISK_SIZE);
+    return layout;
+}
+
+static void dc_fin_init_animation(DcFinAnimation *fin, const char *stem,
+                                  const DcFinDiskLayout *layout) {
+    memset(fin, 0, sizeof(*fin));
+    snprintf(fin->stem, sizeof(fin->stem), "%s", stem);
+    stem_lower_name(stem, fin->stem_lower);
+    fin->animation_header_count = layout->animation_header_count;
+    fin->frame_count = layout->frame_count;
+    fin->draw_part_count = layout->draw_part_count;
+    fin->animation_headers =
+        calloc((size_t)fin->animation_header_count, sizeof(*fin->animation_headers));
+    fin->frames = calloc((size_t)fin->frame_count, sizeof(*fin->frames));
+    fin->draw_parts = calloc((size_t)fin->draw_part_count, sizeof(*fin->draw_parts));
+    if (!fin->animation_headers || !fin->frames || !fin->draw_parts) die("out of memory", NULL);
+}
+
+static void dc_fin_read_animation_headers(DcFinAnimation *fin, const unsigned char *data,
+                                          const DcFinDiskLayout *layout) {
+    for (int i = 0; i < fin->animation_header_count; ++i) {
+        size_t offset = layout->animation_header_offset +
+            (size_t)i * DC_FIN_ANIMATION_HEADER_DISK_SIZE;
+        DcFinAnimationHeader *header = &fin->animation_headers[i];
+        copy_padded_name(header->name, sizeof(header->name), data + offset,
+                         DC_FIN_ANIMATION_HEADER_NAME_SIZE);
+        header->start = read_u16_le(data + offset + 16);
+        header->end = read_u16_le(data + offset + 18);
+    }
+}
+
+static void dc_fin_read_frames(DcFinAnimation *fin, const unsigned char *data,
+                               const DcFinDiskLayout *layout, const char *path) {
+    (void)layout->default_ticks;
+    for (int i = 0; i < fin->frame_count; ++i) {
+        size_t offset = layout->frame_offset + (size_t)i * DC_FIN_FRAME_DISK_SIZE;
+        DcFinFrame *frame = &fin->frames[i];
+        frame->part_count = read_u16_le(data + offset);
+        if (frame->part_count > DC_FIN_MAX_DRAW_PARTS_PER_FRAME) {
+            die("FIN frame has invalid part count", path);
+        }
+        frame->ticks = read_u16_le(data + offset + 2);
+    }
+}
+
+static void dc_fin_link_frame_draw_parts(DcFinAnimation *fin, const char *path) {
+    int draw_part_start = 0;
+    for (int i = 0; i < fin->frame_count; ++i) {
+        fin->frames[i].draw_part_start = draw_part_start;
+        draw_part_start += fin->frames[i].part_count;
+    }
+    if (draw_part_start > fin->draw_part_count) {
+        die("FIN frame part count exceeds draw part table", path);
+    }
+}
+
+static void dc_fin_read_draw_parts(DcFinAnimation *fin, const unsigned char *data,
+                                   const DcFinDiskLayout *layout) {
+    for (int i = 0; i < fin->draw_part_count; ++i) {
+        size_t offset = layout->draw_part_offset + (size_t)i * DC_FIN_DRAW_PART_DISK_SIZE;
+        DcFinDrawPart *part = &fin->draw_parts[i];
+        copy_padded_name(part->sprite, sizeof(part->sprite), data + offset,
+                         DC_FIN_DRAW_PART_SPRITE_NAME_SIZE);
+        part->frame = read_i16_le(data + offset + 8);
+        part->x = read_i16_le(data + offset + 10);
+        part->y = read_i16_le(data + offset + 12);
+        part->remap = read_i16_le(data + offset + 14);
+        part->intensity = read_i16_le(data + offset + 16);
+        part->layer = read_i16_le(data + offset + 18);
+        part->flags = read_i16_le(data + offset + 20);
+    }
+}
+
+static DcFinAnimation dc_load_fin_animation(const char *path, const char *stem) {
     size_t size = 0;
     unsigned char *data = read_file(path, &size);
-    if (size < 8) die("FIN too small", path);
-    int default_tics = read_u16_le(data + 0);
-    int aux_count = read_u16_le(data + 2);
-    int valid_labels = read_u16_le(data + 4);
-    int deps = read_u16_le(data + 6);
-    size_t label_off = 8 + (size_t)deps * 8;
-    if (label_off + (size_t)valid_labels * 20 > size) die("FIN label table truncated", path);
-    (void)default_tics;
+    DcFinDiskLayout layout = dc_fin_read_disk_layout(data, size, path);
 
-    FinAnim fin;
-    memset(&fin, 0, sizeof(fin));
-    snprintf(fin.stem, sizeof(fin.stem), "%s", stem);
-    stem_lower_name(stem, fin.stem_lower);
-    fin.label_count = valid_labels;
-    fin.labels = calloc((size_t)fin.label_count, sizeof(*fin.labels));
-    if (!fin.labels) die("out of memory", NULL);
-    for (int i = 0; i < fin.label_count; ++i) {
-        size_t off = label_off + (size_t)i * 20;
-        copy_padded_name(fin.labels[i].name, sizeof(fin.labels[i].name), data + off, 16);
-        fin.labels[i].start = read_u16_le(data + off + 16);
-        fin.labels[i].end = read_u16_le(data + off + 18);
-    }
-
-    size_t frame_off = label_off + (size_t)valid_labels * 20;
-    size_t command_off = frame_off + (size_t)aux_count * 164;
-    if (command_off > size || (size - command_off) % 22 != 0)
-        die("FIN command table has invalid DSPR/XSPR block layout", path);
-
-    fin.command_count = (int)((size - command_off) / 22);
-    fin.frame_count = aux_count;
-    fin.frames = calloc((size_t)fin.frame_count, sizeof(*fin.frames));
-    fin.commands = calloc((size_t)fin.command_count, sizeof(*fin.commands));
-    if (!fin.frames || !fin.commands) die("out of memory", NULL);
-    int command_start = 0;
-    for (int i = 0; i < fin.frame_count; ++i) {
-        size_t off = frame_off + (size_t)i * 164;
-        int part_count = read_u16_le(data + off);
-        if (part_count > 100) die("FIN frame has invalid part count", path);
-        fin.frames[i].part_count = part_count;
-        fin.frames[i].ticks = read_u16_le(data + off + 2);
-        fin.frames[i].command_start = command_start;
-        command_start += part_count;
-    }
-    if (command_start > fin.command_count) die("FIN frame part count exceeds command table", path);
-    for (int i = 0; i < fin.command_count; ++i) {
-        size_t off = command_off + (size_t)i * 22;
-        copy_padded_name(fin.commands[i].sprite, sizeof(fin.commands[i].sprite), data + off, 8);
-        fin.commands[i].frame = read_i16_le(data + off + 8);
-        fin.commands[i].x = read_i16_le(data + off + 10);
-        fin.commands[i].y = read_i16_le(data + off + 12);
-        fin.commands[i].remap = read_i16_le(data + off + 14);
-        fin.commands[i].intensity = read_i16_le(data + off + 16);
-        fin.commands[i].layer = read_i16_le(data + off + 18);
-        fin.commands[i].flags = read_i16_le(data + off + 20);
-    }
+    DcFinAnimation fin;
+    dc_fin_init_animation(&fin, stem, &layout);
+    dc_fin_read_animation_headers(&fin, data, &layout);
+    dc_fin_read_frames(&fin, data, &layout, path);
+    dc_fin_link_frame_draw_parts(&fin, path);
+    dc_fin_read_draw_parts(&fin, data, &layout);
 
     free(data);
     return fin;
 }
 
-static void fin_free(FinAnim *fin) {
+static void dc_free_fin_animation(DcFinAnimation *fin) {
     if (!fin) return;
-    free(fin->labels);
+    free(fin->animation_headers);
     free(fin->frames);
-    free(fin->commands);
+    free(fin->draw_parts);
     memset(fin, 0, sizeof(*fin));
 }
 
-static bool fin_label_range(const FinAnim *fin, const char *label, int *start_out, int *end_out) {
-    const FinLabel *l = fin_find_label(fin, label);
+static bool dc_fin_animation_header_range(const DcFinAnimation *fin, const char *label, int *start_out, int *end_out) {
+    const DcFinAnimationHeader *l = dc_fin_find_animation_header(fin, label);
     if (!l) return false;
     if (start_out) *start_out = l->start;
     if (end_out) *end_out = l->end;
     return true;
 }
 
-static bool fin_label_has_valid_frames(const FinAnim *fin, const FinLabel *label) {
+static bool dc_fin_animation_header_has_valid_frames(const DcFinAnimation *fin, const DcFinAnimationHeader *label) {
     return fin && label && label->start >= 0 && label->end >= label->start &&
         label->end < fin->frame_count;
 }
 
-static int fin_commands_for_label(const FinAnim *fin, const FinLabel *label,
-                                  const FinCommand **out, int max_out) {
-    if (!fin_label_has_valid_frames(fin, label) || !out || max_out <= 0) return 0;
+static int dc_fin_draw_parts_for_animation_header(const DcFinAnimation *fin, const DcFinAnimationHeader *label,
+                                  const DcFinDrawPart **out, int max_out) {
+    if (!dc_fin_animation_header_has_valid_frames(fin, label) || !out || max_out <= 0) return 0;
     int count = 0;
     for (int frame = label->start; frame <= label->end; ++frame) {
-        const FinFrame *fin_frame = &fin->frames[frame];
+        const DcFinFrame *fin_frame = &fin->frames[frame];
         for (int part = 0; part < fin_frame->part_count; ++part) {
-            int command_index = fin_frame->command_start + part;
-            if (command_index < 0 || command_index >= fin->command_count) return count;
-            if (count < max_out) out[count++] = &fin->commands[command_index];
+            int draw_part_index = fin_frame->draw_part_start + part;
+            if (draw_part_index < 0 || draw_part_index >= fin->draw_part_count) return count;
+            if (count < max_out) out[count++] = &fin->draw_parts[draw_part_index];
         }
     }
     return count;
 }
 
-static int fin_commands_for_label_name(const FinAnim *fin, const char *label_name,
-                                       const FinCommand **out, int max_out) {
-    return fin_commands_for_label(fin, fin_find_label(fin, label_name), out, max_out);
+static int dc_fin_draw_parts_for_animation_header_name(const DcFinAnimation *fin, const char *label_name,
+                                       const DcFinDrawPart **out, int max_out) {
+    return dc_fin_draw_parts_for_animation_header(fin, dc_fin_find_animation_header(fin, label_name), out, max_out);
 }
 
-static const FinCommand *fin_find_command_in_label(const FinAnim *fin, const char *label,
+static const DcFinDrawPart *dc_fin_find_draw_part_in_animation_header(const DcFinAnimation *fin, const char *label,
                                                    const char *sprite, int layer,
                                                    int frame) {
-    const FinCommand *commands[512];
-    int count = fin_commands_for_label_name(fin, label, commands,
-                                            (int)(sizeof(commands) / sizeof(commands[0])));
+    const DcFinDrawPart *draw_parts[512];
+    int count = dc_fin_draw_parts_for_animation_header_name(fin, label, draw_parts,
+                                            (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
     for (int i = 0; i < count; ++i) {
-        const FinCommand *cmd = commands[i];
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, sprite) == 0 && cmd->layer == layer &&
             cmd->frame == frame) {
             return cmd;
@@ -396,9 +471,9 @@ static const FinCommand *fin_find_command_in_label(const FinAnim *fin, const cha
     return NULL;
 }
 
-static void fin_append_pulse_frame(FinPulseFrame *frames, int *count, int max_count,
-                                   const FinCommand *cmd) {
-    if (!frames || !count || !cmd) die("invalid EXPL mining pulse command", NULL);
+static void fin_append_pulse_frame(DcFinPulseFrame *frames, int *count, int max_count,
+                                   const DcFinDrawPart *cmd) {
+    if (!frames || !count || !cmd) die("invalid EXPL mining pulse draw part", NULL);
     if (*count > 0 && frames[*count - 1].frame == cmd->frame) return;
     if (*count >= max_count) die("EXPL mining pulse has too many frames", NULL);
     frames[*count].frame = cmd->frame;
@@ -409,25 +484,25 @@ static void fin_append_pulse_frame(FinPulseFrame *frames, int *count, int max_co
     (*count)++;
 }
 
-static void fin_append_expl_top_frames_for_label(const FinAnim *fin,
+static void fin_append_expl_top_frames_for_label(const DcFinAnimation *fin,
                                                  const char *label_name,
                                                  const int *wanted_frames,
                                                  int wanted_count,
-                                                 FinPulseFrame *frames,
+                                                 DcFinPulseFrame *frames,
                                                  int *count,
                                                  int max_count) {
-    const FinLabel *label = fin_find_label(fin, label_name);
+    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
     if (!fin || !label || !wanted_frames || wanted_count <= 0) {
         fprintf(stderr, "dc_info_gen: EXPL.FIN missing mining pulse label %s\n", label_name);
         exit(1);
     }
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, label, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
     for (int wanted = 0; wanted < wanted_count; ++wanted) {
-        const FinCommand *match = NULL;
-        for (int i = 0; i < command_count; ++i) {
-            const FinCommand *cmd = commands[i];
+        const DcFinDrawPart *match = NULL;
+        for (int i = 0; i < draw_part_count; ++i) {
+            const DcFinDrawPart *cmd = draw_parts[i];
             if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 0 &&
                 cmd->flags == 0 && cmd->frame == wanted_frames[wanted]) {
                 match = cmd;
@@ -443,9 +518,9 @@ static void fin_append_expl_top_frames_for_label(const FinAnim *fin,
     }
 }
 
-static int fin_build_expl_mining_pulse(const FinAnim *fin, FinPulseFrame *frames,
+static int fin_build_expl_mining_pulse(const DcFinAnimation *fin, DcFinPulseFrame *frames,
                                        int max_count) {
-    const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
+    const DcFinDrawPart *body = dc_fin_find_draw_part_in_animation_header(fin, "EDPLYSTAND14",
                                                        fin->stem_lower, 1, 34);
     if (!body) die("EXPL.FIN missing EDPLYSTAND14 deployed body frame", NULL);
 
@@ -461,64 +536,64 @@ static int fin_build_expl_mining_pulse(const FinAnim *fin, FinPulseFrame *frames
     return count;
 }
 
-static int fin_first_body_frame(const FinAnim *fin, const char *label) {
-    const FinLabel *l = fin_find_label(fin, label);
+static int fin_first_body_frame(const DcFinAnimation *fin, const char *label) {
+    const DcFinAnimationHeader *l = dc_fin_find_animation_header(fin, label);
     if (!l) {
         fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n", label, fin ? fin->stem : "(null)");
         exit(1);
     }
-    if (!fin_label_has_valid_frames(fin, l)) {
+    if (!dc_fin_animation_header_has_valid_frames(fin, l)) {
         fprintf(stderr, "dc_info_gen: FIN label %s has invalid frame range %d..%d\n",
                 label, l->start, l->end);
         exit(1);
     }
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, l, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
-    for (int i = 0; i < command_count; ++i) {
-        const FinCommand *cmd = commands[i];
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, l, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+    for (int i = 0; i < draw_part_count; ++i) {
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) return cmd->frame;
     }
     fprintf(stderr, "dc_info_gen: FIN label %s has no body frame for %s\n", label, fin->stem_lower);
     exit(1);
 }
 
-static const FinCommand *fin_required_command_in_label(const FinAnim *fin,
+static const DcFinDrawPart *dc_fin_required_draw_part_in_animation_header(const DcFinAnimation *fin,
                                                        const char *label,
                                                        const char *sprite,
                                                        int layer,
                                                        int frame) {
-    const FinCommand *cmd = fin_find_command_in_label(fin, label, sprite, layer, frame);
+    const DcFinDrawPart *cmd = dc_fin_find_draw_part_in_animation_header(fin, label, sprite, layer, frame);
     if (!cmd) {
-        fprintf(stderr, "dc_info_gen: missing FIN command %s sprite=%s layer=%d frame=%d in %s\n",
+        fprintf(stderr, "dc_info_gen: missing FIN draw part %s sprite=%s layer=%d frame=%d in %s\n",
                 label, sprite, layer, frame, fin ? fin->stem : "(null)");
         exit(1);
     }
     return cmd;
 }
 
-static bool fin_label_is_fire(const FinLabel *label, const char *prefix) {
+static bool fin_label_is_fire(const DcFinAnimationHeader *label, const char *prefix) {
     if (!label || !prefix) return false;
     size_t n = strlen(prefix);
     return strncmp(label->name, prefix, n) == 0 && strncmp(label->name + n, "FIRE", 4) == 0;
 }
 
-static int fin_body_frames_for_label_full(const FinAnim *fin, const char *label,
+static int fin_body_frames_for_label_full(const DcFinAnimation *fin, const char *label,
                                           int *frames, int *flags,
                                           int *offset_x, int *offset_y,
                                           int *remap, int *intensity,
                                           int max_frames) {
-    const FinLabel *l = fin_find_label(fin, label);
+    const DcFinAnimationHeader *l = dc_fin_find_animation_header(fin, label);
     if (!fin || !l || !frames || max_frames <= 0 ||
-        !fin_label_has_valid_frames(fin, l)) {
+        !dc_fin_animation_header_has_valid_frames(fin, l)) {
         return 0;
     }
     int count = 0;
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, l, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
-    for (int i = 0; i < command_count && count < max_frames; ++i) {
-        const FinCommand *cmd = commands[i];
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, l, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+    for (int i = 0; i < draw_part_count && count < max_frames; ++i) {
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) {
             frames[count] = cmd->frame;
             if (flags) flags[count] = (cmd->flags & 1) ? 1 : 0;
@@ -532,7 +607,7 @@ static int fin_body_frames_for_label_full(const FinAnim *fin, const char *label,
     return count;
 }
 
-static int fin_body_frames_for_direction_full(const FinAnim *fin, const char *prefix, int dir,
+static int fin_body_frames_for_direction_full(const DcFinAnimation *fin, const char *prefix, int dir,
                                               int *frames, int *flags,
                                               int *offset_x, int *offset_y,
                                               int *remap, int *intensity,
@@ -553,28 +628,28 @@ static int fin_body_frames_for_direction_full(const FinAnim *fin, const char *pr
     return 0;
 }
 
-static int fin_body_frames_for_direction(const FinAnim *fin, const char *prefix, int dir,
+static int fin_body_frames_for_direction(const DcFinAnimation *fin, const char *prefix, int dir,
                                          int *frames, int max_frames) {
     return fin_body_frames_for_direction_full(fin, prefix, dir, frames, NULL,
                                              NULL, NULL, NULL, NULL, max_frames);
 }
 
-static int fin_stem_layer_frames_for_label_full(const FinAnim *fin, const char *label,
+static int fin_stem_layer_frames_for_label_full(const DcFinAnimation *fin, const char *label,
                                                 int layer, int *frames, int *flags,
                                                 int *offset_x, int *offset_y,
                                                 int *remap, int *intensity,
                                                 int max_frames) {
-    const FinLabel *l = fin_find_label(fin, label);
+    const DcFinAnimationHeader *l = dc_fin_find_animation_header(fin, label);
     if (!fin || !l || !frames || max_frames <= 0 ||
-        !fin_label_has_valid_frames(fin, l)) {
+        !dc_fin_animation_header_has_valid_frames(fin, l)) {
         return 0;
     }
     int count = 0;
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, l, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
-    for (int i = 0; i < command_count && count < max_frames; ++i) {
-        const FinCommand *cmd = commands[i];
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, l, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+    for (int i = 0; i < draw_part_count && count < max_frames; ++i) {
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == layer) {
             frames[count] = cmd->frame;
             if (flags) flags[count] = (cmd->flags & 1) ? 1 : 0;
@@ -588,7 +663,7 @@ static int fin_stem_layer_frames_for_label_full(const FinAnim *fin, const char *
     return count;
 }
 
-static int fin_stem_layer_frames_for_direction_full(const FinAnim *fin,
+static int fin_stem_layer_frames_for_direction_full(const DcFinAnimation *fin,
                                                     const char *prefix, int dir,
                                                     int layer, int *frames, int *flags,
                                                     int *offset_x, int *offset_y,
@@ -612,7 +687,7 @@ static int fin_stem_layer_frames_for_direction_full(const FinAnim *fin,
     return 0;
 }
 
-static int fin_layer5_frames_for_label_full(const FinAnim *fin, const char *label,
+static int fin_layer5_frames_for_label_full(const DcFinAnimation *fin, const char *label,
                                             int *body_frames, int *body_flags,
                                             int *body_x, int *body_y,
                                             int *body_remap, int *body_intensity,
@@ -620,21 +695,21 @@ static int fin_layer5_frames_for_label_full(const FinAnim *fin, const char *labe
                                             int *overlay_x, int *overlay_y,
                                             int *overlay_remap, int *overlay_intensity,
                                             int max_frames) {
-    const FinLabel *l = fin_find_label(fin, label);
+    const DcFinAnimationHeader *l = dc_fin_find_animation_header(fin, label);
     if (!fin || !l || !body_frames || max_frames <= 0 ||
-        !fin_label_has_valid_frames(fin, l)) {
+        !dc_fin_animation_header_has_valid_frames(fin, l)) {
         return 0;
     }
 
-    const FinCommand *bodies[128];
-    const FinCommand *overlays[128];
+    const DcFinDrawPart *bodies[128];
+    const DcFinDrawPart *overlays[128];
     int body_count = 0;
     int overlay_count = 0;
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, l, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
-    for (int i = 0; i < command_count; ++i) {
-        const FinCommand *cmd = commands[i];
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, l, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+    for (int i = 0; i < draw_part_count; ++i) {
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, fin->stem_lower) != 0) continue;
         if (cmd->layer == 1 && body_count < (int)(sizeof(bodies) / sizeof(bodies[0]))) {
             bodies[body_count++] = cmd;
@@ -648,8 +723,8 @@ static int fin_layer5_frames_for_label_full(const FinAnim *fin, const char *labe
     int count = body_count;
     if (count > max_frames) count = max_frames;
     for (int i = 0; i < count; ++i) {
-        const FinCommand *body = bodies[i];
-        const FinCommand *overlay = overlay_count > 0 ?
+        const DcFinDrawPart *body = bodies[i];
+        const DcFinDrawPart *overlay = overlay_count > 0 ?
             overlays[i < overlay_count ? i : overlay_count - 1] : NULL;
         body_frames[i] = body->frame;
         if (body_flags) body_flags[i] = (body->flags & 1) ? 1 : 0;
@@ -676,7 +751,7 @@ static int fin_layer5_frames_for_label_full(const FinAnim *fin, const char *labe
     return count;
 }
 
-static int fin_layer5_frames_for_direction16_full(const FinAnim *fin, const char *prefix,
+static int fin_layer5_frames_for_direction16_full(const DcFinAnimation *fin, const char *prefix,
                                                   int code, int *body_frames,
                                                   int *body_flags, int *body_x,
                                                   int *body_y, int *body_remap,
@@ -707,7 +782,7 @@ static int fin_layer5_frames_for_direction16_full(const FinAnim *fin, const char
     return 0;
 }
 
-static int fin_body_frames_for_direction16(const FinAnim *fin, const char *prefix, int code,
+static int fin_body_frames_for_direction16(const DcFinAnimation *fin, const char *prefix, int code,
                                            int *frames, int *flags,
                                            int *offset_x, int *offset_y,
                                            int *remap, int *intensity,
@@ -728,7 +803,7 @@ static int fin_body_frames_for_direction16(const FinAnim *fin, const char *prefi
     return 0;
 }
 
-static int fin_state_count_for_sequence(const FinAnim *fin, const char *prefix) {
+static int fin_state_count_for_sequence(const DcFinAnimation *fin, const char *prefix) {
     bool seen[8] = {false};
     int frames[128];
     int all_frames[1024];
@@ -763,7 +838,7 @@ static int fin_state_count_for_sequence(const FinAnim *fin, const char *prefix) 
     return count;
 }
 
-static int fin_state_count_for_sequence16(const FinAnim *fin, const char *prefix) {
+static int fin_state_count_for_sequence16(const DcFinAnimation *fin, const char *prefix) {
     int frames[128];
     int count = 0;
     for (int code = 0; code < 16; ++code) {
@@ -781,29 +856,29 @@ static int fin_state_count_for_sequence16(const FinAnim *fin, const char *prefix
     return count;
 }
 
-static int fin_effect_command_count_for_label(const FinAnim *fin, const char *label_name) {
-    const FinLabel *label = fin_find_label(fin, label_name);
-    if (!fin_label_has_valid_frames(fin, label)) {
+static int fin_effect_draw_part_count_for_label(const DcFinAnimation *fin, const char *label_name) {
+    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
+    if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
         return 0;
     }
     int count = 0;
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, label, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
-    for (int i = 0; i < command_count; ++i) {
-        const FinCommand *cmd = commands[i];
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+    for (int i = 0; i < draw_part_count; ++i) {
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) continue;
         count++;
     }
     return count;
 }
 
-static int fin_state_count_for_expl_mining_pulse(const FinAnim *fin) {
-    FinPulseFrame frames[MAX_EXPL_MINING_PULSE_FRAMES];
+static int fin_state_count_for_expl_mining_pulse(const DcFinAnimation *fin) {
+    DcFinPulseFrame frames[MAX_EXPL_MINING_PULSE_FRAMES];
     return fin_build_expl_mining_pulse(fin, frames, MAX_EXPL_MINING_PULSE_FRAMES);
 }
 
-static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int body_base,
+static void fin_muzzle_for_body_row(const DcFinAnimation *fin, const char *prefix, int body_base,
                                     int flash_w, int flash_h, int *frame_out,
                                     int offset_x[8], int offset_y[8]) {
     (void)flash_w;
@@ -811,23 +886,23 @@ static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int 
     int flash_frame = -1;
     for (int dir = 0; dir < 8; ++dir) {
         int body_frame = body_base + 8 + dir;
-        const FinCommand *best_flash = NULL;
+        const DcFinDrawPart *best_flash = NULL;
         int best_score = 1000000;
-        for (int l = 0; l < fin->label_count; ++l) {
-            const FinLabel *label = &fin->labels[l];
+        for (int l = 0; l < fin->animation_header_count; ++l) {
+            const DcFinAnimationHeader *label = &fin->animation_headers[l];
             if (!fin_label_is_fire(label, prefix)) continue;
-            const FinCommand *commands[512];
-            int command_count = fin_commands_for_label(fin, label, commands,
-                                                       (int)(sizeof(commands) / sizeof(commands[0])));
-            if (command_count <= 0) continue;
-            for (int body_i = 0; body_i < command_count; ++body_i) {
-                const FinCommand *body = commands[body_i];
+            const DcFinDrawPart *draw_parts[512];
+            int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
+                                                       (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+            if (draw_part_count <= 0) continue;
+            for (int body_i = 0; body_i < draw_part_count; ++body_i) {
+                const DcFinDrawPart *body = draw_parts[body_i];
                 if (strcmp(body->sprite, fin->stem_lower) != 0 ||
                     body->layer != 1 || body->frame != body_frame) {
                     continue;
                 }
-                for (int flash_i = 0; flash_i < command_count; ++flash_i) {
-                    const FinCommand *flash = commands[flash_i];
+                for (int flash_i = 0; flash_i < draw_part_count; ++flash_i) {
+                    const DcFinDrawPart *flash = draw_parts[flash_i];
                     if (strcmp(flash->sprite, "blaz") != 0 || flash->layer != 3) continue;
                     int delta = flash_i - body_i;
                     int score = (delta >= 0 ? 0 : 1000) + abs(delta);
@@ -839,7 +914,7 @@ static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int 
             }
         }
         if (!best_flash) {
-            fprintf(stderr, "dc_info_gen: no BLAZ muzzle command for %s body frame %d\n",
+            fprintf(stderr, "dc_info_gen: no BLAZ muzzle draw part for %s body frame %d\n",
                     fin->stem, body_frame);
             exit(1);
         }
@@ -850,7 +925,7 @@ static void fin_muzzle_for_body_row(const FinAnim *fin, const char *prefix, int 
     if (frame_out) *frame_out = flash_frame < 0 ? 0 : flash_frame;
 }
 
-static const FinLabel *fin_label_for_direction16(const FinAnim *fin, const char *prefix, int code) {
+static const DcFinAnimationHeader *fin_label_for_direction16(const DcFinAnimation *fin, const char *prefix, int code) {
     static char label_name[32];
     for (int distance = 0; distance <= 8; ++distance) {
         for (int sign = -1; sign <= 1; sign += 2) {
@@ -858,8 +933,8 @@ static const FinLabel *fin_label_for_direction16(const FinAnim *fin, const char 
             int candidate = (code + sign * distance) & 15;
             int suffix = (16 - candidate) & 15;
             snprintf(label_name, sizeof(label_name), "%s%d", prefix, suffix);
-            const FinLabel *label = fin_find_label(fin, label_name);
-            if (fin_label_has_valid_frames(fin, label)) {
+            const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
+            if (dc_fin_animation_header_has_valid_frames(fin, label)) {
                 return label;
             }
         }
@@ -867,47 +942,47 @@ static const FinLabel *fin_label_for_direction16(const FinAnim *fin, const char 
     return NULL;
 }
 
-static void fin_muzzle_for_sequence16_step(const FinAnim *fin, const char *prefix, int step,
+static void fin_muzzle_for_sequence16_step(const DcFinAnimation *fin, const char *prefix, int step,
                                            int flash_w, int flash_h, int *frame_out,
                                            int offset_x[16], int offset_y[16]) {
     (void)flash_w;
     (void)flash_h;
     int flash_frame = -1;
     for (int code = 0; code < 16; ++code) {
-        const FinLabel *label = fin_label_for_direction16(fin, prefix, code);
+        const DcFinAnimationHeader *label = fin_label_for_direction16(fin, prefix, code);
         if (!label) {
             fprintf(stderr, "dc_info_gen: no FIN label for %s direction %d in %s\n",
                     prefix, code, fin ? fin->stem : "(null)");
             exit(1);
         }
-        const FinCommand *bodies[128];
+        const DcFinDrawPart *bodies[128];
         int body_count = 0;
-        const FinCommand *commands[512];
-        int command_count = fin_commands_for_label(fin, label, commands,
-                                                   (int)(sizeof(commands) / sizeof(commands[0])));
-        for (int i = 0; i < command_count; ++i) {
-            const FinCommand *cmd = commands[i];
+        const DcFinDrawPart *draw_parts[512];
+        int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
+                                                   (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+        for (int i = 0; i < draw_part_count; ++i) {
+            const DcFinDrawPart *cmd = draw_parts[i];
             if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1 &&
                 body_count < (int)(sizeof(bodies) / sizeof(bodies[0]))) {
                 bodies[body_count++] = cmd;
             }
         }
         if (body_count <= 0) {
-            fprintf(stderr, "dc_info_gen: no body command for %s direction %d\n", prefix, code);
+            fprintf(stderr, "dc_info_gen: no body draw part for %s direction %d\n", prefix, code);
             exit(1);
         }
-        const FinCommand *body = bodies[step < body_count ? step : body_count - 1];
-        const FinCommand *best_flash = NULL;
+        const DcFinDrawPart *body = bodies[step < body_count ? step : body_count - 1];
+        const DcFinDrawPart *best_flash = NULL;
         int best_score = 1000000;
         int body_index = -1;
-        for (int i = 0; i < command_count; ++i) {
-            if (commands[i] == body) {
+        for (int i = 0; i < draw_part_count; ++i) {
+            if (draw_parts[i] == body) {
                 body_index = i;
                 break;
             }
         }
-        for (int i = 0; i < command_count; ++i) {
-            const FinCommand *flash = commands[i];
+        for (int i = 0; i < draw_part_count; ++i) {
+            const DcFinDrawPart *flash = draw_parts[i];
             if (strcmp(flash->sprite, "blaz") != 0 || flash->layer != 3) continue;
             int delta = body_index >= 0 ? i - body_index : 0;
             int score = (delta >= 0 ? 0 : 1000) + abs(delta);
@@ -917,7 +992,7 @@ static void fin_muzzle_for_sequence16_step(const FinAnim *fin, const char *prefi
             }
         }
         if (!best_flash) {
-            fprintf(stderr, "dc_info_gen: no BLAZ muzzle command for %s direction %d\n",
+            fprintf(stderr, "dc_info_gen: no BLAZ muzzle draw part for %s direction %d\n",
                     prefix, code);
             exit(1);
         }
@@ -936,15 +1011,15 @@ static void validate_dark_colony_data(const char *root, const SpriteEntry *sprit
 
     char fin_path[1024];
     snprintf(fin_path, sizeof(fin_path), "%s/ANIMATE/GRAY.FIN", root);
-    FinAnim gray_fin = fin_load(fin_path, "GRAY");
+    DcFinAnimation gray_fin = dc_load_fin_animation(fin_path, "GRAY");
     int start = 0, end = 0;
-    if (!fin_label_range(&gray_fin, "GRAYDIEA14", &start, &end) || start != 254 || end != 265)
+    if (!dc_fin_animation_header_range(&gray_fin, "GRAYDIEA14", &start, &end) || start != 254 || end != 265)
         die("GRAY.FIN missing expected GRAYDIEA14 range", fin_path);
-    if (!fin_label_range(&gray_fin, "GRAYDIE210", &start, &end) || start != 266 || end != 277)
+    if (!dc_fin_animation_header_range(&gray_fin, "GRAYDIE210", &start, &end) || start != 266 || end != 277)
         die("GRAY.FIN missing expected GRAYDIE210 range", fin_path);
     if (fin_first_body_frame(&gray_fin, "GRAYFIREA0") != 80)
         die("GRAY.FIN FIREA0 does not resolve to expected first body frame", fin_path);
-    fin_free(&gray_fin);
+    dc_free_fin_animation(&gray_fin);
 }
 
 static DcFinStateCounts load_fin_state_counts(const char *root) {
@@ -961,12 +1036,12 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     snprintf(scgm_fin_path, sizeof(scgm_fin_path), "%s/ANIMATE/SCGM.FIN", root);
     snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
 
-    FinAnim trsc_fin = fin_load(trsc_fin_path, "TRSC");
-    FinAnim reap_fin = fin_load(reap_fin_path, "REAP");
-    FinAnim barr_fin = fin_load(barr_fin_path, "BARR");
-    FinAnim sarg_fin = fin_load(sarg_fin_path, "SARG");
-    FinAnim scgm_fin = fin_load(scgm_fin_path, "SCGM");
-    FinAnim expl_fin = fin_load(expl_fin_path, "EXPL");
+    DcFinAnimation trsc_fin = dc_load_fin_animation(trsc_fin_path, "TRSC");
+    DcFinAnimation reap_fin = dc_load_fin_animation(reap_fin_path, "REAP");
+    DcFinAnimation barr_fin = dc_load_fin_animation(barr_fin_path, "BARR");
+    DcFinAnimation sarg_fin = dc_load_fin_animation(sarg_fin_path, "SARG");
+    DcFinAnimation scgm_fin = dc_load_fin_animation(scgm_fin_path, "SCGM");
+    DcFinAnimation expl_fin = dc_load_fin_animation(expl_fin_path, "EXPL");
 
     DcFinStateCounts counts;
     counts.trsc_attack_a = 6;
@@ -974,8 +1049,8 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.reap_run = fin_state_count_for_sequence16(&reap_fin, "REAPMOVE");
     counts.reap_attack = fin_state_count_for_sequence16(&reap_fin, "REAPFIRE");
     counts.reap_death = fin_state_count_for_sequence16(&reap_fin, "REAPDIEA");
-    counts.reap_diefx_a14 = fin_effect_command_count_for_label(&reap_fin, "REAPDIEA14");
-    counts.reap_diefx_a6 = fin_effect_command_count_for_label(&reap_fin, "REAPDIEA6");
+    counts.reap_diefx_a14 = fin_effect_draw_part_count_for_label(&reap_fin, "REAPDIEA14");
+    counts.reap_diefx_a6 = fin_effect_draw_part_count_for_label(&reap_fin, "REAPDIEA6");
     counts.barr_run = fin_state_count_for_sequence16(&barr_fin, "BARRMOVE");
     counts.barr_attack = fin_state_count_for_sequence16(&barr_fin, "BARRFIREA");
     counts.barr_death = fin_state_count_for_sequence16(&barr_fin, "BARRDIE");
@@ -994,12 +1069,12 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     if (fin_first_body_frame(&trsc_fin, "TRSCFIREB0") != 104)
         die("TRSC.FIN FIREB0 does not resolve to expected first body frame", trsc_fin_path);
 
-    fin_free(&trsc_fin);
-    fin_free(&reap_fin);
-    fin_free(&barr_fin);
-    fin_free(&sarg_fin);
-    fin_free(&scgm_fin);
-    fin_free(&expl_fin);
+    dc_free_fin_animation(&trsc_fin);
+    dc_free_fin_animation(&reap_fin);
+    dc_free_fin_animation(&barr_fin);
+    dc_free_fin_animation(&sarg_fin);
+    dc_free_fin_animation(&scgm_fin);
+    dc_free_fin_animation(&expl_fin);
     return counts;
 }
 
@@ -1076,7 +1151,7 @@ static void f6(FILE *out, const char *spr, int tics, const char *action, const c
 }
 
 static void f1_fin_raw_state(FILE *out, const char *spr,
-                             const FinCommand *cmd,
+                             const DcFinDrawPart *cmd,
                              const char *next) {
     fprintf(out, "    { %s, %d, -1, A_None, %s, 0, 1, 0, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, DC_NO_OVERLAY },\n",
             spr, cmd->frame, next, cmd->frame,
@@ -1099,7 +1174,7 @@ static void state_name(char *dst, size_t dst_size, const char *prefix,
     else snprintf(dst, dst_size, "S_DC_%s_%s", prefix, kind);
 }
 
-static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
+static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                          const char *label_prefix, int step, int fallback_frame,
                          int tics, const char *action, const char *next, int group,
                          int sequence_count, bool mirror_left) {
@@ -1163,7 +1238,7 @@ static void f8_fin_state(FILE *out, const char *spr, const FinAnim *fin,
     fprintf(out, "}, DC_NO_OVERLAY },\n");
 }
 
-static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const FinAnim *fin,
+static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                                         const char *label_prefix, int step,
                                         int fallback_frame, int tics,
                                         const char *action, const char *next,
@@ -1287,7 +1362,7 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const FinAni
     fprintf(out, "} },\n");
 }
 
-static void f16_fin_state(FILE *out, const char *spr, const FinAnim *fin,
+static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                           const char *label_prefix, int step, int fallback_frame,
                           int tics, const char *action, const char *next, int group) {
     int frames[16];
@@ -1362,7 +1437,7 @@ static void write_muzzle16(FILE *out, const char *spr, int frame, const int offs
     fprintf(out, "}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
 }
 
-static void f16_fin_layer5_state(FILE *out, const char *spr, const FinAnim *fin,
+static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                                  const char *label_prefix, int step, int fallback_frame,
                                  int tics, const char *action, const char *next, int group) {
     int frames[16];
@@ -1462,7 +1537,7 @@ static void f16_fin_layer5_state(FILE *out, const char *spr, const FinAnim *fin,
     fprintf(out, "} },\n");
 }
 
-static void write_fin_sequence(FILE *out, const char *spr, const FinAnim *fin,
+static void write_fin_sequence(FILE *out, const char *spr, const DcFinAnimation *fin,
                                const char *label_prefix, const char *state_prefix,
                                const char *kind, int count, int fallback_frame,
                                int tics, int group, const char *first_action,
@@ -1476,7 +1551,7 @@ static void write_fin_sequence(FILE *out, const char *spr, const FinAnim *fin,
     }
 }
 
-static void write_fin_layer0_overlay_sequence(FILE *out, const char *spr, const FinAnim *fin,
+static void write_fin_layer0_overlay_sequence(FILE *out, const char *spr, const DcFinAnimation *fin,
                                               const char *label_prefix,
                                               const char *state_prefix,
                                               const char *kind, int count,
@@ -1493,18 +1568,18 @@ static void write_fin_layer0_overlay_sequence(FILE *out, const char *spr, const 
     }
 }
 
-static void write_expl_mining_pulse(FILE *out, const char *spr, const FinAnim *fin,
+static void write_expl_mining_pulse(FILE *out, const char *spr, const DcFinAnimation *fin,
                                     int count, int tics, int group) {
     static const int dirs[8] = {0,2,4,6,8,10,12,14};
-    const FinCommand *body = fin_find_command_in_label(fin, "EDPLYSTAND14",
+    const DcFinDrawPart *body = dc_fin_find_draw_part_in_animation_header(fin, "EDPLYSTAND14",
                                                        fin->stem_lower, 1, 34);
     if (!body) die("EXPL.FIN missing deployed Exploiter body", NULL);
-    FinPulseFrame pulse[MAX_EXPL_MINING_PULSE_FRAMES];
+    DcFinPulseFrame pulse[MAX_EXPL_MINING_PULSE_FRAMES];
     int pulse_count = fin_build_expl_mining_pulse(fin, pulse, MAX_EXPL_MINING_PULSE_FRAMES);
     if (count != pulse_count) die("EXPL mining pulse count mismatch", NULL);
 
     for (int i = 0; i < count; ++i) {
-        const FinPulseFrame *overlay = &pulse[i];
+        const DcFinPulseFrame *overlay = &pulse[i];
 
         char next[64];
         if (i + 1 < count) state_name(next, sizeof(next), "EXPL", "WORK", i + 2);
@@ -1543,14 +1618,14 @@ static void write_expl_mining_pulse(FILE *out, const char *spr, const FinAnim *f
     }
 }
 
-static void write_fin_corpse(FILE *out, const char *spr, const FinAnim *fin,
+static void write_fin_corpse(FILE *out, const char *spr, const DcFinAnimation *fin,
                              const char *label_prefix, int last_step, int fallback_frame,
                              bool mirror_left) {
     f8_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
                  "A_DC_Corpse", "S_NULL", 4, last_step + 1, mirror_left);
 }
 
-static void write_fin_sequence16(FILE *out, const char *spr, const FinAnim *fin,
+static void write_fin_sequence16(FILE *out, const char *spr, const DcFinAnimation *fin,
                                  const char *label_prefix, const char *state_prefix,
                                  const char *kind, int count, int fallback_frame,
                                  int tics, int group, const char *first_action,
@@ -1564,7 +1639,7 @@ static void write_fin_sequence16(FILE *out, const char *spr, const FinAnim *fin,
     }
 }
 
-static void write_fin_layer5_sequence16(FILE *out, const char *spr, const FinAnim *fin,
+static void write_fin_layer5_sequence16(FILE *out, const char *spr, const DcFinAnimation *fin,
                                         const char *label_prefix, const char *state_prefix,
                                         const char *kind, int count, int fallback_frame,
                                         int tics, int group, const char *const *actions,
@@ -1579,7 +1654,7 @@ static void write_fin_layer5_sequence16(FILE *out, const char *spr, const FinAni
     }
 }
 
-static void write_fin_corpse16(FILE *out, const char *spr, const FinAnim *fin,
+static void write_fin_corpse16(FILE *out, const char *spr, const DcFinAnimation *fin,
                                const char *label_prefix, int last_step, int fallback_frame) {
     f16_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
                   "A_DC_Corpse", "S_NULL", 4);
@@ -1587,27 +1662,27 @@ static void write_fin_corpse16(FILE *out, const char *spr, const FinAnim *fin,
 
 static void write_fin_label_effect_chain(FILE *out, const char *root,
                                          const SpriteEntry *sprites, int sprite_count,
-                                         const FinAnim *fin, const char *label_name,
+                                         const DcFinAnimation *fin, const char *label_name,
                                          const char *state_prefix, int direction_code,
                                          int tics) {
     (void)root;
-    const FinLabel *label = fin_find_label(fin, label_name);
-    if (!fin_label_has_valid_frames(fin, label)) {
+    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
+    if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
         return;
     }
-    const FinCommand *commands[512];
-    int command_count = fin_commands_for_label(fin, label, commands,
-                                               (int)(sizeof(commands) / sizeof(commands[0])));
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
+                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
     int effect_index = 0;
-    for (int i = 0; i < command_count; ++i) {
-        const FinCommand *cmd = commands[i];
+    for (int i = 0; i < draw_part_count; ++i) {
+        const DcFinDrawPart *cmd = draw_parts[i];
         if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) continue;
         effect_index++;
 
         int sprite_index = find_sprite_for_fin_stem(sprites, sprite_count, cmd->sprite);
 
         char next[64];
-        if (effect_index < fin_effect_command_count_for_label(fin, label_name)) {
+        if (effect_index < fin_effect_draw_part_count_for_label(fin, label_name)) {
             snprintf(next, sizeof(next), "S_DC_%s_FX%d", state_prefix, effect_index + 1);
         } else {
             snprintf(next, sizeof(next), "S_NULL");
@@ -1681,23 +1756,23 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
     snprintf(hubu_fin_path, sizeof(hubu_fin_path), "%s/ANIMATE/HUBU.FIN", root);
     snprintf(towr_fin_path, sizeof(towr_fin_path), "%s/ANIMATE/TOWR.FIN", root);
-    FinAnim trsc_fin = fin_load(trsc_fin_path, "TRSC");
-    FinAnim gray_fin = fin_load(gray_fin_path, "GRAY");
-    FinAnim reap_fin = fin_load(reap_fin_path, "REAP");
-    FinAnim barr_fin = fin_load(barr_fin_path, "BARR");
-    FinAnim sarg_fin = fin_load(sarg_fin_path, "SARG");
-    FinAnim scgm_fin = fin_load(scgm_fin_path, "SCGM");
-    FinAnim expl_fin = fin_load(expl_fin_path, "EXPL");
-    FinAnim hubu_fin = fin_load(hubu_fin_path, "HUBU");
-    FinAnim towr_fin = fin_load(towr_fin_path, "TOWR");
+    DcFinAnimation trsc_fin = dc_load_fin_animation(trsc_fin_path, "TRSC");
+    DcFinAnimation gray_fin = dc_load_fin_animation(gray_fin_path, "GRAY");
+    DcFinAnimation reap_fin = dc_load_fin_animation(reap_fin_path, "REAP");
+    DcFinAnimation barr_fin = dc_load_fin_animation(barr_fin_path, "BARR");
+    DcFinAnimation sarg_fin = dc_load_fin_animation(sarg_fin_path, "SARG");
+    DcFinAnimation scgm_fin = dc_load_fin_animation(scgm_fin_path, "SCGM");
+    DcFinAnimation expl_fin = dc_load_fin_animation(expl_fin_path, "EXPL");
+    DcFinAnimation hubu_fin = dc_load_fin_animation(hubu_fin_path, "HUBU");
+    DcFinAnimation towr_fin = dc_load_fin_animation(towr_fin_path, "TOWR");
     int trsc_attack_base = fin_first_body_frame(&trsc_fin, "TRSCFIREA0");
     int gray_attack_base = fin_first_body_frame(&gray_fin, "GRAYFIREA0");
-    const FinCommand *excopod_stand =
-        fin_required_command_in_label(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
-    const FinCommand *brrkpod_stand =
-        fin_required_command_in_label(&hubu_fin, "BRRKPODSTAND0", "hubu", 1, 4);
-    const FinCommand *towr_stand =
-        fin_required_command_in_label(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
+    const DcFinDrawPart *excopod_stand =
+        dc_fin_required_draw_part_in_animation_header(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
+    const DcFinDrawPart *brrkpod_stand =
+        dc_fin_required_draw_part_in_animation_header(&hubu_fin, "BRRKPODSTAND0", "hubu", 1, 4);
+    const DcFinDrawPart *towr_stand =
+        dc_fin_required_draw_part_in_animation_header(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     char blaz_path[1024];
     snprintf(blaz_path, sizeof(blaz_path), "%s/SPRITES/BLAZ.SPR", root);
     int blaz_w = 0, blaz_h = 0;
@@ -1863,15 +1938,15 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    RTS_STATE_COORDS_FIN_TOP_LEFT,\n");
     fprintf(out, "    { SPR_DC_INTRFACE_CLIENT, 0, 1, 3, -3 },\n");
     fprintf(out, "};\n");
-    fin_free(&trsc_fin);
-    fin_free(&gray_fin);
-    fin_free(&reap_fin);
-    fin_free(&barr_fin);
-    fin_free(&sarg_fin);
-    fin_free(&scgm_fin);
-    fin_free(&expl_fin);
-    fin_free(&hubu_fin);
-    fin_free(&towr_fin);
+    dc_free_fin_animation(&trsc_fin);
+    dc_free_fin_animation(&gray_fin);
+    dc_free_fin_animation(&reap_fin);
+    dc_free_fin_animation(&barr_fin);
+    dc_free_fin_animation(&sarg_fin);
+    dc_free_fin_animation(&scgm_fin);
+    dc_free_fin_animation(&expl_fin);
+    dc_free_fin_animation(&hubu_fin);
+    dc_free_fin_animation(&towr_fin);
 }
 
 int main(int argc, char **argv) {
