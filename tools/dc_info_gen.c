@@ -66,6 +66,7 @@ typedef struct {
 } DcFinDiskLayout;
 
 typedef struct {
+    int brrkpod_build_trsc;
     int trsc_attack_a;
     int trsc_attack_b;
     int reap_run;
@@ -873,6 +874,16 @@ static int fin_effect_draw_part_count_for_label(const DcFinAnimation *fin, const
     return count;
 }
 
+static int fin_frame_count_for_label(const DcFinAnimation *fin, const char *label_name) {
+    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
+    if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
+        fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n",
+                label_name, fin ? fin->stem : "(null)");
+        exit(1);
+    }
+    return label->end - label->start + 1;
+}
+
 static int fin_state_count_for_expl_mining_pulse(const DcFinAnimation *fin) {
     DcFinPulseFrame frames[MAX_EXPL_MINING_PULSE_FRAMES];
     return fin_build_expl_mining_pulse(fin, frames, MAX_EXPL_MINING_PULSE_FRAMES);
@@ -1029,12 +1040,14 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     char sarg_fin_path[1024];
     char scgm_fin_path[1024];
     char expl_fin_path[1024];
+    char hubu_fin_path[1024];
     snprintf(trsc_fin_path, sizeof(trsc_fin_path), "%s/ANIMATE/TRSC.FIN", root);
     snprintf(reap_fin_path, sizeof(reap_fin_path), "%s/ANIMATE/REAP.FIN", root);
     snprintf(barr_fin_path, sizeof(barr_fin_path), "%s/ANIMATE/BARR.FIN", root);
     snprintf(sarg_fin_path, sizeof(sarg_fin_path), "%s/ANIMATE/SARG.FIN", root);
     snprintf(scgm_fin_path, sizeof(scgm_fin_path), "%s/ANIMATE/SCGM.FIN", root);
     snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
+    snprintf(hubu_fin_path, sizeof(hubu_fin_path), "%s/ANIMATE/HUBU.FIN", root);
 
     DcFinAnimation trsc_fin = dc_load_fin_animation(trsc_fin_path, "TRSC");
     DcFinAnimation reap_fin = dc_load_fin_animation(reap_fin_path, "REAP");
@@ -1042,8 +1055,10 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     DcFinAnimation sarg_fin = dc_load_fin_animation(sarg_fin_path, "SARG");
     DcFinAnimation scgm_fin = dc_load_fin_animation(scgm_fin_path, "SCGM");
     DcFinAnimation expl_fin = dc_load_fin_animation(expl_fin_path, "EXPL");
+    DcFinAnimation hubu_fin = dc_load_fin_animation(hubu_fin_path, "HUBU");
 
     DcFinStateCounts counts;
+    counts.brrkpod_build_trsc = fin_frame_count_for_label(&hubu_fin, "TRSCBUILD0");
     counts.trsc_attack_a = 6;
     counts.trsc_attack_b = 4;
     counts.reap_run = fin_state_count_for_sequence16(&reap_fin, "REAPMOVE");
@@ -1075,6 +1090,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     dc_free_fin_animation(&sarg_fin);
     dc_free_fin_animation(&scgm_fin);
     dc_free_fin_animation(&expl_fin);
+    dc_free_fin_animation(&hubu_fin);
     return counts;
 }
 
@@ -1089,6 +1105,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "typedef enum {\n");
     fprintf(out, "    S_NULL,\n");
     fprintf(out, "    S_DC_EXCOPOD_STND, S_DC_BRRKPOD_STND, S_DC_TOWR_STND,\n");
+    for (int i = 1; i <= counts->brrkpod_build_trsc; ++i) fprintf(out, "    S_DC_BRRKPOD_BUILD_TRSC%d,\n", i);
     fprintf(out, "    S_DC_TRSC_STND, S_DC_TRSC_RUN1, S_DC_TRSC_RUN2, S_DC_TRSC_RUN3, S_DC_TRSC_RUN4, S_DC_TRSC_RUN5, S_DC_TRSC_RUN6, S_DC_TRSC_RUN7, S_DC_TRSC_RUN8,\n");
     fprintf(out, "    S_DC_TRSC_ATK_SELECT,\n");
     for (int i = 1; i <= counts->trsc_attack_a; ++i) fprintf(out, "    S_DC_TRSC_ATK%d,\n", i);
@@ -1159,6 +1176,75 @@ static void f1_fin_raw_state(FILE *out, const char *spr,
             cmd->x,
             cmd->y,
             cmd->remap, cmd->intensity);
+}
+
+static const char *fin_flip_flag_expr(const DcFinDrawPart *cmd) {
+    return (cmd && (cmd->flags & 1)) ? "FLIPPED" : "0";
+}
+
+static void write_fin_build_effect_sequence(FILE *out, const SpriteEntry *sprites,
+                                            int sprite_count, const DcFinAnimation *fin,
+                                            const char *label_name,
+                                            const char *state_prefix,
+                                            int group) {
+    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
+    if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
+        fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n",
+                label_name, fin ? fin->stem : "(null)");
+        exit(1);
+    }
+    int state_count = label->end - label->start + 1;
+    for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
+        const DcFinFrame *fin_frame = &fin->frames[frame_index];
+        const DcFinDrawPart *primary = NULL;
+        const DcFinDrawPart *overlay = NULL;
+        for (int part = 0; part < fin_frame->part_count; ++part) {
+            const DcFinDrawPart *cmd =
+                &fin->draw_parts[fin_frame->draw_part_start + part];
+            if (!primary) primary = cmd;
+            if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 0) {
+                primary = cmd;
+                break;
+            }
+        }
+        if (!primary) {
+            fprintf(stderr, "dc_info_gen: empty FIN frame %d in %s\n",
+                    frame_index, label_name);
+            exit(1);
+        }
+        for (int part = 0; part < fin_frame->part_count; ++part) {
+            const DcFinDrawPart *cmd =
+                &fin->draw_parts[fin_frame->draw_part_start + part];
+            if (cmd != primary) {
+                overlay = cmd;
+                break;
+            }
+        }
+
+        int index = frame_index - label->start + 1;
+        char next[64];
+        if (index < state_count) snprintf(next, sizeof(next), "S_DC_%s%d", state_prefix, index + 1);
+        else snprintf(next, sizeof(next), "S_NULL");
+
+        int primary_sprite = find_sprite_for_fin_stem(sprites, sprite_count, primary->sprite);
+        fprintf(out,
+                "    { %s, %d, %d, A_None, %s, %s, %d, 0, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, ",
+                sprites[primary_sprite].symbol, primary->frame, fin_frame->ticks,
+                next, fin_flip_flag_expr(primary), group, primary->frame,
+                fin_flip_flag_expr(primary), primary->x, primary->y,
+                primary->remap, primary->intensity);
+        if (overlay) {
+            int overlay_sprite = find_sprite_for_fin_stem(sprites, sprite_count, overlay->sprite);
+            fprintf(out,
+                    "%s, %d, %s, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d} },\n",
+                    sprites[overlay_sprite].symbol, overlay->frame,
+                    fin_flip_flag_expr(overlay), overlay->frame,
+                    fin_flip_flag_expr(overlay), overlay->x, overlay->y,
+                    overlay->remap, overlay->intensity);
+        } else {
+            fprintf(out, "DC_NO_OVERLAY },\n");
+        }
+    }
 }
 
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
@@ -1802,6 +1888,8 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f1_fin_raw_state(out, sprites[hubu].symbol, excopod_stand, "S_DC_EXCOPOD_STND");
     f1_fin_raw_state(out, sprites[hubu].symbol, brrkpod_stand, "S_DC_BRRKPOD_STND");
     f1_fin_raw_state(out, sprites[towr].symbol, towr_stand, "S_DC_TOWR_STND");
+    write_fin_build_effect_sequence(out, sprites, sprite_count, &hubu_fin,
+                                    "TRSCBUILD0", "BRRKPOD_BUILD_TRSC", 6);
 
     int trsc_die[6] = {128,138,149,159,179,195};
     f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCSTAND", 0, 0, -1,

@@ -64,6 +64,8 @@ CachedSprite *sprite_cache_find(SpriteCache *cache, const char *name);
 const SpriteSheet *sprite_cache_lookup(const SpriteCache *cache, const char *name);
 
 void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal);
+void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
+                         float goal_gx, float goal_gy);
 bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
                             float gx, float gy);
 void apply_mobjinfo_defaults(const GameInfo *game_info, Unit *unit);

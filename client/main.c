@@ -688,6 +688,12 @@ typedef struct {
 } DarkColonyProductButton;
 
 enum {
+    DC_CLIENT_PRODUCT_UNIT = 2,
+    DC_CLIENT_MT_TROOPER = 1,
+    DC_CLIENT_MT_REAPER = 4,
+    DC_CLIENT_MT_THUNDERBOLT = 5,
+    DC_CLIENT_MT_CYBORG = 6,
+    DC_CLIENT_MT_SCOUT = 7,
     DC_CLIENT_MT_EXPLOITER = 3,
     DC_CLIENT_MT_EXCOPOD = 1000,
     DC_CLIENT_MT_BRRKPOD = 1001,
@@ -696,6 +702,8 @@ enum {
     DC_CLIENT_MT_SCNCPOD = 1004,
     DC_CLIENT_MT_SCNCPOD2 = 1005,
     DC_CLIENT_MT_RSCHPOD = 1006,
+    DC_CLIENT_PRODUCTION_BUILD_GROUP = 6,
+    DC_CLIENT_TRSCBUILD_FIRST_FRAME = 12,
 };
 
 static const DarkColonyProductButton DARK_COLONY_PRODUCTS[] = {
@@ -715,6 +723,25 @@ static const DarkColonyProductButton DARK_COLONY_PRODUCTS[] = {
     {  93, "Barrager",  1000,  7,  3, DC_CLIENT_MT_ROBOPOD2, { 5, 4 }, 2 },
     { 135, "Medi-craft", 900, 29, 49, DC_CLIENT_MT_ROBOPOD, { 4, 3, 6 }, 3 },
 };
+
+static uint16_t dc_unit_actor_id_for_product_type(int product_type) {
+    switch (product_type) {
+    case 0: return DC_CLIENT_MT_TROOPER;
+    case 2: return DC_CLIENT_MT_REAPER;
+    case 3: return DC_CLIENT_MT_THUNDERBOLT;
+    case 4: return DC_CLIENT_MT_CYBORG;
+    case 5: return DC_CLIENT_MT_SCOUT;
+    case 6: return DC_CLIENT_MT_EXPLOITER;
+    default: return 0;
+    }
+}
+
+static int dc_product_training_time_ms(const DarkColonyProductButton *product) {
+    if (!product) return 0;
+    int ms = product->cost * 10;
+    if (ms < 1000) ms = 1000;
+    return ms;
+}
 
 static bool is_dark_colony_plugin(const Plugin *plugin) {
     return plugin && plugin->id && strcmp(plugin->id, "dark-colony") == 0;
@@ -1063,6 +1090,12 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
     return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 }
 
+static SDL_Rect dark_colony_product_button_rect(const App *app, int index) {
+    int col = index / 4;
+    int row = index % 4;
+    return dark_colony_ui_rect(app, 518 + col * 59, 112 + row * 41, 59, 41);
+}
+
 static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
@@ -1167,17 +1200,290 @@ static bool dc_selected_unit_is_player_building(const Unit *selected) {
 
 static int dc_products_for_selected_building(const Unit *selected, const Unit *units,
                                              int unit_count,
-                                             const DarkColonyProductButton *out[6]) {
+                                             const DarkColonyProductButton *out[8]) {
     if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
     int count = 0;
     int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
-    for (int i = 0; i < source_count && count < 6; ++i) {
+    for (int i = 0; i < source_count && count < 8; ++i) {
         const DarkColonyProductButton *product = &DARK_COLONY_PRODUCTS[i];
         if (product->producer_type_id != selected->type_id) continue;
         if (!dc_product_prerequisites_met(units, unit_count, product)) continue;
         out[count++] = product;
     }
     return count;
+}
+
+static const DarkColonyProductButton *dc_product_by_type(int product_type) {
+    int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
+    for (int i = 0; i < source_count; ++i) {
+        if (DARK_COLONY_PRODUCTS[i].product_type == product_type)
+            return &DARK_COLONY_PRODUCTS[i];
+    }
+    return NULL;
+}
+
+static bool dc_enqueue_unit_product(Unit *producer, const DarkColonyProductButton *product,
+                                    uint16_t actor_id) {
+    if (!producer || !product || actor_id == 0) return false;
+    if (producer->production_queue_count > 0) {
+        if (producer->production_actor_id != actor_id ||
+            producer->production_product_type != product->product_type ||
+            producer->production_product_class != DC_CLIENT_PRODUCT_UNIT ||
+            producer->production_queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
+            return false;
+        }
+        producer->production_queue_count++;
+        return true;
+    }
+    producer->production_actor_id = actor_id;
+    producer->production_product_class = DC_CLIENT_PRODUCT_UNIT;
+    producer->production_product_type = product->product_type;
+    producer->production_queue_count = 1;
+    producer->production_time_ms = dc_product_training_time_ms(product);
+    producer->production_time_left_ms = producer->production_time_ms;
+    producer->production_release_active = false;
+    producer->production_release_time_left_ms = 0;
+    return true;
+}
+
+static const State *dc_state_at(const GameInfo *game_info, int state_id) {
+    if (!game_info || !game_info->states || state_id < 0 || state_id >= game_info->state_count)
+        return NULL;
+    return &game_info->states[state_id];
+}
+
+static int dc_find_state_by_group_frame(const GameInfo *game_info, int group, int frame) {
+    if (!game_info || !game_info->states) return -1;
+    for (int i = 0; i < game_info->state_count; ++i) {
+        const State *state = &game_info->states[i];
+        if (state->misc1 != group || state->facings != 1) continue;
+        if (state->facing_frames[0] == frame) return i;
+    }
+    return -1;
+}
+
+static int dc_state_chain_duration_ms(const GameInfo *game_info, int state_id, int group) {
+    int tics = 0;
+    int guard = 0;
+    while (guard++ < (game_info ? game_info->state_count + 1 : 1)) {
+        const State *state = dc_state_at(game_info, state_id);
+        if (!state || state->misc1 != group) break;
+        if (state->tics > 0) tics += state->tics;
+        int next = state->nextstate;
+        if (next == game_info->null_state || next == state_id) break;
+        state_id = next;
+    }
+    if (tics <= 0) return 0;
+    return (int)(tics * FIXED_DT * 1000.0f + 0.5f);
+}
+
+static bool dc_product_uses_barracks_release(const Unit *producer,
+                                             const DarkColonyProductButton *product,
+                                             uint16_t actor_id) {
+    return producer && product && producer->type_id == DC_CLIENT_MT_BRRKPOD &&
+        product->product_type == 0 && actor_id == DC_CLIENT_MT_TROOPER;
+}
+
+static bool dc_start_production_release(const Plugin *plugin, GameMap *map,
+                                        VisualEffect *effects, int max_effects,
+                                        Unit *producer,
+                                        const DarkColonyProductButton *product,
+                                        uint16_t actor_id) {
+    if (!plugin || !plugin->game_info || !producer || !product) return false;
+    if (!dc_product_uses_barracks_release(producer, product, actor_id)) return false;
+    const GameInfo *game_info = plugin->game_info;
+    int state_id = dc_find_state_by_group_frame(game_info, DC_CLIENT_PRODUCTION_BUILD_GROUP,
+                                                DC_CLIENT_TRSCBUILD_FIRST_FRAME);
+    int duration_ms = dc_state_chain_duration_ms(game_info, state_id,
+                                                 DC_CLIENT_PRODUCTION_BUILD_GROUP);
+    if (state_id <= 0 || duration_ms <= 0) return false;
+    StateContext ctx = {
+        .map = map,
+        .effects = effects,
+        .max_effects = max_effects,
+        .game_info = game_info,
+    };
+    if (!spawn_state_effect(&ctx, state_id, producer->gx, producer->gy, 0)) return false;
+    producer->production_release_active = true;
+    producer->production_release_time_left_ms = duration_ms;
+    producer->production_time_left_ms = 0;
+    return true;
+}
+
+static void dc_clear_production(Unit *producer) {
+    if (!producer) return;
+    producer->production_actor_id = 0;
+    producer->production_product_class = 0;
+    producer->production_product_type = 0;
+    producer->production_time_ms = 0;
+    producer->production_time_left_ms = 0;
+    producer->production_release_active = false;
+    producer->production_release_time_left_ms = 0;
+}
+
+static void dc_advance_production_queue(Unit *producer) {
+    if (!producer) return;
+    producer->production_release_active = false;
+    producer->production_release_time_left_ms = 0;
+    producer->production_queue_count--;
+    if (producer->production_queue_count > 0) {
+        producer->production_time_left_ms = producer->production_time_ms;
+    } else {
+        dc_clear_production(producer);
+    }
+}
+
+static bool dc_position_available_for_spawn(const GameMap *map, const Unit *units,
+                                            int unit_count, float gx, float gy,
+                                            float radius) {
+    if (!map || !units) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!map_walkable(map, x, y)) return false;
+        }
+    }
+    for (int i = 0; i < unit_count; ++i) {
+        const Unit *other = &units[i];
+        if (other->remove || other->hp <= 0) continue;
+        float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
+        float min_dist = radius + other_radius;
+        float dx = other->gx - gx;
+        float dy = other->gy - gy;
+        if (dx * dx + dy * dy < min_dist * min_dist) return false;
+    }
+    return true;
+}
+
+static bool dc_find_spawn_position_near(const GameMap *map, const Unit *units,
+                                        int unit_count, const Unit *producer,
+                                        float radius, float *out_gx,
+                                        float *out_gy) {
+    if (!map || !units || !producer || !out_gx || !out_gy) return false;
+    int origin_x = (int)floorf(producer->gx);
+    int origin_y = (int)floorf(producer->gy);
+    static const int preferred[][2] = {
+        { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
+        { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
+    };
+    int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
+    for (int dist = 1; dist <= 8; ++dist) {
+        for (int i = 0; i < preferred_count; ++i) {
+            int x = origin_x + preferred[i][0] * dist;
+            int y = origin_y + preferred[i][1] * dist;
+            float gx = (float)x + 0.5f;
+            float gy = (float)y + 0.5f;
+            if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
+            *out_gx = gx;
+            *out_gy = gy;
+            return true;
+        }
+        for (int dy = -dist; dy <= dist; ++dy) {
+            for (int dx = -dist; dx <= dist; ++dx) {
+                if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
+                float gx = (float)(origin_x + dx) + 0.5f;
+                float gy = (float)(origin_y + dy) + 0.5f;
+                if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
+                *out_gx = gx;
+                *out_gy = gy;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *map,
+                                           Unit *units, int *unit_count,
+                                           int producer_index,
+                                           uint16_t actor_id) {
+    if (!plugin || !map || !units || !unit_count || producer_index < 0 ||
+        producer_index >= *unit_count || *unit_count >= MAX_UNITS || actor_id == 0) {
+        return false;
+    }
+    const ActorType *type = plugin_actor_type_by_id(plugin, actor_id);
+    if (!type) return false;
+
+    Unit new_unit;
+    memset(&new_unit, 0, sizeof(new_unit));
+    new_unit.type_id = actor_id;
+    new_unit.owner = 0;
+    new_unit.sprite_id = -1;
+    new_unit.attack_target = -1;
+    new_unit.harvest_target = -1;
+    apply_actor_type_defaults(&new_unit, type);
+    apply_mobjinfo_defaults(plugin->game_info, &new_unit);
+
+    float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
+    float gx = 0.0f;
+    float gy = 0.0f;
+    if (!dc_find_spawn_position_near(map, units, *unit_count, &units[producer_index],
+                                     radius, &gx, &gy)) {
+        return false;
+    }
+    new_unit.gx = gx;
+    new_unit.gy = gy;
+    units[(*unit_count)++] = new_unit;
+    return true;
+}
+
+static bool dc_update_production_queues(const Plugin *plugin, GameMap *map,
+                                        Unit *units, int *unit_count,
+                                        VisualEffect *effects, int max_effects,
+                                        float dt) {
+    if (!plugin || !map || !units || !unit_count || dt <= 0.0f) return false;
+    bool spawned = false;
+    int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
+    if (elapsed_ms <= 0) elapsed_ms = 1;
+    for (int i = 0; i < *unit_count; ++i) {
+        Unit *producer = &units[i];
+        if (producer->production_queue_count <= 0) continue;
+        if (producer->remove || producer->hp <= 0) {
+            producer->production_queue_count = 0;
+            dc_clear_production(producer);
+            continue;
+        }
+        if (producer->production_release_active) {
+            producer->production_release_time_left_ms -= elapsed_ms;
+            if (producer->production_release_time_left_ms > 0) continue;
+            uint16_t actor_id = producer->production_actor_id;
+            if (!dc_spawn_finished_unit_product(plugin, map, units, unit_count, i, actor_id)) {
+                producer->production_release_time_left_ms = 250;
+                continue;
+            }
+            spawned = true;
+            producer = &units[i];
+            dc_advance_production_queue(producer);
+            continue;
+        }
+        producer->production_time_left_ms -= elapsed_ms;
+        while (producer->production_queue_count > 0 &&
+               producer->production_time_left_ms <= 0) {
+            uint16_t actor_id = producer->production_actor_id;
+            const DarkColonyProductButton *product =
+                dc_product_by_type(producer->production_product_type);
+            if (product && dc_start_production_release(plugin, map, effects, max_effects,
+                                                       producer, product, actor_id)) {
+                break;
+            }
+            if (!dc_spawn_finished_unit_product(plugin, map, units, unit_count, i, actor_id)) {
+                producer->production_time_left_ms = 250;
+                break;
+            }
+            spawned = true;
+            producer = &units[i];
+            dc_advance_production_queue(producer);
+        }
+    }
+    return spawned;
 }
 
 static const char *dc_selected_building_label(const Unit *selected) {
@@ -1225,16 +1531,38 @@ static void dc_stop_selected_units(Unit *units, int unit_count) {
     }
 }
 
-static bool dark_colony_ui_handle_event(const App *app, Unit *units, int unit_count,
+static bool dark_colony_ui_handle_event(const App *app, GameMap *map,
+                                        Unit *units, int unit_count,
                                         const SDL_Event *e) {
-    if (!app || !e) return false;
+    if (!app || !map || !e) return false;
     if (e->type != SDL_MOUSEBUTTONDOWN) return false;
     int rx = 0, ry = 0;
     window_to_render_point(app, e->button.x, e->button.y, &rx, &ry);
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
     if (!point_in_rect(rx, ry, layout.outer)) return false;
-    const Unit *selected = dc_first_selected_unit(units, unit_count);
+    int selected_index = -1;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].selected && !units[i].remove) {
+            selected_index = i;
+            break;
+        }
+    }
+    Unit *selected = selected_index >= 0 ? &units[selected_index] : NULL;
     if (dc_selected_unit_is_player_building(selected)) {
+        const DarkColonyProductButton *products[8] = { 0 };
+        int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
+        if (e->button.button == SDL_BUTTON_LEFT) {
+            for (int i = 0; i < product_count; ++i) {
+                if (!point_in_rect(rx, ry, dark_colony_product_button_rect(app, i))) continue;
+                const DarkColonyProductButton *product = products[i];
+                uint16_t actor_id = dc_unit_actor_id_for_product_type(product->product_type);
+                if (actor_id == 0 || map->player_resources[0] < product->cost) return true;
+                if (dc_enqueue_unit_product(selected, product, actor_id)) {
+                    map->player_resources[0] -= product->cost;
+                }
+                return true;
+            }
+        }
         return true;
     }
     if (e->button.button == SDL_BUTTON_LEFT && point_in_rect(rx, ry, layout.buttons[0])) {
@@ -1291,6 +1619,37 @@ static void dc_ui_draw_minimap(App *app, const GameMap *map, const Unit *units, 
     SDL_Rect view = { vx, vy, vw, vh };
     dc_ui_stroke(app->renderer, view, (SDL_Color){ 164, 236, 203, 220 });
     dc_ui_stroke(app->renderer, rect, (SDL_Color){ 72, 91, 88, 255 });
+}
+
+static void dc_ui_draw_text_right(SDL_Renderer *renderer, const BitmapFont *font,
+                                  SDL_Rect rect, int y, const char *text,
+                                  SDL_Color color) {
+    if (!renderer || !font || !text) return;
+    int x = rect.x + rect.w - 3 - font_text_width(font, text, 1);
+    if (x < rect.x + 2) x = rect.x + 2;
+    font_draw_text(renderer, font, x, y, text, color, 1);
+}
+
+static void dc_ui_draw_capital(App *app, const BitmapFont *font, SDL_Rect rect,
+                               int resources, int active_vents, int vent_count) {
+    if (!app || !font) return;
+    SDL_Color money = { 41, 217, 230, 255 };
+    SDL_Color dim = { 112, 130, 125, 255 };
+    char line[32];
+    if (resources < 0) resources = 0;
+    if (resources >= 1000) {
+        snprintf(line, sizeof(line), "%d", resources / 1000);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 5, line, money);
+        snprintf(line, sizeof(line), "%03d", resources % 1000);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 20, line, money);
+        snprintf(line, sizeof(line), "%d/%d", active_vents, vent_count);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 36, line, dim);
+    } else {
+        snprintf(line, sizeof(line), "%d", resources);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 8, line, money);
+        snprintf(line, sizeof(line), "%d/%d", active_vents, vent_count);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 28, line, dim);
+    }
 }
 
 static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const GameMap *map,
@@ -1353,12 +1712,8 @@ static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const G
         if (map->resource_vents[i].active) active_vents++;
     dc_ui_fill(app->renderer, layout.resources, (SDL_Color){ 4, 6, 7, 255 });
     dc_ui_stroke(app->renderer, layout.resources, (SDL_Color){ 142, 142, 142, 255 });
-    snprintf(line, sizeof(line), "%03d", map->player_resources[0] % 1000);
-    font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 8,
-                       line, (SDL_Color){ 41, 217, 230, 255 }, 1);
-    snprintf(line, sizeof(line), "%d/%d", active_vents, map->resource_vent_count);
-    font_draw_text(app->renderer, font, layout.resources.x + 4, layout.resources.y + 28,
-                       line, dim, 1);
+    dc_ui_draw_capital(app, font, layout.resources, map->player_resources[0],
+                       active_vents, map->resource_vent_count);
 
     DarkColonySidebar fallback_sidebar;
     if (!sidebar) {
@@ -1367,12 +1722,14 @@ static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const G
     }
     int hover_button = -1;
     const Unit *selected = dc_first_selected_unit(units, unit_count);
-    const DarkColonyProductButton *products[6] = { 0 };
+    const DarkColonyProductButton *products[8] = { 0 };
     int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
     bool product_mode = dc_selected_unit_is_player_building(selected);
     int visible_button_count = product_mode ? product_count : sidebar->command_count;
     for (int i = 0; i < visible_button_count; ++i) {
-        if (point_in_rect(app->mouse_x, app->mouse_y, layout.buttons[i])) {
+        SDL_Rect button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+            layout.buttons[i];
+        if (point_in_rect(app->mouse_x, app->mouse_y, button_rect)) {
             hover_button = i;
             break;
         }
@@ -1400,30 +1757,43 @@ static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const G
                            amber, 1);
         }
     } else if (product_mode) {
-        snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
+        if (selected && selected->production_queue_count > 0 &&
+            selected->production_time_ms > 0) {
+            int done = selected->production_time_ms - selected->production_time_left_ms;
+            int pct = done * 100 / selected->production_time_ms;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            snprintf(line, sizeof(line), "Training x%d %d%%",
+                     selected->production_queue_count, pct);
+        } else {
+            snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
+        }
         if (line[0] != '\0') {
             font_draw_text(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            line, dim, 1);
         }
     }
-    for (int i = 0; i < 6; ++i) {
+    int button_slots = product_mode ? 8 : 6;
+    for (int i = 0; i < button_slots; ++i) {
+        SDL_Rect button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+            layout.buttons[i];
         if (product_mode && i >= product_count) {
-            dc_ui_fill(app->renderer, layout.buttons[i], (SDL_Color){ 10, 12, 12, 185 });
-            dc_ui_stroke(app->renderer, layout.buttons[i], (SDL_Color){ 66, 72, 70, 255 });
+            dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 10, 12, 12, 185 });
+            dc_ui_stroke(app->renderer, button_rect, (SDL_Color){ 66, 72, 70, 255 });
             continue;
         }
         int frame = product_mode && products[i] ? products[i]->icon_frame :
             dc_sidebar_command_frame(&sidebar->commands[i], selected);
         if (buttons && buttons->texture) {
-            dc_ui_draw_sprite_fit(app->renderer, buttons, frame, layout.buttons[i], 0);
+            dc_ui_draw_sprite_fit(app->renderer, buttons, frame, button_rect, 0);
             if (product_mode && products[i] && map->player_resources[0] < products[i]->cost) {
-                dc_ui_fill(app->renderer, layout.buttons[i], (SDL_Color){ 0, 0, 0, 105 });
+                dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
             }
         } else {
             SDL_Color fill = (i == 0 && !product_mode) ? (SDL_Color){ 150, 150, 145, 255 } :
                              (SDL_Color){ 175, 175, 168, 255 };
-            dc_ui_fill(app->renderer, layout.buttons[i], fill);
-            dc_ui_stroke(app->renderer, layout.buttons[i], i == 0 && !product_mode ?
+            dc_ui_fill(app->renderer, button_rect, fill);
+            dc_ui_stroke(app->renderer, button_rect, i == 0 && !product_mode ?
                          (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
         }
     }
@@ -1764,7 +2134,7 @@ int main(int argc, char **argv) {
                 }
                 continue;
             }
-            if (dark_colony_ui && dark_colony_ui_handle_event(&app, units, unit_count, &e)) {
+            if (dark_colony_ui && dark_colony_ui_handle_event(&app, &map, units, unit_count, &e)) {
                 continue;
             }
             handle_event(&app, &map, units, unit_count, &unit_sprite,
@@ -1787,6 +2157,17 @@ int main(int argc, char **argv) {
                                                       &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load scripted runtime sprites\n");
                     }
+                }
+            }
+            int before_production_count = unit_count;
+            bool production_spawned = dark_colony_ui &&
+                dc_update_production_queues(plugin, &map, units, &unit_count,
+                                            effects, MAX_VISUAL_EFFECTS, FIXED_DT);
+            if (production_spawned || unit_count != before_production_count) {
+                if (plugin->load_runtime_sprites &&
+                    !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
+                                                  &decoration_sprites)) {
+                    fprintf(stderr, "warning: failed to load produced unit sprite\n");
                 }
             }
             update_visual_effects(&map, effects, MAX_VISUAL_EFFECTS,

@@ -731,12 +731,39 @@ static int assert_human02(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("Human02 snapshot after training Trooper");
     }
-    if (snapshot.unit_count != units_before_production + 1 ||
-        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production + 1) {
-        return fail("Human02 Trooper production creates one player Trooper");
+    if (snapshot.unit_count != units_before_production ||
+        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
+        return fail("Human02 Trooper production queues instead of spawning instantly");
     }
     if (snapshot.player_resources[0] != resources_before_production - 350) {
-        return fail("Human02 Trooper production spends the DEPEND cost");
+        return fail("Human02 queued Trooper production spends the DEPEND cost immediately");
+    }
+    for (int i = 0; i < 30 * 4; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human02 while training Trooper");
+        }
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Human02 snapshot during queued Trooper release");
+    }
+    if (snapshot.unit_count != units_before_production ||
+        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
+        return fail("Human02 Trooper release animation delays the spawned unit");
+    }
+    if (!snapshot_has_effect(&snapshot, "SPRITES/HUBU.SPR")) {
+        return fail("Human02 Trooper production plays HUBU.FIN TRSCBUILD0 hatch effect");
+    }
+    for (int i = 0; i < 30 * 5; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human02 while releasing Trooper");
+        }
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Human02 snapshot after queued Trooper training");
+    }
+    if (snapshot.unit_count != units_before_production + 1 ||
+        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production + 1) {
+        return fail("Human02 queued Trooper production completes after model ticks");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",

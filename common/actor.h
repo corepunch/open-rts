@@ -164,6 +164,14 @@ typedef struct Unit {
     bool death_started;
     bool remove;
     bool move_order_arrived;
+    uint16_t production_actor_id;
+    uint8_t production_product_class;
+    int production_product_type;
+    int production_queue_count;
+    int production_time_ms;
+    int production_time_left_ms;
+    bool production_release_active;
+    int production_release_time_left_ms;
     float radius;
     float move_goal_gx;
     float move_goal_gy;

@@ -1531,6 +1531,11 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         load_dark_colony_camera_from_scenario(&native->scenario, out);
         load_dark_colony_resource_vents_from_scenario(&native->scenario, out);
         load_dark_colony_beacons_from_scenario(&native->scenario, out);
+        int team_count = native->scenario.team_count;
+        if (team_count > 8) team_count = 8;
+        for (int i = 0; i < team_count; ++i) {
+            out->player_resources[i] = native->scenario.teams[i].money;
+        }
     }
 
     const char *base = strrchr(native->map.path, '/');
