@@ -236,6 +236,16 @@ static int snapshot_count_units_with_owner_and_type(const RtsRenderSnapshot *sna
     return count;
 }
 
+static int snapshot_find_unit_with_owner_and_type(const RtsRenderSnapshot *snapshot,
+                                                  uint8_t owner, uint16_t type_id) {
+    if (!snapshot) return -1;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (snapshot->units[i].owner == owner && snapshot->units[i].type_id == type_id)
+            return i;
+    }
+    return -1;
+}
+
 static bool near_cell_center(float value, int cell) {
     float expected = (float)cell + 0.5f;
     float delta = value - expected;
@@ -731,6 +741,12 @@ static int assert_human02(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("Human02 snapshot after training Trooper");
     }
+    int barracks_index = snapshot_find_unit_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD);
+    if (barracks_index < 0) {
+        return fail("Human02 has a player Barracks for Trooper production");
+    }
+    float barracks_gx = snapshot.units[barracks_index].gx;
+    float barracks_gy = snapshot.units[barracks_index].gy;
     if (snapshot.unit_count != units_before_production ||
         snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
         return fail("Human02 Trooper production queues instead of spawning instantly");
@@ -753,17 +769,41 @@ static int assert_human02(RtsGameModel *model) {
     if (!snapshot_has_effect(&snapshot, "SPRITES/HUBU.SPR")) {
         return fail("Human02 Trooper production plays HUBU.FIN TRSCBUILD0 hatch effect");
     }
-    for (int i = 0; i < 30 * 5; ++i) {
+    bool production_spawned = false;
+    for (int i = 0; i < 30 * 5 && !production_spawned; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while releasing Trooper");
         }
+        if (!rts_game_model_snapshot(model, &snapshot)) {
+            return fail("Human02 snapshot while releasing Trooper");
+        }
+        production_spawned =
+            snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) ==
+            troopers_before_production + 1;
     }
-    if (!rts_game_model_snapshot(model, &snapshot)) {
-        return fail("Human02 snapshot after queued Trooper training");
-    }
-    if (snapshot.unit_count != units_before_production + 1 ||
+    if (!production_spawned || snapshot.unit_count != units_before_production + 1 ||
         snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production + 1) {
         return fail("Human02 queued Trooper production completes after model ticks");
+    }
+    float expected_exit_gx = barracks_gx + 16.0f / (float)CELL_W;
+    float expected_exit_gy = barracks_gy - 75.0f / (float)CELL_H;
+    int produced_trooper = -1;
+    for (int i = 0; i < snapshot.unit_count; ++i) {
+        const RtsRenderUnit *unit = &snapshot.units[i];
+        if (unit->owner != 0 || unit->type_id != MT_DC_TROOPER) continue;
+        float dx = unit->gx - expected_exit_gx;
+        float dy = unit->gy - expected_exit_gy;
+        if (dx * dx + dy * dy < 0.01f) {
+            produced_trooper = i;
+            break;
+        }
+    }
+    if (produced_trooper < 0) {
+        return fail("Human02 completed Trooper spawns at FIN-authored Barracks release point");
+    }
+    if (!snapshot.units[produced_trooper].has_move_order ||
+        snapshot.units[produced_trooper].move_goal_gy >= snapshot.units[produced_trooper].gy) {
+        return fail("Human02 completed Trooper receives a doorway-clearing move order");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",

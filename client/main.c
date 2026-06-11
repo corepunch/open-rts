@@ -4,6 +4,7 @@
 #include "renderer.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1363,6 +1364,26 @@ static bool dc_position_available_for_spawn(const GameMap *map, const Unit *unit
     return true;
 }
 
+static bool dc_position_walkable_for_spawn(const GameMap *map, float gx, float gy,
+                                           float radius) {
+    if (!map) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!map_walkable(map, x, y)) return false;
+        }
+    }
+    return true;
+}
+
 static bool dc_find_spawn_position_near(const GameMap *map, const Unit *units,
                                         int unit_count, const Unit *producer,
                                         float radius, float *out_gx,
@@ -1401,6 +1422,118 @@ static bool dc_find_spawn_position_near(const GameMap *map, const Unit *units,
     return false;
 }
 
+static bool dc_state_offset_for_facing(const State *state, bool overlay, int facing_code,
+                                       int *out_x, int *out_y) {
+    if (!state || !out_x || !out_y) return false;
+    int facings = overlay ? state->overlay_facings : state->facings;
+    if (facings <= 0) return false;
+    int best = 0;
+    int best_delta = 0x7fffffff;
+    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        int code = overlay ? state->overlay_direction_codes[i] : state->direction_codes[i];
+        int delta = abs(code - facing_code);
+        if (delta < best_delta) {
+            best = i;
+            best_delta = delta;
+        }
+        if (delta == 0) break;
+    }
+    *out_x = overlay ? state->overlay_offset_x[best] : state->offset_x[best];
+    *out_y = overlay ? state->overlay_offset_y[best] : state->offset_y[best];
+    return true;
+}
+
+static bool dc_barracks_release_spawn_point(const GameInfo *game_info,
+                                            const Unit *producer,
+                                            const Unit *new_unit,
+                                            float *out_gx,
+                                            float *out_gy) {
+    if (!game_info || !producer || !new_unit || !out_gx || !out_gy) return false;
+    const State *stand = dc_state_at(game_info, new_unit->state_id);
+    if (!stand) return false;
+    int stand_x = 0;
+    int stand_y = 0;
+    if (!dc_state_offset_for_facing(stand, false, new_unit->facing_code, &stand_x, &stand_y))
+        return false;
+
+    int release_state_id = dc_find_state_by_group_frame(game_info,
+                                                        DC_CLIENT_PRODUCTION_BUILD_GROUP,
+                                                        DC_CLIENT_TRSCBUILD_FIRST_FRAME);
+    int release_x = 0;
+    int release_y = 0;
+    bool saw_release_trooper = false;
+    int guard = 0;
+    while (guard++ < game_info->state_count + 1) {
+        const State *state = dc_state_at(game_info, release_state_id);
+        if (!state || state->misc1 != DC_CLIENT_PRODUCTION_BUILD_GROUP) break;
+        int x = 0;
+        int y = 0;
+        if (state->sprite == stand->sprite &&
+            dc_state_offset_for_facing(state, false, new_unit->facing_code, &x, &y)) {
+            release_x = x;
+            release_y = y;
+            saw_release_trooper = true;
+        }
+        if (state->overlay_sprite == stand->sprite &&
+            dc_state_offset_for_facing(state, true, new_unit->facing_code, &x, &y)) {
+            release_x = x;
+            release_y = y;
+            saw_release_trooper = true;
+        }
+        int next = state->nextstate;
+        if (next == game_info->null_state || next == release_state_id) break;
+        release_state_id = next;
+    }
+    if (!saw_release_trooper) return false;
+
+    *out_gx = producer->gx + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer->gy - (float)(release_y - stand_y) / (float)CELL_H;
+    return true;
+}
+
+static void dc_order_barracks_exit_spacing(const GameMap *map, Unit *units, int unit_count,
+                                           int spawned_index, const Unit *producer,
+                                           float exit_gx, float exit_gy) {
+    if (!map || !units || !producer || spawned_index < 0 || spawned_index >= unit_count)
+        return;
+    bool saved[MAX_UNITS];
+    for (int i = 0; i < unit_count; ++i) {
+        saved[i] = units[i].selected;
+        units[i].selected = false;
+    }
+
+    float crowd_radius = 2.75f;
+    float crowd_radius_sq = crowd_radius * crowd_radius;
+    for (int i = 0; i < unit_count; ++i) {
+        Unit *unit = &units[i];
+        if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
+            (unit->traits & RTS_TRAIT_MOBILE) == 0) {
+            continue;
+        }
+        float dx = unit->gx - exit_gx;
+        float dy = unit->gy - exit_gy;
+        if (i == spawned_index || dx * dx + dy * dy <= crowd_radius_sq) {
+            unit->selected = true;
+        }
+    }
+
+    float dx = exit_gx - producer->gx;
+    float dy = exit_gy - producer->gy;
+    float len = sqrtf(dx * dx + dy * dy);
+    if (len < 0.01f) {
+        dx = 0.0f;
+        dy = -1.0f;
+        len = 1.0f;
+    }
+    float goal_gx = exit_gx + dx / len * 1.5f;
+    float goal_gy = exit_gy + dy / len * 1.5f;
+    issue_move_order_at(map, units, unit_count, goal_gx, goal_gy);
+
+    for (int i = 0; i < unit_count; ++i) {
+        units[i].selected = saved[i];
+    }
+}
+
 static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *map,
                                            Unit *units, int *unit_count,
                                            int producer_index,
@@ -1425,13 +1558,23 @@ static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *
     float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
     float gx = 0.0f;
     float gy = 0.0f;
-    if (!dc_find_spawn_position_near(map, units, *unit_count, &units[producer_index],
-                                     radius, &gx, &gy)) {
+    Unit *producer = &units[producer_index];
+    const DarkColonyProductButton *product = dc_product_by_type(producer->production_product_type);
+    bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
+    if (use_barracks_release &&
+        dc_barracks_release_spawn_point(plugin->game_info, producer, &new_unit, &gx, &gy) &&
+        dc_position_walkable_for_spawn(map, gx, gy, radius)) {
+        /* The release FIN places the visual handoff; occupied exit cells are cleared below. */
+    } else if (!dc_find_spawn_position_near(map, units, *unit_count, producer,
+                                            radius, &gx, &gy)) {
         return false;
     }
     new_unit.gx = gx;
     new_unit.gy = gy;
+    int spawned_index = *unit_count;
     units[(*unit_count)++] = new_unit;
+    if (use_barracks_release)
+        dc_order_barracks_exit_spacing(map, units, *unit_count, spawned_index, producer, gx, gy);
     return true;
 }
 

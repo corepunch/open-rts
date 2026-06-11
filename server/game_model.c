@@ -26,6 +26,10 @@ typedef struct {
     int maker_count;
 } StaticProductDefinition;
 
+static bool dark_colony_product_uses_barracks_release(const Unit *producer,
+                                                      const StaticProductDefinition *product,
+                                                      uint16_t actor_id);
+
 enum {
     DC_ACTOR_TROOPER = 1,
     DC_ACTOR_BRRKPOD = 1001,
