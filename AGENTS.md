@@ -48,3 +48,68 @@ with DC.EXE (`DC_MAX_OBJECTS == 800`, `DC_OBJECT_SIZE == 0xdc`) and fill unknown
 fields by offset until their meaning is known. Decompiled routines may be ported
 near-literally when that preserves startup flow, object storage, rendering, or
 animation behavior.
+
+## Dark Colony reverse engineering
+
+Use the original Dark Colony binaries and data files as the authority. The goal
+is to reproduce what DC does, not to invent engine-side compatibility shims.
+When a behavior is unclear, inspect `data/DCOLONY/DC.EXE`, the relevant MAP/SCN
+files, and the SPR/FIN assets together.
+
+Generate project-local r2ghidra output into an ignored folder:
+
+```sh
+mkdir -p reverse/dc-exe-r2ghidra
+r2 -q -e bin.cache=true -A -c "afl" -c q data/DCOLONY/DC.EXE > reverse/dc-exe-r2ghidra/functions.txt
+r2 -q -e bin.cache=true -A -c "pdg @@F" -c q data/DCOLONY/DC.EXE > reverse/dc-exe-r2ghidra/dc_exe.c
+```
+
+`reverse/dc-exe-r2ghidra/` is ignored by git. Regenerate it whenever needed, but
+do not commit generated decompiler dumps. r2 may print missing DLL SDB warnings
+for imports such as `dplayx`; those warnings are expected and do not usually
+block decompilation.
+
+Useful r2/r2ghidra commands:
+
+```sh
+# strings and references
+r2 -q -e bin.cache=true -A -c "iz~draw" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "axt @ 0x00400000" -c q data/DCOLONY/DC.EXE
+
+# function lists and focused code
+r2 -q -e bin.cache=true -A -c "afl" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdg @ 0x0043a144" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pD 2200 @ 0x0043a144" -c q data/DCOLONY/DC.EXE
+```
+
+Search the generated C with `rg` first, then go back to r2 for exact addresses,
+xrefs, disassembly, and decompiler context. Keep notes of stable findings in
+`REFERENCES.md` when they explain file formats, object layout, startup flow, or
+rendering behavior.
+
+Reverse-engineering rules for Dark Colony:
+
+- Prefer DC-shaped data structures and procedures over generic abstractions.
+- Derive positions, animation handoffs, frame choices, remaps, intensities, and
+  sort/order behavior from MAP/SCN/SPR/FIN data or DC.EXE tables.
+- Do not add hacks keyed by sprite name, building name, mission name, or visual
+  coincidence. If something needs a special case, find the DC data field or code
+  path that causes it.
+- Treat Dark Colony world coordinates as bottom-up, matching the original game.
+  Remove old top-left/y-flip bridge logic rather than compensating around it.
+- Preserve SCN/MAP load pass order when it matters. DC loads some scenario data
+  in separate passes; if a value looks flipped or delayed, check the loader flow
+  before adding conversions.
+- Use FIN command offsets directly for sprite layout. For example, building
+  placement, Barracks Trooper release handoff, overlays, and multi-part sprites
+  should come from FIN/state offsets converted through the game cell size.
+- Keep the pentagon/base/map layer stable and reposition sprites as DC does;
+  do not move terrain to make sprites appear correct.
+- For animation playback, follow DC state chains and frame timing. For Barracks
+  production, the Trooper visual release comes from `HUBU.FIN`/`TRSCBUILD0`, and
+  the spawned unit handoff is the delta between the final release frame offset
+  and the standing Trooper state offset.
+- For selection and health overlays, use the actual DC sprites/frames and health
+  thresholds found in the binary/assets instead of drawing replacement shapes.
+- For resources and production, use SCN team money, product costs/prerequisites,
+  producer queues, release animations, and unit spacing behavior from DC logic.
