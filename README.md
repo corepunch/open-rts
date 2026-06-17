@@ -1,5 +1,7 @@
 # open-rts
 
+<img src="https://github.com/user-attachments/assets/188b527b-6109-4130-b670-dedc3064ee03" />
+
 Small C/SDL2 base for an old-school grid-based RTS renderer/simulation,
 currently wired to Dark Reign: The Future of War and Dark Colony data files.
 
