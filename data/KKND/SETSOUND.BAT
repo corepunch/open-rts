@@ -1,0 +1,1 @@
+thevoice -pc:\thevoice.cfg
