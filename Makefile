@@ -22,6 +22,7 @@ DC_LAYOUT_TEST_TARGET := $(BIN_DIR)/test_dark_colony_sprite_layout
 DATA_DIR          := data
 DARK_REIGN_ROOT   := $(DATA_DIR)/REIGN/dark
 DARK_COLONY_ROOT  := $(DATA_DIR)/DCOLONY
+KKND_ROOT         := $(DATA_DIR)/KKND
 
 # Shared library extension (dylib on macOS, so on Linux)
 UNAME := $(shell uname)
@@ -72,6 +73,14 @@ SL_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SL_SOURCES))
 SL_DEPS    := $(SL_OBJECTS:.o=.d)
 SL_LIB     := $(LIBS_DIR)/7legion$(LIB_EXT)
 
+# ── KKnD plugin ────────────────────────────────────────────────────────────────
+KKND_SOURCES := \
+	plugins/KKND/plugin.c \
+	plugins/KKND/kknd_loader.c
+KKND_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(KKND_SOURCES))
+KKND_DEPS    := $(KKND_OBJECTS:.o=.d)
+KKND_LIB     := $(LIBS_DIR)/kknd$(LIB_EXT)
+
 # ── anim_extract tool ────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE := tools/anim_extract.c
 ANIM_EXTRACT_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(ANIM_EXTRACT_SOURCE))
@@ -104,9 +113,9 @@ DC_LAYOUT_TEST_SOURCES := \
 DC_LAYOUT_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_LAYOUT_TEST_SOURCES))
 DC_LAYOUT_TEST_DEPS    := $(DC_LAYOUT_TEST_OBJECTS:.o=.d)
 
-.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion anim-extract clean
+.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion kknd kknd-check anim-extract clean
 
-all: $(TARGET) $(DR_LIB) $(DC_LIB) $(SL_LIB) $(MODEL_LIB_TARGET)
+all: $(TARGET) $(DR_LIB) $(DC_LIB) $(SL_LIB) $(KKND_LIB) $(MODEL_LIB_TARGET)
 
 # ── link main binary ─────────────────────────────────────────────────────────
 $(TARGET): $(MAIN_OBJECTS) | $(BIN_DIR)
@@ -121,6 +130,9 @@ $(DC_LIB): $(DC_OBJECTS) | $(LIBS_DIR)
 
 $(SL_LIB): $(SL_OBJECTS) | $(LIBS_DIR)
 	$(CC) $(LIB_FLAGS) -fPIC $(SL_OBJECTS) -o $@ $(SDL_LIBS) -lm
+
+$(KKND_LIB): $(KKND_OBJECTS) | $(LIBS_DIR)
+	$(CC) $(LIB_FLAGS) -fPIC $(KKND_OBJECTS) -o $@ $(SDL_LIBS) -lm
 
 # ── anim_extract ─────────────────────────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(ANIM_EXTRACT_OBJECT)
@@ -189,6 +201,12 @@ dark-colony-human02: all
 7legion: all
 	$(TARGET) --game 7legion data/7LEGION
 
+kknd: all
+	$(TARGET) --game kknd
+
+kknd-check: all
+	env SDL_VIDEODRIVER=dummy $(TARGET) --check --game kknd
+
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
 test: test-headless
@@ -204,6 +222,7 @@ clean:
 -include $(DR_DEPS)
 -include $(DC_DEPS)
 -include $(SL_DEPS)
+-include $(KKND_DEPS)
 -include $(ANIM_EXTRACT_DEPS)
 -include $(DC_INFO_GEN_DEPS)
 -include $(DC_GAMESTAT_GEN_DEPS)

@@ -3,7 +3,8 @@
 <img src="https://github.com/user-attachments/assets/188b527b-6109-4130-b670-dedc3064ee03" />
 
 Small C/SDL2 base for an old-school grid-based RTS renderer/simulation,
-currently wired to Dark Reign: The Future of War and Dark Colony data files.
+currently wired to Dark Reign: The Future of War, Dark Colony, and KKnD data
+files.
 
 ## Build
 
@@ -14,6 +15,7 @@ make mission-1
 make mission-2
 make dark-reign
 make dark-colony
+make kknd
 ```
 
 ## Tests
@@ -30,6 +32,7 @@ directory:
 ```text
 data/REIGN/dark
 data/DCOLONY
+data/KKND
 ```
 
 You can override the data root, map, and unit sprite:
@@ -37,6 +40,7 @@ You can override the data root, map, and unit sprite:
 ```sh
 build/bin/open-rts --game dark-reign /path/to/dark scenario/MULTI/8JUNGLE/8JUNGLE.SCN ucfcnst0.spr
 build/bin/open-rts --game dark-colony /path/to/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MTG SPRITES/TROOPER1.SPR
+build/bin/open-rts --game kknd /path/to/KKND LEVELS/640/SURV_01.LVL 'LEVELS/640/SPRITES.LVL|Infantry.mobd'
 ```
 
 For a non-interactive loader/renderer check (uses SDL dummy driver — no display required):
@@ -44,6 +48,7 @@ For a non-interactive loader/renderer check (uses SDL dummy driver — no displa
 ```sh
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --check
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game dark-colony
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game kknd
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-smoke.bmp
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony-ui.bmp --game dark-colony
 ```
@@ -80,6 +85,7 @@ client/                 shared SDL terrain, sprite, minimap, and UI rendering
 server/                 presentation-neutral game model
 plugins/DarkReign/      Dark Reign formats, assets, actors, and UI layout
 plugins/DarkColony/     Dark Colony formats, data-shaped runtime, and assets
+plugins/KKND/           KKnD LVL containers, MAPD terrain, and MOBD sprites
 ```
 
 Game folders describe assets and layout; the shared client owns composition and
@@ -128,6 +134,11 @@ The code keeps old-game-specific file and coordinate details as adapters:
 - Dark Colony `.MAP` loader: width/height plus 6-byte map records. It uses the
   sibling `.O16` overview for first-pass terrain colors while the true terrain
   tile/remap resources are reverse engineered.
+- KKnD `DATA`/`.LVL` container loader: resolves typed file lists and their
+  archive-global offsets. The first Survivor mission's two `MAPD` layers are
+  decoded with their embedded palette and 32×32 tiles; `MOBD` sprite images
+  are decoded from `SPRITES.LVL`, including Gen1 scanline compression and
+  16-facing stand, attack, and walk sequences.
 
 That gives a place to add sibling adapters later for Dark Colony, Warcraft II,
 or other 8-bit paletted games without changing the simulation loop.

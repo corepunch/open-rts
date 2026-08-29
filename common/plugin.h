@@ -26,6 +26,7 @@ typedef enum {
     MAP_FORMAT_UNSPECIFIED = 0,
     MAP_FORMAT_DARK_REIGN_SCN,
     MAP_FORMAT_DARK_COLONY_MAP_MTG_OVH,
+    MAP_FORMAT_KKND_LVL,
 } MapFormat;
 
 typedef enum {

@@ -661,3 +661,37 @@ Local game-data files that have already been useful:
 - Dark Reign scenario and map coordinates are top-down. `SetStartLocation`
   values are world pixels (24 pixels per map cell), and imported SPR rotation
   zero points north after the file loader's quarter-turn normalization.
+
+## KKnD
+
+- OpenKrush (the successor to the archived OpenRA KKnD mod):
+  https://github.com/IceReaper/OpenKrush
+  - `Assets/FileFormats/Lvl.cs` documents the `DATA` container's typed file
+    lists and archive-global asset offsets.
+  - `Assets/FileFormats/Mapd.cs` documents embedded palettes, `SCRL` layers,
+    32×32 tile pointer grids, and the transparent upper layer.
+  - `Assets/FileFormats/Mobd*.cs` documents animation tables, frame anchors,
+    `SPRT` render records, and the Gen1 per-scanline sprite decompressor.
+- Archived OpenRA KKnD mod:
+  https://github.com/Dzierzan/KKnD
+  - Provides the original named index for `SPRITES.LVL` members. In particular,
+    `34.mobd` is `Infantry.mobd`.
+- OpenRA multi-layer map discussion:
+  https://github.com/OpenRA/OpenRA/issues/13364
+  - Confirms that KKnD terrain uses a second map layer for art that actors can
+    travel behind or underneath.
+
+Local format findings from `data/KKND`:
+
+- `LEVELS/640/SURV_01.LVL` is the first Survivor mission. Its first `MAPD`
+  member has two 50×40 `SCRL` layers, using 32×32 pixels per cell and a
+  256-color embedded palette.
+- The second `MAPD` member is a 16×1 graphic and is not the world map.
+- `LEVELS/640/SPRITES.LVL` has 86 MOBD slots, 81 populated. Infantry expands
+  to 176 referenced frames: 16 single-frame standing directions, 16×4 attack
+  frames, and 16×6 walking frames. Repeated frame pointers are intentional and
+  preserve the original direction table.
+- `CPLC` (mission objects/scripts) and `BOXD` (collision/passability) are still
+  unimplemented. The current vertical slice renders the original two-layer
+  mission art and original MOBD infantry, then uses the engine's fallback units
+  to make sprite loading and movement visible.
