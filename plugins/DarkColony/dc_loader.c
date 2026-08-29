@@ -1944,11 +1944,12 @@ static bool append_dark_colony_object_unit(Unit *units, int *count, int max_unit
     if (u->selected) *player_selected = true;
     u->frame = dark_colony_unit_frame_for_type(type);
     snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
+    StateContext ctx = { .game_info = &dark_colony_game_info };
     int state_id = dark_colony_unit_state_for_type(type);
-    if (state_id != S_NULL) {
-        StateContext ctx = { .game_info = &dark_colony_game_info };
+    if (state_id == S_NULL && u->type_id > 0 && u->type_id < dark_colony_game_info.mobj_type_count)
+        state_id = dark_colony_game_info.mobjinfo[u->type_id].spawnstate;
+    if (state_id != S_NULL)
         set_unit_state(&ctx, u, state_id);
-    }
     if (u->owner == 0) {
         int x = object->cell_x;
         int y = object->cell_z;
