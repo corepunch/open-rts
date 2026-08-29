@@ -100,7 +100,13 @@ typedef enum {
     RTS_STATE_COORDS_FIN_TOP_LEFT = 1,
 } StateCoordMode;
 
+typedef enum {
+    SELECTION_STYLE_SPRITE = 0,
+    SELECTION_STYLE_CIRCLE,
+} SelectionStyle;
+
 typedef struct {
+    SelectionStyle style;
     int sprite;
     int healthy_frame;
     int wounded_frame;

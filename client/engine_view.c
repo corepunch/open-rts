@@ -851,6 +851,33 @@ static SDL_Color selection_health_tint(int bucket) {
     }
 }
 
+static void draw_ellipse_outline(SDL_Renderer *renderer, int cx, int cy, int rx, int ry) {
+    if (rx <= 0 || ry <= 0) return;
+    int steps = (rx + ry) * 2;
+    if (steps < 16) steps = 16;
+    for (int i = 0; i < steps; ++i) {
+        float a = (float)i / (float)steps * 6.28318530f;
+        int x = (int)(rx * cosf(a) + 0.5f);
+        int y = (int)(ry * sinf(a) + 0.5f);
+        SDL_RenderDrawPoint(renderer, cx + x, cy + y);
+    }
+}
+
+static void draw_selection_circle(App *app, const Unit *u, int cx, int cy, int radius) {
+    if (!app || !app->renderer || radius < 2) return;
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
+    int rx = radius;
+    int ry = radius / 2;
+    if (ry < 2) ry = 2;
+    SDL_Color tint = selection_health_tint(selection_health_bucket(u));
+    SDL_SetRenderDrawColor(app->renderer, 8, 10, 8, 255);
+    draw_ellipse_outline(app->renderer, cx, cy + 1, rx + 1, ry);
+    draw_ellipse_outline(app->renderer, cx, cy + 1, rx,     ry);
+    SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, 255);
+    draw_ellipse_outline(app->renderer, cx, cy, rx + 1, ry);
+    draw_ellipse_outline(app->renderer, cx, cy, rx,     ry);
+}
+
 static void draw_selection_triangle(App *app, const Unit *u, const SDL_Rect *visible) {
     if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
     int cx = visible->x + visible->w / 2;
@@ -999,7 +1026,13 @@ static void render_unit_sprite(App *app, const GameMap *map,
     end_sprite_command(texture, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
     if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
-        if (!draw_selection_marker_sprite(app, u, cache, game_info, &visible))
+        SelectionStyle sel_style = game_info ? game_info->selection_marker.style
+                                             : SELECTION_STYLE_SPRITE;
+        if (sel_style == SELECTION_STYLE_CIRCLE) {
+            int radius = (int)(unit_pick_radius_px(app, u) * 0.85f);
+            draw_selection_circle(app, u, (int)sx, (int)sy, radius);
+        }
+        else if (!draw_selection_marker_sprite(app, u, cache, game_info, &visible))
             draw_selection_triangle(app, u, &visible);
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {

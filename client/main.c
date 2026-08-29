@@ -324,6 +324,116 @@ static const State *debug_anim_state_for_time(const GameInfo *game_info,
     return &game_info->states[row->state_ids[row->state_count - 1]];
 }
 
+/* ── sprite facing grid diagnostic ──────────────────────────────────────── */
+
+static const char *fg_direction_label(DirectionMode mode, int code) {
+    if (mode == RTS_DIRECTION_DARK_REIGN_8) {
+        static const char *dr8[] = {"N","NE","E","SE","S","SW","W","NW"};
+        return dr8[(code / 2) & 7];
+    }
+    if (mode == RTS_DIRECTION_DARK_COLONY_8) {
+        static const char *dc8[] = {"N","NE","E","SE","S","SW","W","NW"};
+        return dc8[code & 7];
+    }
+    if (mode == RTS_DIRECTION_DARK_COLONY_16) {
+        static const char *dc16[] = {
+            "N","NNE","NE","ENE","E","ESE","SE","SSE",
+            "S","SSW","SW","WSW","W","WNW","NW","NNW"
+        };
+        return dc16[code & 15];
+    }
+    /* COMPASS_16: atan2f(-dy,dx), sector 0=E, clockwise */
+    static const char *c16[] = {"E","NE","N","NW","W","SW","S","SE"};
+    return c16[(code / 2) & 7];
+}
+
+static const SpriteSequence *fg_seq_find(const SpriteSheet *s, const char *name) {
+    if (!s || !name) return NULL;
+    for (int i = 0; i < s->sequence_count; ++i)
+        if (strcmp(s->sequences[i].name, name) == 0) return &s->sequences[i];
+    return NULL;
+}
+
+static SDL_Rect fg_frame_rect(const SpriteSheet *s, int frame) {
+    if (s && s->frames && frame >= 0 && frame < s->frame_count && s->frames[frame].w > 0)
+        return s->frames[frame];
+    return (SDL_Rect){0, 0, s ? s->frame_w : 64, s ? s->frame_h : 64};
+}
+
+/* Render a grid: rows = sequences (stand/run/…), columns = facing directions.
+   Each cell shows the first animation frame for that facing with the compass label
+   derived from the sequence's direction_codes[].  Use --show-facings to invoke. */
+static void render_sprite_facing_grid(SDL_Renderer *sdl, const SpriteSheet *sprite,
+                                      DirectionMode dir_mode, DebugFont *font) {
+    if (!sdl || !sprite || !font) return;
+
+    static const char *want[] = {"stand", "run", "walk", "idle", "shoot"};
+    const SpriteSequence *seqs[5];
+    const char *seq_labels[5];
+    int nseqs = 0;
+    for (int w = 0; w < 5 && nseqs < 5; ++w) {
+        const SpriteSequence *seq = fg_seq_find(sprite, want[w]);
+        if (!seq || seq->facings <= 0 || seq->length <= 0) continue;
+        bool dup = false;
+        for (int j = 0; j < nseqs; ++j) if (seqs[j] == seq) { dup = true; break; }
+        if (!dup) { seqs[nseqs] = seq; seq_labels[nseqs] = want[w]; nseqs++; }
+    }
+    if (nseqs == 0) return;
+
+    int max_facings = 0;
+    for (int s = 0; s < nseqs; ++s)
+        if (seqs[s]->facings > max_facings) max_facings = seqs[s]->facings;
+
+    int fw = sprite->frame_w > 0 ? sprite->frame_w : 64;
+    int fh = sprite->frame_h > 0 ? sprite->frame_h : 64;
+    int label_h = 10;
+    int row_lbl_w = 40;
+    int pad = 4;
+    int cell_w = fw + pad;
+    int cell_h = fh + label_h + pad;
+    int header_h = label_h + pad * 2;
+
+    SDL_SetRenderDrawColor(sdl, 20, 20, 35, 255);
+    SDL_RenderClear(sdl);
+
+    /* Column headers from the first sequence's direction_codes */
+    const SpriteSequence *ref = seqs[0];
+    for (int col = 0; col < ref->facings; ++col) {
+        int x = row_lbl_w + col * cell_w;
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%s/%d",
+                 fg_direction_label(dir_mode, ref->direction_codes[col]),
+                 ref->direction_codes[col]);
+        SDL_Color hcol = {200, 230, 255, 255};
+        debug_font_draw_text(sdl, font, x, pad, buf, hcol, 1);
+    }
+
+    for (int row = 0; row < nseqs; ++row) {
+        const SpriteSequence *seq = seqs[row];
+        int row_y = header_h + row * cell_h;
+
+        SDL_Color lbl_col = {255, 200, 60, 255};
+        debug_font_draw_text(sdl, font, pad, row_y + fh / 2, seq_labels[row], lbl_col, 1);
+
+        for (int col = 0; col < seq->facings; ++col) {
+            int frame_idx = seq->frame_starts[col];
+            if (frame_idx < 0 || frame_idx >= sprite->frame_count) continue;
+
+            int cx = row_lbl_w + col * cell_w;
+            int cy = row_y;
+
+            SDL_Rect src = fg_frame_rect(sprite, frame_idx);
+            SDL_Rect dst = {cx, cy, fw, fh};
+            SDL_RenderCopy(sdl, sprite->texture, &src, &dst);
+
+            char fbuf[8];
+            snprintf(fbuf, sizeof(fbuf), "#%d", frame_idx);
+            SDL_Color gcol = {150, 150, 150, 255};
+            debug_font_draw_text(sdl, font, cx, cy + fh + 2, fbuf, gcol, 1);
+        }
+    }
+}
+
 static void debug_animation_grid_render(const App *app, const SpriteSheet *sprite,
                                         const char *sprite_name, const GameInfo *game_info,
                                         const DebugOverlay *overlay) {
@@ -619,7 +729,8 @@ static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, con
     unit->gx = (float)cell.x + 0.5f;
     unit->gy = (float)cell.y + 0.5f;
     unit->owner = 1;
-    unit->facing_code = plugin->game_info ? 6 : 8;
+    unit->facing_code = (plugin->game_info &&
+        plugin->game_info->direction_mode != RTS_DIRECTION_DARK_REIGN_8) ? 6 : 8;
     apply_actor_type_defaults(unit, type);
     apply_mobjinfo_defaults(plugin->game_info, unit);
     (*unit_count)++;
@@ -1981,8 +2092,10 @@ static void load_plugin_by_id(const char *game_id) {
 int main(int argc, char **argv) {
     bool check_only = argc > 1 && strcmp(argv[1], "--check") == 0;
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
+    bool show_facings_only = argc > 1 && strcmp(argv[1], "--show-facings") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
-    int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
+    const char *show_facings_path = show_facings_only && argc > 2 ? argv[2] : NULL;
+    int arg_base = check_only ? 2 : ((screenshot_only || show_facings_only) ? 3 : 1);
     bool software_renderer = false;
     const char *debug_query = NULL;
     bool debug_animation_grid = false;
@@ -2067,11 +2180,13 @@ int main(int argc, char **argv) {
         app.win_w = 1280;
         app.win_h = 800;
     }
+    if (show_facings_only) { app.win_w = 1280; app.win_h = 720; }
     app.show_grid = false;
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
-                             app.win_w, app.win_h, check_only || screenshot_only,
-                             check_only || screenshot_only || software_renderer)) {
+                             app.win_w, app.win_h,
+                             check_only || screenshot_only || show_facings_only,
+                             check_only || screenshot_only || show_facings_only || software_renderer)) {
         return 1;
     }
     app.window = renderer.window;
@@ -2148,6 +2263,27 @@ int main(int argc, char **argv) {
     printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, unit_count,
            map.decoration_count, map.resource_vent_count);
+
+    if (show_facings_only) {
+        DebugFont font = { 0 };
+        bool font_ok = debug_font_init(app.renderer, &font);
+        renderer_begin_frame(&renderer, (SDL_Color){ 20, 20, 35, 255 });
+        if (font_ok)
+            render_sprite_facing_grid(app.renderer, &unit_sprite, map.direction_mode, &font);
+        if (show_facings_path) {
+            if (renderer_save_screenshot(&renderer, show_facings_path))
+                printf("Saved facing grid: %s\n", show_facings_path);
+        } else {
+            fprintf(stderr, "--show-facings requires an output path\n");
+        }
+        if (font_ok) debug_font_destroy(&font);
+        destroy_sprite_cache(&decoration_sprites);
+        destroy_sprite(&unit_sprite);
+        destroy_tileset(&tileset);
+        destroy_map(&map);
+        renderer_destroy(&renderer);
+        return 0;
+    }
 
     if (debug_overlay.active) {
         if (screenshot_only) {

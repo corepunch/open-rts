@@ -314,7 +314,10 @@ static void sprite_sheet_add_linear_sequence(SpriteSheet *sheet, const char *nam
     seq->tick_ms = tick_ms > 0 ? tick_ms : 120;
     for (int i = 0; i < facings; ++i) {
         seq->frame_starts[i]   = start + i * length;
-        seq->direction_codes[i] = i * 16 / facings;
+        /* RSPR rotations start at North and advance counter-clockwise in screen
+           space (N, NW, W, SW, S, SE, E, NE for 8-rot sprites).  Map each
+           frame index back to the clockwise DR direction code accordingly. */
+        seq->direction_codes[i] = ((facings - i) % facings) * 16 / facings;
     }
 }
 

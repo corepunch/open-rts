@@ -64,6 +64,14 @@ DC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_SOURCES))
 DC_DEPS    := $(DC_OBJECTS:.o=.d)
 DC_LIB     := $(LIBS_DIR)/dark-colony$(LIB_EXT)
 
+# ── 7th legion plugin ───────────────────────────────────────────────────────
+SL_SOURCES := \
+	plugins/SeventhLegion/plugin.c \
+	plugins/SeventhLegion/sl_loader.c
+SL_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SL_SOURCES))
+SL_DEPS    := $(SL_OBJECTS:.o=.d)
+SL_LIB     := $(LIBS_DIR)/7legion$(LIB_EXT)
+
 # ── anim_extract tool ────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE := tools/anim_extract.c
 ANIM_EXTRACT_OBJECT := $(patsubst %.c,$(BUILD_DIR)/%.o,$(ANIM_EXTRACT_SOURCE))
@@ -96,9 +104,9 @@ DC_LAYOUT_TEST_SOURCES := \
 DC_LAYOUT_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_LAYOUT_TEST_SOURCES))
 DC_LAYOUT_TEST_DEPS    := $(DC_LAYOUT_TEST_OBJECTS:.o=.d)
 
-.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat anim-extract clean
+.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion anim-extract clean
 
-all: $(TARGET) $(DR_LIB) $(DC_LIB) $(MODEL_LIB_TARGET)
+all: $(TARGET) $(DR_LIB) $(DC_LIB) $(SL_LIB) $(MODEL_LIB_TARGET)
 
 # ── link main binary ─────────────────────────────────────────────────────────
 $(TARGET): $(MAIN_OBJECTS) | $(BIN_DIR)
@@ -110,6 +118,9 @@ $(DR_LIB): $(DR_OBJECTS) | $(LIBS_DIR)
 
 $(DC_LIB): $(DC_OBJECTS) | $(LIBS_DIR)
 	$(CC) $(LIB_FLAGS) -fPIC $(DC_OBJECTS) -o $@ $(SDL_LIBS) -lm
+
+$(SL_LIB): $(SL_OBJECTS) | $(LIBS_DIR)
+	$(CC) $(LIB_FLAGS) -fPIC $(SL_OBJECTS) -o $@ $(SDL_LIBS) -lm
 
 # ── anim_extract ─────────────────────────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(ANIM_EXTRACT_OBJECT)
@@ -175,6 +186,9 @@ dark-colony: all
 dark-colony-human02: all
 	$(TARGET) --game dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
 
+7legion: all
+	$(TARGET) --game 7legion data/7LEGION
+
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
 test: test-headless
@@ -189,6 +203,7 @@ clean:
 -include $(MAIN_DEPS)
 -include $(DR_DEPS)
 -include $(DC_DEPS)
+-include $(SL_DEPS)
 -include $(ANIM_EXTRACT_DEPS)
 -include $(DC_INFO_GEN_DEPS)
 -include $(DC_GAMESTAT_GEN_DEPS)

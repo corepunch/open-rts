@@ -68,6 +68,11 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
     },
 };
 
+static const GameInfo DARK_REIGN_GAME_INFO = {
+    .direction_mode   = RTS_DIRECTION_DARK_REIGN_8,
+    .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
+};
+
 static bool dark_reign_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                                             const GameMap *map, const Unit *units, int unit_count,
                                             SpriteCache *cache) {
@@ -89,6 +94,7 @@ static const Plugin DARK_REIGN_PLUGIN = {
                       RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
     .cell_w            = 24,
     .cell_h            = 24,
+    .game_info         = &DARK_REIGN_GAME_INFO,
     .actor_types       = DARK_REIGN_ACTOR_TYPES,
     .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
     .debug_enemy_type_id = DR_ACTOR_FG_CONSTRUCTION_CREW,
@@ -114,6 +120,7 @@ static const Plugin DARK_REIGN_PLUGIN = {
                           RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
         .cell_w            = 24,
         .cell_h            = 24,
+        .game_info         = &DARK_REIGN_GAME_INFO,
         .actor_types       = DARK_REIGN_ACTOR_TYPES,
         .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
         .debug_enemy_type_id = DR_ACTOR_FG_CONSTRUCTION_CREW,
