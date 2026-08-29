@@ -6,15 +6,47 @@
 make
 ```
 
-## Smoke tests (no display required)
+## Running games
 
-Use `SDL_VIDEODRIVER=dummy` for all non-interactive checks and screenshots:
+Use `--game <id>` to select a plugin.  Omit `--game` to default to Dark Reign.
 
 ```sh
+# Dark Reign (default)
+build/bin/open-rts --game dark-reign data/REIGN/dark scenario/FIXED/M01F/M01F.SCN ucfcnst0.spr
+
+# Dark Colony
+build/bin/open-rts --game dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN01.MAP SPRITES/TROOPER1.SPR
+
+# 7th Legion
+build/bin/open-rts --game 7legion data/7LEGION
+```
+
+Makefile convenience targets fill in the default paths:
+
+```sh
+make dark-reign
+make dark-colony
+make 7legion
+```
+
+## Smoke tests (no display required)
+
+Always set `SDL_VIDEODRIVER=dummy` so tests run headless.
+`--check` exits 0 on success; `--screenshot` writes a BMP then exits.
+Both flags enable the software renderer automatically.
+
+```sh
+# Dark Reign
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --check
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-reign.bmp
+
+# Dark Colony
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game dark-colony
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-smoke.bmp
-env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony-ui.bmp --game dark-colony
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony.bmp --game dark-colony
+
+# 7th Legion
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game 7legion
+env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-7legion.bmp --game 7legion
 ```
 
 ## Software renderer workaround
@@ -25,6 +57,7 @@ force software rendering with `--software`:
 ```sh
 build/bin/open-rts --software
 build/bin/open-rts --software --game dark-colony
+build/bin/open-rts --software --game 7legion
 ```
 
 ## Data layout
@@ -32,6 +65,7 @@ build/bin/open-rts --software --game dark-colony
 ```
 data/REIGN/dark    — Dark Reign game files
 data/DCOLONY       — Dark Colony game files
+data/7LEGION       — 7th Legion game files (GFX/TILES*.BIM, GFX/*.COL, SFX/)
 ```
 
 ## Dark Colony direction
