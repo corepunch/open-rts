@@ -436,16 +436,25 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
         uint32_t *rgba   = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
         SDL_Rect *frames = calloc((size_t)total_frames, sizeof(SDL_Rect));
         SDL_Rect *bounds = calloc((size_t)total_frames, sizeof(SDL_Rect));
-        if (!rgba || !frames || !bounds) { free(rgba); free(frames); free(bounds); goto spr_fail; }
+        SDL_Point *ground_points = calloc((size_t)total_frames, sizeof(SDL_Point));
+        if (!rgba || !frames || !bounds || !ground_points) {
+            free(rgba); free(frames); free(bounds); free(ground_points);
+            goto spr_fail;
+        }
         indexed_to_rgba(rgba, indices, (size_t)atlas_w * (size_t)atlas_h, palette);
         for (int i = 0; i < total_frames; ++i) {
             frames[i].x = (i % cols) * szx; frames[i].y = (i / cols) * szy;
             frames[i].w = szx; frames[i].h = szy;
             bounds[i] = dark_reign_visible_bounds(rgba, atlas_w, frames[i]);
+            /* RSPR canvases are authored around the object's world origin.
+               OpenDR likewise exposes a zero frame offset and the full canvas
+               size; opaque-pixel bounds are not a ground-contact hotspot. */
+            ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
         }
         out->texture    = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
         out->frames     = frames;
         out->frame_bounds = bounds;
+        out->frame_ground_points = ground_points;
         out->frame_count = total_frames;
         out->frame_w    = szx;
         out->frame_h    = szy;
@@ -479,14 +488,24 @@ spr_fail:
 static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
                              const char *tileset_name, const char *sprite_name,
                              const uint32_t palette[256], SpriteSheet *out) {
+    const char *asset_name = sprite_name;
+    int first_archive = 0;
+    int last_archive = 1;
+    if (strncasecmp(sprite_name, "tileset|", 8) == 0) {
+        asset_name = sprite_name + 8;
+        last_archive = 0;
+    } else if (strncasecmp(sprite_name, "base|", 5) == 0) {
+        asset_name = sprite_name + 5;
+        first_archive = 1;
+    }
     char themed_path[1024], shared_path[1024];
     snprintf(themed_path, sizeof(themed_path), "%s/graphics/%s/SPRITES.FTG", data_root, tileset_name);
     snprintf(shared_path, sizeof(shared_path), "%s/graphics/SPRITES.FTG", data_root);
     const char *archives[2] = { themed_path, shared_path };
-    for (int i = 0; i < 2; ++i) {
+    for (int i = first_archive; i <= last_archive; ++i) {
         FtgArchive ftg;
         if (!ftg_load(archives[i], &ftg)) continue;
-        const FtgEntry *entry = ftg_find(&ftg, sprite_name);
+        const FtgEntry *entry = ftg_find(&ftg, asset_name);
         if (!entry) { ftg_free(&ftg); continue; }
         if (entry->offset < 0 || entry->size <= 0 ||
             (size_t)entry->offset + (size_t)entry->size > ftg.size) {
@@ -497,7 +516,8 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
         ftg_free(&ftg);
         return ok;
     }
-    fprintf(stderr, "sprite %s not found in Dark Reign FTG archives\n", sprite_name);
+    if (strncasecmp(sprite_name, "tileset|", 8) != 0)
+        fprintf(stderr, "sprite %s not found in Dark Reign FTG archives\n", sprite_name);
     return false;
 }
 
@@ -505,7 +525,8 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
 
 static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *renderer,
                                          const char *data_root, const char *tileset_name,
-                                         const char *name, const uint32_t palette[256]) {
+                                         const char *name, const uint32_t sprite_palette[256],
+                                         const uint32_t terrain_palette[256]) {
     if (!name || name[0] == '\0') return true;
     if (sprite_cache_find(cache, name)) return true;
     if (cache->count >= MAX_DECORATION_SPRITES) {
@@ -514,7 +535,15 @@ static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *rende
     }
     CachedSprite *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
+    const uint32_t *palette = strncasecmp(name, "tileset|", 8) == 0 ?
+        terrain_palette : sprite_palette;
     if (!load_unit_sprite(renderer, data_root, tileset_name, name, palette, &entry->sprite)) {
+        if (strncasecmp(name, "tileset|", 8) == 0) {
+            /* Not every building has a terrain-specific underlay. Cache the
+               absence so repeated instances do not retry or report failure. */
+            cache->count++;
+            return true;
+        }
         memset(entry, 0, sizeof(*entry)); return false;
     }
     cache->count++;
@@ -526,24 +555,32 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                         int unit_count, SpriteCache *cache) {
     memset(cache, 0, sizeof(*cache));
     uint32_t sprite_palette[256];
+    uint32_t terrain_palette[256];
     char palette_path[1024];
     snprintf(palette_path, sizeof(palette_path), "%s/graphics/BARREN.PAL", data_root);
     if (!load_dark_sprite_palette(palette_path, sprite_palette)) return false;
+    snprintf(palette_path, sizeof(palette_path), "%s/graphics/%s.PAL",
+             data_root, map->tileset_name);
+    if (!load_dark_terrain_palette(palette_path, terrain_palette)) return false;
 
     bool ok = true;
     for (int i = 0; i < map->decoration_count; ++i) {
         const MapDecoration *dec = &map->decorations[i];
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
-                                          dec->shadow_name, sprite_palette)) ok = false;
+                                          dec->shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
-                                          dec->sprite_name, sprite_palette)) ok = false;
+                                          dec->sprite_name, sprite_palette, terrain_palette)) ok = false;
+        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+                                          dec->sprite2_name, sprite_palette, terrain_palette)) ok = false;
+        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+                                          dec->sprite3_name, sprite_palette, terrain_palette)) ok = false;
     }
     for (int i = 0; i < unit_count; ++i) {
         const Unit *unit = &units[i];
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
-                                          unit->shadow_name, sprite_palette)) ok = false;
+                                          unit->shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
-                                          unit->sprite_name, sprite_palette)) ok = false;
+                                          unit->sprite_name, sprite_palette, terrain_palette)) ok = false;
     }
     return ok;
 }
@@ -732,6 +769,31 @@ static bool dark_reign_find_call_arg(const char *body, size_t body_len, const ch
     return false;
 }
 
+static int dark_reign_find_call_args(const char *body, size_t body_len, const char *call,
+                                     char args[][32], int max_args) {
+    if (!body || !call || !args || max_args <= 0) return 0;
+    const char *hit = find_case_insensitive_n(body, body_len, call);
+    if (!hit) return 0;
+    const char *end = body + body_len;
+    const char *cursor = hit + strlen(call);
+    while (cursor < end && *cursor != '(') cursor++;
+    if (cursor >= end) return 0;
+    cursor++;
+
+    int count = 0;
+    while (cursor < end && *cursor != ')' && count < max_args) {
+        while (cursor < end && isspace((unsigned char)*cursor)) cursor++;
+        if (cursor >= end || *cursor == ')') break;
+        const char *start = cursor;
+        while (cursor < end && *cursor != ')' && !isspace((unsigned char)*cursor)) cursor++;
+        if (cursor > start) {
+            copy_trimmed_token(args[count], 32, start, (size_t)(cursor - start));
+            if (args[count][0] != '\0') count++;
+        }
+    }
+    return count;
+}
+
 static bool dark_reign_resolve_animation_sprite(const DarkReignDefinitions *defs,
                                                 const char *animation_name,
                                                 char *sprite_name, size_t sprite_name_size) {
@@ -766,9 +828,11 @@ static const DarkReignDecorationSpec DARK_REIGN_DECORATION_SPECS[] = {
 };
 
 typedef struct {
-    char sprite_name[32], shadow_name[32];
+    char sprite_name[32], sprite2_name[32], sprite3_name[32], shadow_name[32];
     int footprint_w, footprint_h;
     bool solid;
+    bool center_anchor;
+    int frame_index;
 } DarkReignVisualSpec;
 
 static bool dark_reign_visual_from_static(const char *type_name, DarkReignVisualSpec *out) {
@@ -805,10 +869,33 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
     const char *body = NULL; size_t body_len = 0;
     if (!dark_reign_find_definition_block(defs->buildings, "DefineBuildingType", type_name, &body, &body_len))
         return dark_reign_visual_from_static(type_name, out);
-    if (!dark_reign_find_call_arg(body, body_len, "SetBuildingImages", out->sprite_name, sizeof(out->sprite_name)))
+    char images[3][32] = {{ 0 }};
+    if (dark_reign_find_call_args(body, body_len, "SetBuildingImages", images, 3) < 2)
         return false;
-    dark_reign_find_call_arg(body, body_len, "SetShadowImage", out->shadow_name, sizeof(out->shadow_name));
-    out->footprint_w = 3; out->footprint_h = 3; out->solid = true;
+
+    /* Completed Dark Reign buildings are composites. The terrain archive
+       supplies the ground underlay while the shared archive supplies the body
+       and top layer, even though the underlay and body reuse a basename. */
+    snprintf(out->sprite_name, sizeof(out->sprite_name), "tileset|%s", images[0]);
+    snprintf(out->sprite2_name, sizeof(out->sprite2_name), "base|%s", images[0]);
+    snprintf(out->sprite3_name, sizeof(out->sprite3_name), "base|%s", images[1]);
+    char shadow[32] = { 0 };
+    if (dark_reign_find_call_arg(body, body_len, "SetShadowImage", shadow, sizeof(shadow)))
+        snprintf(out->shadow_name, sizeof(out->shadow_name), "base|%s", shadow);
+
+    out->footprint_w = 3;
+    out->footprint_h = 3;
+    if (strcasecmp(type_name, "fh1") == 0 || strcasecmp(type_name, "fh2") == 0 ||
+        strcasecmp(type_name, "fh3") == 0) {
+        out->footprint_w = 4; out->footprint_h = 4;
+    } else if (strcasecmp(type_name, "fglp") == 0) {
+        out->footprint_w = 4; out->footprint_h = 3;
+    } else if (strcasecmp(type_name, "fgpp") == 0) {
+        out->footprint_w = 3; out->footprint_h = 4;
+    }
+    out->solid = true;
+    out->center_anchor = true;
+    out->frame_index = 1;
     return true;
 }
 
@@ -846,7 +933,13 @@ static void add_dark_reign_decoration(GameMap *map, const DarkReignVisualSpec *s
     dec->gx = gx; dec->gy = gy;
     dec->footprint_w = spec->footprint_w; dec->footprint_h = spec->footprint_h;
     dec->solid = spec->solid;
+    dec->center_anchor = spec->center_anchor;
+    dec->frame_index = spec->frame_index;
+    dec->frame2_index = spec->frame_index;
+    dec->frame3_index = spec->frame_index;
     snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", spec->sprite_name);
+    snprintf(dec->sprite2_name, sizeof(dec->sprite2_name), "%s", spec->sprite2_name);
+    snprintf(dec->sprite3_name, sizeof(dec->sprite3_name), "%s", spec->sprite3_name);
     snprintf(dec->shadow_name, sizeof(dec->shadow_name), "%s", spec->shadow_name);
     if (!spec->solid) return;
     for (int y = 0; y < spec->footprint_h; ++y)

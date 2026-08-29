@@ -1118,11 +1118,14 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->center_anchor = src->center_anchor;
         dst->frame_index = src->frame_index;
         dst->frame2_index = src->frame2_index;
+        dst->frame3_index = src->frame3_index;
         dst->facing_code = src->facing_code;
         dst->render_flags = src->render_flags;
         dst->render2_flags = src->render2_flags;
+        dst->render3_flags = src->render3_flags;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->sprite2_name, sizeof(dst->sprite2_name), "%s", src->sprite2_name);
+        snprintf(dst->sprite3_name, sizeof(dst->sprite3_name), "%s", src->sprite3_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
