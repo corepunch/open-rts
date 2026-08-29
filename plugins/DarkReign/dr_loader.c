@@ -85,7 +85,11 @@ static bool load_dark_palette_with_multipliers(const char *path, uint32_t colors
 }
 
 static bool load_dark_sprite_palette(const char *path, uint32_t colors[256]) {
-    return load_dark_palette_with_multipliers(path, colors, 6, 6);
+    if (!load_dark_palette_with_multipliers(path, colors, 6, 6)) return false;
+    /* SPR art uses the purple authoring ramp (32..39) as its remappable team
+       band. Team zero in the shipped campaigns is Freedom Guard orange. */
+    for (int i = 0; i < 8; ++i) colors[32 + i] = colors[48 + i];
+    return true;
 }
 
 static bool load_dark_terrain_palette(const char *path, uint32_t colors[256]) {
@@ -645,6 +649,13 @@ static void dark_reign_mm_path_from_map(const char *map_path, char *mm_path,
     strncat(mm_path, "TACTICS.MM", mm_path_size - strlen(mm_path) - 1);
 }
 
+static void dark_reign_map_path_from_scn(const char *scn_path, char *map_path,
+                                         size_t map_path_size) {
+    if (!scn_path || !map_path || map_path_size == 0) return;
+    snprintf(map_path, map_path_size, "%s", scn_path);
+    replace_extension(map_path, map_path_size, map_path, ".MAP");
+}
+
 static void dark_reign_root_from_map(const char *map_path, char *root, size_t root_size) {
     const char *scenario = find_case_insensitive(map_path, "/scenario/");
     if (!scenario) { snprintf(root, root_size, "%s", DEFAULT_DATA_ROOT); return; }
@@ -910,6 +921,14 @@ static void load_dark_reign_team_credits(const char *map_path, GameMap *map) {
         } else if (current_team >= 0 && current_team < 8 &&
                    sscanf(line, "SetCredit(%d", &credit) == 1) {
             map->player_resources[current_team] = credit;
+        } else if (current_team == 0) {
+            int world_x = 0, world_y = 0;
+            if (sscanf(line, "SetStartLocation(%d %d", &world_x, &world_y) == 2) {
+                /* Dark Reign stores scenario starts in world pixels. */
+                map->has_camera = true;
+                map->camera_gx = (float)world_x / 24.0f;
+                map->camera_gy = (float)world_y / 24.0f;
+            }
         }
         line = next;
     }
@@ -1116,6 +1135,7 @@ static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const
 
 bool load_dark_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
+    out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
     Blob blob;
     if (!load_blob(map_path, &blob)) {
         char fallback_mm[1024];
@@ -1127,16 +1147,16 @@ bool load_dark_map(const char *map_path, GameMap *out) {
 
     size_t map_len = strlen(map_path);
     if (map_len >= 4 && strcasecmp(map_path + map_len - 4, ".SCN") == 0) {
-        char mm_path[1024];
-        dark_reign_mm_path_from_map(map_path, mm_path, sizeof(mm_path));
-        Blob mm_blob;
-        if (!load_blob(mm_path, &mm_blob)) {
-            fprintf(stderr, "failed to load sibling Dark Reign MM map %s\n", mm_path);
+        char terrain_path[1024];
+        dark_reign_map_path_from_scn(map_path, terrain_path, sizeof(terrain_path));
+        Blob map_blob;
+        if (!load_blob(terrain_path, &map_blob)) {
+            fprintf(stderr, "failed to load sibling Dark Reign MAP terrain %s\n", terrain_path);
             free_blob(&blob);
             return false;
         }
         free_blob(&blob);
-        blob = mm_blob;
+        blob = map_blob;
     }
 
     int width = 0;
@@ -1238,6 +1258,7 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
 
     int count = 0;
+    bool has_player_unit = false;
     int current_team = 0;
     const char *team_tag = "SetDefaultTeam(";
     const char *unit_tag = "PutUnitAt(";
@@ -1262,6 +1283,7 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
                 units[count].speed = 5.5f;
                 units[count].owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
+                if (units[count].owner == 0) has_player_unit = true;
                 units[count].selected = units[count].owner == 0 && count == 0;
                 DarkReignVisualSpec visual;
                 if (dark_reign_resolve_unit_visual(&defs, unit_type, &visual)) {
@@ -1276,6 +1298,60 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
             }
         }
         cursor = hit + strlen(unit_tag);
+    }
+
+    /* Campaign maps may derive their opening freighter from a player's
+       AssociatedUnit building declaration rather than PutUnitAt. Resolve that
+       relationship through BUILD.TXT and place it at the scenario start. */
+    if (!has_player_unit && count < max_units) {
+        int team = -1;
+        int start_x = 0, start_y = 0;
+        bool have_start = false;
+        char associated_type[64] = { 0 };
+        for (char *line = text; line && *line;) {
+            char *next = strpbrk(line, "\r\n");
+            if (next) {
+                char nl = *next;
+                *next++ = '\0';
+                if (nl == '\r' && *next == '\n') next++;
+            }
+            while (isspace((unsigned char)*line)) line++;
+            int parsed_team = 0;
+            if (sscanf(line, "SetTeam(%d", &parsed_team) == 1) team = parsed_team;
+            if (team == 0 && sscanf(line, "SetStartLocation(%d %d", &start_x, &start_y) == 2)
+                have_start = true;
+            if (sscanf(line, "SetDefaultTeam(%d", &parsed_team) == 1) team = parsed_team;
+            if (team == 0 && associated_type[0] == '\0') {
+                int object_id = 0, gx = 0, gy = 0;
+                char building_type[64] = { 0 };
+                if (sscanf(line, "AddBuildingAt(%d %63[^ )] %d %d",
+                           &object_id, building_type, &gx, &gy) == 4) {
+                    (void)object_id; (void)gx; (void)gy;
+                    const char *body = NULL;
+                    size_t body_len = 0;
+                    if (dark_reign_find_definition_block(defs.buildings, "DefineBuildingType",
+                                                         building_type, &body, &body_len)) {
+                        dark_reign_find_call_arg(body, body_len, "AssociatedUnit",
+                                                 associated_type, sizeof(associated_type));
+                    }
+                }
+            }
+            line = next;
+        }
+        if (have_start && associated_type[0] != '\0') {
+            Unit *unit = &units[count];
+            unit->gx = (float)start_x / 24.0f;
+            unit->gy = (float)start_y / 24.0f;
+            unit->speed = 4.5f;
+            unit->owner = 0;
+            unit->selected = true;
+            DarkReignVisualSpec visual;
+            if (dark_reign_resolve_unit_visual(&defs, associated_type, &visual)) {
+                snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", visual.sprite_name);
+                snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", visual.shadow_name);
+                count++;
+            }
+        }
     }
     free(text); free_blob(&blob); dark_reign_free_definitions(&defs);
     return count;

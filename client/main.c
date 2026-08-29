@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#include "game_ui.h"
 #include "plugin.h"
 #include "renderer.h"
 
@@ -639,17 +640,25 @@ static bool focus_camera_on_first_player_unit(App *app, const GameMap *map,
     return false;
 }
 
-static void focus_camera_on_grid(App *app, const GameMap *map, float gx, float gy) {
+static void focus_camera_on_grid(App *app, const GameMap *map, const Plugin *plugin,
+                                 float gx, float gy) {
     if (!app || !map) return;
     float sx = 0.0f, sy = 0.0f;
     map_grid_to_screen(app, map, gx, gy, &sx, &sy);
-    app->cam_x = (float)app->win_w * 0.5f - sx;
-    app->cam_y = (float)app->win_h * 0.5f - sy;
+    SDL_Rect viewport = { 0, 0, app->win_w, app->win_h };
+    if (plugin && plugin->ui) {
+        viewport.x = plugin->ui->world_viewport.x * app->win_w / plugin->ui->logical_width;
+        viewport.y = plugin->ui->world_viewport.y * app->win_h / plugin->ui->logical_height;
+        viewport.w = plugin->ui->world_viewport.w * app->win_w / plugin->ui->logical_width;
+        viewport.h = plugin->ui->world_viewport.h * app->win_h / plugin->ui->logical_height;
+    }
+    app->cam_x = (float)(viewport.x + viewport.w / 2) - sx;
+    app->cam_y = (float)(viewport.y + viewport.h / 2) - sy;
 }
 
-static bool focus_camera_on_map_start(App *app, const GameMap *map) {
+static bool focus_camera_on_map_start(App *app, const GameMap *map, const Plugin *plugin) {
     if (!app || !map || !map->has_camera) return false;
-    focus_camera_on_grid(app, map, map->camera_gx, map->camera_gy);
+    focus_camera_on_grid(app, map, plugin, map->camera_gx, map->camera_gy);
     return true;
 }
 
@@ -1060,6 +1069,8 @@ static int dark_colony_ui_width(const App *app) {
 
 static int world_viewport_width(const App *app, const Plugin *plugin) {
     if (!app) return 0;
+    if (plugin && plugin->ui && plugin->ui->world_viewport.w > 0)
+        return plugin->ui->world_viewport.w * app->win_w / plugin->ui->logical_width;
     int w = app->win_w;
     if (is_dark_colony_plugin(plugin)) w -= dark_colony_ui_width(app);
     return w > 0 ? w : 1;
@@ -2046,7 +2057,10 @@ int main(int argc, char **argv) {
 
     Renderer renderer;
     App app = { 0 };
-    if (is_dark_colony_plugin(plugin)) {
+    if (plugin->ui) {
+        app.win_w = plugin->ui->logical_width;
+        app.win_h = plugin->ui->logical_height;
+    } else if (is_dark_colony_plugin(plugin)) {
         app.win_w = 640;
         app.win_h = 480;
     } else {
@@ -2124,10 +2138,10 @@ int main(int argc, char **argv) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", plugin->name);
     }
 
-    if (!focus_camera_on_map_start(&app, &map)) {
+    if (!focus_camera_on_map_start(&app, &map, plugin)) {
         float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
         float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
-        focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
+        focus_camera_on_grid(&app, &map, plugin, focus_gx, focus_gy);
     }
     clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
 
@@ -2209,6 +2223,9 @@ int main(int argc, char **argv) {
     DarkColonySidebar dark_colony_sidebar;
     dark_colony_sidebar_defaults(&dark_colony_sidebar);
     if (dark_colony_ui) dark_colony_sidebar_load(&dark_colony_sidebar, data_root);
+    GameUi game_ui = { 0 };
+    if (plugin->ui && !game_ui_load(&game_ui, app.renderer, data_root, plugin->ui))
+        fprintf(stderr, "warning: failed to load %s declarative UI\n", plugin->name);
     HudText hud_text = { 0 };
     void *mission = plugin->load_mission ? plugin->load_mission(map_path) : NULL;
 
@@ -2235,6 +2252,7 @@ int main(int argc, char **argv) {
                                              &dark_colony_background);
                 render_hud_messages(&app, &hud_text, &ui_font);
             }
+            game_ui_render(&game_ui, &app, &map, units, unit_count, &decoration_sprites);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
@@ -2242,6 +2260,7 @@ int main(int argc, char **argv) {
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
         if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+        game_ui_destroy(&game_ui);
         destroy_sprite(&dark_colony_background);
         destroy_font(&ui_font);
         destroy_sprite_cache(&decoration_sprites);
@@ -2344,10 +2363,12 @@ int main(int argc, char **argv) {
                                          &dark_colony_background);
             render_hud_messages(&app, &hud_text, &ui_font);
         }
+        game_ui_render(&game_ui, &app, &map, units, unit_count, &decoration_sprites);
         renderer_end_frame(&renderer);
     }
 
     if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+    game_ui_destroy(&game_ui);
     destroy_sprite(&dark_colony_background);
     destroy_font(&ui_font);
     destroy_sprite_cache(&decoration_sprites);

@@ -2,6 +2,7 @@
 #define OPEN_RTS_PLUGIN_H
 
 #include "engine.h"
+#include "ui_definition.h"
 
 typedef enum {
     RTS_SUBSYSTEM_FILESYSTEM = 1u << 0,
@@ -56,6 +57,7 @@ typedef struct {
     int actor_type_count;
     uint16_t debug_enemy_type_id;
     PluginCapabilities capabilities;
+    const GameUiDefinition *ui;
 } GameDefinition;
 
 typedef struct {
@@ -89,6 +91,7 @@ typedef struct Plugin {
     int actor_type_count;
     uint16_t debug_enemy_type_id;
     PluginCapabilities capabilities;
+    const GameUiDefinition *ui;
     GameDefinition definition;
     GameLoaders loaders;
     bool (*load_map)(const char *map_path, GameMap *out);

@@ -87,6 +87,29 @@ xrefs, disassembly, and decompiler context. Keep notes of stable findings in
 `REFERENCES.md` when they explain file formats, object layout, startup flow, or
 rendering behavior.
 
+Search the generated C with `rg` first, then go back to r2 for exact addresses,
+xrefs, disassembly, and decompiler context. Keep notes of stable findings in
+`REFERENCES.md` when they explain file formats, object layout, startup flow, or
+rendering behavior.
+
+## Reverse Engineering Workflow
+
+To avoid getting overwhelmed by the binary's size, follow this broad-to-narrow approach:
+
+1. **Broad Phase (Discovery):**
+   - Generate the full `dc_exe.c` dump using the commands above.
+   - Use `rg` (ripgrep) to search for keywords (e.g., "draw", "load", "sprite", "health", "money") to identify high-value functions.
+   - Use the function list (`functions.txt`) to get a sense of the overall structure.
+
+2. **Narrow Phase (Analysis & Implementation):**
+   - Once a target function is identified, isolate it in `r2` to analyze its exact logic and call graph.
+   - Refactor the function into clean C++ in the codebase, maintaining a 1:1 behavioral match.
+   - Iterate: Identify the functions called by your current target and analyze those next.
+
+3. **Incremental Progress:**
+   - Work in small, logical steps (e.g., "Analyze coordinate clipping" $\rightarrow$ "Analyze unit movement").
+   - Immediately document every discovered offset, constant, or data structure layout in `REFERENCES.md`.
+
 Reverse-engineering rules for Dark Colony:
 
 - Prefer DC-shaped data structures and procedures over generic abstractions.

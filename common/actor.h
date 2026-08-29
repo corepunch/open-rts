@@ -96,12 +96,6 @@ typedef struct {
 } MobjInfo;
 
 typedef enum {
-    RTS_DIRECTION_COMPASS_16 = 0,
-    RTS_DIRECTION_DARK_COLONY_8 = 1,
-    RTS_DIRECTION_DARK_COLONY_16 = 2,
-} DirectionMode;
-
-typedef enum {
     RTS_STATE_COORDS_GROUND_OFFSET = 0,
     RTS_STATE_COORDS_FIN_TOP_LEFT = 1,
 } StateCoordMode;

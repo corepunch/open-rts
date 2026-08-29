@@ -217,18 +217,32 @@ static int dark_colony16_direction_code_from_vector(float dx, float dy) {
     return sector;
 }
 
+static int dark_reign8_direction_code_from_vector(float dx, float dy) {
+    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
+    const float quarter_turn = 0.7853981633974483f;
+    /* Dark Reign's SPR rotation zero points north and rotations advance
+       clockwise in screen space. */
+    int sector = (int)floorf(atan2f(dx, -dy) / quarter_turn + 0.5f);
+    sector %= 8;
+    if (sector < 0) sector += 8;
+    return sector * 2;
+}
+
 int direction_code_from_vector(const GameInfo *game_info, float dx, float dy) {
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_16)
         return dark_colony16_direction_code_from_vector(dx, dy);
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8)
         return dark_colony8_direction_code_from_vector(dx, dy);
+    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_REIGN_8)
+        return dark_reign8_direction_code_from_vector(dx, dy);
     return compass16_direction_code_from_vector(dx, dy);
 }
 
 static int direction_code_from_map_vector(const GameMap *map, const GameInfo *game_info,
                                           float dx, float dy) {
-    (void)map;
-    dy = -dy;
+    if (map && map->bottom_up_coordinates) dy = -dy;
+    if (map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8)
+        return dark_reign8_direction_code_from_vector(dx, dy);
     return direction_code_from_vector(game_info, dx, dy);
 }
 
@@ -260,6 +274,18 @@ void direction_vector_from_code(const GameInfo *game_info, int code, float *dx, 
     float angle = -(float)code * 0.39269908169872414f;
     *dx = cosf(angle);
     *dy = -sinf(angle);
+}
+
+static void direction_vector_from_map_code(const GameMap *map, const GameInfo *game_info,
+                                           int code, float *dx, float *dy) {
+    if (map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8) {
+        float angle = (float)code * 0.39269908169872414f;
+        *dx = sinf(angle);
+        *dy = -cosf(angle);
+        return;
+    }
+    direction_vector_from_code(game_info, code, dx, dy);
+    if (map && map->bottom_up_coordinates) *dy = -*dy;
 }
 
 static bool unit_has_attack_target_in_range(const Unit *attacker, const Unit *units, int unit_count,
@@ -959,7 +985,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
 
         if (attacker->muzzle_flash_name[0] != '\0') {
             float vx = 0.0f, vy = 0.0f;
-            direction_vector_from_code(NULL, attacker->facing_code, &vx, &vy);
+            direction_vector_from_map_code(map, NULL, attacker->facing_code, &vx, &vy);
             bool spawned = spawn_visual_effect(effects, max_effects, attacker->muzzle_flash_name, "flash",
                                                attacker->gx + vx * 0.42f, attacker->gy + vy * 0.42f,
                                                attacker->facing_code,

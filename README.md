@@ -10,6 +10,8 @@ currently wired to Dark Reign: The Future of War and Dark Colony data files.
 ```sh
 make
 make run
+make mission-1
+make mission-2
 make dark-reign
 make dark-colony
 ```
@@ -70,7 +72,23 @@ build/bin/open-rts --software --game dark-colony
 
 ## Shape
 
-The code keeps the old-game-specific pieces as adapters:
+The repository is split into a shared engine and folder-per-game adapters:
+
+```text
+common/                 simulation, map/sprite contracts, UI definitions
+client/                 shared SDL terrain, sprite, minimap, and UI rendering
+server/                 presentation-neutral game model
+plugins/DarkReign/      Dark Reign formats, assets, actors, and UI layout
+plugins/DarkColony/     Dark Colony formats, data-shaped runtime, and assets
+```
+
+Game folders describe assets and layout; the shared client owns composition and
+rendering. In particular, `GameUiDefinition` is a declarative list of native
+image layers, viewport/minimap rectangles, command-grid geometry, and resource
+display placement. The shared `GameUi` loader/renderer uses that description,
+so another 256-color game does not need its own BMP compositor.
+
+The code keeps old-game-specific file and coordinate details as adapters:
 
 - Core renderer, picking, selection, movement, and A* all use one orthogonal
   tile grid. Each game is registered as a client-side plugin that supplies
@@ -83,7 +101,8 @@ The code keeps the old-game-specific pieces as adapters:
 - `TILE` tileset loader: Dark Reign `.TIL` terrain chunks, masks, shore tiles,
   generated transition frames, and shadow frames, decoded using OpenDR's frame
   layout instead of treating the file as a flat 576-byte tile array.
-- `MAP_` + `.SCN` map loader: Dark Reign map dimensions, scenario terrain
+- `MAP_` + `.SCN` map loader: a scenario loads terrain from its same-basename
+  sibling `.MAP` (not `TACTICS.MM`), plus map dimensions, scenario terrain
   selection, and `PutUnitAt(...)` starting units. The base terrain uses the
   first two bytes of each 6-byte terrain record in the same shape as OpenDR's
   importer: byte 1 provides terrain type plus variation group, byte 2 selects
@@ -97,6 +116,9 @@ The code keeps the old-game-specific pieces as adapters:
   and Taelon mines.
 - `BOTG`/FTG archive loader: extracts contained files.
 - `RSPR`/`SSPR` sprite loader: decodes paletted RLE sprite frames.
+- Per-map coordinate metadata keeps Dark Reign top-down and Dark Colony
+  bottom-up world coordinates explicit. Movement stores the engine-facing once;
+  the shared renderer consumes it instead of reinterpreting axes per frame.
 - Dark Colony `.SPR` loader: embedded palette, frame descriptors, and raw
   indexed pixels. Unit animation is driven by generated Doom-style
   `sprnames[]`, `states[]`, and `mobjinfo[]` tables.

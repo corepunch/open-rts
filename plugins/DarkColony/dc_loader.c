@@ -1423,6 +1423,7 @@ static bool load_dark_colony_overview_colors(const char *path, size_t cell_count
 
 bool load_dark_colony_map(const char *map_path, GameMap *out) {
     memset(out, 0, sizeof(*out));
+    out->bottom_up_coordinates = true;
 
     DarkColonyMapNative *native = calloc(1, sizeof(*native));
     if (!native) return false;

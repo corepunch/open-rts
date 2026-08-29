@@ -78,6 +78,7 @@ typedef struct {
     int hp;
     int max_hp;
     int frame;
+    int facing_code;
     int state_id;
     uint32_t render_flags;
     int render_remap;

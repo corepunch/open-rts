@@ -588,15 +588,6 @@ static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, ui
     if (!seq && dead) seq = sprite_sequence_find(sprite, "stand");
     if (seq && seq->facings > 0 && seq->length > 0) {
         int direction_code = unit->facing_code;
-        if (moving && !dead) {
-            Cell c = unit->path[unit->path_index];
-            bool final = unit->path_index == unit->path_len - 1;
-            float tx = final ? unit->move_goal_gx : (float)c.x + 0.5f;
-            float ty = final ? unit->move_goal_gy : (float)c.y + 0.5f;
-            float dx = tx - unit->gx;
-            float dy = ty - unit->gy;
-            direction_code = direction_code_from_vector(NULL, dx, dy);
-        }
         int facing = sequence_facing_index(seq, direction_code);
         int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
         int anim = 0;

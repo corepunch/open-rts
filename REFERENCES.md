@@ -371,7 +371,7 @@ Labels follow the pattern `<STEM><ACTION><DIRECTION>` where:
 - The legacy sequence path still uses the older engine compass codes
   `{0, 2, 4, 6, 8, 10, 12, 14}` and is kept for Dark Reign compatibility.
 
-The direction code set and ordering **differ by sprite**:
+The direction code set and ordering **do not differ by sprite**:
 
 | Sprite       | Generated frame-slot direction order        | Frame layout |
 |--------------|---------------------------------------------|--------------|
@@ -656,3 +656,8 @@ Local game-data files that have already been useful:
   animation model: each sequence has a `Start`, `Facings`, `Length`, and
   `Tick`; rendering chooses a facing frame offset from the unit direction and
   then advances within that sequence for walking/firing.
+- A fixed mission's `.SCN` is paired with the same-basename `.MAP`; sibling
+  `TACTICS.MM` is scenario/tactics data and is not the six-byte terrain grid.
+- Dark Reign scenario and map coordinates are top-down. `SetStartLocation`
+  values are world pixels (24 pixels per map cell), and imported SPR rotation
+  zero points north after the file loader's quarter-turn normalization.

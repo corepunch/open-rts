@@ -55,6 +55,15 @@ static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *sna
     return false;
 }
 
+static bool snapshot_has_decoration_sprite(const RtsRenderSnapshot *snapshot,
+                                           const char *sprite_name) {
+    if (!snapshot || !sprite_name) return false;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        if (strcmp(snapshot->decorations[i].sprite_name, sprite_name) == 0) return true;
+    }
+    return false;
+}
+
 static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snapshot) {
     if (!snapshot || snapshot->unit_count <= 0)
         return fail("snapshot has units with render command metadata");
@@ -956,6 +965,75 @@ static int assert_dark_reign(RtsGameModel *model) {
     return 0;
 }
 
+static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
+    RtsGameModelConfig mission1 = {
+        .game_id = "dark-reign",
+        .data_root = "data/REIGN/dark",
+        .map_path = "scenario/FIXED/M01F/M01F.SCN",
+    };
+    if (!rts_game_model_load(model, &mission1))
+        return fail("load Dark Reign Mission 1");
+
+    RtsRenderSnapshot snapshot;
+    if (!rts_game_model_snapshot(model, &snapshot))
+        return fail("snapshot Dark Reign Mission 1");
+    if (snapshot.map_width != 60 || snapshot.map_height != 60 ||
+        snapshot.player_resources[0] != 4000 ||
+        snapshot_count_units_with_owner_and_type(
+            &snapshot, 0, DR_ACTOR_FG_GROUND_TRANSPORTER) != 1 ||
+        !snapshot_has_decoration_sprite(&snapshot, "nfhqt1l0.spr") ||
+        !snapshot_has_decoration_sprite(&snapshot, "nclnc1l0.spr") ||
+        !snapshot_has_decoration_sprite(&snapshot, "ncpow1l0.spr")) {
+        return fail("Mission 1 loads its snow map, credits, three buildings, and freighter");
+    }
+
+    RtsGameModelConfig mission2 = {
+        .game_id = "dark-reign",
+        .data_root = "data/REIGN/dark",
+        .map_path = "scenario/FIXED/M02F/M02F.SCN",
+    };
+    if (!rts_game_model_load(model, &mission2))
+        return fail("load Dark Reign Mission 2");
+    if (!rts_game_model_snapshot(model, &snapshot))
+        return fail("snapshot Dark Reign Mission 2");
+    if (snapshot.map_width != 71 || snapshot.map_height != 71 ||
+        snapshot.player_resources[0] != 12000 ||
+        snapshot_count_units_with_owner_and_type(
+            &snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3) {
+        return fail("Mission 2 loads its barren map, credits, and three construction crews");
+    }
+
+    int unit_index = find_movable_player_unit(&snapshot);
+    if (unit_index < 0) return fail("Mission 2 has a movable player crew");
+    RtsGameCommand select = {
+        .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
+        .data.select_unit_index = { .unit_index = unit_index, .additive = false },
+    };
+    RtsGameCommand move_east = {
+        .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+        .data.move_selected = {
+            .gx = snapshot.units[unit_index].gx + 4.0f,
+            .gy = snapshot.units[unit_index].gy,
+        },
+    };
+    if (!rts_game_model_command(model, &select) ||
+        !rts_game_model_command(model, &move_east) ||
+        !rts_game_model_tick(model, 1.0f / 30.0f) ||
+        !rts_game_model_snapshot(model, &snapshot)) {
+        return fail("move Mission 2 crew east");
+    }
+    if (snapshot.units[unit_index].facing_code != 4) {
+        fprintf(stderr, "Mission 2 east-facing code was %d at %.2f,%.2f toward %.2f,%.2f\n",
+                snapshot.units[unit_index].facing_code,
+                snapshot.units[unit_index].gx, snapshot.units[unit_index].gy,
+                snapshot.units[unit_index].move_goal_gx, snapshot.units[unit_index].move_goal_gy);
+        return fail("Dark Reign eastward movement uses the east SPR facing");
+    }
+
+    printf("PASS: Dark Reign Missions 1 and 2 match their fixed scenario starts\n");
+    return 0;
+}
+
 int main(void) {
     int result = assert_dark_colony_sprite_catalog();
     if (result != 0) return result;
@@ -968,6 +1046,7 @@ int main(void) {
     result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
     if (result == 0) result = assert_human03_city_slots(model);
+    if (result == 0) result = assert_dark_reign_fixed_missions(model);
     if (result == 0) result = assert_dark_reign(model);
     rts_game_model_destroy(model);
     return result;

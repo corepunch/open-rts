@@ -1095,6 +1095,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->hp = src->hp;
         dst->max_hp = src->max_hp;
         dst->frame = src->frame;
+        dst->facing_code = src->facing_code;
         dst->state_id = src->state_id;
         dst->render_flags = src->render_flags;
         dst->render_remap = src->render_remap;

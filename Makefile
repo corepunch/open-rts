@@ -37,6 +37,7 @@ endif
 MAIN_SOURCES := \
 	client/main.c \
 	client/engine_view.c \
+	client/game_ui.c \
 	client/renderer_sdl.c \
 	common/engine_base.c \
 	common/engine_core.c \
@@ -95,7 +96,7 @@ DC_LAYOUT_TEST_SOURCES := \
 DC_LAYOUT_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_LAYOUT_TEST_SOURCES))
 DC_LAYOUT_TEST_DEPS    := $(DC_LAYOUT_TEST_OBJECTS:.o=.d)
 
-.PHONY: all run test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat anim-extract clean
+.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat anim-extract clean
 
 all: $(TARGET) $(DR_LIB) $(DC_LIB) $(MODEL_LIB_TARGET)
 
@@ -158,6 +159,12 @@ $(LIBS_DIR):
 # ── run targets ──────────────────────────────────────────────────────────────
 run: all
 	$(TARGET) --game dark-reign
+
+mission-1: all
+	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/FIXED/M01F/M01F.SCN ucfcnst0.spr
+
+mission-2: all
+	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/FIXED/M02F/M02F.SCN ucfcnst0.spr
 
 dark-reign: all
 	$(TARGET) --game dark-reign $(DARK_REIGN_ROOT) scenario/MULTI/2NIC/2NIC.SCN ucfcnst0.spr

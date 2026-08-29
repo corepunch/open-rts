@@ -9,6 +9,13 @@
 typedef struct App App;
 typedef struct Tileset Tileset;
 
+typedef enum {
+    RTS_DIRECTION_COMPASS_16 = 0,
+    RTS_DIRECTION_DARK_COLONY_8 = 1,
+    RTS_DIRECTION_DARK_COLONY_16 = 2,
+    RTS_DIRECTION_DARK_REIGN_8 = 3,
+} DirectionMode;
+
 typedef struct {
     int x;
     int y;
@@ -72,6 +79,8 @@ typedef struct GameMap {
     uint8_t *blocked;
     uint32_t *cell_colors;
     uint32_t render_features;
+    bool bottom_up_coordinates;
+    DirectionMode direction_mode;
     MapDecoration *decorations;
     int decoration_count;
     MapResourceVent *resource_vents;
@@ -90,15 +99,15 @@ typedef struct GameMap {
 } GameMap;
 
 static inline int map_screen_y_for_cell(const GameMap *map, int y) {
-    return map ? map->height - 1 - y : y;
+    return map && map->bottom_up_coordinates ? map->height - 1 - y : y;
 }
 
 static inline float map_screen_y_for_point(const GameMap *map, float y) {
-    return map ? (float)map->height - y : y;
+    return map && map->bottom_up_coordinates ? (float)map->height - y : y;
 }
 
 static inline float map_world_y_from_screen_point(const GameMap *map, float y) {
-    return map ? (float)map->height - y : y;
+    return map && map->bottom_up_coordinates ? (float)map->height - y : y;
 }
 
 #endif
