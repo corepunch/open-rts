@@ -1723,8 +1723,7 @@ static bool dark_colony_object_pool_add_city_slot(DcObjectPool *pool, int team, 
 }
 
 static bool dark_colony_scenario_object_starts_visible(const DarkColonyScenarioObject *object) {
-    if (!object || object->status < 0) return false;
-    return object->type == 86;
+    return object && object->status >= 0;
 }
 
 static int dark_colony_mobj_type_for_type(int type, int race) {

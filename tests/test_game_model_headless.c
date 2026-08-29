@@ -437,6 +437,9 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot.unit_count <= 0) {
         return fail("Human01 snapshot has initial units");
     }
+    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/GRAY.SPR") != 24) {
+        return fail("Human01 loads initially active Grey scenario objects");
+    }
     if (snapshot.units[0].sprite_name[0] == '\0') {
         return fail("Human01 snapshot unit has render sprite reference");
     }
