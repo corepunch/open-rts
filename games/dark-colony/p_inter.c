@@ -38,6 +38,8 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->attack_target = -1;
     unit->harvest_target = -1;
     unit->harvest_timer_ms = 0;
+    unit->harvest_phase = 0;
+    unit->harvest_cargo = 0;
     unit->attack_cooldown_left_ms = 0;
     unit->attack_anim_left_ms = 0;
     unit->death_started = true;

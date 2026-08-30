@@ -17,6 +17,7 @@ typedef enum {
     MF_RENDERABLE = 1u << 2,
     MF_ATTACK = 1u << 3,
     MF_HARVESTER = 1u << 4,
+    MF_RESOURCE_BASE = 1u << 5,
 } mobjflag_t;
 
 typedef struct actortype_s {
@@ -33,6 +34,7 @@ typedef struct actortype_s {
     int attack_anim_ms;
     int death_anim_ms;
     int harvest_state_id;
+    int harvest_capacity;
     const char *muzzle_flash_name;
     int muzzle_flash_ms;
     const char *hit_effect_name;
@@ -181,6 +183,11 @@ struct mobj_s {
     int harvest_target;
     int harvest_timer_ms;
     int harvest_state_id;
+    int harvest_cargo;
+    int harvest_capacity;
+    int harvest_phase;
+    float harvest_return_gx;
+    float harvest_return_gy;
     bool selected;
     bool death_started;
     bool remove;

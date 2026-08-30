@@ -597,22 +597,68 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     return radius;
 }
 
-static bool update_unit_harvest(level_t *map, mobj_t *unit, int dt_ms,
-                                const gameinfo_t *game_info) {
+enum {
+    HARVEST_PHASE_NONE = 0,
+    HARVEST_PHASE_TO_MINE = 1,
+    HARVEST_PHASE_MINING = 2,
+    HARVEST_PHASE_TO_BASE = 3,
+};
+
+static void deactivate_resource_vent(level_t *map, resourcevent_t *vent) {
+    if (!map || !vent) return;
+    vent->active = false;
+    if (vent->decoration_index >= 0 && vent->decoration_index < map->decoration_count)
+        map->decorations[vent->decoration_index].sprite_name[0] = '\0';
+}
+
+static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
+                                mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
-        unit->harvest_target < 0) {
+        unit->harvest_phase == HARVEST_PHASE_NONE || unit->harvest_target < 0) {
         return false;
     }
     if (unit->harvest_target >= map->resource_vent_count || !map->resource_vents) {
-        unit->harvest_target = -1;
-        unit->harvest_timer_ms = 0;
+        unit->harvest_phase = HARVEST_PHASE_NONE;
         return false;
     }
 
     resourcevent_t *vent = &map->resource_vents[unit->harvest_target];
+    if (unit->harvest_phase == HARVEST_PHASE_TO_BASE) {
+        float dx = unit->harvest_return_gx - unit->gx;
+        float dy = unit->harvest_return_gy - unit->gy;
+        if (dx * dx + dy * dy > 1.0f) return false;
+        int owner = unit->owner < 8 ? unit->owner : 0;
+        int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
+        map->player_resources[owner][rtype] += unit->harvest_cargo;
+        unit->harvest_cargo = 0;
+        if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
+            unit->harvest_target = -1;
+            unit->harvest_timer_ms = 0;
+            unit->harvest_phase = HARVEST_PHASE_NONE;
+            return false;
+        }
+        if (!P_MoveUnitTo(map, unit, vent->attach_gx, vent->attach_gy)) return false;
+        unit->harvest_phase = HARVEST_PHASE_TO_MINE;
+        return false;
+    }
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
+        if (unit->harvest_capacity > 0 && unit->harvest_cargo > 0) {
+            for (int i = 0; i < unit_count; ++i) {
+                if (units[i].owner != unit->owner ||
+                    (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
+                unit->harvest_return_gx = units[i].gx;
+                unit->harvest_return_gy = units[i].gy;
+                if (P_MoveUnitTo(map, unit, units[i].gx, units[i].gy)) {
+                    unit->harvest_return_gx = unit->move_goal_gx;
+                    unit->harvest_return_gy = unit->move_goal_gy;
+                    unit->harvest_phase = HARVEST_PHASE_TO_BASE;
+                    return false;
+                }
+            }
+        }
         unit->harvest_target = -1;
         unit->harvest_timer_ms = 0;
+        unit->harvest_phase = HARVEST_PHASE_NONE;
         return false;
     }
 
@@ -635,6 +681,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *unit, int dt_ms,
     unit->path_index = 0;
     unit->move_order_arrived = true;
     unit->attack_target = -1;
+    unit->harvest_phase = HARVEST_PHASE_MINING;
     if (game_info && unit->harvest_state_id > 0 &&
         unit->harvest_state_id < game_info->state_count) {
         const state_t *state = state_at(game_info, unit->state_id);
@@ -649,14 +696,55 @@ static bool update_unit_harvest(level_t *map, mobj_t *unit, int dt_ms,
         unit->harvest_timer_ms -= RTS_HARVEST_INTERVAL_MS;
         int take = vent->rate;
         if (take > vent->amount) take = vent->amount;
-        vent->amount -= take;
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
-        map->player_resources[owner][rtype] += take;
+        vent->amount -= take;
+        if (unit->harvest_capacity > 0)
+            unit->harvest_cargo += take;
+        else
+            map->player_resources[owner][rtype] += take;
+        if (unit->harvest_capacity > 0 && unit->harvest_cargo >= unit->harvest_capacity) {
+            bool sent_home = false;
+            for (int i = 0; i < unit_count; ++i) {
+                if (units[i].owner != unit->owner ||
+                    (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
+                unit->harvest_return_gx = units[i].gx;
+                unit->harvest_return_gy = units[i].gy;
+                sent_home = P_MoveUnitTo(map, unit, units[i].gx, units[i].gy);
+                if (sent_home) {
+                    unit->harvest_return_gx = unit->move_goal_gx;
+                    unit->harvest_return_gy = unit->move_goal_gy;
+                }
+                if (sent_home) break;
+            }
+            if (sent_home) {
+                unit->harvest_phase = HARVEST_PHASE_TO_BASE;
+                break;
+            }
+        }
         if (vent->amount <= 0) {
-            vent->active = false;
-            unit->harvest_target = -1;
-            unit->harvest_timer_ms = 0;
+            deactivate_resource_vent(map, vent);
+            if (unit->harvest_capacity > 0 && unit->harvest_cargo > 0) {
+                unit->harvest_phase = HARVEST_PHASE_TO_BASE;
+                for (int i = 0; i < unit_count; ++i) {
+                    if (units[i].owner != unit->owner ||
+                        (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
+                    unit->harvest_return_gx = units[i].gx;
+                    unit->harvest_return_gy = units[i].gy;
+                    if (P_MoveUnitTo(map, unit, units[i].gx, units[i].gy)) {
+                        unit->harvest_return_gx = unit->move_goal_gx;
+                        unit->harvest_return_gy = unit->move_goal_gy;
+                        break;
+                    }
+                }
+            } else {
+                unit->harvest_target = -1;
+                unit->harvest_timer_ms = 0;
+                unit->harvest_phase = HARVEST_PHASE_NONE;
+                if (game_info && unit->harvest_state_id > 0)
+                    P_SetMobjState(&(statecontext_t){ .map = map, .game_info = game_info },
+                                   unit, game_info->mobjinfo[unit->type_id].spawnstate);
+            }
             break;
         }
     }
@@ -802,7 +890,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 }
             }
 
-            if (update_unit_harvest(map, u, dt_ms, game_info)) {
+            if (update_unit_harvest(map, units, count, u, dt_ms, game_info)) {
                 moving = false;
             }
 
@@ -907,7 +995,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             }
         }
         if (!unit_is_following_path(u)) {
-            update_unit_harvest(map, u, dt_ms, NULL);
+            update_unit_harvest(map, units, count, u, dt_ms, NULL);
             continue;
         }
         cell_t c = u->path[u->path_index];
@@ -923,7 +1011,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             u->path_len = 0;
             u->path_index = 0;
             u->move_order_arrived = true;
-            (void)update_unit_harvest(map, u, dt_ms, NULL);
+            (void)update_unit_harvest(map, units, count, u, dt_ms, NULL);
             continue;
         }
         if (dist >= 0.001f) u->facing_code = direction_code_from_map_vector(map, NULL, dx, dy);
@@ -950,7 +1038,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 u->move_order_arrived = false;
             }
         }
-        (void)update_unit_harvest(map, u, dt_ms, NULL);
+        (void)update_unit_harvest(map, units, count, u, dt_ms, NULL);
     }
 
     separate_units(map, units, count);

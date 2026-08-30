@@ -59,13 +59,14 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_HARVESTER,
         .speed = 4.5f,
         .max_hp = 750,
+        .harvest_capacity = 100,
     },
     {
         .id = DR_ACTOR_FG_HEADQUARTERS_1,
         .name = "FG Headquarters 1",
         .sprite_name = "nfhqt1l0.spr",
         .shadow_name = "bfhqtsh0.spr",
-        .traits = MF_SELECTABLE | MF_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE,
         .max_hp = 1200,
     },
 #define DR_MOBILE(id_, name_, sprite_, hp_, speed_) \

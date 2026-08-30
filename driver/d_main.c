@@ -687,6 +687,7 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
+    unit->harvest_capacity = type->harvest_capacity;
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;

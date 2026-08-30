@@ -474,6 +474,7 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         units[i].move_order_arrived = false;
         units[i].harvest_target = -1;
         units[i].harvest_timer_ms = 0;
+        units[i].harvest_phase = 0;
         cell_t start = { (int)floorf(units[i].gx), (int)floorf(units[i].gy) };
         int len = flow_path_find(map, field, start, units[i].path, MAX_PATH_CELLS,
                                  P_MobjRadius(&units[i]));
@@ -516,6 +517,30 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         selected_index++;
     }
     free(field);
+}
+
+bool P_MoveUnitTo(const level_t *map, mobj_t *unit, float goal_gx, float goal_gy) {
+    if (!map || !unit || unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0) return false;
+    cell_t goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
+    if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return false;
+    if (!find_nearest_walkable_position(map, goal_gx, goal_gy, P_MobjRadius(unit), 8,
+                                        &goal_gx, &goal_gy)) {
+        goal_gx = (float)goal.x + 0.5f;
+        goal_gy = (float)goal.y + 0.5f;
+    }
+    FlowCell *field = build_flow_field(map, goal);
+    if (!field) return false;
+    cell_t start = { (int)floorf(unit->gx), (int)floorf(unit->gy) };
+    int len = flow_path_find(map, field, start, unit->path, MAX_PATH_CELLS,
+                             P_MobjRadius(unit));
+    free(field);
+    if (len <= 0) return false;
+    unit->move_goal_gx = goal_gx;
+    unit->move_goal_gy = goal_gy;
+    unit->path_len = len;
+    unit->path_index = len > 1 ? 1 : 0;
+    unit->move_order_arrived = unit->path_index == 0;
+    return true;
 }
 
 static int find_resource_vent_at(const level_t *map, float gx, float gy) {
@@ -622,6 +647,8 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
         unit->attack_target = -1;
         unit->harvest_target = vent_index;
         unit->harvest_timer_ms = 0;
+        unit->harvest_cargo = 0;
+        unit->harvest_phase = 1;
         unit->move_order_id = order_id;
         unit->move_order_arrived = unit->path_index == 0;
         /* The original DC order hands the harvester to the vent attachment

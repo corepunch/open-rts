@@ -482,6 +482,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->rate = rate;
     vent->active = rate > 0;
     vent->resource_type = 0;
+    vent->decoration_index = -1;
 
     if (rate > 0 && map->decoration_count < MAX_DECORATIONS) {
         mapdecoration_t *decorations = realloc(map->decorations,
@@ -503,6 +504,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
             dec->frame_index = -1;
             dec->render_flags = RTS_FRAME_ADDITIVE;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
+            vent->decoration_index = map->decoration_count - 1;
         }
     }
     return true;
@@ -1110,6 +1112,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     u->harvest_target = -1;
     if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config)
         u->speed = unit_config[type].speed;
+    if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
     u->type_id = (uint16_t)mobj_type;
     if (city_object) u->render_sort_y = (float)object->cell_z + 0.5f;
     u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
