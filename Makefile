@@ -44,6 +44,7 @@ MAIN_SOURCES := \
 	common/engine_core.c \
 	common/engine_path.c \
 	common/engine_units.c \
+	common/facing.c \
 	common/plugin.c
 MAIN_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(MAIN_SOURCES))
 MAIN_DEPS    := $(MAIN_OBJECTS:.o=.d)
@@ -99,6 +100,7 @@ MODEL_SOURCES := \
 	common/engine_base.c \
 	common/engine_path.c \
 	common/engine_units.c \
+	common/facing.c \
 	common/plugin.c
 MODEL_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(MODEL_SOURCES))
 MODEL_DEPS    := $(MODEL_OBJECTS:.o=.d)

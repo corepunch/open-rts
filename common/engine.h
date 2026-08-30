@@ -5,6 +5,7 @@
 #include "actor.h"
 #include "assets.h"
 #include "engine_config.h"
+#include "facing.h"
 #include "map.h"
 #include "render_plan.h"
 #include "sprites.h"

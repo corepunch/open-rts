@@ -192,41 +192,22 @@ void apply_mobjinfo_defaults(const GameInfo *game_info, Unit *unit) {
 
 static int compass16_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    float angle = atan2f(-dy, dx);
-    const float quarter_turn = 0.7853981633974483f;
-    int sector = (int)floorf(angle / quarter_turn + 0.5f);
-    sector %= 8;
-    if (sector < 0) sector += 8;
-    return sector * 2;
+    return facing_to_index(facing_from_vector(dx, dy), &compass16_facing_scheme) * 2;
 }
 
 static int dark_colony8_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    const float quarter_turn = 0.7853981633974483f;
-    int sector = (int)floorf(atan2f(dx, dy) / quarter_turn + 0.5f);
-    sector %= 8;
-    if (sector < 0) sector += 8;
-    return sector;
+    return facing_to_index(facing_from_vector(dx, dy), &dc8_facing_scheme);
 }
 
 static int dark_colony16_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    const float sixteenth_turn = 0.39269908169872414f;
-    int sector = (int)floorf(atan2f(dx, dy) / sixteenth_turn + 0.5f);
-    sector %= 16;
-    if (sector < 0) sector += 16;
-    return sector;
+    return facing_to_index(facing_from_vector(dx, dy), &dc16_facing_scheme);
 }
 
 static int dark_reign16_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    const float sixteenth_turn = 0.39269908169872414f;
-    /* Dark Reign's SPR rotation zero points north and rotations advance
-       clockwise in screen space. */
-    int sector = (int)floorf(atan2f(dx, -dy) / sixteenth_turn + 0.5f);
-    sector %= 16;
-    if (sector < 0) sector += 16;
-    return sector;
+    return facing_to_index(facing_from_vector(dx, dy), &dr16_facing_scheme);
 }
 
 int direction_code_from_vector(const GameInfo *game_info, float dx, float dy) {
