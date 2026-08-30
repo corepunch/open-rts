@@ -71,6 +71,8 @@ typedef struct mapdecoration_s {
     char sequence_name[16];
 } mapdecoration_t;
 
+#define RTS_MAX_RESOURCES 8
+
 typedef struct resourcevent_s {
     int gx;
     int gy;
@@ -81,6 +83,7 @@ typedef struct resourcevent_s {
     int amount;
     int rate;
     bool active;
+    int resource_type; /* 0-based index into player_resources[][resource_type] */
 } resourcevent_t;
 
 typedef struct level_s {
@@ -104,7 +107,7 @@ typedef struct level_s {
     bool has_camera;
     float camera_gx;
     float camera_gy;
-    int player_resources[8];
+    int player_resources[8][RTS_MAX_RESOURCES];
     char tileset_name[32];
     void *native_data;
     void (*destroy_native_data)(void *);

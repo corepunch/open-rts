@@ -1290,8 +1290,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
             SDL_Point dis = sprite_frame_displacement(sprite, frame, effect->render_flags);
             dst = (irect_t){
-                (int)lroundf(sx) + effect->screen_offset_x + dis.x,
-                (int)lroundf(sy) + effect->screen_offset_y + dis.y - sprite_h,
+                (int)lroundf(sx) + effect->render_offset_x + dis.x,
+                (int)lroundf(sy) + effect->render_offset_y + dis.y - sprite_h,
                 sprite_w,
                 sprite_h,
             };
@@ -1302,9 +1302,9 @@ void R_DrawEffects(app_t *app, const level_t *map,
                 sprite_w,
                 sprite_h,
             };
-            if (effect->screen_offset_x != 0 || effect->screen_offset_y != 0) {
-                dst.x += effect->screen_offset_x;
-                dst.y += effect->screen_offset_y;
+            if (effect->render_offset_x != 0 || effect->render_offset_y != 0) {
+                dst.x += effect->render_offset_x;
+                dst.y += effect->render_offset_y;
             }
         }
         if (dst.x > app->win.w || dst.y > app->win.h ||
@@ -1322,7 +1322,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
                           effect->age_ms, effect->duration_ms, effect->facing_code,
                           effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
                           frame, sprite->frame_count,
-                          effect->screen_offset_x, effect->screen_offset_y,
+                          effect->render_offset_x, effect->render_offset_y,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
         SDL_Texture *texture = begin_sprite_command(sprite, effect->render_flags,

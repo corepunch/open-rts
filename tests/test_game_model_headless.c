@@ -654,7 +654,7 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 select exploiter");
     }
 
-    int initial_resources = snapshot.player_resources[0];
+    int initial_resources = snapshot.player_resources[0][0];
     RtsGameCommand harvest = {
         .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
         .data.harvest_selected = {
@@ -687,7 +687,7 @@ static int assert_human02(RtsGameModel *model) {
             if (frame == 14 || frame == 34) {
                 saw_deploy_body_frame = true;
             }
-            if (snapshot.player_resources[0] > initial_resources) {
+            if (snapshot.player_resources[0][0] > initial_resources) {
                 int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
                 if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
                     snapshot.units[exploiter].state_id < S_DC_EXPL_DIE1 &&
@@ -700,12 +700,12 @@ static int assert_human02(RtsGameModel *model) {
             }
         }
         if (saw_deploy_body_frame && saw_mining_body && mining_work_state_count >= 4 &&
-            snapshot.player_resources[0] > initial_resources) break;
+            snapshot.player_resources[0][0] > initial_resources) break;
     }
     if (!saw_deploy_body_frame) {
         return fail("Human02 Exploiter keeps deployed body frame while harvesting");
     }
-    if (snapshot.player_resources[0] <= initial_resources) {
+    if (snapshot.player_resources[0][0] <= initial_resources) {
         return fail("Human02 Exploiter mining adds player resources");
     }
     if (!saw_mining_body) {
@@ -732,7 +732,7 @@ static int assert_human02(RtsGameModel *model) {
         snapshot.units[exploiter].harvest_target < 0) {
         return fail("Human02 scripted enemy waves do not interrupt early Exploiter mining");
     }
-    for (int i = 0; snapshot.player_resources[0] < 350 && i < 30 * 90; ++i) {
+    for (int i = 0; snapshot.player_resources[0][0] < 350 && i < 30 * 90; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while mining enough Petra-7 for production");
         }
@@ -740,13 +740,13 @@ static int assert_human02(RtsGameModel *model) {
             return fail("Human02 snapshot while mining enough Petra-7 for production");
         }
     }
-    if (snapshot.player_resources[0] < 350) {
+    if (snapshot.player_resources[0][0] < 350) {
         return fail("Human02 mining produces enough Petra-7 to test unit production");
     }
 
     int units_before_production = snapshot.unit_count;
     int troopers_before_production = snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER);
-    int resources_before_production = snapshot.player_resources[0];
+    int resources_before_production = snapshot.player_resources[0][0];
     RtsGameCommand train_trooper = {
         .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
         .data.activate_ui_button = { .ui_id = 89 },
@@ -767,7 +767,7 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
         return fail("Human02 Trooper production queues instead of spawning instantly");
     }
-    if (snapshot.player_resources[0] != resources_before_production - 350) {
+    if (snapshot.player_resources[0][0] != resources_before_production - 350) {
         return fail("Human02 queued Trooper production spends the DEPEND cost immediately");
     }
     for (int i = 0; i < 30 * 4; ++i) {
@@ -903,7 +903,7 @@ static int assert_dark_reign(RtsGameModel *model) {
     if (snapshot.map_width <= 0 || snapshot.map_height <= 0 || snapshot.unit_count != 6) {
         return fail("Dark Reign snapshot has expected map and starting units");
     }
-    if (snapshot.player_resources[0] != 12000 || snapshot.player_resources[1] != 12000) {
+    if (snapshot.player_resources[0][0] != 12000 || snapshot.player_resources[1][0] != 12000) {
         return fail("Dark Reign team credits load into model resources");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3 ||
@@ -920,7 +920,7 @@ static int assert_dark_reign(RtsGameModel *model) {
     if (product_result != 0) return product_result;
 
     int units_before_hq = snapshot.unit_count;
-    int resources_before_hq = snapshot.player_resources[0];
+    int resources_before_hq = snapshot.player_resources[0][0];
     RtsGameCommand build_hq = {
         .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
         .data.activate_ui_button = { .ui_id = 10001 },
@@ -933,7 +933,7 @@ static int assert_dark_reign(RtsGameModel *model) {
     }
     if (snapshot.unit_count != units_before_hq + 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_HEADQUARTERS_1) != 1 ||
-        snapshot.player_resources[0] != resources_before_hq - 750) {
+        snapshot.player_resources[0][0] != resources_before_hq - 750) {
         return fail("Dark Reign FG HQ production creates building and spends BUILD.TXT cost");
     }
 
@@ -947,7 +947,7 @@ static int assert_dark_reign(RtsGameModel *model) {
     int rigs_before = snapshot_count_units_with_owner_and_type(
         &snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW);
     int units_before_rig = snapshot.unit_count;
-    int resources_before_rig = snapshot.player_resources[0];
+    int resources_before_rig = snapshot.player_resources[0][0];
     RtsGameCommand train_rig = {
         .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
         .data.activate_ui_button = { .ui_id = 11 },
@@ -960,7 +960,7 @@ static int assert_dark_reign(RtsGameModel *model) {
     }
     if (snapshot.unit_count != units_before_rig + 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != rigs_before + 1 ||
-        snapshot.player_resources[0] != resources_before_rig - 300) {
+        snapshot.player_resources[0][0] != resources_before_rig - 300) {
         return fail("Dark Reign Construction Rig production creates unit and spends UNITS.TXT cost");
     }
 
@@ -982,7 +982,7 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot))
         return fail("snapshot Dark Reign Mission 1");
     if (snapshot.map_width != 60 || snapshot.map_height != 60 ||
-        snapshot.player_resources[0] != 4000 ||
+        snapshot.player_resources[0][0] != 4000 ||
         snapshot_count_units_with_owner_and_type(
             &snapshot, 0, DR_ACTOR_FG_GROUND_TRANSPORTER) != 1 ||
         !snapshot_has_dark_reign_building(&snapshot,
@@ -1003,7 +1003,7 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot))
         return fail("snapshot Dark Reign Mission 2");
     if (snapshot.map_width != 71 || snapshot.map_height != 71 ||
-        snapshot.player_resources[0] != 12000 ||
+        snapshot.player_resources[0][0] != 12000 ||
         snapshot_count_units_with_owner_and_type(
             &snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3) {
         return fail("Mission 2 loads its barren map, credits, and three construction crews");

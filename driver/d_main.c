@@ -1816,9 +1816,9 @@ static bool dark_colony_ui_handle_event(const app_t *app, level_t *map,
                                     (ivec2_t){ rx, ry })) continue;
                 const DarkColonyProductButton *product = products[i];
                 uint16_t actor_id = dc_unit_actor_id_for_product_type(product->product_type);
-                if (actor_id == 0 || map->player_resources[0] < product->cost) return true;
+                if (actor_id == 0 || map->player_resources[0][0] < product->cost) return true;
                 if (dc_enqueue_unit_product(selected, product, actor_id)) {
-                    map->player_resources[0] -= product->cost;
+                    map->player_resources[0][0] -= product->cost;
                 }
                 return true;
             }
@@ -1972,7 +1972,7 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
         if (map->resource_vents[i].active) active_vents++;
     dc_ui_fill(app->renderer, layout.resources, (SDL_Color){ 4, 6, 7, 255 });
     dc_ui_stroke(app->renderer, layout.resources, (SDL_Color){ 142, 142, 142, 255 });
-    dc_ui_draw_capital(app, font, layout.resources, map->player_resources[0],
+    dc_ui_draw_capital(app, font, layout.resources, map->player_resources[0][0],
                        active_vents, map->resource_vent_count);
 
     DarkColonySidebar fallback_sidebar;
@@ -2008,7 +2008,7 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
                      products[hover_button]->label, products[hover_button]->cost);
             HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            line,
-                           map->player_resources[0] >= products[hover_button]->cost ?
+                           map->player_resources[0][0] >= products[hover_button]->cost ?
                            amber : (SDL_Color){ 208, 103, 88, 255 },
                            1);
         } else {
@@ -2046,7 +2046,7 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
             dc_sidebar_command_frame(&sidebar->commands[i], selected);
         if (buttons && buttons->texture) {
             dc_ui_draw_sprite_fit(app->renderer, buttons, frame, button_rect, 0);
-            if (product_mode && products[i] && map->player_resources[0] < products[i]->cost) {
+            if (product_mode && products[i] && map->player_resources[0][0] < products[i]->cost) {
                 dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
             }
         } else {
@@ -2448,9 +2448,9 @@ int main(int argc, char **argv) {
             HU_Ticker(&hud_text, FIXED_DT);
             accumulator -= FIXED_DT;
         }
-        if (map.player_resources[0] != title_resources) {
+        if (map.player_resources[0][0] != title_resources) {
             char title[128];
-            title_resources = map.player_resources[0];
+            title_resources = map.player_resources[0][0];
             snprintf(title, sizeof(title), "open-rts - %s - P-7 %d", g_game_name, title_resources);
             SDL_SetWindowTitle(app.window, title);
         }

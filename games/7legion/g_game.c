@@ -101,6 +101,21 @@ static const gameinfo_t SL_GAME_INFO = {
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
+static const uidefinition_t SL_UI = {
+    .logical_width = 640,
+    .logical_height = 480,
+    .world_viewport = { 0, 28, 640, 452 },
+    .resources = {
+        [0] = { .text = { 630, 3 }, .color = { 230, 215, 80, 255 } },
+    },
+    .resource_count = 1,
+    .status_panel = {
+        .rect = { 480, 0, 160, 28 },
+        .fill = { 8, 11, 15, 255 },
+        .border = { 126, 132, 126, 255 },
+    },
+};
+
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
 const char *const g_game_id            = "7legion";
@@ -116,7 +131,7 @@ const actortype_t *const mobjinfo =
     (const actortype_t *)SL_ACTOR_TYPES;
 const int num_mobjinfo =
     (int)(sizeof(SL_ACTOR_TYPES) / sizeof(SL_ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = NULL;
+const uidefinition_t *const gameui = &SL_UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 

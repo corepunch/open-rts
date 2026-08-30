@@ -134,7 +134,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
     sl_load_first_mission_config(map_path, &mission);
     snprintf(out->tileset_name, sizeof(out->tileset_name), "%s",
              sl_tileset_for_terrain(mission.terrain));
-    out->player_resources[0] = mission.start_cash;
+    out->player_resources[0][0] = mission.start_cash;
 
     out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
     out->has_camera = true;

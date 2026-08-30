@@ -3,7 +3,11 @@
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+_Static_assert(RTS_UI_MAX_RESOURCES == RTS_MAX_RESOURCES,
+               "UI and simulation resource slot counts must match");
 
 static irect_t ui_scaled_rect(const app_t *app, const uidefinition_t *def, irect_t rect) {
     float sx = (float)app->win.w / (float)def->logical_width;
@@ -93,17 +97,120 @@ static void draw_digit(SDL_Renderer *renderer, int x, int y, int digit, SDL_Colo
     }
 }
 
-static void game_ui_draw_resources(const GameUi *ui, app_t *app, int amount) {
+static void game_ui_draw_panel(const GameUi *ui, app_t *app, uipanel_t panel) {
+    irect_t rect = ui_scaled_rect(app, ui->definition, panel.rect);
+    if (rect.w <= 0 || rect.h <= 0) return;
+    SDL_SetRenderDrawColor(app->renderer, panel.fill.r, panel.fill.g,
+                           panel.fill.b, panel.fill.a);
+    SDL_RenderFillRect(app->renderer, &rect);
+    SDL_SetRenderDrawColor(app->renderer, panel.border.r, panel.border.g,
+                           panel.border.b, panel.border.a);
+    SDL_RenderDrawRect(app->renderer, &rect);
+}
+
+static void game_ui_draw_sidebar_icon(SDL_Renderer *renderer, irect_t cell, int slot) {
+    if (slot < 5 || slot > 9) return;
+    int cx = cell.x + cell.w / 2;
+    int cy = cell.y + cell.h / 2;
+    int r = cell.w / 5;
+    SDL_SetRenderDrawColor(renderer, 40, 196, 218, 255);
+    if (slot == 5) { /* bomber */
+        for (int y = -r; y <= r; ++y) {
+            int half = r - abs(y);
+            SDL_RenderDrawLine(renderer, cx - half, cy + y, cx + half, cy + y);
+        }
+        SDL_RenderDrawLine(renderer, cx, cy - r - 6, cx + 5, cy - r - 1);
+    } else if (slot == 6) { /* sell */
+        SDL_RenderDrawLine(renderer, cx + 5, cy - r, cx - 5, cy - r);
+        SDL_RenderDrawLine(renderer, cx - 5, cy - r, cx - 7, cy - 1);
+        SDL_RenderDrawLine(renderer, cx - 7, cy - 1, cx + 7, cy + 1);
+        SDL_RenderDrawLine(renderer, cx + 7, cy + 1, cx + 5, cy + r);
+        SDL_RenderDrawLine(renderer, cx + 5, cy + r, cx - 5, cy + r);
+        SDL_RenderDrawLine(renderer, cx, cy - r - 4, cx, cy + r + 4);
+    } else if (slot == 7) { /* research */
+        SDL_RenderDrawLine(renderer, cx - 4, cy - r, cx + 4, cy - r);
+        SDL_RenderDrawLine(renderer, cx - 2, cy - r, cx - 2, cy - 2);
+        SDL_RenderDrawLine(renderer, cx + 2, cy - r, cx + 2, cy - 2);
+        SDL_RenderDrawLine(renderer, cx - 2, cy - 2, cx - r, cy + r);
+        SDL_RenderDrawLine(renderer, cx + 2, cy - 2, cx + r, cy + r);
+        SDL_RenderDrawLine(renderer, cx - r, cy + r, cx + r, cy + r);
+        SDL_RenderDrawLine(renderer, cx - r + 3, cy + 4, cx + r - 3, cy + 4);
+    } else if (slot == 8) { /* repair */
+        SDL_RenderDrawLine(renderer, cx - r, cy + r, cx + r, cy - r);
+        SDL_RenderDrawLine(renderer, cx - r + 1, cy + r, cx - r - 4, cy + r - 5);
+        SDL_RenderDrawLine(renderer, cx + r, cy - r, cx + r + 5, cy - r + 3);
+        SDL_RenderDrawLine(renderer, cx + r, cy - r, cx + r - 3, cy - r - 5);
+    } else { /* radar */
+        for (int y = -r; y <= r; ++y) {
+            int x = (int)sqrtf((float)(r * r - y * y));
+            SDL_RenderDrawPoint(renderer, cx - x, cy + y);
+            SDL_RenderDrawPoint(renderer, cx + x, cy + y);
+        }
+        SDL_RenderDrawLine(renderer, cx - r, cy, cx + r, cy);
+        SDL_RenderDrawLine(renderer, cx, cy - r, cx, cy + r);
+    }
+}
+
+static void game_ui_draw_sidebar_cells(const GameUi *ui, app_t *app) {
+    const uidefinition_t *def = ui->definition;
+    if (def->sidebar_cell_size <= 0 || def->sidebar_panel.rect.h <= 0) return;
+    int count = (def->sidebar_panel.rect.h + def->sidebar_cell_size - 1) /
+                def->sidebar_cell_size;
+    for (int i = 0; i < count; ++i) {
+        irect_t cell = ui_scaled_rect(app, def, (irect_t){
+            def->sidebar_panel.rect.x,
+            def->sidebar_panel.rect.y + i * def->sidebar_cell_size,
+            def->sidebar_panel.rect.w,
+            def->sidebar_cell_size,
+        });
+        SDL_SetRenderDrawColor(app->renderer, 50, 34, 24, 255);
+        SDL_RenderFillRect(app->renderer, &cell);
+        SDL_SetRenderDrawColor(app->renderer, 119, 91, 67, 255);
+        SDL_RenderDrawLine(app->renderer, cell.x, cell.y,
+                          cell.x + cell.w - 1, cell.y);
+        SDL_RenderDrawLine(app->renderer, cell.x, cell.y,
+                          cell.x, cell.y + cell.h - 1);
+        SDL_SetRenderDrawColor(app->renderer, 24, 16, 11, 255);
+        SDL_RenderDrawLine(app->renderer, cell.x, cell.y + cell.h - 1,
+                          cell.x + cell.w - 1, cell.y + cell.h - 1);
+        SDL_RenderDrawLine(app->renderer, cell.x + cell.w - 1, cell.y,
+                          cell.x + cell.w - 1, cell.y + cell.h - 1);
+        game_ui_draw_sidebar_icon(app->renderer, cell, i);
+    }
+}
+
+static void game_ui_draw_resource(const GameUi *ui, app_t *app,
+                                  const uiresource_t *display, int amount) {
     char value[24];
+    if (amount < 0) amount = 0;
     snprintf(value, sizeof(value), "%d", amount);
     int count = (int)strlen(value);
     float sx = (float)app->win.w / (float)ui->definition->logical_width;
     float sy = (float)app->win.h / (float)ui->definition->logical_height;
-    int x = (int)((float)ui->definition->resource_text.x * sx) - count * 7;
-    int y = (int)((float)ui->definition->resource_text.y * sy);
+    int x = (int)((float)display->text.x * sx) - count * 7;
+    int y = (int)((float)display->text.y * sy);
     for (int i = 0; i < count; ++i) {
-        draw_digit(app->renderer, x + i * 14, y, value[i] - '0', ui->definition->resource_color);
+        draw_digit(app->renderer, x + i * 14, y, value[i] - '0', display->color);
     }
+}
+
+static void game_ui_draw_elapsed_time(const GameUi *ui, app_t *app) {
+    if (!ui->definition->status_elapsed_time) return;
+    irect_t panel = ui_scaled_rect(app, ui->definition,
+                                  ui->definition->status_panel.rect);
+    int seconds = (int)(app->ticks_ms / 1000u);
+    int minutes = (seconds / 60) % 100;
+    seconds %= 60;
+    int x = panel.x + 9;
+    int y = panel.y + 3;
+    SDL_Color white = { 255, 255, 255, 255 };
+    draw_digit(app->renderer, x, y, minutes / 10, white);
+    draw_digit(app->renderer, x + 14, y, minutes % 10, white);
+    SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
+    SDL_RenderDrawPoint(app->renderer, x + 29, y + 7);
+    SDL_RenderDrawPoint(app->renderer, x + 29, y + 14);
+    draw_digit(app->renderer, x + 34, y, seconds / 10, white);
+    draw_digit(app->renderer, x + 48, y, seconds % 10, white);
 }
 
 static void game_ui_draw_commands(const GameUi *ui, app_t *app, const spritecache_t *sprites) {
@@ -142,6 +249,9 @@ void game_ui_render(const GameUi *ui, app_t *app, const level_t *map,
                     const mobj_t *units, int unit_count, const spritecache_t *sprites) {
     if (!ui || !ui->ready || !ui->definition || !app) return;
     const uidefinition_t *def = ui->definition;
+    game_ui_draw_panel(ui, app, def->sidebar_panel);
+    game_ui_draw_sidebar_cells(ui, app);
+    game_ui_draw_panel(ui, app, def->status_panel);
     for (int i = 0; i < def->image_count; ++i) {
         irect_t dst = ui_scaled_rect(app, def, def->images[i].destination);
         const irect_t *src = def->images[i].source.w > 0 && def->images[i].source.h > 0 ?
@@ -150,7 +260,13 @@ void game_ui_render(const GameUi *ui, app_t *app, const level_t *map,
     }
     game_ui_draw_commands(ui, app, sprites);
     game_ui_draw_minimap(ui, app, map, units, unit_count);
-    game_ui_draw_resources(ui, app, map ? map->player_resources[0] : 0);
+    game_ui_draw_elapsed_time(ui, app);
+    int resource_count = def->resource_count;
+    if (resource_count < 0) resource_count = 0;
+    if (resource_count > RTS_UI_MAX_RESOURCES) resource_count = RTS_UI_MAX_RESOURCES;
+    for (int i = 0; i < resource_count; ++i)
+        game_ui_draw_resource(ui, app, &def->resources[i],
+                              map ? map->player_resources[0][i] : 0);
 }
 
 void game_ui_destroy(GameUi *ui) {

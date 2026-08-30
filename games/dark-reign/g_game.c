@@ -29,8 +29,10 @@ static const uidefinition_t DARK_REIGN_UI = {
     .command_grid = { 450, 66, 188, 246 },
     .command_columns = 3,
     .command_rows = 4,
-    .resource_text = { 216, 5 },
-    .resource_color = { 55, 242, 238, 255 },
+    .resources = {
+        [0] = { .text = { 216, 5 }, .color = { 55, 242, 238, 255 } },
+    },
+    .resource_count = 1,
     .images = DARK_REIGN_UI_IMAGES,
     .image_count = (int)(sizeof(DARK_REIGN_UI_IMAGES) / sizeof(DARK_REIGN_UI_IMAGES[0])),
 };

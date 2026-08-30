@@ -68,30 +68,18 @@ static void resolve_state_frame(const state_t *state, int facing_code,
     if (intensity_out) *intensity_out = intensity;
 }
 
-static void apply_state_visuals(const gameinfo_t *game_info, mobj_t *unit,
-                                    const state_t *state) {
-    if (!game_info || !unit || !state) return;
-    unit->sprite_id = state->sprite;
-    resolve_state_frame(state, unit->facing_code, &unit->frame, &unit->render_flags,
-                            NULL, NULL, &unit->render_remap, &unit->render_intensity);
-    if (unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
-        game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
-        snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s",
-                 game_info->sprnames[unit->sprite_id]);
-    }
-}
-
-static void apply_effect_state_visuals(const gameinfo_t *game_info, effect_t *effect,
-                                       const state_t *state) {
-    if (!game_info || !effect || !state) return;
-    effect->sprite_id = state->sprite;
-    resolve_state_frame(state, effect->facing_code, &effect->frame, &effect->render_flags,
-                            &effect->screen_offset_x, &effect->screen_offset_y,
-                            &effect->render_remap, &effect->render_intensity);
-    if (effect->sprite_id >= 0 && effect->sprite_id < game_info->sprite_count &&
-        game_info->sprnames && game_info->sprnames[effect->sprite_id]) {
-        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "%s",
-                 game_info->sprnames[effect->sprite_id]);
+static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
+                                const state_t *state, bool apply_offsets) {
+    if (!game_info || !mobj || !state) return;
+    mobj->sprite_id = state->sprite;
+    resolve_state_frame(state, mobj->facing_code, &mobj->frame, &mobj->render_flags,
+                        apply_offsets ? &mobj->render_offset_x : NULL,
+                        apply_offsets ? &mobj->render_offset_y : NULL,
+                        &mobj->render_remap, &mobj->render_intensity);
+    if (mobj->sprite_id >= 0 && mobj->sprite_id < game_info->sprite_count &&
+        game_info->sprnames && game_info->sprnames[mobj->sprite_id]) {
+        snprintf(mobj->sprite_name, sizeof(mobj->sprite_name), "%s",
+                 game_info->sprnames[mobj->sprite_id]);
     }
 }
 
@@ -110,7 +98,7 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
         const state_t *state = &game_info->states[state_id];
         unit->state_id = state_id;
         unit->tics = state->tics;
-        apply_state_visuals(game_info, unit, state);
+        apply_state_visuals(game_info, &unit->core, state, false);
         debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
                           unit->type_id, unit->state_id, unit->sprite_id, unit->frame, unit->tics);
         if (state->misc1 == 3) {
@@ -146,7 +134,7 @@ static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
         const state_t *state = &game_info->states[state_id];
         effect->state_id = state_id;
         effect->tics = state->tics;
-        apply_effect_state_visuals(game_info, effect, state);
+        apply_state_visuals(game_info, &effect->core, state, true);
         if (effect->tics != 0) return true;
         state_id = state->nextstate;
     }
@@ -654,7 +642,8 @@ static bool update_unit_harvest(level_t *map, mobj_t *unit, int dt_ms,
         if (take > vent->amount) take = vent->amount;
         vent->amount -= take;
         int owner = unit->owner < 8 ? unit->owner : 0;
-        map->player_resources[owner] += take;
+        int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
+        map->player_resources[owner][rtype] += take;
         if (vent->amount <= 0) {
             vent->active = false;
             unit->harvest_target = -1;
@@ -808,7 +797,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     } else if (!moving && group == 2) {
                         P_SetMobjState(&ctx, u, mi->spawnstate);
                     } else {
-                        apply_state_visuals(game_info, u, state_at(game_info, u->state_id));
+                        apply_state_visuals(game_info, &u->core,
+                                            state_at(game_info, u->state_id), false);
                     }
                 }
             }

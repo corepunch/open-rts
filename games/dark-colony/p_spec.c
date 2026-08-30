@@ -161,7 +161,7 @@ static int dark_colony_spawn_dropship_effect(effect_t *effects, int max_effects,
         effect->duration_ms = duration_ms;
         effect->frame_ms = duration_ms + 1;
         effect->render_intensity = 16;
-        effect->screen_offset_y = -75;
+        effect->render_offset_y = -75;
         snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/DROP.SPR");
         return i;
     }

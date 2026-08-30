@@ -319,3 +319,11 @@ Reverse-engineering rules for Dark Colony:
   thresholds found in the binary/assets instead of drawing replacement shapes.
 - For resources and production, use SCN team money, product costs/prerequisites,
   producer queues, release animations, and unit spacing behavior from DC logic.
+
+## Git workflow
+
+- Commit all completed working-tree changes after verification so progress stays
+  easy to inspect and bisect.
+- Write a clear imperative subject and a detailed commit body describing the
+  behavior changed, the reason for the change, and the verification performed.
+- Do not push commits unless the user explicitly asks for a push.

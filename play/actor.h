@@ -128,21 +128,40 @@ typedef struct gameinfo_s {
     selectionmarker_t selection_marker;
 } gameinfo_t;
 
+/*
+ * State-machine and presentation data shared by gameplay mobjs and transient
+ * effects.  Keep this as the single definition of the fields advanced by a
+ * state_t; effect_t adds only lifetime policy around the same lightweight
+ * object core.
+ */
+#define MOBJ_CORE_FIELDS \
+    float gx; \
+    float gy; \
+    int facing_code; \
+    int state_id; \
+    int tics; \
+    int sprite_id; \
+    int frame; \
+    uint32_t render_flags; \
+    int render_remap; \
+    int render_intensity; \
+    int render_offset_x; \
+    int render_offset_y; \
+    char sprite_name[32]
+
+typedef struct mobjcore_s {
+    MOBJ_CORE_FIELDS;
+} mobjcore_t;
+
 struct mobj_s {
-    float gx;
-    float gy;
+    union {
+        mobjcore_t core;
+        struct {
+            MOBJ_CORE_FIELDS;
+        };
+    };
     float speed;
-    int facing_code;
     uint16_t type_id;
-    int state_id;
-    int tics;
-    int sprite_id;
-    int frame;
-    uint32_t render_flags;
-    int render_remap;
-    int render_intensity;
-    int render_offset_x;
-    int render_offset_y;
     float render_sort_y;
     uint8_t owner;
     uint32_t traits;
@@ -177,7 +196,6 @@ struct mobj_s {
     float move_goal_gx;
     float move_goal_gy;
     uint32_t move_order_id;
-    char sprite_name[32];
     char shadow_name[32];
     char muzzle_flash_name[32];
     char hit_effect_name[32];
@@ -188,28 +206,23 @@ struct mobj_s {
 };
 
 typedef struct effect_s {
+    union {
+        mobjcore_t core;
+        struct {
+            MOBJ_CORE_FIELDS;
+        };
+    };
     bool active;
     bool use_state;
-    float gx;
-    float gy;
-    int facing_code;
-    int state_id;
-    int tics;
-    int sprite_id;
-    int frame;
-    uint32_t render_flags;
-    int render_remap;
-    int render_intensity;
-    int screen_offset_x;
-    int screen_offset_y;
     int age_ms;
     int duration_ms;
     int frame_ms;
     int decoration_frame_index;
     bool add_decoration_on_finish;
-    char sprite_name[32];
     char sequence_name[16];
 } effect_t;
+
+#undef MOBJ_CORE_FIELDS
 
 struct statecontext_s {
     level_t *map;

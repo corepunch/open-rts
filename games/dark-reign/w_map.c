@@ -436,6 +436,53 @@ static void load_dark_reign_decorations(const char *map_path, level_t *map) {
           compare_map_decorations);
 }
 
+/* Default taelon amount and harvest rate per mine.  The BUILD.TXT definition
+   lists SetResource(1 1 500 40) but does not encode per-scenario deposits; we
+   use a fixed baseline that matches the original game's economy pacing. */
+#define DR_TAELON_MINE_AMOUNT 3000
+#define DR_TAELON_MINE_RATE   20
+
+static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
+    char scn_path[1024];
+    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    blob_t blob;
+    if (!W_ReadFile(scn_path, &blob)) return;
+    char *text = malloc(blob.size + 1);
+    if (!text) { W_FreeFile(&blob); return; }
+    memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
+    const char *tag = "AddBuildingAt(";
+    char *cursor = text;
+    while (1) {
+        char *hit = strstr(cursor, tag);
+        if (!hit) break;
+        int object_id = 0, gx = 0, gy = 0;
+        char type_name[64] = { 0 };
+        if (sscanf(hit, "AddBuildingAt(%d %63[^ )] %d %d",
+                   &object_id, type_name, &gx, &gy) == 4 &&
+            strcasecmp(type_name, "impmn") == 0 &&
+            L_Contains(map, gx, gy)) {
+            (void)object_id;
+            resourcevent_t *vents = realloc(map->resource_vents,
+                (size_t)(map->resource_vent_count + 1) * sizeof(resourcevent_t));
+            if (vents) {
+                map->resource_vents = vents;
+                resourcevent_t *v = &map->resource_vents[map->resource_vent_count++];
+                v->gx = gx;
+                v->gy = gy;
+                /* 3×3 mine footprint: attach to the centre cell */
+                v->attach_gx = (float)gx + 1.5f;
+                v->attach_gy = (float)gy + 1.5f;
+                v->amount = DR_TAELON_MINE_AMOUNT;
+                v->rate = DR_TAELON_MINE_RATE;
+                v->active = true;
+                v->resource_type = 0;
+            }
+        }
+        cursor = hit + strlen(tag);
+    }
+    free(text); W_FreeFile(&blob);
+}
+
 static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
     if (!map) return;
     char scn_path[1024];
@@ -462,7 +509,7 @@ static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
             current_team = team;
         } else if (current_team >= 0 && current_team < 8 &&
                    sscanf(line, "SetCredit(%d", &credit) == 1) {
-            map->player_resources[current_team] = credit;
+            map->player_resources[current_team][0] = credit;
         } else if (current_team == 0) {
             int world_x = 0, world_y = 0;
             if (sscanf(line, "SetStartLocation(%d %d", &world_x, &world_y) == 2) {
@@ -780,6 +827,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
     out->render_features |= MAP_RENDER_SMOOTH_TRANSITIONS;
     out->render_transitions = render_dark_reign_edges_for_cell;
     load_dark_reign_decorations(map_path, out);
+    load_dark_reign_resource_vents(map_path, out);
     load_dark_reign_team_credits(map_path, out);
     W_FreeFile(&blob);
     return true;

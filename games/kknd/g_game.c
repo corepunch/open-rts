@@ -22,6 +22,31 @@ static const gameinfo_t KKND_GAME_INFO = {
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
+/* OpenKKnD uses a 48-pixel button rail on the right and a centered 180x28
+   status box.  Keep those native proportions while command icons are loaded
+   independently from the original game's MOBD assets. */
+static const uidefinition_t KKND_UI = {
+    .logical_width = 640,
+    .logical_height = 480,
+    .world_viewport = { 0, 0, 592, 480 },
+    .resources = {
+        [0] = { .text = { 400, 3 }, .color = { 255, 255, 255, 255 } },
+    },
+    .resource_count = 1,
+    .status_panel = {
+        .rect = { 230, 0, 180, 28 },
+        .fill = { 0, 0, 0, 255 },
+        .border = { 255, 255, 255, 255 },
+    },
+    .status_elapsed_time = true,
+    .sidebar_panel = {
+        .rect = { 592, 0, 48, 480 },
+        .fill = { 0, 0, 0, 255 },
+        .border = { 104, 104, 96, 255 },
+    },
+    .sidebar_cell_size = 48,
+};
+
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
 const char *const g_game_id            = "kknd";
@@ -36,7 +61,7 @@ const gameinfo_t *const gameinfo = &KKND_GAME_INFO;
 const actortype_t *const mobjinfo = KKND_ACTOR_TYPES;
 const int num_mobjinfo =
     (int)(sizeof(KKND_ACTOR_TYPES) / sizeof(KKND_ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = NULL;
+const uidefinition_t *const gameui = &KKND_UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 

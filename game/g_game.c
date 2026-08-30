@@ -690,7 +690,7 @@ static bool create_model_product(RtsGameModel *model,
                                  const StaticProductDefinition *product) {
     if (!model || !product) return false;
     if (!product_is_available(model, product)) return false;
-    if (model->map.player_resources[0] < product->cost) return false;
+    if (model->map.player_resources[0][0] < product->cost) return false;
 
     bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
     bool dark_colony = strcmp(g_game_id, "dark-colony") == 0;
@@ -703,12 +703,12 @@ static bool create_model_product(RtsGameModel *model,
 
     if (dark_colony && product->product_class == RTS_PRODUCT_UNIT) {
         if (!enqueue_model_unit_product(model, product, producer_index, actor_id)) return false;
-        model->map.player_resources[0] -= product->cost;
+        model->map.player_resources[0][0] -= product->cost;
         return true;
     }
 
     if (!spawn_finished_model_product(model, product, producer_index)) return false;
-    model->map.player_resources[0] -= product->cost;
+    model->map.player_resources[0][0] -= product->cost;
     return true;
 }
 
@@ -798,7 +798,7 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
     dst[0] = '\0';
     append_ui_script(dst, dst_size, "ui dark-colony 1\n");
     append_ui_script(dst, dst_size, "x 520 y 464 text \"P-7 %d\"\n",
-                     model->map.player_resources[0]);
+                     model->map.player_resources[0][0]);
 
     /* Find the selected player building. Mobile units (harvesters, infantry) don't
        show a build panel — only stationary buildings do. */
@@ -854,7 +854,7 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
         int button_x = 516 + col * 36;
         int button_y = 92 + row * 42;
         bool available = product_is_available(model, product) &&
-                         model->map.player_resources[0] >= product->cost;
+                         model->map.player_resources[0][0] >= product->cost;
         append_ui_script(dst, dst_size,
                          "x %d y %d btn %d enabled %d pic %d\n",
                          button_x, button_y, product->ui_id, available ? 1 : 0,
@@ -870,7 +870,7 @@ static void build_dark_reign_ui_script(const RtsGameModel *model, char *dst, siz
     dst[0] = '\0';
     append_ui_script(dst, dst_size, "ui dark-reign 1\n");
     append_ui_script(dst, dst_size, "x 520 y 464 text \"Credits %d\"\n",
-                     model->map.player_resources[0]);
+                     model->map.player_resources[0][0]);
 
     int source_count = dark_reign_product_count();
     for (int i = 0; i < source_count; ++i) {
@@ -1082,7 +1082,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         out->decoration_count = RTS_MODEL_MAX_SNAPSHOT_DECORATIONS;
     out->resource_vent_count = model->map.resource_vent_count;
     for (int i = 0; i < RTS_MODEL_MAX_PLAYERS; ++i) {
-        out->player_resources[i] = model->map.player_resources[i];
+        for (int r = 0; r < RTS_MODEL_MAX_RESOURCES; ++r)
+            out->player_resources[i][r] = model->map.player_resources[i][r];
     }
     out->unit_count = model->unit_count;
     if (out->unit_count > RTS_MODEL_MAX_SNAPSHOT_UNITS)

@@ -10,6 +10,7 @@
 #define RTS_MODEL_MAX_SNAPSHOT_EFFECTS 256
 #define RTS_MODEL_MAX_SNAPSHOT_DECORATIONS MAX_DECORATIONS
 #define RTS_MODEL_MAX_PLAYERS 8
+#define RTS_MODEL_MAX_RESOURCES 8
 #define RTS_MODEL_MAX_PRODUCT_PREREQUISITES 4
 #define RTS_MODEL_UI_SCRIPT_BYTES 4096
 
@@ -132,7 +133,7 @@ typedef struct {
     int effect_count;
     int decoration_count;
     int resource_vent_count;
-    int player_resources[RTS_MODEL_MAX_PLAYERS];
+    int player_resources[RTS_MODEL_MAX_PLAYERS][RTS_MODEL_MAX_RESOURCES];
     RtsRenderUnit units[RTS_MODEL_MAX_SNAPSHOT_UNITS];
     RtsRenderEffect effects[RTS_MODEL_MAX_SNAPSHOT_EFFECTS];
     RtsRenderDecoration decorations[RTS_MODEL_MAX_SNAPSHOT_DECORATIONS];

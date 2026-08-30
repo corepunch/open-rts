@@ -482,6 +482,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0;
+    vent->resource_type = 0;
 
     if (rate > 0 && map->decoration_count < MAX_DECORATIONS) {
         mapdecoration_t *decorations = realloc(map->decorations,
@@ -718,7 +719,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         int team_count = native->scenario.team_count;
         if (team_count > 8) team_count = 8;
         for (int i = 0; i < team_count; ++i) {
-            out->player_resources[i] = native->scenario.teams[i].money;
+            out->player_resources[i][0] = native->scenario.teams[i].money;
         }
     }
 
