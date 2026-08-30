@@ -1,8 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
 #include "game.h"
-#include "hu_lib.h"
 #include "renderer.h"
+#include "st_stuff.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -799,6 +799,14 @@ typedef struct {
     DarkColonySidebarCommand commands[6];
     int command_count;
 } DarkColonySidebar;
+
+typedef struct {
+    bool active;
+    bool font_ready;
+    bitmapfont_t font;
+    spritesheet_t background;
+    DarkColonySidebar sidebar;
+} sb_state_t;
 
 typedef struct {
     int ui_id;
@@ -1790,9 +1798,8 @@ static void dc_stop_selected_units(mobj_t *units, int unit_count) {
     }
 }
 
-static bool dark_colony_ui_handle_event(const app_t *app, level_t *map,
-                                        mobj_t *units, int unit_count,
-                                        const SDL_Event *e) {
+static bool SB_responder(const app_t *app, level_t *map,
+                         mobj_t *units, int unit_count, const SDL_Event *e) {
     if (!app || !map || !e) return false;
     if (e->type != SDL_MOUSEBUTTONDOWN) return false;
     int rx = 0, ry = 0;
@@ -1913,11 +1920,11 @@ static void dc_ui_draw_capital(app_t *app, const bitmapfont_t *font, irect_t rec
     }
 }
 
-static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
-                                         const mobj_t *units, int unit_count,
-                                         const spritecache_t *cache, const bitmapfont_t *font,
-                                         const DarkColonySidebar *sidebar,
-                                         const spritesheet_t *background) {
+static void SB_drawer(app_t *app, const level_t *map,
+                      const mobj_t *units, int unit_count,
+                      const spritecache_t *cache, const bitmapfont_t *font,
+                      const DarkColonySidebar *sidebar,
+                      const spritesheet_t *background) {
     if (!app || !font || !font->sprite.texture) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
@@ -2072,6 +2079,54 @@ static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfo
                                layout.message.w - 8, hud->messages[hud->count - 1].text,
                                (SDL_Color){ 41, 217, 230, 255 }, 1);
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
+}
+
+/* Hexen-style sidebar lifecycle.  Dark Colony needs a richer interactive bar
+   than the declarative Doom-style ST module, so buttons and their responder
+   remain owned by SB just as inventory controls are owned by Hexen's SB bar. */
+static bool SB_Init(sb_state_t *sb, app_t *app, const char *data_root) {
+    if (!sb || !app || !data_root) return false;
+    memset(sb, 0, sizeof(*sb));
+    sb->active = strcmp(g_game_id, "dark-colony") == 0;
+    dark_colony_sidebar_defaults(&sb->sidebar);
+    if (!sb->active) return true;
+
+    sb->font_ready = HU_LoadFont(app->renderer, data_root, &sb->font);
+    if (!sb->font_ready)
+        fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
+    dark_colony_sidebar_load(&sb->sidebar, data_root);
+
+    char path[1024];
+    M_PathJoin(path, sizeof(path), data_root, "INTRFACE/INTRFACE.GIF");
+    if (!load_gif_texture(app->renderer, path, &sb->background))
+        fprintf(stderr, "warning: failed to load Dark Colony UI background %s\n", path);
+    return sb->font_ready;
+}
+
+static bool SB_Responder(sb_state_t *sb, const app_t *app, level_t *map,
+                         mobj_t *units, int unit_count, const SDL_Event *event) {
+    return sb && sb->active &&
+           SB_responder(app, map, units, unit_count, event);
+}
+
+static void SB_Ticker(sb_state_t *sb) {
+    (void)sb;
+}
+
+static void SB_Drawer(sb_state_t *sb, app_t *app, const level_t *map,
+                      const mobj_t *units, int unit_count,
+                      const spritecache_t *sprites, const hudtext_t *hud) {
+    if (!sb || !sb->active || !sb->font_ready) return;
+    SB_drawer(app, map, units, unit_count, sprites, &sb->font,
+              &sb->sidebar, &sb->background);
+    render_hud_messages(app, hud, &sb->font);
+}
+
+static void SB_Shutdown(sb_state_t *sb) {
+    if (!sb) return;
+    R_FreeSprite(&sb->background);
+    HU_FreeFont(&sb->font);
+    memset(sb, 0, sizeof(*sb));
 }
 
 int main(int argc, char **argv) {
@@ -2316,27 +2371,11 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    bitmapfont_t ui_font = { 0 };
-    spritesheet_t dark_colony_background = { 0 };
-    bool dark_colony_ui = strcmp(g_game_id, "dark-colony") == 0;
-    bool ui_font_ready = dark_colony_ui && HU_LoadFont(app.renderer, data_root, &ui_font);
-    if (dark_colony_ui && !ui_font_ready) {
-        fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
-    }
-    if (dark_colony_ui) {
-        char ui_background_path[1024];
-        M_PathJoin(ui_background_path, sizeof(ui_background_path), data_root, "INTRFACE/INTRFACE.GIF");
-        if (!load_gif_texture(app.renderer, ui_background_path, &dark_colony_background)) {
-            fprintf(stderr, "warning: failed to load Dark Colony UI background %s\n",
-                    ui_background_path);
-        }
-    }
-    DarkColonySidebar dark_colony_sidebar;
-    dark_colony_sidebar_defaults(&dark_colony_sidebar);
-    if (dark_colony_ui) dark_colony_sidebar_load(&dark_colony_sidebar, data_root);
-    GameUi game_ui = { 0 };
-    if (gameui && !game_ui_load(&game_ui, app.renderer, data_root, gameui))
-        fprintf(stderr, "warning: failed to load %s declarative UI\n", g_game_name);
+    sb_state_t sb = { 0 };
+    SB_Init(&sb, &app, data_root);
+    st_state_t st = { 0 };
+    if (gameui && !ST_Init(&st, app.renderer, data_root, gameui))
+        fprintf(stderr, "warning: ST_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
     void *mission = G_LoadMission(map_path);
 
@@ -2357,13 +2396,9 @@ int main(int argc, char **argv) {
                                  &decoration_sprites, gameinfo, SDL_GetTicks());
             R_DrawEffects(&app, &map, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, gameinfo);
-            if (dark_colony_ui && ui_font_ready) {
-                render_dark_colony_ingame_ui(&app, &map, units, unit_count,
-                                             &decoration_sprites, &ui_font, &dark_colony_sidebar,
-                                             &dark_colony_background);
-                render_hud_messages(&app, &hud_text, &ui_font);
-            }
-            game_ui_render(&game_ui, &app, &map, units, unit_count, &decoration_sprites);
+            SB_Drawer(&sb, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
+            ST_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
+                      false, true);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
@@ -2371,9 +2406,8 @@ int main(int argc, char **argv) {
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
         if (mission) G_FreeMission(mission);
-        game_ui_destroy(&game_ui);
-        R_FreeSprite(&dark_colony_background);
-        HU_FreeFont(&ui_font);
+        ST_Shutdown(&st);
+        SB_Shutdown(&sb);
         R_FreeSpriteCache(&decoration_sprites);
         R_FreeSprite(&unit_sprite);
         R_FreeTileset(&tileset);
@@ -2407,7 +2441,8 @@ int main(int argc, char **argv) {
                 }
                 continue;
             }
-            if (dark_colony_ui && dark_colony_ui_handle_event(&app, &map, units, unit_count, &e)) {
+            if (SB_Responder(&sb, &app, &map, units, unit_count, &e) ||
+                ST_Responder(&st, &app, &e)) {
                 continue;
             }
             G_Responder(&app, &map, units, unit_count, &unit_sprite,
@@ -2433,7 +2468,7 @@ int main(int argc, char **argv) {
                 }
             }
             int before_production_count = unit_count;
-            bool production_spawned = dark_colony_ui &&
+            bool production_spawned = sb.active &&
                 dc_update_production_queues(&map, units, &unit_count,
                                             effects, MAX_VISUAL_EFFECTS, FIXED_DT);
             if (production_spawned || unit_count != before_production_count) {
@@ -2446,6 +2481,8 @@ int main(int argc, char **argv) {
             P_UpdateEffects(&map, effects, MAX_VISUAL_EFFECTS,
                                   gameinfo, FIXED_DT);
             HU_Ticker(&hud_text, FIXED_DT);
+            ST_Ticker(&st);
+            SB_Ticker(&sb);
             accumulator -= FIXED_DT;
         }
         if (map.player_resources[0][0] != title_resources) {
@@ -2468,20 +2505,15 @@ int main(int argc, char **argv) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 220);
             SDL_RenderDrawRect(app.renderer, &app.selection_rect);
         }
-        if (dark_colony_ui && ui_font_ready) {
-            render_dark_colony_ingame_ui(&app, &map, units, unit_count,
-                                         &decoration_sprites, &ui_font, &dark_colony_sidebar,
-                                         &dark_colony_background);
-            render_hud_messages(&app, &hud_text, &ui_font);
-        }
-        game_ui_render(&game_ui, &app, &map, units, unit_count, &decoration_sprites);
+        SB_Drawer(&sb, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
+        ST_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
+                  false, false);
         renderer_end_frame(&renderer);
     }
 
     if (mission) G_FreeMission(mission);
-    game_ui_destroy(&game_ui);
-    R_FreeSprite(&dark_colony_background);
-    HU_FreeFont(&ui_font);
+    ST_Shutdown(&st);
+    SB_Shutdown(&sb);
     R_FreeSpriteCache(&decoration_sprites);
     R_FreeSprite(&unit_sprite);
     R_FreeTileset(&tileset);

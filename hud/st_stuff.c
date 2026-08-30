@@ -1,4 +1,4 @@
-#include "hu_lib.h"
+#include "st_stuff.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -18,35 +18,72 @@ static irect_t ui_scaled_rect(const app_t *app, const uidefinition_t *def, irect
     };
 }
 
-bool game_ui_load(GameUi *ui, SDL_Renderer *renderer, const char *data_root,
-                  const uidefinition_t *definition) {
-    if (!ui || !renderer || !data_root || !definition ||
+bool ST_Init(st_state_t *st, SDL_Renderer *renderer, const char *data_root,
+             const uidefinition_t *definition) {
+    if (!st || !renderer || !data_root || !definition ||
         definition->image_count < 0 || definition->image_count > RTS_UI_MAX_LAYERS) return false;
-    memset(ui, 0, sizeof(*ui));
-    ui->definition = definition;
+    memset(st, 0, sizeof(*st));
+    st->definition = definition;
     for (int i = 0; i < definition->image_count; ++i) {
         char path[1024];
         M_PathJoin(path, sizeof(path), data_root, definition->images[i].asset_path);
         SDL_Surface *surface = SDL_LoadBMP(path);
         if (!surface) {
             fprintf(stderr, "warning: failed to load UI asset %s: %s\n", path, SDL_GetError());
-            game_ui_destroy(ui);
+            ST_Shutdown(st);
             return false;
         }
-        ui->textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
+        st->textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
         SDL_FreeSurface(surface);
-        if (!ui->textures[i]) {
-            game_ui_destroy(ui);
+        if (!st->textures[i]) {
+            ST_Shutdown(st);
             return false;
         }
     }
-    ui->ready = true;
+    st->ready = true;
+    ST_Start(st);
     return true;
 }
 
-static void game_ui_draw_minimap(const GameUi *ui, app_t *app, const level_t *map,
+void ST_Start(st_state_t *st) {
+    if (!st) return;
+    st->first_draw = true;
+    st->pressed_button = -1;
+    st->clock = 0;
+}
+
+bool ST_Responder(st_state_t *st, const app_t *app, const SDL_Event *event) {
+    if (!st || !st->ready || !st->definition || !app || !event ||
+        st->definition->sidebar_cell_size <= 0) return false;
+    if (event->type != SDL_MOUSEBUTTONDOWN && event->type != SDL_MOUSEBUTTONUP)
+        return false;
+
+    int x = 0, y = 0;
+    R_WindowToRenderPt(app, event->button.x, event->button.y, &x, &y);
+    irect_t rail = ui_scaled_rect(app, st->definition,
+                                 st->definition->sidebar_panel.rect);
+    bool inside = irect_contains(rail, (ivec2_t){ x, y });
+    if (event->type == SDL_MOUSEBUTTONDOWN && inside) {
+        int cell_h = st->definition->sidebar_cell_size * app->win.h /
+                     st->definition->logical_height;
+        if (cell_h < 1) cell_h = 1;
+        st->pressed_button = (y - rail.y) / cell_h;
+        return true;
+    }
+    if (event->type == SDL_MOUSEBUTTONUP && st->pressed_button >= 0) {
+        st->pressed_button = -1;
+        return true;
+    }
+    return inside;
+}
+
+void ST_Ticker(st_state_t *st) {
+    if (st && st->ready) st->clock++;
+}
+
+static void ST_drawMinimap(const st_state_t *st, app_t *app, const level_t *map,
                                  const mobj_t *units, int unit_count) {
-    irect_t rect = ui_scaled_rect(app, ui->definition, ui->definition->minimap);
+    irect_t rect = ui_scaled_rect(app, st->definition, st->definition->minimap);
     if (rect.w <= 0 || rect.h <= 0 || !map || map->width <= 0 || map->height <= 0) return;
     SDL_SetRenderDrawColor(app->renderer, 5, 7, 7, 255);
     SDL_RenderFillRect(app->renderer, &rect);
@@ -97,8 +134,8 @@ static void draw_digit(SDL_Renderer *renderer, int x, int y, int digit, SDL_Colo
     }
 }
 
-static void game_ui_draw_panel(const GameUi *ui, app_t *app, uipanel_t panel) {
-    irect_t rect = ui_scaled_rect(app, ui->definition, panel.rect);
+static void ST_drawPanel(const st_state_t *st, app_t *app, uipanel_t panel) {
+    irect_t rect = ui_scaled_rect(app, st->definition, panel.rect);
     if (rect.w <= 0 || rect.h <= 0) return;
     SDL_SetRenderDrawColor(app->renderer, panel.fill.r, panel.fill.g,
                            panel.fill.b, panel.fill.a);
@@ -108,7 +145,7 @@ static void game_ui_draw_panel(const GameUi *ui, app_t *app, uipanel_t panel) {
     SDL_RenderDrawRect(app->renderer, &rect);
 }
 
-static void game_ui_draw_sidebar_icon(SDL_Renderer *renderer, irect_t cell, int slot) {
+static void ST_drawSidebarIcon(SDL_Renderer *renderer, irect_t cell, int slot) {
     if (slot < 5 || slot > 9) return;
     int cx = cell.x + cell.w / 2;
     int cy = cell.y + cell.h / 2;
@@ -151,8 +188,8 @@ static void game_ui_draw_sidebar_icon(SDL_Renderer *renderer, irect_t cell, int 
     }
 }
 
-static void game_ui_draw_sidebar_cells(const GameUi *ui, app_t *app) {
-    const uidefinition_t *def = ui->definition;
+static void ST_drawSidebarCells(const st_state_t *st, app_t *app) {
+    const uidefinition_t *def = st->definition;
     if (def->sidebar_cell_size <= 0 || def->sidebar_panel.rect.h <= 0) return;
     int count = (def->sidebar_panel.rect.h + def->sidebar_cell_size - 1) /
                 def->sidebar_cell_size;
@@ -175,18 +212,26 @@ static void game_ui_draw_sidebar_cells(const GameUi *ui, app_t *app) {
                           cell.x + cell.w - 1, cell.y + cell.h - 1);
         SDL_RenderDrawLine(app->renderer, cell.x + cell.w - 1, cell.y,
                           cell.x + cell.w - 1, cell.y + cell.h - 1);
-        game_ui_draw_sidebar_icon(app->renderer, cell, i);
+        if (st->pressed_button == i) {
+            SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
+            SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
+            SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 96);
+            SDL_RenderFillRect(app->renderer, &cell);
+            SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
+        }
+        ST_drawSidebarIcon(app->renderer, cell, i);
     }
 }
 
-static void game_ui_draw_resource(const GameUi *ui, app_t *app,
+static void ST_drawResource(const st_state_t *st, app_t *app,
                                   const uiresource_t *display, int amount) {
     char value[24];
     if (amount < 0) amount = 0;
     snprintf(value, sizeof(value), "%d", amount);
     int count = (int)strlen(value);
-    float sx = (float)app->win.w / (float)ui->definition->logical_width;
-    float sy = (float)app->win.h / (float)ui->definition->logical_height;
+    float sx = (float)app->win.w / (float)st->definition->logical_width;
+    float sy = (float)app->win.h / (float)st->definition->logical_height;
     int x = (int)((float)display->text.x * sx) - count * 7;
     int y = (int)((float)display->text.y * sy);
     for (int i = 0; i < count; ++i) {
@@ -194,11 +239,11 @@ static void game_ui_draw_resource(const GameUi *ui, app_t *app,
     }
 }
 
-static void game_ui_draw_elapsed_time(const GameUi *ui, app_t *app) {
-    if (!ui->definition->status_elapsed_time) return;
-    irect_t panel = ui_scaled_rect(app, ui->definition,
-                                  ui->definition->status_panel.rect);
-    int seconds = (int)(app->ticks_ms / 1000u);
+static void ST_drawElapsedTime(const st_state_t *st, app_t *app) {
+    if (!st->definition->status_elapsed_time) return;
+    irect_t panel = ui_scaled_rect(app, st->definition,
+                                  st->definition->status_panel.rect);
+    int seconds = (int)(st->clock / 30u);
     int minutes = (seconds / 60) % 100;
     seconds %= 60;
     int x = panel.x + 9;
@@ -213,8 +258,8 @@ static void game_ui_draw_elapsed_time(const GameUi *ui, app_t *app) {
     draw_digit(app->renderer, x + 48, y, seconds % 10, white);
 }
 
-static void game_ui_draw_commands(const GameUi *ui, app_t *app, const spritecache_t *sprites) {
-    const uidefinition_t *def = ui->definition;
+static void ST_drawWidgets(const st_state_t *st, app_t *app, const spritecache_t *sprites) {
+    const uidefinition_t *def = st->definition;
     if (!sprites || def->command_columns <= 0 || def->command_rows <= 0) return;
     irect_t grid = ui_scaled_rect(app, def, def->command_grid);
     int cell_w = grid.w / def->command_columns;
@@ -245,34 +290,39 @@ static void game_ui_draw_commands(const GameUi *ui, app_t *app, const spritecach
     }
 }
 
-void game_ui_render(const GameUi *ui, app_t *app, const level_t *map,
-                    const mobj_t *units, int unit_count, const spritecache_t *sprites) {
-    if (!ui || !ui->ready || !ui->definition || !app) return;
-    const uidefinition_t *def = ui->definition;
-    game_ui_draw_panel(ui, app, def->sidebar_panel);
-    game_ui_draw_sidebar_cells(ui, app);
-    game_ui_draw_panel(ui, app, def->status_panel);
+void ST_Drawer(st_state_t *st, app_t *app, const level_t *map,
+               const mobj_t *units, int unit_count, const spritecache_t *sprites,
+               bool fullscreen, bool refresh) {
+    (void)fullscreen;
+    if (!st || !st->ready || !st->definition || !app) return;
+    const uidefinition_t *def = st->definition;
+    refresh = refresh || st->first_draw;
+    st->first_draw = false;
+    (void)refresh;
+    ST_drawPanel(st, app, def->sidebar_panel);
+    ST_drawSidebarCells(st, app);
+    ST_drawPanel(st, app, def->status_panel);
     for (int i = 0; i < def->image_count; ++i) {
         irect_t dst = ui_scaled_rect(app, def, def->images[i].destination);
         const irect_t *src = def->images[i].source.w > 0 && def->images[i].source.h > 0 ?
             &def->images[i].source : NULL;
-        SDL_RenderCopy(app->renderer, ui->textures[i], src, &dst);
+        SDL_RenderCopy(app->renderer, st->textures[i], src, &dst);
     }
-    game_ui_draw_commands(ui, app, sprites);
-    game_ui_draw_minimap(ui, app, map, units, unit_count);
-    game_ui_draw_elapsed_time(ui, app);
+    ST_drawWidgets(st, app, sprites);
+    ST_drawMinimap(st, app, map, units, unit_count);
+    ST_drawElapsedTime(st, app);
     int resource_count = def->resource_count;
     if (resource_count < 0) resource_count = 0;
     if (resource_count > RTS_UI_MAX_RESOURCES) resource_count = RTS_UI_MAX_RESOURCES;
     for (int i = 0; i < resource_count; ++i)
-        game_ui_draw_resource(ui, app, &def->resources[i],
-                              map ? map->player_resources[0][i] : 0);
+        ST_drawResource(st, app, &def->resources[i],
+                        map ? map->player_resources[0][i] : 0);
 }
 
-void game_ui_destroy(GameUi *ui) {
-    if (!ui) return;
+void ST_Shutdown(st_state_t *st) {
+    if (!st) return;
     for (int i = 0; i < RTS_UI_MAX_LAYERS; ++i) {
-        if (ui->textures[i]) SDL_DestroyTexture(ui->textures[i]);
+        if (st->textures[i]) SDL_DestroyTexture(st->textures[i]);
     }
-    memset(ui, 0, sizeof(*ui));
+    memset(st, 0, sizeof(*st));
 }
