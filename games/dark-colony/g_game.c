@@ -66,7 +66,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/EXPL.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_HARVESTER,
-        .speed = 3.5f,
+        .speed = 8.0f,
         .max_hp = 800,
         .harvest_state_id = S_DC_EXPL_DEPLOY1,
     },

@@ -612,6 +612,14 @@ static int dark_reign_base_frame_for_type(int terrain_type, int variation) {
     return 8 + terrain_type * 8 + variation;
 }
 
+static bool dark_reign_terrain_is_blocked(int terrain_type) {
+    /* The MAP record's third byte is the authored terrain/effect id.  In
+       TRNEFF.TXT, 0 is liquid and 3 is impassable rock/wall.  Values 10..15
+       are auto-ridge/rim variants; they are visual/elevation data, not
+       blanket collision flags. */
+    return terrain_type == 0 || terrain_type == 3;
+}
+
 static int dark_reign_edge_frame_for_template(int template_id, int variation) {
     if (template_id >= 226 && template_id <= 239) {
         (void)variation;
@@ -785,16 +793,15 @@ bool load_dark_map(const char *map_path, level_t *out) {
         const uint8_t *records = blob.bytes + 20;
         for (size_t i = 0; i < record_count; ++i) {
             const uint8_t *record = records + i * 6;
-            uint8_t byte1 = record[0], byte2 = record[1];
-            uint8_t subindex  = (uint8_t)(byte1 / 64);
-            uint8_t variation = (uint8_t)(subindex * (byte2 + 1));
+            uint8_t tile_byte = record[0], tile_variation = record[1];
+            int terrain_type = record[2];
+            uint8_t subindex  = (uint8_t)(tile_byte / 64);
+            uint8_t variation = (uint8_t)(subindex * (tile_variation + 1));
             if (variation > 7) variation = 7;
-            int terrain_type = byte1 % 16 - 1;
-            if (terrain_type < 0) terrain_type = 15;
             uint16_t frame = terrain_type == 15 ? variation :
                              (uint16_t)(8 + terrain_type * 8 + variation);
             out->tile_ids[i] = frame;
-            out->blocked[i]  = terrain_type == 15 || (terrain_type >= 11 && terrain_type <= 14);
+            out->blocked[i]  = dark_reign_terrain_is_blocked(terrain_type);
         }
     } else {
         size_t terrain_offset = 0;
@@ -819,7 +826,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
             uint16_t frame = terrain_type == 15 ? variation :
                              (uint16_t)(8 + terrain_type * 8 + variation);
             out->tile_ids[i] = frame;
-            out->blocked[i]  = terrain_type == 15 || (terrain_type >= 11 && terrain_type <= 14);
+            out->blocked[i]  = dark_reign_terrain_is_blocked(terrain_type);
         }
     }
     detect_tileset_from_mm(map_path,  out->tileset_name, sizeof(out->tileset_name));

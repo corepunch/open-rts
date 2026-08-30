@@ -707,8 +707,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     }
                 }
             }
-            /* Turn-in-place before moving (sprite-based units with no state machine). */
-            if (moving && !game_info->states) {
+            /* Turn-in-place before moving. */
+            if (moving) {
                 cell_t c = u->path[u->path_index];
                 bool final = u->path_index == u->path_len - 1;
                 float tx = final ? u->move_goal_gx : (float)c.x + 0.5f;
