@@ -656,6 +656,24 @@ Local game-data files that have already been useful:
   animation model: each sequence has a `Start`, `Facings`, `Length`, and
   `Tick`; rendering chooses a facing frame offset from the unit direction and
   then advances within that sequence for walking/firing.
+- OpenDR `DrSprLoader.cs` exposes Dark Reign RSPR frames with a zero offset and
+  the full `Szx`/`Szy` canvas as both frame size and sprite size. The RSPR
+  canvas is therefore centered on the actor origin; its opaque-pixel bounds
+  must not be interpreted as a bottom-center ground point. The loader also
+  parses per-frame hotspot records, but those are attachment metadata rather
+  than the body or selection origin.
+- Dark Reign buildings are layered entities rather than single sprites.
+  OpenDR `sequences/structures.yaml` composes the completed building from
+  frame 1 of a tileset-archive terrain underlay, frame 1 of the same basename
+  in the shared/base archive, frame 1 of the second `SetBuildingImages` sprite,
+  and a separate shadow SPR. Archive identity and palette are therefore part
+  of a sprite reference; a cache keyed only by basename will load the underlay
+  as the body and omit most of the building.
+- The apparent faint terrain/"sand" in incomplete buildings was not a reason
+  to threshold low alpha. OpenDR's TIL masking retains the authored gradient
+  as `min(255, mask * 4)`; the visible error came from rendering the
+  terrain-palette underlay as the whole entity instead of compositing its base
+  and top layers.
 - A fixed mission's `.SCN` is paired with the same-basename `.MAP`; sibling
   `TACTICS.MM` is scenario/tactics data and is not the six-byte terrain grid.
 - Dark Reign scenario and map coordinates are top-down. `SetStartLocation`

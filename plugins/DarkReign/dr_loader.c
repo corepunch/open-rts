@@ -446,6 +446,9 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
             frames[i].x = (i % cols) * szx; frames[i].y = (i / cols) * szy;
             frames[i].w = szx; frames[i].h = szy;
             bounds[i] = dark_reign_visible_bounds(rgba, atlas_w, frames[i]);
+            /* RSPR canvases are authored around the object's world origin.
+               OpenDR likewise exposes a zero frame offset and the full canvas
+               size; opaque-pixel bounds are not a ground-contact hotspot. */
             ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
         }
         out->texture    = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
@@ -539,6 +542,8 @@ static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *rende
         terrain_palette : sprite_palette;
     if (!load_unit_sprite(renderer, data_root, tileset_name, name, palette, &entry->sprite)) {
         if (strncasecmp(name, "tileset|", 8) == 0) {
+            /* Not every building has a terrain-specific underlay. Cache the
+               absence so repeated instances do not retry or report failure. */
             cache->count++;
             return true;
         }
@@ -870,6 +875,10 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
     char images[3][32] = {{ 0 }};
     if (dark_reign_find_call_args(body, body_len, "SetBuildingImages", images, 3) < 2)
         return false;
+
+    /* Completed Dark Reign buildings are composites. The terrain archive
+       supplies the ground underlay while the shared archive supplies the body
+       and top layer, even though the underlay and body reuse a basename. */
     snprintf(out->sprite_name, sizeof(out->sprite_name), "tileset|%s", images[0]);
     snprintf(out->sprite2_name, sizeof(out->sprite2_name), "base|%s", images[0]);
     snprintf(out->sprite3_name, sizeof(out->sprite3_name), "base|%s", images[1]);

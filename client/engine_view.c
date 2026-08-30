@@ -486,6 +486,8 @@ static void render_decoration_sprite(App *app, const GameMap *map,
         if (sprite->frame_ground_points) {
             ground = sprite_ground_point(sprite, anchor_frame);
         } else {
+            /* Preserve the legacy decoration anchor for formats without an
+               authored ground point (notably Dark Colony FIN sprites). */
             SDL_Rect anchor_rect = sprite_frame_rect(sprite, anchor_frame);
             SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
             ground = (SDL_Point){ anchor_rect.w / 2, bounds.y + bounds.h };
@@ -689,7 +691,11 @@ static const SpriteSheet *unit_sprite_sheet_for_view(const Unit *unit,
 
 static int unit_frame_for_view(const SpriteSheet *sprite, const Unit *unit,
                                const GameInfo *game_info, uint32_t ticks) {
-    int frame = (game_info && game_info->states) ? unit->frame : sprite_frame_for_unit(sprite, unit, ticks);
+    /* FIN/state-driven games author the resolved frame on the unit.  Dark Reign
+       has a GameInfo for shared simulation metadata, but its RSPR facings are
+       selected by the renderer from the unit heading. */
+    bool has_state_frames = game_info && game_info->states && game_info->state_count > 0;
+    int frame = has_state_frames ? unit->frame : sprite_frame_for_unit(sprite, unit, ticks);
     if (!sprite || sprite->frame_count <= 0) return 0;
     if (frame >= sprite->frame_count) frame = 0;
     if (frame < 0) frame = 0;
@@ -1054,6 +1060,10 @@ static void render_unit_sprite(App *app, const GameMap *map,
                               &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
     const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
+    /* Some Dark Reign unit definitions repeat the body RSPR in
+       SetShadowImage.  The original treats its shadow data specially; our
+       cache resolves that name to the already-loaded colour body sheet, so
+       drawing it here would create a second vehicle that mirrors every move. */
     if (shadow && shadow != sprite && shadow->texture && shadow->frame_count > 0) {
         int shadow_frame = frame < shadow->frame_count ? frame : 0;
         SDL_Rect shadow_rect = sprite_frame_rect(shadow, shadow_frame);
