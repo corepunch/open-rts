@@ -76,10 +76,10 @@ void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
         int frame = font->glyph_index[ch];
         int advance = font->glyph_width[ch] > 0 ? font->glyph_width[ch] : font->glyph_w;
         if (frame >= 0 && frame < font->sprite.frame_count) {
-            SDL_Rect src = font->sprite.frames[frame];
+            irect_t src = font->sprite.frames[frame];
             if (font->sprite.frame_bounds && font->sprite.frame_bounds[frame].w > 0 &&
                 font->sprite.frame_bounds[frame].h > 0) {
-                SDL_Rect bounds = font->sprite.frame_bounds[frame];
+                irect_t bounds = font->sprite.frame_bounds[frame];
                 src.x += bounds.x;
                 src.y += bounds.y;
                 src.w = bounds.w;
@@ -87,7 +87,7 @@ void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
             }
             if (src.w > 0 && src.h > 0) {
                 int divisor = font->draw_divisor > 0 ? font->draw_divisor : 1;
-                SDL_Rect dst = {
+                irect_t dst = {
                     cx,
                     cy,
                     (src.w * scale + divisor - 1) / divisor,

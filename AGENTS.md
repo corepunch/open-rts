@@ -68,6 +68,86 @@ data/DCOLONY       — Dark Colony game files
 data/7LEGION       — 7th Legion game files (GFX/TILES*.BIM, GFX/*.COL, SFX/)
 ```
 
+## Build: never list individual source files in the Makefile
+
+Always use `find` to collect sources for a build target — never enumerate
+individual `.c` files. Each engine subsystem directory and each game directory
+is a self-contained unit; adding or removing a file should require no Makefile
+edit.
+
+```makefile
+# correct
+ENGINE_SOURCES := $(sort $(shell find driver render hud interface play -name '*.c'))
+DC_GAME_SOURCES := $(sort $(shell find games/dark-colony -name '*.c'))
+
+# wrong — add a new file and the build silently ignores it
+ENGINE_SOURCES := driver/d_main.c render/r_draw.c ...
+```
+
+Use `$(sort ...)` to keep the list deterministic across platforms.
+
+## Code style: header include guards
+
+Use classic C `#ifndef` guards in all header files — never `#pragma once`.
+The guard symbol is `__FILENAME__` in uppercase with the extension replaced by
+the uppercase suffix, e.g. `w_spr.h` → `__W_SPR__`, `dc_types.h` → `__DC_TYPES__`.
+
+```c
+/* correct */
+#ifndef __W_SPR__
+#define __W_SPR__
+/* ... */
+#endif
+
+/* wrong */
+#pragma once
+```
+
+## Code style: designated initializers for enum-indexed arrays
+
+Always use C99 designated initializers (`[ENUMNAME] = value`) when initializing
+arrays indexed by an enum. This applies to `sprnames[]`, `mobjinfo[]`, and any
+similar table where positional order could silently diverge from the enum.
+
+```c
+/* correct */
+const char *const sprnames[NUMSPRITES] = {
+    [SPR_DC_CURSOR_CURS] = "CURSOR/CURS.SPR",
+    [SPR_DC_GRAY]        = "SPRITES/GRAY.SPR",
+};
+
+/* wrong — positional, silent mismatch if enum changes */
+const char *const sprnames[NUMSPRITES] = {
+    "CURSOR/CURS.SPR",
+    "SPRITES/GRAY.SPR",
+};
+```
+
+## Code style: prefer structs over loose fields
+
+Work at the highest abstraction level the data supports. Group related scalars
+into named structs and use those structs as the unit of work. Never manipulate
+individual x/y or w/h components when a struct literal, assignment, or helper
+function would be shorter and more expressive.
+
+**Canonical types** (in `driver/m_vec.h`):
+
+| Type | Fields | Use for |
+|---|---|---|
+| `ivec2_t` | `int x, y` | integer 2-D point (mouse, tile coords) |
+| `fvec2_t` | `float x, y` | float 2-D vector (camera position, velocity) |
+| `isize2_t` | `int w, h` | integer extent (window size, cell size) |
+
+**Rules:**
+- Use compound literals to initialize or assign whole structs:
+  `app.win = (isize2_t){ 640, 480 };`  not two separate assignments.
+- Use helper functions (`fvec2_add`, `fvec2_sub`) instead of per-component
+  arithmetic where the intent is a vector operation.
+- When adding a new 2-D quantity, add it as `ivec2_t` / `fvec2_t` / `isize2_t`
+  from the start, not as a pair of scalars.
+- Same principle applies to any new struct in the codebase: group logically
+  related fields, then write helpers that operate on the whole group.
+
 ## Game and Network Architecture
 
 We base our game loop, object thinker model, and network architecture on the
@@ -140,7 +220,7 @@ array, not the binary.
 ## Dark Colony direction
 
 Treat Dark Colony as the first game to reproduce faithfully, not as a plugin
-architecture exercise. The current `games/DarkColony/` location is only a
+architecture exercise. The current `games/dark-colony/` location is only a
 practical code organization boundary; if plugin purity conflicts with matching
 DC.EXE behavior, matching DC.EXE wins. Once one game works well, the codebase can
 be refactored around the real multi-game needs discovered from that implementation.

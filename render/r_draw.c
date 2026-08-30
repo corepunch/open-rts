@@ -1,15 +1,15 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
 
-static SDL_Rect sprite_visible_bounds(const spritesheet_t *sprite, int frame);
-static SDL_Rect sprite_frame_rect(const spritesheet_t *sprite, int frame);
+static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame);
+static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame);
 
 static int app_cell_w(const app_t *app) {
-    return app->cell_w > 0 ? app->cell_w : CELL_W;
+    return app->cell.w > 0 ? app->cell.w : CELL_W;
 }
 
 static int app_cell_h(const app_t *app) {
-    return app->cell_h > 0 ? app->cell_h : CELL_H;
+    return app->cell.h > 0 ? app->cell.h : CELL_H;
 }
 
 static float viewport_scale_x(const app_t *app) {
@@ -73,8 +73,8 @@ static int tileset_resolve_tile(const tileset_t *tileset, int value, uint32_t ti
 
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy) {
-    *sx = gx * (float)app_cell_w(app) + app->cam_x;
-    *sy = gy * (float)app_cell_h(app) + app->cam_y;
+    *sx = gx * (float)app_cell_w(app) + app->cam.x;
+    *sy = gy * (float)app_cell_h(app) + app->cam.y;
 }
 
 void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,
@@ -84,13 +84,13 @@ void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,
 }
 
 static void screen_to_grid_point(const app_t *app, int sx, int sy, float *gx, float *gy) {
-    if (gx) *gx = ((float)sx - app->cam_x) / (float)app_cell_w(app);
-    if (gy) *gy = ((float)sy - app->cam_y) / (float)app_cell_h(app);
+    if (gx) *gx = ((float)sx - app->cam.x) / (float)app_cell_w(app);
+    if (gy) *gy = ((float)sy - app->cam.y) / (float)app_cell_h(app);
 }
 
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy) {
-    return (cell_t){ (int)floorf(((float)sx - app->cam_x) / (float)app_cell_w(app)),
-                   (int)floorf(((float)sy - app->cam_y) / (float)app_cell_h(app)) };
+    return (cell_t){ (int)floorf(((float)sx - app->cam.x) / (float)app_cell_w(app)),
+                   (int)floorf(((float)sy - app->cam.y) / (float)app_cell_h(app)) };
 }
 
 cell_t R_ScreenToMapGrid(const app_t *app, const level_t *map, int sx, int sy) {
@@ -113,8 +113,8 @@ void R_RefreshViewport(app_t *app) {
         render_w <= 0 || render_h <= 0) {
         SDL_GetWindowSize(app->window, &render_w, &render_h);
     }
-    if (render_w > 0) app->win_w = render_w;
-    if (render_h > 0) app->win_h = render_h;
+    if (render_w > 0) app->win.w = render_w;
+    if (render_h > 0) app->win.h = render_h;
 }
 
 void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry) {
@@ -135,14 +135,14 @@ void R_DrawCell(app_t *app, int gx, int gy, SDL_Color color) {
     float sx, sy;
     R_GridToScreen(app, (float)gx, (float)gy, &sx, &sy);
     SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
-    SDL_Rect r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
+    irect_t r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
     SDL_RenderDrawRect(app->renderer, &r);
 }
 
 static void render_map_grid_cell(app_t *app, const level_t *map, int gx, int gy, SDL_Color color) {
     float sx, sy;
     R_MapToScreen(app, map, (float)gx, (float)gy, &sx, &sy);
-    SDL_Rect r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
+    irect_t r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
     SDL_RenderDrawRect(app->renderer, &r);
@@ -161,10 +161,10 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
             float sx, sy;
             R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
             if (sx < -cell_w || sy < -cell_h ||
-                sx > app->win_w + cell_w || sy > app->win_h + cell_h) {
+                sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
                 continue;
             }
-            SDL_Rect r = { (int)sx, (int)sy, cell_w, cell_h };
+            irect_t r = { (int)sx, (int)sy, cell_w, cell_h };
             SDL_SetRenderDrawColor(app->renderer, 230, 45, 40, 92);
             SDL_RenderFillRect(app->renderer, &r);
             SDL_SetRenderDrawColor(app->renderer, 255, 205, 64, 180);
@@ -174,10 +174,10 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
-void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, SDL_Rect src_part, SDL_Rect dst_part) {
+void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part) {
     tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
     if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
-    SDL_Rect src = {
+    irect_t src = {
         (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
         (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
         src_part.w,
@@ -187,10 +187,10 @@ void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, SDL_Rect src_par
 }
 
 static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int tile,
-                                   SDL_Rect src_part, SDL_Rect dst_part, uint8_t flip_flags) {
+                                   irect_t src_part, irect_t dst_part, uint8_t flip_flags) {
     tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
     if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
-    SDL_Rect src = {
+    irect_t src = {
         (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
         (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
         src_part.w,
@@ -216,7 +216,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
             R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
             if ((map->render_features & MAP_RENDER_USE_CELL_COLORS) && map->cell_colors) {
                 if (sx < -cell_w || sy < -cell_h ||
-                    sx > app->win_w + cell_w || sy > app->win_h + cell_h) {
+                    sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
                     continue;
                 }
                 uint32_t color = map->cell_colors[L_Index(map, x, y)];
@@ -225,19 +225,19 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                                        (uint8_t)(color >> 8),
                                        (uint8_t)color,
                                        255);
-                SDL_Rect dst = { (int)sx, (int)sy, cell_w, cell_h };
+                irect_t dst = { (int)sx, (int)sy, cell_w, cell_h };
                 SDL_RenderFillRect(app->renderer, &dst);
                 continue;
             }
             if (sx < -tile_w || sy < -tile_h ||
-                sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
+                sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                 continue;
             }
             int idx = L_Index(map, x, y);
             int tile = map->tile_ids[idx];
             if ((map->render_features & MAP_RENDER_SKIP_ZERO_TILES) && tile == 0) continue;
-            SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
-            SDL_Rect dst = {
+            irect_t src = { 0, 0, tileset->tile_w, tileset->tile_h };
+            irect_t dst = {
                 (int)sx,
                 (int)(sy + draw_y_offset),
                 tile_w,
@@ -268,14 +268,14 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 float sx, sy;
                 R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
-                    sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
+                    sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
                 }
                 int idx = L_Index(map, x, y);
                 int overlay = map->tile_overlays[layer][idx];
                 if (overlay <= 0) continue;
-                SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
-                SDL_Rect dst = {
+                irect_t src = { 0, 0, tileset->tile_w, tileset->tile_h };
+                irect_t dst = {
                     (int)sx,
                     (int)(sy + draw_y_offset),
                     tile_w,
@@ -298,7 +298,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 float sx, sy;
                 R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
-                    sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
+                    sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
                 }
                 int dx = (int)sx;
@@ -320,7 +320,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 float sx, sy;
                 R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
-                    sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
+                    sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
                 }
                 render_map_grid_cell(app, map, x, y, (SDL_Color){ 50, 78, 72, 80 });
@@ -472,11 +472,11 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     int frame = decoration_sprite_frame(app, dec, sprite, frame_index, sequence_name);
     int anchor_frame = decoration_sprite_frame(app, dec, sprite, anchor_frame_index,
                                                anchor_sequence_name);
-    SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
+    irect_t frame_rect = sprite_frame_rect(sprite, frame);
     int sprite_w = frame_rect.w;
     int sprite_h = frame_rect.h;
 
-    SDL_Rect dst;
+    irect_t dst;
     if (dec->has_sprite_pivot) {
         /* The plugin-authored point is in the full frame canvas, not in the
            visible-pixel bounds.  All layers of a composite therefore attach
@@ -487,7 +487,7 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
                                (float)dec->gy + (float)footprint_h * 0.5f,
                                &sx, &sy);
         }
-        dst = (SDL_Rect){
+        dst = (irect_t){
             (int)lroundf(sx) - dec->sprite_pivot_x,
             (int)lroundf(sy) - dec->sprite_pivot_y,
             sprite_w,
@@ -504,11 +504,11 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
         } else {
             /* Preserve the legacy decoration anchor for formats without an
                authored ground point (notably Dark Colony FIN sprites). */
-            SDL_Rect anchor_rect = sprite_frame_rect(sprite, anchor_frame);
-            SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
+            irect_t anchor_rect = sprite_frame_rect(sprite, anchor_frame);
+            irect_t bounds = sprite_visible_bounds(sprite, anchor_frame);
             ground = (SDL_Point){ anchor_rect.w / 2, bounds.y + bounds.h };
         }
-        dst = (SDL_Rect){
+        dst = (irect_t){
             (int)(sx - ground.x),
             (int)(sy - ground.y),
             sprite_w,
@@ -521,14 +521,14 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
             dst.y += frame_dis.y - anchor_dis.y;
         }
     } else {
-        dst = (SDL_Rect){
+        dst = (irect_t){
             (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
             (int)(sy + (float)(footprint_h * app_cell_h(app) - sprite_h)),
             sprite_w,
             sprite_h,
         };
     }
-    if (dst.x > app->win_w || dst.y > app->win_h ||
+    if (dst.x > app->win.w || dst.y > app->win.h ||
         dst.x + dst.w < 0 || dst.y + dst.h < 0) {
         return;
     }
@@ -563,19 +563,6 @@ void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cach
     }
 }
 
-static SDL_Rect normalized_rect(int x0, int y0, int x1, int y1) {
-    SDL_Rect r;
-    r.x = x0 < x1 ? x0 : x1;
-    r.y = y0 < y1 ? y0 : y1;
-    r.w = abs(x1 - x0);
-    r.h = abs(y1 - y0);
-    return r;
-}
-
-static bool point_in_rect(int x, int y, SDL_Rect r) {
-    return x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
-}
-
 static float unit_pick_radius_px(const app_t *app, const mobj_t *unit) {
     float cell = ((float)app_cell_w(app) + (float)app_cell_h(app)) * 0.5f;
     float radius = P_MobjRadius(unit) * cell;
@@ -583,15 +570,15 @@ static float unit_pick_radius_px(const app_t *app, const mobj_t *unit) {
     return radius < min_radius ? min_radius : radius;
 }
 
-static bool circle_intersects_rect(float cx, float cy, float radius, SDL_Rect r) {
-    float nearest_x = cx;
-    float nearest_y = cy;
+static bool circle_intersects_rect(fvec2_t center, float radius, irect_t r) {
+    float nearest_x = center.x;
+    float nearest_y = center.y;
     if (nearest_x < (float)r.x) nearest_x = (float)r.x;
     if (nearest_x > (float)(r.x + r.w)) nearest_x = (float)(r.x + r.w);
     if (nearest_y < (float)r.y) nearest_y = (float)r.y;
     if (nearest_y > (float)(r.y + r.h)) nearest_y = (float)(r.y + r.h);
-    float dx = cx - nearest_x;
-    float dy = cy - nearest_y;
+    float dx = center.x - nearest_x;
+    float dy = center.y - nearest_y;
     return dx * dx + dy * dy <= radius * radius;
 }
 
@@ -649,20 +636,20 @@ static int sprite_frame_for_unit(const spritesheet_t *sprite, const mobj_t *unit
     return 0;
 }
 
-static SDL_Rect sprite_visible_bounds(const spritesheet_t *sprite, int frame) {
+static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->frame_bounds && frame >= 0 && frame < sprite->frame_count) {
-        SDL_Rect r = sprite->frame_bounds[frame];
+        irect_t r = sprite->frame_bounds[frame];
         if (r.w > 0 && r.h > 0) return r;
     }
-    return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+    return (irect_t){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
 }
 
-static SDL_Rect sprite_frame_rect(const spritesheet_t *sprite, int frame) {
+static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->frames && frame >= 0 && frame < sprite->frame_count &&
         sprite->frames[frame].w > 0 && sprite->frames[frame].h > 0) {
         return sprite->frames[frame];
     }
-    return (SDL_Rect){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+    return (irect_t){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
 }
 
 static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int frame) {
@@ -687,7 +674,7 @@ static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->frame_ground_points && frame >= 0 && frame < sprite->frame_count) {
         return sprite->frame_ground_points[frame];
     }
-    SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+    irect_t bounds = sprite_visible_bounds(sprite, frame);
     return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
 }
 
@@ -767,7 +754,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
                                       const spritesheet_t *fallback_sprite,
                                       const spritecache_t *cache,
                                       const gameinfo_t *game_info, uint32_t ticks,
-                                      SDL_Rect *dst_out, SDL_Rect *visible_out,
+                                      irect_t *dst_out, irect_t *visible_out,
                                       float *sx_out, float *sy_out,
                                       int *frame_out, const spritesheet_t **sprite_out) {
     if (!app || !unit) return false;
@@ -776,7 +763,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
         float radius = unit_pick_radius_px(app, unit);
-        SDL_Rect fallback = {
+        irect_t fallback = {
             (int)floorf(sx - radius),
             (int)floorf(sy - radius),
             (int)ceilf(radius * 2.0f),
@@ -792,8 +779,8 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     }
 
     int frame = unit_frame_for_view(sprite, unit, game_info, ticks);
-    SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
-    SDL_Rect bounds = sprite_visible_bounds(sprite, frame);
+    irect_t frame_rect = sprite_frame_rect(sprite, frame);
+    irect_t bounds = sprite_visible_bounds(sprite, frame);
     uint32_t render_flags = game_info ? unit->render_flags : 0;
     if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
         bounds.x = frame_rect.w - bounds.x - bounds.w;
@@ -803,10 +790,10 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     int body_offset_x = 0;
     int body_offset_y = 0;
     unit_state_body_offset_for_view(game_info, unit, &body_offset_x, &body_offset_y);
-    SDL_Rect dst;
+    irect_t dst;
     if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
         SDL_Point dis = sprite_frame_displacement(sprite, frame, render_flags);
-        dst = (SDL_Rect){
+        dst = (irect_t){
             (int)lroundf(sx) + body_offset_x + dis.x,
             (int)lroundf(sy) + body_offset_y + dis.y - sprite_h,
             sprite_w,
@@ -817,7 +804,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
         if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
             ground.x = frame_rect.w - ground.x;
         }
-        dst = (SDL_Rect){
+        dst = (irect_t){
             (int)lroundf(sx - (float)ground.x) + body_offset_x,
             (int)lroundf(sy - (float)ground.y) + body_offset_y,
             sprite_w,
@@ -826,7 +813,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     }
     dst.x += unit->render_offset_x;
     dst.y += unit->render_offset_y;
-    SDL_Rect visible = {
+    irect_t visible = {
         dst.x + bounds.x,
         dst.y + bounds.y,
         bounds.w,
@@ -841,11 +828,6 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     return true;
 }
 
-static bool rects_intersect(SDL_Rect a, SDL_Rect b) {
-    return a.x <= b.x + b.w && a.x + a.w >= b.x &&
-           a.y <= b.y + b.h && a.y + a.h >= b.y;
-}
-
 static int pick_unit_at(const app_t *app, const level_t *map, const mobj_t *units, int unit_count,
                         const spritesheet_t *fallback_sprite, const spritecache_t *cache,
                         const gameinfo_t *game_info, int x, int y, int owner_filter) {
@@ -855,11 +837,11 @@ static int pick_unit_at(const app_t *app, const level_t *map, const mobj_t *unit
         const mobj_t *unit = &units[i];
         if (unit->hp <= 0 || (unit->traits & MF_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
-        SDL_Rect visible;
+        irect_t visible;
         float sx = 0.0f, sy = 0.0f;
         unit_screen_rect_for_view(app, map, unit, fallback_sprite, cache, game_info, app->ticks_ms,
                                   NULL, &visible, &sx, &sy, NULL, NULL);
-        if (!point_in_rect(x, y, visible)) continue;
+        if (!irect_contains(visible, (ivec2_t){ x, y })) continue;
         float dx = (float)x - sx;
         float dy = (float)y - sy;
         float score = dx * dx + dy * dy;
@@ -912,9 +894,9 @@ static void draw_selection_circle(app_t *app, const mobj_t *u, int cx, int cy, i
     draw_ellipse_outline(app->renderer, cx, cy, rx,     ry);
 }
 
-static void draw_selection_brackets(app_t *app, const mobj_t *u, const SDL_Rect *visible) {
+static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *visible) {
     if (!app || !app->renderer || !u || !visible || visible->w <= 0 || visible->h <= 0) return;
-    SDL_Rect box = {
+    irect_t box = {
         visible->x - 3,
         visible->y - 3,
         visible->w + 6,
@@ -944,12 +926,12 @@ static void draw_selection_brackets(app_t *app, const mobj_t *u, const SDL_Rect 
     int fill_w = u->max_hp > 0 ? (bar_w * u->hp) / u->max_hp : bar_w;
     SDL_Color tint = selection_health_tint(selection_health_bucket(u));
     SDL_SetRenderDrawColor(app->renderer, 20, 20, 18, 235);
-    SDL_RenderFillRect(app->renderer, &(SDL_Rect){ bar_x - 1, bar_y - 1, bar_w + 2, 4 });
+    SDL_RenderFillRect(app->renderer, &(irect_t){ bar_x - 1, bar_y - 1, bar_w + 2, 4 });
     SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, 255);
-    SDL_RenderFillRect(app->renderer, &(SDL_Rect){ bar_x, bar_y, fill_w, 2 });
+    SDL_RenderFillRect(app->renderer, &(irect_t){ bar_x, bar_y, fill_w, 2 });
 }
 
-static void draw_selection_triangle(app_t *app, const mobj_t *u, const SDL_Rect *visible) {
+static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *visible) {
     if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
     int cx = visible->x + visible->w / 2;
     int top_y = visible->y - 11;
@@ -971,7 +953,7 @@ static void draw_selection_triangle(app_t *app, const mobj_t *u, const SDL_Rect 
 }
 
 static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spritecache_t *cache,
-                                         const gameinfo_t *game_info, const SDL_Rect *visible) {
+                                         const gameinfo_t *game_info, const irect_t *visible) {
     if (!app || !app->renderer || !u || !cache || !game_info || !visible ||
         !game_info->sprnames) {
         return false;
@@ -986,11 +968,11 @@ static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spri
     int frame = bucket == 2 ? info->critical_frame :
                 bucket == 1 ? info->wounded_frame : info->healthy_frame;
     if (frame < 0 || frame >= marker->frame_count) return false;
-    SDL_Rect frame_rect = sprite_frame_rect(marker, frame);
+    irect_t frame_rect = sprite_frame_rect(marker, frame);
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
     int cx = visible->x + visible->w / 2;
-    SDL_Rect dst = {
+    irect_t dst = {
         cx - frame_rect.w / 2,
         visible->y - frame_rect.h + info->top_offset_y,
         frame_rect.w,
@@ -1005,7 +987,7 @@ static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spri
 
 static void render_unit_state_overlay(app_t *app, const mobj_t *u, const spritesheet_t *body_sprite,
                                       int body_frame, const spritecache_t *cache,
-                                      const gameinfo_t *game_info, const SDL_Rect *body_dst,
+                                      const gameinfo_t *game_info, const irect_t *body_dst,
                                       float origin_sx, float origin_sy) {
     (void)body_sprite;
     (void)body_frame;
@@ -1031,20 +1013,20 @@ static void render_unit_state_overlay(app_t *app, const mobj_t *u, const sprites
     const spritesheet_t *overlay = R_CacheLookup(cache, sprite_name);
     if (!overlay || !overlay->texture || overlay->frame_count <= 0) return;
     if (frame >= overlay->frame_count) frame = 0;
-    SDL_Rect frame_rect = sprite_frame_rect(overlay, frame);
+    irect_t frame_rect = sprite_frame_rect(overlay, frame);
 
     uint32_t flags = state->overlay_facing_flags[slot];
-    SDL_Rect dst;
+    irect_t dst;
     if (game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
         SDL_Point dis = sprite_frame_displacement(overlay, frame, flags);
-        dst = (SDL_Rect){
+        dst = (irect_t){
             (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + dis.x,
             (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y - frame_rect.h,
             frame_rect.w,
             frame_rect.h,
         };
     } else {
-        dst = (SDL_Rect){
+        dst = (irect_t){
             body_dst->x + state->overlay_offset_x[slot],
             body_dst->y + state->overlay_offset_y[slot],
             frame_rect.w,
@@ -1070,8 +1052,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
 
     float sx = 0.0f, sy = 0.0f;
     int frame = 0;
-    SDL_Rect dst;
-    SDL_Rect visible;
+    irect_t dst;
+    irect_t visible;
     unit_screen_rect_for_view(app, map, u, fallback_sprite, cache, game_info, ticks,
                               &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
@@ -1082,8 +1064,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
        drawing it here would create a second vehicle that mirrors every move. */
     if (shadow && shadow != sprite && shadow->texture && shadow->frame_count > 0) {
         int shadow_frame = frame < shadow->frame_count ? frame : 0;
-        SDL_Rect shadow_rect = sprite_frame_rect(shadow, shadow_frame);
-        SDL_Rect shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
+        irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
+        irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
         SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
     }
     float content_y = (float)visible.y;
@@ -1112,8 +1094,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         int bar_h = 2;
         int bx = (int)(sx - bar_w / 2);
         int by = (int)content_y - bar_h - 4;
-        SDL_Rect back = { bx, by, bar_w, bar_h };
-        SDL_Rect fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
+        irect_t back = { bx, by, bar_w, bar_h };
+        irect_t fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
         SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
         SDL_RenderFillRect(app->renderer, &back);
         SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 230);
@@ -1154,11 +1136,11 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
     float sx, sy;
     R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
     if (sx < -tile_w || sy < -tile_h ||
-        sx > app->win_w + tile_w || sy > app->win_h + tile_h) {
+        sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
         return;
     }
-    SDL_Rect src = { 0, 0, tileset->tile_w, tileset->tile_h };
-    SDL_Rect dst = {
+    irect_t src = { 0, 0, tileset->tile_w, tileset->tile_h };
+    irect_t dst = {
         (int)sx,
         (int)(sy + draw_y_offset),
         tile_w,
@@ -1300,21 +1282,21 @@ void R_DrawEffects(app_t *app, const level_t *map,
         R_MapToScreen(app, map, effect->gx, effect->gy, &sx, &sy);
         int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
-        SDL_Rect frame_rect = sprite_frame_rect(sprite, frame);
+        irect_t frame_rect = sprite_frame_rect(sprite, frame);
         int sprite_w = frame_rect.w;
         int sprite_h = frame_rect.h;
-        SDL_Rect dst;
+        irect_t dst;
         if (effect->use_state && game_info &&
             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
             SDL_Point dis = sprite_frame_displacement(sprite, frame, effect->render_flags);
-            dst = (SDL_Rect){
+            dst = (irect_t){
                 (int)lroundf(sx) + effect->screen_offset_x + dis.x,
                 (int)lroundf(sy) + effect->screen_offset_y + dis.y - sprite_h,
                 sprite_w,
                 sprite_h,
             };
         } else {
-            dst = (SDL_Rect){
+            dst = (irect_t){
                 (int)(sx - sprite_w / 2),
                 (int)(sy - sprite_h / 2),
                 sprite_w,
@@ -1325,7 +1307,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
                 dst.y += effect->screen_offset_y;
             }
         }
-        if (dst.x > app->win_w || dst.y > app->win_h ||
+        if (dst.x > app->win.w || dst.y > app->win.h ||
             dst.x + dst.w < 0 || dst.y + dst.h < 0) {
             debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
                               i, effect->sprite_name,
@@ -1376,24 +1358,24 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
             }
             break;
         case SDL_MOUSEMOTION:
-            R_WindowToRenderPt(app, e->motion.x, e->motion.y, &app->mouse_x, &app->mouse_y);
+            R_WindowToRenderPt(app, e->motion.x, e->motion.y, &app->mouse.x, &app->mouse.y);
             if (app->panning) {
                 float dx = 0.0f, dy = 0.0f;
                 R_WindowToRenderDelta(app, e->motion.xrel, e->motion.yrel, &dx, &dy);
-                app->cam_x += dx;
-                app->cam_y += dy;
+                app->cam.x += dx;
+                app->cam.y += dy;
             }
             if (app->dragging_select) {
                 int mx = 0, my = 0;
                 R_WindowToRenderPt(app, e->motion.x, e->motion.y, &mx, &my);
-                app->selection_rect = normalized_rect(app->mouse_down_x, app->mouse_down_y, mx, my);
+                app->selection_rect = irect_from_points(app->mouse_down, (ivec2_t){ mx, my });
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
-            R_WindowToRenderPt(app, e->button.x, e->button.y, &app->mouse_down_x, &app->mouse_down_y);
+            R_WindowToRenderPt(app, e->button.x, e->button.y, &app->mouse_down.x, &app->mouse_down.y);
             if (e->button.button == SDL_BUTTON_LEFT) {
                 app->dragging_select = true;
-                app->selection_rect = (SDL_Rect){ app->mouse_down_x, app->mouse_down_y, 0, 0 };
+                app->selection_rect = (irect_t){ app->mouse_down.x, app->mouse_down.y, 0, 0 };
             } else if (e->button.button == SDL_BUTTON_RIGHT) {
                 int rx = 0, ry = 0;
                 R_WindowToRenderPt(app, e->button.x, e->button.y, &rx, &ry);
@@ -1430,7 +1412,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
             if (e->button.button == SDL_BUTTON_LEFT && app->dragging_select) {
                 int bx = 0, by = 0;
                 R_WindowToRenderPt(app, e->button.x, e->button.y, &bx, &by);
-                SDL_Rect rect = normalized_rect(app->mouse_down_x, app->mouse_down_y, bx, by);
+                irect_t rect = irect_from_points(app->mouse_down, (ivec2_t){ bx, by });
                 bool box = rect.w > 5 || rect.h > 5;
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
                 if (!additive) {
@@ -1441,14 +1423,14 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         if (units[i].hp <= 0) continue;
                         if ((units[i].traits & MF_SELECTABLE) == 0) continue;
                         if (units[i].owner != 0) continue;
-                        SDL_Rect visible;
+                        irect_t visible;
                         float sx = 0.0f, sy = 0.0f;
                         unit_screen_rect_for_view(app, map, &units[i], fallback_sprite, cache,
                                                   game_info, app->ticks_ms, NULL, &visible,
                                                   &sx, &sy, NULL, NULL);
                         float radius = unit_pick_radius_px(app, &units[i]);
-                        if (rects_intersect(visible, rect) ||
-                            circle_intersects_rect(sx, sy, radius, rect)) {
+                        if (irect_intersects(visible, rect) ||
+                            circle_intersects_rect((fvec2_t){ sx, sy }, radius, rect)) {
                             units[i].selected = true;
                         }
                     }
@@ -1465,8 +1447,8 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
             }
             break;
         case SDL_MOUSEWHEEL:
-            app->cam_y += (float)e->wheel.y * 48.0f;
-            app->cam_x += (float)e->wheel.x * 48.0f;
+            app->cam.y += (float)e->wheel.y * 48.0f;
+            app->cam.x += (float)e->wheel.x * 48.0f;
             break;
         default:
             break;
@@ -1476,32 +1458,32 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
 void G_CameraMove(app_t *app, float dt) {
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
     float speed = 600.0f * dt;
-    if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) app->cam_x += speed;
-    if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) app->cam_x -= speed;
-    if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) app->cam_y += speed;
-    if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S]) app->cam_y -= speed;
+    if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) app->cam.x += speed;
+    if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) app->cam.x -= speed;
+    if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) app->cam.y += speed;
+    if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S]) app->cam.y -= speed;
 }
 
 void R_ClampCamera(app_t *app, const level_t *map, int viewport_w, int viewport_h) {
     if (!app || !map || map->width <= 0 || map->height <= 0) return;
-    if (viewport_w <= 0) viewport_w = app->win_w;
-    if (viewport_h <= 0) viewport_h = app->win_h;
+    if (viewport_w <= 0) viewport_w = app->win.w;
+    if (viewport_h <= 0) viewport_h = app->win.h;
 
     float map_w = (float)map->width * (float)app_cell_w(app);
     float map_h = (float)map->height * (float)app_cell_h(app);
     if (map_w <= (float)viewport_w) {
-        app->cam_x = ((float)viewport_w - map_w) * 0.5f;
+        app->cam.x = ((float)viewport_w - map_w) * 0.5f;
     } else {
         float min_x = (float)viewport_w - map_w;
-        if (app->cam_x < min_x) app->cam_x = min_x;
-        if (app->cam_x > 0.0f) app->cam_x = 0.0f;
+        if (app->cam.x < min_x) app->cam.x = min_x;
+        if (app->cam.x > 0.0f) app->cam.x = 0.0f;
     }
     if (map_h <= (float)viewport_h) {
-        app->cam_y = ((float)viewport_h - map_h) * 0.5f;
+        app->cam.y = ((float)viewport_h - map_h) * 0.5f;
     } else {
         float min_y = (float)viewport_h - map_h;
-        if (app->cam_y < min_y) app->cam_y = min_y;
-        if (app->cam_y > 0.0f) app->cam_y = 0.0f;
+        if (app->cam.y < min_y) app->cam.y = min_y;
+        if (app->cam.y > 0.0f) app->cam.y = 0.0f;
     }
 }
 

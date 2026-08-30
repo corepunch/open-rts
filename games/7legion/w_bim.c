@@ -284,8 +284,8 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     int atlas_w = atlas_cols * canvas_w;
     int atlas_h = atlas_rows * canvas_h;
     uint32_t *rgba = calloc((size_t)atlas_w * atlas_h, sizeof(*rgba));
-    SDL_Rect *frames = calloc((size_t)frame_count, sizeof(*frames));
-    SDL_Rect *bounds = calloc((size_t)frame_count, sizeof(*bounds));
+    irect_t *frames = calloc((size_t)frame_count, sizeof(*frames));
+    irect_t *bounds = calloc((size_t)frame_count, sizeof(*bounds));
     SDL_Point *ground_points = calloc((size_t)frame_count, sizeof(*ground_points));
     if (!rgba || !frames || !bounds || !ground_points) {
         free(rgba); free(frames); free(bounds); free(ground_points); free(info);
@@ -297,8 +297,8 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     for (int i = 0; i < frame_count; ++i) {
         int atlas_x = (i % atlas_cols) * canvas_w;
         int atlas_y = (i / atlas_cols) * canvas_h;
-        frames[i] = (SDL_Rect){ atlas_x, atlas_y, canvas_w, canvas_h };
-        bounds[i] = (SDL_Rect){ info[i].min_x, info[i].min_y,
+        frames[i] = (irect_t){ atlas_x, atlas_y, canvas_w, canvas_h };
+        bounds[i] = (irect_t){ info[i].min_x, info[i].min_y,
                                 info[i].max_x - info[i].min_x,
                                 info[i].max_y - info[i].min_y };
         ground_points[i] = (SDL_Point){ canvas_w / 2, canvas_h };
@@ -368,152 +368,12 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     }
     return true;
 }
-
-/* ── public loaders ─────────────────────────────────────────────────────── */
-
-typedef struct {
-    int map_number;
-    int terrain;
-    int start_x;
-    int start_y;
-    int start_cash;
-    char player_start[64];
-} SlMissionConfig;
-
-static bool sl_sibling_path(char *out, size_t out_size,
-                            const char *path, const char *name) {
-    const char *slash = strrchr(path, '/');
-    if (!slash) return snprintf(out, out_size, "%s", name) < (int)out_size;
-    size_t prefix = (size_t)(slash - path + 1);
-    if (prefix + strlen(name) + 1 > out_size) return false;
-    memcpy(out, path, prefix);
-    snprintf(out + prefix, out_size - prefix, "%s", name);
-    return true;
-}
-
-static bool sl_load_first_mission_config(const char *map_path, SlMissionConfig *out) {
-    memset(out, 0, sizeof(*out));
-    out->terrain = 2;
-    out->start_x = 84;
-    out->start_y = 74;
-    out->start_cash = 15000;
-    snprintf(out->player_start, sizeof(out->player_start),
-             "0000000000000040000000000000000000000000001");
-
-    char path[512];
-    if (!sl_sibling_path(path, sizeof(path), map_path, "Missions.ini")) return false;
-    blob_t blob;
-    if (!W_ReadFile(path, &blob)) return false;
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); return false; }
-    memcpy(text, blob.bytes, blob.size);
-    text[blob.size] = '\0';
-    W_FreeFile(&blob);
-
-    char *section = strstr(text, "[GMission 1]");
-    if (!section) { free(text); return false; }
-    char *next_section = strstr(section + 1, "\n[");
-    if (next_section) *next_section = '\0';
-    char *save = NULL;
-    for (char *line = strtok_r(section, "\r\n", &save);
-         line; line = strtok_r(NULL, "\r\n", &save)) {
-        int value = 0;
-        if (sscanf(line, "Map=%d", &value) == 1) out->map_number = value;
-        else if (sscanf(line, "Terrain=%d", &value) == 1) out->terrain = value;
-        else if (sscanf(line, "StartX1=%d", &value) == 1) out->start_x = value;
-        else if (sscanf(line, "StartY1=%d", &value) == 1) out->start_y = value;
-        else if (sscanf(line, "StartCash=%d", &value) == 1) out->start_cash = value;
-        else if (strncmp(line, "PVStart=", 8) == 0) {
-            size_t length = strcspn(line + 8, " ;\t");
-            if (length >= sizeof(out->player_start)) length = sizeof(out->player_start) - 1;
-            memcpy(out->player_start, line + 8, length);
-            out->player_start[length] = '\0';
-        }
-    }
-    free(text);
-    return true;
-}
-
-static const char *sl_tileset_for_terrain(int terrain) {
-    switch (terrain) {
-    case 0: return "GFX/TILES.BIM";
-    case 1: return "GFX/TILES1.BIM";
-    case 2: return "GFX/TILES2.BIM";
-    default: return "GFX/TILES3.BIM";
-    }
-}
-
 static const char *sl_palette_for_tileset(const level_t *map) {
     if (map && strcmp(map->tileset_name, "GFX/TILES1.BIM") == 0) return "GFX/PAL2.COL";
     if (map && strcmp(map->tileset_name, "GFX/TILES2.BIM") == 0) return "GFX/PAL3.COL";
     if (map && strcmp(map->tileset_name, "GFX/TILES3.BIM") == 0) return "GFX/PAL4.COL";
     return "GFX/PAL1.COL";
 }
-
-bool sl_load_map(const char *map_path, level_t *out) {
-    memset(out, 0, sizeof(*out));
-
-    blob_t tiles;
-    if (!W_ReadFile(map_path, &tiles)) return false;
-    const int W = 128, H = 128;
-    if (tiles.size != (size_t)W * H * 2) {
-        fprintf(stderr, "7legion: %s: expected a 128x128 MAPT layer\n", map_path);
-        W_FreeFile(&tiles);
-        return false;
-    }
-    out->width  = W;
-    out->height = H;
-
-    out->tile_ids = calloc((size_t)W * H, sizeof(uint16_t));
-    out->blocked  = calloc((size_t)W * H, sizeof(uint8_t));
-    if (!out->tile_ids || !out->blocked) {
-        free(out->tile_ids);
-        free(out->blocked);
-        W_FreeFile(&tiles);
-        return false;
-    }
-    const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
-    uint16_t key = 30000;
-    for (int y = 0; y < H; ++y) {
-        for (int x = 0; x < W; ++x) {
-            int i = y * W + x;
-            uint16_t stored = read_u16_le(tile_bytes + (size_t)i * 2);
-            out->tile_ids[i] = (uint16_t)((stored ^ key) - x);
-            key--;
-        }
-    }
-    W_FreeFile(&tiles);
-
-    char land_path[512];
-    if (sl_sibling_path(land_path, sizeof(land_path), map_path, "MAPL.000")) {
-        blob_t land;
-        if (W_ReadFile(land_path, &land)) {
-            if (land.size == (size_t)W * H) {
-                const uint8_t *values = (const uint8_t *)land.bytes;
-                for (int y = 0; y < H; ++y) {
-                    for (int x = 0; x < W; ++x) {
-                        int i = y * W + x;
-                        out->blocked[i] = (values[i] ^ y) != 0;
-                    }
-                }
-            }
-            W_FreeFile(&land);
-        }
-    }
-
-    SlMissionConfig mission;
-    sl_load_first_mission_config(map_path, &mission);
-    snprintf(out->tileset_name, sizeof(out->tileset_name), "%s",
-             sl_tileset_for_terrain(mission.terrain));
-    out->player_resources[0] = mission.start_cash;
-
-    out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
-    out->has_camera = true;
-    out->camera_gx  = (float)mission.start_y;
-    out->camera_gy  = (float)mission.start_x;
-    return true;
-}
-
 bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
                     const level_t *map,
                     const char *sprite_name,
@@ -587,31 +447,3 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
     return ok;
 }
 
-int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
-    if (!units || max_units <= 0) return 0;
-    SlMissionConfig mission;
-    if (!sl_load_first_mission_config(map_path, &mission)) return 0;
-
-    int count = 0;
-    int troop_count = strlen(mission.player_start) > 14 ? mission.player_start[14] - '0' : 0;
-    int base_count = strlen(mission.player_start) > 42 ? mission.player_start[42] - '0' : 0;
-    for (int i = 0; i < troop_count && count < max_units; ++i) {
-        mobj_t *unit = &units[count++];
-        memset(unit, 0, sizeof(*unit));
-        unit->gx = (float)(mission.start_y - 6 + i * 2) + 0.5f;
-        unit->gy = (float)(mission.start_x - 1) + 0.5f;
-        unit->owner = 0;
-        unit->type_id = 1;
-        unit->facing_code = 8;
-    }
-    for (int i = 0; i < base_count && count < max_units; ++i) {
-        mobj_t *unit = &units[count++];
-        memset(unit, 0, sizeof(*unit));
-        unit->gx = (float)(mission.start_y + 4 + i * 2) + 0.5f;
-        unit->gy = (float)(mission.start_x + 1) + 0.5f;
-        unit->owner = 0;
-        unit->type_id = 7;
-        unit->facing_code = 8;
-    }
-    return count;
-}

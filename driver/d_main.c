@@ -146,13 +146,13 @@ static void debug_font_draw_text(SDL_Renderer *renderer, const DebugFont *font, 
         if (ch >= 'a' && ch <= 'z') ch = (unsigned char)toupper(ch);
         if (ch < 32 || ch >= 128) ch = '?';
         int idx = (int)ch - 32;
-        SDL_Rect src = {
+        irect_t src = {
             (idx % font->columns) * font->glyph_w,
             (idx / font->columns) * font->glyph_h,
             font->glyph_w,
             font->glyph_h,
         };
-        SDL_Rect dst = { cx, cy, font->glyph_w * scale, font->glyph_h * scale };
+        irect_t dst = { cx, cy, font->glyph_w * scale, font->glyph_h * scale };
         SDL_RenderCopy(renderer, font->texture, &src, &dst);
         cx += font->glyph_w * scale;
     }
@@ -354,10 +354,10 @@ static const spritesequence_t *fg_seq_find(const spritesheet_t *s, const char *n
     return NULL;
 }
 
-static SDL_Rect fg_frame_rect(const spritesheet_t *s, int frame) {
+static irect_t fg_frame_rect(const spritesheet_t *s, int frame) {
     if (s && s->frames && frame >= 0 && frame < s->frame_count && s->frames[frame].w > 0)
         return s->frames[frame];
-    return (SDL_Rect){0, 0, s ? s->frame_w : 64, s ? s->frame_h : 64};
+    return (irect_t){0, 0, s ? s->frame_w : 64, s ? s->frame_h : 64};
 }
 
 /* Render a grid: rows = sequences (stand/run/…), columns = facing directions.
@@ -422,8 +422,8 @@ static void render_sprite_facing_grid(SDL_Renderer *sdl, const spritesheet_t *sp
             int cx = row_lbl_w + col * cell_w;
             int cy = row_y;
 
-            SDL_Rect src = fg_frame_rect(sprite, frame_idx);
-            SDL_Rect dst = {cx, cy, fw, fh};
+            irect_t src = fg_frame_rect(sprite, frame_idx);
+            irect_t dst = {cx, cy, fw, fh};
             SDL_RenderCopy(sdl, sprite->texture, &src, &dst);
 
             char fbuf[8];
@@ -461,7 +461,7 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
     int label_w = 76;
     int cols = 8;
     int gap = 8;
-    int available_w = app->win_w - 32 - label_w - gap * (cols - 1);
+    int available_w = app->win.w - 32 - label_w - gap * (cols - 1);
     int cell_w = available_w / cols;
     if (cell_w < 48) cell_w = 48;
     int scale = 1;
@@ -476,7 +476,7 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
     int start_x = 16;
     int start_y = 64;
     int content_h = row_count * cell_h;
-    int viewport_h = app->win_h - start_y - 18;
+    int viewport_h = app->win.h - start_y - 18;
     int max_scroll = content_h > viewport_h ? content_h - viewport_h : 0;
     int scroll_y = overlay->scroll_y;
     if (scroll_y < 0) scroll_y = 0;
@@ -488,8 +488,8 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
         debug_font_draw_text(app->renderer, &overlay->font, x + 4, start_y - 14, line, cyan, 1);
     }
 
-    SDL_Rect viewport = { 10, start_y - 4, app->win_w - 20, viewport_h + 8 };
-    SDL_Rect old_clip = { 0, 0, 0, 0 };
+    irect_t viewport = { 10, start_y - 4, app->win.w - 20, viewport_h + 8 };
+    irect_t old_clip = { 0, 0, 0, 0 };
     SDL_RenderGetClipRect(app->renderer, &old_clip);
     SDL_RenderSetClipRect(app->renderer, &viewport);
 
@@ -511,7 +511,7 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
         const state_t *state = debug_anim_state_for_time(game_info, row, SDL_GetTicks());
         for (int dir = 0; dir < cols; ++dir) {
             int x = start_x + label_w + dir * (cell_w + gap);
-            SDL_Rect cell = { x, y, cell_w, cell_h - 6 };
+            irect_t cell = { x, y, cell_w, cell_h - 6 };
             SDL_SetRenderDrawColor(app->renderer, 18, 21, 27, 255);
             SDL_RenderFillRect(app->renderer, &cell);
             SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
@@ -522,7 +522,7 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
             debug_resolve_state_frame(state, dir, &frame, &flags);
             if (frame < 0 || frame >= sprite->frame_count) continue;
 
-            SDL_Rect dst = {
+            irect_t dst = {
                 x + (cell_w - draw_w) / 2,
                 y + 18 + ((cell_h - 28) - draw_h) / 2,
                 draw_w,
@@ -537,7 +537,7 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
 
     SDL_RenderSetClipRect(app->renderer, &old_clip);
 
-    SDL_Rect border = { 10, 10, app->win_w - 20, app->win_h - 20 };
+    irect_t border = { 10, 10, app->win.w - 20, app->win.h - 20 };
     SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
     SDL_RenderDrawRect(app->renderer, &border);
 }
@@ -612,7 +612,7 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
 
     int cols = 8;
     int frame_scale = 2;
-    int available_w = app->win_w - 32;
+    int available_w = app->win.w - 32;
     while (frame_scale > 1 && cols * (sprite->frame_w * frame_scale + 22) > available_w) {
         frame_scale--;
     }
@@ -626,18 +626,18 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
     int content_h = rows * cell_h;
 
     SDL_SetRenderDrawColor(app->renderer, 18, 21, 27, 255);
-    SDL_Rect panel = { 10, start_y - 6, app->win_w - 20, app->win_h - start_y - 14 };
+    irect_t panel = { 10, start_y - 6, app->win.w - 20, app->win.h - start_y - 14 };
     SDL_RenderFillRect(app->renderer, &panel);
 
     int viewport_y = start_y - 6;
-    int viewport_h = app->win_h - start_y - 14;
+    int viewport_h = app->win.h - start_y - 14;
     int max_scroll = content_h > viewport_h ? content_h - viewport_h : 0;
     int scroll_y = overlay->scroll_y;
     if (scroll_y < 0) scroll_y = 0;
     if (scroll_y > max_scroll) scroll_y = max_scroll;
 
-    SDL_Rect viewport = { 10, viewport_y, app->win_w - 20, viewport_h };
-    SDL_Rect old_clip = { 0, 0, 0, 0 };
+    irect_t viewport = { 10, viewport_y, app->win.w - 20, viewport_h };
+    irect_t old_clip = { 0, 0, 0, 0 };
     SDL_RenderGetClipRect(app->renderer, &old_clip);
     SDL_RenderSetClipRect(app->renderer, &viewport);
 
@@ -647,7 +647,7 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
         int x = start_x + col * cell_w;
         int y = start_y + row * cell_h - scroll_y;
         if (y + cell_h < viewport_y || y > viewport_y + viewport_h) continue;
-        SDL_Rect dst = { x, y, frame_w, frame_h };
+        irect_t dst = { x, y, frame_w, frame_h };
         SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[i], &dst);
         snprintf(line, sizeof(line), "%d", i);
         debug_font_draw_text(app->renderer, &overlay->font, x, y + frame_h + 2, line, white, 1);
@@ -655,7 +655,7 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
 
     SDL_RenderSetClipRect(app->renderer, &old_clip);
 
-    SDL_Rect border = { 10, 10, app->win_w - 20, app->win_h - 20 };
+    irect_t border = { 10, 10, app->win.w - 20, app->win.h - 20 };
     SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
     SDL_RenderDrawRect(app->renderer, &border);
 }
@@ -747,8 +747,8 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
         R_MapToScreen(app, map, units[i].gx, units[i].gy, &sx, &sy);
-        app->cam_x = (float)app->win_w * 0.5f - sx;
-        app->cam_y = (float)app->win_h * 0.5f - sy;
+        app->cam.x = (float)app->win.w * 0.5f - sx;
+        app->cam.y = (float)app->win.h * 0.5f - sy;
         return true;
     }
     return false;
@@ -759,15 +759,15 @@ static void focus_camera_on_grid(app_t *app, const level_t *map,
     if (!app || !map) return;
     float sx = 0.0f, sy = 0.0f;
     R_MapToScreen(app, map, gx, gy, &sx, &sy);
-    SDL_Rect viewport = { 0, 0, app->win_w, app->win_h };
+    irect_t viewport = { 0, 0, app->win.w, app->win.h };
     if (gameui) {
-        viewport.x = gameui->world_viewport.x * app->win_w / gameui->logical_width;
-        viewport.y = gameui->world_viewport.y * app->win_h / gameui->logical_height;
-        viewport.w = gameui->world_viewport.w * app->win_w / gameui->logical_width;
-        viewport.h = gameui->world_viewport.h * app->win_h / gameui->logical_height;
+        viewport.x = gameui->world_viewport.x * app->win.w / gameui->logical_width;
+        viewport.y = gameui->world_viewport.y * app->win.h / gameui->logical_height;
+        viewport.w = gameui->world_viewport.w * app->win.w / gameui->logical_width;
+        viewport.h = gameui->world_viewport.h * app->win.h / gameui->logical_height;
     }
-    app->cam_x = (float)(viewport.x + viewport.w / 2) - sx;
-    app->cam_y = (float)(viewport.y + viewport.h / 2) - sy;
+    app->cam.x = (float)(viewport.x + viewport.w / 2) - sx;
+    app->cam.y = (float)(viewport.y + viewport.h / 2) - sy;
 }
 
 static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
@@ -777,16 +777,16 @@ static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
 }
 
 typedef struct {
-    SDL_Rect outer;
-    SDL_Rect header;
-    SDL_Rect status;
-    SDL_Rect commands;
-    SDL_Rect resources;
-    SDL_Rect minimap;
-    SDL_Rect message;
-    SDL_Rect build;
-    SDL_Rect tabs[3];
-    SDL_Rect buttons[8];
+    irect_t outer;
+    irect_t header;
+    irect_t status;
+    irect_t commands;
+    irect_t resources;
+    irect_t minimap;
+    irect_t message;
+    irect_t build;
+    irect_t tabs[3];
+    irect_t buttons[8];
 } DarkColonyUiLayout;
 
 typedef struct {
@@ -888,10 +888,10 @@ static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
     }
 }
 
-static SDL_Rect dark_colony_ui_rect(const app_t *app, int x, int y, int w, int h) {
-    int win_w = app && app->win_w > 0 ? app->win_w : 640;
-    int win_h = app && app->win_h > 0 ? app->win_h : 480;
-    SDL_Rect r = {
+static irect_t dark_colony_ui_rect(const app_t *app, int x, int y, int w, int h) {
+    int win_w = app && app->win.w > 0 ? app->win.w : 640;
+    int win_h = app && app->win.h > 0 ? app->win.h : 480;
+    irect_t r = {
         x >= 516 ? win_w - (640 - x) : x,
         y >= 455 ? win_h - (480 - y) : y,
         w,
@@ -1107,9 +1107,9 @@ static bool load_gif_texture(SDL_Renderer *renderer, const char *path, spriteshe
     free(canvas);
     W_FreeFile(&blob);
     if (!out->texture) return false;
-    out->frames = calloc(1, sizeof(SDL_Rect));
+    out->frames = calloc(1, sizeof(irect_t));
     if (!out->frames) { R_FreeSprite(out); return false; }
-    out->frames[0] = (SDL_Rect){ 0, 0, canvas_w, canvas_h };
+    out->frames[0] = (irect_t){ 0, 0, canvas_w, canvas_h };
     out->frame_count = 1;
     out->frame_w = canvas_w;
     out->frame_h = canvas_h;
@@ -1180,8 +1180,8 @@ static int dark_colony_ui_width(const app_t *app) {
 static int world_viewport_width(const app_t *app) {
     if (!app) return 0;
     if (gameui && gameui->world_viewport.w > 0)
-        return gameui->world_viewport.w * app->win_w / gameui->logical_width;
-    int w = app->win_w;
+        return gameui->world_viewport.w * app->win.w / gameui->logical_width;
+    int w = app->win.w;
     if (strcmp(g_game_id, "dark-colony") == 0) w -= dark_colony_ui_width(app);
     return w > 0 ? w : 1;
 }
@@ -1208,11 +1208,7 @@ static DarkColonyUiLayout dark_colony_ui_layout(const app_t *app) {
     return layout;
 }
 
-static bool point_in_rect(int x, int y, SDL_Rect r) {
-    return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
-}
-
-static SDL_Rect dark_colony_product_button_rect(const app_t *app, int index) {
+static irect_t dark_colony_product_button_rect(const app_t *app, int index) {
     int col = index / 4;
     int row = index % 4;
     return dark_colony_ui_rect(app, 518 + col * 59, 112 + row * 41, 59, 41);
@@ -1222,23 +1218,23 @@ static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 }
 
-static void dc_ui_fill(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
+static void dc_ui_fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
     dc_ui_set_draw(renderer, color);
     SDL_RenderFillRect(renderer, &rect);
 }
 
-static void dc_ui_stroke(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
+static void dc_ui_stroke(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
     dc_ui_set_draw(renderer, color);
     SDL_RenderDrawRect(renderer, &rect);
 }
 
 static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,
-                                  SDL_Rect box, uint32_t render_flags) {
+                                  irect_t box, uint32_t render_flags) {
     if (!renderer || !sprite || !sprite->texture || sprite->frame_count <= 0) return;
     if (frame < 0 || frame >= sprite->frame_count) frame = 0;
-    SDL_Rect src = sprite->frames[frame];
+    irect_t src = sprite->frames[frame];
     if (sprite->frame_bounds && sprite->frame_bounds[frame].w > 0 && sprite->frame_bounds[frame].h > 0) {
-        SDL_Rect bounds = sprite->frame_bounds[frame];
+        irect_t bounds = sprite->frame_bounds[frame];
         src.x += bounds.x;
         src.y += bounds.y;
         src.w = bounds.w;
@@ -1253,7 +1249,7 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *s
     }
     if (draw_w <= 0) draw_w = 1;
     if (draw_h <= 0) draw_h = 1;
-    SDL_Rect dst = {
+    irect_t dst = {
         box.x + (box.w - draw_w) / 2,
         box.y + (box.h - draw_h) / 2,
         draw_w,
@@ -1264,7 +1260,7 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *s
 }
 
 static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *image,
-                                  SDL_Rect src, SDL_Rect dst) {
+                                  irect_t src, irect_t dst) {
     if (!renderer || !image || !image->texture || src.w <= 0 || src.h <= 0 ||
         dst.w <= 0 || dst.h <= 0) {
         return;
@@ -1802,7 +1798,7 @@ static bool dark_colony_ui_handle_event(const app_t *app, level_t *map,
     int rx = 0, ry = 0;
     R_WindowToRenderPt(app, e->button.x, e->button.y, &rx, &ry);
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
-    if (!point_in_rect(rx, ry, layout.outer)) return false;
+    if (!irect_contains(layout.outer, (ivec2_t){ rx, ry })) return false;
     int selected_index = -1;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].selected && !units[i].remove) {
@@ -1816,7 +1812,8 @@ static bool dark_colony_ui_handle_event(const app_t *app, level_t *map,
         int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
         if (e->button.button == SDL_BUTTON_LEFT) {
             for (int i = 0; i < product_count; ++i) {
-                if (!point_in_rect(rx, ry, dark_colony_product_button_rect(app, i))) continue;
+                if (!irect_contains(dark_colony_product_button_rect(app, i),
+                                    (ivec2_t){ rx, ry })) continue;
                 const DarkColonyProductButton *product = products[i];
                 uint16_t actor_id = dc_unit_actor_id_for_product_type(product->product_type);
                 if (actor_id == 0 || map->player_resources[0] < product->cost) return true;
@@ -1828,17 +1825,18 @@ static bool dark_colony_ui_handle_event(const app_t *app, level_t *map,
         }
         return true;
     }
-    if (e->button.button == SDL_BUTTON_LEFT && point_in_rect(rx, ry, layout.buttons[0])) {
+    if (e->button.button == SDL_BUTTON_LEFT &&
+        irect_contains(layout.buttons[0], (ivec2_t){ rx, ry })) {
         dc_stop_selected_units(units, unit_count);
     }
     return true;
 }
 
 static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *units, int unit_count,
-                               SDL_Rect rect) {
+                               irect_t rect) {
     if (!app || !map || map->width <= 0 || map->height <= 0) return;
     dc_ui_fill(app->renderer, rect, (SDL_Color){ 4, 8, 9, 255 });
-    SDL_Rect clip = { rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6 };
+    irect_t clip = { rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6 };
     if (clip.w <= 0 || clip.h <= 0) return;
     for (int py = 0; py < clip.h; ++py) {
         int screen_y = py * map->height / clip.h;
@@ -1857,7 +1855,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
         const resourcevent_t *vent = &map->resource_vents[i];
         int x = clip.x + vent->gx * clip.w / map->width;
         int y = clip.y + (int)(L_ScreenY(map, vent->gy) * clip.h / map->height);
-        SDL_Rect dot = { x - 1, y - 1, 3, 3 };
+        irect_t dot = { x - 1, y - 1, 3, 3 };
         dc_ui_fill(app->renderer, dot, vent->active ?
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
     }
@@ -1866,26 +1864,26 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
         int x = clip.x + (int)(units[i].gx * (float)clip.w / (float)map->width);
         int y = clip.y + (int)(L_ScreenYF(map, units[i].gy) *
                                (float)clip.h / (float)map->height);
-        SDL_Rect dot = { x - 1, y - 1, 2, 2 };
+        irect_t dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
                    (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
     }
-    int world_right = app->win_w - dark_colony_ui_width(app);
+    int world_right = app->win.w - dark_colony_ui_width(app);
     cell_t tl = R_ScreenToGrid(app, 0, 0);
-    cell_t br = R_ScreenToGrid(app, world_right, app->win_h);
+    cell_t br = R_ScreenToGrid(app, world_right, app->win.h);
     int vx = clip.x + tl.x * clip.w / map->width;
     int vy = clip.y + tl.y * clip.h / map->height;
     int vw = (br.x - tl.x) * clip.w / map->width;
     int vh = (br.y - tl.y) * clip.h / map->height;
     if (vw < 3) vw = 3;
     if (vh < 3) vh = 3;
-    SDL_Rect view = { vx, vy, vw, vh };
+    irect_t view = { vx, vy, vw, vh };
     dc_ui_stroke(app->renderer, view, (SDL_Color){ 164, 236, 203, 220 });
     dc_ui_stroke(app->renderer, rect, (SDL_Color){ 72, 91, 88, 255 });
 }
 
 static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *font,
-                                  SDL_Rect rect, int y, const char *text,
+                                  irect_t rect, int y, const char *text,
                                   SDL_Color color) {
     if (!renderer || !font || !text) return;
     int x = rect.x + rect.w - 3 - HU_TextWidth(font, text, 1);
@@ -1893,7 +1891,7 @@ static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *fo
     HU_DrawText(renderer, font, x, y, text, color, 1);
 }
 
-static void dc_ui_draw_capital(app_t *app, const bitmapfont_t *font, SDL_Rect rect,
+static void dc_ui_draw_capital(app_t *app, const bitmapfont_t *font, irect_t rect,
                                int resources, int active_vents, int vent_count) {
     if (!app || !font) return;
     SDL_Color money = { 41, 217, 230, 255 };
@@ -1928,9 +1926,9 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
     if (background && background->texture) {
         dc_ui_draw_image_part(app->renderer, background,
-                              (SDL_Rect){ 516, 0, 124, 480 }, layout.outer);
+                              (irect_t){ 516, 0, 124, 480 }, layout.outer);
         dc_ui_draw_image_part(app->renderer, background,
-                              (SDL_Rect){ 0, 455, 516, 25 },
+                              (irect_t){ 0, 455, 516, 25 },
                               dark_colony_ui_rect(app, 0, 455, 516, 25));
     } else {
         dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 2, 2, 2, 255 });
@@ -1961,7 +1959,7 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
     char line[96];
 
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
-    SDL_Rect mini = {
+    irect_t mini = {
         layout.minimap.x + 2,
         layout.minimap.y + 2,
         layout.minimap.w - 4,
@@ -1989,9 +1987,9 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
     bool product_mode = dc_selected_unit_is_player_building(selected);
     int visible_button_count = product_mode ? product_count : sidebar->command_count;
     for (int i = 0; i < visible_button_count; ++i) {
-        SDL_Rect button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+        irect_t button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
             layout.buttons[i];
-        if (point_in_rect(app->mouse_x, app->mouse_y, button_rect)) {
+        if (irect_contains(button_rect, app->mouse)) {
             hover_button = i;
             break;
         }
@@ -2037,7 +2035,7 @@ static void render_dark_colony_ingame_ui(app_t *app, const level_t *map,
     }
     int button_slots = product_mode ? 8 : 6;
     for (int i = 0; i < button_slots; ++i) {
-        SDL_Rect button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+        irect_t button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
             layout.buttons[i];
         if (product_mode && i >= product_count) {
             dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 10, 12, 12, 185 });
@@ -2150,20 +2148,20 @@ int main(int argc, char **argv) {
     renderer_t renderer;
     app_t app = { 0 };
     if (gameui) {
-        app.win_w = gameui->logical_width;
-        app.win_h = gameui->logical_height;
+        app.win.w = gameui->logical_width;
+        app.win.h = gameui->logical_height;
     } else if (strcmp(g_game_id, "dark-colony") == 0) {
-        app.win_w = 640;
-        app.win_h = 480;
+        app.win.w = 640;
+        app.win.h = 480;
     } else {
-        app.win_w = 1280;
-        app.win_h = 800;
+        app.win.w = 1280;
+        app.win.h = 800;
     }
-    if (show_facings_only) { app.win_w = 1280; app.win_h = 720; }
+    if (show_facings_only) { app.win.w = 1280; app.win.h = 720; }
     app.show_grid = false;
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
-                             app.win_w, app.win_h,
+                             app.win.w, app.win.h,
                              check_only || screenshot_only || show_facings_only,
                              check_only || screenshot_only || show_facings_only || software_renderer)) {
         return 1;
@@ -2198,8 +2196,8 @@ int main(int argc, char **argv) {
             debug_overlay.active = false;
         }
     }
-    app.cell_w = g_cell_w > 0 ? g_cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
-    app.cell_h = g_cell_h > 0 ? g_cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
+    app.cell.w = g_cell_w > 0 ? g_cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
+    app.cell.h = g_cell_h > 0 ? g_cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
 
     mobj_t units[MAXMOBJS] = { 0 };
     int unit_count = P_LoadThings(map_path, (mobj_t *)units, MAXMOBJS);
@@ -2236,7 +2234,7 @@ int main(int argc, char **argv) {
         float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
         focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
-    R_ClampCamera(&app, &map, world_viewport_width(&app), app.win_h);
+    R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);
 
     printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, unit_count,
@@ -2351,7 +2349,7 @@ int main(int argc, char **argv) {
                                 effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count && !map.has_camera)
                     focus_camera_on_first_player_unit(&app, &map, units, unit_count);
-                R_ClampCamera(&app, &map, world_viewport_width(&app), app.win_h);
+                R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);
             }
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             R_DrawLevel(&app, &map, &tileset);
@@ -2416,7 +2414,7 @@ int main(int argc, char **argv) {
                          &decoration_sprites, gameinfo, &e);
         }
         G_CameraMove(&app, frame_dt);
-        R_ClampCamera(&app, &map, world_viewport_width(&app), app.win_h);
+        R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);
         while (accumulator >= FIXED_DT) {
             P_Ticker(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                          gameinfo, FIXED_DT);
@@ -2426,7 +2424,7 @@ int main(int argc, char **argv) {
                                 effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
                     if (!map.has_camera) focus_camera_on_first_player_unit(&app, &map, units, unit_count);
-                    R_ClampCamera(&app, &map, world_viewport_width(&app), app.win_h);
+                    R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);
                     if (!R_InitSprites(app.renderer, data_root, &map,
                                              (const mobj_t *)units, unit_count,
                                              &decoration_sprites)) {

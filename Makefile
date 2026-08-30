@@ -22,46 +22,16 @@ DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
 KKND_ROOT        := $(DATA_DIR)/KKND
 
 # ── per-game engine sources (shared by all game binaries) ────────────────────
-ENGINE_SOURCES := \
-	driver/d_main.c \
-	render/r_draw.c \
-	hud/hu_lib.c \
-	interface/i_video.c \
-	driver/w_file.c \
-	render/r_main.c \
-	play/p_map.c \
-	play/p_mobj.c \
-	play/p_facing.c
+ENGINE_SOURCES := $(sort $(shell find driver render hud interface play -name '*.c'))
 
 # ── game-specific sources ────────────────────────────────────────────────────
-DR_GAME_SOURCES  := \
-	games/DarkReign/plugin.c \
-	games/DarkReign/dr_loader.c
+DR_GAME_SOURCES   := $(sort $(shell find games/dark-reign  -name '*.c'))
+DC_GAME_SOURCES   := $(sort $(shell find games/dark-colony -name '*.c'))
+SL_GAME_SOURCES   := $(sort $(shell find games/7legion     -name '*.c'))
+KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
 
-DC_GAME_SOURCES  := \
-	games/DarkColony/plugin.c \
-	games/DarkColony/dc_loader.c \
-	games/DarkColony/info.c
-
-SL_GAME_SOURCES  := \
-	games/7thLegion/plugin.c \
-	games/7thLegion/sl_loader.c
-
-KKND_GAME_SOURCES := \
-	games/KKND/plugin.c \
-	games/KKND/kknd_loader.c
-
-# ── model engine sources (for server/test binaries) ─────────────────────────
-# Note: r_draw.c and r_main.c are needed because dc_loader.c
-# references P_FreeLevel, R_CacheFind, I_CreateTexture, R_AddTileAnim.
-MODEL_ENGINE_SOURCES := \
-	game/g_game.c \
-	render/r_draw.c \
-	driver/w_file.c \
-	render/r_main.c \
-	play/p_map.c \
-	play/p_mobj.c \
-	play/p_facing.c
+# ── model engine sources (headless: no SDL display entry point or HUD) ───────
+MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render -name '*.c' ! -name 'd_main.c'))
 
 # ── tool sources ─────────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE  := tools/anim_extract.c
@@ -96,10 +66,10 @@ $(BUILD_DIR)/$(1)/%.o: %.c
 -include $$(ALL_DEPS_$(1))
 endef
 
-$(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),DarkColony))
-$(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),DarkReign))
-$(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7thLegion))
-$(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),KKND))
+$(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony))
+$(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign))
+$(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion))
+$(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd))
 
 all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd
 
@@ -114,13 +84,13 @@ $(BIN_DIR)/test_game_model_headless: $(DC_MODEL_TEST_OBJS) | $(BIN_DIR)
 
 $(BUILD_DIR)/dc-test/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -I./games/DarkColony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 -include $(DC_MODEL_TEST_DEPS)
 
 # ── DC sprite layout test ─────────────────────────────────────────────────────
 DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
-DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/DarkColony/info.o
+DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
 
 $(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJ) $(DC_LAYOUT_DC_INFO_OBJ) | $(BIN_DIR)
 	$(CC) $^ -o $@ -lm
@@ -145,10 +115,10 @@ $(BUILD_DIR)/tools/%.o: tools/%.c
 
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_GEN_TARGET)
-	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) games/DarkColony/info.h games/DarkColony/info.c
+	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) games/dark-colony/info.h games/dark-colony/info.c
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
-	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/DarkColony/gamestat.h
+	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
 
 # ── run targets ───────────────────────────────────────────────────────────────
 run: $(BIN_DIR)/dark-reign
