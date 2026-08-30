@@ -31,7 +31,7 @@ typedef struct {
             int layer;
         } tile_overlay;
         const MapDecoration *decoration;
-        const Unit *unit;
+        const Mobj *unit;
     } ref;
 } DrawCommand;
 

@@ -13,7 +13,7 @@ typedef struct {
 bool game_ui_load(GameUi *ui, SDL_Renderer *renderer, const char *data_root,
                   const GameUiDefinition *definition);
 void game_ui_render(const GameUi *ui, App *app, const GameMap *map,
-                    const Unit *units, int unit_count, const SpriteCache *sprites);
+                    const Mobj *units, int unit_count, const SpriteCache *sprites);
 void game_ui_destroy(GameUi *ui);
 
 #endif

@@ -1,4 +1,4 @@
-#include "plugin.h"
+#include "game.h"
 #include "info.h"
 #include "dc_types.h"
 
@@ -539,7 +539,7 @@ static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
 static void dark_colony_spawn_script_unit(const GameMap *map, Unit *units, int *unit_count, int team,
                                           int gx, int gy, int type, int index,
                                           const GameInfo *game_info) {
-    if (!units || !unit_count || *unit_count >= MAX_UNITS) return;
+    if (!units || !unit_count || *unit_count >= MAXMOBJS) return;
     Unit *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
     int offset_x = index % 2;
@@ -908,92 +908,57 @@ static void dark_colony_destroy_mission(void *mission) {
     free(mission);
 }
 
-static bool dark_colony_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                                             const GameMap *map, const Unit *units, int unit_count,
-                                             SpriteCache *cache) {
-    return load_dark_colony_unit_sprites(renderer, data_root, map, units, unit_count, cache);
+/* ── game identity (Doom-style externs) ─────────────────────────────────── */
+
+const char *const g_game_id            = "dark-colony";
+const char *const g_game_name          = "Dark Colony";
+const char *const g_game_default_root  = "data/DCOLONY";
+const char *const g_game_default_map   = "SCENARIO/HUMAN/HUMAN01.MAP";
+const char *const g_game_default_sprite = "SPRITES/TROOPER1.SPR";
+const int g_cell_w = 32;
+const int g_cell_h = 32;
+const uint16_t g_debug_enemy_type = MT_DC_GREY;
+const GameInfo *const gameinfo = &dark_colony_game_info;
+const MobjType *const mobjTypes =
+    (const MobjType *)DARK_COLONY_ACTOR_TYPES;
+const int mobjTypeCount =
+    (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0]));
+const GameUiDefinition *const gameui = NULL;
+
+/* ── G_* / R_* interface ────────────────────────────────────────────────── */
+
+bool G_LoadMap(const char *path, GameMap *out) {
+    return load_dark_colony_map(path, out);
 }
 
-static const Plugin DARK_COLONY_PLUGIN = {
-    .id             = "dark-colony",
-    .name           = "Dark Colony",
-    .version        = "0.1",
-    .default_root   = "data/DCOLONY",
-    .default_map    = "SCENARIO/HUMAN/HUMAN01.MAP",
-    .default_sprite = "SPRITES/TROOPER1.SPR",
-    .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
-                      RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
-                      RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
-                      RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
-                      RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
-                      RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI |
-                      RTS_SUBSYSTEM_SCRIPTING,
-    .cell_w            = 32,
-    .cell_h            = 32,
-    .game_info         = &dark_colony_game_info,
-    .actor_types       = DARK_COLONY_ACTOR_TYPES,
-    .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
-    .debug_enemy_type_id = MT_DC_GREY,
-    .capabilities        = {
-        .map_format = MAP_FORMAT_DARK_COLONY_MAP_MTG_OVH,
-        .capabilities = PLUGIN_CAP_STATIC_METADATA |
-                        PLUGIN_CAP_RUNTIME_SPRITES |
-                        PLUGIN_CAP_MISSION_SCRIPT |
-                        PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
-        .data_capability = "dark-colony:data/DCOLONY",
-        .graphics_capability = "dark-colony:spr-mtg-ovh",
-    },
-    .definition          = {
-        .id             = "dark-colony",
-        .name           = "Dark Colony",
-        .version        = "0.1",
-        .default_root   = "data/DCOLONY",
-        .default_map    = "SCENARIO/HUMAN/HUMAN01.MAP",
-        .default_sprite = "SPRITES/TROOPER1.SPR",
-        .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
-                          RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
-                          RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
-                          RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
-                          RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
-                          RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI |
-                          RTS_SUBSYSTEM_SCRIPTING,
-        .cell_w            = 32,
-        .cell_h            = 32,
-        .game_info         = &dark_colony_game_info,
-        .actor_types       = DARK_COLONY_ACTOR_TYPES,
-        .actor_type_count  = (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])),
-        .debug_enemy_type_id = MT_DC_GREY,
-        .capabilities        = {
-            .map_format = MAP_FORMAT_DARK_COLONY_MAP_MTG_OVH,
-            .capabilities = PLUGIN_CAP_STATIC_METADATA |
-                            PLUGIN_CAP_RUNTIME_SPRITES |
-                            PLUGIN_CAP_MISSION_SCRIPT |
-                            PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
-            .data_capability = "dark-colony:data/DCOLONY",
-            .graphics_capability = "dark-colony:spr-mtg-ovh",
-        },
-    },
-    .loaders             = {
-        .load_map            = load_dark_colony_map,
-        .load_assets         = dark_colony_plugin_load_assets,
-        .load_initial_units  = load_dark_colony_initial_units,
-        .load_runtime_sprites = dark_colony_load_runtime_sprites,
-        .load_font           = dark_colony_load_font,
-        .load_mission        = dark_colony_load_mission,
-        .update_mission      = dark_colony_update_mission,
-        .destroy_mission     = dark_colony_destroy_mission,
-    },
-    .load_map            = load_dark_colony_map,
-    .load_assets         = dark_colony_plugin_load_assets,
-    .load_initial_units  = load_dark_colony_initial_units,
-    .load_runtime_sprites = dark_colony_load_runtime_sprites,
-    .load_font           = dark_colony_load_font,
-    .load_mission        = dark_colony_load_mission,
-    .update_mission      = dark_colony_update_mission,
-    .destroy_mission     = dark_colony_destroy_mission,
-};
+bool R_LoadAssets(SDL_Renderer *renderer, const char *root, const GameMap *map,
+                  const char *sprite, Tileset *tileset, SpriteSheet *unit_sprite) {
+    return dark_colony_plugin_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+}
 
-const Plugin *open_rts_plugin_entry(void) { return &DARK_COLONY_PLUGIN; }
+int G_SpawnThings(const char *path, Mobj *mobjs, int max) {
+    return load_dark_colony_initial_units(path, (Unit *)mobjs, max);
+}
 
-/* keep old name for any static-link usage */
-const Plugin *open_rts_dark_colony_plugin(void) { return &DARK_COLONY_PLUGIN; }
+bool R_LoadRuntimeSprites(SDL_Renderer *renderer, const char *root, const GameMap *map,
+                          const Mobj *mobjs, int count, SpriteCache *cache) {
+    return load_dark_colony_unit_sprites(renderer, root, map, (const Unit *)mobjs, count, cache);
+}
+
+bool R_LoadFont(SDL_Renderer *renderer, const char *root, BitmapFont *font) {
+    return dark_colony_load_font(renderer, root, font);
+}
+
+void *G_LoadMission(const char *path) {
+    return dark_colony_load_mission(path);
+}
+
+void G_UpdateMission(void *mission, GameMap *map, Mobj *mobjs, int *count,
+                     VisualEffect *effects, int max_effects, HudText *hud, float dt) {
+    dark_colony_update_mission(mission, map, (Unit *)mobjs, count,
+                               effects, max_effects, gameinfo, hud, dt);
+}
+
+void G_FreeMission(void *mission) {
+    dark_colony_destroy_mission(mission);
+}

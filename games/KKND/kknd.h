@@ -1,7 +1,7 @@
 #ifndef OPEN_RTS_KKND_H
 #define OPEN_RTS_KKND_H
 
-#include "plugin.h"
+#include "engine.h"
 
 bool load_kknd_map(const char *map_path, GameMap *out);
 bool kknd_load_assets(SDL_Renderer *renderer, const char *data_root,

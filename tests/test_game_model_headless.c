@@ -428,7 +428,6 @@ static int assert_dark_colony_ui_script(const RtsRenderSnapshot *snapshot) {
 
 static int assert_human01(RtsGameModel *model) {
     RtsGameModelConfig config = {
-        .game_id = "dark-colony",
         .data_root = "data/DCOLONY",
         .map_path = "SCENARIO/HUMAN/HUMAN01.MAP",
     };
@@ -539,7 +538,6 @@ static int assert_human01(RtsGameModel *model) {
 
 static int assert_human02(RtsGameModel *model) {
     RtsGameModelConfig config = {
-        .game_id = "dark-colony",
         .data_root = "data/DCOLONY",
         .map_path = "SCENARIO/HUMAN/HUMAN02.MAP",
     };
@@ -860,7 +858,6 @@ static int assert_dark_reign_model_products(RtsGameModel *model) {
 
 static int assert_human03_city_slots(RtsGameModel *model) {
     RtsGameModelConfig config = {
-        .game_id = "dark-colony",
         .data_root = "data/DCOLONY",
         .map_path = "SCENARIO/HUMAN/HUMAN03.MAP",
     };
@@ -897,7 +894,6 @@ static int assert_human03_city_slots(RtsGameModel *model) {
 
 static int assert_dark_reign(RtsGameModel *model) {
     RtsGameModelConfig config = {
-        .game_id = "dark-reign",
         .data_root = "data/REIGN/dark",
         .map_path = "scenario/MULTI/2NIC/2NIC.SCN",
     };
@@ -982,7 +978,6 @@ static int assert_dark_reign(RtsGameModel *model) {
 
 static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     RtsGameModelConfig mission1 = {
-        .game_id = "dark-reign",
         .data_root = "data/REIGN/dark",
         .map_path = "scenario/FIXED/M01F/M01F.SCN",
     };
@@ -1006,7 +1001,6 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     }
 
     RtsGameModelConfig mission2 = {
-        .game_id = "dark-reign",
         .data_root = "data/REIGN/dark",
         .map_path = "scenario/FIXED/M02F/M02F.SCN",
     };

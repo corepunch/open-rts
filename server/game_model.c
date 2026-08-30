@@ -2,7 +2,7 @@
 #include "game_model.h"
 
 #include "engine.h"
-#include "plugin.h"
+#include "game.h"
 
 #include <stdarg.h>
 #include <math.h>
@@ -42,9 +42,8 @@ enum {
 };
 
 struct RtsGameModel {
-    const Plugin *plugin;
     GameMap map;
-    Unit units[MAX_UNITS];
+    Unit units[MAXMOBJS];
     int unit_count;
     VisualEffect effects[MAX_VISUAL_EFFECTS];
     HudText hud;
@@ -53,7 +52,7 @@ struct RtsGameModel {
     char error[256];
 };
 
-static const ActorType *plugin_actor_type_by_id(const Plugin *plugin, uint16_t type_id);
+static const ActorType *plugin_actor_type_by_id(uint16_t type_id);
 static void apply_actor_type_defaults(Unit *unit, const ActorType *type);
 
 static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
@@ -236,13 +235,9 @@ static const StaticProductDefinition *dark_reign_product_by_ui_id(int ui_id) {
     return NULL;
 }
 
-static const StaticProductDefinition *product_by_ui_id_for_model(const RtsGameModel *model,
-                                                                 int ui_id) {
-    if (!model || !model->plugin || !model->plugin->id) return NULL;
-    if (strcmp(model->plugin->id, "dark-colony") == 0)
-        return dark_colony_product_by_ui_id(ui_id);
-    if (strcmp(model->plugin->id, "dark-reign") == 0)
-        return dark_reign_product_by_ui_id(ui_id);
+static const StaticProductDefinition *product_by_ui_id_for_model(int ui_id) {
+    if (strcmp(g_game_id, "dark-colony") == 0) return dark_colony_product_by_ui_id(ui_id);
+    if (strcmp(g_game_id, "dark-reign") == 0)  return dark_reign_product_by_ui_id(ui_id);
     return NULL;
 }
 
@@ -289,8 +284,7 @@ static bool model_has_dark_reign_requirement(const RtsGameModel *model, int requ
 
 static bool product_is_available(const RtsGameModel *model, const StaticProductDefinition *product) {
     if (!product) return false;
-    bool dark_reign = model && model->plugin && model->plugin->id &&
-        strcmp(model->plugin->id, "dark-reign") == 0;
+    bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
     if (dark_reign) {
         for (int i = 0; i < product->prerequisite_count; ++i) {
             if (!model_has_dark_reign_requirement(model, product->prerequisites[i]))
@@ -324,8 +318,7 @@ static int find_player_actor_index(const RtsGameModel *model, uint16_t actor_id)
 static int find_product_producer_index(const RtsGameModel *model,
                                        const StaticProductDefinition *product) {
     if (!model || !product) return -1;
-    if (model->plugin && model->plugin->id &&
-        strcmp(model->plugin->id, "dark-reign") == 0) {
+    if (strcmp(g_game_id, "dark-reign") == 0) {
         for (int i = 0; i < product->maker_count; ++i) {
             int index = find_player_actor_index(
                 model, dark_reign_actor_id_for_requirement(product->makers[i]));
@@ -455,11 +448,10 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
                                                      const Unit *new_unit,
                                                      float *out_gx,
                                                      float *out_gy) {
-    if (!model || !producer || !new_unit || !out_gx || !out_gy ||
-        !model->plugin || !model->plugin->game_info) {
+    if (!model || !producer || !new_unit || !out_gx || !out_gy || !gameinfo) {
         return false;
     }
-    const GameInfo *game_info = model->plugin->game_info;
+    const GameInfo *game_info = gameinfo;
     const State *stand = model_state_at(game_info, new_unit->state_id);
     if (!stand) return false;
 
@@ -508,7 +500,7 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
                                         float exit_gy) {
     if (!model || !producer || spawned_index < 0 || spawned_index >= model->unit_count)
         return;
-    bool saved[MAX_UNITS];
+    bool saved[MAXMOBJS];
     for (int i = 0; i < model->unit_count; ++i) {
         saved[i] = model->units[i].selected;
         model->units[i].selected = false;
@@ -553,13 +545,12 @@ static bool spawn_finished_model_product(RtsGameModel *model,
         producer_index >= model->unit_count) {
         return false;
     }
-    if (!model->plugin || !model->plugin->id) return false;
-    if (model->unit_count >= MAX_UNITS) return false;
+    if (model->unit_count >= MAXMOBJS) return false;
 
-    bool dark_reign = strcmp(model->plugin->id, "dark-reign") == 0;
+    bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
     uint16_t actor_id = dark_reign ? dark_reign_actor_id_for_product(product) :
         dark_colony_actor_id_for_product(product);
-    const ActorType *actor_type = plugin_actor_type_by_id(model->plugin, actor_id);
+    const ActorType *actor_type = plugin_actor_type_by_id(actor_id);
     if (actor_id == 0 || !actor_type) return false;
 
     Unit new_unit;
@@ -572,12 +563,12 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     new_unit.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
         dark_colony_building_frame_for_product_type(product->product_type) : 0;
     apply_actor_type_defaults(&new_unit, actor_type);
-    apply_mobjinfo_defaults(model->plugin ? model->plugin->game_info : NULL, &new_unit);
+    apply_mobjinfo_defaults(gameinfo, &new_unit);
     if (!dark_reign && product->product_class == RTS_PRODUCT_BUILDING) {
-        int state_id = dark_colony_building_state_for_product_type(model->plugin->game_info,
+        int state_id = dark_colony_building_state_for_product_type(gameinfo,
                                                                    product->product_type);
         if (state_id > 0) {
-            StateContext ctx = { .game_info = model->plugin->game_info };
+            StateContext ctx = { .game_info = gameinfo };
             set_unit_state(&ctx, &new_unit, state_id);
         }
     }
@@ -647,13 +638,12 @@ static bool dark_colony_product_uses_barracks_release(const Unit *producer,
 static bool start_model_production_release(RtsGameModel *model, Unit *producer,
                                            const StaticProductDefinition *product,
                                            uint16_t actor_id) {
-    if (!model || !producer || !product || !model->plugin ||
-        !model->plugin->game_info) {
+    if (!model || !producer || !product || !gameinfo) {
         return false;
     }
     if (!dark_colony_product_uses_barracks_release(producer, product, actor_id))
         return false;
-    const GameInfo *game_info = model->plugin->game_info;
+    const GameInfo *game_info = gameinfo;
     int state_id = model_find_state_by_group_frame(game_info, DC_PRODUCTION_BUILD_GROUP,
                                                    DC_TRSCBUILD_FIRST_FRAME);
     int duration_ms = model_state_chain_duration_ms(game_info, state_id,
@@ -699,15 +689,14 @@ static void advance_model_production_queue(Unit *producer) {
 static bool create_model_product(RtsGameModel *model,
                                  const StaticProductDefinition *product) {
     if (!model || !product) return false;
-    if (!model->plugin || !model->plugin->id) return false;
     if (!product_is_available(model, product)) return false;
     if (model->map.player_resources[0] < product->cost) return false;
 
-    bool dark_reign = strcmp(model->plugin->id, "dark-reign") == 0;
-    bool dark_colony = strcmp(model->plugin->id, "dark-colony") == 0;
+    bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
+    bool dark_colony = strcmp(g_game_id, "dark-colony") == 0;
     uint16_t actor_id = dark_reign ? dark_reign_actor_id_for_product(product) :
         dark_colony_actor_id_for_product(product);
-    if (actor_id == 0 || !plugin_actor_type_by_id(model->plugin, actor_id)) return false;
+    if (actor_id == 0 || !plugin_actor_type_by_id(actor_id)) return false;
 
     int producer_index = find_product_producer_index(model, product);
     if (producer_index < 0) return false;
@@ -725,13 +714,13 @@ static bool create_model_product(RtsGameModel *model,
 
 static const StaticProductDefinition *product_by_class_type_for_model(
     const RtsGameModel *model, int product_class, int product_type) {
-    if (!model || !model->plugin || !model->plugin->id) return NULL;
+    if (!model) return NULL;
     const StaticProductDefinition *source = NULL;
     int source_count = 0;
-    if (strcmp(model->plugin->id, "dark-colony") == 0) {
+    if (strcmp(g_game_id, "dark-colony") == 0) {
         source = DARK_COLONY_HUMAN_PRODUCTS;
         source_count = dark_colony_product_count();
-    } else if (strcmp(model->plugin->id, "dark-reign") == 0) {
+    } else if (strcmp(g_game_id, "dark-reign") == 0) {
         source = DARK_REIGN_FG_PRODUCTS;
         source_count = dark_reign_product_count();
     }
@@ -899,14 +888,6 @@ static void build_dark_reign_ui_script(const RtsGameModel *model, char *dst, siz
     }
 }
 
-static void load_plugin_by_id(const char *game_id) {
-    char lib_path[1024];
-    const char *extensions[] = { ".dylib", ".so", NULL };
-    for (int i = 0; extensions[i]; ++i) {
-        snprintf(lib_path, sizeof(lib_path), "build/libs/%s%s", game_id, extensions[i]);
-        if (plugin_load(lib_path)) return;
-    }
-}
 
 static void destroy_model_map(GameMap *map) {
     if (!map) return;
@@ -921,25 +902,23 @@ static void destroy_model_map(GameMap *map) {
     memset(map, 0, sizeof(*map));
 }
 
-static const ActorType *plugin_actor_type_by_id(const Plugin *plugin, uint16_t type_id) {
-    if (!plugin || !plugin->actor_types) return NULL;
-    for (int i = 0; i < plugin->actor_type_count; ++i) {
-        if (plugin->actor_types[i].id == type_id) return &plugin->actor_types[i];
+static const ActorType *plugin_actor_type_by_id(uint16_t type_id) {
+    for (int i = 0; i < mobjTypeCount; ++i) {
+        if (mobjTypes[i].id == type_id) return (const ActorType *)&mobjTypes[i];
     }
     return NULL;
 }
 
-static const ActorType *plugin_actor_type_for_unit(const Plugin *plugin, const Unit *unit) {
-    const ActorType *type = plugin_actor_type_by_id(plugin, unit ? unit->type_id : 0);
+static const ActorType *plugin_actor_type_for_unit(const Unit *unit) {
+    const ActorType *type = plugin_actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
-    if (!plugin || !plugin->actor_types || !unit) return NULL;
-    for (int i = 0; i < plugin->actor_type_count; ++i) {
-        const char *sprite = plugin->actor_types[i].sprite_name;
-        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0) {
-            return &plugin->actor_types[i];
-        }
+    if (!unit) return NULL;
+    for (int i = 0; i < mobjTypeCount; ++i) {
+        const char *sprite = mobjTypes[i].sprite_name;
+        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0)
+            return (const ActorType *)&mobjTypes[i];
     }
-    return plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
+    return mobjTypeCount > 0 ? (const ActorType *)&mobjTypes[0] : NULL;
 }
 
 static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
@@ -970,10 +949,10 @@ static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     }
 }
 
-static void apply_plugin_actor_defaults(const Plugin *plugin, Unit *units, int unit_count) {
+static void apply_plugin_actor_defaults(Unit *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
-        apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(plugin, &units[i]));
-        apply_mobjinfo_defaults(plugin ? plugin->game_info : NULL, &units[i]);
+        apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(&units[i]));
+        apply_mobjinfo_defaults(gameinfo, &units[i]);
     }
 }
 
@@ -993,26 +972,17 @@ RtsGameModel *rts_game_model_create(void) {
 
 void rts_game_model_destroy(RtsGameModel *model) {
     if (!model) return;
-    if (model->mission && model->plugin && model->plugin->destroy_mission) {
-        model->plugin->destroy_mission(model->mission);
-    }
+    if (model->mission) G_FreeMission(model->mission);
     destroy_model_map(&model->map);
     free(model);
 }
 
 bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) {
     if (!model || !config) return false;
-    const char *game_id = config->game_id && config->game_id[0] ? config->game_id : "dark-colony";
-    if (!find_plugin(game_id)) load_plugin_by_id(game_id);
-    const Plugin *plugin = find_plugin(game_id);
-    if (!plugin) {
-        model_set_error(model, "unknown game '%s'", game_id);
-        return false;
-    }
     const char *data_root = config->data_root && config->data_root[0] ?
-        config->data_root : plugin->default_root;
+        config->data_root : g_game_default_root;
     const char *map_rel_or_abs = config->map_path && config->map_path[0] ?
-        config->map_path : plugin->default_map;
+        config->map_path : g_game_default_map;
 
     char map_path[1024];
     if (!build_map_path(map_path, sizeof(map_path), data_root, map_rel_or_abs)) {
@@ -1021,9 +991,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     }
 
     if (model->loaded) {
-        if (model->mission && model->plugin && model->plugin->destroy_mission) {
-            model->plugin->destroy_mission(model->mission);
-        }
+        if (model->mission) G_FreeMission(model->mission);
         model->mission = NULL;
         destroy_model_map(&model->map);
         memset(model->units, 0, sizeof(model->units));
@@ -1033,15 +1001,13 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
         model->loaded = false;
     }
 
-    if (!plugin->load_map || !plugin->load_map(map_path, &model->map)) {
+    if (!G_LoadMap(map_path, &model->map)) {
         model_set_error(model, "failed to load map '%s'", map_path);
         return false;
     }
-    model->unit_count = plugin->load_initial_units ?
-        plugin->load_initial_units(map_path, model->units, MAX_UNITS) : 0;
-    apply_plugin_actor_defaults(plugin, model->units, model->unit_count);
-    model->mission = plugin->load_mission ? plugin->load_mission(map_path) : NULL;
-    model->plugin = plugin;
+    model->unit_count = G_SpawnThings(map_path, (Mobj *)model->units, MAXMOBJS);
+    apply_plugin_actor_defaults(model->units, model->unit_count);
+    model->mission = G_LoadMission(map_path);
     model->loaded = true;
     model->error[0] = '\0';
     return true;
@@ -1051,16 +1017,15 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     if (!model || !model->loaded) return false;
     if (dt <= 0.0f) return true;
     update_units(&model->map, model->units, &model->unit_count, model->effects,
-                 MAX_VISUAL_EFFECTS, model->plugin ? model->plugin->game_info : NULL, dt);
-    if (model->mission && model->plugin && model->plugin->update_mission) {
-        model->plugin->update_mission(model->mission, &model->map, model->units,
-                                      &model->unit_count, model->effects,
-                                      MAX_VISUAL_EFFECTS, model->plugin->game_info,
-                                      &model->hud, dt);
+                 MAX_VISUAL_EFFECTS, gameinfo, dt);
+    if (model->mission) {
+        G_UpdateMission(model->mission, &model->map, (Mobj *)model->units,
+                        &model->unit_count, model->effects,
+                        MAX_VISUAL_EFFECTS, &model->hud, dt);
     }
     update_model_production(model, dt);
     update_visual_effects(&model->map, model->effects, MAX_VISUAL_EFFECTS,
-                          model->plugin ? model->plugin->game_info : NULL, dt);
+                          gameinfo, dt);
     hud_text_update(&model->hud, dt);
     return true;
 }
@@ -1101,7 +1066,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
                                       command->data.harvest_selected.gy);
     case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON:
         return create_model_product(
-            model, product_by_ui_id_for_model(model, command->data.activate_ui_button.ui_id));
+            model, product_by_ui_id_for_model(command->data.activate_ui_button.ui_id));
     default:
         return false;
     }
@@ -1186,9 +1151,9 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
-    if (model->plugin && model->plugin->id && strcmp(model->plugin->id, "dark-colony") == 0) {
+    if (strcmp(g_game_id, "dark-colony") == 0) {
         build_dark_colony_ui_script(model, out->ui_script, sizeof(out->ui_script));
-    } else if (model->plugin && model->plugin->id && strcmp(model->plugin->id, "dark-reign") == 0) {
+    } else if (strcmp(g_game_id, "dark-reign") == 0) {
         build_dark_reign_ui_script(model, out->ui_script, sizeof(out->ui_script));
     }
     return true;
@@ -1200,14 +1165,13 @@ const char *rts_game_model_last_error(const RtsGameModel *model) {
 
 int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products) {
     if (!model || !out || max_products <= 0) return 0;
-    if (!model->plugin || !model->plugin->id) return 0;
 
     const StaticProductDefinition *source = NULL;
     int source_count = 0;
-    if (strcmp(model->plugin->id, "dark-colony") == 0) {
+    if (strcmp(g_game_id, "dark-colony") == 0) {
         source = DARK_COLONY_HUMAN_PRODUCTS;
         source_count = dark_colony_product_count();
-    } else if (strcmp(model->plugin->id, "dark-reign") == 0) {
+    } else if (strcmp(g_game_id, "dark-reign") == 0) {
         source = DARK_REIGN_FG_PRODUCTS;
         source_count = dark_reign_product_count();
     } else {
