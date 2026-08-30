@@ -1293,7 +1293,62 @@ static bool dark_colony_map_file_load_o16(DarkColonyMapFile *map) {
     return true;
 }
 
-static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount) {
+typedef struct {
+    bool valid;
+    int glow_left;
+    int glow_top;
+    float attach_x;
+    float attach_y;
+} DarkColonyVentPlacement;
+
+enum { DARK_COLONY_CELL_PIXELS = 32 };
+
+static bool dark_colony_vent_placement_from_sprites(const char *map_path,
+                                                     DarkColonyVentPlacement *out) {
+    if (!map_path || !out) return false;
+    memset(out, 0, sizeof(*out));
+
+    const char *scenario = strcasestr(map_path, "/SCENARIO/");
+    if (!scenario) return false;
+    size_t root_len = (size_t)(scenario - map_path);
+    if (root_len == 0 || root_len >= 900) return false;
+
+    char vent_path[1024];
+    char glow_path[1024];
+    snprintf(vent_path, sizeof(vent_path), "%.*s/SPRITES/VENT.SPR", (int)root_len, map_path);
+    snprintf(glow_path, sizeof(glow_path), "%.*s/SPRITES/VENT2.SPR", (int)root_len, map_path);
+
+    DarkColonyJuiceFile vent = {0};
+    DarkColonyJuiceFile glow = {0};
+    if (!dark_colony_juice_load(vent_path, &vent) ||
+        !dark_colony_juice_load(glow_path, &glow) ||
+        vent.cell_count <= 0 || glow.cell_count <= 0) {
+        dark_colony_juice_destroy(&vent);
+        dark_colony_juice_destroy(&glow);
+        return false;
+    }
+
+    const DarkColonyJuiceCell *base = &vent.cells[0];
+    const DarkColonyJuiceCell *plume = &glow.cells[0];
+    /* VENT frame 0 is the complete active crater. VENT2 frame 0 is its glow
+       layer. Their SPR displacements put both images in the same authored
+       canvas. The terrain stamp point is the center of its keyed cell, while
+       the crater bitmap begins at that cell's lower edge. */
+    int base_left = -(int)base->width / 2;
+    int base_top = DARK_COLONY_CELL_PIXELS / 2;
+    out->glow_left = base_left + (int)plume->dis_x - (int)base->dis_x;
+    out->glow_top = base_top + (int)plume->dis_y - (int)base->dis_y;
+    out->attach_x = (float)out->glow_left + (float)plume->width * 0.5f;
+    out->attach_y = (float)out->glow_top + (float)plume->height;
+    out->valid = true;
+
+    dark_colony_juice_destroy(&vent);
+    dark_colony_juice_destroy(&glow);
+    return true;
+}
+
+static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rate, int amount,
+                                              const DarkColonyVentPlacement *placement) {
     if (!map || !map_contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
 
@@ -1304,6 +1359,13 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
     MapResourceVent *vent = &map->resource_vents[map->resource_vent_count++];
     vent->gx = x;
     vent->gy = y;
+    vent->attach_gx = (float)x + 0.5f;
+    vent->attach_gy = (float)y + 0.5f;
+    if (placement && placement->valid) {
+        vent->attach_gx += placement->attach_x / (float)DARK_COLONY_CELL_PIXELS;
+        /* Dark Colony world Y is bottom-up, while SPR offsets are screen-down. */
+        vent->attach_gy -= placement->attach_y / (float)DARK_COLONY_CELL_PIXELS;
+    }
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0;
@@ -1320,6 +1382,11 @@ static bool append_dark_colony_resource_vent(GameMap *map, int x, int y, int rat
             dec->footprint_w = 1;
             dec->footprint_h = 1;
             dec->center_anchor = true;
+            if (placement && placement->valid) {
+                dec->has_sprite_pivot = true;
+                dec->sprite_pivot_x = -placement->glow_left;
+                dec->sprite_pivot_y = -placement->glow_top;
+            }
             dec->frame_index = -1;
             dec->render_flags = RTS_FRAME_ADDITIVE;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
@@ -1352,13 +1419,14 @@ static bool append_dark_colony_beacon(GameMap *map, int x, int y, int type) {
 }
 
 static void load_dark_colony_resource_vents_from_scenario(const DarkColonyScenarioFile *scenario,
-                                                          GameMap *map) {
+                                                          GameMap *map,
+                                                          const DarkColonyVentPlacement *placement) {
     if (!scenario || !map) return;
     for (int i = 0; i < scenario->object_count; ++i) {
         const DarkColonyScenarioObject *object = &scenario->objects[i];
         if (object->type == 40 && object->value_count >= 5) {
             append_dark_colony_resource_vent(map, object->x, object->y,
-                                             object->team, object->status);
+                                             object->team, object->status, placement);
         }
     }
 }
@@ -1521,6 +1589,8 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
     replace_extension(scn_path, sizeof(scn_path), native->map.path, ".SCN");
     native->has_scenario = dark_colony_scenario_load(scn_path, &native->scenario);
     if (native->has_scenario) {
+        DarkColonyVentPlacement vent_placement = {0};
+        dark_colony_vent_placement_from_sprites(native->map.path, &vent_placement);
         char tileset_token[64] = { 0 };
         copy_trimmed_token(tileset_token, sizeof(tileset_token),
                            native->scenario.tileset_file,
@@ -1530,7 +1600,7 @@ bool load_dark_colony_map(const char *map_path, GameMap *out) {
         uppercase_trimmed_token(out->tileset_name, sizeof(out->tileset_name),
                                 tileset_token, strlen(tileset_token));
         load_dark_colony_camera_from_scenario(&native->scenario, out);
-        load_dark_colony_resource_vents_from_scenario(&native->scenario, out);
+        load_dark_colony_resource_vents_from_scenario(&native->scenario, out, &vent_placement);
         load_dark_colony_beacons_from_scenario(&native->scenario, out);
         int team_count = native->scenario.team_count;
         if (team_count > 8) team_count = 8;

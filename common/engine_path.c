@@ -533,8 +533,8 @@ static int find_resource_vent_at(const GameMap *map, float gx, float gy) {
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const MapResourceVent *vent = &map->resource_vents[i];
         if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
-        float dx = ((float)vent->gx + 0.5f) - gx;
-        float dy = ((float)vent->gy + 0.5f) - gy;
+        float dx = vent->attach_gx - gx;
+        float dy = vent->attach_gy - gy;
         float dist2 = dx * dx + dy * dy;
         if (dist2 < best_dist2) {
             best_dist2 = dist2;
@@ -571,8 +571,8 @@ bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
             continue;
         }
 
-        float goal_gx = (float)vent->gx + 0.5f;
-        float goal_gy = (float)vent->gy + 0.5f;
+        float goal_gx = vent->attach_gx;
+        float goal_gy = vent->attach_gy;
         if (!find_nearest_walkable_position(map, goal_gx, goal_gy,
                                             unit_radius_cells(unit), 8,
                                             &goal_gx, &goal_gy)) {

@@ -1,0 +1,13 @@
+bt_base=bt_power
+bt_power=bt_mine,bt_refinery,bt_barracks,bt_wall
+bt_refinery=bt_barracks,bt_wall,bt_radar
+bt_barracks=bt_tank,bt_gun,bt_hospital,bt_radar
+bt_tank=bt_randd,bt_repair,bt_robot,bt_bmine,bt_supergun
+bt_robot=bt_naval,bt_air
+bt_randd=bt_power2,bt_advcomms,bt_chem
+bt_advcomms=bt_silo,bt_shield
+bt_air=bt_pad
+
+
+
+

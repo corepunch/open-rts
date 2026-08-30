@@ -1,0 +1,430 @@
+Budget Allotment, dig dis: %dcr Kills:%d
+%s %s gits hammered
+%s %s suffers heavy loses
+%s %s  snatch'd some stompin'
+%s %s gits pulverised
+Reinfo'cements gots' arrived...
+gamespeed
+lock
+R:%d
+.Opshuns.
+ Continue
+ Give Up
+Leave Game
+T:%d
+Sheeite!
+Cool Bro'
+cease fire
+colour
+de victo'
+(Mission Reward Changed...)
+(Special Orders...)
+Destroy %ss (%s).
+Destroy (%d) uh ss units.
+Plant some bomb in (%ss) base.  What it is, Mama!
+fo' some new base.
+fo' (%d)cr.  Ah be baaad...
+%s be %s.
+Time. %d.%02d
+Time. (%d.%02d)
+(Mission Successful...)
+%s gits promoted t'(%s).
+(promoshun t'%s...)
+Quick Save Game
+%s gots'ta 7 minutes left...
+You's is bein' attacked.
+%s %s attacks %ss base.  What it is, Mama!
+Bad Ass Fo'ces Attackin'.
+Unit Destroyed Bro'.
+(%ss plants some bomb.  Sheeeiit...)
+Insufficient Power Bro'.
+Not Enough Credits.
+Construcshun Complete
+Powa' Plant Construcshun Complete
+Base Construcshun Complete
+%s Construcshun Complete
+Insufficient Credits
+Powa' Upgraded...
+Lasers Upgraded...
+Shells Upgraded...
+Rifles Upgraded...
+Body Armour Upgraded...
+Armour Platin' Upgraded...
+Missile Ready
+%s Ready
+unit eyebally
+Cant produce unit...
+Construcshun Complete
+Gun Emp Construcshun Complete
+Shield Construcshun Complete
+(Powa' Up, dig dis:) Extra Card
+(Powa' Up, dig dis:) Fast And Cheap
+(Powa' Up, dig dis:) Promoshun
+(Powa' Up, dig dis:) Mega Promoshun
+(Powa' Up, dig dis:) Merry Christmas
+(Powa' Up, dig dis:) 20000CR
+(Powa' Up, dig dis:) 10000CR
+(Powa' Up, dig dis:) 15000CR
+(Powa' Up, dig dis:) 5000CR
+(Powa' Up, dig dis:) Stealth
+(Powa' Up, dig dis:) Reveal da Map
+(Powa' Up, dig dis:) Double Time
+(Powa' Up, dig dis:) Rapidfire
+(Powa' Up, dig dis:) Mega Heald
+(Powa' Up, dig dis:) Double Damage
+(Powa' Up, dig dis:) Shadow Armour
+(Powa' Up, dig dis:) Full Repairs
+(Powa' Up, dig dis:) Range Extend
+(Powa' Up, dig dis:) Hug some Tree
+(Powa' Up, dig dis:) Big Bad Bomb
+(Explosive Device Detected.)
+(Powa' Up, dig dis:) Trueseein'
+(Powa' Up, dig dis:) Weapon Upgrade
+(Powa' Up, dig dis:) Armour Upgrade
+Base
+Foundashun
+Powa' Plant
+Mine
+Refinery
+Barracks
+Wall
+Radar Stashun
+Hospital
+Vehicle Facto'y
+Gun Emplacement
+Fly Tech Lab
+Repair Bay
+Robot Hanger
+Mine
+Reacto'
+Missile Silo
+Shield Gen.  'S coo', bro.
+Naval Yard
+Air Hanger
+Landin' Pad
+Chemical Plant
+Sdowna' Gun Emplacement
+Ore Carrier
+Ore Truck
+Light Tank
+Medium Tank
+Medium Tank
+APC
+Artillery
+Artillery
+Kick ass Tank
+Kick ass Tank
+Sto'm Tank
+A Land Mine
+Missile
+infantry
+Gunner Bro'
+Gunner Bro'
+Mo'tar Unit
+Priest
+Medic
+Slaven Bro'
+Marine
+Commander
+Air Transpo't
+Sparrow
+Eagle
+Hovercraft
+Spy Satellite
+Powa' Upgrade
+Lasa' Upgrade
+Shell Upgrade
+Rifle Upgrade
+Body Amrour Upgrade
+Armour Platin' Upgrade
+Mech
+Mech Commander
+Light Mech
+Missile Mech
+Spida' Mech
+Assault Mech
+Bomb
+Steald
+Trueseein'
+Mobile Base
+Assault Mech
+Plasma Rifle
+RPG
+Snipuh' Fire
+Constructin'
+Selected
+Detatchment Recalled...
+Selected
+Bad Ass
+Yo
+Destruct
+POWER
+USED
+ORE
+MISSILES
+STATUS..CRITICAL
+STATUS..
+STATUS..CRITICAL
+STATUS..DAMAGED
+STATUS..NOMINAL
+Constructin'...
+Buildin'...
+Whoa
+Detatchment Sto'ed...
+Detatchment Selected...
+No'mal
+Defensive
+Aggressive
+Cancel
+No'mal
+Regrodown
+Guard
+Cancel
+Select Target...
+Select Destinashun...
+Halt...
+MMX Disabled
+MMX Enabled
+Say some shit...
+Message To %s...
+Not Enough Credits...
+Build
+Repair
+MOVE
+Stop
+Attack
+Launch
+Cancel
+Sergeant
+Sergeant Majo'
+Lieutenant
+Majo'
+Colonel
+General
+Rank7
+Rank8
+Sgt.
+Sgt. Maj.
+Lt.
+Maj.
+Col.
+Gen.
+One In some Million
+Battle Psychosis
+Machine Curse
+Immolashun
+God Hammer
+Equillibrium
+Battle Rage
+Chaos
+Dominashun
+Displacement Warp
+Doom Fist
+Skill Strip
+Skill Steal
+Damage Transfer
+Life Syphon
+Decepshun
+Infiltrate
+Surveilence Jam
+Summon Darkness
+Summon Blizzard
+Holy Blessin'
+Summon Apparishun
+Summon Dark Legion
+Armageddon
+Med Kit
+pops a cap in
+wuztes
+trashes
+pops a cap in
+invalid
+Blue
+Red
+Green
+Yellow
+Black
+White
+invalid
+OK
+Opshuns....
+Start Me A New Game
+Load Some Game
+Multiplaya' Game
+Opshuns
+Online News
+Encyclopedia
+Git Outa Here
+MMX
+Sound Opshuns.
+44 KHz|22 KHz|11 KHz
+8 Bit Mixin'|16 Bit Mixin'
+No'mal Quality|Fly Quality
+Music
+Effects
+Graphics Opshuns.
+Fly Detail|Med Detail|Lo Detail
+256 Colours|Fly Colour
+Lo res|Fly res
+Gamma
+Reset
+Yo
+Empty. Slap mah fro!.
+Choose A Saved Game.  What it is, Mama!..
+Cancel
+Save Current Game.
+Mission %02d...
+Whoa
+Yo' rank be %d uh 5
+(Powa' Up, dig dis:)
+(%s %ss) Base Destroyed.
+(%s) Has No Buildin's Left. Sheeeiit...
+Too Many Buildin's.
+Too Many Units.
+(%s %s self destructs. Sheeeiit...)
+%s gits promoted t'(%s).
+(promoshun t'%s...)
+%s gits promoted t'(%s).
+(promoshun t'%s...)
+promoshun
+rank
+Loaded
+Bad Ass %s
+Repairin'
+SAVE
+Continue Game
+Opshuns
+Save Ma Game
+Load Some Game
+Restart Dat Mission
+Quit Current Game
+Exit Program Bro'
+Game Speed
+Fast
+Slow
+Built
+Kills
+Cash
+Time. %d hr. %d min. %d sec.
+Continue
+player
+Create some new game o' join an 'esistin' one.  What it is, Mama!
+Create Some Game
+Join A Bro's Game
+Cancel That Shit
+Edit Yo' Name.
+%ss game
+Players...
+7d|Ch
+None|AI Player
+7d|Ch
+Opshuns...
+Hard|Medium|Easy
+Day Time|Night Time
+Fly Tech|Med Tech|Lo Tech
+15000 Cr|30000 Cr|50000 Cr|75000 Cr
+Outside No'mal|Outside CTF|Outside Survivo'
+Start
+Leave
+Messages...
+Send Message
+None|AI Player
+Select Some Protocol....
+Cancel It Bro'
+Select Game To Join.  'S coo', bro....
+Enta' Host Address....
+Re Check
+Connect
+Priest Powered Up.  Right On!
+%s%s plays (%s) on %s.
+%s%s plays (%s).
+promoshun
+(Blessin') protects %s%s.
+About
+7d Legion
+opshuns
+About
+Yo
+Internet UDP
+Skirmish
+7C
+7L
+CH
+Body Armour
+Light Armour
+Medium Armour
+Heavy Armour
+Structure
+None
+Plasma Rifle
+Shell 1
+Shell 2
+Grenade
+Rocket
+Laser
+Fast Laser
+Priest wahtahmellun
+Flame Drower
+Zappuh'
+Lasa' Bolt
+Missile Pack
+Mo'tar Round
+None
+Prev
+Exit
+Next
+\\Name, dig dis: Infantry
+[Cost, dig dis: 250 Cr
+[Armour, dig dis: Body
+[Weapon, dig dis: Plasma Rifle
+[Weapon 2: Plasma Rifle
+[Speed, dig dis: 8
+[Turn Speed, dig dis: 8
+[Heald: 4
+[Build Time, dig dis: 200
+[Reload Time, dig dis: 200
+]Dis unit shoots stuff
+]and kills it. Usually.  Slap mah fro!
+]Also makes some supa' fine cheese
+]sandwich in de field
+]fo' dose hungry troops.
+\\Name, dig dis: s s
+[Cost, dig dis:     d Cr
+[Armour, dig dis:    s
+[Weapon, dig dis:    s
+[Weapon 2:  s
+[Speed, dig dis:     1.1f
+[Turn Speed, dig dis: d
+[Turn Speed, dig dis: N/A
+[Heald:     d
+[Build Time, dig dis:   d
+Start Me A New Game
+Pledge yo' allegiance
+Bless One Unit
+Chaos One Unit
+Blast da Fog
+Immolation II
+Holy Curse
+Psychosis II
+Psychosis III
+Balance
+Teleport
+Stealth
+Stealth II
+Stealth III
+Reveal
+Steal Cash
+Steal Cash II
+Demolition
+System Disruption
+Reveal Cards
+Re Deal
+Fate
+Steal Card
+Holy Curse II
+Bless Production
+Curse Production
+Blast da Fog II
+God Hammer II
+Doom Fist II
+Joker

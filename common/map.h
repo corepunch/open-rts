@@ -74,6 +74,10 @@ typedef struct {
 typedef struct {
     int gx;
     int gy;
+    /* Visual/interaction attachment point inside the authored vent stamp.
+       gx/gy remain the integer scenario coordinates used by scripts. */
+    float attach_gx;
+    float attach_gy;
     int amount;
     int rate;
     bool active;

@@ -1,0 +1,10 @@
+bt_barracks=vt_itroop1,vt_troop1,vt_troop2,vt_bazooka,vt_grenade
+bt_barracks=vt_dino,vt_sniper,vt_blackop
+bt_tank=vt_truck,vt_jeep1,vt_mtank,vt_tank3,vt_artil
+bt_tank=vt_mistank,vt_mbtank,vt_htank,vt_zaptank
+bt_robot=vt_mech1,vt_mech1c,vt_lmech,vt_mmech,vt_spmech,vt_amech
+bt_air=vt_carrier,vt_atrans,vt_sparrow,vt_eagle,vt_hover,vt_phoenix,vt_dragon
+bt_naval=vt_strans,vt_gunboat,vt_misboat,vt_destroyer,vt_cruiser
+bt_hospital=vt_medic
+bt_randd=vt_rdbomb,vt_rdstealth,vt_rdtruesee,vt_rdsat,vt_rdpow
+bt_randd=vt_rdlaz,vt_rdshell,vt_rdgun,vt_rdbody,vt_rdarm

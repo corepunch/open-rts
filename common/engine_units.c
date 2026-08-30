@@ -642,8 +642,8 @@ static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
         return false;
     }
 
-    float dx = ((float)vent->gx + 0.5f) - unit->gx;
-    float dy = ((float)vent->gy + 0.5f) - unit->gy;
+    float dx = vent->attach_gx - unit->gx;
+    float dy = vent->attach_gy - unit->gy;
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
     if (unit_is_following_path(unit) && !unit->move_order_arrived) return false;
     if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
@@ -656,7 +656,7 @@ static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
         unit->harvest_state_id < game_info->state_count) {
         const State *state = state_at(game_info, unit->state_id);
         if (!state || state->misc1 != 5) {
-            unit->facing_code = (((float)vent->gx + 0.5f) < unit->gx) ? 14 : 2;
+            unit->facing_code = (vent->attach_gx < unit->gx) ? 14 : 2;
             StateContext ctx = { .map = map, .game_info = game_info };
             set_unit_state(&ctx, unit, unit->harvest_state_id);
         }

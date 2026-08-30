@@ -1,0 +1,434 @@
+Budget Allotment: %dcr Kills:%d
+%s %s gets hammered
+%s %s suffers heavy loses
+%s %s takes a stomping
+%s %s gets pulverised
+Reinforcements have arrived...
+gamespeed
+lock
+R:%d
+.Options.
+ Continue
+ Give Up
+Leave Game
+T:%d
+Mission Failed
+Mission Complete
+cease fire
+colour
+the victor
+(Mission Reward Changed...)
+(Special Orders...)
+Destroy %ss (%s).
+Destroy (%d) of %ss units.
+Plant a bomb in (%ss) base.
+for a new base.
+for (%d)cr.
+%s is %s.
+Time. %d.%02d
+Time. (%d.%02d)
+(Special Orders Completed...)
+%s gets promoted to (%s).
+(promotion to %s...)
+Quick Save Game
+%s has 7 minutes left...
+You are being attacked.
+%s %s attacks %ss base.
+Enemy Forces Attacking.
+Unit Destroyed.
+(%s%s plants a bomb...)
+Insufficient Power.
+Not Enough Credits.
+Construction Complete
+Power Plant Construction Complete
+Base Construction Complete
+%s Construction Complete
+Insufficient Credits
+Power Upgraded...
+Lasers Upgraded...
+Shells Upgraded...
+Rifles Upgraded...
+Body Armour Upgraded...
+Armour Plating Upgraded...
+Missile Ready
+%s Ready
+unit ready
+Cant produce unit...
+Construction Complete
+Gun Emp Construction Complete
+Shield Construction Complete
+(Power Up:) Extra Card
+(Power Up:) Fast And Cheap
+(Power Up:) Promotion
+(Power Up:) Mega Promotion
+(Power Up:) Merry Christmas
+(Power Up:) 20000CR
+(Power Up:) 10000CR
+(Power Up:) 15000CR
+(Power Up:) 5000CR
+(Power Up:) Stealth
+(Power Up:) Reveal Map
+(Power Up:) Double Time
+(Power Up:) Rapidfire
+(Power Up:) Mega Health
+(Power Up:) Double Damage
+(Power Up:) Shadow Armour
+(Power Up:) Full Repairs
+(Power Up:) Range Extend
+(Power Up:) Hug a Tree
+(Power Up:) Big Bad Bomb
+(Explosive Device Detected.)
+(Power Up:) Trueseeing
+(Power Up:) Weapon Upgrade
+(Power Up:) Armour Upgrade
+Base
+Foundation
+Power Plant
+Mine
+Refinery
+Barracks
+Wall
+Radar Station
+Hospital
+Vehicle Factory
+Gun Emplacement
+Hi Tech Lab
+Repair Bay
+Robot Hanger
+Mine
+Reactor
+Missile Silo
+Shield Gen.
+Naval Yard
+Air Hanger
+Landing Pad
+Chemical Plant
+Super Gun Emplacement
+Ore Carrier
+Ore Truck
+Marauder
+Oppressor
+Crucifier
+APC
+Tormentor
+Avenger
+Faith Hammer
+Annihilator
+Purifier
+A Land Mine
+Missile
+infantry
+Machine Gunner
+Machine Gunner
+Mortar Unit
+Priest
+Medic
+Slaven Rider
+Marine
+Commander
+Air Transport
+Sparrow
+Eagle
+Hovercraft
+Spy Satellite
+Power Upgrade
+Laser Upgrade
+Shell Upgrade
+Rifle Upgrade
+Body Amrour Upgrade
+Armour Plating Upgrade
+Dominator
+Obliterator
+Light M*ch
+Nova
+Venom Typhoon
+Redeemer
+Bomb
+Stealth
+Trueseeing
+Mobile Base
+Pyroclast
+Plasma Rifle
+RPG
+Sniper Fire
+Constructing 
+Selected 
+Detatchment Recalled...
+Selected 
+Enemy 
+OK
+Destruct
+POWER 
+USED 
+ORE 
+MISSILES 
+STATUS..CRITICAL
+STATUS..        
+STATUS..CRITICAL
+STATUS..DAMAGED
+STATUS..NOMINAL
+Constructing...
+Building...
+Held
+Detatchment Stored...
+Detatchment Selected...
+Normal    
+Defensive 
+Aggressive
+Cancel    
+Normal    
+Regroup   
+Guard     
+Cancel    
+Select Target...
+Select Destination...
+Halt...
+MMX Disabled
+MMX Enabled
+Message To All...
+Message To %s...
+Not Enough Credits...
+Build
+Repair
+MOVE
+Stop
+Attack
+Launch
+Cancel
+Sergeant
+Sergeant Major
+Lieutenant
+Major
+Colonel
+General
+Rank7
+Rank8
+Sgt.
+Sgt. Maj.
+Lt.
+Maj.
+Col.
+Gen.
+One In a Million
+Battle Psychosis
+Machine Curse
+Immolation
+God Hammer
+Equilibrium
+Battle Rage
+Chaos
+Domination
+Displacement Warp
+Doom Fist
+Skill Strip
+Skill Steal
+Damage Transfer
+Life Syphon
+Deception
+Infiltrate
+Surveilence Jam
+Summon Darkness
+Summon Blizzard
+Holy Blessing
+Summon Apparition
+Summon Dark Legion
+Armageddon
+Med Kit
+destroys
+wastes
+trashes
+finishes off
+invalid
+Blue
+Red
+Green
+Yellow
+Black
+White
+invalid
+OK
+Options....
+Start New Game
+Load Saved Game
+Multiplayer Game
+Options
+Online News
+Encyclopedia
+Exit
+MMX
+Sound Options.
+44 KHz|22 KHz|11 KHz
+8 Bit Mixing|16 Bit Mixing
+Normal Quality|High Quality
+Music
+Effects
+Graphics Options.
+Hi Detail|Med Detail|Lo Detail
+256 Colours|Hi Colour
+Lo res|Hi res
+Gamma
+Reset
+OK
+..Empty..
+Choose A Saved Game...
+Cancel
+Save Current Game...
+Mission %02d...
+Held
+Your rank is %d of 5
+(Power Up:)
+(%s %ss) Base Destroyed.
+(%s) Has No Buildings Left.
+Too Many Buildings.
+Too Many Units.
+(%s %s self destructs...)
+%s gets promoted to (%s).
+(promotion to %s...)
+%s gets promoted to (%s).
+(promotion to %s...)
+promotion
+rank
+Loaded
+Enemy %s
+Repairing
+SAVE
+Continue Game
+Options
+Save Game
+Load Game
+Restart Mission
+Quit Current Game
+Exit Program
+Game Speed
+Fast
+Slow
+Built
+Kills
+Cash
+Time. %d hr. %d min. %d sec.
+Continue
+player
+Create a new game or join an existing one.
+Create Game
+Join Game
+Cancel
+Edit Your Name...
+%ss game
+Players...
+7th|Ch
+None|AI Player
+7th|Ch
+Options...
+Hard|Medium|Easy
+Day Time|Night Time
+Hi Tech|Med Tech|Lo Tech
+15000 Cr|30000 Cr|50000 Cr|75000 Cr
+Outside Normal|Outside CTF
+Start
+Leave
+Messages...
+Send Message
+None|AI Player
+Select Protocol....
+Cancel
+Select Game To Join....
+Enter Host Address....
+Re Check
+Connect
+Priest Powered Up!
+%s%s plays (%s) on %s.
+%s%s plays (%s).
+promotion
+(Blessing) protects %s%s.
+About
+7th Legion
+options
+About
+Ok
+Internet UDP
+Skirmish
+7C
+7L
+CH
+Body Armour
+Light Armour
+Medium Armour
+Heavy Armour
+Structure
+None
+Plasma Rifle
+Shell 1
+Shell 2
+Grenade
+Rocket
+Laser
+Fast Laser
+Priest thing
+Flame Thrower
+Zapper
+Laser Bolt
+Missile Pack
+Mortar Round
+None
+Prev
+Exit
+Next
+\\Name: Infantry
+[Cost: 250 Cr
+[Armour: Body
+[Weapon: Plasma Rifle
+[Weapon 2: Plasma Rifle
+[Speed: 8
+[Turn Speed: 8
+[Health: 4
+[Build Time: 200
+[Reload Time: 200
+]This unit shoots stuff
+]and kills it. Usually.
+]Also makes a nice cheese
+]sandwich in the field
+]for those hungry troops.
+\\Name: %s %s
+[Cost:     %d Cr
+[Armour:    %s
+[Weapon:    %s
+[Weapon 2:  %s
+[Speed:     %1.1f
+[Turn Speed: %d
+[Turn Speed: N/A
+[Health:     %d
+[Build Time:   %d
+Start New Game
+Pledge your allegiance
+Bless One Unit
+Chaos One Unit
+Blast Fog
+Immolation II
+Holy Curse
+Psychosis II
+Psychosis III
+Balance
+Teleport
+Stealth
+Stealth II
+Stealth III
+Reveal
+Steal Credits
+Steal Credits II
+Demolition
+System Disruption
+Reveal Cards
+Re Deal
+Fate
+Steal Card
+Holy Curse II
+Bless Production
+Curse Production
+Blast Fog II
+God Hammer II
+Doom Fist II
+Joker
+Crusader
+Tormentor
+Inquisitor
+Revelator

@@ -481,6 +481,12 @@ static void render_decoration_sprite(App *app, const GameMap *map,
         /* The plugin-authored point is in the full frame canvas, not in the
            visible-pixel bounds.  All layers of a composite therefore attach
            to exactly the same world point. */
+        if (dec->center_anchor) {
+            map_grid_to_screen(app, map,
+                               (float)dec->gx + (float)footprint_w * 0.5f,
+                               (float)dec->gy + (float)footprint_h * 0.5f,
+                               &sx, &sy);
+        }
         dst = (SDL_Rect){
             (int)lroundf(sx) - dec->sprite_pivot_x,
             (int)lroundf(sy) - dec->sprite_pivot_y,

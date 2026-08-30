@@ -325,12 +325,15 @@ static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
 
 static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapshot,
                                                 const char *sprite_name, int gx, int gy,
-                                                uint32_t required_flags) {
+                                                uint32_t required_flags,
+                                                int pivot_x, int pivot_y) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
         if (strcmp(dec->sprite_name, sprite_name) == 0 &&
             dec->gx == gx && dec->gy == gy && dec->frame_index < 0 &&
+            dec->center_anchor && dec->has_sprite_pivot &&
+            dec->sprite_pivot_x == pivot_x && dec->sprite_pivot_y == pivot_y &&
             (dec->render_flags & required_flags) == required_flags) {
             return true;
         }
@@ -626,12 +629,12 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 loads Petra-7 vents");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
-                                             RTS_FRAME_ADDITIVE)) {
-        return fail("Human02 active Petra-7 vent glow animates at raw DC world coordinates");
+                                             RTS_FRAME_ADDITIVE, 14, -31)) {
+        return fail("Human02 active Petra-7 vent glow uses VENT/VENT2 SPR placement");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
-                                             RTS_FRAME_ADDITIVE)) {
-        return fail("Human02 Petra-7 vent attributes use direct SCN Y");
+                                             RTS_FRAME_ADDITIVE, 14, -31)) {
+        return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
     }
 
     int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
@@ -720,9 +723,9 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 || !near_cell_center(snapshot.units[exploiter].gx, 69) ||
-        !near_cell_center(snapshot.units[exploiter].gy, 48)) {
-        return fail("Human02 Exploiter deploys at the target Petra-7 vent");
+    if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.421875f) ||
+        !near_float(snapshot.units[exploiter].gy, 47.03125f)) {
+        return fail("Human02 Exploiter deploys at the SPR-authored Petra-7 attachment point");
     }
     for (int i = 0; i < 30 * 20; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
