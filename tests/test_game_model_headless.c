@@ -66,7 +66,8 @@ static bool snapshot_has_dark_reign_building(const RtsRenderSnapshot *snapshot,
             strcmp(dec->sprite2_name, body) != 0 ||
             strcmp(dec->sprite3_name, top) != 0) continue;
         if (dec->frame_index == 1 && dec->frame2_index == 1 && dec->frame3_index == 1 &&
-            dec->center_anchor && dec->footprint_w == footprint_w &&
+            dec->has_sprite_pivot && dec->sprite_pivot_x == 0 &&
+            dec->sprite_pivot_y == 0 && dec->footprint_w == footprint_w &&
             dec->footprint_h == footprint_h) return true;
     }
     return false;

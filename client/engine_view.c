@@ -477,7 +477,17 @@ static void render_decoration_sprite(App *app, const GameMap *map,
     int sprite_h = frame_rect.h;
 
     SDL_Rect dst;
-    if (dec->center_anchor) {
+    if (dec->has_sprite_pivot) {
+        /* The plugin-authored point is in the full frame canvas, not in the
+           visible-pixel bounds.  All layers of a composite therefore attach
+           to exactly the same world point. */
+        dst = (SDL_Rect){
+            (int)lroundf(sx) - dec->sprite_pivot_x,
+            (int)lroundf(sy) - dec->sprite_pivot_y,
+            sprite_w,
+            sprite_h,
+        };
+    } else if (dec->center_anchor) {
         map_grid_to_screen(app, map,
                            (float)dec->gx + (float)footprint_w * 0.5f,
                            (float)dec->gy + (float)footprint_h * 0.5f,
@@ -1201,7 +1211,9 @@ void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
     }
     for (int i = 0; i < map->decoration_count; ++i) {
         const MapDecoration *dec = &map->decorations[i];
-        float sort_y = dec->center_anchor ?
+        float sort_y = dec->has_sprite_pivot ?
+            (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1) :
+            dec->center_anchor ?
             (float)dec->gy + 0.5f :
             (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1);
         sort_y = map_screen_y_for_point(map, sort_y);

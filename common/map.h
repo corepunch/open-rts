@@ -50,6 +50,13 @@ typedef struct {
     int footprint_h;
     bool solid;
     bool center_anchor;
+    /* Optional authored sprite pivot.  When set, (pivot_x, pivot_y) in the
+       sprite canvas is attached directly to the decoration's (gx, gy) world
+       point.  This lets a game plugin preserve its native placement convention
+       without deriving an origin from opaque bounds or a guessed footprint. */
+    bool has_sprite_pivot;
+    int sprite_pivot_x;
+    int sprite_pivot_y;
     int frame_index;
     int frame2_index;
     int frame3_index;

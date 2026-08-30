@@ -669,6 +669,12 @@ Local game-data files that have already been useful:
   and a separate shadow SPR. Archive identity and palette are therefore part
   of a sprite reference; a cache keyed only by basename will load the underlay
   as the body and omit most of the building.
+- `AddBuildingAt` coordinates attach to the top-left of the full authored RSPR
+  canvas, not the top-left or center of a separately inferred collision
+  footprint.  Decoration rendering therefore uses an explicit plugin-authored
+  sprite pivot of `(0, 0)` for Dark Reign buildings.  Deriving the draw origin
+  from the guessed footprint shifted bridges and structures north-west (for
+  example, 24 pixels on both axes for the 144x120 civilian bridge).
 - The apparent faint terrain/"sand" in incomplete buildings was not a reason
   to threshold low alpha. OpenDR's TIL masking retains the authored gradient
   as `min(255, mask * 4)`; the visible error came from rendering the

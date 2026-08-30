@@ -835,6 +835,8 @@ typedef struct {
     int footprint_w, footprint_h;
     bool solid;
     bool center_anchor;
+    bool has_sprite_pivot;
+    int sprite_pivot_x, sprite_pivot_y;
     int frame_index;
 } DarkReignVisualSpec;
 
@@ -904,7 +906,13 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
         out->footprint_w = 4; out->footprint_h = 4;
     }
     out->solid = true;
-    out->center_anchor = true;
+    /* AddBuildingAt coordinates identify the top-left of Dark Reign's authored
+       RSPR canvas.  They are not the top-left of a collision footprint.  The
+       canvas sizes (for example 144x120 for the bridge and 120x144 for the FG
+       HQ) deliberately include the structure's complete placement envelope. */
+    out->has_sprite_pivot = true;
+    out->sprite_pivot_x = 0;
+    out->sprite_pivot_y = 0;
     out->frame_index = 1;
     return true;
 }
@@ -944,6 +952,9 @@ static void add_dark_reign_decoration(GameMap *map, const DarkReignVisualSpec *s
     dec->footprint_w = spec->footprint_w; dec->footprint_h = spec->footprint_h;
     dec->solid = spec->solid;
     dec->center_anchor = spec->center_anchor;
+    dec->has_sprite_pivot = spec->has_sprite_pivot;
+    dec->sprite_pivot_x = spec->sprite_pivot_x;
+    dec->sprite_pivot_y = spec->sprite_pivot_y;
     dec->frame_index = spec->frame_index;
     dec->frame2_index = spec->frame_index;
     dec->frame3_index = spec->frame_index;
