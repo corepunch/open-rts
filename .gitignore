@@ -52,4 +52,5 @@ Mkfile.old
 dkms.conf
 /build
 /reverse/dc-exe-r2ghidra/
+/reference/
 .DS_Store

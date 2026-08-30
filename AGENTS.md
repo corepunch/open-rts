@@ -68,6 +68,24 @@ data/DCOLONY       — Dark Colony game files
 data/7LEGION       — 7th Legion game files (GFX/TILES*.BIM, GFX/*.COL, SFX/)
 ```
 
+## Game and Network Architecture
+
+We base our game loop, object thinker model, and network architecture on the
+Doom/Heretic/Hexen engine family (id Software / Raven Software, 1993–1996).
+Reference source code lives in `reference/` (git-ignored):
+
+```
+reference/DOOM/      — Doom / Doom II source (id Software)
+reference/Heretic/   — Heretic source (Raven Software)
+reference/Hexen/     — Hexen source (Raven Software)
+```
+
+Key patterns to follow from that lineage:
+- **Thinker/action system** — objects advance via per-tick `thinker_t` callbacks
+- **Fixed-point math** — use integer fixed-point for deterministic simulation
+- **Gametic / ticrate** — decouple simulation tics from render frames
+- **Lock-step networking** — exchange input commands per tic, never game state
+
 ## Dark Colony direction
 
 Treat Dark Colony as the first game to reproduce faithfully, not as a plugin
