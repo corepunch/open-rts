@@ -5,8 +5,8 @@ static const ActorType KKND_ACTOR_TYPES[] = {
         .id = 1,
         .name = "Survivor Infantry",
         .sprite_name = "LEVELS/640/SPRITES.LVL|Infantry.mobd",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 4.0f,
         .max_hp = 100,
         .attack_range = 4.0f,

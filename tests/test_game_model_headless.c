@@ -1,8 +1,8 @@
 #include "engine_config.h"
 #include "game_model.h"
-#include "../plugins/DarkColony/info.h"
-#include "../plugins/DarkColony/dc_types.h"
-#include "../plugins/DarkReign/dr_types.h"
+#include "../games/DarkColony/info.h"
+#include "../games/DarkColony/dc_types.h"
+#include "../games/DarkReign/dr_types.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,7 +96,7 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
 }
 
 static int assert_dark_colony_sprite_catalog(void) {
-    FILE *f = fopen("plugins/DarkColony/info.c", "rb");
+    FILE *f = fopen("games/DarkColony/info.c", "rb");
     if (!f) return fail("open generated Dark Colony info.c");
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
@@ -147,7 +147,7 @@ static int assert_dark_colony_exploiter_work_states(void) {
     if (count != (int)(sizeof(expected) / sizeof(expected[0]))) {
         return fail("Dark Colony Exploiter mining work state count matches FIN pulse cycle");
     }
-    FILE *f = fopen("plugins/DarkColony/info.c", "rb");
+    FILE *f = fopen("games/DarkColony/info.c", "rb");
     if (!f) return fail("open generated Dark Colony info.c for pulse states");
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);

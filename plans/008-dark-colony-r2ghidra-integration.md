@@ -10,7 +10,7 @@ DC's Windows/DirectX/DirectPlay calls to SDL/POSIX equivalents.
 
 - `common/` — headless game model (actors, map, pathfinding, traits)
 - `client/` — SDL windowing, rendering, input, camera, UI
-- `plugins/DarkColony/` — DC actor types, object pool (`DcObject` at 0xdc
+- `games/DarkColony/` — DC actor types, object pool (`DcObject` at 0xdc
   bytes), object state tables, sprite loading
 - `REFERENCES.md` — FIN/SPR format specs, GAMESTAT.TXT layout, rendering rules
 - `data/DCOLONY/DC.EXE` — the binary to reverse engineer
@@ -143,7 +143,7 @@ verify that renamed functions access the right fields.
    a. Read the decompiled C
    b. Identify what it does (update, draw, spawn, etc.)
    c. Map its parameters/locals to our struct fields
-   d. Rename and adapt into a file in common/ or plugins/DarkColony/
+   d. Rename and adapt into a file in common/ or games/DarkColony/
 4. Compile and verify against headless tests
 ```
 

@@ -290,7 +290,7 @@ The Exploiter (`EXPL.SPR`) uses a Doom-style state machine with these phases:
 
 **Death sequence:**
 - `S_DC_EXPL_DIE1..DIE6, CORPSE` — `misc1=4`, triggers `A_DC_Fall` at DIE1.
-- `A_DC_Fall` strips `RTS_TRAIT_HARVESTER` and `RTS_TRAIT_MOBILE` from the
+- `A_DC_Fall` strips `T_HARVESTER` and `T_MOBILE` from the
   unit's traits and sets `death_started=true`.
 
 **`A_DC_Fall` side-effects:**

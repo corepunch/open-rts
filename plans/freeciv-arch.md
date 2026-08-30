@@ -25,7 +25,7 @@ costs from unit type automatically.
    already decoded in `dr_loader.c`.
 
 **Files touched:** `engine_path.c`, `engine.h` (TerrainType or Tileset fields),
-`plugins/DarkReign/dr_loader.c`, `plugins/DarkColony/dc_loader.c`.
+`games/DarkReign/dr_loader.c`, `games/DarkColony/dc_loader.c`.
 
 ---
 
@@ -85,7 +85,7 @@ and deterministic.
    in `dc_loader.c`.
 
 **Files touched:** `engine.h`, `engine_units.c`, `plugin.h` (RtsActorType fields),
-`plugins/DarkColony/dc_loader.c`, `plugins/DarkReign/plugin.c`.
+`games/DarkColony/dc_loader.c`, `games/DarkReign/plugin.c`.
 
 ---
 
@@ -119,7 +119,7 @@ fog/unfog on unit movement. Client renders tiles as unseen/remembered/current.
 7. Plugin hook `on_tile_revealed(map, x, y)` for mission scripting.
 
 **Files touched:** `engine.h`, `engine_units.c`, `engine_view.c`, `engine_core.c`
-(map alloc/free), `plugins/DarkColony/plugin.c` (minimap, mission hooks).
+(map alloc/free), `games/DarkColony/plugin.c` (minimap, mission hooks).
 
 ---
 

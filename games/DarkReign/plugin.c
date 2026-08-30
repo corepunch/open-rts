@@ -40,8 +40,8 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
         .id = DR_ACTOR_FG_CONSTRUCTION_CREW,
         .name = "Construction Rig",
         .sprite_name = "ucfcnst0.spr",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 5.5f,
         .max_hp = 200,
         .attack_range = 9.0f,
@@ -53,8 +53,8 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
         .id = DR_ACTOR_FG_GROUND_TRANSPORTER,
         .name = "Freighter",
         .sprite_name = "ucfrgst0.spr",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_HARVESTER,
         .speed = 4.5f,
         .max_hp = 750,
     },
@@ -63,7 +63,7 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
         .name = "FG Headquarters 1",
         .sprite_name = "nfhqt1l0.spr",
         .shadow_name = "bfhqtsh0.spr",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 1200,
     },
 };

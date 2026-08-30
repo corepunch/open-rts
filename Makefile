@@ -51,33 +51,33 @@ MAIN_DEPS    := $(MAIN_OBJECTS:.o=.d)
 
 # ── dark-reign plugin ────────────────────────────────────────────────────────
 DR_SOURCES := \
-	plugins/DarkReign/plugin.c \
-	plugins/DarkReign/dr_loader.c
+	games/DarkReign/plugin.c \
+	games/DarkReign/dr_loader.c
 DR_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DR_SOURCES))
 DR_DEPS    := $(DR_OBJECTS:.o=.d)
 DR_LIB     := $(LIBS_DIR)/dark-reign$(LIB_EXT)
 
 # ── dark-colony plugin ───────────────────────────────────────────────────────
 DC_SOURCES := \
-	plugins/DarkColony/plugin.c \
-	plugins/DarkColony/dc_loader.c \
-	plugins/DarkColony/info.c
+	games/DarkColony/plugin.c \
+	games/DarkColony/dc_loader.c \
+	games/DarkColony/info.c
 DC_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_SOURCES))
 DC_DEPS    := $(DC_OBJECTS:.o=.d)
 DC_LIB     := $(LIBS_DIR)/dark-colony$(LIB_EXT)
 
 # ── 7th legion plugin ───────────────────────────────────────────────────────
 SL_SOURCES := \
-	plugins/7thLegion/plugin.c \
-	plugins/7thLegion/sl_loader.c
+	games/7thLegion/plugin.c \
+	games/7thLegion/sl_loader.c
 SL_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SL_SOURCES))
 SL_DEPS    := $(SL_OBJECTS:.o=.d)
 SL_LIB     := $(LIBS_DIR)/7legion$(LIB_EXT)
 
 # ── KKnD plugin ────────────────────────────────────────────────────────────────
 KKND_SOURCES := \
-	plugins/KKND/plugin.c \
-	plugins/KKND/kknd_loader.c
+	games/KKND/plugin.c \
+	games/KKND/kknd_loader.c
 KKND_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(KKND_SOURCES))
 KKND_DEPS    := $(KKND_OBJECTS:.o=.d)
 KKND_LIB     := $(LIBS_DIR)/kknd$(LIB_EXT)
@@ -153,18 +153,18 @@ $(MODEL_LIB_TARGET): $(MODEL_OBJECTS) | $(LIBS_DIR)
 $(GAME_MODEL_TEST_TARGET): $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) $(DC_LIB) $(DR_LIB) | $(BIN_DIR)
 	$(CC) $(GAME_MODEL_TEST_OBJECTS) $(MODEL_LIB_TARGET) -o $@ -lm -ldl
 
-$(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJECTS) $(BUILD_DIR)/plugins/DarkColony/info.o | $(BIN_DIR)
-	$(CC) $(DC_LAYOUT_TEST_OBJECTS) $(BUILD_DIR)/plugins/DarkColony/info.o -o $@ -lm
+$(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJECTS) $(BUILD_DIR)/games/DarkColony/info.o | $(BIN_DIR)
+	$(CC) $(DC_LAYOUT_TEST_OBJECTS) $(BUILD_DIR)/games/DarkColony/info.o -o $@ -lm
 
 dark-colony-info: $(DC_INFO_GEN_TARGET)
-	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) plugins/DarkColony/info.h plugins/DarkColony/info.c
+	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) games/DarkColony/info.h games/DarkColony/info.c
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
-	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT plugins/DarkColony/gamestat.h
+	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/DarkColony/gamestat.h
 
 # ── compile rules ────────────────────────────────────────────────────────────
 # Plugin objects need -fPIC for shared libs
-$(BUILD_DIR)/plugins/%.o: plugins/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/games/%.o: games/%.c | $(BUILD_DIR)
 	mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -fPIC -c $< -o $@
 

@@ -452,7 +452,7 @@ void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
         if (units[i].hp <= 0) continue;
-        if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
+        if (units[i].owner != 0 || (units[i].traits & T_MOBILE) == 0) continue;
         selected_count++;
     }
     if (selected_count <= 0) return;
@@ -469,7 +469,7 @@ void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
         if (units[i].hp <= 0) continue;
-        if (units[i].owner != 0 || (units[i].traits & RTS_TRAIT_MOBILE) == 0) continue;
+        if (units[i].owner != 0 || (units[i].traits & T_MOBILE) == 0) continue;
         units[i].move_order_id = order_id;
         units[i].move_order_arrived = false;
         units[i].harvest_target = -1;
@@ -552,8 +552,8 @@ bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
     bool has_harvester = false;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].selected && units[i].owner == 0 && units[i].hp > 0 &&
-            (units[i].traits & (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) ==
-                (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) {
+            (units[i].traits & (T_MOBILE | T_HARVESTER)) ==
+                (T_MOBILE | T_HARVESTER)) {
             has_harvester = true;
             break;
         }
@@ -566,8 +566,8 @@ bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
     for (int i = 0; i < unit_count; ++i) {
         Unit *unit = &units[i];
         if (!unit->selected || unit->owner != 0 || unit->hp <= 0) continue;
-        if ((unit->traits & (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) !=
-            (RTS_TRAIT_MOBILE | RTS_TRAIT_HARVESTER)) {
+        if ((unit->traits & (T_MOBILE | T_HARVESTER)) !=
+            (T_MOBILE | T_HARVESTER)) {
             continue;
         }
 

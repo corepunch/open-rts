@@ -853,7 +853,7 @@ static int pick_unit_at(const App *app, const GameMap *map, const Unit *units, i
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
         const Unit *unit = &units[i];
-        if (unit->hp <= 0 || (unit->traits & RTS_TRAIT_SELECTABLE) == 0) continue;
+        if (unit->hp <= 0 || (unit->traits & T_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         SDL_Rect visible;
         float sx = 0.0f, sy = 0.0f;
@@ -1064,7 +1064,7 @@ static void render_unit_sprite(App *app, const GameMap *map,
                                const Unit *u, const SpriteSheet *fallback_sprite,
                                const SpriteCache *cache, const GameInfo *game_info,
                                uint32_t ticks) {
-    if (!u || (u->traits & RTS_TRAIT_RENDERABLE) == 0) return;
+    if (!u || (u->traits & T_RENDERABLE) == 0) return;
     const SpriteSheet *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
@@ -1093,7 +1093,7 @@ static void render_unit_sprite(App *app, const GameMap *map,
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
-    if (u->selected && (u->traits & RTS_TRAIT_SELECTABLE) != 0) {
+    if (u->selected && (u->traits & T_SELECTABLE) != 0) {
         SelectionStyle sel_style = game_info ? game_info->selection_marker.style
                                              : SELECTION_STYLE_SPRITE;
         if (sel_style == SELECTION_STYLE_CIRCLE) {
@@ -1370,7 +1370,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
                     units[i].selected = units[i].owner == 0 &&
-                        (units[i].traits & RTS_TRAIT_SELECTABLE) != 0 &&
+                        (units[i].traits & T_SELECTABLE) != 0 &&
                         units[i].hp > 0;
                 }
             }
@@ -1404,7 +1404,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
                 if (target >= 0 && units[target].owner != 0 && units[target].hp > 0) {
                     for (int i = 0; i < unit_count; ++i) {
                         if (!units[i].selected || units[i].owner != 0 || units[i].hp <= 0) continue;
-                        if ((units[i].traits & RTS_TRAIT_ATTACK) == 0) continue;
+                        if ((units[i].traits & T_ATTACK) == 0) continue;
                         units[i].attack_target = target;
                         units[i].harvest_target = -1;
                         units[i].harvest_timer_ms = 0;
@@ -1439,7 +1439,7 @@ void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
                 if (box) {
                     for (int i = 0; i < unit_count; ++i) {
                         if (units[i].hp <= 0) continue;
-                        if ((units[i].traits & RTS_TRAIT_SELECTABLE) == 0) continue;
+                        if ((units[i].traits & T_SELECTABLE) == 0) continue;
                         if (units[i].owner != 0) continue;
                         SDL_Rect visible;
                         float sx = 0.0f, sy = 0.0f;

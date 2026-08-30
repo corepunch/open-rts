@@ -763,7 +763,7 @@ static void emit_header(const char *path, const GameStatData *data) {
 
 int main(int argc, char **argv) {
     if (argc != 3) {
-        die("usage: dc_gamestat_gen DATA/DCOLONY/GAMESTAT plugins/DarkColony/gamestat.h", NULL);
+        die("usage: dc_gamestat_gen DATA/DCOLONY/GAMESTAT games/DarkColony/gamestat.h", NULL);
     }
 
     GameStatData data;

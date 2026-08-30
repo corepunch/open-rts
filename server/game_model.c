@@ -519,7 +519,7 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
     for (int i = 0; i < model->unit_count; ++i) {
         Unit *unit = &model->units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
-            (unit->traits & RTS_TRAIT_MOBILE) == 0) {
+            (unit->traits & T_MOBILE) == 0) {
             continue;
         }
         float dx = unit->gx - exit_gx;
@@ -818,8 +818,8 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
     for (int i = 0; i < model->unit_count; ++i) {
         const Unit *u = &model->units[i];
         if (u->selected && u->owner == 0 && u->hp > 0 && !u->remove &&
-            (u->traits & RTS_TRAIT_SELECTABLE) != 0 &&
-            (u->traits & RTS_TRAIT_MOBILE) == 0) {
+            (u->traits & T_SELECTABLE) != 0 &&
+            (u->traits & T_MOBILE) == 0) {
             selected_type = u->type_id;
             selected_building = u;
             break;
@@ -1074,7 +1074,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         for (int i = 0; i < model->unit_count; ++i) {
             Unit *unit = &model->units[i];
             unit->selected = unit->owner == 0 && unit->hp > 0 &&
-                (unit->traits & RTS_TRAIT_SELECTABLE) != 0;
+                (unit->traits & T_SELECTABLE) != 0;
         }
         return true;
     case RTS_GAME_COMMAND_SELECT_UNIT_INDEX:

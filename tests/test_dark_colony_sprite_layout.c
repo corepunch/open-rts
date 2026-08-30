@@ -1,4 +1,4 @@
-#include "../plugins/DarkColony/info.h"
+#include "../games/DarkColony/info.h"
 
 #include <ctype.h>
 #include <errno.h>

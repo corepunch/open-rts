@@ -42,8 +42,8 @@ void A_DC_Fall(StateContext *ctx, Unit *unit) {
     (void)ctx;
     if (!unit) return;
     unit->selected = false;
-    unit->traits &= ~(RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                      RTS_TRAIT_ATTACK | RTS_TRAIT_HARVESTER);
+    unit->traits &= ~(T_SELECTABLE | T_MOBILE |
+                      T_ATTACK | T_HARVESTER);
     unit->path_len = 0;
     unit->path_index = 0;
     unit->attack_target = -1;
@@ -90,8 +90,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_TROOPER,
         .name = "Trooper",
         .sprite_name = "SPRITES/TRSC.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 5.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
@@ -106,8 +106,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_GREY,
         .name = "Grey",
         .sprite_name = "SPRITES/GRAY.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 5.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
@@ -122,9 +122,9 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_EXPLOITER,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
-        .speed = 8.0f,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_HARVESTER,
+        .speed = 3.5f,
         .max_hp = 800,
         .harvest_state_id = S_DC_EXPL_DEPLOY1,
     },
@@ -132,8 +132,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_REAPER,
         .name = "Mech",
         .sprite_name = "SPRITES/REAP.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 6.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
@@ -148,8 +148,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_THUNDERBOLT,
         .name = "Thunderbolt",
         .sprite_name = "SPRITES/BARR.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 3.0f,
         .max_hp = 1200,
         .attack_range = 6.0f,
@@ -164,8 +164,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_CYBORG,
         .name = "Cyborg",
         .sprite_name = "SPRITES/SARG.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 7.0f,
         .max_hp = 1200,
         .attack_range = 3.0f,
@@ -180,8 +180,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_SCOUT,
         .name = "Scout",
         .sprite_name = "SPRITES/SCGM.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                  RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits = T_SELECTABLE | T_MOBILE |
+                  T_RENDERABLE | T_ATTACK,
         .speed = 9.4f,
         .max_hp = 600,
         .attack_range = 5.0f,
@@ -196,112 +196,112 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_EXCOPOD,
         .name = "Exco Center",
         .sprite_name = "SPRITES/HUBU.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 4800,
     },
     {
         .id = MT_DC_BRRKPOD,
         .name = "Barracks",
         .sprite_name = "SPRITES/HUBU.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ROBOPOD,
         .name = "Robot Factory",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ROBOPOD2,
         .name = "Robot Factory II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_SCNCPOD,
         .name = "Science Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_SCNCPOD2,
         .name = "Science Pod II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_RSCHPOD,
         .name = "Research Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_ALIEN_MINDHIVE,
         .name = "Mind Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 4800,
     },
     {
         .id = MT_DC_ALIEN_WARHIVE,
         .name = "Warrior Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ALIEN_BRDRHIVE,
         .name = "Breeder Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ALIEN_BRDRHIVE2,
         .name = "Breeder Hive II",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_ALIEN_MINDHIVE2,
         .name = "Mind Hive II",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ALIEN_MINDHIVE3,
         .name = "Mind Hive III",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_ALIEN_RSCHIVE,
         .name = "Research Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_COMMS_DISH,
         .name = "Communication Dish",
         .sprite_name = "SPRITES/DISH.SPR",
-        .traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_RENDERABLE,
+        .traits = T_SELECTABLE | T_RENDERABLE,
         .max_hp = 1200,
     },
     {
         .id = MT_DC_CITY_TOWER,
         .name = "City Tower",
         .sprite_name = "SPRITES/TOWR.SPR",
-        .traits = RTS_TRAIT_RENDERABLE,
+        .traits = T_RENDERABLE,
         .max_hp = 1600,
     },
 };

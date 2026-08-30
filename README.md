@@ -83,9 +83,9 @@ The repository is split into a shared engine and folder-per-game adapters:
 common/                 simulation, map/sprite contracts, UI definitions
 client/                 shared SDL terrain, sprite, minimap, and UI rendering
 server/                 presentation-neutral game model
-plugins/DarkReign/      Dark Reign formats, assets, actors, and UI layout
-plugins/DarkColony/     Dark Colony formats, data-shaped runtime, and assets
-plugins/KKND/           KKnD LVL containers, MAPD terrain, and MOBD sprites
+games/DarkReign/      Dark Reign formats, assets, actors, and UI layout
+games/DarkColony/     Dark Colony formats, data-shaped runtime, and assets
+games/KKND/           KKnD LVL containers, MAPD terrain, and MOBD sprites
 ```
 
 Game folders describe assets and layout; the shared client owns composition and

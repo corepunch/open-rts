@@ -15,8 +15,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 1,
         .name        = "Trooper",
         .sprite_name = "GFX/LTROOP.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE | T_ATTACK,
         .speed       = 4.0f,
         .max_hp      = 100,
         .attack_range    = 5.0f,
@@ -29,8 +29,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 2,
         .name        = "Slave",
         .sprite_name = "GFX/SLAVEN1.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE | T_HARVESTER,
         .speed       = 3.5f,
         .max_hp      = 60,
     },
@@ -38,8 +38,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 3,
         .name        = "Spider Mech",
         .sprite_name = "GFX/SPIDER.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE | T_ATTACK,
         .speed       = 3.0f,
         .max_hp      = 300,
         .attack_range    = 7.0f,
@@ -52,8 +52,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 4,
         .name        = "Tank",
         .sprite_name = "GFX/TANKBASE.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE | T_ATTACK,
         .speed       = 4.5f,
         .max_hp      = 500,
         .attack_range    = 8.0f,
@@ -66,8 +66,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 5,
         .name        = "Rock Mech",
         .sprite_name = "GFX/ROCKMECH.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_ATTACK,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE | T_ATTACK,
         .speed       = 2.5f,
         .max_hp      = 800,
         .attack_range    = 6.0f,
@@ -80,8 +80,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 6,
         .name        = "Truck",
         .sprite_name = "GFX/TRUCK.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE | T_HARVESTER,
         .speed       = 5.0f,
         .max_hp      = 200,
     },
@@ -89,8 +89,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 7,
         .name        = "Mobile Base",
         .sprite_name = "GFX/MOBBASE.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
-                       RTS_TRAIT_RENDERABLE,
+        .traits      = T_SELECTABLE | T_MOBILE |
+                       T_RENDERABLE,
         .speed       = 2.5f,
         .max_hp      = 1000,
     },

@@ -1629,7 +1629,7 @@ static void dc_order_barracks_exit_spacing(const GameMap *map, Unit *units, int 
     for (int i = 0; i < unit_count; ++i) {
         Unit *unit = &units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
-            (unit->traits & RTS_TRAIT_MOBILE) == 0) {
+            (unit->traits & T_MOBILE) == 0) {
             continue;
         }
         float dx = unit->gx - exit_gx;
@@ -2238,7 +2238,7 @@ int main(int argc, char **argv) {
             if (fallback_type) {
                 apply_actor_type_defaults(&units[i], fallback_type);
             } else {
-                units[i].traits = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE;
+                units[i].traits = T_SELECTABLE | T_MOBILE | T_RENDERABLE;
                 snprintf(units[i].sprite_name, sizeof(units[i].sprite_name), "%s", sprite_name);
             }
         }

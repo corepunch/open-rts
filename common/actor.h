@@ -12,11 +12,11 @@ typedef struct StateContext StateContext;
 typedef void (*StateAction)(StateContext *ctx, Unit *unit);
 
 typedef enum {
-    RTS_TRAIT_SELECTABLE = 1u << 0,
-    RTS_TRAIT_MOBILE = 1u << 1,
-    RTS_TRAIT_RENDERABLE = 1u << 2,
-    RTS_TRAIT_ATTACK = 1u << 3,
-    RTS_TRAIT_HARVESTER = 1u << 4,
+    T_SELECTABLE = 1u << 0,
+    T_MOBILE = 1u << 1,
+    T_RENDERABLE = 1u << 2,
+    T_ATTACK = 1u << 3,
+    T_HARVESTER = 1u << 4,
 } Trait;
 
 typedef struct {

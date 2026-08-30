@@ -18,7 +18,7 @@ shared code.
 | `facing_to_index(f, scheme)` — generic N-way bucketing | `common/facing.c` |
 | Named scheme constants: `compass16`, `dc8`, `dc16`, `dr16` | `common/facing.c` |
 | Refactored `engine_units.c` per-mode functions to use the above | `common/engine_units.c` |
-| KKnD map loader sets `direction_mode = RTS_DIRECTION_DARK_REIGN_8` | `plugins/KKND/kknd_loader.c` |
+| KKnD map loader sets `direction_mode = RTS_DIRECTION_DARK_REIGN_8` | `games/KKND/kknd_loader.c` |
 
 **What the KKnD fix resolves:** KKnD's MOBD sprites store 16 facings as
 direction codes 0–15 (north=0, CW). Without an explicit `direction_mode`
