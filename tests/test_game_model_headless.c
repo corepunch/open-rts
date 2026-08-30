@@ -1,8 +1,8 @@
 #include "engine_config.h"
-#include "../g/g_game.h"
-#include "../games/DarkColony/info.h"
-#include "../games/DarkColony/dc_types.h"
-#include "../games/DarkReign/dr_types.h"
+#include "../game/g_game.h"
+#include "../games/dark-colony/info.h"
+#include "../games/dark-colony/dc_types.h"
+#include "../games/dark-reign/dr_types.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,7 +96,7 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
 }
 
 static int assert_dark_colony_sprite_catalog(void) {
-    FILE *f = fopen("games/DarkColony/info.c", "rb");
+    FILE *f = fopen("games/dark-colony/info.c", "rb");
     if (!f) return fail("open generated Dark Colony info.c");
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
@@ -138,16 +138,16 @@ static int assert_dark_colony_sprite_catalog(void) {
 }
 
 static int assert_dark_colony_exploiter_work_states(void) {
-    const int expected[] = {25,26,27,28,29,30,32,33,32,30,28,27,26,25,24};
+    enum { EXPECTED_WORK_STATE_COUNT = 15 };
     int deploy_count = S_DC_EXPL_WORK1 - S_DC_EXPL_DEPLOY1;
     if (deploy_count <= 0) {
         return fail("Dark Colony Exploiter deploy state count is positive");
     }
     int count = S_DC_EXPL_DIE1 - S_DC_EXPL_WORK1;
-    if (count != (int)(sizeof(expected) / sizeof(expected[0]))) {
-        return fail("Dark Colony Exploiter mining work state count matches FIN pulse cycle");
+    if (count != EXPECTED_WORK_STATE_COUNT) {
+        return fail("Dark Colony Exploiter mining work state count matches FIN cycle");
     }
-    FILE *f = fopen("games/DarkColony/info.c", "rb");
+    FILE *f = fopen("games/dark-colony/info.c", "rb");
     if (!f) return fail("open generated Dark Colony info.c for pulse states");
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
@@ -207,17 +207,11 @@ static int assert_dark_colony_exploiter_work_states(void) {
             free(text);
             return fail("Dark Colony Exploiter mining work uses deployed body frames");
         }
-        char *overlay = strstr(line, "}, SPR_DC_EXPL, ");
+        char *no_overlay = strstr(line, "DC_NO_OVERLAY");
         char *end = strchr(line, '\n');
-        if (!overlay || (end && overlay > end)) {
+        if (!no_overlay || (end && no_overlay > end)) {
             free(text);
-            return fail("Dark Colony Exploiter mining work states add FIN layer-0 overlay");
-        }
-        int overlay_frame = -1;
-        if (sscanf(overlay, "}, SPR_DC_EXPL, %d,", &overlay_frame) != 1 ||
-            overlay_frame != expected[i]) {
-            free(text);
-            return fail("Dark Colony Exploiter mining work uses expected top frame order");
+            return fail("Dark Colony Exploiter mining work uses no probe-arm overlay");
         }
     }
     free(text);

@@ -2038,7 +2038,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 }
 
 int main(int argc, char **argv) {
-    if (argc != 4) die("usage: dc_info_gen DATA/DCOLONY games/DarkColony/info.h games/DarkColony/info.c", NULL);
+    if (argc != 4) die("usage: dc_info_gen DATA/DCOLONY games/dark-colony/info.h games/dark-colony/info.c", NULL);
     const char *root = argv[1];
     SpriteList sprite_list = {0};
     scan_sprites_recursive(&sprite_list, root, "");

@@ -80,18 +80,19 @@ build/bin/open-rts --software --game dark-colony
 The repository is split into a shared engine and folder-per-game adapters:
 
 ```text
-d/      d_*  startup, main loop, utilities (blob I/O, palette, font)
-g/      g_*  game: map loading coordination, mission, headless model
-p/      p_*  play: mobj simulation, pathfinding, combat, facing
-r/      r_*  renderer: map, sprites, effects, viewport
-i/      i_*  system interface: SDL window, video backend
-hu/     hu_* HUD and UI library
-games/DarkReign/   Dark Reign formats, assets, actors, and UI layout
-games/DarkColony/  Dark Colony formats, data-shaped runtime, and assets
-games/KKND/        KKnD LVL containers, MAPD terrain, and MOBD sprites
+driver/             d_* startup and main loop; w_* shared file I/O
+game/               g_* game coordination and headless model
+play/               p_* mobj simulation, pathfinding, combat, and facing
+render/             r_* map, sprite, effect, and viewport rendering
+interface/          i_* SDL window and video backend
+hud/                hu_* HUD and UI library
+games/dark-reign/   Dark Reign formats, assets, actors, and UI layout
+games/dark-colony/  Dark Colony formats, data-shaped runtime, and assets
+games/7legion/      7th Legion BIM/COL formats and map loading
+games/kknd/         KKnD LVL containers, MAPD terrain, and MOBD sprites
 ```
 
-Game folders implement the `G_*`/`R_*` interface from `g/game.h`; the engine
+Game folders implement the `G_*`/`R_*` interface from `game/game.h`; the engine
 calls them by name — no plugin registry. In particular, `GameUiDefinition` is a declarative list of native
 image layers, viewport/minimap rectangles, command-grid geometry, and resource
 display placement. The shared `GameUi` loader/renderer uses that description,
