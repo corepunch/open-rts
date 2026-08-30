@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_FACING_H
-#define OPEN_RTS_FACING_H
+#ifndef __FACING__
+#define __FACING__
 
 #include <math.h>
 #include <stdbool.h>

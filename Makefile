@@ -24,13 +24,13 @@ KKND_ROOT        := $(DATA_DIR)/KKND
 # ── per-game engine sources (shared by all game binaries) ────────────────────
 ENGINE_SOURCES := \
 	driver/d_main.c \
-	render/r_view.c \
+	render/r_draw.c \
 	hud/hu_lib.c \
 	interface/i_video.c \
-	driver/d_util.c \
+	driver/w_file.c \
 	render/r_main.c \
 	play/p_map.c \
-	play/p_mob.c \
+	play/p_mobj.c \
 	play/p_facing.c
 
 # ── game-specific sources ────────────────────────────────────────────────────
@@ -52,15 +52,15 @@ KKND_GAME_SOURCES := \
 	games/KKND/kknd_loader.c
 
 # ── model engine sources (for server/test binaries) ─────────────────────────
-# Note: engine_view.c and engine_core.c are needed because dc_loader.c
-# references destroy_map, sprite_cache_find, rgba_texture, tileset_add_animation.
+# Note: r_draw.c and r_main.c are needed because dc_loader.c
+# references P_FreeLevel, R_CacheFind, I_CreateTexture, R_AddTileAnim.
 MODEL_ENGINE_SOURCES := \
 	game/g_game.c \
-	render/r_view.c \
-	driver/d_util.c \
+	render/r_draw.c \
+	driver/w_file.c \
 	render/r_main.c \
 	play/p_map.c \
-	play/p_mob.c \
+	play/p_mobj.c \
 	play/p_facing.c
 
 # ── tool sources ─────────────────────────────────────────────────────────────

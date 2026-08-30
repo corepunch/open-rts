@@ -1145,15 +1145,15 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
     fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, NUMMOBJTYPES } mobjtype_t;\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
-    fprintf(out, "extern const State states[NUMSTATES];\n");
-    fprintf(out, "extern const MobjInfo mobjinfo[NUMMOBJTYPES];\n");
-    fprintf(out, "extern const GameInfo dark_colony_game_info;\n\n");
-    fprintf(out, "void A_DC_TrooperAttackStart(StateContext *ctx, Mobj *unit);\n");
-    fprintf(out, "void A_DC_MuzzleFlash(StateContext *ctx, Mobj *unit);\n");
-    fprintf(out, "void A_DC_Attack(StateContext *ctx, Mobj *unit);\n");
-    fprintf(out, "void A_DC_Fall(StateContext *ctx, Mobj *unit);\n");
-    fprintf(out, "void A_DC_ReaperDeath(StateContext *ctx, Mobj *unit);\n");
-    fprintf(out, "void A_DC_Corpse(StateContext *ctx, Mobj *unit);\n\n");
+    fprintf(out, "extern const state_t states[NUMSTATES];\n");
+    fprintf(out, "extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];\n");
+    fprintf(out, "extern const gameinfo_t dark_colony_game_info;\n\n");
+    fprintf(out, "void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);\n");
+    fprintf(out, "void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);\n");
+    fprintf(out, "void A_DC_Attack(statecontext_t *ctx, mobj_t *unit);\n");
+    fprintf(out, "void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);\n");
+    fprintf(out, "void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);\n");
+    fprintf(out, "void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);\n\n");
     fprintf(out, "#endif\n");
 }
 
@@ -1883,7 +1883,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "#define DC_DEFAULT_REMAP {0}\n");
     fprintf(out, "#define DC_DEFAULT_INTENSITY {16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16}\n");
     fprintf(out, "#define DC_NO_OVERLAY 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY\n\n");
-    fprintf(out, "const State states[NUMSTATES] = {\n");
+    fprintf(out, "const state_t states[NUMSTATES] = {\n");
     fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
     f1_fin_raw_state(out, sprites[hubu].symbol, excopod_stand, "S_DC_EXCOPOD_STND");
     f1_fin_raw_state(out, sprites[hubu].symbol, brrkpod_stand, "S_DC_BRRKPOD_STND");
@@ -2004,17 +2004,17 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_muzzle16(out, sprites[blaz].symbol, reap_muzzle_frame, reap_muzzle_x, reap_muzzle_y);
     fprintf(out, "};\n\n");
 
-    fprintf(out, "const MobjInfo mobjinfo[NUMMOBJTYPES] = {\n");
+    fprintf(out, "const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {\n");
     fprintf(out, "    {0},\n");
-    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE|T_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
-    fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE|T_ATTACK, S_NULL, S_DC_GRAY_MUZZLE },\n");
-    fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE|T_HARVESTER, S_NULL, S_NULL },\n");
-    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE|T_ATTACK, S_NULL, S_DC_REAP_MUZZLE },\n");
-    fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE, S_NULL, S_NULL },\n");
-    fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE, S_NULL, S_NULL },\n");
-    fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, T_SELECTABLE|T_MOBILE|T_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_TRSC_MUZZLE },\n");
+    fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_GRAY_MUZZLE },\n");
+    fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_REAP_MUZZLE },\n");
+    fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "};\n\n");
-    fprintf(out, "const GameInfo dark_colony_game_info = {\n");
+    fprintf(out, "const gameinfo_t dark_colony_game_info = {\n");
     fprintf(out, "    sprnames,\n");
     fprintf(out, "    NUMSPRITES,\n");
     fprintf(out, "    states,\n");

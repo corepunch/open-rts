@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_GAME_MODEL_H
-#define OPEN_RTS_GAME_MODEL_H
+#ifndef __G_GAME__
+#define __G_GAME__
 
 #include <stdbool.h>
 #include <stdint.h>

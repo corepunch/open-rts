@@ -1,7 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
 
-SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
+SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
     if (!texture) {
         fprintf(stderr, "SDL_CreateTexture %dx%d ARGB8888: %s\n", w, h, SDL_GetError());
@@ -21,7 +21,7 @@ SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w,
     return texture;
 }
 
-bool tileset_add_animation(Tileset *tileset, int value, const int *frames,
+bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
                            int frame_count, uint16_t frame_ms) {
     if (!tileset || !frames || frame_count < 2 || frame_count > MAX_TILE_ANIMATION_FRAMES || frame_ms == 0) {
         return false;
@@ -40,7 +40,7 @@ bool tileset_add_animation(Tileset *tileset, int value, const int *frames,
     return true;
 }
 
-int font_text_width(const BitmapFont *font, const char *text, int scale) {
+int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
     if (!font || !text || scale <= 0) return 0;
     int width = 0, line_width = 0;
     for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
@@ -58,7 +58,7 @@ int font_text_width(const BitmapFont *font, const char *text, int scale) {
     return line_width > width ? line_width : width;
 }
 
-void font_draw_text(SDL_Renderer *renderer, const BitmapFont *font, int x, int y,
+void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                         const char *text, SDL_Color color, int scale) {
     if (!renderer || !font || !font->sprite.texture || !text || scale <= 0) return;
     SDL_SetTextureColorMod(font->sprite.texture, color.r, color.g, color.b);
@@ -102,7 +102,7 @@ void font_draw_text(SDL_Renderer *renderer, const BitmapFont *font, int x, int y
     SDL_SetTextureAlphaMod(font->sprite.texture, 255);
 }
 
-void font_draw_text_wrapped(SDL_Renderer *renderer, const BitmapFont *font, int x, int y,
+void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                                 int max_w, const char *text, SDL_Color color, int scale) {
     if (!renderer || !font || !text || max_w <= 0 || scale <= 0) return;
     char line[256] = { 0 };
@@ -112,7 +112,7 @@ void font_draw_text_wrapped(SDL_Renderer *renderer, const BitmapFont *font, int 
     while (*word) {
         while (*word == ' ' || *word == '\r' || *word == '\n') {
             if (*word == '\n' && line_len > 0) {
-                font_draw_text(renderer, font, x, cy, line, color, scale);
+                HU_DrawText(renderer, font, x, cy, line, color, scale);
                 cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
                 line[0] = '\0';
                 line_len = 0;
@@ -129,8 +129,8 @@ void font_draw_text_wrapped(SDL_Renderer *renderer, const BitmapFont *font, int 
             snprintf(candidate, sizeof(candidate), "%s %.*s", line, (int)word_len, word);
         else
             snprintf(candidate, sizeof(candidate), "%.*s", (int)word_len, word);
-        if (line_len > 0 && font_text_width(font, candidate, scale) > max_w) {
-            font_draw_text(renderer, font, x, cy, line, color, scale);
+        if (line_len > 0 && HU_TextWidth(font, candidate, scale) > max_w) {
+            HU_DrawText(renderer, font, x, cy, line, color, scale);
             cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
             snprintf(line, sizeof(line), "%.*s", (int)word_len, word);
         } else {
@@ -139,5 +139,5 @@ void font_draw_text_wrapped(SDL_Renderer *renderer, const BitmapFont *font, int 
         line_len = (int)strlen(line);
         word = end;
     }
-    if (line_len > 0) font_draw_text(renderer, font, x, cy, line, color, scale);
+    if (line_len > 0) HU_DrawText(renderer, font, x, cy, line, color, scale);
 }

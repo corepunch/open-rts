@@ -1,16 +1,16 @@
 #include "game.h"
 #include "dr_types.h"
 
-bool load_dark_map(const char *map_path, GameMap *out);
+bool load_dark_map(const char *map_path, level_t *out);
 bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                   const GameMap *map, const char *sprite_name,
-                                   Tileset *tileset, SpriteSheet *unit_sprite);
-int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_units);
+                                   const level_t *map, const char *sprite_name,
+                                   tileset_t *tileset, spritesheet_t *unit_sprite);
+int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_units);
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const GameMap *map, const Unit *units, int unit_count,
-                                        SpriteCache *cache);
+                                        const level_t *map, const mobj_t *units, int unit_count,
+                                        spritecache_t *cache);
 
-static const GameUiImage DARK_REIGN_UI_IMAGES[] = {
+static const uiimage_t DARK_REIGN_UI_IMAGES[] = {
     { "graphics/INTFACE/IGI/TOPBTNS.BMP", {   0, 0, 126, 32 }, {   0,   0, 126,  32 } },
     { "graphics/INTFACE/IGI/TOPBITS.BMP", {   0, 0, 154, 32 }, { 126,   0, 154,  32 } },
     { "graphics/INTFACE/IGI/TOPBTNS.BMP", { 126, 0, 168, 32 }, { 280,   0, 168,  32 } },
@@ -21,7 +21,7 @@ static const GameUiImage DARK_REIGN_UI_IMAGES[] = {
     { "graphics/INTFACE/IGI/RESOBARS.BMP",{   0, 0,  52,104 }, { 588, 376,  52, 104 } },
 };
 
-static const GameUiDefinition DARK_REIGN_UI = {
+static const uidefinition_t DARK_REIGN_UI = {
     .logical_width = 640,
     .logical_height = 480,
     .world_viewport = { 0, 32, 448, 448 },
@@ -35,13 +35,13 @@ static const GameUiDefinition DARK_REIGN_UI = {
     .image_count = (int)(sizeof(DARK_REIGN_UI_IMAGES) / sizeof(DARK_REIGN_UI_IMAGES[0])),
 };
 
-static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
+static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
     {
         .id = DR_ACTOR_FG_CONSTRUCTION_CREW,
         .name = "Construction Rig",
         .sprite_name = "ucfcnst0.spr",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 5.5f,
         .max_hp = 200,
         .attack_range = 9.0f,
@@ -53,8 +53,8 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
         .id = DR_ACTOR_FG_GROUND_TRANSPORTER,
         .name = "Freighter",
         .sprite_name = "ucfrgst0.spr",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_HARVESTER,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_HARVESTER,
         .speed = 4.5f,
         .max_hp = 750,
     },
@@ -63,12 +63,12 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
         .name = "FG Headquarters 1",
         .sprite_name = "nfhqt1l0.spr",
         .shadow_name = "bfhqtsh0.spr",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 1200,
     },
 };
 
-static const GameInfo DARK_REIGN_GAME_INFO = {
+static const gameinfo_t DARK_REIGN_GAME_INFO = {
     .direction_mode   = RTS_DIRECTION_DARK_REIGN_8,
     .selection_marker = { .style = SELECTION_STYLE_BRACKETS, .sprite = -1 },
 };
@@ -83,42 +83,42 @@ const char *const g_game_default_sprite = "ucfcnst0.spr";
 const int g_cell_w = 24;
 const int g_cell_h = 24;
 const uint16_t g_debug_enemy_type = DR_ACTOR_FG_CONSTRUCTION_CREW;
-const GameInfo *const gameinfo = &DARK_REIGN_GAME_INFO;
-const MobjType *const mobjTypes =
-    (const MobjType *)DARK_REIGN_ACTOR_TYPES;
-const int mobjTypeCount =
+const gameinfo_t *const gameinfo = &DARK_REIGN_GAME_INFO;
+const actortype_t *const mobjinfo =
+    (const actortype_t *)DARK_REIGN_ACTOR_TYPES;
+const int num_mobjinfo =
     (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0]));
-const GameUiDefinition *const gameui = &DARK_REIGN_UI;
+const uidefinition_t *const gameui = &DARK_REIGN_UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
-bool G_LoadMap(const char *path, GameMap *out) {
+bool G_DoLoadLevel(const char *path, level_t *out) {
     return load_dark_map(path, out);
 }
 
-bool R_LoadAssets(SDL_Renderer *renderer, const char *root, const GameMap *map,
-                  const char *sprite, Tileset *tileset, SpriteSheet *unit_sprite) {
+bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
+                  const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
     return dark_reign_plugin_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
 }
 
-int G_SpawnThings(const char *path, Mobj *mobjs, int max) {
-    return load_dark_reign_initial_units(path, (Unit *)mobjs, max);
+int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
+    return load_dark_reign_initial_units(path, (mobj_t *)mobjs, max);
 }
 
-bool R_LoadRuntimeSprites(SDL_Renderer *renderer, const char *root, const GameMap *map,
-                          const Mobj *mobjs, int count, SpriteCache *cache) {
+bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
+                          const mobj_t *mobjs, int count, spritecache_t *cache) {
     return load_dark_reign_decoration_sprites(renderer, root, map,
-                                              (const Unit *)mobjs, count, cache);
+                                              (const mobj_t *)mobjs, count, cache);
 }
 
-bool R_LoadFont(SDL_Renderer *renderer, const char *root, BitmapFont *font) {
+bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
     (void)renderer; (void)root; (void)font;
     return false;
 }
 
 void *G_LoadMission(const char *path) { (void)path; return NULL; }
-void  G_UpdateMission(void *m, GameMap *map, Mobj *mobjs, int *count,
-                      VisualEffect *effects, int max_effects, HudText *hud, float dt) {
+void  G_MissionTicker(void *m, level_t *map, mobj_t *mobjs, int *count,
+                      effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
     (void)m; (void)map; (void)mobjs; (void)count;
     (void)effects; (void)max_effects; (void)hud; (void)dt;
 }

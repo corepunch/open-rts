@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static SDL_Rect ui_scaled_rect(const App *app, const GameUiDefinition *def, SDL_Rect rect) {
+static SDL_Rect ui_scaled_rect(const app_t *app, const uidefinition_t *def, SDL_Rect rect) {
     float sx = (float)app->win_w / (float)def->logical_width;
     float sy = (float)app->win_h / (float)def->logical_height;
     return (SDL_Rect){
@@ -15,14 +15,14 @@ static SDL_Rect ui_scaled_rect(const App *app, const GameUiDefinition *def, SDL_
 }
 
 bool game_ui_load(GameUi *ui, SDL_Renderer *renderer, const char *data_root,
-                  const GameUiDefinition *definition) {
+                  const uidefinition_t *definition) {
     if (!ui || !renderer || !data_root || !definition ||
         definition->image_count < 0 || definition->image_count > RTS_UI_MAX_LAYERS) return false;
     memset(ui, 0, sizeof(*ui));
     ui->definition = definition;
     for (int i = 0; i < definition->image_count; ++i) {
         char path[1024];
-        path_join(path, sizeof(path), data_root, definition->images[i].asset_path);
+        M_PathJoin(path, sizeof(path), data_root, definition->images[i].asset_path);
         SDL_Surface *surface = SDL_LoadBMP(path);
         if (!surface) {
             fprintf(stderr, "warning: failed to load UI asset %s: %s\n", path, SDL_GetError());
@@ -40,16 +40,16 @@ bool game_ui_load(GameUi *ui, SDL_Renderer *renderer, const char *data_root,
     return true;
 }
 
-static void game_ui_draw_minimap(const GameUi *ui, App *app, const GameMap *map,
-                                 const Mobj *units, int unit_count) {
+static void game_ui_draw_minimap(const GameUi *ui, app_t *app, const level_t *map,
+                                 const mobj_t *units, int unit_count) {
     SDL_Rect rect = ui_scaled_rect(app, ui->definition, ui->definition->minimap);
     if (rect.w <= 0 || rect.h <= 0 || !map || map->width <= 0 || map->height <= 0) return;
     SDL_SetRenderDrawColor(app->renderer, 5, 7, 7, 255);
     SDL_RenderFillRect(app->renderer, &rect);
     for (int i = 0; i < map->decoration_count; ++i) {
-        const MapDecoration *dec = &map->decorations[i];
+        const mapdecoration_t *dec = &map->decorations[i];
         int x = rect.x + dec->gx * rect.w / map->width;
-        int y = rect.y + map_screen_y_for_cell(map, dec->gy) * rect.h / map->height;
+        int y = rect.y + L_ScreenY(map, dec->gy) * rect.h / map->height;
         SDL_SetRenderDrawColor(app->renderer, dec->solid ? 93 : 63,
                               dec->solid ? 91 : 79, dec->solid ? 70 : 52, 255);
         SDL_RenderDrawPoint(app->renderer, x, y);
@@ -57,7 +57,7 @@ static void game_ui_draw_minimap(const GameUi *ui, App *app, const GameMap *map,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
         int x = rect.x + (int)(units[i].gx * (float)rect.w / (float)map->width);
-        int y = rect.y + (int)(map_screen_y_for_point(map, units[i].gy) * (float)rect.h /
+        int y = rect.y + (int)(L_ScreenYF(map, units[i].gy) * (float)rect.h /
                               (float)map->height);
         SDL_SetRenderDrawColor(app->renderer, units[i].owner == 0 ? 48 : 210,
                               units[i].owner == 0 ? 220 : 45, 65, 255);
@@ -93,7 +93,7 @@ static void draw_digit(SDL_Renderer *renderer, int x, int y, int digit, SDL_Colo
     }
 }
 
-static void game_ui_draw_resources(const GameUi *ui, App *app, int amount) {
+static void game_ui_draw_resources(const GameUi *ui, app_t *app, int amount) {
     char value[24];
     snprintf(value, sizeof(value), "%d", amount);
     int count = (int)strlen(value);
@@ -106,15 +106,15 @@ static void game_ui_draw_resources(const GameUi *ui, App *app, int amount) {
     }
 }
 
-static void game_ui_draw_commands(const GameUi *ui, App *app, const SpriteCache *sprites) {
-    const GameUiDefinition *def = ui->definition;
+static void game_ui_draw_commands(const GameUi *ui, app_t *app, const spritecache_t *sprites) {
+    const uidefinition_t *def = ui->definition;
     if (!sprites || def->command_columns <= 0 || def->command_rows <= 0) return;
     SDL_Rect grid = ui_scaled_rect(app, def, def->command_grid);
     int cell_w = grid.w / def->command_columns;
     int cell_h = grid.h / def->command_rows;
     int slot = 0;
     for (int i = 0; i < sprites->count && slot < def->command_columns * def->command_rows; ++i) {
-        const CachedSprite *cached = &sprites->entries[i];
+        const cachedsprite_t *cached = &sprites->entries[i];
         if (cached->name[0] == '\0' || tolower((unsigned char)cached->name[0]) == 'a' ||
             strstr(cached->name, "sh") ||
             !cached->sprite.texture || cached->sprite.frame_count <= 0) continue;
@@ -138,10 +138,10 @@ static void game_ui_draw_commands(const GameUi *ui, App *app, const SpriteCache 
     }
 }
 
-void game_ui_render(const GameUi *ui, App *app, const GameMap *map,
-                    const Mobj *units, int unit_count, const SpriteCache *sprites) {
+void game_ui_render(const GameUi *ui, app_t *app, const level_t *map,
+                    const mobj_t *units, int unit_count, const spritecache_t *sprites) {
     if (!ui || !ui->ready || !ui->definition || !app) return;
-    const GameUiDefinition *def = ui->definition;
+    const uidefinition_t *def = ui->definition;
     for (int i = 0; i < def->image_count; ++i) {
         SDL_Rect dst = ui_scaled_rect(app, def, def->images[i].destination);
         const SDL_Rect *src = def->images[i].source.w > 0 && def->images[i].source.h > 0 ?

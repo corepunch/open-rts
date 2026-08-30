@@ -1,12 +1,12 @@
-#ifndef OPEN_RTS_ASSETS_H
-#define OPEN_RTS_ASSETS_H
+#ifndef __ASSETS__
+#define __ASSETS__
 
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct blob_s {
     uint8_t *bytes;
     size_t size;
-} Blob;
+} blob_t;
 
 #endif

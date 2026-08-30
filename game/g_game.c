@@ -26,7 +26,7 @@ typedef struct {
     int maker_count;
 } StaticProductDefinition;
 
-static bool dark_colony_product_uses_barracks_release(const Unit *producer,
+static bool dark_colony_product_uses_barracks_release(const mobj_t *producer,
                                                       const StaticProductDefinition *product,
                                                       uint16_t actor_id);
 
@@ -42,18 +42,18 @@ enum {
 };
 
 struct RtsGameModel {
-    GameMap map;
-    Unit units[MAXMOBJS];
+    level_t map;
+    mobj_t units[MAXMOBJS];
     int unit_count;
-    VisualEffect effects[MAX_VISUAL_EFFECTS];
-    HudText hud;
+    effect_t effects[MAX_VISUAL_EFFECTS];
+    hudtext_t hud;
     void *mission;
     bool loaded;
     char error[256];
 };
 
-static const ActorType *plugin_actor_type_by_id(uint16_t type_id);
-static void apply_actor_type_defaults(Unit *unit, const ActorType *type);
+static const actortype_t *plugin_actor_type_by_id(uint16_t type_id);
+static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type);
 
 static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     /* Buildings — all built from the Exco Center */
@@ -146,7 +146,7 @@ static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
     }
 }
 
-static int dark_colony_building_state_for_product_type(const GameInfo *game_info,
+static int dark_colony_building_state_for_product_type(const gameinfo_t *game_info,
                                                        int product_type) {
     if (!game_info || !game_info->states || !game_info->sprnames) return -1;
     const char *sprite_name = NULL;
@@ -160,7 +160,7 @@ static int dark_colony_building_state_for_product_type(const GameInfo *game_info
     }
     int frame = dark_colony_building_frame_for_product_type(product_type);
     for (int i = 0; i < game_info->state_count; ++i) {
-        const State *state = &game_info->states[i];
+        const state_t *state = &game_info->states[i];
         if (state->sprite < 0 || state->sprite >= game_info->sprite_count) continue;
         if (state->facings != 1 || state->facing_frames[0] != frame) continue;
         if (strcmp(game_info->sprnames[state->sprite], sprite_name) == 0)
@@ -169,27 +169,27 @@ static int dark_colony_building_state_for_product_type(const GameInfo *game_info
     return -1;
 }
 
-static const State *model_state_at(const GameInfo *game_info, int state_id) {
+static const state_t *model_state_at(const gameinfo_t *game_info, int state_id) {
     if (!game_info || !game_info->states || state_id < 0 || state_id >= game_info->state_count)
         return NULL;
     return &game_info->states[state_id];
 }
 
-static int model_find_state_by_group_frame(const GameInfo *game_info, int group, int frame) {
+static int model_find_state_by_group_frame(const gameinfo_t *game_info, int group, int frame) {
     if (!game_info || !game_info->states) return -1;
     for (int i = 0; i < game_info->state_count; ++i) {
-        const State *state = &game_info->states[i];
+        const state_t *state = &game_info->states[i];
         if (state->misc1 != group || state->facings != 1) continue;
         if (state->facing_frames[0] == frame) return i;
     }
     return -1;
 }
 
-static int model_state_chain_duration_ms(const GameInfo *game_info, int state_id, int group) {
+static int model_state_chain_duration_ms(const gameinfo_t *game_info, int state_id, int group) {
     int tics = 0;
     int guard = 0;
     while (guard++ < (game_info ? game_info->state_count + 1 : 1)) {
-        const State *state = model_state_at(game_info, state_id);
+        const state_t *state = model_state_at(game_info, state_id);
         if (!state || state->misc1 != group) break;
         if (state->tics > 0) tics += state->tics;
         int next = state->nextstate;
@@ -265,7 +265,7 @@ static uint16_t dark_reign_actor_id_for_product(const StaticProductDefinition *p
 static bool model_has_player_actor_type(const RtsGameModel *model, uint16_t actor_id) {
     if (!model || actor_id == 0) return false;
     for (int i = 0; i < model->unit_count; ++i) {
-        const Unit *unit = &model->units[i];
+        const mobj_t *unit = &model->units[i];
         if (unit->owner == 0 && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
             return true;
     }
@@ -308,7 +308,7 @@ static bool product_is_available(const RtsGameModel *model, const StaticProductD
 static int find_player_actor_index(const RtsGameModel *model, uint16_t actor_id) {
     if (!model || actor_id == 0) return -1;
     for (int i = 0; i < model->unit_count; ++i) {
-        const Unit *unit = &model->units[i];
+        const mobj_t *unit = &model->units[i];
         if (unit->owner == 0 && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
             return i;
     }
@@ -349,12 +349,12 @@ static bool model_position_available(const RtsGameModel *model, float gx, float 
     int max_y = (int)floorf(gy + radius);
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
-            if (!map_walkable(&model->map, x, y)) return false;
+            if (!L_IsWalkable(&model->map, x, y)) return false;
         }
     }
 
     for (int i = 0; i < model->unit_count; ++i) {
-        const Unit *other = &model->units[i];
+        const mobj_t *other = &model->units[i];
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
@@ -380,13 +380,13 @@ static bool model_position_walkable_only(const RtsGameModel *model, float gx, fl
     int max_y = (int)floorf(gy + radius);
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
-            if (!map_walkable(&model->map, x, y)) return false;
+            if (!L_IsWalkable(&model->map, x, y)) return false;
         }
     }
     return true;
 }
 
-static bool find_spawn_position_near(const RtsGameModel *model, const Unit *producer,
+static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,
                                      float radius, float *out_gx, float *out_gy) {
     if (!model || !producer || !out_gx || !out_gy) return false;
     int origin_x = (int)floorf(producer->gx);
@@ -422,7 +422,7 @@ static bool find_spawn_position_near(const RtsGameModel *model, const Unit *prod
     return false;
 }
 
-static bool state_offset_for_facing(const State *state, bool overlay, int facing_code,
+static bool state_offset_for_facing(const state_t *state, bool overlay, int facing_code,
                                     int *out_x, int *out_y) {
     if (!state || !out_x || !out_y) return false;
     int facings = overlay ? state->overlay_facings : state->facings;
@@ -444,15 +444,15 @@ static bool state_offset_for_facing(const State *state, bool overlay, int facing
 }
 
 static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
-                                                     const Unit *producer,
-                                                     const Unit *new_unit,
+                                                     const mobj_t *producer,
+                                                     const mobj_t *new_unit,
                                                      float *out_gx,
                                                      float *out_gy) {
     if (!model || !producer || !new_unit || !out_gx || !out_gy || !gameinfo) {
         return false;
     }
-    const GameInfo *game_info = gameinfo;
-    const State *stand = model_state_at(game_info, new_unit->state_id);
+    const gameinfo_t *game_info = gameinfo;
+    const state_t *stand = model_state_at(game_info, new_unit->state_id);
     if (!stand) return false;
 
     int stand_x = 0;
@@ -468,7 +468,7 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
     bool saw_release_trooper = false;
     int guard = 0;
     while (guard++ < game_info->state_count + 1) {
-        const State *state = model_state_at(game_info, release_state_id);
+        const state_t *state = model_state_at(game_info, release_state_id);
         if (!state || state->misc1 != DC_PRODUCTION_BUILD_GROUP) break;
         int x = 0;
         int y = 0;
@@ -496,7 +496,7 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
 }
 
 static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
-                                        const Unit *producer, float exit_gx,
+                                        const mobj_t *producer, float exit_gx,
                                         float exit_gy) {
     if (!model || !producer || spawned_index < 0 || spawned_index >= model->unit_count)
         return;
@@ -509,9 +509,9 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
     float crowd_radius = 2.75f;
     float crowd_radius_sq = crowd_radius * crowd_radius;
     for (int i = 0; i < model->unit_count; ++i) {
-        Unit *unit = &model->units[i];
+        mobj_t *unit = &model->units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
-            (unit->traits & T_MOBILE) == 0) {
+            (unit->traits & MF_MOBILE) == 0) {
             continue;
         }
         float dx = unit->gx - exit_gx;
@@ -531,7 +531,7 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
     }
     float goal_gx = exit_gx + dx / len * 1.5f;
     float goal_gy = exit_gy + dy / len * 1.5f;
-    issue_move_order_at(&model->map, model->units, model->unit_count, goal_gx, goal_gy);
+    P_MoveOrderAt(&model->map, model->units, model->unit_count, goal_gx, goal_gy);
 
     for (int i = 0; i < model->unit_count; ++i) {
         model->units[i].selected = saved[i];
@@ -550,10 +550,10 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
     uint16_t actor_id = dark_reign ? dark_reign_actor_id_for_product(product) :
         dark_colony_actor_id_for_product(product);
-    const ActorType *actor_type = plugin_actor_type_by_id(actor_id);
+    const actortype_t *actor_type = plugin_actor_type_by_id(actor_id);
     if (actor_id == 0 || !actor_type) return false;
 
-    Unit new_unit;
+    mobj_t new_unit;
     memset(&new_unit, 0, sizeof(new_unit));
     new_unit.type_id = actor_id;
     new_unit.owner = 0;
@@ -563,13 +563,13 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     new_unit.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
         dark_colony_building_frame_for_product_type(product->product_type) : 0;
     apply_actor_type_defaults(&new_unit, actor_type);
-    apply_mobjinfo_defaults(gameinfo, &new_unit);
+    P_SpawnMobj(gameinfo, &new_unit);
     if (!dark_reign && product->product_class == RTS_PRODUCT_BUILDING) {
         int state_id = dark_colony_building_state_for_product_type(gameinfo,
                                                                    product->product_type);
         if (state_id > 0) {
-            StateContext ctx = { .game_info = gameinfo };
-            set_unit_state(&ctx, &new_unit, state_id);
+            statecontext_t ctx = { .game_info = gameinfo };
+            P_SetMobjState(&ctx, &new_unit, state_id);
         }
     }
     if (dark_reign && product->product_class == RTS_PRODUCT_BUILDING)
@@ -578,7 +578,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
 
     float gx = 0.0f;
     float gy = 0.0f;
-    Unit *producer = &model->units[producer_index];
+    mobj_t *producer = &model->units[producer_index];
     bool use_barracks_release = dark_colony_product_uses_barracks_release(
         producer, product, actor_id);
     if (use_barracks_release &&
@@ -604,7 +604,7 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
                                        uint16_t actor_id) {
     if (!model || !product || producer_index < 0 || producer_index >= model->unit_count)
         return false;
-    Unit *producer = &model->units[producer_index];
+    mobj_t *producer = &model->units[producer_index];
     if (producer->production_queue_count > 0) {
         if (producer->production_actor_id != actor_id ||
             producer->production_product_type != product->product_type ||
@@ -627,7 +627,7 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
     return true;
 }
 
-static bool dark_colony_product_uses_barracks_release(const Unit *producer,
+static bool dark_colony_product_uses_barracks_release(const mobj_t *producer,
                                                       const StaticProductDefinition *product,
                                                       uint16_t actor_id) {
     return producer && product && producer->type_id == DC_ACTOR_BRRKPOD &&
@@ -635,7 +635,7 @@ static bool dark_colony_product_uses_barracks_release(const Unit *producer,
         actor_id == DC_ACTOR_TROOPER;
 }
 
-static bool start_model_production_release(RtsGameModel *model, Unit *producer,
+static bool start_model_production_release(RtsGameModel *model, mobj_t *producer,
                                            const StaticProductDefinition *product,
                                            uint16_t actor_id) {
     if (!model || !producer || !product || !gameinfo) {
@@ -643,19 +643,19 @@ static bool start_model_production_release(RtsGameModel *model, Unit *producer,
     }
     if (!dark_colony_product_uses_barracks_release(producer, product, actor_id))
         return false;
-    const GameInfo *game_info = gameinfo;
+    const gameinfo_t *game_info = gameinfo;
     int state_id = model_find_state_by_group_frame(game_info, DC_PRODUCTION_BUILD_GROUP,
                                                    DC_TRSCBUILD_FIRST_FRAME);
     int duration_ms = model_state_chain_duration_ms(game_info, state_id,
                                                     DC_PRODUCTION_BUILD_GROUP);
     if (state_id <= 0 || duration_ms <= 0) return false;
-    StateContext ctx = {
+    statecontext_t ctx = {
         .map = &model->map,
         .effects = model->effects,
         .max_effects = MAX_VISUAL_EFFECTS,
         .game_info = game_info,
     };
-    if (!spawn_state_effect(&ctx, state_id, producer->gx, producer->gy, 0))
+    if (!P_SpawnEffect(&ctx, state_id, producer->gx, producer->gy, 0))
         return false;
     producer->production_release_active = true;
     producer->production_release_time_left_ms = duration_ms;
@@ -663,7 +663,7 @@ static bool start_model_production_release(RtsGameModel *model, Unit *producer,
     return true;
 }
 
-static void clear_model_production(Unit *producer) {
+static void clear_model_production(mobj_t *producer) {
     if (!producer) return;
     producer->production_actor_id = 0;
     producer->production_product_class = 0;
@@ -674,7 +674,7 @@ static void clear_model_production(Unit *producer) {
     producer->production_release_time_left_ms = 0;
 }
 
-static void advance_model_production_queue(Unit *producer) {
+static void advance_model_production_queue(mobj_t *producer) {
     if (!producer) return;
     producer->production_release_active = false;
     producer->production_release_time_left_ms = 0;
@@ -738,7 +738,7 @@ static void update_model_production(RtsGameModel *model, float dt) {
     int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
     if (elapsed_ms <= 0) elapsed_ms = 1;
     for (int i = 0; i < model->unit_count; ++i) {
-        Unit *producer = &model->units[i];
+        mobj_t *producer = &model->units[i];
         if (producer->production_queue_count <= 0) continue;
         if (producer->remove || producer->hp <= 0) {
             producer->production_queue_count = 0;
@@ -803,12 +803,12 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
     /* Find the selected player building. Mobile units (harvesters, infantry) don't
        show a build panel — only stationary buildings do. */
     uint16_t selected_type = 0;
-    const Unit *selected_building = NULL;
+    const mobj_t *selected_building = NULL;
     for (int i = 0; i < model->unit_count; ++i) {
-        const Unit *u = &model->units[i];
+        const mobj_t *u = &model->units[i];
         if (u->selected && u->owner == 0 && u->hp > 0 && !u->remove &&
-            (u->traits & T_SELECTABLE) != 0 &&
-            (u->traits & T_MOBILE) == 0) {
+            (u->traits & MF_SELECTABLE) != 0 &&
+            (u->traits & MF_MOBILE) == 0) {
             selected_type = u->type_id;
             selected_building = u;
             break;
@@ -889,7 +889,7 @@ static void build_dark_reign_ui_script(const RtsGameModel *model, char *dst, siz
 }
 
 
-static void destroy_model_map(GameMap *map) {
+static void destroy_model_map(level_t *map) {
     if (!map) return;
     free(map->tile_ids);
     for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);
@@ -902,26 +902,26 @@ static void destroy_model_map(GameMap *map) {
     memset(map, 0, sizeof(*map));
 }
 
-static const ActorType *plugin_actor_type_by_id(uint16_t type_id) {
-    for (int i = 0; i < mobjTypeCount; ++i) {
-        if (mobjTypes[i].id == type_id) return (const ActorType *)&mobjTypes[i];
+static const actortype_t *plugin_actor_type_by_id(uint16_t type_id) {
+    for (int i = 0; i < num_mobjinfo; ++i) {
+        if (mobjinfo[i].id == type_id) return (const actortype_t *)&mobjinfo[i];
     }
     return NULL;
 }
 
-static const ActorType *plugin_actor_type_for_unit(const Unit *unit) {
-    const ActorType *type = plugin_actor_type_by_id(unit ? unit->type_id : 0);
+static const actortype_t *plugin_actor_type_for_unit(const mobj_t *unit) {
+    const actortype_t *type = plugin_actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
     if (!unit) return NULL;
-    for (int i = 0; i < mobjTypeCount; ++i) {
-        const char *sprite = mobjTypes[i].sprite_name;
+    for (int i = 0; i < num_mobjinfo; ++i) {
+        const char *sprite = mobjinfo[i].sprite_name;
         if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0)
-            return (const ActorType *)&mobjTypes[i];
+            return (const actortype_t *)&mobjinfo[i];
     }
-    return mobjTypeCount > 0 ? (const ActorType *)&mobjTypes[0] : NULL;
+    return num_mobjinfo > 0 ? (const actortype_t *)&mobjinfo[0] : NULL;
 }
 
-static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
+static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
@@ -949,10 +949,10 @@ static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     }
 }
 
-static void apply_plugin_actor_defaults(Unit *units, int unit_count) {
+static void apply_plugin_actor_defaults(mobj_t *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
         apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(&units[i]));
-        apply_mobjinfo_defaults(gameinfo, &units[i]);
+        P_SpawnMobj(gameinfo, &units[i]);
     }
 }
 
@@ -961,7 +961,7 @@ static bool build_map_path(char *out, size_t out_size, const char *data_root, co
     if (map_path[0] == '/') {
         snprintf(out, out_size, "%s", map_path);
     } else {
-        path_join(out, out_size, data_root, map_path);
+        M_PathJoin(out, out_size, data_root, map_path);
     }
     return true;
 }
@@ -1001,11 +1001,11 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
         model->loaded = false;
     }
 
-    if (!G_LoadMap(map_path, &model->map)) {
+    if (!G_DoLoadLevel(map_path, &model->map)) {
         model_set_error(model, "failed to load map '%s'", map_path);
         return false;
     }
-    model->unit_count = G_SpawnThings(map_path, (Mobj *)model->units, MAXMOBJS);
+    model->unit_count = P_LoadThings(map_path, (mobj_t *)model->units, MAXMOBJS);
     apply_plugin_actor_defaults(model->units, model->unit_count);
     model->mission = G_LoadMission(map_path);
     model->loaded = true;
@@ -1016,17 +1016,17 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
 bool rts_game_model_tick(RtsGameModel *model, float dt) {
     if (!model || !model->loaded) return false;
     if (dt <= 0.0f) return true;
-    update_units(&model->map, model->units, &model->unit_count, model->effects,
+    P_Ticker(&model->map, model->units, &model->unit_count, model->effects,
                  MAX_VISUAL_EFFECTS, gameinfo, dt);
     if (model->mission) {
-        G_UpdateMission(model->mission, &model->map, (Mobj *)model->units,
+        G_MissionTicker(model->mission, &model->map, (mobj_t *)model->units,
                         &model->unit_count, model->effects,
                         MAX_VISUAL_EFFECTS, &model->hud, dt);
     }
     update_model_production(model, dt);
-    update_visual_effects(&model->map, model->effects, MAX_VISUAL_EFFECTS,
+    P_UpdateEffects(&model->map, model->effects, MAX_VISUAL_EFFECTS,
                           gameinfo, dt);
-    hud_text_update(&model->hud, dt);
+    HU_Ticker(&model->hud, dt);
     return true;
 }
 
@@ -1037,9 +1037,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         return true;
     case RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS:
         for (int i = 0; i < model->unit_count; ++i) {
-            Unit *unit = &model->units[i];
+            mobj_t *unit = &model->units[i];
             unit->selected = unit->owner == 0 && unit->hp > 0 &&
-                (unit->traits & T_SELECTABLE) != 0;
+                (unit->traits & MF_SELECTABLE) != 0;
         }
         return true;
     case RTS_GAME_COMMAND_SELECT_UNIT_INDEX:
@@ -1053,15 +1053,15 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         model->units[command->data.select_unit_index.unit_index].selected = true;
         return true;
     case RTS_GAME_COMMAND_MOVE_SELECTED: {
-        Cell goal = {
+        cell_t goal = {
             (int)command->data.move_selected.gx,
             (int)command->data.move_selected.gy,
         };
-        issue_move_order(&model->map, model->units, model->unit_count, goal);
+        P_MoveOrder(&model->map, model->units, model->unit_count, goal);
         return true;
     }
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
-        return issue_harvest_order_at(&model->map, model->units, model->unit_count,
+        return P_HarvestOrderAt(&model->map, model->units, model->unit_count,
                                       command->data.harvest_selected.gx,
                                       command->data.harvest_selected.gy);
     case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON:
@@ -1088,7 +1088,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
     if (out->unit_count > RTS_MODEL_MAX_SNAPSHOT_UNITS)
         out->unit_count = RTS_MODEL_MAX_SNAPSHOT_UNITS;
     for (int i = 0; i < out->unit_count; ++i) {
-        const Unit *src = &model->units[i];
+        const mobj_t *src = &model->units[i];
         RtsRenderUnit *dst = &out->units[i];
         dst->gx = src->gx;
         dst->gy = src->gy;
@@ -1114,7 +1114,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
     }
     for (int i = 0; i < out->decoration_count; ++i) {
-        const MapDecoration *src = &model->map.decorations[i];
+        const mapdecoration_t *src = &model->map.decorations[i];
         RtsRenderDecoration *dst = &out->decorations[i];
         dst->gx = src->gx;
         dst->gy = src->gy;
@@ -1138,7 +1138,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
     for (int i = 0; i < MAX_VISUAL_EFFECTS && out->effect_count < RTS_MODEL_MAX_SNAPSHOT_EFFECTS; ++i) {
-        const VisualEffect *src = &model->effects[i];
+        const effect_t *src = &model->effects[i];
         if (!src->active) continue;
         RtsRenderEffect *dst = &out->effects[out->effect_count++];
         dst->active = src->active;

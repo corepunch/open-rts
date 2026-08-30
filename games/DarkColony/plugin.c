@@ -8,42 +8,42 @@
 #include <stdlib.h>
 #include <string.h>
 
-bool load_dark_colony_map(const char *map_path, GameMap *out);
+bool load_dark_colony_map(const char *map_path, level_t *out);
 bool dark_colony_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                    const GameMap *map, const char *sprite_name,
-                                    Tileset *tileset, SpriteSheet *unit_sprite);
-int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units);
+                                    const level_t *map, const char *sprite_name,
+                                    tileset_t *tileset, spritesheet_t *unit_sprite);
+int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units);
 bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const GameMap *map, const Unit *units, int unit_count,
-                                   SpriteCache *cache);
-bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, SpriteSheet *out,
+                                   const level_t *map, const mobj_t *units, int unit_count,
+                                   spritecache_t *cache);
+bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
                              uint32_t palette_out[256]);
 
-void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit) {
+void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit) return;
     int muzzle_state = 0;
     if (ctx->game_info && unit->type_id > 0 &&
         unit->type_id < ctx->game_info->mobj_type_count) {
         muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
     }
-    spawn_state_effect(ctx, muzzle_state, unit->gx, unit->gy, unit->facing_code);
+    P_SpawnEffect(ctx, muzzle_state, unit->gx, unit->gy, unit->facing_code);
 }
 
-void A_DC_Attack(StateContext *ctx, Unit *unit) {
-    unit_fire_attack(ctx, unit);
+void A_DC_Attack(statecontext_t *ctx, mobj_t *unit) {
+    P_Attack(ctx, unit);
 }
 
-void A_DC_TrooperAttackStart(StateContext *ctx, Unit *unit) {
+void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit) return;
-    set_unit_state(ctx, unit, (rand() & 1) ? S_DC_TRSC_ATKB1 : S_DC_TRSC_ATK1);
+    P_SetMobjState(ctx, unit, (rand() & 1) ? S_DC_TRSC_ATKB1 : S_DC_TRSC_ATK1);
 }
 
-void A_DC_Fall(StateContext *ctx, Unit *unit) {
+void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     (void)ctx;
     if (!unit) return;
     unit->selected = false;
-    unit->traits &= ~(T_SELECTABLE | T_MOBILE |
-                      T_ATTACK | T_HARVESTER);
+    unit->traits &= ~(MF_SELECTABLE | MF_MOBILE |
+                      MF_ATTACK | MF_HARVESTER);
     unit->path_len = 0;
     unit->path_index = 0;
     unit->attack_target = -1;
@@ -69,29 +69,29 @@ static int reaper_death_effect_state_for_facing(int facing_code) {
     return S_NULL;
 }
 
-void A_DC_ReaperDeath(StateContext *ctx, Unit *unit) {
+void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
     if (ctx && unit) {
         int fx_state = reaper_death_effect_state_for_facing(unit->facing_code);
         if (fx_state != S_NULL) {
-            spawn_state_effect(ctx, fx_state, unit->gx, unit->gy, unit->facing_code);
+            P_SpawnEffect(ctx, fx_state, unit->gx, unit->gy, unit->facing_code);
         }
     }
     A_DC_Fall(ctx, unit);
 }
 
-void A_DC_Corpse(StateContext *ctx, Unit *unit) {
+void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) {
     if (!unit) return;
-    unit_add_corpse_decoration(ctx, unit);
+    P_AddCorpse(ctx, unit);
     unit->remove = true;
 }
 
-static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
+static const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_DC_TROOPER,
         .name = "Trooper",
         .sprite_name = "SPRITES/TRSC.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 5.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
@@ -106,8 +106,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_GREY,
         .name = "Grey",
         .sprite_name = "SPRITES/GRAY.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 5.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
@@ -122,8 +122,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_EXPLOITER,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_HARVESTER,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_HARVESTER,
         .speed = 3.5f,
         .max_hp = 800,
         .harvest_state_id = S_DC_EXPL_DEPLOY1,
@@ -132,8 +132,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_REAPER,
         .name = "Mech",
         .sprite_name = "SPRITES/REAP.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 6.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
@@ -148,8 +148,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_THUNDERBOLT,
         .name = "Thunderbolt",
         .sprite_name = "SPRITES/BARR.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 3.0f,
         .max_hp = 1200,
         .attack_range = 6.0f,
@@ -164,8 +164,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_CYBORG,
         .name = "Cyborg",
         .sprite_name = "SPRITES/SARG.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 7.0f,
         .max_hp = 1200,
         .attack_range = 3.0f,
@@ -180,8 +180,8 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_SCOUT,
         .name = "Scout",
         .sprite_name = "SPRITES/SCGM.SPR",
-        .traits = T_SELECTABLE | T_MOBILE |
-                  T_RENDERABLE | T_ATTACK,
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
         .speed = 9.4f,
         .max_hp = 600,
         .attack_range = 5.0f,
@@ -196,124 +196,124 @@ static const ActorType DARK_COLONY_ACTOR_TYPES[] = {
         .id = MT_DC_EXCOPOD,
         .name = "Exco Center",
         .sprite_name = "SPRITES/HUBU.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 4800,
     },
     {
         .id = MT_DC_BRRKPOD,
         .name = "Barracks",
         .sprite_name = "SPRITES/HUBU.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ROBOPOD,
         .name = "Robot Factory",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ROBOPOD2,
         .name = "Robot Factory II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_SCNCPOD,
         .name = "Science Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_SCNCPOD2,
         .name = "Science Pod II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_RSCHPOD,
         .name = "Research Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_ALIEN_MINDHIVE,
         .name = "Mind Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 4800,
     },
     {
         .id = MT_DC_ALIEN_WARHIVE,
         .name = "Warrior Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ALIEN_BRDRHIVE,
         .name = "Breeder Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ALIEN_BRDRHIVE2,
         .name = "Breeder Hive II",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_ALIEN_MINDHIVE2,
         .name = "Mind Hive II",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
         .id = MT_DC_ALIEN_MINDHIVE3,
         .name = "Mind Hive III",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_ALIEN_RSCHIVE,
         .name = "Research Hive",
         .sprite_name = "SPRITES/ALIEN1.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
         .id = MT_DC_COMMS_DISH,
         .name = "Communication Dish",
         .sprite_name = "SPRITES/DISH.SPR",
-        .traits = T_SELECTABLE | T_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 1200,
     },
     {
         .id = MT_DC_CITY_TOWER,
         .name = "City Tower",
         .sprite_name = "SPRITES/TOWR.SPR",
-        .traits = T_RENDERABLE,
+        .traits = MF_RENDERABLE,
         .max_hp = 1600,
     },
 };
 
-static const ActorType *dark_colony_actor_type_by_id(uint16_t type_id) {
+static const actortype_t *dark_colony_actor_type_by_id(uint16_t type_id) {
     for (int i = 0; i < (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])); ++i) {
         if (DARK_COLONY_ACTOR_TYPES[i].id == type_id) return &DARK_COLONY_ACTOR_TYPES[i];
     }
     return NULL;
 }
 
-static void dark_colony_apply_actor_type_defaults(Unit *unit, const ActorType *type) {
+static void dark_colony_apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
@@ -355,16 +355,16 @@ static char *dark_colony_load_text(const char *path) {
     FILE *fp = fopen(path, "rb");
     if (!fp) return NULL;
     fclose(fp);
-    Blob blob;
-    if (!load_blob(path, &blob)) return NULL;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return NULL;
     char *text = malloc(blob.size + 1);
     if (!text) {
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return NULL;
     }
     memcpy(text, blob.bytes, blob.size);
     text[blob.size] = '\0';
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return text;
 }
 
@@ -466,7 +466,7 @@ static uint16_t dark_colony_script_unit_type(int team, int type) {
     }
 }
 
-static bool dark_colony_player_near(const GameMap *map, const Unit *units,
+static bool dark_colony_player_near(const level_t *map, const mobj_t *units,
                                     int unit_count, int gx, int gy) {
     (void)map;
     for (int i = 0; i < unit_count; ++i) {
@@ -478,11 +478,11 @@ static bool dark_colony_player_near(const GameMap *map, const Unit *units,
     return false;
 }
 
-static int dark_colony_spawn_dropship_effect(VisualEffect *effects, int max_effects,
+static int dark_colony_spawn_dropship_effect(effect_t *effects, int max_effects,
                                              float gx, float gy, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
-        VisualEffect *effect = &effects[i];
+        effect_t *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
         effect->gx = gx;
@@ -498,7 +498,7 @@ static int dark_colony_spawn_dropship_effect(VisualEffect *effects, int max_effe
 }
 
 static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
-                                          VisualEffect *effects, int max_effects,
+                                          effect_t *effects, int max_effects,
                                           int gx, int gy, int duration_ms) {
     if (!mission || !effects || max_effects <= 0) return;
     int actual_duration = duration_ms > 1400 ? duration_ms : 1400;
@@ -536,11 +536,11 @@ static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
     }
 }
 
-static void dark_colony_spawn_script_unit(const GameMap *map, Unit *units, int *unit_count, int team,
+static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count, int team,
                                           int gx, int gy, int type, int index,
-                                          const GameInfo *game_info) {
+                                          const gameinfo_t *game_info) {
     if (!units || !unit_count || *unit_count >= MAXMOBJS) return;
-    Unit *unit = &units[*unit_count];
+    mobj_t *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
     int offset_x = index % 2;
     int offset_y = index / 2;
@@ -567,9 +567,9 @@ static void dark_colony_spawn_script_unit(const GameMap *map, Unit *units, int *
     }
     unit->facing_code = unit->owner == 0 ? 6 : 14;
     uint16_t type_id = dark_colony_script_unit_type(team, type);
-    const ActorType *actor = dark_colony_actor_type_by_id(type_id);
+    const actortype_t *actor = dark_colony_actor_type_by_id(type_id);
     dark_colony_apply_actor_type_defaults(unit, actor);
-    apply_mobjinfo_defaults(game_info, unit);
+    P_SpawnMobj(game_info, unit);
     (*unit_count)++;
 }
 
@@ -595,9 +595,9 @@ static void dark_colony_queue_pending_spawn(DarkColonyMission *mission, int spaw
     }
 }
 
-static void dark_colony_update_pending_spawns(DarkColonyMission *mission, GameMap *map,
-                                              Unit *units, int *unit_count,
-                                              const GameInfo *game_info) {
+static void dark_colony_update_pending_spawns(DarkColonyMission *mission, level_t *map,
+                                              mobj_t *units, int *unit_count,
+                                              const gameinfo_t *game_info) {
     if (!mission || !units || !unit_count) return;
     for (int i = 0; i < (int)(sizeof(mission->pending_spawns) / sizeof(mission->pending_spawns[0])); ++i) {
         DarkColonyPendingSpawn *spawn = &mission->pending_spawns[i];
@@ -613,16 +613,16 @@ static void dark_colony_update_pending_spawns(DarkColonyMission *mission, GameMa
 }
 
 static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkColonyScriptBlock *block,
-                                             GameMap *map, Unit *units, int *unit_count,
-                                             VisualEffect *effects, int max_effects,
-                                             const GameInfo *game_info, HudText *hud) {
+                                             level_t *map, mobj_t *units, int *unit_count,
+                                             effect_t *effects, int max_effects,
+                                             const gameinfo_t *game_info, hudtext_t *hud) {
     if (!mission || !block) return;
     int drop_sequence = 0;
     for (int i = 0; i < block->command_count; ++i) {
         DarkColonyScriptCommand *cmd = &block->commands[i];
         if (cmd->type == DC_SCRIPT_CMD_MSG) {
             const char *message = dark_colony_script_message(mission, cmd->a[0]);
-            if (message) hud_text_push(hud, message, 6500);
+            if (message) HU_PushMessage(hud, message, 6500);
         } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
                    cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
             int team = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
@@ -802,12 +802,12 @@ static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) 
     free(text);
 }
 
-static bool dark_colony_load_font(SDL_Renderer *renderer, const char *data_root, BitmapFont *font) {
+static bool dark_colony_load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_t *font) {
     if (!renderer || !data_root || !font) return false;
     memset(font, 0, sizeof(*font));
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
     char path[1024];
-    path_join(path, sizeof(path), data_root, "INTRFACE/MFONTO7.SPR");
+    M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MFONTO7.SPR");
     uint32_t palette[256] = { 0 };
     if (!load_dark_colony_sprite(renderer, path, &font->sprite, palette)) return false;
     const int font_offset = 31;
@@ -856,9 +856,9 @@ static void *dark_colony_load_mission(const char *map_path) {
     return mission;
 }
 
-static void dark_colony_update_mission(void *ptr, GameMap *map, Unit *units, int *unit_count,
-                                       VisualEffect *effects, int max_effects,
-                                       const GameInfo *game_info, HudText *hud, float dt) {
+static void dark_colony_update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
+                                       effect_t *effects, int max_effects,
+                                       const gameinfo_t *game_info, hudtext_t *hud, float dt) {
     DarkColonyMission *mission = ptr;
     if (!mission || !units || !unit_count) return;
     mission->elapsed_ms += (int)(dt * 1000.0f);
@@ -918,34 +918,34 @@ const char *const g_game_default_sprite = "SPRITES/TROOPER1.SPR";
 const int g_cell_w = 32;
 const int g_cell_h = 32;
 const uint16_t g_debug_enemy_type = MT_DC_GREY;
-const GameInfo *const gameinfo = &dark_colony_game_info;
-const MobjType *const mobjTypes =
-    (const MobjType *)DARK_COLONY_ACTOR_TYPES;
-const int mobjTypeCount =
+const gameinfo_t *const gameinfo = &dark_colony_game_info;
+const actortype_t *const mobjinfo =
+    (const actortype_t *)DARK_COLONY_ACTOR_TYPES;
+const int num_mobjinfo =
     (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0]));
-const GameUiDefinition *const gameui = NULL;
+const uidefinition_t *const gameui = NULL;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
-bool G_LoadMap(const char *path, GameMap *out) {
+bool G_DoLoadLevel(const char *path, level_t *out) {
     return load_dark_colony_map(path, out);
 }
 
-bool R_LoadAssets(SDL_Renderer *renderer, const char *root, const GameMap *map,
-                  const char *sprite, Tileset *tileset, SpriteSheet *unit_sprite) {
+bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
+                  const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
     return dark_colony_plugin_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
 }
 
-int G_SpawnThings(const char *path, Mobj *mobjs, int max) {
-    return load_dark_colony_initial_units(path, (Unit *)mobjs, max);
+int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
+    return load_dark_colony_initial_units(path, (mobj_t *)mobjs, max);
 }
 
-bool R_LoadRuntimeSprites(SDL_Renderer *renderer, const char *root, const GameMap *map,
-                          const Mobj *mobjs, int count, SpriteCache *cache) {
-    return load_dark_colony_unit_sprites(renderer, root, map, (const Unit *)mobjs, count, cache);
+bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
+                          const mobj_t *mobjs, int count, spritecache_t *cache) {
+    return load_dark_colony_unit_sprites(renderer, root, map, (const mobj_t *)mobjs, count, cache);
 }
 
-bool R_LoadFont(SDL_Renderer *renderer, const char *root, BitmapFont *font) {
+bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
     return dark_colony_load_font(renderer, root, font);
 }
 
@@ -953,9 +953,9 @@ void *G_LoadMission(const char *path) {
     return dark_colony_load_mission(path);
 }
 
-void G_UpdateMission(void *mission, GameMap *map, Mobj *mobjs, int *count,
-                     VisualEffect *effects, int max_effects, HudText *hud, float dt) {
-    dark_colony_update_mission(mission, map, (Unit *)mobjs, count,
+void G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
+                     effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
+    dark_colony_update_mission(mission, map, (mobj_t *)mobjs, count,
                                effects, max_effects, gameinfo, hud, dt);
 }
 

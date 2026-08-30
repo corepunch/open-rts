@@ -41,12 +41,12 @@ static void kknd_map_data_destroy(void *opaque) {
     free(data);
 }
 
-static bool kknd_open_lvl(const char *path, Blob *blob, const uint8_t **segment,
+static bool kknd_open_lvl(const char *path, blob_t *blob, const uint8_t **segment,
                           size_t *segment_size) {
-    if (!load_blob(path, blob)) return false;
+    if (!W_ReadFile(path, blob)) return false;
     if (blob->size < 12 || memcmp(blob->bytes, "DATA", 4) != 0) {
         fprintf(stderr, "%s is not a KKnD DATA/LVL container\n", path);
-        free_blob(blob);
+        W_FreeFile(blob);
         return false;
     }
     size_t declared = read_u32_be(blob->bytes + 4);
@@ -146,26 +146,26 @@ static bool kknd_decode_mapd(const uint8_t *segment, size_t size, uint32_t mapd_
     return true;
 }
 
-bool load_kknd_map(const char *map_path, GameMap *out) {
+bool load_kknd_map(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
-    Blob blob = {0};
+    blob_t blob = {0};
     const uint8_t *segment = NULL;
     size_t segment_size = 0;
     if (!kknd_open_lvl(map_path, &blob, &segment, &segment_size)) return false;
     uint32_t mapd = 0;
     if (!kknd_lvl_asset(segment, segment_size, "MAPD", 0, &mapd)) {
         fprintf(stderr, "%s has no MAPD asset\n", map_path);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
     KkndMapData *native = calloc(1, sizeof(*native));
     if (!native || !kknd_decode_mapd(segment, segment_size, mapd, native)) {
         fprintf(stderr, "%s has an invalid or unsupported KKnD MAPD asset\n", map_path);
         kknd_map_data_destroy(native);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
-    free_blob(&blob);
+    W_FreeFile(&blob);
 
     size_t cells = (size_t)native->width * (size_t)native->height;
     if (cells == 0 || cells * (size_t)native->layer_count + 1u > UINT16_MAX) {
@@ -188,7 +188,7 @@ bool load_kknd_map(const char *map_path, GameMap *out) {
     for (int layer = 1; layer < native->layer_count && layer - 1 < MAX_TILE_OVERLAYS; ++layer) {
         out->tile_overlays[layer - 1] = calloc(cells, sizeof(uint16_t));
         if (!out->tile_overlays[layer - 1]) {
-            destroy_map(out);
+            P_FreeLevel(out);
             kknd_map_data_destroy(native);
             return false;
         }
@@ -217,7 +217,7 @@ bool load_kknd_map(const char *map_path, GameMap *out) {
 }
 
 static bool kknd_build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,
-                                   Tileset *out) {
+                                   tileset_t *out) {
     size_t cells = (size_t)map->width * (size_t)map->height;
     int frame_count = (int)(cells * (size_t)map->layer_count + 1);
     int cols = 64;
@@ -237,7 +237,7 @@ static bool kknd_build_map_tileset(SDL_Renderer *renderer, const KkndMapData *ma
                        src + (size_t)y * 32u, 32u * sizeof(uint32_t));
         }
     }
-    out->texture = rgba_texture(renderer, atlas, atlas_w, atlas_h, true);
+    out->texture = I_CreateTexture(renderer, atlas, atlas_w, atlas_h, true);
     free(atlas);
     if (!out->texture) return false;
     out->count = frame_count;
@@ -322,7 +322,7 @@ static bool kknd_decode_mobd_image(const uint8_t *segment, size_t size, uint32_t
 }
 
 static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
-                             uint32_t member, const uint32_t palette[256], SpriteSheet *out) {
+                             uint32_t member, const uint32_t palette[256], spritesheet_t *out) {
     uint32_t animation_offsets[KKND_MAX_ANIMATIONS];
     int animation_count = 0;
     uint32_t first_frame = (uint32_t)size;
@@ -411,7 +411,7 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
                 rgba[(size_t)(dy + y) * atlas_w + dx + x] = index == 0 ? 0 : palette[index];
             }
     }
-    out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+    out->texture = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
     free(rgba);
     if (!out->texture) { free(rects); free(bounds); free(displacements); goto fail; }
     out->frames = rects;
@@ -429,7 +429,7 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
     for (int block = 0; block < sequence_blocks; ++block) {
         int length = group_lengths[block * 16];
         if (length <= 0) continue;
-        SpriteSequence *sequence = &out->sequences[out->sequence_count++];
+        spritesequence_t *sequence = &out->sequences[out->sequence_count++];
         snprintf(sequence->name, sizeof(sequence->name), "%s", sequence_names[block]);
         sequence->facings = 16;
         sequence->length = length;
@@ -451,7 +451,7 @@ fail:
 }
 
 static bool kknd_load_sprite(SDL_Renderer *renderer, const char *data_root,
-                             const char *spec, const uint32_t palette[256], SpriteSheet *out) {
+                             const char *spec, const uint32_t palette[256], spritesheet_t *out) {
     char archive_rel[768];
     const char *member_name = NULL;
     const char *bar = spec ? strrchr(spec, '|') : NULL;
@@ -472,8 +472,8 @@ static bool kknd_load_sprite(SDL_Renderer *renderer, const char *data_root,
         return false;
     }
     char path[1024];
-    path_join(path, sizeof(path), data_root, archive_rel);
-    Blob blob = {0};
+    M_PathJoin(path, sizeof(path), data_root, archive_rel);
+    blob_t blob = {0};
     const uint8_t *segment = NULL;
     size_t segment_size = 0;
     if (!kknd_open_lvl(path, &blob, &segment, &segment_size)) return false;
@@ -481,17 +481,17 @@ static bool kknd_load_sprite(SDL_Renderer *renderer, const char *data_root,
     bool ok = kknd_lvl_asset(segment, segment_size, "MOBD", member_index, &member) &&
               kknd_decode_mobd(renderer, segment, segment_size, member, palette, out);
     if (!ok) fprintf(stderr, "failed to decode MOBD member %d from %s\n", member_index, path);
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return ok;
 }
 
 bool kknd_load_assets(SDL_Renderer *renderer, const char *data_root,
-                      const GameMap *map, const char *sprite_name,
-                      Tileset *tileset, SpriteSheet *unit_sprite) {
+                      const level_t *map, const char *sprite_name,
+                      tileset_t *tileset, spritesheet_t *unit_sprite) {
     const KkndMapData *native = map ? map->native_data : NULL;
     if (!native || !kknd_build_map_tileset(renderer, native, tileset)) return false;
     if (!kknd_load_sprite(renderer, data_root, sprite_name, native->palette, unit_sprite)) {
-        destroy_tileset(tileset);
+        R_FreeTileset(tileset);
         return false;
     }
     return true;

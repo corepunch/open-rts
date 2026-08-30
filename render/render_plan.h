@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_RENDER_PLAN_H
-#define OPEN_RTS_RENDER_PLAN_H
+#ifndef __RENDER_PLAN__
+#define __RENDER_PLAN__
 
 #include "actor.h"
 #include "map.h"
@@ -19,7 +19,7 @@ typedef enum {
     DRAW_COMMAND_UNIT,
 } DrawCommandKind;
 
-typedef struct {
+typedef struct drawcommand_s {
     DrawCommandKind kind;
     RenderLayer layer;
     float sort_y;
@@ -30,9 +30,9 @@ typedef struct {
             int y;
             int layer;
         } tile_overlay;
-        const MapDecoration *decoration;
-        const Mobj *unit;
+        const mapdecoration_t *decoration;
+        const mobj_t *unit;
     } ref;
-} DrawCommand;
+} drawcommand_t;
 
 #endif

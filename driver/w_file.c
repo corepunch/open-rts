@@ -34,7 +34,7 @@ uint32_t read_u32_le(const uint8_t *p) {
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
-bool load_blob(const char *path, Blob *out) {
+bool W_ReadFile(const char *path, blob_t *out) {
     memset(out, 0, sizeof(*out));
     FILE *fp = fopen(path, "rb");
     if (!fp) {
@@ -67,12 +67,12 @@ bool load_blob(const char *path, Blob *out) {
     return true;
 }
 
-void free_blob(Blob *blob) {
+void W_FreeFile(blob_t *blob) {
     free(blob->bytes);
     memset(blob, 0, sizeof(*blob));
 }
 
-void path_join(char *dst, size_t dst_size, const char *a, const char *b) {
+void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b) {
     snprintf(dst, dst_size, "%s/%s", a, b);
 }
 
@@ -82,11 +82,11 @@ int clamp255(int value) {
     return value;
 }
 
-void indexed_to_rgba(uint32_t *dst, const uint8_t *src, size_t count, const uint32_t palette[256]) {
+void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint32_t palette[256]) {
     for (size_t i = 0; i < count; ++i) dst[i] = palette[src[i]];
 }
 
-void blit_indexed_to_rgba(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
+void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                           const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]) {
     for (int y = 0; y < src_h; ++y) {
         int out_y = dst_y + y;
@@ -99,7 +99,7 @@ void blit_indexed_to_rgba(uint32_t *dst, int dst_w, int dst_h, int dst_x, int ds
     }
 }
 
-void hud_text_push(HudText *hud, const char *text, int ttl_ms) {
+void HU_PushMessage(hudtext_t *hud, const char *text, int ttl_ms) {
     if (!hud || !text || text[0] == '\0') return;
     if (ttl_ms <= 0) ttl_ms = 5000;
     int slot = hud->count;
@@ -115,7 +115,7 @@ void hud_text_push(HudText *hud, const char *text, int ttl_ms) {
     hud->messages[slot].ttl_ms = ttl_ms;
 }
 
-void hud_text_update(HudText *hud, float dt) {
+void HU_Ticker(hudtext_t *hud, float dt) {
     if (!hud || hud->count <= 0) return;
     int dt_ms = (int)lroundf(dt * 1000.0f);
     for (int i = 0; i < hud->count;) {

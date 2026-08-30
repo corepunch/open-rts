@@ -1,13 +1,13 @@
-#ifndef OPEN_RTS_MAP_H
-#define OPEN_RTS_MAP_H
+#ifndef __MAP__
+#define __MAP__
 
 #include "engine_config.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct App App;
-typedef struct Tileset Tileset;
+typedef struct app_s app_t;
+typedef struct tileset_s tileset_t;
 
 typedef enum {
     RTS_DIRECTION_COMPASS_16 = 0,
@@ -16,10 +16,10 @@ typedef enum {
     RTS_DIRECTION_DARK_REIGN_8 = 3,
 } DirectionMode;
 
-typedef struct {
+typedef struct cell_s {
     int x;
     int y;
-} Cell;
+} cell_t;
 
 enum {
     MAP_RENDER_USE_CELL_COLORS = 1 << 0,
@@ -34,16 +34,16 @@ typedef enum {
     MAP_EXTRA_OVERLAY,
 } MapExtraKind;
 
-typedef struct {
+typedef struct mapextra_s {
     MapExtraKind kind;
     int gx;
     int gy;
     int layer;
     int value;
     uint32_t flags;
-} MapExtra;
+} mapextra_t;
 
-typedef struct {
+typedef struct mapdecoration_s {
     int gx;
     int gy;
     int footprint_w;
@@ -69,9 +69,9 @@ typedef struct {
     char sprite3_name[32];
     char shadow_name[32];
     char sequence_name[16];
-} MapDecoration;
+} mapdecoration_t;
 
-typedef struct {
+typedef struct resourcevent_s {
     int gx;
     int gy;
     /* Visual/interaction attachment point inside the authored vent stamp.
@@ -81,9 +81,9 @@ typedef struct {
     int amount;
     int rate;
     bool active;
-} MapResourceVent;
+} resourcevent_t;
 
-typedef struct GameMap {
+typedef struct level_s {
     int width;
     int height;
     uint16_t *tile_ids;
@@ -95,11 +95,11 @@ typedef struct GameMap {
     uint32_t render_features;
     bool bottom_up_coordinates;
     DirectionMode direction_mode;
-    MapDecoration *decorations;
+    mapdecoration_t *decorations;
     int decoration_count;
-    MapResourceVent *resource_vents;
+    resourcevent_t *resource_vents;
     int resource_vent_count;
-    MapExtra *extras;
+    mapextra_t *extras;
     int extra_count;
     bool has_camera;
     float camera_gx;
@@ -108,19 +108,19 @@ typedef struct GameMap {
     char tileset_name[32];
     void *native_data;
     void (*destroy_native_data)(void *);
-    void (*render_transitions)(App *app, const struct GameMap *map, const Tileset *tileset,
+    void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
-} GameMap;
+} level_t;
 
-static inline int map_screen_y_for_cell(const GameMap *map, int y) {
+static inline int L_ScreenY(const level_t *map, int y) {
     return map && map->bottom_up_coordinates ? map->height - 1 - y : y;
 }
 
-static inline float map_screen_y_for_point(const GameMap *map, float y) {
+static inline float L_ScreenYF(const level_t *map, float y) {
     return map && map->bottom_up_coordinates ? (float)map->height - y : y;
 }
 
-static inline float map_world_y_from_screen_point(const GameMap *map, float y) {
+static inline float L_WorldYF(const level_t *map, float y) {
     return map && map->bottom_up_coordinates ? (float)map->height - y : y;
 }
 

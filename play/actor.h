@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_ACTOR_H
-#define OPEN_RTS_ACTOR_H
+#ifndef __ACTOR__
+#define __ACTOR__
 
 #include "engine_config.h"
 #include "map.h"
@@ -7,19 +7,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct Mobj Mobj;
-typedef struct StateContext StateContext;
-typedef void (*StateAction)(StateContext *ctx, Mobj *mo);
+typedef struct mobj_s mobj_t;
+typedef struct statecontext_s statecontext_t;
+typedef void (*actionf_p1)(statecontext_t *ctx, mobj_t *mo);
 
 typedef enum {
-    T_SELECTABLE = 1u << 0,
-    T_MOBILE = 1u << 1,
-    T_RENDERABLE = 1u << 2,
-    T_ATTACK = 1u << 3,
-    T_HARVESTER = 1u << 4,
-} Trait;
+    MF_SELECTABLE = 1u << 0,
+    MF_MOBILE = 1u << 1,
+    MF_RENDERABLE = 1u << 2,
+    MF_ATTACK = 1u << 3,
+    MF_HARVESTER = 1u << 4,
+} mobjflag_t;
 
-typedef struct {
+typedef struct actortype_s {
     uint16_t id;
     const char *name;
     const char *sprite_name;
@@ -36,13 +36,13 @@ typedef struct {
     const char *muzzle_flash_name;
     int muzzle_flash_ms;
     const char *hit_effect_name;
-} MobjType;
+} actortype_t;
 
-typedef struct {
+typedef struct state_s {
     int sprite;
     int frame;
     int tics;
-    StateAction action;
+    actionf_p1 action;
     int nextstate;
     uint32_t flags;
     int misc1;
@@ -66,9 +66,9 @@ typedef struct {
     int overlay_offset_y[RTS_MAX_STATE_FACINGS];
     int overlay_remap[RTS_MAX_STATE_FACINGS];
     int overlay_intensity[RTS_MAX_STATE_FACINGS];
-} State;
+} state_t;
 
-typedef struct {
+typedef struct mobjinfo_s {
     int doomednum;
     int spawnstate;
     int spawnhealth;
@@ -93,7 +93,7 @@ typedef struct {
     int flags;
     int raisestate;
     int muzzleflash;
-} MobjInfo;
+} mobjinfo_t;
 
 typedef enum {
     RTS_STATE_COORDS_GROUND_OFFSET = 0,
@@ -106,29 +106,29 @@ typedef enum {
     SELECTION_STYLE_BRACKETS,
 } SelectionStyle;
 
-typedef struct {
+typedef struct selectionmarker_s {
     SelectionStyle style;
     int sprite;
     int healthy_frame;
     int wounded_frame;
     int critical_frame;
     int top_offset_y;
-} SelectionMarkerInfo;
+} selectionmarker_t;
 
-typedef struct {
+typedef struct gameinfo_s {
     const char *const *sprnames;
     int sprite_count;
-    const State *states;
+    const state_t *states;
     int state_count;
-    const MobjInfo *mobjinfo;
+    const mobjinfo_t *mobjinfo;
     int mobj_type_count;
     int null_state;
     DirectionMode direction_mode;
     StateCoordMode state_coord_mode;
-    SelectionMarkerInfo selection_marker;
-} GameInfo;
+    selectionmarker_t selection_marker;
+} gameinfo_t;
 
-struct Mobj {
+struct mobj_s {
     float gx;
     float gy;
     float speed;
@@ -181,13 +181,13 @@ struct Mobj {
     char shadow_name[32];
     char muzzle_flash_name[32];
     char hit_effect_name[32];
-    Cell path[MAX_PATH_CELLS];
+    cell_t path[MAX_PATH_CELLS];
     int path_len;
     int path_index;
     int turn_timer_ms;
 };
 
-typedef struct {
+typedef struct effect_s {
     bool active;
     bool use_state;
     float gx;
@@ -209,19 +209,15 @@ typedef struct {
     bool add_decoration_on_finish;
     char sprite_name[32];
     char sequence_name[16];
-} VisualEffect;
+} effect_t;
 
-struct StateContext {
-    GameMap *map;
-    Mobj *mobjs;
+struct statecontext_s {
+    level_t *map;
+    mobj_t *mobjs;
     int *mobj_count;
-    VisualEffect *effects;
+    effect_t *effects;
     int max_effects;
-    const GameInfo *game_info;
+    const gameinfo_t *game_info;
 };
-
-/* Doom-style aliases: old code that still says Unit/ActorType keeps compiling. */
-typedef Mobj Unit;
-typedef MobjType ActorType;
 
 #endif

@@ -305,12 +305,12 @@ static int assert_dark_colony_city_fin_alignment(void) {
     return 0;
 }
 
-void A_DC_TrooperAttackStart(StateContext *ctx, Mobj *unit) { (void)ctx; (void)unit; }
-void A_DC_MuzzleFlash(StateContext *ctx, Mobj *unit) { (void)ctx; (void)unit; }
-void A_DC_Attack(StateContext *ctx, Mobj *unit) { (void)ctx; (void)unit; }
-void A_DC_Fall(StateContext *ctx, Mobj *unit) { (void)ctx; (void)unit; }
-void A_DC_ReaperDeath(StateContext *ctx, Mobj *unit) { (void)ctx; (void)unit; }
-void A_DC_Corpse(StateContext *ctx, Mobj *unit) { (void)ctx; (void)unit; }
+void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_Attack(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;

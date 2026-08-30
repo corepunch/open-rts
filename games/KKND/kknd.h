@@ -1,11 +1,11 @@
-#ifndef OPEN_RTS_KKND_H
-#define OPEN_RTS_KKND_H
+#ifndef __KKND__
+#define __KKND__
 
 #include "engine.h"
 
-bool load_kknd_map(const char *map_path, GameMap *out);
+bool load_kknd_map(const char *map_path, level_t *out);
 bool kknd_load_assets(SDL_Renderer *renderer, const char *data_root,
-                      const GameMap *map, const char *sprite_name,
-                      Tileset *tileset, SpriteSheet *unit_sprite);
+                      const level_t *map, const char *sprite_name,
+                      tileset_t *tileset, spritesheet_t *unit_sprite);
 
 #endif
