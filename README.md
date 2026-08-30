@@ -2,9 +2,73 @@
 
 <img src="https://github.com/user-attachments/assets/188b527b-6109-4130-b670-dedc3064ee03" />
 
-Small C/SDL2 base for an old-school grid-based RTS renderer/simulation,
-currently wired to Dark Reign: The Future of War, Dark Colony, and KKnD data
-files.
+`open-rts` is a small C/SDL2 engine for sprite-based, 256-color strategy games,
+currently wired to the original data files from Dark Reign: The Future of War,
+Dark Colony, 7th Legion, and KKnD.
+
+## Why open-rts exists
+
+This is a preservation engine, not a general-purpose game-construction kit. Its
+goal is to reproduce a broad family of DOS and early Windows RTS games closely
+enough that they remain easy to run, study, play against the computer, and play
+over a LAN. Old games are shared memories: the long-term aim is to let people
+revisit them with friends and introduce them to their children without first
+reconstructing a period-correct machine or fighting an abandoned network stack.
+
+The architecture is deliberately influenced by Doom, Heretic, and Hexen. Those
+engines solved a similar problem with unusually direct, durable code:
+
+- `G_*` coordinates the game, `P_*` owns simulation, `R_*` owns rendering,
+  `W_*` reads native resources, and `HU_*` owns the HUD.
+- Units advance through compiled `state_t`-style tables with typed C action
+  callbacks. State transitions, animation timing, and gameplay behavior are
+  visible to the compiler and debugger.
+- Simulation advances in discrete tics, separate from rendered frames. The
+  intended network model is deterministic lock-step: exchange player commands
+  for each tic, not continuously serialized world state.
+- Each supported game keeps its native file formats and game-shaped procedures.
+  Shared code is extracted only after the games demonstrate that it is truly
+  shared.
+
+The result is Doom's kind of architecture adapted to tile maps, large numbers
+of independently commanded units, paletted sprites, terrain layers, resource
+economies, production queues, computer opponents, and LAN play.
+
+### Deliberately not a scripting platform
+
+Many open-source RTS engines optimize for being universal modding platforms.
+That commonly produces a large C++ core surrounded by Lua unit definitions,
+JSON-like configuration, binding generators, asset-conversion pipelines, and
+media libraries unrelated to the simulation. This can be useful for building
+new games, but it is a poor fit for reproducing old ones: behavior is scattered
+between languages, type errors move from compile time to runtime, call paths are
+harder to follow, and a simple unit action may cross a scripting boundary for no
+good reason.
+
+[Stratagus](https://github.com/Wargus/stratagus), for example, is a capable and
+long-running project, but its current build requires C++17, Lua 5.1 and
+tolua++, SDL_image, SDL_mixer, PNG and zlib, with further optional media
+libraries. Its games place substantial configuration, AI, triggers, and unit
+behavior in Lua. That is exactly the architecture `open-rts` chooses not to
+copy. A unit thinker written in C is fast to compile, statically checked, easy
+to trace, and usually shorter than the machinery required to expose the same
+logic safely to a scripting runtime.
+
+[OpenRA](https://github.com/OpenRA/OpenRA) makes the opposite tradeoff in a
+different direction: a large C# engine on the .NET runtime, forests of YAML
+traits and mod manifests, Lua mission scripts, NuGet-managed native libraries,
+and Python tooling in its mod SDK. Its flexibility is impressive, but requiring
+a managed runtime, package ecosystem, trait-composition system, data-file
+validation, and multiple languages to reproduce a 1990s strategy game is
+architectural excess for this project's purpose. `open-rts` would rather
+recompile a small, typed C program than start a virtual machine and interpret a
+stack of loosely typed configuration before the first simulation tic.
+
+There is no plugin registry, embedded scripting language, or generic object
+schema here. Gameplay tables are C. Original assets are decoded directly.
+Game-specific behavior stays beside the game that owns it. The standard is not
+how configurable the engine looks in a feature list; it is whether the original
+game behaves correctly and whether another programmer can understand why.
 
 ## Build
 
