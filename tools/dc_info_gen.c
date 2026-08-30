@@ -1148,12 +1148,12 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const State states[NUMSTATES];\n");
     fprintf(out, "extern const MobjInfo mobjinfo[NUMMOBJTYPES];\n");
     fprintf(out, "extern const GameInfo dark_colony_game_info;\n\n");
-    fprintf(out, "void A_DC_TrooperAttackStart(StateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_Attack(StateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_Fall(StateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_ReaperDeath(StateContext *ctx, Unit *unit);\n");
-    fprintf(out, "void A_DC_Corpse(StateContext *ctx, Unit *unit);\n\n");
+    fprintf(out, "void A_DC_TrooperAttackStart(StateContext *ctx, Mobj *unit);\n");
+    fprintf(out, "void A_DC_MuzzleFlash(StateContext *ctx, Mobj *unit);\n");
+    fprintf(out, "void A_DC_Attack(StateContext *ctx, Mobj *unit);\n");
+    fprintf(out, "void A_DC_Fall(StateContext *ctx, Mobj *unit);\n");
+    fprintf(out, "void A_DC_ReaperDeath(StateContext *ctx, Mobj *unit);\n");
+    fprintf(out, "void A_DC_Corpse(StateContext *ctx, Mobj *unit);\n\n");
     fprintf(out, "#endif\n");
 }
 

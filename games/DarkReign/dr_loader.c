@@ -554,7 +554,7 @@ static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *rende
 }
 
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const GameMap *map, const Unit *units,
+                                        const GameMap *map, const Mobj *units,
                                         int unit_count, SpriteCache *cache) {
     memset(cache, 0, sizeof(*cache));
     uint32_t sprite_palette[256];
@@ -579,7 +579,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                           dec->sprite3_name, sprite_palette, terrain_palette)) ok = false;
     }
     for (int i = 0; i < unit_count; ++i) {
-        const Unit *unit = &units[i];
+        const Mobj *unit = &units[i];
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
                                           unit->shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
@@ -1362,7 +1362,7 @@ bool load_dark_map(const char *map_path, GameMap *out) {
 
 /* ── unit SCN parser ────────────────────────────────────────────────────── */
 
-int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_units) {
+int load_dark_reign_initial_units(const char *map_path, Mobj *units, int max_units) {
     if (max_units <= 0) return 0;
     DarkReignDefinitions defs;
     dark_reign_load_definitions(map_path, &defs);
@@ -1456,7 +1456,7 @@ int load_dark_reign_initial_units(const char *map_path, Unit *units, int max_uni
             line = next;
         }
         if (have_start && associated_type[0] != '\0') {
-            Unit *unit = &units[count];
+            Mobj *unit = &units[count];
             unit->gx = (float)start_x / 24.0f;
             unit->gy = (float)start_y / 24.0f;
             unit->speed = 4.5f;

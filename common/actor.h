@@ -7,9 +7,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct Unit Unit;
+typedef struct Mobj Mobj;
 typedef struct StateContext StateContext;
-typedef void (*StateAction)(StateContext *ctx, Unit *unit);
+typedef void (*StateAction)(StateContext *ctx, Mobj *mo);
 
 typedef enum {
     T_SELECTABLE = 1u << 0,
@@ -36,7 +36,7 @@ typedef struct {
     const char *muzzle_flash_name;
     int muzzle_flash_ms;
     const char *hit_effect_name;
-} ActorType;
+} MobjType;
 
 typedef struct {
     int sprite;
@@ -128,7 +128,7 @@ typedef struct {
     SelectionMarkerInfo selection_marker;
 } GameInfo;
 
-typedef struct Unit {
+struct Mobj {
     float gx;
     float gy;
     float speed;
@@ -185,7 +185,7 @@ typedef struct Unit {
     int path_len;
     int path_index;
     int turn_timer_ms;
-} Unit;
+};
 
 typedef struct {
     bool active;
@@ -213,11 +213,15 @@ typedef struct {
 
 struct StateContext {
     GameMap *map;
-    Unit *units;
-    int *unit_count;
+    Mobj *mobjs;
+    int *mobj_count;
     VisualEffect *effects;
     int max_effects;
     const GameInfo *game_info;
 };
+
+/* Doom-style aliases: old code that still says Unit/ActorType keeps compiling. */
+typedef Mobj Unit;
+typedef MobjType ActorType;
 
 #endif

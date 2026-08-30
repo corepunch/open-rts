@@ -539,11 +539,11 @@ extern const State states[NUMSTATES];
 extern const MobjInfo mobjinfo[NUMMOBJTYPES];
 extern const GameInfo dark_colony_game_info;
 
-void A_DC_TrooperAttackStart(StateContext *ctx, Unit *unit);
-void A_DC_MuzzleFlash(StateContext *ctx, Unit *unit);
-void A_DC_Attack(StateContext *ctx, Unit *unit);
-void A_DC_Fall(StateContext *ctx, Unit *unit);
-void A_DC_ReaperDeath(StateContext *ctx, Unit *unit);
-void A_DC_Corpse(StateContext *ctx, Unit *unit);
+void A_DC_TrooperAttackStart(StateContext *ctx, Mobj *unit);
+void A_DC_MuzzleFlash(StateContext *ctx, Mobj *unit);
+void A_DC_Attack(StateContext *ctx, Mobj *unit);
+void A_DC_Fall(StateContext *ctx, Mobj *unit);
+void A_DC_ReaperDeath(StateContext *ctx, Mobj *unit);
+void A_DC_Corpse(StateContext *ctx, Mobj *unit);
 
 #endif

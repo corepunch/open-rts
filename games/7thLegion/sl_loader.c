@@ -538,7 +538,7 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
         return false;
     }
 
-    /* Unit sprite */
+    /* Mobj sprite */
     char sprite_path[512];
     snprintf(sprite_path, sizeof(sprite_path), "%s/%s", data_root,
              sprite_name && sprite_name[0] ? sprite_name : "GFX/TROOP1W.BIM");
@@ -571,7 +571,7 @@ static bool sl_cache_bim_sprite(SpriteCache *cache, SDL_Renderer *renderer,
 }
 
 bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                             const GameMap *map, const Unit *units, int unit_count,
+                             const GameMap *map, const Mobj *units, int unit_count,
                              SpriteCache *cache) {
     (void)map;
     uint32_t palette[256];
@@ -587,7 +587,7 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
     return ok;
 }
 
-int sl_load_initial_units(const char *map_path, Unit *units, int max_units) {
+int sl_load_initial_units(const char *map_path, Mobj *units, int max_units) {
     if (!units || max_units <= 0) return 0;
     SlMissionConfig mission;
     if (!sl_load_first_mission_config(map_path, &mission)) return 0;
@@ -596,7 +596,7 @@ int sl_load_initial_units(const char *map_path, Unit *units, int max_units) {
     int troop_count = strlen(mission.player_start) > 14 ? mission.player_start[14] - '0' : 0;
     int base_count = strlen(mission.player_start) > 42 ? mission.player_start[42] - '0' : 0;
     for (int i = 0; i < troop_count && count < max_units; ++i) {
-        Unit *unit = &units[count++];
+        Mobj *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
         unit->gx = (float)(mission.start_y - 6 + i * 2) + 0.5f;
         unit->gy = (float)(mission.start_x - 1) + 0.5f;
@@ -605,7 +605,7 @@ int sl_load_initial_units(const char *map_path, Unit *units, int max_units) {
         unit->facing_code = 8;
     }
     for (int i = 0; i < base_count && count < max_units; ++i) {
-        Unit *unit = &units[count++];
+        Mobj *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
         unit->gx = (float)(mission.start_y + 4 + i * 2) + 0.5f;
         unit->gy = (float)(mission.start_x + 1) + 0.5f;

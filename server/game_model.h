@@ -16,11 +16,9 @@
 typedef struct RtsGameModel RtsGameModel;
 
 typedef struct {
-    /* Plugin id, for example "dark-colony". Defaults to Dark Colony when NULL. */
-    const char *game_id;
-    /* Root data directory for the selected game. Defaults to the plugin root. */
+    /* Root data directory for the game. Defaults to g_game_default_root when NULL. */
     const char *data_root;
-    /* Relative-to-data-root or absolute mission/map path. Defaults to the plugin map. */
+    /* Relative-to-data-root or absolute mission/map path. Defaults to g_game_default_map. */
     const char *map_path;
 } RtsGameModelConfig;
 

@@ -13,13 +13,13 @@
 
 void debug_effects_log(const char *fmt, ...);
 
-float unit_radius_cells(const Unit *unit);
-bool unit_position_walkable(const GameMap *map, const Unit *unit, float gx, float gy);
-void clamp_unit_position_to_map(const GameMap *map, Unit *unit);
+float unit_radius_cells(const Mobj *unit);
+bool unit_position_walkable(const GameMap *map, const Mobj *unit, float gx, float gy);
+void clamp_unit_position_to_map(const GameMap *map, Mobj *unit);
 
-void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
+void issue_move_order_at(const GameMap *map, Mobj *units, int unit_count,
                              float goal_gx, float goal_gy);
-bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
+bool issue_harvest_order_at(const GameMap *map, Mobj *units, int unit_count,
                                 float gx, float gy);
 
 #endif

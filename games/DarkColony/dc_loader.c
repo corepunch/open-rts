@@ -838,7 +838,7 @@ static bool sprite_cache_load_dark_colony(SpriteCache *cache, SDL_Renderer *rend
 /* ── public entry points ────────────────────────────────────────────────── */
 
 bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const GameMap *map, const Unit *units, int unit_count,
+                                   const GameMap *map, const Mobj *units, int unit_count,
                                    SpriteCache *cache) {
     bool ok = true;
     static const char *const ui_sprites[] = {
@@ -1972,7 +1972,7 @@ static int dark_colony_city_render_z_fixed(const DcObject *object, int object_in
     return object->z_pos - slot_z * 8;
 }
 
-static bool append_dark_colony_object_unit(Unit *units, int *count, int max_units,
+static bool append_dark_colony_object_unit(Mobj *units, int *count, int max_units,
                                            int object_index,
                                            const DcObject *object, int race,
                                            const DarkColonyUnitConfig *unit_config,
@@ -1991,7 +1991,7 @@ static bool append_dark_colony_object_unit(Unit *units, int *count, int max_unit
     int mobj_type = dark_colony_mobj_type_for_type(type, race);
     if (!sprite || mobj_type <= 0) return false;
 
-    Unit *u = &units[*count];
+    Mobj *u = &units[*count];
     memset(u, 0, sizeof(*u));
     int render_x_pos = city_object ? dark_colony_city_render_x_fixed(object, object_index) :
         object->x_pos;
@@ -2036,7 +2036,7 @@ static bool append_dark_colony_object_unit(Unit *units, int *count, int max_unit
     return true;
 }
 
-int load_dark_colony_initial_units(const char *map_path, Unit *units, int max_units) {
+int load_dark_colony_initial_units(const char *map_path, Mobj *units, int max_units) {
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
     DarkColonyScenarioFile scenario;

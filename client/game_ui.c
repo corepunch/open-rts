@@ -41,7 +41,7 @@ bool game_ui_load(GameUi *ui, SDL_Renderer *renderer, const char *data_root,
 }
 
 static void game_ui_draw_minimap(const GameUi *ui, App *app, const GameMap *map,
-                                 const Unit *units, int unit_count) {
+                                 const Mobj *units, int unit_count) {
     SDL_Rect rect = ui_scaled_rect(app, ui->definition, ui->definition->minimap);
     if (rect.w <= 0 || rect.h <= 0 || !map || map->width <= 0 || map->height <= 0) return;
     SDL_SetRenderDrawColor(app->renderer, 5, 7, 7, 255);
@@ -139,7 +139,7 @@ static void game_ui_draw_commands(const GameUi *ui, App *app, const SpriteCache 
 }
 
 void game_ui_render(const GameUi *ui, App *app, const GameMap *map,
-                    const Unit *units, int unit_count, const SpriteCache *sprites) {
+                    const Mobj *units, int unit_count, const SpriteCache *sprites) {
     if (!ui || !ui->ready || !ui->definition || !app) return;
     const GameUiDefinition *def = ui->definition;
     for (int i = 0; i < def->image_count; ++i) {

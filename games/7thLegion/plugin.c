@@ -1,4 +1,4 @@
-#include "plugin.h"
+#include "game.h"
 #include "sl_types.h"
 
 bool sl_load_map(const char *map_path, GameMap *out);
@@ -101,67 +101,52 @@ static const GameInfo SL_GAME_INFO = {
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
-static const Plugin SL_PLUGIN = {
-    .id             = "7legion",
-    .name           = "7th Legion",
-    .version        = "0.1",
-    .default_root   = "data/7LEGION",
-    .default_map    = "DATA/MAPT.000",
-    .default_sprite = "GFX/LTROOP.BIM",
-    .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
-                      RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
-                      RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
-                      RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
-                      RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
-                      RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
-    .cell_w         = SL_TILE_W,
-    .cell_h         = SL_TILE_H,
-    .game_info      = &SL_GAME_INFO,
-    .actor_types    = SL_ACTOR_TYPES,
-    .actor_type_count = (int)(sizeof(SL_ACTOR_TYPES) / sizeof(SL_ACTOR_TYPES[0])),
-    .debug_enemy_type_id = 1,
-    .capabilities   = {
-        .map_format   = MAP_FORMAT_UNSPECIFIED,
-        .capabilities = PLUGIN_CAP_SOFTWARE_RENDERER_SAFE | PLUGIN_CAP_RUNTIME_SPRITES,
-        .data_capability     = "7legion:data/7LEGION",
-        .graphics_capability = "7legion:bim-col",
-    },
-    .definition = {
-        .id             = "7legion",
-        .name           = "7th Legion",
-        .version        = "0.1",
-        .default_root   = "data/7LEGION",
-        .default_map    = "DATA/MAPT.000",
-        .default_sprite = "GFX/LTROOP.BIM",
-        .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
-                          RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
-                          RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
-                          RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
-                          RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
-                          RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
-        .cell_w         = SL_TILE_W,
-        .cell_h         = SL_TILE_H,
-        .game_info      = &SL_GAME_INFO,
-        .actor_types    = SL_ACTOR_TYPES,
-        .actor_type_count = (int)(sizeof(SL_ACTOR_TYPES) / sizeof(SL_ACTOR_TYPES[0])),
-        .debug_enemy_type_id = 1,
-        .capabilities   = {
-            .map_format   = MAP_FORMAT_UNSPECIFIED,
-            .capabilities = PLUGIN_CAP_SOFTWARE_RENDERER_SAFE | PLUGIN_CAP_RUNTIME_SPRITES,
-            .data_capability     = "7legion:data/7LEGION",
-            .graphics_capability = "7legion:bim-col",
-        },
-    },
-    .loaders = {
-        .load_map           = sl_load_map,
-        .load_assets        = sl_load_assets,
-        .load_initial_units = sl_load_initial_units,
-        .load_runtime_sprites = sl_load_runtime_sprites,
-    },
-    .load_map           = sl_load_map,
-    .load_assets        = sl_load_assets,
-    .load_initial_units = sl_load_initial_units,
-    .load_runtime_sprites = sl_load_runtime_sprites,
-};
+/* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
-const Plugin *open_rts_plugin_entry(void) { return &SL_PLUGIN; }
+const char *const g_game_id            = "7legion";
+const char *const g_game_name          = "7th Legion";
+const char *const g_game_default_root  = "data/7LEGION";
+const char *const g_game_default_map   = "DATA/MAPT.000";
+const char *const g_game_default_sprite = "GFX/LTROOP.BIM";
+const int g_cell_w = SL_TILE_W;
+const int g_cell_h = SL_TILE_H;
+const uint16_t g_debug_enemy_type = 1;
+const GameInfo *const gameinfo = &SL_GAME_INFO;
+const MobjType *const mobjTypes =
+    (const MobjType *)SL_ACTOR_TYPES;
+const int mobjTypeCount =
+    (int)(sizeof(SL_ACTOR_TYPES) / sizeof(SL_ACTOR_TYPES[0]));
+const GameUiDefinition *const gameui = NULL;
+
+/* ── G_* / R_* interface ────────────────────────────────────────────────── */
+
+bool G_LoadMap(const char *path, GameMap *out) {
+    return sl_load_map(path, out);
+}
+
+bool R_LoadAssets(SDL_Renderer *renderer, const char *root, const GameMap *map,
+                  const char *sprite, Tileset *tileset, SpriteSheet *unit_sprite) {
+    return sl_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+}
+
+int G_SpawnThings(const char *path, Mobj *mobjs, int max) {
+    return sl_load_initial_units(path, (Unit *)mobjs, max);
+}
+
+bool R_LoadRuntimeSprites(SDL_Renderer *renderer, const char *root, const GameMap *map,
+                          const Mobj *mobjs, int count, SpriteCache *cache) {
+    return sl_load_runtime_sprites(renderer, root, map, (const Unit *)mobjs, count, cache);
+}
+
+bool R_LoadFont(SDL_Renderer *renderer, const char *root, BitmapFont *font) {
+    (void)renderer; (void)root; (void)font;
+    return false;
+}
+
+void *G_LoadMission(const char *path) { (void)path; return NULL; }
+void  G_UpdateMission(void *m, GameMap *map, Mobj *mobjs, int *count,
+                      VisualEffect *effects, int max_effects, HudText *hud, float dt) {
+    (void)m; (void)map; (void)mobjs; (void)count;
+    (void)effects; (void)max_effects; (void)hud; (void)dt;
+}
+void  G_FreeMission(void *m) { (void)m; }

@@ -35,7 +35,7 @@ bool map_walkable(const GameMap *map, int x, int y) {
     return map_contains(map, x, y) && (!map->blocked || map->blocked[map_index(map, x, y)] == 0);
 }
 
-float unit_radius_cells(const Unit *unit) {
+float unit_radius_cells(const Mobj *unit) {
     if (unit && unit->radius > 0.05f) return unit->radius;
     return 0.42f;
 }
@@ -70,17 +70,17 @@ static bool map_circle_walkable(const GameMap *map, float gx, float gy, float ra
     return true;
 }
 
-bool unit_position_walkable(const GameMap *map, const Unit *unit, float gx, float gy) {
+bool unit_position_walkable(const GameMap *map, const Mobj *unit, float gx, float gy) {
     return map_circle_walkable(map, gx, gy, unit_radius_cells(unit));
 }
 
-static bool position_overlaps_reserved_goal(const Unit *units, int unit_count, int self_index,
+static bool position_overlaps_reserved_goal(const Mobj *units, int unit_count, int self_index,
                                             float gx, float gy, float radius,
                                             uint32_t order_id) {
     if (!units || order_id == 0) return false;
     for (int i = 0; i < unit_count; ++i) {
         if (i == self_index) continue;
-        const Unit *other = &units[i];
+        const Mobj *other = &units[i];
         if (other->remove || other->hp <= 0 || other->move_order_id != order_id) continue;
         float min_dist = radius + unit_radius_cells(other);
         float dx = other->move_goal_gx - gx;
@@ -90,7 +90,7 @@ static bool position_overlaps_reserved_goal(const Unit *units, int unit_count, i
     return false;
 }
 
-void clamp_unit_position_to_map(const GameMap *map, Unit *unit) {
+void clamp_unit_position_to_map(const GameMap *map, Mobj *unit) {
     if (!map || !unit || map->width <= 0 || map->height <= 0) return;
     float r = unit_radius_cells(unit);
     float min_x = r;
@@ -265,7 +265,7 @@ static bool find_nearest_walkable_position(const GameMap *map, float wanted_gx, 
 }
 
 static bool find_nearest_unreserved_walkable_position(const GameMap *map,
-                                                      const Unit *units, int unit_count,
+                                                      const Mobj *units, int unit_count,
                                                       int self_index, uint32_t order_id,
                                                       float wanted_gx, float wanted_gy,
                                                       float unit_radius, int search_radius,
@@ -446,7 +446,7 @@ static int flow_path_find(const GameMap *map, const FlowCell *field, Cell start,
 
 
 
-void issue_move_order_at(const GameMap *map, Unit *units, int unit_count,
+void issue_move_order_at(const GameMap *map, Mobj *units, int unit_count,
                                 float goal_gx, float goal_gy) {
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
@@ -544,7 +544,7 @@ static int find_resource_vent_at(const GameMap *map, float gx, float gy) {
     return best;
 }
 
-bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
+bool issue_harvest_order_at(const GameMap *map, Mobj *units, int unit_count,
                                    float gx, float gy) {
     int vent_index = find_resource_vent_at(map, gx, gy);
     if (vent_index < 0) return false;
@@ -564,7 +564,7 @@ bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
     bool issued = false;
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
-        Unit *unit = &units[i];
+        Mobj *unit = &units[i];
         if (!unit->selected || unit->owner != 0 || unit->hp <= 0) continue;
         if ((unit->traits & (T_MOBILE | T_HARVESTER)) !=
             (T_MOBILE | T_HARVESTER)) {
@@ -620,6 +620,6 @@ bool issue_harvest_order_at(const GameMap *map, Unit *units, int unit_count,
     return issued;
 }
 
-void issue_move_order(const GameMap *map, Unit *units, int unit_count, Cell goal) {
+void issue_move_order(const GameMap *map, Mobj *units, int unit_count, Cell goal) {
     issue_move_order_at(map, units, unit_count, (float)goal.x + 0.5f, (float)goal.y + 0.5f);
 }

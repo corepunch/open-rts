@@ -68,7 +68,7 @@ static void resolve_state_frame(const State *state, int facing_code,
     if (intensity_out) *intensity_out = intensity;
 }
 
-static void apply_state_visuals(const GameInfo *game_info, Unit *unit,
+static void apply_state_visuals(const GameInfo *game_info, Mobj *unit,
                                     const State *state) {
     if (!game_info || !unit || !state) return;
     unit->sprite_id = state->sprite;
@@ -95,7 +95,7 @@ static void apply_effect_state_visuals(const GameInfo *game_info, VisualEffect *
     }
 }
 
-bool set_unit_state(StateContext *ctx, Unit *unit, int state_id) {
+bool set_unit_state(StateContext *ctx, Mobj *unit, int state_id) {
     const GameInfo *game_info = ctx ? ctx->game_info : NULL;
     if (!game_info || !unit) return false;
     int guard = 0;
@@ -154,7 +154,7 @@ static bool set_effect_state(const GameInfo *game_info, VisualEffect *effect,
     return false;
 }
 
-void apply_mobjinfo_defaults(const GameInfo *game_info, Unit *unit) {
+void apply_mobjinfo_defaults(const GameInfo *game_info, Mobj *unit) {
     if (!game_info || !unit || !game_info->mobjinfo ||
         unit->type_id <= 0 || unit->type_id >= game_info->mobj_type_count) {
         return;
@@ -256,7 +256,7 @@ static void direction_vector_from_map_code(const GameMap *map, const GameInfo *g
     if (map && map->bottom_up_coordinates) *dy = -*dy;
 }
 
-static bool unit_has_attack_target_in_range(const Unit *attacker, const Unit *units, int unit_count,
+static bool unit_has_attack_target_in_range(const Mobj *attacker, const Mobj *units, int unit_count,
                                             int *target_index_out) {
     if (target_index_out) *target_index_out = -1;
     if (!attacker || !units || unit_count <= 0 ||
@@ -267,7 +267,7 @@ static bool unit_has_attack_target_in_range(const Unit *attacker, const Unit *un
 
     int preferred = attacker->attack_target;
     if (preferred >= 0 && preferred < unit_count) {
-        const Unit *target = &units[preferred];
+        const Mobj *target = &units[preferred];
         if (!target->remove && target->hp > 0 && target->owner != attacker->owner) {
             float dx = target->gx - attacker->gx;
             float dy = target->gy - attacker->gy;
@@ -281,7 +281,7 @@ static bool unit_has_attack_target_in_range(const Unit *attacker, const Unit *un
     int best = -1;
     float best_dist2 = attacker->attack_range * attacker->attack_range;
     for (int i = 0; i < unit_count; ++i) {
-        const Unit *candidate = &units[i];
+        const Mobj *candidate = &units[i];
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             candidate->owner == attacker->owner) {
             continue;
@@ -359,7 +359,7 @@ bool spawn_state_effect(StateContext *ctx, int state_id, float gx, float gy, int
     return false;
 }
 
-static const char *death_sequence_name_for_unit(const Unit *unit) {
+static const char *death_sequence_name_for_unit(const Mobj *unit) {
     (void)unit;
     return "die";
 }
@@ -389,7 +389,7 @@ static void add_effect_finish_decoration(GameMap *map, const VisualEffect *effec
                       dec->facing_code, dec->frame_index, map->decoration_count);
 }
 
-bool unit_add_corpse_decoration(StateContext *ctx, const Unit *unit) {
+bool unit_add_corpse_decoration(StateContext *ctx, const Mobj *unit) {
     if (!ctx || !ctx->map || !unit || unit->sprite_name[0] == '\0' ||
         ctx->map->decoration_count >= MAX_DECORATIONS) {
         return false;
@@ -415,16 +415,16 @@ bool unit_add_corpse_decoration(StateContext *ctx, const Unit *unit) {
     return true;
 }
 
-bool unit_fire_attack(StateContext *ctx, Unit *attacker) {
-    if (!ctx || !attacker || !ctx->units || !ctx->unit_count) return false;
-    int count = *ctx->unit_count;
+bool unit_fire_attack(StateContext *ctx, Mobj *attacker) {
+    if (!ctx || !attacker || !ctx->mobjs || !ctx->mobj_count) return false;
+    int count = *ctx->mobj_count;
     int target_index = attacker->attack_target;
-    if (target_index < 0 || target_index >= count || ctx->units[target_index].hp <= 0 ||
-        ctx->units[target_index].owner == attacker->owner) {
+    if (target_index < 0 || target_index >= count || ctx->mobjs[target_index].hp <= 0 ||
+        ctx->mobjs[target_index].owner == attacker->owner) {
         target_index = -1;
         float best_dist2 = attacker->attack_range * attacker->attack_range;
         for (int i = 0; i < count; ++i) {
-            Unit *candidate = &ctx->units[i];
+            Mobj *candidate = &ctx->mobjs[i];
             if (candidate == attacker || candidate->hp <= 0 || candidate->owner == attacker->owner)
                 continue;
             float dx = candidate->gx - attacker->gx;
@@ -438,7 +438,7 @@ bool unit_fire_attack(StateContext *ctx, Unit *attacker) {
     }
     if (target_index < 0) return false;
 
-    Unit *target = &ctx->units[target_index];
+    Mobj *target = &ctx->mobjs[target_index];
     const State *attack_state = state_at(ctx->game_info, attacker->state_id);
     int dir_slot = state_facing_slot(attack_state, attacker->facing_code);
     const char *sprite_name = "(unknown)";
@@ -505,14 +505,14 @@ void update_visual_effects(GameMap *map, VisualEffect *effects, int max_effects,
     }
 }
 
-static void separate_units(const GameMap *map, Unit *units, int count) {
+static void separate_units(const GameMap *map, Mobj *units, int count) {
     if (!units || count <= 1) return;
     for (int iter = 0; iter < 3; ++iter) {
         for (int i = 0; i < count; ++i) {
-            Unit *a = &units[i];
+            Mobj *a = &units[i];
             if (a->remove || a->hp <= 0 || (a->traits & T_MOBILE) == 0) continue;
             for (int j = i + 1; j < count; ++j) {
-                Unit *b = &units[j];
+                Mobj *b = &units[j];
                 if (b->remove || b->hp <= 0 || (b->traits & T_MOBILE) == 0) continue;
                 float min_dist = unit_radius_cells(a) + unit_radius_cells(b);
                 float dx = b->gx - a->gx;
@@ -548,7 +548,7 @@ static void separate_units(const GameMap *map, Unit *units, int count) {
     }
 }
 
-static bool move_unit_if_walkable(const GameMap *map, Unit *unit, float gx, float gy) {
+static bool move_unit_if_walkable(const GameMap *map, Mobj *unit, float gx, float gy) {
     if (!unit) return false;
     if (unit_position_walkable(map, unit, gx, gy)) {
         unit->gx = gx;
@@ -566,20 +566,20 @@ static bool move_unit_if_walkable(const GameMap *map, Unit *unit, float gx, floa
     return false;
 }
 
-static bool unit_is_following_path(const Unit *unit) {
+static bool unit_is_following_path(const Mobj *unit) {
     return unit && unit->path_index > 0 && unit->path_index < unit->path_len;
 }
 
-static bool final_goal_reaches_arrived_order_cluster(const Unit *units, int count, int self_index,
+static bool final_goal_reaches_arrived_order_cluster(const Mobj *units, int count, int self_index,
                                                      float tx, float ty, float dist_to_goal) {
     if (!units || self_index < 0 || self_index >= count) return false;
-    const Unit *unit = &units[self_index];
+    const Mobj *unit = &units[self_index];
     if (unit->move_order_id == 0) return false;
     float radius = unit_radius_cells(unit);
 
     for (int i = 0; i < count; ++i) {
         if (i == self_index) continue;
-        const Unit *other = &units[i];
+        const Mobj *other = &units[i];
         if (other->remove || other->hp <= 0 || other->move_order_id != unit->move_order_id) {
             continue;
         }
@@ -602,14 +602,14 @@ static bool final_goal_reaches_arrived_order_cluster(const Unit *units, int coun
     return false;
 }
 
-static float unit_harvest_interaction_radius_cells(const Unit *unit) {
+static float unit_harvest_interaction_radius_cells(const Mobj *unit) {
     float radius = unit_radius_cells(unit) + 0.55f;
     if (radius < 0.75f) radius = 0.75f;
     if (radius > 1.10f) radius = 1.10f;
     return radius;
 }
 
-static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
+static bool update_unit_harvest(GameMap *map, Mobj *unit, int dt_ms,
                                 const GameInfo *game_info) {
     if (!map || !unit || (unit->traits & T_HARVESTER) == 0 ||
         unit->harvest_target < 0) {
@@ -665,7 +665,7 @@ static bool update_unit_harvest(GameMap *map, Unit *unit, int dt_ms,
     return true;
 }
 
-void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effects,
+void update_units(GameMap *map, Mobj *units, int *unit_count, VisualEffect *effects,
                   int max_effects, const GameInfo *game_info, float dt) {
     if (game_info) {
         if (!units || !unit_count || *unit_count <= 0) return;
@@ -673,15 +673,15 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
         int dt_ms = (int)lroundf(dt * 1000.0f);
         StateContext ctx = {
             .map = map,
-            .units = units,
-            .unit_count = unit_count,
+            .mobjs = units,
+            .mobj_count = unit_count,
             .effects = effects,
             .max_effects = max_effects,
             .game_info = game_info,
         };
 
         for (int i = 0; i < count; ++i) {
-            Unit *u = &units[i];
+            Mobj *u = &units[i];
             if (u->remove) continue;
             if (u->state_id <= 0) apply_mobjinfo_defaults(game_info, u);
             if (u->tics > 0) {
@@ -707,7 +707,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
                     int stop_target = -1;
                     if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                         u->attack_target = stop_target;
-                        Unit *target = &units[stop_target];
+                        Mobj *target = &units[stop_target];
                         u->facing_code = direction_code_from_map_vector(map, game_info,
                                                                          target->gx - u->gx,
                                                                          target->gy - u->gy);
@@ -817,7 +817,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
         separate_units(map, units, count);
 
         for (int i = 0; i < count; ++i) {
-            Unit *attacker = &units[i];
+            Mobj *attacker = &units[i];
             if (attacker->remove || attacker->hp <= 0 ||
                 (attacker->traits & T_ATTACK) == 0 ||
                 attacker->attack_damage <= 0 || attacker->attack_range <= 0.0f ||
@@ -846,7 +846,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
             attacker->attack_target = target_index;
             if (target_index < 0) continue;
 
-            Unit *target = &units[target_index];
+            Mobj *target = &units[target_index];
             attacker->facing_code = direction_code_from_map_vector(map, game_info,
                                                                    target->gx - attacker->gx,
                                                                    target->gy - attacker->gy);
@@ -872,7 +872,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
     int count = *unit_count;
     int dt_ms = (int)lroundf(dt * 1000.0f);
     for (int i = 0; i < count; ++i) {
-        Unit *u = &units[i];
+        Mobj *u = &units[i];
         if (u->hp <= 0) {
             continue;
         }
@@ -888,7 +888,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
             int stop_target = -1;
             if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                 u->attack_target = stop_target;
-                Unit *target = &units[stop_target];
+                Mobj *target = &units[stop_target];
                 u->facing_code = direction_code_from_map_vector(map, NULL,
                                                                 target->gx - u->gx,
                                                                 target->gy - u->gy);
@@ -947,7 +947,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
     separate_units(map, units, count);
 
     for (int i = 0; i < count; ++i) {
-        Unit *attacker = &units[i];
+        Mobj *attacker = &units[i];
         if (attacker->hp <= 0 || (attacker->traits & T_ATTACK) == 0 ||
             attacker->attack_damage <= 0 || attacker->attack_range <= 0.0f) {
             continue;
@@ -968,7 +968,7 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
         attacker->attack_target = target_index;
         if (target_index < 0) continue;
 
-        Unit *target = &units[target_index];
+        Mobj *target = &units[target_index];
         attacker->facing_code = direction_code_from_map_vector(map, NULL,
                                                                target->gx - attacker->gx,
                                                                target->gy - attacker->gy);

@@ -576,7 +576,7 @@ static bool point_in_rect(int x, int y, SDL_Rect r) {
     return x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
 }
 
-static float unit_pick_radius_px(const App *app, const Unit *unit) {
+static float unit_pick_radius_px(const App *app, const Mobj *unit) {
     float cell = ((float)app_cell_w(app) + (float)app_cell_h(app)) * 0.5f;
     float radius = unit_radius_cells(unit) * cell;
     float min_radius = 12.0f;
@@ -595,7 +595,7 @@ static bool circle_intersects_rect(float cx, float cy, float radius, SDL_Rect r)
     return dx * dx + dy * dy <= radius * radius;
 }
 
-static int sprite_frame_for_unit(const SpriteSheet *sprite, const Unit *unit, uint32_t ticks) {
+static int sprite_frame_for_unit(const SpriteSheet *sprite, const Mobj *unit, uint32_t ticks) {
     bool moving = unit->path_index > 0 && unit->path_index < unit->path_len;
     bool attacking = unit->attack_anim_left_ms > 0;
     bool dead = unit->hp <= 0;
@@ -691,7 +691,7 @@ static SDL_Point sprite_ground_point(const SpriteSheet *sprite, int frame) {
     return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
 }
 
-static const SpriteSheet *unit_sprite_sheet_for_view(const Unit *unit,
+static const SpriteSheet *unit_sprite_sheet_for_view(const Mobj *unit,
                                                      const SpriteSheet *fallback_sprite,
                                                      const SpriteCache *cache,
                                                      const GameInfo *game_info) {
@@ -705,7 +705,7 @@ static const SpriteSheet *unit_sprite_sheet_for_view(const Unit *unit,
     return sprite ? sprite : fallback_sprite;
 }
 
-static int unit_frame_for_view(const SpriteSheet *sprite, const Unit *unit,
+static int unit_frame_for_view(const SpriteSheet *sprite, const Mobj *unit,
                                const GameInfo *game_info, uint32_t ticks) {
     /* FIN/state-driven games author the resolved frame on the unit.  Dark Reign
        has a GameInfo for shared simulation metadata, but its RSPR facings are
@@ -742,7 +742,7 @@ static int direction_slot_for_view(int facings, const int *direction_codes, int 
     return best;
 }
 
-static void unit_state_body_offset_for_view(const GameInfo *game_info, const Unit *unit,
+static void unit_state_body_offset_for_view(const GameInfo *game_info, const Mobj *unit,
                                             int *offset_x, int *offset_y) {
     int ox = 0;
     int oy = 0;
@@ -763,7 +763,7 @@ static void unit_state_body_offset_for_view(const GameInfo *game_info, const Uni
     if (offset_y) *offset_y = oy;
 }
 
-static bool unit_screen_rect_for_view(const App *app, const GameMap *map, const Unit *unit,
+static bool unit_screen_rect_for_view(const App *app, const GameMap *map, const Mobj *unit,
                                       const SpriteSheet *fallback_sprite,
                                       const SpriteCache *cache,
                                       const GameInfo *game_info, uint32_t ticks,
@@ -846,13 +846,13 @@ static bool rects_intersect(SDL_Rect a, SDL_Rect b) {
            a.y <= b.y + b.h && a.y + a.h >= b.y;
 }
 
-static int pick_unit_at(const App *app, const GameMap *map, const Unit *units, int unit_count,
+static int pick_unit_at(const App *app, const GameMap *map, const Mobj *units, int unit_count,
                         const SpriteSheet *fallback_sprite, const SpriteCache *cache,
                         const GameInfo *game_info, int x, int y, int owner_filter) {
     int best = -1;
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
-        const Unit *unit = &units[i];
+        const Mobj *unit = &units[i];
         if (unit->hp <= 0 || (unit->traits & T_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         SDL_Rect visible;
@@ -870,7 +870,7 @@ static int pick_unit_at(const App *app, const GameMap *map, const Unit *units, i
     return best;
 }
 
-static int selection_health_bucket(const Unit *u) {
+static int selection_health_bucket(const Mobj *u) {
     if (!u || u->max_hp <= 0) return 0;
     if (u->hp * 3 <= u->max_hp) return 2;
     if (u->hp * 3 <= u->max_hp * 2) return 1;
@@ -897,7 +897,7 @@ static void draw_ellipse_outline(SDL_Renderer *renderer, int cx, int cy, int rx,
     }
 }
 
-static void draw_selection_circle(App *app, const Unit *u, int cx, int cy, int radius) {
+static void draw_selection_circle(App *app, const Mobj *u, int cx, int cy, int radius) {
     if (!app || !app->renderer || radius < 2) return;
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
     int rx = radius;
@@ -912,7 +912,7 @@ static void draw_selection_circle(App *app, const Unit *u, int cx, int cy, int r
     draw_ellipse_outline(app->renderer, cx, cy, rx,     ry);
 }
 
-static void draw_selection_brackets(App *app, const Unit *u, const SDL_Rect *visible) {
+static void draw_selection_brackets(App *app, const Mobj *u, const SDL_Rect *visible) {
     if (!app || !app->renderer || !u || !visible || visible->w <= 0 || visible->h <= 0) return;
     SDL_Rect box = {
         visible->x - 3,
@@ -949,7 +949,7 @@ static void draw_selection_brackets(App *app, const Unit *u, const SDL_Rect *vis
     SDL_RenderFillRect(app->renderer, &(SDL_Rect){ bar_x, bar_y, fill_w, 2 });
 }
 
-static void draw_selection_triangle(App *app, const Unit *u, const SDL_Rect *visible) {
+static void draw_selection_triangle(App *app, const Mobj *u, const SDL_Rect *visible) {
     if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
     int cx = visible->x + visible->w / 2;
     int top_y = visible->y - 11;
@@ -970,7 +970,7 @@ static void draw_selection_triangle(App *app, const Unit *u, const SDL_Rect *vis
     }
 }
 
-static bool draw_selection_marker_sprite(App *app, const Unit *u, const SpriteCache *cache,
+static bool draw_selection_marker_sprite(App *app, const Mobj *u, const SpriteCache *cache,
                                          const GameInfo *game_info, const SDL_Rect *visible) {
     if (!app || !app->renderer || !u || !cache || !game_info || !visible ||
         !game_info->sprnames) {
@@ -1003,7 +1003,7 @@ static bool draw_selection_marker_sprite(App *app, const Unit *u, const SpriteCa
     return true;
 }
 
-static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet *body_sprite,
+static void render_unit_state_overlay(App *app, const Mobj *u, const SpriteSheet *body_sprite,
                                       int body_frame, const SpriteCache *cache,
                                       const GameInfo *game_info, const SDL_Rect *body_dst,
                                       float origin_sx, float origin_sy) {
@@ -1061,7 +1061,7 @@ static void render_unit_state_overlay(App *app, const Unit *u, const SpriteSheet
 }
 
 static void render_unit_sprite(App *app, const GameMap *map,
-                               const Unit *u, const SpriteSheet *fallback_sprite,
+                               const Mobj *u, const SpriteSheet *fallback_sprite,
                                const SpriteCache *cache, const GameInfo *game_info,
                                uint32_t ticks) {
     if (!u || (u->traits & T_RENDERABLE) == 0) return;
@@ -1121,7 +1121,7 @@ static void render_unit_sprite(App *app, const GameMap *map,
     }
 }
 
-void render_units(App *app, const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
+void render_units(App *app, const Mobj *units, int unit_count, const SpriteSheet *fallback_sprite,
                   const SpriteCache *cache, const GameInfo *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
         render_unit_sprite(app, NULL, &units[i], fallback_sprite, cache, game_info, ticks);
@@ -1170,7 +1170,7 @@ static void render_overlay_tile_item(App *app, const GameMap *map, const Tileset
 }
 
 void render_world_objects(App *app, const GameMap *map, const Tileset *tileset,
-                          const Unit *units, int unit_count, const SpriteSheet *fallback_sprite,
+                          const Mobj *units, int unit_count, const SpriteSheet *fallback_sprite,
                           const SpriteCache *cache, const GameInfo *game_info, uint32_t ticks) {
     if (!app || !map) return;
     int overlay_count = 0;
@@ -1351,7 +1351,7 @@ void render_visual_effects(App *app, const GameMap *map,
     }
 }
 
-void handle_event(App *app, const GameMap *map, Unit *units, int unit_count,
+void handle_event(App *app, const GameMap *map, Mobj *units, int unit_count,
                   const SpriteSheet *fallback_sprite, const SpriteCache *cache,
                   const GameInfo *game_info, const SDL_Event *e) {
     switch (e->type) {

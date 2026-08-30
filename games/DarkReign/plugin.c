@@ -1,4 +1,4 @@
-#include "plugin.h"
+#include "game.h"
 #include "dr_types.h"
 
 bool load_dark_map(const char *map_path, GameMap *out);
@@ -73,78 +73,53 @@ static const GameInfo DARK_REIGN_GAME_INFO = {
     .selection_marker = { .style = SELECTION_STYLE_BRACKETS, .sprite = -1 },
 };
 
-static bool dark_reign_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                                            const GameMap *map, const Unit *units, int unit_count,
-                                            SpriteCache *cache) {
-    return load_dark_reign_decoration_sprites(renderer, data_root, map, units, unit_count, cache);
+/* ── game identity (Doom-style externs) ─────────────────────────────────── */
+
+const char *const g_game_id            = "dark-reign";
+const char *const g_game_name          = "Dark Reign";
+const char *const g_game_default_root  = "data/REIGN/dark";
+const char *const g_game_default_map   = "scenario/FIXED/M01F/M01F.SCN";
+const char *const g_game_default_sprite = "ucfcnst0.spr";
+const int g_cell_w = 24;
+const int g_cell_h = 24;
+const uint16_t g_debug_enemy_type = DR_ACTOR_FG_CONSTRUCTION_CREW;
+const GameInfo *const gameinfo = &DARK_REIGN_GAME_INFO;
+const MobjType *const mobjTypes =
+    (const MobjType *)DARK_REIGN_ACTOR_TYPES;
+const int mobjTypeCount =
+    (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0]));
+const GameUiDefinition *const gameui = &DARK_REIGN_UI;
+
+/* ── G_* / R_* interface ────────────────────────────────────────────────── */
+
+bool G_LoadMap(const char *path, GameMap *out) {
+    return load_dark_map(path, out);
 }
 
-static const Plugin DARK_REIGN_PLUGIN = {
-    .id             = "dark-reign",
-    .name           = "Dark Reign",
-    .version        = "0.1",
-    .default_root   = "data/REIGN/dark",
-    .default_map    = "scenario/FIXED/M01F/M01F.SCN",
-    .default_sprite = "ucfcnst0.spr",
-    .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
-                      RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
-                      RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
-                      RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
-                      RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
-                      RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
-    .cell_w            = 24,
-    .cell_h            = 24,
-    .game_info         = &DARK_REIGN_GAME_INFO,
-    .actor_types       = DARK_REIGN_ACTOR_TYPES,
-    .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
-    .debug_enemy_type_id = DR_ACTOR_FG_CONSTRUCTION_CREW,
-    .capabilities        = {
-        .map_format = MAP_FORMAT_DARK_REIGN_SCN,
-        .capabilities = PLUGIN_CAP_RUNTIME_SPRITES | PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
-        .data_capability = "dark-reign:data/REIGN/dark",
-        .graphics_capability = "dark-reign:spr-ftg",
-    },
-    .ui                  = &DARK_REIGN_UI,
-    .definition          = {
-        .id             = "dark-reign",
-        .name           = "Dark Reign",
-        .version        = "0.1",
-        .default_root   = "data/REIGN/dark",
-        .default_map    = "scenario/FIXED/M01F/M01F.SCN",
-        .default_sprite = "ucfcnst0.spr",
-        .subsystems     = RTS_SUBSYSTEM_FILESYSTEM | RTS_SUBSYSTEM_GRAPHICS |
-                          RTS_SUBSYSTEM_PALETTES   | RTS_SUBSYSTEM_TILESETS |
-                          RTS_SUBSYSTEM_MAPS       | RTS_SUBSYSTEM_SPRITES  |
-                          RTS_SUBSYSTEM_WORLD      | RTS_SUBSYSTEM_PLAYERS  |
-                          RTS_SUBSYSTEM_ORDERS     | RTS_SUBSYSTEM_SIMULATION |
-                          RTS_SUBSYSTEM_RENDERER   | RTS_SUBSYSTEM_UI,
-        .cell_w            = 24,
-        .cell_h            = 24,
-        .game_info         = &DARK_REIGN_GAME_INFO,
-        .actor_types       = DARK_REIGN_ACTOR_TYPES,
-        .actor_type_count  = (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0])),
-        .debug_enemy_type_id = DR_ACTOR_FG_CONSTRUCTION_CREW,
-        .capabilities        = {
-            .map_format = MAP_FORMAT_DARK_REIGN_SCN,
-            .capabilities = PLUGIN_CAP_RUNTIME_SPRITES | PLUGIN_CAP_SOFTWARE_RENDERER_SAFE,
-            .data_capability = "dark-reign:data/REIGN/dark",
-            .graphics_capability = "dark-reign:spr-ftg",
-        },
-        .ui                  = &DARK_REIGN_UI,
-    },
-    .loaders             = {
-        .load_map            = load_dark_map,
-        .load_assets         = dark_reign_plugin_load_assets,
-        .load_initial_units  = load_dark_reign_initial_units,
-        .load_runtime_sprites = dark_reign_load_runtime_sprites,
-    },
-    .load_map            = load_dark_map,
-    .load_assets         = dark_reign_plugin_load_assets,
-    .load_initial_units  = load_dark_reign_initial_units,
-    .load_runtime_sprites = dark_reign_load_runtime_sprites,
-};
+bool R_LoadAssets(SDL_Renderer *renderer, const char *root, const GameMap *map,
+                  const char *sprite, Tileset *tileset, SpriteSheet *unit_sprite) {
+    return dark_reign_plugin_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+}
 
-const Plugin *open_rts_plugin_entry(void) { return &DARK_REIGN_PLUGIN; }
+int G_SpawnThings(const char *path, Mobj *mobjs, int max) {
+    return load_dark_reign_initial_units(path, (Unit *)mobjs, max);
+}
 
-/* keep old name for any static-link usage */
-const Plugin *open_rts_dark_reign_plugin(void) { return &DARK_REIGN_PLUGIN; }
+bool R_LoadRuntimeSprites(SDL_Renderer *renderer, const char *root, const GameMap *map,
+                          const Mobj *mobjs, int count, SpriteCache *cache) {
+    return load_dark_reign_decoration_sprites(renderer, root, map,
+                                              (const Unit *)mobjs, count, cache);
+}
+
+bool R_LoadFont(SDL_Renderer *renderer, const char *root, BitmapFont *font) {
+    (void)renderer; (void)root; (void)font;
+    return false;
+}
+
+void *G_LoadMission(const char *path) { (void)path; return NULL; }
+void  G_UpdateMission(void *m, GameMap *map, Mobj *mobjs, int *count,
+                      VisualEffect *effects, int max_effects, HudText *hud, float dt) {
+    (void)m; (void)map; (void)mobjs; (void)count;
+    (void)effects; (void)max_effects; (void)hud; (void)dt;
+}
+void  G_FreeMission(void *m) { (void)m; }

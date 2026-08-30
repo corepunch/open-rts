@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#include "game.h"
 #include "game_ui.h"
 #include "plugin.h"
 #include "renderer.h"
@@ -718,7 +719,7 @@ static void apply_plugin_actor_defaults(const Plugin *plugin, Unit *units, int u
 
 static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, const App *app,
                                    Unit *units, int *unit_count, int sx, int sy) {
-    if (!plugin || !map || !app || !units || !unit_count || *unit_count >= MAX_UNITS) return false;
+    if (!plugin || !map || !app || !units || !unit_count || *unit_count >= MAXMOBJS) return false;
     const ActorType *type = plugin_actor_type_by_id(plugin, plugin->debug_enemy_type_id);
     if (!type && plugin->actor_type_count > 0) type = &plugin->actor_types[0];
     if (!type) return false;
@@ -1618,7 +1619,7 @@ static void dc_order_barracks_exit_spacing(const GameMap *map, Unit *units, int 
                                            float exit_gx, float exit_gy) {
     if (!map || !units || !producer || spawned_index < 0 || spawned_index >= unit_count)
         return;
-    bool saved[MAX_UNITS];
+    bool saved[MAXMOBJS];
     for (int i = 0; i < unit_count; ++i) {
         saved[i] = units[i].selected;
         units[i].selected = false;
@@ -1661,7 +1662,7 @@ static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *
                                            int producer_index,
                                            uint16_t actor_id) {
     if (!plugin || !map || !units || !unit_count || producer_index < 0 ||
-        producer_index >= *unit_count || *unit_count >= MAX_UNITS || actor_id == 0) {
+        producer_index >= *unit_count || *unit_count >= MAXMOBJS || actor_id == 0) {
         return false;
     }
     const ActorType *type = plugin_actor_type_by_id(plugin, actor_id);
@@ -2079,16 +2080,6 @@ static void render_hud_messages(App *app, const HudText *hud, const BitmapFont *
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
-static void load_plugin_by_id(const char *game_id) {
-    char lib_path[1024];
-    /* Try native extension first, then fall back to alternatives */
-    const char *extensions[] = { ".dylib", ".so", NULL };
-    for (int i = 0; extensions[i]; ++i) {
-        snprintf(lib_path, sizeof(lib_path), "build/libs/%s%s", game_id, extensions[i]);
-        if (plugin_load(lib_path)) return;
-    }
-}
-
 int main(int argc, char **argv) {
     bool check_only = argc > 1 && strcmp(argv[1], "--check") == 0;
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
@@ -2099,16 +2090,15 @@ int main(int argc, char **argv) {
     bool software_renderer = false;
     const char *debug_query = NULL;
     bool debug_animation_grid = false;
-    const char *game_id = "dark-reign";
     while (argc > arg_base) {
         if (strcmp(argv[arg_base], "--software") == 0) {
             software_renderer = true;
             arg_base += 1;
         } else if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
-            game_id = argv[arg_base + 1];
+            /* --game is ignored: the binary IS the game */
             arg_base += 2;
         } else if (strncmp(argv[arg_base], "--game=", 7) == 0) {
-            game_id = argv[arg_base] + 7;
+            /* --game=xxx is ignored */
             arg_base += 1;
         } else if (strncmp(argv[arg_base], "--debug=", 8) == 0) {
             debug_query = argv[arg_base] + 8;
@@ -2139,12 +2129,31 @@ int main(int argc, char **argv) {
         }
     }
 
-    load_plugin_by_id(game_id);
-    const Plugin *plugin = find_plugin(game_id);
-    if (!plugin) {
-        fprintf(stderr, "unknown game '%s' (could not load build/libs/%s.so)\n", game_id, game_id);
-        return 1;
-    }
+    /* Build a runtime Plugin descriptor from the game's extern globals. */
+    static Plugin g_plugin;
+    memset(&g_plugin, 0, sizeof(g_plugin));
+    g_plugin.id                  = g_game_id;
+    g_plugin.name                = g_game_name;
+    g_plugin.default_root        = g_game_default_root;
+    g_plugin.default_map         = g_game_default_map;
+    g_plugin.default_sprite      = g_game_default_sprite;
+    g_plugin.cell_w              = g_cell_w;
+    g_plugin.cell_h              = g_cell_h;
+    g_plugin.game_info           = gameinfo;
+    g_plugin.actor_types         = (const ActorType *)mobjTypes;
+    g_plugin.actor_type_count    = mobjTypeCount;
+    g_plugin.debug_enemy_type_id = g_debug_enemy_type;
+    g_plugin.ui                  = gameui;
+    g_plugin.load_map            = G_LoadMap;
+    g_plugin.load_assets         = R_LoadAssets;
+    g_plugin.load_initial_units  = (int (*)(const char *, Unit *, int))G_SpawnThings;
+    g_plugin.load_runtime_sprites =
+        (bool (*)(SDL_Renderer *, const char *, const GameMap *,
+                  const Unit *, int, SpriteCache *))R_LoadRuntimeSprites;
+    g_plugin.load_font           = R_LoadFont;
+    g_plugin.load_mission        = G_LoadMission;
+    g_plugin.destroy_mission     = G_FreeMission;
+    const Plugin *plugin = &g_plugin;
 
     const char *data_root = argc > arg_base ? argv[arg_base] : plugin->default_root;
     const char *map_rel_or_abs = argc > arg_base + 1 ? argv[arg_base + 1] : plugin->default_map;
@@ -2222,8 +2231,8 @@ int main(int argc, char **argv) {
     app.cell_w = plugin->cell_w > 0 ? plugin->cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
     app.cell_h = plugin->cell_h > 0 ? plugin->cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
 
-    Unit units[MAX_UNITS] = { 0 };
-    int unit_count = plugin->load_initial_units ? plugin->load_initial_units(map_path, units, MAX_UNITS) : 0;
+    Unit units[MAXMOBJS] = { 0 };
+    int unit_count = plugin->load_initial_units ? plugin->load_initial_units(map_path, units, MAXMOBJS) : 0;
     if (unit_count <= 0) {
         unit_count = 6;
         int cx = map.width / 2;
@@ -2368,10 +2377,10 @@ int main(int argc, char **argv) {
     if (check_only || screenshot_only) {
         if (screenshot_only) {
             app.ticks_ms = SDL_GetTicks();
-            if (mission && plugin->update_mission) {
+            if (mission) {
                 int before_count = unit_count;
-                plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
-                                       plugin->game_info, &hud_text, FIXED_DT);
+                G_UpdateMission(mission, &map, (Mobj *)units, &unit_count,
+                                effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count && !map.has_camera)
                     focus_camera_on_first_player_unit(&app, &map, units, unit_count);
                 clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
@@ -2443,10 +2452,10 @@ int main(int argc, char **argv) {
         while (accumulator >= FIXED_DT) {
             update_units(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                          plugin->game_info, FIXED_DT);
-            if (mission && plugin->update_mission) {
+            if (mission) {
                 int before_count = unit_count;
-                plugin->update_mission(mission, &map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
-                                       plugin->game_info, &hud_text, FIXED_DT);
+                G_UpdateMission(mission, &map, (Mobj *)units, &unit_count,
+                                effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
                     if (!map.has_camera) focus_camera_on_first_player_unit(&app, &map, units, unit_count);
                     clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
