@@ -1,5 +1,5 @@
 #include "engine_config.h"
-#include "game_model.h"
+#include "../g/g_game.h"
 #include "../games/DarkColony/info.h"
 #include "../games/DarkColony/dc_types.h"
 #include "../games/DarkReign/dr_types.h"

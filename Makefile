@@ -3,7 +3,7 @@ AR ?= ar
 PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
-CPPFLAGS += -I./common -I./client -I./server -I./utility
+CPPFLAGS += -Idriver -Igame -Iplay -Irender -Iinterface -Ihud
 DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
@@ -23,15 +23,15 @@ KKND_ROOT        := $(DATA_DIR)/KKND
 
 # ── per-game engine sources (shared by all game binaries) ────────────────────
 ENGINE_SOURCES := \
-	client/main.c \
-	client/engine_view.c \
-	client/game_ui.c \
-	client/renderer_sdl.c \
-	common/engine_base.c \
-	common/engine_core.c \
-	common/engine_path.c \
-	common/engine_units.c \
-	common/facing.c
+	driver/d_main.c \
+	render/r_view.c \
+	hud/hu_lib.c \
+	interface/i_video.c \
+	driver/d_util.c \
+	render/r_main.c \
+	play/p_map.c \
+	play/p_mob.c \
+	play/p_facing.c
 
 # ── game-specific sources ────────────────────────────────────────────────────
 DR_GAME_SOURCES  := \
@@ -55,13 +55,13 @@ KKND_GAME_SOURCES := \
 # Note: engine_view.c and engine_core.c are needed because dc_loader.c
 # references destroy_map, sprite_cache_find, rgba_texture, tileset_add_animation.
 MODEL_ENGINE_SOURCES := \
-	server/game_model.c \
-	client/engine_view.c \
-	common/engine_base.c \
-	common/engine_core.c \
-	common/engine_path.c \
-	common/engine_units.c \
-	common/facing.c
+	game/g_game.c \
+	render/r_view.c \
+	driver/d_util.c \
+	render/r_main.c \
+	play/p_map.c \
+	play/p_mob.c \
+	play/p_facing.c
 
 # ── tool sources ─────────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE  := tools/anim_extract.c

@@ -1,4 +1,4 @@
-#include "game_ui.h"
+#include "hu_lib.h"
 
 #include <ctype.h>
 #include <math.h>

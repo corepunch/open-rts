@@ -1,5 +1,5 @@
 #define _DEFAULT_SOURCE
-#include "engine_internal.h"
+#include "p_local.h"
 
 static SDL_Rect sprite_visible_bounds(const SpriteSheet *sprite, int frame);
 static SDL_Rect sprite_frame_rect(const SpriteSheet *sprite, int frame);

@@ -1,5 +1,5 @@
 #define _DEFAULT_SOURCE
-#include "plugin.h"
+#include "engine.h"
 #include "info.h"
 #include "gamestat.h"
 #include "dc_types.h"

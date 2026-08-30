@@ -1,5 +1,5 @@
 #define _DEFAULT_SOURCE
-#include "engine_internal.h"
+#include "p_local.h"
 
 static bool debug_effects_enabled(void) {
     static int enabled = -1;

@@ -1,8 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
 #include "game.h"
-#include "game_ui.h"
-#include "plugin.h"
+#include "hu_lib.h"
 #include "renderer.h"
 
 #include <ctype.h>
@@ -661,25 +660,27 @@ static void debug_overlay_render(const App *app, const SpriteSheet *sprite, cons
     SDL_RenderDrawRect(app->renderer, &border);
 }
 
-static const ActorType *plugin_actor_type_by_id(const Plugin *plugin, uint16_t type_id) {
-    if (!plugin || !plugin->actor_types) return NULL;
-    for (int i = 0; i < plugin->actor_type_count; ++i) {
-        if (plugin->actor_types[i].id == type_id) return &plugin->actor_types[i];
+static const ActorType *actor_type_by_id(uint16_t type_id) {
+    const ActorType *types = (const ActorType *)mobjTypes;
+    if (!types) return NULL;
+    for (int i = 0; i < mobjTypeCount; ++i) {
+        if (types[i].id == type_id) return &types[i];
     }
     return NULL;
 }
 
-static const ActorType *plugin_actor_type_for_unit(const Plugin *plugin, const Unit *unit) {
-    const ActorType *type = plugin_actor_type_by_id(plugin, unit ? unit->type_id : 0);
+static const ActorType *actor_type_for_unit(const Unit *unit) {
+    const ActorType *type = actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
-    if (!plugin || !plugin->actor_types || !unit) return NULL;
-    for (int i = 0; i < plugin->actor_type_count; ++i) {
-        const char *sprite = plugin->actor_types[i].sprite_name;
+    const ActorType *types = (const ActorType *)mobjTypes;
+    if (!types || !unit) return NULL;
+    for (int i = 0; i < mobjTypeCount; ++i) {
+        const char *sprite = types[i].sprite_name;
         if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0) {
-            return &plugin->actor_types[i];
+            return &types[i];
         }
     }
-    return plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
+    return mobjTypeCount > 0 ? &types[0] : NULL;
 }
 
 static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
@@ -710,18 +711,19 @@ static void apply_actor_type_defaults(Unit *unit, const ActorType *type) {
     }
 }
 
-static void apply_plugin_actor_defaults(const Plugin *plugin, Unit *units, int unit_count) {
-    for (int i = 0; i < unit_count; ++i) {
-        apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(plugin, &units[i]));
-        apply_mobjinfo_defaults(plugin ? plugin->game_info : NULL, &units[i]);
+static void apply_actor_defaults(Unit *units, int count) {
+    for (int i = 0; i < count; ++i) {
+        apply_actor_type_defaults(&units[i], actor_type_for_unit(&units[i]));
+        apply_mobjinfo_defaults(gameinfo, &units[i]);
     }
 }
 
-static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, const App *app,
+static bool spawn_debug_enemy_unit(const GameMap *map, const App *app,
                                    Unit *units, int *unit_count, int sx, int sy) {
-    if (!plugin || !map || !app || !units || !unit_count || *unit_count >= MAXMOBJS) return false;
-    const ActorType *type = plugin_actor_type_by_id(plugin, plugin->debug_enemy_type_id);
-    if (!type && plugin->actor_type_count > 0) type = &plugin->actor_types[0];
+    if (!map || !app || !units || !unit_count || *unit_count >= MAXMOBJS) return false;
+    const ActorType *type = actor_type_by_id(g_debug_enemy_type);
+    const ActorType *types = (const ActorType *)mobjTypes;
+    if (!type && mobjTypeCount > 0) type = &types[0];
     if (!type) return false;
     Cell cell = screen_to_map_grid(app, map, sx, sy);
     if (!map_contains(map, cell.x, cell.y)) return false;
@@ -730,10 +732,10 @@ static bool spawn_debug_enemy_unit(const Plugin *plugin, const GameMap *map, con
     unit->gx = (float)cell.x + 0.5f;
     unit->gy = (float)cell.y + 0.5f;
     unit->owner = 1;
-    unit->facing_code = (plugin->game_info &&
-        plugin->game_info->direction_mode != RTS_DIRECTION_DARK_REIGN_8) ? 6 : 8;
+    unit->facing_code = (gameinfo &&
+        gameinfo->direction_mode != RTS_DIRECTION_DARK_REIGN_8) ? 6 : 8;
     apply_actor_type_defaults(unit, type);
-    apply_mobjinfo_defaults(plugin->game_info, unit);
+    apply_mobjinfo_defaults(gameinfo, unit);
     (*unit_count)++;
     return true;
 }
@@ -752,25 +754,25 @@ static bool focus_camera_on_first_player_unit(App *app, const GameMap *map,
     return false;
 }
 
-static void focus_camera_on_grid(App *app, const GameMap *map, const Plugin *plugin,
+static void focus_camera_on_grid(App *app, const GameMap *map,
                                  float gx, float gy) {
     if (!app || !map) return;
     float sx = 0.0f, sy = 0.0f;
     map_grid_to_screen(app, map, gx, gy, &sx, &sy);
     SDL_Rect viewport = { 0, 0, app->win_w, app->win_h };
-    if (plugin && plugin->ui) {
-        viewport.x = plugin->ui->world_viewport.x * app->win_w / plugin->ui->logical_width;
-        viewport.y = plugin->ui->world_viewport.y * app->win_h / plugin->ui->logical_height;
-        viewport.w = plugin->ui->world_viewport.w * app->win_w / plugin->ui->logical_width;
-        viewport.h = plugin->ui->world_viewport.h * app->win_h / plugin->ui->logical_height;
+    if (gameui) {
+        viewport.x = gameui->world_viewport.x * app->win_w / gameui->logical_width;
+        viewport.y = gameui->world_viewport.y * app->win_h / gameui->logical_height;
+        viewport.w = gameui->world_viewport.w * app->win_w / gameui->logical_width;
+        viewport.h = gameui->world_viewport.h * app->win_h / gameui->logical_height;
     }
     app->cam_x = (float)(viewport.x + viewport.w / 2) - sx;
     app->cam_y = (float)(viewport.y + viewport.h / 2) - sy;
 }
 
-static bool focus_camera_on_map_start(App *app, const GameMap *map, const Plugin *plugin) {
+static bool focus_camera_on_map_start(App *app, const GameMap *map) {
     if (!app || !map || !map->has_camera) return false;
-    focus_camera_on_grid(app, map, plugin, map->camera_gx, map->camera_gy);
+    focus_camera_on_grid(app, map, map->camera_gx, map->camera_gy);
     return true;
 }
 
@@ -863,10 +865,6 @@ static int dc_product_training_time_ms(const DarkColonyProductButton *product) {
     int ms = product->cost * 10;
     if (ms < 1000) ms = 1000;
     return ms;
-}
-
-static bool is_dark_colony_plugin(const Plugin *plugin) {
-    return plugin && plugin->id && strcmp(plugin->id, "dark-colony") == 0;
 }
 
 static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
@@ -1179,12 +1177,12 @@ static int dark_colony_ui_width(const App *app) {
     return 124;
 }
 
-static int world_viewport_width(const App *app, const Plugin *plugin) {
+static int world_viewport_width(const App *app) {
     if (!app) return 0;
-    if (plugin && plugin->ui && plugin->ui->world_viewport.w > 0)
-        return plugin->ui->world_viewport.w * app->win_w / plugin->ui->logical_width;
+    if (gameui && gameui->world_viewport.w > 0)
+        return gameui->world_viewport.w * app->win_w / gameui->logical_width;
     int w = app->win_w;
-    if (is_dark_colony_plugin(plugin)) w -= dark_colony_ui_width(app);
+    if (strcmp(g_game_id, "dark-colony") == 0) w -= dark_colony_ui_width(app);
     return w > 0 ? w : 1;
 }
 
@@ -1408,24 +1406,23 @@ static bool dc_product_uses_barracks_release(const Unit *producer,
         product->product_type == 0 && actor_id == DC_CLIENT_MT_TROOPER;
 }
 
-static bool dc_start_production_release(const Plugin *plugin, GameMap *map,
+static bool dc_start_production_release(GameMap *map,
                                         VisualEffect *effects, int max_effects,
                                         Unit *producer,
                                         const DarkColonyProductButton *product,
                                         uint16_t actor_id) {
-    if (!plugin || !plugin->game_info || !producer || !product) return false;
+    if (!gameinfo || !producer || !product) return false;
     if (!dc_product_uses_barracks_release(producer, product, actor_id)) return false;
-    const GameInfo *game_info = plugin->game_info;
-    int state_id = dc_find_state_by_group_frame(game_info, DC_CLIENT_PRODUCTION_BUILD_GROUP,
+    int state_id = dc_find_state_by_group_frame(gameinfo, DC_CLIENT_PRODUCTION_BUILD_GROUP,
                                                 DC_CLIENT_TRSCBUILD_FIRST_FRAME);
-    int duration_ms = dc_state_chain_duration_ms(game_info, state_id,
+    int duration_ms = dc_state_chain_duration_ms(gameinfo, state_id,
                                                  DC_CLIENT_PRODUCTION_BUILD_GROUP);
     if (state_id <= 0 || duration_ms <= 0) return false;
     StateContext ctx = {
         .map = map,
         .effects = effects,
         .max_effects = max_effects,
-        .game_info = game_info,
+        .game_info = gameinfo,
     };
     if (!spawn_state_effect(&ctx, state_id, producer->gx, producer->gy, 0)) return false;
     producer->production_release_active = true;
@@ -1657,15 +1654,15 @@ static void dc_order_barracks_exit_spacing(const GameMap *map, Unit *units, int 
     }
 }
 
-static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *map,
+static bool dc_spawn_finished_unit_product(const GameMap *map,
                                            Unit *units, int *unit_count,
                                            int producer_index,
                                            uint16_t actor_id) {
-    if (!plugin || !map || !units || !unit_count || producer_index < 0 ||
+    if (!map || !units || !unit_count || producer_index < 0 ||
         producer_index >= *unit_count || *unit_count >= MAXMOBJS || actor_id == 0) {
         return false;
     }
-    const ActorType *type = plugin_actor_type_by_id(plugin, actor_id);
+    const ActorType *type = actor_type_by_id(actor_id);
     if (!type) return false;
 
     Unit new_unit;
@@ -1676,7 +1673,7 @@ static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *
     new_unit.attack_target = -1;
     new_unit.harvest_target = -1;
     apply_actor_type_defaults(&new_unit, type);
-    apply_mobjinfo_defaults(plugin->game_info, &new_unit);
+    apply_mobjinfo_defaults(gameinfo, &new_unit);
 
     float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
     float gx = 0.0f;
@@ -1685,7 +1682,7 @@ static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *
     const DarkColonyProductButton *product = dc_product_by_type(producer->production_product_type);
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
-        dc_barracks_release_spawn_point(plugin->game_info, producer, &new_unit, &gx, &gy) &&
+        dc_barracks_release_spawn_point(gameinfo, producer, &new_unit, &gx, &gy) &&
         dc_position_walkable_for_spawn(map, gx, gy, radius)) {
         /* The release FIN places the visual handoff; occupied exit cells are cleared below. */
     } else if (!dc_find_spawn_position_near(map, units, *unit_count, producer,
@@ -1701,11 +1698,11 @@ static bool dc_spawn_finished_unit_product(const Plugin *plugin, const GameMap *
     return true;
 }
 
-static bool dc_update_production_queues(const Plugin *plugin, GameMap *map,
+static bool dc_update_production_queues(GameMap *map,
                                         Unit *units, int *unit_count,
                                         VisualEffect *effects, int max_effects,
                                         float dt) {
-    if (!plugin || !map || !units || !unit_count || dt <= 0.0f) return false;
+    if (!map || !units || !unit_count || dt <= 0.0f) return false;
     bool spawned = false;
     int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
     if (elapsed_ms <= 0) elapsed_ms = 1;
@@ -1721,7 +1718,7 @@ static bool dc_update_production_queues(const Plugin *plugin, GameMap *map,
             producer->production_release_time_left_ms -= elapsed_ms;
             if (producer->production_release_time_left_ms > 0) continue;
             uint16_t actor_id = producer->production_actor_id;
-            if (!dc_spawn_finished_unit_product(plugin, map, units, unit_count, i, actor_id)) {
+            if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
                 producer->production_release_time_left_ms = 250;
                 continue;
             }
@@ -1736,11 +1733,11 @@ static bool dc_update_production_queues(const Plugin *plugin, GameMap *map,
             uint16_t actor_id = producer->production_actor_id;
             const DarkColonyProductButton *product =
                 dc_product_by_type(producer->production_product_type);
-            if (product && dc_start_production_release(plugin, map, effects, max_effects,
+            if (product && dc_start_production_release(map, effects, max_effects,
                                                        producer, product, actor_id)) {
                 break;
             }
-            if (!dc_spawn_finished_unit_product(plugin, map, units, unit_count, i, actor_id)) {
+            if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
                 producer->production_time_left_ms = 250;
                 break;
             }
@@ -1918,13 +1915,12 @@ static void dc_ui_draw_capital(App *app, const BitmapFont *font, SDL_Rect rect,
     }
 }
 
-static void render_dark_colony_ingame_ui(App *app, const Plugin *plugin, const GameMap *map,
+static void render_dark_colony_ingame_ui(App *app, const GameMap *map,
                                          const Unit *units, int unit_count,
                                          const SpriteCache *cache, const BitmapFont *font,
                                          const DarkColonySidebar *sidebar,
                                          const SpriteSheet *background) {
     if (!app || !font || !font->sprite.texture) return;
-    (void)plugin;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
@@ -2129,40 +2125,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    /* Build a runtime Plugin descriptor from the game's extern globals. */
-    static Plugin g_plugin;
-    memset(&g_plugin, 0, sizeof(g_plugin));
-    g_plugin.id                  = g_game_id;
-    g_plugin.name                = g_game_name;
-    g_plugin.default_root        = g_game_default_root;
-    g_plugin.default_map         = g_game_default_map;
-    g_plugin.default_sprite      = g_game_default_sprite;
-    g_plugin.cell_w              = g_cell_w;
-    g_plugin.cell_h              = g_cell_h;
-    g_plugin.game_info           = gameinfo;
-    g_plugin.actor_types         = (const ActorType *)mobjTypes;
-    g_plugin.actor_type_count    = mobjTypeCount;
-    g_plugin.debug_enemy_type_id = g_debug_enemy_type;
-    g_plugin.ui                  = gameui;
-    g_plugin.load_map            = G_LoadMap;
-    g_plugin.load_assets         = R_LoadAssets;
-    g_plugin.load_initial_units  = (int (*)(const char *, Unit *, int))G_SpawnThings;
-    g_plugin.load_runtime_sprites =
-        (bool (*)(SDL_Renderer *, const char *, const GameMap *,
-                  const Unit *, int, SpriteCache *))R_LoadRuntimeSprites;
-    g_plugin.load_font           = R_LoadFont;
-    g_plugin.load_mission        = G_LoadMission;
-    g_plugin.destroy_mission     = G_FreeMission;
-    const Plugin *plugin = &g_plugin;
-
-    const char *data_root = argc > arg_base ? argv[arg_base] : plugin->default_root;
-    const char *map_rel_or_abs = argc > arg_base + 1 ? argv[arg_base + 1] : plugin->default_map;
-    const char *sprite_name = argc > arg_base + 2 ? argv[arg_base + 2] : plugin->default_sprite;
+    const char *data_root = argc > arg_base ? argv[arg_base] : g_game_default_root;
+    const char *map_rel_or_abs = argc > arg_base + 1 ? argv[arg_base + 1] : g_game_default_map;
+    const char *sprite_name = argc > arg_base + 2 ? argv[arg_base + 2] : g_game_default_sprite;
     char debug_sprite_name[1024];
     if (debug_query && debug_query[0] != '\0') {
         if (strchr(debug_query, '/') || strchr(debug_query, '.')) {
             snprintf(debug_sprite_name, sizeof(debug_sprite_name), "%s", debug_query);
-        } else if (plugin && strcmp(plugin->id, "dark-colony") == 0) {
+        } else if (strcmp(g_game_id, "dark-colony") == 0) {
             snprintf(debug_sprite_name, sizeof(debug_sprite_name), "SPRITES/%s.SPR", debug_query);
         } else {
             snprintf(debug_sprite_name, sizeof(debug_sprite_name), "%s", debug_query);
@@ -2179,10 +2149,10 @@ int main(int argc, char **argv) {
 
     Renderer renderer;
     App app = { 0 };
-    if (plugin->ui) {
-        app.win_w = plugin->ui->logical_width;
-        app.win_h = plugin->ui->logical_height;
-    } else if (is_dark_colony_plugin(plugin)) {
+    if (gameui) {
+        app.win_w = gameui->logical_width;
+        app.win_h = gameui->logical_height;
+    } else if (strcmp(g_game_id, "dark-colony") == 0) {
         app.win_w = 640;
         app.win_h = 480;
     } else {
@@ -2203,7 +2173,7 @@ int main(int argc, char **argv) {
     refresh_app_viewport(&app);
 
     GameMap map;
-    if (!plugin->load_map(map_path, &map)) {
+    if (!G_LoadMap(map_path, &map)) {
         renderer_destroy(&renderer);
         return 1;
     }
@@ -2213,7 +2183,7 @@ int main(int argc, char **argv) {
     DebugOverlay debug_overlay = { 0 };
     memset(&tileset, 0, sizeof(tileset));
     memset(&unit_sprite, 0, sizeof(unit_sprite));
-    if (!plugin->load_assets(app.renderer, data_root, &map, sprite_name, &tileset, &unit_sprite)) {
+    if (!R_LoadAssets(app.renderer, data_root, &map, sprite_name, &tileset, &unit_sprite)) {
         destroy_map(&map);
         renderer_destroy(&renderer);
         return 1;
@@ -2228,16 +2198,16 @@ int main(int argc, char **argv) {
             debug_overlay.active = false;
         }
     }
-    app.cell_w = plugin->cell_w > 0 ? plugin->cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
-    app.cell_h = plugin->cell_h > 0 ? plugin->cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
+    app.cell_w = g_cell_w > 0 ? g_cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
+    app.cell_h = g_cell_h > 0 ? g_cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
 
     Unit units[MAXMOBJS] = { 0 };
-    int unit_count = plugin->load_initial_units ? plugin->load_initial_units(map_path, units, MAXMOBJS) : 0;
+    int unit_count = G_SpawnThings(map_path, (Mobj *)units, MAXMOBJS);
     if (unit_count <= 0) {
         unit_count = 6;
         int cx = map.width / 2;
         int cy = map.height / 2;
-        const ActorType *fallback_type = plugin->actor_type_count > 0 ? &plugin->actor_types[0] : NULL;
+        const ActorType *fallback_type = mobjTypeCount > 0 ? (const ActorType *)mobjTypes : NULL;
         for (int i = 0; i < unit_count; ++i) {
             units[i].gx = (float)(cx + i % 3) + 0.5f;
             units[i].gy = (float)(cy + i / 3) + 0.5f;
@@ -2252,22 +2222,21 @@ int main(int argc, char **argv) {
             }
         }
     }
-    apply_plugin_actor_defaults(plugin, units, unit_count);
+    apply_actor_defaults(units, unit_count);
     VisualEffect effects[MAX_VISUAL_EFFECTS] = { 0 };
 
     SpriteCache decoration_sprites = { 0 };
-    if (plugin->load_runtime_sprites &&
-        !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
-                                      &decoration_sprites)) {
-        fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", plugin->name);
+    if (!R_LoadRuntimeSprites(app.renderer, data_root, &map, (const Mobj *)units, unit_count,
+                              &decoration_sprites)) {
+        fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", g_game_name);
     }
 
-    if (!focus_camera_on_map_start(&app, &map, plugin)) {
+    if (!focus_camera_on_map_start(&app, &map)) {
         float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
         float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
-        focus_camera_on_grid(&app, &map, plugin, focus_gx, focus_gy);
+        focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
-    clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
+    clamp_camera_to_map(&app, &map, world_viewport_width(&app), app.win_h);
 
     printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
            map_path, map.width, map.height, map.tileset_name, unit_count,
@@ -2299,10 +2268,10 @@ int main(int argc, char **argv) {
             renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
             if (debug_overlay.animation_grid) {
                 debug_animation_grid_render(&app, &unit_sprite, sprite_name,
-                                            plugin->game_info, &debug_overlay);
+                                            gameinfo, &debug_overlay);
             } else {
                 debug_overlay_render(&app, &unit_sprite, sprite_name,
-                                     plugin->game_info, &debug_overlay);
+                                     gameinfo, &debug_overlay);
             }
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
@@ -2332,10 +2301,10 @@ int main(int argc, char **argv) {
             renderer_begin_frame(&renderer, (SDL_Color){ 10, 12, 16, 255 });
             if (debug_overlay.animation_grid) {
                 debug_animation_grid_render(&app, &unit_sprite, sprite_name,
-                                            plugin->game_info, &debug_overlay);
+                                            gameinfo, &debug_overlay);
             } else {
                 debug_overlay_render(&app, &unit_sprite, sprite_name,
-                                     plugin->game_info, &debug_overlay);
+                                     gameinfo, &debug_overlay);
             }
             renderer_end_frame(&renderer);
             SDL_Delay(16);
@@ -2351,9 +2320,8 @@ int main(int argc, char **argv) {
 
     BitmapFont ui_font = { 0 };
     SpriteSheet dark_colony_background = { 0 };
-    bool dark_colony_ui = is_dark_colony_plugin(plugin);
-    bool ui_font_ready = dark_colony_ui && plugin->load_font &&
-                         plugin->load_font(app.renderer, data_root, &ui_font);
+    bool dark_colony_ui = strcmp(g_game_id, "dark-colony") == 0;
+    bool ui_font_ready = dark_colony_ui && R_LoadFont(app.renderer, data_root, &ui_font);
     if (dark_colony_ui && !ui_font_ready) {
         fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
     }
@@ -2369,10 +2337,10 @@ int main(int argc, char **argv) {
     dark_colony_sidebar_defaults(&dark_colony_sidebar);
     if (dark_colony_ui) dark_colony_sidebar_load(&dark_colony_sidebar, data_root);
     GameUi game_ui = { 0 };
-    if (plugin->ui && !game_ui_load(&game_ui, app.renderer, data_root, plugin->ui))
-        fprintf(stderr, "warning: failed to load %s declarative UI\n", plugin->name);
+    if (gameui && !game_ui_load(&game_ui, app.renderer, data_root, gameui))
+        fprintf(stderr, "warning: failed to load %s declarative UI\n", g_game_name);
     HudText hud_text = { 0 };
-    void *mission = plugin->load_mission ? plugin->load_mission(map_path) : NULL;
+    void *mission = G_LoadMission(map_path);
 
     if (check_only || screenshot_only) {
         if (screenshot_only) {
@@ -2383,16 +2351,16 @@ int main(int argc, char **argv) {
                                 effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count && !map.has_camera)
                     focus_camera_on_first_player_unit(&app, &map, units, unit_count);
-                clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
+                clamp_camera_to_map(&app, &map, world_viewport_width(&app), app.win_h);
             }
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             render_map(&app, &map, &tileset);
             render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
-                                 &decoration_sprites, plugin->game_info, SDL_GetTicks());
+                                 &decoration_sprites, gameinfo, SDL_GetTicks());
             render_visual_effects(&app, &map, effects, MAX_VISUAL_EFFECTS,
-                                  &decoration_sprites, plugin->game_info);
+                                  &decoration_sprites, gameinfo);
             if (dark_colony_ui && ui_font_ready) {
-                render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
+                render_dark_colony_ingame_ui(&app, &map, units, unit_count,
                                              &decoration_sprites, &ui_font, &dark_colony_sidebar,
                                              &dark_colony_background);
                 render_hud_messages(&app, &hud_text, &ui_font);
@@ -2404,7 +2372,7 @@ int main(int argc, char **argv) {
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
-        if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+        if (mission) G_FreeMission(mission);
         game_ui_destroy(&game_ui);
         destroy_sprite(&dark_colony_background);
         destroy_font(&ui_font);
@@ -2432,10 +2400,10 @@ int main(int argc, char **argv) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
                 (SDL_GetModState() & KMOD_ALT) != 0) {
-                if (spawn_debug_enemy_unit(plugin, &map, &app, units, &unit_count, e.button.x, e.button.y)) {
-                    if (plugin->load_runtime_sprites &&
-                        !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
-                                                      &decoration_sprites)) {
+                if (spawn_debug_enemy_unit(&map, &app, units, &unit_count, e.button.x, e.button.y)) {
+                    if (!R_LoadRuntimeSprites(app.renderer, data_root, &map,
+                                             (const Mobj *)units, unit_count,
+                                             &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load debug enemy sprite\n");
                     }
                 }
@@ -2445,47 +2413,47 @@ int main(int argc, char **argv) {
                 continue;
             }
             handle_event(&app, &map, units, unit_count, &unit_sprite,
-                         &decoration_sprites, plugin->game_info, &e);
+                         &decoration_sprites, gameinfo, &e);
         }
         update_camera_from_keyboard(&app, frame_dt);
-        clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
+        clamp_camera_to_map(&app, &map, world_viewport_width(&app), app.win_h);
         while (accumulator >= FIXED_DT) {
             update_units(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
-                         plugin->game_info, FIXED_DT);
+                         gameinfo, FIXED_DT);
             if (mission) {
                 int before_count = unit_count;
                 G_UpdateMission(mission, &map, (Mobj *)units, &unit_count,
                                 effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
                     if (!map.has_camera) focus_camera_on_first_player_unit(&app, &map, units, unit_count);
-                    clamp_camera_to_map(&app, &map, world_viewport_width(&app, plugin), app.win_h);
-                    if (plugin->load_runtime_sprites &&
-                        !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
-                                                      &decoration_sprites)) {
+                    clamp_camera_to_map(&app, &map, world_viewport_width(&app), app.win_h);
+                    if (!R_LoadRuntimeSprites(app.renderer, data_root, &map,
+                                             (const Mobj *)units, unit_count,
+                                             &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load scripted runtime sprites\n");
                     }
                 }
             }
             int before_production_count = unit_count;
             bool production_spawned = dark_colony_ui &&
-                dc_update_production_queues(plugin, &map, units, &unit_count,
+                dc_update_production_queues(&map, units, &unit_count,
                                             effects, MAX_VISUAL_EFFECTS, FIXED_DT);
             if (production_spawned || unit_count != before_production_count) {
-                if (plugin->load_runtime_sprites &&
-                    !plugin->load_runtime_sprites(app.renderer, data_root, &map, units, unit_count,
-                                                  &decoration_sprites)) {
+                if (!R_LoadRuntimeSprites(app.renderer, data_root, &map,
+                                         (const Mobj *)units, unit_count,
+                                         &decoration_sprites)) {
                     fprintf(stderr, "warning: failed to load produced unit sprite\n");
                 }
             }
             update_visual_effects(&map, effects, MAX_VISUAL_EFFECTS,
-                                  plugin->game_info, FIXED_DT);
+                                  gameinfo, FIXED_DT);
             hud_text_update(&hud_text, FIXED_DT);
             accumulator -= FIXED_DT;
         }
         if (map.player_resources[0] != title_resources) {
             char title[128];
             title_resources = map.player_resources[0];
-            snprintf(title, sizeof(title), "open-rts - %s - P-7 %d", plugin->name, title_resources);
+            snprintf(title, sizeof(title), "open-rts - %s - P-7 %d", g_game_name, title_resources);
             SDL_SetWindowTitle(app.window, title);
         }
 
@@ -2493,9 +2461,9 @@ int main(int argc, char **argv) {
         renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         render_map(&app, &map, &tileset);
         render_world_objects(&app, &map, &tileset, units, unit_count, &unit_sprite,
-                             &decoration_sprites, plugin->game_info, SDL_GetTicks());
+                             &decoration_sprites, gameinfo, SDL_GetTicks());
         render_visual_effects(&app, &map, effects, MAX_VISUAL_EFFECTS,
-                              &decoration_sprites, plugin->game_info);
+                              &decoration_sprites, gameinfo);
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);
@@ -2503,7 +2471,7 @@ int main(int argc, char **argv) {
             SDL_RenderDrawRect(app.renderer, &app.selection_rect);
         }
         if (dark_colony_ui && ui_font_ready) {
-            render_dark_colony_ingame_ui(&app, plugin, &map, units, unit_count,
+            render_dark_colony_ingame_ui(&app, &map, units, unit_count,
                                          &decoration_sprites, &ui_font, &dark_colony_sidebar,
                                          &dark_colony_background);
             render_hud_messages(&app, &hud_text, &ui_font);
@@ -2512,7 +2480,7 @@ int main(int argc, char **argv) {
         renderer_end_frame(&renderer);
     }
 
-    if (mission && plugin->destroy_mission) plugin->destroy_mission(mission);
+    if (mission) G_FreeMission(mission);
     game_ui_destroy(&game_ui);
     destroy_sprite(&dark_colony_background);
     destroy_font(&ui_font);

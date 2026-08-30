@@ -54,3 +54,4 @@ dkms.conf
 /reverse/dc-exe-r2ghidra/
 /reference/
 .DS_Store
+.claude/worktrees/

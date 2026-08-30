@@ -1,5 +1,5 @@
 #define _DEFAULT_SOURCE
-#include "engine_internal.h"
+#include "p_local.h"
 
 enum {
     RTS_HARVEST_INTERVAL_MS = 1000,

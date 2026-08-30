@@ -80,16 +80,19 @@ build/bin/open-rts --software --game dark-colony
 The repository is split into a shared engine and folder-per-game adapters:
 
 ```text
-common/                 simulation, map/sprite contracts, UI definitions
-client/                 shared SDL terrain, sprite, minimap, and UI rendering
-server/                 presentation-neutral game model
-games/DarkReign/      Dark Reign formats, assets, actors, and UI layout
-games/DarkColony/     Dark Colony formats, data-shaped runtime, and assets
-games/KKND/           KKnD LVL containers, MAPD terrain, and MOBD sprites
+d/      d_*  startup, main loop, utilities (blob I/O, palette, font)
+g/      g_*  game: map loading coordination, mission, headless model
+p/      p_*  play: mobj simulation, pathfinding, combat, facing
+r/      r_*  renderer: map, sprites, effects, viewport
+i/      i_*  system interface: SDL window, video backend
+hu/     hu_* HUD and UI library
+games/DarkReign/   Dark Reign formats, assets, actors, and UI layout
+games/DarkColony/  Dark Colony formats, data-shaped runtime, and assets
+games/KKND/        KKnD LVL containers, MAPD terrain, and MOBD sprites
 ```
 
-Game folders describe assets and layout; the shared client owns composition and
-rendering. In particular, `GameUiDefinition` is a declarative list of native
+Game folders implement the `G_*`/`R_*` interface from `g/game.h`; the engine
+calls them by name — no plugin registry. In particular, `GameUiDefinition` is a declarative list of native
 image layers, viewport/minimap rectangles, command-grid geometry, and resource
 display placement. The shared `GameUi` loader/renderer uses that description,
 so another 256-color game does not need its own BMP compositor.

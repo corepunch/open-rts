@@ -1,5 +1,5 @@
 #define _DEFAULT_SOURCE
-#include "game_model.h"
+#include "g_game.h"
 
 #include "engine.h"
 #include "game.h"

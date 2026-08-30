@@ -1,5 +1,5 @@
 #define _DEFAULT_SOURCE
-#include "engine_internal.h"
+#include "p_local.h"
 
 SDL_Texture *rgba_texture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
