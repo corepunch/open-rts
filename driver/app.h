@@ -1,11 +1,11 @@
-#ifndef OPEN_RTS_APP_H
-#define OPEN_RTS_APP_H
+#ifndef __APP__
+#define __APP__
 
 #include <SDL.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct App {
+typedef struct app_s {
     SDL_Window *window;
     SDL_Renderer *renderer;
     int win_w;
@@ -25,6 +25,6 @@ typedef struct App {
     int mouse_y;
     uint32_t ticks_ms;
     SDL_Rect selection_rect;
-} App;
+} app_t;
 
 #endif

@@ -13,11 +13,11 @@
    BIM transparency is encoded by absent scan-line spans, so every palette
    entry (including index zero) remains opaque. */
 static bool sl_load_col_palette(const char *path, uint32_t palette[256]) {
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
     if (blob.size < 256 * 3) {
         fprintf(stderr, "7legion: %s too short for 256-colour palette\n", path);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
     const uint8_t *p = (const uint8_t *)blob.bytes;
@@ -28,7 +28,7 @@ static bool sl_load_col_palette(const char *path, uint32_t palette[256]) {
         palette[i] = 0xff000000u | ((uint32_t)r << 16) |
                      ((uint32_t)g << 8) | (uint32_t)b;
     }
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return true;
 }
 
@@ -40,18 +40,18 @@ static bool sl_load_col_palette(const char *path, uint32_t palette[256]) {
 #define SL_ATLAS_COLS 64
 
 static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
-                                const uint32_t palette[256], Tileset *out) {
+                                const uint32_t palette[256], tileset_t *out) {
     memset(out, 0, sizeof(*out));
 
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
-    if (blob.size < 4) { free_blob(&blob); return false; }
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
+    if (blob.size < 4) { W_FreeFile(&blob); return false; }
 
     const uint8_t *data = (const uint8_t *)blob.bytes;
     uint32_t first_offset = read_u32_le(data);
     if (first_offset == 0 || first_offset % 4 != 0 || first_offset > blob.size) {
         fprintf(stderr, "7legion: %s: bad BIM offset table\n", path);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
     int tile_count = (int)(first_offset / 4);
@@ -69,7 +69,7 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
     }
     if (usable == 0) {
         fprintf(stderr, "7legion: %s: no usable 32×32 tiles\n", path);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
 
@@ -78,7 +78,7 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
     int atlas_h    = atlas_rows  * SL_TILE_H;
 
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    if (!rgba) { free_blob(&blob); return false; }
+    if (!rgba) { W_FreeFile(&blob); return false; }
 
     for (int i = 0; i < usable; ++i) {
         uint32_t off = read_u32_le(data + (size_t)i * 4);
@@ -94,14 +94,14 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
         }
     }
 
-    out->texture    = rgba_texture(renderer, rgba, atlas_w, atlas_h, false);
+    out->texture    = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, false);
     out->count      = usable;
     out->atlas_cols = SL_ATLAS_COLS;
     out->tile_w     = SL_TILE_W;
     out->tile_h     = SL_TILE_H;
 
     free(rgba);
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return out->texture != NULL;
 }
 
@@ -224,19 +224,19 @@ static bool sl_bim_frame_info(const uint8_t *data, size_t size,
 }
 
 static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
-                               const uint32_t palette[256], SpriteSheet *out) {
+                               const uint32_t palette[256], spritesheet_t *out) {
     memset(out, 0, sizeof(*out));
 
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
-    if (blob.size < 4) { free_blob(&blob); return false; }
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
+    if (blob.size < 4) { W_FreeFile(&blob); return false; }
     const uint8_t *data = (const uint8_t *)blob.bytes;
     size_t data_size = blob.size;
     uint8_t *expanded = NULL;
     if (blob.size >= 4 && memcmp(data, "VCLZ", 4) == 0) {
         if (!sl_expand_vclz(data, blob.size, &expanded, &data_size)) {
             fprintf(stderr, "7legion: %s: invalid VCLZ stream\n", path);
-            free_blob(&blob);
+            W_FreeFile(&blob);
             return false;
         }
         data = expanded;
@@ -245,14 +245,14 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     if (first_offset == 0 || first_offset % 4 != 0 || first_offset > data_size) {
         fprintf(stderr, "7legion: %s: bad BIM sprite offset table\n", path);
         free(expanded);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
 
     int table_count = (int)(first_offset / 4);
     int frame_count = table_count;
     SlBimFrameInfo *info = calloc((size_t)table_count, sizeof(*info));
-    if (!info) { free(expanded); free_blob(&blob); return false; }
+    if (!info) { free(expanded); W_FreeFile(&blob); return false; }
     int canvas_w = 1;
     int canvas_h = 1;
     for (int i = 0; i < table_count; ++i) {
@@ -264,7 +264,7 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
             fprintf(stderr, "7legion: %s: invalid BIM sprite frame %d\n", path, i);
             free(info);
             free(expanded);
-            free_blob(&blob);
+            W_FreeFile(&blob);
             return false;
         }
         if (info[i].width > canvas_w) canvas_w = info[i].width;
@@ -275,7 +275,7 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         fprintf(stderr, "7legion: %s: BIM sprite contains no frames\n", path);
         free(info);
         free(expanded);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
 
@@ -290,7 +290,7 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     if (!rgba || !frames || !bounds || !ground_points) {
         free(rgba); free(frames); free(bounds); free(ground_points); free(info);
         free(expanded);
-        free_blob(&blob);
+        W_FreeFile(&blob);
         return false;
     }
 
@@ -322,11 +322,11 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         }
     }
 
-    out->texture = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+    out->texture = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
     free(rgba);
     free(info);
     free(expanded);
-    free_blob(&blob);
+    W_FreeFile(&blob);
     if (!out->texture) {
         free(frames); free(bounds); free(ground_points);
         return false;
@@ -343,13 +343,13 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         int frames_per_facing = frame_count / 8;
         out->rotations = 8;
         out->primary_frames_per_rotation = frames_per_facing;
-        SpriteSequence *stand = &out->sequences[out->sequence_count++];
+        spritesequence_t *stand = &out->sequences[out->sequence_count++];
         snprintf(stand->name, sizeof(stand->name), "stand");
         stand->facings = 8;
         stand->length = 1;
         stand->frame_stride = 1;
         stand->tick_ms = 120;
-        SpriteSequence *run = &out->sequences[out->sequence_count++];
+        spritesequence_t *run = &out->sequences[out->sequence_count++];
         snprintf(run->name, sizeof(run->name), "run");
         run->facings = 8;
         run->length = frames_per_facing;
@@ -402,13 +402,13 @@ static bool sl_load_first_mission_config(const char *map_path, SlMissionConfig *
 
     char path[512];
     if (!sl_sibling_path(path, sizeof(path), map_path, "Missions.ini")) return false;
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
     char *text = malloc(blob.size + 1);
-    if (!text) { free_blob(&blob); return false; }
+    if (!text) { W_FreeFile(&blob); return false; }
     memcpy(text, blob.bytes, blob.size);
     text[blob.size] = '\0';
-    free_blob(&blob);
+    W_FreeFile(&blob);
 
     char *section = strstr(text, "[GMission 1]");
     if (!section) { free(text); return false; }
@@ -443,22 +443,22 @@ static const char *sl_tileset_for_terrain(int terrain) {
     }
 }
 
-static const char *sl_palette_for_tileset(const GameMap *map) {
+static const char *sl_palette_for_tileset(const level_t *map) {
     if (map && strcmp(map->tileset_name, "GFX/TILES1.BIM") == 0) return "GFX/PAL2.COL";
     if (map && strcmp(map->tileset_name, "GFX/TILES2.BIM") == 0) return "GFX/PAL3.COL";
     if (map && strcmp(map->tileset_name, "GFX/TILES3.BIM") == 0) return "GFX/PAL4.COL";
     return "GFX/PAL1.COL";
 }
 
-bool sl_load_map(const char *map_path, GameMap *out) {
+bool sl_load_map(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
 
-    Blob tiles;
-    if (!load_blob(map_path, &tiles)) return false;
+    blob_t tiles;
+    if (!W_ReadFile(map_path, &tiles)) return false;
     const int W = 128, H = 128;
     if (tiles.size != (size_t)W * H * 2) {
         fprintf(stderr, "7legion: %s: expected a 128x128 MAPT layer\n", map_path);
-        free_blob(&tiles);
+        W_FreeFile(&tiles);
         return false;
     }
     out->width  = W;
@@ -469,7 +469,7 @@ bool sl_load_map(const char *map_path, GameMap *out) {
     if (!out->tile_ids || !out->blocked) {
         free(out->tile_ids);
         free(out->blocked);
-        free_blob(&tiles);
+        W_FreeFile(&tiles);
         return false;
     }
     const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
@@ -482,12 +482,12 @@ bool sl_load_map(const char *map_path, GameMap *out) {
             key--;
         }
     }
-    free_blob(&tiles);
+    W_FreeFile(&tiles);
 
     char land_path[512];
     if (sl_sibling_path(land_path, sizeof(land_path), map_path, "MAPL.000")) {
-        Blob land;
-        if (load_blob(land_path, &land)) {
+        blob_t land;
+        if (W_ReadFile(land_path, &land)) {
             if (land.size == (size_t)W * H) {
                 const uint8_t *values = (const uint8_t *)land.bytes;
                 for (int y = 0; y < H; ++y) {
@@ -497,7 +497,7 @@ bool sl_load_map(const char *map_path, GameMap *out) {
                     }
                 }
             }
-            free_blob(&land);
+            W_FreeFile(&land);
         }
     }
 
@@ -515,9 +515,9 @@ bool sl_load_map(const char *map_path, GameMap *out) {
 }
 
 bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
-                    const GameMap *map,
+                    const level_t *map,
                     const char *sprite_name,
-                    Tileset *tileset, SpriteSheet *unit_sprite) {
+                    tileset_t *tileset, spritesheet_t *unit_sprite) {
     (void)map;
 
     /* Palette */
@@ -529,7 +529,7 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
         return false;
     }
 
-    /* Tileset */
+    /* tileset_t */
     char til_path[512];
     snprintf(til_path, sizeof(til_path), "%s/%s", data_root,
              map && map->tileset_name[0] ? map->tileset_name : "GFX/TILES.BIM");
@@ -538,28 +538,28 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
         return false;
     }
 
-    /* Mobj sprite */
+    /* mobj_t sprite */
     char sprite_path[512];
     snprintf(sprite_path, sizeof(sprite_path), "%s/%s", data_root,
              sprite_name && sprite_name[0] ? sprite_name : "GFX/TROOP1W.BIM");
     if (!sl_load_bim_sprite(renderer, sprite_path, palette, unit_sprite)) {
         fprintf(stderr, "7legion: failed to load sprite %s\n", sprite_path);
-        destroy_tileset(tileset);
+        R_FreeTileset(tileset);
         return false;
     }
     return true;
 }
 
-static bool sl_cache_bim_sprite(SpriteCache *cache, SDL_Renderer *renderer,
+static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,
                                 const char *data_root, const char *sprite_name,
                                 const uint32_t palette[256]) {
     if (!sprite_name || sprite_name[0] == '\0') return true;
-    if (sprite_cache_find(cache, sprite_name)) return true;
+    if (R_CacheFind(cache, sprite_name)) return true;
     if (cache->count >= MAX_DECORATION_SPRITES) return false;
 
     char path[512];
     snprintf(path, sizeof(path), "%s/%s", data_root, sprite_name);
-    CachedSprite *entry = &cache->entries[cache->count];
+    cachedsprite_t *entry = &cache->entries[cache->count];
     memset(entry, 0, sizeof(*entry));
     if (!sl_load_bim_sprite(renderer, path, palette, &entry->sprite)) {
         fprintf(stderr, "7legion: failed to load runtime sprite %s\n", path);
@@ -571,8 +571,8 @@ static bool sl_cache_bim_sprite(SpriteCache *cache, SDL_Renderer *renderer,
 }
 
 bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                             const GameMap *map, const Mobj *units, int unit_count,
-                             SpriteCache *cache) {
+                             const level_t *map, const mobj_t *units, int unit_count,
+                             spritecache_t *cache) {
     (void)map;
     uint32_t palette[256];
     char col_path[512];
@@ -587,7 +587,7 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
     return ok;
 }
 
-int sl_load_initial_units(const char *map_path, Mobj *units, int max_units) {
+int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
     if (!units || max_units <= 0) return 0;
     SlMissionConfig mission;
     if (!sl_load_first_mission_config(map_path, &mission)) return 0;
@@ -596,7 +596,7 @@ int sl_load_initial_units(const char *map_path, Mobj *units, int max_units) {
     int troop_count = strlen(mission.player_start) > 14 ? mission.player_start[14] - '0' : 0;
     int base_count = strlen(mission.player_start) > 42 ? mission.player_start[42] - '0' : 0;
     for (int i = 0; i < troop_count && count < max_units; ++i) {
-        Mobj *unit = &units[count++];
+        mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
         unit->gx = (float)(mission.start_y - 6 + i * 2) + 0.5f;
         unit->gy = (float)(mission.start_x - 1) + 0.5f;
@@ -605,7 +605,7 @@ int sl_load_initial_units(const char *map_path, Mobj *units, int max_units) {
         unit->facing_code = 8;
     }
     for (int i = 0; i < base_count && count < max_units; ++i) {
-        Mobj *unit = &units[count++];
+        mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
         unit->gx = (float)(mission.start_y + 4 + i * 2) + 0.5f;
         unit->gy = (float)(mission.start_x + 1) + 0.5f;

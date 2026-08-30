@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_DARK_REIGN_TYPES_H
-#define OPEN_RTS_DARK_REIGN_TYPES_H
+#ifndef __DR_TYPES__
+#define __DR_TYPES__
 
 enum {
     DR_ACTOR_FG_CONSTRUCTION_CREW = 11,

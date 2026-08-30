@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_DARK_COLONY_TYPES_H
-#define OPEN_RTS_DARK_COLONY_TYPES_H
+#ifndef __DC_TYPES__
+#define __DC_TYPES__
 
 #include <stddef.h>
 #include <stdint.h>

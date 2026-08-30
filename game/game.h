@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_GAME_H
-#define OPEN_RTS_GAME_H
+#ifndef __GAME__
+#define __GAME__
 
 /*
  * Doom-style game interface.  Every game binary defines these externs in its
@@ -22,38 +22,38 @@ extern const char *const g_game_default_sprite;
 extern const int g_cell_w;
 extern const int g_cell_h;
 extern const uint16_t g_debug_enemy_type;
-extern const GameInfo *const gameinfo;
-extern const MobjType *const mobjTypes;
-extern const int mobjTypeCount;
-extern const GameUiDefinition *const gameui;   /* NULL if unused */
+extern const gameinfo_t *const gameinfo;
+extern const actortype_t *const mobjinfo;
+extern const int num_mobjinfo;
+extern const uidefinition_t *const gameui;   /* NULL if unused */
 
 /* ── game functions ────────────────────────────────────────────────────── */
 
 /* Load the map at path into *out.  Returns true on success. */
-bool     G_LoadMap(const char *path, GameMap *out);
+bool     G_DoLoadLevel(const char *path, level_t *out);
 
 /* Load tile/sprite assets into tileset and unit_sprite. */
-bool     R_LoadAssets(SDL_Renderer *renderer, const char *root, const GameMap *map,
-                      const char *sprite, Tileset *tileset, SpriteSheet *unit_sprite);
+bool     W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
+                      const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite);
 
 /* Populate mobjs[] with initial units from the map file.
    Returns the number of mobjs spawned, or 0 on none/error. */
-int      G_SpawnThings(const char *path, Mobj *mobjs, int max);
+int      P_LoadThings(const char *path, mobj_t *mobjs, int max);
 
 /* Load per-unit sprites into cache after units are known.
    Returns true on success (partial loads are allowed). */
-bool     R_LoadRuntimeSprites(SDL_Renderer *renderer, const char *root, const GameMap *map,
-                               const Mobj *mobjs, int count, SpriteCache *cache);
+bool     R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
+                       const mobj_t *mobjs, int count, spritecache_t *cache);
 
 /* Load the game UI font into *font.  Returns false if the game has no font. */
-bool     R_LoadFont(SDL_Renderer *renderer, const char *root, BitmapFont *font);
+bool     HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font);
 
 /* Load a mission script for the map.  Returns NULL if none exists. */
 void    *G_LoadMission(const char *path);
 
 /* Advance mission state by dt seconds. */
-void     G_UpdateMission(void *mission, GameMap *map, Mobj *mobjs, int *count,
-                          VisualEffect *effects, int max_effects, HudText *hud, float dt);
+void     G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
+                         effect_t *effects, int max_effects, hudtext_t *hud, float dt);
 
 /* Release a loaded mission. */
 void     G_FreeMission(void *mission);

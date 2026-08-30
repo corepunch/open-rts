@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_ENGINE_INTERNAL_H
-#define OPEN_RTS_ENGINE_INTERNAL_H
+#ifndef __P_LOCAL__
+#define __P_LOCAL__
 
 #include "engine.h"
 
@@ -13,13 +13,13 @@
 
 void debug_effects_log(const char *fmt, ...);
 
-float unit_radius_cells(const Mobj *unit);
-bool unit_position_walkable(const GameMap *map, const Mobj *unit, float gx, float gy);
-void clamp_unit_position_to_map(const GameMap *map, Mobj *unit);
+float P_MobjRadius(const mobj_t *unit);
+bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy);
+void P_ClampToLevel(const level_t *map, mobj_t *unit);
 
-void issue_move_order_at(const GameMap *map, Mobj *units, int unit_count,
-                             float goal_gx, float goal_gy);
-bool issue_harvest_order_at(const GameMap *map, Mobj *units, int unit_count,
-                                float gx, float gy);
+void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
+                   float goal_gx, float goal_gy);
+bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
+                      float gx, float gy);
 
 #endif

@@ -20,21 +20,21 @@ typedef struct { uint8_t *bytes; size_t size; FtgEntry *entries; int count; } Ft
 
 static bool ftg_load(const char *path, FtgArchive *out) {
     memset(out, 0, sizeof(*out));
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
     if (blob.size < 12 || memcmp(blob.bytes, "BOTG", 4) != 0) {
         fprintf(stderr, "%s is not a Dark Reign FTG archive\n", path);
-        free_blob(&blob); return false;
+        W_FreeFile(&blob); return false;
     }
     int32_t dir_offset = read_i32_le(blob.bytes + 4);
     int32_t count      = read_i32_le(blob.bytes + 8);
     if (dir_offset < 12 || count <= 0 || count > 65536 ||
         (size_t)dir_offset + (size_t)count * 36 > blob.size) {
         fprintf(stderr, "%s has invalid FTG directory\n", path);
-        free_blob(&blob); return false;
+        W_FreeFile(&blob); return false;
     }
     out->entries = calloc((size_t)count, sizeof(FtgEntry));
-    if (!out->entries) { free_blob(&blob); return false; }
+    if (!out->entries) { W_FreeFile(&blob); return false; }
     out->bytes = blob.bytes;
     out->size  = blob.size;
     out->count = count;
@@ -63,11 +63,11 @@ static const FtgEntry *ftg_find(const FtgArchive *ftg, const char *name) {
 
 static bool load_dark_palette_with_multipliers(const char *path, uint32_t colors[256],
                                                int standard_multiplier, int terrain_multiplier) {
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
     if (blob.size < 8 + 256 * 3 || memcmp(blob.bytes, "PALS", 4) != 0) {
         fprintf(stderr, "%s is not a Dark Reign PALS palette\n", path);
-        free_blob(&blob); return false;
+        W_FreeFile(&blob); return false;
     }
     const uint8_t *p = blob.bytes + 8;
     const uint8_t *r = p, *g = p + 256, *b = p + 512;
@@ -80,7 +80,7 @@ static bool load_dark_palette_with_multipliers(const char *path, uint32_t colors
         colors[i] = 0xff000000u | ((uint32_t)rr << 16) | ((uint32_t)gg << 8) | bb;
     }
     colors[47] = 0x70000000u;
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return true;
 }
 
@@ -127,25 +127,25 @@ static void dark_til_shadow_tile(uint32_t *dst, const uint8_t *mask, uint8_t alp
 }
 
 bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const uint32_t palette[256],
-                       Tileset *out) {
+                       tileset_t *out) {
     memset(out, 0, sizeof(*out));
-    Blob blob;
-    if (!load_blob(path, &blob)) return false;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
     if (blob.size < 8 || memcmp(blob.bytes, "TILE", 4) != 0) {
         fprintf(stderr, "%s is not a Dark Reign TILE tileset\n", path);
-        free_blob(&blob); return false;
+        W_FreeFile(&blob); return false;
     }
     size_t tile_bytes = (size_t)read_u32_le(blob.bytes + 4);
     if (tile_bytes != TILE_PIX_W * TILE_PIX_H || blob.size < 8 + tile_bytes) {
         fprintf(stderr, "%s has unsupported tile dimensions/count\n", path);
-        free_blob(&blob); return false;
+        W_FreeFile(&blob); return false;
     }
 
     const int max_frames = 1103;
     uint32_t *frame_pixels = calloc((size_t)max_frames * TILE_PIX_W * TILE_PIX_H, sizeof(uint32_t));
     uint8_t *mask_frames   = calloc((size_t)256 * TILE_PIX_W * TILE_PIX_H, sizeof(uint8_t));
     if (!frame_pixels || !mask_frames) {
-        free(frame_pixels); free(mask_frames); free_blob(&blob); return false;
+        free(frame_pixels); free(mask_frames); W_FreeFile(&blob); return false;
     }
 
     int count = 0;
@@ -153,7 +153,7 @@ bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const uint32_t 
     const size_t normal_chunk = 1 + tile_bytes;
 #define ADD_INDEXED_FRAME(SRC) do { \
     if (count < max_frames) { \
-        indexed_to_rgba(frame_pixels + (size_t)count * tile_bytes, (SRC), tile_bytes, palette); \
+        V_IndexedToRGBA(frame_pixels + (size_t)count * tile_bytes, (SRC), tile_bytes, palette); \
         count++; \
     } \
 } while (0)
@@ -260,7 +260,7 @@ bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const uint32_t 
     int atlas_w = TILE_ATLAS_COLS * TILE_PIX_W;
     int atlas_h = rows * TILE_PIX_H;
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    if (!rgba) { free(frame_pixels); free(mask_frames); free_blob(&blob); return false; }
+    if (!rgba) { free(frame_pixels); free(mask_frames); W_FreeFile(&blob); return false; }
 
     for (int tile = 0; tile < count; ++tile) {
         int tx = (tile % TILE_ATLAS_COLS) * TILE_PIX_W;
@@ -270,21 +270,21 @@ bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const uint32_t 
             for (int x = 0; x < TILE_PIX_W; ++x)
                 rgba[(ty + y) * atlas_w + tx + x] = tile_src[y * TILE_PIX_W + x];
     }
-    out->texture   = rgba_texture(renderer, rgba, atlas_w, atlas_h, false);
+    out->texture   = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, false);
     out->count     = count;
     out->atlas_cols = TILE_ATLAS_COLS;
     out->tile_w    = TILE_PIX_W;
     out->tile_h    = TILE_PIX_H;
     out->draw_y_offset = 0;
-    free(rgba); free(frame_pixels); free(mask_frames); free_blob(&blob);
+    free(rgba); free(frame_pixels); free(mask_frames); W_FreeFile(&blob);
     return out->texture != NULL;
 }
 
-static void dark_reign_add_water_animations(Tileset *tileset) {
+static void dark_reign_add_water_animations(tileset_t *tileset) {
     const int frame_ms = 180;
     for (int variation = 0; variation < 8 && variation < tileset->count; ++variation) {
         int frames[4] = { variation, (variation+1)&7, (variation+2)&7, (variation+1)&7 };
-        tileset_add_animation(tileset, variation, frames, 4, frame_ms);
+        R_AddTileAnim(tileset, variation, frames, 4, frame_ms);
     }
     for (int group = 0; group < 14; ++group) {
         int base = 1032 + group * 4;
@@ -292,7 +292,7 @@ static void dark_reign_add_water_animations(Tileset *tileset) {
         int frames[4] = { base, base+1, base+2, base+3 };
         for (int i = 0; i < 4; ++i) {
             int rotated[4] = { frames[i], frames[(i+1)&3], frames[(i+2)&3], frames[(i+3)&3] };
-            tileset_add_animation(tileset, frames[i], rotated, 4, frame_ms);
+            R_AddTileAnim(tileset, frames[i], rotated, 4, frame_ms);
         }
     }
 }
@@ -301,11 +301,11 @@ static void dark_reign_add_water_animations(Tileset *tileset) {
 
 typedef struct { int first_anim, last_anim, framerate, hotspots; } SprSection;
 
-static void sprite_sheet_add_linear_sequence(SpriteSheet *sheet, const char *name, int start,
+static void sprite_sheet_add_linear_sequence(spritesheet_t *sheet, const char *name, int start,
                                              int facings, int length, int tick_ms) {
     if (!sheet || !name || sheet->sequence_count >= MAX_SPRITE_SEQUENCES ||
         facings <= 0 || facings > MAX_SEQUENCE_FACINGS || length <= 0) return;
-    SpriteSequence *seq = &sheet->sequences[sheet->sequence_count++];
+    spritesequence_t *seq = &sheet->sequences[sheet->sequence_count++];
     memset(seq, 0, sizeof(*seq));
     snprintf(seq->name, sizeof(seq->name), "%s", name);
     seq->facings = facings;
@@ -321,7 +321,7 @@ static void sprite_sheet_add_linear_sequence(SpriteSheet *sheet, const char *nam
     }
 }
 
-static const SpriteSequence *sprite_sheet_find_sequence(const SpriteSheet *sheet, const char *name) {
+static const spritesequence_t *sprite_sheet_find_sequence(const spritesheet_t *sheet, const char *name) {
     if (!sheet || !name) return NULL;
     for (int i = 0; i < sheet->sequence_count; ++i)
         if (strcmp(sheet->sequences[i].name, name) == 0) return &sheet->sequences[i];
@@ -345,7 +345,7 @@ static SDL_Rect dark_reign_visible_bounds(const uint32_t *rgba, int atlas_w, SDL
 }
 
 static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
-                             const uint32_t palette[256], SpriteSheet *out) {
+                             const uint32_t palette[256], spritesheet_t *out) {
     memset(out, 0, sizeof(*out));
     if (size < 32 || (memcmp(data, "RSPR", 4) != 0 && memcmp(data, "SSPR", 4) != 0 &&
                       memcmp(data, "LSPR", 4) != 0)) return false;
@@ -441,7 +441,7 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
             free(rgba); free(frames); free(bounds); free(ground_points);
             goto spr_fail;
         }
-        indexed_to_rgba(rgba, indices, (size_t)atlas_w * (size_t)atlas_h, palette);
+        V_IndexedToRGBA(rgba, indices, (size_t)atlas_w * (size_t)atlas_h, palette);
         for (int i = 0; i < total_frames; ++i) {
             frames[i].x = (i % cols) * szx; frames[i].y = (i / cols) * szy;
             frames[i].w = szx; frames[i].h = szy;
@@ -451,7 +451,7 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
                size; opaque-pixel bounds are not a ground-contact hotspot. */
             ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
         }
-        out->texture    = rgba_texture(renderer, rgba, atlas_w, atlas_h, true);
+        out->texture    = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
         out->frames     = frames;
         out->frame_bounds = bounds;
         out->frame_ground_points = ground_points;
@@ -471,10 +471,10 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
             }
         }
         if (!sprite_sheet_find_sequence(out, "stand") && out->sequence_count > 0) {
-            const SpriteSequence *source = sprite_sheet_find_sequence(out, "idle");
+            const spritesequence_t *source = sprite_sheet_find_sequence(out, "idle");
             if (!source) source = sprite_sheet_find_sequence(out, "run");
             if (!source) source = &out->sequences[out->sequence_count - 1];
-            SpriteSequence stand = *source;
+            spritesequence_t stand = *source;
             snprintf(stand.name, sizeof(stand.name), "stand");
             if (out->sequence_count < MAX_SPRITE_SEQUENCES)
                 out->sequences[out->sequence_count++] = stand;
@@ -490,7 +490,7 @@ spr_fail:
 
 static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
                              const char *tileset_name, const char *sprite_name,
-                             const uint32_t palette[256], SpriteSheet *out) {
+                             const uint32_t palette[256], spritesheet_t *out) {
     const char *asset_name = sprite_name;
     int first_archive = 0;
     int last_archive = 1;
@@ -526,17 +526,17 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
 
 /* ── sprite cache ───────────────────────────────────────────────────────── */
 
-static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *renderer,
+static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *renderer,
                                          const char *data_root, const char *tileset_name,
                                          const char *name, const uint32_t sprite_palette[256],
                                          const uint32_t terrain_palette[256]) {
     if (!name || name[0] == '\0') return true;
-    if (sprite_cache_find(cache, name)) return true;
+    if (R_CacheFind(cache, name)) return true;
     if (cache->count >= MAX_DECORATION_SPRITES) {
         fprintf(stderr, "too many decoration sprites; skipped %s\n", name);
         return false;
     }
-    CachedSprite *entry = &cache->entries[cache->count];
+    cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
     const uint32_t *palette = strncasecmp(name, "tileset|", 8) == 0 ?
         terrain_palette : sprite_palette;
@@ -554,8 +554,8 @@ static bool sprite_cache_load_dark_reign(SpriteCache *cache, SDL_Renderer *rende
 }
 
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const GameMap *map, const Mobj *units,
-                                        int unit_count, SpriteCache *cache) {
+                                        const level_t *map, const mobj_t *units,
+                                        int unit_count, spritecache_t *cache) {
     memset(cache, 0, sizeof(*cache));
     uint32_t sprite_palette[256];
     uint32_t terrain_palette[256];
@@ -568,7 +568,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
 
     bool ok = true;
     for (int i = 0; i < map->decoration_count; ++i) {
-        const MapDecoration *dec = &map->decorations[i];
+        const mapdecoration_t *dec = &map->decorations[i];
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
                                           dec->shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
@@ -579,7 +579,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                           dec->sprite3_name, sprite_palette, terrain_palette)) ok = false;
     }
     for (int i = 0; i < unit_count; ++i) {
-        const Mobj *unit = &units[i];
+        const mobj_t *unit = &units[i];
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
                                           unit->shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
@@ -593,13 +593,13 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
 typedef struct { char *units; char *buildings; char *overlay; char *animate; } DarkReignDefinitions;
 
 static char *load_text_file(const char *path) {
-    Blob blob;
-    if (!load_blob(path, &blob)) return NULL;
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return NULL;
     char *text = malloc(blob.size + 1);
-    if (!text) { free_blob(&blob); return NULL; }
+    if (!text) { W_FreeFile(&blob); return NULL; }
     memcpy(text, blob.bytes, blob.size);
     text[blob.size] = '\0';
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return text;
 }
 
@@ -711,10 +711,10 @@ static void dark_reign_load_definitions(const char *map_path, DarkReignDefinitio
     memset(defs, 0, sizeof(*defs));
     char root[1024], path[1024];
     dark_reign_root_from_map(map_path, root, sizeof(root));
-    path_join(path, sizeof(path), root, "deftxt/UNITS.TXT");   defs->units     = load_text_file(path);
-    path_join(path, sizeof(path), root, "deftxt/BUILD.TXT");   defs->buildings = load_text_file(path);
-    path_join(path, sizeof(path), root, "deftxt/OVERLAY.TXT"); defs->overlay   = load_text_file(path);
-    path_join(path, sizeof(path), root, "deftxt/ANIMATE.TXT"); defs->animate   = load_text_file(path);
+    M_PathJoin(path, sizeof(path), root, "deftxt/UNITS.TXT");   defs->units     = load_text_file(path);
+    M_PathJoin(path, sizeof(path), root, "deftxt/BUILD.TXT");   defs->buildings = load_text_file(path);
+    M_PathJoin(path, sizeof(path), root, "deftxt/OVERLAY.TXT"); defs->overlay   = load_text_file(path);
+    M_PathJoin(path, sizeof(path), root, "deftxt/ANIMATE.TXT"); defs->animate   = load_text_file(path);
 }
 
 static void dark_reign_free_definitions(DarkReignDefinitions *defs) {
@@ -938,16 +938,16 @@ static bool dark_reign_resolve_thing_visual(const DarkReignDefinitions *defs, co
 }
 
 static int compare_map_decorations(const void *a, const void *b) {
-    const MapDecoration *da = a, *db = b;
+    const mapdecoration_t *da = a, *db = b;
     int ya = da->gy + da->footprint_h, yb = db->gy + db->footprint_h;
     if (ya != yb) return ya - yb;
     return da->gx - db->gx;
 }
 
-static void add_dark_reign_decoration(GameMap *map, const DarkReignVisualSpec *spec, int gx, int gy) {
+static void add_dark_reign_decoration(level_t *map, const DarkReignVisualSpec *spec, int gx, int gy) {
     if (!spec || gx < 0 || gy < 0 || gx >= map->width || gy >= map->height ||
         map->decoration_count >= MAX_DECORATIONS) return;
-    MapDecoration *dec = &map->decorations[map->decoration_count++];
+    mapdecoration_t *dec = &map->decorations[map->decoration_count++];
     dec->gx = gx; dec->gy = gy;
     dec->footprint_w = spec->footprint_w; dec->footprint_h = spec->footprint_h;
     dec->solid = spec->solid;
@@ -967,19 +967,19 @@ static void add_dark_reign_decoration(GameMap *map, const DarkReignVisualSpec *s
         for (int x = 0; x < spec->footprint_w; ++x) {
             int mx = gx + x, my = gy + y;
             if (mx >= 0 && my >= 0 && mx < map->width && my < map->height)
-                map->blocked[map_index(map, mx, my)] = 1;
+                map->blocked[L_Index(map, mx, my)] = 1;
         }
 }
 
-static void load_dark_reign_decorations(const char *map_path, GameMap *map) {
+static void load_dark_reign_decorations(const char *map_path, level_t *map) {
     DarkReignDefinitions defs;
     dark_reign_load_definitions(map_path, &defs);
     char scn_path[1024];
     dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    Blob blob;
-    if (!load_blob(scn_path, &blob)) { dark_reign_free_definitions(&defs); return; }
+    blob_t blob;
+    if (!W_ReadFile(scn_path, &blob)) { dark_reign_free_definitions(&defs); return; }
     char *text = malloc(blob.size + 1);
-    if (!text) { free_blob(&blob); dark_reign_free_definitions(&defs); return; }
+    if (!text) { W_FreeFile(&blob); dark_reign_free_definitions(&defs); return; }
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
     char *cursor = text;
     while (map->decoration_count < MAX_DECORATIONS) {
@@ -1006,19 +1006,19 @@ static void load_dark_reign_decorations(const char *map_path, GameMap *map) {
         }
         cursor = hit + (building ? strlen("AddBuildingAt(") : strlen("AddThingAt("));
     }
-    free(text); free_blob(&blob); dark_reign_free_definitions(&defs);
-    qsort(map->decorations, (size_t)map->decoration_count, sizeof(MapDecoration),
+    free(text); W_FreeFile(&blob); dark_reign_free_definitions(&defs);
+    qsort(map->decorations, (size_t)map->decoration_count, sizeof(mapdecoration_t),
           compare_map_decorations);
 }
 
-static void load_dark_reign_team_credits(const char *map_path, GameMap *map) {
+static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
     if (!map) return;
     char scn_path[1024];
     dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    Blob blob;
-    if (!load_blob(scn_path, &blob)) return;
+    blob_t blob;
+    if (!W_ReadFile(scn_path, &blob)) return;
     char *text = malloc(blob.size + 1);
-    if (!text) { free_blob(&blob); return; }
+    if (!text) { W_FreeFile(&blob); return; }
     memcpy(text, blob.bytes, blob.size);
     text[blob.size] = '\0';
 
@@ -1051,7 +1051,7 @@ static void load_dark_reign_team_credits(const char *map_path, GameMap *map) {
     }
 
     free(text);
-    free_blob(&blob);
+    W_FreeFile(&blob);
 }
 
 /* ── tileset detection ──────────────────────────────────────────────────── */
@@ -1060,8 +1060,8 @@ static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t t
     strncpy(tileset, "BARREN", tileset_size - 1); tileset[tileset_size-1] = '\0';
     char mm_path[1024];
     dark_reign_mm_path_from_map(map_path, mm_path, sizeof(mm_path));
-    Blob blob;
-    if (!load_blob(mm_path, &blob)) return;
+    blob_t blob;
+    if (!W_ReadFile(mm_path, &blob)) return;
     if (blob.size >= 28) {
         char raw[17]; memcpy(raw, blob.bytes + 12, 16); raw[16] = '\0';
         size_t n = strnlen(raw, sizeof(raw));
@@ -1069,16 +1069,16 @@ static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t t
         for (size_t i = 0; i < n; ++i) raw[i] = (char)toupper((unsigned char)raw[i]);
         if (n > 0) { strncpy(tileset, raw, tileset_size - 1); tileset[tileset_size-1] = '\0'; }
     }
-    free_blob(&blob);
+    W_FreeFile(&blob);
 }
 
 static void detect_tileset_from_scn(const char *map_path, char *tileset, size_t tileset_size) {
     char scn_path[1024];
     dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    Blob blob;
-    if (!load_blob(scn_path, &blob)) return;
+    blob_t blob;
+    if (!W_ReadFile(scn_path, &blob)) return;
     char *text = malloc(blob.size + 1);
-    if (!text) { free_blob(&blob); return; }
+    if (!text) { W_FreeFile(&blob); return; }
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
     const char *tag = "SetDefaultTerrain(";
     char *hit = strstr(text, tag);
@@ -1088,7 +1088,7 @@ static void detect_tileset_from_scn(const char *map_path, char *tileset, size_t 
         if (end && end > hit)
             uppercase_trimmed_token(tileset, tileset_size, hit, (size_t)(end - hit));
     }
-    free(text); free_blob(&blob);
+    free(text); W_FreeFile(&blob);
 }
 
 /* ── edge transition renderer ───────────────────────────────────────────── */
@@ -1148,9 +1148,9 @@ static int dark_reign_edge_frame_for_template(int template_id, int variation) {
     return template_id + 218;
 }
 
-static int dark_reign_neighbor_type(const GameMap *map, int x, int y, int fallback) {
-    if (!map_contains(map, x, y)) return fallback;
-    return dark_reign_terrain_type_from_frame(map->tile_ids[map_index(map, x, y)]);
+static int dark_reign_neighbor_type(const level_t *map, int x, int y, int fallback) {
+    if (!L_Contains(map, x, y)) return fallback;
+    return dark_reign_terrain_type_from_frame(map->tile_ids[L_Index(map, x, y)]);
 }
 
 static bool dark_reign_rule_matches(EdgeMatchType match, int neighbor_type, int self_value) {
@@ -1158,9 +1158,9 @@ static bool dark_reign_rule_matches(EdgeMatchType match, int neighbor_type, int 
     return neighbor_type >= self_value;
 }
 
-static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const Tileset *tileset,
+static void render_dark_reign_edges_for_cell(app_t *app, const level_t *map, const tileset_t *tileset,
                                              int x, int y, int dx, int dy) {
-    int frame = map->tile_ids[map_index(map, x, y)] % tileset->count;
+    int frame = map->tile_ids[L_Index(map, x, y)] % tileset->count;
     int self_type = dark_reign_terrain_type_from_frame(frame);
     int variation = frame < 8 ? frame : (frame - 8) & 7;
     int northwest_type = dark_reign_neighbor_type(map, x - 1, y - 1, self_type);
@@ -1229,7 +1229,7 @@ static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const
     if (shim_type >= 0 && shim_type != 15) {
         int shim_frame = dark_reign_base_frame_for_type(shim_type, variation);
         if (shim_frame >= 0 && shim_frame < tileset->count) {
-            render_tile_at(app, tileset, shim_frame, whole, dst);
+            R_DrawTile(app, tileset, shim_frame, whole, dst);
         }
     }
 
@@ -1244,20 +1244,20 @@ static void render_dark_reign_edges_for_cell(App *app, const GameMap *map, const
     }
 
     for (int i = 0; i < edge_frame_count; ++i) {
-        render_tile_at(app, tileset, edge_frames[i].frame, whole, dst);
+        R_DrawTile(app, tileset, edge_frames[i].frame, whole, dst);
     }
 }
 
 /* ── map loader ─────────────────────────────────────────────────────────── */
 
-bool load_dark_map(const char *map_path, GameMap *out) {
+bool load_dark_map(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
     out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
-    Blob blob;
-    if (!load_blob(map_path, &blob)) {
+    blob_t blob;
+    if (!W_ReadFile(map_path, &blob)) {
         char fallback_mm[1024];
         dark_reign_mm_path_from_map(map_path, fallback_mm, sizeof(fallback_mm));
-        if (strcmp(fallback_mm, map_path) == 0 || !load_blob(fallback_mm, &blob)) {
+        if (strcmp(fallback_mm, map_path) == 0 || !W_ReadFile(fallback_mm, &blob)) {
             return false;
         }
     }
@@ -1266,13 +1266,13 @@ bool load_dark_map(const char *map_path, GameMap *out) {
     if (map_len >= 4 && strcasecmp(map_path + map_len - 4, ".SCN") == 0) {
         char terrain_path[1024];
         dark_reign_map_path_from_scn(map_path, terrain_path, sizeof(terrain_path));
-        Blob map_blob;
-        if (!load_blob(terrain_path, &map_blob)) {
+        blob_t map_blob;
+        if (!W_ReadFile(terrain_path, &map_blob)) {
             fprintf(stderr, "failed to load sibling Dark Reign MAP terrain %s\n", terrain_path);
-            free_blob(&blob);
+            W_FreeFile(&blob);
             return false;
         }
-        free_blob(&blob);
+        W_FreeFile(&blob);
         blob = map_blob;
     }
 
@@ -1287,19 +1287,19 @@ bool load_dark_map(const char *map_path, GameMap *out) {
         if (width <= 0 || height <= 0 || width > 512 || height > 512 ||
             blob.size < 20 + record_count * 6) {
             fprintf(stderr, "%s has unsupported map dimensions\n", map_path);
-            free_blob(&blob); return false;
+            W_FreeFile(&blob); return false;
         }
     } else {
         if (blob.size < 12) {
             fprintf(stderr, "%s is not a supported Dark Reign map/MM file\n", map_path);
-            free_blob(&blob); return false;
+            W_FreeFile(&blob); return false;
         }
         width = read_i32_le(blob.bytes + 4);
         height = read_i32_le(blob.bytes + 8);
         record_count = (size_t)width * (size_t)height;
         if (width <= 0 || height <= 0 || width > 512 || height > 512 || record_count == 0) {
             fprintf(stderr, "%s has unsupported Dark Reign MM dimensions\n", map_path);
-            free_blob(&blob); return false;
+            W_FreeFile(&blob); return false;
         }
     }
 
@@ -1307,8 +1307,8 @@ bool load_dark_map(const char *map_path, GameMap *out) {
     out->height = height;
     out->tile_ids   = calloc(record_count, sizeof(uint16_t));
     out->blocked    = calloc(record_count, sizeof(uint8_t));
-    out->decorations = calloc(MAX_DECORATIONS, sizeof(MapDecoration));
-    if (!out->tile_ids || !out->blocked || !out->decorations) { free_blob(&blob); return false; }
+    out->decorations = calloc(MAX_DECORATIONS, sizeof(mapdecoration_t));
+    if (!out->tile_ids || !out->blocked || !out->decorations) { W_FreeFile(&blob); return false; }
     if (map_record_format) {
         const uint8_t *records = blob.bytes + 20;
         for (size_t i = 0; i < record_count; ++i) {
@@ -1356,22 +1356,22 @@ bool load_dark_map(const char *map_path, GameMap *out) {
     out->render_transitions = render_dark_reign_edges_for_cell;
     load_dark_reign_decorations(map_path, out);
     load_dark_reign_team_credits(map_path, out);
-    free_blob(&blob);
+    W_FreeFile(&blob);
     return true;
 }
 
 /* ── unit SCN parser ────────────────────────────────────────────────────── */
 
-int load_dark_reign_initial_units(const char *map_path, Mobj *units, int max_units) {
+int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_units) {
     if (max_units <= 0) return 0;
     DarkReignDefinitions defs;
     dark_reign_load_definitions(map_path, &defs);
     char scn_path[1024];
     dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    Blob blob;
-    if (!load_blob(scn_path, &blob)) { dark_reign_free_definitions(&defs); return 0; }
+    blob_t blob;
+    if (!W_ReadFile(scn_path, &blob)) { dark_reign_free_definitions(&defs); return 0; }
     char *text = malloc(blob.size + 1);
-    if (!text) { free_blob(&blob); dark_reign_free_definitions(&defs); return 0; }
+    if (!text) { W_FreeFile(&blob); dark_reign_free_definitions(&defs); return 0; }
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
 
     int count = 0;
@@ -1456,7 +1456,7 @@ int load_dark_reign_initial_units(const char *map_path, Mobj *units, int max_uni
             line = next;
         }
         if (have_start && associated_type[0] != '\0') {
-            Mobj *unit = &units[count];
+            mobj_t *unit = &units[count];
             unit->gx = (float)start_x / 24.0f;
             unit->gy = (float)start_y / 24.0f;
             unit->speed = 4.5f;
@@ -1470,15 +1470,15 @@ int load_dark_reign_initial_units(const char *map_path, Mobj *units, int max_uni
             }
         }
     }
-    free(text); free_blob(&blob); dark_reign_free_definitions(&defs);
+    free(text); W_FreeFile(&blob); dark_reign_free_definitions(&defs);
     return count;
 }
 
 /* ── plugin asset loader ────────────────────────────────────────────────── */
 
 bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                   const GameMap *map, const char *sprite_name,
-                                   Tileset *tileset, SpriteSheet *unit_sprite) {
+                                   const level_t *map, const char *sprite_name,
+                                   tileset_t *tileset, spritesheet_t *unit_sprite) {
     uint32_t terrain_palette[256], sprite_palette[256];
     char palette_path[1024];
     snprintf(palette_path, sizeof(palette_path), "%s/graphics/%s.PAL", data_root, map->tileset_name);
@@ -1500,7 +1500,7 @@ bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root
 
     if (!load_unit_sprite(renderer, data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);
-        destroy_tileset(tileset);
+        R_FreeTileset(tileset);
         return false;
     }
     return true;

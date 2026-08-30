@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_SPRITES_H
-#define OPEN_RTS_SPRITES_H
+#ifndef __SPRITES__
+#define __SPRITES__
 
 #include "engine_config.h"
 
@@ -13,7 +13,7 @@ typedef struct {
     uint16_t frame_ms;
 } TileAnimation;
 
-typedef struct Tileset {
+typedef struct tileset_s {
     SDL_Texture *texture;
     int *tile_lookup;
     int tile_lookup_count;
@@ -24,9 +24,9 @@ typedef struct Tileset {
     int tile_w;
     int tile_h;
     int draw_y_offset;
-} Tileset;
+} tileset_t;
 
-typedef struct {
+typedef struct spritesequence_s {
     char name[16];
     int facings;
     int length;
@@ -34,9 +34,9 @@ typedef struct {
     int tick_ms;
     int frame_starts[MAX_SEQUENCE_FACINGS];
     int direction_codes[MAX_SEQUENCE_FACINGS];
-} SpriteSequence;
+} spritesequence_t;
 
-typedef struct SpriteSheet {
+typedef struct spritesheet_s {
     SDL_Texture *texture;
     SDL_Texture *remap_textures[8];
     SDL_Rect *frames;
@@ -48,31 +48,31 @@ typedef struct SpriteSheet {
     int frame_h;
     int rotations;
     int primary_frames_per_rotation;
-    SpriteSequence sequences[MAX_SPRITE_SEQUENCES];
+    spritesequence_t sequences[MAX_SPRITE_SEQUENCES];
     int sequence_count;
     void *native_data;
     void (*destroy_native_data)(void *);
-} SpriteSheet;
+} spritesheet_t;
 
-typedef struct {
+typedef struct cachedsprite_s {
     char name[32];
-    SpriteSheet sprite;
-} CachedSprite;
+    spritesheet_t sprite;
+} cachedsprite_t;
 
-typedef struct {
-    CachedSprite entries[MAX_DECORATION_SPRITES];
+typedef struct spritecache_s {
+    cachedsprite_t entries[MAX_DECORATION_SPRITES];
     int count;
-} SpriteCache;
+} spritecache_t;
 
-typedef struct {
-    SpriteSheet sprite;
+typedef struct bitmapfont_s {
+    spritesheet_t sprite;
     int glyph_index[128];
     uint8_t glyph_width[128];
     int glyph_w;
     int glyph_h;
     int line_h;
     int draw_divisor;
-} BitmapFont;
+} bitmapfont_t;
 
 #define RTS_MAX_HUD_MESSAGES 8
 
@@ -81,9 +81,9 @@ typedef struct {
     int ttl_ms;
 } HudMessage;
 
-typedef struct {
+typedef struct hudtext_s {
     HudMessage messages[RTS_MAX_HUD_MESSAGES];
     int count;
-} HudText;
+} hudtext_t;
 
 #endif

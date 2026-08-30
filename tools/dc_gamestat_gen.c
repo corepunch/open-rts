@@ -123,7 +123,7 @@ static char *read_text_file(const char *path) {
     return data;
 }
 
-static void path_join(char *out, size_t out_size, const char *dir, const char *name) {
+static void M_PathJoin(char *out, size_t out_size, const char *dir, const char *name) {
     snprintf(out, out_size, "%s/%s", dir, name);
 }
 
@@ -228,7 +228,7 @@ static int read_count_line(char **cursor, const char *path) {
 
 static void parse_game_stat_file(const char *dir, GameStatData *data) {
     char path[1024];
-    path_join(path, sizeof(path), dir, "GAMESTAT.TXT");
+    M_PathJoin(path, sizeof(path), dir, "GAMESTAT.TXT");
     char *text = read_text_file(path);
     char *cursor = text;
     int expected = read_count_line(&cursor, path);
@@ -251,7 +251,7 @@ static void parse_game_stat_file(const char *dir, GameStatData *data) {
 
 static void parse_depend_file(const char *dir, GameStatData *data) {
     char path[1024];
-    path_join(path, sizeof(path), dir, "DEPEND.TXT");
+    M_PathJoin(path, sizeof(path), dir, "DEPEND.TXT");
     char *text = read_text_file(path);
     char *cursor = text;
     int expected = read_count_line(&cursor, path);
@@ -285,7 +285,7 @@ static void parse_depend_file(const char *dir, GameStatData *data) {
 
 static void parse_weapon_file(const char *dir, GameStatData *data) {
     char path[1024];
-    path_join(path, sizeof(path), dir, "WEAPSTAT.TXT");
+    M_PathJoin(path, sizeof(path), dir, "WEAPSTAT.TXT");
     char *text = read_text_file(path);
     char *cursor = text;
     int expected = read_count_line(&cursor, path);
@@ -308,7 +308,7 @@ static void parse_weapon_file(const char *dir, GameStatData *data) {
 
 static void parse_unit_id_file(const char *dir, GameStatData *data) {
     char path[1024];
-    path_join(path, sizeof(path), dir, "UNITID.TXT");
+    M_PathJoin(path, sizeof(path), dir, "UNITID.TXT");
     char *text = read_text_file(path);
     char *cursor = text;
 
@@ -331,7 +331,7 @@ static void parse_unit_id_file(const char *dir, GameStatData *data) {
 
 static void parse_mbullet_file(const char *dir, GameStatData *data) {
     char path[1024];
-    path_join(path, sizeof(path), dir, "MBULLET.TXT");
+    M_PathJoin(path, sizeof(path), dir, "MBULLET.TXT");
     char *text = read_text_file(path);
     char *cursor = text;
     data->mbullet.width = read_count_line(&cursor, path);
@@ -352,7 +352,7 @@ static void parse_mbullet_file(const char *dir, GameStatData *data) {
 
 static void parse_boom_file(const char *dir, GameStatData *data) {
     char path[1024];
-    path_join(path, sizeof(path), dir, "BOOMSTAT.TXT");
+    M_PathJoin(path, sizeof(path), dir, "BOOMSTAT.TXT");
     char *text = read_text_file(path);
     char *cursor = text;
     int expected = read_count_line(&cursor, path);
@@ -400,7 +400,7 @@ static void copy_clean_scene_name(char *out, size_t out_size, char *line) {
 
 static void parse_scene_file(const char *dir, const char *name, SceneTable *table) {
     char path[1024];
-    path_join(path, sizeof(path), dir, name);
+    M_PathJoin(path, sizeof(path), dir, name);
     char *text = read_text_file(path);
     char *cursor = text;
 

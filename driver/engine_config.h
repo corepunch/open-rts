@@ -1,5 +1,5 @@
-#ifndef OPEN_RTS_ENGINE_CONFIG_H
-#define OPEN_RTS_ENGINE_CONFIG_H
+#ifndef __ENGINE_CONFIG__
+#define __ENGINE_CONFIG__
 
 #define CELL_W 24
 #define CELL_H 24
