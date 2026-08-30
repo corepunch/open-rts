@@ -14,8 +14,10 @@ typedef struct uiimage_s {
 } uiimage_t;
 
 typedef struct uiresource_s {
-    SDL_Point text; /* right-aligned amount anchor in logical UI coordinates */
+    SDL_Point text; /* amount anchor in logical UI coordinates */
     SDL_Color color;
+    /* The native UI may center a counter (false) or pin its right edge (true). */
+    bool right_aligned;
 } uiresource_t;
 
 typedef struct uipanel_s {

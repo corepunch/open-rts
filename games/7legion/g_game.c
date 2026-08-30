@@ -106,7 +106,8 @@ static const uidefinition_t SL_UI = {
     .logical_height = 480,
     .world_viewport = { 0, 28, 640, 452 },
     .resources = {
-        [0] = { .text = { 630, 3 }, .color = { 230, 215, 80, 255 } },
+        [0] = { .text = { 630, 3 }, .color = { 230, 215, 80, 255 },
+                .right_aligned = true },
     },
     .resource_count = 1,
     .status_panel = {

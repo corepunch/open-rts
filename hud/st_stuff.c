@@ -232,7 +232,8 @@ static void ST_drawResource(const st_state_t *st, app_t *app,
     int count = (int)strlen(value);
     float sx = (float)app->win.w / (float)st->definition->logical_width;
     float sy = (float)app->win.h / (float)st->definition->logical_height;
-    int x = (int)((float)display->text.x * sx) - count * 7;
+    int anchor_x = (int)((float)display->text.x * sx);
+    int x = display->right_aligned ? anchor_x - count * 14 + 2 : anchor_x - count * 7;
     int y = (int)((float)display->text.y * sy);
     for (int i = 0; i < count; ++i) {
         draw_digit(app->renderer, x + i * 14, y, value[i] - '0', display->color);
