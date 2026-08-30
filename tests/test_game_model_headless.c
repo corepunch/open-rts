@@ -55,11 +55,19 @@ static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *sna
     return false;
 }
 
-static bool snapshot_has_decoration_sprite(const RtsRenderSnapshot *snapshot,
-                                           const char *sprite_name) {
-    if (!snapshot || !sprite_name) return false;
+static bool snapshot_has_dark_reign_building(const RtsRenderSnapshot *snapshot,
+                                             const char *underlay, const char *body,
+                                             const char *top, int footprint_w,
+                                             int footprint_h) {
+    if (!snapshot || !underlay || !body || !top) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
-        if (strcmp(snapshot->decorations[i].sprite_name, sprite_name) == 0) return true;
+        const RtsRenderDecoration *dec = &snapshot->decorations[i];
+        if (strcmp(dec->sprite_name, underlay) != 0 ||
+            strcmp(dec->sprite2_name, body) != 0 ||
+            strcmp(dec->sprite3_name, top) != 0) continue;
+        if (dec->frame_index == 1 && dec->frame2_index == 1 && dec->frame3_index == 1 &&
+            dec->center_anchor && dec->footprint_w == footprint_w &&
+            dec->footprint_h == footprint_h) return true;
     }
     return false;
 }
@@ -984,9 +992,12 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
         snapshot.player_resources[0] != 4000 ||
         snapshot_count_units_with_owner_and_type(
             &snapshot, 0, DR_ACTOR_FG_GROUND_TRANSPORTER) != 1 ||
-        !snapshot_has_decoration_sprite(&snapshot, "nfhqt1l0.spr") ||
-        !snapshot_has_decoration_sprite(&snapshot, "nclnc1l0.spr") ||
-        !snapshot_has_decoration_sprite(&snapshot, "ncpow1l0.spr")) {
+        !snapshot_has_dark_reign_building(&snapshot,
+            "tileset|nfhqt1l0.spr", "base|nfhqt1l0.spr", "base|tfhqt1l0.spr", 4, 4) ||
+        !snapshot_has_dark_reign_building(&snapshot,
+            "tileset|nclnc1l0.spr", "base|nclnc1l0.spr", "base|tclnc1l0.spr", 4, 3) ||
+        !snapshot_has_dark_reign_building(&snapshot,
+            "tileset|ncpow1l0.spr", "base|ncpow1l0.spr", "base|tcpow1l0.spr", 3, 4)) {
         return fail("Mission 1 loads its snow map, credits, three buildings, and freighter");
     }
 

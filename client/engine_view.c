@@ -455,6 +455,7 @@ static void end_sprite_command(SDL_Texture *texture, uint32_t render_flags) {
 }
 
 static SDL_Point sprite_frame_raw_displacement(const SpriteSheet *sprite, int frame);
+static SDL_Point sprite_ground_point(const SpriteSheet *sprite, int frame);
 
 static void render_decoration_sprite(App *app, const GameMap *map,
                                      const MapDecoration *dec, const SpriteSheet *sprite,
@@ -477,13 +478,21 @@ static void render_decoration_sprite(App *app, const GameMap *map,
 
     SDL_Rect dst;
     if (dec->center_anchor) {
-        map_grid_to_screen(app, map, (float)dec->gx + 0.5f, (float)dec->gy + 0.5f, &sx, &sy);
-        SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
-        SDL_Rect anchor_rect = sprite_frame_rect(sprite, anchor_frame);
-        float ground_offset_y = (float)bounds.y + (float)bounds.h;
+        map_grid_to_screen(app, map,
+                           (float)dec->gx + (float)footprint_w * 0.5f,
+                           (float)dec->gy + (float)footprint_h * 0.5f,
+                           &sx, &sy);
+        SDL_Point ground;
+        if (sprite->frame_ground_points) {
+            ground = sprite_ground_point(sprite, anchor_frame);
+        } else {
+            SDL_Rect anchor_rect = sprite_frame_rect(sprite, anchor_frame);
+            SDL_Rect bounds = sprite_visible_bounds(sprite, anchor_frame);
+            ground = (SDL_Point){ anchor_rect.w / 2, bounds.y + bounds.h };
+        }
         dst = (SDL_Rect){
-            (int)(sx - anchor_rect.w / 2),
-            (int)(sy - ground_offset_y),
+            (int)(sx - ground.x),
+            (int)(sy - ground.y),
             sprite_w,
             sprite_h,
         };
@@ -524,6 +533,9 @@ static void render_decoration(App *app, const GameMap *map,
                              dec->frame_index, dec->sequence_name);
     render_decoration_sprite(app, map, dec, sprite_cache_lookup(cache, dec->sprite2_name),
                              dec->frame2_index, dec->render2_flags, NULL,
+                             dec->frame_index, dec->sequence_name);
+    render_decoration_sprite(app, map, dec, sprite_cache_lookup(cache, dec->sprite3_name),
+                             dec->frame3_index, dec->render3_flags, NULL,
                              dec->frame_index, dec->sequence_name);
 }
 
@@ -677,7 +689,7 @@ static const SpriteSheet *unit_sprite_sheet_for_view(const Unit *unit,
 
 static int unit_frame_for_view(const SpriteSheet *sprite, const Unit *unit,
                                const GameInfo *game_info, uint32_t ticks) {
-    int frame = game_info ? unit->frame : sprite_frame_for_unit(sprite, unit, ticks);
+    int frame = (game_info && game_info->states) ? unit->frame : sprite_frame_for_unit(sprite, unit, ticks);
     if (!sprite || sprite->frame_count <= 0) return 0;
     if (frame >= sprite->frame_count) frame = 0;
     if (frame < 0) frame = 0;
@@ -878,6 +890,43 @@ static void draw_selection_circle(App *app, const Unit *u, int cx, int cy, int r
     draw_ellipse_outline(app->renderer, cx, cy, rx,     ry);
 }
 
+static void draw_selection_brackets(App *app, const Unit *u, const SDL_Rect *visible) {
+    if (!app || !app->renderer || !u || !visible || visible->w <= 0 || visible->h <= 0) return;
+    SDL_Rect box = {
+        visible->x - 3,
+        visible->y - 3,
+        visible->w + 6,
+        visible->h + 6,
+    };
+    int corner = box.w < box.h ? box.w / 4 : box.h / 4;
+    if (corner < 4) corner = 4;
+    if (corner > 9) corner = 9;
+    int right = box.x + box.w;
+    int bottom = box.y + box.h;
+
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(app->renderer, 236, 236, 220, 230);
+    SDL_RenderDrawLine(app->renderer, box.x, box.y, box.x + corner, box.y);
+    SDL_RenderDrawLine(app->renderer, box.x, box.y, box.x, box.y + corner);
+    SDL_RenderDrawLine(app->renderer, right - corner, box.y, right, box.y);
+    SDL_RenderDrawLine(app->renderer, right, box.y, right, box.y + corner);
+    SDL_RenderDrawLine(app->renderer, box.x, bottom - corner, box.x, bottom);
+    SDL_RenderDrawLine(app->renderer, box.x, bottom, box.x + corner, bottom);
+    SDL_RenderDrawLine(app->renderer, right, bottom - corner, right, bottom);
+    SDL_RenderDrawLine(app->renderer, right - corner, bottom, right, bottom);
+
+    int bar_w = box.w - 8;
+    if (bar_w < 16) bar_w = 16;
+    int bar_x = box.x + (box.w - bar_w) / 2;
+    int bar_y = box.y - 5;
+    int fill_w = u->max_hp > 0 ? (bar_w * u->hp) / u->max_hp : bar_w;
+    SDL_Color tint = selection_health_tint(selection_health_bucket(u));
+    SDL_SetRenderDrawColor(app->renderer, 20, 20, 18, 235);
+    SDL_RenderFillRect(app->renderer, &(SDL_Rect){ bar_x - 1, bar_y - 1, bar_w + 2, 4 });
+    SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, 255);
+    SDL_RenderFillRect(app->renderer, &(SDL_Rect){ bar_x, bar_y, fill_w, 2 });
+}
+
 static void draw_selection_triangle(App *app, const Unit *u, const SDL_Rect *visible) {
     if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
     int cx = visible->x + visible->w / 2;
@@ -1005,17 +1054,10 @@ static void render_unit_sprite(App *app, const GameMap *map,
                               &dst, &visible, &sx, &sy, &frame, &sprite);
     uint32_t render_flags = game_info ? u->render_flags : 0;
     const SpriteSheet *shadow = sprite_cache_lookup(cache, u->shadow_name);
-    if (shadow && shadow->texture && shadow->frame_count > 0) {
+    if (shadow && shadow != sprite && shadow->texture && shadow->frame_count > 0) {
         int shadow_frame = frame < shadow->frame_count ? frame : 0;
         SDL_Rect shadow_rect = sprite_frame_rect(shadow, shadow_frame);
-        int shadow_w = shadow_rect.w;
-        int shadow_h = shadow_rect.h;
-        SDL_Rect shadow_dst = {
-            (int)(sx - shadow_w / 2),
-            (int)(sy - shadow_h / 2),
-            shadow_w,
-            shadow_h,
-        };
+        SDL_Rect shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
         SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
     }
     float content_y = (float)visible.y;
@@ -1032,10 +1074,14 @@ static void render_unit_sprite(App *app, const GameMap *map,
             int radius = (int)(unit_pick_radius_px(app, u) * 0.85f);
             draw_selection_circle(app, u, (int)sx, (int)sy, radius);
         }
+        else if (sel_style == SELECTION_STYLE_BRACKETS)
+            draw_selection_brackets(app, u, &visible);
         else if (!draw_selection_marker_sprite(app, u, cache, game_info, &visible))
             draw_selection_triangle(app, u, &visible);
     }
-    if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp) {
+    if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&
+        (!game_info || game_info->selection_marker.style != SELECTION_STYLE_BRACKETS ||
+         !u->selected)) {
         int bar_w = dst.w / 2;
         int bar_h = 2;
         int bx = (int)(sx - bar_w / 2);

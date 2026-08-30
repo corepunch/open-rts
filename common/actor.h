@@ -103,6 +103,7 @@ typedef enum {
 typedef enum {
     SELECTION_STYLE_SPRITE = 0,
     SELECTION_STYLE_CIRCLE,
+    SELECTION_STYLE_BRACKETS,
 } SelectionStyle;
 
 typedef struct {
@@ -183,6 +184,7 @@ typedef struct Unit {
     Cell path[MAX_PATH_CELLS];
     int path_len;
     int path_index;
+    int turn_timer_ms;
 } Unit;
 
 typedef struct {

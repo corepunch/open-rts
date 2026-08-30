@@ -70,7 +70,7 @@ static const ActorType DARK_REIGN_ACTOR_TYPES[] = {
 
 static const GameInfo DARK_REIGN_GAME_INFO = {
     .direction_mode   = RTS_DIRECTION_DARK_REIGN_8,
-    .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
+    .selection_marker = { .style = SELECTION_STYLE_BRACKETS, .sprite = -1 },
 };
 
 static bool dark_reign_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,

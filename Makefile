@@ -67,8 +67,8 @@ DC_LIB     := $(LIBS_DIR)/dark-colony$(LIB_EXT)
 
 # ── 7th legion plugin ───────────────────────────────────────────────────────
 SL_SOURCES := \
-	plugins/SeventhLegion/plugin.c \
-	plugins/SeventhLegion/sl_loader.c
+	plugins/7thLegion/plugin.c \
+	plugins/7thLegion/sl_loader.c
 SL_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SL_SOURCES))
 SL_DEPS    := $(SL_OBJECTS:.o=.d)
 SL_LIB     := $(LIBS_DIR)/7legion$(LIB_EXT)
@@ -113,7 +113,7 @@ DC_LAYOUT_TEST_SOURCES := \
 DC_LAYOUT_TEST_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_LAYOUT_TEST_SOURCES))
 DC_LAYOUT_TEST_DEPS    := $(DC_LAYOUT_TEST_OBJECTS:.o=.d)
 
-.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion kknd kknd-check anim-extract clean
+.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion kknd kknd-check anim-extract clean help
 
 all: $(TARGET) $(DR_LIB) $(DC_LIB) $(SL_LIB) $(KKND_LIB) $(MODEL_LIB_TARGET)
 
@@ -214,6 +214,38 @@ test: test-headless
 test-headless: $(GAME_MODEL_TEST_TARGET) $(DC_LAYOUT_TEST_TARGET)
 	$(GAME_MODEL_TEST_TARGET)
 	$(DC_LAYOUT_TEST_TARGET)
+
+help:
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Build:"
+	@echo "  all                  Build binary + all plugins (default)"
+	@echo "  clean                Remove build directory"
+	@echo ""
+	@echo "Run games:"
+	@echo "  run                  Dark Reign (multiplayer map)"
+	@echo "  dark-reign           Dark Reign (2NIC multiplayer map)"
+	@echo "  mission-1            Dark Reign campaign mission 1"
+	@echo "  mission-2            Dark Reign campaign mission 2"
+	@echo "  dark-colony          Dark Colony HUMAN01 scenario"
+	@echo "  dark-colony-human02  Dark Colony HUMAN02 scenario"
+	@echo "  7legion              7th Legion"
+	@echo "  kknd                 KKnD"
+	@echo ""
+	@echo "Test / check:"
+	@echo "  test                 Run all headless tests"
+	@echo "  kknd-check           Headless smoke check for KKnD"
+	@echo ""
+	@echo "Tools:"
+	@echo "  anim-extract         Build the anim_extract tool"
+	@echo "  dark-colony-info     Regenerate Dark Colony info.h/info.c from game data"
+	@echo "  dark-colony-gamestat Regenerate Dark Colony gamestat.h from game data"
+	@echo ""
+	@echo "Run the binary directly for extra flags:"
+	@echo "  build/bin/open-rts --game 7legion data/7LEGION --software"
+	@echo "  build/bin/open-rts --game dark-colony ... --software   (fix Metal/GPU tile bugs)"
+	@echo "  env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game dark-colony"
+	@echo "  env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot out.bmp --game kknd"
 
 clean:
 	rm -rf $(BUILD_DIR)

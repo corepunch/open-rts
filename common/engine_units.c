@@ -3,6 +3,7 @@
 
 enum {
     RTS_HARVEST_INTERVAL_MS = 1000,
+    RTS_TURN_STEP_MS = 75,
 };
 
 static const State *state_at(const GameInfo *game_info, int state_id) {
@@ -217,15 +218,15 @@ static int dark_colony16_direction_code_from_vector(float dx, float dy) {
     return sector;
 }
 
-static int dark_reign8_direction_code_from_vector(float dx, float dy) {
+static int dark_reign16_direction_code_from_vector(float dx, float dy) {
     if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    const float quarter_turn = 0.7853981633974483f;
+    const float sixteenth_turn = 0.39269908169872414f;
     /* Dark Reign's SPR rotation zero points north and rotations advance
        clockwise in screen space. */
-    int sector = (int)floorf(atan2f(dx, -dy) / quarter_turn + 0.5f);
-    sector %= 8;
-    if (sector < 0) sector += 8;
-    return sector * 2;
+    int sector = (int)floorf(atan2f(dx, -dy) / sixteenth_turn + 0.5f);
+    sector %= 16;
+    if (sector < 0) sector += 16;
+    return sector;
 }
 
 int direction_code_from_vector(const GameInfo *game_info, float dx, float dy) {
@@ -234,7 +235,7 @@ int direction_code_from_vector(const GameInfo *game_info, float dx, float dy) {
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8)
         return dark_colony8_direction_code_from_vector(dx, dy);
     if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_REIGN_8)
-        return dark_reign8_direction_code_from_vector(dx, dy);
+        return dark_reign16_direction_code_from_vector(dx, dy);
     return compass16_direction_code_from_vector(dx, dy);
 }
 
@@ -242,7 +243,7 @@ static int direction_code_from_map_vector(const GameMap *map, const GameInfo *ga
                                           float dx, float dy) {
     if (map && map->bottom_up_coordinates) dy = -dy;
     if (map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8)
-        return dark_reign8_direction_code_from_vector(dx, dy);
+        return dark_reign16_direction_code_from_vector(dx, dy);
     return direction_code_from_vector(game_info, dx, dy);
 }
 
@@ -748,6 +749,35 @@ void update_units(GameMap *map, Unit *units, int *unit_count, VisualEffect *effe
                     u->path_index = 0;
                     u->move_order_arrived = false;
                     moving = false;
+                }
+            }
+            /* Turn-in-place before moving (sprite-based units with no state machine). */
+            if (moving && !game_info->states) {
+                Cell c = u->path[u->path_index];
+                bool final = u->path_index == u->path_len - 1;
+                float tx = final ? u->move_goal_gx : (float)c.x + 0.5f;
+                float ty = final ? u->move_goal_gy : (float)c.y + 0.5f;
+                float dx = tx - u->gx;
+                float dy = ty - u->gy;
+                float dist = sqrtf(dx * dx + dy * dy);
+                if (dist >= 0.001f) {
+                    int desired = direction_code_from_map_vector(map, game_info, dx, dy);
+                    if (desired != u->facing_code) {
+                        u->turn_timer_ms -= dt_ms;
+                        if (u->turn_timer_ms <= 0) {
+                            int delta = desired - u->facing_code;
+                            int turn_step = map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8 ? 1 : 2;
+                            if (delta > 8) delta -= 16;
+                            if (delta < -8) delta += 16;
+                            u->facing_code = delta > 0 ?
+                                (u->facing_code + turn_step) % 16 :
+                                (u->facing_code - turn_step + 16) % 16;
+                            u->turn_timer_ms = RTS_TURN_STEP_MS;
+                        }
+                        moving = false;
+                    } else {
+                        u->turn_timer_ms = 0;
+                    }
                 }
             }
             if (moving) {

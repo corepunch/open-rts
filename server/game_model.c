@@ -32,7 +32,11 @@ static bool dark_colony_product_uses_barracks_release(const Unit *producer,
 
 enum {
     DC_ACTOR_TROOPER = 1,
+    DC_ACTOR_EXCOPOD = 1000,
     DC_ACTOR_BRRKPOD = 1001,
+    DC_ACTOR_ROBOPOD = 1002,
+    DC_ACTOR_ROBOPOD2 = 1003,
+    DC_ACTOR_SCNCPOD2 = 1005,
     DC_PRODUCTION_BUILD_GROUP = 6,
     DC_TRSCBUILD_FIRST_FRAME = 12,
 };
@@ -53,22 +57,27 @@ static const ActorType *plugin_actor_type_by_id(const Plugin *plugin, uint16_t t
 static void apply_actor_type_defaults(Unit *unit, const ActorType *type);
 
 static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
-    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { 0 }, 0 },
-    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { 0 }, 0 },
-    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1, { 0 }, 0 },
-    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2, { 0 }, 0 },
-    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1, { 0 }, 0 },
-    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1, { 0 }, 0 },
-    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2, { 0 }, 0 },
-    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1, { 0 }, 0 },
-    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1, { 0 }, 0 },
-    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { 0 }, 0 },
-    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 0, 3, 4 }, 3, { 0 }, 0 },
-    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { 0 }, 0 },
-    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { 0 }, 0 },
-    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { 0 }, 0 },
-    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { 0 }, 0 },
-    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 4, 3, 6 }, 3, { 0 }, 0 },
+    /* Buildings — all built from the Exco Center */
+    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { DC_ACTOR_EXCOPOD }, 1 },
+    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
+    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
+    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2, { DC_ACTOR_EXCOPOD }, 1 },
+    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
+    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
+    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2, { DC_ACTOR_EXCOPOD }, 1 },
+    /* Exco Center units */
+    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
+    /* Barracks units */
+    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1, { DC_ACTOR_BRRKPOD }, 1 },
+    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { DC_ACTOR_BRRKPOD }, 1 },
+    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { DC_ACTOR_BRRKPOD }, 1 },
+    /* Robot Factory units */
+    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
+    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
+    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
+    /* Upgraded Robot Factory units */
+    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { DC_ACTOR_ROBOPOD2 }, 1 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { DC_ACTOR_ROBOPOD2 }, 1 },
 };
 
 static int dark_colony_product_count(void) {
@@ -312,11 +321,6 @@ static int find_player_actor_index(const RtsGameModel *model, uint16_t actor_id)
     return -1;
 }
 
-static int find_player_product_index(const RtsGameModel *model,
-                                     const StaticProductDefinition *product) {
-    return find_player_actor_index(model, dark_colony_actor_id_for_product(product));
-}
-
 static int find_product_producer_index(const RtsGameModel *model,
                                        const StaticProductDefinition *product) {
     if (!model || !product) return -1;
@@ -329,19 +333,10 @@ static int find_product_producer_index(const RtsGameModel *model,
         }
         return -1;
     }
-    for (int i = 0; i < product->prerequisite_count; ++i) {
-        const StaticProductDefinition *prereq =
-            dark_colony_product_by_row_id(product->prerequisites[i]);
-        int index = find_player_product_index(model, prereq);
+    /* dark-colony: makers[] holds the actor type ID of the building that builds this */
+    for (int i = 0; i < product->maker_count; ++i) {
+        int index = find_player_actor_index(model, (uint16_t)product->makers[i]);
         if (index >= 0) return index;
-    }
-    for (int i = 0; i < model->unit_count; ++i) {
-        const Unit *unit = &model->units[i];
-        if (unit->owner == 0 && !unit->remove && unit->hp > 0 &&
-            (unit->traits & RTS_TRAIT_RENDERABLE) != 0 &&
-            (unit->traits & RTS_TRAIT_MOBILE) == 0) {
-            return i;
-        }
     }
     return -1;
 }
@@ -816,23 +811,68 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
     append_ui_script(dst, dst_size, "x 520 y 464 text \"P-7 %d\"\n",
                      model->map.player_resources[0]);
 
+    /* Find the selected player building. Mobile units (harvesters, infantry) don't
+       show a build panel — only stationary buildings do. */
+    uint16_t selected_type = 0;
+    const Unit *selected_building = NULL;
+    for (int i = 0; i < model->unit_count; ++i) {
+        const Unit *u = &model->units[i];
+        if (u->selected && u->owner == 0 && u->hp > 0 && !u->remove &&
+            (u->traits & RTS_TRAIT_SELECTABLE) != 0 &&
+            (u->traits & RTS_TRAIT_MOBILE) == 0) {
+            selected_type = u->type_id;
+            selected_building = u;
+            break;
+        }
+    }
+    if (selected_type == 0) return;
+
+    /* Show production queue progress for the selected building. */
+    if (selected_building && selected_building->production_queue_count > 0) {
+        const StaticProductDefinition *producing = product_by_class_type_for_model(
+            model, selected_building->production_product_class,
+            selected_building->production_product_type);
+        int pct = 0;
+        if (producing && selected_building->production_time_ms > 0) {
+            int elapsed = selected_building->production_time_ms -
+                          selected_building->production_time_left_ms;
+            pct = elapsed * 100 / selected_building->production_time_ms;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+        }
+        append_ui_script(dst, dst_size, "x 516 y 76 progress %d queue %d label \"%s\"\n",
+                         pct, selected_building->production_queue_count,
+                         producing ? producing->label : "");
+    }
+
+    /* Emit build buttons for products this building can produce. */
+    int slot = 0;
     int source_count = dark_colony_product_count();
     for (int i = 0; i < source_count; ++i) {
         const StaticProductDefinition *product = &DARK_COLONY_HUMAN_PRODUCTS[i];
-        int col = i % 3;
-        int row = i / 3;
+        bool this_maker = false;
+        for (int m = 0; m < product->maker_count; ++m) {
+            if (product->makers[m] == (int)selected_type) {
+                this_maker = true;
+                break;
+            }
+        }
+        if (!this_maker) continue;
+
+        int col = slot % 3;
+        int row = slot / 3;
+        slot++;
         int button_x = 516 + col * 36;
         int button_y = 92 + row * 42;
-        int label_x = button_x + 8;
-        int label_y = button_y + 34;
-        bool available = product_is_available(model, product);
+        bool available = product_is_available(model, product) &&
+                         model->map.player_resources[0] >= product->cost;
         append_ui_script(dst, dst_size,
                          "x %d y %d btn %d enabled %d pic %d\n",
                          button_x, button_y, product->ui_id, available ? 1 : 0,
                          product->icon_frame);
         append_ui_script(dst, dst_size,
                          "x %d y %d text \"%s %d\"\n",
-                         label_x, label_y, product->label, product->cost);
+                         button_x + 8, button_y + 34, product->label, product->cost);
     }
 }
 
@@ -1118,11 +1158,14 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->center_anchor = src->center_anchor;
         dst->frame_index = src->frame_index;
         dst->frame2_index = src->frame2_index;
+        dst->frame3_index = src->frame3_index;
         dst->facing_code = src->facing_code;
         dst->render_flags = src->render_flags;
         dst->render2_flags = src->render2_flags;
+        dst->render3_flags = src->render3_flags;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->sprite2_name, sizeof(dst->sprite2_name), "%s", src->sprite2_name);
+        snprintf(dst->sprite3_name, sizeof(dst->sprite3_name), "%s", src->sprite3_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }

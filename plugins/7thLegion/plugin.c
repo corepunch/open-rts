@@ -26,7 +26,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 2,
         .name        = "Slave",
         .sprite_name = "GFX/SLAVEN1.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
         .speed       = 3.5f,
         .max_hp      = 60,
     },
@@ -76,7 +77,8 @@ static const ActorType SL_ACTOR_TYPES[] = {
         .id          = 6,
         .name        = "Truck",
         .sprite_name = "GFX/TRUCK.BIM",
-        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE | RTS_TRAIT_RENDERABLE,
+        .traits      = RTS_TRAIT_SELECTABLE | RTS_TRAIT_MOBILE |
+                       RTS_TRAIT_RENDERABLE | RTS_TRAIT_HARVESTER,
         .speed       = 5.0f,
         .max_hp      = 200,
     },
