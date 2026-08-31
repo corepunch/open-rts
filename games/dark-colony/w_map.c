@@ -1043,7 +1043,7 @@ static void dark_colony_city_slot_position_fixed(int anchor_x, int anchor_y, int
     int slot_x = 0, slot_z = 0;
     dark_colony_city_slot_offset(slot, &slot_x, &slot_z);
     int fx = dark_colony_fixed_from_city_x(anchor_x);
-    int fz = dark_colony_fixed_from_cell(anchor_y);
+    int fz = dark_colony_fixed_from_city_x(anchor_y);
     fx += slot_x * 8;
     fz += slot_z * 8;
     if (x_fixed) *x_fixed = fx;
@@ -1054,10 +1054,10 @@ static bool dark_colony_team_city_anchor(const DarkColonyScenarioTeam *team,
                                          int *x_out, int *y_out) {
     if (!team || team->ai_slot_count < 2)
         return false;
-    /* DC.EXE scenario.c reads the second %AISlots X into team +0x2c. With our
-       bottom-up map storage, the matching visible city Y is the first row. */
+    /* DC.EXE scenario.c stores the second %AISlots pair at team +0x2c/+0x30;
+       city.c uses both fields as the city's 8.8 fixed-point origin. */
     int x = team->ai_slots[1][0];
-    int y = team->ai_slots[0][1];
+    int y = team->ai_slots[1][1];
     if (x == 0)
         return false;
     if (x_out) *x_out = x;

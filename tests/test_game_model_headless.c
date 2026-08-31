@@ -591,11 +591,11 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 city slots with zero DC city anchors are not materialized");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 56.0f, 53.5f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 56.0f, 55.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 56.0f, 53.5f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, 56.0f, 55.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 56.0f, 53.5f, 0, 0)) {
+                                      S_DC_TOWR_STND, 56.0f, 55.0f, 0, 0)) {
         return fail("Human02 city bases use Dark Colony city anchor and slot offsets");
     }
     if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
@@ -638,11 +638,11 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 loads Petra-7 vents");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
-                                             RTS_FRAME_ADDITIVE, 14, -31)) {
-        return fail("Human02 active Petra-7 vent glow uses VENT/VENT2 SPR placement");
+                                             RTS_FRAME_ADDITIVE, 9, -25)) {
+        return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
-                                             RTS_FRAME_ADDITIVE, 14, -31)) {
+                                             RTS_FRAME_ADDITIVE, 9, -25)) {
         return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
     }
 
@@ -732,9 +732,9 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.421875f) ||
-        !near_float(snapshot.units[exploiter].gy, 47.28125f)) {
-        return fail("Human02 Exploiter deploys at the SPR-authored Petra-7 attachment point");
+    if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.578125f) ||
+        !near_float(snapshot.units[exploiter].gy, 47.46875f)) {
+        return fail("Human02 Exploiter deploys at the FIN-authored Petra-7 attachment point");
     }
     for (int i = 0; i < 30 * 20; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
@@ -901,19 +901,19 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.0f, 9.5f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 75.0f, 9.5f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
-                                      S_NULL, 75.0f, 9.5f, 0, 0) ||
+                                      S_NULL, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.0f, 9.5f, 0, 0)) {
+                                      S_DC_TOWR_STND, 75.0f, 6.0f, 0, 0)) {
         return fail("Human03 city slots compose with Dark Colony fixed-point offsets");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.0f, 9.5f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.0f, 9.5f, 0, 0)) {
+                                      S_DC_TOWR_STND, 75.0f, 6.0f, 0, 0)) {
         return fail("Human03 DC city AISlot is the player city base");
     }
 

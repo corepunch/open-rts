@@ -306,6 +306,36 @@ static bool dark_colony_animation_load(const char *path, DarkColonyAnimationFile
     return true;
 }
 
+static const DarkColonyAnimationCommand *dark_colony_animation_find_command(
+    const DarkColonyAnimationFile *animation, const char *label_name,
+    const char *sprite_name, int frame, int layer) {
+    if (!animation || !label_name || !sprite_name) return NULL;
+
+    int command_index = 0;
+    for (int frame_index = 0; frame_index < animation->aux_count; ++frame_index) {
+        int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
+        for (int label_index = 0; label_index < animation->label_count; ++label_index) {
+            const DarkColonyAnimationLabel *label = &animation->labels[label_index];
+            if (strcmp(label->name, label_name) != 0 ||
+                frame_index < label->start || frame_index > label->end) {
+                continue;
+            }
+            for (int part = 0; part < part_count; ++part) {
+                if (command_index + part >= animation->command_count) return NULL;
+                const DarkColonyAnimationCommand *command =
+                    &animation->commands[command_index + part];
+                if (strcasecmp(command->sprite, sprite_name) == 0 &&
+                    command->frame == frame && command->layer == layer) {
+                    return command;
+                }
+            }
+        }
+        command_index += part_count;
+        if (command_index > animation->command_count) return NULL;
+    }
+    return NULL;
+}
+
 static void dark_colony_sprite_native_destroy(void *ptr) {
     DarkColonySpriteNative *native = ptr;
     if (!native) return;
@@ -663,37 +693,43 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
 
     char vent_path[1024];
     char glow_path[1024];
+    char animation_path[1024];
     snprintf(vent_path, sizeof(vent_path), "%.*s/SPRITES/VENT.SPR", (int)root_len, map_path);
     snprintf(glow_path, sizeof(glow_path), "%.*s/SPRITES/VENT2.SPR", (int)root_len, map_path);
+    snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/VENT.FIN",
+             (int)root_len, map_path);
 
     DarkColonyJuiceFile vent = {0};
     DarkColonyJuiceFile glow = {0};
+    DarkColonyAnimationFile animation = {0};
     if (!dark_colony_juice_load(vent_path, &vent) ||
         !dark_colony_juice_load(glow_path, &glow) ||
+        !dark_colony_animation_load(animation_path, &animation) ||
         vent.cell_count <= 0 || glow.cell_count <= 0) {
         dark_colony_juice_destroy(&vent);
         dark_colony_juice_destroy(&glow);
+        dark_colony_animation_destroy(&animation);
         return false;
     }
 
-    const DarkColonyJuiceCell *base = &vent.cells[0];
     const DarkColonyJuiceCell *plume = &glow.cells[0];
-    /* VENT frame 0 is the complete active crater. VENT2 frame 0 is its glow
-       layer. Their SPR displacements put both images in the same authored
-       canvas. The terrain stamp point is the center of its keyed cell, while
-       the crater bitmap begins at that cell's lower edge. */
-    int base_left = -(int)base->width / 2;
-    int base_top = DARK_COLONY_CELL_PIXELS / 2;
-    out->glow_left = base_left + (int)plume->dis_x - (int)base->dis_x;
-    out->glow_top = base_top + (int)plume->dis_y - (int)base->dis_y;
+    const DarkColonyAnimationCommand *plume_command = dark_colony_animation_find_command(
+        &animation, "VENTSTAND0", "vent2", 0, 0);
+    if (!plume_command) {
+        dark_colony_juice_destroy(&vent);
+        dark_colony_juice_destroy(&glow);
+        dark_colony_animation_destroy(&animation);
+        return false;
+    }
+
+    out->glow_left = plume_command->x + (int)plume->dis_x;
+    out->glow_top = -plume_command->y + (int)plume->dis_y;
     out->attach_x = (float)out->glow_left + (float)plume->width * 0.5f;
-    /* The Exploiter FIN origin is the body ground/origin, so attach it to the
-       plume's visual center. The plume bottom is the crater bitmap edge,
-       not the unit's ground point. */
     out->attach_y = (float)out->glow_top + (float)plume->height * 0.5f;
     out->valid = true;
 
     dark_colony_juice_destroy(&vent);
     dark_colony_juice_destroy(&glow);
+    dark_colony_animation_destroy(&animation);
     return true;
 }

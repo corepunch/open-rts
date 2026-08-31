@@ -621,7 +621,7 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
     int start_x = 16;
     int start_y = info_y + 8;
     int cell_w = frame_w + 22;
-    int cell_h = frame_h + 18;
+    int cell_h = frame_h + 28;
     int rows = sprite->frame_count > 0 ? (sprite->frame_count + cols - 1) / cols : 0;
     int content_h = rows * cell_h;
 
@@ -647,9 +647,33 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
         int x = start_x + col * cell_w;
         int y = start_y + row * cell_h - scroll_y;
         if (y + cell_h < viewport_y || y > viewport_y + viewport_h) continue;
-        irect_t dst = { x, y, frame_w, frame_h };
-        SDL_RenderCopy(app->renderer, sprite->texture, &sprite->frames[i], &dst);
-        snprintf(line, sizeof(line), "%d", i);
+        irect_t src = sprite->frames[i];
+        SDL_Point dis = sprite->frame_displacements ?
+            sprite->frame_displacements[i] : (SDL_Point){ 0, 0 };
+        irect_t dst = {
+            x + dis.x * frame_scale,
+            y + dis.y * frame_scale,
+            src.w * frame_scale,
+            src.h * frame_scale,
+        };
+        SDL_RenderCopy(app->renderer, sprite->texture, &src, &dst);
+
+        SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 255);
+        SDL_RenderDrawLine(app->renderer, x, y, x + 7, y);
+        SDL_RenderDrawLine(app->renderer, x, y, x, y + 7);
+        if (sprite->frame_bounds) {
+            irect_t bounds = sprite->frame_bounds[i];
+            irect_t debug_bounds = {
+                dst.x + bounds.x * frame_scale,
+                dst.y + bounds.y * frame_scale,
+                bounds.w * frame_scale,
+                bounds.h * frame_scale,
+            };
+            SDL_SetRenderDrawColor(app->renderer, 232, 93, 86, 255);
+            SDL_RenderDrawRect(app->renderer, &debug_bounds);
+        }
+
+        snprintf(line, sizeof(line), "F%d %dx%d D%d,%d", i, src.w, src.h, dis.x, dis.y);
         debug_font_draw_text(app->renderer, &overlay->font, x, y + frame_h + 2, line, white, 1);
     }
 
@@ -749,8 +773,8 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
         R_MapToScreen(app, map, units[i].core.gx, units[i].core.gy, &sx, &sy);
-        app->cam.x = (float)app->win.w * 0.5f - sx;
-        app->cam.y = (float)app->win.h * 0.5f - sy;
+        app->cam.x += (float)app->win.w * 0.5f - sx;
+        app->cam.y += (float)app->win.h * 0.5f - sy;
         return true;
     }
     return false;
@@ -768,8 +792,60 @@ static void focus_camera_on_grid(app_t *app, const level_t *map,
         viewport.w = gameui->world_viewport.w * app->win.w / gameui->logical_width;
         viewport.h = gameui->world_viewport.h * app->win.h / gameui->logical_height;
     }
-    app->cam.x = (float)(viewport.x + viewport.w / 2) - sx;
-    app->cam.y = (float)(viewport.y + viewport.h / 2) - sy;
+    app->cam.x += (float)(viewport.x + viewport.w / 2) - sx;
+    app->cam.y += (float)(viewport.y + viewport.h / 2) - sy;
+}
+
+static void debug_draw_cross(SDL_Renderer *renderer, int x, int y, SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderDrawLine(renderer, x - 5, y, x + 5, y);
+    SDL_RenderDrawLine(renderer, x, y - 5, x, y + 5);
+}
+
+static void debug_draw_map_anchors(const app_t *app, const level_t *map,
+                                   const spritecache_t *cache,
+                                   const mobj_t *units, int unit_count) {
+    if (!app || !app->renderer || !map) return;
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        float sx, sy;
+        R_MapToScreen(app, map, (float)vent->gx, (float)vent->gy, &sx, &sy);
+        debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
+                         (SDL_Color){ 232, 93, 86, 255 });
+        R_MapToScreen(app, map, vent->attach_gx, vent->attach_gy, &sx, &sy);
+        debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
+                         (SDL_Color){ 255, 224, 92, 255 });
+    }
+    for (int i = 0; i < map->decoration_count; ++i) {
+        const mapdecoration_t *dec = &map->decorations[i];
+        float sx, sy;
+        float gx = (float)dec->gx + (dec->center_anchor ? (float)dec->footprint_w * 0.5f : 0.0f);
+        float gy = (float)dec->gy + (dec->center_anchor ? (float)dec->footprint_h * 0.5f : 0.0f);
+        R_MapToScreen(app, map, gx, gy, &sx, &sy);
+        debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
+                         (SDL_Color){ 98, 224, 161, 255 });
+        const spritesheet_t *sprite = cache ? R_CacheLookup(cache, dec->sprite_name) : NULL;
+        if (sprite && sprite->frames && sprite->frame_count > 0 && dec->has_sprite_pivot) {
+            int frame = dec->frame_index >= 0 ? dec->frame_index :
+                (int)((app->ticks_ms / 250u) % (uint32_t)sprite->frame_count);
+            irect_t src = sprite->frames[frame];
+            irect_t dst = {
+                (int)lroundf(sx) - dec->sprite_pivot_x,
+                (int)lroundf(sy) - dec->sprite_pivot_y,
+                src.w,
+                src.h,
+            };
+            SDL_SetRenderDrawColor(app->renderer, 224, 92, 220, 255);
+            SDL_RenderDrawRect(app->renderer, &dst);
+        }
+    }
+    for (int i = 0; units && i < unit_count; ++i) {
+        if (units[i].remove || units[i].hp <= 0) continue;
+        float sx, sy;
+        R_MapToScreen(app, map, units[i].core.gx, units[i].core.gy, &sx, &sy);
+        debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
+                         (SDL_Color){ 88, 160, 255, 255 });
+    }
 }
 
 static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
@@ -2141,6 +2217,11 @@ int main(int argc, char **argv) {
     bool software_renderer = false;
     const char *debug_query = NULL;
     bool debug_animation_grid = false;
+    bool debug_anchors = false;
+    bool debug_grid = false;
+    bool debug_terrain_only = false;
+    bool debug_camera_override = false;
+    fvec2_t debug_camera = { 0.0f, 0.0f };
     while (argc > arg_base) {
         if (strcmp(argv[arg_base], "--software") == 0) {
             software_renderer = true;
@@ -2175,6 +2256,19 @@ int main(int argc, char **argv) {
             debug_query = argv[arg_base + 1];
             debug_animation_grid = true;
             arg_base += 2;
+        } else if (strncmp(argv[arg_base], "--camera=", 9) == 0 &&
+                   sscanf(argv[arg_base] + 9, "%f,%f", &debug_camera.x, &debug_camera.y) == 2) {
+            debug_camera_override = true;
+            arg_base += 1;
+        } else if (strcmp(argv[arg_base], "--debug-anchors") == 0) {
+            debug_anchors = true;
+            arg_base += 1;
+        } else if (strcmp(argv[arg_base], "--grid") == 0) {
+            debug_grid = true;
+            arg_base += 1;
+        } else if (strcmp(argv[arg_base], "--terrain-only") == 0) {
+            debug_terrain_only = true;
+            arg_base += 1;
         } else {
             break;
         }
@@ -2216,6 +2310,7 @@ int main(int argc, char **argv) {
     }
     if (show_facings_only) { app.win.w = 1280; app.win.h = 720; }
     app.show_grid = false;
+    app.show_grid = debug_grid;
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
                              app.win.w, app.win.h,
@@ -2290,6 +2385,8 @@ int main(int argc, char **argv) {
         float focus_gy = unit_count > 0 ? units[0].core.gy : (float)map.height * 0.5f;
         focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
+    if (debug_camera_override)
+        focus_camera_on_grid(&app, &map, debug_camera.x, debug_camera.y);
     R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);
 
     printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
@@ -2393,10 +2490,13 @@ int main(int argc, char **argv) {
             }
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             R_DrawLevel(&app, &map, &tileset);
-            R_RenderPlayerView(&app, &map, &tileset, units, unit_count, &unit_sprite,
+            R_RenderPlayerView(&app, &map, &tileset, units,
+                                 debug_terrain_only ? 0 : unit_count, &unit_sprite,
                                  &decoration_sprites, gameinfo, SDL_GetTicks());
             R_DrawEffects(&app, &map, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, gameinfo);
+            if (debug_anchors)
+                debug_draw_map_anchors(&app, &map, &decoration_sprites, units, unit_count);
             SB_Drawer(&sb, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
             ST_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
                       false, true);

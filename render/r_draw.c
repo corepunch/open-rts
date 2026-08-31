@@ -663,7 +663,6 @@ static SDL_Point sprite_frame_displacement(const spritesheet_t *sprite, int fram
     if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
         p = sprite->frame_displacements[frame];
     }
-    p.y = 0;
     if ((render_flags & RTS_FRAME_FLIP_X) != 0) p.x = 0;
     return p;
 }
