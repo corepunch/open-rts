@@ -312,10 +312,11 @@ therefore expected to do nothing; hovering the icon shows `Trooper 350` in red.
 
 The release visual is label `TRSCBUILD0` in `ANIMATE/HUBU.FIN`. It contains 22
 frames, each with raw delay 6. Applying the executable's conversion above gives
-one runtime tick per frame, so the complete release lasts 22 ticks. At the
-30 Hz simulation rate this is approximately 733 ms, not 4.4 seconds. The old
-open-rts generator copied raw 6 directly into each state and therefore made the
-release six times too slow.
+one native 19 Hz runtime tick per frame, so the complete release lasts 22 native
+ticks, approximately 1.16 seconds. Open-rts runs at 30 Hz and represents the
+same elapsed time with 35 cumulatively rounded simulation ticks. Copying raw 6
+directly into each state made the release 4.4 seconds long; treating the 22
+native ticks as 22 open-rts ticks made it too fast at approximately 733 ms.
 
 The FIN-authored sequence is:
 
@@ -344,7 +345,10 @@ At `0x00438c95..0x00438d16`, the native object-type loader searches first for
 offset `+0x98`. At `0x00441430..0x00441450`, the city/object setup path can
 initialize an object's animation directly from that `+0x98` pointer and return
 before ordinary city-slot placement. This confirms a dedicated build-animation
-initialization path rather than a generic sprite overlay. The exact caller-side
+initialization path rather than a generic sprite overlay. Open-rts must replace
+the Barracks standing state with this chain and return to the standing state at
+completion; drawing the chain as an effect leaves the closed Barracks underneath
+and produces two overlapping doors. The exact caller-side
 condition that distinguishes every construction and troop-release case remains
 **inferred** because the large scenario loader supplies its arguments through
 registers and several call sites.

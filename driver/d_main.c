@@ -1551,7 +1551,7 @@ static bool dc_start_production_release(level_t *map,
         .max_effects = max_effects,
         .game_info = gameinfo,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->core.position, 0)) return false;
+    if (!P_SetMobjState(&ctx, producer, state_id)) return false;
     producer->production.release_active = true;
     producer->production.release_time_left_ms = duration_ms;
     producer->production.time_left_ms = 0;
@@ -2455,7 +2455,7 @@ int main(int argc, char **argv) {
         focus_camera_on_grid(&app, &map, debug_camera.x, debug_camera.y);
     R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all.\n",
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
            map_path, map.width, map.height, map.tileset_name, unit_count,
            map.decoration_count, map.resource_vent_count);
 
@@ -2598,6 +2598,12 @@ int main(int argc, char **argv) {
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_KEYDOWN && !e.key.repeat &&
+                e.key.keysym.sym == SDLK_F10) {
+                map.player_resources[0][0] += 100;
+                HU_PushMessage(&hud_text, "CHEAT: +100 PETRA-7", 2000);
+                continue;
+            }
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
                 (SDL_GetModState() & KMOD_ALT) != 0) {
                 if (spawn_debug_enemy_unit(&map, &app, units, &unit_count, e.button.x, e.button.y)) {

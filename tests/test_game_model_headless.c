@@ -877,8 +877,10 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
         return fail("Human02 Trooper release animation delays the spawned unit");
     }
-    if (!snapshot_has_effect(&snapshot, "SPRITES/HUBU.SPR")) {
-        return fail("Human02 Trooper production plays HUBU.FIN TRSCBUILD0 hatch effect");
+    if (snapshot.units[barracks_index].state_id < S_DC_BRRKPOD_BUILD_TRSC1 ||
+        snapshot.units[barracks_index].state_id > S_DC_BRRKPOD_BUILD_TRSC22 ||
+        snapshot_has_effect(&snapshot, "SPRITES/HUBU.SPR")) {
+        return fail("Human02 Barracks replaces its stand state with TRSCBUILD0");
     }
     bool production_spawned = false;
     for (int i = 0; i < 30 * 5 && !production_spawned; ++i) {

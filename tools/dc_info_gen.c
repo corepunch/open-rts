@@ -1198,11 +1198,11 @@ static const char *fin_flip_flag_expr(const DcFinDrawPart *cmd) {
     return (cmd && (cmd->flags & 1)) ? "FLIPPED" : "0";
 }
 
-static void write_fin_build_effect_sequence(FILE *out, const SpriteEntry *sprites,
-                                            int sprite_count, const DcFinAnimation *fin,
-                                            const char *label_name,
-                                            const char *state_prefix,
-                                            int group) {
+static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
+                                     int sprite_count, const DcFinAnimation *fin,
+                                     const char *label_name,
+                                     const char *state_prefix,
+                                     const char *exit_state, int group) {
     const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
     if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
         fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n",
@@ -1210,6 +1210,8 @@ static void write_fin_build_effect_sequence(FILE *out, const SpriteEntry *sprite
         exit(1);
     }
     int state_count = label->end - label->start + 1;
+    int native_tics_elapsed = 0;
+    int simulation_tics_elapsed = 0;
     for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
         const DcFinFrame *fin_frame = &fin->frames[frame_index];
         const DcFinDrawPart *primary = NULL;
@@ -1240,12 +1242,17 @@ static void write_fin_build_effect_sequence(FILE *out, const SpriteEntry *sprite
         int index = frame_index - label->start + 1;
         char next[64];
         if (index < state_count) snprintf(next, sizeof(next), "S_DC_%s%d", state_prefix, index + 1);
-        else snprintf(next, sizeof(next), "S_NULL");
+        else snprintf(next, sizeof(next), "%s", exit_state);
 
         int raw_ticks = fin_frame->ticks;
         if (raw_ticks == 0) raw_ticks = 15;
-        int runtime_tics = ((raw_ticks + 3) * 19) / 100;
-        if (runtime_tics <= 0) runtime_tics = 1;
+        int native_tics = ((raw_ticks + 3) * 19) / 100;
+        if (native_tics <= 0) native_tics = 1;
+        native_tics_elapsed += native_tics;
+        /* Scale cumulative boundaries so short frames retain the native elapsed time. */
+        int next_simulation_tics = (native_tics_elapsed * 30 + 9) / 19;
+        int runtime_tics = next_simulation_tics - simulation_tics_elapsed;
+        simulation_tics_elapsed = next_simulation_tics;
 
         int primary_sprite = find_sprite_for_fin_stem(sprites, sprite_count, primary->sprite);
         fprintf(out,
@@ -1897,8 +1904,9 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f1_fin_raw_state(out, sprites[hubu].symbol, excopod_stand, "S_DC_EXCOPOD_STND");
     f1_fin_raw_state(out, sprites[hubu].symbol, brrkpod_stand, "S_DC_BRRKPOD_STND");
     f1_fin_raw_state(out, sprites[towr].symbol, towr_stand, "S_DC_TOWR_STND");
-    write_fin_build_effect_sequence(out, sprites, sprite_count, &hubu_fin,
-                                    "TRSCBUILD0", "BRRKPOD_BUILD_TRSC", 6);
+    write_fin_build_sequence(out, sprites, sprite_count, &hubu_fin,
+                             "TRSCBUILD0", "BRRKPOD_BUILD_TRSC",
+                             "S_DC_BRRKPOD_STND", 6);
 
     int trsc_die[6] = {128,138,149,159,179,195};
     f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCSTAND", 0, 0, -1,

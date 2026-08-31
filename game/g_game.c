@@ -762,7 +762,7 @@ static bool start_model_production_release(RtsGameModel *model, mobj_t *producer
         .max_effects = MAX_VISUAL_EFFECTS,
         .game_info = game_info,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->core.position, 0))
+    if (!P_SetMobjState(&ctx, producer, state_id))
         return false;
     producer->production.release_active = true;
     producer->production.release_time_left_ms = duration_ms;
