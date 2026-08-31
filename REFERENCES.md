@@ -3,6 +3,31 @@
 Keep these links handy when touching loaders, tile animation, map objects, or
 plugin-specific behavior.
 
+## Doom95
+
+- 7dog123 / Win95Doom-recreation:
+  https://github.com/7dog123/Win95Doom-recreation
+  - Local checkout: `reference/DOOM95/source/` at commit
+    `b4b190a6797afc03483dbe38a05e8f30d940fe8c`.
+  - A reconstruction of the official Windows 95 port built from the released
+    Linux Doom source and archaeology of the shipping `DOOM95.EXE`, not an
+    original Microsoft/id Software source release.
+  - Contains the Doom engine plus reconstructed Windows-specific files such as
+    `doom95.cpp`, `i_w95gdk.cpp`, `i_win32.cpp`, DirectDraw, DirectInput,
+    DirectSound, MIDI, launcher, registry configuration, and XBAND code.
+  - The repository has no declared license. Treat it as a behavioral and
+    reverse-engineering reference only; do not copy code from it into open-rts.
+
+- 7dog123 / doom95-dump:
+  https://github.com/7dog123/doom95-dump
+  - Local checkout: `reference/DOOM95/dump/` at commit
+    `e4b268b42adf0161e30b319a83810b66bbda3896`.
+  - Companion evidence containing the `DOOM95.EXE` CodeView/debug-information
+    dump, Snowman decompilations, DLL material, and Resource Hacker output used
+    by the reconstruction.
+  - This repository also has no declared license. Use it only for behavioral
+    comparison and independently document any conclusions derived from it.
+
 ## Dark Colony
 
 - DarkColony.pl downloads:

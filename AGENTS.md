@@ -158,6 +158,8 @@ Reference source code lives in `reference/` (git-ignored):
 reference/DOOM/      — Doom / Doom II source (id Software)
 reference/Heretic/   — Heretic source (Raven Software)
 reference/Hexen/     — Hexen source (Raven Software)
+reference/DOOM95/source/ — Doom95 source reconstruction (reference only)
+reference/DOOM95/dump/   — Doom95 debug info and decompilation evidence
 ```
 
 Key patterns to follow from that lineage:
