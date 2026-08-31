@@ -672,7 +672,7 @@ static int assert_human02(RtsGameModel *model) {
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/PUFF.SPR",
                                              (ivec2_t){ 69, 48 },
                                              RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW,
-                                             (ivec2_t){ 5, -19 }, -1) ||
+                                             (ivec2_t){ 5, 4 }, -1) ||
         snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR",
                                       (ivec2_t){ 69, 48 })) {
         return fail("Human02 unattached Petra-7 vent plays its yellow smoke animation");
@@ -865,7 +865,7 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.player_resources[0][0] != resources_before_production - 350) {
         return fail("Human02 queued Trooper production spends the DEPEND cost immediately");
     }
-    for (int i = 0; i < 30 * 4; ++i) {
+    for (int i = 0; i < 30 * 3 + 18; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
             return fail("tick Human02 while training Trooper");
         }

@@ -159,8 +159,19 @@ part, preserving order among parts submitted by one animation frame. Consumer
 `0x0044f95c` culls, sorts, and dispatches records. Record `+0x17` has observed
 values zero through five; nonzero selectors reach scaled or remapped handlers
 around `0x0045c7b0`, `0x0045cc04`, `0x0045d334`, `0x0045d358`, `0x0045d6d4`,
-and `0x0045d6f8`. Their complete semantic names and packed-field mapping remain
-**unknown**.
+and `0x0045d6f8`. Selector 2 enters `0x0045d334`, which delegates to
+`0x0045d358`. Its setup at `0x0045d3b5..0x0045d3db` adds cell `disX` to the
+queued X coordinate and subtracts cell height from the queued Y coordinate.
+Thus selector 2 uses the same destination origin formula as selector zero:
+
+```text
+draw_x = object_screen_x + FIN.x + cell.disX
+draw_y = object_screen_y + FIN.y - cell.height
+```
+
+The later body implements the selector's specialized pixel composition. The
+complete semantic names and packed-field mapping for selectors one through
+five remain **unknown**.
 
 **Disproven:** the queue was previously reported as reaching dispatcher
 `0x0044b5e4` through a callback installed by constructor `0x004297e4`. That
@@ -291,6 +302,66 @@ duration makes the cycle look incomplete even when every timeline step is
 present. `EXPLMOVE*` uses zero raw delays; zero normalization gives those frames
 three runtime ticks.
 
+### Barracks Trooper production
+
+**Confirmed:** Trooper product row 9 in `gamestat/depend.txt` has cost 350,
+UI id 89, product class 1, product type 0, and prerequisite `{1}`. The native
+dependency path checks affordability before emitting the build request. In
+open-rts, clicking the darkened Trooper icon with less than 350 Petra-7 is
+therefore expected to do nothing; hovering the icon shows `Trooper 350` in red.
+
+The release visual is label `TRSCBUILD0` in `ANIMATE/HUBU.FIN`. It contains 22
+frames, each with raw delay 6. Applying the executable's conversion above gives
+one runtime tick per frame, so the complete release lasts 22 ticks. At the
+30 Hz simulation rate this is approximately 733 ms, not 4.4 seconds. The old
+open-rts generator copied raw 6 directly into each state and therefore made the
+release six times too slow.
+
+The FIN-authored sequence is:
+
+| Release frames | Visible parts | FIN positions |
+| --- | --- | --- |
+| 1-3 | HUBU cells 12, 13, 14 | `(-36,27)` |
+| 4-9 | HUBU cell 15 plus TRSC cells 72, 16, 24, 32, 40, 48 | HUBU `(-36,27)`; TRSC `(-156,36..58)` |
+| 10-12 | HUBU cells 14, 13, 12 plus TRSC cells 56, 64, 72 | HUBU `(-36,27)`; TRSC `(-156,57..59)` |
+| 13-18 | TRSC cells 16, 24, 32, 40, 48, 56 | `(-156,68..79)` |
+| 19-22 | TRSC cells 8, 1, 2, 18 | `(-155,78)`, `(-154,80)`, `(-153,79)`, `(-143,79)` |
+
+The normal south-facing Trooper standing command is at `(-159,0)`. The live
+unit handoff must preserve the final release image on screen, so its world
+offset from the Barracks origin is the command delta:
+
+```text
+x = -143 - (-159) = +16 pixels
+y = -(79 - 0)      = -79 pixels
+```
+
+The Y negation is the existing FIN-top-left to Y-up world conversion. This is
+the source of the open-rts spawn offset; it is not a guessed free-cell radius.
+
+At `0x00438c95..0x00438d16`, the native object-type loader searches first for
+`BUILDSTAND`, then `BUILD`, and stores the resulting animation pointer at type
+offset `+0x98`. At `0x00441430..0x00441450`, the city/object setup path can
+initialize an object's animation directly from that `+0x98` pointer and return
+before ordinary city-slot placement. This confirms a dedicated build-animation
+initialization path rather than a generic sprite overlay. The exact caller-side
+condition that distinguishes every construction and troop-release case remains
+**inferred** because the large scenario loader supplies its arguments through
+registers and several call sites.
+
+The player/AI dependency path calls `0x0040bbe8` after cost deduction. That
+routine creates a 7-byte network message with opcode `0x0a`; the literal 7 is
+the message length, not an action type. Treating it as “action type 7” is
+**disproven**.
+
+**Unknown:** no executable-backed Trooper training countdown was established in
+this pass. Open-rts currently uses `cost * 10 ms`, or 3.5 seconds for a Trooper;
+that is a heuristic and must not be described as a DC 1:1 value. Likewise, the
+open-rts 2.75-cell crowd selection and 1.5-cell doorway-clearing move are not
+yet supported by this disassembly. Native queue progression, blocked-exit
+behavior, and any rally/spacing command require tracing the opcode `0x0a`
+consumer and the completion callback.
+
 ## Directional animation
 
 Function `0x00423a50` constructs directional animation sets:
@@ -371,10 +442,15 @@ confirmed.
 - Even `EXPLMOVE0/2/.../14` labels provide two-frame movement cycles.
 - Later odd `EXPLMOVE1/3/.../15` labels provide one-frame poses.
 
-Open-rts currently emits only eight even direction codes for Exploiter stand,
-run, and deploy states. Its simulation can stop on odd 16-direction headings,
-but `state_facing_slot()` then chooses nearby even art. The original odd
-`EXPLSHUF*` and odd `EXPLMOVE*` poses are consequently not displayed.
+Open-rts emits all 16 direction codes for Exploiter stand and run states. The
+standing state alternates the even `EXPLSTAND*` and odd `EXPLSHUF*` labels;
+these resolve to `EXPL.SPR` frames `0,1,2,3,4,5,6,7,8,7,6,5,4,3,2,1`, with
+the final seven slots flipped as directed by the FIN commands. Run state 1 uses
+frames `0,1,2,3,4,5,6,7,8,7,6,5,4,3,2,1`; run state 2 uses
+`9,1,10,3,11,5,12,7,13,7,12,5,11,3,10,1`. Thus even `EXPLMOVE*` headings
+animate through two frames while each odd heading retains its native one-frame
+pose. Deploy remains eight-way because harvesting explicitly rotates the unit
+to direction code 6 before entering that animation.
 
 It remains unresolved whether DC.EXE selects `SHUF` specifically during a
 turn-in-place transition and the later odd `MOVE` set during translation, or
@@ -497,6 +573,23 @@ five and three 30 Hz simulation tics respectively, giving an approximately
 `tests/test_dark_colony_sprite_layout.c` against
 `data/DCOLONY/ANIMATE/VENT.FIN` and the raw cell descriptors in
 `data/DCOLONY/SPRITES/PUFF.SPR`.
+
+Selector-2 disassembly confirms that each PUFF cell must use its own FIN
+coordinate, `disX`, and height. Across the 20 FIN frames, the primary puff's
+top edge is:
+
+```text
+-4, -4, -7, -11, -13, -17, -21, -25, -28, -31,
+-33, -36, -39, -43, -45, -48, -51, -49, -51, -54
+```
+
+The two-pixel correction at cell 16 comes from the changing sprite shape; the
+overall plume rises 50 pixels. Open-rts previously cycled PUFF cells against
+one hardcoded pivot `(5,-19)`, derived from the generic `disY` convention. That
+discarded every FIN coordinate and could make growth within the changing cell
+bounds read as downward motion. The vent decoration now stores the authored
+cell, world-render pivot, and converted duration for each FIN frame. The first
+two steps last 167 ms and the remaining steps last 100 ms.
 
 Retail observation shows this smoke loop only while no Exploiter is attached.
 That behavior is **observed**, while the DC.EXE branch that suppresses the

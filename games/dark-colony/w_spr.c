@@ -336,6 +336,25 @@ static const DarkColonyAnimationCommand *dark_colony_animation_find_command(
     return NULL;
 }
 
+static const DarkColonyAnimationCommand *dark_colony_animation_frame_command(
+    const DarkColonyAnimationFile *animation, int frame_index,
+    const char *sprite_name, int layer) {
+    if (!animation || !sprite_name || frame_index < 0 || frame_index >= animation->aux_count)
+        return NULL;
+
+    int command_index = 0;
+    for (int i = 0; i < frame_index; ++i)
+        command_index += read_u16_le(animation->aux_records + (size_t)i * 164);
+    int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
+    for (int part = 0; part < part_count; ++part) {
+        if (command_index + part >= animation->command_count) return NULL;
+        const DarkColonyAnimationCommand *command = &animation->commands[command_index + part];
+        if (strcasecmp(command->sprite, sprite_name) == 0 && command->layer == layer)
+            return command;
+    }
+    return NULL;
+}
+
 static void dark_colony_sprite_native_destroy(void *ptr) {
     DarkColonySpriteNative *native = ptr;
     if (!native) return;
@@ -690,17 +709,22 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     if (root_len == 0 || root_len >= 900) return false;
 
     char glow_path[1024];
+    char smoke_path[1024];
     char animation_path[1024];
     snprintf(glow_path, sizeof(glow_path), "%.*s/SPRITES/VENT2.SPR", (int)root_len, map_path);
+    snprintf(smoke_path, sizeof(smoke_path), "%.*s/SPRITES/PUFF.SPR", (int)root_len, map_path);
     snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/VENT.FIN",
              (int)root_len, map_path);
 
     DarkColonyJuiceFile glow = {0};
+    DarkColonyJuiceFile smoke = {0};
     DarkColonyAnimationFile animation = {0};
     if (!dark_colony_juice_load(glow_path, &glow) ||
+        !dark_colony_juice_load(smoke_path, &smoke) ||
         !dark_colony_animation_load(animation_path, &animation) ||
         glow.cell_count <= 0) {
         dark_colony_juice_destroy(&glow);
+        dark_colony_juice_destroy(&smoke);
         dark_colony_animation_destroy(&animation);
         return false;
     }
@@ -710,15 +734,53 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
         &animation, "VENTSTAND0", "vent2", 0, 0);
     if (!plume_command) {
         dark_colony_juice_destroy(&glow);
+        dark_colony_juice_destroy(&smoke);
         dark_colony_animation_destroy(&animation);
         return false;
     }
 
     out->glow_left = plume_command->x + (int)plume->dis_x;
     out->glow_top = -plume_command->y + (int)plume->dis_y;
+
+    const DarkColonyAnimationLabel *label = NULL;
+    for (int i = 0; i < animation.label_count; ++i) {
+        if (strcmp(animation.labels[i].name, "VENTSTAND0") == 0) {
+            label = &animation.labels[i];
+            break;
+        }
+    }
+    if (!label || label->end < label->start ||
+        label->end - label->start + 1 > DC_VENT_SMOKE_MAX_FRAMES) {
+        dark_colony_juice_destroy(&glow);
+        dark_colony_juice_destroy(&smoke);
+        dark_colony_animation_destroy(&animation);
+        return false;
+    }
+    for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
+        const DarkColonyAnimationCommand *command = dark_colony_animation_frame_command(
+            &animation, frame_index, "puff", 5);
+        if (!command || command->frame < 0 || command->frame >= smoke.cell_count) {
+            dark_colony_juice_destroy(&glow);
+            dark_colony_juice_destroy(&smoke);
+            dark_colony_animation_destroy(&animation);
+            return false;
+        }
+        const DarkColonyJuiceCell *cell = &smoke.cells[command->frame];
+        int raw_ticks = read_u16_le(animation.aux_records + (size_t)frame_index * 164 + 2);
+        if (raw_ticks == 0) raw_ticks = 15;
+        int runtime_tics = ((raw_ticks + 3) * 19) / 100;
+        DarkColonyVentSmokeFrame *frame = &out->smoke_frames[out->smoke_frame_count++];
+        frame->sprite_frame = command->frame;
+        frame->pivot = (ivec2_t){
+            -(command->x + (int)cell->dis_x),
+            -(command->y - (int)cell->height),
+        };
+        frame->duration_ms = (runtime_tics * 1000 + 15) / 30;
+    }
     out->valid = true;
 
     dark_colony_juice_destroy(&glow);
+    dark_colony_juice_destroy(&smoke);
     dark_colony_animation_destroy(&animation);
     return true;
 }

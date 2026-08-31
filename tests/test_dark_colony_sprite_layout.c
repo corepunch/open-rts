@@ -209,6 +209,38 @@ static const FinCommand *fin_command(const FinInfo *fin, const char *label,
     return NULL;
 }
 
+static const FinCommand *fin_layer_command_at(const FinInfo *fin, const char *label,
+                                               const char *sprite, int layer, int index) {
+    const FinLabel *range = fin_label(fin, label);
+    if (!range || index < 0 || range->start < 0 || range->end < range->start ||
+        range->end >= fin->frame_count) {
+        return NULL;
+    }
+    int match = 0;
+    const FinCommand *last = NULL;
+    for (int frame_index = range->start; frame_index <= range->end; ++frame_index) {
+        const FinFrame *fin_frame = &fin->frames[frame_index];
+        for (int part = 0; part < fin_frame->part_count; ++part) {
+            const FinCommand *cmd = &fin->commands[fin_frame->command_start + part];
+            if (strcmp(cmd->sprite, sprite) != 0 || cmd->layer != layer) continue;
+            last = cmd;
+            if (match++ == index) return cmd;
+        }
+    }
+    return last;
+}
+
+static const FinCommand *fin_frame_command(const FinInfo *fin, int frame_index,
+                                           const char *sprite, int layer) {
+    if (!fin || !sprite || frame_index < 0 || frame_index >= fin->frame_count) return NULL;
+    const FinFrame *frame = &fin->frames[frame_index];
+    for (int part = 0; part < frame->part_count; ++part) {
+        const FinCommand *cmd = &fin->commands[frame->command_start + part];
+        if (strcmp(cmd->sprite, sprite) == 0 && cmd->layer == layer) return cmd;
+    }
+    return NULL;
+}
+
 static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) {
     size_t size = 0;
     unsigned char *data = read_file(path, &size);
@@ -325,6 +357,35 @@ static int assert_dark_colony_city_fin_alignment(void) {
         vent->x + vent0.dis_x != -9 || -vent->y + vent0.dis_y != 25) {
         return fail("Petra-7 glow preserves its complete FIN/SPR placement metadata");
     }
+
+    static const int expected_cells[] = {
+        0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+    };
+    static const int expected_left[] = {
+        -5, -5, -6, -7, -8, -10, -11, -13, -13, -15,
+        -14, -15, -15, -17, -17, -18, -17, -18, -17, -18,
+    };
+    static const int expected_top[] = {
+        -4, -4, -7, -11, -13, -17, -21, -25, -28, -31,
+        -33, -36, -39, -43, -45, -48, -51, -49, -51, -54,
+    };
+    const FinLabel *vent_stand = fin_label(&vent_fin, "VENTSTAND0");
+    if (!vent_stand || vent_stand->start != 19 || vent_stand->end != 38)
+        return fail("Petra-7 smoke uses the expected VENTSTAND0 frame range");
+    for (int i = 0; i < 20; ++i) {
+        const FinCommand *puff = fin_frame_command(&vent_fin, vent_stand->start + i, "puff", 5);
+        SprFrameInfo puff_frame;
+        if (!puff || puff->frame != expected_cells[i] ||
+            !load_spr_frame_info("data/DCOLONY/SPRITES/PUFF.SPR", puff->frame, &puff_frame) ||
+            puff->x + puff_frame.dis_x != expected_left[i] ||
+            puff->y - puff_frame.height != expected_top[i]) {
+            return fail("Petra-7 smoke follows the VENT.FIN upward world-render trajectory");
+        }
+        int expected_ticks = i < 2 ? 26 : 15;
+        int raw_ticks = vent_fin.frames[vent_stand->start + i].ticks;
+        if ((raw_ticks == 0 ? 15 : raw_ticks) != expected_ticks)
+            return fail("Petra-7 smoke preserves its authored FIN timing");
+    }
     return 0;
 }
 
@@ -347,9 +408,56 @@ static int assert_reaper_move_timing(void) {
     return 0;
 }
 
+static int assert_barracks_trooper_release_timing(void) {
+    int total_tics = 0;
+    int state_id = S_DC_BRRKPOD_BUILD_TRSC1;
+    for (int frame = 0; frame < 22; ++frame) {
+        const state_t *state = &states[state_id];
+        if (state->misc1 != 6 || state->tics != 1)
+            return fail("Barracks Trooper release uses native FIN runtime timing");
+        total_tics += state->tics;
+        state_id = state->nextstate;
+    }
+    if (total_tics != 22 || state_id != S_NULL)
+        return fail("Barracks Trooper release is a 22-tick one-shot chain");
+    return 0;
+}
+
+static int assert_exploiter_16_direction_states(void) {
+    FinInfo expl_fin;
+    if (!load_fin_info("data/DCOLONY/ANIMATE/EXPL.FIN", "EXPL", &expl_fin))
+        return fail("load EXPL.FIN for direction validation");
+    if (states[S_DC_EXPL_STND].facings != 16 ||
+        states[S_DC_EXPL_RUN1].facings != 16 ||
+        states[S_DC_EXPL_RUN2].facings != 16) {
+        return fail("Exploiter stand and run states expose all 16 directions");
+    }
+
+    for (int code = 0; code < 16; ++code) {
+        char stand_label[32];
+        char move_label[32];
+        int suffix = (16 - code) & 15;
+        snprintf(stand_label, sizeof(stand_label), "EXPL%s%d",
+                 code & 1 ? "SHUF" : "STAND", suffix);
+        snprintf(move_label, sizeof(move_label), "EXPLMOVE%d", suffix);
+        const FinCommand *stand = fin_layer_command_at(&expl_fin, stand_label, "expl", 1, 0);
+        const FinCommand *move1 = fin_layer_command_at(&expl_fin, move_label, "expl", 1, 0);
+        const FinCommand *move2 = fin_layer_command_at(&expl_fin, move_label, "expl", 1, 1);
+        if (!stand || !move1 || !move2 ||
+            states[S_DC_EXPL_STND].facing_frames[code] != stand->frame ||
+            states[S_DC_EXPL_RUN1].facing_frames[code] != move1->frame ||
+            states[S_DC_EXPL_RUN2].facing_frames[code] != move2->frame) {
+            return fail("Exploiter 16-direction states match EXPL.FIN labels");
+        }
+    }
+    return 0;
+}
+
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;
     if (assert_reaper_move_timing() != 0) return 1;
+    if (assert_barracks_trooper_release_timing() != 0) return 1;
+    if (assert_exploiter_16_direction_states() != 0) return 1;
     printf("PASS: Dark Colony SPR/FIN layout alignment is data-consistent\n");
     return 0;
 }

@@ -401,6 +401,21 @@ static int sprite_sequence_frame(const spritesheet_t *sprite, const char *sequen
 }
 
 
+static int decoration_animation_step(const app_t *app, const mapdecoration_t *dec) {
+    int total_ms = 0;
+    for (int i = 0; i < dec->animation_frame_count; ++i)
+        total_ms += dec->animation_frames[i].duration_ms;
+    if (total_ms <= 0) return 0;
+
+    int elapsed_ms = (int)(app->ticks_ms % (uint32_t)total_ms);
+    for (int i = 0; i < dec->animation_frame_count; ++i) {
+        int duration_ms = dec->animation_frames[i].duration_ms;
+        if (elapsed_ms < duration_ms) return i;
+        elapsed_ms -= duration_ms;
+    }
+    return dec->animation_frame_count - 1;
+}
+
 static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const spritesheet_t *sprite,
                                    int frame_index, const char *sequence_name) {
     int frame = -1;
@@ -409,6 +424,11 @@ static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const
     }
     if (frame >= 0) return frame;
     if (frame_index >= 0 && frame_index < sprite->frame_count) return frame_index;
+    if (frame_index < 0 && dec->animation_frame_count > 0) {
+        int step = decoration_animation_step(app, dec);
+        int authored_frame = dec->animation_frames[step].sprite_frame;
+        if (authored_frame >= 0 && authored_frame < sprite->frame_count) return authored_frame;
+    }
     if (frame_index < 0) {
         uint32_t frame_ms = dec->frame_interval_ms > 0 ?
             (uint32_t)dec->frame_interval_ms : 250u;
@@ -495,9 +515,12 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
                 (fvec2_t){ (float)footprint.w, (float)footprint.h }, 0.5f));
             R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
         }
+        ivec2_t pivot = dec->sprite_pivot;
+        if (frame_index < 0 && dec->animation_frame_count > 0)
+            pivot = dec->animation_frames[decoration_animation_step(app, dec)].sprite_pivot;
         dst = (irect_t){
-            (int)lroundf(sx) - dec->sprite_pivot.x,
-            (int)lroundf(sy) - dec->sprite_pivot.y,
+            (int)lroundf(sx) - pivot.x,
+            (int)lroundf(sy) - pivot.y,
             sprite_w,
             sprite_h,
         };

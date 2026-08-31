@@ -501,9 +501,16 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
             dec->footprint = (isize2_t){ 1, 1 };
             dec->center_anchor = true;
             dec->has_sprite_pivot = true;
-            dec->sprite_pivot = (ivec2_t){ 5, -19 };
-            dec->frame_interval_ms = 100;
+            dec->sprite_pivot = (ivec2_t){ 5, 4 };
             dec->frame_index = -1;
+            if (placement && placement->valid) {
+                dec->animation_frame_count = placement->smoke_frame_count;
+                for (int i = 0; i < dec->animation_frame_count; ++i) {
+                    dec->animation_frames[i].sprite_pivot = placement->smoke_frames[i].pivot;
+                    dec->animation_frames[i].sprite_frame = placement->smoke_frames[i].sprite_frame;
+                    dec->animation_frames[i].duration_ms = placement->smoke_frames[i].duration_ms;
+                }
+            }
             dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/PUFF.SPR");
             vent->smoke_decoration_index = map->decoration_count - 1;

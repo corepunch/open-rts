@@ -39,6 +39,14 @@ typedef struct mapextra_s {
     uint32_t flags;
 } mapextra_t;
 
+#define MAP_DECORATION_MAX_ANIMATION_FRAMES 32
+
+typedef struct mapdecorationframe_s {
+    ivec2_t sprite_pivot;
+    int sprite_frame;
+    int duration_ms;
+} mapdecorationframe_t;
+
 typedef struct mapdecoration_s {
     ivec2_t cell;
     isize2_t footprint;
@@ -51,6 +59,8 @@ typedef struct mapdecoration_s {
        without deriving an origin from opaque bounds or a guessed footprint. */
     bool has_sprite_pivot;
     ivec2_t sprite_pivot;
+    int animation_frame_count;
+    mapdecorationframe_t animation_frames[MAP_DECORATION_MAX_ANIMATION_FRAMES];
     int frame_interval_ms;
     int frame_index;
     int frame2_index;
