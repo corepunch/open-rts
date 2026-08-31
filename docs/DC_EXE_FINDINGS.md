@@ -424,6 +424,27 @@ chosen by remap/layer packing remains unknown; this correction is inferred from
 the preserved FIN/SPR metadata and native screenshot alignment rather than a
 fully traced nonzero queue handler.
 
+The yellow smoke above an unattached vent is a separate `PUFF.SPR` part, not an
+animation within `VENT2.SPR`. This is **confirmed** by `VENT.FIN`: label
+`VENTSTAND0` spans FIN frames 19 through 38 and advances the puff through cells
+`0, 0, 1, ..., 18`. The first puff command is at `(-39,6)`, remap `0`, while
+the remaining commands use remap `2` and rise to Y `-17`. The underlying VENT2
+cell remains fixed at `(-40,12)` throughout the sequence. The first two FIN
+frames have raw duration 26; the remaining zero durations use the established
+15-tick fallback. With the generator's FIN-to-runtime conversion, these become
+five and three 30 Hz simulation tics respectively, giving an approximately
+100 ms frame cadence for most of the loop. Reproduce with the FIN parser in
+`tests/test_dark_colony_sprite_layout.c` against
+`data/DCOLONY/ANIMATE/VENT.FIN` and the raw cell descriptors in
+`data/DCOLONY/SPRITES/PUFF.SPR`.
+
+Retail observation shows this smoke loop only while no Exploiter is attached.
+That behavior is **observed**, while the DC.EXE branch that suppresses the
+smoke remains **unknown**. Open-rts therefore tracks the puff separately from
+the persistent VENT2 glow and hides it whenever a live harvester targeting the
+vent is in its mining phase; it becomes visible again when the harvester
+leaves. This avoids incorrectly removing the vent itself during a return trip.
+
 The routine at `0x004128c4` confirms that Dark Colony uses the shared object and
 occupancy system rather than sprite bounds for interaction. At
 `0x004128f6..0x00412904` it reads 8.8 fixed-point `x_pos` and `z_pos` fields at

@@ -541,6 +541,28 @@ enum {
     HARVEST_PHASE_TO_BASE = 3,
 };
 
+static void update_resource_vent_smoke(level_t *map, const mobj_t *units, int unit_count) {
+    if (!map || !map->resource_vents) return;
+    for (int vent_index = 0; vent_index < map->resource_vent_count; ++vent_index) {
+        resourcevent_t *vent = &map->resource_vents[vent_index];
+        if (vent->smoke_decoration_index < 0 ||
+            vent->smoke_decoration_index >= map->decoration_count) {
+            continue;
+        }
+        bool attached = false;
+        for (int unit_index = 0; unit_index < unit_count; ++unit_index) {
+            const mobj_t *unit = &units[unit_index];
+            if (!unit->remove && unit->hp > 0 &&
+                unit->harvest.target == vent_index &&
+                unit->harvest.phase == HARVEST_PHASE_MINING) {
+                attached = true;
+                break;
+            }
+        }
+        map->decorations[vent->smoke_decoration_index].hidden = !vent->active || attached;
+    }
+}
+
 static void deactivate_resource_vent(level_t *map, resourcevent_t *vent) {
     if (!map || !vent) return;
     vent->active = false;
@@ -878,6 +900,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         }
         if (write != count) debug_effects_log("state compacted units before=%d after=%d", count, write);
         *unit_count = write;
+        update_resource_vent_smoke(map, units, write);
         return;
     }
 

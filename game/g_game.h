@@ -149,10 +149,12 @@ typedef struct {
     int gy;
     int footprint_w;
     int footprint_h;
+    bool hidden;
     bool center_anchor;
     bool has_sprite_pivot;
     int sprite_pivot_x;
     int sprite_pivot_y;
+    int frame_interval_ms;
     int frame_index;
     int frame2_index;
     int frame3_index;

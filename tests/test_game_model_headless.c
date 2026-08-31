@@ -332,17 +332,29 @@ static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
 static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapshot,
                                                 const char *sprite_name, int gx, int gy,
                                                 uint32_t required_flags,
-                                                int pivot_x, int pivot_y) {
+                                                int pivot_x, int pivot_y,
+                                                int frame_index) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
         if (strcmp(dec->sprite_name, sprite_name) == 0 &&
-            dec->gx == gx && dec->gy == gy && dec->frame_index < 0 &&
+            dec->gx == gx && dec->gy == gy && dec->frame_index == frame_index &&
             dec->center_anchor && dec->has_sprite_pivot &&
             dec->sprite_pivot_x == pivot_x && dec->sprite_pivot_y == pivot_y &&
             (dec->render_flags & required_flags) == required_flags) {
             return true;
         }
+    }
+    return false;
+}
+
+static bool snapshot_decoration_is_hidden(const RtsRenderSnapshot *snapshot,
+                                          const char *sprite_name, int gx, int gy) {
+    if (!snapshot || !sprite_name) return false;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        const RtsRenderDecoration *dec = &snapshot->decorations[i];
+        if (strcmp(dec->sprite_name, sprite_name) == 0 && dec->gx == gx && dec->gy == gy)
+            return dec->hidden;
     }
     return false;
 }
@@ -639,12 +651,18 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 loads Petra-7 vents");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
-                                             RTS_FRAME_ADDITIVE, 9, -25)) {
+                                             RTS_FRAME_ADDITIVE, 9, -25, 0)) {
         return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
-                                             RTS_FRAME_ADDITIVE, 9, -25)) {
+                                             RTS_FRAME_ADDITIVE, 9, -25, 0)) {
         return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
+    }
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/PUFF.SPR", 69, 48,
+                                             RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW,
+                                             5, -19, -1) ||
+        snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR", 69, 48)) {
+        return fail("Human02 unattached Petra-7 vent plays its yellow smoke animation");
     }
 
     int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
@@ -702,6 +720,7 @@ static int assert_human02(RtsGameModel *model) {
     bool saw_deploy_body_frame = false;
     bool saw_mining_body = false;
     bool saw_exploiter_move = false;
+    bool saw_attached_smoke_hidden = false;
     bool saw_mining_work_states[16] = {0};
     int mining_work_state_count = 0;
     for (int i = 0; i < 30 * 45; ++i) {
@@ -726,6 +745,8 @@ static int assert_human02(RtsGameModel *model) {
                 saw_deploy_body_frame = true;
             }
             if (snapshot.player_resources[0][0] > initial_resources) {
+                if (snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR", 69, 48))
+                    saw_attached_smoke_hidden = true;
                 int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
                 if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
                     snapshot.units[exploiter].state_id < S_DC_EXPL_DIE1 &&
@@ -762,6 +783,9 @@ static int assert_human02(RtsGameModel *model) {
     }
     if (!saw_mining_body) {
         return fail("Human02 Exploiter mining uses the deployed body with FIN-authored flags");
+    }
+    if (!saw_attached_smoke_hidden) {
+        return fail("Human02 attached Exploiter suppresses the Petra-7 smoke animation");
     }
     if (mining_work_state_count < 4) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");

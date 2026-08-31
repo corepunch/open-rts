@@ -476,10 +476,11 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->active = rate > 0;
     vent->resource_type = 0;
     vent->decoration_index = -1;
+    vent->smoke_decoration_index = -1;
 
-    if (rate > 0 && map->decoration_count < MAX_DECORATIONS) {
+    if (rate > 0 && map->decoration_count + 2 <= MAX_DECORATIONS) {
         mapdecoration_t *decorations = realloc(map->decorations,
-                                             (size_t)(map->decoration_count + 1) * sizeof(mapdecoration_t));
+                                             (size_t)(map->decoration_count + 2) * sizeof(mapdecoration_t));
         if (decorations) {
             map->decorations = decorations;
             mapdecoration_t *dec = &map->decorations[map->decoration_count++];
@@ -494,10 +495,26 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
                 dec->sprite_pivot_x = -placement->glow_left;
                 dec->sprite_pivot_y = -placement->glow_top;
             }
-            dec->frame_index = -1;
+            dec->frame_index = 0;
             dec->render_flags = RTS_FRAME_ADDITIVE;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
             vent->decoration_index = map->decoration_count - 1;
+
+            dec = &map->decorations[map->decoration_count++];
+            memset(dec, 0, sizeof(*dec));
+            dec->gx = x;
+            dec->gy = y;
+            dec->footprint_w = 1;
+            dec->footprint_h = 1;
+            dec->center_anchor = true;
+            dec->has_sprite_pivot = true;
+            dec->sprite_pivot_x = 5;
+            dec->sprite_pivot_y = -19;
+            dec->frame_interval_ms = 100;
+            dec->frame_index = -1;
+            dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
+            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/PUFF.SPR");
+            vent->smoke_decoration_index = map->decoration_count - 1;
         }
     }
     return true;

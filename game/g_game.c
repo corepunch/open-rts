@@ -1394,10 +1394,12 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->gy = src->gy;
         dst->footprint_w = src->footprint_w;
         dst->footprint_h = src->footprint_h;
+        dst->hidden = src->hidden;
         dst->center_anchor = src->center_anchor;
         dst->has_sprite_pivot = src->has_sprite_pivot;
         dst->sprite_pivot_x = src->sprite_pivot_x;
         dst->sprite_pivot_y = src->sprite_pivot_y;
+        dst->frame_interval_ms = src->frame_interval_ms;
         dst->frame_index = src->frame_index;
         dst->frame2_index = src->frame2_index;
         dst->frame3_index = src->frame3_index;

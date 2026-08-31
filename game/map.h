@@ -48,6 +48,7 @@ typedef struct mapdecoration_s {
     int footprint_w;
     int footprint_h;
     bool solid;
+    bool hidden;
     bool center_anchor;
     /* Optional authored sprite pivot.  When set, (pivot_x, pivot_y) in the
        sprite canvas is attached directly to the decoration's (gx, gy) world
@@ -56,6 +57,7 @@ typedef struct mapdecoration_s {
     bool has_sprite_pivot;
     int sprite_pivot_x;
     int sprite_pivot_y;
+    int frame_interval_ms;
     int frame_index;
     int frame2_index;
     int frame3_index;
@@ -84,6 +86,7 @@ typedef struct resourcevent_s {
     bool active;
     int resource_type; /* 0-based index into player_resources[][resource_type] */
     int decoration_index; /* active mine visual, or -1 when not represented */
+    int smoke_decoration_index; /* unattached vent smoke, or -1 when not represented */
 } resourcevent_t;
 
 typedef struct level_s {

@@ -410,7 +410,9 @@ static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const
     if (frame >= 0) return frame;
     if (frame_index >= 0 && frame_index < sprite->frame_count) return frame_index;
     if (frame_index < 0) {
-        return (int)((app->ticks_ms / 250u) % (uint32_t)sprite->frame_count);
+        uint32_t frame_ms = dec->frame_interval_ms > 0 ?
+            (uint32_t)dec->frame_interval_ms : 250u;
+        return (int)((app->ticks_ms / frame_ms) % (uint32_t)sprite->frame_count);
     }
     return 0;
 }
@@ -547,6 +549,7 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
 
 static void render_decoration(app_t *app, const level_t *map,
                               const mapdecoration_t *dec, const spritecache_t *cache) {
+    if (dec->hidden) return;
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->shadow_name),
                              dec->frame_index, dec->render_flags, dec->sequence_name,
                              dec->frame_index, dec->sequence_name);
