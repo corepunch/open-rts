@@ -105,11 +105,16 @@ bool sl_load_map(const char *map_path, level_t *out) {
     }
     const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
     uint16_t key = 30000;
+    /* MAPT is decoded in file order by legion.exe, but its world access is
+       column-major: file cell (x,y) is displayed at world index (x*128+y).
+       Keeping that native addressing is what makes coast/road transitions
+       meet in the correct direction. */
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
-            int i = y * W + x;
-            uint16_t stored = read_u16_le(tile_bytes + (size_t)i * 2);
-            out->tile_ids[i] = (uint16_t)((stored ^ key) - x);
+            int source_i = y * W + x;
+            int output_i = x * H + y;
+            uint16_t stored = read_u16_le(tile_bytes + (size_t)source_i * 2);
+            out->tile_ids[output_i] = (uint16_t)((stored ^ key) - x);
             key--;
         }
     }
@@ -126,8 +131,14 @@ bool sl_load_map(const char *map_path, level_t *out) {
             out->tile_overlays[0] = calloc((size_t)W * H, sizeof(uint16_t));
             if (out->tile_overlays[0]) {
                 const uint8_t *p = (const uint8_t *)overlay.bytes;
-                for (int i = 0; i < W * H; ++i)
-                    out->tile_overlays[0][i] = (uint16_t)(read_u16_le(p + (size_t)i * 2) & 0xffu);
+                for (int y = 0; y < H; ++y) {
+                    for (int x = 0; x < W; ++x) {
+                        int source_i = y * W + x;
+                        int output_i = x * H + y;
+                        out->tile_overlays[0][output_i] =
+                            (uint16_t)(read_u16_le(p + (size_t)source_i * 2) & 0xffu);
+                    }
+                }
                 out->tile_overlay_count = 1;
                 out->render_capabilities |= MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS;
             }
@@ -143,8 +154,9 @@ bool sl_load_map(const char *map_path, level_t *out) {
                 const uint8_t *values = (const uint8_t *)land.bytes;
                 for (int y = 0; y < H; ++y) {
                     for (int x = 0; x < W; ++x) {
-                        int i = y * W + x;
-                        out->blocked[i] = (values[i] ^ y) != 0;
+                        int source_i = y * W + x;
+                        int output_i = x * H + y;
+                        out->blocked[output_i] = (values[source_i] ^ y) != 0;
                     }
                 }
             }
