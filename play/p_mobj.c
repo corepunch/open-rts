@@ -600,15 +600,11 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         return false;
     }
 
-    float dx = (float)vent->gx + 0.5f - unit->core.gx;
-    float dy = (float)vent->gy + 0.5f - unit->core.gy;
+    float dx = vent->attach_gx - unit->core.gx;
+    float dy = vent->attach_gy - unit->core.gy;
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
-    bool occupies_vent_cell = (int)floorf(unit->core.gx) == vent->gx &&
-                              (int)floorf(unit->core.gy) == vent->gy;
-    if (!occupies_vent_cell) {
-        if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
-        if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
-    }
+    if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
+    if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
 
     unit->movement.path_len = 0;
     unit->movement.path_index = 0;

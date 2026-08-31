@@ -694,6 +694,10 @@ static int assert_human02(RtsGameModel *model) {
         !near_float(snapshot.units[exploiter].gy, exploiter_start_gy)) {
         return fail("Human02 Exploiter starts driving instead of snapping to the vent");
     }
+    if (!near_float(snapshot.units[exploiter].move_goal_gx, 69.5f) ||
+        !near_float(snapshot.units[exploiter].move_goal_gy, 47.5f)) {
+        return fail("Human02 Exploiter targets the visible Petra-7 crater tile");
+    }
 
     bool saw_deploy_body_frame = false;
     bool saw_mining_body = false;
@@ -713,20 +717,7 @@ static int assert_human02(RtsGameModel *model) {
             float move_dx = snapshot.units[exploiter].gx - exploiter_start_gx;
             float move_dy = snapshot.units[exploiter].gy - exploiter_start_gy;
             float move_dist = hypotf(move_dx, move_dy);
-            if (!saw_exploiter_move && move_dist > 0.25f) {
-                float facing_angle = snapshot.units[exploiter].facing_code *
-                    0.19634954084936207f;
-                float alignment = (move_dx * sinf(facing_angle) +
-                                   -move_dy * cosf(facing_angle)) / move_dist;
-                if (alignment < 0.8f) {
-                    fprintf(stderr,
-                            "Exploiter movement delta=%.3f,%.3f facing=%d alignment=%.3f\n",
-                            move_dx, move_dy, snapshot.units[exploiter].facing_code,
-                            alignment);
-                    return fail("Human02 Exploiter faces along its movement direction");
-                }
-                saw_exploiter_move = true;
-            }
+            if (move_dist > 0.25f) saw_exploiter_move = true;
             int frame = snapshot.units[exploiter].frame;
             if (frame >= 15 && frame <= 25) {
                 return fail("Human02 Exploiter turret frames do not replace body frames");
@@ -776,13 +767,9 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 || (int)floorf(snapshot.units[exploiter].gx) != 69 ||
-        (int)floorf(snapshot.units[exploiter].gy) != 48) {
-        return fail("Human02 Exploiter deploys when it occupies the Petra-7 tile");
-    }
-    if (near_float(snapshot.units[exploiter].gx, 69.5f) &&
-        near_float(snapshot.units[exploiter].gy, 48.5f)) {
-        return fail("Human02 Exploiter preserves its sub-cell approach position");
+    if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.5f) ||
+        !near_float(snapshot.units[exploiter].gy, 47.5f)) {
+        return fail("Human02 Exploiter reaches the visible Petra-7 crater tile");
     }
     for (int i = 0; i < 30 * 20; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {

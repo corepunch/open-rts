@@ -596,8 +596,8 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
             continue;
         }
 
-        float goal_gx = (float)vent->gx + 0.5f;
-        float goal_gy = (float)vent->gy + 0.5f;
+        float goal_gx = vent->attach_gx;
+        float goal_gy = vent->attach_gy;
         if (!find_nearest_walkable_position(map, goal_gx, goal_gy,
                                             P_MobjRadius(unit), 8,
                                             &goal_gx, &goal_gy)) {

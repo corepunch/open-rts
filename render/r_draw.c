@@ -139,15 +139,6 @@ void R_DrawCell(app_t *app, int gx, int gy, SDL_Color color) {
     SDL_RenderDrawRect(app->renderer, &r);
 }
 
-static void render_map_grid_cell(app_t *app, const level_t *map, int gx, int gy, SDL_Color color) {
-    float sx, sy;
-    R_MapToScreen(app, map, (float)gx, (float)gy, &sx, &sy);
-    irect_t r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderDrawRect(app->renderer, &r);
-}
-
 static void render_blocked_overlay(app_t *app, const level_t *map) {
     if (!app || !map || !map->blocked) return;
     int cell_w = app_cell_w(app);
@@ -312,19 +303,35 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
         render_blocked_overlay(app, map);
     }
 
-    if (app->show_grid) {
-        for (int y = 0; y < map->height; ++y) {
-            for (int x = 0; x < map->width; ++x) {
-                float sx, sy;
-                R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
-                if (sx < -tile_w || sy < -tile_h ||
-                    sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
-                    continue;
-                }
-                render_map_grid_cell(app, map, x, y, (SDL_Color){ 50, 78, 72, 80 });
-            }
-        }
+}
+
+void R_DrawGridOverlay(app_t *app, const level_t *map) {
+    if (!app || !map || !app->show_grid) return;
+
+    float left, bottom, right, top;
+    R_MapToScreen(app, map, 0.0f, 0.0f, &left, &bottom);
+    R_MapToScreen(app, map, (float)map->width, (float)map->height, &right, &top);
+
+    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
+    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    for (int x = 0; x <= map->width; ++x) {
+        float sx, unused;
+        R_MapToScreen(app, map, (float)x, 0.0f, &sx, &unused);
+        if (sx < 0.0f || sx > (float)app->win.w) continue;
+        SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
+        SDL_RenderDrawLine(app->renderer, (int)lroundf(sx), (int)lroundf(top),
+                          (int)lroundf(sx), (int)lroundf(bottom));
     }
+    for (int y = 0; y <= map->height; ++y) {
+        float unused, sy;
+        R_MapToScreen(app, map, 0.0f, (float)y, &unused, &sy);
+        if (sy < 0.0f || sy > (float)app->win.h) continue;
+        SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
+        SDL_RenderDrawLine(app->renderer, (int)lroundf(left), (int)lroundf(sy),
+                          (int)lroundf(right), (int)lroundf(sy));
+    }
+    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name) {

@@ -470,7 +470,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->gx = x;
     vent->gy = y;
     vent->attach_gx = (float)x + 0.5f;
-    vent->attach_gy = (float)y + 0.5f;
+    vent->attach_gy = (float)y - 0.5f;
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0;

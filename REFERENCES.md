@@ -268,8 +268,10 @@ Local game-data files that have already been useful:
 - `VENT.FIN` places VENT2 cell 0 at `(-40,12)`. Combined with VENT2's cell-0
   displacement `(31,37)` and the native FIN Y sign conversion, its raw-cell
   top-left is `(-9,25)` from the vent animation origin. This controls the yellow
-  plume only. The Exploiter targets the vent object's centered map coordinate;
-  do not derive its gameplay position from the displaced glow pixels.
+  plume only. In the bottom-up Human02 map composition, the visible crater is
+  one row below the raw scenario vent coordinate, so its interaction attachment
+  is `(x + 0.5, y - 0.5)`. Keep the raw coordinate for script identity and use
+  the attachment for movement and harvesting; do not derive it from EXPL bounds.
 - `BEAC.SPR` has a base beacon frame and a separate glow frame; preserve the
   sprite palette for the glow and render it as an overlay rather than tinting the
   base sprite.

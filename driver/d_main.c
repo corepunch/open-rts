@@ -2554,6 +2554,7 @@ int main(int argc, char **argv) {
                                  &decoration_sprites, gameinfo, SDL_GetTicks());
             R_DrawEffects(&app, &map, effects, MAX_VISUAL_EFFECTS,
                                   &decoration_sprites, gameinfo);
+            R_DrawGridOverlay(&app, &map);
             if (debug_anchors)
                 debug_draw_map_anchors(&app, &map, &decoration_sprites, units, unit_count);
             SB_Drawer(&sb, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
@@ -2659,6 +2660,7 @@ int main(int argc, char **argv) {
                              &decoration_sprites, gameinfo, SDL_GetTicks());
         R_DrawEffects(&app, &map, effects, MAX_VISUAL_EFFECTS,
                               &decoration_sprites, gameinfo);
+        R_DrawGridOverlay(&app, &map);
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);
