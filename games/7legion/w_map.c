@@ -95,12 +95,16 @@ bool sl_load_map(const char *map_path, level_t *out) {
 
     out->tile_ids = calloc((size_t)W * H, sizeof(uint16_t));
     out->blocked  = calloc((size_t)W * H, sizeof(uint8_t));
-    if (!out->tile_ids || !out->blocked) {
+    out->tile_flip_flags[0] = calloc((size_t)W * H, sizeof(uint8_t));
+    if (!out->tile_ids || !out->blocked || !out->tile_flip_flags[0]) {
         free(out->tile_ids);
         free(out->blocked);
+        free(out->tile_flip_flags[0]);
         W_FreeFile(&tiles);
         return false;
     }
+    /* Uncompressed terrain BIM scanlines are stored bottom-up. */
+    memset(out->tile_flip_flags[0], 2, (size_t)W * H);
     const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
     uint16_t key = 30000;
     for (int y = 0; y < H; ++y) {
@@ -113,8 +117,10 @@ bool sl_load_map(const char *map_path, level_t *out) {
     }
     W_FreeFile(&tiles);
 
-    /* MAPOVL is a sparse 16-bit overlay layer.  The high byte is the tile
-       index; the low byte carries the original renderer's placement flags. */
+    /* MAPOVL is a sparse 16-bit overlay layer.  The low byte identifies the
+       overlay tile/type; the high byte is native placement metadata.  Keep
+       the metadata separate from the tile id: the original renderer reads
+       both bytes independently when placing the overlay. */
     char overlay_path[512];
     if (sl_sibling_path(overlay_path, sizeof(overlay_path), map_path, "MAPOVL.000")) {
         blob_t overlay = { 0 };
@@ -123,7 +129,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
             if (out->tile_overlays[0]) {
                 const uint8_t *p = (const uint8_t *)overlay.bytes;
                 for (int i = 0; i < W * H; ++i)
-                    out->tile_overlays[0][i] = (uint16_t)(read_u16_le(p + (size_t)i * 2) >> 8);
+                    out->tile_overlays[0][i] = (uint16_t)(read_u16_le(p + (size_t)i * 2) & 0xffu);
                 out->tile_overlay_count = 1;
                 out->render_capabilities |= MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS;
             }
