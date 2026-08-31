@@ -776,9 +776,13 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.5f) ||
-        !near_float(snapshot.units[exploiter].gy, 48.5f)) {
-        return fail("Human02 Exploiter deploys at the Petra-7 object center");
+    if (exploiter < 0 || (int)floorf(snapshot.units[exploiter].gx) != 69 ||
+        (int)floorf(snapshot.units[exploiter].gy) != 48) {
+        return fail("Human02 Exploiter deploys when it occupies the Petra-7 tile");
+    }
+    if (near_float(snapshot.units[exploiter].gx, 69.5f) &&
+        near_float(snapshot.units[exploiter].gy, 48.5f)) {
+        return fail("Human02 Exploiter preserves its sub-cell approach position");
     }
     for (int i = 0; i < 30 * 20; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {

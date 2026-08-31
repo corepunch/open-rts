@@ -574,7 +574,8 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
             unit->harvest.phase = HARVEST_PHASE_NONE;
             return false;
         }
-        if (!P_MoveUnitTo(map, unit, vent->attach_gx, vent->attach_gy)) return false;
+        if (!P_MoveUnitTo(map, unit, (float)vent->gx + 0.5f,
+                  (float)vent->gy + 0.5f)) return false;
         unit->harvest.phase = HARVEST_PHASE_TO_MINE;
         return false;
     }
@@ -599,23 +600,28 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         return false;
     }
 
-    float dx = vent->attach_gx - unit->core.gx;
-    float dy = vent->attach_gy - unit->core.gy;
+    float dx = (float)vent->gx + 0.5f - unit->core.gx;
+    float dy = (float)vent->gy + 0.5f - unit->core.gy;
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
-    if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
-    if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
+    bool occupies_vent_cell = (int)floorf(unit->core.gx) == vent->gx &&
+                              (int)floorf(unit->core.gy) == vent->gy;
+    if (!occupies_vent_cell) {
+        if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
+        if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
+    }
 
     unit->movement.path_len = 0;
     unit->movement.path_index = 0;
     unit->movement.order_arrived = true;
     unit->attack.target = -1;
     unit->harvest.phase = HARVEST_PHASE_MINING;
+    if (dx * dx + dy * dy > 0.000001f) {
+        unit->core.angle = angle_from_map_vector(map, dx, dy);
+    }
     if (game_info && unit->harvest.state_id > 0 &&
         unit->harvest.state_id < game_info->state_count) {
         const state_t *state = state_at(game_info, unit->core.state_id);
         if (!state || state->misc1 != 5) {
-            unit->core.angle = angle_from_map_vector(
-                map, vent->attach_gx - unit->core.gx, vent->attach_gy - unit->core.gy);
             statecontext_t ctx = { .map = map, .game_info = game_info };
             P_SetMobjState(&ctx, unit, unit->harvest.state_id);
         }

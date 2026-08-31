@@ -253,11 +253,12 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("Barracks state uses raw BRRKPODSTAND0 FIN placement");
     }
 
-    SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0, vent0, beac0, beac1;
+    SprFrameInfo expl0, expl6, expl14, expl15, expl34, hubu4, towr0, vent0, beac0, beac1;
     if (!load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 0, &expl0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 6, &expl6) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 14, &expl14) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 15, &expl15) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 34, &expl34) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/HUBU.SPR", 4, &hubu4) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/TOWR.SPR", 0, &towr0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/VENT2.SPR", 0, &vent0) ||
@@ -274,6 +275,10 @@ static int assert_dark_colony_city_fin_alignment(void) {
     if (expl14.width != 61 || expl14.height != 53 || expl14.dis_x != 130 || expl14.dis_y != 106 ||
         expl15.width != 28 || expl15.height != 17 || expl15.dis_x != 149 || expl15.dis_y != 117) {
         return fail("EXPL deploy frames keep raw SPR descriptor values");
+    }
+    if (expl34.width != 62 || expl34.height != 79 ||
+        expl34.dis_x != 130 || expl34.dis_y != 80) {
+        return fail("EXPL deployed body keeps raw SPR descriptor values");
     }
     if (hubu4.width != 72 || hubu4.height != 105 || hubu4.dis_x != 4 || hubu4.dis_y != 2) {
         return fail("HUBU frame 4 keeps raw SPR descriptor values");
@@ -294,7 +299,9 @@ static int assert_dark_colony_city_fin_alignment(void) {
     const FinCommand *expl_left = fin_command(&expl_fin, "EXPLSTAND6", "expl", 1, 6);
     const FinCommand *expl_deploy_body = fin_command(&expl_fin, "EXPLDEPLOY14", "expl", 1, 14);
     const FinCommand *expl_deploy_top = fin_command(&expl_fin, "EXPLDEPLOY14", "expl", 0, 15);
-    if (!expl_right || !expl_left || !expl_deploy_body || !expl_deploy_top)
+    const FinCommand *expl_deployed_body = fin_command(&expl_fin, "EDPLYSTAND14", "expl", 1, 34);
+    if (!expl_right || !expl_left || !expl_deploy_body || !expl_deploy_top ||
+        !expl_deployed_body)
         return fail("resolve Exploiter FIN commands");
     int right_draw_x = expl_right->x + expl0.dis_x;
     int right_draw_y = expl_right->y - expl0.height;
@@ -307,6 +314,9 @@ static int assert_dark_colony_city_fin_alignment(void) {
         left_draw_x != -30 || left_draw_y != -32 ||
         body_draw_y != -28 || top_draw_x != -10 || top_draw_y != -17) {
         return fail("Exploiter FIN/SPR placement matches the native draw pipeline");
+    }
+    if (expl_deployed_body->x != -159 || expl_deployed_body->y != 25) {
+        return fail("Exploiter deployed body preserves its raw FIN placement");
     }
     const FinCommand *vent = fin_command(&vent_fin, "VENTSTAND0", "vent2", 0, 0);
     if (!vent || vent0.width != 23 || vent0.height != 16 ||

@@ -139,8 +139,6 @@ typedef struct {
     int max_health;
 } DarkColonyUnitConfig;
 
-enum { DARK_COLONY_CELL_PIXELS = 32 };
-
 static bool load_dark_colony_overview_colors(const char *path, size_t cell_count,
                                              uint32_t **colors_out);
 
@@ -473,11 +471,6 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->gy = y;
     vent->attach_gx = (float)x + 0.5f;
     vent->attach_gy = (float)y + 0.5f;
-    if (placement && placement->valid) {
-        vent->attach_gx += placement->attach_x / (float)DARK_COLONY_CELL_PIXELS;
-        /* Dark Colony world Y is bottom-up, while SPR offsets are screen-down. */
-        vent->attach_gy -= placement->attach_y / (float)DARK_COLONY_CELL_PIXELS;
-    }
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0;

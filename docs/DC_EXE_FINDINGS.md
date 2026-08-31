@@ -424,9 +424,21 @@ chosen by remap/layer packing remains unknown; this correction is inferred from
 the preserved FIN/SPR metadata and native screenshot alignment rather than a
 fully traced nonzero queue handler.
 
-The mining path around `0x00412c31..0x00412c53` indexes the mine from the vent
-object's fixed-point `x_pos/z_pos`, so the gameplay target remains the vent
-object center rather than VENT2's displaced pixels.
+The mining handler at `0x004128c4` confirms that deployment is based on the
+shared object and occupancy system, not sprite geometry. At
+`0x004128f6..0x00412904` it reads the acting object's 8.8 fixed-point `x_pos`
+and `z_pos` fields at offsets `+0x00/+0x04`, shifts both right by eight, and
+looks up the object occupying that map cell. The type dispatcher at
+`0x00413c4c..0x00413c62` calls this handler for object type `0x28` (the Petra-7
+vent interaction). The handler does not write either position field.
+
+Consequently an Exploiter starts its interaction when its current cell is the
+vent's occupied cell and preserves the sub-cell position reached by movement.
+It is not snapped to the vent center, and no offset is derived from EXPL frame
+bounds. FIN continues to place the deployed body and overlays around that
+ordinary object origin. The earlier 14.5-pixel bounding-box-center adjustment
+was **disproven** because no equivalent calculation or position write exists in
+the native interaction path.
 
 ## Known unknowns
 
@@ -435,7 +447,8 @@ object center rather than VENT2's displaced pixels.
 - Which gameplay transition chooses Exploiter `SHUF` versus odd `MOVE` poses.
 - The complete sort-key layout of the 28-byte render queue record.
 - The role of each of the 32 auxiliary DirectDraw surfaces.
-- The remaining native Exploiter approach/deploy positioning around a vent.
+- The exact movement-step position at which each approach direction first
+   enters the vent's occupied cell.
 - Whether `DC16.EXE` uses identical routines and addresses; this report covers
   the fingerprinted `DC.EXE` only.
 
