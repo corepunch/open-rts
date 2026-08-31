@@ -32,6 +32,181 @@ the multi-game executable layout. The game interface is deliberately a set of
 externs and functions rather than a dynamic plugin registry; this keeps the
 reproduction path close to the original game and makes each game self-contained.
 
+## How a game object is defined
+
+An object has three related definitions, plus the instance created at runtime.
+
+```text
+ActorType[]        gameplay/config values
+      +
+MobjInfo[]         original-style type/state entry points
+      +
+State[]            animation/action graph
+      |
+      +--> mobj_t   live simulation object
+```
+
+### `ActorType[]`: gameplay configuration
+
+Each game plugin defines an `ActorType` table in its game implementation (the C
+type is `actortype_t`). A row is the authoritative runtime configuration for a
+type: numeric ID, name, base sprite/shadow, traits, speed, hit points, attack
+range/damage/cooldowns, death timing, harvester state, and effect names.
+
+These values are intentionally hardcoded C data, like Doom's `mobjinfo[]`, rather
+than read directly from an extracted binary table on every spawn. Extraction
+tools and original files establish the values; the checked-in table makes the
+simulation deterministic, reviewable, and independent of an optional asset
+probe. DC uses `games/dark-colony/g_game.c`; DR uses
+`games/dark-reign/g_game.c`.
+
+`traits` are capability flags, not animation states. For example,
+`MF_MOBILE | MF_ATTACK` makes an object eligible for movement and attack orders,
+while `MF_HARVESTER` enables resource behavior. A building can be renderable,
+selectable, and a producer without being mobile.
+
+### `MobjInfo[]`: type entry points
+
+`mobjinfo_t` provides the classic state entry points and physical defaults:
+spawn, see, missile/attack, pain, death, radius, height, mass, damage, and
+flags. The model resolves an actor's type ID through the selected game's
+`gameinfo_t` and applies the corresponding `ActorType` defaults before calling
+`P_SpawnMobj`.
+
+### `State[]`: animation and behavior graph
+
+`state_t` is a data-driven state node. It names a sprite/frame, duration in
+simulation tics, optional action callback, next state, state group metadata,
+facings, per-facing frame/flag/offset/remap/intensity data, and optional overlay
+data. State actions execute on state entry. Zero-tic states chain immediately;
+nonzero states remain active until their tic count expires.
+
+This means “walking”, “attacking”, “dying”, “deploying”, and “building” are
+usually state chains rather than ad hoc renderer conditions. The model can detect
+important transitions, such as entering an attack group, without making the
+renderer responsible for gameplay.
+
+### Generated `info.c` and `info.h`
+
+For Dark Colony, `games/dark-colony/info.c` and `info.h` are generated from the
+original sprite/frame tables by `tools/dc_info_gen`. The generated files contain
+the sprite-name catalog, state rows, facing mappings, frame indices, animation
+chains, offsets, flags, and overlay relationships. They are source artifacts
+checked into the game directory so normal builds do not require generation.
+
+The generator is a translation step, not a gameplay config loader. It converts
+the original asset layout into the engine's `state_t` representation. When an
+animation is wrong, inspect the source SPR/FIN frame table and generator output;
+do not compensate by moving terrain or adding sprite-name-specific renderer
+hacks.
+
+## Sprite formats and cross-game layout
+
+The engine keeps a common `spritesheet_t` interface, but does not assume that
+every game packs frames the same way. A sheet contains decoded frame rectangles,
+frame bounds, ground points, displacements, rotation counts, frames-per-rotation,
+and optional named sequences. Each game loader fills this structure according to
+its native format.
+
+### Dark Colony
+
+DC SPR files are palette-indexed sprite resources whose frame and animation
+meaning is coupled to DC's FIN/state data. DC has both 8- and 16-direction
+conventions depending on the asset/state. FIN data also supplies building
+footprints, pivots, offsets, overlays, and multi-part placement. The DC loader
+preserves bottom-up world coordinates and uses authored FIN offsets for building
+and Barracks release placement.
+
+DC's `gameinfo_t` selects the applicable direction mode and state coordinate mode
+for each interpretation. The generated state rows carry direction codes and
+per-facing frames rather than assuming frame `direction * N` universally.
+
+### Dark Reign
+
+DR sprite resources and scenario/map data use different naming, tile, facing, and
+placement conventions. DR actors commonly use 8-facing gameplay orientation,
+while some source data and visual tables expose 16-direction concepts that must
+be mapped to the game's direction codes. Buildings use separate body/base/tile
+visual pieces, and scenario placement is not interchangeable with DC placement.
+
+The DR loader resolves scenario unit/building declarations into actor types and
+visual specs, then the shared state/render path applies the DR `gameinfo_t`
+direction and coordinate policy. The renderer never guesses a DC layout for a DR
+sprite.
+
+### Coordinate and facing normalization
+
+The shared simulation stores world positions in game-cell coordinates. Native
+asset coordinates remain explicit at the boundary:
+
+- `direction_mode` selects the game's direction-code scheme;
+- `state_coord_mode` identifies ground-offset versus FIN top-left coordinates;
+- cell dimensions come from the game (`g_cell_w`, `g_cell_h`);
+- state rows carry actual direction codes, frame indices, offsets, remaps, and
+  intensities;
+- renderer conversion applies the selected policy exactly once.
+
+This is why a state can use a DC FIN top-left pivot while another state uses a
+ground offset, without flipping the whole map or applying a global correction.
+`play/p_facing.c`, `play/p_mobj.c`, and `render/r_draw.c` own the shared
+conversion helpers; game loaders own native-file interpretation.
+
+## Loading a game
+
+The interactive and model loaders follow the same conceptual sequence:
+
+1. Select the game implementation and establish its default root/map/sprite.
+2. Call `G_DoLoadLevel` for map geometry, dimensions, tiles, resources, and
+   game-specific map metadata.
+3. Call `P_LoadThings` to decode initial object declarations into `mobj_t` rows.
+4. Apply actor defaults and enter each object's spawn state with `P_SpawnMobj`.
+5. Load optional mission/script state with `G_LoadMission`.
+6. Load tiles and the fallback sprite through `W_LoadAssets`.
+7. Resolve per-object and decoration sprite resources with `R_InitSprites`.
+8. Initialize game UI/font resources when `gameui` is present.
+
+The model path deliberately omits SDL asset textures but keeps the same map,
+actor, state, mission, production, movement, and event behavior. This is what
+makes scenario tests useful without a display.
+
+## Input and command translation
+
+SDL input is handled at the driver/game boundary. `G_Responder` interprets
+mouse/keyboard events against the current camera, map, selection rectangle, and
+UI layout. Screen coordinates are converted to world/grid coordinates by
+`R_ScreenToMapGrid` and related helpers. Selection and camera state live in
+`app_t`; simulation state remains in `mobj_t`/`RtsGameModel`.
+
+The interactive path then invokes gameplay operations such as `P_MoveOrder`,
+`P_HarvestOrderAt`, or UI product activation. The headless/API path expresses
+the same intent as `RtsGameCommand` values:
+
+```text
+SDL event -> G_Responder -> gameplay command/order -> simulation tick
+test/API  -> RtsGameCommand ----------------------^
+```
+
+Commands identify actors by stable ID where possible. Index fields are retained
+as compatibility fallbacks, but indexes can change after death/removal or
+production because the unit array uses swap-compaction.
+
+Input does not directly mutate rendering fields or fabricate completion events.
+The command changes simulation intent; the next tick updates movement, state,
+combat, mission logic, and production, which then produces snapshots and events.
+
+## Mission scripts and game-specific behavior
+
+Mission code is owned by the game directory. `G_LoadMission` parses the relevant
+scenario/script format, `G_MissionTicker` advances scripted spawns/objectives,
+and `G_FreeMission` releases it. Mission code receives the map, actor array,
+effect array, actor count, HUD, and elapsed time so scenario behavior can create,
+remove, move, or animate objects using the same runtime representation.
+
+The shared model ticks the mission between core simulation phases and then
+reconciles stable IDs and transition state for event emission. This allows a
+scripted enemy wave or release animation to be observed by exactly the same test
+code as a player-issued order.
+
 ## Runtime flow
 
 The interactive loop is:
