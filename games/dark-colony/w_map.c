@@ -605,7 +605,6 @@ static bool load_dark_colony_overview_colors(const char *path, size_t cell_count
 
 bool load_dark_colony_map(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
-    out->bottom_up_coordinates = true;
 
     DarkColonyMapNative *native = calloc(1, sizeof(*native));
     if (!native) return false;
@@ -1078,7 +1077,7 @@ static void dark_colony_object_render_position_fixed(const DcObject *object, int
         int slot_x = 0, slot_z = 0;
         dark_colony_city_slot_offset(slot, &slot_x, &slot_z);
         x -= slot_x * 8;
-        z -= slot_z * 8 + DC_FIXED_TILE_SIZE;
+        z -= slot_z * 8;
     }
     if (x_fixed) *x_fixed = x;
     if (z_fixed) *z_fixed = z;
@@ -1107,10 +1106,10 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     int render_x_pos = 0, render_z_pos = 0;
     dark_colony_object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
-    u->core.position = (fvec2_t){
+    u->core.position = fixedvec3_from_fvec2((fvec2_t){
         dark_colony_fixed_to_cell(render_x_pos),
         dark_colony_fixed_to_cell(render_z_pos),
-    };
+    }, 0);
     u->core.sprite_id = -1;
     u->attack.target = -1;
     u->harvest.target = -1;
@@ -1133,6 +1132,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         state_id = dark_colony_game_info.mobjinfo[u->type_id].spawnstate;
     if (state_id != S_NULL)
         P_SetMobjState(&ctx, u, state_id);
+    if (dark_colony_object_uses_city_render_origin(object_index))
+        u->core.render_offset.y += CELL_H;
     if (u->owner == 0) {
         int x = object->cell_x;
         int y = object->cell_z;

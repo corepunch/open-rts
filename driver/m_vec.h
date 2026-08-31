@@ -2,11 +2,22 @@
 #define M_VEC_H
 
 #include <SDL.h>
+#include <limits.h>
+#include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct { int x, y; }   ivec2_t;
 typedef struct { float x, y; } fvec2_t;
 typedef struct { int w, h; }   isize2_t;
+
+typedef int32_t fixed_t;
+typedef struct { fixed_t x, y, z; } fixedvec3_t;
+
+enum {
+    FIXED_FRAC_BITS = 16,
+    FIXED_ONE = 1 << FIXED_FRAC_BITS,
+};
 
 /* Engine-facing rectangle names with exact SDL ABI compatibility. */
 typedef SDL_Rect  irect_t;
@@ -33,6 +44,78 @@ static inline fvec2_t fvec2_cell_center(ivec2_t cell) {
 }
 static inline bool ivec2_equal(ivec2_t a, ivec2_t b) {
     return a.x == b.x && a.y == b.y;
+}
+
+static inline fixed_t fixed_from_float(float value) {
+    double scaled = (double)value * (double)FIXED_ONE;
+    if (isnan(scaled)) return 0;
+    if (scaled >= (double)INT32_MAX) return INT32_MAX;
+    if (scaled <= (double)INT32_MIN) return INT32_MIN;
+    return (fixed_t)llround(scaled);
+}
+
+static inline float fixed_to_float(fixed_t value) {
+    return (float)value / (float)FIXED_ONE;
+}
+
+static inline fixed_t fixed_add_saturated(fixed_t a, fixed_t b) {
+    int64_t sum = (int64_t)a + (int64_t)b;
+    if (sum > INT32_MAX) return INT32_MAX;
+    if (sum < INT32_MIN) return INT32_MIN;
+    return (fixed_t)sum;
+}
+
+static inline fixed_t fixed_sub_saturated(fixed_t a, fixed_t b) {
+    int64_t difference = (int64_t)a - (int64_t)b;
+    if (difference > INT32_MAX) return INT32_MAX;
+    if (difference < INT32_MIN) return INT32_MIN;
+    return (fixed_t)difference;
+}
+
+static inline fixedvec3_t fixedvec3_from_fvec2(fvec2_t value, fixed_t z) {
+    return (fixedvec3_t){ fixed_from_float(value.x), fixed_from_float(value.y), z };
+}
+
+static inline fvec2_t fixedvec3_xy_to_fvec2(fixedvec3_t value) {
+    return (fvec2_t){ fixed_to_float(value.x), fixed_to_float(value.y) };
+}
+
+static inline fixedvec3_t fixedvec3_add(fixedvec3_t a, fixedvec3_t b) {
+    return (fixedvec3_t){
+        fixed_add_saturated(a.x, b.x),
+        fixed_add_saturated(a.y, b.y),
+        fixed_add_saturated(a.z, b.z),
+    };
+}
+
+static inline fixedvec3_t fixedvec3_zero(void) {
+    return (fixedvec3_t){ 0, 0, 0 };
+}
+
+static inline fixedvec3_t fixedvec3_planar_delta(fvec2_t delta) {
+    return fixedvec3_from_fvec2(delta, 0);
+}
+
+static inline fixedvec3_t fixedvec3_add_planar(fixedvec3_t position,
+                                                fixedvec3_t displacement) {
+    return (fixedvec3_t){
+        fixed_add_saturated(position.x, displacement.x),
+        fixed_add_saturated(position.y, displacement.y),
+        position.z,
+    };
+}
+
+static inline fixedvec3_t fixedvec3_with_xy(fixedvec3_t value, fvec2_t xy) {
+    return (fixedvec3_t){ fixed_from_float(xy.x), fixed_from_float(xy.y), value.z };
+}
+
+static inline fixedvec3_t fixedvec3_planar_displacement(fixedvec3_t from,
+                                                         fixedvec3_t to) {
+    return (fixedvec3_t){
+        fixed_sub_saturated(to.x, from.x),
+        fixed_sub_saturated(to.y, from.y),
+        0,
+    };
 }
 
 static inline irect_t irect_from_points(ivec2_t a, ivec2_t b) {

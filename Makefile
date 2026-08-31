@@ -50,6 +50,7 @@ DC_HEADLESS_TEST_SOURCE := tests/test_game_model_headless.c
 # $(1) = binary name (e.g. dark-colony)
 # $(2) = game-specific source list
 # $(3) = game directory name (e.g. DarkColony)
+# $(4) = game-specific preprocessor flags
 
 define GAME_TARGET
 
@@ -62,15 +63,15 @@ $(BIN_DIR)/$(1): $$(ALL_OBJS_$(1)) | $(BIN_DIR)
 
 $(BUILD_DIR)/$(1)/%.o: %.c
 	@mkdir -p $$(dir $$@)
-	$(CC) $(CPPFLAGS) -I./games/$(3) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
+	$(CC) $(CPPFLAGS) $(4) -I./games/$(3) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
 
 -include $$(ALL_DEPS_$(1))
 endef
 
-$(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony))
-$(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign))
-$(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion))
-$(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd))
+$(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony,-DRTS_WORLD_Y_UP=1))
+$(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign,-DRTS_WORLD_Y_UP=0))
+$(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0))
+$(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
 
 all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd
 
@@ -85,7 +86,7 @@ $(BIN_DIR)/test_game_model_headless: $(DC_MODEL_TEST_OBJS) | $(BIN_DIR)
 
 $(BUILD_DIR)/dc-test/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 -include $(DC_MODEL_TEST_DEPS)
 
@@ -162,14 +163,14 @@ $(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_
 
 $(BUILD_DIR)/cmd-dc/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 $(BIN_DIR)/test_model_commands_dark-reign: $(BUILD_DIR)/cmd-dr/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dr/%.o,$(MODEL_ENGINE_SOURCES) $(DR_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 
 $(BUILD_DIR)/cmd-dr/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 test-model-commands: $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
 	$(BIN_DIR)/test_model_commands_dark-colony

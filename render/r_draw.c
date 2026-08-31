@@ -754,7 +754,8 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
                                       int *frame_out, const spritesheet_t **sprite_out) {
     if (!app || !unit) return false;
     float sx = 0.0f, sy = 0.0f;
-    R_MapToScreen(app, map, unit->core.position.x, unit->core.position.y, &sx, &sy);
+    fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
+    R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
         float radius = unit_pick_radius_px(app, unit);
@@ -1211,8 +1212,9 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         };
     }
     for (int i = 0; i < unit_count; ++i) {
+        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
         float sort_y = units[i].render_sort_y > 0.0f ?
-            units[i].render_sort_y : units[i].core.position.y;
+            units[i].render_sort_y : position.y;
         sort_y = L_ScreenYF(map, sort_y);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
@@ -1278,8 +1280,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
         }
 
         float sx, sy;
-        R_MapToScreen(app, map, effect->core.position.x, effect->core.position.y,
-                  &sx, &sy);
+        fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
+        R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
         int frame = effect->use_state ? effect->core.frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
         irect_t frame_rect = sprite_frame_rect(sprite, frame);
@@ -1312,8 +1314,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
             debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
                               i, effect->core.sprite_name,
                               effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                              sprite->frame_count, effect->core.position.x,
-                              effect->core.position.y,
+                              sprite->frame_count, position.x, position.y,
                               dst.x, dst.y, dst.w, dst.h);
             continue;
         }
@@ -1394,8 +1395,10 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         units[i].harvest.target = -1;
                         units[i].harvest.timer_ms = 0;
                     }
-                    gx = units[target].core.position.x;
-                    gy = units[target].core.position.y;
+                    fvec2_t target_position =
+                        fixedvec3_xy_to_fvec2(units[target].core.position);
+                    gx = target_position.x;
+                    gy = target_position.y;
                 } else {
                     if (P_HarvestOrderAt(map, units, unit_count, (fvec2_t){ gx, gy })) {
                         break;

@@ -91,7 +91,6 @@ typedef struct level_s {
     uint8_t *blocked;
     uint32_t *cell_colors;
     uint32_t render_capabilities;
-    bool bottom_up_coordinates;
     mapdecoration_t *decorations;
     int decoration_count;
     resourcevent_t *resource_vents;
@@ -109,15 +108,25 @@ typedef struct level_s {
 } level_t;
 
 static inline int L_ScreenY(const level_t *map, int y) {
-    return map && map->bottom_up_coordinates ? map->height - 1 - y : y;
+#if RTS_WORLD_Y_UP
+    return map->height - 1 - y;
+#else
+    (void)map;
+    return y;
+#endif
 }
 
 static inline float L_ScreenYF(const level_t *map, float y) {
-    return map && map->bottom_up_coordinates ? (float)map->height - y : y;
+#if RTS_WORLD_Y_UP
+    return (float)map->height - y;
+#else
+    (void)map;
+    return y;
+#endif
 }
 
 static inline float L_WorldYF(const level_t *map, float y) {
-    return map && map->bottom_up_coordinates ? (float)map->height - y : y;
+    return L_ScreenYF(map, y);
 }
 
 #endif

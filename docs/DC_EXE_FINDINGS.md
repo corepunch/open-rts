@@ -340,6 +340,28 @@ displays an eight-step cycle because flip state, FIN offset, and timing are all
 part of each step. Mirroring an already-normalized canvas around its center is
 not equivalent to this behavior.
 
+### Direction-code orientation
+
+**Inferred:** Dark Colony's 16-way FIN direction codes use `0 = south` and
+increase counterclockwise: `4 = east`, `8 = north`, and `12 = west`. Treating
+code zero as north reverses only vertical sprite facings while horizontal
+facings remain correct, matching the observed Trooper failure. Open-rts maps
+these native codes to its Doom-style angles with south as the first angle and
+counterclockwise progression; movement vectors remain in native Y-up world
+coordinates.
+
+The focused cardinal regression and Human01-Human03 model scenarios reproduce
+the result:
+
+```sh
+make build/bin/test_game_model_headless
+build/bin/test_game_model_headless
+```
+
+The exact DC.EXE routine that converts movement deltas to FIN direction codes
+remains **unknown** and should be traced before promoting this from inferred to
+confirmed.
+
 ### Exploiter
 
 `EXPL.FIN` also supplies all 16 directional poses:
@@ -430,19 +452,16 @@ r2 -q -e bin.cache=true -A -c "pd 24 @ 0x00419f10" -c q data/DCOLONY/DC.EXE
 Open-rts previously replaced the native shared render origin with a mixed anchor
 assembled from the second `%AISlots` X and centered first `%AISlots` Y. For
 Human02 that produced `(56,53.5)`. That mixed anchor had no executable basis and
-has been removed. Open-rts now preserves each scattered object coordinate,
-subtracts its slot offset for rendering, and then converts the resulting native
-integer Y boundary to open-rts's bottom-up terrain row. `L_ScreenYF()` maps a
-continuous point with `height - y`, whereas terrain row `y` is mapped with
-`height - 1 - y`; using `(56,55)` directly consequently draws Human02's city
-exactly one tile above the retail image. The render-only row conversion produces
-`(56,54)` without changing the stored city anchor or object coordinates.
+has been removed. Open-rts now preserves each scattered object coordinate and
+subtracts only its native slot offset for rendering, leaving the shared visual
+origin at the native `(56,55)`. A one-tile downward sprite offset aligns that
+integer boundary with the terrain row without rewriting the model coordinate.
 
-The final one-row conversion is **inferred** from the renderer boundary and
-retail screenshot comparison, not an additional subtraction found in the city
-constructor. It is the same class of bottom-up row/point mismatch as the
-Human02 vent: scenario identity remains unchanged while the visual or
-interaction point is represented in open-rts coordinates.
+The final one-row presentation offset is **inferred** from the renderer boundary
+and retail screenshot comparison, not an additional subtraction found in the
+city constructor. It is the same class of bottom-up row/point mismatch as the
+Human02 vent: scenario and model coordinates remain native while rendering
+accounts for the integer boundary convention.
 
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
 contains VENT2 cell 0 at FIN coordinate `(-40,12)`, remap `1`, intensity `16`,

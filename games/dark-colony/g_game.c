@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "game.h"
+#include "dc_facing.h"
 #include "engine.h"
 #include "info.h"
 #include "gamestat.h"
@@ -332,11 +333,11 @@ void G_InitGame(void) {
     for (int state_index = 0; state_index < NUMSTATES; ++state_index) {
         state_t *state = &dark_colony_runtime_states[state_index];
         for (int facing = 0; facing < state->facings; ++facing)
-            state->rotation_angles[facing] = direction_to_angle(
-                (int)state->rotation_angles[facing], 16, ANG90, true);
+            state->rotation_angles[facing] = dc_direction_to_angle(
+                (int)state->rotation_angles[facing]);
         for (int facing = 0; facing < state->overlay_facings; ++facing)
-            state->overlay_rotation_angles[facing] = direction_to_angle(
-                (int)state->overlay_rotation_angles[facing], 16, ANG90, true);
+            state->overlay_rotation_angles[facing] = dc_direction_to_angle(
+                (int)state->overlay_rotation_angles[facing]);
     }
     dark_colony_runtime_info = dark_colony_game_info;
     dark_colony_runtime_info.states = dark_colony_runtime_states;

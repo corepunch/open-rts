@@ -750,7 +750,8 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     if (!L_Contains(map, cell.x, cell.y)) return false;
     mobj_t *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
-    unit->core.position = fvec2_cell_center((ivec2_t){ cell.x, cell.y });
+    unit->core.position = fixedvec3_from_fvec2(
+        fvec2_cell_center((ivec2_t){ cell.x, cell.y }), 0);
     unit->owner = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     apply_actor_type_defaults(unit, type);
@@ -791,7 +792,7 @@ static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit
     resourcevent_t *vent = &map->resource_vents[vent_index];
     mobj_t *unit = &units[(*unit_count)++];
     memset(unit, 0, sizeof(*unit));
-    unit->core.position = vent->attachment;
+    unit->core.position = fixedvec3_from_fvec2(vent->attachment, 0);
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     unit->owner = 0;
     unit->attack.target = -1;
@@ -811,8 +812,8 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
-        R_MapToScreen(app, map, units[i].core.position.x,
-                  units[i].core.position.y, &sx, &sy);
+        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
         app->cam.x += (float)app->win.w * 0.5f - sx;
         app->cam.y += (float)app->win.h * 0.5f - sy;
         return true;
@@ -885,8 +886,8 @@ static void debug_draw_map_anchors(const app_t *app, const level_t *map,
     for (int i = 0; units && i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
         float sx, sy;
-        R_MapToScreen(app, map, units[i].core.position.x,
-                  units[i].core.position.y, &sx, &sy);
+        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
         debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
                          (SDL_Color){ 88, 160, 255, 255 });
     }
@@ -1550,8 +1551,7 @@ static bool dc_start_production_release(level_t *map,
         .max_effects = max_effects,
         .game_info = gameinfo,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->core.position.x,
-                       producer->core.position.y, 0)) return false;
+    if (!P_SpawnEffect(&ctx, state_id, producer->core.position, 0)) return false;
     producer->production.release_active = true;
     producer->production.release_time_left_ms = duration_ms;
     producer->production.time_left_ms = 0;
@@ -1604,7 +1604,8 @@ static bool dc_position_available_for_spawn(const level_t *map, const mobj_t *un
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
-        if (fvec2_distance_squared(other->core.position, (fvec2_t){ gx, gy }) <
+        if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(other->core.position),
+                                   (fvec2_t){ gx, gy }) <
             min_dist * min_dist) return false;
     }
     return true;
@@ -1635,8 +1636,9 @@ static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
                                         float radius, float *out_gx,
                                         float *out_gy) {
     if (!map || !units || !producer || !out_gx || !out_gy) return false;
-    int origin_x = (int)floorf(producer->core.position.x);
-    int origin_y = (int)floorf(producer->core.position.y);
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    int origin_x = (int)floorf(producer_position.x);
+    int origin_y = (int)floorf(producer_position.y);
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -1732,8 +1734,9 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
     }
     if (!saw_release_trooper) return false;
 
-    *out_gx = producer->core.position.x + (float)(release_x - stand_x) / (float)CELL_W;
-    *out_gy = producer->core.position.y - (float)(release_y - stand_y) / (float)CELL_H;
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    *out_gx = producer_position.x + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer_position.y - (float)(release_y - stand_y) / (float)CELL_H;
     return true;
 }
 
@@ -1757,13 +1760,14 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
             continue;
         }
         if (i == spawned_index ||
-            fvec2_distance_squared(unit->core.position,
+            fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
                                    (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
             unit->selected = true;
         }
     }
 
-    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy }, producer->core.position);
+    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
+                             fixedvec3_xy_to_fvec2(producer->core.position));
     float len = sqrtf(fvec2_length_squared(delta));
     if (len < 0.01f) {
         delta = (fvec2_t){ 0.0f, -1.0f };
@@ -1813,7 +1817,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
                                             radius, &gx, &gy)) {
         return false;
     }
-    new_unit.core.position = (fvec2_t){ gx, gy };
+    new_unit.core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
     int spawned_index = *unit_count;
     units[(*unit_count)++] = new_unit;
     if (use_barracks_release)
@@ -1910,9 +1914,10 @@ static void dc_stop_selected_units(mobj_t *units, int unit_count) {
         units[i].attack.target = -1;
         units[i].harvest.target = -1;
         units[i].harvest.timer_ms = 0;
-        units[i].movement.goal = units[i].core.position;
+        units[i].movement.goal = fixedvec3_xy_to_fvec2(units[i].core.position);
         units[i].movement.order_id = 0;
         units[i].movement.order_arrived = false;
+        units[i].core.momentum = fixedvec3_zero();
     }
 }
 
@@ -1985,10 +1990,10 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].remove || units[i].core.position.x < 0.0f ||
-            units[i].core.position.y < 0.0f) continue;
-        int x = clip.x + (int)(units[i].core.position.x * (float)clip.w / (float)map->width);
-        int y = clip.y + (int)(L_ScreenYF(map, units[i].core.position.y) *
+        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        if (units[i].remove || position.x < 0.0f || position.y < 0.0f) continue;
+        int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
+        int y = clip.y + (int)(L_ScreenYF(map, position.y) *
                                (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
@@ -2405,8 +2410,8 @@ int main(int argc, char **argv) {
         int cy = map.height / 2;
         const actortype_t *fallback_type = num_mobjinfo > 0 ? (const actortype_t *)mobjinfo : NULL;
         for (int i = 0; i < unit_count; ++i) {
-            units[i].core.position = fvec2_cell_center(
-                (ivec2_t){ cx + i % 3, cy + i / 3 });
+            units[i].core.position = fixedvec3_from_fvec2(fvec2_cell_center(
+                (ivec2_t){ cx + i % 3, cy + i / 3 }), 0);
             units[i].owner = 0;
             units[i].selected = i == 0;
             if (fallback_type) {
@@ -2435,12 +2440,15 @@ int main(int argc, char **argv) {
     }
 
     if (debug_harvester_index >= 0) {
+        fvec2_t position = fixedvec3_xy_to_fvec2(
+            units[debug_harvester_index].core.position);
         focus_camera_on_grid(&app, &map,
-                             units[debug_harvester_index].core.position.x,
-                             units[debug_harvester_index].core.position.y);
+                             position.x, position.y);
     } else if (!focus_camera_on_map_start(&app, &map)) {
-        float focus_gx = unit_count > 0 ? units[0].core.position.x : (float)map.width * 0.5f;
-        float focus_gy = unit_count > 0 ? units[0].core.position.y : (float)map.height * 0.5f;
+        fvec2_t position = unit_count > 0 ? fixedvec3_xy_to_fvec2(units[0].core.position) :
+            (fvec2_t){ (float)map.width * 0.5f, (float)map.height * 0.5f };
+        float focus_gx = position.x;
+        float focus_gy = position.y;
         focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
     if (debug_camera_override)

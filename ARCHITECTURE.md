@@ -215,18 +215,21 @@ native parsing and normalization into these shared arrays.
 The map also owns decorations, resource vents, map extras, player resources, and
 game-native loader data. `P_FreeLevel` releases these allocations and invokes
 `destroy_native_data` when present. A plugin may attach parsed native state via
-`native_data`, but the shared engine must not inspect or free it directly.
-`bottom_up_coordinates` is a map policy, not a reason to rewrite source data:
-use `L_ScreenY*`/`L_WorldYF` and the map conversion helpers at the rendering
-boundary.
+`native_data`, but the shared engine must not inspect or free it directly. Each
+game binary compiles with its native Y-axis convention through `RTS_WORLD_Y_UP`.
+Source coordinates remain native; `L_ScreenY*`/`L_WorldYF` convert only at
+rendering and input boundaries.
 
 ### `mobj_t` and `effect_t`: simulation objects
 
 `mobj_t` is a live actor and owns gameplay state, orders, timers, production
 state, and a fixed-capacity path. `effect_t` is a transient visual object: it
-shares the state/render core (`gx`, `gy`, facing, state, frame, offsets, remap,
-and intensity) but adds active/lifetime policy instead of actor gameplay. Effects
-are stored in a bounded pool and may spawn a finishing decoration; they are not
+shares the state/render core (fixed position, momentum, facing, state, frame,
+offsets, remap, and intensity) but adds active/lifetime policy instead of actor
+gameplay. `mobjcore_t.position` and `momentum` are `fixedvec3_t`: each axis is a
+signed 32-bit 16.16 value. Game-native formats such as Dark Colony's signed
+16-bit 8.8 object coordinates are converted at the loader boundary. Effects are
+stored in a bounded pool and may spawn a finishing decoration; they are not
 selectable, movable, attackable actors and should not be added to `mobj_t`.
 
 State transitions are the common bridge: `P_SetMobjState` and effect state entry

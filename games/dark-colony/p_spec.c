@@ -1,4 +1,5 @@
 #include "game.h"
+#include "dc_facing.h"
 #include "info.h"
 #include "dc_types.h"
 
@@ -143,7 +144,8 @@ static bool dark_colony_player_near(const level_t *map, const mobj_t *units,
     fvec2_t center = fvec2_cell_center((ivec2_t){ gx, gy });
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
-        if (fvec2_distance_squared(units[i].core.position, center) <= 16.0f) return true;
+        if (fvec2_distance_squared(
+            fixedvec3_xy_to_fvec2(units[i].core.position), center) <= 16.0f) return true;
     }
     return false;
 }
@@ -155,7 +157,7 @@ static int dark_colony_spawn_dropship_effect(effect_t *effects, int max_effects,
         effect_t *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
-        effect->core.position = (fvec2_t){ gx, gy };
+        effect->core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
         effect->duration_ms = duration_ms;
         effect->frame_ms = duration_ms + 1;
         effect->core.render_intensity = 16;
@@ -221,7 +223,8 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
         if (spawn_y < 0) spawn_y = 0;
         if (spawn_y >= map->height) spawn_y = map->height - 1;
     }
-    unit->core.position = fvec2_cell_center((ivec2_t){ spawn_x, spawn_y });
+    unit->core.position = fixedvec3_from_fvec2(
+        fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }), 0);
     unit->owner = team == 0 ? 0 : 1;
     if (unit->owner == 0) {
         bool has_selected_player = false;
@@ -233,8 +236,7 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
         }
         unit->selected = !has_selected_player;
     }
-    unit->core.angle = direction_to_angle(unit->owner == 0 ? 6 : 14,
-                                          16, ANG90, true);
+    unit->core.angle = dc_direction_to_angle(unit->owner == 0 ? 6 : 14);
     uint16_t type_id = dark_colony_script_unit_type(team, type);
     const actortype_t *actor = dark_colony_actor_type_by_id(type_id);
     dark_colony_apply_actor_type_defaults(unit, actor);
@@ -533,7 +535,8 @@ void dark_colony_update_mission(void *ptr, level_t *map, mobj_t *units, int *uni
         float sy = ship->center_gy + sinf(ship->angle) * ship->radius;
         if (ship->effect_slot >= 0 && ship->effect_slot < max_effects &&
             effects[ship->effect_slot].active) {
-            effects[ship->effect_slot].core.position = (fvec2_t){ sx, sy };
+            effects[ship->effect_slot].core.position =
+                fixedvec3_from_fvec2((fvec2_t){ sx, sy }, 0);
         }
     }
 }

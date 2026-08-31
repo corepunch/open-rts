@@ -71,7 +71,8 @@ static void model_emit_event(void *user, int type, const mobj_t *subject,
     event->target_type_id = target ? target->type_id : 0;
     event->product_class = product_class;
     event->product_type = product_type;
-    event->position = subject ? subject->core.position : (fvec2_t){ 0.0f, 0.0f };
+    event->position = subject ? fixedvec3_xy_to_fvec2(subject->core.position) :
+        (fvec2_t){ 0.0f, 0.0f };
     model->event_count++;
 }
 
@@ -455,7 +456,8 @@ static bool model_position_available(const RtsGameModel *model, float gx, float 
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
-        if (fvec2_distance_squared(other->core.position, (fvec2_t){ gx, gy }) <
+        if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(other->core.position),
+                                   (fvec2_t){ gx, gy }) <
             min_dist * min_dist) return false;
     }
     return true;
@@ -485,8 +487,9 @@ static bool model_position_walkable_only(const RtsGameModel *model, float gx, fl
 static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,
                                      float radius, float *out_gx, float *out_gy) {
     if (!model || !producer || !out_gx || !out_gy) return false;
-    int origin_x = (int)floorf(producer->core.position.x);
-    int origin_y = (int)floorf(producer->core.position.y);
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    int origin_x = (int)floorf(producer_position.x);
+    int origin_y = (int)floorf(producer_position.y);
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -586,8 +589,9 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
     }
     if (!saw_release_trooper) return false;
 
-    *out_gx = producer->core.position.x + (float)(release_x - stand_x) / (float)CELL_W;
-    *out_gy = producer->core.position.y - (float)(release_y - stand_y) / (float)CELL_H;
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    *out_gx = producer_position.x + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer_position.y - (float)(release_y - stand_y) / (float)CELL_H;
     return true;
 }
 
@@ -611,13 +615,14 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
             continue;
         }
         if (i == spawned_index ||
-            fvec2_distance_squared(unit->core.position,
+            fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
                                    (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
             unit->selected = true;
         }
     }
 
-    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy }, producer->core.position);
+    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
+                             fixedvec3_xy_to_fvec2(producer->core.position));
     float len = sqrtf(fvec2_length_squared(delta));
     if (len < 0.01f) {
         delta = (fvec2_t){ 0.0f, -1.0f };
@@ -684,7 +689,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
         return false;
     }
 
-    new_unit.core.position = (fvec2_t){ gx, gy };
+    new_unit.core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
     int spawned_index = model->unit_count;
     model->units[model->unit_count++] = new_unit;
     model_emit_build_completion(model, &model->units[spawned_index], producer, product);
@@ -757,8 +762,7 @@ static bool start_model_production_release(RtsGameModel *model, mobj_t *producer
         .max_effects = MAX_VISUAL_EFFECTS,
         .game_info = game_info,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->core.position.x,
-                       producer->core.position.y, 0))
+    if (!P_SpawnEffect(&ctx, state_id, producer->core.position, 0))
         return false;
     producer->production.release_active = true;
     producer->production.release_time_left_ms = duration_ms;
@@ -1288,7 +1292,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
                 unit->attack.target = target;
         }
         P_MoveOrderAt(&model->map, model->units, model->unit_count,
-                      model->units[target].core.position);
+                      fixedvec3_xy_to_fvec2(model->units[target].core.position));
         return true;
     }
     case RTS_GAME_COMMAND_BUILD_PRODUCT: {
@@ -1352,7 +1356,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
     for (int i = 0; i < out->unit_count; ++i) {
         const mobj_t *src = &model->units[i];
         RtsRenderUnit *dst = &out->units[i];
-        dst->position = src->core.position;
+        dst->position = fixedvec3_xy_to_fvec2(src->core.position);
         dst->move_goal = src->movement.goal;
         dst->type_id = src->type_id;
         dst->owner = src->owner;
@@ -1401,7 +1405,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         if (!src->active) continue;
         RtsRenderEffect *dst = &out->effects[out->effect_count++];
         dst->active = src->active;
-        dst->position = src->core.position;
+        dst->position = fixedvec3_xy_to_fvec2(src->core.position);
         dst->frame = src->core.frame;
         dst->render_flags = src->core.render_flags;
         dst->render_remap = src->core.render_remap;

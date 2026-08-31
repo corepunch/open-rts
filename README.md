@@ -199,9 +199,9 @@ The code keeps old-game-specific file and coordinate details as adapters:
   and Taelon mines.
 - `BOTG`/FTG archive loader: extracts contained files.
 - `RSPR`/`SSPR` sprite loader: decodes paletted RLE sprite frames.
-- Per-map coordinate metadata keeps Dark Reign top-down and Dark Colony
-  bottom-up world coordinates explicit. Movement stores the engine-facing once;
-  the shared renderer consumes it instead of reinterpreting axes per frame.
+- A per-game compile-time Y-axis policy keeps Dark Reign Y-down and Dark Colony
+  Y-up world coordinates native. Rendering and input convert only at the screen
+  boundary.
 - Dark Colony `.SPR` loader: embedded palette, frame descriptors, and raw
   indexed pixels. Unit animation is driven by generated Doom-style
   `sprnames[]`, `states[]`, and `mobjinfo[]` tables.

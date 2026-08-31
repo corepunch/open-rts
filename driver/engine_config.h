@@ -19,6 +19,14 @@
 #define MAX_PATH_CELLS 4096
 #define FIXED_DT (1.0f / 30.0f)
 
+#ifndef RTS_WORLD_Y_UP
+#define RTS_WORLD_Y_UP 0
+#endif
+
+#if RTS_WORLD_Y_UP != 0 && RTS_WORLD_Y_UP != 1
+#error "RTS_WORLD_Y_UP must be 0 or 1"
+#endif
+
 #define RTS_SPRITEFRAME_FLIP_X (1u << 0) /* Doom-style spriteframe_t.flip[rotation]. */
 #define RTS_FRAME_FLIP_X RTS_SPRITEFRAME_FLIP_X
 #define RTS_FRAME_ADDITIVE (1u << 1)

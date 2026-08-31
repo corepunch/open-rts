@@ -145,7 +145,8 @@ typedef struct gameinfo_s {
  * object core.
  */
 typedef struct mobjcore_s {
-    fvec2_t position;
+    fixedvec3_t position;
+    fixedvec3_t momentum;
     angle_t angle;
     int state_id;
     int tics;

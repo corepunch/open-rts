@@ -1,9 +1,11 @@
 #include "engine_config.h"
 #include "../game/g_game.h"
+#include "../games/dark-colony/dc_facing.h"
 #include "../games/dark-colony/info.h"
 #include "../games/dark-colony/dc_types.h"
 #include "../games/dark-reign/dr_types.h"
 
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +14,20 @@
 static int fail(const char *message) {
     fprintf(stderr, "FAIL: %s\n", message);
     return 1;
+}
+
+static int assert_dark_colony_direction_mapping(void) {
+    if (dc_direction_to_angle(0) != ANG270 ||
+        dc_direction_to_angle(4) != 0 ||
+        dc_direction_to_angle(8) != ANG90 ||
+        dc_direction_to_angle(12) != ANG180 ||
+        dc_angle_to_direction(ANG270) != 0 ||
+        dc_angle_to_direction(0) != 4 ||
+        dc_angle_to_direction(ANG90) != 8 ||
+        dc_angle_to_direction(ANG180) != 12) {
+        return fail("Dark Colony direction codes use south-zero counterclockwise facings");
+    }
+    return 0;
 }
 
 static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {
@@ -592,15 +608,15 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 city slots with zero DC city anchors are not materialized");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, (fvec2_t){ 56.0f, 54.0f },
-                                      (ivec2_t){ 0, 0 }) ||
+                                      S_DC_EXCOPOD_STND, (fvec2_t){ 56.0f, 55.0f },
+                                      (ivec2_t){ 0, CELL_H }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, (fvec2_t){ 56.0f, 54.0f },
-                                      (ivec2_t){ 0, 0 }) ||
+                                      S_DC_BRRKPOD_STND, (fvec2_t){ 56.0f, 55.0f },
+                                      (ivec2_t){ 0, CELL_H }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, (fvec2_t){ 56.0f, 54.0f },
-                                      (ivec2_t){ 0, 0 })) {
-        return fail("Human02 city buildings align the native origin to the terrain row");
+                                      S_DC_TOWR_STND, (fvec2_t){ 56.0f, 55.0f },
+                                      (ivec2_t){ 0, CELL_H })) {
+        return fail("Human02 city buildings retain the native origin and render on the terrain row");
     }
     if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0,
                                          (ivec2_t){ 36, 26 }) ||
@@ -893,7 +909,7 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 emits build-finished event after Trooper release");
     fvec2_t expected_exit = fvec2_add(
         barracks_position,
-        (fvec2_t){ 16.0f / (float)CELL_W, -75.0f / (float)CELL_H });
+        (fvec2_t){ 16.0f / (float)CELL_W, -79.0f / (float)CELL_H });
     int produced_trooper = -1;
     for (int i = 0; i < snapshot.unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot.units[i];
@@ -955,25 +971,25 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 5.0f },
-                                      (ivec2_t){ 0, 0 }) ||
+                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+                                      (ivec2_t){ 0, CELL_H }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, (fvec2_t){ 75.0f, 5.0f },
-                                      (ivec2_t){ 0, 0 }) ||
+                                      S_DC_BRRKPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+                                      (ivec2_t){ 0, CELL_H }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
-                                      S_NULL, (fvec2_t){ 75.0f, 5.0f },
-                                      (ivec2_t){ 0, 0 }) ||
+                                      S_NULL, (fvec2_t){ 75.0f, 6.0f },
+                                      (ivec2_t){ 0, CELL_H }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 5.0f },
-                                      (ivec2_t){ 0, 0 })) {
-        return fail("Human03 city slots align the native origin to the terrain row");
+                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
+                                      (ivec2_t){ 0, CELL_H })) {
+        return fail("Human03 city slots retain the native origin and render on the terrain row");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 5.0f },
-                                      (ivec2_t){ 0, 0 }) ||
+                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+                                      (ivec2_t){ 0, CELL_H }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 5.0f },
-                                      (ivec2_t){ 0, 0 })) {
+                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
+                                      (ivec2_t){ 0, CELL_H })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
 
@@ -1140,8 +1156,54 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
 }
 #endif
 
+static int assert_fixed_momentum_semantics(void) {
+    if (fixed_from_float(INFINITY) != INT32_MAX ||
+        fixed_from_float(-INFINITY) != INT32_MIN ||
+        fixed_from_float(NAN) != 0) {
+        return fail("fixed conversion clamps non-finite values");
+    }
+
+    level_t map = { .width = 16, .height = 16 };
+    mobj_t unit = { 0 };
+    unit.core.position = fixedvec3_from_fvec2((fvec2_t){ 2.25f, 3.5f },
+                                              fixed_from_float(7.0f));
+    unit.speed = 3.0f;
+    unit.hp = 1;
+    unit.radius = 0.25f;
+    unit.traits = MF_MOBILE;
+    unit.attack.target = -1;
+    unit.harvest.target = -1;
+    unit.movement.goal = (fvec2_t){ 2.30f, 3.5f };
+    unit.movement.path[0] = (cell_t){ 2, 3 };
+    unit.movement.path[1] = (cell_t){ 2, 3 };
+    unit.movement.path_len = 2;
+    unit.movement.path_index = 1;
+
+    fixedvec3_t before = unit.core.position;
+    int unit_count = 1;
+    P_Ticker(&map, &unit, &unit_count, NULL, 0, NULL, 1.0f / 30.0f);
+    if (unit_count != 1 || unit.core.momentum.x == 0 || unit.core.momentum.y != 0 ||
+        unit.core.momentum.z != 0 ||
+        unit.core.position.x != fixed_add_saturated(before.x, unit.core.momentum.x) ||
+        unit.core.position.y != fixed_add_saturated(before.y, unit.core.momentum.y) ||
+        unit.core.position.z != before.z || unit.movement.path_len != 0) {
+        return fail("short final movement applies position plus fixed momentum and preserves z");
+    }
+
+    P_Ticker(&map, &unit, &unit_count, NULL, 0, NULL, 1.0f / 30.0f);
+    if (unit.core.momentum.x != 0 || unit.core.momentum.y != 0 ||
+        unit.core.momentum.z != 0 || unit.core.position.z != before.z) {
+        return fail("idle update clears fixed momentum and preserves z");
+    }
+    return 0;
+}
+
 int main(void) {
-    int result = assert_dark_colony_sprite_catalog();
+    int result = assert_dark_colony_direction_mapping();
+    if (result != 0) return result;
+    result = assert_fixed_momentum_semantics();
+    if (result != 0) return result;
+    result = assert_dark_colony_sprite_catalog();
     if (result != 0) return result;
     result = assert_dark_colony_exploiter_work_states();
     if (result != 0) return result;

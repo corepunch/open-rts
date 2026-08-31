@@ -1,5 +1,6 @@
 #include "game.h"
 #include "info.h"
+#include "dc_facing.h"
 #include "dc_types.h"
 
 #include <ctype.h>
@@ -15,8 +16,7 @@ void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
         unit->type_id < ctx->game_info->mobj_type_count) {
         muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
     }
-    P_SpawnEffect(ctx, muzzle_state, unit->core.position.x,
-                  unit->core.position.y, unit->core.angle);
+    P_SpawnEffect(ctx, muzzle_state, unit->core.position, unit->core.angle);
 }
 
 void A_DC_Attack(statecontext_t *ctx, mobj_t *unit) {
@@ -43,11 +43,12 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->harvest.cargo = 0;
     unit->attack.cooldown_left_ms = 0;
     unit->attack.anim_left_ms = 0;
+    unit->core.momentum = fixedvec3_zero();
     unit->death_started = true;
 }
 
 static int reaper_death_effect_state_for_angle(angle_t angle) {
-    int code = angle_to_direction(angle, 16, ANG90, true);
+    int code = dc_angle_to_direction(angle);
     for (int distance = 0; distance <= 8; ++distance) {
         for (int sign = -1; sign <= 1; sign += 2) {
             if (distance == 0 && sign > 0) continue;
@@ -65,9 +66,7 @@ void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
     if (ctx && unit) {
         int fx_state = reaper_death_effect_state_for_angle(unit->core.angle);
         if (fx_state != S_NULL) {
-            P_SpawnEffect(ctx, fx_state, unit->core.position.x,
-                          unit->core.position.y,
-                          unit->core.angle);
+            P_SpawnEffect(ctx, fx_state, unit->core.position, unit->core.angle);
         }
     }
     A_DC_Fall(ctx, unit);
@@ -76,5 +75,6 @@ void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) {
     if (!unit) return;
     P_AddCorpse(ctx, unit);
+    unit->core.momentum = fixedvec3_zero();
     unit->remove = true;
 }
