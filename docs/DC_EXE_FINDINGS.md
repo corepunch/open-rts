@@ -382,12 +382,8 @@ specialized queue handler selected by the native render record.
 DC.EXE does contain literal city-slot geometry at `0x00475b64`:
 `(-64,15)`, `(0,0)`, `(32,64)`, `(64,10)`, `(-32,65)`, `(0,32)`, and `(0,0)`.
 Function `0x004412d4` multiplies each component by eight and adds it to the city
-anchor before writing object `x_pos` and `z_pos`. Mirroring these constants is
-therefore a port of native game data, not a visual correction. Open-rts also
-subtracts them from city render positions to preserve its currently composed
-base canvas; that normalization has not been found in DC.EXE and must not be
-used as precedent for adding further offsets. It should be removed only when
-the complete native FIN/SPR city placement path replaces it.
+anchor before writing object `x_pos` and `z_pos`. These scattered coordinates
+are the native gameplay and occupancy positions, not the FIN animation origins.
 
 The native city object anchor is the second `%AISlots` pair. The scenario loader
 stores that pair in team fields `+0x2c/+0x30`; `0x00441468..0x004414b3` shifts
@@ -395,13 +391,48 @@ both values left by eight and adds the corresponding slot-table component
 shifted left by three. The values are object origins, not cell centers. For
 Human02 this makes the native object origin `(56,55)`.
 
-Open-rts cannot yet render those independently positioned city objects as the
-single FIN-composed city image. It therefore keeps the native coordinates in
-the object pool but draws the temporary composite at the map's terrain-facing
-anchor: the second `%AISlots` X and the centered first `%AISlots` Y. Human02's
-composite render anchor is `(56,53.5)`. This preserves the pentagon alignment
-without changing native object storage; it remains compatibility behavior to
-remove when the complete city composition path is implemented.
+This is a building-specific coordinate convention, but it is **not** a
+city-only `Y + 0.5` adjustment. The mobile-object constructor in `mobiles.c`,
+function `0x00419d44`, converts both integer cell coordinates to cell centers:
+
+```text
+0x00419f1a..0x00419f29: x_pos = (cell_x << 8) + 0x80
+0x00419f33..0x00419f3e: z_pos = (cell_z << 8) + 0x80
+```
+
+The city constructor instead omits `0x80` from both axes. City buildings are
+therefore special because gameplay uses exact object origins and the city slot
+table, while ordinary mobiles use centered cells. The visual path has an
+additional city-specific step: for object indices below 120 whose slot modulo
+15 is below six, `0x0043654f..0x00436567` calls `0x00441080` to recover that
+slot's table offset multiplied by eight. Queue construction then computes:
+
+```text
+0x00436662..0x00436675: draw_z = object_z - slot_z * 8 + FIN.runtime_y
+0x0043667c..0x00436687: draw_x = object_x - slot_x * 8 + FIN.runtime_x
+```
+
+Because construction added the same offsets, all city FIN animations share the
+second `%AISlots` origin while their gameplay objects remain scattered. The
+sort-key setup at `0x004365a7..0x004365c0` still receives raw object Z before
+the subtraction. `TOWR.FIN` then supplies its ordinary pixel command offset
+`(-36,-9)` relative to the shared origin.
+
+**Disproven:** retail city location `(x, y + 0.5)`. For Human02, DC.EXE stores
+the TOWR city object at `(56,55)` before its slot offset, not `(56,55.5)` or a
+mixed `(56,53.5)` anchor. This can be reproduced with:
+
+```sh
+r2 -q -e bin.cache=true -A -c "pd 30 @ 0x00441457" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pd 24 @ 0x00419f10" -c q data/DCOLONY/DC.EXE
+```
+
+Open-rts previously replaced the native shared render origin with a mixed anchor
+assembled from the second `%AISlots` X and centered first `%AISlots` Y. For
+Human02 that produced `(56,53.5)`. That mixed anchor had no executable basis and
+has been removed. Open-rts now preserves each scattered object coordinate,
+subtracts its slot offset for rendering, and draws Human02's city FIN animations
+from the native shared origin `(56,55)`.
 
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
 contains VENT2 cell 0 at FIN coordinate `(-40,12)`, remap `1`, intensity `16`,

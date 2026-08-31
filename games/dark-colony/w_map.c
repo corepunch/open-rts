@@ -1075,37 +1075,30 @@ static bool dark_colony_team_city_anchor(const DarkColonyScenarioTeam *team,
     return true;
 }
 
-static int dark_colony_city_render_x_fixed(const DcObject *object, int object_index) {
-    if (!object || object_index < 0 || object_index >= DC_BUILDING_OBJECT_COUNT)
-        return object ? object->x_pos : 0;
-    int slot = object_index % DC_BUILDINGS_PER_SIDE;
-    int slot_x = 0;
-    dark_colony_city_slot_offset(slot, &slot_x, NULL);
-    return object->x_pos - slot_x * 8;
+static bool dark_colony_object_uses_city_render_origin(int object_index) {
+    return object_index >= 0 && object_index < DC_BUILDING_OBJECT_COUNT &&
+        object_index % DC_BUILDINGS_PER_SIDE < 6;
 }
 
-static int dark_colony_city_render_z_fixed(const DcObject *object, int object_index) {
-    if (!object || object_index < 0 || object_index >= DC_BUILDING_OBJECT_COUNT)
-        return object ? object->z_pos : 0;
-    int slot = object_index % DC_BUILDINGS_PER_SIDE;
-    int slot_z = 0;
-    dark_colony_city_slot_offset(slot, NULL, &slot_z);
-    return object->z_pos - slot_z * 8;
-}
-
-static void dark_colony_city_composite_position_fixed(const DarkColonyScenarioTeam *team,
-                                                       int *x_fixed, int *z_fixed) {
-    if (!team || team->ai_slot_count < 2) return;
-    if (x_fixed) *x_fixed = dark_colony_fixed_from_city_x(team->ai_slots[1][0]);
-    if (z_fixed) *z_fixed = dark_colony_fixed_from_cell(team->ai_slots[0][1]);
+static void dark_colony_object_render_position_fixed(const DcObject *object, int object_index,
+                                                      int *x_fixed, int *z_fixed) {
+    int x = object ? object->x_pos : 0;
+    int z = object ? object->z_pos : 0;
+    if (dark_colony_object_uses_city_render_origin(object_index)) {
+        int slot = object_index % DC_BUILDINGS_PER_SIDE;
+        int slot_x = 0, slot_z = 0;
+        dark_colony_city_slot_offset(slot, &slot_x, &slot_z);
+        x -= slot_x * 8;
+        z -= slot_z * 8;
+    }
+    if (x_fixed) *x_fixed = x;
+    if (z_fixed) *z_fixed = z;
 }
 
 static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_units,
                                            int object_index,
                                            const DcObject *object, int race,
                                            const DarkColonyUnitConfig *unit_config,
-                                           const DarkColonyScenarioTeam *team_info,
-                                           bool city_object,
                                            bool *player_selected,
                                            bool *player_has_exploiter,
                                            bool *player_anchor_set,
@@ -1122,12 +1115,9 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
 
     mobj_t *u = &units[*count];
     memset(u, 0, sizeof(*u));
-    int render_x_pos = city_object ? dark_colony_city_render_x_fixed(object, object_index) :
-        object->x_pos;
-    int render_z_pos = city_object ? dark_colony_city_render_z_fixed(object, object_index) :
-        object->z_pos;
-    if (city_object)
-        dark_colony_city_composite_position_fixed(team_info, &render_x_pos, &render_z_pos);
+    int render_x_pos = 0, render_z_pos = 0;
+    dark_colony_object_render_position_fixed(object, object_index,
+                                             &render_x_pos, &render_z_pos);
     u->core.gx = dark_colony_fixed_to_cell(render_x_pos);
     u->core.gy = dark_colony_fixed_to_cell(render_z_pos);
     u->core.sprite_id = -1;
@@ -1137,7 +1127,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         u->speed = unit_config[type].speed;
     if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
     u->type_id = (uint16_t)mobj_type;
-    if (city_object) u->render_sort_y = (float)object->cell_z + 0.5f;
+    if (dark_colony_object_uses_city_render_origin(object_index))
+        u->render_sort_y = dark_colony_fixed_to_cell(object->z_pos);
     u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
     u->hp = object->health_or_amount;
     u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
@@ -1232,13 +1223,11 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             tower.type = 81;
             append_dark_colony_object_unit(units, &count, max_units, object_index,
                                            &tower, race,
-                                           unit_config, &scenario.teams[team],
-                                           object_index < DC_BUILDING_OBJECT_COUNT,
+                                           unit_config,
                                            NULL, NULL, NULL, NULL, NULL);
         }
         append_dark_colony_object_unit(units, &count, max_units, object_index, object, race,
-                                       unit_config, &scenario.teams[team],
-                                       object_index < DC_BUILDING_OBJECT_COUNT,
+                                       unit_config,
                                        &player_selected,
                                        &player_has_exploiter,
                                        &player_anchor_set,
@@ -1252,9 +1241,8 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                                                unit_config);
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
-            append_dark_colony_object_unit(units, &count, max_units, object_index,
-                                           object, 0,
-                                           unit_config, &scenario.teams[0], false, &player_selected,
+            append_dark_colony_object_unit(units, &count, max_units, object_index, object, 0,
+                                           unit_config, &player_selected,
                                            &player_has_exploiter,
                                            &player_anchor_set,
                                            &player_anchor_x,

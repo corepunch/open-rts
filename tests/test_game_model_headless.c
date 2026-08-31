@@ -604,12 +604,12 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 city slots with zero DC city anchors are not materialized");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 56.0f, 53.5f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 56.0f, 55.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 56.0f, 53.5f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, 56.0f, 55.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 56.0f, 53.5f, 0, 0)) {
-        return fail("Human02 city bases use Dark Colony city anchor and slot offsets");
+                                      S_DC_TOWR_STND, 56.0f, 55.0f, 0, 0)) {
+        return fail("Human02 city buildings use the native shared render origin");
     }
     if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
         snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
@@ -960,19 +960,19 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.0f, 9.5f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 75.0f, 9.5f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
-                                      S_NULL, 75.0f, 9.5f, 0, 0) ||
+                                      S_NULL, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.0f, 9.5f, 0, 0)) {
-        return fail("Human03 city slots compose with Dark Colony fixed-point offsets");
+                                      S_DC_TOWR_STND, 75.0f, 6.0f, 0, 0)) {
+        return fail("Human03 city slots use the native shared render origin");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.0f, 9.5f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, 75.0f, 6.0f, 0, 0) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.0f, 9.5f, 0, 0)) {
+                                      S_DC_TOWR_STND, 75.0f, 6.0f, 0, 0)) {
         return fail("Human03 DC city AISlot is the player city base");
     }
 
