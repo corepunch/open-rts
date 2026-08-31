@@ -618,6 +618,15 @@ static bool update_unit_harvest(level_t *map, mobj_t *unit, int dt_ms,
 
     float dx = vent->attach_gx - unit->gx;
     float dy = vent->attach_gy - unit->gy;
+    if (!unit->move_order_arrived && unit->path_len == 0 &&
+        vent->attach_gx >= 0.0f && vent->attach_gx < map->width &&
+        vent->attach_gy >= 0.0f && vent->attach_gy < map->height) {
+        unit->gx = vent->attach_gx;
+        unit->gy = vent->attach_gy;
+        unit->move_order_arrived = true;
+        dx = 0.0f;
+        dy = 0.0f;
+    }
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
     if (unit_is_following_path(unit) && !unit->move_order_arrived) return false;
     if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;

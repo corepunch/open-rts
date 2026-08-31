@@ -72,7 +72,7 @@ static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { DC_ACTOR_BRRKPOD }, 1 },
     /* Robot Factory units */
     { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
-    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD2 }, 1 },
+    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { DC_ACTOR_ROBOPOD2 }, 1 },
     { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
     /* Upgraded Robot Factory units */
     {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { DC_ACTOR_ROBOPOD2 }, 1 },
@@ -876,7 +876,7 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
             break;
         }
     }
-    if (selected_type == 0) return;
+    if (selected_type == 0) selected_type = DC_ACTOR_EXCOPOD;
 
     /* Show production queue progress for the selected building. */
     if (selected_building && selected_building->production_queue_count > 0) {
@@ -915,8 +915,7 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
         slot++;
         int button_x = 516 + col * 36;
         int button_y = 92 + row * 42;
-        bool available = product_is_available(model, product) &&
-                         model->map.player_resources[0][0] >= product->cost;
+        bool available = product_is_available(model, product);
         append_ui_script(dst, dst_size,
                          "x %d y %d btn %d enabled %d pic %d\n",
                          button_x, button_y, product->ui_id, available ? 1 : 0,

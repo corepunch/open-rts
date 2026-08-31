@@ -602,6 +602,15 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
             unit->move_goal_gx = adjusted_gx;
             unit->move_goal_gy = adjusted_gy;
         }
+        /* A vent attachment can be reachable as a point while the flow
+           field has no predecessor for the start cell. Preserve the order
+           and let the normal final-goal movement perform the short approach. */
+        if (len <= 0 && P_CheckPosition(map, unit, unit->move_goal_gx,
+                                        unit->move_goal_gy)) {
+            unit->path[0] = start;
+            unit->path[1] = goal;
+            len = 2;
+        }
         if (len == 1 && hypotf(unit->move_goal_gx - unit->gx,
                                unit->move_goal_gy - unit->gy) > 0.05f &&
             MAX_PATH_CELLS > 1) {
@@ -615,6 +624,14 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
         unit->harvest_timer_ms = 0;
         unit->move_order_id = order_id;
         unit->move_order_arrived = unit->path_index == 0;
+        /* The original DC order hands the harvester to the vent attachment
+           point immediately; the deploy animation is the visible approach
+           handoff, so do not let a blocked flow predecessor strand it. */
+        unit->gx = vent->attach_gx;
+        unit->gy = vent->attach_gy;
+        unit->path_len = 0;
+        unit->path_index = 0;
+        unit->move_order_arrived = true;
         issued = true;
     }
     return issued;
