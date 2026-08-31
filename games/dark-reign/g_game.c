@@ -68,6 +68,58 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 1200,
     },
+#define DR_MOBILE(id_, name_, sprite_, hp_, speed_) \
+    { .id = (id_), .name = (name_), .sprite_name = (sprite_), \
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK, \
+      .speed = (speed_), .max_hp = (hp_), .attack_range = 7.0f, \
+      .attack_damage = 10, .attack_cooldown_ms = 900, .attack_anim_ms = 400 }
+    DR_MOBILE(DR_ACTOR_FG_RAIDER, "Raider", "ufradst0.spr", 100, 5.0f),
+    DR_MOBILE(DR_ACTOR_FG_MERCENARY, "Mercenary", "ufmrcst0.spr", 125, 4.8f),
+    DR_MOBILE(DR_ACTOR_FG_SNIPER, "Sniper", "ufsnpst0.spr", 100, 4.5f),
+    DR_MOBILE(DR_ACTOR_FG_SCOUT, "Scout", "ufsctst0.spr", 66, 6.0f),
+    DR_MOBILE(DR_ACTOR_FG_MEDIC, "Medic", "ufmedst0.spr", 66, 4.8f),
+    DR_MOBILE(DR_ACTOR_FG_SABOTEUR, "Saboteur", "ufsabst0.spr", 100, 4.8f),
+    DR_MOBILE(DR_ACTOR_FG_MECHANIC, "Mechanic", "ufmecst0.spr", 66, 4.8f),
+    DR_MOBILE(DR_ACTOR_FG_SUICIDE_NUKER, "Martyr", "ufmtrst0.spr", 100, 4.8f),
+    DR_MOBILE(DR_ACTOR_FG_SPY, "Spy", "ucinfst0.spr", 66, 4.8f),
+    DR_MOBILE(DR_ACTOR_FG_SPYDER_BIKE, "Spider Bike", "ufspbst0.spr", 133, 6.5f),
+    DR_MOBILE(DR_ACTOR_FG_IFV, "RAT", "ufratst0.spr", 200, 5.0f),
+    DR_MOBILE(DR_ACTOR_FG_MEDIUM_TANK, "Skirmish Tank", "ufsktst0.spr", 133, 4.0f),
+    DR_MOBILE(DR_ACTOR_FG_TANK_HUNTER, "Tank Hunter", "ufthnst0.spr", 150, 4.0f),
+    DR_MOBILE(DR_ACTOR_FG_PHASE_TANK, "Phase Tank", "ufphtst0.spr", 166, 4.0f),
+    DR_MOBILE(DR_ACTOR_FG_MAD, "Flak Jack", "ufflkst0.spr", 100, 4.0f),
+    DR_MOBILE(DR_ACTOR_FG_TRIPLE_RAIL_TANK, "Triple Rail Tank", "uftrtst0.spr", 200, 3.5f),
+    DR_MOBILE(DR_ACTOR_FG_SPA, "Hellstorm Artillery", "uffarst0.spr", 133, 3.5f),
+    DR_MOBILE(DR_ACTOR_FG_SKY_BIKE, "Sky Bike", "ufskbst0.spr", 100, 6.0f),
+    DR_MOBILE(DR_ACTOR_FG_OUTRIDER, "Outrider", "ufoutst0.spr", 200, 5.0f),
+    DR_MOBILE(DR_ACTOR_FG_SHOCKWAVE, "Shockwave", "ufswvst0.spr", 166, 3.5f),
+    DR_MOBILE(DR_ACTOR_FG_CONTAMINATOR, "Water Contaminator", "ucwcost0.spr", 166, 3.0f),
+    DR_MOBILE(DR_ACTOR_FG_HOVER_TRANSPORTER, "Hover Freighter", "uchfrst0.spr", 500, 4.5f),
+#undef DR_MOBILE
+#define DR_BUILDING(id_, name_, sprite_, shadow_, hp_) \
+    { .id = (id_), .name = (name_), .sprite_name = (sprite_), .shadow_name = (shadow_), \
+      .traits = MF_SELECTABLE | MF_RENDERABLE, .speed = 0.0f, .max_hp = (hp_) }
+    DR_BUILDING(DR_ACTOR_FG_HEADQUARTERS_2, "FG Headquarters 2", "nfhqt2l0.spr", "bfhqtsh0.spr", 2400),
+    DR_BUILDING(DR_ACTOR_FG_HEADQUARTERS_3, "FG Headquarters 3", "nfhqt3l0.spr", "bfhqtsh0.spr", 3600),
+    DR_BUILDING(DR_ACTOR_FG_TRAINING_FACILITY_1, "Barracks", "nfutf1l0.spr", "bfutfmn0.spr", 750),
+    DR_BUILDING(DR_ACTOR_FG_TRAINING_FACILITY_2, "Advanced Barracks", "nfutf2l0.spr", "bfutfmn1.spr", 1500),
+    DR_BUILDING(DR_ACTOR_FG_VEHICLE_FACTORY_1, "Vehicle Factory", "nfvcy1l0.spr", "bfvcymn0.spr", 1000),
+    DR_BUILDING(DR_ACTOR_FG_VEHICLE_FACTORY_2, "Advanced Vehicle Factory", "nfvcy2l0.spr", "bfvcymn1.spr", 2000),
+    DR_BUILDING(DR_ACTOR_FG_HOVER_FACTORY, "Hovercraft Factory", "nfhsp1l0.spr", "bfhspmn0.spr", 600),
+    DR_BUILDING(DR_ACTOR_FG_REPAIR_BAY, "Repair Bay", "nfrep1l0.spr", "bfrepmn0.spr", 600),
+    DR_BUILDING(10015, "Phase Factory 1", "nfphf1l0.spr", "bfphfmn0.spr", 1000),
+    DR_BUILDING(10016, "Phase Factory 2", "nfphf2l0.spr", "bfphfmn1.spr", 2000),
+    DR_BUILDING(DR_ACTOR_FG_CAMERA_TOWER, "Camera Tower", "nccam1l0.spr", "bccammn0.spr", 150),
+    DR_BUILDING(DR_ACTOR_FG_AA_SITE, "Anti-Air Site", "nfaar1l0.spr", "bfaarmn0.spr", 600),
+    DR_BUILDING(DR_ACTOR_FG_GUARD_TOWER, "Guard Tower", "nfgdt1l0.spr", "bfgdtmn0.spr", 400),
+    DR_BUILDING(DR_ACTOR_FG_ADVANCED_GUARD_TOWER, "Advanced Guard Tower", "nfagt1l0.spr", "bfagtmn0.spr", 550),
+    DR_BUILDING(DR_ACTOR_FG_LIFE_PLANT, "Life Plant", "nclnc1l0.spr", "bclncmn0.spr", 1300),
+    DR_BUILDING(DR_ACTOR_FG_POWER_PLANT, "Power Plant", "ncpow1l0.spr", "bcpowmn0.spr", 1450),
+    DR_BUILDING(DR_ACTOR_FG_REFINERY, "Refinery", "nfrrm1l0.spr", "bfrrmmn0.spr", 800),
+    DR_BUILDING(10040, "Small Horizontal Bridge", "ncsbh1l0.spr", "bcsbhmn0.spr", 400),
+    DR_BUILDING(10041, "Small Vertical Bridge", "ncsbv1l0.spr", "bcsbvmn0.spr", 400),
+    DR_BUILDING(10042, "Small Centre Bridge", "ncsbc1l0.spr", "bcsbcmn0.spr", 400),
+#undef DR_BUILDING
 };
 
 static const gameinfo_t DARK_REIGN_GAME_INFO = {

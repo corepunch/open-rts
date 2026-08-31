@@ -85,14 +85,61 @@ static int dark_colony_product_count(void) {
 }
 
 static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
-    {
-        10001, 10001, "FG HQ 1", 750, 0, RTS_PRODUCT_BUILDING, 10001, 0,
-        { 0 }, 0, { 11 }, 1,
-    },
-    {
-        11, 11, "Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 11, 0,
-        { 10001 }, 1, { 10001, 10002, 10003 }, 3,
-    },
+#define DR_BUILD(ui_, label_, cost_, type_, p0_, p1_) \
+    { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { 11 }, 1 }
+#define DR_UNIT(ui_, label_, cost_, type_, p0_, p1_, m0_, m1_) \
+    { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), \
+      { (m0_), (m1_) }, ((m1_) == 0 ? 1 : 2) }
+    DR_BUILD(10001, "FG HQ 1", 750, 10001, 0, 0),
+    DR_BUILD(10002, "FG HQ 2", 1000, 10002, 10004, 10006),
+    DR_BUILD(10003, "FG HQ 3", 1250, 10003, 10005, 10007),
+    DR_BUILD(10004, "Barracks", 1500, 10004, 10001, 0),
+    DR_BUILD(10005, "Advanced Barracks", 750, 10005, 10002, 0),
+    DR_BUILD(10006, "Vehicle Factory", 2200, 10006, 10001, 0),
+    DR_BUILD(10007, "Advanced Vehicle Factory", 2500, 10007, 10002, 0),
+    DR_BUILD(10008, "Hover Factory", 500, 10008, 10004, 0),
+    DR_BUILD(10009, "Repair Bay", 800, 10009, 10006, 0),
+    DR_BUILD(10010, "Camera Tower", 200, 10010, 10002, 0),
+    DR_BUILD(10011, "Refinery", 1000, 10011, 10003, 0),
+    DR_BUILD(10012, "Anti-Air Site", 1000, 10012, 10002, 0),
+    DR_BUILD(10013, "Guard Tower", 500, 10013, 10001, 0),
+    DR_BUILD(10014, "Advanced Guard Tower", 1700, 10014, 10002, 0),
+    DR_BUILD(10015, "Phase Factory 1", 1200, 10015, 10001, 0),
+    DR_BUILD(10016, "Phase Factory 2", 1200, 10016, 10002, 0),
+    DR_BUILD(10019, "Life Plant", 2500, 10019, 0, 0),
+    DR_BUILD(10020, "Power Plant", 2000, 10020, 0, 0),
+    DR_BUILD(10040, "Small Horizontal Bridge", 100, 10040, 0, 0),
+    DR_BUILD(10041, "Small Vertical Bridge", 100, 10041, 0, 0),
+    DR_BUILD(10042, "Small Centre Bridge", 150, 10042, 0, 0),
+    { 11, 11, "Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 11, 0,
+      { 10001 }, 1, { 10001, 10002, 10003 }, 3 },
+    DR_UNIT(9, "Raider", 150, 9, 10004, 0, 10004, 10005),
+    DR_UNIT(10, "Mercenary", 300, 10, 10004, 0, 10004, 10005),
+    DR_UNIT(8, "Sniper", 700, 8, 10005, 0, 10004, 10005),
+    DR_UNIT(6, "Scout", 300, 6, 10004, 0, 10004, 10005),
+    DR_UNIT(7, "Medic", 500, 7, 10004, 10009, 10004, 10005),
+    DR_UNIT(3, "Saboteur", 800, 3, 10005, 0, 10004, 10005),
+    DR_UNIT(2, "Mechanic", 500, 2, 10004, 10009, 10004, 10005),
+    DR_UNIT(5, "Martyr", 600, 5, 10004, 0, 10004, 10005),
+    DR_UNIT(4, "Spy", 1000, 4, 10005, 0, 10004, 10005),
+    DR_UNIT(1, "Spider Bike", 500, 1, 10006, 0, 10006, 10007),
+    DR_UNIT(15, "RAT", 450, 15, 10006, 0, 10006, 10007),
+    DR_UNIT(20, "Skirmish Tank", 600, 20, 10006, 0, 10006, 10007),
+    DR_UNIT(17, "Tank Hunter", 700, 17, 10006, 0, 10006, 10007),
+    DR_UNIT(21, "Phase Tank", 600, 21, 10006, 10015, 10006, 10007),
+    DR_UNIT(12, "Flak Jack", 500, 12, 10002, 10006, 10006, 10007),
+    DR_UNIT(16, "Triple Rail Tank", 1300, 16, 10007, 0, 10006, 10007),
+    DR_UNIT(19, "Hellstorm Artillery", 1100, 19, 10007, 0, 10006, 10007),
+    DR_UNIT(23, "Sky Bike", 800, 23, 10006, 10011, 10006, 10007),
+    DR_UNIT(24, "Outrider", 1400, 24, 10006, 10011, 10006, 10007),
+    DR_UNIT(18, "Shockwave", 4000, 18, 10006, 10003, 10006, 10007),
+    DR_UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, 10006, 10007),
+    DR_UNIT(13, "Freighter", 1000, 13, 10006, 0, 10006, 10007),
+    DR_UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, 10006, 10007),
+#undef DR_BUILD
+#undef DR_UNIT
 };
 
 static int dark_reign_product_count(void) {
@@ -202,6 +249,22 @@ static int model_state_chain_duration_ms(const gameinfo_t *game_info, int state_
 
 static int product_training_time_ms(const StaticProductDefinition *product) {
     if (!product) return 0;
+    if (strcmp(g_game_id, "dark-reign") == 0) {
+        /* UNITS.TXT and BUILD.TXT express build time in seconds.  Keep the
+           source values here so model ticks and the UI use the same clock. */
+        static const struct { int type; int seconds; } times[] = {
+            {10001,22},{10002,30},{10003,37},{10004,45},{10005,23},
+            {10006,66},{10007,75},{10008,15},{10009,24},{10010,6},
+            {10011,30},{10012,30},{10013,22},{10014,51},{10015,36},{10016,36},
+            {10019,37},{10020,30},{10040,3},{10041,3},{10042,5},
+            {11,9},{9,5},{10,9},{8,21},{6,9},{7,15},{3,24},{2,15},
+            {5,18},{4,30},{1,15},{15,14},{20,18},{17,21},{21,18},
+            {12,15},{16,39},{19,33},{23,24},{24,42},{18,120},{30,150},
+            {13,30},{14,45},
+        };
+        for (size_t i = 0; i < sizeof(times) / sizeof(times[0]); ++i)
+            if (times[i].type == product->product_type) return times[i].seconds * 1000;
+    }
     if (product->product_class != RTS_PRODUCT_UNIT) return 0;
     int ms = product->cost * 10;
     if (ms < 1000) ms = 1000;
@@ -251,11 +314,10 @@ static uint16_t dark_colony_actor_id_for_product(const StaticProductDefinition *
 }
 
 static uint16_t dark_reign_actor_id_for_requirement(int requirement_id) {
-    switch (requirement_id) {
-    case 11: return 11;
-    case 10001: return 10001;
-    default: return 0;
-    }
+    if (requirement_id == 11 ||
+        (requirement_id >= 10001 && requirement_id <= 10020))
+        return (uint16_t)requirement_id;
+    return 0;
 }
 
 static uint16_t dark_reign_actor_id_for_product(const StaticProductDefinition *product) {
@@ -556,7 +618,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     mobj_t new_unit;
     memset(&new_unit, 0, sizeof(new_unit));
     new_unit.type_id = actor_id;
-    new_unit.owner = 0;
+    new_unit.owner = model->units[producer_index].owner;
     new_unit.sprite_id = -1;
     new_unit.attack_target = -1;
     new_unit.harvest_target = -1;
@@ -701,7 +763,7 @@ static bool create_model_product(RtsGameModel *model,
     int producer_index = find_product_producer_index(model, product);
     if (producer_index < 0) return false;
 
-    if (dark_colony && product->product_class == RTS_PRODUCT_UNIT) {
+    if ((dark_colony && product->product_class == RTS_PRODUCT_UNIT) || dark_reign) {
         if (!enqueue_model_unit_product(model, product, producer_index, actor_id)) return false;
         model->map.player_resources[0][0] -= product->cost;
         return true;
@@ -872,12 +934,43 @@ static void build_dark_reign_ui_script(const RtsGameModel *model, char *dst, siz
     append_ui_script(dst, dst_size, "x 520 y 464 text \"Credits %d\"\n",
                      model->map.player_resources[0][0]);
 
+    uint16_t selected_type = 0;
+    const mobj_t *selected = NULL;
+    for (int i = 0; i < model->unit_count; ++i) {
+        const mobj_t *unit = &model->units[i];
+        if (unit->selected && unit->owner == 0 && unit->hp > 0 && !unit->remove &&
+            (unit->traits & MF_SELECTABLE) != 0) {
+            selected = unit;
+            selected_type = unit->type_id;
+            break;
+        }
+    }
+    if (selected && selected->production_queue_count > 0) {
+        const StaticProductDefinition *producing = product_by_class_type_for_model(
+            model, selected->production_product_class, selected->production_product_type);
+        int pct = selected->production_time_ms > 0 ?
+            (selected->production_time_ms - selected->production_time_left_ms) * 100 /
+            selected->production_time_ms : 0;
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        append_ui_script(dst, dst_size, "x 516 y 76 progress %d queue %d label \"%s\"\n",
+                         pct, selected->production_queue_count,
+                         producing ? producing->label : "");
+    }
+
+    int slot = 0;
     int source_count = dark_reign_product_count();
     for (int i = 0; i < source_count; ++i) {
         const StaticProductDefinition *product = &DARK_REIGN_FG_PRODUCTS[i];
-        int button_x = 516 + (i % 3) * 36;
-        int button_y = 92 + (i / 3) * 42;
-        bool available = product_is_available(model, product);
+        bool this_maker = false;
+        for (int m = 0; m < product->maker_count; ++m)
+            if (product->makers[m] == (int)selected_type) this_maker = true;
+        if (!this_maker) continue;
+        int button_x = 516 + (slot % 3) * 36;
+        int button_y = 92 + (slot / 3) * 42;
+        slot++;
+        bool available = selected && product_is_available(model, product) &&
+                         model->map.player_resources[0][0] >= product->cost;
         append_ui_script(dst, dst_size,
                          "x %d y %d btn %d enabled %d pic %d\n",
                          button_x, button_y, product->ui_id, available ? 1 : 0,
