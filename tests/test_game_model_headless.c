@@ -733,7 +733,7 @@ static int assert_human02(RtsGameModel *model) {
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.421875f) ||
-        !near_float(snapshot.units[exploiter].gy, 47.03125f)) {
+        !near_float(snapshot.units[exploiter].gy, 47.28125f)) {
         return fail("Human02 Exploiter deploys at the SPR-authored Petra-7 attachment point");
     }
     for (int i = 0; i < 30 * 20; ++i) {

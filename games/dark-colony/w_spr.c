@@ -686,7 +686,10 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     out->glow_left = base_left + (int)plume->dis_x - (int)base->dis_x;
     out->glow_top = base_top + (int)plume->dis_y - (int)base->dis_y;
     out->attach_x = (float)out->glow_left + (float)plume->width * 0.5f;
-    out->attach_y = (float)out->glow_top + (float)plume->height;
+    /* The Exploiter FIN origin is the body ground/origin, so attach it to the
+       plume's visual center. The plume bottom is the crater bitmap edge,
+       not the unit's ground point. */
+    out->attach_y = (float)out->glow_top + (float)plume->height * 0.5f;
     out->valid = true;
 
     dark_colony_juice_destroy(&vent);
