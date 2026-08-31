@@ -639,11 +639,11 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 loads Petra-7 vents");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
-                                             RTS_FRAME_ADDITIVE, 9, 4)) {
+                                             RTS_FRAME_ADDITIVE, 9, -25)) {
         return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
-                                             RTS_FRAME_ADDITIVE, 9, 4)) {
+                                             RTS_FRAME_ADDITIVE, 9, -25)) {
         return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
     }
 

@@ -404,21 +404,25 @@ without changing native object storage; it remains compatibility behavior to
 remove when the complete city composition path is implemented.
 
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
-contains VENT2 cell 0 at FIN coordinate `(-40,12)`. The confirmed queue path
-negates FIN Y while entering bottom-up fixed space and reverses it again while
-creating top-down screen Y. VENT2 cell 0 has width 23, height 16, and displacement
-`(31,37)`, so selector-zero placement is `(-9,-4)` from the native animation
-origin:
+contains VENT2 cell 0 at FIN coordinate `(-40,12)`, remap `1`, intensity `16`,
+layer `0`, and flags `0`. VENT2 cell 0 has width 23, height 16, and displacement
+`(31,37)`. Native screenshot comparison shows that applying the selector-zero
+world formula to this remapped command places the glow 29 pixels above its
+terrain-baked crater. The generic displaced placement gives destination offset
+`(-9,25)` from the animation origin:
 
 ```text
 x = -40 + 31 = -9
-y =  12 - 16 = -4
+y = -12 + 37 = 25
 ```
 
 Open-rts's decoration API stores a pivot that is subtracted from the world
-anchor. Its VENT2 adapter therefore stores pivot `(9,4)`, the negation of that
-native destination offset. The earlier pivot `(9,-25)` came from the disproven
-generic-dispatch formula and placed the plume 29 pixels too low.
+anchor. Its VENT2 adapter therefore stores pivot `(9,-25)`, the negation of
+that destination offset. Treating the command as selector zero produced pivot
+`(9,4)` and placed the plume 29 pixels too high. The exact native selector
+chosen by remap/layer packing remains unknown; this correction is inferred from
+the preserved FIN/SPR metadata and native screenshot alignment rather than a
+fully traced nonzero queue handler.
 
 The mining path around `0x00412c31..0x00412c53` indexes the mine from the vent
 object's fixed-point `x_pos/z_pos`, so the gameplay target remains the vent

@@ -311,8 +311,9 @@ static int assert_dark_colony_city_fin_alignment(void) {
     const FinCommand *vent = fin_command(&vent_fin, "VENTSTAND0", "vent2", 0, 0);
     if (!vent || vent0.width != 23 || vent0.height != 16 ||
         vent0.dis_x != 31 || vent0.dis_y != 37 ||
-        vent->x + vent0.dis_x != -9 || vent->y - vent0.height != -4) {
-        return fail("Petra-7 glow uses queued-world displacement and height placement");
+        vent->remap != 1 || vent->intensity != 16 || vent->layer != 0 || vent->flags != 0 ||
+        vent->x + vent0.dis_x != -9 || -vent->y + vent0.dis_y != 25) {
+        return fail("Petra-7 glow preserves its complete FIN/SPR placement metadata");
     }
     return 0;
 }

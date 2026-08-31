@@ -715,7 +715,7 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     }
 
     out->glow_left = plume_command->x + (int)plume->dis_x;
-    out->glow_top = plume_command->y - (int)plume->height;
+    out->glow_top = -plume_command->y + (int)plume->dis_y;
     out->attach_x = 0.0f;
     out->attach_y = 0.0f;
     out->valid = true;
