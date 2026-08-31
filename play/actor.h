@@ -28,15 +28,23 @@ typedef struct actortype_s {
     uint32_t traits;
     float speed;
     int max_hp;
-    float attack_range;
-    int attack_damage;
-    int attack_cooldown_ms;
-    int attack_anim_ms;
-    int death_anim_ms;
-    int harvest_state_id;
-    int harvest_capacity;
-    const char *muzzle_flash_name;
+    struct {
+        float range;
+        int damage;
+        int cooldown_ms;
+        int anim_ms;
+    } attack;
+    struct {
+        int anim_ms;
+    } death;
+    struct {
+        int state_id;
+        int capacity;
+    } harvest;
+    int muzzle_flash_sprite;
     int muzzle_flash_ms;
+    const char *muzzle_flash_name;
+    int hit_effect_sprite;
     const char *hit_effect_name;
 } actortype_t;
 
@@ -136,32 +144,24 @@ typedef struct gameinfo_s {
  * state_t; effect_t adds only lifetime policy around the same lightweight
  * object core.
  */
-#define MOBJ_CORE_FIELDS \
-    float gx; \
-    float gy; \
-    int facing_code; \
-    int state_id; \
-    int tics; \
-    int sprite_id; \
-    int frame; \
-    uint32_t render_flags; \
-    int render_remap; \
-    int render_intensity; \
-    int render_offset_x; \
-    int render_offset_y; \
-    char sprite_name[32]
-
 typedef struct mobjcore_s {
-    MOBJ_CORE_FIELDS;
+    float gx;
+    float gy;
+    int facing_code;
+    int state_id;
+    int tics;
+    int sprite_id;
+    int frame;
+    uint32_t render_flags;
+    int render_remap;
+    int render_intensity;
+    int render_offset_x;
+    int render_offset_y;
+    char sprite_name[32];
 } mobjcore_t;
 
 struct mobj_s {
-    union {
-        mobjcore_t core;
-        struct {
-            MOBJ_CORE_FIELDS;
-        };
-    };
+    mobjcore_t core;
     float speed;
     uint32_t id;
     uint16_t type_id;
@@ -170,57 +170,62 @@ struct mobj_s {
     uint32_t traits;
     int hp;
     int max_hp;
-    float attack_range;
-    int attack_damage;
-    int attack_cooldown_ms;
-    int attack_anim_ms;
-    int attack_cooldown_left_ms;
-    int attack_anim_left_ms;
-    int death_anim_ms;
-    int death_anim_left_ms;
+    struct {
+        float range;
+        int damage;
+        int cooldown_ms;
+        int anim_ms;
+        int cooldown_left_ms;
+        int anim_left_ms;
+        int target;
+    } attack;
+    struct {
+        int anim_ms;
+        int anim_left_ms;
+    } death;
+    struct {
+        int target;
+        int timer_ms;
+        int state_id;
+        int cargo;
+        int capacity;
+        int phase;
+        fvec2_t return_position;
+    } harvest;
     int muzzle_flash_ms;
-    int attack_target;
-    int harvest_target;
-    int harvest_timer_ms;
-    int harvest_state_id;
-    int harvest_cargo;
-    int harvest_capacity;
-    int harvest_phase;
-    float harvest_return_gx;
-    float harvest_return_gy;
     bool selected;
     bool death_started;
     bool remove;
-    bool move_order_arrived;
-    uint16_t production_actor_id;
-    uint8_t production_product_class;
-    int production_product_type;
-    int production_queue_count;
-    int production_time_ms;
-    int production_time_left_ms;
-    bool production_blocked;
-    bool production_release_active;
-    int production_release_time_left_ms;
+    struct {
+        uint16_t actor_id;
+        uint8_t product_class;
+        int product_type;
+        int queue_count;
+        int time_ms;
+        int time_left_ms;
+        bool blocked;
+        bool release_active;
+        int release_time_left_ms;
+    } production;
     float radius;
-    float move_goal_gx;
-    float move_goal_gy;
-    uint32_t move_order_id;
-    char shadow_name[32];
+    struct {
+        fvec2_t goal;
+        uint32_t order_id;
+        bool order_arrived;
+        cell_t path[MAX_PATH_CELLS];
+        int path_len;
+        int path_index;
+        int turn_timer_ms;
+    } movement;
+    int muzzle_flash_sprite;
+    int hit_effect_sprite;
     char muzzle_flash_name[32];
     char hit_effect_name[32];
-    cell_t path[MAX_PATH_CELLS];
-    int path_len;
-    int path_index;
-    int turn_timer_ms;
+    char shadow_name[32];
 };
 
 typedef struct effect_s {
-    union {
-        mobjcore_t core;
-        struct {
-            MOBJ_CORE_FIELDS;
-        };
-    };
+    mobjcore_t core;
     bool active;
     bool use_state;
     int age_ms;
@@ -230,8 +235,6 @@ typedef struct effect_s {
     bool add_decoration_on_finish;
     char sequence_name[16];
 } effect_t;
-
-#undef MOBJ_CORE_FIELDS
 
 struct statecontext_s {
     level_t *map;

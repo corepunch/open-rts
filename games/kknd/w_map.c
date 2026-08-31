@@ -120,7 +120,8 @@ bool load_kknd_map(const char *map_path, level_t *out) {
     }
     /* KKnD's second MAPD layer contains bridges, cliff faces, and other art
        that units can pass behind, so compose it in the world-object pass. */
-    out->render_features = MAP_RENDER_SKIP_ZERO_TILES | MAP_RENDER_INTERLEAVED_OVERLAYS;
+    out->render_capabilities = MAP_RENDER_CAP_ZERO_TILE_EMPTY |
+                               MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS;
     /* MOBD facing 0 = north, indices increase clockwise — same convention as
        Dark Reign.  Without this the default compass16 scheme returns even
        codes 0/2/4…14 and misses the odd-numbered MOBD facings 1/3/5…15. */

@@ -39,13 +39,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
          * Trooper rate, not the old placeholder 5.0. */
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
-        .attack_range = 4.0f,
-        .attack_damage = 100,
-        .attack_cooldown_ms = 500,
-        .attack_anim_ms = 210,
-        .muzzle_flash_name = "SPRITES/MUZA.SPR",
+        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
+        .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 120,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .hit_effect_sprite = SPR_DC_BLOO,
     },
     {
         .id = MT_DC_GREY,
@@ -55,13 +52,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
-        .attack_range = 4.0f,
-        .attack_damage = 100,
-        .attack_cooldown_ms = 500,
-        .attack_anim_ms = 210,
-        .muzzle_flash_name = "SPRITES/MUZA.SPR",
+        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
+        .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 120,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .hit_effect_sprite = SPR_DC_BLOO,
     },
     {
         .id = MT_DC_EXPLOITER,
@@ -72,8 +66,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         /* The gameplay tuning uses the documented heavy-harvester rate. */
         .speed = 3.5f,
         .max_hp = 800,
-        .harvest_capacity = 0,
-        .harvest_state_id = S_DC_EXPL_DEPLOY1,
+        .harvest = { .capacity = 0, .state_id = S_DC_EXPL_DEPLOY1 },
     },
     {
         .id = MT_DC_REAPER,
@@ -83,13 +76,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 30.0f / 32.0f,
         .max_hp = 800,
-        .attack_range = 4.0f,
-        .attack_damage = 100,
-        .attack_cooldown_ms = 500,
-        .attack_anim_ms = 210,
-        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
+        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
+        .muzzle_flash_sprite = SPR_DC_BLAZ,
         .muzzle_flash_ms = 120,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .hit_effect_sprite = SPR_DC_BLOO,
     },
     {
         .id = MT_DC_THUNDERBOLT,
@@ -99,13 +89,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 15.0f / 32.0f,
         .max_hp = 1200,
-        .attack_range = 6.0f,
-        .attack_damage = 180,
-        .attack_cooldown_ms = 1200,
-        .attack_anim_ms = 400,
-        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
+        .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200, .anim_ms = 400 },
+        .muzzle_flash_sprite = SPR_DC_BLAZ,
         .muzzle_flash_ms = 150,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .hit_effect_sprite = SPR_DC_BLOO,
     },
     {
         .id = MT_DC_CYBORG,
@@ -115,13 +102,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 45.0f / 32.0f,
         .max_hp = 1200,
-        .attack_range = 3.0f,
-        .attack_damage = 150,
-        .attack_cooldown_ms = 700,
-        .attack_anim_ms = 250,
-        .muzzle_flash_name = "SPRITES/MUZA.SPR",
+        .attack = { .range = 3.0f, .damage = 150, .cooldown_ms = 700, .anim_ms = 250 },
+        .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 120,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .hit_effect_sprite = SPR_DC_BLOO,
     },
     {
         .id = MT_DC_SCOUT,
@@ -131,13 +115,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 47.0f / 32.0f,
         .max_hp = 600,
-        .attack_range = 5.0f,
-        .attack_damage = 80,
-        .attack_cooldown_ms = 600,
-        .attack_anim_ms = 200,
-        .muzzle_flash_name = "SPRITES/MUZA.SPR",
+        .attack = { .range = 5.0f, .damage = 80, .cooldown_ms = 600, .anim_ms = 200 },
+        .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 100,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .hit_effect_sprite = SPR_DC_BLOO,
     },
     {
         .id = MT_DC_EXCOPOD,
@@ -264,22 +245,22 @@ void dark_colony_apply_actor_type_defaults(mobj_t *unit, const actortype_t *type
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
-    unit->harvest_capacity = type->harvest_capacity;
+    unit->harvest.capacity = type->harvest.capacity;
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
-    if (unit->attack_range <= 0.0f) unit->attack_range = type->attack_range;
-    if (unit->attack_damage <= 0) unit->attack_damage = type->attack_damage;
-    if (unit->attack_cooldown_ms <= 0) unit->attack_cooldown_ms = type->attack_cooldown_ms;
-    if (unit->attack_anim_ms <= 0) unit->attack_anim_ms = type->attack_anim_ms;
-    if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
-    if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
+    if (unit->attack.range <= 0.0f) unit->attack.range = type->attack.range;
+    if (unit->attack.damage <= 0) unit->attack.damage = type->attack.damage;
+    if (unit->attack.cooldown_ms <= 0) unit->attack.cooldown_ms = type->attack.cooldown_ms;
+    if (unit->attack.anim_ms <= 0) unit->attack.anim_ms = type->attack.anim_ms;
+    if (unit->death.anim_ms <= 0) unit->death.anim_ms = type->death.anim_ms;
+    if (unit->harvest.state_id <= 0) unit->harvest.state_id = type->harvest.state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
-    if (unit->render_intensity == 0) unit->render_intensity = 16;
-    if (unit->attack_target <= 0) unit->attack_target = -1;
-    if (unit->harvest_target == 0) unit->harvest_target = -1;
-    if (unit->sprite_name[0] == '\0' && type->sprite_name)
-        snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
+    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
+    if (unit->attack.target <= 0) unit->attack.target = -1;
+    if (unit->harvest.target == 0) unit->harvest.target = -1;
+    if (unit->core.sprite_name[0] == '\0' && type->sprite_name)
+        snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
     if (unit->shadow_name[0] == '\0' && type->shadow_name)
         snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
     if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)

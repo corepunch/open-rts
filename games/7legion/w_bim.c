@@ -441,7 +441,8 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
 
     bool ok = true;
     for (int i = 0; i < unit_count; ++i) {
-        if (!sl_cache_bim_sprite(cache, renderer, data_root, units[i].sprite_name, palette))
+        if (!sl_cache_bim_sprite(cache, renderer, data_root,
+                     units[i].core.sprite_name, palette))
             ok = false;
     }
     return ok;

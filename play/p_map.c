@@ -81,10 +81,10 @@ static bool position_overlaps_reserved_goal(const mobj_t *units, int unit_count,
     for (int i = 0; i < unit_count; ++i) {
         if (i == self_index) continue;
         const mobj_t *other = &units[i];
-        if (other->remove || other->hp <= 0 || other->move_order_id != order_id) continue;
+        if (other->remove || other->hp <= 0 || other->movement.order_id != order_id) continue;
         float min_dist = radius + P_MobjRadius(other);
-        float dx = other->move_goal_gx - gx;
-        float dy = other->move_goal_gy - gy;
+        float dx = other->movement.goal.x - gx;
+        float dy = other->movement.goal.y - gy;
         if (dx * dx + dy * dy < min_dist * min_dist) return true;
     }
     return false;
@@ -99,10 +99,10 @@ void P_ClampToLevel(const level_t *map, mobj_t *unit) {
     float max_y = (float)map->height - r;
     if (max_x < min_x) max_x = min_x = (float)map->width * 0.5f;
     if (max_y < min_y) max_y = min_y = (float)map->height * 0.5f;
-    if (unit->gx < min_x) unit->gx = min_x;
-    if (unit->gy < min_y) unit->gy = min_y;
-    if (unit->gx > max_x) unit->gx = max_x;
-    if (unit->gy > max_y) unit->gy = max_y;
+    if (unit->core.gx < min_x) unit->core.gx = min_x;
+    if (unit->core.gy < min_y) unit->core.gy = min_y;
+    if (unit->core.gx > max_x) unit->core.gx = max_x;
+    if (unit->core.gy > max_y) unit->core.gy = max_y;
 }
 
 static int heuristic(cell_t a, cell_t b) {
@@ -470,13 +470,13 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         if (!units[i].selected) continue;
         if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & MF_MOBILE) == 0) continue;
-        units[i].move_order_id = order_id;
-        units[i].move_order_arrived = false;
-        units[i].harvest_target = -1;
-        units[i].harvest_timer_ms = 0;
-        units[i].harvest_phase = 0;
-        cell_t start = { (int)floorf(units[i].gx), (int)floorf(units[i].gy) };
-        int len = flow_path_find(map, field, start, units[i].path, MAX_PATH_CELLS,
+        units[i].movement.order_id = order_id;
+        units[i].movement.order_arrived = false;
+        units[i].harvest.target = -1;
+        units[i].harvest.timer_ms = 0;
+        units[i].harvest.phase = 0;
+        cell_t start = { (int)floorf(units[i].core.gx), (int)floorf(units[i].core.gy) };
+        int len = flow_path_find(map, field, start, units[i].movement.path, MAX_PATH_CELLS,
                                  P_MobjRadius(&units[i]));
         int row = selected_index / formation_columns;
         int row_start = row * formation_columns;
@@ -486,11 +486,11 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         float spacing = P_MobjRadius(&units[i]) * 2.1f;
         float offset_x = ((float)col - ((float)row_count - 1.0f) * 0.5f) * spacing;
         float offset_y = ((float)row - ((float)formation_rows - 1.0f) * 0.5f) * spacing;
-        units[i].move_goal_gx = goal_gx + offset_x;
-        units[i].move_goal_gy = goal_gy + offset_y;
-        if (!P_CheckPosition(map, &units[i], units[i].move_goal_gx, units[i].move_goal_gy) ||
+        units[i].movement.goal.x = goal_gx + offset_x;
+        units[i].movement.goal.y = goal_gy + offset_y;
+        if (!P_CheckPosition(map, &units[i], units[i].movement.goal.x, units[i].movement.goal.y) ||
             position_overlaps_reserved_goal(units, unit_count, i,
-                                            units[i].move_goal_gx, units[i].move_goal_gy,
+                                            units[i].movement.goal.x, units[i].movement.goal.y,
                                             P_MobjRadius(&units[i]), order_id)) {
             float adjusted_gx = (float)goal.x + 0.5f;
             float adjusted_gy = (float)goal.y + 0.5f;
@@ -502,18 +502,18 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
                                                P_MobjRadius(&units[i]), 8,
                                                &adjusted_gx, &adjusted_gy);
             }
-            units[i].move_goal_gx = adjusted_gx;
-            units[i].move_goal_gy = adjusted_gy;
+            units[i].movement.goal.x = adjusted_gx;
+            units[i].movement.goal.y = adjusted_gy;
         }
-        if (len == 1 && hypotf(units[i].move_goal_gx - units[i].gx,
-                               units[i].move_goal_gy - units[i].gy) > 0.05f &&
+        if (len == 1 && hypotf(units[i].movement.goal.x - units[i].core.gx,
+                       units[i].movement.goal.y - units[i].core.gy) > 0.05f &&
             MAX_PATH_CELLS > 1) {
-            units[i].path[1] = units[i].path[0];
+            units[i].movement.path[1] = units[i].movement.path[0];
             len = 2;
         }
-        units[i].path_len = len;
-        units[i].path_index = len > 1 ? 1 : 0;
-        units[i].move_order_arrived = units[i].path_index == 0;
+        units[i].movement.path_len = len;
+        units[i].movement.path_index = len > 1 ? 1 : 0;
+        units[i].movement.order_arrived = units[i].movement.path_index == 0;
         selected_index++;
     }
     free(field);
@@ -530,16 +530,16 @@ bool P_MoveUnitTo(const level_t *map, mobj_t *unit, float goal_gx, float goal_gy
     }
     FlowCell *field = build_flow_field(map, goal);
     if (!field) return false;
-    cell_t start = { (int)floorf(unit->gx), (int)floorf(unit->gy) };
-    int len = flow_path_find(map, field, start, unit->path, MAX_PATH_CELLS,
+    cell_t start = { (int)floorf(unit->core.gx), (int)floorf(unit->core.gy) };
+    int len = flow_path_find(map, field, start, unit->movement.path, MAX_PATH_CELLS,
                              P_MobjRadius(unit));
     free(field);
     if (len <= 0) return false;
-    unit->move_goal_gx = goal_gx;
-    unit->move_goal_gy = goal_gy;
-    unit->path_len = len;
-    unit->path_index = len > 1 ? 1 : 0;
-    unit->move_order_arrived = unit->path_index == 0;
+    unit->movement.goal.x = goal_gx;
+    unit->movement.goal.y = goal_gy;
+    unit->movement.path_len = len;
+    unit->movement.path_index = len > 1 ? 1 : 0;
+    unit->movement.order_arrived = unit->movement.path_index == 0;
     return true;
 }
 
@@ -612,53 +612,53 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
         FlowCell *field = build_flow_field(map, goal);
         if (!field) continue;
 
-        cell_t start = { (int)floorf(unit->gx), (int)floorf(unit->gy) };
-        int len = flow_path_find(map, field, start, unit->path, MAX_PATH_CELLS,
+        cell_t start = { (int)floorf(unit->core.gx), (int)floorf(unit->core.gy) };
+        int len = flow_path_find(map, field, start, unit->movement.path, MAX_PATH_CELLS,
                                  P_MobjRadius(unit));
         free(field);
-        unit->move_goal_gx = goal_gx;
-        unit->move_goal_gy = goal_gy;
-        if (!P_CheckPosition(map, unit, unit->move_goal_gx, unit->move_goal_gy)) {
+        unit->movement.goal.x = goal_gx;
+        unit->movement.goal.y = goal_gy;
+        if (!P_CheckPosition(map, unit, unit->movement.goal.x, unit->movement.goal.y)) {
             float adjusted_gx = (float)goal.x + 0.5f;
             float adjusted_gy = (float)goal.y + 0.5f;
             find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
                                            P_MobjRadius(unit), 8,
                                            &adjusted_gx, &adjusted_gy);
-            unit->move_goal_gx = adjusted_gx;
-            unit->move_goal_gy = adjusted_gy;
+            unit->movement.goal.x = adjusted_gx;
+            unit->movement.goal.y = adjusted_gy;
         }
         /* A vent attachment can be reachable as a point while the flow
            field has no predecessor for the start cell. Preserve the order
            and let the normal final-goal movement perform the short approach. */
-        if (len <= 0 && P_CheckPosition(map, unit, unit->move_goal_gx,
-                                        unit->move_goal_gy)) {
-            unit->path[0] = start;
-            unit->path[1] = goal;
+        if (len <= 0 && P_CheckPosition(map, unit, unit->movement.goal.x,
+                                        unit->movement.goal.y)) {
+            unit->movement.path[0] = start;
+            unit->movement.path[1] = goal;
             len = 2;
         }
-        if (len == 1 && hypotf(unit->move_goal_gx - unit->gx,
-                               unit->move_goal_gy - unit->gy) > 0.05f &&
+        if (len == 1 && hypotf(unit->movement.goal.x - unit->core.gx,
+                       unit->movement.goal.y - unit->core.gy) > 0.05f &&
             MAX_PATH_CELLS > 1) {
-            unit->path[1] = unit->path[0];
+            unit->movement.path[1] = unit->movement.path[0];
             len = 2;
         }
-        unit->path_len = len;
-        unit->path_index = len > 1 ? 1 : 0;
-        unit->attack_target = -1;
-        unit->harvest_target = vent_index;
-        unit->harvest_timer_ms = 0;
-        unit->harvest_cargo = 0;
-        unit->harvest_phase = 1;
-        unit->move_order_id = order_id;
-        unit->move_order_arrived = unit->path_index == 0;
+        unit->movement.path_len = len;
+        unit->movement.path_index = len > 1 ? 1 : 0;
+        unit->attack.target = -1;
+        unit->harvest.target = vent_index;
+        unit->harvest.timer_ms = 0;
+        unit->harvest.cargo = 0;
+        unit->harvest.phase = 1;
+        unit->movement.order_id = order_id;
+        unit->movement.order_arrived = unit->movement.path_index == 0;
         /* The original DC order hands the harvester to the vent attachment
            point immediately; the deploy animation is the visible approach
            handoff, so do not let a blocked flow predecessor strand it. */
-        unit->gx = vent->attach_gx;
-        unit->gy = vent->attach_gy;
-        unit->path_len = 0;
-        unit->path_index = 0;
-        unit->move_order_arrived = true;
+        unit->core.gx = vent->attach_gx;
+        unit->core.gy = vent->attach_gy;
+        unit->movement.path_len = 0;
+        unit->movement.path_index = 0;
+        unit->movement.order_arrived = true;
         issued = true;
     }
     return issued;

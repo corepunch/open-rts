@@ -22,10 +22,16 @@ typedef struct cell_s {
 } cell_t;
 
 enum {
-    MAP_RENDER_USE_CELL_COLORS = 1 << 0,
-    MAP_RENDER_SMOOTH_TRANSITIONS = 1 << 1,
-    MAP_RENDER_SKIP_ZERO_TILES = 1 << 2,
-    MAP_RENDER_INTERLEAVED_OVERLAYS = 1 << 3,
+    MAP_RENDER_CAP_CELL_COLORS = 1 << 0,
+    MAP_RENDER_CAP_TERRAIN_TRANSITIONS = 1 << 1,
+    MAP_RENDER_CAP_ZERO_TILE_EMPTY = 1 << 2,
+    MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS = 1 << 3,
+    MAP_RENDER_CAP_TILE_TRANSFORMS = 1 << 4,
+};
+
+enum {
+    MAP_TILE_TRANSFORM_FLIP_X = 1 << 0,
+    MAP_TILE_TRANSFORM_FLIP_Y = 1 << 1,
 };
 
 typedef enum {
@@ -92,11 +98,11 @@ typedef struct level_s {
     int height;
     uint16_t *tile_ids;
     uint16_t *tile_overlays[MAX_TILE_OVERLAYS];
-    uint8_t *tile_flip_flags[MAX_TILE_OVERLAYS + 1];
+    uint8_t *tile_transforms[MAX_TILE_OVERLAYS + 1];
     int tile_overlay_count;
     uint8_t *blocked;
     uint32_t *cell_colors;
-    uint32_t render_features;
+    uint32_t render_capabilities;
     bool bottom_up_coordinates;
     DirectionMode direction_mode;
     mapdecoration_t *decorations;

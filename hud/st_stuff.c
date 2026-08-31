@@ -97,8 +97,8 @@ static void ST_drawMinimap(const st_state_t *st, app_t *app, const level_t *map,
     }
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
-        int x = rect.x + (int)(units[i].gx * (float)rect.w / (float)map->width);
-        int y = rect.y + (int)(L_ScreenYF(map, units[i].gy) * (float)rect.h /
+        int x = rect.x + (int)(units[i].core.gx * (float)rect.w / (float)map->width);
+        int y = rect.y + (int)(L_ScreenYF(map, units[i].core.gy) * (float)rect.h /
                               (float)map->height);
         SDL_SetRenderDrawColor(app->renderer, units[i].owner == 0 ? 48 : 210,
                               units[i].owner == 0 ? 220 : 45, 65, 255);

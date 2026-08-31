@@ -387,7 +387,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
                                           unit->shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
-                                          unit->sprite_name, sprite_palette, terrain_palette)) ok = false;
+                                          unit->core.sprite_name, sprite_palette, terrain_palette)) ok = false;
     }
     return ok;
 }

@@ -125,7 +125,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
                 for (int i = 0; i < W * H; ++i)
                     out->tile_overlays[0][i] = (uint16_t)(read_u16_le(p + (size_t)i * 2) >> 8);
                 out->tile_overlay_count = 1;
-                out->render_features |= MAP_RENDER_INTERLEAVED_OVERLAYS;
+                out->render_capabilities |= MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS;
             }
         }
         W_FreeFile(&overlay);
@@ -171,20 +171,20 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
     for (int i = 0; i < troop_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
-        unit->gx = (float)(mission.start_y - 6 + i * 2) + 0.5f;
-        unit->gy = (float)(mission.start_x - 1) + 0.5f;
+        unit->core.gx = (float)(mission.start_y - 6 + i * 2) + 0.5f;
+        unit->core.gy = (float)(mission.start_x - 1) + 0.5f;
         unit->owner = 0;
         unit->type_id = 1;
-        unit->facing_code = 8;
+        unit->core.facing_code = 8;
     }
     for (int i = 0; i < base_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
-        unit->gx = (float)(mission.start_y + 4 + i * 2) + 0.5f;
-        unit->gy = (float)(mission.start_x + 1) + 0.5f;
+        unit->core.gx = (float)(mission.start_y + 4 + i * 2) + 0.5f;
+        unit->core.gy = (float)(mission.start_x + 1) + 0.5f;
         unit->owner = 0;
         unit->type_id = 7;
-        unit->facing_code = 8;
+        unit->core.facing_code = 8;
     }
     return count;
 }

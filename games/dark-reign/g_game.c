@@ -46,10 +46,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 5.5f,
         .max_hp = 200,
-        .attack_range = 9.0f,
-        .attack_damage = 20,
-        .attack_cooldown_ms = 700,
-        .attack_anim_ms = 400,
+        .attack = { .range = 9.0f, .damage = 20, .cooldown_ms = 700, .anim_ms = 400 },
     },
     {
         .id = DR_ACTOR_FG_GROUND_TRANSPORTER,
@@ -59,7 +56,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_HARVESTER,
         .speed = 4.5f,
         .max_hp = 750,
-        .harvest_capacity = 100,
+        .harvest = { .capacity = 100 },
     },
     {
         .id = DR_ACTOR_FG_HEADQUARTERS_1,

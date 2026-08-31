@@ -15,7 +15,7 @@ void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
         unit->type_id < ctx->game_info->mobj_type_count) {
         muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
     }
-    P_SpawnEffect(ctx, muzzle_state, unit->gx, unit->gy, unit->facing_code);
+    P_SpawnEffect(ctx, muzzle_state, unit->core.gx, unit->core.gy, unit->core.facing_code);
 }
 
 void A_DC_Attack(statecontext_t *ctx, mobj_t *unit) {
@@ -33,15 +33,15 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->selected = false;
     unit->traits &= ~(MF_SELECTABLE | MF_MOBILE |
                       MF_ATTACK | MF_HARVESTER);
-    unit->path_len = 0;
-    unit->path_index = 0;
-    unit->attack_target = -1;
-    unit->harvest_target = -1;
-    unit->harvest_timer_ms = 0;
-    unit->harvest_phase = 0;
-    unit->harvest_cargo = 0;
-    unit->attack_cooldown_left_ms = 0;
-    unit->attack_anim_left_ms = 0;
+    unit->movement.path_len = 0;
+    unit->movement.path_index = 0;
+    unit->attack.target = -1;
+    unit->harvest.target = -1;
+    unit->harvest.timer_ms = 0;
+    unit->harvest.phase = 0;
+    unit->harvest.cargo = 0;
+    unit->attack.cooldown_left_ms = 0;
+    unit->attack.anim_left_ms = 0;
     unit->death_started = true;
 }
 
@@ -62,9 +62,10 @@ static int reaper_death_effect_state_for_facing(int facing_code) {
 
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
     if (ctx && unit) {
-        int fx_state = reaper_death_effect_state_for_facing(unit->facing_code);
+        int fx_state = reaper_death_effect_state_for_facing(unit->core.facing_code);
         if (fx_state != S_NULL) {
-            P_SpawnEffect(ctx, fx_state, unit->gx, unit->gy, unit->facing_code);
+            P_SpawnEffect(ctx, fx_state, unit->core.gx, unit->core.gy,
+                          unit->core.facing_code);
         }
     }
     A_DC_Fall(ctx, unit);

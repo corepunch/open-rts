@@ -198,9 +198,19 @@ index as the actor's general facing.
 `level_t` is the shared map container. Its `width`/`height` define a row-major
 cell grid addressed through `L_Index(map, x, y)`; callers should use
 `L_Contains` before indexing. `tile_ids`, optional tile-overlay arrays,
-flip-flag arrays, `blocked`, and `cell_colors` are parallel allocations indexed
-by that same grid. `blocked` is simulation/pathfinding data; tile IDs and
-overlays are presentation data, even though both originate in the game loader.
+transform arrays, `blocked`, and `cell_colors` are parallel allocations indexed
+by that same grid. Tile transforms use the engine-defined
+`MAP_TILE_TRANSFORM_FLIP_X` and `MAP_TILE_TRANSFORM_FLIP_Y` bits. `blocked` is
+simulation/pathfinding data; tile IDs and overlays are presentation data, even
+though both originate in the game loader.
+
+Map rendering capabilities are selected per loaded map through
+`level_t.render_capabilities`, never through per-game compile flags. A loader
+enables only the behavior represented by its native data, such as cell-color
+fallbacks, terrain transitions, per-cell tile transforms, zero-valued empty
+tiles, or tile layers that must be depth-sorted with world objects. The engine
+owns traversal, culling, transforms, animation, and composition; game code owns
+native parsing and normalization into these shared arrays.
 
 The map also owns decorations, resource vents, map extras, player resources, and
 game-native loader data. `P_FreeLevel` releases these allocations and invokes

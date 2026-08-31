@@ -187,7 +187,7 @@ void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part
 }
 
 static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int tile,
-                                   irect_t src_part, irect_t dst_part, uint8_t flip_flags) {
+                                   irect_t src_part, irect_t dst_part, uint8_t transforms) {
     tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
     if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
     irect_t src = {
@@ -196,7 +196,11 @@ static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int til
         src_part.w,
         src_part.h,
     };
-    SDL_RendererFlip flip = (flip_flags & 1) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RendererFlip flip = SDL_FLIP_NONE;
+    if (transforms & MAP_TILE_TRANSFORM_FLIP_X)
+        flip = (SDL_RendererFlip)(flip | SDL_FLIP_HORIZONTAL);
+    if (transforms & MAP_TILE_TRANSFORM_FLIP_Y)
+        flip = (SDL_RendererFlip)(flip | SDL_FLIP_VERTICAL);
     if (flip == SDL_FLIP_NONE) {
         SDL_RenderCopy(app->renderer, tileset->texture, &src, &dst_part);
     } else {
@@ -214,7 +218,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
             R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
-            if ((map->render_features & MAP_RENDER_USE_CELL_COLORS) && map->cell_colors) {
+            if ((map->render_capabilities & MAP_RENDER_CAP_CELL_COLORS) && map->cell_colors) {
                 if (sx < -cell_w || sy < -cell_h ||
                     sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
                     continue;
@@ -235,7 +239,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
             }
             int idx = L_Index(map, x, y);
             int tile = map->tile_ids[idx];
-            if ((map->render_features & MAP_RENDER_SKIP_ZERO_TILES) && tile == 0) continue;
+            if ((map->render_capabilities & MAP_RENDER_CAP_ZERO_TILE_EMPTY) && tile == 0) continue;
             irect_t src = { 0, 0, tileset->tile_w, tileset->tile_h };
             irect_t dst = {
                 (int)sx,
@@ -243,23 +247,15 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 tile_w,
                 tile_h,
             };
-            uint8_t base_flip = map->tile_flip_flags[0] ? map->tile_flip_flags[0][idx] : 0;
+            uint8_t base_flip =
+                (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
+                map->tile_transforms[0] ? map->tile_transforms[0][idx] : 0;
             render_tile_at_flipped(app, tileset, tile, src, dst, base_flip);
-            if ((map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) == 0) {
-                for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
-                    if (!map->tile_overlays[layer]) continue;
-                    int overlay = map->tile_overlays[layer][idx];
-                    if (overlay <= 0) continue;
-                    uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
-                        map->tile_flip_flags[layer + 1][idx] : 0;
-                    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
-                }
-            }
         }
     }
 
     for (int layer = 0;
-         !(map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) &&
+         !(map->render_capabilities & MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS) &&
          layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS;
          ++layer) {
         if (!map->tile_overlays[layer]) continue;
@@ -281,15 +277,17 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                     tile_w,
                     tile_h,
                 };
-                uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
-                    map->tile_flip_flags[layer + 1][idx] : 0;
+                uint8_t overlay_flip =
+                    (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
+                    map->tile_transforms[layer + 1] ?
+                    map->tile_transforms[layer + 1][idx] : 0;
                 render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
             }
         }
     }
 
-    if ((map->render_features & MAP_RENDER_SMOOTH_TRANSITIONS) &&
-        !(map->render_features & MAP_RENDER_USE_CELL_COLORS) &&
+    if ((map->render_capabilities & MAP_RENDER_CAP_TERRAIN_TRANSITIONS) &&
+        !(map->render_capabilities & MAP_RENDER_CAP_CELL_COLORS) &&
         map->render_transitions) {
         SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_BLEND);
         SDL_SetTextureAlphaMod(tileset->texture, 255);
@@ -583,8 +581,8 @@ static bool circle_intersects_rect(fvec2_t center, float radius, irect_t r) {
 }
 
 static int sprite_frame_for_unit(const spritesheet_t *sprite, const mobj_t *unit, uint32_t ticks) {
-    bool moving = unit->path_index > 0 && unit->path_index < unit->path_len;
-    bool attacking = unit->attack_anim_left_ms > 0;
+    bool moving = unit->movement.path_index > 0 && unit->movement.path_index < unit->movement.path_len;
+    bool attacking = unit->attack.anim_left_ms > 0;
     bool dead = unit->hp <= 0;
     const spritesequence_t *seq = NULL;
     bool using_death_sequence = false;
@@ -604,19 +602,19 @@ static int sprite_frame_for_unit(const spritesheet_t *sprite, const mobj_t *unit
     if (!seq) seq = sprite_sequence_find(sprite, "idle");
     if (!seq && dead) seq = sprite_sequence_find(sprite, "stand");
     if (seq && seq->facings > 0 && seq->length > 0) {
-        int direction_code = unit->facing_code;
+        int direction_code = unit->core.facing_code;
         int facing = sequence_facing_index(seq, direction_code);
         int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
         int anim = 0;
         if (dead && using_death_sequence && unit->death_started && seq->length > 1) {
-            int elapsed_ms = unit->death_anim_ms - unit->death_anim_left_ms;
+            int elapsed_ms = unit->death.anim_ms - unit->death.anim_left_ms;
             if (elapsed_ms < 0) elapsed_ms = 0;
             anim = elapsed_ms / tick_ms;
             if (anim >= seq->length) anim = seq->length - 1;
         } else if (dead && seq->length > 1) {
             anim = seq->length - 1;
         } else if (attacking && seq->length > 1) {
-            int elapsed_ms = unit->attack_anim_ms - unit->attack_anim_left_ms;
+            int elapsed_ms = unit->attack.anim_ms - unit->attack.anim_left_ms;
             if (elapsed_ms < 0) elapsed_ms = 0;
             anim = elapsed_ms / tick_ms;
             if (anim >= seq->length) anim = seq->length - 1;
@@ -683,10 +681,10 @@ static const spritesheet_t *unit_sprite_sheet_for_view(const mobj_t *unit,
                                                      const spritecache_t *cache,
                                                      const gameinfo_t *game_info) {
     if (!unit) return NULL;
-    const char *sprite_name = unit->sprite_name;
-    if (game_info && unit->sprite_id >= 0 && unit->sprite_id < game_info->sprite_count &&
-        game_info->sprnames && game_info->sprnames[unit->sprite_id]) {
-        sprite_name = game_info->sprnames[unit->sprite_id];
+    const char *sprite_name = unit->core.sprite_name;
+    if (game_info && unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
+        game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
+        sprite_name = game_info->sprnames[unit->core.sprite_id];
     }
     const spritesheet_t *sprite = R_CacheLookup(cache, sprite_name);
     return sprite ? sprite : fallback_sprite;
@@ -698,7 +696,7 @@ static int unit_frame_for_view(const spritesheet_t *sprite, const mobj_t *unit,
        has a gameinfo_t for shared simulation metadata, but its RSPR facings are
        selected by the renderer from the unit heading. */
     bool has_state_frames = game_info && game_info->states && game_info->state_count > 0;
-    int frame = has_state_frames ? unit->frame : sprite_frame_for_unit(sprite, unit, ticks);
+    int frame = has_state_frames ? unit->core.frame : sprite_frame_for_unit(sprite, unit, ticks);
     if (!sprite || sprite->frame_count <= 0) return 0;
     if (frame >= sprite->frame_count) frame = 0;
     if (frame < 0) frame = 0;
@@ -734,11 +732,11 @@ static void unit_state_body_offset_for_view(const gameinfo_t *game_info, const m
     int ox = 0;
     int oy = 0;
     if (game_info && unit && game_info->states &&
-        unit->state_id >= 0 && unit->state_id < game_info->state_count) {
-        const state_t *state = &game_info->states[unit->state_id];
+        unit->core.state_id >= 0 && unit->core.state_id < game_info->state_count) {
+        const state_t *state = &game_info->states[unit->core.state_id];
         if (state->facings > 0) {
             int slot = direction_slot_for_view(state->facings, state->direction_codes,
-                                               unit->facing_code);
+                                               unit->core.facing_code);
             if (slot < 0) slot = 0;
             if (slot < RTS_MAX_STATE_FACINGS) {
                 ox = state->offset_x[slot];
@@ -759,7 +757,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
                                       int *frame_out, const spritesheet_t **sprite_out) {
     if (!app || !unit) return false;
     float sx = 0.0f, sy = 0.0f;
-    R_MapToScreen(app, map, unit->gx, unit->gy, &sx, &sy);
+    R_MapToScreen(app, map, unit->core.gx, unit->core.gy, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
         float radius = unit_pick_radius_px(app, unit);
@@ -781,7 +779,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     int frame = unit_frame_for_view(sprite, unit, game_info, ticks);
     irect_t frame_rect = sprite_frame_rect(sprite, frame);
     irect_t bounds = sprite_visible_bounds(sprite, frame);
-    uint32_t render_flags = game_info ? unit->render_flags : 0;
+    uint32_t render_flags = game_info ? unit->core.render_flags : 0;
     if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
         bounds.x = frame_rect.w - bounds.x - bounds.w;
     }
@@ -811,8 +809,8 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
             sprite_h,
         };
     }
-    dst.x += unit->render_offset_x;
-    dst.y += unit->render_offset_y;
+    dst.x += unit->core.render_offset_x;
+    dst.y += unit->core.render_offset_y;
     irect_t visible = {
         dst.x + bounds.x,
         dst.y + bounds.y,
@@ -992,18 +990,18 @@ static void render_unit_state_overlay(app_t *app, const mobj_t *u, const sprites
     (void)body_sprite;
     (void)body_frame;
     if (!app || !u || !cache || !game_info || !body_dst ||
-        u->state_id < 0 || u->state_id >= game_info->state_count ||
+        u->core.state_id < 0 || u->core.state_id >= game_info->state_count ||
         !game_info->states || !game_info->sprnames) {
         return;
     }
-    const state_t *state = &game_info->states[u->state_id];
+    const state_t *state = &game_info->states[u->core.state_id];
     if (state->overlay_facings <= 0 || state->overlay_sprite < 0 ||
         state->overlay_sprite >= game_info->sprite_count) {
         return;
     }
     int slot = direction_slot_for_view(state->overlay_facings,
                                        state->overlay_direction_codes,
-                                       u->facing_code);
+                                       u->core.facing_code);
     if (slot < 0) slot = 0;
     if (slot >= RTS_MAX_STATE_FACINGS) return;
     int frame = state->overlay_facing_frames[slot];
@@ -1056,7 +1054,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     irect_t visible;
     unit_screen_rect_for_view(app, map, u, fallback_sprite, cache, game_info, ticks,
                               &dst, &visible, &sx, &sy, &frame, &sprite);
-    uint32_t render_flags = game_info ? u->render_flags : 0;
+    uint32_t render_flags = game_info ? u->core.render_flags : 0;
     const spritesheet_t *shadow = R_CacheLookup(cache, u->shadow_name);
     /* Some Dark Reign unit definitions repeat the body RSPR in
        SetShadowImage.  The original treats its shadow data specially; our
@@ -1070,8 +1068,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     }
     float content_y = (float)visible.y;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, u->render_remap,
-                                                u->render_intensity);
+    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, u->core.render_remap,
+                                                u->core.render_intensity);
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
@@ -1146,8 +1144,9 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
         tile_w,
         tile_h,
     };
-    uint8_t overlay_flip = map->tile_flip_flags[layer + 1] ?
-        map->tile_flip_flags[layer + 1][idx] : 0;
+    uint8_t overlay_flip =
+        (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
+        map->tile_transforms[layer + 1] ? map->tile_transforms[layer + 1][idx] : 0;
     render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
 }
 
@@ -1156,7 +1155,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
                           const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
     if (!app || !map) return;
     int overlay_count = 0;
-    if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
+    if (map->render_capabilities & MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS) {
         for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
             if (!map->tile_overlays[layer]) continue;
             for (int y = 0; y < map->height; ++y) {
@@ -1180,7 +1179,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     }
 
     int count = 0;
-    if (map->render_features & MAP_RENDER_INTERLEAVED_OVERLAYS) {
+    if (map->render_capabilities & MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS) {
         for (int layer = 0; layer < map->tile_overlay_count && layer < MAX_TILE_OVERLAYS; ++layer) {
             if (!map->tile_overlays[layer]) continue;
             for (int y = 0; y < map->height; ++y) {
@@ -1214,7 +1213,8 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         };
     }
     for (int i = 0; i < unit_count; ++i) {
-        float sort_y = units[i].render_sort_y > 0.0f ? units[i].render_sort_y : units[i].gy;
+        float sort_y = units[i].render_sort_y > 0.0f ?
+            units[i].render_sort_y : units[i].core.gy;
         sort_y = L_ScreenYF(map, sort_y);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
@@ -1245,10 +1245,11 @@ static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *
     int frame_ms = effect->frame_ms > 0 ? effect->frame_ms : 90;
     int anim = effect->age_ms / frame_ms;
     if (effect->sequence_name[0] != '\0') {
-        int frame = sprite_sequence_frame(sprite, effect->sequence_name, effect->facing_code, anim);
+        int frame = sprite_sequence_frame(sprite, effect->sequence_name,
+                          effect->core.facing_code, anim);
         if (frame >= 0) return frame;
         if (strcmp(effect->sequence_name, "die") == 0) {
-            frame = sprite_sequence_frame(sprite, "death", effect->facing_code, anim);
+            frame = sprite_sequence_frame(sprite, "death", effect->core.facing_code, anim);
             if (frame >= 0) return frame;
         }
     }
@@ -1264,23 +1265,23 @@ void R_DrawEffects(app_t *app, const level_t *map,
     for (int i = 0; i < max_effects; ++i) {
         const effect_t *effect = &effects[i];
         if (!effect->active) continue;
-        const char *sprite_name = effect->sprite_name;
-        if (effect->use_state && game_info && effect->sprite_id >= 0 &&
-            effect->sprite_id < game_info->sprite_count &&
-            game_info->sprnames && game_info->sprnames[effect->sprite_id]) {
-            sprite_name = game_info->sprnames[effect->sprite_id];
+        const char *sprite_name = effect->core.sprite_name;
+        if (effect->use_state && game_info && effect->core.sprite_id >= 0 &&
+            effect->core.sprite_id < game_info->sprite_count &&
+            game_info->sprnames && game_info->sprnames[effect->core.sprite_id]) {
+            sprite_name = game_info->sprnames[effect->core.sprite_id];
         }
         const spritesheet_t *sprite = R_CacheLookup(cache, sprite_name);
         if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
             debug_effects_log("render skip slot=%d sprite=%s sequence=%s reason=missing-cache",
-                              i, effect->sprite_name,
+                              i, effect->core.sprite_name,
                               effect->sequence_name[0] ? effect->sequence_name : "(none)");
             continue;
         }
 
         float sx, sy;
-        R_MapToScreen(app, map, effect->gx, effect->gy, &sx, &sy);
-        int frame = effect->use_state ? effect->frame : sprite_frame_for_effect(sprite, effect);
+        R_MapToScreen(app, map, effect->core.gx, effect->core.gy, &sx, &sy);
+        int frame = effect->use_state ? effect->core.frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
         irect_t frame_rect = sprite_frame_rect(sprite, frame);
         int sprite_w = frame_rect.w;
@@ -1288,10 +1289,10 @@ void R_DrawEffects(app_t *app, const level_t *map,
         irect_t dst;
         if (effect->use_state && game_info &&
             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-            SDL_Point dis = sprite_frame_displacement(sprite, frame, effect->render_flags);
+            SDL_Point dis = sprite_frame_displacement(sprite, frame, effect->core.render_flags);
             dst = (irect_t){
-                (int)lroundf(sx) + effect->render_offset_x + dis.x,
-                (int)lroundf(sy) + effect->render_offset_y + dis.y - sprite_h,
+                (int)lroundf(sx) + effect->core.render_offset_x + dis.x,
+                (int)lroundf(sy) + effect->core.render_offset_y + dis.y - sprite_h,
                 sprite_w,
                 sprite_h,
             };
@@ -1302,34 +1303,35 @@ void R_DrawEffects(app_t *app, const level_t *map,
                 sprite_w,
                 sprite_h,
             };
-            if (effect->render_offset_x != 0 || effect->render_offset_y != 0) {
-                dst.x += effect->render_offset_x;
-                dst.y += effect->render_offset_y;
+            if (effect->core.render_offset_x != 0 || effect->core.render_offset_y != 0) {
+                dst.x += effect->core.render_offset_x;
+                dst.y += effect->core.render_offset_y;
             }
         }
         if (dst.x > app->win.w || dst.y > app->win.h ||
             dst.x + dst.w < 0 || dst.y + dst.h < 0) {
             debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
-                              i, effect->sprite_name,
+                              i, effect->core.sprite_name,
                               effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                              sprite->frame_count, effect->gx, effect->gy,
+                              sprite->frame_count, effect->core.gx, effect->core.gy,
                               dst.x, dst.y, dst.w, dst.h);
             continue;
         }
         debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
-                          i, effect->sprite_name,
+                          i, effect->core.sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                          effect->age_ms, effect->duration_ms, effect->facing_code,
+                          effect->age_ms, effect->duration_ms, effect->core.facing_code,
                           effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
                           frame, sprite->frame_count,
-                          effect->render_offset_x, effect->render_offset_y,
+                          effect->core.render_offset_x, effect->core.render_offset_y,
                           dst.x, dst.y, dst.w, dst.h);
-        SDL_RendererFlip flip = (effect->render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        SDL_Texture *texture = begin_sprite_command(sprite, effect->render_flags,
-                                                    effect->render_remap,
-                                                    effect->render_intensity);
+        SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
+            SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        SDL_Texture *texture = begin_sprite_command(sprite, effect->core.render_flags,
+                                                    effect->core.render_remap,
+                                                    effect->core.render_intensity);
         SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
-        end_sprite_command(texture, effect->render_flags);
+        end_sprite_command(texture, effect->core.render_flags);
     }
 }
 
@@ -1387,19 +1389,19 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                     for (int i = 0; i < unit_count; ++i) {
                         if (!units[i].selected || units[i].owner != 0 || units[i].hp <= 0) continue;
                         if ((units[i].traits & MF_ATTACK) == 0) continue;
-                        units[i].attack_target = target;
-                        units[i].harvest_target = -1;
-                        units[i].harvest_timer_ms = 0;
+                        units[i].attack.target = target;
+                        units[i].harvest.target = -1;
+                        units[i].harvest.timer_ms = 0;
                     }
-                    gx = units[target].gx;
-                    gy = units[target].gy;
+                    gx = units[target].core.gx;
+                    gy = units[target].core.gy;
                 } else {
                     if (P_HarvestOrderAt(map, units, unit_count, gx, gy)) {
                         break;
                     }
                     for (int i = 0; i < unit_count; ++i) {
                         if (units[i].selected && units[i].owner == 0) {
-                            units[i].attack_target = -1;
+                            units[i].attack.target = -1;
                         }
                     }
                 }
@@ -1497,7 +1499,7 @@ void R_FreeTileset(tileset_t *tileset) {
 void P_FreeLevel(level_t *map) {
     free(map->tile_ids);
     for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);
-    for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_flip_flags[i]);
+    for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_transforms[i]);
     free(map->blocked);
     free(map->cell_colors);
     free(map->decorations);

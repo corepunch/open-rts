@@ -142,8 +142,8 @@ static bool dark_colony_player_near(const level_t *map, const mobj_t *units,
     (void)map;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
-        float dx = units[i].gx - ((float)gx + 0.5f);
-        float dy = units[i].gy - ((float)gy + 0.5f);
+        float dx = units[i].core.gx - ((float)gx + 0.5f);
+        float dy = units[i].core.gy - ((float)gy + 0.5f);
         if (dx * dx + dy * dy <= 16.0f) return true;
     }
     return false;
@@ -156,13 +156,13 @@ static int dark_colony_spawn_dropship_effect(effect_t *effects, int max_effects,
         effect_t *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
-        effect->gx = gx;
-        effect->gy = gy;
+        effect->core.gx = gx;
+        effect->core.gy = gy;
         effect->duration_ms = duration_ms;
         effect->frame_ms = duration_ms + 1;
-        effect->render_intensity = 16;
-        effect->render_offset_y = -75;
-        snprintf(effect->sprite_name, sizeof(effect->sprite_name), "SPRITES/DROP.SPR");
+        effect->core.render_intensity = 16;
+        effect->core.render_offset_y = -75;
+        snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name), "SPRITES/DROP.SPR");
         return i;
     }
     return -1;
@@ -223,8 +223,8 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
         if (spawn_y < 0) spawn_y = 0;
         if (spawn_y >= map->height) spawn_y = map->height - 1;
     }
-    unit->gx = (float)spawn_x + 0.5f;
-    unit->gy = (float)spawn_y + 0.5f;
+    unit->core.gx = (float)spawn_x + 0.5f;
+    unit->core.gy = (float)spawn_y + 0.5f;
     unit->owner = team == 0 ? 0 : 1;
     if (unit->owner == 0) {
         bool has_selected_player = false;
@@ -236,7 +236,7 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
         }
         unit->selected = !has_selected_player;
     }
-    unit->facing_code = unit->owner == 0 ? 6 : 14;
+    unit->core.facing_code = unit->owner == 0 ? 6 : 14;
     uint16_t type_id = dark_colony_script_unit_type(team, type);
     const actortype_t *actor = dark_colony_actor_type_by_id(type_id);
     dark_colony_apply_actor_type_defaults(unit, actor);
@@ -535,8 +535,8 @@ void dark_colony_update_mission(void *ptr, level_t *map, mobj_t *units, int *uni
         float sy = ship->center_gy + sinf(ship->angle) * ship->radius;
         if (ship->effect_slot >= 0 && ship->effect_slot < max_effects &&
             effects[ship->effect_slot].active) {
-            effects[ship->effect_slot].gx = sx;
-            effects[ship->effect_slot].gy = sy;
+            effects[ship->effect_slot].core.gx = sx;
+            effects[ship->effect_slot].core.gy = sy;
         }
     }
 }

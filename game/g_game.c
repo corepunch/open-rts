@@ -73,8 +73,8 @@ static void model_emit_event(void *user, int type, const mobj_t *subject,
     event->target_type_id = target ? target->type_id : 0;
     event->product_class = product_class;
     event->product_type = product_type;
-    event->gx = subject ? subject->gx : 0.0f;
-    event->gy = subject ? subject->gy : 0.0f;
+    event->gx = subject ? subject->core.gx : 0.0f;
+    event->gy = subject ? subject->core.gy : 0.0f;
     model->event_count++;
 }
 
@@ -458,8 +458,8 @@ static bool model_position_available(const RtsGameModel *model, float gx, float 
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
-        float dx = other->gx - gx;
-        float dy = other->gy - gy;
+        float dx = other->core.gx - gx;
+        float dy = other->core.gy - gy;
         if (dx * dx + dy * dy < min_dist * min_dist) return false;
     }
     return true;
@@ -489,8 +489,8 @@ static bool model_position_walkable_only(const RtsGameModel *model, float gx, fl
 static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,
                                      float radius, float *out_gx, float *out_gy) {
     if (!model || !producer || !out_gx || !out_gy) return false;
-    int origin_x = (int)floorf(producer->gx);
-    int origin_y = (int)floorf(producer->gy);
+    int origin_x = (int)floorf(producer->core.gx);
+    int origin_y = (int)floorf(producer->core.gy);
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -552,12 +552,12 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
         return false;
     }
     const gameinfo_t *game_info = gameinfo;
-    const state_t *stand = model_state_at(game_info, new_unit->state_id);
+    const state_t *stand = model_state_at(game_info, new_unit->core.state_id);
     if (!stand) return false;
 
     int stand_x = 0;
     int stand_y = 0;
-    if (!state_offset_for_facing(stand, false, new_unit->facing_code, &stand_x, &stand_y))
+    if (!state_offset_for_facing(stand, false, new_unit->core.facing_code, &stand_x, &stand_y))
         return false;
 
     int release_state_id = model_find_state_by_group_frame(game_info,
@@ -573,13 +573,13 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite &&
-            state_offset_for_facing(state, false, new_unit->facing_code, &x, &y)) {
+            state_offset_for_facing(state, false, new_unit->core.facing_code, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
         }
         if (state->overlay_sprite == stand->sprite &&
-            state_offset_for_facing(state, true, new_unit->facing_code, &x, &y)) {
+            state_offset_for_facing(state, true, new_unit->core.facing_code, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
@@ -590,8 +590,8 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
     }
     if (!saw_release_trooper) return false;
 
-    *out_gx = producer->gx + (float)(release_x - stand_x) / (float)CELL_W;
-    *out_gy = producer->gy - (float)(release_y - stand_y) / (float)CELL_H;
+    *out_gx = producer->core.gx + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer->core.gy - (float)(release_y - stand_y) / (float)CELL_H;
     return true;
 }
 
@@ -614,15 +614,15 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
             (unit->traits & MF_MOBILE) == 0) {
             continue;
         }
-        float dx = unit->gx - exit_gx;
-        float dy = unit->gy - exit_gy;
+        float dx = unit->core.gx - exit_gx;
+        float dy = unit->core.gy - exit_gy;
         if (i == spawned_index || dx * dx + dy * dy <= crowd_radius_sq) {
             unit->selected = true;
         }
     }
 
-    float dx = exit_gx - producer->gx;
-    float dy = exit_gy - producer->gy;
+    float dx = exit_gx - producer->core.gx;
+    float dy = exit_gy - producer->core.gy;
     float len = sqrtf(dx * dx + dy * dy);
     if (len < 0.01f) {
         dx = 0.0f;
@@ -658,10 +658,10 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     new_unit.type_id = actor_id;
     new_unit.id = ++model->next_unit_id;
     new_unit.owner = model->units[producer_index].owner;
-    new_unit.sprite_id = -1;
-    new_unit.attack_target = -1;
-    new_unit.harvest_target = -1;
-    new_unit.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
+    new_unit.core.sprite_id = -1;
+    new_unit.attack.target = -1;
+    new_unit.harvest.target = -1;
+    new_unit.core.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
         dark_colony_building_frame_for_product_type(product->product_type) : 0;
     apply_actor_type_defaults(&new_unit, actor_type);
     P_SpawnMobj(gameinfo, &new_unit);
@@ -690,8 +690,8 @@ static bool spawn_finished_model_product(RtsGameModel *model,
         return false;
     }
 
-    new_unit.gx = gx;
-    new_unit.gy = gy;
+    new_unit.core.gx = gx;
+    new_unit.core.gy = gy;
     int spawned_index = model->unit_count;
     model->units[model->unit_count++] = new_unit;
     model_emit_build_completion(model, &model->units[spawned_index], producer, product);
@@ -707,28 +707,28 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
     if (!model || !product || producer_index < 0 || producer_index >= model->unit_count)
         return false;
     mobj_t *producer = &model->units[producer_index];
-    if (producer->production_queue_count > 0) {
-        if (producer->production_actor_id != actor_id ||
-            producer->production_product_type != product->product_type ||
-            producer->production_product_class != (uint8_t)product->product_class ||
-            producer->production_queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
+    if (producer->production.queue_count > 0) {
+        if (producer->production.actor_id != actor_id ||
+            producer->production.product_type != product->product_type ||
+            producer->production.product_class != (uint8_t)product->product_class ||
+            producer->production.queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
             return false;
         }
-        producer->production_queue_count++;
+        producer->production.queue_count++;
         model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                          product->product_class, product->product_type);
         return true;
     }
 
-    producer->production_actor_id = actor_id;
-    producer->production_product_class = (uint8_t)product->product_class;
-    producer->production_product_type = product->product_type;
-    producer->production_queue_count = 1;
-    producer->production_time_ms = product_training_time_ms(product);
-    producer->production_time_left_ms = producer->production_time_ms;
-    producer->production_release_active = false;
-    producer->production_release_time_left_ms = 0;
-    producer->production_blocked = false;
+    producer->production.actor_id = actor_id;
+    producer->production.product_class = (uint8_t)product->product_class;
+    producer->production.product_type = product->product_type;
+    producer->production.queue_count = 1;
+    producer->production.time_ms = product_training_time_ms(product);
+    producer->production.time_left_ms = producer->production.time_ms;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    producer->production.blocked = false;
     model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                      product->product_class, product->product_type);
     model_emit_event(model, RTS_GAME_EVENT_BUILD_STARTED, producer, NULL,
@@ -764,32 +764,32 @@ static bool start_model_production_release(RtsGameModel *model, mobj_t *producer
         .max_effects = MAX_VISUAL_EFFECTS,
         .game_info = game_info,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->gx, producer->gy, 0))
+    if (!P_SpawnEffect(&ctx, state_id, producer->core.gx, producer->core.gy, 0))
         return false;
-    producer->production_release_active = true;
-    producer->production_release_time_left_ms = duration_ms;
-    producer->production_time_left_ms = 0;
+    producer->production.release_active = true;
+    producer->production.release_time_left_ms = duration_ms;
+    producer->production.time_left_ms = 0;
     return true;
 }
 
 static void clear_model_production(mobj_t *producer) {
     if (!producer) return;
-    producer->production_actor_id = 0;
-    producer->production_product_class = 0;
-    producer->production_product_type = 0;
-    producer->production_time_ms = 0;
-    producer->production_time_left_ms = 0;
-    producer->production_release_active = false;
-    producer->production_release_time_left_ms = 0;
+    producer->production.actor_id = 0;
+    producer->production.product_class = 0;
+    producer->production.product_type = 0;
+    producer->production.time_ms = 0;
+    producer->production.time_left_ms = 0;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
 }
 
 static void advance_model_production_queue(mobj_t *producer) {
     if (!producer) return;
-    producer->production_release_active = false;
-    producer->production_release_time_left_ms = 0;
-    producer->production_queue_count--;
-    if (producer->production_queue_count > 0) {
-        producer->production_time_left_ms = producer->production_time_ms;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    producer->production.queue_count--;
+    if (producer->production.queue_count > 0) {
+        producer->production.time_left_ms = producer->production.time_ms;
     } else {
         clear_model_production(producer);
     }
@@ -850,57 +850,57 @@ static void update_model_production(RtsGameModel *model, float dt) {
     if (elapsed_ms <= 0) elapsed_ms = 1;
     for (int i = 0; i < model->unit_count; ++i) {
         mobj_t *producer = &model->units[i];
-        if (producer->production_queue_count <= 0) continue;
+        if (producer->production.queue_count <= 0) continue;
         if (producer->remove || producer->hp <= 0) {
-            if (!producer->production_blocked)
+            if (!producer->production.blocked)
                 model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
-                                 producer->production_product_class,
-                                 producer->production_product_type);
-            producer->production_blocked = true;
-            producer->production_queue_count = 0;
+                                 producer->production.product_class,
+                                 producer->production.product_type);
+            producer->production.blocked = true;
+            producer->production.queue_count = 0;
             clear_model_production(producer);
             continue;
         }
-        if (producer->production_release_active) {
-            producer->production_release_time_left_ms -= elapsed_ms;
-            if (producer->production_release_time_left_ms > 0) continue;
+        if (producer->production.release_active) {
+            producer->production.release_time_left_ms -= elapsed_ms;
+            if (producer->production.release_time_left_ms > 0) continue;
             const StaticProductDefinition *product = product_by_class_type_for_model(
-                model, producer->production_product_class,
-                producer->production_product_type);
+                model, producer->production.product_class,
+                producer->production.product_type);
             if (!product || !spawn_finished_model_product(model, product, i)) {
-                if (!producer->production_blocked)
+                if (!producer->production.blocked)
                     model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
-                                     producer->production_product_class,
-                                     producer->production_product_type);
-                producer->production_blocked = true;
-                producer->production_release_time_left_ms = 250;
+                                     producer->production.product_class,
+                                     producer->production.product_type);
+                producer->production.blocked = true;
+                producer->production.release_time_left_ms = 250;
                 continue;
             }
             producer = &model->units[i];
             advance_model_production_queue(producer);
             continue;
         }
-        producer->production_time_left_ms -= elapsed_ms;
-        while (producer->production_queue_count > 0 &&
-               producer->production_time_left_ms <= 0) {
+        producer->production.time_left_ms -= elapsed_ms;
+        while (producer->production.queue_count > 0 &&
+               producer->production.time_left_ms <= 0) {
             const StaticProductDefinition *product = product_by_class_type_for_model(
-                model, producer->production_product_class,
-                producer->production_product_type);
+                model, producer->production.product_class,
+                producer->production.product_type);
             if (!product) {
-                producer->production_time_left_ms = 250;
+                producer->production.time_left_ms = 250;
                 break;
             }
             if (start_model_production_release(model, producer, product,
-                                               producer->production_actor_id)) {
+                                               producer->production.actor_id)) {
                 break;
             }
             if (!spawn_finished_model_product(model, product, i)) {
-                if (!producer->production_blocked)
+                if (!producer->production.blocked)
                     model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
-                                     producer->production_product_class,
-                                     producer->production_product_type);
-                producer->production_blocked = true;
-                producer->production_time_left_ms = 250;
+                                     producer->production.product_class,
+                                     producer->production.product_type);
+                producer->production.blocked = true;
+                producer->production.time_left_ms = 250;
                 break;
             }
             producer = &model->units[i];
@@ -943,20 +943,20 @@ static void build_dark_colony_ui_script(const RtsGameModel *model, char *dst, si
     if (selected_type == 0) selected_type = DC_ACTOR_EXCOPOD;
 
     /* Show production queue progress for the selected building. */
-    if (selected_building && selected_building->production_queue_count > 0) {
+    if (selected_building && selected_building->production.queue_count > 0) {
         const StaticProductDefinition *producing = product_by_class_type_for_model(
-            model, selected_building->production_product_class,
-            selected_building->production_product_type);
+            model, selected_building->production.product_class,
+            selected_building->production.product_type);
         int pct = 0;
-        if (producing && selected_building->production_time_ms > 0) {
-            int elapsed = selected_building->production_time_ms -
-                          selected_building->production_time_left_ms;
-            pct = elapsed * 100 / selected_building->production_time_ms;
+        if (producing && selected_building->production.time_ms > 0) {
+            int elapsed = selected_building->production.time_ms -
+                          selected_building->production.time_left_ms;
+            pct = elapsed * 100 / selected_building->production.time_ms;
             if (pct < 0) pct = 0;
             if (pct > 100) pct = 100;
         }
         append_ui_script(dst, dst_size, "x 516 y 76 progress %d queue %d label \"%s\"\n",
-                         pct, selected_building->production_queue_count,
+                         pct, selected_building->production.queue_count,
                          producing ? producing->label : "");
     }
 
@@ -1008,16 +1008,16 @@ static void build_dark_reign_ui_script(const RtsGameModel *model, char *dst, siz
             break;
         }
     }
-    if (selected && selected->production_queue_count > 0) {
+    if (selected && selected->production.queue_count > 0) {
         const StaticProductDefinition *producing = product_by_class_type_for_model(
-            model, selected->production_product_class, selected->production_product_type);
-        int pct = selected->production_time_ms > 0 ?
-            (selected->production_time_ms - selected->production_time_left_ms) * 100 /
-            selected->production_time_ms : 0;
+            model, selected->production.product_class, selected->production.product_type);
+        int pct = selected->production.time_ms > 0 ?
+            (selected->production.time_ms - selected->production.time_left_ms) * 100 /
+            selected->production.time_ms : 0;
         if (pct < 0) pct = 0;
         if (pct > 100) pct = 100;
         append_ui_script(dst, dst_size, "x 516 y 76 progress %d queue %d label \"%s\"\n",
-                         pct, selected->production_queue_count,
+                         pct, selected->production.queue_count,
                          producing ? producing->label : "");
     }
 
@@ -1049,7 +1049,7 @@ static void destroy_model_map(level_t *map) {
     if (!map) return;
     free(map->tile_ids);
     for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);
-    for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_flip_flags[i]);
+    for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_transforms[i]);
     free(map->blocked);
     free(map->cell_colors);
     free(map->decorations);
@@ -1071,7 +1071,7 @@ static const actortype_t *plugin_actor_type_for_unit(const mobj_t *unit) {
     if (!unit) return NULL;
     for (int i = 0; i < num_mobjinfo; ++i) {
         const char *sprite = mobjinfo[i].sprite_name;
-        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0)
+        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->core.sprite_name) == 0)
             return (const actortype_t *)&mobjinfo[i];
     }
     return num_mobjinfo > 0 ? (const actortype_t *)&mobjinfo[0] : NULL;
@@ -1081,29 +1081,30 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
-    unit->harvest_capacity = type->harvest_capacity;
+    unit->harvest.capacity = type->harvest.capacity;
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
-    if (unit->attack_range <= 0.0f) unit->attack_range = type->attack_range;
-    if (unit->attack_damage <= 0) unit->attack_damage = type->attack_damage;
-    if (unit->attack_cooldown_ms <= 0) unit->attack_cooldown_ms = type->attack_cooldown_ms;
-    if (unit->attack_anim_ms <= 0) unit->attack_anim_ms = type->attack_anim_ms;
-    if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
-    if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
+    if (unit->attack.range <= 0.0f) unit->attack.range = type->attack.range;
+    if (unit->attack.damage <= 0) unit->attack.damage = type->attack.damage;
+    if (unit->attack.cooldown_ms <= 0) unit->attack.cooldown_ms = type->attack.cooldown_ms;
+    if (unit->attack.anim_ms <= 0) unit->attack.anim_ms = type->attack.anim_ms;
+    if (unit->death.anim_ms <= 0) unit->death.anim_ms = type->death.anim_ms;
+    if (unit->harvest.state_id <= 0) unit->harvest.state_id = type->harvest.state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
-    if (unit->render_intensity == 0) unit->render_intensity = 16;
-    if (unit->attack_target <= 0) unit->attack_target = -1;
-    if (unit->harvest_target == 0) unit->harvest_target = -1;
-    if (unit->sprite_name[0] == '\0' && type->sprite_name) {
-        snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
+    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
+    if (unit->attack.target <= 0) unit->attack.target = -1;
+    if (unit->harvest.target == 0) unit->harvest.target = -1;
+    if (unit->core.sprite_name[0] == '\0' && type->sprite_name) {
+        snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
     }
     if (unit->shadow_name[0] == '\0' && type->shadow_name) {
         snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
     }
-    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name) {
-        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name), "%s", type->muzzle_flash_name);
-    }
+    if (unit->muzzle_flash_sprite < 0)
+        unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
+    if (unit->hit_effect_sprite < 0)
+        unit->hit_effect_sprite = type->hit_effect_sprite;
 }
 
 static void apply_plugin_actor_defaults(RtsGameModel *model) {
@@ -1192,9 +1193,9 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
         old_ids[i] = model->units[i].id;
         old_types[i] = model->units[i].type_id;
         old_hp[i] = model->units[i].hp;
-        old_state[i] = model->units[i].state_id;
-        old_targets[i] = model->units[i].attack_target;
-        old_arrived[i] = model->units[i].move_order_arrived;
+        old_state[i] = model->units[i].core.state_id;
+        old_targets[i] = model->units[i].attack.target;
+        old_arrived[i] = model->units[i].movement.order_arrived;
     }
     model->tick++;
     P_Ticker(&model->map, model->units, &model->unit_count, model->effects,
@@ -1228,14 +1229,14 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
         mobj_t *unit = &model->units[now];
         if (old_hp[i] > 0 && unit->hp <= 0)
             model_emit_event(model, RTS_GAME_EVENT_UNIT_DIED, unit, NULL, 0, 0);
-        if (!old_arrived[i] && unit->move_order_arrived)
+        if (!old_arrived[i] && unit->movement.order_arrived)
             model_emit_event(model, RTS_GAME_EVENT_UNIT_ARRIVED, unit, NULL, 0, 0);
         const state_t *old_s = model_state_at(gameinfo, old_state[i]);
-        const state_t *new_s = model_state_at(gameinfo, unit->state_id);
+        const state_t *new_s = model_state_at(gameinfo, unit->core.state_id);
         if ((!old_s || old_s->misc1 != 3) && new_s && new_s->misc1 == 3) {
             const mobj_t *target = NULL;
-            if (unit->attack_target >= 0 && unit->attack_target < model->unit_count)
-                target = &model->units[unit->attack_target];
+            if (unit->attack.target >= 0 && unit->attack.target < model->unit_count)
+                target = &model->units[unit->attack.target];
             else if (old_targets[i] >= 0 && old_targets[i] < old_count)
                 for (int j = 0; j < model->unit_count; ++j)
                     if (model->units[j].id == old_ids[old_targets[i]]) { target = &model->units[j]; break; }
@@ -1274,7 +1275,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         };
         P_MoveOrder(&model->map, model->units, model->unit_count, goal);
         for (int i = 0; i < model->unit_count; ++i)
-            if (model->units[i].selected && model->units[i].move_order_arrived)
+            if (model->units[i].selected && model->units[i].movement.order_arrived)
                 model_emit_event(model, RTS_GAME_EVENT_UNIT_ARRIVED, &model->units[i], NULL, 0, 0);
         return true;
     }
@@ -1293,10 +1294,10 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         for (int i = 0; i < model->unit_count; ++i) {
             mobj_t *unit = &model->units[i];
             if (unit->selected && unit->owner == 0 && (unit->traits & MF_ATTACK))
-                unit->attack_target = target;
+                unit->attack.target = target;
         }
         P_MoveOrderAt(&model->map, model->units, model->unit_count,
-                      model->units[target].gx, model->units[target].gy);
+                      model->units[target].core.gx, model->units[target].core.gy);
         return true;
     }
     case RTS_GAME_COMMAND_BUILD_PRODUCT: {
@@ -1360,28 +1361,28 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
     for (int i = 0; i < out->unit_count; ++i) {
         const mobj_t *src = &model->units[i];
         RtsRenderUnit *dst = &out->units[i];
-        dst->gx = src->gx;
-        dst->gy = src->gy;
-        dst->move_goal_gx = src->move_goal_gx;
-        dst->move_goal_gy = src->move_goal_gy;
+        dst->gx = src->core.gx;
+        dst->gy = src->core.gy;
+        dst->move_goal_gx = src->movement.goal.x;
+        dst->move_goal_gy = src->movement.goal.y;
         dst->type_id = src->type_id;
         dst->owner = src->owner;
         dst->traits = src->traits;
         dst->hp = src->hp;
         dst->max_hp = src->max_hp;
-        dst->frame = src->frame;
-        dst->facing_code = src->facing_code;
-        dst->state_id = src->state_id;
+        dst->frame = src->core.frame;
+        dst->facing_code = src->core.facing_code;
+        dst->state_id = src->core.state_id;
         dst->id = src->id;
-        dst->render_flags = src->render_flags;
-        dst->render_remap = src->render_remap;
-        dst->render_intensity = src->render_intensity;
-        dst->render_offset_x = src->render_offset_x;
-        dst->render_offset_y = src->render_offset_y;
+        dst->render_flags = src->core.render_flags;
+        dst->render_remap = src->core.render_remap;
+        dst->render_intensity = src->core.render_intensity;
+        dst->render_offset_x = src->core.render_offset_x;
+        dst->render_offset_y = src->core.render_offset_y;
         dst->selected = src->selected;
-        dst->has_move_order = src->move_order_id != 0;
-        dst->harvest_target = src->harvest_target;
-        snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
+        dst->has_move_order = src->movement.order_id != 0;
+        dst->harvest_target = src->harvest.target;
+        snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
     }
     for (int i = 0; i < out->decoration_count; ++i) {
@@ -1413,13 +1414,13 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         if (!src->active) continue;
         RtsRenderEffect *dst = &out->effects[out->effect_count++];
         dst->active = src->active;
-        dst->gx = src->gx;
-        dst->gy = src->gy;
-        dst->frame = src->frame;
-        dst->render_flags = src->render_flags;
-        dst->render_remap = src->render_remap;
-        dst->render_intensity = src->render_intensity;
-        snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
+        dst->gx = src->core.gx;
+        dst->gy = src->core.gy;
+        dst->frame = src->core.frame;
+        dst->render_flags = src->core.render_flags;
+        dst->render_remap = src->core.render_remap;
+        dst->render_intensity = src->core.render_intensity;
+        snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
     if (strcmp(g_game_id, "dark-colony") == 0) {

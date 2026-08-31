@@ -676,7 +676,7 @@ static const actortype_t *actor_type_for_unit(const mobj_t *unit) {
     if (!types || !unit) return NULL;
     for (int i = 0; i < num_mobjinfo; ++i) {
         const char *sprite = types[i].sprite_name;
-        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->sprite_name) == 0) {
+        if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->core.sprite_name) == 0) {
             return &types[i];
         }
     }
@@ -687,29 +687,30 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
-    unit->harvest_capacity = type->harvest_capacity;
+    unit->harvest.capacity = type->harvest.capacity;
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
-    if (unit->attack_range <= 0.0f) unit->attack_range = type->attack_range;
-    if (unit->attack_damage <= 0) unit->attack_damage = type->attack_damage;
-    if (unit->attack_cooldown_ms <= 0) unit->attack_cooldown_ms = type->attack_cooldown_ms;
-    if (unit->attack_anim_ms <= 0) unit->attack_anim_ms = type->attack_anim_ms;
-    if (unit->death_anim_ms <= 0) unit->death_anim_ms = type->death_anim_ms;
-    if (unit->harvest_state_id <= 0) unit->harvest_state_id = type->harvest_state_id;
+    if (unit->attack.range <= 0.0f) unit->attack.range = type->attack.range;
+    if (unit->attack.damage <= 0) unit->attack.damage = type->attack.damage;
+    if (unit->attack.cooldown_ms <= 0) unit->attack.cooldown_ms = type->attack.cooldown_ms;
+    if (unit->attack.anim_ms <= 0) unit->attack.anim_ms = type->attack.anim_ms;
+    if (unit->death.anim_ms <= 0) unit->death.anim_ms = type->death.anim_ms;
+    if (unit->harvest.state_id <= 0) unit->harvest.state_id = type->harvest.state_id;
     if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
-    if (unit->render_intensity == 0) unit->render_intensity = 16;
-    if (unit->attack_target <= 0) unit->attack_target = -1;
-    if (unit->harvest_target == 0) unit->harvest_target = -1;
-    if (unit->sprite_name[0] == '\0' && type->sprite_name) {
-        snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", type->sprite_name);
+    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
+    if (unit->attack.target <= 0) unit->attack.target = -1;
+    if (unit->harvest.target == 0) unit->harvest.target = -1;
+    if (unit->core.sprite_name[0] == '\0' && type->sprite_name) {
+        snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
     }
     if (unit->shadow_name[0] == '\0' && type->shadow_name) {
         snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
     }
-    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name) {
-        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name), "%s", type->muzzle_flash_name);
-    }
+    if (unit->muzzle_flash_sprite < 0)
+        unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
+    if (unit->hit_effect_sprite < 0)
+        unit->hit_effect_sprite = type->hit_effect_sprite;
 }
 
 static void apply_actor_defaults(mobj_t *units, int count) {
@@ -730,10 +731,10 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     if (!L_Contains(map, cell.x, cell.y)) return false;
     mobj_t *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
-    unit->gx = (float)cell.x + 0.5f;
-    unit->gy = (float)cell.y + 0.5f;
+    unit->core.gx = (float)cell.x + 0.5f;
+    unit->core.gy = (float)cell.y + 0.5f;
     unit->owner = 1;
-    unit->facing_code = (gameinfo &&
+    unit->core.facing_code = (gameinfo &&
         gameinfo->direction_mode != RTS_DIRECTION_DARK_REIGN_8) ? 6 : 8;
     apply_actor_type_defaults(unit, type);
     P_SpawnMobj(gameinfo, unit);
@@ -747,7 +748,7 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
-        R_MapToScreen(app, map, units[i].gx, units[i].gy, &sx, &sy);
+        R_MapToScreen(app, map, units[i].core.gx, units[i].core.gy, &sx, &sy);
         app->cam.x = (float)app->win.w * 0.5f - sx;
         app->cam.y = (float)app->win.h * 0.5f - sy;
         return true;
@@ -1352,24 +1353,24 @@ static const DarkColonyProductButton *dc_product_by_type(int product_type) {
 static bool dc_enqueue_unit_product(mobj_t *producer, const DarkColonyProductButton *product,
                                     uint16_t actor_id) {
     if (!producer || !product || actor_id == 0) return false;
-    if (producer->production_queue_count > 0) {
-        if (producer->production_actor_id != actor_id ||
-            producer->production_product_type != product->product_type ||
-            producer->production_product_class != DC_CLIENT_PRODUCT_UNIT ||
-            producer->production_queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
+    if (producer->production.queue_count > 0) {
+        if (producer->production.actor_id != actor_id ||
+            producer->production.product_type != product->product_type ||
+            producer->production.product_class != DC_CLIENT_PRODUCT_UNIT ||
+            producer->production.queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
             return false;
         }
-        producer->production_queue_count++;
+        producer->production.queue_count++;
         return true;
     }
-    producer->production_actor_id = actor_id;
-    producer->production_product_class = DC_CLIENT_PRODUCT_UNIT;
-    producer->production_product_type = product->product_type;
-    producer->production_queue_count = 1;
-    producer->production_time_ms = dc_product_training_time_ms(product);
-    producer->production_time_left_ms = producer->production_time_ms;
-    producer->production_release_active = false;
-    producer->production_release_time_left_ms = 0;
+    producer->production.actor_id = actor_id;
+    producer->production.product_class = DC_CLIENT_PRODUCT_UNIT;
+    producer->production.product_type = product->product_type;
+    producer->production.queue_count = 1;
+    producer->production.time_ms = dc_product_training_time_ms(product);
+    producer->production.time_left_ms = producer->production.time_ms;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
     return true;
 }
 
@@ -1429,31 +1430,31 @@ static bool dc_start_production_release(level_t *map,
         .max_effects = max_effects,
         .game_info = gameinfo,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->gx, producer->gy, 0)) return false;
-    producer->production_release_active = true;
-    producer->production_release_time_left_ms = duration_ms;
-    producer->production_time_left_ms = 0;
+    if (!P_SpawnEffect(&ctx, state_id, producer->core.gx, producer->core.gy, 0)) return false;
+    producer->production.release_active = true;
+    producer->production.release_time_left_ms = duration_ms;
+    producer->production.time_left_ms = 0;
     return true;
 }
 
 static void dc_clear_production(mobj_t *producer) {
     if (!producer) return;
-    producer->production_actor_id = 0;
-    producer->production_product_class = 0;
-    producer->production_product_type = 0;
-    producer->production_time_ms = 0;
-    producer->production_time_left_ms = 0;
-    producer->production_release_active = false;
-    producer->production_release_time_left_ms = 0;
+    producer->production.actor_id = 0;
+    producer->production.product_class = 0;
+    producer->production.product_type = 0;
+    producer->production.time_ms = 0;
+    producer->production.time_left_ms = 0;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
 }
 
 static void dc_advance_production_queue(mobj_t *producer) {
     if (!producer) return;
-    producer->production_release_active = false;
-    producer->production_release_time_left_ms = 0;
-    producer->production_queue_count--;
-    if (producer->production_queue_count > 0) {
-        producer->production_time_left_ms = producer->production_time_ms;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    producer->production.queue_count--;
+    if (producer->production.queue_count > 0) {
+        producer->production.time_left_ms = producer->production.time_ms;
     } else {
         dc_clear_production(producer);
     }
@@ -1482,8 +1483,8 @@ static bool dc_position_available_for_spawn(const level_t *map, const mobj_t *un
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
-        float dx = other->gx - gx;
-        float dy = other->gy - gy;
+        float dx = other->core.gx - gx;
+        float dy = other->core.gy - gy;
         if (dx * dx + dy * dy < min_dist * min_dist) return false;
     }
     return true;
@@ -1514,8 +1515,8 @@ static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
                                         float radius, float *out_gx,
                                         float *out_gy) {
     if (!map || !units || !producer || !out_gx || !out_gy) return false;
-    int origin_x = (int)floorf(producer->gx);
-    int origin_y = (int)floorf(producer->gy);
+    int origin_x = (int)floorf(producer->core.gx);
+    int origin_y = (int)floorf(producer->core.gy);
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -1574,11 +1575,11 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
                                             float *out_gx,
                                             float *out_gy) {
     if (!game_info || !producer || !new_unit || !out_gx || !out_gy) return false;
-    const state_t *stand = dc_state_at(game_info, new_unit->state_id);
+    const state_t *stand = dc_state_at(game_info, new_unit->core.state_id);
     if (!stand) return false;
     int stand_x = 0;
     int stand_y = 0;
-    if (!dc_state_offset_for_facing(stand, false, new_unit->facing_code, &stand_x, &stand_y))
+    if (!dc_state_offset_for_facing(stand, false, new_unit->core.facing_code, &stand_x, &stand_y))
         return false;
 
     int release_state_id = dc_find_state_by_group_frame(game_info,
@@ -1594,13 +1595,13 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, false, new_unit->facing_code, &x, &y)) {
+            dc_state_offset_for_facing(state, false, new_unit->core.facing_code, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
         }
         if (state->overlay_sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, true, new_unit->facing_code, &x, &y)) {
+            dc_state_offset_for_facing(state, true, new_unit->core.facing_code, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
@@ -1611,8 +1612,8 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
     }
     if (!saw_release_trooper) return false;
 
-    *out_gx = producer->gx + (float)(release_x - stand_x) / (float)CELL_W;
-    *out_gy = producer->gy - (float)(release_y - stand_y) / (float)CELL_H;
+    *out_gx = producer->core.gx + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer->core.gy - (float)(release_y - stand_y) / (float)CELL_H;
     return true;
 }
 
@@ -1635,15 +1636,15 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
             (unit->traits & MF_MOBILE) == 0) {
             continue;
         }
-        float dx = unit->gx - exit_gx;
-        float dy = unit->gy - exit_gy;
+        float dx = unit->core.gx - exit_gx;
+        float dy = unit->core.gy - exit_gy;
         if (i == spawned_index || dx * dx + dy * dy <= crowd_radius_sq) {
             unit->selected = true;
         }
     }
 
-    float dx = exit_gx - producer->gx;
-    float dy = exit_gy - producer->gy;
+    float dx = exit_gx - producer->core.gx;
+    float dy = exit_gy - producer->core.gy;
     float len = sqrtf(dx * dx + dy * dy);
     if (len < 0.01f) {
         dx = 0.0f;
@@ -1674,9 +1675,9 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     memset(&new_unit, 0, sizeof(new_unit));
     new_unit.type_id = actor_id;
     new_unit.owner = 0;
-    new_unit.sprite_id = -1;
-    new_unit.attack_target = -1;
-    new_unit.harvest_target = -1;
+    new_unit.core.sprite_id = -1;
+    new_unit.attack.target = -1;
+    new_unit.harvest.target = -1;
     apply_actor_type_defaults(&new_unit, type);
     P_SpawnMobj(gameinfo, &new_unit);
 
@@ -1684,7 +1685,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     float gx = 0.0f;
     float gy = 0.0f;
     mobj_t *producer = &units[producer_index];
-    const DarkColonyProductButton *product = dc_product_by_type(producer->production_product_type);
+    const DarkColonyProductButton *product = dc_product_by_type(producer->production.product_type);
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
         dc_barracks_release_spawn_point(gameinfo, producer, &new_unit, &gx, &gy) &&
@@ -1694,8 +1695,8 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
                                             radius, &gx, &gy)) {
         return false;
     }
-    new_unit.gx = gx;
-    new_unit.gy = gy;
+    new_unit.core.gx = gx;
+    new_unit.core.gy = gy;
     int spawned_index = *unit_count;
     units[(*unit_count)++] = new_unit;
     if (use_barracks_release)
@@ -1713,18 +1714,18 @@ static bool dc_update_production_queues(level_t *map,
     if (elapsed_ms <= 0) elapsed_ms = 1;
     for (int i = 0; i < *unit_count; ++i) {
         mobj_t *producer = &units[i];
-        if (producer->production_queue_count <= 0) continue;
+        if (producer->production.queue_count <= 0) continue;
         if (producer->remove || producer->hp <= 0) {
-            producer->production_queue_count = 0;
+            producer->production.queue_count = 0;
             dc_clear_production(producer);
             continue;
         }
-        if (producer->production_release_active) {
-            producer->production_release_time_left_ms -= elapsed_ms;
-            if (producer->production_release_time_left_ms > 0) continue;
-            uint16_t actor_id = producer->production_actor_id;
+        if (producer->production.release_active) {
+            producer->production.release_time_left_ms -= elapsed_ms;
+            if (producer->production.release_time_left_ms > 0) continue;
+            uint16_t actor_id = producer->production.actor_id;
             if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
-                producer->production_release_time_left_ms = 250;
+                producer->production.release_time_left_ms = 250;
                 continue;
             }
             spawned = true;
@@ -1732,18 +1733,18 @@ static bool dc_update_production_queues(level_t *map,
             dc_advance_production_queue(producer);
             continue;
         }
-        producer->production_time_left_ms -= elapsed_ms;
-        while (producer->production_queue_count > 0 &&
-               producer->production_time_left_ms <= 0) {
-            uint16_t actor_id = producer->production_actor_id;
+        producer->production.time_left_ms -= elapsed_ms;
+        while (producer->production.queue_count > 0 &&
+               producer->production.time_left_ms <= 0) {
+            uint16_t actor_id = producer->production.actor_id;
             const DarkColonyProductButton *product =
-                dc_product_by_type(producer->production_product_type);
+                dc_product_by_type(producer->production.product_type);
             if (product && dc_start_production_release(map, effects, max_effects,
                                                        producer, product, actor_id)) {
                 break;
             }
             if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
-                producer->production_time_left_ms = 250;
+                producer->production.time_left_ms = 250;
                 break;
             }
             spawned = true;
@@ -1787,15 +1788,15 @@ static const char *dc_sidebar_command_label(const DarkColonySidebarCommand *cmd,
 static void dc_stop_selected_units(mobj_t *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
-        units[i].path_len = 0;
-        units[i].path_index = 0;
-        units[i].attack_target = -1;
-        units[i].harvest_target = -1;
-        units[i].harvest_timer_ms = 0;
-        units[i].move_goal_gx = units[i].gx;
-        units[i].move_goal_gy = units[i].gy;
-        units[i].move_order_id = 0;
-        units[i].move_order_arrived = false;
+        units[i].movement.path_len = 0;
+        units[i].movement.path_index = 0;
+        units[i].attack.target = -1;
+        units[i].harvest.target = -1;
+        units[i].harvest.timer_ms = 0;
+        units[i].movement.goal.x = units[i].core.gx;
+        units[i].movement.goal.y = units[i].core.gy;
+        units[i].movement.order_id = 0;
+        units[i].movement.order_arrived = false;
     }
 }
 
@@ -1868,9 +1869,9 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].remove || units[i].gx < 0.0f || units[i].gy < 0.0f) continue;
-        int x = clip.x + (int)(units[i].gx * (float)clip.w / (float)map->width);
-        int y = clip.y + (int)(L_ScreenYF(map, units[i].gy) *
+        if (units[i].remove || units[i].core.gx < 0.0f || units[i].core.gy < 0.0f) continue;
+        int x = clip.x + (int)(units[i].core.gx * (float)clip.w / (float)map->width);
+        int y = clip.y + (int)(L_ScreenYF(map, units[i].core.gy) *
                                (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
@@ -2025,14 +2026,14 @@ static void SB_drawer(app_t *app, const level_t *map,
                            amber, 1);
         }
     } else if (product_mode) {
-        if (selected && selected->production_queue_count > 0 &&
-            selected->production_time_ms > 0) {
-            int done = selected->production_time_ms - selected->production_time_left_ms;
-            int pct = done * 100 / selected->production_time_ms;
+        if (selected && selected->production.queue_count > 0 &&
+            selected->production.time_ms > 0) {
+            int done = selected->production.time_ms - selected->production.time_left_ms;
+            int pct = done * 100 / selected->production.time_ms;
             if (pct < 0) pct = 0;
             if (pct > 100) pct = 100;
             snprintf(line, sizeof(line), "Training x%d %d%%",
-                     selected->production_queue_count, pct);
+                     selected->production.queue_count, pct);
         } else {
             snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
         }
@@ -2263,15 +2264,15 @@ int main(int argc, char **argv) {
         int cy = map.height / 2;
         const actortype_t *fallback_type = num_mobjinfo > 0 ? (const actortype_t *)mobjinfo : NULL;
         for (int i = 0; i < unit_count; ++i) {
-            units[i].gx = (float)(cx + i % 3) + 0.5f;
-            units[i].gy = (float)(cy + i / 3) + 0.5f;
+            units[i].core.gx = (float)(cx + i % 3) + 0.5f;
+            units[i].core.gy = (float)(cy + i / 3) + 0.5f;
             units[i].owner = 0;
             units[i].selected = i == 0;
             if (fallback_type) {
                 apply_actor_type_defaults(&units[i], fallback_type);
             } else {
                 units[i].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
-                snprintf(units[i].sprite_name, sizeof(units[i].sprite_name), "%s", sprite_name);
+                snprintf(units[i].core.sprite_name, sizeof(units[i].core.sprite_name), "%s", sprite_name);
             }
         }
     }
@@ -2285,8 +2286,8 @@ int main(int argc, char **argv) {
     }
 
     if (!focus_camera_on_map_start(&app, &map)) {
-        float focus_gx = unit_count > 0 ? units[0].gx : (float)map.width * 0.5f;
-        float focus_gy = unit_count > 0 ? units[0].gy : (float)map.height * 0.5f;
+        float focus_gx = unit_count > 0 ? units[0].core.gx : (float)map.width * 0.5f;
+        float focus_gy = unit_count > 0 ? units[0].core.gy : (float)map.height * 0.5f;
         focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
     R_ClampCamera(&app, &map, world_viewport_width(&app), app.win.h);

@@ -832,7 +832,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
     }
     detect_tileset_from_mm(map_path,  out->tileset_name, sizeof(out->tileset_name));
     detect_tileset_from_scn(map_path, out->tileset_name, sizeof(out->tileset_name));
-    out->render_features |= MAP_RENDER_SMOOTH_TRANSITIONS;
+    out->render_capabilities |= MAP_RENDER_CAP_TERRAIN_TRANSITIONS;
     out->render_transitions = render_dark_reign_edges_for_cell;
     load_dark_reign_decorations(map_path, out);
     load_dark_reign_resource_vents(map_path, out);
@@ -876,8 +876,8 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         if (sscanf(hit, "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
             (void)object_id;
             if (gx >= 0 && gy >= 0) {
-                units[count].gx = (float)gx + 0.5f;
-                units[count].gy = (float)gy + 0.5f;
+                units[count].core.gx = (float)gx + 0.5f;
+                units[count].core.gy = (float)gy + 0.5f;
                 units[count].speed = 5.5f;
                 units[count].owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
@@ -885,10 +885,12 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
                 units[count].selected = units[count].owner == 0 && count == 0;
                 DarkReignVisualSpec visual;
                 if (dark_reign_resolve_unit_visual(&defs, unit_type, &visual)) {
-                    snprintf(units[count].sprite_name, sizeof(units[count].sprite_name), "%s", visual.sprite_name);
+                    snprintf(units[count].core.sprite_name,
+                             sizeof(units[count].core.sprite_name), "%s", visual.sprite_name);
                     snprintf(units[count].shadow_name, sizeof(units[count].shadow_name), "%s", visual.shadow_name);
                 } else {
-                    snprintf(units[count].sprite_name, sizeof(units[count].sprite_name), "%s", DEFAULT_UNIT_SPR);
+                    snprintf(units[count].core.sprite_name,
+                             sizeof(units[count].core.sprite_name), "%s", DEFAULT_UNIT_SPR);
                     units[count].shadow_name[0] = '\0';
                     fprintf(stderr, "warning: unresolved Dark Reign unit type %s\n", unit_type);
                 }
@@ -938,14 +940,15 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         }
         if (have_start && associated_type[0] != '\0') {
             mobj_t *unit = &units[count];
-            unit->gx = (float)start_x / 24.0f;
-            unit->gy = (float)start_y / 24.0f;
+            unit->core.gx = (float)start_x / 24.0f;
+            unit->core.gy = (float)start_y / 24.0f;
             unit->speed = 4.5f;
             unit->owner = 0;
             unit->selected = true;
             DarkReignVisualSpec visual;
             if (dark_reign_resolve_unit_visual(&defs, associated_type, &visual)) {
-                snprintf(unit->sprite_name, sizeof(unit->sprite_name), "%s", visual.sprite_name);
+                snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name),
+                         "%s", visual.sprite_name);
                 snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", visual.shadow_name);
                 count++;
             }

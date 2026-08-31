@@ -10,10 +10,7 @@ static const actortype_t KKND_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 4.0f,
         .max_hp = 100,
-        .attack_range = 4.0f,
-        .attack_damage = 10,
-        .attack_cooldown_ms = 650,
-        .attack_anim_ms = 450,
+        .attack = { .range = 4.0f, .damage = 10, .cooldown_ms = 650, .anim_ms = 450 },
     },
 };
 

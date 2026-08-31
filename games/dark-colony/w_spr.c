@@ -636,7 +636,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         }
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].sprite_name))
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root,
+                           units[i].core.sprite_name))
             ok = false;
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].shadow_name))
             ok = false;

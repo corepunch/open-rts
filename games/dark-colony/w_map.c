@@ -659,7 +659,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
                 out->cell_colors[dst] = native->map.overview_colors[src];
             }
         }
-        out->render_features |= MAP_RENDER_USE_CELL_COLORS;
+        out->render_capabilities |= MAP_RENDER_CAP_CELL_COLORS;
     }
 
     int width = native->map.width;
@@ -667,15 +667,16 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     size_t source_count = (size_t)width * (size_t)height;
     out->width = width;
     out->height = height;
-    out->render_features |= MAP_RENDER_INTERLEAVED_OVERLAYS;
+    out->render_capabilities |= MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS |
+                                MAP_RENDER_CAP_TILE_TRANSFORMS;
     out->tile_ids        = calloc(source_count, sizeof(uint16_t));
     out->blocked         = calloc(source_count, sizeof(uint8_t));
     out->tile_overlay_count = 1;
     out->tile_overlays[0]   = calloc(source_count, sizeof(uint16_t));
-    out->tile_flip_flags[0] = calloc(source_count, sizeof(uint8_t));
-    out->tile_flip_flags[1] = calloc(source_count, sizeof(uint8_t));
+    out->tile_transforms[0] = calloc(source_count, sizeof(uint8_t));
+    out->tile_transforms[1] = calloc(source_count, sizeof(uint8_t));
     if (!out->tile_ids || !out->blocked ||
-        !out->tile_overlays[0] || !out->tile_flip_flags[0] || !out->tile_flip_flags[1]) {
+        !out->tile_overlays[0] || !out->tile_transforms[0] || !out->tile_transforms[1]) {
         dark_colony_map_native_destroy(native);
         P_FreeLevel(out);
         return false;
@@ -691,8 +692,10 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
                 out->tile_ids[idx] = cell->background;
                 out->tile_overlays[0][idx] = cell->foreground;
                 out->blocked[idx] = (cell->flags & (1u << 9)) ? 1 : 0;
-                out->tile_flip_flags[0][idx] = (cell->flags & (1u << 5)) ? 1 : 0;
-                out->tile_flip_flags[1][idx] = (cell->flags & (1u << 6)) ? 1 : 0;
+                out->tile_transforms[0][idx] =
+                    (cell->flags & (1u << 5)) ? MAP_TILE_TRANSFORM_FLIP_X : 0;
+                out->tile_transforms[1][idx] =
+                    (cell->flags & (1u << 6)) ? MAP_TILE_TRANSFORM_FLIP_X : 0;
             } else {
                 out->tile_ids[idx] = cell->mtg;
                 out->tile_overlays[0][idx] = 0;
@@ -1105,11 +1108,11 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         object->x_pos;
     int render_z_pos = city_object ? dark_colony_city_render_z_fixed(object, object_index) :
         object->z_pos;
-    u->gx = dark_colony_fixed_to_cell(render_x_pos);
-    u->gy = dark_colony_fixed_to_cell(render_z_pos);
-    u->sprite_id = -1;
-    u->attack_target = -1;
-    u->harvest_target = -1;
+    u->core.gx = dark_colony_fixed_to_cell(render_x_pos);
+    u->core.gy = dark_colony_fixed_to_cell(render_z_pos);
+    u->core.sprite_id = -1;
+    u->attack.target = -1;
+    u->harvest.target = -1;
     if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config)
         u->speed = unit_config[type].speed;
     if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
@@ -1120,8 +1123,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
     if (u->selected) *player_selected = true;
-    u->frame = dark_colony_unit_frame_for_type(type);
-    snprintf(u->sprite_name, sizeof(u->sprite_name), "%s", sprite);
+    u->core.frame = dark_colony_unit_frame_for_type(type);
+    snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", sprite);
     statecontext_t ctx = { .game_info = &dark_colony_game_info };
     int state_id = dark_colony_unit_state_for_type(type);
     if (state_id == S_NULL && u->type_id > 0 && u->type_id < dark_colony_game_info.mobj_type_count)
