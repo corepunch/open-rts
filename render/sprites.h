@@ -25,6 +25,7 @@ typedef struct tileset_s {
     int tile_w;
     int tile_h;
     int draw_y_offset;
+    int overlay_draw_y_offset;
 } tileset_t;
 
 typedef struct spritesequence_s {

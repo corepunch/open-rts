@@ -97,6 +97,28 @@ call. Constructor `0x004297e4` installs dispatcher `0x0044b5e4` at object offset
 `+0x5c`. Consequently, static call-reference searches do not reveal the whole
 sprite call chain.
 
+### Terrain overlays and object origins
+
+Dark Colony foreground terrain uses a different vertical origin from the
+ground tile beneath it. The foreground stamp begins half a 32-pixel cell below
+the keyed ground-tile origin. Applying the ground-tile origin to both layers
+places foreground features 16 pixels too high. This affects city pads such as
+the base pentagon and terrain-baked resource craters, but not the city objects
+or sprite effects drawn over them.
+
+The object renderer at `0x00436290` submits each FIN part as the object's native
+fixed-point position plus the FIN part offset. The SPR dispatcher then adds the
+cell's `disX` and `disY`; it does not derive a new object origin from the visible
+bitmap bounds. The mine-cell assertion at `0x00412c5a` likewise indexes the map
+directly with `vent->z_pos >> 8` and `vent->x_pos >> 8`.
+
+The active crater and glow assets corroborate this composition. `VENT.SPR`
+frame 0 has displacement `(2,22)`, while `VENT2.SPR` frame 0 has displacement
+`(31,37)`. Their relative offset is therefore `(29,15)`. Once the crater's
+foreground stamp is drawn at its half-cell origin, the glow and the Exploiter
+attachment no longer appear below the crater. Moving TOWR, city slots, the
+plume, or the Exploiter target would compensate in the wrong coordinate path.
+
 ## Native SPR behavior
 
 The SPR loader at `0x0044b048` reads:
@@ -283,6 +305,8 @@ The executable evidence gives several implementation rules:
    sprite-name-specific rendering exception.
 7. Keep the fixed render queue and native object-layout limits visible while
    reconstructing behavior.
+8. Keep foreground terrain's half-cell vertical origin separate from both
+   ground-tile placement and sprite-object placement.
 
 These findings rule out moving terrain or city slots to compensate for sprite
 misalignment. The original placement path composes FIN offsets and both SPR

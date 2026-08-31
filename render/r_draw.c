@@ -273,7 +273,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 irect_t src = { 0, 0, tileset->tile_w, tileset->tile_h };
                 irect_t dst = {
                     (int)sx,
-                    (int)(sy + draw_y_offset),
+                    (int)(sy + draw_y_offset + tileset->overlay_draw_y_offset),
                     tile_w,
                     tile_h,
                 };
@@ -1130,7 +1130,7 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
 
     int tile_w = app_tile_w(app, tileset);
     int tile_h = app_tile_h(app, tileset);
-    int draw_y_offset = tileset->draw_y_offset;
+    int draw_y_offset = tileset->draw_y_offset + tileset->overlay_draw_y_offset;
     float sx, sy;
     R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
     if (sx < -tile_w || sy < -tile_h ||

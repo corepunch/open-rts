@@ -199,6 +199,7 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_
     out->tile_w = tile_w;
     out->tile_h = tile_h;
     out->draw_y_offset = 0;
+    out->overlay_draw_y_offset = tile_h / 2;
     free(rgba); free(animate_tile); free(record_keys); W_FreeFile(&blob);
     if (!out->texture) { R_FreeTileset(out); return false; }
     return true;
