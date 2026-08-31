@@ -113,6 +113,24 @@ bool sl_load_map(const char *map_path, level_t *out) {
     }
     W_FreeFile(&tiles);
 
+    /* MAPOVL is a sparse 16-bit overlay layer.  The high byte is the tile
+       index; the low byte carries the original renderer's placement flags. */
+    char overlay_path[512];
+    if (sl_sibling_path(overlay_path, sizeof(overlay_path), map_path, "MAPOVL.000")) {
+        blob_t overlay = { 0 };
+        if (W_ReadFile(overlay_path, &overlay) && overlay.size == (size_t)W * H * 2) {
+            out->tile_overlays[0] = calloc((size_t)W * H, sizeof(uint16_t));
+            if (out->tile_overlays[0]) {
+                const uint8_t *p = (const uint8_t *)overlay.bytes;
+                for (int i = 0; i < W * H; ++i)
+                    out->tile_overlays[0][i] = (uint16_t)(read_u16_le(p + (size_t)i * 2) >> 8);
+                out->tile_overlay_count = 1;
+                out->render_features |= MAP_RENDER_INTERLEAVED_OVERLAYS;
+            }
+        }
+        W_FreeFile(&overlay);
+    }
+
     char land_path[512];
     if (sl_sibling_path(land_path, sizeof(land_path), map_path, "MAPL.000")) {
         blob_t land;
