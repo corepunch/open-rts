@@ -275,6 +275,44 @@ xrefs, disassembly, and decompiler context. Keep notes of stable findings in
 `REFERENCES.md` when they explain file formats, object layout, startup flow, or
 rendering behavior.
 
+## When actual game behavior or metadata is required
+
+When a loader or renderer needs to match the original executable, use the
+original binary as the authority before inventing a format rule or engine-side
+fallback. The focused disassembly loop is:
+
+1. Open the actual game executable with `radare2` (`r2`) and run its analysis
+   pass (`-A`), for example:
+
+   ```sh
+   r2 -q -e bin.cache=true -A data/7LEGION/legion.exe
+   ```
+
+2. Locate the relevant data or buffer, then use `axt @ <address>` to find code
+   references to it. For 7th Legion map work, trace the references to the
+   `MAPT` and `MAPOVL` buffers. If the buffer is not named, start from a file
+   name/string reference or the load routine and identify the buffer address in
+   the surrounding disassembly.
+
+3. Use `pdf @ <function>` on each relevant routine. Follow the caller/callee
+   path far enough to establish the real buffer size, read order, endianness,
+   transforms, metadata fields, and how decoded values reach rendering or
+   gameplay. `pd` is useful for a small instruction window; `pdf` is preferred
+   for the complete routine and local control flow.
+
+4. Implement the smallest faithful change in the game loader/plugin. Preserve
+   the original pass order and native values at the game boundary; do not
+   replace an unknown executable-derived field with a visual guess or a
+   sprite-name special case. Record stable offsets, constants, and format
+   findings in `REFERENCES.md`.
+
+5. Rebuild with `make`, regenerate a headless capture using the relevant
+   `SDL_VIDEODRIVER=dummy ... --screenshot` command, and visually inspect the
+   result. Repeat the disassembly → implementation → rebuild → capture → visual
+   inspection loop for each iteration until the behavior and placement match
+   the original. Keep generated disassembly dumps in ignored `reverse/`
+   directories; never commit them.
+
 ## Reverse Engineering Workflow
 
 To avoid getting overwhelmed by the binary's size, follow this broad-to-narrow approach:
