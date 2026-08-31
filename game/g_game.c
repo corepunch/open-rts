@@ -72,11 +72,11 @@ static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { DC_ACTOR_BRRKPOD }, 1 },
     /* Robot Factory units */
     { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
-    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
+    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD2 }, 1 },
     { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
     /* Upgraded Robot Factory units */
     {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { DC_ACTOR_ROBOPOD2 }, 1 },
-    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { DC_ACTOR_ROBOPOD2 }, 1 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
 };
 
 static int dark_colony_product_count(void) {

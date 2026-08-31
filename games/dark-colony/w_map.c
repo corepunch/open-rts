@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
     snprintf(dst, dst_size, "%s", path);
     char *dot = strrchr(dst, '.');
@@ -136,7 +135,6 @@ typedef struct {
 } DarkColonyMapNative;
 
 typedef struct {
-    float speed;
     int max_health;
 } DarkColonyUnitConfig;
 
@@ -757,10 +755,6 @@ static char *find_ascii_case_insensitive(char *haystack, const char *needle) {
     return NULL;
 }
 
-static float dark_colony_speed_from_gamestat(int speed) {
-    return speed > 0 ? (float)speed / 32.0f : 0.0f;
-}
-
 static bool dark_colony_map_path_is_multiplayer(const char *map_path) {
     if (!map_path) return false;
     return find_ascii_case_insensitive((char *)map_path, "/MPLAYER/") ||
@@ -774,9 +768,6 @@ static void load_dark_colony_unit_config(DarkColonyUnitConfig configs[DARK_COLON
     if (count > DARK_COLONY_MAX_GAMESTAT_UNITS) count = DARK_COLONY_MAX_GAMESTAT_UNITS;
     for (int i = 0; i < count; ++i) {
         const DcGamestatUnit *unit = &dc_gamestat_units[i];
-        if (unit->value_count > DC_GAMESTAT_UNIT_SPEED) {
-            configs[i].speed = dark_colony_speed_from_gamestat(unit->values[DC_GAMESTAT_UNIT_SPEED]);
-        }
         if (unit->value_count > DC_GAMESTAT_UNIT_HEALTH) {
             configs[i].max_health = unit->values[DC_GAMESTAT_UNIT_HEALTH];
         }
@@ -1089,6 +1080,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
                                            bool *player_anchor_set,
                                            int *player_anchor_x,
                                            int *player_anchor_y) {
+    (void)unit_config;
     if (!units || !count || *count >= max_units || !object || object->active == 0) {
         return false;
     }
@@ -1109,9 +1101,6 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     u->sprite_id = -1;
     u->attack_target = -1;
     u->harvest_target = -1;
-    if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config) {
-        u->speed = unit_config[type].speed;
-    }
     u->type_id = (uint16_t)mobj_type;
     if (city_object) u->render_sort_y = (float)object->cell_z + 0.5f;
     u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;

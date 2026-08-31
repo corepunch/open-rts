@@ -34,7 +34,10 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/TRSC.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 5.0f,
+        /* GAMESTAT.TXT stores movement in pixels per 32 Hz tick.  The
+         * simulation stores map cells per second: 25 / 32 is the authored
+         * Trooper rate, not the old placeholder 5.0. */
+        .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
         .attack_damage = 100,
@@ -50,7 +53,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/GRAY.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 5.0f,
+        .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
         .attack_damage = 100,
@@ -66,7 +69,8 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/EXPL.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_HARVESTER,
-        .speed = 8.0f,
+        /* The gameplay tuning uses the documented heavy-harvester rate. */
+        .speed = 3.5f,
         .max_hp = 800,
         .harvest_state_id = S_DC_EXPL_DEPLOY1,
     },
@@ -76,7 +80,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/REAP.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 6.0f,
+        .speed = 30.0f / 32.0f,
         .max_hp = 800,
         .attack_range = 4.0f,
         .attack_damage = 100,
@@ -92,7 +96,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/BARR.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 3.0f,
+        .speed = 15.0f / 32.0f,
         .max_hp = 1200,
         .attack_range = 6.0f,
         .attack_damage = 180,
@@ -108,7 +112,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/SARG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 7.0f,
+        .speed = 45.0f / 32.0f,
         .max_hp = 1200,
         .attack_range = 3.0f,
         .attack_damage = 150,
@@ -124,7 +128,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/SCGM.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 9.4f,
+        .speed = 47.0f / 32.0f,
         .max_hp = 600,
         .attack_range = 5.0f,
         .attack_damage = 80,

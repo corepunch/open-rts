@@ -630,6 +630,16 @@ and prerequisite rows. Row examples:
 - `7 1500 87 1 6 0 -1` = Exploiter unit depends on Exo Center.
 - `9 350 89 1 0 1 -1` = Trooper unit depends on Barracks.
 
+Configuration rule: raw Dark Colony text files are extraction inputs only. The
+runtime must never open `GAMESTAT/*.TXT`, `INTRFACE/MAINE`, or another original
+configuration file. `tools/dc_gamestat_gen` exports those values into the
+checked-in C arrays in `games/dark-colony/gamestat.h`, while gameplay-facing
+tables remain explicit C data, in the same spirit as Doom's `mobjinfo[]`.
+
+`python3` is available on the development host, but no Python dependency is
+needed for this export: the deterministic C generator is built by
+`make dark-colony-gamestat`.
+
 Current engine gaps before this can be made interactive:
 
 1. Add Dark Colony building actor types for rows 16-22 and load starting

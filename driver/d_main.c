@@ -2264,7 +2264,6 @@ int main(int argc, char **argv) {
         for (int i = 0; i < unit_count; ++i) {
             units[i].gx = (float)(cx + i % 3) + 0.5f;
             units[i].gy = (float)(cy + i / 3) + 0.5f;
-            units[i].speed = 5.5f;
             units[i].owner = 0;
             units[i].selected = i == 0;
             if (fallback_type) {
