@@ -95,11 +95,9 @@ bool sl_load_map(const char *map_path, level_t *out) {
 
     out->tile_ids = calloc((size_t)W * H, sizeof(uint16_t));
     out->blocked  = calloc((size_t)W * H, sizeof(uint8_t));
-    out->tile_flip_flags[0] = calloc((size_t)W * H, sizeof(uint8_t));
-    if (!out->tile_ids || !out->blocked || !out->tile_flip_flags[0]) {
+    if (!out->tile_ids || !out->blocked) {
         free(out->tile_ids);
         free(out->blocked);
-        free(out->tile_flip_flags[0]);
         W_FreeFile(&tiles);
         return false;
     }
