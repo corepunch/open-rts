@@ -95,6 +95,17 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
     return 0;
 }
 
+static bool poll_event_type(RtsGameModel *model, RtsGameEventType wanted,
+                            uint32_t subject_id, int product_type) {
+    RtsGameEvent event;
+    while (rts_game_model_poll_event(model, &event)) {
+        if (event.type == wanted &&
+            (subject_id == 0 || event.subject_id == subject_id) &&
+            (product_type < 0 || event.product_type == product_type)) return true;
+    }
+    return false;
+}
+
 static int assert_dark_colony_sprite_catalog(void) {
     FILE *f = fopen("games/dark-colony/info.c", "rb");
     if (!f) return fail("open generated Dark Colony info.c");
@@ -448,6 +459,12 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot.units[0].sprite_name[0] == '\0') {
         return fail("Human01 snapshot unit has render sprite reference");
     }
+    for (int i = 0; i < snapshot.unit_count; ++i) {
+        if (snapshot.units[i].id == 0) return fail("Human01 units have stable IDs");
+        for (int j = 0; j < i; ++j)
+            if (snapshot.units[i].id == snapshot.units[j].id)
+                return fail("Human01 unit IDs are unique");
+    }
     int metadata_result = assert_snapshot_render_command_metadata(&snapshot);
     if (metadata_result != 0) return metadata_result;
     if (!snapshot_has_blinking_beacon_decoration(&snapshot)) {
@@ -747,9 +764,15 @@ static int assert_human02(RtsGameModel *model) {
     int units_before_production = snapshot.unit_count;
     int troopers_before_production = snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER);
     int resources_before_production = snapshot.player_resources[0][0];
+    int barracks_index = snapshot_find_unit_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD);
+    if (barracks_index < 0) return fail("Human02 has a player Barracks for Trooper production");
     RtsGameCommand train_trooper = {
-        .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
-        .data.activate_ui_button = { .ui_id = 89 },
+        .kind = RTS_GAME_COMMAND_BUILD_PRODUCT,
+        .data.build_product = {
+            .producer_id = snapshot.units[barracks_index].id,
+            .producer_index = barracks_index,
+            .ui_id = 89,
+        },
     };
     if (!rts_game_model_command(model, &train_trooper)) {
         return fail("Human02 trains Trooper through model UI button command");
@@ -757,10 +780,9 @@ static int assert_human02(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("Human02 snapshot after training Trooper");
     }
-    int barracks_index = snapshot_find_unit_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD);
-    if (barracks_index < 0) {
-        return fail("Human02 has a player Barracks for Trooper production");
-    }
+    if (!poll_event_type(model, RTS_GAME_EVENT_BUILD_STARTED,
+                         snapshot.units[barracks_index].id, 0))
+        return fail("Human02 emits build-started event for explicit build command");
     float barracks_gx = snapshot.units[barracks_index].gx;
     float barracks_gy = snapshot.units[barracks_index].gy;
     if (snapshot.unit_count != units_before_production ||
@@ -801,6 +823,8 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production + 1) {
         return fail("Human02 queued Trooper production completes after model ticks");
     }
+    if (!poll_event_type(model, RTS_GAME_EVENT_BUILD_FINISHED, 0, 0))
+        return fail("Human02 emits build-finished event after Trooper release");
     float expected_exit_gx = barracks_gx + 16.0f / (float)CELL_W;
     float expected_exit_gy = barracks_gy - 75.0f / (float)CELL_H;
     int produced_trooper = -1;

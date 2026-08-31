@@ -15,6 +15,7 @@ ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
 DC_LAYOUT_TEST_TARGET  := $(BIN_DIR)/test_dark_colony_sprite_layout
+MODEL_COMMAND_TEST_SOURCE := tests/test_model_commands.c
 
 DATA_DIR         := data
 DARK_REIGN_ROOT  := $(DATA_DIR)/REIGN/dark
@@ -41,7 +42,7 @@ DC_GAMESTAT_GEN_SOURCE := tools/dc_gamestat_gen.c
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 DC_HEADLESS_TEST_SOURCE := tests/test_game_model_headless.c
 
-.PHONY: all run mission-1 mission-2 test test-headless dark-reign dark-colony \
+.PHONY: all run mission-1 mission-2 test test-headless test-model-commands dark-reign dark-colony \
         dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion kknd \
         kknd-check anim-extract clean help
 
@@ -150,11 +151,29 @@ kknd-check: $(BIN_DIR)/kknd
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
-test: test-headless
+test: test-headless test-model-commands
 
 test-headless: $(BIN_DIR)/test_game_model_headless $(DC_LAYOUT_TEST_TARGET)
 	$(BIN_DIR)/test_game_model_headless
 	$(DC_LAYOUT_TEST_TARGET)
+
+$(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dc/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES)) | $(BIN_DIR)
+	$(CC) $^ -o $@ $(SDL_LIBS) -lm
+
+$(BUILD_DIR)/cmd-dc/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+
+$(BIN_DIR)/test_model_commands_dark-reign: $(BUILD_DIR)/cmd-dr/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dr/%.o,$(MODEL_ENGINE_SOURCES) $(DR_GAME_SOURCES)) | $(BIN_DIR)
+	$(CC) $^ -o $@ $(SDL_LIBS) -lm
+
+$(BUILD_DIR)/cmd-dr/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+
+test-model-commands: $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
+	$(BIN_DIR)/test_model_commands_dark-colony
+	$(BIN_DIR)/test_model_commands_dark-reign
 
 help:
 	@echo "Usage: make [target]"

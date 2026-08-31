@@ -30,7 +30,18 @@ typedef enum {
     RTS_GAME_COMMAND_MOVE_SELECTED,
     RTS_GAME_COMMAND_HARVEST_SELECTED,
     RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+    RTS_GAME_COMMAND_ATTACK_UNIT,
+    RTS_GAME_COMMAND_BUILD_PRODUCT,
 } RtsGameCommandKind;
+
+typedef enum {
+    RTS_GAME_EVENT_NONE = 0,
+    RTS_GAME_EVENT_UNIT_ARRIVED,
+    RTS_GAME_EVENT_BUILD_STARTED,
+    RTS_GAME_EVENT_BUILD_FINISHED,
+    RTS_GAME_EVENT_UNIT_DIED,
+    RTS_GAME_EVENT_ATTACK_STARTED,
+} RtsGameEventType;
 
 typedef enum {
     RTS_RENDER_TRAIT_SELECTABLE = 1u << 0,
@@ -63,8 +74,30 @@ typedef struct {
         struct {
             int ui_id;
         } activate_ui_button;
+        struct {
+            uint32_t target_id;
+            int target_index; /* Compatibility fallback; prefer target_id. */
+        } attack_unit;
+        struct {
+            uint32_t producer_id;
+            int producer_index; /* Compatibility fallback; prefer producer_id. */
+            int ui_id;
+        } build_product;
     } data;
 } RtsGameCommand;
+
+typedef struct {
+    RtsGameEventType type;
+    uint64_t tick;
+    uint32_t subject_id;
+    uint32_t target_id;
+    uint16_t subject_type_id;
+    uint16_t target_type_id;
+    int product_class;
+    int product_type;
+    float gx;
+    float gy;
+} RtsGameEvent;
 
 typedef struct {
     float gx;
@@ -79,6 +112,7 @@ typedef struct {
     int frame;
     int facing_code;
     int state_id;
+    uint32_t id;
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
@@ -171,6 +205,8 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config);
 bool rts_game_model_tick(RtsGameModel *model, float dt);
 /* Applies a player/game command. Renderers should translate input into these commands. */
 bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command);
+/* Pops the oldest simulation transition event. Returns false when empty. */
+bool rts_game_model_poll_event(RtsGameModel *model, RtsGameEvent *out);
 /* Produces presentation-neutral state for a renderer or test to inspect. */
 bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out);
 /* Returns product definitions with availability computed from current model state. */

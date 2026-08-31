@@ -50,7 +50,33 @@ struct RtsGameModel {
     void *mission;
     bool loaded;
     char error[256];
+    uint64_t tick;
+    uint32_t next_unit_id;
+    RtsGameEvent events[256];
+    int event_head;
+    int event_count;
 };
+
+static void model_emit_event(void *user, int type, const mobj_t *subject,
+                             const mobj_t *target, int product_class, int product_type) {
+    RtsGameModel *model = user;
+    if (!model || model->event_count >= (int)(sizeof(model->events) / sizeof(model->events[0]))) return;
+    int slot = (model->event_head + model->event_count) %
+        (int)(sizeof(model->events) / sizeof(model->events[0]));
+    RtsGameEvent *event = &model->events[slot];
+    memset(event, 0, sizeof(*event));
+    event->type = (RtsGameEventType)type;
+    event->tick = model->tick;
+    event->subject_id = subject ? subject->id : 0;
+    event->target_id = target ? target->id : 0;
+    event->subject_type_id = subject ? subject->type_id : 0;
+    event->target_type_id = target ? target->type_id : 0;
+    event->product_class = product_class;
+    event->product_type = product_type;
+    event->gx = subject ? subject->gx : 0.0f;
+    event->gy = subject ? subject->gy : 0.0f;
+    model->event_count++;
+}
 
 static const actortype_t *plugin_actor_type_by_id(uint16_t type_id);
 static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type);
@@ -618,6 +644,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     mobj_t new_unit;
     memset(&new_unit, 0, sizeof(new_unit));
     new_unit.type_id = actor_id;
+    new_unit.id = ++model->next_unit_id;
     new_unit.owner = model->units[producer_index].owner;
     new_unit.sprite_id = -1;
     new_unit.attack_target = -1;
@@ -655,6 +682,8 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     new_unit.gy = gy;
     int spawned_index = model->unit_count;
     model->units[model->unit_count++] = new_unit;
+    model_emit_event(model, RTS_GAME_EVENT_BUILD_FINISHED, &model->units[spawned_index],
+                     producer, product->product_class, product->product_type);
     if (use_barracks_release)
         order_barracks_exit_spacing(model, spawned_index, producer, gx, gy);
     return true;
@@ -686,6 +715,8 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
     producer->production_time_left_ms = producer->production_time_ms;
     producer->production_release_active = false;
     producer->production_release_time_left_ms = 0;
+    model_emit_event(model, RTS_GAME_EVENT_BUILD_STARTED, producer, NULL,
+                     product->product_class, product->product_type);
     return true;
 }
 
@@ -1041,8 +1072,12 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     }
 }
 
-static void apply_plugin_actor_defaults(mobj_t *units, int unit_count) {
+static void apply_plugin_actor_defaults(RtsGameModel *model) {
+    if (!model) return;
+    mobj_t *units = model->units;
+    int unit_count = model->unit_count;
     for (int i = 0; i < unit_count; ++i) {
+        if (units[i].id == 0) units[i].id = ++model->next_unit_id;
         apply_actor_type_defaults(&units[i], plugin_actor_type_for_unit(&units[i]));
         P_SpawnMobj(gameinfo, &units[i]);
     }
@@ -1090,6 +1125,10 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
         memset(model->effects, 0, sizeof(model->effects));
         memset(&model->hud, 0, sizeof(model->hud));
         model->unit_count = 0;
+        model->tick = 0;
+        model->next_unit_id = 0;
+        model->event_head = 0;
+        model->event_count = 0;
         model->loaded = false;
     }
 
@@ -1098,7 +1137,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
         return false;
     }
     model->unit_count = P_LoadThings(map_path, (mobj_t *)model->units, MAXMOBJS);
-    apply_plugin_actor_defaults(model->units, model->unit_count);
+    apply_plugin_actor_defaults(model);
     model->mission = G_LoadMission(map_path);
     model->loaded = true;
     model->error[0] = '\0';
@@ -1108,6 +1147,22 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
 bool rts_game_model_tick(RtsGameModel *model, float dt) {
     if (!model || !model->loaded) return false;
     if (dt <= 0.0f) return true;
+    uint32_t old_ids[MAXMOBJS];
+    uint16_t old_types[MAXMOBJS];
+    int old_hp[MAXMOBJS];
+    int old_state[MAXMOBJS];
+    int old_targets[MAXMOBJS];
+    bool old_arrived[MAXMOBJS];
+    int old_count = model->unit_count;
+    for (int i = 0; i < old_count; ++i) {
+        old_ids[i] = model->units[i].id;
+        old_types[i] = model->units[i].type_id;
+        old_hp[i] = model->units[i].hp;
+        old_state[i] = model->units[i].state_id;
+        old_targets[i] = model->units[i].attack_target;
+        old_arrived[i] = model->units[i].move_order_arrived;
+    }
+    model->tick++;
     P_Ticker(&model->map, model->units, &model->unit_count, model->effects,
                  MAX_VISUAL_EFFECTS, gameinfo, dt);
     if (model->mission) {
@@ -1119,6 +1174,40 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     P_UpdateEffects(&model->map, model->effects, MAX_VISUAL_EFFECTS,
                           gameinfo, dt);
     HU_Ticker(&model->hud, dt);
+    for (int i = 0; i < old_count; ++i) {
+        int now = -1;
+        for (int j = 0; j < model->unit_count; ++j)
+            if (model->units[j].id == old_ids[i]) { now = j; break; }
+        if (now < 0 && old_hp[i] > 0) {
+            RtsGameEvent event = { .type = RTS_GAME_EVENT_UNIT_DIED,
+                                   .tick = model->tick, .subject_id = old_ids[i],
+                                   .subject_type_id = old_types[i] };
+            if (model->event_count < (int)(sizeof(model->events) / sizeof(model->events[0]))) {
+                int slot = (model->event_head + model->event_count) %
+                    (int)(sizeof(model->events) / sizeof(model->events[0]));
+                model->events[slot] = event;
+                model->event_count++;
+            }
+            continue;
+        }
+        if (now < 0) continue;
+        mobj_t *unit = &model->units[now];
+        if (old_hp[i] > 0 && unit->hp <= 0)
+            model_emit_event(model, RTS_GAME_EVENT_UNIT_DIED, unit, NULL, 0, 0);
+        if (!old_arrived[i] && unit->move_order_arrived)
+            model_emit_event(model, RTS_GAME_EVENT_UNIT_ARRIVED, unit, NULL, 0, 0);
+        const state_t *old_s = model_state_at(gameinfo, old_state[i]);
+        const state_t *new_s = model_state_at(gameinfo, unit->state_id);
+        if ((!old_s || old_s->misc1 != 3) && new_s && new_s->misc1 == 3) {
+            const mobj_t *target = NULL;
+            if (unit->attack_target >= 0 && unit->attack_target < model->unit_count)
+                target = &model->units[unit->attack_target];
+            else if (old_targets[i] >= 0 && old_targets[i] < old_count)
+                for (int j = 0; j < model->unit_count; ++j)
+                    if (model->units[j].id == old_ids[old_targets[i]]) { target = &model->units[j]; break; }
+            model_emit_event(model, RTS_GAME_EVENT_ATTACK_STARTED, unit, target, 0, 0);
+        }
+    }
     return true;
 }
 
@@ -1150,18 +1239,69 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
             (int)command->data.move_selected.gy,
         };
         P_MoveOrder(&model->map, model->units, model->unit_count, goal);
+        for (int i = 0; i < model->unit_count; ++i)
+            if (model->units[i].selected && model->units[i].move_order_arrived)
+                model_emit_event(model, RTS_GAME_EVENT_UNIT_ARRIVED, &model->units[i], NULL, 0, 0);
         return true;
     }
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
         return P_HarvestOrderAt(&model->map, model->units, model->unit_count,
                                       command->data.harvest_selected.gx,
                                       command->data.harvest_selected.gy);
+    case RTS_GAME_COMMAND_ATTACK_UNIT: {
+        int target = command->data.attack_unit.target_index;
+        if (command->data.attack_unit.target_id != 0) {
+            target = -1;
+            for (int i = 0; i < model->unit_count; ++i)
+                if (model->units[i].id == command->data.attack_unit.target_id) { target = i; break; }
+        }
+        if (target < 0 || target >= model->unit_count || model->units[target].hp <= 0) return false;
+        for (int i = 0; i < model->unit_count; ++i) {
+            mobj_t *unit = &model->units[i];
+            if (unit->selected && unit->owner == 0 && (unit->traits & MF_ATTACK))
+                unit->attack_target = target;
+        }
+        P_MoveOrderAt(&model->map, model->units, model->unit_count,
+                      model->units[target].gx, model->units[target].gy);
+        return true;
+    }
+    case RTS_GAME_COMMAND_BUILD_PRODUCT: {
+        int producer = command->data.build_product.producer_index;
+        if (command->data.build_product.producer_id != 0) {
+            producer = -1;
+            for (int i = 0; i < model->unit_count; ++i)
+                if (model->units[i].id == command->data.build_product.producer_id) { producer = i; break; }
+        }
+        if (producer < 0 || producer >= model->unit_count) return false;
+        const StaticProductDefinition *product = product_by_ui_id_for_model(command->data.build_product.ui_id);
+        if (!product || !product_is_available(model, product) ||
+            model->map.player_resources[0][0] < product->cost ||
+            find_product_producer_index(model, product) != producer) return false;
+        bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
+        uint16_t actor_id = dark_reign ? dark_reign_actor_id_for_product(product) :
+            dark_colony_actor_id_for_product(product);
+        bool queued = (strcmp(g_game_id, "dark-colony") == 0 &&
+                       product->product_class == RTS_PRODUCT_UNIT) || dark_reign;
+        bool ok = queued ? enqueue_model_unit_product(model, product, producer, actor_id) :
+            spawn_finished_model_product(model, product, producer);
+        if (ok) model->map.player_resources[0][0] -= product->cost;
+        return ok;
+    }
     case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON:
         return create_model_product(
             model, product_by_ui_id_for_model(command->data.activate_ui_button.ui_id));
     default:
         return false;
     }
+}
+
+bool rts_game_model_poll_event(RtsGameModel *model, RtsGameEvent *out) {
+    if (!model || !out || model->event_count <= 0) return false;
+    *out = model->events[model->event_head];
+    model->event_head = (model->event_head + 1) %
+        (int)(sizeof(model->events) / sizeof(model->events[0]));
+    model->event_count--;
+    return true;
 }
 
 bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) {
@@ -1195,6 +1335,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->frame = src->frame;
         dst->facing_code = src->facing_code;
         dst->state_id = src->state_id;
+        dst->id = src->id;
         dst->render_flags = src->render_flags;
         dst->render_remap = src->render_remap;
         dst->render_intensity = src->render_intensity;
