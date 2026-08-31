@@ -103,8 +103,6 @@ bool sl_load_map(const char *map_path, level_t *out) {
         W_FreeFile(&tiles);
         return false;
     }
-    /* Uncompressed terrain BIM scanlines are stored bottom-up. */
-    memset(out->tile_flip_flags[0], 2, (size_t)W * H);
     const uint8_t *tile_bytes = (const uint8_t *)tiles.bytes;
     uint16_t key = 30000;
     for (int y = 0; y < H; ++y) {
