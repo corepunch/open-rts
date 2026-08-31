@@ -184,6 +184,79 @@ ground offset, without flipping the whole map or applying a global correction.
 `play/p_facing.c`, `play/p_mobj.c`, and `render/r_draw.c` own the shared
 conversion helpers; game loaders own native-file interpretation.
 
+The simulation uses `facing_t`, a 16-bit compass angle (`0` = north, increasing
+clockwise, full circle = `65536`). `facing_scheme_t` is the per-game adapter from
+that canonical angle to a sprite table's discrete direction index. Keep gameplay
+facing canonical; convert to native direction codes only when selecting state
+frames or calling a game-specific angle helper. Do not store a plugin's sprite
+index as the actor's general facing.
+
+## Core data contracts
+
+### `level_t`: map data and ownership
+
+`level_t` is the shared map container. Its `width`/`height` define a row-major
+cell grid addressed through `L_Index(map, x, y)`; callers should use
+`L_Contains` before indexing. `tile_ids`, optional tile-overlay arrays,
+flip-flag arrays, `blocked`, and `cell_colors` are parallel allocations indexed
+by that same grid. `blocked` is simulation/pathfinding data; tile IDs and
+overlays are presentation data, even though both originate in the game loader.
+
+The map also owns decorations, resource vents, map extras, player resources, and
+game-native loader data. `P_FreeLevel` releases these allocations and invokes
+`destroy_native_data` when present. A plugin may attach parsed native state via
+`native_data`, but the shared engine must not inspect or free it directly.
+`bottom_up_coordinates` is a map policy, not a reason to rewrite source data:
+use `L_ScreenY*`/`L_WorldYF` and the map conversion helpers at the rendering
+boundary.
+
+### `mobj_t` and `effect_t`: simulation objects
+
+`mobj_t` is a live actor and owns gameplay state, orders, timers, production
+state, and a fixed-capacity path. `effect_t` is a transient visual object: it
+shares the state/render core (`gx`, `gy`, facing, state, frame, offsets, remap,
+and intensity) but adds active/lifetime policy instead of actor gameplay. Effects
+are stored in a bounded pool and may spawn a finishing decoration; they are not
+selectable, movable, attackable actors and should not be added to `mobj_t`.
+
+State transitions are the common bridge: `P_SetMobjState` and effect state entry
+apply the selected frame and action, while `P_Ticker` advances actors and
+`P_UpdateEffects` advances transient effects. Actor removal uses swap-compaction;
+effect slots are likewise reusable, so retain IDs or authored references rather
+than pointers or array positions across a tick.
+
+### `RtsGameModel`, commands, events, and snapshots
+
+`RtsGameModel` is opaque on purpose. `rts_game_model_*` exposes the simulation
+without SDL, textures, plugin-private structs, or direct mutable access. Feed it
+`RtsGameCommand` intent, advance it with `rts_game_model_tick`, consume transition
+notifications with `rts_game_model_poll_event`, and read presentation state with
+`rts_game_model_snapshot`.
+
+`RtsRenderSnapshot` is a value copy, not a live view: its unit/effect/decoration
+arrays and UI script are bounded buffers owned by the caller. Snapshot indexes
+are valid only for that snapshot; use `RtsRenderUnit.id` and event IDs to track
+actors across ticks. `RtsProductDefinition` describes UI/product rows and
+availability, not the internal `mobj_t` layout. This boundary is the intended
+integration point for headless tests, alternate frontends, and future network
+clients.
+
+### Asset containers and lifetime
+
+`tileset_t` contains the decoded terrain atlas, tile lookup, and tile animation
+metadata. `spritesheet_t` contains the texture, frame rectangles, ground points,
+displacements, native sequences, and optional remap textures for one asset. A
+`spritecache_t` owns named `cachedsprite_t` entries for per-object and decoration
+assets; use `R_CacheLookup` rather than loading the same sheet ad hoc.
+
+These containers are renderer-owned resources and may contain SDL textures, so
+the model path must not create or require them. Loaders may keep format-specific
+parsing state in `native_data` with a matching destroy callback; call the
+corresponding `R_FreeTileset`, `R_FreeSprite`, `R_FreeSpriteCache`, or
+`HU_FreeFont` instead of freeing individual fields. `bitmapfont_t` is a
+specialized spritesheet plus glyph metrics, while `hudtext_t` is only a bounded
+TTL message queue.
+
 ## Loading a game
 
 The interactive and model loaders follow the same conceptual sequence:
