@@ -731,7 +731,17 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                         u->turn_timer_ms -= dt_ms;
                         if (u->turn_timer_ms <= 0) {
                             int delta = desired - u->facing_code;
-                            int turn_step = map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8 ? 1 : 2;
+                            /* Dark Colony's direction codes are one slot per
+                             * 22.5 degrees.  Advancing by two skips every
+                             * odd slot, so a unit can turn forever whenever
+                             * its target direction has the opposite parity
+                             * from its current facing.  Some DC sequences
+                             * only provide the even (8-facing) art, but the
+                             * simulation still has to be able to reach all
+                             * sixteen direction codes before moving. */
+                            int turn_step = (map &&
+                                             (map->direction_mode == RTS_DIRECTION_DARK_REIGN_8 ||
+                                              map->direction_mode == RTS_DIRECTION_DARK_COLONY_16)) ? 1 : 2;
                             if (delta > 8) delta -= 16;
                             if (delta < -8) delta += 16;
                             u->facing_code = delta > 0 ?
