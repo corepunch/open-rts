@@ -1083,10 +1083,18 @@ static int dark_colony_city_render_z_fixed(const DcObject *object, int object_in
     return object->z_pos - slot_z * 8;
 }
 
+static void dark_colony_city_composite_position_fixed(const DarkColonyScenarioTeam *team,
+                                                       int *x_fixed, int *z_fixed) {
+    if (!team || team->ai_slot_count < 2) return;
+    if (x_fixed) *x_fixed = dark_colony_fixed_from_city_x(team->ai_slots[1][0]);
+    if (z_fixed) *z_fixed = dark_colony_fixed_from_cell(team->ai_slots[0][1]);
+}
+
 static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_units,
                                            int object_index,
                                            const DcObject *object, int race,
                                            const DarkColonyUnitConfig *unit_config,
+                                           const DarkColonyScenarioTeam *team_info,
                                            bool city_object,
                                            bool *player_selected,
                                            bool *player_has_exploiter,
@@ -1108,6 +1116,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         object->x_pos;
     int render_z_pos = city_object ? dark_colony_city_render_z_fixed(object, object_index) :
         object->z_pos;
+    if (city_object)
+        dark_colony_city_composite_position_fixed(team_info, &render_x_pos, &render_z_pos);
     u->core.gx = dark_colony_fixed_to_cell(render_x_pos);
     u->core.gy = dark_colony_fixed_to_cell(render_z_pos);
     u->core.sprite_id = -1;
@@ -1212,11 +1222,13 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             tower.type = 81;
             append_dark_colony_object_unit(units, &count, max_units, object_index,
                                            &tower, race,
-                                           unit_config, object_index < DC_BUILDING_OBJECT_COUNT,
+                                           unit_config, &scenario.teams[team],
+                                           object_index < DC_BUILDING_OBJECT_COUNT,
                                            NULL, NULL, NULL, NULL, NULL);
         }
         append_dark_colony_object_unit(units, &count, max_units, object_index, object, race,
-                                       unit_config, object_index < DC_BUILDING_OBJECT_COUNT,
+                                       unit_config, &scenario.teams[team],
+                                       object_index < DC_BUILDING_OBJECT_COUNT,
                                        &player_selected,
                                        &player_has_exploiter,
                                        &player_anchor_set,
@@ -1232,7 +1244,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             const DcObject *object = &object_pool.objects[object_index];
             append_dark_colony_object_unit(units, &count, max_units, object_index,
                                            object, 0,
-                                           unit_config, false, &player_selected,
+                                           unit_config, &scenario.teams[0], false, &player_selected,
                                            &player_has_exploiter,
                                            &player_anchor_set,
                                            &player_anchor_x,

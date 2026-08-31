@@ -248,15 +248,11 @@ Local game-data files that have already been useful:
   inactive, small active, small inactive. `VENT2.SPR` is a two-frame small
   yellow glow and can be used as the active/blinking overlay when the local data
   set does not include `SCENARIO/VENT.JUS`.
-- `VENT.SPR` frame 0 and `VENT2.SPR` frame 0 share an authored sprite canvas.
-  The full active crater has `86x58, dis=(2,22)` and the yellow plume has
-  `23x16, dis=(31,37)`, so the plume is placed `(+29,+15)` inside the crater
-  bitmap. The relationship between the SPR cells is native data, but the
-  terrain stamp origin and Exploiter attachment point have not been recovered
-  from DC.EXE. Open-rts currently derives both from the bitmap geometry; do not
-  treat that derivation as executable evidence or tune it with another visual
-  offset. Replace it only after tracing the native vent render and harvest
-  target coordinate paths.
+- `VENT.FIN` places VENT2 cell 0 at `(-40,12)`. Combined with VENT2's cell-0
+  displacement `(31,37)` and the native FIN Y sign conversion, its raw-cell
+  top-left is `(-9,25)` from the vent animation origin. This controls the yellow
+  plume only. The Exploiter targets the vent object's centered map coordinate;
+  do not derive its gameplay position from the displaced glow pixels.
 - `BEAC.SPR` has a base beacon frame and a separate glow frame; preserve the
   sprite palette for the glow and render it as an overlay rather than tinting the
   base sprite.

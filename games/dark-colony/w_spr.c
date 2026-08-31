@@ -679,8 +679,6 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
     return ok;
 }
 
-enum { DARK_COLONY_CELL_PIXELS = 32 };
-
 bool dark_colony_vent_placement_from_sprites(const char *map_path,
                                              DarkColonyVentPlacement *out) {
     if (!map_path || !out) return false;
@@ -691,22 +689,17 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     size_t root_len = (size_t)(scenario - map_path);
     if (root_len == 0 || root_len >= 900) return false;
 
-    char vent_path[1024];
     char glow_path[1024];
     char animation_path[1024];
-    snprintf(vent_path, sizeof(vent_path), "%.*s/SPRITES/VENT.SPR", (int)root_len, map_path);
     snprintf(glow_path, sizeof(glow_path), "%.*s/SPRITES/VENT2.SPR", (int)root_len, map_path);
     snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/VENT.FIN",
              (int)root_len, map_path);
 
-    DarkColonyJuiceFile vent = {0};
     DarkColonyJuiceFile glow = {0};
     DarkColonyAnimationFile animation = {0};
-    if (!dark_colony_juice_load(vent_path, &vent) ||
-        !dark_colony_juice_load(glow_path, &glow) ||
+    if (!dark_colony_juice_load(glow_path, &glow) ||
         !dark_colony_animation_load(animation_path, &animation) ||
-        vent.cell_count <= 0 || glow.cell_count <= 0) {
-        dark_colony_juice_destroy(&vent);
+        glow.cell_count <= 0) {
         dark_colony_juice_destroy(&glow);
         dark_colony_animation_destroy(&animation);
         return false;
@@ -716,7 +709,6 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     const DarkColonyAnimationCommand *plume_command = dark_colony_animation_find_command(
         &animation, "VENTSTAND0", "vent2", 0, 0);
     if (!plume_command) {
-        dark_colony_juice_destroy(&vent);
         dark_colony_juice_destroy(&glow);
         dark_colony_animation_destroy(&animation);
         return false;
@@ -724,11 +716,10 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
 
     out->glow_left = plume_command->x + (int)plume->dis_x;
     out->glow_top = -plume_command->y + (int)plume->dis_y;
-    out->attach_x = (float)out->glow_left + (float)plume->width * 0.5f;
-    out->attach_y = (float)out->glow_top + (float)plume->height * 0.5f;
+    out->attach_x = 0.0f;
+    out->attach_y = 0.0f;
     out->valid = true;
 
-    dark_colony_juice_destroy(&vent);
     dark_colony_juice_destroy(&glow);
     dark_colony_animation_destroy(&animation);
     return true;

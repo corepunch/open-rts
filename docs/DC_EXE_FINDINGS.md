@@ -298,12 +298,19 @@ base canvas; that normalization has not been found in DC.EXE and must not be
 used as precedent for adding further offsets. It should be removed only when
 the complete native FIN/SPR city placement path replaces it.
 
-The city anchor is the second `%AISlots` pair. The scenario loader stores that
-pair in team fields `+0x2c/+0x30`; `0x00441468..0x004414b3` shifts both values
-left by eight and adds the corresponding slot-table component shifted left by
-three. The values are object origins, not cell centers. For Human02 this means
-the native city origin is `(56,55)`, rather than a coordinate assembled from
-the second pair's X and first pair's Y.
+The native city object anchor is the second `%AISlots` pair. The scenario loader
+stores that pair in team fields `+0x2c/+0x30`; `0x00441468..0x004414b3` shifts
+both values left by eight and adds the corresponding slot-table component
+shifted left by three. The values are object origins, not cell centers. For
+Human02 this makes the native object origin `(56,55)`.
+
+Open-rts cannot yet render those independently positioned city objects as the
+single FIN-composed city image. It therefore keeps the native coordinates in
+the object pool but draws the temporary composite at the map's terrain-facing
+anchor: the second `%AISlots` X and the centered first `%AISlots` Y. Human02's
+composite render anchor is `(56,53.5)`. This preserves the pentagon alignment
+without changing native object storage; it remains compatibility behavior to
+remove when the complete city composition path is implemented.
 
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
 contains VENT2 cell 0 at FIN coordinate `(-40,12)`. Applying the native FIN Y
@@ -315,9 +322,10 @@ x = -40 + 31 = -9
 y = -12 + 37 = 25
 ```
 
-This replaces the earlier bitmap-centering estimate. The Exploiter harvesting
-attachment uses the center of that authored glow cell until the native
-gameplay-side attachment selector is recovered.
+This replaces the earlier bitmap-centering estimate. It controls only the glow.
+The mining path around `0x00412c31..0x00412c53` indexes the mine from the vent
+object's fixed-point `x_pos/z_pos`, so open-rts likewise targets the vent object
+center instead of coupling Exploiter placement to VENT2's displaced pixels.
 
 ## Known unknowns
 
@@ -326,7 +334,7 @@ gameplay-side attachment selector is recovered.
 - Which gameplay transition chooses Exploiter `SHUF` versus odd `MOVE` poses.
 - The complete sort-key layout of the 28-byte render queue record.
 - The role of each of the 32 auxiliary DirectDraw surfaces.
-- The native gameplay-side selection of the Exploiter's vent attachment point.
+- The remaining native Exploiter approach/deploy positioning around a vent.
 - Whether `DC16.EXE` uses identical routines and addresses; this report covers
   the fingerprinted `DC.EXE` only.
 
