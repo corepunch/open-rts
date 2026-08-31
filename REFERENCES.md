@@ -513,6 +513,114 @@ Dark Colony `info.c` must use the frame-major formula instead.
 original Dark Colony DOS MZ executables. Neither contains game data beyond the
 engine itself; all unit, sprite, and animation data lives in the external files.
 
+#### DirectDraw and software sprite rendering
+
+`DC.EXE` imports only `DirectDrawCreate`; all other DirectDraw operations are
+indirect COM vtable calls. The graphics setup rooted at `0x0042bbf0` stores the
+`IDirectDraw` pointer at `0x004745ec`. Surface setup at `0x0042bdc4` creates the
+primary surface (`0x004745f0`), its attached back buffer (`0x004745f4`), and an
+additional surface (`0x004745f8`). It also creates 32 auxiliary surfaces stored
+from `0x004c1120` and applies the game palette at `0x004745fc`.
+
+Confirmed DirectDraw v1 method slots used by these routines are:
+
+- `IDirectDraw +0x18`: `CreateSurface`
+- `IDirectDraw +0x50`: `SetCooperativeLevel`
+- `IDirectDraw +0x54`: `SetDisplayMode(640, 480, 8)`
+- `IDirectDrawSurface +0x1c`: `Blt`
+- `IDirectDrawSurface +0x2c`: `Flip`
+- `IDirectDrawSurface +0x30`: `GetAttachedSurface`
+- `IDirectDrawSurface +0x44`: `GetDC`
+- `IDirectDrawSurface +0x64`: `Lock`
+- `IDirectDrawSurface +0x68`: `ReleaseDC`
+- `IDirectDrawSurface +0x74`: `SetColorKey`
+- `IDirectDrawSurface +0x7c`: `SetPalette`
+- `IDirectDrawSurface +0x80`: `Unlock`
+
+Normal SPR rendering is CPU rasterization into locked surface memory, not one
+DirectDraw `Blt` call per sprite. The SPR-cell dispatcher at `0x0044b5e4`
+validates the frame index, obtains the 24-byte runtime descriptor, adds both
+authored displacement words to the input draw point, clips, then dispatches to
+`0x0044b2f0` for raw pixels or `0x0044b45c` for chunked/RLE pixels:
+
+```text
+draw_x = input_x + cell.disX
+draw_y = input_y + cell.disY
+```
+
+The decisive instructions are `mov ax, [ecx+4]; add edx, eax` for `disX` and
+`mov ax, [ecx+6]; add ebx, eax` for `disY`. Code using Dark Colony SPR frames
+must not discard `disY`; the original dispatcher consumes it before clipping.
+
+The dispatcher is installed as the sprite object's draw callback at object
+offset `+0x5c` by the constructor at `0x004297e4`; this is why ordinary static
+call xrefs do not expose its callers. Gameplay visual builders at `0x00436290`
+and `0x00436a44` enqueue 28-byte render records through `0x00432dec`, up to the
+native 800-record limit. Presentation routine `0x0042b54c` blits the additional
+surface (`0x004745f8`) to the back buffer (`0x004745f4`), optionally composites
+one of the 32 auxiliary surfaces, then flips the primary surface
+(`0x004745f0`).
+
+#### Native SPR and FIN runtime data
+
+The SPR loader at `0x0044b048` reads the native header as flags, cell count,
+payload size, 256 RGB triplets, then one 8-byte descriptor per cell:
+
+```text
+u16 width, u16 height, u16 disX, u16 disY
+```
+
+Each descriptor becomes a 24-byte runtime cell containing those four words,
+decoded/device data pointers, a used flag, and decoded or chunk byte count.
+SPR flags `& 0x180` select the chunked/RLE path.
+
+The FIN loader at `0x004230ac` resolves sprite dependencies from `SPRITES/`,
+loads labels and timeline metadata, and expands each 22-byte draw command. A
+native command contains an 8-byte dependency name followed by seven signed
+16-bit values: SPR cell, x, y, remap, intensity, layer, and flags. During load,
+the original converts command coordinates to its fixed render units:
+
+```text
+runtime_x = FIN.x * 8
+runtime_y = FIN.y * -8
+```
+
+The render queue converts these fixed values back while preserving the authored
+integer FIN offsets. Exact names for FIN layer values `0/1/3/5` and flag value
+`1` remain unresolved; preserve them as native fields until their consumers are
+identified.
+
+#### Exploiter and Reaper animation ranges
+
+Direction and cycle length are data-driven by FIN label ranges rather than
+hardcoded per unit in the renderer. `EXPL.FIN` contains directional poses for
+all 16 direction codes: even `EXPLSTAND*` labels and odd `EXPLSHUF*` labels.
+Its principal moving cycles are eight two-frame ranges (`EXPLMOVE0`, `14`,
+`12`, `10`, `8`, `6`, `4`, and `2`); odd move labels elsewhere in the file are
+single-frame intermediate poses. The unresolved gameplay-side question is when
+DC.EXE selects an odd shuffle pose versus quantizing movement to an even range.
+
+`REAP.FIN` contains eight principal movement ranges of eight timeline frames
+each: `REAPMOVE0` is `16..23`, then directions `14`, `12`, `10`, `8`, `2`, `4`,
+and `6` occupy `24..79`. Fire ranges are five frames each. Reaper death ranges
+are not uniform: observed inclusive ranges contain 10, 11, 14, 15, 26, or 27
+timeline frames. Any six-frame Reaper playback in open-rts is therefore a state
+generation/playback limitation, not a limit in `REAP.SPR`, `REAP.FIN`, or the
+original generic FIN renderer.
+
+FIN frame word `+2` is a raw delay. The loader at `0x00423544` replaces zero
+with `15`, then `0x00423563..0x0042358f` converts it to runtime ticks with:
+
+```text
+runtime_ticks = ((raw_ticks + 3) * 19) / 100
+```
+
+`REAPMOVE0` stores `20,13,13,20,6,13,13,6`, producing runtime delays
+`4,3,3,4,1,3,3,1`. The old generator assigned all eight states three tics,
+which erased this cadence. `EXPLMOVE*` stores zero and therefore normalizes to
+three runtime tics. `tools/dc_info_gen.c` now preserves the native converted
+timing for the Reaper movement sequence.
+
 **Source files embedded as assert strings** (incomplete list — useful for
 orienting reverse-engineering efforts):
 `animate.c`, `juicel.c`, `mobiles.c`, `objects.c`, `vobj.c`, `engmain.c`,
@@ -523,12 +631,13 @@ orienting reverse-engineering efforts):
 "angles". Assert strings: `"Whoa, One of my animation angles is NULL."`,
 `"Whoa Batman, I don't have any record of juice file %s"`.
 
-**Animation name construction.** The engine builds animation label names by
-concatenating a unit stem, a state keyword, and an integer angle suffix — format
-string `%s%s%d` is present at `0x7d6d8` immediately before `%s%d` at `0x7d6e8`,
-both adjacent to `BManimation` and `ANIM_NAME_LEN`. This confirms the engine
-looks up labels like `REAPMOVE0`, `REAPMOVE1` … `REAPMOVE15` directly by
-number, using the unit's current heading converted to an angle index.
+**Animation name construction.** Function `0x00423a50` first concatenates the
+unit stem and state keyword with `%s%s` at `0x0046fccc`, then probes 16 labels
+with `%s%d` at `0x0046fcd4`. Its suffix expression is `(12 - index) & 15`. It
+then expands those 16 animation pointers into a 32-entry heading table using
+the fallback-order table at `0x00474500`, choosing a nearby available angle
+when a label is absent. This confirms that numbered odd-angle labels are
+first-class native inputs rather than unused names.
 
 **State keywords found in the EXE** (`0x7f270`, near the unit-definition
 loader): `MOVE`, `STAND`, `DIEA`, `DIEB`, `DIEC`, `DEPLOY`, `FUNK`,
@@ -556,9 +665,16 @@ direction and no flip flags in the walk rows.
 Even-numbered angle labels (`REAPMOVE0`, `REAPMOVE2` … `REAPMOVE14`) hold the
 animated walk cycles. Odd-numbered angle labels (`REAPMOVE1`, `REAPMOVE3` …
 `REAPMOVE15`) are still single intermediate-angle body poses. The EXE strings
-confirm the engine builds animation names with `%s%d` / `%s%s%d` and asserts
-when any animation angle is NULL, so these labels are expected to exist and are
-queried by angle number.
+and `0x00423a50` confirm the engine queries these labels by angle and fills
+missing angle slots by nearest fallback.
+
+Open-rts currently generates Exploiter stand/run/deploy states with only the
+eight even direction codes. Its 16-direction turn logic can stop on odd codes,
+but `state_facing_slot()` then nearest-matches those codes to even art. Thus the
+native `EXPLSHUF1/3/.../15` and later `EXPLMOVE1/3/.../15` poses are not emitted
+or displayed. Which odd set DC.EXE selects while turning versus moving still
+requires tracing the callers of `0x00423a50`; the renderer itself supports the
+angles once the selected animation table contains them.
 
 Renderer implication: flipped FIN frame parts must honor the FIN command offset
 as well as the flip flag. Mirroring the already-normalized SPR canvas around its

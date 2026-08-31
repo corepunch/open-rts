@@ -312,8 +312,21 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 
+static int assert_reaper_move_timing(void) {
+    static const int expected_tics[] = {4, 3, 3, 4, 1, 3, 3, 1};
+    for (int i = 0; i < 8; ++i) {
+        if (states[S_DC_REAP_RUN1 + i].tics != expected_tics[i]) {
+            fprintf(stderr, "Reaper run state %d has %d tics, expected %d\n",
+                    i + 1, states[S_DC_REAP_RUN1 + i].tics, expected_tics[i]);
+            return fail("Reaper movement preserves native FIN timing");
+        }
+    }
+    return 0;
+}
+
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;
+    if (assert_reaper_move_timing() != 0) return 1;
     printf("PASS: Dark Colony SPR/FIN layout alignment is data-consistent\n");
     return 0;
 }

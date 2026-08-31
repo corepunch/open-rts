@@ -857,6 +857,22 @@ static int fin_state_count_for_sequence16(const DcFinAnimation *fin, const char 
     return count;
 }
 
+static int fin_sequence_tics(const DcFinAnimation *fin, const char *prefix,
+                             int step, int fallback_tics) {
+    char label[32];
+    snprintf(label, sizeof(label), "%s0", prefix);
+    const DcFinAnimationHeader *header = dc_fin_find_animation_header(fin, label);
+    if (!dc_fin_animation_header_has_valid_frames(fin, header) ||
+        header->start + step > header->end) {
+        return fallback_tics;
+    }
+
+    int raw_ticks = fin->frames[header->start + step].ticks;
+    if (raw_ticks == 0) raw_ticks = 15;
+    int runtime_tics = ((raw_ticks + 3) * 19) / 100;
+    return runtime_tics > 0 ? runtime_tics : 1;
+}
+
 static int fin_effect_draw_part_count_for_label(const DcFinAnimation *fin, const char *label_name) {
     const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
     if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
@@ -1715,12 +1731,14 @@ static void write_fin_sequence16(FILE *out, const char *spr, const DcFinAnimatio
                                  const char *label_prefix, const char *state_prefix,
                                  const char *kind, int count, int fallback_frame,
                                  int tics, int group, const char *first_action,
-                                 const char *exit_state) {
+                                 const char *exit_state, bool native_timing) {
     char next[64];
     for (int i = 0; i < count; ++i) {
         if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
         else snprintf(next, sizeof(next), "%s", exit_state);
-        f16_fin_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
+        int state_tics = native_timing ?
+            fin_sequence_tics(fin, label_prefix, i, tics) : tics;
+        f16_fin_state(out, spr, fin, label_prefix, i, fallback_frame, state_tics,
                       i == 0 ? first_action : "A_None", next, group);
     }
 }
@@ -1944,7 +1962,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[reap].symbol, &reap_fin, "REAPSTAND", 0, 0, -1,
                   "A_None", "S_DC_REAP_STND", 1);
     write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
-                         counts->reap_run, 0, 3, 2, "A_None", "S_DC_REAP_RUN1");
+                         counts->reap_run, 0, 3, 2, "A_None", "S_DC_REAP_RUN1", true);
     const char *reap_atk_actions[8] = {
         "A_None", "A_DC_MuzzleFlash", "A_DC_Attack", "A_None",
         "A_None", "A_None", "A_None", "A_None"
@@ -1953,7 +1971,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                                 counts->reap_attack, 0, 2, 3, reap_atk_actions,
                                 "S_DC_REAP_STND");
     write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPDIEA", "REAP", "DIE",
-                         counts->reap_death, 0, 3, 4, "A_DC_ReaperDeath", "S_DC_REAP_CORPSE");
+                         counts->reap_death, 0, 3, 4, "A_DC_ReaperDeath", "S_DC_REAP_CORPSE", false);
     write_fin_corpse16(out, sprites[reap].symbol, &reap_fin, "REAPDIEA", counts->reap_death - 1, 0);
     write_fin_label_effect_chain(out, root, sprites, sprite_count, &reap_fin,
                                  "REAPDIEA14", "REAP_DIEA14", 2, 2);
@@ -1963,11 +1981,11 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[barr].symbol, &barr_fin, "BARRSTAND", 0, 0, -1,
                   "A_None", "S_DC_BARR_STND", 1);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
-                         counts->barr_run, 0, 3, 2, "A_None", "S_DC_BARR_RUN1");
+                         counts->barr_run, 0, 3, 2, "A_None", "S_DC_BARR_RUN1", false);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRFIREA", "BARR", "ATK",
-                         counts->barr_attack, 0, 2, 3, "A_None", "S_DC_BARR_STND");
+                         counts->barr_attack, 0, 2, 3, "A_None", "S_DC_BARR_STND", false);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRDIE", "BARR", "DIE",
-                         counts->barr_death, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE");
+                         counts->barr_death, 0, 3, 4, "A_DC_Fall", "S_DC_BARR_CORPSE", false);
     write_fin_corpse16(out, sprites[barr].symbol, &barr_fin, "BARRDIE", counts->barr_death - 1, 0);
 
     f8_fin_state(out, sprites[sarg].symbol, &sarg_fin, "SARGSTAND", 0, 0, -1,
