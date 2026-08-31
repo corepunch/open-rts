@@ -1,6 +1,15 @@
 # open-rts
 
-<img src="https://github.com/user-attachments/assets/188b527b-6109-4130-b670-dedc3064ee03" />
+<table>
+  <tr>
+    <td><img src="docs/screenshots/dark-reign.png" alt="Dark Reign screenshot" width="100%" /></td>
+    <td><img src="docs/screenshots/dark-colony.png" alt="Dark Colony screenshot" width="100%" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/7legion.png" alt="7th Legion screenshot" width="100%" /></td>
+    <td><img src="docs/screenshots/kknd.png" alt="KKnD screenshot" width="100%" /></td>
+  </tr>
+</table>
 
 `open-rts` is a small C/SDL2 engine for sprite-based, 256-color strategy games,
 currently wired to the original data files from Dark Reign: The Future of War,
