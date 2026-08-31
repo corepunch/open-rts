@@ -65,6 +65,39 @@ probe. DC uses `games/dark-colony/g_game.c`; DR uses
 while `MF_HARVESTER` enables resource behavior. A building can be renderable,
 selectable, and a producer without being mobile.
 
+### Trait flags (`MF_*`)
+
+The trait enum is `mobjflag_t` in `play/actor.h`. Older notes and commits call
+these flags `T_*` (`T_MOBILE`, etc.); the current names are `MF_*` following the
+Doom naming convention. Traits are a bitmask stored in both `actortype_t.traits`
+and the live `mobj_t.traits`. `apply_actor_type_defaults()` copies the authored
+mask to a spawned object, so add or remove capabilities in the plugin's
+`ActorType` table rather than in the renderer or command handler.
+
+| Flag | Capability and consumers |
+| --- | --- |
+| `MF_SELECTABLE` | The player may select the object; selection markers and selection-dependent UI require it. Death clears it. |
+| `MF_MOBILE` | The object participates in movement, pathfinding, and separation. Movement/harvest orders require it. Death clears it. |
+| `MF_RENDERABLE` | The renderer draws the object's body and state overlay. It normally remains set on a dead object while its death animation plays. |
+| `MF_ATTACK` | The object may receive attack orders and run attack behavior. Death clears it. |
+| `MF_HARVESTER` | The object may execute resource harvesting. A harvest order requires both `MF_MOBILE` and `MF_HARVESTER`; death clears it. |
+
+Use bitwise tests for individual capabilities and bitwise combinations for
+requirements:
+
+```c
+if ((unit->traits & MF_ATTACK) != 0) { /* can attack */ }
+if ((unit->traits & (MF_MOBILE | MF_HARVESTER)) ==
+        (MF_MOBILE | MF_HARVESTER)) { /* can harvest */ }
+unit->traits &= ~(MF_SELECTABLE | MF_MOBILE); /* remove capabilities */
+```
+
+Do not compare the complete mask when checking one capability: unrelated flags
+may be present. Traits do not describe producer status, animation groups, or
+death state; those come from product tables and `MobjInfo[]`/`State[]` data.
+The renderer-neutral snapshot exposes the same bit values as
+`RtsRenderTrait` in `game/g_game.h`.
+
 ### `MobjInfo[]`: type entry points
 
 `mobjinfo_t` provides the classic state entry points and physical defaults:
