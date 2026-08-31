@@ -237,7 +237,8 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
         sequence->tick_ms = 120;
         for (int facing = 0; facing < 16; ++facing) {
             sequence->frame_starts[facing] = group_starts[block * 16 + facing];
-            sequence->direction_codes[facing] = facing;
+            sequence->rotation_angles[facing] =
+                direction_to_angle(facing, 16, ANG90, true);
             if (group_lengths[block * 16 + facing] < sequence->length)
                 sequence->length = group_lengths[block * 16 + facing];
         }

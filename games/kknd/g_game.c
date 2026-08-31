@@ -15,7 +15,6 @@ static const actortype_t KKND_ACTOR_TYPES[] = {
 };
 
 static const gameinfo_t KKND_GAME_INFO = {
-    .direction_mode   = RTS_DIRECTION_DARK_REIGN_8,
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
@@ -61,6 +60,9 @@ const int num_mobjinfo =
 const uidefinition_t *const gameui = &KKND_UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
+
+void G_InitGame(void) {
+}
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
     return load_kknd_map(path, out);

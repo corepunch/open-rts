@@ -125,7 +125,6 @@ bool load_kknd_map(const char *map_path, level_t *out) {
     /* MOBD facing 0 = north, indices increase clockwise — same convention as
        Dark Reign.  Without this the default compass16 scheme returns even
        codes 0/2/4…14 and misses the odd-numbered MOBD facings 1/3/5…15. */
-    out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
     out->native_data = native;
     out->destroy_native_data = kknd_map_data_destroy;
     out->has_camera = true;

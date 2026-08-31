@@ -229,10 +229,11 @@ static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) 
 }
 
 static int assert_dark_colony_city_fin_alignment(void) {
-    FinInfo hubu_fin, towr_fin, expl_fin;
+    FinInfo hubu_fin, towr_fin, expl_fin, vent_fin;
     if (!load_fin_info("data/DCOLONY/ANIMATE/HUBU.FIN", "HUBU", &hubu_fin) ||
         !load_fin_info("data/DCOLONY/ANIMATE/TOWR.FIN", "TOWR", &towr_fin) ||
-        !load_fin_info("data/DCOLONY/ANIMATE/EXPL.FIN", "EXPL", &expl_fin)) {
+        !load_fin_info("data/DCOLONY/ANIMATE/EXPL.FIN", "EXPL", &expl_fin) ||
+        !load_fin_info("data/DCOLONY/ANIMATE/VENT.FIN", "VENT", &vent_fin)) {
         return fail("load Dark Colony FIN files");
     }
     const FinCommand *exco = fin_command(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
@@ -252,13 +253,14 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("Barracks state uses raw BRRKPODSTAND0 FIN placement");
     }
 
-    SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0, beac0, beac1;
+    SprFrameInfo expl0, expl6, expl14, expl15, hubu4, towr0, vent0, beac0, beac1;
     if (!load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 0, &expl0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 6, &expl6) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 14, &expl14) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 15, &expl15) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/HUBU.SPR", 4, &hubu4) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/TOWR.SPR", 0, &towr0) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/VENT2.SPR", 0, &vent0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/BEAC.SPR", 0, &beac0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/BEAC.SPR", 1, &beac1)) {
         return fail("load raw Dark Colony SPR frame descriptors");
@@ -279,9 +281,9 @@ static int assert_dark_colony_city_fin_alignment(void) {
     if (towr0.width != 77 || towr0.height != 257 || towr0.dis_x != 0 || towr0.dis_y != 0) {
         return fail("TOWR frame 0 keeps raw SPR descriptor values");
     }
-    if (barracks->x + hubu4.dis_x != -32 || barracks->y + hubu4.dis_y != 39 ||
-        tower->x + towr0.dis_x != -36 || tower->y + towr0.dis_y != -9) {
-        return fail("city FIN parts share one origin regardless of SPR sheet height");
+    if (barracks->x + hubu4.dis_x != -32 || barracks->y - hubu4.height != -68 ||
+        tower->x + towr0.dis_x != -36 || tower->y - towr0.height != -266) {
+        return fail("city FIN parts use queued-world displacement and height placement");
     }
     if (beac0.width != 38 || beac0.height != 91 || beac0.dis_x != 39 || beac0.dis_y != 30 ||
         beac1.width != 20 || beac1.height != 40 || beac1.dis_x != 42 || beac1.dis_y != 27 ||
@@ -295,16 +297,22 @@ static int assert_dark_colony_city_fin_alignment(void) {
     if (!expl_right || !expl_left || !expl_deploy_body || !expl_deploy_top)
         return fail("resolve Exploiter FIN commands");
     int right_draw_x = expl_right->x + expl0.dis_x;
-    int right_draw_y = expl_right->y + expl0.dis_y;
+    int right_draw_y = expl_right->y - expl0.height;
     int left_draw_x = expl_left->x;
-    int left_draw_y = expl_left->y + expl6.dis_y;
-    int body_draw_y = expl_deploy_body->y + expl14.dis_y;
+    int left_draw_y = expl_left->y - expl6.height;
+    int body_draw_y = expl_deploy_body->y - expl14.height;
     int top_draw_x = expl_deploy_top->x + expl15.dis_x;
-    int top_draw_y = expl_deploy_top->y + expl15.dis_y;
-    if (right_draw_x != -22 || right_draw_y != 123 ||
-        left_draw_x != -30 || left_draw_y != 130 ||
-        body_draw_y != 131 || top_draw_x != -10 || top_draw_y != 117) {
+    int top_draw_y = expl_deploy_top->y - expl15.height;
+    if (right_draw_x != -22 || right_draw_y != -30 ||
+        left_draw_x != -30 || left_draw_y != -32 ||
+        body_draw_y != -28 || top_draw_x != -10 || top_draw_y != -17) {
         return fail("Exploiter FIN/SPR placement matches the native draw pipeline");
+    }
+    const FinCommand *vent = fin_command(&vent_fin, "VENTSTAND0", "vent2", 0, 0);
+    if (!vent || vent0.width != 23 || vent0.height != 16 ||
+        vent0.dis_x != 31 || vent0.dis_y != 37 ||
+        vent->x + vent0.dis_x != -9 || vent->y - vent0.height != -4) {
+        return fail("Petra-7 glow uses queued-world displacement and height placement");
     }
     return 0;
 }

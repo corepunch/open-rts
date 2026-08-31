@@ -168,7 +168,6 @@ bool sl_load_map(const char *map_path, level_t *out) {
              sl_tileset_for_terrain(mission.terrain));
     out->player_resources[0][0] = mission.start_cash;
 
-    out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
     out->has_camera = true;
     out->camera_gx  = (float)mission.start_x;
     out->camera_gy  = (float)mission.start_y;
@@ -189,7 +188,7 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
         unit->core.gy = (float)(mission.start_y - 1) + 0.5f;
         unit->owner = 0;
         unit->type_id = 1;
-        unit->core.facing_code = 8;
+        unit->core.angle = ANG270;
     }
     for (int i = 0; i < base_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
@@ -198,7 +197,7 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
         unit->core.gy = (float)(mission.start_y + 1) + 0.5f;
         unit->owner = 0;
         unit->type_id = 7;
-        unit->core.facing_code = 8;
+        unit->core.angle = ANG270;
     }
     return count;
 }

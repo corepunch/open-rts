@@ -522,16 +522,16 @@ static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *pr
     return false;
 }
 
-static bool state_offset_for_facing(const state_t *state, bool overlay, int facing_code,
+static bool state_offset_for_facing(const state_t *state, bool overlay, angle_t angle,
                                     int *out_x, int *out_y) {
     if (!state || !out_x || !out_y) return false;
     int facings = overlay ? state->overlay_facings : state->facings;
     if (facings <= 0) return false;
     int best = 0;
-    int best_delta = 0x7fffffff;
+    uint32_t best_delta = UINT32_MAX;
     for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        int code = overlay ? state->overlay_direction_codes[i] : state->direction_codes[i];
-        int delta = abs(code - facing_code);
+        angle_t rotation = overlay ? state->overlay_rotation_angles[i] : state->rotation_angles[i];
+        uint32_t delta = angle_distance(rotation, angle);
         if (delta < best_delta) {
             best = i;
             best_delta = delta;
@@ -557,7 +557,7 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
 
     int stand_x = 0;
     int stand_y = 0;
-    if (!state_offset_for_facing(stand, false, new_unit->core.facing_code, &stand_x, &stand_y))
+    if (!state_offset_for_facing(stand, false, new_unit->core.angle, &stand_x, &stand_y))
         return false;
 
     int release_state_id = model_find_state_by_group_frame(game_info,
@@ -573,13 +573,13 @@ static bool dark_colony_barracks_release_spawn_point(const RtsGameModel *model,
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite &&
-            state_offset_for_facing(state, false, new_unit->core.facing_code, &x, &y)) {
+            state_offset_for_facing(state, false, new_unit->core.angle, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
         }
         if (state->overlay_sprite == stand->sprite &&
-            state_offset_for_facing(state, true, new_unit->core.facing_code, &x, &y)) {
+            state_offset_for_facing(state, true, new_unit->core.angle, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
@@ -659,6 +659,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     new_unit.id = ++model->next_unit_id;
     new_unit.owner = model->units[producer_index].owner;
     new_unit.core.sprite_id = -1;
+    new_unit.core.angle = ANG90;
     new_unit.attack.target = -1;
     new_unit.harvest.target = -1;
     new_unit.core.frame = !dark_reign && product->product_class == RTS_PRODUCT_BUILDING ?
@@ -1141,6 +1142,7 @@ void rts_game_model_destroy(RtsGameModel *model) {
 
 bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) {
     if (!model || !config) return false;
+    G_InitGame();
     const char *data_root = config->data_root && config->data_root[0] ?
         config->data_root : g_game_default_root;
     const char *map_rel_or_abs = config->map_path && config->map_path[0] ?
@@ -1371,7 +1373,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->hp = src->hp;
         dst->max_hp = src->max_hp;
         dst->frame = src->core.frame;
-        dst->facing_code = src->core.facing_code;
+        dst->facing_code = angle_to_direction(src->core.angle, 32, ANG90, true);
         dst->state_id = src->core.state_id;
         dst->id = src->id;
         dst->render_flags = src->core.render_flags;
@@ -1399,7 +1401,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->frame_index = src->frame_index;
         dst->frame2_index = src->frame2_index;
         dst->frame3_index = src->frame3_index;
-        dst->facing_code = src->facing_code;
+        dst->facing_code = angle_to_direction(src->angle, 32, ANG90, true);
         dst->render_flags = src->render_flags;
         dst->render2_flags = src->render2_flags;
         dst->render3_flags = src->render3_flags;

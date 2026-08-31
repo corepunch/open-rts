@@ -2,6 +2,7 @@
 #define __ACTOR__
 
 #include "engine_config.h"
+#include "facing.h"
 #include "map.h"
 
 #include <stdbool.h>
@@ -58,7 +59,7 @@ typedef struct state_s {
     int misc1;
     int misc2;
     int facings;
-    int direction_codes[RTS_MAX_STATE_FACINGS];
+    angle_t rotation_angles[RTS_MAX_STATE_FACINGS];
     int facing_frames[RTS_MAX_STATE_FACINGS];
     uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
     int offset_x[RTS_MAX_STATE_FACINGS];
@@ -69,7 +70,7 @@ typedef struct state_s {
     int overlay_frame;
     uint32_t overlay_flags;
     int overlay_facings;
-    int overlay_direction_codes[RTS_MAX_STATE_FACINGS];
+    angle_t overlay_rotation_angles[RTS_MAX_STATE_FACINGS];
     int overlay_facing_frames[RTS_MAX_STATE_FACINGS];
     uint32_t overlay_facing_flags[RTS_MAX_STATE_FACINGS];
     int overlay_offset_x[RTS_MAX_STATE_FACINGS];
@@ -133,7 +134,6 @@ typedef struct gameinfo_s {
     const mobjinfo_t *mobjinfo;
     int mobj_type_count;
     int null_state;
-    DirectionMode direction_mode;
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
 } gameinfo_t;
@@ -147,7 +147,7 @@ typedef struct gameinfo_s {
 typedef struct mobjcore_s {
     float gx;
     float gy;
-    int facing_code;
+    angle_t angle;
     int state_id;
     int tics;
     int sprite_id;

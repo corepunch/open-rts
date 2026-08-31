@@ -733,7 +733,6 @@ static void render_dark_reign_edges_for_cell(app_t *app, const level_t *map, con
 
 bool load_dark_map(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
-    out->direction_mode = RTS_DIRECTION_DARK_REIGN_8;
     blob_t blob;
     if (!W_ReadFile(map_path, &blob)) {
         char fallback_mm[1024];

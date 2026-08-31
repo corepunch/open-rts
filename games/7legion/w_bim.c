@@ -358,9 +358,11 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         for (int facing = 0; facing < 8; ++facing) {
             int start = facing * frames_per_facing;
             stand->frame_starts[facing] = start;
-            stand->direction_codes[facing] = facing * 2;
+            stand->rotation_angles[facing] =
+                direction_to_angle(facing, 8, ANG90, true);
             run->frame_starts[facing] = start;
-            run->direction_codes[facing] = facing * 2;
+            run->rotation_angles[facing] =
+                direction_to_angle(facing, 8, ANG90, true);
         }
     } else {
         out->rotations = 1;

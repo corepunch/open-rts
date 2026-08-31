@@ -2040,7 +2040,6 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    mobjinfo,\n");
     fprintf(out, "    NUMMOBJTYPES,\n");
     fprintf(out, "    S_NULL,\n");
-    fprintf(out, "    RTS_DIRECTION_DARK_COLONY_16,\n");
     fprintf(out, "    RTS_STATE_COORDS_FIN_TOP_LEFT,\n");
     fprintf(out, "    { SPR_DC_INTRFACE_CLIENT, 0, 1, 3, -3 },\n");
     fprintf(out, "};\n");

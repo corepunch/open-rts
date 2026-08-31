@@ -54,8 +54,8 @@ flowchart LR
     A[Game object and FIN frame] --> B[Visual builders<br/>0x00436290 / 0x00436a44]
     B --> C[28-byte render record<br/>0x00432dec]
     C --> D[Sorted render queue<br/>maximum 800 records]
-    D --> E[Sprite draw callback<br/>object offset +0x5c]
-    E --> F[SPR dispatcher<br/>0x0044b5e4]
+   D --> E[Queue consumer<br/>0x0044f95c]
+   E --> F[Specialized world handlers<br/>0x0045c060 and variants]
     F --> G[Raw rasterizer<br/>0x0044b2f0]
     F --> H[RLE rasterizer<br/>0x0044b45c]
     G --> I[Additional DirectDraw surface]
@@ -121,28 +121,32 @@ composition at `0x00436baf..0x00436bd2`: it adds the object's two position
 words to the command's runtime X/Y fields before calling `0x00432dec`.
 
 `0x00432dec` converts those values from eighth-pixels and reverses the native
-bottom-up Y axis when writing the queue record. The queue consumer at
-`0x0044f95c` forwards the resulting screen X/Y to the rasterizer without using
-the selected cell's width or height. Together with the FIN loader's
-`runtime_x = FIN.x * 8` and `runtime_y = FIN.y * -8`, the top-down composition
-used by open-rts is therefore:
+bottom-up Y axis when writing the queue record. Consumer `0x0044f95c` selects a
+specialized renderer from record byte `+0x17`. For selector zero it calls
+`0x0045c060` normally and `0x0045c41c` for the mirrored form. Together with the
+FIN loader's `runtime_x = FIN.x * 8` and `runtime_y = FIN.y * -8`, normal
+top-down placement is:
 
 ```text
 draw_x = object_screen_x + FIN.x + cell.disX
-draw_y = object_screen_y + FIN.y + cell.disY
+draw_y = object_screen_y + FIN.y - cell.height
 ```
 
-Subtracting a cropped cell height makes animation frames jump. Subtracting a
-per-SPR canvas height is also incorrect: FIN parts from different SPR files
-share one object origin, so it shifts city components relative to one another.
-The optional values subtracted at `0x00436666` and `0x00436682` are transient
-offsets produced by `0x00441080`, not sprite dimensions.
+At `0x0045c0bd..0x0045c0c4`, the normal handler loads `[cell+4]` (`disX`)
+and adds it to X. At `0x0045c0df..0x0045c0e3`, it loads `[cell+2]`
+(`height`) and subtracts it from Y. It never reads `[cell+6]` (`disY`).
+The mirrored handler `0x0045c41c` instead adds cell width to its initial X at
+`0x0045c479..0x0045c47f` and supplies a negative horizontal step to the raster
+path. Its covered left edge is the FIN X coordinate; an SDL port mirrors within
+a width-sized destination at `object_screen_x + FIN.x`, without adding `disX`.
+It uses the same `FIN.y - cell.height` top edge at
+`0x0045c49a..0x0045c49e`.
 
 The confirmed portion of each 28-byte record written at `0x004dc0ac` is:
 
 | Record offset | Observed value |
 | --- | --- |
-| `+0x00` | Runtime SPR dependency pointer |
+| `+0x00` | Selected runtime SPR cell pointer |
 | `+0x08` | Descending queue sequence key |
 | `+0x0c` | Draw X after fixed-point division by eight |
 | `+0x0e` | View-height-minus-draw-Y after fixed-point division |
@@ -152,15 +156,18 @@ The confirmed portion of each 28-byte record written at `0x004dc0ac` is:
 `0x00432de0` initializes the sequence key from a value rounded down to a
 multiple of eight. `0x00432dec` stores that key and decrements it after each
 part, preserving order among parts submitted by one animation frame. Consumer
-`0x0044f95c` culls and sorts the records. Its normal sprite paths recover X
-from record word `+0x0c` and Y from word `+0x0e`; no cell width or height is
-subtracted. The complete semantics of the remaining packed fields and sort key
-are still unknown.
+`0x0044f95c` culls, sorts, and dispatches records. Record `+0x17` has observed
+values zero through five; nonzero selectors reach scaled or remapped handlers
+around `0x0045c7b0`, `0x0045cc04`, `0x0045d334`, `0x0045d358`, `0x0045d6d4`,
+and `0x0045d6f8`. Their complete semantic names and packed-field mapping remain
+**unknown**.
 
-The SPR draw routine is reached through a callback rather than a normal direct
-call. Constructor `0x004297e4` installs dispatcher `0x0044b5e4` at object offset
-`+0x5c`. Consequently, static call-reference searches do not reveal the whole
-sprite call chain.
+**Disproven:** the queue was previously reported as reaching dispatcher
+`0x0044b5e4` through a callback installed by constructor `0x004297e4`. That
+dispatcher exists and its own displacement arithmetic was read correctly, but
+it belongs to a separate generic sprite API. It is not the selector-zero world
+record consumer. The mistake was plausible because indirect dispatch hides
+call references and both paths ultimately use the same raster machinery.
 
 ## Native SPR behavior
 
@@ -186,7 +193,7 @@ The loader expands this to a 24-byte runtime descriptor containing the four
 words, data pointers, a used marker, and decoded or chunk byte counts. Header
 flags masked by `0x180` select the chunked/RLE path.
 
-### Cell displacement
+### Generic dispatcher versus world records
 
 Dispatcher `0x0044b5e4` validates the frame index, obtains the runtime cell,
 adds both displacement fields to the requested point, clips, and selects the
@@ -199,27 +206,27 @@ draw_y = input_y + cell.disY
 
 The relevant instructions load `[cell+4]` for `disX` and `[cell+6]` for
 `disY`, then add each to the corresponding draw coordinate before clipping.
-Therefore `disY` is active placement metadata. Treating it as padding or
-forcing it to zero diverges from DC.EXE and can vertically misalign buildings,
-units, overlays, and multi-part sprites.
+This formula is **confirmed for that generic API only**. It must not be applied
+to queued world records, whose selector-zero handlers use `disX` and height as
+described above. The original purpose of `disY` outside `0x0044b5e4` remains
+**unknown**.
+
+The raw rasterizer at `0x0044b2f0` and RLE rasterizer at `0x0044b45c` advance
+source and destination scanlines forward. The world handlers establish the top
+edge by subtracting height before rasterization; the rasterizers do not perform
+a later vertical inversion.
 
 ### Native screenshot comparison
 
 Native 640x480 gameplay captures from MobyGames (Dark Colony screenshot
 `395046`), My Abandonware's Dark Colony gallery, and the Dark Colony Wiki's
-"Active Exploiter" image were compared with production-renderer captures. The
-native human landing structure places the large hub/dropship above the narrow,
-segmented tower and pod column. Direct FIN-plus-SPR composition reproduces that
-relationship; subtracting each sheet's height moves the tower and HUBU parts by
-different amounts and visibly breaks the column. The active Exploiter reference
-also keeps the deployed body and mast on one shared origin, as the direct
-composition does.
-
-The production comparison used HUMAN02 at the game's native 640x480 output and
-the Exploiter deploy/work states. The direct formula kept the body and mast on
-one origin and restored the same top-to-bottom city silhouette visible in the
-original captures. This is supporting visual evidence; the coordinate formula
-itself is confirmed by the executable instructions above.
+"Active Exploiter" image were compared with production-renderer captures. They
+disprove the earlier `FIN.y + disY` implementation: it tears apart the human
+landing structure and separates the visible Petra-7 plume from the deployed
+Exploiter. Restoring per-cell height subtraction produces the native
+top-to-bottom city silhouette and Exploiter relationship. This is supporting
+visual evidence; the coordinate rule itself comes from `0x0045c060` and
+`0x0045c41c`.
 
 ## Native FIN behavior
 
@@ -356,7 +363,8 @@ animation-set constructor, not to the generic renderer.
 
 The executable evidence gives several implementation rules:
 
-1. Apply both SPR `disX` and `disY` before clipping.
+1. For selector-zero queued world sprites, apply `disX` only when unmirrored
+   and subtract cell height from Y; do not apply `disY`.
 2. Preserve FIN x/y independently for every body and overlay part.
 3. Treat a frame as cell plus flags, offsets, remap, intensity, and layer.
 4. Preserve converted per-frame FIN timing rather than assigning one duration
@@ -367,9 +375,9 @@ The executable evidence gives several implementation rules:
 7. Keep the fixed render queue and native object-layout limits visible while
    reconstructing behavior.
 
-These findings rule out moving terrain or city slots to compensate for sprite
-misalignment. The original placement path composes FIN offsets and both SPR
-displacements; visual corrections should reproduce that composition.
+These findings rule out moving terrain, gameplay coordinates, or city slots to
+compensate for sprite misalignment. Visual corrections should reproduce the
+specialized queue handler selected by the native render record.
 
 DC.EXE does contain literal city-slot geometry at `0x00475b64`:
 `(-64,15)`, `(0,0)`, `(32,64)`, `(64,10)`, `(-32,65)`, `(0,32)`, and `(0,0)`.
@@ -398,20 +406,19 @@ remove when the complete city composition path is implemented.
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
 contains VENT2 cell 0 at FIN coordinate `(-40,12)`. The confirmed queue path
 negates FIN Y while entering bottom-up fixed space and reverses it again while
-creating top-down screen Y. VENT2 cell 0 displacement `(31,37)` therefore gives
-the native screen-space offset `(-9,49)` from the native animation origin:
+creating top-down screen Y. VENT2 cell 0 has width 23, height 16, and displacement
+`(31,37)`, so selector-zero placement is `(-9,-4)` from the native animation
+origin:
 
 ```text
 x = -40 + 31 = -9
-y =  12 + 37 = 49
+y =  12 - 16 = -4
 ```
 
-Open-rts currently uses `-12 + 37 = 25` in its vent-specific decoration loader.
-That value matched the current visual probe but is not the general native FIN
-screen-space rule; the open-rts decoration anchor is not yet proven equivalent
-to DC.EXE's visual-object origin. Preserve the current yellow plume until that
-anchor is traced, but do not reuse its sign conversion for units, buildings, or
-other FIN parts.
+Open-rts's decoration API stores a pivot that is subtracted from the world
+anchor. Its VENT2 adapter therefore stores pivot `(9,4)`, the negation of that
+native destination offset. The earlier pivot `(9,-25)` came from the disproven
+generic-dispatch formula and placed the plume 29 pixels too low.
 
 The mining path around `0x00412c31..0x00412c53` indexes the mine from the vent
 object's fixed-point `x_pos/z_pos`, so the gameplay target remains the vent
@@ -425,8 +432,6 @@ object center rather than VENT2's displaced pixels.
 - The complete sort-key layout of the 28-byte render queue record.
 - The role of each of the 32 auxiliary DirectDraw surfaces.
 - The remaining native Exploiter approach/deploy positioning around a vent.
-- The conversion between open-rts's vent decoration anchor and DC.EXE's
-   secondary visual-object origin; this blocks changing the current plume Y.
 - Whether `DC16.EXE` uses identical routines and addresses; this report covers
   the fingerprinted `DC.EXE` only.
 
@@ -444,6 +449,8 @@ r2 -q -e bin.cache=true -A -c "pdf @ 0x00432dec" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x00436290" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x00436a44" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x0044f95c" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x0045c060" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x0045c41c" -c q data/DCOLONY/DC.EXE
 ```
 
 Decompiler signatures and variable names are provisional. Verify conclusions

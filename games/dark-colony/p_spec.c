@@ -236,7 +236,8 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
         }
         unit->selected = !has_selected_player;
     }
-    unit->core.facing_code = unit->owner == 0 ? 6 : 14;
+    unit->core.angle = direction_to_angle(unit->owner == 0 ? 6 : 14,
+                                          16, ANG90, true);
     uint16_t type_id = dark_colony_script_unit_type(team, type);
     const actortype_t *actor = dark_colony_actor_type_by_id(type_id);
     dark_colony_apply_actor_type_defaults(unit, actor);

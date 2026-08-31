@@ -85,7 +85,6 @@ static const actortype_t SL_ACTOR_TYPES[] = {
 };
 
 static const gameinfo_t SL_GAME_INFO = {
-    .direction_mode   = RTS_DIRECTION_DARK_REIGN_8,
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
@@ -123,6 +122,9 @@ const int num_mobjinfo =
 const uidefinition_t *const gameui = &SL_UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
+
+void G_InitGame(void) {
+}
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
     return sl_load_map(path, out);

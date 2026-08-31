@@ -2,6 +2,7 @@
 #define __SPRITES__
 
 #include "engine_config.h"
+#include "facing.h"
 #include "m_vec.h"
 
 #include <SDL.h>
@@ -34,7 +35,7 @@ typedef struct spritesequence_s {
     int frame_stride;
     int tick_ms;
     int frame_starts[MAX_SEQUENCE_FACINGS];
-    int direction_codes[MAX_SEQUENCE_FACINGS];
+    angle_t rotation_angles[MAX_SEQUENCE_FACINGS];
 } spritesequence_t;
 
 typedef struct spritesheet_s {

@@ -651,14 +651,6 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
         unit->harvest.phase = 1;
         unit->movement.order_id = order_id;
         unit->movement.order_arrived = unit->movement.path_index == 0;
-        /* The original DC order hands the harvester to the vent attachment
-           point immediately; the deploy animation is the visible approach
-           handoff, so do not let a blocked flow predecessor strand it. */
-        unit->core.gx = vent->attach_gx;
-        unit->core.gy = vent->attach_gy;
-        unit->movement.path_len = 0;
-        unit->movement.path_index = 0;
-        unit->movement.order_arrived = true;
         issued = true;
     }
     return issued;

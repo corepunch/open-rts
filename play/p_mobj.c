@@ -13,22 +13,12 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
 }
 
 
-static int state_facing_slot(const state_t *state, int facing_code) {
+static int state_facing_slot(const state_t *state, angle_t angle) {
     if (!state || state->facings <= 0) return -1;
-    int wrap = 16;
-    for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        if (state->direction_codes[i] > 7 || facing_code > 7) {
-            wrap = 16;
-            break;
-        }
-        wrap = 8;
-    }
     int best = 0;
-    int best_delta = 1000;
+    uint32_t best_delta = UINT32_MAX;
     for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        int code = state->direction_codes[i];
-        int delta = abs(code - facing_code);
-        if (delta > wrap / 2) delta = wrap - delta;
+        uint32_t delta = angle_distance(state->rotation_angles[i], angle);
         if (delta < best_delta) {
             best = i;
             best_delta = delta;
@@ -37,7 +27,7 @@ static int state_facing_slot(const state_t *state, int facing_code) {
     return best;
 }
 
-static void resolve_state_frame(const state_t *state, int facing_code,
+static void resolve_state_frame(const state_t *state, angle_t angle,
                                     int *frame_out, uint32_t *flags_out,
                                     int *offset_x_out, int *offset_y_out,
                                     int *remap_out, int *intensity_out) {
@@ -48,7 +38,7 @@ static void resolve_state_frame(const state_t *state, int facing_code,
     int remap = 0;
     int intensity = 16;
     if (state && state->facings > 0) {
-        int best = state_facing_slot(state, facing_code);
+        int best = state_facing_slot(state, angle);
         if (best < 0) best = 0;
         frame = state->facing_frames[best];
         flags = state->facing_flags[best];
@@ -72,7 +62,7 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
-    resolve_state_frame(state, mobj->facing_code, &mobj->frame, &mobj->render_flags,
+    resolve_state_frame(state, mobj->angle, &mobj->frame, &mobj->render_flags,
                         apply_offsets ? &mobj->render_offset_x : NULL,
                         apply_offsets ? &mobj->render_offset_y : NULL,
                         &mobj->render_remap, &mobj->render_intensity);
@@ -103,14 +93,15 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
                           unit->type_id, unit->core.state_id, unit->core.sprite_id,
                           unit->core.frame, unit->core.tics);
         if (state->misc1 == 3) {
-            int dir_slot = state_facing_slot(state, unit->core.facing_code);
+            int dir_slot = state_facing_slot(state, unit->core.angle);
             const char *sprite_name = "(unknown)";
             if (unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
                 game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
                 sprite_name = game_info->sprnames[unit->core.sprite_id];
             }
             debug_effects_log("shoot state unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d",
-                              unit->type_id, unit->core.state_id, unit->core.facing_code,
+                              unit->type_id, unit->core.state_id,
+                              angle_to_direction(unit->core.angle, 32, ANG90, true),
                               dir_slot, sprite_name, unit->core.frame);
         }
         if (state->action) state->action(ctx, unit);
@@ -161,87 +152,29 @@ void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {
     if (unit->core.state_id <= 0) {
         statecontext_t ctx = { .game_info = game_info };
         P_SetMobjState(&ctx, unit, info->spawnstate);
+    } else {
+        apply_state_visuals(game_info, &unit->core,
+                            state_at(game_info, unit->core.state_id), false);
     }
 }
 
 
-static int compass16_direction_code_from_vector(float dx, float dy) {
-    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    return facing_to_index(facing_from_vector(dx, dy), &compass16_facing_scheme) * 2;
+angle_t P_PointToAngle(float dx, float dy) {
+    return angle_from_screen_vector(dx, dy);
 }
 
-static int dark_colony8_direction_code_from_vector(float dx, float dy) {
-    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    return facing_to_index(facing_from_vector(dx, dy), &dc8_facing_scheme);
-}
-
-static int dark_colony16_direction_code_from_vector(float dx, float dy) {
-    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    return facing_to_index(facing_from_vector(dx, dy), &dc16_facing_scheme);
-}
-
-static int dark_reign16_direction_code_from_vector(float dx, float dy) {
-    if (fabsf(dx) < 0.001f && fabsf(dy) < 0.001f) return 0;
-    return facing_to_index(facing_from_vector(dx, dy), &dr16_facing_scheme);
-}
-
-int P_PointToAngle(const gameinfo_t *game_info, float dx, float dy) {
-    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_16)
-        return dark_colony16_direction_code_from_vector(dx, dy);
-    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8)
-        return dark_colony8_direction_code_from_vector(dx, dy);
-    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_REIGN_8)
-        return dark_reign16_direction_code_from_vector(dx, dy);
-    return compass16_direction_code_from_vector(dx, dy);
-}
-
-static int direction_code_from_map_vector(const level_t *map, const gameinfo_t *game_info,
-                                          float dx, float dy) {
+static angle_t angle_from_map_vector(const level_t *map, float dx, float dy) {
     if (map && map->bottom_up_coordinates) dy = -dy;
-    if (map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8)
-        return dark_reign16_direction_code_from_vector(dx, dy);
-    return P_PointToAngle(game_info, dx, dy);
+    return P_PointToAngle(dx, dy);
 }
 
-void P_AngleToVec(const gameinfo_t *game_info, int code, float *dx, float *dy) {
-    if (!dx || !dy) return;
-    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_16) {
-        float angle = (float)code * 0.39269908169872414f;
-        *dx = sinf(angle);
-        *dy = cosf(angle);
-        return;
-    }
-    if (game_info && game_info->direction_mode == RTS_DIRECTION_DARK_COLONY_8) {
-        static const float dirs[8][2] = {
-            {  0.0f,  1.0f },
-            {  0.70710678f,  0.70710678f },
-            {  1.0f,  0.0f },
-            {  0.70710678f, -0.70710678f },
-            {  0.0f, -1.0f },
-            { -0.70710678f, -0.70710678f },
-            { -1.0f,  0.0f },
-            { -0.70710678f,  0.70710678f },
-        };
-        int dir = code % 8;
-        if (dir < 0) dir += 8;
-        *dx = dirs[dir][0];
-        *dy = dirs[dir][1];
-        return;
-    }
-    float angle = -(float)code * 0.39269908169872414f;
-    *dx = cosf(angle);
-    *dy = -sinf(angle);
+void P_AngleToVec(angle_t angle, float *dx, float *dy) {
+    angle_to_screen_vector(angle, dx, dy);
 }
 
-static void direction_vector_from_map_code(const level_t *map, const gameinfo_t *game_info,
-                                           int code, float *dx, float *dy) {
-    if (map && map->direction_mode == RTS_DIRECTION_DARK_REIGN_8) {
-        float angle = (float)code * 0.39269908169872414f;
-        *dx = sinf(angle);
-        *dy = -cosf(angle);
-        return;
-    }
-    P_AngleToVec(game_info, code, dx, dy);
+static void direction_vector_from_map_angle(const level_t *map, angle_t angle,
+                                            float *dx, float *dy) {
+    P_AngleToVec(angle, dx, dy);
     if (map && map->bottom_up_coordinates) *dy = -*dy;
 }
 
@@ -290,7 +223,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
 
 static bool spawn_visual_effect(effect_t *effects, int max_effects,
                                 const char *sprite_name, const char *sequence_name,
-                                float gx, float gy, int facing_code, int duration_ms,
+                                float gx, float gy, angle_t angle, int duration_ms,
                                 int frame_ms, bool add_decoration_on_finish,
                                 int decoration_frame_index) {
     if (!effects || max_effects <= 0 || !sprite_name || sprite_name[0] == '\0') {
@@ -304,7 +237,7 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
         effect->active = true;
         effect->core.gx = gx;
         effect->core.gy = gy;
-        effect->core.facing_code = facing_code;
+        effect->core.angle = angle;
         effect->core.render_intensity = 16;
         effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
         effect->frame_ms = frame_ms > 0 ? frame_ms : 90;
@@ -317,7 +250,8 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
         debug_effects_log("spawn slot=%d sprite=%s sequence=%s pos=%.2f,%.2f facing=%d duration=%d frame_ms=%d corpse=%d",
                           i, effect->core.sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                          effect->core.gx, effect->core.gy, effect->core.facing_code,
+                          effect->core.gx, effect->core.gy,
+                          angle_to_direction(effect->core.angle, 32, ANG90, true),
                           effect->duration_ms, effect->frame_ms,
                           effect->add_decoration_on_finish ? 1 : 0);
         return true;
@@ -327,7 +261,7 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
     return false;
 }
 
-bool P_SpawnEffect(statecontext_t *ctx, int state_id, float gx, float gy, int facing_code) {
+bool P_SpawnEffect(statecontext_t *ctx, int state_id, float gx, float gy, angle_t angle) {
     if (!ctx || !ctx->effects || ctx->max_effects <= 0 || !ctx->game_info) return false;
     for (int i = 0; i < ctx->max_effects; ++i) {
         effect_t *effect = &ctx->effects[i];
@@ -337,7 +271,7 @@ bool P_SpawnEffect(statecontext_t *ctx, int state_id, float gx, float gy, int fa
         effect->use_state = true;
         effect->core.gx = gx;
         effect->core.gy = gy;
-        effect->core.facing_code = facing_code;
+        effect->core.angle = angle;
         effect->core.render_intensity = 16;
         bool ok = set_effect_state(ctx->game_info, effect, state_id);
         debug_effects_log("spawn state effect slot=%d state=%d ok=%d sprite=%s frame=%d",
@@ -370,12 +304,13 @@ static void add_effect_finish_decoration(level_t *map, const effect_t *effect) {
     dec->footprint_h = 1;
     dec->center_anchor = true;
     dec->frame_index = effect->decoration_frame_index;
-    dec->facing_code = effect->core.facing_code;
+    dec->angle = effect->core.angle;
     snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", effect->core.sprite_name);
     snprintf(dec->sequence_name, sizeof(dec->sequence_name), "%s", effect->sequence_name);
     debug_effects_log("corpse decoration sprite=%s sequence=%s grid=%d,%d facing=%d frame_index=%d count=%d",
                       dec->sprite_name, dec->sequence_name, dec->gx, dec->gy,
-                      dec->facing_code, dec->frame_index, map->decoration_count);
+                      angle_to_direction(dec->angle, 32, ANG90, true),
+                      dec->frame_index, map->decoration_count);
 }
 
 bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit) {
@@ -395,7 +330,7 @@ bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit) {
     dec->footprint_h = 1;
     dec->center_anchor = true;
     dec->frame_index = unit->core.frame;
-    dec->facing_code = unit->core.facing_code;
+    dec->angle = unit->core.angle;
     dec->render_flags = unit->core.render_flags;
     snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", unit->core.sprite_name);
     debug_effects_log("corpse unit sprite=%s frame=%d flags=%u grid=%d,%d count=%d",
@@ -429,7 +364,7 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
 
     mobj_t *target = &ctx->mobjs[target_index];
     const state_t *attack_state = state_at(ctx->game_info, attacker->core.state_id);
-    int dir_slot = state_facing_slot(attack_state, attacker->core.facing_code);
+    int dir_slot = state_facing_slot(attack_state, attacker->core.angle);
     const char *sprite_name = "(unknown)";
     if (ctx->game_info && attacker->core.sprite_id >= 0 &&
         attacker->core.sprite_id < ctx->game_info->sprite_count &&
@@ -437,7 +372,8 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
         sprite_name = ctx->game_info->sprnames[attacker->core.sprite_id];
     }
     debug_effects_log("shoot fire unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d target=%d",
-                      attacker->type_id, attacker->core.state_id, attacker->core.facing_code,
+                      attacker->type_id, attacker->core.state_id,
+                      angle_to_direction(attacker->core.angle, 32, ANG90, true),
                       dir_slot, sprite_name, attacker->core.frame, target_index);
     target->hp -= attacker->attack.damage;
     if (attacker->attack.cooldown_ms > 0)
@@ -665,15 +601,6 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
 
     float dx = vent->attach_gx - unit->core.gx;
     float dy = vent->attach_gy - unit->core.gy;
-    if (!unit->movement.order_arrived && unit->movement.path_len == 0 &&
-        vent->attach_gx >= 0.0f && vent->attach_gx < map->width &&
-        vent->attach_gy >= 0.0f && vent->attach_gy < map->height) {
-        unit->core.gx = vent->attach_gx;
-        unit->core.gy = vent->attach_gy;
-        unit->movement.order_arrived = true;
-        dx = 0.0f;
-        dy = 0.0f;
-    }
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
     if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
     if (dx * dx + dy * dy > interaction_radius * interaction_radius) return false;
@@ -687,7 +614,8 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         unit->harvest.state_id < game_info->state_count) {
         const state_t *state = state_at(game_info, unit->core.state_id);
         if (!state || state->misc1 != 5) {
-            unit->core.facing_code = (vent->attach_gx < unit->core.gx) ? 14 : 2;
+            unit->core.angle = angle_from_map_vector(
+                map, vent->attach_gx - unit->core.gx, vent->attach_gy - unit->core.gy);
             statecontext_t ctx = { .map = map, .game_info = game_info };
             P_SetMobjState(&ctx, unit, unit->harvest.state_id);
         }
@@ -795,9 +723,9 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                         u->attack.target = stop_target;
                         mobj_t *target = &units[stop_target];
-                        u->core.facing_code = direction_code_from_map_vector(map, game_info,
-                                                                            target->core.gx - u->core.gx,
-                                                                            target->core.gy - u->core.gy);
+                        u->core.angle = angle_from_map_vector(map,
+                                                             target->core.gx - u->core.gx,
+                                                             target->core.gy - u->core.gy);
                         u->movement.path_len = 0;
                         u->movement.path_index = 0;
                         u->movement.order_arrived = false;
@@ -815,27 +743,12 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 float dy = ty - u->core.gy;
                 float dist = sqrtf(dx * dx + dy * dy);
                 if (dist >= 0.001f) {
-                    int desired = direction_code_from_map_vector(map, game_info, dx, dy);
-                    if (desired != u->core.facing_code) {
+                    angle_t desired = angle_from_map_vector(map, dx, dy);
+                    if (angle_distance(desired, u->core.angle) >= ANG45 / 8u) {
                         u->movement.turn_timer_ms -= dt_ms;
                         if (u->movement.turn_timer_ms <= 0) {
-                            int delta = desired - u->core.facing_code;
-                            /* Dark Colony's direction codes are one slot per
-                             * 22.5 degrees.  Advancing by two skips every
-                             * odd slot, so a unit can turn forever whenever
-                             * its target direction has the opposite parity
-                             * from its current facing.  Some DC sequences
-                             * only provide the even (8-facing) art, but the
-                             * simulation still has to be able to reach all
-                             * sixteen direction codes before moving. */
-                            int turn_step = (map &&
-                                             (map->direction_mode == RTS_DIRECTION_DARK_REIGN_8 ||
-                                              map->direction_mode == RTS_DIRECTION_DARK_COLONY_16)) ? 1 : 2;
-                            if (delta > 8) delta -= 16;
-                            if (delta < -8) delta += 16;
-                            u->core.facing_code = delta > 0 ?
-                                (u->core.facing_code + turn_step) % 16 :
-                                (u->core.facing_code - turn_step + 16) % 16;
+                            int32_t delta = (int32_t)(desired - u->core.angle);
+                            u->core.angle += delta > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
                             u->movement.turn_timer_ms = RTS_TURN_STEP_MS;
                         }
                         moving = false;
@@ -861,7 +774,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     moving = false;
                 } else {
                     if (dist >= 0.001f)
-                        u->core.facing_code = direction_code_from_map_vector(map, game_info, dx, dy);
+                        u->core.angle = angle_from_map_vector(map, dx, dy);
                     float step = u->speed * dt;
                     if (dist <= step || dist < 0.001f) {
                         if (move_unit_if_walkable(map, u, tx, ty)) {
@@ -945,9 +858,9 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             if (target_index < 0) continue;
 
             mobj_t *target = &units[target_index];
-            attacker->core.facing_code = direction_code_from_map_vector(map, game_info,
-                                                                        target->core.gx - attacker->core.gx,
-                                                                        target->core.gy - attacker->core.gy);
+            attacker->core.angle = angle_from_map_vector(map,
+                                                         target->core.gx - attacker->core.gx,
+                                                         target->core.gy - attacker->core.gy);
             if (attacker->attack.cooldown_left_ms > 0 ||
                 mi->missilestate == game_info->null_state) {
                 continue;
@@ -987,9 +900,9 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                 u->attack.target = stop_target;
                 mobj_t *target = &units[stop_target];
-                u->core.facing_code = direction_code_from_map_vector(map, NULL,
-                                                                     target->core.gx - u->core.gx,
-                                                                     target->core.gy - u->core.gy);
+                u->core.angle = angle_from_map_vector(map,
+                                                      target->core.gx - u->core.gx,
+                                                      target->core.gy - u->core.gy);
                 u->movement.path_len = 0;
                 u->movement.path_index = 0;
                 u->movement.order_arrived = false;
@@ -1015,7 +928,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             (void)update_unit_harvest(map, units, count, u, dt_ms, NULL);
             continue;
         }
-        if (dist >= 0.001f) u->core.facing_code = direction_code_from_map_vector(map, NULL, dx, dy);
+        if (dist >= 0.001f) u->core.angle = angle_from_map_vector(map, dx, dy);
         float step = u->speed * dt;
         if (dist <= step || dist < 0.001f) {
             if (move_unit_if_walkable(map, u, tx, ty)) {
@@ -1067,18 +980,18 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         if (target_index < 0) continue;
 
         mobj_t *target = &units[target_index];
-        attacker->core.facing_code = direction_code_from_map_vector(map, NULL,
-                                        target->core.gx - attacker->core.gx,
-                                        target->core.gy - attacker->core.gy);
+        attacker->core.angle = angle_from_map_vector(map,
+                                 target->core.gx - attacker->core.gx,
+                                 target->core.gy - attacker->core.gy);
         if (attacker->attack.cooldown_left_ms > 0) continue;
 
         if (attacker->muzzle_flash_name[0] != '\0') {
             float vx = 0.0f, vy = 0.0f;
-            direction_vector_from_map_code(map, NULL, attacker->core.facing_code, &vx, &vy);
+            direction_vector_from_map_angle(map, attacker->core.angle, &vx, &vy);
             bool spawned = spawn_visual_effect(effects, max_effects, attacker->muzzle_flash_name, "flash",
                                                attacker->core.gx + vx * 0.42f,
                                                attacker->core.gy + vy * 0.42f,
-                                               attacker->core.facing_code,
+                                               attacker->core.angle,
                                                attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120,
                                                40, false, 0);
             debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
@@ -1090,7 +1003,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                           target->max_hp, target->core.sprite_name);
         if (target->hit_effect_name[0] != '\0') {
             spawn_visual_effect(effects, max_effects, target->hit_effect_name, NULL,
-                                target->core.gx, target->core.gy, target->core.facing_code,
+                                target->core.gx, target->core.gy, target->core.angle,
                                 400, 50, false, 0);
         }
         if (target->hp <= 0) {
@@ -1113,11 +1026,11 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             target->death.anim_left_ms = target->death.anim_ms;
             bool spawned = spawn_visual_effect(effects, max_effects, target->core.sprite_name,
                                                death_sequence_name_for_unit(target),
-                                               target->core.gx, target->core.gy, target->core.facing_code,
+                                               target->core.gx, target->core.gy, target->core.angle,
                                                target->death.anim_ms, 90, true, -1);
             debug_effects_log("death target=%d spawned=%d sprite=%s sequence=%s facing=%d duration=%d",
                               target_index, spawned ? 1 : 0, target->core.sprite_name,
-                              death_sequence_name_for_unit(target), target->core.facing_code,
+                              death_sequence_name_for_unit(target), target->core.angle,
                               target->death.anim_ms);
         }
         attacker->attack.cooldown_left_ms = attacker->attack.cooldown_ms > 0 ?

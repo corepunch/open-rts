@@ -71,11 +71,11 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
                       float gx, float gy);
 void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit);
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
-bool P_SpawnEffect(statecontext_t *ctx, int state_id, float gx, float gy, int facing_code);
+bool P_SpawnEffect(statecontext_t *ctx, int state_id, float gx, float gy, angle_t angle);
 bool P_Attack(statecontext_t *ctx, mobj_t *attacker);
 bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit);
-int P_PointToAngle(const gameinfo_t *game_info, float dx, float dy);
-void P_AngleToVec(const gameinfo_t *game_info, int code, float *dx, float *dy);
+angle_t P_PointToAngle(float dx, float dy);
+void P_AngleToVec(angle_t angle, float *dx, float *dy);
 void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
               int max_effects, const gameinfo_t *game_info, float dt);
 void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,

@@ -313,7 +313,9 @@ const char *const g_game_default_sprite = "SPRITES/TROOPER1.SPR";
 const int g_cell_w = 32;
 const int g_cell_h = 32;
 const uint16_t g_debug_enemy_type = MT_DC_GREY;
-const gameinfo_t *const gameinfo = &dark_colony_game_info;
+static state_t dark_colony_runtime_states[NUMSTATES];
+static gameinfo_t dark_colony_runtime_info;
+const gameinfo_t *const gameinfo = &dark_colony_runtime_info;
 const actortype_t *const mobjinfo =
     (const actortype_t *)DARK_COLONY_ACTOR_TYPES;
 const int num_mobjinfo =
@@ -321,6 +323,25 @@ const int num_mobjinfo =
 const uidefinition_t *const gameui = NULL;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
+
+void G_InitGame(void) {
+    static bool initialized;
+    if (initialized) return;
+
+    memcpy(dark_colony_runtime_states, states, sizeof(dark_colony_runtime_states));
+    for (int state_index = 0; state_index < NUMSTATES; ++state_index) {
+        state_t *state = &dark_colony_runtime_states[state_index];
+        for (int facing = 0; facing < state->facings; ++facing)
+            state->rotation_angles[facing] = direction_to_angle(
+                (int)state->rotation_angles[facing], 16, ANG90, true);
+        for (int facing = 0; facing < state->overlay_facings; ++facing)
+            state->overlay_rotation_angles[facing] = direction_to_angle(
+                (int)state->overlay_rotation_angles[facing], 16, ANG90, true);
+    }
+    dark_colony_runtime_info = dark_colony_game_info;
+    dark_colony_runtime_info.states = dark_colony_runtime_states;
+    initialized = true;
+}
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
     return load_dark_colony_map(path, out);

@@ -167,6 +167,17 @@ static void debug_append_ints(char *dst, size_t dst_size, const int *values, int
     }
 }
 
+static void debug_append_angles(char *dst, size_t dst_size, const angle_t *values, int count) {
+    size_t len = strlen(dst);
+    for (int i = 0; i < count && len + 8 < dst_size; ++i) {
+        int direction = angle_to_direction(values[i], 32, ANG90, true);
+        int written = snprintf(dst + len, dst_size - len, "%s%d",
+                               i == 0 ? "" : " ", direction);
+        if (written < 0) break;
+        len += (size_t)written;
+    }
+}
+
 static int debug_sprite_id_for_name(const gameinfo_t *game_info, const char *sprite_name) {
     if (!game_info || !game_info->sprnames || !sprite_name) return -1;
     const char *sprite_base = strrchr(sprite_name, '/');
@@ -269,17 +280,12 @@ static int debug_collect_anim_rows(const gameinfo_t *game_info, int sprite_id,
     return row_count;
 }
 
-static int debug_state_facing_slot(const state_t *state, int facing_code) {
+static int debug_state_facing_slot(const state_t *state, angle_t angle) {
     if (!state || state->facings <= 0) return -1;
     int best = 0;
-    int best_delta = 1000000;
+    uint32_t best_delta = UINT32_MAX;
     for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        int code = state->direction_codes[i];
-        int delta = abs(code - facing_code);
-        if (code <= 7 && facing_code <= 7) {
-            int wrapped = 8 - delta;
-            if (wrapped < delta) delta = wrapped;
-        }
+        uint32_t delta = angle_distance(state->rotation_angles[i], angle);
         if (delta < best_delta) {
             best_delta = delta;
             best = i;
@@ -288,12 +294,12 @@ static int debug_state_facing_slot(const state_t *state, int facing_code) {
     return best;
 }
 
-static void debug_resolve_state_frame(const state_t *state, int facing_code,
+static void debug_resolve_state_frame(const state_t *state, angle_t angle,
                                       int *frame_out, uint32_t *flags_out) {
     int frame = state ? state->frame : 0;
     uint32_t flags = state ? state->flags : 0;
     if (state && state->facings > 0) {
-        int slot = debug_state_facing_slot(state, facing_code);
+        int slot = debug_state_facing_slot(state, angle);
         if (slot >= 0) {
             frame = state->facing_frames[slot];
             flags = state->facing_flags[slot];
@@ -326,25 +332,14 @@ static const state_t *debug_anim_state_for_time(const gameinfo_t *game_info,
 
 /* ── sprite facing grid diagnostic ──────────────────────────────────────── */
 
-static const char *fg_direction_label(DirectionMode mode, int code) {
-    if (mode == RTS_DIRECTION_DARK_REIGN_8) {
-        static const char *dr8[] = {"N","NE","E","SE","S","SW","W","NW"};
-        return dr8[(code / 2) & 7];
-    }
-    if (mode == RTS_DIRECTION_DARK_COLONY_8) {
-        static const char *dc8[] = {"N","NE","E","SE","S","SW","W","NW"};
-        return dc8[code & 7];
-    }
-    if (mode == RTS_DIRECTION_DARK_COLONY_16) {
-        static const char *dc16[] = {
-            "N","NNE","NE","ENE","E","ESE","SE","SSE",
-            "S","SSW","SW","WSW","W","WNW","NW","NNW"
-        };
-        return dc16[code & 15];
-    }
-    /* COMPASS_16: atan2f(-dy,dx), sector 0=E, clockwise */
-    static const char *c16[] = {"E","NE","N","NW","W","SW","S","SE"};
-    return c16[(code / 2) & 7];
+static const char *fg_direction_label(int code) {
+    static const char *const labels[32] = {
+        "N", "N", "NNE", "NNE", "NE", "NE", "ENE", "ENE",
+        "E", "E", "ESE", "ESE", "SE", "SE", "SSE", "SSE",
+        "S", "S", "SSW", "SSW", "SW", "SW", "WSW", "WSW",
+        "W", "W", "WNW", "WNW", "NW", "NW", "NNW", "NNW",
+    };
+    return labels[code & 31];
 }
 
 static const spritesequence_t *fg_seq_find(const spritesheet_t *s, const char *name) {
@@ -362,9 +357,9 @@ static irect_t fg_frame_rect(const spritesheet_t *s, int frame) {
 
 /* Render a grid: rows = sequences (stand/run/…), columns = facing directions.
    Each cell shows the first animation frame for that facing with the compass label
-   derived from the sequence's direction_codes[].  Use --show-facings to invoke. */
+    derived from the sequence's rotation_angles[].  Use --show-facings to invoke. */
 static void render_sprite_facing_grid(SDL_Renderer *sdl, const spritesheet_t *sprite,
-                                      DirectionMode dir_mode, DebugFont *font) {
+                                      DebugFont *font) {
     if (!sdl || !sprite || !font) return;
 
     static const char *want[] = {"stand", "run", "walk", "idle", "shoot"};
@@ -396,14 +391,14 @@ static void render_sprite_facing_grid(SDL_Renderer *sdl, const spritesheet_t *sp
     SDL_SetRenderDrawColor(sdl, 20, 20, 35, 255);
     SDL_RenderClear(sdl);
 
-    /* Column headers from the first sequence's direction_codes */
+    /* Column headers from the first sequence's rotation angles. */
     const spritesequence_t *ref = seqs[0];
     for (int col = 0; col < ref->facings; ++col) {
         int x = row_lbl_w + col * cell_w;
         char buf[16];
         snprintf(buf, sizeof(buf), "%s/%d",
-                 fg_direction_label(dir_mode, ref->direction_codes[col]),
-                 ref->direction_codes[col]);
+                 fg_direction_label(angle_to_direction(ref->rotation_angles[col], 32, ANG90, true)),
+                 angle_to_direction(ref->rotation_angles[col], 32, ANG90, true));
         SDL_Color hcol = {200, 230, 255, 255};
         debug_font_draw_text(sdl, font, x, pad, buf, hcol, 1);
     }
@@ -575,7 +570,7 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
         snprintf(starts, sizeof(starts), "IDX");
         snprintf(dirs, sizeof(dirs), "DIR");
         debug_append_ints(starts, sizeof(starts), seq->frame_starts, seq->facings);
-        debug_append_ints(dirs, sizeof(dirs), seq->direction_codes, seq->facings);
+        debug_append_angles(dirs, sizeof(dirs), seq->rotation_angles, seq->facings);
 
         snprintf(line, sizeof(line), "%s  %s", name, dirs);
         debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, cyan, 1);
@@ -597,7 +592,7 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
             if (state->facings > 0) {
                 char dirs[256] = "DIR";
                 char frames[256] = "FRM";
-                debug_append_ints(dirs, sizeof(dirs), state->direction_codes, state->facings);
+                debug_append_angles(dirs, sizeof(dirs), state->rotation_angles, state->facings);
                 debug_append_ints(frames, sizeof(frames), state->facing_frames, state->facings);
                 snprintf(line, sizeof(line), "   %s", dirs);
                 debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
@@ -758,8 +753,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     unit->core.gx = (float)cell.x + 0.5f;
     unit->core.gy = (float)cell.y + 0.5f;
     unit->owner = 1;
-    unit->core.facing_code = (gameinfo &&
-        gameinfo->direction_mode != RTS_DIRECTION_DARK_REIGN_8) ? 6 : 8;
+    unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     apply_actor_type_defaults(unit, type);
     P_SpawnMobj(gameinfo, unit);
     (*unit_count)++;
@@ -779,10 +773,19 @@ static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit
         }
     }
     int vent_index = -1;
+    float best_distance_sq = 0.0f;
     for (int i = 0; i < map->resource_vent_count; ++i) {
-        if (map->resource_vents[i].active) {
+        const resourcevent_t *candidate = &map->resource_vents[i];
+        if (!candidate->active) continue;
+        float distance_sq = 0.0f;
+        if (map->has_camera) {
+            float dx = candidate->attach_gx - map->camera_gx;
+            float dy = candidate->attach_gy - map->camera_gy;
+            distance_sq = dx * dx + dy * dy;
+        }
+        if (vent_index < 0 || distance_sq < best_distance_sq) {
             vent_index = i;
-            break;
+            best_distance_sq = distance_sq;
         }
     }
     if (!harvester || vent_index < 0) return false;
@@ -792,7 +795,7 @@ static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit
     memset(unit, 0, sizeof(*unit));
     unit->core.gx = vent->attach_gx;
     unit->core.gy = vent->attach_gy;
-    unit->core.facing_code = 6;
+    unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     unit->owner = 0;
     unit->attack.target = -1;
     unit->harvest.target = vent_index;
@@ -1663,16 +1666,16 @@ static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
     return false;
 }
 
-static bool dc_state_offset_for_facing(const state_t *state, bool overlay, int facing_code,
+static bool dc_state_offset_for_facing(const state_t *state, bool overlay, angle_t angle,
                                        int *out_x, int *out_y) {
     if (!state || !out_x || !out_y) return false;
     int facings = overlay ? state->overlay_facings : state->facings;
     if (facings <= 0) return false;
     int best = 0;
-    int best_delta = 0x7fffffff;
+    uint32_t best_delta = UINT32_MAX;
     for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        int code = overlay ? state->overlay_direction_codes[i] : state->direction_codes[i];
-        int delta = abs(code - facing_code);
+        angle_t rotation = overlay ? state->overlay_rotation_angles[i] : state->rotation_angles[i];
+        uint32_t delta = angle_distance(rotation, angle);
         if (delta < best_delta) {
             best = i;
             best_delta = delta;
@@ -1694,7 +1697,7 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
     if (!stand) return false;
     int stand_x = 0;
     int stand_y = 0;
-    if (!dc_state_offset_for_facing(stand, false, new_unit->core.facing_code, &stand_x, &stand_y))
+    if (!dc_state_offset_for_facing(stand, false, new_unit->core.angle, &stand_x, &stand_y))
         return false;
 
     int release_state_id = dc_find_state_by_group_frame(game_info,
@@ -1710,13 +1713,13 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, false, new_unit->core.facing_code, &x, &y)) {
+            dc_state_offset_for_facing(state, false, new_unit->core.angle, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
         }
         if (state->overlay_sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, true, new_unit->core.facing_code, &x, &y)) {
+            dc_state_offset_for_facing(state, true, new_unit->core.angle, &x, &y)) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;
@@ -2247,6 +2250,7 @@ static void SB_Shutdown(sb_state_t *sb) {
 }
 
 int main(int argc, char **argv) {
+    G_InitGame();
     bool check_only = argc > 1 && strcmp(argv[1], "--check") == 0;
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     bool show_facings_only = argc > 1 && strcmp(argv[1], "--show-facings") == 0;
@@ -2415,10 +2419,13 @@ int main(int argc, char **argv) {
         }
     }
     apply_actor_defaults(units, unit_count);
+    int debug_harvester_index = -1;
     if (debug_harvest_state >= 0 &&
         !spawn_debug_harvester_at_vent(&map, units, &unit_count, debug_harvest_state)) {
         fprintf(stderr, "warning: could not create debug harvester state %d\n",
                 debug_harvest_state);
+    } else if (debug_harvest_state >= 0) {
+        debug_harvester_index = unit_count - 1;
     }
     effect_t effects[MAX_VISUAL_EFFECTS] = { 0 };
 
@@ -2428,7 +2435,11 @@ int main(int argc, char **argv) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", g_game_name);
     }
 
-    if (!focus_camera_on_map_start(&app, &map)) {
+    if (debug_harvester_index >= 0) {
+        focus_camera_on_grid(&app, &map,
+                             units[debug_harvester_index].core.gx,
+                             units[debug_harvester_index].core.gy);
+    } else if (!focus_camera_on_map_start(&app, &map)) {
         float focus_gx = unit_count > 0 ? units[0].core.gx : (float)map.width * 0.5f;
         float focus_gy = unit_count > 0 ? units[0].core.gy : (float)map.height * 0.5f;
         focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
@@ -2446,7 +2457,7 @@ int main(int argc, char **argv) {
         bool font_ok = debug_font_init(app.renderer, &font);
         renderer_begin_frame(&renderer, (SDL_Color){ 20, 20, 35, 255 });
         if (font_ok)
-            render_sprite_facing_grid(app.renderer, &unit_sprite, map.direction_mode, &font);
+            render_sprite_facing_grid(app.renderer, &unit_sprite, &font);
         if (show_facings_path) {
             if (renderer_save_screenshot(&renderer, show_facings_path))
                 printf("Saved facing grid: %s\n", show_facings_path);

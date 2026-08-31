@@ -29,6 +29,9 @@ extern const uidefinition_t *const gameui;   /* NULL if unused */
 
 /* ── game functions ────────────────────────────────────────────────────── */
 
+/* Convert native game metadata into the engine's canonical runtime format. */
+void     G_InitGame(void);
+
 /* Load the map at path into *out.  Returns true on success. */
 bool     G_DoLoadLevel(const char *path, level_t *out);
 

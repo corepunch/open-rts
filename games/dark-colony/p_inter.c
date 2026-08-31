@@ -15,7 +15,7 @@ void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
         unit->type_id < ctx->game_info->mobj_type_count) {
         muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
     }
-    P_SpawnEffect(ctx, muzzle_state, unit->core.gx, unit->core.gy, unit->core.facing_code);
+    P_SpawnEffect(ctx, muzzle_state, unit->core.gx, unit->core.gy, unit->core.angle);
 }
 
 void A_DC_Attack(statecontext_t *ctx, mobj_t *unit) {
@@ -45,8 +45,8 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->death_started = true;
 }
 
-static int reaper_death_effect_state_for_facing(int facing_code) {
-    int code = facing_code & 15;
+static int reaper_death_effect_state_for_angle(angle_t angle) {
+    int code = angle_to_direction(angle, 16, ANG90, true);
     for (int distance = 0; distance <= 8; ++distance) {
         for (int sign = -1; sign <= 1; sign += 2) {
             if (distance == 0 && sign > 0) continue;
@@ -62,10 +62,10 @@ static int reaper_death_effect_state_for_facing(int facing_code) {
 
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
     if (ctx && unit) {
-        int fx_state = reaper_death_effect_state_for_facing(unit->core.facing_code);
+        int fx_state = reaper_death_effect_state_for_angle(unit->core.angle);
         if (fx_state != S_NULL) {
             P_SpawnEffect(ctx, fx_state, unit->core.gx, unit->core.gy,
-                          unit->core.facing_code);
+                          unit->core.angle);
         }
     }
     A_DC_Fall(ctx, unit);

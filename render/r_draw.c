@@ -351,14 +351,12 @@ static const spritesequence_t *sprite_sequence_find(const spritesheet_t *sprite,
     return NULL;
 }
 
-static int sequence_facing_index(const spritesequence_t *seq, int direction_code) {
+static int sequence_facing_index(const spritesequence_t *seq, angle_t angle) {
     if (!seq || seq->facings <= 0) return 0;
     int best = 0;
-    int best_delta = 1000;
+    uint32_t best_delta = UINT32_MAX;
     for (int i = 0; i < seq->facings && i < MAX_SEQUENCE_FACINGS; ++i) {
-        int code = seq->direction_codes[i];
-        int delta = abs(code - direction_code);
-        if (delta > 8) delta = 16 - delta;
+        uint32_t delta = angle_distance(seq->rotation_angles[i], angle);
         if (delta < best_delta) {
             best = i;
             best_delta = delta;
@@ -368,23 +366,24 @@ static int sequence_facing_index(const spritesequence_t *seq, int direction_code
 }
 
 static int sprite_sequence_frame(const spritesheet_t *sprite, const char *sequence_name,
-                                 int facing_code, int sequence_frame) {
+                                 angle_t angle, int sequence_frame) {
     const spritesequence_t *seq = sprite_sequence_find(sprite, sequence_name);
     if (!seq || seq->facings <= 0 || seq->length <= 0) {
         debug_effects_log("sequence miss sprite_frames=%d sequence=%s facing=%d anim=%d",
                           sprite ? sprite->frame_count : 0,
                           sequence_name ? sequence_name : "(null)",
-                          facing_code, sequence_frame);
+                          angle_to_direction(angle, 32, ANG90, true), sequence_frame);
         return -1;
     }
-    int facing = sequence_facing_index(seq, facing_code);
+    int facing = sequence_facing_index(seq, angle);
     int anim = sequence_frame < 0 ? seq->length - 1 : sequence_frame;
     if (anim >= seq->length) anim = seq->length - 1;
     int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
     int start = seq->frame_starts[facing];
     if (start < 0 || start >= sprite->frame_count) {
         debug_effects_log("sequence bad start sequence=%s facing=%d/%d code=%d start=%d frame_count=%d",
-                          sequence_name, facing, seq->facings, facing_code, start,
+                          sequence_name, facing, seq->facings,
+                          angle_to_direction(angle, 32, ANG90, true), start,
                           sprite ? sprite->frame_count : 0);
         return -1;
     }
@@ -399,7 +398,7 @@ static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const
                                    int frame_index, const char *sequence_name) {
     int frame = -1;
     if (sequence_name && sequence_name[0] != '\0') {
-        frame = sprite_sequence_frame(sprite, sequence_name, dec->facing_code, frame_index);
+        frame = sprite_sequence_frame(sprite, sequence_name, dec->angle, frame_index);
     }
     if (frame >= 0) return frame;
     if (frame_index >= 0 && frame_index < sprite->frame_count) return frame_index;
@@ -602,8 +601,7 @@ static int sprite_frame_for_unit(const spritesheet_t *sprite, const mobj_t *unit
     if (!seq) seq = sprite_sequence_find(sprite, "idle");
     if (!seq && dead) seq = sprite_sequence_find(sprite, "stand");
     if (seq && seq->facings > 0 && seq->length > 0) {
-        int direction_code = unit->core.facing_code;
-        int facing = sequence_facing_index(seq, direction_code);
+        int facing = sequence_facing_index(seq, unit->core.angle);
         int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
         int anim = 0;
         if (dead && using_death_sequence && unit->death_started && seq->length > 1) {
@@ -657,14 +655,13 @@ static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int 
     return (SDL_Point){ 0, 0 };
 }
 
-static SDL_Point sprite_frame_displacement(const spritesheet_t *sprite, int frame,
-                                           uint32_t render_flags) {
+static int sprite_world_offset_x(const spritesheet_t *sprite, int frame,
+                                 uint32_t render_flags) {
     SDL_Point p = { 0, 0 };
     if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
         p = sprite->frame_displacements[frame];
     }
-    if ((render_flags & RTS_FRAME_FLIP_X) != 0) p.x = 0;
-    return p;
+    return (render_flags & RTS_FRAME_FLIP_X) != 0 ? 0 : p.x;
 }
 
 static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame) {
@@ -702,22 +699,12 @@ static int unit_frame_for_view(const spritesheet_t *sprite, const mobj_t *unit,
     return frame;
 }
 
-static int direction_slot_for_view(int facings, const int *direction_codes, int facing_code) {
-    if (!direction_codes || facings <= 0) return -1;
-    int wrap = 16;
-    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        if (direction_codes[i] > 7 || facing_code > 7) {
-            wrap = 16;
-            break;
-        }
-        wrap = 8;
-    }
+static int rotation_slot_for_view(int facings, const angle_t *rotation_angles, angle_t angle) {
+    if (!rotation_angles || facings <= 0) return -1;
     int best = 0;
-    int best_delta = 1000;
+    uint32_t best_delta = UINT32_MAX;
     for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        int code = direction_codes[i];
-        int delta = abs(code - facing_code);
-        if (delta > wrap / 2) delta = wrap - delta;
+        uint32_t delta = angle_distance(rotation_angles[i], angle);
         if (delta < best_delta) {
             best = i;
             best_delta = delta;
@@ -734,8 +721,8 @@ static void unit_state_body_offset_for_view(const gameinfo_t *game_info, const m
         unit->core.state_id >= 0 && unit->core.state_id < game_info->state_count) {
         const state_t *state = &game_info->states[unit->core.state_id];
         if (state->facings > 0) {
-            int slot = direction_slot_for_view(state->facings, state->direction_codes,
-                                               unit->core.facing_code);
+            int slot = rotation_slot_for_view(state->facings, state->rotation_angles,
+                                              unit->core.angle);
             if (slot < 0) slot = 0;
             if (slot < RTS_MAX_STATE_FACINGS) {
                 ox = state->offset_x[slot];
@@ -789,10 +776,10 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     unit_state_body_offset_for_view(game_info, unit, &body_offset_x, &body_offset_y);
     irect_t dst;
     if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-        SDL_Point dis = sprite_frame_displacement(sprite, frame, render_flags);
+        int offset_x = sprite_world_offset_x(sprite, frame, render_flags);
         dst = (irect_t){
-            (int)lroundf(sx) + body_offset_x + dis.x,
-            (int)lroundf(sy) + body_offset_y + dis.y,
+            (int)lroundf(sx) + body_offset_x + offset_x,
+            (int)lroundf(sy) + body_offset_y - sprite_h,
             sprite_w,
             sprite_h,
         };
@@ -998,9 +985,9 @@ static void render_unit_state_overlay(app_t *app, const mobj_t *u, const sprites
         state->overlay_sprite >= game_info->sprite_count) {
         return;
     }
-    int slot = direction_slot_for_view(state->overlay_facings,
-                                       state->overlay_direction_codes,
-                                       u->core.facing_code);
+    int slot = rotation_slot_for_view(state->overlay_facings,
+                                      state->overlay_rotation_angles,
+                                      u->core.angle);
     if (slot < 0) slot = 0;
     if (slot >= RTS_MAX_STATE_FACINGS) return;
     int frame = state->overlay_facing_frames[slot];
@@ -1015,10 +1002,10 @@ static void render_unit_state_overlay(app_t *app, const mobj_t *u, const sprites
     uint32_t flags = state->overlay_facing_flags[slot];
     irect_t dst;
     if (game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-        SDL_Point dis = sprite_frame_displacement(overlay, frame, flags);
+        int offset_x = sprite_world_offset_x(overlay, frame, flags);
         dst = (irect_t){
-            (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + dis.x,
-            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y,
+            (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + offset_x,
+            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] - frame_rect.h,
             frame_rect.w,
             frame_rect.h,
         };
@@ -1245,10 +1232,10 @@ static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *
     int anim = effect->age_ms / frame_ms;
     if (effect->sequence_name[0] != '\0') {
         int frame = sprite_sequence_frame(sprite, effect->sequence_name,
-                          effect->core.facing_code, anim);
+                          effect->core.angle, anim);
         if (frame >= 0) return frame;
         if (strcmp(effect->sequence_name, "die") == 0) {
-            frame = sprite_sequence_frame(sprite, "death", effect->core.facing_code, anim);
+            frame = sprite_sequence_frame(sprite, "death", effect->core.angle, anim);
             if (frame >= 0) return frame;
         }
     }
@@ -1288,10 +1275,10 @@ void R_DrawEffects(app_t *app, const level_t *map,
         irect_t dst;
         if (effect->use_state && game_info &&
             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-            SDL_Point dis = sprite_frame_displacement(sprite, frame, effect->core.render_flags);
+            int offset_x = sprite_world_offset_x(sprite, frame, effect->core.render_flags);
             dst = (irect_t){
-                (int)lroundf(sx) + effect->core.render_offset_x + dis.x,
-                (int)lroundf(sy) + effect->core.render_offset_y + dis.y - sprite_h,
+                (int)lroundf(sx) + effect->core.render_offset_x + offset_x,
+                (int)lroundf(sy) + effect->core.render_offset_y - sprite_h,
                 sprite_w,
                 sprite_h,
             };
@@ -1319,7 +1306,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
         debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
                           i, effect->core.sprite_name,
                           effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                          effect->age_ms, effect->duration_ms, effect->core.facing_code,
+                          effect->age_ms, effect->duration_ms,
+                          angle_to_direction(effect->core.angle, 32, ANG90, true),
                           effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
                           frame, sprite->frame_count,
                           effect->core.render_offset_x, effect->core.render_offset_y,

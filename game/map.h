@@ -9,13 +9,6 @@
 typedef struct app_s app_t;
 typedef struct tileset_s tileset_t;
 
-typedef enum {
-    RTS_DIRECTION_COMPASS_16 = 0,
-    RTS_DIRECTION_DARK_COLONY_8 = 1,
-    RTS_DIRECTION_DARK_COLONY_16 = 2,
-    RTS_DIRECTION_DARK_REIGN_8 = 3,
-} DirectionMode;
-
 typedef struct cell_s {
     int x;
     int y;
@@ -66,7 +59,7 @@ typedef struct mapdecoration_s {
     int frame_index;
     int frame2_index;
     int frame3_index;
-    int facing_code;
+    angle_t angle;
     uint32_t render_flags;
     uint32_t render2_flags;
     uint32_t render3_flags;
@@ -104,7 +97,6 @@ typedef struct level_s {
     uint32_t *cell_colors;
     uint32_t render_capabilities;
     bool bottom_up_coordinates;
-    DirectionMode direction_mode;
     mapdecoration_t *decorations;
     int decoration_count;
     resourcevent_t *resource_vents;

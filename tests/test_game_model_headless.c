@@ -4,6 +4,7 @@
 #include "../games/dark-colony/dc_types.h"
 #include "../games/dark-reign/dr_types.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -638,11 +639,11 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 loads Petra-7 vents");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
-                                             RTS_FRAME_ADDITIVE, 9, -25)) {
+                                             RTS_FRAME_ADDITIVE, 9, 4)) {
         return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
-                                             RTS_FRAME_ADDITIVE, 9, -25)) {
+                                             RTS_FRAME_ADDITIVE, 9, 4)) {
         return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
     }
 
@@ -659,6 +660,8 @@ static int assert_human02(RtsGameModel *model) {
     if (exploiter < 0) {
         return fail("Human02 scripted drop spawns an Exploiter");
     }
+    float exploiter_start_gx = snapshot.units[exploiter].gx;
+    float exploiter_start_gy = snapshot.units[exploiter].gy;
 
     RtsGameCommand select_exploiter = {
         .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
@@ -682,9 +685,19 @@ static int assert_human02(RtsGameModel *model) {
     if (!rts_game_model_command(model, &harvest)) {
         return fail("Human02 harvest command targets active Petra-7 vent");
     }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Human02 snapshot immediately after harvest command");
+    }
+    exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+    if (exploiter < 0 ||
+        !near_float(snapshot.units[exploiter].gx, exploiter_start_gx) ||
+        !near_float(snapshot.units[exploiter].gy, exploiter_start_gy)) {
+        return fail("Human02 Exploiter starts driving instead of snapping to the vent");
+    }
 
     bool saw_deploy_body_frame = false;
     bool saw_mining_body = false;
+    bool saw_exploiter_move = false;
     bool saw_mining_work_states[16] = {0};
     int mining_work_state_count = 0;
     for (int i = 0; i < 30 * 45; ++i) {
@@ -697,6 +710,23 @@ static int assert_human02(RtsGameModel *model) {
         exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
         if (exploiter >= 0 &&
             snapshot.units[exploiter].harvest_target >= 0) {
+            float move_dx = snapshot.units[exploiter].gx - exploiter_start_gx;
+            float move_dy = snapshot.units[exploiter].gy - exploiter_start_gy;
+            float move_dist = hypotf(move_dx, move_dy);
+            if (!saw_exploiter_move && move_dist > 0.25f) {
+                float facing_angle = snapshot.units[exploiter].facing_code *
+                    0.19634954084936207f;
+                float alignment = (move_dx * sinf(facing_angle) +
+                                   -move_dy * cosf(facing_angle)) / move_dist;
+                if (alignment < 0.8f) {
+                    fprintf(stderr,
+                            "Exploiter movement delta=%.3f,%.3f facing=%d alignment=%.3f\n",
+                            move_dx, move_dy, snapshot.units[exploiter].facing_code,
+                            alignment);
+                    return fail("Human02 Exploiter faces along its movement direction");
+                }
+                saw_exploiter_move = true;
+            }
             int frame = snapshot.units[exploiter].frame;
             if (frame >= 15 && frame <= 25) {
                 return fail("Human02 Exploiter turret frames do not replace body frames");
@@ -720,7 +750,21 @@ static int assert_human02(RtsGameModel *model) {
             snapshot.player_resources[0][0] > initial_resources) break;
     }
     if (!saw_deploy_body_frame) {
+        exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
+        if (exploiter >= 0) {
+            fprintf(stderr,
+                    "Exploiter start=%.2f,%.2f current=%.2f,%.2f goal=%.2f,%.2f facing=%d moving=%d\n",
+                    exploiter_start_gx, exploiter_start_gy,
+                    snapshot.units[exploiter].gx, snapshot.units[exploiter].gy,
+                    snapshot.units[exploiter].move_goal_gx,
+                    snapshot.units[exploiter].move_goal_gy,
+                    snapshot.units[exploiter].facing_code,
+                    snapshot.units[exploiter].has_move_order ? 1 : 0);
+        }
         return fail("Human02 Exploiter keeps deployed body frame while harvesting");
+    }
+    if (!saw_exploiter_move) {
+        return fail("Human02 Exploiter drives to the Petra-7 vent");
     }
     if (snapshot.player_resources[0][0] <= initial_resources) {
         return fail("Human02 Exploiter mining adds player resources");
