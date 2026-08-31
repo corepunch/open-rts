@@ -792,7 +792,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
         SDL_Point dis = sprite_frame_displacement(sprite, frame, render_flags);
         dst = (irect_t){
             (int)lroundf(sx) + body_offset_x + dis.x,
-            (int)lroundf(sy) + body_offset_y + dis.y - sprite_h,
+            (int)lroundf(sy) + body_offset_y + dis.y,
             sprite_w,
             sprite_h,
         };
@@ -1018,7 +1018,7 @@ static void render_unit_state_overlay(app_t *app, const mobj_t *u, const sprites
         SDL_Point dis = sprite_frame_displacement(overlay, frame, flags);
         dst = (irect_t){
             (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + dis.x,
-            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y - frame_rect.h,
+            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] + dis.y,
             frame_rect.w,
             frame_rect.h,
         };

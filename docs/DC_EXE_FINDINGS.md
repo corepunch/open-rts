@@ -27,6 +27,21 @@ The radare2 installation may print a missing `dplayx.sdb` warning while loading
 the executable. This only means its DirectPlay type database is unavailable; it
 does not prevent code or data analysis.
 
+## Evidence labels
+
+- **Confirmed** means exact instructions and native data agree, or a focused
+   test reproduces the result.
+- **Inferred** means multiple observations support a conclusion but one native
+   boundary remains untraced.
+- **Disproven** records an attractive hypothesis contradicted by executable or
+   asset evidence.
+- **Unknown** identifies behavior that still requires a controlling caller,
+   consumer, or runtime trace.
+
+Decompiler variable names and signatures are never evidence by themselves.
+The findings below use instruction addresses and call-site register flow where
+r2ghidra's inferred parameters are unreliable.
+
 ## Rendering architecture
 
 DC.EXE imports `DirectDrawCreate`, but calls the remaining DirectDraw API through
@@ -92,6 +107,56 @@ matches the broader executable convention of fixed-capacity object storage;
 open-rts preserves `DC_MAX_OBJECTS == 800` and the observed object stride
 `DC_OBJECT_SIZE == 0xdc` in its Dark Colony model.
 
+The builder combines the object's fixed-point position with each FIN command
+before submitting it. On the normal, non-shaking path, the relevant arithmetic
+in `0x00436290` is:
+
+```text
+queue_x = object_x + FIN.runtime_x
+queue_y = object_z + FIN.runtime_y
+```
+
+The secondary visual-object builder at `0x00436a44` performs the same
+composition at `0x00436baf..0x00436bd2`: it adds the object's two position
+words to the command's runtime X/Y fields before calling `0x00432dec`.
+
+`0x00432dec` converts those values from eighth-pixels and reverses the native
+bottom-up Y axis when writing the queue record. The queue consumer at
+`0x0044f95c` forwards the resulting screen X/Y to the rasterizer without using
+the selected cell's width or height. Together with the FIN loader's
+`runtime_x = FIN.x * 8` and `runtime_y = FIN.y * -8`, the top-down composition
+used by open-rts is therefore:
+
+```text
+draw_x = object_screen_x + FIN.x + cell.disX
+draw_y = object_screen_y + FIN.y + cell.disY
+```
+
+Subtracting a cropped cell height makes animation frames jump. Subtracting a
+per-SPR canvas height is also incorrect: FIN parts from different SPR files
+share one object origin, so it shifts city components relative to one another.
+The optional values subtracted at `0x00436666` and `0x00436682` are transient
+offsets produced by `0x00441080`, not sprite dimensions.
+
+The confirmed portion of each 28-byte record written at `0x004dc0ac` is:
+
+| Record offset | Observed value |
+| --- | --- |
+| `+0x00` | Runtime SPR dependency pointer |
+| `+0x08` | Descending queue sequence key |
+| `+0x0c` | Draw X after fixed-point division by eight |
+| `+0x0e` | View-height-minus-draw-Y after fixed-point division |
+| `+0x12` | Negated object Z after fixed-point division |
+| `+0x14..+0x18` | Packed command/render fields |
+
+`0x00432de0` initializes the sequence key from a value rounded down to a
+multiple of eight. `0x00432dec` stores that key and decrements it after each
+part, preserving order among parts submitted by one animation frame. Consumer
+`0x0044f95c` culls and sorts the records. Its normal sprite paths recover X
+from record word `+0x0c` and Y from word `+0x0e`; no cell width or height is
+subtracted. The complete semantics of the remaining packed fields and sort key
+are still unknown.
+
 The SPR draw routine is reached through a callback rather than a normal direct
 call. Constructor `0x004297e4` installs dispatcher `0x0044b5e4` at object offset
 `+0x5c`. Consequently, static call-reference searches do not reveal the whole
@@ -137,6 +202,24 @@ The relevant instructions load `[cell+4]` for `disX` and `[cell+6]` for
 Therefore `disY` is active placement metadata. Treating it as padding or
 forcing it to zero diverges from DC.EXE and can vertically misalign buildings,
 units, overlays, and multi-part sprites.
+
+### Native screenshot comparison
+
+Native 640x480 gameplay captures from MobyGames (Dark Colony screenshot
+`395046`), My Abandonware's Dark Colony gallery, and the Dark Colony Wiki's
+"Active Exploiter" image were compared with production-renderer captures. The
+native human landing structure places the large hub/dropship above the narrow,
+segmented tower and pod column. Direct FIN-plus-SPR composition reproduces that
+relationship; subtracting each sheet's height moves the tower and HUBU parts by
+different amounts and visibly breaks the column. The active Exploiter reference
+also keeps the deployed body and mast on one shared origin, as the direct
+composition does.
+
+The production comparison used HUMAN02 at the game's native 640x480 output and
+the Exploiter deploy/work states. The direct formula kept the body and mast on
+one origin and restored the same top-to-bottom city silhouette visible in the
+original captures. This is supporting visual evidence; the coordinate formula
+itself is confirmed by the executable instructions above.
 
 ## Native FIN behavior
 
@@ -313,19 +396,26 @@ without changing native object storage; it remains compatibility behavior to
 remove when the complete city composition path is implemented.
 
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
-contains VENT2 cell 0 at FIN coordinate `(-40,12)`. Applying the native FIN Y
-sign conversion and VENT2 cell-0 SPR displacement `(31,37)` gives a raw-cell
-top-left offset of `(-9,25)` from the vent animation origin:
+contains VENT2 cell 0 at FIN coordinate `(-40,12)`. The confirmed queue path
+negates FIN Y while entering bottom-up fixed space and reverses it again while
+creating top-down screen Y. VENT2 cell 0 displacement `(31,37)` therefore gives
+the native screen-space offset `(-9,49)` from the native animation origin:
 
 ```text
 x = -40 + 31 = -9
-y = -12 + 37 = 25
+y =  12 + 37 = 49
 ```
 
-This replaces the earlier bitmap-centering estimate. It controls only the glow.
+Open-rts currently uses `-12 + 37 = 25` in its vent-specific decoration loader.
+That value matched the current visual probe but is not the general native FIN
+screen-space rule; the open-rts decoration anchor is not yet proven equivalent
+to DC.EXE's visual-object origin. Preserve the current yellow plume until that
+anchor is traced, but do not reuse its sign conversion for units, buildings, or
+other FIN parts.
+
 The mining path around `0x00412c31..0x00412c53` indexes the mine from the vent
-object's fixed-point `x_pos/z_pos`, so open-rts likewise targets the vent object
-center instead of coupling Exploiter placement to VENT2's displaced pixels.
+object's fixed-point `x_pos/z_pos`, so the gameplay target remains the vent
+object center rather than VENT2's displaced pixels.
 
 ## Known unknowns
 
@@ -335,6 +425,8 @@ center instead of coupling Exploiter placement to VENT2's displaced pixels.
 - The complete sort-key layout of the 28-byte render queue record.
 - The role of each of the 32 auxiliary DirectDraw surfaces.
 - The remaining native Exploiter approach/deploy positioning around a vent.
+- The conversion between open-rts's vent decoration anchor and DC.EXE's
+   secondary visual-object origin; this blocks changing the current plume Y.
 - Whether `DC16.EXE` uses identical routines and addresses; this report covers
   the fingerprinted `DC.EXE` only.
 
@@ -348,6 +440,10 @@ r2 -q -e bin.cache=true -A -c "pdf @ 0x0044b5e4" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x004230ac" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x00423a50" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x0042b54c" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x00432dec" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x00436290" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x00436a44" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x0044f95c" -c q data/DCOLONY/DC.EXE
 ```
 
 Decompiler signatures and variable names are provisional. Verify conclusions

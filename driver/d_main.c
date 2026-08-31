@@ -766,6 +766,45 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     return true;
 }
 
+static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit_count,
+                                          int state_offset) {
+    if (!map || !units || !unit_count || *unit_count >= MAXMOBJS || !gameinfo) return false;
+
+    const actortype_t *harvester = NULL;
+    const actortype_t *types = (const actortype_t *)mobjinfo;
+    for (int i = 0; types && i < num_mobjinfo; ++i) {
+        if ((types[i].traits & MF_HARVESTER) != 0) {
+            harvester = &types[i];
+            break;
+        }
+    }
+    int vent_index = -1;
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        if (map->resource_vents[i].active) {
+            vent_index = i;
+            break;
+        }
+    }
+    if (!harvester || vent_index < 0) return false;
+
+    resourcevent_t *vent = &map->resource_vents[vent_index];
+    mobj_t *unit = &units[(*unit_count)++];
+    memset(unit, 0, sizeof(*unit));
+    unit->core.gx = vent->attach_gx;
+    unit->core.gy = vent->attach_gy;
+    unit->core.facing_code = 6;
+    unit->owner = 0;
+    unit->attack.target = -1;
+    unit->harvest.target = vent_index;
+    apply_actor_type_defaults(unit, harvester);
+    P_SpawnMobj(gameinfo, unit);
+
+    int state_id = harvester->harvest.state_id + state_offset;
+    if (state_id < 0 || state_id >= gameinfo->state_count) return false;
+    statecontext_t context = { .map = map, .game_info = gameinfo };
+    return P_SetMobjState(&context, unit, state_id);
+}
+
 static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
                                               const mobj_t *units, int unit_count) {
     if (!app || !map || !units) return false;
@@ -2220,6 +2259,7 @@ int main(int argc, char **argv) {
     bool debug_anchors = false;
     bool debug_grid = false;
     bool debug_terrain_only = false;
+    int debug_harvest_state = -1;
     bool debug_camera_override = false;
     fvec2_t debug_camera = { 0.0f, 0.0f };
     while (argc > arg_base) {
@@ -2268,6 +2308,9 @@ int main(int argc, char **argv) {
             arg_base += 1;
         } else if (strcmp(argv[arg_base], "--terrain-only") == 0) {
             debug_terrain_only = true;
+            arg_base += 1;
+        } else if (strncmp(argv[arg_base], "--debug-harvest-state=", 22) == 0 &&
+                   sscanf(argv[arg_base] + 22, "%d", &debug_harvest_state) == 1) {
             arg_base += 1;
         } else {
             break;
@@ -2372,6 +2415,11 @@ int main(int argc, char **argv) {
         }
     }
     apply_actor_defaults(units, unit_count);
+    if (debug_harvest_state >= 0 &&
+        !spawn_debug_harvester_at_vent(&map, units, &unit_count, debug_harvest_state)) {
+        fprintf(stderr, "warning: could not create debug harvester state %d\n",
+                debug_harvest_state);
+    }
     effect_t effects[MAX_VISUAL_EFFECTS] = { 0 };
 
     spritecache_t decoration_sprites = { 0 };

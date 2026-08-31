@@ -16,6 +16,27 @@ Record stable offsets, constants, object layouts, calling conventions, and file
 format findings in `REFERENCES.md`. Keep generated analysis under the ignored
 `reverse/` directory and never commit decompiler dumps.
 
+## Preserve findings
+
+Reverse-engineering output is useful only if the next investigation can find
+and reproduce it. Before ending an investigation, promote useful conclusions
+out of chat logs, temporary command output, local screenshots, and ignored
+decompiler dumps:
+
+1. Record detailed executable behavior in a game-specific report under
+  `docs/`, including the executable fingerprint and exact addresses or data
+  offsets.
+2. Record external tools, source repositories, articles, and screenshot URLs
+  in `REFERENCES.md` with enough provenance to locate them again.
+3. State whether each conclusion is confirmed by instructions/data, inferred
+  from multiple observations, disproven, or still unknown.
+4. Include the relevant formula or layout, its consequence for open-rts, and a
+  focused command or test that reproduces the evidence.
+5. Preserve corrected hypotheses when they warn against a plausible but wrong
+  implementation. Mark them as superseded rather than deleting the lesson.
+
+Do this even when no code is changed or the implementation is deferred.
+
 ## Fingerprint the toolchain
 
 Do this once per executable before interpreting substantial decompiler output.

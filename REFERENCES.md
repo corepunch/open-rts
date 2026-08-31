@@ -30,6 +30,23 @@ plugin-specific behavior.
 
 ## Dark Colony
 
+- MobyGames Dark Colony screenshots:
+  https://www.mobygames.com/game/2737/dark-colony/screenshots/
+  - Native 640x480 gameplay captures used to compare unit, building, terrain,
+    and HUD scale. Screenshot `395046` includes a mobile Exploiter near human
+    structures and a beacon.
+
+- My Abandonware Dark Colony gallery:
+  https://www.myabandonware.com/game/dark-colony-49w
+  - Additional native 640x480 captures used to compare the human landing
+    structure and its narrow tower/pod column.
+
+- Dark Colony Wiki, Exploiter:
+  https://darkcolony.fandom.com/wiki/Exploiter
+  - The "Active Exploiter" gameplay crop was used to compare the deployed
+    body, mast, and vent relationship. Treat the image as visual corroboration,
+    not a substitute for executable coordinate evidence.
+
 - DarkColony.pl downloads:
   https://www.darkcolony.pl/downloads.php?cat_id=2
   - Community downloads and historical Dark Colony material. Check here when

@@ -279,6 +279,10 @@ static int assert_dark_colony_city_fin_alignment(void) {
     if (towr0.width != 77 || towr0.height != 257 || towr0.dis_x != 0 || towr0.dis_y != 0) {
         return fail("TOWR frame 0 keeps raw SPR descriptor values");
     }
+    if (barracks->x + hubu4.dis_x != -32 || barracks->y + hubu4.dis_y != 39 ||
+        tower->x + towr0.dis_x != -36 || tower->y + towr0.dis_y != -9) {
+        return fail("city FIN parts share one origin regardless of SPR sheet height");
+    }
     if (beac0.width != 38 || beac0.height != 91 || beac0.dis_x != 39 || beac0.dis_y != 30 ||
         beac1.width != 20 || beac1.height != 40 || beac1.dis_x != 42 || beac1.dis_y != 27 ||
         beac1.dis_x - beac0.dis_x != 3 || beac1.dis_y - beac0.dis_y != -3) {
@@ -291,16 +295,16 @@ static int assert_dark_colony_city_fin_alignment(void) {
     if (!expl_right || !expl_left || !expl_deploy_body || !expl_deploy_top)
         return fail("resolve Exploiter FIN commands");
     int right_draw_x = expl_right->x + expl0.dis_x;
-    int right_draw_y = expl_right->y - expl0.height;
+    int right_draw_y = expl_right->y + expl0.dis_y;
     int left_draw_x = expl_left->x;
-    int left_draw_y = expl_left->y - expl6.height;
-    int body_draw_y = expl_deploy_body->y - expl14.height;
+    int left_draw_y = expl_left->y + expl6.dis_y;
+    int body_draw_y = expl_deploy_body->y + expl14.dis_y;
     int top_draw_x = expl_deploy_top->x + expl15.dis_x;
-    int top_draw_y = expl_deploy_top->y - expl15.height;
-    if (right_draw_x != -22 || right_draw_y != -30 ||
-        left_draw_x != -30 || left_draw_y != -32 ||
-        body_draw_y != -28 || top_draw_x != -10 || top_draw_y != -17) {
-        return fail("Exploiter FIN/SPR placement uses each FIN frame bottom independently");
+    int top_draw_y = expl_deploy_top->y + expl15.dis_y;
+    if (right_draw_x != -22 || right_draw_y != 123 ||
+        left_draw_x != -30 || left_draw_y != 130 ||
+        body_draw_y != 131 || top_draw_x != -10 || top_draw_y != 117) {
+        return fail("Exploiter FIN/SPR placement matches the native draw pipeline");
     }
     return 0;
 }

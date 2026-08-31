@@ -241,6 +241,27 @@ or metadata from original game executables. It defines the shared Dark Colony
 and 7th Legion workflow, verification requirements, and game-specific fidelity
 rules.
 
+### Preserve every original-game finding
+
+Do not leave reverse-engineering knowledge only in chat, terminal output,
+ignored `reverse/` files, or local screenshots. Before finishing any task that
+examines an original executable, native asset, runtime trace, or original-game
+screenshot, document every useful result, including disproven hypotheses and
+remaining unknowns.
+
+- Put detailed, game-specific executable findings in
+  `docs/<GAME>_EXE_FINDINGS.md` (for example, `docs/DC_EXE_FINDINGS.md`).
+- Put external source URLs and provenance in `REFERENCES.md`; update
+  `REVERSE_ENGINEERING.md` when the reusable workflow changes.
+- Record the executable fingerprint, function addresses or data offsets,
+  observed layout or formula, evidence chain, implementation consequence, and
+  a command or focused test that can reproduce the result.
+- Distinguish **confirmed**, **inferred**, **disproven**, and **unknown** facts.
+  Never silently turn a visual guess or decompiler type guess into a rule.
+- Keep superseded conclusions with a short correction when they explain why a
+  tempting workaround is wrong. This prevents later work from repeating the
+  same investigation.
+
 ## Git workflow
 
 - Commit all completed working-tree changes after verification so progress stays
