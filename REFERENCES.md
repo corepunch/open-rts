@@ -534,6 +534,10 @@ Dark Colony `info.c` must use the frame-major formula instead.
 
 ### DC.EXE / DC16.EXE Findings
 
+See `docs/DC_EXE_FINDINGS.md` for the consolidated executable fingerprint,
+rendering call graph, native data layouts, animation timing, direction lookup,
+open-rts consequences, and unresolved questions.
+
 `data/DCOLONY/DC.EXE` (566 KB) and `data/DCOLONY/DC16.EXE` (637 KB) are the
 original Dark Colony DOS MZ executables. Neither contains game data beyond the
 engine itself; all unit, sprite, and animation data lives in the external files.
