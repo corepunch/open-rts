@@ -471,9 +471,12 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
     float sx, sy;
-    R_MapToScreen(app, map, (float)dec->gx, (float)dec->gy, &sx, &sy);
-    int footprint_w = dec->footprint_w > 0 ? dec->footprint_w : 1;
-    int footprint_h = dec->footprint_h > 0 ? dec->footprint_h : 1;
+    fvec2_t anchor = { (float)dec->cell.x, (float)dec->cell.y };
+    isize2_t footprint = {
+        dec->footprint.w > 0 ? dec->footprint.w : 1,
+        dec->footprint.h > 0 ? dec->footprint.h : 1,
+    };
+    R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
 
     int frame = decoration_sprite_frame(app, dec, sprite, frame_index, sequence_name);
     int anchor_frame = decoration_sprite_frame(app, dec, sprite, anchor_frame_index,
@@ -488,22 +491,20 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
            visible-pixel bounds.  All layers of a composite therefore attach
            to exactly the same world point. */
         if (dec->center_anchor) {
-            R_MapToScreen(app, map,
-                               (float)dec->gx + (float)footprint_w * 0.5f,
-                               (float)dec->gy + (float)footprint_h * 0.5f,
-                               &sx, &sy);
+            anchor = fvec2_add(anchor, fvec2_scale(
+                (fvec2_t){ (float)footprint.w, (float)footprint.h }, 0.5f));
+            R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
         }
         dst = (irect_t){
-            (int)lroundf(sx) - dec->sprite_pivot_x,
-            (int)lroundf(sy) - dec->sprite_pivot_y,
+            (int)lroundf(sx) - dec->sprite_pivot.x,
+            (int)lroundf(sy) - dec->sprite_pivot.y,
             sprite_w,
             sprite_h,
         };
     } else if (dec->center_anchor) {
-        R_MapToScreen(app, map,
-                           (float)dec->gx + (float)footprint_w * 0.5f,
-                           (float)dec->gy + (float)footprint_h * 0.5f,
-                           &sx, &sy);
+        anchor = fvec2_add(anchor, fvec2_scale(
+            (fvec2_t){ (float)footprint.w, (float)footprint.h }, 0.5f));
+        R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
         SDL_Point ground;
         if (sprite->frame_ground_points) {
             ground = sprite_ground_point(sprite, anchor_frame);
@@ -528,8 +529,8 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
         }
     } else {
         dst = (irect_t){
-            (int)(sx + (float)(footprint_w * app_cell_w(app) - sprite_w) * 0.5f),
-            (int)(sy + (float)(footprint_h * app_cell_h(app) - sprite_h)),
+            (int)(sx + (float)(footprint.w * app_cell_w(app) - sprite_w) * 0.5f),
+            (int)(sy + (float)(footprint.h * app_cell_h(app) - sprite_h)),
             sprite_w,
             sprite_h,
         };
@@ -753,7 +754,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
                                       int *frame_out, const spritesheet_t **sprite_out) {
     if (!app || !unit) return false;
     float sx = 0.0f, sy = 0.0f;
-    R_MapToScreen(app, map, unit->core.gx, unit->core.gy, &sx, &sy);
+    R_MapToScreen(app, map, unit->core.position.x, unit->core.position.y, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
         float radius = unit_pick_radius_px(app, unit);
@@ -805,8 +806,8 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
             sprite_h,
         };
     }
-    dst.x += unit->core.render_offset_x;
-    dst.y += unit->core.render_offset_y;
+    dst.x += unit->core.render_offset.x;
+    dst.y += unit->core.render_offset.y;
     irect_t visible = {
         dst.x + bounds.x,
         dst.y + bounds.y,
@@ -1194,11 +1195,12 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     }
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
+        int footprint_height = dec->footprint.h > 0 ? dec->footprint.h : 1;
         float sort_y = dec->has_sprite_pivot ?
-            (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1) :
+            (float)dec->cell.y + (float)footprint_height :
             dec->center_anchor ?
-            (float)dec->gy + 0.5f :
-            (float)dec->gy + (float)(dec->footprint_h > 0 ? dec->footprint_h : 1);
+            (float)dec->cell.y + 0.5f :
+            (float)dec->cell.y + (float)footprint_height;
         sort_y = L_ScreenYF(map, sort_y);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_DECORATION,
@@ -1210,7 +1212,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     }
     for (int i = 0; i < unit_count; ++i) {
         float sort_y = units[i].render_sort_y > 0.0f ?
-            units[i].render_sort_y : units[i].core.gy;
+            units[i].render_sort_y : units[i].core.position.y;
         sort_y = L_ScreenYF(map, sort_y);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
@@ -1276,7 +1278,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
         }
 
         float sx, sy;
-        R_MapToScreen(app, map, effect->core.gx, effect->core.gy, &sx, &sy);
+        R_MapToScreen(app, map, effect->core.position.x, effect->core.position.y,
+                  &sx, &sy);
         int frame = effect->use_state ? effect->core.frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
         irect_t frame_rect = sprite_frame_rect(sprite, frame);
@@ -1287,8 +1290,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
             int offset_x = sprite_world_offset_x(sprite, frame, effect->core.render_flags);
             dst = (irect_t){
-                (int)lroundf(sx) + effect->core.render_offset_x + offset_x,
-                (int)lroundf(sy) + effect->core.render_offset_y - sprite_h,
+                (int)lroundf(sx) + effect->core.render_offset.x + offset_x,
+                (int)lroundf(sy) + effect->core.render_offset.y - sprite_h,
                 sprite_w,
                 sprite_h,
             };
@@ -1299,9 +1302,9 @@ void R_DrawEffects(app_t *app, const level_t *map,
                 sprite_w,
                 sprite_h,
             };
-            if (effect->core.render_offset_x != 0 || effect->core.render_offset_y != 0) {
-                dst.x += effect->core.render_offset_x;
-                dst.y += effect->core.render_offset_y;
+            if (!ivec2_equal(effect->core.render_offset, (ivec2_t){ 0, 0 })) {
+                dst.x += effect->core.render_offset.x;
+                dst.y += effect->core.render_offset.y;
             }
         }
         if (dst.x > app->win.w || dst.y > app->win.h ||
@@ -1309,7 +1312,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
             debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
                               i, effect->core.sprite_name,
                               effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                              sprite->frame_count, effect->core.gx, effect->core.gy,
+                              sprite->frame_count, effect->core.position.x,
+                              effect->core.position.y,
                               dst.x, dst.y, dst.w, dst.h);
             continue;
         }
@@ -1320,7 +1324,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
                           angle_to_direction(effect->core.angle, 32, ANG90, true),
                           effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
                           frame, sprite->frame_count,
-                          effect->core.render_offset_x, effect->core.render_offset_y,
+                          effect->core.render_offset.x, effect->core.render_offset.y,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
             SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
@@ -1390,10 +1394,10 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         units[i].harvest.target = -1;
                         units[i].harvest.timer_ms = 0;
                     }
-                    gx = units[target].core.gx;
-                    gy = units[target].core.gy;
+                    gx = units[target].core.position.x;
+                    gy = units[target].core.position.y;
                 } else {
-                    if (P_HarvestOrderAt(map, units, unit_count, gx, gy)) {
+                    if (P_HarvestOrderAt(map, units, unit_count, (fvec2_t){ gx, gy })) {
                         break;
                     }
                     for (int i = 0; i < unit_count; ++i) {
@@ -1402,7 +1406,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         }
                     }
                 }
-                P_MoveOrderAt(map, units, unit_count, gx, gy);
+                P_MoveOrderAt(map, units, unit_count, (fvec2_t){ gx, gy });
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = true;
             }

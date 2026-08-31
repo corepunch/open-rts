@@ -18,9 +18,9 @@ bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy)
 void P_ClampToLevel(const level_t *map, mobj_t *unit);
 
 void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                   float goal_gx, float goal_gy);
-bool P_MoveUnitTo(const level_t *map, mobj_t *unit, float goal_gx, float goal_gy);
+                         fvec2_t goal_position);
+bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position);
 bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                      float gx, float gy);
+                             fvec2_t position);
 
 #endif

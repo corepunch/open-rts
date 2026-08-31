@@ -67,9 +67,9 @@ const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name)
 
 void P_MoveOrder(const level_t *map, mobj_t *units, int unit_count, cell_t goal);
 void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                   float goal_gx, float goal_gy);
+                         fvec2_t goal_position);
 bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                      float gx, float gy);
+                             fvec2_t position);
 void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit);
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
 bool P_SpawnEffect(statecontext_t *ctx, int state_id, float gx, float gy, angle_t angle);

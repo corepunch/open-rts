@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "engine_config.h"
+#include "m_vec.h"
 
 #define RTS_MODEL_MAX_SNAPSHOT_UNITS 128
 #define RTS_MODEL_MAX_SNAPSHOT_EFFECTS 256
@@ -71,12 +72,10 @@ typedef struct {
             bool additive;
         } select_unit_index;
         struct {
-            float gx;
-            float gy;
+            fvec2_t target;
         } move_selected;
         struct {
-            float gx;
-            float gy;
+            fvec2_t target;
         } harvest_selected;
         struct {
             int ui_id;
@@ -102,15 +101,12 @@ typedef struct {
     uint16_t target_type_id;
     int product_class;
     int product_type;
-    float gx;
-    float gy;
+    fvec2_t position;
 } RtsGameEvent;
 
 typedef struct {
-    float gx;
-    float gy;
-    float move_goal_gx;
-    float move_goal_gy;
+    fvec2_t position;
+    fvec2_t move_goal;
     uint16_t type_id;
     uint8_t owner;
     uint32_t traits;
@@ -123,8 +119,7 @@ typedef struct {
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
-    int render_offset_x;
-    int render_offset_y;
+    ivec2_t render_offset;
     bool selected;
     bool has_move_order;
     int harvest_target;
@@ -134,8 +129,7 @@ typedef struct {
 
 typedef struct {
     bool active;
-    float gx;
-    float gy;
+    fvec2_t position;
     int frame;
     uint32_t render_flags;
     int render_remap;
@@ -145,15 +139,12 @@ typedef struct {
 } RtsRenderEffect;
 
 typedef struct {
-    int gx;
-    int gy;
-    int footprint_w;
-    int footprint_h;
+    ivec2_t cell;
+    isize2_t footprint;
     bool hidden;
     bool center_anchor;
     bool has_sprite_pivot;
-    int sprite_pivot_x;
-    int sprite_pivot_y;
+    ivec2_t sprite_pivot;
     int frame_interval_ms;
     int frame_index;
     int frame2_index;

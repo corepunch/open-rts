@@ -2,6 +2,7 @@
 #define __MAP__
 
 #include "engine_config.h"
+#include "m_vec.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -9,10 +10,7 @@
 typedef struct app_s app_t;
 typedef struct tileset_s tileset_t;
 
-typedef struct cell_s {
-    int x;
-    int y;
-} cell_t;
+typedef ivec2_t cell_t;
 
 enum {
     MAP_RENDER_CAP_CELL_COLORS = 1 << 0,
@@ -35,18 +33,15 @@ typedef enum {
 
 typedef struct mapextra_s {
     MapExtraKind kind;
-    int gx;
-    int gy;
+    ivec2_t cell;
     int layer;
     int value;
     uint32_t flags;
 } mapextra_t;
 
 typedef struct mapdecoration_s {
-    int gx;
-    int gy;
-    int footprint_w;
-    int footprint_h;
+    ivec2_t cell;
+    isize2_t footprint;
     bool solid;
     bool hidden;
     bool center_anchor;
@@ -55,8 +50,7 @@ typedef struct mapdecoration_s {
        point.  This lets a game plugin preserve its native placement convention
        without deriving an origin from opaque bounds or a guessed footprint. */
     bool has_sprite_pivot;
-    int sprite_pivot_x;
-    int sprite_pivot_y;
+    ivec2_t sprite_pivot;
     int frame_interval_ms;
     int frame_index;
     int frame2_index;
@@ -75,12 +69,10 @@ typedef struct mapdecoration_s {
 #define RTS_MAX_RESOURCES 8
 
 typedef struct resourcevent_s {
-    int gx;
-    int gy;
+    ivec2_t cell;
     /* Visual/interaction attachment point inside the authored vent stamp.
-       gx/gy remain the integer scenario coordinates used by scripts. */
-    float attach_gx;
-    float attach_gy;
+       cell remains the integer scenario coordinate used by scripts. */
+    fvec2_t attachment;
     int amount;
     int rate;
     bool active;
@@ -107,8 +99,7 @@ typedef struct level_s {
     mapextra_t *extras;
     int extra_count;
     bool has_camera;
-    float camera_gx;
-    float camera_gy;
+    fvec2_t camera;
     int player_resources[8][RTS_MAX_RESOURCES];
     char tileset_name[32];
     void *native_data;

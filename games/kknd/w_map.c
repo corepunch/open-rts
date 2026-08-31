@@ -128,8 +128,10 @@ bool load_kknd_map(const char *map_path, level_t *out) {
     out->native_data = native;
     out->destroy_native_data = kknd_map_data_destroy;
     out->has_camera = true;
-    out->camera_gx = (float)out->width * 0.5f;
-    out->camera_gy = (float)out->height * 0.5f;
+    out->camera = (fvec2_t){
+        (float)out->width * 0.5f,
+        (float)out->height * 0.5f,
+    };
     snprintf(out->tileset_name, sizeof(out->tileset_name), "SURV_01 MAPD");
     return true;
 }

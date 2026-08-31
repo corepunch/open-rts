@@ -99,10 +99,10 @@ void P_ClampToLevel(const level_t *map, mobj_t *unit) {
     float max_y = (float)map->height - r;
     if (max_x < min_x) max_x = min_x = (float)map->width * 0.5f;
     if (max_y < min_y) max_y = min_y = (float)map->height * 0.5f;
-    if (unit->core.gx < min_x) unit->core.gx = min_x;
-    if (unit->core.gy < min_y) unit->core.gy = min_y;
-    if (unit->core.gx > max_x) unit->core.gx = max_x;
-    if (unit->core.gy > max_y) unit->core.gy = max_y;
+    if (unit->core.position.x < min_x) unit->core.position.x = min_x;
+    if (unit->core.position.y < min_y) unit->core.position.y = min_y;
+    if (unit->core.position.x > max_x) unit->core.position.x = max_x;
+    if (unit->core.position.y > max_y) unit->core.position.y = max_y;
 }
 
 static int heuristic(cell_t a, cell_t b) {
@@ -447,7 +447,7 @@ static int flow_path_find(const level_t *map, const FlowCell *field, cell_t star
 
 
 void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                                float goal_gx, float goal_gy) {
+                   fvec2_t goal_position) {
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
         if (!units[i].selected) continue;
@@ -457,7 +457,7 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
     }
     if (selected_count <= 0) return;
 
-    cell_t goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
+    cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return;
     FlowCell *field = build_flow_field(map, goal);
     if (!field) return;
@@ -475,7 +475,8 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         units[i].harvest.target = -1;
         units[i].harvest.timer_ms = 0;
         units[i].harvest.phase = 0;
-        cell_t start = { (int)floorf(units[i].core.gx), (int)floorf(units[i].core.gy) };
+        cell_t start = { (int)floorf(units[i].core.position.x),
+                 (int)floorf(units[i].core.position.y) };
         int len = flow_path_find(map, field, start, units[i].movement.path, MAX_PATH_CELLS,
                                  P_MobjRadius(&units[i]));
         int row = selected_index / formation_columns;
@@ -486,14 +487,14 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         float spacing = P_MobjRadius(&units[i]) * 2.1f;
         float offset_x = ((float)col - ((float)row_count - 1.0f) * 0.5f) * spacing;
         float offset_y = ((float)row - ((float)formation_rows - 1.0f) * 0.5f) * spacing;
-        units[i].movement.goal.x = goal_gx + offset_x;
-        units[i].movement.goal.y = goal_gy + offset_y;
+        units[i].movement.goal = fvec2_add(goal_position, (fvec2_t){ offset_x, offset_y });
         if (!P_CheckPosition(map, &units[i], units[i].movement.goal.x, units[i].movement.goal.y) ||
             position_overlaps_reserved_goal(units, unit_count, i,
                                             units[i].movement.goal.x, units[i].movement.goal.y,
                                             P_MobjRadius(&units[i]), order_id)) {
-            float adjusted_gx = (float)goal.x + 0.5f;
-            float adjusted_gy = (float)goal.y + 0.5f;
+            fvec2_t adjusted = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
+            float adjusted_gx = adjusted.x;
+            float adjusted_gy = adjusted.y;
             if (!find_nearest_unreserved_walkable_position(map, units, unit_count, i, order_id,
                                                            adjusted_gx, adjusted_gy,
                                                            P_MobjRadius(&units[i]), 8,
@@ -505,8 +506,8 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
             units[i].movement.goal.x = adjusted_gx;
             units[i].movement.goal.y = adjusted_gy;
         }
-        if (len == 1 && hypotf(units[i].movement.goal.x - units[i].core.gx,
-                       units[i].movement.goal.y - units[i].core.gy) > 0.05f &&
+        if (len == 1 &&
+            fvec2_distance_squared(units[i].movement.goal, units[i].core.position) > 0.05f * 0.05f &&
             MAX_PATH_CELLS > 1) {
             units[i].movement.path[1] = units[i].movement.path[0];
             len = 2;
@@ -519,18 +520,22 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
     free(field);
 }
 
-bool P_MoveUnitTo(const level_t *map, mobj_t *unit, float goal_gx, float goal_gy) {
+bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
     if (!map || !unit || unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0) return false;
-    cell_t goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
+    cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return false;
+    float goal_gx = goal_position.x;
+    float goal_gy = goal_position.y;
     if (!find_nearest_walkable_position(map, goal_gx, goal_gy, P_MobjRadius(unit), 8,
                                         &goal_gx, &goal_gy)) {
-        goal_gx = (float)goal.x + 0.5f;
-        goal_gy = (float)goal.y + 0.5f;
+        fvec2_t centered_goal = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
+        goal_gx = centered_goal.x;
+        goal_gy = centered_goal.y;
     }
     FlowCell *field = build_flow_field(map, goal);
     if (!field) return false;
-    cell_t start = { (int)floorf(unit->core.gx), (int)floorf(unit->core.gy) };
+    cell_t start = { (int)floorf(unit->core.position.x),
+                     (int)floorf(unit->core.position.y) };
     int len = flow_path_find(map, field, start, unit->movement.path, MAX_PATH_CELLS,
                              P_MobjRadius(unit));
     free(field);
@@ -543,14 +548,14 @@ bool P_MoveUnitTo(const level_t *map, mobj_t *unit, float goal_gx, float goal_gy
     return true;
 }
 
-static int find_resource_vent_at(const level_t *map, float gx, float gy) {
+static int find_resource_vent_at(const level_t *map, fvec2_t position) {
     if (!map || !map->resource_vents || map->resource_vent_count <= 0) return -1;
-    int cell_x = (int)floorf(gx);
-    int cell_y = (int)floorf(gy);
+    int cell_x = (int)floorf(position.x);
+    int cell_y = (int)floorf(position.y);
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
-        if (vent->gx == cell_x && vent->gy == cell_y) return i;
+        if (ivec2_equal(vent->cell, (ivec2_t){ cell_x, cell_y })) return i;
     }
 
     int best = -1;
@@ -558,9 +563,7 @@ static int find_resource_vent_at(const level_t *map, float gx, float gy) {
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         if (!vent->active || vent->rate <= 0 || vent->amount <= 0) continue;
-        float dx = vent->attach_gx - gx;
-        float dy = vent->attach_gy - gy;
-        float dist2 = dx * dx + dy * dy;
+        float dist2 = fvec2_distance_squared(vent->attachment, position);
         if (dist2 < best_dist2) {
             best_dist2 = dist2;
             best = i;
@@ -570,8 +573,8 @@ static int find_resource_vent_at(const level_t *map, float gx, float gy) {
 }
 
 bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                                   float gx, float gy) {
-    int vent_index = find_resource_vent_at(map, gx, gy);
+                      fvec2_t position) {
+    int vent_index = find_resource_vent_at(map, position);
     if (vent_index < 0) return false;
 
     bool has_harvester = false;
@@ -596,15 +599,17 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
             continue;
         }
 
-        float goal_gx = vent->attach_gx;
-        float goal_gy = vent->attach_gy;
+        fvec2_t goal_position = vent->attachment;
+        float goal_gx = goal_position.x;
+        float goal_gy = goal_position.y;
         if (!find_nearest_walkable_position(map, goal_gx, goal_gy,
                                             P_MobjRadius(unit), 8,
                                             &goal_gx, &goal_gy)) {
-            cell_t fallback = { vent->gx, vent->gy };
+            cell_t fallback = vent->cell;
             if (!find_nearest_walkable_cell(map, fallback, 8, &fallback)) continue;
-            goal_gx = (float)fallback.x + 0.5f;
-            goal_gy = (float)fallback.y + 0.5f;
+            goal_position = fvec2_cell_center((ivec2_t){ fallback.x, fallback.y });
+            goal_gx = goal_position.x;
+            goal_gy = goal_position.y;
         }
 
         cell_t goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
@@ -612,15 +617,17 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
         FlowCell *field = build_flow_field(map, goal);
         if (!field) continue;
 
-        cell_t start = { (int)floorf(unit->core.gx), (int)floorf(unit->core.gy) };
+        cell_t start = { (int)floorf(unit->core.position.x),
+                 (int)floorf(unit->core.position.y) };
         int len = flow_path_find(map, field, start, unit->movement.path, MAX_PATH_CELLS,
                                  P_MobjRadius(unit));
         free(field);
         unit->movement.goal.x = goal_gx;
         unit->movement.goal.y = goal_gy;
         if (!P_CheckPosition(map, unit, unit->movement.goal.x, unit->movement.goal.y)) {
-            float adjusted_gx = (float)goal.x + 0.5f;
-            float adjusted_gy = (float)goal.y + 0.5f;
+            fvec2_t adjusted = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
+            float adjusted_gx = adjusted.x;
+            float adjusted_gy = adjusted.y;
             find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
                                            P_MobjRadius(unit), 8,
                                            &adjusted_gx, &adjusted_gy);
@@ -636,8 +643,8 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
             unit->movement.path[1] = goal;
             len = 2;
         }
-        if (len == 1 && hypotf(unit->movement.goal.x - unit->core.gx,
-                       unit->movement.goal.y - unit->core.gy) > 0.05f &&
+        if (len == 1 &&
+            fvec2_distance_squared(unit->movement.goal, unit->core.position) > 0.05f * 0.05f &&
             MAX_PATH_CELLS > 1) {
             unit->movement.path[1] = unit->movement.path[0];
             len = 2;
@@ -657,5 +664,5 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
 }
 
 void P_MoveOrder(const level_t *map, mobj_t *units, int unit_count, cell_t goal) {
-    P_MoveOrderAt(map, units, unit_count, (float)goal.x + 0.5f, (float)goal.y + 0.5f);
+    P_MoveOrderAt(map, units, unit_count, fvec2_cell_center(goal));
 }

@@ -145,8 +145,7 @@ typedef struct gameinfo_s {
  * object core.
  */
 typedef struct mobjcore_s {
-    float gx;
-    float gy;
+    fvec2_t position;
     angle_t angle;
     int state_id;
     int tics;
@@ -155,8 +154,7 @@ typedef struct mobjcore_s {
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
-    int render_offset_x;
-    int render_offset_y;
+    ivec2_t render_offset;
     char sprite_name[32];
 } mobjcore_t;
 

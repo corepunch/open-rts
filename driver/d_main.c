@@ -750,8 +750,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     if (!L_Contains(map, cell.x, cell.y)) return false;
     mobj_t *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
-    unit->core.gx = (float)cell.x + 0.5f;
-    unit->core.gy = (float)cell.y + 0.5f;
+    unit->core.position = fvec2_cell_center((ivec2_t){ cell.x, cell.y });
     unit->owner = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     apply_actor_type_defaults(unit, type);
@@ -779,9 +778,8 @@ static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit
         if (!candidate->active) continue;
         float distance_sq = 0.0f;
         if (map->has_camera) {
-            float dx = candidate->attach_gx - map->camera_gx;
-            float dy = candidate->attach_gy - map->camera_gy;
-            distance_sq = dx * dx + dy * dy;
+            distance_sq = fvec2_distance_squared(
+                candidate->attachment, map->camera);
         }
         if (vent_index < 0 || distance_sq < best_distance_sq) {
             vent_index = i;
@@ -793,8 +791,7 @@ static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit
     resourcevent_t *vent = &map->resource_vents[vent_index];
     mobj_t *unit = &units[(*unit_count)++];
     memset(unit, 0, sizeof(*unit));
-    unit->core.gx = vent->attach_gx;
-    unit->core.gy = vent->attach_gy;
+    unit->core.position = vent->attachment;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     unit->owner = 0;
     unit->attack.target = -1;
@@ -814,7 +811,8 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
-        R_MapToScreen(app, map, units[i].core.gx, units[i].core.gy, &sx, &sy);
+        R_MapToScreen(app, map, units[i].core.position.x,
+                  units[i].core.position.y, &sx, &sy);
         app->cam.x += (float)app->win.w * 0.5f - sx;
         app->cam.y += (float)app->win.h * 0.5f - sy;
         return true;
@@ -851,19 +849,22 @@ static void debug_draw_map_anchors(const app_t *app, const level_t *map,
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
         float sx, sy;
-        R_MapToScreen(app, map, (float)vent->gx, (float)vent->gy, &sx, &sy);
+        R_MapToScreen(app, map, (float)vent->cell.x, (float)vent->cell.y, &sx, &sy);
         debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
                          (SDL_Color){ 232, 93, 86, 255 });
-        R_MapToScreen(app, map, vent->attach_gx, vent->attach_gy, &sx, &sy);
+        R_MapToScreen(app, map, vent->attachment.x, vent->attachment.y, &sx, &sy);
         debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
                          (SDL_Color){ 255, 224, 92, 255 });
     }
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
         float sx, sy;
-        float gx = (float)dec->gx + (dec->center_anchor ? (float)dec->footprint_w * 0.5f : 0.0f);
-        float gy = (float)dec->gy + (dec->center_anchor ? (float)dec->footprint_h * 0.5f : 0.0f);
-        R_MapToScreen(app, map, gx, gy, &sx, &sy);
+        fvec2_t anchor = { (float)dec->cell.x, (float)dec->cell.y };
+        if (dec->center_anchor) {
+            anchor = fvec2_add(anchor, fvec2_scale(
+                (fvec2_t){ (float)dec->footprint.w, (float)dec->footprint.h }, 0.5f));
+        }
+        R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
         debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
                          (SDL_Color){ 98, 224, 161, 255 });
         const spritesheet_t *sprite = cache ? R_CacheLookup(cache, dec->sprite_name) : NULL;
@@ -872,8 +873,8 @@ static void debug_draw_map_anchors(const app_t *app, const level_t *map,
                 (int)((app->ticks_ms / 250u) % (uint32_t)sprite->frame_count);
             irect_t src = sprite->frames[frame];
             irect_t dst = {
-                (int)lroundf(sx) - dec->sprite_pivot_x,
-                (int)lroundf(sy) - dec->sprite_pivot_y,
+                (int)lroundf(sx) - dec->sprite_pivot.x,
+                (int)lroundf(sy) - dec->sprite_pivot.y,
                 src.w,
                 src.h,
             };
@@ -884,7 +885,8 @@ static void debug_draw_map_anchors(const app_t *app, const level_t *map,
     for (int i = 0; units && i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
         float sx, sy;
-        R_MapToScreen(app, map, units[i].core.gx, units[i].core.gy, &sx, &sy);
+        R_MapToScreen(app, map, units[i].core.position.x,
+                  units[i].core.position.y, &sx, &sy);
         debug_draw_cross(app->renderer, (int)lroundf(sx), (int)lroundf(sy),
                          (SDL_Color){ 88, 160, 255, 255 });
     }
@@ -892,7 +894,7 @@ static void debug_draw_map_anchors(const app_t *app, const level_t *map,
 
 static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
     if (!app || !map || !map->has_camera) return false;
-    focus_camera_on_grid(app, map, map->camera_gx, map->camera_gy);
+    focus_camera_on_grid(app, map, map->camera.x, map->camera.y);
     return true;
 }
 
@@ -1548,7 +1550,8 @@ static bool dc_start_production_release(level_t *map,
         .max_effects = max_effects,
         .game_info = gameinfo,
     };
-    if (!P_SpawnEffect(&ctx, state_id, producer->core.gx, producer->core.gy, 0)) return false;
+    if (!P_SpawnEffect(&ctx, state_id, producer->core.position.x,
+                       producer->core.position.y, 0)) return false;
     producer->production.release_active = true;
     producer->production.release_time_left_ms = duration_ms;
     producer->production.time_left_ms = 0;
@@ -1601,9 +1604,8 @@ static bool dc_position_available_for_spawn(const level_t *map, const mobj_t *un
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
-        float dx = other->core.gx - gx;
-        float dy = other->core.gy - gy;
-        if (dx * dx + dy * dy < min_dist * min_dist) return false;
+        if (fvec2_distance_squared(other->core.position, (fvec2_t){ gx, gy }) <
+            min_dist * min_dist) return false;
     }
     return true;
 }
@@ -1633,8 +1635,8 @@ static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
                                         float radius, float *out_gx,
                                         float *out_gy) {
     if (!map || !units || !producer || !out_gx || !out_gy) return false;
-    int origin_x = (int)floorf(producer->core.gx);
-    int origin_y = (int)floorf(producer->core.gy);
+    int origin_x = (int)floorf(producer->core.position.x);
+    int origin_y = (int)floorf(producer->core.position.y);
     static const int preferred[][2] = {
         { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
         { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
@@ -1730,8 +1732,8 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
     }
     if (!saw_release_trooper) return false;
 
-    *out_gx = producer->core.gx + (float)(release_x - stand_x) / (float)CELL_W;
-    *out_gy = producer->core.gy - (float)(release_y - stand_y) / (float)CELL_H;
+    *out_gx = producer->core.position.x + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer->core.position.y - (float)(release_y - stand_y) / (float)CELL_H;
     return true;
 }
 
@@ -1754,24 +1756,22 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
             (unit->traits & MF_MOBILE) == 0) {
             continue;
         }
-        float dx = unit->core.gx - exit_gx;
-        float dy = unit->core.gy - exit_gy;
-        if (i == spawned_index || dx * dx + dy * dy <= crowd_radius_sq) {
+        if (i == spawned_index ||
+            fvec2_distance_squared(unit->core.position,
+                                   (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
             unit->selected = true;
         }
     }
 
-    float dx = exit_gx - producer->core.gx;
-    float dy = exit_gy - producer->core.gy;
-    float len = sqrtf(dx * dx + dy * dy);
+    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy }, producer->core.position);
+    float len = sqrtf(fvec2_length_squared(delta));
     if (len < 0.01f) {
-        dx = 0.0f;
-        dy = -1.0f;
+        delta = (fvec2_t){ 0.0f, -1.0f };
         len = 1.0f;
     }
-    float goal_gx = exit_gx + dx / len * 1.5f;
-    float goal_gy = exit_gy + dy / len * 1.5f;
-    P_MoveOrderAt(map, units, unit_count, goal_gx, goal_gy);
+    fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
+                            fvec2_scale(delta, 1.5f / len));
+    P_MoveOrderAt(map, units, unit_count, goal);
 
     for (int i = 0; i < unit_count; ++i) {
         units[i].selected = saved[i];
@@ -1813,8 +1813,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
                                             radius, &gx, &gy)) {
         return false;
     }
-    new_unit.core.gx = gx;
-    new_unit.core.gy = gy;
+    new_unit.core.position = (fvec2_t){ gx, gy };
     int spawned_index = *unit_count;
     units[(*unit_count)++] = new_unit;
     if (use_barracks_release)
@@ -1911,8 +1910,7 @@ static void dc_stop_selected_units(mobj_t *units, int unit_count) {
         units[i].attack.target = -1;
         units[i].harvest.target = -1;
         units[i].harvest.timer_ms = 0;
-        units[i].movement.goal.x = units[i].core.gx;
-        units[i].movement.goal.y = units[i].core.gy;
+        units[i].movement.goal = units[i].core.position;
         units[i].movement.order_id = 0;
         units[i].movement.order_arrived = false;
     }
@@ -1980,16 +1978,17 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
     }
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        int x = clip.x + vent->gx * clip.w / map->width;
-        int y = clip.y + (int)(L_ScreenY(map, vent->gy) * clip.h / map->height);
+        int x = clip.x + vent->cell.x * clip.w / map->width;
+        int y = clip.y + (int)(L_ScreenY(map, vent->cell.y) * clip.h / map->height);
         irect_t dot = { x - 1, y - 1, 3, 3 };
         dc_ui_fill(app->renderer, dot, vent->active ?
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].remove || units[i].core.gx < 0.0f || units[i].core.gy < 0.0f) continue;
-        int x = clip.x + (int)(units[i].core.gx * (float)clip.w / (float)map->width);
-        int y = clip.y + (int)(L_ScreenYF(map, units[i].core.gy) *
+        if (units[i].remove || units[i].core.position.x < 0.0f ||
+            units[i].core.position.y < 0.0f) continue;
+        int x = clip.x + (int)(units[i].core.position.x * (float)clip.w / (float)map->width);
+        int y = clip.y + (int)(L_ScreenYF(map, units[i].core.position.y) *
                                (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
@@ -2406,8 +2405,8 @@ int main(int argc, char **argv) {
         int cy = map.height / 2;
         const actortype_t *fallback_type = num_mobjinfo > 0 ? (const actortype_t *)mobjinfo : NULL;
         for (int i = 0; i < unit_count; ++i) {
-            units[i].core.gx = (float)(cx + i % 3) + 0.5f;
-            units[i].core.gy = (float)(cy + i / 3) + 0.5f;
+            units[i].core.position = fvec2_cell_center(
+                (ivec2_t){ cx + i % 3, cy + i / 3 });
             units[i].owner = 0;
             units[i].selected = i == 0;
             if (fallback_type) {
@@ -2437,11 +2436,11 @@ int main(int argc, char **argv) {
 
     if (debug_harvester_index >= 0) {
         focus_camera_on_grid(&app, &map,
-                             units[debug_harvester_index].core.gx,
-                             units[debug_harvester_index].core.gy);
+                             units[debug_harvester_index].core.position.x,
+                             units[debug_harvester_index].core.position.y);
     } else if (!focus_camera_on_map_start(&app, &map)) {
-        float focus_gx = unit_count > 0 ? units[0].core.gx : (float)map.width * 0.5f;
-        float focus_gy = unit_count > 0 ? units[0].core.gy : (float)map.height * 0.5f;
+        float focus_gx = unit_count > 0 ? units[0].core.position.x : (float)map.width * 0.5f;
+        float focus_gy = unit_count > 0 ? units[0].core.position.y : (float)map.height * 0.5f;
         focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
     }
     if (debug_camera_override)

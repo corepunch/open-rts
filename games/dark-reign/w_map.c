@@ -233,35 +233,54 @@ static bool dark_reign_resolve_animation_sprite(const DarkReignDefinitions *defs
 
 typedef struct {
     const char *type_name, *sprite_name, *shadow_name;
-    int footprint_w, footprint_h;
+    isize2_t footprint;
     bool solid;
 } DarkReignDecorationSpec;
 
+#define DR_DECORATION_SPEC(type, sprite, shadow, width, height, is_solid) \
+    { type, sprite, shadow, { width, height }, is_solid }
+
 static const DarkReignDecorationSpec DARK_REIGN_DECORATION_SPECS[] = {
-    { "clif1", "aoclf000.spr","aoclf0sh.spr",1,4,true  }, { "clif2","aoclf001.spr","aoclf1sh.spr",1,3,true },
-    { "clif3", "aoclf002.spr","aoclf2sh.spr",1,3,true  }, { "clif4","aoclf003.spr","aoclf3sh.spr",3,4,true },
-    { "clif5", "aoclf004.spr","aoclf4sh.spr",3,5,true  }, { "clif6","aoclf005.spr","aoclf5sh.spr",3,3,true },
-    { "plnt1", "aopln000.spr","aopln0sh.spr",1,1,false }, { "plnt2","aopln001.spr","aopln1sh.spr",1,1,false},
-    { "plnt3", "aopln002.spr","aopln2sh.spr",1,1,false }, { "rock1","aoroc000.spr","aoroc0sh.spr",1,1,true },
-    { "rock2", "aoroc001.spr","aoroc1sh.spr",1,1,true  }, { "rock3","aoroc002.spr","aoroc2sh.spr",1,1,true },
-    { "rock4", "aoroc003.spr","aoroc3sh.spr",3,3,true  }, { "rock5","aoroc004.spr","aoroc4sh.spr",3,3,true },
-    { "rock6", "aoroc005.spr","aoroc5sh.spr",3,3,true  }, { "tree1","aotre000.spr","aotre0sh.spr",1,1,true },
-    { "tree2", "aotre001.spr","aotre1sh.spr",1,1,true  }, { "tree3","aotre002.spr","aotre2sh.spr",1,1,true },
-    { "tree4", "aotre003.spr","aotre3sh.spr",1,1,true  }, { "tree5","aotre004.spr","aotre4sh.spr",1,1,true },
-    { "tree6", "aotre005.spr","aotre5sh.spr",1,1,true  }, { "rubble1","aorub000.spr","aorub0sh.spr",1,1,false},
-    { "rubble2","aorub001.spr","aorub1sh.spr",1,1,false}, { "rubble3","aorub002.spr","aorub2sh.spr",1,1,false},
-    { "water1","aowtr000.spr","aowtr0sh.spr",1,1,false }, { "water2","aowtr001.spr","aowtr1sh.spr",1,1,false},
-    { "water3","aowtr002.spr","aowtr2sh.spr",1,1,false }, { "impww","ncwel1l0.spr","",3,3,true },
-    { "impmn","ncmin1l0.spr","",3,3,true },
+    DR_DECORATION_SPEC("clif1", "aoclf000.spr", "aoclf0sh.spr", 1, 4, true),
+    DR_DECORATION_SPEC("clif2", "aoclf001.spr", "aoclf1sh.spr", 1, 3, true),
+    DR_DECORATION_SPEC("clif3", "aoclf002.spr", "aoclf2sh.spr", 1, 3, true),
+    DR_DECORATION_SPEC("clif4", "aoclf003.spr", "aoclf3sh.spr", 3, 4, true),
+    DR_DECORATION_SPEC("clif5", "aoclf004.spr", "aoclf4sh.spr", 3, 5, true),
+    DR_DECORATION_SPEC("clif6", "aoclf005.spr", "aoclf5sh.spr", 3, 3, true),
+    DR_DECORATION_SPEC("plnt1", "aopln000.spr", "aopln0sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("plnt2", "aopln001.spr", "aopln1sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("plnt3", "aopln002.spr", "aopln2sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("rock1", "aoroc000.spr", "aoroc0sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("rock2", "aoroc001.spr", "aoroc1sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("rock3", "aoroc002.spr", "aoroc2sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("rock4", "aoroc003.spr", "aoroc3sh.spr", 3, 3, true),
+    DR_DECORATION_SPEC("rock5", "aoroc004.spr", "aoroc4sh.spr", 3, 3, true),
+    DR_DECORATION_SPEC("rock6", "aoroc005.spr", "aoroc5sh.spr", 3, 3, true),
+    DR_DECORATION_SPEC("tree1", "aotre000.spr", "aotre0sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("tree2", "aotre001.spr", "aotre1sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("tree3", "aotre002.spr", "aotre2sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("tree4", "aotre003.spr", "aotre3sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("tree5", "aotre004.spr", "aotre4sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("tree6", "aotre005.spr", "aotre5sh.spr", 1, 1, true),
+    DR_DECORATION_SPEC("rubble1", "aorub000.spr", "aorub0sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("rubble2", "aorub001.spr", "aorub1sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("rubble3", "aorub002.spr", "aorub2sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("water1", "aowtr000.spr", "aowtr0sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("water2", "aowtr001.spr", "aowtr1sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("water3", "aowtr002.spr", "aowtr2sh.spr", 1, 1, false),
+    DR_DECORATION_SPEC("impww", "ncwel1l0.spr", "", 3, 3, true),
+    DR_DECORATION_SPEC("impmn", "ncmin1l0.spr", "", 3, 3, true),
 };
+
+#undef DR_DECORATION_SPEC
 
 typedef struct {
     char sprite_name[32], sprite2_name[32], sprite3_name[32], shadow_name[32];
-    int footprint_w, footprint_h;
+    isize2_t footprint;
     bool solid;
     bool center_anchor;
     bool has_sprite_pivot;
-    int sprite_pivot_x, sprite_pivot_y;
+    ivec2_t sprite_pivot;
     int frame_index;
 } DarkReignVisualSpec;
 
@@ -271,8 +290,7 @@ static bool dark_reign_visual_from_static(const char *type_name, DarkReignVisual
         if (strcasecmp(DARK_REIGN_DECORATION_SPECS[i].type_name, type_name) == 0) {
             snprintf(out->sprite_name, sizeof(out->sprite_name), "%s", DARK_REIGN_DECORATION_SPECS[i].sprite_name);
             snprintf(out->shadow_name, sizeof(out->shadow_name), "%s", DARK_REIGN_DECORATION_SPECS[i].shadow_name);
-            out->footprint_w = DARK_REIGN_DECORATION_SPECS[i].footprint_w;
-            out->footprint_h = DARK_REIGN_DECORATION_SPECS[i].footprint_h;
+            out->footprint = DARK_REIGN_DECORATION_SPECS[i].footprint;
             out->solid = DARK_REIGN_DECORATION_SPECS[i].solid;
             return true;
         }
@@ -289,7 +307,8 @@ static bool dark_reign_resolve_unit_visual(const DarkReignDefinitions *defs, con
     if (!dark_reign_find_call_arg(body, body_len, "SetImage", out->sprite_name, sizeof(out->sprite_name)))
         return false;
     dark_reign_find_call_arg(body, body_len, "SetShadowImage", out->shadow_name, sizeof(out->shadow_name));
-    out->footprint_w = 1; out->footprint_h = 1; out->solid = false;
+    out->footprint = (isize2_t){ 1, 1 };
+    out->solid = false;
     return true;
 }
 
@@ -313,22 +332,21 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
     if (dark_reign_find_call_arg(body, body_len, "SetShadowImage", shadow, sizeof(shadow)))
         snprintf(out->shadow_name, sizeof(out->shadow_name), "base|%s", shadow);
 
-    out->footprint_w = 3;
-    out->footprint_h = 3;
+    out->footprint = (isize2_t){ 3, 3 };
     if (strcasecmp(type_name, "fh1") == 0 || strcasecmp(type_name, "fh2") == 0 ||
         strcasecmp(type_name, "fh3") == 0) {
-        out->footprint_w = 4; out->footprint_h = 4;
+        out->footprint = (isize2_t){ 4, 4 };
     } else if (strcasecmp(type_name, "fglp") == 0) {
-        out->footprint_w = 4; out->footprint_h = 3;
+        out->footprint = (isize2_t){ 4, 3 };
     } else if (strcasecmp(type_name, "fgpp") == 0) {
-        out->footprint_w = 3; out->footprint_h = 4;
+        out->footprint = (isize2_t){ 3, 4 };
     } else if (strcasecmp(type_name, "CivilianBridge") == 0 ||
                strcasecmp(type_name, "CivilianVerticalBridge") == 0) {
-        out->footprint_w = 4; out->footprint_h = 3;
+        out->footprint = (isize2_t){ 4, 3 };
     } else if (find_case_insensitive_n(type_name, strlen(type_name), "SmallHorizontalBridge") ||
                find_case_insensitive_n(type_name, strlen(type_name), "SmallVerticalBridge") ||
                find_case_insensitive_n(type_name, strlen(type_name), "SmallCentreBridge")) {
-        out->footprint_w = 4; out->footprint_h = 4;
+        out->footprint = (isize2_t){ 4, 4 };
     }
     out->solid = true;
     /* AddBuildingAt coordinates identify the top-left of Dark Reign's authored
@@ -336,8 +354,7 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
        canvas sizes (for example 144x120 for the bridge and 120x144 for the FG
        HQ) deliberately include the structure's complete placement envelope. */
     out->has_sprite_pivot = true;
-    out->sprite_pivot_x = 0;
-    out->sprite_pivot_y = 0;
+    out->sprite_pivot = (ivec2_t){ 0, 0 };
     out->frame_index = 1;
     return true;
 }
@@ -356,7 +373,7 @@ static bool dark_reign_resolve_thing_visual(const DarkReignDefinitions *defs, co
     char shadow_animation[64] = { 0 };
     if (dark_reign_find_call_arg(body, body_len, "SetThingShadowImage", shadow_animation, sizeof(shadow_animation)))
         dark_reign_resolve_animation_sprite(defs, shadow_animation, out->shadow_name, sizeof(out->shadow_name));
-    out->footprint_w = 1; out->footprint_h = 1;
+    out->footprint = (isize2_t){ 1, 1 };
     out->solid = find_case_insensitive_n(body, body_len, "IsCrater") == NULL &&
                  find_case_insensitive_n(body, body_len, "NoEdit") == NULL;
     return true;
@@ -364,22 +381,22 @@ static bool dark_reign_resolve_thing_visual(const DarkReignDefinitions *defs, co
 
 static int compare_map_decorations(const void *a, const void *b) {
     const mapdecoration_t *da = a, *db = b;
-    int ya = da->gy + da->footprint_h, yb = db->gy + db->footprint_h;
+    int ya = da->cell.y + da->footprint.h, yb = db->cell.y + db->footprint.h;
     if (ya != yb) return ya - yb;
-    return da->gx - db->gx;
+    return da->cell.x - db->cell.x;
 }
 
-static void add_dark_reign_decoration(level_t *map, const DarkReignVisualSpec *spec, int gx, int gy) {
-    if (!spec || gx < 0 || gy < 0 || gx >= map->width || gy >= map->height ||
+static void add_dark_reign_decoration(level_t *map, const DarkReignVisualSpec *spec,
+                                      ivec2_t cell) {
+    if (!spec || cell.x < 0 || cell.y < 0 || cell.x >= map->width || cell.y >= map->height ||
         map->decoration_count >= MAX_DECORATIONS) return;
     mapdecoration_t *dec = &map->decorations[map->decoration_count++];
-    dec->gx = gx; dec->gy = gy;
-    dec->footprint_w = spec->footprint_w; dec->footprint_h = spec->footprint_h;
+    dec->cell = cell;
+    dec->footprint = spec->footprint;
     dec->solid = spec->solid;
     dec->center_anchor = spec->center_anchor;
     dec->has_sprite_pivot = spec->has_sprite_pivot;
-    dec->sprite_pivot_x = spec->sprite_pivot_x;
-    dec->sprite_pivot_y = spec->sprite_pivot_y;
+    dec->sprite_pivot = spec->sprite_pivot;
     dec->frame_index = spec->frame_index;
     dec->frame2_index = spec->frame_index;
     dec->frame3_index = spec->frame_index;
@@ -388,9 +405,9 @@ static void add_dark_reign_decoration(level_t *map, const DarkReignVisualSpec *s
     snprintf(dec->sprite3_name, sizeof(dec->sprite3_name), "%s", spec->sprite3_name);
     snprintf(dec->shadow_name, sizeof(dec->shadow_name), "%s", spec->shadow_name);
     if (!spec->solid) return;
-    for (int y = 0; y < spec->footprint_h; ++y)
-        for (int x = 0; x < spec->footprint_w; ++x) {
-            int mx = gx + x, my = gy + y;
+    for (int y = 0; y < spec->footprint.h; ++y)
+        for (int x = 0; x < spec->footprint.w; ++x) {
+            int mx = cell.x + x, my = cell.y + y;
             if (mx >= 0 && my >= 0 && mx < map->width && my < map->height)
                 map->blocked[L_Index(map, mx, my)] = 1;
         }
@@ -425,7 +442,7 @@ static void load_dark_reign_decorations(const char *map_path, level_t *map) {
             bool resolved = building ?
                 dark_reign_resolve_building_visual(&defs, type_name, &visual) :
                 dark_reign_resolve_thing_visual(&defs, type_name, &visual);
-            if (resolved) add_dark_reign_decoration(map, &visual, gx, gy);
+            if (resolved) add_dark_reign_decoration(map, &visual, (ivec2_t){ gx, gy });
             else fprintf(stderr, "warning: unresolved Dark Reign %s type %s\n",
                          building ? "building" : "thing", type_name);
         }
@@ -467,11 +484,9 @@ static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
             if (vents) {
                 map->resource_vents = vents;
                 resourcevent_t *v = &map->resource_vents[map->resource_vent_count++];
-                v->gx = gx;
-                v->gy = gy;
+                v->cell = (ivec2_t){ gx, gy };
                 /* 3×3 mine footprint: attach to the centre cell */
-                v->attach_gx = (float)gx + 1.5f;
-                v->attach_gy = (float)gy + 1.5f;
+                v->attachment = (fvec2_t){ (float)gx + 1.5f, (float)gy + 1.5f };
                 v->amount = DR_TAELON_MINE_AMOUNT;
                 v->rate = DR_TAELON_MINE_RATE;
                 v->active = true;
@@ -516,8 +531,10 @@ static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
             if (sscanf(line, "SetStartLocation(%d %d", &world_x, &world_y) == 2) {
                 /* Dark Reign stores scenario starts in world pixels. */
                 map->has_camera = true;
-                map->camera_gx = (float)world_x / 24.0f;
-                map->camera_gy = (float)world_y / 24.0f;
+                map->camera = (fvec2_t){
+                    (float)world_x / 24.0f,
+                    (float)world_y / 24.0f,
+                };
             }
         }
         line = next;
@@ -875,8 +892,7 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         if (sscanf(hit, "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
             (void)object_id;
             if (gx >= 0 && gy >= 0) {
-                units[count].core.gx = (float)gx + 0.5f;
-                units[count].core.gy = (float)gy + 0.5f;
+                units[count].core.position = fvec2_cell_center((ivec2_t){ gx, gy });
                 units[count].speed = 5.5f;
                 units[count].owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
@@ -939,8 +955,10 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         }
         if (have_start && associated_type[0] != '\0') {
             mobj_t *unit = &units[count];
-            unit->core.gx = (float)start_x / 24.0f;
-            unit->core.gy = (float)start_y / 24.0f;
+            unit->core.position = (fvec2_t){
+                (float)start_x / 24.0f,
+                (float)start_y / 24.0f,
+            };
             unit->speed = 4.5f;
             unit->owner = 0;
             unit->selected = true;

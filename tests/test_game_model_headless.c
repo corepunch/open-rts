@@ -67,9 +67,9 @@ static bool snapshot_has_dark_reign_building(const RtsRenderSnapshot *snapshot,
             strcmp(dec->sprite2_name, body) != 0 ||
             strcmp(dec->sprite3_name, top) != 0) continue;
         if (dec->frame_index == 1 && dec->frame2_index == 1 && dec->frame3_index == 1 &&
-            dec->has_sprite_pivot && dec->sprite_pivot_x == 0 &&
-            dec->sprite_pivot_y == 0 && dec->footprint_w == footprint_w &&
-            dec->footprint_h == footprint_h) return true;
+            dec->has_sprite_pivot &&
+            ivec2_equal(dec->sprite_pivot, (ivec2_t){ 0, 0 }) &&
+            dec->footprint.w == footprint_w && dec->footprint.h == footprint_h) return true;
     }
     return false;
 }
@@ -270,24 +270,14 @@ static int snapshot_find_unit_with_owner_and_type(const RtsRenderSnapshot *snaps
     return -1;
 }
 
-static bool near_cell_center(float value, int cell) {
-    float expected = (float)cell + 0.5f;
-    float delta = value - expected;
-    return delta > -0.05f && delta < 0.05f;
-}
-
-static bool near_float(float value, float expected) {
-    float delta = value - expected;
-    return delta > -0.001f && delta < 0.001f;
-}
-
 static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *sprite_name,
-                                 int gx, int gy) {
+                                 ivec2_t cell) {
     if (!snapshot || !sprite_name) return false;
+    fvec2_t expected = fvec2_cell_center(cell);
     for (int i = 0; i < snapshot->unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot->units[i];
         if (strcmp(unit->sprite_name, sprite_name) == 0 &&
-            near_cell_center(unit->gx, gx) && near_cell_center(unit->gy, gy)) {
+            fvec2_near(unit->position, expected, 0.05f)) {
             return true;
         }
     }
@@ -295,12 +285,13 @@ static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *
 }
 
 static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, uint8_t owner,
-                                             uint16_t type_id, int frame, int gx, int gy) {
+                                             uint16_t type_id, int frame, ivec2_t cell) {
     if (!snapshot) return false;
+    fvec2_t expected = fvec2_cell_center(cell);
     for (int i = 0; i < snapshot->unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot->units[i];
         if (unit->owner == owner && unit->type_id == type_id && unit->frame == frame &&
-            near_cell_center(unit->gx, gx) && near_cell_center(unit->gy, gy)) {
+            fvec2_near(unit->position, expected, 0.05f)) {
             return true;
         }
     }
@@ -310,19 +301,16 @@ static bool snapshot_has_owner_type_frame_at(const RtsRenderSnapshot *snapshot, 
 static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
                                          uint8_t owner, uint16_t type_id,
                                          int frame, int state_id,
-                                         float gx, float gy,
-                                         int render_offset_x,
-                                         int render_offset_y) {
+                                         fvec2_t position,
+                                         ivec2_t render_offset) {
     if (!snapshot) return false;
     for (int i = 0; i < snapshot->unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot->units[i];
         if (unit->owner != owner || unit->type_id != type_id || unit->frame != frame ||
-            unit->state_id != state_id || !near_float(unit->gx, gx) ||
-            !near_float(unit->gy, gy)) {
+            unit->state_id != state_id || !fvec2_near(unit->position, position, 0.001f)) {
             continue;
         }
-        if (unit->render_offset_x == render_offset_x &&
-            unit->render_offset_y == render_offset_y) {
+        if (ivec2_equal(unit->render_offset, render_offset)) {
             return true;
         }
     }
@@ -330,17 +318,18 @@ static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
 }
 
 static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapshot,
-                                                const char *sprite_name, int gx, int gy,
+                                                const char *sprite_name, ivec2_t cell,
                                                 uint32_t required_flags,
-                                                int pivot_x, int pivot_y,
+                                                ivec2_t pivot,
                                                 int frame_index) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
         if (strcmp(dec->sprite_name, sprite_name) == 0 &&
-            dec->gx == gx && dec->gy == gy && dec->frame_index == frame_index &&
+            ivec2_equal(dec->cell, cell) &&
+            dec->frame_index == frame_index &&
             dec->center_anchor && dec->has_sprite_pivot &&
-            dec->sprite_pivot_x == pivot_x && dec->sprite_pivot_y == pivot_y &&
+            ivec2_equal(dec->sprite_pivot, pivot) &&
             (dec->render_flags & required_flags) == required_flags) {
             return true;
         }
@@ -349,11 +338,11 @@ static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapsho
 }
 
 static bool snapshot_decoration_is_hidden(const RtsRenderSnapshot *snapshot,
-                                          const char *sprite_name, int gx, int gy) {
+                                          const char *sprite_name, ivec2_t cell) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, sprite_name) == 0 && dec->gx == gx && dec->gy == gy)
+        if (strcmp(dec->sprite_name, sprite_name) == 0 && ivec2_equal(dec->cell, cell))
             return dec->hidden;
     }
     return false;
@@ -362,14 +351,14 @@ static bool snapshot_decoration_is_hidden(const RtsRenderSnapshot *snapshot,
 static bool snapshot_has_blinking_decoration_at(const RtsRenderSnapshot *snapshot,
                                                 const char *sprite_name,
                                                 const char *sprite2_name,
-                                                int gx, int gy,
+                                                ivec2_t cell,
                                                 uint32_t required_render2_flags) {
     if (!snapshot || !sprite_name || !sprite2_name) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
         const RtsRenderDecoration *dec = &snapshot->decorations[i];
         if (strcmp(dec->sprite_name, sprite_name) == 0 &&
             strcmp(dec->sprite2_name, sprite2_name) == 0 &&
-            dec->gx == gx && dec->gy == gy &&
+            ivec2_equal(dec->cell, cell) &&
             (dec->render2_flags & required_render2_flags) == required_render2_flags) {
             return true;
         }
@@ -535,8 +524,7 @@ static int assert_human01(RtsGameModel *model) {
     RtsGameCommand move = {
         .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
         .data.move_selected = {
-            .gx = snapshot.units[first_selected].gx,
-            .gy = snapshot.units[first_selected].gy,
+            .target = snapshot.units[first_selected].position,
         },
     };
     if (!rts_game_model_command(model, &move)) {
@@ -604,20 +592,25 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 city slots with zero DC city anchors are not materialized");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 56.0f, 55.0f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, (fvec2_t){ 56.0f, 54.0f },
+                                      (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 56.0f, 55.0f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, (fvec2_t){ 56.0f, 54.0f },
+                                      (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 56.0f, 55.0f, 0, 0)) {
-        return fail("Human02 city buildings use the native shared render origin");
+                                      S_DC_TOWR_STND, (fvec2_t){ 56.0f, 54.0f },
+                                      (ivec2_t){ 0, 0 })) {
+        return fail("Human02 city buildings align the native origin to the terrain row");
     }
-    if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 36, 26) ||
-        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0, 50, 28)) {
+    if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0,
+                                         (ivec2_t){ 36, 26 }) ||
+        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0,
+                                         (ivec2_t){ 50, 28 })) {
         return fail("Human02 non-player city slots stay non-materialized");
     }
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
-                                             64, 52,
+                                             (ivec2_t){ 64, 52 },
                                              RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK)) {
         return fail("Human02 dropship beacon stays anchored beside the starting base");
     }
@@ -639,9 +632,9 @@ static int assert_human02(RtsGameModel *model) {
     if (rts_game_model_command(model, &train_without_resources)) {
         return fail("Human02 cannot train Trooper before enough Petra-7 is available");
     }
-    if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 33, 58) ||
-        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 38, 58) ||
-        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", 35, 55)) {
+    if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 33, 58 }) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 38, 58 }) ||
+        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 35, 55 })) {
         return fail("Human02 satellite dish object rows use raw DC world Y coordinates");
     }
     if (snapshot.decoration_count <= 0) {
@@ -650,18 +643,22 @@ static int assert_human02(RtsGameModel *model) {
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
     }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 69, 48,
-                                             RTS_FRAME_ADDITIVE, 9, -25, 0)) {
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR",
+                                             (ivec2_t){ 69, 48 }, RTS_FRAME_ADDITIVE,
+                                             (ivec2_t){ 9, -25 }, 0)) {
         return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
     }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR", 53, 27,
-                                             RTS_FRAME_ADDITIVE, 9, -25, 0)) {
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR",
+                                             (ivec2_t){ 53, 27 }, RTS_FRAME_ADDITIVE,
+                                             (ivec2_t){ 9, -25 }, 0)) {
         return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
     }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/PUFF.SPR", 69, 48,
+    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/PUFF.SPR",
+                                             (ivec2_t){ 69, 48 },
                                              RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW,
-                                             5, -19, -1) ||
-        snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR", 69, 48)) {
+                                             (ivec2_t){ 5, -19 }, -1) ||
+        snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR",
+                                      (ivec2_t){ 69, 48 })) {
         return fail("Human02 unattached Petra-7 vent plays its yellow smoke animation");
     }
 
@@ -678,8 +675,7 @@ static int assert_human02(RtsGameModel *model) {
     if (exploiter < 0) {
         return fail("Human02 scripted drop spawns an Exploiter");
     }
-    float exploiter_start_gx = snapshot.units[exploiter].gx;
-    float exploiter_start_gy = snapshot.units[exploiter].gy;
+    fvec2_t exploiter_start = snapshot.units[exploiter].position;
 
     RtsGameCommand select_exploiter = {
         .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
@@ -696,8 +692,7 @@ static int assert_human02(RtsGameModel *model) {
     RtsGameCommand harvest = {
         .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
         .data.harvest_selected = {
-            .gx = 69.5f,
-            .gy = 48.5f,
+            .target = { 69.5f, 48.5f },
         },
     };
     if (!rts_game_model_command(model, &harvest)) {
@@ -708,12 +703,11 @@ static int assert_human02(RtsGameModel *model) {
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 ||
-        !near_float(snapshot.units[exploiter].gx, exploiter_start_gx) ||
-        !near_float(snapshot.units[exploiter].gy, exploiter_start_gy)) {
+        !fvec2_near(snapshot.units[exploiter].position, exploiter_start, 0.001f)) {
         return fail("Human02 Exploiter starts driving instead of snapping to the vent");
     }
-    if (!near_float(snapshot.units[exploiter].move_goal_gx, 69.5f) ||
-        !near_float(snapshot.units[exploiter].move_goal_gy, 47.5f)) {
+    if (!fvec2_near(snapshot.units[exploiter].move_goal,
+                    (fvec2_t){ 69.5f, 47.5f }, 0.001f)) {
         return fail("Human02 Exploiter targets the visible Petra-7 crater tile");
     }
 
@@ -733,10 +727,9 @@ static int assert_human02(RtsGameModel *model) {
         exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
         if (exploiter >= 0 &&
             snapshot.units[exploiter].harvest_target >= 0) {
-            float move_dx = snapshot.units[exploiter].gx - exploiter_start_gx;
-            float move_dy = snapshot.units[exploiter].gy - exploiter_start_gy;
-            float move_dist = hypotf(move_dx, move_dy);
-            if (move_dist > 0.25f) saw_exploiter_move = true;
+            fvec2_t move_delta = fvec2_sub(snapshot.units[exploiter].position, exploiter_start);
+            if (fvec2_length_squared(move_delta) > 0.25f * 0.25f)
+                saw_exploiter_move = true;
             int frame = snapshot.units[exploiter].frame;
             if (frame >= 15 && frame <= 25) {
                 return fail("Human02 Exploiter turret frames do not replace body frames");
@@ -745,7 +738,8 @@ static int assert_human02(RtsGameModel *model) {
                 saw_deploy_body_frame = true;
             }
             if (snapshot.player_resources[0][0] > initial_resources) {
-                if (snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR", 69, 48))
+                if (snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR",
+                                                  (ivec2_t){ 69, 48 }))
                     saw_attached_smoke_hidden = true;
                 int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
                 if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
@@ -766,10 +760,11 @@ static int assert_human02(RtsGameModel *model) {
         if (exploiter >= 0) {
             fprintf(stderr,
                     "Exploiter start=%.2f,%.2f current=%.2f,%.2f goal=%.2f,%.2f facing=%d moving=%d\n",
-                    exploiter_start_gx, exploiter_start_gy,
-                    snapshot.units[exploiter].gx, snapshot.units[exploiter].gy,
-                    snapshot.units[exploiter].move_goal_gx,
-                    snapshot.units[exploiter].move_goal_gy,
+                    exploiter_start.x, exploiter_start.y,
+                    snapshot.units[exploiter].position.x,
+                    snapshot.units[exploiter].position.y,
+                    snapshot.units[exploiter].move_goal.x,
+                    snapshot.units[exploiter].move_goal.y,
                     snapshot.units[exploiter].facing_code,
                     snapshot.units[exploiter].has_move_order ? 1 : 0);
         }
@@ -791,8 +786,9 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 || !near_float(snapshot.units[exploiter].gx, 69.5f) ||
-        !near_float(snapshot.units[exploiter].gy, 47.5f)) {
+    if (exploiter < 0 ||
+        !fvec2_near(snapshot.units[exploiter].position,
+                    (fvec2_t){ 69.5f, 47.5f }, 0.001f)) {
         return fail("Human02 Exploiter reaches the visible Petra-7 crater tile");
     }
     for (int i = 0; i < 30 * 20; ++i) {
@@ -845,8 +841,7 @@ static int assert_human02(RtsGameModel *model) {
     if (!poll_event_type(model, RTS_GAME_EVENT_BUILD_STARTED,
                          snapshot.units[barracks_index].id, 0))
         return fail("Human02 emits build-started event for explicit build command");
-    float barracks_gx = snapshot.units[barracks_index].gx;
-    float barracks_gy = snapshot.units[barracks_index].gy;
+    fvec2_t barracks_position = snapshot.units[barracks_index].position;
     if (snapshot.unit_count != units_before_production ||
         snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
         return fail("Human02 Trooper production queues instead of spawning instantly");
@@ -896,15 +891,14 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 emits typed unit-built event after Trooper release");
     if (!saw_build_finished)
         return fail("Human02 emits build-finished event after Trooper release");
-    float expected_exit_gx = barracks_gx + 16.0f / (float)CELL_W;
-    float expected_exit_gy = barracks_gy - 75.0f / (float)CELL_H;
+    fvec2_t expected_exit = fvec2_add(
+        barracks_position,
+        (fvec2_t){ 16.0f / (float)CELL_W, -75.0f / (float)CELL_H });
     int produced_trooper = -1;
     for (int i = 0; i < snapshot.unit_count; ++i) {
         const RtsRenderUnit *unit = &snapshot.units[i];
         if (unit->owner != 0 || unit->type_id != MT_DC_TROOPER) continue;
-        float dx = unit->gx - expected_exit_gx;
-        float dy = unit->gy - expected_exit_gy;
-        if (dx * dx + dy * dy < 0.01f) {
+        if (fvec2_distance_squared(unit->position, expected_exit) < 0.01f) {
             produced_trooper = i;
             break;
         }
@@ -913,7 +907,8 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 completed Trooper spawns at FIN-authored Barracks release point");
     }
     if (!snapshot.units[produced_trooper].has_move_order ||
-        snapshot.units[produced_trooper].move_goal_gy >= snapshot.units[produced_trooper].gy) {
+        snapshot.units[produced_trooper].move_goal.y >=
+            snapshot.units[produced_trooper].position.y) {
         return fail("Human02 completed Trooper receives a doorway-clearing move order");
     }
 
@@ -960,19 +955,25 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         return fail("initial Human03 snapshot");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.0f, 6.0f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 5.0f },
+                                      (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, 75.0f, 6.0f, 0, 0) ||
+                                      S_DC_BRRKPOD_STND, (fvec2_t){ 75.0f, 5.0f },
+                                      (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
-                                      S_NULL, 75.0f, 6.0f, 0, 0) ||
+                                      S_NULL, (fvec2_t){ 75.0f, 5.0f },
+                                      (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.0f, 6.0f, 0, 0)) {
-        return fail("Human03 city slots use the native shared render origin");
+                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 5.0f },
+                                      (ivec2_t){ 0, 0 })) {
+        return fail("Human03 city slots align the native origin to the terrain row");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, 75.0f, 6.0f, 0, 0) ||
+                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 5.0f },
+                                      (ivec2_t){ 0, 0 }) ||
         !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, 75.0f, 6.0f, 0, 0)) {
+                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 5.0f },
+                                      (ivec2_t){ 0, 0 })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
 
@@ -1116,8 +1117,8 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     RtsGameCommand move_east = {
         .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
         .data.move_selected = {
-            .gx = snapshot.units[unit_index].gx + 4.0f,
-            .gy = snapshot.units[unit_index].gy,
+            .target = fvec2_add(snapshot.units[unit_index].position,
+                                (fvec2_t){ 4.0f, 0.0f }),
         },
     };
     if (!rts_game_model_command(model, &select) ||
@@ -1129,8 +1130,8 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     if (snapshot.units[unit_index].facing_code != 4) {
         fprintf(stderr, "Mission 2 east-facing code was %d at %.2f,%.2f toward %.2f,%.2f\n",
                 snapshot.units[unit_index].facing_code,
-                snapshot.units[unit_index].gx, snapshot.units[unit_index].gy,
-                snapshot.units[unit_index].move_goal_gx, snapshot.units[unit_index].move_goal_gy);
+                snapshot.units[unit_index].position.x, snapshot.units[unit_index].position.y,
+                snapshot.units[unit_index].move_goal.x, snapshot.units[unit_index].move_goal.y);
         return fail("Dark Reign eastward movement uses the east SPR facing");
     }
 

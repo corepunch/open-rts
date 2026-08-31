@@ -89,16 +89,16 @@ static void ST_drawMinimap(const st_state_t *st, app_t *app, const level_t *map,
     SDL_RenderFillRect(app->renderer, &rect);
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
-        int x = rect.x + dec->gx * rect.w / map->width;
-        int y = rect.y + L_ScreenY(map, dec->gy) * rect.h / map->height;
+        int x = rect.x + dec->cell.x * rect.w / map->width;
+        int y = rect.y + L_ScreenY(map, dec->cell.y) * rect.h / map->height;
         SDL_SetRenderDrawColor(app->renderer, dec->solid ? 93 : 63,
                               dec->solid ? 91 : 79, dec->solid ? 70 : 52, 255);
         SDL_RenderDrawPoint(app->renderer, x, y);
     }
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
-        int x = rect.x + (int)(units[i].core.gx * (float)rect.w / (float)map->width);
-        int y = rect.y + (int)(L_ScreenYF(map, units[i].core.gy) * (float)rect.h /
+        int x = rect.x + (int)(units[i].core.position.x * (float)rect.w / (float)map->width);
+        int y = rect.y + (int)(L_ScreenYF(map, units[i].core.position.y) * (float)rect.h /
                               (float)map->height);
         SDL_SetRenderDrawColor(app->renderer, units[i].owner == 0 ? 48 : 210,
                               units[i].owner == 0 ? 220 : 45, 65, 255);

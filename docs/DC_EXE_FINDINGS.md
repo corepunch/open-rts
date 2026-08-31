@@ -431,8 +431,18 @@ Open-rts previously replaced the native shared render origin with a mixed anchor
 assembled from the second `%AISlots` X and centered first `%AISlots` Y. For
 Human02 that produced `(56,53.5)`. That mixed anchor had no executable basis and
 has been removed. Open-rts now preserves each scattered object coordinate,
-subtracts its slot offset for rendering, and draws Human02's city FIN animations
-from the native shared origin `(56,55)`.
+subtracts its slot offset for rendering, and then converts the resulting native
+integer Y boundary to open-rts's bottom-up terrain row. `L_ScreenYF()` maps a
+continuous point with `height - y`, whereas terrain row `y` is mapped with
+`height - 1 - y`; using `(56,55)` directly consequently draws Human02's city
+exactly one tile above the retail image. The render-only row conversion produces
+`(56,54)` without changing the stored city anchor or object coordinates.
+
+The final one-row conversion is **inferred** from the renderer boundary and
+retail screenshot comparison, not an additional subtraction found in the city
+constructor. It is the same class of bottom-up row/point mismatch as the
+Human02 vent: scenario identity remains unchanged while the visual or
+interaction point is represented in open-rts coordinates.
 
 `VENT.FIN` provides the active Petra-7 glow placement. Every `VENTSTAND0` frame
 contains VENT2 cell 0 at FIN coordinate `(-40,12)`, remap `1`, intensity `16`,

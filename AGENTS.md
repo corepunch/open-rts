@@ -130,6 +130,10 @@ into named structs and use those structs as the unit of work. Never manipulate
 individual x/y or w/h components when a struct literal, assignment, or helper
 function would be shorter and more expressive.
 
+**Don't work with components; work with utility functions.** Operations on
+`fvec2_t`, `ivec2_t`, and `isize2_t` should use whole-value helpers instead of
+open-coding arithmetic on their individual components.
+
 **Canonical types** (in `driver/m_vec.h`):
 
 | Type | Fields | Use for |

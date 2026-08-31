@@ -169,8 +169,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
     out->player_resources[0][0] = mission.start_cash;
 
     out->has_camera = true;
-    out->camera_gx  = (float)mission.start_x;
-    out->camera_gy  = (float)mission.start_y;
+    out->camera = (fvec2_t){ (float)mission.start_x, (float)mission.start_y };
     return true;
 }
 int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
@@ -184,8 +183,8 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
     for (int i = 0; i < troop_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
-        unit->core.gx = (float)(mission.start_x - 6 + i * 2) + 0.5f;
-        unit->core.gy = (float)(mission.start_y - 1) + 0.5f;
+        unit->core.position = fvec2_cell_center(
+            (ivec2_t){ mission.start_x - 6 + i * 2, mission.start_y - 1 });
         unit->owner = 0;
         unit->type_id = 1;
         unit->core.angle = ANG270;
@@ -193,8 +192,8 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
     for (int i = 0; i < base_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
-        unit->core.gx = (float)(mission.start_x + 4 + i * 2) + 0.5f;
-        unit->core.gy = (float)(mission.start_y + 1) + 0.5f;
+        unit->core.position = fvec2_cell_center(
+            (ivec2_t){ mission.start_x + 4 + i * 2, mission.start_y + 1 });
         unit->owner = 0;
         unit->type_id = 7;
         unit->core.angle = ANG270;

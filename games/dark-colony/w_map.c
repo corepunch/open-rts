@@ -467,10 +467,8 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     if (!vents) return false;
     map->resource_vents = vents;
     resourcevent_t *vent = &map->resource_vents[map->resource_vent_count++];
-    vent->gx = x;
-    vent->gy = y;
-    vent->attach_gx = (float)x + 0.5f;
-    vent->attach_gy = (float)y - 0.5f;
+    vent->cell = (ivec2_t){ x, y };
+    vent->attachment = (fvec2_t){ (float)x + 0.5f, (float)y - 0.5f };
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0;
@@ -485,15 +483,12 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
             map->decorations = decorations;
             mapdecoration_t *dec = &map->decorations[map->decoration_count++];
             memset(dec, 0, sizeof(*dec));
-            dec->gx = x;
-            dec->gy = y;
-            dec->footprint_w = 1;
-            dec->footprint_h = 1;
+            dec->cell = (ivec2_t){ x, y };
+            dec->footprint = (isize2_t){ 1, 1 };
             dec->center_anchor = true;
             if (placement && placement->valid) {
                 dec->has_sprite_pivot = true;
-                dec->sprite_pivot_x = -placement->glow_left;
-                dec->sprite_pivot_y = -placement->glow_top;
+                dec->sprite_pivot = (ivec2_t){ -placement->glow_left, -placement->glow_top };
             }
             dec->frame_index = 0;
             dec->render_flags = RTS_FRAME_ADDITIVE;
@@ -502,14 +497,11 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
 
             dec = &map->decorations[map->decoration_count++];
             memset(dec, 0, sizeof(*dec));
-            dec->gx = x;
-            dec->gy = y;
-            dec->footprint_w = 1;
-            dec->footprint_h = 1;
+            dec->cell = (ivec2_t){ x, y };
+            dec->footprint = (isize2_t){ 1, 1 };
             dec->center_anchor = true;
             dec->has_sprite_pivot = true;
-            dec->sprite_pivot_x = 5;
-            dec->sprite_pivot_y = -19;
+            dec->sprite_pivot = (ivec2_t){ 5, -19 };
             dec->frame_interval_ms = 100;
             dec->frame_index = -1;
             dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
@@ -530,10 +522,8 @@ static bool append_dark_colony_beacon(level_t *map, int x, int y, int type) {
     map->decorations = decorations;
     mapdecoration_t *dec = &map->decorations[map->decoration_count++];
     memset(dec, 0, sizeof(*dec));
-    dec->gx = x;
-    dec->gy = y;
-    dec->footprint_w = 1;
-    dec->footprint_h = 1;
+    dec->cell = (ivec2_t){ x, y };
+    dec->footprint = (isize2_t){ 1, 1 };
     dec->center_anchor = true;
     dec->frame_index = 0;
     dec->frame2_index = 1;
@@ -577,8 +567,7 @@ static void load_dark_colony_camera_from_scenario(const DarkColonyScenarioFile *
         int y = team->ai_slots[i][1];
         if (x == 0 && y == 0) continue;
         map->has_camera = true;
-        map->camera_gx = (float)x + 0.5f;
-        map->camera_gy = (float)y + 0.5f;
+        map->camera = fvec2_cell_center((ivec2_t){ x, y });
         return;
     }
 }
@@ -1089,7 +1078,7 @@ static void dark_colony_object_render_position_fixed(const DcObject *object, int
         int slot_x = 0, slot_z = 0;
         dark_colony_city_slot_offset(slot, &slot_x, &slot_z);
         x -= slot_x * 8;
-        z -= slot_z * 8;
+        z -= slot_z * 8 + DC_FIXED_TILE_SIZE;
     }
     if (x_fixed) *x_fixed = x;
     if (z_fixed) *z_fixed = z;
@@ -1118,8 +1107,10 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     int render_x_pos = 0, render_z_pos = 0;
     dark_colony_object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
-    u->core.gx = dark_colony_fixed_to_cell(render_x_pos);
-    u->core.gy = dark_colony_fixed_to_cell(render_z_pos);
+    u->core.position = (fvec2_t){
+        dark_colony_fixed_to_cell(render_x_pos),
+        dark_colony_fixed_to_cell(render_z_pos),
+    };
     u->core.sprite_id = -1;
     u->attack.target = -1;
     u->harvest.target = -1;

@@ -62,7 +62,7 @@ int main(void) {
         .data.select_unit_index = { player, false } };
     if (!rts_game_model_command(model, &select)) return fail("select command");
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
-        .data.move_selected = { snapshot.units[player].gx, snapshot.units[player].gy } };
+        .data.move_selected = { .target = snapshot.units[player].position } };
     if (!rts_game_model_command(model, &move) || !rts_game_model_tick(model, 1.0f / 30.0f))
         return fail("move command and tick");
     (void)event_seen(model, RTS_GAME_EVENT_UNIT_ARRIVED);
@@ -86,7 +86,7 @@ int main(void) {
             RtsGameCommand select_exploiter = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
                 .data.select_unit_index = { exploiter, false } };
             RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-                .data.harvest_selected = { 69.5f, 48.5f } };
+                .data.harvest_selected = { .target = { 69.5f, 48.5f } } };
             if (!rts_game_model_command(model, &select_exploiter) ||
                 !rts_game_model_command(model, &harvest)) return fail("harvest command");
         }
