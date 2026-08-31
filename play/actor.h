@@ -191,6 +191,7 @@ struct mobj_s {
     int production_queue_count;
     int production_time_ms;
     int production_time_left_ms;
+    bool production_blocked;
     bool production_release_active;
     int production_release_time_left_ms;
     float radius;

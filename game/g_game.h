@@ -37,8 +37,15 @@ typedef enum {
 typedef enum {
     RTS_GAME_EVENT_NONE = 0,
     RTS_GAME_EVENT_UNIT_ARRIVED,
+    /* A player order was accepted and placed in a producer queue. */
+    RTS_GAME_EVENT_BUILD_QUEUED,
     RTS_GAME_EVENT_BUILD_STARTED,
+    /* Compatibility/general completion event; use the typed events below. */
     RTS_GAME_EVENT_BUILD_FINISHED,
+    RTS_GAME_EVENT_UNIT_BUILT,
+    RTS_GAME_EVENT_BUILDING_BUILT,
+    /* Production could not proceed (for example, a blocked release point). */
+    RTS_GAME_EVENT_BUILD_BLOCKED,
     RTS_GAME_EVENT_UNIT_DIED,
     RTS_GAME_EVENT_ATTACK_STARTED,
 } RtsGameEventType;

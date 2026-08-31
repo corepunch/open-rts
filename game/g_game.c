@@ -78,6 +78,18 @@ static void model_emit_event(void *user, int type, const mobj_t *subject,
     model->event_count++;
 }
 
+static void model_emit_build_completion(RtsGameModel *model, const mobj_t *unit,
+                                        const mobj_t *producer,
+                                        const StaticProductDefinition *product) {
+    if (!model || !unit || !product) return;
+    model_emit_event(model, RTS_GAME_EVENT_BUILD_FINISHED, unit, producer,
+                     product->product_class, product->product_type);
+    model_emit_event(model,
+                     product->product_class == RTS_PRODUCT_UNIT ?
+                         RTS_GAME_EVENT_UNIT_BUILT : RTS_GAME_EVENT_BUILDING_BUILT,
+                     unit, producer, product->product_class, product->product_type);
+}
+
 static const actortype_t *plugin_actor_type_by_id(uint16_t type_id);
 static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type);
 
@@ -682,8 +694,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     new_unit.gy = gy;
     int spawned_index = model->unit_count;
     model->units[model->unit_count++] = new_unit;
-    model_emit_event(model, RTS_GAME_EVENT_BUILD_FINISHED, &model->units[spawned_index],
-                     producer, product->product_class, product->product_type);
+    model_emit_build_completion(model, &model->units[spawned_index], producer, product);
     if (use_barracks_release)
         order_barracks_exit_spacing(model, spawned_index, producer, gx, gy);
     return true;
@@ -704,6 +715,8 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
             return false;
         }
         producer->production_queue_count++;
+        model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
+                         product->product_class, product->product_type);
         return true;
     }
 
@@ -715,6 +728,9 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
     producer->production_time_left_ms = producer->production_time_ms;
     producer->production_release_active = false;
     producer->production_release_time_left_ms = 0;
+    producer->production_blocked = false;
+    model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
+                     product->product_class, product->product_type);
     model_emit_event(model, RTS_GAME_EVENT_BUILD_STARTED, producer, NULL,
                      product->product_class, product->product_type);
     return true;
@@ -800,6 +816,8 @@ static bool create_model_product(RtsGameModel *model,
         return true;
     }
 
+    model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, &model->units[producer_index], NULL,
+                     product->product_class, product->product_type);
     if (!spawn_finished_model_product(model, product, producer_index)) return false;
     model->map.player_resources[0][0] -= product->cost;
     return true;
@@ -834,6 +852,11 @@ static void update_model_production(RtsGameModel *model, float dt) {
         mobj_t *producer = &model->units[i];
         if (producer->production_queue_count <= 0) continue;
         if (producer->remove || producer->hp <= 0) {
+            if (!producer->production_blocked)
+                model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
+                                 producer->production_product_class,
+                                 producer->production_product_type);
+            producer->production_blocked = true;
             producer->production_queue_count = 0;
             clear_model_production(producer);
             continue;
@@ -845,6 +868,11 @@ static void update_model_production(RtsGameModel *model, float dt) {
                 model, producer->production_product_class,
                 producer->production_product_type);
             if (!product || !spawn_finished_model_product(model, product, i)) {
+                if (!producer->production_blocked)
+                    model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
+                                     producer->production_product_class,
+                                     producer->production_product_type);
+                producer->production_blocked = true;
                 producer->production_release_time_left_ms = 250;
                 continue;
             }
@@ -867,6 +895,11 @@ static void update_model_production(RtsGameModel *model, float dt) {
                 break;
             }
             if (!spawn_finished_model_product(model, product, i)) {
+                if (!producer->production_blocked)
+                    model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
+                                     producer->production_product_class,
+                                     producer->production_product_type);
+                producer->production_blocked = true;
                 producer->production_time_left_ms = 250;
                 break;
             }
@@ -1282,6 +1315,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
             dark_colony_actor_id_for_product(product);
         bool queued = (strcmp(g_game_id, "dark-colony") == 0 &&
                        product->product_class == RTS_PRODUCT_UNIT) || dark_reign;
+        if (!queued)
+            model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, &model->units[producer], NULL,
+                             product->product_class, product->product_type);
         bool ok = queued ? enqueue_model_unit_product(model, product, producer, actor_id) :
             spawn_finished_model_product(model, product, producer);
         if (ok) model->map.player_resources[0][0] -= product->cost;
