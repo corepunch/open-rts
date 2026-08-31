@@ -288,6 +288,16 @@ These findings rule out moving terrain or city slots to compensate for sprite
 misalignment. The original placement path composes FIN offsets and both SPR
 displacements; visual corrections should reproduce that composition.
 
+DC.EXE does contain literal city-slot geometry at `0x00475b64`:
+`(-64,15)`, `(0,0)`, `(32,64)`, `(64,10)`, `(-32,65)`, `(0,32)`, and `(0,0)`.
+Function `0x004412d4` multiplies each component by eight and adds it to the city
+anchor before writing object `x_pos` and `z_pos`. Mirroring these constants is
+therefore a port of native game data, not a visual correction. Open-rts also
+subtracts them from city render positions to preserve its currently composed
+base canvas; that normalization has not been found in DC.EXE and must not be
+used as precedent for adding further offsets. It should be removed only when
+the complete native FIN/SPR city placement path replaces it.
+
 ## Known unknowns
 
 - The complete semantics and ordering rules for every FIN layer value.
@@ -295,6 +305,7 @@ displacements; visual corrections should reproduce that composition.
 - Which gameplay transition chooses Exploiter `SHUF` versus odd `MOVE` poses.
 - The complete sort-key layout of the 28-byte render queue record.
 - The role of each of the 32 auxiliary DirectDraw surfaces.
+- The native terrain origin and object attachment arithmetic for VENT/VENT2.
 - Whether `DC16.EXE` uses identical routines and addresses; this report covers
   the fingerprinted `DC.EXE` only.
 

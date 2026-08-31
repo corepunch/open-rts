@@ -251,14 +251,12 @@ Local game-data files that have already been useful:
 - `VENT.SPR` frame 0 and `VENT2.SPR` frame 0 share an authored sprite canvas.
   The full active crater has `86x58, dis=(2,22)` and the yellow plume has
   `23x16, dis=(31,37)`, so the plume is placed `(+29,+15)` inside the crater
-  bitmap. The terrain stamp point is the center of its keyed cell, while the
-  crater bitmap begins at that cell's lower edge. This puts the plume at
-  `(-14,+31)` from the SCN cell center. The Exploiter FIN origin attaches to
-  the plume's visual center, `(-2.5,+39)` screen pixels; the plume bottom is
-  the crater bitmap edge, not the unit's ground point. Convert screen-down Y
-  back to bottom-up world Y for the Exploiter goal. These values are derived
-  from both SPR descriptors;
-  do not replace them with a unit or mission-specific render offset.
+  bitmap. The relationship between the SPR cells is native data, but the
+  terrain stamp origin and Exploiter attachment point have not been recovered
+  from DC.EXE. Open-rts currently derives both from the bitmap geometry; do not
+  treat that derivation as executable evidence or tune it with another visual
+  offset. Replace it only after tracing the native vent render and harvest
+  target coordinate paths.
 - `BEAC.SPR` has a base beacon frame and a separate glow frame; preserve the
   sprite palette for the glow and render it as an overlay rather than tinting the
   base sprite.
