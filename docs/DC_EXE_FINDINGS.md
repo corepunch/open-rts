@@ -345,26 +345,64 @@ cells. All ten frames store zero delay, so the confirmed zero-delay rule above
 gives three native ticks, or 100 ms at the open-rts 30 Hz simulation rate, per
 frame. The complete native cycle is one second.
 
-**Inferred:** `DROPTWO` is the reinforcement-delivery sequence. Unlike the
-lighter `DROPMOVE0` transit sequence, it sustains multiple ground-cloud and
-dust commands and matches native gameplay references showing exhaust and dust
-under a stationary delivery ship. Open-rts loops this one-second native cycle
-for the existing scripted multi-unit release duration.
+**Confirmed from DC.EXE:** trigger records are parsed by `0x0043ae2c`, tested by
+`0x00439a24`, and executed by `0x0043a144`; the command records begin at
+`0x004f744c`. The executor treats the two reinforcement commands differently.
+Type 2 (`reinforce`) calls `0x004180b8` to construct a carrier object (native
+object type 92 or 93), while type 15 (`reinforce2`) creates the requested units
+directly without a carrier.
+
+The five packed words carried by a type-2 trigger are five unit-type/count
+pairs, not five coordinates. Carrier action 21 at `0x00417c00` releases one
+unit at the carrier's current cell, decrements the active pair, and advances to
+the next non-empty pair. If payload remains, it calls the empty-cell finder at
+`0x0041a1f4` and sends the carrier to the returned cell before the next release.
+The finder checks increasing square radii around the current cell in X-major,
+then Y-major order, rejecting non-traversable and occupied cells. Consequently,
+release positions depend on current map occupancy and are not a fixed formation.
+
+Carrier action 22 at `0x00417570` controls the arrival/departure flight arc and
+uses a 50-tick counter. Construction places the carrier one cell diagonally
+adjacent to the scripted destination; two deterministic random bits choose the
+sign of the X and Y offsets. The native vertical-arc constants are 600 for the
+human type-92 carrier and 1200 for the alien type-93 carrier. The unit-placement
+path reached during unloading passes the carrier coordinates to `0x0041a37c`.
+In open-rts this maps to a carrier-owned payload controller: each unit is created
+at the carrier cell, the next cell is chosen with the same expanding-square
+ordering, and the carrier visibly moves between releases.
+
+**Inferred from assets and observed retail behavior:** `DROPTWO` is the active
+delivery sequence. `DROPSTAND0` contains hull and engine-light commands but no
+`DUTS` or `CLOD`. `DROPMOVE0` contains both ground-effect commands in its FIN
+records even though dust is not visible during the observed fly-in/fly-out.
+Open-rts therefore uses the movement hull/engine animation while suppressing
+`DUTS` and `CLOD` outside the unload phase. Dust is emitted only while
+`DROPTWO` is active.
 
 **Disproven:** a reinforcement dropship is not one centered, static
 `SPRITES/DROP.SPR` cell. That omits the second hull cell, every authored effect,
 FIN placement, command order, native selector composition, and frame progression.
+The script's five payload entries are also not authored release offsets, and the
+old `index % 2`, `index / 2` rectangle cannot reproduce occupancy-sensitive
+native placement.
 
-**Unknown:** the controlling DC.EXE caller that selects `DROPTWO` has not yet
-been isolated. An analyzed-string search of the fingerprinted executable found
-no embedded dropship FIN labels; this is consistent with the loader at
-`0x004230ac` resolving labels from FIN data, but does not by itself prove the
-selection call path. Reproduce the asset evidence and focused implementation
-check with:
+**Unknown:** the indirect animation callbacks at `0x0042ea58` and `0x0042eaf0`
+have not yet exposed the exact action-to-label transitions or proved how native
+rendering suppresses the `DUTS`/`CLOD` commands present in `DROPMOVE0`. An
+analyzed-string search found no embedded label names; this is consistent with
+the loader at `0x004230ac` resolving labels from FIN data. Between-release
+movement pacing still needs a runtime trace of the carrier's native movement
+record; open-rts currently derives that interval from the authored
+`DROPMOVE0` duration rather than inventing another millisecond constant.
+
+Reproduce the executable and implementation checks with:
 
 ```sh
+radare2 -A data/DCOLONY/DC.EXE
 make build/bin/test_game_model_headless
 build/bin/test_game_model_headless --game dark-colony
+make build/bin/test_dark_colony_sprite_layout
+build/bin/test_dark_colony_sprite_layout
 ```
 
 ### Barracks Trooper production

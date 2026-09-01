@@ -390,6 +390,23 @@ static int assert_dark_colony_city_fin_alignment(void) {
             return fail("Petra-7 smoke preserves its authored FIN timing");
     }
 
+    const FinLabel *drop_stand = fin_label(&drop_fin, "DROPSTAND0");
+    const FinLabel *drop_move = fin_label(&drop_fin, "DROPMOVE0");
+    if (!drop_stand || drop_stand->start != 72 || drop_stand->end != 81 ||
+        !drop_move || drop_move->start != 84 || drop_move->end != 93) {
+        return fail("dropship exposes native standing and movement timelines");
+    }
+    if (drop_fin.frames[drop_stand->start].part_count != 8 ||
+        drop_fin.frames[drop_move->start].part_count != 9 ||
+        !fin_frame_command(&drop_fin, drop_stand->start, "drop", 0) ||
+        fin_frame_command(&drop_fin, drop_stand->start, "duts", 5) ||
+        fin_frame_command(&drop_fin, drop_stand->start, "clod", 5) ||
+        !fin_frame_command(&drop_fin, drop_move->start, "drop", 0) ||
+        !fin_frame_command(&drop_fin, drop_move->start, "duts", 5) ||
+        !fin_frame_command(&drop_fin, drop_move->start, "clod", 5)) {
+        return fail("dropship FIN phases preserve their authored ground-effect commands");
+    }
+
     const FinLabel *drop_two = fin_label(&drop_fin, "DROPTWO");
     if (!drop_two || drop_two->start != 0 || drop_two->end != 9 ||
         drop_fin.frames[drop_two->start].ticks != 0) {

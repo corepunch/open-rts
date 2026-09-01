@@ -75,6 +75,17 @@ static int snapshot_effect_frame(const RtsRenderSnapshot *snapshot, const char *
     return -1;
 }
 
+static bool snapshot_effect_position(const RtsRenderSnapshot *snapshot,
+                                     const char *sprite_name, fvec2_t *out) {
+    if (!snapshot || !sprite_name || !out) return false;
+    for (int i = 0; i < snapshot->effect_count; ++i) {
+        if (strcmp(snapshot->effects[i].sprite_name, sprite_name) != 0) continue;
+        *out = snapshot->effects[i].position;
+        return true;
+    }
+    return false;
+}
+
 static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *snapshot) {
     if (!snapshot) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
@@ -453,6 +464,88 @@ static int assert_human01(RtsGameModel *model) {
     }
 
     int initial_unit_count = snapshot.unit_count;
+    for (int i = 0; snapshot_count_effects_with_sprite(
+             &snapshot, "SPRITES/DROP.SPR") == 0 && i < 30 * 20; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
+            return fail("tick Human01 while waiting for dropship");
+        }
+        if (!rts_game_model_snapshot(model, &snapshot)) {
+            return fail("Human01 snapshot while waiting for dropship");
+        }
+    }
+    if (snapshot_count_effects_with_sprite(&snapshot, "SPRITES/DROP.SPR") != 2 ||
+        snapshot_has_effect(&snapshot, "SPRITES/DUTS.SPR") ||
+        snapshot_has_effect(&snapshot, "SPRITES/CLOD.SPR")) {
+        return fail("Human01 dropship transit is visible without unloading dust");
+    }
+    if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
+        return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
+    }
+
+    fvec2_t release_positions[5];
+    int release_count = 0;
+    while (release_count < 5) {
+        int wait_ticks = 0;
+        while (!snapshot_has_effect(&snapshot, "SPRITES/DUTS.SPR") && wait_ticks++ < 180) {
+            if (!rts_game_model_tick(model, 1.0f / 30.0f) ||
+                !rts_game_model_snapshot(model, &snapshot))
+                return fail("tick Human01 dropship to next unload");
+        }
+        if (!snapshot_has_effect(&snapshot, "SPRITES/DUTS.SPR") ||
+            !snapshot_has_effect(&snapshot, "SPRITES/GLIT.SPR")) {
+            return fail("Human01 dropship uses dust only for the DROPTWO unload phase");
+        }
+        if (!snapshot_effect_position(&snapshot, "SPRITES/DROP.SPR",
+                                      &release_positions[release_count])) {
+            return fail("Human01 unload has a carrier position");
+        }
+        for (int i = 0; i < release_count; ++i) {
+            if (fvec2_near(release_positions[i], release_positions[release_count], 0.01f))
+                return fail("Human01 dropship moves above each distinct release position");
+        }
+
+        int units_before_release = snapshot.unit_count;
+        int initial_dust_frame = snapshot_effect_frame(&snapshot, "SPRITES/DUTS.SPR");
+        for (int i = 0; i < 7; ++i) {
+            if (!rts_game_model_tick(model, 1.0f / 30.0f))
+                return fail("tick Human01 DROPTWO animation");
+        }
+        if (!rts_game_model_snapshot(model, &snapshot) ||
+            snapshot_effect_frame(&snapshot, "SPRITES/DUTS.SPR") == initial_dust_frame) {
+            return fail("Human01 dropship advances the native DROPTWO animation");
+        }
+
+        wait_ticks = 0;
+        bool unit_below_carrier = false;
+        while (!unit_below_carrier && wait_ticks++ < 180) {
+            if (!rts_game_model_tick(model, 1.0f / 30.0f) ||
+                !rts_game_model_snapshot(model, &snapshot))
+                return fail("tick Human01 dropship through unit release");
+            for (int i = units_before_release; i < snapshot.unit_count; ++i) {
+                if (fvec2_near(snapshot.units[i].position,
+                               release_positions[release_count], 0.01f)) {
+                    unit_below_carrier = true;
+                    break;
+                }
+            }
+        }
+        if (!unit_below_carrier)
+            return fail("Human01 released unit occupies the carrier release cell");
+        if (snapshot_has_effect(&snapshot, "SPRITES/DUTS.SPR"))
+            return fail("Human01 dust stops when the dropship resumes flight");
+        release_count++;
+    }
+
+    for (int i = 0; i < 180 &&
+         snapshot_count_effects_with_sprite(&snapshot, "SPRITES/DROP.SPR") > 0; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f) ||
+            !rts_game_model_snapshot(model, &snapshot))
+            return fail("tick Human01 dropship departure");
+    }
+    if (snapshot_count_effects_with_sprite(&snapshot, "SPRITES/DROP.SPR") != 0) {
+        return fail("Human01 dropship flies out after releasing its payload");
+    }
+
     int movable_player_unit = find_movable_player_unit(&snapshot);
     for (int i = 0; movable_player_unit < 0 && i < 30 * 20; ++i) {
         if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
@@ -468,37 +561,6 @@ static int assert_human01(RtsGameModel *model) {
     }
     if (snapshot.unit_count <= initial_unit_count) {
         return fail("Human01 scripted reinforcements add units");
-    }
-    if (snapshot_count_effects_with_sprite(&snapshot, "SPRITES/DROP.SPR") != 2 ||
-        !snapshot_has_effect(&snapshot, "SPRITES/DUTS.SPR") ||
-        !snapshot_has_effect(&snapshot, "SPRITES/CLOD.SPR") ||
-        !snapshot_has_effect(&snapshot, "SPRITES/GLIT.SPR")) {
-        return fail("Human01 dropship composes native hull, fumes, and dust effects");
-    }
-    int dropship_hull = -1;
-    for (int i = 3; i + 1 < snapshot.effect_count; ++i) {
-        if (strcmp(snapshot.effects[i].sprite_name, "SPRITES/DROP.SPR") == 0 &&
-            strcmp(snapshot.effects[i + 1].sprite_name, "SPRITES/DROP.SPR") == 0) {
-            dropship_hull = i;
-            break;
-        }
-    }
-    if (dropship_hull < 0 || snapshot.effects[dropship_hull - 1].render_selector != 5 ||
-        snapshot.effects[dropship_hull].render_selector != 1 ||
-        snapshot.effects[dropship_hull + 1].render_selector != 0) {
-        return fail("Human01 dropship preserves authored FIN order and render selectors");
-    }
-    if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
-        return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
-    }
-    int initial_dust_frame = snapshot_effect_frame(&snapshot, "SPRITES/DUTS.SPR");
-    for (int i = 0; i < 7; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f))
-            return fail("tick Human01 dropship animation");
-    }
-    if (!rts_game_model_snapshot(model, &snapshot) ||
-        snapshot_effect_frame(&snapshot, "SPRITES/DUTS.SPR") == initial_dust_frame) {
-        return fail("Human01 dropship advances the native DROPTWO animation");
     }
 
     RtsGameCommand select_first = {

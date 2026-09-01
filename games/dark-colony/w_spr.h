@@ -44,8 +44,14 @@ typedef struct {
     DarkColonyDropshipFrame frames[DC_DROPSHIP_MAX_FRAMES];
 } DarkColonyDropshipAnimation;
 
+typedef struct {
+    DarkColonyDropshipAnimation move;
+    DarkColonyDropshipAnimation stand;
+    DarkColonyDropshipAnimation unload;
+} DarkColonyDropshipAnimations;
+
 bool dark_colony_vent_placement_from_sprites(const char *map_path, DarkColonyVentPlacement *out);
 bool dark_colony_dropship_animation_from_sprites(const char *map_path,
-                                                 DarkColonyDropshipAnimation *out);
+                                                 DarkColonyDropshipAnimations *out);
 bool dark_colony_load_render_tables(const char *data_root, const char *tileset_name);
 #endif
