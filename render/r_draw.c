@@ -1183,16 +1183,17 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             .anchor = { sx, sy },
             .ticks = ticks,
         };
-        if (game_info && game_info->draw_selection &&
-            game_info->draw_selection(&selection_ctx)) {
-        }
-        else if (game_info && game_info->selection_marker.style == SELECTION_STYLE_CIRCLE) {
+        bool selection_drawn = game_info && game_info->draw_selection &&
+            game_info->draw_selection(&selection_ctx);
+        if (!selection_drawn && game_info &&
+            game_info->selection_marker.style == SELECTION_STYLE_CIRCLE) {
             int radius = (int)(unit_pick_radius_px(app, u) * 0.85f);
             draw_selection_circle(app, u, (int)sx, (int)sy, radius);
         }
-        else if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS)
+        else if (!selection_drawn && game_info &&
+                 game_info->selection_marker.style == SELECTION_STYLE_BRACKETS)
             draw_selection_brackets(app, u, &visible);
-        else if (!R_DrawSelectionMarkerSprite(&selection_ctx))
+        else if (!selection_drawn && !R_DrawSelectionMarkerSprite(&selection_ctx))
             draw_selection_triangle(app, u, &visible);
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&
