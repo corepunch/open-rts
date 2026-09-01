@@ -268,8 +268,8 @@ static const DarkReignDecorationSpec DARK_REIGN_DECORATION_SPECS[] = {
     DR_DECORATION_SPEC("water1", "aowtr000.spr", "aowtr0sh.spr", 1, 1, false),
     DR_DECORATION_SPEC("water2", "aowtr001.spr", "aowtr1sh.spr", 1, 1, false),
     DR_DECORATION_SPEC("water3", "aowtr002.spr", "aowtr2sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("impww", "ncwel1l0.spr", "", 3, 3, true),
-    DR_DECORATION_SPEC("impmn", "ncmin1l0.spr", "", 3, 3, true),
+    DR_DECORATION_SPEC("impww", "ncwel1l0.spr", "", 3, 3, false),
+    DR_DECORATION_SPEC("impmn", "ncmin1l0.spr", "", 3, 3, false),
 };
 
 #undef DR_DECORATION_SPEC
@@ -348,7 +348,10 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
                find_case_insensitive_n(type_name, strlen(type_name), "SmallCentreBridge")) {
         out->footprint = (isize2_t){ 4, 4 };
     }
-    out->solid = true;
+    /* Resource nodes (impmn, impww) must be passable: harvesters walk into
+       them to reach the attachment point at the centre of the footprint. */
+    out->solid = !(strcasecmp(type_name, "impmn") == 0 ||
+                   strcasecmp(type_name, "impww") == 0);
     /* AddBuildingAt coordinates identify the top-left of Dark Reign's authored
        RSPR canvas.  They are not the top-left of a collision footprint.  The
        canvas sizes (for example 144x120 for the bridge and 120x144 for the FG

@@ -570,6 +570,7 @@ enum {
     HARVEST_PHASE_TO_MINE = 1,
     HARVEST_PHASE_MINING = 2,
     HARVEST_PHASE_TO_BASE = 3,
+    HARVEST_PHASE_TURNING = 4,
 };
 
 static void update_resource_vent_smoke(level_t *map, const mobj_t *units, int unit_count) {
@@ -631,6 +632,31 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         unit->harvest.phase = HARVEST_PHASE_TO_MINE;
         return false;
     }
+    if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
+        fvec2_t att_delta = fvec2_sub(
+            vent->attachment, fixedvec3_xy_to_fvec2(unit->core.position));
+        if (fvec2_length_squared(att_delta) > 0.000001f) {
+            angle_t desired = angle_from_map_vector(map, att_delta.x, att_delta.y);
+            if (angle_distance(desired, unit->core.angle) >= ANG45 / 8u) {
+                unit->movement.turn_timer_ms -= dt_ms;
+                if (unit->movement.turn_timer_ms <= 0) {
+                    int32_t da = (int32_t)(desired - unit->core.angle);
+                    unit->core.angle += da > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
+                    unit->movement.turn_timer_ms = RTS_TURN_STEP_MS;
+                }
+                return false;
+            }
+            unit->core.angle = desired;
+        }
+        unit->movement.turn_timer_ms = 0;
+        unit->harvest.phase = HARVEST_PHASE_MINING;
+        if (game_info && unit->harvest.state_id > 0 &&
+            unit->harvest.state_id < game_info->state_count) {
+            statecontext_t ctx = { .map = map, .game_info = game_info };
+            P_SetMobjState(&ctx, unit, unit->harvest.state_id);
+        }
+        return false;
+    }
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
         if (unit->harvest.capacity > 0 && unit->harvest.cargo > 0) {
             for (int i = 0; i < unit_count; ++i) {
@@ -663,18 +689,10 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     unit->movement.order_arrived = true;
     unit->core.momentum = fixedvec3_zero();
     unit->attack.target = -1;
-    unit->harvest.phase = HARVEST_PHASE_MINING;
-    if (fvec2_length_squared(attachment_delta) > 0.000001f) {
-        unit->core.angle = angle_from_map_vector(map, attachment_delta.x,
-                                                attachment_delta.y);
-    }
-    if (game_info && unit->harvest.state_id > 0 &&
-        unit->harvest.state_id < game_info->state_count) {
-        const state_t *state = state_at(game_info, unit->core.state_id);
-        if (!state || state->misc1 != 5) {
-            statecontext_t ctx = { .map = map, .game_info = game_info };
-            P_SetMobjState(&ctx, unit, unit->harvest.state_id);
-        }
+    if (unit->harvest.phase != HARVEST_PHASE_MINING &&
+        unit->harvest.phase != HARVEST_PHASE_TURNING) {
+        unit->harvest.phase = HARVEST_PHASE_TURNING;
+        unit->movement.turn_timer_ms = RTS_TURN_STEP_MS;
     }
     unit->harvest.timer_ms += dt_ms;
     while (unit->harvest.timer_ms >= RTS_HARVEST_INTERVAL_MS && vent->amount > 0) {
