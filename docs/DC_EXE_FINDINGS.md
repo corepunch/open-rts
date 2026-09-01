@@ -664,6 +664,22 @@ env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check --game dark-colony
 visible muzzle illumination, while the BLAZ/BLOO asset selection and FIN muzzle
 placement are native-data-derived.
 
+## Mechanical death explosions (2026-09-01)
+
+**Confirmed.** The generated Reaper death states contain two special FIN-derived
+effect chains: `REAPDIEA14` and `REAPDIEA6`. Their layer-5 commands reference
+`BLAM.SPR` frames `0..17`; the selected chain depends on the unit's facing.
+`A_DC_ReaperDeath` performs this selection and spawns the state effect before
+transitioning the Reaper into its normal death/corpse handling. The other
+currently generated `BARRDIE`, `SARGDIE`, and `SCGMDIE` tables contain no
+equivalent `BLAM` chain, so they are not classified as explosion-capable by this
+change.
+
+**Implementation consequence.** The Reaper's native death action is now stored
+in its actor definition and invoked by the generic damage/death path as well as
+the state-machine path. This preserves the DC angle selection when a Reaper is
+killed by the current combat loop.
+
 - The complete semantics and ordering rules for every FIN layer value.
 - The exact meaning of all FIN flag bits beyond observed horizontal flipping.
 - Which gameplay transition chooses Exploiter `SHUF` versus odd `MOVE` poses.

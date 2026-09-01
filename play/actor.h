@@ -47,6 +47,7 @@ typedef struct actortype_s {
     const char *muzzle_flash_name;
     int hit_effect_sprite;
     const char *hit_effect_name;
+    actionf_p1 death_effect_action;
 } actortype_t;
 
 typedef struct state_s {
@@ -221,6 +222,7 @@ struct mobj_s {
     char muzzle_flash_name[32];
     char hit_effect_name[32];
     char shadow_name[32];
+    actionf_p1 death_effect_action;
 };
 
 typedef struct effect_s {

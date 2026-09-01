@@ -1104,6 +1104,17 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             target->attack.anim_left_ms = 0;
             target->core.momentum = fixedvec3_zero();
             target->death_started = true;
+            if (target->death_effect_action) {
+                statecontext_t death_ctx = {
+                    .map = map,
+                    .mobjs = units,
+                    .mobj_count = &count,
+                    .effects = effects,
+                    .max_effects = max_effects,
+                    .game_info = game_info,
+                };
+                target->death_effect_action(&death_ctx, target);
+            }
             if (target->death.anim_ms <= 0) {
                 target->death.anim_ms = 900;
             }

@@ -736,6 +736,8 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
         snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name),
                  "%s", type->hit_effect_name);
+    if (!unit->death_effect_action)
+        unit->death_effect_action = type->death_effect_action;
 }
 
 static void apply_actor_defaults(mobj_t *units, int count) {
