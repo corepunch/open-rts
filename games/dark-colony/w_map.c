@@ -178,6 +178,17 @@ static void dark_colony_map_native_destroy(void *ptr) {
     free(native);
 }
 
+bool dark_colony_map_has_ai(const level_t *map, int owner) {
+    if (!map || owner == 0 || !map->native_data) return false;
+    const DarkColonyMapNative *native = map->native_data;
+    if (!native->has_scenario) return false;
+    for (int i = 0; i < native->scenario.team_count; ++i) {
+        const DarkColonyScenarioTeam *team = &native->scenario.teams[i];
+        if (team->active && team->number != 0 && team->ai > 0) return true;
+    }
+    return false;
+}
+
 static bool dark_colony_scenario_append_object(DarkColonyScenarioFile *scenario,
                                                const DarkColonyScenarioObject *object) {
     DarkColonyScenarioObject *objects = realloc(

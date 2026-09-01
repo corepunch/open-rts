@@ -46,7 +46,6 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
-        .death_effect_action = A_DC_ReaperDeath,
     },
     {
         .id = MT_DC_GREY,
@@ -88,6 +87,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
+        .death_effect_action = A_DC_ReaperDeath,
     },
     {
         .id = MT_DC_THUNDERBOLT,

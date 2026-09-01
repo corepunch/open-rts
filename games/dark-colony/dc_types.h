@@ -2,7 +2,15 @@
 #define __DC_TYPES__
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
+
+struct level_s;
+
+/* Scenario TEAM records are native map data, but AI consumption belongs to
+ * the simulation.  owner 0 is the human side; non-zero owners are DC's
+ * computer-controlled side in the current runtime mapping. */
+bool dark_colony_map_has_ai(const struct level_s *map, int owner);
 
 enum {
     MT_DC_BUILDING_BASE = 1000,

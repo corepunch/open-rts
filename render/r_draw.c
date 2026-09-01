@@ -1284,7 +1284,8 @@ static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *
 static void draw_ground_light(app_t *app, const level_t *map, const effect_t *effect) {
     if (!app || !map || !effect) return;
     float sx, sy;
-    R_MapToScreen(app, map, effect->core.gx, effect->core.gy, &sx, &sy);
+    fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
+    R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
     int radius = effect->light_radius > 0 ? effect->light_radius : 28;
     int duration = effect->duration_ms > 0 ? effect->duration_ms : 120;
     int age = effect->age_ms < duration ? effect->age_ms : duration;

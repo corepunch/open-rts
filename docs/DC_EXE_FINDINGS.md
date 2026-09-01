@@ -680,6 +680,48 @@ in its actor definition and invoked by the generic damage/death path as well as
 the state-machine path. This preserves the DC angle selection when a Reaper is
 killed by the current combat loop.
 
+## AI / Krusty attack logic (2026-09-01)
+
+**Confirmed.** `DC.EXE` is the PE32/i386 executable fingerprinted above. Its
+embedded diagnostics identify `ai.c` (`AI Game State`) and `krusty_attack.c`
+(`Krusty AI`, `best_slot!=-1`, and `AI Path not found (hsm)`). This is native
+executable evidence, not a reconstruction from a strategy-game article.
+
+**Confirmed.** Initialization routine `0x00447740` creates per-side AI state
+with a stride of `0xe30` bytes, clears an 800-entry object-slot table at state
+offset `0x1200`, marks the active side at `0x6c38`, installs helper subsystems,
+and seeds behavior values at `0x6c14..0x6c30` (`0xc0, 1, 1, 2, 4, 2, 4, 2`).
+It then copies 18 three-word records from a global table in `0x00451a9c`.
+The values' semantic names are not proven, but the 800-slot and per-side
+layout are clear.
+
+**Confirmed.** `0x00452c10` updates two per-zone byte flags by setting and
+clearing bits `0x02` and `0x04`; it validates a nonzero object zone through
+the `krusty_attack.c` assertions. `0x004536c0` scans 256 candidate entries,
+calls `0x00447090` to score each live candidate, and retains the lowest score;
+the assertion at line 368 proves this is a best-slot selection pass.
+`0x004538f4` orchestrates additional candidate filtering and calls
+`0x00452e10`, whose 256-word temporary table and object-field comparisons are
+consistent with target/zone allocation. Exact field meanings remain unknown.
+
+**Inferred.** DC's combat AI is a periodic zone/slot allocator and attack
+selector, not a general-purpose behavior-tree system. Porting its raw state
+layout would couple the engine to DC's 800-object pool and hidden path-network
+structures. The implementation therefore keeps the observable policy in the
+simulation: scenario `%AI` enables a deterministic, batched attack thinker;
+each AI unit scores hostile attack-capable and mobile targets with distance as
+the stable tie-break, assigns the selected target, and uses the engine path
+finder to pursue it. The first generic-player layer adds a five-second attack
+wave target, a base-defense override, and configurable aggression/defense
+radius. `DarkColonyAiConfig` in `p_spec.c` is the configuration seam for future
+decoded eagerness, target weights, and production priorities.
+
+**Unknown.** The native build/production policy, exact dependency-table
+semantics (`depend.c`, `gamestat/depend.txt`, and `gamestat/unitid.txt`), zone
+construction, and the `hsm` path routine have not yet been decoded. No claim is
+made that the current first pass reproduces native unit purchasing or resource
+spending.
+
 - The complete semantics and ordering rules for every FIN layer value.
 - The exact meaning of all FIN flag bits beyond observed horizontal flipping.
 - Which gameplay transition chooses Exploiter `SHUF` versus odd `MOVE` poses.
