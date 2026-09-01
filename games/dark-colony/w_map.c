@@ -508,7 +508,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
 
             dec = &map->decorations[map->decoration_count++];
             memset(dec, 0, sizeof(*dec));
-            dec->cell = (ivec2_t){ x, y - 1 }; // HACK: see dark_colony_vent_placement_from_sprites for companion hack
+            dec->cell = (ivec2_t){ x, y };
             dec->footprint = (isize2_t){ 1, 1 };
             dec->center_anchor = true;
             dec->has_sprite_pivot = true;

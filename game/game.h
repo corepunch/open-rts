@@ -12,6 +12,7 @@
 
 #include "engine.h"
 #include "ui_definition.h"
+#include "g_game.h"
 
 /* ── game identity ─────────────────────────────────────────────────────── */
 extern const char *const g_game_id;
@@ -87,5 +88,58 @@ void     G_ShutdownCustomUI(void *ui);
 
 /* Return the effective world viewport width in screen pixels. */
 int      G_WorldViewportWidth(const app_t *app);
+
+/* ── headless model hooks ───────────────────────────────────────────────── */
+
+/* Query static products supported by the game. Returns count. */
+int      G_ModelGetProducts(const RtsGameModel *model, int owner,
+                            StaticProductDefinition *out, int max_products);
+
+/* Lookup a static product definition by its UI ID. */
+const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *model, int ui_id);
+
+/* Lookup a static product definition by class and product type. */
+const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *model,
+                                                         int product_class,
+                                                         int product_type);
+
+/* Check if prerequisites are satisfied for an owner to build a product. */
+bool     G_ModelProductAvailable(const RtsGameModel *model, int owner,
+                                 const StaticProductDefinition *product);
+
+/* Find the producer mobj index for a product. Returns -1 if no eligible producer. */
+int      G_ModelFindProducerIndex(const RtsGameModel *model, int owner,
+                                  const StaticProductDefinition *product);
+
+/* Lookup actor type ID corresponding to a product definition. */
+uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product);
+
+/* Initial frame and state for spawned building products. */
+int      G_ModelBuildingFrameForProduct(const StaticProductDefinition *product);
+int      G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
+                                        const StaticProductDefinition *product);
+
+/* Product training / build time in milliseconds. */
+int      G_ModelProductTrainingTimeMs(const StaticProductDefinition *product);
+
+/* Game-specific release animation and placement hooks (e.g. Dark Colony barracks release). */
+bool     G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
+                                       const StaticProductDefinition *product,
+                                       uint16_t actor_id);
+bool     G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
+                                         const StaticProductDefinition *product,
+                                         const mobj_t *new_unit,
+                                         float *out_gx, float *out_gy);
+
+/* Check if a player/owner currently possesses an alive unit of actor_id. */
+bool     G_ModelHasActorType(const RtsGameModel *model, int owner, uint16_t actor_id);
+
+/* Emit declarative UI script from model and snapshot state. */
+void     G_ModelBuildUIScript(const RtsGameModel *model,
+                              const RtsRenderSnapshot *snapshot,
+                              char *dst, size_t dst_size);
+
+/* Periodic AI production thinker. */
+void     G_ModelAIProduction(RtsGameModel *model, int elapsed_ms);
 
 #endif

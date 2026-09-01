@@ -23,7 +23,7 @@ DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
 KKND_ROOT        := $(DATA_DIR)/KKND
 
 # ── per-game engine sources (shared by all game binaries) ────────────────────
-ENGINE_SOURCES := $(sort $(shell find driver render hud interface play -name '*.c'))
+ENGINE_SOURCES := $(sort $(shell find driver render hud interface play game -name '*.c'))
 
 # ── game-specific sources ────────────────────────────────────────────────────
 DR_GAME_SOURCES   := $(sort $(shell find games/dark-reign  -name '*.c'))
