@@ -591,4 +591,5 @@ const gameinfo_t dark_colony_game_info = {
     RTS_STATE_COORDS_FIN_TOP_LEFT,
     { .style = SELECTION_STYLE_SPRITE, .sprite = SPR_DC_INTRFACE_CLIENT,
       .healthy_frame = 0, .wounded_frame = 1, .critical_frame = 3, .top_offset_y = -3 },
+        NULL,
 };

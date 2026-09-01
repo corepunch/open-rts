@@ -1937,6 +1937,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    RTS_STATE_COORDS_FIN_TOP_LEFT,\n");
     fprintf(out, "    { .style = SELECTION_STYLE_SPRITE, .sprite = SPR_DC_INTRFACE_CLIENT,\n");
     fprintf(out, "      .healthy_frame = 0, .wounded_frame = 1, .critical_frame = 3, .top_offset_y = -3 },\n");
+    fprintf(out, "    NULL,\n");
     fprintf(out, "};\n");
     dc_free_fin_animation(&trsc_fin);
     dc_free_fin_animation(&gray_fin);
