@@ -193,6 +193,37 @@ static bool dark_colony_ai_is_defending(const mobj_t *units, int unit_count,
     return false;
 }
 
+static int dark_colony_ai_nearest_vent(const level_t *map, fvec2_t position) {
+    int best = -1;
+    float best_distance2 = INFINITY;
+    if (!map || !map->resource_vents) return best;
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        if (!vent->active || vent->amount <= 0 || vent->rate <= 0) continue;
+        float distance2 = fvec2_distance_squared(position, vent->attachment);
+        if (distance2 < best_distance2) {
+            best_distance2 = distance2;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static void dark_colony_update_ai_economy(const level_t *map, mobj_t *units,
+                                          int unit_count) {
+    if (!map || !units) return;
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *unit = &units[i];
+        if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
+            (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
+                (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
+        int vent_index = dark_colony_ai_nearest_vent(
+            map, fixedvec3_xy_to_fvec2(unit->core.position));
+        if (vent_index >= 0)
+            P_HarvestUnitTo(map, unit, map->resource_vents[vent_index].attachment);
+    }
+}
+
 static void dark_colony_update_ai(DarkColonyMission *mission, const level_t *map,
                                   mobj_t *units, int unit_count, int dt_ms) {
     if (!map || !units || unit_count <= 0 ||
@@ -200,6 +231,7 @@ static void dark_colony_update_ai(DarkColonyMission *mission, const level_t *map
     mission->ai_elapsed_ms += dt_ms;
     if (mission->ai_elapsed_ms < dark_colony_ai_config.think_interval_ms) return;
     mission->ai_elapsed_ms %= dark_colony_ai_config.think_interval_ms;
+    dark_colony_update_ai_economy(map, units, unit_count);
 
     mission->ai_wave_elapsed_ms += dark_colony_ai_config.think_interval_ms;
     int wave_target = -1;

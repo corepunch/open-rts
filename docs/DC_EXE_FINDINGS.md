@@ -716,6 +716,17 @@ wave target, a base-defense override, and configurable aggression/defense
 radius. `DarkColonyAiConfig` in `p_spec.c` is the configuration seam for future
 decoded eagerness, target weights, and production priorities.
 
+**Implementation consequence.** The generic AI player now reuses the shared
+resource and production systems rather than maintaining a parallel economy.
+Idle AI harvesters are assigned to the nearest active vent through
+`P_HarvestUnitTo`, so cargo return and resource ownership remain engine rules.
+The model-layer production controller spends owner-1 resources through the
+normal prerequisite and maker checks, queues units through the normal producer
+queue, and follows a configurable default progression of Barracks, Sci-Pod,
+Robo-Ftr, Exploiters, Troopers, Reapers, Osprey IV, and S.A.R.G.E. This is a
+generic competent-player policy, not a claim that the opaque DC production AI
+has been fully recovered.
+
 **Unknown.** The native build/production policy, exact dependency-table
 semantics (`depend.c`, `gamestat/depend.txt`, and `gamestat/unitid.txt`), zone
 construction, and the `hsm` path routine have not yet been decoded. No claim is

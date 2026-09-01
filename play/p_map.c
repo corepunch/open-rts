@@ -576,14 +576,14 @@ static int find_resource_vent_at(const level_t *map, fvec2_t position) {
     return best;
 }
 
-bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
-                      fvec2_t position) {
+static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int unit_count,
+                                       fvec2_t position, int owner) {
     int vent_index = find_resource_vent_at(map, position);
     if (vent_index < 0) return false;
 
     bool has_harvester = false;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].selected && units[i].owner == 0 && units[i].hp > 0 &&
+        if (units[i].selected && units[i].owner == owner && units[i].hp > 0 &&
             (units[i].traits & (MF_MOBILE | MF_HARVESTER)) ==
                 (MF_MOBILE | MF_HARVESTER)) {
             has_harvester = true;
@@ -597,7 +597,7 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = &units[i];
-        if (!unit->selected || unit->owner != 0 || unit->hp <= 0) continue;
+        if (!unit->selected || unit->owner != owner || unit->hp <= 0) continue;
         if ((unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
             (MF_MOBILE | MF_HARVESTER)) {
             continue;
@@ -665,6 +665,20 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
         unit->movement.order_arrived = unit->movement.path_index == 0;
         issued = true;
     }
+    return issued;
+}
+
+bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
+                      fvec2_t position) {
+    return harvest_order_at_for_owner(map, units, unit_count, position, 0);
+}
+
+bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position) {
+    if (!unit || unit->hp <= 0) return false;
+    bool selected = unit->selected;
+    unit->selected = true;
+    bool issued = harvest_order_at_for_owner(map, unit, 1, position, unit->owner);
+    unit->selected = selected;
     return issued;
 }
 

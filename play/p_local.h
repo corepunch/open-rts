@@ -22,5 +22,6 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position);
 bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
                              fvec2_t position);
+bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
 
 #endif

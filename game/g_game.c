@@ -50,6 +50,7 @@ struct RtsGameModel {
     char error[256];
     uint64_t tick;
     uint32_t next_unit_id;
+    int ai_production_timer_ms;
     RtsGameEvent events[256];
     int event_head;
     int event_count;
@@ -360,37 +361,36 @@ static uint16_t dark_reign_actor_id_for_product(const StaticProductDefinition *p
     return product ? dark_reign_actor_id_for_requirement(product->product_type) : 0;
 }
 
-static bool model_has_player_actor_type(const RtsGameModel *model, uint16_t actor_id) {
+static bool model_has_actor_type(const RtsGameModel *model, int owner, uint16_t actor_id) {
     if (!model || actor_id == 0) return false;
     for (int i = 0; i < model->unit_count; ++i) {
         const mobj_t *unit = &model->units[i];
-        if (unit->owner == 0 && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
+        if (unit->owner == owner && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
             return true;
     }
     return false;
 }
 
-static bool model_has_player_product(const RtsGameModel *model,
-                                     const StaticProductDefinition *product) {
+static bool model_has_owner_product(const RtsGameModel *model, int owner,
+                                    const StaticProductDefinition *product) {
     if (!product || product->product_class != RTS_PRODUCT_BUILDING) return false;
-    return model_has_player_actor_type(model, dark_colony_actor_id_for_product(product));
+    return model_has_actor_type(model, owner, dark_colony_actor_id_for_product(product));
 }
 
-static bool model_has_dark_reign_requirement(const RtsGameModel *model, int requirement_id) {
-    return model_has_player_actor_type(model, dark_reign_actor_id_for_requirement(requirement_id));
-}
-
-static bool product_is_available(const RtsGameModel *model, const StaticProductDefinition *product) {
+static bool product_is_available_for_owner(const RtsGameModel *model, int owner,
+                                           const StaticProductDefinition *product) {
     if (!product) return false;
     bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
     if (dark_reign) {
         for (int i = 0; i < product->prerequisite_count; ++i) {
-            if (!model_has_dark_reign_requirement(model, product->prerequisites[i]))
+            if (!model_has_actor_type(model, owner,
+                                      dark_reign_actor_id_for_requirement(product->prerequisites[i])))
                 return false;
         }
         if (product->maker_count <= 0) return true;
         for (int i = 0; i < product->maker_count; ++i) {
-            if (model_has_dark_reign_requirement(model, product->makers[i]))
+            if (model_has_actor_type(model, owner,
+                                     dark_reign_actor_id_for_requirement(product->makers[i])))
                 return true;
         }
         return false;
@@ -398,38 +398,48 @@ static bool product_is_available(const RtsGameModel *model, const StaticProductD
     for (int i = 0; i < product->prerequisite_count; ++i) {
         const StaticProductDefinition *prereq =
             dark_colony_product_by_row_id(product->prerequisites[i]);
-        if (!model_has_player_product(model, prereq)) return false;
+        if (!model_has_owner_product(model, owner, prereq)) return false;
     }
     return true;
 }
 
-static int find_player_actor_index(const RtsGameModel *model, uint16_t actor_id) {
-    if (!model || actor_id == 0) return -1;
-    for (int i = 0; i < model->unit_count; ++i) {
-        const mobj_t *unit = &model->units[i];
-        if (unit->owner == 0 && !unit->remove && unit->hp > 0 && unit->type_id == actor_id)
-            return i;
-    }
-    return -1;
+static bool product_is_available(const RtsGameModel *model,
+                                 const StaticProductDefinition *product) {
+    return product_is_available_for_owner(model, 0, product);
 }
 
-static int find_product_producer_index(const RtsGameModel *model,
-                                       const StaticProductDefinition *product) {
+static int find_product_producer_index_for_owner(const RtsGameModel *model, int owner,
+                                                 const StaticProductDefinition *product) {
     if (!model || !product) return -1;
     if (strcmp(g_game_id, "dark-reign") == 0) {
         for (int i = 0; i < product->maker_count; ++i) {
-            int index = find_player_actor_index(
-                model, dark_reign_actor_id_for_requirement(product->makers[i]));
+            int index = -1;
+            for (int j = 0; j < model->unit_count; ++j) {
+                const mobj_t *unit = &model->units[j];
+                if (unit->owner == owner && !unit->remove && unit->hp > 0 &&
+                    unit->type_id == dark_reign_actor_id_for_requirement(product->makers[i])) {
+                    index = j;
+                    break;
+                }
+            }
             if (index >= 0) return index;
         }
         return -1;
     }
     /* dark-colony: makers[] holds the actor type ID of the building that builds this */
     for (int i = 0; i < product->maker_count; ++i) {
-        int index = find_player_actor_index(model, (uint16_t)product->makers[i]);
-        if (index >= 0) return index;
+        for (int j = 0; j < model->unit_count; ++j) {
+            const mobj_t *unit = &model->units[j];
+            if (unit->owner == owner && !unit->remove && unit->hp > 0 &&
+                unit->type_id == (uint16_t)product->makers[i]) return j;
+        }
     }
     return -1;
+}
+
+static int find_product_producer_index(const RtsGameModel *model,
+                                       const StaticProductDefinition *product) {
+    return find_product_producer_index_for_owner(model, 0, product);
 }
 
 static bool model_position_available(const RtsGameModel *model, float gx, float gy,
@@ -793,11 +803,11 @@ static void advance_model_production_queue(mobj_t *producer) {
     }
 }
 
-static bool create_model_product(RtsGameModel *model,
-                                 const StaticProductDefinition *product) {
+static bool create_model_product_for_owner(RtsGameModel *model, int owner,
+                                           const StaticProductDefinition *product) {
     if (!model || !product) return false;
-    if (!product_is_available(model, product)) return false;
-    if (model->map.player_resources[0][0] < product->cost) return false;
+    if (!product_is_available_for_owner(model, owner, product)) return false;
+    if (model->map.player_resources[owner][0] < product->cost) return false;
 
     bool dark_reign = strcmp(g_game_id, "dark-reign") == 0;
     bool dark_colony = strcmp(g_game_id, "dark-colony") == 0;
@@ -805,20 +815,82 @@ static bool create_model_product(RtsGameModel *model,
         dark_colony_actor_id_for_product(product);
     if (actor_id == 0 || !plugin_actor_type_by_id(actor_id)) return false;
 
-    int producer_index = find_product_producer_index(model, product);
+    int producer_index = find_product_producer_index_for_owner(model, owner, product);
     if (producer_index < 0) return false;
 
     if ((dark_colony && product->product_class == RTS_PRODUCT_UNIT) || dark_reign) {
         if (!enqueue_model_unit_product(model, product, producer_index, actor_id)) return false;
-        model->map.player_resources[0][0] -= product->cost;
+        model->map.player_resources[owner][0] -= product->cost;
         return true;
     }
 
     model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, &model->units[producer_index], NULL,
                      product->product_class, product->product_type);
     if (!spawn_finished_model_product(model, product, producer_index)) return false;
-    model->map.player_resources[0][0] -= product->cost;
+    model->map.player_resources[owner][0] -= product->cost;
     return true;
+}
+
+static bool create_model_product(RtsGameModel *model,
+                                 const StaticProductDefinition *product) {
+    return create_model_product_for_owner(model, 0, product);
+}
+
+static int model_owner_actor_count(const RtsGameModel *model, int owner,
+                                   uint16_t actor_id) {
+    int count = 0;
+    if (!model || actor_id == 0) return count;
+    for (int i = 0; i < model->unit_count; ++i) {
+        const mobj_t *unit = &model->units[i];
+        if (unit->owner == owner && !unit->remove && unit->hp > 0 &&
+            unit->type_id == actor_id) count++;
+    }
+    return count;
+}
+
+static bool model_has_owner_units(const RtsGameModel *model, int owner) {
+    if (!model) return false;
+    for (int i = 0; i < model->unit_count; ++i) {
+        if (model->units[i].owner == owner && !model->units[i].remove &&
+            model->units[i].hp > 0) return true;
+    }
+    return false;
+}
+
+typedef struct {
+    int row_id;
+    int desired_count;
+} DarkColonyAiProductionGoal;
+
+static const DarkColonyAiProductionGoal dark_colony_ai_production_goals[] = {
+    { 1, 1 }, /* Barracks */
+    { 2, 1 }, /* Sci-Pod */
+    { 3, 1 }, /* Robo-Ftr */
+    { 7, 2 }, /* Exploiters */
+    { 9, 6 }, /* Troopers */
+    { 11, 4 }, /* Reapers */
+    { 10, 2 }, /* Osprey IV */
+    { 13, 1 }, /* S.A.R.G.E. */
+};
+
+static void update_dark_colony_ai_production(RtsGameModel *model, int elapsed_ms) {
+    enum { AI_OWNER = 1, AI_THINK_MS = 1000 };
+    if (!model || strcmp(g_game_id, "dark-colony") != 0 ||
+        !model_has_owner_units(model, AI_OWNER)) return;
+    model->ai_production_timer_ms += elapsed_ms;
+    if (model->ai_production_timer_ms < AI_THINK_MS) return;
+    model->ai_production_timer_ms %= AI_THINK_MS;
+
+    for (size_t i = 0; i < sizeof(dark_colony_ai_production_goals) /
+                         sizeof(dark_colony_ai_production_goals[0]); ++i) {
+        const DarkColonyAiProductionGoal *goal = &dark_colony_ai_production_goals[i];
+        const StaticProductDefinition *product = dark_colony_product_by_row_id(goal->row_id);
+        if (!product) continue;
+        uint16_t actor_id = dark_colony_actor_id_for_product(product);
+        if (model_owner_actor_count(model, AI_OWNER, actor_id) >= goal->desired_count ||
+            !product_is_available_for_owner(model, AI_OWNER, product)) continue;
+        if (create_model_product_for_owner(model, AI_OWNER, product)) return;
+    }
 }
 
 static const StaticProductDefinition *product_by_class_type_for_model(
@@ -1212,6 +1284,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
                         &model->unit_count, model->effects,
                         MAX_VISUAL_EFFECTS, &model->hud, dt);
     }
+    update_dark_colony_ai_production(model, (int)(dt * 1000.0f));
     update_model_production(model, dt);
     P_UpdateEffects(&model->map, model->effects, MAX_VISUAL_EFFECTS,
                           gameinfo, dt);
