@@ -172,15 +172,6 @@ void P_AngleToVec(angle_t angle, float *dx, float *dy) {
     angle_to_screen_vector(angle, dx, dy);
 }
 
-static void direction_vector_from_map_angle(const level_t *map, angle_t angle,
-                                            float *dx, float *dy) {
-    (void)map;
-    P_AngleToVec(angle, dx, dy);
-#if RTS_WORLD_Y_UP
-    *dy = -*dy;
-#endif
-}
-
 static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t *units, int unit_count,
                                             int *target_index_out) {
     if (target_index_out) *target_index_out = -1;
@@ -227,7 +218,8 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
 static bool spawn_visual_effect(effect_t *effects, int max_effects,
                                 const char *sprite_name, const char *sequence_name,
                                 fixedvec3_t position, angle_t angle, int duration_ms,
-                                int frame_ms, bool add_decoration_on_finish,
+                                int frame_ms, bool fin_placement,
+                                bool add_decoration_on_finish,
                                 int decoration_frame_index) {
     if (!effects || max_effects <= 0 || !sprite_name || sprite_name[0] == '\0') {
         debug_effects_log("spawn skipped sprite=%s max=%d", sprite_name ? sprite_name : "(null)", max_effects);
@@ -241,6 +233,7 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
         effect->core.position = position;
         effect->core.angle = angle;
         effect->core.render_intensity = 16;
+        effect->fin_placement = fin_placement;
         effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
         effect->frame_ms = frame_ms > 0 ? frame_ms : 90;
         effect->decoration_frame_index = decoration_frame_index;
@@ -1059,21 +1052,33 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         if (attacker->attack.cooldown_left_ms > 0) continue;
 
         if (attacker->muzzle_flash_name[0] != '\0') {
-            float vx = 0.0f, vy = 0.0f;
-            direction_vector_from_map_angle(map, attacker->core.angle, &vx, &vy);
-            fvec2_t muzzle_position = fvec2_add(
-                fixedvec3_xy_to_fvec2(attacker->core.position),
-                                                fvec2_scale((fvec2_t){ vx, vy }, 0.42f));
             int flash_ms = attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120;
             bool light_spawned = spawn_ground_light(effects, max_effects,
                                                     attacker->core.position,
                                                     flash_ms, 30);
-            bool spawned = spawn_visual_effect(effects, max_effects, attacker->muzzle_flash_name, "flash",
-                                               fixedvec3_with_xy(attacker->core.position,
-                                                                 muzzle_position),
-                                               attacker->core.angle,
-                                               flash_ms,
-                                               40, false, 0);
+            bool spawned = false;
+            int muzzle_state = game_info && attacker->type_id > 0 &&
+                attacker->type_id < game_info->mobj_type_count ?
+                game_info->mobjinfo[attacker->type_id].muzzleflash : game_info->null_state;
+            if (muzzle_state != game_info->null_state) {
+                statecontext_t effect_ctx = {
+                    .map = map,
+                    .mobjs = units,
+                    .mobj_count = &count,
+                    .effects = effects,
+                    .max_effects = max_effects,
+                    .game_info = game_info,
+                };
+                spawned = P_SpawnEffect(&effect_ctx, muzzle_state,
+                                        attacker->core.position, attacker->core.angle);
+            }
+            if (!spawned) {
+                spawned = spawn_visual_effect(effects, max_effects,
+                                              attacker->muzzle_flash_name, "flash",
+                                              attacker->core.position,
+                                              attacker->core.angle,
+                                              flash_ms, 40, false, false, 0);
+            }
             debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
                               i, target_index, spawned ? 1 : 0, attacker->muzzle_flash_name);
             debug_effects_log("attack ground-light attacker=%d spawned=%d", i,
@@ -1087,7 +1092,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             spawn_visual_effect(effects, max_effects, target->hit_effect_name, NULL,
                                 target->core.position,
                                 target->core.angle,
-                                400, 50, false, 0);
+                                400, 50, false, false, 0);
         }
         if (target->hp <= 0) {
             target->hp = 0;
@@ -1123,7 +1128,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                                                death_sequence_name_for_unit(target),
                                                target->core.position,
                                                target->core.angle,
-                                               target->death.anim_ms, 90, true, -1);
+                                               target->death.anim_ms, 90, true, true, -1);
             debug_effects_log("death target=%d spawned=%d sprite=%s sequence=%s facing=%d duration=%d",
                               target_index, spawned ? 1 : 0, target->core.sprite_name,
                               death_sequence_name_for_unit(target), target->core.angle,
