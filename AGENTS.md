@@ -248,6 +248,16 @@ or metadata from original game executables. It defines the shared Dark Colony
 and 7th Legion workflow, verification requirements, and game-specific fidelity
 rules.
 
+### No unverified magic-number fixes
+
+Never add a numeric offset, scale, delay, threshold, or other magic constant as
+a visual or behavioral compensation unless evidence confirms that value is
+present in the retail game. Derive values from native assets or runtime data
+when possible; otherwise trace and document the executable instruction, data
+offset, or observed retail behavior that justifies the constant. If the value
+is still unknown, preserve the unknown and investigate it instead of tuning a
+number until the output looks right.
+
 ### Preserve every original-game finding
 
 Do not leave reverse-engineering knowledge only in chat, terminal output,
