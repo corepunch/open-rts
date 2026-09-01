@@ -25,6 +25,9 @@ void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint
 void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                    const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
+bool R_RenderIndexedComposition(app_t *app, const spritesheet_t *sprite, int frame,
+                                irect_t dst, uint32_t flags,
+                                const rts_composition_t *composition);
 bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
                    int frame_count, uint16_t frame_ms);
 void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,

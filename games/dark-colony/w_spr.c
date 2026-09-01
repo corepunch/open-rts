@@ -411,74 +411,20 @@ bool dark_colony_load_render_tables(const char *data_root, const char *tileset_n
     return true;
 }
 
-static uint8_t dark_colony_nearest_palette_index(uint32_t rgba) {
-    int r = (int)((rgba >> 16) & 0xff);
-    int g = (int)((rgba >> 8) & 0xff);
-    int b = (int)(rgba & 0xff);
-    int best_index = 1;
-    int best_distance = INT32_MAX;
-    for (int i = 1; i < 256; ++i) {
-        uint32_t color = dark_colony_render_tables.palette[i];
-        int dr = r - (int)((color >> 16) & 0xff);
-        int dg = g - (int)((color >> 8) & 0xff);
-        int db = b - (int)(color & 0xff);
-        int distance = dr * dr + dg * dg + db * db;
-        if (distance < best_distance) {
-            best_distance = distance;
-            best_index = i;
-            if (distance == 0) break;
-        }
-    }
-    return (uint8_t)best_index;
-}
-
-static bool dark_colony_render_selector(app_t *app, const spritesheet_t *sprite,
-                                        int frame, irect_t dst, uint32_t flags,
-                                        int selector) {
-    if (!app || !sprite || selector != 5 || !dark_colony_render_tables.valid ||
-        frame < 0 || frame >= sprite->frame_count) return false;
+static bool dark_colony_resolve_composition(const spritesheet_t *sprite, int selector,
+                                            rts_composition_t *out) {
+    if (!out) return false;
+    *out = (rts_composition_t){0};
+    if (!sprite || selector != 5 || !dark_colony_render_tables.valid) return false;
     DarkColonySpriteNative *native = sprite->native_data;
     if (!native || !native->indices || native->atlas_w <= 0) return false;
-
-    irect_t clip = dst;
-    if (clip.x < 0) { clip.w += clip.x; clip.x = 0; }
-    if (clip.y < 0) { clip.h += clip.y; clip.y = 0; }
-    if (clip.x + clip.w > app->win.w) clip.w = app->win.w - clip.x;
-    if (clip.y + clip.h > app->win.h) clip.h = app->win.h - clip.y;
-    if (clip.w <= 0 || clip.h <= 0) return true;
-
-    size_t pixel_count = (size_t)clip.w * (size_t)clip.h;
-    uint32_t *pixels = malloc(pixel_count * sizeof(*pixels));
-    if (!pixels) return false;
-    SDL_Rect read_rect = { clip.x, clip.y, clip.w, clip.h };
-    if (SDL_RenderReadPixels(app->renderer, &read_rect, SDL_PIXELFORMAT_ARGB8888,
-                             pixels, clip.w * (int)sizeof(*pixels)) != 0) {
-        free(pixels);
-        return false;
-    }
-
-    irect_t source = sprite->frames[frame];
-    for (int y = 0; y < clip.h; ++y) {
-        int source_y = source.y + clip.y - dst.y + y;
-        for (int x = 0; x < clip.w; ++x) {
-            int local_x = clip.x - dst.x + x;
-            if ((flags & RTS_FRAME_FLIP_X) != 0) local_x = source.w - 1 - local_x;
-            uint8_t source_index = native->indices[
-                (size_t)source_y * (size_t)native->atlas_w + (size_t)source.x + (size_t)local_x];
-            if (source_index == 0) continue;
-            size_t pixel = (size_t)y * (size_t)clip.w + (size_t)x;
-            uint8_t destination_index = dark_colony_nearest_palette_index(pixels[pixel]);
-            uint8_t result_index = dark_colony_render_tables.selector5[
-                ((size_t)source_index << 8) | destination_index];
-            pixels[pixel] = dark_colony_render_tables.palette[result_index];
-        }
-    }
-
-    SDL_Texture *composite = I_CreateTexture(app->renderer, pixels, clip.w, clip.h, false);
-    free(pixels);
-    if (!composite) return false;
-    SDL_RenderCopy(app->renderer, composite, NULL, &read_rect);
-    SDL_DestroyTexture(composite);
+    *out = (rts_composition_t){
+        .kind = RTS_COMPOSE_INDEXED_TABLE,
+        .source_indices = native->indices,
+        .source_stride = native->atlas_w,
+        .palette = dark_colony_render_tables.palette,
+        .lookup_table = dark_colony_render_tables.selector5,
+    };
     return true;
 }
 
@@ -715,7 +661,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     out->primary_frames_per_rotation = visible_frames;
     out->native_data = native;
     out->destroy_native_data = dark_colony_sprite_native_destroy;
-    out->render_selector = dark_colony_render_selector;
+    out->resolve_composition = dark_colony_resolve_composition;
 
     free(rgba);
     native->indices = indices;

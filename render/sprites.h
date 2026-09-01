@@ -10,6 +10,20 @@
 #include <stdint.h>
 
 typedef struct app_s app_t;
+struct spritesheet_s;
+
+typedef enum {
+    RTS_COMPOSE_NONE,
+    RTS_COMPOSE_INDEXED_TABLE,
+} rts_composition_kind_t;
+
+typedef struct {
+    rts_composition_kind_t kind;
+    const uint8_t *source_indices;
+    int source_stride;
+    const uint32_t *palette;
+    const uint8_t *lookup_table;
+} rts_composition_t;
 
 typedef struct {
     int value;
@@ -57,8 +71,8 @@ typedef struct spritesheet_s {
     int sequence_count;
     void *native_data;
     void (*destroy_native_data)(void *);
-    bool (*render_selector)(app_t *app, const struct spritesheet_s *sprite,
-                            int frame, irect_t dst, uint32_t flags, int selector);
+    bool (*resolve_composition)(const struct spritesheet_s *sprite, int selector,
+                                rts_composition_t *out);
 } spritesheet_t;
 
 typedef struct cachedsprite_s {

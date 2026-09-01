@@ -480,6 +480,77 @@ static void end_sprite_command(SDL_Texture *texture, uint32_t render_flags) {
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 }
 
+static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256]) {
+    int r = (int)((rgba >> 16) & 0xff);
+    int g = (int)((rgba >> 8) & 0xff);
+    int b = (int)(rgba & 0xff);
+    int best_index = 1;
+    int best_distance = INT32_MAX;
+    for (int i = 1; i < 256; ++i) {
+        int dr = r - (int)((palette[i] >> 16) & 0xff);
+        int dg = g - (int)((palette[i] >> 8) & 0xff);
+        int db = b - (int)(palette[i] & 0xff);
+        int distance = dr * dr + dg * dg + db * db;
+        if (distance < best_distance) {
+            best_distance = distance;
+            best_index = i;
+            if (distance == 0) break;
+        }
+    }
+    return (uint8_t)best_index;
+}
+
+bool R_RenderIndexedComposition(app_t *app, const spritesheet_t *sprite, int frame,
+                                irect_t dst, uint32_t flags,
+                                const rts_composition_t *composition) {
+    if (!app || !sprite || !composition || composition->kind != RTS_COMPOSE_INDEXED_TABLE ||
+        !composition->source_indices || composition->source_stride <= 0 ||
+        !composition->palette || !composition->lookup_table ||
+        frame < 0 || frame >= sprite->frame_count) return false;
+
+    irect_t clip = dst;
+    if (clip.x < 0) { clip.w += clip.x; clip.x = 0; }
+    if (clip.y < 0) { clip.h += clip.y; clip.y = 0; }
+    if (clip.x + clip.w > app->win.w) clip.w = app->win.w - clip.x;
+    if (clip.y + clip.h > app->win.h) clip.h = app->win.h - clip.y;
+    if (clip.w <= 0 || clip.h <= 0) return true;
+
+    size_t pixel_count = (size_t)clip.w * (size_t)clip.h;
+    uint32_t *pixels = malloc(pixel_count * sizeof(*pixels));
+    if (!pixels) return false;
+    SDL_Rect read_rect = { clip.x, clip.y, clip.w, clip.h };
+    if (SDL_RenderReadPixels(app->renderer, &read_rect, SDL_PIXELFORMAT_ARGB8888,
+                             pixels, clip.w * (int)sizeof(*pixels)) != 0) {
+        free(pixels);
+        return false;
+    }
+
+    irect_t source = sprite->frames[frame];
+    for (int y = 0; y < clip.h; ++y) {
+        int source_y = source.y + clip.y - dst.y + y;
+        for (int x = 0; x < clip.w; ++x) {
+            int local_x = clip.x - dst.x + x;
+            if ((flags & RTS_FRAME_FLIP_X) != 0) local_x = source.w - 1 - local_x;
+            uint8_t source_index = composition->source_indices[
+                (size_t)source_y * (size_t)composition->source_stride +
+                (size_t)source.x + (size_t)local_x];
+            if (source_index == 0) continue;
+            size_t pixel = (size_t)y * (size_t)clip.w + (size_t)x;
+            uint8_t destination_index = nearest_palette_index(pixels[pixel], composition->palette);
+            uint8_t result_index = composition->lookup_table[
+                ((size_t)source_index << 8) | destination_index];
+            pixels[pixel] = composition->palette[result_index];
+        }
+    }
+
+    SDL_Texture *composite = I_CreateTexture(app->renderer, pixels, clip.w, clip.h, false);
+    free(pixels);
+    if (!composite) return false;
+    SDL_RenderCopy(app->renderer, composite, NULL, &read_rect);
+    SDL_DestroyTexture(composite);
+    return true;
+}
+
 static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int frame);
 static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame);
 
@@ -565,10 +636,11 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     if ((render_flags & RTS_FRAME_BLINK) != 0 && ((app->ticks_ms / 250u) % 2u) == 0u) {
         return;
     }
-    if (sprite->render_selector &&
-        sprite->render_selector(app, sprite, frame, dst, render_flags, dec->render_selector)) {
-        return;
-    }
+    rts_composition_t composition = {0};
+    if (sprite->resolve_composition &&
+        sprite->resolve_composition(sprite, dec->render_selector, &composition) &&
+        composition.kind == RTS_COMPOSE_INDEXED_TABLE &&
+        R_RenderIndexedComposition(app, sprite, frame, dst, render_flags, &composition)) return;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_Texture *texture = begin_sprite_command(sprite, render_flags, 0, 16);
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
@@ -1390,11 +1462,12 @@ void R_DrawEffects(app_t *app, const level_t *map,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
             SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        if (sprite->render_selector && sprite->render_selector(
-                app, sprite, frame, dst, effect->core.render_flags,
-                effect->render_selector)) {
-            continue;
-        }
+        rts_composition_t composition = {0};
+        if (sprite->resolve_composition &&
+            sprite->resolve_composition(sprite, effect->render_selector, &composition) &&
+            composition.kind == RTS_COMPOSE_INDEXED_TABLE &&
+            R_RenderIndexedComposition(app, sprite, frame, dst,
+                                       effect->core.render_flags, &composition)) continue;
         SDL_Texture *texture = begin_sprite_command(sprite, effect->core.render_flags,
                                                     effect->core.render_remap,
                                                     effect->core.render_intensity);
