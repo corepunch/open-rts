@@ -3,6 +3,9 @@
 #include "game.h"
 #include "renderer.h"
 #include "st_stuff.h"
+#if RTS_WORLD_Y_UP
+#include "dc_types.h"
+#endif
 
 #include <ctype.h>
 #include <math.h>
@@ -865,6 +868,1427 @@ static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
     return true;
 }
 
+typedef struct {
+    irect_t outer;
+    irect_t header;
+    irect_t status;
+    irect_t commands;
+    irect_t resources;
+    irect_t minimap;
+    irect_t message;
+    irect_t build;
+    irect_t tabs[3];
+    irect_t buttons[8];
+} DarkColonyUiLayout;
+
+typedef struct {
+    int id;
+    int frame;
+    char label[40];
+} DarkColonySidebarCommand;
+
+typedef struct {
+    DarkColonySidebarCommand commands[6];
+    int command_count;
+} DarkColonySidebar;
+
+typedef struct {
+    bool active;
+    bool font_ready;
+    bitmapfont_t font;
+    spritesheet_t background;
+    DarkColonySidebar sidebar;
+} sb_state_t;
+
+typedef struct {
+    int ui_id;
+    const char *label;
+    int cost;
+    int icon_frame;
+    int product_type;
+    int producer_type_id;
+    int prerequisites[3];
+    int prerequisite_count;
+} DarkColonyProductButton;
+
+enum {
+    DC_CLIENT_PRODUCT_UNIT = 2,
+    DC_CLIENT_MT_TROOPER = 1,
+    DC_CLIENT_MT_REAPER = 4,
+    DC_CLIENT_MT_THUNDERBOLT = 5,
+    DC_CLIENT_MT_CYBORG = 6,
+    DC_CLIENT_MT_SCOUT = 7,
+    DC_CLIENT_MT_EXPLOITER = 3,
+    DC_CLIENT_MT_EXCOPOD = 1000,
+    DC_CLIENT_MT_BRRKPOD = 1001,
+    DC_CLIENT_MT_ROBOPOD = 1002,
+    DC_CLIENT_MT_ROBOPOD2 = 1003,
+    DC_CLIENT_MT_SCNCPOD = 1004,
+    DC_CLIENT_MT_SCNCPOD2 = 1005,
+    DC_CLIENT_MT_RSCHPOD = 1006,
+    DC_CLIENT_PRODUCTION_BUILD_GROUP = 6,
+    DC_CLIENT_TRSCBUILD_FIRST_FRAME = 12,
+};
+
+static const DarkColonyProductButton DARK_COLONY_PRODUCTS[] = {
+    {  80, "Barracks",  1000, 20, 17, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  81, "Sci-Pod",   2000, 21, 20, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  82, "Robo-Ftr",  2000, 22, 18, DC_CLIENT_MT_EXCOPOD, { 2, 1 }, 2 },
+    {  83, "Rsch-Bay",  3000, 23, 22, DC_CLIENT_MT_EXCOPOD, { 4 }, 1 },
+    {  85, "Sci-Pod+",  2000, 26, 21, DC_CLIENT_MT_EXCOPOD, { 2 }, 1 },
+    {  86, "Robo-Ftr+", 2000, 30, 19, DC_CLIENT_MT_EXCOPOD, { 3, 2 }, 2 },
+    {  87, "Exploiter", 1500,  8,  6, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  89, "Trooper",    350,  6,  0, DC_CLIENT_MT_BRRKPOD, { 1 }, 1 },
+    {  90, "Sentinel",   450,  5, 43, DC_CLIENT_MT_BRRKPOD, { 1, 2 }, 2 },
+    {  94, "S.A.R.G.E", 1500, 12,  4, DC_CLIENT_MT_BRRKPOD, { 1, 6 }, 2 },
+    {  92, "Osprey IV",  600,  9,  5, DC_CLIENT_MT_ROBOPOD, { 0, 3, 4 }, 3 },
+    {  91, "Reaper",     600, 11,  2, DC_CLIENT_MT_ROBOPOD, { 3, 2 }, 2 },
+    {  88, "Firestorm",  900, 10,  1, DC_CLIENT_MT_ROBOPOD2, { 5 }, 1 },
+    {  93, "Barrager",  1000,  7,  3, DC_CLIENT_MT_ROBOPOD2, { 5, 4 }, 2 },
+    { 135, "Medi-craft", 900, 29, 49, DC_CLIENT_MT_ROBOPOD, { 4, 3, 6 }, 3 },
+};
+
+static uint16_t dc_unit_actor_id_for_product_type(int product_type) {
+    switch (product_type) {
+    case 0: return DC_CLIENT_MT_TROOPER;
+    case 2: return DC_CLIENT_MT_REAPER;
+    case 3: return DC_CLIENT_MT_THUNDERBOLT;
+    case 4: return DC_CLIENT_MT_CYBORG;
+    case 5: return DC_CLIENT_MT_SCOUT;
+    case 6: return DC_CLIENT_MT_EXPLOITER;
+    default: return 0;
+    }
+}
+
+static int dc_product_training_time_ms(const DarkColonyProductButton *product) {
+    if (!product) return 0;
+    int ms = product->cost * 10;
+    if (ms < 1000) ms = 1000;
+    return ms;
+}
+
+static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
+    if (!sidebar) return;
+    const int ids[6] = { 150, 33, 35, 36, 37, 143 };
+    const int frames[6] = { 62, 63, 65, 66, 74, 2 };
+    const char *labels[6] = {
+        "Stop",
+        "Move Only",
+        "Move & Attack",
+        "Set waypoints",
+        "Deploy",
+        "Second Attack",
+    };
+    memset(sidebar, 0, sizeof(*sidebar));
+    sidebar->command_count = 6;
+    for (int i = 0; i < sidebar->command_count; ++i) {
+        sidebar->commands[i].id = ids[i];
+        sidebar->commands[i].frame = frames[i];
+        snprintf(sidebar->commands[i].label, sizeof(sidebar->commands[i].label), "%s", labels[i]);
+    }
+}
+
+static irect_t dark_colony_ui_rect(const app_t *app, int x, int y, int w, int h) {
+    int win_w = app && app->win.w > 0 ? app->win.w : 640;
+    int win_h = app && app->win.h > 0 ? app->win.h : 480;
+    irect_t r = {
+        x >= 516 ? win_w - (640 - x) : x,
+        y >= 455 ? win_h - (480 - y) : y,
+        w,
+        h,
+    };
+    if (r.w < 1 && w > 0) r.w = 1;
+    if (r.h < 1 && h > 0) r.h = 1;
+    return r;
+}
+
+static int gif_read_code(const uint8_t *data, size_t size, size_t *bit_pos, int code_size) {
+    int code = 0;
+    for (int bit = 0; bit < code_size; ++bit) {
+        size_t byte_pos = (*bit_pos) >> 3;
+        if (byte_pos >= size) return -1;
+        if (data[byte_pos] & (1u << ((*bit_pos) & 7))) code |= 1 << bit;
+        (*bit_pos)++;
+    }
+    return code;
+}
+
+static bool gif_decode_lzw(const uint8_t *data, size_t size, int min_code_size,
+                           uint8_t *out, size_t out_size) {
+    if (!data || !out || min_code_size < 2 || min_code_size > 8) return false;
+    enum { GIF_MAX_CODES = 4096 };
+    int prefix[GIF_MAX_CODES];
+    uint8_t suffix[GIF_MAX_CODES];
+    uint8_t stack[GIF_MAX_CODES];
+    int clear_code = 1 << min_code_size;
+    int end_code = clear_code + 1;
+    int code_size = min_code_size + 1;
+    int next_code = end_code + 1;
+    int old_code = -1;
+    uint8_t first_char = 0;
+    size_t bit_pos = 0, out_pos = 0;
+
+    for (int i = 0; i < GIF_MAX_CODES; ++i) {
+        prefix[i] = -1;
+        suffix[i] = (uint8_t)i;
+    }
+
+    while (out_pos < out_size) {
+        int code = gif_read_code(data, size, &bit_pos, code_size);
+        if (code < 0) return false;
+        if (code == clear_code) {
+            code_size = min_code_size + 1;
+            next_code = end_code + 1;
+            old_code = -1;
+            continue;
+        }
+        if (code == end_code) break;
+
+        int stack_len = 0;
+        int in_code = code;
+        if (old_code >= 0 && code == next_code) {
+            in_code = old_code;
+            stack[stack_len++] = first_char;
+        } else if (code > next_code) {
+            return false;
+        }
+
+        int walk = in_code;
+        while (walk >= clear_code) {
+            if (walk < 0 || walk >= next_code || stack_len >= GIF_MAX_CODES) return false;
+            stack[stack_len++] = suffix[walk];
+            walk = prefix[walk];
+        }
+        if (walk < 0 || walk >= clear_code || stack_len >= GIF_MAX_CODES) return false;
+        first_char = (uint8_t)walk;
+        stack[stack_len++] = first_char;
+
+        while (stack_len > 0 && out_pos < out_size) out[out_pos++] = stack[--stack_len];
+
+        if (old_code >= 0 && next_code < GIF_MAX_CODES) {
+            prefix[next_code] = old_code;
+            suffix[next_code] = first_char;
+            next_code++;
+            if (next_code == (1 << code_size) && code_size < 12) code_size++;
+        }
+        old_code = code;
+    }
+    return out_pos == out_size;
+}
+
+static bool load_gif_texture(SDL_Renderer *renderer, const char *path, spritesheet_t *out) {
+    memset(out, 0, sizeof(*out));
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return false;
+    const uint8_t *bytes = blob.bytes;
+    size_t size = blob.size;
+    if (size < 13 || (memcmp(bytes, "GIF87a", 6) != 0 && memcmp(bytes, "GIF89a", 6) != 0)) {
+        W_FreeFile(&blob);
+        return false;
+    }
+
+    int canvas_w = read_u16_le(bytes + 6);
+    int canvas_h = read_u16_le(bytes + 8);
+    uint8_t packed = bytes[10];
+    bool has_global_palette = (packed & 0x80) != 0;
+    int global_count = has_global_palette ? (2 << (packed & 0x07)) : 0;
+    int bg_index = bytes[11];
+    size_t pos = 13;
+    uint32_t global_palette[256] = { 0 };
+    if (global_count > 0) {
+        if (pos + (size_t)global_count * 3 > size) { W_FreeFile(&blob); return false; }
+        for (int i = 0; i < global_count; ++i) {
+            const uint8_t *p = bytes + pos + (size_t)i * 3;
+            global_palette[i] = 0xff000000u | ((uint32_t)p[0] << 16) |
+                                ((uint32_t)p[1] << 8) | (uint32_t)p[2];
+        }
+        pos += (size_t)global_count * 3;
+    }
+
+    int transparent_index = -1;
+    uint32_t *canvas = calloc((size_t)canvas_w * (size_t)canvas_h, sizeof(uint32_t));
+    if (!canvas) { W_FreeFile(&blob); return false; }
+    uint32_t bg = bg_index >= 0 && bg_index < global_count ? global_palette[bg_index] : 0xff000000u;
+    for (int i = 0; i < canvas_w * canvas_h; ++i) canvas[i] = bg;
+
+    bool decoded = false;
+    while (pos < size && !decoded) {
+        uint8_t marker = bytes[pos++];
+        if (marker == 0x3b) break;
+        if (marker == 0x21) {
+            if (pos >= size) break;
+            uint8_t label = bytes[pos++];
+            while (pos < size) {
+                uint8_t block_size = bytes[pos++];
+                if (block_size == 0) break;
+                if (label == 0xf9 && block_size == 4 && pos + 4 <= size) {
+                    if (bytes[pos] & 0x01) transparent_index = bytes[pos + 3];
+                }
+                pos += block_size;
+            }
+            continue;
+        }
+        if (marker != 0x2c || pos + 9 > size) break;
+
+        int left = read_u16_le(bytes + pos + 0);
+        int top = read_u16_le(bytes + pos + 2);
+        int image_w = read_u16_le(bytes + pos + 4);
+        int image_h = read_u16_le(bytes + pos + 6);
+        uint8_t image_packed = bytes[pos + 8];
+        pos += 9;
+        bool interlaced = (image_packed & 0x40) != 0;
+        bool has_local_palette = (image_packed & 0x80) != 0;
+        int local_count = has_local_palette ? (2 << (image_packed & 0x07)) : 0;
+        uint32_t local_palette[256] = { 0 };
+        uint32_t *palette = global_palette;
+        int palette_count = global_count;
+        if (has_local_palette) {
+            if (pos + (size_t)local_count * 3 > size) break;
+            for (int i = 0; i < local_count; ++i) {
+                const uint8_t *p = bytes + pos + (size_t)i * 3;
+                local_palette[i] = 0xff000000u | ((uint32_t)p[0] << 16) |
+                                   ((uint32_t)p[1] << 8) | (uint32_t)p[2];
+            }
+            pos += (size_t)local_count * 3;
+            palette = local_palette;
+            palette_count = local_count;
+        }
+        if (pos >= size) break;
+        int min_code_size = bytes[pos++];
+        uint8_t *compressed = NULL;
+        size_t compressed_size = 0;
+        while (pos < size) {
+            uint8_t block_size = bytes[pos++];
+            if (block_size == 0) break;
+            if (pos + block_size > size) { free(compressed); free(canvas); W_FreeFile(&blob); return false; }
+            uint8_t *next = realloc(compressed, compressed_size + block_size);
+            if (!next) { free(compressed); free(canvas); W_FreeFile(&blob); return false; }
+            compressed = next;
+            memcpy(compressed + compressed_size, bytes + pos, block_size);
+            compressed_size += block_size;
+            pos += block_size;
+        }
+
+        uint8_t *indices = malloc((size_t)image_w * (size_t)image_h);
+        if (!indices) { free(compressed); free(canvas); W_FreeFile(&blob); return false; }
+        bool ok = gif_decode_lzw(compressed, compressed_size, min_code_size,
+                                 indices, (size_t)image_w * (size_t)image_h);
+        free(compressed);
+        if (!ok) { free(indices); break; }
+
+        int pass_starts[4] = { 0, 4, 2, 1 };
+        int pass_steps[4] = { 8, 8, 4, 2 };
+        size_t src = 0;
+        for (int pass = 0; pass < (interlaced ? 4 : 1); ++pass) {
+            int y_start = interlaced ? pass_starts[pass] : 0;
+            int y_step = interlaced ? pass_steps[pass] : 1;
+            for (int y = y_start; y < image_h; y += y_step) {
+                for (int x = 0; x < image_w && src < (size_t)image_w * (size_t)image_h; ++x, ++src) {
+                    int index = indices[src];
+                    int dx = left + x, dy = top + y;
+                    if (dx < 0 || dy < 0 || dx >= canvas_w || dy >= canvas_h ||
+                        index == transparent_index || index >= palette_count) {
+                        continue;
+                    }
+                    canvas[dy * canvas_w + dx] = palette[index];
+                }
+            }
+        }
+        free(indices);
+        decoded = true;
+    }
+
+    if (!decoded) {
+        free(canvas);
+        W_FreeFile(&blob);
+        return false;
+    }
+    out->texture = I_CreateTexture(renderer, canvas, canvas_w, canvas_h, false);
+    free(canvas);
+    W_FreeFile(&blob);
+    if (!out->texture) return false;
+    out->frames = calloc(1, sizeof(irect_t));
+    if (!out->frames) { R_FreeSprite(out); return false; }
+    out->frames[0] = (irect_t){ 0, 0, canvas_w, canvas_h };
+    out->frame_count = 1;
+    out->frame_w = canvas_w;
+    out->frame_h = canvas_h;
+    return true;
+}
+
+static DarkColonySidebarCommand *dark_colony_sidebar_command(DarkColonySidebar *sidebar, int id) {
+    if (!sidebar) return NULL;
+    for (int i = 0; i < sidebar->command_count; ++i)
+        if (sidebar->commands[i].id == id) return &sidebar->commands[i];
+    return NULL;
+}
+
+static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *data_root) {
+    if (!sidebar || !data_root) return;
+    char path[1024];
+    M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MAINE");
+    blob_t blob;
+    if (!W_ReadFile(path, &blob)) return;
+    char *text = malloc(blob.size + 1);
+    if (!text) {
+        W_FreeFile(&blob);
+        return;
+    }
+    memcpy(text, blob.bytes, blob.size);
+    text[blob.size] = '\0';
+    W_FreeFile(&blob);
+
+    for (char *line = text; line && *line;) {
+        char *next = strpbrk(line, "\r\n");
+        if (next) {
+            char nl = *next;
+            *next++ = '\0';
+            if (nl == '\r' && *next == '\n') next++;
+        }
+        while (isspace((unsigned char)*line)) line++;
+        if (*line != '%' && *line != '\0') {
+            int id = 0;
+            char label[40] = { 0 };
+            if (sscanf(line, "textmsg %d %39[^\r\n]", &id, label) == 2) {
+                DarkColonySidebarCommand *cmd = dark_colony_sidebar_command(sidebar, id);
+                if (cmd) {
+                    size_t len = strlen(label);
+                    while (len > 0 && isspace((unsigned char)label[len - 1])) label[--len] = '\0';
+                    snprintf(cmd->label, sizeof(cmd->label), "%s", label);
+                }
+            } else {
+                char kind[16] = { 0 };
+                int desc = 0, x = 0, y = 0, w = 0, h = 0, frame = 0, pushed = 0;
+                if (sscanf(line, "%15s %d %d %d %d %d %d %d %d",
+                           kind, &id, &desc, &x, &y, &w, &h, &frame, &pushed) == 9 &&
+                    (strcmp(kind, "pushb") == 0 || strcmp(kind, "checkb") == 0)) {
+                    DarkColonySidebarCommand *cmd = dark_colony_sidebar_command(sidebar, id);
+                    if (cmd) cmd->frame = frame;
+                }
+            }
+        }
+        line = next;
+    }
+    free(text);
+}
+
+static int dark_colony_ui_width(const app_t *app) {
+    (void)app;
+    return 124;
+}
+
+static int world_viewport_width(const app_t *app) {
+    if (!app) return 0;
+    if (gameui && gameui->world_viewport.w > 0)
+        return gameui->world_viewport.w * app->win.w / gameui->logical_width;
+    int w = app->win.w;
+    if (strcmp(g_game_id, "dark-colony") == 0) w -= dark_colony_ui_width(app);
+    return w > 0 ? w : 1;
+}
+
+static DarkColonyUiLayout dark_colony_ui_layout(const app_t *app) {
+    DarkColonyUiLayout layout;
+    memset(&layout, 0, sizeof(layout));
+    layout.outer = dark_colony_ui_rect(app, 516, 0, 124, 480);
+    layout.minimap = dark_colony_ui_rect(app, 520, 5, 96, 84);
+    layout.commands = dark_colony_ui_rect(app, 516, 92, 124, 330);
+    layout.status = dark_colony_ui_rect(app, 518, 368, 59, 41);
+    layout.resources = dark_colony_ui_rect(app, 607, 422, 28, 51);
+    layout.message = dark_colony_ui_rect(app, 48, 456, 462, 16);
+    layout.build = dark_colony_ui_rect(app, 516, 422, 86, 27);
+    layout.header = dark_colony_ui_rect(app, 516, 0, 124, 92);
+    layout.tabs[0] = dark_colony_ui_rect(app, 518, 92, 40, 20);
+    layout.tabs[1] = dark_colony_ui_rect(app, 557, 92, 41, 20);
+    layout.tabs[2] = dark_colony_ui_rect(app, 598, 92, 40, 20);
+
+    const int button_y[6] = { 112, 153, 194, 235, 276, 317 };
+    for (int i = 0; i < 6; ++i) {
+        layout.buttons[i] = dark_colony_ui_rect(app, 518, button_y[i], 59, 41);
+    }
+    return layout;
+}
+
+static irect_t dark_colony_product_button_rect(const app_t *app, int index) {
+    int col = index / 4;
+    int row = index % 4;
+    return dark_colony_ui_rect(app, 518 + col * 59, 112 + row * 41, 59, 41);
+}
+
+static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+}
+
+static void dc_ui_fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
+    dc_ui_set_draw(renderer, color);
+    SDL_RenderFillRect(renderer, &rect);
+}
+
+static void dc_ui_stroke(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
+    dc_ui_set_draw(renderer, color);
+    SDL_RenderDrawRect(renderer, &rect);
+}
+
+static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,
+                                  irect_t box, uint32_t render_flags) {
+    if (!renderer || !sprite || !sprite->texture || sprite->frame_count <= 0) return;
+    if (frame < 0 || frame >= sprite->frame_count) frame = 0;
+    irect_t src = sprite->frames[frame];
+    if (sprite->frame_bounds && sprite->frame_bounds[frame].w > 0 && sprite->frame_bounds[frame].h > 0) {
+        irect_t bounds = sprite->frame_bounds[frame];
+        src.x += bounds.x;
+        src.y += bounds.y;
+        src.w = bounds.w;
+        src.h = bounds.h;
+    }
+    if (src.w <= 0 || src.h <= 0 || box.w <= 0 || box.h <= 0) return;
+    int draw_w = box.w;
+    int draw_h = src.h * draw_w / src.w;
+    if (draw_h > box.h) {
+        draw_h = box.h;
+        draw_w = src.w * draw_h / src.h;
+    }
+    if (draw_w <= 0) draw_w = 1;
+    if (draw_h <= 0) draw_h = 1;
+    irect_t dst = {
+        box.x + (box.w - draw_w) / 2,
+        box.y + (box.h - draw_h) / 2,
+        draw_w,
+        draw_h,
+    };
+    SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    SDL_RenderCopyEx(renderer, sprite->texture, &src, &dst, 0.0, NULL, flip);
+}
+
+static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *image,
+                                  irect_t src, irect_t dst) {
+    if (!renderer || !image || !image->texture || src.w <= 0 || src.h <= 0 ||
+        dst.w <= 0 || dst.h <= 0) {
+        return;
+    }
+    SDL_RenderCopy(renderer, image->texture, &src, &dst);
+}
+
+static const mobj_t *dc_first_selected_unit(const mobj_t *units, int unit_count) {
+    if (!units) return NULL;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].selected && !units[i].remove) return &units[i];
+    }
+    return NULL;
+}
+
+static int dc_product_row_actor_type(int row_id) {
+    switch (row_id) {
+    case 0: return DC_CLIENT_MT_EXCOPOD;
+    case 1: return DC_CLIENT_MT_BRRKPOD;
+    case 2: return DC_CLIENT_MT_SCNCPOD;
+    case 3: return DC_CLIENT_MT_ROBOPOD;
+    case 4: return DC_CLIENT_MT_SCNCPOD2;
+    case 5: return DC_CLIENT_MT_ROBOPOD2;
+    case 6: return DC_CLIENT_MT_RSCHPOD;
+    case 7: return DC_CLIENT_MT_EXPLOITER;
+    default: return 0;
+    }
+}
+
+static bool dc_owner_has_actor_type(const mobj_t *units, int unit_count, int owner,
+                                    int type_id) {
+    if (!units || type_id <= 0) return false;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].owner == owner && !units[i].remove && units[i].hp > 0 &&
+            units[i].type_id == (uint16_t)type_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool dc_product_prerequisites_met(const mobj_t *units, int unit_count,
+                                         int owner, const DarkColonyProductButton *product) {
+    if (!product) return false;
+    for (int i = 0; i < product->prerequisite_count; ++i) {
+        int actor_type = dc_product_row_actor_type(product->prerequisites[i]);
+        if (!dc_owner_has_actor_type(units, unit_count, owner, actor_type)) return false;
+    }
+    return true;
+}
+
+static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
+    return selected && selected->owner == 0 && !selected->remove && selected->hp > 0 &&
+        selected->type_id >= DC_CLIENT_MT_EXCOPOD;
+}
+
+static int dc_products_for_selected_building(const mobj_t *selected, const mobj_t *units,
+                                             int unit_count,
+                                             const DarkColonyProductButton *out[8]) {
+    if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
+    int count = 0;
+    int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
+    for (int i = 0; i < source_count && count < 8; ++i) {
+        const DarkColonyProductButton *product = &DARK_COLONY_PRODUCTS[i];
+        if (product->producer_type_id != selected->type_id) continue;
+        if (!dc_product_prerequisites_met(units, unit_count, 0, product)) continue;
+        out[count++] = product;
+    }
+    return count;
+}
+
+static const DarkColonyProductButton *dc_product_by_type(int product_type) {
+    int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
+    for (int i = 0; i < source_count; ++i) {
+        if (DARK_COLONY_PRODUCTS[i].product_type == product_type)
+            return &DARK_COLONY_PRODUCTS[i];
+    }
+    return NULL;
+}
+
+static bool dc_enqueue_unit_product(mobj_t *producer, const DarkColonyProductButton *product,
+                                    uint16_t actor_id) {
+    if (!producer || !product || actor_id == 0) return false;
+    if (producer->production.queue_count > 0) {
+        if (producer->production.actor_id != actor_id ||
+            producer->production.product_type != product->product_type ||
+            producer->production.product_class != DC_CLIENT_PRODUCT_UNIT ||
+            producer->production.queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
+            return false;
+        }
+        producer->production.queue_count++;
+        return true;
+    }
+    producer->production.actor_id = actor_id;
+    producer->production.product_class = DC_CLIENT_PRODUCT_UNIT;
+    producer->production.product_type = product->product_type;
+    producer->production.queue_count = 1;
+    producer->production.time_ms = dc_product_training_time_ms(product);
+    producer->production.time_left_ms = producer->production.time_ms;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    return true;
+}
+
+static const state_t *dc_state_at(const gameinfo_t *game_info, int state_id) {
+    if (!game_info || !game_info->states || state_id < 0 || state_id >= game_info->state_count)
+        return NULL;
+    return &game_info->states[state_id];
+}
+
+static int dc_find_state_by_group_frame(const gameinfo_t *game_info, int group, int frame) {
+    if (!game_info || !game_info->states) return -1;
+    for (int i = 0; i < game_info->state_count; ++i) {
+        const state_t *state = &game_info->states[i];
+        if (state->misc1 != group || state->facings != 1) continue;
+        if (state->facing_frames[0] == frame) return i;
+    }
+    return -1;
+}
+
+static int dc_state_chain_duration_ms(const gameinfo_t *game_info, int state_id, int group) {
+    int tics = 0;
+    int guard = 0;
+    while (guard++ < (game_info ? game_info->state_count + 1 : 1)) {
+        const state_t *state = dc_state_at(game_info, state_id);
+        if (!state || state->misc1 != group) break;
+        if (state->tics > 0) tics += state->tics;
+        int next = state->nextstate;
+        if (next == game_info->null_state || next == state_id) break;
+        state_id = next;
+    }
+    if (tics <= 0) return 0;
+    return (int)(tics * FIXED_DT * 1000.0f + 0.5f);
+}
+
+static bool dc_product_uses_barracks_release(const mobj_t *producer,
+                                             const DarkColonyProductButton *product,
+                                             uint16_t actor_id) {
+    return producer && product && producer->type_id == DC_CLIENT_MT_BRRKPOD &&
+        product->product_type == 0 && actor_id == DC_CLIENT_MT_TROOPER;
+}
+
+static bool dc_start_production_release(level_t *map,
+                                        effect_t *effects, int max_effects,
+                                        mobj_t *producer,
+                                        const DarkColonyProductButton *product,
+                                        uint16_t actor_id) {
+    if (!gameinfo || !producer || !product) return false;
+    if (!dc_product_uses_barracks_release(producer, product, actor_id)) return false;
+    int state_id = dc_find_state_by_group_frame(gameinfo, DC_CLIENT_PRODUCTION_BUILD_GROUP,
+                                                DC_CLIENT_TRSCBUILD_FIRST_FRAME);
+    int duration_ms = dc_state_chain_duration_ms(gameinfo, state_id,
+                                                 DC_CLIENT_PRODUCTION_BUILD_GROUP);
+    if (state_id <= 0 || duration_ms <= 0) return false;
+    statecontext_t ctx = {
+        .map = map,
+        .effects = effects,
+        .max_effects = max_effects,
+        .game_info = gameinfo,
+    };
+    if (!P_SetMobjState(&ctx, producer, state_id)) return false;
+    producer->production.release_active = true;
+    producer->production.release_time_left_ms = duration_ms;
+    producer->production.time_left_ms = 0;
+    return true;
+}
+
+static void dc_clear_production(mobj_t *producer) {
+    if (!producer) return;
+    producer->production.actor_id = 0;
+    producer->production.product_class = 0;
+    producer->production.product_type = 0;
+    producer->production.time_ms = 0;
+    producer->production.time_left_ms = 0;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+}
+
+static void dc_advance_production_queue(mobj_t *producer) {
+    if (!producer) return;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    producer->production.queue_count--;
+    if (producer->production.queue_count > 0) {
+        producer->production.time_left_ms = producer->production.time_ms;
+    } else {
+        dc_clear_production(producer);
+    }
+}
+
+static bool dc_position_available_for_spawn(const level_t *map, const mobj_t *units,
+                                            int unit_count, float gx, float gy,
+                                            float radius) {
+    if (!map || !units) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!L_IsWalkable(map, x, y)) return false;
+        }
+    }
+    for (int i = 0; i < unit_count; ++i) {
+        const mobj_t *other = &units[i];
+        if (other->remove || other->hp <= 0) continue;
+        float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
+        float min_dist = radius + other_radius;
+        if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(other->core.position),
+                                   (fvec2_t){ gx, gy }) <
+            min_dist * min_dist) return false;
+    }
+    return true;
+}
+
+static bool dc_position_walkable_for_spawn(const level_t *map, float gx, float gy,
+                                           float radius) {
+    if (!map) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!L_IsWalkable(map, x, y)) return false;
+        }
+    }
+    return true;
+}
+
+static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
+                                        int unit_count, const mobj_t *producer,
+                                        float radius, float *out_gx,
+                                        float *out_gy) {
+    if (!map || !units || !producer || !out_gx || !out_gy) return false;
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    int origin_x = (int)floorf(producer_position.x);
+    int origin_y = (int)floorf(producer_position.y);
+    static const int preferred[][2] = {
+        { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
+        { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
+    };
+    int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
+    for (int dist = 1; dist <= 8; ++dist) {
+        for (int i = 0; i < preferred_count; ++i) {
+            int x = origin_x + preferred[i][0] * dist;
+            int y = origin_y + preferred[i][1] * dist;
+            float gx = (float)x + 0.5f;
+            float gy = (float)y + 0.5f;
+            if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
+            *out_gx = gx;
+            *out_gy = gy;
+            return true;
+        }
+        for (int dy = -dist; dy <= dist; ++dy) {
+            for (int dx = -dist; dx <= dist; ++dx) {
+                if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
+                float gx = (float)(origin_x + dx) + 0.5f;
+                float gy = (float)(origin_y + dy) + 0.5f;
+                if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
+                *out_gx = gx;
+                *out_gy = gy;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static bool dc_state_offset_for_facing(const state_t *state, bool overlay, angle_t angle,
+                                       int *out_x, int *out_y) {
+    if (!state || !out_x || !out_y) return false;
+    int facings = overlay ? state->overlay_facings : state->facings;
+    if (facings <= 0) return false;
+    int best = 0;
+    uint32_t best_delta = UINT32_MAX;
+    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
+        angle_t rotation = overlay ? state->overlay_rotation_angles[i] : state->rotation_angles[i];
+        uint32_t delta = angle_distance(rotation, angle);
+        if (delta < best_delta) {
+            best = i;
+            best_delta = delta;
+        }
+        if (delta == 0) break;
+    }
+    *out_x = overlay ? state->overlay_offset_x[best] : state->offset_x[best];
+    *out_y = overlay ? state->overlay_offset_y[best] : state->offset_y[best];
+    return true;
+}
+
+static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
+                                            const mobj_t *producer,
+                                            const mobj_t *new_unit,
+                                            float *out_gx,
+                                            float *out_gy) {
+    if (!game_info || !producer || !new_unit || !out_gx || !out_gy) return false;
+    const state_t *stand = dc_state_at(game_info, new_unit->core.state_id);
+    if (!stand) return false;
+    int stand_x = 0;
+    int stand_y = 0;
+    if (!dc_state_offset_for_facing(stand, false, new_unit->core.angle, &stand_x, &stand_y))
+        return false;
+
+    int release_state_id = dc_find_state_by_group_frame(game_info,
+                                                        DC_CLIENT_PRODUCTION_BUILD_GROUP,
+                                                        DC_CLIENT_TRSCBUILD_FIRST_FRAME);
+    int release_x = 0;
+    int release_y = 0;
+    bool saw_release_trooper = false;
+    int guard = 0;
+    while (guard++ < game_info->state_count + 1) {
+        const state_t *state = dc_state_at(game_info, release_state_id);
+        if (!state || state->misc1 != DC_CLIENT_PRODUCTION_BUILD_GROUP) break;
+        int x = 0;
+        int y = 0;
+        if (state->sprite == stand->sprite &&
+            dc_state_offset_for_facing(state, false, new_unit->core.angle, &x, &y)) {
+            release_x = x;
+            release_y = y;
+            saw_release_trooper = true;
+        }
+        if (state->overlay_sprite == stand->sprite &&
+            dc_state_offset_for_facing(state, true, new_unit->core.angle, &x, &y)) {
+            release_x = x;
+            release_y = y;
+            saw_release_trooper = true;
+        }
+        int next = state->nextstate;
+        if (next == game_info->null_state || next == release_state_id) break;
+        release_state_id = next;
+    }
+    if (!saw_release_trooper) return false;
+
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    *out_gx = producer_position.x + (float)(release_x - stand_x) / (float)CELL_W;
+    *out_gy = producer_position.y - (float)(release_y - stand_y) / (float)CELL_H;
+    return true;
+}
+
+static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, int unit_count,
+                                           int spawned_index, const mobj_t *producer,
+                                           float exit_gx, float exit_gy) {
+    if (!map || !units || !producer || spawned_index < 0 || spawned_index >= unit_count)
+        return;
+    bool saved[MAXMOBJS];
+    for (int i = 0; i < unit_count; ++i) {
+        saved[i] = units[i].selected;
+        units[i].selected = false;
+    }
+
+    float crowd_radius = 2.75f;
+    float crowd_radius_sq = crowd_radius * crowd_radius;
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *unit = &units[i];
+        if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
+            (unit->traits & MF_MOBILE) == 0) {
+            continue;
+        }
+        if (i == spawned_index ||
+            fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
+                                   (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
+            unit->selected = true;
+        }
+    }
+
+    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
+                             fixedvec3_xy_to_fvec2(producer->core.position));
+    float len = sqrtf(fvec2_length_squared(delta));
+    if (len < 0.01f) {
+        delta = (fvec2_t){ 0.0f, -1.0f };
+        len = 1.0f;
+    }
+    fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
+                            fvec2_scale(delta, 1.5f / len));
+    P_MoveOrderAt(map, units, unit_count, goal);
+
+    for (int i = 0; i < unit_count; ++i) {
+        units[i].selected = saved[i];
+    }
+}
+
+static bool dc_spawn_finished_unit_product(const level_t *map,
+                                           mobj_t *units, int *unit_count,
+                                           int producer_index,
+                                           uint16_t actor_id, int owner) {
+    if (!map || !units || !unit_count || producer_index < 0 ||
+        producer_index >= *unit_count || *unit_count >= MAXMOBJS || actor_id == 0) {
+        return false;
+    }
+    const actortype_t *type = actor_type_by_id(actor_id);
+    if (!type) return false;
+
+    mobj_t new_unit;
+    memset(&new_unit, 0, sizeof(new_unit));
+    new_unit.type_id = actor_id;
+    new_unit.owner = owner;
+    new_unit.core.sprite_id = -1;
+    new_unit.attack.target = -1;
+    new_unit.harvest.target = -1;
+    apply_actor_type_defaults(&new_unit, type);
+    P_SpawnMobj(gameinfo, &new_unit);
+
+    float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
+    float gx = 0.0f;
+    float gy = 0.0f;
+    mobj_t *producer = &units[producer_index];
+    const DarkColonyProductButton *product = dc_product_by_type(producer->production.product_type);
+    bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
+    if (use_barracks_release &&
+        dc_barracks_release_spawn_point(gameinfo, producer, &new_unit, &gx, &gy) &&
+        dc_position_walkable_for_spawn(map, gx, gy, radius)) {
+        /* The release FIN places the visual handoff; occupied exit cells are cleared below. */
+    } else if (!dc_find_spawn_position_near(map, units, *unit_count, producer,
+                                            radius, &gx, &gy)) {
+        return false;
+    }
+    new_unit.core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
+    int spawned_index = *unit_count;
+    units[(*unit_count)++] = new_unit;
+    if (use_barracks_release)
+        dc_order_barracks_exit_spacing(map, units, *unit_count, spawned_index, producer, gx, gy);
+    return true;
+}
+
+#if RTS_WORLD_Y_UP
+typedef struct {
+    int product_type;
+    int desired_count;
+} DarkColonyAiProductionGoal;
+
+static const DarkColonyAiProductionGoal DC_AI_PRODUCTION_GOALS[] = {
+    { 6, 2 }, /* Exploiters */
+    { 0, 6 }, /* Troopers */
+    { 2, 4 }, /* Reapers */
+    { 5, 2 }, /* Osprey IV */
+    { 4, 1 }, /* S.A.R.G.E. */
+};
+
+static int dc_owner_actor_count(const mobj_t *units, int unit_count, int owner,
+                                uint16_t actor_id) {
+    int count = 0;
+    for (int i = 0; i < unit_count; ++i) {
+        if (!units[i].remove && units[i].hp > 0 && units[i].owner == owner &&
+            units[i].type_id == actor_id) count++;
+    }
+    return count;
+}
+
+static int dc_find_owner_producer(const mobj_t *units, int unit_count, int owner,
+                                  int producer_type_id) {
+    for (int i = 0; i < unit_count; ++i) {
+        if (!units[i].remove && units[i].hp > 0 && units[i].owner == owner &&
+            units[i].type_id == producer_type_id) return i;
+    }
+    return -1;
+}
+
+static void dc_update_ai_production(level_t *map, mobj_t *units, int *unit_count,
+                                    float dt, int *elapsed_ms) {
+    enum { AI_OWNER = 1, AI_THINK_MS = 1000 };
+    if (!map || !units || !unit_count || !elapsed_ms || !dark_colony_map_has_ai(map, AI_OWNER))
+        return;
+    *elapsed_ms += (int)(dt * 1000.0f + 0.5f);
+    if (*elapsed_ms < AI_THINK_MS) return;
+    *elapsed_ms %= AI_THINK_MS;
+
+    for (size_t i = 0; i < sizeof(DC_AI_PRODUCTION_GOALS) /
+                         sizeof(DC_AI_PRODUCTION_GOALS[0]); ++i) {
+        const DarkColonyAiProductionGoal *goal = &DC_AI_PRODUCTION_GOALS[i];
+        uint16_t actor_id = dc_unit_actor_id_for_product_type(goal->product_type);
+        const DarkColonyProductButton *product = dc_product_by_type(goal->product_type);
+        if (!product || actor_id == 0 ||
+            dc_owner_actor_count(units, *unit_count, AI_OWNER, actor_id) >= goal->desired_count ||
+            !dc_product_prerequisites_met(units, *unit_count, AI_OWNER, product)) continue;
+        int producer_index = dc_find_owner_producer(units, *unit_count, AI_OWNER,
+                                                    product->producer_type_id);
+        if (producer_index < 0) continue;
+        mobj_t *producer = &units[producer_index];
+        if (producer->production.queue_count > 0) continue;
+        if (map->player_resources[AI_OWNER][0] < product->cost) continue;
+        if (!dc_enqueue_unit_product(producer, product, actor_id)) continue;
+        map->player_resources[AI_OWNER][0] -= product->cost;
+        return;
+    }
+}
+#endif
+
+static bool dc_update_production_queues(level_t *map,
+                                        mobj_t *units, int *unit_count,
+                                        effect_t *effects, int max_effects,
+                                        float dt) {
+    if (!map || !units || !unit_count || dt <= 0.0f) return false;
+    bool spawned = false;
+    int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
+    if (elapsed_ms <= 0) elapsed_ms = 1;
+    for (int i = 0; i < *unit_count; ++i) {
+        mobj_t *producer = &units[i];
+        if (producer->production.queue_count <= 0) continue;
+        if (producer->remove || producer->hp <= 0) {
+            producer->production.queue_count = 0;
+            dc_clear_production(producer);
+            continue;
+        }
+        if (producer->production.release_active) {
+            producer->production.release_time_left_ms -= elapsed_ms;
+            if (producer->production.release_time_left_ms > 0) continue;
+            uint16_t actor_id = producer->production.actor_id;
+            if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id,
+                                                producer->owner)) {
+                producer->production.release_time_left_ms = 250;
+                continue;
+            }
+            spawned = true;
+            producer = &units[i];
+            dc_advance_production_queue(producer);
+            continue;
+        }
+        producer->production.time_left_ms -= elapsed_ms;
+        while (producer->production.queue_count > 0 &&
+               producer->production.time_left_ms <= 0) {
+            uint16_t actor_id = producer->production.actor_id;
+            const DarkColonyProductButton *product =
+                dc_product_by_type(producer->production.product_type);
+            if (product && dc_start_production_release(map, effects, max_effects,
+                                                       producer, product, actor_id)) {
+                break;
+            }
+            if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id,
+                                                producer->owner)) {
+                producer->production.time_left_ms = 250;
+                break;
+            }
+            spawned = true;
+            producer = &units[i];
+            dc_advance_production_queue(producer);
+        }
+    }
+    return spawned;
+}
+
+static const char *dc_selected_building_label(const mobj_t *selected) {
+    if (!selected) return "";
+    switch (selected->type_id) {
+    case DC_CLIENT_MT_EXCOPOD: return "Exo-Ctr";
+    case DC_CLIENT_MT_BRRKPOD: return "Barracks";
+    case DC_CLIENT_MT_ROBOPOD: return "Robo-Ftr";
+    case DC_CLIENT_MT_ROBOPOD2: return "Robo-Ftr+";
+    case DC_CLIENT_MT_SCNCPOD: return "Sci-Pod";
+    case DC_CLIENT_MT_SCNCPOD2: return "Sci-Pod+";
+    case DC_CLIENT_MT_RSCHPOD: return "Rsch-Bay";
+    default: return "";
+    }
+}
+
+static int dc_sidebar_command_frame(const DarkColonySidebarCommand *cmd, const mobj_t *selected) {
+    if (!cmd) return 0;
+    (void)selected;
+    return cmd->frame;
+}
+
+static const char *dc_sidebar_command_label(const DarkColonySidebarCommand *cmd,
+                                            const mobj_t *selected) {
+    if (!cmd) return "";
+    (void)selected;
+    if (cmd->id == 37) {
+        return "Dig";
+    }
+    return cmd->label;
+}
+
+static void dc_stop_selected_units(mobj_t *units, int unit_count) {
+    for (int i = 0; i < unit_count; ++i) {
+        if (!units[i].selected) continue;
+        units[i].movement.path_len = 0;
+        units[i].movement.path_index = 0;
+        units[i].attack.target = -1;
+        units[i].harvest.target = -1;
+        units[i].harvest.timer_ms = 0;
+        units[i].movement.goal = fixedvec3_xy_to_fvec2(units[i].core.position);
+        units[i].movement.order_id = 0;
+        units[i].movement.order_arrived = false;
+        units[i].core.momentum = fixedvec3_zero();
+    }
+}
+
+static bool SB_responder(const app_t *app, level_t *map,
+                         mobj_t *units, int unit_count, const SDL_Event *e) {
+    if (!app || !map || !e) return false;
+    if (e->type != SDL_MOUSEBUTTONDOWN) return false;
+    int rx = 0, ry = 0;
+    R_WindowToRenderPt(app, e->button.x, e->button.y, &rx, &ry);
+    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    if (!irect_contains(layout.outer, (ivec2_t){ rx, ry })) return false;
+    int selected_index = -1;
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].selected && !units[i].remove) {
+            selected_index = i;
+            break;
+        }
+    }
+    mobj_t *selected = selected_index >= 0 ? &units[selected_index] : NULL;
+    if (dc_selected_unit_is_player_building(selected)) {
+        const DarkColonyProductButton *products[8] = { 0 };
+        int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
+        if (e->button.button == SDL_BUTTON_LEFT) {
+            for (int i = 0; i < product_count; ++i) {
+                if (!irect_contains(dark_colony_product_button_rect(app, i),
+                                    (ivec2_t){ rx, ry })) continue;
+                const DarkColonyProductButton *product = products[i];
+                uint16_t actor_id = dc_unit_actor_id_for_product_type(product->product_type);
+                if (actor_id == 0 || map->player_resources[0][0] < product->cost) return true;
+                if (dc_enqueue_unit_product(selected, product, actor_id)) {
+                    map->player_resources[0][0] -= product->cost;
+                }
+                return true;
+            }
+        }
+        return true;
+    }
+    if (e->button.button == SDL_BUTTON_LEFT &&
+        irect_contains(layout.buttons[0], (ivec2_t){ rx, ry })) {
+        dc_stop_selected_units(units, unit_count);
+    }
+    return true;
+}
+
+static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *units, int unit_count,
+                               irect_t rect) {
+    if (!app || !map || map->width <= 0 || map->height <= 0) return;
+    dc_ui_fill(app->renderer, rect, (SDL_Color){ 4, 8, 9, 255 });
+    irect_t clip = { rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6 };
+    if (clip.w <= 0 || clip.h <= 0) return;
+    for (int py = 0; py < clip.h; ++py) {
+        int screen_y = py * map->height / clip.h;
+        int gy = L_ScreenY(map, screen_y);
+        for (int px = 0; px < clip.w; ++px) {
+            int gx = px * map->width / clip.w;
+            uint32_t color = map->cell_colors ? map->cell_colors[L_Index(map, gx, gy)] : 0xff202820u;
+            uint8_t r = (uint8_t)(color >> 16);
+            uint8_t g = (uint8_t)(color >> 8);
+            uint8_t b = (uint8_t)color;
+            SDL_SetRenderDrawColor(app->renderer, r / 2, g / 2, b / 2, 255);
+            SDL_RenderDrawPoint(app->renderer, clip.x + px, clip.y + py);
+        }
+    }
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        int x = clip.x + vent->cell.x * clip.w / map->width;
+        int y = clip.y + (int)(L_ScreenY(map, vent->cell.y) * clip.h / map->height);
+        irect_t dot = { x - 1, y - 1, 3, 3 };
+        dc_ui_fill(app->renderer, dot, vent->active ?
+                   (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
+    }
+    for (int i = 0; i < unit_count; ++i) {
+        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        if (units[i].remove || position.x < 0.0f || position.y < 0.0f) continue;
+        int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
+        int y = clip.y + (int)(L_ScreenYF(map, position.y) *
+                               (float)clip.h / (float)map->height);
+        irect_t dot = { x - 1, y - 1, 2, 2 };
+        dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
+                   (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
+    }
+    int world_right = app->win.w - dark_colony_ui_width(app);
+    cell_t tl = R_ScreenToGrid(app, 0, 0);
+    cell_t br = R_ScreenToGrid(app, world_right, app->win.h);
+    int vx = clip.x + tl.x * clip.w / map->width;
+    int vy = clip.y + tl.y * clip.h / map->height;
+    int vw = (br.x - tl.x) * clip.w / map->width;
+    int vh = (br.y - tl.y) * clip.h / map->height;
+    if (vw < 3) vw = 3;
+    if (vh < 3) vh = 3;
+    irect_t view = { vx, vy, vw, vh };
+    dc_ui_stroke(app->renderer, view, (SDL_Color){ 164, 236, 203, 220 });
+    dc_ui_stroke(app->renderer, rect, (SDL_Color){ 72, 91, 88, 255 });
+}
+
+static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *font,
+                                  irect_t rect, int y, const char *text,
+                                  SDL_Color color) {
+    if (!renderer || !font || !text) return;
+    int x = rect.x + rect.w - 3 - HU_TextWidth(font, text, 1);
+    if (x < rect.x + 2) x = rect.x + 2;
+    HU_DrawText(renderer, font, x, y, text, color, 1);
+}
+
+static void dc_ui_draw_capital(app_t *app, const bitmapfont_t *font, irect_t rect,
+                               int resources, int active_vents, int vent_count) {
+    if (!app || !font) return;
+    SDL_Color money = { 41, 217, 230, 255 };
+    SDL_Color dim = { 112, 130, 125, 255 };
+    char line[32];
+    if (resources < 0) resources = 0;
+    if (resources >= 1000) {
+        snprintf(line, sizeof(line), "%d", resources / 1000);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 5, line, money);
+        snprintf(line, sizeof(line), "%03d", resources % 1000);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 20, line, money);
+        snprintf(line, sizeof(line), "%d/%d", active_vents, vent_count);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 36, line, dim);
+    } else {
+        snprintf(line, sizeof(line), "%d", resources);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 8, line, money);
+        snprintf(line, sizeof(line), "%d/%d", active_vents, vent_count);
+        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 28, line, dim);
+    }
+}
+
+static void SB_drawer(app_t *app, const level_t *map,
+                      const mobj_t *units, int unit_count,
+                      const spritecache_t *cache, const bitmapfont_t *font,
+                      const DarkColonySidebar *sidebar,
+                      const spritesheet_t *background) {
+    if (!app || !font || !font->sprite.texture) return;
+    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
+    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+
+    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    if (background && background->texture) {
+        dc_ui_draw_image_part(app->renderer, background,
+                              (irect_t){ 516, 0, 124, 480 }, layout.outer);
+        dc_ui_draw_image_part(app->renderer, background,
+                              (irect_t){ 0, 455, 516, 25 },
+                              dark_colony_ui_rect(app, 0, 455, 516, 25));
+    } else {
+        dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 2, 2, 2, 255 });
+        dc_ui_fill(app->renderer, dark_colony_ui_rect(app, 0, 455, 640, 25),
+                   (SDL_Color){ 3, 3, 3, 255 });
+        dc_ui_stroke(app->renderer, layout.outer, (SDL_Color){ 178, 178, 178, 255 });
+        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 0, 455, 640, 18),
+                     (SDL_Color){ 164, 164, 164, 255 });
+        dc_ui_stroke(app->renderer, layout.minimap, (SDL_Color){ 154, 154, 154, 255 });
+        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 516, 0, 107, 92),
+                     (SDL_Color){ 86, 86, 86, 255 });
+        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 516, 92, 124, 363),
+                     (SDL_Color){ 154, 154, 154, 255 });
+
+        for (int i = 0; i < 3; ++i) {
+            dc_ui_fill(app->renderer, layout.tabs[i], (SDL_Color){ 126, 126, 126, 255 });
+            dc_ui_stroke(app->renderer, layout.tabs[i], (SDL_Color){ 38, 38, 38, 255 });
+            char tab[2] = { (char)('1' + i), '\0' };
+            HU_DrawText(app->renderer, font,
+                               layout.tabs[i].x + layout.tabs[i].w / 2 - HU_TextWidth(font, tab, 1) / 2,
+                               layout.tabs[i].y + layout.tabs[i].h / 2 - font->line_h / 2,
+                               tab, (SDL_Color){ 24, 24, 24, 255 }, 1);
+        }
+    }
+
+    SDL_Color dim = { 112, 130, 125, 255 };
+    SDL_Color amber = { 231, 194, 94, 255 };
+    char line[96];
+
+    const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
+    irect_t mini = {
+        layout.minimap.x + 2,
+        layout.minimap.y + 2,
+        layout.minimap.w - 4,
+        layout.minimap.h - 4,
+    };
+    dc_ui_draw_minimap(app, map, units, unit_count, mini);
+
+    int active_vents = 0;
+    for (int i = 0; i < map->resource_vent_count; ++i)
+        if (map->resource_vents[i].active) active_vents++;
+    dc_ui_fill(app->renderer, layout.resources, (SDL_Color){ 4, 6, 7, 255 });
+    dc_ui_stroke(app->renderer, layout.resources, (SDL_Color){ 142, 142, 142, 255 });
+    dc_ui_draw_capital(app, font, layout.resources, map->player_resources[0][0],
+                       active_vents, map->resource_vent_count);
+
+    DarkColonySidebar fallback_sidebar;
+    if (!sidebar) {
+        dark_colony_sidebar_defaults(&fallback_sidebar);
+        sidebar = &fallback_sidebar;
+    }
+    int hover_button = -1;
+    const mobj_t *selected = dc_first_selected_unit(units, unit_count);
+    const DarkColonyProductButton *products[8] = { 0 };
+    int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
+    bool product_mode = dc_selected_unit_is_player_building(selected);
+    int visible_button_count = product_mode ? product_count : sidebar->command_count;
+    for (int i = 0; i < visible_button_count; ++i) {
+        irect_t button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+            layout.buttons[i];
+        if (irect_contains(button_rect, app->mouse)) {
+            hover_button = i;
+            break;
+        }
+    }
+    if (!background || !background->texture) {
+        dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
+        dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
+        HU_DrawText(app->renderer, font,
+                           layout.build.x + layout.build.w / 2 - HU_TextWidth(font, "BUILD", 5) / 2,
+                           layout.build.y + layout.build.h / 2 - font->line_h / 2,
+                           "BUILD", (SDL_Color){ 24, 24, 24, 255 }, 1);
+    }
+    if (hover_button >= 0) {
+        if (product_mode && products[hover_button]) {
+            snprintf(line, sizeof(line), "%s %d",
+                     products[hover_button]->label, products[hover_button]->cost);
+            HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                           line,
+                           map->player_resources[0][0] >= products[hover_button]->cost ?
+                           amber : (SDL_Color){ 208, 103, 88, 255 },
+                           1);
+        } else {
+            HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                           dc_sidebar_command_label(&sidebar->commands[hover_button], selected),
+                           amber, 1);
+        }
+    } else if (product_mode) {
+        if (selected && selected->production.queue_count > 0 &&
+            selected->production.time_ms > 0) {
+            int done = selected->production.time_ms - selected->production.time_left_ms;
+            int pct = done * 100 / selected->production.time_ms;
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            snprintf(line, sizeof(line), "Training x%d %d%%",
+                     selected->production.queue_count, pct);
+        } else {
+            snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
+        }
+        if (line[0] != '\0') {
+            HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                           line, dim, 1);
+        }
+    }
+    int button_slots = product_mode ? 8 : 6;
+    for (int i = 0; i < button_slots; ++i) {
+        irect_t button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+            layout.buttons[i];
+        if (product_mode && i >= product_count) {
+            dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 10, 12, 12, 185 });
+            dc_ui_stroke(app->renderer, button_rect, (SDL_Color){ 66, 72, 70, 255 });
+            continue;
+        }
+        int frame = product_mode && products[i] ? products[i]->icon_frame :
+            dc_sidebar_command_frame(&sidebar->commands[i], selected);
+        if (buttons && buttons->texture) {
+            dc_ui_draw_sprite_fit(app->renderer, buttons, frame, button_rect, 0);
+            if (product_mode && products[i] && map->player_resources[0][0] < products[i]->cost) {
+                dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
+            }
+        } else {
+            SDL_Color fill = (i == 0 && !product_mode) ? (SDL_Color){ 150, 150, 145, 255 } :
+                             (SDL_Color){ 175, 175, 168, 255 };
+            dc_ui_fill(app->renderer, button_rect, fill);
+            dc_ui_stroke(app->renderer, button_rect, i == 0 && !product_mode ?
+                         (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
+        }
+    }
+    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
+}
+
+static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfont_t *font) {
+    if (!app || !hud || !font || !font->sprite.texture || hud->count <= 0) return;
+    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
+    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    dc_ui_fill(app->renderer, layout.message, (SDL_Color){ 3, 5, 5, 255 });
+    dc_ui_stroke(app->renderer, layout.message, (SDL_Color){ 142, 142, 142, 255 });
+    HU_DrawTextWrapped(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
+                               layout.message.w - 8, hud->messages[hud->count - 1].text,
+                               (SDL_Color){ 41, 217, 230, 255 }, 1);
+    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
+}
+
+/* Hexen-style sidebar lifecycle.  Dark Colony needs a richer interactive bar
+   than the declarative Doom-style ST module, so buttons and their responder
+   remain owned by SB just as inventory controls are owned by Hexen's SB bar. */
+static bool SB_Init(sb_state_t *sb, app_t *app, const char *data_root) {
+    if (!sb || !app || !data_root) return false;
+    memset(sb, 0, sizeof(*sb));
+    sb->active = strcmp(g_game_id, "dark-colony") == 0;
+    dark_colony_sidebar_defaults(&sb->sidebar);
+    if (!sb->active) return true;
+
+    sb->font_ready = HU_LoadFont(app->renderer, data_root, &sb->font);
+    if (!sb->font_ready)
+        fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
+    dark_colony_sidebar_load(&sb->sidebar, data_root);
+
+    char path[1024];
+    M_PathJoin(path, sizeof(path), data_root, "INTRFACE/INTRFACE.GIF");
+    if (!load_gif_texture(app->renderer, path, &sb->background))
+        fprintf(stderr, "warning: failed to load Dark Colony UI background %s\n", path);
+    return sb->font_ready;
+}
+
+static bool SB_Responder(sb_state_t *sb, const app_t *app, level_t *map,
+                         mobj_t *units, int unit_count, const SDL_Event *event) {
+    return sb && sb->active &&
+           SB_responder(app, map, units, unit_count, event);
+}
+
+static void SB_Ticker(sb_state_t *sb) {
+    (void)sb;
+}
+
+static void SB_Drawer(sb_state_t *sb, app_t *app, const level_t *map,
+                      const mobj_t *units, int unit_count,
+                      const spritecache_t *sprites, const hudtext_t *hud) {
+    if (!sb || !sb->active || !sb->font_ready) return;
+    SB_drawer(app, map, units, unit_count, sprites, &sb->font,
+              &sb->sidebar, &sb->background);
+    render_hud_messages(app, hud, &sb->font);
+}
+
+static void SB_Shutdown(sb_state_t *sb) {
+    if (!sb) return;
+    R_FreeSprite(&sb->background);
+    HU_FreeFont(&sb->font);
+    memset(sb, 0, sizeof(*sb));
+}
+
+>>>>>>> dee5caa (Wire Dark Colony AI production into gameplay)
 int main(int argc, char **argv) {
     G_InitGame();
     bool check_only = argc > 1 && strcmp(argv[1], "--check") == 0;
@@ -1197,6 +2621,9 @@ int main(int argc, char **argv) {
     double freq = (double)SDL_GetPerformanceFrequency();
     float accumulator = 0.0f;
     int title_resources = -1;
+#if RTS_WORLD_Y_UP
+    int ai_production_elapsed_ms = 0;
+#endif
 
     while (app.running) {
         uint64_t now = SDL_GetPerformanceCounter();
@@ -1250,6 +2677,10 @@ int main(int argc, char **argv) {
                     }
                 }
             }
+#if RTS_WORLD_Y_UP
+            dc_update_ai_production(&map, units, &unit_count, FIXED_DT,
+                                    &ai_production_elapsed_ms);
+#endif
             int before_production_count = unit_count;
             bool production_spawned = G_UpdateProduction(custom_ui, &map, units, &unit_count,
                                                          effects, MAX_VISUAL_EFFECTS, FIXED_DT);

@@ -190,7 +190,7 @@ bool map_has_ai(const level_t *map, int owner) {
     if (!native->has_scenario) return false;
     for (int i = 0; i < native->scenario.team_count; ++i) {
         const ScenarioTeam *team = &native->scenario.teams[i];
-        if (team->active && team->number != 0 && team->ai > 0) return true;
+        if (team->active && team->number == owner && team->ai > 0) return true;
     }
     return false;
 }
