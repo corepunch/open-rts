@@ -367,8 +367,8 @@ static int assert_dark_colony_city_fin_alignment(void) {
         -14, -15, -15, -17, -17, -18, -17, -18, -17, -18,
     };
     static const int expected_top[] = {
-        -4, -4, -7, -11, -13, -17, -21, -25, -28, -31,
-        -33, -36, -39, -43, -45, -48, -51, -49, -51, -54,
+        19, 19, 20, 17, 16, 17, 14, 11, 12, 14,
+        15, 15, 15, 15, 16, 17, 18, 24, 26, 28,
     };
     const FinLabel *vent_stand = fin_label(&vent_fin, "VENTSTAND0");
     if (!vent_stand || vent_stand->start != 19 || vent_stand->end != 38)
@@ -379,8 +379,8 @@ static int assert_dark_colony_city_fin_alignment(void) {
         if (!puff || puff->frame != expected_cells[i] ||
             !load_spr_frame_info("data/DCOLONY/SPRITES/PUFF.SPR", puff->frame, &puff_frame) ||
             puff->x + puff_frame.dis_x != expected_left[i] ||
-            puff->y - puff_frame.height != expected_top[i]) {
-            return fail("Petra-7 smoke follows the VENT.FIN upward world-render trajectory");
+            -puff->y + puff_frame.dis_y != expected_top[i]) {
+            return fail("Petra-7 smoke uses the remapped VENT.FIN placement");
         }
         int expected_ticks = i < 2 ? 26 : 15;
         int raw_ticks = vent_fin.frames[vent_stand->start + i].ticks;

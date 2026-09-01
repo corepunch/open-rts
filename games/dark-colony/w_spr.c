@@ -773,7 +773,7 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
         frame->sprite_frame = command->frame;
         frame->pivot = (ivec2_t){
             -(command->x + (int)cell->dis_x),
-            -(command->y - (int)cell->height),
+            command->y - (int)cell->dis_y,
         };
         frame->duration_ms = (runtime_tics * 1000 + 15) / 30;
     }

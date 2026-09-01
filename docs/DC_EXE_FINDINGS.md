@@ -649,6 +649,17 @@ duration for each FIN frame. The first two steps last 167 ms and the remaining
 steps last 100 ms. The exact native queue selector remains untraced; the
 placement is **inferred** from the FIN/SPR metadata and retail screenshot.
 
+**Correction (2026-09-01):** the first implementation and its regression test
+still used the disproven selector-zero `FIN.y - height` expression even though
+the finding above recorded the remapped `-FIN.y + disY` placement. This made the
+stored pivot grow from 4 to 54 pixels, so the renderer lifted the entire puff by
+nearly one 64-pixel map row. `RTS_WORLD_Y_UP` did not prevent this: that option
+converts world/map Y before projection, while FIN coordinates, SPR displacement,
+and decoration pivots are screen-space pixels applied after projection. The
+adapter now stores pivot Y as `FIN.y - disY`, the negation required by the
+renderer, and the focused test asserts the native destination expression rather
+than duplicating the incorrect runtime formula.
+
 Retail observation shows this smoke loop only while no Exploiter is attached.
 That behavior is **observed**, while the DC.EXE branch that suppresses the
 smoke remains **unknown**. Open-rts therefore tracks the puff separately from
