@@ -109,6 +109,7 @@ typedef struct level_s {
     int extra_count;
     bool has_camera;
     fvec2_t camera;
+    int day_rate;
     int player_resources[8][RTS_MAX_RESOURCES];
     char tileset_name[32];
     void *native_data;

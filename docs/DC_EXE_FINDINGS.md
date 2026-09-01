@@ -627,6 +627,78 @@ is **inferred** from the scenario/map composition and rendered grid; the native
 order/path routine that transforms a clicked vent into its stop point remains
 untraced. No gameplay coordinate is derived from EXPL frame bounds.
 
+## In-game HUD text, money, and day counter
+
+The in-game interface is data-driven by `data/DCOLONY/INTRFACE/MAINE`. This is
+**confirmed** by the native definition and the executable's interface/font
+setup. `0x00432d28` passes `intrface/mfont` to the font loader at `0x0044b048`;
+`MAINE` selects `intrface/mfonto7`, declares character offset 31, and uses the
+native 640x480 coordinate space.
+
+The three lower-HUD controls are:
+
+| Control | Native definition | Meaning |
+| --- | --- | --- |
+| `75` | `scount`, `(524,456)`, `72x17`, `MAINBUT` frame 104, intensity 31 | Player money |
+| `148` | `in_text`, `(50,462)`, 61 characters, remap 2, intensity 31 | Current script message |
+| `234` | `in_text`, centered at `(613,433)`, 3 characters, remap 0, intensity 31 | Day counter |
+
+The `DAYS` label and containing panels are part of `INTRFACE.GIF`; the game
+does not draw replacement rectangles behind these controls. Font remap 2 gives
+the bottom message its yellow color. Remap 0 is a real palette remap, not an
+identity/no-remap sentinel: team-color indices 138 through 143 shift by
+`(remap - 7) * 6`, so remap 0 supplies the red day digits while remap 7 is the
+identity/cyan band.
+
+Money wiring is **confirmed** at `0x0040a6ea..0x0040a70f`. The routine selects
+the current player's 3632-byte team record, reads its money at record offset
+`+0xbac`, puts control ID 75 in `edx`, and calls `0x004285cc` to update the
+`scount`. The frame-104 artwork and decimal value therefore belong in the
+single native money control; the adjacent day panel is not a vent count.
+
+The day formula is **confirmed** in `0x00437824`:
+
+```text
+days = total_simulation_tics / scenario_day_rate / 2
+text = sprintf("%3.3d", days)
+set_text(control_id = 234, text)
+```
+
+The total tic field at game-state offset `+0x52c` is initialized to zero at
+`0x0041a9a5` and incremented once per simulation update at
+`0x004189d0..0x004189e1`. The divisor at `+0x534` is loaded from the SCN header
+at `0x0041a975`; it is the fourth flattened header value (6300 in HUMAN02).
+Thus HUMAN02 advances the displayed day once every 12,600 simulation tics.
+The output is three zero-padded digits, even when a screenshot's narrow glyphs
+make `000` resemble two digits.
+
+Scenario messages are also **confirmed** as indexed script text rather than
+hardcoded HUD strings. HUMAN02's `.TRO` begins with `msg 2 0 1 3 8`, selecting
+message 1 from `HUMAN02.MSG` (`APPROACHING BASE...PREPARE FOR LANDING`). At
+`0x00448f60`, DC.EXE validates the index against a 30-entry `mtext[]` table,
+appends the selected pointer and metadata to a 16-entry message history, and
+stores intensity 31. Trigger processing calls this routine at `0x0043a20b`.
+`MAINE` also defines Last Msg and Next Msg buttons (IDs 147 and 149), confirming
+that mission text persists as navigable history rather than expiring after a
+short fixed timeout.
+
+The nearby `%d/%d` formatter at `0x004342a7` was investigated and is
+**disproven** as a HUD resource/day formatter. It formats fields from an object
+record in the large routine at `0x00433acc` and sends the result through an
+object-text path at `0x0042f298`; it does not update controls 75 or 234.
+
+Reproduce the native-data evidence with:
+
+```sh
+sed -n '285,445p' data/DCOLONY/INTRFACE/MAINE
+sed -n '1,15p' data/DCOLONY/SCENARIO/HUMAN/HUMAN02.TRO
+sed -n '1,8p' data/DCOLONY/SCENARIO/HUMAN/HUMAN02.MSG
+r2 -q -e bin.cache=true -A -c "pd 80 @ 0x00437820" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pd 40 @ 0x0040a6ea" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x00448f60" -c q data/DCOLONY/DC.EXE
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-hud.bmp data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
+```
+
 ## Known unknowns
 
 ## Combat flash, blood, and ground illumination (2026-09-01)
@@ -756,6 +828,8 @@ r2 -q -e bin.cache=true -A -c "pdf @ 0x0042b54c" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x00432dec" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x00436290" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x00436a44" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x00437824" -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c "pdf @ 0x00448f60" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x0044f95c" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x0045c060" -c q data/DCOLONY/DC.EXE
 r2 -q -e bin.cache=true -A -c "pdf @ 0x0045c41c" -c q data/DCOLONY/DC.EXE

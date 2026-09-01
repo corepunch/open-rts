@@ -463,7 +463,7 @@ static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkCol
         DarkColonyScriptCommand *cmd = &block->commands[i];
         if (cmd->type == DC_SCRIPT_CMD_MSG) {
             const char *message = dark_colony_script_message(mission, cmd->a[0]);
-            if (message) HU_PushMessage(hud, message, 6500);
+            if (message) HU_PushMessage(hud, message, -1);
         } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
                    cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
             int team = cmd->a[0], x = cmd->a[1], y = cmd->a[2];

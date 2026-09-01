@@ -27,7 +27,7 @@ static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32
 }
 
 static uint8_t dark_colony_remap_palette_index(uint8_t index, int remap) {
-    if (remap <= 0 || remap > 7 || index < 138 || index > 143) return index;
+    if (remap < 0 || remap > 7 || index < 138 || index > 143) return index;
     int remapped = (int)index + (remap - 7) * 6;
     if (remapped < 0 || remapped > 255) return index;
     return (uint8_t)remapped;
@@ -500,7 +500,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                                 uint8_t index = src[pos + (size_t)p];
                                 if (index >= 138 && index <= 143) has_team_colors = true;
                                 indices[dst] = index;
-                                rgba[dst] = dark_colony_sprite_pixel_rgba(index, palette, 0);
+                                rgba[dst] = dark_colony_sprite_pixel_rgba(index, palette, -1);
                             }
                         }
                         write++;
@@ -520,7 +520,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                             uint8_t index = src[y * w + x];
                             if (index >= 138 && index <= 143) has_team_colors = true;
                             indices[dst] = index;
-                            rgba[dst] = dark_colony_sprite_pixel_rgba(index, palette, 0);
+                            rgba[dst] = dark_colony_sprite_pixel_rgba(index, palette, -1);
                         }
                     }
                 }
@@ -553,7 +553,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         dark_colony_sprite_native_destroy(native);
         return false;
     }
-    for (int remap = 1; has_team_colors && remap < 8; ++remap) {
+    for (int remap = 0; has_team_colors && remap < 8; ++remap) {
         for (int y = 0; y < atlas_h; ++y) {
             int row = max_h > 0 ? y / max_h : 0;
             for (int x = 0; x < atlas_w; ++x) {
@@ -567,7 +567,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         }
         remap_textures[remap] = I_CreateTexture(renderer, remap_rgba, atlas_w, atlas_h, true);
         if (!remap_textures[remap]) {
-            for (int i = 1; i < remap; ++i)
+            for (int i = 0; i < remap; ++i)
                 if (remap_textures[i]) SDL_DestroyTexture(remap_textures[i]);
             SDL_DestroyTexture(texture);
             free(remap_rgba);
@@ -583,7 +583,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     free(remap_rgba);
 
     out->texture = texture;
-    for (int remap = 1; remap < 8; ++remap)
+    for (int remap = 0; remap < 8; ++remap)
         out->remap_textures[remap] = remap_textures[remap];
     out->frames = frames;
     out->frame_bounds = bounds;

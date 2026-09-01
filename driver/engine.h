@@ -29,6 +29,8 @@ bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
                    int frame_count, uint16_t frame_ms);
 void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                  const char *text, SDL_Color color, int scale);
+void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
+                         const char *text, SDL_Color color, int scale, int remap);
 void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                         int max_w, const char *text, SDL_Color color, int scale);
 int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale);

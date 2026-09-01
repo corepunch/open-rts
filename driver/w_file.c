@@ -101,7 +101,7 @@ void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
 
 void HU_PushMessage(hudtext_t *hud, const char *text, int ttl_ms) {
     if (!hud || !text || text[0] == '\0') return;
-    if (ttl_ms <= 0) ttl_ms = 5000;
+    if (ttl_ms == 0) ttl_ms = 5000;
     int slot = hud->count;
     if (slot >= RTS_MAX_HUD_MESSAGES) {
         memmove(&hud->messages[0], &hud->messages[1],
@@ -119,6 +119,10 @@ void HU_Ticker(hudtext_t *hud, float dt) {
     if (!hud || hud->count <= 0) return;
     int dt_ms = (int)lroundf(dt * 1000.0f);
     for (int i = 0; i < hud->count;) {
+        if (hud->messages[i].ttl_ms < 0) {
+            i++;
+            continue;
+        }
         hud->messages[i].ttl_ms -= dt_ms;
         if (hud->messages[i].ttl_ms <= 0) {
             memmove(&hud->messages[i], &hud->messages[i + 1],

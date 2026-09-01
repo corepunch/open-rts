@@ -736,6 +736,10 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         load_dark_colony_camera_from_scenario(&native->scenario, out);
         load_dark_colony_resource_vents_from_scenario(&native->scenario, out, &vent_placement);
         load_dark_colony_beacons_from_scenario(&native->scenario, out);
+        if (native->scenario.header_value_count > 3 &&
+            native->scenario.header_values[3] > 0) {
+            out->day_rate = native->scenario.header_values[3];
+        }
         int team_count = native->scenario.team_count;
         if (team_count > 8) team_count = 8;
         for (int i = 0; i < team_count; ++i) {

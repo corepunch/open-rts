@@ -912,7 +912,8 @@ typedef struct {
     irect_t header;
     irect_t status;
     irect_t commands;
-    irect_t resources;
+    irect_t money;
+    irect_t days;
     irect_t minimap;
     irect_t message;
     irect_t build;
@@ -937,6 +938,7 @@ typedef struct {
     bitmapfont_t font;
     spritesheet_t background;
     DarkColonySidebar sidebar;
+    uint64_t clock;
 } sb_state_t;
 
 typedef struct {
@@ -1332,8 +1334,9 @@ static DarkColonyUiLayout dark_colony_ui_layout(const app_t *app) {
     layout.minimap = dark_colony_ui_rect(app, 520, 5, 96, 84);
     layout.commands = dark_colony_ui_rect(app, 516, 92, 124, 330);
     layout.status = dark_colony_ui_rect(app, 518, 368, 59, 41);
-    layout.resources = dark_colony_ui_rect(app, 607, 422, 28, 51);
-    layout.message = dark_colony_ui_rect(app, 48, 456, 462, 16);
+    layout.money = dark_colony_ui_rect(app, 524, 456, 72, 17);
+    layout.days = dark_colony_ui_rect(app, 613, 433, 3, 1);
+    layout.message = dark_colony_ui_rect(app, 50, 462, 427, 11);
     layout.build = dark_colony_ui_rect(app, 516, 422, 86, 27);
     layout.header = dark_colony_ui_rect(app, 516, 0, 124, 92);
     layout.tabs[0] = dark_colony_ui_rect(app, 518, 92, 40, 20);
@@ -2030,26 +2033,30 @@ static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *fo
     HU_DrawText(renderer, font, x, y, text, color, 1);
 }
 
-static void dc_ui_draw_capital(app_t *app, const bitmapfont_t *font, irect_t rect,
-                               int resources, int active_vents, int vent_count) {
-    if (!app || !font) return;
-    SDL_Color money = { 41, 217, 230, 255 };
-    SDL_Color dim = { 112, 130, 125, 255 };
-    char line[32];
+static void dc_ui_draw_status(app_t *app, const level_t *map,
+                              const bitmapfont_t *font,
+                              const DarkColonyUiLayout *layout,
+                              const spritecache_t *cache,
+                              uint64_t clock) {
+    if (!app || !map || !font || !layout) return;
+    char text[32];
+    const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
+    if (buttons && buttons->texture)
+        dc_ui_draw_sprite_fit(app->renderer, buttons, 104, layout->money, 0);
+    int resources = map->player_resources[0][0];
     if (resources < 0) resources = 0;
-    if (resources >= 1000) {
-        snprintf(line, sizeof(line), "%d", resources / 1000);
-        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 5, line, money);
-        snprintf(line, sizeof(line), "%03d", resources % 1000);
-        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 20, line, money);
-        snprintf(line, sizeof(line), "%d/%d", active_vents, vent_count);
-        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 36, line, dim);
-    } else {
-        snprintf(line, sizeof(line), "%d", resources);
-        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 8, line, money);
-        snprintf(line, sizeof(line), "%d/%d", active_vents, vent_count);
-        dc_ui_draw_text_right(app->renderer, font, rect, rect.y + 28, line, dim);
-    }
+    snprintf(text, sizeof(text), "%d", resources);
+    dc_ui_draw_text_right(app->renderer, font, layout->money,
+                          layout->money.y + 2, text,
+                          (SDL_Color){ 41, 217, 230, 255 });
+
+    int days = map->day_rate > 0 ?
+        (int)(clock / (uint64_t)map->day_rate / 2u) : 0;
+    if (days > 999) days = 999;
+    snprintf(text, sizeof(text), "%03d", days);
+    int x = layout->days.x - HU_TextWidth(font, text, 1) / 2;
+    HU_DrawTextRemapped(app->renderer, font, x, layout->days.y, text,
+                        (SDL_Color){ 255, 255, 255, 255 }, 1, 0);
 }
 
 static void SB_drawer(app_t *app, const level_t *map,
@@ -2105,14 +2112,6 @@ static void SB_drawer(app_t *app, const level_t *map,
         layout.minimap.h - 4,
     };
     dc_ui_draw_minimap(app, map, units, unit_count, mini);
-
-    int active_vents = 0;
-    for (int i = 0; i < map->resource_vent_count; ++i)
-        if (map->resource_vents[i].active) active_vents++;
-    dc_ui_fill(app->renderer, layout.resources, (SDL_Color){ 4, 6, 7, 255 });
-    dc_ui_stroke(app->renderer, layout.resources, (SDL_Color){ 142, 142, 142, 255 });
-    dc_ui_draw_capital(app, font, layout.resources, map->player_resources[0][0],
-                       active_vents, map->resource_vent_count);
 
     DarkColonySidebar fallback_sidebar;
     if (!sidebar) {
@@ -2205,11 +2204,10 @@ static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfo
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
     DarkColonyUiLayout layout = dark_colony_ui_layout(app);
-    dc_ui_fill(app->renderer, layout.message, (SDL_Color){ 3, 5, 5, 255 });
-    dc_ui_stroke(app->renderer, layout.message, (SDL_Color){ 142, 142, 142, 255 });
-    HU_DrawTextWrapped(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
-                               layout.message.w - 8, hud->messages[hud->count - 1].text,
-                               (SDL_Color){ 41, 217, 230, 255 }, 1);
+    char message[62];
+    snprintf(message, sizeof(message), "%.61s", hud->messages[hud->count - 1].text);
+    HU_DrawTextRemapped(app->renderer, font, layout.message.x, layout.message.y,
+                        message, (SDL_Color){ 255, 255, 255, 255 }, 1, 2);
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
@@ -2242,7 +2240,7 @@ static bool SB_Responder(sb_state_t *sb, const app_t *app, level_t *map,
 }
 
 static void SB_Ticker(sb_state_t *sb) {
-    (void)sb;
+    if (sb && sb->active) sb->clock++;
 }
 
 static void SB_Drawer(sb_state_t *sb, app_t *app, const level_t *map,
@@ -2251,6 +2249,8 @@ static void SB_Drawer(sb_state_t *sb, app_t *app, const level_t *map,
     if (!sb || !sb->active || !sb->font_ready) return;
     SB_drawer(app, map, units, unit_count, sprites, &sb->font,
               &sb->sidebar, &sb->background);
+    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    dc_ui_draw_status(app, map, &sb->font, &layout, sprites, sb->clock);
     render_hud_messages(app, hud, &sb->font);
 }
 

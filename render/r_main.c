@@ -58,11 +58,14 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
     return line_width > width ? line_width : width;
 }
 
-void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                        const char *text, SDL_Color color, int scale) {
+void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
+                         const char *text, SDL_Color color, int scale, int remap) {
     if (!renderer || !font || !font->sprite.texture || !text || scale <= 0) return;
-    SDL_SetTextureColorMod(font->sprite.texture, color.r, color.g, color.b);
-    SDL_SetTextureAlphaMod(font->sprite.texture, color.a);
+    SDL_Texture *texture = font->sprite.texture;
+    if (remap >= 0 && remap < 8 && font->sprite.remap_textures[remap])
+        texture = font->sprite.remap_textures[remap];
+    SDL_SetTextureColorMod(texture, color.r, color.g, color.b);
+    SDL_SetTextureAlphaMod(texture, color.a);
     int cx = x, cy = y;
     for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
         if (*p == '\r') continue;
@@ -93,13 +96,18 @@ void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                     (src.w * scale + divisor - 1) / divisor,
                     (src.h * scale + divisor - 1) / divisor,
                 };
-                SDL_RenderCopy(renderer, font->sprite.texture, &src, &dst);
+                SDL_RenderCopy(renderer, texture, &src, &dst);
             }
         }
         cx += advance * scale;
     }
-    SDL_SetTextureColorMod(font->sprite.texture, 255, 255, 255);
-    SDL_SetTextureAlphaMod(font->sprite.texture, 255);
+    SDL_SetTextureColorMod(texture, 255, 255, 255);
+    SDL_SetTextureAlphaMod(texture, 255);
+}
+
+void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
+                 const char *text, SDL_Color color, int scale) {
+    HU_DrawTextRemapped(renderer, font, x, y, text, color, scale, -1);
 }
 
 void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
