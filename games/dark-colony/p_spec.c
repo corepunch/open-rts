@@ -396,10 +396,17 @@ static void dark_colony_sync_dropship_parts(DarkColonyDropship *ship,
         }
         if (slot >= 0) {
             effect_t *effect = &effects[slot];
+            /* Slots persist across phase transitions now, so refresh the
+             * lifetime every tick or P_UpdateEffects reaps them once age_ms
+             * exceeds the duration_ms captured when the slot was first spawned. */
+            effect->age_ms = 0;
+            effect->duration_ms = ship->phase_duration_ms + 1;
             effect->core.position = fixedvec3_from_fvec2(ship->center, 0);
             effect->core.frame = part->sprite_frame;
             effect->core.render_offset = part->offset;
-            effect->core.render_remap = part->render_remap;
+            /* Palette remap is authored per animation label in DROP.FIN, not per team;
+             * force the ship's own team color so it doesn't flip between phases. */
+            effect->core.render_remap = ship->team;
             effect->core.render_intensity = part->render_intensity;
             effect->core.render_flags = (uint32_t)part->flags;
             effect->render_selector = part->render_selector;
@@ -518,7 +525,12 @@ static void dark_colony_set_dropship_phase(DarkColonyDropship *ship,
                                            DarkColonyDropshipPhase phase,
                                            int duration_ms,
                                            effect_t *effects, int max_effects) {
-    dark_colony_clear_dropship_parts(ship, effects, max_effects);
+    /* Do not clear effect slots here: the caller already synced the ending
+     * phase's trailing frame into them this tick, and dark_colony_sync_dropship_parts
+     * reconciles slot contents for the new phase on the next tick. Clearing
+     * here would erase that trailing frame before it is ever rendered. */
+    (void)effects;
+    (void)max_effects;
     ship->phase = phase;
     ship->elapsed_ms = 0;
     ship->phase_duration_ms = duration_ms > 0 ? duration_ms : 1;
