@@ -156,3 +156,43 @@ void  G_MissionTicker(void *m, level_t *map, mobj_t *mobjs, int *count,
     (void)effects; (void)max_effects; (void)hud; (void)dt;
 }
 void  G_FreeMission(void *m) { (void)m; }
+
+void *G_InitCustomUI(app_t *app, const char *data_root) {
+    (void)app; (void)data_root;
+    return NULL;
+}
+
+bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+                         mobj_t *units, int unit_count, const SDL_Event *event) {
+    (void)ui; (void)app; (void)map; (void)units; (void)unit_count; (void)event;
+    return false;
+}
+
+void G_CustomUITicker(void *ui) {
+    (void)ui;
+}
+
+void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
+                      const mobj_t *units, int unit_count,
+                      const spritecache_t *sprites, const hudtext_t *hud) {
+    (void)ui; (void)app; (void)map; (void)units; (void)unit_count;
+    (void)sprites; (void)hud;
+}
+
+bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
+                        effect_t *effects, int max_effects, float dt) {
+    (void)ui; (void)map; (void)units; (void)unit_count;
+    (void)effects; (void)max_effects; (void)dt;
+    return false;
+}
+
+void G_ShutdownCustomUI(void *ui) {
+    (void)ui;
+}
+
+int G_WorldViewportWidth(const app_t *app) {
+    if (!app) return 0;
+    if (gameui && gameui->world_viewport.w > 0 && gameui->logical_width > 0)
+        return gameui->world_viewport.w * app->win.w / gameui->logical_width;
+    return app->win.w > 0 ? app->win.w : 1;
+}

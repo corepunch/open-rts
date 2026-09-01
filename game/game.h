@@ -61,4 +61,31 @@ void     G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
 /* Release a loaded mission. */
 void     G_FreeMission(void *mission);
 
+/* ── custom interactive UI / sidebar hooks ─────────────────────────────── */
+
+/* Initialize game-specific interactive UI/sidebar. Returns an opaque pointer, or NULL if none. */
+void    *G_InitCustomUI(app_t *app, const char *data_root);
+
+/* Handle input events for custom UI. Returns true if handled. */
+bool     G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+                             mobj_t *units, int unit_count, const SDL_Event *event);
+
+/* Advance custom UI state by one tick. */
+void     G_CustomUITicker(void *ui);
+
+/* Draw custom UI overlay/sidebar. */
+void     G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
+                          const mobj_t *units, int unit_count,
+                          const spritecache_t *sprites, const hudtext_t *hud);
+
+/* Advance game-specific production queues in interactive mode. Returns true if a unit was spawned. */
+bool     G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
+                            effect_t *effects, int max_effects, float dt);
+
+/* Shutdown and free custom UI. */
+void     G_ShutdownCustomUI(void *ui);
+
+/* Return the effective world viewport width in screen pixels. */
+int      G_WorldViewportWidth(const app_t *app);
+
 #endif

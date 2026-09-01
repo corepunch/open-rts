@@ -36,7 +36,7 @@ int main(void) {
         .map_path = strcmp(g_game_id, "dark-colony") == 0 ?
             "SCENARIO/HUMAN/HUMAN02.MAP" : "scenario/MULTI/2NIC/2NIC.SCN",
     };
-    RtsRenderSnapshot snapshot;
+    static RtsRenderSnapshot snapshot;
     if (!model || !rts_game_model_load(model, &config)) return fail("load default model");
     if (!rts_game_model_snapshot(model, &snapshot)) return fail("snapshot default model");
 

@@ -5,6 +5,7 @@
 #include "info.h"
 #include "gamestat.h"
 #include "dc_types.h"
+#include "sb_bar.h"
 #include "w_spr.h"
 
 #include <ctype.h>
@@ -432,4 +433,36 @@ void G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
 
 void G_FreeMission(void *mission) {
     dark_colony_destroy_mission(mission);
+}
+
+void *G_InitCustomUI(app_t *app, const char *data_root) {
+    return SB_Init(app, data_root);
+}
+
+bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+                         mobj_t *units, int unit_count, const SDL_Event *event) {
+    return SB_Responder(ui, app, map, units, unit_count, event);
+}
+
+void G_CustomUITicker(void *ui) {
+    SB_Ticker(ui);
+}
+
+void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
+                      const mobj_t *units, int unit_count,
+                      const spritecache_t *sprites, const hudtext_t *hud) {
+    SB_Drawer(ui, app, map, units, unit_count, sprites, hud);
+}
+
+bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
+                        effect_t *effects, int max_effects, float dt) {
+    return SB_UpdateProduction(ui, map, units, unit_count, effects, max_effects, dt);
+}
+
+void G_ShutdownCustomUI(void *ui) {
+    SB_Shutdown(ui);
+}
+
+int G_WorldViewportWidth(const app_t *app) {
+    return SB_WorldViewportWidth(app);
 }
