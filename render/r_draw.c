@@ -444,7 +444,7 @@ static uint8_t fin_intensity_color_mod(int intensity) {
 
 static SDL_Texture *sprite_texture_for_remap(const spritesheet_t *sprite, int render_remap) {
     if (!sprite) return NULL;
-    if (render_remap > 0 && render_remap < 8 && sprite->remap_textures[render_remap])
+    if (render_remap >= 0 && render_remap < 8 && sprite->remap_textures[render_remap])
         return sprite->remap_textures[render_remap];
     return sprite->texture;
 }
@@ -557,6 +557,7 @@ static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame);
 static void render_decoration_sprite(app_t *app, const level_t *map,
                                      const mapdecoration_t *dec, const spritesheet_t *sprite,
                                      int frame_index, uint32_t render_flags,
+                                     int render_selector,
                                      const char *sequence_name, int anchor_frame_index,
                                      const char *anchor_sequence_name) {
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
@@ -638,11 +639,11 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     }
     rts_composition_t composition = {0};
     if (sprite->resolve_composition &&
-        sprite->resolve_composition(sprite, dec->render_selector, &composition) &&
+        sprite->resolve_composition(sprite, render_selector, &composition) &&
         composition.kind == RTS_COMPOSE_INDEXED_TABLE &&
         R_RenderIndexedComposition(app, sprite, frame, dst, render_flags, &composition)) return;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, 0, 16);
+    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, dec->render_remap, 16);
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
 }
@@ -651,17 +652,17 @@ static void render_decoration(app_t *app, const level_t *map,
                               const mapdecoration_t *dec, const spritecache_t *cache) {
     if (dec->hidden) return;
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->shadow_name),
-                             dec->frame_index, dec->render_flags, dec->sequence_name,
-                             dec->frame_index, dec->sequence_name);
+                             dec->frame_index, dec->render_flags, dec->render_selector,
+                             dec->sequence_name, dec->frame_index, dec->sequence_name);
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->sprite_name),
-                             dec->frame_index, dec->render_flags, dec->sequence_name,
-                             dec->frame_index, dec->sequence_name);
+                             dec->frame_index, dec->render_flags, dec->render_selector,
+                             dec->sequence_name, dec->frame_index, dec->sequence_name);
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->sprite2_name),
-                             dec->frame2_index, dec->render2_flags, NULL,
-                             dec->frame_index, dec->sequence_name);
+                             dec->frame2_index, dec->render2_flags, dec->render2_selector,
+                             NULL, dec->frame_index, dec->sequence_name);
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->sprite3_name),
-                             dec->frame3_index, dec->render3_flags, NULL,
-                             dec->frame_index, dec->sequence_name);
+                             dec->frame3_index, dec->render3_flags, dec->render3_selector,
+                             NULL, dec->frame_index, dec->sequence_name);
 }
 
 void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cache) {

@@ -93,7 +93,8 @@ static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *sna
         if (strcmp(dec->sprite_name, "SPRITES/BEAC.SPR") != 0) continue;
         if (strcmp(dec->sprite2_name, "SPRITES/BEAC.SPR") != 0) continue;
         if (dec->frame_index == 0 && dec->frame2_index == 1 &&
-            (dec->render2_flags & RTS_FRAME_BLINK) != 0) {
+            (dec->render2_flags & RTS_FRAME_BLINK) != 0 &&
+            dec->render2_selector == 5) {
             return true;
         }
     }

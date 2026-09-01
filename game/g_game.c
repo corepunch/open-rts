@@ -1472,9 +1472,13 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->frame2_index = src->frame2_index;
         dst->frame3_index = src->frame3_index;
         dst->facing_code = angle_to_direction(src->angle, 32, ANG90, true);
+        dst->render_remap = src->render_remap;
         dst->render_flags = src->render_flags;
+        dst->render_selector = src->render_selector;
         dst->render2_flags = src->render2_flags;
+        dst->render2_selector = src->render2_selector;
         dst->render3_flags = src->render3_flags;
+        dst->render3_selector = src->render3_selector;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->sprite_name);
         snprintf(dst->sprite2_name, sizeof(dst->sprite2_name), "%s", src->sprite2_name);
         snprintf(dst->sprite3_name, sizeof(dst->sprite3_name), "%s", src->sprite3_name);

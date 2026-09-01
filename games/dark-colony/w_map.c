@@ -531,7 +531,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     return true;
 }
 
-static bool append_dark_colony_beacon(level_t *map, int x, int y, int type) {
+static bool append_dark_colony_beacon(level_t *map, int x, int y, int type, int team) {
     if (!map || !L_Contains(map, x, y) || type != 84) return false;
     if (map->decoration_count >= MAX_DECORATIONS) return false;
 
@@ -546,7 +546,9 @@ static bool append_dark_colony_beacon(level_t *map, int x, int y, int type) {
     dec->center_anchor = true;
     dec->frame_index = 0;
     dec->frame2_index = 1;
+    dec->render_remap = team >= 0 ? team : 0;
     dec->render2_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK;
+    dec->render2_selector = 5;
     snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/BEAC.SPR");
     snprintf(dec->sprite2_name, sizeof(dec->sprite2_name), "SPRITES/BEAC.SPR");
     return true;
@@ -572,7 +574,7 @@ static void load_dark_colony_beacons_from_scenario(const DarkColonyScenarioFile 
         const DarkColonyScenarioObject *object = &scenario->objects[i];
         if (object->type == 84 && object->value_count >= 5) {
             append_dark_colony_beacon(map, object->x, object->y,
-                                      object->type);
+                                      object->type, object->team);
         }
     }
 }

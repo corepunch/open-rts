@@ -153,9 +153,13 @@ typedef struct {
     int frame2_index;
     int frame3_index;
     int facing_code;
+    int render_remap;
     uint32_t render_flags;
+    int render_selector;
     uint32_t render2_flags;
+    int render2_selector;
     uint32_t render3_flags;
+    int render3_selector;
     char sprite_name[32];
     char sprite2_name[32];
     char sprite3_name[32];

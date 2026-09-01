@@ -539,6 +539,15 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
     }
 
     if (ship->elapsed_ms >= ship->phase_duration_ms) {
+        /* Render the ending phase's final frame before switching animations,
+         * otherwise the last frame is skipped and the ship appears to blink. */
+        int trailing_elapsed = ship->phase_duration_ms > 0 ? ship->phase_duration_ms - 1 : 0;
+        int leftover_elapsed = ship->elapsed_ms;
+        ship->elapsed_ms = trailing_elapsed;
+        dark_colony_sync_dropship_parts(
+            ship, dark_colony_dropship_animation(mission, ship->phase), effects, max_effects);
+        ship->elapsed_ms = leftover_elapsed;
+
         if (ship->phase == DC_DROPSHIP_APPROACH ||
             ship->phase == DC_DROPSHIP_REPOSITION) {
             ship->center = ship->target_center;
@@ -549,10 +558,8 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
         } else if (ship->phase == DC_DROPSHIP_UNLOAD) {
             if (ship->release_pending && ship->payload_index < ship->payload_count) {
                 DarkColonyDropshipPayload *payload = &ship->payload[ship->payload_index];
-                fvec2_t release_position = dark_colony_drop_position(
-                    map, units, *unit_count, ship->target_center, ship->released_count);
                 ivec2_t release_cell = {
-                    (int)floorf(release_position.x), (int)floorf(release_position.y)
+                    (int)floorf(ship->center.x), (int)floorf(ship->center.y)
                 };
                 dark_colony_spawn_script_unit(map, units, unit_count, ship->team,
                                               release_cell.x, release_cell.y,
@@ -564,8 +571,14 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
             }
 
             if (ship->payload_index < ship->payload_count) {
-                ship->elapsed_ms = 0;
-                ship->release_pending = true;
+                fvec2_t origin_center = fvec2_cell_center(ship->origin);
+                fvec2_t next_position = dark_colony_drop_position(
+                    map, units, *unit_count, origin_center, ship->released_count);
+                ship->start_center = ship->center;
+                ship->target_center = next_position;
+                dark_colony_set_dropship_phase(
+                    ship, DC_DROPSHIP_REPOSITION,
+                    mission->dropship_animations.move.duration_ms, effects, max_effects);
             } else {
                 ship->start_center = ship->center;
                 ship->target_center = fvec2_add(ship->center, ship->flight_vector);
@@ -579,6 +592,7 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
             ship->active = false;
             return;
         }
+        return;
     }
 
     dark_colony_sync_dropship_parts(
