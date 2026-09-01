@@ -985,6 +985,16 @@ than the visible top edge of the current body frame. open-rts now places it
 from the unit anchor and body destination offset, avoiding animation-frame
 drift.
 
+**Confirmed from `VENT.FIN` and the world-record renderer:** vent smoke uses
+the same world origin rule as every other FIN command. For a `PUFF` cell with
+height $h$, the SDL full-frame pivot is `{ -(FIN.x + cell.disX), h - FIN.y }`;
+therefore the renderer produces `draw_y = anchor_y + FIN.y - h`. `cell.disY`
+belongs to the separate generic sprite dispatcher and must not enter queued
+world placement. The former `FIN.y - cell.disY` pivot inverted the authored
+motion when `render_decoration_sprite()` subtracted it a second time, making
+the yellow fume descend. The VENT loader now preserves the shared bottom-up
+world convention without a local Y-flip.
+
 **Confirmed from `HUMAN02.TRO`:** `reinforce` arguments after team and map
 position are `(native unit type, count)` pairs. The first drop expands to
 native types `69 x1`, `6 x1`, and `0 x3`. Type 69 is a TRSC variant with the

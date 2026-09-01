@@ -1047,14 +1047,15 @@ static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *
     }
 }
 
-static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spritecache_t *cache,
-                                         const gameinfo_t *game_info, float anchor_sx,
-                                         float anchor_sy, int body_offset_x,
-                                         int body_offset_y) {
-    if (!app || !app->renderer || !u || !cache || !game_info ||
-        !game_info->sprnames) {
+bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
+    if (!ctx || !ctx->app || !ctx->app->renderer || !ctx->unit || !ctx->cache ||
+        !ctx->game_info || !ctx->game_info->sprnames) {
         return false;
     }
+    app_t *app = ctx->app;
+    const mobj_t *u = ctx->unit;
+    const spritecache_t *cache = ctx->cache;
+    const gameinfo_t *game_info = ctx->game_info;
     const selectionmarker_t *info = &game_info->selection_marker;
     if (info->sprite < 0 || info->sprite >= game_info->sprite_count) return false;
     const char *sprite_name = game_info->sprnames[info->sprite];
@@ -1069,8 +1070,8 @@ static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spri
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
     irect_t dst = {
-        (int)lroundf(anchor_sx) + body_offset_x - frame_rect.w / 2,
-        (int)lroundf(anchor_sy) + body_offset_y - frame_rect.h + info->top_offset_y,
+        (int)lroundf(ctx->anchor.x) - frame_rect.w / 2,
+        (int)lroundf(ctx->anchor.y) - frame_rect.h + info->top_offset_y,
         frame_rect.w,
         frame_rect.h,
     };
@@ -1172,17 +1173,26 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     end_sprite_command(texture, render_flags);
     render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
     if (u->selected && (u->traits & MF_SELECTABLE) != 0) {
-        SelectionStyle sel_style = game_info ? game_info->selection_marker.style
-                                             : SELECTION_STYLE_SPRITE;
-        if (sel_style == SELECTION_STYLE_CIRCLE) {
+        selectiondrawcontext_t selection_ctx = {
+            .app = app,
+            .unit = u,
+            .cache = cache,
+            .game_info = game_info,
+            .body_dst = dst,
+            .visible = visible,
+            .anchor = { sx, sy },
+            .ticks = ticks,
+        };
+        if (game_info && game_info->draw_selection &&
+            game_info->draw_selection(&selection_ctx)) {
+        }
+        else if (game_info && game_info->selection_marker.style == SELECTION_STYLE_CIRCLE) {
             int radius = (int)(unit_pick_radius_px(app, u) * 0.85f);
             draw_selection_circle(app, u, (int)sx, (int)sy, radius);
         }
-        else if (sel_style == SELECTION_STYLE_BRACKETS)
+        else if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS)
             draw_selection_brackets(app, u, &visible);
-        else if (!draw_selection_marker_sprite(app, u, cache, game_info, sx, sy,
-                                               dst.x - (int)lroundf(sx),
-                                               dst.y - (int)lroundf(sy)))
+        else if (!R_DrawSelectionMarkerSprite(&selection_ctx))
             draw_selection_triangle(app, u, &visible);
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&

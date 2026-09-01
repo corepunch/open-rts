@@ -10,6 +10,9 @@
 
 typedef struct mobj_s mobj_t;
 typedef struct statecontext_s statecontext_t;
+typedef struct app_s app_t;
+typedef struct spritecache_s spritecache_t;
+typedef struct gameinfo_s gameinfo_t;
 typedef void (*actionf_p1)(statecontext_t *ctx, mobj_t *mo);
 
 typedef enum {
@@ -127,7 +130,20 @@ typedef struct selectionmarker_s {
     int top_offset_y;
 } selectionmarker_t;
 
-typedef struct gameinfo_s {
+typedef struct selectiondrawcontext_s {
+    app_t *app;
+    const mobj_t *unit;
+    const spritecache_t *cache;
+    const gameinfo_t *game_info;
+    irect_t body_dst;
+    irect_t visible;
+    fvec2_t anchor;
+    uint32_t ticks;
+} selectiondrawcontext_t;
+
+typedef bool (*selectiondrawf_t)(const selectiondrawcontext_t *ctx);
+
+struct gameinfo_s {
     const char *const *sprnames;
     int sprite_count;
     const state_t *states;
@@ -137,7 +153,8 @@ typedef struct gameinfo_s {
     int null_state;
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
-} gameinfo_t;
+    selectiondrawf_t draw_selection;
+};
 
 /*
  * State-machine and presentation data shared by gameplay mobjs and transient

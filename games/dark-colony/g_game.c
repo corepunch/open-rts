@@ -330,6 +330,11 @@ const int g_cell_h = 32;
 const uint16_t g_debug_enemy_type = MT_DC_GREY;
 static state_t dark_colony_runtime_states[NUMSTATES];
 static gameinfo_t dark_colony_runtime_info;
+
+static bool dark_colony_draw_selection(const selectiondrawcontext_t *ctx) {
+    return R_DrawSelectionMarkerSprite(ctx);
+}
+
 const gameinfo_t *const gameinfo = &dark_colony_runtime_info;
 const actortype_t *const mobjinfo =
     (const actortype_t *)DARK_COLONY_ACTOR_TYPES;
@@ -355,6 +360,7 @@ void G_InitGame(void) {
     }
     dark_colony_runtime_info = dark_colony_game_info;
     dark_colony_runtime_info.states = dark_colony_runtime_states;
+    dark_colony_runtime_info.draw_selection = dark_colony_draw_selection;
     initialized = true;
 }
 

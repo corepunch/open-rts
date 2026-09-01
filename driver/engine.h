@@ -58,6 +58,7 @@ void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset);
 void R_DrawGridOverlay(app_t *app, const level_t *map);
 void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cache);
+bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx);
 void R_DrawThings(app_t *app, const mobj_t *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,
