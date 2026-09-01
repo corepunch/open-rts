@@ -980,10 +980,20 @@ behavior before porting them.
 
 **Confirmed from native SPR data:** the Dark Colony selection marker is the
 `INTRFACE/CLIENT.SPR` command family. Its inspected marker cells have zero
-displacement, so the marker belongs to the unit's stable world anchor rather
-than the visible top edge of the current body frame. open-rts now places it
-from the unit anchor and body destination offset, avoiding animation-frame
-drift.
+displacement, so the caller supplies its placement. The gameplay captures and
+the marker's downward-pointing geometry establish that it attaches above the
+rendered unit top, not the unit ground anchor. open-rts derives its horizontal
+centre and vertical reference from the final visible body bounds, avoiding both
+animation-frame drift and feet-attached markers.
+
+**Confirmed from `GAMESTAT.TXT` and `CLIENT.SPR`:** native types `69..72` are
+Human lieutenant through colonel and `73..76` are the corresponding Alien
+officers. `CLIENT.SPR` frames `30..33` are the blue officer-insignia group in
+the 30-by-15 command-marker canvas. The Dark Colony selection callback draws
+the rank frame `30 + (native_type - 69) mod 4` above each ranked unit's visible
+body. The exact DC.EXE call site and any per-rank animation policy remain
+unknown; this implementation preserves the verified native assets, ranks, and
+rendered geometry without inventing a separate coordinate convention.
 
 **Confirmed from `VENT.FIN` and the world-record renderer:** vent smoke uses
 the same world origin rule as every other FIN command. For a `PUFF` cell with

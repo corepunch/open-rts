@@ -1047,13 +1047,12 @@ static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *
     }
 }
 
-bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
+bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, irect_t dst) {
     if (!ctx || !ctx->app || !ctx->app->renderer || !ctx->unit || !ctx->cache ||
         !ctx->game_info || !ctx->game_info->sprnames) {
         return false;
     }
     app_t *app = ctx->app;
-    const mobj_t *u = ctx->unit;
     const spritecache_t *cache = ctx->cache;
     const gameinfo_t *game_info = ctx->game_info;
     const selectionmarker_t *info = &game_info->selection_marker;
@@ -1062,24 +1061,37 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
     const spritesheet_t *marker = R_CacheLookup(cache, sprite_name);
     if (!marker || !marker->texture || marker->frame_count <= 0) return false;
 
-    int bucket = selection_health_bucket(u);
-    int frame = bucket == 2 ? info->critical_frame :
-                bucket == 1 ? info->wounded_frame : info->healthy_frame;
     if (frame < 0 || frame >= marker->frame_count) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
-    irect_t dst = {
-        (int)lroundf(ctx->anchor.x) - frame_rect.w / 2,
-        (int)lroundf(ctx->anchor.y) - frame_rect.h + info->top_offset_y,
-        frame_rect.w,
-        frame_rect.h,
-    };
+    if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
     SDL_Texture *texture = begin_sprite_command(marker, 0, 0, 16);
     if (!texture) return false;
     SDL_RenderCopy(app->renderer, texture, &marker->frames[frame], &dst);
     end_sprite_command(texture, 0);
     return true;
+}
+
+bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
+    if (!ctx || !ctx->game_info) return false;
+    const selectionmarker_t *info = &ctx->game_info->selection_marker;
+    int bucket = selection_health_bucket(ctx->unit);
+    int frame = bucket == 2 ? info->critical_frame :
+                bucket == 1 ? info->wounded_frame : info->healthy_frame;
+    const spritesheet_t *marker = NULL;
+    if (ctx->cache && ctx->game_info->sprnames &&
+        info->sprite >= 0 && info->sprite < ctx->game_info->sprite_count) {
+        marker = R_CacheLookup(ctx->cache, ctx->game_info->sprnames[info->sprite]);
+    }
+    if (!marker || frame < 0 || frame >= marker->frame_count) return false;
+    irect_t frame_rect = sprite_frame_rect(marker, frame);
+    return R_DrawSelectionMarkerFrame(ctx, frame, (irect_t){
+        ctx->visible.x + (ctx->visible.w - frame_rect.w) / 2,
+        ctx->visible.y - frame_rect.h + info->top_offset_y,
+        frame_rect.w,
+        frame_rect.h,
+    });
 }
 
 static void render_unit_state_overlay(app_t *app, const mobj_t *u, const spritesheet_t *body_sprite,

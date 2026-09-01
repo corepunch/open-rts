@@ -332,7 +332,21 @@ static state_t dark_colony_runtime_states[NUMSTATES];
 static gameinfo_t dark_colony_runtime_info;
 
 static bool dark_colony_draw_selection(const selectiondrawcontext_t *ctx) {
-    return R_DrawSelectionMarkerSprite(ctx);
+    if (!ctx || !ctx->unit) return false;
+    bool drawn = R_DrawSelectionMarkerSprite(ctx);
+    uint16_t type = ctx->unit->native_type_id;
+    if ((type < 69 || type > 76) || !ctx->game_info || !ctx->cache ||
+        ctx->game_info->selection_marker.sprite < 0) {
+        return drawn;
+    }
+    int frame = 30 + (type - 69) % 4;
+    irect_t badge = {
+        ctx->visible.x + (ctx->visible.w - 30) / 2,
+        ctx->visible.y - 15,
+        30,
+        15,
+    };
+    return R_DrawSelectionMarkerFrame(ctx, frame, badge) || drawn;
 }
 
 const gameinfo_t *const gameinfo = &dark_colony_runtime_info;
