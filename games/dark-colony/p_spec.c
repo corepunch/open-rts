@@ -361,29 +361,28 @@ static void dark_colony_sync_dropship_parts(DarkColonyDropship *ship,
     const DarkColonyDropshipFrame *frame =
         &animation->frames[dark_colony_dropship_frame_at(animation, ship->elapsed_ms)];
     int runtime_part = 0;
-    for (int layer = 0; layer <= 5; ++layer) {
-        for (int part_index = 0; part_index < frame->part_count; ++part_index) {
-            const DarkColonyDropshipPart *part = &frame->parts[part_index];
-            if (part->layer != layer || runtime_part >= DC_DROPSHIP_MAX_PARTS) continue;
-            int slot = ship->effect_slots[runtime_part];
-            if (slot < 0 || slot >= max_effects || !effects[slot].active) {
-                slot = dark_colony_spawn_dropship_part(
-                    effects, max_effects, ship->center, ship->duration_ms);
-                ship->effect_slots[runtime_part] = slot;
-            }
-            if (slot >= 0) {
-                effect_t *effect = &effects[slot];
-                effect->core.frame = part->sprite_frame;
-                effect->core.render_offset = part->offset;
-                effect->core.render_remap = part->render_remap;
-                effect->core.render_intensity = part->render_intensity;
-                effect->core.render_flags = (uint32_t)part->flags;
-                effect->render_layer = part->layer;
-                snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name),
-                         "%s", part->sprite_name);
-            }
-            runtime_part++;
+    for (int part_index = 0;
+         part_index < frame->part_count && runtime_part < DC_DROPSHIP_MAX_PARTS;
+         ++part_index) {
+        const DarkColonyDropshipPart *part = &frame->parts[part_index];
+        int slot = ship->effect_slots[runtime_part];
+        if (slot < 0 || slot >= max_effects || !effects[slot].active) {
+            slot = dark_colony_spawn_dropship_part(
+                effects, max_effects, ship->center, ship->duration_ms);
+            ship->effect_slots[runtime_part] = slot;
         }
+        if (slot >= 0) {
+            effect_t *effect = &effects[slot];
+            effect->core.frame = part->sprite_frame;
+            effect->core.render_offset = part->offset;
+            effect->core.render_remap = part->render_remap;
+            effect->core.render_intensity = part->render_intensity;
+            effect->core.render_flags = (uint32_t)part->flags;
+            effect->render_selector = part->render_selector;
+            snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name),
+                     "%s", part->sprite_name);
+        }
+        runtime_part++;
     }
     for (int i = runtime_part; i < DC_DROPSHIP_MAX_PARTS; ++i) {
         int slot = ship->effect_slots[i];

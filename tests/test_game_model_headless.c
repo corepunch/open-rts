@@ -475,6 +475,19 @@ static int assert_human01(RtsGameModel *model) {
         !snapshot_has_effect(&snapshot, "SPRITES/GLIT.SPR")) {
         return fail("Human01 dropship composes native hull, fumes, and dust effects");
     }
+    int dropship_hull = -1;
+    for (int i = 3; i + 1 < snapshot.effect_count; ++i) {
+        if (strcmp(snapshot.effects[i].sprite_name, "SPRITES/DROP.SPR") == 0 &&
+            strcmp(snapshot.effects[i + 1].sprite_name, "SPRITES/DROP.SPR") == 0) {
+            dropship_hull = i;
+            break;
+        }
+    }
+    if (dropship_hull < 0 || snapshot.effects[dropship_hull - 1].render_selector != 5 ||
+        snapshot.effects[dropship_hull].render_selector != 1 ||
+        snapshot.effects[dropship_hull + 1].render_selector != 0) {
+        return fail("Human01 dropship preserves authored FIN order and render selectors");
+    }
     if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
         return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
     }

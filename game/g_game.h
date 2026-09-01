@@ -134,6 +134,7 @@ typedef struct {
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
+    int render_selector;
     bool ground_light;
     int light_radius;
     char sprite_name[32];

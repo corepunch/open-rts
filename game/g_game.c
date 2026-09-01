@@ -1491,6 +1491,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->render_flags = src->core.render_flags;
         dst->render_remap = src->core.render_remap;
         dst->render_intensity = src->core.render_intensity;
+        dst->render_selector = src->render_selector;
         dst->ground_light = src->ground_light;
         dst->light_radius = src->light_radius;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);

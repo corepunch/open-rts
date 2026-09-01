@@ -6,7 +6,10 @@
 #include "m_vec.h"
 
 #include <SDL.h>
+#include <stdbool.h>
 #include <stdint.h>
+
+typedef struct app_s app_t;
 
 typedef struct {
     int value;
@@ -54,6 +57,8 @@ typedef struct spritesheet_s {
     int sequence_count;
     void *native_data;
     void (*destroy_native_data)(void *);
+    bool (*render_selector)(app_t *app, const struct spritesheet_s *sprite,
+                            int frame, irect_t dst, uint32_t flags, int selector);
 } spritesheet_t;
 
 typedef struct cachedsprite_s {

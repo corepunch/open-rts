@@ -5,6 +5,7 @@
 #include "info.h"
 #include "gamestat.h"
 #include "dc_types.h"
+#include "w_spr.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -363,6 +364,10 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                   const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
+    if (!dark_colony_load_render_tables(root, map->tileset_name)) {
+        fprintf(stderr, "failed to load Dark Colony render tables for %s\n", map->tileset_name);
+        return false;
+    }
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", root, map->tileset_name);
     if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;

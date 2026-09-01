@@ -522,7 +522,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
                     dec->animation_frames[i].duration_ms = placement->smoke_frames[i].duration_ms;
                 }
             }
-            dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
+            dec->render_selector = 5;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/PUFF.SPR");
             vent->smoke_decoration_index = map->decoration_count - 1;
         }

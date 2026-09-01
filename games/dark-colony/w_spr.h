@@ -27,7 +27,7 @@ typedef struct {
     int sprite_frame;
     int render_remap;
     int render_intensity;
-    int layer;
+    int render_selector;
     int flags;
 } DarkColonyDropshipPart;
 
@@ -47,4 +47,5 @@ typedef struct {
 bool dark_colony_vent_placement_from_sprites(const char *map_path, DarkColonyVentPlacement *out);
 bool dark_colony_dropship_animation_from_sprites(const char *map_path,
                                                  DarkColonyDropshipAnimation *out);
+bool dark_colony_load_render_tables(const char *data_root, const char *tileset_name);
 #endif

@@ -565,6 +565,10 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     if ((render_flags & RTS_FRAME_BLINK) != 0 && ((app->ticks_ms / 250u) % 2u) == 0u) {
         return;
     }
+    if (sprite->render_selector &&
+        sprite->render_selector(app, sprite, frame, dst, render_flags, dec->render_selector)) {
+        return;
+    }
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_Texture *texture = begin_sprite_command(sprite, render_flags, 0, 16);
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
@@ -1311,14 +1315,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
     int draw_count = 0;
     for (int i = 0; i < max_effects; ++i) {
         if (!effects[i].active) continue;
-        int insert_at = draw_count;
-        while (insert_at > 0 &&
-               effects[draw_order[insert_at - 1]].render_layer > effects[i].render_layer) {
-            draw_order[insert_at] = draw_order[insert_at - 1];
-            insert_at--;
-        }
-        draw_order[insert_at] = i;
-        draw_count++;
+        draw_order[draw_count++] = i;
     }
     for (int draw_index = 0; draw_index < draw_count; ++draw_index) {
         int i = draw_order[draw_index];
@@ -1393,6 +1390,11 @@ void R_DrawEffects(app_t *app, const level_t *map,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
             SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        if (sprite->render_selector && sprite->render_selector(
+                app, sprite, frame, dst, effect->core.render_flags,
+                effect->render_selector)) {
+            continue;
+        }
         SDL_Texture *texture = begin_sprite_command(sprite, effect->core.render_flags,
                                                     effect->core.render_remap,
                                                     effect->core.render_intensity);

@@ -67,6 +67,7 @@ typedef struct mapdecoration_s {
     int frame3_index;
     angle_t angle;
     uint32_t render_flags;
+    int render_selector;
     uint32_t render2_flags;
     uint32_t render3_flags;
     char sprite_name[32];

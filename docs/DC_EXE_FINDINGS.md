@@ -157,21 +157,42 @@ The confirmed portion of each 28-byte record written at `0x004dc0ac` is:
 multiple of eight. `0x00432dec` stores that key and decrements it after each
 part, preserving order among parts submitted by one animation frame. Consumer
 `0x0044f95c` culls, sorts, and dispatches records. Record `+0x17` has observed
-values zero through five; nonzero selectors reach scaled or remapped handlers
+values zero through five. The FIN command field at `+0x0c` is copied to this
+selector byte; it is a composition selector, not a z-order layer. The FIN
+command at `+0x0e` is copied to record byte `+0x18`. Nonzero selectors reach
+scaled or remapped handlers
 around `0x0045c7b0`, `0x0045cc04`, `0x0045d334`, `0x0045d358`, `0x0045d6d4`,
-and `0x0045d6f8`. Selector 2 enters `0x0045d334`, which delegates to
+and `0x0045d6f8`. Selector 5 enters `0x0045d334`, which delegates to
 `0x0045d358`. Its setup at `0x0045d3b5..0x0045d3db` adds cell `disX` to the
 queued X coordinate and subtracts cell height from the queued Y coordinate.
-Thus selector 2 uses the same destination origin formula as selector zero:
+Thus selector 5 uses the same destination origin formula as selector zero:
 
 ```text
 draw_x = object_screen_x + FIN.x + cell.disX
 draw_y = object_screen_y + FIN.y - cell.height
 ```
 
-The later body implements the selector's specialized pixel composition. The
-complete semantic names and packed-field mapping for selectors one through
-five remain **unknown**.
+**Confirmed selector-5 composition:** graphics setup `0x0044a7b0` loads exactly
+`0x30000` bytes from the active `<tileset>.RMP`, three 256-by-256 byte lookup
+tables. Selector-5 wrapper `0x0045d334` advances the table pointer by
+`0x10000`, calls `0x0045d358`, and restores the pointer. Scanline compositor
+`0x0046387b` reaches generated kernels beginning at `0x00461ab6`; each drawn
+pixel reads the destination index into `AL`, the source index into `AH`, then
+executes `mov al,[eax]` and writes `AL` back to the destination. The formula is:
+
+```text
+destination = RMP[0x10000 + (source << 8) + destination]
+```
+
+This is destination-aware indexed-palette composition, not RGBA alpha or
+additive blending. The complete semantic names for selectors one through four
+remain **unknown**.
+
+**Disproven:** sorting FIN commands numerically by their `layer` field does not
+reproduce native depth. It changes authored command order and puts selector-5
+dust over the dropship hull. Queue sequence keys preserve FIN order; for
+`DROPTWO`, the early cloud/dust/fume commands are intentionally submitted
+before the two hull commands.
 
 **Disproven:** the queue was previously reported as reaching dispatcher
 `0x0044b5e4` through a callback installed by constructor `0x004297e4`. That
@@ -308,10 +329,10 @@ three runtime ticks.
 labels `DROPTWO` (`0..9`), `DROPSTAND0` (`72..81`), and `DROPMOVE0`
 (`84..93`). Every `DROPTWO` frame contains both hull cells, `DROP` cells 0 and
 1, at independently authored positions. The sequence also composes `DUTS`
-(dust), `CLOD` (ground clouds), and `GLIT` (engine fumes and lights) on layer
-5. The first frame contains 12 commands, including:
+(dust), `CLOD` (ground clouds), and `GLIT` (engine fumes and lights) with render
+selector 5. The first frame contains 12 commands in authored order, including:
 
-| Part | Cell | FIN position | Layer |
+| Part | Cell | FIN position | Selector |
 | --- | ---: | --- | ---: |
 | `CLOD` | 2 | `(-156,92)` | 5 |
 | `DUTS` | 0 | `(-112,85)` | 5 |
@@ -332,7 +353,7 @@ for the existing scripted multi-unit release duration.
 
 **Disproven:** a reinforcement dropship is not one centered, static
 `SPRITES/DROP.SPR` cell. That omits the second hull cell, every authored effect,
-FIN placement, layer order, and frame progression.
+FIN placement, command order, native selector composition, and frame progression.
 
 **Unknown:** the controlling DC.EXE caller that selects `DROPTWO` has not yet
 been isolated. An analyzed-string search of the fingerprinted executable found
@@ -646,8 +667,21 @@ top near the vent while its changing cell artwork supplies the smoke motion:
 
 Open-rts stores the authored cell, remapped world-render pivot, and converted
 duration for each FIN frame. The first two steps last 167 ms and the remaining
-steps last 100 ms. The exact native queue selector remains untraced; the
-placement is **inferred** from the FIN/SPR metadata and retail screenshot.
+steps last 100 ms. The placement is **inferred** from the FIN/SPR metadata and
+retail screenshot; the composition behavior is confirmed separately below.
+
+Smoke composition is **confirmed** from the FIN fields and selector-5 renderer.
+Every `VENTSTAND0` puff uses intensity 16, selector 5, and flags 0. The first two
+steps use remap 0 and the remaining primary puff commands use remap 2. Intensity
+16 reaches `0x0045d6f8` through `ECX` and seeds raster state at `0x0045d715`,
+but the generated drawn-pixel kernels overwrite the corresponding source-index
+byte; its remaining role is **unknown** and it is not evidence for scalar
+opacity. Selector-5 wrapper `0x0045d6d4` selects the second 256-by-256 table from
+the active tileset `.RMP`. Therefore the smoke has no scalar RGBA opacity: each
+nontransparent source palette index and existing destination palette index
+select a replacement destination index. Open-rts must use this indexed
+composition and must not approximate it with additive blending, a yellow color
+modulation, or a fixed alpha.
 
 **Correction (2026-09-01):** the first implementation and its regression test
 still used the disproven selector-zero `FIN.y - height` expression even though

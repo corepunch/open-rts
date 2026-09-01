@@ -230,7 +230,7 @@ typedef struct effect_s {
     bool active;
     bool use_state;
     bool fin_placement;
-    int render_layer;
+    int render_selector;
     int age_ms;
     int duration_ms;
     int frame_ms;

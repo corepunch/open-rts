@@ -379,7 +379,9 @@ static int assert_dark_colony_city_fin_alignment(void) {
         if (!puff || puff->frame != expected_cells[i] ||
             !load_spr_frame_info("data/DCOLONY/SPRITES/PUFF.SPR", puff->frame, &puff_frame) ||
             puff->x + puff_frame.dis_x != expected_left[i] ||
-            -puff->y + puff_frame.dis_y != expected_top[i]) {
+            -puff->y + puff_frame.dis_y != expected_top[i] ||
+            puff->remap != (i < 2 ? 0 : 2) || puff->intensity != 16 ||
+            puff->layer != 5 || puff->flags != 0) {
             return fail("Petra-7 smoke uses the remapped VENT.FIN placement");
         }
         int expected_ticks = i < 2 ? 26 : 15;
@@ -398,11 +400,15 @@ static int assert_dark_colony_city_fin_alignment(void) {
     const FinCommand *hull_top = fin_frame_command(&drop_fin, drop_two->start, "drop", 1);
     const FinCommand *hull_bottom = fin_frame_command(&drop_fin, drop_two->start, "drop", 0);
     const FinCommand *cloud = fin_frame_command(&drop_fin, drop_two->start, "clod", 5);
+    const FinCommand *ordered = &drop_fin.commands[drop_frame->command_start];
     if (drop_fin.frames[drop_two->start].part_count != 12 || !dust || !hull_top ||
         !hull_bottom || !cloud || dust->frame != 0 || dust->x != -112 || dust->y != 85 ||
         hull_top->frame != 0 || hull_top->x != -64 || hull_top->y != 69 ||
         hull_bottom->frame != 1 || hull_bottom->x != -64 || hull_bottom->y != 34 ||
-        drop_frame->part_count != 12) {
+        drop_frame->part_count != 12 || strcmp(ordered[0].sprite, "clod") != 0 ||
+        strcmp(ordered[1].sprite, "clod") != 0 || strcmp(ordered[2].sprite, "duts") != 0 ||
+        strcmp(ordered[3].sprite, "glit") != 0 || strcmp(ordered[4].sprite, "drop") != 0 ||
+        ordered[0].layer != 5 || ordered[4].layer != 1 || ordered[5].layer != 0) {
         return fail("dropship frame preserves native hull, fumes, and dust commands");
     }
     return 0;
