@@ -508,7 +508,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
 
             dec = &map->decorations[map->decoration_count++];
             memset(dec, 0, sizeof(*dec));
-            dec->cell = (ivec2_t){ x, y };
+            dec->cell = (ivec2_t){ x, y - 1 }; // HACK: see dark_colony_vent_placement_from_sprites for companion hack
             dec->footprint = (isize2_t){ 1, 1 };
             dec->center_anchor = true;
             dec->has_sprite_pivot = true;
@@ -522,6 +522,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
                     dec->animation_frames[i].duration_ms = placement->smoke_frames[i].duration_ms;
                 }
             }
+            dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
             dec->render_selector = 5;
             snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/PUFF.SPR");
             vent->smoke_decoration_index = map->decoration_count - 1;
