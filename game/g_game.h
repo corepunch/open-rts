@@ -134,6 +134,8 @@ typedef struct {
     uint32_t render_flags;
     int render_remap;
     int render_intensity;
+    bool ground_light;
+    int light_radius;
     char sprite_name[32];
     char sequence_name[16];
 } RtsRenderEffect;

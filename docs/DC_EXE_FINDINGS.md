@@ -629,6 +629,41 @@ untraced. No gameplay coordinate is derived from EXPL frame bounds.
 
 ## Known unknowns
 
+## Combat flash, blood, and ground illumination (2026-09-01)
+
+**Confirmed.** The reference executable is `data/DCOLONY/DC.EXE`, PE32/i386,
+566272 bytes, stamped 1997-08-11 (the fingerprint was obtained with
+`rabin2 -I`). Its native animation data is external: the combat visuals are
+provided by the FIN command tables and the companion SPR files, rather than
+embedded in the executable.
+
+**Confirmed from native data.** The FIN fire labels use layer-3 `BLAZ` commands
+for the bright muzzle attachment. The existing FIN extraction path selects the
+nearest following layer-3 command after the layer-1 body command and preserves
+its per-direction x/y placement. `BLOO.SPR` is a separately referenced combat
+effect sprite; the animation tables also contain `HIT*` and `BLOOD%c` effect
+families for other reactions. This is why the runtime uses `BLAZ.SPR` for the
+short muzzle flash and `BLOO.SPR` at the damaged unit, instead of drawing a
+placeholder shape.
+
+**Implementation consequence.** Dark Colony actor defaults now name the native
+flash and blood assets for every combat actor, including actors whose generated
+body state table does not yet expose a missile state. Each attack also creates
+a short-lived additive ground-light record at the attacker's map origin. The
+light is rendered as a fading, flattened ground glow in screen space; it does
+not move the unit or alter FIN attachment coordinates. A focused reproduction
+is:
+
+```sh
+make build/bin/dark-colony
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check --game dark-colony
+```
+
+**Inferred.** The exact native lighting primitive is not yet isolated in
+`DC.EXE`; the ground glow is therefore a renderer-side approximation of the
+visible muzzle illumination, while the BLAZ/BLOO asset selection and FIN muzzle
+placement are native-data-derived.
+
 - The complete semantics and ordering rules for every FIN layer value.
 - The exact meaning of all FIN flag bits beyond observed horizontal flipping.
 - Which gameplay transition chooses Exploiter `SHUF` versus odd `MOVE` poses.

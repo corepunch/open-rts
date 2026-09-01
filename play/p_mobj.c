@@ -264,6 +264,23 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
     return false;
 }
 
+static bool spawn_ground_light(effect_t *effects, int max_effects,
+                               fixedvec3_t position, int duration_ms, int radius) {
+    if (!effects || max_effects <= 0) return false;
+    for (int i = 0; i < max_effects; ++i) {
+        effect_t *effect = &effects[i];
+        if (effect->active) continue;
+        memset(effect, 0, sizeof(*effect));
+        effect->active = true;
+        effect->ground_light = true;
+        effect->core.position = position;
+        effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
+        effect->light_radius = radius > 0 ? radius : 28;
+        return true;
+    }
+    return false;
+}
+
 bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixedvec3_t position, angle_t angle) {
     if (!ctx || !ctx->effects || ctx->max_effects <= 0 || !ctx->game_info) return false;
     for (int i = 0; i < ctx->max_effects; ++i) {
@@ -1047,14 +1064,20 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             fvec2_t muzzle_position = fvec2_add(
                 fixedvec3_xy_to_fvec2(attacker->core.position),
                                                 fvec2_scale((fvec2_t){ vx, vy }, 0.42f));
+            int flash_ms = attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120;
+            bool light_spawned = spawn_ground_light(effects, max_effects,
+                                                    attacker->core.position,
+                                                    flash_ms, 30);
             bool spawned = spawn_visual_effect(effects, max_effects, attacker->muzzle_flash_name, "flash",
                                                fixedvec3_with_xy(attacker->core.position,
                                                                  muzzle_position),
                                                attacker->core.angle,
-                                               attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120,
+                                               flash_ms,
                                                40, false, 0);
             debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
                               i, target_index, spawned ? 1 : 0, attacker->muzzle_flash_name);
+            debug_effects_log("attack ground-light attacker=%d spawned=%d", i,
+                              light_spawned ? 1 : 0);
         }
         target->hp -= attacker->attack.damage;
         debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",

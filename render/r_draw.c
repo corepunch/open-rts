@@ -1281,6 +1281,26 @@ static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *
     return anim < 0 ? 0 : anim;
 }
 
+static void draw_ground_light(app_t *app, const level_t *map, const effect_t *effect) {
+    if (!app || !map || !effect) return;
+    float sx, sy;
+    R_MapToScreen(app, map, effect->core.gx, effect->core.gy, &sx, &sy);
+    int radius = effect->light_radius > 0 ? effect->light_radius : 28;
+    int duration = effect->duration_ms > 0 ? effect->duration_ms : 120;
+    int age = effect->age_ms < duration ? effect->age_ms : duration;
+    int fade = duration > 0 ? (255 * (duration - age)) / duration : 0;
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_ADD);
+    for (int y = -radius / 2; y <= radius / 2; ++y) {
+        float shape = 1.0f - fabsf((float)y / (float)(radius / 2 + 1));
+        int half = (int)lroundf(radius * shape);
+        SDL_SetRenderDrawColor(app->renderer, 255, 190, 48,
+                               (uint8_t)((fade * 30) / 255));
+        SDL_RenderDrawLine(app->renderer, (int)sx - half, (int)sy + y,
+                           (int)sx + half, (int)sy + y);
+    }
+    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+}
+
 void R_DrawEffects(app_t *app, const level_t *map,
                            const effect_t *effects, int max_effects,
                            const spritecache_t *cache, const gameinfo_t *game_info) {
@@ -1288,6 +1308,10 @@ void R_DrawEffects(app_t *app, const level_t *map,
     for (int i = 0; i < max_effects; ++i) {
         const effect_t *effect = &effects[i];
         if (!effect->active) continue;
+        if (effect->ground_light) {
+            draw_ground_light(app, map, effect);
+            continue;
+        }
         const char *sprite_name = effect->core.sprite_name;
         if (effect->use_state && game_info && effect->core.sprite_id >= 0 &&
             effect->core.sprite_id < game_info->sprite_count &&

@@ -1103,6 +1103,12 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
         unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
     if (unit->hit_effect_sprite < 0)
         unit->hit_effect_sprite = type->hit_effect_sprite;
+    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)
+        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name),
+                 "%s", type->muzzle_flash_name);
+    if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
+        snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name),
+                 "%s", type->hit_effect_name);
 }
 
 static void apply_plugin_actor_defaults(RtsGameModel *model) {
@@ -1410,6 +1416,8 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->render_flags = src->core.render_flags;
         dst->render_remap = src->core.render_remap;
         dst->render_intensity = src->core.render_intensity;
+        dst->ground_light = src->ground_light;
+        dst->light_radius = src->light_radius;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);
         snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }

@@ -43,7 +43,9 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
         .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 120,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_GREY,
@@ -56,7 +58,9 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
         .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 120,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_EXPLOITER,
@@ -80,7 +84,9 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
         .muzzle_flash_sprite = SPR_DC_BLAZ,
         .muzzle_flash_ms = 120,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_THUNDERBOLT,
@@ -93,7 +99,9 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200, .anim_ms = 400 },
         .muzzle_flash_sprite = SPR_DC_BLAZ,
         .muzzle_flash_ms = 150,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_CYBORG,
@@ -106,7 +114,9 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 3.0f, .damage = 150, .cooldown_ms = 700, .anim_ms = 250 },
         .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 120,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_SCOUT,
@@ -119,7 +129,9 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 5.0f, .damage = 80, .cooldown_ms = 600, .anim_ms = 200 },
         .muzzle_flash_sprite = SPR_DC_MUZA,
         .muzzle_flash_ms = 100,
+        .muzzle_flash_name = "SPRITES/BLAZ.SPR",
         .hit_effect_sprite = SPR_DC_BLOO,
+        .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
         .id = MT_DC_EXCOPOD,

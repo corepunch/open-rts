@@ -730,6 +730,12 @@ static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
         unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
     if (unit->hit_effect_sprite < 0)
         unit->hit_effect_sprite = type->hit_effect_sprite;
+    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)
+        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name),
+                 "%s", type->muzzle_flash_name);
+    if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
+        snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name),
+                 "%s", type->hit_effect_name);
 }
 
 static void apply_actor_defaults(mobj_t *units, int count) {
