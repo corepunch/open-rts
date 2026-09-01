@@ -2,6 +2,7 @@
 #include "dc_facing.h"
 #include "info.h"
 #include "dc_types.h"
+#include "w_spr.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -95,14 +96,10 @@ typedef struct {
 
 typedef struct {
     bool active;
-    float center_gx;
-    float center_gy;
-    float radius;
-    float angle;        /* radians, advances each frame */
-    float speed;        /* radians per second */
+    fvec2_t center;
     int duration_ms;
     int elapsed_ms;
-    int effect_slot;    /* index into effects array, -1 if untracked */
+    int effect_slots[DC_DROPSHIP_MAX_PARTS];
 } DarkColonyDropship;
 
 typedef struct {
@@ -112,6 +109,7 @@ typedef struct {
     int block_count;
     DarkColonyPendingSpawn pending_spawns[128];
     DarkColonyDropship dropships[8];
+    DarkColonyDropshipAnimation dropship_animation;
     int elapsed_ms;
     int ai_elapsed_ms;
     int ai_wave_elapsed_ms;
@@ -320,31 +318,86 @@ static bool dark_colony_player_near(const level_t *map, const mobj_t *units,
     return false;
 }
 
-static int dark_colony_spawn_dropship_effect(effect_t *effects, int max_effects,
-                                             float gx, float gy, int duration_ms) {
+static int dark_colony_spawn_dropship_part(effect_t *effects, int max_effects,
+                                           fvec2_t center, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
         effect_t *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
-        effect->core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
+        effect->fin_placement = true;
+        effect->core.position = fixedvec3_from_fvec2(center, 0);
         effect->duration_ms = duration_ms;
         effect->frame_ms = duration_ms + 1;
-        effect->core.render_intensity = 16;
-        effect->core.render_offset = (ivec2_t){ 0, -75 };
-        snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name), "SPRITES/DROP.SPR");
         return i;
     }
     return -1;
+}
+
+static void dark_colony_clear_dropship_parts(DarkColonyDropship *ship,
+                                             effect_t *effects, int max_effects) {
+    for (int i = 0; i < DC_DROPSHIP_MAX_PARTS; ++i) {
+        int slot = ship->effect_slots[i];
+        if (slot >= 0 && slot < max_effects) memset(&effects[slot], 0, sizeof(effects[slot]));
+        ship->effect_slots[i] = -1;
+    }
+}
+
+static int dark_colony_dropship_frame_at(const DarkColonyDropshipAnimation *animation,
+                                         int elapsed_ms) {
+    if (animation->duration_ms > 0) elapsed_ms %= animation->duration_ms;
+    int frame_end_ms = 0;
+    for (int i = 0; i < animation->frame_count; ++i) {
+        frame_end_ms += animation->frames[i].duration_ms;
+        if (elapsed_ms < frame_end_ms) return i;
+    }
+    return animation->frame_count - 1;
+}
+
+static void dark_colony_sync_dropship_parts(DarkColonyDropship *ship,
+                                            const DarkColonyDropshipAnimation *animation,
+                                            effect_t *effects, int max_effects) {
+    if (!animation->valid || animation->frame_count <= 0) return;
+    const DarkColonyDropshipFrame *frame =
+        &animation->frames[dark_colony_dropship_frame_at(animation, ship->elapsed_ms)];
+    int runtime_part = 0;
+    for (int layer = 0; layer <= 5; ++layer) {
+        for (int part_index = 0; part_index < frame->part_count; ++part_index) {
+            const DarkColonyDropshipPart *part = &frame->parts[part_index];
+            if (part->layer != layer || runtime_part >= DC_DROPSHIP_MAX_PARTS) continue;
+            int slot = ship->effect_slots[runtime_part];
+            if (slot < 0 || slot >= max_effects || !effects[slot].active) {
+                slot = dark_colony_spawn_dropship_part(
+                    effects, max_effects, ship->center, ship->duration_ms);
+                ship->effect_slots[runtime_part] = slot;
+            }
+            if (slot >= 0) {
+                effect_t *effect = &effects[slot];
+                effect->core.frame = part->sprite_frame;
+                effect->core.render_offset = part->offset;
+                effect->core.render_remap = part->render_remap;
+                effect->core.render_intensity = part->render_intensity;
+                effect->core.render_flags = (uint32_t)part->flags;
+                effect->render_layer = part->layer;
+                snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name),
+                         "%s", part->sprite_name);
+            }
+            runtime_part++;
+        }
+    }
+    for (int i = runtime_part; i < DC_DROPSHIP_MAX_PARTS; ++i) {
+        int slot = ship->effect_slots[i];
+        if (slot >= 0 && slot < max_effects) memset(&effects[slot], 0, sizeof(effects[slot]));
+        ship->effect_slots[i] = -1;
+    }
 }
 
 static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
                                           effect_t *effects, int max_effects,
                                           int gx, int gy, int duration_ms) {
     if (!mission || !effects || max_effects <= 0) return;
-    int actual_duration = duration_ms > 1400 ? duration_ms : 1400;
-    float cx = (float)gx + 0.5f;
-    float cy = (float)gy + 0.5f;
+    int native_duration = mission->dropship_animation.duration_ms;
+    int actual_duration = duration_ms > native_duration ? duration_ms : native_duration;
 
     /* Find a free dropship slot */
     DarkColonyDropship *ship = NULL;
@@ -353,23 +406,13 @@ static void dark_colony_spawn_drop_effect(DarkColonyMission *mission,
     }
     if (!ship) return;
 
-    /* Start the dropship on the orbit at a random-ish angle offset by slot index */
-    float start_angle = 0.0f;
-    for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
-        if (&mission->dropships[i] == ship) { start_angle = (float)i * 1.05f; break; }
-    }
-
-    ship->active      = true;
-    ship->center_gx   = cx;
-    ship->center_gy   = cy;
-    ship->radius      = 0.0f;
-    ship->angle       = start_angle;
-    ship->speed       = 0.0f;
+    memset(ship, 0, sizeof(*ship));
+    ship->active = true;
+    ship->center = (fvec2_t){ (float)gx + 0.5f, (float)gy + 0.5f };
     ship->duration_ms = actual_duration;
-    ship->elapsed_ms  = 0;
-
-    ship->effect_slot = dark_colony_spawn_dropship_effect(effects, max_effects,
-                                                          cx, cy, actual_duration);
+    for (int i = 0; i < DC_DROPSHIP_MAX_PARTS; ++i) ship->effect_slots[i] = -1;
+    dark_colony_sync_dropship_parts(
+        ship, &mission->dropship_animation, effects, max_effects);
 
     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
         fprintf(stderr, "Dark Colony dropship effect at %d,%d duration=%d\n",
@@ -652,6 +695,7 @@ void *dark_colony_load_mission(const char *map_path) {
     replace_extension(tro_path, sizeof(tro_path), map_path, ".TRO");
     dark_colony_parse_messages(mission, msg_path);
     dark_colony_parse_tro(mission, tro_path);
+    dark_colony_dropship_animation_from_sprites(map_path, &mission->dropship_animation);
     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
         fprintf(stderr, "Dark Colony mission %s: %d messages, %d blocks\n",
                 map_path, mission->message_count, mission->block_count);
@@ -691,23 +735,17 @@ void dark_colony_update_mission(void *ptr, level_t *map, mobj_t *units, int *uni
     }
     dark_colony_update_pending_spawns(mission, map, units, unit_count, game_info);
 
-    /* Advance orbiting dropships */
     for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
         DarkColonyDropship *ship = &mission->dropships[i];
         if (!ship->active) continue;
         ship->elapsed_ms += (int)(dt * 1000.0f);
         if (ship->elapsed_ms >= ship->duration_ms) {
+            dark_colony_clear_dropship_parts(ship, effects, max_effects);
             ship->active = false;
             continue;
         }
-        ship->angle += ship->speed * dt;
-        float sx = ship->center_gx + cosf(ship->angle) * ship->radius;
-        float sy = ship->center_gy + sinf(ship->angle) * ship->radius;
-        if (ship->effect_slot >= 0 && ship->effect_slot < max_effects &&
-            effects[ship->effect_slot].active) {
-            effects[ship->effect_slot].core.position =
-                fixedvec3_from_fvec2((fvec2_t){ sx, sy }, 0);
-        }
+        dark_colony_sync_dropship_parts(
+            ship, &mission->dropship_animation, effects, max_effects);
     }
 }
 

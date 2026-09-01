@@ -784,3 +784,73 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     dark_colony_animation_destroy(&animation);
     return true;
 }
+
+bool dark_colony_dropship_animation_from_sprites(const char *map_path,
+                                                 DarkColonyDropshipAnimation *out) {
+    if (!map_path || !out) return false;
+    memset(out, 0, sizeof(*out));
+
+    const char *scenario = strcasestr(map_path, "/SCENARIO/");
+    if (!scenario) return false;
+    size_t root_len = (size_t)(scenario - map_path);
+    if (root_len == 0 || root_len >= 900) return false;
+
+    char animation_path[1024];
+    snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/DROP.FIN",
+             (int)root_len, map_path);
+
+    DarkColonyAnimationFile animation = {0};
+    if (!dark_colony_animation_load(animation_path, &animation)) return false;
+
+    const DarkColonyAnimationLabel *label = NULL;
+    for (int i = 0; i < animation.label_count; ++i) {
+        if (strcmp(animation.labels[i].name, "DROPTWO") == 0) {
+            label = &animation.labels[i];
+            break;
+        }
+    }
+    if (!label || label->end < label->start ||
+        label->end - label->start + 1 > DC_DROPSHIP_MAX_FRAMES) {
+        dark_colony_animation_destroy(&animation);
+        return false;
+    }
+
+    int command_index = 0;
+    for (int frame_index = 0; frame_index < animation.aux_count; ++frame_index) {
+        int part_count = read_u16_le(animation.aux_records + (size_t)frame_index * 164);
+        if (frame_index >= label->start && frame_index <= label->end) {
+            if (part_count > DC_DROPSHIP_MAX_PARTS ||
+                command_index + part_count > animation.command_count) {
+                dark_colony_animation_destroy(&animation);
+                return false;
+            }
+            DarkColonyDropshipFrame *frame = &out->frames[out->frame_count++];
+            int raw_ticks = read_u16_le(
+                animation.aux_records + (size_t)frame_index * 164 + 2);
+            if (raw_ticks == 0) raw_ticks = 15;
+            int runtime_tics = ((raw_ticks + 3) * 19) / 100;
+            frame->duration_ms = (runtime_tics * 1000 + 15) / 30;
+            frame->part_count = part_count;
+            out->duration_ms += frame->duration_ms;
+            for (int part_index = 0; part_index < part_count; ++part_index) {
+                const DarkColonyAnimationCommand *command =
+                    &animation.commands[command_index + part_index];
+                DarkColonyDropshipPart *part = &frame->parts[part_index];
+                snprintf(part->sprite_name, sizeof(part->sprite_name),
+                         "SPRITES/%s.SPR", command->sprite);
+                for (char *p = part->sprite_name; *p; ++p)
+                    *p = (char)toupper((unsigned char)*p);
+                part->offset = (ivec2_t){ command->x, command->y };
+                part->sprite_frame = command->frame;
+                part->render_remap = command->remap;
+                part->render_intensity = command->intensity;
+                part->layer = command->layer;
+                part->flags = command->flags;
+            }
+        }
+        command_index += part_count;
+    }
+    out->valid = out->frame_count > 0 && out->duration_ms > 0;
+    dark_colony_animation_destroy(&animation);
+    return out->valid;
+}

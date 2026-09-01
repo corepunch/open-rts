@@ -1306,9 +1306,23 @@ void R_DrawEffects(app_t *app, const level_t *map,
                            const effect_t *effects, int max_effects,
                            const spritecache_t *cache, const gameinfo_t *game_info) {
     if (!effects || max_effects <= 0) return;
+    int *draw_order = malloc((size_t)max_effects * sizeof(*draw_order));
+    if (!draw_order) return;
+    int draw_count = 0;
     for (int i = 0; i < max_effects; ++i) {
+        if (!effects[i].active) continue;
+        int insert_at = draw_count;
+        while (insert_at > 0 &&
+               effects[draw_order[insert_at - 1]].render_layer > effects[i].render_layer) {
+            draw_order[insert_at] = draw_order[insert_at - 1];
+            insert_at--;
+        }
+        draw_order[insert_at] = i;
+        draw_count++;
+    }
+    for (int draw_index = 0; draw_index < draw_count; ++draw_index) {
+        int i = draw_order[draw_index];
         const effect_t *effect = &effects[i];
-        if (!effect->active) continue;
         if (effect->ground_light) {
             draw_ground_light(app, map, effect);
             continue;
@@ -1330,14 +1344,16 @@ void R_DrawEffects(app_t *app, const level_t *map,
         float sx, sy;
         fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
         R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
-        int frame = effect->use_state ? effect->core.frame : sprite_frame_for_effect(sprite, effect);
+        int frame = effect->use_state || effect->fin_placement ?
+            effect->core.frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->frame_count) frame = 0;
         irect_t frame_rect = sprite_frame_rect(sprite, frame);
         int sprite_w = frame_rect.w;
         int sprite_h = frame_rect.h;
         irect_t dst;
-        if (effect->use_state && game_info &&
-            game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
+        if (effect->fin_placement ||
+            (effect->use_state && game_info &&
+             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT)) {
             int offset_x = sprite_world_offset_x(sprite, frame, effect->core.render_flags);
             dst = (irect_t){
                 (int)lroundf(sx) + effect->core.render_offset.x + offset_x,
@@ -1383,6 +1399,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
         SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
         end_sprite_command(texture, effect->core.render_flags);
     }
+    free(draw_order);
 }
 
 void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,

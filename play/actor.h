@@ -229,6 +229,8 @@ typedef struct effect_s {
     mobjcore_t core;
     bool active;
     bool use_state;
+    bool fin_placement;
+    int render_layer;
     int age_ms;
     int duration_ms;
     int frame_ms;

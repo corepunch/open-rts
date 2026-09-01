@@ -88,16 +88,6 @@ typedef struct {
     int expl_death;
 } DcFinStateCounts;
 
-typedef struct {
-    int frame;
-    int x;
-    int y;
-    int remap;
-    int intensity;
-} DcFinPulseFrame;
-
-#define MAX_EXPL_MINING_PULSE_FRAMES 32
-
 enum {
     DC_FIN_HEADER_DISK_SIZE = 8,
     DC_FIN_DEPENDENCY_DISK_SIZE = 8,
@@ -472,71 +462,6 @@ static const DcFinDrawPart *dc_fin_find_draw_part_in_animation_header(const DcFi
     return NULL;
 }
 
-static void fin_append_pulse_frame(DcFinPulseFrame *frames, int *count, int max_count,
-                                   const DcFinDrawPart *cmd) {
-    if (!frames || !count || !cmd) die("invalid EXPL mining pulse draw part", NULL);
-    if (*count > 0 && frames[*count - 1].frame == cmd->frame) return;
-    if (*count >= max_count) die("EXPL mining pulse has too many frames", NULL);
-    frames[*count].frame = cmd->frame;
-    frames[*count].x = cmd->x;
-    frames[*count].y = cmd->y;
-    frames[*count].remap = cmd->remap;
-    frames[*count].intensity = cmd->intensity;
-    (*count)++;
-}
-
-static void fin_append_expl_top_frames_for_label(const DcFinAnimation *fin,
-                                                 const char *label_name,
-                                                 const int *wanted_frames,
-                                                 int wanted_count,
-                                                 DcFinPulseFrame *frames,
-                                                 int *count,
-                                                 int max_count) {
-    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
-    if (!fin || !label || !wanted_frames || wanted_count <= 0) {
-        fprintf(stderr, "dc_info_gen: EXPL.FIN missing mining pulse label %s\n", label_name);
-        exit(1);
-    }
-    const DcFinDrawPart *draw_parts[512];
-    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
-                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
-    for (int wanted = 0; wanted < wanted_count; ++wanted) {
-        const DcFinDrawPart *match = NULL;
-        for (int i = 0; i < draw_part_count; ++i) {
-            const DcFinDrawPart *cmd = draw_parts[i];
-            if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 0 &&
-                cmd->flags == 0 && cmd->frame == wanted_frames[wanted]) {
-                match = cmd;
-                break;
-            }
-        }
-        if (!match) {
-            fprintf(stderr, "dc_info_gen: EXPL.FIN label %s missing top frame %d\n",
-                    label_name, wanted_frames[wanted]);
-            exit(1);
-        }
-        fin_append_pulse_frame(frames, count, max_count, match);
-    }
-}
-
-static int fin_build_expl_mining_pulse(const DcFinAnimation *fin, DcFinPulseFrame *frames,
-                                       int max_count) {
-    const DcFinDrawPart *body = dc_fin_find_draw_part_in_animation_header(fin, "EDPLYSTAND14",
-                                                       fin->stem_lower, 1, 34);
-    if (!body) die("EXPL.FIN missing EDPLYSTAND14 deployed body frame", NULL);
-
-    static const int deploy_tail[] = {25, 26, 27, 28, 29, 30, 32, 33};
-    static const int retract_tail[] = {32, 30, 28, 27, 26, 25, 24};
-    int count = 0;
-    fin_append_expl_top_frames_for_label(fin, "EXPLDEPLOY14", deploy_tail,
-                                         (int)(sizeof(deploy_tail) / sizeof(deploy_tail[0])),
-                                         frames, &count, max_count);
-    fin_append_expl_top_frames_for_label(fin, "EXPLRETRACT14", retract_tail,
-                                         (int)(sizeof(retract_tail) / sizeof(retract_tail[0])),
-                                         frames, &count, max_count);
-    return count;
-}
-
 static int fin_first_body_frame(const DcFinAnimation *fin, const char *label) {
     const DcFinAnimationHeader *l = dc_fin_find_animation_header(fin, label);
     if (!l) {
@@ -900,11 +825,6 @@ static int fin_frame_count_for_label(const DcFinAnimation *fin, const char *labe
     return label->end - label->start + 1;
 }
 
-static int fin_state_count_for_expl_mining_pulse(const DcFinAnimation *fin) {
-    DcFinPulseFrame frames[MAX_EXPL_MINING_PULSE_FRAMES];
-    return fin_build_expl_mining_pulse(fin, frames, MAX_EXPL_MINING_PULSE_FRAMES);
-}
-
 static void fin_muzzle_for_body_row(const DcFinAnimation *fin, const char *prefix, int body_base,
                                     int flash_w, int flash_h, int *frame_out,
                                     int offset_x[8], int offset_y[8]) {
@@ -1056,6 +976,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     char sarg_fin_path[1024];
     char scgm_fin_path[1024];
     char expl_fin_path[1024];
+    char effects_fin_path[1024];
     char hubu_fin_path[1024];
     snprintf(trsc_fin_path, sizeof(trsc_fin_path), "%s/ANIMATE/TRSC.FIN", root);
     snprintf(reap_fin_path, sizeof(reap_fin_path), "%s/ANIMATE/REAP.FIN", root);
@@ -1063,6 +984,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     snprintf(sarg_fin_path, sizeof(sarg_fin_path), "%s/ANIMATE/SARG.FIN", root);
     snprintf(scgm_fin_path, sizeof(scgm_fin_path), "%s/ANIMATE/SCGM.FIN", root);
     snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
+    snprintf(effects_fin_path, sizeof(effects_fin_path), "%s/ANIMATE/EFFECTS.FIN", root);
     snprintf(hubu_fin_path, sizeof(hubu_fin_path), "%s/ANIMATE/HUBU.FIN", root);
 
     DcFinAnimation trsc_fin = dc_load_fin_animation(trsc_fin_path, "TRSC");
@@ -1071,6 +993,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     DcFinAnimation sarg_fin = dc_load_fin_animation(sarg_fin_path, "SARG");
     DcFinAnimation scgm_fin = dc_load_fin_animation(scgm_fin_path, "SCGM");
     DcFinAnimation expl_fin = dc_load_fin_animation(expl_fin_path, "EXPL");
+    DcFinAnimation effects_fin = dc_load_fin_animation(effects_fin_path, "EFFECTS");
     DcFinAnimation hubu_fin = dc_load_fin_animation(hubu_fin_path, "HUBU");
 
     DcFinStateCounts counts;
@@ -1092,7 +1015,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.scgm_death = fin_state_count_for_sequence(&scgm_fin, "SCGMDIE");
     counts.expl_run = fin_state_count_for_sequence16(&expl_fin, "EXPLMOVE");
     counts.expl_deploy = fin_state_count_for_sequence(&expl_fin, "EXPLDEPLOY");
-    counts.expl_work = fin_state_count_for_expl_mining_pulse(&expl_fin);
+    counts.expl_work = fin_frame_count_for_label(&effects_fin, "GLINT3");
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE");
 
     if (fin_first_body_frame(&trsc_fin, "TRSCFIREA0") != 80)
@@ -1106,6 +1029,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     dc_free_fin_animation(&sarg_fin);
     dc_free_fin_animation(&scgm_fin);
     dc_free_fin_animation(&expl_fin);
+    dc_free_fin_animation(&effects_fin);
     dc_free_fin_animation(&hubu_fin);
     return counts;
 }
@@ -1685,36 +1609,6 @@ static void write_fin_layer0_overlay_sequence(FILE *out, const char *spr, const 
     }
 }
 
-static void write_expl_mining_pulse(FILE *out, const char *spr, const DcFinAnimation *fin,
-                                    int count, int tics, int group) {
-    static const int dirs[8] = {0,2,4,6,8,10,12,14};
-    const DcFinDrawPart *body = dc_fin_find_draw_part_in_animation_header(fin, "EDPLYSTAND14",
-                                                       fin->stem_lower, 1, 34);
-    if (!body) die("EXPL.FIN missing deployed Exploiter body", NULL);
-    for (int i = 0; i < count; ++i) {
-        char next[64];
-        if (i + 1 < count) state_name(next, sizeof(next), "EXPL", "WORK", i + 2);
-        else snprintf(next, sizeof(next), "S_DC_EXPL_WORK1");
-
-        fprintf(out, "    { %s, %d, %d, A_None, %s, 0, %d, 0, 8, {",
-                spr, body->frame, tics, next, group);
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", dirs[dir]);
-        fprintf(out, "}, {");
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->frame);
-        fprintf(out, "}, {");
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s0", dir ? "," : "");
-        fprintf(out, "}, {");
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->x);
-        fprintf(out, "}, {");
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->y);
-        fprintf(out, "}, {");
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->remap);
-        fprintf(out, "}, {");
-        for (int dir = 0; dir < 8; ++dir) fprintf(out, "%s%d", dir ? "," : "", body->intensity);
-        fprintf(out, "}, DC_NO_OVERLAY },\n");
-    }
-}
-
 static void write_fin_corpse(FILE *out, const char *spr, const DcFinAnimation *fin,
                              const char *label_prefix, int last_step, int fallback_frame,
                              bool mirror_left) {
@@ -2012,7 +1906,8 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_layer0_overlay_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDEPLOY",
                                       "EXPL", "DEPLOY", counts->expl_deploy, 0, 3, 5,
                                       "A_None", "S_DC_EXPL_WORK1");
-    write_expl_mining_pulse(out, sprites[expl].symbol, &expl_fin, counts->expl_work, 5, 5);
+    write_fin_build_sequence(out, sprites, sprite_count, &expl_fin,
+                             "EDPLYSTAND14", "EXPL_WORK", "S_DC_EXPL_WORK1", 5);
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
                        counts->expl_death, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
     write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", counts->expl_death - 1, 0, false);

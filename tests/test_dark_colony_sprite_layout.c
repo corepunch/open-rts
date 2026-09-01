@@ -261,11 +261,12 @@ static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) 
 }
 
 static int assert_dark_colony_city_fin_alignment(void) {
-    FinInfo hubu_fin, towr_fin, expl_fin, vent_fin;
+    FinInfo hubu_fin, towr_fin, expl_fin, vent_fin, drop_fin;
     if (!load_fin_info("data/DCOLONY/ANIMATE/HUBU.FIN", "HUBU", &hubu_fin) ||
         !load_fin_info("data/DCOLONY/ANIMATE/TOWR.FIN", "TOWR", &towr_fin) ||
         !load_fin_info("data/DCOLONY/ANIMATE/EXPL.FIN", "EXPL", &expl_fin) ||
-        !load_fin_info("data/DCOLONY/ANIMATE/VENT.FIN", "VENT", &vent_fin)) {
+        !load_fin_info("data/DCOLONY/ANIMATE/VENT.FIN", "VENT", &vent_fin) ||
+        !load_fin_info("data/DCOLONY/ANIMATE/DROP.FIN", "DROP", &drop_fin)) {
         return fail("load Dark Colony FIN files");
     }
     const FinCommand *exco = fin_command(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
@@ -385,6 +386,24 @@ static int assert_dark_colony_city_fin_alignment(void) {
         int raw_ticks = vent_fin.frames[vent_stand->start + i].ticks;
         if ((raw_ticks == 0 ? 15 : raw_ticks) != expected_ticks)
             return fail("Petra-7 smoke preserves its authored FIN timing");
+    }
+
+    const FinLabel *drop_two = fin_label(&drop_fin, "DROPTWO");
+    if (!drop_two || drop_two->start != 0 || drop_two->end != 9 ||
+        drop_fin.frames[drop_two->start].ticks != 0) {
+        return fail("dropship reinforcement uses the native DROPTWO timeline");
+    }
+    const FinFrame *drop_frame = &drop_fin.frames[drop_two->start];
+    const FinCommand *dust = fin_frame_command(&drop_fin, drop_two->start, "duts", 5);
+    const FinCommand *hull_top = fin_frame_command(&drop_fin, drop_two->start, "drop", 1);
+    const FinCommand *hull_bottom = fin_frame_command(&drop_fin, drop_two->start, "drop", 0);
+    const FinCommand *cloud = fin_frame_command(&drop_fin, drop_two->start, "clod", 5);
+    if (drop_fin.frames[drop_two->start].part_count != 12 || !dust || !hull_top ||
+        !hull_bottom || !cloud || dust->frame != 0 || dust->x != -112 || dust->y != 85 ||
+        hull_top->frame != 0 || hull_top->x != -64 || hull_top->y != 69 ||
+        hull_bottom->frame != 1 || hull_bottom->x != -64 || hull_bottom->y != 34 ||
+        drop_frame->part_count != 12) {
+        return fail("dropship frame preserves native hull, fumes, and dust commands");
     }
     return 0;
 }

@@ -4,6 +4,8 @@
 #include <stdbool.h>
 
 #define DC_VENT_SMOKE_MAX_FRAMES 32
+#define DC_DROPSHIP_MAX_FRAMES 16
+#define DC_DROPSHIP_MAX_PARTS 24
 
 typedef struct {
     ivec2_t pivot;
@@ -18,5 +20,31 @@ typedef struct {
     int smoke_frame_count;
     DarkColonyVentSmokeFrame smoke_frames[DC_VENT_SMOKE_MAX_FRAMES];
 } DarkColonyVentPlacement;
+
+typedef struct {
+    char sprite_name[32];
+    ivec2_t offset;
+    int sprite_frame;
+    int render_remap;
+    int render_intensity;
+    int layer;
+    int flags;
+} DarkColonyDropshipPart;
+
+typedef struct {
+    int duration_ms;
+    int part_count;
+    DarkColonyDropshipPart parts[DC_DROPSHIP_MAX_PARTS];
+} DarkColonyDropshipFrame;
+
+typedef struct {
+    bool valid;
+    int frame_count;
+    int duration_ms;
+    DarkColonyDropshipFrame frames[DC_DROPSHIP_MAX_FRAMES];
+} DarkColonyDropshipAnimation;
+
 bool dark_colony_vent_placement_from_sprites(const char *map_path, DarkColonyVentPlacement *out);
+bool dark_colony_dropship_animation_from_sprites(const char *map_path,
+                                                 DarkColonyDropshipAnimation *out);
 #endif

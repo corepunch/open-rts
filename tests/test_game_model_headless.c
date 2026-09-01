@@ -58,6 +58,23 @@ static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *s
     return false;
 }
 
+static int snapshot_count_effects_with_sprite(const RtsRenderSnapshot *snapshot,
+                                              const char *sprite_name) {
+    if (!snapshot || !sprite_name) return 0;
+    int count = 0;
+    for (int i = 0; i < snapshot->effect_count; ++i)
+        if (strcmp(snapshot->effects[i].sprite_name, sprite_name) == 0) count++;
+    return count;
+}
+
+static int snapshot_effect_frame(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
+    if (!snapshot || !sprite_name) return -1;
+    for (int i = 0; i < snapshot->effect_count; ++i)
+        if (strcmp(snapshot->effects[i].sprite_name, sprite_name) == 0)
+            return snapshot->effects[i].frame;
+    return -1;
+}
+
 static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *snapshot) {
     if (!snapshot) return false;
     for (int i = 0; i < snapshot->decoration_count; ++i) {
@@ -166,7 +183,7 @@ static int assert_dark_colony_sprite_catalog(void) {
 }
 
 static int assert_dark_colony_exploiter_work_states(void) {
-    enum { EXPECTED_WORK_STATE_COUNT = 15 };
+    enum { EXPECTED_WORK_STATE_COUNT = 2 };
     int deploy_count = S_DC_EXPL_WORK1 - S_DC_EXPL_DEPLOY1;
     if (deploy_count <= 0) {
         return fail("Dark Colony Exploiter deploy state count is positive");
@@ -175,74 +192,20 @@ static int assert_dark_colony_exploiter_work_states(void) {
     if (count != EXPECTED_WORK_STATE_COUNT) {
         return fail("Dark Colony Exploiter mining work state count matches FIN cycle");
     }
-    FILE *f = fopen("games/dark-colony/info.c", "rb");
-    if (!f) return fail("open generated Dark Colony info.c for pulse states");
-    if (fseek(f, 0, SEEK_END) != 0) {
-        fclose(f);
-        return fail("seek generated Dark Colony info.c for pulse states");
+    const state_t *lit = &states[S_DC_EXPL_WORK1];
+    const state_t *unlit = &states[S_DC_EXPL_WORK2];
+    if (lit->sprite != SPR_DC_EXPL || lit->frame != 34 || lit->tics != 2 ||
+        lit->nextstate != S_DC_EXPL_WORK2 || lit->overlay_sprite != SPR_DC_GLIT ||
+        lit->overlay_frame != 10 || lit->overlay_facings != 1 ||
+        lit->overlay_facing_flags[0] != RTS_FRAME_FLIP_X ||
+        lit->overlay_offset_x[0] != -13 || lit->overlay_offset_y[0] != -39 ||
+        lit->overlay_remap[0] != 0 || lit->overlay_intensity[0] != 16) {
+        return fail("Dark Colony Exploiter work starts with native GLIT beam light");
     }
-    long size = ftell(f);
-    if (size < 0 || fseek(f, 0, SEEK_SET) != 0) {
-        fclose(f);
-        return fail("read generated Dark Colony info.c pulse size");
+    if (unlit->sprite != SPR_DC_EXPL || unlit->frame != 34 || unlit->tics != 4 ||
+        unlit->nextstate != S_DC_EXPL_WORK1 || unlit->overlay_facings != 0) {
+        return fail("Dark Colony Exploiter work loops through native unlit frame");
     }
-    char *text = malloc((size_t)size + 1);
-    if (!text) {
-        fclose(f);
-        return fail("allocate generated Dark Colony info.c pulse text");
-    }
-    if (size > 0 && fread(text, 1, (size_t)size, f) != (size_t)size) {
-        free(text);
-        fclose(f);
-        return fail("read generated Dark Colony info.c pulse text");
-    }
-    fclose(f);
-    text[size] = '\0';
-
-    for (int i = 0; i < deploy_count; ++i) {
-        char prefix[96];
-        int body_frame = i >= deploy_count - 2 ? 34 : 14;
-        if (i + 1 < deploy_count) {
-            snprintf(prefix, sizeof(prefix),
-                     "{ SPR_DC_EXPL, %d, 3, A_None, S_DC_EXPL_DEPLOY%d,",
-                     body_frame, i + 2);
-        } else {
-            snprintf(prefix, sizeof(prefix),
-                     "{ SPR_DC_EXPL, %d, 3, A_None, S_DC_EXPL_WORK1,",
-                     body_frame);
-        }
-        char *line = strstr(text, prefix);
-        if (!line) {
-            free(text);
-            return fail("Dark Colony Exploiter deploy uses deployed body frames");
-        }
-        char *overlay = strstr(line, "}, SPR_DC_EXPL, ");
-        char *end = strchr(line, '\n');
-        if (!overlay || (end && overlay > end)) {
-            free(text);
-            return fail("Dark Colony Exploiter deploy states add FIN layer-0 overlay");
-        }
-    }
-
-    for (int i = 0; i < count; ++i) {
-        int next = i + 2;
-        if (next > count) next = 1;
-        char prefix[96];
-        snprintf(prefix, sizeof(prefix),
-                 "{ SPR_DC_EXPL, 34, 5, A_None, S_DC_EXPL_WORK%d,", next);
-        char *line = strstr(text, prefix);
-        if (!line) {
-            free(text);
-            return fail("Dark Colony Exploiter mining work uses deployed body frames");
-        }
-        char *no_overlay = strstr(line, "DC_NO_OVERLAY");
-        char *end = strchr(line, '\n');
-        if (!no_overlay || (end && no_overlay > end)) {
-            free(text);
-            return fail("Dark Colony Exploiter mining work uses no probe-arm overlay");
-        }
-    }
-    free(text);
     return 0;
 }
 
@@ -506,11 +469,23 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot.unit_count <= initial_unit_count) {
         return fail("Human01 scripted reinforcements add units");
     }
-    if (!snapshot_has_effect(&snapshot, "SPRITES/DROP.SPR")) {
-        return fail("Human01 scripted dropship effect is visible");
+    if (snapshot_count_effects_with_sprite(&snapshot, "SPRITES/DROP.SPR") != 2 ||
+        !snapshot_has_effect(&snapshot, "SPRITES/DUTS.SPR") ||
+        !snapshot_has_effect(&snapshot, "SPRITES/CLOD.SPR") ||
+        !snapshot_has_effect(&snapshot, "SPRITES/GLIT.SPR")) {
+        return fail("Human01 dropship composes native hull, fumes, and dust effects");
     }
     if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
         return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
+    }
+    int initial_dust_frame = snapshot_effect_frame(&snapshot, "SPRITES/DUTS.SPR");
+    for (int i = 0; i < 7; ++i) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f))
+            return fail("tick Human01 dropship animation");
+    }
+    if (!rts_game_model_snapshot(model, &snapshot) ||
+        snapshot_effect_frame(&snapshot, "SPRITES/DUTS.SPR") == initial_dust_frame) {
+        return fail("Human01 dropship advances the native DROPTWO animation");
     }
 
     RtsGameCommand select_first = {
@@ -731,6 +706,7 @@ static int assert_human02(RtsGameModel *model) {
     bool saw_mining_body = false;
     bool saw_exploiter_move = false;
     bool saw_attached_smoke_hidden = false;
+    bool saw_mining_light = false;
     bool saw_mining_work_states[16] = {0};
     int mining_work_state_count = 0;
     for (int i = 0; i < 30 * 45; ++i) {
@@ -765,10 +741,13 @@ static int assert_human02(RtsGameModel *model) {
                     saw_mining_work_states[work_state] = true;
                     mining_work_state_count++;
                 }
+                if (snapshot.units[exploiter].state_id == S_DC_EXPL_WORK1)
+                    saw_mining_light = true;
                 saw_mining_body = true;
             }
         }
-        if (saw_deploy_body_frame && saw_mining_body && mining_work_state_count >= 4 &&
+        if (saw_deploy_body_frame && saw_mining_body && mining_work_state_count >= 2 &&
+            saw_mining_light &&
             snapshot.player_resources[0][0] > initial_resources) break;
     }
     if (!saw_deploy_body_frame) {
@@ -798,8 +777,8 @@ static int assert_human02(RtsGameModel *model) {
     if (!saw_attached_smoke_hidden) {
         return fail("Human02 attached Exploiter suppresses the Petra-7 smoke animation");
     }
-    if (mining_work_state_count < 4) {
-        return fail("Human02 Exploiter mining plays the deployed beacon work cycle");
+    if (mining_work_state_count < 2 || !saw_mining_light) {
+        return fail("Human02 Exploiter mining plays the native blinking GLIT work cycle");
     }
     exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
     if (exploiter < 0 ||

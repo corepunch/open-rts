@@ -302,6 +302,50 @@ duration makes the cycle look incomplete even when every timeline step is
 present. `EXPLMOVE*` uses zero raw delays; zero normalization gives those frames
 three runtime ticks.
 
+### Reinforcement dropship
+
+**Confirmed from native assets:** `ANIMATE/DROP.FIN` defines the ten-frame
+labels `DROPTWO` (`0..9`), `DROPSTAND0` (`72..81`), and `DROPMOVE0`
+(`84..93`). Every `DROPTWO` frame contains both hull cells, `DROP` cells 0 and
+1, at independently authored positions. The sequence also composes `DUTS`
+(dust), `CLOD` (ground clouds), and `GLIT` (engine fumes and lights) on layer
+5. The first frame contains 12 commands, including:
+
+| Part | Cell | FIN position | Layer |
+| --- | ---: | --- | ---: |
+| `CLOD` | 2 | `(-156,92)` | 5 |
+| `DUTS` | 0 | `(-112,85)` | 5 |
+| `DROP` | 0 | `(-64,69)` | 1 |
+| `DROP` | 1 | `(-64,34)` | 0 |
+| `CLOD` | 0 | `(-73,140)` | 5 |
+
+The remaining commands in that frame are a second cloud and five `GLIT`
+cells. All ten frames store zero delay, so the confirmed zero-delay rule above
+gives three native ticks, or 100 ms at the open-rts 30 Hz simulation rate, per
+frame. The complete native cycle is one second.
+
+**Inferred:** `DROPTWO` is the reinforcement-delivery sequence. Unlike the
+lighter `DROPMOVE0` transit sequence, it sustains multiple ground-cloud and
+dust commands and matches native gameplay references showing exhaust and dust
+under a stationary delivery ship. Open-rts loops this one-second native cycle
+for the existing scripted multi-unit release duration.
+
+**Disproven:** a reinforcement dropship is not one centered, static
+`SPRITES/DROP.SPR` cell. That omits the second hull cell, every authored effect,
+FIN placement, layer order, and frame progression.
+
+**Unknown:** the controlling DC.EXE caller that selects `DROPTWO` has not yet
+been isolated. An analyzed-string search of the fingerprinted executable found
+no embedded dropship FIN labels; this is consistent with the loader at
+`0x004230ac` resolving labels from FIN data, but does not by itself prove the
+selection call path. Reproduce the asset evidence and focused implementation
+check with:
+
+```sh
+make build/bin/test_game_model_headless
+build/bin/test_game_model_headless --game dark-colony
+```
+
 ### Barracks Trooper production
 
 **Confirmed:** Trooper product row 9 in `gamestat/depend.txt` has cost 350,
@@ -461,6 +505,17 @@ turn-in-place transition and the later odd `MOVE` set during translation, or
 uses another gameplay distinction. That question belongs to callers of the
 animation-set constructor, not to the generic renderer.
 
+The deployed harvesting light is **confirmed** by `EDPLYSTAND14` in
+`EXPL.FIN`, frames 52 and 53. Both frames draw the deployed body as EXPL cell
+34 at `(-159,25)`. Frame 52 additionally draws horizontally flipped GLIT cell
+10 at `(-13,-39)`, layer 5, remap 0, intensity 16; frame 53 omits the GLIT
+part. Their raw durations are 6 and 0 (the latter uses the 15-tick fallback),
+which convert cumulatively to two and four 30 Hz simulation tics. The resulting
+two-state loop blinks the light at the top of the deployed mast. The previously
+constructed 15-state cycle from deploy/retract top cells was **disproven** by
+the retail harvesting reference: those cells animate the probe deployment, not
+the working light.
+
 ## Consequences for open-rts
 
 The executable evidence gives several implementation rules:
@@ -578,22 +633,21 @@ five and three 30 Hz simulation tics respectively, giving an approximately
 `data/DCOLONY/ANIMATE/VENT.FIN` and the raw cell descriptors in
 `data/DCOLONY/SPRITES/PUFF.SPR`.
 
-Selector-2 disassembly confirms that each PUFF cell must use its own FIN
-coordinate, `disX`, and height. Across the 20 FIN frames, the primary puff's
-top edge is:
+Each PUFF cell uses its own FIN coordinate and SPR displacement. Retail
+screenshot comparison disproves applying the selector-zero `Y - height`
+formula to this remapped part: that moved the complete puff progressively too
+high above the crater. The remapped placement `-FIN.y + disY` keeps the puff's
+top near the vent while its changing cell artwork supplies the smoke motion:
 
 ```text
--4, -4, -7, -11, -13, -17, -21, -25, -28, -31,
--33, -36, -39, -43, -45, -48, -51, -49, -51, -54
+19, 19, 20, 17, 16, 17, 14, 11, 12, 14,
+15, 15, 15, 15, 16, 17, 18, 24, 26, 28
 ```
 
-The two-pixel correction at cell 16 comes from the changing sprite shape; the
-overall plume rises 50 pixels. Open-rts previously cycled PUFF cells against
-one hardcoded pivot `(5,-19)`, derived from the generic `disY` convention. That
-discarded every FIN coordinate and could make growth within the changing cell
-bounds read as downward motion. The vent decoration now stores the authored
-cell, world-render pivot, and converted duration for each FIN frame. The first
-two steps last 167 ms and the remaining steps last 100 ms.
+Open-rts stores the authored cell, remapped world-render pivot, and converted
+duration for each FIN frame. The first two steps last 167 ms and the remaining
+steps last 100 ms. The exact native queue selector remains untraced; the
+placement is **inferred** from the FIN/SPR metadata and retail screenshot.
 
 Retail observation shows this smoke loop only while no Exploiter is attached.
 That behavior is **observed**, while the DC.EXE branch that suppresses the
