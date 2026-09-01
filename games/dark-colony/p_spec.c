@@ -98,6 +98,12 @@ typedef struct {
     int count;
 } DarkColonyDropshipPayload;
 
+static const ivec2_t dark_colony_drop_formation[] = {
+    { 0, 0 }, { -1, 0 }, { 1, 0 }, { 0, -1 },
+    { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 },
+    { 1, 1 }, { -2, 0 }, { 2, 0 }, { 0, -2 },
+};
+
 typedef struct {
     bool active;
     DarkColonyDropshipPhase phase;
@@ -110,6 +116,7 @@ typedef struct {
     DarkColonyDropshipPayload payload[DC_DROPSHIP_MAX_PAYLOAD_TYPES];
     int payload_count;
     int payload_index;
+    int released_count;
     bool release_pending;
     int phase_duration_ms;
     int elapsed_ms;
@@ -475,6 +482,7 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
     unit->core.angle = dc_direction_to_angle(unit->owner == 0 ? 6 : 14);
     uint16_t type_id = dark_colony_script_unit_type(team, type);
     const actortype_t *actor = dark_colony_actor_type_by_id(type_id);
+    unit->native_type_id = (uint16_t)(type >= 0 ? type : 0);
     dark_colony_apply_actor_type_defaults(unit, actor);
     P_SpawnMobj(game_info, unit);
     (*unit_count)++;
@@ -491,25 +499,19 @@ static bool dark_colony_dropship_cell_occupied(const mobj_t *units, int unit_cou
     return false;
 }
 
-static bool dark_colony_find_dropship_cell(const level_t *map,
-                                           const mobj_t *units, int unit_count,
-                                           ivec2_t origin, ivec2_t *out) {
-    if (!map || !out) return false;
-    int max_radius = map->width > map->height ? map->width : map->height;
-    for (int radius = 1; radius <= max_radius; ++radius) {
-        for (int x = origin.x - radius; x <= origin.x + radius; ++x) {
-            for (int y = origin.y - radius; y <= origin.y + radius; ++y) {
-                if (x != origin.x - radius && x != origin.x + radius &&
-                    y != origin.y - radius && y != origin.y + radius) continue;
-                ivec2_t candidate = { x, y };
-                if (!L_IsWalkable(map, x, y) ||
-                    dark_colony_dropship_cell_occupied(units, unit_count, candidate)) continue;
-                *out = candidate;
-                return true;
-            }
-        }
+static fvec2_t dark_colony_drop_position(const level_t *map, const mobj_t *units,
+                                         int unit_count, fvec2_t center, int slot) {
+    int formation_count = (int)(sizeof(dark_colony_drop_formation) /
+                                sizeof(dark_colony_drop_formation[0]));
+    ivec2_t offset = dark_colony_drop_formation[slot % formation_count];
+    fvec2_t candidate = fvec2_add(center, (fvec2_t){ (float)offset.x, (float)offset.y });
+    if (map && L_IsWalkable(map, (int)floorf(candidate.x), (int)floorf(candidate.y)) &&
+        !dark_colony_dropship_cell_occupied(units, unit_count,
+                                            (ivec2_t){ (int)floorf(candidate.x),
+                                                       (int)floorf(candidate.y) })) {
+        return candidate;
     }
-    return false;
+    return center;
 }
 
 static void dark_colony_set_dropship_phase(DarkColonyDropship *ship,
@@ -547,29 +549,23 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
         } else if (ship->phase == DC_DROPSHIP_UNLOAD) {
             if (ship->release_pending && ship->payload_index < ship->payload_count) {
                 DarkColonyDropshipPayload *payload = &ship->payload[ship->payload_index];
+                fvec2_t release_position = dark_colony_drop_position(
+                    map, units, *unit_count, ship->target_center, ship->released_count);
                 ivec2_t release_cell = {
-                    (int)floorf(ship->center.x), (int)floorf(ship->center.y)
+                    (int)floorf(release_position.x), (int)floorf(release_position.y)
                 };
                 dark_colony_spawn_script_unit(map, units, unit_count, ship->team,
                                               release_cell.x, release_cell.y,
                                               payload->type, game_info);
+                ship->released_count++;
                 payload->count--;
                 if (payload->count <= 0) ship->payload_index++;
                 ship->release_pending = false;
             }
 
             if (ship->payload_index < ship->payload_count) {
-                ivec2_t current = {
-                    (int)floorf(ship->center.x), (int)floorf(ship->center.y)
-                };
-                ivec2_t next;
-                if (!dark_colony_find_dropship_cell(map, units, *unit_count, current, &next))
-                    next = current;
-                ship->start_center = ship->center;
-                ship->target_center = fvec2_cell_center(next);
-                dark_colony_set_dropship_phase(
-                    ship, DC_DROPSHIP_REPOSITION,
-                    mission->dropship_animations.move.duration_ms, effects, max_effects);
+                ship->elapsed_ms = 0;
+                ship->release_pending = true;
             } else {
                 ship->start_center = ship->center;
                 ship->target_center = fvec2_add(ship->center, ship->flight_vector);

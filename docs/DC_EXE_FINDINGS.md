@@ -975,3 +975,25 @@ r2 -q -e bin.cache=true -A -c "pdf @ 0x0045c41c" -c q data/DCOLONY/DC.EXE
 Decompiler signatures and variable names are provisional. Verify conclusions
 against exact instructions, callers, native SPR/FIN bytes, and visible game
 behavior before porting them.
+
+## Selection marker and HUMAN02 reinforcements
+
+**Confirmed from native SPR data:** the Dark Colony selection marker is the
+`INTRFACE/CLIENT.SPR` command family. Its inspected marker cells have zero
+displacement, so the marker belongs to the unit's stable world anchor rather
+than the visible top edge of the current body frame. open-rts now places it
+from the unit anchor and body destination offset, avoiding animation-frame
+drift.
+
+**Confirmed from `HUMAN02.TRO`:** `reinforce` arguments after team and map
+position are `(native unit type, count)` pairs. The first drop expands to
+native types `69 x1`, `6 x1`, and `0 x3`. Type 69 is a TRSC variant with the
+same body sprite but distinct native weapon and defense statistics. The model
+retains the native type id while using the shared TRSC actor for rendering and
+common behavior.
+
+**Inferred implementation behavior:** the drop script supplies a landing point
+and payload, but no per-unit final formation coordinates. open-rts keeps the
+dropship at that point during unload and assigns deterministic walkable slots
+around it; blocked or occupied slots fall back to the landing cell. The native
+per-unit movement or rally command remains unknown.

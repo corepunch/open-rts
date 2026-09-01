@@ -1139,6 +1139,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         u->speed = unit_config[type].speed;
     if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
     u->type_id = (uint16_t)mobj_type;
+    u->native_type_id = (uint16_t)(type >= 0 ? type : 0);
     if (dark_colony_object_uses_city_render_origin(object_index))
         u->render_sort_y = dark_colony_fixed_to_cell(object->z_pos);
     u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;

@@ -1048,8 +1048,10 @@ static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *
 }
 
 static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spritecache_t *cache,
-                                         const gameinfo_t *game_info, const irect_t *visible) {
-    if (!app || !app->renderer || !u || !cache || !game_info || !visible ||
+                                         const gameinfo_t *game_info, float anchor_sx,
+                                         float anchor_sy, int body_offset_x,
+                                         int body_offset_y) {
+    if (!app || !app->renderer || !u || !cache || !game_info ||
         !game_info->sprnames) {
         return false;
     }
@@ -1066,10 +1068,9 @@ static bool draw_selection_marker_sprite(app_t *app, const mobj_t *u, const spri
     irect_t frame_rect = sprite_frame_rect(marker, frame);
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
-    int cx = visible->x + visible->w / 2;
     irect_t dst = {
-        cx - frame_rect.w / 2,
-        visible->y - frame_rect.h + info->top_offset_y,
+        (int)lroundf(anchor_sx) + body_offset_x - frame_rect.w / 2,
+        (int)lroundf(anchor_sy) + body_offset_y - frame_rect.h + info->top_offset_y,
         frame_rect.w,
         frame_rect.h,
     };
@@ -1179,7 +1180,9 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         }
         else if (sel_style == SELECTION_STYLE_BRACKETS)
             draw_selection_brackets(app, u, &visible);
-        else if (!draw_selection_marker_sprite(app, u, cache, game_info, &visible))
+        else if (!draw_selection_marker_sprite(app, u, cache, game_info, sx, sy,
+                                               dst.x - (int)lroundf(sx),
+                                               dst.y - (int)lroundf(sy)))
             draw_selection_triangle(app, u, &visible);
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&

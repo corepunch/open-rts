@@ -165,6 +165,7 @@ struct mobj_s {
     float speed;
     uint32_t id;
     uint16_t type_id;
+    uint16_t native_type_id;
     float render_sort_y;
     uint8_t owner;
     uint32_t traits;
