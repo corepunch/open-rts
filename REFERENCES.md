@@ -825,6 +825,10 @@ Current engine gaps before this can be made interactive:
 
 Local game-data files that have already been useful:
 
+- `data/REIGN/dkreign.exe` for executable AI loader and parameter strings.
+- `data/REIGN/dark/aip/*.AIP`, `*.FSM`, and `aip/AIPDEF.H` for the shipped
+  strategy profiles, construction-account modes, force matching, and
+  conditional AI switching.
 - `data/REIGN/dark/deftxt/*.TXT` for unit, building, overlay, and animation
   definitions.
 - `data/REIGN/dark/scenario/**/*.MAP` and `*.SCN` for terrain and placed

@@ -1,6 +1,71 @@
 #include "game.h"
 #include "dr_types.h"
 
+/* Native AIP values recovered from the shipped FG AIP files.  These are
+ * configuration inputs for the generic AI layer, not executable-specific
+ * behavior hidden in the renderer or map loader. */
+const dark_reign_ai_profile_t g_dark_reign_ai_profiles[] = {
+    {
+        .name = "easy",
+        .recompute_strategy_period = 200,
+        .ground_unit_threat = 1, .threat_priority = 1, .distance_priority = -2,
+        .defend_buildings_priority = 500, .attack_enemy_base_priority = 78,
+        .exploration_priority = 600, .perimeter_priority = 5000,
+        .resource_priority = 400, .danger_priority = 100,
+        .min_matching_force_ratio = 1.0, .max_matching_force_ratio = 2.0,
+        .min_building_defense_force = 40, .max_building_defense_force = 100,
+        .min_exploration_force = 1, .max_exploration_force = 100,
+        .min_perimeter_force = 40, .max_perimeter_force = 70,
+        .min_resource_force = 100, .max_resource_force = 300,
+        .repair_buildings = false,
+    },
+    {
+        .name = "medium",
+        .recompute_strategy_period = 50,
+        .ground_unit_threat = 10, .threat_priority = 10, .distance_priority = -2,
+        .defend_buildings_priority = 500, .attack_enemy_base_priority = 78,
+        .exploration_priority = 600, .perimeter_priority = 100,
+        .resource_priority = 400, .danger_priority = 1000,
+        .min_matching_force_ratio = 2.0, .max_matching_force_ratio = 7.0,
+        .min_building_defense_force = 40, .max_building_defense_force = 100,
+        .min_exploration_force = 1, .max_exploration_force = 200,
+        .min_perimeter_force = 40, .max_perimeter_force = 70,
+        .min_resource_force = 300, .max_resource_force = 1000,
+        .repair_buildings = true,
+    },
+    {
+        .name = "defensive",
+        .recompute_strategy_period = 50,
+        .ground_unit_threat = 200, .threat_priority = 1, .distance_priority = -1,
+        .defend_buildings_priority = 700, .attack_enemy_base_priority = 0,
+        .exploration_priority = 500, .perimeter_priority = 1000,
+        .resource_priority = 700, .danger_priority = 1000,
+        .min_matching_force_ratio = 2.0, .max_matching_force_ratio = 7.0,
+        .min_building_defense_force = 140, .max_building_defense_force = 280,
+        .min_exploration_force = 70, .max_exploration_force = 70,
+        .min_perimeter_force = 340, .max_perimeter_force = 650,
+        .min_resource_force = 70, .max_resource_force = 140,
+        .repair_buildings = true,
+    },
+    {
+        .name = "aggressive",
+        .recompute_strategy_period = 40,
+        .ground_unit_threat = 1, .threat_priority = 1, .distance_priority = -2,
+        .defend_buildings_priority = 500, .attack_enemy_base_priority = 78,
+        .exploration_priority = 600, .perimeter_priority = 5000,
+        .resource_priority = 400, .danger_priority = 100,
+        .min_matching_force_ratio = 1.0, .max_matching_force_ratio = 2.0,
+        .min_building_defense_force = 40, .max_building_defense_force = 100,
+        .min_exploration_force = 1, .max_exploration_force = 100,
+        .min_perimeter_force = 40, .max_perimeter_force = 70,
+        .min_resource_force = 100, .max_resource_force = 300,
+        .repair_buildings = false,
+    },
+};
+
+const int g_dark_reign_ai_profile_count =
+    (int)(sizeof(g_dark_reign_ai_profiles) / sizeof(g_dark_reign_ai_profiles[0]));
+
 bool load_dark_map(const char *map_path, level_t *out);
 bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
                                    const level_t *map, const char *sprite_name,

@@ -1,6 +1,36 @@
 #ifndef __DR_TYPES__
 #define __DR_TYPES__
 
+#include <stdbool.h>
+
+typedef struct {
+    const char *name;
+    int recompute_strategy_period;
+    int ground_unit_threat;
+    int threat_priority;
+    int distance_priority;
+    int defend_buildings_priority;
+    int attack_enemy_base_priority;
+    int exploration_priority;
+    int perimeter_priority;
+    int resource_priority;
+    int danger_priority;
+    double min_matching_force_ratio;
+    double max_matching_force_ratio;
+    int min_building_defense_force;
+    int max_building_defense_force;
+    int min_exploration_force;
+    int max_exploration_force;
+    int min_perimeter_force;
+    int max_perimeter_force;
+    int min_resource_force;
+    int max_resource_force;
+    bool repair_buildings;
+} dark_reign_ai_profile_t;
+
+extern const dark_reign_ai_profile_t g_dark_reign_ai_profiles[];
+extern const int g_dark_reign_ai_profile_count;
+
 enum {
     /* Freedom Guard mobile units (UNITS.TXT SetType values). */
     DR_ACTOR_FG_SPYDER_BIKE = 1,
