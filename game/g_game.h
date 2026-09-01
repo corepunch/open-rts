@@ -65,6 +65,21 @@ typedef enum {
 } RtsProductClass;
 
 typedef struct {
+    int row_id;
+    int ui_id;
+    const char *label;
+    int cost;
+    int icon_frame;
+    RtsProductClass product_class;
+    int product_type;
+    int faction;
+    int prerequisites[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
+    int prerequisite_count;
+    int makers[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];
+    int maker_count;
+} StaticProductDefinition;
+
+typedef struct {
     RtsGameCommandKind kind;
     union {
         struct {
