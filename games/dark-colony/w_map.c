@@ -61,6 +61,12 @@ enum {
     DARK_COLONY_SCN_LIST_VALUES = 32,
 };
 
+enum {
+    DC_ALLEGIANCE_PLAYER,
+    DC_ALLEGIANCE_ENEMY,
+    DC_ALLEGIANCE_ALLIED,
+};
+
 typedef enum {
     DARK_COLONY_MAP_FILE_NONE,
     DARK_COLONY_MAP_FILE_MAP,
@@ -303,6 +309,8 @@ static bool scenario_load(const char *path, ScenarioFile *out) {
             } else if (strcmp(section, "%Depend") == 0) {
                 team_info->allies_count = value_count;
                 memcpy(team_info->allies, values, (size_t)value_count * sizeof(values[0]));
+            } else if (strcmp(section, "%TeamAllies") == 0) {
+                /* Not currently used but parsed for completeness. */
             } else if (strcmp(section, "%AISlots") == 0) {
                 if (value_count >= 2 && team_info->ai_slot_count < DARK_COLONY_SCN_AI_SLOTS) {
                     int slot = team_info->ai_slot_count++;
@@ -1136,9 +1144,36 @@ static void object_render_position_fixed(const DcObject *object, int object_inde
     if (z_fixed) *z_fixed = z;
 }
 
+static void compute_team_allegiances(const ScenarioFile *scenario,
+                                     int allegiances[DARK_COLONY_SCN_MAX_TEAMS]) {
+    for (int i = 0; i < DARK_COLONY_SCN_MAX_TEAMS; ++i)
+        allegiances[i] = DC_ALLEGIANCE_ENEMY;
+    for (int i = 0; i < scenario->team_count; ++i) {
+        const ScenarioTeam *team = &scenario->teams[i];
+        if (!team->active) continue;
+        if (i == 0) {
+            allegiances[i] = DC_ALLEGIANCE_PLAYER;
+            continue;
+        }
+        if (team->race == 1) {
+            allegiances[i] = DC_ALLEGIANCE_ENEMY;
+            continue;
+        }
+        bool depends_on_player = false;
+        for (int j = 0; j < team->allies_count && j < DARK_COLONY_SCN_MAX_TEAMS; ++j) {
+            if (j == 0 && team->allies[j] == 1) {
+                depends_on_player = true;
+                break;
+            }
+        }
+        allegiances[i] = depends_on_player ? DC_ALLEGIANCE_ALLIED : DC_ALLEGIANCE_ENEMY;
+    }
+}
+
 static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_units,
                                            int object_index,
                                            const DcObject *object, int race,
+                                           int team_allegiance,
                                            const UnitConfig *unit_config,
                                            bool *player_selected,
                                            bool *player_has_exploiter,
@@ -1149,7 +1184,6 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         return false;
     }
     int type = object->type;
-    int team = object->team;
     const char *sprite = unit_sprite_for_type(type, race);
     int mobj_type = mobj_type_for_type(type, race);
     if (!sprite || mobj_type <= 0) {
@@ -1175,7 +1209,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     u->native_type_id = (uint16_t)(type >= 0 ? type : 0);
     if (object_uses_city_render_origin(object_index))
         u->render_sort_y = fixed_to_cell(object->z_pos);
-    u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
+    u->owner = (team_allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_DC_COMMS_DISH) ? 0 :
+               (team_allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
     u->hp = object->health_or_amount;
     u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
@@ -1223,6 +1258,9 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
     load_dark_colony_unit_config(unit_config);
     DcObjectPool object_pool;
     object_pool_init(&object_pool);
+
+    int team_allegiances[DARK_COLONY_SCN_MAX_TEAMS];
+    compute_team_allegiances(&scenario, team_allegiances);
 
     int count = 0;
     bool player_has_exploiter = false;
@@ -1291,15 +1329,18 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             continue;
         int race = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
             scenario.teams[team].race : 0;
+        int allegiance = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
+            team_allegiances[team] : DC_ALLEGIANCE_ENEMY;
         if (race != 1 && object->type == 16 && count < max_units) {
             DcObject tower = *object;
             tower.type = 81;
             append_dark_colony_object_unit(units, &count, max_units, object_index,
-                                           &tower, race,
+                                           &tower, race, allegiance,
                                            unit_config,
                                            NULL, NULL, NULL, NULL, NULL);
         }
         append_dark_colony_object_unit(units, &count, max_units, object_index, object, race,
+                                       allegiance,
                                        unit_config,
                                        &player_selected,
                                        &player_has_exploiter,
@@ -1315,6 +1356,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
             append_dark_colony_object_unit(units, &count, max_units, object_index, object, 0,
+                                           DC_ALLEGIANCE_PLAYER,
                                            unit_config, &player_selected,
                                            &player_has_exploiter,
                                            &player_anchor_set,
