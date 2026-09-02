@@ -950,7 +950,7 @@ static bool object_pool_add_city_slot(DcObjectPool *pool, int team, int slot,
 }
 
 static bool scenario_object_starts_visible(const ScenarioObject *object) {
-    return object && object->status >= 0;
+    return object != NULL;
 }
 
 static int mobj_type_for_type(int type, int race) {
@@ -1284,6 +1284,10 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
     bool player_selected = false;
     int player_anchor_x = 0;
     int player_anchor_y = 0;
+    bool alien_has_slug = false;
+    bool alien_anchor_set = false;
+    int alien_anchor_x = 0;
+    int alien_anchor_y = 0;
 
     for (int team = 0; team < scenario.team_count; ++team) {
         const ScenarioTeam *team_info = &scenario.teams[team];
@@ -1294,6 +1298,11 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             fprintf(stderr, "[dark-colony] active team %d has no city anchor; city slots not loaded\n",
                 team);
             continue;
+        }
+        if (team_info->race == 1 && !alien_anchor_set) {
+            alien_anchor_x = slot_x;
+            alien_anchor_y = slot_y;
+            alien_anchor_set = true;
         }
         for (int slot = 0; slot < DARK_COLONY_SCN_CITY_SLOTS; ++slot) {
             int value_index = slot * 2;
@@ -1326,8 +1335,9 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
     bool pool_hidden[MAX_OBJECTS] = { false };
     for (int i = 0; i < scenario.object_count; ++i) {
         const ScenarioObject *object = &scenario.objects[i];
-        if (object->value_count < 6 ||
-            object->team < 0 || object->team >= DARK_COLONY_SCN_MAX_TEAMS ||
+        if (object->type == OBJECT_TYPE_PETRA7_VENT || object->type == 84)
+            continue;
+        if (object->value_count < 5 ||
             object->x < 0 || object->y < 0) {
             continue;
         }
@@ -1346,12 +1356,12 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         const DcObject *object = &object_pool.objects[object_index];
         bool hidden = pool_hidden[object_index];
         int team = object->team;
-        if (object->type == OBJECT_TYPE_PETRA7_VENT || object->type == 84)
-            continue;
         int race = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
             scenario.teams[team].race : 0;
         int allegiance = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
             team_allegiances[team] : DC_ALLEGIANCE_ENEMY;
+        if (race == 1 && object->type == 14)
+            alien_has_slug = true;
         if (race != 1 && object->type == 16 && count < max_units) {
             DcObject tower = *object;
             tower.type = 81;
@@ -1386,6 +1396,17 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                            &player_anchor_x,
                                            &player_anchor_y,
                                            false);
+        }
+    }
+    if (map_path_is_multiplayer(map_path) && !alien_has_slug &&
+        alien_anchor_set && count < max_units) {
+        int object_index = object_pool_add_dynamic(&object_pool, alien_anchor_x + 2,
+                                                                alien_anchor_y, 14, 1, -1, 0,
+                                                                unit_config);
+        if (object_index >= 0) {
+            const DcObject *object = &object_pool.objects[object_index];
+            append_dark_colony_object_unit(units, &count, max_units, object_index, object, 1,
+                                           unit_config, NULL, NULL, NULL, NULL, NULL);
         }
     }
     scenario_destroy(&scenario);
