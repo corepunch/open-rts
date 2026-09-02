@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-const actortype_t *dark_colony_actor_type_by_id(uint16_t type_id);
-void dark_colony_apply_actor_type_defaults(mobj_t *unit, const actortype_t *type);
+const actortype_t *actor_type_by_id(uint16_t type_id);
+void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type);
 
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
     snprintf(dst, dst_size, "%s", path);
@@ -24,7 +24,7 @@ static void replace_extension(char *dst, size_t dst_size, const char *path, cons
     }
 }
 
-static char *dark_colony_load_text(const char *path) {
+static char *load_text(const char *path) {
     FILE *fp = fopen(path, "rb");
     if (!fp) return NULL;
     fclose(fp);
@@ -51,23 +51,23 @@ static void trim_copy(char *dst, size_t dst_size, const char *src) {
 }
 
 typedef enum {
-    DC_SCRIPT_CMD_NONE,
-    DC_SCRIPT_CMD_MSG,
-    DC_SCRIPT_CMD_REINFORCE,
-    DC_SCRIPT_CMD_REINFORCE2,
-    DC_SCRIPT_CMD_NEWTYPE,
-} DarkColonyScriptCommandType;
+    SCRIPT_CMD_NONE,
+    SCRIPT_CMD_MSG,
+    SCRIPT_CMD_REINFORCE,
+    SCRIPT_CMD_REINFORCE2,
+    SCRIPT_CMD_NEWTYPE,
+} ScriptCommandType;
 
 enum {
-    DC_SCRIPT_COUNTER_MS = 1000,
-    DC_DROPSHIP_FLIGHT_TICS = 50,
-    DC_DROPSHIP_MAX_PAYLOAD_TYPES = 5,
+    SCRIPT_COUNTER_MS = 1000,
+    DROPSHIP_FLIGHT_TICS = 50,
+    DROPSHIP_MAX_PAYLOAD_TYPES = 5,
 };
 
 typedef struct {
-    DarkColonyScriptCommandType type;
+    ScriptCommandType type;
     int a[8];
-} DarkColonyScriptCommand;
+} ScriptCommand;
 
 typedef struct {
     int id;
@@ -77,28 +77,28 @@ typedef struct {
     bool requires_player_near;
     int trigger_x;
     int trigger_y;
-    DarkColonyScriptCommand commands[32];
+    ScriptCommand commands[32];
     int command_count;
-} DarkColonyScriptBlock;
+} ScriptBlock;
 
 typedef struct {
     int id;
     char text[256];
-} DarkColonyScriptMessage;
+} ScriptMessage;
 
 typedef enum {
-    DC_DROPSHIP_APPROACH,
-    DC_DROPSHIP_REPOSITION,
-    DC_DROPSHIP_UNLOAD,
-    DC_DROPSHIP_DEPART,
-} DarkColonyDropshipPhase;
+    DROPSHIP_APPROACH,
+    DROPSHIP_REPOSITION,
+    DROPSHIP_UNLOAD,
+    DROPSHIP_DEPART,
+} DropshipPhase;
 
 typedef struct {
     int type;
     int count;
-} DarkColonyDropshipPayload;
+} DropshipPayload;
 
-static const ivec2_t dark_colony_drop_formation[] = {
+static const ivec2_t drop_formation[] = {
     { 0, 0 }, { -1, 0 }, { 1, 0 }, { 0, -1 },
     { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 },
     { 1, 1 }, { -2, 0 }, { 2, 0 }, { 0, -2 },
@@ -106,55 +106,55 @@ static const ivec2_t dark_colony_drop_formation[] = {
 
 typedef struct {
     bool active;
-    DarkColonyDropshipPhase phase;
+    DropshipPhase phase;
     int team;
     ivec2_t origin;
     fvec2_t start_center;
     fvec2_t target_center;
     fvec2_t flight_vector;
     fvec2_t center;
-    DarkColonyDropshipPayload payload[DC_DROPSHIP_MAX_PAYLOAD_TYPES];
+    DropshipPayload payload[DROPSHIP_MAX_PAYLOAD_TYPES];
     int payload_count;
     int payload_index;
     int released_count;
     bool release_pending;
     int phase_duration_ms;
     int elapsed_ms;
-    int effect_slots[DC_DROPSHIP_MAX_PARTS];
-} DarkColonyDropship;
+    int effect_slots[DROPSHIP_MAX_PARTS];
+} Dropship;
 
 typedef struct {
-    DarkColonyScriptMessage messages[64];
+    ScriptMessage messages[64];
     int message_count;
-    DarkColonyScriptBlock blocks[64];
+    ScriptBlock blocks[64];
     int block_count;
-    DarkColonyDropship dropships[8];
-    DarkColonyDropshipAnimations dropship_animations;
+    Dropship dropships[8];
+    DropshipAnimations dropship_animations;
     int elapsed_ms;
     int ai_elapsed_ms;
     int ai_wave_elapsed_ms;
     uint32_t ai_wave_target_id;
-} DarkColonyMission;
+} Mission;
 
 typedef struct {
     int think_interval_ms;
     int attack_wave_interval_ms;
     float defense_radius;
     float attack_eagerness;
-} DarkColonyAiConfig;
+} AiConfig;
 
 /* These values mirror the observable Krusty attack policy: think in batches,
  * prefer dangerous mobile targets, then use distance as the stable tie-break.
  * The table is intentionally plugin-local until DC's unitid/depend tables are
  * fully decoded. */
-static const DarkColonyAiConfig dark_colony_ai_config = {
+static const AiConfig ai_config = {
     .think_interval_ms = 500,
     .attack_wave_interval_ms = 5000,
     .defense_radius = 12.0f,
     .attack_eagerness = 1.0f,
 };
 
-static int dark_colony_ai_target(const mobj_t *attacker, const mobj_t *units,
+static int ai_target(const mobj_t *attacker, const mobj_t *units,
                                  int unit_count, int preferred_index, bool defending) {
     int best = -1;
     float best_score = -INFINITY;
@@ -170,7 +170,7 @@ static int dark_colony_ai_target(const mobj_t *attacker, const mobj_t *units,
         float mobility = (candidate->traits & MF_MOBILE) != 0 ? 0.5f : 0.0f;
         float preferred = i == preferred_index ? 1.5f : 0.0f;
         if (defending && (candidate->traits & MF_ATTACK) != 0) preferred += 1.0f;
-        float score = dark_colony_ai_config.attack_eagerness * (threat + mobility) -
+        float score = ai_config.attack_eagerness * (threat + mobility) -
                       distance2 * 0.02f + preferred;
         if (score > best_score) {
             best_score = score;
@@ -180,7 +180,7 @@ static int dark_colony_ai_target(const mobj_t *attacker, const mobj_t *units,
     return best;
 }
 
-static int dark_colony_ai_find_wave_target(const mobj_t *units, int unit_count) {
+static int ai_find_wave_target(const mobj_t *units, int unit_count) {
     int best = -1;
     float best_score = -INFINITY;
     for (int i = 0; i < unit_count; ++i) {
@@ -197,10 +197,10 @@ static int dark_colony_ai_find_wave_target(const mobj_t *units, int unit_count) 
     return best;
 }
 
-static bool dark_colony_ai_is_defending(const mobj_t *units, int unit_count,
+static bool ai_is_defending(const mobj_t *units, int unit_count,
                                         fvec2_t base_position) {
-    float radius2 = dark_colony_ai_config.defense_radius *
-                    dark_colony_ai_config.defense_radius;
+    float radius2 = ai_config.defense_radius *
+                    ai_config.defense_radius;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = &units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != 0 ||
@@ -211,7 +211,7 @@ static bool dark_colony_ai_is_defending(const mobj_t *units, int unit_count,
     return false;
 }
 
-static int dark_colony_ai_nearest_vent(const level_t *map, fvec2_t position) {
+static int ai_nearest_vent(const level_t *map, fvec2_t position) {
     int best = -1;
     float best_distance2 = INFINITY;
     if (!map || !map->resource_vents) return best;
@@ -227,7 +227,7 @@ static int dark_colony_ai_nearest_vent(const level_t *map, fvec2_t position) {
     return best;
 }
 
-static void dark_colony_update_ai_economy(const level_t *map, mobj_t *units,
+static void update_ai_economy(const level_t *map, mobj_t *units,
                                           int unit_count) {
     if (!map || !units) return;
     for (int i = 0; i < unit_count; ++i) {
@@ -235,27 +235,27 @@ static void dark_colony_update_ai_economy(const level_t *map, mobj_t *units,
         if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
             (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
                 (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
-        int vent_index = dark_colony_ai_nearest_vent(
+        int vent_index = ai_nearest_vent(
             map, fixedvec3_xy_to_fvec2(unit->core.position));
         if (vent_index >= 0)
             P_HarvestUnitTo(map, unit, map->resource_vents[vent_index].attachment);
     }
 }
 
-static void dark_colony_update_ai(DarkColonyMission *mission, const level_t *map,
+static void update_ai(Mission *mission, const level_t *map,
                                   mobj_t *units, int unit_count, int dt_ms) {
     if (!map || !units || unit_count <= 0 ||
-        !dark_colony_map_has_ai(map, 1)) return;
+        !map_has_ai(map, 1)) return;
     mission->ai_elapsed_ms += dt_ms;
-    if (mission->ai_elapsed_ms < dark_colony_ai_config.think_interval_ms) return;
-    mission->ai_elapsed_ms %= dark_colony_ai_config.think_interval_ms;
-    dark_colony_update_ai_economy(map, units, unit_count);
+    if (mission->ai_elapsed_ms < ai_config.think_interval_ms) return;
+    mission->ai_elapsed_ms %= ai_config.think_interval_ms;
+    update_ai_economy(map, units, unit_count);
 
-    mission->ai_wave_elapsed_ms += dark_colony_ai_config.think_interval_ms;
+    mission->ai_wave_elapsed_ms += ai_config.think_interval_ms;
     int wave_target = -1;
-    if (mission->ai_wave_elapsed_ms >= dark_colony_ai_config.attack_wave_interval_ms) {
-        mission->ai_wave_elapsed_ms %= dark_colony_ai_config.attack_wave_interval_ms;
-        wave_target = dark_colony_ai_find_wave_target(units, unit_count);
+    if (mission->ai_wave_elapsed_ms >= ai_config.attack_wave_interval_ms) {
+        mission->ai_wave_elapsed_ms %= ai_config.attack_wave_interval_ms;
+        wave_target = ai_find_wave_target(units, unit_count);
         mission->ai_wave_target_id = wave_target >= 0 ? units[wave_target].id : 0;
     }
     if (wave_target < 0 && mission->ai_wave_target_id != 0) {
@@ -280,7 +280,7 @@ static void dark_colony_update_ai(DarkColonyMission *mission, const level_t *map
     }
     if (base_count > 0) base_position = fvec2_scale(base_position, 1.0f / (float)base_count);
     bool defending = base_count > 0 &&
-                     dark_colony_ai_is_defending(units, unit_count, base_position);
+                     ai_is_defending(units, unit_count, base_position);
 
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *attacker = &units[i];
@@ -288,7 +288,7 @@ static void dark_colony_update_ai(DarkColonyMission *mission, const level_t *map
             (attacker->traits & (MF_MOBILE | MF_ATTACK)) != (MF_MOBILE | MF_ATTACK)) {
             continue;
         }
-        int target_index = dark_colony_ai_target(attacker, units, unit_count,
+        int target_index = ai_target(attacker, units, unit_count,
                                                  defending ? -1 : wave_target,
                                                  defending);
         if (target_index < 0) continue;
@@ -303,14 +303,14 @@ static void dark_colony_update_ai(DarkColonyMission *mission, const level_t *map
     }
 }
 
-static const char *dark_colony_script_message(const DarkColonyMission *mission, int id) {
+static const char *script_message(const Mission *mission, int id) {
     if (!mission) return NULL;
     for (int i = 0; i < mission->message_count; ++i)
         if (mission->messages[i].id == id) return mission->messages[i].text;
     return NULL;
 }
 
-static uint16_t dark_colony_script_unit_type(int team, int type) {
+static uint16_t script_unit_type(int team, int type) {
     if (team != 0) {
         if (type == 0 || (type >= 69 && type <= 76)) return MT_DC_GREY;
         return MT_DC_GREY;
@@ -326,7 +326,7 @@ static uint16_t dark_colony_script_unit_type(int team, int type) {
     }
 }
 
-static bool dark_colony_player_near(const level_t *map, const mobj_t *units,
+static bool player_near(const level_t *map, const mobj_t *units,
                                     int unit_count, int gx, int gy) {
     (void)map;
     fvec2_t center = fvec2_cell_center((ivec2_t){ gx, gy });
@@ -338,7 +338,7 @@ static bool dark_colony_player_near(const level_t *map, const mobj_t *units,
     return false;
 }
 
-static int dark_colony_spawn_dropship_part(effect_t *effects, int max_effects,
+static int spawn_dropship_part(effect_t *effects, int max_effects,
                                            fvec2_t center, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
@@ -354,16 +354,16 @@ static int dark_colony_spawn_dropship_part(effect_t *effects, int max_effects,
     return -1;
 }
 
-static void dark_colony_clear_dropship_parts(DarkColonyDropship *ship,
+static void clear_dropship_parts(Dropship *ship,
                                              effect_t *effects, int max_effects) {
-    for (int i = 0; i < DC_DROPSHIP_MAX_PARTS; ++i) {
+    for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) {
         int slot = ship->effect_slots[i];
         if (slot >= 0 && slot < max_effects) memset(&effects[slot], 0, sizeof(effects[slot]));
         ship->effect_slots[i] = -1;
     }
 }
 
-static int dark_colony_dropship_frame_at(const DarkColonyDropshipAnimation *animation,
+static int dropship_frame_at(const DropshipAnimation *animation,
                                          int elapsed_ms) {
     if (animation->duration_ms > 0) elapsed_ms %= animation->duration_ms;
     int frame_end_ms = 0;
@@ -374,23 +374,23 @@ static int dark_colony_dropship_frame_at(const DarkColonyDropshipAnimation *anim
     return animation->frame_count - 1;
 }
 
-static void dark_colony_sync_dropship_parts(DarkColonyDropship *ship,
-                                            const DarkColonyDropshipAnimation *animation,
+static void sync_dropship_parts(Dropship *ship,
+                                            const DropshipAnimation *animation,
                                             effect_t *effects, int max_effects) {
     if (!animation->valid || animation->frame_count <= 0) return;
-    const DarkColonyDropshipFrame *frame =
-        &animation->frames[dark_colony_dropship_frame_at(animation, ship->elapsed_ms)];
+    const DropshipFrame *frame =
+        &animation->frames[dropship_frame_at(animation, ship->elapsed_ms)];
     int runtime_part = 0;
     for (int part_index = 0;
-         part_index < frame->part_count && runtime_part < DC_DROPSHIP_MAX_PARTS;
+         part_index < frame->part_count && runtime_part < DROPSHIP_MAX_PARTS;
          ++part_index) {
-        const DarkColonyDropshipPart *part = &frame->parts[part_index];
-        if (ship->phase != DC_DROPSHIP_UNLOAD &&
+        const DropshipPart *part = &frame->parts[part_index];
+        if (ship->phase != DROPSHIP_UNLOAD &&
             (strcmp(part->sprite_name, "SPRITES/DUTS.SPR") == 0 ||
              strcmp(part->sprite_name, "SPRITES/CLOD.SPR") == 0)) continue;
         int slot = ship->effect_slots[runtime_part];
         if (slot < 0 || slot >= max_effects || !effects[slot].active) {
-            slot = dark_colony_spawn_dropship_part(
+            slot = spawn_dropship_part(
                 effects, max_effects, ship->center, ship->phase_duration_ms + 1);
             ship->effect_slots[runtime_part] = slot;
         }
@@ -415,25 +415,25 @@ static void dark_colony_sync_dropship_parts(DarkColonyDropship *ship,
         }
         runtime_part++;
     }
-    for (int i = runtime_part; i < DC_DROPSHIP_MAX_PARTS; ++i) {
+    for (int i = runtime_part; i < DROPSHIP_MAX_PARTS; ++i) {
         int slot = ship->effect_slots[i];
         if (slot >= 0 && slot < max_effects) memset(&effects[slot], 0, sizeof(effects[slot]));
         ship->effect_slots[i] = -1;
     }
 }
 
-static const DarkColonyDropshipAnimation *dark_colony_dropship_animation(
-    const DarkColonyMission *mission, DarkColonyDropshipPhase phase) {
-    if (phase == DC_DROPSHIP_UNLOAD) return &mission->dropship_animations.unload;
+static const DropshipAnimation *dropship_animation(
+    const Mission *mission, DropshipPhase phase) {
+    if (phase == DROPSHIP_UNLOAD) return &mission->dropship_animations.unload;
     return &mission->dropship_animations.move;
 }
 
-static DarkColonyDropship *dark_colony_spawn_drop_effect(
-    DarkColonyMission *mission, effect_t *effects, int max_effects,
+static Dropship *spawn_drop_effect(
+    Mission *mission, effect_t *effects, int max_effects,
     int team, int gx, int gy) {
     if (!mission || !effects || max_effects <= 0) return NULL;
 
-    DarkColonyDropship *ship = NULL;
+    Dropship *ship = NULL;
     for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
         if (!mission->dropships[i].active) { ship = &mission->dropships[i]; break; }
     }
@@ -441,16 +441,16 @@ static DarkColonyDropship *dark_colony_spawn_drop_effect(
 
     memset(ship, 0, sizeof(*ship));
     ship->active = true;
-    ship->phase = DC_DROPSHIP_APPROACH;
+    ship->phase = DROPSHIP_APPROACH;
     ship->team = team;
     ship->origin = (ivec2_t){ gx, gy };
     ship->start_center = fvec2_cell_center((ivec2_t){ gx - 1, gy - 1 });
     ship->target_center = fvec2_cell_center(ship->origin);
     ship->flight_vector = fvec2_sub(ship->target_center, ship->start_center);
     ship->center = ship->start_center;
-    ship->phase_duration_ms = (DC_DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30;
-    for (int i = 0; i < DC_DROPSHIP_MAX_PARTS; ++i) ship->effect_slots[i] = -1;
-    dark_colony_sync_dropship_parts(
+    ship->phase_duration_ms = (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30;
+    for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) ship->effect_slots[i] = -1;
+    sync_dropship_parts(
         ship, &mission->dropship_animations.move, effects, max_effects);
 
     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
@@ -459,7 +459,7 @@ static DarkColonyDropship *dark_colony_spawn_drop_effect(
     return ship;
 }
 
-static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count, int team,
+static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count, int team,
                                           int gx, int gy, int type,
                                           const gameinfo_t *game_info) {
     if (!units || !unit_count || *unit_count >= MAXMOBJS) return;
@@ -487,15 +487,15 @@ static void dark_colony_spawn_script_unit(const level_t *map, mobj_t *units, int
         unit->selected = !has_selected_player;
     }
     unit->core.angle = dc_direction_to_angle(unit->owner == 0 ? 6 : 14);
-    uint16_t type_id = dark_colony_script_unit_type(team, type);
-    const actortype_t *actor = dark_colony_actor_type_by_id(type_id);
+    uint16_t type_id = script_unit_type(team, type);
+    const actortype_t *actor = actor_type_by_id(type_id);
     unit->native_type_id = (uint16_t)(type >= 0 ? type : 0);
-    dark_colony_apply_actor_type_defaults(unit, actor);
+    apply_actor_type_defaults(unit, actor);
     P_SpawnMobj(game_info, unit);
     (*unit_count)++;
 }
 
-static bool dark_colony_dropship_cell_occupied(const mobj_t *units, int unit_count,
+static bool dropship_cell_occupied(const mobj_t *units, int unit_count,
                                                ivec2_t cell) {
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
@@ -506,14 +506,14 @@ static bool dark_colony_dropship_cell_occupied(const mobj_t *units, int unit_cou
     return false;
 }
 
-static fvec2_t dark_colony_drop_position(const level_t *map, const mobj_t *units,
+static fvec2_t drop_position(const level_t *map, const mobj_t *units,
                                          int unit_count, fvec2_t center, int slot) {
-    int formation_count = (int)(sizeof(dark_colony_drop_formation) /
-                                sizeof(dark_colony_drop_formation[0]));
-    ivec2_t offset = dark_colony_drop_formation[slot % formation_count];
+    int formation_count = (int)(sizeof(drop_formation) /
+                                sizeof(drop_formation[0]));
+    ivec2_t offset = drop_formation[slot % formation_count];
     fvec2_t candidate = fvec2_add(center, (fvec2_t){ (float)offset.x, (float)offset.y });
     if (map && L_IsWalkable(map, (int)floorf(candidate.x), (int)floorf(candidate.y)) &&
-        !dark_colony_dropship_cell_occupied(units, unit_count,
+        !dropship_cell_occupied(units, unit_count,
                                             (ivec2_t){ (int)floorf(candidate.x),
                                                        (int)floorf(candidate.y) })) {
         return candidate;
@@ -521,12 +521,12 @@ static fvec2_t dark_colony_drop_position(const level_t *map, const mobj_t *units
     return center;
 }
 
-static void dark_colony_set_dropship_phase(DarkColonyDropship *ship,
-                                           DarkColonyDropshipPhase phase,
+static void set_dropship_phase(Dropship *ship,
+                                           DropshipPhase phase,
                                            int duration_ms,
                                            effect_t *effects, int max_effects) {
     /* Do not clear effect slots here: the caller already synced the ending
-     * phase's trailing frame into them this tick, and dark_colony_sync_dropship_parts
+     * phase's trailing frame into them this tick, and sync_dropship_parts
      * reconciles slot contents for the new phase on the next tick. Clearing
      * here would erase that trailing frame before it is ever rendered. */
     (void)effects;
@@ -536,13 +536,13 @@ static void dark_colony_set_dropship_phase(DarkColonyDropship *ship,
     ship->phase_duration_ms = duration_ms > 0 ? duration_ms : 1;
 }
 
-static void dark_colony_update_dropship(DarkColonyMission *mission,
-                                        DarkColonyDropship *ship,
+static void update_dropship(Mission *mission,
+                                        Dropship *ship,
                                         level_t *map, mobj_t *units, int *unit_count,
                                         effect_t *effects, int max_effects,
                                         const gameinfo_t *game_info, int dt_ms) {
     ship->elapsed_ms += dt_ms;
-    if (ship->phase != DC_DROPSHIP_UNLOAD) {
+    if (ship->phase != DROPSHIP_UNLOAD) {
         float progress = (float)ship->elapsed_ms / (float)ship->phase_duration_ms;
         if (progress > 1.0f) progress = 1.0f;
         ship->center = fvec2_add(ship->start_center,
@@ -556,27 +556,27 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
         int trailing_elapsed = ship->phase_duration_ms > 0 ? ship->phase_duration_ms - 1 : 0;
         int leftover_elapsed = ship->elapsed_ms;
         ship->elapsed_ms = trailing_elapsed;
-        dark_colony_sync_dropship_parts(
-            ship, dark_colony_dropship_animation(mission, ship->phase), effects, max_effects);
+        sync_dropship_parts(
+            ship, dropship_animation(mission, ship->phase), effects, max_effects);
         ship->elapsed_ms = leftover_elapsed;
 
-        if (ship->phase == DC_DROPSHIP_APPROACH ||
-            ship->phase == DC_DROPSHIP_REPOSITION) {
+        if (ship->phase == DROPSHIP_APPROACH ||
+            ship->phase == DROPSHIP_REPOSITION) {
             ship->center = ship->target_center;
             ship->release_pending = true;
-            dark_colony_set_dropship_phase(
-                ship, DC_DROPSHIP_UNLOAD,
+            set_dropship_phase(
+                ship, DROPSHIP_UNLOAD,
                 mission->dropship_animations.unload.duration_ms, effects, max_effects);
-        } else if (ship->phase == DC_DROPSHIP_UNLOAD) {
+        } else if (ship->phase == DROPSHIP_UNLOAD) {
             if (ship->release_pending && ship->payload_index < ship->payload_count) {
-                DarkColonyDropshipPayload *payload = &ship->payload[ship->payload_index];
+                DropshipPayload *payload = &ship->payload[ship->payload_index];
                 fvec2_t origin_center = fvec2_cell_center(ship->origin);
-                fvec2_t drop_pos = dark_colony_drop_position(
+                fvec2_t drop_pos = drop_position(
                     map, units, *unit_count, origin_center, ship->released_count);
                 ivec2_t release_cell = {
                     (int)floorf(drop_pos.x), (int)floorf(drop_pos.y)
                 };
-                dark_colony_spawn_script_unit(map, units, unit_count, ship->team,
+                spawn_script_unit(map, units, unit_count, ship->team,
                                               release_cell.x, release_cell.y,
                                               payload->type, game_info);
                 ship->released_count++;
@@ -587,53 +587,53 @@ static void dark_colony_update_dropship(DarkColonyMission *mission,
 
             if (ship->payload_index < ship->payload_count) {
                 ship->release_pending = true;
-                dark_colony_set_dropship_phase(
-                    ship, DC_DROPSHIP_UNLOAD,
+                set_dropship_phase(
+                    ship, DROPSHIP_UNLOAD,
                     mission->dropship_animations.unload.duration_ms, effects, max_effects);
             } else {
                 ship->start_center = ship->center;
                 ship->target_center = fvec2_add(ship->center, ship->flight_vector);
-                dark_colony_set_dropship_phase(
-                    ship, DC_DROPSHIP_DEPART,
-                    (DC_DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30,
+                set_dropship_phase(
+                    ship, DROPSHIP_DEPART,
+                    (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30,
                     effects, max_effects);
             }
         } else {
-            dark_colony_clear_dropship_parts(ship, effects, max_effects);
+            clear_dropship_parts(ship, effects, max_effects);
             ship->active = false;
             return;
         }
         return;
     }
 
-    dark_colony_sync_dropship_parts(
-        ship, dark_colony_dropship_animation(mission, ship->phase), effects, max_effects);
+    sync_dropship_parts(
+        ship, dropship_animation(mission, ship->phase), effects, max_effects);
 }
 
-static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkColonyScriptBlock *block,
+static void execute_script_block(Mission *mission, ScriptBlock *block,
                                              level_t *map, mobj_t *units, int *unit_count,
                                              effect_t *effects, int max_effects,
                                              const gameinfo_t *game_info, hudtext_t *hud) {
     if (!mission || !block) return;
     for (int i = 0; i < block->command_count; ++i) {
-        DarkColonyScriptCommand *cmd = &block->commands[i];
-        if (cmd->type == DC_SCRIPT_CMD_MSG) {
-            const char *message = dark_colony_script_message(mission, cmd->a[0]);
+        ScriptCommand *cmd = &block->commands[i];
+        if (cmd->type == SCRIPT_CMD_MSG) {
+            const char *message = script_message(mission, cmd->a[0]);
             if (message) HU_PushMessage(hud, message, -1);
-        } else if (cmd->type == DC_SCRIPT_CMD_REINFORCE ||
-                   cmd->type == DC_SCRIPT_CMD_REINFORCE2) {
+        } else if (cmd->type == SCRIPT_CMD_REINFORCE ||
+                   cmd->type == SCRIPT_CMD_REINFORCE2) {
             int team = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
             int count = cmd->a[3] > 0 ? cmd->a[3] : 1;
             int type = cmd->a[4];
-            if (cmd->type == DC_SCRIPT_CMD_REINFORCE && cmd->a[5]) {
-                DarkColonyDropship *ship = dark_colony_spawn_drop_effect(
+            if (cmd->type == SCRIPT_CMD_REINFORCE && cmd->a[5]) {
+                Dropship *ship = spawn_drop_effect(
                     mission, effects, max_effects, team, x, y);
                 for (int j = i; j < block->command_count; ++j) {
-                    DarkColonyScriptCommand *drop_cmd = &block->commands[j];
-                    if (drop_cmd->type != DC_SCRIPT_CMD_REINFORCE) break;
+                    ScriptCommand *drop_cmd = &block->commands[j];
+                    if (drop_cmd->type != SCRIPT_CMD_REINFORCE) break;
                     if (j != i && drop_cmd->a[5]) break;
-                    if (ship && ship->payload_count < DC_DROPSHIP_MAX_PAYLOAD_TYPES) {
-                        DarkColonyDropshipPayload *payload =
+                    if (ship && ship->payload_count < DROPSHIP_MAX_PAYLOAD_TYPES) {
+                        DropshipPayload *payload =
                             &ship->payload[ship->payload_count++];
                         payload->type = drop_cmd->a[4];
                         payload->count = drop_cmd->a[3] > 0 ? drop_cmd->a[3] : 1;
@@ -641,18 +641,18 @@ static void dark_colony_execute_script_block(DarkColonyMission *mission, DarkCol
                 }
             }
             for (int n = 0; n < count; ++n) {
-                if (cmd->type == DC_SCRIPT_CMD_REINFORCE2)
-                    dark_colony_spawn_script_unit(map, units, unit_count, team, x, y, type, game_info);
+                if (cmd->type == SCRIPT_CMD_REINFORCE2)
+                    spawn_script_unit(map, units, unit_count, team, x, y, type, game_info);
             }
         }
     }
     block->fired = true;
 }
 
-static void dark_colony_parse_messages(DarkColonyMission *mission, const char *path) {
-    char *text = dark_colony_load_text(path);
+static void parse_messages(Mission *mission, const char *path) {
+    char *text = load_text(path);
     if (!text) return;
-    DarkColonyScriptMessage *current = NULL;
+    ScriptMessage *current = NULL;
     for (char *line = text; line && *line;) {
         char *next = strpbrk(line, "\r\n");
         if (next) {
@@ -678,14 +678,14 @@ static void dark_colony_parse_messages(DarkColonyMission *mission, const char *p
     free(text);
 }
 
-static void dark_colony_script_add_command(DarkColonyScriptBlock *block,
-                                           DarkColonyScriptCommand command) {
+static void script_add_command(ScriptBlock *block,
+                                           ScriptCommand command) {
     if (!block || block->command_count >= (int)(sizeof(block->commands) / sizeof(block->commands[0])))
         return;
     block->commands[block->command_count++] = command;
 }
 
-static int dark_colony_parse_command_ints(const char *token, const char *keyword,
+static int parse_command_ints(const char *token, const char *keyword,
                                           int *out, int max_out) {
     if (!token || !keyword || !out || max_out <= 0) return -1;
     size_t keyword_len = strlen(keyword);
@@ -706,8 +706,8 @@ static int dark_colony_parse_command_ints(const char *token, const char *keyword
     return count;
 }
 
-static void dark_colony_add_reinforce_commands(DarkColonyScriptBlock *block,
-                                               DarkColonyScriptCommandType type,
+static void add_reinforce_commands(ScriptBlock *block,
+                                               ScriptCommandType type,
                                                const int *v, int count) {
     if (!block || !v || count < 5) return;
     int team = v[0];
@@ -715,7 +715,7 @@ static void dark_colony_add_reinforce_commands(DarkColonyScriptBlock *block,
     int y = v[2];
     bool drop_added = false;
     for (int pair = 3; pair + 1 < count; pair += 2) {
-        DarkColonyScriptCommand cmd;
+        ScriptCommand cmd;
         memset(&cmd, 0, sizeof(cmd));
         cmd.type = type;
         cmd.a[0] = team;
@@ -724,9 +724,9 @@ static void dark_colony_add_reinforce_commands(DarkColonyScriptBlock *block,
         cmd.a[3] = v[pair + 1];
         cmd.a[4] = v[pair];
         if (cmd.a[3] <= 0) continue;
-        cmd.a[5] = type == DC_SCRIPT_CMD_REINFORCE && !drop_added;
+        cmd.a[5] = type == SCRIPT_CMD_REINFORCE && !drop_added;
         drop_added = drop_added || cmd.a[5];
-        dark_colony_script_add_command(block, cmd);
+        script_add_command(block, cmd);
     }
     if (block->trigger_x < 0) {
         block->trigger_x = x;
@@ -734,10 +734,10 @@ static void dark_colony_add_reinforce_commands(DarkColonyScriptBlock *block,
     }
 }
 
-static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) {
-    char *text = dark_colony_load_text(path);
+static void parse_tro(Mission *mission, const char *path) {
+    char *text = load_text(path);
     if (!text) return;
-    DarkColonyScriptBlock *block = NULL;
+    ScriptBlock *block = NULL;
     for (char *line = text; line && *line;) {
         char *next = strpbrk(line, "\r\n");
         if (next) {
@@ -768,24 +768,24 @@ static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) 
         } else if (block && strcmp(token, "end") == 0) {
             block = NULL;
         } else if (block) {
-            DarkColonyScriptCommand cmd;
+            ScriptCommand cmd;
             memset(&cmd, 0, sizeof(cmd));
             int v[32] = { 0 };
             int parsed = 0;
             if (sscanf(token, "msg %d %d %d %d %d", &v[0], &v[1], &v[2], &v[3], &v[4]) == 5) {
-                cmd.type = DC_SCRIPT_CMD_MSG;
+                cmd.type = SCRIPT_CMD_MSG;
                 cmd.a[0] = v[2];
-                dark_colony_script_add_command(block, cmd);
-            } else if ((parsed = dark_colony_parse_command_ints(token, "reinforce2", v, 31)) >= 5) {
-                dark_colony_add_reinforce_commands(block, DC_SCRIPT_CMD_REINFORCE2, v, parsed);
-            } else if ((parsed = dark_colony_parse_command_ints(token, "reinforce", v, 31)) >= 5) {
-                dark_colony_add_reinforce_commands(block, DC_SCRIPT_CMD_REINFORCE, v, parsed);
+                script_add_command(block, cmd);
+            } else if ((parsed = parse_command_ints(token, "reinforce2", v, 31)) >= 5) {
+                add_reinforce_commands(block, SCRIPT_CMD_REINFORCE2, v, parsed);
+            } else if ((parsed = parse_command_ints(token, "reinforce", v, 31)) >= 5) {
+                add_reinforce_commands(block, SCRIPT_CMD_REINFORCE, v, parsed);
             } else if (sscanf(token, "newtype %d %d %d", &v[0], &v[1], &v[2]) == 3) {
-                cmd.type = DC_SCRIPT_CMD_NEWTYPE;
+                cmd.type = SCRIPT_CMD_NEWTYPE;
                 cmd.a[0] = v[0];
                 cmd.a[1] = v[1];
                 cmd.a[2] = v[2];
-                dark_colony_script_add_command(block, cmd);
+                script_add_command(block, cmd);
                 if (block->trigger_x < 0) {
                     block->trigger_x = v[0];
                     block->trigger_y = v[1];
@@ -797,16 +797,16 @@ static void dark_colony_parse_tro(DarkColonyMission *mission, const char *path) 
     free(text);
 }
 
-void *dark_colony_load_mission(const char *map_path) {
+void *load_mission(const char *map_path) {
     if (!map_path) return NULL;
-    DarkColonyMission *mission = calloc(1, sizeof(*mission));
+    Mission *mission = calloc(1, sizeof(*mission));
     if (!mission) return NULL;
     char msg_path[1024], tro_path[1024];
     replace_extension(msg_path, sizeof(msg_path), map_path, ".MSG");
     replace_extension(tro_path, sizeof(tro_path), map_path, ".TRO");
-    dark_colony_parse_messages(mission, msg_path);
-    dark_colony_parse_tro(mission, tro_path);
-    dark_colony_dropship_animation_from_sprites(map_path, &mission->dropship_animations);
+    parse_messages(mission, msg_path);
+    parse_tro(mission, tro_path);
+    dropship_animation_from_sprites(map_path, &mission->dropship_animations);
     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
         fprintf(stderr, "Dark Colony mission %s: %d messages, %d blocks\n",
                 map_path, mission->message_count, mission->block_count);
@@ -817,42 +817,42 @@ void *dark_colony_load_mission(const char *map_path) {
     return mission;
 }
 
-void dark_colony_update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
+void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
                                 effect_t *effects, int max_effects,
                                 const gameinfo_t *game_info, hudtext_t *hud, float dt) {
-    DarkColonyMission *mission = ptr;
+    Mission *mission = ptr;
     if (!mission || !units || !unit_count) return;
     mission->elapsed_ms += (int)(dt * 1000.0f);
-    dark_colony_update_ai(mission, map, units, *unit_count, (int)(dt * 1000.0f));
+    update_ai(mission, map, units, *unit_count, (int)(dt * 1000.0f));
     bool debug_script = getenv("OPEN_RTS_DEBUG_SCRIPT") != NULL;
     for (int i = 0; i < mission->block_count; ++i) {
-        DarkColonyScriptBlock *block = &mission->blocks[i];
+        ScriptBlock *block = &mission->blocks[i];
         if (block->fired) continue;
         bool fire = false;
         if (block->trip) {
             fire = block->trigger_x >= 0 &&
-                   dark_colony_player_near(map, units, *unit_count, block->trigger_x, block->trigger_y);
+                   player_near(map, units, *unit_count, block->trigger_x, block->trigger_y);
         } else if (block->c_gt >= 0) {
-            fire = mission->elapsed_ms > block->c_gt * DC_SCRIPT_COUNTER_MS;
+            fire = mission->elapsed_ms > block->c_gt * SCRIPT_COUNTER_MS;
         }
         if (fire) {
             if (debug_script) {
                 fprintf(stderr, "Dark Colony script block %d fired (%d commands)\n",
                         block->id, block->command_count);
             }
-            dark_colony_execute_script_block(mission, block, map, units, unit_count,
+            execute_script_block(mission, block, map, units, unit_count,
                                              effects, max_effects, game_info, hud);
         }
     }
     for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
-        DarkColonyDropship *ship = &mission->dropships[i];
+        Dropship *ship = &mission->dropships[i];
         if (!ship->active) continue;
-        dark_colony_update_dropship(mission, ship, map, units, unit_count,
+        update_dropship(mission, ship, map, units, unit_count,
                                     effects, max_effects, game_info,
                                     (int)(dt * 1000.0f));
     }
 }
 
-void dark_colony_destroy_mission(void *mission) {
+void destroy_mission(void *mission) {
     free(mission);
 }

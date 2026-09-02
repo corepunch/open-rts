@@ -10,7 +10,7 @@ struct level_s;
 /* Scenario TEAM records are native map data, but AI consumption belongs to
  * the simulation.  owner 0 is the human side; non-zero owners are DC's
  * computer-controlled side in the current runtime mapping. */
-bool dark_colony_map_has_ai(const struct level_s *map, int owner);
+bool map_has_ai(const struct level_s *map, int owner);
 
 enum {
     MT_DC_BUILDING_BASE = 1000,
@@ -33,13 +33,13 @@ enum {
 };
 
 enum {
-    DC_MAX_OBJECTS = 800,
-    DC_BUILDINGS_PER_SIDE = 15,
-    DC_BUILDING_OBJECT_COUNT = 8 * DC_BUILDINGS_PER_SIDE,
-    DC_DYNAMIC_OBJECT_FIRST = 0x98,
-    DC_OBJECT_SIZE = 0xdc,
-    DC_OBJECT_TYPE_PETRA7_VENT = 40,
-    DC_FIXED_TILE_CENTER = 0x80,
+    MAX_OBJECTS = 800,
+    BUILDINGS_PER_SIDE = 15,
+    BUILDING_OBJECT_COUNT = 8 * BUILDINGS_PER_SIDE,
+    DYNAMIC_OBJECT_FIRST = 0x98,
+    OBJECT_SIZE = 0xdc,
+    OBJECT_TYPE_PETRA7_VENT = 40,
+    FIXED_TILE_CENTER = 0x80,
 };
 
 typedef struct {
@@ -82,17 +82,17 @@ typedef struct {
     int16_t target_a;           /* +0xd2, initialized to -2 */
     int16_t target_b;           /* +0xd4, initialized to -2 */
     uint8_t timer_d6;           /* +0xd6 */
-    uint8_t pad_d7[DC_OBJECT_SIZE - 0xd7];
+    uint8_t pad_d7[OBJECT_SIZE - 0xd7];
 } DcObject;
 
 typedef struct {
-    DcObject objects[DC_MAX_OBJECTS];
-    uint16_t active_objects[DC_MAX_OBJECTS];
+    DcObject objects[MAX_OBJECTS];
+    uint16_t active_objects[MAX_OBJECTS];
     int object_limit;
     int active_count;
 } DcObjectPool;
 
-_Static_assert(sizeof(DcObject) == DC_OBJECT_SIZE, "DcObject must match DC.EXE stride");
+_Static_assert(sizeof(DcObject) == OBJECT_SIZE, "DcObject must match DC.EXE stride");
 _Static_assert(offsetof(DcObject, x_pos) == 0x00, "DcObject.x_pos offset");
 _Static_assert(offsetof(DcObject, z_pos) == 0x04, "DcObject.z_pos offset");
 _Static_assert(offsetof(DcObject, type) == 0x06, "DcObject.type offset");

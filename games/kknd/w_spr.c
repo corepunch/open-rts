@@ -15,8 +15,8 @@ typedef struct {
     int offset_y;
 } KkndFrame;
 
-enum { KKND_MAX_ANIMATIONS = 512, KKND_MAX_FRAMES = 4096 };
-static bool kknd_build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,
+enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };
+static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,
                                    tileset_t *out) {
     size_t cells = (size_t)map->width * (size_t)map->height;
     int frame_count = (int)(cells * (size_t)map->layer_count + 1);
@@ -47,7 +47,7 @@ static bool kknd_build_map_tileset(SDL_Renderer *renderer, const KkndMapData *ma
     return true;
 }
 
-static int kknd_sprite_member_index(const char *name) {
+static int sprite_member_index(const char *name) {
     if (!name || !*name) return -1;
     if (isdigit((unsigned char)name[0])) return atoi(name);
     static const struct { const char *name; int index; } names[] = {
@@ -60,17 +60,17 @@ static int kknd_sprite_member_index(const char *name) {
     return -1;
 }
 
-static bool kknd_decode_mobd_image(const uint8_t *segment, size_t size, uint32_t frame_offset,
+static bool decode_mobd_image(const uint8_t *segment, size_t size, uint32_t frame_offset,
                                    KkndFrame *out) {
-    if (!kknd_range_ok(size, frame_offset, 28)) return false;
+    if (!range_ok(size, frame_offset, 28)) return false;
     out->offset_x = (int)read_u32_le(segment + frame_offset);
     out->offset_y = (int)read_u32_le(segment + frame_offset + 4);
     uint32_t flags_offset = read_u32_le(segment + frame_offset + 12);
-    if (!kknd_range_ok(size, flags_offset, 12) || memcmp(segment + flags_offset, "TRPS", 4) != 0)
+    if (!range_ok(size, flags_offset, 12) || memcmp(segment + flags_offset, "TRPS", 4) != 0)
         return false;
     uint32_t flags = read_u32_le(segment + flags_offset + 4);
     uint32_t image = read_u32_le(segment + flags_offset + 8);
-    if (!kknd_range_ok(size, image, 9)) return false;
+    if (!range_ok(size, image, 9)) return false;
     int width = (int)read_u32_le(segment + image);
     int height = (int)read_u32_le(segment + image + 4);
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) return false;
@@ -81,11 +81,11 @@ static bool kknd_decode_mobd_image(const uint8_t *segment, size_t size, uint32_t
     if (segment[image + 8] == 2) {
         size_t write = 0;
         while (write < count) {
-            if (!kknd_range_ok(size, pos, 1)) { free(pixels); return false; }
+            if (!range_ok(size, pos, 1)) { free(pixels); return false; }
             uint32_t line_bytes = (uint32_t)segment[pos++];
             if (line_bytes == 0) { free(pixels); return false; }
             line_bytes--;
-            if (!kknd_range_ok(size, pos, line_bytes)) { free(pixels); return false; }
+            if (!range_ok(size, pos, line_bytes)) { free(pixels); return false; }
             uint32_t end = pos + line_bytes;
             bool skip = true;
             while (pos < end) {
@@ -104,7 +104,7 @@ static bool kknd_decode_mobd_image(const uint8_t *segment, size_t size, uint32_t
             if (write < count) write += ((size_t)width - write % (size_t)width) % (size_t)width;
         }
     } else {
-        if (!kknd_range_ok(size, pos, count)) { free(pixels); return false; }
+        if (!range_ok(size, pos, count)) { free(pixels); return false; }
         memcpy(pixels, segment + pos, count);
     }
     if ((flags & 1u) != 0) {
@@ -121,14 +121,14 @@ static bool kknd_decode_mobd_image(const uint8_t *segment, size_t size, uint32_t
     return true;
 }
 
-static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
+static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
                              uint32_t member, const uint32_t palette[256], spritesheet_t *out) {
-    uint32_t animation_offsets[KKND_MAX_ANIMATIONS];
+    uint32_t animation_offsets[MAX_ANIMATIONS];
     int animation_count = 0;
     uint32_t first_frame = (uint32_t)size;
     uint32_t pos = member;
-    while (pos < first_frame && animation_count < KKND_MAX_ANIMATIONS) {
-        if (!kknd_range_ok(size, pos, 4)) return false;
+    while (pos < first_frame && animation_count < MAX_ANIMATIONS) {
+        if (!range_ok(size, pos, 4)) return false;
         int32_t value = read_i32_le(segment + pos);
         pos += 4;
         if (value == 0 || (value < (int32_t)pos && value >= (int32_t)member)) {
@@ -137,7 +137,7 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
         }
         animation_offsets[animation_count++] = pos - 4;
         while (true) {
-            if (!kknd_range_ok(size, pos, 4)) return false;
+            if (!range_ok(size, pos, 4)) return false;
             value = read_i32_le(segment + pos);
             pos += 4;
             if (value == 0 || value == -1) break;
@@ -146,10 +146,10 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
         }
     }
 
-    uint32_t ordered[KKND_MAX_ANIMATIONS];
+    uint32_t ordered[MAX_ANIMATIONS];
     int ordered_count = 0;
-    while (pos < first_frame && ordered_count < KKND_MAX_ANIMATIONS) {
-        if (!kknd_range_ok(size, pos, 4)) return false;
+    while (pos < first_frame && ordered_count < MAX_ANIMATIONS) {
+        if (!range_ok(size, pos, 4)) return false;
         uint32_t value = read_u32_le(segment + pos);
         pos += 4;
         if (value == 0) continue;
@@ -157,24 +157,24 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
         for (int i = 0; i < animation_count; ++i)
             if (animation_offsets[i] == value) animation_offsets[i] = 0;
     }
-    for (int i = 0; i < animation_count && ordered_count < KKND_MAX_ANIMATIONS; ++i)
+    for (int i = 0; i < animation_count && ordered_count < MAX_ANIMATIONS; ++i)
         if (animation_offsets[i] != 0) ordered[ordered_count++] = animation_offsets[i];
 
-    KkndFrame frames[KKND_MAX_FRAMES] = {{0}};
-    int group_starts[KKND_MAX_ANIMATIONS] = {0};
-    int group_lengths[KKND_MAX_ANIMATIONS] = {0};
+    KkndFrame frames[MAX_FRAMES] = {{0}};
+    int group_starts[MAX_ANIMATIONS] = {0};
+    int group_lengths[MAX_ANIMATIONS] = {0};
     int frame_count = 0;
     for (int group = 0; group < ordered_count; ++group) {
         uint32_t cursor = ordered[group];
-        if (!kknd_range_ok(size, cursor, 8)) goto fail;
+        if (!range_ok(size, cursor, 8)) goto fail;
         cursor += 4; /* timing word */
         group_starts[group] = frame_count;
-        while (frame_count < KKND_MAX_FRAMES) {
-            if (!kknd_range_ok(size, cursor, 4)) goto fail;
+        while (frame_count < MAX_FRAMES) {
+            if (!range_ok(size, cursor, 4)) goto fail;
             int32_t frame = read_i32_le(segment + cursor);
             cursor += 4;
             if (frame == 0 || frame == -1) break;
-            if (frame < 0 || !kknd_decode_mobd_image(segment, size, (uint32_t)frame,
+            if (frame < 0 || !decode_mobd_image(segment, size, (uint32_t)frame,
                                                      &frames[frame_count])) goto fail;
             frame_count++;
             group_lengths[group]++;
@@ -247,11 +247,11 @@ static bool kknd_decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, siz
     return true;
 
 fail:
-    for (int i = 0; i < KKND_MAX_FRAMES; ++i) free(frames[i].pixels);
+    for (int i = 0; i < MAX_FRAMES; ++i) free(frames[i].pixels);
     return false;
 }
 
-static bool kknd_load_sprite(SDL_Renderer *renderer, const char *data_root,
+static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
                              const char *spec, const uint32_t palette[256], spritesheet_t *out) {
     char archive_rel[768];
     const char *member_name = NULL;
@@ -266,7 +266,7 @@ static bool kknd_load_sprite(SDL_Renderer *renderer, const char *data_root,
         snprintf(archive_rel, sizeof(archive_rel), "LEVELS/640/SPRITES.LVL");
         member_name = spec;
     }
-    int member_index = kknd_sprite_member_index(member_name);
+    int member_index = sprite_member_index(member_name);
     if (member_index < 0) {
         fprintf(stderr, "unknown KKnD MOBD member '%s' (use a numeric member such as 34.mobd)\n",
                 member_name ? member_name : "");
@@ -277,21 +277,21 @@ static bool kknd_load_sprite(SDL_Renderer *renderer, const char *data_root,
     blob_t blob = {0};
     const uint8_t *segment = NULL;
     size_t segment_size = 0;
-    if (!kknd_open_lvl(path, &blob, &segment, &segment_size)) return false;
+    if (!open_lvl(path, &blob, &segment, &segment_size)) return false;
     uint32_t member = 0;
-    bool ok = kknd_lvl_asset(segment, segment_size, "MOBD", member_index, &member) &&
-              kknd_decode_mobd(renderer, segment, segment_size, member, palette, out);
+    bool ok = lvl_asset(segment, segment_size, "MOBD", member_index, &member) &&
+              decode_mobd(renderer, segment, segment_size, member, palette, out);
     if (!ok) fprintf(stderr, "failed to decode MOBD member %d from %s\n", member_index, path);
     W_FreeFile(&blob);
     return ok;
 }
 
-bool kknd_load_assets(SDL_Renderer *renderer, const char *data_root,
+bool load_assets(SDL_Renderer *renderer, const char *data_root,
                       const level_t *map, const char *sprite_name,
                       tileset_t *tileset, spritesheet_t *unit_sprite) {
     const KkndMapData *native = map ? map->native_data : NULL;
-    if (!native || !kknd_build_map_tileset(renderer, native, tileset)) return false;
-    if (!kknd_load_sprite(renderer, data_root, sprite_name, native->palette, unit_sprite)) {
+    if (!native || !build_map_tileset(renderer, native, tileset)) return false;
+    if (!load_sprite(renderer, data_root, sprite_name, native->palette, unit_sprite)) {
         R_FreeTileset(tileset);
         return false;
     }

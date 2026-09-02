@@ -65,24 +65,24 @@ typedef enum {
     DARK_COLONY_MAP_FILE_NONE,
     DARK_COLONY_MAP_FILE_MAP,
     DARK_COLONY_MAP_FILE_MTG,
-} DarkColonyMapFileKind;
+} MapFileKind;
 
 typedef struct {
     uint16_t background;
     uint16_t foreground;
     uint16_t flags;
     uint8_t mtg;
-} DarkColonyMapCell;
+} MapCell;
 
 typedef struct {
-    DarkColonyMapFileKind kind;
+    MapFileKind kind;
     char path[1024];
     int width;
     int height;
-    DarkColonyMapCell *cells;
+    MapCell *cells;
     uint32_t *overview_colors;
     uint16_t *overview_words;
-} DarkColonyMapFile;
+} MapFile;
 
 typedef struct {
     int number;
@@ -103,7 +103,7 @@ typedef struct {
     int city_row_count;
     int city_rows[DARK_COLONY_SCN_CITY_ROWS][DARK_COLONY_SCN_CITY_ROW_VALUES];
     int city_row_value_counts[DARK_COLONY_SCN_CITY_ROWS];
-} DarkColonyScenarioTeam;
+} ScenarioTeam;
 
 typedef struct {
     int x;
@@ -113,7 +113,7 @@ typedef struct {
     int status;
     int extra;
     int value_count;
-} DarkColonyScenarioObject;
+} ScenarioObject;
 
 typedef struct {
     char path[1024];
@@ -122,22 +122,22 @@ typedef struct {
     char display_name[64];
     int header_values[8];
     int header_value_count;
-    DarkColonyScenarioTeam teams[DARK_COLONY_SCN_MAX_TEAMS];
+    ScenarioTeam teams[DARK_COLONY_SCN_MAX_TEAMS];
     int team_count;
-    DarkColonyScenarioObject *objects;
+    ScenarioObject *objects;
     int object_count;
-} DarkColonyScenarioFile;
+} ScenarioFile;
 
 typedef struct {
-    DarkColonyMapFile map;
-    DarkColonyScenarioFile scenario;
+    MapFile map;
+    ScenarioFile scenario;
     bool has_scenario;
-} DarkColonyMapNative;
+} MapNative;
 
 typedef struct {
     float speed;
     int max_health;
-} DarkColonyUnitConfig;
+} UnitConfig;
 
 static bool load_dark_colony_overview_colors(const char *path, size_t cell_count,
                                              uint32_t **colors_out);
@@ -156,13 +156,13 @@ static int parse_dark_colony_int_list(const char *token, int *out, int max_count
     return count;
 }
 
-static void dark_colony_scenario_destroy(DarkColonyScenarioFile *scenario) {
+static void scenario_destroy(ScenarioFile *scenario) {
     if (!scenario) return;
     free(scenario->objects);
     memset(scenario, 0, sizeof(*scenario));
 }
 
-static void dark_colony_map_file_destroy(DarkColonyMapFile *map) {
+static void map_file_destroy(MapFile *map) {
     if (!map) return;
     free(map->cells);
     free(map->overview_colors);
@@ -170,28 +170,28 @@ static void dark_colony_map_file_destroy(DarkColonyMapFile *map) {
     memset(map, 0, sizeof(*map));
 }
 
-static void dark_colony_map_native_destroy(void *ptr) {
-    DarkColonyMapNative *native = ptr;
+static void map_native_destroy(void *ptr) {
+    MapNative *native = ptr;
     if (!native) return;
-    dark_colony_map_file_destroy(&native->map);
-    dark_colony_scenario_destroy(&native->scenario);
+    map_file_destroy(&native->map);
+    scenario_destroy(&native->scenario);
     free(native);
 }
 
-bool dark_colony_map_has_ai(const level_t *map, int owner) {
+bool map_has_ai(const level_t *map, int owner) {
     if (!map || owner == 0 || !map->native_data) return false;
-    const DarkColonyMapNative *native = map->native_data;
+    const MapNative *native = map->native_data;
     if (!native->has_scenario) return false;
     for (int i = 0; i < native->scenario.team_count; ++i) {
-        const DarkColonyScenarioTeam *team = &native->scenario.teams[i];
+        const ScenarioTeam *team = &native->scenario.teams[i];
         if (team->active && team->number != 0 && team->ai > 0) return true;
     }
     return false;
 }
 
-static bool dark_colony_scenario_append_object(DarkColonyScenarioFile *scenario,
-                                               const DarkColonyScenarioObject *object) {
-    DarkColonyScenarioObject *objects = realloc(
+static bool scenario_append_object(ScenarioFile *scenario,
+                                               const ScenarioObject *object) {
+    ScenarioObject *objects = realloc(
         scenario->objects, (size_t)(scenario->object_count + 1) * sizeof(*objects));
     if (!objects) return false;
     scenario->objects = objects;
@@ -199,7 +199,7 @@ static bool dark_colony_scenario_append_object(DarkColonyScenarioFile *scenario,
     return true;
 }
 
-static bool dark_colony_scenario_load(const char *path, DarkColonyScenarioFile *out) {
+static bool scenario_load(const char *path, ScenarioFile *out) {
     memset(out, 0, sizeof(*out));
     char *text = load_text_file(path);
     if (!text) return false;
@@ -282,7 +282,7 @@ static bool dark_colony_scenario_load(const char *path, DarkColonyScenarioFile *
 
         if (!object_mode && current_team >= 0 &&
             current_team < DARK_COLONY_SCN_MAX_TEAMS) {
-            DarkColonyScenarioTeam *team_info = &out->teams[current_team];
+            ScenarioTeam *team_info = &out->teams[current_team];
             int values[DARK_COLONY_SCN_LIST_VALUES] = { 0 };
             int value_count = parse_dark_colony_int_list(token, values,
                                                          DARK_COLONY_SCN_LIST_VALUES);
@@ -330,7 +330,7 @@ static bool dark_colony_scenario_load(const char *path, DarkColonyScenarioFile *
         int values[6] = { 0 };
         int parsed = parse_dark_colony_int_list(token, values, 6);
         if (parsed >= 5) {
-            DarkColonyScenarioObject object = {
+            ScenarioObject object = {
                 .x = values[0],
                 .y = values[1],
                 .type = values[2],
@@ -339,8 +339,8 @@ static bool dark_colony_scenario_load(const char *path, DarkColonyScenarioFile *
                 .extra = parsed >= 6 ? values[5] : 0,
                 .value_count = parsed,
             };
-            if (!dark_colony_scenario_append_object(out, &object)) {
-                dark_colony_scenario_destroy(out);
+            if (!scenario_append_object(out, &object)) {
+                scenario_destroy(out);
                 free(text);
                 return false;
             }
@@ -352,7 +352,7 @@ static bool dark_colony_scenario_load(const char *path, DarkColonyScenarioFile *
     return true;
 }
 
-static bool dark_colony_map_file_load(const char *path, DarkColonyMapFile *out) {
+static bool map_file_load(const char *path, MapFile *out) {
     memset(out, 0, sizeof(*out));
     blob_t blob;
     char path_buf[1024];
@@ -414,11 +414,11 @@ static bool dark_colony_map_file_load(const char *path, DarkColonyMapFile *out) 
         }
     }
     W_FreeFile(&blob);
-    if (!ok) dark_colony_map_file_destroy(out);
+    if (!ok) map_file_destroy(out);
     return ok;
 }
 
-static bool dark_colony_map_file_load_mtg_sidecar(DarkColonyMapFile *map) {
+static bool map_file_load_mtg_sidecar(MapFile *map) {
     if (!map || map->kind != DARK_COLONY_MAP_FILE_MAP || !map->cells) return false;
     char mtg_path[1024];
     replace_extension(mtg_path, sizeof(mtg_path), map->path, ".MTG");
@@ -436,7 +436,7 @@ static bool dark_colony_map_file_load_mtg_sidecar(DarkColonyMapFile *map) {
     return true;
 }
 
-static bool dark_colony_map_file_load_overview(DarkColonyMapFile *map) {
+static bool map_file_load_overview(MapFile *map) {
     if (!map || map->width <= 0 || map->height <= 0) return false;
     char overview_path[1024];
     replace_extension(overview_path, sizeof(overview_path), map->path, ".OVH");
@@ -446,7 +446,7 @@ static bool dark_colony_map_file_load_overview(DarkColonyMapFile *map) {
     return true;
 }
 
-static bool dark_colony_map_file_load_o16(DarkColonyMapFile *map) {
+static bool map_file_load_o16(MapFile *map) {
     if (!map || map->width <= 0 || map->height <= 0) return false;
     char o16_path[1024];
     replace_extension(o16_path, sizeof(o16_path), map->path, ".O16");
@@ -469,7 +469,7 @@ static bool dark_colony_map_file_load_o16(DarkColonyMapFile *map) {
 }
 
 static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rate, int amount,
-                                              const DarkColonyVentPlacement *placement) {
+                                              const VentPlacement *placement) {
     if (!map || !L_Contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
 
@@ -554,12 +554,12 @@ static bool append_dark_colony_beacon(level_t *map, int x, int y, int type, int 
     return true;
 }
 
-static void load_dark_colony_resource_vents_from_scenario(const DarkColonyScenarioFile *scenario,
+static void load_dark_colony_resource_vents_from_scenario(const ScenarioFile *scenario,
                                                           level_t *map,
-                                                          const DarkColonyVentPlacement *placement) {
+                                                          const VentPlacement *placement) {
     if (!scenario || !map) return;
     for (int i = 0; i < scenario->object_count; ++i) {
-        const DarkColonyScenarioObject *object = &scenario->objects[i];
+        const ScenarioObject *object = &scenario->objects[i];
         if (object->type == 40 && object->value_count >= 5) {
             append_dark_colony_resource_vent(map, object->x, object->y,
                                              object->team, object->status, placement);
@@ -567,11 +567,11 @@ static void load_dark_colony_resource_vents_from_scenario(const DarkColonyScenar
     }
 }
 
-static void load_dark_colony_beacons_from_scenario(const DarkColonyScenarioFile *scenario,
+static void load_dark_colony_beacons_from_scenario(const ScenarioFile *scenario,
                                                    level_t *map) {
     if (!scenario || !map) return;
     for (int i = 0; i < scenario->object_count; ++i) {
-        const DarkColonyScenarioObject *object = &scenario->objects[i];
+        const ScenarioObject *object = &scenario->objects[i];
         if (object->type == 84 && object->value_count >= 5) {
             append_dark_colony_beacon(map, object->x, object->y,
                                       object->type, object->team);
@@ -579,10 +579,10 @@ static void load_dark_colony_beacons_from_scenario(const DarkColonyScenarioFile 
     }
 }
 
-static void load_dark_colony_camera_from_scenario(const DarkColonyScenarioFile *scenario,
+static void load_dark_colony_camera_from_scenario(const ScenarioFile *scenario,
                                                   level_t *map) {
     if (!scenario || !map || scenario->team_count <= 0) return;
-    const DarkColonyScenarioTeam *team = &scenario->teams[0];
+    const ScenarioTeam *team = &scenario->teams[0];
     for (int i = 0; i < team->ai_slot_count; ++i) {
         int x = team->ai_slots[i][0];
         int y = team->ai_slots[i][1];
@@ -593,7 +593,7 @@ static void load_dark_colony_camera_from_scenario(const DarkColonyScenarioFile *
     }
 }
 
-static uint32_t dark_colony_rgb565_to_rgba(uint16_t value) {
+static uint32_t rgb565_to_rgba(uint16_t value) {
     uint8_t r5 = (uint8_t)((value >> 11) & 0x1f);
     uint8_t g6 = (uint8_t)((value >> 5) & 0x3f);
     uint8_t b5 = (uint8_t)(value & 0x1f);
@@ -617,7 +617,7 @@ static bool load_dark_colony_overview_colors(const char *path, size_t cell_count
         return false;
     }
     for (size_t i = 0; i < cell_count; ++i) {
-        colors[i] = dark_colony_rgb565_to_rgba(read_u16_le(blob.bytes + i * 2));
+        colors[i] = rgb565_to_rgba(read_u16_le(blob.bytes + i * 2));
     }
     W_FreeFile(&blob);
     *colors_out = colors;
@@ -627,10 +627,10 @@ static bool load_dark_colony_overview_colors(const char *path, size_t cell_count
 bool load_dark_colony_map(const char *map_path, level_t *out) {
     memset(out, 0, sizeof(*out));
 
-    DarkColonyMapNative *native = calloc(1, sizeof(*native));
+    MapNative *native = calloc(1, sizeof(*native));
     if (!native) return false;
-    if (!dark_colony_map_file_load(map_path, &native->map)) {
-        dark_colony_map_native_destroy(native);
+    if (!map_file_load(map_path, &native->map)) {
+        map_native_destroy(native);
         return false;
     }
 
@@ -648,26 +648,26 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         if (blank_mtg && dot && strcasecmp(dot, ".MTG") == 0) {
             char alt_path[1024];
             replace_extension(alt_path, sizeof(alt_path), native->map.path, ".MAP");
-            DarkColonyMapFile alt_map;
-            if (dark_colony_map_file_load(alt_path, &alt_map) &&
+            MapFile alt_map;
+            if (map_file_load(alt_path, &alt_map) &&
                 alt_map.kind == DARK_COLONY_MAP_FILE_MAP) {
-                dark_colony_map_file_destroy(&native->map);
+                map_file_destroy(&native->map);
                 native->map = alt_map;
             } else {
-                dark_colony_map_file_destroy(&alt_map);
+                map_file_destroy(&alt_map);
                 use_overview_colors = true;
             }
         }
     }
 
-    dark_colony_map_file_load_mtg_sidecar(&native->map);
-    dark_colony_map_file_load_o16(&native->map);
-    if (dark_colony_map_file_load_overview(&native->map) &&
+    map_file_load_mtg_sidecar(&native->map);
+    map_file_load_o16(&native->map);
+    if (map_file_load_overview(&native->map) &&
         (use_overview_colors || native->map.kind == DARK_COLONY_MAP_FILE_MTG)) {
         out->cell_colors = calloc((size_t)native->map.width * (size_t)native->map.height,
                                   sizeof(*out->cell_colors));
         if (!out->cell_colors) {
-            dark_colony_map_native_destroy(native);
+            map_native_destroy(native);
             return false;
         }
         for (int y = 0; y < native->map.height; ++y) {
@@ -696,7 +696,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     out->tile_transforms[1] = calloc(source_count, sizeof(uint8_t));
     if (!out->tile_ids || !out->blocked ||
         !out->tile_overlays[0] || !out->tile_transforms[0] || !out->tile_transforms[1]) {
-        dark_colony_map_native_destroy(native);
+        map_native_destroy(native);
         P_FreeLevel(out);
         return false;
     }
@@ -706,7 +706,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         for (int x = 0; x < width; ++x) {
             size_t idx = (size_t)y * (size_t)width + (size_t)x;
             size_t source_idx = (size_t)source_y * (size_t)width + (size_t)x;
-            const DarkColonyMapCell *cell = &native->map.cells[source_idx];
+            const MapCell *cell = &native->map.cells[source_idx];
             if (native->map.kind == DARK_COLONY_MAP_FILE_MAP) {
                 out->tile_ids[idx] = cell->background;
                 out->tile_overlays[0][idx] = cell->foreground;
@@ -724,10 +724,10 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
 
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), native->map.path, ".SCN");
-    native->has_scenario = dark_colony_scenario_load(scn_path, &native->scenario);
+    native->has_scenario = scenario_load(scn_path, &native->scenario);
     if (native->has_scenario) {
-        DarkColonyVentPlacement vent_placement = {0};
-        dark_colony_vent_placement_from_sprites(native->map.path, &vent_placement);
+        VentPlacement vent_placement = {0};
+        vent_placement_from_sprites(native->map.path, &vent_placement);
         char tileset_token[64] = { 0 };
         copy_trimmed_token(tileset_token, sizeof(tileset_token),
                            native->scenario.tileset_file,
@@ -760,7 +760,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     }
 
     out->native_data = native;
-    out->destroy_native_data = dark_colony_map_native_destroy;
+    out->destroy_native_data = map_native_destroy;
     return true;
 }
 
@@ -784,46 +784,46 @@ static char *find_ascii_case_insensitive(char *haystack, const char *needle) {
     return NULL;
 }
 
-static float dark_colony_speed_from_gamestat(int speed) {
+static float speed_from_gamestat(int speed) {
     return speed > 0 ? (float)speed / 32.0f : 0.0f;
 }
 
-static bool dark_colony_map_path_is_multiplayer(const char *map_path) {
+static bool map_path_is_multiplayer(const char *map_path) {
     if (!map_path) return false;
     return find_ascii_case_insensitive((char *)map_path, "/MPLAYER/") ||
            find_ascii_case_insensitive((char *)map_path, "\\MPLAYER\\");
 }
 
-static void load_dark_colony_unit_config(DarkColonyUnitConfig configs[DARK_COLONY_MAX_GAMESTAT_UNITS]) {
-    memset(configs, 0, sizeof(DarkColonyUnitConfig) * DARK_COLONY_MAX_GAMESTAT_UNITS);
+static void load_dark_colony_unit_config(UnitConfig configs[DARK_COLONY_MAX_GAMESTAT_UNITS]) {
+    memset(configs, 0, sizeof(UnitConfig) * DARK_COLONY_MAX_GAMESTAT_UNITS);
 
-    int count = DC_GAMESTAT_UNIT_COUNT;
+    int count = GAMESTAT_UNIT_COUNT;
     if (count > DARK_COLONY_MAX_GAMESTAT_UNITS) count = DARK_COLONY_MAX_GAMESTAT_UNITS;
     for (int i = 0; i < count; ++i) {
         const DcGamestatUnit *unit = &dc_gamestat_units[i];
-        if (unit->value_count > DC_GAMESTAT_UNIT_SPEED)
-            configs[i].speed = dark_colony_speed_from_gamestat(
-                unit->values[DC_GAMESTAT_UNIT_SPEED]);
-        if (unit->value_count > DC_GAMESTAT_UNIT_HEALTH) {
-            configs[i].max_health = unit->values[DC_GAMESTAT_UNIT_HEALTH];
+        if (unit->value_count > GAMESTAT_UNIT_SPEED)
+            configs[i].speed = speed_from_gamestat(
+                unit->values[GAMESTAT_UNIT_SPEED]);
+        if (unit->value_count > GAMESTAT_UNIT_HEALTH) {
+            configs[i].max_health = unit->values[GAMESTAT_UNIT_HEALTH];
         }
     }
 }
 
-static int dark_colony_fixed_from_cell(int cell) {
-    return cell * 256 + DC_FIXED_TILE_CENTER;
+static int fixed_from_cell(int cell) {
+    return cell * 256 + FIXED_TILE_CENTER;
 }
 
-static int dark_colony_fixed_from_city_x(int cell) {
+static int fixed_from_city_x(int cell) {
     return cell * 256;
 }
 
-static float dark_colony_fixed_to_cell(int fixed) {
+static float fixed_to_cell(int fixed) {
     return (float)fixed / 256.0f;
 }
 
-static int dark_colony_default_health_for_type(int type,
-                                               const DarkColonyUnitConfig *unit_config) {
+static int default_health_for_type(int type,
+                                               const UnitConfig *unit_config) {
     if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config &&
         unit_config[type].max_health > 0) {
         return unit_config[type].max_health;
@@ -831,31 +831,31 @@ static int dark_colony_default_health_for_type(int type,
     return 1;
 }
 
-static int dark_colony_initial_health_for_type(int type, int scenario_health,
-                                               const DarkColonyUnitConfig *unit_config) {
+static int initial_health_for_type(int type, int scenario_health,
+                                               const UnitConfig *unit_config) {
     return scenario_health >= 0 ? scenario_health :
-        dark_colony_default_health_for_type(type, unit_config);
+        default_health_for_type(type, unit_config);
 }
 
-static void dark_colony_object_pool_init(DcObjectPool *pool) {
+static void object_pool_init(DcObjectPool *pool) {
     if (!pool) return;
     memset(pool, 0, sizeof(*pool));
-    pool->object_limit = DC_DYNAMIC_OBJECT_FIRST;
+    pool->object_limit = DYNAMIC_OBJECT_FIRST;
 }
 
-static void dark_colony_object_pool_mark_active(DcObjectPool *pool, int object_index) {
-    if (!pool || object_index < 0 || object_index >= DC_MAX_OBJECTS) return;
-    if (pool->active_count < DC_MAX_OBJECTS)
+static void object_pool_mark_active(DcObjectPool *pool, int object_index) {
+    if (!pool || object_index < 0 || object_index >= MAX_OBJECTS) return;
+    if (pool->active_count < MAX_OBJECTS)
         pool->active_objects[pool->active_count++] = (uint16_t)object_index;
     if (object_index >= pool->object_limit)
         pool->object_limit = object_index + 1;
 }
 
-static bool dark_colony_object_pool_init_object(DcObjectPool *pool, int object_index,
+static bool object_pool_init_object(DcObjectPool *pool, int object_index,
                                                 int x_fixed, int z_fixed,
                                                 int type, int team, int health,
                                                 int subtype) {
-    if (!pool || object_index < 0 || object_index >= DC_MAX_OBJECTS ||
+    if (!pool || object_index < 0 || object_index >= MAX_OBJECTS ||
         x_fixed < 0 || z_fixed < 0 || team < 0 || team >= 10 ||
         type < 0 || type > 255) {
         return false;
@@ -877,60 +877,60 @@ static bool dark_colony_object_pool_init_object(DcObjectPool *pool, int object_i
     object->marker_d1 = 0xff;
     object->target_a = -2;
     object->target_b = -2;
-    dark_colony_object_pool_mark_active(pool, object_index);
+    object_pool_mark_active(pool, object_index);
     return true;
 }
 
-static int dark_colony_city_object_index(int team, int slot) {
-    if (team < 0 || team >= 8 || slot < 0 || slot >= DC_BUILDINGS_PER_SIDE)
+static int city_object_index(int team, int slot) {
+    if (team < 0 || team >= 8 || slot < 0 || slot >= BUILDINGS_PER_SIDE)
         return -1;
-    return team * DC_BUILDINGS_PER_SIDE + slot;
+    return team * BUILDINGS_PER_SIDE + slot;
 }
 
-static int dark_colony_object_pool_alloc_dynamic(DcObjectPool *pool) {
+static int object_pool_alloc_dynamic(DcObjectPool *pool) {
     if (!pool) return -1;
     int limit = pool->object_limit;
-    if (limit < DC_DYNAMIC_OBJECT_FIRST) limit = DC_DYNAMIC_OBJECT_FIRST;
-    for (int i = DC_DYNAMIC_OBJECT_FIRST; i < limit; ++i) {
+    if (limit < DYNAMIC_OBJECT_FIRST) limit = DYNAMIC_OBJECT_FIRST;
+    for (int i = DYNAMIC_OBJECT_FIRST; i < limit; ++i) {
         if (pool->objects[i].active == 0) return i;
     }
-    if (limit >= DC_MAX_OBJECTS) return -1;
+    if (limit >= MAX_OBJECTS) return -1;
     pool->object_limit = limit + 1;
     return limit;
 }
 
-static int dark_colony_object_pool_add_dynamic(DcObjectPool *pool, int x, int z,
+static int object_pool_add_dynamic(DcObjectPool *pool, int x, int z,
                                                int type, int team, int scenario_health,
                                                int subtype,
-                                               const DarkColonyUnitConfig *unit_config) {
-    int object_index = dark_colony_object_pool_alloc_dynamic(pool);
+                                               const UnitConfig *unit_config) {
+    int object_index = object_pool_alloc_dynamic(pool);
     if (object_index < 0) return -1;
-    int health = dark_colony_initial_health_for_type(type, scenario_health, unit_config);
-    if (!dark_colony_object_pool_init_object(pool, object_index,
-                                             dark_colony_fixed_from_cell(x),
-                                             dark_colony_fixed_from_cell(z),
+    int health = initial_health_for_type(type, scenario_health, unit_config);
+    if (!object_pool_init_object(pool, object_index,
+                                             fixed_from_cell(x),
+                                             fixed_from_cell(z),
                                              type, team, health, subtype)) {
         return -1;
     }
     return object_index;
 }
 
-static bool dark_colony_object_pool_add_city_slot(DcObjectPool *pool, int team, int slot,
+static bool object_pool_add_city_slot(DcObjectPool *pool, int team, int slot,
                                                   int x_fixed, int z_fixed, int type, int race,
-                                                  const DarkColonyUnitConfig *unit_config) {
-    int object_index = dark_colony_city_object_index(team, slot);
+                                                  const UnitConfig *unit_config) {
+    int object_index = city_object_index(team, slot);
     if (object_index < 0 || type <= 0) return false;
-    int health = dark_colony_default_health_for_type(type, unit_config);
+    int health = default_health_for_type(type, unit_config);
     (void)race;
-    return dark_colony_object_pool_init_object(pool, object_index, x_fixed, z_fixed,
+    return object_pool_init_object(pool, object_index, x_fixed, z_fixed,
                                                type, team, health, 0);
 }
 
-static bool dark_colony_scenario_object_starts_visible(const DarkColonyScenarioObject *object) {
+static bool scenario_object_starts_visible(const ScenarioObject *object) {
     return object && object->status >= 0;
 }
 
-static int dark_colony_mobj_type_for_type(int type, int race) {
+static int mobj_type_for_type(int type, int race) {
     switch (type) {
         case 16: return MT_DC_EXCOPOD;
         case 17: return MT_DC_BRRKPOD;
@@ -967,7 +967,7 @@ static int dark_colony_mobj_type_for_type(int type, int race) {
     }
 }
 
-static const char *dark_colony_unit_sprite_for_type(int type, int race) {
+static const char *unit_sprite_for_type(int type, int race) {
     if (type == 16 || type == 17) return "SPRITES/HUBU.SPR";
     if (type >= 18 && type <= 22) return "SPRITES/SHORTCIT.SPR";
     if (type >= 28 && type <= 34) return "SPRITES/ALIEN1.SPR";
@@ -1004,7 +1004,7 @@ static const char *dark_colony_unit_sprite_for_type(int type, int race) {
     }
 }
 
-static int dark_colony_unit_frame_for_type(int type) {
+static int unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
         case 17: return 4; /* HUBU.FIN BRRKPODSTAND0 */
@@ -1020,7 +1020,7 @@ static int dark_colony_unit_frame_for_type(int type) {
     return 0;
 }
 
-static int dark_colony_unit_state_for_type(int type) {
+static int unit_state_for_type(int type) {
     switch (type) {
         case 16: return S_DC_EXCOPOD_STND;
         case 17: return S_DC_BRRKPOD_STND;
@@ -1029,7 +1029,7 @@ static int dark_colony_unit_state_for_type(int type) {
     }
 }
 
-static int dark_colony_city_unit_type_for_slot(int race, int slot) {
+static int city_unit_type_for_slot(int race, int slot) {
     static const int city_types[2][15] = {
         { 16, 17, 18, 20, 22, 81, 25, 25, 25, 25, 25, 25, 25, 0, 0 },
         { 28, 29, 30, 32, 34, 81, 25, 25, 25, 25, 25, 25, 25, 0, 0 },
@@ -1038,7 +1038,7 @@ static int dark_colony_city_unit_type_for_slot(int race, int slot) {
     return city_types[race == 1 ? 1 : 0][slot];
 }
 
-static void dark_colony_city_slot_offset(int slot, int *x_out, int *z_out) {
+static void city_slot_offset(int slot, int *x_out, int *z_out) {
     static const int slot_offsets[][2] = {
         { -64, 15 },
         {   0,  0 },
@@ -1057,23 +1057,23 @@ static void dark_colony_city_slot_offset(int slot, int *x_out, int *z_out) {
     if (z_out) *z_out = z;
 }
 
-static void dark_colony_city_slot_position_fixed(int anchor_x, int anchor_y, int slot,
+static void city_slot_position_fixed(int anchor_x, int anchor_y, int slot,
                                                  int *x_fixed, int *z_fixed) {
     /* DC.EXE city.c stores city object positions as 8.8 fixed-point map units.
        fcn.004412d4 writes:
            x_pos = city_x * 0x100 + dc_city_slot_offsets[slot].x * 8
            z_pos = city_z * 0x100 + dc_city_slot_offsets[slot].z * 8 */
     int slot_x = 0, slot_z = 0;
-    dark_colony_city_slot_offset(slot, &slot_x, &slot_z);
-    int fx = dark_colony_fixed_from_city_x(anchor_x);
-    int fz = dark_colony_fixed_from_city_x(anchor_y);
+    city_slot_offset(slot, &slot_x, &slot_z);
+    int fx = fixed_from_city_x(anchor_x);
+    int fz = fixed_from_city_x(anchor_y);
     fx += slot_x * 8;
     fz += slot_z * 8;
     if (x_fixed) *x_fixed = fx;
     if (z_fixed) *z_fixed = fz;
 }
 
-static bool dark_colony_team_city_anchor(const DarkColonyScenarioTeam *team,
+static bool team_city_anchor(const ScenarioTeam *team,
                                          int *x_out, int *y_out) {
     if (!team || team->ai_slot_count < 2)
         return false;
@@ -1088,19 +1088,19 @@ static bool dark_colony_team_city_anchor(const DarkColonyScenarioTeam *team,
     return true;
 }
 
-static bool dark_colony_object_uses_city_render_origin(int object_index) {
-    return object_index >= 0 && object_index < DC_BUILDING_OBJECT_COUNT &&
-        object_index % DC_BUILDINGS_PER_SIDE < 6;
+static bool object_uses_city_render_origin(int object_index) {
+    return object_index >= 0 && object_index < BUILDING_OBJECT_COUNT &&
+        object_index % BUILDINGS_PER_SIDE < 6;
 }
 
-static void dark_colony_object_render_position_fixed(const DcObject *object, int object_index,
+static void object_render_position_fixed(const DcObject *object, int object_index,
                                                       int *x_fixed, int *z_fixed) {
     int x = object ? object->x_pos : 0;
     int z = object ? object->z_pos : 0;
-    if (dark_colony_object_uses_city_render_origin(object_index)) {
-        int slot = object_index % DC_BUILDINGS_PER_SIDE;
+    if (object_uses_city_render_origin(object_index)) {
+        int slot = object_index % BUILDINGS_PER_SIDE;
         int slot_x = 0, slot_z = 0;
-        dark_colony_city_slot_offset(slot, &slot_x, &slot_z);
+        city_slot_offset(slot, &slot_x, &slot_z);
         x -= slot_x * 8;
         z -= slot_z * 8;
     }
@@ -1111,7 +1111,7 @@ static void dark_colony_object_render_position_fixed(const DcObject *object, int
 static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_units,
                                            int object_index,
                                            const DcObject *object, int race,
-                                           const DarkColonyUnitConfig *unit_config,
+                                           const UnitConfig *unit_config,
                                            bool *player_selected,
                                            bool *player_has_exploiter,
                                            bool *player_anchor_set,
@@ -1122,18 +1122,18 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     }
     int type = object->type;
     int team = object->team;
-    const char *sprite = dark_colony_unit_sprite_for_type(type, race);
-    int mobj_type = dark_colony_mobj_type_for_type(type, race);
+    const char *sprite = unit_sprite_for_type(type, race);
+    int mobj_type = mobj_type_for_type(type, race);
     if (!sprite || mobj_type <= 0) return false;
 
     mobj_t *u = &units[*count];
     memset(u, 0, sizeof(*u));
     int render_x_pos = 0, render_z_pos = 0;
-    dark_colony_object_render_position_fixed(object, object_index,
+    object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
     u->core.position = fixedvec3_from_fvec2((fvec2_t){
-        dark_colony_fixed_to_cell(render_x_pos),
-        dark_colony_fixed_to_cell(render_z_pos),
+        fixed_to_cell(render_x_pos),
+        fixed_to_cell(render_z_pos),
     }, 0);
     u->core.sprite_id = -1;
     u->attack.target = -1;
@@ -1143,22 +1143,22 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
     u->type_id = (uint16_t)mobj_type;
     u->native_type_id = (uint16_t)(type >= 0 ? type : 0);
-    if (dark_colony_object_uses_city_render_origin(object_index))
-        u->render_sort_y = dark_colony_fixed_to_cell(object->z_pos);
+    if (object_uses_city_render_origin(object_index))
+        u->render_sort_y = fixed_to_cell(object->z_pos);
     u->owner = (team == 0 || mobj_type == MT_DC_COMMS_DISH) ? 0 : 1;
     u->hp = object->health_or_amount;
     u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
     if (u->selected) *player_selected = true;
-    u->core.frame = dark_colony_unit_frame_for_type(type);
+    u->core.frame = unit_frame_for_type(type);
     snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", sprite);
-    statecontext_t ctx = { .game_info = &dark_colony_game_info };
-    int state_id = dark_colony_unit_state_for_type(type);
-    if (state_id == S_NULL && u->type_id > 0 && u->type_id < dark_colony_game_info.mobj_type_count)
-        state_id = dark_colony_game_info.mobjinfo[u->type_id].spawnstate;
+    statecontext_t ctx = { .game_info = &game_info };
+    int state_id = unit_state_for_type(type);
+    if (state_id == S_NULL && u->type_id > 0 && u->type_id < game_info.mobj_type_count)
+        state_id = game_info.mobjinfo[u->type_id].spawnstate;
     if (state_id != S_NULL)
         P_SetMobjState(&ctx, u, state_id);
-    if (dark_colony_object_uses_city_render_origin(object_index))
+    if (object_uses_city_render_origin(object_index))
         u->core.render_offset.y += CELL_H;
     if (u->owner == 0) {
         int x = object->cell_x;
@@ -1179,13 +1179,13 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
 int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units) {
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
-    DarkColonyScenarioFile scenario;
-    if (!dark_colony_scenario_load(scn_path, &scenario)) return 0;
+    ScenarioFile scenario;
+    if (!scenario_load(scn_path, &scenario)) return 0;
 
-    DarkColonyUnitConfig unit_config[DARK_COLONY_MAX_GAMESTAT_UNITS];
+    UnitConfig unit_config[DARK_COLONY_MAX_GAMESTAT_UNITS];
     load_dark_colony_unit_config(unit_config);
     DcObjectPool object_pool;
-    dark_colony_object_pool_init(&object_pool);
+    object_pool_init(&object_pool);
 
     int count = 0;
     bool player_has_exploiter = false;
@@ -1195,34 +1195,34 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
     int player_anchor_y = 0;
 
     for (int team = 0; team < scenario.team_count; ++team) {
-        const DarkColonyScenarioTeam *team_info = &scenario.teams[team];
+        const ScenarioTeam *team_info = &scenario.teams[team];
         if (!team_info->active) continue;
         int slot_x = 0;
         int slot_y = 0;
-        if (!dark_colony_team_city_anchor(team_info, &slot_x, &slot_y)) continue;
+        if (!team_city_anchor(team_info, &slot_x, &slot_y)) continue;
         for (int slot = 0; slot < DARK_COLONY_SCN_CITY_SLOTS; ++slot) {
             int value_index = slot * 2;
             if (value_index >= team_info->city_value_count) break;
             if (team_info->city_values[value_index] <= 0) continue;
-            int type = dark_colony_city_unit_type_for_slot(team_info->race, slot);
+            int type = city_unit_type_for_slot(team_info->race, slot);
             int x_fixed = 0, z_fixed = 0;
-            dark_colony_city_slot_position_fixed(slot_x, slot_y, slot,
+            city_slot_position_fixed(slot_x, slot_y, slot,
                                                  &x_fixed, &z_fixed);
-            dark_colony_object_pool_add_city_slot(&object_pool, team, slot,
+            object_pool_add_city_slot(&object_pool, team, slot,
                                                   x_fixed, z_fixed, type,
                                                   team_info->race, unit_config);
         }
     }
 
     for (int i = 0; i < scenario.object_count; ++i) {
-        const DarkColonyScenarioObject *object = &scenario.objects[i];
+        const ScenarioObject *object = &scenario.objects[i];
         if (object->value_count < 6 ||
             object->team < 0 || object->team >= DARK_COLONY_SCN_MAX_TEAMS ||
             object->x < 0 || object->y < 0) {
             continue;
         }
-        if (!dark_colony_scenario_object_starts_visible(object)) continue;
-        dark_colony_object_pool_add_dynamic(&object_pool, object->x, object->y,
+        if (!scenario_object_starts_visible(object)) continue;
+        object_pool_add_dynamic(&object_pool, object->x, object->y,
                                             object->type, object->team,
                                             object->status, object->extra,
                                             unit_config);
@@ -1234,7 +1234,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         int team = object->team;
         int race = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
             scenario.teams[team].race : 0;
-        if (object->type == DC_OBJECT_TYPE_PETRA7_VENT || object->type == 84)
+        if (object->type == OBJECT_TYPE_PETRA7_VENT || object->type == 84)
             continue;
         if (race != 1 && object->type == 16 && count < max_units) {
             DcObject tower = *object;
@@ -1252,9 +1252,9 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                        &player_anchor_x,
                                        &player_anchor_y);
     }
-    if (dark_colony_map_path_is_multiplayer(map_path) && !player_has_exploiter &&
+    if (map_path_is_multiplayer(map_path) && !player_has_exploiter &&
         player_anchor_set && count < max_units) {
-        int object_index = dark_colony_object_pool_add_dynamic(&object_pool, player_anchor_x + 2,
+        int object_index = object_pool_add_dynamic(&object_pool, player_anchor_x + 2,
                                                                player_anchor_y, 6, 0, -1, 0,
                                                                unit_config);
         if (object_index >= 0) {
@@ -1267,6 +1267,6 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                            &player_anchor_y);
         }
     }
-    dark_colony_scenario_destroy(&scenario);
+    scenario_destroy(&scenario);
     return count;
 }

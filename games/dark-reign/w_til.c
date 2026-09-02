@@ -196,7 +196,7 @@ bool load_dark_tileset(SDL_Renderer *renderer, const char *path, const uint32_t 
     return out->texture != NULL;
 }
 
-void dark_reign_add_water_animations(tileset_t *tileset) {
+void add_water_animations(tileset_t *tileset) {
     const int frame_ms = 180;
     for (int variation = 0; variation < 8 && variation < tileset->count; ++variation) {
         int frames[4] = { variation, (variation+1)&7, (variation+2)&7, (variation+1)&7 };

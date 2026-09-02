@@ -2,39 +2,39 @@
 #ifndef __GAMESTAT__
 #define __GAMESTAT__
 
-#define DC_GAMESTAT_UNIT_COUNT 106
-#define DC_GAMESTAT_UNIT_VALUE_COUNT 33
-#define DC_GAMESTAT_DEPEND_COUNT 80
-#define DC_GAMESTAT_WEAPON_COUNT 64
-#define DC_GAMESTAT_WEAPON_VALUE_COUNT 11
-#define DC_GAMESTAT_UNIT_ID_COUNT 57
-#define DC_GAMESTAT_BOOM_COUNT 13
-#define DC_GAMESTAT_MAX_DEPEND_PARAMS 16
-#define DC_GAMESTAT_MAX_SCENE_PREREQUISITES 16
-#define DC_GAMESTAT_MAX_BOOM_EFFECTS 8
-#define DC_GAMESTAT_MAX_BOOM_SIZE 7
-#define DC_GAMESTAT_MBULLET_ROWS 9
-#define DC_GAMESTAT_MBULLET_COLS 10
+#define GAMESTAT_UNIT_COUNT 106
+#define GAMESTAT_UNIT_VALUE_COUNT 33
+#define GAMESTAT_DEPEND_COUNT 80
+#define GAMESTAT_WEAPON_COUNT 64
+#define GAMESTAT_WEAPON_VALUE_COUNT 11
+#define GAMESTAT_UNIT_ID_COUNT 57
+#define GAMESTAT_BOOM_COUNT 13
+#define GAMESTAT_MAX_DEPEND_PARAMS 16
+#define GAMESTAT_MAX_SCENE_PREREQUISITES 16
+#define GAMESTAT_MAX_BOOM_EFFECTS 8
+#define GAMESTAT_MAX_BOOM_SIZE 7
+#define GAMESTAT_MBULLET_ROWS 9
+#define GAMESTAT_MBULLET_COLS 10
 
 typedef enum {
-    DC_GAMESTAT_UNIT_RACE = 0,
-    DC_GAMESTAT_UNIT_TURN_SPEED = 1,
-    DC_GAMESTAT_UNIT_SPEED = 2,
-    DC_GAMESTAT_UNIT_OBS_DAY = 3,
-    DC_GAMESTAT_UNIT_OBS_NIGHT = 4,
-    DC_GAMESTAT_UNIT_WEAPON0 = 5,
-    DC_GAMESTAT_UNIT_WEAPON1 = 6,
-    DC_GAMESTAT_UNIT_WEAPON2 = 7,
-    DC_GAMESTAT_UNIT_DEFENSE = 8,
-    DC_GAMESTAT_UNIT_UNKNOWN_9 = 9,
-    DC_GAMESTAT_UNIT_FLY = 10,
-    DC_GAMESTAT_UNIT_HEALTH = 11
+    GAMESTAT_UNIT_RACE = 0,
+    GAMESTAT_UNIT_TURN_SPEED = 1,
+    GAMESTAT_UNIT_SPEED = 2,
+    GAMESTAT_UNIT_OBS_DAY = 3,
+    GAMESTAT_UNIT_OBS_NIGHT = 4,
+    GAMESTAT_UNIT_WEAPON0 = 5,
+    GAMESTAT_UNIT_WEAPON1 = 6,
+    GAMESTAT_UNIT_WEAPON2 = 7,
+    GAMESTAT_UNIT_DEFENSE = 8,
+    GAMESTAT_UNIT_UNKNOWN_9 = 9,
+    GAMESTAT_UNIT_FLY = 10,
+    GAMESTAT_UNIT_HEALTH = 11
 } DcGamestatUnitValueIndex;
 
 typedef struct {
     const char *sprite;
     int value_count;
-    int values[DC_GAMESTAT_UNIT_VALUE_COUNT];
+    int values[GAMESTAT_UNIT_VALUE_COUNT];
 } DcGamestatUnit;
 
 typedef struct {
@@ -44,7 +44,7 @@ typedef struct {
     int product_class;
     int product_type;
     int parameter_count;
-    int parameters[DC_GAMESTAT_MAX_DEPEND_PARAMS];
+    int parameters[GAMESTAT_MAX_DEPEND_PARAMS];
 } DcGamestatDepend;
 
 typedef struct {
@@ -73,15 +73,15 @@ typedef struct {
 typedef struct {
     int width;
     int height;
-    int values[DC_GAMESTAT_MBULLET_ROWS][DC_GAMESTAT_MBULLET_COLS];
+    int values[GAMESTAT_MBULLET_ROWS][GAMESTAT_MBULLET_COLS];
 } DcGamestatMissileBullet;
 
 typedef struct {
     int id;
     int size;
     int effect_count;
-    const char *effects[DC_GAMESTAT_MAX_BOOM_EFFECTS];
-    int damage[DC_GAMESTAT_MAX_BOOM_SIZE][DC_GAMESTAT_MAX_BOOM_SIZE];
+    const char *effects[GAMESTAT_MAX_BOOM_EFFECTS];
+    int damage[GAMESTAT_MAX_BOOM_SIZE][GAMESTAT_MAX_BOOM_SIZE];
     int falloff[3][3];
 } DcGamestatBoom;
 
@@ -95,7 +95,7 @@ typedef struct {
     int color[3];
     int flag;
     int prerequisite_count;
-    int prerequisites[DC_GAMESTAT_MAX_SCENE_PREREQUISITES];
+    int prerequisites[GAMESTAT_MAX_SCENE_PREREQUISITES];
 } DcGamestatScene;
 
 typedef struct {
@@ -104,7 +104,7 @@ typedef struct {
     const DcGamestatScene *missions;
 } DcGamestatSceneTable;
 
-static const DcGamestatUnit dc_gamestat_units[DC_GAMESTAT_UNIT_COUNT] = {
+static const DcGamestatUnit dc_gamestat_units[GAMESTAT_UNIT_COUNT] = {
     { "TRSC", 32, {0, 10, 25, 7, 4, 1, 2, 3, 125, 150, 0, 800, 0, 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0} },
     { "TURR", 32, {0, 10, 15, 7, 4, -1, -1, -1, 125, 150, 0, 800, 0, 0, 0, 0, 0, 0, 0, 0, 1, 32, 0, 0, 0, 0, 0, 2, 0, 0, 9, 0, 0} },
     { "REAP", 32, {0, 10, 30, 7, 4, 7, 8, 9, 125, 150, 1, 800, 0, 31, 0, 0, 0, 0, 0, 0, 1, 32, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0} },
@@ -213,7 +213,7 @@ static const DcGamestatUnit dc_gamestat_units[DC_GAMESTAT_UNIT_COUNT] = {
     { "PORT", 32, {1, 25, 47, 9, 9, 47, 47, 47, 125, 150, 2, 3200, 1, 15, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0} },
 };
 
-static const DcGamestatDepend dc_gamestat_depends[DC_GAMESTAT_DEPEND_COUNT] = {
+static const DcGamestatDepend dc_gamestat_depends[GAMESTAT_DEPEND_COUNT] = {
     { 0, 2000, 206, 0, 0, 2, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
     { 1, 1000, 80, 0, 1, 3, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
     { 2, 2000, 81, 0, 3, 3, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
@@ -296,7 +296,7 @@ static const DcGamestatDepend dc_gamestat_depends[DC_GAMESTAT_DEPEND_COUNT] = {
     { 82, 2000, 133, 2, 4, 4, {1, 2, 4, 81, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} },
 };
 
-static const DcGamestatWeapon dc_gamestat_weapons[DC_GAMESTAT_WEAPON_COUNT] = {
+static const DcGamestatWeapon dc_gamestat_weapons[GAMESTAT_WEAPON_COUNT] = {
     { 1, "weapons", 0, 1, 15, 100, 60, 4, 0, -1, -1, 0, 0 },
     { 2, "weapons", 0, 2, 15, 125, 60, 4, 0, -1, -1, 0, 0 },
     { 3, "weapons", 0, 3, 15, 150, 60, 4, 0, -1, -1, 0, 0 },
@@ -363,7 +363,7 @@ static const DcGamestatWeapon dc_gamestat_weapons[DC_GAMESTAT_WEAPON_COUNT] = {
     { 64, "ZIMAL", 6, 60, 15, 20, 60, 11, 10, -1, -1, 10, 1 },
 };
 
-static const DcGamestatUnitId dc_gamestat_unit_ids[DC_GAMESTAT_UNIT_ID_COUNT] = {
+static const DcGamestatUnitId dc_gamestat_unit_ids[GAMESTAT_UNIT_ID_COUNT] = {
     { 1, 0, 73, 234 },
     { 1, 0, 74, 235 },
     { 1, 0, 75, 236 },
@@ -438,7 +438,7 @@ static const DcGamestatMissileBullet dc_gamestat_mbullet = {
     }
 };
 
-static const DcGamestatBoom dc_gamestat_booms[DC_GAMESTAT_BOOM_COUNT] = {
+static const DcGamestatBoom dc_gamestat_booms[GAMESTAT_BOOM_COUNT] = {
     {
         0, 1, 0,
         { "", "", "", "", "", "", "", "" },

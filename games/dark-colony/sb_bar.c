@@ -20,25 +20,25 @@ typedef struct {
     irect_t build;
     irect_t tabs[3];
     irect_t buttons[8];
-} DarkColonyUiLayout;
+} UiLayout;
 
 typedef struct {
     int id;
     int frame;
     char label[40];
-} DarkColonySidebarCommand;
+} SidebarCommand;
 
 typedef struct {
-    DarkColonySidebarCommand commands[6];
+    SidebarCommand commands[6];
     int command_count;
-} DarkColonySidebar;
+} Sidebar;
 
 typedef struct {
     bool active;
     bool font_ready;
     bitmapfont_t font;
     spritesheet_t background;
-    DarkColonySidebar sidebar;
+    Sidebar sidebar;
     uint64_t clock;
 } sb_state_t;
 
@@ -51,65 +51,65 @@ typedef struct {
     int producer_type_id;
     int prerequisites[3];
     int prerequisite_count;
-} DarkColonyProductButton;
+} ProductButton;
 
 enum {
-    DC_CLIENT_PRODUCT_UNIT = 2,
-    DC_CLIENT_MT_TROOPER = 1,
-    DC_CLIENT_MT_REAPER = 4,
-    DC_CLIENT_MT_THUNDERBOLT = 5,
-    DC_CLIENT_MT_CYBORG = 6,
-    DC_CLIENT_MT_SCOUT = 7,
-    DC_CLIENT_MT_EXPLOITER = 3,
-    DC_CLIENT_MT_EXCOPOD = 1000,
-    DC_CLIENT_MT_BRRKPOD = 1001,
-    DC_CLIENT_MT_ROBOPOD = 1002,
-    DC_CLIENT_MT_ROBOPOD2 = 1003,
-    DC_CLIENT_MT_SCNCPOD = 1004,
-    DC_CLIENT_MT_SCNCPOD2 = 1005,
-    DC_CLIENT_MT_RSCHPOD = 1006,
-    DC_CLIENT_PRODUCTION_BUILD_GROUP = 6,
-    DC_CLIENT_TRSCBUILD_FIRST_FRAME = 12,
+    CLIENT_PRODUCT_UNIT = 2,
+    CLIENT_MT_TROOPER = 1,
+    CLIENT_MT_REAPER = 4,
+    CLIENT_MT_THUNDERBOLT = 5,
+    CLIENT_MT_CYBORG = 6,
+    CLIENT_MT_SCOUT = 7,
+    CLIENT_MT_EXPLOITER = 3,
+    CLIENT_MT_EXCOPOD = 1000,
+    CLIENT_MT_BRRKPOD = 1001,
+    CLIENT_MT_ROBOPOD = 1002,
+    CLIENT_MT_ROBOPOD2 = 1003,
+    CLIENT_MT_SCNCPOD = 1004,
+    CLIENT_MT_SCNCPOD2 = 1005,
+    CLIENT_MT_RSCHPOD = 1006,
+    CLIENT_PRODUCTION_BUILD_GROUP = 6,
+    CLIENT_TRSCBUILD_FIRST_FRAME = 12,
 };
 
-static const DarkColonyProductButton DARK_COLONY_PRODUCTS[] = {
-    {  80, "Barracks",  1000, 20, 17, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
-    {  81, "Sci-Pod",   2000, 21, 20, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
-    {  82, "Robo-Ftr",  2000, 22, 18, DC_CLIENT_MT_EXCOPOD, { 2, 1 }, 2 },
-    {  83, "Rsch-Bay",  3000, 23, 22, DC_CLIENT_MT_EXCOPOD, { 4 }, 1 },
-    {  85, "Sci-Pod+",  2000, 26, 21, DC_CLIENT_MT_EXCOPOD, { 2 }, 1 },
-    {  86, "Robo-Ftr+", 2000, 30, 19, DC_CLIENT_MT_EXCOPOD, { 3, 2 }, 2 },
-    {  87, "Exploiter", 1500,  8,  6, DC_CLIENT_MT_EXCOPOD, { 0 }, 1 },
-    {  89, "Trooper",    350,  6,  0, DC_CLIENT_MT_BRRKPOD, { 1 }, 1 },
-    {  90, "Sentinel",   450,  5, 43, DC_CLIENT_MT_BRRKPOD, { 1, 2 }, 2 },
-    {  94, "S.A.R.G.E", 1500, 12,  4, DC_CLIENT_MT_BRRKPOD, { 1, 6 }, 2 },
-    {  92, "Osprey IV",  600,  9,  5, DC_CLIENT_MT_ROBOPOD, { 0, 3, 4 }, 3 },
-    {  91, "Reaper",     600, 11,  2, DC_CLIENT_MT_ROBOPOD, { 3, 2 }, 2 },
-    {  88, "Firestorm",  900, 10,  1, DC_CLIENT_MT_ROBOPOD2, { 5 }, 1 },
-    {  93, "Barrager",  1000,  7,  3, DC_CLIENT_MT_ROBOPOD2, { 5, 4 }, 2 },
-    { 135, "Medi-craft", 900, 29, 49, DC_CLIENT_MT_ROBOPOD, { 4, 3, 6 }, 3 },
+static const ProductButton DARK_COLONY_PRODUCTS[] = {
+    {  80, "Barracks",  1000, 20, 17, CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  81, "Sci-Pod",   2000, 21, 20, CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  82, "Robo-Ftr",  2000, 22, 18, CLIENT_MT_EXCOPOD, { 2, 1 }, 2 },
+    {  83, "Rsch-Bay",  3000, 23, 22, CLIENT_MT_EXCOPOD, { 4 }, 1 },
+    {  85, "Sci-Pod+",  2000, 26, 21, CLIENT_MT_EXCOPOD, { 2 }, 1 },
+    {  86, "Robo-Ftr+", 2000, 30, 19, CLIENT_MT_EXCOPOD, { 3, 2 }, 2 },
+    {  87, "Exploiter", 1500,  8,  6, CLIENT_MT_EXCOPOD, { 0 }, 1 },
+    {  89, "Trooper",    350,  6,  0, CLIENT_MT_BRRKPOD, { 1 }, 1 },
+    {  90, "Sentinel",   450,  5, 43, CLIENT_MT_BRRKPOD, { 1, 2 }, 2 },
+    {  94, "S.A.R.G.E", 1500, 12,  4, CLIENT_MT_BRRKPOD, { 1, 6 }, 2 },
+    {  92, "Osprey IV",  600,  9,  5, CLIENT_MT_ROBOPOD, { 0, 3, 4 }, 3 },
+    {  91, "Reaper",     600, 11,  2, CLIENT_MT_ROBOPOD, { 3, 2 }, 2 },
+    {  88, "Firestorm",  900, 10,  1, CLIENT_MT_ROBOPOD2, { 5 }, 1 },
+    {  93, "Barrager",  1000,  7,  3, CLIENT_MT_ROBOPOD2, { 5, 4 }, 2 },
+    { 135, "Medi-craft", 900, 29, 49, CLIENT_MT_ROBOPOD, { 4, 3, 6 }, 3 },
 };
 
 static uint16_t dc_unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
-    case 0: return DC_CLIENT_MT_TROOPER;
-    case 2: return DC_CLIENT_MT_REAPER;
-    case 3: return DC_CLIENT_MT_THUNDERBOLT;
-    case 4: return DC_CLIENT_MT_CYBORG;
-    case 5: return DC_CLIENT_MT_SCOUT;
-    case 6: return DC_CLIENT_MT_EXPLOITER;
+    case 0: return CLIENT_MT_TROOPER;
+    case 2: return CLIENT_MT_REAPER;
+    case 3: return CLIENT_MT_THUNDERBOLT;
+    case 4: return CLIENT_MT_CYBORG;
+    case 5: return CLIENT_MT_SCOUT;
+    case 6: return CLIENT_MT_EXPLOITER;
     default: return 0;
     }
 }
 
-static int dc_product_training_time_ms(const DarkColonyProductButton *product) {
+static int dc_product_training_time_ms(const ProductButton *product) {
     if (!product) return 0;
     int ms = product->cost * 10;
     if (ms < 1000) ms = 1000;
     return ms;
 }
 
-static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
+static void sidebar_defaults(Sidebar *sidebar) {
     if (!sidebar) return;
     const int ids[6] = { 150, 33, 35, 36, 37, 143 };
     const int frames[6] = { 62, 63, 65, 66, 74, 2 };
@@ -130,7 +130,7 @@ static void dark_colony_sidebar_defaults(DarkColonySidebar *sidebar) {
     }
 }
 
-static irect_t dark_colony_ui_rect(const app_t *app, int x, int y, int w, int h) {
+static irect_t ui_rect(const app_t *app, int x, int y, int w, int h) {
     int win_w = app && app->win.w > 0 ? app->win.w : 640;
     int win_h = app && app->win.h > 0 ? app->win.h : 480;
     irect_t r = {
@@ -358,14 +358,14 @@ static bool load_gif_texture(SDL_Renderer *renderer, const char *path, spriteshe
     return true;
 }
 
-static DarkColonySidebarCommand *dark_colony_sidebar_command(DarkColonySidebar *sidebar, int id) {
+static SidebarCommand *sidebar_command(Sidebar *sidebar, int id) {
     if (!sidebar) return NULL;
     for (int i = 0; i < sidebar->command_count; ++i)
         if (sidebar->commands[i].id == id) return &sidebar->commands[i];
     return NULL;
 }
 
-static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *data_root) {
+static void sidebar_load(Sidebar *sidebar, const char *data_root) {
     if (!sidebar || !data_root) return;
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MAINE");
@@ -392,7 +392,7 @@ static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *dat
             int id = 0;
             char label[40] = { 0 };
             if (sscanf(line, "textmsg %d %39[^\r\n]", &id, label) == 2) {
-                DarkColonySidebarCommand *cmd = dark_colony_sidebar_command(sidebar, id);
+                SidebarCommand *cmd = sidebar_command(sidebar, id);
                 if (cmd) {
                     size_t len = strlen(label);
                     while (len > 0 && isspace((unsigned char)label[len - 1])) label[--len] = '\0';
@@ -404,7 +404,7 @@ static void dark_colony_sidebar_load(DarkColonySidebar *sidebar, const char *dat
                 if (sscanf(line, "%15s %d %d %d %d %d %d %d %d",
                            kind, &id, &desc, &x, &y, &w, &h, &frame, &pushed) == 9 &&
                     (strcmp(kind, "pushb") == 0 || strcmp(kind, "checkb") == 0)) {
-                    DarkColonySidebarCommand *cmd = dark_colony_sidebar_command(sidebar, id);
+                    SidebarCommand *cmd = sidebar_command(sidebar, id);
                     if (cmd) cmd->frame = frame;
                 }
             }
@@ -420,33 +420,33 @@ int SB_WorldViewportWidth(const app_t *app) {
     return w > 0 ? w : 1;
 }
 
-static DarkColonyUiLayout dark_colony_ui_layout(const app_t *app) {
-    DarkColonyUiLayout layout;
+static UiLayout ui_layout(const app_t *app) {
+    UiLayout layout;
     memset(&layout, 0, sizeof(layout));
-    layout.outer = dark_colony_ui_rect(app, 516, 0, 124, 480);
-    layout.minimap = dark_colony_ui_rect(app, 520, 5, 96, 84);
-    layout.commands = dark_colony_ui_rect(app, 516, 92, 124, 330);
-    layout.status = dark_colony_ui_rect(app, 518, 368, 59, 41);
-    layout.money = dark_colony_ui_rect(app, 524, 456, 72, 17);
-    layout.days = dark_colony_ui_rect(app, 613, 433, 3, 1);
-    layout.message = dark_colony_ui_rect(app, 50, 462, 427, 11);
-    layout.build = dark_colony_ui_rect(app, 516, 422, 86, 27);
-    layout.header = dark_colony_ui_rect(app, 516, 0, 124, 92);
-    layout.tabs[0] = dark_colony_ui_rect(app, 518, 92, 40, 20);
-    layout.tabs[1] = dark_colony_ui_rect(app, 557, 92, 41, 20);
-    layout.tabs[2] = dark_colony_ui_rect(app, 598, 92, 40, 20);
+    layout.outer = ui_rect(app, 516, 0, 124, 480);
+    layout.minimap = ui_rect(app, 520, 5, 96, 84);
+    layout.commands = ui_rect(app, 516, 92, 124, 330);
+    layout.status = ui_rect(app, 518, 368, 59, 41);
+    layout.money = ui_rect(app, 524, 456, 72, 17);
+    layout.days = ui_rect(app, 613, 433, 3, 1);
+    layout.message = ui_rect(app, 50, 462, 427, 11);
+    layout.build = ui_rect(app, 516, 422, 86, 27);
+    layout.header = ui_rect(app, 516, 0, 124, 92);
+    layout.tabs[0] = ui_rect(app, 518, 92, 40, 20);
+    layout.tabs[1] = ui_rect(app, 557, 92, 41, 20);
+    layout.tabs[2] = ui_rect(app, 598, 92, 40, 20);
 
     const int button_y[6] = { 112, 153, 194, 235, 276, 317 };
     for (int i = 0; i < 6; ++i) {
-        layout.buttons[i] = dark_colony_ui_rect(app, 518, button_y[i], 59, 41);
+        layout.buttons[i] = ui_rect(app, 518, button_y[i], 59, 41);
     }
     return layout;
 }
 
-static irect_t dark_colony_product_button_rect(const app_t *app, int index) {
+static irect_t product_button_rect(const app_t *app, int index) {
     int col = index / 4;
     int row = index % 4;
-    return dark_colony_ui_rect(app, 518 + col * 59, 112 + row * 41, 59, 41);
+    return ui_rect(app, 518 + col * 59, 112 + row * 41, 59, 41);
 }
 
 static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {
@@ -513,14 +513,14 @@ static const mobj_t *dc_first_selected_unit(const mobj_t *units, int unit_count)
 
 static int dc_product_row_actor_type(int row_id) {
     switch (row_id) {
-    case 0: return DC_CLIENT_MT_EXCOPOD;
-    case 1: return DC_CLIENT_MT_BRRKPOD;
-    case 2: return DC_CLIENT_MT_SCNCPOD;
-    case 3: return DC_CLIENT_MT_ROBOPOD;
-    case 4: return DC_CLIENT_MT_SCNCPOD2;
-    case 5: return DC_CLIENT_MT_ROBOPOD2;
-    case 6: return DC_CLIENT_MT_RSCHPOD;
-    case 7: return DC_CLIENT_MT_EXPLOITER;
+    case 0: return CLIENT_MT_EXCOPOD;
+    case 1: return CLIENT_MT_BRRKPOD;
+    case 2: return CLIENT_MT_SCNCPOD;
+    case 3: return CLIENT_MT_ROBOPOD;
+    case 4: return CLIENT_MT_SCNCPOD2;
+    case 5: return CLIENT_MT_ROBOPOD2;
+    case 6: return CLIENT_MT_RSCHPOD;
+    case 7: return CLIENT_MT_EXPLOITER;
     default: return 0;
     }
 }
@@ -537,7 +537,7 @@ static bool dc_player_has_actor_type(const mobj_t *units, int unit_count, int ty
 }
 
 static bool dc_product_prerequisites_met(const mobj_t *units, int unit_count,
-                                         const DarkColonyProductButton *product) {
+                                         const ProductButton *product) {
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
         int actor_type = dc_product_row_actor_type(product->prerequisites[i]);
@@ -548,17 +548,17 @@ static bool dc_product_prerequisites_met(const mobj_t *units, int unit_count,
 
 static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
     return selected && selected->owner == 0 && !selected->remove && selected->hp > 0 &&
-        selected->type_id >= DC_CLIENT_MT_EXCOPOD;
+        selected->type_id >= CLIENT_MT_EXCOPOD;
 }
 
 static int dc_products_for_selected_building(const mobj_t *selected, const mobj_t *units,
                                              int unit_count,
-                                             const DarkColonyProductButton *out[8]) {
+                                             const ProductButton *out[8]) {
     if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
     int count = 0;
     int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
     for (int i = 0; i < source_count && count < 8; ++i) {
-        const DarkColonyProductButton *product = &DARK_COLONY_PRODUCTS[i];
+        const ProductButton *product = &DARK_COLONY_PRODUCTS[i];
         if (product->producer_type_id != selected->type_id) continue;
         if (!dc_product_prerequisites_met(units, unit_count, product)) continue;
         out[count++] = product;
@@ -566,7 +566,7 @@ static int dc_products_for_selected_building(const mobj_t *selected, const mobj_
     return count;
 }
 
-static const DarkColonyProductButton *dc_product_by_type(int product_type) {
+static const ProductButton *dc_product_by_type(int product_type) {
     int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
     for (int i = 0; i < source_count; ++i) {
         if (DARK_COLONY_PRODUCTS[i].product_type == product_type)
@@ -575,13 +575,13 @@ static const DarkColonyProductButton *dc_product_by_type(int product_type) {
     return NULL;
 }
 
-static bool dc_enqueue_unit_product(mobj_t *producer, const DarkColonyProductButton *product,
+static bool dc_enqueue_unit_product(mobj_t *producer, const ProductButton *product,
                                     uint16_t actor_id) {
     if (!producer || !product || actor_id == 0) return false;
     if (producer->production.queue_count > 0) {
         if (producer->production.actor_id != actor_id ||
             producer->production.product_type != product->product_type ||
-            producer->production.product_class != DC_CLIENT_PRODUCT_UNIT ||
+            producer->production.product_class != CLIENT_PRODUCT_UNIT ||
             producer->production.queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
             return false;
         }
@@ -589,7 +589,7 @@ static bool dc_enqueue_unit_product(mobj_t *producer, const DarkColonyProductBut
         return true;
     }
     producer->production.actor_id = actor_id;
-    producer->production.product_class = DC_CLIENT_PRODUCT_UNIT;
+    producer->production.product_class = CLIENT_PRODUCT_UNIT;
     producer->production.product_type = product->product_type;
     producer->production.queue_count = 1;
     producer->production.time_ms = dc_product_training_time_ms(product);
@@ -631,23 +631,23 @@ static int dc_state_chain_duration_ms(const gameinfo_t *game_info, int state_id,
 }
 
 static bool dc_product_uses_barracks_release(const mobj_t *producer,
-                                             const DarkColonyProductButton *product,
+                                             const ProductButton *product,
                                              uint16_t actor_id) {
-    return producer && product && producer->type_id == DC_CLIENT_MT_BRRKPOD &&
-        product->product_type == 0 && actor_id == DC_CLIENT_MT_TROOPER;
+    return producer && product && producer->type_id == CLIENT_MT_BRRKPOD &&
+        product->product_type == 0 && actor_id == CLIENT_MT_TROOPER;
 }
 
 static bool dc_start_production_release(level_t *map,
                                         effect_t *effects, int max_effects,
                                         mobj_t *producer,
-                                        const DarkColonyProductButton *product,
+                                        const ProductButton *product,
                                         uint16_t actor_id) {
     if (!gameinfo || !producer || !product) return false;
     if (!dc_product_uses_barracks_release(producer, product, actor_id)) return false;
-    int state_id = dc_find_state_by_group_frame(gameinfo, DC_CLIENT_PRODUCTION_BUILD_GROUP,
-                                                DC_CLIENT_TRSCBUILD_FIRST_FRAME);
+    int state_id = dc_find_state_by_group_frame(gameinfo, CLIENT_PRODUCTION_BUILD_GROUP,
+                                                CLIENT_TRSCBUILD_FIRST_FRAME);
     int duration_ms = dc_state_chain_duration_ms(gameinfo, state_id,
-                                                 DC_CLIENT_PRODUCTION_BUILD_GROUP);
+                                                 CLIENT_PRODUCTION_BUILD_GROUP);
     if (state_id <= 0 || duration_ms <= 0) return false;
     statecontext_t ctx = {
         .map = map,
@@ -809,15 +809,15 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
         return false;
 
     int release_state_id = dc_find_state_by_group_frame(game_info,
-                                                        DC_CLIENT_PRODUCTION_BUILD_GROUP,
-                                                        DC_CLIENT_TRSCBUILD_FIRST_FRAME);
+                                                        CLIENT_PRODUCTION_BUILD_GROUP,
+                                                        CLIENT_TRSCBUILD_FIRST_FRAME);
     int release_x = 0;
     int release_y = 0;
     bool saw_release_trooper = false;
     int guard = 0;
     while (guard++ < game_info->state_count + 1) {
         const state_t *state = dc_state_at(game_info, release_state_id);
-        if (!state || state->misc1 != DC_CLIENT_PRODUCTION_BUILD_GROUP) break;
+        if (!state || state->misc1 != CLIENT_PRODUCTION_BUILD_GROUP) break;
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite &&
@@ -941,7 +941,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     float gx = 0.0f;
     float gy = 0.0f;
     mobj_t *producer = &units[producer_index];
-    const DarkColonyProductButton *product = dc_product_by_type(producer->production.product_type);
+    const ProductButton *product = dc_product_by_type(producer->production.product_type);
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
         dc_barracks_release_spawn_point(gameinfo, producer, &new_unit, &gx, &gy) &&
@@ -993,7 +993,7 @@ bool SB_UpdateProduction(void *sb_ptr, level_t *map,
         while (producer->production.queue_count > 0 &&
                producer->production.time_left_ms <= 0) {
             uint16_t actor_id = producer->production.actor_id;
-            const DarkColonyProductButton *product =
+            const ProductButton *product =
                 dc_product_by_type(producer->production.product_type);
             if (product && dc_start_production_release(map, effects, max_effects,
                                                        producer, product, actor_id)) {
@@ -1014,24 +1014,24 @@ bool SB_UpdateProduction(void *sb_ptr, level_t *map,
 static const char *dc_selected_building_label(const mobj_t *selected) {
     if (!selected) return "";
     switch (selected->type_id) {
-    case DC_CLIENT_MT_EXCOPOD: return "Exo-Ctr";
-    case DC_CLIENT_MT_BRRKPOD: return "Barracks";
-    case DC_CLIENT_MT_ROBOPOD: return "Robo-Ftr";
-    case DC_CLIENT_MT_ROBOPOD2: return "Robo-Ftr+";
-    case DC_CLIENT_MT_SCNCPOD: return "Sci-Pod";
-    case DC_CLIENT_MT_SCNCPOD2: return "Sci-Pod+";
-    case DC_CLIENT_MT_RSCHPOD: return "Rsch-Bay";
+    case CLIENT_MT_EXCOPOD: return "Exo-Ctr";
+    case CLIENT_MT_BRRKPOD: return "Barracks";
+    case CLIENT_MT_ROBOPOD: return "Robo-Ftr";
+    case CLIENT_MT_ROBOPOD2: return "Robo-Ftr+";
+    case CLIENT_MT_SCNCPOD: return "Sci-Pod";
+    case CLIENT_MT_SCNCPOD2: return "Sci-Pod+";
+    case CLIENT_MT_RSCHPOD: return "Rsch-Bay";
     default: return "";
     }
 }
 
-static int dc_sidebar_command_frame(const DarkColonySidebarCommand *cmd, const mobj_t *selected) {
+static int dc_sidebar_command_frame(const SidebarCommand *cmd, const mobj_t *selected) {
     if (!cmd) return 0;
     (void)selected;
     return cmd->frame;
 }
 
-static const char *dc_sidebar_command_label(const DarkColonySidebarCommand *cmd,
+static const char *dc_sidebar_command_label(const SidebarCommand *cmd,
                                             const mobj_t *selected) {
     if (!cmd) return "";
     (void)selected;
@@ -1062,7 +1062,7 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
     if (e->type != SDL_MOUSEBUTTONDOWN) return false;
     int rx = 0, ry = 0;
     R_WindowToRenderPt(app, e->button.x, e->button.y, &rx, &ry);
-    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    UiLayout layout = ui_layout(app);
     if (!irect_contains(layout.outer, (ivec2_t){ rx, ry })) return false;
     int selected_index = -1;
     for (int i = 0; i < unit_count; ++i) {
@@ -1073,13 +1073,13 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
     }
     mobj_t *selected = selected_index >= 0 ? &units[selected_index] : NULL;
     if (dc_selected_unit_is_player_building(selected)) {
-        const DarkColonyProductButton *products[8] = { 0 };
+        const ProductButton *products[8] = { 0 };
         int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
         if (e->button.button == SDL_BUTTON_LEFT) {
             for (int i = 0; i < product_count; ++i) {
-                if (!irect_contains(dark_colony_product_button_rect(app, i),
+                if (!irect_contains(product_button_rect(app, i),
                                     (ivec2_t){ rx, ry })) continue;
-                const DarkColonyProductButton *product = products[i];
+                const ProductButton *product = products[i];
                 uint16_t actor_id = dc_unit_actor_id_for_product_type(product->product_type);
                 if (actor_id == 0 || map->player_resources[0][0] < product->cost) return true;
                 if (dc_enqueue_unit_product(selected, product, actor_id)) {
@@ -1159,7 +1159,7 @@ static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *fo
 
 static void dc_ui_draw_status(app_t *app, const level_t *map,
                               const bitmapfont_t *font,
-                              const DarkColonyUiLayout *layout,
+                              const UiLayout *layout,
                               const spritecache_t *cache,
                               uint64_t clock) {
     if (!app || !map || !font || !layout) return;
@@ -1186,31 +1186,31 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
 static void dc_SB_drawer(app_t *app, const level_t *map,
                          const mobj_t *units, int unit_count,
                          const spritecache_t *cache, const bitmapfont_t *font,
-                         const DarkColonySidebar *sidebar,
+                         const Sidebar *sidebar,
                          const spritesheet_t *background) {
     if (!app || !font || !font->sprite.texture) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
 
-    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    UiLayout layout = ui_layout(app);
     if (background && background->texture) {
         dc_ui_draw_image_part(app->renderer, background,
                               (irect_t){ 516, 0, 124, 480 }, layout.outer);
         dc_ui_draw_image_part(app->renderer, background,
                               (irect_t){ 0, 455, 516, 25 },
-                              dark_colony_ui_rect(app, 0, 455, 516, 25));
+                              ui_rect(app, 0, 455, 516, 25));
     } else {
         dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 2, 2, 2, 255 });
-        dc_ui_fill(app->renderer, dark_colony_ui_rect(app, 0, 455, 640, 25),
+        dc_ui_fill(app->renderer, ui_rect(app, 0, 455, 640, 25),
                    (SDL_Color){ 3, 3, 3, 255 });
         dc_ui_stroke(app->renderer, layout.outer, (SDL_Color){ 178, 178, 178, 255 });
-        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 0, 455, 640, 18),
+        dc_ui_stroke(app->renderer, ui_rect(app, 0, 455, 640, 18),
                      (SDL_Color){ 164, 164, 164, 255 });
         dc_ui_stroke(app->renderer, layout.minimap, (SDL_Color){ 154, 154, 154, 255 });
-        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 516, 0, 107, 92),
+        dc_ui_stroke(app->renderer, ui_rect(app, 516, 0, 107, 92),
                      (SDL_Color){ 86, 86, 86, 255 });
-        dc_ui_stroke(app->renderer, dark_colony_ui_rect(app, 516, 92, 124, 363),
+        dc_ui_stroke(app->renderer, ui_rect(app, 516, 92, 124, 363),
                      (SDL_Color){ 154, 154, 154, 255 });
 
         for (int i = 0; i < 3; ++i) {
@@ -1237,19 +1237,19 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     };
     dc_ui_draw_minimap(app, map, units, unit_count, mini);
 
-    DarkColonySidebar fallback_sidebar;
+    Sidebar fallback_sidebar;
     if (!sidebar) {
-        dark_colony_sidebar_defaults(&fallback_sidebar);
+        sidebar_defaults(&fallback_sidebar);
         sidebar = &fallback_sidebar;
     }
     int hover_button = -1;
     const mobj_t *selected = dc_first_selected_unit(units, unit_count);
-    const DarkColonyProductButton *products[8] = { 0 };
+    const ProductButton *products[8] = { 0 };
     int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
     bool product_mode = dc_selected_unit_is_player_building(selected);
     int visible_button_count = product_mode ? product_count : sidebar->command_count;
     for (int i = 0; i < visible_button_count; ++i) {
-        irect_t button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+        irect_t button_rect = product_mode ? product_button_rect(app, i) :
             layout.buttons[i];
         if (irect_contains(button_rect, app->mouse)) {
             hover_button = i;
@@ -1297,7 +1297,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     }
     int button_slots = product_mode ? 8 : 6;
     for (int i = 0; i < button_slots; ++i) {
-        irect_t button_rect = product_mode ? dark_colony_product_button_rect(app, i) :
+        irect_t button_rect = product_mode ? product_button_rect(app, i) :
             layout.buttons[i];
         if (product_mode && i >= product_count) {
             dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 10, 12, 12, 185 });
@@ -1327,7 +1327,7 @@ static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfo
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    UiLayout layout = ui_layout(app);
     char message[62];
     snprintf(message, sizeof(message), "%.61s", hud->messages[hud->count - 1].text);
     HU_DrawTextRemapped(app->renderer, font, layout.message.x, layout.message.y,
@@ -1340,12 +1340,12 @@ void *SB_Init(app_t *app, const char *data_root) {
     sb_state_t *sb = calloc(1, sizeof(sb_state_t));
     if (!sb) return NULL;
     sb->active = true;
-    dark_colony_sidebar_defaults(&sb->sidebar);
+    sidebar_defaults(&sb->sidebar);
 
     sb->font_ready = HU_LoadFont(app->renderer, data_root, &sb->font);
     if (!sb->font_ready)
         fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
-    dark_colony_sidebar_load(&sb->sidebar, data_root);
+    sidebar_load(&sb->sidebar, data_root);
 
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/INTRFACE.GIF");
@@ -1373,7 +1373,7 @@ void SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
     if (!sb || !sb->active || !sb->font_ready) return;
     dc_SB_drawer(app, map, units, unit_count, sprites, &sb->font,
                  &sb->sidebar, &sb->background);
-    DarkColonyUiLayout layout = dark_colony_ui_layout(app);
+    UiLayout layout = ui_layout(app);
     dc_ui_draw_status(app, map, &sb->font, &layout, sprites, sb->clock);
     render_hud_messages(app, hud, &sb->font);
 }

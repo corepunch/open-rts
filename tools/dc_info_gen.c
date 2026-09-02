@@ -89,14 +89,14 @@ typedef struct {
 } DcFinStateCounts;
 
 enum {
-    DC_FIN_HEADER_DISK_SIZE = 8,
-    DC_FIN_DEPENDENCY_DISK_SIZE = 8,
-    DC_FIN_ANIMATION_HEADER_DISK_SIZE = 20,
-    DC_FIN_FRAME_DISK_SIZE = 164,
-    DC_FIN_DRAW_PART_DISK_SIZE = 22,
-    DC_FIN_ANIMATION_HEADER_NAME_SIZE = 16,
-    DC_FIN_DRAW_PART_SPRITE_NAME_SIZE = 8,
-    DC_FIN_MAX_DRAW_PARTS_PER_FRAME = 100
+    FIN_HEADER_DISK_SIZE = 8,
+    FIN_DEPENDENCY_DISK_SIZE = 8,
+    FIN_ANIMATION_HEADER_DISK_SIZE = 20,
+    FIN_FRAME_DISK_SIZE = 164,
+    FIN_DRAW_PART_DISK_SIZE = 22,
+    FIN_ANIMATION_HEADER_NAME_SIZE = 16,
+    FIN_DRAW_PART_SPRITE_NAME_SIZE = 8,
+    FIN_MAX_DRAW_PARTS_PER_FRAME = 100
 };
 
 static uint16_t read_u16_le(const unsigned char *p) {
@@ -291,7 +291,7 @@ static const DcFinAnimationHeader *dc_fin_find_animation_header(const DcFinAnima
 
 static DcFinDiskLayout dc_fin_read_disk_layout(const unsigned char *data, size_t size,
                                                const char *path) {
-    if (size < DC_FIN_HEADER_DISK_SIZE) die("FIN too small", path);
+    if (size < FIN_HEADER_DISK_SIZE) die("FIN too small", path);
 
     DcFinDiskLayout layout;
     memset(&layout, 0, sizeof(layout));
@@ -300,22 +300,22 @@ static DcFinDiskLayout dc_fin_read_disk_layout(const unsigned char *data, size_t
     layout.animation_header_count = read_u16_le(data + 4);
     layout.dependency_count = read_u16_le(data + 6);
     layout.animation_header_offset =
-        DC_FIN_HEADER_DISK_SIZE + (size_t)layout.dependency_count * DC_FIN_DEPENDENCY_DISK_SIZE;
+        FIN_HEADER_DISK_SIZE + (size_t)layout.dependency_count * FIN_DEPENDENCY_DISK_SIZE;
     layout.frame_offset = layout.animation_header_offset +
-        (size_t)layout.animation_header_count * DC_FIN_ANIMATION_HEADER_DISK_SIZE;
+        (size_t)layout.animation_header_count * FIN_ANIMATION_HEADER_DISK_SIZE;
     layout.draw_part_offset =
-        layout.frame_offset + (size_t)layout.frame_count * DC_FIN_FRAME_DISK_SIZE;
+        layout.frame_offset + (size_t)layout.frame_count * FIN_FRAME_DISK_SIZE;
 
     if (layout.animation_header_offset > size ||
         layout.frame_offset > size ||
         layout.draw_part_offset > size) {
         die("FIN table offsets exceed file size", path);
     }
-    if ((size - layout.draw_part_offset) % DC_FIN_DRAW_PART_DISK_SIZE != 0) {
+    if ((size - layout.draw_part_offset) % FIN_DRAW_PART_DISK_SIZE != 0) {
         die("FIN draw part table has invalid DSPR/XSPR block layout", path);
     }
     layout.draw_part_count =
-        (int)((size - layout.draw_part_offset) / DC_FIN_DRAW_PART_DISK_SIZE);
+        (int)((size - layout.draw_part_offset) / FIN_DRAW_PART_DISK_SIZE);
     return layout;
 }
 
@@ -338,10 +338,10 @@ static void dc_fin_read_animation_headers(DcFinAnimation *fin, const unsigned ch
                                           const DcFinDiskLayout *layout) {
     for (int i = 0; i < fin->animation_header_count; ++i) {
         size_t offset = layout->animation_header_offset +
-            (size_t)i * DC_FIN_ANIMATION_HEADER_DISK_SIZE;
+            (size_t)i * FIN_ANIMATION_HEADER_DISK_SIZE;
         DcFinAnimationHeader *header = &fin->animation_headers[i];
         copy_padded_name(header->name, sizeof(header->name), data + offset,
-                         DC_FIN_ANIMATION_HEADER_NAME_SIZE);
+                         FIN_ANIMATION_HEADER_NAME_SIZE);
         header->start = read_u16_le(data + offset + 16);
         header->end = read_u16_le(data + offset + 18);
     }
@@ -351,10 +351,10 @@ static void dc_fin_read_frames(DcFinAnimation *fin, const unsigned char *data,
                                const DcFinDiskLayout *layout, const char *path) {
     (void)layout->default_ticks;
     for (int i = 0; i < fin->frame_count; ++i) {
-        size_t offset = layout->frame_offset + (size_t)i * DC_FIN_FRAME_DISK_SIZE;
+        size_t offset = layout->frame_offset + (size_t)i * FIN_FRAME_DISK_SIZE;
         DcFinFrame *frame = &fin->frames[i];
         frame->part_count = read_u16_le(data + offset);
-        if (frame->part_count > DC_FIN_MAX_DRAW_PARTS_PER_FRAME) {
+        if (frame->part_count > FIN_MAX_DRAW_PARTS_PER_FRAME) {
             die("FIN frame has invalid part count", path);
         }
         frame->ticks = read_u16_le(data + offset + 2);
@@ -375,10 +375,10 @@ static void dc_fin_link_frame_draw_parts(DcFinAnimation *fin, const char *path) 
 static void dc_fin_read_draw_parts(DcFinAnimation *fin, const unsigned char *data,
                                    const DcFinDiskLayout *layout) {
     for (int i = 0; i < fin->draw_part_count; ++i) {
-        size_t offset = layout->draw_part_offset + (size_t)i * DC_FIN_DRAW_PART_DISK_SIZE;
+        size_t offset = layout->draw_part_offset + (size_t)i * FIN_DRAW_PART_DISK_SIZE;
         DcFinDrawPart *part = &fin->draw_parts[i];
         copy_padded_name(part->sprite, sizeof(part->sprite), data + offset,
-                         DC_FIN_DRAW_PART_SPRITE_NAME_SIZE);
+                         FIN_DRAW_PART_SPRITE_NAME_SIZE);
         part->frame = read_i16_le(data + offset + 8);
         part->x = read_i16_le(data + offset + 10);
         part->y = read_i16_le(data + offset + 12);
@@ -1087,7 +1087,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
     fprintf(out, "extern const state_t states[NUMSTATES];\n");
     fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");
-    fprintf(out, "extern const gameinfo_t dark_colony_game_info;\n\n");
+    fprintf(out, "extern const gameinfo_t game_info;\n\n");
     fprintf(out, "void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_Attack(statecontext_t *ctx, mobj_t *unit);\n");
@@ -1104,13 +1104,13 @@ static void f6(FILE *out, const char *spr, int tics, const char *action, const c
     for (int i = 0; i < 6; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
     fprintf(out, "}, {");
     for (int i = 0; i < 6; ++i) fprintf(out, "%s%d", i ? "," : "", starts[i] + offset);
-    fprintf(out, "}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
+    fprintf(out, "}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
 }
 
 static void f1_fin_raw_state(FILE *out, const char *spr,
                              const DcFinDrawPart *cmd,
                              const char *next) {
-    fprintf(out, "    { %s, %d, -1, A_None, %s, 0, 1, 0, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, DC_NO_OVERLAY },\n",
+    fprintf(out, "    { %s, %d, -1, A_None, %s, 0, 1, 0, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, NO_OVERLAY },\n",
             spr, cmd->frame, next, cmd->frame,
             (cmd->flags & 1) ? "FLIPPED" : "0",
             cmd->x,
@@ -1194,7 +1194,7 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
                     fin_flip_flag_expr(overlay), overlay->x, overlay->y,
                     overlay->remap, overlay->intensity);
         } else {
-            fprintf(out, "DC_NO_OVERLAY },\n");
+            fprintf(out, "NO_OVERLAY },\n");
         }
     }
 }
@@ -1202,7 +1202,7 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
     int frame_b = n < 9 ? 271 + n : 289 + (n - 9);
-    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {2,6,14,10}, {%d,%d,%d,%d}, {0,0,FLIPPED,FLIPPED}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n",
+    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {2,6,14,10}, {%d,%d,%d,%d}, {0,0,FLIPPED,FLIPPED}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n",
             frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
 }
 
@@ -1273,7 +1273,7 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", remap[i]);
     fprintf(out, "}, {");
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
-    fprintf(out, "}, DC_NO_OVERLAY },\n");
+    fprintf(out, "}, NO_OVERLAY },\n");
 }
 
 static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1377,7 +1377,7 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
     fprintf(out, "}, {");
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
     if (!has_overlay) {
-        fprintf(out, "}, DC_NO_OVERLAY },\n");
+        fprintf(out, "}, NO_OVERLAY },\n");
         return;
     }
     fprintf(out, "}, %s, %d, %s, 8, {",
@@ -1458,7 +1458,7 @@ static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", remap[i]);
     fprintf(out, "}, {");
     for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
-    fprintf(out, "}, DC_NO_OVERLAY },\n");
+    fprintf(out, "}, NO_OVERLAY },\n");
 }
 
 static void write_muzzle16(FILE *out, const char *spr, int frame, const int offsets_x[16],
@@ -1475,7 +1475,7 @@ static void write_muzzle16(FILE *out, const char *spr, int frame, const int offs
     for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_x[i]);
     fprintf(out, "}, {");
     for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_y[i]);
-    fprintf(out, "}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
+    fprintf(out, "}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
 }
 
 static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1693,7 +1693,7 @@ static void write_fin_label_effect_chain(FILE *out, const char *root,
         } else {
             snprintf(flag_expr, sizeof(flag_expr), "0");
         }
-        fprintf(out, "    { %s, %d, %d, A_None, %s, %s, 5, 0, 1, {%d}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, DC_NO_OVERLAY },\n",
+        fprintf(out, "    { %s, %d, %d, A_None, %s, %s, 5, 0, 1, {%d}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, NO_OVERLAY },\n",
                 sprites[sprite_index].symbol, cmd->frame, tics, next, flag_expr,
                 direction_code, cmd->frame, flag_expr,
                 cmd->x, cmd->y,
@@ -1716,7 +1716,7 @@ static void write_muzzle(FILE *out, const char *spr, int frame, const int offset
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_x[i]);
     fprintf(out, "}, {");
     for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_y[i]);
-    fprintf(out, "}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
+    fprintf(out, "}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
 }
 
 static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count,
@@ -1790,11 +1790,11 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "};\n\n");
     fprintf(out, "#define A_None NULL\n");
     fprintf(out, "#define FLIPPED RTS_SPRITEFRAME_FLIP_X\n");
-    fprintf(out, "#define DC_DEFAULT_REMAP {0}\n");
-    fprintf(out, "#define DC_DEFAULT_INTENSITY {16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16}\n");
-    fprintf(out, "#define DC_NO_OVERLAY 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY\n\n");
+    fprintf(out, "#define DEFAULT_REMAP {0}\n");
+    fprintf(out, "#define DEFAULT_INTENSITY {16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16}\n");
+    fprintf(out, "#define NO_OVERLAY 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY\n\n");
     fprintf(out, "const state_t states[NUMSTATES] = {\n");
-    fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DC_DEFAULT_REMAP, DC_DEFAULT_INTENSITY, DC_NO_OVERLAY },\n");
+    fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
     f1_fin_raw_state(out, sprites[hubu].symbol, excopod_stand, "S_DC_EXCOPOD_STND");
     f1_fin_raw_state(out, sprites[hubu].symbol, brrkpod_stand, "S_DC_BRRKPOD_STND");
     f1_fin_raw_state(out, sprites[towr].symbol, towr_stand, "S_DC_TOWR_STND");
@@ -1926,7 +1926,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "};\n\n");
-    fprintf(out, "const gameinfo_t dark_colony_game_info = {\n");
+    fprintf(out, "const gameinfo_t game_info = {\n");
     fprintf(out, "    sprnames,\n");
     fprintf(out, "    NUMSPRITES,\n");
     fprintf(out, "    states,\n");

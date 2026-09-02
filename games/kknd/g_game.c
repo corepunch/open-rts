@@ -1,7 +1,7 @@
 #include "game.h"
 #include "kknd.h"
 
-static const actortype_t KKND_ACTOR_TYPES[] = {
+static const actortype_t ACTOR_TYPES[] = {
     {
         .id = 1,
         .name = "Survivor Infantry",
@@ -14,14 +14,14 @@ static const actortype_t KKND_ACTOR_TYPES[] = {
     },
 };
 
-static const gameinfo_t KKND_GAME_INFO = {
+static const gameinfo_t GAME_INFO = {
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
 /* OpenKKnD uses a 48-pixel button rail on the right and a centered 180x28
    status box.  Keep those native proportions while command icons are loaded
    independently from the original game's MOBD assets. */
-static const uidefinition_t KKND_UI = {
+static const uidefinition_t UI = {
     .logical_width = 640,
     .logical_height = 480,
     .world_viewport = { 0, 0, 592, 480 },
@@ -53,11 +53,11 @@ const char *const g_game_default_sprite = "LEVELS/640/SPRITES.LVL|Infantry.mobd"
 const int g_cell_w = 32;
 const int g_cell_h = 32;
 const uint16_t g_debug_enemy_type = 1;
-const gameinfo_t *const gameinfo = &KKND_GAME_INFO;
-const actortype_t *const mobjinfo = KKND_ACTOR_TYPES;
+const gameinfo_t *const gameinfo = &GAME_INFO;
+const actortype_t *const mobjinfo = ACTOR_TYPES;
 const int num_mobjinfo =
-    (int)(sizeof(KKND_ACTOR_TYPES) / sizeof(KKND_ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = &KKND_UI;
+    (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
+const uidefinition_t *const gameui = &UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
@@ -70,7 +70,7 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                   const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
-    return kknd_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+    return load_assets(renderer, root, map, sprite, tileset, unit_sprite);
 }
 
 int P_LoadThings(const char *path, mobj_t *mobjs, int max) {

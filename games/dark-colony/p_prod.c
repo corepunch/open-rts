@@ -10,46 +10,46 @@
 #include <stdarg.h>
 
 enum {
-    DC_ACTOR_TROOPER = 1,
-    DC_ACTOR_EXCOPOD = 1000,
-    DC_ACTOR_BRRKPOD = 1001,
-    DC_ACTOR_ROBOPOD = 1002,
-    DC_ACTOR_ROBOPOD2 = 1003,
-    DC_ACTOR_SCNCPOD2 = 1005,
-    DC_PRODUCTION_BUILD_GROUP = 6,
-    DC_TRSCBUILD_FIRST_FRAME = 12,
+    ACTOR_TROOPER = 1,
+    ACTOR_EXCOPOD = 1000,
+    ACTOR_BRRKPOD = 1001,
+    ACTOR_ROBOPOD = 1002,
+    ACTOR_ROBOPOD2 = 1003,
+    ACTOR_SCNCPOD2 = 1005,
+    PRODUCTION_BUILD_GROUP = 6,
+    TRSCBUILD_FIRST_FRAME = 12,
 };
 
 static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     /* Buildings — all built from the Exco Center */
-    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { DC_ACTOR_EXCOPOD }, 1 },
-    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
-    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
-    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2, { DC_ACTOR_EXCOPOD }, 1 },
-    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
-    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
-    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2, { DC_ACTOR_EXCOPOD }, 1 },
+    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { ACTOR_EXCOPOD }, 1 },
+    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { ACTOR_EXCOPOD }, 1 },
+    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1, { ACTOR_EXCOPOD }, 1 },
+    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2, { ACTOR_EXCOPOD }, 1 },
+    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1, { ACTOR_EXCOPOD }, 1 },
+    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1, { ACTOR_EXCOPOD }, 1 },
+    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2, { ACTOR_EXCOPOD }, 1 },
     /* Exco Center units */
-    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1, { DC_ACTOR_EXCOPOD }, 1 },
+    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1, { ACTOR_EXCOPOD }, 1 },
     /* Barracks units */
-    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1, { DC_ACTOR_BRRKPOD }, 1 },
-    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { DC_ACTOR_BRRKPOD }, 1 },
-    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { DC_ACTOR_BRRKPOD }, 1 },
+    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1, { ACTOR_BRRKPOD }, 1 },
+    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { ACTOR_BRRKPOD }, 1 },
+    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { ACTOR_BRRKPOD }, 1 },
     /* Robot Factory units */
-    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
-    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { DC_ACTOR_ROBOPOD2 }, 1 },
-    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
+    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { ACTOR_ROBOPOD }, 1 },
+    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { ACTOR_ROBOPOD2 }, 1 },
+    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { ACTOR_ROBOPOD }, 1 },
     /* Upgraded Robot Factory units */
-    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { DC_ACTOR_ROBOPOD2 }, 1 },
-    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { DC_ACTOR_ROBOPOD }, 1 },
+    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { ACTOR_ROBOPOD2 }, 1 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { ACTOR_ROBOPOD }, 1 },
 };
 
-static int dark_colony_product_count(void) {
+static int product_count(void) {
     return (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
                  sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
 }
 
-static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
+static uint16_t actor_id_for_product_type(int product_type) {
     switch (product_type) {
     case 16: return 1000;
     case 17: return 1001;
@@ -62,7 +62,7 @@ static uint16_t dark_colony_actor_id_for_product_type(int product_type) {
     }
 }
 
-static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
+static uint16_t unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
     case 0: return 1;
     case 2: return 4;
@@ -77,9 +77,9 @@ static uint16_t dark_colony_unit_actor_id_for_product_type(int product_type) {
 uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {
     if (!product) return 0;
     if (product->product_class == RTS_PRODUCT_BUILDING)
-        return dark_colony_actor_id_for_product_type(product->product_type);
+        return actor_id_for_product_type(product->product_type);
     if (product->product_class == RTS_PRODUCT_UNIT)
-        return dark_colony_unit_actor_id_for_product_type(product->product_type);
+        return unit_actor_id_for_product_type(product->product_type);
     return 0;
 }
 
@@ -131,7 +131,7 @@ int G_ModelGetProducts(const RtsGameModel *model, int owner,
                        StaticProductDefinition *out, int max_products) {
     (void)model; (void)owner;
     if (!out || max_products <= 0) return 0;
-    int count = dark_colony_product_count();
+    int count = product_count();
     if (count > max_products) count = max_products;
     memcpy(out, DARK_COLONY_HUMAN_PRODUCTS, (size_t)count * sizeof(StaticProductDefinition));
     return count;
@@ -139,7 +139,7 @@ int G_ModelGetProducts(const RtsGameModel *model, int owner,
 
 const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *model, int ui_id) {
     (void)model;
-    int count = dark_colony_product_count();
+    int count = product_count();
     for (int i = 0; i < count; ++i) {
         if (DARK_COLONY_HUMAN_PRODUCTS[i].ui_id == ui_id)
             return &DARK_COLONY_HUMAN_PRODUCTS[i];
@@ -151,7 +151,7 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
                                                          int product_class,
                                                          int product_type) {
     (void)model;
-    int count = dark_colony_product_count();
+    int count = product_count();
     for (int i = 0; i < count; ++i) {
         if ((int)DARK_COLONY_HUMAN_PRODUCTS[i].product_class == product_class &&
             DARK_COLONY_HUMAN_PRODUCTS[i].product_type == product_type)
@@ -160,8 +160,8 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
     return NULL;
 }
 
-static const StaticProductDefinition *dark_colony_product_by_row_id(int row_id) {
-    int count = dark_colony_product_count();
+static const StaticProductDefinition *product_by_row_id(int row_id) {
+    int count = product_count();
     for (int i = 0; i < count; ++i) {
         if (DARK_COLONY_HUMAN_PRODUCTS[i].row_id == row_id)
             return &DARK_COLONY_HUMAN_PRODUCTS[i];
@@ -174,7 +174,7 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
         const StaticProductDefinition *prereq =
-            dark_colony_product_by_row_id(product->prerequisites[i]);
+            product_by_row_id(product->prerequisites[i]);
         if (!prereq || prereq->product_class != RTS_PRODUCT_BUILDING) return false;
         uint16_t actor_id = G_ModelActorIdForProduct(prereq);
         if (!G_ModelHasActorType(model, owner, actor_id)) return false;
@@ -239,16 +239,16 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    uint16_t actor_id) {
     (void)model;
     if (!producer || !product || !gameinfo) return false;
-    if (producer->type_id != DC_ACTOR_BRRKPOD ||
+    if (producer->type_id != ACTOR_BRRKPOD ||
         product->product_class != RTS_PRODUCT_UNIT || product->product_type != 0 ||
-        actor_id != DC_ACTOR_TROOPER) {
+        actor_id != ACTOR_TROOPER) {
         return false;
     }
     const gameinfo_t *game_info = gameinfo;
-    int state_id = dc_model_find_state_by_group_frame(game_info, DC_PRODUCTION_BUILD_GROUP,
-                                                      DC_TRSCBUILD_FIRST_FRAME);
+    int state_id = dc_model_find_state_by_group_frame(game_info, PRODUCTION_BUILD_GROUP,
+                                                      TRSCBUILD_FIRST_FRAME);
     int duration_ms = dc_model_state_chain_duration_ms(game_info, state_id,
-                                                       DC_PRODUCTION_BUILD_GROUP);
+                                                       PRODUCTION_BUILD_GROUP);
     if (state_id <= 0 || duration_ms <= 0) return false;
     statecontext_t ctx = {
         .game_info = game_info,
@@ -268,7 +268,7 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
     (void)model;
     if (!producer || !product || !new_unit || !out_gx || !out_gy || !gameinfo)
         return false;
-    if (producer->type_id != DC_ACTOR_BRRKPOD ||
+    if (producer->type_id != ACTOR_BRRKPOD ||
         product->product_class != RTS_PRODUCT_UNIT || product->product_type != 0)
         return false;
 
@@ -282,15 +282,15 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
         return false;
 
     int release_state_id = dc_model_find_state_by_group_frame(game_info,
-                                                              DC_PRODUCTION_BUILD_GROUP,
-                                                              DC_TRSCBUILD_FIRST_FRAME);
+                                                              PRODUCTION_BUILD_GROUP,
+                                                              TRSCBUILD_FIRST_FRAME);
     int release_x = 0;
     int release_y = 0;
     bool saw_release_trooper = false;
     int guard = 0;
     while (guard++ < game_info->state_count + 1) {
         const state_t *state = dc_model_state_at(game_info, release_state_id);
-        if (!state || state->misc1 != DC_PRODUCTION_BUILD_GROUP) break;
+        if (!state || state->misc1 != PRODUCTION_BUILD_GROUP) break;
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite &&
@@ -342,16 +342,16 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
         if (snapshot->units[i].selected && snapshot->units[i].owner == 0 &&
             (snapshot->units[i].traits & RTS_RENDER_TRAIT_SELECTABLE) != 0 &&
             (snapshot->units[i].traits & RTS_RENDER_TRAIT_MOBILE) == 0 &&
-            snapshot->units[i].type_id >= DC_ACTOR_EXCOPOD) {
+            snapshot->units[i].type_id >= ACTOR_EXCOPOD) {
             selected_type = snapshot->units[i].type_id;
             break;
         }
     }
-    if (selected_type == 0) selected_type = DC_ACTOR_EXCOPOD;
+    if (selected_type == 0) selected_type = ACTOR_EXCOPOD;
 
     int slot = 0;
-    int product_count = dark_colony_product_count();
-    for (int i = 0; i < product_count; ++i) {
+    int available_product_count = product_count();
+    for (int i = 0; i < available_product_count; ++i) {
         const StaticProductDefinition *product = &DARK_COLONY_HUMAN_PRODUCTS[i];
         bool this_maker = false;
         for (int m = 0; m < product->maker_count; ++m) {
@@ -381,9 +381,9 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
 typedef struct {
     int row_id;
     int desired_count;
-} DarkColonyAiProductionGoal;
+} AiProductionGoal;
 
-static const DarkColonyAiProductionGoal dark_colony_ai_production_goals[] = {
+static const AiProductionGoal ai_production_goals[] = {
     { 1, 1 }, /* Barracks */
     { 2, 1 }, /* Sci-Pod */
     { 3, 1 }, /* Robo-Ftr */
@@ -399,10 +399,10 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
     if (!model) return;
     enum { AI_OWNER = 1 };
 
-    for (size_t i = 0; i < sizeof(dark_colony_ai_production_goals) /
-                         sizeof(dark_colony_ai_production_goals[0]); ++i) {
-        const DarkColonyAiProductionGoal *goal = &dark_colony_ai_production_goals[i];
-        const StaticProductDefinition *product = dark_colony_product_by_row_id(goal->row_id);
+    for (size_t i = 0; i < sizeof(ai_production_goals) /
+                         sizeof(ai_production_goals[0]); ++i) {
+        const AiProductionGoal *goal = &ai_production_goals[i];
+        const StaticProductDefinition *product = product_by_row_id(goal->row_id);
         if (!product) continue;
         if (!G_ModelProductAvailable(model, AI_OWNER, product)) continue;
 

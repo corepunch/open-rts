@@ -3,23 +3,23 @@
 #include "m_vec.h"
 #include <stdbool.h>
 
-#define DC_VENT_SMOKE_MAX_FRAMES 32
-#define DC_DROPSHIP_MAX_FRAMES 16
-#define DC_DROPSHIP_MAX_PARTS 24
+#define VENT_SMOKE_MAX_FRAMES 32
+#define DROPSHIP_MAX_FRAMES 16
+#define DROPSHIP_MAX_PARTS 24
 
 typedef struct {
     ivec2_t pivot;
     int sprite_frame;
     int duration_ms;
-} DarkColonyVentSmokeFrame;
+} VentSmokeFrame;
 
 typedef struct {
     bool valid;
     int glow_left;
     int glow_top;
     int smoke_frame_count;
-    DarkColonyVentSmokeFrame smoke_frames[DC_VENT_SMOKE_MAX_FRAMES];
-} DarkColonyVentPlacement;
+    VentSmokeFrame smoke_frames[VENT_SMOKE_MAX_FRAMES];
+} VentPlacement;
 
 typedef struct {
     char sprite_name[32];
@@ -29,29 +29,29 @@ typedef struct {
     int render_intensity;
     int render_selector;
     int flags;
-} DarkColonyDropshipPart;
+} DropshipPart;
 
 typedef struct {
     int duration_ms;
     int part_count;
-    DarkColonyDropshipPart parts[DC_DROPSHIP_MAX_PARTS];
-} DarkColonyDropshipFrame;
+    DropshipPart parts[DROPSHIP_MAX_PARTS];
+} DropshipFrame;
 
 typedef struct {
     bool valid;
     int frame_count;
     int duration_ms;
-    DarkColonyDropshipFrame frames[DC_DROPSHIP_MAX_FRAMES];
-} DarkColonyDropshipAnimation;
+    DropshipFrame frames[DROPSHIP_MAX_FRAMES];
+} DropshipAnimation;
 
 typedef struct {
-    DarkColonyDropshipAnimation move;
-    DarkColonyDropshipAnimation stand;
-    DarkColonyDropshipAnimation unload;
-} DarkColonyDropshipAnimations;
+    DropshipAnimation move;
+    DropshipAnimation stand;
+    DropshipAnimation unload;
+} DropshipAnimations;
 
-bool dark_colony_vent_placement_from_sprites(const char *map_path, DarkColonyVentPlacement *out);
-bool dark_colony_dropship_animation_from_sprites(const char *map_path,
-                                                 DarkColonyDropshipAnimations *out);
-bool dark_colony_load_render_tables(const char *data_root, const char *tileset_name);
+bool vent_placement_from_sprites(const char *map_path, VentPlacement *out);
+bool dropship_animation_from_sprites(const char *map_path,
+                                                 DropshipAnimations *out);
+bool load_render_tables(const char *data_root, const char *tileset_name);
 #endif

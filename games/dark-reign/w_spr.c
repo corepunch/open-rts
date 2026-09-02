@@ -15,7 +15,7 @@
 
 bool load_dark_tileset(SDL_Renderer *renderer, const char *path,
                        const uint32_t palette[256], tileset_t *out);
-void dark_reign_add_water_animations(tileset_t *tileset);
+void add_water_animations(tileset_t *tileset);
 
 /* ── FTG archive ────────────────────────────────────────────────────────── */
 
@@ -131,7 +131,7 @@ static const spritesequence_t *sprite_sheet_find_sequence(const spritesheet_t *s
     return NULL;
 }
 
-static irect_t dark_reign_visible_bounds(const uint32_t *rgba, int atlas_w, irect_t frame) {
+static irect_t visible_bounds(const uint32_t *rgba, int atlas_w, irect_t frame) {
     int min_x = frame.w, min_y = frame.h, max_x = -1, max_y = -1;
     for (int y = 0; y < frame.h; ++y) {
         for (int x = 0; x < frame.w; ++x) {
@@ -248,7 +248,7 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
         for (int i = 0; i < total_frames; ++i) {
             frames[i].x = (i % cols) * szx; frames[i].y = (i / cols) * szy;
             frames[i].w = szx; frames[i].h = szy;
-            bounds[i] = dark_reign_visible_bounds(rgba, atlas_w, frames[i]);
+            bounds[i] = visible_bounds(rgba, atlas_w, frames[i]);
             /* RSPR canvases are authored around the object's world origin.
                OpenDR likewise exposes a zero frame offset and the full canvas
                size; opaque-pixel bounds are not a ground-contact hotspot. */
@@ -393,7 +393,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
 
 /* ── plugin asset loader ────────────────────────────────────────────────── */
 
-bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
+bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
                                    const level_t *map, const char *sprite_name,
                                    tileset_t *tileset, spritesheet_t *unit_sprite) {
     uint32_t terrain_palette[256], sprite_palette[256];
@@ -413,7 +413,7 @@ bool dark_reign_plugin_load_assets(SDL_Renderer *renderer, const char *data_root
         if (!load_dark_tileset(renderer, til_path, terrain_palette, tileset)) return false;
     }
     if (strcasecmp(map->tileset_name, "SNOW") != 0)
-        dark_reign_add_water_animations(tileset);
+        add_water_animations(tileset);
 
     if (!load_unit_sprite(renderer, data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);

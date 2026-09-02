@@ -15,7 +15,7 @@
 
 /* ── definition-file parser ─────────────────────────────────────────────── */
 
-typedef struct { char *units; char *buildings; char *overlay; char *animate; } DarkReignDefinitions;
+typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;
 
 static char *load_text_file(const char *path) {
     blob_t blob;
@@ -70,14 +70,14 @@ static const char *find_case_insensitive_n(const char *haystack, size_t haystack
     return NULL;
 }
 
-static bool dark_reign_is_commented_call(const char *body_start, const char *hit) {
+static bool is_commented_call(const char *body_start, const char *hit) {
     const char *p = hit;
     while (p > body_start && p[-1] != '\n' && p[-1] != '\r') p--;
     while (p < hit) { if (*p == ';') return true; p++; }
     return false;
 }
 
-static void dark_reign_scn_path_from_map(const char *map_path, char *scn_path,
+static void scn_path_from_map(const char *map_path, char *scn_path,
                                          size_t scn_path_size) {
     if (!map_path || !scn_path || scn_path_size == 0) return;
     snprintf(scn_path, scn_path_size, "%s", map_path);
@@ -105,7 +105,7 @@ static void dark_reign_scn_path_from_map(const char *map_path, char *scn_path,
     replace_extension(scn_path, scn_path_size, scn_path, ".SCN");
 }
 
-static void dark_reign_mm_path_from_map(const char *map_path, char *mm_path,
+static void mm_path_from_map(const char *map_path, char *mm_path,
                                         size_t mm_path_size) {
     if (!map_path || !mm_path || mm_path_size == 0) return;
     snprintf(mm_path, mm_path_size, "%s", map_path);
@@ -117,14 +117,14 @@ static void dark_reign_mm_path_from_map(const char *map_path, char *mm_path,
     strncat(mm_path, "TACTICS.MM", mm_path_size - strlen(mm_path) - 1);
 }
 
-static void dark_reign_map_path_from_scn(const char *scn_path, char *map_path,
+static void map_path_from_scn(const char *scn_path, char *map_path,
                                          size_t map_path_size) {
     if (!scn_path || !map_path || map_path_size == 0) return;
     snprintf(map_path, map_path_size, "%s", scn_path);
     replace_extension(map_path, map_path_size, map_path, ".MAP");
 }
 
-static void dark_reign_root_from_map(const char *map_path, char *root, size_t root_size) {
+static void root_from_map(const char *map_path, char *root, size_t root_size) {
     const char *scenario = find_case_insensitive(map_path, "/scenario/");
     if (!scenario) { snprintf(root, root_size, "%s", DEFAULT_DATA_ROOT); return; }
     size_t len = (size_t)(scenario - map_path);
@@ -132,22 +132,22 @@ static void dark_reign_root_from_map(const char *map_path, char *root, size_t ro
     memcpy(root, map_path, len); root[len] = '\0';
 }
 
-static void dark_reign_load_definitions(const char *map_path, DarkReignDefinitions *defs) {
+static void load_definitions(const char *map_path, Definitions *defs) {
     memset(defs, 0, sizeof(*defs));
     char root[1024], path[1024];
-    dark_reign_root_from_map(map_path, root, sizeof(root));
+    root_from_map(map_path, root, sizeof(root));
     M_PathJoin(path, sizeof(path), root, "deftxt/UNITS.TXT");   defs->units     = load_text_file(path);
     M_PathJoin(path, sizeof(path), root, "deftxt/BUILD.TXT");   defs->buildings = load_text_file(path);
     M_PathJoin(path, sizeof(path), root, "deftxt/OVERLAY.TXT"); defs->overlay   = load_text_file(path);
     M_PathJoin(path, sizeof(path), root, "deftxt/ANIMATE.TXT"); defs->animate   = load_text_file(path);
 }
 
-static void dark_reign_free_definitions(DarkReignDefinitions *defs) {
+static void free_definitions(Definitions *defs) {
     free(defs->units); free(defs->buildings); free(defs->overlay); free(defs->animate);
     memset(defs, 0, sizeof(*defs));
 }
 
-static bool dark_reign_find_definition_block(const char *text, const char *define_call,
+static bool find_definition_block(const char *text, const char *define_call,
                                              const char *type_name, const char **body,
                                              size_t *body_len) {
     if (!text) return false;
@@ -173,14 +173,14 @@ static bool dark_reign_find_definition_block(const char *text, const char *defin
     return false;
 }
 
-static bool dark_reign_find_call_arg(const char *body, size_t body_len, const char *call,
+static bool find_call_arg(const char *body, size_t body_len, const char *call,
                                      char *dst, size_t dst_size) {
     const char *cursor = body;
     size_t remaining = body_len;
     while (remaining > 0) {
         const char *hit = find_case_insensitive_n(cursor, remaining, call);
         if (!hit) return false;
-        if (!dark_reign_is_commented_call(body, hit)) {
+        if (!is_commented_call(body, hit)) {
             const char *open = strchr(hit, '(');
             if (open && open < body + body_len) {
                 const char *arg = open + 1;
@@ -197,7 +197,7 @@ static bool dark_reign_find_call_arg(const char *body, size_t body_len, const ch
     return false;
 }
 
-static int dark_reign_find_call_args(const char *body, size_t body_len, const char *call,
+static int find_call_args(const char *body, size_t body_len, const char *call,
                                      char args[][32], int max_args) {
     if (!body || !call || !args || max_args <= 0) return 0;
     const char *hit = find_case_insensitive_n(body, body_len, call);
@@ -222,57 +222,57 @@ static int dark_reign_find_call_args(const char *body, size_t body_len, const ch
     return count;
 }
 
-static bool dark_reign_resolve_animation_sprite(const DarkReignDefinitions *defs,
+static bool resolve_animation_sprite(const Definitions *defs,
                                                 const char *animation_name,
                                                 char *sprite_name, size_t sprite_name_size) {
     const char *body = NULL; size_t body_len = 0;
-    if (!dark_reign_find_definition_block(defs->animate, "DefineAnimationType",
+    if (!find_definition_block(defs->animate, "DefineAnimationType",
                                           animation_name, &body, &body_len)) return false;
-    return dark_reign_find_call_arg(body, body_len, "SetSprite", sprite_name, sprite_name_size);
+    return find_call_arg(body, body_len, "SetSprite", sprite_name, sprite_name_size);
 }
 
 typedef struct {
     const char *type_name, *sprite_name, *shadow_name;
     isize2_t footprint;
     bool solid;
-} DarkReignDecorationSpec;
+} DecorationSpec;
 
-#define DR_DECORATION_SPEC(type, sprite, shadow, width, height, is_solid) \
+#define DECORATION_SPEC(type, sprite, shadow, width, height, is_solid) \
     { type, sprite, shadow, { width, height }, is_solid }
 
-static const DarkReignDecorationSpec DARK_REIGN_DECORATION_SPECS[] = {
-    DR_DECORATION_SPEC("clif1", "aoclf000.spr", "aoclf0sh.spr", 1, 4, true),
-    DR_DECORATION_SPEC("clif2", "aoclf001.spr", "aoclf1sh.spr", 1, 3, true),
-    DR_DECORATION_SPEC("clif3", "aoclf002.spr", "aoclf2sh.spr", 1, 3, true),
-    DR_DECORATION_SPEC("clif4", "aoclf003.spr", "aoclf3sh.spr", 3, 4, true),
-    DR_DECORATION_SPEC("clif5", "aoclf004.spr", "aoclf4sh.spr", 3, 5, true),
-    DR_DECORATION_SPEC("clif6", "aoclf005.spr", "aoclf5sh.spr", 3, 3, true),
-    DR_DECORATION_SPEC("plnt1", "aopln000.spr", "aopln0sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("plnt2", "aopln001.spr", "aopln1sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("plnt3", "aopln002.spr", "aopln2sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("rock1", "aoroc000.spr", "aoroc0sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("rock2", "aoroc001.spr", "aoroc1sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("rock3", "aoroc002.spr", "aoroc2sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("rock4", "aoroc003.spr", "aoroc3sh.spr", 3, 3, true),
-    DR_DECORATION_SPEC("rock5", "aoroc004.spr", "aoroc4sh.spr", 3, 3, true),
-    DR_DECORATION_SPEC("rock6", "aoroc005.spr", "aoroc5sh.spr", 3, 3, true),
-    DR_DECORATION_SPEC("tree1", "aotre000.spr", "aotre0sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("tree2", "aotre001.spr", "aotre1sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("tree3", "aotre002.spr", "aotre2sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("tree4", "aotre003.spr", "aotre3sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("tree5", "aotre004.spr", "aotre4sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("tree6", "aotre005.spr", "aotre5sh.spr", 1, 1, true),
-    DR_DECORATION_SPEC("rubble1", "aorub000.spr", "aorub0sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("rubble2", "aorub001.spr", "aorub1sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("rubble3", "aorub002.spr", "aorub2sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("water1", "aowtr000.spr", "aowtr0sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("water2", "aowtr001.spr", "aowtr1sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("water3", "aowtr002.spr", "aowtr2sh.spr", 1, 1, false),
-    DR_DECORATION_SPEC("impww", "ncwel1l0.spr", "", 3, 3, false),
-    DR_DECORATION_SPEC("impmn", "ncmin1l0.spr", "", 3, 3, false),
+static const DecorationSpec DARK_REIGN_DECORATION_SPECS[] = {
+    DECORATION_SPEC("clif1", "aoclf000.spr", "aoclf0sh.spr", 1, 4, true),
+    DECORATION_SPEC("clif2", "aoclf001.spr", "aoclf1sh.spr", 1, 3, true),
+    DECORATION_SPEC("clif3", "aoclf002.spr", "aoclf2sh.spr", 1, 3, true),
+    DECORATION_SPEC("clif4", "aoclf003.spr", "aoclf3sh.spr", 3, 4, true),
+    DECORATION_SPEC("clif5", "aoclf004.spr", "aoclf4sh.spr", 3, 5, true),
+    DECORATION_SPEC("clif6", "aoclf005.spr", "aoclf5sh.spr", 3, 3, true),
+    DECORATION_SPEC("plnt1", "aopln000.spr", "aopln0sh.spr", 1, 1, false),
+    DECORATION_SPEC("plnt2", "aopln001.spr", "aopln1sh.spr", 1, 1, false),
+    DECORATION_SPEC("plnt3", "aopln002.spr", "aopln2sh.spr", 1, 1, false),
+    DECORATION_SPEC("rock1", "aoroc000.spr", "aoroc0sh.spr", 1, 1, true),
+    DECORATION_SPEC("rock2", "aoroc001.spr", "aoroc1sh.spr", 1, 1, true),
+    DECORATION_SPEC("rock3", "aoroc002.spr", "aoroc2sh.spr", 1, 1, true),
+    DECORATION_SPEC("rock4", "aoroc003.spr", "aoroc3sh.spr", 3, 3, true),
+    DECORATION_SPEC("rock5", "aoroc004.spr", "aoroc4sh.spr", 3, 3, true),
+    DECORATION_SPEC("rock6", "aoroc005.spr", "aoroc5sh.spr", 3, 3, true),
+    DECORATION_SPEC("tree1", "aotre000.spr", "aotre0sh.spr", 1, 1, true),
+    DECORATION_SPEC("tree2", "aotre001.spr", "aotre1sh.spr", 1, 1, true),
+    DECORATION_SPEC("tree3", "aotre002.spr", "aotre2sh.spr", 1, 1, true),
+    DECORATION_SPEC("tree4", "aotre003.spr", "aotre3sh.spr", 1, 1, true),
+    DECORATION_SPEC("tree5", "aotre004.spr", "aotre4sh.spr", 1, 1, true),
+    DECORATION_SPEC("tree6", "aotre005.spr", "aotre5sh.spr", 1, 1, true),
+    DECORATION_SPEC("rubble1", "aorub000.spr", "aorub0sh.spr", 1, 1, false),
+    DECORATION_SPEC("rubble2", "aorub001.spr", "aorub1sh.spr", 1, 1, false),
+    DECORATION_SPEC("rubble3", "aorub002.spr", "aorub2sh.spr", 1, 1, false),
+    DECORATION_SPEC("water1", "aowtr000.spr", "aowtr0sh.spr", 1, 1, false),
+    DECORATION_SPEC("water2", "aowtr001.spr", "aowtr1sh.spr", 1, 1, false),
+    DECORATION_SPEC("water3", "aowtr002.spr", "aowtr2sh.spr", 1, 1, false),
+    DECORATION_SPEC("impww", "ncwel1l0.spr", "", 3, 3, false),
+    DECORATION_SPEC("impmn", "ncmin1l0.spr", "", 3, 3, false),
 };
 
-#undef DR_DECORATION_SPEC
+#undef DECORATION_SPEC
 
 typedef struct {
     char sprite_name[32], sprite2_name[32], sprite3_name[32], shadow_name[32];
@@ -282,9 +282,9 @@ typedef struct {
     bool has_sprite_pivot;
     ivec2_t sprite_pivot;
     int frame_index;
-} DarkReignVisualSpec;
+} VisualSpec;
 
-static bool dark_reign_visual_from_static(const char *type_name, DarkReignVisualSpec *out) {
+static bool visual_from_static(const char *type_name, VisualSpec *out) {
     size_t count = sizeof(DARK_REIGN_DECORATION_SPECS) / sizeof(DARK_REIGN_DECORATION_SPECS[0]);
     for (size_t i = 0; i < count; ++i) {
         if (strcasecmp(DARK_REIGN_DECORATION_SPECS[i].type_name, type_name) == 0) {
@@ -298,28 +298,28 @@ static bool dark_reign_visual_from_static(const char *type_name, DarkReignVisual
     return false;
 }
 
-static bool dark_reign_resolve_unit_visual(const DarkReignDefinitions *defs, const char *type_name,
-                                           DarkReignVisualSpec *out) {
+static bool resolve_unit_visual(const Definitions *defs, const char *type_name,
+                                           VisualSpec *out) {
     memset(out, 0, sizeof(*out));
     const char *body = NULL; size_t body_len = 0;
-    if (!dark_reign_find_definition_block(defs->units, "DefineUnitType", type_name, &body, &body_len))
-        return dark_reign_visual_from_static(type_name, out);
-    if (!dark_reign_find_call_arg(body, body_len, "SetImage", out->sprite_name, sizeof(out->sprite_name)))
+    if (!find_definition_block(defs->units, "DefineUnitType", type_name, &body, &body_len))
+        return visual_from_static(type_name, out);
+    if (!find_call_arg(body, body_len, "SetImage", out->sprite_name, sizeof(out->sprite_name)))
         return false;
-    dark_reign_find_call_arg(body, body_len, "SetShadowImage", out->shadow_name, sizeof(out->shadow_name));
+    find_call_arg(body, body_len, "SetShadowImage", out->shadow_name, sizeof(out->shadow_name));
     out->footprint = (isize2_t){ 1, 1 };
     out->solid = false;
     return true;
 }
 
-static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs, const char *type_name,
-                                               DarkReignVisualSpec *out) {
+static bool resolve_building_visual(const Definitions *defs, const char *type_name,
+                                               VisualSpec *out) {
     memset(out, 0, sizeof(*out));
     const char *body = NULL; size_t body_len = 0;
-    if (!dark_reign_find_definition_block(defs->buildings, "DefineBuildingType", type_name, &body, &body_len))
-        return dark_reign_visual_from_static(type_name, out);
+    if (!find_definition_block(defs->buildings, "DefineBuildingType", type_name, &body, &body_len))
+        return visual_from_static(type_name, out);
     char images[3][32] = {{ 0 }};
-    if (dark_reign_find_call_args(body, body_len, "SetBuildingImages", images, 3) < 2)
+    if (find_call_args(body, body_len, "SetBuildingImages", images, 3) < 2)
         return false;
 
     /* Completed Dark Reign buildings are composites. The terrain archive
@@ -329,7 +329,7 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
     snprintf(out->sprite2_name, sizeof(out->sprite2_name), "base|%s", images[0]);
     snprintf(out->sprite3_name, sizeof(out->sprite3_name), "base|%s", images[1]);
     char shadow[32] = { 0 };
-    if (dark_reign_find_call_arg(body, body_len, "SetShadowImage", shadow, sizeof(shadow)))
+    if (find_call_arg(body, body_len, "SetShadowImage", shadow, sizeof(shadow)))
         snprintf(out->shadow_name, sizeof(out->shadow_name), "base|%s", shadow);
 
     out->footprint = (isize2_t){ 3, 3 };
@@ -362,20 +362,20 @@ static bool dark_reign_resolve_building_visual(const DarkReignDefinitions *defs,
     return true;
 }
 
-static bool dark_reign_resolve_thing_visual(const DarkReignDefinitions *defs, const char *type_name,
-                                            DarkReignVisualSpec *out) {
+static bool resolve_thing_visual(const Definitions *defs, const char *type_name,
+                                            VisualSpec *out) {
     memset(out, 0, sizeof(*out));
-    if (dark_reign_visual_from_static(type_name, out)) return true;
+    if (visual_from_static(type_name, out)) return true;
     const char *body = NULL; size_t body_len = 0;
-    if (!dark_reign_find_definition_block(defs->overlay, "DefineThingType", type_name, &body, &body_len))
+    if (!find_definition_block(defs->overlay, "DefineThingType", type_name, &body, &body_len))
         return false;
     char animation[64] = { 0 };
-    if (!dark_reign_find_call_arg(body, body_len, "SetThingImage", animation, sizeof(animation)) ||
-        !dark_reign_resolve_animation_sprite(defs, animation, out->sprite_name, sizeof(out->sprite_name)))
+    if (!find_call_arg(body, body_len, "SetThingImage", animation, sizeof(animation)) ||
+        !resolve_animation_sprite(defs, animation, out->sprite_name, sizeof(out->sprite_name)))
         return false;
     char shadow_animation[64] = { 0 };
-    if (dark_reign_find_call_arg(body, body_len, "SetThingShadowImage", shadow_animation, sizeof(shadow_animation)))
-        dark_reign_resolve_animation_sprite(defs, shadow_animation, out->shadow_name, sizeof(out->shadow_name));
+    if (find_call_arg(body, body_len, "SetThingShadowImage", shadow_animation, sizeof(shadow_animation)))
+        resolve_animation_sprite(defs, shadow_animation, out->shadow_name, sizeof(out->shadow_name));
     out->footprint = (isize2_t){ 1, 1 };
     out->solid = find_case_insensitive_n(body, body_len, "IsCrater") == NULL &&
                  find_case_insensitive_n(body, body_len, "NoEdit") == NULL;
@@ -389,7 +389,7 @@ static int compare_map_decorations(const void *a, const void *b) {
     return da->cell.x - db->cell.x;
 }
 
-static void add_dark_reign_decoration(level_t *map, const DarkReignVisualSpec *spec,
+static void add_dark_reign_decoration(level_t *map, const VisualSpec *spec,
                                       ivec2_t cell) {
     if (!spec || cell.x < 0 || cell.y < 0 || cell.x >= map->width || cell.y >= map->height ||
         map->decoration_count >= MAX_DECORATIONS) return;
@@ -417,14 +417,14 @@ static void add_dark_reign_decoration(level_t *map, const DarkReignVisualSpec *s
 }
 
 static void load_dark_reign_decorations(const char *map_path, level_t *map) {
-    DarkReignDefinitions defs;
-    dark_reign_load_definitions(map_path, &defs);
+    Definitions defs;
+    load_definitions(map_path, &defs);
     char scn_path[1024];
-    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     blob_t blob;
-    if (!W_ReadFile(scn_path, &blob)) { dark_reign_free_definitions(&defs); return; }
+    if (!W_ReadFile(scn_path, &blob)) { free_definitions(&defs); return; }
     char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); dark_reign_free_definitions(&defs); return; }
+    if (!text) { W_FreeFile(&blob); free_definitions(&defs); return; }
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
     char *cursor = text;
     while (map->decoration_count < MAX_DECORATIONS) {
@@ -441,17 +441,17 @@ static void load_dark_reign_decorations(const char *map_path, level_t *map) {
             sscanf(hit, "AddThingAt(%d %63[^ )] %d %d",    &object_id, type_name, &gx, &gy);
         if (parsed == 4) {
             (void)object_id;
-            DarkReignVisualSpec visual;
+            VisualSpec visual;
             bool resolved = building ?
-                dark_reign_resolve_building_visual(&defs, type_name, &visual) :
-                dark_reign_resolve_thing_visual(&defs, type_name, &visual);
+                resolve_building_visual(&defs, type_name, &visual) :
+                resolve_thing_visual(&defs, type_name, &visual);
             if (resolved) add_dark_reign_decoration(map, &visual, (ivec2_t){ gx, gy });
             else fprintf(stderr, "warning: unresolved Dark Reign %s type %s\n",
                          building ? "building" : "thing", type_name);
         }
         cursor = hit + (building ? strlen("AddBuildingAt(") : strlen("AddThingAt("));
     }
-    free(text); W_FreeFile(&blob); dark_reign_free_definitions(&defs);
+    free(text); W_FreeFile(&blob); free_definitions(&defs);
     qsort(map->decorations, (size_t)map->decoration_count, sizeof(mapdecoration_t),
           compare_map_decorations);
 }
@@ -459,12 +459,12 @@ static void load_dark_reign_decorations(const char *map_path, level_t *map) {
 /* Default taelon amount and harvest rate per mine.  The BUILD.TXT definition
    lists SetResource(1 1 500 40) but does not encode per-scenario deposits; we
    use a fixed baseline that matches the original game's economy pacing. */
-#define DR_TAELON_MINE_AMOUNT 3000
-#define DR_TAELON_MINE_RATE   20
+#define TAELON_MINE_AMOUNT 3000
+#define TAELON_MINE_RATE   20
 
 static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
     char scn_path[1024];
-    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     blob_t blob;
     if (!W_ReadFile(scn_path, &blob)) return;
     char *text = malloc(blob.size + 1);
@@ -490,8 +490,8 @@ static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
                 v->cell = (ivec2_t){ gx, gy };
                 /* 3×3 mine footprint: attach to the centre cell */
                 v->attachment = (fvec2_t){ (float)gx + 1.5f, (float)gy + 1.5f };
-                v->amount = DR_TAELON_MINE_AMOUNT;
-                v->rate = DR_TAELON_MINE_RATE;
+                v->amount = TAELON_MINE_AMOUNT;
+                v->rate = TAELON_MINE_RATE;
                 v->active = true;
                 v->resource_type = 0;
                 v->decoration_index = -1;
@@ -505,7 +505,7 @@ static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
 static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
     if (!map) return;
     char scn_path[1024];
-    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     blob_t blob;
     if (!W_ReadFile(scn_path, &blob)) return;
     char *text = malloc(blob.size + 1);
@@ -552,7 +552,7 @@ static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
 static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t tileset_size) {
     strncpy(tileset, "BARREN", tileset_size - 1); tileset[tileset_size-1] = '\0';
     char mm_path[1024];
-    dark_reign_mm_path_from_map(map_path, mm_path, sizeof(mm_path));
+    mm_path_from_map(map_path, mm_path, sizeof(mm_path));
     blob_t blob;
     if (!W_ReadFile(mm_path, &blob)) return;
     if (blob.size >= 28) {
@@ -567,7 +567,7 @@ static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t t
 
 static void detect_tileset_from_scn(const char *map_path, char *tileset, size_t tileset_size) {
     char scn_path[1024];
-    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     blob_t blob;
     if (!W_ReadFile(scn_path, &blob)) return;
     char *text = malloc(blob.size + 1);
@@ -602,7 +602,7 @@ typedef struct {
 typedef struct {
     int layer;
     int frame;
-} DarkReignEdgeFrame;
+} EdgeFrame;
 
 static const EdgeMatchRule DARK_REIGN_EDGE_RULES[] = {
     { false, 36, EDGE_MATCH_BELOW, EDGE_MATCH_BELOW, EDGE_MATCH_EQUAL },
@@ -621,19 +621,19 @@ static const EdgeMatchRule DARK_REIGN_EDGE_RULES[] = {
     { false, 42, EDGE_MATCH_EQUAL, EDGE_MATCH_BELOW, EDGE_MATCH_BELOW },
 };
 
-static int dark_reign_terrain_type_from_frame(int frame) {
+static int terrain_type_from_frame(int frame) {
     if (frame < 8) return 15;
     if (frame < 128) return (frame - 8) / 8;
     return 0;
 }
 
-static int dark_reign_base_frame_for_type(int terrain_type, int variation) {
+static int base_frame_for_type(int terrain_type, int variation) {
     variation &= 7;
     if (terrain_type == 15) return variation;
     return 8 + terrain_type * 8 + variation;
 }
 
-static bool dark_reign_terrain_is_blocked(int terrain_type) {
+static bool terrain_is_blocked(int terrain_type) {
     /* The MAP record's third byte is the authored terrain/effect id.  In
        TRNEFF.TXT, 0 is liquid and 3 is impassable rock/wall.  Values 10..15
        are auto-ridge/rim variants; they are visual/elevation data, not
@@ -641,7 +641,7 @@ static bool dark_reign_terrain_is_blocked(int terrain_type) {
     return terrain_type == 0 || terrain_type == 3;
 }
 
-static int dark_reign_edge_frame_for_template(int template_id, int variation) {
+static int edge_frame_for_template(int template_id, int variation) {
     if (template_id >= 226 && template_id <= 239) {
         (void)variation;
         return 1032 + (template_id - 226) * 4;
@@ -649,12 +649,12 @@ static int dark_reign_edge_frame_for_template(int template_id, int variation) {
     return template_id + 218;
 }
 
-static int dark_reign_neighbor_type(const level_t *map, int x, int y, int fallback) {
+static int neighbor_type(const level_t *map, int x, int y, int fallback) {
     if (!L_Contains(map, x, y)) return fallback;
-    return dark_reign_terrain_type_from_frame(map->tile_ids[L_Index(map, x, y)]);
+    return terrain_type_from_frame(map->tile_ids[L_Index(map, x, y)]);
 }
 
-static bool dark_reign_rule_matches(EdgeMatchType match, int neighbor_type, int self_value) {
+static bool rule_matches(EdgeMatchType match, int neighbor_type, int self_value) {
     if (match == EDGE_MATCH_BELOW) return neighbor_type < self_value;
     return neighbor_type >= self_value;
 }
@@ -662,15 +662,15 @@ static bool dark_reign_rule_matches(EdgeMatchType match, int neighbor_type, int 
 static void render_dark_reign_edges_for_cell(app_t *app, const level_t *map, const tileset_t *tileset,
                                              int x, int y, int dx, int dy) {
     int frame = map->tile_ids[L_Index(map, x, y)] % tileset->count;
-    int self_type = dark_reign_terrain_type_from_frame(frame);
+    int self_type = terrain_type_from_frame(frame);
     int variation = frame < 8 ? frame : (frame - 8) & 7;
-    int northwest_type = dark_reign_neighbor_type(map, x - 1, y - 1, self_type);
-    int north_type = dark_reign_neighbor_type(map, x, y - 1, self_type);
-    int west_type = dark_reign_neighbor_type(map, x - 1, y, self_type);
+    int northwest_type = neighbor_type(map, x - 1, y - 1, self_type);
+    int north_type = neighbor_type(map, x, y - 1, self_type);
+    int west_type = neighbor_type(map, x - 1, y, self_type);
     int neighbor_types[3] = { northwest_type, north_type, west_type };
     int shim_type = -1;
     bool used[16] = { false };
-    DarkReignEdgeFrame edge_frames[32];
+    EdgeFrame edge_frames[32];
     int edge_frame_count = 0;
 
     irect_t whole = { 0, 0, tileset->tile_w, tileset->tile_h };
@@ -700,7 +700,7 @@ static void render_dark_reign_edges_for_cell(app_t *app, const level_t *map, con
         int lowest_match_value = -1;
         for (int n = 0; n < 3; ++n) {
             int neighbor_type = neighbor_types[n];
-            if (!dark_reign_rule_matches(matches[n], neighbor_type, self_value)) {
+            if (!rule_matches(matches[n], neighbor_type, self_value)) {
                 all_match = false;
                 break;
             }
@@ -720,22 +720,22 @@ static void render_dark_reign_edges_for_cell(app_t *app, const level_t *map, con
         used[lowest_match_value] = true;
 
         int template_id = rule->set_type + (lowest_match_value - 1) * 14;
-        int edge_frame = dark_reign_edge_frame_for_template(template_id, variation);
+        int edge_frame = edge_frame_for_template(template_id, variation);
         if (edge_frame >= 0 && edge_frame < tileset->count &&
             edge_frame_count < (int)(sizeof(edge_frames) / sizeof(edge_frames[0]))) {
-            edge_frames[edge_frame_count++] = (DarkReignEdgeFrame){ lowest_match_value, edge_frame };
+            edge_frames[edge_frame_count++] = (EdgeFrame){ lowest_match_value, edge_frame };
         }
     }
 
     if (shim_type >= 0 && shim_type != 15) {
-        int shim_frame = dark_reign_base_frame_for_type(shim_type, variation);
+        int shim_frame = base_frame_for_type(shim_type, variation);
         if (shim_frame >= 0 && shim_frame < tileset->count) {
             R_DrawTile(app, tileset, shim_frame, whole, dst);
         }
     }
 
     for (int i = 1; i < edge_frame_count; ++i) {
-        DarkReignEdgeFrame edge = edge_frames[i];
+        EdgeFrame edge = edge_frames[i];
         int j = i - 1;
         while (j >= 0 && edge_frames[j].layer > edge.layer) {
             edge_frames[j + 1] = edge_frames[j];
@@ -756,7 +756,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
     blob_t blob;
     if (!W_ReadFile(map_path, &blob)) {
         char fallback_mm[1024];
-        dark_reign_mm_path_from_map(map_path, fallback_mm, sizeof(fallback_mm));
+        mm_path_from_map(map_path, fallback_mm, sizeof(fallback_mm));
         if (strcmp(fallback_mm, map_path) == 0 || !W_ReadFile(fallback_mm, &blob)) {
             return false;
         }
@@ -765,7 +765,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
     size_t map_len = strlen(map_path);
     if (map_len >= 4 && strcasecmp(map_path + map_len - 4, ".SCN") == 0) {
         char terrain_path[1024];
-        dark_reign_map_path_from_scn(map_path, terrain_path, sizeof(terrain_path));
+        map_path_from_scn(map_path, terrain_path, sizeof(terrain_path));
         blob_t map_blob;
         if (!W_ReadFile(terrain_path, &map_blob)) {
             fprintf(stderr, "failed to load sibling Dark Reign MAP terrain %s\n", terrain_path);
@@ -821,7 +821,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
             uint16_t frame = terrain_type == 15 ? variation :
                              (uint16_t)(8 + terrain_type * 8 + variation);
             out->tile_ids[i] = frame;
-            out->blocked[i]  = dark_reign_terrain_is_blocked(terrain_type);
+            out->blocked[i]  = terrain_is_blocked(terrain_type);
         }
     } else {
         size_t terrain_offset = 0;
@@ -846,7 +846,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
             uint16_t frame = terrain_type == 15 ? variation :
                              (uint16_t)(8 + terrain_type * 8 + variation);
             out->tile_ids[i] = frame;
-            out->blocked[i]  = dark_reign_terrain_is_blocked(terrain_type);
+            out->blocked[i]  = terrain_is_blocked(terrain_type);
         }
     }
     detect_tileset_from_mm(map_path,  out->tileset_name, sizeof(out->tileset_name));
@@ -864,14 +864,14 @@ bool load_dark_map(const char *map_path, level_t *out) {
 
 int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_units) {
     if (max_units <= 0) return 0;
-    DarkReignDefinitions defs;
-    dark_reign_load_definitions(map_path, &defs);
+    Definitions defs;
+    load_definitions(map_path, &defs);
     char scn_path[1024];
-    dark_reign_scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     blob_t blob;
-    if (!W_ReadFile(scn_path, &blob)) { dark_reign_free_definitions(&defs); return 0; }
+    if (!W_ReadFile(scn_path, &blob)) { free_definitions(&defs); return 0; }
     char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); dark_reign_free_definitions(&defs); return 0; }
+    if (!text) { W_FreeFile(&blob); free_definitions(&defs); return 0; }
     memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
 
     int count = 0;
@@ -902,8 +902,8 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
                     (uint8_t)current_team : 1;
                 if (units[count].owner == 0) has_player_unit = true;
                 units[count].selected = units[count].owner == 0 && count == 0;
-                DarkReignVisualSpec visual;
-                if (dark_reign_resolve_unit_visual(&defs, unit_type, &visual)) {
+                VisualSpec visual;
+                if (resolve_unit_visual(&defs, unit_type, &visual)) {
                     snprintf(units[count].core.sprite_name,
                              sizeof(units[count].core.sprite_name), "%s", visual.sprite_name);
                     snprintf(units[count].shadow_name, sizeof(units[count].shadow_name), "%s", visual.shadow_name);
@@ -948,9 +948,9 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
                     (void)object_id; (void)gx; (void)gy;
                     const char *body = NULL;
                     size_t body_len = 0;
-                    if (dark_reign_find_definition_block(defs.buildings, "DefineBuildingType",
+                    if (find_definition_block(defs.buildings, "DefineBuildingType",
                                                          building_type, &body, &body_len)) {
-                        dark_reign_find_call_arg(body, body_len, "AssociatedUnit",
+                        find_call_arg(body, body_len, "AssociatedUnit",
                                                  associated_type, sizeof(associated_type));
                     }
                 }
@@ -966,8 +966,8 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
             unit->speed = 4.5f;
             unit->owner = 0;
             unit->selected = true;
-            DarkReignVisualSpec visual;
-            if (dark_reign_resolve_unit_visual(&defs, associated_type, &visual)) {
+            VisualSpec visual;
+            if (resolve_unit_visual(&defs, associated_type, &visual)) {
                 snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name),
                          "%s", visual.sprite_name);
                 snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", visual.shadow_name);
@@ -975,6 +975,6 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
             }
         }
     }
-    free(text); W_FreeFile(&blob); dark_reign_free_definitions(&defs);
+    free(text); W_FreeFile(&blob); free_definitions(&defs);
     return count;
 }

@@ -24,11 +24,11 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                              uint32_t palette_out[256]);
 extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_t *out);
 
-void *dark_colony_load_mission(const char *map_path);
-void dark_colony_update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
+void *load_mission(const char *map_path);
+void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
                                 effect_t *effects, int max_effects,
                                 const gameinfo_t *game_info, hudtext_t *hud, float dt);
-void dark_colony_destroy_mission(void *mission);
+void destroy_mission(void *mission);
 
 const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
@@ -250,14 +250,14 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
 };
 
-const actortype_t *dark_colony_actor_type_by_id(uint16_t type_id) {
+const actortype_t *actor_type_by_id(uint16_t type_id) {
     for (int i = 0; i < (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])); ++i) {
         if (DARK_COLONY_ACTOR_TYPES[i].id == type_id) return &DARK_COLONY_ACTOR_TYPES[i];
     }
     return NULL;
 }
 
-void dark_colony_apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
+void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->type_id = type->id;
     unit->traits = type->traits;
@@ -285,7 +285,7 @@ void dark_colony_apply_actor_type_defaults(mobj_t *unit, const actortype_t *type
         snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name), "%s", type->hit_effect_name);
 }
 
-static bool dark_colony_load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_t *font) {
+static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_t *font) {
     if (!renderer || !data_root || !font) return false;
     memset(font, 0, sizeof(*font));
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
@@ -329,10 +329,10 @@ const char *const g_game_default_sprite = "SPRITES/TROOPER1.SPR";
 const int g_cell_w = 32;
 const int g_cell_h = 32;
 const uint16_t g_debug_enemy_type = MT_DC_GREY;
-static state_t dark_colony_runtime_states[NUMSTATES];
-static gameinfo_t dark_colony_runtime_info;
+static state_t runtime_states[NUMSTATES];
+static gameinfo_t runtime_info;
 
-static bool dark_colony_draw_selection(const selectiondrawcontext_t *ctx) {
+static bool draw_selection(const selectiondrawcontext_t *ctx) {
     if (!ctx || !ctx->unit) return false;
     bool drawn = R_DrawSelectionMarkerSprite(ctx);
     uint16_t type = ctx->unit->native_type_id;
@@ -350,7 +350,7 @@ static bool dark_colony_draw_selection(const selectiondrawcontext_t *ctx) {
     return R_DrawSelectionMarkerFrame(ctx, frame, badge) || drawn;
 }
 
-const gameinfo_t *const gameinfo = &dark_colony_runtime_info;
+const gameinfo_t *const gameinfo = &runtime_info;
 const actortype_t *const mobjinfo =
     (const actortype_t *)DARK_COLONY_ACTOR_TYPES;
 const int num_mobjinfo =
@@ -363,9 +363,9 @@ void G_InitGame(void) {
     static bool initialized;
     if (initialized) return;
 
-    memcpy(dark_colony_runtime_states, states, sizeof(dark_colony_runtime_states));
+    memcpy(runtime_states, states, sizeof(runtime_states));
     for (int state_index = 0; state_index < NUMSTATES; ++state_index) {
-        state_t *state = &dark_colony_runtime_states[state_index];
+        state_t *state = &runtime_states[state_index];
         for (int facing = 0; facing < state->facings; ++facing)
             state->rotation_angles[facing] = dc_direction_to_angle(
                 (int)state->rotation_angles[facing]);
@@ -373,9 +373,9 @@ void G_InitGame(void) {
             state->overlay_rotation_angles[facing] = dc_direction_to_angle(
                 (int)state->overlay_rotation_angles[facing]);
     }
-    dark_colony_runtime_info = dark_colony_game_info;
-    dark_colony_runtime_info.states = dark_colony_runtime_states;
-    dark_colony_runtime_info.draw_selection = dark_colony_draw_selection;
+    runtime_info = game_info;
+    runtime_info.states = runtime_states;
+    runtime_info.draw_selection = draw_selection;
     initialized = true;
 }
 
@@ -385,7 +385,7 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                   const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
-    if (!dark_colony_load_render_tables(root, map->tileset_name)) {
+    if (!load_render_tables(root, map->tileset_name)) {
         fprintf(stderr, "failed to load Dark Colony render tables for %s\n", map->tileset_name);
         return false;
     }
@@ -418,21 +418,21 @@ bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
-    return dark_colony_load_font(renderer, root, font);
+    return load_font(renderer, root, font);
 }
 
 void *G_LoadMission(const char *path) {
-    return dark_colony_load_mission(path);
+    return load_mission(path);
 }
 
 void G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
                      effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
-    dark_colony_update_mission(mission, map, (mobj_t *)mobjs, count,
+    update_mission(mission, map, (mobj_t *)mobjs, count,
                                effects, max_effects, gameinfo, hud, dt);
 }
 
 void G_FreeMission(void *mission) {
-    dark_colony_destroy_mission(mission);
+    destroy_mission(mission);
 }
 
 void *G_InitCustomUI(app_t *app, const char *data_root) {

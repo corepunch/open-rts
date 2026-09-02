@@ -5,14 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DC_GAMESTAT_UNIT_VALUE_COUNT 33
-#define DC_GAMESTAT_WEAPON_VALUE_COUNT 11
-#define DC_GAMESTAT_MAX_DEPEND_PARAMS 16
-#define DC_GAMESTAT_MAX_SCENE_PREREQUISITES 16
-#define DC_GAMESTAT_MAX_BOOM_EFFECTS 8
-#define DC_GAMESTAT_MAX_BOOM_SIZE 7
-#define DC_GAMESTAT_MBULLET_ROWS 9
-#define DC_GAMESTAT_MBULLET_COLS 10
+#define GAMESTAT_UNIT_VALUE_COUNT 33
+#define GAMESTAT_WEAPON_VALUE_COUNT 11
+#define GAMESTAT_MAX_DEPEND_PARAMS 16
+#define GAMESTAT_MAX_SCENE_PREREQUISITES 16
+#define GAMESTAT_MAX_BOOM_EFFECTS 8
+#define GAMESTAT_MAX_BOOM_SIZE 7
+#define GAMESTAT_MBULLET_ROWS 9
+#define GAMESTAT_MBULLET_COLS 10
 
 #define MAX_GAMESTAT_UNITS 256
 #define MAX_DEPENDS 128
@@ -24,7 +24,7 @@
 typedef struct {
     char sprite[64];
     int value_count;
-    int values[DC_GAMESTAT_UNIT_VALUE_COUNT];
+    int values[GAMESTAT_UNIT_VALUE_COUNT];
 } UnitStat;
 
 typedef struct {
@@ -34,13 +34,13 @@ typedef struct {
     int product_class;
     int product_type;
     int parameter_count;
-    int parameters[DC_GAMESTAT_MAX_DEPEND_PARAMS];
+    int parameters[GAMESTAT_MAX_DEPEND_PARAMS];
 } DependStat;
 
 typedef struct {
     int id;
     char sprite[64];
-    int values[DC_GAMESTAT_WEAPON_VALUE_COUNT];
+    int values[GAMESTAT_WEAPON_VALUE_COUNT];
 } WeaponStat;
 
 typedef struct {
@@ -53,15 +53,15 @@ typedef struct {
 typedef struct {
     int width;
     int height;
-    int values[DC_GAMESTAT_MBULLET_ROWS][DC_GAMESTAT_MBULLET_COLS];
+    int values[GAMESTAT_MBULLET_ROWS][GAMESTAT_MBULLET_COLS];
 } MissileBulletStat;
 
 typedef struct {
     int id;
     int size;
     int effect_count;
-    char effects[DC_GAMESTAT_MAX_BOOM_EFFECTS][64];
-    int damage[DC_GAMESTAT_MAX_BOOM_SIZE][DC_GAMESTAT_MAX_BOOM_SIZE];
+    char effects[GAMESTAT_MAX_BOOM_EFFECTS][64];
+    int damage[GAMESTAT_MAX_BOOM_SIZE][GAMESTAT_MAX_BOOM_SIZE];
     int falloff[3][3];
 } BoomStat;
 
@@ -75,7 +75,7 @@ typedef struct {
     int color[3];
     int flag;
     int prerequisite_count;
-    int prerequisites[DC_GAMESTAT_MAX_SCENE_PREREQUISITES];
+    int prerequisites[GAMESTAT_MAX_SCENE_PREREQUISITES];
 } SceneMission;
 
 typedef struct {
@@ -240,7 +240,7 @@ static void parse_game_stat_file(const char *dir, GameStatData *data) {
         UnitStat *unit = &data->units[data->unit_count];
         copy_token(unit->sprite, sizeof(unit->sprite), &p);
         if (isdigit((unsigned char)unit->sprite[0]) || unit->sprite[0] == '-') continue;
-        unit->value_count = parse_ints(p, unit->values, DC_GAMESTAT_UNIT_VALUE_COUNT);
+        unit->value_count = parse_ints(p, unit->values, GAMESTAT_UNIT_VALUE_COUNT);
         if (unit->value_count <= 0) die("GAMESTAT row has no values", line);
         data->unit_count++;
     }
@@ -272,7 +272,7 @@ static void parse_depend_file(const char *dir, GameStatData *data) {
         dep->parameter_count = 0;
         for (int i = 5; i < count; ++i) {
             if (values[i] == -1) break;
-            if (dep->parameter_count >= DC_GAMESTAT_MAX_DEPEND_PARAMS) {
+            if (dep->parameter_count >= GAMESTAT_MAX_DEPEND_PARAMS) {
                 die("too many DEPEND parameters", line);
             }
             dep->parameters[dep->parameter_count++] = values[i];
@@ -297,8 +297,8 @@ static void parse_weapon_file(const char *dir, GameStatData *data) {
         WeaponStat *weapon = &data->weapons[data->weapon_count];
         weapon->id = parse_leading_int(&p);
         copy_token(weapon->sprite, sizeof(weapon->sprite), &p);
-        int count = parse_ints(p, weapon->values, DC_GAMESTAT_WEAPON_VALUE_COUNT);
-        if (count != DC_GAMESTAT_WEAPON_VALUE_COUNT) die("WEAPSTAT row does not have 11 values", line);
+        int count = parse_ints(p, weapon->values, GAMESTAT_WEAPON_VALUE_COUNT);
+        if (count != GAMESTAT_WEAPON_VALUE_COUNT) die("WEAPSTAT row does not have 11 values", line);
         data->weapon_count++;
     }
 
@@ -336,15 +336,15 @@ static void parse_mbullet_file(const char *dir, GameStatData *data) {
     char *cursor = text;
     data->mbullet.width = read_count_line(&cursor, path);
     data->mbullet.height = read_count_line(&cursor, path);
-    if (data->mbullet.width > DC_GAMESTAT_MBULLET_COLS ||
-        data->mbullet.height > DC_GAMESTAT_MBULLET_ROWS) {
+    if (data->mbullet.width > GAMESTAT_MBULLET_COLS ||
+        data->mbullet.height > GAMESTAT_MBULLET_ROWS) {
         die("MBULLET matrix larger than generator constants", path);
     }
 
     for (int row = 0; row < data->mbullet.height; ++row) {
         char *line = next_payload_line(&cursor);
         if (!line) die("missing MBULLET row", path);
-        int count = parse_ints(line, data->mbullet.values[row], DC_GAMESTAT_MBULLET_COLS);
+        int count = parse_ints(line, data->mbullet.values[row], GAMESTAT_MBULLET_COLS);
         if (count != data->mbullet.width) die("MBULLET row width mismatch", line);
     }
     free(text);
@@ -362,7 +362,7 @@ static void parse_boom_file(const char *dir, GameStatData *data) {
         if (!line) die("missing BOOMSTAT block", path);
         int header[2];
         if (parse_ints(line, header, 2) != 2) die("invalid BOOMSTAT block header", line);
-        if (header[1] > DC_GAMESTAT_MAX_BOOM_SIZE) die("BOOMSTAT block too large", line);
+        if (header[1] > GAMESTAT_MAX_BOOM_SIZE) die("BOOMSTAT block too large", line);
 
         BoomStat *boom = &data->booms[data->boom_count++];
         boom->id = header[0];
@@ -371,7 +371,7 @@ static void parse_boom_file(const char *dir, GameStatData *data) {
 
         while ((line = next_payload_line(&cursor)) != NULL) {
             if (equals_ci(line, "NONE")) break;
-            if (boom->effect_count >= DC_GAMESTAT_MAX_BOOM_EFFECTS) die("too many BOOMSTAT effects", line);
+            if (boom->effect_count >= GAMESTAT_MAX_BOOM_EFFECTS) die("too many BOOMSTAT effects", line);
             snprintf(boom->effects[boom->effect_count++], sizeof(boom->effects[0]), "%s", line);
         }
         if (!line) die("unterminated BOOMSTAT effects", path);
@@ -379,7 +379,7 @@ static void parse_boom_file(const char *dir, GameStatData *data) {
         for (int y = 0; y < boom->size; ++y) {
             line = next_payload_line(&cursor);
             if (!line) die("missing BOOMSTAT damage row", path);
-            int count = parse_ints(line, boom->damage[y], DC_GAMESTAT_MAX_BOOM_SIZE);
+            int count = parse_ints(line, boom->damage[y], GAMESTAT_MAX_BOOM_SIZE);
             if (count != boom->size) die("BOOMSTAT damage row size mismatch", line);
         }
         for (int y = 0; y < 3; ++y) {
@@ -451,7 +451,7 @@ static void parse_scene_file(const char *dir, const char *name, SceneTable *tabl
         mission->prerequisite_count = 0;
         for (int j = 0; j < count; ++j) {
             if (prereqs[j] == -1) break;
-            if (mission->prerequisite_count >= DC_GAMESTAT_MAX_SCENE_PREREQUISITES) {
+            if (mission->prerequisite_count >= GAMESTAT_MAX_SCENE_PREREQUISITES) {
                 die("too many scene prerequisites", line);
             }
             mission->prerequisites[mission->prerequisite_count++] = prereqs[j];
@@ -505,39 +505,39 @@ static void emit_header_prelude(FILE *out, const GameStatData *data) {
     fprintf(out, "/* Generated by tools/dc_gamestat_gen.c. Do not edit by hand. */\n");
     fprintf(out, "#ifndef OPEN_RTS_DARK_COLONY_GAMESTAT_H\n");
     fprintf(out, "#define OPEN_RTS_DARK_COLONY_GAMESTAT_H\n\n");
-    fprintf(out, "#define DC_GAMESTAT_UNIT_COUNT %d\n", data->unit_count);
-    fprintf(out, "#define DC_GAMESTAT_UNIT_VALUE_COUNT %d\n", DC_GAMESTAT_UNIT_VALUE_COUNT);
-    fprintf(out, "#define DC_GAMESTAT_DEPEND_COUNT %d\n", data->depend_count);
-    fprintf(out, "#define DC_GAMESTAT_WEAPON_COUNT %d\n", data->weapon_count);
-    fprintf(out, "#define DC_GAMESTAT_WEAPON_VALUE_COUNT %d\n", DC_GAMESTAT_WEAPON_VALUE_COUNT);
-    fprintf(out, "#define DC_GAMESTAT_UNIT_ID_COUNT %d\n", data->unit_id_count);
-    fprintf(out, "#define DC_GAMESTAT_BOOM_COUNT %d\n", data->boom_count);
-    fprintf(out, "#define DC_GAMESTAT_MAX_DEPEND_PARAMS %d\n", DC_GAMESTAT_MAX_DEPEND_PARAMS);
-    fprintf(out, "#define DC_GAMESTAT_MAX_SCENE_PREREQUISITES %d\n", DC_GAMESTAT_MAX_SCENE_PREREQUISITES);
-    fprintf(out, "#define DC_GAMESTAT_MAX_BOOM_EFFECTS %d\n", DC_GAMESTAT_MAX_BOOM_EFFECTS);
-    fprintf(out, "#define DC_GAMESTAT_MAX_BOOM_SIZE %d\n", DC_GAMESTAT_MAX_BOOM_SIZE);
-    fprintf(out, "#define DC_GAMESTAT_MBULLET_ROWS %d\n", DC_GAMESTAT_MBULLET_ROWS);
-    fprintf(out, "#define DC_GAMESTAT_MBULLET_COLS %d\n\n", DC_GAMESTAT_MBULLET_COLS);
+    fprintf(out, "#define GAMESTAT_UNIT_COUNT %d\n", data->unit_count);
+    fprintf(out, "#define GAMESTAT_UNIT_VALUE_COUNT %d\n", GAMESTAT_UNIT_VALUE_COUNT);
+    fprintf(out, "#define GAMESTAT_DEPEND_COUNT %d\n", data->depend_count);
+    fprintf(out, "#define GAMESTAT_WEAPON_COUNT %d\n", data->weapon_count);
+    fprintf(out, "#define GAMESTAT_WEAPON_VALUE_COUNT %d\n", GAMESTAT_WEAPON_VALUE_COUNT);
+    fprintf(out, "#define GAMESTAT_UNIT_ID_COUNT %d\n", data->unit_id_count);
+    fprintf(out, "#define GAMESTAT_BOOM_COUNT %d\n", data->boom_count);
+    fprintf(out, "#define GAMESTAT_MAX_DEPEND_PARAMS %d\n", GAMESTAT_MAX_DEPEND_PARAMS);
+    fprintf(out, "#define GAMESTAT_MAX_SCENE_PREREQUISITES %d\n", GAMESTAT_MAX_SCENE_PREREQUISITES);
+    fprintf(out, "#define GAMESTAT_MAX_BOOM_EFFECTS %d\n", GAMESTAT_MAX_BOOM_EFFECTS);
+    fprintf(out, "#define GAMESTAT_MAX_BOOM_SIZE %d\n", GAMESTAT_MAX_BOOM_SIZE);
+    fprintf(out, "#define GAMESTAT_MBULLET_ROWS %d\n", GAMESTAT_MBULLET_ROWS);
+    fprintf(out, "#define GAMESTAT_MBULLET_COLS %d\n\n", GAMESTAT_MBULLET_COLS);
 
     fprintf(out, "typedef enum {\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_RACE = 0,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_TURN_SPEED = 1,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_SPEED = 2,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_OBS_DAY = 3,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_OBS_NIGHT = 4,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_WEAPON0 = 5,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_WEAPON1 = 6,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_WEAPON2 = 7,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_DEFENSE = 8,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_UNKNOWN_9 = 9,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_FLY = 10,\n");
-    fprintf(out, "    DC_GAMESTAT_UNIT_HEALTH = 11\n");
+    fprintf(out, "    GAMESTAT_UNIT_RACE = 0,\n");
+    fprintf(out, "    GAMESTAT_UNIT_TURN_SPEED = 1,\n");
+    fprintf(out, "    GAMESTAT_UNIT_SPEED = 2,\n");
+    fprintf(out, "    GAMESTAT_UNIT_OBS_DAY = 3,\n");
+    fprintf(out, "    GAMESTAT_UNIT_OBS_NIGHT = 4,\n");
+    fprintf(out, "    GAMESTAT_UNIT_WEAPON0 = 5,\n");
+    fprintf(out, "    GAMESTAT_UNIT_WEAPON1 = 6,\n");
+    fprintf(out, "    GAMESTAT_UNIT_WEAPON2 = 7,\n");
+    fprintf(out, "    GAMESTAT_UNIT_DEFENSE = 8,\n");
+    fprintf(out, "    GAMESTAT_UNIT_UNKNOWN_9 = 9,\n");
+    fprintf(out, "    GAMESTAT_UNIT_FLY = 10,\n");
+    fprintf(out, "    GAMESTAT_UNIT_HEALTH = 11\n");
     fprintf(out, "} DcGamestatUnitValueIndex;\n\n");
 
     fprintf(out, "typedef struct {\n");
     fprintf(out, "    const char *sprite;\n");
     fprintf(out, "    int value_count;\n");
-    fprintf(out, "    int values[DC_GAMESTAT_UNIT_VALUE_COUNT];\n");
+    fprintf(out, "    int values[GAMESTAT_UNIT_VALUE_COUNT];\n");
     fprintf(out, "} DcGamestatUnit;\n\n");
 
     fprintf(out, "typedef struct {\n");
@@ -547,7 +547,7 @@ static void emit_header_prelude(FILE *out, const GameStatData *data) {
     fprintf(out, "    int product_class;\n");
     fprintf(out, "    int product_type;\n");
     fprintf(out, "    int parameter_count;\n");
-    fprintf(out, "    int parameters[DC_GAMESTAT_MAX_DEPEND_PARAMS];\n");
+    fprintf(out, "    int parameters[GAMESTAT_MAX_DEPEND_PARAMS];\n");
     fprintf(out, "} DcGamestatDepend;\n\n");
 
     fprintf(out, "typedef struct {\n");
@@ -576,15 +576,15 @@ static void emit_header_prelude(FILE *out, const GameStatData *data) {
     fprintf(out, "typedef struct {\n");
     fprintf(out, "    int width;\n");
     fprintf(out, "    int height;\n");
-    fprintf(out, "    int values[DC_GAMESTAT_MBULLET_ROWS][DC_GAMESTAT_MBULLET_COLS];\n");
+    fprintf(out, "    int values[GAMESTAT_MBULLET_ROWS][GAMESTAT_MBULLET_COLS];\n");
     fprintf(out, "} DcGamestatMissileBullet;\n\n");
 
     fprintf(out, "typedef struct {\n");
     fprintf(out, "    int id;\n");
     fprintf(out, "    int size;\n");
     fprintf(out, "    int effect_count;\n");
-    fprintf(out, "    const char *effects[DC_GAMESTAT_MAX_BOOM_EFFECTS];\n");
-    fprintf(out, "    int damage[DC_GAMESTAT_MAX_BOOM_SIZE][DC_GAMESTAT_MAX_BOOM_SIZE];\n");
+    fprintf(out, "    const char *effects[GAMESTAT_MAX_BOOM_EFFECTS];\n");
+    fprintf(out, "    int damage[GAMESTAT_MAX_BOOM_SIZE][GAMESTAT_MAX_BOOM_SIZE];\n");
     fprintf(out, "    int falloff[3][3];\n");
     fprintf(out, "} DcGamestatBoom;\n\n");
 
@@ -598,7 +598,7 @@ static void emit_header_prelude(FILE *out, const GameStatData *data) {
     fprintf(out, "    int color[3];\n");
     fprintf(out, "    int flag;\n");
     fprintf(out, "    int prerequisite_count;\n");
-    fprintf(out, "    int prerequisites[DC_GAMESTAT_MAX_SCENE_PREREQUISITES];\n");
+    fprintf(out, "    int prerequisites[GAMESTAT_MAX_SCENE_PREREQUISITES];\n");
     fprintf(out, "} DcGamestatScene;\n\n");
 
     fprintf(out, "typedef struct {\n");
@@ -609,37 +609,37 @@ static void emit_header_prelude(FILE *out, const GameStatData *data) {
 }
 
 static void emit_units(FILE *out, const GameStatData *data) {
-    fprintf(out, "static const DcGamestatUnit dc_gamestat_units[DC_GAMESTAT_UNIT_COUNT] = {\n");
+    fprintf(out, "static const DcGamestatUnit dc_gamestat_units[GAMESTAT_UNIT_COUNT] = {\n");
     for (int i = 0; i < data->unit_count; ++i) {
         fprintf(out, "    { ");
         emit_c_string(out, data->units[i].sprite);
         fprintf(out, ", %d, ", data->units[i].value_count);
-        emit_int_array(out, data->units[i].values, DC_GAMESTAT_UNIT_VALUE_COUNT);
+        emit_int_array(out, data->units[i].values, GAMESTAT_UNIT_VALUE_COUNT);
         fprintf(out, " },\n");
     }
     fprintf(out, "};\n\n");
 }
 
 static void emit_depends(FILE *out, const GameStatData *data) {
-    fprintf(out, "static const DcGamestatDepend dc_gamestat_depends[DC_GAMESTAT_DEPEND_COUNT] = {\n");
+    fprintf(out, "static const DcGamestatDepend dc_gamestat_depends[GAMESTAT_DEPEND_COUNT] = {\n");
     for (int i = 0; i < data->depend_count; ++i) {
         const DependStat *dep = &data->depends[i];
         fprintf(out, "    { %d, %d, %d, %d, %d, %d, ",
                 dep->row_id, dep->cost, dep->ui_id, dep->product_class,
                 dep->product_type, dep->parameter_count);
-        emit_int_array(out, dep->parameters, DC_GAMESTAT_MAX_DEPEND_PARAMS);
+        emit_int_array(out, dep->parameters, GAMESTAT_MAX_DEPEND_PARAMS);
         fprintf(out, " },\n");
     }
     fprintf(out, "};\n\n");
 }
 
 static void emit_weapons(FILE *out, const GameStatData *data) {
-    fprintf(out, "static const DcGamestatWeapon dc_gamestat_weapons[DC_GAMESTAT_WEAPON_COUNT] = {\n");
+    fprintf(out, "static const DcGamestatWeapon dc_gamestat_weapons[GAMESTAT_WEAPON_COUNT] = {\n");
     for (int i = 0; i < data->weapon_count; ++i) {
         const WeaponStat *weapon = &data->weapons[i];
         fprintf(out, "    { %d, ", weapon->id);
         emit_c_string(out, weapon->sprite);
-        for (int j = 0; j < DC_GAMESTAT_WEAPON_VALUE_COUNT; ++j) {
+        for (int j = 0; j < GAMESTAT_WEAPON_VALUE_COUNT; ++j) {
             fprintf(out, ", %d", weapon->values[j]);
         }
         fprintf(out, " },\n");
@@ -648,7 +648,7 @@ static void emit_weapons(FILE *out, const GameStatData *data) {
 }
 
 static void emit_unit_ids(FILE *out, const GameStatData *data) {
-    fprintf(out, "static const DcGamestatUnitId dc_gamestat_unit_ids[DC_GAMESTAT_UNIT_ID_COUNT] = {\n");
+    fprintf(out, "static const DcGamestatUnitId dc_gamestat_unit_ids[GAMESTAT_UNIT_ID_COUNT] = {\n");
     for (int i = 0; i < data->unit_id_count; ++i) {
         const UnitIdStat *unit_id = &data->unit_ids[i];
         fprintf(out, "    { %d, %d, %d, %d },\n",
@@ -661,9 +661,9 @@ static void emit_mbullet(FILE *out, const GameStatData *data) {
     fprintf(out, "static const DcGamestatMissileBullet dc_gamestat_mbullet = {\n");
     fprintf(out, "    %d, %d,\n", data->mbullet.width, data->mbullet.height);
     fprintf(out, "    {\n");
-    for (int y = 0; y < DC_GAMESTAT_MBULLET_ROWS; ++y) {
+    for (int y = 0; y < GAMESTAT_MBULLET_ROWS; ++y) {
         fprintf(out, "        ");
-        emit_int_array(out, data->mbullet.values[y], DC_GAMESTAT_MBULLET_COLS);
+        emit_int_array(out, data->mbullet.values[y], GAMESTAT_MBULLET_COLS);
         fprintf(out, ",\n");
     }
     fprintf(out, "    }\n");
@@ -671,21 +671,21 @@ static void emit_mbullet(FILE *out, const GameStatData *data) {
 }
 
 static void emit_booms(FILE *out, const GameStatData *data) {
-    fprintf(out, "static const DcGamestatBoom dc_gamestat_booms[DC_GAMESTAT_BOOM_COUNT] = {\n");
+    fprintf(out, "static const DcGamestatBoom dc_gamestat_booms[GAMESTAT_BOOM_COUNT] = {\n");
     for (int i = 0; i < data->boom_count; ++i) {
         const BoomStat *boom = &data->booms[i];
         fprintf(out, "    {\n");
         fprintf(out, "        %d, %d, %d,\n", boom->id, boom->size, boom->effect_count);
         fprintf(out, "        { ");
-        for (int j = 0; j < DC_GAMESTAT_MAX_BOOM_EFFECTS; ++j) {
+        for (int j = 0; j < GAMESTAT_MAX_BOOM_EFFECTS; ++j) {
             if (j) fprintf(out, ", ");
             emit_c_string(out, boom->effects[j]);
         }
         fprintf(out, " },\n");
         fprintf(out, "        {\n");
-        for (int y = 0; y < DC_GAMESTAT_MAX_BOOM_SIZE; ++y) {
+        for (int y = 0; y < GAMESTAT_MAX_BOOM_SIZE; ++y) {
             fprintf(out, "            ");
-            emit_int_array(out, boom->damage[y], DC_GAMESTAT_MAX_BOOM_SIZE);
+            emit_int_array(out, boom->damage[y], GAMESTAT_MAX_BOOM_SIZE);
             fprintf(out, ",\n");
         }
         fprintf(out, "        },\n");
@@ -717,7 +717,7 @@ static void emit_scene_mission(FILE *out, const SceneMission *mission) {
     fprintf(out, ", ");
     emit_int_array(out, mission->color, 3);
     fprintf(out, ", %d, %d, ", mission->flag, mission->prerequisite_count);
-    emit_int_array(out, mission->prerequisites, DC_GAMESTAT_MAX_SCENE_PREREQUISITES);
+    emit_int_array(out, mission->prerequisites, GAMESTAT_MAX_SCENE_PREREQUISITES);
     fprintf(out, " },\n");
 }
 

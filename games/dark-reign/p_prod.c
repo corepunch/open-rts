@@ -8,69 +8,69 @@
 #include <stdarg.h>
 
 static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
-#define DR_BUILD(ui_, label_, cost_, type_, p0_, p1_) \
+#define BUILD(ui_, label_, cost_, type_, p0_, p1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { 11 }, 1 }
-#define DR_UNIT(ui_, label_, cost_, type_, p0_, p1_, m0_, m1_) \
+#define UNIT(ui_, label_, cost_, type_, p0_, p1_, m0_, m1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), \
       { (m0_), (m1_) }, ((m1_) == 0 ? 1 : 2) }
-    DR_BUILD(10001, "FG HQ 1", 750, 10001, 0, 0),
-    DR_BUILD(10002, "FG HQ 2", 1000, 10002, 10004, 10006),
-    DR_BUILD(10003, "FG HQ 3", 1250, 10003, 10005, 10007),
-    DR_BUILD(10004, "Barracks", 1500, 10004, 10001, 0),
-    DR_BUILD(10005, "Advanced Barracks", 750, 10005, 10002, 0),
-    DR_BUILD(10006, "Vehicle Factory", 2200, 10006, 10001, 0),
-    DR_BUILD(10007, "Advanced Vehicle Factory", 2500, 10007, 10002, 0),
-    DR_BUILD(10008, "Hover Factory", 500, 10008, 10004, 0),
-    DR_BUILD(10009, "Repair Bay", 800, 10009, 10006, 0),
-    DR_BUILD(10010, "Camera Tower", 200, 10010, 10002, 0),
-    DR_BUILD(10011, "Refinery", 1000, 10011, 10003, 0),
-    DR_BUILD(10012, "Anti-Air Site", 1000, 10012, 10002, 0),
-    DR_BUILD(10013, "Guard Tower", 500, 10013, 10001, 0),
-    DR_BUILD(10014, "Advanced Guard Tower", 1700, 10014, 10002, 0),
-    DR_BUILD(10015, "Phase Factory 1", 1200, 10015, 10001, 0),
-    DR_BUILD(10016, "Phase Factory 2", 1200, 10016, 10002, 0),
-    DR_BUILD(10019, "Life Plant", 2500, 10019, 0, 0),
-    DR_BUILD(10020, "Power Plant", 2000, 10020, 0, 0),
-    DR_BUILD(10040, "Small Horizontal Bridge", 100, 10040, 0, 0),
-    DR_BUILD(10041, "Small Vertical Bridge", 100, 10041, 0, 0),
-    DR_BUILD(10042, "Small Centre Bridge", 150, 10042, 0, 0),
+    BUILD(10001, "FG HQ 1", 750, 10001, 0, 0),
+    BUILD(10002, "FG HQ 2", 1000, 10002, 10004, 10006),
+    BUILD(10003, "FG HQ 3", 1250, 10003, 10005, 10007),
+    BUILD(10004, "Barracks", 1500, 10004, 10001, 0),
+    BUILD(10005, "Advanced Barracks", 750, 10005, 10002, 0),
+    BUILD(10006, "Vehicle Factory", 2200, 10006, 10001, 0),
+    BUILD(10007, "Advanced Vehicle Factory", 2500, 10007, 10002, 0),
+    BUILD(10008, "Hover Factory", 500, 10008, 10004, 0),
+    BUILD(10009, "Repair Bay", 800, 10009, 10006, 0),
+    BUILD(10010, "Camera Tower", 200, 10010, 10002, 0),
+    BUILD(10011, "Refinery", 1000, 10011, 10003, 0),
+    BUILD(10012, "Anti-Air Site", 1000, 10012, 10002, 0),
+    BUILD(10013, "Guard Tower", 500, 10013, 10001, 0),
+    BUILD(10014, "Advanced Guard Tower", 1700, 10014, 10002, 0),
+    BUILD(10015, "Phase Factory 1", 1200, 10015, 10001, 0),
+    BUILD(10016, "Phase Factory 2", 1200, 10016, 10002, 0),
+    BUILD(10019, "Life Plant", 2500, 10019, 0, 0),
+    BUILD(10020, "Power Plant", 2000, 10020, 0, 0),
+    BUILD(10040, "Small Horizontal Bridge", 100, 10040, 0, 0),
+    BUILD(10041, "Small Vertical Bridge", 100, 10041, 0, 0),
+    BUILD(10042, "Small Centre Bridge", 150, 10042, 0, 0),
     { 11, 11, "Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 11, 0,
       { 10001 }, 1, { 10001, 10002, 10003 }, 3 },
-    DR_UNIT(9, "Raider", 150, 9, 10004, 0, 10004, 10005),
-    DR_UNIT(10, "Mercenary", 300, 10, 10004, 0, 10004, 10005),
-    DR_UNIT(8, "Sniper", 700, 8, 10005, 0, 10004, 10005),
-    DR_UNIT(6, "Scout", 300, 6, 10004, 0, 10004, 10005),
-    DR_UNIT(7, "Medic", 500, 7, 10004, 10009, 10004, 10005),
-    DR_UNIT(3, "Saboteur", 800, 3, 10005, 0, 10004, 10005),
-    DR_UNIT(2, "Mechanic", 500, 2, 10004, 10009, 10004, 10005),
-    DR_UNIT(5, "Martyr", 600, 5, 10004, 0, 10004, 10005),
-    DR_UNIT(4, "Spy", 1000, 4, 10005, 0, 10004, 10005),
-    DR_UNIT(1, "Spider Bike", 500, 1, 10006, 0, 10006, 10007),
-    DR_UNIT(15, "RAT", 450, 15, 10006, 0, 10006, 10007),
-    DR_UNIT(20, "Skirmish Tank", 600, 20, 10006, 0, 10006, 10007),
-    DR_UNIT(17, "Tank Hunter", 700, 17, 10006, 0, 10006, 10007),
-    DR_UNIT(21, "Phase Tank", 600, 21, 10006, 10015, 10006, 10007),
-    DR_UNIT(12, "Flak Jack", 500, 12, 10002, 10006, 10006, 10007),
-    DR_UNIT(16, "Triple Rail Tank", 1300, 16, 10007, 0, 10006, 10007),
-    DR_UNIT(19, "Hellstorm Artillery", 1100, 19, 10007, 0, 10006, 10007),
-    DR_UNIT(23, "Sky Bike", 800, 23, 10006, 10011, 10006, 10007),
-    DR_UNIT(24, "Outrider", 1400, 24, 10006, 10011, 10006, 10007),
-    DR_UNIT(18, "Shockwave", 4000, 18, 10006, 10003, 10006, 10007),
-    DR_UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, 10006, 10007),
-    DR_UNIT(13, "Freighter", 1000, 13, 10006, 0, 10006, 10007),
-    DR_UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, 10006, 10007),
-#undef DR_BUILD
-#undef DR_UNIT
+    UNIT(9, "Raider", 150, 9, 10004, 0, 10004, 10005),
+    UNIT(10, "Mercenary", 300, 10, 10004, 0, 10004, 10005),
+    UNIT(8, "Sniper", 700, 8, 10005, 0, 10004, 10005),
+    UNIT(6, "Scout", 300, 6, 10004, 0, 10004, 10005),
+    UNIT(7, "Medic", 500, 7, 10004, 10009, 10004, 10005),
+    UNIT(3, "Saboteur", 800, 3, 10005, 0, 10004, 10005),
+    UNIT(2, "Mechanic", 500, 2, 10004, 10009, 10004, 10005),
+    UNIT(5, "Martyr", 600, 5, 10004, 0, 10004, 10005),
+    UNIT(4, "Spy", 1000, 4, 10005, 0, 10004, 10005),
+    UNIT(1, "Spider Bike", 500, 1, 10006, 0, 10006, 10007),
+    UNIT(15, "RAT", 450, 15, 10006, 0, 10006, 10007),
+    UNIT(20, "Skirmish Tank", 600, 20, 10006, 0, 10006, 10007),
+    UNIT(17, "Tank Hunter", 700, 17, 10006, 0, 10006, 10007),
+    UNIT(21, "Phase Tank", 600, 21, 10006, 10015, 10006, 10007),
+    UNIT(12, "Flak Jack", 500, 12, 10002, 10006, 10006, 10007),
+    UNIT(16, "Triple Rail Tank", 1300, 16, 10007, 0, 10006, 10007),
+    UNIT(19, "Hellstorm Artillery", 1100, 19, 10007, 0, 10006, 10007),
+    UNIT(23, "Sky Bike", 800, 23, 10006, 10011, 10006, 10007),
+    UNIT(24, "Outrider", 1400, 24, 10006, 10011, 10006, 10007),
+    UNIT(18, "Shockwave", 4000, 18, 10006, 10003, 10006, 10007),
+    UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, 10006, 10007),
+    UNIT(13, "Freighter", 1000, 13, 10006, 0, 10006, 10007),
+    UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, 10006, 10007),
+#undef BUILD
+#undef UNIT
 };
 
-static int dark_reign_product_count(void) {
+static int product_count(void) {
     return (int)(sizeof(DARK_REIGN_FG_PRODUCTS) /
                  sizeof(DARK_REIGN_FG_PRODUCTS[0]));
 }
 
-static uint16_t dark_reign_actor_id_for_requirement(int requirement_id) {
+static uint16_t actor_id_for_requirement(int requirement_id) {
     if (requirement_id == 11 ||
         (requirement_id >= 10001 && requirement_id <= 10020))
         return (uint16_t)requirement_id;
@@ -78,7 +78,7 @@ static uint16_t dark_reign_actor_id_for_requirement(int requirement_id) {
 }
 
 uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {
-    return product ? dark_reign_actor_id_for_requirement(product->product_type) : 0;
+    return product ? actor_id_for_requirement(product->product_type) : 0;
 }
 
 int G_ModelBuildingFrameForProduct(const StaticProductDefinition *product) {
@@ -113,7 +113,7 @@ int G_ModelGetProducts(const RtsGameModel *model, int owner,
                        StaticProductDefinition *out, int max_products) {
     (void)model; (void)owner;
     if (!out || max_products <= 0) return 0;
-    int count = dark_reign_product_count();
+    int count = product_count();
     if (count > max_products) count = max_products;
     memcpy(out, DARK_REIGN_FG_PRODUCTS, (size_t)count * sizeof(StaticProductDefinition));
     return count;
@@ -121,7 +121,7 @@ int G_ModelGetProducts(const RtsGameModel *model, int owner,
 
 const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *model, int ui_id) {
     (void)model;
-    int count = dark_reign_product_count();
+    int count = product_count();
     for (int i = 0; i < count; ++i) {
         if (DARK_REIGN_FG_PRODUCTS[i].ui_id == ui_id)
             return &DARK_REIGN_FG_PRODUCTS[i];
@@ -133,7 +133,7 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
                                                          int product_class,
                                                          int product_type) {
     (void)model;
-    int count = dark_reign_product_count();
+    int count = product_count();
     for (int i = 0; i < count; ++i) {
         if ((int)DARK_REIGN_FG_PRODUCTS[i].product_class == product_class &&
             DARK_REIGN_FG_PRODUCTS[i].product_type == product_type)
@@ -147,13 +147,13 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
         if (!G_ModelHasActorType(model, owner,
-                                 dark_reign_actor_id_for_requirement(product->prerequisites[i])))
+                                 actor_id_for_requirement(product->prerequisites[i])))
             return false;
     }
     if (product->maker_count <= 0) return true;
     for (int i = 0; i < product->maker_count; ++i) {
         if (G_ModelHasActorType(model, owner,
-                                dark_reign_actor_id_for_requirement(product->makers[i])))
+                                actor_id_for_requirement(product->makers[i])))
             return true;
     }
     return false;
@@ -205,8 +205,8 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
 
     uint16_t producer_type = snapshot->units[selected_idx].type_id;
     int button_index = 0;
-    int product_count = dark_reign_product_count();
-    for (int i = 0; i < product_count; ++i) {
+    int available_product_count = product_count();
+    for (int i = 0; i < available_product_count; ++i) {
         const StaticProductDefinition *product = &DARK_REIGN_FG_PRODUCTS[i];
         bool is_maker = false;
         for (int m = 0; m < product->maker_count; ++m) {

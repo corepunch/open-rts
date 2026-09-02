@@ -524,7 +524,7 @@ typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER
 extern const char *const sprnames[NUMSPRITES];
 extern const state_t states[NUMSTATES];
 extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];
-extern const gameinfo_t dark_colony_game_info;
+extern const gameinfo_t game_info;
 
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);

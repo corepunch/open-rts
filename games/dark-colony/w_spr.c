@@ -14,7 +14,7 @@
 #include <string.h>
 #include <strings.h>
 
-static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
+static void palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
     if (size < 8 + 256 * 3) return;
     const uint8_t *p = spr + 8;
     for (int i = 0; i < 256; ++i) {
@@ -26,17 +26,17 @@ static void dark_colony_palette_from_spr(const uint8_t *spr, size_t size, uint32
     }
 }
 
-static uint8_t dark_colony_remap_palette_index(uint8_t index, int remap) {
+static uint8_t remap_palette_index(uint8_t index, int remap) {
     if (remap < 0 || remap > 7 || index < 138 || index > 143) return index;
     int remapped = (int)index + (remap - 7) * 6;
     if (remapped < 0 || remapped > 255) return index;
     return (uint8_t)remapped;
 }
 
-static uint32_t dark_colony_sprite_pixel_rgba(uint8_t index, const uint32_t palette[256],
+static uint32_t sprite_pixel_rgba(uint8_t index, const uint32_t palette[256],
                                              int remap) {
     if (index == 0) return 0x00000000u;
-    index = dark_colony_remap_palette_index(index, remap);
+    index = remap_palette_index(index, remap);
     return palette[index];
 }
 
@@ -64,7 +64,7 @@ typedef struct {
     uint8_t used;
     uint32_t data_size;
     uint8_t *data;
-} DarkColonyJuiceCell;
+} JuiceCell;
 
 typedef struct {
     uint16_t flags;
@@ -72,18 +72,18 @@ typedef struct {
     uint32_t payload_bytes;
     bool chunked;
     uint32_t palette[256];
-    DarkColonyJuiceCell *cells;
-} DarkColonyJuiceFile;
+    JuiceCell *cells;
+} JuiceFile;
 
 typedef struct {
     char name[9];
-} DarkColonyAnimationDependency;
+} AnimationDependency;
 
 typedef struct {
     char name[17];
     uint16_t start;
     uint16_t end;
-} DarkColonyAnimationLabel;
+} AnimationLabel;
 
 typedef struct {
     char sprite[9];
@@ -94,36 +94,36 @@ typedef struct {
     int16_t intensity;
     int16_t layer;
     int16_t flags;
-} DarkColonyAnimationCommand;
+} AnimationCommand;
 
 typedef struct {
     uint16_t frame_count;
     uint16_t aux_count;
     uint16_t label_count;
     uint16_t dependency_count;
-    DarkColonyAnimationDependency *dependencies;
-    DarkColonyAnimationLabel *labels;
+    AnimationDependency *dependencies;
+    AnimationLabel *labels;
     uint8_t *aux_records;
-    DarkColonyAnimationCommand *commands;
+    AnimationCommand *commands;
     int command_count;
-} DarkColonyAnimationFile;
+} AnimationFile;
 
 typedef struct {
-    DarkColonyJuiceFile juice;
-    DarkColonyAnimationFile animation;
+    JuiceFile juice;
+    AnimationFile animation;
     bool has_animation;
     uint8_t *indices;
     int atlas_w;
     int atlas_h;
-} DarkColonySpriteNative;
+} SpriteNative;
 
 typedef struct {
     bool valid;
     uint32_t palette[256];
     uint8_t selector5[256 * 256];
-} DarkColonyRenderTables;
+} RenderTables;
 
-static DarkColonyRenderTables dark_colony_render_tables;
+static RenderTables render_tables;
 
 static int16_t read_i16_le_dc(const uint8_t *p) {
     return (int16_t)read_u16_le(p);
@@ -138,14 +138,14 @@ static void copy_padded_ascii(char *dst, size_t dst_size, const uint8_t *src, si
     dst[n] = '\0';
 }
 
-static void dark_colony_juice_destroy(DarkColonyJuiceFile *juice) {
+static void juice_destroy(JuiceFile *juice) {
     if (!juice) return;
     for (int i = 0; i < juice->cell_count; ++i) free(juice->cells[i].data);
     free(juice->cells);
     memset(juice, 0, sizeof(*juice));
 }
 
-static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
+static bool juice_load(const char *path, JuiceFile *out) {
     memset(out, 0, sizeof(*out));
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
@@ -160,7 +160,7 @@ static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
         return false;
     }
 
-    dark_colony_palette_from_spr(blob.bytes, blob.size, out->palette);
+    palette_from_spr(blob.bytes, blob.size, out->palette);
     size_t desc_off = 8 + 256 * 3;
     size_t data_off = desc_off + (size_t)out->cell_count * 8;
     if (data_off > blob.size) {
@@ -175,14 +175,14 @@ static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
     }
     for (int i = 0; i < out->cell_count; ++i) {
         const uint8_t *desc = blob.bytes + desc_off + (size_t)i * 8;
-        DarkColonyJuiceCell *cell = &out->cells[i];
+        JuiceCell *cell = &out->cells[i];
         cell->width = read_u16_le(desc + 0);
         cell->height = read_u16_le(desc + 2);
         cell->dis_x = read_u16_le(desc + 4);
         cell->dis_y = read_u16_le(desc + 6);
         cell->used = cell->width > 0 && cell->height > 0;
         if (cell->width > 512 || cell->height > 512) {
-            dark_colony_juice_destroy(out);
+            juice_destroy(out);
             W_FreeFile(&blob);
             return false;
         }
@@ -193,7 +193,7 @@ static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
         uint32_t total_chunks = 0;
         for (int i = 0; i < out->cell_count; ++i) {
             if (src_pos + 4 > blob.size) {
-                dark_colony_juice_destroy(out);
+                juice_destroy(out);
                 W_FreeFile(&blob);
                 return false;
             }
@@ -201,15 +201,15 @@ static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
             src_pos += 4;
             total_chunks += chunk_len;
             if (total_chunks > out->payload_bytes || src_pos + chunk_len > blob.size) {
-                dark_colony_juice_destroy(out);
+                juice_destroy(out);
                 W_FreeFile(&blob);
                 return false;
             }
-            DarkColonyJuiceCell *cell = &out->cells[i];
+            JuiceCell *cell = &out->cells[i];
             cell->data_size = chunk_len;
             cell->data = malloc(chunk_len > 0 ? chunk_len : 1);
             if (!cell->data) {
-                dark_colony_juice_destroy(out);
+                juice_destroy(out);
                 W_FreeFile(&blob);
                 return false;
             }
@@ -218,18 +218,18 @@ static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
         }
     } else {
         for (int i = 0; i < out->cell_count; ++i) {
-            DarkColonyJuiceCell *cell = &out->cells[i];
+            JuiceCell *cell = &out->cells[i];
             uint32_t pixel_count = (uint32_t)cell->width * (uint32_t)cell->height;
             cell->data_size = pixel_count;
             if (pixel_count == 0) continue;
             if (src_pos + pixel_count > blob.size) {
-                dark_colony_juice_destroy(out);
+                juice_destroy(out);
                 W_FreeFile(&blob);
                 return false;
             }
             cell->data = malloc(pixel_count);
             if (!cell->data) {
-                dark_colony_juice_destroy(out);
+                juice_destroy(out);
                 W_FreeFile(&blob);
                 return false;
             }
@@ -241,7 +241,7 @@ static bool dark_colony_juice_load(const char *path, DarkColonyJuiceFile *out) {
     return true;
 }
 
-static void dark_colony_animation_destroy(DarkColonyAnimationFile *animation) {
+static void animation_destroy(AnimationFile *animation) {
     if (!animation) return;
     free(animation->dependencies);
     free(animation->labels);
@@ -250,7 +250,7 @@ static void dark_colony_animation_destroy(DarkColonyAnimationFile *animation) {
     memset(animation, 0, sizeof(*animation));
 }
 
-static bool dark_colony_animation_load(const char *path, DarkColonyAnimationFile *out) {
+static bool animation_load(const char *path, AnimationFile *out) {
     memset(out, 0, sizeof(*out));
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
@@ -282,7 +282,7 @@ static bool dark_colony_animation_load(const char *path, DarkColonyAnimationFile
     out->command_count = (int)((blob.size - command_off) / 22);
     out->commands = calloc(out->command_count ? out->command_count : 1, sizeof(*out->commands));
     if (!out->dependencies || !out->labels || !out->aux_records || !out->commands) {
-        dark_colony_animation_destroy(out);
+        animation_destroy(out);
         W_FreeFile(&blob);
         return false;
     }
@@ -303,7 +303,7 @@ static bool dark_colony_animation_load(const char *path, DarkColonyAnimationFile
     }
     for (int i = 0; i < out->command_count; ++i) {
         size_t off = command_off + (size_t)i * 22;
-        DarkColonyAnimationCommand *cmd = &out->commands[i];
+        AnimationCommand *cmd = &out->commands[i];
         copy_padded_ascii(cmd->sprite, sizeof(cmd->sprite), blob.bytes + off, 8);
         cmd->frame = read_i16_le_dc(blob.bytes + off + 8);
         cmd->x = read_i16_le_dc(blob.bytes + off + 10);
@@ -317,8 +317,8 @@ static bool dark_colony_animation_load(const char *path, DarkColonyAnimationFile
     return true;
 }
 
-static const DarkColonyAnimationCommand *dark_colony_animation_find_command(
-    const DarkColonyAnimationFile *animation, const char *label_name,
+static const AnimationCommand *animation_find_command(
+    const AnimationFile *animation, const char *label_name,
     const char *sprite_name, int frame, int layer) {
     if (!animation || !label_name || !sprite_name) return NULL;
 
@@ -326,14 +326,14 @@ static const DarkColonyAnimationCommand *dark_colony_animation_find_command(
     for (int frame_index = 0; frame_index < animation->aux_count; ++frame_index) {
         int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
         for (int label_index = 0; label_index < animation->label_count; ++label_index) {
-            const DarkColonyAnimationLabel *label = &animation->labels[label_index];
+            const AnimationLabel *label = &animation->labels[label_index];
             if (strcmp(label->name, label_name) != 0 ||
                 frame_index < label->start || frame_index > label->end) {
                 continue;
             }
             for (int part = 0; part < part_count; ++part) {
                 if (command_index + part >= animation->command_count) return NULL;
-                const DarkColonyAnimationCommand *command =
+                const AnimationCommand *command =
                     &animation->commands[command_index + part];
                 if (strcasecmp(command->sprite, sprite_name) == 0 &&
                     command->frame == frame && command->layer == layer) {
@@ -347,8 +347,8 @@ static const DarkColonyAnimationCommand *dark_colony_animation_find_command(
     return NULL;
 }
 
-static const DarkColonyAnimationCommand *dark_colony_animation_frame_command(
-    const DarkColonyAnimationFile *animation, int frame_index,
+static const AnimationCommand *animation_frame_command(
+    const AnimationFile *animation, int frame_index,
     const char *sprite_name, int layer) {
     if (!animation || !sprite_name || frame_index < 0 || frame_index >= animation->aux_count)
         return NULL;
@@ -359,24 +359,24 @@ static const DarkColonyAnimationCommand *dark_colony_animation_frame_command(
     int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
     for (int part = 0; part < part_count; ++part) {
         if (command_index + part >= animation->command_count) return NULL;
-        const DarkColonyAnimationCommand *command = &animation->commands[command_index + part];
+        const AnimationCommand *command = &animation->commands[command_index + part];
         if (strcasecmp(command->sprite, sprite_name) == 0 && command->layer == layer)
             return command;
     }
     return NULL;
 }
 
-static void dark_colony_sprite_native_destroy(void *ptr) {
-    DarkColonySpriteNative *native = ptr;
+static void sprite_native_destroy(void *ptr) {
+    SpriteNative *native = ptr;
     if (!native) return;
     free(native->indices);
-    dark_colony_juice_destroy(&native->juice);
-    dark_colony_animation_destroy(&native->animation);
+    juice_destroy(&native->juice);
+    animation_destroy(&native->animation);
     free(native);
 }
 
-bool dark_colony_load_render_tables(const char *data_root, const char *tileset_name) {
-    memset(&dark_colony_render_tables, 0, sizeof(dark_colony_render_tables));
+bool load_render_tables(const char *data_root, const char *tileset_name) {
+    memset(&render_tables, 0, sizeof(render_tables));
     if (!data_root || !tileset_name || tileset_name[0] == '\0') return false;
 
     char bts_name[64];
@@ -391,7 +391,7 @@ bool dark_colony_load_render_tables(const char *data_root, const char *tileset_n
         W_FreeFile(&bts);
         return false;
     }
-    dark_colony_palette_from_spr(bts.bytes, bts.size, dark_colony_render_tables.palette);
+    palette_from_spr(bts.bytes, bts.size, render_tables.palette);
     W_FreeFile(&bts);
 
     char rmp_name[64];
@@ -404,31 +404,31 @@ bool dark_colony_load_render_tables(const char *data_root, const char *tileset_n
         W_FreeFile(&rmp);
         return false;
     }
-    memcpy(dark_colony_render_tables.selector5, rmp.bytes + 256 * 256,
-           sizeof(dark_colony_render_tables.selector5));
+    memcpy(render_tables.selector5, rmp.bytes + 256 * 256,
+           sizeof(render_tables.selector5));
     W_FreeFile(&rmp);
-    dark_colony_render_tables.valid = true;
+    render_tables.valid = true;
     return true;
 }
 
-static bool dark_colony_resolve_composition(const spritesheet_t *sprite, int selector,
+static bool resolve_composition(const spritesheet_t *sprite, int selector,
                                             rts_composition_t *out) {
     if (!out) return false;
     *out = (rts_composition_t){0};
-    if (!sprite || selector != 5 || !dark_colony_render_tables.valid) return false;
-    DarkColonySpriteNative *native = sprite->native_data;
+    if (!sprite || selector != 5 || !render_tables.valid) return false;
+    SpriteNative *native = sprite->native_data;
     if (!native || !native->indices || native->atlas_w <= 0) return false;
     *out = (rts_composition_t){
         .kind = RTS_COMPOSE_INDEXED_TABLE,
         .source_indices = native->indices,
         .source_stride = native->atlas_w,
-        .palette = dark_colony_render_tables.palette,
-        .lookup_table = dark_colony_render_tables.selector5,
+        .palette = render_tables.palette,
+        .lookup_table = render_tables.selector5,
     };
     return true;
 }
 
-static bool dark_colony_animation_path_for_sprite(char *out, size_t out_size,
+static bool animation_path_for_sprite(char *out, size_t out_size,
                                                   const char *sprite_path) {
     if (!out || out_size == 0 || !sprite_path) return false;
     const char *base = strrchr(sprite_path, '/');
@@ -457,7 +457,7 @@ static bool dark_colony_animation_path_for_sprite(char *out, size_t out_size,
     return true;
 }
 
-static bool dark_colony_dependency_sprite_name(char *out, size_t out_size,
+static bool dependency_sprite_name(char *out, size_t out_size,
                                                const char *dependency) {
     if (!out || out_size == 0 || !dependency) return false;
     char stem[16];
@@ -473,7 +473,7 @@ static bool dark_colony_dependency_sprite_name(char *out, size_t out_size,
     return snprintf(out, out_size, "SPRITES/%s.SPR", stem) < (int)out_size;
 }
 
-static bool dark_colony_file_exists(const char *path) {
+static bool file_exists(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return false;
     fclose(f);
@@ -484,29 +484,29 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                              uint32_t palette_out[256]) {
     memset(out, 0, sizeof(*out));
 
-    DarkColonySpriteNative *native = calloc(1, sizeof(*native));
+    SpriteNative *native = calloc(1, sizeof(*native));
     if (!native) return false;
-    if (!dark_colony_juice_load(path, &native->juice)) {
+    if (!juice_load(path, &native->juice)) {
         fprintf(stderr, "%s is not a supported Dark Colony raw SPR\n", path);
-        dark_colony_sprite_native_destroy(native);
+        sprite_native_destroy(native);
         return false;
     }
     if (palette_out) memcpy(palette_out, native->juice.palette, sizeof(native->juice.palette));
     const uint32_t *palette = native->juice.palette;
 
     char animation_path[1024];
-    if (dark_colony_animation_path_for_sprite(animation_path, sizeof(animation_path), path) &&
-        dark_colony_file_exists(animation_path) &&
-        dark_colony_animation_load(animation_path, &native->animation)) {
+    if (animation_path_for_sprite(animation_path, sizeof(animation_path), path) &&
+        file_exists(animation_path) &&
+        animation_load(animation_path, &native->animation)) {
         native->has_animation = true;
     }
 
-    DarkColonyJuiceFile *juice = &native->juice;
+    JuiceFile *juice = &native->juice;
     int visible_frames = juice->cell_count;
     int max_w = 1, max_h = 1;
     int canvas_w = 1, canvas_h = 1;
     for (int i = 0; i < visible_frames; ++i) {
-        const DarkColonyJuiceCell *cell = &juice->cells[i];
+        const JuiceCell *cell = &juice->cells[i];
         int w = cell->width > 0 ? cell->width : 1;
         int h = cell->height > 0 ? cell->height : 1;
         if (w > max_w) max_w = w;
@@ -526,13 +526,13 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     SDL_Point *displacements = calloc((size_t)visible_frames, sizeof(SDL_Point));
     if (!rgba || !indices || !frames || !bounds || !displacements) {
         free(rgba); free(indices); free(frames); free(bounds); free(displacements);
-        dark_colony_sprite_native_destroy(native);
+        sprite_native_destroy(native);
         return false;
     }
 
     bool has_team_colors = false;
     for (int i = 0; i < visible_frames; ++i) {
-        const DarkColonyJuiceCell *cell = &juice->cells[i];
+        const JuiceCell *cell = &juice->cells[i];
         int w = cell->width > 0 ? cell->width : 1;
         int h = cell->height > 0 ? cell->height : 1;
         bool blank = cell->width == 0 || cell->height == 0;
@@ -565,7 +565,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                                 uint8_t index = src[pos + (size_t)p];
                                 if (index >= 138 && index <= 143) has_team_colors = true;
                                 indices[dst] = index;
-                                rgba[dst] = dark_colony_sprite_pixel_rgba(index, palette, -1);
+                                rgba[dst] = sprite_pixel_rgba(index, palette, -1);
                             }
                         }
                         write++;
@@ -585,7 +585,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                             uint8_t index = src[y * w + x];
                             if (index >= 138 && index <= 143) has_team_colors = true;
                             indices[dst] = index;
-                            rgba[dst] = dark_colony_sprite_pixel_rgba(index, palette, -1);
+                            rgba[dst] = sprite_pixel_rgba(index, palette, -1);
                         }
                     }
                 }
@@ -602,7 +602,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         free(frames);
         free(bounds);
         free(displacements);
-        dark_colony_sprite_native_destroy(native);
+        sprite_native_destroy(native);
         return false;
     }
 
@@ -615,7 +615,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         free(frames);
         free(bounds);
         free(displacements);
-        dark_colony_sprite_native_destroy(native);
+        sprite_native_destroy(native);
         return false;
     }
     for (int remap = 0; has_team_colors && remap < 8; ++remap) {
@@ -626,7 +626,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
                 int frame = row * cols + col;
                 size_t pos = (size_t)y * (size_t)atlas_w + (size_t)x;
                 remap_rgba[pos] = frame >= 0 && frame < visible_frames ?
-                    dark_colony_sprite_pixel_rgba(indices[pos], palette, remap) :
+                    sprite_pixel_rgba(indices[pos], palette, remap) :
                     0x00000000u;
             }
         }
@@ -641,7 +641,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
             free(frames);
             free(bounds);
             free(displacements);
-            dark_colony_sprite_native_destroy(native);
+            sprite_native_destroy(native);
             return false;
         }
     }
@@ -660,8 +660,8 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     out->rotations = 1;
     out->primary_frames_per_rotation = visible_frames;
     out->native_data = native;
-    out->destroy_native_data = dark_colony_sprite_native_destroy;
-    out->resolve_composition = dark_colony_resolve_composition;
+    out->destroy_native_data = sprite_native_destroy;
+    out->resolve_composition = resolve_composition;
 
     free(rgba);
     native->indices = indices;
@@ -693,18 +693,18 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *re
         return false;
     }
     cache->count++;
-    DarkColonySpriteNative *native = entry->sprite.native_data;
+    SpriteNative *native = entry->sprite.native_data;
     if (native && native->has_animation) {
         for (int i = 0; i < native->animation.dependency_count; ++i) {
             char dependency_name[64];
-            if (!dark_colony_dependency_sprite_name(dependency_name, sizeof(dependency_name),
+            if (!dependency_sprite_name(dependency_name, sizeof(dependency_name),
                                                     native->animation.dependencies[i].name)) {
                 continue;
             }
             if (R_CacheFind(cache, dependency_name)) continue;
             char dependency_path[1024];
             M_PathJoin(dependency_path, sizeof(dependency_path), data_root, dependency_name);
-            if (!dark_colony_file_exists(dependency_path)) continue;
+            if (!file_exists(dependency_path)) continue;
             if (!sprite_cache_load_dark_colony(cache, renderer, data_root, dependency_name))
                 return false;
         }
@@ -737,7 +737,7 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, ui_sprites[i]))
             ok = false;
     }
-    int selection_sprite = dark_colony_game_info.selection_marker.sprite;
+    int selection_sprite = game_info.selection_marker.sprite;
     if (selection_sprite >= 0 && selection_sprite < NUMSPRITES &&
         !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[selection_sprite])) {
         ok = false;
@@ -766,8 +766,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
     return ok;
 }
 
-bool dark_colony_vent_placement_from_sprites(const char *map_path,
-                                             DarkColonyVentPlacement *out) {
+bool vent_placement_from_sprites(const char *map_path,
+                                             VentPlacement *out) {
     if (!map_path || !out) return false;
     memset(out, 0, sizeof(*out));
 
@@ -784,33 +784,33 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/VENT.FIN",
              (int)root_len, map_path);
 
-    DarkColonyJuiceFile glow = {0};
-    DarkColonyJuiceFile smoke = {0};
-    DarkColonyAnimationFile animation = {0};
-    if (!dark_colony_juice_load(glow_path, &glow) ||
-        !dark_colony_juice_load(smoke_path, &smoke) ||
-        !dark_colony_animation_load(animation_path, &animation) ||
+    JuiceFile glow = {0};
+    JuiceFile smoke = {0};
+    AnimationFile animation = {0};
+    if (!juice_load(glow_path, &glow) ||
+        !juice_load(smoke_path, &smoke) ||
+        !animation_load(animation_path, &animation) ||
         glow.cell_count <= 0) {
-        dark_colony_juice_destroy(&glow);
-        dark_colony_juice_destroy(&smoke);
-        dark_colony_animation_destroy(&animation);
+        juice_destroy(&glow);
+        juice_destroy(&smoke);
+        animation_destroy(&animation);
         return false;
     }
 
-    const DarkColonyJuiceCell *plume = &glow.cells[0];
-    const DarkColonyAnimationCommand *plume_command = dark_colony_animation_find_command(
+    const JuiceCell *plume = &glow.cells[0];
+    const AnimationCommand *plume_command = animation_find_command(
         &animation, "VENTSTAND0", "vent2", 0, 0);
     if (!plume_command) {
-        dark_colony_juice_destroy(&glow);
-        dark_colony_juice_destroy(&smoke);
-        dark_colony_animation_destroy(&animation);
+        juice_destroy(&glow);
+        juice_destroy(&smoke);
+        animation_destroy(&animation);
         return false;
     }
 
     out->glow_left = plume_command->x + (int)plume->dis_x;
     out->glow_top = -plume_command->y + (int)plume->dis_y;
 
-    const DarkColonyAnimationLabel *label = NULL;
+    const AnimationLabel *label = NULL;
     for (int i = 0; i < animation.label_count; ++i) {
         if (strcmp(animation.labels[i].name, "VENTSTAND0") == 0) {
             label = &animation.labels[i];
@@ -818,26 +818,26 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
         }
     }
     if (!label || label->end < label->start ||
-        label->end - label->start + 1 > DC_VENT_SMOKE_MAX_FRAMES) {
-        dark_colony_juice_destroy(&glow);
-        dark_colony_juice_destroy(&smoke);
-        dark_colony_animation_destroy(&animation);
+        label->end - label->start + 1 > VENT_SMOKE_MAX_FRAMES) {
+        juice_destroy(&glow);
+        juice_destroy(&smoke);
+        animation_destroy(&animation);
         return false;
     }
     for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
-        const DarkColonyAnimationCommand *command = dark_colony_animation_frame_command(
+        const AnimationCommand *command = animation_frame_command(
             &animation, frame_index, "puff", 5);
         if (!command || command->frame < 0 || command->frame >= smoke.cell_count) {
-            dark_colony_juice_destroy(&glow);
-            dark_colony_juice_destroy(&smoke);
-            dark_colony_animation_destroy(&animation);
+            juice_destroy(&glow);
+            juice_destroy(&smoke);
+            animation_destroy(&animation);
             return false;
         }
-        const DarkColonyJuiceCell *cell = &smoke.cells[command->frame];
+        const JuiceCell *cell = &smoke.cells[command->frame];
         int raw_ticks = read_u16_le(animation.aux_records + (size_t)frame_index * 164 + 2);
         if (raw_ticks == 0) raw_ticks = 15;
         int runtime_tics = ((raw_ticks + 3) * 19) / 100;
-        DarkColonyVentSmokeFrame *frame = &out->smoke_frames[out->smoke_frame_count++];
+        VentSmokeFrame *frame = &out->smoke_frames[out->smoke_frame_count++];
         frame->sprite_frame = command->frame;
         frame->pivot = (ivec2_t){
             -(command->x + (int)cell->dis_x),
@@ -849,16 +849,16 @@ bool dark_colony_vent_placement_from_sprites(const char *map_path,
     }
     out->valid = true;
 
-    dark_colony_juice_destroy(&glow);
-    dark_colony_juice_destroy(&smoke);
-    dark_colony_animation_destroy(&animation);
+    juice_destroy(&glow);
+    juice_destroy(&smoke);
+    animation_destroy(&animation);
     return true;
 }
 
-static bool dark_colony_load_dropship_label(const DarkColonyAnimationFile *animation,
+static bool load_dropship_label(const AnimationFile *animation,
                                             const char *label_name,
-                                            DarkColonyDropshipAnimation *out) {
-    const DarkColonyAnimationLabel *label = NULL;
+                                            DropshipAnimation *out) {
+    const AnimationLabel *label = NULL;
     int command_index = 0;
 
     for (int i = 0; i < animation->label_count; ++i) {
@@ -868,14 +868,14 @@ static bool dark_colony_load_dropship_label(const DarkColonyAnimationFile *anima
         }
     }
     if (!label || label->end < label->start ||
-        label->end - label->start + 1 > DC_DROPSHIP_MAX_FRAMES) return false;
+        label->end - label->start + 1 > DROPSHIP_MAX_FRAMES) return false;
 
     for (int frame_index = 0; frame_index < animation->aux_count; ++frame_index) {
         int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
         if (frame_index >= label->start && frame_index <= label->end) {
-            if (part_count > DC_DROPSHIP_MAX_PARTS ||
+            if (part_count > DROPSHIP_MAX_PARTS ||
                 command_index + part_count > animation->command_count) return false;
-            DarkColonyDropshipFrame *frame = &out->frames[out->frame_count++];
+            DropshipFrame *frame = &out->frames[out->frame_count++];
             int raw_ticks = read_u16_le(
                 animation->aux_records + (size_t)frame_index * 164 + 2);
             if (raw_ticks == 0) raw_ticks = 15;
@@ -884,9 +884,9 @@ static bool dark_colony_load_dropship_label(const DarkColonyAnimationFile *anima
             frame->part_count = part_count;
             out->duration_ms += frame->duration_ms;
             for (int part_index = 0; part_index < part_count; ++part_index) {
-                const DarkColonyAnimationCommand *command =
+                const AnimationCommand *command =
                     &animation->commands[command_index + part_index];
-                DarkColonyDropshipPart *part = &frame->parts[part_index];
+                DropshipPart *part = &frame->parts[part_index];
                 snprintf(part->sprite_name, sizeof(part->sprite_name),
                          "SPRITES/%s.SPR", command->sprite);
                 for (char *p = part->sprite_name; *p; ++p)
@@ -905,8 +905,8 @@ static bool dark_colony_load_dropship_label(const DarkColonyAnimationFile *anima
     return out->valid;
 }
 
-bool dark_colony_dropship_animation_from_sprites(const char *map_path,
-                                                 DarkColonyDropshipAnimations *out) {
+bool dropship_animation_from_sprites(const char *map_path,
+                                                 DropshipAnimations *out) {
     if (!map_path || !out) return false;
     memset(out, 0, sizeof(*out));
 
@@ -919,12 +919,12 @@ bool dark_colony_dropship_animation_from_sprites(const char *map_path,
     snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/DROP.FIN",
              (int)root_len, map_path);
 
-    DarkColonyAnimationFile animation = {0};
-    if (!dark_colony_animation_load(animation_path, &animation)) return false;
+    AnimationFile animation = {0};
+    if (!animation_load(animation_path, &animation)) return false;
 
-    bool valid = dark_colony_load_dropship_label(&animation, "DROPMOVE0", &out->move) &&
-                 dark_colony_load_dropship_label(&animation, "DROPSTAND0", &out->stand) &&
-                 dark_colony_load_dropship_label(&animation, "DROPTWO", &out->unload);
-    dark_colony_animation_destroy(&animation);
+    bool valid = load_dropship_label(&animation, "DROPMOVE0", &out->move) &&
+                 load_dropship_label(&animation, "DROPSTAND0", &out->stand) &&
+                 load_dropship_label(&animation, "DROPTWO", &out->unload);
+    animation_destroy(&animation);
     return valid;
 }

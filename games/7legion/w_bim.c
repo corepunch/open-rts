@@ -37,7 +37,7 @@ static bool sl_load_col_palette(const char *path, uint32_t palette[256]) {
      [frame data]    each frame: uint16_le width + uint16_le height + w*h bytes
    Tiles in TILES*.BIM are always 32×32 uncompressed palette-indexed pixels. */
 
-#define SL_ATLAS_COLS 64
+#define ATLAS_COLS 64
 
 static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
                                 const uint32_t palette[256], tileset_t *out) {
@@ -63,7 +63,7 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
         if (off + 4 > blob.size) break;
         uint16_t w = read_u16_le(data + off);
         uint16_t h = read_u16_le(data + off + 2);
-        if (w != SL_TILE_W || h != SL_TILE_H) break;
+        if (w != TILE_W || h != TILE_H) break;
         if (off + 4 + (size_t)w * h > blob.size) break;
         usable++;
     }
@@ -73,9 +73,9 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
         return false;
     }
 
-    int atlas_rows = (usable + SL_ATLAS_COLS - 1) / SL_ATLAS_COLS;
-    int atlas_w    = SL_ATLAS_COLS * SL_TILE_W;
-    int atlas_h    = atlas_rows  * SL_TILE_H;
+    int atlas_rows = (usable + ATLAS_COLS - 1) / ATLAS_COLS;
+    int atlas_w    = ATLAS_COLS * TILE_W;
+    int atlas_h    = atlas_rows  * TILE_H;
 
     uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
     if (!rgba) { W_FreeFile(&blob); return false; }
@@ -84,11 +84,11 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
         uint32_t off = read_u32_le(data + (size_t)i * 4);
         const uint8_t *pixels = data + off + 4; /* skip 4-byte header */
 
-        int tx = (i % SL_ATLAS_COLS) * SL_TILE_W;
-        int ty = (i / SL_ATLAS_COLS) * SL_TILE_H;
-        for (int py = 0; py < SL_TILE_H; ++py) {
-            for (int px = 0; px < SL_TILE_W; ++px) {
-                uint8_t idx = pixels[py * SL_TILE_W + px];
+        int tx = (i % ATLAS_COLS) * TILE_W;
+        int ty = (i / ATLAS_COLS) * TILE_H;
+        for (int py = 0; py < TILE_H; ++py) {
+            for (int px = 0; px < TILE_W; ++px) {
+                uint8_t idx = pixels[py * TILE_W + px];
                 rgba[(ty + py) * atlas_w + tx + px] = palette[idx];
             }
         }
@@ -96,9 +96,9 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
 
     out->texture    = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, false);
     out->count      = usable;
-    out->atlas_cols = SL_ATLAS_COLS;
-    out->tile_w     = SL_TILE_W;
-    out->tile_h     = SL_TILE_H;
+    out->atlas_cols = ATLAS_COLS;
+    out->tile_w     = TILE_W;
+    out->tile_h     = TILE_H;
 
     free(rgba);
     W_FreeFile(&blob);

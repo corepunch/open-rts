@@ -10,7 +10,7 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                              spritecache_t *cache);
 
 /* mobj_t types defined in 7th Legion based on sprites present in data/7LEGION/GFX/ */
-static const actortype_t SL_ACTOR_TYPES[] = {
+static const actortype_t ACTOR_TYPES[] = {
     {
         .id          = 1,
         .name        = "Trooper",
@@ -84,11 +84,11 @@ static const actortype_t SL_ACTOR_TYPES[] = {
     },
 };
 
-static const gameinfo_t SL_GAME_INFO = {
+static const gameinfo_t GAME_INFO = {
     .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
 };
 
-static const uidefinition_t SL_UI = {
+static const uidefinition_t UI = {
     .logical_width = 640,
     .logical_height = 480,
     .world_viewport = { 0, 28, 640, 452 },
@@ -111,15 +111,15 @@ const char *const g_game_name          = "7th Legion";
 const char *const g_game_default_root  = "data/7LEGION";
 const char *const g_game_default_map   = "DATA/MAPT.000";
 const char *const g_game_default_sprite = "GFX/LTROOP.BIM";
-const int g_cell_w = SL_TILE_W;
-const int g_cell_h = SL_TILE_H;
+const int g_cell_w = TILE_W;
+const int g_cell_h = TILE_H;
 const uint16_t g_debug_enemy_type = 1;
-const gameinfo_t *const gameinfo = &SL_GAME_INFO;
+const gameinfo_t *const gameinfo = &GAME_INFO;
 const actortype_t *const mobjinfo =
-    (const actortype_t *)SL_ACTOR_TYPES;
+    (const actortype_t *)ACTOR_TYPES;
 const int num_mobjinfo =
-    (int)(sizeof(SL_ACTOR_TYPES) / sizeof(SL_ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = &SL_UI;
+    (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
+const uidefinition_t *const gameui = &UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 

@@ -1065,8 +1065,8 @@ static int assert_dark_reign(RtsGameModel *model) {
     if (snapshot.player_resources[0][0] != 12000 || snapshot.player_resources[1][0] != 12000) {
         return fail("Dark Reign team credits load into model resources");
     }
-    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3) {
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, ACTOR_FG_CONSTRUCTION_CREW) != 3 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, ACTOR_FG_CONSTRUCTION_CREW) != 3) {
         return fail("Dark Reign starting construction crews preserve SCN team ownership");
     }
     if (!strstr(snapshot.ui_script, "ui dark-reign 1\n") ||
@@ -1091,7 +1091,7 @@ static int assert_dark_reign(RtsGameModel *model) {
         return fail("Dark Reign snapshot after building HQ");
     }
     if (snapshot.unit_count != units_before_hq + 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_HEADQUARTERS_1) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 0, ACTOR_FG_HEADQUARTERS_1) != 1 ||
         snapshot.player_resources[0][0] != resources_before_hq - 750) {
         return fail("Dark Reign FG HQ production creates building and spends BUILD.TXT cost");
     }
@@ -1104,7 +1104,7 @@ static int assert_dark_reign(RtsGameModel *model) {
     }
 
     int rigs_before = snapshot_count_units_with_owner_and_type(
-        &snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW);
+        &snapshot, 0, ACTOR_FG_CONSTRUCTION_CREW);
     int units_before_rig = snapshot.unit_count;
     int resources_before_rig = snapshot.player_resources[0][0];
     RtsGameCommand train_rig = {
@@ -1118,7 +1118,7 @@ static int assert_dark_reign(RtsGameModel *model) {
         return fail("Dark Reign snapshot after training Construction Rig");
     }
     if (snapshot.unit_count != units_before_rig + 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != rigs_before + 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 0, ACTOR_FG_CONSTRUCTION_CREW) != rigs_before + 1 ||
         snapshot.player_resources[0][0] != resources_before_rig - 300) {
         return fail("Dark Reign Construction Rig production creates unit and spends UNITS.TXT cost");
     }
@@ -1145,7 +1145,7 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     if (snapshot.map_width != 60 || snapshot.map_height != 60 ||
         snapshot.player_resources[0][0] != 4000 ||
         snapshot_count_units_with_owner_and_type(
-            &snapshot, 0, DR_ACTOR_FG_GROUND_TRANSPORTER) != 1 ||
+            &snapshot, 0, ACTOR_FG_GROUND_TRANSPORTER) != 1 ||
         !snapshot_has_dark_reign_building(&snapshot,
             "tileset|nfhqt1l0.spr", "base|nfhqt1l0.spr", "base|tfhqt1l0.spr", 4, 4) ||
         !snapshot_has_dark_reign_building(&snapshot,
@@ -1166,7 +1166,7 @@ static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     if (snapshot.map_width != 71 || snapshot.map_height != 71 ||
         snapshot.player_resources[0][0] != 12000 ||
         snapshot_count_units_with_owner_and_type(
-            &snapshot, 0, DR_ACTOR_FG_CONSTRUCTION_CREW) != 3) {
+            &snapshot, 0, ACTOR_FG_CONSTRUCTION_CREW) != 3) {
         return fail("Mission 2 loads its barren map, credits, and three construction crews");
     }
 

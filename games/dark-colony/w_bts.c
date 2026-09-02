@@ -15,7 +15,7 @@
 
 enum { DARK_COLONY_WATER_WAVE_COUNT = 7 };
 
-static bool dark_colony_palette_index_is_water(uint8_t index, const uint32_t palette[256]) {
+static bool palette_index_is_water(uint8_t index, const uint32_t palette[256]) {
     uint32_t color = palette[index];
     uint8_t r = (uint8_t)(color >> 16);
     uint8_t g = (uint8_t)(color >> 8);
@@ -23,7 +23,7 @@ static bool dark_colony_palette_index_is_water(uint8_t index, const uint32_t pal
     return index >= 201 && index <= 211 && r < 80 && g > 36 && b > 36 && g + b > r * 2;
 }
 
-static int dark_colony_palette_wave_score(uint8_t index, const uint32_t palette[256]) {
+static int palette_wave_score(uint8_t index, const uint32_t palette[256]) {
     uint32_t color = palette[index];
     uint8_t r = (uint8_t)(color >> 16);
     uint8_t g = (uint8_t)(color >> 8);
@@ -31,27 +31,27 @@ static int dark_colony_palette_wave_score(uint8_t index, const uint32_t palette[
     return (int)g + (int)b - (int)r * 2;
 }
 
-static bool dark_colony_palette_index_is_wave(uint8_t index, const uint32_t palette[256]) {
-    if (index < 201 || index > 207 || !dark_colony_palette_index_is_water(index, palette)) return false;
-    int score = dark_colony_palette_wave_score(index, palette);
+static bool palette_index_is_wave(uint8_t index, const uint32_t palette[256]) {
+    if (index < 201 || index > 207 || !palette_index_is_water(index, palette)) return false;
+    int score = palette_wave_score(index, palette);
     int rank = 0;
     for (uint8_t other = 201; other <= 207; ++other) {
-        if (!dark_colony_palette_index_is_water(other, palette)) continue;
-        int other_score = dark_colony_palette_wave_score(other, palette);
+        if (!palette_index_is_water(other, palette)) continue;
+        int other_score = palette_wave_score(other, palette);
         if (other_score > score || (other_score == score && other < index)) rank++;
     }
     return rank < DARK_COLONY_WATER_WAVE_COUNT;
 }
 
-static int dark_colony_palette_wave_count(const uint32_t palette[256]) {
+static int palette_wave_count(const uint32_t palette[256]) {
     int count = 0;
     for (uint8_t index = 201; index <= 207; ++index) {
-        if (dark_colony_palette_index_is_wave(index, palette)) count++;
+        if (palette_index_is_wave(index, palette)) count++;
     }
     return count;
 }
 
-static bool dark_colony_tile_has_water(const uint8_t *src, const uint32_t palette[256],
+static bool tile_has_water(const uint8_t *src, const uint32_t palette[256],
                                        size_t tile_bytes) {
     int water = 0, opaque = 0;
     for (size_t i = 0; i < tile_bytes; ++i) {
@@ -62,17 +62,17 @@ static bool dark_colony_tile_has_water(const uint8_t *src, const uint32_t palett
         uint8_t b = (uint8_t)color;
         if (index == 0 || (r > 240 && g < 16 && b > 240)) continue;
         opaque++;
-        if (dark_colony_palette_index_is_water(index, palette)) water++;
+        if (palette_index_is_water(index, palette)) water++;
     }
     return water >= 96 && water * 4 >= opaque;
 }
 
-static uint8_t dark_colony_cycle_water_index(uint8_t index, const uint32_t palette[256], int phase) {
-    if (!dark_colony_palette_index_is_wave(index, palette)) return index;
+static uint8_t cycle_water_index(uint8_t index, const uint32_t palette[256], int phase) {
+    if (!palette_index_is_wave(index, palette)) return index;
     uint8_t wave_indices[DARK_COLONY_WATER_WAVE_COUNT];
     int wave_count = 0, index_pos = -1;
     for (uint8_t other = 201; other <= 207; ++other) {
-        if (!dark_colony_palette_index_is_wave(other, palette)) continue;
+        if (!palette_index_is_wave(other, palette)) continue;
         if (wave_count < DARK_COLONY_WATER_WAVE_COUNT) {
             if (other == index) index_pos = wave_count;
             wave_indices[wave_count++] = other;
@@ -87,7 +87,7 @@ static void blit_dark_colony_tile_phase(uint32_t *dst, int dst_w, int dst_h, int
                                         const uint32_t palette[256], int phase) {
     for (int y = 0; y < src_h; ++y) {
         for (int x = 0; x < src_w; ++x) {
-            uint8_t index = dark_colony_cycle_water_index(src[y * src_w + x], palette, phase);
+            uint8_t index = cycle_water_index(src[y * src_w + x], palette, phase);
             uint32_t color = palette[index];
             int dx = dst_x + x, dy = dst_y + y;
             if (dx >= 0 && dy >= 0 && dx < dst_w && dy < dst_h)
@@ -127,7 +127,7 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_
                      ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
     }
 
-    int wave_phase_count = dark_colony_palette_wave_count(palette);
+    int wave_phase_count = palette_wave_count(palette);
     if (wave_phase_count > MAX_TILE_ANIMATION_FRAMES) wave_phase_count = MAX_TILE_ANIMATION_FRAMES;
     int extra_phase_count = wave_phase_count > 1 ? wave_phase_count - 1 : 0;
 
@@ -143,7 +143,7 @@ bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_
         uint32_t key = read_u32_le(record);
         record_keys[tile] = key;
         if (key <= UINT16_MAX && (int)key > max_key) max_key = (int)key;
-        if (extra_phase_count > 0 && dark_colony_tile_has_water(record + 4, palette, tile_bytes)) {
+        if (extra_phase_count > 0 && tile_has_water(record + 4, palette, tile_bytes)) {
             animate_tile[tile] = 1;
             animated_count++;
         }
