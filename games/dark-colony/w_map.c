@@ -969,13 +969,19 @@ static int mobj_type_for_type(int type, int race) {
         case 32: return MT_DC_ALIEN_MINDHIVE2;
         case 33: return MT_DC_ALIEN_MINDHIVE3;
         case 34: return MT_DC_ALIEN_RSCHIVE;
+        case 41: return MT_DC_MOBILE_TOWER;
         case 81: return MT_DC_CITY_TOWER;
         case 86: return MT_DC_COMMS_DISH;
+        case 89: return MT_DC_DROP_LINK;
+        case 91: return MT_DC_ALIEN_COM;
+        case 94: return MT_DC_VISION_SIGHT;
         default: break;
     }
 
     if (race == 1) {
         if (type == 0 || type == 8 || (type >= 69 && type <= 76)) return MT_DC_GREY;
+        if (type == 13) return MT_DC_ORTU;
+        if (type == 14) return MT_DC_SLUG;
         return 0;
     }
 
@@ -994,8 +1000,12 @@ static const char *unit_sprite_for_type(int type, int race) {
     if (type == 16 || type == 17) return "SPRITES/HUBU.SPR";
     if (type >= 18 && type <= 22) return "SPRITES/SHORTCIT.SPR";
     if (type >= 28 && type <= 34) return "SPRITES/ALBU.SPR";
+    if (type == 41) return "SPRITES/TURR.SPR";
     if (type == 81) return "SPRITES/TOWR.SPR";
     if (type == 86) return "SPRITES/DISH.SPR";
+    if (type == 89) return "SPRITES/CENT.SPR";
+    if (type == 91) return "SPRITES/TONG.SPR";
+    if (type == 94) return "SPRITES/DOTT.SPR";
     if (race == 1) {
         if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
         if (type == 6) return "SPRITES/SLUG.SPR";
@@ -1036,7 +1046,11 @@ static int unit_frame_for_type(int type) {
         case 20: return 2; /* SCIENCESTAND0 */
         case 21: return 2; /* SCNCPOD2 reuses science art. */
         case 22: return 4; /* HUMRESSTAND0 */
+        case 41: return 0; /* TURR */
         case 81: return 0; /* TOWR.FIN TOWRSTAND0 */
+        case 89: return 0; /* CENT */
+        case 91: return 0; /* TONG */
+        case 94: return 0; /* DOTT */
         default: break;
     }
     if (type >= 28 && type <= 34) return type - 28;
