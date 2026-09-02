@@ -1038,6 +1038,15 @@ static int assert_human03_city_slots(RtsGameModel *model) {
                                       (ivec2_t){ 0, CELL_H })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_WARHIVE) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_BRDRHIVE) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE2) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_RSCHIVE) != 1 ||
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0 ||
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALBU.SPR") != 5) {
+        return fail("Human03 alien city slots use native ALBU building art");
+    }
 
     printf("PASS: Human03 city slots compose from Dark Colony fixed-point data with %d units\n",
            snapshot.unit_count);

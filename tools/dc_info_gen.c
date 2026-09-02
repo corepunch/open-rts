@@ -484,6 +484,25 @@ static int fin_first_body_frame(const DcFinAnimation *fin, const char *label) {
     exit(1);
 }
 
+static const DcFinDrawPart *fin_first_body_part(const DcFinAnimation *fin, const char *label) {
+    const DcFinAnimationHeader *header = dc_fin_find_animation_header(fin, label);
+    if (!dc_fin_animation_header_has_valid_frames(fin, header)) {
+        fprintf(stderr, "dc_info_gen: missing FIN label %s in %s\n",
+                label, fin ? fin->stem : "(null)");
+        exit(1);
+    }
+    const DcFinDrawPart *draw_parts[512];
+    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, header, draw_parts,
+                                                                   (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
+    for (int i = 0; i < draw_part_count; ++i) {
+        if (strcmp(draw_parts[i]->sprite, fin->stem_lower) == 0 && draw_parts[i]->layer == 1)
+            return draw_parts[i];
+    }
+    fprintf(stderr, "dc_info_gen: FIN label %s has no body frame for %s\n",
+            label, fin->stem_lower);
+    exit(1);
+}
+
 static const DcFinDrawPart *dc_fin_required_draw_part_in_animation_header(const DcFinAnimation *fin,
                                                        const char *label,
                                                        const char *sprite,
@@ -1015,7 +1034,7 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.scgm_death = fin_state_count_for_sequence(&scgm_fin, "SCGMDIE");
     counts.expl_run = fin_state_count_for_sequence16(&expl_fin, "EXPLMOVE");
     counts.expl_deploy = fin_state_count_for_sequence(&expl_fin, "EXPLDEPLOY");
-    counts.expl_work = fin_frame_count_for_label(&effects_fin, "GLINT3");
+    counts.expl_work = 2;
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE");
 
     if (fin_first_body_frame(&trsc_fin, "TRSCFIREA0") != 80)
@@ -1082,6 +1101,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 1; i <= counts->expl_death; ++i) fprintf(out, "    S_DC_EXPL_DIE%d,\n", i);
     fprintf(out, "    S_DC_EXPL_CORPSE,\n");
     fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,\n");
+    fprintf(out, "    S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
     fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, NUMMOBJTYPES } mobjtype_t;\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
@@ -1730,6 +1750,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     int expl = find_sprite(sprites, sprite_count, "SPRITES/EXPL.SPR");
     int hubu = find_sprite(sprites, sprite_count, "SPRITES/HUBU.SPR");
     int towr = find_sprite(sprites, sprite_count, "SPRITES/TOWR.SPR");
+    int albu = find_sprite(sprites, sprite_count, "SPRITES/ALBU.SPR");
     int blaz = find_sprite(sprites, sprite_count, "SPRITES/BLAZ.SPR");
     char trsc_fin_path[1024];
     char gray_fin_path[1024];
@@ -1740,6 +1761,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     char expl_fin_path[1024];
     char hubu_fin_path[1024];
     char towr_fin_path[1024];
+    char albu_fin_path[1024];
     snprintf(trsc_fin_path, sizeof(trsc_fin_path), "%s/ANIMATE/TRSC.FIN", root);
     snprintf(gray_fin_path, sizeof(gray_fin_path), "%s/ANIMATE/GRAY.FIN", root);
     snprintf(reap_fin_path, sizeof(reap_fin_path), "%s/ANIMATE/REAP.FIN", root);
@@ -1749,6 +1771,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     snprintf(expl_fin_path, sizeof(expl_fin_path), "%s/ANIMATE/EXPL.FIN", root);
     snprintf(hubu_fin_path, sizeof(hubu_fin_path), "%s/ANIMATE/HUBU.FIN", root);
     snprintf(towr_fin_path, sizeof(towr_fin_path), "%s/ANIMATE/TOWR.FIN", root);
+    snprintf(albu_fin_path, sizeof(albu_fin_path), "%s/ANIMATE/ALBU.FIN", root);
     DcFinAnimation trsc_fin = dc_load_fin_animation(trsc_fin_path, "TRSC");
     DcFinAnimation gray_fin = dc_load_fin_animation(gray_fin_path, "GRAY");
     DcFinAnimation reap_fin = dc_load_fin_animation(reap_fin_path, "REAP");
@@ -1758,6 +1781,14 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     DcFinAnimation expl_fin = dc_load_fin_animation(expl_fin_path, "EXPL");
     DcFinAnimation hubu_fin = dc_load_fin_animation(hubu_fin_path, "HUBU");
     DcFinAnimation towr_fin = dc_load_fin_animation(towr_fin_path, "TOWR");
+    DcFinAnimation albu_fin = dc_load_fin_animation(albu_fin_path, "ALBU");
+    const DcFinDrawPart *alien_mindhive = fin_first_body_part(&albu_fin, "MINDHIVSTAND0");
+    const DcFinDrawPart *alien_warhive = fin_first_body_part(&albu_fin, "WARHIVESTAND0");
+    const DcFinDrawPart *alien_brdrhive = fin_first_body_part(&albu_fin, "BRDRHIVSTAND0");
+    const DcFinDrawPart *alien_brdrhive2 = fin_first_body_part(&albu_fin, "BRDRHIV2STAND0");
+    const DcFinDrawPart *alien_mindhive2 = fin_first_body_part(&albu_fin, "MNDHIV2STAND0");
+    const DcFinDrawPart *alien_mindhive3 = fin_first_body_part(&albu_fin, "MINDHIVSTAND0");
+    const DcFinDrawPart *alien_rschive = fin_first_body_part(&albu_fin, "RSCHHIVDIE0");
     int trsc_attack_base = fin_first_body_frame(&trsc_fin, "TRSCFIREA0");
     int gray_attack_base = fin_first_body_frame(&gray_fin, "GRAYFIREA0");
     const DcFinDrawPart *excopod_stand =
@@ -1914,6 +1945,13 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_muzzle(out, sprites[blaz].symbol, trsc_muzzle_frame, trsc_muzzle_x, trsc_muzzle_y);
     write_muzzle(out, sprites[blaz].symbol, gray_muzzle_frame, gray_muzzle_x, gray_muzzle_y);
     write_muzzle16(out, sprites[blaz].symbol, reap_muzzle_frame, reap_muzzle_x, reap_muzzle_y);
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive, "S_NULL");
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_warhive, "S_NULL");
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_brdrhive, "S_NULL");
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_brdrhive2, "S_NULL");
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive2, "S_NULL");
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive3, "S_NULL");
+    f1_fin_raw_state(out, sprites[albu].symbol, alien_rschive, "S_NULL");
     fprintf(out, "};\n\n");
 
     fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");
@@ -1939,7 +1977,6 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "      .healthy_frame = 0, .wounded_frame = 1, .critical_frame = 3, .top_offset_y = -3 },\n");
     fprintf(out, "    NULL,\n");
     fprintf(out, "};\n");
-    dc_free_fin_animation(&trsc_fin);
     dc_free_fin_animation(&gray_fin);
     dc_free_fin_animation(&reap_fin);
     dc_free_fin_animation(&barr_fin);
@@ -1948,6 +1985,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     dc_free_fin_animation(&expl_fin);
     dc_free_fin_animation(&hubu_fin);
     dc_free_fin_animation(&towr_fin);
+    dc_free_fin_animation(&albu_fin);
 }
 
 int main(int argc, char **argv) {

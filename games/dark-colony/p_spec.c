@@ -629,9 +629,7 @@ static void dropship_unload_done(DropshipUpdateContext *context,
     if (ship->payload_index < ship->payload_count) {
         fvec2_t origin_center = fvec2_cell_center(ship->origin);
         ship->start_center = ship->center;
-        ship->target_center = drop_position(
-            context->map, context->units, *context->unit_count,
-            origin_center, ship->released_count);
+        ship->target_center = origin_center;
         ship->release_pending = true;
         set_dropship_phase(
             ship, DROPSHIP_REPOSITION,
