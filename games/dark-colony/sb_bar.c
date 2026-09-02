@@ -528,10 +528,11 @@ static int dc_product_row_actor_type(int row_id) {
 static bool dc_player_has_actor_type(const mobj_t *units, int unit_count, int type_id) {
     if (!units || type_id <= 0) return false;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].owner == 0 && !units[i].remove && units[i].hp > 0 &&
-            units[i].type_id == (uint16_t)type_id) {
-            return true;
+        if (units[i].hidden || units[i].owner != 0 || units[i].remove || units[i].hp <= 0 ||
+            units[i].type_id != (uint16_t)type_id) {
+            continue;
         }
+        return true;
     }
     return false;
 }
@@ -1126,10 +1127,10 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
     }
     for (int i = 0; i < unit_count; ++i) {
         fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
-        if (units[i].remove || position.x < 0.0f || position.y < 0.0f) continue;
+        if (units[i].hidden || units[i].remove || position.x < 0.0f || position.y < 0.0f) continue;
         int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *
-                               (float)clip.h / (float)map->height);
+                                (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
                    (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });

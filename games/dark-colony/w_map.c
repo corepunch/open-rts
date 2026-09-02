@@ -1193,7 +1193,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
                                            bool *player_has_exploiter,
                                            bool *player_anchor_set,
                                            int *player_anchor_x,
-                                           int *player_anchor_y) {
+                                           int *player_anchor_y,
+                                           bool hidden) {
     if (!units || !count || *count >= max_units || !object || object->active == 0) {
         return false;
     }
@@ -1206,6 +1207,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
 
     mobj_t *u = &units[*count];
     memset(u, 0, sizeof(*u));
+    u->hidden = hidden;
     int render_x_pos = 0, render_z_pos = 0;
     object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
@@ -1321,6 +1323,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         }
     }
 
+    bool pool_hidden[MAX_OBJECTS] = { false };
     for (int i = 0; i < scenario.object_count; ++i) {
         const ScenarioObject *object = &scenario.objects[i];
         if (object->value_count < 6 ||
@@ -1328,16 +1331,20 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             object->x < 0 || object->y < 0) {
             continue;
         }
-        if (!scenario_object_starts_visible(object)) continue;
-        object_pool_add_dynamic(&object_pool, object->x, object->y,
+        bool hidden = !scenario_object_starts_visible(object);
+        int pool_index = object_pool_add_dynamic(&object_pool, object->x, object->y,
                                             object->type, object->team,
                                             object->status, object->extra,
                                             unit_config);
+        if (pool_index >= 0 && hidden) {
+            pool_hidden[pool_index] = true;
+        }
     }
 
     for (int i = 0; i < object_pool.active_count && count < max_units; ++i) {
         int object_index = object_pool.active_objects[i];
         const DcObject *object = &object_pool.objects[object_index];
+        bool hidden = pool_hidden[object_index];
         int team = object->team;
         if (object->type == OBJECT_TYPE_PETRA7_VENT || object->type == 84)
             continue;
@@ -1351,7 +1358,8 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             append_dark_colony_object_unit(units, &count, max_units, object_index,
                                            &tower, race, allegiance,
                                            unit_config,
-                                           NULL, NULL, NULL, NULL, NULL);
+                                           NULL, NULL, NULL, NULL, NULL,
+                                           hidden);
         }
         append_dark_colony_object_unit(units, &count, max_units, object_index, object, race,
                                        allegiance,
@@ -1360,7 +1368,8 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                        &player_has_exploiter,
                                        &player_anchor_set,
                                        &player_anchor_x,
-                                       &player_anchor_y);
+                                       &player_anchor_y,
+                                       hidden);
     }
     if (map_path_is_multiplayer(map_path) && !player_has_exploiter &&
         player_anchor_set && count < max_units) {
@@ -1375,7 +1384,8 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                            &player_has_exploiter,
                                            &player_anchor_set,
                                            &player_anchor_x,
-                                           &player_anchor_y);
+                                           &player_anchor_y,
+                                           false);
         }
     }
     scenario_destroy(&scenario);

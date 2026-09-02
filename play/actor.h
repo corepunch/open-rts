@@ -214,6 +214,7 @@ struct mobj_s {
     bool selected;
     bool death_started;
     bool remove;
+    bool hidden;
     struct {
         uint16_t actor_id;
         uint8_t product_class;
