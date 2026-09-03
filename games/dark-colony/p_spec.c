@@ -75,6 +75,7 @@ typedef enum {
     COND_UNIT_TYPE_EXISTS, /* s(team,type,slot)==1 */
     COND_TRIP_PLAYER_NEAR, /* S==0 */
     COND_COUNTER_GT_STATE, /* c > s(team,type,slot) */
+    COND_STATE_ARRAY_EQ,   /* s(team,arr,idx) == val */
 } ConditionKind;
 
 typedef struct {
@@ -110,6 +111,13 @@ typedef struct {
     bool requires_player_near;
     int trigger_x;
     int trigger_y;
+    /* Block condition fields for s() and b() predicates. */
+    int cond_type; /* 0 = none/c>N, 1 = b(team,slot)==N, 2 = s(team,arr,idx)==N, 3 = c>s(team,arr,idx) */
+    int cond_a;    /* team (b, s) */
+    int cond_b;    /* slot (b), arr (s) */
+    int cond_c;    /* ==N value (b, s) */
+    int cond_d;    /* idx (s) */
+    int cond_gt;   /* for c>s: state_arrays[team][idx] threshold */
     ScriptCommand commands[32];
     int command_count;
     ConditionKind condition_kind;
@@ -242,6 +250,7 @@ struct Mission {
     int city_slot_count;
     CitySlotInfo city_slots[32];
     int script_arrays[16];
+    int state_arrays[8][128];
 };
 
 typedef struct {
@@ -745,6 +754,23 @@ static void update_dropship(Mission *mission,
         ship, dropship_animation(mission, ship->phase), effects, max_effects);
 }
 
+static int ai_nearest_vent_to(const level_t *map, int gx, int gy) {
+    int best = -1;
+    float best_distance2 = INFINITY;
+    if (!map || !map->resource_vents) return best;
+    fvec2_t target = fvec2_cell_center((ivec2_t){ gx, gy });
+    for (int i = 0; i < map->resource_vent_count; ++i) {
+        const resourcevent_t *vent = &map->resource_vents[i];
+        if (!vent->active || vent->amount <= 0) continue;
+        float distance2 = fvec2_distance_squared(target, vent->attachment);
+        if (distance2 < best_distance2) {
+            best_distance2 = distance2;
+            best = i;
+        }
+    }
+    return best;
+}
+
 static void execute_script_block(Mission *mission, ScriptBlock *block,
                                               level_t *map, mobj_t *units, int *unit_count,
                                               effect_t *effects, int max_effects,
@@ -780,38 +806,51 @@ static void execute_script_block(Mission *mission, ScriptBlock *block,
                     spawn_script_unit(map, units, unit_count, team, x, y, type, game_info);
             }
         } else if (cmd->type == SCRIPT_CMD_BAIL) {
-            int result = cmd->a[0];
-            int code = cmd->a[1];
-            MissionState new_state = MISSION_ACTIVE;
-            const char *msg = NULL;
-            if (result == 0 && code == 1) {
-                new_state = MISSION_WON;
-                msg = "ALIEN HIVE DESTROYED.";
-            } else if (result == 1 && code == 2) {
-                new_state = MISSION_LOST;
-                msg = "ALL YOUR BUILDINGS HAVE BEEN DESTROYED.";
-            } else if (result == 1 && code == 3) {
-                new_state = MISSION_ALLY_LOST;
-                msg = "ALLIED BASE LOST.";
-            }
-            if (new_state != MISSION_ACTIVE) {
-                if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
-                    fprintf(stderr, "Dark Colony mission state -> %d (bail %d %d)\n",
-                            new_state, result, code);
+            int n = cmd->a[0], m = cmd->a[1];
+            if (n >= 0 && n < mission->block_count)
+                mission->blocks[n].fired = true;
+            if (m >= 0 && m < mission->block_count)
+                mission->blocks[m].fired = false;
+            {
+                MissionState new_state = MISSION_ACTIVE;
+                const char *msg = NULL;
+                if (n == 0 && m == 1) {
+                    new_state = MISSION_WON;
+                    msg = "ALIEN HIVE DESTROYED.";
+                } else if (n == 1 && m == 2) {
+                    new_state = MISSION_LOST;
+                    msg = "ALL YOUR BUILDINGS HAVE BEEN DESTROYED.";
+                } else if (n == 1 && m == 3) {
+                    new_state = MISSION_ALLY_LOST;
+                    msg = "ALLIED BASE LOST.";
                 }
-                mission->state = new_state;
-                if (msg) HU_PushMessage(hud, msg, -1);
+                if (new_state != MISSION_ACTIVE) {
+                    if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+                        fprintf(stderr, "Dark Colony mission state -> %d (bail %d %d)\n",
+                                new_state, n, m);
+                    }
+                    mission->state = new_state;
+                    if (msg) HU_PushMessage(hud, msg, -1);
+                }
             }
         } else if (cmd->type == SCRIPT_CMD_NEWRATE) {
-            /* newrate updates resource vent rates; store for later use */
+            int rate = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
+            int vi = ai_nearest_vent_to(map, x, y);
+            if (vi >= 0) map->resource_vents[vi].rate = rate;
         } else if (cmd->type == SCRIPT_CMD_SETARRAY) {
-            int index = cmd->a[0];
-            int value = cmd->a[1];
-            if (index >= 0 && index < (int)(sizeof(mission->script_arrays) / sizeof(mission->script_arrays[0]))) {
-                mission->script_arrays[index] = value;
+            int slot = cmd->a[0];
+            int val = 0;
+            if (cmd->a[1] == -1) {
+                val = mission->elapsed_ms / SCRIPT_COUNTER_MS + cmd->a[2];
+            } else {
+                val = cmd->a[2];
             }
+            if (slot >= 0 && slot < 128)
+                mission->state_arrays[0][slot] = val;
         } else if (cmd->type == SCRIPT_CMD_SETLIFES) {
-            /* setlifes sets a unit's remaining lives; not yet implemented */
+            int blk = cmd->a[0], val = cmd->a[1];
+            if (blk >= 0 && blk < mission->block_count)
+                mission->blocks[blk].fired = val == 0;
         }
     }
     block->fired = true;
@@ -1004,7 +1043,16 @@ static void parse_tro(Mission *mission, const char *path) {
                 block->trigger_y = -1;
                 block->condition_kind = COND_COUNTER_GT;
                 block->condition_negated = (enabled == 0);
+                block->cond_type = 0;
                 if (sscanf(token, "%*d %*s %*d (c>%d)", &c_gt) == 1) block->c_gt = c_gt;
+                else if (sscanf(token, "%*d %*s %*d (b(%d,%d)==%d)", &block->cond_a, &block->cond_b, &block->cond_c) == 3)
+                    block->cond_type = 1;
+                else if (sscanf(token, "%*d %*s %*d (s(%d,%d,%d)==%d)", &block->cond_a, &block->cond_d, &block->cond_b, &block->cond_c) == 4)
+                    block->cond_type = 2;
+                else if (sscanf(token, "%*d %*s %*d (c>s(%d,%d,%d))", &block->cond_a, &block->cond_d, &block->cond_b) == 3)
+                    block->cond_type = 3;
+                if (block->cond_type == 2) block->condition_kind = COND_STATE_ARRAY_EQ;
+                else if (block->cond_type == 3) block->condition_kind = COND_COUNTER_GT_STATE;
                 if (block->trip) block->requires_player_near = true;
                 /* Parse condition from block header */
                 const char *cond_start = strchr(token, '(');
@@ -1068,16 +1116,27 @@ static void parse_tro(Mission *mission, const char *path) {
                 cmd.a[1] = v[1];
                 cmd.a[2] = v[2];
                 script_add_command(block, cmd);
-            } else if (sscanf(token, "setarray %d (c+%d)", &v[0], &v[1]) == 2) {
+            } else if (sscanf(token, "setarray %d c+%d", &v[0], &v[1]) == 2 ||
+                       sscanf(token, "setarray %d (c+%d)", &v[0], &v[1]) == 2) {
                 cmd.type = SCRIPT_CMD_SETARRAY;
                 cmd.a[0] = v[0];
-                cmd.a[1] = v[1];
+                cmd.a[1] = -1; /* expression: c+N */
+                cmd.a[2] = v[1];
+                script_add_command(block, cmd);
+            } else if (sscanf(token, "setarray %d %d", &v[0], &v[1]) == 2) {
+                cmd.type = SCRIPT_CMD_SETARRAY;
+                cmd.a[0] = v[0];
+                cmd.a[1] = 0; /* expression: literal */
+                cmd.a[2] = v[1];
                 script_add_command(block, cmd);
             } else if (sscanf(token, "setlifes %d %d", &v[0], &v[1]) == 2) {
                 cmd.type = SCRIPT_CMD_SETLIFES;
                 cmd.a[0] = v[0];
                 cmd.a[1] = v[1];
                 script_add_command(block, cmd);
+            } else if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+                fprintf(stderr, "[dark-colony script] block %d: unknown command: %s\n",
+                        block->id, token);
             }
         }
         line = next;
@@ -1292,7 +1351,6 @@ static bool evaluate_condition(const Mission *mission, const ScriptBlock *block,
         return block->building_cond.slot_count > 0;
     }
     case COND_UNIT_TYPE_EXISTS: {
-        /* Check if any unit of the specified type exists for the team */
         int team = block->unit_state_cond.team;
         int type = block->unit_state_cond.type;
         (void)type;
@@ -1306,18 +1364,23 @@ static bool evaluate_condition(const Mission *mission, const ScriptBlock *block,
         return false;
     }
     case COND_COUNTER_GT:
-    case COND_TRIP_PLAYER_NEAR:
+        return block->c_gt >= 0 &&
+               mission->elapsed_ms > block->c_gt * SCRIPT_COUNTER_MS;
+    case COND_STATE_ARRAY_EQ:
+        if (block->cond_a >= 0 && block->cond_a < 8 &&
+            block->cond_d >= 0 && block->cond_d < 128)
+            return mission->state_arrays[block->cond_a][block->cond_d] == block->cond_c;
+        return false;
     case COND_COUNTER_GT_STATE:
-        return true; /* handled by caller */
+        if (block->cond_a >= 0 && block->cond_a < 8 &&
+            block->cond_d >= 0 && block->cond_d < 128)
+            return mission->elapsed_ms >
+                   mission->state_arrays[block->cond_a][block->cond_d] * SCRIPT_COUNTER_MS;
+        return false;
+    case COND_TRIP_PLAYER_NEAR:
+        return true; /* trip is handled by caller before evaluate_condition */
     }
     return false;
-}
-
-static MissionState mission_state_from_bail(int result, int code) {
-    if (result == 0 && code == 1) return MISSION_WON;
-    if (result == 1 && code == 2) return MISSION_LOST;
-    if (result == 1 && code == 3) return MISSION_ALLY_LOST;
-    return MISSION_ACTIVE;
 }
 
 void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
@@ -1337,16 +1400,8 @@ void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
         if (block->trip) {
             fire = block->trigger_x >= 0 &&
                    player_near(map, units, *unit_count, block->trigger_x, block->trigger_y);
-        } else if (block->condition_kind == COND_ALL_BUILDINGS_DESTROYED) {
+        } else {
             fire = evaluate_condition(mission, block, units, *unit_count);
-        } else if (block->condition_kind == COND_UNIT_TYPE_EXISTS) {
-            fire = evaluate_condition(mission, block, units, *unit_count);
-        } else if (block->c_gt >= 0) {
-            fire = mission->elapsed_ms > block->c_gt * SCRIPT_COUNTER_MS;
-            if (fire && block->condition_kind == COND_COUNTER_GT_STATE) {
-                /* c > s(team,type,slot): check if counter exceeds some value */
-                fire = true; /* simplified: fire on counter alone */
-            }
         }
         if (block->condition_negated) fire = !fire;
         if (fire) {
