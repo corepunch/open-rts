@@ -206,7 +206,7 @@ typedef struct {
 static const AiConfig ai_config = {
     .think_interval_ms = 500,
     .attack_wave_interval_ms = 5000,
-    .defense_radius = 12.0f,
+    .defense_radius = 10.0f,
     .attack_eagerness = 1.0f,
 };
 
@@ -218,7 +218,7 @@ static int ai_target(const mobj_t *attacker, const mobj_t *units,
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *candidate = &units[i];
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
-            candidate->owner == attacker->owner) continue;
+            P_IsAlly(attacker, candidate)) continue;
         fvec2_t delta = fvec2_sub(fixedvec3_xy_to_fvec2(candidate->core.position),
                                   attacker_position);
         float distance2 = fvec2_length_squared(delta);
@@ -241,7 +241,8 @@ static int ai_find_wave_target(const mobj_t *units, int unit_count) {
     float best_score = -INFINITY;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *candidate = &units[i];
-        if (candidate->remove || candidate->hp <= 0 || candidate->owner != 0) continue;
+        if (candidate->remove || candidate->hp <= 0 ||
+            candidate->allegiance == ALLEGIANCE_ENEMY) continue;
         float score = (candidate->traits & MF_ATTACK) != 0 ? 3.0f : 0.0f;
         score += (candidate->traits & MF_MOBILE) != 0 ? 1.0f : 0.0f;
         score += candidate->max_hp > 0 ? (float)candidate->max_hp / 2000.0f : 0.0f;
@@ -259,7 +260,8 @@ static bool ai_is_defending(const mobj_t *units, int unit_count,
                     ai_config.defense_radius;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = &units[i];
-        if (unit->remove || unit->hp <= 0 || unit->owner != 0 ||
+        if (unit->remove || unit->hp <= 0 ||
+            (unit->allegiance != ALLEGIANCE_PLAYER && unit->allegiance != ALLEGIANCE_ALLIED) ||
             (unit->traits & MF_ATTACK) == 0) continue;
         if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
                                    base_position) <= radius2) return true;
@@ -288,7 +290,7 @@ static void update_ai_economy(const level_t *map, mobj_t *units,
     if (!map || !units) return;
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = &units[i];
-        if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
+        if (unit->remove || unit->hp <= 0 || unit->allegiance == ALLEGIANCE_PLAYER ||
             (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
                 (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
         int vent_index = ai_nearest_vent(
@@ -338,9 +340,40 @@ static void update_ai(Mission *mission, const level_t *map,
     bool defending = base_count > 0 &&
                      ai_is_defending(units, unit_count, base_position);
 
+    if (defending) {
+        int intruder = -1;
+        float best_dist2 = INFINITY;
+        for (int i = 0; i < unit_count; ++i) {
+            const mobj_t *unit = &units[i];
+            if (unit->remove || unit->hp <= 0) continue;
+            if (unit->allegiance != ALLEGIANCE_PLAYER && unit->allegiance != ALLEGIANCE_ALLIED)
+                continue;
+            if ((unit->traits & MF_ATTACK) == 0) continue;
+            float dist2 = fvec2_distance_squared(
+                fixedvec3_xy_to_fvec2(unit->core.position), base_position);
+            if (dist2 < best_dist2) {
+                best_dist2 = dist2;
+                intruder = i;
+            }
+        }
+        if (intruder >= 0) {
+            fvec2_t intruder_pos = fixedvec3_xy_to_fvec2(units[intruder].core.position);
+            for (int i = 0; i < unit_count; ++i) {
+                mobj_t *u = &units[i];
+                if (u->remove || u->hp <= 0 || u->allegiance == ALLEGIANCE_PLAYER)
+                    continue;
+                if ((u->traits & (MF_MOBILE | MF_ATTACK)) != (MF_MOBILE | MF_ATTACK))
+                    continue;
+                if (u->attack.target >= 0) continue;
+                u->attack.target = intruder;
+                P_MoveUnitTo(map, u, intruder_pos);
+            }
+        }
+    }
+
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *attacker = &units[i];
-        if (attacker->remove || attacker->hp <= 0 || attacker->owner == 0 ||
+        if (attacker->remove || attacker->hp <= 0 || attacker->allegiance == ALLEGIANCE_PLAYER ||
             (attacker->traits & (MF_MOBILE | MF_ATTACK)) != (MF_MOBILE | MF_ATTACK)) {
             continue;
         }

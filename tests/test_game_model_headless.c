@@ -1253,6 +1253,65 @@ static int assert_fixed_momentum_semantics(void) {
     return 0;
 }
 
+static int assert_ai_team_awareness(RtsGameModel *model) {
+    RtsGameModelConfig config = {
+        .data_root = "data/DCOLONY",
+        .map_path = "SCENARIO/HUMAN/HUMAN03.MAP",
+    };
+    if (!rts_game_model_load(model, &config)) {
+        fprintf(stderr, "model load error: %s\n", rts_game_model_last_error(model));
+        return fail("load Dark Colony Human03 for AI test");
+    }
+
+    RtsRenderSnapshot snapshot;
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("initial Human03 snapshot for AI test");
+    }
+    if (snapshot.unit_count <= 0) {
+        return fail("Human03 has units for AI test");
+    }
+
+    int alien_slug_count = snapshot_count_units_with_type(&snapshot, MT_DC_SLUG);
+    if (alien_slug_count <= 0) {
+        return fail("Human03 has alien Slug units for harvesting test");
+    }
+
+    for (int i = 0; i < snapshot.unit_count; ++i) {
+        if (snapshot.units[i].type_id == MT_DC_SLUG &&
+            snapshot.units[i].owner != 0) {
+            if (snapshot.units[i].harvest_target < 0) {
+                fprintf(stderr, "Slug at %d,%d has harvest_target=%d\n",
+                        snapshot.units[i].position.x, snapshot.units[i].position.y,
+                        snapshot.units[i].harvest_target);
+            }
+        }
+    }
+
+    for (int tick = 0; tick < 30 * 10; ++tick) {
+        if (!rts_game_model_tick(model, 1.0f / 30.0f))
+            return fail("tick Human03 for AI behavior");
+    }
+    if (!rts_game_model_snapshot(model, &snapshot)) {
+        return fail("Human03 snapshot after AI ticks");
+    }
+
+    int slugs_with_vent = 0;
+    for (int i = 0; i < snapshot.unit_count; ++i) {
+        if (snapshot.units[i].type_id == MT_DC_SLUG &&
+            snapshot.units[i].owner != 0 &&
+            snapshot.units[i].harvest_target >= 0) {
+            slugs_with_vent++;
+        }
+    }
+    if (slugs_with_vent == 0) {
+        return fail("AI alien Slugs are assigned to harvest vents");
+    }
+
+    printf("PASS: AI team awareness — %d alien Slugs harvesting, %d total units\n",
+           slugs_with_vent, snapshot.unit_count);
+    return 0;
+}
+
 int main(void) {
     int result = assert_dark_colony_direction_mapping();
     if (result != 0) return result;
@@ -1269,6 +1328,7 @@ int main(void) {
     result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
     if (result == 0) result = assert_human03_city_slots(model);
+    if (result == 0) result = assert_ai_team_awareness(model);
     rts_game_model_destroy(model);
     return result;
 }

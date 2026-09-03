@@ -707,10 +707,11 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
                 if (model->units[i].id == command->data.build_product.producer_id) { producer = i; break; }
         }
         if (producer < 0 || producer >= model->unit_count) return false;
+        int producer_owner = model->units[producer].owner;
         const StaticProductDefinition *product = G_ModelProductByUIId(model, command->data.build_product.ui_id);
-        if (!product || !G_ModelProductAvailable(model, 0, product) ||
-            model->map.player_resources[0][0] < product->cost ||
-            G_ModelFindProducerIndex(model, 0, product) != producer) return false;
+        if (!product || !G_ModelProductAvailable(model, producer_owner, product) ||
+            model->map.player_resources[producer_owner][0] < product->cost ||
+            G_ModelFindProducerIndex(model, producer_owner, product) != producer) return false;
         uint16_t actor_id = G_ModelActorIdForProduct(product);
         bool queued = G_ModelProductTrainingTimeMs(product) > 0;
         if (!queued)
@@ -718,7 +719,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
                              product->product_class, product->product_type);
         bool ok = queued ? enqueue_model_unit_product(model, product, producer, actor_id) :
             spawn_finished_model_product(model, product, producer);
-        if (ok) model->map.player_resources[0][0] -= product->cost;
+        if (ok) model->map.player_resources[producer_owner][0] -= product->cost;
         return ok;
     }
     case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON:
