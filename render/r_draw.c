@@ -931,7 +931,7 @@ static int pick_unit_at(const app_t *app, const level_t *map, const mobj_t *unit
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
         const mobj_t *unit = &units[i];
-        if (unit->hp <= 0 || (unit->traits & MF_SELECTABLE) == 0) continue;
+        if (unit->hidden || unit->hp <= 0 || (unit->traits & MF_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         irect_t visible;
         float sx = 0.0f, sy = 0.0f;
@@ -1156,7 +1156,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
                                uint32_t ticks) {
-    if (!u || (u->traits & MF_RENDERABLE) == 0) return;
+    if (!u || u->hidden || (u->traits & MF_RENDERABLE) == 0) return;
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
 
@@ -1338,6 +1338,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         };
     }
     for (int i = 0; i < unit_count; ++i) {
+        if (units[i].hidden) continue;
         fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
         float sort_y = units[i].render_sort_y > 0.0f ?
             units[i].render_sort_y : position.y;
@@ -1522,7 +1523,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
             if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
-                    units[i].selected = units[i].owner == 0 &&
+                    units[i].selected = !units[i].hidden && units[i].owner == 0 &&
                         (units[i].traits & MF_SELECTABLE) != 0 &&
                         units[i].hp > 0;
                 }
@@ -1593,6 +1594,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                 }
                 if (box) {
                     for (int i = 0; i < unit_count; ++i) {
+                        if (units[i].hidden) continue;
                         if (units[i].hp <= 0) continue;
                         if ((units[i].traits & MF_SELECTABLE) == 0) continue;
                         if (units[i].owner != 0) continue;
