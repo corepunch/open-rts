@@ -14,9 +14,9 @@ void P_AiInit(AiContext *ctx) {
     }
 }
 
-static bool is_idle_slug(const mobj_t *u, int team_owner) {
+static bool is_idle_slug(const mobj_t *u, const AiTeamState *team) {
     return u && u->hp > 0 && !u->remove &&
-           u->owner == team_owner &&
+           P_AreAllegiancesAllied(u->allegiance, team->allegiance) &&
            (u->traits & MF_HARVESTER) != 0 &&
            u->harvest.phase == HARVEST_PHASE_NONE;
 }
@@ -29,25 +29,39 @@ static bool vent_occupied_by_team(const AiTeamState *team, int vent_index) {
     return false;
 }
 
-static void ai_tick_harvesting(AiTeamState *team, int team_owner,
+static bool find_friendly_base(const AiTeamState *team, const mobj_t *units,
+                                int unit_count, fvec2_t *out_position) {
+    if (!team || !out_position) return false;
+    for (int i = 0; i < unit_count; ++i) {
+        const mobj_t *u = &units[i];
+        if (u->hp <= 0 || u->remove) continue;
+        if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
+        if ((u->traits & MF_RESOURCE_BASE) == 0) continue;
+        *out_position = fixedvec3_xy_to_fvec2(u->core.position);
+        return true;
+    }
+    return false;
+}
+
+static void ai_tick_harvesting(AiTeamState *team,
                                 level_t *map, mobj_t *units, int unit_count) {
     if (!team || !map) return;
 
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *u = &units[i];
-        if (!is_idle_slug(u, team_owner)) continue;
+        if (!is_idle_slug(u, team)) continue;
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
 
-        float ux = u->core.position.x;
-        float uy = u->core.position.y;
+        float ux = fixed_to_float(u->core.position.x);
+        float uy = fixed_to_float(u->core.position.y);
         int best_vent = -1;
         float best_dist2 = 1e30f;
         for (int v = 0; v < map->resource_vent_count; ++v) {
             const resourcevent_t *vent = &map->resource_vents[v];
             if (!vent->active || vent->amount <= 0) continue;
             if (vent_occupied_by_team(team, v)) continue;
-            float dx = vent->attachment.x - ux;
-            float dy = vent->attachment.y - uy;
+            float dx = fixed_to_float(vent->attachment.x) - ux;
+            float dy = fixed_to_float(vent->attachment.y) - uy;
             float dist2 = dx * dx + dy * dy;
             if (dist2 < best_dist2) {
                 best_dist2 = dist2;
@@ -61,6 +75,30 @@ static void ai_tick_harvesting(AiTeamState *team, int team_owner,
             AiHarvestAssignment *a = &team->harvest_assignments[team->harvest_assignment_count++];
             a->vent_index = best_vent;
             a->slug_unit_index = i;
+
+            fvec2_t base_pos;
+            if (find_friendly_base(team, units, unit_count, &base_pos)) {
+                u->harvest.return_position = base_pos;
+            }
+        }
+    }
+
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *u = &units[i];
+        if (u->hp <= 0 || u->remove) continue;
+        if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
+        if ((u->traits & MF_HARVESTER) == 0) continue;
+        if (u->harvest.phase != HARVEST_PHASE_TO_BASE) continue;
+
+        fvec2_t base_pos;
+        if (find_friendly_base(team, units, unit_count, &base_pos)) {
+            float dx = fixed_to_float(u->core.position.x) - base_pos.x;
+            float dy = fixed_to_float(u->core.position.y) - base_pos.y;
+            float dist2 = dx * dx + dy * dy;
+            if (dist2 > AI_DEFENSE_RADIUS * AI_DEFENSE_RADIUS) {
+                u->harvest.return_position = base_pos;
+                P_MoveUnitTo(map, u, base_pos);
+            }
         }
     }
 
@@ -79,7 +117,7 @@ static void ai_tick_harvesting(AiTeamState *team, int team_owner,
     team->harvest_assignment_count = write;
 }
 
-static void ai_tick_defense(AiTeamState *team, int team_owner,
+static void ai_tick_defense(AiTeamState *team,
                              level_t *map, mobj_t *units, int unit_count,
                              const gameinfo_t *game_info) {
     (void)game_info;
@@ -88,7 +126,7 @@ static void ai_tick_defense(AiTeamState *team, int team_owner,
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *enemy = &units[i];
         if (enemy->hp <= 0 || enemy->remove) continue;
-        if (enemy->owner == team_owner) continue;
+        if (P_AreAllegiancesAllied(enemy->allegiance, team->allegiance)) continue;
 
         float ex = fixed_to_float(enemy->core.position.x);
         float ey = fixed_to_float(enemy->core.position.y);
@@ -100,7 +138,7 @@ static void ai_tick_defense(AiTeamState *team, int team_owner,
         for (int j = 0; j < unit_count; ++j) {
             mobj_t *defender = &units[j];
             if (defender->hp <= 0 || defender->remove) continue;
-            if (defender->owner != team_owner) continue;
+            if (!P_AreAllegiancesAllied(defender->allegiance, team->allegiance)) continue;
             if ((defender->traits & MF_ATTACK) == 0) continue;
             if (defender->harvest.phase != HARVEST_PHASE_NONE) continue;
             if (defender->movement.order_arrived) {
@@ -112,7 +150,7 @@ static void ai_tick_defense(AiTeamState *team, int team_owner,
     }
 }
 
-static void ai_tick_attack_waves(AiTeamState *team, int team_owner,
+static void ai_tick_attack_waves(AiTeamState *team,
                                   level_t *map, mobj_t *units, int unit_count,
                                   int dt_ms) {
     if (!team || !team->has_base || !map) return;
@@ -125,7 +163,7 @@ static void ai_tick_attack_waves(AiTeamState *team, int team_owner,
     float enemy_dist2 = 1e30f;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].hp <= 0 || units[i].remove) continue;
-        if (units[i].owner == team_owner) continue;
+        if (P_AreAllegiancesAllied(units[i].allegiance, team->allegiance)) continue;
         if ((units[i].traits & MF_RESOURCE_BASE) == 0) continue;
         float ex = fixed_to_float(units[i].core.position.x);
         float ey = fixed_to_float(units[i].core.position.y);
@@ -144,7 +182,7 @@ static void ai_tick_attack_waves(AiTeamState *team, int team_owner,
     for (int i = 0; i < unit_count && dispatched < AI_ATTACK_WAVE_MAX_SIZE; ++i) {
         mobj_t *u = &units[i];
         if (u->hp <= 0 || u->remove) continue;
-        if (u->owner != team_owner) continue;
+        if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
         if ((u->traits & MF_ATTACK) == 0) continue;
         if (u->harvest.phase != HARVEST_PHASE_NONE) continue;
         if (!u->movement.order_arrived) continue;
@@ -165,10 +203,13 @@ void P_AiTick(AiContext *ctx, level_t *map, mobj_t *units, int unit_count,
         team->combat_unit_count = 0;
         team->harvester_count = 0;
         team->has_base = false;
+        team->allegiance = ALLEGIANCE_NEUTRAL;
 
         for (int i = 0; i < unit_count; ++i) {
             const mobj_t *u = &units[i];
             if (u->hp <= 0 || u->remove || u->owner != team_owner) continue;
+            if (team->allegiance == ALLEGIANCE_NEUTRAL)
+                team->allegiance = u->allegiance;
             if ((u->traits & MF_RESOURCE_BASE) != 0) {
                 team->base_position = fixedvec3_xy_to_fvec2(u->core.position);
                 team->has_base = true;
@@ -181,8 +222,8 @@ void P_AiTick(AiContext *ctx, level_t *map, mobj_t *units, int unit_count,
     for (int t = 0; t < AI_MAX_TEAMS; ++t) {
         AiTeamState *team = &ctx->teams[t];
         if (!team->has_base) continue;
-        ai_tick_harvesting(team, t, map, units, unit_count);
-        ai_tick_defense(team, t, map, units, unit_count, game_info);
-        ai_tick_attack_waves(team, t, map, units, unit_count, dt_ms);
+        ai_tick_harvesting(team, map, units, unit_count);
+        ai_tick_defense(team, map, units, unit_count, game_info);
+        ai_tick_attack_waves(team, map, units, unit_count, dt_ms);
     }
 }
