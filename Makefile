@@ -3,7 +3,7 @@ AR ?= ar
 PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
-CPPFLAGS += -Idriver -Igame -Iplay -Irender -Iinterface -Ihud
+CPPFLAGS += -Idriver -Igame -Iplay -Irender -Iinterface -Ihud -Itests
 DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
@@ -15,7 +15,7 @@ ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
 DC_LAYOUT_TEST_TARGET  := $(BIN_DIR)/test_dark_colony_sprite_layout
-MODEL_COMMAND_TEST_SOURCE := tests/test_model_commands.c
+MODEL_COMMAND_TEST_SOURCE := tests/cross-game/test_model_commands.c
 
 DATA_DIR         := data
 DARK_REIGN_ROOT  := $(DATA_DIR)/REIGN/dark
@@ -40,9 +40,9 @@ DC_INFO_GEN_SOURCE   := tools/dc_info_gen.c
 DC_GAMESTAT_GEN_SOURCE := tools/dc_gamestat_gen.c
 
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
-DC_HEADLESS_TEST_SOURCE := tests/test_game_model_headless.c
 
-.PHONY: all run mission-1 mission-2 test test-headless test-model-commands dark-reign dark-colony \
+.PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
+        test-headless test-model-commands test-ai test-layout dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
         kknd-check anim-extract clean help
 
@@ -75,29 +75,40 @@ $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
 
 all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/kknd
 
-# ── DC headless model test (compiled with DC game sources) ───────────────────
-DC_MODEL_TEST_OBJS := \
-	$(BUILD_DIR)/dc-test/$(DC_HEADLESS_TEST_SOURCE:.c=.o) \
-	$(patsubst %.c,$(BUILD_DIR)/dc-test/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES))
-DC_MODEL_TEST_DEPS := $(DC_MODEL_TEST_OBJS:.o=.d)
+.SECONDARY:
 
-$(BIN_DIR)/test_game_model_headless: $(DC_MODEL_TEST_OBJS) | $(BIN_DIR)
-	$(CC) $^ -o $@ $(SDL_LIBS) -lm
+define MODEL_TESTS_FOR_GAME
+$(1)_TEST_SOURCES := $$(wildcard tests/$(1)/test_*.c)
+$(1)_TEST_ENGINE_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(MODEL_ENGINE_SOURCES) $(2))
+$(1)_TEST_BINS := $$(patsubst tests/$(1)/%.c,$(BIN_DIR)/tests/$(1)/%,$$($(1)_TEST_SOURCES))
+$(BUILD_DIR)/model-test-$(1)/%.o: %.c
+	@mkdir -p $$(dir $$@)
+	$(CC) $(CPPFLAGS) $(3) -I./games/$(1) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
+$(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/$(1)/%.o $$($(1)_TEST_ENGINE_OBJS) | $(BIN_DIR)
+	@mkdir -p $$(dir $$@)
+	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
+test-$(1): $$($(1)_TEST_BINS)
+	@ok=1; for t in $$($(1)_TEST_BINS); do echo "-- $$$$t --"; $$$$t || ok=0; done; test "$$$$ok" = 1
+endef
+
+$(eval $(call MODEL_TESTS_FOR_GAME,dark-colony,$(DC_GAME_SOURCES),-DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY))
+$(eval $(call MODEL_TESTS_FOR_GAME,dark-reign,$(DR_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN))
+$(eval $(call MODEL_TESTS_FOR_GAME,7legion,$(SL_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_7LEGION))
+$(eval $(call MODEL_TESTS_FOR_GAME,kknd,$(KKND_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 -DRTS_GAME_KKND))
+
+# ── DC layout test ───────────────────────────────────────────────────────────
+DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
+DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
 
 $(BUILD_DIR)/dc-test/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
--include $(DC_MODEL_TEST_DEPS)
-
-# ── DC AI team-aware test ───────────────────────────────────────────────────
-DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
-DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
-
 $(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJ) $(DC_LAYOUT_DC_INFO_OBJ) | $(BIN_DIR)
 	$(CC) $^ -o $@ -lm
 
--include $(DC_AI_TEST_DEPS)
+test-layout: $(DC_LAYOUT_TEST_TARGET)
+	$(DC_LAYOUT_TEST_TARGET)
 
 # ── anim_extract and info generators ─────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
@@ -157,41 +168,28 @@ kknd-check: $(BIN_DIR)/kknd
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
-test: test-headless test-model-commands test-ai
+test: test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout
 
-test-headless: $(BIN_DIR)/test_game_model_headless $(DC_LAYOUT_TEST_TARGET)
-	$(BIN_DIR)/test_game_model_headless
-	$(DC_LAYOUT_TEST_TARGET)
+test-headless: test-dark-colony
+test-ai: test-dark-colony
 
 $(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dc/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 
 $(BUILD_DIR)/cmd-dc/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 $(BIN_DIR)/test_model_commands_dark-reign: $(BUILD_DIR)/cmd-dr/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dr/%.o,$(MODEL_ENGINE_SOURCES) $(DR_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 
 $(BUILD_DIR)/cmd-dr/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 test-model-commands: $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
 	$(BIN_DIR)/test_model_commands_dark-colony
 	$(BIN_DIR)/test_model_commands_dark-reign
-
-DC_AI_TEST_SOURCE := tests/test_ai_team_aware.c
-DC_AI_TEST_OBJS := \
-	$(BUILD_DIR)/dc-test/$(DC_AI_TEST_SOURCE:.c=.o) \
-	$(patsubst %.c,$(BUILD_DIR)/dc-test/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES))
-DC_AI_TEST_DEPS := $(DC_AI_TEST_OBJS:.o=.d)
-
-$(BIN_DIR)/test_ai_team_aware: $(DC_AI_TEST_OBJS) | $(BIN_DIR)
-	$(CC) $^ -o $@ $(SDL_LIBS) -lm
-
-test-ai: $(BIN_DIR)/test_ai_team_aware
-	$(BIN_DIR)/test_ai_team_aware
 
 help:
 	@echo "Usage: make [target]"

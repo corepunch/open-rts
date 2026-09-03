@@ -1,4 +1,5 @@
-#include "../game/g_game.h"
+#include "../rts_model_test.h"
+#include "../../game/g_game.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -6,15 +7,11 @@
 extern const char *const g_game_id;
 
 static int fail(const char *message) {
-    fprintf(stderr, "FAIL (%s): %s\n", g_game_id, message);
-    return 1;
+    return rts_fail(g_game_id, message);
 }
 
 static int event_seen(RtsGameModel *model, RtsGameEventType wanted) {
-    RtsGameEvent event;
-    while (rts_game_model_poll_event(model, &event))
-        if (event.type == wanted) return 1;
-    return 0;
+    return rts_event_seen(model, wanted, 0, -1) ? 1 : 0;
 }
 
 static int build_event_seen(RtsGameModel *model, RtsGameEventType wanted,

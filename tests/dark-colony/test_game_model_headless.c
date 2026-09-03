@@ -1,9 +1,9 @@
 #include "engine_config.h"
-#include "../game/g_game.h"
-#include "../games/dark-colony/dc_facing.h"
-#include "../games/dark-colony/info.h"
-#include "../games/dark-colony/dc_types.h"
-#include "../games/dark-reign/dr_types.h"
+#include "../rts_model_test.h"
+#include "../../games/dark-colony/dc_facing.h"
+#include "../../games/dark-colony/info.h"
+#include "../../games/dark-colony/dc_types.h"
+#include "../../games/dark-reign/dr_types.h"
 
 #include <limits.h>
 #include <math.h>
@@ -12,8 +12,7 @@
 #include <string.h>
 
 static int fail(const char *message) {
-    fprintf(stderr, "FAIL: %s\n", message);
-    return 1;
+    return rts_fail("headless", message);
 }
 
 static int assert_dark_colony_direction_mapping(void) {
@@ -42,14 +41,6 @@ static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {
     return -1;
 }
 
-static int find_unit_with_sprite(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
-    if (!snapshot || !sprite_name) return -1;
-    for (int i = 0; i < snapshot->unit_count; ++i) {
-        if (strcmp(snapshot->units[i].sprite_name, sprite_name) == 0) return i;
-    }
-    return -1;
-}
-
 static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
     if (!snapshot || !sprite_name) return false;
     for (int i = 0; i < snapshot->effect_count; ++i) {
@@ -73,6 +64,7 @@ static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *sna
     return false;
 }
 
+#ifdef RTS_GAME_DARK_REIGN
 static bool snapshot_has_dark_reign_building(const RtsRenderSnapshot *snapshot,
                                              const char *underlay, const char *body,
                                              const char *top, int footprint_w,
@@ -90,6 +82,7 @@ static bool snapshot_has_dark_reign_building(const RtsRenderSnapshot *snapshot,
     }
     return false;
 }
+#endif
 
 static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snapshot) {
     if (!snapshot || snapshot->unit_count <= 0)
@@ -115,13 +108,7 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
 
 static bool poll_event_type(RtsGameModel *model, RtsGameEventType wanted,
                             uint32_t subject_id, int product_type) {
-    RtsGameEvent event;
-    while (rts_game_model_poll_event(model, &event)) {
-        if (event.type == wanted &&
-            (subject_id == 0 || event.subject_id == subject_id) &&
-            (product_type < 0 || event.product_type == product_type)) return true;
-    }
-    return false;
+    return rts_event_seen(model, wanted, subject_id, product_type);
 }
 
 static int assert_dark_colony_sprite_catalog(void) {
@@ -225,12 +212,7 @@ static int snapshot_count_units_with_owner_and_type(const RtsRenderSnapshot *sna
 
 static int snapshot_find_unit_with_owner_and_type(const RtsRenderSnapshot *snapshot,
                                                   uint8_t owner, uint16_t type_id) {
-    if (!snapshot) return -1;
-    for (int i = 0; i < snapshot->unit_count; ++i) {
-        if (snapshot->units[i].owner == owner && snapshot->units[i].type_id == type_id)
-            return i;
-    }
-    return -1;
+    return rts_find_unit(snapshot, owner, type_id);
 }
 
 static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *sprite_name,
@@ -571,289 +553,6 @@ static int assert_human02(RtsGameModel *model) {
     printf("PASS: Human02 headless model loaded %dx%d with %d units and %d vents\n",
            snapshot.map_width, snapshot.map_height, snapshot.unit_count,
            snapshot.resource_vent_count);
-        return 0;
-
-    int exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    for (int i = 0; exploiter < 0 && i < 30 * 5; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
-            return fail("tick Human02 while waiting for exploiter");
-        }
-        if (!rts_game_model_snapshot(model, &snapshot)) {
-            return fail("Human02 snapshot while waiting for exploiter");
-        }
-        exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    }
-    if (exploiter < 0) {
-        return fail("Human02 scripted drop spawns an Exploiter");
-    }
-    fvec2_t exploiter_start = snapshot.units[exploiter].position;
-
-    RtsGameCommand select_exploiter = {
-        .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
-        .data.select_unit_index = {
-            .unit_index = exploiter,
-            .additive = false,
-        },
-    };
-    if (!rts_game_model_command(model, &select_exploiter)) {
-        return fail("Human02 select exploiter");
-    }
-
-    int initial_resources = snapshot.player_resources[0][0];
-    RtsGameCommand harvest = {
-        .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-        .data.harvest_selected = {
-            .target = { 69.5f, 48.5f },
-        },
-    };
-    if (!rts_game_model_command(model, &harvest)) {
-        return fail("Human02 harvest command targets active Petra-7 vent");
-    }
-    if (!rts_game_model_snapshot(model, &snapshot)) {
-        return fail("Human02 snapshot immediately after harvest command");
-    }
-    exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 ||
-        !fvec2_near(snapshot.units[exploiter].position, exploiter_start, 0.001f)) {
-        return fail("Human02 Exploiter starts driving instead of snapping to the vent");
-    }
-    if (!fvec2_near(snapshot.units[exploiter].move_goal,
-                    (fvec2_t){ 69.5f, 47.5f }, 0.001f)) {
-        return fail("Human02 Exploiter targets the visible Petra-7 crater tile");
-    }
-
-    bool saw_deploy_body_frame = false;
-    bool saw_mining_body = false;
-    bool saw_exploiter_move = false;
-    bool saw_attached_smoke_hidden = false;
-    bool saw_mining_light = false;
-    bool saw_mining_work_states[16] = {0};
-    int mining_work_state_count = 0;
-    for (int i = 0; i < 30 * 45; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
-            return fail("tick Human02 while mining");
-        }
-        if (!rts_game_model_snapshot(model, &snapshot)) {
-            return fail("Human02 snapshot while mining");
-        }
-        exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-        if (exploiter >= 0 &&
-            snapshot.units[exploiter].harvest_target >= 0) {
-            fvec2_t move_delta = fvec2_sub(snapshot.units[exploiter].position, exploiter_start);
-            if (fvec2_length_squared(move_delta) > 0.25f * 0.25f)
-                saw_exploiter_move = true;
-            int frame = snapshot.units[exploiter].frame;
-            if (frame >= 15 && frame <= 25) {
-                return fail("Human02 Exploiter turret frames do not replace body frames");
-            }
-            if (frame == 14 || frame == 34) {
-                saw_deploy_body_frame = true;
-            }
-            if (snapshot.player_resources[0][0] > initial_resources) {
-                if (snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR",
-                                                  (ivec2_t){ 69, 48 }))
-                    saw_attached_smoke_hidden = true;
-                int work_state = snapshot.units[exploiter].state_id - S_DC_EXPL_WORK1;
-                if (snapshot.units[exploiter].state_id >= S_DC_EXPL_WORK1 &&
-                    snapshot.units[exploiter].state_id < S_DC_EXPL_DIE1 &&
-                    work_state >= 0 && work_state < (int)(sizeof(saw_mining_work_states) / sizeof(saw_mining_work_states[0])) &&
-                    !saw_mining_work_states[work_state]) {
-                    saw_mining_work_states[work_state] = true;
-                    mining_work_state_count++;
-                }
-                if (snapshot.units[exploiter].state_id == S_DC_EXPL_WORK1)
-                    saw_mining_light = true;
-                saw_mining_body = true;
-            }
-        }
-        if (saw_deploy_body_frame && saw_mining_body && mining_work_state_count >= 2 &&
-            saw_mining_light &&
-            snapshot.player_resources[0][0] > initial_resources) break;
-    }
-    if (!saw_deploy_body_frame) {
-        exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-        if (exploiter >= 0) {
-            fprintf(stderr,
-                    "Exploiter start=%.2f,%.2f current=%.2f,%.2f goal=%.2f,%.2f facing=%d moving=%d\n",
-                    exploiter_start.x, exploiter_start.y,
-                    snapshot.units[exploiter].position.x,
-                    snapshot.units[exploiter].position.y,
-                    snapshot.units[exploiter].move_goal.x,
-                    snapshot.units[exploiter].move_goal.y,
-                    snapshot.units[exploiter].facing_code,
-                    snapshot.units[exploiter].has_move_order ? 1 : 0);
-        }
-        return fail("Human02 Exploiter keeps deployed body frame while harvesting");
-    }
-    if (!saw_exploiter_move) {
-        return fail("Human02 Exploiter drives to the Petra-7 vent");
-    }
-    if (snapshot.player_resources[0][0] <= initial_resources) {
-        return fail("Human02 Exploiter mining adds player resources");
-    }
-    if (!saw_mining_body) {
-        return fail("Human02 Exploiter mining uses the deployed body with FIN-authored flags");
-    }
-    if (!saw_attached_smoke_hidden) {
-        return fail("Human02 attached Exploiter suppresses the Petra-7 smoke animation");
-    }
-    if (mining_work_state_count < 2 || !saw_mining_light) {
-        return fail("Human02 Exploiter mining plays the native blinking GLIT work cycle");
-    }
-    exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 ||
-        !fvec2_near(snapshot.units[exploiter].position,
-                    (fvec2_t){ 69.5f, 47.5f }, 0.001f)) {
-        return fail("Human02 Exploiter reaches the visible Petra-7 crater tile");
-    }
-    for (int i = 0; i < 30 * 20; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
-            return fail("tick Human02 while checking mining persistence");
-        }
-    }
-    if (!rts_game_model_snapshot(model, &snapshot)) {
-        return fail("Human02 snapshot after sustained mining");
-    }
-    exploiter = find_unit_with_sprite(&snapshot, "SPRITES/EXPL.SPR");
-    if (exploiter < 0 || snapshot.units[exploiter].hp <= 0 ||
-        snapshot.units[exploiter].harvest_target < 0) {
-        return fail("Human02 scripted enemy waves do not interrupt early Exploiter mining");
-    }
-    for (int i = 0; snapshot.player_resources[0][0] < 350 && i < 30 * 90; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
-            return fail("tick Human02 while mining enough Petra-7 for production");
-        }
-        if (!rts_game_model_snapshot(model, &snapshot)) {
-            return fail("Human02 snapshot while mining enough Petra-7 for production");
-        }
-    }
-    if (snapshot.player_resources[0][0] < 350) {
-        return fail("Human02 mining produces enough Petra-7 to test unit production");
-    }
-
-    int units_before_production = snapshot.unit_count;
-    int troopers_before_production = snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER);
-    int resources_before_production = snapshot.player_resources[0][0];
-    int barracks_index = snapshot_find_unit_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD);
-    if (barracks_index < 0) return fail("Human02 has a player Barracks for Trooper production");
-    RtsGameCommand train_trooper = {
-        .kind = RTS_GAME_COMMAND_BUILD_PRODUCT,
-        .data.build_product = {
-            .producer_id = snapshot.units[barracks_index].id,
-            .producer_index = barracks_index,
-            .ui_id = 89,
-        },
-    };
-    if (!rts_game_model_command(model, &train_trooper)) {
-        return fail("Human02 trains Trooper through model UI button command");
-    }
-    if (!rts_game_model_snapshot(model, &snapshot)) {
-        return fail("Human02 snapshot after training Trooper");
-    }
-    if (!poll_event_type(model, RTS_GAME_EVENT_BUILD_QUEUED,
-                         snapshot.units[barracks_index].id, 0))
-        return fail("Human02 emits build-queued event for explicit build command");
-    if (!poll_event_type(model, RTS_GAME_EVENT_BUILD_STARTED,
-                         snapshot.units[barracks_index].id, 0))
-        return fail("Human02 emits build-started event for explicit build command");
-    fvec2_t barracks_position = snapshot.units[barracks_index].position;
-    if (snapshot.unit_count != units_before_production ||
-        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
-        return fail("Human02 Trooper production queues instead of spawning instantly");
-    }
-    if (snapshot.player_resources[0][0] != resources_before_production - 350) {
-        return fail("Human02 queued Trooper production spends the DEPEND cost immediately");
-    }
-    for (int i = 0; i < 30 * 3 + 18; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
-            return fail("tick Human02 while training Trooper");
-        }
-    }
-    if (!rts_game_model_snapshot(model, &snapshot)) {
-        return fail("Human02 snapshot during queued Trooper release");
-    }
-    if (snapshot.unit_count != units_before_production ||
-        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production) {
-        return fail("Human02 Trooper release animation delays the spawned unit");
-    }
-    if (snapshot.units[barracks_index].state_id < S_DC_BRRKPOD_BUILD_TRSC1 ||
-        snapshot.units[barracks_index].state_id > S_DC_BRRKPOD_BUILD_TRSC22 ||
-        snapshot_has_effect(&snapshot, "SPRITES/HUBU.SPR")) {
-        return fail("Human02 Barracks replaces its stand state with TRSCBUILD0");
-    }
-    bool production_spawned = false;
-    for (int i = 0; i < 30 * 5 && !production_spawned; ++i) {
-        if (!rts_game_model_tick(model, 1.0f / 30.0f)) {
-            return fail("tick Human02 while releasing Trooper");
-        }
-        if (!rts_game_model_snapshot(model, &snapshot)) {
-            return fail("Human02 snapshot while releasing Trooper");
-        }
-        production_spawned =
-            snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) ==
-            troopers_before_production + 1;
-    }
-    if (!production_spawned || snapshot.unit_count != units_before_production + 1 ||
-        snapshot_count_units_with_type(&snapshot, MT_DC_TROOPER) != troopers_before_production + 1) {
-        return fail("Human02 queued Trooper production completes after model ticks");
-    }
-    bool saw_unit_built = false;
-    bool saw_build_finished = false;
-    RtsGameEvent completion_event;
-    while (rts_game_model_poll_event(model, &completion_event)) {
-        if (completion_event.type == RTS_GAME_EVENT_UNIT_BUILT) saw_unit_built = true;
-        if (completion_event.type == RTS_GAME_EVENT_BUILD_FINISHED) saw_build_finished = true;
-    }
-    if (!saw_unit_built)
-        return fail("Human02 emits typed unit-built event after Trooper release");
-    if (!saw_build_finished)
-        return fail("Human02 emits build-finished event after Trooper release");
-    fvec2_t expected_exit = fvec2_add(
-        barracks_position,
-        (fvec2_t){ 16.0f / (float)CELL_W, -79.0f / (float)CELL_H });
-    int produced_trooper = -1;
-    for (int i = 0; i < snapshot.unit_count; ++i) {
-        const RtsRenderUnit *unit = &snapshot.units[i];
-        if (unit->owner != 0 || unit->type_id != MT_DC_TROOPER) continue;
-        if (fvec2_distance_squared(unit->position, expected_exit) < 0.01f) {
-            produced_trooper = i;
-            break;
-        }
-    }
-    if (produced_trooper < 0) {
-        return fail("Human02 completed Trooper spawns at FIN-authored Barracks release point");
-    }
-    if (!snapshot.units[produced_trooper].has_move_order ||
-        snapshot.units[produced_trooper].move_goal.y >=
-            snapshot.units[produced_trooper].position.y) {
-        return fail("Human02 completed Trooper receives a doorway-clearing move order");
-    }
-
-    printf("PASS: Human02 headless model loaded %dx%d with %d units, %d decorations, %d vents\n",
-           snapshot.map_width, snapshot.map_height, snapshot.unit_count,
-           snapshot.decoration_count, snapshot.resource_vent_count);
-    return 0;
-}
-
-static int assert_dark_reign_model_products(RtsGameModel *model) {
-    RtsProductDefinition products[16];
-    int product_count = rts_game_model_products(model, products, 16);
-    if (product_count < 2) return fail("Dark Reign exposes product table");
-
-    const RtsProductDefinition *hq = find_product(products, product_count, 10001);
-    const RtsProductDefinition *rig = find_product(products, product_count, 11);
-    if (!hq || !rig) return fail("Dark Reign exposes FG headquarters and construction rig products");
-    if (strcmp(hq->label, "FG HQ 1") != 0 || hq->cost != 750 ||
-        hq->product_class != RTS_PRODUCT_BUILDING || hq->product_type != 10001 ||
-        hq->prerequisite_count != 0 || !hq->available) {
-        return fail("Dark Reign FG HQ product follows BUILD.TXT SetType/SetCost/SetMaker");
-    }
-    if (strcmp(rig->label, "Construction Rig") != 0 || rig->cost != 300 ||
-        rig->product_class != RTS_PRODUCT_UNIT || rig->product_type != 11 ||
-        rig->prerequisite_count != 1 || rig->prerequisites[0] != 10001 ||
-        rig->available) {
-        return fail("Dark Reign Construction Rig product follows UNITS.TXT prerequisites");
-    }
     return 0;
 }
 
@@ -893,13 +592,13 @@ static int assert_human03_city_slots(RtsGameModel *model) {
                                       (ivec2_t){ 0, CELL_H })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
-        if (snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 1 ||
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_WARHIVE) != 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_BRDRHIVE) != 1 ||
-            snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE2) != 0 ||
-            snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_RSCHIVE) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE2) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_RSCHIVE) != 0 ||
         snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0 ||
-            snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALBU.SPR") != 3) {
+        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALBU.SPR") != 3) {
         return fail("Human03 alien city slots use native ALBU building art");
     }
 
@@ -908,7 +607,29 @@ static int assert_human03_city_slots(RtsGameModel *model) {
     return 0;
 }
 
-#if 0 /* Dark Reign uses the dedicated dual-plugin command harness below. */
+#ifdef RTS_GAME_DARK_REIGN
+static int assert_dark_reign_model_products(RtsGameModel *model) {
+    RtsProductDefinition products[16];
+    int product_count = rts_game_model_products(model, products, 16);
+    if (product_count < 2) return fail("Dark Reign exposes product table");
+
+    const RtsProductDefinition *hq = find_product(products, product_count, 10001);
+    const RtsProductDefinition *rig = find_product(products, product_count, 11);
+    if (!hq || !rig) return fail("Dark Reign exposes FG headquarters and construction rig products");
+    if (strcmp(hq->label, "FG HQ 1") != 0 || hq->cost != 750 ||
+        hq->product_class != RTS_PRODUCT_BUILDING || hq->product_type != 10001 ||
+        hq->prerequisite_count != 0 || !hq->available) {
+        return fail("Dark Reign FG HQ product follows BUILD.TXT SetType/SetCost/SetMaker");
+    }
+    if (strcmp(rig->label, "Construction Rig") != 0 || rig->cost != 300 ||
+        rig->product_class != RTS_PRODUCT_UNIT || rig->product_type != 11 ||
+        rig->prerequisite_count != 1 || rig->prerequisites[0] != 10001 ||
+        rig->available) {
+        return fail("Dark Reign Construction Rig product follows UNITS.TXT prerequisites");
+    }
+    return 0;
+}
+
 static int assert_dark_reign(RtsGameModel *model) {
     RtsGameModelConfig config = {
         .data_root = "data/REIGN/dark",
@@ -992,9 +713,7 @@ static int assert_dark_reign(RtsGameModel *model) {
            snapshot.decoration_count);
     return 0;
 }
-#endif
 
-#if 0 /* Dark Reign uses the dedicated dual-plugin command harness below. */
 static int assert_dark_reign_fixed_missions(RtsGameModel *model) {
     RtsGameModelConfig mission1 = {
         .data_root = "data/REIGN/dark",
@@ -1109,21 +828,21 @@ static int assert_fixed_momentum_semantics(void) {
 }
 
 int main(void) {
-    int result = assert_dark_colony_direction_mapping();
-    if (result != 0) return result;
-    result = assert_fixed_momentum_semantics();
-    if (result != 0) return result;
-    result = assert_dark_colony_sprite_catalog();
-    if (result != 0) return result;
-    result = assert_dark_colony_exploiter_work_states();
-    if (result != 0) return result;
+    RTS_RUN(assert_dark_colony_direction_mapping());
+    RTS_RUN(assert_fixed_momentum_semantics());
+    RTS_RUN(assert_dark_colony_sprite_catalog());
+    RTS_RUN(assert_dark_colony_exploiter_work_states());
 
     RtsGameModel *model = rts_game_model_create();
     if (!model) return fail("create model");
 
-    result = assert_human01(model);
+    int result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
     if (result == 0) result = assert_human03_city_slots(model);
+#ifdef RTS_GAME_DARK_REIGN
+    if (result == 0) result = assert_dark_reign(model);
+    if (result == 0) result = assert_dark_reign_fixed_missions(model);
+#endif
     rts_game_model_destroy(model);
     return result;
 }

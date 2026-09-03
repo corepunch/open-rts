@@ -197,7 +197,7 @@ OpenCode owns every step after the branch is pushed.  For each PR it must:
    git fetch origin
    git checkout dc/issue-N-<slug>
    make
-   build/bin/test_game_model_headless data/DCOLONY
+   build/bin/tests/dark-colony/test_game_model_headless data/DCOLONY
    env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check data/DCOLONY SCENARIO/HUMAN/HUMAN03.MAP
    env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check data/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MAP
    ```

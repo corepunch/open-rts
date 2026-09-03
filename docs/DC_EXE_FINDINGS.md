@@ -208,6 +208,41 @@ r2 -q -e bin.cache=true -A -c "pdf @ <address>" -c q data/DCOLONY/DC.EXE
 6. **Multi-player visibility**: How does fog-of-war work in multiplayer?
 7. **Day/night vision changes**: What are the exact day vs. night radii?
 
+## Follow-up native trace (2026-09-03)
+
+This pass traced the native diagnostic labels that looked most directly related
+to visibility. The result narrows, but does not complete, the DC-10 evidence.
+
+**Confirmed.** Map initialization routine `0x00432b4c` allocates a native
+buffer labelled `kev: maskbuffer` at `0x00432c53` with a requested size of
+`0x7000` bytes. The same routine also allocates buffers labelled
+`kev: tilememory` and `kev: tilemem`. These labels and sizes establish that a
+map-side mask buffer exists during setup, but they do not establish its state
+encoding, dimensions, or whether it is the gameplay visibility buffer.
+
+**Disproven.** The string `vision` at `0x00471bf8` is referenced by the
+`.TRO` command parser at `0x0043ae2c`, alongside script tokens such as
+`artifact`, `ally`, `bail`, and `msg`. It is not, by this reference, a renderer
+or visibility-buffer routine. The presence of this string must not be used as
+evidence for a native FOW algorithm.
+
+**Correction.** The earlier sections of this report describe the values
+`0`, `1`, and `2` as a confirmed visibility-state encoding and describe a
+screen-space soft compositor. The native trace above does not support either
+claim. Until consumers of `maskbuffer` are identified, the three-state model,
+the buffer dimensions, the compositor stage, and the edge treatment remain
+**unknown**. `DOTT` field 13 remains a confirmed native-data value of `7`, but
+its role as a per-unit sight radius is still **inferred**, not confirmed by a
+native consumer.
+
+Reproduce this trace with:
+
+```sh
+r2 -q -e bin.cache=true -c 'aaa; pdf @ 0x00432b4c; q' data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -c 'aaa; pdf @ 0x0043ae2c; q' data/DCOLONY/DC.EXE
+rabin2 -zz data/DCOLONY/DC.EXE | grep -Ei 'maskbuffer|tilememory|tilemem|vision'
+```
+
 ## References
 
 - `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` - Unit definitions including vision

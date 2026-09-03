@@ -1,9 +1,10 @@
 #include "engine_config.h"
-#include "../game/g_game.h"
-#include "../play/p_ai.h"
-#include "../play/p_local.h"
-#include "../games/dark-colony/info.h"
-#include "../games/dark-colony/dc_types.h"
+#include "../rts_test.h"
+#include "../../game/g_game.h"
+#include "../../play/p_ai.h"
+#include "../../play/p_local.h"
+#include "../../games/dark-colony/info.h"
+#include "../../games/dark-colony/dc_types.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -11,8 +12,7 @@
 #include <string.h>
 
 static int fail(const char *message) {
-    fprintf(stderr, "FAIL: %s\n", message);
-    return 1;
+    return rts_fail("ai_team_aware", message);
 }
 
 static int assert_is_ally_basic(void) {
@@ -454,32 +454,19 @@ static int assert_allegiance_team_detection(void) {
 }
 
 int main(void) {
-    int result = assert_is_ally_basic();
-    if (result != 0) return result;
-    result = assert_is_ally_cross_camp();
-    if (result != 0) return result;
-    result = assert_ai_init();
-    if (result != 0) return result;
-    result = assert_ai_tick_no_crash();
-    if (result != 0) return result;
-    result = assert_ai_detects_base();
-    if (result != 0) return result;
-    result = assert_ai_counts_units();
-    if (result != 0) return result;
-    result = assert_ai_defense_rally();
-    if (result != 0) return result;
-    result = assert_ai_attack_wave_timer();
-    if (result != 0) return result;
-    result = assert_allegiance_targeting();
-    if (result != 0) return result;
-    result = assert_harvesting_assignment();
-    if (result != 0) return result;
-    result = assert_defense_trigger();
-    if (result != 0) return result;
-    result = assert_attack_wave_dispatch();
-    if (result != 0) return result;
-    result = assert_allegiance_team_detection();
-    if (result != 0) return result;
+    RTS_RUN(assert_is_ally_basic());
+    RTS_RUN(assert_is_ally_cross_camp());
+    RTS_RUN(assert_ai_init());
+    RTS_RUN(assert_ai_tick_no_crash());
+    RTS_RUN(assert_ai_detects_base());
+    RTS_RUN(assert_ai_counts_units());
+    RTS_RUN(assert_ai_defense_rally());
+    RTS_RUN(assert_ai_attack_wave_timer());
+    RTS_RUN(assert_allegiance_targeting());
+    RTS_RUN(assert_harvesting_assignment());
+    RTS_RUN(assert_defense_trigger());
+    RTS_RUN(assert_attack_wave_dispatch());
+    RTS_RUN(assert_allegiance_team_detection());
     printf("All AI team-aware tests passed.\n");
     return 0;
 }
