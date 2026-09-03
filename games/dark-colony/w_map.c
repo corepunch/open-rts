@@ -1406,7 +1406,9 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
             append_dark_colony_object_unit(units, &count, max_units, object_index, object, 1,
-                                           unit_config, NULL, NULL, NULL, NULL, NULL);
+                                           DC_ALLEGIANCE_ENEMY,
+                                           unit_config, NULL, NULL, NULL, NULL, NULL,
+                                           false);
         }
     }
     scenario_destroy(&scenario);
