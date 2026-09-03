@@ -44,6 +44,12 @@ static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { ACTOR_ROBOPOD }, 1 },
 };
 
+static const StaticProductDefinition DARK_COLONY_ALIEN_PRODUCTS[] = {
+    { 14, 0, "Slug",  350,  6, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
+    {  8, 0, "Grey",  450,  5, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
+    { 13, 0, "Ortu",  600, 11, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
+};
+
 static int product_count(void) {
     return (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
                  sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
@@ -70,6 +76,9 @@ static uint16_t unit_actor_id_for_product_type(int product_type) {
     case 4: return 6;
     case 5: return 7;
     case 6: return 3;
+    case 14: return MT_DC_SLUG;
+    case  8: return MT_DC_GREY;
+    case 13: return MT_DC_ORTU;
     default: return 0;
     }
 }
@@ -125,6 +134,14 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     int ms = product->cost * 10;
     if (ms < 1000) ms = 1000;
     return ms;
+}
+
+int G_ModelAlienProducts(StaticProductDefinition *out, int max_products) {
+    if (!out || max_products <= 0) return 0;
+    int count = (int)(sizeof(DARK_COLONY_ALIEN_PRODUCTS) / sizeof(DARK_COLONY_ALIEN_PRODUCTS[0]));
+    if (count > max_products) count = max_products;
+    memcpy(out, DARK_COLONY_ALIEN_PRODUCTS, (size_t)count * sizeof(StaticProductDefinition));
+    return count;
 }
 
 int G_ModelGetProducts(const RtsGameModel *model, int owner,
