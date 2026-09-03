@@ -475,6 +475,7 @@ static int assert_no_ally_targeting(void) {
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
     units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
+    units[1].attack.target = -1;
     units[1].movement.order_arrived = true;
 
     units[2].owner = 0;
