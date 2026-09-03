@@ -1,5 +1,6 @@
 #include "engine_config.h"
 #include "../game/g_game.h"
+#include "../game/game.h"
 #include "../games/dark-colony/dc_facing.h"
 #include "../games/dark-colony/info.h"
 #include "../games/dark-colony/dc_types.h"
@@ -1253,6 +1254,43 @@ static int assert_fixed_momentum_semantics(void) {
     return 0;
 }
 
+static int assert_alien_products(RtsGameModel *model) {
+    StaticProductDefinition alien_defs[8];
+    int alien_count = G_ModelGetProducts(model, 1, alien_defs, 8);
+    if (alien_count != 3) return fail("alien product table returns exactly 3 entries for owner=1");
+
+    if (strcmp(alien_defs[0].label, "Slug") != 0 || alien_defs[0].cost != 350 ||
+        alien_defs[0].product_class != RTS_PRODUCT_UNIT || alien_defs[0].row_id != 15) {
+        return fail("Slug alien product has correct metadata");
+    }
+    if (strcmp(alien_defs[1].label, "Grey") != 0 || alien_defs[1].cost != 450 ||
+        alien_defs[1].product_class != RTS_PRODUCT_UNIT || alien_defs[1].row_id != 16) {
+        return fail("Grey alien product has correct metadata");
+    }
+    if (strcmp(alien_defs[2].label, "Ortu") != 0 || alien_defs[2].cost != 600 ||
+        alien_defs[2].product_class != RTS_PRODUCT_UNIT || alien_defs[2].row_id != 17) {
+        return fail("Ortu alien product has correct metadata");
+    }
+
+    StaticProductDefinition human_defs[32];
+    int human_count = G_ModelGetProducts(model, 0, human_defs, 32);
+    if (human_count < 16) return fail("human product table has at least 16 entries for owner=0");
+
+    uint16_t slug_actor = G_ModelActorIdForProduct(&alien_defs[0]);
+    uint16_t grey_actor = G_ModelActorIdForProduct(&alien_defs[1]);
+    uint16_t ortu_actor = G_ModelActorIdForProduct(&alien_defs[2]);
+    if (slug_actor != 9) return fail("Slug product maps to MT_DC_SLUG actor ID");
+    if (grey_actor != 2) return fail("Grey product maps to MT_DC_GREY actor ID");
+    if (ortu_actor != 8) return fail("Ortu product maps to MT_DC_ORTU actor ID");
+
+    printf("PASS: alien products returned %d entries, Slug=%s($%d) Grey=%s($%d) Ortu=%s($%d)\n",
+           alien_count,
+           alien_defs[0].label, alien_defs[0].cost,
+           alien_defs[1].label, alien_defs[1].cost,
+           alien_defs[2].label, alien_defs[2].cost);
+    return 0;
+}
+
 int main(void) {
     int result = assert_dark_colony_direction_mapping();
     if (result != 0) return result;
@@ -1269,6 +1307,7 @@ int main(void) {
     result = assert_human01(model);
     if (result == 0) result = assert_human02(model);
     if (result == 0) result = assert_human03_city_slots(model);
+    if (result == 0) result = assert_alien_products(model);
     rts_game_model_destroy(model);
     return result;
 }

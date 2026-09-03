@@ -16,6 +16,9 @@ enum {
     ACTOR_ROBOPOD = 1002,
     ACTOR_ROBOPOD2 = 1003,
     ACTOR_SCNCPOD2 = 1005,
+    ACTOR_MINDHIVE = 1007,
+    ACTOR_WARHIVE = 1008,
+    ACTOR_BRDRHIVE = 1009,
     PRODUCTION_BUILD_GROUP = 6,
     TRSCBUILD_FIRST_FRAME = 12,
 };
@@ -45,14 +48,23 @@ static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
 };
 
 static const StaticProductDefinition DARK_COLONY_ALIEN_PRODUCTS[] = {
-    { 14, 0, "Slug",  350,  6, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
-    {  8, 0, "Grey",  450,  5, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
-    { 13, 0, "Ortu",  600, 11, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
+    { 15, 0, "Slug",    350,  6, RTS_PRODUCT_UNIT, 14, 0, { 0 }, 1, { 0 }, 0 },
+    { 16, 0, "Grey",    450,  5, RTS_PRODUCT_UNIT,  8, 0, { 0 }, 1, { 0 }, 0 },
+    { 17, 0, "Ortu",    600, 11, RTS_PRODUCT_UNIT, 13, 0, { 0 }, 1, { 0 }, 0 },
 };
 
-static int product_count(void) {
+static int human_product_count(void) {
     return (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
                  sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+}
+
+static int alien_product_count(void) {
+    return (int)(sizeof(DARK_COLONY_ALIEN_PRODUCTS) /
+                 sizeof(DARK_COLONY_ALIEN_PRODUCTS[0]));
+}
+
+static int product_count(void) {
+    return human_product_count() + alien_product_count();
 }
 
 static uint16_t actor_id_for_product_type(int product_type) {
@@ -76,9 +88,9 @@ static uint16_t unit_actor_id_for_product_type(int product_type) {
     case 4: return 6;
     case 5: return 7;
     case 6: return 3;
-    case 14: return MT_DC_SLUG;
-    case  8: return MT_DC_GREY;
+    case 8: return MT_DC_GREY;
     case 13: return MT_DC_ORTU;
+    case 14: return MT_DC_SLUG;
     default: return 0;
     }
 }
@@ -146,20 +158,36 @@ int G_ModelAlienProducts(StaticProductDefinition *out, int max_products) {
 
 int G_ModelGetProducts(const RtsGameModel *model, int owner,
                        StaticProductDefinition *out, int max_products) {
-    (void)model; (void)owner;
+    (void)model;
     if (!out || max_products <= 0) return 0;
-    int count = product_count();
-    if (count > max_products) count = max_products;
-    memcpy(out, DARK_COLONY_HUMAN_PRODUCTS, (size_t)count * sizeof(StaticProductDefinition));
-    return count;
+    int h_count = human_product_count();
+    int a_count = alien_product_count();
+    int total = h_count + a_count;
+    if (total > max_products) total = max_products;
+    int copied = 0;
+    if (owner == 0) {
+        int n = h_count < max_products ? h_count : max_products;
+        memcpy(out, DARK_COLONY_HUMAN_PRODUCTS, (size_t)n * sizeof(StaticProductDefinition));
+        copied = n;
+    } else {
+        int n = a_count < max_products ? a_count : max_products;
+        memcpy(out, DARK_COLONY_ALIEN_PRODUCTS, (size_t)n * sizeof(StaticProductDefinition));
+        copied = n;
+    }
+    return copied;
 }
 
 const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *model, int ui_id) {
     (void)model;
-    int count = product_count();
-    for (int i = 0; i < count; ++i) {
+    int h_count = human_product_count();
+    for (int i = 0; i < h_count; ++i) {
         if (DARK_COLONY_HUMAN_PRODUCTS[i].ui_id == ui_id)
             return &DARK_COLONY_HUMAN_PRODUCTS[i];
+    }
+    int a_count = alien_product_count();
+    for (int i = 0; i < a_count; ++i) {
+        if (DARK_COLONY_ALIEN_PRODUCTS[i].ui_id == ui_id)
+            return &DARK_COLONY_ALIEN_PRODUCTS[i];
     }
     return NULL;
 }
@@ -168,20 +196,31 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
                                                          int product_class,
                                                          int product_type) {
     (void)model;
-    int count = product_count();
-    for (int i = 0; i < count; ++i) {
+    int h_count = human_product_count();
+    for (int i = 0; i < h_count; ++i) {
         if ((int)DARK_COLONY_HUMAN_PRODUCTS[i].product_class == product_class &&
             DARK_COLONY_HUMAN_PRODUCTS[i].product_type == product_type)
             return &DARK_COLONY_HUMAN_PRODUCTS[i];
+    }
+    int a_count = alien_product_count();
+    for (int i = 0; i < a_count; ++i) {
+        if ((int)DARK_COLONY_ALIEN_PRODUCTS[i].product_class == product_class &&
+            DARK_COLONY_ALIEN_PRODUCTS[i].product_type == product_type)
+            return &DARK_COLONY_ALIEN_PRODUCTS[i];
     }
     return NULL;
 }
 
 static const StaticProductDefinition *product_by_row_id(int row_id) {
-    int count = product_count();
-    for (int i = 0; i < count; ++i) {
+    int h_count = human_product_count();
+    for (int i = 0; i < h_count; ++i) {
         if (DARK_COLONY_HUMAN_PRODUCTS[i].row_id == row_id)
             return &DARK_COLONY_HUMAN_PRODUCTS[i];
+    }
+    int a_count = alien_product_count();
+    for (int i = 0; i < a_count; ++i) {
+        if (DARK_COLONY_ALIEN_PRODUCTS[i].row_id == row_id)
+            return &DARK_COLONY_ALIEN_PRODUCTS[i];
     }
     return NULL;
 }
@@ -411,6 +450,12 @@ static const AiProductionGoal ai_production_goals[] = {
     { 13, 1 }, /* S.A.R.G.E. */
 };
 
+static const AiProductionGoal alien_ai_production_goals[] = {
+    { 15, 2 }, /* Slug (harvester) */
+    { 16, 4 }, /* Grey (warrior) */
+    { 17, 1 }, /* Ortu (heavy) */
+};
+
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
     (void)elapsed_ms;
     if (!model) return;
@@ -419,6 +464,27 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
     for (size_t i = 0; i < sizeof(ai_production_goals) /
                          sizeof(ai_production_goals[0]); ++i) {
         const AiProductionGoal *goal = &ai_production_goals[i];
+        const StaticProductDefinition *product = product_by_row_id(goal->row_id);
+        if (!product) continue;
+        if (!G_ModelProductAvailable(model, AI_OWNER, product)) continue;
+
+        int producer_index = G_ModelFindProducerIndex(model, AI_OWNER, product);
+        if (producer_index >= 0) {
+            RtsGameCommand cmd = {
+                .kind = RTS_GAME_COMMAND_BUILD_PRODUCT,
+                .data.build_product = {
+                    .producer_id = 0,
+                    .producer_index = producer_index,
+                    .ui_id = product->ui_id,
+                },
+            };
+            if (rts_game_model_command(model, &cmd)) return;
+        }
+    }
+
+    for (size_t i = 0; i < sizeof(alien_ai_production_goals) /
+                         sizeof(alien_ai_production_goals[0]); ++i) {
+        const AiProductionGoal *goal = &alien_ai_production_goals[i];
         const StaticProductDefinition *product = product_by_row_id(goal->row_id);
         if (!product) continue;
         if (!G_ModelProductAvailable(model, AI_OWNER, product)) continue;
