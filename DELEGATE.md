@@ -2,7 +2,7 @@
 
 This project uses [opencode](https://opencode.ai) to delegate well-scoped GitHub issues
 to a background AI agent.  The workflow below describes how to run it, review
-the result, and create pull requests from the agent's changes.
+the result, and have the agent take the pull request through merge.
 
 ---
 
@@ -22,14 +22,26 @@ Work on GitHub issue #N: <title>.
 <...problem / acceptance criteria / smoke-test command...>
 
 When finished:
-1. Commit all changes with message 'DC-N: <title>\n\nCloses #N'.
-2. Push the branch: git push -u origin dc/issue-N-<slug>
-3. Create a PR to main: gh pr create --base main --title '...' --body '...'
+The agent must add extensive unit tests for the changed behavior, including
+boundary cases and failure paths, and run the relevant unit tests before
+opening or merging the PR.
+1. Add and run extensive unit tests covering normal behavior, boundary cases,
+   failure paths, and regressions for the changed behavior.
+2. Commit all changes with message 'DC-N: <title>\n\nCloses #N'.
+3. Push the branch: git push -u origin dc/issue-N-<slug>
+4. Create a PR to main: gh pr create --base main --title '...' --body '...'
+5. Review the PR, address every finding, and push the fixes.
+6. Rebase the PR branch onto main when needed, resolve conflicts, rerun all
+   tests, and push it with --force-with-lease.
+7. Approve and merge the PR with gh pr merge after all checks pass.
+
+The orchestrating agent does not review, rebase, or merge the PR; it only
+monitors the delegated run and reports blockers.
 ")
 ```
 
-The last three lines in the prompt tell the agent to commit, push, and
-open the PR itself — no manual follow-up required.
+The final lines in the prompt tell the agent to implement, test, commit, push,
+review, rebase, and merge the PR itself — no manual follow-up required.
 
 Run in the background when handling multiple issues in parallel:
 
@@ -68,6 +80,8 @@ Verify with:
 Acceptance:
 - <criterion 1>
 - <criterion 2>
+- Extensive unit tests cover normal behavior, boundary cases, and failure paths.
+- All relevant unit tests and smoke tests pass before the PR is opened and merged.
 ```
 
 ---
@@ -103,45 +117,43 @@ git worktree remove /tmp/open-rts-issue-3
 
 ---
 
-## Reviewing the result
+## Monitoring the result
 
 After the agent finishes:
 
 1. **Read the transcript** — scan the todo list at the top and the summary
-   at the bottom.  Verify the agent ran the smoke-test command and it
-   passed.
+   at the bottom.  Verify the agent added extensive unit tests, ran the
+   relevant unit and smoke-test commands, reviewed the PR, rebased when
+   necessary, and merged it successfully.
 
-2. **Check the diff** — `git diff --stat` shows which files changed.
-   Pre-existing uncommitted changes in the working tree are included; the
-   agent stacks on top of whatever was already there.
-
-3. **Build and smoke-test yourself**:
-
-   ```sh
-   make
-   env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check data/DCOLONY SCENARIO/HUMAN/HUMAN03.MAP
-   env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check data/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MAP
-   env SDL_VIDEODRIVER=dummy build/bin/test_game_model_headless data/DCOLONY
-   ```
-
-4. Watch for spurious changes — the agent sometimes makes cosmetic or
-   unrelated edits.  Review each file in the diff before committing.
+2. Confirm the PR is merged and the linked issue is closed.  If the agent
+   reports a review finding, rebase conflict, failed test, or merge blocker,
+   investigate that blocker in the worktree rather than taking over the PR
+   lifecycle.
 
 ---
 
 ## Creating pull requests
 
-The preferred flow is to have the agent create the PR itself.  Include
-these three lines at the end of every prompt:
+The preferred flow is to have the agent create, review, rebase, and merge the
+PR itself.  Include these lines at the end of every prompt:
 
 ```
 When finished:
-1. Commit all changes: git add -A && git commit -m "DC-N: <title>\n\nCloses #N\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
-2. Push the branch: git push -u origin <branch-name>
-3. Open a PR to main: gh pr create --base main --title "DC-N: <title>" --body "..."
+1. Add and run extensive unit tests covering normal behavior, boundary cases, failure paths, and regressions for the changed behavior.
+2. Commit all changes: git add -A && git commit -m "DC-N: <title>\n\nCloses #N\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+3. Push the branch: git push -u origin <branch-name>
+4. Open a PR to main: gh pr create --base main --title "DC-N: <title>" --body "..."
+5. Review the PR and fix every legitimate finding; do not merge with unresolved review comments or failing checks.
+6. Rebase the branch onto main when needed, resolve conflicts, rerun all tests, and force-push only the rebased branch with --force-with-lease.
+7. Approve and merge the PR with `gh pr merge <number> --squash --delete-branch` after review and all checks pass.
 ```
 
-### Manual fallback (if the agent did not create a PR)
+### Manual fallback (only if the agent cannot complete the lifecycle)
+
+The orchestrating agent should not normally perform these steps.  Use them
+only to recover from an OpenCode failure, and record why the agent could not
+complete the PR lifecycle.
 
 ```sh
 cd /tmp/open-rts-issue-N
@@ -166,6 +178,83 @@ gh pr create --base dc/issue-A --head dc/issue-B --title "..."   # PR B (stacked
 ```
 
 Merge A first.  GitHub automatically re-targets B to `main` once A lands.
+
+---
+
+## Agent-owned review, rebase, and merge
+
+OpenCode owns every step after the branch is pushed.  For each PR it must:
+
+1. **Read the diff**:
+   ```sh
+   gh pr diff <number>
+   ```
+   Check for spurious changes, leftover debug prints, and changes outside
+   the issue scope.
+
+2. **Run extensive unit tests and smoke-test the branch locally**:
+   ```sh
+   git fetch origin
+   git checkout dc/issue-N-<slug>
+   make
+   build/bin/test_game_model_headless data/DCOLONY
+   env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check data/DCOLONY SCENARIO/HUMAN/HUMAN03.MAP
+   env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check data/DCOLONY SCENARIO/MPLAYER/D2PLAY01.MAP
+   ```
+
+3. **Fix issues directly on the branch** if review or tests find something
+   incomplete:
+   ```sh
+   # Work in the existing worktree — no need to re-create it
+   cd /tmp/open-rts-issue-N
+   # edit, build, test
+   git add -p
+   git commit -m "DC-N: fix up <what>"
+   git push
+   ```
+
+4. **Review and approve the PR** after resolving all findings:
+   ```sh
+   gh pr review <number> --comment -b "..."
+   gh pr review <number> --approve
+   ```
+
+### Rebase and merge
+
+Once the PR is clean, extensive unit tests and smoke-tests pass, and all
+review comments are resolved, rebase and merge it:
+
+```sh
+git fetch origin
+git rebase origin/main
+git push --force-with-lease
+gh pr merge <number> --squash --delete-branch
+```
+
+Use `--squash` by default to keep `main` linear.  Use `--merge` only
+when the agent made multiple meaningful commits that should be preserved.
+
+After merging, GitHub closes the linked issue automatically when the PR
+body contains `Closes #N`.  Verify:
+
+```sh
+gh issue view N   # state should be CLOSED
+```
+
+If the issue is still open (e.g. the agent forgot the `Closes` line):
+
+```sh
+gh issue close N --comment "Resolved in PR #<pr-number>."
+```
+
+### Clean up the worktree
+
+After merging, remove the worktree and the local branch reference:
+
+```sh
+git worktree remove /tmp/open-rts-issue-N
+git branch -d dc/issue-N-<slug>   # already deleted on remote by --delete-branch
+```
 
 ---
 
