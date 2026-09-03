@@ -775,6 +775,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->selected = src->selected;
         dst->has_move_order = src->movement.order_id != 0;
         dst->harvest_target = src->harvest.target;
+        dst->hidden = src->hidden;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
     }

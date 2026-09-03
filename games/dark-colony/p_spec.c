@@ -971,13 +971,13 @@ static void parse_block_condition(ScriptBlock *block, const char *cond) {
         return;
     }
     /* Detect s(team,type,slot)==N */
-    int expected = -1;
-    if (sscanf(cond, "s(%d,%d,%d)==%d", &team, &slot, &expected, &expected) == 4 ||
-        sscanf(cond, "(s(%d,%d,%d))==%d", &team, &slot, &expected, &expected) == 4) {
+    int array = -1, index = -1, expected = -1;
+    if (sscanf(cond, "s(%d,%d,%d)==%d", &team, &array, &index, &expected) == 4 ||
+        sscanf(cond, "(s(%d,%d,%d))==%d", &team, &array, &index, &expected) == 4) {
         block->condition_kind = COND_UNIT_TYPE_EXISTS;
         block->unit_state_cond.team = team;
-        block->unit_state_cond.type = slot;
-        block->unit_state_cond.slot = expected;
+        block->unit_state_cond.type = array;
+        block->unit_state_cond.slot = index;
         block->unit_state_cond.expected_value = expected;
         return;
     }

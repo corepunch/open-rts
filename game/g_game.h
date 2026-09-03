@@ -138,6 +138,7 @@ typedef struct {
     bool selected;
     bool has_move_order;
     int harvest_target;
+    bool hidden;
     char sprite_name[32];
     char shadow_name[32];
 } RtsRenderUnit;

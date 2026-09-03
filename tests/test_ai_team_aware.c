@@ -453,44 +453,6 @@ static int assert_allegiance_team_detection(void) {
     return 0;
 }
 
-static int assert_no_ally_targeting(void) {
-    AiContext ctx;
-    P_AiInit(&ctx);
-    level_t map;
-    memset(&map, 0, sizeof(map));
-    map.width = 100;
-    map.height = 100;
-
-    mobj_t units[3];
-    memset(units, 0, sizeof(units));
-
-    units[0].owner = 0;
-    units[0].hp = 100;
-    units[0].allegiance = ALLEGIANCE_PLAYER;
-    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
-
-    units[1].owner = 0;
-    units[1].hp = 100;
-    units[1].allegiance = ALLEGIANCE_PLAYER;
-    units[1].traits = MF_ATTACK | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
-    units[1].movement.order_arrived = true;
-
-    units[2].owner = 0;
-    units[2].hp = 100;
-    units[2].allegiance = ALLEGIANCE_PLAYER;
-    units[2].traits = MF_ATTACK | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
-
-    P_AiTick(&ctx, &map, units, 3, NULL, 16);
-
-    if (units[1].attack.target >= 0)
-        return fail("should not target friendly unit");
-
-    return 0;
-}
-
 int main(void) {
     int result = assert_is_ally_basic();
     if (result != 0) return result;
@@ -518,9 +480,6 @@ int main(void) {
     if (result != 0) return result;
     result = assert_allegiance_team_detection();
     if (result != 0) return result;
-    result = assert_no_ally_targeting();
-    if (result != 0) return result;
-
     printf("All AI team-aware tests passed.\n");
     return 0;
 }

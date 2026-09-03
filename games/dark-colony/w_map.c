@@ -950,7 +950,7 @@ static bool object_pool_add_city_slot(DcObjectPool *pool, int team, int slot,
 }
 
 static bool scenario_object_starts_visible(const ScenarioObject *object) {
-    return object != NULL;
+    return object != NULL && object->status >= 0;
 }
 
 static int mobj_type_for_type(int type, int race) {
