@@ -62,6 +62,9 @@ void     G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
 /* Release a loaded mission. */
 void     G_FreeMission(void *mission);
 
+/* Return mission state: 0=active, 1=won, 2=lost, 3=ally_lost. */
+int      G_MissionState(const void *mission);
+
 /* ── custom interactive UI / sidebar hooks ─────────────────────────────── */
 
 /* Initialize game-specific interactive UI/sidebar. Returns an opaque pointer, or NULL if none. */
