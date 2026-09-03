@@ -218,6 +218,9 @@ array, not the binary.
 - **Exploiter walk cycle**: the original game has 16 animation frames per facing. The generated
   `info.c` only has 2 RUN states (RUN1/RUN2). The missing 14 frames need to be extracted and added
   by regenerating `info.c` via `tools/dc_info_gen` against the actual EXPL.SPR frame table.
+- **Reaper animation after regeneration**: after regenerating `info.c` or `info.h`, always restore
+  and verify the native Reaper movement timing `{4, 3, 3, 4, 1, 3, 3, 1}` for `S_DC_REAP_RUN1`
+  through `S_DC_REAP_RUN8`; run `build/bin/test_dark_colony_sprite_layout` before finishing.
 - **Exploiter deploy orientation**: when ordered to harvest, the unit first rotates to face
   south-east (code 6), then plays the DEPLOY1-20 animation. Code already does this; preserve it.
 - **Exploiter work (harvesting) animation**: the WORK1-15 overlay loop (frames 25-33) was the

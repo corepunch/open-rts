@@ -43,7 +43,7 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 DC_HEADLESS_TEST_SOURCE := tests/test_game_model_headless.c
 
 .PHONY: all run mission-1 mission-2 test test-headless test-model-commands dark-reign dark-colony \
-        dark-colony-human02 dark-colony-info dark-colony-gamestat 7legion kknd \
+        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
         kknd-check anim-extract clean help
 
 # ── per-game binary rule template ────────────────────────────────────────────
@@ -140,6 +140,9 @@ dark-colony: $(BIN_DIR)/dark-colony
 
 dark-colony-human02: $(BIN_DIR)/dark-colony
 	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
+
+dark-colony-human03: $(BIN_DIR)/dark-colony
+	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN03.MAP SPRITES/TROOPER1.SPR
 
 7legion: $(BIN_DIR)/7legion
 	$(BIN_DIR)/7legion data/7LEGION

@@ -904,12 +904,18 @@ static int object_pool_add_dynamic(DcObjectPool *pool, int x, int z,
                                                int subtype,
                                                const UnitConfig *unit_config) {
     int object_index = object_pool_alloc_dynamic(pool);
-    if (object_index < 0) return -1;
+    if (object_index < 0) {
+        fprintf(stderr, "[dark-colony] cannot allocate dynamic object type=%d team=%d at (%d,%d)\n",
+                type, team, x, z);
+        return -1;
+    }
     int health = initial_health_for_type(type, scenario_health, unit_config);
     if (!object_pool_init_object(pool, object_index,
                                              fixed_from_cell(x),
                                              fixed_from_cell(z),
                                              type, team, health, subtype)) {
+        fprintf(stderr, "[dark-colony] cannot initialize dynamic object index=%d type=%d team=%d\n",
+            object_index, type, team);
         return -1;
     }
     return object_index;
@@ -919,11 +925,20 @@ static bool object_pool_add_city_slot(DcObjectPool *pool, int team, int slot,
                                                   int x_fixed, int z_fixed, int type, int race,
                                                   const UnitConfig *unit_config) {
     int object_index = city_object_index(team, slot);
-    if (object_index < 0 || type <= 0) return false;
+    if (object_index < 0 || type <= 0) {
+        fprintf(stderr, "[dark-colony] cannot add city slot team=%d slot=%d type=%d\n",
+                team, slot, type);
+        return false;
+    }
     int health = default_health_for_type(type, unit_config);
     (void)race;
-    return object_pool_init_object(pool, object_index, x_fixed, z_fixed,
-                                               type, team, health, 0);
+    if (!object_pool_init_object(pool, object_index, x_fixed, z_fixed,
+                                 type, team, health, 0)) {
+        fprintf(stderr, "[dark-colony] cannot initialize city slot team=%d slot=%d type=%d index=%d\n",
+                team, slot, type, object_index);
+        return false;
+    }
+    return true;
 }
 
 static bool scenario_object_starts_visible(const ScenarioObject *object) {
@@ -970,7 +985,7 @@ static int mobj_type_for_type(int type, int race) {
 static const char *unit_sprite_for_type(int type, int race) {
     if (type == 16 || type == 17) return "SPRITES/HUBU.SPR";
     if (type >= 18 && type <= 22) return "SPRITES/SHORTCIT.SPR";
-    if (type >= 28 && type <= 34) return "SPRITES/ALIEN1.SPR";
+    if (type >= 28 && type <= 34) return "SPRITES/ALBU.SPR";
     if (type == 81) return "SPRITES/TOWR.SPR";
     if (type == 86) return "SPRITES/DISH.SPR";
     if (race == 1) {
@@ -1025,6 +1040,13 @@ static int unit_state_for_type(int type) {
         case 16: return S_DC_EXCOPOD_STND;
         case 17: return S_DC_BRRKPOD_STND;
         case 81: return S_DC_TOWR_STND;
+        case 28: return S_DC_ALIEN_MINDHIVE_STND;
+        case 29: return S_DC_ALIEN_WARHIVE_STND;
+        case 30: return S_DC_ALIEN_BRDRHIVE_STND;
+        case 31: return S_DC_ALIEN_BRDRHIVE2_STND;
+        case 32: return S_DC_ALIEN_MINDHIVE2_STND;
+        case 33: return S_DC_ALIEN_MINDHIVE3_STND;
+        case 34: return S_DC_ALIEN_RSCHIVE_STND;
         default: return S_NULL;
     }
 }
@@ -1075,12 +1097,18 @@ static void city_slot_position_fixed(int anchor_x, int anchor_y, int slot,
 
 static bool team_city_anchor(const ScenarioTeam *team,
                                          int *x_out, int *y_out) {
-    if (!team || team->ai_slot_count < 2)
+    if (!team || team->ai_slot_count < 1)
         return false;
-    /* DC.EXE scenario.c stores the second %AISlots pair at team +0x2c/+0x30;
-       city.c uses both fields as the city's 8.8 fixed-point origin. */
+    /* DC.EXE scenario.c stores the city anchor as the second %AISlots pair
+       (team +0x2c/+0x30).  Allied AI teams such as Aerogen in HUMAN03 have
+       (0,0) as the second pair; fall back to the first %AISlots pair so their
+       city slots are still materialized at the team's start position. */
     int x = team->ai_slots[1][0];
     int y = team->ai_slots[1][1];
+    if (x == 0 && team->ai_slot_count >= 2) {
+        x = team->ai_slots[0][0];
+        y = team->ai_slots[0][1];
+    }
     if (x == 0)
         return false;
     if (x_out) *x_out = x;
@@ -1124,7 +1152,9 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     int team = object->team;
     const char *sprite = unit_sprite_for_type(type, race);
     int mobj_type = mobj_type_for_type(type, race);
-    if (!sprite || mobj_type <= 0) return false;
+    if (!sprite || mobj_type <= 0) {
+        return false;
+    }
 
     mobj_t *u = &units[*count];
     memset(u, 0, sizeof(*u));
@@ -1156,8 +1186,12 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     int state_id = unit_state_for_type(type);
     if (state_id == S_NULL && u->type_id > 0 && u->type_id < game_info.mobj_type_count)
         state_id = game_info.mobjinfo[u->type_id].spawnstate;
-    if (state_id != S_NULL)
-        P_SetMobjState(&ctx, u, state_id);
+    if (state_id != S_NULL && !P_SetMobjState(&ctx, u, state_id)) {
+        fprintf(stderr, "[dark-colony] state setup failed for object index=%d native_type=%d "
+                "mobj=%d state=%d sprite=%s\n",
+                object_index, type, mobj_type, state_id, sprite);
+        return false;
+    }
     if (object_uses_city_render_origin(object_index))
         u->core.render_offset.y += CELL_H;
     if (u->owner == 0) {
@@ -1180,7 +1214,10 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
     ScenarioFile scenario;
-    if (!scenario_load(scn_path, &scenario)) return 0;
+    if (!scenario_load(scn_path, &scenario)) {
+        fprintf(stderr, "[dark-colony] cannot load scenario %s\n", scn_path);
+        return 0;
+    }
 
     UnitConfig unit_config[DARK_COLONY_MAX_GAMESTAT_UNITS];
     load_dark_colony_unit_config(unit_config);
@@ -1199,7 +1236,11 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         if (!team_info->active) continue;
         int slot_x = 0;
         int slot_y = 0;
-        if (!team_city_anchor(team_info, &slot_x, &slot_y)) continue;
+        if (!team_city_anchor(team_info, &slot_x, &slot_y)) {
+            fprintf(stderr, "[dark-colony] active team %d has no city anchor; city slots not loaded\n",
+                team);
+            continue;
+        }
         for (int slot = 0; slot < DARK_COLONY_SCN_CITY_SLOTS; ++slot) {
             int value_index = slot * 2;
             if (value_index >= team_info->city_value_count) break;
@@ -1208,9 +1249,23 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             int x_fixed = 0, z_fixed = 0;
             city_slot_position_fixed(slot_x, slot_y, slot,
                                                  &x_fixed, &z_fixed);
-            object_pool_add_city_slot(&object_pool, team, slot,
-                                                  x_fixed, z_fixed, type,
-                                                  team_info->race, unit_config);
+                if (!object_pool_add_city_slot(&object_pool, team, slot,
+                               x_fixed, z_fixed, type,
+                               team_info->race, unit_config)) {
+                fprintf(stderr, "[dark-colony] city object not loaded team=%d slot=%d native_type=%d\n",
+                    team, slot, type);
+                }
+        }
+        if (team_info->race == 1 && team_info->city_values[0] > 0 &&
+            team_info->city_values[10] <= 0) {
+            int tower_x = 0, tower_z = 0;
+            city_slot_position_fixed(slot_x, slot_y, 5, &tower_x, &tower_z);
+            if (object_pool_add_city_slot(&object_pool, team, 5,
+                                          tower_x, tower_z, 81,
+                                          team_info->race, unit_config)) {
+                fprintf(stderr, "[dark-colony] synthesized alien city tower team=%d slot=5 from active base slot\n",
+                        team);
+            }
         }
     }
 
@@ -1232,10 +1287,10 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         int object_index = object_pool.active_objects[i];
         const DcObject *object = &object_pool.objects[object_index];
         int team = object->team;
-        int race = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
-            scenario.teams[team].race : 0;
         if (object->type == OBJECT_TYPE_PETRA7_VENT || object->type == 84)
             continue;
+        int race = team >= 0 && team < DARK_COLONY_SCN_MAX_TEAMS ?
+            scenario.teams[team].race : 0;
         if (race != 1 && object->type == 16 && count < max_units) {
             DcObject tower = *object;
             tower.type = 81;
@@ -1255,8 +1310,8 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
     if (map_path_is_multiplayer(map_path) && !player_has_exploiter &&
         player_anchor_set && count < max_units) {
         int object_index = object_pool_add_dynamic(&object_pool, player_anchor_x + 2,
-                                                               player_anchor_y, 6, 0, -1, 0,
-                                                               unit_config);
+                                                                player_anchor_y, 6, 0, -1, 0,
+                                                                unit_config);
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
             append_dark_colony_object_unit(units, &count, max_units, object_index, object, 0,
