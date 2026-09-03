@@ -95,6 +95,9 @@ int      G_WorldViewportWidth(const app_t *app);
 int      G_ModelGetProducts(const RtsGameModel *model, int owner,
                             StaticProductDefinition *out, int max_products);
 
+/* Query alien production products. Returns count. */
+int      G_ModelAlienProducts(StaticProductDefinition *out, int max_products);
+
 /* Lookup a static product definition by its UI ID. */
 const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *model, int ui_id);
 
