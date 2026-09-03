@@ -780,30 +780,45 @@ static void execute_script_block(Mission *mission, ScriptBlock *block,
                     spawn_script_unit(map, units, unit_count, team, x, y, type, game_info);
             }
         } else if (cmd->type == SCRIPT_CMD_BAIL) {
-            int result = cmd->a[0];
-            int code = cmd->a[1];
+            int disable_id = cmd->a[0];
+            int enable_id = cmd->a[1];
+            for (int b = 0; b < mission->block_count; ++b) {
+                if (mission->blocks[b].id == disable_id) {
+                    mission->blocks[b].fired = 1;
+                    break;
+                }
+            }
+            for (int b = 0; b < mission->block_count; ++b) {
+                if (mission->blocks[b].id == enable_id) {
+                    mission->blocks[b].fired = 0;
+                    break;
+                }
+            }
             MissionState new_state = MISSION_ACTIVE;
             const char *msg = NULL;
-            if (result == 0 && code == 1) {
+            if (enable_id == 1) {
                 new_state = MISSION_WON;
                 msg = "ALIEN HIVE DESTROYED.";
-            } else if (result == 1 && code == 2) {
+            } else if (enable_id == 2) {
                 new_state = MISSION_LOST;
                 msg = "ALL YOUR BUILDINGS HAVE BEEN DESTROYED.";
-            } else if (result == 1 && code == 3) {
+            } else if (enable_id == 3) {
                 new_state = MISSION_ALLY_LOST;
                 msg = "ALLIED BASE LOST.";
             }
             if (new_state != MISSION_ACTIVE) {
                 if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
                     fprintf(stderr, "Dark Colony mission state -> %d (bail %d %d)\n",
-                            new_state, result, code);
+                            new_state, disable_id, enable_id);
                 }
                 mission->state = new_state;
                 if (msg) HU_PushMessage(hud, msg, -1);
             }
         } else if (cmd->type == SCRIPT_CMD_NEWRATE) {
-            /* newrate updates resource vent rates; store for later use */
+            if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+                fprintf(stderr, "SCRIPT_CMD_NEWRATE stub: vent %d rate %d period %d\n",
+                        cmd->a[0], cmd->a[1], cmd->a[2]);
+            }
         } else if (cmd->type == SCRIPT_CMD_SETARRAY) {
             int index = cmd->a[0];
             int value = cmd->a[1];
@@ -811,7 +826,10 @@ static void execute_script_block(Mission *mission, ScriptBlock *block,
                 mission->script_arrays[index] = value;
             }
         } else if (cmd->type == SCRIPT_CMD_SETLIFES) {
-            /* setlifes sets a unit's remaining lives; not yet implemented */
+            if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+                fprintf(stderr, "SCRIPT_CMD_SETLIFES stub: unit type %d lives %d\n",
+                        cmd->a[0], cmd->a[1]);
+            }
         }
     }
     block->fired = true;
@@ -1311,13 +1329,6 @@ static bool evaluate_condition(const Mission *mission, const ScriptBlock *block,
         return true; /* handled by caller */
     }
     return false;
-}
-
-static MissionState mission_state_from_bail(int result, int code) {
-    if (result == 0 && code == 1) return MISSION_WON;
-    if (result == 1 && code == 2) return MISSION_LOST;
-    if (result == 1 && code == 3) return MISSION_ALLY_LOST;
-    return MISSION_ACTIVE;
 }
 
 void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
