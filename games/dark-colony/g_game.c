@@ -248,6 +248,54 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
         .traits = MF_RENDERABLE,
         .max_hp = 1600,
     },
+    {
+        .id = MT_DC_ORTU,
+        .name = "Saucer Scout",
+        .sprite_name = "SPRITES/ORTU.SPR",
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_ATTACK,
+        .speed = 47.0f / 32.0f,
+        .max_hp = 800,
+        .attack = { .range = 2.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
+    },
+    {
+        .id = MT_DC_SLUG,
+        .name = "Alien Worker",
+        .sprite_name = "SPRITES/SLUG.SPR",
+        .traits = MF_SELECTABLE | MF_MOBILE |
+                  MF_RENDERABLE | MF_HARVESTER,
+        .speed = 40.0f / 32.0f,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_DC_MOBILE_TOWER,
+        .name = "Mobile Tower",
+        .sprite_name = "SPRITES/TURR.SPR",
+        .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
+        .max_hp = 800,
+        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500, .anim_ms = 210 },
+    },
+    {
+        .id = MT_DC_DROP_LINK,
+        .name = "Dropship Link",
+        .sprite_name = "SPRITES/CENT.SPR",
+        .traits = MF_RENDERABLE,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_DC_ALIEN_COM,
+        .name = "Alien Com Tower",
+        .sprite_name = "SPRITES/TONG.SPR",
+        .traits = MF_SELECTABLE | MF_RENDERABLE,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_DC_VISION_SIGHT,
+        .name = "Vision Sight",
+        .sprite_name = "SPRITES/DOTT.SPR",
+        .traits = MF_RENDERABLE,
+        .max_hp = 300,
+    },
 };
 
 const actortype_t *actor_type_by_id(uint16_t type_id) {
