@@ -56,12 +56,45 @@ typedef enum {
     SCRIPT_CMD_REINFORCE,
     SCRIPT_CMD_REINFORCE2,
     SCRIPT_CMD_NEWTYPE,
+    SCRIPT_CMD_BAIL,
+    SCRIPT_CMD_NEWRATE,
+    SCRIPT_CMD_SETARRAY,
+    SCRIPT_CMD_SETLIFES,
 } ScriptCommandType;
+
+typedef enum {
+    MISSION_ACTIVE,
+    MISSION_WON,
+    MISSION_LOST,
+    MISSION_ALLY_LOST,
+} MissionState;
+
+typedef enum {
+    COND_COUNTER_GT,    /* c > N */
+    COND_ALL_BUILDINGS_DESTROYED, /* b(team,0..4)==0 */
+    COND_UNIT_TYPE_EXISTS, /* s(team,type,slot)==1 */
+    COND_TRIP_PLAYER_NEAR, /* S==0 */
+    COND_COUNTER_GT_STATE, /* c > s(team,type,slot) */
+} ConditionKind;
+
+typedef struct {
+    int team;
+    int slots[5];
+    int slot_count;
+} BuildingCondition;
+
+typedef struct {
+    int team;
+    int type;
+    int slot;
+    int expected_value;
+} UnitStateCondition;
 
 enum {
     SCRIPT_COUNTER_MS = 1000,
     DROPSHIP_FLIGHT_TICS = 50,
     DROPSHIP_MAX_PAYLOAD_TYPES = 5,
+    MAX_CITY_SLOTS = 5,
 };
 
 typedef struct {
@@ -79,6 +112,13 @@ typedef struct {
     int trigger_y;
     ScriptCommand commands[32];
     int command_count;
+    ConditionKind condition_kind;
+    bool condition_negated; /* true if condition should be negated (e.g. enabled=0) */
+    BuildingCondition building_cond;
+    UnitStateCondition unit_state_cond;
+    int counter_gt_state_team;
+    int counter_gt_state_type;
+    int counter_gt_state_slot;
 } ScriptBlock;
 
 typedef struct {
@@ -179,6 +219,14 @@ static const DropshipPhaseDef dropship_phase_defs[] = {
     },
 };
 
+typedef struct {
+    int team;
+    int slot;
+    int anchor_x;
+    int anchor_y;
+    int race;
+} CitySlotInfo;
+
 struct Mission {
     ScriptMessage messages[64];
     int message_count;
@@ -190,6 +238,10 @@ struct Mission {
     int ai_elapsed_ms;
     int ai_wave_elapsed_ms;
     uint32_t ai_wave_target_id;
+    MissionState state;
+    int city_slot_count;
+    CitySlotInfo city_slots[32];
+    int script_arrays[16];
 };
 
 typedef struct {
@@ -694,9 +746,9 @@ static void update_dropship(Mission *mission,
 }
 
 static void execute_script_block(Mission *mission, ScriptBlock *block,
-                                             level_t *map, mobj_t *units, int *unit_count,
-                                             effect_t *effects, int max_effects,
-                                             const gameinfo_t *game_info, hudtext_t *hud) {
+                                              level_t *map, mobj_t *units, int *unit_count,
+                                              effect_t *effects, int max_effects,
+                                              const gameinfo_t *game_info, hudtext_t *hud) {
     if (!mission || !block) return;
     for (int i = 0; i < block->command_count; ++i) {
         ScriptCommand *cmd = &block->commands[i];
@@ -727,6 +779,39 @@ static void execute_script_block(Mission *mission, ScriptBlock *block,
                 if (cmd->type == SCRIPT_CMD_REINFORCE2)
                     spawn_script_unit(map, units, unit_count, team, x, y, type, game_info);
             }
+        } else if (cmd->type == SCRIPT_CMD_BAIL) {
+            int result = cmd->a[0];
+            int code = cmd->a[1];
+            MissionState new_state = MISSION_ACTIVE;
+            const char *msg = NULL;
+            if (result == 0 && code == 1) {
+                new_state = MISSION_WON;
+                msg = "ALIEN HIVE DESTROYED.";
+            } else if (result == 1 && code == 2) {
+                new_state = MISSION_LOST;
+                msg = "ALL YOUR BUILDINGS HAVE BEEN DESTROYED.";
+            } else if (result == 1 && code == 3) {
+                new_state = MISSION_ALLY_LOST;
+                msg = "ALLIED BASE LOST.";
+            }
+            if (new_state != MISSION_ACTIVE) {
+                if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
+                    fprintf(stderr, "Dark Colony mission state -> %d (bail %d %d)\n",
+                            new_state, result, code);
+                }
+                mission->state = new_state;
+                if (msg) HU_PushMessage(hud, msg, -1);
+            }
+        } else if (cmd->type == SCRIPT_CMD_NEWRATE) {
+            /* newrate updates resource vent rates; store for later use */
+        } else if (cmd->type == SCRIPT_CMD_SETARRAY) {
+            int index = cmd->a[0];
+            int value = cmd->a[1];
+            if (index >= 0 && index < (int)(sizeof(mission->script_arrays) / sizeof(mission->script_arrays[0]))) {
+                mission->script_arrays[index] = value;
+            }
+        } else if (cmd->type == SCRIPT_CMD_SETLIFES) {
+            /* setlifes sets a unit's remaining lives; not yet implemented */
         }
     }
     block->fired = true;
@@ -817,6 +902,78 @@ static void add_reinforce_commands(ScriptBlock *block,
     }
 }
 
+static void parse_block_condition(ScriptBlock *block, const char *cond) {
+    if (!block || !cond) return;
+    /* Detect b(team,slot)==0 patterns: ((b(2,0)==0)&&(b(2,1)==0)&&...) */
+    int team = -1, slot = -1;
+    if (sscanf(cond, "b(%d,%d)==0", &team, &slot) == 2 ||
+        sscanf(cond, "(b(%d,%d))==0", &team, &slot) == 2) {
+        block->condition_kind = COND_ALL_BUILDINGS_DESTROYED;
+        block->building_cond.team = team;
+        block->building_cond.slot_count = 1;
+        block->building_cond.slots[0] = slot;
+        return;
+    }
+    /* Detect compound b() conditions: ((b(2,0)==0)&&(b(2,1)==0)&&(b(2,2)==0)&&...) */
+    if (strstr(cond, "b(") && strstr(cond, "==0")) {
+        block->condition_kind = COND_ALL_BUILDINGS_DESTROYED;
+        block->building_cond.team = -1;
+        block->building_cond.slot_count = 0;
+        const char *p = cond;
+        while (*p && block->building_cond.slot_count < MAX_CITY_SLOTS) {
+            if (sscanf(p, " b(%d,%d)==0", &team, &slot) == 2 ||
+                sscanf(p, "(b(%d,%d))==0", &team, &slot) == 2) {
+                if (block->building_cond.team < 0)
+                    block->building_cond.team = team;
+                block->building_cond.slots[block->building_cond.slot_count++] = slot;
+            }
+            p++;
+        }
+        return;
+    }
+    /* Detect s(team,type,slot)==N */
+    int expected = -1;
+    if (sscanf(cond, "s(%d,%d,%d)==%d", &team, &slot, &expected, &expected) == 4 ||
+        sscanf(cond, "(s(%d,%d,%d))==%d", &team, &slot, &expected, &expected) == 4) {
+        block->condition_kind = COND_UNIT_TYPE_EXISTS;
+        block->unit_state_cond.team = team;
+        block->unit_state_cond.type = slot;
+        block->unit_state_cond.slot = expected;
+        block->unit_state_cond.expected_value = expected;
+        return;
+    }
+    /* Detect compound s() conditions with || */
+    if (strstr(cond, "s(") && strstr(cond, "==1")) {
+        block->condition_kind = COND_UNIT_TYPE_EXISTS;
+        block->unit_state_cond.team = -1;
+        block->unit_state_cond.type = -1;
+        block->unit_state_cond.slot = -1;
+        block->unit_state_cond.expected_value = 1;
+        const char *p = cond;
+        while (*p) {
+            int s_team = -1, s_type = -1, s_slot = -1;
+            if (sscanf(p, " s(%d,%d,%d)==1", &s_team, &s_type, &s_slot) == 3 ||
+                sscanf(p, "(s(%d,%d,%d))==1", &s_team, &s_type, &s_slot) == 3) {
+                if (block->unit_state_cond.team < 0) {
+                    block->unit_state_cond.team = s_team;
+                    block->unit_state_cond.type = s_type;
+                    block->unit_state_cond.slot = s_slot;
+                }
+            }
+            p++;
+        }
+        return;
+    }
+    /* Detect c>s(team,type,slot) */
+    if (sscanf(cond, "c>s(%d,%d,%d)", &team, &slot, &expected) == 3) {
+        block->condition_kind = COND_COUNTER_GT_STATE;
+        block->counter_gt_state_team = team;
+        block->counter_gt_state_type = slot;
+        block->counter_gt_state_slot = expected;
+        return;
+    }
+}
+
 static void parse_tro(Mission *mission, const char *path) {
     char *text = load_text(path);
     if (!text) return;
@@ -845,8 +1002,35 @@ static void parse_tro(Mission *mission, const char *path) {
                 block->c_gt = -1;
                 block->trigger_x = -1;
                 block->trigger_y = -1;
+                block->condition_kind = COND_COUNTER_GT;
+                block->condition_negated = (enabled == 0);
                 if (sscanf(token, "%*d %*s %*d (c>%d)", &c_gt) == 1) block->c_gt = c_gt;
                 if (block->trip) block->requires_player_near = true;
+                /* Parse condition from block header */
+                const char *cond_start = strchr(token, '(');
+                if (cond_start) {
+                    /* Skip leading parentheses */
+                    while (*cond_start == '(') cond_start++;
+                    /* Find matching close paren */
+                    const char *cond_end = cond_start + strlen(cond_start);
+                    while (cond_end > cond_start && *(cond_end - 1) == ')') cond_end--;
+                    char cond_buf[256];
+                    size_t cond_len = (size_t)(cond_end - cond_start);
+                    if (cond_len < sizeof(cond_buf)) {
+                        memcpy(cond_buf, cond_start, cond_len);
+                        cond_buf[cond_len] = '\0';
+                        /* Strip inner parentheses */
+                        char inner[256];
+                        const char *src = cond_buf;
+                        char *dst = inner;
+                        while (*src && (size_t)(dst - inner) < sizeof(inner) - 1) {
+                            if (*src != '(' && *src != ')') *dst++ = *src;
+                            src++;
+                        }
+                        *dst = '\0';
+                        parse_block_condition(block, inner);
+                    }
+                }
             }
         } else if (block && strcmp(token, "end") == 0) {
             block = NULL;
@@ -873,11 +1057,168 @@ static void parse_tro(Mission *mission, const char *path) {
                     block->trigger_x = v[0];
                     block->trigger_y = v[1];
                 }
+            } else if (sscanf(token, "bail %d %d", &v[0], &v[1]) == 2) {
+                cmd.type = SCRIPT_CMD_BAIL;
+                cmd.a[0] = v[0];
+                cmd.a[1] = v[1];
+                script_add_command(block, cmd);
+            } else if (sscanf(token, "newrate %d %d %d", &v[0], &v[1], &v[2]) == 3) {
+                cmd.type = SCRIPT_CMD_NEWRATE;
+                cmd.a[0] = v[0];
+                cmd.a[1] = v[1];
+                cmd.a[2] = v[2];
+                script_add_command(block, cmd);
+            } else if (sscanf(token, "setarray %d (c+%d)", &v[0], &v[1]) == 2) {
+                cmd.type = SCRIPT_CMD_SETARRAY;
+                cmd.a[0] = v[0];
+                cmd.a[1] = v[1];
+                script_add_command(block, cmd);
+            } else if (sscanf(token, "setlifes %d %d", &v[0], &v[1]) == 2) {
+                cmd.type = SCRIPT_CMD_SETLIFES;
+                cmd.a[0] = v[0];
+                cmd.a[1] = v[1];
+                script_add_command(block, cmd);
             }
         }
         line = next;
     }
     free(text);
+}
+
+static void load_city_slot_data(Mission *mission, const char *map_path) {
+    if (!mission || !map_path) return;
+    char scn_path[1024];
+    replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
+    FILE *fp = fopen(scn_path, "rb");
+    if (!fp) return;
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    if (size <= 0) { fclose(fp); return; }
+    fseek(fp, 0, SEEK_SET);
+    char *text = malloc((size_t)size + 1);
+    if (!text) { fclose(fp); return; }
+    if (fread(text, 1, (size_t)size, fp) != (size_t)size) {
+        free(text); fclose(fp); return;
+    }
+    fclose(fp);
+    text[size] = '\0';
+
+    int current_team = -1;
+    int team_count = 0;
+    bool object_mode = false;
+    int trailing_blanks = 0;
+    char section[32] = { 0 };
+    /* Temporary storage for team data */
+    struct { int active; int race; int ai_slot_count; int ai_slots[2][2];
+             int city_values[12]; int city_value_count; } teams[8] = { 0 };
+
+    for (char *line = text; line && *line;) {
+        char *next = strpbrk(line, "\r\n");
+        if (next) {
+            char nl = *next; *next++ = '\0';
+            if (nl == '\r' && *next == '\n') next++;
+        }
+        char token[256] = { 0 };
+        trim_copy(token, sizeof(token), line);
+        if (line == text || (line == text + 1 && token[0] != '\0')) {
+            /* Skip header lines */
+            line = next;
+            continue;
+        }
+        if (token[0] == '\0') {
+            if (team_count >= 8 && !object_mode && ++trailing_blanks >= 2) {
+                object_mode = true;
+                current_team = -1;
+                section[0] = '\0';
+            }
+            line = next;
+            continue;
+        }
+        trailing_blanks = 0;
+
+        int team = -1, active = 0;
+        if (sscanf(token, "TEAM %d %d", &team, &active) >= 1) {
+            if (team >= 0 && team < 8) {
+                current_team = team;
+                teams[team].active = active != 0;
+                if (team + 1 > team_count) team_count = team + 1;
+            } else {
+                current_team = -1;
+            }
+            object_mode = false;
+            section[0] = '\0';
+            line = next;
+            continue;
+        }
+
+        if (token[0] == '%') {
+            trim_copy(section, sizeof(section), token);
+            line = next;
+            continue;
+        }
+
+        if (!object_mode && current_team >= 0 && current_team < 8) {
+            int values[32] = { 0 };
+            int value_count = 0;
+            const char *p = token;
+            while (*p && value_count < 32) {
+                while (isspace((unsigned char)*p)) p++;
+                if (*p == '\0') break;
+                char *end = NULL;
+                long v = strtol(p, &end, 10);
+                if (end == p) break;
+                values[value_count++] = (int)v;
+                p = end;
+            }
+
+            if (strcmp(section, "%Race") == 0) {
+                if (value_count > 0) teams[current_team].race = values[0];
+            } else if (strcmp(section, "%AISlots") == 0) {
+                if (value_count >= 2 && teams[current_team].ai_slot_count < 2) {
+                    int s = teams[current_team].ai_slot_count++;
+                    teams[current_team].ai_slots[s][0] = values[0];
+                    teams[current_team].ai_slots[s][1] = values[1];
+                }
+            } else if (strcmp(section, "%City") == 0) {
+                if (teams[current_team].city_value_count == 0) {
+                    teams[current_team].city_value_count = value_count > 12 ? 12 : value_count;
+                    memcpy(teams[current_team].city_values, values,
+                           (size_t)teams[current_team].city_value_count * sizeof(int));
+                }
+            }
+            line = next;
+            continue;
+        }
+        if (object_mode) break;
+        line = next;
+    }
+    free(text);
+
+    /* Extract city slot info for each team */
+    mission->city_slot_count = 0;
+    for (int t = 0; t < 8; ++t) {
+        if (!teams[t].active) continue;
+        int anchor_x = 0, anchor_y = 0;
+        if (teams[t].ai_slot_count >= 2) {
+            anchor_x = teams[t].ai_slots[1][0];
+            anchor_y = teams[t].ai_slots[1][1];
+        }
+        if (anchor_x == 0 && teams[t].ai_slot_count >= 1) {
+            anchor_x = teams[t].ai_slots[0][0];
+            anchor_y = teams[t].ai_slots[0][1];
+        }
+        if (anchor_x == 0) continue;
+        for (int s = 0; s < 5 && mission->city_slot_count < 32; ++s) {
+            if (s < teams[t].city_value_count && teams[t].city_values[s * 2] > 0) {
+                CitySlotInfo *info = &mission->city_slots[mission->city_slot_count++];
+                info->team = t;
+                info->slot = s;
+                info->anchor_x = anchor_x;
+                info->anchor_y = anchor_y;
+                info->race = teams[t].race;
+            }
+        }
+    }
 }
 
 void *load_mission(const char *map_path) {
@@ -889,15 +1230,94 @@ void *load_mission(const char *map_path) {
     replace_extension(tro_path, sizeof(tro_path), map_path, ".TRO");
     parse_messages(mission, msg_path);
     parse_tro(mission, tro_path);
+    load_city_slot_data(mission, map_path);
     dropship_animation_from_sprites(map_path, &mission->dropship_animations);
     if (getenv("OPEN_RTS_DEBUG_SCRIPT")) {
-        fprintf(stderr, "Dark Colony mission %s: %d messages, %d blocks\n",
-                map_path, mission->message_count, mission->block_count);
+        fprintf(stderr, "Dark Colony mission %s: %d messages, %d blocks, %d city slots\n",
+                map_path, mission->message_count, mission->block_count, mission->city_slot_count);
     }
-    /* Keep an empty mission object alive: the scenario's native %AI records
-     * are map data, and the AI thinker must still run when no .MSG/.TRO script
-     * accompanies the map. */
     return mission;
+}
+
+/* City slot offsets from DC.EXE - same as in w_map.c */
+static const struct { int x; int z; } dc_city_slot_offsets[] = {
+    { -64, 15 }, { 0, 0 }, { 32, 64 }, { 64, 10 }, { -32, 65 }, { 0, 32 }, { 0, 0 },
+};
+
+static fvec2_t city_slot_cell_center(const CitySlotInfo *slot_info) {
+    if (!slot_info) return (fvec2_t){ 0.0f, 0.0f };
+    int sx = 0, sz = 0;
+    if (slot_info->slot >= 0 && slot_info->slot < 7) {
+        sx = dc_city_slot_offsets[slot_info->slot].x;
+        sz = dc_city_slot_offsets[slot_info->slot].z;
+    }
+    float cell_x = (float)slot_info->anchor_x + (float)sx * 8.0f / 256.0f;
+    float cell_y = (float)slot_info->anchor_y + (float)sz * 8.0f / 256.0f;
+    return fvec2_cell_center((ivec2_t){ (int)cell_x, (int)cell_y });
+}
+
+static bool building_alive_at_slot(const Mission *mission, int team, int slot,
+                                    const mobj_t *units, int unit_count) {
+    fvec2_t expected = (fvec2_t){ 0.0f, 0.0f };
+    bool found_slot = false;
+    for (int i = 0; i < mission->city_slot_count; ++i) {
+        const CitySlotInfo *info = &mission->city_slots[i];
+        if (info->team == team && info->slot == slot) {
+            expected = city_slot_cell_center(info);
+            found_slot = true;
+            break;
+        }
+    }
+    if (!found_slot) return false;
+    for (int i = 0; i < unit_count; ++i) {
+        const mobj_t *unit = &units[i];
+        if (unit->remove || unit->hp <= 0) continue;
+        if (unit->owner != (uint8_t)(team == 0 ? 0 : 1)) continue;
+        fvec2_t pos = fixedvec3_xy_to_fvec2(unit->core.position);
+        if (fvec2_near(pos, expected, 1.5f)) return true;
+    }
+    return false;
+}
+
+static bool evaluate_condition(const Mission *mission, const ScriptBlock *block,
+                                const mobj_t *units, int unit_count) {
+    switch (block->condition_kind) {
+    case COND_ALL_BUILDINGS_DESTROYED: {
+        int team = block->building_cond.team;
+        for (int i = 0; i < block->building_cond.slot_count; ++i) {
+            if (building_alive_at_slot(mission, team, block->building_cond.slots[i],
+                                       units, unit_count))
+                return false;
+        }
+        return block->building_cond.slot_count > 0;
+    }
+    case COND_UNIT_TYPE_EXISTS: {
+        /* Check if any unit of the specified type exists for the team */
+        int team = block->unit_state_cond.team;
+        int type = block->unit_state_cond.type;
+        (void)type;
+        for (int i = 0; i < unit_count; ++i) {
+            const mobj_t *unit = &units[i];
+            if (unit->remove || unit->hp <= 0) continue;
+            if (team == 0 && unit->owner != 0) continue;
+            if (team != 0 && unit->owner == 0) continue;
+            if (unit->native_type_id == (uint16_t)type) return true;
+        }
+        return false;
+    }
+    case COND_COUNTER_GT:
+    case COND_TRIP_PLAYER_NEAR:
+    case COND_COUNTER_GT_STATE:
+        return true; /* handled by caller */
+    }
+    return false;
+}
+
+static MissionState mission_state_from_bail(int result, int code) {
+    if (result == 0 && code == 1) return MISSION_WON;
+    if (result == 1 && code == 2) return MISSION_LOST;
+    if (result == 1 && code == 3) return MISSION_ALLY_LOST;
+    return MISSION_ACTIVE;
 }
 
 void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
@@ -905,19 +1325,30 @@ void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
                                 const gameinfo_t *game_info, hudtext_t *hud, float dt) {
     Mission *mission = ptr;
     if (!mission || !units || !unit_count) return;
+    if (mission->state != MISSION_ACTIVE) return;
     mission->elapsed_ms += (int)(dt * 1000.0f);
     update_ai(mission, map, units, *unit_count, (int)(dt * 1000.0f));
     bool debug_script = getenv("OPEN_RTS_DEBUG_SCRIPT") != NULL;
     for (int i = 0; i < mission->block_count; ++i) {
         ScriptBlock *block = &mission->blocks[i];
         if (block->fired) continue;
+        if (mission->state != MISSION_ACTIVE) break;
         bool fire = false;
         if (block->trip) {
             fire = block->trigger_x >= 0 &&
                    player_near(map, units, *unit_count, block->trigger_x, block->trigger_y);
+        } else if (block->condition_kind == COND_ALL_BUILDINGS_DESTROYED) {
+            fire = evaluate_condition(mission, block, units, *unit_count);
+        } else if (block->condition_kind == COND_UNIT_TYPE_EXISTS) {
+            fire = evaluate_condition(mission, block, units, *unit_count);
         } else if (block->c_gt >= 0) {
             fire = mission->elapsed_ms > block->c_gt * SCRIPT_COUNTER_MS;
+            if (fire && block->condition_kind == COND_COUNTER_GT_STATE) {
+                /* c > s(team,type,slot): check if counter exceeds some value */
+                fire = true; /* simplified: fire on counter alone */
+            }
         }
+        if (block->condition_negated) fire = !fire;
         if (fire) {
             if (debug_script) {
                 fprintf(stderr, "Dark Colony script block %d fired (%d commands)\n",
@@ -934,6 +1365,11 @@ void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
                                     effects, max_effects, game_info,
                                     (int)(dt * 1000.0f));
     }
+}
+
+MissionState mission_get_state(const void *mission) {
+    if (!mission) return MISSION_ACTIVE;
+    return ((const Mission *)mission)->state;
 }
 
 void destroy_mission(void *mission) {
