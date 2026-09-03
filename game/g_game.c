@@ -829,6 +829,12 @@ const char *rts_game_model_last_error(const RtsGameModel *model) {
     return model && model->error[0] ? model->error : "";
 }
 
+int rts_game_model_player_resources(const RtsGameModel *model, int player, int resource_type) {
+    if (!model || player < 0 || player >= 8 || resource_type < 0 || resource_type >= RTS_MAX_RESOURCES)
+        return 0;
+    return model->map.player_resources[player][resource_type];
+}
+
 int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products) {
     if (!model || !out || max_products <= 0) return 0;
     StaticProductDefinition static_defs[64];
