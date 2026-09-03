@@ -11,6 +11,14 @@
 #include <string.h>
 #include <strings.h>
 
+enum {
+    HARVEST_PHASE_NONE = 0,
+    HARVEST_PHASE_TO_MINE = 1,
+    HARVEST_PHASE_MINING = 2,
+    HARVEST_PHASE_TO_BASE = 3,
+    HARVEST_PHASE_TURNING = 4,
+};
+
 void debug_effects_log(const char *fmt, ...);
 
 float P_MobjRadius(const mobj_t *unit);

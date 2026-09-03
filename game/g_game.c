@@ -3,6 +3,7 @@
 
 #include "engine.h"
 #include "game.h"
+#include "p_ai.h"
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -24,6 +25,7 @@ struct RtsGameModel {
     RtsGameEvent events[256];
     int event_head;
     int event_count;
+    AiContext ai;
 };
 
 static void model_set_error(RtsGameModel *model, const char *fmt, ...) {
@@ -569,6 +571,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     model->unit_count = P_LoadThings(map_path, (mobj_t *)model->units, MAXMOBJS);
     apply_plugin_actor_defaults(model);
     model->mission = G_LoadMission(map_path);
+    P_AiInit(&model->ai);
     model->loaded = true;
     model->error[0] = '\0';
     return true;
@@ -595,6 +598,8 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     model->tick++;
     P_Ticker(&model->map, model->units, &model->unit_count, model->effects,
                  MAX_VISUAL_EFFECTS, gameinfo, dt);
+    P_AiTick(&model->ai, &model->map, model->units, model->unit_count,
+             gameinfo, (int)(dt * 1000.0f));
     if (model->mission) {
         G_MissionTicker(model->mission, &model->map, (mobj_t *)model->units,
                         &model->unit_count, model->effects,

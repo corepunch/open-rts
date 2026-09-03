@@ -184,7 +184,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
     int preferred = attacker->attack.target;
     if (preferred >= 0 && preferred < unit_count) {
         const mobj_t *target = &units[preferred];
-        if (!target->remove && target->hp > 0 && target->owner != attacker->owner) {
+        if (!target->remove && target->hp > 0 && !P_IsAlly(attacker, target)) {
             if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(target->core.position),
                                        fixedvec3_xy_to_fvec2(attacker->core.position)) <=
                 attacker->attack.range * attacker->attack.range) {
@@ -199,7 +199,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *candidate = &units[i];
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
-            candidate->owner == attacker->owner) {
+            P_IsAlly(attacker, candidate)) {
             continue;
         }
         float dist2 = fvec2_distance_squared(
@@ -354,12 +354,12 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     int count = *ctx->mobj_count;
     int target_index = attacker->attack.target;
     if (target_index < 0 || target_index >= count || ctx->mobjs[target_index].hp <= 0 ||
-        ctx->mobjs[target_index].owner == attacker->owner) {
+        P_IsAlly(attacker, &ctx->mobjs[target_index])) {
         target_index = -1;
         float best_dist2 = attacker->attack.range * attacker->attack.range;
         for (int i = 0; i < count; ++i) {
             mobj_t *candidate = &ctx->mobjs[i];
-            if (candidate == attacker || candidate->hp <= 0 || candidate->owner == attacker->owner)
+            if (candidate == attacker || candidate->hp <= 0 || P_IsAlly(attacker, candidate))
                 continue;
             float dist2 = fvec2_distance_squared(
                 fixedvec3_xy_to_fvec2(candidate->core.position),
@@ -564,14 +564,6 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     if (radius > 1.10f) radius = 1.10f;
     return radius;
 }
-
-enum {
-    HARVEST_PHASE_NONE = 0,
-    HARVEST_PHASE_TO_MINE = 1,
-    HARVEST_PHASE_MINING = 2,
-    HARVEST_PHASE_TO_BASE = 3,
-    HARVEST_PHASE_TURNING = 4,
-};
 
 static void update_resource_vent_smoke(level_t *map, const mobj_t *units, int unit_count) {
     if (!map || !map->resource_vents) return;
@@ -919,7 +911,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             float best_dist2 = attacker->attack.range * attacker->attack.range;
             for (int j = 0; j < count; ++j) {
                 if (i == j || units[j].remove || units[j].hp <= 0 ||
-                    units[j].owner == attacker->owner) {
+                    P_IsAlly(attacker, &units[j])) {
                     continue;
                 }
                 float dist2 = fvec2_distance_squared(
@@ -1049,7 +1041,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         int target_index = -1;
         float best_dist2 = attacker->attack.range * attacker->attack.range;
         for (int j = 0; j < count; ++j) {
-            if (i == j || units[j].hp <= 0 || units[j].owner == attacker->owner) continue;
+            if (i == j || units[j].hp <= 0 || P_IsAlly(attacker, &units[j])) continue;
             float dist2 = fvec2_distance_squared(
                 fixedvec3_xy_to_fvec2(units[j].core.position),
                 fixedvec3_xy_to_fvec2(attacker->core.position));

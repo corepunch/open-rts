@@ -24,6 +24,13 @@ typedef enum {
     MF_RESOURCE_BASE = 1u << 5,
 } mobjflag_t;
 
+enum {
+    ALLEGIANCE_PLAYER = 0,
+    ALLEGIANCE_ENEMY  = 1,
+    ALLEGIANCE_ALLIED = 2,
+    ALLEGIANCE_NEUTRAL = 3,
+};
+
 typedef struct actortype_s {
     uint16_t id;
     const char *name;
@@ -185,6 +192,8 @@ struct mobj_s {
     uint16_t native_type_id;
     float render_sort_y;
     uint8_t owner;
+    uint8_t team;
+    uint8_t allegiance;
     uint32_t traits;
     int hp;
     int max_hp;
@@ -243,6 +252,17 @@ struct mobj_s {
     char shadow_name[32];
     actionf_p1 death_effect_action;
 };
+
+static inline bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
+    if (!a || !b) return false;
+    if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
+        return false;
+    if (a->allegiance == b->allegiance) return true;
+    if ((a->allegiance == ALLEGIANCE_PLAYER || a->allegiance == ALLEGIANCE_ALLIED) &&
+        (b->allegiance == ALLEGIANCE_PLAYER || b->allegiance == ALLEGIANCE_ALLIED))
+        return true;
+    return false;
+}
 
 typedef struct effect_s {
     mobjcore_t core;

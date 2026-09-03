@@ -1185,16 +1185,17 @@ static void compute_team_allegiances(const ScenarioFile *scenario,
 }
 
 static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_units,
-                                           int object_index,
-                                           const DcObject *object, int race,
-                                           int team_allegiance,
-                                           const UnitConfig *unit_config,
-                                           bool *player_selected,
-                                           bool *player_has_exploiter,
-                                           bool *player_anchor_set,
-                                           int *player_anchor_x,
-                                           int *player_anchor_y,
-                                           bool hidden) {
+                                            int object_index,
+                                            const DcObject *object, int race,
+                                            int scenario_team,
+                                            int team_allegiance,
+                                            const UnitConfig *unit_config,
+                                            bool *player_selected,
+                                            bool *player_has_exploiter,
+                                            bool *player_anchor_set,
+                                            int *player_anchor_x,
+                                            int *player_anchor_y,
+                                            bool hidden) {
     if (!units || !count || *count >= max_units || !object || object->active == 0) {
         return false;
     }
@@ -1227,6 +1228,10 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         u->render_sort_y = fixed_to_cell(object->z_pos);
     u->owner = (team_allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_DC_COMMS_DISH) ? 0 :
                (team_allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
+    u->team = (uint8_t)(scenario_team >= 0 ? scenario_team : 0);
+    u->allegiance = (uint8_t)(team_allegiance == DC_ALLEGIANCE_PLAYER ? ALLEGIANCE_PLAYER :
+                              team_allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED :
+                              ALLEGIANCE_ENEMY);
     u->hp = object->health_or_amount;
     u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
@@ -1366,13 +1371,13 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             DcObject tower = *object;
             tower.type = 81;
             append_dark_colony_object_unit(units, &count, max_units, object_index,
-                                           &tower, race, allegiance,
+                                           &tower, race, team, allegiance,
                                            unit_config,
                                            NULL, NULL, NULL, NULL, NULL,
                                            hidden);
         }
         append_dark_colony_object_unit(units, &count, max_units, object_index, object, race,
-                                       allegiance,
+                                       team, allegiance,
                                        unit_config,
                                        &player_selected,
                                        &player_has_exploiter,
@@ -1389,7 +1394,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
             append_dark_colony_object_unit(units, &count, max_units, object_index, object, 0,
-                                           DC_ALLEGIANCE_PLAYER,
+                                           0, DC_ALLEGIANCE_PLAYER,
                                            unit_config, &player_selected,
                                            &player_has_exploiter,
                                            &player_anchor_set,
@@ -1406,7 +1411,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
             append_dark_colony_object_unit(units, &count, max_units, object_index, object, 1,
-                                           DC_ALLEGIANCE_ENEMY,
+                                           1, DC_ALLEGIANCE_ENEMY,
                                            unit_config, NULL, NULL, NULL, NULL, NULL,
                                            false);
         }

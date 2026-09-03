@@ -90,12 +90,14 @@ $(BUILD_DIR)/dc-test/%.o: %.c
 
 -include $(DC_MODEL_TEST_DEPS)
 
-# ── DC sprite layout test ─────────────────────────────────────────────────────
+# ── DC AI team-aware test ───────────────────────────────────────────────────
 DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
 DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
 
 $(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJ) $(DC_LAYOUT_DC_INFO_OBJ) | $(BIN_DIR)
 	$(CC) $^ -o $@ -lm
+
+-include $(DC_AI_TEST_DEPS)
 
 # ── anim_extract and info generators ─────────────────────────────────────────
 $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
@@ -155,7 +157,7 @@ kknd-check: $(BIN_DIR)/kknd
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
-test: test-headless test-model-commands
+test: test-headless test-model-commands test-ai
 
 test-headless: $(BIN_DIR)/test_game_model_headless $(DC_LAYOUT_TEST_TARGET)
 	$(BIN_DIR)/test_game_model_headless
@@ -178,6 +180,18 @@ $(BUILD_DIR)/cmd-dr/%.o: %.c
 test-model-commands: $(BIN_DIR)/test_model_commands_dark-colony $(BIN_DIR)/test_model_commands_dark-reign
 	$(BIN_DIR)/test_model_commands_dark-colony
 	$(BIN_DIR)/test_model_commands_dark-reign
+
+DC_AI_TEST_SOURCE := tests/test_ai_team_aware.c
+DC_AI_TEST_OBJS := \
+	$(BUILD_DIR)/dc-test/$(DC_AI_TEST_SOURCE:.c=.o) \
+	$(patsubst %.c,$(BUILD_DIR)/dc-test/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES))
+DC_AI_TEST_DEPS := $(DC_AI_TEST_OBJS:.o=.d)
+
+$(BIN_DIR)/test_ai_team_aware: $(DC_AI_TEST_OBJS) | $(BIN_DIR)
+	$(CC) $^ -o $@ $(SDL_LIBS) -lm
+
+test-ai: $(BIN_DIR)/test_ai_team_aware
+	$(BIN_DIR)/test_ai_team_aware
 
 help:
 	@echo "Usage: make [target]"
