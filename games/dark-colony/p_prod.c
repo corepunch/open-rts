@@ -422,6 +422,7 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
         const StaticProductDefinition *product = product_by_row_id(goal->row_id);
         if (!product) continue;
         if (!G_ModelProductAvailable(model, AI_OWNER, product)) continue;
+        if (rts_game_model_player_resources(model, AI_OWNER, 0) < product->cost) continue;
 
         int producer_index = G_ModelFindProducerIndex(model, AI_OWNER, product);
         if (producer_index >= 0) {

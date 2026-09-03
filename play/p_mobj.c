@@ -652,7 +652,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
         if (unit->harvest.capacity > 0 && unit->harvest.cargo > 0) {
             for (int i = 0; i < unit_count; ++i) {
-                if (units[i].owner != unit->owner ||
+                if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                     (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
                 fvec2_t base_position = fixedvec3_xy_to_fvec2(units[i].core.position);
                 unit->harvest.return_position = base_position;
@@ -701,7 +701,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         if (unit->harvest.capacity > 0 && unit->harvest.cargo >= unit->harvest.capacity) {
             bool sent_home = false;
             for (int i = 0; i < unit_count; ++i) {
-                if (units[i].owner != unit->owner ||
+                if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                     (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
                 fvec2_t base_position = fixedvec3_xy_to_fvec2(units[i].core.position);
                 unit->harvest.return_position = base_position;
@@ -721,7 +721,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
             if (unit->harvest.capacity > 0 && unit->harvest.cargo > 0) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
                 for (int i = 0; i < unit_count; ++i) {
-                    if (units[i].owner != unit->owner ||
+                    if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                         (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
                     fvec2_t base_position = fixedvec3_xy_to_fvec2(units[i].core.position);
                     unit->harvest.return_position = base_position;

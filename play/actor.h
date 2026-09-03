@@ -253,15 +253,19 @@ struct mobj_s {
     actionf_p1 death_effect_action;
 };
 
-static inline bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
-    if (!a || !b) return false;
-    if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
+static inline bool P_AreAllegiancesAllied(uint8_t a, uint8_t b) {
+    if (a == ALLEGIANCE_NEUTRAL || b == ALLEGIANCE_NEUTRAL)
         return false;
-    if (a->allegiance == b->allegiance) return true;
-    if ((a->allegiance == ALLEGIANCE_PLAYER || a->allegiance == ALLEGIANCE_ALLIED) &&
-        (b->allegiance == ALLEGIANCE_PLAYER || b->allegiance == ALLEGIANCE_ALLIED))
+    if (a == b) return true;
+    if ((a == ALLEGIANCE_PLAYER || a == ALLEGIANCE_ALLIED) &&
+        (b == ALLEGIANCE_PLAYER || b == ALLEGIANCE_ALLIED))
         return true;
     return false;
+}
+
+static inline bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
+    if (!a || !b) return false;
+    return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
 }
 
 typedef struct effect_s {

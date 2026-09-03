@@ -115,11 +115,13 @@ static int assert_ai_detects_base(void) {
     memset(units, 0, sizeof(units));
     units[0].owner = 0;
     units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE;
     units[0].core.position = (fixedvec3_t){ 10 << 16, 20 << 16, 0 };
 
     units[1].owner = 1;
     units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_ENEMY;
     units[1].traits = MF_RESOURCE_BASE;
     units[1].core.position = (fixedvec3_t){ 50 << 16, 60 << 16, 0 };
 
@@ -142,16 +144,19 @@ static int assert_ai_counts_units(void) {
     memset(units, 0, sizeof(units));
     units[0].owner = 0;
     units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
     units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
 
     units[2].owner = 0;
     units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_PLAYER;
     units[2].traits = MF_HARVESTER | MF_MOBILE;
     units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
 
@@ -178,17 +183,20 @@ static int assert_ai_defense_rally(void) {
 
     units[0].owner = 0;
     units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
     units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
     units[1].movement.order_arrived = true;
 
     units[2].owner = 1;
     units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_ENEMY;
     units[2].traits = MF_ATTACK | MF_MOBILE;
     units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
 
@@ -210,11 +218,13 @@ static int assert_ai_attack_wave_timer(void) {
     memset(units, 0, sizeof(units));
     units[0].owner = 0;
     units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 1;
     units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_ENEMY;
     units[1].traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[1].core.position = (fixedvec3_t){ 50 << 16, 50 << 16, 0 };
 
@@ -224,6 +234,259 @@ static int assert_ai_attack_wave_timer(void) {
 
     if (timer_after >= timer_before)
         return fail("attack wave timer should decrease");
+
+    return 0;
+}
+
+static int assert_allegiance_targeting(void) {
+    AiContext ctx;
+    P_AiInit(&ctx);
+    level_t map;
+    memset(&map, 0, sizeof(map));
+    map.width = 100;
+    map.height = 100;
+
+    mobj_t units[4];
+    memset(units, 0, sizeof(units));
+
+    units[0].owner = 0;
+    units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
+    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+
+    units[1].owner = 0;
+    units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
+    units[1].traits = MF_ATTACK | MF_MOBILE;
+    units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
+    units[1].movement.order_arrived = true;
+
+    units[2].owner = 1;
+    units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_ALLIED;
+    units[2].traits = MF_ATTACK | MF_MOBILE;
+    units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+
+    units[3].owner = 2;
+    units[3].hp = 100;
+    units[3].allegiance = ALLEGIANCE_ENEMY;
+    units[3].traits = MF_ATTACK | MF_MOBILE;
+    units[3].core.position = (fixedvec3_t){ 15 << 16, 10 << 16, 0 };
+
+    P_AiTick(&ctx, &map, units, 4, NULL, 16);
+
+    if (units[1].attack.target == 2)
+        return fail("should not target allied unit");
+
+    if (units[1].attack.target != 3)
+        return fail("should target enemy unit");
+
+    return 0;
+}
+
+static int assert_harvesting_assignment(void) {
+    AiContext ctx;
+    P_AiInit(&ctx);
+    level_t map;
+    memset(&map, 0, sizeof(map));
+    map.width = 100;
+    map.height = 100;
+
+    resourcevent_t vents[1];
+    memset(vents, 0, sizeof(vents));
+    vents[0].active = true;
+    vents[0].amount = 1000;
+    vents[0].rate = 10;
+    vents[0].attachment = (fvec2_t){ 20.5f, 20.5f };
+    vents[0].cell = (ivec2_t){ 20, 20 };
+    map.resource_vents = vents;
+    map.resource_vent_count = 1;
+
+    mobj_t units[2];
+    memset(units, 0, sizeof(units));
+
+    units[0].owner = 0;
+    units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
+    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+
+    units[1].owner = 0;
+    units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
+    units[1].traits = MF_HARVESTER | MF_MOBILE;
+    units[1].core.position = (fixedvec3_t){ 15 << 16, 15 << 16, 0 };
+    units[1].attack.target = -1;
+    units[1].harvest.target = -1;
+
+    P_AiTick(&ctx, &map, units, 2, NULL, 16);
+
+    if (ctx.teams[0].harvest_assignment_count != 1)
+        return fail("should assign 1 slug to harvest");
+    if (ctx.teams[0].harvest_assignments[0].vent_index != 0)
+        return fail("should assign to vent 0");
+
+    return 0;
+}
+
+static int assert_defense_trigger(void) {
+    AiContext ctx;
+    P_AiInit(&ctx);
+    level_t map;
+    memset(&map, 0, sizeof(map));
+    map.width = 100;
+    map.height = 100;
+
+    mobj_t units[3];
+    memset(units, 0, sizeof(units));
+
+    units[0].owner = 0;
+    units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
+    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[0].core.position = (fixedvec3_t){ 50 << 16, 50 << 16, 0 };
+
+    units[1].owner = 0;
+    units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
+    units[1].traits = MF_ATTACK | MF_MOBILE;
+    units[1].core.position = (fixedvec3_t){ 52 << 16, 50 << 16, 0 };
+    units[1].movement.order_arrived = true;
+
+    units[2].owner = 2;
+    units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_ENEMY;
+    units[2].traits = MF_ATTACK | MF_MOBILE;
+    units[2].core.position = (fixedvec3_t){ 55 << 16, 50 << 16, 0 };
+
+    P_AiTick(&ctx, &map, units, 3, NULL, 16);
+
+    if (units[1].attack.target != 2)
+        return fail("defender should intercept enemy near base");
+
+    return 0;
+}
+
+static int assert_attack_wave_dispatch(void) {
+    AiContext ctx;
+    P_AiInit(&ctx);
+    ctx.teams[0].attack_wave_timer_ms = 0;
+
+    level_t map;
+    memset(&map, 0, sizeof(map));
+    map.width = 100;
+    map.height = 100;
+
+    mobj_t units[4];
+    memset(units, 0, sizeof(units));
+
+    units[0].owner = 0;
+    units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
+    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+
+    units[1].owner = 0;
+    units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
+    units[1].traits = MF_ATTACK | MF_MOBILE;
+    units[1].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+    units[1].movement.order_arrived = true;
+
+    units[2].owner = 2;
+    units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_ENEMY;
+    units[2].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[2].core.position = (fixedvec3_t){ 80 << 16, 80 << 16, 0 };
+
+    units[3].owner = 2;
+    units[3].hp = 100;
+    units[3].allegiance = ALLEGIANCE_ENEMY;
+    units[3].traits = MF_ATTACK | MF_MOBILE;
+    units[3].core.position = (fixedvec3_t){ 82 << 16, 80 << 16, 0 };
+
+    P_AiTick(&ctx, &map, units, 4, NULL, 16);
+
+    if (units[1].attack.target != 2)
+        return fail("attack wave should target enemy base");
+
+    return 0;
+}
+
+static int assert_allegiance_team_detection(void) {
+    AiContext ctx;
+    P_AiInit(&ctx);
+    level_t map;
+    memset(&map, 0, sizeof(map));
+
+    mobj_t units[3];
+    memset(units, 0, sizeof(units));
+
+    units[0].owner = 0;
+    units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
+    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+
+    units[1].owner = 1;
+    units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_ALLIED;
+    units[1].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[1].core.position = (fixedvec3_t){ 30 << 16, 30 << 16, 0 };
+
+    units[2].owner = 2;
+    units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_ENEMY;
+    units[2].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[2].core.position = (fixedvec3_t){ 60 << 16, 60 << 16, 0 };
+
+    P_AiTick(&ctx, &map, units, 3, NULL, 16);
+
+    if (ctx.teams[0].allegiance != ALLEGIANCE_PLAYER)
+        return fail("team 0 should have PLAYER allegiance");
+    if (ctx.teams[1].allegiance != ALLEGIANCE_ALLIED)
+        return fail("team 1 should have ALLIED allegiance");
+    if (ctx.teams[2].allegiance != ALLEGIANCE_ENEMY)
+        return fail("team 2 should have ENEMY allegiance");
+
+    return 0;
+}
+
+static int assert_no_ally_targeting(void) {
+    AiContext ctx;
+    P_AiInit(&ctx);
+    level_t map;
+    memset(&map, 0, sizeof(map));
+    map.width = 100;
+    map.height = 100;
+
+    mobj_t units[3];
+    memset(units, 0, sizeof(units));
+
+    units[0].owner = 0;
+    units[0].hp = 100;
+    units[0].allegiance = ALLEGIANCE_PLAYER;
+    units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
+    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+
+    units[1].owner = 0;
+    units[1].hp = 100;
+    units[1].allegiance = ALLEGIANCE_PLAYER;
+    units[1].traits = MF_ATTACK | MF_MOBILE;
+    units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
+    units[1].movement.order_arrived = true;
+
+    units[2].owner = 0;
+    units[2].hp = 100;
+    units[2].allegiance = ALLEGIANCE_PLAYER;
+    units[2].traits = MF_ATTACK | MF_MOBILE;
+    units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+
+    P_AiTick(&ctx, &map, units, 3, NULL, 16);
+
+    if (units[1].attack.target >= 0)
+        return fail("should not target friendly unit");
 
     return 0;
 }
@@ -244,6 +507,18 @@ int main(void) {
     result = assert_ai_defense_rally();
     if (result != 0) return result;
     result = assert_ai_attack_wave_timer();
+    if (result != 0) return result;
+    result = assert_allegiance_targeting();
+    if (result != 0) return result;
+    result = assert_harvesting_assignment();
+    if (result != 0) return result;
+    result = assert_defense_trigger();
+    if (result != 0) return result;
+    result = assert_attack_wave_dispatch();
+    if (result != 0) return result;
+    result = assert_allegiance_team_detection();
+    if (result != 0) return result;
+    result = assert_no_ally_targeting();
     if (result != 0) return result;
 
     printf("All AI team-aware tests passed.\n");

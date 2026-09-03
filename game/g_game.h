@@ -235,5 +235,6 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out);
 int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products);
 
 const char *rts_game_model_last_error(const RtsGameModel *model);
+int rts_game_model_player_resources(const RtsGameModel *model, int player, int resource_type);
 
 #endif

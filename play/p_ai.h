@@ -26,6 +26,7 @@ typedef struct {
     int attack_wave_timer_ms;
     int attack_wave_size;
     bool attack_wave_active;
+    uint8_t allegiance;
 } AiTeamState;
 
 typedef struct {
