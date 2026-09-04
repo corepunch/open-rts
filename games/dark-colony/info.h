@@ -517,6 +517,7 @@ typedef enum {
     S_DC_EXPL_CORPSE,
     S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,
     S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,
+    S_DC_DROPSHIP_APPROACH, S_DC_DROPSHIP_UNLOAD, S_DC_DROPSHIP_UNLOAD_DONE, S_DC_DROPSHIP_REPOSITION, S_DC_DROPSHIP_REPOSITION_DONE, S_DC_DROPSHIP_DEPART, S_DC_DROPSHIP_DEPART_DONE,
     NUMSTATES
 } statenum_t;
 
@@ -533,5 +534,13 @@ void A_DC_Attack(statecontext_t *ctx, mobj_t *unit);
 void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);
+
+void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit);
+void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit);
+void A_DC_DropshipUnloadDone(statecontext_t *ctx, mobj_t *unit);
+void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit);
+void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit);
+void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit);
+void A_DC_DropshipDepartDone(statecontext_t *ctx, mobj_t *unit);
 
 #endif

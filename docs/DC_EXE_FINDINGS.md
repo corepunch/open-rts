@@ -37,6 +37,27 @@ frames per facing for `EXPLMOVE`; only the 16 directional labels and two body
 frames per label are confirmed. No additional Exploiter frames should be
 invented without another native asset or executable trace.
 
+## Dropship state lifecycle
+
+**Confirmed in the runtime implementation:** A mission Dropship now owns an
+`mobj_t` state core and advances through the shared `P_TickMobjState` contract.
+The generated chain is approach -> unload -> unload-done -> reposition ->
+reposition-done -> depart -> depart-done. Entry actions establish native FIN
+timing; completion actions release payload units, select the next phase, and
+retire the Dropship. The mission-owned pool keeps these presentation objects
+outside ordinary unit selection, targeting, and combat compaction.
+
+**Confirmed by headless runtime test:** Human02's `c>0` reinforcement creates
+an active `SPRITES/DROP.SPR` effect after mission ticks advance. The standalone
+`--check` smoke path only loads the map and mission and does not advance enough
+script ticks to display delayed reinforcements; model ticking is required to
+verify delivery appearance.
+
+**Implementation boundary:** DROP.FIN still supplies the multi-part visual
+composition through transient effects. The Dropship mobj is the lifecycle and
+timing owner, while those effects remain the render representation of its
+native layered parts.
+
 ## Evidence labels
 
 - **Confirmed** means exact instructions and native data agree, or a focused

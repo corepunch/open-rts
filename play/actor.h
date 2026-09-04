@@ -186,6 +186,7 @@ typedef struct mobjcore_s {
 
 struct mobj_s {
     mobjcore_t core;
+    void *state_userdata;
     float speed;
     uint32_t id;
     uint16_t type_id;

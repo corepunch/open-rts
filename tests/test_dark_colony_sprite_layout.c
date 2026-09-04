@@ -8,6 +8,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_DropshipUnloadDone(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_DropshipDepartDone(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+
 typedef struct {
     char name[17];
     int start;
@@ -503,12 +511,36 @@ static int assert_generated_mobj_table_coverage(void) {
     return 0;
 }
 
+static int assert_dropship_state_chain(void) {
+    const state_t *approach = &states[S_DC_DROPSHIP_APPROACH];
+    const state_t *unload = &states[S_DC_DROPSHIP_UNLOAD];
+    const state_t *unload_done = &states[S_DC_DROPSHIP_UNLOAD_DONE];
+    const state_t *reposition = &states[S_DC_DROPSHIP_REPOSITION];
+    const state_t *reposition_done = &states[S_DC_DROPSHIP_REPOSITION_DONE];
+    const state_t *depart = &states[S_DC_DROPSHIP_DEPART];
+    const state_t *depart_done = &states[S_DC_DROPSHIP_DEPART_DONE];
+    if (approach->nextstate != S_DC_DROPSHIP_UNLOAD ||
+        unload->nextstate != S_DC_DROPSHIP_UNLOAD_DONE ||
+        unload_done->tics != 0 ||
+        reposition->nextstate != S_DC_DROPSHIP_REPOSITION_DONE ||
+        reposition_done->tics != 0 ||
+        depart->nextstate != S_DC_DROPSHIP_DEPART_DONE ||
+        depart_done->tics != 0 ||
+        !approach->action || !unload->action || !unload_done->action ||
+        !reposition->action || !reposition_done->action || !depart->action ||
+        !depart_done->action) {
+        return fail("Dropship lifecycle uses a complete state/action chain");
+    }
+    return 0;
+}
+
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;
     if (assert_reaper_move_timing() != 0) return 1;
     if (assert_barracks_trooper_release_timing() != 0) return 1;
     if (assert_exploiter_16_direction_states() != 0) return 1;
     if (assert_generated_mobj_table_coverage() != 0) return 1;
+    if (assert_dropship_state_chain() != 0) return 1;
     printf("PASS: Dark Colony SPR/FIN layout alignment is data-consistent\n");
     return 0;
 }

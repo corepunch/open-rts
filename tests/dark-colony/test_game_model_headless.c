@@ -502,6 +502,18 @@ static int assert_human02(RtsGameModel *model) {
                                              RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK)) {
         return fail("Human02 dropship beacon stays anchored beside the starting base");
     }
+        bool saw_dropship = false;
+        for (int tick = 0; tick < 45 && !saw_dropship; ++tick) {
+            if (!rts_tick(model, &snapshot)) return fail("tick Human02 Dropship reinforcement");
+            for (int i = 0; i < snapshot.effect_count; ++i) {
+                if (snapshot.effects[i].active &&
+                    strcmp(snapshot.effects[i].sprite_name, "SPRITES/DROP.SPR") == 0) {
+                    saw_dropship = true;
+                    break;
+                }
+            }
+        }
+        if (!saw_dropship) return fail("Human02 reinforcement spawns a visible Dropship effect");
     RtsProductDefinition products[32];
     int product_count = rts_game_model_products(model, products, 32);
     const RtsProductDefinition *barracks = find_product(products, product_count, 80);

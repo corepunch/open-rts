@@ -574,6 +574,13 @@ const state_t states[NUMSTATES] = {
     { SPR_DC_ALBU, 8, -1, A_None, S_NULL, 0, 1, 0, 1, {0}, {8}, {0}, {-13}, {21}, {0}, {16}, NO_OVERLAY },
     { SPR_DC_ALBU, 6, -1, A_None, S_NULL, 0, 1, 0, 1, {0}, {6}, {0}, {-13}, {21}, {0}, {16}, NO_OVERLAY },
     { SPR_DC_ALBU, 13, -1, A_None, S_NULL, 0, 1, 0, 1, {0}, {13}, {0}, {-113}, {-38}, {0}, {16}, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_UNLOAD_DONE, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 0, A_DC_DropshipUnloadDone, S_NULL, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_REPOSITION_DONE, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 0, A_DC_DropshipRepositionDone, S_NULL, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_DC_DROPSHIP_DEPART_DONE, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
+    { SPR_DC_DROP, 0, 0, A_DC_DropshipDepartDone, S_NULL, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },
 };
 
 const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {
