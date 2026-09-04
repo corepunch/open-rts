@@ -15,6 +15,7 @@ checkboxes as complete when the corresponding code and tests land.
 | [ ] | [005-dark-colony-building-placement.md](005-dark-colony-building-placement.md) | Implement BUILD mode, placement ghost, costs, and footprints. |
 | [ ] | [006-dark-colony-unit-production.md](006-dark-colony-unit-production.md) | Train units from production buildings with queues and tests. |
 | [ ] | [007-dark-reign-model-production.md](007-dark-reign-model-production.md) | Mirror model-side products and production into Dark Reign. |
+| [ ] | [010-dc-info-gen-coverage-and-dropship-actions.md](010-dc-info-gen-coverage-and-dropship-actions.md) | Regenerate `info.c` with full sprite coverage; migrate Dropship timing to `A_` state actions. |
 
 ## Maintenance
 
