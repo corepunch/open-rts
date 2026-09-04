@@ -495,11 +495,20 @@ static int assert_exploiter_16_direction_states(void) {
     return 0;
 }
 
+static int assert_generated_mobj_table_coverage(void) {
+    if (game_info.mobj_type_count != NUMMOBJTYPES ||
+        game_info.mobjinfo != dc_mobjinfo) {
+        return fail("generated mobj metadata covers every declared Dark Colony type");
+    }
+    return 0;
+}
+
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;
     if (assert_reaper_move_timing() != 0) return 1;
     if (assert_barracks_trooper_release_timing() != 0) return 1;
     if (assert_exploiter_16_direction_states() != 0) return 1;
+    if (assert_generated_mobj_table_coverage() != 0) return 1;
     printf("PASS: Dark Colony SPR/FIN layout alignment is data-consistent\n");
     return 0;
 }

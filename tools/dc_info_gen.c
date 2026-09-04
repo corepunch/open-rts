@@ -1103,7 +1103,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,\n");
     fprintf(out, "    S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
-    fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, NUMMOBJTYPES } mobjtype_t;\n\n");
+    fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, MT_DC_ORTU, MT_DC_SLUG, MT_DC_MOBILE_TOWER, MT_DC_DROP_LINK, MT_DC_ALIEN_COM, MT_DC_VISION_SIGHT, NUMMOBJTYPES } mobjtype_t;\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
     fprintf(out, "extern const state_t states[NUMSTATES];\n");
     fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");
@@ -1963,6 +1963,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE, S_NULL, S_NULL },\n");
+    fprintf(out, "    { 0, S_NULL, 300, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_RENDERABLE, S_NULL, S_NULL },\n");
     fprintf(out, "};\n\n");
     fprintf(out, "const gameinfo_t game_info = {\n");
     fprintf(out, "    sprnames,\n");

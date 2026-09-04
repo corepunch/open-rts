@@ -15,6 +15,28 @@ Addresses refer to the exact executable fingerprint below.
 | Image base | `0x00400000` |
 | Compile timestamp | August 11, 1997 20:53:20 |
 
+## Animation generator coverage
+
+**Confirmed from `data/DCOLONY/ANIMATE/EXPL.FIN` and the focused layout test:**
+`EXPLMOVE0` through `EXPLMOVE15` provide 16 directional labels. Each label
+contains two temporal body frames, so the generated `S_DC_EXPL_RUN1` and
+`S_DC_EXPL_RUN2` states are a two-frame animation with 16 directional slots;
+they are not a two-direction placeholder cycle. The generator's
+`fin_state_count_for_sequence16` path preserves those authored labels and
+frames.
+
+**Confirmed from regeneration:** `tools/dc_info_gen.c` must emit the extended
+14-entry `mobjtype_t` table, including `MT_DC_ORTU`, `MT_DC_SLUG`, the building
+types, and the support types. The fallback `dc_mobjinfo` records for those
+entries are retained because actor defaults supply their runtime gameplay
+values. `make dark-colony-info` now regenerates `info.c` and `info.h` without
+dropping those declarations or records.
+
+**Unknown:** The retail data inspected here does not establish 16 temporal
+frames per facing for `EXPLMOVE`; only the 16 directional labels and two body
+frames per label are confirmed. No additional Exploiter frames should be
+invented without another native asset or executable trace.
+
 ## Evidence labels
 
 - **Confirmed** means exact instructions and native data agree, or a focused
