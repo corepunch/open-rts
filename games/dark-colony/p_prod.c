@@ -122,7 +122,7 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
     for (int i = 0; i < game_info->state_count; ++i) {
         const state_t *state = &game_info->states[i];
         if (state->sprite < 0 || state->sprite >= game_info->sprite_count) continue;
-        if (state->facings != 1 || state->facing_frames[0] != frame) continue;
+        if (state->frame != frame) continue;
         if (strcmp(game_info->sprnames[state->sprite], sprite_name) == 0)
             return i;
     }
@@ -209,8 +209,8 @@ static int dc_model_find_state_by_group_frame(const gameinfo_t *game_info, int g
     if (!game_info || !game_info->states) return -1;
     for (int i = 0; i < game_info->state_count; ++i) {
         const state_t *state = &game_info->states[i];
-        if (state->misc1 != group || state->facings != 1) continue;
-        if (state->facing_frames[0] == frame) return i;
+        if (state->misc1 != group || state->frame != frame) continue;
+        return i;
     }
     return -1;
 }
@@ -228,27 +228,6 @@ static int dc_model_state_chain_duration_ms(const gameinfo_t *game_info, int sta
     }
     if (tics <= 0) return 0;
     return (int)(tics * FIXED_DT * 1000.0f + 0.5f);
-}
-
-static bool dc_state_offset_for_facing(const state_t *state, bool overlay, angle_t angle,
-                                       int *out_x, int *out_y) {
-    if (!state || !out_x || !out_y) return false;
-    int facings = overlay ? state->overlay_facings : state->facings;
-    if (facings <= 0) return false;
-    int best = 0;
-    uint32_t best_delta = UINT32_MAX;
-    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        angle_t rotation = overlay ? state->overlay_rotation_angles[i] : state->rotation_angles[i];
-        uint32_t delta = angle_distance(rotation, angle);
-        if (delta < best_delta) {
-            best = i;
-            best_delta = delta;
-        }
-        if (delta == 0) break;
-    }
-    *out_x = overlay ? state->overlay_offset_x[best] : state->offset_x[best];
-    *out_y = overlay ? state->overlay_offset_y[best] : state->offset_y[best];
-    return true;
 }
 
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
@@ -295,9 +274,6 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
 
     int stand_x = 0;
     int stand_y = 0;
-    if (!dc_state_offset_for_facing(stand, false, new_unit->core.angle, &stand_x, &stand_y))
-        return false;
-
     int release_state_id = dc_model_find_state_by_group_frame(game_info,
                                                               PRODUCTION_BUILD_GROUP,
                                                               TRSCBUILD_FIRST_FRAME);
@@ -310,14 +286,7 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
         if (!state || state->misc1 != PRODUCTION_BUILD_GROUP) break;
         int x = 0;
         int y = 0;
-        if (state->sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, false, new_unit->core.angle, &x, &y)) {
-            release_x = x;
-            release_y = y;
-            saw_release_trooper = true;
-        }
-        if (state->overlay_sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, true, new_unit->core.angle, &x, &y)) {
+        if (state->sprite == stand->sprite && state->frame == stand->frame) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;

@@ -149,13 +149,11 @@ bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
     return false;
 }
 
-void *G_LoadMission(const char *path) { (void)path; return NULL; }
-void  G_MissionTicker(void *m, level_t *map, mobj_t *mobjs, int *count,
+void  G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
                       effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
-    (void)m; (void)map; (void)mobjs; (void)count;
+    (void)map; (void)mobjs; (void)count;
     (void)effects; (void)max_effects; (void)hud; (void)dt;
 }
-void  G_FreeMission(void *m) { (void)m; }
 
 void *G_InitCustomUI(app_t *app, const char *data_root) {
     (void)app; (void)data_root;

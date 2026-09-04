@@ -17,7 +17,6 @@ struct RtsGameModel {
     int unit_count;
     effect_t effects[MAX_VISUAL_EFFECTS];
     hudtext_t hud;
-    void *mission;
     bool loaded;
     char error[256];
     uint64_t tick;
@@ -511,6 +510,7 @@ static void destroy_model_map(level_t *map) {
     free(map->decorations);
     free(map->resource_vents);
     free(map->extras);
+    if (map->destroy_mission) map->destroy_mission(map->mission);
     memset(map, 0, sizeof(*map));
 }
 
@@ -530,7 +530,6 @@ RtsGameModel *rts_game_model_create(void) {
 
 void rts_game_model_destroy(RtsGameModel *model) {
     if (!model) return;
-    if (model->mission) G_FreeMission(model->mission);
     destroy_model_map(&model->map);
     free(model);
 }
@@ -550,8 +549,6 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     }
 
     if (model->loaded) {
-        if (model->mission) G_FreeMission(model->mission);
-        model->mission = NULL;
         destroy_model_map(&model->map);
         memset(model->units, 0, sizeof(model->units));
         memset(model->effects, 0, sizeof(model->effects));
@@ -570,7 +567,6 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     }
     model->unit_count = P_LoadThings(map_path, (mobj_t *)model->units, MAXMOBJS);
     apply_plugin_actor_defaults(model);
-    model->mission = G_LoadMission(map_path);
     P_AiInit(&model->ai);
     model->loaded = true;
     model->error[0] = '\0';
@@ -600,11 +596,8 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
                  MAX_VISUAL_EFFECTS, gameinfo, dt);
     P_AiTick(&model->ai, &model->map, model->units, model->unit_count,
              gameinfo, (int)(dt * 1000.0f));
-    if (model->mission) {
-        G_MissionTicker(model->mission, &model->map, (mobj_t *)model->units,
-                        &model->unit_count, model->effects,
-                        MAX_VISUAL_EFFECTS, &model->hud, dt);
-    }
+    G_MissionTicker(&model->map, (mobj_t *)model->units, &model->unit_count,
+                    model->effects, MAX_VISUAL_EFFECTS, &model->hud, dt);
     G_ModelAIProduction(model, (int)(dt * 1000.0f));
     update_model_production(model, dt);
     P_UpdateEffects(&model->map, model->effects, MAX_VISUAL_EFFECTS,

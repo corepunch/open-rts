@@ -52,18 +52,12 @@ bool     R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *
 /* Load the game UI font into *font.  Returns false if the game has no font. */
 bool     HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font);
 
-/* Load a mission script for the map.  Returns NULL if none exists. */
-void    *G_LoadMission(const char *path);
-
 /* Advance mission state by dt seconds. */
-void     G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
+void     G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
                          effect_t *effects, int max_effects, hudtext_t *hud, float dt);
 
-/* Release a loaded mission. */
-void     G_FreeMission(void *mission);
-
 /* Return mission state: 0=active, 1=won, 2=lost, 3=ally_lost. */
-int      G_MissionState(const void *mission);
+int      G_MissionState(const level_t *map);
 
 /* ── custom interactive UI / sidebar hooks ─────────────────────────────── */
 

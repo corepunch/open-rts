@@ -118,6 +118,8 @@ typedef struct level_s {
     char tileset_name[32];
     void *native_data;
     void (*destroy_native_data)(void *);
+    void *mission;
+    void (*destroy_mission)(void *);
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
 } level_t;

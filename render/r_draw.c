@@ -810,41 +810,6 @@ static int unit_frame_for_view(const spritesheet_t *sprite, const mobj_t *unit,
     return frame;
 }
 
-static int rotation_slot_for_view(int facings, const angle_t *rotation_angles, angle_t angle) {
-    if (!rotation_angles || facings <= 0) return -1;
-    int best = 0;
-    uint32_t best_delta = UINT32_MAX;
-    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        uint32_t delta = angle_distance(rotation_angles[i], angle);
-        if (delta < best_delta) {
-            best = i;
-            best_delta = delta;
-        }
-    }
-    return best;
-}
-
-static void unit_state_body_offset_for_view(const gameinfo_t *game_info, const mobj_t *unit,
-                                            int *offset_x, int *offset_y) {
-    int ox = 0;
-    int oy = 0;
-    if (game_info && unit && game_info->states &&
-        unit->core.state_id >= 0 && unit->core.state_id < game_info->state_count) {
-        const state_t *state = &game_info->states[unit->core.state_id];
-        if (state->facings > 0) {
-            int slot = rotation_slot_for_view(state->facings, state->rotation_angles,
-                                              unit->core.angle);
-            if (slot < 0) slot = 0;
-            if (slot < RTS_MAX_STATE_FACINGS) {
-                ox = state->offset_x[slot];
-                oy = state->offset_y[slot];
-            }
-        }
-    }
-    if (offset_x) *offset_x = ox;
-    if (offset_y) *offset_y = oy;
-}
-
 static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, const mobj_t *unit,
                                       const spritesheet_t *fallback_sprite,
                                       const spritecache_t *cache,
@@ -885,7 +850,6 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     int sprite_h = frame_rect.h;
     int body_offset_x = 0;
     int body_offset_y = 0;
-    unit_state_body_offset_for_view(game_info, unit, &body_offset_x, &body_offset_y);
     irect_t dst;
     if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
         int offset_x = sprite_world_offset_x(sprite, frame, render_flags);
@@ -1095,63 +1059,6 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
     });
 }
 
-static void render_unit_state_overlay(app_t *app, const mobj_t *u, const spritesheet_t *body_sprite,
-                                      int body_frame, const spritecache_t *cache,
-                                      const gameinfo_t *game_info, const irect_t *body_dst,
-                                      float origin_sx, float origin_sy) {
-    (void)body_sprite;
-    (void)body_frame;
-    if (!app || !u || !cache || !game_info || !body_dst ||
-        u->core.state_id < 0 || u->core.state_id >= game_info->state_count ||
-        !game_info->states || !game_info->sprnames) {
-        return;
-    }
-    const state_t *state = &game_info->states[u->core.state_id];
-    if (state->overlay_facings <= 0 || state->overlay_sprite < 0 ||
-        state->overlay_sprite >= game_info->sprite_count) {
-        return;
-    }
-    int slot = rotation_slot_for_view(state->overlay_facings,
-                                      state->overlay_rotation_angles,
-                                      u->core.angle);
-    if (slot < 0) slot = 0;
-    if (slot >= RTS_MAX_STATE_FACINGS) return;
-    int frame = state->overlay_facing_frames[slot];
-    if (frame < 0) return;
-
-    const char *sprite_name = game_info->sprnames[state->overlay_sprite];
-    const spritesheet_t *overlay = R_CacheLookup(cache, sprite_name);
-    if (!overlay || !overlay->texture || overlay->frame_count <= 0) return;
-    if (frame >= overlay->frame_count) frame = 0;
-    irect_t frame_rect = sprite_frame_rect(overlay, frame);
-
-    uint32_t flags = state->overlay_facing_flags[slot];
-    irect_t dst;
-    if (game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-        int offset_x = sprite_world_offset_x(overlay, frame, flags);
-        dst = (irect_t){
-            (int)lroundf(origin_sx) + state->overlay_offset_x[slot] + offset_x,
-            (int)lroundf(origin_sy) + state->overlay_offset_y[slot] - frame_rect.h,
-            frame_rect.w,
-            frame_rect.h,
-        };
-    } else {
-        dst = (irect_t){
-            body_dst->x + state->overlay_offset_x[slot],
-            body_dst->y + state->overlay_offset_y[slot],
-            frame_rect.w,
-            frame_rect.h,
-        };
-    }
-    SDL_RendererFlip flip = (flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    int remap = state->overlay_remap[slot];
-    int intensity = state->overlay_intensity[slot];
-    SDL_Texture *texture = begin_sprite_command(overlay, flags, remap, intensity);
-    SDL_RenderCopyEx(app->renderer, texture, &overlay->frames[frame],
-                     &dst, 0.0, NULL, flip);
-    end_sprite_command(texture, flags);
-}
-
 static void render_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
@@ -1184,7 +1091,6 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                                 u->core.render_intensity);
     SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
-    render_unit_state_overlay(app, u, sprite, frame, cache, game_info, &dst, sx, sy);
     if (u->selected && (u->traits & MF_SELECTABLE) != 0) {
         selectiondrawcontext_t selection_ctx = {
             .app = app,
@@ -1678,6 +1584,7 @@ void P_FreeLevel(level_t *map) {
     free(map->decorations);
     free(map->resource_vents);
     free(map->extras);
+    if (map->destroy_mission) map->destroy_mission(map->mission);
     if (map->destroy_native_data) map->destroy_native_data(map->native_data);
     memset(map, 0, sizeof(*map));
 }

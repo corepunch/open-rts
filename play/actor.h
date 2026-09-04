@@ -69,25 +69,6 @@ typedef struct state_s {
     uint32_t flags;
     int misc1;
     int misc2;
-    int facings;
-    angle_t rotation_angles[RTS_MAX_STATE_FACINGS];
-    int facing_frames[RTS_MAX_STATE_FACINGS];
-    uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
-    int offset_x[RTS_MAX_STATE_FACINGS];
-    int offset_y[RTS_MAX_STATE_FACINGS];
-    int remap[RTS_MAX_STATE_FACINGS];
-    int intensity[RTS_MAX_STATE_FACINGS];
-    int overlay_sprite;
-    int overlay_frame;
-    uint32_t overlay_flags;
-    int overlay_facings;
-    angle_t overlay_rotation_angles[RTS_MAX_STATE_FACINGS];
-    int overlay_facing_frames[RTS_MAX_STATE_FACINGS];
-    uint32_t overlay_facing_flags[RTS_MAX_STATE_FACINGS];
-    int overlay_offset_x[RTS_MAX_STATE_FACINGS];
-    int overlay_offset_y[RTS_MAX_STATE_FACINGS];
-    int overlay_remap[RTS_MAX_STATE_FACINGS];
-    int overlay_intensity[RTS_MAX_STATE_FACINGS];
 } state_t;
 
 typedef struct mobjinfo_s {
@@ -150,6 +131,11 @@ typedef struct selectiondrawcontext_s {
 
 typedef bool (*selectiondrawf_t)(const selectiondrawcontext_t *ctx);
 
+typedef struct dropshippayload_s {
+    int type;
+    int count;
+} dropshippayload_t;
+
 struct gameinfo_s {
     const char *const *sprnames;
     int sprite_count;
@@ -159,7 +145,6 @@ struct gameinfo_s {
     int mobj_type_count;
     int null_state;
     StateCoordMode state_coord_mode;
-    selectionmarker_t selection_marker;
     selectiondrawf_t draw_selection;
 };
 
@@ -186,7 +171,6 @@ typedef struct mobjcore_s {
 
 struct mobj_s {
     mobjcore_t core;
-    void *state_userdata;
     float speed;
     uint32_t id;
     uint16_t type_id;
@@ -225,6 +209,19 @@ struct mobj_s {
     bool death_started;
     bool remove;
     bool hidden;
+        bool active;
+        ivec2_t origin;
+        fvec2_t start_center;
+        fvec2_t target_center;
+        fvec2_t flight_vector;
+        fvec2_t center;
+        dropshippayload_t payload[5];
+        int payload_count;
+        int payload_index;
+        int released_count;
+        bool release_pending;
+        int phase_duration_ms;
+        int effect_slots[8];
     struct {
         uint16_t actor_id;
         uint8_t product_class;

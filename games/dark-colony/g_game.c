@@ -412,15 +412,6 @@ void G_InitGame(void) {
     if (initialized) return;
 
     memcpy(runtime_states, states, sizeof(runtime_states));
-    for (int state_index = 0; state_index < NUMSTATES; ++state_index) {
-        state_t *state = &runtime_states[state_index];
-        for (int facing = 0; facing < state->facings; ++facing)
-            state->rotation_angles[facing] = dc_direction_to_angle(
-                (int)state->rotation_angles[facing]);
-        for (int facing = 0; facing < state->overlay_facings; ++facing)
-            state->overlay_rotation_angles[facing] = dc_direction_to_angle(
-                (int)state->overlay_rotation_angles[facing]);
-    }
     runtime_info = game_info;
     runtime_info.states = runtime_states;
     runtime_info.draw_selection = draw_selection;
@@ -428,7 +419,10 @@ void G_InitGame(void) {
 }
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
-    return load_dark_colony_map(path, out);
+    if (!load_dark_colony_map(path, out)) return false;
+    out->mission = load_mission(path);
+    out->destroy_mission = destroy_mission;
+    return true;
 }
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
@@ -469,18 +463,11 @@ bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
     return load_font(renderer, root, font);
 }
 
-void *G_LoadMission(const char *path) {
-    return load_mission(path);
-}
-
-void G_MissionTicker(void *mission, level_t *map, mobj_t *mobjs, int *count,
+void G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
                      effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
-    update_mission(mission, map, (mobj_t *)mobjs, count,
+    if (!map || !map->mission) return;
+    update_mission(map->mission, map, (mobj_t *)mobjs, count,
                                effects, max_effects, gameinfo, hud, dt);
-}
-
-void G_FreeMission(void *mission) {
-    destroy_mission(mission);
 }
 
 void *G_InitCustomUI(app_t *app, const char *data_root) {

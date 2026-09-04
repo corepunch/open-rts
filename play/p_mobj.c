@@ -13,55 +13,15 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
 }
 
 
-static int state_facing_slot(const state_t *state, angle_t angle) {
-    if (!state || state->facings <= 0) return -1;
-    int best = 0;
-    uint32_t best_delta = UINT32_MAX;
-    for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        uint32_t delta = angle_distance(state->rotation_angles[i], angle);
-        if (delta < best_delta) {
-            best = i;
-            best_delta = delta;
-        }
-    }
-    return best;
-}
-
-static void resolve_state_frame(const state_t *state, angle_t angle,
-                                    int *frame_out, uint32_t *flags_out,
-                                    ivec2_t *offset_out,
-                                    int *remap_out, int *intensity_out) {
-    int frame = state ? state->frame : 0;
-    uint32_t flags = state ? state->flags : 0;
-    ivec2_t offset = { 0, 0 };
-    int remap = 0;
-    int intensity = 16;
-    if (state && state->facings > 0) {
-        int best = state_facing_slot(state, angle);
-        if (best < 0) best = 0;
-        frame = state->facing_frames[best];
-        flags = state->facing_flags[best];
-        offset = (ivec2_t){ state->offset_x[best], state->offset_y[best] };
-        remap = state->remap[best];
-        intensity = state->intensity[best];
-    } else if (state) {
-        remap = state->remap[0];
-        intensity = state->intensity[0] ? state->intensity[0] : 16;
-    }
-    if (frame_out) *frame_out = frame;
-    if (flags_out) *flags_out = flags;
-    if (offset_out) *offset_out = offset;
-    if (remap_out) *remap_out = remap;
-    if (intensity_out) *intensity_out = intensity;
-}
-
 static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
-    resolve_state_frame(state, mobj->angle, &mobj->frame, &mobj->render_flags,
-                        apply_offsets ? &mobj->render_offset : NULL,
-                        &mobj->render_remap, &mobj->render_intensity);
+    mobj->frame = state->frame;
+    mobj->render_flags = state->flags;
+    mobj->render_remap = 0;
+    mobj->render_intensity = 16;
+    if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };
     if (mobj->sprite_id >= 0 && mobj->sprite_id < game_info->sprite_count &&
         game_info->sprnames && game_info->sprnames[mobj->sprite_id]) {
         snprintf(mobj->sprite_name, sizeof(mobj->sprite_name), "%s",
@@ -90,7 +50,6 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
                           unit->type_id, unit->core.state_id, unit->core.sprite_id,
                           unit->core.frame, unit->core.tics);
         if (state->misc1 == 3) {
-            int dir_slot = state_facing_slot(state, unit->core.angle);
             const char *sprite_name = "(unknown)";
             if (unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
                 game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
@@ -99,7 +58,7 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
             debug_effects_log("shoot state unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d",
                               unit->type_id, unit->core.state_id,
                               angle_to_direction(unit->core.angle, 32, ANG90, true),
-                              dir_slot, sprite_name, unit->core.frame);
+                              0, sprite_name, unit->core.frame);
         }
         if (state->action) state->action(ctx, unit);
         if (unit->remove || unit->core.state_id != state_id) return !unit->remove;
@@ -383,8 +342,6 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     if (target_index < 0) return false;
 
     mobj_t *target = &ctx->mobjs[target_index];
-    const state_t *attack_state = state_at(ctx->game_info, attacker->core.state_id);
-    int dir_slot = state_facing_slot(attack_state, attacker->core.angle);
     const char *sprite_name = "(unknown)";
     if (ctx->game_info && attacker->core.sprite_id >= 0 &&
         attacker->core.sprite_id < ctx->game_info->sprite_count &&
@@ -394,7 +351,7 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     debug_effects_log("shoot fire unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d target=%d",
                       attacker->type_id, attacker->core.state_id,
                       angle_to_direction(attacker->core.angle, 32, ANG90, true),
-                      dir_slot, sprite_name, attacker->core.frame, target_index);
+                      0, sprite_name, attacker->core.frame, target_index);
     target->hp -= attacker->attack.damage;
     if (attacker->attack.cooldown_ms > 0)
         attacker->attack.cooldown_left_ms = attacker->attack.cooldown_ms;

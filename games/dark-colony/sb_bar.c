@@ -610,8 +610,8 @@ static int dc_find_state_by_group_frame(const gameinfo_t *game_info, int group, 
     if (!game_info || !game_info->states) return -1;
     for (int i = 0; i < game_info->state_count; ++i) {
         const state_t *state = &game_info->states[i];
-        if (state->misc1 != group || state->facings != 1) continue;
-        if (state->facing_frames[0] == frame) return i;
+        if (state->misc1 != group || state->frame != frame) continue;
+        return i;
     }
     return -1;
 }
@@ -775,27 +775,6 @@ static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
     return false;
 }
 
-static bool dc_state_offset_for_facing(const state_t *state, bool overlay, angle_t angle,
-                                       int *out_x, int *out_y) {
-    if (!state || !out_x || !out_y) return false;
-    int facings = overlay ? state->overlay_facings : state->facings;
-    if (facings <= 0) return false;
-    int best = 0;
-    uint32_t best_delta = UINT32_MAX;
-    for (int i = 0; i < facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        angle_t rotation = overlay ? state->overlay_rotation_angles[i] : state->rotation_angles[i];
-        uint32_t delta = angle_distance(rotation, angle);
-        if (delta < best_delta) {
-            best = i;
-            best_delta = delta;
-        }
-        if (delta == 0) break;
-    }
-    *out_x = overlay ? state->overlay_offset_x[best] : state->offset_x[best];
-    *out_y = overlay ? state->overlay_offset_y[best] : state->offset_y[best];
-    return true;
-}
-
 static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
                                             const mobj_t *producer,
                                             const mobj_t *new_unit,
@@ -806,9 +785,6 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
     if (!stand) return false;
     int stand_x = 0;
     int stand_y = 0;
-    if (!dc_state_offset_for_facing(stand, false, new_unit->core.angle, &stand_x, &stand_y))
-        return false;
-
     int release_state_id = dc_find_state_by_group_frame(game_info,
                                                         CLIENT_PRODUCTION_BUILD_GROUP,
                                                         CLIENT_TRSCBUILD_FIRST_FRAME);
@@ -821,14 +797,7 @@ static bool dc_barracks_release_spawn_point(const gameinfo_t *game_info,
         if (!state || state->misc1 != CLIENT_PRODUCTION_BUILD_GROUP) break;
         int x = 0;
         int y = 0;
-        if (state->sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, false, new_unit->core.angle, &x, &y)) {
-            release_x = x;
-            release_y = y;
-            saw_release_trooper = true;
-        }
-        if (state->overlay_sprite == stand->sprite &&
-            dc_state_offset_for_facing(state, true, new_unit->core.angle, &x, &y)) {
+        if (state->sprite == stand->sprite && state->frame == stand->frame) {
             release_x = x;
             release_y = y;
             saw_release_trooper = true;

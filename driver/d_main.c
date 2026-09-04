@@ -280,35 +280,6 @@ static int debug_collect_anim_rows(const gameinfo_t *game_info, int sprite_id,
     return row_count;
 }
 
-static int debug_state_facing_slot(const state_t *state, angle_t angle) {
-    if (!state || state->facings <= 0) return -1;
-    int best = 0;
-    uint32_t best_delta = UINT32_MAX;
-    for (int i = 0; i < state->facings && i < RTS_MAX_STATE_FACINGS; ++i) {
-        uint32_t delta = angle_distance(state->rotation_angles[i], angle);
-        if (delta < best_delta) {
-            best_delta = delta;
-            best = i;
-        }
-    }
-    return best;
-}
-
-static void debug_resolve_state_frame(const state_t *state, angle_t angle,
-                                      int *frame_out, uint32_t *flags_out) {
-    int frame = state ? state->frame : 0;
-    uint32_t flags = state ? state->flags : 0;
-    if (state && state->facings > 0) {
-        int slot = debug_state_facing_slot(state, angle);
-        if (slot >= 0) {
-            frame = state->facing_frames[slot];
-            flags = state->facing_flags[slot];
-        }
-    }
-    if (frame_out) *frame_out = frame;
-    if (flags_out) *flags_out = flags;
-}
-
 static const state_t *debug_anim_state_for_time(const gameinfo_t *game_info,
                                                  const DebugAnimRow *row, uint32_t ticks_ms) {
     if (!game_info || !game_info->states || !row || row->state_count <= 0) return NULL;
@@ -512,9 +483,8 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
             SDL_SetRenderDrawColor(app->renderer, 44, 50, 58, 255);
             SDL_RenderDrawRect(app->renderer, &cell);
 
-            int frame = 0;
-            uint32_t flags = 0;
-            debug_resolve_state_frame(state, dir, &frame, &flags);
+            int frame = state ? state->frame : 0;
+            uint32_t flags = state ? state->flags : 0;
             if (frame < 0 || frame >= sprite->frame_count) continue;
 
             irect_t dst = {
@@ -589,18 +559,6 @@ static void debug_overlay_render(const app_t *app, const spritesheet_t *sprite, 
                      i, state->misc1, state->tics, state->nextstate, state->frame);
             debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, cyan, 1);
             info_y += 10;
-            if (state->facings > 0) {
-                char dirs[256] = "DIR";
-                char frames[256] = "FRM";
-                debug_append_angles(dirs, sizeof(dirs), state->rotation_angles, state->facings);
-                debug_append_ints(frames, sizeof(frames), state->facing_frames, state->facings);
-                snprintf(line, sizeof(line), "   %s", dirs);
-                debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
-                info_y += 10;
-                snprintf(line, sizeof(line), "   %s", frames);
-                debug_font_draw_text(app->renderer, &overlay->font, 16, info_y, line, gray, 1);
-                info_y += 10;
-            }
             shown++;
         }
     }
@@ -1195,14 +1153,12 @@ int main(int argc, char **argv) {
     if (gameui && !ST_Init(&st, app.renderer, data_root, gameui))
         fprintf(stderr, "warning: ST_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
-    void *mission = G_LoadMission(map_path);
-
     if (check_only || screenshot_only) {
         if (screenshot_only) {
             app.ticks_ms = SDL_GetTicks();
-            if (mission) {
+            if (map.mission) {
                 int before_count = unit_count;
-                G_MissionTicker(mission, &map, (mobj_t *)units, &unit_count,
+                G_MissionTicker(&map, (mobj_t *)units, &unit_count,
                                 effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count && !map.has_camera)
                     focus_camera_on_first_player_unit(&app, &map, units, unit_count);
@@ -1227,7 +1183,6 @@ int main(int argc, char **argv) {
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
-        if (mission) G_FreeMission(mission);
         ST_Shutdown(&st);
         G_ShutdownCustomUI(custom_ui);
         R_FreeSpriteCache(&decoration_sprites);
@@ -1281,9 +1236,9 @@ int main(int argc, char **argv) {
         while (accumulator >= FIXED_DT) {
             P_Ticker(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
                          gameinfo, FIXED_DT);
-            if (mission) {
+            if (map.mission) {
                 int before_count = unit_count;
-                G_MissionTicker(mission, &map, (mobj_t *)units, &unit_count,
+                G_MissionTicker(&map, (mobj_t *)units, &unit_count,
                                 effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
                 if (unit_count != before_count) {
                     if (!map.has_camera) focus_camera_on_first_player_unit(&app, &map, units, unit_count);
@@ -1339,7 +1294,6 @@ int main(int argc, char **argv) {
         renderer_end_frame(&renderer);
     }
 
-    if (mission) G_FreeMission(mission);
     ST_Shutdown(&st);
     G_ShutdownCustomUI(custom_ui);
     R_FreeSpriteCache(&decoration_sprites);
