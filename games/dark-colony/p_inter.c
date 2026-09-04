@@ -10,7 +10,7 @@
 #include <string.h>
 
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
-    if (!ctx || !unit) return;
+    if (!ctx || !unit || unit->hidden) return;
     int muzzle_state = 0;
     if (ctx->game_info && unit->type_id > 0 &&
         unit->type_id < ctx->game_info->mobj_type_count) {

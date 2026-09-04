@@ -388,6 +388,17 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     target->hp -= attacker->attack.damage;
     if (attacker->attack.cooldown_ms > 0)
         attacker->attack.cooldown_left_ms = attacker->attack.cooldown_ms;
+    /* A_DC_MuzzleFlash (fired on the attack state's frame) draws the flash sprite;
+     * pair it with a ground light and, on the target, a hit/blood effect. Hidden
+     * (not-yet-revealed) units must not leak a visible light or blood splash. */
+    if (!attacker->hidden && attacker->muzzle_flash_name[0] != '\0') {
+        int flash_ms = attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120;
+        spawn_ground_light(ctx->effects, ctx->max_effects, attacker->core.position, flash_ms, 30);
+    }
+    if (!target->hidden && target->hit_effect_name[0] != '\0') {
+        spawn_visual_effect(ctx->effects, ctx->max_effects, target->hit_effect_name, NULL,
+                            target->core.position, target->core.angle, 400, 50, false, false, 0);
+    }
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
                       attacker->type_id, target_index, attacker->attack.damage,
                       target->hp, target->max_hp);
@@ -1061,7 +1072,9 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                      target_delta.x, target_delta.y);
         if (attacker->attack.cooldown_left_ms > 0) continue;
 
-        if (attacker->muzzle_flash_name[0] != '\0') {
+        /* A hidden attacker (pre-placed native object outside FOW) must not leak its
+         * position via a visible muzzle flash or ground light before it is revealed. */
+        if (!attacker->hidden && attacker->muzzle_flash_name[0] != '\0') {
             int flash_ms = attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120;
             bool light_spawned = spawn_ground_light(effects, max_effects,
                                                     attacker->core.position,
@@ -1098,7 +1111,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",
                           i, target_index, attacker->attack.damage, target->hp,
                           target->max_hp, target->core.sprite_name);
-        if (target->hit_effect_name[0] != '\0') {
+        if (target->hit_effect_name[0] != '\0' && !target->hidden) {
             spawn_visual_effect(effects, max_effects, target->hit_effect_name, NULL,
                                 target->core.position,
                                 target->core.angle,
@@ -1119,7 +1132,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             target->attack.anim_left_ms = 0;
             target->core.momentum = fixedvec3_zero();
             target->death_started = true;
-            if (target->death_effect_action) {
+            if (target->death_effect_action && !target->hidden) {
                 statecontext_t death_ctx = {
                     .map = map,
                     .mobjs = units,
@@ -1134,7 +1147,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 target->death.anim_ms = 900;
             }
             target->death.anim_left_ms = target->death.anim_ms;
-            bool spawned = spawn_visual_effect(effects, max_effects, target->core.sprite_name,
+            bool spawned = !target->hidden && spawn_visual_effect(effects, max_effects, target->core.sprite_name,
                                                death_sequence_name_for_unit(target),
                                                target->core.position,
                                                target->core.angle,

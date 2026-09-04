@@ -52,11 +52,47 @@ static inline int rts_find_unit(const RtsRenderSnapshot *snapshot, uint8_t owner
     return -1;
 }
 
+static inline int rts_find_unit_by_id(const RtsRenderSnapshot *snapshot, uint32_t id) {
+    if (!snapshot || id == 0) return -1;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (snapshot->units[i].id == id) return i;
+    }
+    return -1;
+}
+
 static inline int rts_find_unit_with_sprite(const RtsRenderSnapshot *snapshot,
                                             const char *sprite_name) {
     if (!snapshot || !sprite_name) return -1;
     for (int i = 0; i < snapshot->unit_count; ++i) {
         if (strcmp(snapshot->units[i].sprite_name, sprite_name) == 0) return i;
+    }
+    return -1;
+}
+
+static inline int rts_find_active_effect_with_sprite(const RtsRenderSnapshot *snapshot,
+                                                     const char *sprite_substring) {
+    if (!snapshot || !sprite_substring) return -1;
+    for (int i = 0; i < snapshot->effect_count; ++i) {
+        if (snapshot->effects[i].active && strstr(snapshot->effects[i].sprite_name, sprite_substring))
+            return i;
+    }
+    return -1;
+}
+
+static inline bool rts_has_active_ground_light(const RtsRenderSnapshot *snapshot) {
+    if (!snapshot) return false;
+    for (int i = 0; i < snapshot->effect_count; ++i) {
+        if (snapshot->effects[i].active && snapshot->effects[i].ground_light) return true;
+    }
+    return false;
+}
+
+static inline int rts_find_decoration_with_sprite(const RtsRenderSnapshot *snapshot,
+                                                  const char *sprite_substring) {
+    if (!snapshot || !sprite_substring) return -1;
+    for (int i = 0; i < snapshot->decoration_count; ++i) {
+        if (!snapshot->decorations[i].hidden && strstr(snapshot->decorations[i].sprite_name, sprite_substring))
+            return i;
     }
     return -1;
 }
