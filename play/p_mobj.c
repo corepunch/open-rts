@@ -110,6 +110,16 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
     return false;
 }
 
+bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
+    if (!ctx || !unit || unit->remove) return false;
+    if (unit->core.state_id <= 0) return false;
+    if (unit->core.tics > 0) unit->core.tics--;
+    if (unit->core.tics != 0) return true;
+    const state_t *state = state_at(ctx->game_info, unit->core.state_id);
+    return P_SetMobjState(ctx, unit,
+                          state ? state->nextstate : ctx->game_info->null_state);
+}
+
 static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
                                  int state_id) {
     if (!game_info || !effect) return false;
@@ -775,14 +785,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             u->core.momentum = fixedvec3_zero();
             if (u->remove) continue;
             if (u->core.state_id <= 0) P_SpawnMobj(game_info, u);
-            if (u->core.tics > 0) {
-                u->core.tics--;
-                if (u->core.tics == 0) {
-                    const state_t *state = state_at(game_info, u->core.state_id);
-                    int next = state ? state->nextstate : game_info->null_state;
-                    P_SetMobjState(&ctx, u, next);
-                }
-            }
+            P_TickMobjState(&ctx, u);
             if (u->remove || u->hp <= 0) continue;
 
             if (u->attack.cooldown_left_ms > 0) {
