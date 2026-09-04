@@ -78,7 +78,7 @@ mask to a spawned object, so add or remove capabilities in the plugin's
 | --- | --- |
 | `MF_SELECTABLE` | The player may select the object; selection markers and selection-dependent UI require it. Death clears it. |
 | `MF_MOBILE` | The object participates in movement, pathfinding, and separation. Movement/harvest orders require it. Death clears it. |
-| `MF_RENDERABLE` | The renderer draws the object's body and state overlay. It normally remains set on a dead object while its death animation plays. |
+| `MF_RENDERABLE` | The renderer draws the object's body and current state frame. It normally remains set on a dead object while its death animation plays. |
 | `MF_ATTACK` | The object may receive attack orders and run attack behavior. Death clears it. |
 | `MF_HARVESTER` | The object may execute resource harvesting. A harvest order requires both `MF_MOBILE` and `MF_HARVESTER`; death clears it. |
 
@@ -112,9 +112,17 @@ flags. The model resolves an actor's type ID through the selected game's
 a sprite/frame, duration in simulation tics, optional action callback, next
 state, and two integer metadata fields (`misc1`/`misc2`). State actions execute
 on state entry. Zero-tic states chain immediately; nonzero states remain active
-until their tic count expires. Direction-specific frame selection and render
-flags are interpreted by the state generator and renderer at the presentation
-boundary rather than stored as extra fields on `state_t`.
+until their tic count expires. Directional frame arrays, overlay metadata, and
+opaque per-state userdata are not part of the current runtime model; direction
+selection and render flags are applied at the presentation boundary.
+
+World actions use the Hexen-style `void action(mobj_t *actor)` contract. During
+`P_SetMobjState`, the dispatcher temporarily exposes the active
+`statecontext_t`; an action can call `P_GetStateContext()` when it needs the
+active level, effect pool, or game tables. The action signature remains about
+the object receiving the state. Hexen's weapon psprite actions are a separate
+family because they operate on `player_t` and `pspdef_t`; that family is not
+used for ordinary world actors or Dark Colony dropships.
 
 This means “walking”, “attacking”, “dying”, “deploying”, and “building” are
 usually state chains rather than ad hoc renderer conditions. The model can detect
@@ -125,9 +133,9 @@ renderer responsible for gameplay.
 
 For Dark Colony, `games/dark-colony/info.c` and `info.h` are generated from the
 original sprite/frame tables by `tools/dc_info_gen`. The generated files contain
-the sprite-name catalog, state rows, facing mappings, frame indices, animation
-chains, offsets, flags, and overlay relationships. They are source artifacts
-checked into the game directory so normal builds do not require generation.
+the sprite-name catalog, compact state rows, frame indices, animation chains,
+and render flags. They are source artifacts checked into the game directory so
+normal builds do not require generation.
 
 The generator is a translation step, not a gameplay config loader. It converts
 the original asset layout into the engine's `state_t` representation. When an
@@ -146,15 +154,15 @@ its native format.
 ### Dark Colony
 
 DC SPR files are palette-indexed sprite resources whose frame and animation
-meaning is coupled to DC's FIN/state data. DC has both 8- and 16-direction
-conventions depending on the asset/state. FIN data also supplies building
-footprints, pivots, offsets, overlays, and multi-part placement. The DC loader
-preserves bottom-up world coordinates and uses authored FIN offsets for building
-and Barracks release placement.
+meaning is coupled to DC's FIN/state data. FIN data supplies building
+footprints, pivots, offsets, and multi-part placement. The DC loader preserves
+bottom-up world coordinates and uses authored FIN offsets for building and
+Barracks release placement. Basic actor state rendering currently selects the
+authored sprite/frame directly; directional and overlay state expansion was
+removed until it is supported by verified native behavior.
 
-DC's `gameinfo_t` selects the applicable direction mode and state coordinate mode
-for each interpretation. The generated state rows carry direction codes and
-per-facing frames rather than assuming frame `direction * N` universally.
+DC's `gameinfo_t` still owns game-specific coordinate and rendering policy, but
+the compact state rows do not carry a second per-facing or overlay state table.
 
 ### Dark Reign
 
@@ -172,14 +180,10 @@ sprite.
 ### Coordinate and facing normalization
 
 The shared simulation stores world positions in game-cell coordinates. Native
-asset coordinates remain explicit at the boundary:
-
-- `direction_mode` selects the game's direction-code scheme;
-- `state_coord_mode` identifies ground-offset versus FIN top-left coordinates;
-- cell dimensions come from the game (`g_cell_w`, `g_cell_h`);
-- state rows carry actual direction codes, frame indices, offsets, remaps, and
-  intensities;
-- renderer conversion applies the selected policy exactly once.
+asset coordinates remain explicit at the boundary. Cell dimensions come from
+the game (`g_cell_w`, `g_cell_h`), while FIN-authored placement data is applied
+by the game loader or the relevant placement helper. Renderer conversion applies
+the selected coordinate policy exactly once.
 
 This is why a state can use a DC FIN top-left pivot while another state uses a
 ground offset, without flipping the whole map or applying a global correction.
@@ -187,11 +191,9 @@ ground offset, without flipping the whole map or applying a global correction.
 conversion helpers; game loaders own native-file interpretation.
 
 The simulation uses `facing_t`, a 16-bit compass angle (`0` = north, increasing
-clockwise, full circle = `65536`). `facing_scheme_t` is the per-game adapter from
-that canonical angle to a sprite table's discrete direction index. Keep gameplay
-facing canonical; convert to native direction codes only when selecting state
-frames or calling a game-specific angle helper. Do not store a plugin's sprite
-index as the actor's general facing.
+clockwise, full circle = `65536`) for gameplay orientation. Keep gameplay facing
+canonical; convert to native direction codes only at a game-specific boundary.
+Do not store a plugin's sprite index as the actor's general facing.
 
 ## Core data contracts
 
@@ -215,10 +217,13 @@ owns traversal, culling, transforms, animation, and composition; game code owns
 native parsing and normalization into these shared arrays.
 
 The map also owns decorations, resource vents, map extras, player resources, and
-game-native loader data. `P_FreeLevel` releases these allocations and invokes
-`destroy_native_data` when present. A plugin may attach parsed native state via
-`native_data`, but the shared engine must not inspect or free it directly. Each
-game binary compiles with its native Y-axis convention through `RTS_WORLD_Y_UP`.
+game-native loader data. It also owns the active game's opaque mission state
+through `mission` and `destroy_mission`. `G_DoLoadLevel()` attaches mission
+state; `G_MissionTicker()` resolves it from the level; and `P_FreeLevel()`
+releases it. `P_FreeLevel()` also invokes `destroy_native_data` when present. A
+plugin may attach parsed native state via `native_data`, but the shared engine
+must not inspect or free it directly. Each game binary compiles with its native
+Y-axis convention through `RTS_WORLD_Y_UP`.
 Source coordinates remain native; `L_ScreenY*`/`L_WorldYF` convert only at
 rendering and input boundaries.
 
@@ -281,7 +286,7 @@ The interactive and model loaders follow the same conceptual sequence:
    game-specific map metadata.
 3. Call `P_LoadThings` to decode initial object declarations into `mobj_t` rows.
 4. Apply actor defaults and enter each object's spawn state with `P_SpawnMobj`.
-5. Load optional mission/script state with `G_LoadMission`.
+5. The game loader attaches optional mission/script state to `level_t`.
 6. Load tiles and the fallback sprite through `W_LoadAssets`.
 7. Resolve per-object and decoration sprite resources with `R_InitSprites`.
 8. Initialize game UI/font resources when `gameui` is present.
@@ -317,11 +322,23 @@ combat, mission logic, and production, which then produces snapshots and events.
 
 ## Mission scripts and game-specific behavior
 
-Mission code is owned by the game directory. `G_LoadMission` parses the relevant
-scenario/script format, `G_MissionTicker` advances scripted spawns/objectives,
-and `G_FreeMission` releases it. Mission code receives the map, actor array,
-effect array, actor count, HUD, and elapsed time so scenario behavior can create,
-remove, move, or animate objects using the same runtime representation.
+Mission code is owned by the game directory. `G_DoLoadLevel()` parses the
+relevant scenario/script format and attaches the result to `level_t`.
+`G_MissionTicker()` advances scripted spawns/objectives using the active level,
+actor array, effect array, actor count, HUD, and elapsed time. `P_FreeLevel()`
+releases the level-owned mission. Mission code creates, removes, moves, or
+animates objects using the same runtime representation as ordinary gameplay.
+
+The driver and `RtsGameModel` do not own a second mission pointer. This mirrors
+Doom's level-global state model: the active level is the ownership boundary for
+map data and the script state that governs that map.
+
+Dark Colony dropships are stored as `mobj_t` entries inside the mission's bounded
+dropship array. Their runtime fields live on the object itself: position and
+flight endpoints, payload, phase timing, and effect slots. Dropship state actions
+use the normal mobj action ABI and obtain the active mission through
+`P_GetStateContext()` and `level_t`; no dedicated dropship back-pointer or
+required parallel Dropship wrapper is used.
 
 The shared model ticks the mission between core simulation phases and then
 reconciles stable IDs and transition state for event emission. This allows a
@@ -452,9 +469,8 @@ but are not required to expose every production or model feature yet.
 ## Rendering and UI
 
 Rendering consumes loaded map data and actor/effect state. It does not decide
-gameplay outcomes. State tables provide sprite, frame, facing, offsets, remap,
-intensity, and overlay data; render code turns those values into screen-space
-draw calls.
+gameplay outcomes. State tables provide the current sprite, frame, tics, and
+render flags; render code turns those values into screen-space draw calls.
 
 The model snapshot contains presentation-neutral actor/effect/decoration values
 and a declarative UI script. This lets the interactive renderer, tests, or a

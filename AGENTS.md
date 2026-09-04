@@ -188,12 +188,12 @@ Key patterns to follow from that lineage:
 
 | Doom | open-rts |
 |---|---|
-| `state_t.action` — func ptr on the *state*, not the entity | `State.action StateAction` — same |
-| `P_SetMobjState` chains zero-tic states immediately | `set_unit_state` does the same |
+| `state_t.action` — func ptr on the *state*, not the entity | `state_t.action` — same |
+| `P_SetMobjState` chains zero-tic states immediately | `P_SetMobjState` does the same |
 | `mobjinfo_t` with `spawnstate/seestate/missilestate/deathstate` | `MobjInfo` with identical fields |
 | `mobj->tics` counts down per tick; on 0 → `nextstate` | `unit->tics` — same |
 | Single `P_MobjThinker` drives all objects | `update_units()` is the single loop |
-| Action functions fire **on state entry** (e.g. `A_Chase`, `A_PosAttack`) | `StateAction` fires on entry in `set_unit_state` |
+| Action functions fire **on state entry** (e.g. `A_Chase`, `A_PosAttack`) | `state_t.action` fires on entry in `P_SetMobjState` |
 | Doubly-linked `thinker_t` ring (polymorphic: doors, lights, mobjs) | Flat `Unit` array + swap-compaction (no polymorphic thinkers needed) |
 
 The attack cooldown (`attack_cooldown_left_ms`) is the one remaining non-tic timer. It serves as
@@ -204,6 +204,41 @@ is decremented in ms and is set from `ActorType.attack_cooldown_ms`.
 Attack *animation* locking is done via the state group: a unit in a `misc1 == 3` state (attack
 group) will not interrupt its animation to walk or start a new attack. No separate
 `attack_anim_left_ms` ms-timer is needed or used in the state-machine path.
+
+### Current state/action contract
+
+`state_t` is intentionally compact: sprite, frame, tics, action, next state,
+flags, and two generic `misc` values. Directional frame arrays, overlay state
+fields, and `state_userdata` are not part of the runtime contract. Basic
+sprite/frame selection is the current presentation target; do not reintroduce
+parallel directional or overlay metadata without verified game evidence.
+
+World state actions use the Hexen-style `void action(mobj_t *actor)` signature.
+`P_SetMobjState()` installs a temporary active `statecontext_t` while invoking
+the action; an action that needs level, effect, or game-table services calls
+`P_GetStateContext()`. This keeps the action ABI about the object being acted
+on, while still allowing nested state changes and effect spawning. Do not add a
+bespoke context pointer to individual action signatures or store a mission
+back-pointer on an `mobj_t`.
+
+Hexen's psprite actions are a separate family: weapon actions receive
+`player_t *` and `pspdef_t *` because they operate on the player's view weapon,
+not a world mobj. Do not use that signature for ordinary actor or dropship
+states.
+
+### Level-owned mission state
+
+The active `level_t` owns game-specific mission state through its opaque
+`mission` pointer and `destroy_mission` callback. The game implementation
+attaches mission state during `G_DoLoadLevel()`. `G_MissionTicker(level_t *map,
+...)` resolves the mission from the active level, and `P_FreeLevel()` releases
+it. Drivers and `RtsGameModel` must not keep a parallel `void *mission` owner or
+pass mission objects separately through the simulation.
+
+Dark Colony's mission owns its bounded dropship `mobj_t` instances and
+animation data. A dropship is runtime object data, not a separate required
+Dropship abstraction, and its actions resolve mission state from the active
+level context.
 
 ### Unit balance configuration
 
@@ -232,11 +267,11 @@ array, not the binary.
   through `S_DC_REAP_RUN8`; run `build/bin/test_dark_colony_sprite_layout` before finishing.
 - **Exploiter deploy orientation**: when ordered to harvest, the unit first rotates to face
   south-east (code 6), then plays the DEPLOY1-20 animation. Code already does this; preserve it.
-- **Exploiter work (harvesting) animation**: the WORK1-15 overlay loop (frames 25-33) was the
-  probe arm cycling open/closed — incorrect. WORK states now show only the static deployed body
-  (frame 34, DC_NO_OVERLAY). The original game plays a pulsating light effect during harvesting;
-  the correct overlay frames for that light are TBD — identify via DC.EXE analysis and add as
-  a looping overlay or spawned visual effect on the `harvest_state_id` entry.
+- **Exploiter work (harvesting) animation**: the WORK1-15 data (frames 25-33) was incorrectly
+  interpreted as a probe-arm animation. WORK states now show only the static deployed body
+  (frame 34, DC_NO_OVERLAY). The original game appears to use a pulsating light during
+  harvesting, but its native implementation is still unknown; preserve that unknown and
+  investigate it in DC.EXE before adding a spawned visual effect.
 
 ## Dark Colony direction
 
