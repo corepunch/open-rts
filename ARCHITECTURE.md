@@ -70,7 +70,7 @@ selectable, and a producer without being mobile.
 The trait enum is `mobjflag_t` in `play/actor.h`. Older notes and commits call
 these flags `T_*` (`T_MOBILE`, etc.); the current names are `MF_*` following the
 Doom naming convention. Traits are a bitmask stored in both `actortype_t.traits`
-and the live `mobj_t.traits`. `apply_actor_type_defaults()` copies the authored
+and the live `mobj_t.traits`. `P_ApplyActorTypeDefaults()` copies the authored
 mask to a spawned object, so add or remove capabilities in the plugin's
 `ActorType` table rather than in the renderer or command handler.
 
@@ -108,11 +108,13 @@ flags. The model resolves an actor's type ID through the selected game's
 
 ### `State[]`: animation and behavior graph
 
-`state_t` is a data-driven state node. It names a sprite/frame, duration in
-simulation tics, optional action callback, next state, state group metadata,
-facings, per-facing frame/flag/offset/remap/intensity data, and optional overlay
-data. State actions execute on state entry. Zero-tic states chain immediately;
-nonzero states remain active until their tic count expires.
+`state_t` is a data-driven state node matching Hexen's `INFO.H` layout. It names
+a sprite/frame, duration in simulation tics, optional action callback, next
+state, and two integer metadata fields (`misc1`/`misc2`). State actions execute
+on state entry. Zero-tic states chain immediately; nonzero states remain active
+until their tic count expires. Direction-specific frame selection and render
+flags are interpreted by the state generator and renderer at the presentation
+boundary rather than stored as extra fields on `state_t`.
 
 This means “walking”, “attacking”, “dying”, “deploying”, and “building” are
 usually state chains rather than ad hoc renderer conditions. The model can detect
