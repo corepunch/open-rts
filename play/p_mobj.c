@@ -391,6 +391,43 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     return true;
 }
 
+void A_Attack(statecontext_t *ctx, mobj_t *unit) {
+    (void)P_Attack(ctx, unit);
+}
+
+void A_Walk(statecontext_t *ctx, mobj_t *unit) {
+    if (!ctx || !unit || !ctx->mobjs || !ctx->mobj_count ||
+        unit->hp <= 0 || (unit->traits & MF_ATTACK) == 0 ||
+        unit->attack.range <= 0.0f || unit->attack.cooldown_left_ms > 0 ||
+        !ctx->game_info || unit->type_id <= 0 ||
+        unit->type_id >= ctx->game_info->mobj_type_count) {
+        return;
+    }
+    int target = -1;
+    float best_dist2 = unit->attack.range * unit->attack.range;
+    for (int i = 0; i < *ctx->mobj_count; ++i) {
+        mobj_t *candidate = &ctx->mobjs[i];
+        if (candidate == unit || candidate->remove || candidate->hp <= 0 ||
+            P_IsAlly(unit, candidate)) continue;
+        float dist2 = fvec2_distance_squared(
+            fixedvec3_xy_to_fvec2(candidate->core.position),
+            fixedvec3_xy_to_fvec2(unit->core.position));
+        if (dist2 <= best_dist2) {
+            best_dist2 = dist2;
+            target = i;
+        }
+    }
+    if (target < 0) return;
+    unit->attack.target = target;
+    fvec2_t delta = fvec2_sub(
+        fixedvec3_xy_to_fvec2(ctx->mobjs[target].core.position),
+        fixedvec3_xy_to_fvec2(unit->core.position));
+    unit->core.angle = angle_from_map_vector(ctx->map, delta.x, delta.y);
+    int attack_state = ctx->game_info->mobjinfo[unit->type_id].missilestate;
+    if (attack_state != ctx->game_info->null_state)
+        P_SetMobjState(ctx, unit, attack_state);
+}
+
 void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,
                            const gameinfo_t *game_info, float dt) {
     if (!effects || max_effects <= 0) return;
@@ -865,49 +902,6 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         }
 
         separate_units(map, units, count);
-
-        for (int i = 0; i < count; ++i) {
-            mobj_t *attacker = &units[i];
-            if (attacker->remove || attacker->hp <= 0 ||
-                (attacker->traits & MF_ATTACK) == 0 ||
-                attacker->attack.damage <= 0 || attacker->attack.range <= 0.0f ||
-                attacker->type_id <= 0 || attacker->type_id >= game_info->mobj_type_count) {
-                continue;
-            }
-            const mobjinfo_t *mi = &game_info->mobjinfo[attacker->type_id];
-            const state_t *state = state_at(game_info, attacker->core.state_id);
-            if (state && state->misc1 == 3) continue;
-
-            int target_index = -1;
-            float best_dist2 = attacker->attack.range * attacker->attack.range;
-            for (int j = 0; j < count; ++j) {
-                if (i == j || units[j].remove || units[j].hp <= 0 ||
-                    P_IsAlly(attacker, &units[j])) {
-                    continue;
-                }
-                float dist2 = fvec2_distance_squared(
-                    fixedvec3_xy_to_fvec2(units[j].core.position),
-                    fixedvec3_xy_to_fvec2(attacker->core.position));
-                if (dist2 <= best_dist2) {
-                    best_dist2 = dist2;
-                    target_index = j;
-                }
-            }
-            attacker->attack.target = target_index;
-            if (target_index < 0) continue;
-
-            mobj_t *target = &units[target_index];
-            fvec2_t target_delta = fvec2_sub(
-                fixedvec3_xy_to_fvec2(target->core.position),
-                fixedvec3_xy_to_fvec2(attacker->core.position));
-            attacker->core.angle = angle_from_map_vector(map,
-                                                         target_delta.x, target_delta.y);
-            if (attacker->attack.cooldown_left_ms > 0 ||
-                mi->missilestate == game_info->null_state) {
-                continue;
-            }
-            P_SetMobjState(&ctx, attacker, mi->missilestate);
-        }
 
         int write = 0;
         for (int read = 0; read < count; ++read) {

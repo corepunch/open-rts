@@ -291,10 +291,8 @@ struct statecontext_s {
     const gameinfo_t *game_info;
 };
 
-/* Movement state hook, matching Hexen's small state/action model. */
-static inline void A_Walk(statecontext_t *ctx, mobj_t *unit) {
-    (void)ctx;
-    (void)unit;
-}
+/* State-entry actions, matching Hexen's state_t action model. */
+void A_Walk(statecontext_t *ctx, mobj_t *unit);
+void A_Attack(statecontext_t *ctx, mobj_t *unit);
 
 #endif

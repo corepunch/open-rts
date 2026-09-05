@@ -1111,7 +1111,6 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const gameinfo_t game_info;\n\n");
     fprintf(out, "void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_Attack(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);\n\n");
@@ -1219,6 +1218,9 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     int offset_y[8] = {0};
     int remap[8] = {0};
     int intensity[8] = {0};
+    const char *state_action = (group == 1 && strcmp(action, "A_None") == 0) ?
+        "A_Walk" : action;
+    int state_tics = (strcmp(state_action, "A_Walk") == 0 && tics < 0) ? 1 : tics;
     for (int dir = 0; dir < 8; ++dir) {
         int candidates[64];
         int candidate_flags[64] = {0};
@@ -1253,7 +1255,7 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     }
 
     fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
-            spr, frames[0], tics, action, next, group);
+            spr, frames[0], state_tics, state_action, next, group);
 }
 
 static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1722,7 +1724,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
         if (i + 1 < counts->trsc_attack_a) state_name(next, sizeof(next), "TRSC", "ATK", i + 2);
         else snprintf(next, sizeof(next), "S_DC_TRSC_STND");
         const char *action = i == 1 ? "A_DC_MuzzleFlash" :
-            (i == 2 ? "A_DC_Attack" : "A_None");
+            (i == 2 ? "A_Attack" : "A_None");
         f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCFIREA", i, 0, 2,
                      action, next, 3, counts->trsc_attack_a, false);
     }
@@ -1731,7 +1733,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
         if (i + 1 < counts->trsc_attack_b) snprintf(next, sizeof(next), "S_DC_TRSC_ATKB%d", i + 2);
         else snprintf(next, sizeof(next), "S_DC_TRSC_STND");
         const char *action = i == 0 ? "A_DC_MuzzleFlash" :
-            (i == 1 ? "A_DC_Attack" : "A_None");
+            (i == 1 ? "A_Attack" : "A_None");
         f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCFIREB", i, 0, 2,
                      action, next, 3, counts->trsc_attack_b, false);
     }
@@ -1747,7 +1749,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                      "A_Walk", gray_run_next[i], 2, 8, false);
     }
     const char *gray_atk_next[8] = {"S_DC_GRAY_ATK2","S_DC_GRAY_ATK3","S_DC_GRAY_ATK4","S_DC_GRAY_ATK5","S_DC_GRAY_ATK6","S_DC_GRAY_STND","S_DC_GRAY_STND","S_DC_GRAY_STND"};
-    const char *gray_atk_action[8] = {"A_None","A_DC_MuzzleFlash","A_DC_Attack","A_None","A_None","A_None","A_None","A_None"};
+    const char *gray_atk_action[8] = {"A_None","A_DC_MuzzleFlash","A_Attack","A_None","A_None","A_None","A_None","A_None"};
     for (int i = 0; i < 8; ++i) {
         f8_fin_state(out, sprites[gray].symbol, &gray_fin, "GRAYFIREA", i, 0, 2,
                      gray_atk_action[i], gray_atk_next[i], 3, 8, false);
@@ -1761,7 +1763,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
                          counts->reap_run, 0, 3, 2, "A_Walk", "S_DC_REAP_RUN1", true);
     const char *reap_atk_actions[8] = {
-        "A_None", "A_DC_MuzzleFlash", "A_DC_Attack", "A_None",
+        "A_None", "A_DC_MuzzleFlash", "A_Attack", "A_None",
         "A_None", "A_None", "A_None", "A_None"
     };
     write_fin_layer5_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",

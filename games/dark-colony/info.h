@@ -530,7 +530,6 @@ extern const gameinfo_t game_info;
 
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);
-void A_DC_Attack(statecontext_t *ctx, mobj_t *unit);
 void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);

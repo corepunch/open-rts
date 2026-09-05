@@ -19,10 +19,6 @@ void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
     P_SpawnEffect(ctx, muzzle_state, unit->core.position, unit->core.angle);
 }
 
-void A_DC_Attack(statecontext_t *ctx, mobj_t *unit) {
-    P_Attack(ctx, unit);
-}
-
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit) return;
     P_SetMobjState(ctx, unit, (rand() & 1) ? S_DC_TRSC_ATKB1 : S_DC_TRSC_ATK1);
