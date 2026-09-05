@@ -463,7 +463,8 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
 
 bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
                         effect_t *effects, int max_effects, float dt) {
-    return SB_UpdateProduction(ui, map, units, unit_count, effects, max_effects, dt);
+    if (!ui) return false;
+    return G_ModelUpdateProduction(map, units, unit_count, effects, max_effects, dt);
 }
 
 void G_ShutdownCustomUI(void *ui) {

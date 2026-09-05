@@ -144,4 +144,14 @@ void     G_ModelBuildUIScript(const RtsGameModel *model,
 /* Periodic AI production thinker. */
 void     G_ModelAIProduction(RtsGameModel *model, int elapsed_ms);
 
+/* ── interactive production simulation (raw mobj_t arrays, not RtsGameModel) ── */
+
+/* Enqueue a unit production order on producer. Returns false if rejected. */
+bool     G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
+                                  uint16_t actor_id);
+
+/* Advance production queues by dt seconds, spawning finished units. Returns true if a unit was spawned. */
+bool     G_ModelUpdateProduction(level_t *map, mobj_t *units, int *unit_count,
+                                 effect_t *effects, int max_effects, float dt);
+
 #endif

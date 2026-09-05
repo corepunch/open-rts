@@ -427,3 +427,338 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
         }
     }
 }
+
+/* ── interactive production simulation (raw mobj_t arrays, not RtsGameModel) ── */
+
+bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
+                              uint16_t actor_id) {
+    if (!producer || !product || actor_id == 0) return false;
+    if (producer->production.queue_count > 0) {
+        if (producer->production.actor_id != actor_id ||
+            producer->production.product_type != product->product_type ||
+            producer->production.product_class != RTS_PRODUCT_UNIT ||
+            producer->production.queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
+            return false;
+        }
+        producer->production.queue_count++;
+        return true;
+    }
+    producer->production.actor_id = actor_id;
+    producer->production.product_class = RTS_PRODUCT_UNIT;
+    producer->production.product_type = product->product_type;
+    producer->production.queue_count = 1;
+    producer->production.time_ms = G_ModelProductTrainingTimeMs(product);
+    producer->production.time_left_ms = producer->production.time_ms;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    return true;
+}
+
+static bool dc_product_uses_barracks_release(const mobj_t *producer,
+                                             const StaticProductDefinition *product,
+                                             uint16_t actor_id) {
+    return producer && product && producer->type_id == ACTOR_BRRKPOD &&
+        product->product_type == 0 && actor_id == ACTOR_TROOPER;
+}
+
+static bool dc_start_production_release(level_t *map,
+                                        effect_t *effects, int max_effects,
+                                        mobj_t *producer,
+                                        const StaticProductDefinition *product,
+                                        uint16_t actor_id) {
+    if (!gameinfo || !producer || !product) return false;
+    if (!dc_product_uses_barracks_release(producer, product, actor_id)) return false;
+    int state_id = dc_model_find_state_by_group_frame(gameinfo, PRODUCTION_BUILD_GROUP,
+                                                      TRSCBUILD_FIRST_FRAME);
+    int duration_ms = dc_model_state_chain_duration_ms(gameinfo, state_id,
+                                                       PRODUCTION_BUILD_GROUP);
+    if (state_id <= 0 || duration_ms <= 0) return false;
+    statecontext_t ctx = {
+        .map = map,
+        .effects = effects,
+        .max_effects = max_effects,
+        .game_info = gameinfo,
+    };
+    if (!P_SetMobjState(&ctx, producer, state_id)) return false;
+    producer->production.release_active = true;
+    producer->production.release_time_left_ms = duration_ms;
+    producer->production.time_left_ms = 0;
+    return true;
+}
+
+static void dc_clear_production(mobj_t *producer) {
+    if (!producer) return;
+    producer->production.actor_id = 0;
+    producer->production.product_class = 0;
+    producer->production.product_type = 0;
+    producer->production.time_ms = 0;
+    producer->production.time_left_ms = 0;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+}
+
+static void dc_advance_production_queue(mobj_t *producer) {
+    if (!producer) return;
+    producer->production.release_active = false;
+    producer->production.release_time_left_ms = 0;
+    producer->production.queue_count--;
+    if (producer->production.queue_count > 0) {
+        producer->production.time_left_ms = producer->production.time_ms;
+    } else {
+        dc_clear_production(producer);
+    }
+}
+
+static bool dc_position_available_for_spawn(const level_t *map, const mobj_t *units,
+                                            int unit_count, float gx, float gy,
+                                            float radius) {
+    if (!map || !units) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!L_IsWalkable(map, x, y)) return false;
+        }
+    }
+    for (int i = 0; i < unit_count; ++i) {
+        const mobj_t *other = &units[i];
+        if (other->remove || other->hp <= 0) continue;
+        float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
+        float min_dist = radius + other_radius;
+        if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(other->core.position),
+                                   (fvec2_t){ gx, gy }) <
+            min_dist * min_dist) return false;
+    }
+    return true;
+}
+
+static bool dc_position_walkable_for_spawn(const level_t *map, float gx, float gy,
+                                           float radius) {
+    if (!map) return false;
+    if (radius < 0.32f) radius = 0.32f;
+    if (gx - radius < 0.0f || gy - radius < 0.0f ||
+        gx + radius > (float)map->width || gy + radius > (float)map->height) {
+        return false;
+    }
+    int min_x = (int)floorf(gx - radius);
+    int max_x = (int)floorf(gx + radius);
+    int min_y = (int)floorf(gy - radius);
+    int max_y = (int)floorf(gy + radius);
+    for (int y = min_y; y <= max_y; ++y) {
+        for (int x = min_x; x <= max_x; ++x) {
+            if (!L_IsWalkable(map, x, y)) return false;
+        }
+    }
+    return true;
+}
+
+static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
+                                        int unit_count, const mobj_t *producer,
+                                        float radius, float *out_gx,
+                                        float *out_gy) {
+    if (!map || !units || !producer || !out_gx || !out_gy) return false;
+    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    int origin_x = (int)floorf(producer_position.x);
+    int origin_y = (int)floorf(producer_position.y);
+    static const int preferred[][2] = {
+        { 1, 0 }, { 1, 1 }, { 0, 1 }, { -1, 1 },
+        { -1, 0 }, { -1, -1 }, { 0, -1 }, { 1, -1 },
+    };
+    int preferred_count = (int)(sizeof(preferred) / sizeof(preferred[0]));
+    for (int dist = 1; dist <= 8; ++dist) {
+        for (int i = 0; i < preferred_count; ++i) {
+            int x = origin_x + preferred[i][0] * dist;
+            int y = origin_y + preferred[i][1] * dist;
+            float gx = (float)x + 0.5f;
+            float gy = (float)y + 0.5f;
+            if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
+            *out_gx = gx;
+            *out_gy = gy;
+            return true;
+        }
+        for (int dy = -dist; dy <= dist; ++dy) {
+            for (int dx = -dist; dx <= dist; ++dx) {
+                if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
+                float gx = (float)(origin_x + dx) + 0.5f;
+                float gy = (float)(origin_y + dy) + 0.5f;
+                if (!dc_position_available_for_spawn(map, units, unit_count, gx, gy, radius)) continue;
+                *out_gx = gx;
+                *out_gy = gy;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, int unit_count,
+                                           int spawned_index, const mobj_t *producer,
+                                           float exit_gx, float exit_gy) {
+    if (!map || !units || !producer || spawned_index < 0 || spawned_index >= unit_count)
+        return;
+    bool saved[MAXMOBJS];
+    for (int i = 0; i < unit_count; ++i) {
+        saved[i] = units[i].selected;
+        units[i].selected = false;
+    }
+
+    float crowd_radius = 2.75f;
+    float crowd_radius_sq = crowd_radius * crowd_radius;
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *unit = &units[i];
+        if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
+            (unit->traits & MF_MOBILE) == 0) {
+            continue;
+        }
+        if (i == spawned_index ||
+            fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
+                                   (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
+            unit->selected = true;
+        }
+    }
+
+    fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
+                             fixedvec3_xy_to_fvec2(producer->core.position));
+    float len = sqrtf(fvec2_length_squared(delta));
+    if (len < 0.01f) {
+        delta = (fvec2_t){ 0.0f, -1.0f };
+        len = 1.0f;
+    }
+    fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
+                            fvec2_scale(delta, 1.5f / len));
+    P_MoveOrderAt(map, units, unit_count, goal);
+
+    for (int i = 0; i < unit_count; ++i) {
+        units[i].selected = saved[i];
+    }
+}
+
+static bool dc_spawn_finished_unit_product(const level_t *map,
+                                           mobj_t *units, int *unit_count,
+                                           int producer_index,
+                                           uint16_t actor_id) {
+    if (!map || !units || !unit_count || producer_index < 0 ||
+        producer_index >= *unit_count || *unit_count >= MAXMOBJS || actor_id == 0) {
+        return false;
+    }
+    const actortype_t *type = NULL;
+    const actortype_t *types = (const actortype_t *)mobjinfo;
+    for (int i = 0; types && i < num_mobjinfo; ++i) {
+        if (types[i].id == actor_id) {
+            type = &types[i];
+            break;
+        }
+    }
+    if (!type) return false;
+
+    mobj_t new_unit;
+    memset(&new_unit, 0, sizeof(new_unit));
+    new_unit.type_id = actor_id;
+    new_unit.owner = 0;
+    new_unit.core.sprite_id = -1;
+    new_unit.attack.target = -1;
+    new_unit.harvest.target = -1;
+    new_unit.traits = type->traits;
+    new_unit.harvest.capacity = type->harvest.capacity;
+    new_unit.speed = type->speed;
+    new_unit.max_hp = type->max_hp;
+    new_unit.hp = type->max_hp;
+    new_unit.attack.range = type->attack.range;
+    new_unit.attack.damage = type->attack.damage;
+    new_unit.attack.cooldown_ms = type->attack.cooldown_ms;
+    new_unit.attack.anim_ms = type->attack.anim_ms;
+    new_unit.death.anim_ms = type->death.anim_ms;
+    new_unit.harvest.state_id = type->harvest.state_id;
+    new_unit.muzzle_flash_ms = type->muzzle_flash_ms;
+    new_unit.core.render_intensity = 16;
+    if (type->sprite_name)
+        snprintf(new_unit.core.sprite_name, sizeof(new_unit.core.sprite_name), "%s", type->sprite_name);
+    if (type->shadow_name)
+        snprintf(new_unit.shadow_name, sizeof(new_unit.shadow_name), "%s", type->shadow_name);
+    new_unit.muzzle_flash_sprite = type->muzzle_flash_sprite;
+    new_unit.hit_effect_sprite = type->hit_effect_sprite;
+    if (type->muzzle_flash_name)
+        snprintf(new_unit.muzzle_flash_name, sizeof(new_unit.muzzle_flash_name), "%s", type->muzzle_flash_name);
+    if (type->hit_effect_name)
+        snprintf(new_unit.hit_effect_name, sizeof(new_unit.hit_effect_name), "%s", type->hit_effect_name);
+    new_unit.death_effect_action = type->death_effect_action;
+    P_SpawnMobj(gameinfo, &new_unit);
+
+    float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
+    float gx = 0.0f;
+    float gy = 0.0f;
+    mobj_t *producer = &units[producer_index];
+    const StaticProductDefinition *product =
+        G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production.product_type);
+    bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
+    if (use_barracks_release &&
+        G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, &new_unit, &gx, &gy) &&
+        dc_position_walkable_for_spawn(map, gx, gy, radius)) {
+        /* The release FIN places the visual handoff; occupied exit cells are cleared below. */
+    } else if (!dc_find_spawn_position_near(map, units, *unit_count, producer,
+                                            radius, &gx, &gy)) {
+        return false;
+    }
+    new_unit.core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
+    int spawned_index = *unit_count;
+    units[(*unit_count)++] = new_unit;
+    if (use_barracks_release)
+        dc_order_barracks_exit_spacing(map, units, *unit_count, spawned_index, producer, gx, gy);
+    return true;
+}
+
+bool G_ModelUpdateProduction(level_t *map, mobj_t *units, int *unit_count,
+                             effect_t *effects, int max_effects, float dt) {
+    if (!map || !units || !unit_count || dt <= 0.0f) return false;
+    bool spawned = false;
+    int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
+    if (elapsed_ms <= 0) elapsed_ms = 1;
+    for (int i = 0; i < *unit_count; ++i) {
+        mobj_t *producer = &units[i];
+        if (producer->production.queue_count <= 0) continue;
+        if (producer->remove || producer->hp <= 0) {
+            producer->production.queue_count = 0;
+            dc_clear_production(producer);
+            continue;
+        }
+        if (producer->production.release_active) {
+            producer->production.release_time_left_ms -= elapsed_ms;
+            if (producer->production.release_time_left_ms > 0) continue;
+            uint16_t actor_id = producer->production.actor_id;
+            if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
+                producer->production.release_time_left_ms = 250;
+                continue;
+            }
+            spawned = true;
+            producer = &units[i];
+            dc_advance_production_queue(producer);
+            continue;
+        }
+        producer->production.time_left_ms -= elapsed_ms;
+        while (producer->production.queue_count > 0 &&
+               producer->production.time_left_ms <= 0) {
+            uint16_t actor_id = producer->production.actor_id;
+            const StaticProductDefinition *product =
+                G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production.product_type);
+            if (product && dc_start_production_release(map, effects, max_effects,
+                                                       producer, product, actor_id)) {
+                break;
+            }
+            if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
+                producer->production.time_left_ms = 250;
+                break;
+            }
+            spawned = true;
+            producer = &units[i];
+            dc_advance_production_queue(producer);
+        }
+    }
+    return spawned;
+}
