@@ -106,6 +106,8 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
 /* Check if prerequisites are satisfied for an owner to build a product. */
 bool     G_ModelProductAvailable(const RtsGameModel *model, int owner,
                                  const StaticProductDefinition *product);
+bool     G_ModelProductAvailableForUnits(const mobj_t *units, int unit_count,
+                                          const StaticProductDefinition *product);
 
 /* Find the producer mobj index for a product. Returns -1 if no eligible producer. */
 int      G_ModelFindProducerIndex(const RtsGameModel *model, int owner,

@@ -42,16 +42,7 @@ typedef struct {
     uint64_t clock;
 } sb_state_t;
 
-typedef struct {
-    int ui_id;
-    const char *label;
-    int cost;
-    int icon_frame;
-    int product_type;
-    int producer_type_id;
-    int prerequisites[3];
-    int prerequisite_count;
-} ProductButton;
+typedef StaticProductDefinition ProductButton;
 
 enum {
     CLIENT_PRODUCT_UNIT = 2,
@@ -71,43 +62,6 @@ enum {
     CLIENT_PRODUCTION_BUILD_GROUP = 6,
     CLIENT_TRSCBUILD_FIRST_FRAME = 12,
 };
-
-static const ProductButton DARK_COLONY_PRODUCTS[] = {
-    {  80, "Barracks",  1000, 20, 17, CLIENT_MT_EXCOPOD, { 0 }, 1 },
-    {  81, "Sci-Pod",   2000, 21, 20, CLIENT_MT_EXCOPOD, { 0 }, 1 },
-    {  82, "Robo-Ftr",  2000, 22, 18, CLIENT_MT_EXCOPOD, { 2, 1 }, 2 },
-    {  83, "Rsch-Bay",  3000, 23, 22, CLIENT_MT_EXCOPOD, { 4 }, 1 },
-    {  85, "Sci-Pod+",  2000, 26, 21, CLIENT_MT_EXCOPOD, { 2 }, 1 },
-    {  86, "Robo-Ftr+", 2000, 30, 19, CLIENT_MT_EXCOPOD, { 3, 2 }, 2 },
-    {  87, "Exploiter", 1500,  8,  6, CLIENT_MT_EXCOPOD, { 0 }, 1 },
-    {  89, "Trooper",    350,  6,  0, CLIENT_MT_BRRKPOD, { 1 }, 1 },
-    {  90, "Sentinel",   450,  5, 43, CLIENT_MT_BRRKPOD, { 1, 2 }, 2 },
-    {  94, "S.A.R.G.E", 1500, 12,  4, CLIENT_MT_BRRKPOD, { 1, 6 }, 2 },
-    {  92, "Osprey IV",  600,  9,  5, CLIENT_MT_ROBOPOD, { 0, 3, 4 }, 3 },
-    {  91, "Reaper",     600, 11,  2, CLIENT_MT_ROBOPOD, { 3, 2 }, 2 },
-    {  88, "Firestorm",  900, 10,  1, CLIENT_MT_ROBOPOD2, { 5 }, 1 },
-    {  93, "Barrager",  1000,  7,  3, CLIENT_MT_ROBOPOD2, { 5, 4 }, 2 },
-    { 135, "Medi-craft", 900, 29, 49, CLIENT_MT_ROBOPOD, { 4, 3, 6 }, 3 },
-};
-
-static uint16_t dc_unit_actor_id_for_product_type(int product_type) {
-    switch (product_type) {
-    case 0: return CLIENT_MT_TROOPER;
-    case 2: return CLIENT_MT_REAPER;
-    case 3: return CLIENT_MT_THUNDERBOLT;
-    case 4: return CLIENT_MT_CYBORG;
-    case 5: return CLIENT_MT_SCOUT;
-    case 6: return CLIENT_MT_EXPLOITER;
-    default: return 0;
-    }
-}
-
-static int dc_product_training_time_ms(const ProductButton *product) {
-    if (!product) return 0;
-    int ms = product->cost * 10;
-    if (ms < 1000) ms = 1000;
-    return ms;
-}
 
 static void sidebar_defaults(Sidebar *sidebar) {
     if (!sidebar) return;
@@ -297,40 +251,9 @@ static const mobj_t *dc_first_selected_unit(const mobj_t *units, int unit_count)
     return NULL;
 }
 
-static int dc_product_row_actor_type(int row_id) {
-    switch (row_id) {
-    case 0: return CLIENT_MT_EXCOPOD;
-    case 1: return CLIENT_MT_BRRKPOD;
-    case 2: return CLIENT_MT_SCNCPOD;
-    case 3: return CLIENT_MT_ROBOPOD;
-    case 4: return CLIENT_MT_SCNCPOD2;
-    case 5: return CLIENT_MT_ROBOPOD2;
-    case 6: return CLIENT_MT_RSCHPOD;
-    case 7: return CLIENT_MT_EXPLOITER;
-    default: return 0;
-    }
-}
-
-static bool dc_player_has_actor_type(const mobj_t *units, int unit_count, int type_id) {
-    if (!units || type_id <= 0) return false;
-    for (int i = 0; i < unit_count; ++i) {
-        if (units[i].hidden || units[i].owner != 0 || units[i].remove || units[i].hp <= 0 ||
-            units[i].type_id != (uint16_t)type_id) {
-            continue;
-        }
-        return true;
-    }
-    return false;
-}
-
 static bool dc_product_prerequisites_met(const mobj_t *units, int unit_count,
                                          const ProductButton *product) {
-    if (!product) return false;
-    for (int i = 0; i < product->prerequisite_count; ++i) {
-        int actor_type = dc_product_row_actor_type(product->prerequisites[i]);
-        if (!dc_player_has_actor_type(units, unit_count, actor_type)) return false;
-    }
-    return true;
+    return G_ModelProductAvailableForUnits(units, unit_count, product);
 }
 
 static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
@@ -343,10 +266,19 @@ static int dc_products_for_selected_building(const mobj_t *selected, const mobj_
                                              const ProductButton *out[8]) {
     if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
     int count = 0;
-    int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
+    static ProductButton products[RTS_MODEL_MAX_SNAPSHOT_UNITS];
+    int source_count = G_ModelGetProducts(NULL, 0, products,
+                                          (int)(sizeof(products) / sizeof(products[0])));
     for (int i = 0; i < source_count && count < 8; ++i) {
-        const ProductButton *product = &DARK_COLONY_PRODUCTS[i];
-        if (product->producer_type_id != selected->type_id) continue;
+        const ProductButton *product = &products[i];
+        bool this_maker = false;
+        for (int maker = 0; maker < product->maker_count; ++maker) {
+            if (product->makers[maker] == (int)selected->type_id) {
+                this_maker = true;
+                break;
+            }
+        }
+        if (!this_maker) continue;
         if (!dc_product_prerequisites_met(units, unit_count, product)) continue;
         out[count++] = product;
     }
@@ -354,12 +286,7 @@ static int dc_products_for_selected_building(const mobj_t *selected, const mobj_
 }
 
 static const ProductButton *dc_product_by_type(int product_type) {
-    int source_count = (int)(sizeof(DARK_COLONY_PRODUCTS) / sizeof(DARK_COLONY_PRODUCTS[0]));
-    for (int i = 0; i < source_count; ++i) {
-        if (DARK_COLONY_PRODUCTS[i].product_type == product_type)
-            return &DARK_COLONY_PRODUCTS[i];
-    }
-    return NULL;
+    return G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, product_type);
 }
 
 static bool dc_enqueue_unit_product(mobj_t *producer, const ProductButton *product,
@@ -379,7 +306,7 @@ static bool dc_enqueue_unit_product(mobj_t *producer, const ProductButton *produ
     producer->production.product_class = CLIENT_PRODUCT_UNIT;
     producer->production.product_type = product->product_type;
     producer->production.queue_count = 1;
-    producer->production.time_ms = dc_product_training_time_ms(product);
+    producer->production.time_ms = G_ModelProductTrainingTimeMs(product);
     producer->production.time_left_ms = producer->production.time_ms;
     producer->production.release_active = false;
     producer->production.release_time_left_ms = 0;
@@ -836,7 +763,7 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
                 if (!irect_contains(product_button_rect(app, i),
                                     (ivec2_t){ rx, ry })) continue;
                 const ProductButton *product = products[i];
-                uint16_t actor_id = dc_unit_actor_id_for_product_type(product->product_type);
+                uint16_t actor_id = G_ModelActorIdForProduct(product);
                 if (actor_id == 0 || map->player_resources[0][0] < product->cost) return true;
                 if (dc_enqueue_unit_product(selected, product, actor_id)) {
                     map->player_resources[0][0] -= product->cost;

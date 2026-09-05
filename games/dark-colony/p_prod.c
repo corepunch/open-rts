@@ -199,6 +199,26 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
     return true;
 }
 
+bool G_ModelProductAvailableForUnits(const mobj_t *units, int unit_count,
+                                     const StaticProductDefinition *product) {
+    if (!units || unit_count < 0 || !product) return false;
+    for (int i = 0; i < product->prerequisite_count; ++i) {
+        const StaticProductDefinition *prereq =
+            product_by_row_id(product->prerequisites[i]);
+        if (!prereq || prereq->product_class != RTS_PRODUCT_BUILDING) return false;
+        uint16_t actor_id = G_ModelActorIdForProduct(prereq);
+        bool found = false;
+        for (int j = 0; j < unit_count; ++j) {
+            if (units[j].hidden || units[j].owner != 0 || units[j].remove ||
+                units[j].hp <= 0 || units[j].type_id != actor_id) continue;
+            found = true;
+            break;
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
 static const state_t *dc_model_state_at(const gameinfo_t *game_info, int state_id) {
     if (!game_info || !game_info->states || state_id < 0 || state_id >= game_info->state_count)
         return NULL;
