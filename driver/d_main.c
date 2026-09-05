@@ -2,7 +2,7 @@
 #include "engine.h"
 #include "game.h"
 #include "renderer.h"
-#include "st_stuff.h"
+#include "sb_bar.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -1111,9 +1111,9 @@ int main(int argc, char **argv) {
     }
 
     void *custom_ui = G_InitCustomUI(&app, data_root);
-    st_state_t st = { 0 };
-    if (gameui && !ST_Init(&st, app.renderer, data_root, gameui))
-        fprintf(stderr, "warning: ST_Init failed for %s\n", g_game_name);
+    sb_state_t st = { 0 };
+    if (gameui && !SB_Init(&st, app.renderer, data_root, gameui))
+        fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
     if (check_only || screenshot_only) {
         if (screenshot_only) {
@@ -1137,7 +1137,7 @@ int main(int argc, char **argv) {
             if (debug_anchors)
                 debug_draw_map_anchors(&app, &map, &decoration_sprites, units, unit_count);
             G_CustomUIDrawer(custom_ui, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
-            ST_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
+            SB_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
                       false, true);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
@@ -1145,7 +1145,7 @@ int main(int argc, char **argv) {
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
-        ST_Shutdown(&st);
+        SB_Shutdown(&st);
         G_ShutdownCustomUI(custom_ui);
         R_FreeSpriteCache(&decoration_sprites);
         R_FreeSprite(&unit_sprite);
@@ -1187,7 +1187,7 @@ int main(int argc, char **argv) {
                 continue;
             }
             if (G_CustomUIResponder(custom_ui, &app, &map, units, unit_count, &e) ||
-                ST_Responder(&st, &app, &e)) {
+                SB_Responder(&st, &app, &e)) {
                 continue;
             }
             G_Responder(&app, &map, units, unit_count, &unit_sprite,
@@ -1225,7 +1225,7 @@ int main(int argc, char **argv) {
             P_UpdateEffects(&map, effects, MAX_VISUAL_EFFECTS,
                                   gameinfo, FIXED_DT);
             HU_Ticker(&hud_text, FIXED_DT);
-            ST_Ticker(&st);
+            SB_Ticker(&st);
             G_CustomUITicker(custom_ui);
             accumulator -= FIXED_DT;
         }
@@ -1251,12 +1251,12 @@ int main(int argc, char **argv) {
             SDL_RenderDrawRect(app.renderer, &app.selection_rect);
         }
         G_CustomUIDrawer(custom_ui, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
-        ST_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
+        SB_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
                   false, false);
         renderer_end_frame(&renderer);
     }
 
-    ST_Shutdown(&st);
+    SB_Shutdown(&st);
     G_ShutdownCustomUI(custom_ui);
     R_FreeSpriteCache(&decoration_sprites);
     R_FreeSprite(&unit_sprite);

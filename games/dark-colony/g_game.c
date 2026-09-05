@@ -443,22 +443,22 @@ void G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
 }
 
 void *G_InitCustomUI(app_t *app, const char *data_root) {
-    return SB_Init(app, data_root);
+    return DC_SB_Init(app, data_root);
 }
 
 bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
                          mobj_t *units, int unit_count, const SDL_Event *event) {
-    return SB_Responder(ui, app, map, units, unit_count, event);
+    return DC_SB_Responder(ui, app, map, units, unit_count, event);
 }
 
 void G_CustomUITicker(void *ui) {
-    SB_Ticker(ui);
+    DC_SB_Ticker(ui);
 }
 
 void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
                       const mobj_t *units, int unit_count,
                       const spritecache_t *sprites, const hudtext_t *hud) {
-    SB_Drawer(ui, app, map, units, unit_count, sprites, hud);
+    DC_SB_Drawer(ui, app, map, units, unit_count, sprites, hud);
 }
 
 bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
@@ -468,9 +468,9 @@ bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
 }
 
 void G_ShutdownCustomUI(void *ui) {
-    SB_Shutdown(ui);
+    DC_SB_Shutdown(ui);
 }
 
 int G_WorldViewportWidth(const app_t *app) {
-    return SB_WorldViewportWidth(app);
+    return DC_SB_WorldViewportWidth(app);
 }

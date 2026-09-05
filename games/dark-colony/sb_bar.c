@@ -154,7 +154,7 @@ static void sidebar_load(Sidebar *sidebar, const char *data_root) {
     free(text);
 }
 
-int SB_WorldViewportWidth(const app_t *app) {
+int DC_SB_WorldViewportWidth(const app_t *app) {
     if (!app) return 0;
     int w = app->win.w - 124;
     return w > 0 ? w : 1;
@@ -609,7 +609,7 @@ static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfo
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
-void *SB_Init(app_t *app, const char *data_root) {
+void *DC_SB_Init(app_t *app, const char *data_root) {
     if (!app || !data_root) return NULL;
     sb_state_t *sb = calloc(1, sizeof(sb_state_t));
     if (!sb) return NULL;
@@ -628,19 +628,19 @@ void *SB_Init(app_t *app, const char *data_root) {
     return sb;
 }
 
-bool SB_Responder(void *sb_ptr, const app_t *app, level_t *map,
+bool DC_SB_Responder(void *sb_ptr, const app_t *app, level_t *map,
                   mobj_t *units, int unit_count, const SDL_Event *event) {
     sb_state_t *sb = sb_ptr;
     return sb && sb->active &&
            dc_SB_responder(app, map, units, unit_count, event);
 }
 
-void SB_Ticker(void *sb_ptr) {
+void DC_SB_Ticker(void *sb_ptr) {
     sb_state_t *sb = sb_ptr;
     if (sb && sb->active) sb->clock++;
 }
 
-void SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
+void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
                const mobj_t *units, int unit_count,
                const spritecache_t *sprites, const hudtext_t *hud) {
     sb_state_t *sb = sb_ptr;
@@ -652,7 +652,7 @@ void SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
     render_hud_messages(app, hud, &sb->font);
 }
 
-void SB_Shutdown(void *sb_ptr) {
+void DC_SB_Shutdown(void *sb_ptr) {
     sb_state_t *sb = sb_ptr;
     if (!sb) return;
     R_FreeSprite(&sb->background);
