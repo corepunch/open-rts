@@ -28,7 +28,7 @@ static int assert_attack_lifecycle(void) {
     units[0].attack.range = 4.0f;
     units[0].attack.damage = 100;
     units[0].attack.cooldown_ms = 500;
-    units[0].attack.target = -1;
+    units[0].attack.target = 1;
     units[0].muzzle_flash_ms = 120;
     snprintf(units[0].muzzle_flash_name, sizeof(units[0].muzzle_flash_name), "SPRITES/BLAZ.SPR");
     snprintf(units[0].core.sprite_name, sizeof(units[0].core.sprite_name), "SPRITES/TRSC.SPR");
@@ -158,7 +158,13 @@ static int assert_exploiter_harvest_lifecycle(void) {
     RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
         .data.harvest_selected = { .target = { 69.5f, 48.5f } } };
     if (!rts_game_model_command(model, &select)) return fail("select exploiter");
-    if (!rts_game_model_command(model, &harvest)) return fail("issue harvest command");
+    if (!rts_game_model_command(model, &harvest)) {
+        fprintf(stderr, "exploiter index=%d owner=%u traits=%u position=%.2f,%.2f vents=%d\n",
+                exploiter, snapshot.units[exploiter].owner, snapshot.units[exploiter].traits,
+                snapshot.units[exploiter].position.x, snapshot.units[exploiter].position.y,
+                snapshot.resource_vent_count);
+        return fail("issue harvest command");
+    }
 
     bool saw_harvest_target = false;
     bool saw_deploy_or_work_state = false;

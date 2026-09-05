@@ -852,10 +852,12 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     int body_offset_y = 0;
     irect_t dst;
     if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT) {
-        int offset_x = sprite_world_offset_x(sprite, frame, render_flags);
+        SDL_Point pivot = sprite_ground_point(sprite, frame);
+        if ((render_flags & RTS_FRAME_FLIP_X) != 0)
+            pivot.x = frame_rect.w - pivot.x;
         dst = (irect_t){
-            (int)lroundf(sx) + body_offset_x + offset_x,
-            (int)lroundf(sy) + body_offset_y - sprite_h,
+            (int)lroundf(sx) + body_offset_x - pivot.x,
+            (int)lroundf(sy) + body_offset_y - pivot.y,
             sprite_w,
             sprite_h,
         };

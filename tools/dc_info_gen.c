@@ -1126,14 +1126,14 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
 
 static void f6(FILE *out, const char *spr, int tics, const char *action, const char *next,
                int group, const int starts[6], int offset) {
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0, {0} },\n",
             spr, starts[0] + offset, tics, action, next, group);
 }
 
 static void f1_fin_raw_state(FILE *out, const char *spr,
                              const DcFinDrawPart *cmd,
                              const char *next) {
-    fprintf(out, "    { %s, %d, -1, A_None, %s, 1, 0 },\n",
+    fprintf(out, "    { %s, %d, -1, A_None, %s, 1, 0, {0} },\n",
             spr, cmd->frame, next);
 }
 
@@ -1189,7 +1189,7 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
 
         int primary_sprite = find_sprite_for_fin_stem(sprites, sprite_count, primary->sprite);
         fprintf(out,
-                "    { %s, %d, %d, A_None, %s, %d, %s },\n",
+                "    { %s, %d, %d, A_None, %s, %d, %s, {0} },\n",
             sprites[primary_sprite].symbol, primary->frame, runtime_tics,
                 next, group, fin_flip_flag_expr(primary));
     }
@@ -1197,7 +1197,7 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
 
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
-    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 4, 0 },\n",
+    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 4, 0, {0} },\n",
             frame_a, action, next);
 }
 
@@ -1205,6 +1205,18 @@ static void state_name(char *dst, size_t dst_size, const char *prefix,
                        const char *kind, int index) {
     if (index > 0) snprintf(dst, dst_size, "S_DC_%s_%s%d", prefix, kind, index);
     else snprintf(dst, dst_size, "S_DC_%s_%s", prefix, kind);
+}
+
+static void write_rotations(FILE *out, int count, const int *directions,
+                            const int *frames, const int *flags) {
+    fprintf(out, ", { %d, {", count);
+    for (int i = 0; i < count; ++i) fprintf(out, "%s%d", i ? "," : "", directions[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < count; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
+    fprintf(out, "}, {");
+    for (int i = 0; i < count; ++i)
+        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "FLIPPED" : "0");
+    fprintf(out, "} }");
 }
 
 static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1254,8 +1266,11 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
         }
     }
 
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
+    static const int directions[8] = {0,2,4,6,8,10,12,14};
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
             spr, frames[0], state_tics, state_action, next, group);
+    write_rotations(out, 8, directions, frames, flags);
+    fprintf(out, " },\n");
 }
 
 static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1342,8 +1357,11 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
     }
 
     (void)has_overlay;
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
+    static const int directions[8] = {0,2,4,6,8,10,12,14};
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
             spr, frames[0], tics, action, next, group);
+    write_rotations(out, 8, directions, frames, flags);
+    fprintf(out, " },\n");
 }
 
 static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1388,15 +1406,18 @@ static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
         }
     }
 
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
+    static const int directions[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
             spr, frames[0], tics, action, next, group);
+    write_rotations(out, 16, directions, frames, flags);
+    fprintf(out, " },\n");
 }
 
 static void write_muzzle16(FILE *out, const char *spr, int frame, const int offsets_x[16],
                            const int offsets_y[16]) {
     (void)offsets_x;
     (void)offsets_y;
-    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, 5, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW },\n",
+    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, 5, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW, {0} },\n",
             spr, frame);
 }
 
@@ -1475,9 +1496,12 @@ static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimatio
     (void)overlay_y;
     (void)overlay_remap;
     (void)overlay_intensity;
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, %s },\n",
+        static const int directions[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+        fprintf(out, "    { %s, %d, %d, %s, %s, %d, %s",
             spr, frames[0], tics, action, next, group,
             flags[0] ? "FLIPPED" : "0");
+        write_rotations(out, 16, directions, frames, flags);
+        fprintf(out, " },\n");
 }
 
 static void write_fin_sequence(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1601,7 +1625,7 @@ static void write_fin_label_effect_chain(FILE *out, const char *root,
         } else {
             snprintf(flag_expr, sizeof(flag_expr), "0");
         }
-        fprintf(out, "    { %s, %d, %d, A_None, %s, 5, %s },\n",
+        fprintf(out, "    { %s, %d, %d, A_None, %s, 5, %s, {0} },\n",
                 sprites[sprite_index].symbol, cmd->frame, tics, next, flag_expr);
     }
 }
@@ -1612,7 +1636,7 @@ static void write_muzzle(FILE *out, const char *spr, int frame, const int offset
     (void)dirs;
     (void)offsets_x;
     (void)offsets_y;
-    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, 5, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW },\n",
+    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, 5, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW, {0} },\n",
             spr, frame);
 }
 
@@ -1700,7 +1724,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "#define FLIPPED RTS_SPRITEFRAME_FLIP_X\n");
     fprintf(out, "\n");
     fprintf(out, "const state_t states[NUMSTATES] = {\n");
-    fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0, {0} },\n");
     f1_fin_raw_state(out, sprites[hubu].symbol, excopod_stand, "S_DC_EXCOPOD_STND");
     f1_fin_raw_state(out, sprites[hubu].symbol, brrkpod_stand, "S_DC_BRRKPOD_STND");
     f1_fin_raw_state(out, sprites[towr].symbol, towr_stand, "S_DC_TOWR_STND");
@@ -1827,13 +1851,13 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive2, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive3, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_rschive, "S_NULL");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_UNLOAD_DONE, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipUnloadDone, S_NULL, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_REPOSITION_DONE, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipRepositionDone, S_NULL, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_DC_DROPSHIP_DEPART_DONE, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipDepartDone, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0, {0} },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_UNLOAD_DONE, 0, 0, {0} },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipUnloadDone, S_NULL, 0, 0, {0} },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_REPOSITION_DONE, 0, 0, {0} },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipRepositionDone, S_NULL, 0, 0, {0} },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_DC_DROPSHIP_DEPART_DONE, 0, 0, {0} },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipDepartDone, S_NULL, 0, 0, {0} },\n");
     fprintf(out, "};\n\n");
 
     fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");
@@ -1864,6 +1888,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { .style = SELECTION_STYLE_SPRITE, .sprite = SPR_DC_INTRFACE_CLIENT,\n");
     fprintf(out, "      .healthy_frame = 0, .wounded_frame = 1, .critical_frame = 3, .top_offset_y = -3 },\n");
     fprintf(out, "    NULL,\n");
+    fprintf(out, "    16, ANG270, false,\n");
     fprintf(out, "};\n");
     dc_free_fin_animation(&gray_fin);
     dc_free_fin_animation(&reap_fin);

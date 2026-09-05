@@ -29,6 +29,24 @@ static int assert_dark_colony_direction_mapping(void) {
     return 0;
 }
 
+static int assert_dark_colony_state_rotation_selection(void) {
+    statecontext_t context = { .game_info = &game_info };
+    mobj_t unit = { 0 };
+
+    unit.core.angle = dc_direction_to_angle(1);
+    if (!P_SetMobjState(&context, &unit, S_DC_TRSC_STND) || unit.core.frame != 1 ||
+        unit.core.render_flags != 0) {
+        return fail("eight-view Trooper rounds a halfway facing like Hexen");
+    }
+
+    unit.core.angle = dc_direction_to_angle(15);
+    if (!P_SetMobjState(&context, &unit, S_DC_EXPL_STND) || unit.core.frame != 1 ||
+        unit.core.render_flags != RTS_SPRITEFRAME_FLIP_X) {
+        return fail("sixteen-view Exploiter selects its mirrored direction frame");
+    }
+    return 0;
+}
+
 static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {
     if (!snapshot) return -1;
     for (int i = 0; i < snapshot->unit_count; ++i) {
@@ -396,8 +414,12 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot.unit_count <= 0) {
         return fail("Human01 snapshot has initial units");
     }
-    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/GRAY.SPR") != 30) {
-        return fail("Human01 loads initially active Grey scenario objects");
+    int initial_trooper_count = snapshot_count_units_with_owner_and_type(
+        &snapshot, 0, MT_DC_TROOPER);
+    if (initial_trooper_count != 32) {
+        fprintf(stderr, "Human01 initial player Troopers: %d (expected 32)\n",
+                initial_trooper_count);
+        return fail("Human01 loads its initial Trooper force");
     }
     if (snapshot.units[0].sprite_name[0] == '\0') {
         return fail("Human01 snapshot unit has render sprite reference");
@@ -417,6 +439,43 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
         return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
     }
+
+    int initial_troopers = snapshot_count_units_with_owner_and_type(
+        &snapshot, 0, MT_DC_TROOPER);
+    bool saw_dropship = false;
+    bool saw_delivery = false;
+    for (int tick = 0; tick < 30 * 120 && !saw_delivery; ++tick) {
+        if (!rts_tick(model, &snapshot)) return fail("tick Human01 Dropship reinforcement");
+        if (rts_find_active_effect_with_sprite(&snapshot, "SPRITES/DROP.SPR") >= 0)
+            saw_dropship = true;
+        int troopers = snapshot_count_units_with_owner_and_type(
+            &snapshot, 0, MT_DC_TROOPER);
+        if (troopers >= initial_troopers + 4) saw_delivery = true;
+    }
+    if (!saw_dropship) return fail("Human01 reinforcement spawns a visible Dropship");
+    if (!saw_delivery) return fail("Human01 Dropship delivers four Troopers");
+
+    int trooper = find_movable_player_unit(&snapshot);
+    if (trooper < 0) return fail("find selectable Human01 Trooper");
+    uint32_t trooper_id = snapshot.units[trooper].id;
+    fvec2_t target = (fvec2_t){ 10.0f, 10.0f };
+    RtsGameCommand select = {
+        .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
+        .data.select_unit_index = { .unit_index = trooper, .additive = false },
+    };
+    RtsGameCommand move = {
+        .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+        .data.move_selected = { .target = target },
+    };
+    if (!rts_game_model_command(model, &select) ||
+        !rts_game_model_command(model, &move)) {
+        return fail("Human01 selects Trooper and accepts move order");
+    }
+    if (!rts_game_model_snapshot(model, &snapshot))
+        return fail("snapshot after Human01 move command");
+    int selected_trooper = rts_find_unit_by_id(&snapshot, trooper_id);
+    if (selected_trooper < 0 || !snapshot.units[selected_trooper].selected)
+        return fail("Human01 selects Trooper");
 
     printf("PASS: Human01 headless model loaded %dx%d with %d units and %d effects\n",
            snapshot.map_width, snapshot.map_height, snapshot.unit_count,
@@ -837,6 +896,7 @@ static int assert_fixed_momentum_semantics(void) {
 
 int main(void) {
     RTS_RUN(assert_dark_colony_direction_mapping());
+    RTS_RUN(assert_dark_colony_state_rotation_selection());
     RTS_RUN(assert_fixed_momentum_semantics());
     RTS_RUN(assert_dark_colony_sprite_catalog());
     RTS_RUN(assert_dark_colony_exploiter_work_states());

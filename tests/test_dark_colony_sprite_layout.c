@@ -291,7 +291,20 @@ static int assert_dark_colony_city_fin_alignment(void) {
         return fail("Barracks state uses raw BRRKPODSTAND0 FIN placement");
     }
 
+    SprFrameInfo trsc0, trsc16, trsc80, trsc128;
     SprFrameInfo expl0, expl6, expl14, expl15, expl34, hubu4, towr0, vent0, beac0, beac1;
+    if (!load_spr_frame_info("data/DCOLONY/SPRITES/TRSC.SPR", 0, &trsc0) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/TRSC.SPR", 16, &trsc16) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/TRSC.SPR", 80, &trsc80) ||
+        !load_spr_frame_info("data/DCOLONY/SPRITES/TRSC.SPR", 128, &trsc128)) {
+        return fail("load native Trooper SPR pivot descriptors");
+    }
+    if (trsc0.dis_x != 147 || trsc0.dis_y != 99 ||
+        trsc16.dis_x != 148 || trsc16.dis_y != 101 ||
+        trsc80.dis_x != 147 || trsc80.dis_y != 99 ||
+        trsc128.dis_x != 145 || trsc128.dis_y != 81) {
+        return fail("Trooper standing, walking, attack, and death frames preserve pivot descriptors");
+    }
     if (!load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 0, &expl0) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 6, &expl6) ||
         !load_spr_frame_info("data/DCOLONY/SPRITES/EXPL.SPR", 14, &expl14) ||
@@ -436,6 +449,44 @@ static int assert_dark_colony_city_fin_alignment(void) {
     return 0;
 }
 
+static int assert_trooper_animation_pivots(void) {
+    FinInfo trsc_fin;
+    if (!load_fin_info("data/DCOLONY/ANIMATE/TRSC.FIN", "TRSC", &trsc_fin))
+        return fail("load TRSC.FIN for pivot validation");
+
+    int body_frames = 0;
+    bool has_pivot[512] = {false};
+    ivec2_t pivots[512] = {{0}};
+    for (int i = 0; i < trsc_fin.command_count; ++i) {
+        const FinCommand *command = &trsc_fin.commands[i];
+        if (strcmp(command->sprite, "trsc") != 0 || command->layer != 1)
+            continue;
+        SprFrameInfo frame;
+        if (!load_spr_frame_info("data/DCOLONY/SPRITES/TRSC.SPR", command->frame, &frame))
+            return fail("load TRSC.SPR frame used by TRSC.FIN");
+        ivec2_t pivot = {
+            (command->flags & 1) ? frame.width + command->x :
+                                   -command->x - frame.dis_x,
+            frame.height - command->y,
+        };
+        if (pivot.x < 0 || pivot.x > frame.width)
+            return fail("every Trooper animation frame straddles its native horizontal pivot");
+        if (has_pivot[command->frame] && !ivec2_equal(pivots[command->frame], pivot))
+            return fail("reused Trooper frames resolve to one stable native pivot");
+        has_pivot[command->frame] = true;
+        pivots[command->frame] = pivot;
+        body_frames++;
+    }
+    if (body_frames == 0) return fail("TRSC.FIN contains Trooper body frames");
+    if (!ivec2_equal(pivots[0], (ivec2_t){ 12, 41 }) ||
+        !ivec2_equal(pivots[16], (ivec2_t){ 11, 39 }) ||
+        !ivec2_equal(pivots[80], (ivec2_t){ 12, 41 }) ||
+        !ivec2_equal(pivots[128], (ivec2_t){ 14, 59 })) {
+        return fail("Trooper standing, walking, attack, and death pivots match native data");
+    }
+    return 0;
+}
+
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_Walk(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
@@ -492,6 +543,35 @@ static int assert_exploiter_16_direction_states(void) {
     return 0;
 }
 
+static int assert_generated_direction_states(void) {
+    static const uint8_t trooper_directions[8] = {0,2,4,6,8,10,12,14};
+    const state_t *trooper = &states[S_DC_TRSC_STND];
+    const state_t *exploiter = &states[S_DC_EXPL_STND];
+    const staterotations_t *trooper_rotations = &trooper->rotations;
+    const staterotations_t *exploiter_rotations = &exploiter->rotations;
+    if (trooper_rotations->rotation_count != 8)
+        return fail("Trooper states retain eight authored rotations");
+    for (int i = 0; i < 8; ++i) {
+        if (trooper_rotations->rotation_directions[i] != trooper_directions[i] ||
+            trooper_rotations->rotation_frames[i] != i ||
+            trooper_rotations->rotation_flags[i] != 0) {
+            return fail("Trooper standing rotations preserve FIN direction frames");
+        }
+    }
+    if (exploiter_rotations->rotation_count != 16)
+        return fail("Exploiter states retain sixteen authored rotations");
+    for (int code = 0; code < 16; ++code) {
+        int expected_frame = code <= 8 ? code : 16 - code;
+        uint32_t expected_flags = code <= 8 ? 0 : RTS_SPRITEFRAME_FLIP_X;
+        if (exploiter_rotations->rotation_directions[code] != code ||
+            exploiter_rotations->rotation_frames[code] != expected_frame ||
+            exploiter_rotations->rotation_flags[code] != expected_flags) {
+            return fail("Exploiter standing rotations preserve FIN direction frames and flips");
+        }
+    }
+    return 0;
+}
+
 static int assert_generated_mobj_table_coverage(void) {
     if (game_info.mobj_type_count != NUMMOBJTYPES ||
         game_info.mobjinfo != dc_mobjinfo) {
@@ -525,9 +605,11 @@ static int assert_dropship_state_chain(void) {
 
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;
+    if (assert_trooper_animation_pivots() != 0) return 1;
     if (assert_reaper_move_timing() != 0) return 1;
     if (assert_barracks_trooper_release_timing() != 0) return 1;
     if (assert_exploiter_16_direction_states() != 0) return 1;
+    if (assert_generated_direction_states() != 0) return 1;
     if (assert_generated_mobj_table_coverage() != 0) return 1;
     if (assert_dropship_state_chain() != 0) return 1;
     printf("PASS: Dark Colony SPR/FIN layout alignment is data-consistent\n");

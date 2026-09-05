@@ -473,6 +473,43 @@ static bool dependency_sprite_name(char *out, size_t out_size,
     return snprintf(out, out_size, "SPRITES/%s.SPR", stem) < (int)out_size;
 }
 
+static void sprite_stem(char *out, size_t out_size, const char *sprite_path) {
+    const char *base = strrchr(sprite_path, '/');
+    base = base ? base + 1 : sprite_path;
+    size_t length = strcspn(base, ".");
+    if (length >= out_size) length = out_size - 1;
+    for (size_t i = 0; i < length; ++i)
+        out[i] = (char)tolower((unsigned char)base[i]);
+    out[length] = '\0';
+}
+
+static void resolve_fin_ground_points(const SpriteNative *native, const char *sprite_path,
+                                      SDL_Point *ground_points) {
+    if (!native || !native->has_animation || !sprite_path || !ground_points) return;
+    char stem[9];
+    sprite_stem(stem, sizeof(stem), sprite_path);
+    bool *resolved = calloc(native->juice.cell_count, sizeof(*resolved));
+    if (!resolved) return;
+    for (int i = 0; i < native->animation.command_count; ++i) {
+        const AnimationCommand *command = &native->animation.commands[i];
+        if (command->layer != 1 || strcasecmp(command->sprite, stem) != 0 ||
+            command->frame < 0 || command->frame >= native->juice.cell_count) {
+            continue;
+        }
+        const JuiceCell *cell = &native->juice.cells[command->frame];
+        SDL_Point pivot = {
+            (command->flags & 1) ? (int)cell->width + command->x :
+                                   -command->x - (int)cell->dis_x,
+            (int)cell->height - command->y,
+        };
+        if (!resolved[command->frame]) {
+            ground_points[command->frame] = pivot;
+            resolved[command->frame] = true;
+        }
+    }
+    free(resolved);
+}
+
 static bool file_exists(const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return false;
@@ -523,9 +560,11 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     uint8_t *indices = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint8_t));
     irect_t *frames = calloc((size_t)visible_frames, sizeof(irect_t));
     irect_t *bounds = calloc((size_t)visible_frames, sizeof(irect_t));
+    SDL_Point *ground_points = calloc((size_t)visible_frames, sizeof(SDL_Point));
     SDL_Point *displacements = calloc((size_t)visible_frames, sizeof(SDL_Point));
-    if (!rgba || !indices || !frames || !bounds || !displacements) {
-        free(rgba); free(indices); free(frames); free(bounds); free(displacements);
+    if (!rgba || !indices || !frames || !bounds || !ground_points || !displacements) {
+        free(rgba); free(indices); free(frames); free(bounds);
+        free(ground_points); free(displacements);
         sprite_native_destroy(native);
         return false;
     }
@@ -601,6 +640,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         free(indices);
         free(frames);
         free(bounds);
+        free(ground_points);
         free(displacements);
         sprite_native_destroy(native);
         return false;
@@ -640,6 +680,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
             free(indices);
             free(frames);
             free(bounds);
+            free(ground_points);
             free(displacements);
             sprite_native_destroy(native);
             return false;
@@ -652,7 +693,14 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         out->remap_textures[remap] = remap_textures[remap];
     out->frames = frames;
     out->frame_bounds = bounds;
-    out->frame_ground_points = NULL;
+    for (int i = 0; i < visible_frames; ++i) {
+        ground_points[i] = (SDL_Point){
+            bounds[i].x + bounds[i].w / 2,
+            bounds[i].y + bounds[i].h,
+        };
+    }
+    resolve_fin_ground_points(native, path, ground_points);
+    out->frame_ground_points = ground_points;
     out->frame_displacements = displacements;
     out->frame_count = visible_frames;
     out->frame_w = canvas_w;

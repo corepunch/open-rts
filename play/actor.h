@@ -60,6 +60,13 @@ typedef struct actortype_s {
     actionf_p1 death_effect_action;
 } actortype_t;
 
+typedef struct staterotations_s {
+    int rotation_count;
+    uint8_t rotation_directions[16];
+    int rotation_frames[16];
+    uint32_t rotation_flags[16];
+} staterotations_t;
+
 typedef struct state_s {
     int sprite;
     int frame;
@@ -68,6 +75,7 @@ typedef struct state_s {
     int nextstate;
     int misc1;
     int misc2;
+    staterotations_t rotations;
 } state_t;
 
 typedef struct mobjinfo_s {
@@ -146,6 +154,9 @@ struct gameinfo_s {
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
     selectiondrawf_t draw_selection;
+    int state_direction_count;
+    angle_t state_direction_first_angle;
+    bool state_direction_clockwise;
 };
 
 /*
@@ -290,6 +301,9 @@ struct statecontext_s {
     int max_effects;
     const gameinfo_t *game_info;
 };
+
+bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
+bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
 
 /* State-entry actions, matching Hexen's state_t action model. */
 void A_Walk(statecontext_t *ctx, mobj_t *unit);

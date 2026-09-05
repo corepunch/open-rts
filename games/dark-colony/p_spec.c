@@ -75,6 +75,7 @@ typedef enum {
     COND_TRIP_PLAYER_NEAR, /* S==0 */
     COND_COUNTER_GT_STATE, /* c > s(team,type,slot) */
     COND_STATE_ARRAY_EQ,   /* s(team,arr,idx) == val */
+    COND_UNSUPPORTED,
 } ConditionKind;
 
 typedef struct {
@@ -1003,10 +1004,13 @@ static void parse_tro(Mission *mission, const char *path) {
                 block->c_gt = -1;
                 block->trigger_x = -1;
                 block->trigger_y = -1;
-                block->condition_kind = COND_COUNTER_GT;
+                block->condition_kind = block->trip ? COND_TRIP_PLAYER_NEAR : COND_UNSUPPORTED;
                 block->condition_negated = (enabled == 0);
                 block->cond_type = 0;
-                if (sscanf(token, "%*d %*s %*d (c>%d)", &c_gt) == 1) block->c_gt = c_gt;
+                if (sscanf(token, "%*d %*s %*d (c>%d)", &c_gt) == 1) {
+                    block->c_gt = c_gt;
+                    block->condition_kind = COND_COUNTER_GT;
+                }
                 else if (sscanf(token, "%*d %*s %*d (b(%d,%d)==%d)", &block->cond_a, &block->cond_b, &block->cond_c) == 3)
                     block->cond_type = 1;
                 else if (sscanf(token, "%*d %*s %*d (s(%d,%d,%d)==%d)", &block->cond_a, &block->cond_d, &block->cond_b, &block->cond_c) == 4)
@@ -1341,6 +1345,8 @@ static bool evaluate_condition(const Mission *mission, const ScriptBlock *block,
         return false;
     case COND_TRIP_PLAYER_NEAR:
         return true; /* trip is handled by caller before evaluate_condition */
+    case COND_UNSUPPORTED:
+        return false;
     }
     return false;
 }
@@ -1358,6 +1364,7 @@ void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
         ScriptBlock *block = &mission->blocks[i];
         if (block->fired) continue;
         if (mission->state != MISSION_ACTIVE) break;
+        if (block->condition_kind == COND_UNSUPPORTED) continue;
         bool fire = false;
         if (block->trip) {
             fire = block->trigger_x >= 0 &&

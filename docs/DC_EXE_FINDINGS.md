@@ -37,6 +37,48 @@ frames per facing for `EXPLMOVE`; only the 16 directional labels and two body
 frames per label are confirmed. No additional Exploiter frames should be
 invented without another native asset or executable trace.
 
+## State-driven sprite rotations
+
+**Confirmed from the Hexen reference renderer**
+`reference/Hexen/hexen source/r_things.c::R_ProjectSprite`: animation state and
+view rotation are separate decisions. The state selects a sprite/frame group;
+the current object angle selects a directional entry and its flip flag when
+the sprite is projected. Dark Colony now follows that model in its shared
+state application path rather than baking direction zero into every state.
+
+**Confirmed from Dark Colony FIN labels:** Dark Colony direction codes use 16
+absolute slots starting at south (`ANG270`) and increasing counterclockwise.
+TRSC states author the eight even slots `0,2,...14`; EXPL standing and movement
+states author all 16 slots, using `EXPLSHUF` labels for odd directions. The
+generator preserves each slot's body frame and horizontal flip flag. For an
+8-view state exactly halfway between two authored slots, selection rounds
+forward in direction-code order, matching Hexen's half-step angular rounding.
+
+**Verification:** `make test-layout` validates generated TRSC and EXPL rotation
+tables. The Dark Colony headless model test calls `P_SetMobjState` with an odd
+TRSC facing and mirrored EXPL facing 15 to validate runtime frame and flip
+selection.
+
+## FIN and SPR unit anchors
+
+**Confirmed from `ANIMATE/TRSC.FIN` and `SPRITES/TRSC.SPR`:** SPR `dis_x` and
+`dis_y` values locate a cropped cell in the original sprite canvas; they are
+not direct world-space pivots. For an unflipped layer-1 FIN command, the pivot
+inside the cropped cell is `(-fin_x - dis_x, height - fin_y)`. A horizontally
+flipped command encodes the mirrored left edge, so its equivalent unflipped
+pivot is `(width + fin_x, height - fin_y)`. Reused flipped and unflipped TRSC
+frames resolve to the same pivot.
+
+Representative TRSC pivots are frame 0 `(12,41)`, frame 16 `(11,39)`, frame 80
+`(12,41)`, and frame 128 `(14,59)`. The focused layout test validates every
+layer-1 TRSC FIN command, including standing, movement, attack, death, and
+mirrored facings. Reproduce with `make test-layout`.
+
+**Disproven:** Adding `dis_x` directly to the unit screen position shifts
+Troopers about 150 pixels right. Subtracting `dis_x` treats a canvas placement
+as a pivot and shifts them about 150 pixels left. Unit rendering must consume
+the FIN-derived per-frame ground point instead.
+
 ## Dropship state lifecycle
 
 **Confirmed in the runtime implementation:** A mission Dropship now owns an
