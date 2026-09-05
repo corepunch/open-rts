@@ -11,7 +11,6 @@
 #include <string.h>
 
 const actortype_t *actor_type_by_id(uint16_t type_id);
-void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type);
 
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
     snprintf(dst, dst_size, "%s", path);
@@ -540,7 +539,7 @@ static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count
     uint16_t type_id = script_unit_type(team, type);
     const actortype_t *actor = actor_type_by_id(type_id);
     unit->native_type_id = (uint16_t)(type >= 0 ? type : 0);
-    apply_actor_type_defaults(unit, actor);
+    P_ApplyActorTypeDefaults(unit, actor);
     P_SpawnMobj(game_info, unit);
     (*unit_count)++;
 }

@@ -660,47 +660,9 @@ static const actortype_t *actor_type_for_unit(const mobj_t *unit) {
     return num_mobjinfo > 0 ? &types[0] : NULL;
 }
 
-static void apply_actor_type_defaults(mobj_t *unit, const actortype_t *type) {
-    if (!unit || !type) return;
-    unit->type_id = type->id;
-    unit->traits = type->traits;
-    unit->harvest.capacity = type->harvest.capacity;
-    if (unit->speed <= 0.0f) unit->speed = type->speed;
-    if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
-    if (unit->hp <= 0) unit->hp = unit->max_hp;
-    if (unit->attack.range <= 0.0f) unit->attack.range = type->attack.range;
-    if (unit->attack.damage <= 0) unit->attack.damage = type->attack.damage;
-    if (unit->attack.cooldown_ms <= 0) unit->attack.cooldown_ms = type->attack.cooldown_ms;
-    if (unit->attack.anim_ms <= 0) unit->attack.anim_ms = type->attack.anim_ms;
-    if (unit->death.anim_ms <= 0) unit->death.anim_ms = type->death.anim_ms;
-    if (unit->harvest.state_id <= 0) unit->harvest.state_id = type->harvest.state_id;
-    if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
-    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
-    if (unit->attack.target <= 0) unit->attack.target = -1;
-    if (unit->harvest.target == 0) unit->harvest.target = -1;
-    if (unit->core.sprite_name[0] == '\0' && type->sprite_name) {
-        snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
-    }
-    if (unit->shadow_name[0] == '\0' && type->shadow_name) {
-        snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
-    }
-    if (unit->muzzle_flash_sprite < 0)
-        unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
-    if (unit->hit_effect_sprite < 0)
-        unit->hit_effect_sprite = type->hit_effect_sprite;
-    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)
-        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name),
-                 "%s", type->muzzle_flash_name);
-    if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
-        snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name),
-                 "%s", type->hit_effect_name);
-    if (!unit->death_effect_action)
-        unit->death_effect_action = type->death_effect_action;
-}
-
 static void apply_actor_defaults(mobj_t *units, int count) {
     for (int i = 0; i < count; ++i) {
-        apply_actor_type_defaults(&units[i], actor_type_for_unit(&units[i]));
+        P_ApplyActorTypeDefaults(&units[i], actor_type_for_unit(&units[i]));
         P_SpawnMobj(gameinfo, &units[i]);
     }
 }
@@ -720,7 +682,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
         fvec2_cell_center((ivec2_t){ cell.x, cell.y }), 0);
     unit->owner = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
-    apply_actor_type_defaults(unit, type);
+    P_ApplyActorTypeDefaults(unit, type);
     P_SpawnMobj(gameinfo, unit);
     (*unit_count)++;
     return true;
@@ -763,7 +725,7 @@ static bool spawn_debug_harvester_at_vent(level_t *map, mobj_t *units, int *unit
     unit->owner = 0;
     unit->attack.target = -1;
     unit->harvest.target = vent_index;
-    apply_actor_type_defaults(unit, harvester);
+    P_ApplyActorTypeDefaults(unit, harvester);
     P_SpawnMobj(gameinfo, unit);
 
     int state_id = harvester->harvest.state_id + state_offset;
@@ -1028,7 +990,7 @@ int main(int argc, char **argv) {
             units[i].owner = 0;
             units[i].selected = i == 0;
             if (fallback_type) {
-                apply_actor_type_defaults(&units[i], fallback_type);
+                P_ApplyActorTypeDefaults(&units[i], fallback_type);
             } else {
                 units[i].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
                 snprintf(units[i].core.sprite_name, sizeof(units[i].core.sprite_name), "%s", sprite_name);

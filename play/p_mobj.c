@@ -79,6 +79,42 @@ bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
                           state ? state->nextstate : ctx->game_info->null_state);
 }
 
+void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {
+    if (!unit || !type) return;
+    unit->type_id = type->id;
+    unit->traits = type->traits;
+    unit->harvest.capacity = type->harvest.capacity;
+    if (unit->speed <= 0.0f) unit->speed = type->speed;
+    if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
+    if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (unit->attack.range <= 0.0f) unit->attack.range = type->attack.range;
+    if (unit->attack.damage <= 0) unit->attack.damage = type->attack.damage;
+    if (unit->attack.cooldown_ms <= 0) unit->attack.cooldown_ms = type->attack.cooldown_ms;
+    if (unit->attack.anim_ms <= 0) unit->attack.anim_ms = type->attack.anim_ms;
+    if (unit->death.anim_ms <= 0) unit->death.anim_ms = type->death.anim_ms;
+    if (unit->harvest.state_id <= 0) unit->harvest.state_id = type->harvest.state_id;
+    if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
+    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
+    if (unit->attack.target <= 0) unit->attack.target = -1;
+    if (unit->harvest.target == 0) unit->harvest.target = -1;
+    if (unit->core.sprite_name[0] == '\0' && type->sprite_name)
+        snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
+    if (unit->shadow_name[0] == '\0' && type->shadow_name)
+        snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
+    if (unit->muzzle_flash_sprite < 0)
+        unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
+    if (unit->hit_effect_sprite < 0)
+        unit->hit_effect_sprite = type->hit_effect_sprite;
+    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)
+        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name),
+                 "%s", type->muzzle_flash_name);
+    if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
+        snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name),
+                 "%s", type->hit_effect_name);
+    if (!unit->death_effect_action)
+        unit->death_effect_action = type->death_effect_action;
+}
+
 static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
                                  int state_id) {
     if (!game_info || !effect) return false;

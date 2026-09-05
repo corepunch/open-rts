@@ -80,6 +80,7 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
                              fvec2_t position);
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
 void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit);
+void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type);
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
 bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
 bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixedvec3_t position, angle_t angle);
