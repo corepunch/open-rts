@@ -166,16 +166,12 @@ static int assert_dark_colony_exploiter_work_states(void) {
     const state_t *lit = &states[S_DC_EXPL_WORK1];
     const state_t *unlit = &states[S_DC_EXPL_WORK2];
     if (lit->sprite != SPR_DC_EXPL || lit->frame != 34 || lit->tics != 2 ||
-        lit->nextstate != S_DC_EXPL_WORK2 || lit->overlay_sprite != SPR_DC_GLIT ||
-        lit->overlay_frame != 10 || lit->overlay_facings != 1 ||
-        lit->overlay_facing_flags[0] != RTS_FRAME_FLIP_X ||
-        lit->overlay_offset_x[0] != -13 || lit->overlay_offset_y[0] != -39 ||
-        lit->overlay_remap[0] != 0 || lit->overlay_intensity[0] != 16) {
-        return fail("Dark Colony Exploiter work starts with native GLIT beam light");
+        lit->nextstate != S_DC_EXPL_WORK2) {
+        return fail("Dark Colony Exploiter work uses the native deployed body frame");
     }
     if (unlit->sprite != SPR_DC_EXPL || unlit->frame != 34 || unlit->tics != 4 ||
-        unlit->nextstate != S_DC_EXPL_WORK1 || unlit->overlay_facings != 0) {
-        return fail("Dark Colony Exploiter work loops through native unlit frame");
+        unlit->nextstate != S_DC_EXPL_WORK1) {
+        return fail("Dark Colony Exploiter work loops through the native body frame");
     }
     return 0;
 }

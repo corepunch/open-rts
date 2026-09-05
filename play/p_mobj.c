@@ -18,7 +18,7 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
     mobj->frame = state->frame;
-    mobj->render_flags = state->flags;
+    mobj->render_flags = (uint32_t)state->misc2;
     mobj->render_remap = 0;
     mobj->render_intensity = 16;
     if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };

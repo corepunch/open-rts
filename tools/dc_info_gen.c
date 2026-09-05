@@ -1127,23 +1127,15 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
 
 static void f6(FILE *out, const char *spr, int tics, const char *action, const char *next,
                int group, const int starts[6], int offset) {
-    static const int dirs[6] = {4,2,14,10,8,6};
-    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 6, {", spr, starts[0] + offset, tics, action, next, group);
-    for (int i = 0; i < 6; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 6; ++i) fprintf(out, "%s%d", i ? "," : "", starts[i] + offset);
-    fprintf(out, "}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
+            spr, starts[0] + offset, tics, action, next, group);
 }
 
 static void f1_fin_raw_state(FILE *out, const char *spr,
                              const DcFinDrawPart *cmd,
                              const char *next) {
-    fprintf(out, "    { %s, %d, -1, A_None, %s, 0, 1, 0, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, NO_OVERLAY },\n",
-            spr, cmd->frame, next, cmd->frame,
-            (cmd->flags & 1) ? "FLIPPED" : "0",
-            cmd->x,
-            cmd->y,
-            cmd->remap, cmd->intensity);
+    fprintf(out, "    { %s, %d, -1, A_None, %s, 1, 0 },\n",
+            spr, cmd->frame, next);
 }
 
 static const char *fin_flip_flag_expr(const DcFinDrawPart *cmd) {
@@ -1167,7 +1159,6 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
     for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
         const DcFinFrame *fin_frame = &fin->frames[frame_index];
         const DcFinDrawPart *primary = NULL;
-        const DcFinDrawPart *overlay = NULL;
         for (int part = 0; part < fin_frame->part_count; ++part) {
             const DcFinDrawPart *cmd =
                 &fin->draw_parts[fin_frame->draw_part_start + part];
@@ -1182,15 +1173,6 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
                     frame_index, label_name);
             exit(1);
         }
-        for (int part = 0; part < fin_frame->part_count; ++part) {
-            const DcFinDrawPart *cmd =
-                &fin->draw_parts[fin_frame->draw_part_start + part];
-            if (cmd != primary) {
-                overlay = cmd;
-                break;
-            }
-        }
-
         int index = frame_index - label->start + 1;
         char next[64];
         if (index < state_count) snprintf(next, sizeof(next), "S_DC_%s%d", state_prefix, index + 1);
@@ -1208,30 +1190,16 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
 
         int primary_sprite = find_sprite_for_fin_stem(sprites, sprite_count, primary->sprite);
         fprintf(out,
-                "    { %s, %d, %d, A_None, %s, %s, %d, 0, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, ",
+                "    { %s, %d, %d, A_None, %s, %d, %s },\n",
             sprites[primary_sprite].symbol, primary->frame, runtime_tics,
-                next, fin_flip_flag_expr(primary), group, primary->frame,
-                fin_flip_flag_expr(primary), primary->x, primary->y,
-                primary->remap, primary->intensity);
-        if (overlay) {
-            int overlay_sprite = find_sprite_for_fin_stem(sprites, sprite_count, overlay->sprite);
-            fprintf(out,
-                    "%s, %d, %s, 1, {0}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d} },\n",
-                    sprites[overlay_sprite].symbol, overlay->frame,
-                    fin_flip_flag_expr(overlay), overlay->frame,
-                    fin_flip_flag_expr(overlay), overlay->x, overlay->y,
-                    overlay->remap, overlay->intensity);
-        } else {
-            fprintf(out, "NO_OVERLAY },\n");
-        }
+                next, group, fin_flip_flag_expr(primary));
     }
 }
 
 static void gray_die(FILE *out, const char *next, int n, const char *action) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
-    int frame_b = n < 9 ? 271 + n : 289 + (n - 9);
-    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 0, 4, 0, 4, {2,6,14,10}, {%d,%d,%d,%d}, {0,0,FLIPPED,FLIPPED}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n",
-            frame_a, action, next, frame_a, frame_b, frame_a, frame_b);
+    fprintf(out, "    { SPR_DC_GRAY, %d, 3, %s, %s, 4, 0 },\n",
+            frame_a, action, next);
 }
 
 static void state_name(char *dst, size_t dst_size, const char *prefix,
@@ -1245,7 +1213,6 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                          int tics, const char *action, const char *next, int group,
                          int sequence_count, bool mirror_left) {
     (void)mirror_left;
-    static const int dirs[8] = {0,2,4,6,8,10,12,14};
     int frames[8];
     int flags[8] = {0};
     int offset_x[8] = {0};
@@ -1285,23 +1252,8 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
         }
     }
 
-    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
             spr, frames[0], tics, action, next, group);
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i)
-        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "FLIPPED" : "0");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offset_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offset_y[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", remap[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
-    fprintf(out, "}, NO_OVERLAY },\n");
 }
 
 static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1309,7 +1261,6 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
                                         int fallback_frame, int tics,
                                         const char *action, const char *next,
                                         int group, int sequence_count) {
-    static const int dirs[8] = {0,2,4,6,8,10,12,14};
     int frames[8];
     int flags[8] = {0};
     int offset_x[8] = {0};
@@ -1388,44 +1339,9 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
         }
     }
 
-    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 8, {",
+    (void)has_overlay;
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
             spr, frames[0], tics, action, next, group);
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i)
-        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "FLIPPED" : "0");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offset_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offset_y[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", remap[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
-    if (!has_overlay) {
-        fprintf(out, "}, NO_OVERLAY },\n");
-        return;
-    }
-    fprintf(out, "}, %s, %d, %s, 8, {",
-            spr, overlay_frames[0],
-            overlay_flags[0] ? "FLIPPED" : "0");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_frames[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i)
-        fprintf(out, "%s%s", i ? "," : "", overlay_flags[i] ? "FLIPPED" : "0");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_y[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_remap[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_intensity[i]);
-    fprintf(out, "} },\n");
 }
 
 static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1470,40 +1386,16 @@ static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
         }
     }
 
-    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 16, {",
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
             spr, frames[0], tics, action, next, group);
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", i);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i)
-        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "FLIPPED" : "0");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offset_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offset_y[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", remap[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
-    fprintf(out, "}, NO_OVERLAY },\n");
 }
 
 static void write_muzzle16(FILE *out, const char *spr, int frame, const int offsets_x[16],
                            const int offsets_y[16]) {
-    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW, 5, 0, 16, {",
+    (void)offsets_x;
+    (void)offsets_y;
+    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, 5, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW },\n",
             spr, frame);
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", i);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", frame);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i)
-        fprintf(out, "%sRTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW", i ? "," : "");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_y[i]);
-    fprintf(out, "}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
 }
 
 static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1571,39 +1463,19 @@ static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimatio
         }
     }
 
-    fprintf(out, "    { %s, %d, %d, %s, %s, 0, %d, 0, 16, {",
-            spr, frames[0], tics, action, next, group);
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", i);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", frames[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i)
-        fprintf(out, "%s%s", i ? "," : "", flags[i] ? "FLIPPED" : "0");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offset_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", offset_y[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", remap[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", intensity[i]);
-    fprintf(out, "}, %s, %d, %s, 16, {",
-            spr, overlay_frames[0], overlay_flags[0] ? "FLIPPED" : "0");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", i);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_frames[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i)
-        fprintf(out, "%s%s", i ? "," : "", overlay_flags[i] ? "FLIPPED" : "0");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_y[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_remap[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 16; ++i) fprintf(out, "%s%d", i ? "," : "", overlay_intensity[i]);
-    fprintf(out, "} },\n");
+    (void)offset_x;
+    (void)offset_y;
+    (void)remap;
+    (void)intensity;
+    (void)overlay_frames;
+    (void)overlay_flags;
+    (void)overlay_x;
+    (void)overlay_y;
+    (void)overlay_remap;
+    (void)overlay_intensity;
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, %s },\n",
+            spr, frames[0], tics, action, next, group,
+            flags[0] ? "FLIPPED" : "0");
 }
 
 static void write_fin_sequence(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1692,6 +1564,7 @@ static void write_fin_label_effect_chain(FILE *out, const char *root,
                                          const char *state_prefix, int direction_code,
                                          int tics) {
     (void)root;
+    (void)direction_code;
     const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
     if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
         return;
@@ -1726,30 +1599,19 @@ static void write_fin_label_effect_chain(FILE *out, const char *root,
         } else {
             snprintf(flag_expr, sizeof(flag_expr), "0");
         }
-        fprintf(out, "    { %s, %d, %d, A_None, %s, %s, 5, 0, 1, {%d}, {%d}, {%s}, {%d}, {%d}, {%d}, {%d}, NO_OVERLAY },\n",
-                sprites[sprite_index].symbol, cmd->frame, tics, next, flag_expr,
-                direction_code, cmd->frame, flag_expr,
-                cmd->x, cmd->y,
-                cmd->remap, cmd->intensity);
+        fprintf(out, "    { %s, %d, %d, A_None, %s, 5, %s },\n",
+                sprites[sprite_index].symbol, cmd->frame, tics, next, flag_expr);
     }
 }
 
 static void write_muzzle(FILE *out, const char *spr, int frame, const int offsets_x[8],
                          const int offsets_y[8]) {
     static const int dirs[8] = {0,2,4,6,8,10,12,14};
-    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW, 5, 0, 8, {",
+    (void)dirs;
+    (void)offsets_x;
+    (void)offsets_y;
+    fprintf(out, "    { %s, %d, 2, A_None, S_NULL, 5, RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW },\n",
             spr, frame);
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", dirs[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", frame);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i)
-        fprintf(out, "%sRTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW", i ? "," : "");
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_x[i]);
-    fprintf(out, "}, {");
-    for (int i = 0; i < 8; ++i) fprintf(out, "%s%d", i ? "," : "", offsets_y[i]);
-    fprintf(out, "}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
 }
 
 static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count,
@@ -1834,11 +1696,9 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "};\n\n");
     fprintf(out, "#define A_None NULL\n");
     fprintf(out, "#define FLIPPED RTS_SPRITEFRAME_FLIP_X\n");
-    fprintf(out, "#define DEFAULT_REMAP {0}\n");
-    fprintf(out, "#define DEFAULT_INTENSITY {16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16}\n");
-    fprintf(out, "#define NO_OVERLAY 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY\n\n");
+    fprintf(out, "\n");
     fprintf(out, "const state_t states[NUMSTATES] = {\n");
-    fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0, 0, 0, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
+    fprintf(out, "    { 0, 0, -1, A_None, S_NULL, 0, 0 },\n");
     f1_fin_raw_state(out, sprites[hubu].symbol, excopod_stand, "S_DC_EXCOPOD_STND");
     f1_fin_raw_state(out, sprites[hubu].symbol, brrkpod_stand, "S_DC_BRRKPOD_STND");
     f1_fin_raw_state(out, sprites[towr].symbol, towr_stand, "S_DC_TOWR_STND");
@@ -1965,13 +1825,13 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive2, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive3, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_rschive, "S_NULL");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_UNLOAD_DONE, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipUnloadDone, S_NULL, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_REPOSITION_DONE, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipRepositionDone, S_NULL, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_DC_DROPSHIP_DEPART_DONE, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipDepartDone, S_NULL, 0, 0, 0, 1, {0}, {0}, {0}, {0}, {0}, DEFAULT_REMAP, DEFAULT_INTENSITY, NO_OVERLAY },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_UNLOAD_DONE, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipUnloadDone, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_REPOSITION_DONE, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipRepositionDone, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_DC_DROPSHIP_DEPART_DONE, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipDepartDone, S_NULL, 0, 0 },\n");
     fprintf(out, "};\n\n");
 
     fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");

@@ -66,28 +66,8 @@ typedef struct state_s {
     int tics;
     actionf_p1 action;
     int nextstate;
-    uint32_t flags;
     int misc1;
     int misc2;
-    int facings;
-    int direction_codes[RTS_MAX_STATE_FACINGS];
-    int facing_frames[RTS_MAX_STATE_FACINGS];
-    uint32_t facing_flags[RTS_MAX_STATE_FACINGS];
-    int offset_x[RTS_MAX_STATE_FACINGS];
-    int offset_y[RTS_MAX_STATE_FACINGS];
-    int remap[RTS_MAX_STATE_FACINGS];
-    int intensity[RTS_MAX_STATE_FACINGS];
-    int overlay_sprite;
-    int overlay_frame;
-    uint32_t overlay_flags;
-    int overlay_facings;
-    int overlay_direction_codes[RTS_MAX_STATE_FACINGS];
-    int overlay_facing_frames[RTS_MAX_STATE_FACINGS];
-    uint32_t overlay_facing_flags[RTS_MAX_STATE_FACINGS];
-    int overlay_offset_x[RTS_MAX_STATE_FACINGS];
-    int overlay_offset_y[RTS_MAX_STATE_FACINGS];
-    int overlay_remap[RTS_MAX_STATE_FACINGS];
-    int overlay_intensity[RTS_MAX_STATE_FACINGS];
 } state_t;
 
 typedef struct mobjinfo_s {
@@ -311,8 +291,7 @@ struct statecontext_s {
     const gameinfo_t *game_info;
 };
 
-/* Movement state hook.  Inline keeps generated state tables linkable by
- * metadata-only tools and gives games a stable action slot to override later. */
+/* Movement state hook, matching Hexen's small state/action model. */
 static inline void A_Walk(statecontext_t *ctx, mobj_t *unit) {
     (void)ctx;
     (void)unit;

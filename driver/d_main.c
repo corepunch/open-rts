@@ -484,7 +484,7 @@ static void debug_animation_grid_render(const app_t *app, const spritesheet_t *s
             SDL_RenderDrawRect(app->renderer, &cell);
 
             int frame = state ? state->frame : 0;
-            uint32_t flags = state ? state->flags : 0;
+            uint32_t flags = state ? (uint32_t)state->misc2 : 0;
             if (frame < 0 || frame >= sprite->frame_count) continue;
 
             irect_t dst = {
