@@ -1208,7 +1208,6 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
 
     mobj_t *u = &units[*count];
     memset(u, 0, sizeof(*u));
-    u->hidden = hidden;
     int render_x_pos = 0, render_z_pos = 0;
     object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
@@ -1224,8 +1223,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
     u->type_id = (uint16_t)mobj_type;
     u->native_type_id = (uint16_t)(type >= 0 ? type : 0);
-    if (object_uses_city_render_origin(object_index))
-        u->render_sort_y = fixed_to_cell(object->z_pos);
+    P_MobjSetHidden(u, hidden);
     u->owner = (team_allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_DC_COMMS_DISH) ? 0 :
                (team_allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
     u->team = (uint8_t)(scenario_team >= 0 ? scenario_team : 0);
@@ -1233,9 +1231,9 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
                               team_allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED :
                               ALLEGIANCE_ENEMY);
     u->hp = object->health_or_amount;
-    u->selected = u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
-        (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected;
-    if (u->selected) *player_selected = true;
+    P_MobjSetSelected(u, u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
+        (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected);
+    if (P_MobjIsSelected(u)) *player_selected = true;
     u->core.frame = unit_frame_for_type(type);
     snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", sprite);
     statecontext_t ctx = { .game_info = &game_info };

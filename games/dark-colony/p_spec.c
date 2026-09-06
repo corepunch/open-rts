@@ -150,9 +150,6 @@ typedef struct {
     mobj_t mobj;
     bool active;
     ivec2_t origin;
-    fvec2_t start_center;
-    fvec2_t target_center;
-    fvec2_t flight_vector;
     DropshipPayload payload[DROPSHIP_MAX_PAYLOAD_TYPES];
     int payload_count;
     int payload_index;
@@ -523,18 +520,16 @@ static DropshipRuntime *spawn_drop_effect(
     runtime->active = true;
     ship->team = team;
     runtime->origin = (ivec2_t){ gx, gy };
-    runtime->start_center = fvec2_cell_center((ivec2_t){ gx - 1, gy - 1 });
-    runtime->target_center = fvec2_cell_center(runtime->origin);
-    runtime->flight_vector = fvec2_sub(runtime->target_center, runtime->start_center);
     runtime->phase_duration_ms = (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30;
-    ship->movement.goal = runtime->target_center;
+    ship->movement.goal = fvec2_cell_center(runtime->origin);
     runtime->release_pending = true;
     for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) runtime->effect_slots[i] = -1;
     ship->type_id = MT_DC_DROP_LINK;
     const mobjinfo_t *info = &game_info.mobjinfo[ship->type_id];
     ship->traits = (uint32_t)info->flags;
     ship->speed = (float)info->speed;
-    ship->core.position = fixedvec3_from_fvec2(runtime->start_center, info->spawnz);
+    ship->core.position = fixedvec3_from_fvec2(
+        fvec2_cell_center((ivec2_t){ gx - 1, gy - 1 }), info->spawnz);
     ship->core.angle = dc_direction_to_angle(6);
     statecontext_t state_context = {
         .map = map, .mobjs = NULL, .mobj_count = NULL,
@@ -567,12 +562,12 @@ static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count
     if (unit->owner == 0) {
         bool has_selected_player = false;
         for (int i = 0; i < *unit_count; ++i) {
-            if (units[i].owner == 0 && units[i].selected) {
+            if (units[i].owner == 0 && P_MobjIsSelected(&units[i])) {
                 has_selected_player = true;
                 break;
             }
         }
-        unit->selected = !has_selected_player;
+        P_MobjSetSelected(unit, !has_selected_player);
     }
     unit->core.angle = dc_direction_to_angle(unit->owner == 0 ? 6 : 14);
     uint16_t type_id = script_unit_type(team, type);
@@ -634,8 +629,7 @@ static void dropship_unload_done(DropshipUpdateContext *context,
     }
 
     if (runtime->payload_index < runtime->payload_count) {
-        runtime->start_center = center;
-        runtime->target_center = dropship_drop_position(
+        ship->movement.goal = dropship_drop_position(
             context->map, context->units, *context->unit_count,
             runtime->origin, runtime->released_count);
         runtime->release_pending = true;
@@ -643,8 +637,10 @@ static void dropship_unload_done(DropshipUpdateContext *context,
         return;
     }
 
-    runtime->start_center = center;
-    runtime->target_center = fvec2_add(center, runtime->flight_vector);
+    ship->movement.goal = fvec2_cell_center((ivec2_t){
+        runtime->origin.x - 1,
+        runtime->origin.y - 1,
+    });
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
 }
 
@@ -677,14 +673,13 @@ static void tick_dropship_state(Mission *mission, DropshipRuntime *runtime,
         int next_state = S_DC_DROPSHIP_DEPART;
         if (runtime->payload_index < runtime->payload_count) {
             fvec2_t delta = fvec2_sub(
-                runtime->target_center, fixedvec3_xy_to_fvec2(ship->core.position));
+                ship->movement.goal, fixedvec3_xy_to_fvec2(ship->core.position));
             next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
                 S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
         }
         P_SetMobjState(&state_context, ship, next_state);
     } else if (state_before == S_DC_DROPSHIP_REPOSITION &&
                state_after != S_DC_DROPSHIP_REPOSITION) {
-        runtime->start_center = fixedvec3_xy_to_fvec2(ship->core.position);
         runtime->release_pending = true;
         P_SetMobjState(&state_context, ship, S_DC_DROPSHIP_UNLOAD);
     } else if (state_before == S_DC_DROPSHIP_DEPART &&
@@ -707,8 +702,8 @@ void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) {
     if (!runtime) return;
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
-    unit->movement.goal = runtime->target_center;
-    fvec2_t delta = fvec2_sub(runtime->target_center, runtime->start_center);
+    fvec2_t delta = fvec2_sub(
+        unit->movement.goal, fixedvec3_xy_to_fvec2(unit->core.position));
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && runtime->phase_duration_ms > 0)
         unit->speed = dist / ((float)runtime->phase_duration_ms / 1000.0f);
@@ -731,8 +726,8 @@ void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
     if (!runtime) return;
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
-    unit->movement.goal = runtime->target_center;
-    fvec2_t delta = fvec2_sub(runtime->target_center, runtime->start_center);
+    fvec2_t delta = fvec2_sub(
+        unit->movement.goal, fixedvec3_xy_to_fvec2(unit->core.position));
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && runtime->phase_duration_ms > 0)
         unit->speed = dist / ((float)runtime->phase_duration_ms / 1000.0f);
@@ -744,8 +739,8 @@ void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
     if (!runtime) return;
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
-    unit->movement.goal = runtime->target_center;
-    fvec2_t delta = fvec2_sub(runtime->target_center, runtime->start_center);
+    fvec2_t delta = fvec2_sub(
+        unit->movement.goal, fixedvec3_xy_to_fvec2(unit->core.position));
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && runtime->phase_duration_ms > 0)
         unit->speed = dist / ((float)runtime->phase_duration_ms / 1000.0f);

@@ -181,7 +181,7 @@ int main(int argc, char **argv) {
             units[i].core.position = fixed3_from_fvec2(fvec2_cell_center(
                 (ivec2_t){ cx + i % 3, cy + i / 3 }), 0);
             units[i].owner = 0;
-            units[i].selected = i == 0;
+            P_MobjSetSelected(&units[i], i == 0);
             if (fallback_type) {
                 P_ApplyActorTypeDefaults(&units[i], fallback_type);
             } else {
