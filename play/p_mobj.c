@@ -219,7 +219,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
 }
 
 static bool spawn_visual_effect(effect_t *effects, int max_effects,
-                                const char *sprite_name, const char *sequence_name,
+                                const char *sprite_name,
                                 fixedvec3_t position, angle_t angle, int duration_ms,
                                 int frame_ms, bool fin_placement,
                                 bool add_decoration_on_finish,
@@ -242,21 +242,16 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
         effect->decoration_frame_index = decoration_frame_index;
         effect->add_decoration_on_finish = add_decoration_on_finish;
         snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name), "%s", sprite_name);
-        if (sequence_name && sequence_name[0] != '\0') {
-            snprintf(effect->sequence_name, sizeof(effect->sequence_name), "%s", sequence_name);
-        }
         fvec2_t position_xy = fixedvec3_xy_to_fvec2(position);
-        debug_effects_log("spawn slot=%d sprite=%s sequence=%s pos=%.2f,%.2f facing=%d duration=%d frame_ms=%d corpse=%d",
+        debug_effects_log("spawn slot=%d sprite=%s pos=%.2f,%.2f facing=%d duration=%d frame_ms=%d corpse=%d",
                           i, effect->core.sprite_name,
-                          effect->sequence_name[0] ? effect->sequence_name : "(none)",
                           position_xy.x, position_xy.y,
                           angle_to_direction(effect->core.angle, 32, ANG90, true),
                           effect->duration_ms, effect->frame_ms,
                           effect->add_decoration_on_finish ? 1 : 0);
         return true;
     }
-    debug_effects_log("spawn failed no free slot sprite=%s sequence=%s",
-                      sprite_name, sequence_name ? sequence_name : "(none)");
+    debug_effects_log("spawn failed no free slot sprite=%s", sprite_name);
     return false;
 }
 
@@ -297,11 +292,6 @@ bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixedvec3_t position, angl
     return false;
 }
 
-static const char *death_sequence_name_for_unit(const mobj_t *unit) {
-    (void)unit;
-    return "die";
-}
-
 static void add_effect_finish_decoration(level_t *map, const effect_t *effect) {
     if (!map || !effect || !effect->add_decoration_on_finish ||
         effect->core.sprite_name[0] == '\0' || map->decoration_count >= MAX_DECORATIONS) {
@@ -320,9 +310,8 @@ static void add_effect_finish_decoration(level_t *map, const effect_t *effect) {
     dec->frame_index = effect->decoration_frame_index;
     dec->angle = effect->core.angle;
     snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", effect->core.sprite_name);
-    snprintf(dec->sequence_name, sizeof(dec->sequence_name), "%s", effect->sequence_name);
-    debug_effects_log("corpse decoration sprite=%s sequence=%s grid=%d,%d facing=%d frame_index=%d count=%d",
-                      dec->sprite_name, dec->sequence_name, dec->cell.x, dec->cell.y,
+    debug_effects_log("corpse decoration sprite=%s grid=%d,%d facing=%d frame_index=%d count=%d",
+                      dec->sprite_name, dec->cell.x, dec->cell.y,
                       angle_to_direction(dec->angle, 32, ANG90, true),
                       dec->frame_index, map->decoration_count);
 }
@@ -397,7 +386,7 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
         spawn_ground_light(ctx->effects, ctx->max_effects, attacker->core.position, flash_ms, 30);
     }
     if (!target->hidden && target->hit_effect_name[0] != '\0') {
-        spawn_visual_effect(ctx->effects, ctx->max_effects, target->hit_effect_name, NULL,
+        spawn_visual_effect(ctx->effects, ctx->max_effects, target->hit_effect_name,
                             target->core.position, target->core.angle, 400, 50, false, false, 0);
     }
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
@@ -480,9 +469,8 @@ void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,
         }
         effect->age_ms += dt_ms;
         if (effect->age_ms < effect->duration_ms) continue;
-        debug_effects_log("finish sprite=%s sequence=%s age=%d duration=%d corpse=%d",
-                          effect->core.sprite_name,
-                          effect->sequence_name[0] ? effect->sequence_name : "(none)",
+        debug_effects_log("finish sprite=%s age=%d duration=%d corpse=%d",
+                  effect->core.sprite_name,
                           effect->age_ms, effect->duration_ms,
                           effect->add_decoration_on_finish ? 1 : 0);
         add_effect_finish_decoration(map, effect);
@@ -1085,7 +1073,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             }
             if (!spawned) {
                 spawned = spawn_visual_effect(effects, max_effects,
-                                              attacker->muzzle_flash_name, "flash",
+                                              attacker->muzzle_flash_name,
                                               attacker->core.position,
                                               attacker->core.angle,
                                               flash_ms, 40, false, false, 0);
@@ -1100,7 +1088,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                           i, target_index, attacker->attack.damage, target->hp,
                           target->max_hp, target->core.sprite_name);
         if (target->hit_effect_name[0] != '\0' && !target->hidden) {
-            spawn_visual_effect(effects, max_effects, target->hit_effect_name, NULL,
+            spawn_visual_effect(effects, max_effects, target->hit_effect_name,
                                 target->core.position,
                                 target->core.angle,
                                 400, 50, false, false, 0);
@@ -1135,15 +1123,14 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 target->death.anim_ms = 900;
             }
             target->death.anim_left_ms = target->death.anim_ms;
-            bool spawned = !target->hidden && spawn_visual_effect(effects, max_effects, target->core.sprite_name,
-                                               death_sequence_name_for_unit(target),
+            bool spawned = !target->hidden && spawn_visual_effect(effects, max_effects,
+                                               target->core.sprite_name,
                                                target->core.position,
                                                target->core.angle,
                                                target->death.anim_ms, 90, true, true, -1);
-            debug_effects_log("death target=%d spawned=%d sprite=%s sequence=%s facing=%d duration=%d",
+            debug_effects_log("death target=%d spawned=%d sprite=%s facing=%d duration=%d",
                               target_index, spawned ? 1 : 0, target->core.sprite_name,
-                              death_sequence_name_for_unit(target), target->core.angle,
-                              target->death.anim_ms);
+                              target->core.angle, target->death.anim_ms);
         }
         attacker->attack.cooldown_left_ms = attacker->attack.cooldown_ms > 0 ?
             attacker->attack.cooldown_ms : 500;

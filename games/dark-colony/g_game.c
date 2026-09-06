@@ -317,9 +317,10 @@ static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_
     int max_w = 0, max_h = 0;
     for (int ch = font_offset; ch < 128; ++ch) {
         int frame = ch - font_offset;
-        if (frame >= font->sprite.frame_count) break;
+        if (frame >= font->sprite.numlumps) break;
         font->glyph_index[ch] = frame;
-        irect_t bounds = font->sprite.frame_bounds ? font->sprite.frame_bounds[frame] : font->sprite.frames[frame];
+        irect_t bounds = font->sprite.lumps ? font->sprite.lumps[frame].bounds :
+                             (irect_t){ 0, 0, 0, 0 };
         if (bounds.w > max_w) max_w = bounds.w;
         if (bounds.h > max_h) max_h = bounds.h;
     }
@@ -330,8 +331,8 @@ static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_
     for (int ch = 0; ch < 128; ++ch) {
         int frame = font->glyph_index[ch];
         int advance = font->glyph_w;
-        if (frame >= 0 && frame < font->sprite.frame_count && font->sprite.frame_bounds) {
-            irect_t bounds = font->sprite.frame_bounds[frame];
+        if (frame >= 0 && frame < font->sprite.numlumps && font->sprite.lumps) {
+            irect_t bounds = font->sprite.lumps[frame].bounds;
             if (bounds.w > 0) advance = bounds.w + 1;
         }
         font->glyph_width[ch] = (uint8_t)advance;

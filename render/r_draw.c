@@ -350,63 +350,49 @@ cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name) {
     return NULL;
 }
 
-static const spritesequence_t *sprite_sequence_find(const spritesheet_t *sprite, const char *name) {
-    if (!sprite || !name) return NULL;
-    for (int i = 0; i < sprite->sequence_count; ++i) {
-        if (strcmp(sprite->sequences[i].name, name) == 0) return &sprite->sequences[i];
-    }
-    return NULL;
+bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,
+                     angle_t first_angle, bool clockwise) {
+    if (!sprite || numframes <= 0 || rotations <= 0 ||
+        rotations > MAX_SPRITE_ROTATIONS) return false;
+    spriteframe_t *frames = malloc((size_t)numframes * sizeof(*frames));
+    if (!frames) return false;
+    memset(frames, -1, (size_t)numframes * sizeof(*frames));
+    free(sprite->spritedef.spriteframes);
+    sprite->spritedef = (spritedef_t){
+        .numframes = numframes,
+        .rotations = rotations,
+        .first_angle = first_angle,
+        .clockwise = clockwise,
+        .spriteframes = frames,
+    };
+    return true;
 }
 
-static int sequence_facing_index(const spritesequence_t *seq, angle_t angle) {
-    if (!seq || seq->facings <= 0) return 0;
-    int best = 0;
-    uint32_t best_delta = UINT32_MAX;
-    for (int i = 0; i < seq->facings && i < MAX_SEQUENCE_FACINGS; ++i) {
-        uint32_t delta = angle_distance(seq->rotation_angles[i], angle);
-        if (delta < best_delta) {
-            best = i;
-            best_delta = delta;
-        }
-    }
-    return best;
+bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
+                         int lump, bool flip) {
+    if (!sprite || !sprite->spritedef.spriteframes || frame < 0 ||
+        frame >= sprite->spritedef.numframes || rotation < 0 ||
+        rotation >= sprite->spritedef.rotations || lump < 0 ||
+        lump >= sprite->numlumps) return false;
+    spriteframe_t *spriteframe = &sprite->spritedef.spriteframes[frame];
+    spriteframe->rotate = sprite->spritedef.rotations > 1;
+    spriteframe->lump[rotation] = lump;
+    spriteframe->flip[rotation] = flip;
+    return true;
 }
 
-static int sequence_image_index(const spritesequence_t *sequence, int facing,
-                                int animation_frame) {
-    if (!sequence || facing < 0 || facing >= sequence->facings ||
-        animation_frame < 0 || animation_frame >= sequence->length) return -1;
-    if (sequence->frames)
-        return sequence->frames[animation_frame].image_index[facing];
-    int stride = sequence->frame_stride > 0 ? sequence->frame_stride : 1;
-    return sequence->frame_starts[facing] + animation_frame * stride;
-}
-
-static int sprite_sequence_frame(const spritesheet_t *sprite, const char *sequence_name,
-                                 angle_t angle, int sequence_frame) {
-    const spritesequence_t *seq = sprite_sequence_find(sprite, sequence_name);
-    if (!seq || seq->facings <= 0 || seq->length <= 0) {
-        debug_effects_log("sequence miss sprite_frames=%d sequence=%s facing=%d anim=%d",
-                          sprite ? sprite->frame_count : 0,
-                          sequence_name ? sequence_name : "(null)",
-                          angle_to_direction(angle, 32, ANG90, true), sequence_frame);
-        return -1;
-    }
-    int facing = sequence_facing_index(seq, angle);
-    int anim = sequence_frame < 0 ? seq->length - 1 : sequence_frame;
-    if (anim >= seq->length) anim = seq->length - 1;
-    int start = seq->frame_starts[facing];
-    if (start < 0 || start >= sprite->frame_count) {
-        debug_effects_log("sequence bad start sequence=%s facing=%d/%d code=%d start=%d frame_count=%d",
-                          sequence_name, facing, seq->facings,
-                          angle_to_direction(angle, 32, ANG90, true), start,
-                          sprite ? sprite->frame_count : 0);
-        return -1;
-    }
-    int frame = sequence_image_index(seq, facing, anim);
-    if (frame < 0) return start;
-    if (frame >= sprite->frame_count) return sprite->frame_count - 1;
-    return frame;
+static int sprite_lump_for_frame(const spritesheet_t *sprite, int frame,
+                                 angle_t angle, bool *flip) {
+    if (flip) *flip = false;
+    if (!sprite || frame < 0 || frame >= sprite->spritedef.numframes ||
+        !sprite->spritedef.spriteframes) return -1;
+    const spriteframe_t *spriteframe = &sprite->spritedef.spriteframes[frame];
+    int rotation = spriteframe->rotate ? angle_to_direction(
+        angle, sprite->spritedef.rotations, sprite->spritedef.first_angle,
+        sprite->spritedef.clockwise) : 0;
+    if (rotation < 0 || rotation >= MAX_SPRITE_ROTATIONS) return -1;
+    if (flip) *flip = spriteframe->flip[rotation] != 0;
+    return spriteframe->lump[rotation];
 }
 
 
@@ -426,22 +412,17 @@ static int decoration_animation_step(const app_t *app, const mapdecoration_t *de
 }
 
 static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const spritesheet_t *sprite,
-                                   int frame_index, const char *sequence_name) {
-    int frame = -1;
-    if (sequence_name && sequence_name[0] != '\0') {
-        frame = sprite_sequence_frame(sprite, sequence_name, dec->angle, frame_index);
-    }
-    if (frame >= 0) return frame;
-    if (frame_index >= 0 && frame_index < sprite->frame_count) return frame_index;
+                                   int frame_index) {
+    if (frame_index >= 0 && frame_index < sprite->numlumps) return frame_index;
     if (frame_index < 0 && dec->animation_frame_count > 0) {
         int step = decoration_animation_step(app, dec);
         int authored_frame = dec->animation_frames[step].sprite_frame;
-        if (authored_frame >= 0 && authored_frame < sprite->frame_count) return authored_frame;
+        if (authored_frame >= 0 && authored_frame < sprite->numlumps) return authored_frame;
     }
     if (frame_index < 0) {
         uint32_t frame_ms = dec->frame_interval_ms > 0 ?
             (uint32_t)dec->frame_interval_ms : 250u;
-        return (int)((app->ticks_ms / frame_ms) % (uint32_t)sprite->frame_count);
+        return (int)((app->ticks_ms / frame_ms) % (uint32_t)sprite->numlumps);
     }
     return 0;
 }
@@ -453,9 +434,9 @@ static uint8_t fin_intensity_color_mod(int intensity) {
 
 static SDL_Texture *sprite_texture_for_remap(const spritesheet_t *sprite, int render_remap) {
     if (!sprite) return NULL;
-    if (render_remap >= 0 && render_remap < 8 && sprite->remap_textures[render_remap])
-        return sprite->remap_textures[render_remap];
-    return sprite->texture;
+    if (render_remap >= 0 && render_remap < 8 && sprite->textures[render_remap + 1])
+        return sprite->textures[render_remap + 1];
+    return sprite->textures[0];
 }
 
 static SDL_Texture *begin_sprite_command(const spritesheet_t *sprite, uint32_t render_flags,
@@ -515,7 +496,7 @@ bool R_RenderIndexedComposition(app_t *app, const spritesheet_t *sprite, int fra
     if (!app || !sprite || !composition || composition->kind != RTS_COMPOSE_INDEXED_TABLE ||
         !composition->source_indices || composition->source_stride <= 0 ||
         !composition->palette || !composition->lookup_table ||
-        frame < 0 || frame >= sprite->frame_count) return false;
+        frame < 0 || frame >= sprite->numlumps) return false;
 
     irect_t clip = dst;
     if (clip.x < 0) { clip.w += clip.x; clip.x = 0; }
@@ -534,7 +515,7 @@ bool R_RenderIndexedComposition(app_t *app, const spritesheet_t *sprite, int fra
         return false;
     }
 
-    irect_t source = sprite->frames[frame];
+    irect_t source = sprite->lumps[frame].rect;
     for (int y = 0; y < clip.h; ++y) {
         int source_y = source.y + clip.y - dst.y + y;
         for (int x = 0; x < clip.w; ++x) {
@@ -566,10 +547,8 @@ static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame);
 static void render_decoration_sprite(app_t *app, const level_t *map,
                                      const mapdecoration_t *dec, const spritesheet_t *sprite,
                                      int frame_index, uint32_t render_flags,
-                                     int render_selector,
-                                     const char *sequence_name, int anchor_frame_index,
-                                     const char *anchor_sequence_name) {
-    if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
+                                     int render_selector, int anchor_frame_index) {
+    if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) return;
 
     float sx, sy;
     fvec2_t anchor = { (float)dec->cell.x, (float)dec->cell.y };
@@ -579,9 +558,8 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     };
     R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
 
-    int frame = decoration_sprite_frame(app, dec, sprite, frame_index, sequence_name);
-    int anchor_frame = decoration_sprite_frame(app, dec, sprite, anchor_frame_index,
-                                               anchor_sequence_name);
+    int frame = decoration_sprite_frame(app, dec, sprite, frame_index);
+    int anchor_frame = decoration_sprite_frame(app, dec, sprite, anchor_frame_index);
     irect_t frame_rect = sprite_frame_rect(sprite, frame);
     int sprite_w = frame_rect.w;
     int sprite_h = frame_rect.h;
@@ -610,7 +588,7 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
             (fvec2_t){ (float)footprint.w, (float)footprint.h }, 0.5f));
         R_MapToScreen(app, map, anchor.x, anchor.y, &sx, &sy);
         SDL_Point ground;
-        if (sprite->frame_ground_points) {
+        if (sprite->lumps) {
             ground = sprite_ground_point(sprite, anchor_frame);
         } else {
             /* Preserve the legacy decoration anchor for formats without an
@@ -653,7 +631,8 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
         R_RenderIndexedComposition(app, sprite, frame, dst, render_flags, &composition)) return;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_Texture *texture = begin_sprite_command(sprite, render_flags, dec->render_remap, 16);
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
+                     0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
 }
 
@@ -662,16 +641,16 @@ static void render_decoration(app_t *app, const level_t *map,
     if (dec->hidden) return;
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->shadow_name),
                              dec->frame_index, dec->render_flags, dec->render_selector,
-                             dec->sequence_name, dec->frame_index, dec->sequence_name);
+                             dec->frame_index);
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->sprite_name),
                              dec->frame_index, dec->render_flags, dec->render_selector,
-                             dec->sequence_name, dec->frame_index, dec->sequence_name);
+                             dec->frame_index);
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->sprite2_name),
                              dec->frame2_index, dec->render2_flags, dec->render2_selector,
-                             NULL, dec->frame_index, dec->sequence_name);
+                             dec->frame_index);
     render_decoration_sprite(app, map, dec, R_CacheLookup(cache, dec->sprite3_name),
                              dec->frame3_index, dec->render3_flags, dec->render3_selector,
-                             NULL, dec->frame_index, dec->sequence_name);
+                             dec->frame_index);
 }
 
 void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cache) {
@@ -699,77 +678,26 @@ static bool circle_intersects_rect(fvec2_t center, float radius, irect_t r) {
     return dx * dx + dy * dy <= radius * radius;
 }
 
-static int sprite_frame_for_unit(const spritesheet_t *sprite, const mobj_t *unit, uint32_t ticks) {
-    bool moving = unit->movement.path_index > 0 && unit->movement.path_index < unit->movement.path_len;
-    bool attacking = unit->attack.anim_left_ms > 0;
-    bool dead = unit->hp <= 0;
-    const spritesequence_t *seq = NULL;
-    bool using_death_sequence = false;
-    if (dead) {
-        seq = sprite_sequence_find(sprite, "die");
-        if (seq) using_death_sequence = true;
-        if (!seq) {
-            seq = sprite_sequence_find(sprite, "death");
-            if (seq) using_death_sequence = true;
-        }
-        if (!seq) seq = sprite_sequence_find(sprite, "shoot");
-    } else {
-        seq = sprite_sequence_find(sprite, attacking ? "shoot" : (moving ? "run" : "stand"));
-        if (!seq && attacking) seq = sprite_sequence_find(sprite, "attack");
-        if (!seq && moving) seq = sprite_sequence_find(sprite, "walk");
-    }
-    if (!seq) seq = sprite_sequence_find(sprite, "idle");
-    if (!seq && dead) seq = sprite_sequence_find(sprite, "stand");
-    if (seq && seq->facings > 0 && seq->length > 0) {
-        int facing = sequence_facing_index(seq, unit->core.angle);
-        int tick_ms = seq->tick_ms > 0 ? seq->tick_ms : 120;
-        int anim = 0;
-        if (dead && using_death_sequence && unit->death_started && seq->length > 1) {
-            int elapsed_ms = unit->death.anim_ms - unit->death.anim_left_ms;
-            if (elapsed_ms < 0) elapsed_ms = 0;
-            anim = elapsed_ms / tick_ms;
-            if (anim >= seq->length) anim = seq->length - 1;
-        } else if (dead && seq->length > 1) {
-            anim = seq->length - 1;
-        } else if (attacking && seq->length > 1) {
-            int elapsed_ms = unit->attack.anim_ms - unit->attack.anim_left_ms;
-            if (elapsed_ms < 0) elapsed_ms = 0;
-            anim = elapsed_ms / tick_ms;
-            if (anim >= seq->length) anim = seq->length - 1;
-        } else if (moving && seq->length > 1) {
-            anim = (int)((ticks / (uint32_t)tick_ms) % (uint32_t)seq->length);
-        }
-        int frame = sequence_image_index(seq, facing, anim);
-        if (frame >= 0 && frame < sprite->frame_count) return frame;
-    }
-
-    int anim_frames = sprite->primary_frames_per_rotation > 0 ?
-        sprite->primary_frames_per_rotation : sprite->frame_count;
-    if (moving && anim_frames > 0 && sprite->sequence_count == 0) {
-        return (int)((ticks / 120) % (uint32_t)anim_frames);
-    }
-    return 0;
-}
-
 static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame) {
-    if (sprite && sprite->frame_bounds && frame >= 0 && frame < sprite->frame_count) {
-        irect_t r = sprite->frame_bounds[frame];
+    if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
+        irect_t r = sprite->lumps[frame].bounds;
         if (r.w > 0 && r.h > 0) return r;
     }
     return (irect_t){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
 }
 
 static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame) {
-    if (sprite && sprite->frames && frame >= 0 && frame < sprite->frame_count &&
-        sprite->frames[frame].w > 0 && sprite->frames[frame].h > 0) {
-        return sprite->frames[frame];
+    if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps &&
+        sprite->lumps[frame].rect.w > 0 && sprite->lumps[frame].rect.h > 0) {
+        return sprite->lumps[frame].rect;
     }
     return (irect_t){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
 }
 
 static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int frame) {
-    if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
-        return sprite->frame_displacements[frame];
+    if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
+        return (SDL_Point){ sprite->lumps[frame].displacement.x,
+                            sprite->lumps[frame].displacement.y };
     }
     return (SDL_Point){ 0, 0 };
 }
@@ -777,15 +705,17 @@ static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int 
 static int sprite_world_offset_x(const spritesheet_t *sprite, int frame,
                                  uint32_t render_flags) {
     SDL_Point p = { 0, 0 };
-    if (sprite && sprite->frame_displacements && frame >= 0 && frame < sprite->frame_count) {
-        p = sprite->frame_displacements[frame];
+    if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
+        p = (SDL_Point){ sprite->lumps[frame].displacement.x,
+                         sprite->lumps[frame].displacement.y };
     }
     return (render_flags & RTS_FRAME_FLIP_X) != 0 ? 0 : p.x;
 }
 
 static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame) {
-    if (sprite && sprite->frame_ground_points && frame >= 0 && frame < sprite->frame_count) {
-        return sprite->frame_ground_points[frame];
+    if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
+        return (SDL_Point){ sprite->lumps[frame].ground_point.x,
+                            sprite->lumps[frame].ground_point.y };
     }
     irect_t bounds = sprite_visible_bounds(sprite, frame);
     return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
@@ -806,18 +736,13 @@ static const spritesheet_t *unit_sprite_sheet_for_view(const mobj_t *unit,
 }
 
 static int unit_frame_for_view(const spritesheet_t *sprite, const mobj_t *unit,
-                               const gameinfo_t *game_info, uint32_t ticks) {
-    /* FIN/state-driven games author the resolved frame on the unit.  Dark Reign
-       has a gameinfo_t for shared simulation metadata, but its RSPR facings are
-       selected by the renderer from the unit heading. */
+                               const gameinfo_t *game_info, uint32_t ticks,
+                               bool *flip) {
+    (void)ticks;
     bool has_state_frames = game_info && game_info->states && game_info->state_count > 0;
-    int frame = (sprite && sprite->sequence_count > 0) ?
-        sprite_frame_for_unit(sprite, unit, ticks) :
-        (has_state_frames ? unit->core.frame : 0);
-    if (!sprite || sprite->frame_count <= 0) return 0;
-    if (frame >= sprite->frame_count) frame = 0;
-    if (frame < 0) frame = 0;
-    return frame;
+    int logical_frame = has_state_frames ? unit->core.frame : 0;
+    int lump = sprite_lump_for_frame(sprite, logical_frame, unit->core.angle, flip);
+    return lump >= 0 ? lump : 0;
 }
 
 static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, const mobj_t *unit,
@@ -826,13 +751,14 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
                                       const gameinfo_t *game_info, uint32_t ticks,
                                       irect_t *dst_out, irect_t *visible_out,
                                       float *sx_out, float *sy_out,
-                                      int *frame_out, const spritesheet_t **sprite_out) {
+                                      int *frame_out, bool *flip_out,
+                                      const spritesheet_t **sprite_out) {
     if (!app || !unit) return false;
     float sx = 0.0f, sy = 0.0f;
     fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
     R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
-    if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
+    if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) {
         float radius = unit_pick_radius_px(app, unit);
         irect_t fallback = {
             (int)floorf(sx - radius),
@@ -849,10 +775,12 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
         return false;
     }
 
-    int frame = unit_frame_for_view(sprite, unit, game_info, ticks);
+    bool frame_flip = false;
+    int frame = unit_frame_for_view(sprite, unit, game_info, ticks, &frame_flip);
     irect_t frame_rect = sprite_frame_rect(sprite, frame);
     irect_t bounds = sprite_visible_bounds(sprite, frame);
     uint32_t render_flags = game_info ? unit->core.render_flags : 0;
+    if (frame_flip) render_flags ^= RTS_FRAME_FLIP_X;
     if ((render_flags & RTS_FRAME_FLIP_X) != 0) {
         bounds.x = frame_rect.w - bounds.x - bounds.w;
     }
@@ -896,6 +824,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     if (sx_out) *sx_out = sx;
     if (sy_out) *sy_out = sy;
     if (frame_out) *frame_out = frame;
+    if (flip_out) *flip_out = (render_flags & RTS_FRAME_FLIP_X) != 0;
     if (sprite_out) *sprite_out = sprite;
     return true;
 }
@@ -912,7 +841,7 @@ static int pick_unit_at(const app_t *app, const level_t *map, const mobj_t *unit
         irect_t visible;
         float sx = 0.0f, sy = 0.0f;
         unit_screen_rect_for_view(app, map, unit, fallback_sprite, cache, game_info, app->ticks_ms,
-                                  NULL, &visible, &sx, &sy, NULL, NULL);
+                                  NULL, &visible, &sx, &sy, NULL, NULL, NULL);
         if (!irect_contains(visible, (ivec2_t){ x, y })) continue;
         float dx = (float)x - sx;
         float dy = (float)y - sy;
@@ -1036,16 +965,16 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
     if (info->sprite < 0 || info->sprite >= game_info->sprite_count) return false;
     const char *sprite_name = game_info->sprnames[info->sprite];
     const spritesheet_t *marker = R_CacheLookup(cache, sprite_name);
-    if (!marker || !marker->texture || marker->frame_count <= 0) return false;
+    if (!marker || !marker->textures[0] || marker->numlumps <= 0) return false;
 
-    if (frame < 0 || frame >= marker->frame_count) return false;
+    if (frame < 0 || frame >= marker->numlumps) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
     if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
     SDL_Texture *texture = begin_sprite_command(marker, 0, 0, 16);
     if (!texture) return false;
-    SDL_RenderCopy(app->renderer, texture, &marker->frames[frame], &dst);
+    SDL_RenderCopy(app->renderer, texture, &marker->lumps[frame].rect, &dst);
     end_sprite_command(texture, 0);
     return true;
 }
@@ -1061,7 +990,7 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
         info->sprite >= 0 && info->sprite < ctx->game_info->sprite_count) {
         marker = R_CacheLookup(ctx->cache, ctx->game_info->sprnames[info->sprite]);
     }
-    if (!marker || frame < 0 || frame >= marker->frame_count) return false;
+    if (!marker || frame < 0 || frame >= marker->numlumps) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
     return R_DrawSelectionMarkerFrame(ctx, frame, (irect_t){
         ctx->visible.x + (ctx->visible.w - frame_rect.w) / 2,
@@ -1077,31 +1006,35 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                uint32_t ticks) {
     if (!u || u->hidden || (u->traits & MF_RENDERABLE) == 0) return;
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
-    if (!sprite || !sprite->texture || sprite->frame_count <= 0) return;
+    if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) return;
 
     float sx = 0.0f, sy = 0.0f;
     int frame = 0;
+    bool frame_flip = false;
     irect_t dst;
     irect_t visible;
     unit_screen_rect_for_view(app, map, u, fallback_sprite, cache, game_info, ticks,
-                              &dst, &visible, &sx, &sy, &frame, &sprite);
+                              &dst, &visible, &sx, &sy, &frame, &frame_flip, &sprite);
     uint32_t render_flags = game_info ? u->core.render_flags : 0;
+    if (frame_flip) render_flags |= RTS_FRAME_FLIP_X;
     const spritesheet_t *shadow = R_CacheLookup(cache, u->shadow_name);
     /* Some Dark Reign unit definitions repeat the body RSPR in
        SetShadowImage.  The original treats its shadow data specially; our
        cache resolves that name to the already-loaded colour body sheet, so
        drawing it here would create a second vehicle that mirrors every move. */
-    if (shadow && shadow != sprite && shadow->texture && shadow->frame_count > 0) {
-        int shadow_frame = frame < shadow->frame_count ? frame : 0;
+    if (shadow && shadow != sprite && shadow->textures[0] && shadow->numlumps > 0) {
+        int shadow_frame = frame < shadow->numlumps ? frame : 0;
         irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
         irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
-        SDL_RenderCopy(app->renderer, shadow->texture, &shadow->frames[shadow_frame], &shadow_dst);
+        SDL_RenderCopy(app->renderer, shadow->textures[0],
+                   &shadow->lumps[shadow_frame].rect, &shadow_dst);
     }
     float content_y = (float)visible.y;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_Texture *texture = begin_sprite_command(sprite, render_flags, u->core.render_remap,
                                                 u->core.render_intensity);
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
+                     0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
     if (u->selected && (u->traits & MF_SELECTABLE) != 0) {
         selectiondrawcontext_t selection_ctx = {
@@ -1289,18 +1222,12 @@ static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *
     if (!sprite || !effect) return 0;
     int frame_ms = effect->frame_ms > 0 ? effect->frame_ms : 90;
     int anim = effect->age_ms / frame_ms;
-    if (effect->sequence_name[0] != '\0') {
-        int frame = sprite_sequence_frame(sprite, effect->sequence_name,
-                          effect->core.angle, anim);
-        if (frame >= 0) return frame;
-        if (strcmp(effect->sequence_name, "die") == 0) {
-            frame = sprite_sequence_frame(sprite, "death", effect->core.angle, anim);
-            if (frame >= 0) return frame;
-        }
-    }
-    if (sprite->frame_count <= 0) return 0;
-    if (anim >= sprite->frame_count) anim = sprite->frame_count - 1;
-    return anim < 0 ? 0 : anim;
+    if (sprite->spritedef.numframes <= 0) return 0;
+    if (anim >= sprite->spritedef.numframes) anim = sprite->spritedef.numframes - 1;
+    bool flip = false;
+    int lump = sprite_lump_for_frame(sprite, anim < 0 ? 0 : anim,
+                                     effect->core.angle, &flip);
+    return lump >= 0 ? lump : 0;
 }
 
 static void draw_ground_light(app_t *app, const level_t *map, const effect_t *effect) {
@@ -1349,10 +1276,9 @@ void R_DrawEffects(app_t *app, const level_t *map,
             sprite_name = game_info->sprnames[effect->core.sprite_id];
         }
         const spritesheet_t *sprite = R_CacheLookup(cache, sprite_name);
-        if (!sprite || !sprite->texture || sprite->frame_count <= 0) {
-            debug_effects_log("render skip slot=%d sprite=%s sequence=%s reason=missing-cache",
-                              i, effect->core.sprite_name,
-                              effect->sequence_name[0] ? effect->sequence_name : "(none)");
+        if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) {
+            debug_effects_log("render skip slot=%d sprite=%s reason=missing-cache",
+                              i, effect->core.sprite_name);
             continue;
         }
 
@@ -1361,7 +1287,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
         R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
         int frame = effect->use_state || effect->fin_placement ?
             effect->core.frame : sprite_frame_for_effect(sprite, effect);
-        if (frame < 0 || frame >= sprite->frame_count) frame = 0;
+        if (frame < 0 || frame >= sprite->numlumps) frame = 0;
         irect_t frame_rect = sprite_frame_rect(sprite, frame);
         int sprite_w = frame_rect.w;
         int sprite_h = frame_rect.h;
@@ -1390,20 +1316,18 @@ void R_DrawEffects(app_t *app, const level_t *map,
         }
         if (dst.x > app->win.w || dst.y > app->win.h ||
             dst.x + dst.w < 0 || dst.y + dst.h < 0) {
-            debug_effects_log("render skip slot=%d sprite=%s sequence=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
+            debug_effects_log("render skip slot=%d sprite=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
                               i, effect->core.sprite_name,
-                              effect->sequence_name[0] ? effect->sequence_name : "(none)",
-                              sprite->frame_count, position.x, position.y,
+                              sprite->numlumps, position.x, position.y,
                               dst.x, dst.y, dst.w, dst.h);
             continue;
         }
-        debug_effects_log("render slot=%d sprite=%s sequence=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
-                          i, effect->core.sprite_name,
-                          effect->sequence_name[0] ? effect->sequence_name : "(none)",
+        debug_effects_log("render slot=%d sprite=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
+                  i, effect->core.sprite_name,
                           effect->age_ms, effect->duration_ms,
                           angle_to_direction(effect->core.angle, 32, ANG90, true),
                           effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
-                          frame, sprite->frame_count,
+                          frame, sprite->numlumps,
                           effect->core.render_offset.x, effect->core.render_offset.y,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
@@ -1417,7 +1341,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
         SDL_Texture *texture = begin_sprite_command(sprite, effect->core.render_flags,
                                                     effect->core.render_remap,
                                                     effect->core.render_intensity);
-        SDL_RenderCopyEx(app->renderer, texture, &sprite->frames[frame], &dst, 0.0, NULL, flip);
+        SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
+                 0.0, NULL, flip);
         end_sprite_command(texture, effect->core.render_flags);
     }
     free(draw_order);
@@ -1520,7 +1445,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         float sx = 0.0f, sy = 0.0f;
                         unit_screen_rect_for_view(app, map, &units[i], fallback_sprite, cache,
                                                   game_info, app->ticks_ms, NULL, &visible,
-                                                  &sx, &sy, NULL, NULL);
+                                                  &sx, &sy, NULL, NULL, NULL);
                         float radius = unit_pick_radius_px(app, &units[i]);
                         if (irect_intersects(visible, rect) ||
                             circle_intersects_rect((fvec2_t){ sx, sy }, radius, rect)) {
@@ -1603,15 +1528,10 @@ void P_FreeLevel(level_t *map) {
 
 void R_FreeSprite(spritesheet_t *sprite) {
     if (!sprite) return;
-    if (sprite->texture) SDL_DestroyTexture(sprite->texture);
-    for (int i = 0; i < 8; ++i)
-        if (sprite->remap_textures[i]) SDL_DestroyTexture(sprite->remap_textures[i]);
-    free(sprite->frames);
-    free(sprite->frame_bounds);
-    free(sprite->frame_ground_points);
-    free(sprite->frame_displacements);
-    for (int i = 0; i < sprite->sequence_count; ++i)
-        free(sprite->sequences[i].frames);
+    for (int i = 0; i < 9; ++i)
+        if (sprite->textures[i]) SDL_DestroyTexture(sprite->textures[i]);
+    free(sprite->lumps);
+    free(sprite->spritedef.spriteframes);
     if (sprite->destroy_native_data) sprite->destroy_native_data(sprite->native_data);
     memset(sprite, 0, sizeof(*sprite));
 }

@@ -105,32 +105,6 @@ static bool load_dark_terrain_palette(const char *path, uint32_t colors[256]) {
 
 typedef struct { int first_anim, last_anim, framerate, hotspots; } SprSection;
 
-static void sprite_sheet_add_linear_sequence(spritesheet_t *sheet, const char *name, int start,
-                                             int facings, int length, int tick_ms) {
-    if (!sheet || !name || sheet->sequence_count >= MAX_SPRITE_SEQUENCES ||
-        facings <= 0 || facings > MAX_SEQUENCE_FACINGS || length <= 0) return;
-    spritesequence_t *seq = &sheet->sequences[sheet->sequence_count++];
-    memset(seq, 0, sizeof(*seq));
-    snprintf(seq->name, sizeof(seq->name), "%s", name);
-    seq->facings = facings;
-    seq->length  = length;
-    seq->frame_stride = 1;
-    seq->tick_ms = tick_ms > 0 ? tick_ms : 120;
-    for (int i = 0; i < facings; ++i) {
-        seq->frame_starts[i]   = start + i * length;
-          /* RSPR rotations start at North and advance counter-clockwise in screen
-              space (N, NW, W, SW, S, SE, E, NE for 8-rot sprites). */
-        seq->rotation_angles[i] = direction_to_angle(i, facings, ANG90, false);
-    }
-}
-
-static const spritesequence_t *sprite_sheet_find_sequence(const spritesheet_t *sheet, const char *name) {
-    if (!sheet || !name) return NULL;
-    for (int i = 0; i < sheet->sequence_count; ++i)
-        if (strcmp(sheet->sequences[i].name, name) == 0) return &sheet->sequences[i];
-    return NULL;
-}
-
 static irect_t visible_bounds(const uint32_t *rgba, int atlas_w, irect_t frame) {
     int min_x = frame.w, min_y = frame.h, max_x = -1, max_y = -1;
     for (int y = 0; y < frame.h; ++y) {
@@ -254,36 +228,49 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
                size; opaque-pixel bounds are not a ground-contact hotspot. */
             ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
         }
-        out->texture    = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
-        out->frames     = frames;
-        out->frame_bounds = bounds;
-        out->frame_ground_points = ground_points;
-        out->frame_count = total_frames;
+        out->textures[0] = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
+        out->lumps = calloc((size_t)total_frames, sizeof(*out->lumps));
+        if (!out->textures[0] || !out->lumps) {
+            free(rgba); free(indices); free(frames); free(bounds);
+            free(ground_points); free(sects);
+            R_FreeSprite(out);
+            return false;
+        }
+        for (int i = 0; i < total_frames; ++i) {
+            out->lumps[i] = (spritelump_t){
+                .rect = frames[i],
+                .bounds = bounds[i],
+                .ground_point = { ground_points[i].x, ground_points[i].y },
+            };
+        }
+        free(frames);
+        free(bounds);
+        free(ground_points);
+        out->numlumps = total_frames;
         out->frame_w    = szx;
         out->frame_h    = szy;
-        out->rotations  = nrots;
-        out->primary_frames_per_rotation = sects[0].last_anim - sects[0].first_anim + 1;
-        int sequence_start = 0;
-        static const char *section_names[] = { "run", "shoot", "idle", "stand" };
-        for (int s = 0; s < nsects && s < (int)(sizeof(section_names)/sizeof(section_names[0])); ++s) {
+        int logical_frames = 0;
+        for (int s = 0; s < nsects; ++s) {
             int sf = sects[s].last_anim - sects[s].first_anim + 1;
-            if (sf > 0) {
-                sprite_sheet_add_linear_sequence(out, section_names[s], sequence_start,
-                                                 nrots, sf, sects[s].framerate);
-                sequence_start += nrots * sf;
-            }
+            if (sf > 0) logical_frames += sf;
         }
-        if (!sprite_sheet_find_sequence(out, "stand") && out->sequence_count > 0) {
-            const spritesequence_t *source = sprite_sheet_find_sequence(out, "idle");
-            if (!source) source = sprite_sheet_find_sequence(out, "run");
-            if (!source) source = &out->sequences[out->sequence_count - 1];
-            spritesequence_t stand = *source;
-            snprintf(stand.name, sizeof(stand.name), "stand");
-            if (out->sequence_count < MAX_SPRITE_SEQUENCES)
-                out->sequences[out->sequence_count++] = stand;
+        if (!R_InitSpriteDef(out, logical_frames, nrots, ANG90, false)) {
+            free(rgba); free(indices); free(sects);
+            R_FreeSprite(out);
+            return false;
+        }
+        int logical_frame = 0;
+        int lump_start = 0;
+        for (int s = 0; s < nsects; ++s) {
+            int sf = sects[s].last_anim - sects[s].first_anim + 1;
+            for (int frame = 0; frame < sf; ++frame, ++logical_frame)
+                for (int rotation = 0; rotation < nrots; ++rotation)
+                    R_InstallSpriteLump(out, logical_frame, rotation,
+                                        lump_start + rotation * sf + frame, false);
+            lump_start += nrots * sf;
         }
         free(rgba); free(indices); free(sects);
-        return out->texture != NULL;
+        return out->textures[0] != NULL;
     }
 
 spr_fail:

@@ -211,37 +211,46 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
                 rgba[(size_t)(dy + y) * atlas_w + dx + x] = index == 0 ? 0 : palette[index];
             }
     }
-    out->texture = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
+    out->textures[0] = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
     free(rgba);
-    if (!out->texture) { free(rects); free(bounds); free(displacements); goto fail; }
-    out->frames = rects;
-    out->frame_bounds = bounds;
-    out->frame_displacements = displacements;
-    out->frame_count = frame_count;
+    if (!out->textures[0]) { free(rects); free(bounds); free(displacements); goto fail; }
+    out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
+    if (!out->lumps) {
+        free(rects); free(bounds); free(displacements);
+        R_FreeSprite(out);
+        goto fail;
+    }
+    for (int i = 0; i < frame_count; ++i) {
+        out->lumps[i] = (spritelump_t){
+            .rect = rects[i],
+            .bounds = bounds[i],
+            .displacement = { displacements[i].x, displacements[i].y },
+        };
+    }
+    free(rects);
+    free(bounds);
+    free(displacements);
+    out->numlumps = frame_count;
     out->frame_w = max_w;
     out->frame_h = max_h;
-    out->rotations = ordered_count >= 16 ? 16 : 1;
-    out->primary_frames_per_rotation = 1;
 
-    static const char *sequence_names[] = { "stand", "shoot", "run" };
     int sequence_blocks = ordered_count / 16;
     if (sequence_blocks > 3) sequence_blocks = 3;
+    int logical_frames = 0;
+    for (int block = 0; block < sequence_blocks; ++block) {
+        int length = group_lengths[block * 16];
+        if (length > 0) logical_frames += length;
+    }
+    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames, 16, ANG90, true))
+        goto fail;
+    int logical_frame = 0;
     for (int block = 0; block < sequence_blocks; ++block) {
         int length = group_lengths[block * 16];
         if (length <= 0) continue;
-        spritesequence_t *sequence = &out->sequences[out->sequence_count++];
-        snprintf(sequence->name, sizeof(sequence->name), "%s", sequence_names[block]);
-        sequence->facings = 16;
-        sequence->length = length;
-        sequence->frame_stride = 1;
-        sequence->tick_ms = 120;
-        for (int facing = 0; facing < 16; ++facing) {
-            sequence->frame_starts[facing] = group_starts[block * 16 + facing];
-            sequence->rotation_angles[facing] =
-                direction_to_angle(facing, 16, ANG90, true);
-            if (group_lengths[block * 16 + facing] < sequence->length)
-                sequence->length = group_lengths[block * 16 + facing];
-        }
+        for (int frame = 0; frame < length; ++frame, ++logical_frame)
+            for (int rotation = 0; rotation < 16; ++rotation)
+                R_InstallSpriteLump(out, logical_frame, rotation,
+                    group_starts[block * 16 + rotation] + frame, false);
     }
     for (int i = 0; i < frame_count; ++i) free(frames[i].pixels);
     return true;

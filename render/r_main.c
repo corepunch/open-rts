@@ -60,10 +60,10 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
 
 void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                          const char *text, SDL_Color color, int scale, int remap) {
-    if (!renderer || !font || !font->sprite.texture || !text || scale <= 0) return;
-    SDL_Texture *texture = font->sprite.texture;
-    if (remap >= 0 && remap < 8 && font->sprite.remap_textures[remap])
-        texture = font->sprite.remap_textures[remap];
+    if (!renderer || !font || !font->sprite.textures[0] || !text || scale <= 0) return;
+    SDL_Texture *texture = font->sprite.textures[0];
+    if (remap >= 0 && remap < 8 && font->sprite.textures[remap + 1])
+        texture = font->sprite.textures[remap + 1];
     SDL_SetTextureColorMod(texture, color.r, color.g, color.b);
     SDL_SetTextureAlphaMod(texture, color.a);
     int cx = x, cy = y;
@@ -78,11 +78,11 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
         if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
         int frame = font->glyph_index[ch];
         int advance = font->glyph_width[ch] > 0 ? font->glyph_width[ch] : font->glyph_w;
-        if (frame >= 0 && frame < font->sprite.frame_count) {
-            irect_t src = font->sprite.frames[frame];
-            if (font->sprite.frame_bounds && font->sprite.frame_bounds[frame].w > 0 &&
-                font->sprite.frame_bounds[frame].h > 0) {
-                irect_t bounds = font->sprite.frame_bounds[frame];
+        if (frame >= 0 && frame < font->sprite.numlumps) {
+            irect_t src = font->sprite.lumps[frame].rect;
+            if (font->sprite.lumps && font->sprite.lumps[frame].bounds.w > 0 &&
+                font->sprite.lumps[frame].bounds.h > 0) {
+                irect_t bounds = font->sprite.lumps[frame].bounds;
                 src.x += bounds.x;
                 src.y += bounds.y;
                 src.w = bounds.w;

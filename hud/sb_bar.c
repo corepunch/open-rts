@@ -271,9 +271,9 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
         const cachedsprite_t *cached = &sprites->entries[i];
         if (cached->name[0] == '\0' || tolower((unsigned char)cached->name[0]) == 'a' ||
             strstr(cached->name, "sh") ||
-            !cached->sprite.texture || cached->sprite.frame_count <= 0) continue;
-        irect_t src = cached->sprite.frames[0];
-        irect_t bounds = cached->sprite.frame_bounds ? cached->sprite.frame_bounds[0] :
+            !cached->sprite.textures[0] || cached->sprite.numlumps <= 0) continue;
+        irect_t src = cached->sprite.lumps[0].rect;
+        irect_t bounds = cached->sprite.lumps ? cached->sprite.lumps[0].bounds :
             (irect_t){ 0, 0, src.w, src.h };
         src.x += bounds.x; src.y += bounds.y; src.w = bounds.w; src.h = bounds.h;
         if (src.w <= 0 || src.h <= 0) continue;
@@ -285,9 +285,9 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
         irect_t dst = { cell.x + (cell.w - (int)((float)src.w * scale)) / 2,
                          cell.y + (cell.h - (int)((float)src.h * scale)) / 2,
                          (int)((float)src.w * scale), (int)((float)src.h * scale) };
-        SDL_SetTextureColorMod(cached->sprite.texture, 210, 48, 52);
-        SDL_RenderCopy(app->renderer, cached->sprite.texture, &src, &dst);
-        SDL_SetTextureColorMod(cached->sprite.texture, 255, 255, 255);
+        SDL_SetTextureColorMod(cached->sprite.textures[0], 210, 48, 52);
+        SDL_RenderCopy(app->renderer, cached->sprite.textures[0], &src, &dst);
+        SDL_SetTextureColorMod(cached->sprite.textures[0], 255, 255, 255);
         slot++;
     }
 }

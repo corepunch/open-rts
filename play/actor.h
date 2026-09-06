@@ -279,7 +279,6 @@ typedef struct effect_s {
     bool add_decoration_on_finish;
     bool ground_light;
     int light_radius;
-    char sequence_name[16];
 } effect_t;
 
 struct statecontext_s {

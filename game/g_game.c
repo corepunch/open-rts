@@ -759,7 +759,6 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         snprintf(dst->sprite2_name, sizeof(dst->sprite2_name), "%s", src->sprite2_name);
         snprintf(dst->sprite3_name, sizeof(dst->sprite3_name), "%s", src->sprite3_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s", src->shadow_name);
-        snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
     for (int i = 0; i < MAX_VISUAL_EFFECTS && out->effect_count < RTS_MODEL_MAX_SNAPSHOT_EFFECTS; ++i) {
         const effect_t *src = &model->effects[i];
@@ -775,7 +774,6 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->ground_light = src->ground_light;
         dst->light_radius = src->light_radius;
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);
-        snprintf(dst->sequence_name, sizeof(dst->sequence_name), "%s", src->sequence_name);
     }
     G_ModelBuildUIScript(model, out, out->ui_script, sizeof(out->ui_script));
     return true;

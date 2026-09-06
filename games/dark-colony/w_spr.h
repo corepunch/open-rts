@@ -1,6 +1,7 @@
 #ifndef __W_SPR__
 #define __W_SPR__
 #include "m_vec.h"
+#include "sprites.h"
 #include <stdbool.h>
 
 #define VENT_SMOKE_MAX_FRAMES 32
@@ -54,4 +55,6 @@ bool vent_placement_from_sprites(const char *map_path, VentPlacement *out);
 bool dropship_animation_from_sprites(const char *map_path,
                                                  DropshipAnimations *out);
 bool load_render_tables(const char *data_root, const char *tileset_name);
+bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path,
+                             spritesheet_t *out, uint32_t palette_out[256]);
 #endif

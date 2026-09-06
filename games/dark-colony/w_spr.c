@@ -377,60 +377,64 @@ static const AnimationLabel *animation_find_label(const AnimationFile *animation
     return NULL;
 }
 
-static void add_dark_colony_fin_sequence(spritesheet_t *sheet,
-                                         const AnimationFile *animation,
-                                         const char *stem, const char *action,
-                                         const char *name, int tick_ms) {
-    if (!sheet || !animation || !stem || !action || !name ||
-        sheet->sequence_count >= MAX_SPRITE_SEQUENCES) return;
-    static const int directions[] = { 0, 2, 4, 6, 8, 10, 12, 14 };
+static void install_dark_colony_fin_frames(spritesheet_t *sheet,
+                                           const AnimationFile *animation,
+                                           const char *stem, const char *action) {
+    if (!sheet || !animation || !stem || !action ||
+        !sheet->spritedef.spriteframes) return;
     char label_name[17];
     char label_stem[9];
     snprintf(label_stem, sizeof(label_stem), "%s", stem);
     for (char *c = label_stem; *c; ++c)
         *c = (char)toupper((unsigned char)*c);
-    int starts[sizeof(directions) / sizeof(directions[0])];
-    int frames[MAX_SEQUENCE_FRAMES][sizeof(directions) / sizeof(directions[0])];
+    enum { MAX_FIN_SEQUENCE_FRAMES = 32 };
+    int frames[MAX_FIN_SEQUENCE_FRAMES][MAX_SPRITE_ROTATIONS];
+    uint8_t flips[MAX_FIN_SEQUENCE_FRAMES][MAX_SPRITE_ROTATIONS];
+    int rotations = 16;
     int length = -1;
-    for (size_t i = 0; i < sizeof(directions) / sizeof(directions[0]); ++i) {
-        snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem, action,
-                 directions[i]);
+retry:
+    length = -1;
+    for (int rotation = 0; rotation < rotations; ++rotation) {
+        int direction = rotations == 16 ? rotation : rotation * 2;
+        const char *label_action = strcmp(label_stem, "EXPL") == 0 &&
+            strcmp(action, "STAND") == 0 && (direction & 1) ? "SHUF" : action;
+        snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem, label_action,
+                 direction);
         const AnimationLabel *label = animation_find_label(animation, label_name);
-        if (!label || label->end < label->start) return;
+        if (!label || label->end < label->start) {
+            if (rotations == 16) {
+                rotations = 8;
+                goto retry;
+            }
+            return;
+        }
         int label_length = label->end - label->start + 1;
-        if (label_length > MAX_SEQUENCE_FRAMES) return;
+        if (label_length > MAX_FIN_SEQUENCE_FRAMES) return;
         if (length < 0) length = label_length;
         if (label_length != length) return;
         for (int frame = 0; frame < label_length; ++frame) {
             const AnimationCommand *command = animation_frame_command(
                 animation, label->start + frame, stem, 1);
             if (!command || command->frame < 0 ||
-                command->frame >= sheet->frame_count) return;
-            frames[frame][i] = command->frame;
+                command->frame >= sheet->numlumps) return;
+            frames[frame][rotation] = command->frame;
+            flips[frame][rotation] = (command->flags & 1) != 0;
         }
-        starts[i] = frames[0][i];
     }
 
-    spritesequence_t *sequence = &sheet->sequences[sheet->sequence_count++];
-    memset(sequence, 0, sizeof(*sequence));
-    sequence->frames = calloc((size_t)length, sizeof(*sequence->frames));
-    if (!sequence->frames) {
-        sheet->sequence_count--;
-        return;
+    sheet->spritedef.rotations = rotations;
+    sheet->spritedef.first_angle = dc_fin_direction_to_angle(0);
+    sheet->spritedef.clockwise = true;
+    for (int frame = 0; frame < length; ++frame) {
+        int logical_frame = frames[frame][0];
+        if (logical_frame < 0 || logical_frame >= sheet->spritedef.numframes) continue;
+        spriteframe_t *spriteframe = &sheet->spritedef.spriteframes[logical_frame];
+        spriteframe->rotate = true;
+        for (int rotation = 0; rotation < sheet->spritedef.rotations; ++rotation) {
+            spriteframe->lump[rotation] = frames[frame][rotation];
+            spriteframe->flip[rotation] = flips[frame][rotation];
+        }
     }
-    snprintf(sequence->name, sizeof(sequence->name), "%s", name);
-    sequence->facings = (int)(sizeof(directions) / sizeof(directions[0]));
-    sequence->length = length;
-    sequence->frame_stride = 1;
-    sequence->tick_ms = tick_ms > 0 ? tick_ms : 120;
-    for (int i = 0; i < sequence->facings; ++i) {
-        sequence->frame_starts[i] = starts[i];
-        sequence->rotation_angles[i] = dc_fin_direction_to_angle(directions[i]);
-        for (int frame = 0; frame < sequence->length; ++frame)
-            sequence->frames[frame].image_index[i] = frames[frame][i];
-    }
-    sheet->rotations = sequence->facings;
-    sheet->primary_frames_per_rotation = sequence->length;
 }
 
 static void sprite_native_destroy(void *ptr) {
@@ -755,11 +759,22 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     }
     free(remap_rgba);
 
-    out->texture = texture;
+    out->textures[0] = texture;
     for (int remap = 0; remap < 8; ++remap)
-        out->remap_textures[remap] = remap_textures[remap];
-    out->frames = frames;
-    out->frame_bounds = bounds;
+        out->textures[remap + 1] = remap_textures[remap];
+    out->lumps = calloc((size_t)visible_frames, sizeof(*out->lumps));
+    out->spritedef.spriteframes = calloc(
+        (size_t)visible_frames, sizeof(*out->spritedef.spriteframes));
+    if (!out->lumps || !out->spritedef.spriteframes) {
+        free(rgba);
+        free(indices);
+        free(frames);
+        free(bounds);
+        free(ground_points);
+        free(displacements);
+        R_FreeSprite(out);
+        return false;
+    }
     for (int i = 0; i < visible_frames; ++i) {
         ground_points[i] = (SDL_Point){
             bounds[i].x + bounds[i].w / 2,
@@ -767,27 +782,38 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         };
     }
     resolve_fin_ground_points(native, path, ground_points);
-    out->frame_ground_points = ground_points;
-    out->frame_displacements = displacements;
-    out->frame_count = visible_frames;
+    for (int i = 0; i < visible_frames; ++i) {
+        out->lumps[i] = (spritelump_t){
+            .rect = frames[i],
+            .bounds = bounds[i],
+            .ground_point = { ground_points[i].x, ground_points[i].y },
+            .displacement = { displacements[i].x, displacements[i].y },
+        };
+        out->spritedef.spriteframes[i].lump[0] = i;
+    }
+    free(frames);
+    free(bounds);
+    free(ground_points);
+    free(displacements);
+    out->numlumps = visible_frames;
+    out->spritedef.numframes = visible_frames;
+    out->spritedef.rotations = 1;
+    out->spritedef.first_angle = ANG270;
     out->frame_w = canvas_w;
     out->frame_h = canvas_h;
-    out->rotations = 1;
-    out->primary_frames_per_rotation = visible_frames;
     out->native_data = native;
     out->destroy_native_data = sprite_native_destroy;
     out->resolve_composition = resolve_composition;
     if (native->has_animation) {
         char stem[9];
         sprite_stem(stem, sizeof(stem), path);
-        add_dark_colony_fin_sequence(out, &native->animation, stem, "STAND",
-                                     "stand", 120);
-        add_dark_colony_fin_sequence(out, &native->animation, stem, "MOVE",
-                                     "run", 120);
-        add_dark_colony_fin_sequence(out, &native->animation, stem, "FIREA",
-                                     "shoot", 90);
-        add_dark_colony_fin_sequence(out, &native->animation, stem, "DIEA",
-                                     "die", 120);
+        install_dark_colony_fin_frames(out, &native->animation, stem, "STAND");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "MOVE");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "FIREA");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "FIREB");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "DIEA");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "DIEB");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "DIEC");
     }
 
     free(rgba);

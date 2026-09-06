@@ -244,7 +244,7 @@ int main(int argc, char **argv) {
             }
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
-               tileset.count, unit_sprite.frame_count, sprite_name, map.resource_vent_count);
+               tileset.count, unit_sprite.numlumps, sprite_name, map.resource_vent_count);
         SB_Shutdown(&st);
         G_ShutdownCustomUI(custom_ui);
         R_FreeSpriteCache(&decoration_sprites);

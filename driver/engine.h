@@ -72,6 +72,10 @@ void R_DrawEffects(app_t *app, const level_t *map,
 
 cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name);
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name);
+bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,
+                     angle_t first_angle, bool clockwise);
+bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
+                         int lump, bool flip);
 
 void P_MoveOrder(const level_t *map, mobj_t *units, int unit_count, cell_t goal);
 void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,

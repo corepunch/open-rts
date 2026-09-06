@@ -46,34 +46,33 @@ typedef struct tileset_s {
 } tileset_t;
 
 typedef struct spriteframe_s {
-    int image_index[MAX_SEQUENCE_FACINGS];
+    bool rotate;
+    int lump[MAX_SPRITE_ROTATIONS];
+    uint8_t flip[MAX_SPRITE_ROTATIONS];
 } spriteframe_t;
 
-typedef struct spritesequence_s {
-    char name[16];
-    int facings;
-    int length;
-    int frame_stride;
-    int tick_ms;
-    int frame_starts[MAX_SEQUENCE_FACINGS];
-    angle_t rotation_angles[MAX_SEQUENCE_FACINGS];
-    spriteframe_t *frames;
-} spritesequence_t;
+typedef struct spritedef_s {
+    int numframes;
+    int rotations;
+    angle_t first_angle;
+    bool clockwise;
+    spriteframe_t *spriteframes;
+} spritedef_t;
+
+typedef struct spritelump_s {
+    irect_t rect;
+    irect_t bounds;
+    ivec2_t ground_point;
+    ivec2_t displacement;
+} spritelump_t;
 
 typedef struct spritesheet_s {
-    SDL_Texture *texture;
-    SDL_Texture *remap_textures[8];
-    irect_t *frames;
-    irect_t *frame_bounds;
-    SDL_Point *frame_ground_points;
-    SDL_Point *frame_displacements;
-    int frame_count;
+    SDL_Texture *textures[9];
+    spritelump_t *lumps;
+    int numlumps;
     int frame_w;
     int frame_h;
-    int rotations;
-    int primary_frames_per_rotation;
-    spritesequence_t sequences[MAX_SPRITE_SEQUENCES];
-    int sequence_count;
+    spritedef_t spritedef;
     void *native_data;
     void (*destroy_native_data)(void *);
     bool (*resolve_composition)(const struct spritesheet_s *sprite, int selector,

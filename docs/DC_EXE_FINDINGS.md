@@ -54,6 +54,13 @@ generator preserves each slot's body frame and horizontal flip flag. For an
 8-view state exactly halfway between two authored slots, selection rounds
 forward in direction-code order, matching Hexen's half-step angular rounding.
 
+**Confirmed from `ANIMATE/EXPL.FIN`:** `EXPLSTAND0` uses body frame 0 without
+reflection, while `EXPLSHUF1` and `EXPLMOVE1` use body frame 1 with horizontal
+reflection. Simulation facing 15 maps to that FIN direction-1 slot because the
+simulation and FIN direction conventions run in opposite orders. The sprite
+loader therefore builds a 16-rotation `spriteframe_t` for EXPL, while sprites
+without odd labels such as TRSC use eight rotations.
+
 **Verification:** `make test-layout` validates generated TRSC and EXPL rotation
 tables. The Dark Colony headless model test calls `P_SetMobjState` with an odd
 TRSC facing and mirrored EXPL facing 15 to validate runtime frame and flip

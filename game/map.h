@@ -77,7 +77,6 @@ typedef struct mapdecoration_s {
     char sprite2_name[32];
     char sprite3_name[32];
     char shadow_name[32];
-    char sequence_name[16];
 } mapdecoration_t;
 
 #define RTS_MAX_RESOURCES 8

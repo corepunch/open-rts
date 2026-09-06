@@ -154,7 +154,6 @@ typedef struct {
     bool ground_light;
     int light_radius;
     char sprite_name[32];
-    char sequence_name[16];
 } RtsRenderEffect;
 
 typedef struct {
@@ -180,7 +179,6 @@ typedef struct {
     char sprite2_name[32];
     char sprite3_name[32];
     char shadow_name[32];
-    char sequence_name[16];
 } RtsRenderDecoration;
 
 typedef struct {

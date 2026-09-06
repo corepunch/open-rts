@@ -322,51 +322,47 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         }
     }
 
-    out->texture = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
+    out->textures[0] = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
     free(rgba);
     free(info);
     free(expanded);
     W_FreeFile(&blob);
-    if (!out->texture) {
+    if (!out->textures[0]) {
         free(frames); free(bounds); free(ground_points);
         return false;
     }
-    out->frames = frames;
-    out->frame_bounds = bounds;
-    out->frame_ground_points = ground_points;
-    out->frame_count = frame_count;
+    out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
+    if (!out->lumps) {
+        free(frames); free(bounds); free(ground_points);
+        R_FreeSprite(out);
+        return false;
+    }
+    for (int i = 0; i < frame_count; ++i) {
+        out->lumps[i] = (spritelump_t){
+            .rect = frames[i],
+            .bounds = bounds[i],
+            .ground_point = { ground_points[i].x, ground_points[i].y },
+        };
+    }
+    free(frames);
+    free(bounds);
+    free(ground_points);
+    out->numlumps = frame_count;
     out->frame_w = canvas_w;
     out->frame_h = canvas_h;
 
     /* Movement sheets are arranged as eight contiguous facing blocks. */
     if (frame_count >= 8 && frame_count % 8 == 0) {
         int frames_per_facing = frame_count / 8;
-        out->rotations = 8;
-        out->primary_frames_per_rotation = frames_per_facing;
-        spritesequence_t *stand = &out->sequences[out->sequence_count++];
-        snprintf(stand->name, sizeof(stand->name), "stand");
-        stand->facings = 8;
-        stand->length = 1;
-        stand->frame_stride = 1;
-        stand->tick_ms = 120;
-        spritesequence_t *run = &out->sequences[out->sequence_count++];
-        snprintf(run->name, sizeof(run->name), "run");
-        run->facings = 8;
-        run->length = frames_per_facing;
-        run->frame_stride = 1;
-        run->tick_ms = 120;
-        for (int facing = 0; facing < 8; ++facing) {
-            int start = facing * frames_per_facing;
-            stand->frame_starts[facing] = start;
-            stand->rotation_angles[facing] =
-                direction_to_angle(facing, 8, ANG90, true);
-            run->frame_starts[facing] = start;
-            run->rotation_angles[facing] =
-                direction_to_angle(facing, 8, ANG90, true);
-        }
+        if (!R_InitSpriteDef(out, frames_per_facing, 8, ANG90, true)) return false;
+        for (int frame = 0; frame < frames_per_facing; ++frame)
+            for (int rotation = 0; rotation < 8; ++rotation)
+                R_InstallSpriteLump(out, frame, rotation,
+                                    rotation * frames_per_facing + frame, false);
     } else {
-        out->rotations = 1;
-        out->primary_frames_per_rotation = frame_count;
+        if (!R_InitSpriteDef(out, frame_count, 1, ANG90, true)) return false;
+        for (int frame = 0; frame < frame_count; ++frame)
+            R_InstallSpriteLump(out, frame, 0, frame, false);
     }
     return true;
 }

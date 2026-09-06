@@ -205,11 +205,11 @@ static void dc_ui_stroke(SDL_Renderer *renderer, irect_t rect, SDL_Color color) 
 
 static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,
                                   irect_t box, uint32_t render_flags) {
-    if (!renderer || !sprite || !sprite->texture || sprite->frame_count <= 0) return;
-    if (frame < 0 || frame >= sprite->frame_count) frame = 0;
-    irect_t src = sprite->frames[frame];
-    if (sprite->frame_bounds && sprite->frame_bounds[frame].w > 0 && sprite->frame_bounds[frame].h > 0) {
-        irect_t bounds = sprite->frame_bounds[frame];
+    if (!renderer || !sprite || !sprite->textures[0] || sprite->numlumps <= 0) return;
+    if (frame < 0 || frame >= sprite->numlumps) frame = 0;
+    irect_t src = sprite->lumps[frame].rect;
+    if (sprite->lumps[frame].bounds.w > 0 && sprite->lumps[frame].bounds.h > 0) {
+        irect_t bounds = sprite->lumps[frame].bounds;
         src.x += bounds.x;
         src.y += bounds.y;
         src.w = bounds.w;
@@ -231,16 +231,16 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *s
         draw_h,
     };
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderCopyEx(renderer, sprite->texture, &src, &dst, 0.0, NULL, flip);
+    SDL_RenderCopyEx(renderer, sprite->textures[0], &src, &dst, 0.0, NULL, flip);
 }
 
 static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *image,
                                   irect_t src, irect_t dst) {
-    if (!renderer || !image || !image->texture || src.w <= 0 || src.h <= 0 ||
+    if (!renderer || !image || !image->textures[0] || src.w <= 0 || src.h <= 0 ||
         dst.w <= 0 || dst.h <= 0) {
         return;
     }
-    SDL_RenderCopy(renderer, image->texture, &src, &dst);
+    SDL_RenderCopy(renderer, image->textures[0], &src, &dst);
 }
 
 static const mobj_t *dc_first_selected_unit(const mobj_t *units, int unit_count) {
@@ -439,7 +439,7 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
     if (!app || !map || !font || !layout) return;
     char text[32];
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
-    if (buttons && buttons->texture)
+    if (buttons && buttons->textures[0])
         dc_ui_draw_sprite_fit(app->renderer, buttons, 104, layout->money, 0);
     int resources = map->player_resources[0][0];
     if (resources < 0) resources = 0;
@@ -462,13 +462,13 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
                          const spritecache_t *cache, const bitmapfont_t *font,
                          const Sidebar *sidebar,
                          const spritesheet_t *background) {
-    if (!app || !font || !font->sprite.texture) return;
+    if (!app || !font || !font->sprite.textures[0]) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
 
     UiLayout layout = ui_layout(app);
-    if (background && background->texture) {
+    if (background && background->textures[0]) {
         dc_ui_draw_image_part(app->renderer, background,
                               (irect_t){ 516, 0, 124, 480 }, layout.outer);
         dc_ui_draw_image_part(app->renderer, background,
@@ -530,7 +530,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
             break;
         }
     }
-    if (!background || !background->texture) {
+    if (!background || !background->textures[0]) {
         dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
         dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
         HU_DrawText(app->renderer, font,
@@ -580,7 +580,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
         }
         int frame = product_mode && products[i] ? products[i]->icon_frame :
             dc_sidebar_command_frame(&sidebar->commands[i], selected);
-        if (buttons && buttons->texture) {
+        if (buttons && buttons->textures[0]) {
             dc_ui_draw_sprite_fit(app->renderer, buttons, frame, button_rect, 0);
             if (product_mode && products[i] && map->player_resources[0][0] < products[i]->cost) {
                 dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
@@ -597,7 +597,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
 }
 
 static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfont_t *font) {
-    if (!app || !hud || !font || !font->sprite.texture || hud->count <= 0) return;
+    if (!app || !hud || !font || !font->sprite.textures[0] || hud->count <= 0) return;
     SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
     SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
