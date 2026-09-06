@@ -271,8 +271,8 @@ P_PointToAngle	play/p_mobj.c	/^angle_t P_PointToAngle(float dx, float dy) {$/;"	
 P_SetMobjState	driver/engine.h	/^bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);$/;"	p	typeref:typename:bool	signature:(statecontext_t * ctx,mobj_t * unit,int state_id)
 P_SetMobjState	play/actor.h	/^bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);$/;"	p	typeref:typename:bool	signature:(statecontext_t * ctx,mobj_t * unit,int state_id)
 P_SetMobjState	play/p_mobj.c	/^bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {$/;"	f	typeref:typename:bool	signature:(statecontext_t * ctx,mobj_t * unit,int state_id)
-P_SpawnEffect	driver/engine.h	/^bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixedvec3_t position, angle_t angle);$/;"	p	typeref:typename:bool	signature:(statecontext_t * ctx,int state_id,fixedvec3_t position,angle_t angle)
-P_SpawnEffect	play/p_mobj.c	/^bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixedvec3_t position, angle_t angle) {$/;"	f	typeref:typename:bool	signature:(statecontext_t * ctx,int state_id,fixedvec3_t position,angle_t angle)
+P_SpawnEffect	driver/engine.h	/^bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixed3_t position, angle_t angle);$/;"	p	typeref:typename:bool	signature:(statecontext_t * ctx,int state_id,fixed3_t position,angle_t angle)
+P_SpawnEffect	play/p_mobj.c	/^bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixed3_t position, angle_t angle) {$/;"	f	typeref:typename:bool	signature:(statecontext_t * ctx,int state_id,fixed3_t position,angle_t angle)
 P_SpawnMobj	driver/engine.h	/^void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(const gameinfo_t * game_info,mobj_t * unit)
 P_SpawnMobj	play/p_mobj.c	/^void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(const gameinfo_t * game_info,mobj_t * unit)
 P_TickMobjState	driver/engine.h	/^bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:bool	signature:(statecontext_t * ctx,mobj_t * unit)
@@ -379,8 +379,8 @@ R_InitSpriteDef	render/r_draw.c	/^bool R_InitSpriteDef(spritesheet_t *sprite, in
 R_InitSprites	game/game.h	/^bool     R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	p	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const mobj_t * mobjs,int count,spritecache_t * cache)
 R_InstallSpriteLump	driver/engine.h	/^bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,$/;"	p	typeref:typename:bool	signature:(spritesheet_t * sprite,int frame,int rotation,int lump,bool flip)
 R_InstallSpriteLump	render/r_draw.c	/^bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,$/;"	f	typeref:typename:bool	signature:(spritesheet_t * sprite,int frame,int rotation,int lump,bool flip)
-R_MapPositionToScreen	driver/engine.h	/^void R_MapPositionToScreen(const app_t *app, const level_t *map,$/;"	p	typeref:typename:void	signature:(const app_t * app,const level_t * map,fixedvec3_t position,float * sx,float * sy)
-R_MapPositionToScreen	render/r_draw.c	/^void R_MapPositionToScreen(const app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(const app_t * app,const level_t * map,fixedvec3_t position,float * sx,float * sy)
+R_MapPositionToScreen	driver/engine.h	/^void R_MapPositionToScreen(const app_t *app, const level_t *map,$/;"	p	typeref:typename:void	signature:(const app_t * app,const level_t * map,fixed3_t position,float * sx,float * sy)
+R_MapPositionToScreen	render/r_draw.c	/^void R_MapPositionToScreen(const app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(const app_t * app,const level_t * map,fixed3_t position,float * sx,float * sy)
 R_MapToScreen	driver/engine.h	/^void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,$/;"	p	typeref:typename:void	signature:(const app_t * app,const level_t * map,float gx,float gy,float * sx,float * sy)
 R_MapToScreen	render/r_draw.c	/^void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,$/;"	f	typeref:typename:void	signature:(const app_t * app,const level_t * map,float gx,float gy,float * sx,float * sy)
 R_RefreshViewport	driver/engine.h	/^void R_RefreshViewport(app_t *app);$/;"	p	typeref:typename:void	signature:(app_t * app)
@@ -827,10 +827,10 @@ __anon9abd85c00208::y	driver/m_vec.h	/^typedef struct { float x, y; } fvec2_t;$/
 __anon9abd85c00308	driver/m_vec.h	/^typedef struct { int w, h; }   isize2_t;$/;"	s
 __anon9abd85c00308::h	driver/m_vec.h	/^typedef struct { int w, h; }   isize2_t;$/;"	m	struct:__anon9abd85c00308	typeref:typename:int
 __anon9abd85c00308::w	driver/m_vec.h	/^typedef struct { int w, h; }   isize2_t;$/;"	m	struct:__anon9abd85c00308	typeref:typename:int
-__anon9abd85c00408	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	s
-__anon9abd85c00408::x	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
-__anon9abd85c00408::y	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
-__anon9abd85c00408::z	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
+__anon9abd85c00408	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	s
+__anon9abd85c00408::x	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
+__anon9abd85c00408::y	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
+__anon9abd85c00408::z	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
 __anon9abd85c00503	driver/m_vec.h	/^enum {$/;"	g
 __anon9b76b3fd0103	driver/w_gif.c	/^    enum { GIF_MAX_CODES = 4096 };$/;"	g	function:gif_decode_lzw	file:
 __anona3f56ed40108	hud/sb_bar.h	/^typedef struct {$/;"	s
@@ -1367,15 +1367,15 @@ fixed_from_float	driver/m_vec.h	/^static inline fixed_t fixed_from_float(float v
 fixed_sub_saturated	driver/m_vec.h	/^static inline fixed_t fixed_sub_saturated(fixed_t a, fixed_t b) {$/;"	f	typeref:typename:fixed_t	signature:(fixed_t a,fixed_t b)
 fixed_t	driver/m_vec.h	/^typedef int32_t fixed_t;$/;"	t	typeref:typename:int32_t
 fixed_to_float	driver/m_vec.h	/^static inline float fixed_to_float(fixed_t value) {$/;"	f	typeref:typename:float	signature:(fixed_t value)
-fixedvec3_add	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_add(fixedvec3_t a, fixedvec3_t b) {$/;"	f	typeref:typename:fixedvec3_t	signature:(fixedvec3_t a,fixedvec3_t b)
-fixedvec3_add_planar	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_add_planar(fixedvec3_t position,$/;"	f	typeref:typename:fixedvec3_t	signature:(fixedvec3_t position,fixedvec3_t displacement)
-fixedvec3_from_fvec2	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_from_fvec2(fvec2_t value, fixed_t z) {$/;"	f	typeref:typename:fixedvec3_t	signature:(fvec2_t value,fixed_t z)
-fixedvec3_planar_delta	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_planar_delta(fvec2_t delta) {$/;"	f	typeref:typename:fixedvec3_t	signature:(fvec2_t delta)
-fixedvec3_planar_displacement	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_planar_displacement(fixedvec3_t from,$/;"	f	typeref:typename:fixedvec3_t	signature:(fixedvec3_t from,fixedvec3_t to)
-fixedvec3_t	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	t	typeref:struct:__anon9abd85c00408
-fixedvec3_with_xy	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_with_xy(fixedvec3_t value, fvec2_t xy) {$/;"	f	typeref:typename:fixedvec3_t	signature:(fixedvec3_t value,fvec2_t xy)
-fixedvec3_xy_to_fvec2	driver/m_vec.h	/^static inline fvec2_t fixedvec3_xy_to_fvec2(fixedvec3_t value) {$/;"	f	typeref:typename:fvec2_t	signature:(fixedvec3_t value)
-fixedvec3_zero	driver/m_vec.h	/^static inline fixedvec3_t fixedvec3_zero(void) {$/;"	f	typeref:typename:fixedvec3_t	signature:(void)
+fixed3_add	driver/m_vec.h	/^static inline fixed3_t fixed3_add(fixed3_t a, fixed3_t b) {$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t a,fixed3_t b)
+fixed3_add_planar	driver/m_vec.h	/^static inline fixed3_t fixed3_add_planar(fixed3_t position,$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t position,fixed3_t displacement)
+fixed3_from_fvec2	driver/m_vec.h	/^static inline fixed3_t fixed3_from_fvec2(fvec2_t value, fixed_t z) {$/;"	f	typeref:typename:fixed3_t	signature:(fvec2_t value,fixed_t z)
+fixed3_planar_delta	driver/m_vec.h	/^static inline fixed3_t fixed3_planar_delta(fvec2_t delta) {$/;"	f	typeref:typename:fixed3_t	signature:(fvec2_t delta)
+fixed3_planar_displacement	driver/m_vec.h	/^static inline fixed3_t fixed3_planar_displacement(fixed3_t from,$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t from,fixed3_t to)
+fixed3_t	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	t	typeref:struct:__anon9abd85c00408
+fixed3_with_xy	driver/m_vec.h	/^static inline fixed3_t fixed3_with_xy(fixed3_t value, fvec2_t xy) {$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t value,fvec2_t xy)
+fixed3_xy_to_fvec2	driver/m_vec.h	/^static inline fvec2_t fixed3_xy_to_fvec2(fixed3_t value) {$/;"	f	typeref:typename:fvec2_t	signature:(fixed3_t value)
+fixed3_zero	driver/m_vec.h	/^static inline fixed3_t fixed3_zero(void) {$/;"	f	typeref:typename:fixed3_t	signature:(void)
 flag	tools/dc_gamestat_gen.c	/^    int flag;$/;"	m	struct:__anon006eef8b0708	typeref:typename:int	file:
 flags	game/map.h	/^    uint32_t flags;$/;"	m	struct:mapextra_s	typeref:typename:uint32_t
 flags	play/actor.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -1744,8 +1744,8 @@ mobj_type_count	play/actor.h	/^    int mobj_type_count;$/;"	m	struct:gameinfo_s	
 mobjcore_s	play/actor.h	/^typedef struct mobjcore_s {$/;"	s
 mobjcore_s::angle	play/actor.h	/^    angle_t angle;$/;"	m	struct:mobjcore_s	typeref:typename:angle_t
 mobjcore_s::frame	play/actor.h	/^    int frame;$/;"	m	struct:mobjcore_s	typeref:typename:int
-mobjcore_s::momentum	play/actor.h	/^    fixedvec3_t momentum;$/;"	m	struct:mobjcore_s	typeref:typename:fixedvec3_t
-mobjcore_s::position	play/actor.h	/^    fixedvec3_t position;$/;"	m	struct:mobjcore_s	typeref:typename:fixedvec3_t
+mobjcore_s::momentum	play/actor.h	/^    fixed3_t momentum;$/;"	m	struct:mobjcore_s	typeref:typename:fixed3_t
+mobjcore_s::position	play/actor.h	/^    fixed3_t position;$/;"	m	struct:mobjcore_s	typeref:typename:fixed3_t
 mobjcore_s::render_flags	play/actor.h	/^    uint32_t render_flags;$/;"	m	struct:mobjcore_s	typeref:typename:uint32_t
 mobjcore_s::render_intensity	play/actor.h	/^    int render_intensity;$/;"	m	struct:mobjcore_s	typeref:typename:int
 mobjcore_s::render_offset	play/actor.h	/^    ivec2_t render_offset;$/;"	m	struct:mobjcore_s	typeref:typename:ivec2_t
@@ -1789,7 +1789,7 @@ model_emit_event	game/g_game.c	/^static void model_emit_event(void *user, int ty
 model_position_available	game/g_game.c	/^static bool model_position_available(const RtsGameModel *model, float gx, float gy,$/;"	f	typeref:typename:bool	file:	signature:(const RtsGameModel * model,float gx,float gy,float radius)
 model_position_walkable_only	game/g_game.c	/^static bool model_position_walkable_only(const RtsGameModel *model, float gx, float gy,$/;"	f	typeref:typename:bool	file:	signature:(const RtsGameModel * model,float gx,float gy,float radius)
 model_set_error	game/g_game.c	/^static void model_set_error(RtsGameModel *model, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model,const char * fmt,...)
-momentum	play/actor.h	/^    fixedvec3_t momentum;$/;"	m	struct:mobjcore_s	typeref:typename:fixedvec3_t
+momentum	play/actor.h	/^    fixed3_t momentum;$/;"	m	struct:mobjcore_s	typeref:typename:fixed3_t
 mouse	driver/app.h	/^    ivec2_t  mouse;$/;"	m	struct:app_s	typeref:typename:ivec2_t
 mouse_down	driver/app.h	/^    ivec2_t  mouse_down;$/;"	m	struct:app_s	typeref:typename:ivec2_t
 move_goal	game/g_game.h	/^    fvec2_t move_goal;$/;"	m	struct:__anon42a104c41008	typeref:typename:fvec2_t
@@ -1870,7 +1870,7 @@ poll_event_type	tests/dark-colony/test_game_model_headless.c	/^static bool poll_
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c40f08	typeref:typename:fvec2_t
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c41008	typeref:typename:fvec2_t
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c41108	typeref:typename:fvec2_t
-position	play/actor.h	/^    fixedvec3_t position;$/;"	m	struct:mobjcore_s	typeref:typename:fixedvec3_t
+position	play/actor.h	/^    fixed3_t position;$/;"	m	struct:mobjcore_s	typeref:typename:fixed3_t
 position_overlaps_reserved_goal	play/p_map.c	/^static bool position_overlaps_reserved_goal(const mobj_t *units, int unit_count, int self_index,$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * units,int unit_count,int self_index,float gx,float gy,float radius,uint32_t order_id)
 prerequisite_count	game/g_game.h	/^    int prerequisite_count;$/;"	m	struct:__anon42a104c40608	typeref:typename:int
 prerequisite_count	game/g_game.h	/^    int prerequisite_count;$/;"	m	struct:__anon42a104c41408	typeref:typename:int
@@ -2135,8 +2135,8 @@ sort_y	render/render_plan.h	/^    float sort_y;$/;"	m	struct:drawcommand_s	typer
 source	hud/ui_definition.h	/^    irect_t source;$/;"	m	struct:uiimage_s	typeref:typename:irect_t
 spawn_debug_enemy_unit	driver/d_main.c	/^static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,const app_t * app,mobj_t * units,int * unit_count,int sx,int sy)
 spawn_finished_model_product	game/g_game.c	/^static bool spawn_finished_model_product(RtsGameModel *model,$/;"	f	typeref:typename:bool	file:	signature:(RtsGameModel * model,const StaticProductDefinition * product,int producer_index)
-spawn_ground_light	play/p_mobj.c	/^static bool spawn_ground_light(effect_t *effects, int max_effects,$/;"	f	typeref:typename:bool	file:	signature:(effect_t * effects,int max_effects,fixedvec3_t position,int duration_ms,int radius)
-spawn_visual_effect	play/p_mobj.c	/^static bool spawn_visual_effect(effect_t *effects, int max_effects,$/;"	f	typeref:typename:bool	file:	signature:(effect_t * effects,int max_effects,const char * sprite_name,fixedvec3_t position,angle_t angle,int duration_ms,int frame_ms,bool fin_placement,bool add_decoration_on_finish,int decoration_frame_index)
+spawn_ground_light	play/p_mobj.c	/^static bool spawn_ground_light(effect_t *effects, int max_effects,$/;"	f	typeref:typename:bool	file:	signature:(effect_t * effects,int max_effects,fixed3_t position,int duration_ms,int radius)
+spawn_visual_effect	play/p_mobj.c	/^static bool spawn_visual_effect(effect_t *effects, int max_effects,$/;"	f	typeref:typename:bool	file:	signature:(effect_t * effects,int max_effects,const char * sprite_name,fixed3_t position,angle_t angle,int duration_ms,int frame_ms,bool fin_placement,bool add_decoration_on_finish,int decoration_frame_index)
 spawnhealth	play/actor.h	/^    int spawnhealth;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 spawnstate	play/actor.h	/^    int spawnstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 speed	play/actor.h	/^    float speed;$/;"	m	struct:actortype_s	typeref:typename:float
@@ -2447,17 +2447,17 @@ write_muzzle	tools/dc_info_gen.c	/^static void write_muzzle(FILE *out, const cha
 write_muzzle16	tools/dc_info_gen.c	/^static void write_muzzle16(FILE *out, const char *spr, int frame, const int offsets_x[16],$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,int frame,const int offsets_x[16],const int offsets_y[16])
 write_rotations	tools/dc_info_gen.c	/^static void write_rotations(FILE *out, int count, const int *directions,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,int count,const int * directions,const int * frames,const int * flags)
 write_source	tools/dc_info_gen.c	/^static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const SpriteEntry * sprites,int sprite_count,const char * root,const DcFinStateCounts * counts)
-x	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
+x	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
 x	driver/m_vec.h	/^typedef struct { float x, y; } fvec2_t;$/;"	m	struct:__anon9abd85c00208	typeref:typename:float
 x	driver/m_vec.h	/^typedef struct { int x, y; }   ivec2_t;$/;"	m	struct:__anon9abd85c00108	typeref:typename:int
 x	render/render_plan.h	/^            int x;$/;"	m	struct:drawcommand_s::__anonba488bd4030a::__anonba488bd40408	typeref:typename:int
 x	tests/test_dark_colony_sprite_layout.c	/^    int x;$/;"	m	struct:__anona4e7c35f0208	typeref:typename:int	file:
 x	tools/dc_info_gen.c	/^    int x;$/;"	m	struct:__anon292f5ac10408	typeref:typename:int	file:
 xdeathstate	play/actor.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
-y	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
+y	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
 y	driver/m_vec.h	/^typedef struct { float x, y; } fvec2_t;$/;"	m	struct:__anon9abd85c00208	typeref:typename:float
 y	driver/m_vec.h	/^typedef struct { int x, y; }   ivec2_t;$/;"	m	struct:__anon9abd85c00108	typeref:typename:int
 y	render/render_plan.h	/^            int y;$/;"	m	struct:drawcommand_s::__anonba488bd4030a::__anonba488bd40408	typeref:typename:int
 y	tests/test_dark_colony_sprite_layout.c	/^    int y;$/;"	m	struct:__anona4e7c35f0208	typeref:typename:int	file:
 y	tools/dc_info_gen.c	/^    int y;$/;"	m	struct:__anon292f5ac10408	typeref:typename:int	file:
-z	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixedvec3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
+z	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t

@@ -84,8 +84,8 @@ void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,
 }
 
 void R_MapPositionToScreen(const app_t *app, const level_t *map,
-                           fixedvec3_t position, float *sx, float *sy) {
-    fvec2_t planar = fixedvec3_xy_to_fvec2(position);
+                           fixed3_t position, float *sx, float *sy) {
+    fvec2_t planar = fixed3_xy_to_fvec2(position);
     R_MapToScreen(app, map, planar.x, planar.y, sx, sy);
     *sy -= fixed_to_float(position.z) * (float)app_cell_h(app);
 }
@@ -1246,7 +1246,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     }
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].hidden) continue;
-        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
         float sort_y = units[i].render_sort_y > 0.0f ?
             units[i].render_sort_y : position.y;
         sort_y = L_ScreenYF(map, sort_y);
@@ -1289,7 +1289,7 @@ static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *
 static void draw_ground_light(app_t *app, const level_t *map, const effect_t *effect) {
     if (!app || !map || !effect) return;
     float sx, sy;
-    fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
+    fvec2_t position = fixed3_xy_to_fvec2(effect->core.position);
     R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
     int radius = effect->light_radius > 0 ? effect->light_radius : 28;
     int duration = effect->duration_ms > 0 ? effect->duration_ms : 120;
@@ -1339,7 +1339,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
         }
 
         float sx, sy;
-        fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(effect->core.position);
         R_MapPositionToScreen(app, map, effect->core.position, &sx, &sy);
         int frame = effect->use_state || effect->fin_placement ?
             effect->core.frame : sprite_frame_for_effect(sprite, effect);
@@ -1461,7 +1461,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         units[i].harvest.timer_ms = 0;
                     }
                     fvec2_t target_position =
-                        fixedvec3_xy_to_fvec2(units[target].core.position);
+                        fixed3_xy_to_fvec2(units[target].core.position);
                     gx = target_position.x;
                     gy = target_position.y;
                 } else {

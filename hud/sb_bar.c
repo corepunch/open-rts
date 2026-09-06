@@ -97,7 +97,7 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
     }
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].hidden || units[i].remove || units[i].hp <= 0) continue;
-        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
         int x = rect.x + (int)(position.x * (float)rect.w / (float)map->width);
         int y = rect.y + (int)(L_ScreenYF(map, position.y) * (float)rect.h /
                               (float)map->height);

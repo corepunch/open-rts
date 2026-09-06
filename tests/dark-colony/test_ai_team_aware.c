@@ -117,13 +117,13 @@ static int assert_ai_detects_base(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 20 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 20 << 16, 0 };
 
     units[1].owner = 1;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_ENEMY;
     units[1].traits = MF_RESOURCE_BASE;
-    units[1].core.position = (fixedvec3_t){ 50 << 16, 60 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 50 << 16, 60 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 2, NULL, 16);
 
@@ -146,19 +146,19 @@ static int assert_ai_counts_units(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 11 << 16, 10 << 16, 0 };
 
     units[2].owner = 0;
     units[2].hp = 100;
     units[2].allegiance = ALLEGIANCE_PLAYER;
     units[2].traits = MF_HARVESTER | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+    units[2].core.position = (fixed3_t){ 12 << 16, 10 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 3, NULL, 16);
 
@@ -185,20 +185,20 @@ static int assert_ai_defense_rally(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 11 << 16, 10 << 16, 0 };
     units[1].movement.order_arrived = true;
 
     units[2].owner = 1;
     units[2].hp = 100;
     units[2].allegiance = ALLEGIANCE_ENEMY;
     units[2].traits = MF_ATTACK | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+    units[2].core.position = (fixed3_t){ 12 << 16, 10 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 3, NULL, 16);
 
@@ -220,13 +220,13 @@ static int assert_ai_attack_wave_timer(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 1;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_ENEMY;
     units[1].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 50 << 16, 50 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 50 << 16, 50 << 16, 0 };
 
     int timer_before = ctx.teams[0].attack_wave_timer_ms;
     P_AiTick(&ctx, &map, units, 2, NULL, 16);
@@ -253,26 +253,26 @@ static int assert_allegiance_targeting(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 11 << 16, 10 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 11 << 16, 10 << 16, 0 };
     units[1].movement.order_arrived = true;
 
     units[2].owner = 1;
     units[2].hp = 100;
     units[2].allegiance = ALLEGIANCE_ALLIED;
     units[2].traits = MF_ATTACK | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+    units[2].core.position = (fixed3_t){ 12 << 16, 10 << 16, 0 };
 
     units[3].owner = 2;
     units[3].hp = 100;
     units[3].allegiance = ALLEGIANCE_ENEMY;
     units[3].traits = MF_ATTACK | MF_MOBILE;
-    units[3].core.position = (fixedvec3_t){ 15 << 16, 10 << 16, 0 };
+    units[3].core.position = (fixed3_t){ 15 << 16, 10 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 4, NULL, 16);
 
@@ -310,13 +310,13 @@ static int assert_harvesting_assignment(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_HARVESTER | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 15 << 16, 15 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 15 << 16, 15 << 16, 0 };
     units[1].attack.target = -1;
     units[1].harvest.target = -1;
 
@@ -345,20 +345,20 @@ static int assert_defense_trigger(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 50 << 16, 50 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 50 << 16, 50 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 52 << 16, 50 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 52 << 16, 50 << 16, 0 };
     units[1].movement.order_arrived = true;
 
     units[2].owner = 2;
     units[2].hp = 100;
     units[2].allegiance = ALLEGIANCE_ENEMY;
     units[2].traits = MF_ATTACK | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 55 << 16, 50 << 16, 0 };
+    units[2].core.position = (fixed3_t){ 55 << 16, 50 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 3, NULL, 16);
 
@@ -385,26 +385,26 @@ static int assert_attack_wave_dispatch(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 0;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_PLAYER;
     units[1].traits = MF_ATTACK | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 12 << 16, 10 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 12 << 16, 10 << 16, 0 };
     units[1].movement.order_arrived = true;
 
     units[2].owner = 2;
     units[2].hp = 100;
     units[2].allegiance = ALLEGIANCE_ENEMY;
     units[2].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 80 << 16, 80 << 16, 0 };
+    units[2].core.position = (fixed3_t){ 80 << 16, 80 << 16, 0 };
 
     units[3].owner = 2;
     units[3].hp = 100;
     units[3].allegiance = ALLEGIANCE_ENEMY;
     units[3].traits = MF_ATTACK | MF_MOBILE;
-    units[3].core.position = (fixedvec3_t){ 82 << 16, 80 << 16, 0 };
+    units[3].core.position = (fixed3_t){ 82 << 16, 80 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 4, NULL, 16);
 
@@ -427,19 +427,19 @@ static int assert_allegiance_team_detection(void) {
     units[0].hp = 100;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[0].core.position = (fixedvec3_t){ 10 << 16, 10 << 16, 0 };
+    units[0].core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
     units[1].owner = 1;
     units[1].hp = 100;
     units[1].allegiance = ALLEGIANCE_ALLIED;
     units[1].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[1].core.position = (fixedvec3_t){ 30 << 16, 30 << 16, 0 };
+    units[1].core.position = (fixed3_t){ 30 << 16, 30 << 16, 0 };
 
     units[2].owner = 2;
     units[2].hp = 100;
     units[2].allegiance = ALLEGIANCE_ENEMY;
     units[2].traits = MF_RESOURCE_BASE | MF_MOBILE;
-    units[2].core.position = (fixedvec3_t){ 60 << 16, 60 << 16, 0 };
+    units[2].core.position = (fixed3_t){ 60 << 16, 60 << 16, 0 };
 
     P_AiTick(&ctx, &map, units, 3, NULL, 16);
 

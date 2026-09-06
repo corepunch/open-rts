@@ -895,7 +895,7 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         if (sscanf(hit, "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
             (void)object_id;
             if (gx >= 0 && gy >= 0) {
-                units[count].core.position = fixedvec3_from_fvec2(
+                units[count].core.position = fixed3_from_fvec2(
                     fvec2_cell_center((ivec2_t){ gx, gy }), 0);
                 units[count].speed = 5.5f;
                 units[count].owner = current_team >= 0 && current_team < 8 ?
@@ -959,7 +959,7 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         }
         if (have_start && associated_type[0] != '\0') {
             mobj_t *unit = &units[count];
-            unit->core.position = fixedvec3_from_fvec2((fvec2_t){
+            unit->core.position = fixed3_from_fvec2((fvec2_t){
                 (float)start_x / 24.0f,
                 (float)start_y / 24.0f,
             }, 0);

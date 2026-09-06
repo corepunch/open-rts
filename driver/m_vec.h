@@ -12,7 +12,7 @@ typedef struct { float x, y; } fvec2_t;
 typedef struct { int w, h; }   isize2_t;
 
 typedef int32_t fixed_t;
-typedef struct { fixed_t x, y, z; } fixedvec3_t;
+typedef struct { fixed_t x, y, z; } fixed3_t;
 
 enum {
     FIXED_FRAC_BITS = 16,
@@ -72,46 +72,46 @@ static inline fixed_t fixed_sub_saturated(fixed_t a, fixed_t b) {
     return (fixed_t)difference;
 }
 
-static inline fixedvec3_t fixedvec3_from_fvec2(fvec2_t value, fixed_t z) {
-    return (fixedvec3_t){ fixed_from_float(value.x), fixed_from_float(value.y), z };
+static inline fixed3_t fixed3_from_fvec2(fvec2_t value, fixed_t z) {
+    return (fixed3_t){ fixed_from_float(value.x), fixed_from_float(value.y), z };
 }
 
-static inline fvec2_t fixedvec3_xy_to_fvec2(fixedvec3_t value) {
+static inline fvec2_t fixed3_xy_to_fvec2(fixed3_t value) {
     return (fvec2_t){ fixed_to_float(value.x), fixed_to_float(value.y) };
 }
 
-static inline fixedvec3_t fixedvec3_add(fixedvec3_t a, fixedvec3_t b) {
-    return (fixedvec3_t){
+static inline fixed3_t fixed3_add(fixed3_t a, fixed3_t b) {
+    return (fixed3_t){
         fixed_add_saturated(a.x, b.x),
         fixed_add_saturated(a.y, b.y),
         fixed_add_saturated(a.z, b.z),
     };
 }
 
-static inline fixedvec3_t fixedvec3_zero(void) {
-    return (fixedvec3_t){ 0, 0, 0 };
+static inline fixed3_t fixed3_zero(void) {
+    return (fixed3_t){ 0, 0, 0 };
 }
 
-static inline fixedvec3_t fixedvec3_planar_delta(fvec2_t delta) {
-    return fixedvec3_from_fvec2(delta, 0);
+static inline fixed3_t fixed3_planar_delta(fvec2_t delta) {
+    return fixed3_from_fvec2(delta, 0);
 }
 
-static inline fixedvec3_t fixedvec3_add_planar(fixedvec3_t position,
-                                                fixedvec3_t displacement) {
-    return (fixedvec3_t){
+static inline fixed3_t fixed3_add_planar(fixed3_t position,
+                                                fixed3_t displacement) {
+    return (fixed3_t){
         fixed_add_saturated(position.x, displacement.x),
         fixed_add_saturated(position.y, displacement.y),
         position.z,
     };
 }
 
-static inline fixedvec3_t fixedvec3_with_xy(fixedvec3_t value, fvec2_t xy) {
-    return (fixedvec3_t){ fixed_from_float(xy.x), fixed_from_float(xy.y), value.z };
+static inline fixed3_t fixed3_with_xy(fixed3_t value, fvec2_t xy) {
+    return (fixed3_t){ fixed_from_float(xy.x), fixed_from_float(xy.y), value.z };
 }
 
-static inline fixedvec3_t fixedvec3_planar_displacement(fixedvec3_t from,
-                                                         fixedvec3_t to) {
-    return (fixedvec3_t){
+static inline fixed3_t fixed3_planar_displacement(fixed3_t from,
+                                                         fixed3_t to) {
+    return (fixed3_t){
         fixed_sub_saturated(to.x, from.x),
         fixed_sub_saturated(to.y, from.y),
         0,

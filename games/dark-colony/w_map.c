@@ -1212,7 +1212,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     int render_x_pos = 0, render_z_pos = 0;
     object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
-    u->core.position = fixedvec3_from_fvec2((fvec2_t){
+    u->core.position = fixed3_from_fvec2((fvec2_t){
         fixed_to_cell(render_x_pos),
         fixed_to_cell(render_z_pos),
     }, 0);

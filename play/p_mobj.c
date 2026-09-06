@@ -37,7 +37,7 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
             state_id >= game_info->state_count) {
             unit->core.state_id = game_info->null_state;
             unit->core.tics = 0;
-            unit->core.momentum = fixedvec3_zero();
+            unit->core.momentum = fixed3_zero();
             unit->remove = true;
             return false;
         }
@@ -188,8 +188,8 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
     if (preferred >= 0 && preferred < unit_count) {
         const mobj_t *target = &units[preferred];
         if (!target->remove && target->hp > 0 && !P_IsAlly(attacker, target)) {
-            if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(target->core.position),
-                                       fixedvec3_xy_to_fvec2(attacker->core.position)) <=
+            if (fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
+                                       fixed3_xy_to_fvec2(attacker->core.position)) <=
                 attacker->attack.range * attacker->attack.range) {
                 if (target_index_out) *target_index_out = preferred;
                 return true;
@@ -206,8 +206,8 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
             continue;
         }
         float dist2 = fvec2_distance_squared(
-            fixedvec3_xy_to_fvec2(candidate->core.position),
-            fixedvec3_xy_to_fvec2(attacker->core.position));
+            fixed3_xy_to_fvec2(candidate->core.position),
+            fixed3_xy_to_fvec2(attacker->core.position));
         if (dist2 <= best_dist2) {
             best_dist2 = dist2;
             best = i;
@@ -220,7 +220,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
 
 static bool spawn_visual_effect(effect_t *effects, int max_effects,
                                 const char *sprite_name,
-                                fixedvec3_t position, angle_t angle, int duration_ms,
+                                fixed3_t position, angle_t angle, int duration_ms,
                                 int frame_ms, bool fin_placement,
                                 bool add_decoration_on_finish,
                                 int decoration_frame_index) {
@@ -242,7 +242,7 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
         effect->decoration_frame_index = decoration_frame_index;
         effect->add_decoration_on_finish = add_decoration_on_finish;
         snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name), "%s", sprite_name);
-        fvec2_t position_xy = fixedvec3_xy_to_fvec2(position);
+        fvec2_t position_xy = fixed3_xy_to_fvec2(position);
         debug_effects_log("spawn slot=%d sprite=%s pos=%.2f,%.2f facing=%d duration=%d frame_ms=%d corpse=%d",
                           i, effect->core.sprite_name,
                           position_xy.x, position_xy.y,
@@ -256,7 +256,7 @@ static bool spawn_visual_effect(effect_t *effects, int max_effects,
 }
 
 static bool spawn_ground_light(effect_t *effects, int max_effects,
-                               fixedvec3_t position, int duration_ms, int radius) {
+                               fixed3_t position, int duration_ms, int radius) {
     if (!effects || max_effects <= 0) return false;
     for (int i = 0; i < max_effects; ++i) {
         effect_t *effect = &effects[i];
@@ -272,7 +272,7 @@ static bool spawn_ground_light(effect_t *effects, int max_effects,
     return false;
 }
 
-bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixedvec3_t position, angle_t angle) {
+bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixed3_t position, angle_t angle) {
     if (!ctx || !ctx->effects || ctx->max_effects <= 0 || !ctx->game_info) return false;
     for (int i = 0; i < ctx->max_effects; ++i) {
         effect_t *effect = &ctx->effects[i];
@@ -303,7 +303,7 @@ static void add_effect_finish_decoration(level_t *map, const effect_t *effect) {
     map->decorations = decorations;
     mapdecoration_t *dec = &map->decorations[map->decoration_count++];
     memset(dec, 0, sizeof(*dec));
-    fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
+    fvec2_t position = fixed3_xy_to_fvec2(effect->core.position);
     dec->cell = (ivec2_t){ (int)floorf(position.x), (int)floorf(position.y) };
     dec->footprint = (isize2_t){ 1, 1 };
     dec->center_anchor = true;
@@ -327,7 +327,7 @@ bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit) {
     ctx->map->decorations = decorations;
     mapdecoration_t *dec = &ctx->map->decorations[ctx->map->decoration_count++];
     memset(dec, 0, sizeof(*dec));
-    fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
+    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
     dec->cell = (ivec2_t){ (int)floorf(position.x), (int)floorf(position.y) };
     dec->footprint = (isize2_t){ 1, 1 };
     dec->center_anchor = true;
@@ -354,8 +354,8 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
             if (candidate == attacker || candidate->hp <= 0 || P_IsAlly(attacker, candidate))
                 continue;
             float dist2 = fvec2_distance_squared(
-                fixedvec3_xy_to_fvec2(candidate->core.position),
-                fixedvec3_xy_to_fvec2(attacker->core.position));
+                fixed3_xy_to_fvec2(candidate->core.position),
+                fixed3_xy_to_fvec2(attacker->core.position));
             if (dist2 <= best_dist2) {
                 best_dist2 = dist2;
                 target_index = i;
@@ -402,7 +402,7 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
         target->movement.order_arrived = false;
         target->harvest.target = -1;
         target->harvest.timer_ms = 0;
-        target->core.momentum = fixedvec3_zero();
+        target->core.momentum = fixed3_zero();
         if (ctx->game_info && target->type_id > 0 &&
             target->type_id < ctx->game_info->mobj_type_count) {
             int deathstate = ctx->game_info->mobjinfo[target->type_id].deathstate;
@@ -433,8 +433,8 @@ void A_Walk(statecontext_t *ctx, mobj_t *unit) {
         if (candidate == unit || candidate->remove || candidate->hp <= 0 ||
             P_IsAlly(unit, candidate)) continue;
         float dist2 = fvec2_distance_squared(
-            fixedvec3_xy_to_fvec2(candidate->core.position),
-            fixedvec3_xy_to_fvec2(unit->core.position));
+            fixed3_xy_to_fvec2(candidate->core.position),
+            fixed3_xy_to_fvec2(unit->core.position));
         if (dist2 <= best_dist2) {
             best_dist2 = dist2;
             target = i;
@@ -443,8 +443,8 @@ void A_Walk(statecontext_t *ctx, mobj_t *unit) {
     if (target < 0) return;
     unit->attack.target = target;
     fvec2_t delta = fvec2_sub(
-        fixedvec3_xy_to_fvec2(ctx->mobjs[target].core.position),
-        fixedvec3_xy_to_fvec2(unit->core.position));
+        fixed3_xy_to_fvec2(ctx->mobjs[target].core.position),
+        fixed3_xy_to_fvec2(unit->core.position));
     unit->core.angle = angle_from_map_vector(ctx->map, delta.x, delta.y);
     int attack_state = ctx->game_info->mobjinfo[unit->type_id].missilestate;
     if (attack_state != ctx->game_info->null_state)
@@ -488,8 +488,8 @@ static void separate_units(const level_t *map, mobj_t *units, int count) {
                 mobj_t *b = &units[j];
                 if (b->remove || b->hp <= 0 || (b->traits & MF_MOBILE) == 0) continue;
                 float min_dist = P_MobjRadius(a) + P_MobjRadius(b);
-                fvec2_t a_position = fixedvec3_xy_to_fvec2(a->core.position);
-                fvec2_t b_position = fixedvec3_xy_to_fvec2(b->core.position);
+                fvec2_t a_position = fixed3_xy_to_fvec2(a->core.position);
+                fvec2_t b_position = fixed3_xy_to_fvec2(b->core.position);
                 fvec2_t delta = fvec2_sub(b_position, a_position);
                 float dist2 = fvec2_length_squared(delta);
                 if (dist2 >= min_dist * min_dist) continue;
@@ -504,20 +504,20 @@ static void separate_units(const level_t *map, mobj_t *units, int count) {
                 fvec2_t separated_a = fvec2_sub(a_position, separation);
                 fvec2_t separated_b = fvec2_add(b_position, separation);
                 if (P_CheckPosition(map, a, separated_a.x, separated_a.y)) {
-                    fixedvec3_t before = a->core.position;
-                    a->core.position = fixedvec3_with_xy(a->core.position, separated_a);
+                    fixed3_t before = a->core.position;
+                    a->core.position = fixed3_with_xy(a->core.position, separated_a);
                     P_ClampToLevel(map, a);
-                    a->core.momentum = fixedvec3_add(
+                    a->core.momentum = fixed3_add(
                         a->core.momentum,
-                        fixedvec3_planar_displacement(before, a->core.position));
+                        fixed3_planar_displacement(before, a->core.position));
                 }
                 if (P_CheckPosition(map, b, separated_b.x, separated_b.y)) {
-                    fixedvec3_t before = b->core.position;
-                    b->core.position = fixedvec3_with_xy(b->core.position, separated_b);
+                    fixed3_t before = b->core.position;
+                    b->core.position = fixed3_with_xy(b->core.position, separated_b);
                     P_ClampToLevel(map, b);
-                    b->core.momentum = fixedvec3_add(
+                    b->core.momentum = fixed3_add(
                         b->core.momentum,
-                        fixedvec3_planar_displacement(before, b->core.position));
+                        fixed3_planar_displacement(before, b->core.position));
                 }
             }
         }
@@ -527,46 +527,46 @@ static void separate_units(const level_t *map, mobj_t *units, int count) {
 static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
                                   fvec2_t displacement) {
     if (!unit) return false;
-    fixedvec3_t momentum = fixedvec3_planar_delta(displacement);
+    fixed3_t momentum = fixed3_planar_delta(displacement);
     if (unit->traits & MF_FLY) {
         unit->core.momentum = momentum;
-        unit->core.position = fixedvec3_add_planar(unit->core.position,
+        unit->core.position = fixed3_add_planar(unit->core.position,
                                                    unit->core.momentum);
         return true;
     }
-    fixedvec3_t candidate = fixedvec3_add_planar(unit->core.position, momentum);
-    fvec2_t candidate_xy = fixedvec3_xy_to_fvec2(candidate);
+    fixed3_t candidate = fixed3_add_planar(unit->core.position, momentum);
+    fvec2_t candidate_xy = fixed3_xy_to_fvec2(candidate);
     if (P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
         unit->core.momentum = momentum;
-        unit->core.position = fixedvec3_add_planar(unit->core.position,
+        unit->core.position = fixed3_add_planar(unit->core.position,
                                                    unit->core.momentum);
         return true;
     }
     momentum.y = 0;
-    candidate = fixedvec3_add_planar(unit->core.position, momentum);
-    candidate_xy = fixedvec3_xy_to_fvec2(candidate);
+    candidate = fixed3_add_planar(unit->core.position, momentum);
+    candidate_xy = fixed3_xy_to_fvec2(candidate);
     if (momentum.x != 0 && P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
         unit->core.momentum = momentum;
-        unit->core.position = fixedvec3_add_planar(unit->core.position,
+        unit->core.position = fixed3_add_planar(unit->core.position,
                                                    unit->core.momentum);
         return true;
     }
-    momentum = fixedvec3_planar_delta((fvec2_t){ 0.0f, displacement.y });
-    candidate = fixedvec3_add_planar(unit->core.position, momentum);
-    candidate_xy = fixedvec3_xy_to_fvec2(candidate);
+    momentum = fixed3_planar_delta((fvec2_t){ 0.0f, displacement.y });
+    candidate = fixed3_add_planar(unit->core.position, momentum);
+    candidate_xy = fixed3_xy_to_fvec2(candidate);
     if (momentum.y != 0 && P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
         unit->core.momentum = momentum;
-        unit->core.position = fixedvec3_add_planar(unit->core.position,
+        unit->core.position = fixed3_add_planar(unit->core.position,
                                                    unit->core.momentum);
         return true;
     }
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
     return false;
 }
 
 bool P_MoveMobjToward(const level_t *map, mobj_t *unit, float dt) {
     if (!unit) return true;
-    fvec2_t pos = fixedvec3_xy_to_fvec2(unit->core.position);
+    fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
     fvec2_t delta = fvec2_sub(unit->movement.goal, pos);
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist < 0.001f) return true;
@@ -605,11 +605,11 @@ static bool final_goal_reaches_arrived_order_cluster(const mobj_t *units, int co
         if (!other->movement.order_arrived) continue;
 
         float min_dist = radius + P_MobjRadius(other);
-        fvec2_t other_position = fixedvec3_xy_to_fvec2(other->core.position);
+        fvec2_t other_position = fixed3_xy_to_fvec2(other->core.position);
         float goal_dist2 = fvec2_distance_squared(other_position,
                                                   (fvec2_t){ tx, ty });
         float unit_dist2 = fvec2_distance_squared(
-            other_position, fixedvec3_xy_to_fvec2(unit->core.position));
+            other_position, fixed3_xy_to_fvec2(unit->core.position));
         float contact_dist = min_dist + 0.20f;
         if (goal_dist2 < min_dist * min_dist &&
             dist_to_goal <= contact_dist) {
@@ -672,7 +672,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     resourcevent_t *vent = &map->resource_vents[unit->harvest.target];
     if (unit->harvest.phase == HARVEST_PHASE_TO_BASE) {
         if (fvec2_distance_squared(unit->harvest.return_position,
-                                   fixedvec3_xy_to_fvec2(unit->core.position)) > 1.0f) return false;
+                                   fixed3_xy_to_fvec2(unit->core.position)) > 1.0f) return false;
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
         map->player_resources[owner][rtype] += unit->harvest.cargo;
@@ -690,7 +690,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     }
     if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
         fvec2_t att_delta = fvec2_sub(
-            vent->attachment, fixedvec3_xy_to_fvec2(unit->core.position));
+            vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
         if (fvec2_length_squared(att_delta) > 0.000001f) {
             angle_t desired = angle_from_map_vector(map, att_delta.x, att_delta.y);
             if (angle_distance(desired, unit->core.angle) >= ANG45 / 8u) {
@@ -718,7 +718,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
             for (int i = 0; i < unit_count; ++i) {
                 if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                     (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
-                fvec2_t base_position = fixedvec3_xy_to_fvec2(units[i].core.position);
+                fvec2_t base_position = fixed3_xy_to_fvec2(units[i].core.position);
                 unit->harvest.return_position = base_position;
                 if (P_MoveUnitTo(map, unit, base_position)) {
                     unit->harvest.return_position = unit->movement.goal;
@@ -734,7 +734,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     }
 
     fvec2_t attachment_delta = fvec2_sub(
-        vent->attachment, fixedvec3_xy_to_fvec2(unit->core.position));
+        vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
     if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
     if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
@@ -743,7 +743,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     unit->movement.path_len = 0;
     unit->movement.path_index = 0;
     unit->movement.order_arrived = true;
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
     unit->attack.target = -1;
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
         unit->harvest.phase != HARVEST_PHASE_TURNING) {
@@ -767,7 +767,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
             for (int i = 0; i < unit_count; ++i) {
                 if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                     (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
-                fvec2_t base_position = fixedvec3_xy_to_fvec2(units[i].core.position);
+                fvec2_t base_position = fixed3_xy_to_fvec2(units[i].core.position);
                 unit->harvest.return_position = base_position;
                 sent_home = P_MoveUnitTo(map, unit, base_position);
                 if (sent_home) {
@@ -787,7 +787,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
                 for (int i = 0; i < unit_count; ++i) {
                     if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                         (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
-                    fvec2_t base_position = fixedvec3_xy_to_fvec2(units[i].core.position);
+                    fvec2_t base_position = fixed3_xy_to_fvec2(units[i].core.position);
                     unit->harvest.return_position = base_position;
                     if (P_MoveUnitTo(map, unit, base_position)) {
                         unit->harvest.return_position = unit->movement.goal;
@@ -825,7 +825,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
         for (int i = 0; i < count; ++i) {
             mobj_t *u = &units[i];
-            u->core.momentum = fixedvec3_zero();
+            u->core.momentum = fixed3_zero();
             if (u->remove) continue;
             if (u->core.state_id <= 0) P_SpawnMobj(game_info, u);
             P_TickMobjState(&ctx, u);
@@ -846,8 +846,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                         u->attack.target = stop_target;
                         mobj_t *target = &units[stop_target];
                         fvec2_t target_delta = fvec2_sub(
-                            fixedvec3_xy_to_fvec2(target->core.position),
-                            fixedvec3_xy_to_fvec2(u->core.position));
+                            fixed3_xy_to_fvec2(target->core.position),
+                            fixed3_xy_to_fvec2(u->core.position));
                         u->core.angle = angle_from_map_vector(map,
                                                          target_delta.x,
                                                          target_delta.y);
@@ -865,7 +865,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 fvec2_t target = final ? u->movement.goal :
                     fvec2_cell_center((ivec2_t){ c.x, c.y });
                 fvec2_t delta = fvec2_sub(
-                    target, fixedvec3_xy_to_fvec2(u->core.position));
+                    target, fixed3_xy_to_fvec2(u->core.position));
                 float dist = sqrtf(fvec2_length_squared(delta));
                 if (dist >= 0.001f) {
                     angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
@@ -888,11 +888,11 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 fvec2_t target = final ? u->movement.goal :
                     fvec2_cell_center((ivec2_t){ c.x, c.y });
                 fvec2_t delta = fvec2_sub(
-                    target, fixedvec3_xy_to_fvec2(u->core.position));
+                    target, fixed3_xy_to_fvec2(u->core.position));
                 float dist = sqrtf(fvec2_length_squared(delta));
                 if (final && final_goal_reaches_arrived_order_cluster(
                         units, count, i, target.x, target.y, dist)) {
-                    u->movement.goal = fixedvec3_xy_to_fvec2(u->core.position);
+                    u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
                     u->movement.path_len = 0;
                     u->movement.path_index = 0;
                     u->movement.order_arrived = true;
@@ -930,7 +930,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
             if (update_unit_harvest(map, units, count, u, dt_ms, game_info)) {
                 moving = false;
-                u->core.momentum = fixedvec3_zero();
+                u->core.momentum = fixed3_zero();
             }
 
             if (u->type_id > 0 && u->type_id < game_info->mobj_type_count) {
@@ -969,7 +969,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
     int dt_ms = (int)lroundf(dt * 1000.0f);
     for (int i = 0; i < count; ++i) {
         mobj_t *u = &units[i];
-        u->core.momentum = fixedvec3_zero();
+        u->core.momentum = fixed3_zero();
         if (u->hp <= 0) {
             continue;
         }
@@ -987,8 +987,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 u->attack.target = stop_target;
                 mobj_t *target = &units[stop_target];
                 fvec2_t target_delta = fvec2_sub(
-                    fixedvec3_xy_to_fvec2(target->core.position),
-                    fixedvec3_xy_to_fvec2(u->core.position));
+                    fixed3_xy_to_fvec2(target->core.position),
+                    fixed3_xy_to_fvec2(u->core.position));
                 u->core.angle = angle_from_map_vector(map,
                                             target_delta.x, target_delta.y);
                 u->movement.path_len = 0;
@@ -1005,11 +1005,11 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         fvec2_t target = final ? u->movement.goal :
             fvec2_cell_center((ivec2_t){ c.x, c.y });
         fvec2_t delta = fvec2_sub(
-            target, fixedvec3_xy_to_fvec2(u->core.position));
+            target, fixed3_xy_to_fvec2(u->core.position));
         float dist = sqrtf(fvec2_length_squared(delta));
         if (final && final_goal_reaches_arrived_order_cluster(
                 units, count, i, target.x, target.y, dist)) {
-            u->movement.goal = fixedvec3_xy_to_fvec2(u->core.position);
+            u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
             u->movement.path_len = 0;
             u->movement.path_index = 0;
             u->movement.order_arrived = true;
@@ -1057,8 +1057,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         for (int j = 0; j < count; ++j) {
             if (i == j || units[j].hp <= 0 || P_IsAlly(attacker, &units[j])) continue;
             float dist2 = fvec2_distance_squared(
-                fixedvec3_xy_to_fvec2(units[j].core.position),
-                fixedvec3_xy_to_fvec2(attacker->core.position));
+                fixed3_xy_to_fvec2(units[j].core.position),
+                fixed3_xy_to_fvec2(attacker->core.position));
             if (dist2 <= best_dist2) {
                 best_dist2 = dist2;
                 target_index = j;
@@ -1069,8 +1069,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
         mobj_t *target = &units[target_index];
         fvec2_t target_delta = fvec2_sub(
-            fixedvec3_xy_to_fvec2(target->core.position),
-            fixedvec3_xy_to_fvec2(attacker->core.position));
+            fixed3_xy_to_fvec2(target->core.position),
+            fixed3_xy_to_fvec2(attacker->core.position));
         attacker->core.angle = angle_from_map_vector(map,
                      target_delta.x, target_delta.y);
         if (attacker->attack.cooldown_left_ms > 0) continue;
@@ -1133,7 +1133,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             target->harvest.timer_ms = 0;
             target->attack.cooldown_left_ms = 0;
             target->attack.anim_left_ms = 0;
-            target->core.momentum = fixedvec3_zero();
+            target->core.momentum = fixed3_zero();
             target->death_started = true;
             if (target->death_effect_action && !target->hidden) {
                 statecontext_t death_ctx = {

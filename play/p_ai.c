@@ -37,7 +37,7 @@ static bool find_friendly_base(const AiTeamState *team, const mobj_t *units,
         if (u->hp <= 0 || u->remove) continue;
         if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
         if ((u->traits & MF_RESOURCE_BASE) == 0) continue;
-        *out_position = fixedvec3_xy_to_fvec2(u->core.position);
+        *out_position = fixed3_xy_to_fvec2(u->core.position);
         return true;
     }
     return false;
@@ -143,7 +143,7 @@ static void ai_tick_defense(AiTeamState *team,
             if (defender->harvest.phase != HARVEST_PHASE_NONE) continue;
             if (defender->movement.order_arrived) {
                 defender->attack.target = i;
-                fvec2_t enemy_pos = fixedvec3_xy_to_fvec2(enemy->core.position);
+                fvec2_t enemy_pos = fixed3_xy_to_fvec2(enemy->core.position);
                 P_MoveUnitTo(map, defender, enemy_pos);
             }
         }
@@ -177,7 +177,7 @@ static void ai_tick_attack_waves(AiTeamState *team,
     }
     if (enemy_base < 0) return;
 
-    fvec2_t target = fixedvec3_xy_to_fvec2(units[enemy_base].core.position);
+    fvec2_t target = fixed3_xy_to_fvec2(units[enemy_base].core.position);
     int dispatched = 0;
     for (int i = 0; i < unit_count && dispatched < AI_ATTACK_WAVE_MAX_SIZE; ++i) {
         mobj_t *u = &units[i];
@@ -211,7 +211,7 @@ void P_AiTick(AiContext *ctx, level_t *map, mobj_t *units, int unit_count,
             if (team->allegiance == ALLEGIANCE_NEUTRAL)
                 team->allegiance = u->allegiance;
             if ((u->traits & MF_RESOURCE_BASE) != 0) {
-                team->base_position = fixedvec3_xy_to_fvec2(u->core.position);
+                team->base_position = fixed3_xy_to_fvec2(u->core.position);
                 team->has_base = true;
             }
             if ((u->traits & MF_ATTACK) != 0) team->combat_unit_count++;

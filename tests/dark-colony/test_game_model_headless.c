@@ -865,7 +865,7 @@ static int assert_fixed_momentum_semantics(void) {
 
     level_t map = { .width = 16, .height = 16 };
     mobj_t unit = { 0 };
-    unit.core.position = fixedvec3_from_fvec2((fvec2_t){ 2.25f, 3.5f },
+    unit.core.position = fixed3_from_fvec2((fvec2_t){ 2.25f, 3.5f },
                                               fixed_from_float(7.0f));
     unit.speed = 3.0f;
     unit.hp = 1;
@@ -879,7 +879,7 @@ static int assert_fixed_momentum_semantics(void) {
     unit.movement.path_len = 2;
     unit.movement.path_index = 1;
 
-    fixedvec3_t before = unit.core.position;
+    fixed3_t before = unit.core.position;
     int unit_count = 1;
     P_Ticker(&map, &unit, &unit_count, NULL, 0, NULL, 1.0f / 30.0f);
     if (unit_count != 1 || unit.core.momentum.x == 0 || unit.core.momentum.y != 0 ||

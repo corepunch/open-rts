@@ -52,7 +52,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     if (!L_Contains(map, cell.x, cell.y)) return false;
     mobj_t *unit = &units[*unit_count];
     memset(unit, 0, sizeof(*unit));
-    unit->core.position = fixedvec3_from_fvec2(
+    unit->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ cell.x, cell.y }), 0);
     unit->owner = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
@@ -68,7 +68,7 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
-        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
         R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
         app->cam.x += (float)app->win.w * 0.5f - sx;
         app->cam.y += (float)app->win.h * 0.5f - sy;
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
         int cy = map.height / 2;
         const actortype_t *fallback_type = num_mobjinfo > 0 ? (const actortype_t *)mobjinfo : NULL;
         for (int i = 0; i < unit_count; ++i) {
-            units[i].core.position = fixedvec3_from_fvec2(fvec2_cell_center(
+            units[i].core.position = fixed3_from_fvec2(fvec2_cell_center(
                 (ivec2_t){ cx + i % 3, cy + i / 3 }), 0);
             units[i].owner = 0;
             units[i].selected = i == 0;
@@ -200,7 +200,7 @@ int main(int argc, char **argv) {
     }
 
     if (!focus_camera_on_map_start(&app, &map)) {
-        fvec2_t position = unit_count > 0 ? fixedvec3_xy_to_fvec2(units[0].core.position) :
+        fvec2_t position = unit_count > 0 ? fixed3_xy_to_fvec2(units[0].core.position) :
             (fvec2_t){ (float)map.width * 0.5f, (float)map.height * 0.5f };
         float focus_gx = position.x;
         float focus_gy = position.y;

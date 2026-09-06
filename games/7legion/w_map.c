@@ -183,7 +183,7 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
     for (int i = 0; i < troop_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
-        unit->core.position = fixedvec3_from_fvec2(fvec2_cell_center(
+        unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
             (ivec2_t){ mission.start_x - 6 + i * 2, mission.start_y - 1 }), 0);
         unit->owner = 0;
         unit->type_id = 1;
@@ -192,7 +192,7 @@ int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
     for (int i = 0; i < base_count && count < max_units; ++i) {
         mobj_t *unit = &units[count++];
         memset(unit, 0, sizeof(*unit));
-        unit->core.position = fixedvec3_from_fvec2(fvec2_cell_center(
+        unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
             (ivec2_t){ mission.start_x + 4 + i * 2, mission.start_y + 1 }), 0);
         unit->owner = 0;
         unit->type_id = 7;

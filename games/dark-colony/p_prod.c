@@ -317,7 +317,7 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
     }
     if (!saw_release_trooper) return false;
 
-    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    fvec2_t producer_position = fixed3_xy_to_fvec2(producer->core.position);
     *out_gx = producer_position.x + (float)(release_x - stand_x) / (float)CELL_W;
     *out_gy = producer_position.y - (float)(release_y - stand_y) / (float)CELL_H;
     return true;
@@ -532,7 +532,7 @@ static bool dc_position_available_for_spawn(const level_t *map, const mobj_t *un
         if (other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
-        if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(other->core.position),
+        if (fvec2_distance_squared(fixed3_xy_to_fvec2(other->core.position),
                                    (fvec2_t){ gx, gy }) <
             min_dist * min_dist) return false;
     }
@@ -564,7 +564,7 @@ static bool dc_find_spawn_position_near(const level_t *map, const mobj_t *units,
                                         float radius, float *out_gx,
                                         float *out_gy) {
     if (!map || !units || !producer || !out_gx || !out_gy) return false;
-    fvec2_t producer_position = fixedvec3_xy_to_fvec2(producer->core.position);
+    fvec2_t producer_position = fixed3_xy_to_fvec2(producer->core.position);
     int origin_x = (int)floorf(producer_position.x);
     int origin_y = (int)floorf(producer_position.y);
     static const int preferred[][2] = {
@@ -618,14 +618,14 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
             continue;
         }
         if (i == spawned_index ||
-            fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
+            fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
                                    (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
             unit->selected = true;
         }
     }
 
     fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
-                             fixedvec3_xy_to_fvec2(producer->core.position));
+                             fixed3_xy_to_fvec2(producer->core.position));
     float len = sqrtf(fvec2_length_squared(delta));
     if (len < 0.01f) {
         delta = (fvec2_t){ 0.0f, -1.0f };
@@ -706,7 +706,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
                                             radius, &gx, &gy)) {
         return false;
     }
-    new_unit.core.position = fixedvec3_from_fvec2((fvec2_t){ gx, gy }, 0);
+    new_unit.core.position = fixed3_from_fvec2((fvec2_t){ gx, gy }, 0);
     int spawned_index = *unit_count;
     units[(*unit_count)++] = new_unit;
     if (use_barracks_release)

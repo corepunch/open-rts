@@ -32,7 +32,7 @@ static int assert_attack_lifecycle(void) {
     units[0].muzzle_flash_ms = 120;
     snprintf(units[0].muzzle_flash_name, sizeof(units[0].muzzle_flash_name), "SPRITES/BLAZ.SPR");
     snprintf(units[0].core.sprite_name, sizeof(units[0].core.sprite_name), "SPRITES/TRSC.SPR");
-    units[0].core.position = fixedvec3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0);
+    units[0].core.position = fixed3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0);
 
     units[1] = units[0];
     units[1].owner = 1;

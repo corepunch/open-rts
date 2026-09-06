@@ -128,7 +128,7 @@ individual x/y or w/h components when a struct literal, assignment, or helper
 function would be shorter and more expressive.
 
 **Don't work with components; work with utility functions.** Operations on
-`fvec2_t`, `fixedvec3_t`, `ivec2_t`, and `isize2_t` should use whole-value
+`fvec2_t`, `fixed3_t`, `ivec2_t`, and `isize2_t` should use whole-value
 helpers instead of open-coding arithmetic on their individual components.
 
 **Canonical types** (in `driver/m_vec.h`):
@@ -137,7 +137,7 @@ helpers instead of open-coding arithmetic on their individual components.
 |---|---|---|
 | `ivec2_t` | `int x, y` | integer 2-D point (mouse, tile coords) |
 | `fvec2_t` | `float x, y` | float 2-D vector (camera position, velocity) |
-| `fixedvec3_t` | `fixed_t x, y, z` | signed 32-bit 16.16 object position or momentum |
+| `fixed3_t` | `fixed_t x, y, z` | signed 32-bit 16.16 object position or momentum |
 | `isize2_t` | `int w, h` | integer extent (window size, cell size) |
 
 **Rules:**
@@ -145,7 +145,7 @@ helpers instead of open-coding arithmetic on their individual components.
   `app.win = (isize2_t){ 640, 480 };`  not two separate assignments.
 - Use helper functions (`fvec2_add`, `fvec2_sub`) instead of per-component
   arithmetic where the intent is a vector operation.
-- Keep simulation object positions and momentums as `fixedvec3_t`; convert to
+- Keep simulation object positions and momentums as `fixed3_t`; convert to
   `fvec2_t` only at explicitly planar pathing, collision, UI, or render boundaries.
 - When adding a new 2-D quantity, add it as `ivec2_t` / `fvec2_t` / `isize2_t`
   from the start, not as a pair of scalars.

@@ -1691,7 +1691,7 @@ smoke_frame_count	games/dark-colony/w_spr.h	/^    int smoke_frame_count;$/;"	m	s
 smoke_frames	games/dark-colony/w_spr.h	/^    VentSmokeFrame smoke_frames[VENT_SMOKE_MAX_FRAMES];$/;"	m	struct:__anonef9947740208	typeref:typename:VentSmokeFrame[]
 sound	games/dark-colony/gamestat.h	/^    int sound;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 spawn_drop_effect	games/dark-colony/p_spec.c	/^static mobj_t *spawn_drop_effect($/;"	f	typeref:typename:mobj_t *	file:	signature:(Mission * mission,effect_t * effects,int max_effects,int team,int gx,int gy)
-spawn_dropship_part	games/dark-colony/p_spec.c	/^static int spawn_dropship_part(effect_t *effects, int max_effects,$/;"	f	typeref:typename:int	file:	signature:(effect_t * effects,int max_effects,fixedvec3_t position,int duration_ms)
+spawn_dropship_part	games/dark-colony/p_spec.c	/^static int spawn_dropship_part(effect_t *effects, int max_effects,$/;"	f	typeref:typename:int	file:	signature:(effect_t * effects,int max_effects,fixed3_t position,int duration_ms)
 spawn_script_unit	games/dark-colony/p_spec.c	/^static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count, int team,$/;"	f	typeref:typename:void	file:	signature:(const level_t * map,mobj_t * units,int * unit_count,int team,int gx,int gy,int type,const gameinfo_t * game_info)
 speed	games/dark-colony/gamestat.h	/^    int speed;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 speed	games/dark-colony/w_map.c	/^    float speed;$/;"	m	struct:__anonef2472380a08	typeref:typename:float	file:

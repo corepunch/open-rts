@@ -324,10 +324,10 @@ static void dc_stop_selected_units(mobj_t *units, int unit_count) {
         units[i].attack.target = -1;
         units[i].harvest.target = -1;
         units[i].harvest.timer_ms = 0;
-        units[i].movement.goal = fixedvec3_xy_to_fvec2(units[i].core.position);
+        units[i].movement.goal = fixed3_xy_to_fvec2(units[i].core.position);
         units[i].movement.order_id = 0;
         units[i].movement.order_arrived = false;
-        units[i].core.momentum = fixedvec3_zero();
+        units[i].core.momentum = fixed3_zero();
     }
 }
 
@@ -400,7 +400,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
     }
     for (int i = 0; i < unit_count; ++i) {
-        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
         if (units[i].hidden || units[i].remove || position.x < 0.0f || position.y < 0.0f) continue;
         int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *

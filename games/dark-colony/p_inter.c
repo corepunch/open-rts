@@ -39,7 +39,7 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->harvest.cargo = 0;
     unit->attack.cooldown_left_ms = 0;
     unit->attack.anim_left_ms = 0;
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
     unit->death_started = true;
 }
 
@@ -71,6 +71,6 @@ void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) {
     if (!unit) return;
     P_AddCorpse(ctx, unit);
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
     unit->remove = true;
 }

@@ -228,7 +228,7 @@ rendering and input boundaries.
 state, and a fixed-capacity path. `effect_t` is a transient visual object: it
 shares the state/render core (fixed position, momentum, facing, state, frame,
 offsets, remap, and intensity) but adds active/lifetime policy instead of actor
-gameplay. `mobjcore_t.position` and `momentum` are `fixedvec3_t`: each axis is a
+gameplay. `mobjcore_t.position` and `momentum` are `fixed3_t`: each axis is a
 signed 32-bit 16.16 value. Game-native formats such as Dark Colony's signed
 16-bit 8.8 object coordinates are converted at the loader boundary. Effects are
 stored in a bounded pool and may spawn a finishing decoration; they are not
