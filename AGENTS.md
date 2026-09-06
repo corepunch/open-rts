@@ -6,6 +6,23 @@
 make
 ```
 
+## Code navigation with ctags
+
+Use the generated `tags` files to jump to definitions of functions, structs,
+enums, typedefs, and other C symbols. Editor integrations (vim, VS Code, etc.)
+read these files automatically when placed in the project root or game dirs.
+
+```sh
+# Regenerate all tags (engine + per-game)
+make tags
+```
+
+**Tags files:**
+- `./tags` — engine code (driver/, render/, hud/, interface/, play/, game/)
+- `games/<game>/tags` — game-specific code
+
+After modifying source files, run `make tags` to keep symbols up to date.
+
 ## Running games
 
 Use `--game <id>` to select a plugin.  Omit `--game` to default to Dark Reign.

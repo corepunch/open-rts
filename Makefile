@@ -44,7 +44,7 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
         test-headless test-model-commands test-ai test-layout dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
-        kknd-check anim-extract clean help
+        kknd-check anim-extract clean help tags
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -230,3 +230,13 @@ $(BUILD_DIR):
 
 clean:
 	rm -rf $(BUILD_DIR)
+
+# ── ctags ────────────────────────────────────────────────────────────────────
+CTAGS_FLAGS := --fields=+S --c-kinds=+defgstup --extras=+q --language-force=c
+
+tags:
+	ctags -R $(CTAGS_FLAGS) --exclude=games --exclude=build --exclude=reference --exclude=data --exclude=reverse .
+	ctags -R $(CTAGS_FLAGS) -f games/dark-colony/tags games/dark-colony/
+	ctags -R $(CTAGS_FLAGS) -f games/dark-reign/tags games/dark-reign/
+	ctags -R $(CTAGS_FLAGS) -f games/7legion/tags games/7legion/
+	ctags -R $(CTAGS_FLAGS) -f games/kknd/tags games/kknd/
