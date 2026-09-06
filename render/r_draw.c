@@ -350,6 +350,49 @@ cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name) {
     return NULL;
 }
 
+bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
+                              const uint32_t *pixels, int source_stride,
+                              irect_t source, bool blend, int translation) {
+    if (!renderer || !lump || !pixels || source_stride <= 0 ||
+        source.x < 0 || source.y < 0 || source.w <= 0 || source.h <= 0)
+        return false;
+    size_t pixel_count = (size_t)source.w * (size_t)source.h;
+    uint32_t *frame_pixels = malloc(pixel_count * sizeof(*frame_pixels));
+    if (!frame_pixels) return false;
+    for (int y = 0; y < source.h; ++y) {
+        memcpy(frame_pixels + (size_t)y * (size_t)source.w,
+               pixels + (size_t)(source.y + y) * (size_t)source_stride + (size_t)source.x,
+               (size_t)source.w * sizeof(*frame_pixels));
+    }
+    SDL_Texture *texture = I_CreateTexture(renderer, frame_pixels, source.w, source.h, blend);
+    free(frame_pixels);
+    if (!texture) return false;
+
+    if (translation < 0) {
+        if (lump->texture) {
+            SDL_DestroyTexture(texture);
+            return false;
+        }
+        lump->texture = texture;
+        lump->rect = (irect_t){ 0, 0, source.w, source.h };
+        return true;
+    }
+
+    spritetranslation_t *translations = realloc(
+        lump->translations,
+        (size_t)(lump->translation_count + 1) * sizeof(*translations));
+    if (!translations) {
+        SDL_DestroyTexture(texture);
+        return false;
+    }
+    lump->translations = translations;
+    lump->translations[lump->translation_count++] = (spritetranslation_t){
+        .id = translation,
+        .texture = texture,
+    };
+    return true;
+}
+
 bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,
                      angle_t first_angle, bool clockwise) {
     if (!sprite || numframes <= 0 || rotations <= 0 ||
@@ -432,16 +475,21 @@ static uint8_t fin_intensity_color_mod(int intensity) {
     return (uint8_t)clamp255((intensity * 255 + 8) / 16);
 }
 
-static SDL_Texture *sprite_texture_for_remap(const spritesheet_t *sprite, int render_remap) {
-    if (!sprite) return NULL;
-    if (render_remap >= 0 && render_remap < 8 && sprite->textures[render_remap + 1])
-        return sprite->textures[render_remap + 1];
-    return sprite->textures[0];
+static SDL_Texture *sprite_texture_for_remap(const spritesheet_t *sprite, int frame,
+                                             int render_remap) {
+    if (!sprite || !sprite->lumps || frame < 0 || frame >= sprite->numlumps) return NULL;
+    const spritelump_t *lump = &sprite->lumps[frame];
+    for (int i = 0; i < lump->translation_count; ++i) {
+        if (lump->translations[i].id == render_remap)
+            return lump->translations[i].texture;
+    }
+    return lump->texture;
 }
 
-static SDL_Texture *begin_sprite_command(const spritesheet_t *sprite, uint32_t render_flags,
-                                         int render_remap, int render_intensity) {
-    SDL_Texture *texture = sprite_texture_for_remap(sprite, render_remap);
+static SDL_Texture *begin_sprite_command(const spritesheet_t *sprite, int frame,
+                                         uint32_t render_flags, int render_remap,
+                                         int render_intensity) {
+    SDL_Texture *texture = sprite_texture_for_remap(sprite, frame, render_remap);
     if (!texture) return NULL;
     if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
         SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
@@ -490,13 +538,12 @@ static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256])
     return (uint8_t)best_index;
 }
 
-bool R_RenderIndexedComposition(app_t *app, const spritesheet_t *sprite, int frame,
-                                irect_t dst, uint32_t flags,
-                                const rts_composition_t *composition) {
-    if (!app || !sprite || !composition || composition->kind != RTS_COMPOSE_INDEXED_TABLE ||
-        !composition->source_indices || composition->source_stride <= 0 ||
-        !composition->palette || !composition->lookup_table ||
-        frame < 0 || frame >= sprite->numlumps) return false;
+bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
+                          irect_t dst, uint32_t flags, int selector) {
+    if (!app || !sprite || !sprite->indexed || !sprite->indexed_blend_table ||
+        selector != sprite->indexed_blend_selector || !sprite->lumps ||
+        frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
+        return false;
 
     irect_t clip = dst;
     if (clip.x < 0) { clip.w += clip.x; clip.x = 0; }
@@ -517,19 +564,18 @@ bool R_RenderIndexedComposition(app_t *app, const spritesheet_t *sprite, int fra
 
     irect_t source = sprite->lumps[frame].rect;
     for (int y = 0; y < clip.h; ++y) {
-        int source_y = source.y + clip.y - dst.y + y;
+        int source_y = clip.y - dst.y + y;
         for (int x = 0; x < clip.w; ++x) {
             int local_x = clip.x - dst.x + x;
             if ((flags & RTS_FRAME_FLIP_X) != 0) local_x = source.w - 1 - local_x;
-            uint8_t source_index = composition->source_indices[
-                (size_t)source_y * (size_t)composition->source_stride +
-                (size_t)source.x + (size_t)local_x];
+            uint8_t source_index = sprite->lumps[frame].indices[
+                (size_t)source_y * (size_t)source.w + (size_t)local_x];
             if (source_index == 0) continue;
             size_t pixel = (size_t)y * (size_t)clip.w + (size_t)x;
-            uint8_t destination_index = nearest_palette_index(pixels[pixel], composition->palette);
-            uint8_t result_index = composition->lookup_table[
+            uint8_t destination_index = nearest_palette_index(pixels[pixel], sprite->palette);
+            uint8_t result_index = sprite->indexed_blend_table[
                 ((size_t)source_index << 8) | destination_index];
-            pixels[pixel] = composition->palette[result_index];
+            pixels[pixel] = sprite->palette[result_index];
         }
     }
 
@@ -548,7 +594,7 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
                                      const mapdecoration_t *dec, const spritesheet_t *sprite,
                                      int frame_index, uint32_t render_flags,
                                      int render_selector, int anchor_frame_index) {
-    if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) return;
+    if (!sprite || !sprite->lumps || sprite->numlumps <= 0) return;
 
     float sx, sy;
     fvec2_t anchor = { (float)dec->cell.x, (float)dec->cell.y };
@@ -624,13 +670,11 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     if ((render_flags & RTS_FRAME_BLINK) != 0 && ((app->ticks_ms / 250u) % 2u) == 0u) {
         return;
     }
-    rts_composition_t composition = {0};
-    if (sprite->resolve_composition &&
-        sprite->resolve_composition(sprite, render_selector, &composition) &&
-        composition.kind == RTS_COMPOSE_INDEXED_TABLE &&
-        R_RenderIndexedComposition(app, sprite, frame, dst, render_flags, &composition)) return;
+    if (R_RenderIndexedBlend(app, sprite, frame, dst, render_flags, render_selector)) return;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, dec->render_remap, 16);
+    SDL_Texture *texture = begin_sprite_command(sprite, frame, render_flags,
+                                                dec->render_remap, 16);
+    if (!texture) return;
     SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
                      0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
@@ -683,7 +727,9 @@ static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame) {
         irect_t r = sprite->lumps[frame].bounds;
         if (r.w > 0 && r.h > 0) return r;
     }
-    return (irect_t){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+    return (irect_t){ 0, 0,
+                      sprite ? sprite->frame_size.w : 1,
+                      sprite ? sprite->frame_size.h : 1 };
 }
 
 static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame) {
@@ -691,7 +737,9 @@ static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame) {
         sprite->lumps[frame].rect.w > 0 && sprite->lumps[frame].rect.h > 0) {
         return sprite->lumps[frame].rect;
     }
-    return (irect_t){ 0, 0, sprite ? sprite->frame_w : 1, sprite ? sprite->frame_h : 1 };
+    return (irect_t){ 0, 0,
+                      sprite ? sprite->frame_size.w : 1,
+                      sprite ? sprite->frame_size.h : 1 };
 }
 
 static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int frame) {
@@ -758,7 +806,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
     R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
-    if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) {
+    if (!sprite || !sprite->lumps || sprite->numlumps <= 0 || !sprite->lumps[0].texture) {
         float radius = unit_pick_radius_px(app, unit);
         irect_t fallback = {
             (int)floorf(sx - radius),
@@ -965,14 +1013,14 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
     if (info->sprite < 0 || info->sprite >= game_info->sprite_count) return false;
     const char *sprite_name = game_info->sprnames[info->sprite];
     const spritesheet_t *marker = R_CacheLookup(cache, sprite_name);
-    if (!marker || !marker->textures[0] || marker->numlumps <= 0) return false;
+    if (!marker || !marker->lumps || marker->numlumps <= 0) return false;
 
     if (frame < 0 || frame >= marker->numlumps) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
     if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
-    SDL_Texture *texture = begin_sprite_command(marker, 0, 0, 16);
+    SDL_Texture *texture = begin_sprite_command(marker, frame, 0, 0, 16);
     if (!texture) return false;
     SDL_RenderCopy(app->renderer, texture, &marker->lumps[frame].rect, &dst);
     end_sprite_command(texture, 0);
@@ -1006,7 +1054,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                uint32_t ticks) {
     if (!u || u->hidden || (u->traits & MF_RENDERABLE) == 0) return;
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
-    if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) return;
+    if (!sprite || !sprite->lumps || sprite->numlumps <= 0) return;
 
     float sx = 0.0f, sy = 0.0f;
     int frame = 0;
@@ -1022,17 +1070,19 @@ static void render_unit_sprite(app_t *app, const level_t *map,
        SetShadowImage.  The original treats its shadow data specially; our
        cache resolves that name to the already-loaded colour body sheet, so
        drawing it here would create a second vehicle that mirrors every move. */
-    if (shadow && shadow != sprite && shadow->textures[0] && shadow->numlumps > 0) {
+    if (shadow && shadow != sprite && shadow->lumps && shadow->numlumps > 0) {
         int shadow_frame = frame < shadow->numlumps ? frame : 0;
         irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
         irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
-        SDL_RenderCopy(app->renderer, shadow->textures[0],
+        SDL_RenderCopy(app->renderer, shadow->lumps[shadow_frame].texture,
                    &shadow->lumps[shadow_frame].rect, &shadow_dst);
     }
     float content_y = (float)visible.y;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, render_flags, u->core.render_remap,
+    SDL_Texture *texture = begin_sprite_command(sprite, frame, render_flags,
+                                                u->core.render_remap,
                                                 u->core.render_intensity);
+    if (!texture) return;
     SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
                      0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
@@ -1276,7 +1326,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
             sprite_name = game_info->sprnames[effect->core.sprite_id];
         }
         const spritesheet_t *sprite = R_CacheLookup(cache, sprite_name);
-        if (!sprite || !sprite->textures[0] || sprite->numlumps <= 0) {
+        if (!sprite || !sprite->lumps || sprite->numlumps <= 0) {
             debug_effects_log("render skip slot=%d sprite=%s reason=missing-cache",
                               i, effect->core.sprite_name);
             continue;
@@ -1332,15 +1382,13 @@ void R_DrawEffects(app_t *app, const level_t *map,
                           dst.x, dst.y, dst.w, dst.h);
         SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
             SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        rts_composition_t composition = {0};
-        if (sprite->resolve_composition &&
-            sprite->resolve_composition(sprite, effect->render_selector, &composition) &&
-            composition.kind == RTS_COMPOSE_INDEXED_TABLE &&
-            R_RenderIndexedComposition(app, sprite, frame, dst,
-                                       effect->core.render_flags, &composition)) continue;
-        SDL_Texture *texture = begin_sprite_command(sprite, effect->core.render_flags,
+        if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
+                                 effect->render_selector)) continue;
+        SDL_Texture *texture = begin_sprite_command(sprite, frame,
+                                                    effect->core.render_flags,
                                                     effect->core.render_remap,
                                                     effect->core.render_intensity);
+        if (!texture) continue;
         SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
                  0.0, NULL, flip);
         end_sprite_command(texture, effect->core.render_flags);
@@ -1528,11 +1576,17 @@ void P_FreeLevel(level_t *map) {
 
 void R_FreeSprite(spritesheet_t *sprite) {
     if (!sprite) return;
-    for (int i = 0; i < 9; ++i)
-        if (sprite->textures[i]) SDL_DestroyTexture(sprite->textures[i]);
+    for (int i = 0; i < sprite->numlumps; ++i) {
+        spritelump_t *lump = &sprite->lumps[i];
+        if (lump->texture) SDL_DestroyTexture(lump->texture);
+        for (int j = 0; j < lump->translation_count; ++j)
+            if (lump->translations[j].texture)
+                SDL_DestroyTexture(lump->translations[j].texture);
+        free(lump->translations);
+        free(lump->indices);
+    }
     free(sprite->lumps);
     free(sprite->spritedef.spriteframes);
-    if (sprite->destroy_native_data) sprite->destroy_native_data(sprite->native_data);
     memset(sprite, 0, sizeof(*sprite));
 }
 

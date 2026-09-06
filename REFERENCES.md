@@ -3,6 +3,26 @@
 Keep these links handy when touching loaders, tile animation, map objects, or
 plugin-specific behavior.
 
+## GZDoom
+
+- ZDoom/GZDoom:
+  https://github.com/ZDoom/gzdoom
+  - Local checkout: `reference/GZDoom/` at commit
+    `c26ce2e6ca2a0c770f140cb25dde0d30073ca8f7`.
+  - `src/r_data/sprites.h` stores a texture ID for each sprite frame and view
+    rotation. Sprite definitions choose images; they do not own a fixed atlas.
+  - `FGameTexture` keeps the source image, dimensions, offsets, and optional
+    material layers separate from renderer resources. Its sprite positioning
+    data supplies the equivalent of our per-lump bounds and ground point.
+  - `FHardwareTextureContainer` lazily owns the default GPU texture and cached
+    translation-specific GPU textures for one source image. The translated
+    cache is keyed by translation rather than represented as fixed slots on
+    every sprite.
+  - This supports converting each game format into engine-owned indexed sprite
+    images at load time, then creating renderer textures from those images. It
+    does not support keeping game-loader state or format callbacks on the
+    generic sprite type.
+
 ## Doom95
 
 - 7dog123 / Win95Doom-recreation:

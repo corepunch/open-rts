@@ -228,27 +228,29 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
                size; opaque-pixel bounds are not a ground-contact hotspot. */
             ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
         }
-        out->textures[0] = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
         out->lumps = calloc((size_t)total_frames, sizeof(*out->lumps));
-        if (!out->textures[0] || !out->lumps) {
+        if (!out->lumps) {
             free(rgba); free(indices); free(frames); free(bounds);
             free(ground_points); free(sects);
-            R_FreeSprite(out);
             return false;
         }
+        out->numlumps = total_frames;
         for (int i = 0; i < total_frames; ++i) {
             out->lumps[i] = (spritelump_t){
-                .rect = frames[i],
                 .bounds = bounds[i],
                 .ground_point = { ground_points[i].x, ground_points[i].y },
             };
+            if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
+                                           frames[i], true, -1)) {
+                free(rgba); free(indices); free(frames); free(bounds);
+                free(ground_points); free(sects); R_FreeSprite(out);
+                return false;
+            }
         }
         free(frames);
         free(bounds);
         free(ground_points);
-        out->numlumps = total_frames;
-        out->frame_w    = szx;
-        out->frame_h    = szy;
+        out->frame_size = (isize2_t){ szx, szy };
         int logical_frames = 0;
         for (int s = 0; s < nsects; ++s) {
             int sf = sects[s].last_anim - sects[s].first_anim + 1;
@@ -270,7 +272,7 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
             lump_start += nrots * sf;
         }
         free(rgba); free(indices); free(sects);
-        return out->textures[0] != NULL;
+        return out->lumps[0].texture != NULL;
     }
 
 spr_fail:

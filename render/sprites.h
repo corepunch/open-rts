@@ -10,20 +10,11 @@
 #include <stdint.h>
 
 typedef struct app_s app_t;
-struct spritesheet_s;
-
-typedef enum {
-    RTS_COMPOSE_NONE,
-    RTS_COMPOSE_INDEXED_TABLE,
-} rts_composition_kind_t;
 
 typedef struct {
-    rts_composition_kind_t kind;
-    const uint8_t *source_indices;
-    int source_stride;
-    const uint32_t *palette;
-    const uint8_t *lookup_table;
-} rts_composition_t;
+    int id;
+    SDL_Texture *texture;
+} spritetranslation_t;
 
 typedef struct {
     int value;
@@ -60,6 +51,10 @@ typedef struct spritedef_s {
 } spritedef_t;
 
 typedef struct spritelump_s {
+    SDL_Texture *texture;
+    spritetranslation_t *translations;
+    int translation_count;
+    uint8_t *indices;
     irect_t rect;
     irect_t bounds;
     ivec2_t ground_point;
@@ -67,16 +62,14 @@ typedef struct spritelump_s {
 } spritelump_t;
 
 typedef struct spritesheet_s {
-    SDL_Texture *textures[9];
     spritelump_t *lumps;
     int numlumps;
-    int frame_w;
-    int frame_h;
+    isize2_t frame_size;
     spritedef_t spritedef;
-    void *native_data;
-    void (*destroy_native_data)(void *);
-    bool (*resolve_composition)(const struct spritesheet_s *sprite, int selector,
-                                rts_composition_t *out);
+    bool indexed;
+    uint32_t palette[256];
+    int indexed_blend_selector;
+    const uint8_t *indexed_blend_table;
 } spritesheet_t;
 
 typedef struct cachedsprite_s {
@@ -93,8 +86,7 @@ typedef struct bitmapfont_s {
     spritesheet_t sprite;
     int glyph_index[128];
     uint8_t glyph_width[128];
-    int glyph_w;
-    int glyph_h;
+    isize2_t glyph_size;
     int line_h;
     int draw_divisor;
 } bitmapfont_t;

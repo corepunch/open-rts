@@ -145,9 +145,21 @@ Reference source code lives in `reference/` (git-ignored):
 reference/DOOM/      — Doom / Doom II source (id Software)
 reference/Heretic/   — Heretic source (Raven Software)
 reference/Hexen/     — Hexen source (Raven Software)
+reference/GZDoom/    — primary modern sprite/texture/rendering reference
 reference/DOOM95/source/ — Doom95 source reconstruction (reference only)
 reference/DOOM95/dump/   — Doom95 debug info and decompilation evidence
 ```
+
+Use GZDoom as the main reference for modern rendering architecture, especially
+sprite images, texture ownership, palette translations, materials, and GPU
+resource caching. The pinned checkout and relevant source paths are documented
+in `REFERENCES.md`. Follow its separation between engine-owned source images,
+sprite frame/rotation definitions, and renderer-owned hardware textures: game
+loaders convert native formats into the common image representation and do not
+leave format callbacks or opaque native sprite data in renderer structures.
+
+Use the original Doom/Heretic/Hexen sources as the primary reference for game
+simulation, state machines, thinkers, fixed-point math, and lock-step timing.
 
 Key patterns to follow from that lineage:
 - **Thinker/action system** — objects advance via per-tick `thinker_t` callbacks

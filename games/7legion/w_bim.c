@@ -322,45 +322,50 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         }
     }
 
-    out->textures[0] = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
+    out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
+    if (!out->lumps) {
+        free(rgba); free(info); free(expanded); W_FreeFile(&blob);
+        free(frames); free(bounds); free(ground_points);
+        return false;
+    }
+    out->numlumps = frame_count;
+    for (int i = 0; i < frame_count; ++i) {
+        out->lumps[i] = (spritelump_t){
+            .bounds = bounds[i],
+            .ground_point = { ground_points[i].x, ground_points[i].y },
+        };
+        if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
+                                       frames[i], true, -1)) {
+            free(rgba); free(info); free(expanded); free(frames); free(bounds);
+            free(ground_points); W_FreeFile(&blob); R_FreeSprite(out);
+            return false;
+        }
+    }
     free(rgba);
     free(info);
     free(expanded);
     W_FreeFile(&blob);
-    if (!out->textures[0]) {
-        free(frames); free(bounds); free(ground_points);
-        return false;
-    }
-    out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
-    if (!out->lumps) {
-        free(frames); free(bounds); free(ground_points);
-        R_FreeSprite(out);
-        return false;
-    }
-    for (int i = 0; i < frame_count; ++i) {
-        out->lumps[i] = (spritelump_t){
-            .rect = frames[i],
-            .bounds = bounds[i],
-            .ground_point = { ground_points[i].x, ground_points[i].y },
-        };
-    }
     free(frames);
     free(bounds);
     free(ground_points);
-    out->numlumps = frame_count;
-    out->frame_w = canvas_w;
-    out->frame_h = canvas_h;
+    out->frame_size = (isize2_t){ canvas_w, canvas_h };
 
     /* Movement sheets are arranged as eight contiguous facing blocks. */
     if (frame_count >= 8 && frame_count % 8 == 0) {
         int frames_per_facing = frame_count / 8;
-        if (!R_InitSpriteDef(out, frames_per_facing, 8, ANG90, true)) return false;
+        if (!R_InitSpriteDef(out, frames_per_facing, 8, ANG90, true)) {
+            R_FreeSprite(out);
+            return false;
+        }
         for (int frame = 0; frame < frames_per_facing; ++frame)
             for (int rotation = 0; rotation < 8; ++rotation)
                 R_InstallSpriteLump(out, frame, rotation,
                                     rotation * frames_per_facing + frame, false);
     } else {
-        if (!R_InitSpriteDef(out, frame_count, 1, ANG90, true)) return false;
+        if (!R_InitSpriteDef(out, frame_count, 1, ANG90, true)) {
+            R_FreeSprite(out);
+            return false;
+        }
         for (int frame = 0; frame < frame_count; ++frame)
             R_InstallSpriteLump(out, frame, 0, frame, false);
     }

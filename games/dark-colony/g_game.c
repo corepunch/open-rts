@@ -325,12 +325,14 @@ static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_
         if (bounds.h > max_h) max_h = bounds.h;
     }
     font->draw_divisor = 1;
-    font->glyph_w = max_w > 0 ? max_w : 6;
-    font->glyph_h = max_h > 0 ? max_h : font->sprite.frame_h;
-    font->line_h = font->glyph_h + 1;
+    font->glyph_size = (isize2_t){
+        max_w > 0 ? max_w : 6,
+        max_h > 0 ? max_h : font->sprite.frame_size.h,
+    };
+    font->line_h = font->glyph_size.h + 1;
     for (int ch = 0; ch < 128; ++ch) {
         int frame = font->glyph_index[ch];
-        int advance = font->glyph_w;
+        int advance = font->glyph_size.w;
         if (frame >= 0 && frame < font->sprite.numlumps && font->sprite.lumps) {
             irect_t bounds = font->sprite.lumps[frame].bounds;
             if (bounds.w > 0) advance = bounds.w + 1;

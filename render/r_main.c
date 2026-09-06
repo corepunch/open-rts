@@ -52,7 +52,8 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
         }
         unsigned char ch = *p;
         if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
-        int advance = font->glyph_width[ch] > 0 ? font->glyph_width[ch] : font->glyph_w;
+        int advance = font->glyph_width[ch] > 0 ?
+            font->glyph_width[ch] : font->glyph_size.w;
         line_width += advance * scale;
     }
     return line_width > width ? line_width : width;
@@ -60,29 +61,32 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
 
 void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
                          const char *text, SDL_Color color, int scale, int remap) {
-    if (!renderer || !font || !font->sprite.textures[0] || !text || scale <= 0) return;
-    SDL_Texture *texture = font->sprite.textures[0];
-    if (remap >= 0 && remap < 8 && font->sprite.textures[remap + 1])
-        texture = font->sprite.textures[remap + 1];
-    SDL_SetTextureColorMod(texture, color.r, color.g, color.b);
-    SDL_SetTextureAlphaMod(texture, color.a);
+    if (!renderer || !font || !font->sprite.lumps || !text || scale <= 0) return;
     int cx = x, cy = y;
     for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
         if (*p == '\r') continue;
         if (*p == '\n') {
             cx = x;
-            cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
+            cy += (font->line_h > 0 ? font->line_h : font->glyph_size.h) * scale;
             continue;
         }
         unsigned char ch = *p;
         if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
         int frame = font->glyph_index[ch];
-        int advance = font->glyph_width[ch] > 0 ? font->glyph_width[ch] : font->glyph_w;
+        int advance = font->glyph_width[ch] > 0 ?
+            font->glyph_width[ch] : font->glyph_size.w;
         if (frame >= 0 && frame < font->sprite.numlumps) {
-            irect_t src = font->sprite.lumps[frame].rect;
-            if (font->sprite.lumps && font->sprite.lumps[frame].bounds.w > 0 &&
-                font->sprite.lumps[frame].bounds.h > 0) {
-                irect_t bounds = font->sprite.lumps[frame].bounds;
+            const spritelump_t *lump = &font->sprite.lumps[frame];
+            SDL_Texture *texture = lump->texture;
+            for (int i = 0; i < lump->translation_count; ++i) {
+                if (lump->translations[i].id == remap) {
+                    texture = lump->translations[i].texture;
+                    break;
+                }
+            }
+            irect_t src = lump->rect;
+            if (lump->bounds.w > 0 && lump->bounds.h > 0) {
+                irect_t bounds = lump->bounds;
                 src.x += bounds.x;
                 src.y += bounds.y;
                 src.w = bounds.w;
@@ -96,13 +100,17 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
                     (src.w * scale + divisor - 1) / divisor,
                     (src.h * scale + divisor - 1) / divisor,
                 };
-                SDL_RenderCopy(renderer, texture, &src, &dst);
+                if (texture) {
+                    SDL_SetTextureColorMod(texture, color.r, color.g, color.b);
+                    SDL_SetTextureAlphaMod(texture, color.a);
+                    SDL_RenderCopy(renderer, texture, &src, &dst);
+                    SDL_SetTextureColorMod(texture, 255, 255, 255);
+                    SDL_SetTextureAlphaMod(texture, 255);
+                }
             }
         }
         cx += advance * scale;
     }
-    SDL_SetTextureColorMod(texture, 255, 255, 255);
-    SDL_SetTextureAlphaMod(texture, 255);
 }
 
 void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
@@ -121,7 +129,7 @@ void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x,
         while (*word == ' ' || *word == '\r' || *word == '\n') {
             if (*word == '\n' && line_len > 0) {
                 HU_DrawText(renderer, font, x, cy, line, color, scale);
-                cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
+                cy += (font->line_h > 0 ? font->line_h : font->glyph_size.h) * scale;
                 line[0] = '\0';
                 line_len = 0;
             }
@@ -139,7 +147,7 @@ void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x,
             snprintf(candidate, sizeof(candidate), "%.*s", (int)word_len, word);
         if (line_len > 0 && HU_TextWidth(font, candidate, scale) > max_w) {
             HU_DrawText(renderer, font, x, cy, line, color, scale);
-            cy += (font->line_h > 0 ? font->line_h : font->glyph_h) * scale;
+            cy += (font->line_h > 0 ? font->line_h : font->glyph_size.h) * scale;
             snprintf(line, sizeof(line), "%.*s", (int)word_len, word);
         } else {
             snprintf(line, sizeof(line), "%s", candidate);

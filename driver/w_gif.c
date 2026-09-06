@@ -205,24 +205,29 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
         W_FreeFile(&blob);
         return false;
     }
-    out->textures[0] = I_CreateTexture(renderer, canvas, canvas_w, canvas_h, false);
-    free(canvas);
-    W_FreeFile(&blob);
-    if (!out->textures[0]) return false;
     out->lumps = calloc(1, sizeof(*out->lumps));
     out->spritedef.spriteframes = calloc(1, sizeof(*out->spritedef.spriteframes));
     if (!out->lumps || !out->spritedef.spriteframes) {
+        free(canvas);
+        W_FreeFile(&blob);
         R_FreeSprite(out);
         return false;
     }
-    out->lumps[0].rect = (irect_t){ 0, 0, canvas_w, canvas_h };
+    if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[0], canvas, canvas_w,
+                                   (irect_t){ 0, 0, canvas_w, canvas_h }, false, -1)) {
+        free(canvas);
+        W_FreeFile(&blob);
+        R_FreeSprite(out);
+        return false;
+    }
+    free(canvas);
+    W_FreeFile(&blob);
     out->lumps[0].bounds = out->lumps[0].rect;
     out->lumps[0].ground_point = (ivec2_t){ canvas_w / 2, canvas_h };
     out->numlumps = 1;
     out->spritedef.numframes = 1;
     out->spritedef.rotations = 1;
     out->spritedef.spriteframes[0].lump[0] = 0;
-    out->frame_w = canvas_w;
-    out->frame_h = canvas_h;
+    out->frame_size = (isize2_t){ canvas_w, canvas_h };
     return true;
 }

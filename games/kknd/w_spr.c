@@ -211,28 +211,30 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
                 rgba[(size_t)(dy + y) * atlas_w + dx + x] = index == 0 ? 0 : palette[index];
             }
     }
-    out->textures[0] = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
-    free(rgba);
-    if (!out->textures[0]) { free(rects); free(bounds); free(displacements); goto fail; }
     out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
     if (!out->lumps) {
+        free(rgba);
         free(rects); free(bounds); free(displacements);
-        R_FreeSprite(out);
         goto fail;
     }
+    out->numlumps = frame_count;
     for (int i = 0; i < frame_count; ++i) {
         out->lumps[i] = (spritelump_t){
-            .rect = rects[i],
             .bounds = bounds[i],
             .displacement = { displacements[i].x, displacements[i].y },
         };
+        if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
+                                       rects[i], true, -1)) {
+            free(rgba); free(rects); free(bounds); free(displacements);
+            R_FreeSprite(out);
+            goto fail;
+        }
     }
+    free(rgba);
     free(rects);
     free(bounds);
     free(displacements);
-    out->numlumps = frame_count;
-    out->frame_w = max_w;
-    out->frame_h = max_h;
+    out->frame_size = (isize2_t){ max_w, max_h };
 
     int sequence_blocks = ordered_count / 16;
     if (sequence_blocks > 3) sequence_blocks = 3;
@@ -256,6 +258,7 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
     return true;
 
 fail:
+    if (out->lumps) R_FreeSprite(out);
     for (int i = 0; i < MAX_FRAMES; ++i) free(frames[i].pixels);
     return false;
 }

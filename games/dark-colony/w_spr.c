@@ -113,9 +113,6 @@ typedef struct {
     JuiceFile juice;
     AnimationFile animation;
     bool has_animation;
-    uint8_t *indices;
-    int atlas_w;
-    int atlas_h;
 } SpriteNative;
 
 typedef struct {
@@ -440,7 +437,6 @@ retry:
 static void sprite_native_destroy(void *ptr) {
     SpriteNative *native = ptr;
     if (!native) return;
-    free(native->indices);
     juice_destroy(&native->juice);
     animation_destroy(&native->animation);
     free(native);
@@ -479,23 +475,6 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
            sizeof(render_tables.selector5));
     W_FreeFile(&rmp);
     render_tables.valid = true;
-    return true;
-}
-
-static bool resolve_composition(const spritesheet_t *sprite, int selector,
-                                            rts_composition_t *out) {
-    if (!out) return false;
-    *out = (rts_composition_t){0};
-    if (!sprite || selector != 5 || !render_tables.valid) return false;
-    SpriteNative *native = sprite->native_data;
-    if (!native || !native->indices || native->atlas_w <= 0) return false;
-    *out = (rts_composition_t){
-        .kind = RTS_COMPOSE_INDEXED_TABLE,
-        .source_indices = native->indices,
-        .source_stride = native->atlas_w,
-        .palette = render_tables.palette,
-        .lookup_table = render_tables.selector5,
-    };
     return true;
 }
 
@@ -588,8 +567,10 @@ static bool file_exists(const char *path) {
     return true;
 }
 
-bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
-                             uint32_t palette_out[256]) {
+static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char *path,
+                                             spritesheet_t *out,
+                                             uint32_t palette_out[256],
+                                             AnimationFile *animation_out) {
     memset(out, 0, sizeof(*out));
 
     SpriteNative *native = calloc(1, sizeof(*native));
@@ -705,63 +686,6 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         bounds[i] = dc_visible_bounds(rgba, atlas_w, frames[i]);
     }
 
-    SDL_Texture *texture = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, true);
-    if (!texture) {
-        free(rgba);
-        free(indices);
-        free(frames);
-        free(bounds);
-        free(ground_points);
-        free(displacements);
-        sprite_native_destroy(native);
-        return false;
-    }
-
-    SDL_Texture *remap_textures[8] = {0};
-    uint32_t *remap_rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    if (!remap_rgba) {
-        SDL_DestroyTexture(texture);
-        free(rgba);
-        free(indices);
-        free(frames);
-        free(bounds);
-        free(displacements);
-        sprite_native_destroy(native);
-        return false;
-    }
-    for (int remap = 0; has_team_colors && remap < 8; ++remap) {
-        for (int y = 0; y < atlas_h; ++y) {
-            int row = max_h > 0 ? y / max_h : 0;
-            for (int x = 0; x < atlas_w; ++x) {
-                int col = max_w > 0 ? x / max_w : 0;
-                int frame = row * cols + col;
-                size_t pos = (size_t)y * (size_t)atlas_w + (size_t)x;
-                remap_rgba[pos] = frame >= 0 && frame < visible_frames ?
-                    sprite_pixel_rgba(indices[pos], palette, remap) :
-                    0x00000000u;
-            }
-        }
-        remap_textures[remap] = I_CreateTexture(renderer, remap_rgba, atlas_w, atlas_h, true);
-        if (!remap_textures[remap]) {
-            for (int i = 0; i < remap; ++i)
-                if (remap_textures[i]) SDL_DestroyTexture(remap_textures[i]);
-            SDL_DestroyTexture(texture);
-            free(remap_rgba);
-            free(rgba);
-            free(indices);
-            free(frames);
-            free(bounds);
-            free(ground_points);
-            free(displacements);
-            sprite_native_destroy(native);
-            return false;
-        }
-    }
-    free(remap_rgba);
-
-    out->textures[0] = texture;
-    for (int remap = 0; remap < 8; ++remap)
-        out->textures[remap + 1] = remap_textures[remap];
     out->lumps = calloc((size_t)visible_frames, sizeof(*out->lumps));
     out->spritedef.spriteframes = calloc(
         (size_t)visible_frames, sizeof(*out->spritedef.spriteframes));
@@ -772,9 +696,11 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
         free(bounds);
         free(ground_points);
         free(displacements);
+        sprite_native_destroy(native);
         R_FreeSprite(out);
         return false;
     }
+    out->numlumps = visible_frames;
     for (int i = 0; i < visible_frames; ++i) {
         ground_points[i] = (SDL_Point){
             bounds[i].x + bounds[i].w / 2,
@@ -784,26 +710,77 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     resolve_fin_ground_points(native, path, ground_points);
     for (int i = 0; i < visible_frames; ++i) {
         out->lumps[i] = (spritelump_t){
-            .rect = frames[i],
             .bounds = bounds[i],
             .ground_point = { ground_points[i].x, ground_points[i].y },
             .displacement = { displacements[i].x, displacements[i].y },
         };
+        if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
+                                       frames[i], true, -1)) {
+            free(rgba); free(indices); free(frames); free(bounds);
+            free(ground_points); free(displacements);
+            sprite_native_destroy(native);
+            R_FreeSprite(out);
+            return false;
+        }
+        size_t frame_pixels = (size_t)frames[i].w * (size_t)frames[i].h;
+        out->lumps[i].indices = malloc(frame_pixels);
+        if (!out->lumps[i].indices) {
+            free(rgba); free(indices); free(frames); free(bounds);
+            free(ground_points); free(displacements);
+            sprite_native_destroy(native);
+            R_FreeSprite(out);
+            return false;
+        }
+        for (int y = 0; y < frames[i].h; ++y) {
+            memcpy(out->lumps[i].indices + (size_t)y * (size_t)frames[i].w,
+                   indices + (size_t)(frames[i].y + y) * (size_t)atlas_w +
+                       (size_t)frames[i].x,
+                   (size_t)frames[i].w);
+        }
         out->spritedef.spriteframes[i].lump[0] = i;
+    }
+    if (has_team_colors) {
+        uint32_t *remap_rgba = calloc((size_t)atlas_w * (size_t)atlas_h,
+                                      sizeof(*remap_rgba));
+        if (!remap_rgba) {
+            free(rgba); free(indices); free(frames); free(bounds);
+            free(ground_points); free(displacements);
+            sprite_native_destroy(native);
+            R_FreeSprite(out);
+            return false;
+        }
+        for (int remap = 0; remap < 8; ++remap) {
+            for (size_t pos = 0; pos < (size_t)atlas_w * (size_t)atlas_h; ++pos)
+                remap_rgba[pos] = sprite_pixel_rgba(indices[pos], palette, remap);
+            for (int i = 0; i < visible_frames; ++i) {
+                if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], remap_rgba,
+                                               atlas_w, frames[i], true, remap)) {
+                    free(remap_rgba); free(rgba); free(indices); free(frames);
+                    free(bounds); free(ground_points); free(displacements);
+                    sprite_native_destroy(native);
+                    R_FreeSprite(out);
+                    return false;
+                }
+            }
+        }
+        free(remap_rgba);
     }
     free(frames);
     free(bounds);
     free(ground_points);
     free(displacements);
-    out->numlumps = visible_frames;
     out->spritedef.numframes = visible_frames;
     out->spritedef.rotations = 1;
     out->spritedef.first_angle = ANG270;
-    out->frame_w = canvas_w;
-    out->frame_h = canvas_h;
-    out->native_data = native;
-    out->destroy_native_data = sprite_native_destroy;
-    out->resolve_composition = resolve_composition;
+    out->frame_size = (isize2_t){ canvas_w, canvas_h };
+    out->indexed = true;
+    if (render_tables.valid) {
+        memcpy(out->palette, render_tables.palette, sizeof(out->palette));
+        out->indexed_blend_selector = 5;
+        out->indexed_blend_table = render_tables.selector5;
+    } else {
+        memcpy(out->palette, palette, sizeof(out->palette));
+    }
     if (native->has_animation) {
         char stem[9];
         sprite_stem(stem, sizeof(stem), path);
@@ -817,10 +794,18 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     }
 
     free(rgba);
-    native->indices = indices;
-    native->atlas_w = atlas_w;
-    native->atlas_h = atlas_h;
+    free(indices);
+    if (animation_out) {
+        *animation_out = native->animation;
+        memset(&native->animation, 0, sizeof(native->animation));
+    }
+    sprite_native_destroy(native);
     return true;
+}
+
+bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
+                             uint32_t palette_out[256]) {
+    return load_dark_colony_sprite_internal(renderer, path, out, palette_out, NULL);
 }
 
 static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *renderer,
@@ -860,28 +845,32 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *re
     cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
     uint32_t palette[256] = { 0 };
-    if (!load_dark_colony_sprite(renderer, sprite_path, &entry->sprite, palette)) {
+    AnimationFile animation = {0};
+    if (!load_dark_colony_sprite_internal(renderer, sprite_path, &entry->sprite, palette,
+                                          &animation)) {
         fprintf(stderr, "failed to load %s\n", sprite_path);
         memset(entry, 0, sizeof(*entry));
         return false;
     }
     cache->count++;
-    SpriteNative *native = entry->sprite.native_data;
-    if (native && native->has_animation) {
-        for (int i = 0; i < native->animation.dependency_count; ++i) {
+    if (animation.command_count > 0) {
+        for (int i = 0; i < animation.dependency_count; ++i) {
             char dependency_name[64];
             if (!dependency_sprite_name(dependency_name, sizeof(dependency_name),
-                                                    native->animation.dependencies[i].name)) {
+                                                    animation.dependencies[i].name)) {
                 continue;
             }
             if (R_CacheFind(cache, dependency_name)) continue;
             char dependency_path[1024];
             M_PathJoin(dependency_path, sizeof(dependency_path), data_root, dependency_name);
             if (!file_exists(dependency_path)) continue;
-            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, dependency_name))
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, dependency_name)) {
+                animation_destroy(&animation);
                 return false;
+            }
         }
     }
+    animation_destroy(&animation);
     return true;
 }
 
