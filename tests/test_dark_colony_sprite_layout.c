@@ -487,6 +487,36 @@ static int assert_trooper_animation_pivots(void) {
     return 0;
 }
 
+static int assert_trooper_sequence_frame_layout(void) {
+    FinInfo trsc_fin;
+    if (!load_fin_info("data/DCOLONY/ANIMATE/TRSC.FIN", "TRSC", &trsc_fin))
+        return fail("load TRSC.FIN for sequence validation");
+
+    static const int directions[] = { 0, 14, 12, 10, 8, 6, 4, 2 };
+    for (int facing = 0; facing < 8; ++facing) {
+        char label[17];
+        snprintf(label, sizeof(label), "TRSCMOVE%d", directions[facing]);
+        for (int animation_frame = 0; animation_frame < 8; ++animation_frame) {
+            const FinCommand *command = fin_layer_command_at(
+                &trsc_fin, label, "trsc", 1, animation_frame);
+            if (!command || command->frame != 16 + facing + animation_frame * 8)
+                return fail("Trooper movement frames advance by animation, not facing");
+        }
+    }
+
+    static const int attack_frames[] = { 80, 88, 96 };
+    for (int i = 0; i < (int)(sizeof(attack_frames) / sizeof(attack_frames[0])); ++i) {
+        const FinCommand *command = fin_layer_command_at(
+            &trsc_fin, "TRSCFIREA0", "trsc", 1, i);
+        if (!command || command->frame != attack_frames[i]) {
+            fprintf(stderr, "TRSCFIREA0 frame %d is %d, expected %d\n", i,
+                    command ? command->frame : -1, attack_frames[i]);
+            return fail("Trooper attack preserves its native frame order");
+        }
+    }
+    return 0;
+}
+
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_Walk(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
@@ -577,6 +607,7 @@ static int assert_dropship_state_chain(void) {
 int main(void) {
     if (assert_dark_colony_city_fin_alignment() != 0) return 1;
     if (assert_trooper_animation_pivots() != 0) return 1;
+    if (assert_trooper_sequence_frame_layout() != 0) return 1;
     if (assert_reaper_move_timing() != 0) return 1;
     if (assert_barracks_trooper_release_timing() != 0) return 1;
     if (assert_exploiter_16_direction_states() != 0) return 1;

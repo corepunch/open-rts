@@ -45,6 +45,10 @@ typedef struct tileset_s {
     int draw_y_offset;
 } tileset_t;
 
+typedef struct spriteframe_s {
+    int image_index[MAX_SEQUENCE_FACINGS];
+} spriteframe_t;
+
 typedef struct spritesequence_s {
     char name[16];
     int facings;
@@ -53,6 +57,7 @@ typedef struct spritesequence_s {
     int tick_ms;
     int frame_starts[MAX_SEQUENCE_FACINGS];
     angle_t rotation_angles[MAX_SEQUENCE_FACINGS];
+    spriteframe_t *frames;
 } spritesequence_t;
 
 typedef struct spritesheet_s {

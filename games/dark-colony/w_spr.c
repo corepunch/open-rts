@@ -3,6 +3,7 @@
 #include "info.h"
 #include "gamestat.h"
 #include "dc_types.h"
+#include "dc_facing.h"
 #include "w_spr.h"
 
 #include <ctype.h>
@@ -366,6 +367,72 @@ static const AnimationCommand *animation_frame_command(
     return NULL;
 }
 
+static const AnimationLabel *animation_find_label(const AnimationFile *animation,
+                                                  const char *name) {
+    if (!animation || !name) return NULL;
+    for (int i = 0; i < animation->label_count; ++i) {
+        if (strcmp(animation->labels[i].name, name) == 0)
+            return &animation->labels[i];
+    }
+    return NULL;
+}
+
+static void add_dark_colony_fin_sequence(spritesheet_t *sheet,
+                                         const AnimationFile *animation,
+                                         const char *stem, const char *action,
+                                         const char *name, int tick_ms) {
+    if (!sheet || !animation || !stem || !action || !name ||
+        sheet->sequence_count >= MAX_SPRITE_SEQUENCES) return;
+    static const int directions[] = { 0, 2, 4, 6, 8, 10, 12, 14 };
+    char label_name[17];
+    char label_stem[9];
+    snprintf(label_stem, sizeof(label_stem), "%s", stem);
+    for (char *c = label_stem; *c; ++c)
+        *c = (char)toupper((unsigned char)*c);
+    int starts[sizeof(directions) / sizeof(directions[0])];
+    int frames[MAX_SEQUENCE_FRAMES][sizeof(directions) / sizeof(directions[0])];
+    int length = -1;
+    for (size_t i = 0; i < sizeof(directions) / sizeof(directions[0]); ++i) {
+        snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem, action,
+                 directions[i]);
+        const AnimationLabel *label = animation_find_label(animation, label_name);
+        if (!label || label->end < label->start) return;
+        int label_length = label->end - label->start + 1;
+        if (label_length > MAX_SEQUENCE_FRAMES) return;
+        if (length < 0) length = label_length;
+        if (label_length != length) return;
+        for (int frame = 0; frame < label_length; ++frame) {
+            const AnimationCommand *command = animation_frame_command(
+                animation, label->start + frame, stem, 1);
+            if (!command || command->frame < 0 ||
+                command->frame >= sheet->frame_count) return;
+            frames[frame][i] = command->frame;
+        }
+        starts[i] = frames[0][i];
+    }
+
+    spritesequence_t *sequence = &sheet->sequences[sheet->sequence_count++];
+    memset(sequence, 0, sizeof(*sequence));
+    sequence->frames = calloc((size_t)length, sizeof(*sequence->frames));
+    if (!sequence->frames) {
+        sheet->sequence_count--;
+        return;
+    }
+    snprintf(sequence->name, sizeof(sequence->name), "%s", name);
+    sequence->facings = (int)(sizeof(directions) / sizeof(directions[0]));
+    sequence->length = length;
+    sequence->frame_stride = 1;
+    sequence->tick_ms = tick_ms > 0 ? tick_ms : 120;
+    for (int i = 0; i < sequence->facings; ++i) {
+        sequence->frame_starts[i] = starts[i];
+        sequence->rotation_angles[i] = dc_fin_direction_to_angle(directions[i]);
+        for (int frame = 0; frame < sequence->length; ++frame)
+            sequence->frames[frame].image_index[i] = frames[frame][i];
+    }
+    sheet->rotations = sequence->facings;
+    sheet->primary_frames_per_rotation = sequence->length;
+}
+
 static void sprite_native_destroy(void *ptr) {
     SpriteNative *native = ptr;
     if (!native) return;
@@ -710,6 +777,18 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spriteshe
     out->native_data = native;
     out->destroy_native_data = sprite_native_destroy;
     out->resolve_composition = resolve_composition;
+    if (native->has_animation) {
+        char stem[9];
+        sprite_stem(stem, sizeof(stem), path);
+        add_dark_colony_fin_sequence(out, &native->animation, stem, "STAND",
+                                     "stand", 120);
+        add_dark_colony_fin_sequence(out, &native->animation, stem, "MOVE",
+                                     "run", 120);
+        add_dark_colony_fin_sequence(out, &native->animation, stem, "FIREA",
+                                     "shoot", 90);
+        add_dark_colony_fin_sequence(out, &native->animation, stem, "DIEA",
+                                     "die", 120);
+    }
 
     free(rgba);
     native->indices = indices;

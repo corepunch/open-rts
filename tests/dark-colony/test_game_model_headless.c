@@ -23,26 +23,30 @@ static int assert_dark_colony_direction_mapping(void) {
         dc_angle_to_direction(ANG270) != 0 ||
         dc_angle_to_direction(0) != 4 ||
         dc_angle_to_direction(ANG90) != 8 ||
-        dc_angle_to_direction(ANG180) != 12) {
+        dc_angle_to_direction(ANG180) != 12 ||
+        dc_fin_direction_to_angle(0) != ANG270 ||
+        dc_fin_direction_to_angle(4) != ANG180 ||
+        dc_fin_direction_to_angle(8) != ANG90 ||
+        dc_fin_direction_to_angle(12) != 0) {
         return fail("Dark Colony direction codes use south-zero counterclockwise facings");
     }
     return 0;
 }
 
-static int assert_dark_colony_state_rotation_selection(void) {
+static int assert_dark_colony_state_frames_are_direction_independent(void) {
     statecontext_t context = { .game_info = &game_info };
     mobj_t unit = { 0 };
 
     unit.core.angle = dc_direction_to_angle(1);
-    if (!P_SetMobjState(&context, &unit, S_DC_TRSC_STND) || unit.core.frame != 1 ||
+    if (!P_SetMobjState(&context, &unit, S_DC_TRSC_STND) || unit.core.frame != 0 ||
         unit.core.render_flags != 0) {
-        return fail("eight-view Trooper rounds a halfway facing like Hexen");
+        return fail("Trooper state preserves its logical frame independently of facing");
     }
 
     unit.core.angle = dc_direction_to_angle(15);
-    if (!P_SetMobjState(&context, &unit, S_DC_EXPL_STND) || unit.core.frame != 1 ||
-        unit.core.render_flags != RTS_SPRITEFRAME_FLIP_X) {
-        return fail("sixteen-view Exploiter selects its mirrored direction frame");
+    if (!P_SetMobjState(&context, &unit, S_DC_EXPL_STND) || unit.core.frame != 0 ||
+        unit.core.render_flags != 0) {
+        return fail("Exploiter state preserves its logical frame independently of facing");
     }
     return 0;
 }
@@ -896,7 +900,7 @@ static int assert_fixed_momentum_semantics(void) {
 
 int main(void) {
     RTS_RUN(assert_dark_colony_direction_mapping());
-    RTS_RUN(assert_dark_colony_state_rotation_selection());
+    RTS_RUN(assert_dark_colony_state_frames_are_direction_independent());
     RTS_RUN(assert_fixed_momentum_semantics());
     RTS_RUN(assert_dark_colony_sprite_catalog());
     RTS_RUN(assert_dark_colony_exploiter_work_states());

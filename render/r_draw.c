@@ -372,6 +372,16 @@ static int sequence_facing_index(const spritesequence_t *seq, angle_t angle) {
     return best;
 }
 
+static int sequence_image_index(const spritesequence_t *sequence, int facing,
+                                int animation_frame) {
+    if (!sequence || facing < 0 || facing >= sequence->facings ||
+        animation_frame < 0 || animation_frame >= sequence->length) return -1;
+    if (sequence->frames)
+        return sequence->frames[animation_frame].image_index[facing];
+    int stride = sequence->frame_stride > 0 ? sequence->frame_stride : 1;
+    return sequence->frame_starts[facing] + animation_frame * stride;
+}
+
 static int sprite_sequence_frame(const spritesheet_t *sprite, const char *sequence_name,
                                  angle_t angle, int sequence_frame) {
     const spritesequence_t *seq = sprite_sequence_find(sprite, sequence_name);
@@ -385,7 +395,6 @@ static int sprite_sequence_frame(const spritesheet_t *sprite, const char *sequen
     int facing = sequence_facing_index(seq, angle);
     int anim = sequence_frame < 0 ? seq->length - 1 : sequence_frame;
     if (anim >= seq->length) anim = seq->length - 1;
-    int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
     int start = seq->frame_starts[facing];
     if (start < 0 || start >= sprite->frame_count) {
         debug_effects_log("sequence bad start sequence=%s facing=%d/%d code=%d start=%d frame_count=%d",
@@ -394,7 +403,7 @@ static int sprite_sequence_frame(const spritesheet_t *sprite, const char *sequen
                           sprite ? sprite->frame_count : 0);
         return -1;
     }
-    int frame = start + anim * frame_stride;
+    int frame = sequence_image_index(seq, facing, anim);
     if (frame < 0) return start;
     if (frame >= sprite->frame_count) return sprite->frame_count - 1;
     return frame;
@@ -730,8 +739,7 @@ static int sprite_frame_for_unit(const spritesheet_t *sprite, const mobj_t *unit
         } else if (moving && seq->length > 1) {
             anim = (int)((ticks / (uint32_t)tick_ms) % (uint32_t)seq->length);
         }
-        int frame_stride = seq->frame_stride > 0 ? seq->frame_stride : 1;
-        int frame = seq->frame_starts[facing] + anim * frame_stride;
+        int frame = sequence_image_index(seq, facing, anim);
         if (frame >= 0 && frame < sprite->frame_count) return frame;
     }
 
@@ -803,7 +811,9 @@ static int unit_frame_for_view(const spritesheet_t *sprite, const mobj_t *unit,
        has a gameinfo_t for shared simulation metadata, but its RSPR facings are
        selected by the renderer from the unit heading. */
     bool has_state_frames = game_info && game_info->states && game_info->state_count > 0;
-    int frame = has_state_frames ? unit->core.frame : sprite_frame_for_unit(sprite, unit, ticks);
+    int frame = (sprite && sprite->sequence_count > 0) ?
+        sprite_frame_for_unit(sprite, unit, ticks) :
+        (has_state_frames ? unit->core.frame : 0);
     if (!sprite || sprite->frame_count <= 0) return 0;
     if (frame >= sprite->frame_count) frame = 0;
     if (frame < 0) frame = 0;
@@ -1600,6 +1610,8 @@ void R_FreeSprite(spritesheet_t *sprite) {
     free(sprite->frame_bounds);
     free(sprite->frame_ground_points);
     free(sprite->frame_displacements);
+    for (int i = 0; i < sprite->sequence_count; ++i)
+        free(sprite->sequences[i].frames);
     if (sprite->destroy_native_data) sprite->destroy_native_data(sprite->native_data);
     memset(sprite, 0, sizeof(*sprite));
 }
