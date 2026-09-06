@@ -143,6 +143,7 @@ void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {
     }
     if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
     const mobjinfo_t *info = &game_info->mobjinfo[unit->type_id];
+    if (unit->core.position.z == 0) unit->core.position.z = info->spawnz;
     if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
     if (unit->speed <= 0.0f) unit->speed = (float)info->speed;

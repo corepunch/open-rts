@@ -96,6 +96,7 @@ typedef struct mobjinfo_s {
     int flags;
     int raisestate;
     int muzzleflash;
+    fixed_t spawnz;
 } mobjinfo_t;
 
 typedef enum {

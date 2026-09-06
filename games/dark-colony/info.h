@@ -536,10 +536,7 @@ void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);
 
 void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit);
 void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit);
-void A_DC_DropshipUnloadDone(statecontext_t *ctx, mobj_t *unit);
 void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit);
-void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit);
 void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit);
-void A_DC_DropshipDepartDone(statecontext_t *ctx, mobj_t *unit);
 
 #endif
