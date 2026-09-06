@@ -22,6 +22,7 @@ typedef enum {
     MF_ATTACK = 1u << 3,
     MF_HARVESTER = 1u << 4,
     MF_RESOURCE_BASE = 1u << 5,
+    MF_FLY = 1u << 6,
 } mobjflag_t;
 
 enum {
@@ -221,7 +222,7 @@ struct mobj_s {
         int released_count;
         bool release_pending;
         int phase_duration_ms;
-        int effect_slots[8];
+        int effect_slots[24];
     struct {
         uint16_t actor_id;
         uint8_t product_class;
@@ -296,5 +297,10 @@ bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
 /* State-entry actions, matching Hexen's state_t action model. */
 void A_Walk(statecontext_t *ctx, mobj_t *unit);
 void A_Attack(statecontext_t *ctx, mobj_t *unit);
+
+/* Fly toward movement.goal at unit->speed.  Returns true when arrived.
+ * For MF_FLY units skips walkability checks; for MF_MOBILE units
+ * follows the existing walkability path. */
+bool A_Move(mobj_t *unit, float dt);
 
 #endif

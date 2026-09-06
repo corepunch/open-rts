@@ -528,6 +528,12 @@ static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
                                   fvec2_t displacement) {
     if (!unit) return false;
     fixedvec3_t momentum = fixedvec3_planar_delta(displacement);
+    if (unit->traits & MF_FLY) {
+        unit->core.momentum = momentum;
+        unit->core.position = fixedvec3_add_planar(unit->core.position,
+                                                   unit->core.momentum);
+        return true;
+    }
     fixedvec3_t candidate = fixedvec3_add_planar(unit->core.position, momentum);
     fvec2_t candidate_xy = fixedvec3_xy_to_fvec2(candidate);
     if (P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
@@ -556,6 +562,27 @@ static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
     }
     unit->core.momentum = fixedvec3_zero();
     return false;
+}
+
+bool A_Move(mobj_t *unit, float dt) {
+    if (!unit) return true;
+    fvec2_t pos = fixedvec3_xy_to_fvec2(unit->core.position);
+    fvec2_t delta = fvec2_sub(unit->movement.goal, pos);
+    float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
+    if (dist < 0.001f) return true;
+    float step = unit->speed * dt;
+    fvec2_t displacement;
+    if (dist <= step)
+        displacement = delta;
+    else
+        displacement = fvec2_scale(delta, step / dist);
+    if (!move_unit_if_walkable(NULL, unit, displacement)) {
+        unit->movement.path_len = 0;
+        unit->movement.path_index = 0;
+        unit->movement.order_arrived = false;
+        return false;
+    }
+    return dist <= step;
 }
 
 static bool unit_is_following_path(const mobj_t *unit) {

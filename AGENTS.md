@@ -274,6 +274,17 @@ remaining unknowns.
   tempting workaround is wrong. This prevents later work from repeating the
   same investigation.
 
+## Debugging
+
+Always add temporary diagnostic logging (`printf` / `fprintf(stderr, ...)`) when
+investigating a bug or unexpected behavior.  Print the values of key variables
+at the point of interest so the problem can be diagnosed from terminal output
+alone — do not rely on the user running a debugger or staring at screenshots.
+
+Gate behind a compile-time define (`#define DEBUG_FOO` at the top of the
+file) or env-var check (`getenv("OPEN_RTS_DEBUG_...")`), and remove the
+logging before committing the fix.
+
 ## Git workflow
 
 - Commit all completed working-tree changes after verification so progress stays
