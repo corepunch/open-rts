@@ -113,7 +113,7 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
     switch (product->product_type) {
     case 16:
     case 17:
-        sprite_name = "SPRITES/HUBU.SPR";
+        sprite_name = "HUBU";
         break;
     default:
         return -1;

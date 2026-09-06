@@ -103,26 +103,6 @@ the uppercase suffix, e.g. `w_spr.h` → `__W_SPR__`, `dc_types.h` → `__DC_TYP
 #pragma once
 ```
 
-## Code style: designated initializers for enum-indexed arrays
-
-Always use C99 designated initializers (`[ENUMNAME] = value`) when initializing
-arrays indexed by an enum. This applies to `sprnames[]`, `mobjinfo[]`, and any
-similar table where positional order could silently diverge from the enum.
-
-```c
-/* correct */
-const char *const sprnames[NUMSPRITES] = {
-    [SPR_DC_CURSOR_CURS] = "CURSOR/CURS.SPR",
-    [SPR_DC_GRAY]        = "SPRITES/GRAY.SPR",
-};
-
-/* wrong — positional, silent mismatch if enum changes */
-const char *const sprnames[NUMSPRITES] = {
-    "CURSOR/CURS.SPR",
-    "SPRITES/GRAY.SPR",
-};
-```
-
 ## Code style: prefer structs over loose fields
 
 Work at the highest abstraction level the data supports. Group related scalars

@@ -12,48 +12,12 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
     return &game_info->states[state_id];
 }
 
-static int state_rotation_index(const gameinfo_t *game_info, const state_t *state,
-                                angle_t angle) {
-    if (!game_info || !state || state->rotations.rotation_count <= 0 ||
-        game_info->state_direction_count <= 0) {
-        return -1;
-    }
-    int direction_count = game_info->state_direction_count;
-    int facing = angle_to_direction(angle, direction_count,
-                                    game_info->state_direction_first_angle,
-                                    game_info->state_direction_clockwise);
-    int best = 0;
-    int best_distance = direction_count;
-    int best_forward_distance = direction_count;
-    for (int i = 0; i < state->rotations.rotation_count; ++i) {
-        int forward_distance =
-            ((int)state->rotations.rotation_directions[i] - facing + direction_count) %
-            direction_count;
-        int distance = forward_distance;
-        if (distance > direction_count / 2)
-            distance = direction_count - distance;
-        if (distance < best_distance ||
-            (distance == best_distance && forward_distance < best_forward_distance)) {
-            best = i;
-            best_distance = distance;
-            best_forward_distance = forward_distance;
-        }
-    }
-    return best;
-}
-
 static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
     mobj->frame = state->frame;
     mobj->render_flags = (uint32_t)state->misc2;
-    const staterotations_t *rotations = &state->rotations;
-    int rotation = state_rotation_index(game_info, state, mobj->angle);
-    if (rotation >= 0) {
-        mobj->frame = rotations->rotation_frames[rotation];
-        mobj->render_flags = rotations->rotation_flags[rotation];
-    }
     mobj->render_remap = 0;
     mobj->render_intensity = 16;
     if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };
@@ -90,13 +54,8 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
                 game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
                 sprite_name = game_info->sprnames[unit->core.sprite_id];
             }
-            debug_effects_log("shoot state unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d",
+            debug_effects_log("shoot state unit_type=%u state=%d sprite=%s frame=%d",
                               unit->type_id, unit->core.state_id,
-                              angle_to_direction(unit->core.angle,
-                                                 game_info->state_direction_count,
-                                                 game_info->state_direction_first_angle,
-                                                 game_info->state_direction_clockwise),
-                              state_rotation_index(game_info, state, unit->core.angle),
                               sprite_name, unit->core.frame);
         }
         if (state->action) state->action(ctx, unit);

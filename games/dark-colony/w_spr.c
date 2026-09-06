@@ -729,8 +729,28 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *re
     char sprite_path[1024];
     if (name[0] == '/') {
         snprintf(sprite_path, sizeof(sprite_path), "%s", name);
-    } else {
+    } else if (strchr(name, '/') != NULL) {
         M_PathJoin(sprite_path, sizeof(sprite_path), data_root, name);
+    } else {
+        static const char *const sprite_directories[] = {
+            "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
+        };
+        bool found = false;
+        for (size_t i = 0; i < sizeof(sprite_directories) / sizeof(sprite_directories[0]); ++i) {
+            char candidate[1024];
+            char filename[64];
+            snprintf(filename, sizeof(filename), "%s.SPR", name);
+            M_PathJoin(candidate, sizeof(candidate), data_root, sprite_directories[i]);
+            M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
+            if (file_exists(sprite_path)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(stderr, "failed to resolve Dark Colony sprite %s\n", name);
+            return false;
+        }
     }
     cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);

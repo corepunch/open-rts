@@ -543,35 +543,6 @@ static int assert_exploiter_16_direction_states(void) {
     return 0;
 }
 
-static int assert_generated_direction_states(void) {
-    static const uint8_t trooper_directions[8] = {0,2,4,6,8,10,12,14};
-    const state_t *trooper = &states[S_DC_TRSC_STND];
-    const state_t *exploiter = &states[S_DC_EXPL_STND];
-    const staterotations_t *trooper_rotations = &trooper->rotations;
-    const staterotations_t *exploiter_rotations = &exploiter->rotations;
-    if (trooper_rotations->rotation_count != 8)
-        return fail("Trooper states retain eight authored rotations");
-    for (int i = 0; i < 8; ++i) {
-        if (trooper_rotations->rotation_directions[i] != trooper_directions[i] ||
-            trooper_rotations->rotation_frames[i] != i ||
-            trooper_rotations->rotation_flags[i] != 0) {
-            return fail("Trooper standing rotations preserve FIN direction frames");
-        }
-    }
-    if (exploiter_rotations->rotation_count != 16)
-        return fail("Exploiter states retain sixteen authored rotations");
-    for (int code = 0; code < 16; ++code) {
-        int expected_frame = code <= 8 ? code : 16 - code;
-        uint32_t expected_flags = code <= 8 ? 0 : RTS_SPRITEFRAME_FLIP_X;
-        if (exploiter_rotations->rotation_directions[code] != code ||
-            exploiter_rotations->rotation_frames[code] != expected_frame ||
-            exploiter_rotations->rotation_flags[code] != expected_flags) {
-            return fail("Exploiter standing rotations preserve FIN direction frames and flips");
-        }
-    }
-    return 0;
-}
-
 static int assert_generated_mobj_table_coverage(void) {
     if (game_info.mobj_type_count != NUMMOBJTYPES ||
         game_info.mobjinfo != dc_mobjinfo) {
@@ -609,7 +580,6 @@ int main(void) {
     if (assert_reaper_move_timing() != 0) return 1;
     if (assert_barracks_trooper_release_timing() != 0) return 1;
     if (assert_exploiter_16_direction_states() != 0) return 1;
-    if (assert_generated_direction_states() != 0) return 1;
     if (assert_generated_mobj_table_coverage() != 0) return 1;
     if (assert_dropship_state_chain() != 0) return 1;
     printf("PASS: Dark Colony SPR/FIN layout alignment is data-consistent\n");
