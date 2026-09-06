@@ -564,7 +564,7 @@ static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
     return false;
 }
 
-bool A_Move(mobj_t *unit, float dt) {
+bool P_MoveMobjToward(const level_t *map, mobj_t *unit, float dt) {
     if (!unit) return true;
     fvec2_t pos = fixedvec3_xy_to_fvec2(unit->core.position);
     fvec2_t delta = fvec2_sub(unit->movement.goal, pos);
@@ -576,7 +576,7 @@ bool A_Move(mobj_t *unit, float dt) {
         displacement = delta;
     else
         displacement = fvec2_scale(delta, step / dist);
-    if (!move_unit_if_walkable(NULL, unit, displacement)) {
+    if (!move_unit_if_walkable(map, unit, displacement)) {
         unit->movement.path_len = 0;
         unit->movement.path_index = 0;
         unit->movement.order_arrived = false;

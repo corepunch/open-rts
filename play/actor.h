@@ -298,9 +298,8 @@ bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
 void A_Walk(statecontext_t *ctx, mobj_t *unit);
 void A_Attack(statecontext_t *ctx, mobj_t *unit);
 
-/* Fly toward movement.goal at unit->speed.  Returns true when arrived.
- * For MF_FLY units skips walkability checks; for MF_MOBILE units
- * follows the existing walkability path. */
-bool A_Move(mobj_t *unit, float dt);
+/* Move toward movement.goal at unit->speed.  Physical displacement belongs
+ * to the movement system, not to a state-entry action. */
+bool P_MoveMobjToward(const level_t *map, mobj_t *unit, float dt);
 
 #endif

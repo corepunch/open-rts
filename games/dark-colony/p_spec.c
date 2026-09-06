@@ -12,7 +12,6 @@
 
 /* ── debug logging categories ─────────────────────────────────────────── */
 /* Enable any of these at compile time for periodic diagnostics.          */
-/* #define DEBUG_DROPSHIP */
 /* #define DEBUG_SCRIPT     */
 /* #define DEBUG_AI         */
 
@@ -141,6 +140,12 @@ typedef struct {
 } ScriptMessage;
 
 typedef struct Mission Mission;
+
+static const ivec2_t drop_formation[] = {
+    { 0, 0 }, { -1, 0 }, { 1, 0 }, { 0, -1 },
+    { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 },
+    { 1, 1 }, { -2, 0 }, { 2, 0 }, { 0, -2 },
+};
 
 typedef struct {
     Mission *mission;
@@ -546,6 +551,34 @@ static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count
     (*unit_count)++;
 }
 
+static bool dropship_cell_occupied(const mobj_t *units, int unit_count,
+                                   ivec2_t cell) {
+    for (int i = 0; i < unit_count; ++i) {
+        if (units[i].remove || units[i].hp <= 0) continue;
+        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        if ((int)floorf(position.x) == cell.x &&
+            (int)floorf(position.y) == cell.y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static fvec2_t dropship_drop_position(const level_t *map, const mobj_t *units,
+                                      int unit_count, ivec2_t origin, int slot) {
+    int formation_count = (int)(sizeof(drop_formation) /
+                                sizeof(drop_formation[0]));
+    for (int attempt = 0; attempt < formation_count; ++attempt) {
+        ivec2_t offset = drop_formation[(slot + attempt) % formation_count];
+        ivec2_t cell = { origin.x + offset.x, origin.y + offset.y };
+        if ((!map || L_IsWalkable(map, cell.x, cell.y)) &&
+            !dropship_cell_occupied(units, unit_count, cell)) {
+            return fvec2_cell_center(cell);
+        }
+    }
+    return fvec2_cell_center(origin);
+}
+
 static void set_dropship_duration(mobj_t *ship, int duration_ms) {
     ship->phase_duration_ms = duration_ms > 0 ? duration_ms : 1;
 }
@@ -568,7 +601,9 @@ static void dropship_unload_done(DropshipUpdateContext *context,
 
     if (ship->payload_index < ship->payload_count) {
         ship->start_center = ship->center;
-        ship->target_center = fvec2_add(ship->target_center, ship->flight_vector);
+        ship->target_center = dropship_drop_position(
+            context->map, context->units, *context->unit_count,
+            ship->origin, ship->released_count);
         ship->release_pending = true;
         set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
         return;
@@ -591,11 +626,11 @@ static void tick_dropship_state(Mission *mission, mobj_t *ship,
     bool moving = state_before == S_DC_DROPSHIP_APPROACH ||
                   state_before == S_DC_DROPSHIP_REPOSITION ||
                   state_before == S_DC_DROPSHIP_DEPART;
-    P_TickMobjState(&state_context, ship);
     if (moving) {
-        A_Move(ship, dt);
+        P_MoveMobjToward(NULL, ship, dt);
         ship->center = fixedvec3_xy_to_fvec2(ship->core.position);
     }
+    P_TickMobjState(&state_context, ship);
     int elapsed_ms = ship->phase_duration_ms -
                      ship->core.tics * 1000 / DROPSHIP_FLIGHT_TICS;
     if (elapsed_ms < 0) elapsed_ms = 0;
@@ -637,8 +672,13 @@ void A_DC_DropshipUnloadDone(statecontext_t *ctx, mobj_t *unit) {
         .max_effects = ctx->max_effects, .game_info = ctx->game_info,
     };
     dropship_unload_done(&update, ship);
-    P_SetMobjState(ctx, unit, ship->payload_index < ship->payload_count ?
-                   S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_DEPART);
+    int next_state = S_DC_DROPSHIP_DEPART;
+    if (ship->payload_index < ship->payload_count) {
+        fvec2_t delta = fvec2_sub(ship->target_center, ship->center);
+        next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
+            S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
+    }
+    P_SetMobjState(ctx, unit, next_state);
 }
 
 void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
@@ -659,9 +699,8 @@ void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit) {
     mobj_t *ship = unit;
     if (!ship || !ctx || !ctx->map || !ctx->map->mission) return;
     ship->start_center = ship->center;
-    ship->target_center = fvec2_cell_center(ship->origin);
     ship->release_pending = true;
-    P_SetMobjState(ctx, unit, S_DC_DROPSHIP_APPROACH);
+    P_SetMobjState(ctx, unit, S_DC_DROPSHIP_UNLOAD);
 }
 
 void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
