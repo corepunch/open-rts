@@ -10,7 +10,7 @@ static const actortype_t ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 4.0f,
         .max_hp = 100,
-        .attack = { .range = 4.0f, .damage = 10, .cooldown_ms = 650, .anim_ms = 450 },
+        .attack = { .range = 4.0f, .damage = 10, .cooldown_ms = 650 },
     },
 };
 

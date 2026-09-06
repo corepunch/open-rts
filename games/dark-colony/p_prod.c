@@ -666,29 +666,14 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     new_unit.attack.target = -1;
     new_unit.harvest.target = -1;
     new_unit.traits = type->traits;
-    new_unit.harvest.capacity = type->harvest.capacity;
     new_unit.speed = type->speed;
     new_unit.max_hp = type->max_hp;
     new_unit.hp = type->max_hp;
-    new_unit.attack.range = type->attack.range;
-    new_unit.attack.damage = type->attack.damage;
-    new_unit.attack.cooldown_ms = type->attack.cooldown_ms;
-    new_unit.attack.anim_ms = type->attack.anim_ms;
-    new_unit.death.anim_ms = type->death.anim_ms;
-    new_unit.harvest.state_id = type->harvest.state_id;
-    new_unit.muzzle_flash_ms = type->muzzle_flash_ms;
     new_unit.core.render_intensity = 16;
     if (type->sprite_name)
         snprintf(new_unit.core.sprite_name, sizeof(new_unit.core.sprite_name), "%s", type->sprite_name);
     if (type->shadow_name)
         snprintf(new_unit.shadow_name, sizeof(new_unit.shadow_name), "%s", type->shadow_name);
-    new_unit.muzzle_flash_sprite = type->muzzle_flash_sprite;
-    new_unit.hit_effect_sprite = type->hit_effect_sprite;
-    if (type->muzzle_flash_name)
-        snprintf(new_unit.muzzle_flash_name, sizeof(new_unit.muzzle_flash_name), "%s", type->muzzle_flash_name);
-    if (type->hit_effect_name)
-        snprintf(new_unit.hit_effect_name, sizeof(new_unit.hit_effect_name), "%s", type->hit_effect_name);
-    new_unit.death_effect_action = type->death_effect_action;
     P_SpawnMobj(gameinfo, &new_unit);
 
     float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;

@@ -19,8 +19,7 @@ static const actortype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_ATTACK,
         .speed       = 4.0f,
         .max_hp      = 100,
-        .attack = { .range = 5.0f, .damage = 15, .cooldown_ms = 800, .anim_ms = 400 },
-        .death = { .anim_ms = 600 },
+        .attack = { .range = 5.0f, .damage = 15, .cooldown_ms = 800 },
     },
     {
         .id          = 2,
@@ -39,8 +38,7 @@ static const actortype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_ATTACK,
         .speed       = 3.0f,
         .max_hp      = 300,
-        .attack = { .range = 7.0f, .damage = 35, .cooldown_ms = 1200, .anim_ms = 500 },
-        .death = { .anim_ms = 800 },
+        .attack = { .range = 7.0f, .damage = 35, .cooldown_ms = 1200 },
     },
     {
         .id          = 4,
@@ -50,8 +48,7 @@ static const actortype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_ATTACK,
         .speed       = 4.5f,
         .max_hp      = 500,
-        .attack = { .range = 8.0f, .damage = 50, .cooldown_ms = 1500, .anim_ms = 600 },
-        .death = { .anim_ms = 1000 },
+        .attack = { .range = 8.0f, .damage = 50, .cooldown_ms = 1500 },
     },
     {
         .id          = 5,
@@ -61,8 +58,7 @@ static const actortype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_ATTACK,
         .speed       = 2.5f,
         .max_hp      = 800,
-        .attack = { .range = 6.0f, .damage = 70, .cooldown_ms = 2000, .anim_ms = 700 },
-        .death = { .anim_ms = 1200 },
+        .attack = { .range = 6.0f, .damage = 70, .cooldown_ms = 2000 },
     },
     {
         .id          = 6,

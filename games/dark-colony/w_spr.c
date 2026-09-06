@@ -920,9 +920,12 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
             ok = false;
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].shadow_name))
             ok = false;
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].muzzle_flash_name))
+        const actortype_t *info = units[i].info;
+        if (info && !sprite_cache_load_dark_colony(
+                        cache, renderer, data_root, info->muzzle_flash_name))
             ok = false;
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].hit_effect_name))
+        if (info && !sprite_cache_load_dark_colony(
+                        cache, renderer, data_root, info->hit_effect_name))
             ok = false;
     }
     return ok;
