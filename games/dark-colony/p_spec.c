@@ -632,6 +632,34 @@ static void tick_dropship_state(Mission *mission, mobj_t *ship,
         ship->center = fixedvec3_xy_to_fvec2(ship->core.position);
     }
     P_TickMobjState(&state_context, ship);
+    int state_after = ship->core.state_id;
+
+    if (state_before == S_DC_DROPSHIP_UNLOAD && state_after != S_DC_DROPSHIP_UNLOAD) {
+        DropshipUpdateContext update = {
+            .mission = mission, .map = map, .units = units,
+            .unit_count = unit_count, .effects = effects,
+            .max_effects = max_effects, .game_info = game_info,
+        };
+        dropship_unload_done(&update, ship);
+        int next_state = S_DC_DROPSHIP_DEPART;
+        if (ship->payload_index < ship->payload_count) {
+            fvec2_t delta = fvec2_sub(ship->target_center, ship->center);
+            next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
+                S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
+        }
+        P_SetMobjState(&state_context, ship, next_state);
+    } else if (state_before == S_DC_DROPSHIP_REPOSITION &&
+               state_after != S_DC_DROPSHIP_REPOSITION) {
+        ship->start_center = ship->center;
+        ship->release_pending = true;
+        P_SetMobjState(&state_context, ship, S_DC_DROPSHIP_UNLOAD);
+    } else if (state_before == S_DC_DROPSHIP_DEPART &&
+               state_after != S_DC_DROPSHIP_DEPART) {
+        clear_dropship_parts(ship, effects, max_effects);
+        ship->active = false;
+        ship->remove = true;
+    }
+
     int elapsed_ms = ship->phase_duration_ms -
                      ship->core.tics * 1000 / DROPSHIP_FLIGHT_TICS;
     if (elapsed_ms < 0) elapsed_ms = 0;
@@ -664,24 +692,6 @@ void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit) {
                                  ctx->effects, ctx->max_effects, 0);
 }
 
-void A_DC_DropshipUnloadDone(statecontext_t *ctx, mobj_t *unit) {
-    mobj_t *ship = unit;
-    if (!ship || !ctx || !ctx->map || !ctx->map->mission) return;
-    DropshipUpdateContext update = {
-        .mission = (Mission *)ctx->map->mission, .map = ctx->map, .units = ctx->mobjs,
-        .unit_count = ctx->mobj_count, .effects = ctx->effects,
-        .max_effects = ctx->max_effects, .game_info = ctx->game_info,
-    };
-    dropship_unload_done(&update, ship);
-    int next_state = S_DC_DROPSHIP_DEPART;
-    if (ship->payload_index < ship->payload_count) {
-        fvec2_t delta = fvec2_sub(ship->target_center, ship->center);
-        next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
-            S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
-    }
-    P_SetMobjState(ctx, unit, next_state);
-}
-
 void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
     (void)ctx;
     mobj_t *ship = unit;
@@ -696,14 +706,6 @@ void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
     ship->core.position = fixedvec3_with_xy(ship->core.position, ship->center);
 }
 
-void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit) {
-    mobj_t *ship = unit;
-    if (!ship || !ctx || !ctx->map || !ctx->map->mission) return;
-    ship->start_center = ship->center;
-    ship->release_pending = true;
-    P_SetMobjState(ctx, unit, S_DC_DROPSHIP_UNLOAD);
-}
-
 void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
     (void)ctx;
     mobj_t *ship = unit;
@@ -716,14 +718,6 @@ void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
     if (dist > 0.001f && ship->phase_duration_ms > 0)
         ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
     ship->core.position = fixedvec3_with_xy(ship->core.position, ship->center);
-}
-
-void A_DC_DropshipDepartDone(statecontext_t *ctx, mobj_t *unit) {
-    mobj_t *ship = unit;
-    if (!ship || !ctx) return;
-    clear_dropship_parts(ship, ctx->effects, ctx->max_effects);
-    ship->active = false;
-    unit->remove = true;
 }
 
 static int ai_nearest_vent_to(const level_t *map, int gx, int gy) {

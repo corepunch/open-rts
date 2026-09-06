@@ -1113,7 +1113,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_DC_EXPL_CORPSE,\n");
     fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,\n");
     fprintf(out, "    S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,\n");
-    fprintf(out, "    S_DC_DROPSHIP_APPROACH, S_DC_DROPSHIP_UNLOAD, S_DC_DROPSHIP_UNLOAD_DONE, S_DC_DROPSHIP_REPOSITION, S_DC_DROPSHIP_REPOSITION_DONE, S_DC_DROPSHIP_DEPART, S_DC_DROPSHIP_DEPART_DONE,\n");
+    fprintf(out, "    S_DC_DROPSHIP_APPROACH, S_DC_DROPSHIP_UNLOAD, S_DC_DROPSHIP_REPOSITION, S_DC_DROPSHIP_DEPART,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
     fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, MT_DC_ORTU, MT_DC_SLUG, MT_DC_MOBILE_TOWER, MT_DC_DROP_LINK, MT_DC_ALIEN_COM, MT_DC_VISION_SIGHT, NUMMOBJTYPES } mobjtype_t;\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
@@ -1127,11 +1127,8 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);\n\n");
     fprintf(out, "void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_DropshipUnloadDone(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_DropshipDepartDone(statecontext_t *ctx, mobj_t *unit);\n\n");
+    fprintf(out, "void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit);\n\n");
     fprintf(out, "#endif\n");
 }
 
@@ -1874,12 +1871,9 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive3, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_rschive, "S_NULL");
     fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_UNLOAD_DONE, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipUnloadDone, S_NULL, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_REPOSITION_DONE, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipRepositionDone, S_NULL, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_DC_DROPSHIP_DEPART_DONE, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 0, A_DC_DropshipDepartDone, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_NULL, 0, 0 },\n");
     fprintf(out, "};\n\n");
 
     fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");
