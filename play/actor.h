@@ -13,6 +13,7 @@ typedef struct statecontext_s statecontext_t;
 typedef struct app_s app_t;
 typedef struct spritecache_s spritecache_t;
 typedef struct gameinfo_s gameinfo_t;
+typedef struct production_s production_t;
 typedef void (*actionf_p1)(statecontext_t *ctx, mobj_t *mo);
 
 typedef enum {
@@ -23,6 +24,8 @@ typedef enum {
     MF_HARVESTER = 1u << 4,
     MF_RESOURCE_BASE = 1u << 5,
     MF_FLY = 1u << 6,
+    MF_SELECTED = 1u << 7,
+    MF_DONTDRAW = 1u << 8,
 } mobjflag_t;
 
 enum {
@@ -162,6 +165,18 @@ typedef struct mobjcore_s {
     char sprite_name[32];
 } mobjcore_t;
 
+struct production_s {
+    uint16_t actor_id;
+    uint8_t product_class;
+    int product_type;
+    int queue_count;
+    int time_ms;
+    int time_left_ms;
+    bool blocked;
+    bool release_active;
+    int release_time_left_ms;
+};
+
 struct mobj_s {
     mobjcore_t core;
     const actortype_t *info;
@@ -169,7 +184,6 @@ struct mobj_s {
     uint32_t id;
     uint16_t type_id;
     uint16_t native_type_id;
-    float render_sort_y;
     uint8_t owner;
     uint8_t team;
     uint8_t allegiance;
@@ -187,33 +201,37 @@ struct mobj_s {
         int phase;
         fvec2_t return_position;
     } harvest;
-    bool selected;
-    bool death_started;
     bool remove;
-    bool hidden;
-    struct {
-        uint16_t actor_id;
-        uint8_t product_class;
-        int product_type;
-        int queue_count;
-        int time_ms;
-        int time_left_ms;
-        bool blocked;
-        bool release_active;
-        int release_time_left_ms;
-    } production;
+    production_t *production;
     float radius;
     struct {
         fvec2_t goal;
+        const flowfield_t *flow_field;
         uint32_t order_id;
         bool order_arrived;
-        cell_t path[MAX_PATH_CELLS];
-        int path_len;
-        int path_index;
         int turn_timer_ms;
     } movement;
-    char shadow_name[32];
 };
+
+static inline bool P_MobjIsSelected(const mobj_t *mobj) {
+    return mobj && (mobj->traits & MF_SELECTED) != 0;
+}
+
+static inline void P_MobjSetSelected(mobj_t *mobj, bool selected) {
+    if (!mobj) return;
+    if (selected) mobj->traits |= MF_SELECTED;
+    else mobj->traits &= ~MF_SELECTED;
+}
+
+static inline bool P_MobjIsHidden(const mobj_t *mobj) {
+    return mobj && (mobj->traits & MF_DONTDRAW) != 0;
+}
+
+static inline void P_MobjSetHidden(mobj_t *mobj, bool hidden) {
+    if (!mobj) return;
+    if (hidden) mobj->traits |= MF_DONTDRAW;
+    else mobj->traits &= ~MF_DONTDRAW;
+}
 
 static inline bool P_AreAllegiancesAllied(uint8_t a, uint8_t b) {
     if (a == ALLEGIANCE_NEUTRAL || b == ALLEGIANCE_NEUTRAL)
@@ -256,6 +274,8 @@ struct statecontext_s {
 
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
 bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
+production_t *P_EnsureMobjProduction(mobj_t *unit);
+void P_FreeMobjProduction(mobj_t *unit);
 
 /* State-entry actions, matching Hexen's state_t action model. */
 void A_Walk(statecontext_t *ctx, mobj_t *unit);

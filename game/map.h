@@ -9,6 +9,7 @@
 
 typedef struct app_s app_t;
 typedef struct tileset_s tileset_t;
+typedef struct flowfield_s flowfield_t;
 
 typedef ivec2_t cell_t;
 
@@ -119,6 +120,7 @@ typedef struct level_s {
     void (*destroy_native_data)(void *);
     void *mission;
     void (*destroy_mission)(void *);
+    flowfield_t *flow_fields;
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
 } level_t;

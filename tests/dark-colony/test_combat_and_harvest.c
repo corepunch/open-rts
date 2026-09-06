@@ -109,7 +109,7 @@ static int assert_hidden_attacker_effects_suppressed(void) {
     mobj_t attacker, target;
     memset(&attacker, 0, sizeof(attacker));
     memset(&target, 0, sizeof(target));
-    attacker.hidden = true;
+    P_MobjSetHidden(&attacker, true);
     attacker.hp = 800;
     attacker.max_hp = 800;
     attacker.traits = MF_SELECTABLE | MF_MOBILE | MF_ATTACK;

@@ -66,6 +66,22 @@ claim byte-for-byte behavioral parity.
 authoritative cost, build time, health, physics speed, hit size, seeing range,
 weapon, and prerequisite fields. Examples for Freedom Guard are:
 
+### Unit shadow ownership
+
+**Confirmed from `data/REIGN/dark/deftxt/UNITS.TXT`.** `SetShadowImage` is part
+of each unit-type definition, not scenario-object state. Freedom Guard infantry
+share `ucmensh0.spr`; the Construction Rig uses `ucfcnsh0.spr`; the Spider Bike
+and Flak Jack use `ufspbsh0.spr` and `ufflksh0.spr`; several vehicles use their
+body sprite as the shadow image. The engine therefore stores these names in
+`actortype_t.shadow_name` and resolves them through `mobj_t.info`. A per-object
+shadow-name buffer would duplicate immutable type configuration.
+
+Reproduce the mapping with:
+
+```sh
+perl -0777 -ne 'while (/DefineUnitType\s*\(([^)]+)\)(.*?)(?=DefineUnitType\s*\(|\z)/sg) { my ($type,$body)=($1,$2); my ($shadow)=$body=~/SetShadowImage\s*\(([^)]+)\)/; my ($image)=$body=~/SetImage\s*\(([^)]+)\)/; print "$type\t$image\t", ($shadow // ""), "\n" if $image; }' data/REIGN/dark/deftxt/UNITS.TXT
+```
+
 | Unit | Cost / build time | HP | Physics speed | Sight |
 |---|---:|---:|---:|---:|
 | Construction Rig | 300 / 9 | 100 | 6 | 9 |

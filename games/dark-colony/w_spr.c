@@ -918,7 +918,8 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root,
                            units[i].core.sprite_name))
             ok = false;
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, units[i].shadow_name))
+        const char *shadow_name = units[i].info ? units[i].info->shadow_name : NULL;
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, shadow_name))
             ok = false;
         const actortype_t *info = units[i].info;
         if (info && !sprite_cache_load_dark_colony(

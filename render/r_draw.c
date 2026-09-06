@@ -890,7 +890,8 @@ static int pick_unit_at(const app_t *app, const level_t *map, const mobj_t *unit
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
         const mobj_t *unit = &units[i];
-        if (unit->hidden || unit->hp <= 0 || (unit->traits & MF_SELECTABLE) == 0) continue;
+        if (P_MobjIsHidden(unit) || unit->hp <= 0 ||
+            (unit->traits & MF_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         irect_t visible;
         float sx = 0.0f, sy = 0.0f;
@@ -1058,7 +1059,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
                                uint32_t ticks) {
-    if (!u || u->hidden || (u->traits & MF_RENDERABLE) == 0) return;
+    if (!u || P_MobjIsHidden(u) || (u->traits & MF_RENDERABLE) == 0) return;
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->lumps || sprite->numlumps <= 0) return;
 
@@ -1071,7 +1072,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                               &dst, &visible, &sx, &sy, &frame, &frame_flip, &sprite);
     uint32_t render_flags = game_info ? u->core.render_flags : 0;
     if (frame_flip) render_flags |= RTS_FRAME_FLIP_X;
-    const spritesheet_t *shadow = R_CacheLookup(cache, u->shadow_name);
+    const spritesheet_t *shadow = R_CacheLookup(
+        cache, u->info && u->info->shadow_name ? u->info->shadow_name : "");
     /* Some Dark Reign unit definitions repeat the body RSPR in
        SetShadowImage.  The original treats its shadow data specially; our
        cache resolves that name to the already-loaded colour body sheet, so
@@ -1092,7 +1094,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
                      0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
-    if (u->selected && (u->traits & MF_SELECTABLE) != 0) {
+    if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE) != 0) {
         selectiondrawcontext_t selection_ctx = {
             .app = app,
             .unit = u,
@@ -1118,7 +1120,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&
         (!game_info || game_info->selection_marker.style != SELECTION_STYLE_BRACKETS ||
-         !u->selected)) {
+         !P_MobjIsSelected(u))) {
         int bar_w = dst.w / 2;
         int bar_h = 2;
         int bx = (int)(sx - bar_w / 2);
@@ -1245,15 +1247,12 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         };
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].hidden) continue;
+        if (P_MobjIsHidden(&units[i])) continue;
         fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
-        float sort_y = units[i].render_sort_y > 0.0f ?
-            units[i].render_sort_y : position.y;
-        sort_y = L_ScreenYF(map, sort_y);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
             .layer = RENDER_LAYER_UNIT,
-            .sort_y = sort_y,
+            .sort_y = L_ScreenYF(map, position.y),
             .stable_index = i,
             .ref.unit = &units[i],
         };
@@ -1420,9 +1419,9 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
             if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
-                    units[i].selected = !units[i].hidden && units[i].owner == 0 &&
-                        (units[i].traits & MF_SELECTABLE) != 0 &&
-                        units[i].hp > 0;
+                    P_MobjSetSelected(&units[i], !P_MobjIsHidden(&units[i]) &&
+                        units[i].owner == 0 && (units[i].traits & MF_SELECTABLE) != 0 &&
+                        units[i].hp > 0);
                 }
             }
             break;
@@ -1454,7 +1453,8 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                                           game_info, rx, ry, -1);
                 if (target >= 0 && units[target].owner != 0 && units[target].hp > 0) {
                     for (int i = 0; i < unit_count; ++i) {
-                        if (!units[i].selected || units[i].owner != 0 || units[i].hp <= 0) continue;
+                        if (!P_MobjIsSelected(&units[i]) || units[i].owner != 0 ||
+                            units[i].hp <= 0) continue;
                         if ((units[i].traits & MF_ATTACK) == 0) continue;
                         units[i].attack.target = target;
                         units[i].harvest.target = -1;
@@ -1469,7 +1469,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         break;
                     }
                     for (int i = 0; i < unit_count; ++i) {
-                        if (units[i].selected && units[i].owner == 0) {
+                        if (P_MobjIsSelected(&units[i]) && units[i].owner == 0) {
                             units[i].attack.target = -1;
                         }
                     }
@@ -1487,11 +1487,12 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                 bool box = rect.w > 5 || rect.h > 5;
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
                 if (!additive) {
-                    for (int i = 0; i < unit_count; ++i) units[i].selected = false;
+                    for (int i = 0; i < unit_count; ++i)
+                        P_MobjSetSelected(&units[i], false);
                 }
                 if (box) {
                     for (int i = 0; i < unit_count; ++i) {
-                        if (units[i].hidden) continue;
+                        if (P_MobjIsHidden(&units[i])) continue;
                         if (units[i].hp <= 0) continue;
                         if ((units[i].traits & MF_SELECTABLE) == 0) continue;
                         if (units[i].owner != 0) continue;
@@ -1503,14 +1504,14 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         float radius = unit_pick_radius_px(app, &units[i]);
                         if (irect_intersects(visible, rect) ||
                             circle_intersects_rect((fvec2_t){ sx, sy }, radius, rect)) {
-                            units[i].selected = true;
+                            P_MobjSetSelected(&units[i], true);
                         }
                     }
                 } else {
                     int picked = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
                                               game_info, bx, by, 0);
                     if (picked >= 0) {
-                        units[picked].selected = true;
+                        P_MobjSetSelected(&units[picked], true);
                     }
                 }
                 app->dragging_select = false;
@@ -1567,6 +1568,7 @@ void R_FreeTileset(tileset_t *tileset) {
 }
 
 void P_FreeLevel(level_t *map) {
+    P_FreeFlowFields(map);
     free(map->tile_ids);
     for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);
     for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_transforms[i]);

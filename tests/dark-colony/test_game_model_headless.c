@@ -873,11 +873,8 @@ static int assert_fixed_momentum_semantics(void) {
     unit.traits = MF_MOBILE;
     unit.attack.target = -1;
     unit.harvest.target = -1;
-    unit.movement.goal = (fvec2_t){ 2.30f, 3.5f };
-    unit.movement.path[0] = (cell_t){ 2, 3 };
-    unit.movement.path[1] = (cell_t){ 2, 3 };
-    unit.movement.path_len = 2;
-    unit.movement.path_index = 1;
+    if (!P_MoveUnitTo(&map, &unit, (fvec2_t){ 2.30f, 3.5f }))
+        return fail("short final movement creates a flow-field order");
 
     fixedvec3_t before = unit.core.position;
     int unit_count = 1;
@@ -886,15 +883,17 @@ static int assert_fixed_momentum_semantics(void) {
         unit.core.momentum.z != 0 ||
         unit.core.position.x != fixed_add_saturated(before.x, unit.core.momentum.x) ||
         unit.core.position.y != fixed_add_saturated(before.y, unit.core.momentum.y) ||
-        unit.core.position.z != before.z || unit.movement.path_len != 0) {
+        unit.core.position.z != before.z || unit.movement.flow_field != NULL) {
         return fail("short final movement applies position plus fixed momentum and preserves z");
     }
 
     P_Ticker(&map, &unit, &unit_count, NULL, 0, NULL, 1.0f / 30.0f);
     if (unit.core.momentum.x != 0 || unit.core.momentum.y != 0 ||
         unit.core.momentum.z != 0 || unit.core.position.z != before.z) {
+        P_FreeFlowFields(&map);
         return fail("idle update clears fixed momentum and preserves z");
     }
+    P_FreeFlowFields(&map);
     return 0;
 }
 

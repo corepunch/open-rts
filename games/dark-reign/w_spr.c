@@ -372,8 +372,9 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
     }
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = &units[i];
+        const char *shadow_name = unit->info ? unit->info->shadow_name : NULL;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
-                                          unit->shadow_name, sprite_palette, terrain_palette)) ok = false;
+                          shadow_name, sprite_palette, terrain_palette)) ok = false;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
                                           unit->core.sprite_name, sprite_palette, terrain_palette)) ok = false;
     }

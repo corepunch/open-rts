@@ -47,6 +47,7 @@ int L_Index(const level_t *map, int x, int y);
 bool L_Contains(const level_t *map, int x, int y);
 bool L_IsWalkable(const level_t *map, int x, int y);
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
+void P_FreeFlowFields(level_t *map);
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);

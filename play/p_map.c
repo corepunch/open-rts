@@ -15,6 +15,12 @@ typedef struct {
     uint8_t queued;
 } FlowCell;
 
+struct flowfield_s {
+    cell_t goal;
+    FlowCell *cells;
+    flowfield_t *next;
+};
+
 static uint32_t g_next_move_order_id = 1;
 
 static uint32_t next_move_order_id(void) {
@@ -375,6 +381,36 @@ static FlowCell *build_flow_field(const level_t *map, cell_t goal) {
     return field;
 }
 
+static const flowfield_t *flow_field_for_goal(const level_t *map, cell_t goal) {
+    if (!map) return NULL;
+    for (const flowfield_t *field = map->flow_fields; field; field = field->next) {
+        if (ivec2_equal(field->goal, goal)) return field;
+    }
+    flowfield_t *field = calloc(1, sizeof(*field));
+    if (!field) return NULL;
+    field->cells = build_flow_field(map, goal);
+    if (!field->cells) {
+        free(field);
+        return NULL;
+    }
+    field->goal = goal;
+    field->next = map->flow_fields;
+    ((level_t *)map)->flow_fields = field;
+    return field;
+}
+
+void P_FreeFlowFields(level_t *map) {
+    if (!map) return;
+    flowfield_t *field = map->flow_fields;
+    while (field) {
+        flowfield_t *next = field->next;
+        free(field->cells);
+        free(field);
+        field = next;
+    }
+    map->flow_fields = NULL;
+}
+
 static bool line_walkable(const level_t *map, cell_t a, cell_t b, float radius) {
     if (!map) return true;
     int dx = abs(b.x - a.x);
@@ -390,40 +426,25 @@ static bool line_walkable(const level_t *map, cell_t a, cell_t b, float radius) 
     return true;
 }
 
-static int smooth_cell_path(const level_t *map, cell_t *path, int length, float radius) {
-    if (!map || !path || length <= 2) return length;
-    int write = 0;
-    int anchor = 0;
-    path[write++] = path[0];
-    while (anchor < length - 1) {
-        int next = length - 1;
-        while (next > anchor + 1 && !line_walkable(map, path[anchor], path[next], radius)) next--;
-        path[write++] = path[next];
-        anchor = next;
-    }
-    return write;
-}
-
-static int flow_path_find(const level_t *map, const FlowCell *field, cell_t start,
-                          cell_t *out_path, int max_path, float radius) {
-    if (!map || !field || !out_path || max_path <= 0 ||
-        !L_IsWalkable(map, start.x, start.y)) {
-        return 0;
-    }
+bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
+                       fvec2_t position, fvec2_t goal, float radius,
+                       fvec2_t *target, bool *final) {
+    if (!map || !field || !field->cells || !target || !final) return false;
+    cell_t start = { (int)floorf(position.x), (int)floorf(position.y) };
+    if (!L_IsWalkable(map, start.x, start.y)) return false;
     int current = L_Index(map, start.x, start.y);
-    if (field[current].cost >= 1000000000) return 0;
-    int length = 0;
-    out_path[length++] = start;
+    if (field->cells[current].cost >= 1000000000) return false;
+    cell_t waypoint = start;
     static const int dirs[8][2] = {
         { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
         { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 },
     };
     int guard = map->width * map->height;
-    while (field[current].cost > 0 && length < max_path && guard-- > 0) {
+    while (field->cells[current].cost > 0 && guard-- > 0) {
         int cx = current % map->width;
         int cy = current / map->width;
         int best = current;
-        int best_cost = field[current].cost;
+        int best_cost = field->cells[current].cost;
         for (int d = 0; d < 8; ++d) {
             int nx = cx + dirs[d][0];
             int ny = cy + dirs[d][1];
@@ -434,16 +455,20 @@ static int flow_path_find(const level_t *map, const FlowCell *field, cell_t star
                 continue;
             }
             int ni = L_Index(map, nx, ny);
-            if (field[ni].cost < best_cost) {
+            if (field->cells[ni].cost < best_cost) {
                 best = ni;
-                best_cost = field[ni].cost;
+                best_cost = field->cells[ni].cost;
             }
         }
         if (best == current) break;
+        cell_t candidate = { best % map->width, best / map->width };
+        if (!line_walkable(map, start, candidate, radius)) break;
         current = best;
-        out_path[length++] = (cell_t){ current % map->width, current / map->width };
+        waypoint = candidate;
     }
-    return smooth_cell_path(map, out_path, length, radius);
+    *final = field->cells[current].cost == 0;
+    *target = *final ? goal : fvec2_cell_center(waypoint);
+    return *final || !ivec2_equal(waypoint, start);
 }
 
 
@@ -452,7 +477,7 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
                    fvec2_t goal_position) {
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
-        if (!units[i].selected) continue;
+        if (!P_MobjIsSelected(&units[i])) continue;
         if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & MF_MOBILE) == 0) continue;
         selected_count++;
@@ -461,7 +486,7 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
 
     cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return;
-    FlowCell *field = build_flow_field(map, goal);
+    const flowfield_t *field = flow_field_for_goal(map, goal);
     if (!field) return;
 
     int formation_columns = selected_count < 3 ? selected_count : 3;
@@ -469,7 +494,7 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
     int selected_index = 0;
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
-        if (!units[i].selected) continue;
+        if (!P_MobjIsSelected(&units[i])) continue;
         if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & MF_MOBILE) == 0) continue;
         units[i].core.momentum = fixedvec3_zero();
@@ -479,9 +504,6 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         units[i].harvest.timer_ms = 0;
         units[i].harvest.phase = 0;
         fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
-        cell_t start = { (int)floorf(position.x), (int)floorf(position.y) };
-        int len = flow_path_find(map, field, start, units[i].movement.path, MAX_PATH_CELLS,
-                                 P_MobjRadius(&units[i]));
         int row = selected_index / formation_columns;
         int row_start = row * formation_columns;
         int row_count = selected_count - row_start;
@@ -509,18 +531,12 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
             units[i].movement.goal.x = adjusted_gx;
             units[i].movement.goal.y = adjusted_gy;
         }
-        if (len == 1 &&
-            fvec2_distance_squared(units[i].movement.goal, position) > 0.05f * 0.05f &&
-            MAX_PATH_CELLS > 1) {
-            units[i].movement.path[1] = units[i].movement.path[0];
-            len = 2;
-        }
-        units[i].movement.path_len = len;
-        units[i].movement.path_index = len > 1 ? 1 : 0;
-        units[i].movement.order_arrived = units[i].movement.path_index == 0;
+        units[i].movement.flow_field = field;
+        units[i].movement.order_arrived =
+            fvec2_distance_squared(units[i].movement.goal, position) <= 0.05f * 0.05f;
+        if (units[i].movement.order_arrived) units[i].movement.flow_field = NULL;
         selected_index++;
     }
-    free(field);
 }
 
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
@@ -536,19 +552,17 @@ bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
         goal_gx = centered_goal.x;
         goal_gy = centered_goal.y;
     }
-    FlowCell *field = build_flow_field(map, goal);
+    const flowfield_t *field = flow_field_for_goal(map, goal);
     if (!field) return false;
     fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
-    cell_t start = { (int)floorf(position.x), (int)floorf(position.y) };
-    int len = flow_path_find(map, field, start, unit->movement.path, MAX_PATH_CELLS,
-                             P_MobjRadius(unit));
-    free(field);
-    if (len <= 0) return false;
     unit->movement.goal.x = goal_gx;
     unit->movement.goal.y = goal_gy;
-    unit->movement.path_len = len;
-    unit->movement.path_index = len > 1 ? 1 : 0;
-    unit->movement.order_arrived = unit->movement.path_index == 0;
+    fvec2_t target;
+    bool final;
+    if (!P_FlowFieldTarget(map, field, position, unit->movement.goal,
+                           P_MobjRadius(unit), &target, &final)) return false;
+    unit->movement.flow_field = field;
+    unit->movement.order_arrived = false;
     return true;
 }
 
@@ -583,7 +597,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
 
     bool has_harvester = false;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].selected && units[i].owner == owner && units[i].hp > 0 &&
+        if (P_MobjIsSelected(&units[i]) && units[i].owner == owner && units[i].hp > 0 &&
             (units[i].traits & (MF_MOBILE | MF_HARVESTER)) ==
                 (MF_MOBILE | MF_HARVESTER)) {
             has_harvester = true;
@@ -597,7 +611,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = &units[i];
-        if (!unit->selected || unit->owner != owner || unit->hp <= 0) continue;
+        if (!P_MobjIsSelected(unit) || unit->owner != owner || unit->hp <= 0) continue;
         if ((unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
             (MF_MOBILE | MF_HARVESTER)) {
             continue;
@@ -619,14 +633,10 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
 
         cell_t goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
         if (!find_nearest_walkable_cell(map, goal, 8, &goal)) continue;
-        FlowCell *field = build_flow_field(map, goal);
+        const flowfield_t *field = flow_field_for_goal(map, goal);
         if (!field) continue;
 
         fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
-        cell_t start = { (int)floorf(position.x), (int)floorf(position.y) };
-        int len = flow_path_find(map, field, start, unit->movement.path, MAX_PATH_CELLS,
-                                 P_MobjRadius(unit));
-        free(field);
         unit->movement.goal.x = goal_gx;
         unit->movement.goal.y = goal_gy;
         if (!P_CheckPosition(map, unit, unit->movement.goal.x, unit->movement.goal.y)) {
@@ -639,30 +649,18 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
             unit->movement.goal.x = adjusted_gx;
             unit->movement.goal.y = adjusted_gy;
         }
-        /* A vent attachment can be reachable as a point while the flow
-           field has no predecessor for the start cell. Preserve the order
-           and let the normal final-goal movement perform the short approach. */
-        if (len <= 0 && P_CheckPosition(map, unit, unit->movement.goal.x,
-                                        unit->movement.goal.y)) {
-            unit->movement.path[0] = start;
-            unit->movement.path[1] = goal;
-            len = 2;
-        }
-        if (len == 1 &&
-            fvec2_distance_squared(unit->movement.goal, position) > 0.05f * 0.05f &&
-            MAX_PATH_CELLS > 1) {
-            unit->movement.path[1] = unit->movement.path[0];
-            len = 2;
-        }
-        unit->movement.path_len = len;
-        unit->movement.path_index = len > 1 ? 1 : 0;
+        fvec2_t target;
+        bool final;
+        if (!P_FlowFieldTarget(map, field, position, unit->movement.goal,
+                               P_MobjRadius(unit), &target, &final)) continue;
+        unit->movement.flow_field = field;
         unit->attack.target = -1;
         unit->harvest.target = vent_index;
         unit->harvest.timer_ms = 0;
         unit->harvest.cargo = 0;
         unit->harvest.phase = 1;
         unit->movement.order_id = order_id;
-        unit->movement.order_arrived = unit->movement.path_index == 0;
+        unit->movement.order_arrived = false;
         issued = true;
     }
     return issued;
@@ -675,10 +673,10 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
 
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position) {
     if (!unit || unit->hp <= 0) return false;
-    bool selected = unit->selected;
-    unit->selected = true;
+    bool selected = P_MobjIsSelected(unit);
+    P_MobjSetSelected(unit, true);
     bool issued = harvest_order_at_for_owner(map, unit, 1, position, unit->owner);
-    unit->selected = selected;
+    P_MobjSetSelected(unit, selected);
     return issued;
 }
 

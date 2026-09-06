@@ -209,7 +209,7 @@ bool G_ModelProductAvailableForUnits(const mobj_t *units, int unit_count,
         uint16_t actor_id = G_ModelActorIdForProduct(prereq);
         bool found = false;
         for (int j = 0; j < unit_count; ++j) {
-            if (units[j].hidden || units[j].owner != 0 || units[j].remove ||
+            if (P_MobjIsHidden(&units[j]) || units[j].owner != 0 || units[j].remove ||
                 units[j].hp <= 0 || units[j].type_id != actor_id) continue;
             found = true;
             break;
@@ -271,9 +271,10 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
     };
     if (!P_SetMobjState(&ctx, producer, state_id))
         return false;
-    producer->production.release_active = true;
-    producer->production.release_time_left_ms = duration_ms;
-    producer->production.time_left_ms = 0;
+    if (!producer->production) return false;
+    producer->production->release_active = true;
+    producer->production->release_time_left_ms = duration_ms;
+    producer->production->time_left_ms = 0;
     return true;
 }
 
@@ -433,24 +434,26 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
 bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
                               uint16_t actor_id) {
     if (!producer || !product || actor_id == 0) return false;
-    if (producer->production.queue_count > 0) {
-        if (producer->production.actor_id != actor_id ||
-            producer->production.product_type != product->product_type ||
-            producer->production.product_class != RTS_PRODUCT_UNIT ||
-            producer->production.queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
+    production_t *production = P_EnsureMobjProduction(producer);
+    if (!production) return false;
+    if (production->queue_count > 0) {
+        if (production->actor_id != actor_id ||
+            production->product_type != product->product_type ||
+            production->product_class != RTS_PRODUCT_UNIT ||
+            production->queue_count >= RTS_MAX_PRODUCTION_QUEUE) {
             return false;
         }
-        producer->production.queue_count++;
+        production->queue_count++;
         return true;
     }
-    producer->production.actor_id = actor_id;
-    producer->production.product_class = RTS_PRODUCT_UNIT;
-    producer->production.product_type = product->product_type;
-    producer->production.queue_count = 1;
-    producer->production.time_ms = G_ModelProductTrainingTimeMs(product);
-    producer->production.time_left_ms = producer->production.time_ms;
-    producer->production.release_active = false;
-    producer->production.release_time_left_ms = 0;
+    production->actor_id = actor_id;
+    production->product_class = RTS_PRODUCT_UNIT;
+    production->product_type = product->product_type;
+    production->queue_count = 1;
+    production->time_ms = G_ModelProductTrainingTimeMs(product);
+    production->time_left_ms = production->time_ms;
+    production->release_active = false;
+    production->release_time_left_ms = 0;
     return true;
 }
 
@@ -480,30 +483,25 @@ static bool dc_start_production_release(level_t *map,
         .game_info = gameinfo,
     };
     if (!P_SetMobjState(&ctx, producer, state_id)) return false;
-    producer->production.release_active = true;
-    producer->production.release_time_left_ms = duration_ms;
-    producer->production.time_left_ms = 0;
+    if (!producer->production) return false;
+    producer->production->release_active = true;
+    producer->production->release_time_left_ms = duration_ms;
+    producer->production->time_left_ms = 0;
     return true;
 }
 
 static void dc_clear_production(mobj_t *producer) {
-    if (!producer) return;
-    producer->production.actor_id = 0;
-    producer->production.product_class = 0;
-    producer->production.product_type = 0;
-    producer->production.time_ms = 0;
-    producer->production.time_left_ms = 0;
-    producer->production.release_active = false;
-    producer->production.release_time_left_ms = 0;
+    P_FreeMobjProduction(producer);
 }
 
 static void dc_advance_production_queue(mobj_t *producer) {
-    if (!producer) return;
-    producer->production.release_active = false;
-    producer->production.release_time_left_ms = 0;
-    producer->production.queue_count--;
-    if (producer->production.queue_count > 0) {
-        producer->production.time_left_ms = producer->production.time_ms;
+    if (!producer || !producer->production) return;
+    production_t *production = producer->production;
+    production->release_active = false;
+    production->release_time_left_ms = 0;
+    production->queue_count--;
+    if (production->queue_count > 0) {
+        production->time_left_ms = production->time_ms;
     } else {
         dc_clear_production(producer);
     }
@@ -605,8 +603,8 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
         return;
     bool saved[MAXMOBJS];
     for (int i = 0; i < unit_count; ++i) {
-        saved[i] = units[i].selected;
-        units[i].selected = false;
+        saved[i] = P_MobjIsSelected(&units[i]);
+        P_MobjSetSelected(&units[i], false);
     }
 
     float crowd_radius = 2.75f;
@@ -620,7 +618,7 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
         if (i == spawned_index ||
             fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
                                    (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
-            unit->selected = true;
+            P_MobjSetSelected(unit, true);
         }
     }
 
@@ -636,7 +634,7 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *units, in
     P_MoveOrderAt(map, units, unit_count, goal);
 
     for (int i = 0; i < unit_count; ++i) {
-        units[i].selected = saved[i];
+        P_MobjSetSelected(&units[i], saved[i]);
     }
 }
 
@@ -672,16 +670,15 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     new_unit.core.render_intensity = 16;
     if (type->sprite_name)
         snprintf(new_unit.core.sprite_name, sizeof(new_unit.core.sprite_name), "%s", type->sprite_name);
-    if (type->shadow_name)
-        snprintf(new_unit.shadow_name, sizeof(new_unit.shadow_name), "%s", type->shadow_name);
     P_SpawnMobj(gameinfo, &new_unit);
 
     float radius = new_unit.radius > 0.05f ? new_unit.radius : 0.42f;
     float gx = 0.0f;
     float gy = 0.0f;
     mobj_t *producer = &units[producer_index];
+    if (!producer->production) return false;
     const StaticProductDefinition *product =
-        G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production.product_type);
+        G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production->product_type);
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
         G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, &new_unit, &gx, &gy) &&
@@ -707,18 +704,19 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *units, int *unit_count,
     if (elapsed_ms <= 0) elapsed_ms = 1;
     for (int i = 0; i < *unit_count; ++i) {
         mobj_t *producer = &units[i];
-        if (producer->production.queue_count <= 0) continue;
+        production_t *production = producer->production;
+        if (!production || production->queue_count <= 0) continue;
         if (producer->remove || producer->hp <= 0) {
-            producer->production.queue_count = 0;
+            production->queue_count = 0;
             dc_clear_production(producer);
             continue;
         }
-        if (producer->production.release_active) {
-            producer->production.release_time_left_ms -= elapsed_ms;
-            if (producer->production.release_time_left_ms > 0) continue;
-            uint16_t actor_id = producer->production.actor_id;
+        if (production->release_active) {
+            production->release_time_left_ms -= elapsed_ms;
+            if (production->release_time_left_ms > 0) continue;
+            uint16_t actor_id = production->actor_id;
             if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
-                producer->production.release_time_left_ms = 250;
+                production->release_time_left_ms = 250;
                 continue;
             }
             spawned = true;
@@ -726,18 +724,17 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *units, int *unit_count,
             dc_advance_production_queue(producer);
             continue;
         }
-        producer->production.time_left_ms -= elapsed_ms;
-        while (producer->production.queue_count > 0 &&
-               producer->production.time_left_ms <= 0) {
-            uint16_t actor_id = producer->production.actor_id;
+        production->time_left_ms -= elapsed_ms;
+        while (production->queue_count > 0 && production->time_left_ms <= 0) {
+            uint16_t actor_id = production->actor_id;
             const StaticProductDefinition *product =
-                G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production.product_type);
+                G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, production->product_type);
             if (product && dc_start_production_release(map, effects, max_effects,
                                                        producer, product, actor_id)) {
                 break;
             }
             if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
-                producer->production.time_left_ms = 250;
+                production->time_left_ms = 250;
                 break;
             }
             spawned = true;

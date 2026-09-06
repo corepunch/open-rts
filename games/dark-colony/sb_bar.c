@@ -247,7 +247,7 @@ static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *i
 static const mobj_t *dc_first_selected_unit(const mobj_t *units, int unit_count) {
     if (!units) return NULL;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].selected && !units[i].remove) return &units[i];
+        if (P_MobjIsSelected(&units[i]) && !units[i].remove) return &units[i];
     }
     return NULL;
 }
@@ -318,9 +318,8 @@ static const char *dc_sidebar_command_label(const SidebarCommand *cmd,
 
 static void dc_stop_selected_units(mobj_t *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
-        if (!units[i].selected) continue;
-        units[i].movement.path_len = 0;
-        units[i].movement.path_index = 0;
+        if (!P_MobjIsSelected(&units[i])) continue;
+        units[i].movement.flow_field = NULL;
         units[i].attack.target = -1;
         units[i].harvest.target = -1;
         units[i].harvest.timer_ms = 0;
@@ -341,7 +340,7 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
     if (!irect_contains(layout.outer, (ivec2_t){ rx, ry })) return false;
     int selected_index = -1;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].selected && !units[i].remove) {
+        if (P_MobjIsSelected(&units[i]) && !units[i].remove) {
             selected_index = i;
             break;
         }
@@ -401,7 +400,8 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
     }
     for (int i = 0; i < unit_count; ++i) {
         fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
-        if (units[i].hidden || units[i].remove || position.x < 0.0f || position.y < 0.0f) continue;
+        if (P_MobjIsHidden(&units[i]) || units[i].remove ||
+            position.x < 0.0f || position.y < 0.0f) continue;
         int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *
                                 (float)clip.h / (float)map->height);
@@ -554,14 +554,14 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
                            amber, 1);
         }
     } else if (product_mode) {
-        if (selected && selected->production.queue_count > 0 &&
-            selected->production.time_ms > 0) {
-            int done = selected->production.time_ms - selected->production.time_left_ms;
-            int pct = done * 100 / selected->production.time_ms;
+        if (selected && selected->production && selected->production->queue_count > 0 &&
+            selected->production->time_ms > 0) {
+            int done = selected->production->time_ms - selected->production->time_left_ms;
+            int pct = done * 100 / selected->production->time_ms;
             if (pct < 0) pct = 0;
             if (pct > 100) pct = 100;
             snprintf(line, sizeof(line), "Training x%d %d%%",
-                     selected->production.queue_count, pct);
+                     selected->production->queue_count, pct);
         } else {
             snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
         }

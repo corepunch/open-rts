@@ -901,16 +901,14 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
                 units[count].owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
                 if (units[count].owner == 0) has_player_unit = true;
-                units[count].selected = units[count].owner == 0 && count == 0;
+                P_MobjSetSelected(&units[count], units[count].owner == 0 && count == 0);
                 VisualSpec visual;
                 if (resolve_unit_visual(&defs, unit_type, &visual)) {
                     snprintf(units[count].core.sprite_name,
                              sizeof(units[count].core.sprite_name), "%s", visual.sprite_name);
-                    snprintf(units[count].shadow_name, sizeof(units[count].shadow_name), "%s", visual.shadow_name);
                 } else {
                     snprintf(units[count].core.sprite_name,
                              sizeof(units[count].core.sprite_name), "%s", DEFAULT_UNIT_SPR);
-                    units[count].shadow_name[0] = '\0';
                     fprintf(stderr, "warning: unresolved Dark Reign unit type %s\n", unit_type);
                 }
                 count++;
@@ -965,12 +963,11 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
             }, 0);
             unit->speed = 4.5f;
             unit->owner = 0;
-            unit->selected = true;
+            P_MobjSetSelected(unit, true);
             VisualSpec visual;
             if (resolve_unit_visual(&defs, associated_type, &visual)) {
                 snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name),
                          "%s", visual.sprite_name);
-                snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", visual.shadow_name);
                 count++;
             }
         }

@@ -112,6 +112,18 @@ bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
                           state ? state->nextstate : ctx->game_info->null_state);
 }
 
+production_t *P_EnsureMobjProduction(mobj_t *unit) {
+    if (!unit) return NULL;
+    if (!unit->production) unit->production = calloc(1, sizeof(*unit->production));
+    return unit->production;
+}
+
+void P_FreeMobjProduction(mobj_t *unit) {
+    if (!unit) return;
+    free(unit->production);
+    unit->production = NULL;
+}
+
 void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
     unit->info = type;
@@ -125,8 +137,6 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {
     if (unit->harvest.target == 0) unit->harvest.target = -1;
     if (unit->core.sprite_name[0] == '\0' && type->sprite_name)
         snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
-    if (unit->shadow_name[0] == '\0' && type->shadow_name)
-        snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
 }
 
 static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
@@ -398,11 +408,11 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     /* A_DC_MuzzleFlash (fired on the attack state's frame) draws the flash sprite;
      * pair it with a ground light and, on the target, a hit/blood effect. Hidden
      * (not-yet-revealed) units must not leak a visible light or blood splash. */
-    if (!attacker->hidden && mobj_muzzle_flash_name(attacker)[0] != '\0') {
+    if (!P_MobjIsHidden(attacker) && mobj_muzzle_flash_name(attacker)[0] != '\0') {
         int flash_ms = mobj_muzzle_flash_ms(attacker);
         spawn_ground_light(ctx->effects, ctx->max_effects, attacker->core.position, flash_ms, 30);
     }
-    if (!target->hidden && mobj_hit_effect_name(target)[0] != '\0') {
+    if (!P_MobjIsHidden(target) && mobj_hit_effect_name(target)[0] != '\0') {
         spawn_visual_effect(ctx->effects, ctx->max_effects, mobj_hit_effect_name(target),
                             target->core.position, target->core.angle, 400, 50, false, false, 0);
     }
@@ -411,11 +421,10 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
                       target->hp, target->max_hp);
     if (target->hp <= 0) {
         target->hp = 0;
-        target->selected = false;
+        P_MobjSetSelected(target, false);
         target->traits &= ~(MF_SELECTABLE | MF_MOBILE |
                             MF_ATTACK | MF_HARVESTER);
-        target->movement.path_len = 0;
-        target->movement.path_index = 0;
+        target->movement.flow_field = NULL;
         target->movement.order_arrived = false;
         target->harvest.target = -1;
         target->harvest.timer_ms = 0;
@@ -594,16 +603,15 @@ bool P_MoveMobjToward(const level_t *map, mobj_t *unit, float dt) {
     else
         displacement = fvec2_scale(delta, step / dist);
     if (!move_unit_if_walkable(map, unit, displacement)) {
-        unit->movement.path_len = 0;
-        unit->movement.path_index = 0;
+        unit->movement.flow_field = NULL;
         unit->movement.order_arrived = false;
         return false;
     }
     return dist <= step;
 }
 
-static bool unit_is_following_path(const mobj_t *unit) {
-    return unit && unit->movement.path_index > 0 && unit->movement.path_index < unit->movement.path_len;
+static bool unit_has_move_order(const mobj_t *unit) {
+    return unit && unit->movement.flow_field && !unit->movement.order_arrived;
 }
 
 static bool final_goal_reaches_arrived_order_cluster(const mobj_t *units, int count, int self_index,
@@ -753,12 +761,11 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     fvec2_t attachment_delta = fvec2_sub(
         vent->attachment, fixedvec3_xy_to_fvec2(unit->core.position));
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
-    if (unit_is_following_path(unit) && !unit->movement.order_arrived) return false;
+    if (unit_has_move_order(unit)) return false;
     if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
         return false;
 
-    unit->movement.path_len = 0;
-    unit->movement.path_index = 0;
+    unit->movement.flow_field = NULL;
     unit->movement.order_arrived = true;
     unit->core.momentum = fixedvec3_zero();
     unit->attack.target = -1;
@@ -854,7 +861,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
             }
 
-            bool moving = unit_is_following_path(u);
+            bool moving = unit_has_move_order(u);
             {
                 const state_t *s = state_at(game_info, u->core.state_id);
                 bool in_attack = s && s->misc1 == 3;
@@ -869,21 +876,26 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                         u->core.angle = angle_from_map_vector(map,
                                                          target_delta.x,
                                                          target_delta.y);
-                        u->movement.path_len = 0;
-                        u->movement.path_index = 0;
+                        u->movement.flow_field = NULL;
                         u->movement.order_arrived = false;
                         moving = false;
                     }
                 }
             }
+            fvec2_t move_target = u->movement.goal;
+            bool final = true;
+            if (moving && !P_FlowFieldTarget(
+                    map, u->movement.flow_field,
+                    fixedvec3_xy_to_fvec2(u->core.position), u->movement.goal,
+                    P_MobjRadius(u), &move_target, &final)) {
+                u->movement.flow_field = NULL;
+                u->movement.order_arrived = false;
+                moving = false;
+            }
             /* Turn-in-place before moving. */
             if (moving) {
-                cell_t c = u->movement.path[u->movement.path_index];
-                bool final = u->movement.path_index == u->movement.path_len - 1;
-                fvec2_t target = final ? u->movement.goal :
-                    fvec2_cell_center((ivec2_t){ c.x, c.y });
                 fvec2_t delta = fvec2_sub(
-                    target, fixedvec3_xy_to_fvec2(u->core.position));
+                    move_target, fixedvec3_xy_to_fvec2(u->core.position));
                 float dist = sqrtf(fvec2_length_squared(delta));
                 if (dist >= 0.001f) {
                     angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
@@ -901,18 +913,13 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 }
             }
             if (moving) {
-                cell_t c = u->movement.path[u->movement.path_index];
-                bool final = u->movement.path_index == u->movement.path_len - 1;
-                fvec2_t target = final ? u->movement.goal :
-                    fvec2_cell_center((ivec2_t){ c.x, c.y });
                 fvec2_t delta = fvec2_sub(
-                    target, fixedvec3_xy_to_fvec2(u->core.position));
+                    move_target, fixedvec3_xy_to_fvec2(u->core.position));
                 float dist = sqrtf(fvec2_length_squared(delta));
                 if (final && final_goal_reaches_arrived_order_cluster(
-                        units, count, i, target.x, target.y, dist)) {
+                        units, count, i, move_target.x, move_target.y, dist)) {
                     u->movement.goal = fixedvec3_xy_to_fvec2(u->core.position);
-                    u->movement.path_len = 0;
-                    u->movement.path_index = 0;
+                    u->movement.flow_field = NULL;
                     u->movement.order_arrived = true;
                     moving = false;
                 } else {
@@ -921,24 +928,20 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     float step = u->speed * dt;
                     if (dist <= step || dist < 0.001f) {
                         if (move_unit_if_walkable(map, u, delta)) {
-                            u->movement.path_index++;
-                            if (u->movement.path_index >= u->movement.path_len) {
-                                u->movement.path_len = 0;
-                                u->movement.path_index = 0;
-                                u->movement.order_arrived = final;
+                            if (final) {
+                                u->movement.flow_field = NULL;
+                                u->movement.order_arrived = true;
                                 moving = false;
                             }
                         } else {
-                            u->movement.path_len = 0;
-                            u->movement.path_index = 0;
+                            u->movement.flow_field = NULL;
                             u->movement.order_arrived = false;
                             moving = false;
                         }
                     } else {
                         fvec2_t displacement = fvec2_scale(delta, step / dist);
                         if (!move_unit_if_walkable(map, u, displacement)) {
-                            u->movement.path_len = 0;
-                            u->movement.path_index = 0;
+                            u->movement.flow_field = NULL;
                             u->movement.order_arrived = false;
                             moving = false;
                         }
@@ -972,7 +975,10 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
         int write = 0;
         for (int read = 0; read < count; ++read) {
-            if (units[read].remove) continue;
+            if (units[read].remove) {
+                P_FreeMobjProduction(&units[read]);
+                continue;
+            }
             if (write != read) units[write] = units[read];
             write++;
         }
@@ -995,7 +1001,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             u->attack.cooldown_left_ms -= dt_ms;
             if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
         }
-        if (unit_is_following_path(u)) {
+        if (unit_has_move_order(u)) {
             int stop_target = -1;
             if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                 u->attack.target = stop_target;
@@ -1005,27 +1011,31 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     fixedvec3_xy_to_fvec2(u->core.position));
                 u->core.angle = angle_from_map_vector(map,
                                             target_delta.x, target_delta.y);
-                u->movement.path_len = 0;
-                u->movement.path_index = 0;
+                u->movement.flow_field = NULL;
                 u->movement.order_arrived = false;
             }
         }
-        if (!unit_is_following_path(u)) {
+        if (!unit_has_move_order(u)) {
             update_unit_harvest(map, units, count, u, dt_ms, NULL);
             continue;
         }
-        cell_t c = u->movement.path[u->movement.path_index];
-        bool final = u->movement.path_index == u->movement.path_len - 1;
-        fvec2_t target = final ? u->movement.goal :
-            fvec2_cell_center((ivec2_t){ c.x, c.y });
+        fvec2_t target;
+        bool final;
+        if (!P_FlowFieldTarget(map, u->movement.flow_field,
+                               fixedvec3_xy_to_fvec2(u->core.position),
+                               u->movement.goal, P_MobjRadius(u), &target, &final)) {
+            u->movement.flow_field = NULL;
+            u->movement.order_arrived = false;
+            update_unit_harvest(map, units, count, u, dt_ms, NULL);
+            continue;
+        }
         fvec2_t delta = fvec2_sub(
             target, fixedvec3_xy_to_fvec2(u->core.position));
         float dist = sqrtf(fvec2_length_squared(delta));
         if (final && final_goal_reaches_arrived_order_cluster(
                 units, count, i, target.x, target.y, dist)) {
             u->movement.goal = fixedvec3_xy_to_fvec2(u->core.position);
-            u->movement.path_len = 0;
-            u->movement.path_index = 0;
+            u->movement.flow_field = NULL;
             u->movement.order_arrived = true;
             (void)update_unit_harvest(map, units, count, u, dt_ms, NULL);
             continue;
@@ -1035,22 +1045,18 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         float step = u->speed * dt;
         if (dist <= step || dist < 0.001f) {
             if (move_unit_if_walkable(map, u, delta)) {
-                u->movement.path_index++;
-                if (u->movement.path_index >= u->movement.path_len) {
-                    u->movement.path_len = 0;
-                    u->movement.path_index = 0;
-                    u->movement.order_arrived = final;
+                if (final) {
+                    u->movement.flow_field = NULL;
+                    u->movement.order_arrived = true;
                 }
             } else {
-                u->movement.path_len = 0;
-                u->movement.path_index = 0;
+                u->movement.flow_field = NULL;
                 u->movement.order_arrived = false;
             }
         } else {
             fvec2_t displacement = fvec2_scale(delta, step / dist);
             if (!move_unit_if_walkable(map, u, displacement)) {
-                u->movement.path_len = 0;
-                u->movement.path_index = 0;
+                u->movement.flow_field = NULL;
                 u->movement.order_arrived = false;
             }
         }
@@ -1091,7 +1097,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
         /* A hidden attacker (pre-placed native object outside FOW) must not leak its
          * position via a visible muzzle flash or ground light before it is revealed. */
-        if (!attacker->hidden && mobj_muzzle_flash_name(attacker)[0] != '\0') {
+        if (!P_MobjIsHidden(attacker) && mobj_muzzle_flash_name(attacker)[0] != '\0') {
             int flash_ms = mobj_muzzle_flash_ms(attacker);
             bool light_spawned = spawn_ground_light(effects, max_effects,
                                                     attacker->core.position,
@@ -1129,7 +1135,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",
                           i, target_index, mobj_attack_damage(attacker), target->hp,
                           target->max_hp, target->core.sprite_name);
-        if (mobj_hit_effect_name(target)[0] != '\0' && !target->hidden) {
+        if (mobj_hit_effect_name(target)[0] != '\0' && !P_MobjIsHidden(target)) {
             spawn_visual_effect(effects, max_effects, mobj_hit_effect_name(target),
                                 target->core.position,
                                 target->core.angle,
@@ -1137,19 +1143,17 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
         }
         if (target->hp <= 0) {
             target->hp = 0;
-            target->selected = false;
+            P_MobjSetSelected(target, false);
             target->traits &= ~(MF_SELECTABLE | MF_MOBILE |
                                 MF_ATTACK | MF_HARVESTER);
-            target->movement.path_len = 0;
-            target->movement.path_index = 0;
+            target->movement.flow_field = NULL;
             target->movement.order_arrived = false;
             target->attack.target = -1;
             target->harvest.target = -1;
             target->harvest.timer_ms = 0;
             target->attack.cooldown_left_ms = 0;
             target->core.momentum = fixedvec3_zero();
-            target->death_started = true;
-            if (target->info && target->info->death_effect_action && !target->hidden) {
+            if (target->info && target->info->death_effect_action && !P_MobjIsHidden(target)) {
                 statecontext_t death_ctx = {
                     .map = map,
                     .mobjs = units,
@@ -1160,7 +1164,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 };
                 target->info->death_effect_action(&death_ctx, target);
             }
-            bool spawned = !target->hidden && spawn_visual_effect(effects, max_effects,
+            bool spawned = !P_MobjIsHidden(target) && spawn_visual_effect(effects, max_effects,
                                                target->core.sprite_name,
                                                target->core.position,
                                                target->core.angle,
@@ -1175,7 +1179,10 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
     int write = 0;
     for (int read = 0; read < count; ++read) {
-        if (units[read].hp <= 0) continue;
+        if (units[read].hp <= 0) {
+            P_FreeMobjProduction(&units[read]);
+            continue;
+        }
         if (write != read) units[write] = units[read];
         write++;
     }
