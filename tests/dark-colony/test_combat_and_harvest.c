@@ -13,6 +13,23 @@ static int fail(const char *message) {
     return rts_fail("combat_and_harvest", message);
 }
 
+static const actortype_t TEST_ATTACKER_INFO = {
+    .id = MT_DC_TROOPER,
+    .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+    .max_hp = 800,
+    .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
+    .muzzle_flash_ms = 120,
+    .muzzle_flash_name = "SPRITES/BLAZ.SPR",
+    .hit_effect_name = "SPRITES/BLOO.SPR",
+};
+
+static const actortype_t TEST_TARGET_INFO = {
+    .id = MT_DC_TROOPER,
+    .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+    .max_hp = 800,
+    .hit_effect_name = "SPRITES/BLOO.SPR",
+};
+
 /* Attack: verify damage, muzzle flash, ground light, hit (blood) effect and death,
  * using two synthetic Troopers so the outcome is deterministic and independent of
  * map travel distance or emergent AI combat elsewhere on the map. */
@@ -25,12 +42,8 @@ static int assert_attack_lifecycle(void) {
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].hp = units[0].max_hp = 800;
     units[0].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK;
-    units[0].attack.range = 4.0f;
-    units[0].attack.damage = 100;
-    units[0].attack.cooldown_ms = 500;
+    units[0].info = &TEST_ATTACKER_INFO;
     units[0].attack.target = 1;
-    units[0].muzzle_flash_ms = 120;
-    snprintf(units[0].muzzle_flash_name, sizeof(units[0].muzzle_flash_name), "SPRITES/BLAZ.SPR");
     snprintf(units[0].core.sprite_name, sizeof(units[0].core.sprite_name), "SPRITES/TRSC.SPR");
     units[0].core.position = fixedvec3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0);
 
@@ -38,9 +51,7 @@ static int assert_attack_lifecycle(void) {
     units[1].owner = 1;
     units[1].allegiance = ALLEGIANCE_ENEMY;
     units[1].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
-    units[1].attack.damage = 0;
-    units[1].muzzle_flash_name[0] = '\0';
-    snprintf(units[1].hit_effect_name, sizeof(units[1].hit_effect_name), "SPRITES/BLOO.SPR");
+    units[1].info = &TEST_TARGET_INFO;
 
     int count = 2;
     effect_t effects[16];
@@ -102,15 +113,12 @@ static int assert_hidden_attacker_effects_suppressed(void) {
     attacker.hp = 800;
     attacker.max_hp = 800;
     attacker.traits = MF_SELECTABLE | MF_MOBILE | MF_ATTACK;
-    attacker.attack.range = 4.0f;
-    attacker.attack.damage = 100;
-    attacker.attack.cooldown_ms = 500;
-    snprintf(attacker.muzzle_flash_name, sizeof(attacker.muzzle_flash_name), "SPRITES/BLAZ.SPR");
+    attacker.info = &TEST_ATTACKER_INFO;
     target.hp = 800;
     target.max_hp = 800;
     target.allegiance = ALLEGIANCE_PLAYER;
+    target.info = &TEST_TARGET_INFO;
     attacker.allegiance = ALLEGIANCE_ENEMY;
-    snprintf(target.hit_effect_name, sizeof(target.hit_effect_name), "SPRITES/BLOO.SPR");
 
     mobj_t units[2];
     units[0] = attacker;

@@ -372,7 +372,8 @@ static void update_ai(Mission *mission, const level_t *map,
         attacker->attack.target = target_index;
         fvec2_t target_position = fixedvec3_xy_to_fvec2(target->core.position);
         fvec2_t attacker_position = fixedvec3_xy_to_fvec2(attacker->core.position);
-        float range = attacker->attack.range > 0.0f ? attacker->attack.range : 1.0f;
+        float range = attacker->info && attacker->info->attack.range > 0.0f ?
+            attacker->info->attack.range : 1.0f;
         if (fvec2_distance_squared(attacker_position, target_position) > range * range) {
             P_MoveUnitTo(map, attacker, target_position);
         }

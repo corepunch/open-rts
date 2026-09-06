@@ -79,6 +79,7 @@ all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/
 
 define MODEL_TESTS_FOR_GAME
 $(1)_TEST_SOURCES := $$(wildcard tests/$(1)/test_*.c)
+$(1)_TEST_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$$($(1)_TEST_SOURCES))
 $(1)_TEST_ENGINE_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(MODEL_ENGINE_SOURCES) $(2))
 $(1)_TEST_BINS := $$(patsubst tests/$(1)/%.c,$(BIN_DIR)/tests/$(1)/%,$$($(1)_TEST_SOURCES))
 $(BUILD_DIR)/model-test-$(1)/%.o: %.c
@@ -89,6 +90,7 @@ $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/$(1)/%.o $$($(1)_TES
 	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
 test-$(1): $$($(1)_TEST_BINS)
 	@ok=1; for t in $$($(1)_TEST_BINS); do echo "-- $$$$t --"; $$$$t || ok=0; done; test "$$$$ok" = 1
+-include $$($(1)_TEST_OBJS:.o=.d) $$($(1)_TEST_ENGINE_OBJS:.o=.d)
 endef
 
 $(eval $(call MODEL_TESTS_FOR_GAME,dark-colony,$(DC_GAME_SOURCES),-DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY))

@@ -44,11 +44,7 @@ typedef struct actortype_s {
         float range;
         int damage;
         int cooldown_ms;
-        int anim_ms;
     } attack;
-    struct {
-        int anim_ms;
-    } death;
     struct {
         int state_id;
         int capacity;
@@ -168,6 +164,7 @@ typedef struct mobjcore_s {
 
 struct mobj_s {
     mobjcore_t core;
+    const actortype_t *info;
     float speed;
     uint32_t id;
     uint16_t type_id;
@@ -180,28 +177,16 @@ struct mobj_s {
     int hp;
     int max_hp;
     struct {
-        float range;
-        int damage;
-        int cooldown_ms;
-        int anim_ms;
         int cooldown_left_ms;
-        int anim_left_ms;
         int target;
     } attack;
     struct {
-        int anim_ms;
-        int anim_left_ms;
-    } death;
-    struct {
         int target;
         int timer_ms;
-        int state_id;
         int cargo;
-        int capacity;
         int phase;
         fvec2_t return_position;
     } harvest;
-    int muzzle_flash_ms;
     bool selected;
     bool death_started;
     bool remove;
@@ -227,12 +212,7 @@ struct mobj_s {
         int path_index;
         int turn_timer_ms;
     } movement;
-    int muzzle_flash_sprite;
-    int hit_effect_sprite;
-    char muzzle_flash_name[32];
-    char hit_effect_name[32];
     char shadow_name[32];
-    actionf_p1 death_effect_action;
 };
 
 static inline bool P_AreAllegiancesAllied(uint8_t a, uint8_t b) {

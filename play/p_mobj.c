@@ -12,6 +12,41 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
     return &game_info->states[state_id];
 }
 
+static float mobj_attack_range(const mobj_t *unit) {
+    return unit && unit->info ? unit->info->attack.range : 0.0f;
+}
+
+static int mobj_attack_damage(const mobj_t *unit) {
+    return unit && unit->info ? unit->info->attack.damage : 0;
+}
+
+static int mobj_attack_cooldown_ms(const mobj_t *unit) {
+    return unit && unit->info ? unit->info->attack.cooldown_ms : 0;
+}
+
+static int mobj_harvest_state(const mobj_t *unit) {
+    return unit && unit->info ? unit->info->harvest.state_id : 0;
+}
+
+static int mobj_harvest_capacity(const mobj_t *unit) {
+    return unit && unit->info ? unit->info->harvest.capacity : 0;
+}
+
+static const char *mobj_muzzle_flash_name(const mobj_t *unit) {
+    return unit && unit->info && unit->info->muzzle_flash_name ?
+        unit->info->muzzle_flash_name : "";
+}
+
+static const char *mobj_hit_effect_name(const mobj_t *unit) {
+    return unit && unit->info && unit->info->hit_effect_name ?
+        unit->info->hit_effect_name : "";
+}
+
+static int mobj_muzzle_flash_ms(const mobj_t *unit) {
+    return unit && unit->info && unit->info->muzzle_flash_ms > 0 ?
+        unit->info->muzzle_flash_ms : 120;
+}
+
 static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
@@ -79,19 +114,12 @@ bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
 
 void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {
     if (!unit || !type) return;
+    unit->info = type;
     unit->type_id = type->id;
     unit->traits = type->traits;
-    unit->harvest.capacity = type->harvest.capacity;
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
-    if (unit->attack.range <= 0.0f) unit->attack.range = type->attack.range;
-    if (unit->attack.damage <= 0) unit->attack.damage = type->attack.damage;
-    if (unit->attack.cooldown_ms <= 0) unit->attack.cooldown_ms = type->attack.cooldown_ms;
-    if (unit->attack.anim_ms <= 0) unit->attack.anim_ms = type->attack.anim_ms;
-    if (unit->death.anim_ms <= 0) unit->death.anim_ms = type->death.anim_ms;
-    if (unit->harvest.state_id <= 0) unit->harvest.state_id = type->harvest.state_id;
-    if (unit->muzzle_flash_ms <= 0) unit->muzzle_flash_ms = type->muzzle_flash_ms;
     if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
     if (unit->attack.target <= 0) unit->attack.target = -1;
     if (unit->harvest.target == 0) unit->harvest.target = -1;
@@ -99,18 +127,6 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {
         snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
     if (unit->shadow_name[0] == '\0' && type->shadow_name)
         snprintf(unit->shadow_name, sizeof(unit->shadow_name), "%s", type->shadow_name);
-    if (unit->muzzle_flash_sprite < 0)
-        unit->muzzle_flash_sprite = type->muzzle_flash_sprite;
-    if (unit->hit_effect_sprite < 0)
-        unit->hit_effect_sprite = type->hit_effect_sprite;
-    if (unit->muzzle_flash_name[0] == '\0' && type->muzzle_flash_name)
-        snprintf(unit->muzzle_flash_name, sizeof(unit->muzzle_flash_name),
-                 "%s", type->muzzle_flash_name);
-    if (unit->hit_effect_name[0] == '\0' && type->hit_effect_name)
-        snprintf(unit->hit_effect_name, sizeof(unit->hit_effect_name),
-                 "%s", type->hit_effect_name);
-    if (!unit->death_effect_action)
-        unit->death_effect_action = type->death_effect_action;
 }
 
 static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
@@ -181,7 +197,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
     if (target_index_out) *target_index_out = -1;
     if (!attacker || !units || unit_count <= 0 ||
         (attacker->traits & MF_ATTACK) == 0 ||
-        attacker->attack.damage <= 0 || attacker->attack.range <= 0.0f) {
+        mobj_attack_damage(attacker) <= 0 || mobj_attack_range(attacker) <= 0.0f) {
         return false;
     }
 
@@ -191,7 +207,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
         if (!target->remove && target->hp > 0 && !P_IsAlly(attacker, target)) {
             if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(target->core.position),
                                        fixedvec3_xy_to_fvec2(attacker->core.position)) <=
-                attacker->attack.range * attacker->attack.range) {
+                mobj_attack_range(attacker) * mobj_attack_range(attacker)) {
                 if (target_index_out) *target_index_out = preferred;
                 return true;
             }
@@ -199,7 +215,7 @@ static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t
     }
 
     int best = -1;
-    float best_dist2 = attacker->attack.range * attacker->attack.range;
+    float best_dist2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *candidate = &units[i];
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
@@ -349,7 +365,7 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     if (target_index < 0 || target_index >= count || ctx->mobjs[target_index].hp <= 0 ||
         P_IsAlly(attacker, &ctx->mobjs[target_index])) {
         target_index = -1;
-        float best_dist2 = attacker->attack.range * attacker->attack.range;
+        float best_dist2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
         for (int i = 0; i < count; ++i) {
             mobj_t *candidate = &ctx->mobjs[i];
             if (candidate == attacker || candidate->hp <= 0 || P_IsAlly(attacker, candidate))
@@ -376,22 +392,22 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
                       attacker->type_id, attacker->core.state_id,
                       angle_to_direction(attacker->core.angle, 32, ANG90, true),
                       0, sprite_name, attacker->core.frame, target_index);
-    target->hp -= attacker->attack.damage;
-    if (attacker->attack.cooldown_ms > 0)
-        attacker->attack.cooldown_left_ms = attacker->attack.cooldown_ms;
+    target->hp -= mobj_attack_damage(attacker);
+    if (mobj_attack_cooldown_ms(attacker) > 0)
+        attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
     /* A_DC_MuzzleFlash (fired on the attack state's frame) draws the flash sprite;
      * pair it with a ground light and, on the target, a hit/blood effect. Hidden
      * (not-yet-revealed) units must not leak a visible light or blood splash. */
-    if (!attacker->hidden && attacker->muzzle_flash_name[0] != '\0') {
-        int flash_ms = attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120;
+    if (!attacker->hidden && mobj_muzzle_flash_name(attacker)[0] != '\0') {
+        int flash_ms = mobj_muzzle_flash_ms(attacker);
         spawn_ground_light(ctx->effects, ctx->max_effects, attacker->core.position, flash_ms, 30);
     }
-    if (!target->hidden && target->hit_effect_name[0] != '\0') {
-        spawn_visual_effect(ctx->effects, ctx->max_effects, target->hit_effect_name,
+    if (!target->hidden && mobj_hit_effect_name(target)[0] != '\0') {
+        spawn_visual_effect(ctx->effects, ctx->max_effects, mobj_hit_effect_name(target),
                             target->core.position, target->core.angle, 400, 50, false, false, 0);
     }
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
-                      attacker->type_id, target_index, attacker->attack.damage,
+                      attacker->type_id, target_index, mobj_attack_damage(attacker),
                       target->hp, target->max_hp);
     if (target->hp <= 0) {
         target->hp = 0;
@@ -422,13 +438,13 @@ void A_Attack(statecontext_t *ctx, mobj_t *unit) {
 void A_Walk(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit || !ctx->mobjs || !ctx->mobj_count ||
         unit->hp <= 0 || (unit->traits & MF_ATTACK) == 0 ||
-        unit->attack.range <= 0.0f || unit->attack.cooldown_left_ms > 0 ||
+        mobj_attack_range(unit) <= 0.0f || unit->attack.cooldown_left_ms > 0 ||
         !ctx->game_info || unit->type_id <= 0 ||
         unit->type_id >= ctx->game_info->mobj_type_count) {
         return;
     }
     int target = -1;
-    float best_dist2 = unit->attack.range * unit->attack.range;
+    float best_dist2 = mobj_attack_range(unit) * mobj_attack_range(unit);
     for (int i = 0; i < *ctx->mobj_count; ++i) {
         mobj_t *candidate = &ctx->mobjs[i];
         if (candidate == unit || candidate->remove || candidate->hp <= 0 ||
@@ -707,15 +723,15 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         }
         unit->movement.turn_timer_ms = 0;
         unit->harvest.phase = HARVEST_PHASE_MINING;
-        if (game_info && unit->harvest.state_id > 0 &&
-            unit->harvest.state_id < game_info->state_count) {
+        if (game_info && mobj_harvest_state(unit) > 0 &&
+            mobj_harvest_state(unit) < game_info->state_count) {
             statecontext_t ctx = { .map = map, .game_info = game_info };
-            P_SetMobjState(&ctx, unit, unit->harvest.state_id);
+            P_SetMobjState(&ctx, unit, mobj_harvest_state(unit));
         }
         return false;
     }
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
-        if (unit->harvest.capacity > 0 && unit->harvest.cargo > 0) {
+        if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
             for (int i = 0; i < unit_count; ++i) {
                 if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
                     (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
@@ -759,11 +775,12 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
         vent->amount -= take;
-        if (unit->harvest.capacity > 0)
+        if (mobj_harvest_capacity(unit) > 0)
             unit->harvest.cargo += take;
         else
             map->player_resources[owner][rtype] += take;
-        if (unit->harvest.capacity > 0 && unit->harvest.cargo >= unit->harvest.capacity) {
+        if (mobj_harvest_capacity(unit) > 0 &&
+            unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
             bool sent_home = false;
             for (int i = 0; i < unit_count; ++i) {
                 if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
@@ -783,7 +800,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         }
         if (vent->amount <= 0) {
             deactivate_resource_vent(map, vent);
-            if (unit->harvest.capacity > 0 && unit->harvest.cargo > 0) {
+            if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
                 for (int i = 0; i < unit_count; ++i) {
                     if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
@@ -799,7 +816,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
                 unit->harvest.target = -1;
                 unit->harvest.timer_ms = 0;
                 unit->harvest.phase = HARVEST_PHASE_NONE;
-                if (game_info && unit->harvest.state_id > 0)
+                if (game_info && mobj_harvest_state(unit) > 0)
                     P_SetMobjState(&(statecontext_t){ .map = map, .game_info = game_info },
                                    unit, game_info->mobjinfo[unit->type_id].spawnstate);
             }
@@ -978,11 +995,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             u->attack.cooldown_left_ms -= dt_ms;
             if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
         }
-        if (u->attack.anim_left_ms > 0) {
-            u->attack.anim_left_ms -= dt_ms;
-            if (u->attack.anim_left_ms < 0) u->attack.anim_left_ms = 0;
-        }
-        if (unit_is_following_path(u) && u->attack.anim_left_ms <= 0) {
+        if (unit_is_following_path(u)) {
             int stop_target = -1;
             if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
                 u->attack.target = stop_target;
@@ -1049,12 +1062,12 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
     for (int i = 0; i < count; ++i) {
         mobj_t *attacker = &units[i];
         if (attacker->hp <= 0 || (attacker->traits & MF_ATTACK) == 0 ||
-            attacker->attack.damage <= 0 || attacker->attack.range <= 0.0f) {
+            mobj_attack_damage(attacker) <= 0 || mobj_attack_range(attacker) <= 0.0f) {
             continue;
         }
 
         int target_index = -1;
-        float best_dist2 = attacker->attack.range * attacker->attack.range;
+        float best_dist2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
         for (int j = 0; j < count; ++j) {
             if (i == j || units[j].hp <= 0 || P_IsAlly(attacker, &units[j])) continue;
             float dist2 = fvec2_distance_squared(
@@ -1078,8 +1091,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
 
         /* A hidden attacker (pre-placed native object outside FOW) must not leak its
          * position via a visible muzzle flash or ground light before it is revealed. */
-        if (!attacker->hidden && attacker->muzzle_flash_name[0] != '\0') {
-            int flash_ms = attacker->muzzle_flash_ms > 0 ? attacker->muzzle_flash_ms : 120;
+        if (!attacker->hidden && mobj_muzzle_flash_name(attacker)[0] != '\0') {
+            int flash_ms = mobj_muzzle_flash_ms(attacker);
             bool light_spawned = spawn_ground_light(effects, max_effects,
                                                     attacker->core.position,
                                                     flash_ms, 30);
@@ -1101,22 +1114,23 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             }
             if (!spawned) {
                 spawned = spawn_visual_effect(effects, max_effects,
-                                              attacker->muzzle_flash_name,
+                                              mobj_muzzle_flash_name(attacker),
                                               attacker->core.position,
                                               attacker->core.angle,
                                               flash_ms, 40, false, false, 0);
             }
             debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
-                              i, target_index, spawned ? 1 : 0, attacker->muzzle_flash_name);
+                              i, target_index, spawned ? 1 : 0,
+                              mobj_muzzle_flash_name(attacker));
             debug_effects_log("attack ground-light attacker=%d spawned=%d", i,
                               light_spawned ? 1 : 0);
         }
-        target->hp -= attacker->attack.damage;
+        target->hp -= mobj_attack_damage(attacker);
         debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",
-                          i, target_index, attacker->attack.damage, target->hp,
+                          i, target_index, mobj_attack_damage(attacker), target->hp,
                           target->max_hp, target->core.sprite_name);
-        if (target->hit_effect_name[0] != '\0' && !target->hidden) {
-            spawn_visual_effect(effects, max_effects, target->hit_effect_name,
+        if (mobj_hit_effect_name(target)[0] != '\0' && !target->hidden) {
+            spawn_visual_effect(effects, max_effects, mobj_hit_effect_name(target),
                                 target->core.position,
                                 target->core.angle,
                                 400, 50, false, false, 0);
@@ -1133,10 +1147,9 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             target->harvest.target = -1;
             target->harvest.timer_ms = 0;
             target->attack.cooldown_left_ms = 0;
-            target->attack.anim_left_ms = 0;
             target->core.momentum = fixedvec3_zero();
             target->death_started = true;
-            if (target->death_effect_action && !target->hidden) {
+            if (target->info && target->info->death_effect_action && !target->hidden) {
                 statecontext_t death_ctx = {
                     .map = map,
                     .mobjs = units,
@@ -1145,25 +1158,19 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                     .max_effects = max_effects,
                     .game_info = game_info,
                 };
-                target->death_effect_action(&death_ctx, target);
+                target->info->death_effect_action(&death_ctx, target);
             }
-            if (target->death.anim_ms <= 0) {
-                target->death.anim_ms = 900;
-            }
-            target->death.anim_left_ms = target->death.anim_ms;
             bool spawned = !target->hidden && spawn_visual_effect(effects, max_effects,
                                                target->core.sprite_name,
                                                target->core.position,
                                                target->core.angle,
-                                               target->death.anim_ms, 90, true, true, -1);
+                                               900, 90, true, true, -1);
             debug_effects_log("death target=%d spawned=%d sprite=%s facing=%d duration=%d",
                               target_index, spawned ? 1 : 0, target->core.sprite_name,
-                              target->core.angle, target->death.anim_ms);
+                              target->core.angle, 900);
         }
-        attacker->attack.cooldown_left_ms = attacker->attack.cooldown_ms > 0 ?
-            attacker->attack.cooldown_ms : 500;
-        attacker->attack.anim_left_ms = attacker->attack.anim_ms > 0 ?
-            attacker->attack.anim_ms : attacker->attack.cooldown_left_ms;
+        attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker) > 0 ?
+            mobj_attack_cooldown_ms(attacker) : 500;
     }
 
     int write = 0;

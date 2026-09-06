@@ -111,7 +111,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 5.5f,
         .max_hp = 100,
-        .attack = { .range = 9.0f, .damage = 20, .cooldown_ms = 700, .anim_ms = 400 },
+        .attack = { .range = 9.0f, .damage = 20, .cooldown_ms = 700 },
     },
     {
         .id = ACTOR_FG_GROUND_TRANSPORTER,
@@ -129,7 +129,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER | MF_ATTACK,
         .speed = 4.5f,
         .max_hp = 500,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267, .anim_ms = 150 },
+        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267 },
         .harvest = { .capacity = 100 },
     },
     /* === Infantry === */
@@ -140,7 +140,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 5.0f,
         .max_hp = 100,
-        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267, .anim_ms = 150 },
+        .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267 },
     },
     {   /* RailGun: range 5, 367ms cd, 11 dmg */
         .id = ACTOR_FG_MERCENARY,
@@ -149,7 +149,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.8f,
         .max_hp = 125,
-        .attack = { .range = 5.0f, .damage = 11, .cooldown_ms = 367, .anim_ms = 200 },
+        .attack = { .range = 5.0f, .damage = 11, .cooldown_ms = 367 },
     },
     {   /* SniperRifle: range 8, 1667ms cd, 150 dmg */
         .id = ACTOR_FG_SNIPER,
@@ -158,7 +158,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.5f,
         .max_hp = 100,
-        .attack = { .range = 8.0f, .damage = 150, .cooldown_ms = 1667, .anim_ms = 500 },
+        .attack = { .range = 8.0f, .damage = 150, .cooldown_ms = 1667 },
     },
     {   /* Recon only — no weapon */
         .id = ACTOR_FG_SCOUT,
@@ -199,7 +199,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.8f,
         .max_hp = 100,
-        .attack = { .range = 2.0f, .damage = 180, .cooldown_ms = 1667, .anim_ms = 500 },
+        .attack = { .range = 2.0f, .damage = 180, .cooldown_ms = 1667 },
     },
     {   /* Infiltrate ability — no ranged weapon */
         .id = ACTOR_FG_SPY,
@@ -217,7 +217,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 6.5f,
         .max_hp = 133,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 433, .anim_ms = 200 },
+        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 433 },
     },
     {   /* Rapid armored transport — no weapon */
         .id = ACTOR_FG_IFV,
@@ -234,7 +234,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.0f,
         .max_hp = 133,
-        .attack = { .range = 6.0f, .damage = 14, .cooldown_ms = 667, .anim_ms = 300 },
+        .attack = { .range = 6.0f, .damage = 14, .cooldown_ms = 667 },
     },
     {   /* TankHunterGun: range 3, 667ms cd, 60 dmg — high anti-armor */
         .id = ACTOR_FG_TANK_HUNTER,
@@ -243,7 +243,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.0f,
         .max_hp = 150,
-        .attack = { .range = 3.0f, .damage = 60, .cooldown_ms = 667, .anim_ms = 300 },
+        .attack = { .range = 3.0f, .damage = 60, .cooldown_ms = 667 },
     },
     {   /* PhaseTankCannon: range 6, 433ms cd, 30 dmg */
         .id = ACTOR_FG_PHASE_TANK,
@@ -252,7 +252,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.0f,
         .max_hp = 166,
-        .attack = { .range = 6.0f, .damage = 30, .cooldown_ms = 433, .anim_ms = 200 },
+        .attack = { .range = 6.0f, .damage = 30, .cooldown_ms = 433 },
     },
     {   /* Chaff: range 8, 500ms cd, 8 dmg — anti-air */
         .id = ACTOR_FG_MAD,
@@ -261,7 +261,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 4.0f,
         .max_hp = 100,
-        .attack = { .range = 8.0f, .damage = 8, .cooldown_ms = 500, .anim_ms = 200 },
+        .attack = { .range = 8.0f, .damage = 8, .cooldown_ms = 500 },
     },
     {   /* TripleRailGun: range 8, 667ms cd, 24 dmg */
         .id = ACTOR_FG_TRIPLE_RAIL_TANK,
@@ -270,7 +270,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 3.5f,
         .max_hp = 200,
-        .attack = { .range = 8.0f, .damage = 24, .cooldown_ms = 667, .anim_ms = 300 },
+        .attack = { .range = 8.0f, .damage = 24, .cooldown_ms = 667 },
     },
     {   /* ArtilleryShell: range 45, 2667ms cd, 30 dmg, large AoE */
         .id = ACTOR_FG_SPA,
@@ -279,7 +279,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 3.5f,
         .max_hp = 133,
-        .attack = { .range = 45.0f, .damage = 30, .cooldown_ms = 2667, .anim_ms = 800 },
+        .attack = { .range = 45.0f, .damage = 30, .cooldown_ms = 2667 },
     },
     /* === Air units === */
     {   /* BkLaser: range 5, 233ms cd, 10 dmg */
@@ -289,7 +289,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 6.0f,
         .max_hp = 100,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 233, .anim_ms = 100 },
+        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 233 },
     },
     {   /* OutriderMissile: range 5, 333ms cd, 20 dmg */
         .id = ACTOR_FG_OUTRIDER,
@@ -298,7 +298,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 5.0f,
         .max_hp = 200,
-        .attack = { .range = 5.0f, .damage = 20, .cooldown_ms = 333, .anim_ms = 150 },
+        .attack = { .range = 5.0f, .damage = 20, .cooldown_ms = 333 },
     },
     /* === Experimental / special === */
     {   /* SeismicWave: range 24, slow cd, 17 dmg */
@@ -308,7 +308,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 3.5f,
         .max_hp = 166,
-        .attack = { .range = 24.0f, .damage = 17, .cooldown_ms = 2000, .anim_ms = 1000 },
+        .attack = { .range = 24.0f, .damage = 17, .cooldown_ms = 2000 },
     },
     {   /* Contaminator: range 1, 67ms cd, 5 dmg — targets buildings */
         .id = ACTOR_FG_CONTAMINATOR,
@@ -317,7 +317,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
         .speed = 3.0f,
         .max_hp = 166,
-        .attack = { .range = 1.0f, .damage = 5, .cooldown_ms = 67, .anim_ms = 50 },
+        .attack = { .range = 1.0f, .damage = 5, .cooldown_ms = 67 },
     },
     {   /* Spawned from Phasing Facility — internal tunnel unit */
         .id = ACTOR_FG_UNDERGROUND_TUNNEL,
@@ -373,7 +373,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bfgdtmn0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 400,
-        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 100, .anim_ms = 60 },
+        .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 100 },
     },
     {   /* FixedLaserPlat: range 8, 333ms cd, 13 dmg */
         .id = ACTOR_FG_ADVANCED_GUARD_TOWER,
@@ -382,7 +382,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bfagtmn0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 550,
-        .attack = { .range = 8.0f, .damage = 13, .cooldown_ms = 333, .anim_ms = 150 },
+        .attack = { .range = 8.0f, .damage = 13, .cooldown_ms = 333 },
     },
     {   /* FixedGroundToAirLaser: range 10, 467ms cd, 40 dmg — anti-air */
         .id = ACTOR_FG_AA_SITE,
@@ -391,7 +391,7 @@ static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
         .shadow_name = "bfaarmn0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
         .max_hp = 600,
-        .attack = { .range = 10.0f, .damage = 40, .cooldown_ms = 467, .anim_ms = 200 },
+        .attack = { .range = 10.0f, .damage = 40, .cooldown_ms = 467 },
     },
 };
 

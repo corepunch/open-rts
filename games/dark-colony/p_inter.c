@@ -38,7 +38,6 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->harvest.phase = 0;
     unit->harvest.cargo = 0;
     unit->attack.cooldown_left_ms = 0;
-    unit->attack.anim_left_ms = 0;
     unit->core.momentum = fixedvec3_zero();
     unit->death_started = true;
 }
