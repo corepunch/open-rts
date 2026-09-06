@@ -99,6 +99,7 @@ typedef struct {
 enum {
     SCRIPT_COUNTER_MS = 1000,
     DROPSHIP_FLIGHT_TICS = 50,
+    DROPSHIP_ALTITUDE = FIXED_ONE,
     DROPSHIP_MAX_PAYLOAD_TYPES = 5,
     MAX_CITY_SLOTS = 5,
 };
@@ -386,14 +387,14 @@ static bool player_near(const level_t *map, const mobj_t *units,
 }
 
 static int spawn_dropship_part(effect_t *effects, int max_effects,
-                                           fvec2_t center, int duration_ms) {
+                               fixedvec3_t position, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
         effect_t *effect = &effects[i];
         memset(effect, 0, sizeof(*effect));
         effect->active = true;
         effect->fin_placement = true;
-        effect->core.position = fixedvec3_from_fvec2(center, 0);
+        effect->core.position = position;
         effect->duration_ms = duration_ms;
         effect->frame_ms = duration_ms + 1;
         return i;
@@ -439,7 +440,7 @@ static void sync_dropship_parts(mobj_t *ship,
         int slot = ship->effect_slots[runtime_part];
         if (slot < 0 || slot >= max_effects || !effects[slot].active) {
             slot = spawn_dropship_part(
-                effects, max_effects, ship->center, ship->phase_duration_ms + 1);
+                effects, max_effects, ship->core.position, ship->phase_duration_ms + 1);
             ship->effect_slots[runtime_part] = slot;
         }
         if (slot >= 0) {
@@ -449,7 +450,7 @@ static void sync_dropship_parts(mobj_t *ship,
              * exceeds the duration_ms captured when the slot was first spawned. */
             effect->age_ms = 0;
             effect->duration_ms = ship->phase_duration_ms + 1;
-            effect->core.position = fixedvec3_from_fvec2(ship->center, 0);
+            effect->core.position = ship->core.position;
             effect->core.frame = part->sprite_frame;
             effect->core.render_offset = part->offset;
             /* Palette remap is authored per animation label in DROP.FIN, not per team;
@@ -502,7 +503,7 @@ static mobj_t *spawn_drop_effect(
     ship->release_pending = true;
     for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) ship->effect_slots[i] = -1;
     ship->type_id = MT_DC_DROP_LINK;
-    ship->core.position = fixedvec3_from_fvec2(ship->center, 0);
+    ship->core.position = fixedvec3_from_fvec2(ship->center, DROPSHIP_ALTITUDE);
     ship->core.angle = dc_direction_to_angle(6);
     statecontext_t state_context = {
         .map = NULL, .mobjs = NULL, .mobj_count = NULL,
@@ -649,7 +650,7 @@ void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) {
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && ship->phase_duration_ms > 0)
         ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
-    ship->core.position = fixedvec3_from_fvec2(ship->center, 0);
+    ship->core.position = fixedvec3_with_xy(ship->core.position, ship->center);
 }
 
 void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit) {
@@ -692,7 +693,7 @@ void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && ship->phase_duration_ms > 0)
         ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
-    ship->core.position = fixedvec3_from_fvec2(ship->center, 0);
+    ship->core.position = fixedvec3_with_xy(ship->core.position, ship->center);
 }
 
 void A_DC_DropshipRepositionDone(statecontext_t *ctx, mobj_t *unit) {
@@ -714,7 +715,7 @@ void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && ship->phase_duration_ms > 0)
         ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
-    ship->core.position = fixedvec3_from_fvec2(ship->center, 0);
+    ship->core.position = fixedvec3_with_xy(ship->core.position, ship->center);
 }
 
 void A_DC_DropshipDepartDone(statecontext_t *ctx, mobj_t *unit) {

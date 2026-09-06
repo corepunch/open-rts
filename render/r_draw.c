@@ -83,6 +83,13 @@ void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,
     R_GridToScreen(app, gx, screen_y, sx, sy);
 }
 
+void R_MapPositionToScreen(const app_t *app, const level_t *map,
+                           fixedvec3_t position, float *sx, float *sy) {
+    fvec2_t planar = fixedvec3_xy_to_fvec2(position);
+    R_MapToScreen(app, map, planar.x, planar.y, sx, sy);
+    *sy -= fixed_to_float(position.z) * (float)app_cell_h(app);
+}
+
 static void screen_to_grid_point(const app_t *app, int sx, int sy, float *gx, float *gy) {
     if (gx) *gx = ((float)sx - app->cam.x) / (float)app_cell_w(app);
     if (gy) *gy = ((float)sy - app->cam.y) / (float)app_cell_h(app);
@@ -803,8 +810,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
                                       const spritesheet_t **sprite_out) {
     if (!app || !unit) return false;
     float sx = 0.0f, sy = 0.0f;
-    fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
-    R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
+    R_MapPositionToScreen(app, map, unit->core.position, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
     if (!sprite || !sprite->lumps || sprite->numlumps <= 0 || !sprite->lumps[0].texture) {
         float radius = unit_pick_radius_px(app, unit);
@@ -1334,7 +1340,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
 
         float sx, sy;
         fvec2_t position = fixedvec3_xy_to_fvec2(effect->core.position);
-        R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
+        R_MapPositionToScreen(app, map, effect->core.position, &sx, &sy);
         int frame = effect->use_state || effect->fin_placement ?
             effect->core.frame : sprite_frame_for_effect(sprite, effect);
         if (frame < 0 || frame >= sprite->numlumps) frame = 0;

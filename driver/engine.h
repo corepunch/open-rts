@@ -52,6 +52,8 @@ void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);
 void R_MapToScreen(const app_t *app, const level_t *map, float gx, float gy,
                    float *sx, float *sy);
+void R_MapPositionToScreen(const app_t *app, const level_t *map,
+                           fixedvec3_t position, float *sx, float *sy);
 cell_t R_ScreenToMapGrid(const app_t *app, const level_t *map, int sx, int sy);
 void R_RefreshViewport(app_t *app);
 void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry);
