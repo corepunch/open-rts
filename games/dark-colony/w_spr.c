@@ -408,7 +408,7 @@ retry:
         int label_length = label->end - label->start + 1;
         if (label_length > MAX_FIN_SEQUENCE_FRAMES) return;
         if (length < 0) length = label_length;
-        if (label_length != length) return;
+        if (label_length < length) length = label_length; /* clamp to shortest direction */
         for (int frame = 0; frame < label_length; ++frame) {
             const AnimationCommand *command = animation_frame_command(
                 animation, label->start + frame, stem, 1);
