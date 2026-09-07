@@ -408,10 +408,11 @@ retry:
         int label_length = label->end - label->start + 1;
         if (label_length > MAX_FIN_SEQUENCE_FRAMES) return;
         if (length < 0) length = label_length;
-        if (label_length < length) length = label_length; /* clamp to shortest direction */
-        for (int frame = 0; frame < label_length; ++frame) {
+        if (label_length > length) length = label_length;
+        for (int frame = 0; frame < length; ++frame) {
+            int src = frame < label_length ? frame : label_length - 1;
             const AnimationCommand *command = animation_frame_command(
-                animation, label->start + frame, stem, 1);
+                animation, label->start + src, stem, 1);
             if (!command || command->frame < 0 ||
                 command->frame >= sheet->numlumps) return;
             frames[frame][rotation] = command->frame;
