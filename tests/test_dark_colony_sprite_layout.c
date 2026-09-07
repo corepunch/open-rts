@@ -584,8 +584,8 @@ static int assert_dropship_state_chain(void) {
     const state_t *reposition = &states[S_DC_DROPSHIP_REPOSITION];
     const state_t *depart = &states[S_DC_DROPSHIP_DEPART];
     if (approach->nextstate != S_DC_DROPSHIP_UNLOAD ||
-        unload->nextstate != S_NULL ||
-        reposition->nextstate != S_NULL ||
+        unload->nextstate != S_DC_DROPSHIP_REPOSITION ||
+        reposition->nextstate != S_DC_DROPSHIP_UNLOAD ||
         depart->nextstate != S_NULL ||
         !approach->action || !unload->action ||
         !reposition->action || !depart->action) {

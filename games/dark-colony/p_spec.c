@@ -148,15 +148,25 @@ static const ivec2_t drop_formation[] = {
     { 1, 1 }, { -2, 0 }, { 2, 0 }, { 0, -2 },
 };
 
+typedef struct dropshippayload_s {
+    int type;
+    int count;
+} dropshippayload_t;
+
+/* The common actor is first so state actions can recover their owning ship. */
 typedef struct {
-    Mission *mission;
-    level_t *map;
-    mobj_t *units;
-    int *unit_count;
-    effect_t *effects;
-    int max_effects;
-    const gameinfo_t *game_info;
-} DropshipUpdateContext;
+    mobj_t actor;
+    bool active;
+    ivec2_t origin;
+    fvec2_t flight_vector;
+    dropshippayload_t payload[DROPSHIP_MAX_PAYLOAD_TYPES];
+    int payload_count;
+    int payload_index;
+    int released_count;
+    bool release_pending;
+    int phase_duration_ms;
+    int effect_slots[DROPSHIP_MAX_PARTS];
+} Dropship;
 
 typedef struct {
     int team;
@@ -171,7 +181,7 @@ struct Mission {
     int message_count;
     ScriptBlock blocks[64];
     int block_count;
-    mobj_t dropships[8];
+    Dropship dropships[8];
     DropshipAnimations dropship_animations;
     int elapsed_ms;
     int ai_elapsed_ms;
@@ -402,7 +412,7 @@ static int spawn_dropship_part(effect_t *effects, int max_effects,
     return -1;
 }
 
-static void clear_dropship_parts(mobj_t *ship,
+static void clear_dropship_parts(Dropship *ship,
                                              effect_t *effects, int max_effects) {
     for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) {
         int slot = ship->effect_slots[i];
@@ -421,7 +431,7 @@ static int dropship_frame_at(const DropshipAnimation *animation, int elapsed_ms)
     return animation->frame_count - 1;
 }
 
-static void sync_dropship_parts(mobj_t *ship,
+static void sync_dropship_parts(Dropship *ship,
                                             const Mission *mission,
                                             const DropshipAnimation *animation,
                                             effect_t *effects, int max_effects,
@@ -440,7 +450,7 @@ static void sync_dropship_parts(mobj_t *ship,
         int slot = ship->effect_slots[runtime_part];
         if (slot < 0 || slot >= max_effects || !effects[slot].active) {
             slot = spawn_dropship_part(
-                effects, max_effects, ship->core.position, ship->phase_duration_ms + 1);
+                effects, max_effects, ship->actor.core.position, ship->phase_duration_ms + 1);
             ship->effect_slots[runtime_part] = slot;
         }
         if (slot >= 0) {
@@ -450,12 +460,12 @@ static void sync_dropship_parts(mobj_t *ship,
              * exceeds the duration_ms captured when the slot was first spawned. */
             effect->age_ms = 0;
             effect->duration_ms = ship->phase_duration_ms + 1;
-            effect->core.position = ship->core.position;
+            effect->core.position = ship->actor.core.position;
             effect->core.frame = part->sprite_frame;
             effect->core.render_offset = part->offset;
             /* Palette remap is authored per animation label in DROP.FIN, not per team;
              * force the ship's own team color so it doesn't flip between phases. */
-            effect->core.render_remap = ship->team;
+            effect->core.render_remap = ship->actor.team;
             effect->core.render_intensity = part->render_intensity;
             effect->core.render_flags = (uint32_t)part->flags;
             effect->render_selector = part->render_selector;
@@ -477,12 +487,12 @@ static const DropshipAnimation *dropship_animation(
                                                &mission->dropship_animations.move;
 }
 
-static mobj_t *spawn_drop_effect(
+static Dropship *spawn_drop_effect(
     Mission *mission, effect_t *effects, int max_effects,
     int team, int gx, int gy) {
     if (!mission || !effects || max_effects <= 0) return NULL;
 
-    mobj_t *ship = NULL;
+    Dropship *ship = NULL;
     for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
         if (!mission->dropships[i].active) { ship = &mission->dropships[i]; break; }
     }
@@ -490,26 +500,24 @@ static mobj_t *spawn_drop_effect(
 
     memset(ship, 0, sizeof(*ship));
     ship->active = true;
-    ship->team = team;
-    ship->traits = MF_FLY;
-    ship->speed = 1.0f;
+    ship->actor.team = team;
+    ship->actor.traits = MF_FLY;
+    ship->actor.speed = 1.0f;
     ship->origin = (ivec2_t){ gx, gy };
-    ship->start_center = fvec2_cell_center((ivec2_t){ gx - 1, gy - 1 });
-    ship->target_center = fvec2_cell_center(ship->origin);
-    ship->flight_vector = fvec2_sub(ship->target_center, ship->start_center);
-    ship->center = ship->start_center;
-    ship->phase_duration_ms = (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30;
-    ship->movement.goal = ship->target_center;
+    fvec2_t start = fvec2_cell_center((ivec2_t){ gx - 1, gy - 1 });
+    ship->actor.movement.goal = fvec2_cell_center(ship->origin);
+    ship->flight_vector = fvec2_sub(ship->actor.movement.goal, start);
+    ship->phase_duration_ms = (DROPSHIP_FLIGHT_TICS * 1000 + RTS_TICRATE / 2) / RTS_TICRATE;
     ship->release_pending = true;
     for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) ship->effect_slots[i] = -1;
-    ship->type_id = MT_DC_DROP_LINK;
-    ship->core.position = fixed3_from_fvec2(ship->center, DROPSHIP_ALTITUDE);
-    ship->core.angle = dc_direction_to_angle(6);
+    ship->actor.type_id = MT_DC_DROP_LINK;
+    ship->actor.core.position = fixed3_from_fvec2(start, DROPSHIP_ALTITUDE);
+    ship->actor.core.angle = dc_direction_to_angle(6);
     statecontext_t state_context = {
         .map = NULL, .mobjs = NULL, .mobj_count = NULL,
         .effects = effects, .max_effects = max_effects, .game_info = &game_info,
     };
-    P_SetMobjState(&state_context, ship, S_DC_DROPSHIP_APPROACH);
+    P_SetMobjState(&state_context, &ship->actor, S_DC_DROPSHIP_APPROACH);
     sync_dropship_parts(
         ship, mission, &mission->dropship_animations.move, effects, max_effects, 0);
 
@@ -580,42 +588,11 @@ static fvec2_t dropship_drop_position(const level_t *map, const mobj_t *units,
     return fvec2_cell_center(origin);
 }
 
-static void set_dropship_duration(mobj_t *ship, int duration_ms) {
+static void set_dropship_duration(Dropship *ship, int duration_ms) {
     ship->phase_duration_ms = duration_ms > 0 ? duration_ms : 1;
 }
 
-static void dropship_unload_done(DropshipUpdateContext *context,
-                                 mobj_t *ship) {
-    if (ship->release_pending && ship->payload_index < ship->payload_count) {
-        dropshippayload_t *payload = &ship->payload[ship->payload_index];
-        ivec2_t release_cell = {
-            (int)floorf(ship->center.x), (int)floorf(ship->center.y)
-        };
-        spawn_script_unit(context->map, context->units, context->unit_count, ship->team,
-                          release_cell.x, release_cell.y,
-                  payload->type, context->game_info);
-        ship->released_count++;
-        payload->count--;
-        if (payload->count <= 0) ship->payload_index++;
-        ship->release_pending = false;
-    }
-
-    if (ship->payload_index < ship->payload_count) {
-        ship->start_center = ship->center;
-        ship->target_center = dropship_drop_position(
-            context->map, context->units, *context->unit_count,
-            ship->origin, ship->released_count);
-        ship->release_pending = true;
-        set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
-        return;
-    }
-
-    ship->start_center = ship->center;
-    ship->target_center = fvec2_add(ship->center, ship->flight_vector);
-    set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
-}
-
-static void tick_dropship_state(Mission *mission, mobj_t *ship,
+static void tick_dropship_state(Mission *mission, Dropship *ship,
                             level_t *map, mobj_t *units, int *unit_count,
                             effect_t *effects, int max_effects,
                             const gameinfo_t *game_info, float dt) {
@@ -623,101 +600,82 @@ static void tick_dropship_state(Mission *mission, mobj_t *ship,
         .map = map, .mobjs = units, .mobj_count = unit_count,
         .effects = effects, .max_effects = max_effects, .game_info = game_info,
     };
-    int state_before = ship->core.state_id;
-    bool moving = state_before == S_DC_DROPSHIP_APPROACH ||
-                  state_before == S_DC_DROPSHIP_REPOSITION ||
-                  state_before == S_DC_DROPSHIP_DEPART;
-    if (moving) {
-        P_MoveMobjToward(NULL, ship, dt);
-        ship->center = fixed3_xy_to_fvec2(ship->core.position);
-    }
-    P_TickMobjState(&state_context, ship);
-    int state_after = ship->core.state_id;
-
-    if (state_before == S_DC_DROPSHIP_UNLOAD && state_after != S_DC_DROPSHIP_UNLOAD) {
-        DropshipUpdateContext update = {
-            .mission = mission, .map = map, .units = units,
-            .unit_count = unit_count, .effects = effects,
-            .max_effects = max_effects, .game_info = game_info,
-        };
-        dropship_unload_done(&update, ship);
-        int next_state = S_DC_DROPSHIP_DEPART;
-        if (ship->payload_index < ship->payload_count) {
-            fvec2_t delta = fvec2_sub(ship->target_center, ship->center);
-            next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
-                S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
-        }
-        P_SetMobjState(&state_context, ship, next_state);
-    } else if (state_before == S_DC_DROPSHIP_REPOSITION &&
-               state_after != S_DC_DROPSHIP_REPOSITION) {
-        ship->start_center = ship->center;
-        ship->release_pending = true;
-        P_SetMobjState(&state_context, ship, S_DC_DROPSHIP_UNLOAD);
-    } else if (state_before == S_DC_DROPSHIP_DEPART &&
-               state_after != S_DC_DROPSHIP_DEPART) {
+    int state = ship->actor.core.state_id;
+    bool moving = state == S_DC_DROPSHIP_APPROACH ||
+                  state == S_DC_DROPSHIP_REPOSITION ||
+                  state == S_DC_DROPSHIP_DEPART;
+    if (moving) P_MoveMobjToward(NULL, &ship->actor, dt);
+    P_TickMobjState(&state_context, &ship->actor);
+    if (ship->actor.remove) {
         clear_dropship_parts(ship, effects, max_effects);
         ship->active = false;
-        ship->remove = true;
+        return;
     }
 
     int elapsed_ms = ship->phase_duration_ms -
-                     ship->core.tics * 1000 / DROPSHIP_FLIGHT_TICS;
+                     ship->actor.core.tics * 1000 / RTS_TICRATE;
     if (elapsed_ms < 0) elapsed_ms = 0;
-    sync_dropship_parts(ship, mission, dropship_animation(mission, ship->core.state_id),
+    sync_dropship_parts(ship, mission, dropship_animation(mission, ship->actor.core.state_id),
                          effects, max_effects, elapsed_ms);
 }
 
 void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) {
     (void)ctx;
-    mobj_t *ship = unit;
+    Dropship *ship = (Dropship *)unit;
     if (!ship) return;
-    set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
+    set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + RTS_TICRATE / 2) / RTS_TICRATE);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
-    ship->movement.goal = ship->target_center;
-    fvec2_t delta = fvec2_sub(ship->target_center, ship->start_center);
-    float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
+    fvec2_t delta = fvec2_sub(unit->movement.goal, fixed3_xy_to_fvec2(unit->core.position));
+    float dist = sqrtf(fvec2_length_squared(delta));
     if (dist > 0.001f && ship->phase_duration_ms > 0)
-        ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
-    ship->core.position = fixed3_with_xy(ship->core.position, ship->center);
+        ship->actor.speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
 }
 
 void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit) {
-    mobj_t *ship = unit;
+    Dropship *ship = (Dropship *)unit;
     Mission *mission = ctx && ctx->map ? (Mission *)ctx->map->mission : NULL;
     if (!ship || !mission) return;
     set_dropship_duration(ship, mission->dropship_animations.unload.duration_ms);
-    unit->core.tics = (ship->phase_duration_ms * 30 + 999) / 1000;
+    unit->core.tics = (ship->phase_duration_ms * RTS_TICRATE + 999) / 1000;
     if (unit->core.tics < 1) unit->core.tics = 1;
-    if (ctx) sync_dropship_parts(ship, mission, &mission->dropship_animations.unload,
+    sync_dropship_parts(ship, mission, &mission->dropship_animations.unload,
                                  ctx->effects, ctx->max_effects, 0);
 }
 
 void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
-    (void)ctx;
-    mobj_t *ship = unit;
-    if (!ship) return;
-    set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
-    unit->core.tics = DROPSHIP_FLIGHT_TICS;
-    ship->movement.goal = ship->target_center;
-    fvec2_t delta = fvec2_sub(ship->target_center, ship->start_center);
-    float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
-    if (dist > 0.001f && ship->phase_duration_ms > 0)
-        ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
-    ship->core.position = fixed3_with_xy(ship->core.position, ship->center);
+    Dropship *ship = (Dropship *)unit;
+    if (!ship || !ctx || !ctx->mobj_count) return;
+    if (ship->release_pending && ship->payload_index < ship->payload_count) {
+        dropshippayload_t *payload = &ship->payload[ship->payload_index];
+        fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
+        ivec2_t cell = { (int)floorf(position.x), (int)floorf(position.y) };
+        spawn_script_unit(ctx->map, ctx->mobjs, ctx->mobj_count, unit->team,
+                          cell.x, cell.y, payload->type, ctx->game_info);
+        ship->released_count++;
+        if (--payload->count <= 0) ship->payload_index++;
+        ship->release_pending = false;
+    }
+    if (ship->payload_index >= ship->payload_count) {
+        P_SetMobjState(ctx, unit, S_DC_DROPSHIP_DEPART);
+        return;
+    }
+    ship->actor.movement.goal = dropship_drop_position(
+        ctx->map, ctx->mobjs, *ctx->mobj_count, ship->origin, ship->released_count);
+    ship->release_pending = true;
+    if (fvec2_distance_squared(unit->movement.goal,
+                               fixed3_xy_to_fvec2(unit->core.position)) == 0) {
+        P_SetMobjState(ctx, unit, S_DC_DROPSHIP_UNLOAD);
+        return;
+    }
+    A_DC_DropshipApproach(ctx, unit);
 }
 
 void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
-    (void)ctx;
-    mobj_t *ship = unit;
+    Dropship *ship = (Dropship *)unit;
     if (!ship) return;
-    set_dropship_duration(ship, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
-    unit->core.tics = DROPSHIP_FLIGHT_TICS;
-    ship->movement.goal = ship->target_center;
-    fvec2_t delta = fvec2_sub(ship->target_center, ship->start_center);
-    float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
-    if (dist > 0.001f && ship->phase_duration_ms > 0)
-        ship->speed = dist / ((float)ship->phase_duration_ms / 1000.0f);
-    ship->core.position = fixed3_with_xy(ship->core.position, ship->center);
+    unit->movement.goal = fvec2_add(fixed3_xy_to_fvec2(unit->core.position),
+                                    ship->flight_vector);
+    A_DC_DropshipApproach(ctx, unit);
 }
 
 static int ai_nearest_vent_to(const level_t *map, int gx, int gy) {
@@ -753,7 +711,7 @@ static void execute_script_block(Mission *mission, ScriptBlock *block,
             int count = cmd->a[3] > 0 ? cmd->a[3] : 1;
             int type = cmd->a[4];
             if (cmd->type == SCRIPT_CMD_REINFORCE && cmd->a[5]) {
-                mobj_t *ship = spawn_drop_effect(
+                Dropship *ship = spawn_drop_effect(
                     mission, effects, max_effects, team, x, y);
                 for (int j = i; j < block->command_count; ++j) {
                     ScriptCommand *drop_cmd = &block->commands[j];
@@ -1386,7 +1344,7 @@ void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
         }
     }
     for (int i = 0; i < (int)(sizeof(mission->dropships) / sizeof(mission->dropships[0])); ++i) {
-        mobj_t *ship = &mission->dropships[i];
+        Dropship *ship = &mission->dropships[i];
         if (!ship->active) continue;
         tick_dropship_state(mission, ship, map, units, unit_count,
                                     effects, max_effects,

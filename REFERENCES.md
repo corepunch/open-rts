@@ -922,3 +922,25 @@ Local format findings from `data/KKND`:
   unimplemented. The current vertical slice renders the original two-layer
   mission art and original MOBD infantry, then uses the engine's fallback units
   to make sprite loading and movement visible.
+
+## Hexen and Strife actor lifecycle audit (2026-09-07)
+
+- Local Hexen source: `reference/Hexen Source/` (actual directory name here).
+  `P_MOBJ.C` SHA-256:
+  `57e7658304368c17e4b93fff7d28501f645b4894b0bc25d719638784aa81f342`.
+  `H2DEF.H` SHA-256:
+  `ee2ff69dc1e8b581eb9a99f078927f9a706e689e9bd3128a5e6e947ef32c50da`.
+  `P_SetMobjState`, `P_MobjThinker`, and `P_SpawnMobj` establish terminal
+  removal, action entry, thinker-side zero-tic chaining, and no-action spawn.
+  `P_SPEC.H` embeds `thinker_t` first in specialized thinker structures.
+- User-supplied Strife: Veteran Edition source:
+  `reference/strife-ve-master/strife-ve-src/src/strife/p_mobj.c` (game logic is
+  in the `strife/` subdirectory). SHA-256:
+  `58803893a19581099556dd3765e6ea33196a74baae1993b074a1e94de44be7eb`.
+  This is a modern source port, not a retail executable disassembly. Its
+  `P_SetMobjState` is annotated "[STRIFE] Verified unmodified" and chains
+  zero-tic states in the setter. `P_SpawnMobj` initializes without actions.
+  No checkout commit or download URL was established for these local trees;
+  use the file hashes to reproduce this comparison.
+- Detailed contracts, corrections to the supplied review, implementation
+  consequences, and remaining differences: `docs/STATE_ARCHITECTURE_AUDIT.md`.

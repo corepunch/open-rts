@@ -343,3 +343,32 @@ rabin2 -zz data/DCOLONY/DC.EXE | grep -Ei 'maskbuffer|tilememory|tilemem|vision'
 - `games/dark-colony/g_game.c` - MT_DC_VISION_SIGHT actor definition
 - `games/dark-colony/w_map.c` - Map loading and object type mapping
 - `docs/DC_EXE_FINDINGS.md` - Previous rendering and animation findings
+
+## Reinforcement lifecycle audit (2026-09-07)
+
+**Confirmed in open-rts, not a new DC.EXE disassembly finding:** live dropship
+UNLOAD/REPOSITION states incorrectly ended at `S_NULL`; the external transition
+repair left `remove` set and froze further state ticks. A focused Human01 test
+and temporary transition logging reproduced this in the original code. Move
+branching into entry actions and keep `S_NULL` terminal; see
+`docs/STATE_ARCHITECTURE_AUDIT.md` for reference-source comparison and commands.
+
+**Asset evidence:** `SCENARIO/HUMAN/HUMAN01.TRO`, SHA-256
+`f7fb1c67d68eaa4207ec5053ad7289608f43ca6d631a9d0d45ff3f260011a1a0`,
+contains `reinforce` commands at lines 14, 42, and 49. The focused integration
+test uses this native scenario to exercise delivery and departure rather than
+assuming visibility of a ship proves a complete lifecycle.
+
+**Confirmed implementation error:** FIN elapsed-time conversion used the
+50-tic flight phase length as a divisor instead of the 30 Hz simulation rate.
+The repaired code shares `RTS_TICRATE` with `FIXED_DT`. No native FIN delays or
+Reaper movement tics were changed.
+
+**Unknown:** absolute retail dropship altitude and the provenance of the
+existing one-cell altitude/50-tic flight policy. The supplied review's proposal
+to use 70 pixels is not corroborated by executable instructions or a measured
+retail trace and was not applied. Its claim that DROP.FIN offsets contain no
+altitude was not independently established in this audit. Existing altitude
+is preserved through common actor movement and whole-position effect copying.
+The executable fingerprint at the top of this report is unchanged; no new
+function address or binary offset was inferred from these source-level fixes.

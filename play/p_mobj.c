@@ -30,7 +30,7 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
 
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
     const gameinfo_t *game_info = ctx ? ctx->game_info : NULL;
-    if (!game_info || !unit) return false;
+    if (!game_info || !unit || unit->remove) return false;
     int guard = 0;
     while (guard++ < game_info->state_count + 1) {
         if (state_id == game_info->null_state || state_id < 0 ||
@@ -150,8 +150,14 @@ void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {
         if (unit->radius > 0.90f) unit->radius = 0.90f;
     }
     if (unit->core.state_id <= 0) {
-        statecontext_t ctx = { .game_info = game_info };
-        P_SetMobjState(&ctx, unit, info->spawnstate);
+        /* Hexen/Strife initialize spawn visuals without running actions: the
+         * actor is not linked into the world and has no action context yet. */
+        const state_t *state = state_at(game_info, info->spawnstate);
+        if (state) {
+            unit->core.state_id = info->spawnstate;
+            unit->core.tics = state->tics;
+            apply_state_visuals(game_info, &unit->core, state, false);
+        }
     } else {
         apply_state_visuals(game_info, &unit->core,
                             state_at(game_info, unit->core.state_id), false);

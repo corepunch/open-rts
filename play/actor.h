@@ -131,11 +131,6 @@ typedef struct selectiondrawcontext_s {
 
 typedef bool (*selectiondrawf_t)(const selectiondrawcontext_t *ctx);
 
-typedef struct dropshippayload_s {
-    int type;
-    int count;
-} dropshippayload_t;
-
 struct gameinfo_s {
     const char *const *sprnames;
     int sprite_count;
@@ -210,19 +205,6 @@ struct mobj_s {
     bool death_started;
     bool remove;
     bool hidden;
-        bool active;
-        ivec2_t origin;
-        fvec2_t start_center;
-        fvec2_t target_center;
-        fvec2_t flight_vector;
-        fvec2_t center;
-        dropshippayload_t payload[5];
-        int payload_count;
-        int payload_index;
-        int released_count;
-        bool release_pending;
-        int phase_duration_ms;
-        int effect_slots[24];
     struct {
         uint16_t actor_id;
         uint8_t product_class;

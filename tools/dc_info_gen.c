@@ -1871,8 +1871,8 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive3, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_rschive, "S_NULL");
     fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_NULL, 0, 0 },\n");
-    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_NULL, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_REPOSITION, 0, 0 },\n");
+    fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_UNLOAD, 0, 0 },\n");
     fprintf(out, "    { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_NULL, 0, 0 },\n");
     fprintf(out, "};\n\n");
 

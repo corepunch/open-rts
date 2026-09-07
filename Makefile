@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := all
+
 CC ?= cc
 AR ?= ar
 PKG_CONFIG ?= pkg-config
@@ -240,3 +242,6 @@ tags:
 	ctags -R $(CTAGS_FLAGS) -f games/dark-reign/tags games/dark-reign/
 	ctags -R $(CTAGS_FLAGS) -f games/7legion/tags games/7legion/
 	ctags -R $(CTAGS_FLAGS) -f games/kknd/tags games/kknd/
+
+# Headless/layout/command test objects also depend on shared runtime headers.
+-include $(sort $(shell find $(BUILD_DIR) -name '*.d' 2>/dev/null))

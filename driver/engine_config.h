@@ -15,7 +15,8 @@
 #define MAX_SPRITE_ROTATIONS 32
 #define RTS_MAX_PRODUCTION_QUEUE 9
 #define MAX_PATH_CELLS 4096
-#define FIXED_DT (1.0f / 30.0f)
+#define RTS_TICRATE 30
+#define FIXED_DT (1.0f / RTS_TICRATE)
 
 #ifndef RTS_WORLD_Y_UP
 #define RTS_WORLD_Y_UP 0

@@ -322,8 +322,8 @@ const state_t states[NUMSTATES] = {
     { SPR_DC_ALBU, 6, -1, A_None, S_NULL, 1, 0 },
     { SPR_DC_ALBU, 13, -1, A_None, S_NULL, 1, 0 },
     { SPR_DC_DROP, 0, 1, A_DC_DropshipApproach, S_DC_DROPSHIP_UNLOAD, 0, 0 },
-    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_NULL, 0, 0 },
-    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_NULL, 0, 0 },
+    { SPR_DC_DROP, 0, 1, A_DC_DropshipUnload, S_DC_DROPSHIP_REPOSITION, 0, 0 },
+    { SPR_DC_DROP, 0, 1, A_DC_DropshipReposition, S_DC_DROPSHIP_UNLOAD, 0, 0 },
     { SPR_DC_DROP, 0, 1, A_DC_DropshipDepart, S_NULL, 0, 0 },
 };
 
