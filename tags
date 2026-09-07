@@ -1152,6 +1152,7 @@ damage	tools/dc_gamestat_gen.c	/^    int damage[GAMESTAT_MAX_BOOM_SIZE][GAMESTAT
 data	ARCHITECTURE.md	/^simulation\/pathfinding data; tile IDs and overlays are presentation data, even$/;"	v
 data	game/g_game.h	/^    } data;$/;"	m	struct:__anon42a104c40708	typeref:union:__anon42a104c40708::__anon42a104c4080a
 data_root	game/g_game.h	/^    const char *data_root;$/;"	m	struct:__anon42a104c40108	typeref:typename:const char *
+date	docs/STATE_ARCHITECTURE_AUDIT.md	/^Audit date: 2026-09-07. Scope: actor spawning, state entry\/ticking\/removal,$/;"	v	typeref:typename:Audit
 day_rate	game/map.h	/^    int day_rate;$/;"	m	struct:level_s	typeref:typename:int
 dc_fin_animation_header_has_valid_frames	tools/dc_info_gen.c	/^static bool dc_fin_animation_header_has_valid_frames(const DcFinAnimation *fin, const DcFinAnima/;"	f	typeref:typename:bool	file:	signature:(const DcFinAnimation * fin,const DcFinAnimationHeader * label)
 dc_fin_animation_header_range	tools/dc_info_gen.c	/^static bool dc_fin_animation_header_range(const DcFinAnimation *fin, const char *label, int *sta/;"	f	typeref:typename:bool	file:	signature:(const DcFinAnimation * fin,const char * label,int * start_out,int * end_out)

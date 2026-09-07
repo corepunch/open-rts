@@ -31,40 +31,33 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
     const gameinfo_t *game_info = ctx ? ctx->game_info : NULL;
     if (!game_info || !unit || unit->remove) return false;
-    int guard = 0;
-    while (guard++ < game_info->state_count + 1) {
-        if (state_id == game_info->null_state || state_id < 0 ||
-            state_id >= game_info->state_count) {
-            unit->core.state_id = game_info->null_state;
-            unit->core.tics = 0;
-            unit->core.momentum = fixed3_zero();
-            unit->remove = true;
-            return false;
-        }
-        const state_t *state = &game_info->states[state_id];
-        unit->core.state_id = state_id;
-        unit->core.tics = state->tics;
-        apply_state_visuals(game_info, &unit->core, state, false);
-        debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
-                          unit->type_id, unit->core.state_id, unit->core.sprite_id,
-                          unit->core.frame, unit->core.tics);
-        if (state->misc1 == 3) {
-            const char *sprite_name = "(unknown)";
-            if (unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
-                game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
-                sprite_name = game_info->sprnames[unit->core.sprite_id];
-            }
-            debug_effects_log("shoot state unit_type=%u state=%d sprite=%s frame=%d",
-                              unit->type_id, unit->core.state_id,
-                              sprite_name, unit->core.frame);
-        }
-        if (state->action) state->action(ctx, unit);
-        if (unit->remove || unit->core.state_id != state_id) return !unit->remove;
-        if (unit->core.tics != 0) return true;
-        state_id = state->nextstate;
+    if (state_id == game_info->null_state || state_id < 0 ||
+        state_id >= game_info->state_count) {
+        unit->core.state_id = game_info->null_state;
+        unit->core.tics = 0;
+        unit->core.momentum = fixed3_zero();
+        unit->remove = true;
+        return false;
     }
-    unit->remove = true;
-    return false;
+    const state_t *state = &game_info->states[state_id];
+    unit->core.state_id = state_id;
+    unit->core.tics = state->tics;
+    apply_state_visuals(game_info, &unit->core, state, false);
+    debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
+                      unit->type_id, unit->core.state_id, unit->core.sprite_id,
+                      unit->core.frame, unit->core.tics);
+    if (state->misc1 == 3) {
+        const char *sprite_name = "(unknown)";
+        if (unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
+            game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
+            sprite_name = game_info->sprnames[unit->core.sprite_id];
+        }
+        debug_effects_log("shoot state unit_type=%u state=%d sprite=%s frame=%d",
+                          unit->type_id, unit->core.state_id,
+                          sprite_name, unit->core.frame);
+    }
+    if (state->action) state->action(ctx, unit);
+    return !unit->remove;
 }
 
 bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
@@ -72,9 +65,18 @@ bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
     if (unit->core.state_id <= 0) return false;
     if (unit->core.tics > 0) unit->core.tics--;
     if (unit->core.tics != 0) return true;
-    const state_t *state = state_at(ctx->game_info, unit->core.state_id);
-    return P_SetMobjState(ctx, unit,
-                          state ? state->nextstate : ctx->game_info->null_state);
+    int guard = 0;
+    while (!unit->remove && unit->core.tics == 0 &&
+           guard++ < ctx->game_info->state_count + 1) {
+        const state_t *state = state_at(ctx->game_info, unit->core.state_id);
+        int nextstate = state ? state->nextstate : ctx->game_info->null_state;
+        if (!P_SetMobjState(ctx, unit, nextstate)) return false;
+    }
+    if (unit->core.tics == 0) {
+        unit->remove = true;
+        return false;
+    }
+    return !unit->remove;
 }
 
 void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {

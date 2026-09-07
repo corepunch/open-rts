@@ -38,8 +38,12 @@ int main(void) {
     for (int i = 0; i < 10; ++i)
         RTS_CHECK(P_TickMobjState(&ctx, &unit) && unit.core.tics == -1 && calls == 3,
                   "states", "minus-one tics persist");
-    RTS_CHECK(P_SetMobjState(&ctx, &unit, 5) && unit.core.state_id == 3 && calls == 5,
-              "states", "zero-tic chain runs immediately");
+    RTS_CHECK(P_SetMobjState(&ctx, &unit, 5) && unit.core.state_id == 5 &&
+                  unit.core.tics == 0 && calls == 4,
+              "states", "setter enters one state and invokes its action");
+    RTS_CHECK(P_TickMobjState(&ctx, &unit) && unit.core.state_id == 3 &&
+                  unit.core.tics == 2 && calls == 5,
+              "states", "thinker consumes zero-tic chains");
     RTS_CHECK(!P_SetMobjState(&ctx, &unit, 0) && unit.remove,
               "states", "S_NULL removes actor");
     RTS_CHECK(!P_SetMobjState(&ctx, &unit, 3) && !P_TickMobjState(&ctx, &unit) && calls == 5,

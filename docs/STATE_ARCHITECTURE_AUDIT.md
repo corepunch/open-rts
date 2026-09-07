@@ -13,16 +13,17 @@ The local reference paths and SHA-256 fingerprints are recorded in
 | --- | --- | --- | --- |
 | `S_NULL` removes an actor | `P_SetMobjState`, line 87 | `P_SetMobjState`, line 67 | `P_SetMobjState` marks `remove`; it is not a temporary state |
 | Actions run upon entry | `P_SetMobjState`, line 99 | `P_SetMobjState`, line 80 | Same; branch in the entered action |
-| Zero-tic chaining | `P_MobjThinker`, line 1148 | `P_SetMobjState`, line 84 | Setter chaining follows the Strife/Doom placement |
+| Zero-tic chaining | `P_MobjThinker`, line 1148 | `P_SetMobjState`, line 84 | Ticker chaining follows Hexen; setter enters one state |
 | `-1` tics persist | `P_MobjThinker`, line 1144 | `P_MobjThinker`, line 677 | `P_TickMobjState` preserves negative tics |
 | Spawn does not run actions | `P_SpawnMobj`, line 1190 | `P_SpawnMobj`, line 768 | Corrected to initialize state and visuals directly |
 | Movement precedes state advancement | `P_MobjThinker` | `P_MobjThinker` | Ship tick moves, ticks the common state machine, then updates presentation |
 
 **Correction to the attached review:** Hexen's setter does not itself loop
-through zero-tic states, and neither reference setter contains open-rts's
-explicit `state_id != entered_state_id` guard. That guard is a local safeguard
-against following a stale nextstate after a nested redirect. Keep it; tests
-cover a zero-tic action redirect whose old nextstate is `S_NULL`.
+through zero-tic states. Strife's setter does loop, so the two references do
+not agree on this detail. open-rts now follows Hexen: `P_SetMobjState` enters
+one state and invokes its action, while `P_TickMobjState` owns the zero-tic
+loop. A nested action redirect is honored by deriving each next state from the
+currently entered state, never from a stale caller-side state.
 
 ## Implemented corrections
 
@@ -55,6 +56,9 @@ cover a zero-tic action redirect whose old nextstate is `S_NULL`.
   only the first game on subsequent builds.
 - The state generator emits the same live phase links as the checked-in table;
   the layout test no longer asserts the broken `S_NULL` links.
+- The shared state setter/ticker now matches Hexen's division of
+  responsibility: setter entry is single-state, and the thinker consumes
+  zero-tic chains in the same tick.
 
 ## Remaining differences and limits
 
