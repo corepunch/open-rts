@@ -23,23 +23,24 @@ typedef struct {
     uint16_t frame_ms;
 } TileAnimation;
 
-typedef struct tileset_s {
-    SDL_Texture *texture;
-    int *tile_lookup;
-    int tile_lookup_count;
-    TileAnimation *animations;
-    int animation_count;
-    int count;
-    int atlas_cols;
-    int tile_w;
-    int tile_h;
-    int draw_y_offset;
-} tileset_t;
+typedef struct spritelayer_s {
+    ivec2_t offset;
+    uint16_t lump;
+    uint8_t remap;
+    uint8_t intensity;
+    uint8_t layer;
+    uint8_t flags;
+    char sprite_name[9];
+} spritelayer_t;
+
+typedef struct spritedirection_s {
+    int ticks;
+    spritelayer_t *layers;
+} spritedirection_t;
 
 typedef struct spriteframe_s {
-    bool rotate;
-    int lump[MAX_SPRITE_ROTATIONS];
-    uint8_t flip[MAX_SPRITE_ROTATIONS];
+    char frame_name[17];
+    spritedirection_t directions[MAX_SPRITE_ROTATIONS];
 } spriteframe_t;
 
 typedef struct spritedef_s {
@@ -71,6 +72,19 @@ typedef struct spritesheet_s {
     int indexed_blend_selector;
     const uint8_t *indexed_blend_table;
 } spritesheet_t;
+
+typedef struct tileset_s {
+    SDL_Texture *texture;
+    int *tile_lookup;
+    int tile_lookup_count;
+    TileAnimation *animations;
+    int animation_count;
+    int count;
+    int atlas_cols;
+    int tile_w;
+    int tile_h;
+    int draw_y_offset;
+} tileset_t;
 
 typedef struct cachedsprite_s {
     char name[32];

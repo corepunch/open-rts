@@ -1111,7 +1111,6 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 1; i <= counts->expl_work; ++i) fprintf(out, "    S_DC_EXPL_WORK%d,\n", i);
     for (int i = 1; i <= counts->expl_death; ++i) fprintf(out, "    S_DC_EXPL_DIE%d,\n", i);
     fprintf(out, "    S_DC_EXPL_CORPSE,\n");
-    fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,\n");
     fprintf(out, "    S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,\n");
     fprintf(out, "    S_DC_DROPSHIP_APPROACH, S_DC_DROPSHIP_UNLOAD, S_DC_DROPSHIP_REPOSITION, S_DC_DROPSHIP_DEPART,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
@@ -1121,7 +1120,6 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");
     fprintf(out, "extern const gameinfo_t game_info;\n\n");
     fprintf(out, "void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);\n\n");
@@ -1224,6 +1222,17 @@ static void write_rotations(FILE *out, int count, const int *directions,
     (void)flags;
 }
 
+static int fin_logical_frame(const DcFinAnimation *fin, const char *label_prefix,
+                             int step, int fallback_frame) {
+    char label[32];
+    snprintf(label, sizeof(label), "%s0", label_prefix);
+    const DcFinAnimationHeader *header = dc_fin_find_animation_header(fin, label);
+    if (!dc_fin_animation_header_has_valid_frames(fin, header)) return fallback_frame;
+    int count = header->end - header->start + 1;
+    if (step >= count) step = count - 1;
+    return header->start + step;
+}
+
 static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                          const char *label_prefix, int step, int fallback_frame,
                          int tics, const char *action, const char *next, int group,
@@ -1272,8 +1281,9 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     }
 
     static const int directions[8] = {0,2,4,6,8,10,12,14};
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
-            spr, frames[0], state_tics, state_action, next, group);
+        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
+        fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
+            spr, logical_frame, state_tics, state_action, next, group);
     write_rotations(out, 8, directions, frames, flags);
     fprintf(out, " },\n");
 }
@@ -1363,8 +1373,9 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
 
     (void)has_overlay;
     static const int directions[8] = {0,2,4,6,8,10,12,14};
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
-            spr, frames[0], tics, action, next, group);
+        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
+        fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
+            spr, logical_frame, tics, action, next, group);
     write_rotations(out, 8, directions, frames, flags);
     fprintf(out, " },\n");
 }
@@ -1412,8 +1423,9 @@ static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     }
 
     static const int directions[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
-            spr, frames[0], tics, action, next, group);
+        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
+        fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
+            spr, logical_frame, tics, action, next, group);
     write_rotations(out, 16, directions, frames, flags);
     fprintf(out, " },\n");
 }
@@ -1502,8 +1514,9 @@ static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimatio
     (void)overlay_remap;
     (void)overlay_intensity;
         static const int directions[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
         fprintf(out, "    { %s, %d, %d, %s, %s, %d, %s",
-            spr, frames[0], tics, action, next, group,
+            spr, logical_frame, tics, action, next, group,
             flags[0] ? "FLIPPED" : "0");
         write_rotations(out, 16, directions, frames, flags);
         fprintf(out, " },\n");
@@ -1657,7 +1670,6 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     int hubu = find_sprite(sprites, sprite_count, "SPRITES/HUBU.SPR");
     int towr = find_sprite(sprites, sprite_count, "SPRITES/TOWR.SPR");
     int albu = find_sprite(sprites, sprite_count, "SPRITES/ALBU.SPR");
-    int blaz = find_sprite(sprites, sprite_count, "SPRITES/BLAZ.SPR");
     char trsc_fin_path[1024];
     char gray_fin_path[1024];
     char reap_fin_path[1024];
@@ -1695,28 +1707,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     const DcFinDrawPart *alien_mindhive2 = fin_first_body_part(&albu_fin, "MNDHIV2STAND0");
     const DcFinDrawPart *alien_mindhive3 = fin_first_body_part(&albu_fin, "MINDHIVSTAND0");
     const DcFinDrawPart *alien_rschive = fin_first_body_part(&albu_fin, "RSCHHIVDIE0");
-    int trsc_attack_base = fin_first_body_frame(&trsc_fin, "TRSCFIREA0");
-    int gray_attack_base = fin_first_body_frame(&gray_fin, "GRAYFIREA0");
     const DcFinDrawPart *excopod_stand =
         dc_fin_required_draw_part_in_animation_header(&hubu_fin, "EXCOPODSTAND0", "hubu", 1, 0);
     const DcFinDrawPart *brrkpod_stand =
         dc_fin_required_draw_part_in_animation_header(&hubu_fin, "BRRKPODSTAND0", "hubu", 1, 4);
     const DcFinDrawPart *towr_stand =
         dc_fin_required_draw_part_in_animation_header(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
-    char blaz_path[1024];
-    snprintf(blaz_path, sizeof(blaz_path), "%s/SPRITES/BLAZ.SPR", root);
-    int blaz_w = 0, blaz_h = 0;
-    spr_frame_size(blaz_path, 0, &blaz_w, &blaz_h);
-    int trsc_muzzle_frame = 0, gray_muzzle_frame = 0, reap_muzzle_frame = 0;
-    int trsc_muzzle_x[8] = {0}, trsc_muzzle_y[8] = {0};
-    int gray_muzzle_x[8] = {0}, gray_muzzle_y[8] = {0};
-    int reap_muzzle_x[16] = {0}, reap_muzzle_y[16] = {0};
-    fin_muzzle_for_body_row(&trsc_fin, "TRSC", trsc_attack_base, blaz_w, blaz_h,
-                            &trsc_muzzle_frame, trsc_muzzle_x, trsc_muzzle_y);
-    fin_muzzle_for_body_row(&gray_fin, "GRAY", gray_attack_base, blaz_w, blaz_h,
-                            &gray_muzzle_frame, gray_muzzle_x, gray_muzzle_y);
-    fin_muzzle_for_sequence16_step(&reap_fin, "REAPFIRE", 1, blaz_w, blaz_h,
-                                   &reap_muzzle_frame, reap_muzzle_x, reap_muzzle_y);
     fprintf(out, "/* Generated by tools/dc_info_gen.c. Do not edit by hand. */\n");
     fprintf(out, "#include \"info.h\"\n\n");
     fprintf(out, "const char *const sprnames[NUMSPRITES] = {\n");
@@ -1766,8 +1762,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
         char next[64];
         if (i + 1 < counts->trsc_attack_a) state_name(next, sizeof(next), "TRSC", "ATK", i + 2);
         else snprintf(next, sizeof(next), "S_DC_TRSC_STND");
-        const char *action = i == 1 ? "A_DC_MuzzleFlash" :
-            (i == 2 ? "A_Attack" : "A_None");
+        const char *action = i == 2 ? "A_Attack" : "A_None";
         f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCFIREA", i, 0, 2,
                      action, next, 3, counts->trsc_attack_a, false);
     }
@@ -1775,8 +1770,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
         char next[64];
         if (i + 1 < counts->trsc_attack_b) snprintf(next, sizeof(next), "S_DC_TRSC_ATKB%d", i + 2);
         else snprintf(next, sizeof(next), "S_DC_TRSC_STND");
-        const char *action = i == 0 ? "A_DC_MuzzleFlash" :
-            (i == 1 ? "A_Attack" : "A_None");
+        const char *action = i == 1 ? "A_Attack" : "A_None";
         f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCFIREB", i, 0, 2,
                      action, next, 3, counts->trsc_attack_b, false);
     }
@@ -1792,7 +1786,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                      "A_Walk", gray_run_next[i], 2, 8, false);
     }
     const char *gray_atk_next[8] = {"S_DC_GRAY_ATK2","S_DC_GRAY_ATK3","S_DC_GRAY_ATK4","S_DC_GRAY_ATK5","S_DC_GRAY_ATK6","S_DC_GRAY_STND","S_DC_GRAY_STND","S_DC_GRAY_STND"};
-    const char *gray_atk_action[8] = {"A_None","A_DC_MuzzleFlash","A_Attack","A_None","A_None","A_None","A_None","A_None"};
+    const char *gray_atk_action[8] = {"A_None","A_None","A_Attack","A_None","A_None","A_None","A_None","A_None"};
     for (int i = 0; i < 8; ++i) {
         f8_fin_state(out, sprites[gray].symbol, &gray_fin, "GRAYFIREA", i, 0, 2,
                      gray_atk_action[i], gray_atk_next[i], 3, 8, false);
@@ -1806,7 +1800,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
                          counts->reap_run, 0, 3, 2, "A_Walk", "S_DC_REAP_RUN1", true);
     const char *reap_atk_actions[8] = {
-        "A_None", "A_DC_MuzzleFlash", "A_Attack", "A_None",
+        "A_None", "A_None", "A_Attack", "A_None",
         "A_None", "A_None", "A_None", "A_None"
     };
     write_fin_layer5_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",
@@ -1860,9 +1854,6 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
                        counts->expl_death, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
     write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", counts->expl_death - 1, 0, false);
-    write_muzzle(out, sprites[blaz].symbol, trsc_muzzle_frame, trsc_muzzle_x, trsc_muzzle_y);
-    write_muzzle(out, sprites[blaz].symbol, gray_muzzle_frame, gray_muzzle_x, gray_muzzle_y);
-    write_muzzle16(out, sprites[blaz].symbol, reap_muzzle_frame, reap_muzzle_x, reap_muzzle_y);
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_warhive, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_brdrhive, "S_NULL");
@@ -1878,10 +1869,10 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 
     fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");
     fprintf(out, "    {0},\n");
-    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_TRSC_MUZZLE, 0 },\n");
-    fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_GRAY_MUZZLE, 0 },\n");
+    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_REAP_MUZZLE, 0 },\n");
+    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");

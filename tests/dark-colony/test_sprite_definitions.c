@@ -15,7 +15,7 @@ int main(void) {
     }
 
     spritesheet_t sprite;
-    if (!load_dark_colony_sprite(renderer, "data/DCOLONY/SPRITES/TRSC.SPR",
+    if (!load_dark_colony_sprite(renderer, "data/DCOLONY/ANIMATE/TRSC.FIN",
                                  &sprite, NULL)) {
         fprintf(stderr, "FAIL: load Trooper sprite definition\n");
         SDL_DestroyRenderer(renderer);
@@ -26,16 +26,42 @@ int main(void) {
     static const int expected_lumps[8] = { 16, 23, 22, 21, 20, 19, 18, 17 };
     static const uint8_t expected_flips[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
     const spriteframe_t *run = &sprite.spritedef.spriteframes[16];
-    bool valid = sprite.spritedef.rotations == 8 && run->rotate;
+    bool valid = sprite.spritedef.rotations == 8;
     for (int rotation = 0; rotation < 8; ++rotation) {
-        if (run->lump[rotation] != expected_lumps[rotation] ||
-            run->flip[rotation] != expected_flips[rotation]) valid = false;
+        const spritelayer_t *part = run->directions[rotation].layers;
+        if (!part || part->lump != expected_lumps[rotation] ||
+            ((part->flags & RTS_FRAME_FLIP_X) != 0) != expected_flips[rotation]) valid = false;
     }
     if (!valid) {
         fprintf(stderr, "FAIL: Trooper run state frame resolves FIN rotations:");
-        for (int rotation = 0; rotation < 8; ++rotation)
-            fprintf(stderr, " %d/%u", run->lump[rotation], run->flip[rotation]);
+        for (int rotation = 0; rotation < 8; ++rotation) {
+            const spritelayer_t *part = run->directions[rotation].layers;
+            fprintf(stderr, " %d/%u", part ? part->lump : -1,
+                    part ? (unsigned)((part->flags & RTS_FRAME_FLIP_X) != 0) : 0);
+        }
         fputc('\n', stderr);
+    }
+
+    const spritelayer_t *fire_parts =
+        sprite.spritedef.spriteframes[91].directions[2].layers;
+    if (!fire_parts ||
+        strcmp(fire_parts[0].sprite_name, ".") != 0 ||
+        fire_parts[0].lump != 94 || fire_parts[0].offset.x != -159 ||
+        fire_parts[0].offset.y != 0 || fire_parts[0].layer != 1 ||
+        strcmp(fire_parts[1].sprite_name, ".") != 0 ||
+        fire_parts[1].lump != 171 || fire_parts[1].offset.x != -64 ||
+        fire_parts[1].offset.y != -28 || fire_parts[1].layer != 5 ||
+        (fire_parts[1].flags & RTS_FRAME_FLIP_X) == 0 ||
+        strcmp(fire_parts[2].sprite_name, ".") != 0 ||
+        fire_parts[2].lump != 176 || fire_parts[2].offset.x != -43 ||
+        fire_parts[2].offset.y != -24 || fire_parts[2].layer != 5 ||
+        (fire_parts[2].flags & RTS_FRAME_FLIP_X) == 0 ||
+        strcmp(fire_parts[3].sprite_name, "BLAZ") != 0 ||
+        fire_parts[3].lump != 0 || fire_parts[3].offset.x != -56 ||
+        fire_parts[3].offset.y != 4 || fire_parts[3].layer != 3 ||
+        fire_parts[4].sprite_name[0] != '\0') {
+        fprintf(stderr, "FAIL: Trooper FIN frame preserves ordered multipart commands\n");
+        valid = false;
     }
 
     R_FreeSprite(&sprite);
@@ -45,10 +71,12 @@ int main(void) {
         valid = false;
     } else {
         const spriteframe_t *stand = &sprite.spritedef.spriteframes[0];
-        if (sprite.spritedef.rotations != 16 || !stand->rotate ||
-            stand->lump[1] != 1 || !stand->flip[1]) {
+        const spritelayer_t *part = stand->directions[1].layers;
+        if (sprite.spritedef.rotations != 16 ||
+            !part || part->lump != 1 || (part->flags & RTS_FRAME_FLIP_X) == 0) {
             fprintf(stderr, "FAIL: Exploiter facing 15 preserves native frame and flip: %d/%u\n",
-                stand->lump[1], stand->flip[1]);
+                part ? part->lump : -1,
+                part ? (unsigned)((part->flags & RTS_FRAME_FLIP_X) != 0) : 0);
             valid = false;
         }
         R_FreeSprite(&sprite);

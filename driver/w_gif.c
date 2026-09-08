@@ -227,7 +227,15 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
     out->numlumps = 1;
     out->spritedef.numframes = 1;
     out->spritedef.rotations = 1;
-    out->spritedef.spriteframes[0].lump[0] = 0;
+    spritelayer_t *layer = calloc(2, sizeof(*layer));
+    if (!layer) {
+        R_FreeSprite(out);
+        return false;
+    }
+    out->spritedef.spriteframes[0].directions[0].layers = layer;
+    snprintf(layer->sprite_name, sizeof(layer->sprite_name), ".");
+    layer->lump = 0;
+    layer->intensity = 16;
     out->frame_size = (isize2_t){ canvas_w, canvas_h };
     return true;
 }

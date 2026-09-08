@@ -404,9 +404,8 @@ bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,
                      angle_t first_angle, bool clockwise) {
     if (!sprite || numframes <= 0 || rotations <= 0 ||
         rotations > MAX_SPRITE_ROTATIONS) return false;
-    spriteframe_t *frames = malloc((size_t)numframes * sizeof(*frames));
+    spriteframe_t *frames = calloc((size_t)numframes, sizeof(*frames));
     if (!frames) return false;
-    memset(frames, -1, (size_t)numframes * sizeof(*frames));
     free(sprite->spritedef.spriteframes);
     sprite->spritedef = (spritedef_t){
         .numframes = numframes,
@@ -425,24 +424,65 @@ bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
         rotation >= sprite->spritedef.rotations || lump < 0 ||
         lump >= sprite->numlumps) return false;
     spriteframe_t *spriteframe = &sprite->spritedef.spriteframes[frame];
-    spriteframe->rotate = sprite->spritedef.rotations > 1;
-    spriteframe->lump[rotation] = lump;
-    spriteframe->flip[rotation] = flip;
+    spritedirection_t *direction = &spriteframe->directions[rotation];
+    spritelayer_t *layers = calloc(2, sizeof(*layers));
+    if (!layers) return false;
+    free(direction->layers);
+    direction->layers = layers;
+    snprintf(direction->layers[0].sprite_name,
+             sizeof(direction->layers[0].sprite_name), ".");
+    direction->layers[0].lump = lump;
+    direction->layers[0].intensity = 16;
+    direction->layers[0].flags = flip ? RTS_FRAME_FLIP_X : 0;
     return true;
+}
+
+static int sprite_rotation_for_frame(const spritesheet_t *sprite, int frame,
+                                     angle_t angle) {
+    if (!sprite || frame < 0 || frame >= sprite->spritedef.numframes ||
+        !sprite->spritedef.spriteframes) return -1;
+    int rotation = sprite->spritedef.rotations > 1 ? angle_to_direction(
+        angle, sprite->spritedef.rotations, sprite->spritedef.first_angle,
+        sprite->spritedef.clockwise) : 0;
+    return rotation >= 0 && rotation < MAX_SPRITE_ROTATIONS ? rotation : -1;
+}
+
+static const spritesheet_t *sprite_layer_source(const spritecache_t *cache,
+                                                const spritesheet_t *sprite,
+                                                const char *name) {
+    if (strcmp(name, ".") == 0) return sprite;
+    const spritesheet_t *source = R_CacheLookup(cache, name);
+    if (source) return source;
+    char path[32];
+    snprintf(path, sizeof(path), "SPRITES/%s.SPR", name);
+    return R_CacheLookup(cache, path);
+}
+
+static const spritelayer_t *sprite_body_part(const spritesheet_t *sprite, int frame,
+                                            int rotation) {
+    if (!sprite || !sprite->spritedef.spriteframes || frame < 0 ||
+        frame >= sprite->spritedef.numframes || rotation < 0 ||
+        rotation >= MAX_SPRITE_ROTATIONS) return NULL;
+    const spritelayer_t *parts =
+        sprite->spritedef.spriteframes[frame].directions[rotation].layers;
+    if (!parts) return NULL;
+    const spritelayer_t *fallback = NULL;
+    for (const spritelayer_t *part = parts; part->sprite_name[0] != '\0'; ++part) {
+        if (strcmp(part->sprite_name, ".") != 0) continue;
+        if (!fallback) fallback = part;
+        if (part->layer == 1) return part;
+    }
+    return fallback;
 }
 
 static int sprite_lump_for_frame(const spritesheet_t *sprite, int frame,
                                  angle_t angle, bool *flip) {
     if (flip) *flip = false;
-    if (!sprite || frame < 0 || frame >= sprite->spritedef.numframes ||
-        !sprite->spritedef.spriteframes) return -1;
-    const spriteframe_t *spriteframe = &sprite->spritedef.spriteframes[frame];
-    int rotation = spriteframe->rotate ? angle_to_direction(
-        angle, sprite->spritedef.rotations, sprite->spritedef.first_angle,
-        sprite->spritedef.clockwise) : 0;
-    if (rotation < 0 || rotation >= MAX_SPRITE_ROTATIONS) return -1;
-    if (flip) *flip = spriteframe->flip[rotation] != 0;
-    return spriteframe->lump[rotation];
+    int rotation = sprite_rotation_for_frame(sprite, frame, angle);
+    const spritelayer_t *part = sprite_body_part(sprite, frame, rotation);
+    if (!part) return -1;
+    if (flip) *flip = (part->flags & RTS_FRAME_FLIP_X) != 0;
+    return part->lump;
 }
 
 
@@ -1086,6 +1126,45 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                    &shadow->lumps[shadow_frame].rect, &shadow_dst);
     }
     float content_y = (float)visible.y;
+    int logical_frame = game_info && game_info->states && game_info->state_count > 0 ?
+        u->core.frame : 0;
+    int rotation = sprite_rotation_for_frame(sprite, logical_frame, u->core.angle);
+    const spriteframe_t *spriteframe = rotation >= 0 ?
+        &sprite->spritedef.spriteframes[logical_frame] : NULL;
+    const spritelayer_t *parts = spriteframe ?
+        spriteframe->directions[rotation].layers : NULL;
+    if (parts) {
+        for (const spritelayer_t *part = parts; part->sprite_name[0] != '\0'; ++part) {
+            const spritesheet_t *source = sprite_layer_source(
+                cache, sprite, part->sprite_name);
+            if (!source || !source->lumps || part->lump >= source->numlumps)
+                continue;
+            irect_t source_rect = sprite_frame_rect(source, part->lump);
+            SDL_Point displacement = sprite_frame_raw_displacement(source, part->lump);
+            uint32_t part_flags = (u->core.render_flags & ~RTS_FRAME_FLIP_X) |
+                                  (part->flags & RTS_FRAME_FLIP_X);
+            irect_t part_dst = {
+                (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
+                    ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
+                (int)lroundf(sy) + u->core.render_offset.y + part->offset.y - source_rect.h,
+                source_rect.w,
+                source_rect.h,
+            };
+            int remap = strcmp(part->sprite_name, ".") == 0 ?
+                u->core.render_remap : part->remap;
+            if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
+                                     part_flags, part->layer)) continue;
+            SDL_Texture *part_texture = begin_sprite_command(
+                source, part->lump, part_flags, remap, part->intensity);
+            if (!part_texture) continue;
+            SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
+                SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+            SDL_RenderCopyEx(app->renderer, part_texture,
+                             &source->lumps[part->lump].rect, &part_dst,
+                             0.0, NULL, part_flip);
+            end_sprite_command(part_texture, part_flags);
+        }
+    } else {
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     SDL_Texture *texture = begin_sprite_command(sprite, frame, render_flags,
                                                 u->core.render_remap,
@@ -1094,6 +1173,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
                      0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
+    }
     if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE) != 0) {
         selectiondrawcontext_t selection_ctx = {
             .app = app,
@@ -1592,6 +1672,12 @@ void R_FreeSprite(spritesheet_t *sprite) {
                 SDL_DestroyTexture(lump->translations[j].texture);
         free(lump->translations);
         free(lump->indices);
+    }
+    if (sprite->spritedef.spriteframes) {
+        for (int frame = 0; frame < sprite->spritedef.numframes; ++frame) {
+            for (int rotation = 0; rotation < MAX_SPRITE_ROTATIONS; ++rotation)
+                free(sprite->spritedef.spriteframes[frame].directions[rotation].layers);
+        }
     }
     free(sprite->lumps);
     free(sprite->spritedef.spriteframes);

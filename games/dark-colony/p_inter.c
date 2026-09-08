@@ -9,16 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) {
-    if (!ctx || !unit || P_MobjIsHidden(unit)) return;
-    int muzzle_state = 0;
-    if (ctx->game_info && unit->type_id > 0 &&
-        unit->type_id < ctx->game_info->mobj_type_count) {
-        muzzle_state = ctx->game_info->mobjinfo[unit->type_id].muzzleflash;
-    }
-    P_SpawnEffect(ctx, muzzle_state, unit->core.position, unit->core.angle);
-}
-
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit) return;
     P_SetMobjState(ctx, unit, (rand() & 1) ? S_DC_TRSC_ATKB1 : S_DC_TRSC_ATK1);

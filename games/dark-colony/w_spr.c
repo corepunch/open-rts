@@ -374,6 +374,57 @@ static const AnimationLabel *animation_find_label(const AnimationFile *animation
     return NULL;
 }
 
+static bool install_fin_parts(spriteframe_t *spriteframe, int rotation,
+                              const AnimationFile *animation, int frame_index,
+                              const char *stem, int numlumps) {
+    int command_index = 0;
+    for (int i = 0; i < frame_index; ++i)
+        command_index += read_u16_le(animation->aux_records + (size_t)i * 164);
+    int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
+    if (part_count <= 0 || command_index + part_count > animation->command_count)
+        return false;
+
+    spritedirection_t *direction = &spriteframe->directions[rotation];
+    spritelayer_t *layers = calloc((size_t)part_count + 1, sizeof(*layers));
+    if (!layers) return false;
+    const AnimationCommand *body = NULL;
+    for (int i = 0; i < part_count; ++i) {
+        const AnimationCommand *command = &animation->commands[command_index + i];
+        if (command->frame < 0 || command->remap < 0 || command->remap > UINT8_MAX ||
+            command->intensity < 0 || command->intensity > UINT8_MAX ||
+            command->layer < 0 || command->layer > UINT8_MAX ||
+            command->flags < 0 || command->flags > UINT8_MAX) {
+            free(layers);
+            return false;
+        }
+        spritelayer_t *part = &layers[i];
+        if (strcasecmp(command->sprite, stem) == 0) {
+            snprintf(part->sprite_name, sizeof(part->sprite_name), ".");
+        } else {
+            snprintf(part->sprite_name, sizeof(part->sprite_name), "%s", command->sprite);
+            for (char *p = part->sprite_name; *p; ++p)
+                *p = (char)toupper((unsigned char)*p);
+        }
+        part->lump = command->frame;
+        part->offset = (ivec2_t){ command->x, command->y };
+        part->remap = command->remap;
+        part->intensity = command->intensity;
+        part->layer = command->layer;
+        part->flags = (uint8_t)command->flags;
+        if (!body && strcasecmp(command->sprite, stem) == 0 && command->layer == 1)
+            body = command;
+    }
+    if (!body || body->frame < 0 || body->frame >= numlumps) {
+        free(layers);
+        return false;
+    }
+    free(direction->layers);
+    direction->layers = layers;
+    direction->ticks = read_u16_le(
+        animation->aux_records + (size_t)frame_index * 164 + 2);
+    return true;
+}
+
 static void install_dark_colony_fin_frames(spritesheet_t *sheet,
                                            const AnimationFile *animation,
                                            const char *stem, const char *action) {
@@ -385,8 +436,6 @@ static void install_dark_colony_fin_frames(spritesheet_t *sheet,
     for (char *c = label_stem; *c; ++c)
         *c = (char)toupper((unsigned char)*c);
     enum { MAX_FIN_SEQUENCE_FRAMES = 32 };
-    int frames[MAX_FIN_SEQUENCE_FRAMES][MAX_SPRITE_ROTATIONS];
-    uint8_t flips[MAX_FIN_SEQUENCE_FRAMES][MAX_SPRITE_ROTATIONS];
     int rotations = 16;
     int length = -1;
 retry:
@@ -409,28 +458,32 @@ retry:
         if (label_length > MAX_FIN_SEQUENCE_FRAMES) return;
         if (length < 0) length = label_length;
         if (label_length > length) length = label_length;
-        for (int frame = 0; frame < length; ++frame) {
-            int src = frame < label_length ? frame : label_length - 1;
-            const AnimationCommand *command = animation_frame_command(
-                animation, label->start + src, stem, 1);
-            if (!command || command->frame < 0 ||
-                command->frame >= sheet->numlumps) return;
-            frames[frame][rotation] = command->frame;
-            flips[frame][rotation] = (command->flags & 1) != 0;
-        }
     }
 
     sheet->spritedef.rotations = rotations;
     sheet->spritedef.first_angle = dc_fin_direction_to_angle(0);
     sheet->spritedef.clockwise = true;
+    snprintf(label_name, sizeof(label_name), "%s%s0", label_stem, action);
+    const AnimationLabel *base_label = animation_find_label(animation, label_name);
+    if (!base_label) return;
     for (int frame = 0; frame < length; ++frame) {
-        int logical_frame = frames[frame][0];
+        int logical_frame = base_label->start + frame;
         if (logical_frame < 0 || logical_frame >= sheet->spritedef.numframes) continue;
         spriteframe_t *spriteframe = &sheet->spritedef.spriteframes[logical_frame];
-        spriteframe->rotate = true;
+        snprintf(spriteframe->frame_name, sizeof(spriteframe->frame_name),
+             "%s", base_label->name);
         for (int rotation = 0; rotation < sheet->spritedef.rotations; ++rotation) {
-            spriteframe->lump[rotation] = frames[frame][rotation];
-            spriteframe->flip[rotation] = flips[frame][rotation];
+            int direction = rotations == 16 ? rotation : rotation * 2;
+            const char *label_action = strcmp(label_stem, "EXPL") == 0 &&
+                strcmp(action, "STAND") == 0 && (direction & 1) ? "SHUF" : action;
+            snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem,
+                     label_action, direction);
+            const AnimationLabel *label = animation_find_label(animation, label_name);
+            if (!label) continue;
+            int label_length = label->end - label->start + 1;
+            int source_frame = label->start + (frame < label_length ? frame : label_length - 1);
+            install_fin_parts(spriteframe, rotation, animation, source_frame,
+                              stem, sheet->numlumps);
         }
     }
 }
@@ -508,6 +561,27 @@ static bool animation_path_for_sprite(char *out, size_t out_size,
     return true;
 }
 
+static bool sprite_path_for_animation(char *out, size_t out_size,
+                                      const char *animation_path) {
+    if (!out || out_size == 0 || !animation_path) return false;
+    const char *base = strrchr(animation_path, '/');
+    base = base ? base + 1 : animation_path;
+    const char *dot = strrchr(base, '.');
+    if (!dot || strcasecmp(dot, ".FIN") != 0) return false;
+
+    const char *dir_end = base > animation_path ? base - 1 : NULL;
+    const char *dir_start = dir_end;
+    while (dir_start && dir_start > animation_path && dir_start[-1] != '/') dir_start--;
+    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
+    if (!dir_start || dir_len != strlen("ANIMATE") ||
+        strncasecmp(dir_start, "ANIMATE", dir_len) != 0) return false;
+
+    size_t prefix_len = (size_t)(dir_start - animation_path);
+    size_t stem_len = (size_t)(dot - base);
+    return snprintf(out, out_size, "%.*sSPRITES/%.*s.SPR",
+                    (int)prefix_len, animation_path, (int)stem_len, base) < (int)out_size;
+}
+
 static bool dependency_sprite_name(char *out, size_t out_size,
                                                const char *dependency) {
     if (!out || out_size == 0 || !dependency) return false;
@@ -576,16 +650,30 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
 
     SpriteNative *native = calloc(1, sizeof(*native));
     if (!native) return false;
-    if (!juice_load(path, &native->juice)) {
-        fprintf(stderr, "%s is not a supported Dark Colony raw SPR\n", path);
+    char sprite_path[1024];
+    char animation_path[1024];
+    const char *extension = strrchr(path, '.');
+    bool fin_first = extension && strcasecmp(extension, ".FIN") == 0;
+    if (fin_first) {
+        if (!animation_load(path, &native->animation) ||
+            !sprite_path_for_animation(sprite_path, sizeof(sprite_path), path)) {
+            fprintf(stderr, "%s is not a supported Dark Colony FIN\n", path);
+            sprite_native_destroy(native);
+            return false;
+        }
+        native->has_animation = true;
+    } else {
+        snprintf(sprite_path, sizeof(sprite_path), "%s", path);
+    }
+    if (!juice_load(sprite_path, &native->juice)) {
+        fprintf(stderr, "%s is not a supported Dark Colony raw SPR\n", sprite_path);
         sprite_native_destroy(native);
         return false;
     }
     if (palette_out) memcpy(palette_out, native->juice.palette, sizeof(native->juice.palette));
     const uint32_t *palette = native->juice.palette;
 
-    char animation_path[1024];
-    if (animation_path_for_sprite(animation_path, sizeof(animation_path), path) &&
+    if (!fin_first && animation_path_for_sprite(animation_path, sizeof(animation_path), path) &&
         file_exists(animation_path) &&
         animation_load(animation_path, &native->animation)) {
         native->has_animation = true;
@@ -688,8 +776,10 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     }
 
     out->lumps = calloc((size_t)visible_frames, sizeof(*out->lumps));
+    int logical_frames = native->has_animation ? native->animation.frame_count : visible_frames;
+    if (logical_frames < visible_frames) logical_frames = visible_frames;
     out->spritedef.spriteframes = calloc(
-        (size_t)visible_frames, sizeof(*out->spritedef.spriteframes));
+        (size_t)logical_frames, sizeof(*out->spritedef.spriteframes));
     if (!out->lumps || !out->spritedef.spriteframes) {
         free(rgba);
         free(indices);
@@ -708,7 +798,7 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
             bounds[i].y + bounds[i].h,
         };
     }
-    resolve_fin_ground_points(native, path, ground_points);
+    resolve_fin_ground_points(native, sprite_path, ground_points);
     for (int i = 0; i < visible_frames; ++i) {
         out->lumps[i] = (spritelump_t){
             .bounds = bounds[i],
@@ -738,7 +828,18 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
                        (size_t)frames[i].x,
                    (size_t)frames[i].w);
         }
-        out->spritedef.spriteframes[i].lump[0] = i;
+        spritelayer_t *layer = calloc(2, sizeof(*layer));
+        if (!layer) {
+            free(rgba); free(indices); free(frames); free(bounds);
+            free(ground_points); free(displacements);
+            sprite_native_destroy(native);
+            R_FreeSprite(out);
+            return false;
+        }
+        out->spritedef.spriteframes[i].directions[0].layers = layer;
+        snprintf(layer->sprite_name, sizeof(layer->sprite_name), ".");
+        layer->lump = i;
+        layer->intensity = 16;
     }
     if (has_team_colors) {
         uint32_t *remap_rgba = calloc((size_t)atlas_w * (size_t)atlas_h,
@@ -770,7 +871,7 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     free(bounds);
     free(ground_points);
     free(displacements);
-    out->spritedef.numframes = visible_frames;
+    out->spritedef.numframes = logical_frames;
     out->spritedef.rotations = 1;
     out->spritedef.first_angle = ANG270;
     out->frame_size = (isize2_t){ canvas_w, canvas_h };
@@ -784,11 +885,12 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     }
     if (native->has_animation) {
         char stem[9];
-        sprite_stem(stem, sizeof(stem), path);
+        sprite_stem(stem, sizeof(stem), sprite_path);
         install_dark_colony_fin_frames(out, &native->animation, stem, "STAND");
         install_dark_colony_fin_frames(out, &native->animation, stem, "MOVE");
         install_dark_colony_fin_frames(out, &native->animation, stem, "FIREA");
         install_dark_colony_fin_frames(out, &native->animation, stem, "FIREB");
+        install_dark_colony_fin_frames(out, &native->animation, stem, "FIRE");
         install_dark_colony_fin_frames(out, &native->animation, stem, "DIEA");
         install_dark_colony_fin_frames(out, &native->animation, stem, "DIEB");
         install_dark_colony_fin_frames(out, &native->animation, stem, "DIEC");
@@ -827,9 +929,14 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *re
             "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
         };
         bool found = false;
+        char candidate[1024];
+        char filename[64];
+        snprintf(filename, sizeof(filename), "%s.FIN", name);
+        M_PathJoin(candidate, sizeof(candidate), data_root, "ANIMATE");
+        M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
+        if (file_exists(sprite_path)) found = true;
         for (size_t i = 0; i < sizeof(sprite_directories) / sizeof(sprite_directories[0]); ++i) {
-            char candidate[1024];
-            char filename[64];
+            if (found) break;
             snprintf(filename, sizeof(filename), "%s.SPR", name);
             M_PathJoin(candidate, sizeof(candidate), data_root, sprite_directories[i]);
             M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
@@ -923,9 +1030,6 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, shadow_name))
             ok = false;
         const actortype_t *info = units[i].info;
-        if (info && !sprite_cache_load_dark_colony(
-                        cache, renderer, data_root, info->muzzle_flash_name))
-            ok = false;
         if (info && !sprite_cache_load_dark_colony(
                         cache, renderer, data_root, info->hit_effect_name))
             ok = false;

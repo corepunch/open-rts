@@ -16,6 +16,8 @@ BIN_DIR   := $(BUILD_DIR)/bin
 ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
+DC_SPR_EXTRACT_TARGET  := $(BUILD_DIR)/dc_spr_extract
+DC_FIN_EXTRACT_TARGET  := $(BUILD_DIR)/dc_fin_extract
 DC_LAYOUT_TEST_TARGET  := $(BIN_DIR)/test_dark_colony_sprite_layout
 MODEL_COMMAND_TEST_SOURCE := tests/cross-game/test_model_commands.c
 
@@ -40,13 +42,14 @@ MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render -name '*.c' 
 ANIM_EXTRACT_SOURCE  := tools/anim_extract.c
 DC_INFO_GEN_SOURCE   := tools/dc_info_gen.c
 DC_GAMESTAT_GEN_SOURCE := tools/dc_gamestat_gen.c
+DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
         test-headless test-model-commands test-ai test-layout dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
-        kknd-check anim-extract clean help tags
+		kknd-check anim-extract dc-spr-extract dc-fin-extract clean help tags
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -128,9 +131,17 @@ $(BUILD_DIR)/tools/%.o: tools/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
+$(DC_SPR_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_spr_extract.o
+	$(CC) $^ -o $@ -lm
+
+$(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
+	$(CC) $^ -o $@
+
 -include $(BUILD_DIR)/tools/anim_extract.d
 -include $(BUILD_DIR)/tools/dc_info_gen.d
 -include $(BUILD_DIR)/tools/dc_gamestat_gen.d
+-include $(BUILD_DIR)/tools/dc_spr_extract.d
+-include $(BUILD_DIR)/tools/dc_fin_extract.d
 
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_GEN_TARGET)
@@ -172,6 +183,10 @@ kknd-check: $(BIN_DIR)/kknd
 
 anim-extract: $(ANIM_EXTRACT_TARGET)
 
+dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
+
+dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
+
 test: test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout
 
 test-headless: test-dark-colony
@@ -212,6 +227,9 @@ help:
 	@echo "  7legion              7th Legion"
 	@echo "  kknd                 KKnD"
 	@echo ""
+	@echo "Tools:"
+	@echo "  dc-fin-extract       Extract a Dark Colony FIN file as JSON"
+	@echo ""
 	@echo "Test / check:"
 	@echo "  test                 Run all headless tests"
 	@echo "  kknd-check           Headless smoke check for KKnD"
@@ -223,6 +241,7 @@ help:
 	@echo ""
 	@echo "Tools:"
 	@echo "  anim-extract         Build the anim_extract tool"
+	@echo "  dc-spr-extract       Build the dc_spr_extract tool (SPR → BMP sheets)"
 	@echo "  dark-colony-info     Regenerate Dark Colony info.h/info.c from game data"
 	@echo "  dark-colony-gamestat Regenerate Dark Colony gamestat.h from game data"
 
