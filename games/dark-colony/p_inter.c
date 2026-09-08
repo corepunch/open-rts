@@ -37,7 +37,7 @@ void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
     unit->harvest.phase = 0;
     unit->harvest.cargo = 0;
     unit->attack.cooldown_left_ms = 0;
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
 }
 
 static int reaper_death_effect_state_for_angle(angle_t angle) {
@@ -68,6 +68,6 @@ void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) {
     if (!unit) return;
     P_AddCorpse(ctx, unit);
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
     unit->remove = true;
 }

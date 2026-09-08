@@ -231,12 +231,12 @@ static int ai_target(const mobj_t *attacker, const mobj_t *units,
                                  int unit_count, int preferred_index, bool defending) {
     int best = -1;
     float best_score = -INFINITY;
-    fvec2_t attacker_position = fixedvec3_xy_to_fvec2(attacker->core.position);
+    fvec2_t attacker_position = fixed3_xy_to_fvec2(attacker->core.position);
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *candidate = &units[i];
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             candidate->owner == attacker->owner) continue;
-        fvec2_t delta = fvec2_sub(fixedvec3_xy_to_fvec2(candidate->core.position),
+        fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(candidate->core.position),
                                   attacker_position);
         float distance2 = fvec2_length_squared(delta);
         float threat = (candidate->traits & MF_ATTACK) != 0 ? 2.0f : 0.0f;
@@ -278,7 +278,7 @@ static bool ai_is_defending(const mobj_t *units, int unit_count,
         const mobj_t *unit = &units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != 0 ||
             (unit->traits & MF_ATTACK) == 0) continue;
-        if (fvec2_distance_squared(fixedvec3_xy_to_fvec2(unit->core.position),
+        if (fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
                                    base_position) <= radius2) return true;
     }
     return false;
@@ -309,7 +309,7 @@ static void update_ai_economy(const level_t *map, mobj_t *units,
             (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
                 (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
         int vent_index = ai_nearest_vent(
-            map, fixedvec3_xy_to_fvec2(unit->core.position));
+            map, fixed3_xy_to_fvec2(unit->core.position));
         if (vent_index >= 0)
             P_HarvestUnitTo(map, unit, map->resource_vents[vent_index].attachment);
     }
@@ -348,7 +348,7 @@ static void update_ai(Mission *mission, const level_t *map,
         if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
             (unit->traits & MF_MOBILE) != 0) continue;
         base_position = fvec2_add(base_position,
-                                  fixedvec3_xy_to_fvec2(unit->core.position));
+                                  fixed3_xy_to_fvec2(unit->core.position));
         base_count++;
     }
     if (base_count > 0) base_position = fvec2_scale(base_position, 1.0f / (float)base_count);
@@ -367,8 +367,8 @@ static void update_ai(Mission *mission, const level_t *map,
         if (target_index < 0) continue;
         mobj_t *target = &units[target_index];
         attacker->attack.target = target_index;
-        fvec2_t target_position = fixedvec3_xy_to_fvec2(target->core.position);
-        fvec2_t attacker_position = fixedvec3_xy_to_fvec2(attacker->core.position);
+        fvec2_t target_position = fixed3_xy_to_fvec2(target->core.position);
+        fvec2_t attacker_position = fixed3_xy_to_fvec2(attacker->core.position);
         float range = attacker->info && attacker->info->attack.range > 0.0f ?
             attacker->info->attack.range : 1.0f;
         if (fvec2_distance_squared(attacker_position, target_position) > range * range) {
@@ -407,13 +407,13 @@ static bool player_near(const level_t *map, const mobj_t *units,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
         if (fvec2_distance_squared(
-            fixedvec3_xy_to_fvec2(units[i].core.position), center) <= 16.0f) return true;
+            fixed3_xy_to_fvec2(units[i].core.position), center) <= 16.0f) return true;
     }
     return false;
 }
 
 static int spawn_dropship_part(effect_t *effects, int max_effects,
-                               fixedvec3_t position, int duration_ms) {
+                               fixed3_t position, int duration_ms) {
     for (int i = 0; i < max_effects; ++i) {
         if (effects[i].active) continue;
         effect_t *effect = &effects[i];
@@ -528,7 +528,7 @@ static DropshipRuntime *spawn_drop_effect(
     const mobjinfo_t *info = &game_info.mobjinfo[ship->type_id];
     ship->traits = (uint32_t)info->flags;
     ship->speed = (float)info->speed;
-    ship->core.position = fixedvec3_from_fvec2(
+    ship->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ gx - 1, gy - 1 }), info->spawnz);
     ship->core.angle = dc_direction_to_angle(6);
     statecontext_t state_context = {
@@ -556,7 +556,7 @@ static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count
         if (spawn_y < 0) spawn_y = 0;
         if (spawn_y >= map->height) spawn_y = map->height - 1;
     }
-    unit->core.position = fixedvec3_from_fvec2(
+    unit->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }), 0);
     unit->owner = team == 0 ? 0 : 1;
     if (unit->owner == 0) {
@@ -582,7 +582,7 @@ static bool dropship_cell_occupied(const mobj_t *units, int unit_count,
                                    ivec2_t cell) {
     for (int i = 0; i < unit_count; ++i) {
         if (units[i].remove || units[i].hp <= 0) continue;
-        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
         if ((int)floorf(position.x) == cell.x &&
             (int)floorf(position.y) == cell.y) {
             return true;
@@ -613,7 +613,7 @@ static void set_dropship_duration(DropshipRuntime *runtime, int duration_ms) {
 static void dropship_unload_done(DropshipUpdateContext *context,
                                  DropshipRuntime *runtime) {
     mobj_t *ship = &runtime->mobj;
-    fvec2_t center = fixedvec3_xy_to_fvec2(ship->core.position);
+    fvec2_t center = fixed3_xy_to_fvec2(ship->core.position);
     if (runtime->release_pending && runtime->payload_index < runtime->payload_count) {
         DropshipPayload *payload = &runtime->payload[runtime->payload_index];
         ivec2_t release_cell = {
@@ -673,7 +673,7 @@ static void tick_dropship_state(Mission *mission, DropshipRuntime *runtime,
         int next_state = S_DC_DROPSHIP_DEPART;
         if (runtime->payload_index < runtime->payload_count) {
             fvec2_t delta = fvec2_sub(
-                ship->movement.goal, fixedvec3_xy_to_fvec2(ship->core.position));
+                ship->movement.goal, fixed3_xy_to_fvec2(ship->core.position));
             next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
                 S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
         }
@@ -703,7 +703,7 @@ void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) {
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
     fvec2_t delta = fvec2_sub(
-        unit->movement.goal, fixedvec3_xy_to_fvec2(unit->core.position));
+        unit->movement.goal, fixed3_xy_to_fvec2(unit->core.position));
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && runtime->phase_duration_ms > 0)
         unit->speed = dist / ((float)runtime->phase_duration_ms / 1000.0f);
@@ -727,7 +727,7 @@ void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) {
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
     fvec2_t delta = fvec2_sub(
-        unit->movement.goal, fixedvec3_xy_to_fvec2(unit->core.position));
+        unit->movement.goal, fixed3_xy_to_fvec2(unit->core.position));
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && runtime->phase_duration_ms > 0)
         unit->speed = dist / ((float)runtime->phase_duration_ms / 1000.0f);
@@ -740,7 +740,7 @@ void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) {
     set_dropship_duration(runtime, (DROPSHIP_FLIGHT_TICS * 1000 + 15) / 30);
     unit->core.tics = DROPSHIP_FLIGHT_TICS;
     fvec2_t delta = fvec2_sub(
-        unit->movement.goal, fixedvec3_xy_to_fvec2(unit->core.position));
+        unit->movement.goal, fixed3_xy_to_fvec2(unit->core.position));
     float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
     if (dist > 0.001f && runtime->phase_duration_ms > 0)
         unit->speed = dist / ((float)runtime->phase_duration_ms / 1000.0f);
@@ -1327,7 +1327,7 @@ static bool building_alive_at_slot(const Mission *mission, int team, int slot,
         const mobj_t *unit = &units[i];
         if (unit->remove || unit->hp <= 0) continue;
         if (unit->owner != (uint8_t)(team == 0 ? 0 : 1)) continue;
-        fvec2_t pos = fixedvec3_xy_to_fvec2(unit->core.position);
+        fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
         if (fvec2_near(pos, expected, 1.5f)) return true;
     }
     return false;

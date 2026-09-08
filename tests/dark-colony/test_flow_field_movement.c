@@ -10,7 +10,7 @@ static int shared_flow_field_moves_units(void) {
     mobj_t units[2] = { 0 };
 
     for (int i = 0; i < 2; ++i) {
-        units[i].core.position = fixedvec3_from_fvec2(
+        units[i].core.position = fixed3_from_fvec2(
             (fvec2_t){ 2.5f, 3.5f + (float)i }, fixed_from_float(2.0f));
         units[i].speed = 4.0f;
         units[i].hp = 1;

@@ -98,7 +98,7 @@ static bool position_overlaps_reserved_goal(const mobj_t *units, int unit_count,
 
 void P_ClampToLevel(const level_t *map, mobj_t *unit) {
     if (!map || !unit || map->width <= 0 || map->height <= 0) return;
-    fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
+    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
     float r = P_MobjRadius(unit);
     float min_x = r;
     float min_y = r;
@@ -110,7 +110,7 @@ void P_ClampToLevel(const level_t *map, mobj_t *unit) {
     if (position.y < min_y) position.y = min_y;
     if (position.x > max_x) position.x = max_x;
     if (position.y > max_y) position.y = max_y;
-    unit->core.position = fixedvec3_with_xy(unit->core.position, position);
+    unit->core.position = fixed3_with_xy(unit->core.position, position);
 }
 
 static int heuristic(cell_t a, cell_t b) {
@@ -497,13 +497,13 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
         if (!P_MobjIsSelected(&units[i])) continue;
         if (units[i].hp <= 0) continue;
         if (units[i].owner != 0 || (units[i].traits & MF_MOBILE) == 0) continue;
-        units[i].core.momentum = fixedvec3_zero();
+        units[i].core.momentum = fixed3_zero();
         units[i].movement.order_id = order_id;
         units[i].movement.order_arrived = false;
         units[i].harvest.target = -1;
         units[i].harvest.timer_ms = 0;
         units[i].harvest.phase = 0;
-        fvec2_t position = fixedvec3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
         int row = selected_index / formation_columns;
         int row_start = row * formation_columns;
         int row_count = selected_count - row_start;
@@ -541,7 +541,7 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
 
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
     if (!map || !unit || unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0) return false;
-    unit->core.momentum = fixedvec3_zero();
+    unit->core.momentum = fixed3_zero();
     cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return false;
     float goal_gx = goal_position.x;
@@ -554,7 +554,7 @@ bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
     }
     const flowfield_t *field = flow_field_for_goal(map, goal);
     if (!field) return false;
-    fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
+    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
     unit->movement.goal.x = goal_gx;
     unit->movement.goal.y = goal_gy;
     fvec2_t target;
@@ -616,7 +616,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
             (MF_MOBILE | MF_HARVESTER)) {
             continue;
         }
-        unit->core.momentum = fixedvec3_zero();
+        unit->core.momentum = fixed3_zero();
 
         fvec2_t goal_position = vent->attachment;
         float goal_gx = goal_position.x;
@@ -636,7 +636,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
         const flowfield_t *field = flow_field_for_goal(map, goal);
         if (!field) continue;
 
-        fvec2_t position = fixedvec3_xy_to_fvec2(unit->core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
         unit->movement.goal.x = goal_gx;
         unit->movement.goal.y = goal_gy;
         if (!P_CheckPosition(map, unit, unit->movement.goal.x, unit->movement.goal.y)) {
