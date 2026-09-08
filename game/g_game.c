@@ -68,23 +68,23 @@ static void model_emit_build_completion(RtsGameModel *model, const mobj_t *unit,
                      unit, producer, product->product_class, product->product_type);
 }
 
-static const actortype_t *plugin_actor_type_by_id(uint16_t type_id) {
+static const mobjtype_t *plugin_actor_type_by_id(uint16_t type_id) {
     for (int i = 0; i < num_mobjinfo; ++i) {
-        if (mobjinfo[i].id == type_id) return (const actortype_t *)&mobjinfo[i];
+        if (mobjinfo[i].id == type_id) return (const mobjtype_t *)&mobjinfo[i];
     }
     return NULL;
 }
 
-static const actortype_t *plugin_actor_type_for_unit(const mobj_t *unit) {
-    const actortype_t *type = plugin_actor_type_by_id(unit ? unit->type_id : 0);
+static const mobjtype_t *plugin_actor_type_for_unit(const mobj_t *unit) {
+    const mobjtype_t *type = plugin_actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
     if (!unit) return NULL;
     for (int i = 0; i < num_mobjinfo; ++i) {
         const char *sprite = mobjinfo[i].sprite_name;
         if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->core.sprite_name) == 0)
-            return (const actortype_t *)&mobjinfo[i];
+            return (const mobjtype_t *)&mobjinfo[i];
     }
-    return num_mobjinfo > 0 ? (const actortype_t *)&mobjinfo[0] : NULL;
+    return num_mobjinfo > 0 ? (const mobjtype_t *)&mobjinfo[0] : NULL;
 }
 
 static void apply_plugin_actor_defaults(RtsGameModel *model) {
@@ -262,7 +262,7 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     if (model->unit_count >= MAXMOBJS) return false;
 
     uint16_t actor_id = G_ModelActorIdForProduct(product);
-    const actortype_t *actor_type = plugin_actor_type_by_id(actor_id);
+    const mobjtype_t *actor_type = plugin_actor_type_by_id(actor_id);
     if (actor_id == 0 || !actor_type) return false;
 
     mobj_t new_unit;

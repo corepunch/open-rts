@@ -521,12 +521,14 @@ typedef enum {
     NUMSTATES
 } statenum_t;
 
-typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, MT_DC_ORTU, MT_DC_SLUG, MT_DC_MOBILE_TOWER, MT_DC_DROP_LINK, MT_DC_ALIEN_COM, MT_DC_VISION_SIGHT, NUMMOBJTYPES } mobjtype_t;
+enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, MT_DC_ORTU, MT_DC_SLUG, MT_DC_MOBILE_TOWER, MT_DC_DROP_LINK, MT_DC_ALIEN_COM, MT_DC_VISION_SIGHT, NUMMOBJTYPES };
 
 extern const char *const sprnames[NUMSPRITES];
 extern const state_t states[NUMSTATES];
 extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];
 extern const gameinfo_t game_info;
+
+const mobjtype_t *actor_type_by_id(uint16_t type_id);
 
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit);

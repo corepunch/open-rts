@@ -1029,101 +1029,12 @@ bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root
         const char *shadow_name = units[i].info ? units[i].info->shadow_name : NULL;
         if (!sprite_cache_load_dark_colony(cache, renderer, data_root, shadow_name))
             ok = false;
-        const actortype_t *info = units[i].info;
+        const mobjtype_t *info = units[i].info;
         if (info && !sprite_cache_load_dark_colony(
                         cache, renderer, data_root, info->hit_effect_name))
             ok = false;
     }
     return ok;
-}
-
-bool vent_placement_from_sprites(const char *map_path,
-                                             VentPlacement *out) {
-    if (!map_path || !out) return false;
-    memset(out, 0, sizeof(*out));
-
-    const char *scenario = strcasestr(map_path, "/SCENARIO/");
-    if (!scenario) return false;
-    size_t root_len = (size_t)(scenario - map_path);
-    if (root_len == 0 || root_len >= 900) return false;
-
-    char glow_path[1024];
-    char smoke_path[1024];
-    char animation_path[1024];
-    snprintf(glow_path, sizeof(glow_path), "%.*s/SPRITES/VENT2.SPR", (int)root_len, map_path);
-    snprintf(smoke_path, sizeof(smoke_path), "%.*s/SPRITES/PUFF.SPR", (int)root_len, map_path);
-    snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/VENT.FIN",
-             (int)root_len, map_path);
-
-    JuiceFile glow = {0};
-    JuiceFile smoke = {0};
-    AnimationFile animation = {0};
-    if (!juice_load(glow_path, &glow) ||
-        !juice_load(smoke_path, &smoke) ||
-        !animation_load(animation_path, &animation) ||
-        glow.cell_count <= 0) {
-        juice_destroy(&glow);
-        juice_destroy(&smoke);
-        animation_destroy(&animation);
-        return false;
-    }
-
-    const JuiceCell *plume = &glow.cells[0];
-    const AnimationCommand *plume_command = animation_find_command(
-        &animation, "VENTSTAND0", "vent2", 0, 0);
-    if (!plume_command) {
-        juice_destroy(&glow);
-        juice_destroy(&smoke);
-        animation_destroy(&animation);
-        return false;
-    }
-
-    out->glow_left = plume_command->x + (int)plume->dis_x;
-    out->glow_top = -plume_command->y + (int)plume->dis_y;
-
-    const AnimationLabel *label = NULL;
-    for (int i = 0; i < animation.label_count; ++i) {
-        if (strcmp(animation.labels[i].name, "VENTSTAND0") == 0) {
-            label = &animation.labels[i];
-            break;
-        }
-    }
-    if (!label || label->end < label->start ||
-        label->end - label->start + 1 > VENT_SMOKE_MAX_FRAMES) {
-        juice_destroy(&glow);
-        juice_destroy(&smoke);
-        animation_destroy(&animation);
-        return false;
-    }
-    for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
-        const AnimationCommand *command = animation_frame_command(
-            &animation, frame_index, "puff", 5);
-        if (!command || command->frame < 0 || command->frame >= smoke.cell_count) {
-            juice_destroy(&glow);
-            juice_destroy(&smoke);
-            animation_destroy(&animation);
-            return false;
-        }
-        const JuiceCell *cell = &smoke.cells[command->frame];
-        int raw_ticks = read_u16_le(animation.aux_records + (size_t)frame_index * 164 + 2);
-        if (raw_ticks == 0) raw_ticks = 15;
-        int runtime_tics = ((raw_ticks + 3) * 19) / 100;
-        VentSmokeFrame *frame = &out->smoke_frames[out->smoke_frame_count++];
-        frame->sprite_frame = command->frame;
-        frame->pivot = (ivec2_t){
-            -(command->x + (int)cell->dis_x),
-            // command->y - (int)(int16_t)cell->dis_y,
-            (int)cell->height - command->y,
-            // (command->y - (int)(int16_t)cell->dis_y),
-        };
-        frame->duration_ms = (runtime_tics * 1000 + 15) / 30;
-    }
-    out->valid = true;
-
-    juice_destroy(&glow);
-    juice_destroy(&smoke);
-    animation_destroy(&animation);
-    return true;
 }
 
 static bool load_dropship_label(const AnimationFile *animation,

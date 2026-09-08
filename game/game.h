@@ -24,7 +24,7 @@ extern const int g_cell_w;
 extern const int g_cell_h;
 extern const uint16_t g_debug_enemy_type;
 extern const gameinfo_t *const gameinfo;
-extern const actortype_t *const mobjinfo;
+extern const mobjtype_t *const mobjinfo;
 extern const int num_mobjinfo;
 extern const uidefinition_t *const gameui;   /* NULL if unused */
 

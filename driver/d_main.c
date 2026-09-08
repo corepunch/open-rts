@@ -11,8 +11,8 @@
 #include <string.h>
 #include <strings.h>
 
-static const actortype_t *actor_type_by_id(uint16_t type_id) {
-    const actortype_t *types = (const actortype_t *)mobjinfo;
+static const mobjtype_t *actor_type_by_id(uint16_t type_id) {
+    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
     if (!types) return NULL;
     for (int i = 0; i < num_mobjinfo; ++i) {
         if (types[i].id == type_id) return &types[i];
@@ -20,10 +20,10 @@ static const actortype_t *actor_type_by_id(uint16_t type_id) {
     return NULL;
 }
 
-static const actortype_t *actor_type_for_unit(const mobj_t *unit) {
-    const actortype_t *type = actor_type_by_id(unit ? unit->type_id : 0);
+static const mobjtype_t *actor_type_for_unit(const mobj_t *unit) {
+    const mobjtype_t *type = actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
-    const actortype_t *types = (const actortype_t *)mobjinfo;
+    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
     if (!types || !unit) return NULL;
     for (int i = 0; i < num_mobjinfo; ++i) {
         const char *sprite = types[i].sprite_name;
@@ -44,8 +44,8 @@ static void apply_actor_defaults(mobj_t *units, int count) {
 static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
                                    mobj_t *units, int *unit_count, int sx, int sy) {
     if (!map || !app || !units || !unit_count || *unit_count >= MAXMOBJS) return false;
-    const actortype_t *type = actor_type_by_id(g_debug_enemy_type);
-    const actortype_t *types = (const actortype_t *)mobjinfo;
+    const mobjtype_t *type = actor_type_by_id(g_debug_enemy_type);
+    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
     if (!type && num_mobjinfo > 0) type = &types[0];
     if (!type) return false;
     cell_t cell = R_ScreenToMapGrid(app, map, sx, sy);
@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
         unit_count = 6;
         int cx = map.width / 2;
         int cy = map.height / 2;
-        const actortype_t *fallback_type = num_mobjinfo > 0 ? (const actortype_t *)mobjinfo : NULL;
+        const mobjtype_t *fallback_type = num_mobjinfo > 0 ? (const mobjtype_t *)mobjinfo : NULL;
         for (int i = 0; i < unit_count; ++i) {
             units[i].core.position = fixed3_from_fvec2(fvec2_cell_center(
                 (ivec2_t){ cx + i % 3, cy + i / 3 }), 0);

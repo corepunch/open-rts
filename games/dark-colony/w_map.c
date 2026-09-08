@@ -476,8 +476,7 @@ static bool map_file_load_o16(MapFile *map) {
     return true;
 }
 
-static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rate, int amount,
-                                              const VentPlacement *placement) {
+static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rate, int amount) {
     if (!map || !L_Contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
 
@@ -494,95 +493,17 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->resource_type = 0;
     vent->decoration_index = -1;
     vent->smoke_decoration_index = -1;
-
-    if (rate > 0 && map->decoration_count + 2 <= MAX_DECORATIONS) {
-        mapdecoration_t *decorations = realloc(map->decorations,
-                                             (size_t)(map->decoration_count + 2) * sizeof(mapdecoration_t));
-        if (decorations) {
-            map->decorations = decorations;
-            mapdecoration_t *dec = &map->decorations[map->decoration_count++];
-            memset(dec, 0, sizeof(*dec));
-            dec->cell = (ivec2_t){ x, y };
-            dec->footprint = (isize2_t){ 1, 1 };
-            dec->center_anchor = true;
-            if (placement && placement->valid) {
-                dec->has_sprite_pivot = true;
-                dec->sprite_pivot = (ivec2_t){ -placement->glow_left, -placement->glow_top };
-            }
-            dec->frame_index = 0;
-            dec->render_flags = RTS_FRAME_ADDITIVE;
-            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
-            vent->decoration_index = map->decoration_count - 1;
-
-            dec = &map->decorations[map->decoration_count++];
-            memset(dec, 0, sizeof(*dec));
-            dec->cell = (ivec2_t){ x, y };
-            dec->footprint = (isize2_t){ 1, 1 };
-            dec->center_anchor = true;
-            dec->has_sprite_pivot = true;
-            dec->sprite_pivot = (ivec2_t){ 5, 4 };
-            dec->frame_index = -1;
-            if (placement && placement->valid) {
-                dec->animation_frame_count = placement->smoke_frame_count;
-                for (int i = 0; i < dec->animation_frame_count; ++i) {
-                    dec->animation_frames[i].sprite_pivot = placement->smoke_frames[i].pivot;
-                    dec->animation_frames[i].sprite_frame = placement->smoke_frames[i].sprite_frame;
-                    dec->animation_frames[i].duration_ms = placement->smoke_frames[i].duration_ms;
-                }
-            }
-            dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
-            dec->render_selector = 5;
-            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/PUFF.SPR");
-            vent->smoke_decoration_index = map->decoration_count - 1;
-        }
-    }
-    return true;
-}
-
-static bool append_dark_colony_beacon(level_t *map, int x, int y, int type, int team) {
-    if (!map || !L_Contains(map, x, y) || type != 84) return false;
-    if (map->decoration_count >= MAX_DECORATIONS) return false;
-
-    mapdecoration_t *decorations = realloc(map->decorations,
-                                         (size_t)(map->decoration_count + 1) * sizeof(mapdecoration_t));
-    if (!decorations) return false;
-    map->decorations = decorations;
-    mapdecoration_t *dec = &map->decorations[map->decoration_count++];
-    memset(dec, 0, sizeof(*dec));
-    dec->cell = (ivec2_t){ x, y };
-    dec->footprint = (isize2_t){ 1, 1 };
-    dec->center_anchor = true;
-    dec->frame_index = 0;
-    dec->frame2_index = 1;
-    dec->render_remap = team >= 0 ? team : 0;
-    dec->render2_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK;
-    dec->render2_selector = 5;
-    snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/BEAC.SPR");
-    snprintf(dec->sprite2_name, sizeof(dec->sprite2_name), "SPRITES/BEAC.SPR");
     return true;
 }
 
 static void load_dark_colony_resource_vents_from_scenario(const ScenarioFile *scenario,
-                                                          level_t *map,
-                                                          const VentPlacement *placement) {
+                                                          level_t *map) {
     if (!scenario || !map) return;
     for (int i = 0; i < scenario->object_count; ++i) {
         const ScenarioObject *object = &scenario->objects[i];
         if (object->type == 40 && object->value_count >= 5) {
             append_dark_colony_resource_vent(map, object->x, object->y,
-                                             object->team, object->status, placement);
-        }
-    }
-}
-
-static void load_dark_colony_beacons_from_scenario(const ScenarioFile *scenario,
-                                                   level_t *map) {
-    if (!scenario || !map) return;
-    for (int i = 0; i < scenario->object_count; ++i) {
-        const ScenarioObject *object = &scenario->objects[i];
-        if (object->type == 84 && object->value_count >= 5) {
-            append_dark_colony_beacon(map, object->x, object->y,
-                                      object->type, object->team);
+                                             object->team, object->status);
         }
     }
 }
@@ -734,8 +655,6 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     replace_extension(scn_path, sizeof(scn_path), native->map.path, ".SCN");
     native->has_scenario = scenario_load(scn_path, &native->scenario);
     if (native->has_scenario) {
-        VentPlacement vent_placement = {0};
-        vent_placement_from_sprites(native->map.path, &vent_placement);
         char tileset_token[64] = { 0 };
         copy_trimmed_token(tileset_token, sizeof(tileset_token),
                            native->scenario.tileset_file,
@@ -745,8 +664,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         uppercase_trimmed_token(out->tileset_name, sizeof(out->tileset_name),
                                 tileset_token, strlen(tileset_token));
         load_dark_colony_camera_from_scenario(&native->scenario, out);
-        load_dark_colony_resource_vents_from_scenario(&native->scenario, out, &vent_placement);
-        load_dark_colony_beacons_from_scenario(&native->scenario, out);
+        load_dark_colony_resource_vents_from_scenario(&native->scenario, out);
         if (native->scenario.header_value_count > 3 &&
             native->scenario.header_values[3] > 0) {
             out->day_rate = native->scenario.header_values[3];
@@ -996,47 +914,6 @@ static int mobj_type_for_type(int type, int race) {
     }
 }
 
-static const char *unit_sprite_for_type(int type, int race) {
-    if (type == 16 || type == 17) return "SPRITES/HUBU.SPR";
-    if (type >= 18 && type <= 22) return "SPRITES/SHORTCIT.SPR";
-    if (type >= 28 && type <= 34) return "SPRITES/ALBU.SPR";
-    if (type == 41) return "SPRITES/TURR.SPR";
-    if (type == 81) return "SPRITES/TOWR.SPR";
-    if (type == 86) return "SPRITES/DISH.SPR";
-    if (type == 89) return "SPRITES/CENT.SPR";
-    if (type == 91) return "SPRITES/TONG.SPR";
-    if (type == 94) return "SPRITES/DOTT.SPR";
-    if (race == 1) {
-        if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/GRAY.SPR";
-        if (type == 6) return "SPRITES/SLUG.SPR";
-    } else {
-        if (type == 0 || (type >= 69 && type <= 72)) return "SPRITES/TRSC.SPR";
-        if (type == 6) return "SPRITES/EXPL.SPR";
-    }
-    switch (type) {
-        case  2: return "SPRITES/REAP.SPR";
-        case  3: return "SPRITES/BARR.SPR";
-        case  4: return "SPRITES/SARG.SPR";
-        case  5: return "SPRITES/SCGM.SPR";
-        case  8: return "SPRITES/GRAY.SPR";
-        case  9: return "SPRITES/XENO.SPR";
-        case 10: return "SPRITES/SCYT.SPR";
-        case 11: return "SPRITES/ATRIL.SPR";
-        case 12: return "SPRITES/PSYC.SPR";
-        case 13: return "SPRITES/ORTU.SPR";
-        case 14: return "SPRITES/SLUG.SPR";
-        case 15: return "SPRITES/ATRIL.SPR";
-        case 43: return "SPRITES/ENGI.SPR";
-        case 44: return "SPRITES/SLOM.SPR";
-        case 49: return "SPRITES/BEON.SPR";
-        case 50: return "SPRITES/ZISP.SPR";
-        case 73: case 74: case 75: case 76: return "SPRITES/GRAY.SPR";
-        case 77: return "SPRITES/SARG.SPR";
-        case 78: return "SPRITES/PSYC.SPR";
-        default: return NULL;
-    }
-}
-
 static int unit_frame_for_type(int type) {
     switch (type) {
         case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
@@ -1200,11 +1077,10 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         return false;
     }
     int type = object->type;
-    const char *sprite = unit_sprite_for_type(type, race);
     int mobj_type = mobj_type_for_type(type, race);
-    if (!sprite || mobj_type <= 0) {
-        return false;
-    }
+    if (mobj_type <= 0) return false;
+    const mobjtype_t *actor = actor_type_by_id((uint16_t)mobj_type);
+    if (!actor) return false;
 
     mobj_t *u = &units[*count];
     memset(u, 0, sizeof(*u));
@@ -1235,7 +1111,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected);
     if (P_MobjIsSelected(u)) *player_selected = true;
     u->core.frame = unit_frame_for_type(type);
-    snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", sprite);
+    snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", actor->sprite_name);
     statecontext_t ctx = { .game_info = &game_info };
     int state_id = unit_state_for_type(type);
     if (state_id == S_NULL && u->type_id > 0 && u->type_id < game_info.mobj_type_count)
@@ -1243,7 +1119,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     if (state_id != S_NULL && !P_SetMobjState(&ctx, u, state_id)) {
         fprintf(stderr, "[dark-colony] state setup failed for object index=%d native_type=%d "
                 "mobj=%d state=%d sprite=%s\n",
-                object_index, type, mobj_type, state_id, sprite);
+                object_index, type, mobj_type, state_id, actor->sprite_name);
         return false;
     }
     if (object_uses_city_render_origin(object_index))

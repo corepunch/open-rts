@@ -646,8 +646,8 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
         producer_index >= *unit_count || *unit_count >= MAXMOBJS || actor_id == 0) {
         return false;
     }
-    const actortype_t *type = NULL;
-    const actortype_t *types = (const actortype_t *)mobjinfo;
+    const mobjtype_t *type = NULL;
+    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
     for (int i = 0; types && i < num_mobjinfo; ++i) {
         if (types[i].id == actor_id) {
             type = &types[i];

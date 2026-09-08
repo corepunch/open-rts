@@ -15,8 +15,6 @@
 /* #define DEBUG_SCRIPT     */
 /* #define DEBUG_AI         */
 
-const actortype_t *actor_type_by_id(uint16_t type_id);
-
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
     snprintf(dst, dst_size, "%s", path);
     char *dot = strrchr(dst, '.');
@@ -461,9 +459,6 @@ static void sync_dropship_parts(DropshipRuntime *runtime,
          part_index < frame->part_count && runtime_part < DROPSHIP_MAX_PARTS;
          ++part_index) {
         const DropshipPart *part = &frame->parts[part_index];
-        if (animation != &mission->dropship_animations.unload &&
-            (strcmp(part->sprite_name, "SPRITES/DUTS.SPR") == 0 ||
-             strcmp(part->sprite_name, "SPRITES/CLOD.SPR") == 0)) continue;
         int slot = runtime->effect_slots[runtime_part];
         if (slot < 0 || slot >= max_effects || !effects[slot].active) {
             slot = spawn_dropship_part(
@@ -571,7 +566,7 @@ static void spawn_script_unit(const level_t *map, mobj_t *units, int *unit_count
     }
     unit->core.angle = dc_direction_to_angle(unit->owner == 0 ? 6 : 14);
     uint16_t type_id = script_unit_type(team, type);
-    const actortype_t *actor = actor_type_by_id(type_id);
+    const mobjtype_t *actor = actor_type_by_id(type_id);
     unit->native_type_id = (uint16_t)(type >= 0 ? type : 0);
     P_ApplyActorTypeDefaults(unit, actor);
     P_SpawnMobj(game_info, unit);

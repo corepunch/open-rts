@@ -13,7 +13,7 @@ static int fail(const char *message) {
     return rts_fail("combat_and_harvest", message);
 }
 
-static const actortype_t TEST_ATTACKER_INFO = {
+static const mobjtype_t TEST_ATTACKER_INFO = {
     .id = MT_DC_TROOPER,
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
     .max_hp = 800,
@@ -23,7 +23,7 @@ static const actortype_t TEST_ATTACKER_INFO = {
     .hit_effect_name = "SPRITES/BLOO.SPR",
 };
 
-static const actortype_t TEST_TARGET_INFO = {
+static const mobjtype_t TEST_TARGET_INFO = {
     .id = MT_DC_TROOPER,
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
     .max_hp = 800,

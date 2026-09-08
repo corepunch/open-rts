@@ -30,7 +30,7 @@ void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
                                 const gameinfo_t *game_info, hudtext_t *hud, float dt);
 void destroy_mission(void *mission);
 
-const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
+const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_DC_TROOPER,
         .name = "Trooper",
@@ -286,7 +286,7 @@ const actortype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
 };
 
-const actortype_t *actor_type_by_id(uint16_t type_id) {
+const mobjtype_t *actor_type_by_id(uint16_t type_id) {
     for (int i = 0; i < (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0])); ++i) {
         if (DARK_COLONY_ACTOR_TYPES[i].id == type_id) return &DARK_COLONY_ACTOR_TYPES[i];
     }
@@ -362,8 +362,8 @@ static bool draw_selection(const selectiondrawcontext_t *ctx) {
 }
 
 const gameinfo_t *const gameinfo = &runtime_info;
-const actortype_t *const mobjinfo =
-    (const actortype_t *)DARK_COLONY_ACTOR_TYPES;
+const mobjtype_t *const mobjinfo =
+    (const mobjtype_t *)DARK_COLONY_ACTOR_TYPES;
 const int num_mobjinfo =
     (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0]));
 const uidefinition_t *const gameui = NULL;

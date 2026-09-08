@@ -1114,7 +1114,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,\n");
     fprintf(out, "    S_DC_DROPSHIP_APPROACH, S_DC_DROPSHIP_UNLOAD, S_DC_DROPSHIP_REPOSITION, S_DC_DROPSHIP_DEPART,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
-    fprintf(out, "typedef enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, MT_DC_ORTU, MT_DC_SLUG, MT_DC_MOBILE_TOWER, MT_DC_DROP_LINK, MT_DC_ALIEN_COM, MT_DC_VISION_SIGHT, NUMMOBJTYPES } mobjtype_t;\n\n");
+    fprintf(out, "enum { MT_NULL, MT_DC_TROOPER, MT_DC_GREY, MT_DC_EXPLOITER, MT_DC_REAPER, MT_DC_THUNDERBOLT, MT_DC_CYBORG, MT_DC_SCOUT, MT_DC_ORTU, MT_DC_SLUG, MT_DC_MOBILE_TOWER, MT_DC_DROP_LINK, MT_DC_ALIEN_COM, MT_DC_VISION_SIGHT, NUMMOBJTYPES };\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
     fprintf(out, "extern const state_t states[NUMSTATES];\n");
     fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");

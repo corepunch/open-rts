@@ -4,23 +4,8 @@
 #include "sprites.h"
 #include <stdbool.h>
 
-#define VENT_SMOKE_MAX_FRAMES 32
 #define DROPSHIP_MAX_FRAMES 16
 #define DROPSHIP_MAX_PARTS 24
-
-typedef struct {
-    ivec2_t pivot;
-    int sprite_frame;
-    int duration_ms;
-} VentSmokeFrame;
-
-typedef struct {
-    bool valid;
-    int glow_left;
-    int glow_top;
-    int smoke_frame_count;
-    VentSmokeFrame smoke_frames[VENT_SMOKE_MAX_FRAMES];
-} VentPlacement;
 
 typedef struct {
     char sprite_name[32];
@@ -51,7 +36,6 @@ typedef struct {
     DropshipAnimation unload;
 } DropshipAnimations;
 
-bool vent_placement_from_sprites(const char *map_path, VentPlacement *out);
 bool dropship_animation_from_sprites(const char *map_path,
                                                  DropshipAnimations *out);
 bool load_render_tables(const char *data_root, const char *tileset_name);

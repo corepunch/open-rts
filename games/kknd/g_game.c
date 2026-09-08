@@ -1,7 +1,7 @@
 #include "game.h"
 #include "kknd.h"
 
-static const actortype_t ACTOR_TYPES[] = {
+static const mobjtype_t ACTOR_TYPES[] = {
     {
         .id = 1,
         .name = "Survivor Infantry",
@@ -54,7 +54,7 @@ const int g_cell_w = 32;
 const int g_cell_h = 32;
 const uint16_t g_debug_enemy_type = 1;
 const gameinfo_t *const gameinfo = &GAME_INFO;
-const actortype_t *const mobjinfo = ACTOR_TYPES;
+const mobjtype_t *const mobjinfo = ACTOR_TYPES;
 const int num_mobjinfo =
     (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
 const uidefinition_t *const gameui = &UI;

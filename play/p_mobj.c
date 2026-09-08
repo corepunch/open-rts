@@ -124,7 +124,7 @@ void P_FreeMobjProduction(mobj_t *unit) {
     unit->production = NULL;
 }
 
-void P_ApplyActorTypeDefaults(mobj_t *unit, const actortype_t *type) {
+void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
     if (!unit || !type) return;
     unit->info = type;
     unit->type_id = type->id;

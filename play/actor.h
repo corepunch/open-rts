@@ -35,7 +35,7 @@ enum {
     ALLEGIANCE_NEUTRAL = 3,
 };
 
-typedef struct actortype_s {
+typedef struct mobjtype_s {
     uint16_t id;
     const char *name;
     const char *sprite_name;
@@ -58,7 +58,7 @@ typedef struct actortype_s {
     int hit_effect_sprite;
     const char *hit_effect_name;
     actionf_p1 death_effect_action;
-} actortype_t;
+} mobjtype_t;
 
 typedef struct state_s {
     int sprite;
@@ -179,7 +179,7 @@ struct production_s {
 
 struct mobj_s {
     mobjcore_t core;
-    const actortype_t *info;
+    const mobjtype_t *info;
     float speed;
     uint32_t id;
     uint16_t type_id;

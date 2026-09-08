@@ -10,7 +10,7 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                              spritecache_t *cache);
 
 /* mobj_t types defined in 7th Legion based on sprites present in data/7LEGION/GFX/ */
-static const actortype_t ACTOR_TYPES[] = {
+static const mobjtype_t ACTOR_TYPES[] = {
     {
         .id          = 1,
         .name        = "Trooper",
@@ -111,8 +111,8 @@ const int g_cell_w = TILE_W;
 const int g_cell_h = TILE_H;
 const uint16_t g_debug_enemy_type = 1;
 const gameinfo_t *const gameinfo = &GAME_INFO;
-const actortype_t *const mobjinfo =
-    (const actortype_t *)ACTOR_TYPES;
+const mobjtype_t *const mobjinfo =
+    (const mobjtype_t *)ACTOR_TYPES;
 const int num_mobjinfo =
     (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
 const uidefinition_t *const gameui = &UI;

@@ -102,7 +102,7 @@ static const uidefinition_t DARK_REIGN_UI = {
     .image_count = (int)(sizeof(DARK_REIGN_UI_IMAGES) / sizeof(DARK_REIGN_UI_IMAGES[0])),
 };
 
-static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {
+static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     /* === Special / support units === */
     {
         .id = ACTOR_FG_CONSTRUCTION_CREW,
@@ -436,8 +436,8 @@ const int g_cell_w = 24;
 const int g_cell_h = 24;
 const uint16_t g_debug_enemy_type = ACTOR_FG_CONSTRUCTION_CREW;
 const gameinfo_t *const gameinfo = &DARK_REIGN_GAME_INFO;
-const actortype_t *const mobjinfo =
-    (const actortype_t *)DARK_REIGN_ACTOR_TYPES;
+const mobjtype_t *const mobjinfo =
+    (const mobjtype_t *)DARK_REIGN_ACTOR_TYPES;
 const int num_mobjinfo =
     (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0]));
 const uidefinition_t *const gameui = &DARK_REIGN_UI;
