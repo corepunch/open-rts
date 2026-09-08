@@ -56,6 +56,7 @@ int W_FinFrameDuration(const dc_fin_t *fin, int frame);
 bool load_render_tables(const char *data_root, const char *tileset_name);
 bool load_dark_colony_sprite(const char *path,
                              spritesheet_t *out, uint32_t palette_out[256]);
+bool DC_PopulateWAD(const char *root);
 bool R_PrecacheLevel(SDL_Renderer *renderer, const char *root, const level_t *map,
                      const mobj_t *units, int unit_count, spritecache_t *cache);
 #endif

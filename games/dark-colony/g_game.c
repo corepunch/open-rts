@@ -7,6 +7,7 @@
 #include "dc_types.h"
 #include "sb_bar.h"
 #include "w_spr.h"
+#include "w_wad.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -387,6 +388,9 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                   const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
+    W_Init();
+    DC_PopulateWAD(root);
+
     if (!load_render_tables(root, map->tileset_name)) {
         fprintf(stderr, "failed to load Dark Colony render tables for %s\n", map->tileset_name);
         return false;

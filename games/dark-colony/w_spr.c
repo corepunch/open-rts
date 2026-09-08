@@ -3,8 +3,10 @@
 #include "dc_facing.h"
 #include "engine.h"
 #include "info.h"
+#include "w_wad.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -491,9 +493,118 @@ static bool cache_sprite(spritecache_t *cache, const char *root, const char *nam
     return ok;
 }
 
+static bool register_spr(const char *path) {
+    dc_spr_t spr = {0};
+    if (!load_spr(path, &spr)) return false;
+
+    char stem[9];
+    path_stem(stem, path);
+
+    /* palette — 768-byte raw VGA, like PLAYPAL */
+    void *pal = malloc(768);
+    if (pal) {
+        memcpy(pal, spr.palette, 768);
+        char pal_name[WAD_NAME_SIZE + 1];
+        snprintf(pal_name, sizeof(pal_name), "%sPAL", stem);
+        W_AddLump(pal_name, pal, 768, ns_global);
+    }
+
+    /* cells — all lumps share the stem name (e.g. 5 consecutive "TRSC"
+       lumps = frames 0-4).  FIN lump index maps to offset from first. */
+    size_t total = 0;
+    for (int i = 0; i < spr.header->cell_count; i++)
+        total += (size_t)spr.cells[i].width * spr.cells[i].height;
+
+    uint8_t *pixels = calloc(total ? total : 1, 1);
+    if (!pixels || !decode_spr(&spr, pixels, total)) {
+        free(pixels);
+        free(spr.data);
+        return false;
+    }
+
+    size_t offset = 0;
+    for (int i = 0; i < spr.header->cell_count; i++) {
+        size_t cell_size = (size_t)spr.cells[i].width * spr.cells[i].height;
+        void *copy = malloc(cell_size ? cell_size : 1);
+        if (copy) {
+            if (cell_size) memcpy(copy, pixels + offset, cell_size);
+            W_AddLump(stem, copy, (int)cell_size, ns_sprites);
+        }
+        offset += cell_size;
+    }
+
+    free(pixels);
+    free(spr.data);
+    return true;
+}
+
+static bool register_fin(const char *path) {
+    dc_fin_t fin = {0};
+    if (!W_LoadFin(path, &fin)) return false;
+
+    for (int i = 0; i < fin.header->label_count; i++) {
+        const dc_fin_label_t *label = &fin.labels[i];
+
+        /* FIN labels already use Doom naming: STNDA0, RUNA1, etc.
+           Store each frame's spritelayer_t array directly as lump data. */
+        for (int step = 0; step <= label->end - label->start; step++) {
+            int native = label->start + step;
+            int count = 0;
+            const spritelayer_t *layers = W_FinFrameLayers(&fin, native, &count);
+            if (!layers || !count) continue;
+
+            char name[WAD_NAME_SIZE + 1];
+            fixed_name(name, label->name, SPRITE_FRAME_NAME_SIZE);
+
+            size_t sz = (size_t)count * sizeof(spritelayer_t);
+            void *data = malloc(sz);
+            if (!data) continue;
+            memcpy(data, layers, sz);
+            W_AddLump(name, data, (int)sz, ns_sprites);
+        }
+    }
+
+    W_FreeFin(&fin);
+    return true;
+}
+
+static void scan_dir_register(const char *root, const char *subdir,
+                              const char *ext,
+                              bool (*reg)(const char *)) {
+    char dirpath[1024];
+    M_PathJoin(dirpath, sizeof(dirpath), root, subdir);
+    DIR *dir = opendir(dirpath);
+    if (!dir) return;
+    size_t ext_len = strlen(ext);
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        size_t len = strlen(entry->d_name);
+        if (len <= ext_len ||
+            strcasecmp(entry->d_name + len - ext_len, ext) != 0)
+            continue;
+        char path[1024];
+        M_PathJoin(path, sizeof(path), dirpath, entry->d_name);
+        reg(path);
+    }
+    closedir(dir);
+}
+
+bool DC_PopulateWAD(const char *root) {
+    W_AddMarker("S_START");
+
+    scan_dir_register(root, "SPRITES",  ".SPR", register_spr);
+    scan_dir_register(root, "INTRFACE", ".SPR", register_spr);
+    scan_dir_register(root, "CURSOR",   ".SPR", register_spr);
+    scan_dir_register(root, "ANIMATE",  ".FIN", register_fin);
+
+    W_AddMarker("S_END");
+    return numlumps > 2;
+}
+
 bool R_PrecacheLevel(SDL_Renderer *renderer, const char *root, const level_t *map,
                      const mobj_t *units, int unit_count, spritecache_t *cache) {
-    (void)renderer;
+		
+											(void)renderer;
     bool ok = true;
     memset(cache, 0, sizeof(*cache));
     for (int i = 0; map && i < map->decoration_count; ++i) {
