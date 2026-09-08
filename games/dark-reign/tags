@@ -90,7 +90,7 @@ ACTOR_FG_VEHICLE_FACTORY_2	games/dark-reign/dr_types.h	/^    ACTOR_FG_VEHICLE_FA
 ADD_INDEXED_FRAME	games/dark-reign/w_til.c	/^#define ADD_INDEXED_FRAME(/;"	d	file:	signature:(SRC)
 BUILD	games/dark-reign/p_prod.c	/^#define BUILD(/;"	d	file:	signature:(ui_,label_,cost_,type_,p0_,p1_)
 BUILDING	games/dark-reign/g_game.c	/^#define BUILDING(/;"	d	file:	signature:(id_,name_,sprite_,shadow_,hp_)
-DARK_REIGN_ACTOR_TYPES	games/dark-reign/g_game.c	/^static const actortype_t DARK_REIGN_ACTOR_TYPES[] = {$/;"	v	typeref:typename:const actortype_t[]	file:
+DARK_REIGN_ACTOR_TYPES	games/dark-reign/g_game.c	/^static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 DARK_REIGN_DECORATION_SPECS	games/dark-reign/w_map.c	/^static const DecorationSpec DARK_REIGN_DECORATION_SPECS[] = {$/;"	v	typeref:typename:const DecorationSpec[]	file:
 DARK_REIGN_EDGE_RULES	games/dark-reign/w_map.c	/^static const EdgeMatchRule DARK_REIGN_EDGE_RULES[] = {$/;"	v	typeref:typename:const EdgeMatchRule[]	file:
 DARK_REIGN_FG_PRODUCTS	games/dark-reign/p_prod.c	/^static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {$/;"	v	typeref:typename:const StaticProductDefinition[]	file:
@@ -312,7 +312,7 @@ min_matching_force_ratio	games/dark-reign/dr_types.h	/^    double min_matching_f
 min_perimeter_force	games/dark-reign/dr_types.h	/^    int min_perimeter_force;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
 min_resource_force	games/dark-reign/dr_types.h	/^    int min_resource_force;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
 mm_path_from_map	games/dark-reign/w_map.c	/^static void mm_path_from_map(const char *map_path, char *mm_path,$/;"	f	typeref:typename:void	file:	signature:(const char * map_path,char * mm_path,size_t mm_path_size)
-mobjinfo	games/dark-reign/g_game.c	/^const actortype_t *const mobjinfo =$/;"	v	typeref:typename:const actortype_t * const
+mobjinfo	games/dark-reign/g_game.c	/^const mobjtype_t *const mobjinfo =$/;"	v	typeref:typename:const mobjtype_t * const
 name	games/dark-reign/dr_types.h	/^    const char *name;$/;"	m	struct:__anonc98b33940108	typeref:typename:const char *
 name	games/dark-reign/w_spr.c	/^typedef struct { char name[28]; int32_t offset; int32_t size; } FtgEntry;$/;"	m	struct:__anon4831d8900108	typeref:typename:char[28]	file:
 neighbor_type	games/dark-reign/w_map.c	/^static int neighbor_type(const level_t *map, int x, int y, int fallback) {$/;"	f	typeref:typename:int	file:	signature:(const level_t * map,int x,int y,int fallback)

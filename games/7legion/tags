@@ -39,7 +39,7 @@
 !_TAG_ROLE_DESCRIPTION!C!header	system	/system header/
 !_TAG_ROLE_DESCRIPTION!C!macro	undef	/undefined/
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
-ACTOR_TYPES	games/7legion/g_game.c	/^static const actortype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const actortype_t[]	file:
+ACTOR_TYPES	games/7legion/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 ATLAS_COLS	games/7legion/w_bim.c	/^#define ATLAS_COLS /;"	d	file:
 GAME_INFO	games/7legion/g_game.c	/^static const gameinfo_t GAME_INFO = {$/;"	v	typeref:typename:const gameinfo_t	file:
 G_CustomUIDrawer	games/7legion/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,const mobj_t * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
@@ -110,7 +110,7 @@ max_x	games/7legion/w_bim.c	/^    int max_x;$/;"	m	struct:__anon6c02bde40108	typ
 max_y	games/7legion/w_bim.c	/^    int max_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 min_x	games/7legion/w_bim.c	/^    int min_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 min_y	games/7legion/w_bim.c	/^    int min_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
-mobjinfo	games/7legion/g_game.c	/^const actortype_t *const mobjinfo =$/;"	v	typeref:typename:const actortype_t * const
+mobjinfo	games/7legion/g_game.c	/^const mobjtype_t *const mobjinfo =$/;"	v	typeref:typename:const mobjtype_t * const
 num_mobjinfo	games/7legion/g_game.c	/^const int num_mobjinfo =$/;"	v	typeref:typename:const int
 pixel_count	games/7legion/w_bim.c	/^    size_t pixel_count;$/;"	m	struct:__anon6c02bde40108	typeref:typename:size_t	file:
 player_start	games/7legion/w_map.c	/^    char player_start[64];$/;"	m	struct:__anon6cc5752a0108	typeref:typename:char[64]	file:

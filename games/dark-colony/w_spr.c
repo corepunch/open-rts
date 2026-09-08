@@ -15,17 +15,7 @@
 #include <string.h>
 #include <strings.h>
 
-static void palette_from_spr(const uint8_t *spr, size_t size, uint32_t colors[256]) {
-    if (size < 8 + 256 * 3) return;
-    const uint8_t *p = spr + 8;
-    for (int i = 0; i < 256; ++i) {
-        int r = clamp255((int)p[i * 3 + 0] * 4 + 3);
-        int g = clamp255((int)p[i * 3 + 1] * 4 + 3);
-        int b = clamp255((int)p[i * 3 + 2] * 4 + 3);
-        colors[i] = i == 0 ? 0x00000000u :
-            (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
-    }
-}
+#include "w_sprite_private.h"
 
 static uint8_t remap_palette_index(uint8_t index, int remap) {
     if (remap < 0 || remap > 7 || index < 138 || index > 143) return index;
@@ -58,58 +48,6 @@ static irect_t dc_visible_bounds(const uint32_t *rgba, int atlas_w, irect_t fram
 }
 
 typedef struct {
-    uint16_t width;
-    uint16_t height;
-    uint16_t dis_x;
-    uint16_t dis_y;
-    uint8_t used;
-    uint32_t data_size;
-    uint8_t *data;
-} JuiceCell;
-
-typedef struct {
-    uint16_t flags;
-    uint16_t cell_count;
-    uint32_t payload_bytes;
-    bool chunked;
-    uint32_t palette[256];
-    JuiceCell *cells;
-} JuiceFile;
-
-typedef struct {
-    char name[9];
-} AnimationDependency;
-
-typedef struct {
-    char name[17];
-    uint16_t start;
-    uint16_t end;
-} AnimationLabel;
-
-typedef struct {
-    char sprite[9];
-    int16_t frame;
-    int16_t x;
-    int16_t y;
-    int16_t remap;
-    int16_t intensity;
-    int16_t layer;
-    int16_t flags;
-} AnimationCommand;
-
-typedef struct {
-    uint16_t frame_count;
-    uint16_t aux_count;
-    uint16_t label_count;
-    uint16_t dependency_count;
-    AnimationDependency *dependencies;
-    AnimationLabel *labels;
-    uint8_t *aux_records;
-    AnimationCommand *commands;
-    int command_count;
-} AnimationFile;
-
-typedef struct {
     JuiceFile juice;
     AnimationFile animation;
     bool has_animation;
@@ -122,257 +60,6 @@ typedef struct {
 } RenderTables;
 
 static RenderTables render_tables;
-
-static int16_t read_i16_le_dc(const uint8_t *p) {
-    return (int16_t)read_u16_le(p);
-}
-
-static void copy_padded_ascii(char *dst, size_t dst_size, const uint8_t *src, size_t src_size) {
-    size_t n = 0;
-    while (n + 1 < dst_size && n < src_size && src[n] != '\0') {
-        dst[n] = (char)src[n];
-        n++;
-    }
-    dst[n] = '\0';
-}
-
-static void juice_destroy(JuiceFile *juice) {
-    if (!juice) return;
-    for (int i = 0; i < juice->cell_count; ++i) free(juice->cells[i].data);
-    free(juice->cells);
-    memset(juice, 0, sizeof(*juice));
-}
-
-static bool juice_load(const char *path, JuiceFile *out) {
-    memset(out, 0, sizeof(*out));
-    blob_t blob;
-    if (!W_ReadFile(path, &blob)) return false;
-    if (blob.size < 8 + 256 * 3) { W_FreeFile(&blob); return false; }
-
-    out->flags = read_u16_le(blob.bytes + 0);
-    out->cell_count = read_u16_le(blob.bytes + 2);
-    out->payload_bytes = read_u32_le(blob.bytes + 4);
-    out->chunked = (out->flags & 0x180) != 0;
-    if (out->cell_count == 0 || out->cell_count > 1024) {
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    palette_from_spr(blob.bytes, blob.size, out->palette);
-    size_t desc_off = 8 + 256 * 3;
-    size_t data_off = desc_off + (size_t)out->cell_count * 8;
-    if (data_off > blob.size) {
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    out->cells = calloc(out->cell_count, sizeof(*out->cells));
-    if (!out->cells) {
-        W_FreeFile(&blob);
-        return false;
-    }
-    for (int i = 0; i < out->cell_count; ++i) {
-        const uint8_t *desc = blob.bytes + desc_off + (size_t)i * 8;
-        JuiceCell *cell = &out->cells[i];
-        cell->width = read_u16_le(desc + 0);
-        cell->height = read_u16_le(desc + 2);
-        cell->dis_x = read_u16_le(desc + 4);
-        cell->dis_y = read_u16_le(desc + 6);
-        cell->used = cell->width > 0 && cell->height > 0;
-        if (cell->width > 512 || cell->height > 512) {
-            juice_destroy(out);
-            W_FreeFile(&blob);
-            return false;
-        }
-    }
-
-    size_t src_pos = data_off;
-    if (out->chunked) {
-        uint32_t total_chunks = 0;
-        for (int i = 0; i < out->cell_count; ++i) {
-            if (src_pos + 4 > blob.size) {
-                juice_destroy(out);
-                W_FreeFile(&blob);
-                return false;
-            }
-            uint32_t chunk_len = read_u32_le(blob.bytes + src_pos);
-            src_pos += 4;
-            total_chunks += chunk_len;
-            if (total_chunks > out->payload_bytes || src_pos + chunk_len > blob.size) {
-                juice_destroy(out);
-                W_FreeFile(&blob);
-                return false;
-            }
-            JuiceCell *cell = &out->cells[i];
-            cell->data_size = chunk_len;
-            cell->data = malloc(chunk_len > 0 ? chunk_len : 1);
-            if (!cell->data) {
-                juice_destroy(out);
-                W_FreeFile(&blob);
-                return false;
-            }
-            if (chunk_len > 0) memcpy(cell->data, blob.bytes + src_pos, chunk_len);
-            src_pos += chunk_len;
-        }
-    } else {
-        for (int i = 0; i < out->cell_count; ++i) {
-            JuiceCell *cell = &out->cells[i];
-            uint32_t pixel_count = (uint32_t)cell->width * (uint32_t)cell->height;
-            cell->data_size = pixel_count;
-            if (pixel_count == 0) continue;
-            if (src_pos + pixel_count > blob.size) {
-                juice_destroy(out);
-                W_FreeFile(&blob);
-                return false;
-            }
-            cell->data = malloc(pixel_count);
-            if (!cell->data) {
-                juice_destroy(out);
-                W_FreeFile(&blob);
-                return false;
-            }
-            memcpy(cell->data, blob.bytes + src_pos, pixel_count);
-            src_pos += pixel_count;
-        }
-    }
-    W_FreeFile(&blob);
-    return true;
-}
-
-static void animation_destroy(AnimationFile *animation) {
-    if (!animation) return;
-    free(animation->dependencies);
-    free(animation->labels);
-    free(animation->aux_records);
-    free(animation->commands);
-    memset(animation, 0, sizeof(*animation));
-}
-
-static bool animation_load(const char *path, AnimationFile *out) {
-    memset(out, 0, sizeof(*out));
-    blob_t blob;
-    if (!W_ReadFile(path, &blob)) return false;
-    if (blob.size < 8) { W_FreeFile(&blob); return false; }
-
-    out->frame_count = read_u16_le(blob.bytes + 0);
-    out->aux_count = read_u16_le(blob.bytes + 2);
-    out->label_count = read_u16_le(blob.bytes + 4);
-    out->dependency_count = read_u16_le(blob.bytes + 6);
-    if (out->label_count > 1024 || out->dependency_count > 1024 || out->aux_count > 4096) {
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    size_t dependency_off = 8;
-    size_t label_off = dependency_off + (size_t)out->dependency_count * 8;
-    size_t aux_off = label_off + (size_t)out->label_count * 20;
-    size_t command_off = aux_off + (size_t)out->aux_count * 164;
-    if (command_off > blob.size || ((blob.size - command_off) % 22) != 0) {
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    out->dependencies = calloc(out->dependency_count ? out->dependency_count : 1,
-                               sizeof(*out->dependencies));
-    out->labels = calloc(out->label_count ? out->label_count : 1, sizeof(*out->labels));
-    out->aux_records = malloc((size_t)out->aux_count * 164 > 0 ?
-                              (size_t)out->aux_count * 164 : 1);
-    out->command_count = (int)((blob.size - command_off) / 22);
-    out->commands = calloc(out->command_count ? out->command_count : 1, sizeof(*out->commands));
-    if (!out->dependencies || !out->labels || !out->aux_records || !out->commands) {
-        animation_destroy(out);
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    for (int i = 0; i < out->dependency_count; ++i) {
-        copy_padded_ascii(out->dependencies[i].name, sizeof(out->dependencies[i].name),
-                          blob.bytes + dependency_off + (size_t)i * 8, 8);
-    }
-    for (int i = 0; i < out->label_count; ++i) {
-        size_t off = label_off + (size_t)i * 20;
-        copy_padded_ascii(out->labels[i].name, sizeof(out->labels[i].name),
-                          blob.bytes + off, 16);
-        out->labels[i].start = read_u16_le(blob.bytes + off + 16);
-        out->labels[i].end = read_u16_le(blob.bytes + off + 18);
-    }
-    if (out->aux_count > 0) {
-        memcpy(out->aux_records, blob.bytes + aux_off, (size_t)out->aux_count * 164);
-    }
-    for (int i = 0; i < out->command_count; ++i) {
-        size_t off = command_off + (size_t)i * 22;
-        AnimationCommand *cmd = &out->commands[i];
-        copy_padded_ascii(cmd->sprite, sizeof(cmd->sprite), blob.bytes + off, 8);
-        cmd->frame = read_i16_le_dc(blob.bytes + off + 8);
-        cmd->x = read_i16_le_dc(blob.bytes + off + 10);
-        cmd->y = read_i16_le_dc(blob.bytes + off + 12);
-        cmd->remap = read_i16_le_dc(blob.bytes + off + 14);
-        cmd->intensity = read_i16_le_dc(blob.bytes + off + 16);
-        cmd->layer = read_i16_le_dc(blob.bytes + off + 18);
-        cmd->flags = read_i16_le_dc(blob.bytes + off + 20);
-    }
-    W_FreeFile(&blob);
-    return true;
-}
-
-static const AnimationCommand *animation_find_command(
-    const AnimationFile *animation, const char *label_name,
-    const char *sprite_name, int frame, int layer) {
-    if (!animation || !label_name || !sprite_name) return NULL;
-
-    int command_index = 0;
-    for (int frame_index = 0; frame_index < animation->aux_count; ++frame_index) {
-        int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
-        for (int label_index = 0; label_index < animation->label_count; ++label_index) {
-            const AnimationLabel *label = &animation->labels[label_index];
-            if (strcmp(label->name, label_name) != 0 ||
-                frame_index < label->start || frame_index > label->end) {
-                continue;
-            }
-            for (int part = 0; part < part_count; ++part) {
-                if (command_index + part >= animation->command_count) return NULL;
-                const AnimationCommand *command =
-                    &animation->commands[command_index + part];
-                if (strcasecmp(command->sprite, sprite_name) == 0 &&
-                    command->frame == frame && command->layer == layer) {
-                    return command;
-                }
-            }
-        }
-        command_index += part_count;
-        if (command_index > animation->command_count) return NULL;
-    }
-    return NULL;
-}
-
-static const AnimationCommand *animation_frame_command(
-    const AnimationFile *animation, int frame_index,
-    const char *sprite_name, int layer) {
-    if (!animation || !sprite_name || frame_index < 0 || frame_index >= animation->aux_count)
-        return NULL;
-
-    int command_index = 0;
-    for (int i = 0; i < frame_index; ++i)
-        command_index += read_u16_le(animation->aux_records + (size_t)i * 164);
-    int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
-    for (int part = 0; part < part_count; ++part) {
-        if (command_index + part >= animation->command_count) return NULL;
-        const AnimationCommand *command = &animation->commands[command_index + part];
-        if (strcasecmp(command->sprite, sprite_name) == 0 && command->layer == layer)
-            return command;
-    }
-    return NULL;
-}
-
-static const AnimationLabel *animation_find_label(const AnimationFile *animation,
-                                                  const char *name) {
-    if (!animation || !name) return NULL;
-    for (int i = 0; i < animation->label_count; ++i) {
-        if (strcmp(animation->labels[i].name, name) == 0)
-            return &animation->labels[i];
-    }
-    return NULL;
-}
 
 static bool install_fin_parts(spriteframe_t *spriteframe, int rotation,
                               const AnimationFile *animation, int frame_index,
@@ -446,7 +133,7 @@ retry:
             strcmp(action, "STAND") == 0 && (direction & 1) ? "SHUF" : action;
         snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem, label_action,
                  direction);
-        const AnimationLabel *label = animation_find_label(animation, label_name);
+        const AnimationLabel *label = DC_FindAnimationLabel(animation, label_name);
         if (!label || label->end < label->start) {
             if (rotations == 16) {
                 rotations = 8;
@@ -464,7 +151,7 @@ retry:
     sheet->spritedef.first_angle = dc_fin_direction_to_angle(0);
     sheet->spritedef.clockwise = true;
     snprintf(label_name, sizeof(label_name), "%s%s0", label_stem, action);
-    const AnimationLabel *base_label = animation_find_label(animation, label_name);
+    const AnimationLabel *base_label = DC_FindAnimationLabel(animation, label_name);
     if (!base_label) return;
     for (int frame = 0; frame < length; ++frame) {
         int logical_frame = base_label->start + frame;
@@ -478,7 +165,7 @@ retry:
                 strcmp(action, "STAND") == 0 && (direction & 1) ? "SHUF" : action;
             snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem,
                      label_action, direction);
-            const AnimationLabel *label = animation_find_label(animation, label_name);
+            const AnimationLabel *label = DC_FindAnimationLabel(animation, label_name);
             if (!label) continue;
             int label_length = label->end - label->start + 1;
             int source_frame = label->start + (frame < label_length ? frame : label_length - 1);
@@ -488,11 +175,10 @@ retry:
     }
 }
 
-static void sprite_native_destroy(void *ptr) {
-    SpriteNative *native = ptr;
+static void sprite_native_destroy(SpriteNative *native) {
     if (!native) return;
-    juice_destroy(&native->juice);
-    animation_destroy(&native->animation);
+    DC_FreeJuice(&native->juice);
+    DC_FreeAnimation(&native->animation);
     free(native);
 }
 
@@ -512,7 +198,7 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
         W_FreeFile(&bts);
         return false;
     }
-    palette_from_spr(bts.bytes, bts.size, render_tables.palette);
+    DC_DecodePalette(bts.bytes, bts.size, render_tables.palette);
     W_FreeFile(&bts);
 
     char rmp_name[64];
@@ -532,87 +218,11 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
     return true;
 }
 
-static bool animation_path_for_sprite(char *out, size_t out_size,
-                                                  const char *sprite_path) {
-    if (!out || out_size == 0 || !sprite_path) return false;
-    const char *base = strrchr(sprite_path, '/');
-    base = base ? base + 1 : sprite_path;
-    const char *dot = strrchr(base, '.');
-    if (!dot || strcasecmp(dot, ".SPR") != 0) return false;
-
-    const char *dir_end = base > sprite_path ? base - 1 : NULL;
-    const char *dir_start = dir_end;
-    while (dir_start && dir_start > sprite_path && dir_start[-1] != '/') dir_start--;
-    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
-    if (!dir_start || dir_len != strlen("SPRITES") ||
-        strncasecmp(dir_start, "SPRITES", dir_len) != 0) {
-        return false;
-    }
-
-    size_t prefix_len = (size_t)(dir_start - sprite_path);
-    size_t stem_len = (size_t)(dot - base);
-    if (prefix_len + strlen("ANIMATE/") + stem_len + strlen(".FIN") + 1 > out_size)
-        return false;
-    memcpy(out, sprite_path, prefix_len);
-    out[prefix_len] = '\0';
-    strncat(out, "ANIMATE/", out_size - strlen(out) - 1);
-    strncat(out, base, stem_len);
-    strncat(out, ".FIN", out_size - strlen(out) - 1);
-    return true;
-}
-
-static bool sprite_path_for_animation(char *out, size_t out_size,
-                                      const char *animation_path) {
-    if (!out || out_size == 0 || !animation_path) return false;
-    const char *base = strrchr(animation_path, '/');
-    base = base ? base + 1 : animation_path;
-    const char *dot = strrchr(base, '.');
-    if (!dot || strcasecmp(dot, ".FIN") != 0) return false;
-
-    const char *dir_end = base > animation_path ? base - 1 : NULL;
-    const char *dir_start = dir_end;
-    while (dir_start && dir_start > animation_path && dir_start[-1] != '/') dir_start--;
-    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
-    if (!dir_start || dir_len != strlen("ANIMATE") ||
-        strncasecmp(dir_start, "ANIMATE", dir_len) != 0) return false;
-
-    size_t prefix_len = (size_t)(dir_start - animation_path);
-    size_t stem_len = (size_t)(dot - base);
-    return snprintf(out, out_size, "%.*sSPRITES/%.*s.SPR",
-                    (int)prefix_len, animation_path, (int)stem_len, base) < (int)out_size;
-}
-
-static bool dependency_sprite_name(char *out, size_t out_size,
-                                               const char *dependency) {
-    if (!out || out_size == 0 || !dependency) return false;
-    char stem[16];
-    size_t len = 0;
-    while (dependency[len] != '\0' && len < 8 &&
-           !isspace((unsigned char)dependency[len])) {
-        unsigned char ch = (unsigned char)dependency[len];
-        if (!isalnum(ch) && ch != '_') return false;
-        stem[len++] = (char)toupper(ch);
-    }
-    if (len == 0) return false;
-    stem[len] = '\0';
-    return snprintf(out, out_size, "SPRITES/%s.SPR", stem) < (int)out_size;
-}
-
-static void sprite_stem(char *out, size_t out_size, const char *sprite_path) {
-    const char *base = strrchr(sprite_path, '/');
-    base = base ? base + 1 : sprite_path;
-    size_t length = strcspn(base, ".");
-    if (length >= out_size) length = out_size - 1;
-    for (size_t i = 0; i < length; ++i)
-        out[i] = (char)tolower((unsigned char)base[i]);
-    out[length] = '\0';
-}
-
 static void resolve_fin_ground_points(const SpriteNative *native, const char *sprite_path,
                                       SDL_Point *ground_points) {
     if (!native || !native->has_animation || !sprite_path || !ground_points) return;
     char stem[9];
-    sprite_stem(stem, sizeof(stem), sprite_path);
+    DC_SpriteStem(stem, sizeof(stem), sprite_path);
     bool *resolved = calloc(native->juice.cell_count, sizeof(*resolved));
     if (!resolved) return;
     for (int i = 0; i < native->animation.command_count; ++i) {
@@ -635,14 +245,7 @@ static void resolve_fin_ground_points(const SpriteNative *native, const char *sp
     free(resolved);
 }
 
-static bool file_exists(const char *path) {
-    FILE *f = fopen(path, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
-
-static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char *path,
+bool DC_LoadSpriteWithAnimation(SDL_Renderer *renderer, const char *path,
                                              spritesheet_t *out,
                                              uint32_t palette_out[256],
                                              AnimationFile *animation_out) {
@@ -655,8 +258,8 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     const char *extension = strrchr(path, '.');
     bool fin_first = extension && strcasecmp(extension, ".FIN") == 0;
     if (fin_first) {
-        if (!animation_load(path, &native->animation) ||
-            !sprite_path_for_animation(sprite_path, sizeof(sprite_path), path)) {
+        if (!DC_LoadAnimation(path, &native->animation) ||
+            !DC_SpritePath(sprite_path, sizeof(sprite_path), path)) {
             fprintf(stderr, "%s is not a supported Dark Colony FIN\n", path);
             sprite_native_destroy(native);
             return false;
@@ -665,7 +268,7 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     } else {
         snprintf(sprite_path, sizeof(sprite_path), "%s", path);
     }
-    if (!juice_load(sprite_path, &native->juice)) {
+    if (!DC_LoadJuice(sprite_path, &native->juice)) {
         fprintf(stderr, "%s is not a supported Dark Colony raw SPR\n", sprite_path);
         sprite_native_destroy(native);
         return false;
@@ -673,9 +276,9 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     if (palette_out) memcpy(palette_out, native->juice.palette, sizeof(native->juice.palette));
     const uint32_t *palette = native->juice.palette;
 
-    if (!fin_first && animation_path_for_sprite(animation_path, sizeof(animation_path), path) &&
-        file_exists(animation_path) &&
-        animation_load(animation_path, &native->animation)) {
+    if (!fin_first && DC_AnimationPath(animation_path, sizeof(animation_path), path) &&
+        DC_AssetExists(animation_path) &&
+        DC_LoadAnimation(animation_path, &native->animation)) {
         native->has_animation = true;
     }
 
@@ -885,7 +488,7 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
     }
     if (native->has_animation) {
         char stem[9];
-        sprite_stem(stem, sizeof(stem), sprite_path);
+        DC_SpriteStem(stem, sizeof(stem), sprite_path);
         install_dark_colony_fin_frames(out, &native->animation, stem, "STAND");
         install_dark_colony_fin_frames(out, &native->animation, stem, "MOVE");
         install_dark_colony_fin_frames(out, &native->animation, stem, "FIREA");
@@ -908,205 +511,5 @@ static bool load_dark_colony_sprite_internal(SDL_Renderer *renderer, const char 
 
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
                              uint32_t palette_out[256]) {
-    return load_dark_colony_sprite_internal(renderer, path, out, palette_out, NULL);
-}
-
-static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *renderer,
-                                          const char *data_root, const char *name) {
-    if (!name || name[0] == '\0') return true;
-    if (R_CacheFind(cache, name)) return true;
-    if (cache->count >= MAX_DECORATION_SPRITES) {
-        fprintf(stderr, "too many Dark Colony sprites; skipped %s\n", name);
-        return false;
-    }
-    char sprite_path[1024];
-    if (name[0] == '/') {
-        snprintf(sprite_path, sizeof(sprite_path), "%s", name);
-    } else if (strchr(name, '/') != NULL) {
-        M_PathJoin(sprite_path, sizeof(sprite_path), data_root, name);
-    } else {
-        static const char *const sprite_directories[] = {
-            "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
-        };
-        bool found = false;
-        char candidate[1024];
-        char filename[64];
-        snprintf(filename, sizeof(filename), "%s.FIN", name);
-        M_PathJoin(candidate, sizeof(candidate), data_root, "ANIMATE");
-        M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
-        if (file_exists(sprite_path)) found = true;
-        for (size_t i = 0; i < sizeof(sprite_directories) / sizeof(sprite_directories[0]); ++i) {
-            if (found) break;
-            snprintf(filename, sizeof(filename), "%s.SPR", name);
-            M_PathJoin(candidate, sizeof(candidate), data_root, sprite_directories[i]);
-            M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
-            if (file_exists(sprite_path)) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            fprintf(stderr, "failed to resolve Dark Colony sprite %s\n", name);
-            return false;
-        }
-    }
-    cachedsprite_t *entry = &cache->entries[cache->count];
-    snprintf(entry->name, sizeof(entry->name), "%s", name);
-    uint32_t palette[256] = { 0 };
-    AnimationFile animation = {0};
-    if (!load_dark_colony_sprite_internal(renderer, sprite_path, &entry->sprite, palette,
-                                          &animation)) {
-        fprintf(stderr, "failed to load %s\n", sprite_path);
-        memset(entry, 0, sizeof(*entry));
-        return false;
-    }
-    cache->count++;
-    if (animation.command_count > 0) {
-        for (int i = 0; i < animation.dependency_count; ++i) {
-            char dependency_name[64];
-            if (!dependency_sprite_name(dependency_name, sizeof(dependency_name),
-                                                    animation.dependencies[i].name)) {
-                continue;
-            }
-            if (R_CacheFind(cache, dependency_name)) continue;
-            char dependency_path[1024];
-            M_PathJoin(dependency_path, sizeof(dependency_path), data_root, dependency_name);
-            if (!file_exists(dependency_path)) continue;
-            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, dependency_name)) {
-                animation_destroy(&animation);
-                return false;
-            }
-        }
-    }
-    animation_destroy(&animation);
-    return true;
-}
-
-bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const level_t *map, const mobj_t *units, int unit_count,
-                                   spritecache_t *cache) {
-    bool ok = true;
-    static const char *const ui_sprites[] = {
-        "INTRFACE/DCSS.SPR",
-        "INTRFACE/DCUT.SPR",
-        "INTRFACE/MAINBUT.SPR",
-        "INTRFACE/SHUMANE.SPR",
-        "SPRITES/DROP.SPR",
-        "SPRITES/BEAC.SPR",
-        "SPRITES/MUZA.SPR",
-        "SPRITES/BLOO.SPR",
-    };
-    for (int i = 0; i < NUMSTATES; ++i) {
-        int sprite = states[i].sprite;
-        if (sprite >= 0 && sprite < NUMSPRITES &&
-            !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[sprite])) {
-            ok = false;
-        }
-    }
-    for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(ui_sprites[0]); ++i) {
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, ui_sprites[i]))
-            ok = false;
-    }
-    int selection_sprite = game_info.selection_marker.sprite;
-    if (selection_sprite >= 0 && selection_sprite < NUMSPRITES &&
-        !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[selection_sprite])) {
-        ok = false;
-    }
-    if (map) {
-        for (int i = 0; i < map->decoration_count; ++i) {
-            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite_name))
-                ok = false;
-            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite2_name))
-                ok = false;
-            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].shadow_name))
-                ok = false;
-        }
-    }
-    for (int i = 0; i < unit_count; ++i) {
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root,
-                           units[i].core.sprite_name))
-            ok = false;
-        const char *shadow_name = units[i].info ? units[i].info->shadow_name : NULL;
-        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, shadow_name))
-            ok = false;
-        const mobjtype_t *info = units[i].info;
-        if (info && !sprite_cache_load_dark_colony(
-                        cache, renderer, data_root, info->hit_effect_name))
-            ok = false;
-    }
-    return ok;
-}
-
-static bool load_dropship_label(const AnimationFile *animation,
-                                            const char *label_name,
-                                            DropshipAnimation *out) {
-    const AnimationLabel *label = NULL;
-    int command_index = 0;
-
-    for (int i = 0; i < animation->label_count; ++i) {
-        if (strcmp(animation->labels[i].name, label_name) == 0) {
-            label = &animation->labels[i];
-            break;
-        }
-    }
-    if (!label || label->end < label->start ||
-        label->end - label->start + 1 > DROPSHIP_MAX_FRAMES) return false;
-
-    for (int frame_index = 0; frame_index < animation->aux_count; ++frame_index) {
-        int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
-        if (frame_index >= label->start && frame_index <= label->end) {
-            if (part_count > DROPSHIP_MAX_PARTS ||
-                command_index + part_count > animation->command_count) return false;
-            DropshipFrame *frame = &out->frames[out->frame_count++];
-            int raw_ticks = read_u16_le(
-                animation->aux_records + (size_t)frame_index * 164 + 2);
-            if (raw_ticks == 0) raw_ticks = 15;
-            int runtime_tics = ((raw_ticks + 3) * 19) / 100;
-            frame->duration_ms = (runtime_tics * 1000 + 15) / 30;
-            frame->part_count = part_count;
-            out->duration_ms += frame->duration_ms;
-            for (int part_index = 0; part_index < part_count; ++part_index) {
-                const AnimationCommand *command =
-                    &animation->commands[command_index + part_index];
-                DropshipPart *part = &frame->parts[part_index];
-                snprintf(part->sprite_name, sizeof(part->sprite_name),
-                         "SPRITES/%s.SPR", command->sprite);
-                for (char *p = part->sprite_name; *p; ++p)
-                    *p = (char)toupper((unsigned char)*p);
-                part->offset = (ivec2_t){ command->x, command->y };
-                part->sprite_frame = command->frame;
-                part->render_remap = command->remap;
-                part->render_intensity = command->intensity;
-                part->render_selector = command->layer;
-                part->flags = command->flags;
-            }
-        }
-        command_index += part_count;
-    }
-    out->valid = out->frame_count > 0 && out->duration_ms > 0;
-    return out->valid;
-}
-
-bool dropship_animation_from_sprites(const char *map_path,
-                                                 DropshipAnimations *out) {
-    if (!map_path || !out) return false;
-    memset(out, 0, sizeof(*out));
-
-    const char *scenario = strcasestr(map_path, "/SCENARIO/");
-    if (!scenario) return false;
-    size_t root_len = (size_t)(scenario - map_path);
-    if (root_len == 0 || root_len >= 900) return false;
-
-    char animation_path[1024];
-    snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/DROP.FIN",
-             (int)root_len, map_path);
-
-    AnimationFile animation = {0};
-    if (!animation_load(animation_path, &animation)) return false;
-
-    bool valid = load_dropship_label(&animation, "DROPMOVE0", &out->move) &&
-                 load_dropship_label(&animation, "DROPSTAND0", &out->stand) &&
-                 load_dropship_label(&animation, "DROPTWO", &out->unload);
-    animation_destroy(&animation);
-    return valid;
+    return DC_LoadSpriteWithAnimation(renderer, path, out, palette_out, NULL);
 }

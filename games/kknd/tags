@@ -40,7 +40,7 @@
 !_TAG_ROLE_DESCRIPTION!C!macro	undef	/undefined/
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
 $	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	e	enum:__anonf02e1ac70203	file:
-ACTOR_TYPES	games/kknd/g_game.c	/^static const actortype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const actortype_t[]	file:
+ACTOR_TYPES	games/kknd/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 GAME_INFO	games/kknd/g_game.c	/^static const gameinfo_t GAME_INFO = {$/;"	v	typeref:typename:const gameinfo_t	file:
 G_CustomUIDrawer	games/kknd/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,const mobj_t * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 G_CustomUIResponder	games/kknd/g_game.c	/^bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,const app_t * app,level_t * map,mobj_t * units,int unit_count,const SDL_Event * event)
@@ -127,7 +127,7 @@ lvl_asset	games/kknd/w_lvl.h	/^bool lvl_asset(const uint8_t *segment, size_t siz
 lvl_file_list	games/kknd/w_lvl.c	/^static bool lvl_file_list(const uint8_t *segment, size_t size, const char type[4],$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * segment,size_t size,const char type[4],uint32_t * list_start,uint32_t * list_end)
 map_data_destroy	games/kknd/w_lvl.c	/^void map_data_destroy(void *opaque) {$/;"	f	typeref:typename:void	signature:(void * opaque)
 map_data_destroy	games/kknd/w_lvl.h	/^void map_data_destroy(void *opaque);$/;"	p	typeref:typename:void	signature:(void * opaque)
-mobjinfo	games/kknd/g_game.c	/^const actortype_t *const mobjinfo = ACTOR_TYPES;$/;"	v	typeref:typename:const actortype_t * const
+mobjinfo	games/kknd/g_game.c	/^const mobjtype_t *const mobjinfo = ACTOR_TYPES;$/;"	v	typeref:typename:const mobjtype_t * const
 name	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940308	typeref:typename:const char *	file:
 num_mobjinfo	games/kknd/g_game.c	/^const int num_mobjinfo =$/;"	v	typeref:typename:const int
 offset_x	games/kknd/w_spr.c	/^    int offset_x;$/;"	m	struct:__anon1b3aca940108	typeref:typename:int	file:

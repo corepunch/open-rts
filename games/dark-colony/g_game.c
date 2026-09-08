@@ -7,6 +7,7 @@
 #include "dc_types.h"
 #include "sb_bar.h"
 #include "w_spr.h"
+#include "p_mission.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -17,18 +18,7 @@
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units);
-bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const level_t *map, const mobj_t *units, int unit_count,
-                                   spritecache_t *cache);
-bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
-                             uint32_t palette_out[256]);
 extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_t *out);
-
-void *load_mission(const char *map_path);
-void update_mission(void *ptr, level_t *map, mobj_t *units, int *unit_count,
-                                effect_t *effects, int max_effects,
-                                const gameinfo_t *game_info, hudtext_t *hud, float dt);
-void destroy_mission(void *mission);
 
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
@@ -429,7 +419,7 @@ bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
 void G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
                      effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
     if (!map || !map->mission) return;
-    update_mission(map->mission, map, (mobj_t *)mobjs, count,
+    update_mission(map, (mobj_t *)mobjs, count,
                                effects, max_effects, gameinfo, hud, dt);
 }
 
