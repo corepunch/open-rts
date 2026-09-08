@@ -429,8 +429,7 @@ bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
     if (!layers) return false;
     free(direction->layers);
     direction->layers = layers;
-    snprintf(direction->layers[0].sprite_name,
-             sizeof(direction->layers[0].sprite_name), ".");
+    direction->layers[0].sprite[0] = '.';
     direction->layers[0].lump = lump;
     direction->layers[0].intensity = 16;
     direction->layers[0].flags = flip ? RTS_FRAME_FLIP_X : 0;
@@ -458,6 +457,14 @@ static const spritesheet_t *sprite_layer_source(const spritecache_t *cache,
     return R_CacheLookup(cache, path);
 }
 
+static void sprite_layer_name(char out[9], const spritelayer_t *part) {
+    memcpy(out, part->sprite, sizeof(part->sprite));
+    out[sizeof(part->sprite)] = '\0';
+    for (int i = (int)sizeof(part->sprite) - 1; i >= 0 &&
+         (out[i] == '\0' || out[i] == ' '); --i) out[i] = '\0';
+    for (char *p = out; *p; ++p) *p = (char)toupper((unsigned char)*p);
+}
+
 static const spritelayer_t *sprite_body_part(const spritesheet_t *sprite, int frame,
                                             int rotation) {
     if (!sprite || !sprite->spritedef.spriteframes || frame < 0 ||
@@ -467,8 +474,10 @@ static const spritelayer_t *sprite_body_part(const spritesheet_t *sprite, int fr
         sprite->spritedef.spriteframes[frame].directions[rotation].layers;
     if (!parts) return NULL;
     const spritelayer_t *fallback = NULL;
-    for (const spritelayer_t *part = parts; part->sprite_name[0] != '\0'; ++part) {
-        if (strcmp(part->sprite_name, ".") != 0) continue;
+    for (const spritelayer_t *part = parts; part->sprite[0] != '\0'; ++part) {
+        char name[9];
+        sprite_layer_name(name, part);
+        if (strcmp(name, ".") != 0) continue;
         if (!fallback) fallback = part;
         if (part->layer == 1) return part;
     }
@@ -1134,9 +1143,11 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     const spritelayer_t *parts = spriteframe ?
         spriteframe->directions[rotation].layers : NULL;
     if (parts) {
-        for (const spritelayer_t *part = parts; part->sprite_name[0] != '\0'; ++part) {
+        for (const spritelayer_t *part = parts; part->sprite[0] != '\0'; ++part) {
+            char name[9];
+            sprite_layer_name(name, part);
             const spritesheet_t *source = sprite_layer_source(
-                cache, sprite, part->sprite_name);
+                cache, sprite, name);
             if (!source || !source->lumps || part->lump >= source->numlumps)
                 continue;
             irect_t source_rect = sprite_frame_rect(source, part->lump);
@@ -1144,13 +1155,13 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             uint32_t part_flags = (u->core.render_flags & ~RTS_FRAME_FLIP_X) |
                                   (part->flags & RTS_FRAME_FLIP_X);
             irect_t part_dst = {
-                (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
+                (int)lroundf(sx) + u->core.render_offset.x + part->x +
                     ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
-                (int)lroundf(sy) + u->core.render_offset.y + part->offset.y - source_rect.h,
+                (int)lroundf(sy) + u->core.render_offset.y + part->y - source_rect.h,
                 source_rect.w,
                 source_rect.h,
             };
-            int remap = strcmp(part->sprite_name, ".") == 0 ?
+            int remap = strcmp(name, ".") == 0 ?
                 u->core.render_remap : part->remap;
             if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
                                      part_flags, part->layer)) continue;

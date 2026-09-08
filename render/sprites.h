@@ -23,15 +23,23 @@ typedef struct {
     uint16_t frame_ms;
 } TileAnimation;
 
-typedef struct spritelayer_s {
-    ivec2_t offset;
-    uint16_t lump;
-    uint8_t remap;
-    uint8_t intensity;
-    uint8_t layer;
-    uint8_t flags;
-    char sprite_name[9];
+#define SPRITE_LAYER_NAME_SIZE 8
+#define SPRITE_FRAME_NAME_SIZE 16
+
+/* Dark Colony FIN draw-part records are packed native disk structures. */
+typedef struct __attribute__((packed)) {
+    char sprite[SPRITE_LAYER_NAME_SIZE];
+    int16_t lump;
+    int16_t x;
+    int16_t y;
+    int16_t remap;
+    int16_t intensity;
+    int16_t layer;
+    int16_t flags;
 } spritelayer_t;
+
+_Static_assert(sizeof(spritelayer_t) == 22,
+               "Dark Colony FIN draw-part layout must be 22 bytes");
 
 typedef struct spritedirection_s {
     int ticks;
@@ -39,7 +47,7 @@ typedef struct spritedirection_s {
 } spritedirection_t;
 
 typedef struct spriteframe_s {
-    char frame_name[17];
+    char frame_name[SPRITE_FRAME_NAME_SIZE + 1];
     spritedirection_t directions[MAX_SPRITE_ROTATIONS];
 } spriteframe_t;
 

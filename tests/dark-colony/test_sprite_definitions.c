@@ -5,6 +5,22 @@
 #include <stdio.h>
 
 int main(void) {
+    dc_fin_t fin = { 0 };
+    if (!W_LoadFin("data/DCOLONY/ANIMATE/TRSC.FIN", &fin) ||
+        fin.header->default_ticks != 29 || fin.header->frame_count != 472 ||
+        fin.header->label_count != 77 || fin.header->dependency_count != 5 ||
+        fin.layer_count != 596 || fin.frames[91].part_count != 3) {
+        fprintf(stderr, "FAIL: FIN header %u/%u/%u/%u layers=%d frame91=%u\n",
+            fin.header ? fin.header->default_ticks : 0,
+            fin.header ? fin.header->frame_count : 0,
+            fin.header ? fin.header->label_count : 0,
+            fin.header ? fin.header->dependency_count : 0,
+            fin.layer_count, fin.frames ? fin.frames[91].part_count : 0);
+        W_FreeFin(&fin);
+        return 1;
+    }
+    W_FreeFin(&fin);
+
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32,
                                                           SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
@@ -45,21 +61,21 @@ int main(void) {
     const spritelayer_t *fire_parts =
         sprite.spritedef.spriteframes[91].directions[2].layers;
     if (!fire_parts ||
-        strcmp(fire_parts[0].sprite_name, ".") != 0 ||
-        fire_parts[0].lump != 94 || fire_parts[0].offset.x != -159 ||
-        fire_parts[0].offset.y != 0 || fire_parts[0].layer != 1 ||
-        strcmp(fire_parts[1].sprite_name, ".") != 0 ||
-        fire_parts[1].lump != 171 || fire_parts[1].offset.x != -64 ||
-        fire_parts[1].offset.y != -28 || fire_parts[1].layer != 5 ||
+        fire_parts[0].sprite[0] != '.' || fire_parts[0].sprite[1] != '\0' ||
+        fire_parts[0].lump != 94 || fire_parts[0].x != -159 ||
+        fire_parts[0].y != 0 || fire_parts[0].layer != 1 ||
+        fire_parts[1].sprite[0] != '.' || fire_parts[1].sprite[1] != '\0' ||
+        fire_parts[1].lump != 171 || fire_parts[1].x != -64 ||
+        fire_parts[1].y != -28 || fire_parts[1].layer != 5 ||
         (fire_parts[1].flags & RTS_FRAME_FLIP_X) == 0 ||
-        strcmp(fire_parts[2].sprite_name, ".") != 0 ||
-        fire_parts[2].lump != 176 || fire_parts[2].offset.x != -43 ||
-        fire_parts[2].offset.y != -24 || fire_parts[2].layer != 5 ||
+        fire_parts[2].sprite[0] != '.' || fire_parts[2].sprite[1] != '\0' ||
+        fire_parts[2].lump != 176 || fire_parts[2].x != -43 ||
+        fire_parts[2].y != -24 || fire_parts[2].layer != 5 ||
         (fire_parts[2].flags & RTS_FRAME_FLIP_X) == 0 ||
-        strcmp(fire_parts[3].sprite_name, "BLAZ") != 0 ||
-        fire_parts[3].lump != 0 || fire_parts[3].offset.x != -56 ||
-        fire_parts[3].offset.y != 4 || fire_parts[3].layer != 3 ||
-        fire_parts[4].sprite_name[0] != '\0') {
+        strncasecmp(fire_parts[3].sprite, "BLAZ", 4) != 0 ||
+        fire_parts[3].lump != 0 || fire_parts[3].x != -56 ||
+        fire_parts[3].y != 4 || fire_parts[3].layer != 3 ||
+        fire_parts[4].sprite[0] != '\0') {
         fprintf(stderr, "FAIL: Trooper FIN frame preserves ordered multipart commands\n");
         valid = false;
     }

@@ -233,7 +233,7 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
         return false;
     }
     out->spritedef.spriteframes[0].directions[0].layers = layer;
-    snprintf(layer->sprite_name, sizeof(layer->sprite_name), ".");
+    layer->sprite[0] = '.';
     layer->lump = 0;
     layer->intensity = 16;
     out->frame_size = (isize2_t){ canvas_w, canvas_h };

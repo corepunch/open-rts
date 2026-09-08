@@ -17,9 +17,6 @@
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units);
-bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
-                                   const level_t *map, const mobj_t *units, int unit_count,
-                                   spritecache_t *cache);
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
                              uint32_t palette_out[256]);
 extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_t *out);
@@ -419,7 +416,7 @@ int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
                           const mobj_t *mobjs, int count, spritecache_t *cache) {
-    return load_dark_colony_unit_sprites(renderer, root, map, (const mobj_t *)mobjs, count, cache);
+    return R_PrecacheLevel(renderer, root, map, mobjs, count, cache);
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {

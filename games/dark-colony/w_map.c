@@ -477,7 +477,7 @@ static bool map_file_load_o16(MapFile *map) {
 }
 
 static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rate, int amount,
-                                              const VentPlacement *placement) {
+                                              const dc_fin_t *fin) {
     if (!map || !L_Contains(map, x, y)) return false;
     if (amount <= 0) amount = 1;
 
@@ -495,9 +495,10 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->decoration_index = -1;
     vent->smoke_decoration_index = -1;
 
-    if (rate > 0 && map->decoration_count + 2 <= MAX_DECORATIONS) {
+    const dc_fin_label_t *animation = W_FinLabel(fin, "VENTSTAND0");
+    if (rate > 0 && animation && map->decoration_count < MAX_DECORATIONS) {
         mapdecoration_t *decorations = realloc(map->decorations,
-                                             (size_t)(map->decoration_count + 2) * sizeof(mapdecoration_t));
+                                             (size_t)(map->decoration_count + 1) * sizeof(mapdecoration_t));
         if (decorations) {
             map->decorations = decorations;
             mapdecoration_t *dec = &map->decorations[map->decoration_count++];
@@ -505,35 +506,17 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
             dec->cell = (ivec2_t){ x, y };
             dec->footprint = (isize2_t){ 1, 1 };
             dec->center_anchor = true;
-            if (placement && placement->valid) {
-                dec->has_sprite_pivot = true;
-                dec->sprite_pivot = (ivec2_t){ -placement->glow_left, -placement->glow_top };
-            }
-            dec->frame_index = 0;
-            dec->render_flags = RTS_FRAME_ADDITIVE;
-            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/VENT2.SPR");
-            vent->decoration_index = map->decoration_count - 1;
-
-            dec = &map->decorations[map->decoration_count++];
-            memset(dec, 0, sizeof(*dec));
-            dec->cell = (ivec2_t){ x, y };
-            dec->footprint = (isize2_t){ 1, 1 };
-            dec->center_anchor = true;
-            dec->has_sprite_pivot = true;
-            dec->sprite_pivot = (ivec2_t){ 5, 4 };
             dec->frame_index = -1;
-            if (placement && placement->valid) {
-                dec->animation_frame_count = placement->smoke_frame_count;
-                for (int i = 0; i < dec->animation_frame_count; ++i) {
-                    dec->animation_frames[i].sprite_pivot = placement->smoke_frames[i].pivot;
-                    dec->animation_frames[i].sprite_frame = placement->smoke_frames[i].sprite_frame;
-                    dec->animation_frames[i].duration_ms = placement->smoke_frames[i].duration_ms;
-                }
+            dec->animation_frame_count = animation->end - animation->start + 1;
+            if (dec->animation_frame_count > MAP_DECORATION_MAX_ANIMATION_FRAMES)
+                dec->animation_frame_count = MAP_DECORATION_MAX_ANIMATION_FRAMES;
+            for (int i = 0; i < dec->animation_frame_count; ++i) {
+                int frame = animation->start + i;
+                dec->animation_frames[i].sprite_frame = frame;
+                dec->animation_frames[i].duration_ms = W_FinFrameDuration(fin, frame);
             }
-            dec->render_flags = RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
-            dec->render_selector = 5;
-            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "SPRITES/PUFF.SPR");
-            vent->smoke_decoration_index = map->decoration_count - 1;
+            snprintf(dec->sprite_name, sizeof(dec->sprite_name), "VENT");
+            vent->decoration_index = map->decoration_count - 1;
         }
     }
     return true;
@@ -564,13 +547,13 @@ static bool append_dark_colony_beacon(level_t *map, int x, int y, int type, int 
 
 static void load_dark_colony_resource_vents_from_scenario(const ScenarioFile *scenario,
                                                           level_t *map,
-                                                          const VentPlacement *placement) {
+                                                          const dc_fin_t *fin) {
     if (!scenario || !map) return;
     for (int i = 0; i < scenario->object_count; ++i) {
         const ScenarioObject *object = &scenario->objects[i];
         if (object->type == 40 && object->value_count >= 5) {
             append_dark_colony_resource_vent(map, object->x, object->y,
-                                             object->team, object->status, placement);
+                                             object->team, object->status, fin);
         }
     }
 }
@@ -734,8 +717,8 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     replace_extension(scn_path, sizeof(scn_path), native->map.path, ".SCN");
     native->has_scenario = scenario_load(scn_path, &native->scenario);
     if (native->has_scenario) {
-        VentPlacement vent_placement = {0};
-        vent_placement_from_sprites(native->map.path, &vent_placement);
+        dc_fin_t vent_fin = {0};
+        W_LoadFinForMap(native->map.path, "VENT", &vent_fin);
         char tileset_token[64] = { 0 };
         copy_trimmed_token(tileset_token, sizeof(tileset_token),
                            native->scenario.tileset_file,
@@ -745,7 +728,8 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         uppercase_trimmed_token(out->tileset_name, sizeof(out->tileset_name),
                                 tileset_token, strlen(tileset_token));
         load_dark_colony_camera_from_scenario(&native->scenario, out);
-        load_dark_colony_resource_vents_from_scenario(&native->scenario, out, &vent_placement);
+        load_dark_colony_resource_vents_from_scenario(&native->scenario, out, &vent_fin);
+        W_FreeFin(&vent_fin);
         load_dark_colony_beacons_from_scenario(&native->scenario, out);
         if (native->scenario.header_value_count > 3 &&
             native->scenario.header_values[3] > 0) {
