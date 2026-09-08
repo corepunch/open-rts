@@ -5,7 +5,6 @@
 #include "info.h"
 
 #include <ctype.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -186,69 +185,77 @@ static bool decode_spr(const dc_spr_t *spr, uint8_t *pixels, size_t pixel_count)
     return true;
 }
 
-static irect_t visible_bounds(const uint32_t *pixels, int width, irect_t frame) {
-    int left = frame.w, top = frame.h, right = -1, bottom = -1;
-    for (int y = 0; y < frame.h; ++y) for (int x = 0; x < frame.w; ++x) {
-        if (!(pixels[(frame.y + y) * width + frame.x + x] >> 24)) continue;
+static irect_t indexed_visible_bounds(const uint8_t *indices, int w, int h) {
+    int left = w, top = h, right = -1, bottom = -1;
+    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+        if (!indices[y * w + x]) continue;
         if (x < left) left = x;
         if (x > right) right = x;
         if (y < top) top = y;
         if (y > bottom) bottom = y;
     }
-    return right < left ? (irect_t){ 0, 0, frame.w, frame.h } :
+    return right < left ? (irect_t){ 0, 0, w, h } :
         (irect_t){ left, top, right - left + 1, bottom - top + 1 };
+}
+
+static void convert_vga_palette(uint32_t palette[256], const uint8_t *vga) {
+    palette[0] = 0;
+    for (int i = 1; i < 256; ++i)
+        palette[i] = 0xff000000u |
+            ((uint32_t)(vga[i * 3]     * 4 + 3) << 16) |
+            ((uint32_t)(vga[i * 3 + 1] * 4 + 3) << 8)  |
+             (uint32_t)(vga[i * 3 + 2] * 4 + 3);
 }
 
 static bool init_lumps(SDL_Renderer *renderer, const dc_spr_t *spr, spritesheet_t *out) {
     int count = spr->header->cell_count, max_w = 1, max_h = 1;
-    size_t decoded_size = 0;
+    size_t total = 0;
     for (int i = 0; i < count; ++i) {
-        if (spr->cells[i].width > max_w) max_w = spr->cells[i].width;
+        if (spr->cells[i].width  > max_w) max_w = spr->cells[i].width;
         if (spr->cells[i].height > max_h) max_h = spr->cells[i].height;
-        decoded_size += (size_t)spr->cells[i].width * spr->cells[i].height;
+        total += (size_t)spr->cells[i].width * spr->cells[i].height;
     }
-    uint8_t *decoded = calloc(decoded_size ? decoded_size : 1, 1);
-    int columns = (int)ceilf(sqrtf((float)count));
-    int atlas_w = columns * max_w, atlas_h = ((count + columns - 1) / columns) * max_h;
-    uint8_t *indices = calloc((size_t)atlas_w * atlas_h, 1);
-    uint32_t *rgba = calloc((size_t)atlas_w * atlas_h, sizeof(*rgba));
-    if (!decoded || !indices || !rgba || !decode_spr(spr, decoded, decoded_size)) goto fail;
-    for (int i = 0; i < 256; ++i) out->palette[i] = i ? 0xff000000u |
-        ((uint32_t)(spr->palette[i * 3] * 4 + 3) << 16) |
-        ((uint32_t)(spr->palette[i * 3 + 1] * 4 + 3) << 8) |
-        (uint32_t)(spr->palette[i * 3 + 2] * 4 + 3) : 0;
+
+    uint8_t *decoded = calloc(total ? total : 1, 1);
+    if (!decoded || !decode_spr(spr, decoded, total)) { free(decoded); return false; }
+
+    convert_vga_palette(out->palette, spr->palette);
+
     out->lumps = calloc((size_t)count, sizeof(*out->lumps));
-    if (!out->lumps) goto fail;
+    if (!out->lumps) { free(decoded); return false; }
     out->numlumps = count;
-    size_t source = 0;
+
+    size_t offset = 0;
     for (int i = 0; i < count; ++i) {
-        int x = i % columns * max_w, y = i / columns * max_h;
-        int width = spr->cells[i].width ? spr->cells[i].width : 1;
-        int height = spr->cells[i].height ? spr->cells[i].height : 1;
-        for (int row = 0; row < spr->cells[i].height; ++row)
-            memcpy(indices + (size_t)(y + row) * atlas_w + x,
-                   decoded + source + (size_t)row * spr->cells[i].width,
-                   spr->cells[i].width);
-        source += (size_t)spr->cells[i].width * spr->cells[i].height;
-        irect_t frame = { x, y, width, height };
-        V_IndexedToRGBA(rgba, indices, (size_t)atlas_w * atlas_h, out->palette);
-        out->lumps[i].bounds = visible_bounds(rgba, atlas_w, frame);
-        out->lumps[i].displacement = (ivec2_t){ spr->cells[i].dis_x, spr->cells[i].dis_y };
-        out->lumps[i].ground_point = (ivec2_t){ width / 2, height };
-        if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
-                                       frame, true, -1)) goto fail;
-        out->lumps[i].indices = malloc((size_t)width * height);
+        int w = spr->cells[i].width  ? spr->cells[i].width  : 1;
+        int h = spr->cells[i].height ? spr->cells[i].height : 1;
+        size_t pixels = (size_t)w * h;
+
+        out->lumps[i].indices = calloc(pixels, 1);
         if (!out->lumps[i].indices) goto fail;
-        for (int row = 0; row < height; ++row)
-            memcpy(out->lumps[i].indices + (size_t)row * width,
-                   indices + (size_t)(y + row) * atlas_w + x, (size_t)width);
+        memcpy(out->lumps[i].indices, decoded + offset,
+               (size_t)spr->cells[i].width * spr->cells[i].height);
+        offset += (size_t)spr->cells[i].width * spr->cells[i].height;
+
+        out->lumps[i].bounds       = indexed_visible_bounds(out->lumps[i].indices, w, h);
+        out->lumps[i].displacement = (ivec2_t){ spr->cells[i].dis_x, spr->cells[i].dis_y };
+        out->lumps[i].ground_point = (ivec2_t){ w / 2, h };
+
+        uint32_t *rgba = malloc(pixels * sizeof(*rgba));
+        if (!rgba) goto fail;
+        V_IndexedToRGBA(rgba, out->lumps[i].indices, pixels, out->palette);
+        bool ok = R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, w,
+                                            (irect_t){ 0, 0, w, h }, true, -1);
+        free(rgba);
+        if (!ok) goto fail;
     }
+
     out->frame_size = (isize2_t){ max_w, max_h };
     out->indexed = true;
-    free(decoded); free(indices); free(rgba);
+    free(decoded);
     return true;
 fail:
-    free(decoded); free(indices); free(rgba);
+    free(decoded);
     R_FreeSprite(out);
     return false;
 }
@@ -426,11 +433,7 @@ bool load_render_tables(const char *root, const char *tileset) {
     snprintf(relative, sizeof(relative), "SCENARIO/%s.BTS", tileset);
     M_PathJoin(path, sizeof(path), root, relative);
     if (!fread_file(path, &data, &size) || size < 8 + 768) goto fail;
-    const uint8_t *palette = (const uint8_t *)data + 8;
-    for (int i = 0; i < 256; ++i) render_palette[i] = i ? 0xff000000u |
-        ((uint32_t)(palette[i * 3] * 4 + 3) << 16) |
-        ((uint32_t)(palette[i * 3 + 1] * 4 + 3) << 8) |
-        (uint32_t)(palette[i * 3 + 2] * 4 + 3) : 0;
+    convert_vga_palette(render_palette, (const uint8_t *)data + 8);
     free(data);
     data = NULL;
     snprintf(relative, sizeof(relative), "%s.RMP", tileset);
