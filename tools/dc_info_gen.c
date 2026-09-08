@@ -86,6 +86,17 @@ typedef struct {
     int expl_deploy;
     int expl_work;
     int expl_death;
+    int ortu_run;
+    int ortu_die;
+    int slug_run;
+    int slug_die;
+    int slug_deploy;
+    int slug_retract;
+    int turr_die;
+    int tong_stand;
+    int tong_die;
+    int cent_stand;
+    int cent_die;
 } DcFinStateCounts;
 
 enum {
@@ -1048,6 +1059,35 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.expl_work = 2;
     counts.expl_death = fin_state_count_for_sequence(&expl_fin, "EXPLDIE");
 
+    char ortu_fin_path[1024], slug_fin_path[1024], turr_fin_path[1024];
+    char tong_fin_path[1024], cent_fin_path[1024];
+    snprintf(ortu_fin_path, sizeof(ortu_fin_path), "%s/ANIMATE/ORTU.FIN", root);
+    snprintf(slug_fin_path, sizeof(slug_fin_path), "%s/ANIMATE/SLUG.FIN", root);
+    snprintf(turr_fin_path, sizeof(turr_fin_path), "%s/ANIMATE/TURR.FIN", root);
+    snprintf(tong_fin_path, sizeof(tong_fin_path), "%s/ANIMATE/TONG.FIN", root);
+    snprintf(cent_fin_path, sizeof(cent_fin_path), "%s/ANIMATE/CENT.FIN", root);
+    DcFinAnimation ortu_fin2 = dc_load_fin_animation(ortu_fin_path, "ORTU");
+    DcFinAnimation slug_fin2 = dc_load_fin_animation(slug_fin_path, "SLUG");
+    DcFinAnimation turr_fin2 = dc_load_fin_animation(turr_fin_path, "TURR");
+    DcFinAnimation tong_fin2 = dc_load_fin_animation(tong_fin_path, "TONG");
+    DcFinAnimation cent_fin2 = dc_load_fin_animation(cent_fin_path, "CENT");
+    counts.ortu_run  = fin_state_count_for_sequence16(&ortu_fin2, "ORTUMOVE");
+    counts.ortu_die  = fin_state_count_for_sequence16(&ortu_fin2, "ORTUDIE");
+    counts.slug_run  = fin_state_count_for_sequence16(&slug_fin2, "SLUGMOVE");
+    counts.slug_die  = fin_state_count_for_sequence16(&slug_fin2, "SLUGDIE");
+    counts.slug_deploy  = fin_frame_count_for_label(&slug_fin2, "SLUGDEPLOY14");
+    counts.slug_retract = fin_frame_count_for_label(&slug_fin2, "SLUGRETRACT14");
+    counts.turr_die  = fin_frame_count_for_label(&turr_fin2, "TURRDIE0");
+    counts.tong_stand = fin_frame_count_for_label(&tong_fin2, "TONGSTAND0");
+    counts.tong_die   = fin_frame_count_for_label(&tong_fin2, "TONGDIE0");
+    counts.cent_stand = fin_frame_count_for_label(&cent_fin2, "CENTSTAND0");
+    counts.cent_die   = fin_frame_count_for_label(&cent_fin2, "CENTDIE0");
+    dc_free_fin_animation(&ortu_fin2);
+    dc_free_fin_animation(&slug_fin2);
+    dc_free_fin_animation(&turr_fin2);
+    dc_free_fin_animation(&tong_fin2);
+    dc_free_fin_animation(&cent_fin2);
+
     if (fin_first_body_frame(&trsc_fin, "TRSCFIREA0") != 80)
         die("TRSC.FIN FIREA0 does not resolve to expected first body frame", trsc_fin_path);
     if (fin_first_body_frame(&trsc_fin, "TRSCFIREB0") != 104)
@@ -1111,6 +1151,24 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 1; i <= counts->expl_work; ++i) fprintf(out, "    S_DC_EXPL_WORK%d,\n", i);
     for (int i = 1; i <= counts->expl_death; ++i) fprintf(out, "    S_DC_EXPL_DIE%d,\n", i);
     fprintf(out, "    S_DC_EXPL_CORPSE,\n");
+    fprintf(out, "    S_DC_TRSC_MUZZLE, S_DC_GRAY_MUZZLE, S_DC_REAP_MUZZLE,\n");
+    fprintf(out, "    S_DC_ORTU_STND,\n");
+    for (int i = 1; i <= counts->ortu_run;  ++i) fprintf(out, "    S_DC_ORTU_RUN%d,\n", i);
+    for (int i = 1; i <= counts->ortu_die;  ++i) fprintf(out, "    S_DC_ORTU_DIE%d,\n", i);
+    fprintf(out, "    S_DC_ORTU_CORPSE,\n");
+    fprintf(out, "    S_DC_SLUG_STND,\n");
+    for (int i = 1; i <= counts->slug_run;     ++i) fprintf(out, "    S_DC_SLUG_RUN%d,\n", i);
+    for (int i = 1; i <= counts->slug_die;     ++i) fprintf(out, "    S_DC_SLUG_DIE%d,\n", i);
+    fprintf(out, "    S_DC_SLUG_CORPSE,\n");
+    for (int i = 1; i <= counts->slug_deploy;  ++i) fprintf(out, "    S_DC_SLUG_DEPLOY%d,\n", i);
+    for (int i = 1; i <= counts->slug_retract; ++i) fprintf(out, "    S_DC_SLUG_RETRACT%d,\n", i);
+    fprintf(out, "    S_DC_TURR_STND, S_DC_TURR_FIRE,\n");
+    for (int i = 1; i <= counts->turr_die;   ++i) fprintf(out, "    S_DC_TURR_DIE%d,\n", i);
+    for (int i = 1; i <= counts->tong_stand; ++i) fprintf(out, "    S_DC_TONG_STND%d,\n", i);
+    for (int i = 1; i <= counts->tong_die;   ++i) fprintf(out, "    S_DC_TONG_DIE%d,\n", i);
+    for (int i = 1; i <= counts->cent_stand; ++i) fprintf(out, "    S_DC_CENT_STND%d,\n", i);
+    for (int i = 1; i <= counts->cent_die;   ++i) fprintf(out, "    S_DC_CENT_DIE%d,\n", i);
+    fprintf(out, "    S_DC_DOTT_STND,\n");
     fprintf(out, "    S_DC_ALIEN_MINDHIVE_STND, S_DC_ALIEN_WARHIVE_STND, S_DC_ALIEN_BRDRHIVE_STND, S_DC_ALIEN_BRDRHIVE2_STND, S_DC_ALIEN_MINDHIVE2_STND, S_DC_ALIEN_MINDHIVE3_STND, S_DC_ALIEN_RSCHIVE_STND,\n");
     fprintf(out, "    S_DC_DROPSHIP_APPROACH, S_DC_DROPSHIP_UNLOAD, S_DC_DROPSHIP_REPOSITION, S_DC_DROPSHIP_DEPART,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
@@ -1119,6 +1177,7 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const state_t states[NUMSTATES];\n");
     fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");
     fprintf(out, "extern const gameinfo_t game_info;\n\n");
+    fprintf(out, "const mobjtype_t *actor_type_by_id(uint16_t type_id);\n\n");
     fprintf(out, "void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);\n");
     fprintf(out, "void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);\n");
@@ -1670,6 +1729,11 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     int hubu = find_sprite(sprites, sprite_count, "SPRITES/HUBU.SPR");
     int towr = find_sprite(sprites, sprite_count, "SPRITES/TOWR.SPR");
     int albu = find_sprite(sprites, sprite_count, "SPRITES/ALBU.SPR");
+    int blaz = find_sprite(sprites, sprite_count, "SPRITES/BLAZ.SPR");
+    int ortu = find_sprite(sprites, sprite_count, "SPRITES/ORTU.SPR");
+    int slug = find_sprite(sprites, sprite_count, "SPRITES/SLUG.SPR");
+    int turr = find_sprite(sprites, sprite_count, "SPRITES/TURR.SPR");
+    int dott = find_sprite(sprites, sprite_count, "SPRITES/DOTT.SPR");
     char trsc_fin_path[1024];
     char gray_fin_path[1024];
     char reap_fin_path[1024];
@@ -1690,6 +1754,14 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     snprintf(hubu_fin_path, sizeof(hubu_fin_path), "%s/ANIMATE/HUBU.FIN", root);
     snprintf(towr_fin_path, sizeof(towr_fin_path), "%s/ANIMATE/TOWR.FIN", root);
     snprintf(albu_fin_path, sizeof(albu_fin_path), "%s/ANIMATE/ALBU.FIN", root);
+    char ortu_fin_path2[1024], slug_fin_path2[1024], turr_fin_path2[1024];
+    char tong_fin_path2[1024], cent_fin_path2[1024], dott_fin_path2[1024];
+    snprintf(ortu_fin_path2, sizeof(ortu_fin_path2), "%s/ANIMATE/ORTU.FIN", root);
+    snprintf(slug_fin_path2, sizeof(slug_fin_path2), "%s/ANIMATE/SLUG.FIN", root);
+    snprintf(turr_fin_path2, sizeof(turr_fin_path2), "%s/ANIMATE/TURR.FIN", root);
+    snprintf(tong_fin_path2, sizeof(tong_fin_path2), "%s/ANIMATE/TONG.FIN", root);
+    snprintf(cent_fin_path2, sizeof(cent_fin_path2), "%s/ANIMATE/CENT.FIN", root);
+    snprintf(dott_fin_path2, sizeof(dott_fin_path2), "%s/ANIMATE/DOTT.FIN", root);
     DcFinAnimation trsc_fin = dc_load_fin_animation(trsc_fin_path, "TRSC");
     DcFinAnimation gray_fin = dc_load_fin_animation(gray_fin_path, "GRAY");
     DcFinAnimation reap_fin = dc_load_fin_animation(reap_fin_path, "REAP");
@@ -1700,6 +1772,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     DcFinAnimation hubu_fin = dc_load_fin_animation(hubu_fin_path, "HUBU");
     DcFinAnimation towr_fin = dc_load_fin_animation(towr_fin_path, "TOWR");
     DcFinAnimation albu_fin = dc_load_fin_animation(albu_fin_path, "ALBU");
+    DcFinAnimation ortu_fin = dc_load_fin_animation(ortu_fin_path2, "ORTU");
+    DcFinAnimation slug_fin = dc_load_fin_animation(slug_fin_path2, "SLUG");
+    DcFinAnimation turr_fin = dc_load_fin_animation(turr_fin_path2, "TURR");
+    DcFinAnimation tong_fin = dc_load_fin_animation(tong_fin_path2, "TONG");
+    DcFinAnimation cent_fin = dc_load_fin_animation(cent_fin_path2, "CENT");
+    DcFinAnimation dott_fin = dc_load_fin_animation(dott_fin_path2, "DOTT");
     const DcFinDrawPart *alien_mindhive = fin_first_body_part(&albu_fin, "MINDHIVSTAND0");
     const DcFinDrawPart *alien_warhive = fin_first_body_part(&albu_fin, "WARHIVESTAND0");
     const DcFinDrawPart *alien_brdrhive = fin_first_body_part(&albu_fin, "BRDRHIVSTAND0");
@@ -1854,6 +1932,50 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", "EXPL", "DIE",
                        counts->expl_death, 0, 3, 4, "A_DC_Fall", "S_DC_EXPL_CORPSE", false);
     write_fin_corpse(out, sprites[expl].symbol, &expl_fin, "EXPLDIE", counts->expl_death - 1, 0, false);
+
+    write_muzzle(out, sprites[blaz].symbol, 0, NULL, NULL);
+    write_muzzle(out, sprites[blaz].symbol, 0, NULL, NULL);
+    write_muzzle16(out, sprites[blaz].symbol, 0, NULL, NULL);
+
+    f16_fin_state(out, sprites[ortu].symbol, &ortu_fin, "ORTUSTAND", "ORTUSHUF", 0, 0, -1,
+                  "A_None", "S_DC_ORTU_STND", 1);
+    write_fin_sequence16(out, sprites[ortu].symbol, &ortu_fin, "ORTUMOVE", "ORTU", "RUN",
+                         counts->ortu_run, 0, 3, 2, "A_Walk", "S_DC_ORTU_RUN1", false);
+    write_fin_sequence16(out, sprites[ortu].symbol, &ortu_fin, "ORTUDIE", "ORTU", "DIE",
+                         counts->ortu_die, 0, 3, 4, "A_DC_Fall", "S_DC_ORTU_CORPSE", false);
+    write_fin_corpse16(out, sprites[ortu].symbol, &ortu_fin, "ORTUDIE", counts->ortu_die - 1, 0);
+
+    f16_fin_state(out, sprites[slug].symbol, &slug_fin, "SLUGSTAND", "SLUGSHUF", 0, 0, -1,
+                  "A_None", "S_DC_SLUG_STND", 1);
+    write_fin_sequence16(out, sprites[slug].symbol, &slug_fin, "SLUGMOVE", "SLUG", "RUN",
+                         counts->slug_run, 0, 3, 2, "A_Walk", "S_DC_SLUG_RUN1", false);
+    write_fin_sequence16(out, sprites[slug].symbol, &slug_fin, "SLUGDIE", "SLUG", "DIE",
+                         counts->slug_die, 0, 3, 4, "A_DC_Fall", "S_DC_SLUG_CORPSE", false);
+    write_fin_corpse16(out, sprites[slug].symbol, &slug_fin, "SLUGDIE", counts->slug_die - 1, 0);
+    write_fin_build_sequence(out, sprites, sprite_count, &slug_fin,
+                             "SLUGDEPLOY14", "SLUG_DEPLOY", "S_DC_SLUG_DEPLOY1", 5);
+    write_fin_build_sequence(out, sprites, sprite_count, &slug_fin,
+                             "SLUGRETRACT14", "SLUG_RETRACT", "S_NULL", 5);
+
+    f16_fin_state(out, sprites[turr].symbol, &turr_fin, "TURRSTAND", "TURRSHUF", 0, 0, -1,
+                  "A_None", "S_DC_TURR_STND", 1);
+    f16_fin_state(out, sprites[turr].symbol, &turr_fin, "TURRFIRE", NULL, 0, 0, 2,
+                  "A_Attack", "S_DC_TURR_STND", 3);
+    write_fin_build_sequence(out, sprites, sprite_count, &turr_fin,
+                             "TURRDIE0", "TURR_DIE", "S_NULL", 4);
+
+    write_fin_build_sequence(out, sprites, sprite_count, &tong_fin,
+                             "TONGSTAND0", "TONG_STND", "S_DC_TONG_STND1", 1);
+    write_fin_build_sequence(out, sprites, sprite_count, &tong_fin,
+                             "TONGDIE0", "TONG_DIE", "S_NULL", 4);
+
+    write_fin_build_sequence(out, sprites, sprite_count, &cent_fin,
+                             "CENTSTAND0", "CENT_STND", "S_DC_CENT_STND1", 1);
+    write_fin_build_sequence(out, sprites, sprite_count, &cent_fin,
+                             "CENTDIE0", "CENT_DIE", "S_NULL", 4);
+
+    fprintf(out, "    { %s, 0, -1, A_None, S_DC_DOTT_STND, 1, 0 },\n", sprites[dott].symbol);
+
     f1_fin_raw_state(out, sprites[albu].symbol, alien_mindhive, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_warhive, "S_NULL");
     f1_fin_raw_state(out, sprites[albu].symbol, alien_brdrhive, "S_NULL");
@@ -1869,19 +1991,19 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 
     fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");
     fprintf(out, "    {0},\n");
-    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 1, S_DC_TRSC_STND, 800, S_DC_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TRSC_ATK_SELECT, S_DC_TRSC_DIE1, S_DC_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_TRSC_MUZZLE, 0 },\n");
+    fprintf(out, "    { 2, S_DC_GRAY_STND, 800, S_DC_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_GRAY_ATK1, S_DC_GRAY_DIE1, S_DC_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_GRAY_MUZZLE, 0 },\n");
     fprintf(out, "    { 3, S_DC_EXPL_STND, 800, S_DC_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_EXPL_DIE1, S_DC_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 2, S_DC_REAP_STND, 800, S_DC_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_REAP_ATK1, S_DC_REAP_DIE1, S_DC_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_DC_REAP_MUZZLE, 0 },\n");
     fprintf(out, "    { 3, S_DC_BARR_STND, 400, S_DC_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_BARR_DIE1, S_DC_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 4, S_DC_SARG_STND, 800, S_DC_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SARG_DIE1, S_DC_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 5, S_DC_SCGM_STND, 800, S_DC_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SCGM_DIE1, S_DC_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 0, S_DC_ORTU_STND, 800, S_DC_ORTU_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_ORTU_DIE1, S_DC_ORTU_DIE1, 0, 5, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 0, S_DC_SLUG_STND, 800, S_DC_SLUG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_SLUG_DIE1, S_DC_SLUG_DIE1, 0, 5, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 0, S_DC_TURR_STND, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_DC_TURR_FIRE, S_DC_TURR_DIE1, S_DC_TURR_DIE1, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 0, S_DC_DROPSHIP_APPROACH, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 1, 16, 32, 100, 0, 0, MF_RENDERABLE|MF_FLY, S_NULL, S_NULL, FIXED_ONE },\n");
-    fprintf(out, "    { 0, S_NULL, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 0, S_NULL, 300, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 0, S_DC_TONG_STND1, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_DC_TONG_DIE1, S_DC_TONG_DIE1, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
+    fprintf(out, "    { 0, S_DC_DOTT_STND, 300, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "};\n\n");
     fprintf(out, "const gameinfo_t game_info = {\n");
     fprintf(out, "    sprnames,\n");
@@ -1905,6 +2027,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     dc_free_fin_animation(&hubu_fin);
     dc_free_fin_animation(&towr_fin);
     dc_free_fin_animation(&albu_fin);
+    dc_free_fin_animation(&ortu_fin);
+    dc_free_fin_animation(&slug_fin);
+    dc_free_fin_animation(&turr_fin);
+    dc_free_fin_animation(&tong_fin);
+    dc_free_fin_animation(&cent_fin);
+    dc_free_fin_animation(&dott_fin);
 }
 
 int main(int argc, char **argv) {
