@@ -152,28 +152,59 @@ helpers instead of open-coding arithmetic on their individual components.
 - Same principle applies to any new struct in the codebase: group logically
   related fields, then write helpers that operate on the whole group.
 
-## Game and Network Architecture
+## Architecture: GZDoom is the primary reference
 
-We base our game loop, object thinker model, and network architecture on the
-Doom/Heretic/Hexen engine family (id Software / Raven Software, 1993–1996).
+**`reference/GZDoom/` is the first and foremost source of architecture.** When
+any engine subsystem is not structured the way GZDoom does it, redo it to match
+GZDoom's design. This applies to resource management, sprite/texture ownership,
+palette handling, rendering pipeline, and any other structural question. When in
+doubt, read the GZDoom source first and follow its patterns.
+
 Reference source code lives in `reference/` (git-ignored):
 
 ```
+reference/GZDoom/    — PRIMARY reference for all architecture questions
 reference/DOOM/      — Doom / Doom II source (id Software)
 reference/Heretic/   — Heretic source (Raven Software)
 reference/Hexen/     — Hexen source (Raven Software)
-reference/GZDoom/    — primary modern sprite/texture/rendering reference
 reference/DOOM95/source/ — Doom95 source reconstruction (reference only)
 reference/DOOM95/dump/   — Doom95 debug info and decompilation evidence
 ```
 
-Use GZDoom as the main reference for modern rendering architecture, especially
-sprite images, texture ownership, palette translations, materials, and GPU
-resource caching. The pinned checkout and relevant source paths are documented
-in `REFERENCES.md`. Follow its separation between engine-owned source images,
-sprite frame/rotation definitions, and renderer-owned hardware textures: game
-loaders convert native formats into the common image representation and do not
-leave format callbacks or opaque native sprite data in renderer structures.
+The pinned checkout and relevant source paths are documented in `REFERENCES.md`.
+
+### Resource management: WAD-style in-memory lumps
+
+Follow GZDoom's resource management model. The target architecture:
+
+1. **Store sprites as 8-bit indexed data**, not pre-converted RGBA. Allocate a
+   contiguous memory region (like an in-memory WAD file) and load all sprite
+   data there in its native indexed format.
+2. **Each sprite frame is its own lump.** Break multi-frame sprite sheets into
+   individual lumps, just as Doom stores each sprite rotation as a separate WAD
+   lump (e.g. `TROOA1`, `TROOA2`). No atlas packing at load time.
+3. **Convert to RGBA only at render time** by applying the active palette (or
+   palette translation). The palette is a render-time concern, not a load-time
+   concern.
+4. **Lump assignment should be trivial.** A function like `init_lumps()` should
+   be a few lines that point each lump at its region of the raw data and record
+   its dimensions and offsets — not 50 lines of atlas layout, index blitting,
+   RGBA conversion, visible-bounds computation, and texture upload all tangled
+   together.
+
+This separation (raw indexed data → lump registry → render-time palette
+application → GPU texture) mirrors GZDoom's `FImageSource` → `FGameTexture` →
+`FHardwareTexture` pipeline. Game loaders produce source images; the renderer
+owns the hardware resources and palette application.
+
+### Rendering and texture ownership
+
+Follow GZDoom's separation between engine-owned source images, sprite
+frame/rotation definitions, and renderer-owned hardware textures: game loaders
+convert native formats into the common image representation and do not leave
+format callbacks or opaque native sprite data in renderer structures.
+
+### Simulation architecture
 
 Use the original Doom/Heretic/Hexen sources as the primary reference for game
 simulation, state machines, thinkers, fixed-point math, and lock-step timing.
