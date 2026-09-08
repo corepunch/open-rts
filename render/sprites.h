@@ -79,6 +79,7 @@ typedef struct spritesheet_s {
     uint32_t palette[256];
     int indexed_blend_selector;
     const uint8_t *indexed_blend_table;
+    uint8_t *pixel_data;
 } spritesheet_t;
 
 typedef struct tileset_s {

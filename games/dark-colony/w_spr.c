@@ -207,7 +207,7 @@ static void convert_vga_palette(uint32_t palette[256], const uint8_t *vga) {
              (uint32_t)(vga[i * 3 + 2] * 4 + 3);
 }
 
-static bool init_lumps(SDL_Renderer *renderer, const dc_spr_t *spr, spritesheet_t *out) {
+static bool init_lumps(const dc_spr_t *spr, spritesheet_t *out) {
     int count = spr->header->cell_count, max_w = 1, max_h = 1;
     size_t total = 0;
     for (int i = 0; i < count; ++i) {
@@ -216,48 +216,36 @@ static bool init_lumps(SDL_Renderer *renderer, const dc_spr_t *spr, spritesheet_
         total += (size_t)spr->cells[i].width * spr->cells[i].height;
     }
 
-    uint8_t *decoded = calloc(total ? total : 1, 1);
-    if (!decoded || !decode_spr(spr, decoded, total)) { free(decoded); return false; }
+    out->pixel_data = calloc(total ? total : 1, 1);
+    if (!out->pixel_data || !decode_spr(spr, out->pixel_data, total)) {
+        free(out->pixel_data);
+        out->pixel_data = NULL;
+        return false;
+    }
 
     convert_vga_palette(out->palette, spr->palette);
 
     out->lumps = calloc((size_t)count, sizeof(*out->lumps));
-    if (!out->lumps) { free(decoded); return false; }
+    if (!out->lumps) return false;
     out->numlumps = count;
 
     size_t offset = 0;
     for (int i = 0; i < count; ++i) {
         int w = spr->cells[i].width  ? spr->cells[i].width  : 1;
         int h = spr->cells[i].height ? spr->cells[i].height : 1;
-        size_t pixels = (size_t)w * h;
 
-        out->lumps[i].indices = calloc(pixels, 1);
-        if (!out->lumps[i].indices) goto fail;
-        memcpy(out->lumps[i].indices, decoded + offset,
-               (size_t)spr->cells[i].width * spr->cells[i].height);
-        offset += (size_t)spr->cells[i].width * spr->cells[i].height;
-
+        out->lumps[i].indices      = out->pixel_data + offset;
+        out->lumps[i].rect         = (irect_t){ 0, 0, w, h };
         out->lumps[i].bounds       = indexed_visible_bounds(out->lumps[i].indices, w, h);
         out->lumps[i].displacement = (ivec2_t){ spr->cells[i].dis_x, spr->cells[i].dis_y };
         out->lumps[i].ground_point = (ivec2_t){ w / 2, h };
 
-        uint32_t *rgba = malloc(pixels * sizeof(*rgba));
-        if (!rgba) goto fail;
-        V_IndexedToRGBA(rgba, out->lumps[i].indices, pixels, out->palette);
-        bool ok = R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, w,
-                                            (irect_t){ 0, 0, w, h }, true, -1);
-        free(rgba);
-        if (!ok) goto fail;
+        offset += (size_t)spr->cells[i].width * spr->cells[i].height;
     }
 
     out->frame_size = (isize2_t){ max_w, max_h };
     out->indexed = true;
-    free(decoded);
     return true;
-fail:
-    free(decoded);
-    R_FreeSprite(out);
-    return false;
 }
 
 static void fixed_name(char out[17], const char *source, size_t length) {
@@ -399,7 +387,7 @@ static bool paired_paths(const char *path, char fin_path[1024], char spr_path[10
     return true;
 }
 
-bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path,
+bool load_dark_colony_sprite(const char *path,
                              spritesheet_t *out, uint32_t palette_out[256]) {
     memset(out, 0, sizeof(*out));
     char fin_path[1024], spr_path[1024], stem[9];
@@ -407,7 +395,7 @@ bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path,
     dc_spr_t spr = {0};
     paired_paths(path, fin_path, spr_path);
     if (fin_path[0]) W_LoadFin(fin_path, &fin);
-    if (!load_spr(spr_path, &spr) || !init_lumps(renderer, &spr, out)) goto fail;
+    if (!load_spr(spr_path, &spr) || !init_lumps(&spr, out)) goto fail;
     path_stem(stem, spr_path);
     if (!init_definitions(out, fin.data ? &fin : NULL, stem)) goto fail;
     if (palette_out) memcpy(palette_out, out->palette, sizeof(out->palette));
@@ -477,15 +465,14 @@ static bool resolve_sprite(char out[1024], const char *root, const char *name) {
     return false;
 }
 
-static bool cache_sprite(spritecache_t *cache, SDL_Renderer *renderer,
-                         const char *root, const char *name) {
+static bool cache_sprite(spritecache_t *cache, const char *root, const char *name) {
     if (!name || !name[0] || R_CacheFind(cache, name)) return true;
     if (cache->count >= MAX_DECORATION_SPRITES) return false;
     char path[1024];
     if (!resolve_sprite(path, root, name)) return false;
     cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
-    if (!load_dark_colony_sprite(renderer, path, &entry->sprite, NULL)) return false;
+    if (!load_dark_colony_sprite(path, &entry->sprite, NULL)) return false;
     cache->count++;
 
     char fin_path[1024], spr_path[1024];
@@ -498,7 +485,7 @@ static bool cache_sprite(spritecache_t *cache, SDL_Renderer *renderer,
         fixed_name(dependency, fin.dependencies[i].name, SPRITE_LAYER_NAME_SIZE);
         for (char *c = dependency; *c; ++c) *c = (char)toupper((unsigned char)*c);
         snprintf(relative, sizeof(relative), "SPRITES/%s.SPR", dependency);
-        if (!cache_sprite(cache, renderer, root, relative)) ok = false;
+        if (!cache_sprite(cache, root, relative)) ok = false;
     }
     W_FreeFin(&fin);
     return ok;
@@ -506,19 +493,20 @@ static bool cache_sprite(spritecache_t *cache, SDL_Renderer *renderer,
 
 bool R_PrecacheLevel(SDL_Renderer *renderer, const char *root, const level_t *map,
                      const mobj_t *units, int unit_count, spritecache_t *cache) {
+    (void)renderer;
     bool ok = true;
     memset(cache, 0, sizeof(*cache));
     for (int i = 0; map && i < map->decoration_count; ++i) {
-        ok &= cache_sprite(cache, renderer, root, map->decorations[i].sprite_name);
-        ok &= cache_sprite(cache, renderer, root, map->decorations[i].sprite2_name);
-        ok &= cache_sprite(cache, renderer, root, map->decorations[i].sprite3_name);
-        ok &= cache_sprite(cache, renderer, root, map->decorations[i].shadow_name);
+        ok &= cache_sprite(cache, root, map->decorations[i].sprite_name);
+        ok &= cache_sprite(cache, root, map->decorations[i].sprite2_name);
+        ok &= cache_sprite(cache, root, map->decorations[i].sprite3_name);
+        ok &= cache_sprite(cache, root, map->decorations[i].shadow_name);
     }
     for (int i = 0; i < unit_count; ++i) {
-        ok &= cache_sprite(cache, renderer, root, units[i].core.sprite_name);
+        ok &= cache_sprite(cache, root, units[i].core.sprite_name);
         if (units[i].info) {
-            ok &= cache_sprite(cache, renderer, root, units[i].info->shadow_name);
-            ok &= cache_sprite(cache, renderer, root, units[i].info->hit_effect_name);
+            ok &= cache_sprite(cache, root, units[i].info->shadow_name);
+            ok &= cache_sprite(cache, root, units[i].info->hit_effect_name);
         }
     }
     static const char *interface_sprites[] = {
@@ -526,6 +514,6 @@ bool R_PrecacheLevel(SDL_Renderer *renderer, const char *root, const level_t *ma
         "INTRFACE/SHUMANE.SPR", "SPRITES/BEAC.SPR"
     };
     for (size_t i = 0; i < sizeof(interface_sprites) / sizeof(*interface_sprites); ++i)
-        ok &= cache_sprite(cache, renderer, root, interface_sprites[i]);
+        ok &= cache_sprite(cache, root, interface_sprites[i]);
     return ok;
 }

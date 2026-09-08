@@ -29,6 +29,8 @@ SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int
 bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
                               const uint32_t *pixels, int source_stride,
                               irect_t source, bool blend, int translation);
+SDL_Texture *R_EnsureLumpTexture(SDL_Renderer *renderer,
+                                 const spritesheet_t *sheet, int frame);
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t dst, uint32_t flags, int selector);
 bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
