@@ -25,6 +25,14 @@ typedef struct __attribute__((packed)) {
     uint16_t dis_y;
 } dc_spr_cell_t;
 
+/* WAD cell lump layout: this header followed immediately by width*height indexed pixels. */
+typedef struct __attribute__((packed)) {
+    uint16_t width;
+    uint16_t height;
+    uint16_t dis_x;
+    uint16_t dis_y;
+} dc_wad_cell_t;
+
 typedef struct {
     void *data;
     size_t size;
@@ -209,46 +217,7 @@ static void convert_vga_palette(uint32_t palette[256], const uint8_t *vga) {
              (uint32_t)(vga[i * 3 + 2] * 4 + 3);
 }
 
-static bool init_lumps(const dc_spr_t *spr, spritesheet_t *out) {
-    int count = spr->header->cell_count, max_w = 1, max_h = 1;
-    size_t total = 0;
-    for (int i = 0; i < count; ++i) {
-        if (spr->cells[i].width  > max_w) max_w = spr->cells[i].width;
-        if (spr->cells[i].height > max_h) max_h = spr->cells[i].height;
-        total += (size_t)spr->cells[i].width * spr->cells[i].height;
-    }
-
-    out->pixel_data = calloc(total ? total : 1, 1);
-    if (!out->pixel_data || !decode_spr(spr, out->pixel_data, total)) {
-        free(out->pixel_data);
-        out->pixel_data = NULL;
-        return false;
-    }
-
-    convert_vga_palette(out->palette, spr->palette);
-
-    out->lumps = calloc((size_t)count, sizeof(*out->lumps));
-    if (!out->lumps) return false;
-    out->numlumps = count;
-
-    size_t offset = 0;
-    for (int i = 0; i < count; ++i) {
-        int w = spr->cells[i].width  ? spr->cells[i].width  : 1;
-        int h = spr->cells[i].height ? spr->cells[i].height : 1;
-
-        out->lumps[i].indices      = out->pixel_data + offset;
-        out->lumps[i].rect         = (irect_t){ 0, 0, w, h };
-        out->lumps[i].bounds       = indexed_visible_bounds(out->lumps[i].indices, w, h);
-        out->lumps[i].displacement = (ivec2_t){ spr->cells[i].dis_x, spr->cells[i].dis_y };
-        out->lumps[i].ground_point = (ivec2_t){ w / 2, h };
-
-        offset += (size_t)spr->cells[i].width * spr->cells[i].height;
-    }
-
-    out->frame_size = (isize2_t){ max_w, max_h };
-    out->indexed = true;
-    return true;
-}
+static bool W_ParseFin(const void *data, size_t size, dc_fin_t *fin);
 
 static void fixed_name(char out[17], const char *source, size_t length) {
     memcpy(out, source, length);
@@ -266,101 +235,85 @@ static void path_stem(char out[9], const char *path) {
     out[length] = '\0';
 }
 
-static bool split_direction(const dc_fin_label_t *label, char base[17], int *direction) {
+/* Parse "{base}{direction_number}" from a FIN label name.
+   Returns false if the name has no trailing digits or direction is out of range. */
+static bool parse_fin_dir(const char raw[SPRITE_FRAME_NAME_SIZE],
+                           char base[17], int *direction) {
     char name[17];
-    fixed_name(name, label->name, SPRITE_FRAME_NAME_SIZE);
-    int end = (int)strlen(name), start = end;
-    while (start > 0 && isdigit((unsigned char)name[start - 1])) start--;
-    if (start == end) return false;
-    *direction = atoi(name + start);
-    memcpy(base, name, (size_t)start);
-    base[start] = '\0';
-    return *direction >= 0 && *direction < 16;
-}
-
-static const dc_fin_label_t *direction_label(const dc_fin_t *fin,
-                                              const char *base, int direction) {
-    char name[17];
-    snprintf(name, sizeof(name), "%s%d", base, direction);
-    return W_FinLabel(fin, name);
-}
-
-static bool sixteen_facing_block(const dc_fin_t *fin, int first) {
-    if (first + 16 > fin->header->label_count) return false;
-    int length = fin->labels[first].end - fin->labels[first].start;
-    for (int i = 0; i < 16; ++i) {
-        char base[17];
-        int direction;
-        if (!split_direction(&fin->labels[first + i], base, &direction) ||
-            direction != (i ? 16 - i : 0) ||
-            fin->labels[first + i].end - fin->labels[first + i].start != length)
-            return false;
-    }
+    fixed_name(name, raw, SPRITE_FRAME_NAME_SIZE);
+    int len = (int)strlen(name), cut = len;
+    while (cut > 0 && isdigit((unsigned char)name[cut - 1])) cut--;
+    if (cut == len || cut == 0) return false;
+    *direction = atoi(name + cut);
+    if (*direction < 0 || *direction >= 16) return false;
+    memcpy(base, name, (size_t)cut); base[cut] = '\0';
     return true;
 }
 
-static bool has_sixteen_directions(const dc_fin_t *fin) {
-    for (int i = 0; i < fin->header->label_count; ++i)
-        if (sixteen_facing_block(fin, i)) return true;
-    return false;
+/* First lump in ns_sprites whose name equals the (case-insensitive) given name. */
+static int find_label_first_lump(const char *name) {
+    char upper[WAD_NAME_SIZE] = {0};
+    for (int i = 0; i < WAD_NAME_SIZE && name[i]; i++)
+        upper[i] = (char)toupper((unsigned char)name[i]);
+    for (int i = 0; i < numlumps; i++)
+        if (lumpinfo[i].ns == ns_sprites &&
+            memcmp(lumpinfo[i].name, upper, WAD_NAME_SIZE) == 0)
+            return i;
+    return -1;
 }
 
-static bool install_fin_frame(spritesheet_t *sheet, int logical, int rotation,
-                              const dc_fin_t *fin, int native, const char *stem) {
-    int count = 0;
-    const spritelayer_t *source = W_FinFrameLayers(fin, native, &count);
-    if (!source || !count) return false;
-    spritelayer_t *layers = calloc((size_t)count + 1, sizeof(*layers));
-    if (!layers) return false;
-    for (int i = 0; i < count; ++i) {
-        layers[i] = source[i];
-        char name[17];
-        fixed_name(name, source[i].sprite, SPRITE_LAYER_NAME_SIZE);
-        if (strcasecmp(name, stem) == 0) {
-            memset(layers[i].sprite, 0, sizeof(layers[i].sprite));
-            layers[i].sprite[0] = '.';
-        }
+/* Build spritedef from WAD FIN label lumps.  For each direction-0 label, the
+   WAD already holds consecutive same-name lumps for every step and rotation
+   (registered by DC_PopulateWAD / register_fin).  We copy each step's layer
+   data from the lump and add a null sentinel so the render can iterate it. */
+static bool init_spritedef_from_wad(spritesheet_t *sheet, const dc_fin_t *fin) {
+    if (!fin) {
+        if (!R_InitSpriteDef(sheet, sheet->numlumps, 1, ANG270, true)) return false;
+        for (int f = 0; f < sheet->numlumps; f++)
+            R_InstallSpriteLump(sheet, f, 0, f, false);
+        return true;
     }
-    spritedirection_t *direction =
-        &sheet->spritedef.spriteframes[logical].directions[rotation];
-    free(direction->layers);
-    direction->layers = layers;
-    direction->ticks = fin->frames[native].ticks;
-    return true;
-}
 
-static bool init_definitions(spritesheet_t *sheet, const dc_fin_t *fin,
-                             const char *stem) {
-    int frame_count = fin && fin->header->frame_count > sheet->numlumps ?
+    int max_dir = 0;
+    for (int i = 0; i < fin->header->label_count; i++) {
+        char base[17]; int dir;
+        if (parse_fin_dir(fin->labels[i].name, base, &dir) && dir > max_dir) max_dir = dir;
+    }
+    int rotations = max_dir >= 8 ? 16 : max_dir >= 1 ? 8 : 1;
+
+    int frame_count = fin->header->frame_count > sheet->numlumps ?
         fin->header->frame_count : sheet->numlumps;
-    int rotations = fin && has_sixteen_directions(fin) ? 16 : fin ? 8 : 1;
     if (!R_InitSpriteDef(sheet, frame_count, rotations,
-                         fin ? dc_fin_direction_to_angle(0) : ANG270, true)) return false;
-    for (int frame = 0; frame < sheet->numlumps; ++frame)
-        for (int rotation = 0; rotation < rotations; ++rotation)
-            if (!R_InstallSpriteLump(sheet, frame, rotation, frame, false)) return false;
-    if (!fin) return true;
-    for (int i = 0; i < fin->header->label_count; ++i) {
-        char base[17];
-        int direction;
-        if (!split_direction(&fin->labels[i], base, &direction) || direction != 0) continue;
+                         dc_fin_direction_to_angle(0), true)) return false;
+    for (int f = 0; f < sheet->numlumps; f++)
+        for (int r = 0; r < rotations; r++)
+            R_InstallSpriteLump(sheet, f, r, f, false);
+
+    for (int i = 0; i < fin->header->label_count; i++) {
+        char base[17]; int dir;
+        if (!parse_fin_dir(fin->labels[i].name, base, &dir) || dir != 0) continue;
         const dc_fin_label_t *origin = &fin->labels[i];
-        bool ordered = rotations == 16 && sixteen_facing_block(fin, i);
-        for (int step = 0; step <= origin->end - origin->start; ++step) {
+        for (int step = 0; step <= origin->end - origin->start; step++) {
             int logical = origin->start + step;
-            fixed_name(sheet->spritedef.spriteframes[logical].frame_name,
-                       origin->name, SPRITE_FRAME_NAME_SIZE);
-            for (int rotation = 0; rotation < rotations; ++rotation) {
-                int native_direction = rotation * (16 / rotations);
-                const dc_fin_label_t *label = direction_label(fin, base, native_direction);
-                if (!label && ordered)
-                    label = &fin->labels[i + (native_direction ? 16 - native_direction : 0)];
-                if (!label || label->end < label->start) continue;
-                int label_step = step;
-                if (label_step > label->end - label->start)
-                    label_step = label->end - label->start;
-                if (!install_fin_frame(sheet, logical, rotation, fin,
-                                       label->start + label_step, stem)) return false;
+            if (logical >= frame_count) break;
+            for (int rot = 0; rot < rotations; rot++) {
+                int native = rot * (16 / rotations);
+                char dir_name[17];
+                snprintf(dir_name, sizeof(dir_name), "%s%d", base, native);
+                int first = find_label_first_lump(dir_name);
+                if (first < 0) continue;
+                int lump = first + step;
+                if (lump >= numlumps || lumpinfo[lump].ns != ns_sprites ||
+                    !lumpinfo[lump].data || lumpinfo[lump].size <= 0) continue;
+                int n = lumpinfo[lump].size / (int)sizeof(spritelayer_t);
+                if (n <= 0) continue;
+                spritelayer_t *layers = calloc((size_t)n + 1, sizeof(*layers));
+                if (!layers) continue;
+                memcpy(layers, lumpinfo[lump].data, (size_t)n * sizeof(*layers));
+                spritedirection_t *d = &sheet->spritedef.spriteframes[logical].directions[rot];
+                free(d->layers);
+                d->layers = layers;
+                d->ticks  = fin->frames[origin->start + step].ticks;
             }
         }
     }
@@ -389,33 +342,6 @@ static bool paired_paths(const char *path, char fin_path[1024], char spr_path[10
     return true;
 }
 
-bool load_dark_colony_sprite(const char *path,
-                             spritesheet_t *out, uint32_t palette_out[256]) {
-    memset(out, 0, sizeof(*out));
-    char fin_path[1024], spr_path[1024], stem[9];
-    dc_fin_t fin = {0};
-    dc_spr_t spr = {0};
-    paired_paths(path, fin_path, spr_path);
-    if (fin_path[0]) W_LoadFin(fin_path, &fin);
-    if (!load_spr(spr_path, &spr) || !init_lumps(&spr, out)) goto fail;
-    path_stem(stem, spr_path);
-    if (!init_definitions(out, fin.data ? &fin : NULL, stem)) goto fail;
-    if (palette_out) memcpy(palette_out, out->palette, sizeof(out->palette));
-    if (render_tables_ready) {
-        memcpy(out->palette, render_palette, sizeof(out->palette));
-        out->indexed_blend_selector = 5;
-        out->indexed_blend_table = render_blend;
-    }
-    W_FreeFin(&fin);
-    free(spr.data);
-    return true;
-fail:
-    W_FreeFin(&fin);
-    free(spr.data);
-    R_FreeSprite(out);
-    return false;
-}
-
 bool load_render_tables(const char *root, const char *tileset) {
     char relative[128], path[1024];
     void *data = NULL;
@@ -439,59 +365,6 @@ fail:
     return false;
 }
 
-static bool file_exists(const char *path) {
-    FILE *file = fopen(path, "rb");
-    if (!file) return false;
-    fclose(file);
-    return true;
-}
-
-static bool resolve_sprite(char out[1024], const char *root, const char *name) {
-    if (!name || !name[0]) return false;
-    if (name[0] == '/') {
-        snprintf(out, 1024, "%s", name);
-        return file_exists(out);
-    }
-    if (strchr(name, '/')) {
-        M_PathJoin(out, 1024, root, name);
-        return file_exists(out);
-    }
-    static const char *directories[] = { "ANIMATE", "SPRITES", "INTRFACE", "CURSOR" };
-    for (size_t i = 0; i < sizeof(directories) / sizeof(*directories); ++i) {
-        char directory[1024], filename[32];
-        M_PathJoin(directory, sizeof(directory), root, directories[i]);
-        snprintf(filename, sizeof(filename), "%s.%s", name, i ? "SPR" : "FIN");
-        M_PathJoin(out, 1024, directory, filename);
-        if (file_exists(out)) return true;
-    }
-    return false;
-}
-
-static bool cache_sprite(spritecache_t *cache, const char *root, const char *name) {
-    if (!name || !name[0] || R_CacheFind(cache, name)) return true;
-    if (cache->count >= MAX_DECORATION_SPRITES) return false;
-    char path[1024];
-    if (!resolve_sprite(path, root, name)) return false;
-    cachedsprite_t *entry = &cache->entries[cache->count];
-    snprintf(entry->name, sizeof(entry->name), "%s", name);
-    if (!load_dark_colony_sprite(path, &entry->sprite, NULL)) return false;
-    cache->count++;
-
-    char fin_path[1024], spr_path[1024];
-    dc_fin_t fin = {0};
-    paired_paths(path, fin_path, spr_path);
-    if (!fin_path[0] || !W_LoadFin(fin_path, &fin)) return true;
-    bool ok = true;
-    for (int i = 0; i < fin.header->dependency_count; ++i) {
-        char dependency[17], relative[32];
-        fixed_name(dependency, fin.dependencies[i].name, SPRITE_LAYER_NAME_SIZE);
-        for (char *c = dependency; *c; ++c) *c = (char)toupper((unsigned char)*c);
-        snprintf(relative, sizeof(relative), "SPRITES/%s.SPR", dependency);
-        if (!cache_sprite(cache, root, relative)) ok = false;
-    }
-    W_FreeFin(&fin);
-    return ok;
-}
 
 static bool register_spr(const char *path) {
     dc_spr_t spr = {0};
@@ -525,16 +398,34 @@ static bool register_spr(const char *path) {
     size_t offset = 0;
     for (int i = 0; i < spr.header->cell_count; i++) {
         size_t cell_size = (size_t)spr.cells[i].width * spr.cells[i].height;
-        void *copy = malloc(cell_size ? cell_size : 1);
-        if (copy) {
-            if (cell_size) memcpy(copy, pixels + offset, cell_size);
-            W_AddLump(stem, copy, (int)cell_size, ns_sprites);
+        size_t lump_size = sizeof(dc_wad_cell_t) + cell_size;
+        dc_wad_cell_t *lump_data = malloc(lump_size);
+        if (lump_data) {
+            lump_data->width  = spr.cells[i].width;
+            lump_data->height = spr.cells[i].height;
+            lump_data->dis_x  = spr.cells[i].dis_x;
+            lump_data->dis_y  = spr.cells[i].dis_y;
+            if (cell_size) memcpy(lump_data + 1, pixels + offset, cell_size);
+            W_AddLump(stem, lump_data, (int)lump_size, ns_sprites);
         }
         offset += cell_size;
     }
 
     free(pixels);
     free(spr.data);
+
+    /* Store the paired FIN binary so R_InitDCSprites can build spritedef later. */
+    char fin_path[1024], spr_path_buf[1024];
+    paired_paths(path, fin_path, spr_path_buf);
+    if (fin_path[0]) {
+        void *fin_data = NULL;
+        size_t fin_size = 0;
+        if (fread_file(fin_path, &fin_data, &fin_size)) {
+            char fin_lump[WAD_NAME_SIZE + 1];
+            snprintf(fin_lump, sizeof(fin_lump), "%sFIN", stem);
+            W_AddLump(fin_lump, fin_data, (int)fin_size, ns_global);
+        }
+    }
     return true;
 }
 
@@ -601,30 +492,190 @@ bool DC_PopulateWAD(const char *root) {
     return numlumps > 2;
 }
 
-bool R_PrecacheLevel(SDL_Renderer *renderer, const char *root, const level_t *map,
-                     const mobj_t *units, int unit_count, spritecache_t *cache) {
-		
-											(void)renderer;
-    bool ok = true;
-    memset(cache, 0, sizeof(*cache));
-    for (int i = 0; map && i < map->decoration_count; ++i) {
-        ok &= cache_sprite(cache, root, map->decorations[i].sprite_name);
-        ok &= cache_sprite(cache, root, map->decorations[i].sprite2_name);
-        ok &= cache_sprite(cache, root, map->decorations[i].sprite3_name);
-        ok &= cache_sprite(cache, root, map->decorations[i].shadow_name);
-    }
-    for (int i = 0; i < unit_count; ++i) {
-        ok &= cache_sprite(cache, root, units[i].core.sprite_name);
-        if (units[i].info) {
-            ok &= cache_sprite(cache, root, units[i].info->shadow_name);
-            ok &= cache_sprite(cache, root, units[i].info->hit_effect_name);
-        }
-    }
-    static const char *interface_sprites[] = {
-        "INTRFACE/DCSS.SPR", "INTRFACE/DCUT.SPR", "INTRFACE/MAINBUT.SPR",
-        "INTRFACE/SHUMANE.SPR", "SPRITES/BEAC.SPR"
-    };
-    for (size_t i = 0; i < sizeof(interface_sprites) / sizeof(*interface_sprites); ++i)
-        ok &= cache_sprite(cache, root, interface_sprites[i]);
-    return ok;
+/* Parse a dc_fin_t from an in-memory buffer (no file I/O).
+   fin->data is left NULL so W_FreeFin won't free the buffer. */
+static bool W_ParseFin(const void *data, size_t size, dc_fin_t *fin) {
+    memset(fin, 0, sizeof(*fin));
+    if (!data || size < sizeof(dc_fin_header_t)) return false;
+    fin->size   = size;
+    fin->header = (const dc_fin_header_t *)data;
+    size_t off  = sizeof(*fin->header);
+    fin->dependencies = (const dc_fin_dependency_t *)((const uint8_t *)data + off);
+    off += (size_t)fin->header->dependency_count * sizeof(*fin->dependencies);
+    if (off > size) return false;
+    fin->labels = (const dc_fin_label_t *)((const uint8_t *)data + off);
+    off += (size_t)fin->header->label_count * sizeof(*fin->labels);
+    if (off > size) return false;
+    fin->frames = (const dc_fin_frame_t *)((const uint8_t *)data + off);
+    off += (size_t)fin->header->frame_count * sizeof(*fin->frames);
+    if (off > size || (size - off) % sizeof(spritelayer_t)) return false;
+    fin->layers     = (const spritelayer_t *)((const uint8_t *)data + off);
+    fin->layer_count = (int)((size - off) / sizeof(*fin->layers));
+    return true;
 }
+
+/* SPR cell lump: size == sizeof(dc_wad_cell_t) + header.width * header.height. */
+static bool is_spr_cell_lump(int lump_idx) {
+    if (lumpinfo[lump_idx].size < (int)sizeof(dc_wad_cell_t)) return false;
+    if (!lumpinfo[lump_idx].data) return false;
+    const dc_wad_cell_t *hdr = (const dc_wad_cell_t *)lumpinfo[lump_idx].data;
+    return lumpinfo[lump_idx].size ==
+           (int)sizeof(dc_wad_cell_t) + (int)hdr->width * (int)hdr->height;
+}
+
+/* Build a spritesheet from count consecutive WAD cell lumps starting at first. */
+static bool init_lumps_from_wad(int first, int count, spritesheet_t *out) {
+    memset(out, 0, sizeof(*out));
+    if (count <= 0) return false;
+
+    size_t total = 0;
+    for (int i = 0; i < count; i++) {
+        const dc_wad_cell_t *hdr = (const dc_wad_cell_t *)lumpinfo[first + i].data;
+        if (hdr) total += (size_t)hdr->width * hdr->height;
+    }
+
+    out->pixel_data = calloc(total ? total : 1, 1);
+    if (!out->pixel_data) return false;
+    out->lumps = calloc((size_t)count, sizeof(*out->lumps));
+    if (!out->lumps) { free(out->pixel_data); out->pixel_data = NULL; return false; }
+    out->numlumps = count;
+
+    size_t offset = 0;
+    int max_w = 1, max_h = 1;
+    for (int i = 0; i < count; i++) {
+        const dc_wad_cell_t *hdr = (const dc_wad_cell_t *)lumpinfo[first + i].data;
+        int w = hdr && hdr->width  ? hdr->width  : 1;
+        int h = hdr && hdr->height ? hdr->height : 1;
+        if (hdr && hdr->width && hdr->height) {
+            size_t cell_size = (size_t)hdr->width * hdr->height;
+            memcpy(out->pixel_data + offset, (const uint8_t *)(hdr + 1), cell_size);
+            out->lumps[i].indices     = out->pixel_data + offset;
+            out->lumps[i].bounds      = indexed_visible_bounds(out->lumps[i].indices, w, h);
+            out->lumps[i].displacement = (ivec2_t){ hdr->dis_x, hdr->dis_y };
+            offset += cell_size;
+        } else {
+            out->lumps[i].indices = out->pixel_data;
+        }
+        out->lumps[i].rect         = (irect_t){ 0, 0, w, h };
+        out->lumps[i].ground_point = (ivec2_t){ w / 2, h };
+        if (w > max_w) max_w = w;
+        if (h > max_h) max_h = h;
+    }
+    out->frame_size = (isize2_t){ max_w, max_h };
+    out->indexed = true;
+    return true;
+}
+
+/* Load a single sprite from the WAD by path stem.  Call after DC_PopulateWAD. */
+bool R_LoadWADSprite(const char *path, spritesheet_t *out) {
+    char stem[9];
+    path_stem(stem, path);
+    char upper[WAD_NAME_SIZE] = {0};
+    for (int k = 0; k < WAD_NAME_SIZE && stem[k]; k++)
+        upper[k] = (char)toupper((unsigned char)stem[k]);
+
+    int first = -1;
+    for (int i = 0; i < numlumps; i++) {
+        if (lumpinfo[i].ns == ns_sprites &&
+            memcmp(lumpinfo[i].name, upper, WAD_NAME_SIZE) == 0 &&
+            is_spr_cell_lump(i)) { first = i; break; }
+    }
+    if (first < 0) return false;
+
+    int count = 0;
+    while (first + count < numlumps &&
+           memcmp(lumpinfo[first + count].name, lumpinfo[first].name, WAD_NAME_SIZE) == 0 &&
+           lumpinfo[first + count].ns == ns_sprites &&
+           is_spr_cell_lump(first + count))
+        count++;
+
+    if (!init_lumps_from_wad(first, count, out)) return false;
+
+    char pal_name[WAD_NAME_SIZE + 1];
+    snprintf(pal_name, sizeof(pal_name), "%sPAL", stem);
+    int pal_lump = W_CheckNumForName(pal_name);
+    if (pal_lump >= 0 && lumpinfo[pal_lump].size >= 768 && lumpinfo[pal_lump].data)
+        convert_vga_palette(out->palette, (const uint8_t *)lumpinfo[pal_lump].data);
+
+    char fin_name[WAD_NAME_SIZE + 1];
+    snprintf(fin_name, sizeof(fin_name), "%sFIN", stem);
+    int fin_lump = W_CheckNumForName(fin_name);
+    dc_fin_t fin = {0};
+    dc_fin_t *fin_ptr = NULL;
+    if (fin_lump >= 0 && lumpinfo[fin_lump].data &&
+        W_ParseFin(lumpinfo[fin_lump].data, (size_t)lumpinfo[fin_lump].size, &fin))
+        fin_ptr = &fin;
+    init_spritedef_from_wad(out, fin_ptr);
+
+    if (render_tables_ready) {
+        memcpy(out->palette, render_palette, sizeof(out->palette));
+        out->indexed_blend_selector = 5;
+        out->indexed_blend_table = render_blend;
+    }
+    return true;
+}
+
+/* Build the full sprite cache from WAD lumps.  Call after DC_PopulateWAD and
+   load_render_tables so the render palette is ready. */
+bool R_InitDCSprites(const char *root, spritecache_t *cache) {
+    (void)root;
+    memset(cache, 0, sizeof(*cache));
+
+    for (int i = 0; i < numlumps && cache->count < MAX_DECORATION_SPRITES; i++) {
+        if (lumpinfo[i].ns != ns_sprites) continue;
+        if (!is_spr_cell_lump(i)) continue;
+
+        /* Skip if already cached (subsequent cells of same sprite). */
+        char stem[WAD_NAME_SIZE + 1];
+        memset(stem, 0, sizeof(stem));
+        for (int k = 0; k < WAD_NAME_SIZE; k++) stem[k] = lumpinfo[i].name[k];
+        for (int k = WAD_NAME_SIZE - 1; k >= 0 && (stem[k] == '\0' || stem[k] == ' '); k--)
+            stem[k] = '\0';
+        if (R_CacheFind(cache, stem)) continue;
+
+        /* Count consecutive same-name cell lumps in ns_sprites. */
+        int count = 0;
+        while (i + count < numlumps &&
+               memcmp(lumpinfo[i + count].name, lumpinfo[i].name, WAD_NAME_SIZE) == 0 &&
+               lumpinfo[i + count].ns == ns_sprites &&
+               is_spr_cell_lump(i + count))
+            count++;
+
+        cachedsprite_t *entry = &cache->entries[cache->count];
+        snprintf(entry->name, sizeof(entry->name), "%s", stem);
+
+        if (!init_lumps_from_wad(i, count, &entry->sprite)) continue;
+
+        /* VGA palette from companion PAL lump. */
+        char pal_name[WAD_NAME_SIZE + 1];
+        snprintf(pal_name, sizeof(pal_name), "%sPAL", stem);
+        int pal_lump = W_CheckNumForName(pal_name);
+        if (pal_lump >= 0 && lumpinfo[pal_lump].size >= 768 && lumpinfo[pal_lump].data)
+            convert_vga_palette(entry->sprite.palette,
+                                (const uint8_t *)lumpinfo[pal_lump].data);
+
+        /* FIN binary stored by register_spr as {stem}FIN → spritedef. */
+        char fin_name[WAD_NAME_SIZE + 1];
+        snprintf(fin_name, sizeof(fin_name), "%sFIN", stem);
+        int fin_lump = W_CheckNumForName(fin_name);
+        dc_fin_t fin = {0};
+        dc_fin_t *fin_ptr = NULL;
+        if (fin_lump >= 0 && lumpinfo[fin_lump].data) {
+            if (W_ParseFin(lumpinfo[fin_lump].data,
+                           (size_t)lumpinfo[fin_lump].size, &fin))
+                fin_ptr = &fin;
+        }
+        init_spritedef_from_wad(&entry->sprite, fin_ptr);
+
+        /* Apply terrain-blend palette and table. */
+        if (render_tables_ready) {
+            memcpy(entry->sprite.palette, render_palette, sizeof(entry->sprite.palette));
+            entry->sprite.indexed_blend_selector = 5;
+            entry->sprite.indexed_blend_table    = render_blend;
+        }
+
+        cache->count++;
+    }
+    return cache->count > 0;
+}
+

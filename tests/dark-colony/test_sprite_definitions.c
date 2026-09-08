@@ -1,7 +1,7 @@
 #include "engine.h"
 #include "w_spr.h"
+#include "w_wad.h"
 
-#include <SDL.h>
 #include <stdio.h>
 
 int main(void) {
@@ -21,21 +21,15 @@ int main(void) {
     }
     W_FreeFin(&fin);
 
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32,
-                                                          SDL_PIXELFORMAT_ARGB8888);
-    SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
-    if (!renderer) {
-        fprintf(stderr, "FAIL: create software renderer: %s\n", SDL_GetError());
-        SDL_FreeSurface(surface);
+    W_Init();
+    if (!DC_PopulateWAD("data/DCOLONY")) {
+        fprintf(stderr, "FAIL: DC_PopulateWAD\n");
         return 1;
     }
 
     spritesheet_t sprite;
-    if (!load_dark_colony_sprite(renderer, "data/DCOLONY/ANIMATE/TRSC.FIN",
-                                 &sprite, NULL)) {
+    if (!R_LoadWADSprite("data/DCOLONY/ANIMATE/TRSC.FIN", &sprite)) {
         fprintf(stderr, "FAIL: load Trooper sprite definition\n");
-        SDL_DestroyRenderer(renderer);
-        SDL_FreeSurface(surface);
         return 1;
     }
 
@@ -81,8 +75,7 @@ int main(void) {
     }
 
     R_FreeSprite(&sprite);
-    if (!load_dark_colony_sprite(renderer, "data/DCOLONY/SPRITES/EXPL.SPR",
-                                 &sprite, NULL)) {
+    if (!R_LoadWADSprite("data/DCOLONY/SPRITES/EXPL.SPR", &sprite)) {
         fprintf(stderr, "FAIL: load Exploiter sprite definition\n");
         valid = false;
     } else {
@@ -97,7 +90,5 @@ int main(void) {
         }
         R_FreeSprite(&sprite);
     }
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
     return valid ? 0 : 1;
 }

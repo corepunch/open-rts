@@ -152,30 +152,27 @@ helpers instead of open-coding arithmetic on their individual components.
 - Same principle applies to any new struct in the codebase: group logically
   related fields, then write helpers that operate on the whole group.
 
-## Architecture: GZDoom is the primary reference
+## Architecture: DOOM is the primary reference
 
-**`reference/GZDoom/` is the first and foremost source of architecture.** When
-any engine subsystem is not structured the way GZDoom does it, redo it to match
-GZDoom's design. This applies to resource management, sprite/texture ownership,
+**`reference/DOOM/` is the first and foremost source of architecture.** When
+any engine subsystem is not structured the way DOOM does it, redo it to match
+DOOM's design. This applies to resource management, sprite/texture ownership,
 palette handling, rendering pipeline, and any other structural question. When in
-doubt, read the GZDoom source first and follow its patterns.
+doubt, read the DOOM source first and follow its patterns.
 
 Reference source code lives in `reference/` (git-ignored):
 
 ```
-reference/GZDoom/    — PRIMARY reference for all architecture questions
-reference/DOOM/      — Doom / Doom II source (id Software)
+reference/DOOM/      — PRIMARY reference for all architecture questions
 reference/Heretic/   — Heretic source (Raven Software)
 reference/Hexen/     — Hexen source (Raven Software)
-reference/DOOM95/source/ — Doom95 source reconstruction (reference only)
-reference/DOOM95/dump/   — Doom95 debug info and decompilation evidence
 ```
 
 The pinned checkout and relevant source paths are documented in `REFERENCES.md`.
 
 ### Resource management: WAD-style in-memory lumps
 
-Follow GZDoom's resource management model. The target architecture:
+Follow DOOM's resource management model. The target architecture:
 
 1. **Store sprites as 8-bit indexed data**, not pre-converted RGBA. Allocate a
    contiguous memory region (like an in-memory WAD file) and load all sprite
@@ -193,13 +190,13 @@ Follow GZDoom's resource management model. The target architecture:
    together.
 
 This separation (raw indexed data → lump registry → render-time palette
-application → GPU texture) mirrors GZDoom's `FImageSource` → `FGameTexture` →
+application → GPU texture) mirrors DOOM's `FImageSource` → `FGameTexture` →
 `FHardwareTexture` pipeline. Game loaders produce source images; the renderer
 owns the hardware resources and palette application.
 
 ### Rendering and texture ownership
 
-Follow GZDoom's separation between engine-owned source images, sprite
+Follow DOOM's separation between engine-owned source images, sprite
 frame/rotation definitions, and renderer-owned hardware textures: game loaders
 convert native formats into the common image representation and do not leave
 format callbacks or opaque native sprite data in renderer structures.

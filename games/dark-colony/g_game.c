@@ -18,8 +18,6 @@
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units);
-bool load_dark_colony_sprite(const char *path, spritesheet_t *out,
-                             uint32_t palette_out[256]);
 extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_t *out);
 
 void *load_mission(const char *map_path);
@@ -297,8 +295,7 @@ static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MFONTO7.SPR");
-    uint32_t palette[256] = { 0 };
-    if (!load_dark_colony_sprite(path, &font->sprite, palette)) return false;
+    if (!R_LoadWADSprite(path, &font->sprite)) return false;
     const int font_offset = 31;
     int max_w = 0, max_h = 0;
     for (int ch = font_offset; ch < 128; ++ch) {
@@ -400,13 +397,12 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;
 
     char sprite_path[1024];
-    uint32_t sprite_palette[256] = { 0 };
     if (sprite[0] == '/') {
         snprintf(sprite_path, sizeof(sprite_path), "%s", sprite);
     } else {
         M_PathJoin(sprite_path, sizeof(sprite_path), root, sprite);
     }
-    if (!load_dark_colony_sprite(sprite_path, unit_sprite, sprite_palette)) {
+    if (!R_LoadWADSprite(sprite_path, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_path);
         R_FreeTileset(tileset);
         return false;
@@ -420,7 +416,8 @@ int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
                           const mobj_t *mobjs, int count, spritecache_t *cache) {
-    return R_PrecacheLevel(renderer, root, map, mobjs, count, cache);
+    (void)renderer; (void)map; (void)mobjs; (void)count;
+    return R_InitDCSprites(root, cache);
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
