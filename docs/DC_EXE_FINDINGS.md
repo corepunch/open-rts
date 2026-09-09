@@ -39,8 +39,9 @@ sprite loader's transparent index-zero handling. No runtime code changed.
 ## Animation generator coverage
 
 **Confirmed from `data/DCOLONY/ANIMATE/EXPL.FIN` and the focused layout test:**
-`EXPLMOVE0` through `EXPLMOVE15` provide 16 directional labels. Each label
-contains two temporal body frames, so the generated `S_DC_EXPL_RUN1` and
+`EXPLMOVE0` through `EXPLMOVE15` provide 16 directional labels. The even labels
+contain two temporal body frames and the odd labels contain one (corrected by
+the action-name audit below), so the generated `S_DC_EXPL_RUN1` and
 `S_DC_EXPL_RUN2` states are a two-frame animation with 16 directional slots;
 they are not a two-direction placeholder cycle. The generator's
 `fin_state_count_for_sequence16` path preserves those authored labels and
@@ -55,10 +56,17 @@ dropping those declarations or records.
 
 **Unknown:** The retail data inspected here does not establish 16 temporal
 frames per facing for `EXPLMOVE`; only the 16 directional labels and two body
-frames per label are confirmed. No additional Exploiter frames should be
+frames in the even ranges are confirmed. No additional Exploiter frames should be
 invented without another native asset or executable trace.
 
 ## State-driven sprite rotations
+
+**Correction (2026-09-09, action-name audit below):** the SHUF/STAND merging
+described in this section was an open-rts assumption, not a native rule.
+EXPL has eight STAND labels, eight SHUF poses, and sixteen MOVE labels
+(eight animated ranges plus eight single poses). Our standing state combines
+STAND/SHUF for turning; travel uses the animated MOVE ranges, as requested by
+the user. That presentation contract must not be confused with native names.
 
 **Confirmed from the Hexen reference renderer**
 `reference/Hexen/hexen source/r_things.c::R_ProjectSprite`: animation state and
@@ -614,3 +622,120 @@ Focused `test_sprite_loading` covers transparent margins;
 one-/32-direction frames. Build and all four game smoke checks pass.
 The full suite's build-command, muzzle-flash, sprite-catalog, and initial-state
 failures also reproduce on the untouched parent checkout.
+
+## Resolve FIN actions by their own names (2026-09-09)
+
+**Confirmed from DC.EXE instructions:** the executable matches the SHA-256 at
+the top of this report. Unit setup `0x004385f8`, at `0x0043895f..0x00438983`,
+passes `STAND` (`0x0047182c`) to animation-set allocation `0x00423ee8` and
+direction lookup `0x00423a50`. MOVE uses the same path immediately before it.
+The allocator reserves a 160-byte set (32 pointer slots and a 32-byte name),
+with an 800-set bound; it does not resolve aliases.
+
+`0x00423a50` concatenates the supplied unit and action names with `%s%s`
+at `0x00423acb..0x00423add`. For its 16 input slots it appends direction
+`(12 - slot + 16) & 15` using `%s%d` at `0x00423ae7..0x00423b12`, then calls
+name lookup `0x00422f24`. There is no unit-name branch or SHUF substitution.
+It rejects a set with no matching labels. At `0x00423b98..0x00423bbe` it fills
+32 output slots from those same results, trying offsets from `0x00474500`:
+`0, +1, -1, +2, -2, ..., +15, -15, +16`. The candidate input index is
+`((output_slot + offset + 32) & 31) / 2`. This confirms nearest available
+angles within the requested action, not merging different action names.
+
+**Confirmed native assets:** EXPL.FIN's labels start at byte 112, frame records
+at 1192, and commands at 39240 (fingerprint above). Its STAND labels have only
+even suffixes: suffixes `0,14,12,10,8,6,4,2` point to frames
+`0,2,4,6,8,10,12,14`. Their body lumps are `0,2,4,6,8,6,4,2`; the final three
+are flipped. Odd SHUF labels point to the intervening single frames.
+Even MOVE labels span two frames each in `16..31`; odd MOVE labels span one
+frame each in `102..109`. `EXPLMOVE1` at frame 109 draws lump 1, flipped, at
+`(-28,23)`. The eight `NONAME` records in the inspected first frame's 160
+auxiliary bytes supply no STAND/SHUF alias; their broader purpose stays unknown.
+ANIM.DAT is a newline-delimited FIN filename index, not an action mapping.
+
+TRSC, ORTU, SLUG, and TURR likewise contain even STAND and odd SHUF labels.
+Their presence alone does not establish that native STAND selects SHUF.
+Additional inspected file fingerprints and label-table offsets:
+
+| File under `data/DCOLONY/` | SHA-256 | Labels at byte |
+| --- | --- | --- |
+| `ANIM.DAT` | `20e9cf988ed833236ca0687601ab32a2adeaae0d885b39a7507321166bdba3d0` | n/a |
+| `ANIMATE/ORTU.FIN` | `410a683cfbafcc28cb2f6d6e569da8b5e595114692c4b92f65ccd79052ddd387` | 56 |
+| `ANIMATE/SLUG.FIN` | `f1b813f0607aab425b57011f19f16110d8c5b33179691d08dd4b9558afb87d6b` | 72 |
+| `ANIMATE/TURR.FIN` | `f0f25f1ae13cfcd6b53e3cdcae2e5efaca09e9e8290eb173bb8ce98a93d3a210` | 112 |
+
+TRSC's fingerprint and label offset are recorded above. Each label is 20
+bytes, with the 16-byte name followed by the inclusive start/end frame range.
+
+**Correction after user clarification:** the user explicitly requires sixteen
+stationary poses for smooth turning before travel, and eight animated travel
+directions. The native literal STAND lookup alone does not establish the full
+stationary/turning selection path. My initial proposal to reduce standing to
+eight poses would have broken this behavior and was discarded.
+
+The loader collects STAND, SHUF, and MOVE separately, then fills missing
+stationary facings from SHUF. When MOVE direction zero contains an animated
+range, its single-frame directional ranges are excluded from travel. These
+are shared presentation rules based on names/ranges, with no EXPL-name branch
+or new timing constants. The raw FIN records and raw SPR cells are unchanged.
+For EXPL the result is sixteen stationary rotations and eight travel rotations.
+"SHUF" plausibly abbreviates "shuffle"; this interpretation and its native
+turning purpose remain inferred, not confirmed by the inspected instructions.
+
+**Implementation scope/unknown:** the stationary/travel grouping above is the
+user-requested open-rts behavior. It does not port the native 32-slot fallback
+table or establish its exact angle/tie
+equivalence to the common renderer's existing 8/16-slot quantizer. Native use
+of SHUF outside this STAND setup remains unknown. Sparse actions lacking the
+loader's complete eight/sixteen direction sets remain a separate limitation.
+
+The generator's `f16_fin_state` also discarded fifteen calculated rotations
+through the no-op `write_rotations`. It now computes only the direction-zero
+fallback still consumed by `fin_logical_frame`, and no longer accepts an odd
+action alias. Removing that fallback as well changed death states whose labels
+lack direction zero; the fallback was retained and before/after generated
+`info.c` and `info.h` match byte-for-byte. Checked-in state tables and Reaper
+movement timing were not regenerated or changed.
+
+Reproduce native evidence with:
+
+```sh
+r2 -q -e bin.cache=true -c 'pD 41 @ 0x43895f' \
+  -c 'af @ 0x423a50' -c 'pdf @ 0x423a50' \
+  -c 'af @ 0x423ee8' -c 'pdf @ 0x423ee8' \
+  -c 'pxw 128 @ 0x474500' -c q data/DCOLONY/DC.EXE
+make dc-fin-extract
+build/dc_fin_extract data/DCOLONY/ANIMATE/EXPL.FIN /private/tmp/expl-actions.json
+```
+
+Temporary `OPEN_RTS_DEBUG_FIN` logging exposed the literal label ranges and
+the intermediate eight-standing/sixteen-MOVE implementation, which was rejected
+after the user clarified stationary turning. Logging was removed after use.
+`test_sprite_definitions` checks all sixteen standing lumps/flips and both
+phases of the eight travel directions. `test_flow_field_movement` checks that
+EXPL remains stationary in its standing state through intermediate facings
+before selecting RUN and translating. `test-layout` separately checks the
+native eight STAND/sixteen MOVE labels and preserves Reaper timing checks.
+
+**Additional bounded trace:** `0x00422f24` builds a name and queries the lookup
+at `0x00422dc0`; no alias was established there. Searches of GAMESTAT.TXT
+confirmed EXPL as the unit stem but established no shuffle-selection field.
+The decompiler's `0x004384b4` inspects additional action sets; no conclusion
+about their semantics is drawn without instruction/caller verification.
+The existing `P_Ticker` already turns in place, keeps the standing state while
+turning, and enters the run state on translation; simulation timing was left
+unchanged.
+
+**Verification:** `make`, headless DC `--check`, FIN/sprite loading and definition
+tests, the turn-before-travel test, dropship test, and `make test-layout` pass.
+The 461-entry SPR/FIN catalog retains 391 successful loads and the same 70
+failures. 409 complete catalog fingerprints are identical; 52 change under
+the shared stationary/travel grouping (the SPR and FIN paths for AIRD, ATRIL,
+BARR, BEON, DROA, ENGI, EXPL, GRAY, GRUB, LUNA, MAKT, ORTU, PSYC, REAP, RNAT,
+SALY, SARG, SCGM, SHRI, SLOM, SLUG, SPID, TRSC, TURR, XENO, and ZISP).
+This explicitly affects every applicable FIN, not only EXPL. The HUMAN01
+headless BMP is byte-identical to the parent and was visually inspected for
+rendering integrity; it does not exercise every changed stationary pose.
+The full DC suite retains the three previously documented muzzle-effect,
+sprite-catalog, and initial-state failures. Tags were regenerated and
+`git diff --check` passed.

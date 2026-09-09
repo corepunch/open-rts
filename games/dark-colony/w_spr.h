@@ -79,7 +79,6 @@ const void *DC_TakeRecords(blob_t *cursor, size_t count, size_t record_size);
 bool DC_LoadFIN(const char *path, dc_fin_t *out);
 void DC_FreeFIN(dc_fin_t *fin);
 const dc_fin_label_t *DC_FINLabel(const dc_fin_t *fin, const char *name);
-int DC_FINCommandCount(const dc_fin_t *fin);
 bool DC_FINLayer(const dc_fin_t *fin, int index, spritelayer_t *out);
 /* Replaces an initialized direction on success. Layers belong to the caller. */
 bool DC_FINFrame(const dc_fin_t *fin, int index, spritedirection_t *out);

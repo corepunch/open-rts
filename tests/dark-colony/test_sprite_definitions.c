@@ -75,13 +75,37 @@ int main(void) {
         valid = false;
     } else {
         const spriteframe_t *stand = &sprite.spritedef.spriteframes[0];
-        const spritelayer_t *part = stand->directions[7].layers;
-        if (sprite.spritedef.numframes != 232 || stand->rotations != 16 ||
-            !part || part->lump != 1 || (part->flags & RTS_FRAME_FLIP_X) == 0) {
-            fprintf(stderr, "FAIL: Exploiter facing 15 preserves native frame and flip: %d/%u\n",
-                part ? part->lump : -1,
-                part ? (unsigned)((part->flags & RTS_FRAME_FLIP_X) != 0) : 0);
+        /* All sixteen stationary poses remain available while turning. */
+        static const int stand_lumps[16] = { 8, 7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7 };
+        if (sprite.spritedef.numframes != 232 || stand->rotations != 16) {
+            fprintf(stderr, "FAIL: Exploiter standing uses sixteen turn poses\n");
             valid = false;
+        }
+        for (int r = 0; r < 16; ++r) {
+            const spritelayer_t *part = stand->directions[r].layers;
+            if (!part || part->lump != stand_lumps[r] ||
+                ((part->flags & RTS_FRAME_FLIP_X) != 0) != (r > 0 && r < 8)) {
+                fprintf(stderr, "FAIL: Exploiter STAND rotation %d: %d/%u\n", r,
+                    part ? part->lump : -1, part ? part->flags : 0);
+                valid = false;
+            }
+        }
+        /* Single-frame intermediate MOVE poses are not travel cycles. */
+        static const int move_lumps[2][8] = {
+            { 8, 6, 4, 2, 0, 2, 4, 6 },
+            { 13, 12, 11, 10, 9, 10, 11, 12 },
+        };
+        for (int f = 0; f < 2; ++f) {
+            const spriteframe_t *move = &sprite.spritedef.spriteframes[16 + f];
+            if (move->rotations != 8) valid = false;
+            for (int r = 0; r < 8; ++r) {
+                const spritelayer_t *part = move->directions[r].layers;
+                if (!part || part->lump != move_lumps[f][r]) {
+                    fprintf(stderr, "FAIL: Exploiter MOVE phase %d rotation %d: %d\n",
+                        f, r, part ? part->lump : -1);
+                    valid = false;
+                }
+            }
         }
         R_FreeSprite(&sprite);
     }

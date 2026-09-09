@@ -557,14 +557,13 @@ static int assert_exploiter_16_direction_states(void) {
         char stand_label[32];
         char move_label[32];
         int suffix = (16 - code) & 15;
-        snprintf(stand_label, sizeof(stand_label), "EXPL%s%d",
-                 code & 1 ? "SHUF" : "STAND", suffix);
+        snprintf(stand_label, sizeof(stand_label), "EXPLSTAND%d", suffix);
         snprintf(move_label, sizeof(move_label), "EXPLMOVE%d", suffix);
         const FinCommand *stand = fin_layer_command_at(&expl_fin, stand_label, "expl", 1, 0);
         const FinCommand *move1 = fin_layer_command_at(&expl_fin, move_label, "expl", 1, 0);
         const FinCommand *move2 = fin_layer_command_at(&expl_fin, move_label, "expl", 1, 1);
-        if (!stand || !move1 || !move2) {
-            return fail("Exploiter 16-direction frames exist in EXPL.FIN");
+        if ((!(code & 1) && !stand) || ((code & 1) && stand) || !move1 || !move2) {
+            return fail("Exploiter FIN has eight STAND and sixteen MOVE directions");
         }
     }
     return 0;

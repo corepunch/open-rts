@@ -121,8 +121,6 @@ DARK_COLONY_WATER_WAVE_COUNT	games/dark-colony/w_bts.c	/^enum { DARK_COLONY_WATE
 DC_ALLEGIANCE_ALLIED	games/dark-colony/w_map.c	/^    DC_ALLEGIANCE_ALLIED,$/;"	e	enum:__anonef2472380203	file:
 DC_ALLEGIANCE_ENEMY	games/dark-colony/w_map.c	/^    DC_ALLEGIANCE_ENEMY,$/;"	e	enum:__anonef2472380203	file:
 DC_ALLEGIANCE_PLAYER	games/dark-colony/w_map.c	/^    DC_ALLEGIANCE_PLAYER,$/;"	e	enum:__anonef2472380203	file:
-DC_FINCommandCount	games/dark-colony/w_fin.c	/^int DC_FINCommandCount(const dc_fin_t *fin) {$/;"	f	typeref:typename:int	signature:(const dc_fin_t * fin)
-DC_FINCommandCount	games/dark-colony/w_spr.h	/^int DC_FINCommandCount(const dc_fin_t *fin);$/;"	p	typeref:typename:int	signature:(const dc_fin_t * fin)
 DC_FINFrame	games/dark-colony/w_fin.c	/^bool DC_FINFrame(const dc_fin_t *fin, int index, spritedirection_t *out) {$/;"	f	typeref:typename:bool	signature:(const dc_fin_t * fin,int index,spritedirection_t * out)
 DC_FINFrame	games/dark-colony/w_spr.h	/^bool DC_FINFrame(const dc_fin_t *fin, int index, spritedirection_t *out);$/;"	p	typeref:typename:bool	signature:(const dc_fin_t * fin,int index,spritedirection_t * out)
 DC_FINLabel	games/dark-colony/w_fin.c	/^const dc_fin_label_t *DC_FINLabel(const dc_fin_t *fin, const char *name) {$/;"	f	typeref:typename:const dc_fin_label_t *	signature:(const dc_fin_t * fin,const char * name)
@@ -196,8 +194,11 @@ DropshipSystem	games/dark-colony/p_drop.h	/^typedef struct DropshipSystem Dropsh
 DropshipSystem::dropship_animations	games/dark-colony/p_drop.c	/^    DropshipAnimations dropship_animations;$/;"	m	struct:DropshipSystem	typeref:typename:DropshipAnimations	file:
 DropshipSystem::dropships	games/dark-colony/p_drop.c	/^    DropshipRuntime dropships[8];$/;"	m	struct:DropshipSystem	typeref:typename:DropshipRuntime[8]	file:
 DropshipUpdateContext	games/dark-colony/p_drop.c	/^} DropshipUpdateContext;$/;"	t	typeref:struct:__anon4a1b9fe80308	file:
-FIN_ACTIONS	games/dark-colony/w_spr.c	/^enum { FIN_ACTIONS = 8, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
-FIN_DIRECTIONS	games/dark-colony/w_spr.c	/^enum { FIN_ACTIONS = 8, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
+FIN_ACTIONS	games/dark-colony/w_spr.c	/^enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
+FIN_DIRECTIONS	games/dark-colony/w_spr.c	/^enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
+FIN_MOVE	games/dark-colony/w_spr.c	/^enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
+FIN_SHUF	games/dark-colony/w_spr.c	/^enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
+FIN_STAND	games/dark-colony/w_spr.c	/^enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };$/;"	e	enum:__anonef99476f0203	file:
 FIXED_TILE_CENTER	games/dark-colony/dc_types.h	/^    FIXED_TILE_CENTER = 0x80,$/;"	e	enum:__anonf5138b040203
 FLIPPED	games/dark-colony/info.c	/^#define FLIPPED /;"	d	file:
 GAMESTAT_BOOM_COUNT	games/dark-colony/gamestat.h	/^#define GAMESTAT_BOOM_COUNT /;"	d
@@ -1376,7 +1377,7 @@ __anonef99476f0108	games/dark-colony/w_spr.c	/^typedef struct {$/;"	s	file:
 __anonef99476f0108::palette	games/dark-colony/w_spr.c	/^    uint32_t palette[256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint32_t[256]	file:
 __anonef99476f0108::selector5	games/dark-colony/w_spr.c	/^    uint8_t selector5[256 * 256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint8_t[]	file:
 __anonef99476f0108::valid	games/dark-colony/w_spr.c	/^    bool valid;$/;"	m	struct:__anonef99476f0108	typeref:typename:bool	file:
-__anonef99476f0203	games/dark-colony/w_spr.c	/^enum { FIN_ACTIONS = 8, FIN_DIRECTIONS = 16 };$/;"	g	file:
+__anonef99476f0203	games/dark-colony/w_spr.c	/^enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };$/;"	g	file:
 __anonef99476f0308	games/dark-colony/w_spr.c	/^typedef struct {$/;"	s	file:
 __anonef99476f0308::directions	games/dark-colony/w_spr.c	/^    const dc_fin_label_t *directions[FIN_DIRECTIONS];$/;"	m	struct:__anonef99476f0308	typeref:typename:const dc_fin_label_t * []	file:
 __anonef99476f0408	games/dark-colony/w_spr.c	/^typedef struct {$/;"	s	file:
@@ -1966,7 +1967,6 @@ sprite	games/dark-colony/w_spr.h	/^    char sprite[8];$/;"	m	struct:__anonef9947
 sprite_cache_load_dark_colony	games/dark-colony/w_spr.c	/^static bool sprite_cache_load_dark_colony(spritecache_t *cache,$/;"	f	typeref:typename:bool	file:	signature:(spritecache_t * cache,const char * data_root,const char * name)
 sprite_frame	games/dark-colony/w_drop.h	/^    int sprite_frame;$/;"	m	struct:__anonbfe872140108	typeref:typename:int
 sprite_name	games/dark-colony/w_drop.h	/^    char sprite_name[32];$/;"	m	struct:__anonbfe872140108	typeref:typename:char[32]
-sprite_stem	games/dark-colony/w_spr.c	/^static const char *sprite_stem(const char *path) {$/;"	f	typeref:typename:const char *	file:	signature:(const char * path)
 spritenum_t	games/dark-colony/info.h	/^} spritenum_t;$/;"	t	typeref:enum:__anonf7269e950103
 sprnames	games/dark-colony/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	typeref:typename:const char * const[]
 stand	games/dark-colony/w_drop.h	/^    DropshipAnimation stand;$/;"	m	struct:__anonbfe872140408	typeref:typename:DropshipAnimation

@@ -1372,12 +1372,13 @@ expl_death	tools/dc_info_gen.c	/^    int expl_death;$/;"	m	struct:__anon292f5ac1
 expl_deploy	tools/dc_info_gen.c	/^    int expl_deploy;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 expl_run	tools/dc_info_gen.c	/^    int expl_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 expl_work	tools/dc_info_gen.c	/^    int expl_work;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+exploiter_turns_before_moving	tests/dark-colony/test_flow_field_movement.c	/^static int exploiter_turns_before_moving(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 extra_count	game/map.h	/^    int extra_count;$/;"	m	struct:level_s	typeref:typename:int
 extras	ARCHITECTURE.md	/^The map also owns decorations, resource vents, map extras, player resources, and$/;"	v
 extras	game/map.h	/^    mapextra_t *extras;$/;"	m	struct:level_s	typeref:typename:mapextra_t *
 f	play/p_map.c	/^    int f;$/;"	m	struct:__anon9020bd480108	typeref:typename:int	file:
 f16_fin_layer5_state	tools/dc_info_gen.c	/^static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimation *fin,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,const DcFinAnimation * fin,const char * label_prefix,int step,int fallback_frame,int tics,const char * action,const char * next,int group)
-f16_fin_state	tools/dc_info_gen.c	/^static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,const DcFinAnimation * fin,const char * label_prefix,const char * odd_label_prefix,int step,int fallback_frame,int tics,const char * action,const char * next,int group)
+f16_fin_state	tools/dc_info_gen.c	/^static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,const DcFinAnimation * fin,const char * label_prefix,int step,int fallback_frame,int tics,const char * action,const char * next,int group)
 f1_fin_raw_state	tools/dc_info_gen.c	/^static void f1_fin_raw_state(FILE *out, const char *spr,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,const DcFinDrawPart * cmd,const char * next)
 f6	tools/dc_info_gen.c	/^static void f6(FILE *out, const char *spr, int tics, const char *action, const char *next,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,int tics,const char * action,const char * next,int group,const int starts[6],int offset)
 f8_fin_layer0_overlay_state	tools/dc_info_gen.c	/^static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinAnimation *fin,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * spr,const DcFinAnimation * fin,const char * label_prefix,int step,int fallback_frame,int tics,const char * action,const char * next,int group,int sequence_count)
@@ -2010,6 +2011,7 @@ radius	play/actor.h	/^    float radius;$/;"	m	struct:mobj_s	typeref:typename:flo
 radius	play/actor.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 raisestate	play/actor.h	/^    int raisestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 range	play/actor.h	/^        float range;$/;"	m	struct:mobjtype_s::__anon175231d90308	typeref:typename:float
+ranges	docs/DC_EXE_FINDINGS.md	/^STAND\/SHUF for turning; travel uses the animated MOVE ranges, as requested by$/;"	v
 rate	game/map.h	/^    int rate;$/;"	m	struct:resourcevent_s	typeref:typename:int
 reactiontime	play/actor.h	/^    int reactiontime;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 read_count_line	tools/dc_gamestat_gen.c	/^static int read_count_line(char **cursor, const char *path) {$/;"	f	typeref:typename:int	file:	signature:(char ** cursor,const char * path)

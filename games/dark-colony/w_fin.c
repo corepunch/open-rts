@@ -72,10 +72,6 @@ const dc_fin_label_t *DC_FINLabel(const dc_fin_t *fin, const char *name) {
     return NULL;
 }
 
-int DC_FINCommandCount(const dc_fin_t *fin) {
-    return fin->command_count;
-}
-
 static bool read_layer(const dc_fin_command_t *command, spritelayer_t *out) {
     int cell = (int16_t)SDL_SwapLE16(command->cell);
     int remap = SDL_SwapLE16(command->remap);

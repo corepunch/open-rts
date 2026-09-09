@@ -676,6 +676,17 @@ identified.
 
 #### Exploiter and Reaper animation ranges
 
+**Correction (2026-09-09):** DC.EXE's STAND setup at `0x0043895f` calls
+`0x00423a50` with the literal action name. Missing directions fall back within
+that action; it does not merge SHUF into STAND. The full native stationary/turning selection
+path is still unknown. The user requests sixteen stationary STAND/SHUF poses
+for turning and eight animated MOVE ranges for travel in open-rts; that is a
+separate presentation contract, not a claim that native action names alias.
+See `docs/DC_EXE_FINDINGS.md`, "Resolve FIN actions by their own names," for
+instruction addresses, file fingerprints, fallback-table evidence, and the
+remaining angle-quantizer limitations. The executable/asset provenance is the
+local retail data already listed above; no new external source was used.
+
 Direction and cycle length are data-driven by FIN label ranges rather than
 hardcoded per unit in the renderer. `EXPL.FIN` contains directional poses for
 all 16 direction codes: even `EXPLSTAND*` labels and odd `EXPLSHUF*` labels.

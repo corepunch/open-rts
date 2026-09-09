@@ -1,6 +1,5 @@
 #include "w_spr.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,12 +14,6 @@ static const char *dependency_name(const char *dependency) {
     if (!*stem || strspn(stem, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != strlen(stem))
         return NULL;
     return M_va("SPRITES/%s.SPR", stem);
-}
-
-static const char *sprite_stem(const char *path) {
-    char *stem = M_Upper(M_va("%.8s", M_FileName(path)));
-    stem[strcspn(stem, ".")] = '\0';
-    return stem;
 }
 
 static bool asset_exists(const char *path) { return path && access(path, R_OK) == 0; }
@@ -70,9 +63,9 @@ fail:
     return false;
 }
 
-enum { FIN_ACTIONS = 8, FIN_DIRECTIONS = 16 };
+enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };
 static const char *const fin_actions[FIN_ACTIONS] = {
-    "STAND", "MOVE", "FIREA", "FIREB", "FIRE", "DIEA", "DIEB", "DIEC",
+    "STAND", "MOVE", "SHUF", "FIREA", "FIREB", "FIRE", "DIEA", "DIEB", "DIEC",
 };
 
 typedef struct {
@@ -98,10 +91,7 @@ static void collect_sequences(const dc_fin_t *fin, const char *stem,
         if (*end || direction >= FIN_DIRECTIONS) continue;
         *number = '\0';
         for (int a = 0; a < FIN_ACTIONS; ++a) {
-            /* EXPL's odd idle facings are authored under SHUF. */
-            const char *expected = a == 0 && !strcmp(stem, "EXPL") && (direction & 1)
-                ? "SHUF" : fin_actions[a];
-            if (!strcmp(action, expected) && !sequences[a].directions[direction])
+            if (!strcmp(action, fin_actions[a]) && !sequences[a].directions[direction])
                 sequences[a].directions[direction] = label;
         }
     }
@@ -121,6 +111,14 @@ static void install_fin_frames(spritesheet_t *sheet, const dc_fin_t *fin, const 
     if (!fin->header) return;
     fin_sequence_t sequences[FIN_ACTIONS] = {0};
     collect_sequences(fin, stem, sequences);
+    for (int d = 0; d < FIN_DIRECTIONS; ++d) {
+        /* Standing includes stationary turn poses; travel uses animated ranges. */
+        if (!sequences[FIN_STAND].directions[d])
+            sequences[FIN_STAND].directions[d] = sequences[FIN_SHUF].directions[d];
+        if (label_length(sequences[FIN_MOVE].directions[0]) > 1 &&
+            label_length(sequences[FIN_MOVE].directions[d]) == 1)
+            sequences[FIN_MOVE].directions[d] = NULL;
+    }
     for (int action = 0; action < FIN_ACTIONS; ++action) {
         const fin_sequence_t *sequence = &sequences[action];
         int rotations = sequence_rotations(sequence);
@@ -364,7 +362,9 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     decode_palette(spr.header->palette, palette);
     if (palette_out) memcpy(palette_out, palette, sizeof(palette));
     char stem[9]; /* Retained while later M_va calls reuse their temporary strings. */
-    snprintf(stem, sizeof(stem), "%s", sprite_stem(sprite_path));
+    snprintf(stem, sizeof(stem), "%.8s", M_FileName(sprite_path));
+    stem[strcspn(stem, ".")] = '\0';
+    M_Upper(stem);
     if (!load_cells(&spr, out, palette) || !init_sprite_frames(out, &fin) ||
         !install_ground_points(out, &fin, stem)) goto fail;
     install_fin_frames(out, &fin, stem);
@@ -430,7 +430,7 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
         return false;
     }
     cache->count++;
-    if (DC_FINCommandCount(&animation) > 0) {
+    if (animation.command_count > 0) {
         for (int i = 0; i < SDL_SwapLE16(animation.header->dependency_count); ++i) {
             const char *dependency = dependency_name(animation.dependencies[i].name);
             if (!dependency || R_CacheFind(cache, dependency) ||

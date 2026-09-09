@@ -1440,53 +1440,16 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
 }
 
 static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
-                          const char *label_prefix, const char *odd_label_prefix,
-                          int step, int fallback_frame,
+                          const char *label_prefix, int step, int fallback_frame,
                           int tics, const char *action, const char *next, int group) {
-    int frames[16];
-    int flags[16] = {0};
-    int offset_x[16] = {0};
-    int offset_y[16] = {0};
-    int remap[16] = {0};
-    int intensity[16] = {0};
-    for (int code = 0; code < 16; ++code) {
-        int candidates[128];
-        int candidate_flags[128] = {0};
-        int candidate_x[128] = {0};
-        int candidate_y[128] = {0};
-        int candidate_remap[128] = {0};
-        int candidate_intensity[128] = {0};
-        const char *direction_prefix = odd_label_prefix && (code & 1) ?
-            odd_label_prefix : label_prefix;
-        int count = fin_body_frames_for_direction16(fin, direction_prefix, code,
-                                                    candidates, candidate_flags,
-                                                    candidate_x, candidate_y,
-                                                    candidate_remap,
-                                                    candidate_intensity,
-                                                    (int)(sizeof(candidates) / sizeof(candidates[0])));
-        if (count <= 0) {
-            frames[code] = fallback_frame;
-            flags[code] = 0;
-            offset_x[code] = 0;
-            offset_y[code] = 0;
-            intensity[code] = 16;
-        } else {
-            int frame_index = step < count ? step : count - 1;
-            frames[code] = candidates[frame_index];
-            flags[code] = candidate_flags[frame_index];
-            offset_x[code] = candidate_x[frame_index];
-            offset_y[code] = candidate_y[frame_index];
-            remap[code] = candidate_remap[frame_index];
-            intensity[code] = candidate_intensity[frame_index];
-        }
-    }
-
-    static const int directions[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
-        fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
-            spr, logical_frame, tics, action, next, group);
-    write_rotations(out, 16, directions, frames, flags);
-    fprintf(out, " },\n");
+    int candidates[128];
+    int count = fin_body_frames_for_direction16(fin, label_prefix, 0, candidates,
+                                               NULL, NULL, NULL, NULL, NULL,
+                                               sizeof(candidates) / sizeof(*candidates));
+    if (count > 0) fallback_frame = candidates[step < count ? step : count - 1];
+    int frame = fin_logical_frame(fin, label_prefix, step, fallback_frame);
+    fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
+            spr, frame, tics, action, next, group);
 }
 
 static void write_muzzle16(FILE *out, const char *spr, int frame, const int offsets_x[16],
@@ -1633,7 +1596,7 @@ static void write_fin_sequence16(FILE *out, const char *spr, const DcFinAnimatio
         else snprintf(next, sizeof(next), "%s", exit_state);
         int state_tics = native_timing ?
             fin_sequence_tics(fin, label_prefix, i, tics) : tics;
-        f16_fin_state(out, spr, fin, label_prefix, NULL, i, fallback_frame, state_tics,
+        f16_fin_state(out, spr, fin, label_prefix, i, fallback_frame, state_tics,
                       strcmp(first_action, "A_Walk") == 0 ? "A_Walk" :
                       (i == 0 ? first_action : "A_None"),
                       next, group);
@@ -1657,7 +1620,7 @@ static void write_fin_layer5_sequence16(FILE *out, const char *spr, const DcFinA
 
 static void write_fin_corpse16(FILE *out, const char *spr, const DcFinAnimation *fin,
                                const char *label_prefix, int last_step, int fallback_frame) {
-    f16_fin_state(out, spr, fin, label_prefix, NULL, last_step, fallback_frame, 1,
+    f16_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
                   "A_DC_Corpse", "S_NULL", 4);
 }
 
@@ -1873,7 +1836,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 0; i < 12; ++i) gray_die(out, gray_die_next[i], i, i == 0 ? "A_DC_Fall" : "A_None");
     gray_die(out, gray_die_next[12], 11, "A_DC_Corpse");
 
-    f16_fin_state(out, sprites[reap].symbol, &reap_fin, "REAPSTAND", NULL, 0, 0, -1,
+    f16_fin_state(out, sprites[reap].symbol, &reap_fin, "REAPSTAND", 0, 0, -1,
                   "A_None", "S_DC_REAP_STND", 1);
     write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
                          counts->reap_run, 0, 3, 2, "A_Walk", "S_DC_REAP_RUN1", true);
@@ -1892,7 +1855,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_label_effect_chain(out, root, sprites, sprite_count, &reap_fin,
                                  "REAPDIEA6", "REAP_DIEA6", 10, 2);
 
-    f16_fin_state(out, sprites[barr].symbol, &barr_fin, "BARRSTAND", NULL, 0, 0, -1,
+    f16_fin_state(out, sprites[barr].symbol, &barr_fin, "BARRSTAND", 0, 0, -1,
                   "A_None", "S_DC_BARR_STND", 1);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
                          counts->barr_run, 0, 3, 2, "A_Walk", "S_DC_BARR_RUN1", false);
@@ -1920,7 +1883,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                        counts->scgm_death, 0, 3, 4, "A_DC_Fall", "S_DC_SCGM_CORPSE", false);
     write_fin_corpse(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", counts->scgm_death - 1, 0, false);
 
-    f16_fin_state(out, sprites[expl].symbol, &expl_fin, "EXPLSTAND", "EXPLSHUF", 0, 0, -1,
+    f16_fin_state(out, sprites[expl].symbol, &expl_fin, "EXPLSTAND", 0, 0, -1,
                   "A_None", "S_DC_EXPL_STND", 1);
     write_fin_sequence16(out, sprites[expl].symbol, &expl_fin, "EXPLMOVE", "EXPL", "RUN",
                          counts->expl_run, 0, 3, 2, "A_Walk", "S_DC_EXPL_RUN1", false);
@@ -1937,7 +1900,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_muzzle(out, sprites[blaz].symbol, 0, NULL, NULL);
     write_muzzle16(out, sprites[blaz].symbol, 0, NULL, NULL);
 
-    f16_fin_state(out, sprites[ortu].symbol, &ortu_fin, "ORTUSTAND", "ORTUSHUF", 0, 0, -1,
+    f16_fin_state(out, sprites[ortu].symbol, &ortu_fin, "ORTUSTAND", 0, 0, -1,
                   "A_None", "S_DC_ORTU_STND", 1);
     write_fin_sequence16(out, sprites[ortu].symbol, &ortu_fin, "ORTUMOVE", "ORTU", "RUN",
                          counts->ortu_run, 0, 3, 2, "A_Walk", "S_DC_ORTU_RUN1", false);
@@ -1945,7 +1908,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                          counts->ortu_die, 0, 3, 4, "A_DC_Fall", "S_DC_ORTU_CORPSE", false);
     write_fin_corpse16(out, sprites[ortu].symbol, &ortu_fin, "ORTUDIE", counts->ortu_die - 1, 0);
 
-    f16_fin_state(out, sprites[slug].symbol, &slug_fin, "SLUGSTAND", "SLUGSHUF", 0, 0, -1,
+    f16_fin_state(out, sprites[slug].symbol, &slug_fin, "SLUGSTAND", 0, 0, -1,
                   "A_None", "S_DC_SLUG_STND", 1);
     write_fin_sequence16(out, sprites[slug].symbol, &slug_fin, "SLUGMOVE", "SLUG", "RUN",
                          counts->slug_run, 0, 3, 2, "A_Walk", "S_DC_SLUG_RUN1", false);
@@ -1957,9 +1920,9 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_build_sequence(out, sprites, sprite_count, &slug_fin,
                              "SLUGRETRACT14", "SLUG_RETRACT", "S_NULL", 5);
 
-    f16_fin_state(out, sprites[turr].symbol, &turr_fin, "TURRSTAND", "TURRSHUF", 0, 0, -1,
+    f16_fin_state(out, sprites[turr].symbol, &turr_fin, "TURRSTAND", 0, 0, -1,
                   "A_None", "S_DC_TURR_STND", 1);
-    f16_fin_state(out, sprites[turr].symbol, &turr_fin, "TURRFIRE", NULL, 0, 0, 2,
+    f16_fin_state(out, sprites[turr].symbol, &turr_fin, "TURRFIRE", 0, 0, 2,
                   "A_Attack", "S_DC_TURR_STND", 3);
     write_fin_build_sequence(out, sprites, sprite_count, &turr_fin,
                              "TURRDIE0", "TURR_DIE", "S_NULL", 4);

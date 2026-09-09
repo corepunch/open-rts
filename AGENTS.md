@@ -103,6 +103,33 @@ ENGINE_SOURCES := driver/d_main.c render/r_draw.c ...
 
 Use `$(sort ...)` to keep the list deterministic across platforms.
 
+## Code style: keep the implementation small and direct
+
+Prefer the shortest clear implementation of the behavior we actually need.
+The sprite-loader cleanups (`992ad87` through `2eadb91`) show the approach:
+decode into final storage, borrow checked native records, reuse existing
+helpers, and delete intermediate representations and needless indirection.
+
+- Remove unnecessary work and state before adding abstractions. Do not build
+  wrappers, callbacks, configuration knobs, or fallback paths for hypothetical
+  future uses. A helper should simplify its callers or centralize a real rule.
+- Keep one owner and one representation for each piece of data. Decode only
+  what needs conversion; avoid copying whole tables just to rename fields.
+- Use native dimensions, ranges, names, and flags directly. Do not reconstruct
+  information already present in the asset or scan pixels to guess metadata.
+- No asset-name exceptions, guessed aliases, compensating offsets, or visual
+  hacks. Trace the native lookup when data appears inconsistent. Distinguish
+  verified native behavior from an explicitly requested engine behavior.
+- Reuse whole-value operations and standard string functions. Keep temporary
+  values local; retain owned storage only when its lifetime requires it.
+- Delete dead calculations, unused parameters/includes, and accessors that
+  merely return a public field. Consolidate cleanup under the actual owner.
+- Keep checks that protect file spans, allocations, and ownership. Short code
+  must still handle real failures; do not compress it into clever expressions.
+- Verify simplifications against existing behavior. For asset loaders, compare
+  catalog pixels and metadata; document any intentional behavior correction
+  separately with native evidence. Fewer lines alone is not proof of a fix.
+
 ## Code style: header include guards
 
 Use classic C `#ifndef` guards in all header files — never `#pragma once`.
@@ -259,9 +286,14 @@ array, not the binary.
 ### Dark Colony unit notes
 
 - **Exploiter speed**: 3.5 grid-units/s. Heavy harvester — should be slower than infantry (Trooper 5.0).
-- **Exploiter walk cycle**: the original game has 16 animation frames per facing. The generated
-  `info.c` only has 2 RUN states (RUN1/RUN2). The missing 14 frames need to be extracted and added
-  by regenerating `info.c` via `tools/dc_info_gen` against the actual EXPL.SPR frame table.
+- **Exploiter walk cycle**: EXPL.FIN has 16 MOVE directions, with two temporal
+  frames in each even range and one in each odd range. RUN1/RUN2 is intentional;
+  do not invent 14 missing temporal frames. Our standing state uses 16 poses
+  (STAND plus intermediate SHUF facings) to turn smoothly in place before
+  moving; travel uses the eight animated MOVE ranges. Derive these from FIN
+  names/ranges without an EXPL-name exception. Native action lookup treats
+  STAND and SHUF separately; its exact shuffle-selection path is still unknown
+  (see `docs/DC_EXE_FINDINGS.md`).
 - **Reaper animation after regeneration**: after regenerating `info.c` or `info.h`, always restore
   and verify the native Reaper movement timing `{4, 3, 3, 4, 1, 3, 3, 1}` for `S_DC_REAP_RUN1`
   through `S_DC_REAP_RUN8`; run `build/bin/test_dark_colony_sprite_layout` before finishing.
