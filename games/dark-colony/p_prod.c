@@ -196,11 +196,18 @@ bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
     return true;
 }
 
-/* State entry, rather than a second animation timer, releases the queue. */
-void A_DC_ProductionReady(mobj_t *producer) {
-    if (producer->production && producer->production->release_active)
-        producer->production->release_ready = true;
-    A_DC_BuildingStand(producer);
+/* The retail release channel (+0x24) is independent of the building's
+ * main channel (+0x14). An ordinary mobj owns its FIN state lifetime. */
+void A_DC_ProductionReady(mobj_t *release) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *producer = (mobj_t *)th;
+        if (!producer->remove && producer->id == release->producer_id &&
+            producer->production && producer->production->release_active) {
+            producer->production->release_ready = true;
+            break;
+        }
+    }
 }
 
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
@@ -210,10 +217,17 @@ bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
     if (!producer || !producer->production || !product ||
         producer->type_id != MT_BRRKPOD || product->product_class != RTS_PRODUCT_UNIT ||
         actor_id != MT_TROOPER) return false;
+    mobj_t *release = P_SpawnMobj(producer->core.position, MT_PRODUCTION_RELEASE);
+    if (!release) return false;
+    release->producer_id = producer->id;
+    release->core.render_offset = producer->core.render_offset;
+    release->core.angle = producer->core.angle;
+    release->owner = producer->owner;
+    release->team = producer->team;
     producer->production->release_active = true;
     producer->production->release_ready = false;
     producer->production->time_left_ms = 0;
-    return P_SetMobjState(producer, S_BRRKPOD_BUILD_TRSC1);
+    return true;
 }
 
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,

@@ -108,22 +108,28 @@ int main(void) {
     uint32_t built_ids[2] = {0};
     for (int tic = 0; tic < 900 && built < 2; ++tic) {
         assert(rts_tick(model, NULL));
-        if (barracks->core.state_id >= S_BRRKPOD_BUILD_TRSC1 &&
-            barracks->core.state_id <= S_BRRKPOD_BUILD_TRSC22) {
-            if (barracks->core.state_id == S_BRRKPOD_BUILD_TRSC1 &&
-                barracks->core.tics == states[S_BRRKPOD_BUILD_TRSC1].tics) releases++;
-            assert(barracks->core.sprite_id == SPR_HUBU && !barracks->production->release_ready);
+        mobj_t *release = find(MT_PRODUCTION_RELEASE);
+        if (release && release->core.state_id >= S_BRRKPOD_BUILD_TRSC1 &&
+            release->core.state_id <= S_BRRKPOD_BUILD_TRSC22) {
+            if (release->core.state_id == S_BRRKPOD_BUILD_TRSC1 &&
+                release->core.tics == states[S_BRRKPOD_BUILD_TRSC1].tics) releases++;
+            assert(release->core.sprite_id == SPR_HUBU && !barracks->production->release_ready);
+            assert(states[barracks->core.state_id].group == 1);
+            assert(barracks->core.frame == states[S_BRRKPOD_STND].frame ||
+                   barracks->core.frame == states[S_BRRKPOD_STND_2].frame);
+            assert(!memcmp(&release->core.position, &barracks->core.position, sizeof(fixed3_t)));
+            assert(release->traits == (MF_RENDERABLE | MF_NOBLOCKMAP));
             frames++;
-            if (releases == 1 && barracks->core.state_id == S_BRRKPOD_BUILD_TRSC4)
+            if (releases == 1 && release->core.state_id == S_BRRKPOD_BUILD_TRSC4)
                 screenshot(&app, surface, &tiles, cache, "/private/tmp/barracks-open.bmp");
-            if (releases == 1 && barracks->core.state_id == S_BRRKPOD_BUILD_TRSC18)
+            if (releases == 1 && release->core.state_id == S_BRRKPOD_BUILD_TRSC18)
                 screenshot(&app, surface, &tiles, cache, "/private/tmp/barracks-exit.bmp");
         }
         RtsGameEvent event;
         while (rts_game_model_poll_event(model, &event)) {
             if (event.type != RTS_GAME_EVENT_UNIT_BUILT || event.target_id != barracks->id) continue;
             assert(built < 2 && frames == 44 * (built + 1));
-            assert(barracks->core.state_id == S_BRRKPOD_STND);
+            assert(states[barracks->core.state_id].group == 1);
             mobjlist_t objects = P_ListMobjs();
             mobj_t *trooper = NULL;
             for (int i = 0; i < objects.count; ++i)
@@ -158,7 +164,8 @@ int main(void) {
     int blocked_ticks = 0;
     bool finished = false, blocked = false;
     for (int tic = 0; tic < 600 && !finished; ++tic) {
-        if (barracks->core.state_id == S_BRRKPOD_BUILD_TRSC22 && barracks->core.tics == 1) {
+        mobj_t *release = find(MT_PRODUCTION_RELEASE);
+        if (release && release->core.state_id == S_BRRKPOD_BUILD_TRSC22 && release->core.tics == 1) {
             level.blocked[blocked_cell] = 1;
             blocked = true;
         }

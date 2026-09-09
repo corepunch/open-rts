@@ -112,6 +112,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
 }
 
 int main(void) {
+    P_InitThinkers();
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
     r_renderer = SDL_CreateSoftwareRenderer(surface);
@@ -129,7 +130,7 @@ int main(void) {
             CHECK(state->frame >= sheet->numlumps);
     }
     static const struct { const char *file, *label; int first, last; } sequences[] = {
-        {"HUBU", "TRSCBUILD0", S_BRRKPOD_BUILD_TRSC1, S_BRRKPOD_STND},
+        {"HUBU", "TRSCBUILD0", S_BRRKPOD_BUILD_TRSC1, S_NULL},
         {"BARR", "BARRDIE14", S_BARR_DIE1, S_BARR_CORPSE},
         {"SARG", "SARGDIE14", S_SARG_DIE1, S_SARG_CORPSE},
         {"ORTU", "ORTUDIE14", S_ORTU_DIE1, S_ORTU_CORPSE},

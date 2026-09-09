@@ -22,6 +22,6 @@ typedef struct {
 } dc_waypoints_t;
 
 /* Game-owned object fields; vent indices refer to the active level. */
-#define MOBJ_GAME_FIELDS dc_drop_t drop; int resource_vent_index; dc_waypoints_t waypoints;
+#define MOBJ_GAME_FIELDS dc_drop_t drop; int resource_vent_index; dc_waypoints_t waypoints; uint32_t producer_id;
 
 #endif

@@ -544,8 +544,10 @@ static int assert_barracks_trooper_release_timing(void) {
         total_tics += state->tics;
         state_id = state->nextstate;
     }
-    if (total_tics != 44 || state_id != S_BRRKPOD_STND)
-        return fail("Barracks Trooper release preserves native time and returns to stand");
+    if (total_tics != 44 || state_id != S_PRODUCTION_READY ||
+        states[state_id].tics != 0 || states[state_id].action != A_DC_ProductionReady ||
+        states[state_id].nextstate != S_NULL)
+        return fail("Barracks Trooper release preserves native time and terminates after notifying its producer");
     return 0;
 }
 

@@ -90,13 +90,15 @@ static void check_states(void) {
         assert(building->core.state_id == mobjinfo[type].spawnstate);
         if (type == MT_BRRKPOD) {
             assert(P_EnsureMobjProduction(building));
-            building->production->release_active = true;
-            P_SetMobjState(building, S_BRRKPOD_BUILD_TRSC1);
+            const StaticProductDefinition *product = G_ModelProductByUIId(NULL, 89);
+            assert(G_ModelStartProductionRelease(NULL, building, product, MT_TROOPER));
+            mobj_t *release = (mobj_t *)thinkercap.prev;
+            assert(release->type_id == MT_PRODUCTION_RELEASE);
             hit(building, building->max_hp / 2);
-            assert(building->core.state_id == S_BRRKPOD_BUILD_TRSC1);
+            assert(building->core.state_id == burn[index]);
             for (int tic = 0; tic < 200 && !building->production->release_ready; ++tic)
-                P_MobjThinker(building);
-            assert(building->production->release_ready && building->core.state_id == burn[index]);
+                P_MobjThinker(release);
+            assert(building->production->release_ready && release->remove);
         }
         hit(building, 0);
         assert(!building->remove && building->core.state_id == mobjinfo[type].deathstate);

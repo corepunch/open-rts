@@ -3241,3 +3241,51 @@ SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_barracks_production
 
 The test writes `/private/tmp/dc-build-menu.bmp`; visual inspection confirmed
 the three icons and empty slots match the supplied screenshot's menu layout.
+
+## Keep the Barracks visible during Trooper release (2026-09-09)
+
+**Confirmed correction:** production was incorrectly replacing the producer's
+main FIN state with TRSCBUILD0. Its frames contain the door and Trooper only,
+so this removed the building. The earlier statement that no persistent building
+presentation was established is superseded; the FIN frames themselves remain
+unchanged and complete.
+
+Retail DC.EXE SHA-256:
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+At `0x4139e0` the city production handler loads the product animation from
+`0x4ec918 + type*0x118`, adds **0x24** to the producer at `0x4139ef`, and
+calls `0x423c34` with mode 1 at `0x4139f2`. This is distinct from the main
+channel at +0x14. Drawing resolves +0x14 at `0x43645b`, then independently
+resolves +0x24 at `0x4364b6–0x4364ef` and queues its commands after the main
+and damage commands at `0x43678e–0x436807`. All three channels tick at
+`0x418567–0x418580`. Construction startup at `0x44143a–0x44144b` is a
+different caller; it does not justify replacing the producer during release.
+
+**Implementation:** an ordinary MT_PRODUCTION_RELEASE mobj runs the existing
+22-frame chain through P_MobjThinker and terminal S_NULL, following the same
+ownership pattern as Doom's P_SpawnPuff (`reference/DOOM/p_mobj.c:812`). Copy
+the producer's position, render offset, angle and team once. A zero-tic terminal
+action resolves the producer by stable ID to mark its queue ready, avoiding a
+dangling pointer if the building was removed. The building continues its own
+standing/damage animation. No renderer exception or synthesized FIN layer is
+needed. Native training duration and exit spacing remain **unknown**; the
+existing engine timing and handoff policy are unchanged. Unlike retail attached
+channels, this short-lived visual finishes independently if its producer dies.
+
+Temporary diagnostics confirmed building state 9 and release state 12 coexist
+at the same position with render offset (0,32); logs were removed after testing.
+Tests assert both objects' states and renderability throughout all 44 release
+tics, two queued units, the exact native handoff, blocked-exit retry, and damage
+to the building while the release proceeds. Headless screenshots cover open-door
+and late Trooper-only frames with the building still present.
+
+Reproduce:
+
+```sh
+r2 -q -e bin.cache=true -c 'pd 14 @ 0x4139c6' -c 'pd 24 @ 0x4364b6' -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_barracks_production build/bin/tests/dark-colony/test_building_damage
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_barracks_production
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_building_damage
+```
+
+Screenshots: `/private/tmp/barracks-open.bmp`, `/private/tmp/barracks-exit.bmp`.

@@ -57,8 +57,8 @@ A_DC_Damage	games/dark-colony/p_blood.c	/^void A_DC_Damage(mobj_t *target) {$/;"
 A_DC_Damage	games/dark-colony/p_blood.h	/^void A_DC_Damage(mobj_t *target);$/;"	p	typeref:typename:void	signature:(mobj_t * target)
 A_DC_Drop	games/dark-colony/info.h	/^void A_DC_Drop(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Drop	games/dark-colony/p_drop.c	/^void A_DC_Drop(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
-A_DC_ProductionReady	games/dark-colony/info.h	/^void A_DC_ProductionReady(mobj_t *producer);$/;"	p	typeref:typename:void	signature:(mobj_t * producer)
-A_DC_ProductionReady	games/dark-colony/p_prod.c	/^void A_DC_ProductionReady(mobj_t *producer) {$/;"	f	typeref:typename:void	signature:(mobj_t * producer)
+A_DC_ProductionReady	games/dark-colony/info.h	/^void A_DC_ProductionReady(mobj_t *release);$/;"	p	typeref:typename:void	signature:(mobj_t * release)
+A_DC_ProductionReady	games/dark-colony/p_prod.c	/^void A_DC_ProductionReady(mobj_t *release) {$/;"	f	typeref:typename:void	signature:(mobj_t * release)
 A_DC_ReaperDeath	games/dark-colony/info.h	/^void A_DC_ReaperDeath(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_ReaperDeath	games/dark-colony/p_inter.c	/^void A_DC_ReaperDeath(mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Vent	games/dark-colony/info.h	/^void A_DC_Vent(mobj_t *actor);$/;"	p	typeref:typename:void	signature:(mobj_t * actor)
@@ -244,6 +244,7 @@ MT_GREY	games/dark-colony/info.h	/^    MT_GREY,$/;"	e	enum:__anonf7269e950303
 MT_MOBILE_TOWER	games/dark-colony/info.h	/^    MT_MOBILE_TOWER,$/;"	e	enum:__anonf7269e950303
 MT_NULL	games/dark-colony/info.h	/^    MT_NULL,$/;"	e	enum:__anonf7269e950303
 MT_ORTU	games/dark-colony/info.h	/^    MT_ORTU,$/;"	e	enum:__anonf7269e950303
+MT_PRODUCTION_RELEASE	games/dark-colony/info.h	/^    MT_PRODUCTION_RELEASE,$/;"	e	enum:__anonf7269e950303
 MT_REAPER	games/dark-colony/info.h	/^    MT_REAPER,$/;"	e	enum:__anonf7269e950303
 MT_ROBOPOD	games/dark-colony/info.h	/^    MT_ROBOPOD,$/;"	e	enum:__anonf7269e950303
 MT_ROBOPOD2	games/dark-colony/info.h	/^    MT_ROBOPOD2,$/;"	e	enum:__anonf7269e950303
@@ -758,6 +759,7 @@ S_ORTU_RUN5	games/dark-colony/info.h	/^    S_ORTU_RUN5,$/;"	e	enum:__anonf7269e9
 S_ORTU_RUN6	games/dark-colony/info.h	/^    S_ORTU_RUN6,$/;"	e	enum:__anonf7269e950203
 S_ORTU_RUN7	games/dark-colony/info.h	/^    S_ORTU_RUN7,$/;"	e	enum:__anonf7269e950203
 S_ORTU_STND	games/dark-colony/info.h	/^    S_ORTU_STND,$/;"	e	enum:__anonf7269e950203
+S_PRODUCTION_READY	games/dark-colony/info.h	/^    S_PRODUCTION_READY,$/;"	e	enum:__anonf7269e950203
 S_REAP_ATK1	games/dark-colony/info.h	/^    S_REAP_ATK1,$/;"	e	enum:__anonf7269e950203
 S_REAP_ATK2	games/dark-colony/info.h	/^    S_REAP_ATK2,$/;"	e	enum:__anonf7269e950203
 S_REAP_ATK3	games/dark-colony/info.h	/^    S_REAP_ATK3,$/;"	e	enum:__anonf7269e950203

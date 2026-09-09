@@ -42,7 +42,7 @@ const state_t states[NUMSTATES] = {
     { SPR_HUBU, 25, 5, A_DC_BuildingStand, S_EXCOPOD_STND_8, 1 },
     { SPR_HUBU, 26, 5, A_DC_BuildingStand, S_EXCOPOD_STND, 1 },
     /* BRRKPODSTAND0: complete native FIN sequence. */
-    { SPR_HUBU, 38, 5, A_DC_ProductionReady, S_BRRKPOD_STND_2, 1 },
+    { SPR_HUBU, 38, 5, A_DC_BuildingStand, S_BRRKPOD_STND_2, 1 },
     { SPR_HUBU, 39, 4, A_DC_BuildingStand, S_BRRKPOD_STND, 1 },
     /* TOWRSTAND0: complete native FIN frame. */
     { SPR_TOWR, 1, -1, A_None, S_TOWR_STND, 1 },
@@ -68,7 +68,7 @@ const state_t states[NUMSTATES] = {
     { SPR_HUBU, 63, 2, A_None, S_BRRKPOD_BUILD_TRSC20, 6 },
     { SPR_HUBU, 64, 2, A_None, S_BRRKPOD_BUILD_TRSC21, 6 },
     { SPR_HUBU, 65, 2, A_None, S_BRRKPOD_BUILD_TRSC22, 6 },
-    { SPR_HUBU, 66, 2, A_None, S_BRRKPOD_STND, 6 },
+    { SPR_HUBU, 66, 2, A_None, S_PRODUCTION_READY, 6 },
     { SPR_TRSC, 209, 1, A_Look, S_TRSC_STND, 1 },
     { SPR_TRSC, 225, 3, A_Chase, S_TRSC_RUN2, 2 },
     { SPR_TRSC, 226, 3, A_Chase, S_TRSC_RUN3, 2 },
@@ -850,6 +850,7 @@ const state_t states[NUMSTATES] = {
 #undef DC_BUILDING_LABEL
 #undef DC_BLOOD_STATE
 #undef DC_BLOOD_LABEL
+    [S_PRODUCTION_READY] = { SPR_HUBU, 66, 0, A_DC_ProductionReady, S_NULL, 6 },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -1077,6 +1078,10 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth = 1200, .flags = MF_SELECTABLE | MF_RENDERABLE },
     [MT_CITY_TOWER] = { .doomednum = 81, .spawnstate = S_TOWR_STND,
         .spawnhealth = 1600, .flags = MF_RENDERABLE },
+    [MT_PRODUCTION_RELEASE] = {
+        .spawnstate = S_BRRKPOD_BUILD_TRSC1,
+        .flags = MF_RENDERABLE | MF_NOBLOCKMAP,
+    },
 };
 
 const gameinfo_t game_info = {

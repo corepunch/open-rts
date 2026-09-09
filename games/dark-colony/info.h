@@ -956,6 +956,7 @@ typedef enum {
 #include "building_states.inc"
 #undef DC_BUILDING_STATE
 #undef DC_BUILDING_LABEL
+    S_PRODUCTION_READY,
     NUMSTATES
 } statenum_t;
 
@@ -994,6 +995,7 @@ enum {
     MT_ALIEN_RSCHIVE,
     MT_COMMS_DISH,
     MT_CITY_TOWER,
+    MT_PRODUCTION_RELEASE,
     NUMMOBJTYPES,
 };
 
@@ -1005,7 +1007,7 @@ extern const gameinfo_t game_info;
 const mobjtype_t *actor_type_by_id(uint16_t type_id);
 
 void A_DC_BuildingStand(mobj_t *building);
-void A_DC_ProductionReady(mobj_t *producer);
+void A_DC_ProductionReady(mobj_t *release);
 void A_DC_Vent(mobj_t *actor);
 void A_DC_ReaperDeath(mobj_t *unit);
 void A_DC_Drop(mobj_t *unit);

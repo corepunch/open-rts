@@ -43,6 +43,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     { .id = MT_VENT, .native_type_id = OBJECT_TYPE_PETRA7_VENT,
       .name = "Petra-7 vent", .sprite_name = "SPRITES/VENT.SPR",
       .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
+    { .id = MT_PRODUCTION_RELEASE, .name = "Production release",
+      .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     { .id = MT_BLOOD, .name = "Blood", .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     {
         .id = MT_GREY,
