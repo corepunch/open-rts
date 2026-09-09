@@ -527,7 +527,7 @@ static int assert_human02(RtsGameModel *model) {
     if (!snapshot_has_blinking_decoration_at(&snapshot,
                                              "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
                                              (ivec2_t){ 64, 52 },
-                                             RTS_FRAME_ADDITIVE | RTS_FRAME_BLINK)) {
+                                             RTS_FRAME_BLINK)) {
         return fail("Human02 dropship beacon stays anchored beside the starting base");
     }
         bool saw_dropship = false;
@@ -572,18 +572,18 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 loads Petra-7 vents");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR",
-                                             (ivec2_t){ 69, 48 }, RTS_FRAME_ADDITIVE,
+                                             (ivec2_t){ 69, 48 }, 0,
                                              (ivec2_t){ 9, -25 }, 0)) {
         return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR",
-                                             (ivec2_t){ 53, 27 }, RTS_FRAME_ADDITIVE,
+                                             (ivec2_t){ 53, 27 }, 0,
                                              (ivec2_t){ 9, -25 }, 0)) {
         return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
     }
     if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/PUFF.SPR",
                                              (ivec2_t){ 69, 48 },
-                                             RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW,
+                                             0,
                                              (ivec2_t){ 5, 4 }, -1) ||
         snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR",
                                       (ivec2_t){ 69, 48 })) {

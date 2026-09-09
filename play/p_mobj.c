@@ -52,7 +52,7 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
     mobj->frame = state->frame;
-    mobj->render_flags = (uint32_t)state->misc2;
+    mobj->render_flags = 0;
     mobj->render_remap = 0;
     mobj->render_intensity = 16;
     if (apply_offsets) mobj->render_offset = (ivec2_t){ 0, 0 };
@@ -83,7 +83,7 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
         debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
                           unit->type_id, unit->core.state_id, unit->core.sprite_id,
                           unit->core.frame, unit->core.tics);
-        if (state->misc1 == 3) {
+        if (state->group == 3) {
             const char *sprite_name = "(unknown)";
             if (unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
                 game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
@@ -866,7 +866,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             bool moving = unit_has_move_order(u);
             {
                 const state_t *s = state_at(game_info, u->core.state_id);
-                bool in_attack = s && s->misc1 == 3;
+                bool in_attack = s && s->group == 3;
                 if (moving && !in_attack) {
                     int stop_target = -1;
                     if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
@@ -959,7 +959,7 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             if (u->type_id > 0 && u->type_id < game_info->mobj_type_count) {
                 const mobjinfo_t *mi = &game_info->mobjinfo[u->type_id];
                 const state_t *state = state_at(game_info, u->core.state_id);
-                int group = state ? state->misc1 : 0;
+                int group = state ? state->group : 0;
                 if (group != 3) {
                     if (moving && group != 2) {
                         P_SetMobjState(&ctx, u, mi->seestate);
@@ -1104,29 +1104,11 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             bool light_spawned = spawn_ground_light(effects, max_effects,
                                                     attacker->core.position,
                                                     flash_ms, 30);
-            bool spawned = false;
-            int muzzle_state = game_info && attacker->type_id > 0 &&
-                attacker->type_id < game_info->mobj_type_count ?
-                game_info->mobjinfo[attacker->type_id].muzzleflash : game_info->null_state;
-            if (muzzle_state != game_info->null_state) {
-                statecontext_t effect_ctx = {
-                    .map = map,
-                    .mobjs = units,
-                    .mobj_count = &count,
-                    .effects = effects,
-                    .max_effects = max_effects,
-                    .game_info = game_info,
-                };
-                spawned = P_SpawnEffect(&effect_ctx, muzzle_state,
-                                        attacker->core.position, attacker->core.angle);
-            }
-            if (!spawned) {
-                spawned = spawn_visual_effect(effects, max_effects,
-                                              mobj_muzzle_flash_name(attacker),
-                                              attacker->core.position,
-                                              attacker->core.angle,
-                                              flash_ms, 40, false, false, 0, 0);
-            }
+            bool spawned = spawn_visual_effect(effects, max_effects,
+                                               mobj_muzzle_flash_name(attacker),
+                                               attacker->core.position,
+                                               attacker->core.angle,
+                                               flash_ms, 40, false, false, 0, 0);
             debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
                               i, target_index, spawned ? 1 : 0,
                               mobj_muzzle_flash_name(attacker));

@@ -518,6 +518,24 @@ points at the unit's muzzle flash state. Layer-5 unit-sprite commands are separa
 same-sprite weapon overlays; for Trooper fire states they are attached to the
 state overlay fields so the visible barrel flash appears with the BLAZ light.
 
+**Superseded implementation (2026-09-09):** the preceding separate muzzle-state
+and additive-yellow description records the former raw-SPR workaround, not
+retail evidence. Complete FIN attack frames now own their BLAZ commands.
+`S_*_MUZZLE`, `mobjinfo.muzzleflash`, and the artificial additive/yellow flags
+have been removed. Selector 3 is retained from FIN without inventing an SDL
+blend mode or tint; its exact native blending remains unverified here. See
+`docs/DC_EXE_FINDINGS.md`, “FIN layer flags and Doom misc fields”.
+
+Doom's `P_SetPsprite` uses `misc1`/`misc2` for player-weapon screen coordinates:
+when `misc1` is nonzero it assigns `sx = misc1 << FRACBITS` and
+`sy = misc2 << FRACBITS`. These are not sprite blend flags or world-actor
+animation groups. Local source provenance is the Doom checkout listed above;
+reproduction is `rg -n 'misc1|misc2' reference/DOOM/{info.h,p_pspr.c}`.
+SHA-256: `info.h`
+`3e68ee6cc13323e69cbcf208e9a0af7b13867bead49e66d765abefa5d914b0dd`;
+`p_pspr.c`
+`b47100f9c2c2c4f7913831c170bff55161af2d5d01f5467dbbc6be081c4f1af1`.
+
 `EXPL.FIN` uses the same command table layering for the Exploiter's Petra-7
 vent attach animation. `EXPLDEPLOY14` alternates `expl` layer-1 body frame `14`
 with `expl` layer-0 top/turret frames `15..24`; `EDPLYSTAND14` uses body frame

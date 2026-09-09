@@ -569,35 +569,21 @@ static SDL_Texture *sprite_texture_for_remap(const spritesheet_t *sprite, int fr
 }
 
 static SDL_Texture *begin_sprite_command(const spritesheet_t *sprite, int frame,
-                                         uint32_t render_flags, int render_remap,
+                                         int render_remap,
                                          int render_intensity) {
     SDL_Texture *texture = sprite_texture_for_remap(sprite, frame, render_remap);
     if (!texture) return NULL;
-    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
-        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
 
     uint8_t intensity = fin_intensity_color_mod(render_intensity);
-    uint8_t r = intensity;
-    uint8_t g = intensity;
-    uint8_t b = intensity;
-    uint8_t a = 255;
-    if ((render_flags & RTS_FRAME_TINT_YELLOW) != 0) {
-        r = intensity;
-        g = (uint8_t)((intensity * 236 + 127) / 255);
-        b = (uint8_t)((intensity * 72 + 127) / 255);
-        a = 230;
-    }
-    SDL_SetTextureColorMod(texture, r, g, b);
-    SDL_SetTextureAlphaMod(texture, a);
+    SDL_SetTextureColorMod(texture, intensity, intensity, intensity);
+    SDL_SetTextureAlphaMod(texture, 255);
     return texture;
 }
 
-static void end_sprite_command(SDL_Texture *texture, uint32_t render_flags) {
+static void end_sprite_command(SDL_Texture *texture) {
     if (!texture) return;
     SDL_SetTextureColorMod(texture, 255, 255, 255);
     SDL_SetTextureAlphaMod(texture, 255);
-    if ((render_flags & RTS_FRAME_ADDITIVE) != 0)
-        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 }
 
 static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256]) {
@@ -754,12 +740,12 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     }
     if (R_RenderIndexedBlend(app, sprite, frame, dst, render_flags, render_selector)) return;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, frame, render_flags,
+    SDL_Texture *texture = begin_sprite_command(sprite, frame,
                                                 dec->render_remap, 16);
     if (!texture) return;
     SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
                      0.0, NULL, flip);
-    end_sprite_command(texture, render_flags);
+    end_sprite_command(texture);
 }
 
 static void render_decoration(app_t *app, const level_t *map,
@@ -1092,10 +1078,10 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
     if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
-    SDL_Texture *texture = begin_sprite_command(marker, frame, 0, 0, 16);
+    SDL_Texture *texture = begin_sprite_command(marker, frame, 0, 16);
     if (!texture) return false;
     SDL_RenderCopy(app->renderer, texture, &marker->cells[frame].rect, &dst);
-    end_sprite_command(texture, 0);
+    end_sprite_command(texture);
     return true;
 }
 
@@ -1163,10 +1149,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                 continue;
             irect_t source_rect = sprite_frame_rect(source, part->lump);
             SDL_Point displacement = sprite_frame_raw_displacement(source, part->lump);
-            uint32_t part_flags = (u->core.render_flags & ~RTS_FRAME_FLIP_X) |
-                                  (part->flags & RTS_FRAME_FLIP_X);
-            if (part->layer == 3)
-                part_flags |= RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
+            uint32_t part_flags = part->flags;
             irect_t part_dst = {
                 (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
                     ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
@@ -1174,29 +1157,28 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                 source_rect.w,
                 source_rect.h,
             };
-            int remap = strcmp(part->sprite_name, ".") == 0 ?
-                u->core.render_remap : part->remap;
+            int remap = part->remap;
             if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
                                      part_flags, part->layer)) continue;
             SDL_Texture *part_texture = begin_sprite_command(
-                source, part->lump, part_flags, remap, part->intensity);
+                source, part->lump, remap, part->intensity);
             if (!part_texture) continue;
             SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
                 SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
             SDL_RenderCopyEx(app->renderer, part_texture,
                              &source->cells[part->lump].rect, &part_dst,
                              0.0, NULL, part_flip);
-            end_sprite_command(part_texture, part_flags);
+            end_sprite_command(part_texture);
         }
     } else {
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, frame, render_flags,
+    SDL_Texture *texture = begin_sprite_command(sprite, frame,
                                                 u->core.render_remap,
                                                 u->core.render_intensity);
     if (!texture) return;
     SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
                      0.0, NULL, flip);
-    end_sprite_command(texture, render_flags);
+    end_sprite_command(texture);
     }
     if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE) != 0) {
         selectiondrawcontext_t selection_ctx = {
@@ -1491,13 +1473,12 @@ void R_DrawEffects(app_t *app, const level_t *map,
         if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
                                  effect->render_selector)) continue;
         SDL_Texture *texture = begin_sprite_command(sprite, frame,
-                                                    effect->core.render_flags,
                                                     effect->core.render_remap,
                                                     effect->core.render_intensity);
         if (!texture) continue;
         SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
                  0.0, NULL, flip);
-        end_sprite_command(texture, effect->core.render_flags);
+        end_sprite_command(texture);
     }
     free(draw_order);
 }

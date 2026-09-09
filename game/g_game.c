@@ -587,7 +587,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
             &gameinfo->states[old_state[i]] : NULL;
         const state_t *new_s = (gameinfo && gameinfo->states && unit->core.state_id >= 0 && unit->core.state_id < gameinfo->state_count) ?
             &gameinfo->states[unit->core.state_id] : NULL;
-        if ((!old_s || old_s->misc1 != 3) && new_s && new_s->misc1 == 3) {
+        if ((!old_s || old_s->group != 3) && new_s && new_s->group == 3) {
             const mobj_t *target = NULL;
             if (unit->attack.target >= 0 && unit->attack.target < model->unit_count)
                 target = &model->units[unit->attack.target];

@@ -229,7 +229,7 @@ static int dc_model_find_state_by_group_frame(const gameinfo_t *game_info, int g
     if (!game_info || !game_info->states) return -1;
     for (int i = 0; i < game_info->state_count; ++i) {
         const state_t *state = &game_info->states[i];
-        if (state->misc1 != group || state->frame != frame) continue;
+        if (state->group != group || state->frame != frame) continue;
         return i;
     }
     return -1;
@@ -240,7 +240,7 @@ static int dc_model_state_chain_duration_ms(const gameinfo_t *game_info, int sta
     int guard = 0;
     while (guard++ < (game_info ? game_info->state_count + 1 : 1)) {
         const state_t *state = dc_model_state_at(game_info, state_id);
-        if (!state || state->misc1 != group) break;
+        if (!state || state->group != group) break;
         if (state->tics > 0) tics += state->tics;
         int next = state->nextstate;
         if (next == game_info->null_state || next == state_id) break;
@@ -304,7 +304,7 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
     int guard = 0;
     while (guard++ < game_info->state_count + 1) {
         const state_t *state = dc_model_state_at(game_info, release_state_id);
-        if (!state || state->misc1 != PRODUCTION_BUILD_GROUP) break;
+        if (!state || state->group != PRODUCTION_BUILD_GROUP) break;
         int x = 0;
         int y = 0;
         if (state->sprite == stand->sprite && state->frame == stand->frame) {

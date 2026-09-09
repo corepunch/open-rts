@@ -930,3 +930,70 @@ HUMAN01 screenshot was inspected and remains byte-identical to the parent;
 death coverage comes from the focused test, not that starting-scene image.
 The complete DC suite retains only the three previously recorded failures
 (muzzle effect, initial Trooper force, and spawn-state action invocation).
+
+## FIN layer flags and Doom misc fields (2026-09-09)
+
+**Confirmed assets:** the BLAZ commands in TRSC/GRAY/REAP FIN carry flags **0**
+and selector/layer **3**. The engine's `RTS_FRAME_ADDITIVE` (bit 1) and
+`RTS_FRAME_TINT_YELLOW` (bit 2) were not native FIN flag values. The generator
+invented those bits for three standalone muzzle states, and the renderer also
+injected them whenever a FIN command selected layer 3.
+
+| FIN | BLAZ command count | First BLAZ command byte offset | First command: cell, offset, remap, intensity, selector, flags |
+|---|---:|---:|---|
+| `TRSC.FIN` | 47 | 80,998 | `0, (-24,25), 0, 16, 3, 0` |
+| `GRAY.FIN` | 49 | 77,298 | `0, (-24,24), 0, 16, 3, 0` |
+| `REAP.FIN` | 24 | 50,942 | `0, (-23,26), 0, 16, 3, 0` |
+
+TRSC and REAP hashes are recorded above. GRAY.FIN SHA-256 is
+`077887b708009109740a518bf8cff9c547a21145617dbf5dde575342fe5a641a`;
+its label/frame/command tables begin at bytes 56/1,716/75,516. Reproduce with
+`build/dc_fin_extract data/DCOLONY/ANIMATE/GRAY.FIN /private/tmp/gray-flags.json`
+(substitute TRSC/REAP to inspect those files).
+
+**Disproven hypothesis:** the old additive-yellow constants are already encoded
+as FIN flag bits. Selector metadata is native; the forced
+SDL additive blend, RGB multiplier `(255,236,72)`, and alpha 230 were engine
+approximations. The exact native selector-3 blend remains **unknown** in this
+investigation. No new executable was examined, and no replacement blend formula
+is claimed. The existing indexed blend path still uses the native selector and
+available lookup table. Unsupported selectors receive ordinary sprite drawing.
+
+**Implementation:** first disabled `state.misc2` rendering overrides and tested
+that they were ignored, then removed the field, the three generated muzzle
+states, their extraction/emission helpers, `mobjinfo.muzzleflash`, and the unused
+actor muzzle sprite ID. FIN layers now supply their own flags, remap (including
+same-sheet body layers), and intensity. The renderer no longer inherits actor
+render flags into those commands or injects additive/yellow flags for selector
+3. Both artificial constants and their SDL tint/blend handling are deleted.
+
+**Doom comparison:** `P_SetPsprite` uses its two misc fields as optional player
+weapon X/Y coordinates, gated by nonzero `misc1`; see the source hashes in
+`REFERENCES.md`. Our `misc1` was unrelated gameplay metadata. It is retained as
+`state.group`: movement/attack groups protect animation transitions, attack
+group changes feed model events, and production group 6 bounds build chains.
+FIN presentation data does not replace these simulation decisions. Remaining
+generated state columns are sprite, frame, tics, action, nextstate, and group.
+
+**Focused verification:** `test_sprite_layer_rendering` renders a two-pixel
+fixture through the world renderer. Selector 3 preserves the source colors;
+setting every actor render flag and conflicting actor remap/intensity leaves
+the pixels unchanged. Native layer flip, remap, and intensity change pixels
+as expected. Before deleting `misc2`, temporary `OPEN_RTS_DEBUG_STATE_FLAGS`
+logging confirmed the old value 6 was ignored; the same pixel checks pass after
+removal. The diagnostics were then removed. Run:
+
+```sh
+make build/bin/tests/dark-colony/test_sprite_layer_rendering
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_layer_rendering
+```
+
+All retained generated states have identical sprite/frame/timing/action/next
+state/group values to the parent. Their removed flag columns were all zero;
+only the three deleted muzzle states had nonzero overrides.
+Generator output is reproducible; the build, tags, layout test, FIN/sprite
+tests, Reaper death test, and headless DC smoke check pass. The HUMAN01
+screenshot was inspected and is byte-identical to the parent. The full DC
+suite retains its three documented muzzle-effect, initial-force, and
+spawn-state-action failures. The generator also builds without its former
+unused-muzzle-helper warnings.

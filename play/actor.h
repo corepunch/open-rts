@@ -52,7 +52,6 @@ typedef struct mobjtype_s {
         int state_id;
         int capacity;
     } harvest;
-    int muzzle_flash_sprite;
     int muzzle_flash_ms;
     const char *muzzle_flash_name;
     int hit_effect_sprite;
@@ -65,8 +64,7 @@ typedef struct state_s {
     int tics;
     actionf_p1 action;
     int nextstate;
-    int misc1;
-    int misc2;
+    int group; /* Gameplay animation group, independent of sprite presentation. */
 } state_t;
 
 typedef struct mobjinfo_s {
@@ -93,7 +91,6 @@ typedef struct mobjinfo_s {
     int activesound;
     int flags;
     int raisestate;
-    int muzzleflash;
     fixed_t spawnz;
 } mobjinfo_t;
 

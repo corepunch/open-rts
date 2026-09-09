@@ -234,14 +234,16 @@ the rate-of-fire gate between attack cycles. In pure Doom style this would be en
 recovery-state chain with specific tics. Until that refactor is done, `attack_cooldown_left_ms`
 is decremented in ms and is set from `ActorType.attack_cooldown_ms`.
 
-Attack *animation* locking is done via the state group: a unit in a `misc1 == 3` state (attack
+Attack *animation* locking is done via the state group: a unit in a `group == 3` state (attack
 group) will not interrupt its animation to walk or start a new attack. No separate
 `attack_anim_left_ms` ms-timer is needed or used in the state-machine path.
 
 ### Current state/action contract
 
 `state_t` is intentionally compact: sprite, frame, tics, action, next state,
-flags, and two generic `misc` values. Directional frame arrays, overlay state
+and a gameplay `group`. FIN layers own rendering flags, remap, and intensity;
+do not reintroduce state rendering overrides or generic `misc` fields.
+Directional frame arrays, overlay state
 fields, and `state_userdata` are not part of the runtime contract. Basic
 sprite/frame selection is the current presentation target; do not reintroduce
 parallel directional or overlay metadata without verified game evidence.

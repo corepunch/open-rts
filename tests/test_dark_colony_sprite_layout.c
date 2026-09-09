@@ -539,7 +539,7 @@ static int assert_barracks_trooper_release_timing(void) {
     int state_id = S_BRRKPOD_BUILD_TRSC1;
     for (int frame = 0; frame < 22; ++frame) {
         const state_t *state = &states[state_id];
-        if (state->misc1 != 6 || state->tics < 1 || state->tics > 2)
+        if (state->group != 6 || state->tics < 1 || state->tics > 2)
             return fail("Barracks Trooper release uses native FIN runtime timing");
         total_tics += state->tics;
         state_id = state->nextstate;
