@@ -31,19 +31,23 @@ shared action ABI to the documented Hexen-style contract is separate work.
 
 ## Asset loading
 
-- `w_juice.c`: SPR palette/cell decoding and decoded-storage destruction.
 - `w_fin.c`: FIN parsing, label/command queries, and decoded-storage destruction.
 - `w_sprite_paths.c`: SPR/FIN path conversion and dependency-name resolution.
-- `w_spr.c`: conversion to engine-owned source images and sprite frame/layer
-  definitions, plus palette/render-table application.
+- `w_spr.c`: one SPR file buffer, a direct cell-by-cell pass into final indexed
+  lumps, and per-cell texture creation. Raw pixels are copied once into their
+  final storage; compressed skip/literal runs decode there directly. There are
+  no decoded cell objects, temporary atlases, or parallel metadata arrays.
+  A single per-cell RGBA scratch buffer supplies texture uploads; frames without
+  team-color pixels use their base texture for every team. FIN frame/layer
+  definitions and palette/render-table application remain here.
 - `w_sprite_cache.c`: asset enumeration and recursive dependency caching. A
   successfully loaded sheet enters the cache before dependencies are followed,
   preserving cycle termination. Failed dependencies retain the existing error
   behavior; this is not a transactional cache loader.
 - `w_drop.c`: conversion of FIN labels into dropship animation data, independent
   of SDL sprite-cache construction.
-- `w_sprite_private.h`: loader-only decoded types and cross-file helpers. Native
-  SPR/FIN allocations are temporary. `DC_LoadSpriteWithAnimation` transfers FIN
+- `w_sprite_private.h`: loader-only FIN types and cross-file helpers. The SPR
+  buffer is freed on return. `DC_LoadSpriteWithAnimation` transfers FIN
   ownership to its caller when requested; the cache frees it after following
   dependencies. Renderer structures retain engine images and definitions only.
 
@@ -63,3 +67,32 @@ existing failures, also reproduced from the pre-refactor HEAD in an isolated
 source tree: combat muzzle-flash visibility, headless gameplay sprite catalog,
 and unlinked actor spawn-action initialization. These failures are not fixed by
 moving subsystem boundaries.
+
+## Direct SPR loader verification
+
+`test_sprite_loading` exercises raw and compressed cells, transparent skips,
+team-color textures, empty cells, truncation, oversized chunks, invalid runs,
+and cleanup after partial loading or texture creation failure. It also accepts
+a manifest path to fingerprint a local SPR catalog through SDL software rendering:
+
+```sh
+rg --files data/DCOLONY | rg '\.SPR$' | sort > /private/tmp/dc-sprites.txt
+make build/bin/tests/dark-colony/test_sprite_loading
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading \
+    /private/tmp/dc-sprites.txt > /private/tmp/dc-sprite-fingerprints.txt
+```
+
+Run the same probe with the old loader (`e7073a6`) to compare revisions on the
+same machine and data. The fingerprint includes indices, default and all eight
+remapped SDL pixel buffers (using the base texture when no translation exists),
+palettes, bounds, displacements, ground points, and FIN frame/rotation/layer
+metadata. This is a same-build comparison, not a portable on-disk hash format.
+The September 9, 2026 comparison had 282 identical successful files and two
+identical rejections out of 284 files. The manifest-order fingerprint output
+SHA-256 was `21274462e4934e11060b85fcb554ac3239d97f5a17c978498d26b5c6445dcd5e`
+for both loaders. The dummy-video HUMAN01 screenshots were byte-identical.
+
+An optional ASan/UBSan build of the focused loader test stalled with macOS
+service errors and was terminated without a test result. No sanitizer pass is
+claimed; the ordinary fixture, catalog, and screenshot checks completed.

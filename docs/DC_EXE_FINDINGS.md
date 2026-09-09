@@ -372,3 +372,51 @@ altitude was not independently established in this audit. Existing altitude
 is preserved through common actor movement and whole-position effect copying.
 The executable fingerprint at the top of this report is unchanged; no new
 function address or binary offset was inferred from these source-level fixes.
+
+
+## SPR direct-buffer loading audit (2026-09-09)
+
+**Confirmed from the local native assets:** All 284 `data/DCOLONY/**/*.SPR`
+files have an 8-byte header, 256 three-byte palette entries starting at byte 8,
+and a cell-descriptor table starting at byte 776. Each descriptor has four
+little-endian 16-bit words: width, height, displacement X, displacement Y.
+The inspected files contain 9,730 cells. There are 42 files with flags `0x0001`
+and 242 with flags `0x0081`.
+
+For the raw files, pixel spans are consecutive `width * height` byte arrays.
+For the compressed files, each cell starts with a 32-bit little-endian byte
+length followed by that many skip/literal bytes. Negative signed command bytes
+skip `-command` transparent pixels; nonnegative commands copy `command + 1`
+bytes. Empty compressed cells retain the length prefix. Summed chunk lengths
+fit the header payload field at offset 4; walking all descriptors and spans
+ends exactly at EOF for every inspected file. No inspected run overruns its
+source span or destination pixel count. Existing format provenance remains in
+`REFERENCES.md` under the SPR viewer/parser references.
+
+**Confirmed implementation redundancy, removed:** The loader formerly copied
+every cell into a `JuiceCell`, assembled RGBA and index atlases, then extracted
+those cells back into separate lumps/textures. Neither atlas was retained.
+`SpriteNative`, `JuiceFile`, `JuiceCell`, their allocators/destructors, the
+parallel frame/bounds/displacement/pivot arrays, and per-sheet translation
+atlases are unnecessary. The replacement retains one file buffer while filling
+final lump storage and converts one cell at a time for SDL. It also avoids
+creating eight identical translations for cells with no indices in 138..143;
+the renderer already falls back to the base texture for absent translations.
+Failure cleanup now sees the allocated logical frame count immediately rather
+than only after successful completion.
+
+**Confirmed verification limits:** 282 files have identical pixel, palette,
+placement, FIN metadata, and remapped output fingerprints before and after this
+change. `INTRFACE/SCNE.SPR` (six cells, maximum width 640, maximum height 29) and
+`SPRITES/CHAB.SPR` (29 cells, maximum width 607, maximum height 20) hit the existing
+512-pixel cell-size limit in both loaders. That limit is an implementation
+restriction, not a proven native format limit; this change preserves it.
+
+**Unknown:** This audit does not establish that DC.EXE uses OS memory mapping.
+The simplification uses `W_ReadFile` and direct views of that buffer, without
+packed C casts or per-cell source ownership. No new executable instructions or
+addresses were analyzed; the executable fingerprint at the top of this report
+was reconfirmed unchanged. No FIN layout, palette rule, or placement formula was
+retuned. See `docs/DC_ARCHITECTURE.md` for the reproducible catalog probe and
+its fingerprint; `test_sprite_loading` independently checks raw/RLE fixtures,
+empty cells, team translations, and rejected malformed spans.

@@ -3,27 +3,7 @@
 
 #include "engine.h"
 
-/* Temporary decoded SPR/FIN ownership belongs to the loader.
- * Destroy after conversion to engine source images and frame definitions. */
-typedef struct {
-    uint16_t width;
-    uint16_t height;
-    uint16_t dis_x;
-    uint16_t dis_y;
-    uint8_t used;
-    uint32_t data_size;
-    uint8_t *data;
-} JuiceCell;
-
-typedef struct {
-    uint16_t flags;
-    uint16_t cell_count;
-    uint32_t payload_bytes;
-    bool chunked;
-    uint32_t palette[256];
-    JuiceCell *cells;
-} JuiceFile;
-
+/* FIN storage is temporary and stays inside the game loader. */
 typedef struct {
     char name[9];
 } AnimationDependency;
@@ -58,9 +38,6 @@ typedef struct {
 } AnimationFile;
 
 
-void DC_DecodePalette(const uint8_t *spr, size_t size, uint32_t colors[256]);
-void DC_FreeJuice(JuiceFile *juice);
-bool DC_LoadJuice(const char *path, JuiceFile *out);
 void DC_FreeAnimation(AnimationFile *animation);
 bool DC_LoadAnimation(const char *path, AnimationFile *out);
 const AnimationCommand *DC_FindAnimationCommand(
