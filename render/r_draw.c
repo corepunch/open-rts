@@ -631,6 +631,10 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
         return false;
     }
 
+    /* Keep exact RGB matches for this palette/draw. The low byte holds a
+     * nonzero palette index, so zero marks an empty slot. Hash collisions
+     * only cause another search; they never approximate the color. */
+    uint32_t palette_matches[4096] = {0};
     irect_t source = sprite->cells[frame].rect;
     for (int y = 0; y < clip.h; ++y) {
         int source_y = clip.y - dst.y + y;
@@ -641,7 +645,13 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                 (size_t)source_y * (size_t)source.w + (size_t)local_x];
             if (source_index == 0) continue;
             size_t pixel = (size_t)y * (size_t)clip.w + (size_t)x;
-            uint8_t destination_index = nearest_palette_index(pixels[pixel], sprite->palette);
+            uint32_t rgb = pixels[pixel] & 0x00ffffffu;
+            uint32_t *match = &palette_matches[(rgb * 2654435761u) >> 20];
+            uint8_t destination_index = (uint8_t)*match;
+            if (!destination_index || (*match >> 8) != rgb) {
+                destination_index = nearest_palette_index(rgb, sprite->palette);
+                *match = (rgb << 8) | destination_index;
+            }
             uint8_t result_index = sprite->indexed_blend_table[
                 ((size_t)source_index << 8) | destination_index];
             pixels[pixel] = sprite->palette[result_index];
