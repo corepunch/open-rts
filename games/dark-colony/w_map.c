@@ -516,10 +516,9 @@ static ivec2_t city_slot_offset(int slot) {
 }
 
 static bool team_city_anchor(const ScenarioTeam *team, ivec2_t *anchor) {
-    if (team->ai_slot_count < 1) return false;
-    /* Preserve the second AISlots pair, with the existing first-pair fallback. */
+    if (team->ai_slot_count < 2) return false;
+    /* DC.EXE 0x41ad47: only the second AISlots pair enables city slots. */
     *anchor = team->ai_slots[1];
-    if (anchor->x == 0 && team->ai_slot_count >= 2) *anchor = team->ai_slots[0];
     return anchor->x != 0;
 }
 

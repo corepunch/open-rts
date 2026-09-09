@@ -1110,3 +1110,17 @@ and thinker-action tests, and the headless DC smoke check pass.
   https://www.gog.com/dreamlist/game/dark-colony (accessed September 9, 2026).
   The fetched page is a Dreamlist shell, not executable or rendering evidence;
   no projection or palette constants were inferred from it.
+
+
+### Dark Colony city eligibility (September 9, 2026)
+
+- Primary evidence: local retail `data/DCOLONY/DC.EXE`, SHA-256
+  `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+  and shipped `SCENARIO/HUMAN/HUMAN02.SCN` / `HUMAN03.SCN`.
+- Scenario loader `0x41a61c`, especially `0x41abb7..0x41ad52`, distinguishes
+  the AI pair from the city pair and disables city slots for zero city X.
+  Constructor `0x4412d4` rejects disabled slots. Fresh radare2 disassembly
+  verifies the cached local r2ghidra decompilation; no external source was used.
+- See `docs/DC_EXE_FINDINGS.md`, “September 9: phantom cities at AI locations”,
+  for exact fields, branch addresses, disproven fallback, native tower gate,
+  scenario records and regression commands.

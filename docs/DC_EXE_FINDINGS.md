@@ -2552,7 +2552,9 @@ copying EXCOPOD's slot-0 physical position. The existing synthesized-tower
 policy is retained for both races, but an explicitly populated tower slot no
 longer creates a second human tower. The retail justification for synthesizing
 a missing tower, the first-AISlots fallback, and dynamic-object tower companions
-remains **unknown / preserved**, as recorded in the loader findings above.
+was **unknown / preserved** at this point. The September 9 phantom-city
+investigation below disproves the first-AISlots fallback and identifies the
+native tower-enabling branch; dynamic-object tower companions remain unknown.
 
 **Confirmed native assets:** the existing SCNCPOD, SCNCPOD2 and ROBOPOD2 idle
 states were not selected for starting objects. They are now selected alongside
@@ -2721,3 +2723,68 @@ inspection. Building registration/initialization is covered by `test_city_layout
 and `test_dark_colony_sprite_layout` checks the release duration and preserved
 Reaper timing. The full suite's remaining pre-existing failure is Human01's
 initial-Trooper assertion in `test_game_model_headless`.
+
+
+### September 9: phantom cities at AI locations
+
+**Confirmed bug:** the extra green human base left of Human02's player city
+and alien base above it were spawned by the first-AISlots fallback, introduced
+in commit `3f6665c`. They belong to teams 4 and 2 respectively. An active team
+and populated `%City` values do not suffice to enable a city at its AI location.
+The earlier assumption that this fallback restored allied cities is **disproven**.
+
+Primary evidence: retail `data/DCOLONY/DC.EXE`, 566272 bytes, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`;
+scenario loader `0x41a61c` and city constructor `0x4412d4`. Checked the cached
+r2ghidra decompilation against fresh radare2 instruction disassembly.
+Here `EDI` is the native team record, `level + 0xb98 + team * 0xe30`.
+
+- `0x41abb7..0x41abce` reads the first `%AISlots` pair into team `+0x34/+0x38`.
+  `0x41abe6..0x41abfa` reads the second pair into `+0x2c/+0x30`, the city anchor.
+- `0x41ac1d..0x41ac32` copies the city pair into the first pair only when both
+  first-pair components are zero. The native fallback runs in the opposite
+  direction to the removed loader code; it never invents a city from an AI pair.
+- After parsing a city slot, `0x41ad47..0x41ad52` tests city X at `+0x2c`.
+  Zero branches to `0x41ac95`, clearing both the slot value at
+  `+0x3c + slot*4` and upgrade at `+0xc4 + slot*4`. Constructor
+  `0x441337..0x441341` rejects a zero slot value by clearing the object's
+  active byte `+0x2c` and returning. Thus these are absent cities, not cities
+  which should be spawned at world origin or shifted to the first pair.
+- `0x41abff..0x41ac16` sets team bytes `+0xdb2/+0xda4` when either city
+  component is zero. Their full gameplay meaning remains **unknown**.
+- **Confirmed tower evidence:** `0x41acde..0x41ad25` requires both city
+  components nonzero and applies mode/team conditions before writing slot 5
+  value `+0x50 = 1`, upgrade `+0xd8 = 0`; otherwise both are cleared.
+  This establishes native tower synthesis. The complete meaning of mode
+  `level+0x14a0` and team flag `level+0x1524+team` remains **unknown**;
+  this fix does not claim to port that entire policy.
+
+Human02's active team records and diagnostic results:
+
+| Team | First (AI) pair | Second (city) pair | City after correction |
+| --- | --- | --- | --- |
+| 0 | (61,53) | (56,55) | Present |
+| 1 | (36,57) | (0,0) | Absent |
+| 2 | (56,61) | (0,0) | Absent |
+| 3 | (31,60) | (0,0) | Absent |
+| 4 | (50,55) | (0,0) | Absent |
+
+Temporary `OPEN_RTS_DEBUG_CITY_ANCHOR` logging confirmed that all four empty
+city pairs selected their AI coordinates before the fix and were suppressed
+after it. Logging was removed. Human03 independently preserves legitimate
+cities for teams 0 `(75,6)`, 2 `(10,87)` and 7 `(14,7)`, while rejecting team 1's
+empty city pair despite its AI location `(24,51)`. `test_city_layout` checks
+these exact team sets, in addition to physical slot geometry and FIN origins.
+Explicit scenario objects (including communications dishes) still load normally.
+The corrected Human02 render was inspected: both pictured extra bases and their
+towers are gone, while the player city remains assembled at its native anchor.
+
+Reproduce:
+
+```sh
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x41a61c' -c 'pdf @ 0x41a61c' -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_city_layout
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_city_layout
+```
+
+The test writes `/private/tmp/city-human02.bmp` and `/private/tmp/city-human03.bmp`.

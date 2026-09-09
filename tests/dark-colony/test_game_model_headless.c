@@ -428,9 +428,9 @@ static int assert_human02(RtsGameModel *model) {
         return fail("Human02 starting base buildings are Exo Center plus Barracks");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_CITY_TOWER) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_CITY_TOWER) < 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE) < 1) {
-        return fail("Human02 city slots materialize human and alien base structures");
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_CITY_TOWER) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE) != 0) {
+        return fail("Human02 only materializes cities with an explicit city anchor");
     }
     if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
                                       S_EXCOPOD_STND, (fvec2_t){ 54.0f, 55.46875f },

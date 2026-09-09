@@ -7,7 +7,7 @@
 
 #include <assert.h>
 
-static void check_city(const char *path, fvec2_t anchor, const char *screenshot) {
+static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams, const char *screenshot) {
     assert(G_DoLoadLevel(path, &level) && P_LoadThings(path) > 0);
     /* DC.EXE 0x475b64, in pixels; the constructor multiplies by 8 for 8.8. */
     const ivec2_t offsets[] = {{-64, 15}, {0, 0}, {32, 64}, {64, 10}, {-32, 65}, {0, 32}};
@@ -15,6 +15,7 @@ static void check_city(const char *path, fvec2_t anchor, const char *screenshot)
     const int poses[] = {S_EXCOPOD_STND, S_BRRKPOD_STND, S_ROBOPOD_STND1,
                          S_SCNCPOD_STND1, S_RSCHPOD_STND1, S_TOWR_STND};
     int counts[6] = {0}, count = 0;
+    unsigned city_teams = 0;
     mobj_t *actors[MAX_OBJECTS];
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
@@ -36,6 +37,7 @@ static void check_city(const char *path, fvec2_t anchor, const char *screenshot)
         const state_t *state = &gameinfo->states[actor->core.state_id];
         assert(actor->core.sprite_id == state->sprite && actor->core.frame == state->frame);
         assert(actor->core.tics == state->tics && actor->thinker.function == P_MobjThinker);
+        if (actor->type_id != MT_COMMS_DISH) city_teams |= 1u << actor->team;
         if (actor->team != 0) continue;
         for (int slot = 0; slot < 6; ++slot) {
             if (actor->type_id != types[slot]) continue;
@@ -51,6 +53,7 @@ static void check_city(const char *path, fvec2_t anchor, const char *screenshot)
         }
     }
     assert(counts[0] == 1 && counts[1] == 1 && counts[5] == 1);
+    assert(city_teams == expected_teams);
     tileset_t tiles = {0};
     spritesheet_t fallback = {0};
     assert(W_LoadAssets(r_renderer, "data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
@@ -108,8 +111,11 @@ int main(void) {
         assert(building->core.frame == states[building->core.state_id].frame);
     }
     P_FreeLevel(&level);
-    check_city("data/DCOLONY/SCENARIO/HUMAN/HUMAN02.MAP", (fvec2_t){56, 55}, "/private/tmp/city-human02.bmp");
-    check_city("data/DCOLONY/SCENARIO/HUMAN/HUMAN03.MAP", (fvec2_t){75, 6}, "/private/tmp/city-human03.bmp");
+    /* Empty city coordinates must not fall back to the first (AI) pair. */
+    check_city("data/DCOLONY/SCENARIO/HUMAN/HUMAN02.MAP", (fvec2_t){56, 55}, 1u, "/private/tmp/city-human02.bmp");
+    /* Preserve the actual alien city and allied human city. */
+    check_city("data/DCOLONY/SCENARIO/HUMAN/HUMAN03.MAP", (fvec2_t){75, 6},
+               (1u << 0) | (1u << 2) | (1u << 7), "/private/tmp/city-human03.bmp");
     puts("PASS: cities use native slot positions, shared FIN origins, and initialized building states");
     return 0;
 }
