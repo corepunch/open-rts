@@ -25,6 +25,13 @@ static void draw_native_parts(app_t *app, const level_t *map,
         irect_t dst = { (int)lroundf(sx) + part->offset.x +
             ((part->flags & RTS_FRAME_FLIP_X) ? 0 : cell->displacement.x),
             (int)lroundf(sy) + part->offset.y - src.h, src.w, src.h };
+        CHECK(sprite->shadowmap);
+        if (part->layer == 1 || part->layer == 2) {
+            irect_t ground = dst;
+            ground.y += (int)lroundf(fixed_to_float(position.z) * app->cell.h);
+            CHECK(R_RenderSpriteShadow(app, sprite, part->lump, ground, part->flags));
+        }
+        if (part->layer == 2) continue;
         if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
         const spritelump_t *lump = &sprite->lumps[part->lump];
         SDL_Texture *texture = lump->texture;
@@ -114,10 +121,10 @@ static void pixels(void) {
     CHECK(surface);
     r_renderer = SDL_CreateSoftwareRenderer(surface);
     CHECK(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {640,480}, .cam = {320,360}};
+    app_t app = {.renderer = r_renderer, .win = {640,480}, .cam = {320,360}, .cell = {32,32}};
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     CHECK(load_render_tables("data/DCOLONY", "JUNGLE"));
+    CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     size_t bytes = surface->pitch * surface->h;
     void *expected = malloc(bytes);
     CHECK(expected);
@@ -146,6 +153,11 @@ static void pixels(void) {
             blood.team = (f-first) % 8;
             spritedirection_t parts = {0};
             CHECK(DC_FINFrame(&fin, f, &parts));
+            /* The same BLOO cells have different native shadow modes. */
+            if (c < 2) {
+                CHECK(parts.layers[0].sprite_name[0] && !parts.layers[1].sprite_name[0]);
+                CHECK(parts.layers[0].layer == (c == 0 ? 1 : 0));
+            }
             if (f == first + 1) native = elapsed = 0;
             unsigned raw = parts.ticks ? parts.ticks : 15;
             unsigned duration = (uint8_t)((raw + 3) * 15 / 100);

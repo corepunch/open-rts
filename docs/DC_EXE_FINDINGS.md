@@ -2212,3 +2212,59 @@ initial Troopers immediately. Those mission-startup failures do not enter the
 shadow renderer. A separate stale `test_thinker_level` reference to removed
 `S_BLOOD1` was updated to explicitly enter the current ten-frame, four-tic
 `S_TRSCBLOODA0_313` chain; that lifecycle test now passes.
+
+
+## Grey blood uses body-only FIN layers
+
+**Confirmed asset behavior (September 9, 2026):** every command in Grey's
+BLOODA/B/C/D/E/G/H labels has layer **0**. Every command in Trooper's
+BLOODA/B/C/D/E/F/G labels has layer **1**. The distinction is authored in FIN,
+not selected by the BLOO source image, team, blood mobj type or renderer name
+exceptions. The reason for the different authored values remains **unknown**.
+
+The existing DC.EXE fingerprint applies:
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+The previously verified queue dispatch at `0x44fc62` draws layer 0's body
+only; layer 1 at `0x44fcd6` calls the shadow blitter at `0x44fd13` or
+`0x44fd7b` before drawing its body. No new executable behavior is inferred
+from the visual difference.
+
+| FIN | SHA-256 |
+| --- | --- |
+| GRAY.FIN | `077887b708009109740a518bf8cff9c547a21145617dbf5dde575342fe5a641a` |
+| TRSC.FIN | `eb94f6f3fff53b9f46f1540abf5287c11f83a7db7957d6288b2330b13e1f3b2a` |
+
+First disk command offsets and command counts, in label order:
+
+- GRAY A/B/C/D/E/G/H: offsets 85548/85768/85944/86120/86318/86538/86758;
+  counts 10/8/8/9/10/10/9, all layer 0.
+- TRSC A/B/C/D/E/F/G: offsets 88236/88456/88632/88786/88984/89204/89402;
+  counts 10/8/7/9/10/9/9, all layer 1.
+
+For example, GRAYBLOODA0 frames 357–366 and TRSCBLOODA0 frames 313–322
+both use BLOO cells 0–9, mode 0, intensity 16 and flags 0. Their first
+commands differ in placement (Grey -82,+5; Trooper -81,-1) and layer
+(Grey 0; Trooper 1). The layer is the little-endian word at command +18.
+The lack of Grey blood shadows is therefore consistent with the native
+assets and verified dispatch, and no renderer override was added.
+
+**Test correction:** `test_blood_fin` previously loaded sprites before calling
+`load_render_tables`, leaving every cached sprite's shadowmap and indexed
+blend table unset. Its passing pixel comparison did not exercise native
+shadow composition. The fixture now loads tables first, asserts a valid
+shadowmap, checks the two native blood-A layer values, and includes native
+layer shadow/body dispatch in the direct-FIN reference rendering. The
+separate shadow test remains responsible for projection/colormap correctness.
+Temporary renderer diagnostics confirmed TRSC states 1706–1715 dispatch BLOO
+cells 0–9 with layer 1/casts=1, while GRAY states 1259–1268 dispatch the same
+cells with layer 0/casts=0; both use the same valid shadowmap. Diagnostics were
+removed after verification.
+
+Reproduce the asset observations and regression check:
+
+```sh
+build/dc_info_conv --label GRAYBLOODA0 data/DCOLONY/ANIMATE/GRAY.FIN
+build/dc_info_conv --label TRSCBLOODA0 data/DCOLONY/ANIMATE/TRSC.FIN
+make build/bin/tests/dark-colony/test_blood_fin
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_blood_fin
+```
