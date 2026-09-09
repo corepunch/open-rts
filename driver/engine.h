@@ -23,6 +23,11 @@ uint32_t read_u32_le(const uint8_t *p);
 bool W_ReadFile(const char *path, blob_t *out);
 void W_FreeFile(blob_t *blob);
 bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out);
+/* Temporary strings survive seven further M_va calls on this thread.
+ * Returns NULL on formatting failure or overflow; copy results kept longer. */
+char *M_va(const char *format, ...) __attribute__((format(printf, 1, 2)));
+const char *M_FileName(const char *path);
+char *M_Upper(char *text);
 void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b);
 int clamp255(int value);
 void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint32_t palette[256]);

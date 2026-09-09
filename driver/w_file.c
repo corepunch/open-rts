@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
+#include <ctype.h>
 
 static bool debug_effects_enabled(void) {
     static int enabled = -1;
@@ -36,6 +37,7 @@ uint32_t read_u32_le(const uint8_t *p) {
 
 bool W_ReadFile(const char *path, blob_t *out) {
     memset(out, 0, sizeof(*out));
+    if (!path) return false;
     FILE *fp = fopen(path, "rb");
     if (!fp) {
         fprintf(stderr, "open %s: %s\n", path, strerror(errno));
@@ -70,6 +72,27 @@ bool W_ReadFile(const char *path, blob_t *out) {
 void W_FreeFile(blob_t *blob) {
     free(blob->bytes);
     memset(blob, 0, sizeof(*blob));
+}
+
+char *M_va(const char *format, ...) {
+    static _Thread_local char buffers[8][4096];
+    static _Thread_local unsigned next;
+    char *out = buffers[next++ % 8];
+    va_list args;
+    va_start(args, format);
+    int length = vsnprintf(out, sizeof(buffers[0]), format, args);
+    va_end(args);
+    return length >= 0 && (size_t)length < sizeof(buffers[0]) ? out : NULL;
+}
+
+const char *M_FileName(const char *path) {
+    const char *slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+char *M_Upper(char *text) {
+    for (char *p = text; p && *p; ++p) *p = (char)toupper((unsigned char)*p);
+    return text;
 }
 
 void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b) {

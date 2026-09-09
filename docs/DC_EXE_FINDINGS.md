@@ -530,3 +530,21 @@ and EXPL's 232 frame counts alongside existing facing and multipart assertions.
 and its catalog mode can inspect every SPR/FIN path as documented above.
 No additional DC.EXE instructions were interpreted; its fingerprint at the top
 of this report and the existing anchor evidence remain the applicable reference.
+
+## Sprite path and temporary-string cleanup (2026-09-09)
+
+**Confirmed regression result:** replacing the verbose path assembly with
+`M_va`, one shared companion-path transformation, bounded stem/dependency
+formatting, and shorter sequence parsing preserves all 461 SPR/FIN catalog
+results from `ad06099` exactly (391 successful loads, 70 existing failures).
+The catalog covers pixels, palettes, translations, geometry, and animation
+metadata. The Dark Colony before/after headless BMP screenshots are also
+byte-identical. No native layout, placement formula, timing, or executable
+interpretation changed; the existing executable fingerprint remains applicable.
+
+Temporary format results are used immediately or copied into owned names before
+recursive dependency loading. The sprite stem remains a small local string
+while sequence parsing rotates through temporary buffers. `test_temp_strings`
+checks nested formatting, the promised lifetime, and overflow rejection;
+`test_sprite_loading` catalog mode and headless `--screenshot` reproduce the
+asset/render comparison using the commands above.

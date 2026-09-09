@@ -6,91 +6,38 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 #include "info.h"
 
-static bool DC_AnimationPath(char *out, size_t out_size,
-                                                  const char *sprite_path) {
-    if (!out || out_size == 0 || !sprite_path) return false;
-    const char *base = strrchr(sprite_path, '/');
-    base = base ? base + 1 : sprite_path;
-    const char *dot = strrchr(base, '.');
-    if (!dot || strcasecmp(dot, ".SPR") != 0) return false;
-
-    const char *dir_end = base > sprite_path ? base - 1 : NULL;
-    const char *dir_start = dir_end;
-    while (dir_start && dir_start > sprite_path && dir_start[-1] != '/') dir_start--;
-    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
-    if (!dir_start || dir_len != strlen("SPRITES") ||
-        strncasecmp(dir_start, "SPRITES", dir_len) != 0) {
-        return false;
-    }
-
-    size_t prefix_len = (size_t)(dir_start - sprite_path);
-    size_t stem_len = (size_t)(dot - base);
-    if (prefix_len + strlen("ANIMATE/") + stem_len + strlen(".FIN") + 1 > out_size)
-        return false;
-    memcpy(out, sprite_path, prefix_len);
-    out[prefix_len] = '\0';
-    strncat(out, "ANIMATE/", out_size - strlen(out) - 1);
-    strncat(out, base, stem_len);
-    strncat(out, ".FIN", out_size - strlen(out) - 1);
-    return true;
+static const char *companion_path(const char *path, const char *from, const char *extension,
+                                  const char *to, const char *new_extension) {
+    const char *base = M_FileName(path), *dot = strrchr(base, '.');
+    size_t directory_length = strlen(from) + 1;
+    if (!dot || strcasecmp(dot, extension) || (size_t)(base - path) < directory_length)
+        return NULL;
+    const char *directory = base - directory_length;
+    if ((directory > path && directory[-1] != '/') ||
+        strncasecmp(directory, from, directory_length - 1)) return NULL;
+    return M_va("%.*s%s/%.*s%s", (int)(directory - path), path, to,
+                (int)(dot - base), base, new_extension);
 }
 
-static bool DC_SpritePath(char *out, size_t out_size,
-                                      const char *animation_path) {
-    if (!out || out_size == 0 || !animation_path) return false;
-    const char *base = strrchr(animation_path, '/');
-    base = base ? base + 1 : animation_path;
-    const char *dot = strrchr(base, '.');
-    if (!dot || strcasecmp(dot, ".FIN") != 0) return false;
-
-    const char *dir_end = base > animation_path ? base - 1 : NULL;
-    const char *dir_start = dir_end;
-    while (dir_start && dir_start > animation_path && dir_start[-1] != '/') dir_start--;
-    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
-    if (!dir_start || dir_len != strlen("ANIMATE") ||
-        strncasecmp(dir_start, "ANIMATE", dir_len) != 0) return false;
-
-    size_t prefix_len = (size_t)(dir_start - animation_path);
-    size_t stem_len = (size_t)(dot - base);
-    return snprintf(out, out_size, "%.*sSPRITES/%.*s.SPR",
-                    (int)prefix_len, animation_path, (int)stem_len, base) < (int)out_size;
+static const char *dependency_name(const char *dependency) {
+    char *stem = M_Upper(M_va("%.8s", dependency));
+    stem[strcspn(stem, " \t\r\n\v\f")] = '\0';
+    if (!*stem || strspn(stem, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != strlen(stem))
+        return NULL;
+    return M_va("SPRITES/%s.SPR", stem);
 }
 
-static bool DC_DependencySpriteName(char *out, size_t out_size,
-                                               const char *dependency) {
-    if (!out || out_size == 0 || !dependency) return false;
-    char stem[16];
-    size_t len = 0;
-    while (len < 8 && dependency[len] != '\0' &&
-           !isspace((unsigned char)dependency[len])) {
-        unsigned char ch = (unsigned char)dependency[len];
-        if (!isalnum(ch) && ch != '_') return false;
-        stem[len++] = (char)toupper(ch);
-    }
-    if (len == 0) return false;
-    stem[len] = '\0';
-    return snprintf(out, out_size, "SPRITES/%s.SPR", stem) < (int)out_size;
+static const char *sprite_stem(const char *path) {
+    char *stem = M_Upper(M_va("%.8s", M_FileName(path)));
+    stem[strcspn(stem, ".")] = '\0';
+    return stem;
 }
 
-static void DC_SpriteStem(char *out, size_t out_size, const char *sprite_path) {
-    const char *base = strrchr(sprite_path, '/');
-    base = base ? base + 1 : sprite_path;
-    size_t length = strcspn(base, ".");
-    if (length >= out_size) length = out_size - 1;
-    for (size_t i = 0; i < length; ++i)
-        out[i] = (char)tolower((unsigned char)base[i]);
-    out[length] = '\0';
-}
-
-static bool DC_AssetExists(const char *path) {
-    FILE *f = fopen(path, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
+static bool asset_exists(const char *path) { return path && access(path, R_OK) == 0; }
 
 static void decode_palette(const uint8_t palette[256][3], uint32_t colors[256]) {
     for (int i = 0; i < 256; ++i) {
@@ -119,26 +66,22 @@ static bool install_fin_parts(spriteframe_t *spriteframe, int rotation,
     for (spritelayer_t *part = decoded.layers; part->sprite_name[0]; ++part) {
         if (strcasecmp(part->sprite_name, stem) == 0) {
             if (!body && part->layer == 1) {
-                if (part->lump >= numlumps) {
-                    free(decoded.layers);
-                    return false;
-                }
+                if (part->lump >= numlumps) goto fail;
                 body = true;
             }
             memset(part->sprite_name, 0, sizeof(part->sprite_name));
             part->sprite_name[0] = '.';
         } else {
-            for (char *p = part->sprite_name; *p; ++p)
-                *p = (char)toupper((unsigned char)*p);
+            M_Upper(part->sprite_name);
         }
     }
-    if (!body) {
-        free(decoded.layers);
-        return false;
-    }
+    if (!body) goto fail;
     free(spriteframe->directions[rotation].layers);
     spriteframe->directions[rotation] = decoded;
     return true;
+fail:
+    free(decoded.layers);
+    return false;
 }
 
 enum { FIN_ACTIONS = 8, FIN_DIRECTIONS = 16 };
@@ -157,30 +100,22 @@ static int label_length(const dc_fin_label_t *label) {
 /* Resolve names once. FIN ranges already contain the temporal frame ordering. */
 static void collect_sequences(const dc_fin_t *fin, const char *stem,
                               fin_sequence_t sequences[FIN_ACTIONS]) {
-    char prefix[9];
-    snprintf(prefix, sizeof(prefix), "%s", stem);
-    for (char *p = prefix; *p; ++p) *p = (char)toupper((unsigned char)*p);
-    size_t prefix_length = strlen(prefix);
+    size_t prefix_length = strlen(stem);
     for (int i = 0; i < SDL_SwapLE16(fin->header->label_count); ++i) {
         const dc_fin_label_t *label = &fin->labels[i];
-        char name[17];
-        snprintf(name, sizeof(name), "%.16s", label->name);
-        if (strncmp(name, prefix, prefix_length) != 0) continue;
-        char *action = name + prefix_length;
-        char *number = action;
-        while (*number && !isdigit((unsigned char)*number)) ++number;
+        if (strncmp(label->name, stem, prefix_length)) continue;
+        char *action = M_va("%.*s", (int)(sizeof(label->name) - prefix_length),
+                            label->name + prefix_length);
+        char *number = action + strcspn(action, "0123456789"), *end;
         if (!*number) continue;
-        char *end;
         long direction = strtol(number, &end, 10);
         if (*end || direction >= FIN_DIRECTIONS) continue;
         *number = '\0';
-        /* EXPL's odd idle facings are authored under SHUF, not STAND. */
-        if (strcmp(prefix, "EXPL") == 0 && (direction & 1)) {
-            if (strcmp(action, "STAND") == 0) continue;
-            if (strcmp(action, "SHUF") == 0) action = "STAND";
-        }
         for (int a = 0; a < FIN_ACTIONS; ++a) {
-            if (strcmp(action, fin_actions[a]) == 0 && !sequences[a].directions[direction])
+            /* EXPL's odd idle facings are authored under SHUF. */
+            const char *expected = a == 0 && !strcmp(stem, "EXPL") && (direction & 1)
+                ? "SHUF" : fin_actions[a];
+            if (!strcmp(action, expected) && !sequences[a].directions[direction])
                 sequences[a].directions[direction] = label;
         }
     }
@@ -233,14 +168,8 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
     memset(&render_tables, 0, sizeof(render_tables));
     if (!data_root || !tileset_name || tileset_name[0] == '\0') return false;
 
-    char bts_name[64];
-    char scenario_dir[1024];
-    char bts_path[1024];
-    snprintf(bts_name, sizeof(bts_name), "%s.BTS", tileset_name);
-    M_PathJoin(scenario_dir, sizeof(scenario_dir), data_root, "SCENARIO");
-    M_PathJoin(bts_path, sizeof(bts_path), scenario_dir, bts_name);
     blob_t bts;
-    if (!W_ReadFile(bts_path, &bts)) return false;
+    if (!W_ReadFile(M_va("%s/SCENARIO/%s.BTS", data_root, tileset_name), &bts)) return false;
     if (bts.size < sizeof(dc_spr_header_t)) {
         W_FreeFile(&bts);
         return false;
@@ -249,12 +178,8 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
     decode_palette(header->palette, render_tables.palette);
     W_FreeFile(&bts);
 
-    char rmp_name[64];
-    char rmp_path[1024];
-    snprintf(rmp_name, sizeof(rmp_name), "%s.RMP", tileset_name);
-    M_PathJoin(rmp_path, sizeof(rmp_path), data_root, rmp_name);
     blob_t rmp;
-    if (!W_ReadFile(rmp_path, &rmp)) return false;
+    if (!W_ReadFile(M_va("%s/%s.RMP", data_root, tileset_name), &rmp)) return false;
     if (rmp.size < 3 * 256 * 256) {
         W_FreeFile(&rmp);
         return false;
@@ -368,6 +293,8 @@ typedef struct {
     const dc_spr_header_t *header;
     const dc_spr_cell_t *cells;
     blob_t pixels;
+    size_t payload_left;
+    bool compressed;
 } dc_spr_t;
 
 static bool open_spr(const char *path, dc_spr_t *spr) {
@@ -377,22 +304,23 @@ static bool open_spr(const char *path, dc_spr_t *spr) {
     if (!spr->header || !SDL_SwapLE16(spr->header->cell_count)) return false;
     spr->cells = DC_TakeRecords(&spr->pixels, SDL_SwapLE16(spr->header->cell_count),
                                sizeof(*spr->cells));
+    spr->compressed = (SDL_SwapLE16(spr->header->flags) & 0x180) != 0;
+    spr->payload_left = SDL_SwapLE32(spr->header->payload_size);
     return spr->cells != NULL;
 }
 
-static bool load_cell(dc_spr_t *spr, int index, size_t *payload_left,
+static bool load_cell(dc_spr_t *spr, int index,
                       spritesheet_t *sheet, const uint32_t palette[256]) {
     const dc_spr_cell_t *record = &spr->cells[index];
     isize2_t size = { SDL_SwapLE16(record->size.w), SDL_SwapLE16(record->size.h) };
-    bool compressed = (SDL_SwapLE16(spr->header->flags) & 0x180) != 0;
     size_t bytes = (size_t)size.w * (size_t)size.h;
-    if (compressed) {
+    if (spr->compressed) {
         /* Chunk lengths need byte reads: the preceding RLE span can be odd. */
         const uint8_t *length = DC_TakeRecords(&spr->pixels, 1, sizeof(uint32_t));
         if (!length) return false;
         bytes = read_u32_le(length);
-        if (bytes > *payload_left) return false;
-        *payload_left -= bytes;
+        if (bytes > spr->payload_left) return false;
+        spr->payload_left -= bytes;
     }
     const uint8_t *source = DC_TakeRecords(&spr->pixels, bytes, 1);
     if (!source) return false;
@@ -405,7 +333,7 @@ static bool load_cell(dc_spr_t *spr, int index, size_t *payload_left,
     size_t pixels = (size_t)cell->rect.w * (size_t)cell->rect.h;
     lump->indices = calloc(pixels, 1);
     if (!lump->indices || (size.w && size.h &&
-        !decode_cell(lump->indices, pixels, source, bytes, compressed))) return false;
+        !decode_cell(lump->indices, pixels, source, bytes, spr->compressed))) return false;
     cell->bounds = cell_bounds(lump->indices, cell->rect);
     cell->ground_point = (ivec2_t){ cell->bounds.x + cell->bounds.w / 2,
                                    cell->bounds.y + cell->bounds.h };
@@ -415,10 +343,9 @@ static bool load_cell(dc_spr_t *spr, int index, size_t *payload_left,
 static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette[256]) {
     int count = SDL_SwapLE16(spr->header->cell_count);
     if (!R_AllocSpriteCells(out, count)) return false;
-    size_t payload_left = SDL_SwapLE32(spr->header->payload_size);
     out->frame_size = (isize2_t){ 1, 1 };
     for (int i = 0; i < count; ++i) {
-        if (!load_cell(spr, i, &payload_left, out, palette)) return false;
+        if (!load_cell(spr, i, out, palette)) return false;
         const spritecell_t *cell = &out->cells[i];
         isize2_t extent = { cell->displacement.x + cell->rect.w,
                            cell->displacement.y + cell->rect.h };
@@ -446,21 +373,20 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     dc_spr_t spr = {0};
     dc_fin_t fin = {0};
     uint32_t palette[256];
-    char sprite_path[1024], animation_path[1024], stem[9];
-    const char *extension = strrchr(path, '.');
-    bool fin_first = extension && strcasecmp(extension, ".FIN") == 0;
-    if (fin_first) {
-        if (!DC_LoadFIN(path, &fin) ||
-            !DC_SpritePath(sprite_path, sizeof(sprite_path), path)) goto fail;
+    const char *sprite_path = path;
+    const char *extension = strrchr(M_FileName(path), '.');
+    if (extension && strcasecmp(extension, ".FIN") == 0) {
+        if (!DC_LoadFIN(path, &fin)) goto fail;
+        sprite_path = companion_path(path, "ANIMATE", ".FIN", "SPRITES", ".SPR");
     } else {
-        snprintf(sprite_path, sizeof(sprite_path), "%s", path);
-        if (DC_AnimationPath(animation_path, sizeof(animation_path), path) &&
-            DC_AssetExists(animation_path)) DC_LoadFIN(animation_path, &fin);
+        const char *animation = companion_path(path, "SPRITES", ".SPR", "ANIMATE", ".FIN");
+        if (asset_exists(animation)) DC_LoadFIN(animation, &fin);
     }
-    if (!open_spr(sprite_path, &spr)) goto fail;
+    if (!sprite_path || !open_spr(sprite_path, &spr)) goto fail;
     decode_palette(spr.header->palette, palette);
     if (palette_out) memcpy(palette_out, palette, sizeof(palette));
-    DC_SpriteStem(stem, sizeof(stem), sprite_path);
+    char stem[9]; /* Retained while later M_va calls reuse their temporary strings. */
+    snprintf(stem, sizeof(stem), "%s", sprite_stem(sprite_path));
     if (!load_cells(&spr, out, palette) || !init_sprite_frames(out, &fin) ||
         !install_ground_points(out, &fin, stem)) goto fail;
     install_fin_frames(out, &fin, stem);
@@ -490,6 +416,19 @@ bool load_dark_colony_sprite(const char *path, spritesheet_t *out,
     return load_sprite(path, out, palette_out, NULL);
 }
 
+static const char *resolve_sprite_path(const char *root, const char *name) {
+    if (*name == '/') return name;
+    if (strchr(name, '/')) return M_va("%s/%s", root, name);
+    static const char *const locations[] = {
+        "ANIMATE", "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
+    };
+    for (size_t i = 0; i < sizeof(locations) / sizeof(*locations); ++i) {
+        const char *path = M_va("%s/%s/%s.%s", root, locations[i], name, i ? "SPR" : "FIN");
+        if (asset_exists(path)) return path;
+    }
+    return NULL;
+}
+
 static bool sprite_cache_load_dark_colony(spritecache_t *cache,
                                           const char *data_root, const char *name) {
     if (!name || name[0] == '\0') return true;
@@ -498,60 +437,27 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
         fprintf(stderr, "too many Dark Colony sprites; skipped %s\n", name);
         return false;
     }
-    char sprite_path[1024];
-    if (name[0] == '/') {
-        snprintf(sprite_path, sizeof(sprite_path), "%s", name);
-    } else if (strchr(name, '/') != NULL) {
-        M_PathJoin(sprite_path, sizeof(sprite_path), data_root, name);
-    } else {
-        static const char *const sprite_directories[] = {
-            "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
-        };
-        bool found = false;
-        char candidate[1024];
-        char filename[64];
-        snprintf(filename, sizeof(filename), "%s.FIN", name);
-        M_PathJoin(candidate, sizeof(candidate), data_root, "ANIMATE");
-        M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
-        if (DC_AssetExists(sprite_path)) found = true;
-        for (size_t i = 0; i < sizeof(sprite_directories) / sizeof(sprite_directories[0]); ++i) {
-            if (found) break;
-            snprintf(filename, sizeof(filename), "%s.SPR", name);
-            M_PathJoin(candidate, sizeof(candidate), data_root, sprite_directories[i]);
-            M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
-            if (DC_AssetExists(sprite_path)) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            fprintf(stderr, "failed to resolve Dark Colony sprite %s\n", name);
-            return false;
-        }
-    }
     cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
-    uint32_t palette[256] = { 0 };
+    const char *sprite_path = resolve_sprite_path(data_root, name);
+    if (!sprite_path) {
+        fprintf(stderr, "failed to resolve Dark Colony sprite %s\n", entry->name);
+        memset(entry, 0, sizeof(*entry));
+        return false;
+    }
     dc_fin_t animation = {0};
-    if (!load_sprite(sprite_path, &entry->sprite, palette,
-                                          &animation)) {
-        fprintf(stderr, "failed to load %s\n", sprite_path);
+    if (!load_sprite(sprite_path, &entry->sprite, NULL, &animation)) {
+        fprintf(stderr, "failed to load %s\n", entry->name);
         memset(entry, 0, sizeof(*entry));
         return false;
     }
     cache->count++;
     if (DC_FINCommandCount(&animation) > 0) {
         for (int i = 0; i < SDL_SwapLE16(animation.header->dependency_count); ++i) {
-            char dependency_name[64];
-            if (!DC_DependencySpriteName(dependency_name, sizeof(dependency_name),
-                                                    animation.dependencies[i].name)) {
-                continue;
-            }
-            if (R_CacheFind(cache, dependency_name)) continue;
-            char dependency_path[1024];
-            M_PathJoin(dependency_path, sizeof(dependency_path), data_root, dependency_name);
-            if (!DC_AssetExists(dependency_path)) continue;
-            if (!sprite_cache_load_dark_colony(cache, data_root, dependency_name)) {
+            const char *dependency = dependency_name(animation.dependencies[i].name);
+            if (!dependency || R_CacheFind(cache, dependency) ||
+                !asset_exists(M_va("%s/%s", data_root, dependency))) continue;
+            if (!sprite_cache_load_dark_colony(cache, data_root, dependency)) {
                 DC_FreeFIN(&animation);
                 return false;
             }
@@ -577,41 +483,26 @@ bool load_dark_colony_unit_sprites(const char *data_root,
     };
     for (int i = 0; i < NUMSTATES; ++i) {
         int sprite = states[i].sprite;
-        if (sprite >= 0 && sprite < NUMSPRITES &&
-            !sprite_cache_load_dark_colony(cache, data_root, sprnames[sprite])) {
-            ok = false;
-        }
+        if (sprite >= 0 && sprite < NUMSPRITES)
+            ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[sprite]);
     }
-    for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(ui_sprites[0]); ++i) {
-        if (!sprite_cache_load_dark_colony(cache, data_root, ui_sprites[i]))
-            ok = false;
-    }
+    for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(*ui_sprites); ++i)
+        ok &= sprite_cache_load_dark_colony(cache, data_root, ui_sprites[i]);
     int selection_sprite = game_info.selection_marker.sprite;
-    if (selection_sprite >= 0 && selection_sprite < NUMSPRITES &&
-        !sprite_cache_load_dark_colony(cache, data_root, sprnames[selection_sprite])) {
-        ok = false;
-    }
+    if (selection_sprite >= 0 && selection_sprite < NUMSPRITES)
+        ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[selection_sprite]);
     if (map) {
         for (int i = 0; i < map->decoration_count; ++i) {
-            if (!sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite_name))
-                ok = false;
-            if (!sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite2_name))
-                ok = false;
-            if (!sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].shadow_name))
-                ok = false;
+            ok &= sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite_name);
+            ok &= sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite2_name);
+            ok &= sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].shadow_name);
         }
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (!sprite_cache_load_dark_colony(cache, data_root,
-                           units[i].core.sprite_name))
-            ok = false;
-        const char *shadow_name = units[i].info ? units[i].info->shadow_name : NULL;
-        if (!sprite_cache_load_dark_colony(cache, data_root, shadow_name))
-            ok = false;
         const mobjtype_t *info = units[i].info;
-        if (info && !sprite_cache_load_dark_colony(
-                        cache, data_root, info->hit_effect_name))
-            ok = false;
+        ok &= sprite_cache_load_dark_colony(cache, data_root, units[i].core.sprite_name);
+        ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->shadow_name : NULL);
+        ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->hit_effect_name : NULL);
     }
     return ok;
 }

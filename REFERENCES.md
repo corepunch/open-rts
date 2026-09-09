@@ -961,3 +961,14 @@ Local format findings from `data/KKND`:
   This supports using one active rendering context in open-rts; the SDL
   `r_renderer` pointer is our implementation choice, not an original Doom type.
   Video initialization registers it and video shutdown clears it.
+
+## Quake II temporary formatted strings
+
+- id Software Quake II `game/q_shared.c`, `va`:
+  https://github.com/id-Software/Quake-2/blob/master/game/q_shared.c
+  (consulted 2026-09-09). The original formats into a static buffer and returns
+  its address for immediate use. `M_va` adopts that call-site convenience with
+  bounded `vsnprintf`, eight rotating buffers per thread, and NULL on overflow.
+  Its documented lifetime permits seven subsequent calls; retained strings
+  must be copied before reuse. This is a utility design reference, not evidence
+  about Dark Colony file formats or retail rendering behavior.

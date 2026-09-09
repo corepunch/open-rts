@@ -79,6 +79,7 @@ CELL_H	driver/engine_config.h	/^#define CELL_H /;"	d
 CELL_W	driver/engine_config.h	/^#define CELL_W /;"	d
 CHECK	tests/dark-colony/test_fin_loading.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-colony/test_sprite_loading.c	/^#define CHECK(/;"	d	file:	signature:(c)
+CHECK	tests/dark-colony/test_temp_strings.c	/^#define CHECK(/;"	d	file:	signature:(c)
 COMMANDS	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
 Cell	tools/dc_spr_extract.c	/^} Cell;$/;"	t	typeref:struct:__anonf6c4462b0108	file:
 DATA	tests/dark-colony/test_sprite_loading.c	/^enum { HEADER = 8 + 256 * 3, DATA = HEADER + 3 * 8 };$/;"	e	enum:__anon576c22dd0103	file:
@@ -238,10 +239,16 @@ MF_RENDERABLE	play/actor.h	/^    MF_RENDERABLE = 1u << 2,$/;"	e	enum:__anon17523
 MF_RESOURCE_BASE	play/actor.h	/^    MF_RESOURCE_BASE = 1u << 5,$/;"	e	enum:__anon175231d90103
 MF_SELECTABLE	play/actor.h	/^    MF_SELECTABLE = 1u << 0,$/;"	e	enum:__anon175231d90103
 MF_SELECTED	play/actor.h	/^    MF_SELECTED = 1u << 7,$/;"	e	enum:__anon175231d90103
+M_FileName	driver/engine.h	/^const char *M_FileName(const char *path);$/;"	p	typeref:typename:const char *	signature:(const char * path)
+M_FileName	driver/w_file.c	/^const char *M_FileName(const char *path) {$/;"	f	typeref:typename:const char *	signature:(const char * path)
 M_PathJoin	driver/engine.h	/^void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b);$/;"	p	typeref:typename:void	signature:(char * dst,size_t dst_size,const char * a,const char * b)
 M_PathJoin	driver/w_file.c	/^void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b) {$/;"	f	typeref:typename:void	signature:(char * dst,size_t dst_size,const char * a,const char * b)
 M_PathJoin	tools/dc_gamestat_gen.c	/^static void M_PathJoin(char *out, size_t out_size, const char *dir, const char *name) {$/;"	f	typeref:typename:void	file:	signature:(char * out,size_t out_size,const char * dir,const char * name)
+M_Upper	driver/engine.h	/^char *M_Upper(char *text);$/;"	p	typeref:typename:char *	signature:(char * text)
+M_Upper	driver/w_file.c	/^char *M_Upper(char *text) {$/;"	f	typeref:typename:char *	signature:(char * text)
 M_VEC_H	driver/m_vec.h	/^#define M_VEC_H$/;"	d
+M_va	driver/engine.h	/^char *M_va(const char *format, ...) __attribute__((format(printf, 1, 2)));$/;"	p	typeref:typename:char *	signature:(const char * format,...)
+M_va	driver/w_file.c	/^char *M_va(const char *format, ...) {$/;"	f	typeref:typename:char *	signature:(const char * format,...)
 MapExtraKind	game/map.h	/^} MapExtraKind;$/;"	t	typeref:enum:__anon6564a8e20303
 MissileBulletStat	tools/dc_gamestat_gen.c	/^} MissileBulletStat;$/;"	t	typeref:struct:__anon006eef8b0508	file:
 P_AddCorpse	driver/engine.h	/^bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit);$/;"	p	typeref:typename:bool	signature:(statecontext_t * ctx,const mobj_t * unit)
@@ -1692,6 +1699,7 @@ main	tests/dark-colony/test_mobj_states.c	/^int main(void) {$/;"	f	typeref:typen
 main	tests/dark-colony/test_render_trait_helpers.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_definitions.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_loading.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
+main	tests/dark-colony/test_temp_strings.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/test_dark_colony_sprite_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tools/anim_extract.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
 main	tools/dc_fin_extract.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
