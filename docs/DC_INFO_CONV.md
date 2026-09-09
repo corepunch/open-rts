@@ -56,3 +56,16 @@ Native delay is `floor(((raw ? raw : 15) + 3) * 15 / 100)`; the default 66 ms
 native tick is converted to cumulative 30 Hz boundaries. See
 [the executable findings](DC_EXE_FINDINGS.md#native-damage-channel-implementation-2026-09-09)
 for instruction addresses and the correction to earlier timing notes.
+
+Human city damage and death references use the retail ANIM.DAT load list:
+
+```sh
+make dc-info-conv
+python3 tools/dc_building_states.py > games/dark-colony/building_states.inc
+```
+
+This exports the seven human city types' SCRCH/BURN/DIE labels from BURN,
+BURN2 and HUBU, including complete fire/explosion frames. The index excludes
+BURN3's obsolete duplicate Barracks death label. Runtime health selection
+follows DC.EXE's signed 11/16 and 5/16 HP comparisons; see the building damage
+findings for the counterintuitive BURN/SCRCH ordering and main-channel timing.

@@ -75,6 +75,7 @@ int P_DC_BloodStates(uint16_t native_type, int out[7]) {
 }
 
 void A_DC_Damage(mobj_t *target) {
+    A_DC_BuildingStand(target);
     if (P_MobjIsHidden(target)) return;
     int variants[7];
     int count = P_DC_BloodStates(target->native_type_id, variants);
@@ -84,6 +85,7 @@ void A_DC_Damage(mobj_t *target) {
     if (!blood) return;
     blood->core.angle = target->core.angle;
     blood->team = target->team;
+    blood->core.render_offset = target->core.render_offset;
     /* 0x423c34 resets frame/timer to zero; 0x423dd0 advances to +1
      * before loading the first delay. A one-frame label ends immediately. */
     P_SetMobjState(blood, gameinfo->states[first].nextstate);

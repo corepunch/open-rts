@@ -224,6 +224,8 @@ typedef enum {
     SPR_XENO,
     SPR_YABA,
     SPR_ZISP,
+    SPR_BURN,
+    SPR_BURN2,
     NUMSPRITES
 } spritenum_t;
 
@@ -949,6 +951,11 @@ typedef enum {
 #include "blood_states.inc"
 #undef DC_BLOOD_STATE
 #undef DC_BLOOD_LABEL
+#define DC_BUILDING_LABEL(type, action, first, last)
+#define DC_BUILDING_STATE(id, sprite, frame, tics, action, next, group) id,
+#include "building_states.inc"
+#undef DC_BUILDING_STATE
+#undef DC_BUILDING_LABEL
     NUMSTATES
 } statenum_t;
 
@@ -997,6 +1004,7 @@ extern const gameinfo_t game_info;
 
 const mobjtype_t *actor_type_by_id(uint16_t type_id);
 
+void A_DC_BuildingStand(mobj_t *building);
 void A_DC_ProductionReady(mobj_t *producer);
 void A_DC_Vent(mobj_t *actor);
 void A_DC_ReaperDeath(mobj_t *unit);

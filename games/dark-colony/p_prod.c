@@ -193,6 +193,7 @@ bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
 void A_DC_ProductionReady(mobj_t *producer) {
     if (producer->production && producer->production->release_active)
         producer->production->release_ready = true;
+    A_DC_BuildingStand(producer);
 }
 
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,

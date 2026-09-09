@@ -517,6 +517,7 @@ void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }
 void A_Attack(mobj_t *unit) { (void)unit; }
 void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }
 void A_DC_Fly(mobj_t *unit) { (void)unit; }
+void A_DC_BuildingStand(mobj_t *unit) { (void)unit; }
 void A_DC_ProductionReady(mobj_t *unit) { (void)unit; }
 void A_DC_Vent(mobj_t *unit) { (void)unit; }
 void A_DC_Drop(mobj_t *unit) { (void)unit; }

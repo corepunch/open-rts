@@ -61,6 +61,7 @@ A_Attack	tests/test_dark_colony_sprite_layout.c	/^void A_Attack(mobj_t *unit) { 
 A_Chase	play/actor.h	/^void A_Chase(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
 A_Chase	play/p_mobj.c	/^void A_Chase(mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_Chase	tests/test_dark_colony_sprite_layout.c	/^void A_Chase(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_BuildingStand	tests/test_dark_colony_sprite_layout.c	/^void A_DC_BuildingStand(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Drop	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Drop(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Fly	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Fly(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_MuzzleFlash	tests/test_dark_colony_sprite_layout.c	/^void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
@@ -90,6 +91,8 @@ CHECK	tests/loader_catalog.c	/^#define CHECK(/;"	d	file:	signature:(c)
 COMMANDS	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
 Cell	tools/dc_spr_extract.c	/^} Cell;$/;"	t	typeref:struct:__anonf6c4462b0108	file:
 DATA	tests/dark-colony/test_sprite_loading.c	/^enum { HEADER = 8 + 256 * 3, DATA = HEADER + 3 * 8 };$/;"	e	enum:__anon576c22dd0103	file:
+DC_BUILDING_LABEL	tests/dark-colony/test_building_damage.c	/^#define DC_BUILDING_LABEL(/;"	d	file:	signature:(type,action,first,last)
+DC_BUILDING_STATE	tests/dark-colony/test_building_damage.c	/^#define DC_BUILDING_STATE(/;"	d	file:	signature:(id,sprite,frame,tics,action,next,group)
 DRAW_COMMAND_DECORATION	render/render_plan.h	/^    DRAW_COMMAND_DECORATION,$/;"	e	enum:__anonba488bd40203
 DRAW_COMMAND_TILE_OVERLAY	render/render_plan.h	/^    DRAW_COMMAND_TILE_OVERLAY,$/;"	e	enum:__anonba488bd40203
 DRAW_COMMAND_UNIT	render/render_plan.h	/^    DRAW_COMMAND_UNIT,$/;"	e	enum:__anonba488bd40203
@@ -1099,10 +1102,12 @@ center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	
 check_all_fin_frames	tests/dark-colony/test_sprite_definitions.c	/^static void check_all_fin_frames(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 check_city	tests/dark-colony/test_city_layout.c	/^static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams, const char *sc/;"	f	typeref:typename:void	file:	signature:(const char * path,fvec2_t anchor,unsigned expected_teams,const char * screenshot)
 check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit,const char * stem,const char * sequence,int sprite,int corpse,int total_tics)
+check_fin_sequence	tests/dark-colony/test_building_damage.c	/^static void check_fin_sequence(const char *name, int first, int last) {$/;"	f	typeref:typename:void	file:	signature:(const char * name,int first,int last)
 check_pixels	tests/dark-colony/test_sprite_loading.c	/^static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture,const uint8_t * indices,int remap)
 check_selection	tests/dark-colony/test_trooper_rendering.c	/^static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,spritecache_t * cache,mobj_t * unit)
 check_sequence	tests/dark-colony/test_drop_fin_states.c	/^static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cache,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,const char * file,const char * label_name,int first_state,int exit_state,int team)
 check_sprite_registry	tests/dark-colony/test_sprite_definitions.c	/^static void check_sprite_registry(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
+check_states	tests/dark-colony/test_building_damage.c	/^static void check_states(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 check_turn_and_travel_definitions	tests/dark-colony/test_sprite_definitions.c	/^static void check_turn_and_travel_definitions(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 check_ui_storage	tests/dark-colony/test_sprite_definitions.c	/^static void check_ui_storage(SDL_Renderer *renderer) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer)
 checker	tools/dc_spr_extract.c	/^static uint32_t checker(int x, int y) {$/;"	f	typeref:typename:uint32_t	file:	signature:(int x,int y)
@@ -1446,6 +1451,7 @@ hex	docs/DC_INFO_CONV.md	/^(as hex), and every command's sprite, cell, signed XY
 hidden	game/g_game.h	/^    bool hidden;$/;"	m	struct:__anon42a104c41008	typeref:typename:bool
 hidden	game/g_game.h	/^    bool hidden;$/;"	m	struct:__anon42a104c41108	typeref:typename:bool
 hidden	game/map.h	/^    bool hidden;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
+hit	tests/dark-colony/test_building_damage.c	/^static void hit(mobj_t *building, int remaining_hp) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * building,int remaining_hp)
 hp	game/g_game.h	/^    int hp;$/;"	m	struct:__anon42a104c41008	typeref:typename:int
 hp	play/actor.h	/^    int hp;$/;"	m	struct:mobj_s	typeref:typename:int
 hscene	tools/dc_gamestat_gen.c	/^    SceneTable hscene;$/;"	m	struct:__anon006eef8b0908	typeref:typename:SceneTable	file:
@@ -1578,6 +1584,7 @@ main	tests/dark-colony/test_actor_lifecycle.c	/^int main(void) {$/;"	f	typeref:t
 main	tests/dark-colony/test_ai_team_aware.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_barracks_production.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_blood_fin.c	/^int main(void) { lifecycle(); pixels(); return 0; }$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_building_damage.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_city_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_combat_and_harvest.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_drop_fin_states.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2037,6 +2044,7 @@ scenario	tools/dc_gamestat_gen.c	/^    char scenario[128];$/;"	m	struct:__anon00
 screen_to_grid_point	render/r_draw.c	/^static void screen_to_grid_point(const app_t *app, int sx, int sy, float *gx, float *gy) {$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,int sx,int sy,float * gx,float * gy)
 screen_to_map_grid_point	render/r_draw.c	/^static void screen_to_map_grid_point(const app_t *app, const level_t *map, int sx, int sy,$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,const level_t * map,int sx,int sy,float * gx,float * gy)
 screenshot	tests/dark-colony/test_barracks_production.c	/^static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,tileset_t * tiles,spritecache_t * cache,const char * path)
+screenshot	tests/dark-colony/test_building_damage.c	/^static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,tileset_t * tiles,spritecache_t * cache,const char * name)
 sdl	interface/renderer.h	/^    SDL_Renderer *sdl;$/;"	m	struct:renderer_s	typeref:typename:SDL_Renderer *
 sdl_renderer_backend	interface/i_video.c	/^const rendererbackend_t *sdl_renderer_backend(void) {$/;"	f	typeref:typename:const rendererbackend_t *	signature:(void)
 sdl_renderer_backend	interface/renderer.h	/^const rendererbackend_t *sdl_renderer_backend(void);$/;"	p	typeref:typename:const rendererbackend_t *	signature:(void)

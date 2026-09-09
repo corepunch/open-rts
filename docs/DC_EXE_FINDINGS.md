@@ -2848,3 +2848,132 @@ make tags
 SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
 SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
 ```
+
+## Human city damage, fire and explosions (2026-09-09)
+
+**Confirmed executable:** 566,272-byte retail `DC.EXE`, image base 0x400000,
+SHA-256 `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+Focused r2 disassembly of `0x413620`, `0x4385f8`, `0x4154c0`, `0x415618`,
+`0x423c34` and `0x423dd0` establishes the following behavior.
+
+### Health selection and persistent fire
+
+**Confirmed:** city idle action `0x413620` reads the native type's maximum HP
+at type-table +0x44 (`0x413679`), and remaining HP at object +0x0c. While main
+animation mode at object +0x1a is 1, it leaves that animation running
+(`0x413685–0x413688`), protecting production/release animations. Otherwise:
+
+| Remaining HP | Type-table animation | Native label |
+| --- | --- | --- |
+| HP > `(maxHP * 11) >> 4` | +0x80 | STAND |
+| `(maxHP * 5) >> 4` < HP <= `(maxHP * 11) >> 4` | +0x88 | BURN |
+| HP <= `(maxHP * 5) >> 4` | +0x84 | SCRCH |
+
+The apparently reversed BURN/SCRCH order is **confirmed**, not a typo:
+`0x4136ad` branches on signed `HP <= high`; `0x4136d4` branches on signed
+`low >= HP` to the +0x84 load at `0x4136de`. The intervening branch loads
++0x88 at `0x4136d6`. Loader `0x438d20–0x438d9e` associates SCRCH with +0x84
+and BURN with +0x88. Missing SCRCH makes both entries use STAND
+(`0x438dc3–0x438ddb`); missing BURN makes it use SCRCH
+(`0x438da0–0x438dac`). Do not substitute HIT labels or assume names imply
+increasing severity. Examples for the 2400-HP Barracks: 1651 -> STAND,
+1650 -> BURN, 751 -> BURN, 750 -> SCRCH.
+
+`0x4136e4–0x4136e6` selects mode 0 (loop), not a one-shot hit effect.
+`0x423c39–0x423c47` preserves an unchanged label/mode's frame and timer.
+**Consequence:** fire persists at damaged HP without another attacker or
+another hit. FIN commands already combine the damaged body, fire, smoke and
+other parts; no separately positioned generic flame mobj is necessary.
+
+### Native assets and duplicate-label trap
+
+**Confirmed:** `ANIM.DAT` lines 8 and 9 load `burn.fin` and `burn2.fin`.
+`burn3.fin` is absent. Scanning every file without respecting the index finds
+a tempting but wrong one-frame `BRRKPODDIE0` in BURN3. The indexed BURN2 label
+is the actual 35-frame sequence. The committed exporter uses ANIM.DAT and
+rejects duplicate selected labels.
+
+| Building prefix | SCRCH FIN frames | BURN FIN frames | DIE FIN frames |
+| --- | --- | --- | --- |
+| EXCOPOD | BURN 170–185 | BURN 186–201 | HUBU 191–219 |
+| BRRKPOD | BURN 301–320 | BURN2 57–76 | BURN2 112–146 |
+| ROBOPOD | BURN 88–107 | BURN 386–405 | BURN2 147–181 |
+| ROBOPOD2 | BURN2 0–19 | BURN 108–127 | BURN2 217–251 |
+| SCNCPOD | HUBU 289–304 | BURN 72–87 | BURN 321–352 |
+| SCNCPOD2 | HUBU 408–423 | HUBU 466–481 | BURN 353–385 |
+| RSCHPOD | BURN 128–148 | BURN 149–169 | BURN2 182–216 |
+
+SHA-256 fingerprints:
+
+- ANIM.DAT: `20e9cf988ed833236ca0687601ab32a2adeaae0d885b39a7507321166bdba3d0`
+- BURN.FIN: `26ed51a0e037f1fb3c05506d4d34c81fb80bdab34b13ae1711171b081bbafe55`
+- BURN2.FIN: `b2dd6c3721245166f7b707c7b99add8d71cdbd2f944480478729dabdaa7d2f15`
+- BURN3.FIN (excluded): `21c7282befda8704adb67ee6d29360a96d0760e34adbeb15e803d3651998c972`
+- HUBU.FIN: `b27b20282999188e37a74872b70a273b370cc1dd219f2f8fa84f5f2f2ca3a5a4`
+
+### Death, timing and implementation boundary
+
+**Confirmed:** lethal damage in `0x43de94` enters `0x4154c0` and clears
+occupancy through `0x431be8`. Death dispatch entry 10 at VA `0x47432c`
+points to `0x415618`. It chooses one of the type's +0xac death labels using
+the shared random table (`0x415671–0x4156bb`) and plays mode 1; the loader
+tries DIE, then DIEA/B/C, falling back to STAND if absent
+(`0x438a4f–0x438ba0`). The seven human city types above have DIE sequences
+with complete explosion/fire/debris commands. There is no need to replace
+the building with a guessed explosion asset. The special type +0x100 branch
+instead uses FUNK/+0x9c mode 3; it is not used for these human city types.
+
+The main channel is advanced before the state handler (`0x418567–0x418580`),
+so selecting a new main animation exposes frame zero for one native tick.
+At the next tick its reset zero timer increments the frame (`0x423e0c`).
+Mode 0 wraps to zero; mode 1 becomes inactive at completion
+(`0x423e23–0x423e2f`). The port shows this initial frame for rounded 66 ms,
+then uses FIN delays and cumulative 66 ms -> 30 Hz conversion. Existing
+healthy STAND timing remains authored as before. Death ends at S_NULL in the
+shared Doom thinker lifecycle. Retail retains the inactive object until its
+150-tick death counter expires (`0x4156d6–0x4156ee`); this port does not retain
+that invisible slot or add a separate lifetime timer. Main drawing exits when
+the channel is inactive (`0x436463–0x43646a`), confirming that this does not
+truncate a visible retained frame. Full retail scheduling,
+non-city special death modes and alien city transitions are outside this change.
+
+### Spark alignment and verification
+
+**Confirmed bug:** `A_DC_Damage` copied XYZ/angle/team but omitted
+`core.render_offset`. Human02's Barracks has `(0,32)`, so its sparks were
+32 pixels above their FIN placement; the Exco slot has `(64,47)` and loses
+both components. Temporary `OPEN_RTS_DEBUG_BUILDING_DAMAGE` logging printed
+owner and effect origins before and after the fix, then was removed. Native
+main/blood drawing uses the same transform (`0x43645b–0x4366a7`, documented
+above). Copying the complete offset once fixes this without attaching the
+spawned effect or adjusting any native command offsets.
+
+The headless Human02 regression captures the city with an actual P_Attack hit,
+damaged fire continuing for 100 simulation ticks without further hits,
+low-HP SCRCH, and a lethal-hit explosion. Screenshots were inspected at
+640x480. `/private/tmp/building-sparks-before.png` shows the old displacement;
+`building-sparks.png`, `building-burn-idle.png`, `building-scratch.png` and
+`building-explosion.png` show the corrected FIN placement and state changes.
+The tests cover all seven human city types, threshold boundaries, repeated-hit
+phase preservation, repair selection, production handoff, copied offsets,
+lethal cleanup, and FIN sequence lengths/delays.
+
+Reproduce:
+
+```sh
+r2 -q -e bin.cache=true -c 'af @ 0x413620' -c 'pdf @ 0x413620' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -c 'af @ 0x415618' -c 'pdf @ 0x415618' -c q data/DCOLONY/DC.EXE
+make dc-info-conv
+python3 tools/dc_building_states.py > /private/tmp/building_states.inc
+cmp /private/tmp/building_states.inc games/dark-colony/building_states.inc
+make build/bin/tests/dark-colony/test_building_damage
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_building_damage
+```
+
+Verification completed: `make`, `make tags`, the full headless
+`make test-dark-colony` suite, `test_dark_colony_sprite_layout` (including
+Reaper's `{4,3,3,4,1,3,3,1}` movement timing), default headless `--check`,
+Human02 headless `--screenshot`, deterministic state-export comparison, and
+`git diff --check` all pass. The focused screenshot test also attacks both
+native Human02 city buildings and preserves their shared FIN origin through
+fire and explosions.

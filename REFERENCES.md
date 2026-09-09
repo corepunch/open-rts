@@ -1135,3 +1135,17 @@ and thinker-action tests, and the headless DC smoke check pass.
   headless assertions”. No new external source or executable analysis was used.
 - Human02 visibility expectations use the already verified retail spawn
   routine `0x419d44`: negative health selects defaults, not hidden status.
+
+### Human city damage animation sources (2026-09-09)
+
+Retail `data/DCOLONY/ANIM.DAT` lines 8–9 load BURN.FIN/BURN2.FIN, providing
+human city SCRCH/BURN/DIE sequences alongside HUBU.FIN. BURN3.FIN is not in
+the native load index and its duplicate one-frame BRRKPODDIE0 must not override
+BURN2's 35-frame sequence. DC.EXE `0x413620` chooses HP-dependent looping
+animations; `0x4385f8` binds the label categories; `0x415618` starts death
+playback. Exact thresholds, branch directions, asset hashes, ranges, timing
+and reproducer commands are preserved in
+[Human city damage, fire and explosions](docs/DC_EXE_FINDINGS.md#human-city-damage-fire-and-explosions-2026-09-09).
+These are local retail asset/disassembly findings, with no external screenshot
+or secondary-source inference. `tools/dc_building_states.py` exports only state
+references from this indexed data; FIN continues to own all drawing commands.
