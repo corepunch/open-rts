@@ -47,7 +47,7 @@ DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
-        test-headless test-model-commands test-ai test-layout dark-reign dark-colony \
+        test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
 		kknd-check anim-extract dc-spr-extract dc-fin-extract clean help tags
 
@@ -187,7 +187,10 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout
+test: test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
+
+test-loaders: all
+	env SDL_VIDEODRIVER=dummy python3 tools/test_loaders.py --fixtures --no-build
 
 test-headless: test-dark-colony
 test-ai: test-dark-colony

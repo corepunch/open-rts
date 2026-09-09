@@ -229,147 +229,82 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
 
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
-    if (blob.size < 4) { W_FreeFile(&blob); return false; }
-    const uint8_t *data = (const uint8_t *)blob.bytes;
-    size_t data_size = blob.size;
-    uint8_t *expanded = NULL;
-    if (blob.size >= 4 && memcmp(data, "VCLZ", 4) == 0) {
-        if (!sl_expand_vclz(data, blob.size, &expanded, &data_size)) {
-            fprintf(stderr, "7legion: %s: invalid VCLZ stream\n", path);
-            W_FreeFile(&blob);
-            return false;
-        }
-        data = expanded;
-    }
-    uint32_t first_offset = read_u32_le(data);
-    if (first_offset == 0 || first_offset % 4 != 0 || first_offset > data_size) {
-        fprintf(stderr, "7legion: %s: bad BIM sprite offset table\n", path);
-        free(expanded);
+    uint32_t *rgba = NULL;
+    if (blob.size >= 4 && memcmp(blob.bytes, "VCLZ", 4) == 0) {
+        blob_t expanded = {0};
+        if (!sl_expand_vclz(blob.bytes, blob.size, &expanded.bytes, &expanded.size)) goto fail;
         W_FreeFile(&blob);
-        return false;
+        blob = expanded;
     }
-
+    if (blob.size < 4) goto fail;
+    const uint8_t *data = blob.bytes;
+    uint32_t first_offset = read_u32_le(data);
+    if (first_offset == 0 || first_offset % 4 != 0 || first_offset > blob.size) goto fail;
     int table_count = (int)(first_offset / 4);
-    int frame_count = table_count;
-    SlBimFrameInfo *info = calloc((size_t)table_count, sizeof(*info));
-    if (!info) { free(expanded); W_FreeFile(&blob); return false; }
-    int canvas_w = 1;
-    int canvas_h = 1;
+    if (!R_AllocSpriteCells(out, table_count)) goto fail;
+    isize2_t canvas = { 1, 1 };
+    int frame_count = 0;
     for (int i = 0; i < table_count; ++i) {
         uint32_t offset = read_u32_le(data + (size_t)i * 4);
-        uint32_t end = i + 1 < table_count ?
-            read_u32_le(data + (size_t)(i + 1) * 4) : (uint32_t)data_size;
-        if (offset < first_offset || end < offset || end > data_size ||
-            !sl_bim_frame_info(data, data_size, offset, end, &info[i])) {
-            fprintf(stderr, "7legion: %s: invalid BIM sprite frame %d\n", path, i);
-            free(info);
-            free(expanded);
-            W_FreeFile(&blob);
-            return false;
-        }
-        if (info[i].width > canvas_w) canvas_w = info[i].width;
-        if (info[i].height > canvas_h) canvas_h = info[i].height;
+        uint32_t end = i + 1 < table_count ? read_u32_le(data + (size_t)(i + 1) * 4) : (uint32_t)blob.size;
+        SlBimFrameInfo info;
+        if (offset < first_offset || end < offset || end > blob.size ||
+            !sl_bim_frame_info(data, blob.size, offset, end, &info)) goto fail;
+        out->cells[i].bounds = (irect_t){ info.min_x, info.min_y,
+                                         info.max_x - info.min_x, info.max_y - info.min_y };
+        if (info.width > canvas.w) canvas.w = info.width;
+        if (info.height > canvas.h) canvas.h = info.height;
+        if (info.height) frame_count = i + 1;
     }
-    while (frame_count > 0 && info[frame_count - 1].height == 0) frame_count--;
-    if (frame_count == 0) {
-        fprintf(stderr, "7legion: %s: BIM sprite contains no frames\n", path);
-        free(info);
-        free(expanded);
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    const int atlas_cols = 16;
-    int atlas_rows = (frame_count + atlas_cols - 1) / atlas_cols;
-    int atlas_w = atlas_cols * canvas_w;
-    int atlas_h = atlas_rows * canvas_h;
-    uint32_t *rgba = calloc((size_t)atlas_w * atlas_h, sizeof(*rgba));
-    irect_t *frames = calloc((size_t)frame_count, sizeof(*frames));
-    irect_t *bounds = calloc((size_t)frame_count, sizeof(*bounds));
-    SDL_Point *ground_points = calloc((size_t)frame_count, sizeof(*ground_points));
-    if (!rgba || !frames || !bounds || !ground_points) {
-        free(rgba); free(frames); free(bounds); free(ground_points); free(info);
-        free(expanded);
-        W_FreeFile(&blob);
-        return false;
-    }
-
+    if (!frame_count) goto fail;
+    out->numlumps = frame_count;
+    out->frame_size = canvas;
+    size_t pixels = (size_t)canvas.w * canvas.h;
+    rgba = calloc(pixels, sizeof(*rgba));
+    if (!rgba) goto fail;
     for (int i = 0; i < frame_count; ++i) {
-        int atlas_x = (i % atlas_cols) * canvas_w;
-        int atlas_y = (i / atlas_cols) * canvas_h;
-        frames[i] = (irect_t){ atlas_x, atlas_y, canvas_w, canvas_h };
-        bounds[i] = (irect_t){ info[i].min_x, info[i].min_y,
-                                info[i].max_x - info[i].min_x,
-                                info[i].max_y - info[i].min_y };
-        ground_points[i] = (SDL_Point){ canvas_w / 2, canvas_h };
-        if (info[i].height == 0) continue;
-
+        spritecell_t *cell = &out->cells[i];
+        cell->rect = (irect_t){ 0, 0, canvas.w, canvas.h };
+        cell->ground_point = (ivec2_t){ canvas.w / 2, canvas.h };
+        memset(rgba, 0, pixels * sizeof(*rgba));
         uint32_t offset = read_u32_le(data + (size_t)i * 4);
-        size_t command = (size_t)offset + 4;
-        size_t pixels = (size_t)offset + info[i].data_offset;
-        for (int y = 0; y < info[i].height; ++y) {
-            uint16_t span_count = read_u16_le(data + command);
-            command += 2;
-            for (int span = 0; span < span_count; ++span) {
-                uint16_t x = read_u16_le(data + command);
-                uint16_t length = read_u16_le(data + command + 2);
-                command += 4;
-                for (int px = 0; px < length; ++px) {
-                    uint8_t index = data[pixels++];
-                    rgba[(size_t)(atlas_y + y) * atlas_w + atlas_x + x + px] = palette[index];
+        uint32_t end = i + 1 < table_count ? read_u32_le(data + (size_t)(i + 1) * 4) : (uint32_t)blob.size;
+        if (offset != end) {
+            int height = read_u16_le(data + offset + 2);
+            size_t command = (size_t)offset + 4;
+            size_t source = (size_t)offset + read_u16_le(data + offset);
+            for (int y = 0; y < height; ++y) {
+                int spans = read_u16_le(data + command);
+                command += 2;
+                for (int span = 0; span < spans; ++span) {
+                    int x = read_u16_le(data + command), length = read_u16_le(data + command + 2);
+                    command += 4;
+                    V_IndexedToRGBA(rgba + (size_t)y * canvas.w + x, data + source, length, palette);
+                    source += length;
                 }
             }
         }
+        out->lumps[i].texture = I_CreateTexture(renderer, rgba, canvas.w, canvas.h, true);
+        if (!out->lumps[i].texture) goto fail;
     }
-
-    if (!R_AllocSpriteCells(out, frame_count)) {
-        free(rgba); free(info); free(expanded); W_FreeFile(&blob);
-        free(frames); free(bounds); free(ground_points);
-        return false;
-    }
-    for (int i = 0; i < frame_count; ++i) {
-        out->cells[i] = (spritecell_t){
-            .rect = { 0, 0, frames[i].w, frames[i].h },
-            .bounds = bounds[i],
-            .ground_point = { ground_points[i].x, ground_points[i].y },
-        };
-        if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
-                                       frames[i], true, -1)) {
-            free(rgba); free(info); free(expanded); free(frames); free(bounds);
-            free(ground_points); W_FreeFile(&blob); R_FreeSprite(out);
-            return false;
-        }
-    }
-    free(rgba);
-    free(info);
-    free(expanded);
-    W_FreeFile(&blob);
-    free(frames);
-    free(bounds);
-    free(ground_points);
-    out->frame_size = (isize2_t){ canvas_w, canvas_h };
-
     /* Movement sheets are arranged as eight contiguous facing blocks. */
-    if (frame_count >= 8 && frame_count % 8 == 0) {
-        int frames_per_facing = frame_count / 8;
-        if (!R_InitSpriteDef(out, frames_per_facing, 8)) {
-            R_FreeSprite(out);
-            return false;
-        }
-        for (int frame = 0; frame < frames_per_facing; ++frame)
-            for (int rotation = 0; rotation < 8; ++rotation)
-                R_InstallSpriteLump(out, frame, (8 - rotation) % 8,
-                                    rotation * frames_per_facing + frame, false);
-    } else {
-        if (!R_InitSpriteDef(out, frame_count, 1)) {
-            R_FreeSprite(out);
-            return false;
-        }
-        for (int frame = 0; frame < frame_count; ++frame)
-            R_InstallSpriteLump(out, frame, 0, frame, false);
-    }
+    int rotations = frame_count >= 8 && frame_count % 8 == 0 ? 8 : 1;
+    int frames = frame_count / rotations;
+    if (!R_InitSpriteDef(out, frames, rotations)) goto fail;
+    for (int frame = 0; frame < frames; ++frame)
+        for (int rotation = 0; rotation < rotations; ++rotation)
+            R_InstallSpriteLump(out, frame, (rotations - rotation) % rotations,
+                                rotation * frames + frame, false);
+    free(rgba);
+    W_FreeFile(&blob);
     return true;
+fail:
+    free(rgba);
+    W_FreeFile(&blob);
+    R_FreeSprite(out);
+    return false;
 }
+
 static const char *sl_palette_for_tileset(const level_t *map) {
     if (map && strcmp(map->tileset_name, "GFX/TILES1.BIM") == 0) return "GFX/PAL2.COL";
     if (map && strcmp(map->tileset_name, "GFX/TILES2.BIM") == 0) return "GFX/PAL3.COL";
@@ -380,7 +315,6 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
                     const level_t *map,
                     const char *sprite_name,
                     tileset_t *tileset, spritesheet_t *unit_sprite) {
-    (void)map;
 
     /* Palette */
     uint32_t palette[256];
@@ -435,7 +369,6 @@ static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,
 bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                              const level_t *map, mobj_t *const *units, int unit_count,
                              spritecache_t *cache) {
-    (void)map;
     uint32_t palette[256];
     char col_path[512];
     snprintf(col_path, sizeof(col_path), "%s/%s", data_root, sl_palette_for_tileset(map));

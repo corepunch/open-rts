@@ -53,7 +53,7 @@ bool W_ReadFile(const char *path, blob_t *out) {
         return false;
     }
     rewind(fp);
-    out->bytes = malloc((size_t)len);
+    out->bytes = malloc((size_t)len + 1);
     out->size = (size_t)len;
     if (!out->bytes) {
         fclose(fp);
@@ -65,6 +65,7 @@ bool W_ReadFile(const char *path, blob_t *out) {
         fclose(fp);
         return false;
     }
+    out->bytes[out->size] = 0;
     fclose(fp);
     return true;
 }

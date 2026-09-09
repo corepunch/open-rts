@@ -7,41 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-typedef struct {
-    uint8_t *pixels;
-    int width;
-    int height;
-    int offset_x;
-    int offset_y;
-} KkndFrame;
 
 enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };
 static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,
                                    tileset_t *out) {
-    size_t cells = (size_t)map->width * (size_t)map->height;
-    int frame_count = (int)(cells * (size_t)map->layer_count + 1);
-    int cols = 64;
-    int rows = (frame_count + cols - 1) / cols;
-    int atlas_w = cols * 32;
-    int atlas_h = rows * 32;
-    uint32_t *atlas = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    if (!atlas) return false;
-    for (int layer = 0; layer < map->layer_count; ++layer) {
-        for (size_t cell = 0; cell < cells; ++cell) {
-            int frame = layer == 0 ? (int)cell : (int)(cells * (size_t)layer + 1 + cell);
-            int dx = (frame % cols) * 32;
-            int dy = (frame / cols) * 32;
-            const uint32_t *src = map->layer_pixels[layer] + cell * 1024u;
-            for (int y = 0; y < 32; ++y)
-                memcpy(atlas + (size_t)(dy + y) * (size_t)atlas_w + (size_t)dx,
-                       src + (size_t)y * 32u, 32u * sizeof(uint32_t));
-        }
-    }
-    out->texture = I_CreateTexture(renderer, atlas, atlas_w, atlas_h, true);
-    free(atlas);
+    out->texture = I_CreateTexture(renderer, map->pixels, map->atlas.w, map->atlas.h, true);
     if (!out->texture) return false;
-    out->count = frame_count;
-    out->atlas_cols = cols;
+    out->count = map->tile_count;
+    out->atlas_cols = 64;
     out->tile_w = 32;
     out->tile_h = 32;
     return true;
@@ -60,11 +33,11 @@ static int sprite_member_index(const char *name) {
     return -1;
 }
 
-static bool decode_mobd_image(const uint8_t *segment, size_t size, uint32_t frame_offset,
-                                   KkndFrame *out) {
+static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
+                               uint32_t frame_offset, const uint32_t palette[256],
+                               spritecell_t *cell, spritelump_t *lump) {
     if (!range_ok(size, frame_offset, 28)) return false;
-    out->offset_x = (int)read_u32_le(segment + frame_offset);
-    out->offset_y = (int)read_u32_le(segment + frame_offset + 4);
+    ivec2_t offset = { read_i32_le(segment + frame_offset), read_i32_le(segment + frame_offset + 4) };
     uint32_t flags_offset = read_u32_le(segment + frame_offset + 12);
     if (!range_ok(size, flags_offset, 12) || memcmp(segment + flags_offset, "TRPS", 4) != 0)
         return false;
@@ -75,27 +48,29 @@ static bool decode_mobd_image(const uint8_t *segment, size_t size, uint32_t fram
     int height = (int)read_u32_le(segment + image + 4);
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) return false;
     size_t count = (size_t)width * (size_t)height;
-    uint8_t *pixels = calloc(count, 1);
+    uint32_t *pixels = calloc(count, sizeof(*pixels));
     if (!pixels) return false;
     uint32_t pos = image + 9;
     if (segment[image + 8] == 2) {
         size_t write = 0;
         while (write < count) {
-            if (!range_ok(size, pos, 1)) { free(pixels); return false; }
+            if (!range_ok(size, pos, 1)) goto fail;
             uint32_t line_bytes = (uint32_t)segment[pos++];
-            if (line_bytes == 0) { free(pixels); return false; }
+            if (line_bytes == 0) goto fail;
             line_bytes--;
-            if (!range_ok(size, pos, line_bytes)) { free(pixels); return false; }
+            if (!range_ok(size, pos, line_bytes)) goto fail;
             uint32_t end = pos + line_bytes;
             bool skip = true;
             while (pos < end) {
                 uint8_t chunk = segment[pos++];
+                if ((size_t)chunk > count - write) goto fail;
                 if (skip) write += chunk;
                 else {
-                    if ((size_t)chunk > count - (write < count ? write : count) || pos + chunk > end) {
-                        free(pixels); return false;
+                    if (chunk > end - pos) goto fail;
+                    for (int i = 0; i < chunk; ++i) {
+                        uint8_t index = segment[pos + i];
+                        pixels[write + i] = index ? palette[index] : 0;
                     }
-                    memcpy(pixels + write, segment + pos, chunk);
                     write += chunk;
                     pos += chunk;
                 }
@@ -104,21 +79,28 @@ static bool decode_mobd_image(const uint8_t *segment, size_t size, uint32_t fram
             if (write < count) write += ((size_t)width - write % (size_t)width) % (size_t)width;
         }
     } else {
-        if (!range_ok(size, pos, count)) { free(pixels); return false; }
-        memcpy(pixels, segment + pos, count);
+        if (!range_ok(size, pos, count)) goto fail;
+        for (size_t i = 0; i < count; ++i) {
+            uint8_t index = segment[pos + i];
+            pixels[i] = index ? palette[index] : 0;
+        }
     }
     if ((flags & 1u) != 0) {
         for (int y = 0; y < height; ++y)
             for (int x = 0; x < width / 2; ++x) {
-                uint8_t tmp = pixels[(size_t)y * width + x];
+                uint32_t tmp = pixels[(size_t)y * width + x];
                 pixels[(size_t)y * width + x] = pixels[(size_t)y * width + width - 1 - x];
                 pixels[(size_t)y * width + width - 1 - x] = tmp;
             }
     }
-    out->pixels = pixels;
-    out->width = width;
-    out->height = height;
-    return true;
+    cell->rect = cell->bounds = (irect_t){ 0, 0, width, height };
+    cell->displacement = ivec2_sub((ivec2_t){ width / 2, height / 2 }, offset);
+    lump->texture = I_CreateTexture(renderer, pixels, width, height, true);
+    free(pixels);
+    return lump->texture != NULL;
+fail:
+    free(pixels);
+    return false;
 }
 
 static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
@@ -160,7 +142,7 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
     for (int i = 0; i < animation_count && ordered_count < MAX_ANIMATIONS; ++i)
         if (animation_offsets[i] != 0) ordered[ordered_count++] = animation_offsets[i];
 
-    KkndFrame frames[MAX_FRAMES] = {{0}};
+    uint32_t frames[MAX_FRAMES];
     int group_starts[MAX_ANIMATIONS] = {0};
     int group_lengths[MAX_ANIMATIONS] = {0};
     int frame_count = 0;
@@ -174,66 +156,21 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
             int32_t frame = read_i32_le(segment + cursor);
             cursor += 4;
             if (frame == 0 || frame == -1) break;
-            if (frame < 0 || !decode_mobd_image(segment, size, (uint32_t)frame,
-                                                     &frames[frame_count])) goto fail;
-            frame_count++;
+            if (frame < 0) goto fail;
+            frames[frame_count++] = (uint32_t)frame;
             group_lengths[group]++;
         }
     }
     if (frame_count == 0) goto fail;
 
-    int max_w = 1, max_h = 1;
+    if (!R_AllocSpriteCells(out, frame_count)) goto fail;
+    out->frame_size = (isize2_t){ 1, 1 };
     for (int i = 0; i < frame_count; ++i) {
-        if (frames[i].width > max_w) max_w = frames[i].width;
-        if (frames[i].height > max_h) max_h = frames[i].height;
+        spritecell_t *cell = &out->cells[i];
+        if (!decode_mobd_image(renderer, segment, size, frames[i], palette, cell, &out->lumps[i])) goto fail;
+        if (cell->rect.w > out->frame_size.w) out->frame_size.w = cell->rect.w;
+        if (cell->rect.h > out->frame_size.h) out->frame_size.h = cell->rect.h;
     }
-    int cols = 16;
-    int rows = (frame_count + cols - 1) / cols;
-    int atlas_w = cols * max_w;
-    int atlas_h = rows * max_h;
-    uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    irect_t *rects = calloc((size_t)frame_count, sizeof(irect_t));
-    irect_t *bounds = calloc((size_t)frame_count, sizeof(irect_t));
-    SDL_Point *displacements = calloc((size_t)frame_count, sizeof(SDL_Point));
-    if (!rgba || !rects || !bounds || !displacements) {
-        free(rgba); free(rects); free(bounds); free(displacements); goto fail;
-    }
-    for (int i = 0; i < frame_count; ++i) {
-        int dx = (i % cols) * max_w;
-        int dy = (i / cols) * max_h;
-        rects[i] = (irect_t){ dx, dy, frames[i].width, frames[i].height };
-        bounds[i] = (irect_t){ 0, 0, frames[i].width, frames[i].height };
-        displacements[i] = (SDL_Point){ frames[i].width / 2 - frames[i].offset_x,
-                                        frames[i].height / 2 - frames[i].offset_y };
-        for (int y = 0; y < frames[i].height; ++y)
-            for (int x = 0; x < frames[i].width; ++x) {
-                uint8_t index = frames[i].pixels[(size_t)y * frames[i].width + x];
-                rgba[(size_t)(dy + y) * atlas_w + dx + x] = index == 0 ? 0 : palette[index];
-            }
-    }
-    if (!R_AllocSpriteCells(out, frame_count)) {
-        free(rgba);
-        free(rects); free(bounds); free(displacements);
-        goto fail;
-    }
-    for (int i = 0; i < frame_count; ++i) {
-        out->cells[i] = (spritecell_t){
-            .rect = { 0, 0, rects[i].w, rects[i].h },
-            .bounds = bounds[i],
-            .displacement = { displacements[i].x, displacements[i].y },
-        };
-        if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
-                                       rects[i], true, -1)) {
-            free(rgba); free(rects); free(bounds); free(displacements);
-            R_FreeSprite(out);
-            goto fail;
-        }
-    }
-    free(rgba);
-    free(rects);
-    free(bounds);
-    free(displacements);
-    out->frame_size = (isize2_t){ max_w, max_h };
 
     int sequence_blocks = ordered_count / 16;
     if (sequence_blocks > 3) sequence_blocks = 3;
@@ -253,12 +190,10 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
                 R_InstallSpriteLump(out, logical_frame, (16 - rotation) % 16,
                     group_starts[block * 16 + rotation] + frame, false);
     }
-    for (int i = 0; i < frame_count; ++i) free(frames[i].pixels);
     return true;
 
 fail:
-    if (out->lumps) R_FreeSprite(out);
-    for (int i = 0; i < MAX_FRAMES; ++i) free(frames[i].pixels);
+    R_FreeSprite(out);
     return false;
 }
 

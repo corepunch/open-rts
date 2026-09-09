@@ -116,3 +116,31 @@ rg -n 'recompute_strategy_period|priority|matching_force|_force|repair_buildings
 rg -n 'SetCost|SetStrength|SetPhysics|SetSeeingRange|SetRequirements' \
   data/REIGN/dark/deftxt/UNITS.TXT data/REIGN/dark/deftxt/BUILD.TXT
 ```
+
+## SPR/FTG and map-loader cleanup (2026-09-09)
+
+**Confirmed by loader comparison to `46f826a`, not new executable tracing.**
+All 82 installed SCN map results and 1,392 SPR archive-record results match,
+including 1,388 successful sprite pixel/metadata fingerprints and four unchanged
+rejections. Default screenshots match byte for byte. See
+[loader verification](LOADER_REFACTOR_VERIFICATION.md) for reproduction.
+
+`data/REIGN/dark/graphics/SPRITES.FTG` SHA-256:
+`46d831f7e02e9803d7d2d304e64488f2dca6e869d3e8f75cae4c2c19068aa320`.
+Its borrowed directory remains 36-byte records: 28 name bytes followed by
+little-endian offset and length at +28/+32. The lookup preserves the previous
+27-character terminated-name behavior, without copying the directory.
+
+SPR section records remain 16 bytes (first/last animation at +0/+4). The loader
+reads only fields needed for the existing section/rotation traversal; it no
+longer copies unused framerate/hotspot fields. Full authored canvases, current
+alpha-derived bounds, centered ground points, the quarter-turn rotation
+ordering, and shadow index 47 all remain unchanged. Their fidelity is not
+newly inferred from the simpler allocation strategy.
+
+Unchanged rejected records in the shared `SPRITES.FTG` are `(offset,length)`:
+`(2125350,17765)`, `(2446177,3248)`, `(2449425,6202)`, `(2455627,6202)`.
+The reason each is unsupported remains outside this cleanup's investigation.
+Map setup now borrows one SCN buffer for terrain, decorations, resources, and
+team settings; the final team pass may tokenize it in place. The separate
+initial-unit pass still owns its own SCN buffer because it also mutates text.

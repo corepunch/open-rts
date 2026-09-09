@@ -2,7 +2,7 @@
 #include "engine.h"
 
 #include <ctype.h>
-#include <math.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,17 +10,14 @@
 #include <string.h>
 #include <strings.h>
 
-#define DEFAULT_DATA_ROOT "data/REIGN/dark"
-#define DEFAULT_UNIT_SPR  "ucfcnst0.spr"
-
 bool load_dark_tileset(SDL_Renderer *renderer, const char *path,
                        const uint32_t palette[256], tileset_t *out);
 void add_water_animations(tileset_t *tileset);
 
 /* ── FTG archive ────────────────────────────────────────────────────────── */
 
-typedef struct { char name[28]; int32_t offset; int32_t size; } FtgEntry;
-typedef struct { uint8_t *bytes; size_t size; FtgEntry *entries; int count; } FtgArchive;
+typedef struct { char name[28]; uint8_t offset[4], size[4]; } FtgEntry;
+typedef struct { blob_t file; const FtgEntry *entries; int count; } FtgArchive;
 
 static bool ftg_load(const char *path, FtgArchive *out) {
     memset(out, 0, sizeof(*out));
@@ -37,29 +34,20 @@ static bool ftg_load(const char *path, FtgArchive *out) {
         fprintf(stderr, "%s has invalid FTG directory\n", path);
         W_FreeFile(&blob); return false;
     }
-    out->entries = calloc((size_t)count, sizeof(FtgEntry));
-    if (!out->entries) { W_FreeFile(&blob); return false; }
-    out->bytes = blob.bytes;
-    out->size  = blob.size;
+    out->file = blob;
+    out->entries = (const void *)(blob.bytes + dir_offset);
     out->count = count;
-    for (int i = 0; i < count; ++i) {
-        const uint8_t *e = out->bytes + dir_offset + i * 36;
-        memcpy(out->entries[i].name, e, 27);
-        out->entries[i].name[27] = '\0';
-        out->entries[i].offset = read_i32_le(e + 28);
-        out->entries[i].size   = read_i32_le(e + 32);
-    }
     return true;
 }
 
 static void ftg_free(FtgArchive *ftg) {
-    free(ftg->bytes); free(ftg->entries);
+    W_FreeFile(&ftg->file);
     memset(ftg, 0, sizeof(*ftg));
 }
 
 static const FtgEntry *ftg_find(const FtgArchive *ftg, const char *name) {
     for (int i = 0; i < ftg->count; ++i)
-        if (strcasecmp(ftg->entries[i].name, name) == 0) return &ftg->entries[i];
+        if (strlen(name) <= 27 && strncasecmp(ftg->entries[i].name, name, 27) == 0) return &ftg->entries[i];
     return NULL;
 }
 
@@ -103,8 +91,6 @@ static bool load_dark_terrain_palette(const char *path, uint32_t colors[256]) {
 
 /* ── sprite loader ──────────────────────────────────────────────────────── */
 
-typedef struct { int first_anim, last_anim, framerate, hotspots; } SprSection;
-
 static irect_t visible_bounds(const uint32_t *rgba, int atlas_w, irect_t frame) {
     int min_x = frame.w, min_y = frame.h, max_x = -1, max_y = -1;
     for (int y = 0; y < frame.h; ++y) {
@@ -137,145 +123,83 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
     if ((version != 0x0210 && version != 0x0200) || nanims <= 0 || nrots <= 0 ||
         szx <= 0 || szy <= 0 || npics <= 0 || nsects <= 0) return false;
 
-    int off_sections = 32 + 4 * nanims * nrots;
-    int off_anims    = off_sections + 16 * nsects;
-    int off_picoffs  = off_anims + 4 * nanims;
-    int off_bits     = off_picoffs + 8 * npics + 4;
-    if (off_bits <= 0 || (size_t)off_bits > size) return false;
+    if (nrots > MAX_SPRITE_ROTATIONS) return false;
+    size_t off_sections = 32 + 4 * (size_t)nanims * nrots;
+    size_t off_picoffs = off_sections + 16 * (size_t)nsects + 4 * (size_t)nanims;
+    size_t off_bits = off_picoffs + 8 * (size_t)npics + 4;
+    if (off_bits > size) return false;
 
-    SprSection *sects = calloc((size_t)nsects, sizeof(*sects));
-    if (!sects) return false;
-    int total_frames = 0;
+    int logical_frames = 0;
     for (int s = 0; s < nsects; ++s) {
-        const uint8_t *base = data + off_sections + s * 16;
-        sects[s].first_anim = read_i32_le(base + 0);
-        sects[s].last_anim  = read_i32_le(base + 4);
-        sects[s].framerate  = read_i32_le(base + 8);
-        sects[s].hotspots   = read_i32_le(base + 12);
-        int sf = sects[s].last_anim - sects[s].first_anim + 1;
-        if (sf > 0) total_frames += nrots * sf;
+        const uint8_t *section = data + off_sections + (size_t)s * 16;
+        int first = read_i32_le(section), last = read_i32_le(section + 4);
+        if (first < 0 || last < first || last >= nanims ||
+            last - first + 1 > INT_MAX / nrots - logical_frames) return false;
+        logical_frames += last - first + 1;
     }
-    if (total_frames <= 0) { free(sects); return false; }
-
-    int cols    = (int)ceilf(sqrtf((float)total_frames));
-    int rows    = (total_frames + cols - 1) / cols;
-    int atlas_w = cols * szx;
-    int atlas_h = rows * szy;
-    uint8_t *indices = calloc((size_t)atlas_w * (size_t)atlas_h, 1);
-    if (!indices) { free(sects); return false; }
+    if (!R_AllocSpriteCells(out, logical_frames * nrots) ||
+        !R_InitSpriteDef(out, logical_frames, nrots)) goto fail;
+    out->frame_size = (isize2_t){ szx, szy };
+    if ((size_t)szx > SIZE_MAX / sizeof(uint32_t) / szy) goto fail;
+    size_t pixels = (size_t)szx * szy;
+    uint32_t *rgba = malloc(pixels * sizeof(*rgba));
+    if (!rgba) goto fail;
 
     int rot_offset = nrots >= 4 ? nrots / 4 : 0;
-    int frame_cursor = 0;
+    int lump = 0, logical_frame = 0;
     for (int s = 0; s < nsects; ++s) {
+        const uint8_t *section = data + off_sections + (size_t)s * 16;
+        int first = read_i32_le(section), last = read_i32_le(section + 4);
         for (int r = 0; r < nrots; ++r) {
             int disk_r = (r + rot_offset) % nrots;
-            for (int a = sects[s].first_anim; a <= sects[s].last_anim; ++a) {
-                int picindex = a * nrots + disk_r;
-                if (picindex < 0 || picindex >= nanims * nrots) goto spr_fail;
+            for (int a = first; a <= last; ++a, ++lump) {
+                size_t picindex = (size_t)a * nrots + disk_r;
                 int picnr = read_i32_le(data + 32 + picindex * 4);
-                if (picnr < 0 || picnr >= npics) goto spr_fail;
-                int poff      = off_picoffs + 8 * picnr;
-                int pic_start = read_i32_le(data + poff);
-                int pic_end   = read_i32_le(data + poff + 8);
-                if (pic_start < 0 || pic_end < pic_start ||
-                    (size_t)(off_bits + pic_end) > size) goto spr_fail;
-                const uint8_t *compressed = data + off_bits + pic_start;
-                size_t comp_size = (size_t)(pic_end - pic_start);
-                size_t comp_pos  = 0;
-                int ox = (frame_cursor % cols) * szx;
-                int oy = (frame_cursor / cols) * szy;
+                if (picnr < 0 || picnr >= npics) goto decode_fail;
+                const uint8_t *picture = data + off_picoffs + 8 * (size_t)picnr;
+                int start = read_i32_le(picture), end = read_i32_le(picture + 8);
+                if (start < 0 || end < start || (size_t)end > size - off_bits) goto decode_fail;
+                const uint8_t *compressed = data + off_bits + start;
+                size_t remaining = (size_t)(end - start);
+                for (size_t i = 0; i < pixels; ++i) rgba[i] = palette[0];
                 for (int y = 0; y < szy; ++y) {
                     int x = 0, step = 0;
                     while (x < szx) {
-                        if (comp_pos >= comp_size) goto spr_fail;
-                        int cnt = compressed[comp_pos++];
-                        if (step & 1) cnt &= 0x7f;
-                        if (cnt < 0 || x + cnt > szx) goto spr_fail;
+                        if (!remaining) goto decode_fail;
+                        int count = *compressed++; remaining--;
+                        if (step & 1) count &= 0x7f;
+                        if (count > szx - x) goto decode_fail;
                         if (step & 1) {
-                            uint8_t *dst = indices + (oy + y) * atlas_w + ox + x;
+                            uint32_t *dst = rgba + (size_t)y * szx + x;
                             if (shadow) {
-                                memset(dst, 47, (size_t)cnt);
+                                for (int i = 0; i < count; ++i) dst[i] = palette[47];
                             } else {
-                                if (comp_pos + (size_t)cnt > comp_size) goto spr_fail;
-                                memcpy(dst, compressed + comp_pos, (size_t)cnt);
-                                comp_pos += (size_t)cnt;
+                                if ((size_t)count > remaining) goto decode_fail;
+                                V_IndexedToRGBA(dst, compressed, count, palette);
+                                compressed += count; remaining -= count;
                             }
                         }
-                        x += cnt; step++;
+                        x += count; step++;
                     }
                 }
-                frame_cursor++;
+                spritecell_t *cell = &out->cells[lump];
+                cell->rect = (irect_t){ 0, 0, szx, szy };
+                cell->bounds = visible_bounds(rgba, szx, cell->rect);
+                /* RSPR canvases are centered on the object's world origin. */
+                cell->ground_point = (ivec2_t){ szx / 2, szy / 2 };
+                out->lumps[lump].texture = I_CreateTexture(renderer, rgba, szx, szy, true);
+                if (!out->lumps[lump].texture) goto decode_fail;
+                R_InstallSpriteLump(out, logical_frame + a - first, r, lump, false);
             }
         }
+        logical_frame += last - first + 1;
     }
-
-    {
-        uint32_t *rgba   = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-        irect_t *frames = calloc((size_t)total_frames, sizeof(irect_t));
-        irect_t *bounds = calloc((size_t)total_frames, sizeof(irect_t));
-        SDL_Point *ground_points = calloc((size_t)total_frames, sizeof(SDL_Point));
-        if (!rgba || !frames || !bounds || !ground_points) {
-            free(rgba); free(frames); free(bounds); free(ground_points);
-            goto spr_fail;
-        }
-        V_IndexedToRGBA(rgba, indices, (size_t)atlas_w * (size_t)atlas_h, palette);
-        for (int i = 0; i < total_frames; ++i) {
-            frames[i].x = (i % cols) * szx; frames[i].y = (i / cols) * szy;
-            frames[i].w = szx; frames[i].h = szy;
-            bounds[i] = visible_bounds(rgba, atlas_w, frames[i]);
-            /* RSPR canvases are authored around the object's world origin.
-               OpenDR likewise exposes a zero frame offset and the full canvas
-               size; opaque-pixel bounds are not a ground-contact hotspot. */
-            ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
-        }
-        if (!R_AllocSpriteCells(out, total_frames)) {
-            free(rgba); free(indices); free(frames); free(bounds);
-            free(ground_points); free(sects);
-            return false;
-        }
-        for (int i = 0; i < total_frames; ++i) {
-            out->cells[i] = (spritecell_t){
-                .rect = { 0, 0, frames[i].w, frames[i].h },
-                .bounds = bounds[i],
-                .ground_point = { ground_points[i].x, ground_points[i].y },
-            };
-            if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[i], rgba, atlas_w,
-                                           frames[i], true, -1)) {
-                free(rgba); free(indices); free(frames); free(bounds);
-                free(ground_points); free(sects); R_FreeSprite(out);
-                return false;
-            }
-        }
-        free(frames);
-        free(bounds);
-        free(ground_points);
-        out->frame_size = (isize2_t){ szx, szy };
-        int logical_frames = 0;
-        for (int s = 0; s < nsects; ++s) {
-            int sf = sects[s].last_anim - sects[s].first_anim + 1;
-            if (sf > 0) logical_frames += sf;
-        }
-        if (!R_InitSpriteDef(out, logical_frames, nrots)) {
-            free(rgba); free(indices); free(sects);
-            R_FreeSprite(out);
-            return false;
-        }
-        int logical_frame = 0;
-        int lump_start = 0;
-        for (int s = 0; s < nsects; ++s) {
-            int sf = sects[s].last_anim - sects[s].first_anim + 1;
-            for (int frame = 0; frame < sf; ++frame, ++logical_frame)
-                for (int rotation = 0; rotation < nrots; ++rotation)
-                    R_InstallSpriteLump(out, logical_frame, rotation,
-                                        lump_start + rotation * sf + frame, false);
-            lump_start += nrots * sf;
-        }
-        free(rgba); free(indices); free(sects);
-        return out->lumps[0].texture != NULL;
-    }
-
-spr_fail:
-    free(indices); free(sects);
+    free(rgba);
+    return true;
+decode_fail:
+    free(rgba);
+fail:
+    R_FreeSprite(out);
     return false;
 }
 
@@ -301,12 +225,13 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
         if (!ftg_load(archives[i], &ftg)) continue;
         const FtgEntry *entry = ftg_find(&ftg, asset_name);
         if (!entry) { ftg_free(&ftg); continue; }
-        if (entry->offset < 0 || entry->size <= 0 ||
-            (size_t)entry->offset + (size_t)entry->size > ftg.size) {
+        int offset = read_i32_le(entry->offset), size = read_i32_le(entry->size);
+        if (offset < 0 || size <= 0 ||
+            (size_t)offset + (size_t)size > ftg.file.size) {
             ftg_free(&ftg); return false;
         }
-        bool ok = load_dark_sprite(renderer, ftg.bytes + entry->offset,
-                                   (size_t)entry->size, palette, out);
+        bool ok = load_dark_sprite(renderer, ftg.file.bytes + offset,
+                                   (size_t)size, palette, out);
         ftg_free(&ftg);
         return ok;
     }

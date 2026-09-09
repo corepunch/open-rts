@@ -1,4 +1,4 @@
-#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
 #include "engine.h"
 
 #include <ctype.h>
@@ -20,12 +20,7 @@ typedef struct { char *units; char *buildings; char *overlay; char *animate; } D
 static char *load_text_file(const char *path) {
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return NULL;
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); return NULL; }
-    memcpy(text, blob.bytes, blob.size);
-    text[blob.size] = '\0';
-    W_FreeFile(&blob);
-    return text;
+    return (char *)blob.bytes;
 }
 
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
@@ -42,22 +37,6 @@ static void copy_trimmed_token(char *dst, size_t dst_size, const char *src, size
     while (len > 0 && isspace((unsigned char)src[len-1])) len--;
     if (len >= dst_size) len = dst_size - 1;
     memcpy(dst, src, len); dst[len] = '\0';
-}
-
-static void uppercase_trimmed_token(char *dst, size_t dst_size, const char *src, size_t len) {
-    while (len > 0 && isspace((unsigned char)*src)) { src++; len--; }
-    while (len > 0 && isspace((unsigned char)src[len-1])) len--;
-    if (len >= dst_size) len = dst_size - 1;
-    for (size_t i = 0; i < len; ++i) dst[i] = (char)toupper((unsigned char)src[i]);
-    dst[len] = '\0';
-}
-
-static const char *find_case_insensitive(const char *haystack, const char *needle) {
-    if (!haystack || !needle || !needle[0]) return haystack;
-    size_t needle_len = strlen(needle);
-    for (const char *p = haystack; *p; ++p)
-        if (strncasecmp(p, needle, needle_len) == 0) return p;
-    return NULL;
 }
 
 static const char *find_case_insensitive_n(const char *haystack, size_t haystack_len,
@@ -125,7 +104,7 @@ static void map_path_from_scn(const char *scn_path, char *map_path,
 }
 
 static void root_from_map(const char *map_path, char *root, size_t root_size) {
-    const char *scenario = find_case_insensitive(map_path, "/scenario/");
+    const char *scenario = strcasestr(map_path, "/scenario/");
     if (!scenario) { snprintf(root, root_size, "%s", DEFAULT_DATA_ROOT); return; }
     size_t len = (size_t)(scenario - map_path);
     if (len >= root_size) len = root_size - 1;
@@ -152,7 +131,7 @@ static bool find_definition_block(const char *text, const char *define_call,
                                              size_t *body_len) {
     if (!text) return false;
     const char *cursor = text;
-    while ((cursor = find_case_insensitive(cursor, define_call)) != NULL) {
+    while ((cursor = strcasestr(cursor, define_call)) != NULL) {
         const char *open  = strchr(cursor, '(');
         const char *close = open ? strchr(open + 1, ')') : NULL;
         if (!open || !close) { cursor += strlen(define_call); continue; }
@@ -416,16 +395,9 @@ static void add_dark_reign_decoration(level_t *map, const VisualSpec *spec,
         }
 }
 
-static void load_dark_reign_decorations(const char *map_path, level_t *map) {
+static void load_dark_reign_decorations(const char *map_path, char *text, level_t *map) {
     Definitions defs;
     load_definitions(map_path, &defs);
-    char scn_path[1024];
-    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    blob_t blob;
-    if (!W_ReadFile(scn_path, &blob)) { free_definitions(&defs); return; }
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); free_definitions(&defs); return; }
-    memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
     char *cursor = text;
     while (map->decoration_count < MAX_DECORATIONS) {
         char *thing_hit    = strstr(cursor, "AddThingAt(");
@@ -451,7 +423,7 @@ static void load_dark_reign_decorations(const char *map_path, level_t *map) {
         }
         cursor = hit + (building ? strlen("AddBuildingAt(") : strlen("AddThingAt("));
     }
-    free(text); W_FreeFile(&blob); free_definitions(&defs);
+    free_definitions(&defs);
     qsort(map->decorations, (size_t)map->decoration_count, sizeof(mapdecoration_t),
           compare_map_decorations);
 }
@@ -462,14 +434,7 @@ static void load_dark_reign_decorations(const char *map_path, level_t *map) {
 #define TAELON_MINE_AMOUNT 3000
 #define TAELON_MINE_RATE   20
 
-static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
-    char scn_path[1024];
-    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    blob_t blob;
-    if (!W_ReadFile(scn_path, &blob)) return;
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); return; }
-    memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
+static void load_dark_reign_resource_vents(char *text, level_t *map) {
     const char *tag = "AddBuildingAt(";
     char *cursor = text;
     while (1) {
@@ -499,20 +464,9 @@ static void load_dark_reign_resource_vents(const char *map_path, level_t *map) {
         }
         cursor = hit + strlen(tag);
     }
-    free(text); W_FreeFile(&blob);
 }
 
-static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
-    if (!map) return;
-    char scn_path[1024];
-    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    blob_t blob;
-    if (!W_ReadFile(scn_path, &blob)) return;
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); return; }
-    memcpy(text, blob.bytes, blob.size);
-    text[blob.size] = '\0';
-
+static void load_dark_reign_team_credits(char *text, level_t *map) {
     int current_team = -1;
     for (char *line = text; line && *line;) {
         char *next = strpbrk(line, "\r\n");
@@ -542,9 +496,6 @@ static void load_dark_reign_team_credits(const char *map_path, level_t *map) {
         }
         line = next;
     }
-
-    free(text);
-    W_FreeFile(&blob);
 }
 
 /* ── tileset detection ──────────────────────────────────────────────────── */
@@ -565,23 +516,17 @@ static void detect_tileset_from_mm(const char *map_path, char *tileset, size_t t
     W_FreeFile(&blob);
 }
 
-static void detect_tileset_from_scn(const char *map_path, char *tileset, size_t tileset_size) {
-    char scn_path[1024];
-    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
-    blob_t blob;
-    if (!W_ReadFile(scn_path, &blob)) return;
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); return; }
-    memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
+static void detect_tileset_from_scn(char *text, char *tileset, size_t tileset_size) {
     const char *tag = "SetDefaultTerrain(";
     char *hit = strstr(text, tag);
     if (hit) {
         hit += strlen(tag);
         char *end = strchr(hit, ')');
-        if (end && end > hit)
-            uppercase_trimmed_token(tileset, tileset_size, hit, (size_t)(end - hit));
+        if (end && end > hit) {
+            copy_trimmed_token(tileset, tileset_size, hit, (size_t)(end - hit));
+            M_Upper(tileset);
+        }
     }
-    free(text); W_FreeFile(&blob);
 }
 
 /* ── edge transition renderer ───────────────────────────────────────────── */
@@ -641,9 +586,8 @@ static bool terrain_is_blocked(int terrain_type) {
     return terrain_type == 0 || terrain_type == 3;
 }
 
-static int edge_frame_for_template(int template_id, int variation) {
+static int edge_frame_for_template(int template_id) {
     if (template_id >= 226 && template_id <= 239) {
-        (void)variation;
         return 1032 + (template_id - 226) * 4;
     }
     return template_id + 218;
@@ -720,7 +664,7 @@ static void render_dark_reign_edges_for_cell(app_t *app, const level_t *map, con
         used[lowest_match_value] = true;
 
         int template_id = rule->set_type + (lowest_match_value - 1) * 14;
-        int edge_frame = edge_frame_for_template(template_id, variation);
+        int edge_frame = edge_frame_for_template(template_id);
         if (edge_frame >= 0 && edge_frame < tileset->count &&
             edge_frame_count < (int)(sizeof(edge_frames) / sizeof(edge_frames[0]))) {
             edge_frames[edge_frame_count++] = (EdgeFrame){ lowest_match_value, edge_frame };
@@ -808,7 +752,11 @@ bool load_dark_map(const char *map_path, level_t *out) {
     out->tile_ids   = calloc(record_count, sizeof(uint16_t));
     out->blocked    = calloc(record_count, sizeof(uint8_t));
     out->decorations = calloc(MAX_DECORATIONS, sizeof(mapdecoration_t));
-    if (!out->tile_ids || !out->blocked || !out->decorations) { W_FreeFile(&blob); return false; }
+    if (!out->tile_ids || !out->blocked || !out->decorations) {
+        W_FreeFile(&blob);
+        P_FreeLevel(out);
+        return false;
+    }
     if (map_record_format) {
         const uint8_t *records = blob.bytes + 20;
         for (size_t i = 0; i < record_count; ++i) {
@@ -850,12 +798,18 @@ bool load_dark_map(const char *map_path, level_t *out) {
         }
     }
     detect_tileset_from_mm(map_path,  out->tileset_name, sizeof(out->tileset_name));
-    detect_tileset_from_scn(map_path, out->tileset_name, sizeof(out->tileset_name));
     out->render_capabilities |= MAP_RENDER_CAP_TERRAIN_TRANSITIONS;
     out->render_transitions = render_dark_reign_edges_for_cell;
-    load_dark_reign_decorations(map_path, out);
-    load_dark_reign_resource_vents(map_path, out);
-    load_dark_reign_team_credits(map_path, out);
+    char scn_path[1024];
+    scn_path_from_map(map_path, scn_path, sizeof(scn_path));
+    char *text = load_text_file(scn_path);
+    if (text) {
+        detect_tileset_from_scn(text, out->tileset_name, sizeof(out->tileset_name));
+        load_dark_reign_decorations(map_path, text, out);
+        load_dark_reign_resource_vents(text, out);
+        load_dark_reign_team_credits(text, out);
+        free(text);
+    }
     W_FreeFile(&blob);
     return true;
 }
@@ -869,9 +823,7 @@ int load_dark_reign_initial_units(const char *map_path) {
     scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     blob_t blob;
     if (!W_ReadFile(scn_path, &blob)) { free_definitions(&defs); return 0; }
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); free_definitions(&defs); return 0; }
-    memcpy(text, blob.bytes, blob.size); text[blob.size] = '\0';
+    char *text = (char *)blob.bytes;
 
     int count = 0;
     bool has_player_unit = false;
@@ -958,7 +910,7 @@ int load_dark_reign_initial_units(const char *map_path) {
         }
         if (have_start && associated_type[0] != '\0') {
             mobj_t *unit = P_SpawnMobj(fixed3_zero(), 0);
-            if (!unit) { free(text); W_FreeFile(&blob); free_definitions(&defs); return count; }
+            if (!unit) { W_FreeFile(&blob); free_definitions(&defs); return count; }
             unit->core.position = fixed3_from_fvec2((fvec2_t){
                 (float)start_x / 24.0f,
                 (float)start_y / 24.0f,
@@ -976,6 +928,6 @@ int load_dark_reign_initial_units(const char *map_path) {
             }
         }
     }
-    free(text); W_FreeFile(&blob); free_definitions(&defs);
+    W_FreeFile(&blob); free_definitions(&defs);
     return count;
 }

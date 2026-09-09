@@ -90,11 +90,9 @@ __anon6c02bde40108::min_y	games/7legion/w_bim.c	/^    int min_y;$/;"	m	struct:__
 __anon6c02bde40108::pixel_count	games/7legion/w_bim.c	/^    size_t pixel_count;$/;"	m	struct:__anon6c02bde40108	typeref:typename:size_t	file:
 __anon6c02bde40108::width	games/7legion/w_bim.c	/^    int width;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 __anon6cc5752a0108	games/7legion/w_map.c	/^typedef struct {$/;"	s	file:
-__anon6cc5752a0108::map_number	games/7legion/w_map.c	/^    int map_number;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 __anon6cc5752a0108::player_start	games/7legion/w_map.c	/^    char player_start[64];$/;"	m	struct:__anon6cc5752a0108	typeref:typename:char[64]	file:
+__anon6cc5752a0108::start	games/7legion/w_map.c	/^    ivec2_t start;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:ivec2_t	file:
 __anon6cc5752a0108::start_cash	games/7legion/w_map.c	/^    int start_cash;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
-__anon6cc5752a0108::start_x	games/7legion/w_map.c	/^    int start_x;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
-__anon6cc5752a0108::start_y	games/7legion/w_map.c	/^    int start_y;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 __anon6cc5752a0108::terrain	games/7legion/w_map.c	/^    int terrain;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 activesound	games/7legion/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 actor_types	games/7legion/g_game.c	/^const mobjtype_t *const actor_types =$/;"	v	typeref:typename:const mobjtype_t * const
@@ -117,7 +115,6 @@ gameinfo	games/7legion/g_game.c	/^const gameinfo_t *gameinfo = &GAME_INFO;$/;"	v
 gameui	games/7legion/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typeref:typename:const uidefinition_t * const
 height	games/7legion/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 height	games/7legion/w_bim.c	/^    uint16_t height;$/;"	m	struct:__anon6c02bde40108	typeref:typename:uint16_t	file:
-map_number	games/7legion/w_map.c	/^    int map_number;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 mass	games/7legion/info.h	/^    int mass;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 max_x	games/7legion/w_bim.c	/^    int max_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 max_y	games/7legion/w_bim.c	/^    int max_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
@@ -184,9 +181,8 @@ spawnhealth	games/7legion/info.h	/^    int spawnhealth;$/;"	m	struct:mobjinfo_s	
 spawnstate	games/7legion/info.h	/^    int spawnstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 spawnz	games/7legion/info.h	/^    fixed_t spawnz;$/;"	m	struct:mobjinfo_s	typeref:typename:fixed_t
 speed	games/7legion/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+start	games/7legion/w_map.c	/^    ivec2_t start;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:ivec2_t	file:
 start_cash	games/7legion/w_map.c	/^    int start_cash;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
-start_x	games/7legion/w_map.c	/^    int start_x;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
-start_y	games/7legion/w_map.c	/^    int start_y;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 terrain	games/7legion/w_map.c	/^    int terrain;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 width	games/7legion/w_bim.c	/^    int width;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 xdeathstate	games/7legion/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

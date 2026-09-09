@@ -89,13 +89,6 @@ typedef struct {
     uint8_t pad_d7[OBJECT_SIZE - 0xd7];
 } DcObject;
 
-typedef struct {
-    DcObject objects[MAX_OBJECTS];
-    uint16_t active_objects[MAX_OBJECTS];
-    int object_limit;
-    int active_count;
-} DcObjectPool;
-
 _Static_assert(sizeof(DcObject) == OBJECT_SIZE, "DcObject must match DC.EXE stride");
 _Static_assert(offsetof(DcObject, x_pos) == 0x00, "DcObject.x_pos offset");
 _Static_assert(offsetof(DcObject, z_pos) == 0x04, "DcObject.z_pos offset");

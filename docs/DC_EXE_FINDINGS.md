@@ -1238,3 +1238,46 @@ animation selection. Native gameplay transitions remain unknown to this tool.
 Reproduce with `make dark-colony-info` (writes `build/dc-animations.txt`), or
 `build/dc_info_gen data/DCOLONY/ANIMATE/REAP.FIN`. `make`, `make test-layout`,
 and `env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check` pass.
+
+## MAP/SCN ownership cleanup (2026-09-09)
+
+**Confirmed from implementation comparison, not new executable analysis.**
+Against `46f826a`, all 100 installed MAP candidates produce identical final
+terrain, flags, camera, team resources, and initial mobj records/order. The
+HUMAN01 screenshot is byte-identical. Commands, coverage, and limitations are
+in [loader verification](LOADER_REFACTOR_VERIFICATION.md).
+
+Representative asset SHA-256 fingerprints:
+
+- `SCENARIO/HUMAN/HUMAN01.MAP`:
+  `09d712271c8deca56521a82988e75e44caa6c04dcff83e7e581bae61511f09f9`.
+- `SCENARIO/HUMAN/HUMAN01.SCN`:
+  `af82c538181ca182481562dfa75ff1f39038a58445b019cd6a52426b33e968e7`.
+
+The loader still interprets MAP width/height at offsets 0/4, tile pairs at 8,
+then 16-bit flags after `width * height * 4` tile bytes. Bits 5/6 choose the
+background/foreground X transforms; bit 9 blocks movement. Rows convert once
+into bottom-up level storage. The existing MTG blank-map fallback and OVH
+RGB565 conversion are preserved. O16 and the MAP's MTG sidecar were loaded into
+private staging data with no runtime consumer; deleting those reads changes no
+rendered or simulated field. This does not establish their unused retail role.
+
+The initial loader no longer stages native-size records in a temporary pool.
+It preserves the 648 dynamic slots (`800 - 0x98`), city ordering, signed 8.8
+coordinate narrowing, and the previously documented city formula at `0x4412d4`.
+The `DcObject` layout/offset assertions remain for native investigation.
+
+**Disproven during refactoring:** passing the scenario team's race through the
+existing multiplayer bonus-Exploiter path is equivalent to the previous loader.
+The previous path explicitly used human race 0, even when team 0's SCN race is
+alien; changing that removed the Exploiter on six maps. D2PLAY02 isolated the
+missing spawn through temporary per-object terminal logging. The explicit
+race/owner inputs are preserved. A remaining apparent D8PLAY09 hash difference
+was uninitialized struct padding in the comparison of resource vents; hashing
+initialized fields removed it, with identical individual mobj diagnostics.
+
+**Unknown / preserved:** the retail justification for synthesized multiplayer
+starters, the first-AISlots fallback for city anchors, and synthesized city
+towers was not re-established here. Removing staging arrays is not evidence
+for changing these behaviors. Likewise, gameplay numbers still come from the
+same checked-in tables; no runtime GAMESTAT parsing or rebalance was added.

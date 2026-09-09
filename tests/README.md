@@ -35,3 +35,14 @@ make test-kknd
 # Run model command lifecycle tests across games
 make test-model-commands
 ```
+
+## Loader regressions
+
+`make test-loaders` runs headless format fixtures for all four games, including
+truncated files, invalid compressed spans, placement metadata, and texture
+failure cleanup. `python3 tools/test_loaders.py --output /private/tmp/loaders`
+compares retail catalog pixels, map fields, and initial objects; it emits input
+manifests and fingerprints. Pass `--source-tree /path/to/baseline-worktree` to
+compile the same harness against an earlier revision while reading the same
+retail data from the current working directory. See
+[loader verification](../docs/LOADER_REFACTOR_VERIFICATION.md).

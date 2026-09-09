@@ -8,10 +8,8 @@
 #include <string.h>
 
 typedef struct {
-    int map_number;
     int terrain;
-    int start_x;
-    int start_y;
+    ivec2_t start;
     int start_cash;
     char player_start[64];
 } SlMissionConfig;
@@ -30,8 +28,7 @@ static bool sl_sibling_path(char *out, size_t out_size,
 static bool sl_load_first_mission_config(const char *map_path, SlMissionConfig *out) {
     memset(out, 0, sizeof(*out));
     out->terrain = 2;
-    out->start_x = 84;
-    out->start_y = 74;
+    out->start = (ivec2_t){ 84, 74 };
     out->start_cash = 15000;
     snprintf(out->player_start, sizeof(out->player_start),
              "0000000000000040000000000000000000000000001");
@@ -40,11 +37,7 @@ static bool sl_load_first_mission_config(const char *map_path, SlMissionConfig *
     if (!sl_sibling_path(path, sizeof(path), map_path, "Missions.ini")) return false;
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
-    char *text = malloc(blob.size + 1);
-    if (!text) { W_FreeFile(&blob); return false; }
-    memcpy(text, blob.bytes, blob.size);
-    text[blob.size] = '\0';
-    W_FreeFile(&blob);
+    char *text = (char *)blob.bytes;
 
     char *section = strstr(text, "[GMission 1]");
     if (!section) { free(text); return false; }
@@ -54,10 +47,9 @@ static bool sl_load_first_mission_config(const char *map_path, SlMissionConfig *
     for (char *line = strtok_r(section, "\r\n", &save);
          line; line = strtok_r(NULL, "\r\n", &save)) {
         int value = 0;
-        if (sscanf(line, "Map=%d", &value) == 1) out->map_number = value;
-        else if (sscanf(line, "Terrain=%d", &value) == 1) out->terrain = value;
-        else if (sscanf(line, "StartX1=%d", &value) == 1) out->start_x = value;
-        else if (sscanf(line, "StartY1=%d", &value) == 1) out->start_y = value;
+        if (sscanf(line, "Terrain=%d", &value) == 1) out->terrain = value;
+        else if (sscanf(line, "StartX1=%d", &value) == 1) out->start.x = value;
+        else if (sscanf(line, "StartY1=%d", &value) == 1) out->start.y = value;
         else if (sscanf(line, "StartCash=%d", &value) == 1) out->start_cash = value;
         else if (strncmp(line, "PVStart=", 8) == 0) {
             size_t length = strcspn(line + 8, " ;\t");
@@ -96,8 +88,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
     out->tile_ids = calloc((size_t)W * H, sizeof(uint16_t));
     out->blocked  = calloc((size_t)W * H, sizeof(uint8_t));
     if (!out->tile_ids || !out->blocked) {
-        free(out->tile_ids);
-        free(out->blocked);
+        P_FreeLevel(out);
         W_FreeFile(&tiles);
         return false;
     }
@@ -169,7 +160,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
     out->player_resources[0][0] = mission.start_cash;
 
     out->has_camera = true;
-    out->camera = (fvec2_t){ (float)mission.start_x, (float)mission.start_y };
+    out->camera = (fvec2_t){ (float)mission.start.x, (float)mission.start.y };
     return true;
 }
 int sl_load_initial_units(const char *map_path) {
@@ -184,7 +175,7 @@ int sl_load_initial_units(const char *map_path) {
         if (!unit) break;
         count++;
         unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
-            (ivec2_t){ mission.start_x - 6 + i * 2, mission.start_y - 1 }), 0);
+            ivec2_add(mission.start, (ivec2_t){ -6 + i * 2, -1 })), 0);
         unit->owner = 0;
         unit->type_id = 1;
         unit->core.angle = ANG270;
@@ -194,7 +185,7 @@ int sl_load_initial_units(const char *map_path) {
         if (!unit) break;
         count++;
         unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
-            (ivec2_t){ mission.start_x + 4 + i * 2, mission.start_y + 1 }), 0);
+            ivec2_add(mission.start, (ivec2_t){ 4 + i * 2, 1 })), 0);
         unit->owner = 0;
         unit->type_id = 7;
         unit->core.angle = ANG270;

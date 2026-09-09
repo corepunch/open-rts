@@ -1056,3 +1056,15 @@ apply multigen's potentially nonzero `$ DEFAULT` values. The all-zero MT_NULL
 entry retains `{0}` semantics for C11. An independent comparison checked all
 384 fields across 16 entries; all four game builds, the DC layout test, state
 and thinker-action tests, and the headless DC smoke check pass.
+
+### Loader storage cleanup (2026-09-09)
+
+- Doom's `P_LoadVertexes` and `P_LoadThings` in the local
+  `reference/DOOM/p_setup.c` were read for final level allocation and direct
+  spawning from native records. Upstream provenance:
+  https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/p_setup.c
+- No new external format reader or executable decompilation was used. Native
+  asset fingerprints, unchanged unknowns, comparison counts, and reproduction
+  commands are recorded in `docs/LOADER_REFACTOR_VERIFICATION.md` and the four
+  game-specific `*_EXE_FINDINGS.md` documents. The GZDoom source/ownership
+  provenance above is unchanged; its documented local checkout was absent.

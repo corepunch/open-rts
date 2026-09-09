@@ -50,6 +50,14 @@ static inline ivec2_t ivec2_add(ivec2_t a, ivec2_t b) {
     return (ivec2_t){ a.x + b.x, a.y + b.y };
 }
 
+static inline ivec2_t ivec2_sub(ivec2_t a, ivec2_t b) {
+    return (ivec2_t){ a.x - b.x, a.y - b.y };
+}
+
+static inline ivec2_t ivec2_scale(ivec2_t v, int scale) {
+    return (ivec2_t){ v.x * scale, v.y * scale };
+}
+
 static inline bool ivec2_equal(ivec2_t a, ivec2_t b) {
     return a.x == b.x && a.y == b.y;
 }
