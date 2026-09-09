@@ -1567,7 +1567,6 @@ commands	games/dark-colony/p_script.c	/^    ScriptCommand commands[32];$/;"	m	st
 commands	games/dark-colony/sb_bar.c	/^    SidebarCommand commands[6];$/;"	m	struct:__anone8fcdccd0308	typeref:typename:SidebarCommand[6]	file:
 commands	games/dark-colony/sb_bar.c	/^    irect_t commands;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 commands	games/dark-colony/w_spr.h	/^    const dc_fin_command_t *commands;$/;"	m	struct:__anonef9947740b08	typeref:typename:const dc_fin_command_t *
-companion_path	games/dark-colony/w_spr.c	/^static const char *companion_path(const char *path, const char *from, const char *extension,$/;"	f	typeref:typename:const char *	file:	signature:(const char * path,const char * from,const char * extension,const char * to,const char * new_extension)
 compressed	games/dark-colony/w_spr.c	/^    bool compressed;$/;"	m	struct:__anonef99476f0408	typeref:typename:bool	file:
 compute_team_allegiances	games/dark-colony/w_map.c	/^static void compute_team_allegiances(const ScenarioFile *scenario,$/;"	f	typeref:typename:void	file:	signature:(const ScenarioFile * scenario,int allegiances[DARK_COLONY_SCN_MAX_TEAMS])
 cond_a	games/dark-colony/p_script.c	/^    int cond_a;    \/* team (b, s) *\/$/;"	m	struct:__anon9b5a71c80708	typeref:typename:int	file:

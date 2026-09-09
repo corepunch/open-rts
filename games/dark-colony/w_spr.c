@@ -10,19 +10,6 @@
 
 #include "info.h"
 
-static const char *companion_path(const char *path, const char *from, const char *extension,
-                                  const char *to, const char *new_extension) {
-    const char *base = M_FileName(path), *dot = strrchr(base, '.');
-    size_t directory_length = strlen(from) + 1;
-    if (!dot || strcasecmp(dot, extension) || (size_t)(base - path) < directory_length)
-        return NULL;
-    const char *directory = base - directory_length;
-    if ((directory > path && directory[-1] != '/') ||
-        strncasecmp(directory, from, directory_length - 1)) return NULL;
-    return M_va("%.*s%s/%.*s%s", (int)(directory - path), path, to,
-                (int)(dot - base), base, new_extension);
-}
-
 static const char *dependency_name(const char *dependency) {
     char *stem = M_Upper(M_va("%.8s", dependency));
     stem[strcspn(stem, " \t\r\n\v\f")] = '\0';
@@ -374,13 +361,25 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     dc_fin_t fin = {0};
     uint32_t palette[256];
     const char *sprite_path = path;
-    const char *extension = strrchr(M_FileName(path), '.');
-    if (extension && strcasecmp(extension, ".FIN") == 0) {
-        if (!DC_LoadFIN(path, &fin)) goto fail;
-        sprite_path = companion_path(path, "ANIMATE", ".FIN", "SPRITES", ".SPR");
+    char *other = M_va("%s", path);
+    if (!other) goto fail;
+    char *base = (char *)M_FileName(other), *extension = strrchr(base, '.');
+    bool fin_file = extension && !strcasecmp(extension, ".FIN");
+    char *folder = base - other >= 8 ? base - 8 : NULL;
+    if (folder && (folder == other || folder[-1] == '/') && extension &&
+        !strncasecmp(folder, fin_file ? "ANIMATE/" : "SPRITES/", 8) &&
+        !strcasecmp(extension, fin_file ? ".FIN" : ".SPR")) {
+        /* Directory names and extensions have equal lengths: swap in place. */
+        memcpy(folder, fin_file ? "SPRITES/" : "ANIMATE/", 8);
+        memcpy(extension, fin_file ? ".SPR" : ".FIN", sizeof(".SPR"));
     } else {
-        const char *animation = companion_path(path, "SPRITES", ".SPR", "ANIMATE", ".FIN");
-        if (asset_exists(animation)) DC_LoadFIN(animation, &fin);
+        other = NULL;
+    }
+    if (fin_file) {
+        if (!other || !DC_LoadFIN(path, &fin)) goto fail;
+        sprite_path = other;
+    } else if (asset_exists(other)) {
+        DC_LoadFIN(other, &fin);
     }
     if (!sprite_path || !open_spr(sprite_path, &spr)) goto fail;
     decode_palette(spr.header->palette, palette);

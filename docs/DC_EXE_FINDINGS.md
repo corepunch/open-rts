@@ -548,3 +548,9 @@ while sequence parsing rotates through temporary buffers. `test_temp_strings`
 checks nested formatting, the promised lifetime, and overflow rejection;
 `test_sprite_loading` catalog mode and headless `--screenshot` reproduce the
 asset/render comparison using the commands above.
+
+The subsequent companion-path cleanup removes the generic transformation
+helper entirely. `load_sprite` copies the input into temporary storage, checks
+its immediate asset directory and suffix, and swaps the equal-length
+`ANIMATE/`/`SPRITES/` and `.FIN`/`.SPR` strings in place. All 461 catalog outcomes
+still match `81f043a` exactly; this changes no asset interpretation.
