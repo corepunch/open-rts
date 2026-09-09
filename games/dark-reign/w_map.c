@@ -459,7 +459,6 @@ static void load_dark_reign_resource_vents(char *text, level_t *map) {
                 v->rate = TAELON_MINE_RATE;
                 v->active = true;
                 v->resource_type = 0;
-                v->decoration_index = -1;
             }
         }
         cursor = hit + strlen(tag);

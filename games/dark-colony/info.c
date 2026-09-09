@@ -764,6 +764,33 @@ const state_t states[NUMSTATES] = {
     { SPR_HUBU, 105, 5, A_None, S_ROBOPOD2_STND20, 1 },
     { SPR_HUBU, 106, 5, A_None, S_ROBOPOD2_STND1, 1 },
     { SPR_DROP, 11, 0, A_DC_Drop, S_DROP_MOVE1, 6 },
+    /* VENTSTAND0: complete FIN frames 19–38, at the native 66 ms tick. */
+    { SPR_VENT, 23, 8, A_DC_Vent, S_VENT_ACTIVE2, 0 },
+    { SPR_VENT, 24, 8, A_DC_Vent, S_VENT_ACTIVE3, 0 },
+    { SPR_VENT, 25, 4, A_DC_Vent, S_VENT_ACTIVE4, 0 },
+    { SPR_VENT, 26, 4, A_DC_Vent, S_VENT_ACTIVE5, 0 },
+    { SPR_VENT, 27, 4, A_DC_Vent, S_VENT_ACTIVE6, 0 },
+    { SPR_VENT, 28, 4, A_DC_Vent, S_VENT_ACTIVE7, 0 },
+    { SPR_VENT, 29, 4, A_DC_Vent, S_VENT_ACTIVE8, 0 },
+    { SPR_VENT, 30, 4, A_DC_Vent, S_VENT_ACTIVE9, 0 },
+    { SPR_VENT, 31, 4, A_DC_Vent, S_VENT_ACTIVE10, 0 },
+    { SPR_VENT, 32, 4, A_DC_Vent, S_VENT_ACTIVE11, 0 },
+    { SPR_VENT, 33, 3, A_DC_Vent, S_VENT_ACTIVE12, 0 },
+    { SPR_VENT, 34, 4, A_DC_Vent, S_VENT_ACTIVE13, 0 },
+    { SPR_VENT, 35, 4, A_DC_Vent, S_VENT_ACTIVE14, 0 },
+    { SPR_VENT, 36, 4, A_DC_Vent, S_VENT_ACTIVE15, 0 },
+    { SPR_VENT, 37, 4, A_DC_Vent, S_VENT_ACTIVE16, 0 },
+    { SPR_VENT, 38, 4, A_DC_Vent, S_VENT_ACTIVE17, 0 },
+    { SPR_VENT, 39, 4, A_DC_Vent, S_VENT_ACTIVE18, 0 },
+    { SPR_VENT, 40, 4, A_DC_Vent, S_VENT_ACTIVE19, 0 },
+    { SPR_VENT, 41, 4, A_DC_Vent, S_VENT_ACTIVE20, 0 },
+    { SPR_VENT, 42, 4, A_DC_Vent, S_VENT_ACTIVE1, 0 },
+    /* BEACSTAND2: base, then base plus the authored light command. */
+    { SPR_BEAC, 2, 2, A_None, S_BEAC_STAND2, 0 },
+    { SPR_BEAC, 3, 4, A_None, S_BEAC_STAND1, 0 },
+    /* Hidden states retain the terrain crater and poll for reactivation. */
+    { SPR_VENT, 23, 1, A_DC_Vent, S_VENT_ATTACHED, 0 },
+    { SPR_VENT, 23, 1, A_DC_Vent, S_VENT_EXHAUSTED, 0 },
 #define DC_BLOOD_LABEL(name, state)
 #define DC_BLOOD_STATE(id, sprite, frame, tics, next) { sprite, frame, tics, NULL, next, 0 },
 #include "blood_states.inc"
@@ -945,6 +972,15 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     },
     { // MT_BLOOD
         .spawnstate = S_NULL,
+        .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
+    },
+    { // MT_VENT
+        .spawnstate = S_VENT_EXHAUSTED,
+        .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
+    },
+    { // MT_BEACON
+        .spawnstate = S_BEAC_STAND1,
+        .spawnhealth = 800,
         .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
     },
 };

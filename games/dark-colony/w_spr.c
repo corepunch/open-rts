@@ -435,16 +435,8 @@ bool load_dark_colony_unit_sprites(const char *data_root,
                                    const level_t *map, mobj_t *const *units, int unit_count,
                                    spritecache_t *cache) {
     bool ok = true;
-    static const char *const effect_sprites[] = {
-        "SPRITES/DROP.SPR",
-        "SPRITES/BEAC.SPR",
-        "SPRITES/MUZA.SPR",
-        "SPRITES/BLOO.SPR",
-    };
     for (int i = 0; i < NUMSPRITES; ++i)
         ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[i]);
-    for (size_t i = 0; i < sizeof(effect_sprites) / sizeof(*effect_sprites); ++i)
-        ok &= sprite_cache_load_dark_colony(cache, data_root, effect_sprites[i]);
     if (map) {
         for (int i = 0; i < map->decoration_count; ++i) {
             ok &= sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite_name);

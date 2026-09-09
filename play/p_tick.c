@@ -129,31 +129,8 @@ static void separate_units(const level_t *map) {
     }
 }
 
-static void update_resource_vent_smoke(level_t *map) {
-    if (!map || !map->resource_vents) return;
-    for (int vent_index = 0; vent_index < map->resource_vent_count; ++vent_index) {
-        resourcevent_t *vent = &map->resource_vents[vent_index];
-        if (vent->smoke_decoration_index < 0 ||
-            vent->smoke_decoration_index >= map->decoration_count) {
-            continue;
-        }
-        bool attached = false;
-        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-            const mobj_t *unit = (mobj_t *)th;
-            if (!unit->remove && unit->hp > 0 &&
-                unit->harvest.target == vent_index &&
-                unit->harvest.phase == HARVEST_PHASE_MINING) {
-                attached = true;
-                break;
-            }
-        }
-        map->decorations[vent->smoke_decoration_index].hidden = !vent->active || attached;
-    }
-}
-
 void P_Ticker(void) {
     P_RunThinkers();
     separate_units(&level);
-    update_resource_vent_smoke(&level);
     leveltime++;
 }

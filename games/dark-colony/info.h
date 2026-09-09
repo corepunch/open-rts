@@ -874,6 +874,30 @@ typedef enum {
     S_ROBOPOD2_STND19,
     S_ROBOPOD2_STND20,
     S_DROP_RELEASE,
+    S_VENT_ACTIVE1,
+    S_VENT_ACTIVE2,
+    S_VENT_ACTIVE3,
+    S_VENT_ACTIVE4,
+    S_VENT_ACTIVE5,
+    S_VENT_ACTIVE6,
+    S_VENT_ACTIVE7,
+    S_VENT_ACTIVE8,
+    S_VENT_ACTIVE9,
+    S_VENT_ACTIVE10,
+    S_VENT_ACTIVE11,
+    S_VENT_ACTIVE12,
+    S_VENT_ACTIVE13,
+    S_VENT_ACTIVE14,
+    S_VENT_ACTIVE15,
+    S_VENT_ACTIVE16,
+    S_VENT_ACTIVE17,
+    S_VENT_ACTIVE18,
+    S_VENT_ACTIVE19,
+    S_VENT_ACTIVE20,
+    S_BEAC_STAND1,
+    S_BEAC_STAND2,
+    S_VENT_ATTACHED,
+    S_VENT_EXHAUSTED,
 #define DC_BLOOD_LABEL(name, state)
 #define DC_BLOOD_STATE(id, sprite, frame, tics, next) id,
 #include "blood_states.inc"
@@ -882,7 +906,7 @@ typedef enum {
     NUMSTATES
 } statenum_t;
 
-enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, MT_BLOOD, NUMMOBJTYPES };
+enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, MT_BLOOD, MT_VENT, MT_BEACON, NUMMOBJTYPES };
 
 extern const char *const sprnames[NUMSPRITES];
 extern const state_t states[NUMSTATES];
@@ -891,6 +915,7 @@ extern const gameinfo_t game_info;
 
 const mobjtype_t *actor_type_by_id(uint16_t type_id);
 
+void A_DC_Vent(mobj_t *actor);
 void A_DC_ReaperDeath(mobj_t *unit);
 void A_DC_Drop(mobj_t *unit);
 void A_DC_Fly(mobj_t *unit);

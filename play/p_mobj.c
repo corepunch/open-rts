@@ -113,10 +113,12 @@ void P_FreeMobjProduction(mobj_t *unit) {
 
 void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
     if (!unit || !type) return;
-    if (unit->info != type) unit->native_type_id = type->native_type_id;
+    if (unit->info != type) {
+        unit->native_type_id = type->native_type_id;
+        unit->traits = type->traits;
+    }
     unit->info = type;
     unit->type_id = type->id;
-    unit->traits = type->traits;
     if (unit->speed <= 0.0f) unit->speed = type->speed;
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
@@ -402,13 +404,6 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     return radius;
 }
 
-static void deactivate_resource_vent(level_t *map, resourcevent_t *vent) {
-    if (!map || !vent) return;
-    vent->active = false;
-    if (vent->decoration_index >= 0 && vent->decoration_index < map->decoration_count)
-        map->decorations[vent->decoration_index].sprite_name[0] = '\0';
-}
-
 static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
@@ -535,7 +530,7 @@ static bool update_unit_harvest(level_t *map,
             }
         }
         if (vent->amount <= 0) {
-            deactivate_resource_vent(map, vent);
+            vent->active = false;
             if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
                 for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {

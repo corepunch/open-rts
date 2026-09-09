@@ -121,7 +121,6 @@ static bool catalog_map(SDL_Renderer *renderer, const char *path) {
             /* Hash defined fields, not padding in realloc-owned vent records. */
             HASH(vent->cell); HASH(vent->attachment); HASH(vent->amount);
             HASH(vent->rate); HASH(vent->active); HASH(vent->resource_type);
-            HASH(vent->decoration_index);
         }
         HASH(level.decoration_count);
         hash_bytes(level.decorations, level.decoration_count * sizeof(*level.decorations));

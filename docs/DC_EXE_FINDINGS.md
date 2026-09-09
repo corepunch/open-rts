@@ -2367,3 +2367,118 @@ make build/bin/tests/dark-colony/test_sprite_definitions \
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_definitions
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_flow_field_movement
 ```
+
+## Vent and beacon mobj states and vent origin (2026-09-09)
+
+**Confirmed regression in open-rts:** the scenario object pass skipped types 40
+and 84. Resource loading left both vent decoration indices at -1, and no code
+created the referenced glow/smoke decorations. Human02 diagnostics reported
+`(69,48), rate=22, amount=12000, active=1` and `(53,27), rate=15,
+amount=7000, active=1`, both with `glow=-1, smoke=-1`. Only the crater already
+present in the terrain remained visible. These are missing world objects, not
+missing SPR pixels or a failure of TRSC/GRAY's shared FIN layer renderer.
+
+**Confirmed native asset content:** `ANIMATE/VENT.FIN` SHA-256
+`9f43206aba24f71a4a0cb7df841e09ebde2a243dc20310cd34644fed2c3ea84a`
+contains 39 frames and two labels: NOTHIBAGAIN (0–18) and VENTSTAND0 (19–38).
+The standing label contains PUFF, VENT2, GLIT and SMSP commands together; frame
+23 has a second PUFF command. Frame 19/20 raw delays are 26, and subsequent
+standing delays are zero. VENT2 cell 0 stays at (-40,12), layer 0, with intensity
+15 on frame 31 and 16 elsewhere. There is no attached/exhausted FIN label, and
+no VENT crater body command in this sequence. NOTHIBAGAIN has different offsets
+and two simultaneous smoke streams; it is not evidence of a harvesting state.
+`SPRITES/VENT.SPR` SHA-256
+`dfb4454f2f19928a3c522db50a4f039c3677258df1b227ba6fc70b60a22b31c5`
+has four raw cells, so VENTSTAND0 uses logical sprite frames 23–42.
+
+**Confirmed engine origin error, corrected:** initially spawning the vent mobj
+at `fvec2_cell_center(resource.cell)` put the whole animation one map row above
+the crater. The existing resource record explicitly separates the SCN/script
+key `cell` from its visual/harvesting `attachment = (x+0.5, y-0.5)`. The mobj now
+uses that attachment as its position, just as harvesting does. No command,
+SPR displacement, layer selector, sprite bounds, or render offset is modified.
+The focused Human02 screenshot shows the VENT2 light inside the opening with
+PUFF above it. This uses the existing engine attachment contract; the exact
+retail relationship between editor stamp placement and animation origin has
+not been established by this audit. Earlier REFERENCES notes applying disY or
+negating FIN Y to this plume are superseded by the shared FIN placement contract.
+
+**Requested engine behavior:** each vent is a persistent MT_VENT in thinkercap.
+A_DC_Vent uses ordinary state entry actions to select the looping complete
+standing FIN sequence, a hidden attached state, or a hidden exhausted/dormant
+state. Hidden states retain the terrain crater and poll for renewed activity;
+removal/death/departure of the harvester resumes an available vent. The attached
+state suppresses the whole free-vent animation, without manufacturing a work
+light or extracting a subset of FIN commands. Exact retail attachment visual
+behavior remains unknown. Delays use the previously verified native conversion
+and default 66 ms clock (see the damage-channel timing correction above), giving
+87 engine tics for this loop. Active-state changes are checked at FIN frame
+boundaries; inactive states check each tic. This is state-machine scheduling,
+not a newly inferred retail transition delay.
+
+**Confirmed beacon data:** BEAC.FIN SHA-256
+`034a2fbe82bb7554b74952e735f038b77c2dfda5fc33889367236973cea24dac`
+and BEAC.SPR SHA-256
+`52b3185f84d793753ed5dc6fe9b33010f37e49028dd4cfe8e57ec23370d5a5e4`.
+BEAC.FIN has BEACSTAND2 frames 0–1 (raw delays 6,0),
+BEACSTAND14 frames 2–3, two DIE ranges, two SCRCH ranges, and BEEKSTAND2/14.
+BEACSTAND2 frame 0 draws BEAC cell 0 at (-50,14), layer 1; frame 1 adds cell 1
+at (-50,-42), layer 5. MT_BEACON loops the complete first standing sequence
+(logical frames 2–3, 2/4 engine tics). Thus the base persists while its authored
+light switches with the FIN frame; there is no decoration blink flag, separate
+effect mobj, or renderer clock. Type-84 Human01/Human02 rows load through the
+ordinary scenario object spawn path at cell centers. Retail choice between
+the two authored facing labels was not established here; both remain loaded.
+
+**Confirmed executable initialization:** executable SHA-256 remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+The existing r2ghidra dump led to spawn routine 0x419d44. Exact instructions at
+0x41a048 initialize object byte +0x2c to 1. At 0x41a08c–0x41a0a1, a supplied
+health <= -1 selects the type table health at `0x4ec8c4 + type*0x118`, then
+stores object +0x0c. Negative SCN health is a default-health sentinel, not a
+hidden-object flag. The old `object.status < 0` visibility assignment is removed
+from the common scenario spawn path; this matters for beacon rows ending
+`84 0 -1 0`. Reapplying an unchanged ActorType also no longer overwrites live
+mobj flags, which otherwise cleared a vent's state-selected hidden flag.
+Doom's P_SpawnMobj initializes flags once and leaves subsequent state actions
+in control; the same lifecycle is used here.
+
+**Further native evidence / limits:** searching the assertion string at
+0x46e3ac located the mining path at 0x412c5a. Instructions 0x412bfe–0x412c11
+compare remaining amount at vent +0x0c against the signed rate at +0x32;
+0x412c17–0x412c24 calls 0x4154c0 on the referenced vent on exhaustion.
+0x412c2e–0x412c58 checks map bit 26 at the vent's integer x/z coordinates and
+0x412c9d–0x412cd2 clears it. The full removal routine and rendering implications
+of this map bit remain unknown; the requested persistent exhausted mobj does
+not claim to duplicate native removal. The generic FIN loader at
+0x423745–0x42375f still converts X*8 and Y*-8, and draw queue code
+0x436660–0x436687 adds those offsets to the object's position. No new vent-only
+FIN coordinate rule was found.
+
+Reproduce with:
+
+```sh
+build/dc_info_conv --label VENTSTAND0 data/DCOLONY/ANIMATE/VENT.FIN
+build/dc_info_conv --label BEACSTAND2 data/DCOLONY/ANIMATE/BEAC.FIN
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x41a048' -c 'pd 47' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x412bfe' -c 'pd 65' -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_vent_states
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_vent_states
+```
+
+The test checks every active vent frame's complete decoded commands and timing,
+animated pixels against bare terrain, attached/exhausted pixels against the
+unchanged terrain, harvester departure/removal, actual resource depletion,
+persistence, native `newrate 12 11 68` reactivation, and beacon base/light frames.
+It writes `/private/tmp/vent-active.bmp`, `vent-exhausted.bmp`, and `beacon-lit.bmp`.
+The old script lookup incorrectly excluded dormant vents; newrate now searches
+SCN identities including inactive vents and updates their active status.
+
+**Verification:** `make`, `make tags`, the headless Human02 `--check` and
+`--screenshot`, and `test_dark_colony_sprite_layout` pass. The full Dark Colony
+suite passes the new vent/beacon test, complete FIN-state coverage and the
+TRSC/GRAY pixel checks. Its two failures also reproduce using binaries rebuilt
+from unmodified `ba5092f` against the same assets: `test_combat_and_harvest`
+cannot find the player Exploiter, and `test_game_model_headless` counts zero
+initial Human01 Troopers where it expects 32. These scenario-model failures
+are not introduced by this change.

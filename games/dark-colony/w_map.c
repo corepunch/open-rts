@@ -292,7 +292,6 @@ static bool map_file_load(const char *path, MapFile *out) {
 
 static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rate, int amount) {
     if (!map || !L_Contains(map, x, y)) return false;
-    if (amount <= 0) amount = 1;
 
     resourcevent_t *vents = realloc(map->resource_vents,
                                      (size_t)(map->resource_vent_count + 1) * sizeof(resourcevent_t));
@@ -303,10 +302,8 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     vent->attachment = (fvec2_t){ (float)x + 0.5f, (float)y - 0.5f };
     vent->amount = amount;
     vent->rate = rate;
-    vent->active = rate > 0;
+    vent->active = rate > 0 && amount > 0;
     vent->resource_type = 0;
-    vent->decoration_index = -1;
-    vent->smoke_decoration_index = -1;
     return true;
 }
 
@@ -475,6 +472,7 @@ static int mobj_type_for_type(int type, int race) {
         case 34: return MT_ALIEN_RSCHIVE;
         case 41: return MT_MOBILE_TOWER;
         case 81: return MT_CITY_TOWER;
+        case 84: return MT_BEACON;
         case 86: return MT_COMMS_DISH;
         case 89: return MT_DROP_LINK;
         case 91: return MT_ALIEN_COM;
@@ -577,7 +575,7 @@ typedef struct {
 } InitialUnits;
 
 static void spawn_object(InitialUnits *units, int type, int team, int race,
-                         int allegiance, ivec2_t position, int health, int city_slot, bool hidden) {
+                         int allegiance, ivec2_t position, int health, int city_slot) {
     int mobj_type = mobj_type_for_type(type, race);
     if (mobj_type <= 0 || !actor_type_by_id((uint16_t)mobj_type)) return;
     mobj_t *u = P_SpawnMobj(fixed3_zero(), (uint16_t)mobj_type);
@@ -598,14 +596,13 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     }
     if (mobj_type == MT_EXPLOITER) u->speed = 3.5f;
     u->native_type_id = (uint16_t)type;
-    P_MobjSetHidden(u, hidden);
     u->owner = (allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_COMMS_DISH) ? 0 :
                (allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
     u->team = (uint8_t)team;
     u->allegiance = allegiance == DC_ALLEGIANCE_PLAYER ? ALLEGIANCE_PLAYER :
                     allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED : ALLEGIANCE_ENEMY;
     u->hp = health;
-    P_MobjSetSelected(u, u->owner == 0 && mobj_type != MT_COMMS_DISH &&
+    P_MobjSetSelected(u, u->owner == 0 && (u->traits & MF_SELECTABLE) &&
                       mobj_type < MT_BUILDING_BASE && !units->player_selected);
     if (P_MobjIsSelected(u)) units->player_selected = true;
     int state_id = unit_state_for_type(type);
@@ -639,8 +636,8 @@ static void spawn_dynamic(InitialUnits *units, const ScenarioFile *scenario,
     int health = object.status >= 0 ? object.status : default_health_for_type(object.type);
     if (race == 1 && object.type == 14) units->alien_has_slug = true;
     if (race != 1 && object.type == 16)
-        spawn_object(units, 81, object.team, race, allegiance, position, health, -1, object.status < 0);
-    spawn_object(units, object.type, object.team, race, allegiance, position, health, -1, object.status < 0);
+        spawn_object(units, 81, object.team, race, allegiance, position, health, -1);
+    spawn_object(units, object.type, object.team, race, allegiance, position, health, -1);
 }
 
 int load_dark_colony_initial_units(const char *map_path) {
@@ -671,14 +668,28 @@ int load_dark_colony_initial_units(const char *map_path) {
             if (position.x < 0 || position.y < 0 || type <= 0) continue;
             int health = default_health_for_type(type);
             if (info->race != 1 && type == 16)
-                spawn_object(&units, 81, team, info->race, allegiances[team], position, health, slot, false);
-            spawn_object(&units, type, team, info->race, allegiances[team], position, health, slot, false);
+                spawn_object(&units, 81, team, info->race, allegiances[team], position, health, slot);
+            spawn_object(&units, type, team, info->race, allegiances[team], position, health, slot);
         }
     }
+    int vent_index = 0;
     for (int i = 0; i < scenario->object_count; ++i) {
         const ScenarioObject *object = &scenario->objects[i];
-        if (object->type != OBJECT_TYPE_PETRA7_VENT && object->type != 84)
+        if (object->type != OBJECT_TYPE_PETRA7_VENT) {
             spawn_dynamic(&units, scenario, allegiances, *object);
+        } else if (vent_index < level.resource_vent_count &&
+                   ivec2_equal(object->cell, level.resource_vents[vent_index].cell)) {
+            const resourcevent_t *vent = &level.resource_vents[vent_index];
+            /* SCN cell is the script key; attachment is the crater's shared
+             * visual and harvesting origin. Keep all FIN offsets intact. */
+            mobj_t *actor = P_SpawnMobj(fixed3_from_fvec2(vent->attachment, 0), MT_VENT);
+            if (actor) {
+                actor->resource_vent_index = vent_index;
+                A_DC_Vent(actor);
+                units.count++;
+            }
+            vent_index++;
+        }
     }
     if (strcasestr(map_path, "/MPLAYER/") || strcasestr(map_path, "\\MPLAYER\\")) {
         if (!units.player_has_exploiter && units.player_anchor_set) {
@@ -686,14 +697,14 @@ int load_dark_colony_initial_units(const char *map_path) {
                                        (ivec2_t){ FIXED_TILE_CENTER, FIXED_TILE_CENTER });
             if (units.dynamic_count < MAX_OBJECTS - DYNAMIC_OBJECT_FIRST) {
                 units.dynamic_count++;
-                spawn_object(&units, 6, 0, 0, DC_ALLEGIANCE_PLAYER, position, default_health_for_type(6), -1, false);
+                spawn_object(&units, 6, 0, 0, DC_ALLEGIANCE_PLAYER, position, default_health_for_type(6), -1);
             }
         }
         if (!units.alien_has_slug && alien_anchor_set) {
             ivec2_t position = ivec2_add(ivec2_scale(ivec2_add(alien_anchor, (ivec2_t){2, 0}), 256),
                                        (ivec2_t){ FIXED_TILE_CENTER, FIXED_TILE_CENTER });
             if (units.dynamic_count < MAX_OBJECTS - DYNAMIC_OBJECT_FIRST) {
-                spawn_object(&units, 14, 1, 1, DC_ALLEGIANCE_ENEMY, position, default_health_for_type(14), -1, false);
+                spawn_object(&units, 14, 1, 1, DC_ALLEGIANCE_ENEMY, position, default_health_for_type(14), -1);
             }
         }
     }

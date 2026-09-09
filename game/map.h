@@ -91,8 +91,6 @@ typedef struct resourcevent_s {
     int rate;
     bool active;
     int resource_type; /* 0-based index into player_resources[][resource_type] */
-    int decoration_index; /* active mine visual, or -1 when not represented */
-    int smoke_decoration_index; /* unattached vent smoke, or -1 when not represented */
 } resourcevent_t;
 
 typedef struct level_s {

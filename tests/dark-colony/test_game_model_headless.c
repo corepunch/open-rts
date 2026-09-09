@@ -65,29 +65,6 @@ static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {
     return -1;
 }
 
-static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
-    if (!snapshot || !sprite_name) return false;
-    for (int i = 0; i < snapshot->unit_count; ++i) {
-        if (strcmp(snapshot->units[i].sprite_name, sprite_name) == 0) return true;
-    }
-    return false;
-}
-
-static bool snapshot_has_blinking_beacon_decoration(const RtsRenderSnapshot *snapshot) {
-    if (!snapshot) return false;
-    for (int i = 0; i < snapshot->decoration_count; ++i) {
-        const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, "SPRITES/BEAC.SPR") != 0) continue;
-        if (strcmp(dec->sprite2_name, "SPRITES/BEAC.SPR") != 0) continue;
-        if (dec->frame_index == 0 && dec->frame2_index == 1 &&
-            (dec->render2_flags & RTS_FRAME_BLINK) != 0 &&
-            dec->render2_selector == 5) {
-            return true;
-        }
-    }
-    return false;
-}
-
 #ifdef RTS_GAME_DARK_REIGN
 static bool snapshot_has_dark_reign_building(const RtsRenderSnapshot *snapshot,
                                              const char *underlay, const char *body,
@@ -251,55 +228,6 @@ static bool snapshot_has_owner_type_pose(const RtsRenderSnapshot *snapshot,
     return false;
 }
 
-static bool snapshot_has_animated_decoration_at(const RtsRenderSnapshot *snapshot,
-                                                const char *sprite_name, ivec2_t cell,
-                                                uint32_t required_flags,
-                                                ivec2_t pivot,
-                                                int frame_index) {
-    if (!snapshot || !sprite_name) return false;
-    for (int i = 0; i < snapshot->decoration_count; ++i) {
-        const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, sprite_name) == 0 &&
-            ivec2_equal(dec->cell, cell) &&
-            dec->frame_index == frame_index &&
-            dec->center_anchor && dec->has_sprite_pivot &&
-            ivec2_equal(dec->sprite_pivot, pivot) &&
-            (dec->render_flags & required_flags) == required_flags) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool snapshot_decoration_is_hidden(const RtsRenderSnapshot *snapshot,
-                                          const char *sprite_name, ivec2_t cell) {
-    if (!snapshot || !sprite_name) return false;
-    for (int i = 0; i < snapshot->decoration_count; ++i) {
-        const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, sprite_name) == 0 && ivec2_equal(dec->cell, cell))
-            return dec->hidden;
-    }
-    return false;
-}
-
-static bool snapshot_has_blinking_decoration_at(const RtsRenderSnapshot *snapshot,
-                                                const char *sprite_name,
-                                                const char *sprite2_name,
-                                                ivec2_t cell,
-                                                uint32_t required_render2_flags) {
-    if (!snapshot || !sprite_name || !sprite2_name) return false;
-    for (int i = 0; i < snapshot->decoration_count; ++i) {
-        const RtsRenderDecoration *dec = &snapshot->decorations[i];
-        if (strcmp(dec->sprite_name, sprite_name) == 0 &&
-            strcmp(dec->sprite2_name, sprite2_name) == 0 &&
-            ivec2_equal(dec->cell, cell) &&
-            (dec->render2_flags & required_render2_flags) == required_render2_flags) {
-            return true;
-        }
-    }
-    return false;
-}
-
 static const RtsProductDefinition *find_product(const RtsProductDefinition *products,
                                                 int product_count, int ui_id) {
     for (int i = 0; i < product_count; ++i) {
@@ -407,13 +335,8 @@ static int assert_human01(RtsGameModel *model) {
     }
     int metadata_result = assert_snapshot_render_command_metadata(&snapshot);
     if (metadata_result != 0) return metadata_result;
-    if (!snapshot_has_blinking_beacon_decoration(&snapshot)) {
-        return fail("Human01 beacon is rendered as stable base plus blinking sprite2 glow");
-    }
-
-    if (snapshot_has_effect(&snapshot, "SPRITES/BEAC.SPR")) {
-        return fail("Human01 beacon glow is not spawned as a frame-flipping visual effect");
-    }
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_BEACON) != 1)
+        return fail("Human01 beacon is an ordinary FIN-animated mobj");
 
     int initial_troopers = snapshot_count_units_with_owner_and_type(
         &snapshot, 0, MT_TROOPER);
@@ -526,12 +449,8 @@ static int assert_human02(RtsGameModel *model) {
                                          (ivec2_t){ 50, 28 })) {
         return fail("Human02 non-player city slots stay non-materialized");
     }
-    if (!snapshot_has_blinking_decoration_at(&snapshot,
-                                             "SPRITES/BEAC.SPR", "SPRITES/BEAC.SPR",
-                                             (ivec2_t){ 64, 52 },
-                                             RTS_FRAME_BLINK)) {
-        return fail("Human02 dropship beacon stays anchored beside the starting base");
-    }
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_BEACON) != 1)
+        return fail("Human02 beacon is an ordinary FIN-animated mobj");
         bool saw_dropship = false;
         for (int tick = 0; tick < 45 && !saw_dropship; ++tick) {
             if (!rts_tick(model, &snapshot)) return fail("tick Human02 Dropship reinforcement");
@@ -566,29 +485,22 @@ static int assert_human02(RtsGameModel *model) {
         !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 35, 55 })) {
         return fail("Human02 satellite dish object rows use raw DC world Y coordinates");
     }
-    if (snapshot.decoration_count <= 0) {
-        return fail("Human02 loads map decorations");
-    }
     if (snapshot.resource_vent_count <= 0) {
         return fail("Human02 loads Petra-7 vents");
     }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR",
-                                             (ivec2_t){ 69, 48 }, 0,
-                                             (ivec2_t){ 9, -25 }, 0)) {
-        return fail("Human02 active Petra-7 vent glow uses VENT.FIN placement");
-    }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/VENT2.SPR",
-                                             (ivec2_t){ 53, 27 }, 0,
-                                             (ivec2_t){ 9, -25 }, 0)) {
-        return fail("Human02 Petra-7 vent attributes keep SCN coordinates and authored pivot");
-    }
-    if (!snapshot_has_animated_decoration_at(&snapshot, "SPRITES/PUFF.SPR",
-                                             (ivec2_t){ 69, 48 },
-                                             0,
-                                             (ivec2_t){ 5, 4 }, -1) ||
-        snapshot_decoration_is_hidden(&snapshot, "SPRITES/PUFF.SPR",
-                                      (ivec2_t){ 69, 48 })) {
-        return fail("Human02 unattached Petra-7 vent plays its yellow smoke animation");
+    for (int i = 0; i < snapshot.resource_vent_count; ++i) {
+        const resourcevent_t *vent = &level.resource_vents[i];
+        bool found = false;
+        for (int j = 0; j < snapshot.unit_count; ++j) {
+            const RtsRenderUnit *unit = &snapshot.units[j];
+            if (unit->type_id != MT_VENT ||
+                !fvec2_near(unit->position, vent->attachment, 0.001f)) continue;
+            bool animated = unit->state_id >= S_VENT_ACTIVE1 && unit->state_id <= S_VENT_ACTIVE20;
+            if (animated != vent->active)
+                return fail("Human02 vent mobj state follows resource activity");
+            found = true;
+        }
+        if (!found) return fail("Human02 resource vent has a persistent mobj");
     }
 
     printf("PASS: Human02 headless model loaded %dx%d with %d units and %d vents\n",

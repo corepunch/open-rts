@@ -300,20 +300,19 @@ Local game-data files that have already been useful:
   from Dark Colony pixel units to model cells by dividing by 32. Rendering can
   clamp to a sprite-width minimum for readability, but pathing and interaction
   should keep using the model radius.
-- `VENT.SPR` is a state bundle, not a four-frame animation: large active, large
-  inactive, small active, small inactive. `VENT2.SPR` is a two-frame small
-  yellow glow and can be used as the active/blinking overlay when the local data
-  set does not include `SCENARIO/VENT.JUS`.
-- `VENT.FIN` places VENT2 cell 0 at `(-40,12)`. Combined with VENT2's cell-0
-  displacement `(31,37)` and the native FIN Y sign conversion, its raw-cell
-  top-left is `(-9,25)` from the vent animation origin. This controls the yellow
-  plume only. In the bottom-up Human02 map composition, the visible crater is
-  one row below the raw scenario vent coordinate, so its interaction attachment
-  is `(x + 0.5, y - 0.5)`. Keep the raw coordinate for script identity and use
-  the attachment for movement and harvesting; do not derive it from EXPL bounds.
-- `BEAC.SPR` has a base beacon frame and a separate glow frame; preserve the
-  sprite palette for the glow and render it as an overlay rather than tinting the
-  base sprite.
+- Vent and beacon presentation now uses ordinary mobjs with complete FIN
+  states; see [the vent/beacon findings](docs/DC_EXE_FINDINGS.md#vent-and-beacon-mobj-states-and-vent-origin-2026-09-09).
+  `VENTSTAND0` carries PUFF, VENT2, GLIT and SMSP together. The static crater
+  belongs to the map. The existing resource `attachment` at `(x+0.5,y-0.5)`
+  supplies the visual/harvesting origin; raw SCN `cell` remains the script key.
+  Using its cell center instead places the animation one row above the crater.
+- Superseded vent interpretation: the former `VENT2` overlay calculation used
+  SPR disY and negated FIN Y to obtain `(-9,25)`. That is not the current shared
+  FIN rendering contract documented below; do not restore it as a plume fix.
+  `VENT.SPR` has four raw crater cells, but these are not the VENTSTAND0 frames.
+- `BEACSTAND2` alternates the base FIN frame with a complete base-plus-light
+  frame. Its original palette, offsets and layer-5 light remain asset-owned;
+  there is no independent blink flag or glow effect.
 - `data/DCOLONY/ANIMATE/*.FIN` for sprite animation labels and frame ranges.
 - `data/DCOLONY/ANIM.DAT` — newline-delimited index of all `.fin` filenames
   (lowercase) used by the original engine at startup; useful for bulk-loading.

@@ -37,6 +37,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
     },
+    { .id = MT_BEACON, .native_type_id = 84,
+      .name = "Beacon", .sprite_name = "SPRITES/BEAC.SPR", .max_hp = 800,
+      .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
+    { .id = MT_VENT, .native_type_id = OBJECT_TYPE_PETRA7_VENT,
+      .name = "Petra-7 vent", .sprite_name = "SPRITES/VENT.SPR",
+      .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     { .id = MT_BLOOD, .name = "Blood", .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     {
         .id = MT_GREY,

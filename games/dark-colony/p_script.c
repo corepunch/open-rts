@@ -168,8 +168,7 @@ static int script_nearest_vent(const level_t *map, int gx, int gy) {
     fvec2_t target = fvec2_cell_center((ivec2_t){ gx, gy });
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
-        if (!vent->active || vent->amount <= 0) continue;
-        float distance2 = fvec2_distance_squared(target, vent->attachment);
+        float distance2 = fvec2_distance_squared(target, fvec2_cell_center(vent->cell));
         if (distance2 < best_distance2) {
             best_distance2 = distance2;
             best = i;
@@ -241,7 +240,11 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
         } else if (cmd->type == SCRIPT_CMD_NEWRATE) {
             int rate = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
             int vi = script_nearest_vent(map, x, y);
-            if (vi >= 0) map->resource_vents[vi].rate = rate;
+            if (vi >= 0) {
+                resourcevent_t *vent = &map->resource_vents[vi];
+                vent->rate = rate;
+                vent->active = rate > 0 && vent->amount > 0;
+            }
         } else if (cmd->type == SCRIPT_CMD_SETARRAY) {
             int slot = cmd->a[0];
             int val = 0;

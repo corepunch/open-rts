@@ -14,7 +14,7 @@ typedef struct {
     int released_count;
 } dc_drop_t;
 
-/* Compiled into the common mobj, so array moves also move the owned payload. */
-#define MOBJ_GAME_FIELDS dc_drop_t drop;
+/* Game-owned object fields; vent indices refer to the active level. */
+#define MOBJ_GAME_FIELDS dc_drop_t drop; int resource_vent_index;
 
 #endif
