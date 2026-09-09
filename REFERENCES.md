@@ -944,3 +944,13 @@ Local format findings from `data/KKND`:
   use the file hashes to reproduce this comparison.
 - Detailed contracts, corrections to the supplied review, implementation
   consequences, and remaining differences: `docs/STATE_ARCHITECTURE_AUDIT.md`.
+
+## Doom rendering globals
+
+- id Software Linux Doom `r_main.c`:
+  https://github.com/id-Software/DOOM/blob/master/linuxdoom-1.10/r_main.c
+  (consulted 2026-09-09). File-scope `viewx`, `viewy`, `viewz`, `viewangle`,
+  `viewplayer`, and column/span function pointers are rendering globals.
+  This supports using one active rendering context in open-rts; the SDL
+  `r_renderer` pointer is our implementation choice, not an original Doom type.
+  Video initialization registers it and video shutdown clears it.

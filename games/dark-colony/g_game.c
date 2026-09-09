@@ -290,7 +290,7 @@ static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MFONTO7.SPR");
     uint32_t palette[256] = { 0 };
-    if (!load_dark_colony_sprite(renderer, path, &font->sprite, palette)) return false;
+    if (!load_dark_colony_sprite(path, &font->sprite, palette)) return false;
     const int font_offset = 31;
     int max_w = 0, max_h = 0;
     for (int ch = font_offset; ch < 128; ++ch) {
@@ -395,7 +395,7 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     } else {
         M_PathJoin(sprite_path, sizeof(sprite_path), root, sprite);
     }
-    if (!load_dark_colony_sprite(renderer, sprite_path, unit_sprite, sprite_palette)) {
+    if (!load_dark_colony_sprite(sprite_path, unit_sprite, sprite_palette)) {
         fprintf(stderr, "failed to load %s\n", sprite_path);
         R_FreeTileset(tileset);
         return false;
@@ -409,7 +409,8 @@ int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
                           const mobj_t *mobjs, int count, spritecache_t *cache) {
-    return load_dark_colony_unit_sprites(renderer, root, map, (const mobj_t *)mobjs, count, cache);
+    (void)renderer;
+    return load_dark_colony_unit_sprites(root, map, (const mobj_t *)mobjs, count, cache);
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {

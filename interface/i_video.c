@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "engine.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -103,10 +104,12 @@ bool renderer_create(renderer_t *renderer, const rendererbackend_t *backend,
     renderer->backend = backend;
     if (!backend->create(renderer, title, width, height, hidden, software)) return false;
     renderer->backend = backend;
+    r_renderer = renderer->sdl;
     return true;
 }
 
 void renderer_destroy(renderer_t *renderer) {
+    if (r_renderer == renderer->sdl) r_renderer = NULL;
     if (renderer->backend && renderer->backend->destroy) renderer->backend->destroy(renderer);
 }
 

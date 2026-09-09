@@ -1,6 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
 
+SDL_Renderer *r_renderer;
+
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
     if (!texture) {

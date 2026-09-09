@@ -8,6 +8,7 @@ int main(void) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32,
                                                           SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
+    r_renderer = renderer;
     if (!renderer) {
         fprintf(stderr, "FAIL: create software renderer: %s\n", SDL_GetError());
         SDL_FreeSurface(surface);
@@ -15,9 +16,10 @@ int main(void) {
     }
 
     spritesheet_t sprite;
-    if (!load_dark_colony_sprite(renderer, "data/DCOLONY/ANIMATE/TRSC.FIN",
+    if (!load_dark_colony_sprite("data/DCOLONY/ANIMATE/TRSC.FIN",
                                  &sprite, NULL)) {
         fprintf(stderr, "FAIL: load Trooper sprite definition\n");
+        r_renderer = NULL;
         SDL_DestroyRenderer(renderer);
         SDL_FreeSurface(surface);
         return 1;
@@ -65,7 +67,7 @@ int main(void) {
     }
 
     R_FreeSprite(&sprite);
-    if (!load_dark_colony_sprite(renderer, "data/DCOLONY/SPRITES/EXPL.SPR",
+    if (!load_dark_colony_sprite("data/DCOLONY/SPRITES/EXPL.SPR",
                                  &sprite, NULL)) {
         fprintf(stderr, "FAIL: load Exploiter sprite definition\n");
         valid = false;
@@ -81,6 +83,7 @@ int main(void) {
         }
         R_FreeSprite(&sprite);
     }
+    r_renderer = NULL;
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);
     return valid ? 0 : 1;

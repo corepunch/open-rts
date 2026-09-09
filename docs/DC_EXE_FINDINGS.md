@@ -420,3 +420,43 @@ was reconfirmed unchanged. No FIN layout, palette rule, or placement formula was
 retuned. See `docs/DC_ARCHITECTURE.md` for the reproducible catalog probe and
 its fingerprint; `test_sprite_loading` independently checks raw/RLE fixtures,
 empty cells, team translations, and rejected malformed spans.
+
+## Direct FIN decoding regression check (2026-09-09)
+
+**Confirmed by comparison with commit `c70a99c`:** the sprite loader can keep
+FIN as one validated file buffer and decode commands directly into
+`spritelayer_t` arrays owned by `spritedirection_t`. Allocated
+`AnimationDependency`, `AnimationLabel`, `AnimationCommand`, and `AnimationFile`
+representations are unnecessary. This is a loader implementation result, not a
+new claim about DC.EXE's in-memory structures; the executable fingerprint above
+is unchanged and no additional executable behavior was inferred.
+
+The existing parser's file spans remain unchanged: an 8-byte header, 8-byte
+dependency names, 20-byte labels (16-byte name followed by little-endian start
+and end), 164-byte frame records, and 22-byte commands. Runtime C structures
+have different widths and padding, so decoding reads those fields explicitly;
+casting or reading the disk bytes wholesale into `spritelayer_t` would be wrong.
+Labels and dependencies remain borrowed spans until the file buffer is freed.
+Sprite layers own their decoded values. Normalize self-reference names to a
+zero-padded `"."`; leaving bytes from the original name behind is unnecessary
+and breaks byte-for-byte catalog comparison even though string comparisons
+still see the same self reference.
+
+**Verification:** `test_sprite_loading` catalog output matched `c70a99c` exactly
+for all 461 local SPR/FIN paths: 389 successful loads and 72 unchanged failures.
+The digest includes image pixels, palettes, translated texture pixels, cell
+bounds and pivots, frame names, directional layers, and ticks. Some FIN paths
+refer to absent same-stem SPR files; their existing load failures were preserved.
+No missing-asset behavior or unknown animation semantics were filled in.
+
+Reproduce by making a sorted manifest of `.SPR` and `.FIN` paths under
+`data/DCOLONY`, then running both builds with:
+
+```sh
+rg --files --no-ignore data/DCOLONY | rg '\.(SPR|FIN)$' | sort > /private/tmp/spr-direct-manifest.txt
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading /private/tmp/spr-direct-manifest.txt
+```
+
+`test_fin_loading` additionally exercises fixed-width names, signed offsets,
+layer ownership after freeing the file, frame bounds, truncated spans, invalid
+part counts, and rejection of fields that do not fit runtime layer types.

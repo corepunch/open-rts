@@ -36,7 +36,7 @@ static size_t fixture(uint8_t *file, bool compressed) {
     return pos + 4;
 }
 
-static bool load(SDL_Renderer *renderer, const uint8_t *bytes, size_t size,
+static bool load(const uint8_t *bytes, size_t size,
                   spritesheet_t *sheet) {
     char path[] = "/private/tmp/dc-sprite-test-XXXXXX";
     int fd = mkstemp(path);
@@ -44,14 +44,14 @@ static bool load(SDL_Renderer *renderer, const uint8_t *bytes, size_t size,
     FILE *file = fdopen(fd, "wb");
     CHECK(file && fwrite(bytes, 1, size, file) == size);
     CHECK(fclose(file) == 0);
-    bool loaded = load_dark_colony_sprite(renderer, path, sheet, NULL);
+    bool loaded = load_dark_colony_sprite(path, sheet, NULL);
     CHECK(unlink(path) == 0);
     return loaded;
 }
 
-static void rejected(SDL_Renderer *renderer, const uint8_t *file, size_t size) {
+static void rejected(const uint8_t *file, size_t size) {
     spritesheet_t sheet;
-    CHECK(!load(renderer, file, size, &sheet));
+    CHECK(!load(file, size, &sheet));
     CHECK(!sheet.lumps && !sheet.spritedef.spriteframes);
     CHECK(sheet.numlumps == 0 && sheet.spritedef.numframes == 0);
     R_FreeSprite(&sheet); /* Failure leaves the public result safe to free. */
@@ -101,13 +101,14 @@ static void hash_texture(SDL_Renderer *renderer, SDL_Texture *texture, irect_t r
 static int catalog(const char *manifest) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 512, 512, 32, SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
+    r_renderer = renderer;
     FILE *files = fopen(manifest, "r");
     CHECK(renderer && files);
     char path[1024];
     while (fgets(path, sizeof(path), files)) {
         path[strcspn(path, "\n")] = '\0';
         spritesheet_t sheet;
-        if (!load_dark_colony_sprite(renderer, path, &sheet, NULL)) {
+        if (!load_dark_colony_sprite(path, &sheet, NULL)) {
             printf("FAIL %s\n", path);
             continue;
         }
@@ -148,6 +149,7 @@ static int catalog(const char *manifest) {
         R_FreeSprite(&sheet);
     }
     fclose(files);
+    r_renderer = NULL;
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);
     return 0;
@@ -157,13 +159,14 @@ int main(int argc, char **argv) {
     if (argc == 2) return catalog(argv[1]);
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
+    r_renderer = renderer;
     CHECK(renderer);
     uint8_t file[1024];
     static const uint8_t pixels[] = { 0, 138, 5, 143, 0, 2 };
     for (int compressed = 0; compressed <= 1; ++compressed) {
         size_t size = fixture(file, compressed);
         spritesheet_t sheet;
-        CHECK(load(renderer, file, size, &sheet));
+        CHECK(load(file, size, &sheet));
         CHECK(sheet.numlumps == 3 && sheet.spritedef.numframes == 3);
         CHECK(sheet.frame_size.w == 10 && sheet.frame_size.h == 11);
         CHECK(memcmp(sheet.lumps[0].indices, pixels, sizeof(pixels)) == 0);
@@ -180,30 +183,32 @@ int main(int argc, char **argv) {
             check_pixels(renderer, sheet.lumps[0].translations[i].texture, pixels, i);
         }
         R_FreeSprite(&sheet);
-        rejected(renderer, file, size - 1); /* Truncated last cell, after allocations. */
-        rejected(renderer, file, HEADER - 1);
-        rejected(renderer, file, DATA - 1);
+        rejected(file, size - 1); /* Truncated last cell, after allocations. */
+        rejected(file, HEADER - 1);
+        rejected(file, DATA - 1);
     }
     size_t size = fixture(file, true);
     file[DATA + 4] = 127; /* Literal run exceeds the destination. */
-    rejected(renderer, file, size);
+    rejected(file, size);
     size = fixture(file, true);
     file[DATA + 4] = 128; /* Transparent run exceeds the destination. */
-    rejected(renderer, file, size);
+    rejected(file, size);
     size = fixture(file, true);
     u32(file + DATA, 1); file[DATA + 4] = 0; /* Literal has no source byte. */
-    rejected(renderer, file, size);
+    rejected(file, size);
     size = fixture(file, true);
     u32(file + DATA + 12, UINT32_MAX); /* Oversized second chunk. */
-    rejected(renderer, file, size);
+    rejected(file, size);
     size = fixture(file, false);
     u16(file + HEADER, 513);
-    rejected(renderer, file, size);
+    rejected(file, size);
     size = fixture(file, false);
     u16(file + 2, 0);
-    rejected(renderer, file, size);
+    rejected(file, size);
     size = fixture(file, false);
-    rejected(NULL, file, size); /* Texture failure cleans up decoded storage. */
+    r_renderer = NULL;
+    rejected(file, size); /* Texture failure cleans up decoded storage. */
+    r_renderer = NULL;
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);
     puts("PASS: direct SPR loading, translations, empty cells, and malformed spans");

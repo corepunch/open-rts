@@ -2,6 +2,9 @@
 #define __ENGINE__
 
 #include "app.h"
+
+/* Active SDL renderer; video initialization installs it, shutdown clears it. */
+extern SDL_Renderer *r_renderer;
 #include "actor.h"
 #include "assets.h"
 #include "engine_config.h"

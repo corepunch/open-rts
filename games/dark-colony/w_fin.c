@@ -1,153 +1,91 @@
 #include "w_spr.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <strings.h>
 
-static int16_t read_i16_le_dc(const uint8_t *p) {
-    return (int16_t)read_u16_le(p);
+/* FIN spans stay in the file buffer; commands decode directly into sprite layers. */
+static size_t fin_labels(const blob_t *fin) {
+    return 8 + (size_t)read_u16_le(fin->bytes + 6) * 8;
 }
 
-static void copy_padded_ascii(char *dst, size_t dst_size, const uint8_t *src, size_t src_size) {
-    size_t n = 0;
-    while (n + 1 < dst_size && n < src_size && src[n] != '\0') {
-        dst[n] = (char)src[n];
-        n++;
-    }
-    dst[n] = '\0';
+static size_t fin_frames(const blob_t *fin) {
+    return fin_labels(fin) + (size_t)read_u16_le(fin->bytes + 4) * 20;
 }
 
-void DC_FreeAnimation(AnimationFile *animation) {
-    if (!animation) return;
-    free(animation->dependencies);
-    free(animation->labels);
-    free(animation->aux_records);
-    free(animation->commands);
-    memset(animation, 0, sizeof(*animation));
+static size_t fin_commands(const blob_t *fin) {
+    return fin_frames(fin) + (size_t)read_u16_le(fin->bytes + 2) * 164;
 }
 
-bool DC_LoadAnimation(const char *path, AnimationFile *out) {
+bool DC_LoadFIN(const char *path, blob_t *out) {
     memset(out, 0, sizeof(*out));
-    blob_t blob;
-    if (!W_ReadFile(path, &blob)) return false;
-    if (blob.size < 8) { W_FreeFile(&blob); return false; }
+    if (!W_ReadFile(path, out)) return false;
+    if (out->size < 8) goto fail;
+    if (read_u16_le(out->bytes + 4) > 1024 ||
+        read_u16_le(out->bytes + 6) > 1024 ||
+        read_u16_le(out->bytes + 2) > 4096) goto fail;
+    size_t commands = fin_commands(out);
+    if (commands > out->size || (out->size - commands) % 22) goto fail;
+    size_t remaining = (out->size - commands) / 22;
+    for (int i = 0; i < read_u16_le(out->bytes + 2); ++i) {
+        int count = read_u16_le(out->bytes + fin_frames(out) + (size_t)i * 164);
+        if ((size_t)count > remaining) goto fail;
+        remaining -= count;
+    }
+    return true;
+fail:
+    W_FreeFile(out);
+    return false;
+}
 
-    out->frame_count = read_u16_le(blob.bytes + 0);
-    out->aux_count = read_u16_le(blob.bytes + 2);
-    out->label_count = read_u16_le(blob.bytes + 4);
-    out->dependency_count = read_u16_le(blob.bytes + 6);
-    if (out->label_count > 1024 || out->dependency_count > 1024 || out->aux_count > 4096) {
-        W_FreeFile(&blob);
-        return false;
+const uint8_t *DC_FINLabel(const blob_t *fin, const char *name) {
+    if (!fin->bytes) return NULL;
+    for (int i = 0; i < read_u16_le(fin->bytes + 4); ++i) {
+        const uint8_t *label = fin->bytes + fin_labels(fin) + (size_t)i * 20;
+        if (strlen(name) <= 16 && strncmp((const char *)label, name, 16) == 0)
+            return label;
     }
+    return NULL;
+}
 
-    size_t dependency_off = 8;
-    size_t label_off = dependency_off + (size_t)out->dependency_count * 8;
-    size_t aux_off = label_off + (size_t)out->label_count * 20;
-    size_t command_off = aux_off + (size_t)out->aux_count * 164;
-    if (command_off > blob.size || ((blob.size - command_off) % 22) != 0) {
-        W_FreeFile(&blob);
-        return false;
-    }
+int DC_FINCommandCount(const blob_t *fin) {
+    return fin->bytes ? (int)((fin->size - fin_commands(fin)) / 22) : 0;
+}
 
-    out->dependencies = calloc(out->dependency_count ? out->dependency_count : 1,
-                               sizeof(*out->dependencies));
-    out->labels = calloc(out->label_count ? out->label_count : 1, sizeof(*out->labels));
-    out->aux_records = malloc((size_t)out->aux_count * 164 > 0 ?
-                              (size_t)out->aux_count * 164 : 1);
-    out->command_count = (int)((blob.size - command_off) / 22);
-    out->commands = calloc(out->command_count ? out->command_count : 1, sizeof(*out->commands));
-    if (!out->dependencies || !out->labels || !out->aux_records || !out->commands) {
-        DC_FreeAnimation(out);
-        W_FreeFile(&blob);
-        return false;
-    }
-
-    for (int i = 0; i < out->dependency_count; ++i) {
-        copy_padded_ascii(out->dependencies[i].name, sizeof(out->dependencies[i].name),
-                          blob.bytes + dependency_off + (size_t)i * 8, 8);
-    }
-    for (int i = 0; i < out->label_count; ++i) {
-        size_t off = label_off + (size_t)i * 20;
-        copy_padded_ascii(out->labels[i].name, sizeof(out->labels[i].name),
-                          blob.bytes + off, 16);
-        out->labels[i].start = read_u16_le(blob.bytes + off + 16);
-        out->labels[i].end = read_u16_le(blob.bytes + off + 18);
-    }
-    if (out->aux_count > 0) {
-        memcpy(out->aux_records, blob.bytes + aux_off, (size_t)out->aux_count * 164);
-    }
-    for (int i = 0; i < out->command_count; ++i) {
-        size_t off = command_off + (size_t)i * 22;
-        AnimationCommand *cmd = &out->commands[i];
-        copy_padded_ascii(cmd->sprite, sizeof(cmd->sprite), blob.bytes + off, 8);
-        cmd->frame = read_i16_le_dc(blob.bytes + off + 8);
-        cmd->x = read_i16_le_dc(blob.bytes + off + 10);
-        cmd->y = read_i16_le_dc(blob.bytes + off + 12);
-        cmd->remap = read_i16_le_dc(blob.bytes + off + 14);
-        cmd->intensity = read_i16_le_dc(blob.bytes + off + 16);
-        cmd->layer = read_i16_le_dc(blob.bytes + off + 18);
-        cmd->flags = read_i16_le_dc(blob.bytes + off + 20);
-    }
-    W_FreeFile(&blob);
+bool DC_FINLayer(const blob_t *fin, int index, spritelayer_t *out) {
+    if (index < 0 || index >= DC_FINCommandCount(fin)) return false;
+    const uint8_t *command = fin->bytes + fin_commands(fin) + (size_t)index * 22;
+    if ((int16_t)read_u16_le(command + 8) < 0) return false;
+    for (int offset = 14; offset <= 20; offset += 2)
+        if (read_u16_le(command + offset) > UINT8_MAX) return false;
+    *out = (spritelayer_t){
+        .lump = read_u16_le(command + 8),
+        .offset = { (int16_t)read_u16_le(command + 10),
+                    (int16_t)read_u16_le(command + 12) },
+        .remap = read_u16_le(command + 14),
+        .intensity = read_u16_le(command + 16),
+        .layer = read_u16_le(command + 18),
+        .flags = read_u16_le(command + 20),
+    };
+    snprintf(out->sprite_name, sizeof(out->sprite_name), "%.8s", (const char *)command);
     return true;
 }
 
-const AnimationCommand *DC_FindAnimationCommand(
-    const AnimationFile *animation, const char *label_name,
-    const char *sprite_name, int frame, int layer) {
-    if (!animation || !label_name || !sprite_name) return NULL;
-
-    int command_index = 0;
-    for (int frame_index = 0; frame_index < animation->aux_count; ++frame_index) {
-        int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
-        for (int label_index = 0; label_index < animation->label_count; ++label_index) {
-            const AnimationLabel *label = &animation->labels[label_index];
-            if (strcmp(label->name, label_name) != 0 ||
-                frame_index < label->start || frame_index > label->end) {
-                continue;
-            }
-            for (int part = 0; part < part_count; ++part) {
-                if (command_index + part >= animation->command_count) return NULL;
-                const AnimationCommand *command =
-                    &animation->commands[command_index + part];
-                if (strcasecmp(command->sprite, sprite_name) == 0 &&
-                    command->frame == frame && command->layer == layer) {
-                    return command;
-                }
-            }
+bool DC_FINFrame(const blob_t *fin, int index, spritedirection_t *out) {
+    if (!fin->bytes || index < 0 || index >= read_u16_le(fin->bytes + 2)) return false;
+    const uint8_t *frame = fin->bytes + fin_frames(fin);
+    int command = 0;
+    for (int i = 0; i < index; ++i, frame += 164)
+        command += read_u16_le(frame);
+    int count = read_u16_le(frame);
+    spritelayer_t *layers = calloc((size_t)count + 1, sizeof(*layers));
+    if (!layers) return false;
+    for (int i = 0; i < count; ++i) {
+        if (!DC_FINLayer(fin, command + i, &layers[i])) {
+            free(layers);
+            return false;
         }
-        command_index += part_count;
-        if (command_index > animation->command_count) return NULL;
     }
-    return NULL;
+    free(out->layers);
+    *out = (spritedirection_t){ .ticks = read_u16_le(frame + 2), .layers = layers };
+    return true;
 }
-
-const AnimationCommand *DC_AnimationFrameCommand(
-    const AnimationFile *animation, int frame_index,
-    const char *sprite_name, int layer) {
-    if (!animation || !sprite_name || frame_index < 0 || frame_index >= animation->aux_count)
-        return NULL;
-
-    int command_index = 0;
-    for (int i = 0; i < frame_index; ++i)
-        command_index += read_u16_le(animation->aux_records + (size_t)i * 164);
-    int part_count = read_u16_le(animation->aux_records + (size_t)frame_index * 164);
-    for (int part = 0; part < part_count; ++part) {
-        if (command_index + part >= animation->command_count) return NULL;
-        const AnimationCommand *command = &animation->commands[command_index + part];
-        if (strcasecmp(command->sprite, sprite_name) == 0 && command->layer == layer)
-            return command;
-    }
-    return NULL;
-}
-
-const AnimationLabel *DC_FindAnimationLabel(const AnimationFile *animation,
-                                                  const char *name) {
-    if (!animation || !name) return NULL;
-    for (int i = 0; i < animation->label_count; ++i) {
-        if (strcmp(animation->labels[i].name, name) == 0)
-            return &animation->labels[i];
-    }
-    return NULL;
-}
-
