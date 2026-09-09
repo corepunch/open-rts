@@ -7,7 +7,90 @@
 #include <string.h>
 #include <strings.h>
 
-#include "w_sprite_private.h"
+#include "info.h"
+
+bool DC_AnimationPath(char *out, size_t out_size,
+                                                  const char *sprite_path) {
+    if (!out || out_size == 0 || !sprite_path) return false;
+    const char *base = strrchr(sprite_path, '/');
+    base = base ? base + 1 : sprite_path;
+    const char *dot = strrchr(base, '.');
+    if (!dot || strcasecmp(dot, ".SPR") != 0) return false;
+
+    const char *dir_end = base > sprite_path ? base - 1 : NULL;
+    const char *dir_start = dir_end;
+    while (dir_start && dir_start > sprite_path && dir_start[-1] != '/') dir_start--;
+    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
+    if (!dir_start || dir_len != strlen("SPRITES") ||
+        strncasecmp(dir_start, "SPRITES", dir_len) != 0) {
+        return false;
+    }
+
+    size_t prefix_len = (size_t)(dir_start - sprite_path);
+    size_t stem_len = (size_t)(dot - base);
+    if (prefix_len + strlen("ANIMATE/") + stem_len + strlen(".FIN") + 1 > out_size)
+        return false;
+    memcpy(out, sprite_path, prefix_len);
+    out[prefix_len] = '\0';
+    strncat(out, "ANIMATE/", out_size - strlen(out) - 1);
+    strncat(out, base, stem_len);
+    strncat(out, ".FIN", out_size - strlen(out) - 1);
+    return true;
+}
+
+bool DC_SpritePath(char *out, size_t out_size,
+                                      const char *animation_path) {
+    if (!out || out_size == 0 || !animation_path) return false;
+    const char *base = strrchr(animation_path, '/');
+    base = base ? base + 1 : animation_path;
+    const char *dot = strrchr(base, '.');
+    if (!dot || strcasecmp(dot, ".FIN") != 0) return false;
+
+    const char *dir_end = base > animation_path ? base - 1 : NULL;
+    const char *dir_start = dir_end;
+    while (dir_start && dir_start > animation_path && dir_start[-1] != '/') dir_start--;
+    size_t dir_len = dir_start ? (size_t)(dir_end - dir_start) : 0;
+    if (!dir_start || dir_len != strlen("ANIMATE") ||
+        strncasecmp(dir_start, "ANIMATE", dir_len) != 0) return false;
+
+    size_t prefix_len = (size_t)(dir_start - animation_path);
+    size_t stem_len = (size_t)(dot - base);
+    return snprintf(out, out_size, "%.*sSPRITES/%.*s.SPR",
+                    (int)prefix_len, animation_path, (int)stem_len, base) < (int)out_size;
+}
+
+bool DC_DependencySpriteName(char *out, size_t out_size,
+                                               const char *dependency) {
+    if (!out || out_size == 0 || !dependency) return false;
+    char stem[16];
+    size_t len = 0;
+    while (dependency[len] != '\0' && len < 8 &&
+           !isspace((unsigned char)dependency[len])) {
+        unsigned char ch = (unsigned char)dependency[len];
+        if (!isalnum(ch) && ch != '_') return false;
+        stem[len++] = (char)toupper(ch);
+    }
+    if (len == 0) return false;
+    stem[len] = '\0';
+    return snprintf(out, out_size, "SPRITES/%s.SPR", stem) < (int)out_size;
+}
+
+void DC_SpriteStem(char *out, size_t out_size, const char *sprite_path) {
+    const char *base = strrchr(sprite_path, '/');
+    base = base ? base + 1 : sprite_path;
+    size_t length = strcspn(base, ".");
+    if (length >= out_size) length = out_size - 1;
+    for (size_t i = 0; i < length; ++i)
+        out[i] = (char)tolower((unsigned char)base[i]);
+    out[length] = '\0';
+}
+
+bool DC_AssetExists(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
 
 static void decode_palette(const uint8_t *spr, size_t size, uint32_t colors[256]) {
     if (size < 8 + 256 * 3) return;
@@ -378,4 +461,130 @@ fail:
 bool load_dark_colony_sprite(SDL_Renderer *renderer, const char *path, spritesheet_t *out,
                              uint32_t palette_out[256]) {
     return DC_LoadSpriteWithAnimation(renderer, path, out, palette_out, NULL);
+}
+
+static bool sprite_cache_load_dark_colony(spritecache_t *cache, SDL_Renderer *renderer,
+                                          const char *data_root, const char *name) {
+    if (!name || name[0] == '\0') return true;
+    if (R_CacheFind(cache, name)) return true;
+    if (cache->count >= MAX_DECORATION_SPRITES) {
+        fprintf(stderr, "too many Dark Colony sprites; skipped %s\n", name);
+        return false;
+    }
+    char sprite_path[1024];
+    if (name[0] == '/') {
+        snprintf(sprite_path, sizeof(sprite_path), "%s", name);
+    } else if (strchr(name, '/') != NULL) {
+        M_PathJoin(sprite_path, sizeof(sprite_path), data_root, name);
+    } else {
+        static const char *const sprite_directories[] = {
+            "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
+        };
+        bool found = false;
+        char candidate[1024];
+        char filename[64];
+        snprintf(filename, sizeof(filename), "%s.FIN", name);
+        M_PathJoin(candidate, sizeof(candidate), data_root, "ANIMATE");
+        M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
+        if (DC_AssetExists(sprite_path)) found = true;
+        for (size_t i = 0; i < sizeof(sprite_directories) / sizeof(sprite_directories[0]); ++i) {
+            if (found) break;
+            snprintf(filename, sizeof(filename), "%s.SPR", name);
+            M_PathJoin(candidate, sizeof(candidate), data_root, sprite_directories[i]);
+            M_PathJoin(sprite_path, sizeof(sprite_path), candidate, filename);
+            if (DC_AssetExists(sprite_path)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(stderr, "failed to resolve Dark Colony sprite %s\n", name);
+            return false;
+        }
+    }
+    cachedsprite_t *entry = &cache->entries[cache->count];
+    snprintf(entry->name, sizeof(entry->name), "%s", name);
+    uint32_t palette[256] = { 0 };
+    AnimationFile animation = {0};
+    if (!DC_LoadSpriteWithAnimation(renderer, sprite_path, &entry->sprite, palette,
+                                          &animation)) {
+        fprintf(stderr, "failed to load %s\n", sprite_path);
+        memset(entry, 0, sizeof(*entry));
+        return false;
+    }
+    cache->count++;
+    if (animation.command_count > 0) {
+        for (int i = 0; i < animation.dependency_count; ++i) {
+            char dependency_name[64];
+            if (!DC_DependencySpriteName(dependency_name, sizeof(dependency_name),
+                                                    animation.dependencies[i].name)) {
+                continue;
+            }
+            if (R_CacheFind(cache, dependency_name)) continue;
+            char dependency_path[1024];
+            M_PathJoin(dependency_path, sizeof(dependency_path), data_root, dependency_name);
+            if (!DC_AssetExists(dependency_path)) continue;
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, dependency_name)) {
+                DC_FreeAnimation(&animation);
+                return false;
+            }
+        }
+    }
+    DC_FreeAnimation(&animation);
+    return true;
+}
+
+bool load_dark_colony_unit_sprites(SDL_Renderer *renderer, const char *data_root,
+                                   const level_t *map, const mobj_t *units, int unit_count,
+                                   spritecache_t *cache) {
+    bool ok = true;
+    static const char *const ui_sprites[] = {
+        "INTRFACE/DCSS.SPR",
+        "INTRFACE/DCUT.SPR",
+        "INTRFACE/MAINBUT.SPR",
+        "INTRFACE/SHUMANE.SPR",
+        "SPRITES/DROP.SPR",
+        "SPRITES/BEAC.SPR",
+        "SPRITES/MUZA.SPR",
+        "SPRITES/BLOO.SPR",
+    };
+    for (int i = 0; i < NUMSTATES; ++i) {
+        int sprite = states[i].sprite;
+        if (sprite >= 0 && sprite < NUMSPRITES &&
+            !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[sprite])) {
+            ok = false;
+        }
+    }
+    for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(ui_sprites[0]); ++i) {
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, ui_sprites[i]))
+            ok = false;
+    }
+    int selection_sprite = game_info.selection_marker.sprite;
+    if (selection_sprite >= 0 && selection_sprite < NUMSPRITES &&
+        !sprite_cache_load_dark_colony(cache, renderer, data_root, sprnames[selection_sprite])) {
+        ok = false;
+    }
+    if (map) {
+        for (int i = 0; i < map->decoration_count; ++i) {
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite_name))
+                ok = false;
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].sprite2_name))
+                ok = false;
+            if (!sprite_cache_load_dark_colony(cache, renderer, data_root, map->decorations[i].shadow_name))
+                ok = false;
+        }
+    }
+    for (int i = 0; i < unit_count; ++i) {
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root,
+                           units[i].core.sprite_name))
+            ok = false;
+        const char *shadow_name = units[i].info ? units[i].info->shadow_name : NULL;
+        if (!sprite_cache_load_dark_colony(cache, renderer, data_root, shadow_name))
+            ok = false;
+        const mobjtype_t *info = units[i].info;
+        if (info && !sprite_cache_load_dark_colony(
+                        cache, renderer, data_root, info->hit_effect_name))
+            ok = false;
+    }
+    return ok;
 }

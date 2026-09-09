@@ -1,4 +1,4 @@
-#include "w_sprite_private.h"
+#include "w_spr.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>

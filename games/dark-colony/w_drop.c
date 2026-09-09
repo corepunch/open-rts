@@ -1,6 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "w_drop.h"
-#include "w_sprite_private.h"
+#include "w_spr.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
