@@ -74,6 +74,7 @@ typedef struct spritesheet_s {
     uint32_t palette[256];
     int indexed_blend_selector;
     const uint8_t *indexed_blend_table;
+    const uint8_t *shadowmap; /* Destination colormap for native projected shadows. */
 } spritesheet_t;
 
 typedef struct tileset_s {

@@ -40,6 +40,8 @@ bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
                               irect_t source, bool blend, int translation);
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t dst, uint32_t flags, int selector);
+bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
+                          irect_t ground_dst, uint32_t flags);
 bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
                    int frame_count, uint16_t frame_ms);
 void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,

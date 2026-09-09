@@ -34,6 +34,7 @@ typedef struct {
     bool valid;
     uint32_t palette[256];
     uint8_t selector5[256 * 256];
+    uint8_t shadowmap[256];
 } RenderTables;
 
 static RenderTables render_tables;
@@ -132,6 +133,9 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
     }
     memcpy(render_tables.selector5, rmp.bytes + 256 * 256,
            sizeof(render_tables.selector5));
+    /* DC.EXE 0x45bb0b selects AH=0x48 in the first RMP bank. */
+    memcpy(render_tables.shadowmap, rmp.bytes + 0x4800,
+           sizeof(render_tables.shadowmap));
     W_FreeFile(&rmp);
     render_tables.valid = true;
     return true;
@@ -329,6 +333,7 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     if (render_tables.valid) {
         out->indexed_blend_selector = 5;
         out->indexed_blend_table = render_tables.selector5;
+        out->shadowmap = render_tables.shadowmap;
     }
     if (animation_out) {
         *animation_out = fin;

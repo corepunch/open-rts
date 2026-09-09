@@ -607,6 +607,81 @@ static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256])
     return (uint8_t)best_index;
 }
 
+static uint8_t cached_palette_index(uint32_t rgba, const uint32_t palette[256],
+                                    uint32_t matches[4096]) {
+    uint32_t rgb = rgba & 0x00ffffffu;
+    uint32_t *match = &matches[(rgb * 2654435761u) >> 20];
+    uint8_t index = (uint8_t)*match;
+    if (!index || (*match >> 8) != rgb) {
+        index = nearest_palette_index(rgb, palette);
+        *match = (rgb << 8) | index;
+    }
+    return index;
+}
+
+/* DC.EXE 0x45c7b0/0x45cc04 project the source silhouette; 0x45ba5a/
+ * 0x463bc0 repeat rows using an 8-bit accumulator and remap the destination.
+ * Keep the indexed source image as the owner, like Doom's colormap drawing. */
+bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
+                          irect_t ground_dst, uint32_t flags) {
+    if (!app || !sprite || !sprite->shadowmap || !sprite->lumps ||
+        frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
+        return false;
+    irect_t source = sprite->cells[frame].rect;
+    if (source.w <= 0 || source.h <= 0) return false;
+    int height = source.h + source.h * 40 / 256;
+    int bottom = ground_dst.y + source.h;
+    int top = bottom - height;
+    int shear = (bottom < height ? bottom : height) >> 1;
+    bool flip = (flags & RTS_FRAME_FLIP_X) != 0;
+    /* The mirrored native span starts at X+width and writes backwards. */
+    int left = ground_dst.x - shear + (flip ? 1 : 0);
+    int source_y = top < 0 ? -top * 256 / 296 : 0;
+    int rows = top < 0 ? bottom : height;
+    if (top < 0) top = 0;
+    irect_t bounds = { left, top, source.w + height / 2, rows };
+    irect_t window = { 0, 0, app->win.w, app->win.h }, clip;
+    if (!SDL_IntersectRect(&bounds, &window, &clip)) return true;
+    size_t count = (size_t)clip.w * clip.h;
+    uint32_t *pixels = malloc(count * sizeof(*pixels));
+    if (!pixels) return false;
+    if (SDL_RenderReadPixels(app->renderer, &clip, SDL_PIXELFORMAT_ARGB8888,
+                             pixels, clip.w * (int)sizeof(*pixels)) != 0) {
+        free(pixels);
+        return false;
+    }
+    uint32_t palette_matches[4096] = {0};
+    unsigned stretch = 0;
+    bool repeated = false;
+    for (int row = 0; row < rows && top + row < clip.y + clip.h && source_y < source.h; ++row) {
+        int y = top + row;
+        int x_start = left + row / 2;
+        for (int x = 0; x < source.w; ++x) {
+            int dst_x = x_start + (flip ? source.w - 1 - x : x);
+            if (dst_x < clip.x || dst_x >= clip.x + clip.w || y < clip.y ||
+                !sprite->lumps[frame].indices[(size_t)source_y * source.w + x]) continue;
+            uint32_t *pixel = &pixels[(size_t)(y - clip.y) * clip.w + dst_x - clip.x];
+            uint8_t index = (*pixel & 0x00ffffffu) == (sprite->palette[0] & 0x00ffffffu) ? 0 :
+                cached_palette_index(*pixel, sprite->palette, palette_matches);
+            *pixel = sprite->palette[sprite->shadowmap[index]] | 0xff000000u;
+        }
+        if (!repeated) {
+            stretch += 40;
+            repeated = stretch >= 256;
+            stretch &= 255;
+            if (repeated) continue;
+        }
+        repeated = false;
+        ++source_y;
+    }
+    SDL_Texture *composite = I_CreateTexture(app->renderer, pixels, clip.w, clip.h, false);
+    free(pixels);
+    if (!composite) return false;
+    SDL_RenderCopy(app->renderer, composite, NULL, &clip);
+    SDL_DestroyTexture(composite);
+    return true;
+}
+
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t dst, uint32_t flags, int selector) {
     if (!app || !sprite || !sprite->indexed || !sprite->indexed_blend_table ||
@@ -645,13 +720,8 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                 (size_t)source_y * (size_t)source.w + (size_t)local_x];
             if (source_index == 0) continue;
             size_t pixel = (size_t)y * (size_t)clip.w + (size_t)x;
-            uint32_t rgb = pixels[pixel] & 0x00ffffffu;
-            uint32_t *match = &palette_matches[(rgb * 2654435761u) >> 20];
-            uint8_t destination_index = (uint8_t)*match;
-            if (!destination_index || (*match >> 8) != rgb) {
-                destination_index = nearest_palette_index(rgb, sprite->palette);
-                *match = (rgb << 8) | destination_index;
-            }
+            uint8_t destination_index = cached_palette_index(
+                pixels[pixel], sprite->palette, palette_matches);
             uint8_t result_index = sprite->indexed_blend_table[
                 ((size_t)source_index << 8) | destination_index];
             pixels[pixel] = sprite->palette[result_index];
@@ -1181,6 +1251,12 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                 source_rect.w,
                 source_rect.h,
             };
+            if (part->layer == 1 || part->layer == 2) {
+                irect_t ground_dst = part_dst;
+                ground_dst.y += (int)lroundf(fixed_to_float(u->core.position.z) * app_cell_h(app));
+                R_RenderSpriteShadow(app, source, part->lump, ground_dst, part_flags);
+            }
+            if (source->shadowmap && part->layer == 2) continue;
             if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
                                      part_flags, part->layer)) continue;
             /* DC.EXE queues object team color separately from FIN remap,

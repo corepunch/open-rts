@@ -1080,3 +1080,23 @@ and thinker-action tests, and the headless DC smoke check pass.
   commands are recorded in `docs/LOADER_REFACTOR_VERIFICATION.md` and the four
   game-specific `*_EXE_FINDINGS.md` documents. The GZDoom source/ownership
   provenance above is unchanged; its documented local checkout was absent.
+
+
+### Dark Colony native sprite shadows (September 9, 2026)
+
+- Primary evidence: local retail `data/DCOLONY/DC.EXE`, SHA-256
+  `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+  FIN dispatch `0x44f95c`; normal/mirrored shadow setup `0x45c7b0` /
+  `0x45cc04`; span projection `0x45ba5a` / `0x463bc0`; terrain RMP load
+  `0x44a7b0`; destination mapping at `0x45681a` / `0x460e72`.
+- The shipped terrain `.RMP` row at `0x4800` supplies shadow colors. The source
+  silhouette uses 128/256 horizontal shear and 40/256 row-repetition carry,
+  with FIN layer 1 selecting shadow+body and layer 2 shadow only.
+- See `docs/DC_EXE_FINDINGS.md`, “September 9: projected sprite shadows”, for
+  formulas, asset hashes, exact instructions, tests and unresolved native
+  clipping/framebuffer differences. Local decompiler/disassembly material
+  stays under ignored `reverse/dc-exe-r2ghidra/`.
+- User-provided visual/context link:
+  https://www.gog.com/dreamlist/game/dark-colony (accessed September 9, 2026).
+  The fetched page is a Dreamlist shell, not executable or rendering evidence;
+  no projection or palette constants were inferred from it.

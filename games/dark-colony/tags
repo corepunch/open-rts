@@ -1436,6 +1436,7 @@ __anonef2472380708::player_selected	games/dark-colony/w_map.c	/^    bool player_
 __anonef99476f0108	games/dark-colony/w_spr.c	/^typedef struct {$/;"	s	file:
 __anonef99476f0108::palette	games/dark-colony/w_spr.c	/^    uint32_t palette[256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint32_t[256]	file:
 __anonef99476f0108::selector5	games/dark-colony/w_spr.c	/^    uint8_t selector5[256 * 256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint8_t[]	file:
+__anonef99476f0108::shadowmap	games/dark-colony/w_spr.c	/^    uint8_t shadowmap[256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint8_t[256]	file:
 __anonef99476f0108::valid	games/dark-colony/w_spr.c	/^    bool valid;$/;"	m	struct:__anonef99476f0108	typeref:typename:bool	file:
 __anonef99476f0208	games/dark-colony/w_spr.c	/^typedef struct {$/;"	s	file:
 __anonef99476f0208::cells	games/dark-colony/w_spr.c	/^    const dc_spr_cell_t *cells;$/;"	m	struct:__anonef99476f0208	typeref:typename:const dc_spr_cell_t *	file:
@@ -1966,6 +1967,7 @@ script_unit_type	games/dark-colony/p_reinforce.c	/^static uint16_t script_unit_t
 seesound	games/dark-colony/info.h	/^    int seesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 seestate	games/dark-colony/info.h	/^    int seestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 selector5	games/dark-colony/w_spr.c	/^    uint8_t selector5[256 * 256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint8_t[]	file:
+shadowmap	games/dark-colony/w_spr.c	/^    uint8_t shadowmap[256];$/;"	m	struct:__anonef99476f0108	typeref:typename:uint8_t[256]	file:
 shots	games/dark-colony/gamestat.h	/^    int shots;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 sidebar	games/dark-colony/sb_bar.c	/^    Sidebar sidebar;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:Sidebar	file:
 sidebar_command	games/dark-colony/sb_bar.c	/^static SidebarCommand *sidebar_command(Sidebar *sidebar, int id) {$/;"	f	typeref:typename:SidebarCommand *	file:	signature:(Sidebar * sidebar,int id)

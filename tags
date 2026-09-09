@@ -440,6 +440,8 @@ R_RenderIndexedBlend	driver/engine.h	/^bool R_RenderIndexedBlend(app_t *app, con
 R_RenderIndexedBlend	render/r_draw.c	/^bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,$/;"	f	typeref:typename:bool	signature:(app_t * app,const spritesheet_t * sprite,int frame,irect_t dst,uint32_t flags,int selector)
 R_RenderPlayerView	driver/engine.h	/^void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,$/;"	p	typeref:typename:void	signature:(app_t * app,const level_t * map,const tileset_t * tileset,mobj_t * const * units,int unit_count,const spritesheet_t * fallback_sprite,const spritecache_t * cache,const gameinfo_t * game_info,uint32_t ticks)
 R_RenderPlayerView	render/r_draw.c	/^void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,$/;"	f	typeref:typename:void	signature:(app_t * app,const level_t * map,const tileset_t * tileset,mobj_t * const * units,int unit_count,const spritesheet_t * fallback_sprite,const spritecache_t * cache,const gameinfo_t * game_info,uint32_t ticks)
+R_RenderSpriteShadow	driver/engine.h	/^bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,$/;"	p	typeref:typename:bool	signature:(app_t * app,const spritesheet_t * sprite,int frame,irect_t ground_dst,uint32_t flags)
+R_RenderSpriteShadow	render/r_draw.c	/^bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,$/;"	f	typeref:typename:bool	signature:(app_t * app,const spritesheet_t * sprite,int frame,irect_t ground_dst,uint32_t flags)
 R_ScreenToGrid	driver/engine.h	/^cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);$/;"	p	typeref:typename:cell_t	signature:(const app_t * app,int sx,int sy)
 R_ScreenToGrid	render/r_draw.c	/^cell_t R_ScreenToGrid(const app_t *app, int sx, int sy) {$/;"	f	typeref:typename:cell_t	signature:(const app_t * app,int sx,int sy)
 R_ScreenToMapGrid	driver/engine.h	/^cell_t R_ScreenToMapGrid(const app_t *app, const level_t *map, int sx, int sy);$/;"	p	typeref:typename:cell_t	signature:(const app_t * app,const level_t * map,int sx,int sy)
@@ -1064,6 +1066,7 @@ build_map_path	game/g_game.c	/^static bool build_map_path(char *out, size_t out_
 build_product	game/g_game.h	/^        } build_product;$/;"	m	union:__anon42a104c40708::__anon42a104c4080a	typeref:struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40e08
 bytes	driver/assets.h	/^    uint8_t *bytes; \/* W_ReadFile appends a NUL byte outside size. *\/$/;"	m	struct:blob_s	typeref:typename:uint8_t *
 cache	play/actor.h	/^    const spritecache_t *cache;$/;"	m	struct:selectiondrawcontext_s	typeref:typename:const spritecache_t *
+cached_palette_index	render/r_draw.c	/^static uint8_t cached_palette_index(uint32_t rgba, const uint32_t palette[256],$/;"	f	typeref:typename:uint8_t	file:	signature:(uint32_t rgba,const uint32_t palette[256],uint32_t matches[4096])
 cachedsprite_s	render/sprites.h	/^typedef struct cachedsprite_s {$/;"	s
 cachedsprite_s::name	render/sprites.h	/^    char name[32];$/;"	m	struct:cachedsprite_s	typeref:typename:char[32]
 cachedsprite_s::sprite	render/sprites.h	/^    spritesheet_t sprite;$/;"	m	struct:cachedsprite_s	typeref:typename:spritesheet_t
@@ -1105,6 +1108,7 @@ clamp255	driver/w_file.c	/^int clamp255(int value) {$/;"	f	typeref:typename:int	
 clamp255	tools/dc_spr_extract.c	/^static int clamp255(int v) { return v < 0 ? 0 : v > 255 ? 255 : v; }$/;"	f	typeref:typename:int	file:	signature:(int v)
 clean_scene_name	tools/dc_gamestat_gen.c	/^static void clean_scene_name(char *s) {$/;"	f	typeref:typename:void	file:	signature:(char * s)
 clear	tests/dark-colony/test_drop_fin_states.c	/^static void clear(app_t *app) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app)
+clear	tests/dark-colony/test_sprite_shadows.c	/^static void clear(SDL_Renderer *renderer) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer)
 clear	tests/dark-colony/test_trooper_rendering.c	/^static void clear(SDL_Renderer *renderer) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer)
 clear_model_production	game/g_game.c	/^static void clear_model_production(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 clock	hud/sb_bar.h	/^    uint64_t clock;$/;"	m	struct:__anona3f56ed40108	typeref:typename:uint64_t
@@ -1583,6 +1587,7 @@ main	tests/dark-colony/test_sprite_definitions.c	/^int main(void) {$/;"	f	typere
 main	tests/dark-colony/test_sprite_height.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_layer_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_loading.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
+main	tests/dark-colony/test_sprite_shadows.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_temp_strings.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_thinker_actions.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_thinker_level.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2064,6 +2069,7 @@ shadow_name	game/g_game.h	/^    char shadow_name[32];$/;"	m	struct:__anon42a104c
 shadow_name	game/g_game.h	/^    char shadow_name[32];$/;"	m	struct:__anon42a104c41108	typeref:typename:char[32]
 shadow_name	game/map.h	/^    char shadow_name[32];$/;"	m	struct:mapdecoration_s	typeref:typename:char[32]
 shadow_name	play/actor.h	/^    const char *shadow_name;$/;"	m	struct:mobjtype_s	typeref:typename:const char *
+shadowmap	render/sprites.h	/^    const uint8_t *shadowmap; \/* Destination colormap for native projected shadows. *\/$/;"	m	struct:spritesheet_s	typeref:typename:const uint8_t *
 shared_flow_field_moves_units	tests/dark-colony/test_flow_field_movement.c	/^static int shared_flow_field_moves_units(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 show_blocked	driver/app.h	/^    bool show_blocked;$/;"	m	struct:app_s	typeref:typename:bool
 show_grid	driver/app.h	/^    bool show_grid;$/;"	m	struct:app_s	typeref:typename:bool
@@ -2188,6 +2194,7 @@ spritesheet_s::indexed_blend_table	render/sprites.h	/^    const uint8_t *indexed
 spritesheet_s::lumps	render/sprites.h	/^    spritelump_t *lumps;$/;"	m	struct:spritesheet_s	typeref:typename:spritelump_t *
 spritesheet_s::numlumps	render/sprites.h	/^    int numlumps;$/;"	m	struct:spritesheet_s	typeref:typename:int
 spritesheet_s::palette	render/sprites.h	/^    uint32_t palette[256];$/;"	m	struct:spritesheet_s	typeref:typename:uint32_t[256]
+spritesheet_s::shadowmap	render/sprites.h	/^    const uint8_t *shadowmap; \/* Destination colormap for native projected shadows. *\/$/;"	m	struct:spritesheet_s	typeref:typename:const uint8_t *
 spritesheet_s::spritedef	render/sprites.h	/^    spritedef_t spritedef;$/;"	m	struct:spritesheet_s	typeref:typename:spritedef_t
 spritesheet_t	render/sprites.h	/^} spritesheet_t;$/;"	t	typeref:struct:spritesheet_s
 spritetranslation_t	render/sprites.h	/^} spritetranslation_t;$/;"	t	typeref:struct:__anon761761540108

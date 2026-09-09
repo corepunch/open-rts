@@ -2032,3 +2032,183 @@ spawn-and-forget correction. The blood reference screenshot and level screenshot
 were inspected. `test_combat_and_harvest` passes its attack and hidden-target
 checks, then retains its pre-existing failure to find a player Exploiter in the
 initial mission fixture. `make tags` and `git diff --check` pass.
+
+
+## September 9: projected sprite shadows
+
+**Confirmed executable identity:** `data/DCOLONY/DC.EXE`, 566,272 bytes,
+SHA-256 `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+Analysis used the existing broad `dc_exe.c` export followed by focused r2
+`pdf`/`pd` and cross-references. PE linker version is 2.18; no Rich signature
+occurs before the PE headers. Imports include DirectDraw, DirectSound,
+DirectInput and Win32 APIs. **Inferred:** the EAX/EDX/EBX/ECX register argument
+order, EBP established after saved registers, and `ret 8` for two additional
+stack arguments in `0x45bf80` are consistent with Watcom register calling
+conventions. Compiler version remains **unknown**; r2's generic `cdecl` label
+and r2ghidra's argument names are not authoritative.
+
+### FIN dispatch and ground anchoring
+
+**Confirmed:** `0x44f95c` dispatches queue byte +0x17 through the jump table at
+`0x44f944`. This is the FIN layer field, independent of the drawing mode:
+
+| Layer | Native operation |
+| --- | --- |
+| 0 | Body only: `0x44fc62`, normal `0x45c060` or mirrored `0x45c41c` |
+| 1 | Shadow immediately followed by body: `0x44fcd6`, shadow calls at `0x44fd13` / `0x44fd7b` |
+| 2 | Shadow only: `0x44fea3`, calls `0x45cc04` / `0x45c7b0` |
+| 3 | Separate prepass (`0x44f95c`); no projected shadow |
+| 4, 5 | Other compositors; no projected shadow |
+
+Shadow calls use the command's ground Y, while the body call adds the queued
+Z word. The layer-2 subtraction reads queue word +0x10, explicitly cleared
+at `0x44fb41`; this does not subtract the object's Z word at +0x12.
+Layer 1 temporarily clears the alternate-clipping flag for its shadow.
+Flags choose the mirrored routine; team color and intensity do not choose the
+shadow colormap. `0x432ac0` enables shadows at `0x4e186d` only when its graphics
+setting argument is 2. Both shadow entry points test that byte. open-rts uses
+the enabled-shadow behavior; no new graphics setting was added.
+
+**Disproven:** shadows are neither separate SPR assets nor black sprites with
+an arbitrary alpha, ellipse, or hand-tuned positional offset. Layer 2 must not
+also draw a colored body. Not every FIN layer casts a shadow: DROP's initial
+movement body commands use layer 0. The initial HUMAN01/HUMAN02 screenshots
+therefore show the arriving body without an invented dropship shadow.
+
+### Integer projection and silhouette
+
+**Confirmed:** normal shadow setup is `0x45c7b0`; mirrored setup is `0x45cc04`.
+`0x45c7f0–0x45c84d` sets horizontal carry increment **128** and vertical repeat
+increment **40**. Let `h`/`w` be the native SPR cell size, `B` the screen-space
+ground bottom of its FIN command, and `X` the ordinary body left edge including
+SPR displacement for the unmirrored command. For an unclipped cell:
+
+- `H = h + floor(h * 40 / 256)` output rows;
+- shadow top is `B - H`;
+- first-row left is `X - floor(H / 2)`;
+- each output row advances right by `floor(row / 2)`;
+- mirrored drawing starts at `FIN_X + w - floor(H / 2)` and writes backwards.
+  Thus its left edge is one pixel to the right of the unmirrored formula.
+  This follows the endpoint stores at `0x460e62–0x460e76`, not a visual adjustment.
+
+The span routines `0x45ba5a` / `0x463bc0` initialize byte accumulators to zero.
+After consuming a source row, add 40 to the vertical accumulator. On carry,
+reuse that row once; the reused row does not increment the accumulator. After
+every output row, add 128 to the horizontal accumulator; carry advances the
+destination by +1 in **both** reflected and unreflected paths. A 16-row source
+produces source row sequence:
+
+```
+0 1 2 3 4 5 6 6 7 8 9 10 11 12 12 13 14 15
+```
+
+This is not identical to replacing the operation with floating-point scaling.
+The control flow is at `0x45bb51–0x45bb9c` and `0x463cb7–0x463d02`.
+For top clipping (`B < H`), setup uses `floor(B/2)` for the initial shear,
+starts at screen row zero, skips `floor((H-B)*256/296)` source rows, and restarts
+the byte accumulators. `0x45c8bb–0x45c8e2` verifies that divisor 296 is 256+40.
+
+Negative RLE runs skip destination pixels. Literal runs ignore source colors
+and process the covered destination pixels. The unrolled routine selected by
+`0x457fa8` ends at `0x45681a`: load destination into AL, load `[EAX]`, store AL
+back to the destination. Mirrored equivalents are selected by `0x462876`.
+An audit of all 190 `SPRITES/*.SPR` files found **zero literal-zero bytes** in
+compressed runs, so existing decoded nonzero indices preserve retail shadow
+coverage without another mask allocation. Thirteen older raw files were
+excluded from that compressed-run assertion; no new raw-format claim is made.
+
+### Native palette lookup
+
+**Confirmed:** `0x44a680` allocates and aligns the palette tables to 64 KiB;
+`0x44a7c8–0x44a810` installs the base at `0x4841f0`, opens the terrain `.RMP`,
+and reads **0x30000** bytes directly into it. `0x45bb00–0x45bb0b` loads this
+base and forces AH to **0x48**, replacing the preceding palette/lighting byte.
+The clipped and mirrored paths do the same at `0x45b460`, `0x4635cc`, and
+`0x463c71`. For each covered pixel:
+
+```
+destination_index = RMP[0x4800 + destination_index]
+```
+
+Overlapping shadows apply this mapping again. The first bank's row 0x48 is
+lighting level 9, team 0 in the native `(light*8 + team)*256` layout. This is
+not a universal RGB multiplier: use the shipped terrain table.
+
+| Asset | SHA-256 |
+| --- | --- |
+| DESERT.RMP | `450b62c07f54925f17b5e69bb26308f97d3237875b865e130451516e45478216` |
+| JUNGLE.RMP | `386a427f1141f198f0d03abc9dae0fd76ae790cbaa478601002fe8069a4a1a56` |
+| ATLANTIS.RMP | `5d7f64c5a62f1d9b171504993bffa9cf3300cb6208603c2cd1c2caf9c0225ce0` |
+| HTRAIN.RMP | `f0bd17a7db3bf917154023b015f62e28c83ab9ff6a5dc284eadc8873e89629df` |
+| PALETTE.RMP | `7b0fa7f515db2d5de1f13738d4d314047a66d56d9af86b9bd68d5075d35ca3b4` |
+| FUEL.FIN | `6b32818cf91788b6ad2fc1854f7a3cf9196f28716390c3d8129cd9725ea32284` |
+| DROP.FIN | `66e8da41ff0a47229c1a33db4aae9e7f37307ec943f5bbd860acc832b07fc433` |
+
+Every inspected RMP is 196,608 bytes. Example DESERT row-0x48 mappings:
+`0→0`, `1→23`, `32→54`, `64→180`, `96→98`, `128→130`, `138→98`,
+`143→253`, `192→137`, `255→23`. FUEL.FIN byte 57,716 is a shadow-only
+command: cell 0, offset (-43,22), mode 0, intensity 16, layer 2, flags 0.
+The existing TRSC fingerprints apply; the native standing-frame render test
+selects `TRSCSTAND0` through the loader's rotation definition (cell 2 in the
+north-facing test view), with dimensions 21×41. Diagnostic output confirmed
+47 shadow rows at ground bottom 56, top 9 and initial left 8.
+
+A disk-command audit of FIN files with the current complete 22-byte command
+layout counted layers 0/1/2/3/4/5 as 8858/10503/501/2591/2098/32058.
+It excluded legacy/incomplete-layout files LIGHT2B, LIGHT3F, LIGHT1M, LIGHT3B,
+LIGHT4B, LITE, LIGHT4F, LIGHT4M, ANIM, LIGHT3M, BUILDING, LIGHT2M and LIGHT1B.
+These counts describe disk commands, not the number of visible runtime parts.
+
+### Implementation, limits and reproduction
+
+`w_spr.c` loads the 256-byte shadowmap with the existing terrain render tables.
+`R_RenderSpriteShadow` uses the engine-owned indexed image, destination
+colormap and native integer projection. FIN dispatch draws it immediately
+before layer-1 bodies, draws only it for layer 2, and restores ground Z for
+both. Other games have no shadowmap and retain their existing behavior.
+The shared exact-RGB cache avoids repeated palette searches for both indexed
+blending and shadows. Doom's `reference/DOOM/r_draw.c::R_DrawFuzzColumn` also
+remaps destination indices through a colormap; DC's projection and source
+coverage are concrete native requirements beyond that reference.
+
+**Known renderer limits:** our framebuffer is RGBA. Destination colors are
+converted to the nearest terrain palette entry before applying the exact RMP
+row. Duplicate palette RGB values cannot recover the original index, and
+colors produced by additive rendering/fog can be off-palette. Full byte-for-byte
+retail framebuffer identity is therefore not claimed. The native shadow paths
+also use 32-pixel column clipping from `0x45bf80`, deriving thresholds from
+map-word bits 22–25, plus a per-pixel mask pointer at `0x4841e8`. The complete
+producer/meaning of that mask remains **unknown** here and is not emulated by
+this change. Shadows use our existing object order and SDL viewport clipping;
+full native terrain occlusion and retail viewport edge conventions remain
+separate renderer work. No retail runtime screenshot comparison was performed.
+
+Reproduce instruction checks with:
+
+```sh
+r2 -q -e scr.color=0 -e bin.cache=true -A \
+  -c 'pdf @ 0x44f95c' -c 'pdf @ 0x45c7b0' -c 'pdf @ 0x45cc04' \
+  -c 'pdf @ 0x45ba5a' -c 'pdf @ 0x463bc0' -c 'pdf @ 0x44a7b0' \
+  -c 'pd 12 @ 0x45680a' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --label TRSCSTAND0 data/DCOLONY/ANIMATE/TRSC.FIN
+make build/bin/tests/dark-colony/test_sprite_shadows
+env SDL_VIDEODRIVER=dummy OPEN_RTS_SHADOW_SCREENSHOT=/private/tmp/dc-shadow-trooper.bmp \
+  build/bin/tests/dark-colony/test_sprite_shadows
+```
+
+Temporary `OPEN_RTS_DEBUG_SHADOW` diagnostics printed FIN layer/cell/table/Z,
+ground coordinates, projection size, reflection and clipped source row during
+verification; removed before commit. Focused tests cover projection, exact
+row carries, reflection, transparency, overlap, top clipping, layer dispatch,
+Z, all four terrain tables and an actual TRSC FIN standing-frame image.
+
+Verification completed with `make` (all four binaries), `make tags`, all four
+headless `--check` commands, Reaper/layout checks, the shadow test and the
+existing sprite-layer, height, loading, Trooper and blood rendering tests.
+Inspected HUMAN01/HUMAN02 screenshots and the native Trooper fixture BMP.
+The full Dark Colony suite is not green: `test_combat_and_harvest` cannot find
+its initial player Exploiter, and `test_game_model_headless` expects Human01's
+initial Troopers immediately. Those mission-startup failures do not enter the
+shadow renderer. A separate stale `test_thinker_level` reference to removed
+`S_BLOOD1` was updated to explicitly enter the current ten-frame, four-tic
+`S_TRSCBLOODA0_313` chain; that lifecycle test now passes.
