@@ -6,6 +6,10 @@
 #include <stdint.h>
 
 struct level_s;
+struct mobjtype_s;
+
+/* Gameplay lookup is hand-authored, independent of generated state tables. */
+const struct mobjtype_s *actor_type_by_id(uint16_t type_id);
 
 /* Scenario TEAM records are native map data, but AI consumption belongs to
  * the simulation.  owner 0 is the human side; non-zero owners are DC's

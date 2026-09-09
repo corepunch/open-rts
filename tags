@@ -663,10 +663,14 @@ __anon292f5ac10808::barr_attack	tools/dc_info_gen.c	/^    int barr_attack;$/;"	m
 __anon292f5ac10808::barr_death	tools/dc_info_gen.c	/^    int barr_death;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::barr_run	tools/dc_info_gen.c	/^    int barr_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::brrkpod_build_trsc	tools/dc_info_gen.c	/^    int brrkpod_build_trsc;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::cent_die	tools/dc_info_gen.c	/^    int cent_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::cent_stand	tools/dc_info_gen.c	/^    int cent_stand;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::expl_death	tools/dc_info_gen.c	/^    int expl_death;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::expl_deploy	tools/dc_info_gen.c	/^    int expl_deploy;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::expl_run	tools/dc_info_gen.c	/^    int expl_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::expl_work	tools/dc_info_gen.c	/^    int expl_work;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::ortu_die	tools/dc_info_gen.c	/^    int ortu_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::ortu_run	tools/dc_info_gen.c	/^    int ortu_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::reap_attack	tools/dc_info_gen.c	/^    int reap_attack;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::reap_death	tools/dc_info_gen.c	/^    int reap_death;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::reap_diefx_a14	tools/dc_info_gen.c	/^    int reap_diefx_a14;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
@@ -677,8 +681,15 @@ __anon292f5ac10808::sarg_death	tools/dc_info_gen.c	/^    int sarg_death;$/;"	m	s
 __anon292f5ac10808::sarg_run	tools/dc_info_gen.c	/^    int sarg_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::scgm_death	tools/dc_info_gen.c	/^    int scgm_death;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::scgm_run	tools/dc_info_gen.c	/^    int scgm_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::slug_deploy	tools/dc_info_gen.c	/^    int slug_deploy;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::slug_die	tools/dc_info_gen.c	/^    int slug_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::slug_retract	tools/dc_info_gen.c	/^    int slug_retract;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::slug_run	tools/dc_info_gen.c	/^    int slug_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::tong_die	tools/dc_info_gen.c	/^    int tong_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::tong_stand	tools/dc_info_gen.c	/^    int tong_stand;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::trsc_attack_a	tools/dc_info_gen.c	/^    int trsc_attack_a;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10808::trsc_attack_b	tools/dc_info_gen.c	/^    int trsc_attack_b;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+__anon292f5ac10808::turr_die	tools/dc_info_gen.c	/^    int turr_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 __anon292f5ac10903	tools/dc_info_gen.c	/^enum {$/;"	g	file:
 __anon3d3e43c00108	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	s	file:
 __anon3d3e43c00108::gx	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	m	struct:__anon3d3e43c00108	typeref:typename:float	file:
@@ -1135,6 +1146,8 @@ cell_count	tools/dc_spr_extract.c	/^    uint16_t cell_count;$/;"	m	struct:__anon
 cell_t	game/map.h	/^typedef ivec2_t cell_t;$/;"	t	typeref:typename:ivec2_t
 cells	play/p_map.c	/^    FlowCell *cells;$/;"	m	struct:flowfield_s	typeref:typename:FlowCell *	file:
 cells	tools/dc_spr_extract.c	/^    Cell *cells;$/;"	m	struct:__anonf6c4462b0208	typeref:typename:Cell *	file:
+cent_die	tools/dc_info_gen.c	/^    int cent_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+cent_stand	tools/dc_info_gen.c	/^    int cent_stand;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 center_anchor	game/g_game.h	/^    bool center_anchor;$/;"	m	struct:__anon42a104c41208	typeref:typename:bool
 center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
 check_pixels	tests/dark-colony/test_sprite_loading.c	/^static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture,const uint8_t * indices,int remap)
@@ -1892,6 +1905,8 @@ order_count	plans/freeciv-arch.md	/^   int order_count, order_index;$/;"	v	typer
 order_id	play/actor.h	/^        uint32_t order_id;$/;"	m	struct:mobj_s::__anon175231d90908	typeref:typename:uint32_t
 order_index	plans/freeciv-arch.md	/^   int order_count, order_index;$/;"	v	typeref:typename:int
 orders	plans/freeciv-arch.md	/^   UnitOrder orders[MAX_UNIT_ORDERS];$/;"	v	typeref:typename:UnitOrder[]
+ortu_die	tools/dc_info_gen.c	/^    int ortu_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+ortu_run	tools/dc_info_gen.c	/^    int ortu_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 outro_avi	tools/dc_gamestat_gen.c	/^    char outro_avi[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
 owner	game/g_game.h	/^    uint8_t owner;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint8_t
 owner	play/actor.h	/^    uint8_t owner;$/;"	m	struct:mobj_s	typeref:typename:uint8_t
@@ -2191,6 +2206,10 @@ size	driver/assets.h	/^    size_t size;$/;"	m	struct:blob_s	typeref:typename:siz
 size	tools/dc_fin_extract.c	/^    size_t size;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 size	tools/dc_gamestat_gen.c	/^    int size;$/;"	m	struct:__anon006eef8b0608	typeref:typename:int	file:
 slope_div	play/p_facing.c	/^static unsigned slope_div(unsigned numerator, unsigned denominator) {$/;"	f	typeref:typename:unsigned	file:	signature:(unsigned numerator,unsigned denominator)
+slug_deploy	tools/dc_info_gen.c	/^    int slug_deploy;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+slug_die	tools/dc_info_gen.c	/^    int slug_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+slug_retract	tools/dc_info_gen.c	/^    int slug_retract;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+slug_run	tools/dc_info_gen.c	/^    int slug_run;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 slug_unit_index	play/p_ai.h	/^    int slug_unit_index;$/;"	m	struct:__anonf4d3b9790108	typeref:typename:int
 smoke_decoration_index	game/map.h	/^    int smoke_decoration_index; \/* unattached vent smoke, or -1 when not represented *\/$/;"	m	struct:resourcevent_s	typeref:typename:int
 snapshot_count_units_with_owner_and_type	tests/dark-colony/test_game_model_headless.c	/^static int snapshot_count_units_with_owner_and_type(const RtsRenderSnapshot *snapshot,$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * snapshot,uint8_t owner,uint16_t type_id)
@@ -2417,6 +2436,8 @@ time_left_ms	play/actor.h	/^    int time_left_ms;$/;"	m	struct:production_s	type
 time_ms	play/actor.h	/^    int time_ms;$/;"	m	struct:production_s	typeref:typename:int
 timer_ms	play/actor.h	/^        int timer_ms;$/;"	m	struct:mobj_s::__anon175231d90808	typeref:typename:int
 title	tools/dc_gamestat_gen.c	/^    char title[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
+tong_die	tools/dc_info_gen.c	/^    int tong_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
+tong_stand	tools/dc_info_gen.c	/^    int tong_stand;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 top_offset_y	play/actor.h	/^    int top_offset_y;$/;"	m	struct:selectionmarker_s	typeref:typename:int
 traits	game/g_game.h	/^    uint32_t traits;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint32_t
 traits	play/actor.h	/^    uint32_t traits;$/;"	m	struct:mobj_s	typeref:typename:uint32_t
@@ -2429,6 +2450,7 @@ trsc_attack_a	tools/dc_info_gen.c	/^    int trsc_attack_a;$/;"	m	struct:__anon29
 trsc_attack_b	tools/dc_info_gen.c	/^    int trsc_attack_b;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 ttl_ms	render/sprites.h	/^    int ttl_ms;$/;"	m	struct:__anon761761540308	typeref:typename:int
 turn_timer_ms	play/actor.h	/^        int turn_timer_ms;$/;"	m	struct:mobj_s::__anon175231d90908	typeref:typename:int
+turr_die	tools/dc_info_gen.c	/^    int turr_die;$/;"	m	struct:__anon292f5ac10808	typeref:typename:int	file:
 type	game/g_game.h	/^    RtsGameEventType type;$/;"	m	struct:__anon42a104c40f08	typeref:typename:RtsGameEventType
 type	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	m	struct:__anon3d3e43c00108	typeref:typename:uint8_t	file:
 type_id	game/g_game.h	/^    uint16_t type_id;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint16_t
