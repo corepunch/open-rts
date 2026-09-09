@@ -770,7 +770,8 @@ groups use eight. Shorter directional ranges hold their final frame. All other
 frames remain addressable individually. Sparse directional fallback remains an
 unimplemented part of the native action lookup, not a reason to discard frames.
 
-**Correction to the preceding presentation rule:** no STAND/SHUF merging or MOVE
+**Historical correction, superseded by “Stationary shuffle versus animated
+travel” below:** no STAND/SHUF merging or MOVE
 singleton filtering remains in the loader. The user's latest requirement is
 general: use every authored facing, without unit-name or action-name exceptions.
 STAND and SHUF remain distinct native labels. This means the earlier combined
@@ -2267,4 +2268,102 @@ build/dc_info_conv --label GRAYBLOODA0 data/DCOLONY/ANIMATE/GRAY.FIN
 build/dc_info_conv --label TRSCBLOODA0 data/DCOLONY/ANIMATE/TRSC.FIN
 make build/bin/tests/dark-colony/test_blood_fin
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_blood_fin
+```
+
+## Stationary shuffle versus animated travel (2026-09-09)
+
+**Correction/user-required behavior:** interpreting every literal MOVE label as
+a walking direction regressed the earlier turning fix. EXPL's standing state
+was reduced to eight rotations, while both RUN states acquired sixteen rotations
+and held the same body on every odd direction. The simulation already turns in
+place in the standing state before translating in the run state. Its sprite
+definitions must expose the stationary SHUF poses there. This supersedes the
+no-merging/no-filtering presentation rule above; it does not undo loading every
+FIN frame or separating states from renderer-owned resources.
+
+**Confirmed asset data:** EXPL retains the fingerprint and offsets recorded
+above. It has eight even STAND labels and eight odd SHUF labels (frames 0–15),
+eight even MOVE ranges with two frames each (16–31), and eight odd singleton
+MOVE labels (102–109). The extra MOVE labels do not supply additional two-frame
+walk cycles. Sixteen stationary poses means STAND plus SHUF, not sixteen labels
+literally named SHUF.
+
+A label-table audit of retail 164-byte-frame FIN files found the following
+STAND0 prefixes with SHUF labels. Ranges are inclusive; counts below come from
+`end - start + 1`, not sprite-cell counts or guessed missing frames.
+
+| Prefix | SHUF suffixes | MOVE ranges |
+| --- | --- | --- |
+| EXPL | All eight odd suffixes | Even: 2 frames; odd: 1 |
+| TRSC | All eight odd suffixes | Eight even ranges, 8 frames each |
+| TURR | All eight odd suffixes | Eight even ranges, 2 frames each |
+| ENGI | All eight odd suffixes | Eight even ranges, 5 frames each |
+| GRAY | All eight odd suffixes | Even 0/2: 7 frames; remaining even: 8 |
+| XENO | All eight odd suffixes | Eight even ranges, 10 frames each |
+| TRUK | Odd suffixes except 7 | Eight even ranges, 2 frames each |
+| BARR | All eight odd suffixes | Even: 13,7,8,10,10,10,8,7 frames in suffix order; odd: 1 |
+| ATRIL | All eight odd suffixes | Even: 10 frames except 12 has 9; odd 1/3/5: 1; other odd absent |
+| REAP | All eight odd suffixes | Even: 8 frames; odd: 1 |
+| SLOM | All eight odd suffixes | Eight even ranges, 2 frames each |
+| ORTU | All eight odd suffixes | All sixteen animated: 7 frames except suffix 8 has 5 |
+| SLUG | All eight odd suffixes | Even: 7 frames except 6 has 6; odd: 1 |
+
+TRSC, EXPL, REAP, SLUG, ORTU, TURR, and GRAY fingerprints are recorded earlier.
+Additional audited files under `data/DCOLONY/ANIMATE/`:
+
+| File | SHA-256 | Label table byte offset |
+| --- | --- | --- |
+| BARR.FIN | `08ef8a38d3d0ba5629dcd58c91441569dde7c4ed09c60925b4a86d3d33c65894` | 104 |
+| ENGI.FIN | `e2f29845b5dcc6d4063b734856eebca89fcce83682fa9ae96b3e16c0969ad375` | 40 |
+| XENO.FIN | `2c4c436d26db6a49d7b46ce12bcf55a46adcf7e6239a6c31dd772bbf0d6a6f84` | 48 |
+| TRUK.FIN | `6dc904c057dd02c87ce733e3a8e3b940b96b505cef6d850c0ce47ff6b65b32e2` | 24 |
+| ATRIL.FIN | `84bc2c0a62db56cd2eed1316148d3f08a4d6d8d69a280ffaf46d7b55779e7455` | 32 |
+| SLOM.FIN | `54b62a8a750695fcfb2076095ea7bd46c466da6b467bb2ee7fef74fcdce40984` | 32 |
+
+**Implementation:** the shared FIN definition builder fills missing STAND
+directions using that prefix's SHUF labels. If MOVE0 is animated, singleton
+MOVE ranges are omitted from its walking rotations. Complete eight/sixteen
+animated direction sets retain their native range lengths; shorter animations
+hold their last frame. ORTU therefore keeps sixteen animated walking directions.
+No unit names, new frames, timing constants, or state-table metadata are added.
+All raw cells and individual FIN records, including SHUF and singleton MOVE,
+remain addressable. Existing state selection chooses stationary versus travel.
+The EXPL southeast deploy turn, harvesting presentation, and Reaper timings
+remain unchanged.
+
+**Unknown/limits:** this is the user's explicit open-rts presentation contract.
+It does not establish DC.EXE's native SHUF dispatch, change the prior verified
+literal-name lookup at `0x00423a50`, or port its 32-slot nearest-angle fallback.
+No new executable trace was performed. The missing TRUK SHUF7 remains missing;
+its incomplete sixteen-pose set still resolves to eight standing rotations.
+Pathfinding/translation and turn timing are unchanged; the fix selects animation
+facings, not a new grid movement algorithm.
+
+**Diagnostics and verification:** temporary `OPEN_RTS_DEBUG_FIN` logging printed
+prefix, range, stationary/travel classification, and installed rotations. It
+confirmed EXPL STAND=16/MOVE=8, TRSC STAND=16/MOVE=8, and ORTU STAND=16/MOVE=16;
+logging was removed. The definition regression compares every selected frame's
+native command layers, offsets, flips, remap, intensity, and delay for TRSC,
+EXPL, REAP, BARR, SLUG, and ORTU. The movement regression now loads EXPL.FIN and
+checks actual SHUF bodies while stationary, then eight rotations on translation.
+
+`make`, FIN/SPR loading, definition, movement, complete FIN-state rendering, and
+sprite-layout tests pass, including Reaper timing. The DC headless check passes;
+the HUMAN01 screenshot was visually inspected for rendering integrity (it is
+not a turning demonstration). The before/after 461-path catalog has identical
+pixels, team translations, palettes, geometry, and anchors for all 447 successful
+loads, with the same 14 failures. Exactly 52 complete definition fingerprints
+change, the SPR/FIN pairs of the same 26 stems listed in the earlier audit.
+Tags were regenerated and `git diff --check` passed.
+
+Reproduce the label evidence and focused regressions:
+
+```sh
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/EXPL.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/ORTU.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/TRUK.FIN
+make build/bin/tests/dark-colony/test_sprite_definitions \
+     build/bin/tests/dark-colony/test_flow_field_movement
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_definitions
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_flow_field_movement
 ```

@@ -338,13 +338,20 @@ array, not the binary.
 
 - **Exploiter speed**: 3.5 grid-units/s. Heavy harvester — should be slower than infantry (Trooper 5.0).
 - **Sprite directions**: load every FIN frame and use each sequence's authored
-  8/16 facings. Do not merge actions, discard singleton directions, or branch
-  on unit names in the sprite loader. State/action code chooses animations;
-  the loader only builds frame/rotation definitions from the assets.
+  facings. For stationary turning, complete STAND's missing directions with
+  the same prefix's SHUF poses. Animated MOVE uses animated directional ranges;
+  singleton MOVE poses do not become frozen walking directions. These are
+  shared presentation rules for every unit, never unit-name exceptions. Retain
+  all native frames individually, including singleton MOVE and SHUF records.
+  Preserve genuinely animated sixteen-direction MOVE sets, such as ORTU.
+  State/action code chooses standing versus travel; the loader builds their
+  frame/rotation definitions from FIN names and ranges.
 - **Exploiter walk cycle**: EXPL.FIN's even MOVE ranges contain two temporal
   frames and its odd MOVE ranges contain one. RUN1/RUN2 does not imply fourteen
-  missing temporal frames. STAND and SHUF are separate native label sets;
-  their original selection path remains unknown (see `docs/DC_EXE_FINDINGS.md`).
+  missing temporal frames. Use eight two-frame travel directions and sixteen
+  stationary poses (eight STAND plus eight SHUF). This is the user's explicit
+  presentation contract; the original executable's SHUF selection path remains
+  unknown (see `docs/DC_EXE_FINDINGS.md`).
 - **Reaper animation after regeneration**: after regenerating `info.c` or `info.h`, always restore
   and verify the native Reaper movement timing `{4, 3, 3, 4, 1, 3, 3, 1}` for `S_REAP_RUN1`
   through `S_REAP_RUN8`; run `build/bin/test_dark_colony_sprite_layout` before finishing.

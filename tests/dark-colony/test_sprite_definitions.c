@@ -110,6 +110,54 @@ static void check_ui_storage(SDL_Renderer *renderer) {
     free(cache);
 }
 
+static void check_turn_and_travel_definitions(void) {
+    static const char *const stems[] = { "TRSC", "EXPL", "REAP", "BARR", "SLUG", "ORTU" };
+    for (size_t i = 0; i < sizeof(stems) / sizeof(*stems); ++i) {
+        dc_fin_t fin;
+        spritesheet_t sheet;
+        const char *stem = stems[i];
+        const char *path = M_va("data/DCOLONY/ANIMATE/%s.FIN", stem);
+        CHECK(DC_LoadFIN(path, &fin));
+        CHECK(load_dark_colony_sprite(path, &sheet, NULL));
+        for (int moving = 0; moving < 2; ++moving) {
+            const char *action = moving ? "MOVE" : "STAND";
+            const dc_fin_label_t *base = DC_FINLabel(&fin, M_va("%s%s0", stem, action));
+            CHECK(base);
+            int start = SDL_SwapLE16(base->start), end = SDL_SwapLE16(base->end);
+            int rotations = moving && strcmp(stem, "ORTU") ? 8 : 16;
+            for (int f = start; f <= end; ++f) {
+                const spriteframe_t *frame = &sheet.spritedef.spriteframes[sheet.numlumps + f];
+                CHECK(frame->rotations == rotations);
+                for (int r = 0; r < rotations; ++r) {
+                    int suffix = ((rotations / 2 - r + rotations) % rotations) * (16 / rotations);
+                    const char *label_action = !moving && (suffix & 1) ? "SHUF" : action;
+                    const dc_fin_label_t *label = DC_FINLabel(&fin, M_va("%s%s%d", stem, label_action, suffix));
+                    CHECK(label);
+                    int source = SDL_SwapLE16(label->start) + f - start;
+                    if (source > SDL_SwapLE16(label->end)) source = SDL_SwapLE16(label->end);
+                    spritedirection_t expected = {0};
+                    CHECK(DC_FINFrame(&fin, source, &expected));
+                    CHECK(frame->directions[r].ticks == expected.ticks);
+                    const spritelayer_t *actual = frame->directions[r].layers;
+                    int p = 0;
+                    for (; expected.layers[p].sprite_name[0]; ++p) {
+                        spritelayer_t *part = &expected.layers[p];
+                        const char *name = !strcasecmp(part->sprite_name, stem) ? "." : M_Upper(part->sprite_name);
+                        CHECK(!strcmp(actual[p].sprite_name, name));
+                        CHECK(actual[p].lump == part->lump && ivec2_equal(actual[p].offset, part->offset));
+                        CHECK(actual[p].flags == part->flags && actual[p].layer == part->layer);
+                        CHECK(actual[p].remap == part->remap && actual[p].intensity == part->intensity);
+                    }
+                    CHECK(!actual[p].sprite_name[0]);
+                    free(expected.layers);
+                }
+            }
+        }
+        R_FreeSprite(&sheet);
+        DC_FreeFIN(&fin);
+    }
+}
+
 int main(void) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32,
                                                           SDL_PIXELFORMAT_ARGB8888);
@@ -124,6 +172,7 @@ int main(void) {
     check_all_fin_frames();
     check_sprite_registry();
     check_ui_storage(renderer);
+    check_turn_and_travel_definitions();
 
     spritesheet_t sprite;
     if (!load_dark_colony_sprite("data/DCOLONY/ANIMATE/TRSC.FIN",
@@ -185,20 +234,20 @@ int main(void) {
         valid = false;
     } else {
         const spriteframe_t *stand = &sprite.spritedef.spriteframes[sprite.numlumps];
-        /* STAND has eight facings; MOVE has sixteen, with unequal lengths. */
-        static const int stand_lumps[8] = { 8, 6, 4, 2, 0, 2, 4, 6 };
+        /* Eight STAND and eight SHUF poses turn; eight MOVE pairs travel. */
+        static const int stand_lumps[16] = { 8, 7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7 };
         CHECK(sprite.spritedef.numframes == 232 + sprite.numlumps);
-        CHECK(stand->rotations == 8);
-        for (int r = 0; r < 8; ++r)
+        CHECK(stand->rotations == 16);
+        for (int r = 0; r < 16; ++r)
             CHECK(stand->directions[r].layers[0].lump == stand_lumps[r]);
-        static const int move_lumps[2][16] = {
-            { 8, 7, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4, 5, 6, 7 },
-            { 13, 7, 12, 5, 11, 3, 10, 1, 9, 1, 10, 3, 11, 5, 12, 7 },
+        static const int move_lumps[2][8] = {
+            { 8, 6, 4, 2, 0, 2, 4, 6 },
+            { 13, 12, 11, 10, 9, 10, 11, 12 },
         };
         for (int f = 0; f < 2; ++f) {
             const spriteframe_t *move = &sprite.spritedef.spriteframes[sprite.numlumps + 16 + f];
-            CHECK(move->rotations == 16);
-            for (int r = 0; r < 16; ++r)
+            CHECK(move->rotations == 8);
+            for (int r = 0; r < 8; ++r)
                 CHECK(move->directions[r].layers[0].lump == move_lumps[f][r]);
         }
         R_FreeSprite(&sprite);

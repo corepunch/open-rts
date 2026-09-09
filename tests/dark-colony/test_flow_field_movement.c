@@ -3,6 +3,7 @@
 #include "p_local.h"
 #include "rts_test.h"
 #include "info.h"
+#include "w_spr.h"
 
 #include <stdio.h>
 
@@ -51,6 +52,11 @@ static int shared_flow_field_moves_units(void) {
 
 static int exploiter_turns_before_moving(void) {
     const char *tag = "exploiter_turn";
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32, SDL_PIXELFORMAT_ARGB8888);
+    r_renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
+    spritesheet_t sprite;
+    RTS_CHECK(r_renderer && load_dark_colony_sprite("data/DCOLONY/ANIMATE/EXPL.FIN", &sprite, NULL),
+              tag, "load actual Exploiter turning and travel poses");
     level = (level_t){ .width = 16, .height = 16 };
     P_FreeThinkers();
     gameinfo = &game_info;
@@ -67,18 +73,31 @@ static int exploiter_turns_before_moving(void) {
     bool saw_intermediate_pose = false, moved = false;
     for (int tic = 0; tic < 120; ++tic) {
         P_Ticker();
+        const spriteframe_t *frame = &sprite.spritedef.spriteframes[unit->core.frame];
         if (memcmp(&unit->core.position, &start, sizeof(start)) != 0) {
             RTS_CHECK(unit->core.state_id == S_EXPL_RUN1 ||
                       unit->core.state_id == S_EXPL_RUN2, tag,
                       "translation selects the travel cycle");
+            RTS_CHECK(frame->rotations == 8, tag, "travel renders eight animated facings");
             moved = true;
             break;
         }
         RTS_CHECK(unit->core.state_id == S_EXPL_STND, tag,
                   "turning stays in the standing state without translating");
-        saw_intermediate_pose |= angle_to_direction(unit->core.angle, 16, ANG90, false) & 1;
+        RTS_CHECK(frame->rotations == 16, tag, "turning renders all sixteen poses");
+        int rotation = angle_to_direction(unit->core.angle, frame->rotations, ANG90, false);
+        if (rotation & 1) {
+            static const int lumps[8] = { 7, 5, 3, 1, 1, 3, 5, 7 };
+            RTS_CHECK(frame->directions[rotation].layers[0].lump == lumps[rotation / 2],
+                      tag, "intermediate angle selects the authored SHUF body");
+            saw_intermediate_pose = true;
+        }
     }
     P_FreeFlowFields(&level);
+    R_FreeSprite(&sprite);
+    SDL_DestroyRenderer(r_renderer);
+    r_renderer = NULL;
+    SDL_FreeSurface(surface);
     RTS_CHECK(saw_intermediate_pose && moved, tag,
               "turn passes through intermediate stationary facings before travel");
     return 0;

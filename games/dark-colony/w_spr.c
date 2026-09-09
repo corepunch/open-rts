@@ -81,9 +81,17 @@ static bool install_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin,
         name[--length] = '\0';
         int start = SDL_SwapLE16(base->start), end = SDL_SwapLE16(base->end);
         if (start > end || end >= count) continue;
+        bool standing = length >= 5 && !strcmp(name + length - 5, "STAND");
+        bool walking = length >= 4 && !strcmp(name + length - 4, "MOVE") && end > start;
         const dc_fin_label_t *directions[16] = {0};
         for (int d = 0; d < 16; ++d) {
             const dc_fin_label_t *label = DC_FINLabel(fin, M_va("%s%d", name, d));
+            /* Standing/turning uses the interleaved SHUF poses. Travel uses
+             * animated MOVE ranges, not the single intermediate poses. These
+             * are shared DC presentation rules, independent of the unit name. */
+            if (!label && standing)
+                label = DC_FINLabel(fin, M_va("%.*sSHUF%d", length - 5, name, d));
+            if (label && walking && label->start == label->end) label = NULL;
             if (label && SDL_SwapLE16(label->start) <= SDL_SwapLE16(label->end) &&
                 SDL_SwapLE16(label->end) < count)
                 directions[d] = label;
