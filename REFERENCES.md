@@ -1176,3 +1176,16 @@ frames. The user supplied the initial-menu screenshot in the 2026-09-09 request
 (no external URL). File hashes, the full human dependency graph, screenshot
 identification and implementation limits are recorded in
 [the global build-menu audit](docs/DC_EXE_FINDINGS.md#global-build-menu-and-native-dependency-configuration-2026-09-09).
+
+### Dark Colony production and construction channels
+
+Retail `data/DCOLONY/DC.EXE`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+checked against `GAMESTAT/GAMESTAT.TXT` and every FIN in `ANIM.DAT`.
+The [all-building production audit](docs/DC_EXE_FINDINGS.md#production-channel-audit-across-all-city-buildings-2026-09-09)
+records type +0x98 BUILDSTAND/BUILD lookup (`0x438c95`), independent object
+channels +0x14/+0x1c/+0x24 (`0x418567`, `0x43645b`), production startup
+(`0x4139ef`) versus construction (`0x44144b`), queue/exit tables
+(`0x419c60`, `0x419c00`), and remaining implementation gaps.
+`python3 tools/dc_production_audit.py` reproduces all 106 type lookups,
+selected native ranges and first/last commands without changing gameplay data.

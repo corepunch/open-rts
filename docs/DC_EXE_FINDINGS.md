@@ -3289,3 +3289,226 @@ SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_building_damage
 ```
 
 Screenshots: `/private/tmp/barracks-open.bmp`, `/private/tmp/barracks-exit.bmp`.
+
+## Production-channel audit across all city buildings (2026-09-09)
+
+**Scope:** follow-up to the Barracks disappearance fix. Checked the retail
+executable, all FIN files in ANIM.DAT, all 106 GAMESTAT unit prefixes, and the
+current production implementation. Executable SHA-256 remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+The existing Watcom/register calling-convention evidence applies; addresses
+below were checked with r2 disassembly, not just inferred decompiler arguments.
+
+### Confirmed native channel contract
+
+The native building owns three **eight-byte animation channels**:
+
+| Object offset | Role | Runtime fields within each channel |
+| --- | --- | --- |
+| +0x14 | Main building, including standing/damage/construction | +0 pointer to direction array; +4 frame byte; +5 timer byte; +6 mode byte |
+| +0x1c | Damage visual | Same layout |
+| +0x24 | Produced unit's release presentation | Same layout |
+
+`0x423c34` compares the animation pointer and mode, resetting frame and timer to
+zero only when either changes (`0x423c39–0x423c54`). Mode 0 loops; mode 1 plays
+once and becomes inactive mode 2 at the end; mode 3 holds the final frame
+(`0x423e1e–0x423e3b`). The three channels advance independently, in the order
+main, damage, release, at `0x418567–0x418580`, before the city action handler.
+The timer-zero path advances the frame before loading its delay
+(`0x423e03–0x423e65`). Since city release startup occurs after channel ticking,
+reset frame zero is available for drawing until the next native tick; its raw
+delay does not determine that initial interval. This does not establish all
+caller timing policies or justify treating every BUILD sequence as 44 tics.
+
+The city action at `0x413620` only suppresses its main standing/damage selection
+when **main mode +0x1a** is 1 (`0x413685–0x413688`). Active **release mode
++0x2a** does not suppress the building's idle or HP-dependent animation.
+This independently confirms the concurrent building-damage test in the fix.
+
+Drawing requires an active main channel (`0x43645b–0x43646a`), resolves damage
+at `0x436470–0x4364a9` and release at `0x4364b6–0x4364ef`, then submits their
+native FIN commands using the owning object's transform. The release command
+loop includes `0x43678e–0x436807`, after the main and damage loops. Retail does
+**not** allocate a second gameplay object for this presentation. Our ordinary
+release mobj preserves visible layering through the shared Doom thinker model,
+but is not a literal port of the native three-channel storage/lifetime.
+
+### Confirmed lookup and queue lifecycle
+
+The type table starts at `0x4ec880`, stride `0x118`. Loader
+`0x438c95–0x438d16` fills type **+0x98** by selecting:
+
+1. `<type-prefix>BUILDSTAND<even facing>` if the family exists;
+2. otherwise `<type-prefix>BUILD<even facing>`;
+3. otherwise a null pointer.
+
+Availability `0x4385a8` probes suffixes 0,2,...30. Selection is by the **produced
+unit's prefix**, not its producer's sprite name, and not necessarily the file
+with that prefix. This audit found no duplicate BUILD labels in the ANIM.DAT
+load list. GRAY, ORTU and ZISP select BUILDSTAND families. RNAT and GRUB have
+nonzero-facing BUILD labels; probing only BUILD0 would miss them.
+
+The city queue lives in team state at `game + 0xb98 + team*0xe30`:
++0x108 holds four phase bytes, +0x10c four countdown bytes, +0x110 four queue
+counts, and +0x118 four 800-byte type queues. In the phase-1 path, after checking
+exit occupancy, countdown and unit capacity (`0x413752–0x413938`), a non-null
+product +0x98 is started on **producer +0x24** with mode 1
+(`0x4139d9–0x4139f2`), and the phase becomes zero. If +0x98 is null, the
+immediate-spawn path is used (`0x413938–0x413a39`). In phase zero, the handler
+waits while release mode +0x2a equals 1 (`0x413a63–0x413a6a`); after it ends,
+`0x413ab7` calls the spawn routine, the queue shifts, its count decrements, and
+phase returns to one (`0x413abc–0x413ae8`). The release is not a replacement
+for the building and is not the queued unit already walking under simulation.
+
+**Confirmed producer slots:** `0x419c9c` maps city slot to queue through the
+15-dword table at `0x419c60`: `2,0,1,4,3,4,4,4,4,4,4,4,4,0,0`.
+The handler exits when the result is 4 (`0x4136eb–0x4136f1`). Using the already
+verified city type/slot table gives:
+
+| City slot | Human / alien building family | Queue |
+| --- | --- | --- |
+| 0 | EXCOPOD / BIOHIV | 2 |
+| 1 | BRRKPOD / WARHIVE | 0 |
+| 2 | ROBOPOD, ROBOPOD2 / BRDRHIV, BRDRHIV2 | 1 |
+| 3 | SCNCPOD, SCNCPOD2 / MINDHIV, MNDHIV2 | None (4) |
+| 4 | RSCHPOD / RSCHIV | 3 |
+
+In particular, do not infer a manufacturing queue from a science-building
+prerequisite. The exact enqueue-side product-to-queue assignment is still
+**unknown in this audit**; the current C maker lists are not native evidence.
+
+**Confirmed exit lookup:** `0x41377f–0x4137a5` and `0x413a86–0x413ab7` use
+`city_anchor + exit_table[queue][product_type.f0]`. GAMESTAT loader arguments
+at `0x43873b` / `0x4387f3` map type +0xf0 to zero-based numeric column 22.
+This is the `exit_variant` printed by `tools/dc_production_audit.py`.
+The signed dword pairs at `0x419c00` are:
+
+| Queue | Variant 0 | Variant 1 | Variant 2 |
+| --- | --- | --- | --- |
+| 0 | (0,-3) | (0,-3) | (0,-3) |
+| 1 | (2,3) | (-5,-1) | (-4,-1) |
+| 2 | (-4,0) | (-5,-1) | (-4,0) |
+| 3 | (-4,3) | (-4,3) | (-4,3) |
+
+These are native grid offsets used for occupancy/reservation and passed into
+`0x41a478`, not guessed pixel deltas from the last FIN command. Downstream
+spawn-position adjustment inside that routine was not traced here. The existing
+Trooper last-frame/standing-frame delta is therefore an **engine handoff policy**,
+not proof of retail's final exact position. No guessed generalized handoff has
+been implemented from the new inventory.
+
+### Confirmed unit release inventory
+
+Inclusive native FIN ranges, before the engine's raw-SPR-cell prefix:
+
+| Native type | Prefix | Selected label | FIN | Frames |
+| --- | --- | --- | --- | --- |
+| 0 | TRSC | TRSCBUILD0 | HUBU | 26–47 (22) |
+| 1 | TURR | TURRBUILD0 | BURN | 285–300 (16) |
+| 2 | REAP | REAPBUILD0 | HUBU | 402–407 (6) |
+| 3 | BARR | BARRBUILD0 | HUBU | 382–401 (20) |
+| 4 | SARG | SARGBUILD0 | BURN | 257–268 (12) |
+| 5 | SCGM | SCGMBUILD0 | BURN | 202–228 (27) |
+| 6 | EXPL | EXPLBUILD0 | BURN | 252–256 (5) |
+| 8 | GRAY | GRAYBUILDSTAND0 | ALBU | 303–334 (32) |
+| 9 | XENO | XENOBUILD0 | ALBU | 377–385 (9) |
+| 10 | SCYT | SCYTBUILD0 | ALBU | 367–376 (10) |
+| 11 | ATRIL | ATRILBUILD0 | ALBU | 348–366 (19) |
+| 12 | PSYC | PSYCBUILD0 | PSYC | 301–320 (20) |
+| 13 | ORTU | ORTUBUILDSTAND0 | ALBU | 465–485 (21) |
+| 14 | SLUG | SLUGBUILD0 | ALBU | 432–445 (14) |
+| 43 | ENGI | ENGIBUILD0 | BURN | 229–251 (23) |
+| 44 | SLOM | SLOMBUILD0 | ALBU | 402–431 (30) |
+| 49 | BEON | BEONBUILD0 | BURN | 269–284 (16) |
+| 50 | ZISP | ZISPBUILDSTAND0 | ALBU | 446–464 (19) |
+
+The extra ATRIL prefixes at native types 7,15,27,39 resolve the same family;
+this does not establish that each type is trainable. Commander TRSC types
+69–72 and GRAY types 73–76 also resolve their prefix's release family, without
+proving a production UI entry. RNAT types 25,38 resolve RNATBUILD4 (120–126)
+and RNATBUILD12 (113–119), both in RNAT.FIN; GRUB type 36 resolves GRUBBUILD6
+(98–104) in GRUB.FIN. Their role is outside city troop production here.
+DROP's `SCNCPOOPBUILD` and `SCNCBUILD` do not match a native type BUILD family;
+they must not become guessed aliases for SCNCPOD.
+
+**Asset consequences:** TRSC and ENGI start with the same HUBU door cell 12 at
+(-36,27); GRAY and SLOM start with ALBU door cell 24 at (-65,8). Other releases
+can consist solely of unit parts. SCGM, ORTU, BEON and ZISP end with multiple
+commands, sometimes multiple copies of the same unit sprite, so “use the last
+command's offset” is not a valid general spawn algorithm. The audit tool retains
+all first/last commands and raw delays. REAP, SARG and EXPL use raw-zero delays;
+TRSC/ENGI/BEON use raw 6; several others mix 0,6,13; RNAT and GRUB use 33.
+Do not reuse the Trooper's frame count or delay for another product.
+
+### Confirmed building construction inventory
+
+Constructor `0x4413db–0x441413` initializes main to standing mode 0 and both
+secondary channels to inactive mode 2. When the construction branch is taken,
+`0x44143a–0x44144b` starts **the building type's +0x98 on main +0x14**, mode 1.
+The pointer saved at `0x4413e4` is the main-channel address; it is not +0x24.
+This intentional main replacement differs from releasing a unit. Native
+construction frames include the developing building and delivery/effect parts;
+adding an unconditional finished-building underlay would be incorrect.
+
+| Native type | Building prefix / label suffix BUILD0 | FIN | Native frames |
+| --- | --- | --- | --- |
+| 16 | EXCOPOD | PART4 | 61–81 (21) |
+| 17 | BRRKPOD | PART4 | 103–123 (21) |
+| 18 | ROBOPOD | ROBO | 0–41 (42) |
+| 19 | ROBOPOD2 | DROP4 | 0–22 (23) |
+| 20 | SCNCPOD | DROP | 94–135 (42) |
+| 21 | SCNCPOD2 | DROP3 | 0–36 (37) |
+| 22 | RSCHPOD | PART2 | 61–83 (23) |
+| 28 | BIOHIV | SAUC | 67–150 (84) |
+| 29 | WARHIVE | SAUC | 151–206 (56) |
+| 30 | BRDRHIV | SAUC2 | 78–152 (75) |
+| 31 | BRDRHIV2 | SAUC2 | 207–229 (23) |
+| 32 | MINDHIV | SAUC2 | 0–71 (72) |
+| 33 | MNDHIV2 | SAUC2 | 167–188 (22) |
+| 34 | RSCHIV | SAUC4 | 0–60 (61) |
+
+Type 35 repeats RSCHIV. All listed construction sequences have raw-zero delays;
+that is not a claim that they have zero displayed duration. First/last command
+inspection confirms completed building parts within the FIN sequences, including
+upgrades which retain their lower module as authored commands.
+
+### Current implementation versus retail
+
+**Confirmed from source:** `G_ModelStartProductionRelease` and the special exit
+path are still restricted to Barracks/Trooper. The visibility fix correctly
+preserves its building, but no other native release family is connected to
+production. `G_ModelBuildingStateForProduct` selects native construction chains
+only for types 19,20,21. Types 16,17 enter standing directly; 18,22 fall through
+to their spawned standing states. Alien construction is not exposed by the
+current product table. This audit does not silently turn those missing paths
+into finished functionality.
+
+Retail stores the release on the producer. Our release mobj copies the transform
+once and may finish visually after producer destruction; terminal notification
+uses its stable producer ID. Full native lifetime, death interaction, enqueue
+routing, training countdown source, and final spawn placement need to be carried
+through together before claiming an exact general production port. The original
+visibility fix is narrower than that. This follow-up changes audit tooling and
+records evidence, not production behavior.
+
+### Reproduce and verify
+
+```sh
+make dc-info-conv
+python3 tools/dc_production_audit.py > /private/tmp/dc-production-audit.json
+r2 -q -e scr.color=false -e bin.cache=true -c 'pD 140 @ 0x438c95' -c 'pD 1263 @ 0x413620' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 'pD 130 @ 0x4413db' -c 'pD 300 @ 0x423dd0' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 'pxw 96 @ 0x419c00' -c 'pxw 60 @ 0x419c60' -c q data/DCOLONY/DC.EXE
+```
+
+The audit reads native GAMESTAT, the actual ANIM.DAT list and FIN metadata via
+`dc_info_conv`; it does not load extracted stats into gameplay. Its JSON includes
+all 106 types, including null-family results, native executable fingerprint,
+selected label ranges, delays and complete first/last commands. Selection was
+cross-checked against the earlier generated GAMESTAT header and direct
+`dc_info_conv --label` inspection for human and alien releases/construction.
+
+Verification: the audit reports 48 types with a selected family (50 directional
+sequences including repeated prefixes), and all 106 prefixes/exit variants
+match the separately extracted `gamestat.h`. `make`, `make tags`, the Dark Colony
+headless smoke check, `test_barracks_production`, and `test_building_damage` pass.
