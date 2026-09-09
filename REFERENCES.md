@@ -345,11 +345,11 @@ at `origin + (-30,-32)` with no extra `disX` or `disY`.
 The Exploiter (`EXPL.SPR`) uses a Doom-style state machine with these phases:
 
 **Mobile (body frame varies by direction, no overlay):**
-- `S_DC_EXPL_STND` — idle, `tics=-1` (infinite hold), `misc1=1`
-- `S_DC_EXPL_RUN1/RUN2` — walking 2-frame loop, `misc1=2`
+- `S_EXPL_STND` — idle, `tics=-1` (infinite hold), `misc1=1`
+- `S_EXPL_RUN1/RUN2` — walking 2-frame loop, `misc1=2`
 
 **Deploy sequence (body frame 14 fixed, overlay extends turret arm):**
-- `S_DC_EXPL_DEPLOY1..DEPLOY10` — 10 states, `tics=3` each, `misc1=5`
+- `S_EXPL_DEPLOY1..DEPLOY10` — 10 states, `tics=3` each, `misc1=5`
 - Overlay frames progress 15→16→17→…→23 for E/SE/S/SW-facing directions.
   N/NW/W/SW-facing directions use frame 15 throughout the deploy sequence
   (the turret arm is visually in its base/folded position for those angles).
@@ -357,18 +357,18 @@ The Exploiter (`EXPL.SPR`) uses a Doom-style state machine with these phases:
   re-triggering the deploy while it is already playing.
 
 **Work/harvest loop (body frame 14 fixed, overlay pulses):**
-- `S_DC_EXPL_WORK1..WORK15` — 15-state loop, `WORK1 tics=3`, `WORK2-15 tics=5`
+- `S_EXPL_WORK1..WORK15` — 15-state loop, `WORK1 tics=3`, `WORK2-15 tics=5`
 - `WORK1` and `WORK15` use overlay frame 24 (turret-top rest position, `Y=-27`);
   `WORK2..WORK14` pulse through frames 25→26→27→28→29→30→32→33→…→25 at
   `Y=-31..-33`. The brief 5-tick dwell at frame 24/`Y=-27` at the end of each
   cycle creates a subtle visual "settle" before the next pulse.
-- `WORK15` loops back to `WORK1` (`nextstate = S_DC_EXPL_WORK1`). All work
+- `WORK15` loops back to `WORK1` (`nextstate = S_EXPL_WORK1`). All work
   states have `misc1=5`.
 - The harvest guard in `engine_units.c` triggers `set_unit_state(DEPLOY1)` only
   when `state->misc1 != 5`, so the work loop runs uninterrupted.
 
 **Death sequence:**
-- `S_DC_EXPL_DIE1..DIE6, CORPSE` — `misc1=4`, triggers `A_DC_Fall` at DIE1.
+- `S_EXPL_DIE1..DIE6, CORPSE` — `misc1=4`, triggers `A_DC_Fall` at DIE1.
 - `A_DC_Fall` strips `T_HARVESTER` and `T_MOBILE` from the
   unit's traits and sets `death_started=true`.
 

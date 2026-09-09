@@ -76,9 +76,9 @@ static uint16_t unit_actor_id_for_product_type(int product_type) {
     case 4: return 6;
     case 5: return 7;
     case 6: return 3;
-    case 14: return MT_DC_SLUG;
-    case  8: return MT_DC_GREY;
-    case 13: return MT_DC_ORTU;
+    case 14: return MT_SLUG;
+    case  8: return MT_GREY;
+    case 13: return MT_ORTU;
     default: return 0;
     }
 }

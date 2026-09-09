@@ -98,7 +98,7 @@ confirms each frame part references a sprite index into a loaded SPR file
 
 ### `DROPMOVE0` (frames 84–93, 10 frames) — Flying Approach / Departure
 
-Used for: `S_DC_DROPSHIP_APPROACH` and `S_DC_DROPSHIP_DEPART`.
+Used for: `S_DROPSHIP_APPROACH` and `S_DROPSHIP_DEPART`.
 
 Each frame has 5–11 parts. Every frame always has exactly 2 `drop` commands
 (the ship body):
@@ -116,7 +116,7 @@ Additional parts per frame:
 
 ### `DROPTWO` (frames 0–9, 10 frames) — Unload Animation
 
-Used for: `S_DC_DROPSHIP_UNLOAD`.
+Used for: `S_DROPSHIP_UNLOAD`.
 
 Each frame has 10–14 parts. Every frame has exactly 2 `drop` commands (body)
 at `layer=1` (upper) and `layer=0` (lower). This is the most complex animation:
@@ -139,12 +139,12 @@ Defined in `info.c:324–327`:
 
 | State | Action | Next State |
 |-------|--------|------------|
-| `S_DC_DROPSHIP_APPROACH` | `A_DC_DropshipApproach` | `S_DC_DROPSHIP_UNLOAD` |
-| `S_DC_DROPSHIP_UNLOAD` | `A_DC_DropshipUnload` | `S_DC_DROPSHIP_REPOSITION` |
-| `S_DC_DROPSHIP_REPOSITION` | `A_DC_DropshipReposition` | `S_DC_DROPSHIP_UNLOAD` or `S_DC_DROPSHIP_DEPART` |
-| `S_DC_DROPSHIP_DEPART` | `A_DC_DropshipDepart` | `S_NULL` (removed) |
+| `S_DROPSHIP_APPROACH` | `A_DC_DropshipApproach` | `S_DROPSHIP_UNLOAD` |
+| `S_DROPSHIP_UNLOAD` | `A_DC_DropshipUnload` | `S_DROPSHIP_REPOSITION` |
+| `S_DROPSHIP_REPOSITION` | `A_DC_DropshipReposition` | `S_DROPSHIP_UNLOAD` or `S_DROPSHIP_DEPART` |
+| `S_DROPSHIP_DEPART` | `A_DC_DropshipDepart` | `S_NULL` (removed) |
 
-All states have `tics=1` and sprite=`SPR_DC_DROP` (placeholder — real rendering
+All states have `tics=1` and sprite=`SPR_DROP` (placeholder — real rendering
 is via effect slots).
 
 ## Script command parsing
@@ -165,7 +165,7 @@ to match the command keyword.
 
 ## Rendering: multi-part compositing
 
-The dropship actor itself (`MT_DC_DROP_LINK`) has an empty `mobjinfo` entry.
+The dropship actor itself (`MT_DROP_LINK`) has an empty `mobjinfo` entry.
 The state table sprite is just a placeholder. All visual rendering comes from
 **effect slots** managed by `sync_dropship_parts`.
 
@@ -202,13 +202,13 @@ so a 10-frame animation loops every ~1030ms.
 A `reinforce` command in the `.TRO` script calls the reinforce parser at
 `fcn.0043ae2c`. On first call for a given delivery, a free `Dropship` slot
 is allocated (max 8 concurrent), the flight vector is set from off-screen
-start to origin cell, and state is set to `S_DC_DROPSHIP_APPROACH`.
+start to origin cell, and state is set to `S_DROPSHIP_APPROACH`.
 
 ### 2. Approach
 
 `A_DC_DropshipApproach` moves the ship actor toward `movement.goal` via
 `P_MoveMobjToward`. The animation uses `DROPMOVE0` (fly-in with dust trail
-and sparkles). State auto-transitions to `S_DC_DROPSHIP_UNLOAD`.
+and sparkles). State auto-transitions to `S_DROPSHIP_UNLOAD`.
 
 ### 3. Unload
 
@@ -366,7 +366,7 @@ Relevant Files
 - games/dark-colony/p_spec.c: Dropship state machine, sync_dropship_parts (line 434), DROPSHIP_ALTITUDE (line 102), spawn (line 514), tick_dropship_state (line 595), spawn_dropship_part (line 418)
 - games/dark-colony/w_spr.c: dropship_animation_from_sprites, load_dropship_label
 - games/dark-colony/w_spr.h: DropshipAnimation, DropshipFrame, DropshipPart structs
-- games/dark-colony/info.h: State enum (S_DC_DROPSHIP_APPROACH etc.), sprite enum
+- games/dark-colony/info.h: State enum (S_DROPSHIP_APPROACH etc.), sprite enum
 - play/p_mobj.c: P_MoveMobjToward (line 575), move_unit_if_walkable (line 535)
 - driver/m_vec.h: fixed3_from_fvec2 (line 75), fixed3_add_planar (line 99)
 - render/r_draw.c: R_MapPositionToScreen (line 86), Z→screen Y conversion (line 90)

@@ -5,7 +5,7 @@
 static int troopers(const RtsRenderSnapshot *snapshot) {
     int count = 0;
     for (int i = 0; i < snapshot->unit_count; ++i)
-        if (snapshot->units[i].owner == 0 && snapshot->units[i].type_id == MT_DC_TROOPER)
+        if (snapshot->units[i].owner == 0 && snapshot->units[i].type_id == MT_TROOPER)
             count++;
     return count;
 }

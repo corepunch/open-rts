@@ -873,43 +873,43 @@ static bool scenario_object_starts_visible(const ScenarioObject *object) {
 
 static int mobj_type_for_type(int type, int race) {
     switch (type) {
-        case 16: return MT_DC_EXCOPOD;
-        case 17: return MT_DC_BRRKPOD;
-        case 18: return MT_DC_ROBOPOD;
-        case 19: return MT_DC_ROBOPOD2;
-        case 20: return MT_DC_SCNCPOD;
-        case 21: return MT_DC_SCNCPOD2;
-        case 22: return MT_DC_RSCHPOD;
-        case 28: return MT_DC_ALIEN_MINDHIVE;
-        case 29: return MT_DC_ALIEN_WARHIVE;
-        case 30: return MT_DC_ALIEN_BRDRHIVE;
-        case 31: return MT_DC_ALIEN_BRDRHIVE2;
-        case 32: return MT_DC_ALIEN_MINDHIVE2;
-        case 33: return MT_DC_ALIEN_MINDHIVE3;
-        case 34: return MT_DC_ALIEN_RSCHIVE;
-        case 41: return MT_DC_MOBILE_TOWER;
-        case 81: return MT_DC_CITY_TOWER;
-        case 86: return MT_DC_COMMS_DISH;
-        case 89: return MT_DC_DROP_LINK;
-        case 91: return MT_DC_ALIEN_COM;
-        case 94: return MT_DC_VISION_SIGHT;
+        case 16: return MT_EXCOPOD;
+        case 17: return MT_BRRKPOD;
+        case 18: return MT_ROBOPOD;
+        case 19: return MT_ROBOPOD2;
+        case 20: return MT_SCNCPOD;
+        case 21: return MT_SCNCPOD2;
+        case 22: return MT_RSCHPOD;
+        case 28: return MT_ALIEN_MINDHIVE;
+        case 29: return MT_ALIEN_WARHIVE;
+        case 30: return MT_ALIEN_BRDRHIVE;
+        case 31: return MT_ALIEN_BRDRHIVE2;
+        case 32: return MT_ALIEN_MINDHIVE2;
+        case 33: return MT_ALIEN_MINDHIVE3;
+        case 34: return MT_ALIEN_RSCHIVE;
+        case 41: return MT_MOBILE_TOWER;
+        case 81: return MT_CITY_TOWER;
+        case 86: return MT_COMMS_DISH;
+        case 89: return MT_DROP_LINK;
+        case 91: return MT_ALIEN_COM;
+        case 94: return MT_VISION_SIGHT;
         default: break;
     }
 
     if (race == 1) {
-        if (type == 0 || type == 8 || (type >= 69 && type <= 76)) return MT_DC_GREY;
-        if (type == 13) return MT_DC_ORTU;
-        if (type == 14) return MT_DC_SLUG;
+        if (type == 0 || type == 8 || (type >= 69 && type <= 76)) return MT_GREY;
+        if (type == 13) return MT_ORTU;
+        if (type == 14) return MT_SLUG;
         return 0;
     }
 
-    if (type == 0 || (type >= 69 && type <= 72)) return MT_DC_TROOPER;
+    if (type == 0 || (type >= 69 && type <= 72)) return MT_TROOPER;
     switch (type) {
-        case 2: return MT_DC_REAPER;
-        case 3: return MT_DC_THUNDERBOLT;
-        case 4: return MT_DC_CYBORG;
-        case 5: return MT_DC_SCOUT;
-        case 6: return MT_DC_EXPLOITER;
+        case 2: return MT_REAPER;
+        case 3: return MT_THUNDERBOLT;
+        case 4: return MT_CYBORG;
+        case 5: return MT_SCOUT;
+        case 6: return MT_EXPLOITER;
         default: return 0;
     }
 }
@@ -936,16 +936,16 @@ static int unit_frame_for_type(int type) {
 
 static int unit_state_for_type(int type) {
     switch (type) {
-        case 16: return S_DC_EXCOPOD_STND;
-        case 17: return S_DC_BRRKPOD_STND;
-        case 81: return S_DC_TOWR_STND;
-        case 28: return S_DC_ALIEN_MINDHIVE_STND;
-        case 29: return S_DC_ALIEN_WARHIVE_STND;
-        case 30: return S_DC_ALIEN_BRDRHIVE_STND;
-        case 31: return S_DC_ALIEN_BRDRHIVE2_STND;
-        case 32: return S_DC_ALIEN_MINDHIVE2_STND;
-        case 33: return S_DC_ALIEN_MINDHIVE3_STND;
-        case 34: return S_DC_ALIEN_RSCHIVE_STND;
+        case 16: return S_EXCOPOD_STND;
+        case 17: return S_BRRKPOD_STND;
+        case 81: return S_TOWR_STND;
+        case 28: return S_ALIEN_MINDHIVE_STND;
+        case 29: return S_ALIEN_WARHIVE_STND;
+        case 30: return S_ALIEN_BRDRHIVE_STND;
+        case 31: return S_ALIEN_BRDRHIVE2_STND;
+        case 32: return S_ALIEN_MINDHIVE2_STND;
+        case 33: return S_ALIEN_MINDHIVE3_STND;
+        case 34: return S_ALIEN_RSCHIVE_STND;
         default: return S_NULL;
     }
 }
@@ -1096,19 +1096,19 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     u->harvest.target = -1;
     if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config)
         u->speed = unit_config[type].speed;
-    if (mobj_type == MT_DC_EXPLOITER) u->speed = 3.5f;
+    if (mobj_type == MT_EXPLOITER) u->speed = 3.5f;
     u->type_id = (uint16_t)mobj_type;
     u->native_type_id = (uint16_t)(type >= 0 ? type : 0);
     P_MobjSetHidden(u, hidden);
-    u->owner = (team_allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_DC_COMMS_DISH) ? 0 :
+    u->owner = (team_allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_COMMS_DISH) ? 0 :
                (team_allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
     u->team = (uint8_t)(scenario_team >= 0 ? scenario_team : 0);
     u->allegiance = (uint8_t)(team_allegiance == DC_ALLEGIANCE_PLAYER ? ALLEGIANCE_PLAYER :
                               team_allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED :
                               ALLEGIANCE_ENEMY);
     u->hp = object->health_or_amount;
-    P_MobjSetSelected(u, u->owner == 0 && mobj_type != MT_DC_COMMS_DISH &&
-        (mobj_type < MT_DC_BUILDING_BASE) && player_selected && !*player_selected);
+    P_MobjSetSelected(u, u->owner == 0 && mobj_type != MT_COMMS_DISH &&
+        (mobj_type < MT_BUILDING_BASE) && player_selected && !*player_selected);
     if (P_MobjIsSelected(u)) *player_selected = true;
     u->core.frame = unit_frame_for_type(type);
     snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", actor->sprite_name);
@@ -1133,7 +1133,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
             *player_anchor_y = y;
             *player_anchor_set = true;
         }
-        if (player_has_exploiter && mobj_type == MT_DC_EXPLOITER)
+        if (player_has_exploiter && mobj_type == MT_EXPLOITER)
             *player_has_exploiter = true;
     }
     (*count)++;

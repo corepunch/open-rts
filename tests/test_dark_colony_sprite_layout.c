@@ -279,9 +279,9 @@ static int assert_dark_colony_city_fin_alignment(void) {
     const FinCommand *tower = fin_command(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     if (!exco || !barracks || !tower) return fail("resolve Dark Colony city FIN commands");
 
-    if (states[S_DC_EXCOPOD_STND].frame != exco->frame ||
-        states[S_DC_BRRKPOD_STND].frame != barracks->frame ||
-        states[S_DC_TOWR_STND].frame != tower->frame) {
+    if (states[S_EXCOPOD_STND].frame != exco->frame ||
+        states[S_BRRKPOD_STND].frame != barracks->frame ||
+        states[S_TOWR_STND].frame != tower->frame) {
         return fail("city building states use the primary FIN sprite frame");
     }
     if (barracks->x != -36 || barracks->y != 37) {
@@ -525,9 +525,9 @@ void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 static int assert_reaper_move_timing(void) {
     static const int expected_tics[] = {4, 3, 3, 4, 1, 3, 3, 1};
     for (int i = 0; i < 8; ++i) {
-        if (states[S_DC_REAP_RUN1 + i].tics != expected_tics[i]) {
+        if (states[S_REAP_RUN1 + i].tics != expected_tics[i]) {
             fprintf(stderr, "Reaper run state %d has %d tics, expected %d\n",
-                    i + 1, states[S_DC_REAP_RUN1 + i].tics, expected_tics[i]);
+                    i + 1, states[S_REAP_RUN1 + i].tics, expected_tics[i]);
             return fail("Reaper movement preserves native FIN timing");
         }
     }
@@ -536,7 +536,7 @@ static int assert_reaper_move_timing(void) {
 
 static int assert_barracks_trooper_release_timing(void) {
     int total_tics = 0;
-    int state_id = S_DC_BRRKPOD_BUILD_TRSC1;
+    int state_id = S_BRRKPOD_BUILD_TRSC1;
     for (int frame = 0; frame < 22; ++frame) {
         const state_t *state = &states[state_id];
         if (state->misc1 != 6 || state->tics < 1 || state->tics > 2)
@@ -544,7 +544,7 @@ static int assert_barracks_trooper_release_timing(void) {
         total_tics += state->tics;
         state_id = state->nextstate;
     }
-    if (total_tics != 35 || state_id != S_DC_BRRKPOD_STND)
+    if (total_tics != 35 || state_id != S_BRRKPOD_STND)
         return fail("Barracks Trooper release preserves native time and returns to stand");
     return 0;
 }
@@ -578,13 +578,13 @@ static int assert_generated_mobj_table_coverage(void) {
 }
 
 static int assert_dropship_state_chain(void) {
-    const state_t *approach = &states[S_DC_DROPSHIP_APPROACH];
-    const state_t *unload = &states[S_DC_DROPSHIP_UNLOAD];
-    const state_t *reposition = &states[S_DC_DROPSHIP_REPOSITION];
-    const state_t *depart = &states[S_DC_DROPSHIP_DEPART];
-    if (approach->nextstate != S_DC_DROPSHIP_UNLOAD ||
-        unload->nextstate != S_DC_DROPSHIP_REPOSITION ||
-        reposition->nextstate != S_DC_DROPSHIP_UNLOAD ||
+    const state_t *approach = &states[S_DROPSHIP_APPROACH];
+    const state_t *unload = &states[S_DROPSHIP_UNLOAD];
+    const state_t *reposition = &states[S_DROPSHIP_REPOSITION];
+    const state_t *depart = &states[S_DROPSHIP_DEPART];
+    if (approach->nextstate != S_DROPSHIP_UNLOAD ||
+        unload->nextstate != S_DROPSHIP_REPOSITION ||
+        reposition->nextstate != S_DROPSHIP_UNLOAD ||
         depart->nextstate != S_NULL ||
         !approach->action || !unload->action ||
         !reposition->action || !depart->action) {

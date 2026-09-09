@@ -93,7 +93,7 @@ static void check_ui_storage(SDL_Renderer *renderer) {
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     CHECK(cache->numsprites == NUMSPRITES && cache->ui);
     CHECK(!cache->ui->sprites && cache->ui->numsprites == 0);
-    CHECK(R_StateSprite(cache, NULL, SPR_DC_BARR, NULL));
+    CHECK(R_StateSprite(cache, NULL, SPR_BARR, NULL));
     CHECK(!R_CacheLookup(cache, "ENCYCLO/BARR.SPR"));
     CHECK(!R_CacheLookup(cache->ui, "BARR"));
     CHECK(R_CacheLookup(cache->ui, "ENCYCLO/BARR.SPR"));

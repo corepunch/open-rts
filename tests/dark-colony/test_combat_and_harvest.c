@@ -14,7 +14,7 @@ static int fail(const char *message) {
 }
 
 static const mobjtype_t TEST_ATTACKER_INFO = {
-    .id = MT_DC_TROOPER,
+    .id = MT_TROOPER,
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
     .max_hp = 800,
     .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
@@ -24,7 +24,7 @@ static const mobjtype_t TEST_ATTACKER_INFO = {
 };
 
 static const mobjtype_t TEST_TARGET_INFO = {
-    .id = MT_DC_TROOPER,
+    .id = MT_TROOPER,
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
     .max_hp = 800,
     .hit_effect_name = "SPRITES/BLOO.SPR",
@@ -37,7 +37,7 @@ static int assert_attack_lifecycle(void) {
     mobj_t units[2];
     memset(units, 0, sizeof(units));
 
-    units[0].type_id = MT_DC_TROOPER;
+    units[0].type_id = MT_TROOPER;
     units[0].owner = 0;
     units[0].allegiance = ALLEGIANCE_PLAYER;
     units[0].hp = units[0].max_hp = 800;
@@ -184,7 +184,7 @@ static int assert_exploiter_harvest_lifecycle(void) {
         if (now < 0) return fail("exploiter disappeared during harvest");
         if (snapshot.units[now].harvest_target >= 0) saw_harvest_target = true;
         int state_id = snapshot.units[now].state_id;
-        if (state_id >= S_DC_EXPL_DEPLOY1 && state_id <= S_DC_EXPL_WORK2)
+        if (state_id >= S_EXPL_DEPLOY1 && state_id <= S_EXPL_WORK2)
             saw_deploy_or_work_state = true;
     }
     if (!saw_harvest_target) return fail("exploiter never recorded a harvest target");

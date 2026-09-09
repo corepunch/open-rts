@@ -22,7 +22,7 @@ extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, t
 
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
-        .id = MT_DC_TROOPER,
+        .id = MT_TROOPER,
         .name = "Trooper",
         .sprite_name = "SPRITES/TRSC.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -33,12 +33,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .muzzle_flash_sprite = SPR_DC_MUZA,
-        .hit_effect_sprite = SPR_DC_BLOO,
+        .muzzle_flash_sprite = SPR_MUZA,
+        .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
-        .id = MT_DC_GREY,
+        .id = MT_GREY,
         .name = "Grey",
         .sprite_name = "SPRITES/GRAY.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -46,12 +46,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .muzzle_flash_sprite = SPR_DC_MUZA,
-        .hit_effect_sprite = SPR_DC_BLOO,
+        .muzzle_flash_sprite = SPR_MUZA,
+        .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
-        .id = MT_DC_EXPLOITER,
+        .id = MT_EXPLOITER,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -59,10 +59,10 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         /* The gameplay tuning uses the documented heavy-harvester rate. */
         .speed = 3.5f,
         .max_hp = 800,
-        .harvest = { .capacity = 0, .state_id = S_DC_EXPL_DEPLOY1 },
+        .harvest = { .capacity = 0, .state_id = S_EXPL_DEPLOY1 },
     },
     {
-        .id = MT_DC_REAPER,
+        .id = MT_REAPER,
         .name = "Mech",
         .sprite_name = "SPRITES/REAP.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -70,13 +70,13 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 30.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .muzzle_flash_sprite = SPR_DC_BLAZ,
-        .hit_effect_sprite = SPR_DC_BLOO,
+        .muzzle_flash_sprite = SPR_BLAZ,
+        .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
         .death_effect_action = A_DC_ReaperDeath,
     },
     {
-        .id = MT_DC_THUNDERBOLT,
+        .id = MT_THUNDERBOLT,
         .name = "Thunderbolt",
         .sprite_name = "SPRITES/BARR.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -84,12 +84,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 15.0f / 32.0f,
         .max_hp = 1200,
         .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200 },
-        .muzzle_flash_sprite = SPR_DC_BLAZ,
-        .hit_effect_sprite = SPR_DC_BLOO,
+        .muzzle_flash_sprite = SPR_BLAZ,
+        .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
-        .id = MT_DC_CYBORG,
+        .id = MT_CYBORG,
         .name = "Cyborg",
         .sprite_name = "SPRITES/SARG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -97,12 +97,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 45.0f / 32.0f,
         .max_hp = 1200,
         .attack = { .range = 3.0f, .damage = 150, .cooldown_ms = 700 },
-        .muzzle_flash_sprite = SPR_DC_MUZA,
-        .hit_effect_sprite = SPR_DC_BLOO,
+        .muzzle_flash_sprite = SPR_MUZA,
+        .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
-        .id = MT_DC_SCOUT,
+        .id = MT_SCOUT,
         .name = "Scout",
         .sprite_name = "SPRITES/SCGM.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -110,124 +110,124 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 47.0f / 32.0f,
         .max_hp = 600,
         .attack = { .range = 5.0f, .damage = 80, .cooldown_ms = 600 },
-        .muzzle_flash_sprite = SPR_DC_MUZA,
-        .hit_effect_sprite = SPR_DC_BLOO,
+        .muzzle_flash_sprite = SPR_MUZA,
+        .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
     },
     {
-        .id = MT_DC_EXCOPOD,
+        .id = MT_EXCOPOD,
         .name = "Exco Center",
         .sprite_name = "SPRITES/HUBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 4800,
     },
     {
-        .id = MT_DC_BRRKPOD,
+        .id = MT_BRRKPOD,
         .name = "Barracks",
         .sprite_name = "SPRITES/HUBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
-        .id = MT_DC_ROBOPOD,
+        .id = MT_ROBOPOD,
         .name = "Robot Factory",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
-        .id = MT_DC_ROBOPOD2,
+        .id = MT_ROBOPOD2,
         .name = "Robot Factory II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
-        .id = MT_DC_SCNCPOD,
+        .id = MT_SCNCPOD,
         .name = "Science Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
-        .id = MT_DC_SCNCPOD2,
+        .id = MT_SCNCPOD2,
         .name = "Science Pod II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
-        .id = MT_DC_RSCHPOD,
+        .id = MT_RSCHPOD,
         .name = "Research Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
-        .id = MT_DC_ALIEN_MINDHIVE,
+        .id = MT_ALIEN_MINDHIVE,
         .name = "Mind Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 4800,
     },
     {
-        .id = MT_DC_ALIEN_WARHIVE,
+        .id = MT_ALIEN_WARHIVE,
         .name = "Warrior Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
-        .id = MT_DC_ALIEN_BRDRHIVE,
+        .id = MT_ALIEN_BRDRHIVE,
         .name = "Breeder Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
-        .id = MT_DC_ALIEN_BRDRHIVE2,
+        .id = MT_ALIEN_BRDRHIVE2,
         .name = "Breeder Hive II",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
-        .id = MT_DC_ALIEN_MINDHIVE2,
+        .id = MT_ALIEN_MINDHIVE2,
         .name = "Mind Hive II",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 2400,
     },
     {
-        .id = MT_DC_ALIEN_MINDHIVE3,
+        .id = MT_ALIEN_MINDHIVE3,
         .name = "Mind Hive III",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
-        .id = MT_DC_ALIEN_RSCHIVE,
+        .id = MT_ALIEN_RSCHIVE,
         .name = "Research Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 3600,
     },
     {
-        .id = MT_DC_COMMS_DISH,
+        .id = MT_COMMS_DISH,
         .name = "Communication Dish",
         .sprite_name = "SPRITES/DISH.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 1200,
     },
     {
-        .id = MT_DC_CITY_TOWER,
+        .id = MT_CITY_TOWER,
         .name = "City Tower",
         .sprite_name = "SPRITES/TOWR.SPR",
         .traits = MF_RENDERABLE,
         .max_hp = 1600,
     },
     {
-        .id = MT_DC_ORTU,
+        .id = MT_ORTU,
         .name = "Saucer Scout",
         .sprite_name = "SPRITES/ORTU.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -237,7 +237,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 2.0f, .damage = 100, .cooldown_ms = 500 },
     },
     {
-        .id = MT_DC_SLUG,
+        .id = MT_SLUG,
         .name = "Alien Worker",
         .sprite_name = "SPRITES/SLUG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -246,7 +246,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .max_hp = 800,
     },
     {
-        .id = MT_DC_MOBILE_TOWER,
+        .id = MT_MOBILE_TOWER,
         .name = "Mobile Tower",
         .sprite_name = "SPRITES/TURR.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
@@ -254,21 +254,21 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
     },
     {
-        .id = MT_DC_DROP_LINK,
+        .id = MT_DROP_LINK,
         .name = "Dropship Link",
         .sprite_name = "SPRITES/CENT.SPR",
         .traits = MF_RENDERABLE,
         .max_hp = 800,
     },
     {
-        .id = MT_DC_ALIEN_COM,
+        .id = MT_ALIEN_COM,
         .name = "Alien Com Tower",
         .sprite_name = "SPRITES/TONG.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
         .max_hp = 800,
     },
     {
-        .id = MT_DC_VISION_SIGHT,
+        .id = MT_VISION_SIGHT,
         .name = "Vision Sight",
         .sprite_name = "SPRITES/DOTT.SPR",
         .traits = MF_RENDERABLE,
@@ -329,7 +329,7 @@ const char *const g_game_default_map   = "SCENARIO/HUMAN/HUMAN01.MAP";
 const char *const g_game_default_sprite = "SPRITES/TROOPER1.SPR";
 const int g_cell_w = 32;
 const int g_cell_h = 32;
-const uint16_t g_debug_enemy_type = MT_DC_GREY;
+const uint16_t g_debug_enemy_type = MT_GREY;
 static state_t runtime_states[NUMSTATES];
 static gameinfo_t runtime_info;
 

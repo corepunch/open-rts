@@ -134,7 +134,7 @@ static void sync_dropship_parts(DropshipRuntime *runtime,
 
 static const DropshipAnimation *dropship_animation(
     const DropshipSystem *ships, int state_id) {
-    return state_id == S_DC_DROPSHIP_UNLOAD ? &ships->dropship_animations.unload :
+    return state_id == S_DROPSHIP_UNLOAD ? &ships->dropship_animations.unload :
                                                &ships->dropship_animations.move;
 }
 
@@ -158,7 +158,7 @@ static DropshipRuntime *reserve_dropship(
     ship->movement.goal = fvec2_cell_center(runtime->origin);
     runtime->release_pending = true;
     for (int i = 0; i < DROPSHIP_MAX_PARTS; ++i) runtime->effect_slots[i] = -1;
-    ship->type_id = MT_DC_DROP_LINK;
+    ship->type_id = MT_DROP_LINK;
     const mobjinfo_t *info = &game_info.mobjinfo[ship->type_id];
     ship->traits = (uint32_t)info->flags;
     ship->speed = (float)info->speed;
@@ -252,35 +252,35 @@ static void tick_dropship_state(DropshipSystem *ships, DropshipRuntime *runtime,
     };
     mobj_t *ship = &runtime->mobj;
     int state_before = ship->core.state_id;
-    bool moving = state_before == S_DC_DROPSHIP_APPROACH ||
-                  state_before == S_DC_DROPSHIP_REPOSITION ||
-                  state_before == S_DC_DROPSHIP_DEPART;
+    bool moving = state_before == S_DROPSHIP_APPROACH ||
+                  state_before == S_DROPSHIP_REPOSITION ||
+                  state_before == S_DROPSHIP_DEPART;
     if (moving) {
         P_MoveMobjToward(NULL, ship, dt);
     }
     P_TickMobjState(&state_context, ship);
     int state_after = ship->core.state_id;
 
-    if (state_before == S_DC_DROPSHIP_UNLOAD && state_after != S_DC_DROPSHIP_UNLOAD) {
+    if (state_before == S_DROPSHIP_UNLOAD && state_after != S_DROPSHIP_UNLOAD) {
         DropshipUpdateContext update = {
             .map = map, .units = units,
             .unit_count = unit_count, .game_info = game_info,
         };
         dropship_unload_done(&update, runtime);
-        int next_state = S_DC_DROPSHIP_DEPART;
+        int next_state = S_DROPSHIP_DEPART;
         if (runtime->payload_index < runtime->payload_count) {
             fvec2_t delta = fvec2_sub(
                 ship->movement.goal, fixed3_xy_to_fvec2(ship->core.position));
             next_state = fvec2_length_squared(delta) > 0.001f * 0.001f ?
-                S_DC_DROPSHIP_REPOSITION : S_DC_DROPSHIP_UNLOAD;
+                S_DROPSHIP_REPOSITION : S_DROPSHIP_UNLOAD;
         }
         P_SetMobjState(&state_context, ship, next_state);
-    } else if (state_before == S_DC_DROPSHIP_REPOSITION &&
-               state_after != S_DC_DROPSHIP_REPOSITION) {
+    } else if (state_before == S_DROPSHIP_REPOSITION &&
+               state_after != S_DROPSHIP_REPOSITION) {
         runtime->release_pending = true;
-        P_SetMobjState(&state_context, ship, S_DC_DROPSHIP_UNLOAD);
-    } else if (state_before == S_DC_DROPSHIP_DEPART &&
-               state_after != S_DC_DROPSHIP_DEPART) {
+        P_SetMobjState(&state_context, ship, S_DROPSHIP_UNLOAD);
+    } else if (state_before == S_DROPSHIP_DEPART &&
+               state_after != S_DROPSHIP_DEPART) {
         clear_dropship_parts(runtime, effects, max_effects);
         runtime->active = false;
         ship->remove = true;

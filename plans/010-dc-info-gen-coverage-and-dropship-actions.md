@@ -26,7 +26,7 @@ for only a subset of units/sprites, and known gaps exist:
   states (`RUN1`, `RUN2`) instead of the native 16 frames per facing.
 - Alien units (Slug, Ortu, and some Grey variants) may be missing full
   direction/state tables even though their actor types now exist
-  (`MT_DC_SLUG`, `MT_DC_ORTU` — added in issue DC-5).
+  (`MT_SLUG`, `MT_ORTU` — added in issue DC-5).
 - Muzzle-flash extraction (`fin_muzzle_for_body_row`,
   `fin_muzzle_for_sequence16_step` in `tools/dc_info_gen.c`) has a documented
   fallback path ("no BLAZ muzzle draw part for %s") that may silently skip
@@ -135,8 +135,8 @@ loop as every other mobj, instead of a second, parallel ticker
    real `mobj_t` unless there's a concrete reason it can't be (e.g. it needs
    to exist before/after the normal unit array bounds, or needs multiple
    simultaneous "parts" that don't map to one `mobj_t`).
-3. Define new states (e.g. `S_DC_DROPSHIP_APPROACH`, `S_DC_DROPSHIP_UNLOAD1..N`,
-   `S_DC_DROPSHIP_DEPART`) in `games/dark-colony/info.c`/`info.h` (by hand or
+3. Define new states (e.g. `S_DROPSHIP_APPROACH`, `S_DROPSHIP_UNLOAD1..N`,
+   `S_DROPSHIP_DEPART`) in `games/dark-colony/info.c`/`info.h` (by hand or
    by extending `tools/dc_info_gen.c` if the animation frame data comes from
    FIN too — check whether dropship animation data is native FIN or
    engine-authored before deciding).

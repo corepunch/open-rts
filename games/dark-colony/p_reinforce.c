@@ -6,17 +6,17 @@
 
 static uint16_t script_unit_type(int team, int type) {
     if (team != 0) {
-        if (type == 0 || (type >= 69 && type <= 76)) return MT_DC_GREY;
-        return MT_DC_GREY;
+        if (type == 0 || (type >= 69 && type <= 76)) return MT_GREY;
+        return MT_GREY;
     }
-    if (type == 0 || (type >= 69 && type <= 72)) return MT_DC_TROOPER;
+    if (type == 0 || (type >= 69 && type <= 72)) return MT_TROOPER;
     switch (type) {
-        case 2: return MT_DC_REAPER;
-        case 3: return MT_DC_THUNDERBOLT;
-        case 4: return MT_DC_CYBORG;
-        case 5: return MT_DC_SCOUT;
-        case 6: return MT_DC_EXPLOITER;
-        default: return MT_DC_TROOPER;
+        case 2: return MT_REAPER;
+        case 3: return MT_THUNDERBOLT;
+        case 4: return MT_CYBORG;
+        case 5: return MT_SCOUT;
+        case 6: return MT_EXPLOITER;
+        default: return MT_TROOPER;
     }
 }
 

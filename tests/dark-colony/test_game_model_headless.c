@@ -38,13 +38,13 @@ static int assert_dark_colony_state_frames_are_direction_independent(void) {
     mobj_t unit = { 0 };
 
     unit.core.angle = dc_direction_to_angle(1);
-    if (!P_SetMobjState(&context, &unit, S_DC_TRSC_STND) || unit.core.frame != states[S_DC_TRSC_STND].frame ||
+    if (!P_SetMobjState(&context, &unit, S_TRSC_STND) || unit.core.frame != states[S_TRSC_STND].frame ||
         unit.core.render_flags != 0) {
         return fail("Trooper state preserves its logical frame independently of facing");
     }
 
     unit.core.angle = dc_direction_to_angle(15);
-    if (!P_SetMobjState(&context, &unit, S_DC_EXPL_STND) || unit.core.frame != states[S_DC_EXPL_STND].frame ||
+    if (!P_SetMobjState(&context, &unit, S_EXPL_STND) || unit.core.frame != states[S_EXPL_STND].frame ||
         unit.core.render_flags != 0) {
         return fail("Exploiter state preserves its logical frame independently of facing");
     }
@@ -137,7 +137,7 @@ static int assert_dark_colony_sprite_catalog(void) {
     for (int i = 0; i < NUMSPRITES; ++i)
         if (strchr(sprnames[i], '/') || strchr(sprnames[i], '.'))
             return fail("gameplay sprite registry contains only stems");
-    if (strcmp(sprnames[SPR_DC_GRAY], "GRAY"))
+    if (strcmp(sprnames[SPR_GRAY], "GRAY"))
         return fail("gameplay sprite ID resolves its stem");
     if (strcmp(game_info.selection_marker.image, "INTRFACE/CLIENT.SPR"))
         return fail("selection marker uses a UI image path");
@@ -146,22 +146,22 @@ static int assert_dark_colony_sprite_catalog(void) {
 
 static int assert_dark_colony_exploiter_work_states(void) {
     enum { EXPECTED_WORK_STATE_COUNT = 2 };
-    int deploy_count = S_DC_EXPL_WORK1 - S_DC_EXPL_DEPLOY1;
+    int deploy_count = S_EXPL_WORK1 - S_EXPL_DEPLOY1;
     if (deploy_count <= 0) {
         return fail("Dark Colony Exploiter deploy state count is positive");
     }
-    int count = S_DC_EXPL_DIE1 - S_DC_EXPL_WORK1;
+    int count = S_EXPL_DIE1 - S_EXPL_WORK1;
     if (count != EXPECTED_WORK_STATE_COUNT) {
         return fail("Dark Colony Exploiter mining work state count matches FIN cycle");
     }
-    const state_t *lit = &states[S_DC_EXPL_WORK1];
-    const state_t *unlit = &states[S_DC_EXPL_WORK2];
-    if (lit->sprite != SPR_DC_EXPL || lit->frame != 34 || lit->tics != 2 ||
-        lit->nextstate != S_DC_EXPL_WORK2) {
+    const state_t *lit = &states[S_EXPL_WORK1];
+    const state_t *unlit = &states[S_EXPL_WORK2];
+    if (lit->sprite != SPR_EXPL || lit->frame != 34 || lit->tics != 2 ||
+        lit->nextstate != S_EXPL_WORK2) {
         return fail("Dark Colony Exploiter work uses the native deployed body frame");
     }
-    if (unlit->sprite != SPR_DC_EXPL || unlit->frame != 34 || unlit->tics != 4 ||
-        unlit->nextstate != S_DC_EXPL_WORK1) {
+    if (unlit->sprite != SPR_EXPL || unlit->frame != 34 || unlit->tics != 4 ||
+        unlit->nextstate != S_EXPL_WORK1) {
         return fail("Dark Colony Exploiter work loops through the native body frame");
     }
     return 0;
@@ -388,7 +388,7 @@ static int assert_human01(RtsGameModel *model) {
         return fail("Human01 snapshot has initial units");
     }
     int initial_trooper_count = snapshot_count_units_with_owner_and_type(
-        &snapshot, 0, MT_DC_TROOPER);
+        &snapshot, 0, MT_TROOPER);
     if (initial_trooper_count != 32) {
         fprintf(stderr, "Human01 initial player Troopers: %d (expected 32)\n",
                 initial_trooper_count);
@@ -414,7 +414,7 @@ static int assert_human01(RtsGameModel *model) {
     }
 
     int initial_troopers = snapshot_count_units_with_owner_and_type(
-        &snapshot, 0, MT_DC_TROOPER);
+        &snapshot, 0, MT_TROOPER);
     bool saw_dropship = false;
     bool saw_delivery = false;
     for (int tick = 0; tick < 30 * 120 && !saw_delivery; ++tick) {
@@ -422,7 +422,7 @@ static int assert_human01(RtsGameModel *model) {
         if (rts_find_active_effect_with_sprite(&snapshot, "SPRITES/DROP.SPR") >= 0)
             saw_dropship = true;
         int troopers = snapshot_count_units_with_owner_and_type(
-            &snapshot, 0, MT_DC_TROOPER);
+            &snapshot, 0, MT_TROOPER);
         if (troopers >= initial_troopers + 4) saw_delivery = true;
     }
     if (!saw_dropship) return fail("Human01 reinforcement spawns a visible Dropship");
@@ -498,29 +498,29 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0) {
         return fail("Human02 loads active city slots from Dark Colony city data");
     }
-    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_EXCOPOD) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_BRRKPOD) != 1) {
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_EXCOPOD) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_BRRKPOD) != 1) {
         return fail("Human02 starting base buildings are Exo Center plus Barracks");
     }
-    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DC_CITY_TOWER) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_CITY_TOWER) < 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) < 1) {
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_CITY_TOWER) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_CITY_TOWER) < 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE) < 1) {
         return fail("Human02 city slots materialize human and alien base structures");
     }
-    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, (fvec2_t){ 56.0f, 55.0f },
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 0,
+                                      S_EXCOPOD_STND, (fvec2_t){ 56.0f, 55.0f },
                                       (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, (fvec2_t){ 56.0f, 55.0f },
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 4,
+                                      S_BRRKPOD_STND, (fvec2_t){ 56.0f, 55.0f },
                                       (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, (fvec2_t){ 56.0f, 55.0f },
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 0,
+                                      S_TOWR_STND, (fvec2_t){ 56.0f, 55.0f },
                                       (ivec2_t){ 0, CELL_H })) {
         return fail("Human02 city buildings retain the native origin and render on the terrain row");
     }
-    if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0,
+    if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_EXCOPOD, 0,
                                          (ivec2_t){ 36, 26 }) ||
-        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_DC_EXCOPOD, 0,
+        snapshot_has_owner_type_frame_at(&snapshot, 1, MT_EXCOPOD, 0,
                                          (ivec2_t){ 50, 28 })) {
         return fail("Human02 non-player city slots stay non-materialized");
     }
@@ -610,33 +610,33 @@ static int assert_human03_city_slots(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("initial Human03 snapshot");
     }
-    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 0,
+                                      S_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
                                       (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_BRRKPOD, 4,
-                                      S_DC_BRRKPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 4,
+                                      S_BRRKPOD_STND, (fvec2_t){ 75.0f, 6.0f },
                                       (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_SCNCPOD, 2,
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_SCNCPOD, 2,
                                       S_NULL, (fvec2_t){ 75.0f, 6.0f },
                                       (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 0,
+                                      S_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
                                       (ivec2_t){ 0, CELL_H })) {
         return fail("Human03 city slots retain the native origin and render on the terrain row");
     }
-    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_EXCOPOD, 0,
-                                      S_DC_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 0,
+                                      S_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
                                       (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_DC_CITY_TOWER, 0,
-                                      S_DC_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 0,
+                                      S_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
                                       (ivec2_t){ 0, CELL_H })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
-    if (snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_WARHIVE) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_BRDRHIVE) != 1 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_MINDHIVE2) != 0 ||
-        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_DC_ALIEN_RSCHIVE) != 0 ||
+    if (snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_WARHIVE) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_BRDRHIVE) != 1 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE2) != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_RSCHIVE) != 0 ||
         snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0 ||
         snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALBU.SPR") != 3) {
         return fail("Human03 alien city slots use native ALBU building art");

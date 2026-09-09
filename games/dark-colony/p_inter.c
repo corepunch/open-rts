@@ -11,7 +11,7 @@
 
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit) return;
-    P_SetMobjState(ctx, unit, (rand() & 1) ? S_DC_TRSC_ATKB1 : S_DC_TRSC_ATK1);
+    P_SetMobjState(ctx, unit, (rand() & 1) ? S_TRSC_ATKB1 : S_TRSC_ATK1);
 }
 
 void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) {
@@ -37,8 +37,8 @@ static int reaper_death_effect_state_for_angle(angle_t angle) {
             if (distance == 0 && sign > 0) continue;
             int candidate = (code + sign * distance) & 15;
             int suffix = (16 - candidate) & 15;
-            if (suffix == 14) return S_DC_REAP_DIEA14_FX1;
-            if (suffix == 6) return S_DC_REAP_DIEA6_FX1;
+            if (suffix == 14) return S_REAP_DIEA14_FX1;
+            if (suffix == 6) return S_REAP_DIEA6_FX1;
             if (suffix == 10 || suffix == 2) return S_NULL;
         }
     }

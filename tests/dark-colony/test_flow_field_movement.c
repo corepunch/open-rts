@@ -49,7 +49,7 @@ static int exploiter_turns_before_moving(void) {
     const char *tag = "exploiter_turn";
     level_t map = { .width = 16, .height = 16 };
     mobj_t unit = {
-        .type_id = MT_DC_EXPLOITER, .traits = MF_MOBILE,
+        .type_id = MT_EXPLOITER, .traits = MF_MOBILE,
         .core = { .angle = ANG90 },
         .attack.target = -1, .harvest.target = -1,
     };
@@ -63,13 +63,13 @@ static int exploiter_turns_before_moving(void) {
     for (int tic = 0; tic < 120; ++tic) {
         P_Ticker(&map, &unit, &count, NULL, 0, &game_info, 1.0f / 30.0f);
         if (memcmp(&unit.core.position, &start, sizeof(start)) != 0) {
-            RTS_CHECK(unit.core.state_id == S_DC_EXPL_RUN1 ||
-                      unit.core.state_id == S_DC_EXPL_RUN2, tag,
+            RTS_CHECK(unit.core.state_id == S_EXPL_RUN1 ||
+                      unit.core.state_id == S_EXPL_RUN2, tag,
                       "translation selects the travel cycle");
             moved = true;
             break;
         }
-        RTS_CHECK(unit.core.state_id == S_DC_EXPL_STND, tag,
+        RTS_CHECK(unit.core.state_id == S_EXPL_STND, tag,
                   "turning stays in the standing state without translating");
         saw_intermediate_pose |= angle_to_direction(unit.core.angle, 16, ANG90, false) & 1;
     }

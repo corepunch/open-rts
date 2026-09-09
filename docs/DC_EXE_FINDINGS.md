@@ -41,14 +41,14 @@ sprite loader's transparent index-zero handling. No runtime code changed.
 **Confirmed from `data/DCOLONY/ANIMATE/EXPL.FIN` and the focused layout test:**
 `EXPLMOVE0` through `EXPLMOVE15` provide 16 directional labels. The even labels
 contain two temporal body frames and the odd labels contain one (corrected by
-the action-name audit below), so the generated `S_DC_EXPL_RUN1` and
-`S_DC_EXPL_RUN2` states are a two-frame animation with 16 directional slots;
+the action-name audit below), so the generated `S_EXPL_RUN1` and
+`S_EXPL_RUN2` states are a two-frame animation with 16 directional slots;
 they are not a two-direction placeholder cycle. The generator's
 `fin_state_count_for_sequence16` path preserves those authored labels and
 frames.
 
 **Confirmed from regeneration:** `tools/dc_info_gen.c` must emit the extended
-14-entry `mobjtype_t` table, including `MT_DC_ORTU`, `MT_DC_SLUG`, the building
+14-entry `mobjtype_t` table, including `MT_ORTU`, `MT_SLUG`, the building
 types, and the support types. The fallback `dc_mobjinfo` records for those
 entries are retained because actor defaults supply their runtime gameplay
 values. `make dark-colony-info` now regenerates `info.c` and `info.h` without
@@ -369,7 +369,7 @@ rabin2 -zz data/DCOLONY/DC.EXE | grep -Ei 'maskbuffer|tilememory|tilemem|vision'
 - `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` - Unit definitions including vision
   properties
 - `data/DCOLONY/SPRITES/DOTT.SPR` - Vision sight sprite (radial gradient)
-- `games/dark-colony/g_game.c` - MT_DC_VISION_SIGHT actor definition
+- `games/dark-colony/g_game.c` - MT_VISION_SIGHT actor definition
 - `games/dark-colony/w_map.c` - Map loading and object type mapping
 - `docs/DC_EXE_FINDINGS.md` - Previous rendering and animation findings
 
@@ -815,3 +815,68 @@ the parent. The obsolete catalog-text assertion was replaced with registry
 checks; the headless model test now reaches its troop-count assertion, which
 also fails on the parent when the obsolete catalog assertion is bypassed.
 The full suite retains the muzzle-effect and initial-state failures as well.
+
+## Reaper death effect chains still use raw SPR cells (2026-09-09)
+
+**Confirmed native asset:** `ANIMATE/REAP.FIN` SHA-256
+`44d1e85d5a28bca0ca3e45b5bc8032544f16e1dc04fdfd655c3d70ec15ab540b`.
+It contains 281 frames, 61 labels and 11 dependencies. Labels begin at byte 96,
+frame records at 1,316, and the 364 draw commands at 47,400. No executable was
+examined for this finding; it establishes asset content and current engine
+behavior, not retail action selection.
+
+| Label | Label byte offset | Inclusive FIN frames |
+|---|---:|---:|
+| `REAPDIEA10` | 816 | 130–143 |
+| `REAPDIEA2` | 836 | 144–158 |
+| `REAPDIEA14` | 1,276 | 228–254 |
+| `REAPDIEA6` | 1,296 | 255–280 |
+
+**Confirmed:** `REAPDIEA14` contains BLAM cells 0–17 in FIN frames 229–246,
+with layer 5, flags 0, and offset `(-147,-7)`. `REAPDIEA6` contains BLAM cells
+0–11 and 13–17 in FIN frames 256–272, with layer 5 and flags 1 (horizontal
+flip). Its offsets vary, e.g. cell 0 uses `(-23,3)`, cell 11 `(-20,3)`, and
+cell 13 `(-25,3)`. Command 345 at byte 54,990 contains cell 11; command 347
+at byte 55,034 contains cell 13. The missing cell 12 and flip are authored
+data, not generator mistakes. Each BLAM command shares its FIN frame with
+the Reaper body. The opening frames 228/255 have tick word 100; the BLAM
+frames have tick word 0; later body-only frames have tick word 250.
+
+**Confirmed implementation limitation:** `write_fin_label_effect_chain()`
+flattens those external commands into `S_REAP_DIEA14_FX*` and
+`S_REAP_DIEA6_FX*`, retaining cell/flip but dropping command offsets and frame
+boundaries and assigning a constant two simulation tics per effect state.
+`A_DC_ReaperDeath()` spawns the chain at the unit position. This is legacy
+raw-SPR presentation, not a faithful representation of the multipart timeline.
+
+**Correction to the general FIN migration description above:** loading all FIN
+frames does not mean every state references them. `fin_logical_frame()` looks
+for `REAPDIEA0`, which does not exist, and returns raw-cell fallbacks. Temporary
+`OPEN_RTS_DEBUG_FIN_STATE` logging confirmed death steps 0/1 use cells 61/62,
+then later steps hold cell 97. The runtime loader retains the native multipart
+frames, but the death states do not select them. Thus the separate effect chain
+is still live; deleting it alone would remove the explosion.
+
+**Unknown:** retail selection among these four sparse death directions. The
+generator and death action use a nearest-direction search; that is current
+engine behavior, not verified DC.EXE evidence. A complete replacement must
+resolve native action selection and reference the combined FIN timeline before
+removing the separate chain. The constant rename preserves current behavior.
+
+Reproduce the asset evidence and generated raw-cell references:
+
+```sh
+make build/dc_fin_extract build/dc_info_gen
+build/dc_fin_extract data/DCOLONY/ANIMATE/REAP.FIN /private/tmp/reap-death.json
+build/dc_info_gen data/DCOLONY /private/tmp/dc-info.h /private/tmp/dc-info.c
+rg 'REAPDIEA|sprite_frame|ticks' /private/tmp/reap-death.json
+rg 'S_REAP_DIE|SPR_BLAM' /private/tmp/dc-info.c
+```
+
+**Rename verification:** regenerating `info.c`/`info.h` matches the previous
+tables exactly after substituting `SPR_DC_`/`S_DC_`/`MT_DC_` with
+`SPR_`/`S_`/`MT_`; all C/header diffs are identifier substitutions only.
+`make`, `make tags`, headless `make test-layout`, and
+`env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check` pass. The full
+headless DC suite retains its three previously recorded failures: visible
+muzzle effect, Human01 initial Trooper force, and spawn-state action invocation.
