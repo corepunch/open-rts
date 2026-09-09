@@ -1734,3 +1734,146 @@ To reproduce the original table inventory, inspect
 each frame to the SPR header's cell count at byte 2. Count zero cells for FIN-only
 assets. To inspect any native sequence, run `build/dc_fin_extract` on the FIN
 file and find the exact label from the table above.
+
+
+## Native BLOOD dispatch and shared effect sprites (2026-09-09)
+
+**Correction to the earlier blood exception:** the retail selection path is now
+identified. The old statement that Trooper hit selection is unknown is
+superseded by the instruction trace below. Runtime implementation is still the
+legacy `MT_BLOOD` eight-cell effect; this investigation records the replacement
+contract and does not claim to have ported it.
+
+**Confirmed current runtime:** `P_Attack` spawns `target->info->blood_type` at
+the victim's position after subtracting HP, before the lethal-damage branch.
+Troopers and several other types configure the same `MT_BLOOD`. Its states use
+raw BLOO.SPR cells 0–7 for 12 engine tics (400 ms), regardless of the victim's
+FIN blood labels. A temporary diagnostic harness performed a Trooper hit and
+printed `hit=1 target_type=1 remaining_hp=700`, followed by
+`blood type=15 sprite=BLOO frame=0 tics=2 state=703` on commit `471ac3b`.
+The probe was kept outside repository source. No TRSCBLOOD state is selected.
+All these FIN ranges are loaded and can render; the missing piece is dispatch.
+
+**Confirmed TRSC assets:** the TRSC.FIN/SPR hashes and table offsets recorded
+above apply. These seven labels are separate from the unit's main/death
+animation, and each frame consists solely of a BLOO sprite command:
+
+| Label | FIN frames | BLOO cells | First offset | Final offset |
+| --- | --- | --- | --- | --- |
+| TRSCBLOODA0 | 313–322 | 0,1,2,3,4,5,6,7,8,9 | (-81,-1) | (-81,31) |
+| TRSCBLOODB0 | 323–330 | 10,11,12,13,14,15,16,17 | (-77,-14) | (-77,31) |
+| TRSCBLOODC0 | 331–337 | 19,20,21,22,23,24,25 | (-84,-13) | (-84,11) |
+| TRSCBLOODD0 | 338–346 | 27,28,29,30,31,32,33,34,35 | (-78,-9) | (-78,37) |
+| TRSCBLOODE0 | 347–356 | 36,37,38,39,40,41,42,43,44,45 | (-79,-15) | (-79,26) |
+| TRSCBLOODF0 | 357–365 | 47,48,49,50,51,52,53,54,55 | (-80,-5) | (-80,14) |
+| TRSCBLOODG0 | 366–374 | 57,58,59,60,61,62,63,64,65 | (-79,1) | (-79,5) |
+
+The inspected TRSC blood commands have mode 0, intensity 16, layer 1, flags 0,
+and raw frame ticks 0. The active TRSCDIEA14 range 223–233 contains only TRSC
+parts; it does not invoke these seven independent hit-effect labels. Reusing a
+BLOO cell without the FIN command loses its authored position and trajectory.
+For example, TRSCBLOODA0 begins at (-81,-1), GRAYBLOODA0 at (-82,5), and
+MNDHIV2BLOODA0 in BLOO.FIN at (-30,-8), all using BLOO cell 0. Their later Y
+offsets differ too. These are recipient-specific presentations of shared art.
+
+**Confirmed native dispatch:** DC.EXE remains SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566,272-byte PE32 at image base 0x400000. r2ghidra was used for discovery;
+the decisive operations below were checked in x86 disassembly.
+
+1. The `BLOOD%c` string is at file offset 0x6f288, VA `0x471888`.
+   Type loading in `0x4385f8`, at `0x438df2–0x438e71`, enumerates letters
+   **A through G**, checks available animations, and packs their animation
+   pointers into the type record at +0xbc, with count at +0xd8. Type records
+   have stride 0x118 at `0x4ec880`. This is not a global generic-blood choice.
+2. Availability routine `0x4385a8` checks numeric suffixes 0,2,...30 through
+   `0x422f24`. That lookup combines the type prefix and requested suffix at
+   `0x422f3a/0x422f49`, then searches the common label table `0x4b7a38` via
+   `0x422dc0` at `0x422f82–0x422f87`. The FIN filename is not the selection
+   key: recipient-prefixed labels can live in another FIN file.
+3. Damage routine `0x43de94` updates HP at object +0x0c and the pending-effect
+   byte at object +0xc7 (`0x43df94–0x43dfb2`, addressed as level + object*0xdc
+   +0x7def). The exact arithmetic of that byte is not treated as a damage
+   amount here; importantly it is written in the damage path.
+4. Object ticker `0x418394` checks the animation channel at object +0x1c and
+   the pending-effect byte at +0xc7 (`0x418507–0x418528`). If that channel is
+   inactive and a request is pending, it uses the type's available blood count.
+   At `0x41852a–0x41854f` it increments the shared random-table index at
+   `0x4741f8`, wraps it to 8 bits, reads table `0x473df8`, and takes the remainder
+   modulo the type's blood count. This selects one of the packed pointers.
+5. `0x41854c–0x41855b` installs the selected animation on **object +0x1c** via
+   `0x423c34`, with mode argument 1. `0x423c49–0x423c54` reset that channel's
+   frame/tick bytes and install its pointer. The ticker clears the pending
+   request at `0x418560`, then advances the object's three channels at
+   +0x14/+0x1c/+0x24 (`0x418567–0x418580`). It does not replace the main state
+   or spawn an independently positioned generic blood actor in this path.
+6. World drawing reads the main channel at +0x14 and the blood channel at
+   +0x1c independently (`0x43645b–0x4364a9`), resolving the latter's current
+   frame from its own frame byte at +0x20. This confirms simultaneous body and
+   damage-effect presentation. The ticker waits for an existing effect to
+   finish rather than restarting it for each pending request.
+
+**Meaning of “BLOOD”:** it is the engine's type-specific damage-effect category,
+not a promise of red fluid. TRSC/GRAY/hive variants use BLOO cells; BARRBLOODA0
+(frames155–158) and REAPBLOODA0 (207–210) use HITC cells0–3, layer5, with
+machine-specific offsets. Thus assigning the same red raw-cell effect to
+organic units and machines is an engine placeholder, not the retail contract.
+Some labels contain additional body/overlay parts: HUBU's EXCOPODBLOODA0 starts
+at native frame87, which also belongs to the end of ROBOPOD2STAND0. That frame
+has six HUBU/BIGC parts before subsequent HITC-only frames. Preserve exact
+ranges; do not trim apparently misplaced parts or infer aliases from names.
+
+**Other FIN files:** BLOO.SPR supplies shared pixels, whereas BLOO.FIN holds
+MNDHIV2/BRDRHIV2-labelled sequences (plus the exact label MNDHIVBLOODG0).
+ALBU.FIN holds other hive variants; WATC.FIN also holds TONG, TORT, FETU and
+CENT-prefixed blood labels. Packaging a sequence in another FIN file does not
+make it a universal hit effect. A scan of the supported 22-byte-command FIN
+files finds 208 BLOOD-labelled ranges across these 23 files:
+
+| FIN | BLOOD labels | SHA-256 |
+| --- | --- | --- |
+| ALBU | 28 | `99c3d4e4fa0badeb2cd68361a6f1b57dcf9dfbdd027f820a68d806aa18773fa1` |
+| ATRIL | 7 | `84bc2c0a62db56cd2eed1316148d3f08a4d6d8d69a280ffaf46d7b55779e7455` |
+| BARR | 5 | `08ef8a38d3d0ba5629dcd58c91441569dde7c4ed09c60925b4a86d3d33c65894` |
+| BLOO | 14 | `470e4e805de22c370888e9aabe613f4e6c95ada9d267b1dddb3438ded20217bb` |
+| DISH | 4 | `8c6977818f28b55d79b41c583dd47de30c8d80802e26f353dfad2d64507ecaf9` |
+| DROA | 2 | `b41cf50cd59d8858d6f00d2777992f6ba0c6817496984177b73206a0a012848f` |
+| EXPL | 8 | `6cd02d2153bf692155aaf31d73015eb7de89902ecccdc9a079af5a8a6ed2812c` |
+| FILL | 1 | `9078654f34e89b50e7b3b422ca0929394cc032c021bc14c4de54aea623734ffc` |
+| FUEL | 3 | `6b32818cf91788b6ad2fc1854f7a3cf9196f28716390c3d8129cd9725ea32284` |
+| GRAY | 7 | `077887b708009109740a518bf8cff9c547a21145617dbf5dde575342fe5a641a` |
+| HUBU | 35 | `b27b20282999188e37a74872b70a273b370cc1dd219f2f8fa84f5f2f2ca3a5a4` |
+| HYYK | 3 | `96b317312d506b2fa5769af49bd6b3ca678ac1678b07c3bcaea7bf17ce41c0ce` |
+| REAP | 5 | `44d1e85d5a28bca0ca3e45b5bc8032544f16e1dc04fdfd655c3d70ec15ab540b` |
+| SALA | 4 | `b0a50e428b78d23300591162c086c2fc53f72b3f2302671165b4a45322ceb0a3` |
+| SARG | 5 | `3c29f398dfdb315cf4399b2037f43a499a26e9156ef1bc6d8f20e7236c8803db` |
+| SCGM | 1 | `5504da63bf95910593f909a259624a77e3c1d839cc68d751ef76d638769b8638` |
+| SCYT | 3 | `a07924ca5d72d666ccf9266df0593cb77811f6ac3679a7a19e8a5b804dbd6f55` |
+| SHRI | 3 | `1e8f9bf14946495a810f557121b7a2c1d91b1b61ae2ecf8385b78650119cde26` |
+| SLUG | 11 | `f1b813f0607aab425b57011f19f16110d8c5b33179691d08dd4b9558afb87d6b` |
+| TRSC | 7 | `eb94f6f3fff53b9f46f1540abf5287c11f83a7db7957d6288b2330b13e1f3b2a` |
+| TURR | 12 | `f0f25f1ae13cfcd6b53e3cdcae2e5efaca09e9e8290eb173bb8ce98a93d3a210` |
+| WATC | 30 | `ae16a77dd7f6523983935885065c4eb3564419355b3f7f2bc4281a1c04aea9aa` |
+| XENO | 10 | `2c4c436d26db6a49d7b46ce12bcf55a46adcf7e6239a6c31dd772bbf0d6a6f84` |
+
+**Limits:** asset presence alone still does not prove a particular label is
+selected. For example, GRAY has BLOODH0 but the traced type loader enumerates
+only A–G; malformed or differently prefixed labels also require exact native
+lookup. The complete damage arithmetic, lethal-hit interaction and all special
+type branches have not been ported. A faithful implementation must preserve
+recipient-specific selection, complete FIN parts, the separate animation's
+lifecycle, and deterministic random selection; choosing TRSCBLOODA0 for every
+hit or substituting BLOO.FIN's first label would be another approximation.
+
+Reproduction (radare2's missing dplayx SDB warnings are unrelated):
+
+```sh
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x438df2' -c 'pd 50' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x4385a8' -c 'pd 30' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x422f24' -c 'pd 45' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x418507' -c 'pd 45' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x43de94' -c 'pd 130' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x436444' -c 'pd 45' -c q data/DCOLONY/DC.EXE
+build/dc_fin_extract data/DCOLONY/ANIMATE/TRSC.FIN /private/tmp/trsc-blood.json
+build/dc_fin_extract data/DCOLONY/ANIMATE/BLOO.FIN /private/tmp/hive-blood.json
+```

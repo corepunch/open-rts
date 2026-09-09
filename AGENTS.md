@@ -281,7 +281,8 @@ FIN `remap` is a native drawing mode, not a team-color ID. Choose palette
 translations from the object's team, independently of animation commands;
 do not reintroduce state rendering overrides or generic `misc` fields.
 Visible Dark Colony states must select complete FIN frames. The generic blood
-effect is the documented exception until its native FIN selection is known;
+effect remains a legacy exception until native per-type BLOODA–G dispatch is ported
+(see `docs/DC_EXE_FINDINGS.md`, “Native BLOOD dispatch and shared effect sprites”);
 `test_drop_fin_states` checks this across the entire state table.
 Directional frame arrays, overlay state
 fields, and `state_userdata` are not part of the runtime contract. Basic
