@@ -796,3 +796,22 @@ focused sprite/FIN tests, and turn-before-travel simulation test pass. The HUMAN
 headless screenshot matches the parent byte-for-byte; this is a starting-scene
 check, not coverage of every action. The complete DC suite still has its existing
 muzzle-effect, obsolete sprite-catalog text expectation, and initial-state failures.
+
+
+### Separate UI image storage
+
+The gameplay registry is now generated only from `SPRITES/`. The 94 cursor,
+encyclopedia, and interface SPR entries no longer receive gameplay sprite IDs.
+They load by relative path into a separate owned UI cache discovered from those
+three directories. `INTRFACE/CLIENT.SPR` remains a UI image even when its selection
+marker is drawn over a world unit; its selection metadata now names the image
+path. Sidebar rendering reads the same UI cache. This supersedes the preceding
+implementation's inclusion of directory-qualified UI names in `sprnames[]`.
+No native animation or pixel-format interpretation changes here.
+
+Verification: the build, sprite storage/selection-marker tests, FIN tests, and
+Reaper layout/timing checks pass. The HUMAN01 headless BMP is byte-identical to
+the parent. The obsolete catalog-text assertion was replaced with registry
+checks; the headless model test now reaches its troop-count assertion, which
+also fails on the parent when the obsolete catalog assertion is bypassed.
+The full suite retains the muzzle-effect and initial-state failures as well.

@@ -647,10 +647,11 @@ void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
                const spritecache_t *sprites, const hudtext_t *hud) {
     sb_state_t *sb = sb_ptr;
     if (!sb || !sb->active || !sb->font_ready) return;
-    dc_SB_drawer(app, map, units, unit_count, sprites, &sb->font,
+    const spritecache_t *images = sprites ? sprites->ui : NULL;
+    dc_SB_drawer(app, map, units, unit_count, images, &sb->font,
                  &sb->sidebar, &sb->background);
     UiLayout layout = ui_layout(app);
-    dc_ui_draw_status(app, map, &sb->font, &layout, sprites, sb->clock);
+    dc_ui_draw_status(app, map, &sb->font, &layout, images, sb->clock);
     render_hud_messages(app, hud, &sb->font);
 }
 

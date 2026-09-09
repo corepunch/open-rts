@@ -1,6 +1,7 @@
 #include "w_spr.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -349,7 +350,7 @@ static const char *resolve_sprite_path(const char *root, const char *name) {
     if (*name == '/') return name;
     if (strchr(name, '/')) return M_va("%s/%s", root, name);
     static const char *const locations[] = {
-        "ANIMATE", "SPRITES", "CURSOR", "ENCYCLO", "INTRFACE",
+        "ANIMATE", "SPRITES",
     };
     for (size_t i = 0; i < sizeof(locations) / sizeof(*locations); ++i) {
         const char *path = M_va("%s/%s/%s.%s", root, locations[i], name, i ? "SPR" : "FIN");
@@ -396,11 +397,29 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
     return true;
 }
 
+static bool load_ui_sprites(const char *root, spritecache_t *cache) {
+    static const char *const directories[] = { "CURSOR", "ENCYCLO", "INTRFACE" };
+    bool ok = true;
+    for (size_t i = 0; i < sizeof(directories) / sizeof(*directories); ++i) {
+        DIR *dir = opendir(M_va("%s/%s", root, directories[i]));
+        if (!dir) return false;
+        struct dirent *entry;
+        while ((entry = readdir(dir))) {
+            const char *extension = strrchr(entry->d_name, '.');
+            if (extension && !strcasecmp(extension, ".SPR"))
+                ok &= sprite_cache_load_dark_colony(
+                    cache, root, M_va("%s/%s", directories[i], entry->d_name));
+        }
+        closedir(dir);
+    }
+    return ok;
+}
+
 bool load_dark_colony_unit_sprites(const char *data_root,
                                    const level_t *map, const mobj_t *units, int unit_count,
                                    spritecache_t *cache) {
     bool ok = true;
-    static const char *const ui_sprites[] = {
+    static const char *const effect_sprites[] = {
         "SPRITES/DROP.SPR",
         "SPRITES/BEAC.SPR",
         "SPRITES/MUZA.SPR",
@@ -408,8 +427,8 @@ bool load_dark_colony_unit_sprites(const char *data_root,
     };
     for (int i = 0; i < NUMSPRITES; ++i)
         ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[i]);
-    for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(*ui_sprites); ++i)
-        ok &= sprite_cache_load_dark_colony(cache, data_root, ui_sprites[i]);
+    for (size_t i = 0; i < sizeof(effect_sprites) / sizeof(*effect_sprites); ++i)
+        ok &= sprite_cache_load_dark_colony(cache, data_root, effect_sprites[i]);
     if (map) {
         for (int i = 0; i < map->decoration_count; ++i) {
             ok &= sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite_name);
@@ -423,5 +442,8 @@ bool load_dark_colony_unit_sprites(const char *data_root,
         ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->shadow_name : NULL);
         ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->hit_effect_name : NULL);
     }
+    if (!cache->ui) cache->ui = calloc(1, sizeof(*cache->ui));
+    if (!cache->ui) return false;
+    ok &= load_ui_sprites(data_root, cache->ui);
     return R_BindSprites(cache, &game_info) && ok;
 }

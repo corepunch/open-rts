@@ -1178,6 +1178,7 @@ center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	
 check_all_fin_frames	tests/dark-colony/test_sprite_definitions.c	/^static void check_all_fin_frames(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 check_pixels	tests/dark-colony/test_sprite_loading.c	/^static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture,const uint8_t * indices,int remap)
 check_sprite_registry	tests/dark-colony/test_sprite_definitions.c	/^static void check_sprite_registry(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
+check_ui_storage	tests/dark-colony/test_sprite_definitions.c	/^static void check_ui_storage(SDL_Renderer *renderer) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer)
 checker	tools/dc_spr_extract.c	/^static uint32_t checker(int x, int y) {$/;"	f	typeref:typename:uint32_t	file:	signature:(int x,int y)
 chunked	tools/dc_spr_extract.c	/^    bool chunked;$/;"	m	struct:__anonf6c4462b0208	typeref:typename:bool	file:
 circle_intersects_rect	render/r_draw.c	/^static bool circle_intersects_rect(fvec2_t center, float radius, irect_t r) {$/;"	f	typeref:typename:bool	file:	signature:(fvec2_t center,float radius,irect_t r)
@@ -1605,6 +1606,7 @@ id	play/actor.h	/^    uint32_t id;$/;"	m	struct:mobj_s	typeref:typename:uint32_t
 id	render/sprites.h	/^    int id;$/;"	m	struct:__anon761761540108	typeref:typename:int
 id	tools/dc_gamestat_gen.c	/^    int id;$/;"	m	struct:__anon006eef8b0308	typeref:typename:int	file:
 id	tools/dc_gamestat_gen.c	/^    int id;$/;"	m	struct:__anon006eef8b0608	typeref:typename:int	file:
+image	play/actor.h	/^    const char *image;$/;"	m	struct:selectionmarker_s	typeref:typename:const char *
 image_count	hud/ui_definition.h	/^    int image_count;$/;"	m	struct:uidefinition_s	typeref:typename:int
 images	hud/ui_definition.h	/^    const uiimage_t *images;$/;"	m	struct:uidefinition_s	typeref:typename:const uiimage_t *
 indexed	render/sprites.h	/^    bool indexed;$/;"	m	struct:spritesheet_s	typeref:typename:bool
@@ -2221,7 +2223,7 @@ selectiondrawf_t	play/actor.h	/^typedef bool (*selectiondrawf_t)(const selection
 selectionmarker_s	play/actor.h	/^typedef struct selectionmarker_s {$/;"	s
 selectionmarker_s::critical_frame	play/actor.h	/^    int critical_frame;$/;"	m	struct:selectionmarker_s	typeref:typename:int
 selectionmarker_s::healthy_frame	play/actor.h	/^    int healthy_frame;$/;"	m	struct:selectionmarker_s	typeref:typename:int
-selectionmarker_s::sprite	play/actor.h	/^    int sprite;$/;"	m	struct:selectionmarker_s	typeref:typename:int
+selectionmarker_s::image	play/actor.h	/^    const char *image;$/;"	m	struct:selectionmarker_s	typeref:typename:const char *
 selectionmarker_s::style	play/actor.h	/^    SelectionStyle style;$/;"	m	struct:selectionmarker_s	typeref:typename:SelectionStyle
 selectionmarker_s::top_offset_y	play/actor.h	/^    int top_offset_y;$/;"	m	struct:selectionmarker_s	typeref:typename:int
 selectionmarker_s::wounded_frame	play/actor.h	/^    int wounded_frame;$/;"	m	struct:selectionmarker_s	typeref:typename:int
@@ -2276,7 +2278,6 @@ speed	play/actor.h	/^    float speed;$/;"	m	struct:mobjtype_s	typeref:typename:f
 speed	play/actor.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 spr_frame_count	tools/dc_info_gen.c	/^static int spr_frame_count(const char *path) {$/;"	f	typeref:typename:int	file:	signature:(const char * path)
 spr_frame_size	tools/dc_info_gen.c	/^static void spr_frame_size(const char *path, int frame, int *w_out, int *h_out) {$/;"	f	typeref:typename:void	file:	signature:(const char * path,int frame,int * w_out,int * h_out)
-sprite	play/actor.h	/^    int sprite;$/;"	m	struct:selectionmarker_s	typeref:typename:int
 sprite	play/actor.h	/^    int sprite;$/;"	m	struct:state_s	typeref:typename:int
 sprite	render/sprites.h	/^    spritesheet_t sprite;$/;"	m	struct:bitmapfont_s	typeref:typename:spritesheet_t
 sprite	render/sprites.h	/^    spritesheet_t sprite;$/;"	m	struct:cachedsprite_s	typeref:typename:spritesheet_t
@@ -2324,6 +2325,7 @@ spritecache_s::count	render/sprites.h	/^    int count;$/;"	m	struct:spritecache_
 spritecache_s::entries	render/sprites.h	/^    cachedsprite_t entries[MAX_DECORATION_SPRITES];$/;"	m	struct:spritecache_s	typeref:typename:cachedsprite_t[]
 spritecache_s::numsprites	render/sprites.h	/^    int numsprites;$/;"	m	struct:spritecache_s	typeref:typename:int
 spritecache_s::sprites	render/sprites.h	/^    const spritesheet_t **sprites; \/* Borrowed sheets, indexed by state sprite ID. *\/$/;"	m	struct:spritecache_s	typeref:typename:const spritesheet_t **
+spritecache_s::ui	render/sprites.h	/^    struct spritecache_s *ui; \/* Owned images keyed by path, outside the state registry. *\/$/;"	m	struct:spritecache_s	typeref:struct:spritecache_s *
 spritecache_t	play/actor.h	/^typedef struct spritecache_s spritecache_t;$/;"	t	typeref:struct:spritecache_s
 spritecache_t	render/sprites.h	/^} spritecache_t;$/;"	t	typeref:struct:spritecache_s
 spritecell_s	render/sprites.h	/^typedef struct spritecell_s {$/;"	s
@@ -2501,6 +2503,7 @@ u16	tests/dark-colony/test_sprite_loading.c	/^static void u16(uint8_t *p, unsign
 u16le	tools/dc_spr_extract.c	/^static uint16_t u16le(const uint8_t *p) {$/;"	f	typeref:typename:uint16_t	file:	signature:(const uint8_t * p)
 u32	tests/dark-colony/test_sprite_loading.c	/^static void u32(uint8_t *p, unsigned n) { u16(p, n); u16(p + 2, n >> 16); }$/;"	f	typeref:typename:void	file:	signature:(uint8_t * p,unsigned n)
 u32le	tools/dc_spr_extract.c	/^static uint32_t u32le(const uint8_t *p) {$/;"	f	typeref:typename:uint32_t	file:	signature:(const uint8_t * p)
+ui	render/sprites.h	/^    struct spritecache_s *ui; \/* Owned images keyed by path, outside the state registry. *\/$/;"	m	struct:spritecache_s	typeref:struct:spritecache_s *
 ui_id	game/g_game.h	/^            int ui_id;$/;"	m	struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40c08	typeref:typename:int
 ui_id	game/g_game.h	/^            int ui_id;$/;"	m	struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40e08	typeref:typename:int
 ui_id	game/g_game.h	/^    int ui_id;$/;"	m	struct:__anon42a104c40608	typeref:typename:int

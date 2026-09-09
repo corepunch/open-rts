@@ -111,7 +111,7 @@ typedef enum {
 
 typedef struct selectionmarker_s {
     SelectionStyle style;
-    int sprite;
+    const char *image;
     int healthy_frame;
     int wounded_frame;
     int critical_frame;

@@ -342,7 +342,7 @@ void R_DrawGridOverlay(app_t *app, const level_t *map) {
 }
 
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name) {
-    if (!name || name[0] == '\0') return NULL;
+    if (!cache || !name || name[0] == '\0') return NULL;
     for (int i = 0; i < cache->count; ++i) {
         if (strcasecmp(cache->entries[i].name, name) == 0) return &cache->entries[i].sprite;
     }
@@ -1080,16 +1080,11 @@ static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *
 }
 
 bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, irect_t dst) {
-    if (!ctx || !ctx->app || !ctx->app->renderer || !ctx->unit || !ctx->cache ||
-        !ctx->game_info || !ctx->game_info->sprnames) {
-        return false;
-    }
+    if (!ctx || !ctx->app || !ctx->app->renderer || !ctx->unit ||
+        !ctx->cache || !ctx->cache->ui || !ctx->game_info) return false;
     app_t *app = ctx->app;
-    const spritecache_t *cache = ctx->cache;
-    const gameinfo_t *game_info = ctx->game_info;
-    const selectionmarker_t *info = &game_info->selection_marker;
-    if (info->sprite < 0 || info->sprite >= game_info->sprite_count) return false;
-    const spritesheet_t *marker = R_StateSprite(cache, game_info, info->sprite, NULL);
+    const spritesheet_t *marker = R_CacheLookup(
+        ctx->cache->ui, ctx->game_info->selection_marker.image);
     if (!marker || !marker->lumps || marker->numlumps <= 0) return false;
 
     if (frame < 0 || frame >= marker->numlumps) return false;
@@ -1110,11 +1105,8 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
     int bucket = selection_health_bucket(ctx->unit);
     int frame = bucket == 2 ? info->critical_frame :
                 bucket == 1 ? info->wounded_frame : info->healthy_frame;
-    const spritesheet_t *marker = NULL;
-    if (ctx->cache && ctx->game_info->sprnames &&
-        info->sprite >= 0 && info->sprite < ctx->game_info->sprite_count) {
-        marker = R_StateSprite(ctx->cache, ctx->game_info, info->sprite, NULL);
-    }
+    const spritesheet_t *marker = ctx->cache && ctx->cache->ui ?
+        R_CacheLookup(ctx->cache->ui, info->image) : NULL;
     if (!marker || frame < 0 || frame >= marker->numlumps) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
     return R_DrawSelectionMarkerFrame(ctx, frame, (irect_t){
@@ -1721,6 +1713,10 @@ void HU_FreeFont(bitmapfont_t *font) {
 }
 
 void R_FreeSpriteCache(spritecache_t *cache) {
+    if (cache->ui) {
+        R_FreeSpriteCache(cache->ui);
+        free(cache->ui);
+    }
     for (int i = 0; i < cache->count; ++i) {
         R_FreeSprite(&cache->entries[i].sprite);
     }

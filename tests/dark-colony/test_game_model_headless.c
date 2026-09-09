@@ -134,44 +134,13 @@ static bool poll_event_type(RtsGameModel *model, RtsGameEventType wanted,
 }
 
 static int assert_dark_colony_sprite_catalog(void) {
-    FILE *f = fopen("games/dark-colony/info.c", "rb");
-    if (!f) return fail("open generated Dark Colony info.c");
-    if (fseek(f, 0, SEEK_END) != 0) {
-        fclose(f);
-        return fail("seek generated Dark Colony info.c");
-    }
-    long size = ftell(f);
-    if (size < 0 || fseek(f, 0, SEEK_SET) != 0) {
-        fclose(f);
-        return fail("read generated Dark Colony info.c size");
-    }
-    char *text = malloc((size_t)size + 1);
-    if (!text) {
-        fclose(f);
-        return fail("allocate generated Dark Colony info.c text");
-    }
-    if (size > 0 && fread(text, 1, (size_t)size, f) != (size_t)size) {
-        free(text);
-        fclose(f);
-        return fail("read generated Dark Colony info.c");
-    }
-    fclose(f);
-    text[size] = '\0';
-
-    bool has_gameplay = strstr(text, "\"SPRITES/GRAY.SPR\"") != NULL;
-    bool has_interface = strstr(text, "\"INTRFACE/FONT.SPR\"") != NULL;
-    bool has_encyclopedia = strstr(text, "\"ENCYCLO/REAP.SPR\"") != NULL;
-    bool has_cursor = strstr(text, "\"CURSOR/CURS.SPR\"") != NULL;
-    free(text);
-
-    if (!has_gameplay)
-        return fail("Dark Colony sprite catalog includes gameplay sprites");
-    if (!has_interface)
-        return fail("Dark Colony sprite catalog includes interface sprites");
-    if (!has_encyclopedia)
-        return fail("Dark Colony sprite catalog includes encyclopedia sprites");
-    if (!has_cursor)
-        return fail("Dark Colony sprite catalog includes cursor sprites");
+    for (int i = 0; i < NUMSPRITES; ++i)
+        if (strchr(sprnames[i], '/') || strchr(sprnames[i], '.'))
+            return fail("gameplay sprite registry contains only stems");
+    if (strcmp(sprnames[SPR_DC_GRAY], "GRAY"))
+        return fail("gameplay sprite ID resolves its stem");
+    if (strcmp(game_info.selection_marker.image, "INTRFACE/CLIENT.SPR"))
+        return fail("selection marker uses a UI image path");
     return 0;
 }
 

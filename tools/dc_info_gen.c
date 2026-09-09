@@ -157,8 +157,7 @@ static void sprite_symbol(const char *path, char *out, size_t out_size) {
     size_t len = 0;
     snprintf(out, out_size, "SPR_DC_");
     len = strlen(out);
-    const char *p = strncmp(path, "SPRITES/", 8) == 0 ? base : path;
-    for (; *p && len + 1 < out_size; ++p) {
+    for (const char *p = base; *p && len + 1 < out_size; ++p) {
         if (*p == '.') break;
         unsigned char ch = (unsigned char)*p;
         out[len++] = (char)(isalnum(ch) ? toupper(ch) : '_');
@@ -1765,10 +1764,8 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "const char *const sprnames[NUMSPRITES] = {\n");
     int line_length = 4;
     for (int i = 0; i < sprite_count; ++i) {
-        char name[256];
-        if (!strncmp(sprites[i].path, "SPRITES/", 8))
-            sprite_name(sprites[i].path, name, sizeof(name));
-        else snprintf(name, sizeof(name), "%s", sprites[i].path);
+        char name[16];
+        sprite_name(sprites[i].path, name, sizeof(name));
         int entry_length = (int)strlen(name) + 3;
         if (line_length > 4 && line_length + 1 + entry_length > 78) {
             fprintf(out, "\n");
@@ -1985,7 +1982,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    NUMMOBJTYPES,\n");
     fprintf(out, "    S_NULL,\n");
     fprintf(out, "    RTS_STATE_COORDS_FIN_TOP_LEFT,\n");
-    fprintf(out, "    { .style = SELECTION_STYLE_SPRITE, .sprite = SPR_DC_INTRFACE_CLIENT,\n");
+    fprintf(out, "    { .style = SELECTION_STYLE_SPRITE, .image = \"INTRFACE/CLIENT.SPR\",\n");
     fprintf(out, "      .healthy_frame = 0, .wounded_frame = 1, .critical_frame = 3, .top_offset_y = -3 },\n");
     fprintf(out, "    NULL,\n");
     fprintf(out, "};\n");
@@ -2009,7 +2006,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 int main(int argc, char **argv) {
     if (argc != 4) die("usage: dc_info_gen DATA/DCOLONY games/dark-colony/info.h games/dark-colony/info.c", NULL);
     const char *root = argv[1];
-    scan_sprites_recursive(&sprite_list, root, "");
+    scan_sprites_recursive(&sprite_list, root, "SPRITES");
     SpriteEntry *sprites = sprite_list.items;
     int count = sprite_list.count;
     qsort(sprites, (size_t)count, sizeof(*sprites), compare_sprite_entry);

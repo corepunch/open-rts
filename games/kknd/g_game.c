@@ -15,7 +15,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
 };
 
 static const gameinfo_t GAME_INFO = {
-    .selection_marker = { .style = SELECTION_STYLE_CIRCLE, .sprite = -1 },
+    .selection_marker = { .style = SELECTION_STYLE_CIRCLE },
 };
 
 /* OpenKKnD uses a 48-pixel button rail on the right and a centered 180x28

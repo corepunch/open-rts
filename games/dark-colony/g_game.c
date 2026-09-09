@@ -338,7 +338,7 @@ static bool draw_selection(const selectiondrawcontext_t *ctx) {
     bool drawn = R_DrawSelectionMarkerSprite(ctx);
     uint16_t type = ctx->unit->native_type_id;
     if ((type < 69 || type > 76) || !ctx->game_info || !ctx->cache ||
-        ctx->game_info->selection_marker.sprite < 0) {
+        !ctx->game_info->selection_marker.image) {
         return drawn;
     }
     int frame = 30 + (type - 69) % 4;

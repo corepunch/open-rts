@@ -120,6 +120,9 @@ helpers, and delete intermediate representations and needless indirection.
 - Build sprite frame/rotation definitions from native assets at load time. Do
   not generate duplicate asset tables into `info.c`; it owns sprite names and
   state references. Load all FIN frames without an action-name whitelist.
+- Keep UI, cursor, and encyclopedia SPR images out of gameplay sprite IDs and
+  `sprnames[]`. Store them separately by path in the UI image cache, including
+  selection markers drawn over world units.
 - No asset-name exceptions, guessed aliases, compensating offsets, or visual
   hacks. Trace the native lookup when data appears inconsistent. Distinguish
   verified native behavior from an explicitly requested engine behavior.

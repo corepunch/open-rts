@@ -99,6 +99,7 @@ typedef struct spritecache_s {
     int count;
     const spritesheet_t **sprites; /* Borrowed sheets, indexed by state sprite ID. */
     int numsprites;
+    struct spritecache_s *ui; /* Owned images keyed by path, outside the state registry. */
 } spritecache_t;
 
 typedef struct bitmapfont_s {

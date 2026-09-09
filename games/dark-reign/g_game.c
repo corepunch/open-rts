@@ -422,7 +422,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
 };
 
 static const gameinfo_t DARK_REIGN_GAME_INFO = {
-    .selection_marker = { .style = SELECTION_STYLE_BRACKETS, .sprite = -1 },
+    .selection_marker = { .style = SELECTION_STYLE_BRACKETS },
 };
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */

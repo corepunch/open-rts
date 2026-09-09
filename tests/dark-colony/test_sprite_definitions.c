@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "engine.h"
 #include "w_spr.h"
+#include "info.h"
 
 #include <SDL.h>
 #include <stdio.h>
@@ -87,6 +88,28 @@ static void check_sprite_registry(void) {
     free(cache);
 }
 
+static void check_ui_storage(SDL_Renderer *renderer) {
+    spritecache_t *cache = calloc(1, sizeof(*cache));
+    CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
+    CHECK(cache->numsprites == NUMSPRITES && cache->ui);
+    CHECK(!cache->ui->sprites && cache->ui->numsprites == 0);
+    CHECK(R_StateSprite(cache, NULL, SPR_DC_BARR, NULL));
+    CHECK(!R_CacheLookup(cache, "ENCYCLO/BARR.SPR"));
+    CHECK(!R_CacheLookup(cache->ui, "BARR"));
+    CHECK(R_CacheLookup(cache->ui, "ENCYCLO/BARR.SPR"));
+    CHECK(R_CacheLookup(cache->ui, "CURSOR/CURS.SPR"));
+    CHECK(R_CacheLookup(cache->ui, "INTRFACE/MAINBUT.SPR"));
+    const spritesheet_t *marker = R_CacheLookup(cache->ui, game_info.selection_marker.image);
+    CHECK(marker);
+    app_t app = { .renderer = renderer };
+    mobj_t unit = {0};
+    selectiondrawcontext_t ctx = { .app = &app, .unit = &unit, .cache = cache, .game_info = &game_info };
+    CHECK(R_DrawSelectionMarkerFrame(&ctx, 0, marker->cells[0].rect));
+    R_FreeSpriteCache(cache);
+    CHECK(!cache->ui && !cache->sprites && !cache->count);
+    free(cache);
+}
+
 int main(void) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32,
                                                           SDL_PIXELFORMAT_ARGB8888);
@@ -100,6 +123,7 @@ int main(void) {
 
     check_all_fin_frames();
     check_sprite_registry();
+    check_ui_storage(renderer);
 
     spritesheet_t sprite;
     if (!load_dark_colony_sprite("data/DCOLONY/ANIMATE/TRSC.FIN",
