@@ -255,7 +255,7 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
             int sf = sects[s].last_anim - sects[s].first_anim + 1;
             if (sf > 0) logical_frames += sf;
         }
-        if (!R_InitSpriteDef(out, logical_frames, nrots, ANG90, false)) {
+        if (!R_InitSpriteDef(out, logical_frames, nrots)) {
             free(rgba); free(indices); free(sects);
             R_FreeSprite(out);
             return false;

@@ -39,15 +39,13 @@ typedef struct spritedirection_s {
 } spritedirection_t;
 
 typedef struct spriteframe_s {
+    int rotations; /* 1 is nondirectional; slots start north, counterclockwise. */
     char frame_name[17];
     spritedirection_t directions[MAX_SPRITE_ROTATIONS];
 } spriteframe_t;
 
 typedef struct spritedef_s {
     int numframes;
-    int rotations;
-    angle_t first_angle;
-    bool clockwise;
     spriteframe_t *spriteframes;
 } spritedef_t;
 

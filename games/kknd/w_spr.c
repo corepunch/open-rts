@@ -242,7 +242,7 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
         int length = group_lengths[block * 16];
         if (length > 0) logical_frames += length;
     }
-    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames, 16, ANG90, true))
+    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames, 16))
         goto fail;
     int logical_frame = 0;
     for (int block = 0; block < sequence_blocks; ++block) {
@@ -250,7 +250,7 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
         if (length <= 0) continue;
         for (int frame = 0; frame < length; ++frame, ++logical_frame)
             for (int rotation = 0; rotation < 16; ++rotation)
-                R_InstallSpriteLump(out, logical_frame, rotation,
+                R_InstallSpriteLump(out, logical_frame, (16 - rotation) % 16,
                     group_starts[block * 16 + rotation] + frame, false);
     }
     for (int i = 0; i < frame_count; ++i) free(frames[i].pixels);

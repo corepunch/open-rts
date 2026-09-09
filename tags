@@ -419,8 +419,8 @@ R_FreeTileset	driver/engine.h	/^void R_FreeTileset(tileset_t *tileset);$/;"	p	ty
 R_FreeTileset	render/r_draw.c	/^void R_FreeTileset(tileset_t *tileset) {$/;"	f	typeref:typename:void	signature:(tileset_t * tileset)
 R_GridToScreen	driver/engine.h	/^void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);$/;"	p	typeref:typename:void	signature:(const app_t * app,float gx,float gy,float * sx,float * sy)
 R_GridToScreen	render/r_draw.c	/^void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy) {$/;"	f	typeref:typename:void	signature:(const app_t * app,float gx,float gy,float * sx,float * sy)
-R_InitSpriteDef	driver/engine.h	/^bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,$/;"	p	typeref:typename:bool	signature:(spritesheet_t * sprite,int numframes,int rotations,angle_t first_angle,bool clockwise)
-R_InitSpriteDef	render/r_draw.c	/^bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,$/;"	f	typeref:typename:bool	signature:(spritesheet_t * sprite,int numframes,int rotations,angle_t first_angle,bool clockwise)
+R_InitSpriteDef	driver/engine.h	/^bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations);$/;"	p	typeref:typename:bool	signature:(spritesheet_t * sprite,int numframes,int rotations)
+R_InitSpriteDef	render/r_draw.c	/^bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations) {$/;"	f	typeref:typename:bool	signature:(spritesheet_t * sprite,int numframes,int rotations)
 R_InitSprites	game/game.h	/^bool     R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	p	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const mobj_t * mobjs,int count,spritecache_t * cache)
 R_InstallSpriteLump	driver/engine.h	/^bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,$/;"	p	typeref:typename:bool	signature:(spritesheet_t * sprite,int frame,int rotation,int lump,bool flip)
 R_InstallSpriteLump	render/r_draw.c	/^bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,$/;"	f	typeref:typename:bool	signature:(spritesheet_t * sprite,int frame,int rotation,int lump,bool flip)
@@ -1017,6 +1017,7 @@ angle_to_direction	play/facing.h	/^int angle_to_direction(angle_t angle, int cou
 angle_to_direction	play/p_facing.c	/^int angle_to_direction(angle_t angle, int count, angle_t first_angle, bool clockwise) {$/;"	f	typeref:typename:int	signature:(angle_t angle,int count,angle_t first_angle,bool clockwise)
 angle_to_screen_vector	play/facing.h	/^void angle_to_screen_vector(angle_t angle, float *dx, float *dy);$/;"	p	typeref:typename:void	signature:(angle_t angle,float * dx,float * dy)
 angle_to_screen_vector	play/p_facing.c	/^void angle_to_screen_vector(angle_t angle, float *dx, float *dy) {$/;"	f	typeref:typename:void	signature:(angle_t angle,float * dx,float * dy)
+animation	REFERENCES.md	/^Keep these links handy when touching loaders, tile animation, map objects, or$/;"	v
 animation_count	render/sprites.h	/^    int animation_count;$/;"	m	struct:tileset_s	typeref:typename:int
 animation_frame_count	game/map.h	/^    int animation_frame_count;$/;"	m	struct:mapdecoration_s	typeref:typename:int
 animation_frames	game/map.h	/^    mapdecorationframe_t animation_frames[MAP_DECORATION_MAX_ANIMATION_FRAMES];$/;"	m	struct:mapdecoration_s	typeref:typename:mapdecorationframe_t[]
@@ -1177,7 +1178,6 @@ clamp255	tools/dc_spr_extract.c	/^static int clamp255(int v) { return v < 0 ? 0 
 clean_scene_name	tools/dc_gamestat_gen.c	/^static void clean_scene_name(char *s) {$/;"	f	typeref:typename:void	file:	signature:(char * s)
 clear_model_production	game/g_game.c	/^static void clear_model_production(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 clock	hud/sb_bar.h	/^    uint64_t clock;$/;"	m	struct:__anona3f56ed40108	typeref:typename:uint64_t
-clockwise	render/sprites.h	/^    bool clockwise;$/;"	m	struct:spritedef_s	typeref:typename:bool
 closed	play/p_map.c	/^    uint8_t closed;$/;"	m	struct:__anon9020bd480208	typeref:typename:uint8_t	file:
 collect_strings	tools/anim_extract.c	/^static void collect_strings(const unsigned char *data, size_t size,$/;"	f	typeref:typename:void	file:	signature:(const unsigned char * data,size_t size,AnimString ** items,size_t * count)
 color	hud/ui_definition.h	/^    SDL_Color color;$/;"	m	struct:uiresource_s	typeref:typename:SDL_Color
@@ -1433,7 +1433,6 @@ find_resource_vent_at	play/p_map.c	/^static int find_resource_vent_at(const leve
 find_spawn_position_near	game/g_game.c	/^static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,$/;"	f	typeref:typename:bool	file:	signature:(const RtsGameModel * model,const mobj_t * producer,float radius,float * out_gx,float * out_gy)
 find_sprite	tools/dc_info_gen.c	/^static int find_sprite(const SpriteEntry *sprites, int count, const char *path) {$/;"	f	typeref:typename:int	file:	signature:(const SpriteEntry * sprites,int count,const char * path)
 find_sprite_for_fin_stem	tools/dc_info_gen.c	/^static int find_sprite_for_fin_stem(const SpriteEntry *sprites, int count, const char *stem) {$/;"	f	typeref:typename:int	file:	signature:(const SpriteEntry * sprites,int count,const char * stem)
-first_angle	render/sprites.h	/^    angle_t first_angle;$/;"	m	struct:spritedef_s	typeref:typename:angle_t
 first_draw	hud/sb_bar.h	/^    bool first_draw;$/;"	m	struct:__anona3f56ed40108	typeref:typename:bool
 fixed3_add	driver/m_vec.h	/^static inline fixed3_t fixed3_add(fixed3_t a, fixed3_t b) {$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t a,fixed3_t b)
 fixed3_add_planar	driver/m_vec.h	/^static inline fixed3_t fixed3_add_planar(fixed3_t position,$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t position,fixed3_t displacement)
@@ -1682,6 +1681,7 @@ load_fin_info	tests/test_dark_colony_sprite_layout.c	/^static bool load_fin_info
 load_fin_state_counts	tools/dc_info_gen.c	/^static DcFinStateCounts load_fin_state_counts(const char *root) {$/;"	f	typeref:typename:DcFinStateCounts	file:	signature:(const char * root)
 load_spr_frame_info	tests/test_dark_colony_sprite_layout.c	/^static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,int frame,SprFrameInfo * out)
 loaded	game/g_game.c	/^    bool loaded;$/;"	m	struct:RtsGameModel	typeref:typename:bool	file:
+loaders	REFERENCES.md	/^Keep these links handy when touching loaders, tile animation, map objects, or$/;"	v
 logical_height	hud/ui_definition.h	/^    int logical_height;$/;"	m	struct:uidefinition_s	typeref:typename:int
 logical_width	hud/ui_definition.h	/^    int logical_width;$/;"	m	struct:uidefinition_s	typeref:typename:int
 lump	render/sprites.h	/^    uint16_t lump;$/;"	m	struct:spritelayer_s	typeref:typename:uint16_t
@@ -1918,6 +1918,8 @@ nextstate	play/actor.h	/^    int nextstate;$/;"	m	struct:state_s	typeref:typenam
 null_state	play/actor.h	/^    int null_state;$/;"	m	struct:gameinfo_s	typeref:typename:int
 numframes	render/sprites.h	/^    int numframes;$/;"	m	struct:spritedef_s	typeref:typename:int
 numlumps	render/sprites.h	/^    int numlumps;$/;"	m	struct:spritesheet_s	typeref:typename:int
+objects	REFERENCES.md	/^Keep these links handy when touching loaders, tile animation, map objects, or$/;"	v
+observation	docs/DC_EXE_FINDINGS.md	/^of adding three to a channel. This is a decompiler observation, not a new$/;"	v
 offset	render/sprites.h	/^    ivec2_t offset;$/;"	m	struct:spritelayer_s	typeref:typename:ivec2_t
 offset	tools/anim_extract.c	/^    uint32_t offset;$/;"	m	struct:__anon0c7be7350108	typeref:typename:uint32_t	file:
 order_arrived	play/actor.h	/^        bool order_arrived;$/;"	m	struct:mobj_s::__anon175231d90908	typeref:typename:bool
@@ -2129,7 +2131,7 @@ resourcevent_s::smoke_decoration_index	game/map.h	/^    int smoke_decoration_ind
 resourcevent_t	game/map.h	/^} resourcevent_t;$/;"	t	typeref:struct:resourcevent_s
 return_position	play/actor.h	/^        fvec2_t return_position;$/;"	m	struct:mobj_s::__anon175231d90808	typeref:typename:fvec2_t
 right_aligned	hud/ui_definition.h	/^    bool right_aligned;$/;"	m	struct:uiresource_s	typeref:typename:bool
-rotations	render/sprites.h	/^    int rotations;$/;"	m	struct:spritedef_s	typeref:typename:int
+rotations	render/sprites.h	/^    int rotations; \/* 1 is nondirectional; slots start north, counterclockwise. *\/$/;"	m	struct:spriteframe_s	typeref:typename:int
 row_id	game/g_game.h	/^    int row_id;$/;"	m	struct:__anon42a104c40608	typeref:typename:int
 row_id	tools/dc_gamestat_gen.c	/^    int row_id;$/;"	m	struct:__anon006eef8b0208	typeref:typename:int	file:
 rts_event_matches	tests/rts_model_test.h	/^static inline bool rts_event_matches(const RtsGameEvent *event, RtsGameEventType wanted,$/;"	f	typeref:typename:bool	signature:(const RtsGameEvent * event,RtsGameEventType wanted,uint32_t subject_id,int product_type)
@@ -2317,10 +2319,7 @@ spritecell_s::rect	render/sprites.h	/^    irect_t rect;$/;"	m	struct:spritecell_
 spritecell_t	render/sprites.h	/^} spritecell_t;$/;"	t	typeref:struct:spritecell_s
 spritedef	render/sprites.h	/^    spritedef_t spritedef;$/;"	m	struct:spritesheet_s	typeref:typename:spritedef_t
 spritedef_s	render/sprites.h	/^typedef struct spritedef_s {$/;"	s
-spritedef_s::clockwise	render/sprites.h	/^    bool clockwise;$/;"	m	struct:spritedef_s	typeref:typename:bool
-spritedef_s::first_angle	render/sprites.h	/^    angle_t first_angle;$/;"	m	struct:spritedef_s	typeref:typename:angle_t
 spritedef_s::numframes	render/sprites.h	/^    int numframes;$/;"	m	struct:spritedef_s	typeref:typename:int
-spritedef_s::rotations	render/sprites.h	/^    int rotations;$/;"	m	struct:spritedef_s	typeref:typename:int
 spritedef_s::spriteframes	render/sprites.h	/^    spriteframe_t *spriteframes;$/;"	m	struct:spritedef_s	typeref:typename:spriteframe_t *
 spritedef_t	render/sprites.h	/^} spritedef_t;$/;"	t	typeref:struct:spritedef_s
 spritedirection_s	render/sprites.h	/^typedef struct spritedirection_s {$/;"	s
@@ -2330,6 +2329,7 @@ spritedirection_t	render/sprites.h	/^} spritedirection_t;$/;"	t	typeref:struct:s
 spriteframe_s	render/sprites.h	/^typedef struct spriteframe_s {$/;"	s
 spriteframe_s::directions	render/sprites.h	/^    spritedirection_t directions[MAX_SPRITE_ROTATIONS];$/;"	m	struct:spriteframe_s	typeref:typename:spritedirection_t[]
 spriteframe_s::frame_name	render/sprites.h	/^    char frame_name[17];$/;"	m	struct:spriteframe_s	typeref:typename:char[17]
+spriteframe_s::rotations	render/sprites.h	/^    int rotations; \/* 1 is nondirectional; slots start north, counterclockwise. *\/$/;"	m	struct:spriteframe_s	typeref:typename:int
 spriteframe_t	render/sprites.h	/^} spriteframe_t;$/;"	t	typeref:struct:spriteframe_s
 spriteframes	render/sprites.h	/^    spriteframe_t *spriteframes;$/;"	m	struct:spritedef_s	typeref:typename:spriteframe_t *
 spritelayer_s	render/sprites.h	/^typedef struct spritelayer_s {$/;"	s

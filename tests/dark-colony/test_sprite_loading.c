@@ -132,11 +132,11 @@ static int catalog(const char *manifest) {
                 hash_texture(renderer, texture, cell->rect);
             }
         }
-        hash_int(sheet.spritedef.numframes); hash_int(sheet.spritedef.rotations);
-        hash_int(sheet.spritedef.first_angle); hash_int(sheet.spritedef.clockwise);
+        hash_int(sheet.spritedef.numframes);
         for (int i = 0; i < sheet.spritedef.numframes; ++i) {
             const spriteframe_t *frame = &sheet.spritedef.spriteframes[i];
             hash_bytes(frame->frame_name, sizeof(frame->frame_name));
+            hash_int(sheet.spritedef.spriteframes[i].rotations);
             for (int j = 0; j < MAX_SPRITE_ROTATIONS; ++j) {
                 const spritedirection_t *direction = &frame->directions[j];
                 hash_int(direction->ticks);
@@ -164,6 +164,16 @@ int main(int argc, char **argv) {
     CHECK(renderer);
     uint8_t file[1024];
     static const uint8_t pixels[] = { 0, 138, 5, 143, 0, 2 };
+    /* Transparent margins remain part of the authored SPR geometry. */
+    size_t padded_size = fixture(file, false);
+    memset(file + DATA, 0, 6);
+    file[DATA + 1] = 5;
+    spritesheet_t padded;
+    CHECK(load(file, padded_size, &padded));
+    CHECK(memcmp(&padded.cells[0].bounds, &padded.cells[0].rect,
+                 sizeof(irect_t)) == 0);
+    CHECK(ivec2_equal(padded.cells[0].ground_point, (ivec2_t){ 1, 2 }));
+    R_FreeSprite(&padded);
     for (int compressed = 0; compressed <= 1; ++compressed) {
         size_t size = fixture(file, compressed);
         spritesheet_t sheet;

@@ -1536,7 +1536,6 @@ building_cond	games/dark-colony/p_script.c	/^    BuildingCondition building_cond
 buttons	games/dark-colony/sb_bar.c	/^    irect_t buttons[8];$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t[8]	file:
 c_gt	games/dark-colony/p_script.c	/^    int c_gt;$/;"	m	struct:__anon9b5a71c80708	typeref:typename:int	file:
 cell	games/dark-colony/w_spr.h	/^    int16_t cell;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
-cell_bounds	games/dark-colony/w_spr.c	/^static irect_t cell_bounds(const uint8_t *indices, irect_t rect) {$/;"	f	typeref:typename:irect_t	file:	signature:(const uint8_t * indices,irect_t rect)
 cell_count	games/dark-colony/w_spr.h	/^    uint16_t flags, cell_count;$/;"	m	struct:__anonef9947740908	typeref:typename:uint16_t
 cell_x	games/dark-colony/dc_types.h	/^    uint8_t cell_x;             \/* +0xcd, integer map x *\/$/;"	m	struct:__anonf5138b040308	typeref:typename:uint8_t
 cell_z	games/dark-colony/dc_types.h	/^    uint8_t cell_z;             \/* +0xce, integer map z *\/$/;"	m	struct:__anonf5138b040308	typeref:typename:uint8_t

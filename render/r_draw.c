@@ -414,18 +414,15 @@ bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
     return true;
 }
 
-bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations,
-                     angle_t first_angle, bool clockwise) {
+bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations) {
     if (!sprite || numframes <= 0 || rotations <= 0 ||
         rotations > MAX_SPRITE_ROTATIONS) return false;
     spriteframe_t *frames = calloc((size_t)numframes, sizeof(*frames));
     if (!frames) return false;
+    for (int i = 0; i < numframes; ++i) frames[i].rotations = rotations;
     free(sprite->spritedef.spriteframes);
     sprite->spritedef = (spritedef_t){
         .numframes = numframes,
-        .rotations = rotations,
-        .first_angle = first_angle,
-        .clockwise = clockwise,
         .spriteframes = frames,
     };
     return true;
@@ -435,7 +432,7 @@ bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
                          int lump, bool flip) {
     if (!sprite || !sprite->spritedef.spriteframes || frame < 0 ||
         frame >= sprite->spritedef.numframes || rotation < 0 ||
-        rotation >= sprite->spritedef.rotations || lump < 0 ||
+        rotation >= sprite->spritedef.spriteframes[frame].rotations || lump < 0 ||
         lump >= sprite->numlumps) return false;
     spriteframe_t *spriteframe = &sprite->spritedef.spriteframes[frame];
     spritedirection_t *direction = &spriteframe->directions[rotation];
@@ -455,10 +452,8 @@ static int sprite_rotation_for_frame(const spritesheet_t *sprite, int frame,
                                      angle_t angle) {
     if (!sprite || frame < 0 || frame >= sprite->spritedef.numframes ||
         !sprite->spritedef.spriteframes) return -1;
-    int rotation = sprite->spritedef.rotations > 1 ? angle_to_direction(
-        angle, sprite->spritedef.rotations, sprite->spritedef.first_angle,
-        sprite->spritedef.clockwise) : 0;
-    return rotation >= 0 && rotation < MAX_SPRITE_ROTATIONS ? rotation : -1;
+    int rotations = sprite->spritedef.spriteframes[frame].rotations;
+    return angle_to_direction(angle, rotations, ANG90, false);
 }
 
 static const spritesheet_t *sprite_layer_source(const spritecache_t *cache,

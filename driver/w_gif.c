@@ -225,7 +225,7 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
     out->cells[0].bounds = out->cells[0].rect;
     out->cells[0].ground_point = (ivec2_t){ canvas_w / 2, canvas_h };
     out->spritedef.numframes = 1;
-    out->spritedef.rotations = 1;
+    out->spritedef.spriteframes[0].rotations = 1;
     spritelayer_t *layer = calloc(2, sizeof(*layer));
     if (!layer) {
         R_FreeSprite(out);

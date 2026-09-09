@@ -575,3 +575,42 @@ helper entirely. `load_sprite` copies the input into temporary storage, checks
 its immediate asset directory and suffix, and swaps the equal-length
 `ANIMATE/`/`SPRITES/` and `.FIN`/`.SPR` strings in place. All 461 catalog outcomes
 still match `81f043a` exactly; this changes no asset interpretation.
+
+
+## Sprite bounds and frame-local rotations (2026-09-09)
+
+**Correction to the direct-record loader audit:** tight opaque bounds are an
+open-rts cropping policy, not required SPR metadata. The earlier statement that
+they "still require calculation" described existing consumers, not a native
+requirement. At the user's request, DC now uses the full SPR cell rectangle for
+bounds and its bottom center as the fallback anchor. FIN-derived anchors remain
+unchanged. Empty native cells retain the existing transparent 1x1 SDL backing.
+Font advances and UI cropping now include authored transparent margins.
+
+**Confirmed source comparison:** local Doom `r_defs.h` and `r_things.c` put
+rotation behavior on individual frames, not on sprite definitions (fingerprints
+and upstream provenance in REFERENCES.md). open-rts now follows that ownership,
+using a count instead of Doom's boolean to support 1 through 32 directions.
+The former DC action loop overwrote a shared sheet count; raw single-direction
+frames on that sheet could consequently select empty direction slots.
+
+Runtime direction slots start at north and increase counterclockwise. DC FIN's
+south-zero clockwise slots are permuted once during loading:
+`(count / 2 - source_slot + count) % count` for its 8/16-direction sequences.
+KKND and 7th Legion reverse their north-zero clockwise slots; Dark Reign already
+uses the runtime ordering. At exact half-sector boundaries the common
+counterclockwise quantizer now chooses the counterclockwise neighbor, including
+for formerly clockwise tables. No per-sheet angle origin or winding is retained.
+
+**Scope/unknown:** this is an engine representation change, not a new DC.EXE
+finding; no executable was inspected and no new retail geometry rule is claimed.
+The DC headless screenshot was inspected for loading/rendering integrity, not
+as proof of pixel equivalence to retail. Native size/displacement and FIN command
+offsets are still preserved.
+
+Reproduce with `env SDL_VIDEODRIVER=dummy make test-dark-colony test-layout`.
+Focused `test_sprite_loading` covers transparent margins;
+`test_sprite_definitions` checks normalized Trooper/Exploiter layers and mixed
+one-/32-direction frames. Build and all four game smoke checks pass.
+The full suite's build-command, muzzle-flash, sprite-catalog, and initial-state
+failures also reproduce on the untouched parent checkout.

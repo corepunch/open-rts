@@ -25,10 +25,12 @@ int main(void) {
         return 1;
     }
 
-    static const int expected_lumps[8] = { 16, 23, 22, 21, 20, 19, 18, 17 };
+    static const int expected_lumps[8] = { 20, 21, 22, 23, 16, 17, 18, 19 };
     static const uint8_t expected_flips[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
     const spriteframe_t *run = &sprite.spritedef.spriteframes[16];
-    bool valid = sprite.spritedef.rotations == 8 && sprite.spritedef.numframes == 472;
+    bool valid = run->rotations == 8 && sprite.spritedef.numframes == 472;
+    /* A raw cell on the same sheet remains nondirectional. */
+    valid &= sprite.spritedef.spriteframes[15].rotations == 1;
     for (int rotation = 0; rotation < 8; ++rotation) {
         const spritelayer_t *part = run->directions[rotation].layers;
         if (!part || part->lump != expected_lumps[rotation] ||
@@ -73,8 +75,8 @@ int main(void) {
         valid = false;
     } else {
         const spriteframe_t *stand = &sprite.spritedef.spriteframes[0];
-        const spritelayer_t *part = stand->directions[1].layers;
-        if (sprite.spritedef.numframes != 232 || sprite.spritedef.rotations != 16 ||
+        const spritelayer_t *part = stand->directions[7].layers;
+        if (sprite.spritedef.numframes != 232 || stand->rotations != 16 ||
             !part || part->lump != 1 || (part->flags & RTS_FRAME_FLIP_X) == 0) {
             fprintf(stderr, "FAIL: Exploiter facing 15 preserves native frame and flip: %d/%u\n",
                 part ? part->lump : -1,
@@ -83,6 +85,18 @@ int main(void) {
         }
         R_FreeSprite(&sprite);
     }
+    spritesheet_t mixed = {0};
+    if (!R_AllocSpriteCells(&mixed, 32) || !R_InitSpriteDef(&mixed, 2, 1)) {
+        valid = false;
+    } else {
+        mixed.spritedef.spriteframes[1].rotations = 32;
+        valid &= R_InstallSpriteLump(&mixed, 0, 0, 0, false);
+        valid &= !R_InstallSpriteLump(&mixed, 0, 1, 0, false);
+        for (int r = 0; r < 32; ++r)
+            valid &= R_InstallSpriteLump(&mixed, 1, r, r, false);
+        valid &= !R_InstallSpriteLump(&mixed, 1, 32, 0, false);
+    }
+    R_FreeSprite(&mixed);
     r_renderer = NULL;
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);

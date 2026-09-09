@@ -352,16 +352,16 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     /* Movement sheets are arranged as eight contiguous facing blocks. */
     if (frame_count >= 8 && frame_count % 8 == 0) {
         int frames_per_facing = frame_count / 8;
-        if (!R_InitSpriteDef(out, frames_per_facing, 8, ANG90, true)) {
+        if (!R_InitSpriteDef(out, frames_per_facing, 8)) {
             R_FreeSprite(out);
             return false;
         }
         for (int frame = 0; frame < frames_per_facing; ++frame)
             for (int rotation = 0; rotation < 8; ++rotation)
-                R_InstallSpriteLump(out, frame, rotation,
+                R_InstallSpriteLump(out, frame, (8 - rotation) % 8,
                                     rotation * frames_per_facing + frame, false);
     } else {
-        if (!R_InitSpriteDef(out, frame_count, 1, ANG90, true)) {
+        if (!R_InitSpriteDef(out, frame_count, 1)) {
             R_FreeSprite(out);
             return false;
         }

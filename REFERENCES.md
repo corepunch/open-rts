@@ -3,6 +3,19 @@
 Keep these links handy when touching loaders, tile animation, map objects, or
 plugin-specific behavior.
 
+## Doom
+
+- id Software: https://github.com/id-Software/DOOM/tree/master/linuxdoom-1.10
+  - Local source: `reference/DOOM/`.
+  - `r_defs.h`: `spriteframe_t` owns `rotate`, `lump[8]`, and `flip[8]`;
+    `spritedef_t` owns only frame count and frame pointer.
+  - `r_things.c`: `R_InstallSpriteLump` installs nondirectional images per
+    frame; `R_ProjectSprite` checks that frame's rotation flag.
+  - SHA-256 of inspected local `r_defs.h`:
+    `d8856503bea02282f5f338f3533885e87c6c430ce4f11511d6a04b5fc040db31`.
+  - SHA-256 of inspected local `r_things.c`:
+    `b3ff03ba213782ed6488a9e0fb0afa0a0ee1f5cfbff8ce498c7133e93e01e0e3`.
+
 ## GZDoom
 
 - ZDoom/GZDoom:

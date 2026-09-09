@@ -1,4 +1,3 @@
-#include "dc_facing.h"
 #include "w_spr.h"
 
 #include <ctype.h>
@@ -133,19 +132,19 @@ static void install_fin_frames(spritesheet_t *sheet, const dc_fin_t *fin, const 
             if (count > length) length = count;
         }
         const dc_fin_label_t *base = sequence->directions[0];
-        sheet->spritedef.rotations = rotations;
-        sheet->spritedef.first_angle = dc_fin_direction_to_angle(0);
-        sheet->spritedef.clockwise = true;
         for (int frame = 0; frame < length; ++frame) {
             int index = SDL_SwapLE16(base->start) + frame;
             if (index >= sheet->spritedef.numframes) break;
             spriteframe_t *target = &sheet->spritedef.spriteframes[index];
+            target->rotations = rotations;
             snprintf(target->frame_name, sizeof(target->frame_name), "%.16s", base->name);
             for (int r = 0; r < rotations; ++r) {
                 const dc_fin_label_t *label = sequence->directions[r * stride];
                 int count = label_length(label);
                 int source = SDL_SwapLE16(label->start) + (frame < count ? frame : count - 1);
-                install_fin_parts(target, r, fin, source, stem, sheet->numlumps);
+                /* FIN starts south and runs clockwise; runtime starts north, CCW. */
+                install_fin_parts(target, (rotations / 2 - r + rotations) % rotations,
+                                  fin, source, stem, sheet->numlumps);
             }
         }
     }
@@ -200,21 +199,6 @@ static bool decode_cell(uint8_t *dst, size_t pixels,
         write += count;
     }
     return true;
-}
-
-static irect_t cell_bounds(const uint8_t *indices, irect_t rect) {
-    int min_x = rect.w, min_y = rect.h, max_x = -1, max_y = -1;
-    for (int y = 0; y < rect.h; ++y) {
-        for (int x = 0; x < rect.w; ++x) {
-            if (!indices[y * rect.w + x]) continue;
-            if (x < min_x) min_x = x;
-            if (y < min_y) min_y = y;
-            if (x > max_x) max_x = x;
-            if (y > max_y) max_y = y;
-        }
-    }
-    return max_x < min_x ? rect :
-        (irect_t){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
 /* FIN supplies the anchor. Visit its command stream once, not once per cell. */
@@ -321,9 +305,8 @@ static bool load_cell(dc_spr_t *spr, int index,
     lump->indices = calloc(pixels, 1);
     if (!lump->indices || (size.w && size.h &&
         !decode_cell(lump->indices, pixels, source, bytes, spr->compressed))) return false;
-    cell->bounds = cell_bounds(lump->indices, cell->rect);
-    cell->ground_point = (ivec2_t){ cell->bounds.x + cell->bounds.w / 2,
-                                   cell->bounds.y + cell->bounds.h };
+    cell->bounds = cell->rect;
+    cell->ground_point = (ivec2_t){ cell->rect.w / 2, cell->rect.h };
     return create_cell_textures(lump, cell->rect, palette);
 }
 
@@ -344,13 +327,9 @@ static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette
 static bool init_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin) {
     int count = fin->header ? SDL_SwapLE16(fin->header->frame_count) : 0;
     if (count < sheet->numlumps) count = sheet->numlumps;
-    if (!R_InitSpriteDef(sheet, count, 1, ANG270, false)) return false;
-    for (int i = 0; i < sheet->numlumps; ++i) {
-        spritelayer_t *layer = calloc(2, sizeof(*layer));
-        if (!layer) return false;
-        *layer = (spritelayer_t){ .sprite_name = ".", .lump = i, .intensity = 16 };
-        sheet->spritedef.spriteframes[i].directions[0].layers = layer;
-    }
+    if (!R_InitSpriteDef(sheet, count, 1)) return false;
+    for (int i = 0; i < sheet->numlumps; ++i)
+        if (!R_InstallSpriteLump(sheet, i, 0, i, false)) return false;
     return true;
 }
 
