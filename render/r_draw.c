@@ -1143,6 +1143,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             SDL_Point displacement = sprite_frame_raw_displacement(source, part->lump);
             uint32_t part_flags = (u->core.render_flags & ~RTS_FRAME_FLIP_X) |
                                   (part->flags & RTS_FRAME_FLIP_X);
+            if (part->layer == 3)
+                part_flags |= RTS_FRAME_ADDITIVE | RTS_FRAME_TINT_YELLOW;
             irect_t part_dst = {
                 (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
                     ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
