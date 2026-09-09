@@ -101,7 +101,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         elapsed = boundary;
         free(expected.layers);
     }
-    CHECK(!unit.remove && unit.core.state_id == exit_state);
+    CHECK(unit.remove == (exit_state == S_NULL) && unit.core.state_id == exit_state);
     fprintf(stderr, "%s: team=%d frames=%d tics=%d native layers/pixels match\n", label_name, team, end - start + 1, elapsed);
     free(expected_pixels);
     DC_FreeFIN(&fin);
@@ -115,6 +115,44 @@ int main(void) {
     app_t app = { .renderer = r_renderer, .win = {640, 480}, .cam = {320, 360} };
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
+    /* All persistent gameplay states must select complete FIN frames. The
+     * generic blood effect has no verified retail FIN label; zero-tic actions
+     * do not present their placeholder frame. */
+    for (int i = 1; i < NUMSTATES; ++i) {
+        const state_t *state = &states[i];
+        const spritesheet_t *sheet = R_StateSprite(cache, &game_info, state->sprite, NULL);
+        CHECK(sheet && state->frame < sheet->spritedef.numframes);
+        if (state->tics && (i < S_BLOOD1 || i > S_BLOOD8))
+            CHECK(state->frame >= sheet->numlumps);
+    }
+    static const struct { const char *file, *label; int first, last; } sequences[] = {
+        {"HUBU", "TRSCBUILD0", S_BRRKPOD_BUILD_TRSC1, S_BRRKPOD_STND},
+        {"BARR", "BARRDIE14", S_BARR_DIE1, S_BARR_CORPSE},
+        {"SARG", "SARGDIE14", S_SARG_DIE1, S_SARG_CORPSE},
+        {"ORTU", "ORTUDIE14", S_ORTU_DIE1, S_ORTU_CORPSE},
+        {"SLUG", "SLUGDIE14", S_SLUG_DIE1, S_SLUG_CORPSE},
+        {"SCGM", "SCGMDIE0", S_SCGM_DIE1, S_SCGM_CORPSE},
+        {"EXPL", "EXPLDIE0", S_EXPL_DIE1, S_EXPL_CORPSE},
+        {"EXPL", "EXPLDEPLOY14", S_EXPL_DEPLOY1, S_EXPL_WORK1},
+        {"SLUG", "SLUGDEPLOY14", S_SLUG_DEPLOY1, S_SLUG_DEPLOY1},
+        {"SLUG", "SLUGRETRACT14", S_SLUG_RETRACT1, S_NULL},
+        {"TURR", "TURRDIE0", S_TURR_DIE1, S_NULL},
+        {"TONG", "TONGDIE0", S_TONG_DIE1, S_NULL},
+        {"CENT", "CENTDIE0", S_CENT_DIE1, S_NULL},
+        {"TONG", "TONGSTAND0", S_TONG_STND1, S_TONG_STND1},
+        {"CENT", "CENTSTAND0", S_CENT_STND1, S_CENT_STND1},
+        {"HUBU", "EXCOPODSTAND0", S_EXCOPOD_STND, S_EXCOPOD_STND},
+        {"HUBU", "BRRKPODSTAND0", S_BRRKPOD_STND, S_BRRKPOD_STND},
+        {"ALBU", "MINDHIVSTAND0", S_ALIEN_MINDHIVE_STND, S_ALIEN_MINDHIVE_STND},
+        {"ALBU", "WARHIVESTAND0", S_ALIEN_WARHIVE_STND, S_ALIEN_WARHIVE_STND},
+        {"ALBU", "BRDRHIVSTAND0", S_ALIEN_BRDRHIVE_STND, S_ALIEN_BRDRHIVE_STND},
+        {"ALBU", "BRDRHIV2STAND0", S_ALIEN_BRDRHIVE2_STND, S_ALIEN_BRDRHIVE2_STND},
+        {"ALBU", "MNDHIV2STAND0", S_ALIEN_MINDHIVE2_STND, S_ALIEN_MINDHIVE2_STND},
+        {"ALBU", "MINDHIVSTAND0", S_ALIEN_MINDHIVE3_STND, S_ALIEN_MINDHIVE3_STND},
+    };
+    for (size_t i = 0; i < sizeof(sequences) / sizeof(sequences[0]); ++i)
+        check_sequence(&app, surface, cache, sequences[i].file, sequences[i].label,
+                       sequences[i].first, sequences[i].last, 0);
     for (int team = 0; team < 8; ++team) {
         check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1, team);
         /* An empty cargo lets the release state advance without spawning units. */
@@ -135,6 +173,6 @@ int main(void) {
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);
-    puts("PASS: native dropship/construction frame chains and pixels");
+    puts("PASS: FIN state coverage and complete death/deploy/building/dropship pixels and timing");
     return 0;
 }

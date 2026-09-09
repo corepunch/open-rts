@@ -777,7 +777,8 @@ __anon625b5c910108	tests/dark-colony/test_actor_lifecycle.c	/^    static const s
 __anon6564a8e20103	game/map.h	/^enum {$/;"	g
 __anon6564a8e20203	game/map.h	/^enum {$/;"	g
 __anon6564a8e20303	game/map.h	/^typedef enum {$/;"	g
-__anon759eab0d0108	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	s	function:main	file:
+__anon759eab0d0108	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	s	function:main	file:
+__anon759eab0d0208	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	s	function:main	file:
 __anon761761540108	render/sprites.h	/^typedef struct {$/;"	s
 __anon761761540108::id	render/sprites.h	/^    int id;$/;"	m	struct:__anon761761540108	typeref:typename:int
 __anon761761540108::texture	render/sprites.h	/^    SDL_Texture *texture;$/;"	m	struct:__anon761761540108	typeref:typename:SDL_Texture *
@@ -1250,7 +1251,8 @@ fail	tests/dark-colony/test_game_model_headless.c	/^static int fail(const char *
 fail	tests/test_dark_colony_sprite_layout.c	/^static int fail(const char *message) {$/;"	f	typeref:typename:int	file:	signature:(const char * message)
 falloff	tools/dc_gamestat_gen.c	/^    int falloff[3][3];$/;"	m	struct:__anon006eef8b0608	typeref:typename:int[3][3]	file:
 fields	plans/freeciv-arch.md	/^**Files touched:** `engine.h`, `engine_units.c`, `plugin.h` (RtsActorType fields),$/;"	v	typeref:typename:RtsActorType
-file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
+file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
+file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:const char *	file:
 fill	hud/ui_definition.h	/^    SDL_Color fill;$/;"	m	struct:uipanel_s	typeref:typename:SDL_Color
 fin_command	tests/test_dark_colony_sprite_layout.c	/^static const FinCommand *fin_command(const FinInfo *fin, const char *label,$/;"	f	typeref:typename:const FinCommand *	file:	signature:(const FinInfo * fin,const char * label,const char * sprite,int layer,int frame)
 fin_frame_command	tests/test_dark_colony_sprite_layout.c	/^static const FinCommand *fin_frame_command(const FinInfo *fin, int frame_index,$/;"	f	typeref:typename:const FinCommand *	file:	signature:(const FinInfo * fin,int frame_index,const char * sprite,int layer)
@@ -1266,7 +1268,8 @@ find_nearest_walkable_position	play/p_map.c	/^static bool find_nearest_walkable_
 find_product	tests/dark-colony/test_game_model_headless.c	/^static const RtsProductDefinition *find_product(const RtsProductDefinition *products,$/;"	f	typeref:typename:const RtsProductDefinition *	file:	signature:(const RtsProductDefinition * products,int product_count,int ui_id)
 find_resource_vent_at	play/p_map.c	/^static int find_resource_vent_at(const level_t *map, fvec2_t position) {$/;"	f	typeref:typename:int	file:	signature:(const level_t * map,fvec2_t position)
 find_spawn_position_near	game/g_game.c	/^static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,$/;"	f	typeref:typename:bool	file:	signature:(const RtsGameModel * model,const mobj_t * producer,float radius,float * out_gx,float * out_gy)
-first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
 first_draw	hud/sb_bar.h	/^    bool first_draw;$/;"	m	struct:__anona3f56ed40108	typeref:typename:bool
 fixed3_add	driver/m_vec.h	/^static inline fixed3_t fixed3_add(fixed3_t a, fixed3_t b) {$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t a,fixed3_t b)
 fixed3_add_planar	driver/m_vec.h	/^static inline fixed3_t fixed3_add_planar(fixed3_t position,$/;"	f	typeref:typename:fixed3_t	signature:(fixed3_t position,fixed3_t displacement)
@@ -1457,12 +1460,14 @@ kind	game/map.h	/^    MapExtraKind kind;$/;"	m	struct:mapextra_s	typeref:typenam
 kind	render/render_plan.h	/^    DrawCommandKind kind;$/;"	m	struct:drawcommand_s	typeref:typename:DrawCommandKind
 label	game/g_game.h	/^    char label[40];$/;"	m	struct:__anon42a104c41308	typeref:typename:char[40]
 label	game/g_game.h	/^    const char *label;$/;"	m	struct:__anon42a104c40608	typeref:typename:const char *
-label	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
+label	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
+label	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:const char *	file:
 label_count	tests/test_dark_colony_sprite_layout.c	/^    int label_count;$/;"	m	struct:__anona4e7c35f0408	typeref:typename:int	file:
 label_count	tools/dc_fin_extract.c	/^    uint16_t label_count;$/;"	m	struct:__anon82d667f30208	typeref:typename:uint16_t	file:
 label_offset	tools/dc_fin_extract.c	/^    size_t label_offset;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 labels	tests/test_dark_colony_sprite_layout.c	/^    FinLabel labels[512];$/;"	m	struct:__anona4e7c35f0408	typeref:typename:FinLabel[512]	file:
-last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
 layer	game/map.h	/^    int layer;$/;"	m	struct:mapextra_s	typeref:typename:int
 layer	render/render_plan.h	/^            int layer;$/;"	m	struct:drawcommand_s::__anonba488bd4030a::__anonba488bd40408	typeref:typename:int
 layer	render/render_plan.h	/^    RenderLayer layer;$/;"	m	struct:drawcommand_s	typeref:typename:RenderLayer
@@ -1548,11 +1553,15 @@ main	tools/dc_info_gen.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typen
 main	tools/dc_spr_extract.c	/^int main(int argc, char *argv[]) {$/;"	f	typeref:typename:int	signature:(int argc,char * argv[])
 main::__anon625b5c910108::corpse	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int type, corpse; } deaths[] = {$/;"	m	struct:main::__anon625b5c910108	typeref:typename:int	file:
 main::__anon625b5c910108::type	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int type, corpse; } deaths[] = {$/;"	m	struct:main::__anon625b5c910108	typeref:typename:int	file:
-main::__anon759eab0d0108::file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
-main::__anon759eab0d0108::first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
-main::__anon759eab0d0108::label	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
-main::__anon759eab0d0108::last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
-main::__anon759eab0d0108::product	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+main::__anon759eab0d0108::file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
+main::__anon759eab0d0108::first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+main::__anon759eab0d0108::label	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
+main::__anon759eab0d0108::last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+main::__anon759eab0d0208::file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:const char *	file:
+main::__anon759eab0d0208::first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
+main::__anon759eab0d0208::label	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:const char *	file:
+main::__anon759eab0d0208::last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
+main::__anon759eab0d0208::product	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
 maker_count	game/g_game.h	/^    int maker_count;$/;"	m	struct:__anon42a104c40608	typeref:typename:int
 makers	game/g_game.h	/^    int makers[RTS_MODEL_MAX_PRODUCT_PREREQUISITES];$/;"	m	struct:__anon42a104c40608	typeref:typename:int[]
 map_circle_walkable	play/p_map.c	/^static bool map_circle_walkable(const level_t *map, float gx, float gy, float radius) {$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,float gx,float gy,float radius)
@@ -1780,7 +1789,7 @@ prev	play/actor.h	/^    struct thinker_s *prev, *next;$/;"	m	struct:thinker_s	ty
 process_spr	tools/dc_spr_extract.c	/^static void process_spr(const char *spr_path, const char *out_dir,$/;"	f	typeref:typename:void	file:	signature:(const char * spr_path,const char * out_dir,const char * subdir,const char * filename)
 producer_id	game/g_game.h	/^            uint32_t producer_id;$/;"	m	struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40e08	typeref:typename:uint32_t
 producer_index	game/g_game.h	/^            int producer_index; \/* Compatibility fallback; prefer producer_id. *\/$/;"	m	struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40e08	typeref:typename:int
-product	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
+product	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
 product_class	game/g_game.h	/^    RtsProductClass product_class;$/;"	m	struct:__anon42a104c40608	typeref:typename:RtsProductClass
 product_class	game/g_game.h	/^    RtsProductClass product_class;$/;"	m	struct:__anon42a104c41308	typeref:typename:RtsProductClass
 product_class	game/g_game.h	/^    int product_class;$/;"	m	struct:__anon42a104c40f08	typeref:typename:int

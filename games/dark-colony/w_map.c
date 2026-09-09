@@ -500,26 +500,6 @@ static int mobj_type_for_type(int type, int race) {
     }
 }
 
-static int unit_frame_for_type(int type) {
-    switch (type) {
-        case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-        case 17: return 4; /* HUBU.FIN BRRKPODSTAND0 */
-        case 18: return 1; /* ROBOTICSSTAND0 */
-        case 19: return 1; /* ROBOPOD2 reuses robotics art. */
-        case 20: return 2; /* SCIENCESTAND0 */
-        case 21: return 2; /* SCNCPOD2 reuses science art. */
-        case 22: return 4; /* HUMRESSTAND0 */
-        case 41: return 0; /* TURR */
-        case 81: return 0; /* TOWR.FIN TOWRSTAND0 */
-        case 89: return 0; /* CENT */
-        case 91: return 0; /* TONG */
-        case 94: return 0; /* DOTT */
-        default: break;
-    }
-    if (type >= 28 && type <= 34) return type - 28;
-    return 0;
-}
-
 static int unit_state_for_type(int type) {
     switch (type) {
         case 16: return S_EXCOPOD_STND;
@@ -628,7 +608,6 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     P_MobjSetSelected(u, u->owner == 0 && mobj_type != MT_COMMS_DISH &&
                       mobj_type < MT_BUILDING_BASE && !units->player_selected);
     if (P_MobjIsSelected(u)) units->player_selected = true;
-    u->core.frame = unit_frame_for_type(type);
     int state_id = unit_state_for_type(type);
     if (state_id == S_NULL && u->type_id < game_info.mobj_type_count)
         state_id = game_info.mobjinfo[u->type_id].spawnstate;

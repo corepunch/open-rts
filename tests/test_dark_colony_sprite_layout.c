@@ -275,10 +275,11 @@ static int assert_dark_colony_city_fin_alignment(void) {
     const FinCommand *tower = fin_command(&towr_fin, "TOWRSTAND0", "towr", 1, 0);
     if (!exco || !barracks || !tower) return fail("resolve Dark Colony city FIN commands");
 
-    if (states[S_EXCOPOD_STND].frame != exco->frame ||
-        states[S_BRRKPOD_STND].frame != barracks->frame ||
-        states[S_TOWR_STND].frame != tower->frame) {
-        return fail("city building states use the primary FIN sprite frame");
+    /* Logical FIN frames follow HUBU's 19 and TOWR's one raw SPR cells. */
+    if (states[S_EXCOPOD_STND].frame != 19 + fin_label(&hubu_fin, "EXCOPODSTAND0")->start ||
+        states[S_BRRKPOD_STND].frame != 19 + fin_label(&hubu_fin, "BRRKPODSTAND0")->start ||
+        states[S_TOWR_STND].frame != 1 + fin_label(&towr_fin, "TOWRSTAND0")->start) {
+        return fail("city building states use complete FIN frames");
     }
     if (barracks->x != -36 || barracks->y != 37) {
         return fail("Barracks state uses raw BRRKPODSTAND0 FIN placement");

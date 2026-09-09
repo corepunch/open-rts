@@ -280,6 +280,9 @@ and a gameplay `group`. FIN layers own rendering flags, remap, and intensity;
 FIN `remap` is a native drawing mode, not a team-color ID. Choose palette
 translations from the object's team, independently of animation commands;
 do not reintroduce state rendering overrides or generic `misc` fields.
+Visible Dark Colony states must select complete FIN frames. The generic blood
+effect is the documented exception until its native FIN selection is known;
+`test_drop_fin_states` checks this across the entire state table.
 Directional frame arrays, overlay state
 fields, and `state_userdata` are not part of the runtime contract. Basic
 sprite/frame selection is the current presentation target; do not reintroduce
@@ -344,9 +347,10 @@ array, not the binary.
 - **Exploiter deploy orientation**: when ordered to harvest, the unit first rotates to face
   south-east (code 6), then plays the DEPLOY1-20 animation. Code already does this; preserve it.
 - **Exploiter work (harvesting) animation**: the WORK1-15 data (frames 25-33) was incorrectly
-  interpreted as a probe-arm animation. WORK states now show only the static deployed body
-  (frame 34, DC_NO_OVERLAY). The original game appears to use a pulsating light during
-  harvesting, but its native implementation is still unknown; preserve that unknown and
+  interpreted as a probe-arm animation. WORK states show only the static deployed body
+  (SPR cell 34 through FIN frame 53, the final `EDPLYSTAND14` frame). The original
+  game appears to use a pulsating light during harvesting, but its native
+  implementation is still unknown; preserve that unknown and
   investigate it in DC.EXE before adding a spawned visual effect.
 
 ## Dark Colony direction

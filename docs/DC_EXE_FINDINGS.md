@@ -1564,3 +1564,173 @@ env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/open-r
 Full build and smoke checks passed. Visual previews confirmed red Trooper decay
 and dropship movement/unload; Grey previews confirmed native placement. Death
 tests now write `/private/tmp/{TRSC,GRAY}-team{0,1}-death-*.bmp`.
+
+
+## Complete state-table audit after the Grey fix (2026-09-09)
+
+**Scope and confirmed baseline:** `5d42ad9` already fixes Grey death using
+logical FIN frames 594–607. Its other state rows still contained **246 raw SPR
+references**: 237 visible non-blood states, eight generic blood frames, and the
+zero-tic Reaper death selector. The raw references were not all in `info.c`:
+`w_map.c:unit_frame_for_type` retained another hardcoded raw-cell table with
+stale animation-name comments, but `P_InitMobj` immediately overwrote its result
+from the selected state. That unused function and assignment are now removed.
+
+The loader itself retains all FIN frames and parts. These defects were state
+selection shortcuts, not missing asset metadata. `tools/dc_info_gen.c` is now
+only a FIN-range exporter and does not regenerate `info.c`; the old raw-cell
+rows survived in the authored gameplay table. No sprite-name exception or
+pixel-derived offset is introduced by these corrections.
+
+**Confirmed truncations and lost parts:** BARRDIE14 had 13 states for 15 FIN
+frames and omitted decay cells 89/90. SARGDIE14 stopped at cell 139 after two
+states, omitting 35 frames, including XENO, BLOO, HIT, GASY and TRSC parts.
+SCGMDIE0 used FIN frames but stopped after 10 of 30 frames. EXPLDEPLOY14 kept
+only the stationary body (cell 14) for its first 18 frames, dropping the arm
+cells 15–30,32,33. TRSCBUILD0 changed the state's sprite from HUBU to TRSC when
+it selected one command, discarding other commands and their placements.
+TURR/TONG/CENT death did the same with GASY/BLAM effects. Building idle states
+lost overlays or froze the first body cell. All corrected sequences below now
+reference each entire FIN frame in order.
+
+**Native evidence:** no executable was newly examined in this audit. DC.EXE's
+fingerprint, command-layout evidence and delay conversion recorded above still
+apply. Native durations are converted by accumulating
+`floor(((ticks ? ticks : 15) + 3) * 19 / 100)` and rounding cumulative engine
+boundaries as `floor((native_total * 30 + 9) / 19)`. Each state's duration is
+the difference between successive boundaries. Reaper's authored movement tics
+`{4,3,3,4,1,3,3,1}` are unchanged. The table gives native FIN indices, followed
+by logical engine frames (SPR cell count + FIN index):
+
+| FIN | Label | Native frames | Logical frames | Total engine tics |
+| --- | --- | --- | --- | --- |
+| HUBU | TRSCBUILD0 | 26–47 | 45–66 | 35 |
+| BARR | BARRDIE14 | 140–154 | 246–260 | 398 |
+| SARG | SARGDIE14 | 192–228 | 390–426 | 385 |
+| ORTU | ORTUDIE14 | 126–132 | 212–218 | 44 |
+| SLUG | SLUGDIE14 | 71–79 | 161–169 | 164 |
+| SCGM | SCGMDIE0 | 72–101 | 102–131 | 47 |
+| EXPL | EXPLDIE0 | 54–65 | 104–115 | 57 |
+| EXPL | EXPLDEPLOY14 | 32–51 | 82–101 | 95 |
+| SLUG | SLUGDEPLOY14 | 147–160 | 237–250 | 66 |
+| SLUG | SLUGRETRACT14 | 161–174 | 251–264 | 66 |
+| TURR | TURRDIE0 | 65–80 | 125–140 | 76 |
+| TONG | TONGDIE0 | 19–38 | 29–48 | 95 |
+| CENT | CENTDIE0 | 12–52 | 24–64 | 194 |
+| TONG | TONGSTAND0 | 0–17 | 10–27 | 88 |
+| CENT | CENTSTAND0 | 53–76 | 65–88 | 114 |
+| HUBU | EXCOPODSTAND0 | 0–7 | 19–26 | 38 |
+| HUBU | BRRKPODSTAND0 | 19–20 | 38–39 | 9 |
+| ALBU | MINDHIVSTAND0 | 3–4 | 33–34 | 16 |
+| ALBU | WARHIVESTAND0 | 13–16 | 43–46 | 19 |
+| ALBU | BRDRHIVSTAND0 | 11–12 | 41–42 | 16 |
+| ALBU | BRDRHIV2STAND0 | 17–20 | 47–50 | 28 |
+| ALBU | MNDHIV2STAND0 | 5–6 | 35–36 | 16 |
+| TOWR | TOWRSTAND0 | 0–0 | 1–1 | 5 |
+| DOTT | DOTTSTAND0 | 0–0 | 1–1 | 5 |
+| ALBU | RSCHHIVDIE0 | 10–10 | 40–40 | 76 |
+
+Single-frame TOWR/DOTT presentations and the research-hive placeholder retain
+infinite state durations; their table totals above describe the native frame
+delay, not the engine's static-state policy. Existing death-variant choices,
+corpse persistence/removal, and Slug deploy/retract exits are preserved. These
+are not newly verified retail lifecycle rules. Exploiter death already used
+complete FIN frames, but still used uniform three-tic durations; it now also
+uses its native total of 57 tics.
+
+**Fingerprints and locations:** each command is 22 bytes and each FIN frame
+record is 164 bytes. The offsets below are label/frame/command-table starts.
+The existing hashes for TRSC and DROP are unchanged. FIN-only DROP3/DROP4 have
+no matching SPR file and correctly start their logical FIN numbering at zero;
+they are not missing sprite loads.
+
+| Asset | SHA-256 | Tables or SPR cell count |
+| --- | --- | --- |
+| HUBU.FIN | `b27b20282999188e37a74872b70a273b370cc1dd219f2f8fa84f5f2f2ca3a5a4` | 208/1368/80580 |
+| HUBU.SPR | `d9132c612f12deda687feebc49ac5da9ab64e8faa9980001e2b134e7cf1aa474` | 19 cells |
+| TOWR.FIN | `9e5637a26681eca10a02669545d4102f1d8f33e407dfeb7a95ab70d5d50bf9e7` | 16/36/200 |
+| TOWR.SPR | `eb7622b6cc46236fd5833d32886409a0ec0200b525653a58eb92930ec2d8d84b` | 1 cells |
+| BARR.FIN | `08ef8a38d3d0ba5629dcd58c91441569dde7c4ed09c60925b4a86d3d33c65894` | 104/1124/38680 |
+| BARR.SPR | `446622924f43aefe33726a28b274d8c050e059cecee60fe47dc419acc848f28d` | 106 cells |
+| SARG.FIN | `3c29f398dfdb315cf4399b2037f43a499a26e9156ef1bc6d8f20e7236c8803db` | 112/1492/106452 |
+| SARG.SPR | `7e441aa49451d2419c8ca5506385ef769be29e5e17466040808b47fa0aa4610c` | 198 cells |
+| ORTU.FIN | `410a683cfbafcc28cb2f6d6e569da8b5e595114692c4b92f65ccd79052ddd387` | 56/1116/44576 |
+| ORTU.SPR | `d678fb53ce718956b88f88c2abd08587703144e3962beb57f8f7ca412f6f0a55` | 86 cells |
+| SLUG.FIN | `f1b813f0607aab425b57011f19f16110d8c5b33179691d08dd4b9558afb87d6b` | 72/1172/53980 |
+| SLUG.SPR | `15f8f25029981f001b9e963f0efeb27e25769a46801a986e544ea63f926c73cc` | 90 cells |
+| SCGM.FIN | `5504da63bf95910593f909a259624a77e3c1d839cc68d751ef76d638769b8638` | 136/696/18408 |
+| SCGM.SPR | `53c01854110ce1725bef4b99a7d06177536fb55de7221d818a5a2ccf4dc46471` | 30 cells |
+| EXPL.FIN | `6cd02d2153bf692155aaf31d73015eb7de89902ecccdc9a079af5a8a6ed2812c` | 112/1192/39240 |
+| EXPL.SPR | `1eed4f57075ff91589caaba490079b58394ce9fad282a4a06648a1db8362a721` | 50 cells |
+| TURR.FIN | `f0f25f1ae13cfcd6b53e3cdcae2e5efaca09e9e8290eb173bb8ce98a93d3a210` | 112/1672/41360 |
+| TURR.SPR | `3a4e753e4122149c28025a5325880da38ac09a164ed76362ed7007e16d7beb88` | 60 cells |
+| TONG.FIN | `5c4510ba67675eb958d77d5b6e857b122d57ab8c6294205ace45e5081380902a` | 24/84/6480 |
+| TONG.SPR | `7d93d55c7b49385e4e8b980f666849f65626d1bf14942fab069461953caf6940` | 10 cells |
+| CENT.FIN | `58cac6fae5085fe6ee203b22eeaa05af9517cb0320267285159e464713288baf` | 64/124/12752 |
+| CENT.SPR | `d0592944767b26860bc24f3c2f9f6371995fb398bc1813c3463e82382f3478b8` | 12 cells |
+| DOTT.FIN | `005e22d43a95de00ab4099b4a51949cae7296807449cb4c80b8f30448f04b277` | 16/36/200 |
+| DOTT.SPR | `5782fe0197c7c957686c65e2121bc96ae5b96396fc2d782b2312edbdfdeed977` | 1 cells |
+| ALBU.FIN | `99c3d4e4fa0badeb2cd68361a6f1b57dcf9dfbdd027f820a68d806aa18773fa1` | 120/1140/80844 |
+| ALBU.SPR | `eff81187b3379c7f215142c44173aa85089ffe89d0515a74d17b840daa35aa79` | 30 cells |
+
+**Special cases and remaining unknowns, explicitly preserved:**
+
+- Generic `MT_BLOOD` still uses eight raw cells. BLOO.FIN only supplies
+  hive-labelled ranges; retail hit-animation selection remains unverified, as
+  documented above. It is the sole visible raw-cell exception in the state
+  coverage test. The zero-tic Reaper selector is never drawn on death entry.
+- Exploiter WORK still shows only deployed SPR cell 34 for its existing 2/4-tic
+  loop, now through full logical FIN frame 103 (native frame 53). EDPLYSTAND14
+  frames 52/53 share body cell 34 at (-159,25); frame 52 additionally contains
+  mirrored GLIT cell 10 at (-13,-39), layer 5. That is confirmed authored art,
+  but its retail harvesting selection/lighting behavior is still unknown.
+  No new work-light action or overlay is invented. Deployment now includes its
+  verified native arm layers without changing the south-east facing rule.
+- The alien research-hive standing placeholder previously selected ALBU cell
+  13. That cell belongs to **RSCHHIVDIE0**, native frame 10, offset (-113,-38).
+  Its state now retains that same art through complete logical FIN frame 40;
+  it is still a corpse-art placeholder, not a verified research-hive stand.
+  ALBU's `CROOP` frames 8/9 contain cells 11/12 at (-113,-43), but using that
+  label as a standing animation requires the native object-to-label lookup.
+- The third mind-hive state already reused the base mind-hive art. It now
+  shares the complete MINDHIVSTAND0 sequence. Distinct retail third-tier art
+  remains unverified; this change does not establish that alias as native.
+- This audit validates declared state-to-FIN references, not every original
+  game's animation choice. Movement/attack timing, shortened gameplay idle
+  loops, death-variant selection, native clipping and special blend/lighting
+  behavior retain the documented limits of the current implementation.
+
+**Verification:** temporary `OPEN_RTS_DEBUG_FIN_AUDIT` logging printed state ID,
+sprite, logical frame, raw-cell count and tics for all 710 non-null states, then
+was removed. `test_drop_fin_states` now checks every declared frame is valid
+and every visible non-blood state uses FIN. It additionally compares complete
+native metadata, rendered pixels and cumulative timing for 23 restored
+sequences, all eight dropship teams, and the three construction sequences.
+The static work policy is checked separately. The old city-layout assertion
+required raw-cell IDs; it now requires the corresponding FIN frame indices,
+while retaining its SPR descriptor and placement checks.
+
+Full build, native-sequence pixels/timing, Trooper/Grey death and selection,
+actor lifecycle, sprite layout/Reaper timing, and Dark Colony screenshot smoke
+checks pass. Preview BMPs (for example `/private/tmp/EXPLDEPLOY14.bmp` and
+`/private/tmp/SARGDIE14.bmp`) show the restored parts. The broad
+`test_game_model_headless` still fails its previously documented Human01
+initial-force expectation (0 player Troopers versus 32 expected); its focused
+Exploiter work-state checks pass. This audit does not alter mission startup.
+
+Reproduce with `make -j4`, `make tags`, and these headless tests (build the test
+targets explicitly before running):
+
+```sh
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_drop_fin_states
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_trooper_rendering
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_actor_lifecycle
+env SDL_VIDEODRIVER=dummy build/bin/test_dark_colony_sprite_layout
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-audit-smoke.bmp
+```
+
+To reproduce the original table inventory, inspect
+`git show 5d42ad9:games/dark-colony/info.c` with its matching `info.h` and compare
+each frame to the SPR header's cell count at byte 2. Count zero cells for FIN-only
+assets. To inspect any native sequence, run `build/dc_fin_extract` on the FIN
+file and find the exact label from the table above.
