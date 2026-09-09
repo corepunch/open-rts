@@ -931,6 +931,59 @@ death coverage comes from the focused test, not that starting-scene image.
 The complete DC suite retains only the three previously recorded failures
 (muzzle effect, initial Trooper force, and spawn-state action invocation).
 
+## Audit custom attack and death actions against Doom (2026-09-09)
+
+**Confirmed engine behavior, not new DC.EXE evidence:**
+`A_DC_TrooperAttackStart` only used `rand() & 1` to choose between the six-state
+FIREA and four-state FIREB attack chains. It did not initialize combat or fix
+SPR decoding. The retail condition for choosing those animations remains
+**unknown**. At the user's request to simplify state actions, Trooper now enters
+`S_TRSC_ATK1` directly through `missilestate`; the selector and unreachable
+ATKB states are removed from the generator. This intentionally removes the
+unverified random variation, including its earlier damage frame and shorter
+cycle. The loader still loads all FIN frames, including FIREB.
+
+The local Doom reference enters `S_POSS_ATK1` through `missilestate`, faces its
+target there, and fires `A_PosAttack` on `S_POSS_ATK2` (`reference/DOOM/info.c`).
+Its `P_KillMobj` clears live-object flags before entering the death chain
+(`reference/DOOM/p_inter.c`). Doom's later `A_Fall` clears `MF_SOLID`
+(`reference/DOOM/p_enemy.c`); our `A_DC_Fall` instead duplicated the kill
+branch's selection, movement and combat cleanup. That action is removed, with
+its remaining attack/harvest resets consolidated in `P_Attack`'s lethal-damage
+branch. Reaper's action now only selects the complete FIN timeline; its existing
+sixteen-direction mapping and all frame timings remain unchanged.
+
+**Disproven cleanup hypothesis:** neither remaining action is dead SPR code.
+`A_DC_ReaperDeath` still selects four timelines of different lengths; replacing
+it with a single death chain would lose authored frames. `A_DC_Corpse` still
+copies the final visual into map decorations and releases the live-object slot.
+Doom retains an object in a final `tics = -1` state, but our current
+`MAXMOBJS == 128` array is also the storage used by production and reinforcements.
+Retaining every corpse there would eventually block spawning. Keep the explicit
+corpse handoff until object storage/lifetime changes; only its redundant momentum
+reset is removed. This is an engine storage constraint, not a retail corpse rule.
+
+**Verification:** `test_actor_lifecycle` checks direct Trooper attack entry,
+damage after two windup frames, one shot per cycle, lethal cleanup for all nine
+unit death chains, final corpse frame preservation, and slot release.
+`test_reaper_death` now starts death through actual lethal damage and still checks
+all sixteen facings against the complete FIN frames and native timing evidence
+above. Temporary `OPEN_RTS_DEBUG_ACTION_CLEANUP` logging confirmed state, frame,
+tics, health and trait transitions and was removed after verification. Reproduce:
+
+```sh
+make build/bin/tests/dark-colony/test_actor_lifecycle build/bin/tests/dark-colony/test_reaper_death
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_actor_lifecycle
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_reaper_death
+env SDL_VIDEODRIVER=dummy make test-layout
+```
+
+The full build, generator reproducibility check, layout test (including Reaper
+movement timing `{4,3,3,4,1,3,3,1}`), and all four game smoke checks pass.
+The complete DC suite retains the same three failures observed before this
+change: muzzle-effect expectations, Human01 initial Trooper force, and
+spawn-state action expectations. No new suite failure was introduced.
+
 ## FIN layer flags and Doom misc fields (2026-09-09)
 
 **Confirmed assets:** the BLAZ commands in TRSC/GRAY/REAP FIN carry flags **0**

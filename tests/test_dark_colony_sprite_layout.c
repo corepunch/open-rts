@@ -514,11 +514,9 @@ static int assert_trooper_sequence_frame_layout(void) {
     return 0;
 }
 
-void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_Walk(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_Attack(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_Fall(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 

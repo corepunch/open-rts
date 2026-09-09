@@ -430,6 +430,10 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
         target->movement.order_arrived = false;
         target->harvest.target = -1;
         target->harvest.timer_ms = 0;
+        target->harvest.phase = 0;
+        target->harvest.cargo = 0;
+        target->attack.target = -1;
+        target->attack.cooldown_left_ms = 0;
         target->core.momentum = fixed3_zero();
         if (ctx->game_info && target->type_id > 0 &&
             target->type_id < ctx->game_info->mobj_type_count) {

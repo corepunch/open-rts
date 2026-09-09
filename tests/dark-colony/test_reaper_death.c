@@ -35,10 +35,17 @@ int main(void) {
         P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_REAPER));
         unit.core.angle = dc_direction_to_angle(direction);
         unit.core.position = fixed3_from_fvec2((fvec2_t){ 4, 5 }, 0);
-        unit.hp = 0;
+        unit.hp = 1;
+        mobj_t attacker = {0};
+        P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));
+        attacker.allegiance = ALLEGIANCE_ENEMY;
+        attacker.attack.target = 0;
+        int count = 1;
         statecontext_t ctx = { .map = &map, .game_info = &game_info,
-            .effects = effects, .max_effects = 2 };
-        CHECK(P_SetMobjState(&ctx, &unit, dc_mobjinfo[MT_REAPER].deathstate));
+            .effects = effects, .max_effects = 2, .mobjs = &unit, .mobj_count = &count };
+        CHECK(P_Attack(&ctx, &attacker));
+        CHECK(unit.hp == 0);
+        memset(effects, 0, sizeof(effects));
         CHECK(!(unit.traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK)));
         int explosion_frames = 0, elapsed = 0;
         for (int f = start; f <= end; ++f) {
