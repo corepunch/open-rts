@@ -8,7 +8,6 @@
 /* The level owns this aggregate; each subsystem owns its private state. */
 typedef struct {
     ScriptState *script;
-    AiState ai;
 } Mission;
 
 Mission *load_mission(const char *map_path);

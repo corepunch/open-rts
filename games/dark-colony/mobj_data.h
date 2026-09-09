@@ -14,7 +14,14 @@ typedef struct {
     int released_count;
 } dc_drop_t;
 
+enum { DC_MAX_WAYPOINTS = 8 };
+typedef struct {
+    ivec2_t points[DC_MAX_WAYPOINTS];
+    int count;
+    int current;
+} dc_waypoints_t;
+
 /* Game-owned object fields; vent indices refer to the active level. */
-#define MOBJ_GAME_FIELDS dc_drop_t drop; int resource_vent_index;
+#define MOBJ_GAME_FIELDS dc_drop_t drop; int resource_vent_index; dc_waypoints_t waypoints;
 
 #endif

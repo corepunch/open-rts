@@ -194,7 +194,8 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         return NULL;
     float range2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
     mobj_t *target = attacker->attack.target;
-    if (target && !target->remove && target->hp > 0 && !P_IsAlly(attacker, target) &&
+    if (target && !target->remove && target->hp > 0 &&
+        !(target->traits & MF_NOBLOCKMAP) && !P_IsAlly(attacker, target) &&
         fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
                                fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
         return target;
@@ -214,13 +215,14 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
 bool P_Attack(mobj_t *attacker) {
     if (!attacker || (attacker->traits & MF_ATTACK) == 0) return false;
     mobj_t *target = attacker->attack.target;
-    if (!target || target->remove || target->hp <= 0 || P_IsAlly(attacker, target)) {
+    if (!target || target->remove || target->hp <= 0 ||
+        (target->traits & MF_NOBLOCKMAP) || P_IsAlly(attacker, target)) {
         target = NULL;
         float best = mobj_attack_range(attacker) * mobj_attack_range(attacker);
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
             mobj_t *candidate = (mobj_t *)th;
             if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
-                P_IsAlly(attacker, candidate)) continue;
+                (candidate->traits & MF_NOBLOCKMAP) || P_IsAlly(attacker, candidate)) continue;
             float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(candidate->core.position),
                                                     fixed3_xy_to_fvec2(attacker->core.position));
             if (distance <= best) { best = distance; target = candidate; }
@@ -283,7 +285,7 @@ void A_Look(mobj_t *unit) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
         if (candidate == unit || candidate->remove || candidate->hp <= 0 ||
-            P_IsAlly(unit, candidate)) continue;
+            (candidate->traits & MF_NOBLOCKMAP) || P_IsAlly(unit, candidate)) continue;
         float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(candidate->core.position),
                                                 fixed3_xy_to_fvec2(unit->core.position));
         if (distance <= best) { best = distance; target = candidate; }

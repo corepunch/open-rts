@@ -55,6 +55,7 @@ typedef enum {
     SCRIPT_CMD_NEWRATE,
     SCRIPT_CMD_SETARRAY,
     SCRIPT_CMD_SETLIFES,
+    SCRIPT_CMD_WAYPOINT,
 } ScriptCommandType;
 
 typedef enum {
@@ -87,7 +88,13 @@ enum {
 
 typedef struct {
     ScriptCommandType type;
-    int a[8];
+    union {
+        int a[8];
+        struct {
+            ivec2_t origin;
+            dc_waypoints_t route;
+        } waypoint;
+    };
 } ScriptCommand;
 
 typedef struct {
@@ -182,7 +189,21 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
     if (!script || !block) return;
     for (int i = 0; i < block->command_count; ++i) {
         ScriptCommand *cmd = &block->commands[i];
-        if (cmd->type == SCRIPT_CMD_MSG) {
+        if (cmd->type == SCRIPT_CMD_WAYPOINT) {
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *actor = (mobj_t *)th;
+                if (actor->remove || actor->hp <= 0) continue;
+                fvec2_t position = fixed3_xy_to_fvec2(actor->core.position);
+                ivec2_t cell = { (int)floorf(position.x), (int)floorf(position.y) };
+                if (!ivec2_equal(cell, cmd->waypoint.origin)) continue;
+                actor->waypoints = cmd->waypoint.route;
+                actor->attack.target = NULL;
+                actor->movement.flow_field = NULL;
+                actor->movement.order_id = 0;
+                actor->movement.order_arrived = false;
+                break;
+            }
+        } else if (cmd->type == SCRIPT_CMD_MSG) {
             const char *message = script_message(script, cmd->a[0]);
             if (message) HU_PushMessage(hud, message, -1);
         } else if (cmd->type == SCRIPT_CMD_REINFORCE ||
@@ -498,7 +519,16 @@ static void parse_tro(ScriptState *script, const char *path) {
             memset(&cmd, 0, sizeof(cmd));
             int v[32] = { 0 };
             int parsed = 0;
-            if (sscanf(token, "msg %d %d %d %d %d", &v[0], &v[1], &v[2], &v[3], &v[4]) == 5) {
+            if ((parsed = parse_command_ints(token, "waypoint", v, 31)) >= 3) {
+                if (v[2] > 0 && v[2] <= DC_MAX_WAYPOINTS && parsed == 3 + v[2] * 2) {
+                    cmd.type = SCRIPT_CMD_WAYPOINT;
+                    cmd.waypoint.origin = (ivec2_t){ v[0], v[1] };
+                    cmd.waypoint.route.count = v[2];
+                    for (int j = 0; j < v[2]; ++j)
+                        cmd.waypoint.route.points[j] = (ivec2_t){ v[3 + j * 2], v[4 + j * 2] };
+                    script_add_command(block, cmd);
+                }
+            } else if (sscanf(token, "msg %d %d %d %d %d", &v[0], &v[1], &v[2], &v[3], &v[4]) == 5) {
                 cmd.type = SCRIPT_CMD_MSG;
                 cmd.a[0] = v[2];
                 script_add_command(block, cmd);

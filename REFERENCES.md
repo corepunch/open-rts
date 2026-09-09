@@ -1160,3 +1160,10 @@ engagement-rule unknowns are recorded in
 [the Human02 guard audit](docs/DC_EXE_FINDINGS.md#human02-petrovent-guards-and-premature-attack-audit-2026-09-09).
 No external sources were used; the retail encounter behavior was reported
 by the user and distinguished from the disassembly evidence.
+
+The follow-up implementation traces action table `0x474304` entry 9 to
+`0x415364`, confirming repeating waypoint routes. Local weapon-range
+acquisition is traced through `0x432a30` / `0x4323bc`; the separate weighted
+sight calculation is at `0x446240..0x44625e`. See the same Human02 audit
+for exact instructions, the removed unconditional-pursuit policy, regression
+coverage, and remaining native AI/visibility limitations.

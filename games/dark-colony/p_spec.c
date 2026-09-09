@@ -19,8 +19,8 @@ void update_mission(level_t *map, mobj_t *const *units, int *unit_count,
     Mission *mission = map ? map->mission : NULL;
     if (!mission || !unit_count ||
         mission_get_state(mission) != MISSION_ACTIVE) return;
-    DC_UpdateAI(&mission->ai, map, units, *unit_count, (int)(dt * 1000.0f));
     DC_UpdateScript(mission->script, map, units, unit_count, hud, dt);
+    DC_UpdateAI(map, units, *unit_count);
 }
 
 MissionState mission_get_state(const void *ptr) {

@@ -3074,3 +3074,81 @@ r2 -q -e bin.cache=true -e scr.color=false -c 'pd 110 @ 0x43ba8a' -c 'af @ 0x43a
 make build/bin/tests/dark-colony/test_game_model_headless
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_game_model_headless
 ```
+
+### Implement petrovent patrols and remove unconditional pursuit
+
+**Correction to the audit's route-repetition unknown:** retail object action
+table `0x474304`, entry 9 (`0x474328`), points to `0x415364`.
+`0x41539d..0x4153aa` compares the current signed word index to the byte
+point count at object +0xc6 and resets the index to zero at the end.
+`0x4153af..0x4153d3` copies the indexed +0xa6/+0xa8 point to movement
+destination +0x2e/+0x30 and increments the index. `0x4153d6..0x4153dd`
+calls movement setup `0x413fc0` with EBX=1 and ECX=0. A pending command
+at +0x36 instead dispatches through `0x4114a4`. **Confirmed:** these
+waypoints repeat; they are not a one-time walk followed by a global attack.
+
+**Visibility versus combat acquisition:** `0x432a30` resolves the object's
+team-selected weapon and passes weapon-table dword `0x4eb214 + weapon*0x48`
+to `0x4323bc` as the search bound (`0x432aa4..0x432aad`). The search walks
+local cell offsets, stopping when its ring counter exceeds the passed bound;
+it also checks team masks, alliances and target/type/weapon eligibility.
+The native weapon records for Grey weapons 15/16/17 each have range 4.
+This supports retaining local weapon-range combat, not an unlimited target
+scan. The broader idle paths at `0x413e76`, `0x413e93` and `0x413ea3`
+pass bounds 16, 9 and 4 under different conditions. Do not flatten these
+into one universal visibility radius; their complete policy remains unported.
+
+Separately, `0x446158` reads level +0x540 and its complement to 256;
+`0x446240..0x44625e` computes
+`(weight * type[0x4ec890] + (256-weight) * type[0x4ec894]) >> 8`, with
+type stride 0x118, for the map-mask update. GAMESTAT's authored OBS_DAY /
+OBS_NIGHT values are Grey 4/7 and Trooper 7/4. This is evidence of a
+separate sight calculation, not proof that a Euclidean radius test alone
+reproduces all native visibility or acquisition. Exact mask production,
+occlusion, time-of-day evolution and its full relationship to every AI search
+remain outside this fix. **Disproven lead:** `0x41203c` selects neighboring
+movement cells through `0x411b1c`, `0x411c94`, `0x411ec4`; it is not the
+general enemy acquisition routine.
+
+**Implemented:** parse 1..8 waypoint destinations, assign the route by the
+authored source cell, retain it on the stable mobj, and repeat it using the
+existing movement system. Execute scripts before route updates. Combat
+continues through ordinary `A_Look` / `P_MobjThinker` and pauses route
+movement while a live hostile target remains in weapon range. Remove the
+unverified 500-ms global attack selector, 5000-ms preferred-target timer,
+threat weights, and averaged-base defense policy. Existing explicit movement
+orders are no longer overwritten with globally selected attack targets.
+This deliberately removes fabricated automatic offensive waves across DC
+missions; native strategic attack dispatch and `ai` command semantics still
+need implementation. The economy's existing vent assignment remains.
+Do not describe this change as a complete Krusty AI or fog-of-war port.
+
+The shared combat selectors now consistently exclude `MF_NOBLOCKMAP`
+objects, matching the existing movement-time selector: dropships, beacons,
+vents and visual effects must not attract these ordinary attacks. The Doom
+reference `reference/DOOM/p_enemy.c` likewise separates `A_Look` /
+`P_LookForPlayers` perception from `A_Chase`; the removed global policy
+had bypassed that actor-owned acquisition boundary.
+
+Temporary `OPEN_RTS_DEBUG_GUARDS` logging in the new headless regression
+printed every guard's position, waypoint index/count, target and HP once per
+second. All ten stayed near the vent for 60 simulated seconds with no target
+and full HP. A group can crowd its shared waypoint destination under the
+current collision/pathing implementation, so route repetition is additionally
+tested with an isolated surviving guard; it visits the second point and wraps
+to the first. Spawning a player Trooper beside it then causes combat damage.
+Logging was removed before committing. Crowded-endpoint pathing remains an
+existing limitation, not justification for adding an arrival-distance hack.
+
+Reproduce the newly resolved native behavior and encounter regression:
+
+```sh
+r2 -q -e bin.cache=true -e scr.color=false -c 'pxw 48 @ 0x474304' -c 'af @ 0x415364' -c 'pdf @ 0x415364' -c 'af @ 0x432a30' -c 'pdf @ 0x432a30' -c 'af @ 0x446158' -c 'pdf @ 0x446158' -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_petrovent_guards
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_petrovent_guards
+```
+
+The executable fingerprint is unchanged from the audit above. Verification
+uses `make`, `make tags`, the full headless Dark Colony suite, sprite-layout
+tests and the Human02 headless smoke check. An isolated checkout was used
+to separate this change from concurrent sidebar/production edits.
