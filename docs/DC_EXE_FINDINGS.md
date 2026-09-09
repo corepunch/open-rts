@@ -1330,3 +1330,89 @@ The headless Dark Colony `--check` and `--screenshot` pass. Software-rendered
 previews of a ship overlapping five Troopers and the five Trooper attack frames
 show the ship covering troops and yellow additive muzzle/light layers. These
 are open-rts previews, not retail evidence.
+
+## Trooper death placement and selection anchor (2026-09-09)
+
+**Confirmed reproduction:** at screen anchor `(320,300)`, the old
+`S_TRSC_DIE1` drew raw SPR cell 128 at `(465,241)`. Its generated raw-cell layer
+had offset `(0,0)` and the SPR displacement was `(145,81)`. The native FIN
+command supplies offset `(-159,0)`, giving destination `(306,241)`: the renderer
+was missing 159 pixels of authored X placement, not an object-coordinate change.
+The corpse similarly drew at X 474 instead of 315. Temporary
+`OPEN_RTS_DEBUG_TRSC` logging captured state, logical frame, cell, FIN offset,
+SPR displacement, destination, and object anchor; removed after verification.
+Before/after software previews reproduced and corrected the separation.
+
+**Native asset evidence:**
+
+- `ANIMATE/TRSC.FIN`, SHA-256
+  `eb94f6f3fff53b9f46f1540abf5287c11f83a7db7957d6288b2330b13e1f3b2a`:
+  472 frames, 77 labels, 5 dependencies; label/frame/command tables at
+  bytes 48/1,588/78,996. `TRSCDIEA14` label at byte 1,148 selects frames
+  223–233, whose commands occupy bytes 86,256–86,476 in 22-byte records.
+- `SPRITES/TRSC.SPR`, SHA-256
+  `51092690d9700cecdcac5e7c53b7cffbd09cedcc582b509a9e16adc9f740d117`:
+  209 cells, with descriptors at `776 + cell * 8`. Cell 128 has size `(32,59)`
+  and displacement `(145,81)`; cell 137 has size `(41,38)` and displacement
+  `(154,133)`. These displacements are crop metadata, not world offsets.
+
+The selected FIN sequence is:
+
+| FIN frame | SPR cell | Offset | Remap | Raw ticks |
+|---|---|---|---|---|
+| 223 | 128 | (-159,0) | 0 | 0 |
+| 224 | 129 | (-159,0) | 0 | 0 |
+| 225 | 130 | (-159,3) | 0 | 0 |
+| 226 | 131 | (-159,9) | 0 | 0 |
+| 227 | 132 | (-159,19) | 0 | 0 |
+| 228 | 133 | (-159,21) | 0 | 0 |
+| 229–230 | 134 | (-159,26) | 1 | 250 each |
+| 231 | 135 | (-159,29) | 1 | 140 |
+| 232 | 136 | (-159,29) | 1 | 140 |
+| 233 | 137 | (-159,31) | 1 | 140 |
+
+All these commands have flags 0, intensity 16, layer 1. The old ten raw-cell
+states skipped the repeated cell 134 and lost offsets, remap and native delays.
+The replacement uses complete logical FIN frames `209 + 223` through
+`209 + 233`, with one state per frame and a persistent final corpse. The
+previously documented native delay conversion at DC.EXE 0x423563–0x42358f
+produces engine tics `{5,4,5,5,5,4,76,76,43,42,43}`, totaling 308, instead of
+30 tics. This is an intentional timing correction, including the decay pauses.
+Reaper's movement timing remains `{4,3,3,4,1,3,3,1}`.
+
+**Unknown:** retail selection among alternate TRSC death labels remains
+unresolved. The asset also has `TRSCDIEA10`, mirrored A2/A6 and B/C variants,
+including later C sequences with SSSS layers and different decay remaps/layers.
+The existing choice corresponding to cells 128–137 is preserved as DIEA14;
+no new direction-selection or death-variant rule is inferred. No executable
+was newly examined; the executable fingerprint and timing evidence above apply.
+Like Doom's state-to-sprite/frame path (`reference/DOOM/r_things.c`), the state
+selects a complete frame definition; it does not compensate object position.
+
+**Confirmed selection cause:** `R_DrawSelectionMarkerSprite` used
+`visible.x + (visible.w - marker.w) / 2`. At a fixed `(320,300)` anchor, the
+walk-cycle marker X values were `{313,314,315,315,312,313,315,316}`. Its top Y
+was `{252,251,251,251,251,251,251,251}`. These are frame-rectangle changes, not
+simulation drift. Y was `visible.y - marker.h + top_offset_y`; DC config sets
+`top_offset_y = -3`. `INTRFACE/CLIENT.SPR` healthy marker cell 0 is 12x5, with
+zero displacement (SHA-256
+`3f790667ec55fa6d982a3d9c9c5035ee892d6563f56bedc2d1b028e1d24c56f2`).
+
+**Requested engine behavior:** marker X now centers on projected object X.
+Its top Y uses projected object Y plus the canonical standing frame's top
+(`bounds.y - ground_point.y`), minus marker height, retaining the configured
+3-pixel gap. The standing frame and orientation stay fixed while animation and
+facing change. This is an engine UI policy, not a claim about retail marker
+placement; the existing world-Z projection also applies to the anchor.
+
+**Reproduction/verification:** `build/dc_fin_extract
+ data/DCOLONY/ANIMATE/TRSC.FIN /private/tmp/trsc-fin.json` exports the asset
+metadata. `test_trooper_rendering` renders native-command reference pixels for
+every death/decay frame, checks native timing and corpse persistence after lethal
+damage, and verifies the selection pixel mask over all 16 facings and eight walk
+frames plus XY/Z/camera translation. It writes death-frame BMPs under
+`/private/tmp/trsc-death-*.bmp`. Run with `SDL_VIDEODRIVER=dummy`.
+`test_actor_lifecycle`, the combat portion of `test_combat_and_harvest`, and
+`test_dark_colony_sprite_layout` pass. The combat test now allows time for the
+native decay pauses; its separate missing-player-Exploiter harvesting failure
+also reproduced before rebuilding the changed tests.

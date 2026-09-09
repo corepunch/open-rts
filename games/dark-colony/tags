@@ -1064,6 +1064,7 @@ S_TRSC_ATK6	games/dark-colony/info.h	/^    S_TRSC_ATK6,$/;"	e	enum:__anonf7269e9
 S_TRSC_CORPSE	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203
 S_TRSC_DIE1	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203
 S_TRSC_DIE10	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203
+S_TRSC_DIE11	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203
 S_TRSC_DIE2	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203
 S_TRSC_DIE3	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203
 S_TRSC_DIE4	games/dark-colony/info.h	/^    S_TRSC_DIE1, S_TRSC_DIE2, S_TRSC_DIE3, S_TRSC_DIE4, S_TRSC_DIE5, S_TRSC_DIE6, S_TRSC_DIE7, S/;"	e	enum:__anonf7269e950203

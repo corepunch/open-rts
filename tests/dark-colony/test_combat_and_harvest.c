@@ -82,7 +82,7 @@ static int assert_attack_lifecycle(void) {
     if (!died) return fail("enemy unit never died");
 
     bool saw_corpse = false;
-    for (int tries = 0; tries < 90 && !saw_corpse; ++tries) {
+    for (int tries = 0; tries < 15 * RTS_TICRATE && !saw_corpse; ++tries) {
         P_Ticker();
 
         saw_corpse = !units[1]->remove && units[1]->core.tics == -1 &&

@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
+#include "info.h"
 
 static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame);
 static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame);
@@ -1077,7 +1078,7 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
 }
 
 bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
-    if (!ctx || !ctx->game_info) return false;
+    if (!ctx || !ctx->unit || !ctx->game_info) return false;
     const selectionmarker_t *info = &ctx->game_info->selection_marker;
     int bucket = selection_health_bucket(ctx->unit);
     int frame = bucket == 2 ? info->critical_frame :
@@ -1086,9 +1087,23 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
         R_CacheLookup(ctx->cache->ui, info->image) : NULL;
     if (!marker || frame < 0 || frame >= marker->numlumps) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
+    /* Keep the marker over the object, using the standing pose's height. */
+    float top = ctx->visible.y;
+    const gameinfo_t *game = ctx->game_info;
+    if (game->mobjinfo && ctx->unit->type_id < game->mobj_type_count) {
+        int state = game->mobjinfo[ctx->unit->type_id].spawnstate;
+        if (game->states && state > 0 && state < game->state_count) {
+            const state_t *standing = &game->states[state];
+            const spritesheet_t *body = R_StateSprite(ctx->cache, game, standing->sprite, NULL);
+            int lump = sprite_lump_for_frame(body, standing->frame, 0, NULL);
+            if (lump >= 0)
+                top = ctx->anchor.y + sprite_visible_bounds(body, lump).y -
+                      sprite_ground_point(body, lump).y;
+        }
+    }
     return R_DrawSelectionMarkerFrame(ctx, frame, (irect_t){
-        ctx->visible.x + (ctx->visible.w - frame_rect.w) / 2,
-        ctx->visible.y - frame_rect.h + info->top_offset_y,
+        (int)lroundf(ctx->anchor.x) - frame_rect.w / 2,
+        (int)lroundf(top) - frame_rect.h + info->top_offset_y,
         frame_rect.w,
         frame_rect.h,
     });
