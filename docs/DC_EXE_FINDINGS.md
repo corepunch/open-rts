@@ -2993,3 +2993,84 @@ Human02 headless `--screenshot`, deterministic state-export comparison, and
 `git diff --check` all pass. The focused screenshot test also attacks both
 native Human02 city buildings and preserves their shared FIN origin through
 fire and explosions.
+
+## Human02 petrovent guards and premature attack audit (2026-09-09)
+
+**Confirmed assets:** HUMAN02.SCN places ten type-8, team-2 Greys at
+X=51..55 on rows Y=28 and Y=26, around the type-40 petrovent at (53,27)
+(rate 15, amount 7000). The city anchor is (56,55). HUMAN02.TRO block 0,
+`c>0`, assigns a waypoint command to each of these exact starting cells:
+the Y=28 row gets two destinations, (53,25) then its starting cell; the
+Y=26 row gets (53,29) then its starting cell. These are local routes around
+the vent, not orders toward the city. Block 17 separately contains
+`reinforce 2 47 6 8 10 10 7 0 0 0 0 0 0` and `ai 2 3`, conditioned on
+`((c>880)&&(s(0,10)==0))`. Do not confuse that later reinforcement with
+the ten initial guards, or infer a seconds conversion from the counter alone.
+
+SHA-256 fingerprints:
+
+- DC.EXE: `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`
+- HUMAN02.SCN: `bed27b613d20fb8b2533369d949adb4e90b96922372e7df3e7957140d44c90ab`
+- HUMAN02.TRO: `0e5a6593768b4fff717be69609d8ed5eb2aea48d1bab68c30c8d5d621d7e080d`
+
+**Confirmed executable:** parser `0x43ae2c`, at `0x43ba8a..0x43bc17`,
+recognizes `waypoint` (string `0x471b78`) as action 10. The 28-byte action
+record stores source cell X/Y at +4/+5, point count at +6, and byte X/Y
+pairs from +7. `0x43bb47..0x43bbab` checks 1..8 points (native assertion
+string `0x471b84`). Dispatcher `0x43a144`, case 10 at
+`0x43a8d4..0x43a943`, searches the 800 objects of stride 0xdc at level
++0x7d28, comparing object coordinate words +0/+4 shifted right eight
+against the source cell. It applies the command to the first matching object
+through `0x43a094` (call at `0x43a8da`).
+
+`0x43a094..0x43a0ea` copies each destination into object word pairs
++0xa6/+0xa8 with stride four, converting each cell component to
+`(cell << 8) + 0x80`. It sets byte +0x36=1, +0x37=9 and +0xc6=point count.
+The command dispatcher `0x4114a4` consumes +0x36/+0x37 through table
+`0x4742ac`; entry 9 at `0x4742d0` is `0x415260`. That function checks
+the native type table +4, then starts object action 9 through `0x4112b8`
+with ECX=1 and initializes its returned word to zero, or returns through
+`0x4114a4` when the type-table value is zero. This establishes a real
+object waypoint order, not a decorative marker or a reinforcement command.
+
+**Confirmed current-engine defects:** `p_script.c` neither parses nor
+executes `waypoint` or `ai`. `OPEN_RTS_DEBUG_SCRIPT=1` on Human02 prints
+all ten waypoint commands and `ai 2 3` as unknown. `p_ai.c:DC_UpdateAI`
+orders every live non-player mobile attacker toward a target on its first
+500-ms think. `ai_target` scans the whole mobj list with no detection,
+visibility, or maximum-distance gate; distance only changes a score.
+The 5000-ms wave timer selects a preferred target, not permission to attack.
+`map_has_ai(map, 1)` reduces all active native teams' AI modes to one global
+boolean; the actual owner argument is otherwise unused. Target selection
+also uses owner inequality rather than the shared allegiance predicate.
+
+**Confirmed runtime diagnostic:** temporary `OPEN_RTS_DEBUG_AI_AUDIT`
+logging just before `P_MoveUnitTo`, with 35 extra Human02 model ticks in
+`test_game_model_headless`, printed all ten Greys still at their initial
+cell centers receiving a target at (63.57,48.57), `wave=-1`, attack range
+4.00. Target type 14 is `MT_DROPSHIP`: in this trace they initially chase
+the player's opening dropship from more than twenty cells away. This
+disproves an attack gated by the five-second wave timer and confirms that
+the targeting filter also admits dropships. The headless test passed;
+temporary logging and extra ticks were removed after the audit.
+
+**User-observed retail behavior:** these Greys remain around the petrovent
+and engage when approached. The authored routes support that observation.
+**Unknown:** exact native target-acquisition distance/visibility rules,
+waypoint combat interruption and resumption, whether the route repeats,
+and the full semantics of AI modes 2 and 3. This audit does not claim to
+have ported Krusty AI or to have verified our scoring weights and timers
+against retail, despite the existing source comment claiming a mirrored
+policy. Do not fix this by inventing a guard radius or delaying a dropship.
+The implementation needs native waypoint execution and order-aware local
+engagement, together with faithful per-team AI handling. Runtime behavior
+is unchanged by this investigation.
+
+Reproduce the asset/parser evidence and focused disassembly:
+
+```sh
+env SDL_VIDEODRIVER=dummy OPEN_RTS_DEBUG_SCRIPT=1 build/bin/dark-colony --check data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP
+r2 -q -e bin.cache=true -e scr.color=false -c 'pd 110 @ 0x43ba8a' -c 'af @ 0x43a144' -c 'pdf @ 0x43a144' -c 'af @ 0x43a094' -c 'pdf @ 0x43a094' -c 'pxw 48 @ 0x4742ac' -c 'af @ 0x415260' -c 'pdf @ 0x415260' -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_game_model_headless
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_game_model_headless
+```

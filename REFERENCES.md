@@ -1149,3 +1149,14 @@ and reproducer commands are preserved in
 These are local retail asset/disassembly findings, with no external screenshot
 or secondary-source inference. `tools/dc_building_states.py` exports only state
 references from this indexed data; FIN continues to own all drawing commands.
+
+Human02 petrovent guard audit (2026-09-09): local retail HUMAN02.SCN/TRO
+place ten Greys around (53,27) and assign two-point waypoint orders.
+DC.EXE parser `0x43ae2c`, dispatcher `0x43a144`, waypoint assignment
+`0x43a094`, command table `0x4742ac` and action initializer `0x415260`
+confirm native per-object waypoint storage and dispatch. Fingerprints,
+offsets, runtime diagnostics, current AI/script defects and remaining
+engagement-rule unknowns are recorded in
+[the Human02 guard audit](docs/DC_EXE_FINDINGS.md#human02-petrovent-guards-and-premature-attack-audit-2026-09-09).
+No external sources were used; the retail encounter behavior was reported
+by the user and distinguished from the disassembly evidence.
