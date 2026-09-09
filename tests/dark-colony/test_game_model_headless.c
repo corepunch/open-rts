@@ -419,7 +419,7 @@ static int assert_human01(RtsGameModel *model) {
     bool saw_delivery = false;
     for (int tick = 0; tick < 30 * 120 && !saw_delivery; ++tick) {
         if (!rts_tick(model, &snapshot)) return fail("tick Human01 Dropship reinforcement");
-        if (rts_find_active_effect_with_sprite(&snapshot, "SPRITES/DROP.SPR") >= 0)
+        if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_DROPSHIP) > 0)
             saw_dropship = true;
         int troopers = snapshot_count_units_with_owner_and_type(
             &snapshot, 0, MT_TROOPER);
@@ -533,9 +533,8 @@ static int assert_human02(RtsGameModel *model) {
         bool saw_dropship = false;
         for (int tick = 0; tick < 45 && !saw_dropship; ++tick) {
             if (!rts_tick(model, &snapshot)) return fail("tick Human02 Dropship reinforcement");
-            for (int i = 0; i < snapshot.effect_count; ++i) {
-                if (snapshot.effects[i].active &&
-                    strcmp(snapshot.effects[i].sprite_name, "SPRITES/DROP.SPR") == 0) {
+            for (int i = 0; i < snapshot.unit_count; ++i) {
+                if (snapshot.units[i].type_id == MT_DROPSHIP) {
                     saw_dropship = true;
                     break;
                 }

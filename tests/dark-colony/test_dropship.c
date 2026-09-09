@@ -22,7 +22,9 @@ int main(void) {
     bool seen = false, delivered = false, departed = false;
     for (int tick = 0; tick < 30 * 120; ++tick) {
         RTS_CHECK(rts_tick(model, &snapshot), "dropship", "tick reinforcement");
-        bool visible = rts_find_active_effect_with_sprite(&snapshot, "SPRITES/DROP.SPR") >= 0;
+        bool visible = false;
+        for (int i = 0; i < snapshot.unit_count; ++i)
+            visible |= snapshot.units[i].type_id == MT_DROPSHIP;
         seen |= visible;
         delivered |= troopers(&snapshot) >= initial + 4;
         if (seen && !visible) { departed = true; break; }
@@ -30,6 +32,6 @@ int main(void) {
     fprintf(stderr, "dropship seen=%d delivered=%d departed=%d troopers=%d -> %d\n",
             seen, delivered, departed, initial, troopers(&snapshot));
     rts_game_model_destroy(model);
-    RTS_CHECK(seen && delivered && departed, "dropship", "deliver all four Troopers and remove ship parts");
+    RTS_CHECK(seen && delivered && departed, "dropship", "deliver all four Troopers and remove ship object");
     return 0;
 }

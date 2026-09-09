@@ -965,7 +965,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
                 u->core.momentum = fixed3_zero();
             }
 
-            if (u->type_id > 0 && u->type_id < game_info->mobj_type_count) {
+            if ((u->traits & MF_MOBILE) && u->type_id > 0 &&
+                u->type_id < game_info->mobj_type_count) {
                 const mobjinfo_t *mi = &game_info->mobjinfo[u->type_id];
                 const state_t *state = state_at(game_info, u->core.state_id);
                 int group = state ? state->group : 0;
@@ -982,6 +983,8 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             }
         }
 
+        /* State actions may append objects; tick those next time, but retain them. */
+        count = *unit_count;
         separate_units(map, units, count);
 
         int write = 0;

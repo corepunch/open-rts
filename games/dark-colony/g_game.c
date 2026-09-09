@@ -247,6 +247,14 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
     },
     {
+        .id = MT_DROPSHIP,
+        .name = "Dropship",
+        .sprite_name = "SPRITES/DROP.SPR",
+        .traits = MF_RENDERABLE | MF_FLY,
+        .speed = 1.0f,
+        .max_hp = 800,
+    },
+    {
         .id = MT_DROP_LINK,
         .name = "Dropship Link",
         .sprite_name = "SPRITES/CENT.SPR",

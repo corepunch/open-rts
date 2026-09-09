@@ -109,24 +109,14 @@ int G_ModelBuildingFrameForProduct(const StaticProductDefinition *product) {
 int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
                                   const StaticProductDefinition *product) {
     if (!game_info || !game_info->states || !game_info->sprnames || !product) return -1;
-    const char *sprite_name = NULL;
     switch (product->product_type) {
-    case 16:
-    case 17:
-        sprite_name = "HUBU";
-        break;
-    default:
-        return -1;
+    case 16: return S_EXCOPOD_STND;
+    case 17: return S_BRRKPOD_STND;
+    case 19: return S_ROBOPOD2_BUILD1;
+    case 20: return S_SCNCPOD_BUILD1;
+    case 21: return S_SCNCPOD2_BUILD1;
+    default: return -1;
     }
-    int frame = G_ModelBuildingFrameForProduct(product);
-    for (int i = 0; i < game_info->state_count; ++i) {
-        const state_t *state = &game_info->states[i];
-        if (state->sprite < 0 || state->sprite >= game_info->sprite_count) continue;
-        if (state->frame != frame) continue;
-        if (strcmp(game_info->sprnames[state->sprite], sprite_name) == 0)
-            return i;
-    }
-    return -1;
 }
 
 int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {

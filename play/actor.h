@@ -4,6 +4,7 @@
 #include "engine_config.h"
 #include "facing.h"
 #include "map.h"
+#include "mobj_data.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -207,6 +208,7 @@ struct mobj_s {
         bool order_arrived;
         int turn_timer_ms;
     } movement;
+    MOBJ_GAME_FIELDS
 };
 
 static inline bool P_MobjIsSelected(const mobj_t *mobj) {

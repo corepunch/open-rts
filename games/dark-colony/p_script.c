@@ -180,7 +180,6 @@ static int script_nearest_vent(const level_t *map, int gx, int gy) {
 
 static void execute_script_block(ScriptState *script, ScriptBlock *block,
                                               level_t *map, mobj_t *units, int *unit_count,
-                                              effect_t *effects, int max_effects,
                                               const gameinfo_t *game_info, hudtext_t *hud) {
     if (!script || !block) return;
     for (int i = 0; i < block->command_count; ++i) {
@@ -205,7 +204,7 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
                             drop_cmd->a[4], drop_cmd->a[3] > 0 ? drop_cmd->a[3] : 1,
                         };
                 }
-                DC_StartDropship(map, effects, max_effects, team,
+                DC_StartDropship(units, unit_count, team,
                                  (ivec2_t){ x, y }, payload, payload_count);
             }
             for (int n = 0; n < count; ++n) {
@@ -795,7 +794,6 @@ static bool evaluate_condition(const ScriptState *script, const ScriptBlock *blo
 }
 
 void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *units, int *unit_count,
-                                effect_t *effects, int max_effects,
                                 const gameinfo_t *game_info, hudtext_t *hud, float dt) {
     if (!script || !units || !unit_count) return;
     if (script->state != MISSION_ACTIVE) return;
@@ -820,7 +818,7 @@ void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *units, int *unit
                         block->id, block->command_count);
             }
             execute_script_block(script, block, map, units, unit_count,
-                                             effects, max_effects, game_info, hud);
+                                             game_info, hud);
         }
     }
 }

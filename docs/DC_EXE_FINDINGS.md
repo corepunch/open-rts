@@ -117,6 +117,10 @@ the FIN-derived per-frame ground point instead.
 
 ## Dropship state lifecycle
 
+**Superseded (2026-09-09):** the mission pool, phase clock, and transient-effect
+representation described below have been removed. See the FIN/object audit at
+the end of this report. These paragraphs describe the earlier implementation.
+
 **Confirmed in the runtime implementation:** A mission Dropship now owns an
 `mobj_t` state core and advances through the shared `P_TickMobjState` contract.
 The generated chain is approach -> unload -> unload-done -> reposition ->
@@ -1050,3 +1054,114 @@ screenshot was inspected and is byte-identical to the parent. The full DC
 suite retains its three documented muzzle-effect, initial-force, and
 spawn-state-action failures. The generator also builds without its former
 unused-muzzle-helper warnings.
+
+
+## DROP FIN sequences and ordinary objects (2026-09-09)
+
+**Confirmed asset evidence:** `ANIM.DAT` lines 32–34 load `drop.fin`,
+`drop3.fin`, and `drop4.fin`. They do not list `drop2.fin`. Its SHA-256 is
+`20e9cf988ed833236ca0687601ab32a2adeaae0d885b39a7507321166bdba3d0`.
+The following hashes identify the inspected `ANIMATE/` files:
+
+| File | SHA-256 | Frames / labels / draw commands |
+|---|---|---|
+| DROP.FIN | `66e8da41ff0a47229c1a33db4aae9e7f37307ec943f5bbd860acc832b07fc433` | 136 / 10 / 1307 |
+| DROP2.FIN | `8ef09745fd963539295977e93e8fa91e701d9d731068c4a088826f3ca6a85a9b` | 178 / 11 / 1744 |
+| DROP3.FIN | `be48d8c46444ee491e02462545ecb2153dafc63cd90fe58f2542f11f1b47d5f6` | 37 / 1 / 150 |
+| DROP4.FIN | `3425eb26d3a47e571989feb82b1a1790d4fb41111f9cc90c0b7e75f63f9f1502` | 59 / 7 / 155 |
+| DROA.FIN | `b41cf50cd59d8858d6f00d2777992f6ba0c6817496984177b73206a0a012848f` | 84 / 35 / — |
+
+DROP's complete label ranges (inclusive, zero based) are `DROPTWO` 0–9,
+`SCNCPOOPBUILD` 10–51, `SCNCBUILD` 52–57, `NOTDROP` 58–65, `GLINTER` 66–71,
+`DROPSTAND0` 72–81, `RIGHTSPOTDROP` 82, `START` 83, `DROPMOVE0` 84–93,
+`SCNCPODBUILD0` 94–135. Raw frame ticks are zero except within `GLINTER`,
+which also contains 6 and 40.
+
+DROP2's first five ranges have the same draw commands as DROP (its first label
+is named `DROP2`). `DROPSTAND0`, `RIGHTSPOTDROP`, `START`, `DROPMOVE0`, and
+`SCNCPODBUILD0` differ; it also has `TAKE2` 136–177. **Disproven:** DROP2 is
+not simply an identical copy or the next flight phase. Its absence from the
+native manifest establishes no reason to substitute its alternative sequences;
+its original use, if any, remains **unknown**.
+
+DROP3 contains `SCNCPOD2BUILD0` 0–36. DROP4 contains `ROBOPOD2BUILD0` 0–22,
+`RIGHTROBOSPOT` 23–28, `SP1` 29–31, `SP2` 32–35, `SP3` 36–40, `GL1` 41–47,
+and `KFIRO` 48–58. There are no matching DROP3.SPR/DROP4.SPR files: these are
+FIN composites of other sprites. DROP3 depends on GLIT, HITA, HITC, HITE,
+HITF, HITG, HITT, HUBU. The normal sprite loader now accepts such FIN-only
+sources, loads every native frame, and resolves each layer's actual SPR source.
+No asset-name exception or extra generated layer table is required.
+
+DROA instead contains 16-direction STAND/MOVE ranges at frames 0–47, BLOODA
+48–54, BLOODB 55–61, and DIE 62–83. **Disproven:** it is not a later human
+DROP phase. This audit does not establish its original gameplay identity.
+
+**Confirmed composition:** HUBU `SCNCPODSTAND0` (frame 22) draws HUBU cell 6
+at (10,14). `SCNCPOD2STAND0` (24–25) adds HUBU 17 at (10,-36) and GLIT 13 at
+(-79,-101). `ROBOPOD2STAND0` (68–87) contains HUBU 8 at (-10,-36), HUBU 10 at
+(-10,-85), and BIGC layers. DROP's final `SCNCPODBUILD0` frame contains the
+same HUBU 6 at (10,14), plus ship/glint/dust parts. DROP3's final build frame
+contains HUBU 6 at (10,14), HUBU 17 at (10,-36), and HITA 6 at (-38,-29).
+DROP4's final build frame contains HUBU 8 at (-10,-36), HUBU 10 at (-11,-85),
+and GLIT 9 at (8,-141). The one-pixel difference in the last HUBU 10 placement
+is native; no compensating offset was added.
+
+**Confirmed executable timing:** same DC.EXE fingerprint as the report header:
+SHA-256 `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566272 bytes, PE32 base 0x400000, timestamp August 11, 1997. In the FIN loader,
+0x423544 tests the frame word at +2; 0x42354b substitutes 15 for zero.
+0x423563–0x42358f computes `((ticks + 3) * 19) / 100`. The focused disassembly
+confirms 19; the broad decompiler's apparent multiply by 15 is incorrect.
+The existing generator converts cumulative native 19 Hz boundaries to 30 Hz
+rather than rounding every frame independently. Complete cycles now take:
+DROPMOVE0 47 tics, DROPTWO 47, SCNCPODBUILD0 199, SCNCPOD2BUILD0 175,
+ROBOPOD2BUILD0 109. The 0x4230ac loader opens `animate/%s` (string 0x46fad4)
+in binary mode; this does not prove which gameplay callers select a label.
+
+**Implementation correction, not newly verified retail gameplay:** normal
+`MT_DROPSHIP` objects now own their copied cargo in `mobj_t.drop`. There is no
+DropshipSystem, private array, animation clock, thinker callback, or borrowed
+effect pointer. Native MOVE states call `A_DC_Fly` on entry, moving by speed
+multiplied by the state's duration, in the same state-entry movement pattern
+as Doom's `A_Chase` calling `P_Move` (`reference/DOOM/p_enemy.c:672,765`).
+Arrival enters the native unload chain; its zero-tic release state calls
+`A_DC_Drop`, which spawns cargo or retries if the common object array is full.
+Departure ends at S_NULL and common compaction removes the ship. Compaction
+also retains objects appended by state actions. Only mobile, order-driven
+objects have their movement states switched automatically by the shared ticker.
+The existing Dropship Link type (map type 89, CENT sprite) is now separate from
+the flying ship instead of inheriting its flight states and altitude.
+
+The old renderer decomposed a FIN into a capped 16-frame/24-part table,
+spawned effects per part, reset their ages each tick, and forced team remap on
+all layers. Those paths and `w_drop.c/.h` are deleted. The normal object
+renderer uses all native FIN offsets, selectors, flags, remap, and intensity.
+The fixed 50-tic approach/reposition/depart clocks and distance-derived speed
+overrides are removed. Movement now stops when it reaches the goal.
+
+**Requested engine integration:** building products 20, 21, and 19 enter the
+SCNCPODBUILD0, SCNCPOD2BUILD0, and ROBOPOD2BUILD0 chains respectively, then
+transition to their matching HUBU stand sequences. Product placement and build
+availability still follow the existing engine production model. **Inferred:**
+matching native names and final body layers support these handoffs. **Unknown:**
+the exact retail label-selection callers, build completion gameplay timing,
+release frame, flight route, altitude, and speed. The retained one-cell altitude,
+speed 1, origin-minus-one-cell entry/exit and formation offsets are existing
+engine policy, not verified native values. No new tuned constants are claimed.
+
+Reproduce asset inspection with `build/dc_fin_extract` on each file, and timing
+with `r2 -q -e bin.cache=true -c 's 0x423544' -c 'pd 28' -c q data/DCOLONY/DC.EXE`.
+`tests/dark-colony/test_drop_fin_states.c` compares every generated frame's
+native layer metadata and complete rendered pixels, including FIN-only sheets
+and team 7 without forced remap. It checks cumulative duration and construction
+handoffs. `test_mission_ownership` covers copied mixed cargo, array compaction,
+release during ticking, shared capacity and retry, with no effects.
+`test_dropship` ticks HUMAN01 and observes the ordinary ship, delivery of all
+five Troopers, and its eventual removal. Run with `SDL_VIDEODRIVER=dummy`.
+
+Verification: all four game binaries build; sprite-layout/Reaper timing, FIN
+pixel/timing, cargo ownership/capacity, Human01 delivery, Dark Colony `--check`,
+and Dark Reign command/event checks pass. The full Dark Colony suite retains
+its existing muzzle-flash, initial Human01 force, and spawn-action expectation
+failures. Its cross-game command test also fails to accept a build with zero
+resources; an isolated build of pre-change `f91e19d` reproduces that same failure.

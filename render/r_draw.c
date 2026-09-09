@@ -662,7 +662,7 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
                                      const mapdecoration_t *dec, const spritesheet_t *sprite,
                                      int frame_index, uint32_t render_flags,
                                      int render_selector, int anchor_frame_index) {
-    if (!sprite || !sprite->lumps || sprite->numlumps <= 0) return;
+    if (!sprite || sprite->spritedef.numframes <= 0) return;
 
     float sx, sy;
     fvec2_t anchor = { (float)dec->cell.x, (float)dec->cell.y };
@@ -1109,7 +1109,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                uint32_t ticks) {
     if (!u || P_MobjIsHidden(u) || (u->traits & MF_RENDERABLE) == 0) return;
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
-    if (!sprite || !sprite->lumps || sprite->numlumps <= 0) return;
+    if (!sprite || sprite->spritedef.numframes <= 0) return;
 
     float sx = 0.0f, sy = 0.0f;
     int frame = 0;

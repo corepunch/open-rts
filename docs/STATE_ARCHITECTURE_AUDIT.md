@@ -4,6 +4,12 @@ Audit date: 2026-09-07. Scope: actor spawning, state entry/ticking/removal,
 Dark Colony reinforcement ships, and adjacent effect/production lifetimes.
 This is not a claim of full game or network equivalence.
 
+**Superseded dropship implementation (2026-09-09):** ships now occupy the ordinary
+object array, with inline game-specific cargo and native FIN frame states.
+`A_DC_Fly` and `A_DC_Drop` replace the private pool, phase clocks, and part effects.
+See [the current FIN/object audit](DC_EXE_FINDINGS.md#drop-fin-sequences-and-ordinary-objects-2026-09-09).
+The historical comparison below is not the current dropship ownership contract.
+
 ## Source evidence
 
 The local reference paths and SHA-256 fingerprints are recorded in

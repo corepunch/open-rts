@@ -138,6 +138,7 @@ G_ShutdownCustomUI	games/dark-reign/g_game.c	/^void G_ShutdownCustomUI(void *ui)
 G_UpdateProduction	games/dark-reign/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * units,int * unit_count,effect_t * effects,int max_effects,float dt)
 G_WorldViewportWidth	games/dark-reign/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
 HU_LoadFont	games/dark-reign/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
+MOBJ_GAME_FIELDS	games/dark-reign/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
 P_LoadThings	games/dark-reign/g_game.c	/^int P_LoadThings(const char *path, mobj_t *mobjs, int max) {$/;"	f	typeref:typename:int	signature:(const char * path,mobj_t * mobjs,int max)
 R_InitSprites	games/dark-reign/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const mobj_t * mobjs,int count,spritecache_t * cache)
 SprSection	games/dark-reign/w_spr.c	/^typedef struct { int first_anim, last_anim, framerate, hotspots; } SprSection;$/;"	t	typeref:struct:__anon4831d8900308	file:
@@ -151,6 +152,7 @@ _DEFAULT_SOURCE	games/dark-reign/w_map.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/dark-reign/w_spr.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/dark-reign/w_til.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 __DR_TYPES__	games/dark-reign/dr_types.h	/^#define __DR_TYPES__$/;"	d
+__MOBJ_DATA__	games/dark-reign/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __anon47bd03590108	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	s	file:
 __anon47bd03590108::animate	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 __anon47bd03590108::buildings	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:

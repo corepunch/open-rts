@@ -71,6 +71,7 @@ MAX_ANIMATIONS	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 40
 MAX_FRAMES	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };$/;"	e	enum:__anon1b3aca940203	file:
 MAX_LAYERS	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	e	enum:__anonf02e1ac70103	file:
 MAX_LAYERS	games/kknd/w_lvl.h	/^enum { MAX_LAYERS = 3 };$/;"	e	enum:__anon1abf4fd20103
+MOBJ_GAME_FIELDS	games/kknd/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
 P_LoadThings	games/kknd/g_game.c	/^int P_LoadThings(const char *path, mobj_t *mobjs, int max) {$/;"	f	typeref:typename:int	signature:(const char * path,mobj_t * mobjs,int max)
 R_InitSprites	games/kknd/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const mobj_t * mobjs,int count,spritecache_t * cache)
 UI	games/kknd/g_game.c	/^static const uidefinition_t UI = {$/;"	v	typeref:typename:const uidefinition_t	file:
@@ -80,6 +81,7 @@ _DEFAULT_SOURCE	games/kknd/w_lvl.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/kknd/w_map.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/kknd/w_spr.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 __KKND__	games/kknd/kknd.h	/^#define __KKND__$/;"	d
+__MOBJ_DATA__	games/kknd/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __W_LVL__	games/kknd/w_lvl.h	/^#define __W_LVL__$/;"	d
 __anon1abf4fd20103	games/kknd/w_lvl.h	/^enum { MAX_LAYERS = 3 };$/;"	g
 __anon1abf4fd20208	games/kknd/w_lvl.h	/^typedef struct {$/;"	s

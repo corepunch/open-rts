@@ -163,7 +163,7 @@ static bool decode_cell(uint8_t *dst, size_t pixels,
 
 /* FIN supplies the anchor. Visit its command stream once, not once per cell. */
 static bool install_ground_points(spritesheet_t *sheet, const dc_fin_t *fin, const char *stem) {
-    if (!fin->command_count) return true;
+    if (!fin->command_count || !sheet->numlumps) return true;
     bool *installed = calloc((size_t)sheet->numlumps, sizeof(*installed));
     if (!installed) return false;
     for (int i = 0; i < fin->command_count; ++i) {
@@ -289,7 +289,7 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     memset(out, 0, sizeof(*out));
     dc_spr_t spr = {0};
     dc_fin_t fin = {0};
-    uint32_t palette[256];
+    uint32_t palette[256] = {0};
     const char *sprite_path = path;
     char *other = M_va("%s", path);
     if (!other) goto fail;
@@ -307,18 +307,21 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     }
     if (fin_file) {
         if (!other || !DC_LoadFIN(path, &fin)) goto fail;
-        sprite_path = other;
+        sprite_path = asset_exists(other) ? other : NULL;
     } else if (asset_exists(other)) {
         DC_LoadFIN(other, &fin);
     }
-    if (!sprite_path || !open_spr(sprite_path, &spr)) goto fail;
-    decode_palette(spr.header->palette, palette);
+    if (sprite_path) {
+        if (!open_spr(sprite_path, &spr)) goto fail;
+        decode_palette(spr.header->palette, palette);
+        if (!load_cells(&spr, out, palette)) goto fail;
+    }
     if (palette_out) memcpy(palette_out, palette, sizeof(palette));
     char stem[9]; /* Retained while later M_va calls reuse their temporary strings. */
-    snprintf(stem, sizeof(stem), "%.8s", M_FileName(sprite_path));
+    snprintf(stem, sizeof(stem), "%.8s", M_FileName(path));
     stem[strcspn(stem, ".")] = '\0';
     M_Upper(stem);
-    if (!load_cells(&spr, out, palette) || !install_sprite_frames(out, &fin, stem) ||
+    if (!install_sprite_frames(out, &fin, stem) ||
         !install_ground_points(out, &fin, stem)) goto fail;
     out->indexed = true;
     memcpy(out->palette, render_tables.valid ? render_tables.palette : palette,

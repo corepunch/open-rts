@@ -8,10 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_DropshipReposition(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 
 typedef struct {
     char name[17];
@@ -520,6 +516,8 @@ void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit
 void A_Attack(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_Fly(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_DC_Drop(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
 
 static int assert_reaper_move_timing(void) {
     static const int expected_tics[] = {4, 3, 3, 4, 1, 3, 3, 1};
@@ -577,17 +575,12 @@ static int assert_generated_mobj_table_coverage(void) {
 }
 
 static int assert_dropship_state_chain(void) {
-    const state_t *approach = &states[S_DROPSHIP_APPROACH];
-    const state_t *unload = &states[S_DROPSHIP_UNLOAD];
-    const state_t *reposition = &states[S_DROPSHIP_REPOSITION];
-    const state_t *depart = &states[S_DROPSHIP_DEPART];
-    if (approach->nextstate != S_DROPSHIP_UNLOAD ||
-        unload->nextstate != S_DROPSHIP_REPOSITION ||
-        reposition->nextstate != S_DROPSHIP_UNLOAD ||
-        depart->nextstate != S_NULL ||
-        !approach->action || !unload->action ||
-        !reposition->action || !depart->action) {
-        return fail("Dropship lifecycle uses a complete state/action chain");
+    if (dc_mobjinfo[MT_DROPSHIP].spawnstate != S_DROP_MOVE1 ||
+        states[S_DROP_MOVE10].nextstate != S_DROP_MOVE1 ||
+        states[S_DROP_UNLOAD10].nextstate != S_DROP_RELEASE ||
+        states[S_DROP_RELEASE].action != A_DC_Drop ||
+        states[S_DROP_RELEASE].tics != 0) {
+        return fail("Dropship uses native frame chains and a payload-release action");
     }
     return 0;
 }

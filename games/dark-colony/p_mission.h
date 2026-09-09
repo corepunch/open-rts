@@ -3,13 +3,11 @@
 
 #include "game.h"
 #include "p_ai.h"
-#include "p_drop.h"
 #include "p_script.h"
 
 /* The level owns this aggregate; each subsystem owns its private state. */
 typedef struct {
     ScriptState *script;
-    DropshipSystem *dropships;
     AiState ai;
 } Mission;
 

@@ -12,7 +12,7 @@ ScriptState *DC_LoadScript(const char *map_path);
 void DC_FreeScript(ScriptState *script);
 MissionState DC_ScriptState(const ScriptState *script);
 void DC_UpdateScript(ScriptState *mission, level_t *map, mobj_t *units,
-                     int *unit_count, effect_t *effects, int max_effects,
+                     int *unit_count,
                      const gameinfo_t *game_info, hudtext_t *hud, float dt);
 
 #endif

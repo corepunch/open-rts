@@ -65,6 +65,7 @@ G_ShutdownCustomUI	games/7legion/g_game.c	/^void G_ShutdownCustomUI(void *ui) {$
 G_UpdateProduction	games/7legion/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * units,int * unit_count,effect_t * effects,int max_effects,float dt)
 G_WorldViewportWidth	games/7legion/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
 HU_LoadFont	games/7legion/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
+MOBJ_GAME_FIELDS	games/7legion/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
 P_LoadThings	games/7legion/g_game.c	/^int P_LoadThings(const char *path, mobj_t *mobjs, int max) {$/;"	f	typeref:typename:int	signature:(const char * path,mobj_t * mobjs,int max)
 R_InitSprites	games/7legion/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const mobj_t * mobjs,int count,spritecache_t * cache)
 SlBimFrameInfo	games/7legion/w_bim.c	/^} SlBimFrameInfo;$/;"	t	typeref:struct:__anon6c02bde40108	file:
@@ -76,6 +77,7 @@ W_LoadAssets	games/7legion/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, 
 _DEFAULT_SOURCE	games/7legion/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/7legion/w_bim.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/7legion/w_map.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
+__MOBJ_DATA__	games/7legion/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __SL_TYPES__	games/7legion/sl_types.h	/^#define __SL_TYPES__$/;"	d
 __anon6c02bde40108	games/7legion/w_bim.c	/^typedef struct {$/;"	s	file:
 __anon6c02bde40108::data_offset	games/7legion/w_bim.c	/^    uint16_t data_offset;$/;"	m	struct:__anon6c02bde40108	typeref:typename:uint16_t	file:

@@ -270,10 +270,11 @@ attaches mission state during `G_DoLoadLevel()`. `G_MissionTicker(level_t *map,
 it. Drivers and `RtsGameModel` must not keep a parallel `void *mission` owner or
 pass mission objects separately through the simulation.
 
-Dark Colony's mission owns its bounded dropship `mobj_t` instances and
-animation data. A dropship is runtime object data, not a separate required
-Dropship abstraction, and its actions resolve mission state from the active
-level context.
+Dark Colony dropships are ordinary `mobj_t` entries in the level's object
+array. Their FIN states advance through `P_Ticker` and their `A_` handlers move
+and release cargo. There is no separate dropship pool, ticker, or effect bridge.
+Per-game `mobj_data.h` supplies typed inline fields through `MOBJ_GAME_FIELDS`;
+Dark Colony owns delivery payloads there, so object compaction copies them too.
 
 ### Unit balance configuration
 
