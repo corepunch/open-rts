@@ -927,6 +927,23 @@ typedef enum {
     S_RSCHPOD_STND7,
     S_RSCHPOD_STND8,
     S_RSCHPOD_STND9,
+    S_DISH_STND1,
+    S_DISH_STND2,
+    S_DISH_STND3,
+    S_DISH_STND4,
+    S_DISH_STND5,
+    S_DISH_STND6,
+    S_DISH_STND7,
+    S_DISH_STND8,
+    S_DISH_STND9,
+    S_DISH_STND10,
+    S_DISH_STND11,
+    S_DISH_STND12,
+    S_DISH_STND13,
+    S_DISH_STND14,
+    S_DISH_STND15,
+    S_DISH_STND16,
+    S_DISH_STND17,
 #define DC_BLOOD_LABEL(name, state)
 #define DC_BLOOD_STATE(id, sprite, frame, tics, next) id,
 #include "blood_states.inc"
@@ -935,7 +952,43 @@ typedef enum {
     NUMSTATES
 } statenum_t;
 
-enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, MT_BLOOD, MT_VENT, MT_BEACON, NUMMOBJTYPES };
+enum {
+    MT_NULL,
+    MT_TROOPER,
+    MT_GREY,
+    MT_EXPLOITER,
+    MT_REAPER,
+    MT_THUNDERBOLT,
+    MT_CYBORG,
+    MT_SCOUT,
+    MT_ORTU,
+    MT_SLUG,
+    MT_MOBILE_TOWER,
+    MT_DROP_LINK,
+    MT_ALIEN_COM,
+    MT_VISION_SIGHT,
+    MT_DROPSHIP,
+    MT_BLOOD,
+    MT_VENT,
+    MT_BEACON,
+    MT_EXCOPOD,
+    MT_BRRKPOD,
+    MT_ROBOPOD,
+    MT_ROBOPOD2,
+    MT_SCNCPOD,
+    MT_SCNCPOD2,
+    MT_RSCHPOD,
+    MT_ALIEN_MINDHIVE,
+    MT_ALIEN_WARHIVE,
+    MT_ALIEN_BRDRHIVE,
+    MT_ALIEN_BRDRHIVE2,
+    MT_ALIEN_MINDHIVE2,
+    MT_ALIEN_MINDHIVE3,
+    MT_ALIEN_RSCHIVE,
+    MT_COMMS_DISH,
+    MT_CITY_TOWER,
+    NUMMOBJTYPES,
+};
 
 extern const char *const sprnames[NUMSPRITES];
 extern const state_t states[NUMSTATES];
@@ -944,6 +997,7 @@ extern const gameinfo_t game_info;
 
 const mobjtype_t *actor_type_by_id(uint16_t type_id);
 
+void A_DC_ProductionReady(mobj_t *producer);
 void A_DC_Vent(mobj_t *actor);
 void A_DC_ReaperDeath(mobj_t *unit);
 void A_DC_Drop(mobj_t *unit);

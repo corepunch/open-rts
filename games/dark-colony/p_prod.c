@@ -9,39 +9,28 @@
 #include <string.h>
 #include <stdarg.h>
 
-enum {
-    ACTOR_TROOPER = 1,
-    ACTOR_EXCOPOD = 1000,
-    ACTOR_BRRKPOD = 1001,
-    ACTOR_ROBOPOD = 1002,
-    ACTOR_ROBOPOD2 = 1003,
-    ACTOR_SCNCPOD2 = 1005,
-    PRODUCTION_BUILD_GROUP = 6,
-    TRSCBUILD_FIRST_FRAME = 12,
-};
-
 static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     /* Buildings — all built from the Exco Center */
-    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { ACTOR_EXCOPOD }, 1 },
-    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { ACTOR_EXCOPOD }, 1 },
-    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1, { ACTOR_EXCOPOD }, 1 },
-    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2, { ACTOR_EXCOPOD }, 1 },
-    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1, { ACTOR_EXCOPOD }, 1 },
-    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1, { ACTOR_EXCOPOD }, 1 },
-    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2, { ACTOR_EXCOPOD }, 1 },
+    {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { MT_EXCOPOD }, 1 },
+    {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { MT_EXCOPOD }, 1 },
+    {  2,  81, "Sci-Pod",   2000,  21, RTS_PRODUCT_BUILDING, 20, 0, { 0 }, 1, { MT_EXCOPOD }, 1 },
+    {  3,  82, "Robo-Ftr",  2000,  22, RTS_PRODUCT_BUILDING, 18, 0, { 2, 1 }, 2, { MT_EXCOPOD }, 1 },
+    {  6,  83, "Rsch-Bay",  3000,  23, RTS_PRODUCT_BUILDING, 22, 0, { 4 }, 1, { MT_EXCOPOD }, 1 },
+    {  4,  85, "Sci-Pod+",  2000,  26, RTS_PRODUCT_BUILDING, 21, 0, { 2 }, 1, { MT_EXCOPOD }, 1 },
+    {  5,  86, "Robo-Ftr+", 2000,  30, RTS_PRODUCT_BUILDING, 19, 0, { 3, 2 }, 2, { MT_EXCOPOD }, 1 },
     /* Exco Center units */
-    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1, { ACTOR_EXCOPOD }, 1 },
+    {  7,  87, "Exploiter", 1500,   8, RTS_PRODUCT_UNIT,      6, 0, { 0 }, 1, { MT_EXCOPOD }, 1 },
     /* Barracks units */
-    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1, { ACTOR_BRRKPOD }, 1 },
-    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { ACTOR_BRRKPOD }, 1 },
-    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { ACTOR_BRRKPOD }, 1 },
+    {  9,  89, "Trooper",    350,   6, RTS_PRODUCT_UNIT,      0, 0, { 1 }, 1, { MT_BRRKPOD }, 1 },
+    { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { MT_BRRKPOD }, 1 },
+    { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { MT_BRRKPOD }, 1 },
     /* Robot Factory units */
-    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { ACTOR_ROBOPOD }, 1 },
-    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { ACTOR_ROBOPOD2 }, 1 },
-    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { ACTOR_ROBOPOD }, 1 },
+    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { MT_ROBOPOD }, 1 },
+    { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { MT_ROBOPOD2 }, 1 },
+    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { MT_ROBOPOD }, 1 },
     /* Upgraded Robot Factory units */
-    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { ACTOR_ROBOPOD2 }, 1 },
-    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { ACTOR_ROBOPOD }, 1 },
+    {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { MT_ROBOPOD2 }, 1 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { MT_ROBOPOD }, 1 },
 };
 
 static const StaticProductDefinition DARK_COLONY_ALIEN_PRODUCTS[] = {
@@ -57,25 +46,25 @@ static int product_count(void) {
 
 static uint16_t actor_id_for_product_type(int product_type) {
     switch (product_type) {
-    case 16: return 1000;
-    case 17: return 1001;
-    case 18: return 1002;
-    case 19: return 1003;
-    case 20: return 1004;
-    case 21: return 1005;
-    case 22: return 1006;
+    case 16: return MT_EXCOPOD;
+    case 17: return MT_BRRKPOD;
+    case 18: return MT_ROBOPOD;
+    case 19: return MT_ROBOPOD2;
+    case 20: return MT_SCNCPOD;
+    case 21: return MT_SCNCPOD2;
+    case 22: return MT_RSCHPOD;
     default: return 0;
     }
 }
 
 static uint16_t unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
-    case 0: return 1;
-    case 2: return 4;
-    case 3: return 5;
-    case 4: return 6;
-    case 5: return 7;
-    case 6: return 3;
+    case 0: return MT_TROOPER;
+    case 2: return MT_REAPER;
+    case 3: return MT_THUNDERBOLT;
+    case 4: return MT_CYBORG;
+    case 5: return MT_SCOUT;
+    case 6: return MT_EXPLOITER;
     case 14: return MT_SLUG;
     case  8: return MT_GREY;
     case 13: return MT_ORTU;
@@ -93,17 +82,8 @@ uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {
 }
 
 int G_ModelBuildingFrameForProduct(const StaticProductDefinition *product) {
-    if (!product) return 0;
-    switch (product->product_type) {
-    case 16: return 0; /* HUBU.FIN EXCOPODSTAND0 */
-    case 17: return 4; /* HUBU.FIN BRRKPODSTAND0 */
-    case 18: return 1;
-    case 19: return 1;
-    case 20: return 2;
-    case 21: return 2;
-    case 22: return 4;
-    default: return 0;
-    }
+    (void)product;
+    return 0; /* All DC buildings initialize through mobjinfo[].spawnstate. */
 }
 
 int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
@@ -209,60 +189,23 @@ bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
     return true;
 }
 
-static const state_t *dc_model_state_at(const gameinfo_t *game_info, int state_id) {
-    if (!game_info || !game_info->states || state_id < 0 || state_id >= game_info->state_count)
-        return NULL;
-    return &game_info->states[state_id];
-}
-
-static int dc_model_find_state_by_group_frame(const gameinfo_t *game_info, int group, int frame) {
-    if (!game_info || !game_info->states) return -1;
-    for (int i = 0; i < game_info->state_count; ++i) {
-        const state_t *state = &game_info->states[i];
-        if (state->group != group || state->frame != frame) continue;
-        return i;
-    }
-    return -1;
-}
-
-static int dc_model_state_chain_duration_ms(const gameinfo_t *game_info, int state_id, int group) {
-    int tics = 0;
-    int guard = 0;
-    while (guard++ < (game_info ? game_info->state_count + 1 : 1)) {
-        const state_t *state = dc_model_state_at(game_info, state_id);
-        if (!state || state->group != group) break;
-        if (state->tics > 0) tics += state->tics;
-        int next = state->nextstate;
-        if (next == game_info->null_state || next == state_id) break;
-        state_id = next;
-    }
-    if (tics <= 0) return 0;
-    return (int)(tics * FIXED_DT * 1000.0f + 0.5f);
+/* State entry, rather than a second animation timer, releases the queue. */
+void A_DC_ProductionReady(mobj_t *producer) {
+    if (producer->production && producer->production->release_active)
+        producer->production->release_ready = true;
 }
 
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product,
                                    uint16_t actor_id) {
     (void)model;
-    if (!producer || !product || !gameinfo) return false;
-    if (producer->type_id != ACTOR_BRRKPOD ||
-        product->product_class != RTS_PRODUCT_UNIT || product->product_type != 0 ||
-        actor_id != ACTOR_TROOPER) {
-        return false;
-    }
-    const gameinfo_t *game_info = gameinfo;
-    int state_id = dc_model_find_state_by_group_frame(game_info, PRODUCTION_BUILD_GROUP,
-                                                      TRSCBUILD_FIRST_FRAME);
-    int duration_ms = dc_model_state_chain_duration_ms(game_info, state_id,
-                                                       PRODUCTION_BUILD_GROUP);
-    if (state_id <= 0 || duration_ms <= 0) return false;
-    if (!P_SetMobjState(producer, state_id))
-        return false;
-    if (!producer->production) return false;
+    if (!producer || !producer->production || !product ||
+        producer->type_id != MT_BRRKPOD || product->product_class != RTS_PRODUCT_UNIT ||
+        actor_id != MT_TROOPER) return false;
     producer->production->release_active = true;
-    producer->production->release_time_left_ms = duration_ms;
+    producer->production->release_ready = false;
     producer->production->time_left_ms = 0;
-    return true;
+    return P_SetMobjState(producer, S_BRRKPOD_BUILD_TRSC1);
 }
 
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
@@ -270,44 +213,18 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
                                      const mobj_t *new_unit,
                                      float *out_gx, float *out_gy) {
     (void)model;
-    if (!producer || !product || !new_unit || !out_gx || !out_gy || !gameinfo)
-        return false;
-    if (producer->type_id != ACTOR_BRRKPOD ||
-        product->product_class != RTS_PRODUCT_UNIT || product->product_type != 0)
-        return false;
-
-    const gameinfo_t *game_info = gameinfo;
-    const state_t *stand = dc_model_state_at(game_info, new_unit->core.state_id);
-    if (!stand) return false;
-
-    int stand_x = 0;
-    int stand_y = 0;
-    int release_state_id = dc_model_find_state_by_group_frame(game_info,
-                                                              PRODUCTION_BUILD_GROUP,
-                                                              TRSCBUILD_FIRST_FRAME);
-    int release_x = 0;
-    int release_y = 0;
-    bool saw_release_trooper = false;
-    int guard = 0;
-    while (guard++ < game_info->state_count + 1) {
-        const state_t *state = dc_model_state_at(game_info, release_state_id);
-        if (!state || state->group != PRODUCTION_BUILD_GROUP) break;
-        int x = 0;
-        int y = 0;
-        if (state->sprite == stand->sprite && state->frame == stand->frame) {
-            release_x = x;
-            release_y = y;
-            saw_release_trooper = true;
-        }
-        int next = state->nextstate;
-        if (next == game_info->null_state || next == release_state_id) break;
-        release_state_id = next;
-    }
-    if (!saw_release_trooper) return false;
-
-    fvec2_t producer_position = fixed3_xy_to_fvec2(producer->core.position);
-    *out_gx = producer_position.x + (float)(release_x - stand_x) / (float)CELL_W;
-    *out_gy = producer_position.y - (float)(release_y - stand_y) / (float)CELL_H;
+    if (!producer || !product || !new_unit || !out_gx || !out_gy ||
+        producer->type_id != MT_BRRKPOD || product->product_class != RTS_PRODUCT_UNIT ||
+        new_unit->type_id != MT_TROOPER) return false;
+    /* HUBU.FIN/TRSCBUILD0 frame 47 minus TRSC.FIN/TRSCSTAND8.
+     * The latter is the ANG90 spawn facing. Tests check these native commands. */
+    ivec2_t offset = ivec2_add(producer->core.render_offset,
+                              ivec2_sub((ivec2_t){-143, 79}, (ivec2_t){-159, 0}));
+    fvec2_t position = fvec2_add(fixed3_xy_to_fvec2(producer->core.position),
+                                (fvec2_t){(float)offset.x / g_cell_w,
+                                           -(float)offset.y / g_cell_h});
+    *out_gx = position.x;
+    *out_gy = position.y;
     return true;
 }
 
@@ -336,12 +253,12 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
         if (snapshot->units[i].selected && snapshot->units[i].owner == 0 &&
             (snapshot->units[i].traits & RTS_RENDER_TRAIT_SELECTABLE) != 0 &&
             (snapshot->units[i].traits & RTS_RENDER_TRAIT_MOBILE) == 0 &&
-            snapshot->units[i].type_id >= ACTOR_EXCOPOD) {
+            snapshot->units[i].type_id >= MT_EXCOPOD) {
             selected_type = snapshot->units[i].type_id;
             break;
         }
     }
-    if (selected_type == 0) selected_type = ACTOR_EXCOPOD;
+    if (selected_type == 0) selected_type = MT_EXCOPOD;
 
     int slot = 0;
     int available_product_count = product_count();
@@ -440,33 +357,15 @@ bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *p
     production->time_ms = G_ModelProductTrainingTimeMs(product);
     production->time_left_ms = production->time_ms;
     production->release_active = false;
-    production->release_time_left_ms = 0;
+    production->release_ready = false;
     return true;
 }
 
 static bool dc_product_uses_barracks_release(const mobj_t *producer,
                                              const StaticProductDefinition *product,
                                              uint16_t actor_id) {
-    return producer && product && producer->type_id == ACTOR_BRRKPOD &&
-        product->product_type == 0 && actor_id == ACTOR_TROOPER;
-}
-
-static bool dc_start_production_release(mobj_t *producer,
-                                        const StaticProductDefinition *product,
-                                        uint16_t actor_id) {
-    if (!gameinfo || !producer || !product) return false;
-    if (!dc_product_uses_barracks_release(producer, product, actor_id)) return false;
-    int state_id = dc_model_find_state_by_group_frame(gameinfo, PRODUCTION_BUILD_GROUP,
-                                                      TRSCBUILD_FIRST_FRAME);
-    int duration_ms = dc_model_state_chain_duration_ms(gameinfo, state_id,
-                                                       PRODUCTION_BUILD_GROUP);
-    if (state_id <= 0 || duration_ms <= 0) return false;
-    if (!P_SetMobjState(producer, state_id)) return false;
-    if (!producer->production) return false;
-    producer->production->release_active = true;
-    producer->production->release_time_left_ms = duration_ms;
-    producer->production->time_left_ms = 0;
-    return true;
+    return producer && product && producer->type_id == MT_BRRKPOD &&
+        product->product_type == 0 && actor_id == MT_TROOPER;
 }
 
 static void dc_clear_production(mobj_t *producer) {
@@ -477,7 +376,7 @@ static void dc_advance_production_queue(mobj_t *producer) {
     if (!producer || !producer->production) return;
     production_t *production = producer->production;
     production->release_active = false;
-    production->release_time_left_ms = 0;
+    production->release_ready = false;
     production->queue_count--;
     if (production->queue_count > 0) {
         production->time_left_ms = production->time_ms;
@@ -639,6 +538,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     if (!producer->production) return false;
     mobj_t *new_unit = P_SpawnMobj(fixed3_zero(), actor_id);
     if (!new_unit) return false;
+    new_unit->core.angle = ANG90;
     new_unit->owner = producer->owner;
     new_unit->team = producer->team;
     new_unit->allegiance = producer->allegiance;
@@ -649,9 +549,12 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
         G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, producer->production->product_type);
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
-        G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, new_unit, &gx, &gy) &&
-        dc_position_walkable_for_spawn(map, gx, gy, radius)) {
-        /* The release FIN places the visual handoff; occupied exit cells are cleared below. */
+        G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, new_unit, &gx, &gy)) {
+        if (!dc_position_walkable_for_spawn(map, gx, gy, radius)) {
+            P_RemoveMobj(new_unit);
+            return false;
+        }
+        /* The FIN exit is fixed; occupied exit cells are cleared below. */
     } else if (!dc_find_spawn_position_near(map, units, *unit_count, producer,
                                             radius, &gx, &gy)) {
         P_RemoveMobj(new_unit);
@@ -682,11 +585,9 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count
             continue;
         }
         if (production->release_active) {
-            production->release_time_left_ms -= elapsed_ms;
-            if (production->release_time_left_ms > 0) continue;
+            if (!production->release_ready) continue;
             uint16_t actor_id = production->actor_id;
             if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {
-                production->release_time_left_ms = 250;
                 continue;
             }
             spawned = true;
@@ -699,7 +600,7 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count
             uint16_t actor_id = production->actor_id;
             const StaticProductDefinition *product =
                 G_ModelProductByClassType(NULL, RTS_PRODUCT_UNIT, production->product_type);
-            if (product && dc_start_production_release(producer, product, actor_id)) {
+            if (product && G_ModelStartProductionRelease(NULL, producer, product, actor_id)) {
                 break;
             }
             if (!dc_spawn_finished_unit_product(map, units, unit_count, i, actor_id)) {

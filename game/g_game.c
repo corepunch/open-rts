@@ -286,8 +286,11 @@ static bool spawn_finished_model_product(RtsGameModel *model,
     float gy = 0.0f;
     mobj_t *producer = model->objects.items[producer_index];
     bool use_special_release = false;
-    if (G_ModelSpecialReleaseSpawnPoint(model, producer, product, new_unit, &gx, &gy) &&
-        model_position_walkable_only(model, gx, gy, radius)) {
+    if (G_ModelSpecialReleaseSpawnPoint(model, producer, product, new_unit, &gx, &gy)) {
+        if (!model_position_walkable_only(model, gx, gy, radius)) {
+            P_RemoveMobj(new_unit);
+            return false;
+        }
         use_special_release = true;
     } else if (!find_spawn_position_near(model, producer, radius, &gx, &gy)) {
         P_RemoveMobj(new_unit);
@@ -333,7 +336,7 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
     production->time_ms = G_ModelProductTrainingTimeMs(product);
     production->time_left_ms = production->time_ms;
     production->release_active = false;
-    production->release_time_left_ms = 0;
+    production->release_ready = false;
     production->blocked = false;
     model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                      product->product_class, product->product_type);
@@ -350,7 +353,7 @@ static void advance_model_production_queue(mobj_t *producer) {
     if (!producer || !producer->production) return;
     production_t *production = producer->production;
     production->release_active = false;
-    production->release_time_left_ms = 0;
+    production->release_ready = false;
     production->queue_count--;
     if (production->queue_count > 0) {
         production->time_left_ms = production->time_ms;
@@ -408,8 +411,7 @@ static void update_model_production(RtsGameModel *model, float dt) {
             continue;
         }
         if (production->release_active) {
-            production->release_time_left_ms -= elapsed_ms;
-            if (production->release_time_left_ms > 0) continue;
+            if (!production->release_ready) continue;
             const StaticProductDefinition *product = G_ModelProductByClassType(
                 model, production->product_class, production->product_type);
             if (!product || !spawn_finished_model_product(model, product, i)) {
@@ -418,7 +420,6 @@ static void update_model_production(RtsGameModel *model, float dt) {
                                      production->product_class,
                                      production->product_type);
                 production->blocked = true;
-                production->release_time_left_ms = 250;
                 continue;
             }
             producer = model->objects.items[i];

@@ -143,7 +143,7 @@ struct production_s {
     int time_left_ms;
     bool blocked;
     bool release_active;
-    int release_time_left_ms;
+    bool release_ready;
 };
 
 struct mobj_s {

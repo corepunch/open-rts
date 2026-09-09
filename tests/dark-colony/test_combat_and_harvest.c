@@ -142,11 +142,11 @@ static int assert_exploiter_harvest_lifecycle(void) {
 
     int exploiter = -1;
     for (int i = 0; i < snapshot.unit_count; ++i)
-        if (strstr(snapshot.units[i].sprite_name, "EXPL.SPR") != NULL) { exploiter = i; break; }
+        if (snapshot.units[i].type_id == MT_EXPLOITER && snapshot.units[i].owner == 0) { exploiter = i; break; }
     for (int tries = 0; exploiter < 0 && tries < 30 * 30; ++tries) {
         if (!rts_tick(model, &snapshot)) return fail("tick to find exploiter");
         for (int i = 0; i < snapshot.unit_count; ++i)
-            if (strstr(snapshot.units[i].sprite_name, "EXPL.SPR") != NULL) { exploiter = i; break; }
+            if (snapshot.units[i].type_id == MT_EXPLOITER && snapshot.units[i].owner == 0) { exploiter = i; break; }
     }
     if (exploiter < 0) return fail("find player exploiter unit");
     int start_resources = snapshot.player_resources[0][0];
@@ -170,7 +170,7 @@ static int assert_exploiter_harvest_lifecycle(void) {
         if (!rts_tick(model, &snapshot)) return fail("tick harvest approach");
         int now = -1;
         for (int i = 0; i < snapshot.unit_count; ++i)
-            if (strstr(snapshot.units[i].sprite_name, "EXPL.SPR") != NULL) { now = i; break; }
+            if (snapshot.units[i].type_id == MT_EXPLOITER && snapshot.units[i].owner == 0) { now = i; break; }
         if (now < 0) return fail("exploiter disappeared during harvest");
         if (snapshot.units[now].harvest_target >= 0) saw_harvest_target = true;
         int state_id = snapshot.units[now].state_id;
@@ -206,7 +206,7 @@ static int assert_unit_creation_from_production(void) {
     int exploiter = -1;
     for (int tries = 0; exploiter < 0 && tries < 30 * 30; ++tries) {
         for (int i = 0; i < snapshot.unit_count; ++i)
-            if (strstr(snapshot.units[i].sprite_name, "EXPL.SPR") != NULL) { exploiter = i; break; }
+            if (snapshot.units[i].type_id == MT_EXPLOITER && snapshot.units[i].owner == 0) { exploiter = i; break; }
         if (exploiter < 0 && !rts_tick(model, &snapshot)) return fail("tick to find exploiter for production");
     }
     if (exploiter >= 0) {
@@ -227,7 +227,7 @@ static int assert_unit_creation_from_production(void) {
         product_count = rts_game_model_products(model, products, 64);
         for (int p = 0; p < product_count && !build_accepted; ++p) {
             if (!products[p].available || products[p].product_class != RTS_PRODUCT_UNIT) continue;
-            if (products[p].ui_id != 89) continue; /* Exploiter: known-buildable on HUMAN02. */
+            if (products[p].ui_id != 89) continue; /* Trooper: trained by the Human02 Barracks. */
             for (int i = 0; i < snapshot.unit_count; ++i) {
                 if (snapshot.units[i].owner != 0) continue;
                 RtsGameCommand build = { .kind = RTS_GAME_COMMAND_BUILD_PRODUCT,

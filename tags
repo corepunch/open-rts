@@ -64,6 +64,7 @@ A_Chase	tests/test_dark_colony_sprite_layout.c	/^void A_Chase(mobj_t *unit) { (v
 A_DC_Drop	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Drop(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Fly	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Fly(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_MuzzleFlash	tests/test_dark_colony_sprite_layout.c	/^void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_ProductionReady	tests/test_dark_colony_sprite_layout.c	/^void A_DC_ProductionReady(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_ReaperDeath	tests/test_dark_colony_sprite_layout.c	/^void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Vent	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Vent(mobj_t *unit) { (void)unit; }$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_Look	play/actor.h	/^void A_Look(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
@@ -1294,6 +1295,7 @@ fin_label	tests/test_dark_colony_sprite_layout.c	/^static const FinLabel *fin_la
 fin_layer_command_at	tests/test_dark_colony_sprite_layout.c	/^static const FinCommand *fin_layer_command_at(const FinInfo *fin, const char *label,$/;"	f	typeref:typename:const FinCommand *	file:	signature:(const FinInfo * fin,const char * label,const char * sprite,int layer,int index)
 fin_t	tools/dc_info_conv/main.c	/^} fin_t;$/;"	t	typeref:struct:__anonfa7209510108	file:
 final_goal_reaches_arrived_order_cluster	play/p_mobj.c	/^static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit,float tx,float ty,float dist_to_goal)
+find	tests/dark-colony/test_barracks_production.c	/^static mobj_t *find(int type) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(int type)
 find_friendly_base	play/p_ai.c	/^static bool find_friendly_base(const AiTeamState *team, mobj_t *const *units,$/;"	f	typeref:typename:bool	file:	signature:(const AiTeamState * team,mobj_t * const * units,int unit_count,fvec2_t * out_position)
 find_movable_player_unit	tests/dark-colony/test_game_model_headless.c	/^static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * snapshot)
 find_nearest_unreserved_walkable_position	play/p_map.c	/^static bool find_nearest_unreserved_walkable_position(const level_t *map,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,mobj_t * const * units,int unit_count,int self_index,uint32_t order_id,float wanted_gx,float wanted_gy,float unit_radius,int search_radius,float * gx_out,float * gy_out)
@@ -1574,6 +1576,7 @@ main	driver/d_main.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:
 main	tests/cross-game/test_model_commands.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_actor_lifecycle.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_ai_team_aware.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_barracks_production.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_blood_fin.c	/^int main(void) { lifecycle(); pixels(); return 0; }$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_city_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_combat_and_harvest.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -1868,7 +1871,7 @@ production_s::product_class	play/actor.h	/^    uint8_t product_class;$/;"	m	stru
 production_s::product_type	play/actor.h	/^    int product_type;$/;"	m	struct:production_s	typeref:typename:int
 production_s::queue_count	play/actor.h	/^    int queue_count;$/;"	m	struct:production_s	typeref:typename:int
 production_s::release_active	play/actor.h	/^    bool release_active;$/;"	m	struct:production_s	typeref:typename:bool
-production_s::release_time_left_ms	play/actor.h	/^    int release_time_left_ms;$/;"	m	struct:production_s	typeref:typename:int
+production_s::release_ready	play/actor.h	/^    bool release_ready;$/;"	m	struct:production_s	typeref:typename:bool
 production_s::time_left_ms	play/actor.h	/^    int time_left_ms;$/;"	m	struct:production_s	typeref:typename:int
 production_s::time_ms	play/actor.h	/^    int time_ms;$/;"	m	struct:production_s	typeref:typename:int
 production_t	play/actor.h	/^typedef struct production_s production_t;$/;"	t	typeref:struct:production_s
@@ -1909,7 +1912,7 @@ region	tools/dc_gamestat_gen.c	/^    char region[128];$/;"	m	struct:__anon006eef
 reject_sprite	tests/loader_fixtures.h	/^static void reject_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,$/;"	f	typeref:typename:void	signature:(SDL_Renderer * renderer,const uint8_t * data,size_t size,const uint32_t * palette)
 rejected	tests/dark-colony/test_sprite_loading.c	/^static void rejected(const uint8_t *file, size_t size) {$/;"	f	typeref:typename:void	file:	signature:(const uint8_t * file,size_t size)
 release_active	play/actor.h	/^    bool release_active;$/;"	m	struct:production_s	typeref:typename:bool
-release_time_left_ms	play/actor.h	/^    int release_time_left_ms;$/;"	m	struct:production_s	typeref:typename:int
+release_ready	play/actor.h	/^    bool release_ready;$/;"	m	struct:production_s	typeref:typename:bool
 remap	render/sprites.h	/^    uint8_t remap; \/* Native FIN drawing mode, not a team\/palette ID. *\/$/;"	m	struct:spritelayer_s	typeref:typename:uint8_t
 remap	tests/test_dark_colony_sprite_layout.c	/^    int remap;$/;"	m	struct:__anona4e7c35f0208	typeref:typename:int	file:
 remove	play/actor.h	/^    bool remove;$/;"	m	struct:mobj_s	typeref:typename:bool
@@ -2034,6 +2037,7 @@ scan_dir	tools/dc_spr_extract.c	/^static void scan_dir(const char *data_root, co
 scenario	tools/dc_gamestat_gen.c	/^    char scenario[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
 screen_to_grid_point	render/r_draw.c	/^static void screen_to_grid_point(const app_t *app, int sx, int sy, float *gx, float *gy) {$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,int sx,int sy,float * gx,float * gy)
 screen_to_map_grid_point	render/r_draw.c	/^static void screen_to_map_grid_point(const app_t *app, const level_t *map, int sx, int sy,$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,const level_t * map,int sx,int sy,float * gx,float * gy)
+screenshot	tests/dark-colony/test_barracks_production.c	/^static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,tileset_t * tiles,spritecache_t * cache,const char * path)
 sdl	interface/renderer.h	/^    SDL_Renderer *sdl;$/;"	m	struct:renderer_s	typeref:typename:SDL_Renderer *
 sdl_renderer_backend	interface/i_video.c	/^const rendererbackend_t *sdl_renderer_backend(void) {$/;"	f	typeref:typename:const rendererbackend_t *	signature:(void)
 sdl_renderer_backend	interface/renderer.h	/^const rendererbackend_t *sdl_renderer_backend(void);$/;"	p	typeref:typename:const rendererbackend_t *	signature:(void)

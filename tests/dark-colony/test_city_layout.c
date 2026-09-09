@@ -28,9 +28,10 @@ static void check_city(const char *path, fvec2_t anchor, const char *screenshot)
         mobj_t *actor = (mobj_t *)th;
         assert(count < MAX_OBJECTS);
         actors[count++] = actor;
-        if (actor->type_id < MT_BUILDING_BASE || actor->type_id > MT_CITY_TOWER ||
-            actor->type_id == MT_COMMS_DISH) continue;
+        if (actor->type_id < MT_EXCOPOD || actor->type_id > MT_CITY_TOWER) continue;
         /* Initial render must already use FIN, including persistent TOWR. */
+        assert(actor->type_id < NUMMOBJTYPES);
+        assert(actor->core.state_id == mobjinfo[actor->type_id].spawnstate);
         assert(actor->core.state_id != S_NULL);
         const state_t *state = &gameinfo->states[actor->core.state_id];
         assert(actor->core.sprite_id == state->sprite && actor->core.frame == state->frame);
@@ -98,6 +99,15 @@ static void check_city(const char *path, fvec2_t anchor, const char *screenshot)
 int main(void) {
     G_InitGame();
     P_InitThinkers();
+    for (int type = MT_EXCOPOD; type <= MT_CITY_TOWER; ++type) {
+        mobj_t *building = P_SpawnMobj(fixed3_zero(), type);
+        assert(building && building->core.state_id == mobjinfo[type].spawnstate);
+        assert(building->hp == mobjinfo[type].spawnhealth && building->hp > 0);
+        assert(building->traits == (uint32_t)mobjinfo[type].flags);
+        assert(building->core.sprite_id == states[building->core.state_id].sprite);
+        assert(building->core.frame == states[building->core.state_id].frame);
+    }
+    P_FreeLevel(&level);
     check_city("data/DCOLONY/SCENARIO/HUMAN/HUMAN02.MAP", (fvec2_t){56, 55}, "/private/tmp/city-human02.bmp");
     check_city("data/DCOLONY/SCENARIO/HUMAN/HUMAN03.MAP", (fvec2_t){75, 6}, "/private/tmp/city-human03.bmp");
     puts("PASS: cities use native slot positions, shared FIN origins, and initialized building states");

@@ -2603,3 +2603,121 @@ The full Dark Colony suite retains the two previously reproduced baseline
 failures: missing Human01 initial Troopers (`test_game_model_headless`) and
 missing player Exploiter (`test_combat_and_harvest`). City, sprite layout,
 complete FIN states, Trooper/Grey rendering, and vent/beacon tests pass.
+
+## Register building mobjs and restore Barracks production (2026-09-09)
+
+**Implementation correction, superseding the compatibility part of the city
+repair above:** all sixteen city/building types now live in the contiguous
+`info.h` mobj enum and have designated `mobjinfo[]` entries. Their native type
+numbers remain unchanged in `native_type_id`; engine building IDs 1000–1015
+and the sidebar/production copies of those IDs are removed. `P_SpawnMobj`
+selects their spawn states normally. The loader's separate building-state
+switch and sprite reset, and the out-of-table initialization allowance in
+`P_InitMobj`, are removed. Native city slot geometry remains unchanged. Human building ActorTypes also
+name HUBU rather than the obsolete SHORTCIT placeholder. Starting objects retain the existing authored ActorType speed instead of overwriting it
+from the GAMESTAT table; building health/flags match the authored ActorTypes.
+This follows Doom's action-free spawn initialization in
+`reference/DOOM/p_mobj.c`, rather than adding another city initialization path.
+
+**Confirmed native asset addition:** `DISHSTAND0` is FIN frames 0–16. `DISH.SPR`
+has three raw cells, so the complete logical frames are 3–19. All seventeen
+frames have zero raw delay (two native ticks); their cumulative 66 ms timing
+is 67 engine tics. The base command is `dish/0 (-19,17)`; subsequent commands
+include GLAT and DISH parts. Even the distant parts in frames 13/14 remain
+unaltered. This lets the communications building initialize through an ordinary
+FIN state rather than a raw SPR fallback. SHA-256 fingerprints:
+
+- `ANIMATE/DISH.FIN`: `8c6977818f28b55d79b41c583dd47de30c8d80802e26f353dfad2d64507ecaf9`.
+- `SPRITES/DISH.SPR`: `6ae4521f43fa6e3b031704f847e1f7f1df53cd4cc24b3712aa47c75cbf45c80f`.
+
+**Confirmed production regression from source/history:** `e80cf56` and
+`51219fd` contain the earlier Barracks release and handoff work. The later
+complete-FIN migration (`471ac3b`) made release frames logical HUBU frames
+45–66, while both production callers still searched all group-6 states for
+raw frame 12. This is not a valid identity lookup: unrelated DROP states also
+contain frame 12. The handoff scan also still expected individual TRSC states
+and had zeroed its command coordinates, so it could never recover the final
+TRSC part from a complete HUBU FIN frame.
+
+The Barracks now enters the named `S_BRRKPOD_BUILD_TRSC1` sequence. Returning to
+its ordinary spawn state runs `A_DC_ProductionReady`, which signals the
+production queue. Both the model and interactive-driver paths consume this
+signal to spawn an ordinary `MT_TROOPER`, copy team/owner, emit model events
+where applicable, and advance the queue once. The separate release millisecond
+timer and raw frame/group searches are gone. If terrain blocks the native exit,
+production waits and retries that exit; it does not spawn in an unrelated free
+cell or replay the animation. Existing post-release unit-spacing orders remain.
+
+**Confirmed FIN sequence and corrected timing:** `HUBU.FIN/TRSCBUILD0` has
+22 inclusive frames (26–47), all raw delay 6. The multiplier-15 correction at
+DC.EXE `0x42356b..0x42358d` and the default 66 ms clock at `0x41a728` apply:
+one native tick per frame, 44 cumulatively rounded engine tics in total.
+The previous 35-tic value inherited the disproven 19 Hz interpretation.
+Executable fingerprint remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+
+| Native frames | Authored commands |
+| --- | --- |
+| 26–28 | HUBU door cells 12, 13, 14 at (-36,27) |
+| 29–34 | HUBU cell 15 and TRSC cells 72,16,24,32,40,48 at (-156,36..58) |
+| 35–37 | HUBU cells 14,13,12 and TRSC cells 56,64,72 at (-156,57..59) |
+| 38–43 | TRSC cells 16,24,32,40,48,56 at (-156,68..79) |
+| 44–47 | TRSC cells 8,1,2,18 at (-155,78), (-154,80), (-153,79), (-143,79) |
+
+**Confirmed presentation coordinates:** the ANG90 spawn facing resolves to
+native `TRSCSTAND8`, whose command offset is `(-159,0)`. `TRSCSTAND0` and
+`TRSCSTAND2` use `(-159,4)` and are not the standing pose selected at this
+handoff. The final release part minus the selected standing command gives
+`(16,79)` pixels. Include the producer's render offset before converting Y
+back into bottom-up world coordinates:
+
+```text
+pixel_delta = producer.render_offset + (-143,79) - (-159,0)
+spawn = producer.position + (pixel_delta.x / 32, -pixel_delta.y / 32)
+```
+
+For the Human02 Barracks this is `(56.5,51.53125)`, with pixel delta `(16,111)`.
+The checked-in offsets are literal native FIN commands, not tuned constants;
+`test_barracks_production` reads both FIN files independently and checks the
+actual emitted mobjs against their command delta. Ignoring the producer's
+32-pixel city-row render offset would create a one-cell jump at release.
+Temporary production logs confirmed state 12 (`S_BRRKPOD_BUILD_TRSC1`), the
+exact delta/position above, and one handoff per queued Trooper. Logs were removed.
+
+**Confirmed user flow:** the focused test loads Human02, waits for its native
+Exploiter delivery, rejects a Trooper order below 350 Petra-7, issues a harvest
+command, observes mining income, buys two queued Troopers for 700, and checks
+all 44 release tics per unit and exact spawn positions. It additionally clicks
+the actual sidebar Trooper button and ticks the interactive production path,
+including a temporarily blocked exit. Mission combat is disabled after the
+Exploiter arrives to isolate production: an initial test run retained a pointer
+to a Barracks that enemy attacks had destroyed while it waited for more money.
+That was a test-fixture lifetime error, not an ignored sidebar click.
+The earlier combat/harvest test now identifies the Exploiter by its mobj type;
+its obsolete `EXPL.SPR` substring check missed the normal `EXPL` state sprite.
+It now passes without bypassing the mission or granting money.
+
+**Unknown / preserved:** the retail caller-side distinction between construction
+and troop release at `0x438c95..0x438d16` / `0x441430..0x441450` remains only
+partially traced, as in the earlier report. This task preserves the full
+22-frame Barracks presentation and its engine training-time policy (cost*10 ms).
+It does not establish native training duration, animation startup mode, or
+post-exit spacing behavior. In particular, the last ten FIN frames contain only
+TRSC commands; no extra persistent closed-door layer is invented for them.
+
+Reproduce asset inspection and verification:
+
+```sh
+build/dc_info_conv --label TRSCBUILD0 data/DCOLONY/ANIMATE/HUBU.FIN
+build/dc_info_conv --label TRSCSTAND8 data/DCOLONY/ANIMATE/TRSC.FIN
+build/dc_info_conv --label DISHSTAND0 data/DCOLONY/ANIMATE/DISH.FIN
+make build/bin/tests/dark-colony/test_barracks_production
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_barracks_production
+```
+
+The test writes `/private/tmp/barracks-{closed,open,exit,released}.bmp` for visual
+inspection. Building registration/initialization is covered by `test_city_layout`;
+`test_drop_fin_states` compares every Barracks FIN frame's layers and pixels,
+and `test_dark_colony_sprite_layout` checks the release duration and preserved
+Reaper timing. The full suite's remaining pre-existing failure is Human01's
+initial-Trooper assertion in `test_game_model_headless`.

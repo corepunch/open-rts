@@ -46,21 +46,6 @@ typedef StaticProductDefinition ProductButton;
 
 enum {
     CLIENT_PRODUCT_UNIT = 2,
-    CLIENT_MT_TROOPER = 1,
-    CLIENT_MT_REAPER = 4,
-    CLIENT_MT_THUNDERBOLT = 5,
-    CLIENT_MT_CYBORG = 6,
-    CLIENT_MT_SCOUT = 7,
-    CLIENT_MT_EXPLOITER = 3,
-    CLIENT_MT_EXCOPOD = 1000,
-    CLIENT_MT_BRRKPOD = 1001,
-    CLIENT_MT_ROBOPOD = 1002,
-    CLIENT_MT_ROBOPOD2 = 1003,
-    CLIENT_MT_SCNCPOD = 1004,
-    CLIENT_MT_SCNCPOD2 = 1005,
-    CLIENT_MT_RSCHPOD = 1006,
-    CLIENT_PRODUCTION_BUILD_GROUP = 6,
-    CLIENT_TRSCBUILD_FIRST_FRAME = 12,
 };
 
 static void sidebar_defaults(Sidebar *sidebar) {
@@ -259,7 +244,7 @@ static bool dc_product_prerequisites_met(mobj_t *const *units, int unit_count,
 
 static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
     return selected && selected->owner == 0 && !selected->remove && selected->hp > 0 &&
-        selected->type_id >= CLIENT_MT_EXCOPOD;
+        selected->type_id >= MT_EXCOPOD;
 }
 
 static int dc_products_for_selected_building(const mobj_t *selected, mobj_t *const *units,
@@ -289,13 +274,13 @@ static int dc_products_for_selected_building(const mobj_t *selected, mobj_t *con
 static const char *dc_selected_building_label(const mobj_t *selected) {
     if (!selected) return "";
     switch (selected->type_id) {
-    case CLIENT_MT_EXCOPOD: return "Exo-Ctr";
-    case CLIENT_MT_BRRKPOD: return "Barracks";
-    case CLIENT_MT_ROBOPOD: return "Robo-Ftr";
-    case CLIENT_MT_ROBOPOD2: return "Robo-Ftr+";
-    case CLIENT_MT_SCNCPOD: return "Sci-Pod";
-    case CLIENT_MT_SCNCPOD2: return "Sci-Pod+";
-    case CLIENT_MT_RSCHPOD: return "Rsch-Bay";
+    case MT_EXCOPOD: return "Exo-Ctr";
+    case MT_BRRKPOD: return "Barracks";
+    case MT_ROBOPOD: return "Robo-Ftr";
+    case MT_ROBOPOD2: return "Robo-Ftr+";
+    case MT_SCNCPOD: return "Sci-Pod";
+    case MT_SCNCPOD2: return "Sci-Pod+";
+    case MT_RSCHPOD: return "Rsch-Bay";
     default: return "";
     }
 }

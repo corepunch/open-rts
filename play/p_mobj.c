@@ -147,32 +147,29 @@ mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type) {
 }
 
 void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit) {
-    if (!game_info || !unit) return;
-    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
-    if (game_info->mobjinfo && unit->type_id > 0 &&
-        unit->type_id < game_info->mobj_type_count) {
-        const mobjinfo_t *info = &game_info->mobjinfo[unit->type_id];
-        if (unit->core.position.z == 0) unit->core.position.z = info->spawnz;
-        if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
-        if (unit->hp <= 0) unit->hp = unit->max_hp;
-        if (unit->speed <= 0.0f) unit->speed = (float)info->speed;
-        if (unit->radius <= 0.05f) {
-            unit->radius = (float)info->radius / 32.0f;
-            if (unit->radius < 0.32f) unit->radius = 0.32f;
-            if (unit->radius > 0.90f) unit->radius = 0.90f;
-        }
-        if (unit->core.state_id <= 0) {
-            const state_t *state = state_at(game_info, info->spawnstate);
-            if (!state) return;
-            unit->core.state_id = info->spawnstate;
-            unit->core.tics = state->tics;
-        }
+    if (!game_info || !unit || !game_info->mobjinfo ||
+        unit->type_id <= 0 || unit->type_id >= game_info->mobj_type_count) {
+        return;
     }
-    /* An authored state also belongs to objects configured by ActorType,
-     * such as city buildings. Spawn installs its visuals without an action. */
-    const state_t *state = state_at(game_info, unit->core.state_id);
-    if (state && unit->core.state_id != game_info->null_state)
-        apply_state_visuals(game_info, &unit->core, state, false);
+    if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
+    const mobjinfo_t *info = &game_info->mobjinfo[unit->type_id];
+    if (unit->core.position.z == 0) unit->core.position.z = info->spawnz;
+    if (unit->max_hp <= 0) unit->max_hp = info->spawnhealth;
+    if (unit->hp <= 0) unit->hp = unit->max_hp;
+    if (unit->speed <= 0.0f) unit->speed = (float)info->speed;
+    if (unit->radius <= 0.05f) {
+        unit->radius = (float)info->radius / 32.0f;
+        if (unit->radius < 0.32f) unit->radius = 0.32f;
+        if (unit->radius > 0.90f) unit->radius = 0.90f;
+    }
+    if (unit->core.state_id <= 0) {
+        const state_t *state = state_at(game_info, info->spawnstate);
+        if (!state) return;
+        unit->core.state_id = info->spawnstate;
+        unit->core.tics = state->tics;
+    }
+    apply_state_visuals(game_info, &unit->core,
+                        state_at(game_info, unit->core.state_id), false);
 }
 
 

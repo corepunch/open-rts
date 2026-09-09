@@ -499,27 +499,6 @@ static int mobj_type_for_type(int type, int race) {
     }
 }
 
-static int unit_state_for_type(int type) {
-    switch (type) {
-        case 16: return S_EXCOPOD_STND;
-        case 17: return S_BRRKPOD_STND;
-        case 18: return S_ROBOPOD_STND1;
-        case 19: return S_ROBOPOD2_STND1;
-        case 20: return S_SCNCPOD_STND1;
-        case 21: return S_SCNCPOD2_STND1;
-        case 22: return S_RSCHPOD_STND1;
-        case 81: return S_TOWR_STND;
-        case 28: return S_ALIEN_MINDHIVE_STND;
-        case 29: return S_ALIEN_WARHIVE_STND;
-        case 30: return S_ALIEN_BRDRHIVE_STND;
-        case 31: return S_ALIEN_BRDRHIVE2_STND;
-        case 32: return S_ALIEN_MINDHIVE2_STND;
-        case 33: return S_ALIEN_MINDHIVE3_STND;
-        case 34: return S_ALIEN_RSCHIVE_STND;
-        default: return S_NULL;
-    }
-}
-
 static int city_unit_type_for_slot(int race, int slot) {
     static const int city_types[2][15] = {
         { 16, 17, 18, 20, 22, 81, 25, 25, 25, 25, 25, 25, 25, 0, 0 },
@@ -591,15 +570,8 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     ivec2_t native = { (int16_t)position.x, (int16_t)position.y };
     bool city_origin = city_slot >= 0 && city_slot < 6;
     u->core.position = (fixed3_t){ native.x * 256, native.y * 256, 0 };
-    u->core.sprite_id = -1;
     u->attack.target = NULL;
     u->harvest.target = -1;
-    if (type < GAMESTAT_UNIT_COUNT) {
-        const DcGamestatUnit *stat = &dc_gamestat_units[type];
-        u->speed = stat->value_count > GAMESTAT_UNIT_SPEED && stat->values[GAMESTAT_UNIT_SPEED] > 0 ?
-            stat->values[GAMESTAT_UNIT_SPEED] / 32.0f : 0.0f;
-    }
-    if (mobj_type == MT_EXPLOITER) u->speed = 3.5f;
     u->native_type_id = (uint16_t)type;
     u->owner = (allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_COMMS_DISH) ? 0 :
                (allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
@@ -608,14 +580,8 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
                     allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED : ALLEGIANCE_ENEMY;
     u->hp = health;
     P_MobjSetSelected(u, u->owner == 0 && (u->traits & MF_SELECTABLE) &&
-                      mobj_type < MT_BUILDING_BASE && !units->player_selected);
+                      (u->traits & MF_MOBILE) && !units->player_selected);
     if (P_MobjIsSelected(u)) units->player_selected = true;
-    int state_id = unit_state_for_type(type);
-    if (state_id == S_NULL && u->type_id < game_info.mobj_type_count)
-        state_id = game_info.mobjinfo[u->type_id].spawnstate;
-    u->core.state_id = state_id;
-    u->core.tics = game_info.states[state_id].tics;
-    P_InitMobj(&game_info, u);
     if (city_origin) {
         /* The native draw queue subtracts the slot in world coordinates;
          * screen Y runs in the opposite direction. FIN keeps the shared origin. */

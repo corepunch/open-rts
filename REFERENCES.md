@@ -613,6 +613,11 @@ Dark Colony `info.c` must use the frame-major formula instead.
 
 ### DC.EXE / DC16.EXE Findings
 
+Barracks production reconstruction also uses local `HUBU.FIN/TRSCBUILD0`,
+`TRSC.FIN/TRSCSTAND8`, and the historical work in `e80cf56` / `51219fd`.
+See [building mobjs and Barracks production](docs/DC_EXE_FINDINGS.md#register-building-mobjs-and-restore-barracks-production-2026-09-09)
+for corrected timing, handoff coordinates, preserved unknowns and the playable-flow test.
+
 City placement was rechecked directly in the local `data/DCOLONY/DC.EXE`
 using r2 on 2026-09-09: slot table `0x475b64`, constructor `0x4412d4`, and
 render-origin subtraction `0x436662..0x436687`. The earlier findings survive

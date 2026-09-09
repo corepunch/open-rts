@@ -517,6 +517,7 @@ void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }
 void A_Attack(mobj_t *unit) { (void)unit; }
 void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }
 void A_DC_Fly(mobj_t *unit) { (void)unit; }
+void A_DC_ProductionReady(mobj_t *unit) { (void)unit; }
 void A_DC_Vent(mobj_t *unit) { (void)unit; }
 void A_DC_Drop(mobj_t *unit) { (void)unit; }
 
@@ -542,7 +543,7 @@ static int assert_barracks_trooper_release_timing(void) {
         total_tics += state->tics;
         state_id = state->nextstate;
     }
-    if (total_tics != 35 || state_id != S_BRRKPOD_STND)
+    if (total_tics != 44 || state_id != S_BRRKPOD_STND)
         return fail("Barracks Trooper release preserves native time and returns to stand");
     return 0;
 }

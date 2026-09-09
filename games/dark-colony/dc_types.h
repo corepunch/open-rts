@@ -16,25 +16,6 @@ const struct mobjtype_s *actor_type_by_id(uint16_t type_id);
  * computer-controlled side in the current runtime mapping. */
 bool map_has_ai(const struct level_s *map, int owner);
 
-enum {
-    MT_BUILDING_BASE = 1000,
-    MT_EXCOPOD = MT_BUILDING_BASE,
-    MT_BRRKPOD,
-    MT_ROBOPOD,
-    MT_ROBOPOD2,
-    MT_SCNCPOD,
-    MT_SCNCPOD2,
-    MT_RSCHPOD,
-    MT_ALIEN_MINDHIVE,
-    MT_ALIEN_WARHIVE,
-    MT_ALIEN_BRDRHIVE,
-    MT_ALIEN_BRDRHIVE2,
-    MT_ALIEN_MINDHIVE2,
-    MT_ALIEN_MINDHIVE3,
-    MT_ALIEN_RSCHIVE,
-    MT_COMMS_DISH,
-    MT_CITY_TOWER,
-};
 
 enum {
     MAX_OBJECTS = 800,
