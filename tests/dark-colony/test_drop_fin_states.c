@@ -19,7 +19,7 @@ static void clear(app_t *app) {
 
 /* Draw decoded FIN commands directly as an independent pixel reference. */
 static void draw_native_parts(app_t *app, const level_t *map,
-                               const spritecache_t *cache, const spritelayer_t *parts) {
+                               const spritecache_t *cache, const spritelayer_t *parts, int team) {
     float sx, sy;
     R_MapPositionToScreen(app, map, fixed3_zero(), &sx, &sy);
     for (const spritelayer_t *part = parts; part->sprite_name[0]; ++part) {
@@ -35,7 +35,7 @@ static void draw_native_parts(app_t *app, const level_t *map,
         const spritelump_t *lump = &sprite->lumps[part->lump];
         SDL_Texture *texture = lump->texture;
         for (int i = 0; i < lump->translation_count; ++i)
-            if (lump->translations[i].id == part->remap) texture = lump->translations[i].texture;
+            if (lump->translations[i].id == team) texture = lump->translations[i].texture;
         CHECK(texture);
         int intensity = part->intensity > 0 ? part->intensity : 16;
         int color = (intensity * 255 + 8) / 16;
@@ -50,7 +50,7 @@ static void draw_native_parts(app_t *app, const level_t *map,
 
 static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cache,
                            const char *file, const char *label_name,
-                           int first_state, int exit_state) {
+                           int first_state, int exit_state, int team) {
     level_t map = {0};
     dc_fin_t fin;
     CHECK(DC_LoadFIN(M_va("data/DCOLONY/ANIMATE/%s.FIN", file), &fin));
@@ -59,7 +59,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
     const spritesheet_t *sheet = R_StateSprite(cache, &game_info, states[first_state].sprite, NULL);
     CHECK(sheet);
     int start = SDL_SwapLE16(label->start), end = SDL_SwapLE16(label->end);
-    mobj_t unit = { .traits = MF_RENDERABLE, .team = 7,
+    mobj_t unit = { .traits = MF_RENDERABLE, .team = team,
         .movement.goal = {16, 16} };
     gameinfo = &game_info;
     CHECK(P_SetMobjState(&unit, first_state));
@@ -82,7 +82,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         }
         CHECK(!actual[p].sprite_name[0]);
         clear(app);
-        draw_native_parts(app, &map, cache, expected.layers);
+        draw_native_parts(app, &map, cache, expected.layers, team);
         memcpy(expected_pixels, surface->pixels, bytes);
         clear(app);
         R_RenderPlayerView(app, &map, NULL, &(mobj_t *){&unit}, 1, NULL, cache, &game_info, 0);
@@ -102,7 +102,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         free(expected.layers);
     }
     CHECK(!unit.remove && unit.core.state_id == exit_state);
-    fprintf(stderr, "%s: frames=%d tics=%d native layers/pixels match\n", label_name, end - start + 1, elapsed);
+    fprintf(stderr, "%s: team=%d frames=%d tics=%d native layers/pixels match\n", label_name, team, end - start + 1, elapsed);
     free(expected_pixels);
     DC_FreeFIN(&fin);
 }
@@ -115,9 +115,11 @@ int main(void) {
     app_t app = { .renderer = r_renderer, .win = {640, 480}, .cam = {320, 360} };
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
-    check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1);
-    /* An empty cargo lets the release state advance without spawning units. */
-    check_sequence(&app, surface, cache, "DROP", "DROPTWO", S_DROP_UNLOAD1, S_DROP_MOVE1);
+    for (int team = 0; team < 8; ++team) {
+        check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1, team);
+        /* An empty cargo lets the release state advance without spawning units. */
+        check_sequence(&app, surface, cache, "DROP", "DROPTWO", S_DROP_UNLOAD1, S_DROP_MOVE1, team);
+    }
     static const struct { int product, first, last; const char *file, *label; } builds[] = {
         {20, S_SCNCPOD_BUILD1, S_SCNCPOD_STND1, "DROP", "SCNCPODBUILD0"},
         {21, S_SCNCPOD2_BUILD1, S_SCNCPOD2_STND1, "DROP3", "SCNCPOD2BUILD0"},
@@ -126,7 +128,7 @@ int main(void) {
     for (size_t i = 0; i < sizeof(builds) / sizeof(builds[0]); ++i) {
         const StaticProductDefinition *product = G_ModelProductByClassType(NULL, RTS_PRODUCT_BUILDING, builds[i].product);
         CHECK(product && G_ModelBuildingStateForProduct(&game_info, product) == builds[i].first);
-        check_sequence(&app, surface, cache, builds[i].file, builds[i].label, builds[i].first, builds[i].last);
+        check_sequence(&app, surface, cache, builds[i].file, builds[i].label, builds[i].first, builds[i].last, 7);
     }
     R_FreeSpriteCache(cache);
     free(cache);

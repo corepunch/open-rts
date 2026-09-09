@@ -24,16 +24,16 @@ int main(void) {
                                     sheet.cells[0].rect, true, -1));
     assert(R_CreateSpriteLumpTexture(r_renderer, &sheet.lumps[0], green, 2,
                                     sheet.cells[0].rect, true, 1));
-    /* Two frames share a texture; only the elevated object's frame is green. */
+    /* Two frames share a texture; the elevated object belongs to the green team. */
     assert(R_InitSpriteDef(&sheet, 2, 1));
     assert(R_InstallSpriteLump(&sheet, 0, 0, 0, false));
     assert(R_InstallSpriteLump(&sheet, 1, 0, 0, false));
-    sheet.spritedef.spriteframes[1].directions[0].layers[0].remap = 1;
+    sheet.spritedef.spriteframes[1].directions[0].layers[0].remap = 4;
     state_t states[3] = {{0}, {.tics = -1}, {.frame = 1, .tics = -1}};
     gameinfo_t game = {.states = states, .state_count = 3};
     gameinfo = &game;
     mobj_t ground = {.traits = MF_RENDERABLE};
-    mobj_t ship = {.traits = MF_RENDERABLE};
+    mobj_t ship = {.traits = MF_RENDERABLE, .team = 1};
     assert(P_SetMobjState(&ground, 1) && P_SetMobjState(&ship, 2));
     ship.core.position = fixed3_from_fvec2((fvec2_t){0, 0}, 50 * FIXED_ONE / g_cell_h);
     float sx, sy, ground_sx, ground_sy;

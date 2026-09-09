@@ -26,7 +26,7 @@ typedef struct {
 typedef struct spritelayer_s {
     ivec2_t offset;
     uint16_t lump;
-    uint8_t remap;
+    uint8_t remap; /* Native FIN drawing mode, not a team/palette ID. */
     uint8_t intensity;
     uint8_t layer;
     uint8_t flags;

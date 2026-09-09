@@ -406,7 +406,10 @@ after descriptors: pixel data
 Palette indices `138..143` are the six team-color slots. XSPR/DSPR remap those
 with `id += (team - 7) * 6`; team `7` is the default Aerogen/cyan palette. Our
 renderer builds remapped atlas textures for Dark Colony sprites that contain
-those indices and selects them when FIN remap is non-zero.
+those indices and selects them from the object's team. The earlier claim that
+FIN `remap` selects a palette is disproven by DC.EXE's separate queue fields:
+team/lighting at +0x14, FIN drawing mode at +0x15. See the September 9 correction
+in `docs/DC_EXE_FINDINGS.md` for instruction addresses and asset examples.
 
 ### Dark Colony FIN Binary Format
 
@@ -432,7 +435,7 @@ table that runs to EOF:
               bytes 0..7   sprite  null-padded lower-case companion SPR stem
               bytes 8..9   frame   s16LE raw frame inside that sprite
               bytes 10..13 x/y     s16LE draw offsets
-              bytes 14..15 remap   palette remap selector
+              bytes 14..15 remap   native drawing mode; 2 selects alternate clipping
               bytes 16..17 intens  color intensity; 16 is normal
               bytes 18..19 layer   1 for main unit body, 3/5 for effects/overlays
               bytes 20..21 flags   bit 0 is horizontal flip in current samples

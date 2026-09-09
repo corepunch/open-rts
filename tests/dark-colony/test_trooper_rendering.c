@@ -67,12 +67,13 @@ static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {
     unit->core.position = fixed3_zero();
 }
 
-static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit) {
+static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,
+                        const char *stem, const char *sequence, int sprite, int corpse, int total_tics) {
     dc_fin_t fin;
-    assert(DC_LoadFIN("data/DCOLONY/ANIMATE/TRSC.FIN", &fin));
-    const dc_fin_label_t *label = DC_FINLabel(&fin, "TRSCDIEA14");
+    assert(DC_LoadFIN(M_va("data/DCOLONY/ANIMATE/%s.FIN", stem), &fin));
+    const dc_fin_label_t *label = DC_FINLabel(&fin, sequence);
     assert(label);
-    const spritesheet_t *sheet = R_StateSprite(cache, &game_info, SPR_TRSC, NULL);
+    const spritesheet_t *sheet = R_StateSprite(cache, &game_info, sprite, NULL);
     assert(sheet);
     mobj_t attacker = {0};
     P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));
@@ -80,7 +81,7 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
     attacker.attack.target = unit;
     unit->hp = 1;
     assert(P_Attack(&attacker));
-    assert(!P_MobjIsSelected(unit) && unit->core.state_id == S_TRSC_DIE1);
+    assert(!P_MobjIsSelected(unit) && unit->core.state_id == mobjinfo[unit->type_id].deathstate);
     uint32_t actual[PIXELS], expected[PIXELS];
     int elapsed = 0, native = 0;
     level_t map = {0};
@@ -92,21 +93,31 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
         assert(part[0].sprite_name[0] && !part[1].sprite_name[0]);
         const spritecell_t *cell = &sheet->cells[part->lump];
         const spritelump_t *lump = &sheet->lumps[part->lump];
-        SDL_Texture *texture = lump->texture;
-        for (int i = 0; i < lump->translation_count; ++i)
-            if (lump->translations[i].id == part->remap) texture = lump->translations[i].texture;
-        assert(texture && part->flags == 0 && part->intensity == 16);
+        assert(part->flags == 0 && part->intensity == 16);
         irect_t dst = {(int)app->cam.x + part->offset.x + cell->displacement.x,
                       (int)app->cam.y + part->offset.y - cell->rect.h,
                       cell->rect.w, cell->rect.h};
-        clear(app->renderer);
-        SDL_RenderCopy(app->renderer, texture, &cell->rect, &dst);
-        read_pixels(app->renderer, expected);
+        /* Independent indexed reference: team slots use the object's team,
+         * never the FIN command's rendering mode. */
+        for (int i = 0; i < PIXELS; ++i) expected[i] = 0xff46505a;
+        int team_pixels = 0;
+        for (int y = 0; y < dst.h; ++y)
+            for (int x = 0; x < dst.w; ++x) {
+                int index = lump->indices[y * dst.w + x];
+                if (index >= 138 && index <= 143) {
+                    index += (unit->team - 7) * 6;
+                    ++team_pixels;
+                }
+                if (index && dst.x + x >= 0 && dst.x + x < WIDTH &&
+                    dst.y + y >= 0 && dst.y + y < HEIGHT)
+                    expected[(dst.y + y) * WIDTH + dst.x + x] = sheet->palette[index];
+            }
+        if (f == SDL_SwapLE16(label->start)) assert(team_pixels > 0);
         clear(app->renderer);
         R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
         read_pixels(app->renderer, actual);
         assert(!memcmp(actual, expected, sizeof(actual)));
-        assert(SDL_SaveBMP(surface, M_va("/private/tmp/trsc-death-%d.bmp", f)) == 0);
+        assert(SDL_SaveBMP(surface, M_va("/private/tmp/%s-team%d-death-%d.bmp", stem, unit->team, f)) == 0);
         native += (((frame.ticks ? frame.ticks : 15) + 3) * 19) / 100;
         int boundary = (native * 30 + 9) / 19;
         assert(unit->core.tics == boundary - elapsed);
@@ -114,7 +125,7 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
         elapsed = boundary;
         free(frame.layers);
     }
-    assert(elapsed == 308 && unit->core.state_id == S_TRSC_CORPSE && unit->core.tics == -1);
+    assert(elapsed == total_tics && unit->core.state_id == corpse && unit->core.tics == -1);
     clear(app->renderer);
     R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
     read_pixels(app->renderer, actual);
@@ -136,11 +147,18 @@ int main(void) {
     P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_TROOPER));
     P_InitMobj(&game_info, &unit);
     check_selection(&app, cache, &unit);
-    check_death(&app, surface, cache, &unit);
+    for (int team = 0; team < 2; ++team) {
+        unit = (mobj_t){.type_id = MT_TROOPER, .team = team};
+        P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_TROOPER));
+        check_death(&app, surface, cache, &unit, "TRSC", "TRSCDIEA14", SPR_TRSC, S_TRSC_CORPSE, 308);
+        unit = (mobj_t){.type_id = MT_GREY, .team = team};
+        P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_GREY));
+        check_death(&app, surface, cache, &unit, "GRAY", "GRAYDIEB14", SPR_GRAY, S_GRAY_CORPSE, 368);
+    }
     R_FreeSpriteCache(cache);
     free(cache);
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);
-    puts("PASS: Trooper selection anchor is stable; complete death/decay FIN pixels and timing match");
+    puts("PASS: Trooper selection is stable; Trooper/Grey death FIN pixels, team colors and timing match");
 }

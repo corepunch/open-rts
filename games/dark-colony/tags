@@ -676,6 +676,8 @@ S_GRAY_ATK7	games/dark-colony/info.h	/^    S_GRAY_ATK1, S_GRAY_ATK2, S_GRAY_ATK3
 S_GRAY_ATK8	games/dark-colony/info.h	/^    S_GRAY_ATK1, S_GRAY_ATK2, S_GRAY_ATK3, S_GRAY_ATK4, S_GRAY_ATK5, S_GRAY_ATK6, S_GRAY_ATK7, S/;"	e	enum:__anonf7269e950203
 S_GRAY_CORPSE	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
 S_GRAY_DIE1	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
+S_GRAY_DIE10	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
+S_GRAY_DIE11	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
 S_GRAY_DIE2	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
 S_GRAY_DIE3	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
 S_GRAY_DIE4	games/dark-colony/info.h	/^    S_GRAY_DIE1, S_GRAY_DIE2, S_GRAY_DIE3, S_GRAY_DIE4, S_GRAY_DIE5, S_GRAY_DIE6, S_GRAY_DIE7, S/;"	e	enum:__anonf7269e950203
@@ -1379,11 +1381,11 @@ __anonef9947740508::x	games/dark-colony/w_spr.h	/^    int16_t x, y;$/;"	m	struct
 __anonef9947740508::y	games/dark-colony/w_spr.h	/^    int16_t x, y;$/;"	m	struct:__anonef9947740508	typeref:typename:int16_t
 __anonef9947740608	games/dark-colony/w_spr.h	/^typedef struct {$/;"	s
 __anonef9947740608::cell	games/dark-colony/w_spr.h	/^    int16_t cell;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
-__anonef9947740608::flags	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
-__anonef9947740608::intensity	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
-__anonef9947740608::layer	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+__anonef9947740608::flags	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+__anonef9947740608::intensity	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+__anonef9947740608::layer	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
 __anonef9947740608::offset	games/dark-colony/w_spr.h	/^    dc_file_point_t offset;$/;"	m	struct:__anonef9947740608	typeref:typename:dc_file_point_t
-__anonef9947740608::remap	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+__anonef9947740608::remap	games/dark-colony/w_spr.h	/^    int16_t remap; \/* Native draw mode; 2 selects the alternate clipping path. *\/$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
 __anonef9947740608::sprite	games/dark-colony/w_spr.h	/^    char sprite[8];$/;"	m	struct:__anonef9947740608	typeref:typename:char[8]
 __anonef9947740708	games/dark-colony/w_spr.h	/^typedef struct {$/;"	s
 __anonef9947740708::h	games/dark-colony/w_spr.h	/^    uint16_t w, h;$/;"	m	struct:__anonef9947740708	typeref:typename:uint16_t
@@ -1651,7 +1653,7 @@ fired	games/dark-colony/p_script.c	/^    bool fired;$/;"	m	struct:__anon9b5a71c8
 flag	games/dark-colony/gamestat.h	/^    int flag;$/;"	m	struct:__anon7371b25f0808	typeref:typename:int
 flags	games/dark-colony/gamestat.h	/^    int flags;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 flags	games/dark-colony/info.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
-flags	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+flags	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
 flags	games/dark-colony/w_spr.h	/^    uint16_t flags, cell_count;$/;"	m	struct:__anonef9947740908	typeref:typename:uint16_t
 font	games/dark-colony/sb_bar.c	/^    bitmapfont_t font;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:bitmapfont_t	file:
 font_ready	games/dark-colony/sb_bar.c	/^    bool font_ready;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:bool	file:
@@ -1687,12 +1689,12 @@ id	games/dark-colony/sb_bar.c	/^    int id;$/;"	m	struct:__anone8fcdccd0208	type
 install_fin_frame	games/dark-colony/w_spr.c	/^static bool install_fin_frame(spritedirection_t *direction, const dc_fin_t *fin,$/;"	f	typeref:typename:bool	file:	signature:(spritedirection_t * direction,const dc_fin_t * fin,int frame,const char * stem)
 install_ground_points	games/dark-colony/w_spr.c	/^static bool install_ground_points(spritesheet_t *sheet, const dc_fin_t *fin, const char *stem) {$/;"	f	typeref:typename:bool	file:	signature:(spritesheet_t * sheet,const dc_fin_t * fin,const char * stem)
 install_sprite_frames	games/dark-colony/w_spr.c	/^static bool install_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin,$/;"	f	typeref:typename:bool	file:	signature:(spritesheet_t * sheet,const dc_fin_t * fin,const char * stem)
-intensity	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+intensity	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
 intro_avi	games/dark-colony/gamestat.h	/^    const char *intro_avi;$/;"	m	struct:__anon7371b25f0808	typeref:typename:const char *
 label	games/dark-colony/sb_bar.c	/^    char label[40];$/;"	m	struct:__anone8fcdccd0208	typeref:typename:char[40]	file:
 label_count	games/dark-colony/w_spr.h	/^    uint16_t magic, frame_count, label_count, dependency_count;$/;"	m	struct:__anonef9947740108	typeref:typename:uint16_t
 labels	games/dark-colony/w_spr.h	/^    const dc_fin_label_t *labels;$/;"	m	struct:__anonef9947740b08	typeref:typename:const dc_fin_label_t *
-layer	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+layer	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
 load_cell	games/dark-colony/w_spr.c	/^static bool load_cell(dc_spr_t *spr, int index,$/;"	f	typeref:typename:bool	file:	signature:(dc_spr_t * spr,int index,spritesheet_t * sheet,const uint32_t palette[256])
 load_cells	games/dark-colony/w_spr.c	/^static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette[256]) {$/;"	f	typeref:typename:bool	file:	signature:(dc_spr_t * spr,spritesheet_t * out,const uint32_t palette[256])
 load_city_slot_data	games/dark-colony/p_script.c	/^static void load_city_slot_data(ScriptState *script, const char *map_path) {$/;"	f	typeref:typename:void	file:	signature:(ScriptState * script,const char * map_path)
@@ -1851,7 +1853,7 @@ regen_timer	games/dark-colony/dc_types.h	/^    uint8_t regen_timer;        \/* +
 region	games/dark-colony/gamestat.h	/^    const char *region;$/;"	m	struct:__anon7371b25f0808	typeref:typename:const char *
 released_count	games/dark-colony/mobj_data.h	/^    int released_count;$/;"	m	struct:__anonad7a03aa0308	typeref:typename:int
 reload	games/dark-colony/gamestat.h	/^    int reload;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
-remap	games/dark-colony/w_spr.h	/^    int16_t remap, intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
+remap	games/dark-colony/w_spr.h	/^    int16_t remap; \/* Native draw mode; 2 selects the alternate clipping path. *\/$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
 render_hud_messages	games/dark-colony/sb_bar.c	/^static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfont_t *font) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const hudtext_t * hud,const bitmapfont_t * font)
 render_tables	games/dark-colony/w_spr.c	/^static RenderTables render_tables;$/;"	v	typeref:typename:RenderTables	file:
 replace_extension	games/dark-colony/p_script.c	/^static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * path,const char * ext)

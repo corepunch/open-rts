@@ -277,6 +277,8 @@ group) will not interrupt its animation to walk or start a new attack. No separa
 
 `state_t` is intentionally compact: sprite, frame, tics, action, next state,
 and a gameplay `group`. FIN layers own rendering flags, remap, and intensity;
+FIN `remap` is a native drawing mode, not a team-color ID. Choose palette
+translations from the object's team, independently of animation commands;
 do not reintroduce state rendering overrides or generic `misc` fields.
 Directional frame arrays, overlay state
 fields, and `state_userdata` are not part of the runtime contract. Basic

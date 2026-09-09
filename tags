@@ -1076,10 +1076,10 @@ cells	tools/dc_spr_extract.c	/^    Cell *cells;$/;"	m	struct:__anonf6c4462b0208	
 center_anchor	game/g_game.h	/^    bool center_anchor;$/;"	m	struct:__anon42a104c41108	typeref:typename:bool
 center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
 check_all_fin_frames	tests/dark-colony/test_sprite_definitions.c	/^static void check_all_fin_frames(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
-check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit)
+check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit,const char * stem,const char * sequence,int sprite,int corpse,int total_tics)
 check_pixels	tests/dark-colony/test_sprite_loading.c	/^static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture,const uint8_t * indices,int remap)
 check_selection	tests/dark-colony/test_trooper_rendering.c	/^static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,spritecache_t * cache,mobj_t * unit)
-check_sequence	tests/dark-colony/test_drop_fin_states.c	/^static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cache,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,const char * file,const char * label_name,int first_state,int exit_state)
+check_sequence	tests/dark-colony/test_drop_fin_states.c	/^static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cache,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,const char * file,const char * label_name,int first_state,int exit_state,int team)
 check_sprite_registry	tests/dark-colony/test_sprite_definitions.c	/^static void check_sprite_registry(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 check_ui_storage	tests/dark-colony/test_sprite_definitions.c	/^static void check_ui_storage(SDL_Renderer *renderer) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer)
 checker	tools/dc_spr_extract.c	/^static uint32_t checker(int x, int y) {$/;"	f	typeref:typename:uint32_t	file:	signature:(int x,int y)
@@ -1177,7 +1177,7 @@ draw_digit	hud/sb_bar.c	/^static void draw_digit(SDL_Renderer *renderer, int x, 
 draw_digit	tools/dc_spr_extract.c	/^static void draw_digit(uint32_t *px, int stride, int x0, int y0, int digit, uint32_t color) {$/;"	f	typeref:typename:void	file:	signature:(uint32_t * px,int stride,int x0,int y0,int digit,uint32_t color)
 draw_divisor	render/sprites.h	/^    int draw_divisor;$/;"	m	struct:bitmapfont_s	typeref:typename:int
 draw_ellipse_outline	render/r_draw.c	/^static void draw_ellipse_outline(SDL_Renderer *renderer, int cx, int cy, int rx, int ry) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,int cx,int cy,int rx,int ry)
-draw_native_parts	tests/dark-colony/test_drop_fin_states.c	/^static void draw_native_parts(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,const spritecache_t * cache,const spritelayer_t * parts)
+draw_native_parts	tests/dark-colony/test_drop_fin_states.c	/^static void draw_native_parts(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,const spritecache_t * cache,const spritelayer_t * parts,int team)
 draw_number	tools/dc_spr_extract.c	/^static void draw_number(uint32_t *px, int stride, int x0, int y0, int n, uint32_t color) {$/;"	f	typeref:typename:void	file:	signature:(uint32_t * px,int stride,int x0,int y0,int n,uint32_t color)
 draw_part_count	tools/dc_fin_extract.c	/^    size_t draw_part_count;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 draw_part_offset	tools/dc_fin_extract.c	/^    size_t draw_part_offset;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
@@ -1839,7 +1839,7 @@ reject_sprite	tests/loader_fixtures.h	/^static void reject_sprite(SDL_Renderer *
 rejected	tests/dark-colony/test_sprite_loading.c	/^static void rejected(const uint8_t *file, size_t size) {$/;"	f	typeref:typename:void	file:	signature:(const uint8_t * file,size_t size)
 release_active	play/actor.h	/^    bool release_active;$/;"	m	struct:production_s	typeref:typename:bool
 release_time_left_ms	play/actor.h	/^    int release_time_left_ms;$/;"	m	struct:production_s	typeref:typename:int
-remap	render/sprites.h	/^    uint8_t remap;$/;"	m	struct:spritelayer_s	typeref:typename:uint8_t
+remap	render/sprites.h	/^    uint8_t remap; \/* Native FIN drawing mode, not a team\/palette ID. *\/$/;"	m	struct:spritelayer_s	typeref:typename:uint8_t
 remap	tests/test_dark_colony_sprite_layout.c	/^    int remap;$/;"	m	struct:__anona4e7c35f0208	typeref:typename:int	file:
 remove	play/actor.h	/^    bool remove;$/;"	m	struct:mobj_s	typeref:typename:bool
 render2_flags	game/g_game.h	/^    uint32_t render2_flags;$/;"	m	struct:__anon42a104c41108	typeref:typename:uint32_t
@@ -2107,7 +2107,7 @@ spritelayer_s::intensity	render/sprites.h	/^    uint8_t intensity;$/;"	m	struct:
 spritelayer_s::layer	render/sprites.h	/^    uint8_t layer;$/;"	m	struct:spritelayer_s	typeref:typename:uint8_t
 spritelayer_s::lump	render/sprites.h	/^    uint16_t lump;$/;"	m	struct:spritelayer_s	typeref:typename:uint16_t
 spritelayer_s::offset	render/sprites.h	/^    ivec2_t offset;$/;"	m	struct:spritelayer_s	typeref:typename:ivec2_t
-spritelayer_s::remap	render/sprites.h	/^    uint8_t remap;$/;"	m	struct:spritelayer_s	typeref:typename:uint8_t
+spritelayer_s::remap	render/sprites.h	/^    uint8_t remap; \/* Native FIN drawing mode, not a team\/palette ID. *\/$/;"	m	struct:spritelayer_s	typeref:typename:uint8_t
 spritelayer_s::sprite_name	render/sprites.h	/^    char sprite_name[9];$/;"	m	struct:spritelayer_s	typeref:typename:char[9]
 spritelayer_t	render/sprites.h	/^} spritelayer_t;$/;"	t	typeref:struct:spritelayer_s
 spritelump_s	render/sprites.h	/^typedef struct spritelump_s {$/;"	s

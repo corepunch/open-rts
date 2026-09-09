@@ -1170,11 +1170,12 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                 source_rect.w,
                 source_rect.h,
             };
-            int remap = part->remap;
             if (R_RenderIndexedBlend(app, source, part->lump, part_dst,
                                      part_flags, part->layer)) continue;
+            /* DC.EXE queues object team color separately from FIN remap,
+             * which selects a clipping path, not a palette translation. */
             SDL_Texture *part_texture = begin_sprite_command(
-                source, part->lump, remap, part->intensity);
+                source, part->lump, u->team, part->intensity);
             if (!part_texture) continue;
             SDL_BlendMode blend;
             SDL_GetTextureBlendMode(part_texture, &blend);

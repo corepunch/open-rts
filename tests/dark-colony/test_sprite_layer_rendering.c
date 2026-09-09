@@ -58,13 +58,20 @@ int main(void) {
     CHECK(!memcmp(pixels, baseline, sizeof(pixels)));
 
     part->flags = RTS_FRAME_FLIP_X;
-    part->remap = 1;
+    part->remap = 4;
+    unit.team = 1;
     draw_pixels(&app, &sheet, &game, &unit, pixels);
     CHECK(pixels[0] == remapped[1] && pixels[1] == remapped[0]);
     part->intensity = 8;
     draw_pixels(&app, &sheet, &game, &unit, pixels);
     CHECK(pixels[0] == 0xff102040 && pixels[1] == 0xff402010);
 
+    /* FIN rendering modes must not override the object's palette/team. */
+    for (int mode = 0; mode < 8; ++mode) {
+        part->remap = mode;
+        draw_pixels(&app, &sheet, &game, &unit, pixels);
+        CHECK(pixels[0] == 0xff102040 && pixels[1] == 0xff402010);
+    }
     part->layer = 3;
     part->intensity = 16;
     draw_pixels(&app, &sheet, &game, &unit, pixels);
@@ -90,6 +97,6 @@ int main(void) {
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);
-    puts("PASS: sprite layers own flags, remap and intensity; layer 3 is yellow/additive without leaking texture state");
+    puts("PASS: sprite layers own flags/intensity; objects own team color; layer 3 is yellow/additive without leaking texture state");
     return 0;
 }

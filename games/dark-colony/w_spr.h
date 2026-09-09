@@ -39,7 +39,8 @@ typedef struct {
     char sprite[8];
     int16_t cell;
     dc_file_point_t offset;
-    int16_t remap, intensity, layer, flags;
+    int16_t remap; /* Native draw mode; 2 selects the alternate clipping path. */
+    int16_t intensity, layer, flags;
 } dc_fin_command_t;
 
 typedef struct {

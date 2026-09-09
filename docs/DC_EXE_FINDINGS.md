@@ -1416,3 +1416,151 @@ frames plus XY/Z/camera translation. It writes death-frame BMPs under
 `test_dark_colony_sprite_layout` pass. The combat test now allows time for the
 native decay pauses; its separate missing-player-Exploiter harvesting failure
 also reproduced before rebuilding the changed tests.
+
+## September 9 correction: FIN drawing mode, object team color, and Grey death
+
+**Superseded conclusions:** earlier sections treated FIN `remap` as a palette
+selector and validated that interpretation using references that repeated the
+same mistake. The serialized field order was correct; its semantic name was
+misleading. FIN owns the drawing mode, flags, layer, and intensity metadata;
+object team selects the palette. The historical statements about command-owned
+palette remaps, including the dropship team-7 check, are superseded here.
+
+**Confirmed reproduction:** temporary `OPEN_RTS_DEBUG_FIN_COLOR` diagnostics in
+`render_unit_sprite` printed object team, state/frame, source cell, FIN drawing
+mode, selected translation, offsets, and SPR displacement. A red team-0 Trooper
+changed to translation 1 at decay cell 134 because its FIN mode becomes 1. The
+independent indexed-pixel death test failed at that transition before the fix.
+Team-0 dropship movement selected translations 2 and 4 for its two body parts;
+unload selected translation 0 for both. Grey death still selected raw SPR cell
+262, discarding FIN's (-32,2) offset. Grey decay cell 286 similarly omitted
+(-32,19). Diagnostics were removed after reproducing and verifying the fix.
+
+**Confirmed executable evidence:** the DC.EXE SHA-256 remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`
+(PE32, 566,272 bytes, image base 0x400000). The existing r2ghidra decompilation
+was used for navigation; the following relationships were checked against x86
+instructions, not inferred from decompiler parameter names:
+
+- At `0x4236bc–0x423720`, seven signed words are read into the 20-byte runtime
+  command at +4/+6/+8/+0xa/+0xc/+0xe/+0x10: cell, X, Y, drawing mode, intensity,
+  layer, flags. The on-disk command is 22 bytes because its initial eight-byte
+  sprite name becomes a four-byte pointer. Thus disk `remap` is +14 and flags
+  are +20; they have not been swapped. The existing X*8/Y*-8 load conversion
+  follows at `0x423745`.
+- Object drawing at `0x4365c5–0x4365e7` reads byte +8 (team override); value 8
+  uses team byte +7 instead. It masks the result with 7 and looks up the team's
+  palette ID at game + team*0xe30 +0xc98. That result is retained in EDI.
+- `0x436625` obtains the command's drawing mode from the high word at +8 and
+  passes it on the stack. Layer and flags are separately pushed at
+  `0x436646–0x436653`. `0x436689` puts the object-derived palette ID in ECX
+  before calling the queue routine at `0x432dec`.
+- Queue records have stride 0x1c at `0x4dc0ac`. Instructions
+  `0x432e8d–0x432eb5` store `(global_light << 3) + (palette_id & 7)` at record
+  +0x14. `0x432ec4–0x432ec7` independently store the FIN drawing mode at +0x15;
+  layer is +0x17 and flags +0x18. Global light is at `0x474660`, initialized to
+  16 for world drawing; this traced path does not derive that value from the
+  command's intensity word. Full retail lighting behavior is not ported here.
+- The queue renderer at `0x44fb53–0x44fb6f` sets word `0x511dac` according to
+  whether drawing mode equals **2**. Nonzero queued Z also sets it at
+  `0x44fb76–0x44fb7d`. In blitter `0x45c060`, instructions
+  `0x45c1ec–0x45c24e` use that word to select alternate clipping: the zero path
+  traverses 32-pixel columns, while the alternate path handles horizontal edge
+  clipping for the span. It does not replace the palette ID.
+- `0x44fb49–0x44fb56` copies queue flags to `0x4841d0`; tests of this word
+  choose normal versus mirrored blitters. Blitter calls independently retrieve
+  the palette/lighting byte at +0x14 (`0x44fbc9`, `0x44fbef`, `0x44fc23`,
+  `0x44fc4d`). Flags are not the team-color selector either.
+
+**Confirmed asset counterexamples:** TRSC hashes are recorded above. At FIN
+command byte 78,996, standing cell 0 has mode 0 and flags 0. DIEA14 starts at
+86,256 with cell 128, mode 0, flags 0. Command 86,388 has cell 134, offset
+(-159,26), **mode 1**, intensity 16, layer 1, flags 0:
+
+```text
+74 72 73 63 00 00 00 00 86 00 61 ff 1a 00 01 00 10 00 01 00 00 00
+```
+
+Final corpse command 86,476 (cell 137) also has mode 1. Mirrored DIEA2 command
+87,246 has cell 128, offset (-18,0), mode 0, **flags 1**. Therefore neither
+“all TRSC remaps are zero” nor “flags is really remap” describes the bytes.
+
+DROP.FIN SHA-256 is
+`66e8da41ff0a47229c1a33db4aae9e7f37307ec943f5bbd860acc832b07fc433`;
+label/frame/command tables begin at 112/312/22,616. `DROPTWO` (label byte 112,
+frames 0–9) starts with body cells 0/1 at (-64,69)/(-64,34), both mode 0.
+`DROPMOVE0` (label byte 272, frames 84–93) starts at command 39,160; body
+commands 39,226/39,248 use the same cells and offsets with modes **2/4**.
+Their flags remain 0 and intensity 16. Animation changes the drawing mode,
+not ownership. Historical `d48c75a` forced ship team onto temporary effects;
+the ordinary-object/FIN changes (`85ec838`, `46376ba`) exposed the erroneous
+shared mode-to-palette rule. Restoring a ship-specific override is unnecessary.
+
+**Confirmed Grey timeline and placement:** GRAY.FIN SHA-256 is
+`077887b708009109740a518bf8cff9c547a21145617dbf5dde575342fe5a641a`;
+label/frame/command tables start at 56/1,716/75,516. GRAY.SPR SHA-256 is
+`95e71a6b19ecca1b77a9cba3b69b68f7b07b8fb927f99bcafdeba33030ebd620`,
+flags 129, 292 cells, pixel payload at 67,202. `GRAYDIEB14`, label byte 1,416,
+selects FIN frames 302–315, commands 84,338–84,624:
+
+| FIN frames | SPR cells | FIN offsets | Raw ticks | Mode/layer |
+| --- | --- | --- | --- | --- |
+| 302–309 | 262–269 | X=-32; Y=2,1,-1,4,9,13,15,17 | 6 each | 0/1 |
+| 310–312 | 270 repeated | (-32,17) | 250 each | 1/0 |
+| 313–315 | 286,287,288 | (-32,19),(-32,16),(-32,11) | 140 each | 1/0 |
+
+All have intensity 16 and flags 0. SPR descriptors at `776 + cell*8` give
+cell 262 size29x41/displacement(20,5), cell270 size49x30/(5,31), cell286
+size49x30/(5,33), cell288 size26x14/(21,41). The omitted FIN X explains the
+32-pixel rightward error; the varying native Y offsets must also be retained.
+The state chain now uses logical frames `292 + 302` through `292 + 315`,
+including both previously omitted holds of cell 270. Existing native delay
+conversion yields `{2,1,2,1,2,1,2,2,75,76,76,43,42,43}` (368 engine tics),
+then a persistent corpse with the final FIN frame. No compensating offset is
+added to the object.
+
+**Unknowns preserved:** retail death-variant selection remains unresolved. The
+chosen Grey label matches the old cell sequence; alternatives GRAYDIEA14,
+GRAYDIE210 (that exact spelling), GRAYDIEA6/A2 cover frames 254–301, and
+GRAYDIEB10/B6/B2 cover 316–356. Mirrored B2 has 13 frames,
+unlike the other B variants' 14; sequences must not be reconstructed by assuming
+identical lengths. Exact native column occlusion and complete mode semantics
+are not implemented by this fix; the engine retains the raw field instead of
+repurposing it as team color. Auxiliary decompilation at `0x44a7b0` suggests
+special treatment of team 5 during palette-table generation; that detail was
+not instruction-verified and the existing translation tables are unchanged.
+
+**Implementation and verification:** the shared renderer now selects translated
+textures from `mobj_t.team`, independently of FIN mode. Native frame offsets,
+SPR displacement, flags, layers and intensity remain available through the
+existing loader. Doom likewise selects translation from actor flags in
+`reference/DOOM/r_things.c:R_DrawVisSprite`, independently of sprite/frame data.
+`test_trooper_rendering` compares every Trooper/Grey death frame and final corpse
+against original indexed pixels with independent team-slot translation for
+teams 0/1, and checks timing and stable selection. `test_drop_fin_states`
+compares full movement/unload sequences for all eight teams and preserves its
+construction checks. Synthetic layer tests verify modes 0–7 cannot recolor an
+object and retain flip/intensity/additive behavior. Reaper timing and lifecycle
+checks also pass. Reproduce with:
+
+```sh
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x4365c5' -c 'pd 75' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x432e8d' -c 'pd 25' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x44fb49' -c 'pd 100' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x45c1ec' -c 'pd 60' -c q data/DCOLONY/DC.EXE
+build/dc_fin_extract data/DCOLONY/ANIMATE/GRAY.FIN /private/tmp/gray-fin.json
+make -j4
+make tags
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_trooper_rendering
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_drop_fin_states
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_layer_rendering
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_height
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_actor_lifecycle
+env SDL_VIDEODRIVER=dummy build/bin/test_dark_colony_sprite_layout
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/open-rts-color-smoke.bmp
+```
+
+Full build and smoke checks passed. Visual previews confirmed red Trooper decay
+and dropship movement/unload; Grey previews confirmed native placement. Death
+tests now write `/private/tmp/{TRSC,GRAY}-team{0,1}-death-*.bmp`.
