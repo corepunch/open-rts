@@ -729,6 +729,15 @@ timeline frames. Any six-frame Reaper playback in open-rts is therefore a state
 generation/playback limitation, not a limit in `REAP.SPR`, `REAP.FIN`, or the
 original generic FIN renderer.
 
+**Timing correction (2026-09-09):** the 19-multiplier interpretation in this
+historical section is disproven. Rechecking `0x42356b..0x42358f` gives
+`((raw_ticks + 3) * 15) / 100`, with zero first replaced by 15. Retail default
+world ticks are 66 ms (`0x41a728`, consumed at `0x41cb5a..0x41cbc5`). See
+`docs/DC_EXE_FINDINGS.md`, “Native damage channel implementation”, for the
+register-by-register evidence, startup advance, implementation and remaining
+non-damage timing audit. The explicitly required Reaper movement cadence is
+preserved as an authored engine behavior, not claimed as this formula's output.
+
 FIN frame word `+2` is a raw delay. The loader at `0x00423544` replaces zero
 with `15`, then `0x00423563..0x0042358f` converts it to runtime ticks with:
 

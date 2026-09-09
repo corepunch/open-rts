@@ -14,7 +14,7 @@ BUILD_DIR := build
 BIN_DIR   := $(BUILD_DIR)/bin
 
 ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
-DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
+DC_INFO_CONV_TARGET    := $(BUILD_DIR)/dc_info_conv
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
 DC_SPR_EXTRACT_TARGET  := $(BUILD_DIR)/dc_spr_extract
 DC_FIN_EXTRACT_TARGET  := $(BUILD_DIR)/dc_fin_extract
@@ -40,16 +40,16 @@ MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render -name '*.c' 
 
 # ── tool sources ─────────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE  := tools/anim_extract.c
-DC_INFO_GEN_SOURCE   := tools/dc_info_gen.c
+DC_INFO_CONV_SOURCES := $(sort $(shell find tools/dc_info_conv -name '*.c'))
 DC_GAMESTAT_GEN_SOURCE := tools/dc_gamestat_gen.c
 DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
-        test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
+        test-headless test-dc-info-conv test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
-		kknd-check anim-extract dc-spr-extract dc-fin-extract clean help tags
+		kknd-check anim-extract dc-info-conv dc-spr-extract dc-fin-extract clean help tags
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -121,7 +121,7 @@ test-layout: $(DC_LAYOUT_TEST_TARGET)
 $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
 	$(CC) $^ -o $@
 
-$(DC_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dc_info_gen.o
+$(DC_INFO_CONV_TARGET): $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_CONV_SOURCES))
 	$(CC) $^ -o $@
 
 $(DC_GAMESTAT_GEN_TARGET): $(BUILD_DIR)/tools/dc_gamestat_gen.o
@@ -138,14 +138,19 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 	$(CC) $^ -o $@
 
 -include $(BUILD_DIR)/tools/anim_extract.d
--include $(BUILD_DIR)/tools/dc_info_gen.d
+-include $(patsubst %.c,$(BUILD_DIR)/%.d,$(DC_INFO_CONV_SOURCES))
 -include $(BUILD_DIR)/tools/dc_gamestat_gen.d
 -include $(BUILD_DIR)/tools/dc_spr_extract.d
 -include $(BUILD_DIR)/tools/dc_fin_extract.d
 
+dc-info-conv: $(DC_INFO_CONV_TARGET)
+
+test-dc-info-conv: $(DC_INFO_CONV_TARGET)
+	python3 tests/tools/test_dc_info_conv.py
+
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
-dark-colony-info: $(DC_INFO_GEN_TARGET)
-	$(DC_INFO_GEN_TARGET) $(sort $(wildcard $(DARK_COLONY_ROOT)/ANIMATE/*.FIN)) > $(BUILD_DIR)/dc-animations.txt
+dark-colony-info: $(DC_INFO_CONV_TARGET)
+	$(DC_INFO_CONV_TARGET) --states $(sort $(wildcard $(DARK_COLONY_ROOT)/ANIMATE/*.FIN)) > $(BUILD_DIR)/dc-animations.txt
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
@@ -187,7 +192,7 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
+test: test-dc-info-conv test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
 
 test-loaders: all
 	env SDL_VIDEODRIVER=dummy python3 tools/test_loaders.py --fixtures --no-build
@@ -231,6 +236,7 @@ help:
 	@echo "  kknd                 KKnD"
 	@echo ""
 	@echo "Tools:"
+	@echo "  dc-info-conv         Build the FIN/SPR inspector and state exporter"
 	@echo "  dc-fin-extract       Extract a Dark Colony FIN file as JSON"
 	@echo ""
 	@echo "Test / check:"
@@ -245,7 +251,7 @@ help:
 	@echo "Tools:"
 	@echo "  anim-extract         Build the anim_extract tool"
 	@echo "  dc-spr-extract       Build the dc_spr_extract tool (SPR → BMP sheets)"
-	@echo "  dark-colony-info     Regenerate Dark Colony info.h/info.c from game data"
+	@echo "  dark-colony-info     Export raw FIN state rows to build/dc-animations.txt"
 	@echo "  dark-colony-gamestat Regenerate Dark Colony gamestat.h from game data"
 
 $(BIN_DIR):

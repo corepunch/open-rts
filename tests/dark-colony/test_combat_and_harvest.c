@@ -6,6 +6,7 @@
 #include "../../game/g_game.h"
 #include "../../play/p_local.h"
 #include "../../games/dark-colony/info.h"
+#include "p_blood.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -19,14 +20,14 @@ static const mobjtype_t TEST_ATTACKER_INFO = {
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
     .max_hp = 800,
     .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-    .blood_type = MT_BLOOD,
+    .damage_action = A_DC_Damage,
 };
 
 static const mobjtype_t TEST_TARGET_INFO = {
     .id = MT_TROOPER,
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
     .max_hp = 800,
-    .blood_type = MT_BLOOD,
+    .damage_action = A_DC_Damage,
 };
 
 /* Attack: verify damage, blood objects, death, and persistent corpses,
@@ -66,7 +67,7 @@ static int assert_attack_lifecycle(void) {
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             const mobj_t *effect = (const mobj_t *)th;
             if (effect->remove || !(effect->traits & MF_NOBLOCKMAP)) continue;
-            if (strstr(effect->core.sprite_name, "BLOO")) saw_hit_effect = true;
+            if (effect->type_id == MT_BLOOD && !P_MobjIsHidden(effect)) saw_hit_effect = true;
         }
         if (damage_dealt && saw_hit_effect) break;
     }

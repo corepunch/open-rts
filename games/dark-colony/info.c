@@ -1,4 +1,4 @@
-/* Authored gameplay tables; FIN animation extraction lives in tools/dc_info_gen.c. */
+/* Authored gameplay tables; FIN animation extraction lives in tools/dc_info_conv/. */
 #include "engine.h"
 #include "info.h"
 
@@ -764,14 +764,11 @@ const state_t states[NUMSTATES] = {
     { SPR_HUBU, 105, 5, A_None, S_ROBOPOD2_STND20, 1 },
     { SPR_HUBU, 106, 5, A_None, S_ROBOPOD2_STND1, 1 },
     { SPR_DROP, 11, 0, A_DC_Drop, S_DROP_MOVE1, 6 },
-    { SPR_BLOO, 0, 2, A_None, S_BLOOD2, 0 },
-    { SPR_BLOO, 1, 1, A_None, S_BLOOD3, 0 },
-    { SPR_BLOO, 2, 2, A_None, S_BLOOD4, 0 },
-    { SPR_BLOO, 3, 1, A_None, S_BLOOD5, 0 },
-    { SPR_BLOO, 4, 2, A_None, S_BLOOD6, 0 },
-    { SPR_BLOO, 5, 1, A_None, S_BLOOD7, 0 },
-    { SPR_BLOO, 6, 2, A_None, S_BLOOD8, 0 },
-    { SPR_BLOO, 7, 1, A_None, S_NULL, 0 },
+#define DC_BLOOD_LABEL(name, state)
+#define DC_BLOOD_STATE(id, sprite, frame, tics, next) { sprite, frame, tics, NULL, next, 0 },
+#include "blood_states.inc"
+#undef DC_BLOOD_STATE
+#undef DC_BLOOD_LABEL
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -947,7 +944,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnz = 50 * FIXED_ONE / 32, /* Requested 50 px altitude; DC cells are 32 px. */
     },
     { // MT_BLOOD
-        .spawnstate = S_BLOOD1,
+        .spawnstate = S_NULL,
         .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
     },
 };

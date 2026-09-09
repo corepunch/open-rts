@@ -57,7 +57,8 @@ typedef struct mobjtype_s {
         int state_id;
         int capacity;
     } harvest;
-    uint16_t blood_type;
+    uint16_t native_type_id;
+    actionf_p1 damage_action;
 } mobjtype_t;
 
 typedef struct state_s {

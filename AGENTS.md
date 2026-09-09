@@ -280,10 +280,13 @@ and a gameplay `group`. FIN layers own rendering flags, remap, and intensity;
 FIN `remap` is a native drawing mode, not a team-color ID. Choose palette
 translations from the object's team, independently of animation commands;
 do not reintroduce state rendering overrides or generic `misc` fields.
-Visible Dark Colony states must select complete FIN frames. The generic blood
-effect remains a legacy exception until native per-type BLOODA–G dispatch is ported
-(see `docs/DC_EXE_FINDINGS.md`, “Native BLOOD dispatch and shared effect sprites”);
-`test_drop_fin_states` checks this across the entire state table.
+Visible Dark Colony states must select complete FIN frames, including damage
+mobjs. `test_drop_fin_states` checks the entire state table. Blood uses native
+per-type BLOODA–G lookup and ordinary spawn-and-forget mobjs: copy position,
+facing and team once, then use P_MobjThinker and terminal S_NULL. Do not attach
+or follow the recipient; this is explicitly requested engine behavior. See
+`docs/DC_EXE_FINDINGS.md`, “Native damage channel implementation”.
+Use `build/dc_info_conv` to inspect FIN/SPR metadata; see `docs/DC_INFO_CONV.md`.
 Directional frame arrays, overlay state
 fields, and `state_userdata` are not part of the runtime contract. Basic
 sprite/frame selection is the current presentation target; do not reintroduce

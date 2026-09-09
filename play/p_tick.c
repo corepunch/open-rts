@@ -9,6 +9,7 @@ int leveltime;
 void P_InitThinkers(void) {
     thinkercap.prev = thinkercap.next = &thinkercap;
     leveltime = 0;
+    level.random_index = 0;
 }
 
 void P_AddThinker(thinker_t *thinker) {

@@ -115,14 +115,13 @@ int main(void) {
     app_t app = { .renderer = r_renderer, .win = {640, 480}, .cam = {320, 360} };
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
-    /* All persistent gameplay states must select complete FIN frames. The
-     * generic blood effect has no verified retail FIN label; zero-tic actions
-     * do not present their placeholder frame. */
+    /* Every persistent state, including damage effects, selects complete FIN
+     * frames. Zero-tic actions never present their placeholder frame. */
     for (int i = 1; i < NUMSTATES; ++i) {
         const state_t *state = &states[i];
         const spritesheet_t *sheet = R_StateSprite(cache, &game_info, state->sprite, NULL);
         CHECK(sheet && state->frame < sheet->spritedef.numframes);
-        if (state->tics && (i < S_BLOOD1 || i > S_BLOOD8))
+        if (state->tics)
             CHECK(state->frame >= sheet->numlumps);
     }
     static const struct { const char *file, *label; int first, last; } sequences[] = {

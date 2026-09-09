@@ -55,6 +55,8 @@ ACTOR_ROBOPOD2	games/dark-colony/p_prod.c	/^    ACTOR_ROBOPOD2 = 1003,$/;"	e	enu
 ACTOR_SCNCPOD2	games/dark-colony/p_prod.c	/^    ACTOR_SCNCPOD2 = 1005,$/;"	e	enum:__anon661954680103	file:
 ACTOR_TROOPER	games/dark-colony/p_prod.c	/^    ACTOR_TROOPER = 1,$/;"	e	enum:__anon661954680103	file:
 AI_OWNER	games/dark-colony/p_prod.c	/^    enum { AI_OWNER = 1 };$/;"	e	enum:G_ModelAIProduction::__anon661954680303	file:
+A_DC_Damage	games/dark-colony/p_blood.c	/^void A_DC_Damage(mobj_t *target) {$/;"	f	typeref:typename:void	signature:(mobj_t * target)
+A_DC_Damage	games/dark-colony/p_blood.h	/^void A_DC_Damage(mobj_t *target);$/;"	p	typeref:typename:void	signature:(mobj_t * target)
 A_DC_Drop	games/dark-colony/info.h	/^void A_DC_Drop(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Drop	games/dark-colony/p_drop.c	/^void A_DC_Drop(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
 A_DC_Fly	games/dark-colony/info.h	/^void A_DC_Fly(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
@@ -105,6 +107,12 @@ DARK_COLONY_WATER_WAVE_COUNT	games/dark-colony/w_bts.c	/^enum { DARK_COLONY_WATE
 DC_ALLEGIANCE_ALLIED	games/dark-colony/w_map.c	/^    DC_ALLEGIANCE_ALLIED,$/;"	e	enum:__anonef2472380203	file:
 DC_ALLEGIANCE_ENEMY	games/dark-colony/w_map.c	/^    DC_ALLEGIANCE_ENEMY,$/;"	e	enum:__anonef2472380203	file:
 DC_ALLEGIANCE_PLAYER	games/dark-colony/w_map.c	/^    DC_ALLEGIANCE_PLAYER,$/;"	e	enum:__anonef2472380203	file:
+DC_BLOOD_LABEL	games/dark-colony/info.c	/^#define DC_BLOOD_LABEL(/;"	d	file:	signature:(name,state)
+DC_BLOOD_LABEL	games/dark-colony/info.h	/^#define DC_BLOOD_LABEL(/;"	d	signature:(name,state)
+DC_BLOOD_LABEL	games/dark-colony/p_blood.c	/^#define DC_BLOOD_LABEL(/;"	d	file:	signature:(name,state)
+DC_BLOOD_STATE	games/dark-colony/info.c	/^#define DC_BLOOD_STATE(/;"	d	file:	signature:(id,sprite,frame,tics,next)
+DC_BLOOD_STATE	games/dark-colony/info.h	/^#define DC_BLOOD_STATE(/;"	d	signature:(id,sprite,frame,tics,next)
+DC_BLOOD_STATE	games/dark-colony/p_blood.c	/^#define DC_BLOOD_STATE(/;"	d	file:	signature:(id,sprite,frame,tics,next)
 DC_FINFrame	games/dark-colony/w_fin.c	/^bool DC_FINFrame(const dc_fin_t *fin, int index, spritedirection_t *out) {$/;"	f	typeref:typename:bool	signature:(const dc_fin_t * fin,int index,spritedirection_t * out)
 DC_FINFrame	games/dark-colony/w_spr.h	/^bool DC_FINFrame(const dc_fin_t *fin, int index, spritedirection_t *out);$/;"	p	typeref:typename:bool	signature:(const dc_fin_t * fin,int index,spritedirection_t * out)
 DC_FINLabel	games/dark-colony/w_fin.c	/^const dc_fin_label_t *DC_FINLabel(const dc_fin_t *fin, const char *name) {$/;"	f	typeref:typename:const dc_fin_label_t *	signature:(const dc_fin_t * fin,const char * name)
@@ -260,6 +268,10 @@ NUMSTATES	games/dark-colony/info.h	/^    NUMSTATES$/;"	e	enum:__anonf7269e950203
 OBJECT_SIZE	games/dark-colony/dc_types.h	/^    OBJECT_SIZE = 0xdc,$/;"	e	enum:__anonf5138b040203
 OBJECT_TYPE_PETRA7_VENT	games/dark-colony/dc_types.h	/^    OBJECT_TYPE_PETRA7_VENT = 40,$/;"	e	enum:__anonf5138b040203
 PRODUCTION_BUILD_GROUP	games/dark-colony/p_prod.c	/^    PRODUCTION_BUILD_GROUP = 6,$/;"	e	enum:__anon661954680103	file:
+P_DC_BloodStates	games/dark-colony/p_blood.c	/^int P_DC_BloodStates(uint16_t native_type, int out[7]) {$/;"	f	typeref:typename:int	signature:(uint16_t native_type,int out[7])
+P_DC_BloodStates	games/dark-colony/p_blood.h	/^int P_DC_BloodStates(uint16_t native_type, int out[7]);$/;"	p	typeref:typename:int	signature:(uint16_t native_type,int out[7])
+P_DC_Random	games/dark-colony/p_blood.c	/^uint32_t P_DC_Random(void) {$/;"	f	typeref:typename:uint32_t	signature:(void)
+P_DC_Random	games/dark-colony/p_blood.h	/^uint32_t P_DC_Random(void);$/;"	p	typeref:typename:uint32_t	signature:(void)
 P_LoadThings	games/dark-colony/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
 ProductButton	games/dark-colony/sb_bar.c	/^typedef StaticProductDefinition ProductButton;$/;"	t	typeref:typename:StaticProductDefinition	file:
 R_InitSprites	games/dark-colony/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
@@ -521,14 +533,6 @@ S_BARR_RUN7	games/dark-colony/info.h	/^    S_BARR_RUN7,$/;"	e	enum:__anonf7269e9
 S_BARR_RUN8	games/dark-colony/info.h	/^    S_BARR_RUN8,$/;"	e	enum:__anonf7269e950203
 S_BARR_RUN9	games/dark-colony/info.h	/^    S_BARR_RUN9,$/;"	e	enum:__anonf7269e950203
 S_BARR_STND	games/dark-colony/info.h	/^    S_BARR_STND,$/;"	e	enum:__anonf7269e950203
-S_BLOOD1	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD2	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD3	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD4	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD5	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD6	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD7	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
-S_BLOOD8	games/dark-colony/info.h	/^    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,$/;"	e	enum:__anonf7269e950203
 S_BRRKPOD_BUILD_TRSC1	games/dark-colony/info.h	/^    S_BRRKPOD_BUILD_TRSC1,$/;"	e	enum:__anonf7269e950203
 S_BRRKPOD_BUILD_TRSC10	games/dark-colony/info.h	/^    S_BRRKPOD_BUILD_TRSC10,$/;"	e	enum:__anonf7269e950203
 S_BRRKPOD_BUILD_TRSC11	games/dark-colony/info.h	/^    S_BRRKPOD_BUILD_TRSC11,$/;"	e	enum:__anonf7269e950203
@@ -1214,6 +1218,7 @@ __GAMESTAT__	games/dark-colony/gamestat.h	/^#define __GAMESTAT__$/;"	d
 __INFO__	games/dark-colony/info.h	/^#define __INFO__$/;"	d
 __MOBJ_DATA__	games/dark-colony/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __P_AI__	games/dark-colony/p_ai.h	/^#define __P_AI__$/;"	d
+__P_BLOOD__	games/dark-colony/p_blood.h	/^#define __P_BLOOD__$/;"	d
 __P_DROP__	games/dark-colony/p_drop.h	/^#define __P_DROP__$/;"	d
 __P_MISSION__	games/dark-colony/p_mission.h	/^#define __P_MISSION__$/;"	d
 __P_REINFORCE__	games/dark-colony/p_reinforce.h	/^#define __P_REINFORCE__$/;"	d
@@ -1357,6 +1362,9 @@ __anonad7a03aa0308::payload	games/dark-colony/mobj_data.h	/^    DropshipPayload 
 __anonad7a03aa0308::payload_count	games/dark-colony/mobj_data.h	/^    int payload_count;$/;"	m	struct:__anonad7a03aa0308	typeref:typename:int
 __anonad7a03aa0308::payload_index	games/dark-colony/mobj_data.h	/^    int payload_index;$/;"	m	struct:__anonad7a03aa0308	typeref:typename:int
 __anonad7a03aa0308::released_count	games/dark-colony/mobj_data.h	/^    int released_count;$/;"	m	struct:__anonad7a03aa0308	typeref:typename:int
+__anone59c82830108	games/dark-colony/p_blood.c	/^static const struct { const char *name; int state; } blood_labels[] = {$/;"	s	file:
+__anone59c82830108::name	games/dark-colony/p_blood.c	/^static const struct { const char *name; int state; } blood_labels[] = {$/;"	m	struct:__anone59c82830108	typeref:typename:const char *	file:
+__anone59c82830108::state	games/dark-colony/p_blood.c	/^static const struct { const char *name; int state; } blood_labels[] = {$/;"	m	struct:__anone59c82830108	typeref:typename:int	file:
 __anone8fcdccd0108	games/dark-colony/sb_bar.c	/^typedef struct {$/;"	s	file:
 __anone8fcdccd0108::build	games/dark-colony/sb_bar.c	/^    irect_t build;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 __anone8fcdccd0108::buttons	games/dark-colony/sb_bar.c	/^    irect_t buttons[8];$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t[8]	file:
@@ -1574,6 +1582,7 @@ background	games/dark-colony/sb_bar.c	/^    spritesheet_t background;$/;"	m	stru
 blit_dark_colony_tile_phase	games/dark-colony/w_bts.c	/^static void blit_dark_colony_tile_phase(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_/;"	f	typeref:typename:void	file:	signature:(uint32_t * dst,int dst_w,int dst_h,int dst_x,int dst_y,const uint8_t * src,int src_w,int src_h,const uint32_t palette[256],int phase)
 block_count	games/dark-colony/p_script.c	/^    int block_count;$/;"	m	struct:ScriptState	typeref:typename:int	file:
 blocks	games/dark-colony/p_script.c	/^    ScriptBlock blocks[64];$/;"	m	struct:ScriptState	typeref:typename:ScriptBlock[64]	file:
+blood_labels	games/dark-colony/p_blood.c	/^static const struct { const char *name; int state; } blood_labels[] = {$/;"	v	typeref:typename:const struct __anone59c82830108[]	file:
 build	games/dark-colony/sb_bar.c	/^    irect_t build;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 building_alive_at_slot	games/dark-colony/p_script.c	/^static bool building_alive_at_slot(const ScriptState *script, int team, int slot,$/;"	f	typeref:typename:bool	file:	signature:(const ScriptState * script,int team,int slot,mobj_t * const * units,int unit_count)
 building_cond	games/dark-colony/p_script.c	/^    BuildingCondition building_cond;$/;"	m	struct:__anon9b5a71c80708	typeref:typename:BuildingCondition	file:
@@ -1847,6 +1856,7 @@ mobjinfo_s::xdeathstate	games/dark-colony/info.h	/^    int xdeathstate;$/;"	m	st
 mobjinfo_t	games/dark-colony/info.h	/^} mobjinfo_t;$/;"	t	typeref:struct:mobjinfo_s
 money	games/dark-colony/sb_bar.c	/^    irect_t money;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 money	games/dark-colony/w_map.c	/^    int money;$/;"	m	struct:__anonef2472380408	typeref:typename:int	file:
+name	games/dark-colony/p_blood.c	/^static const struct { const char *name; int state; } blood_labels[] = {$/;"	m	struct:__anone59c82830108	typeref:typename:const char *	file:
 name	games/dark-colony/w_spr.h	/^    char name[16];$/;"	m	struct:__anonef9947740308	typeref:typename:char[16]
 name	games/dark-colony/w_spr.h	/^    char name[8];$/;"	m	struct:__anonef9947740208	typeref:typename:char[8]
 names	games/dark-colony/gamestat.h	/^    const char *const *names;$/;"	m	struct:__anon7371b25f0908	typeref:typename:const char * const *
@@ -1919,6 +1929,7 @@ race	games/dark-colony/p_script.c	/^    struct { int active; int race; int ai_sl
 race	games/dark-colony/w_map.c	/^    int race;$/;"	m	struct:__anonef2472380408	typeref:typename:int	file:
 radius	games/dark-colony/info.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 raisestate	games/dark-colony/info.h	/^    int raisestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+random_table	games/dark-colony/p_blood.c	/^static const uint32_t random_table[256] = {$/;"	v	typeref:typename:const uint32_t[256]	file:
 range	games/dark-colony/gamestat.h	/^    int range;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 rate_of_fire	games/dark-colony/gamestat.h	/^    int rate_of_fire;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 reactiontime	games/dark-colony/info.h	/^    int reactiontime;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -1983,6 +1994,7 @@ spritenum_t	games/dark-colony/info.h	/^} spritenum_t;$/;"	t	typeref:enum:__anonf
 sprnames	games/dark-colony/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	typeref:typename:const char * const[]
 start	games/dark-colony/w_spr.h	/^    uint16_t start, end;$/;"	m	struct:__anonef9947740308	typeref:typename:uint16_t
 stat_byte	games/dark-colony/dc_types.h	/^    uint8_t stat_byte;          \/* +0x09, copied from the object type table *\/$/;"	m	struct:__anonf5138b040308	typeref:typename:uint8_t
+state	games/dark-colony/p_blood.c	/^static const struct { const char *name; int state; } blood_labels[] = {$/;"	m	struct:__anone59c82830108	typeref:typename:int	file:
 state	games/dark-colony/p_script.c	/^    MissionState state;$/;"	m	struct:ScriptState	typeref:typename:MissionState	file:
 state_arrays	games/dark-colony/p_script.c	/^    int state_arrays[8][128];$/;"	m	struct:ScriptState	typeref:typename:int[8][128]	file:
 statenum_t	games/dark-colony/info.h	/^} statenum_t;$/;"	t	typeref:enum:__anonf7269e950203

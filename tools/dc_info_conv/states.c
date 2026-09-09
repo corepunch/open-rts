@@ -7,12 +7,12 @@
 #include <string.h>
 
 static void die(const char *path, const char *message) {
-    fprintf(stderr, "dc_info_gen: %s: %s\n", path, message);
+    fprintf(stderr, "dc_info_conv: %s: %s\n", path, message);
     exit(1);
 }
 
 static void skipped(const char *path, const char *message) {
-    fprintf(stderr, "dc_info_gen: %s: %s (skipped)\n", path, message);
+    fprintf(stderr, "dc_info_conv: %s: %s (skipped)\n", path, message);
     printf("; SKIPPED %s: %s\n", path, message);
 }
 
@@ -102,8 +102,8 @@ static void export_fin(const char *path) {
     free(data);
 }
 
-int main(int argc, char **argv) {
-    if (argc < 2) die("usage", "dc_info_gen ANIMATE/*.FIN > animations.txt");
+int export_states(int argc, char **argv) {
+    if (argc < 2) die("usage", "dc_info_conv ANIMATE/*.FIN > animations.txt");
     puts("; state sprite frame duration action nextstate\n"
          "; Numeric frame indices and durations are raw FIN values, not engine tics.\n"
          "; NULL actions and terminal S_NULL are export placeholders.\n"

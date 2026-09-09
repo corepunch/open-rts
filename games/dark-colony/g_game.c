@@ -8,6 +8,7 @@
 #include "sb_bar.h"
 #include "w_spr.h"
 #include "p_mission.h"
+#include "p_blood.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -23,6 +24,8 @@ extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, t
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_TROOPER,
+        .native_type_id = 0,
+        .damage_action = A_DC_Damage,
         .name = "Trooper",
         .sprite_name = "SPRITES/TRSC.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -33,12 +36,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .blood_type = MT_BLOOD,
     },
-    { .id = MT_BLOOD, .name = "Blood", .sprite_name = "SPRITES/BLOO.SPR",
-      .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
+    { .id = MT_BLOOD, .name = "Blood", .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     {
         .id = MT_GREY,
+        .native_type_id = 8,
+        .damage_action = A_DC_Damage,
         .name = "Grey",
         .sprite_name = "SPRITES/GRAY.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -46,10 +49,11 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_EXPLOITER,
+        .native_type_id = 6,
+        .damage_action = A_DC_Damage,
         .name = "Exploiter",
         .sprite_name = "SPRITES/EXPL.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -61,6 +65,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_REAPER,
+        .native_type_id = 2,
+        .damage_action = A_DC_Damage,
         .name = "Mech",
         .sprite_name = "SPRITES/REAP.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -68,10 +74,11 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 30.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_THUNDERBOLT,
+        .native_type_id = 3,
+        .damage_action = A_DC_Damage,
         .name = "Thunderbolt",
         .sprite_name = "SPRITES/BARR.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -79,10 +86,11 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 15.0f / 32.0f,
         .max_hp = 1200,
         .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200 },
-        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_CYBORG,
+        .native_type_id = 4,
+        .damage_action = A_DC_Damage,
         .name = "Cyborg",
         .sprite_name = "SPRITES/SARG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -90,10 +98,11 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 45.0f / 32.0f,
         .max_hp = 1200,
         .attack = { .range = 3.0f, .damage = 150, .cooldown_ms = 700 },
-        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_SCOUT,
+        .native_type_id = 5,
+        .damage_action = A_DC_Damage,
         .name = "Scout",
         .sprite_name = "SPRITES/SCGM.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -101,10 +110,11 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 47.0f / 32.0f,
         .max_hp = 600,
         .attack = { .range = 5.0f, .damage = 80, .cooldown_ms = 600 },
-        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_EXCOPOD,
+        .native_type_id = 16,
+        .damage_action = A_DC_Damage,
         .name = "Exco Center",
         .sprite_name = "SPRITES/HUBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -112,6 +122,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_BRRKPOD,
+        .native_type_id = 17,
+        .damage_action = A_DC_Damage,
         .name = "Barracks",
         .sprite_name = "SPRITES/HUBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -119,6 +131,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ROBOPOD,
+        .native_type_id = 18,
+        .damage_action = A_DC_Damage,
         .name = "Robot Factory",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -126,6 +140,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ROBOPOD2,
+        .native_type_id = 19,
+        .damage_action = A_DC_Damage,
         .name = "Robot Factory II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -133,6 +149,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SCNCPOD,
+        .native_type_id = 20,
+        .damage_action = A_DC_Damage,
         .name = "Science Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -140,6 +158,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SCNCPOD2,
+        .native_type_id = 21,
+        .damage_action = A_DC_Damage,
         .name = "Science Pod II",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -147,6 +167,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_RSCHPOD,
+        .native_type_id = 22,
+        .damage_action = A_DC_Damage,
         .name = "Research Pod",
         .sprite_name = "SPRITES/SHORTCIT.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -154,6 +176,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_MINDHIVE,
+        .native_type_id = 28,
+        .damage_action = A_DC_Damage,
         .name = "Mind Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -161,6 +185,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_WARHIVE,
+        .native_type_id = 29,
+        .damage_action = A_DC_Damage,
         .name = "Warrior Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -168,6 +194,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_BRDRHIVE,
+        .native_type_id = 30,
+        .damage_action = A_DC_Damage,
         .name = "Breeder Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -175,6 +203,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_BRDRHIVE2,
+        .native_type_id = 31,
+        .damage_action = A_DC_Damage,
         .name = "Breeder Hive II",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -182,6 +212,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_MINDHIVE2,
+        .native_type_id = 32,
+        .damage_action = A_DC_Damage,
         .name = "Mind Hive II",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -189,6 +221,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_MINDHIVE3,
+        .native_type_id = 33,
+        .damage_action = A_DC_Damage,
         .name = "Mind Hive III",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -196,6 +230,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_RSCHIVE,
+        .native_type_id = 34,
+        .damage_action = A_DC_Damage,
         .name = "Research Hive",
         .sprite_name = "SPRITES/ALBU.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -203,6 +239,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_COMMS_DISH,
+        .native_type_id = 86,
+        .damage_action = A_DC_Damage,
         .name = "Communication Dish",
         .sprite_name = "SPRITES/DISH.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -210,6 +248,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_CITY_TOWER,
+        .native_type_id = 81,
+        .damage_action = A_DC_Damage,
         .name = "City Tower",
         .sprite_name = "SPRITES/TOWR.SPR",
         .traits = MF_RENDERABLE,
@@ -217,6 +257,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ORTU,
+        .native_type_id = 13,
+        .damage_action = A_DC_Damage,
         .name = "Saucer Scout",
         .sprite_name = "SPRITES/ORTU.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -227,6 +269,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SLUG,
+        .native_type_id = 14,
+        .damage_action = A_DC_Damage,
         .name = "Alien Worker",
         .sprite_name = "SPRITES/SLUG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
@@ -236,6 +280,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_MOBILE_TOWER,
+        .native_type_id = 41,
+        .damage_action = A_DC_Damage,
         .name = "Mobile Tower",
         .sprite_name = "SPRITES/TURR.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
@@ -244,6 +290,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_DROPSHIP,
+        .native_type_id = 92,
+        .damage_action = A_DC_Damage,
         .name = "Dropship",
         .sprite_name = "SPRITES/DROP.SPR",
         .traits = MF_RENDERABLE | MF_FLY,
@@ -252,6 +300,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_DROP_LINK,
+        .native_type_id = 89,
+        .damage_action = A_DC_Damage,
         .name = "Dropship Link",
         .sprite_name = "SPRITES/CENT.SPR",
         .traits = MF_RENDERABLE,
@@ -259,6 +309,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_COM,
+        .native_type_id = 91,
+        .damage_action = A_DC_Damage,
         .name = "Alien Com Tower",
         .sprite_name = "SPRITES/TONG.SPR",
         .traits = MF_SELECTABLE | MF_RENDERABLE,
@@ -266,6 +318,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_VISION_SIGHT,
+        .native_type_id = 94,
+        .damage_action = A_DC_Damage,
         .name = "Vision Sight",
         .sprite_name = "SPRITES/DOTT.SPR",
         .traits = MF_RENDERABLE,

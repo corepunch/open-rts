@@ -1117,7 +1117,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                const spritecache_t *cache, const gameinfo_t *game_info,
                                uint32_t ticks) {
     if (!u || P_MobjIsHidden(u) || (u->traits & MF_RENDERABLE) == 0) return;
-    if (u->traits & MF_NOBLOCKMAP) {
+    if ((u->traits & MF_NOBLOCKMAP) &&
+        (!game_info || game_info->state_coord_mode != RTS_STATE_COORDS_FIN_TOP_LEFT)) {
         render_centered_mobj(app, map, u, cache, game_info);
         return;
     }

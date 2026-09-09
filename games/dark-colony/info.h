@@ -1,4 +1,4 @@
-/* Authored gameplay tables; FIN animation extraction lives in tools/dc_info_gen.c. */
+/* Authored gameplay tables; FIN animation extraction lives in tools/dc_info_conv/. */
 #ifndef __INFO__
 #define __INFO__
 
@@ -874,7 +874,11 @@ typedef enum {
     S_ROBOPOD2_STND19,
     S_ROBOPOD2_STND20,
     S_DROP_RELEASE,
-    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,
+#define DC_BLOOD_LABEL(name, state)
+#define DC_BLOOD_STATE(id, sprite, frame, tics, next) id,
+#include "blood_states.inc"
+#undef DC_BLOOD_STATE
+#undef DC_BLOOD_LABEL
     NUMSTATES
 } statenum_t;
 

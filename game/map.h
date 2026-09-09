@@ -124,6 +124,7 @@ typedef struct level_s {
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
     uint32_t next_mobj_id;
+    uint8_t random_index;
 } level_t;
 
 static inline int L_ScreenY(const level_t *map, int y) {

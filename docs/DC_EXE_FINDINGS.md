@@ -1877,3 +1877,158 @@ r2 -q -e scr.color=false -e bin.cache=true -c 's 0x436444' -c 'pd 45' -c q data/
 build/dc_fin_extract data/DCOLONY/ANIMATE/TRSC.FIN /private/tmp/trsc-blood.json
 build/dc_fin_extract data/DCOLONY/ANIMATE/BLOO.FIN /private/tmp/hive-blood.json
 ```
+
+## Native damage channel implementation (2026-09-09)
+
+**Implemented, with explicit user steering:** the legacy eight-cell `MT_BLOOD`
+path is replaced by exact native type-prefix/BLOODA–G selection and complete
+FIN state playback. On each visible hit, `A_DC_Damage` calls `P_SpawnMobj` and
+copies position, facing and team **once**. The ordinary mobj uses
+`P_MobjThinker`, advances through `state_t` tics, and removes itself at terminal
+`S_NULL`. It does not follow the recipient or disappear when the recipient is
+removed. Repeated hits spawn independent mobjs.
+
+The user explicitly requested “It shouldn't follow! just spawn-and-forget”.
+This supersedes the initially implemented attachment/queued-channel design.
+There is no attachment pointer, custom blood thinker, owner pending byte, or
+separate effect lifecycle in the final implementation. Native pending-byte and
+attachment evidence is retained below as retail behavior, not as a claim that
+spawn-and-forget is what DC.EXE does. Hidden recipients retain the existing
+engine suppression of independently visible blood; lethal visible hits spawn
+normally. The damage formula/weapon balance is not changed.
+
+**Executable provenance:** all addresses below refer to the same 566,272-byte
+DC.EXE, image base 0x400000, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+Evidence combines the retained r2ghidra discovery dump, focused x86 disassembly,
+FIN/SPR record inspection, and independent renderer pixel comparisons.
+
+### Pending byte and random selection
+
+**Confirmed, including the surprising arithmetic:** after computing remaining
+HP in EDX, `0x43df92` clears ECX, `0x43df94` loads pending into CL, and
+`0x43df9a` adds remaining HP. `0x43dfa2` compares the signed sum against 255.
+If the sum is below 255, `0x43dfaa` **subtracts the low byte of remaining HP**
+from pending; otherwise `0x43dfb2` stores 255. This is not an accumulation of
+damage dealt. Examples `(pending, remaining HP) -> pending` are `(0,700)->255`,
+`(0,254)->2`, `(0,255)->255`, `(4,250)->10`, `(4,251)->255`, `(0,0)->0`,
+`(0,-1)->1`, `(0,-256)->0`. Exact-zero lethal HP with no earlier pending hit
+therefore does not request a new effect; overkill can. Existing main death
+states and HP clamping happen afterward. Repeated requests do not restart a
+running blood animation.
+
+**Confirmed:** `0x418507–0x418560` only selects while the channel is inactive;
+it clears pending even if the type has no available families. The 256 dwords
+at VA `0x473df8` (file `0x717f8`) start `16838,5758,10113,17515,31051`.
+The initial index at `0x4741f8` is zero. The ticker increments, masks with 255,
+reads that table, and takes `% count`. The committed table is extracted exactly
+from those bytes. The engine uses Doom's increment/wrap approach and resets
+its level-owned index on thinker initialization. This reproduces this path's
+random selection, not the full retail game's random stream: unrelated retail
+AI/weapon random consumers have not all been ported.
+
+### Correction: FIN delay multiplication and mode-1 first frame
+
+**Disproven earlier conclusion:** the statements above and in REFERENCES.md
+that disassembly confirms a multiplier of **19**, and that the decompiler's
+15 was wrong, were themselves wrong. At `0x42356b`, ESI becomes `4*(raw+3)`;
+`0x423572` adds another `(raw+3)`; `0x423574` copies this **fivefold** value to
+EAX; `0x423576` shifts ESI left twice; `0x42357e` subtracts EAX. The result is
+`20*(raw+3) - 5*(raw+3) = 15*(raw+3)`, then signed division by 100 at
+`0x42358d`. Zero raw delay is replaced by 15 at `0x42354b`. Thus raw zero
+produces **two** native ticks; raw 100 produces **15**. This correction is
+verified from instructions, not visual tuning.
+
+**Confirmed clock:** initialization writes 66 (`0x42`) to level +0x970 at
+`0x41a728`; +0x974 and subsequent entries receive 33. `0x41cb5a–0x41cb89`
+consumes +0x970 as a millisecond interval, and `0x41cbc5` calls the world ticker
+`0x418818`. Clock wrapper `0x40ab75` calls `WINMM.timeGetTime`. New damage
+states use the default 66 ms cadence and cumulative boundaries
+`floor((native_total * 66 * 30 + 500) / 1000)` on the engine's 30 Hz clock.
+The retail variable-speed scheduling/network protocol is not implemented here.
+
+**Confirmed startup/end behavior:** `0x423c49–0x423c54` initializes mode 1,
+frame byte 0 and timer byte 0. The same object tick then invokes `0x423dd0`.
+When the timer is zero, `0x423e0a–0x423e0c` increments the frame **before**
+loading its delay. Label loading points +0x20 directly at `frames + start*72`
+(`0x42337e–0x4233ab`) and stores `end-start+1` at +0x28
+(`0x4233c5–0x4233d9`); there is no inserted sentinel. Therefore this channel
+starts visibly at `start+1`, and a one-frame mode-1 label completes immediately.
+When frame reaches count, `0x423e23–0x423e2f` resets frame and sets mode 2
+(inactive). Timer consumption reads only the low byte at `0x423e59`; zero
+underflows to 255 on decrement, giving a 256-tick interval. The catalog retains
+all frames, including the skipped first one; this is channel behavior, not an
+asset-name exception or a trimmed range. For example, HUBU's apparently stray
+six-part first EXCOPODBLOODA0 frame is retained but skipped by this native
+startup rule.
+
+**Remaining timing scope:** existing non-damage state chains still have their
+previous authored timing; the earlier 19-based conversions in them require a
+separate audit. In particular the explicitly required Reaper movement cadence
+`{4,3,3,4,1,3,3,1}` is preserved. This change does not claim that those older
+chains or the retail whole-game tick scheduler now match the corrected formula.
+
+### Attachment, rendering, and native type identity
+
+**Confirmed:** drawing resolves the main and blood channel frames separately
+at `0x43645b–0x4364a9`. It queues main FIN parts at `0x4365f2–0x436693`, then
+blood parts starting at `0x436698/0x4366a7`, using the same owner transform and
+team. The initial port represented
+this as an attached ordinary mobj; that design was removed at the user's
+request. The final renderer draws the spawned blood mobj through the same full
+FIN layer path as other DC mobjs. `MF_NOBLOCKMAP` no longer forces FIN-based
+mobjs into the raw-cell centered drawing path. Its own XYZ controls world sort
+and placement; its copied team controls translation. No owner reference exists.
+
+The old `blood_type` property and raw BLOO-cell states are gone. Actor defaults
+now include canonical native type IDs for direct spawns; applying defaults a
+second time preserves IDs loaded from native scenario records (including
+commander variants). Damage dispatch reads **only the native type's prefix**
+from the extracted GAMESTAT metadata, not its balance values or SPR basename.
+Existing scenario/reinforcement type-to-actor approximation remains outside
+this path; if that mapping disagrees with a retained native type, the native
+type controls damage selection. No prefix alias repairs were added.
+
+`dc_info_conv --blood-states` generates the shared state/label references from
+all supported native FIN files, with 208 labels and 1,453 frame references.
+Runtime availability still probes only A–G and even numeric suffixes. GRAY's H
+is not selected; its absent F is not invented. SCGMBLOODA without a numeric
+suffix remains unavailable. MNDHIV2 blood resolves from BLOO.FIN and TONG from
+WATC.FIN. Machine types resolve HITC-bearing ranges. Every FIN command's source,
+cell, offset, drawing mode, intensity, layer and flags stays in the existing
+asset loader, rather than being duplicated in generated state data.
+
+### Verification and reproduction
+
+`test_blood_fin` checks selection gaps, cross-file lookup, native random values
+and wrap, startup +1, ordinary `P_MobjThinker` playback, repeated independent
+spawns, copied position/facing/team that remain fixed after recipient movement,
+and survival after recipient removal. Its pixel reference draws decoded FIN
+commands independently for TRSC, GRAY, BARR, REAP, HUBU and BLOO sequences across
+changing spawn positions/facings/teams. Temporary logging in the initial port
+confirmed the first Trooper random choice is BLOODE, starting at logical frame
+557 (FIN 348), duration 4; that selection/playback is retained and diagnostics
+were removed. `test_drop_fin_states` now permits **no** raw-cell exception for
+persistent states. CLI tests compare JSON against raw FIN/SPR bytes, reject
+malformed spans/ranges/selectors, and reproduce the catalog byte-for-byte.
+
+```sh
+make dc-info-conv
+build/dc_info_conv --label TRSCBLOODA0 data/DCOLONY/ANIMATE/TRSC.FIN
+build/dc_info_conv --cell 0 data/DCOLONY/SPRITES/BLOO.SPR
+python3 tests/tools/test_dc_info_conv.py
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_blood_fin
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x423544' -c 'pd 29' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x423dd0' -c 'pd 65' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -e bin.cache=true -c 's 0x41a728' -c 'pd 12' -c 's 0x41cb5a' -c 'pd 32' -c q data/DCOLONY/DC.EXE
+```
+
+Final verification: `make` builds all four games without warnings. The focused
+blood, actor lifecycle, full FIN-state pixel coverage, Trooper rendering and
+sprite-layout tests pass; Reaper's required movement cadence remains unchanged.
+`make test-dc-info-conv` and `make dark-colony-info` pass. All four headless game
+smoke checks pass; the final DC check and screenshot were repeated after the
+spawn-and-forget correction. The blood reference screenshot and level screenshot
+were inspected. `test_combat_and_harvest` passes its attack and hidden-target
+checks, then retains its pre-existing failure to find a player Exploiter in the
+initial mission fixture. `make tags` and `git diff --check` pass.

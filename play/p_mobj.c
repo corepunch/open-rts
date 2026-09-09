@@ -113,6 +113,7 @@ void P_FreeMobjProduction(mobj_t *unit) {
 
 void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
     if (!unit || !type) return;
+    if (unit->info != type) unit->native_type_id = type->native_type_id;
     unit->info = type;
     unit->type_id = type->id;
     unit->traits = type->traits;
@@ -238,10 +239,7 @@ bool P_Attack(mobj_t *attacker) {
     target->hp -= mobj_attack_damage(attacker);
     if (mobj_attack_cooldown_ms(attacker) > 0)
         attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
-    if (!P_MobjIsHidden(target) && target->info && target->info->blood_type) {
-        mobj_t *blood = P_SpawnMobj(target->core.position, target->info->blood_type);
-        if (blood) blood->core.angle = target->core.angle;
-    }
+    if (target->info && target->info->damage_action) target->info->damage_action(target);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
                       attacker->type_id, target->id, mobj_attack_damage(attacker),
                       target->hp, target->max_hp);
