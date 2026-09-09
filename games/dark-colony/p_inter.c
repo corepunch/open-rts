@@ -19,12 +19,14 @@ static int reaper_death_state_for_angle(angle_t angle) {
     return S_NULL;
 }
 
-void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {
+void A_DC_ReaperDeath(mobj_t *unit) {
+    statecontext_t *ctx = P_GetStateContext();
     if (!ctx || !unit) return;
     P_SetMobjState(ctx, unit, reaper_death_state_for_angle(unit->core.angle));
 }
 
-void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) {
+void A_DC_Corpse(mobj_t *unit) {
+    statecontext_t *ctx = P_GetStateContext();
     if (!unit) return;
     P_AddCorpse(ctx, unit);
     unit->remove = true;

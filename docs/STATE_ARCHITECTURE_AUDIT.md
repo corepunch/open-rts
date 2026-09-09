@@ -149,3 +149,31 @@ persistent corpses and unfinished death animations survive, pending removals
 are deferred, completed deaths release capacity, and reused storage is zeroed.
 The cargo-ownership and Human01 delivery tests also pass with shared allocation.
 Run these tests with `SDL_VIDEODRIVER=dummy`.
+
+
+## Actor-only action ABI (2026-09-09)
+
+Doom's `P_SetMobjState` dispatches `st->action.acp1(mobj)`
+(`reference/DOOM/p_mobj.c:51–82`). Actions such as `A_Look` take only an actor:
+actor references provide local world links, while helpers use the active global
+world. For example, `A_KeenDie` scans global `thinkercap`, and
+`P_LookForPlayers` uses global `players`/`playeringame`
+(`reference/DOOM/p_enemy.c`, functions `A_KeenDie`, `P_LookForPlayers`, `A_Look`).
+Doom does not pass a separate context argument through the action ABI.
+
+open-rts now declares `actionf_p1` as `void (*)(mobj_t *)`, and all world `A_`
+actions, generated declarations, and test callbacks use that signature.
+`P_SetMobjState` temporarily installs its active world services for the action;
+`P_GetStateContext` retrieves them when needed. Dispatch saves and restores the
+previous context around every action, including nested state changes. Context
+is not retained in an actor, and independent headless models do not retain each
+other's active context between calls. This uses the active-world approach while
+keeping the existing explicit context at the state-machine service boundary.
+
+`test_state_context` exercises nested dispatch into a second world, immediate
+zero-tic chains, invalid-context early return, removal, and restoration to NULL
+outside actions. The actor lifecycle test enters the look state through
+`P_SetMobjState` instead of calling an action with an explicit context. This
+change does not alter the existing spawn or state-chain semantics. Regenerating
+Dark Colony info changes only action declarations, preserving all frame/tic
+values including the Reaper movement timings.

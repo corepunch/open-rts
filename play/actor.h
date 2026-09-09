@@ -15,7 +15,7 @@ typedef struct app_s app_t;
 typedef struct spritecache_s spritecache_t;
 typedef struct gameinfo_s gameinfo_t;
 typedef struct production_s production_t;
-typedef void (*actionf_p1)(statecontext_t *ctx, mobj_t *mo);
+typedef void (*actionf_p1)(mobj_t *mo);
 
 typedef enum {
     MF_SELECTABLE = 1u << 0,
@@ -272,15 +272,17 @@ struct statecontext_s {
 
 /* Removed objects become allocatable after P_Ticker compacts the live prefix. */
 mobj_t *P_AllocMobj(mobj_t *mobjs, int *count);
+/* Active only during a world-state action; nested dispatch restores its caller. */
+statecontext_t *P_GetStateContext(void);
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
 bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
 production_t *P_EnsureMobjProduction(mobj_t *unit);
 void P_FreeMobjProduction(mobj_t *unit);
 
 /* State-entry actions, matching Hexen's state_t action model. */
-void A_Look(statecontext_t *ctx, mobj_t *unit);
-void A_Chase(statecontext_t *ctx, mobj_t *unit);
-void A_Attack(statecontext_t *ctx, mobj_t *unit);
+void A_Look(mobj_t *unit);
+void A_Chase(mobj_t *unit);
+void A_Attack(mobj_t *unit);
 
 /* Move toward movement.goal at unit->speed.  Physical displacement belongs
  * to the movement system, not to a state-entry action. */

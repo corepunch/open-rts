@@ -63,6 +63,12 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     }
 }
 
+static statecontext_t *active_state_context;
+
+statecontext_t *P_GetStateContext(void) {
+    return active_state_context;
+}
+
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
     const gameinfo_t *game_info = ctx ? ctx->game_info : NULL;
     if (!game_info || !unit) return false;
@@ -93,7 +99,12 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
                               unit->type_id, unit->core.state_id,
                               sprite_name, unit->core.frame);
         }
-        if (state->action) state->action(ctx, unit);
+        if (state->action) {
+            statecontext_t *previous = active_state_context;
+            active_state_context = ctx;
+            state->action(unit);
+            active_state_context = previous;
+        }
         if (unit->remove || unit->core.state_id != state_id) return !unit->remove;
         if (unit->core.tics != 0) return true;
         state_id = state->nextstate;
@@ -455,11 +466,13 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
     return true;
 }
 
-void A_Attack(statecontext_t *ctx, mobj_t *unit) {
+void A_Attack(mobj_t *unit) {
+    statecontext_t *ctx = P_GetStateContext();
     (void)P_Attack(ctx, unit);
 }
 
-void A_Look(statecontext_t *ctx, mobj_t *unit) {
+void A_Look(mobj_t *unit) {
+    statecontext_t *ctx = P_GetStateContext();
     if (!ctx || !unit || !ctx->mobjs || !ctx->mobj_count ||
         unit->hp <= 0 || (unit->traits & MF_ATTACK) == 0 ||
         mobj_attack_range(unit) <= 0.0f || unit->attack.cooldown_left_ms > 0 ||
@@ -492,9 +505,9 @@ void A_Look(statecontext_t *ctx, mobj_t *unit) {
         P_SetMobjState(ctx, unit, attack_state);
 }
 
-void A_Chase(statecontext_t *ctx, mobj_t *unit) {
+void A_Chase(mobj_t *unit) {
     /* Movement runs in P_Ticker; state entry checks for an attack. */
-    A_Look(ctx, unit);
+    A_Look(unit);
 }
 
 void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,

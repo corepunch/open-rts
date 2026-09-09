@@ -39,7 +39,8 @@ static fvec2_t dropship_drop_position(const level_t *map, const mobj_t *units,
     return fvec2_cell_center(origin);
 }
 
-void A_DC_Drop(statecontext_t *ctx, mobj_t *ship) {
+void A_DC_Drop(mobj_t *ship) {
+    statecontext_t *ctx = P_GetStateContext();
     if (!ctx || !ctx->mobjs || !ctx->mobj_count) return;
     dc_drop_t *drop = &ship->drop;
     DropshipPayload *payload = &drop->payload[drop->payload_index];
@@ -61,7 +62,8 @@ void A_DC_Drop(statecontext_t *ctx, mobj_t *ship) {
     P_SetMobjState(ctx, ship, S_DROP_MOVE1);
 }
 
-void A_DC_Fly(statecontext_t *ctx, mobj_t *ship) {
+void A_DC_Fly(mobj_t *ship) {
+    statecontext_t *ctx = P_GetStateContext();
     if (P_MoveMobjToward(NULL, ship, ship->core.tics * FIXED_DT)) {
         P_SetMobjState(ctx, ship, ship->drop.payload_index < ship->drop.payload_count ?
                        S_DROP_UNLOAD1 : S_NULL);

@@ -3,11 +3,12 @@
 #include "../rts_model_test.h"
 
 static int calls;
-static void count_action(statecontext_t *ctx, mobj_t *unit) {
-    (void)ctx; (void)unit;
+static void count_action(mobj_t *unit) {
+    (void)unit;
     calls++;
 }
-static void redirect_action(statecontext_t *ctx, mobj_t *unit) {
+static void redirect_action(mobj_t *unit) {
+    statecontext_t *ctx = P_GetStateContext();
     calls++;
     P_SetMobjState(ctx, unit, 3);
 }

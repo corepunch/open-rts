@@ -55,14 +55,14 @@ ACTOR_ROBOPOD2	games/dark-colony/p_prod.c	/^    ACTOR_ROBOPOD2 = 1003,$/;"	e	enu
 ACTOR_SCNCPOD2	games/dark-colony/p_prod.c	/^    ACTOR_SCNCPOD2 = 1005,$/;"	e	enum:__anon661954680103	file:
 ACTOR_TROOPER	games/dark-colony/p_prod.c	/^    ACTOR_TROOPER = 1,$/;"	e	enum:__anon661954680103	file:
 AI_OWNER	games/dark-colony/p_prod.c	/^    enum { AI_OWNER = 1 };$/;"	e	enum:G_ModelAIProduction::__anon661954680303	file:
-A_DC_Corpse	games/dark-colony/info.h	/^void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_DC_Corpse	games/dark-colony/p_inter.c	/^void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_DC_Drop	games/dark-colony/info.h	/^void A_DC_Drop(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_DC_Drop	games/dark-colony/p_drop.c	/^void A_DC_Drop(statecontext_t *ctx, mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * ship)
-A_DC_Fly	games/dark-colony/info.h	/^void A_DC_Fly(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_DC_Fly	games/dark-colony/p_drop.c	/^void A_DC_Fly(statecontext_t *ctx, mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * ship)
-A_DC_ReaperDeath	games/dark-colony/info.h	/^void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_DC_ReaperDeath	games/dark-colony/p_inter.c	/^void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_DC_Corpse	games/dark-colony/info.h	/^void A_DC_Corpse(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_Corpse	games/dark-colony/p_inter.c	/^void A_DC_Corpse(mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_Drop	games/dark-colony/info.h	/^void A_DC_Drop(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_Drop	games/dark-colony/p_drop.c	/^void A_DC_Drop(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
+A_DC_Fly	games/dark-colony/info.h	/^void A_DC_Fly(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_Fly	games/dark-colony/p_drop.c	/^void A_DC_Fly(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
+A_DC_ReaperDeath	games/dark-colony/info.h	/^void A_DC_ReaperDeath(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_ReaperDeath	games/dark-colony/p_inter.c	/^void A_DC_ReaperDeath(mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(mobj_t * unit)
 A_None	games/dark-colony/info.c	/^#define A_None /;"	d	file:
 AiConfig	games/dark-colony/p_ai.c	/^} AiConfig;$/;"	t	typeref:struct:__anon066873fd0108	file:
 AiProductionGoal	games/dark-colony/p_prod.c	/^} AiProductionGoal;$/;"	t	typeref:struct:__anon661954680208	file:

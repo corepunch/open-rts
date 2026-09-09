@@ -1051,9 +1051,9 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");
     fprintf(out, "extern const gameinfo_t game_info;\n\n");
     fprintf(out, "const mobjtype_t *actor_type_by_id(uint16_t type_id);\n\n");
-    fprintf(out, "void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);\n");
-    fprintf(out, "void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit);\n\n");
-    fprintf(out, "void A_DC_Drop(statecontext_t *ctx, mobj_t *unit);\nvoid A_DC_Fly(statecontext_t *ctx, mobj_t *unit);\n\n");
+    fprintf(out, "void A_DC_ReaperDeath(mobj_t *unit);\n");
+    fprintf(out, "void A_DC_Corpse(mobj_t *unit);\n\n");
+    fprintf(out, "void A_DC_Drop(mobj_t *unit);\nvoid A_DC_Fly(mobj_t *unit);\n\n");
     fprintf(out, "#endif\n");
 }
 

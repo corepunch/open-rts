@@ -20,7 +20,7 @@ int main(void) {
     units[1].allegiance = ALLEGIANCE_ENEMY;
     P_SpawnMobj(&game_info, &units[0]);
     int hp = units[1].hp;
-    A_Look(&ctx, &units[0]);
+    CHECK(P_SetMobjState(&ctx, &units[0], S_TRSC_STND));
     CHECK(units[0].core.state_id == S_TRSC_ATK1 && units[1].hp == hp);
     /* Two windup frames, then exactly one damage action on the third frame. */
     for (int tic = 1; tic <= 12; ++tic) {

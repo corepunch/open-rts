@@ -510,14 +510,14 @@ static int assert_trooper_sequence_frame_layout(void) {
     return 0;
 }
 
-void A_Look(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_Chase(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_Attack(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_Fly(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
-void A_DC_Drop(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }
+void A_Look(mobj_t *unit) { (void)unit; }
+void A_Chase(mobj_t *unit) { (void)unit; }
+void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }
+void A_Attack(mobj_t *unit) { (void)unit; }
+void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }
+void A_DC_Corpse(mobj_t *unit) { (void)unit; }
+void A_DC_Fly(mobj_t *unit) { (void)unit; }
+void A_DC_Drop(mobj_t *unit) { (void)unit; }
 
 static int assert_reaper_move_timing(void) {
     static const int expected_tics[] = {4, 3, 3, 4, 1, 3, 3, 1};
