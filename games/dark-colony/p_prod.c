@@ -680,7 +680,9 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     }
     new_unit.core.position = fixed3_from_fvec2((fvec2_t){ gx, gy }, 0);
     int spawned_index = *unit_count;
-    units[(*unit_count)++] = new_unit;
+    mobj_t *spawned = P_AllocMobj(units, unit_count);
+    if (!spawned) return false;
+    *spawned = new_unit;
     if (use_barracks_release)
         dc_order_barracks_exit_spacing(map, units, *unit_count, spawned_index, producer, gx, gy);
     return true;

@@ -270,6 +270,8 @@ struct statecontext_s {
     const gameinfo_t *game_info;
 };
 
+/* Removed objects become allocatable after P_Ticker compacts the live prefix. */
+mobj_t *P_AllocMobj(mobj_t *mobjs, int *count);
 bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
 bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
 production_t *P_EnsureMobjProduction(mobj_t *unit);

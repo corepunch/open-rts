@@ -301,7 +301,9 @@ static bool spawn_finished_model_product(RtsGameModel *model,
 
     new_unit.core.position = fixed3_from_fvec2((fvec2_t){ gx, gy }, 0);
     int spawned_index = model->unit_count;
-    model->units[model->unit_count++] = new_unit;
+    mobj_t *spawned = P_AllocMobj(model->units, &model->unit_count);
+    if (!spawned) return false;
+    *spawned = new_unit;
     model_emit_build_completion(model, &model->units[spawned_index], producer, product);
     if (use_special_release)
         order_barracks_exit_spacing(model, spawned_index, producer, gx, gy);

@@ -2,7 +2,6 @@
 #include "dc_facing.h"
 #include "info.h"
 #include "dc_types.h"
-#include <string.h>
 
 static uint16_t script_unit_type(int team, int type) {
     if (team != 0) {
@@ -23,9 +22,8 @@ static uint16_t script_unit_type(int team, int type) {
 void DC_SpawnReinforcement(const level_t *map, mobj_t *units, int *unit_count, int team,
                                           int gx, int gy, int type,
                                           const gameinfo_t *game_info) {
-    if (!units || !unit_count || *unit_count >= MAXMOBJS) return;
-    mobj_t *unit = &units[*unit_count];
-    memset(unit, 0, sizeof(*unit));
+    mobj_t *unit = P_AllocMobj(units, unit_count);
+    if (!unit) return;
     int spawn_x = gx;
     int spawn_y = gy;
     if (map) {
@@ -53,6 +51,5 @@ void DC_SpawnReinforcement(const level_t *map, mobj_t *units, int *unit_count, i
     unit->native_type_id = (uint16_t)(type >= 0 ? type : 0);
     P_ApplyActorTypeDefaults(unit, actor);
     P_SpawnMobj(game_info, unit);
-    (*unit_count)++;
 }
 

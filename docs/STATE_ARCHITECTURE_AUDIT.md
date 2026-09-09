@@ -123,3 +123,29 @@ catalog; `test_combat_and_harvest` cannot find the expected player Exploiter;
 The latter two were also run from a clean archive of the unchanged revision,
 with the same local data. They are not treated as passing checks or repaired by
 weakening their assertions. The focused lifecycle and layout checks pass.
+
+
+## Shared object allocation (2026-09-09)
+
+The local Doom source allocates and clears an object with
+`Z_Malloc(sizeof(*mobj), PU_LEVEL, NULL)` inside `P_SpawnMobj`
+(`reference/DOOM/p_mobj.c:480–532`), then registers its thinker.
+`P_RemoveMobj` unlinks world references and calls `P_RemoveThinker`
+(`p_mobj.c:546–572`). The latter marks the thinker; `P_RunThinkers` later
+unlinks it and calls `Z_Free` (`reference/DOOM/p_tick.c:80–113`). Death alone
+is not removal: a corpse with a persistent state still owns its storage.
+
+open-rts keeps its compact array rather than adopting Doom's heap/list storage.
+`P_AllocMobj` is the shared runtime allocation entry point for dropships,
+reinforcements, and both production paths. It checks capacity and clears the
+next unused slot. `P_Ticker` compacts objects marked `remove` after state
+actions finish, making their slots available in the unused tail. Searching for
+`hp <= 0` or overwriting pending removals inside the allocator would invalidate
+corpse state or pointers still held by running actions. Full capacity therefore
+remains a normal allocation failure until compaction runs.
+
+`tests/dark-colony/test_mobj_allocation.c` fills the array and verifies that
+persistent corpses and unfinished death animations survive, pending removals
+are deferred, completed deaths release capacity, and reused storage is zeroed.
+The cargo-ownership and Human01 delivery tests also pass with shared allocation.
+Run these tests with `SDL_VIDEODRIVER=dummy`.

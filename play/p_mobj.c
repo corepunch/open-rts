@@ -160,6 +160,15 @@ static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
     return false;
 }
 
+mobj_t *P_AllocMobj(mobj_t *mobjs, int *count) {
+    if (!mobjs || !count || *count < 0 || *count >= MAXMOBJS) return NULL;
+    /* Do not reuse pending removals: state actions may still hold those pointers.
+     * Compaction releases them into the unused tail after ticking finishes. */
+    mobj_t *mobj = &mobjs[(*count)++];
+    memset(mobj, 0, sizeof(*mobj));
+    return mobj;
+}
+
 void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {
     if (!game_info || !unit || !game_info->mobjinfo ||
         unit->type_id <= 0 || unit->type_id >= game_info->mobj_type_count) {

@@ -71,11 +71,12 @@ void A_DC_Fly(statecontext_t *ctx, mobj_t *ship) {
 bool DC_StartDropship(mobj_t *units, int *unit_count,
                       int team, ivec2_t origin,
                       const DropshipPayload *payload, int payload_count) {
-    if (!units || !unit_count || *unit_count >= MAXMOBJS || !payload ||
-        payload_count <= 0 || payload_count > DROPSHIP_MAX_PAYLOAD_TYPES) return false;
+    if (!payload || payload_count <= 0 ||
+        payload_count > DROPSHIP_MAX_PAYLOAD_TYPES) return false;
     for (int i = 0; i < payload_count; ++i)
         if (payload[i].count <= 0) return false;
-    mobj_t *ship = &units[(*unit_count)++];
+    mobj_t *ship = P_AllocMobj(units, unit_count);
+    if (!ship) return false;
     *ship = (mobj_t){ .team = team,
         .owner = team == 0 ? 0 : 1,
         .allegiance = team == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY,
