@@ -15,6 +15,27 @@ Addresses refer to the exact executable fingerprint below.
 | Image base | `0x00400000` |
 | Compile timestamp | August 11, 1997 20:53:20 |
 
+## Palette expansion provenance
+
+**Confirmed from the external reader, not DC.EXE:** `jxspr/SPR.java` expands
+the three palette bytes at file offset `8 + i * 3` using `stored * 4 + 3`;
+see the direct source in `REFERENCES.md`. For six-bit inputs, this fills the
+low two output bits: `0` becomes `3`, and `63` becomes `255`. Plain `* 4`
+instead produces `0` and `252`. The bias is not required by ARGB packing.
+
+**Unknown:** Whether the fingerprinted retail executable above uses that
+same bias. A search of the existing r2ghidra export did not establish a native
+SPR palette conversion. The `var_24h * 4 + 3` hits in the decompilation of
+`0x0044bee4` index the fourth byte of palette entries; they are not evidence
+of adding three to a channel. This is a decompiler observation, not a new
+instruction-verified executable finding. Reproduce the limited search with
+`rg -n 'var_24h \* 4 \+ 3' reverse/dc-exe-r2ghidra/dc_exe.c`.
+
+**Implementation consequence:** Preserve the existing conversion pending
+native evidence. Removing its bias would not eliminate conversion from the
+three-byte palette entries to the renderer's four-byte ARGB values, or the
+sprite loader's transparent index-zero handling. No runtime code changed.
+
 ## Animation generator coverage
 
 **Confirmed from `data/DCOLONY/ANIMATE/EXPL.FIN` and the focused layout test:**

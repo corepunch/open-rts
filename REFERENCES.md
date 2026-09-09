@@ -102,6 +102,8 @@ plugin-specific behavior.
     `width`, `height`, `disX`, `disY`.
   - `SPR.java` and `BTS.java` scale palette channels as `stored * 4 + 3`, not
     plain `stored * 4`.
+    This confirms viewer behavior, not yet the retail executable's conversion.
+    Direct source: https://github.com/smdimos/jxspr/blob/master/SPR.java
   - `SPR.java` confirms indices `138..143` are the six team-color slots and
     remap by `id += (team - 7) * 6`, with team `7` as Aerogen/cyan default.
   - `BTS.java` confirms magenta transparency is palette RGB `(255, 3, 255)`.
