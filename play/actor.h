@@ -274,7 +274,8 @@ production_t *P_EnsureMobjProduction(mobj_t *unit);
 void P_FreeMobjProduction(mobj_t *unit);
 
 /* State-entry actions, matching Hexen's state_t action model. */
-void A_Walk(statecontext_t *ctx, mobj_t *unit);
+void A_Look(statecontext_t *ctx, mobj_t *unit);
+void A_Chase(statecontext_t *ctx, mobj_t *unit);
 void A_Attack(statecontext_t *ctx, mobj_t *unit);
 
 /* Move toward movement.goal at unit->speed.  Physical displacement belongs

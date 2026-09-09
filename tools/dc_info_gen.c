@@ -1147,9 +1147,6 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     int offset_y[8] = {0};
     int remap[8] = {0};
     int intensity[8] = {0};
-    const char *state_action = (group == 1 && strcmp(action, "A_None") == 0) ?
-        "A_Walk" : action;
-    int state_tics = (strcmp(state_action, "A_Walk") == 0 && tics < 0) ? 1 : tics;
     for (int dir = 0; dir < 8; ++dir) {
         int candidates[64];
         int candidate_flags[64] = {0};
@@ -1186,7 +1183,7 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     static const int directions[8] = {0,2,4,6,8,10,12,14};
         int logical_frame = fin_logical_frame(spr, fin, label_prefix, step, frames[0]);
         fprintf(out, "    { %s, %d, %d, %s, %s, %d",
-            spr, logical_frame, state_tics, state_action, next, group);
+            spr, logical_frame, tics, action, next, group);
     write_rotations(out, 8, directions, frames, flags);
     fprintf(out, " },\n");
 }
@@ -1389,7 +1386,7 @@ static void write_fin_sequence(FILE *out, const char *spr, const DcFinAnimation 
         if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
         else snprintf(next, sizeof(next), "%s", exit_state);
         f8_fin_state(out, spr, fin, label_prefix, i, fallback_frame, tics,
-                     strcmp(first_action, "A_Walk") == 0 ? "A_Walk" :
+                     strcmp(first_action, "A_Chase") == 0 ? "A_Chase" :
                      (i == 0 ? first_action : "A_None"),
                      next, group, count, mirror_left);
     }
@@ -1407,7 +1404,7 @@ static void write_fin_layer0_overlay_sequence(FILE *out, const char *spr, const 
         if (i + 1 < count) state_name(next, sizeof(next), state_prefix, kind, i + 2);
         else snprintf(next, sizeof(next), "%s", exit_state);
         f8_fin_layer0_overlay_state(out, spr, fin, label_prefix, i, fallback_frame,
-                                    tics, strcmp(first_action, "A_Walk") == 0 ? "A_Walk" :
+                                    tics, strcmp(first_action, "A_Chase") == 0 ? "A_Chase" :
                                     (i == 0 ? first_action : "A_None"),
                                     next, group, count);
     }
@@ -1432,7 +1429,7 @@ static void write_fin_sequence16(FILE *out, const char *spr, const DcFinAnimatio
         int state_tics = native_timing ?
             fin_sequence_tics(fin, label_prefix, i, tics) : tics;
         f16_fin_state(out, spr, fin, label_prefix, i, fallback_frame, state_tics,
-                      strcmp(first_action, "A_Walk") == 0 ? "A_Walk" :
+                      strcmp(first_action, "A_Chase") == 0 ? "A_Chase" :
                       (i == 0 ? first_action : "A_None"),
                       next, group);
     }
@@ -1588,12 +1585,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                              "S_BRRKPOD_STND", 6);
 
     int trsc_die[6] = {128,138,149,159,179,195};
-    f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCSTAND", 0, 0, -1,
-                 "A_None", "S_TRSC_STND", 1, 1, false);
+    f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCSTAND", 0, 0, 1,
+                 "A_Look", "S_TRSC_STND", 1, 1, false);
     const char *trsc_run_next[8] = {"S_TRSC_RUN2","S_TRSC_RUN3","S_TRSC_RUN4","S_TRSC_RUN5","S_TRSC_RUN6","S_TRSC_RUN7","S_TRSC_RUN8","S_TRSC_RUN1"};
     for (int i = 0; i < 8; ++i) {
         f8_fin_state(out, sprites[trsc].symbol, &trsc_fin, "TRSCMOVE", i, 0, 3,
-                     "A_Walk", trsc_run_next[i], 2, 8, false);
+                     "A_Chase", trsc_run_next[i], 2, 8, false);
     }
     for (int i = 0; i < counts->trsc_attack_a; ++i) {
         char next[64];
@@ -1607,12 +1604,12 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     for (int i = 0; i < 10; ++i) f6(out, sprites[trsc].symbol, 3, "A_None", trsc_die_next[i], 4, trsc_die, i);
     f6(out, sprites[trsc].symbol, 1, "A_DC_Corpse", trsc_die_next[10], 4, trsc_die, 9);
 
-    f8_fin_state(out, sprites[gray].symbol, &gray_fin, "GRAYSTAND", 0, 0, -1,
-                 "A_None", "S_GRAY_STND", 1, 1, false);
+    f8_fin_state(out, sprites[gray].symbol, &gray_fin, "GRAYSTAND", 0, 0, 1,
+                 "A_Look", "S_GRAY_STND", 1, 1, false);
     const char *gray_run_next[8] = {"S_GRAY_RUN2","S_GRAY_RUN3","S_GRAY_RUN4","S_GRAY_RUN5","S_GRAY_RUN6","S_GRAY_RUN7","S_GRAY_RUN8","S_GRAY_RUN1"};
     for (int i = 0; i < 8; ++i) {
         f8_fin_state(out, sprites[gray].symbol, &gray_fin, "GRAYMOVE", i, 0, 3,
-                     "A_Walk", gray_run_next[i], 2, 8, false);
+                     "A_Chase", gray_run_next[i], 2, 8, false);
     }
     const char *gray_atk_next[8] = {"S_GRAY_ATK2","S_GRAY_ATK3","S_GRAY_ATK4","S_GRAY_ATK5","S_GRAY_ATK6","S_GRAY_STND","S_GRAY_STND","S_GRAY_STND"};
     const char *gray_atk_action[8] = {"A_None","A_None","A_Attack","A_None","A_None","A_None","A_None","A_None"};
@@ -1627,7 +1624,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[reap].symbol, &reap_fin, "REAPSTAND", 0, 0, -1,
                   "A_None", "S_REAP_STND", 1);
     write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPMOVE", "REAP", "RUN",
-                         counts->reap_run, 0, 3, 2, "A_Walk", "S_REAP_RUN1", true);
+                         counts->reap_run, 0, 3, 2, "A_Chase", "S_REAP_RUN1", true);
     const char *reap_atk_actions[8] = {
         "A_None", "A_None", "A_Attack", "A_None",
         "A_None", "A_None", "A_None", "A_None"
@@ -1642,27 +1639,27 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[barr].symbol, &barr_fin, "BARRSTAND", 0, 0, -1,
                   "A_None", "S_BARR_STND", 1);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRMOVE", "BARR", "RUN",
-                         counts->barr_run, 0, 3, 2, "A_Walk", "S_BARR_RUN1", false);
+                         counts->barr_run, 0, 3, 2, "A_Chase", "S_BARR_RUN1", false);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRFIREA", "BARR", "ATK",
                          counts->barr_attack, 0, 2, 3, "A_None", "S_BARR_STND", false);
     write_fin_sequence16(out, sprites[barr].symbol, &barr_fin, "BARRDIE", "BARR", "DIE",
                          counts->barr_death, 0, 3, 4, "A_None", "S_BARR_CORPSE", false);
     write_fin_corpse16(out, sprites[barr].symbol, &barr_fin, "BARRDIE", counts->barr_death - 1, 0);
 
-    f8_fin_state(out, sprites[sarg].symbol, &sarg_fin, "SARGSTAND", 0, 0, -1,
-                 "A_None", "S_SARG_STND", 1, 1, false);
+    f8_fin_state(out, sprites[sarg].symbol, &sarg_fin, "SARGSTAND", 0, 0, 1,
+                 "A_Look", "S_SARG_STND", 1, 1, false);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGMOVE", "SARG", "RUN",
-                       counts->sarg_run, 0, 3, 2, "A_Walk", "S_SARG_RUN1", false);
+                       counts->sarg_run, 0, 3, 2, "A_Chase", "S_SARG_RUN1", false);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGFIREA", "SARG", "ATK",
                        counts->sarg_attack, 0, 2, 3, "A_None", "S_SARG_STND", false);
     write_fin_sequence(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", "SARG", "DIE",
                        counts->sarg_death, 0, 3, 4, "A_None", "S_SARG_CORPSE", false);
     write_fin_corpse(out, sprites[sarg].symbol, &sarg_fin, "SARGDIE", counts->sarg_death - 1, 0, false);
 
-    f8_fin_state(out, sprites[scgm].symbol, &scgm_fin, "SCGMSTAND", 0, 0, -1,
-                 "A_None", "S_SCGM_STND", 1, 1, false);
+    f8_fin_state(out, sprites[scgm].symbol, &scgm_fin, "SCGMSTAND", 0, 0, 1,
+                 "A_Look", "S_SCGM_STND", 1, 1, false);
     write_fin_sequence(out, sprites[scgm].symbol, &scgm_fin, "SCGMMOVE", "SCGM", "RUN",
-                       counts->scgm_run, 0, 3, 2, "A_Walk", "S_SCGM_RUN1", false);
+                       counts->scgm_run, 0, 3, 2, "A_Chase", "S_SCGM_RUN1", false);
     write_fin_sequence(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", "SCGM", "DIE",
                        counts->scgm_death, 0, 3, 4, "A_None", "S_SCGM_CORPSE", false);
     write_fin_corpse(out, sprites[scgm].symbol, &scgm_fin, "SCGMDIE", counts->scgm_death - 1, 0, false);
@@ -1670,7 +1667,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[expl].symbol, &expl_fin, "EXPLSTAND", 0, 0, -1,
                   "A_None", "S_EXPL_STND", 1);
     write_fin_sequence16(out, sprites[expl].symbol, &expl_fin, "EXPLMOVE", "EXPL", "RUN",
-                         counts->expl_run, 0, 3, 2, "A_Walk", "S_EXPL_RUN1", false);
+                         counts->expl_run, 0, 3, 2, "A_Chase", "S_EXPL_RUN1", false);
     write_fin_layer0_overlay_sequence(out, sprites[expl].symbol, &expl_fin, "EXPLDEPLOY",
                                       "EXPL", "DEPLOY", counts->expl_deploy, 0, 3, 5,
                                       "A_None", "S_EXPL_WORK1");
@@ -1684,7 +1681,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[ortu].symbol, &ortu_fin, "ORTUSTAND", 0, 0, -1,
                   "A_None", "S_ORTU_STND", 1);
     write_fin_sequence16(out, sprites[ortu].symbol, &ortu_fin, "ORTUMOVE", "ORTU", "RUN",
-                         counts->ortu_run, 0, 3, 2, "A_Walk", "S_ORTU_RUN1", false);
+                         counts->ortu_run, 0, 3, 2, "A_Chase", "S_ORTU_RUN1", false);
     write_fin_sequence16(out, sprites[ortu].symbol, &ortu_fin, "ORTUDIE", "ORTU", "DIE",
                          counts->ortu_die, 0, 3, 4, "A_None", "S_ORTU_CORPSE", false);
     write_fin_corpse16(out, sprites[ortu].symbol, &ortu_fin, "ORTUDIE", counts->ortu_die - 1, 0);
@@ -1692,7 +1689,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     f16_fin_state(out, sprites[slug].symbol, &slug_fin, "SLUGSTAND", 0, 0, -1,
                   "A_None", "S_SLUG_STND", 1);
     write_fin_sequence16(out, sprites[slug].symbol, &slug_fin, "SLUGMOVE", "SLUG", "RUN",
-                         counts->slug_run, 0, 3, 2, "A_Walk", "S_SLUG_RUN1", false);
+                         counts->slug_run, 0, 3, 2, "A_Chase", "S_SLUG_RUN1", false);
     write_fin_sequence16(out, sprites[slug].symbol, &slug_fin, "SLUGDIE", "SLUG", "DIE",
                          counts->slug_die, 0, 3, 4, "A_None", "S_SLUG_CORPSE", false);
     write_fin_corpse16(out, sprites[slug].symbol, &slug_fin, "SLUGDIE", counts->slug_die - 1, 0);

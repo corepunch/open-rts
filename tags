@@ -58,6 +58,9 @@ AStarNode	play/p_map.c	/^} AStarNode;$/;"	t	typeref:struct:__anon9020bd480108	fi
 A_Attack	play/actor.h	/^void A_Attack(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_Attack	play/p_mobj.c	/^void A_Attack(statecontext_t *ctx, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_Attack	tests/test_dark_colony_sprite_layout.c	/^void A_Attack(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_Chase	play/actor.h	/^void A_Chase(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_Chase	play/p_mobj.c	/^void A_Chase(statecontext_t *ctx, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_Chase	tests/test_dark_colony_sprite_layout.c	/^void A_Chase(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_DC_Corpse	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Corpse(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_DC_DropshipApproach	tests/test_dark_colony_sprite_layout.c	/^void A_DC_DropshipApproach(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_DC_DropshipDepart	tests/test_dark_colony_sprite_layout.c	/^void A_DC_DropshipDepart(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
@@ -65,9 +68,9 @@ A_DC_DropshipReposition	tests/test_dark_colony_sprite_layout.c	/^void A_DC_Drops
 A_DC_DropshipUnload	tests/test_dark_colony_sprite_layout.c	/^void A_DC_DropshipUnload(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_DC_MuzzleFlash	tests/test_dark_colony_sprite_layout.c	/^void A_DC_MuzzleFlash(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 A_DC_ReaperDeath	tests/test_dark_colony_sprite_layout.c	/^void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_Walk	play/actor.h	/^void A_Walk(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_Walk	play/p_mobj.c	/^void A_Walk(statecontext_t *ctx, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
-A_Walk	tests/test_dark_colony_sprite_layout.c	/^void A_Walk(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_Look	play/actor.h	/^void A_Look(statecontext_t *ctx, mobj_t *unit);$/;"	p	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_Look	play/p_mobj.c	/^void A_Look(statecontext_t *ctx, mobj_t *unit) {$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
+A_Look	tests/test_dark_colony_sprite_layout.c	/^void A_Look(statecontext_t *ctx, mobj_t *unit) { (void)ctx; (void)unit; }$/;"	f	typeref:typename:void	signature:(statecontext_t * ctx,mobj_t * unit)
 AiContext	play/p_ai.h	/^} AiContext;$/;"	t	typeref:struct:__anonf4d3b9790308
 AiHarvestAssignment	play/p_ai.h	/^} AiHarvestAssignment;$/;"	t	typeref:struct:__anonf4d3b9790108
 AiTeamState	play/p_ai.h	/^} AiTeamState;$/;"	t	typeref:struct:__anonf4d3b9790208

@@ -450,7 +450,7 @@ void A_Attack(statecontext_t *ctx, mobj_t *unit) {
     (void)P_Attack(ctx, unit);
 }
 
-void A_Walk(statecontext_t *ctx, mobj_t *unit) {
+void A_Look(statecontext_t *ctx, mobj_t *unit) {
     if (!ctx || !unit || !ctx->mobjs || !ctx->mobj_count ||
         unit->hp <= 0 || (unit->traits & MF_ATTACK) == 0 ||
         mobj_attack_range(unit) <= 0.0f || unit->attack.cooldown_left_ms > 0 ||
@@ -481,6 +481,11 @@ void A_Walk(statecontext_t *ctx, mobj_t *unit) {
     int attack_state = ctx->game_info->mobjinfo[unit->type_id].missilestate;
     if (attack_state != ctx->game_info->null_state)
         P_SetMobjState(ctx, unit, attack_state);
+}
+
+void A_Chase(statecontext_t *ctx, mobj_t *unit) {
+    /* Movement runs in P_Ticker; state entry checks for an attack. */
+    A_Look(ctx, unit);
 }
 
 void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,
