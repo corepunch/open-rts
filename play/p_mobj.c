@@ -342,28 +342,10 @@ static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
     return false;
 }
 
-bool P_MoveMobjToward(const level_t *map, mobj_t *unit, float dt) {
-    if (!unit) return true;
-    fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
-    fvec2_t delta = fvec2_sub(unit->movement.goal, pos);
-    float dist = sqrtf(delta.x * delta.x + delta.y * delta.y);
-    if (dist < 0.001f) return true;
-    float step = unit->speed * dt;
-    fvec2_t displacement;
-    if (dist <= step)
-        displacement = delta;
-    else
-        displacement = fvec2_scale(delta, step / dist);
-    if (!move_unit_if_walkable(map, unit, displacement)) {
-        unit->movement.flow_field = NULL;
-        unit->movement.order_arrived = false;
-        return false;
-    }
-    return dist <= step;
-}
-
 static bool unit_has_move_order(const mobj_t *unit) {
-    return unit && unit->movement.flow_field && !unit->movement.order_arrived;
+    return unit && (unit->movement.flow_field ||
+                    ((unit->traits & MF_FLY) && unit->movement.order_id)) &&
+           !unit->movement.order_arrived;
 }
 
 static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
@@ -589,6 +571,7 @@ static void tick_actor(mobj_t *u) {
                                                  target_delta.x,
                                                  target_delta.y);
                 u->movement.flow_field = NULL;
+                u->movement.order_id = 0;
                 u->movement.order_arrived = false;
                 moving = false;
             }
@@ -596,7 +579,7 @@ static void tick_actor(mobj_t *u) {
     }
     fvec2_t move_target = u->movement.goal;
     bool final = true;
-    if (moving && !P_FlowFieldTarget(
+    if (moving && !(u->traits & MF_FLY) && !P_FlowFieldTarget(
             map, u->movement.flow_field,
             fixed3_xy_to_fvec2(u->core.position), u->movement.goal,
             P_MobjRadius(u), &move_target, &final)) {
@@ -628,7 +611,7 @@ static void tick_actor(mobj_t *u) {
         fvec2_t delta = fvec2_sub(
             move_target, fixed3_xy_to_fvec2(u->core.position));
         float dist = sqrtf(fvec2_length_squared(delta));
-        if (final && final_goal_reaches_arrived_order_cluster(
+        if (final && !(u->traits & MF_FLY) && final_goal_reaches_arrived_order_cluster(
                 u, move_target.x, move_target.y, dist)) {
             u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
             u->movement.flow_field = NULL;
@@ -674,7 +657,8 @@ static void tick_actor(mobj_t *u) {
         if (group != 3) {
             if (moving && group != 2) {
                 P_SetMobjState(u, mi->seestate);
-            } else if (!moving && group == 2) {
+            } else if (!moving && group == 2 &&
+                       !((u->traits & MF_FLY) && unit_has_move_order(u))) {
                 P_SetMobjState(u, mi->spawnstate);
             } else {
                 apply_state_visuals(game_info, &u->core,

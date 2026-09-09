@@ -516,7 +516,7 @@ void A_Chase(mobj_t *unit) { (void)unit; }
 void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }
 void A_Attack(mobj_t *unit) { (void)unit; }
 void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }
-void A_DC_Fly(mobj_t *unit) { (void)unit; }
+void A_DC_Arrive(mobj_t *unit) { (void)unit; }
 void A_DC_BuildingStand(mobj_t *unit) { (void)unit; }
 void A_DC_ProductionReady(mobj_t *unit) { (void)unit; }
 void A_DC_Vent(mobj_t *unit) { (void)unit; }
@@ -578,7 +578,9 @@ static int assert_generated_mobj_table_coverage(void) {
 }
 
 static int assert_dropship_state_chain(void) {
-    if (mobjinfo[MT_DROPSHIP].spawnstate != S_DROP_MOVE1 ||
+    if (mobjinfo[MT_DROPSHIP].spawnstate != S_DROP_UNLOAD1 ||
+        mobjinfo[MT_DROPSHIP].seestate != S_DROP_MOVE1 ||
+        states[S_DROP_UNLOAD1].action != A_DC_Arrive ||
         states[S_DROP_MOVE10].nextstate != S_DROP_MOVE1 ||
         states[S_DROP_UNLOAD10].nextstate != S_DROP_RELEASE ||
         states[S_DROP_RELEASE].action != A_DC_Drop ||

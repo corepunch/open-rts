@@ -1,3 +1,9 @@
+> Runtime correction (2026-09-09): the historical custom movement routines below
+> have been superseded by ordinary flying `P_MoveUnitTo` orders and per-tic shared
+> movement. `A_DC_Fly` / `P_MoveMobjToward` are removed. See the dated engine movement
+> correction in `DC_EXE_FINDINGS.md`; this is requested engine behavior, not a new
+> claim about retail gameplay.
+
 # DC.EXE Dropship Animation System
 
 This document records the Dark Colony dropship animation system as traced through

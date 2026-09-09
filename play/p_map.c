@@ -542,6 +542,13 @@ void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
     if (!map || !unit || unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0) return false;
     unit->core.momentum = fixed3_zero();
+    if (unit->traits & MF_FLY) {
+        unit->movement.goal = goal_position;
+        unit->movement.flow_field = NULL;
+        unit->movement.order_id = next_move_order_id();
+        unit->movement.order_arrived = false;
+        return true;
+    }
     cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return false;
     float goal_gx = goal_position.x;

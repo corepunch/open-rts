@@ -1,5 +1,6 @@
 #include "p_drop.h"
 #include "p_reinforce.h"
+#include "p_local.h"
 #include "dc_facing.h"
 #include "info.h"
 #include <math.h>
@@ -53,19 +54,18 @@ void A_DC_Drop(mobj_t *ship) {
     drop->released_count++;
     if (--payload->count == 0) drop->payload_index++;
     mobjlist_t objects = P_ListMobjs();
-    ship->movement.goal = drop->payload_index < drop->payload_count ?
+    fvec2_t goal = drop->payload_index < drop->payload_count ?
         dropship_drop_position(&level, objects.items, objects.count,
                                drop->origin, drop->released_count) :
         fvec2_cell_center(ivec2_add(drop->origin, (ivec2_t){ -1, -1 }));
     P_FreeMobjList(&objects);
+    P_MoveUnitTo(&level, ship, goal);
     P_SetMobjState(ship, S_DROP_MOVE1);
 }
 
-void A_DC_Fly(mobj_t *ship) {
-    if (P_MoveMobjToward(NULL, ship, ship->core.tics * FIXED_DT)) {
-        P_SetMobjState(ship, ship->drop.payload_index < ship->drop.payload_count ?
-                       S_DROP_UNLOAD1 : S_NULL);
-    }
+void A_DC_Arrive(mobj_t *ship) {
+    if (ship->drop.payload_index >= ship->drop.payload_count)
+        P_SetMobjState(ship, S_NULL);
 }
 
 bool DC_StartDropship(int team, ivec2_t origin,
@@ -74,17 +74,16 @@ bool DC_StartDropship(int team, ivec2_t origin,
         payload_count > DROPSHIP_MAX_PAYLOAD_TYPES) return false;
     for (int i = 0; i < payload_count; ++i)
         if (payload[i].count <= 0) return false;
-    mobj_t *ship = P_SpawnMobj(fixed3_zero(), MT_DROPSHIP);
+    mobj_t *ship = P_SpawnMobj(fixed3_from_fvec2(
+        fvec2_cell_center(ivec2_add(origin, (ivec2_t){ -1, -1 })), 0), MT_DROPSHIP);
     if (!ship) return false;
     ship->team = team;
     ship->owner = team == 0 ? 0 : 1;
     ship->allegiance = team == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
     ship->drop = (dc_drop_t){ .origin = origin, .payload_count = payload_count };
     memcpy(ship->drop.payload, payload, (size_t)payload_count * sizeof(*payload));
-    ship->core.position = fixed3_from_fvec2(
-        fvec2_cell_center(ivec2_add(origin, (ivec2_t){ -1, -1 })), 0);
     ship->core.angle = dc_direction_to_angle(6);
-    ship->movement.goal = fvec2_cell_center(origin);
-    P_InitMobj(&game_info, ship);
+    P_MoveUnitTo(&level, ship, fvec2_cell_center(origin));
+    P_SetMobjState(ship, S_DROP_MOVE1);
     return true;
 }

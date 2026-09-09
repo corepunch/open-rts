@@ -88,10 +88,10 @@ static void separate_units(const level_t *map) {
     for (int iter = 0; iter < 3; ++iter) {
         for (thinker_t *tha = thinkercap.next; tha != &thinkercap; tha = tha->next) {
             mobj_t *a = (mobj_t *)tha;
-            if (a->remove || a->hp <= 0 || (a->traits & MF_MOBILE) == 0) continue;
+            if (a->remove || a->hp <= 0 || (a->traits & (MF_MOBILE | MF_FLY)) != MF_MOBILE) continue;
             for (thinker_t *thb = tha->next; thb != &thinkercap; thb = thb->next) {
                 mobj_t *b = (mobj_t *)thb;
-                if (b->remove || b->hp <= 0 || (b->traits & MF_MOBILE) == 0) continue;
+                if (b->remove || b->hp <= 0 || (b->traits & (MF_MOBILE | MF_FLY)) != MF_MOBILE) continue;
                 float min_dist = P_MobjRadius(a) + P_MobjRadius(b);
                 fvec2_t a_position = fixed3_xy_to_fvec2(a->core.position);
                 fvec2_t b_position = fixed3_xy_to_fvec2(b->core.position);

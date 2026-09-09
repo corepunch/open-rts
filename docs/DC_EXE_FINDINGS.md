@@ -1133,6 +1133,22 @@ objects have their movement states switched automatically by the shared ticker.
 The existing Dropship Link type (map type 89, CENT sprite) is now separate from
 the flying ship instead of inheriting its flight states and altitude.
 
+**2026-09-09 engine movement correction (user-requested, not retail evidence):**
+The state-entry movement described above is superseded. Diagnostic logging
+confirmed that `A_DC_Fly` applied 4–5 tics of displacement every 133–167 ms,
+producing visibly stepped flight. Dropships now have `MF_MOBILE | MF_FLY` and
+receive ordinary `P_MoveUnitTo` orders for approach, repositioning after each
+release, and departure. The shared `P_MobjThinker` movement advances each tic,
+independently of FIN frame timing, as Doom's thinker separates momentum movement
+from state timing (`reference/DOOM/p_mobj.c`, `P_MobjThinker`). Flying orders go
+directly to their goal and bypass ground pathing, crowd arrival, and ground
+separation. Arrival enters the unload spawnstate; `A_DC_Arrive` removes an empty
+ship through `S_NULL` and deferred thinker removal. `A_DC_Fly` and its otherwise
+unused `P_MoveMobjToward` helper are deleted. Native animation timing is unchanged.
+Reproduce with `env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_dropship`:
+it checks per-tic displacement, movement within a single animation frame, delivery,
+departure, and the requested 50 px altitude.
+
 The old renderer decomposed a FIN into a capped 16-frame/24-part table,
 spawned effects per part, reset their ages each tick, and forced team remap on
 all layers. Those paths and `w_drop.c/.h` are deleted. The normal object

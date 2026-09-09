@@ -1009,6 +1009,6 @@ void A_DC_ProductionReady(mobj_t *producer);
 void A_DC_Vent(mobj_t *actor);
 void A_DC_ReaperDeath(mobj_t *unit);
 void A_DC_Drop(mobj_t *unit);
-void A_DC_Fly(mobj_t *unit);
+void A_DC_Arrive(mobj_t *unit);
 
 #endif

@@ -248,6 +248,5 @@ void A_Attack(mobj_t *unit);
 
 /* Move toward movement.goal at unit->speed.  Physical displacement belongs
  * to the movement system, not to a state-entry action. */
-bool P_MoveMobjToward(const level_t *map, mobj_t *unit, float dt);
 
 #endif

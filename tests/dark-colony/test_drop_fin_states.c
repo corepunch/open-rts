@@ -62,7 +62,10 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
     mobj_t unit = { .traits = MF_RENDERABLE, .team = team,
         .movement.goal = {16, 16} };
     gameinfo = &game_info;
+    /* Enter unloading with cargo, then suppress release for this pixel-only fixture. */
+    unit.drop.payload_count = 1;
     CHECK(P_SetMobjState(&unit, first_state));
+    unit.drop.payload_count = 0;
     size_t bytes = (size_t)surface->pitch * surface->h;
     void *expected_pixels = malloc(bytes);
     CHECK(expected_pixels);

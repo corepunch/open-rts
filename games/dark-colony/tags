@@ -44,6 +44,8 @@ $	games/dark-colony/tags	/^DYNAMIC_OBJECT_FIRST	games\/dark-colony\/dc_types.h	\
 $	games/dark-colony/tags	/^OBJECT_TYPE_PETRA7_VENT	games\/dark-colony\/dc_types.h	\/^    OBJECT_TYPE_PETRA7_VENT = 40,$\/;"/;"	e	enum:__anonabdb4d820103	file:
 $	games/dark-colony/tags	/^__anonf5138b040103	games\/dark-colony\/dc_types.h	\/^enum {$\/;"	g$/;"	e	enum:__anonabdb4d820103	file:
 AI_OWNER	games/dark-colony/p_prod.c	/^    enum { AI_OWNER = 1 };$/;"	e	enum:G_ModelAIProduction::__anon661954680203	file:
+A_DC_Arrive	games/dark-colony/info.h	/^void A_DC_Arrive(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
+A_DC_Arrive	games/dark-colony/p_drop.c	/^void A_DC_Arrive(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
 A_DC_BuildingStand	games/dark-colony/info.h	/^void A_DC_BuildingStand(mobj_t *building);$/;"	p	typeref:typename:void	signature:(mobj_t * building)
 A_DC_BuildingStand	games/dark-colony/p_building.c	/^void A_DC_BuildingStand(mobj_t *building) {$/;"	f	typeref:typename:void	signature:(mobj_t * building)
 A_DC_BuildingStand::BURN	games/dark-colony/p_building.c	/^    enum { SCRCH, BURN, DIE };$/;"	e	enum:A_DC_BuildingStand::__anon43c6c7810103	file:
@@ -55,8 +57,6 @@ A_DC_Damage	games/dark-colony/p_blood.c	/^void A_DC_Damage(mobj_t *target) {$/;"
 A_DC_Damage	games/dark-colony/p_blood.h	/^void A_DC_Damage(mobj_t *target);$/;"	p	typeref:typename:void	signature:(mobj_t * target)
 A_DC_Drop	games/dark-colony/info.h	/^void A_DC_Drop(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Drop	games/dark-colony/p_drop.c	/^void A_DC_Drop(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
-A_DC_Fly	games/dark-colony/info.h	/^void A_DC_Fly(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
-A_DC_Fly	games/dark-colony/p_drop.c	/^void A_DC_Fly(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
 A_DC_ProductionReady	games/dark-colony/info.h	/^void A_DC_ProductionReady(mobj_t *producer);$/;"	p	typeref:typename:void	signature:(mobj_t * producer)
 A_DC_ProductionReady	games/dark-colony/p_prod.c	/^void A_DC_ProductionReady(mobj_t *producer) {$/;"	f	typeref:typename:void	signature:(mobj_t * producer)
 A_DC_ReaperDeath	games/dark-colony/info.h	/^void A_DC_ReaperDeath(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
