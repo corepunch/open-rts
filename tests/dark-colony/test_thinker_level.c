@@ -41,8 +41,9 @@ int main(void) {
     }
     mobj_t *blood = P_SpawnMobj(producer->core.position, MT_BLOOD);
     assert(blood && blood->thinker.function == P_MobjThinker);
-    assert(blood->core.state_id == S_BLOOD1 && blood->core.tics == 2);
-    for (int tic = 0; tic < 12; ++tic) P_Ticker();
+    assert(P_SetMobjState(blood, S_TRSCBLOODA0_313));
+    assert(blood->core.tics == 4);
+    for (int tic = 0; tic < 40; ++tic) P_Ticker();
     assert(blood->remove && blood->thinker.function == NULL);
     P_Ticker();
     rts_game_model_destroy(second);
