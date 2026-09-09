@@ -77,6 +77,7 @@ W_LoadAssets	games/7legion/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, 
 _DEFAULT_SOURCE	games/7legion/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/7legion/w_bim.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/7legion/w_map.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
+__INFO__	games/7legion/info.h	/^#define __INFO__$/;"	d
 __MOBJ_DATA__	games/7legion/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __SL_TYPES__	games/7legion/sl_types.h	/^#define __SL_TYPES__$/;"	d
 __anon6c02bde40108	games/7legion/w_bim.c	/^typedef struct {$/;"	s	file:
@@ -95,8 +96,15 @@ __anon6cc5752a0108::start_cash	games/7legion/w_map.c	/^    int start_cash;$/;"	m
 __anon6cc5752a0108::start_x	games/7legion/w_map.c	/^    int start_x;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 __anon6cc5752a0108::start_y	games/7legion/w_map.c	/^    int start_y;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 __anon6cc5752a0108::terrain	games/7legion/w_map.c	/^    int terrain;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
+activesound	games/7legion/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 actor_types	games/7legion/g_game.c	/^const mobjtype_t *const actor_types =$/;"	v	typeref:typename:const mobjtype_t * const
+attacksound	games/7legion/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+damage	games/7legion/info.h	/^    int damage;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 data_offset	games/7legion/w_bim.c	/^    uint16_t data_offset;$/;"	m	struct:__anon6c02bde40108	typeref:typename:uint16_t	file:
+deathsound	games/7legion/info.h	/^    int deathsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+deathstate	games/7legion/info.h	/^    int deathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+doomednum	games/7legion/info.h	/^    int doomednum;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+flags	games/7legion/info.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 g_cell_h	games/7legion/g_game.c	/^const int g_cell_h = TILE_H;$/;"	v	typeref:typename:const int
 g_cell_w	games/7legion/g_game.c	/^const int g_cell_w = TILE_W;$/;"	v	typeref:typename:const int
 g_debug_enemy_type	games/7legion/g_game.c	/^const uint16_t g_debug_enemy_type = 1;$/;"	v	typeref:typename:const uint16_t
@@ -107,15 +115,53 @@ g_game_id	games/7legion/g_game.c	/^const char *const g_game_id            = "7le
 g_game_name	games/7legion/g_game.c	/^const char *const g_game_name          = "7th Legion";$/;"	v	typeref:typename:const char * const
 gameinfo	games/7legion/g_game.c	/^const gameinfo_t *gameinfo = &GAME_INFO;$/;"	v	typeref:typename:const gameinfo_t *
 gameui	games/7legion/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typeref:typename:const uidefinition_t * const
+height	games/7legion/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 height	games/7legion/w_bim.c	/^    uint16_t height;$/;"	m	struct:__anon6c02bde40108	typeref:typename:uint16_t	file:
 map_number	games/7legion/w_map.c	/^    int map_number;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
+mass	games/7legion/info.h	/^    int mass;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 max_x	games/7legion/w_bim.c	/^    int max_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 max_y	games/7legion/w_bim.c	/^    int max_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
+meleestate	games/7legion/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 min_x	games/7legion/w_bim.c	/^    int min_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 min_y	games/7legion/w_bim.c	/^    int min_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
+missilestate	games/7legion/info.h	/^    int missilestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s	games/7legion/info.h	/^typedef struct mobjinfo_s {$/;"	s
+mobjinfo_s::activesound	games/7legion/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::attacksound	games/7legion/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::damage	games/7legion/info.h	/^    int damage;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::deathsound	games/7legion/info.h	/^    int deathsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::deathstate	games/7legion/info.h	/^    int deathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::doomednum	games/7legion/info.h	/^    int doomednum;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::flags	games/7legion/info.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::height	games/7legion/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::mass	games/7legion/info.h	/^    int mass;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::meleestate	games/7legion/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::missilestate	games/7legion/info.h	/^    int missilestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::painchance	games/7legion/info.h	/^    int painchance;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::painsound	games/7legion/info.h	/^    int painsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::painstate	games/7legion/info.h	/^    int painstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::radius	games/7legion/info.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::raisestate	games/7legion/info.h	/^    int raisestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::reactiontime	games/7legion/info.h	/^    int reactiontime;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::seesound	games/7legion/info.h	/^    int seesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::seestate	games/7legion/info.h	/^    int seestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::spawnhealth	games/7legion/info.h	/^    int spawnhealth;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::spawnstate	games/7legion/info.h	/^    int spawnstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::spawnz	games/7legion/info.h	/^    fixed_t spawnz;$/;"	m	struct:mobjinfo_s	typeref:typename:fixed_t
+mobjinfo_s::speed	games/7legion/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_s::xdeathstate	games/7legion/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo_t	games/7legion/info.h	/^} mobjinfo_t;$/;"	t	typeref:struct:mobjinfo_s
 num_actor_types	games/7legion/g_game.c	/^const int num_actor_types =$/;"	v	typeref:typename:const int
+painchance	games/7legion/info.h	/^    int painchance;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+painsound	games/7legion/info.h	/^    int painsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+painstate	games/7legion/info.h	/^    int painstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 pixel_count	games/7legion/w_bim.c	/^    size_t pixel_count;$/;"	m	struct:__anon6c02bde40108	typeref:typename:size_t	file:
 player_start	games/7legion/w_map.c	/^    char player_start[64];$/;"	m	struct:__anon6cc5752a0108	typeref:typename:char[64]	file:
+radius	games/7legion/info.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+raisestate	games/7legion/info.h	/^    int raisestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+reactiontime	games/7legion/info.h	/^    int reactiontime;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+seesound	games/7legion/info.h	/^    int seesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+seestate	games/7legion/info.h	/^    int seestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 sl_bim_frame_info	games/7legion/w_bim.c	/^static bool sl_bim_frame_info(const uint8_t *data, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * data,size_t size,uint32_t offset,uint32_t end,SlBimFrameInfo * out)
 sl_cache_bim_sprite	games/7legion/w_bim.c	/^static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,$/;"	f	typeref:typename:bool	file:	signature:(spritecache_t * cache,SDL_Renderer * renderer,const char * data_root,const char * sprite_name,const uint32_t palette[256])
 sl_expand_vclz	games/7legion/w_bim.c	/^static bool sl_expand_vclz(const uint8_t *source, size_t source_size,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * source,size_t source_size,uint8_t ** out_data,size_t * out_size)
@@ -134,8 +180,13 @@ sl_load_runtime_sprites	games/7legion/w_bim.c	/^bool sl_load_runtime_sprites(SDL
 sl_palette_for_tileset	games/7legion/w_bim.c	/^static const char *sl_palette_for_tileset(const level_t *map) {$/;"	f	typeref:typename:const char *	file:	signature:(const level_t * map)
 sl_sibling_path	games/7legion/w_map.c	/^static bool sl_sibling_path(char *out, size_t out_size,$/;"	f	typeref:typename:bool	file:	signature:(char * out,size_t out_size,const char * path,const char * name)
 sl_tileset_for_terrain	games/7legion/w_map.c	/^static const char *sl_tileset_for_terrain(int terrain) {$/;"	f	typeref:typename:const char *	file:	signature:(int terrain)
+spawnhealth	games/7legion/info.h	/^    int spawnhealth;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+spawnstate	games/7legion/info.h	/^    int spawnstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+spawnz	games/7legion/info.h	/^    fixed_t spawnz;$/;"	m	struct:mobjinfo_s	typeref:typename:fixed_t
+speed	games/7legion/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 start_cash	games/7legion/w_map.c	/^    int start_cash;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 start_x	games/7legion/w_map.c	/^    int start_x;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 start_y	games/7legion/w_map.c	/^    int start_y;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 terrain	games/7legion/w_map.c	/^    int terrain;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 width	games/7legion/w_bim.c	/^    int width;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
+xdeathstate	games/7legion/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

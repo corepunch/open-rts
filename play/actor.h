@@ -69,32 +69,7 @@ typedef struct state_s {
     int group; /* Gameplay animation group, independent of sprite presentation. */
 } state_t;
 
-typedef struct mobjinfo_s {
-    int doomednum;
-    int spawnstate;
-    int spawnhealth;
-    int seestate;
-    int seesound;
-    int reactiontime;
-    int attacksound;
-    int painstate;
-    int painchance;
-    int painsound;
-    int meleestate;
-    int missilestate;
-    int deathstate;
-    int xdeathstate;
-    int deathsound;
-    int speed;
-    int radius;
-    int height;
-    int mass;
-    int damage;
-    int activesound;
-    int flags;
-    int raisestate;
-    fixed_t spawnz;
-} mobjinfo_t;
+typedef struct mobjinfo_s mobjinfo_t;
 
 typedef enum {
     RTS_STATE_COORDS_GROUND_OFFSET = 0,

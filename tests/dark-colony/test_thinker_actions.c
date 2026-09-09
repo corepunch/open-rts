@@ -1,4 +1,5 @@
 #include "game.h"
+#include "info.h"
 #include <assert.h>
 
 static mobj_t *other;

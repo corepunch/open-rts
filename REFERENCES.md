@@ -1024,7 +1024,7 @@ Local format findings from `data/KKND`:
 
 ### FIN exporter text format reference (2026-09-09)
 
-Reference inspected: local `/Users/igor/Developer/idTech/doom-utilities-master/`
+Reference inspected: local `reference/doom-utilities-master/`
 `multigen.txt` and `multigen.c` (John Carmack's DOOM STATESCR, version 1.0).
 This checkout has no Git metadata; upstream URL/revision is unverified.
 The text uses `state sprite frame tics action nextstate` rows and semicolon
@@ -1032,3 +1032,27 @@ comments. Dark Colony's FIN exporter follows that column structure with numeric
 native frame indices and raw durations; it is not directly compatible with the
 original parser, which interprets frame letters. Details and asset exceptions
 are recorded in `docs/DC_EXE_FINDINGS.md`, “FIN-only multigen-style exporter”.
+
+### Per-game object schemas and designated fields (2026-09-09)
+
+Confirmed in local `reference/doom-utilities-master/multigen.c`:
+
+- Lines 213–236 read `$ DEFAULT` into `baseinfo`, recording field names and values.
+- Lines 310–319 generate `mobjinfo_t` and its array declaration in `info.h`.
+  Fields beginning with `str_` become `char *`; the others become `int`.
+- Lines 374–395 emit each object's values, substituting defaults for missing
+  fields and printing the field name as a comment.
+- `reference/DOOM/info.h:1304–1333` contains Doom's object schema and array
+  declaration. Its header identifies the tables as multigen output.
+
+This explains the type's placement: the schema and object table are outputs of
+the same game data description. open-rts now keeps `mobjinfo_t` in each game's
+`info.h`, selected at build time; shared actor declarations borrow the type by
+forward declaration. The existing schemas retain their field layouts.
+Dark Colony uses one `.field = value,` per line, omits zero fields (including
+S_NULL, whose enum value is zero), and keeps MT names as object comments.
+C's implicit zero initialization replaces explicit zero values; it does not
+apply multigen's potentially nonzero `$ DEFAULT` values. The all-zero MT_NULL
+entry retains `{0}` semantics for C11. An independent comparison checked all
+384 fields across 16 entries; all four game builds, the DC layout test, state
+and thinker-action tests, and the headless DC smoke check pass.

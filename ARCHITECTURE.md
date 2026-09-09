@@ -100,7 +100,12 @@ The renderer-neutral snapshot exposes the same bit values as
 
 ### `MobjInfo[]`: type entry points
 
-`mobjinfo_t` provides the classic state entry points and physical defaults:
+`mobjinfo_t` is defined in each game's `info.h`, following Doom's ownership
+of the object schema alongside its game tables. Shared `actor.h` only forward
+declares it; simulation code that reads its fields includes the selected game's
+`info.h`. The per-game build already selects that header through its include path.
+
+It provides the classic state entry points and physical defaults:
 spawn, see, missile/attack, pain, death, radius, height, mass, damage, and
 flags. The model resolves an actor's type ID through the selected game's
 `gameinfo_t` and applies the corresponding `ActorType` defaults before calling

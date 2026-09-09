@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
 #include "game.h"
+#include "info.h"
 
 enum {
     RTS_HARVEST_INTERVAL_MS = 1000,

@@ -1,4 +1,5 @@
 #include "game.h"
+#include "info.h"
 #include "engine_config.h"
 #include "engine.h"
 #include "../rts_model_test.h"
