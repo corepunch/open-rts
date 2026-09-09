@@ -357,6 +357,21 @@ cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name) {
     return NULL;
 }
 
+bool R_AllocSpriteCells(spritesheet_t *sprite, int count) {
+    if (count <= 0) return false;
+    spritecell_t *cells = calloc((size_t)count, sizeof(*cells));
+    spritelump_t *lumps = calloc((size_t)count, sizeof(*lumps));
+    if (!cells || !lumps) {
+        free(cells);
+        free(lumps);
+        return false;
+    }
+    sprite->cells = cells;
+    sprite->lumps = lumps;
+    sprite->numlumps = count;
+    return true;
+}
+
 bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
                               const uint32_t *pixels, int source_stride,
                               irect_t source, bool blend, int translation) {
@@ -381,7 +396,6 @@ bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
             return false;
         }
         lump->texture = texture;
-        lump->rect = (irect_t){ 0, 0, source.w, source.h };
         return true;
     }
 
@@ -609,7 +623,7 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
         return false;
     }
 
-    irect_t source = sprite->lumps[frame].rect;
+    irect_t source = sprite->cells[frame].rect;
     for (int y = 0; y < clip.h; ++y) {
         int source_y = clip.y - dst.y + y;
         for (int x = 0; x < clip.w; ++x) {
@@ -722,7 +736,7 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     SDL_Texture *texture = begin_sprite_command(sprite, frame, render_flags,
                                                 dec->render_remap, 16);
     if (!texture) return;
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
                      0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
 }
@@ -771,7 +785,7 @@ static bool circle_intersects_rect(fvec2_t center, float radius, irect_t r) {
 
 static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
-        irect_t r = sprite->lumps[frame].bounds;
+        irect_t r = sprite->cells[frame].bounds;
         if (r.w > 0 && r.h > 0) return r;
     }
     return (irect_t){ 0, 0,
@@ -781,8 +795,8 @@ static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame) {
 
 static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps &&
-        sprite->lumps[frame].rect.w > 0 && sprite->lumps[frame].rect.h > 0) {
-        return sprite->lumps[frame].rect;
+        sprite->cells[frame].rect.w > 0 && sprite->cells[frame].rect.h > 0) {
+        return sprite->cells[frame].rect;
     }
     return (irect_t){ 0, 0,
                       sprite ? sprite->frame_size.w : 1,
@@ -791,8 +805,8 @@ static irect_t sprite_frame_rect(const spritesheet_t *sprite, int frame) {
 
 static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
-        return (SDL_Point){ sprite->lumps[frame].displacement.x,
-                            sprite->lumps[frame].displacement.y };
+        return (SDL_Point){ sprite->cells[frame].displacement.x,
+                            sprite->cells[frame].displacement.y };
     }
     return (SDL_Point){ 0, 0 };
 }
@@ -801,16 +815,16 @@ static int sprite_world_offset_x(const spritesheet_t *sprite, int frame,
                                  uint32_t render_flags) {
     SDL_Point p = { 0, 0 };
     if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
-        p = (SDL_Point){ sprite->lumps[frame].displacement.x,
-                         sprite->lumps[frame].displacement.y };
+        p = (SDL_Point){ sprite->cells[frame].displacement.x,
+                         sprite->cells[frame].displacement.y };
     }
     return (render_flags & RTS_FRAME_FLIP_X) != 0 ? 0 : p.x;
 }
 
 static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
-        return (SDL_Point){ sprite->lumps[frame].ground_point.x,
-                            sprite->lumps[frame].ground_point.y };
+        return (SDL_Point){ sprite->cells[frame].ground_point.x,
+                            sprite->cells[frame].ground_point.y };
     }
     irect_t bounds = sprite_visible_bounds(sprite, frame);
     return (SDL_Point){ bounds.x + bounds.w / 2, bounds.y + bounds.h };
@@ -1069,7 +1083,7 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
     if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
     SDL_Texture *texture = begin_sprite_command(marker, frame, 0, 0, 16);
     if (!texture) return false;
-    SDL_RenderCopy(app->renderer, texture, &marker->lumps[frame].rect, &dst);
+    SDL_RenderCopy(app->renderer, texture, &marker->cells[frame].rect, &dst);
     end_sprite_command(texture, 0);
     return true;
 }
@@ -1123,7 +1137,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
         irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
         SDL_RenderCopy(app->renderer, shadow->lumps[shadow_frame].texture,
-                   &shadow->lumps[shadow_frame].rect, &shadow_dst);
+                   &shadow->cells[shadow_frame].rect, &shadow_dst);
     }
     float content_y = (float)visible.y;
     int logical_frame = game_info && game_info->states && game_info->state_count > 0 ?
@@ -1162,7 +1176,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
                 SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
             SDL_RenderCopyEx(app->renderer, part_texture,
-                             &source->lumps[part->lump].rect, &part_dst,
+                             &source->cells[part->lump].rect, &part_dst,
                              0.0, NULL, part_flip);
             end_sprite_command(part_texture, part_flags);
         }
@@ -1172,7 +1186,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                                 u->core.render_remap,
                                                 u->core.render_intensity);
     if (!texture) return;
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
                      0.0, NULL, flip);
     end_sprite_command(texture, render_flags);
     }
@@ -1476,7 +1490,7 @@ void R_DrawEffects(app_t *app, const level_t *map,
                                                     effect->core.render_remap,
                                                     effect->core.render_intensity);
         if (!texture) continue;
-        SDL_RenderCopyEx(app->renderer, texture, &sprite->lumps[frame].rect, &dst,
+        SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
                  0.0, NULL, flip);
         end_sprite_command(texture, effect->core.render_flags);
     }
@@ -1681,6 +1695,7 @@ void R_FreeSprite(spritesheet_t *sprite) {
                 free(sprite->spritedef.spriteframes[frame].directions[rotation].layers);
         }
     }
+    free(sprite->cells);
     free(sprite->lumps);
     free(sprite->spritedef.spriteframes);
     memset(sprite, 0, sizeof(*sprite));

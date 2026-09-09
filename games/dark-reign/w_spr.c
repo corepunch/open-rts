@@ -228,15 +228,14 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
                size; opaque-pixel bounds are not a ground-contact hotspot. */
             ground_points[i] = (SDL_Point){ szx / 2, szy / 2 };
         }
-        out->lumps = calloc((size_t)total_frames, sizeof(*out->lumps));
-        if (!out->lumps) {
+        if (!R_AllocSpriteCells(out, total_frames)) {
             free(rgba); free(indices); free(frames); free(bounds);
             free(ground_points); free(sects);
             return false;
         }
-        out->numlumps = total_frames;
         for (int i = 0; i < total_frames; ++i) {
-            out->lumps[i] = (spritelump_t){
+            out->cells[i] = (spritecell_t){
+                .rect = { 0, 0, frames[i].w, frames[i].h },
                 .bounds = bounds[i],
                 .ground_point = { ground_points[i].x, ground_points[i].y },
             };

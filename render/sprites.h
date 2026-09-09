@@ -56,13 +56,18 @@ typedef struct spritelump_s {
     spritetranslation_t *translations;
     int translation_count;
     uint8_t *indices;
+} spritelump_t;
+
+/* Sprite geometry, indexed by the layer cell number; no renderer resources. */
+typedef struct spritecell_s {
     irect_t rect;
     irect_t bounds;
     ivec2_t ground_point;
     ivec2_t displacement;
-} spritelump_t;
+} spritecell_t;
 
 typedef struct spritesheet_s {
+    spritecell_t *cells;
     spritelump_t *lumps;
     int numlumps;
     isize2_t frame_size;

@@ -79,6 +79,7 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
             font->glyph_width[ch] : font->glyph_size.w;
         if (frame >= 0 && frame < font->sprite.numlumps) {
             const spritelump_t *lump = &font->sprite.lumps[frame];
+            const spritecell_t *cell = &font->sprite.cells[frame];
             SDL_Texture *texture = lump->texture;
             for (int i = 0; i < lump->translation_count; ++i) {
                 if (lump->translations[i].id == remap) {
@@ -86,9 +87,9 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
                     break;
                 }
             }
-            irect_t src = lump->rect;
-            if (lump->bounds.w > 0 && lump->bounds.h > 0) {
-                irect_t bounds = lump->bounds;
+            irect_t src = cell->rect;
+            if (cell->bounds.w > 0 && cell->bounds.h > 0) {
+                irect_t bounds = cell->bounds;
                 src.x += bounds.x;
                 src.y += bounds.y;
                 src.w = bounds.w;

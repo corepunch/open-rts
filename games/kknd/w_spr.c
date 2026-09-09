@@ -211,15 +211,14 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
                 rgba[(size_t)(dy + y) * atlas_w + dx + x] = index == 0 ? 0 : palette[index];
             }
     }
-    out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
-    if (!out->lumps) {
+    if (!R_AllocSpriteCells(out, frame_count)) {
         free(rgba);
         free(rects); free(bounds); free(displacements);
         goto fail;
     }
-    out->numlumps = frame_count;
     for (int i = 0; i < frame_count; ++i) {
-        out->lumps[i] = (spritelump_t){
+        out->cells[i] = (spritecell_t){
+            .rect = { 0, 0, rects[i].w, rects[i].h },
             .bounds = bounds[i],
             .displacement = { displacements[i].x, displacements[i].y },
         };

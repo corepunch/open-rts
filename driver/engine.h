@@ -29,6 +29,7 @@ void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint
 void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                    const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
+bool R_AllocSpriteCells(spritesheet_t *sprite, int count);
 bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
                               const uint32_t *pixels, int source_stride,
                               irect_t source, bool blend, int translation);

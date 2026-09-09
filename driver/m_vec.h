@@ -23,6 +23,10 @@ enum {
 typedef SDL_Rect  irect_t;
 typedef SDL_FRect frect_t;
 
+static inline isize2_t isize2_max(isize2_t a, isize2_t b) {
+    return (isize2_t){ a.w > b.w ? a.w : b.w, a.h > b.h ? a.h : b.h };
+}
+
 static inline fvec2_t fvec2_add(fvec2_t a, fvec2_t b) { return (fvec2_t){ a.x + b.x, a.y + b.y }; }
 static inline fvec2_t fvec2_sub(fvec2_t a, fvec2_t b) { return (fvec2_t){ a.x - b.x, a.y - b.y }; }
 static inline fvec2_t fvec2_scale(fvec2_t value, float scale) {

@@ -460,3 +460,73 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading /priva
 `test_fin_loading` additionally exercises fixed-width names, signed offsets,
 layer ownership after freeing the file, frame bounds, truncated spans, invalid
 part counts, and rejection of fields that do not fit runtime layer types.
+
+## Native record views and sprite geometry (2026-09-09)
+
+**Confirmed from native files and the existing extraction tool:** FIN word
+`+0x02` counts 164-byte frame records. Word `+0x00` is `29` in the inspected
+TRSC/EXPL files and is not their frame count. The previous runtime incorrectly
+used that first word as a frame allocation count, then took the maximum with
+SPR cell count. This truncated available FIN frame indices for large animations
+and added empty placeholders to small sprites. The format/version interpretation
+of the first word remains an inference; the extraction tool's `default_ticks`
+name is not independent proof of a timing rule. This refactor does not apply
+that word as a duration.
+
+| Asset | SHA-256 | Native layout |
+| --- | --- | --- |
+| `SPRITES/TRSC.SPR` | `51092690d9700cecdcac5e7c53b7cffbd09cedcc582b509a9e16adc9f740d117` | 209 cells, 184,959 bytes |
+| `SPRITES/EXPL.SPR` | `1eed4f57075ff91589caaba490079b58394ce9fad282a4a06648a1db8362a721` | 50 cells, 79,821 bytes |
+| `ANIMATE/TRSC.FIN` | `eb94f6f3fff53b9f46f1540abf5287c11f83a7db7957d6288b2330b13e1f3b2a` | 472 frames; labels at 48, frames at 1,588, commands at 78,996; 596 commands |
+| `ANIMATE/EXPL.FIN` | `6cd02d2153bf692155aaf31d73015eb7de89902ecccdc9a079af5a8a6ed2812c` | 232 frames; labels at 112, frames at 1,192, commands at 39,240; 392 commands |
+
+**Correction to older terminology:** label start/end values index frame records,
+not the flattened command array. Each frame's first word gives its part count;
+the second gives its ticks. Summing preceding part counts locates its first
+22-byte command. TRSC's 472 frame part counts sum to 596 commands; EXPL's 232
+sum to 392. The new loader computes this relocation index once. The remaining
+160 bytes of each frame are retained as unknown bytes, with no new semantic
+interpretation.
+
+**Implementation:** size- and offset-asserted native structures view the checked
+file buffer directly. Header, descriptor, label, and command arrays are not
+copied into intermediate decoded tables. Integer fields use explicit
+little-endian conversion. SPR compressed lengths still use byte reads because
+an odd-length preceding compressed stream need not preserve alignment. FIN
+labels are collected into direction sequences once; repeated label-name
+construction and prefix rescans of all preceding frame commands are removed.
+
+Sprite-owned `spritecell_t` records hold source rectangles, native displacement,
+visible bounds, and ground points. `spritelump_t` holds only indexed pixels and
+texture resources. All game loaders and render/UI consumers use the same
+separation. This is final sprite metadata, not the temporary duplicated arrays
+removed in the earlier SPR loader audit.
+
+Native SPR size/displacement and FIN offsets/ticks remain authoritative. Tight
+opaque bounds for font/UI cropping, the aggregate canvas extent, and the
+previously documented FIN-to-pivot coordinate conversion still require
+calculation; those are not additional fields in the mapped records. Pivots now
+visit the FIN command stream once per sheet. Empty cells still receive a
+transparent minimum-size SDL backing texture. No native visual compensation
+constant was added.
+
+**Verification against `7311c76`:** all 461 local SPR/FIN paths were visited.
+All 389 previously successful sheets have identical image/translation pixels,
+cell geometry, indices, palettes, and canvas extents. All 14,971 animation-frame
+records present in both versions match exactly. The 670 removed frame records
+were all empty placeholders (catalog per-frame hash `6c9e8677411ce91f`). New frame
+indices come from using the true FIN count. Removing the unsupported 512-pixel
+cell cap admits `INTRFACE/SCNE.SPR` and `SPRITES/CHAB.SPR`, producing 391 successful
+loads and 70 unchanged failures. The earlier audit's 512-pixel limitation is
+superseded by checked native spans. The before/after Dark Colony headless BMP
+screenshots are byte-identical.
+
+Reproduce loading and layout checks with `make`, `make test-layout`, and
+`SDL_VIDEODRIVER=dummy make test-dark-colony`. `test_fin_loading` checks that
+record pointers borrow the file at their actual offsets and that frame command
+pointers are relocated correctly. `test_sprite_definitions` asserts TRSC's 472
+and EXPL's 232 frame counts alongside existing facing and multipart assertions.
+`test_sprite_loading` includes a successful 640-pixel-wide native cell fixture
+and its catalog mode can inspect every SPR/FIN path as documented above.
+No additional DC.EXE instructions were interpreted; its fingerprint at the top
+of this report and the existing anchor evidence remain the applicable reference.

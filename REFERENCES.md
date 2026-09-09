@@ -13,7 +13,7 @@ plugin-specific behavior.
     rotation. Sprite definitions choose images; they do not own a fixed atlas.
   - `FGameTexture` keeps the source image, dimensions, offsets, and optional
     material layers separate from renderer resources. Its sprite positioning
-    data supplies the equivalent of our per-lump bounds and ground point.
+    data supplies the equivalent of our sprite-cell bounds and ground point, separate from lumps.
   - `FHardwareTextureContainer` lazily owns the default GPU texture and cached
     translation-specific GPU textures for one source image. The translated
     cache is keyed by translation rather than represented as fixed slots on
@@ -424,6 +424,13 @@ example, `GRAYFIREA0` starts at command index `78`, and command `78` points to
 raw `GRAY.SPR` frame `80`. Likewise `GRAYMOVE2 0x47..0x4d` is seven command
 records, not raw frames `71..77`; its body commands point at raw frames
 `23,31,39,47,55,63,71`.
+
+**Correction (2026-09-09):** the `aux_count` records above are the 164-byte FIN
+frames, and named ranges index those frames rather than flattened commands.
+Their part counts locate variable-length command groups. The first word `29`
+is not a frame count; its precise format/timing role remains unverified. See
+`docs/DC_EXE_FINDINGS.md`, “Native record views and sprite geometry,” for native
+file fingerprints, span offsets, the corrected loader, and regression results.
 
 ### FIN Label Naming Convention
 

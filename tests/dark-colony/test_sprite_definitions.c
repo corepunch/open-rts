@@ -28,7 +28,7 @@ int main(void) {
     static const int expected_lumps[8] = { 16, 23, 22, 21, 20, 19, 18, 17 };
     static const uint8_t expected_flips[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
     const spriteframe_t *run = &sprite.spritedef.spriteframes[16];
-    bool valid = sprite.spritedef.rotations == 8;
+    bool valid = sprite.spritedef.rotations == 8 && sprite.spritedef.numframes == 472;
     for (int rotation = 0; rotation < 8; ++rotation) {
         const spritelayer_t *part = run->directions[rotation].layers;
         if (!part || part->lump != expected_lumps[rotation] ||
@@ -74,7 +74,7 @@ int main(void) {
     } else {
         const spriteframe_t *stand = &sprite.spritedef.spriteframes[0];
         const spritelayer_t *part = stand->directions[1].layers;
-        if (sprite.spritedef.rotations != 16 ||
+        if (sprite.spritedef.numframes != 232 || sprite.spritedef.rotations != 16 ||
             !part || part->lump != 1 || (part->flags & RTS_FRAME_FLIP_X) == 0) {
             fprintf(stderr, "FAIL: Exploiter facing 15 preserves native frame and flip: %d/%u\n",
                 part ? part->lump : -1,

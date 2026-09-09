@@ -322,15 +322,14 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         }
     }
 
-    out->lumps = calloc((size_t)frame_count, sizeof(*out->lumps));
-    if (!out->lumps) {
+    if (!R_AllocSpriteCells(out, frame_count)) {
         free(rgba); free(info); free(expanded); W_FreeFile(&blob);
         free(frames); free(bounds); free(ground_points);
         return false;
     }
-    out->numlumps = frame_count;
     for (int i = 0; i < frame_count; ++i) {
-        out->lumps[i] = (spritelump_t){
+        out->cells[i] = (spritecell_t){
+            .rect = { 0, 0, frames[i].w, frames[i].h },
             .bounds = bounds[i],
             .ground_point = { ground_points[i].x, ground_points[i].y },
         };

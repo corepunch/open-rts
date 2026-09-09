@@ -207,9 +207,9 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *s
                                   irect_t box, uint32_t render_flags) {
     if (!renderer || !sprite || !sprite->lumps || sprite->numlumps <= 0) return;
     if (frame < 0 || frame >= sprite->numlumps) frame = 0;
-    irect_t src = sprite->lumps[frame].rect;
-    if (sprite->lumps[frame].bounds.w > 0 && sprite->lumps[frame].bounds.h > 0) {
-        irect_t bounds = sprite->lumps[frame].bounds;
+    irect_t src = sprite->cells[frame].rect;
+    if (sprite->cells[frame].bounds.w > 0 && sprite->cells[frame].bounds.h > 0) {
+        irect_t bounds = sprite->cells[frame].bounds;
         src.x += bounds.x;
         src.y += bounds.y;
         src.w = bounds.w;

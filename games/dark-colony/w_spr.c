@@ -92,13 +92,11 @@ static bool DC_AssetExists(const char *path) {
     return true;
 }
 
-static void decode_palette(const uint8_t *spr, size_t size, uint32_t colors[256]) {
-    if (size < 8 + 256 * 3) return;
-    const uint8_t *p = spr + 8;
+static void decode_palette(const uint8_t palette[256][3], uint32_t colors[256]) {
     for (int i = 0; i < 256; ++i) {
-        int r = clamp255((int)p[i * 3 + 0] * 4 + 3);
-        int g = clamp255((int)p[i * 3 + 1] * 4 + 3);
-        int b = clamp255((int)p[i * 3 + 2] * 4 + 3);
+        int r = clamp255((int)palette[i][0] * 4 + 3);
+        int g = clamp255((int)palette[i][1] * 4 + 3);
+        int b = clamp255((int)palette[i][2] * 4 + 3);
         colors[i] = i == 0 ? 0x00000000u :
             (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
     }
@@ -113,7 +111,7 @@ typedef struct {
 static RenderTables render_tables;
 
 static bool install_fin_parts(spriteframe_t *spriteframe, int rotation,
-                              const blob_t *animation, int frame_index,
+                              const dc_fin_t *animation, int frame_index,
                               const char *stem, int numlumps) {
     spritedirection_t decoded = {0};
     if (!DC_FINFrame(animation, frame_index, &decoded)) return false;
@@ -143,65 +141,90 @@ static bool install_fin_parts(spriteframe_t *spriteframe, int rotation,
     return true;
 }
 
-static void install_dark_colony_fin_frames(spritesheet_t *sheet,
-                                           const blob_t *animation,
-                                           const char *stem, const char *action) {
-    if (!sheet || !animation || !stem || !action ||
-        !sheet->spritedef.spriteframes) return;
-    char label_name[17];
-    char label_stem[9];
-    snprintf(label_stem, sizeof(label_stem), "%s", stem);
-    for (char *c = label_stem; *c; ++c)
-        *c = (char)toupper((unsigned char)*c);
-    enum { MAX_FIN_SEQUENCE_FRAMES = 32 };
-    int rotations = 16;
-    int length = -1;
-retry:
-    length = -1;
-    for (int rotation = 0; rotation < rotations; ++rotation) {
-        int direction = rotations == 16 ? rotation : rotation * 2;
-        const char *label_action = strcmp(label_stem, "EXPL") == 0 &&
-            strcmp(action, "STAND") == 0 && (direction & 1) ? "SHUF" : action;
-        snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem, label_action,
-                 direction);
-        const uint8_t *label = DC_FINLabel(animation, label_name);
-        if (!label || read_u16_le(label + 18) < read_u16_le(label + 16)) {
-            if (rotations == 16) {
-                rotations = 8;
-                goto retry;
-            }
-            return;
-        }
-        int label_length = read_u16_le(label + 18) - read_u16_le(label + 16) + 1;
-        if (label_length > MAX_FIN_SEQUENCE_FRAMES) return;
-        if (length < 0) length = label_length;
-        if (label_length > length) length = label_length;
-    }
+enum { FIN_ACTIONS = 8, FIN_DIRECTIONS = 16 };
+static const char *const fin_actions[FIN_ACTIONS] = {
+    "STAND", "MOVE", "FIREA", "FIREB", "FIRE", "DIEA", "DIEB", "DIEC",
+};
 
-    sheet->spritedef.rotations = rotations;
-    sheet->spritedef.first_angle = dc_fin_direction_to_angle(0);
-    sheet->spritedef.clockwise = true;
-    snprintf(label_name, sizeof(label_name), "%s%s0", label_stem, action);
-    const uint8_t *base_label = DC_FINLabel(animation, label_name);
-    if (!base_label) return;
-    for (int frame = 0; frame < length; ++frame) {
-        int logical_frame = read_u16_le(base_label + 16) + frame;
-        if (logical_frame < 0 || logical_frame >= sheet->spritedef.numframes) continue;
-        spriteframe_t *spriteframe = &sheet->spritedef.spriteframes[logical_frame];
-        snprintf(spriteframe->frame_name, sizeof(spriteframe->frame_name),
-             "%.16s", (const char *)base_label);
-        for (int rotation = 0; rotation < sheet->spritedef.rotations; ++rotation) {
-            int direction = rotations == 16 ? rotation : rotation * 2;
-            const char *label_action = strcmp(label_stem, "EXPL") == 0 &&
-                strcmp(action, "STAND") == 0 && (direction & 1) ? "SHUF" : action;
-            snprintf(label_name, sizeof(label_name), "%s%s%d", label_stem,
-                     label_action, direction);
-            const uint8_t *label = DC_FINLabel(animation, label_name);
-            if (!label) continue;
-            int label_length = read_u16_le(label + 18) - read_u16_le(label + 16) + 1;
-            int source_frame = read_u16_le(label + 16) + (frame < label_length ? frame : label_length - 1);
-            install_fin_parts(spriteframe, rotation, animation, source_frame,
-                              stem, sheet->numlumps);
+typedef struct {
+    const dc_fin_label_t *directions[FIN_DIRECTIONS];
+} fin_sequence_t;
+
+static int label_length(const dc_fin_label_t *label) {
+    return label ? (int)SDL_SwapLE16(label->end) - SDL_SwapLE16(label->start) + 1 : 0;
+}
+
+/* Resolve names once. FIN ranges already contain the temporal frame ordering. */
+static void collect_sequences(const dc_fin_t *fin, const char *stem,
+                              fin_sequence_t sequences[FIN_ACTIONS]) {
+    char prefix[9];
+    snprintf(prefix, sizeof(prefix), "%s", stem);
+    for (char *p = prefix; *p; ++p) *p = (char)toupper((unsigned char)*p);
+    size_t prefix_length = strlen(prefix);
+    for (int i = 0; i < SDL_SwapLE16(fin->header->label_count); ++i) {
+        const dc_fin_label_t *label = &fin->labels[i];
+        char name[17];
+        snprintf(name, sizeof(name), "%.16s", label->name);
+        if (strncmp(name, prefix, prefix_length) != 0) continue;
+        char *action = name + prefix_length;
+        char *number = action;
+        while (*number && !isdigit((unsigned char)*number)) ++number;
+        if (!*number) continue;
+        char *end;
+        long direction = strtol(number, &end, 10);
+        if (*end || direction >= FIN_DIRECTIONS) continue;
+        *number = '\0';
+        /* EXPL's odd idle facings are authored under SHUF, not STAND. */
+        if (strcmp(prefix, "EXPL") == 0 && (direction & 1)) {
+            if (strcmp(action, "STAND") == 0) continue;
+            if (strcmp(action, "SHUF") == 0) action = "STAND";
+        }
+        for (int a = 0; a < FIN_ACTIONS; ++a) {
+            if (strcmp(action, fin_actions[a]) == 0 && !sequences[a].directions[direction])
+                sequences[a].directions[direction] = label;
+        }
+    }
+}
+
+static int sequence_rotations(const fin_sequence_t *sequence) {
+    for (int stride = 1; stride <= 2; ++stride) {
+        bool complete = true;
+        for (int i = 0; i < FIN_DIRECTIONS; i += stride)
+            if (label_length(sequence->directions[i]) <= 0) complete = false;
+        if (complete) return FIN_DIRECTIONS / stride;
+    }
+    return 0;
+}
+
+static void install_fin_frames(spritesheet_t *sheet, const dc_fin_t *fin, const char *stem) {
+    if (!fin->header) return;
+    fin_sequence_t sequences[FIN_ACTIONS] = {0};
+    collect_sequences(fin, stem, sequences);
+    for (int action = 0; action < FIN_ACTIONS; ++action) {
+        const fin_sequence_t *sequence = &sequences[action];
+        int rotations = sequence_rotations(sequence);
+        if (!rotations) continue;
+        int stride = FIN_DIRECTIONS / rotations;
+        int length = 0;
+        for (int r = 0; r < rotations; ++r) {
+            int count = label_length(sequence->directions[r * stride]);
+            if (count > length) length = count;
+        }
+        const dc_fin_label_t *base = sequence->directions[0];
+        sheet->spritedef.rotations = rotations;
+        sheet->spritedef.first_angle = dc_fin_direction_to_angle(0);
+        sheet->spritedef.clockwise = true;
+        for (int frame = 0; frame < length; ++frame) {
+            int index = SDL_SwapLE16(base->start) + frame;
+            if (index >= sheet->spritedef.numframes) break;
+            spriteframe_t *target = &sheet->spritedef.spriteframes[index];
+            snprintf(target->frame_name, sizeof(target->frame_name), "%.16s", base->name);
+            for (int r = 0; r < rotations; ++r) {
+                const dc_fin_label_t *label = sequence->directions[r * stride];
+                int count = label_length(label);
+                int source = SDL_SwapLE16(label->start) + (frame < count ? frame : count - 1);
+                install_fin_parts(target, r, fin, source, stem, sheet->numlumps);
+            }
         }
     }
 }
@@ -218,11 +241,12 @@ bool load_render_tables(const char *data_root, const char *tileset_name) {
     M_PathJoin(bts_path, sizeof(bts_path), scenario_dir, bts_name);
     blob_t bts;
     if (!W_ReadFile(bts_path, &bts)) return false;
-    if (bts.size < 8 + 256 * 3) {
+    if (bts.size < sizeof(dc_spr_header_t)) {
         W_FreeFile(&bts);
         return false;
     }
-    decode_palette(bts.bytes, bts.size, render_tables.palette);
+    const dc_spr_header_t *header = (const void *)bts.bytes;
+    decode_palette(header->palette, render_tables.palette);
     W_FreeFile(&bts);
 
     char rmp_name[64];
@@ -266,42 +290,46 @@ static bool decode_cell(uint8_t *dst, size_t pixels,
     return true;
 }
 
-static irect_t cell_bounds(const spritelump_t *lump) {
-    int min_x = lump->rect.w, min_y = lump->rect.h, max_x = -1, max_y = -1;
-    for (int y = 0; y < lump->rect.h; ++y) {
-        for (int x = 0; x < lump->rect.w; ++x) {
-            if (!lump->indices[y * lump->rect.w + x]) continue;
+static irect_t cell_bounds(const uint8_t *indices, irect_t rect) {
+    int min_x = rect.w, min_y = rect.h, max_x = -1, max_y = -1;
+    for (int y = 0; y < rect.h; ++y) {
+        for (int x = 0; x < rect.w; ++x) {
+            if (!indices[y * rect.w + x]) continue;
             if (x < min_x) min_x = x;
             if (y < min_y) min_y = y;
             if (x > max_x) max_x = x;
             if (y > max_y) max_y = y;
         }
     }
-    return max_x < min_x ? lump->rect :
+    return max_x < min_x ? rect :
         (irect_t){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
-static ivec2_t cell_ground_point(const spritelump_t *lump, int frame,
-                                 const blob_t *animation, const char *stem) {
-    for (int i = 0; i < DC_FINCommandCount(animation); ++i) {
+/* FIN supplies the anchor. Visit its command stream once, not once per cell. */
+static bool install_ground_points(spritesheet_t *sheet, const dc_fin_t *fin, const char *stem) {
+    if (!fin->command_count) return true;
+    bool *installed = calloc((size_t)sheet->numlumps, sizeof(*installed));
+    if (!installed) return false;
+    for (int i = 0; i < fin->command_count; ++i) {
         spritelayer_t part;
-        if (!DC_FINLayer(animation, i, &part)) continue;
-        if (part.layer == 1 && part.lump == frame &&
-            strcasecmp(part.sprite_name, stem) == 0) {
-            return (ivec2_t){
-                (part.flags & 1) ? lump->rect.w + part.offset.x :
-                                  -part.offset.x - lump->displacement.x,
-                lump->rect.h - part.offset.y,
-            };
-        }
+        if (!DC_FINLayer(fin, i, &part) || part.layer != 1 ||
+            part.lump >= sheet->numlumps || installed[part.lump] ||
+            strcasecmp(part.sprite_name, stem) != 0) continue;
+        spritecell_t *cell = &sheet->cells[part.lump];
+        cell->ground_point = (ivec2_t){
+            (part.flags & RTS_FRAME_FLIP_X) ? cell->rect.w + part.offset.x :
+                                            -part.offset.x - cell->displacement.x,
+            cell->rect.h - part.offset.y,
+        };
+        installed[part.lump] = true;
     }
-    return (ivec2_t){ lump->bounds.x + lump->bounds.w / 2,
-                      lump->bounds.y + lump->bounds.h };
+    free(installed);
+    return true;
 }
 
-static bool create_cell_textures(spritelump_t *lump,
+static bool create_cell_textures(spritelump_t *lump, irect_t rect,
                                   const uint32_t palette[256]) {
-    size_t count = (size_t)lump->rect.w * (size_t)lump->rect.h;
+    size_t count = (size_t)rect.w * (size_t)rect.h;
     uint32_t *rgba = malloc(count * sizeof(*rgba));
     if (!rgba) return false;
     bool team_colors = false;
@@ -310,7 +338,7 @@ static bool create_cell_textures(spritelump_t *lump,
         rgba[i] = palette[index];
         team_colors |= index >= 138 && index <= 143;
     }
-    lump->texture = I_CreateTexture(r_renderer, rgba, lump->rect.w, lump->rect.h, true);
+    lump->texture = I_CreateTexture(r_renderer, rgba, rect.w, rect.h, true);
     if (!lump->texture) goto fail;
     if (team_colors) {
         lump->translations = calloc(8, sizeof(*lump->translations));
@@ -322,7 +350,7 @@ static bool create_cell_textures(spritelump_t *lump,
                 rgba[i] = palette[index];
             }
             SDL_Texture *texture = I_CreateTexture(
-                r_renderer, rgba, lump->rect.w, lump->rect.h, true);
+                r_renderer, rgba, rect.w, rect.h, true);
             if (!texture) goto fail;
             lump->translations[lump->translation_count++] =
                 (spritetranslation_t){ .id = remap, .texture = texture };
@@ -335,85 +363,107 @@ fail:
     return false; /* The sheet owns every texture already created. */
 }
 
-static bool load_sprite(const char *path,
-                                spritesheet_t *out, uint32_t palette_out[256],
-                                blob_t *animation_out) {
+typedef struct {
+    blob_t file;
+    const dc_spr_header_t *header;
+    const dc_spr_cell_t *cells;
+    blob_t pixels;
+} dc_spr_t;
+
+static bool open_spr(const char *path, dc_spr_t *spr) {
+    if (!W_ReadFile(path, &spr->file)) return false;
+    spr->pixels = spr->file;
+    spr->header = DC_TakeRecords(&spr->pixels, 1, sizeof(*spr->header));
+    if (!spr->header || !SDL_SwapLE16(spr->header->cell_count)) return false;
+    spr->cells = DC_TakeRecords(&spr->pixels, SDL_SwapLE16(spr->header->cell_count),
+                               sizeof(*spr->cells));
+    return spr->cells != NULL;
+}
+
+static bool load_cell(dc_spr_t *spr, int index, size_t *payload_left,
+                      spritesheet_t *sheet, const uint32_t palette[256]) {
+    const dc_spr_cell_t *record = &spr->cells[index];
+    isize2_t size = { SDL_SwapLE16(record->size.w), SDL_SwapLE16(record->size.h) };
+    bool compressed = (SDL_SwapLE16(spr->header->flags) & 0x180) != 0;
+    size_t bytes = (size_t)size.w * (size_t)size.h;
+    if (compressed) {
+        /* Chunk lengths need byte reads: the preceding RLE span can be odd. */
+        const uint8_t *length = DC_TakeRecords(&spr->pixels, 1, sizeof(uint32_t));
+        if (!length) return false;
+        bytes = read_u32_le(length);
+        if (bytes > *payload_left) return false;
+        *payload_left -= bytes;
+    }
+    const uint8_t *source = DC_TakeRecords(&spr->pixels, bytes, 1);
+    if (!source) return false;
+    spritecell_t *cell = &sheet->cells[index];
+    spritelump_t *lump = &sheet->lumps[index];
+    /* SDL cannot create a zero-sized texture; empty native cells stay transparent. */
+    cell->rect = (irect_t){ 0, 0, size.w ? size.w : 1, size.h ? size.h : 1 };
+    cell->displacement = (ivec2_t){ SDL_SwapLE16(record->displacement.x),
+                                   SDL_SwapLE16(record->displacement.y) };
+    size_t pixels = (size_t)cell->rect.w * (size_t)cell->rect.h;
+    lump->indices = calloc(pixels, 1);
+    if (!lump->indices || (size.w && size.h &&
+        !decode_cell(lump->indices, pixels, source, bytes, compressed))) return false;
+    cell->bounds = cell_bounds(lump->indices, cell->rect);
+    cell->ground_point = (ivec2_t){ cell->bounds.x + cell->bounds.w / 2,
+                                   cell->bounds.y + cell->bounds.h };
+    return create_cell_textures(lump, cell->rect, palette);
+}
+
+static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette[256]) {
+    int count = SDL_SwapLE16(spr->header->cell_count);
+    if (!R_AllocSpriteCells(out, count)) return false;
+    size_t payload_left = SDL_SwapLE32(spr->header->payload_size);
+    out->frame_size = (isize2_t){ 1, 1 };
+    for (int i = 0; i < count; ++i) {
+        if (!load_cell(spr, i, &payload_left, out, palette)) return false;
+        const spritecell_t *cell = &out->cells[i];
+        isize2_t extent = { cell->displacement.x + cell->rect.w,
+                           cell->displacement.y + cell->rect.h };
+        out->frame_size = isize2_max(out->frame_size, extent);
+    }
+    return true;
+}
+
+static bool init_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin) {
+    int count = fin->header ? SDL_SwapLE16(fin->header->frame_count) : 0;
+    if (count < sheet->numlumps) count = sheet->numlumps;
+    if (!R_InitSpriteDef(sheet, count, 1, ANG270, false)) return false;
+    for (int i = 0; i < sheet->numlumps; ++i) {
+        spritelayer_t *layer = calloc(2, sizeof(*layer));
+        if (!layer) return false;
+        *layer = (spritelayer_t){ .sprite_name = ".", .lump = i, .intensity = 16 };
+        sheet->spritedef.spriteframes[i].directions[0].layers = layer;
+    }
+    return true;
+}
+
+static bool load_sprite(const char *path, spritesheet_t *out,
+                         uint32_t palette_out[256], dc_fin_t *animation_out) {
     memset(out, 0, sizeof(*out));
-    blob_t file = {0};
-    blob_t animation = {0};
+    dc_spr_t spr = {0};
+    dc_fin_t fin = {0};
     uint32_t palette[256];
     char sprite_path[1024], animation_path[1024], stem[9];
     const char *extension = strrchr(path, '.');
     bool fin_first = extension && strcasecmp(extension, ".FIN") == 0;
     if (fin_first) {
-        if (!DC_LoadFIN(path, &animation) ||
+        if (!DC_LoadFIN(path, &fin) ||
             !DC_SpritePath(sprite_path, sizeof(sprite_path), path)) goto fail;
     } else {
         snprintf(sprite_path, sizeof(sprite_path), "%s", path);
+        if (DC_AnimationPath(animation_path, sizeof(animation_path), path) &&
+            DC_AssetExists(animation_path)) DC_LoadFIN(animation_path, &fin);
     }
-    if (!W_ReadFile(sprite_path, &file) || file.size < 8 + 256 * 3) goto fail;
-    int cell_count = read_u16_le(file.bytes + 2);
-    bool compressed = (read_u16_le(file.bytes) & 0x180) != 0;
-    size_t payload_left = read_u32_le(file.bytes + 4);
-    size_t cursor = 8 + 256 * 3 + (size_t)cell_count * 8;
-    if (cell_count == 0 || cell_count > 1024 || cursor > file.size) goto fail;
-    decode_palette(file.bytes, file.size, palette);
+    if (!open_spr(sprite_path, &spr)) goto fail;
+    decode_palette(spr.header->palette, palette);
     if (palette_out) memcpy(palette_out, palette, sizeof(palette));
-    if (!fin_first && DC_AnimationPath(animation_path, sizeof(animation_path), path) &&
-        DC_AssetExists(animation_path) && !DC_LoadFIN(animation_path, &animation))
-        W_FreeFile(&animation);
     DC_SpriteStem(stem, sizeof(stem), sprite_path);
-
-    int logical_frames = animation.bytes ? read_u16_le(animation.bytes) : 0;
-    if (logical_frames < cell_count) logical_frames = cell_count;
-    out->lumps = calloc((size_t)cell_count, sizeof(*out->lumps));
-    if (!out->lumps) goto fail;
-    out->numlumps = cell_count;
-    out->spritedef.spriteframes = calloc((size_t)logical_frames,
-                                        sizeof(*out->spritedef.spriteframes));
-    if (!out->spritedef.spriteframes) goto fail;
-    out->spritedef.numframes = logical_frames;
-    out->spritedef.rotations = 1;
-    out->spritedef.first_angle = ANG270;
-    out->frame_size = (isize2_t){ 1, 1 };
-    for (int i = 0; i < cell_count; ++i) {
-        const uint8_t *desc = file.bytes + 8 + 256 * 3 + (size_t)i * 8;
-        isize2_t size = { read_u16_le(desc), read_u16_le(desc + 2) };
-        if (size.w > 512 || size.h > 512) goto fail;
-        size_t cell_bytes = (size_t)size.w * (size_t)size.h;
-        if (compressed) {
-            if (file.size - cursor < 4) goto fail;
-            cell_bytes = read_u32_le(file.bytes + cursor);
-            cursor += 4;
-            if (cell_bytes > payload_left) goto fail;
-            payload_left -= cell_bytes;
-        }
-        if (cell_bytes > file.size - cursor) goto fail;
-        spritelump_t *lump = &out->lumps[i];
-        lump->rect = (irect_t){ 0, 0, size.w > 0 ? size.w : 1,
-                                     size.h > 0 ? size.h : 1 };
-        lump->displacement = (ivec2_t){ read_u16_le(desc + 4), read_u16_le(desc + 6) };
-        size_t pixels = (size_t)lump->rect.w * (size_t)lump->rect.h;
-        lump->indices = calloc(pixels, 1);
-        if (!lump->indices) goto fail;
-        if (size.w && size.h &&
-            !decode_cell(lump->indices, pixels, file.bytes + cursor, cell_bytes, compressed))
-            goto fail;
-        cursor += cell_bytes;
-        lump->bounds = cell_bounds(lump);
-        lump->ground_point = cell_ground_point(lump, i, &animation, stem);
-        if (!create_cell_textures( lump, palette)) goto fail;
-        if (lump->displacement.x + lump->rect.w > out->frame_size.w)
-            out->frame_size.w = lump->displacement.x + lump->rect.w;
-        if (lump->displacement.y + lump->rect.h > out->frame_size.h)
-            out->frame_size.h = lump->displacement.y + lump->rect.h;
-        spritelayer_t *layer = calloc(2, sizeof(*layer));
-        if (!layer) goto fail;
-        out->spritedef.spriteframes[i].directions[0].layers = layer;
-        snprintf(layer->sprite_name, sizeof(layer->sprite_name), ".");
-        layer->lump = i;
-        layer->intensity = 16;
-    }
+    if (!load_cells(&spr, out, palette) || !init_sprite_frames(out, &fin) ||
+        !install_ground_points(out, &fin, stem)) goto fail;
+    install_fin_frames(out, &fin, stem);
     out->indexed = true;
     memcpy(out->palette, render_tables.valid ? render_tables.palette : palette,
            sizeof(out->palette));
@@ -421,21 +471,16 @@ static bool load_sprite(const char *path,
         out->indexed_blend_selector = 5;
         out->indexed_blend_table = render_tables.selector5;
     }
-    static const char *const actions[] = {
-        "STAND", "MOVE", "FIREA", "FIREB", "FIRE", "DIEA", "DIEB", "DIEC",
-    };
-    for (size_t i = 0; i < sizeof(actions) / sizeof(actions[0]); ++i)
-        install_dark_colony_fin_frames(out, &animation, stem, actions[i]);
     if (animation_out) {
-        *animation_out = animation;
-        memset(&animation, 0, sizeof(animation));
+        *animation_out = fin;
+        memset(&fin, 0, sizeof(fin));
     }
-    W_FreeFile(&file);
-    W_FreeFile(&animation);
+    W_FreeFile(&spr.file);
+    DC_FreeFIN(&fin);
     return true;
 fail:
-    W_FreeFile(&file);
-    W_FreeFile(&animation);
+    W_FreeFile(&spr.file);
+    DC_FreeFIN(&fin);
     R_FreeSprite(out);
     return false;
 }
@@ -487,7 +532,7 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
     cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
     uint32_t palette[256] = { 0 };
-    blob_t animation = {0};
+    dc_fin_t animation = {0};
     if (!load_sprite(sprite_path, &entry->sprite, palette,
                                           &animation)) {
         fprintf(stderr, "failed to load %s\n", sprite_path);
@@ -496,10 +541,10 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
     }
     cache->count++;
     if (DC_FINCommandCount(&animation) > 0) {
-        for (int i = 0; i < read_u16_le(animation.bytes + 6); ++i) {
+        for (int i = 0; i < SDL_SwapLE16(animation.header->dependency_count); ++i) {
             char dependency_name[64];
             if (!DC_DependencySpriteName(dependency_name, sizeof(dependency_name),
-                                                    (const char *)animation.bytes + 8 + (size_t)i * 8)) {
+                                                    animation.dependencies[i].name)) {
                 continue;
             }
             if (R_CacheFind(cache, dependency_name)) continue;
@@ -507,12 +552,12 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
             M_PathJoin(dependency_path, sizeof(dependency_path), data_root, dependency_name);
             if (!DC_AssetExists(dependency_path)) continue;
             if (!sprite_cache_load_dark_colony(cache, data_root, dependency_name)) {
-                W_FreeFile(&animation);
+                DC_FreeFIN(&animation);
                 return false;
             }
         }
     }
-    W_FreeFile(&animation);
+    DC_FreeFIN(&animation);
     return true;
 }
 

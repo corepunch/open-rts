@@ -1,91 +1,117 @@
 #include "w_spr.h"
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-/* FIN spans stay in the file buffer; commands decode directly into sprite layers. */
-static size_t fin_labels(const blob_t *fin) {
-    return 8 + (size_t)read_u16_le(fin->bytes + 6) * 8;
+_Static_assert(sizeof(dc_fin_header_t) == 8, "FIN header layout");
+_Static_assert(sizeof(dc_fin_dependency_t) == 8, "FIN dependency layout");
+_Static_assert(sizeof(dc_fin_label_t) == 20, "FIN label layout");
+_Static_assert(offsetof(dc_fin_label_t, start) == 16, "FIN label range layout");
+_Static_assert(sizeof(dc_fin_frame_t) == 164, "FIN frame layout");
+_Static_assert(sizeof(dc_fin_command_t) == 22, "FIN command layout");
+_Static_assert(offsetof(dc_fin_command_t, offset) == 10, "FIN command offset layout");
+_Static_assert(sizeof(dc_spr_header_t) == 776, "SPR header and palette layout");
+_Static_assert(sizeof(dc_spr_cell_t) == 8, "SPR cell layout");
+_Static_assert(offsetof(dc_spr_header_t, palette) == 8, "SPR palette layout");
+_Static_assert(offsetof(dc_spr_cell_t, displacement) == 4, "SPR displacement layout");
+_Static_assert(offsetof(dc_fin_command_t, flags) == 20, "FIN flags layout");
+
+const void *DC_TakeRecords(blob_t *cursor, size_t count, size_t record_size) {
+    if (!record_size || count > cursor->size / record_size) return NULL;
+    const void *records = cursor->bytes;
+    size_t bytes = count * record_size;
+    cursor->bytes += bytes;
+    cursor->size -= bytes;
+    return records;
 }
 
-static size_t fin_frames(const blob_t *fin) {
-    return fin_labels(fin) + (size_t)read_u16_le(fin->bytes + 4) * 20;
+void DC_FreeFIN(dc_fin_t *fin) {
+    free(fin->frame_commands);
+    W_FreeFile(&fin->file);
+    memset(fin, 0, sizeof(*fin));
 }
 
-static size_t fin_commands(const blob_t *fin) {
-    return fin_frames(fin) + (size_t)read_u16_le(fin->bytes + 2) * 164;
-}
-
-bool DC_LoadFIN(const char *path, blob_t *out) {
+bool DC_LoadFIN(const char *path, dc_fin_t *out) {
     memset(out, 0, sizeof(*out));
-    if (!W_ReadFile(path, out)) return false;
-    if (out->size < 8) goto fail;
-    if (read_u16_le(out->bytes + 4) > 1024 ||
-        read_u16_le(out->bytes + 6) > 1024 ||
-        read_u16_le(out->bytes + 2) > 4096) goto fail;
-    size_t commands = fin_commands(out);
-    if (commands > out->size || (out->size - commands) % 22) goto fail;
-    size_t remaining = (out->size - commands) / 22;
-    for (int i = 0; i < read_u16_le(out->bytes + 2); ++i) {
-        int count = read_u16_le(out->bytes + fin_frames(out) + (size_t)i * 164);
-        if ((size_t)count > remaining) goto fail;
-        remaining -= count;
+    if (!W_ReadFile(path, &out->file)) return false;
+    blob_t cursor = out->file;
+    out->header = DC_TakeRecords(&cursor, 1, sizeof(*out->header));
+    if (!out->header) goto fail;
+    int frames = SDL_SwapLE16(out->header->frame_count);
+    int labels = SDL_SwapLE16(out->header->label_count);
+    int dependencies = SDL_SwapLE16(out->header->dependency_count);
+    out->dependencies = DC_TakeRecords(&cursor, dependencies, sizeof(*out->dependencies));
+    out->labels = DC_TakeRecords(&cursor, labels, sizeof(*out->labels));
+    out->frames = DC_TakeRecords(&cursor, frames, sizeof(*out->frames));
+    if (!out->dependencies || !out->labels || !out->frames ||
+        cursor.size % sizeof(*out->commands) ||
+        cursor.size / sizeof(*out->commands) > INT32_MAX) goto fail;
+    out->command_count = (int)(cursor.size / sizeof(*out->commands));
+    out->commands = DC_TakeRecords(&cursor, out->command_count, sizeof(*out->commands));
+    out->frame_commands = calloc(frames ? (size_t)frames : 1, sizeof(*out->frame_commands));
+    if (!out->frame_commands) goto fail;
+    int command = 0;
+    for (int i = 0; i < frames; ++i) {
+        int count = SDL_SwapLE16(out->frames[i].part_count);
+        if (count > out->command_count - command) goto fail;
+        out->frame_commands[i] = &out->commands[command];
+        command += count;
     }
     return true;
 fail:
-    W_FreeFile(out);
+    DC_FreeFIN(out);
     return false;
 }
 
-const uint8_t *DC_FINLabel(const blob_t *fin, const char *name) {
-    if (!fin->bytes) return NULL;
-    for (int i = 0; i < read_u16_le(fin->bytes + 4); ++i) {
-        const uint8_t *label = fin->bytes + fin_labels(fin) + (size_t)i * 20;
-        if (strlen(name) <= 16 && strncmp((const char *)label, name, 16) == 0)
-            return label;
-    }
+const dc_fin_label_t *DC_FINLabel(const dc_fin_t *fin, const char *name) {
+    if (!fin->header || strlen(name) > sizeof(fin->labels->name)) return NULL;
+    for (int i = 0; i < SDL_SwapLE16(fin->header->label_count); ++i)
+        if (strncmp(fin->labels[i].name, name, sizeof(fin->labels[i].name)) == 0)
+            return &fin->labels[i];
     return NULL;
 }
 
-int DC_FINCommandCount(const blob_t *fin) {
-    return fin->bytes ? (int)((fin->size - fin_commands(fin)) / 22) : 0;
+int DC_FINCommandCount(const dc_fin_t *fin) {
+    return fin->command_count;
 }
 
-bool DC_FINLayer(const blob_t *fin, int index, spritelayer_t *out) {
-    if (index < 0 || index >= DC_FINCommandCount(fin)) return false;
-    const uint8_t *command = fin->bytes + fin_commands(fin) + (size_t)index * 22;
-    if ((int16_t)read_u16_le(command + 8) < 0) return false;
-    for (int offset = 14; offset <= 20; offset += 2)
-        if (read_u16_le(command + offset) > UINT8_MAX) return false;
+static bool read_layer(const dc_fin_command_t *command, spritelayer_t *out) {
+    int cell = (int16_t)SDL_SwapLE16(command->cell);
+    int remap = SDL_SwapLE16(command->remap);
+    int intensity = SDL_SwapLE16(command->intensity);
+    int layer = SDL_SwapLE16(command->layer);
+    int flags = SDL_SwapLE16(command->flags);
+    if (cell < 0 || remap > UINT8_MAX || intensity > UINT8_MAX ||
+        layer > UINT8_MAX || flags > UINT8_MAX) return false;
     *out = (spritelayer_t){
-        .lump = read_u16_le(command + 8),
-        .offset = { (int16_t)read_u16_le(command + 10),
-                    (int16_t)read_u16_le(command + 12) },
-        .remap = read_u16_le(command + 14),
-        .intensity = read_u16_le(command + 16),
-        .layer = read_u16_le(command + 18),
-        .flags = read_u16_le(command + 20),
+        .lump = cell,
+        .offset = { (int16_t)SDL_SwapLE16(command->offset.x),
+                    (int16_t)SDL_SwapLE16(command->offset.y) },
+        .remap = remap, .intensity = intensity, .layer = layer, .flags = flags,
     };
-    snprintf(out->sprite_name, sizeof(out->sprite_name), "%.8s", (const char *)command);
+    snprintf(out->sprite_name, sizeof(out->sprite_name), "%.8s", command->sprite);
     return true;
 }
 
-bool DC_FINFrame(const blob_t *fin, int index, spritedirection_t *out) {
-    if (!fin->bytes || index < 0 || index >= read_u16_le(fin->bytes + 2)) return false;
-    const uint8_t *frame = fin->bytes + fin_frames(fin);
-    int command = 0;
-    for (int i = 0; i < index; ++i, frame += 164)
-        command += read_u16_le(frame);
-    int count = read_u16_le(frame);
+bool DC_FINLayer(const dc_fin_t *fin, int index, spritelayer_t *out) {
+    return index >= 0 && index < fin->command_count && read_layer(&fin->commands[index], out);
+}
+
+bool DC_FINFrame(const dc_fin_t *fin, int index, spritedirection_t *out) {
+    if (!fin->header || index < 0 || index >= SDL_SwapLE16(fin->header->frame_count))
+        return false;
+    const dc_fin_frame_t *frame = &fin->frames[index];
+    int count = SDL_SwapLE16(frame->part_count);
     spritelayer_t *layers = calloc((size_t)count + 1, sizeof(*layers));
     if (!layers) return false;
     for (int i = 0; i < count; ++i) {
-        if (!DC_FINLayer(fin, command + i, &layers[i])) {
+        if (!read_layer(&fin->frame_commands[index][i], &layers[i])) {
             free(layers);
             return false;
         }
     }
     free(out->layers);
-    *out = (spritedirection_t){ .ticks = read_u16_le(frame + 2), .layers = layers };
+    *out = (spritedirection_t){ .ticks = SDL_SwapLE16(frame->ticks), .layers = layers };
     return true;
 }

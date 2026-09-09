@@ -273,8 +273,8 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
             strstr(cached->name, "sh") ||
             !cached->sprite.lumps || !cached->sprite.lumps[0].texture ||
             cached->sprite.numlumps <= 0) continue;
-        irect_t src = cached->sprite.lumps[0].rect;
-        irect_t bounds = cached->sprite.lumps ? cached->sprite.lumps[0].bounds :
+        irect_t src = cached->sprite.cells[0].rect;
+        irect_t bounds = cached->sprite.lumps ? cached->sprite.cells[0].bounds :
             (irect_t){ 0, 0, src.w, src.h };
         src.x += bounds.x; src.y += bounds.y; src.w = bounds.w; src.h = bounds.h;
         if (src.w <= 0 || src.h <= 0) continue;

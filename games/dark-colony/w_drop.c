@@ -7,11 +7,11 @@
 #include <string.h>
 #include <strings.h>
 
-static bool load_dropship_label(const blob_t *fin, const char *label_name,
+static bool load_dropship_label(const dc_fin_t *fin, const char *label_name,
                                 DropshipAnimation *out) {
-    const uint8_t *label = DC_FINLabel(fin, label_name);
+    const dc_fin_label_t *label = DC_FINLabel(fin, label_name);
     if (!label) return false;
-    int start = read_u16_le(label + 16), end = read_u16_le(label + 18);
+    int start = SDL_SwapLE16(label->start), end = SDL_SwapLE16(label->end);
     if (end < start || end - start + 1 > DROPSHIP_MAX_FRAMES) return false;
     for (int i = start; i <= end; ++i) {
         spritedirection_t direction = {0};
@@ -58,12 +58,12 @@ bool DC_LoadDropshipAnimations(const char *map_path,
     snprintf(animation_path, sizeof(animation_path), "%.*s/ANIMATE/DROP.FIN",
              (int)root_len, map_path);
 
-    blob_t animation = {0};
+    dc_fin_t animation = {0};
     if (!DC_LoadFIN(animation_path, &animation)) return false;
 
     bool valid = load_dropship_label(&animation, "DROPMOVE0", &out->move) &&
                  load_dropship_label(&animation, "DROPSTAND0", &out->stand) &&
                  load_dropship_label(&animation, "DROPTWO", &out->unload);
-    W_FreeFile(&animation);
+    DC_FreeFIN(&animation);
     return valid;
 }

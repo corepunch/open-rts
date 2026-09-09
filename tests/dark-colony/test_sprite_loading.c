@@ -52,7 +52,7 @@ static bool load(const uint8_t *bytes, size_t size,
 static void rejected(const uint8_t *file, size_t size) {
     spritesheet_t sheet;
     CHECK(!load(file, size, &sheet));
-    CHECK(!sheet.lumps && !sheet.spritedef.spriteframes);
+    CHECK(!sheet.lumps && !sheet.cells && !sheet.spritedef.spriteframes);
     CHECK(sheet.numlumps == 0 && sheet.spritedef.numframes == 0);
     R_FreeSprite(&sheet); /* Failure leaves the public result safe to free. */
 }
@@ -99,7 +99,7 @@ static void hash_texture(SDL_Renderer *renderer, SDL_Texture *texture, irect_t r
 }
 
 static int catalog(const char *manifest) {
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 512, 512, 32, SDL_PIXELFORMAT_ARGB8888);
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 1024, 1024, 32, SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
     r_renderer = renderer;
     FILE *files = fopen(manifest, "r");
@@ -118,17 +118,18 @@ static int catalog(const char *manifest) {
         hash_bytes(sheet.palette, sizeof(sheet.palette));
         for (int i = 0; i < sheet.numlumps; ++i) {
             const spritelump_t *lump = &sheet.lumps[i];
-            hash_bytes(&lump->rect, sizeof(lump->rect));
-            hash_bytes(&lump->bounds, sizeof(lump->bounds));
-            hash_bytes(&lump->ground_point, sizeof(lump->ground_point));
-            hash_bytes(&lump->displacement, sizeof(lump->displacement));
-            hash_bytes(lump->indices, (size_t)lump->rect.w * (size_t)lump->rect.h);
-            hash_texture(renderer, lump->texture, lump->rect);
+            const spritecell_t *cell = &sheet.cells[i];
+            hash_bytes(&cell->rect, sizeof(cell->rect));
+            hash_bytes(&cell->bounds, sizeof(cell->bounds));
+            hash_bytes(&cell->ground_point, sizeof(cell->ground_point));
+            hash_bytes(&cell->displacement, sizeof(cell->displacement));
+            hash_bytes(lump->indices, (size_t)cell->rect.w * (size_t)cell->rect.h);
+            hash_texture(renderer, lump->texture, cell->rect);
             for (int remap = 0; remap < 8; ++remap) {
                 SDL_Texture *texture = lump->texture;
                 for (int j = 0; j < lump->translation_count; ++j)
                     if (lump->translations[j].id == remap) texture = lump->translations[j].texture;
-                hash_texture(renderer, texture, lump->rect);
+                hash_texture(renderer, texture, cell->rect);
             }
         }
         hash_int(sheet.spritedef.numframes); hash_int(sheet.spritedef.rotations);
@@ -171,10 +172,10 @@ int main(int argc, char **argv) {
         CHECK(sheet.frame_size.w == 10 && sheet.frame_size.h == 11);
         CHECK(memcmp(sheet.lumps[0].indices, pixels, sizeof(pixels)) == 0);
         CHECK(sheet.lumps[1].indices[0] == 8 && sheet.lumps[1].indices[1] == 9);
-        CHECK(sheet.lumps[2].rect.w == 1 && sheet.lumps[2].rect.h == 1);
+        CHECK(sheet.cells[2].rect.w == 1 && sheet.cells[2].rect.h == 1);
         CHECK(sheet.lumps[2].indices[0] == 0);
-        CHECK(ivec2_equal(sheet.lumps[0].displacement, (ivec2_t){ 7, 9 }));
-        CHECK(ivec2_equal(sheet.lumps[0].ground_point, (ivec2_t){ 1, 2 }));
+        CHECK(ivec2_equal(sheet.cells[0].displacement, (ivec2_t){ 7, 9 }));
+        CHECK(ivec2_equal(sheet.cells[0].ground_point, (ivec2_t){ 1, 2 }));
         CHECK(sheet.lumps[0].translation_count == 8);
         CHECK(sheet.lumps[1].translation_count == 0 && sheet.lumps[2].translation_count == 0);
         check_pixels(renderer, sheet.lumps[0].texture, pixels, -1);
@@ -187,6 +188,16 @@ int main(int argc, char **argv) {
         rejected(file, HEADER - 1);
         rejected(file, DATA - 1);
     }
+    /* Native cells wider than 512 pixels must not hit an invented format cap. */
+    uint8_t wide[HEADER + 8 + 640] = {0};
+    u16(wide, 1); u16(wide + 2, 1); u32(wide + 4, 640);
+    u16(wide + HEADER, 640); u16(wide + HEADER + 2, 1);
+    memset(wide + HEADER + 8, 5, 640);
+    spritesheet_t wide_sprite;
+    CHECK(load(wide, sizeof(wide), &wide_sprite));
+    CHECK(wide_sprite.cells[0].rect.w == 640 && wide_sprite.cells[0].rect.h == 1);
+    CHECK(wide_sprite.lumps[0].indices[639] == 5);
+    R_FreeSprite(&wide_sprite);
     size_t size = fixture(file, true);
     file[DATA + 4] = 127; /* Literal run exceeds the destination. */
     rejected(file, size);
