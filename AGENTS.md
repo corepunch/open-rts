@@ -217,14 +217,31 @@ Key patterns to follow from that lineage:
 - **Gametic / ticrate** — decouple simulation tics from render frames
 - **Lock-step networking** — exchange input commands per tic, never game state
 
-### Refactoring direction: reproduce Doom's runtime architecture
+### Standing refactoring rule: move closer to Doom at every opportunity
 
-The purpose of this refactor is to replace the existing flat object array,
-effect pool, and per-action context machinery with Doom's architecture.
-Do not justify retaining them with “Our flat object array and effect pool still
-need storage that original Doom doesn't have.” Those structures are exactly
-what we are refactoring away. First establish whether Doom's approach can do
-the job; use it unless concrete game behavior proves it cannot.
+Whenever work exposes a difference between our code and Doom, treat it as an
+opportunity to adopt Doom's approach. Read the reference implementation, then
+bring the relevant code closer in naming, data structures, ownership, control
+flow, and lifecycle. Apply this proactively during implementation, review,
+debugging, and cleanup; do not wait for the user to request each convergence.
+Carry the change through its callers and tests, rather than merely renaming
+an existing abstraction. The default response is: “Doom stores objects
+differently? Let's store them the way Doom does.”
+
+Our existing architecture is not a constraint to preserve: it is what we are
+refactoring. Extra wrappers, pools, contexts, and parallel representations must
+justify their existence against the reference. Do not defend a difference
+merely because the current implementation depends on it, because this is an
+RTS, or because the map is principally 2-D. First establish whether Doom's
+approach can do the job. Depart from it only when verified game behavior or a
+concrete requirement proves necessary, and document that reason. Preserve the
+native-game fidelity and modern-rendering reference priorities stated above.
+
+The replacement of the flat object array, effect pool, and per-action context
+machinery is the model for future refactors. The excuse “Our flat object array
+and effect pool still need storage that original Doom doesn't have” described
+the structures to remove, not a reason to retain them. This rule applies to
+every architectural difference encountered, not only object storage.
 
 Use one global active level, Doom-named state/type tables, individually allocated
 mobjs linked through the global `thinkercap`, and the shared thinker lifecycle.
