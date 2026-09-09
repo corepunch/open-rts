@@ -145,7 +145,7 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_GEN_TARGET)
-	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT) games/dark-colony/info.h games/dark-colony/info.c
+	$(DC_INFO_GEN_TARGET) $(sort $(wildcard $(DARK_COLONY_ROOT)/ANIMATE/*.FIN)) > $(BUILD_DIR)/dc-animations.txt
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h

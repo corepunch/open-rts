@@ -1195,3 +1195,46 @@ Reproduce with `make dc-fin-extract`, then
 `build/dc_fin_extract data/DCOLONY/ANIMATE/BLOO.FIN /private/tmp/bloo.json`.
 `test_actor_lifecycle` and the combat portion of `test_combat_and_harvest`
 exercise hit spawning; `test_mobj_allocation` checks the common lifetime.
+
+## FIN-only multigen-style exporter (2026-09-09)
+
+`dc_info_gen.c` now exports native animation/frame text, replacing its old
+SPR scanning, layer/direction decoding, and hardcoded gameplay generation.
+Earlier instructions to regenerate `info.c`/`info.h` with this tool are superseded.
+Those checked-in tables retain their gameplay behavior and Reaper timing.
+
+**Confirmed from asset bytes:** the standard layout uses an 8-byte header,
+8-byte dependencies, 20-byte labels (inclusive range words at +16/+18), and
+164-byte frames (raw duration word at +2). Across 177 ANIMATE FIN files, 166
+have readable frame tables: 18,517 frames and 2,546 valid labels produce 18,822
+unique state rows. Overlapping ranges produce separate chains; frames outside
+valid labels are emitted separately. An independent Python struct comparison
+checked every frame index, duration, label range, next-state link, and state-name
+uniqueness. Empty tables and short headers were also checked.
+
+**Confirmed exceptions under this layout:** ANIM.FIN has 23 frames but its four
+label ranges decode to 69..0, 15..0, 20053..0, and 20302..16718. SPAC.FIN has
+20 frames and a label range 0..20. Neither is clamped or interpreted as a new
+format. LIGHT1B, LIGHT1M, LIGHT2B, LIGHT2M, LIGHT3B, LIGHT3F, LIGHT3M, LIGHT4B,
+LIGHT4F, LIGHT4M, and LITE have tables extending beyond their file size under
+this layout; all begin with the word 65533. **Unknown:** whether these represent
+alternate formats or malformed/unused assets. No DC.EXE behavior was examined
+or inferred. Unsupported tables and invalid labels are reported in stderr and
+`; SKIPPED` output comments. Remaining readable frames are preserved.
+
+SHA-256 asset fingerprints:
+
+- ANIM.FIN: `9fd40d2e0bfbd05b9aea52471e827e63b71e0327481f3764fb43a248a7bd198c`
+- SPAC.FIN: `f9fdb3dbe48600149b2ec91378f6c2ea9bf11756abe1b53a0c7536d45346fad3`
+- LIGHT1B.FIN: `61c7a4d9a39ecc53b1719f686fca71c69b6be63ab6d0ef1ae3b4ee4aa22543a0`
+- REAP.FIN: `44d1e85d5a28bca0ca3e45b5bc8032544f16e1dc04fdfd655c3d70ec15ab540b`
+
+**Export convention, not native behavior:** numeric FIN frames replace Doom's
+frame letters, durations stay raw rather than converted to engine tics, actions
+are NULL, and the last state points to S_NULL. Label suffixes are preserved;
+there is no direction grouping, layer extraction, action whitelist, or invented
+animation selection. Native gameplay transitions remain unknown to this tool.
+
+Reproduce with `make dark-colony-info` (writes `build/dc-animations.txt`), or
+`build/dc_info_gen data/DCOLONY/ANIMATE/REAP.FIN`. `make`, `make test-layout`,
+and `env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check` pass.

@@ -129,27 +129,20 @@ usually state chains rather than ad hoc renderer conditions. The model can detec
 important transitions, such as entering an attack group, without making the
 renderer responsible for gameplay.
 
-### Generated `info.c` and `info.h`
+### Gameplay tables and FIN extraction
 
-For Dark Colony, `games/dark-colony/info.c` and `info.h` are generated from the
-original sprite/frame tables by `tools/dc_info_gen`. The generated files contain
-the sprite-name catalog, compact state rows, frame indices, animation chains,
-and render flags. They are source artifacts checked into the game directory so
-normal builds do not require generation.
+Dark Colony's `games/dark-colony/info.c` and `info.h` own the authored sprite
+catalog, gameplay states, actions, and object definitions. They retain the
+previous generator's verified state timing and transitions.
 
-The generator is a translation step, not a gameplay config loader. It converts
-the original asset layout into the engine's `state_t` representation. When an
-animation is wrong, inspect the source SPR/FIN frame table and generator output;
-do not compensate by moving terrain or adding sprite-name-specific renderer
-hacks.
-
-## Sprite formats and cross-game layout
-
-The engine keeps a common `spritesheet_t` interface, but does not assume that
-every game packs frames the same way. A sheet contains decoded frame rectangles,
-frame bounds, ground points, displacements, rotation counts, frames-per-rotation,
-and optional named sequences. Each game loader fills this structure according to
-its native format.
+`make dark-colony-info` exports `build/dc-animations.txt` from `ANIMATE/*.FIN`.
+The small `tools/dc_info_gen.c` reads only FIN labels, frame indices, and raw
+frame durations. Its multigen-style rows use numeric FIN indices rather than
+Doom frame letters. Actions are `NULL` and sequence ends are `S_NULL` placeholders;
+this is an extraction artifact, not a replacement for gameplay tables.
+Every valid native label is kept without interpreting directions or layers;
+unlabeled frames are exported separately. Unsupported tables and invalid ranges
+are reported on stderr and in `; SKIPPED` comments, never repaired or clamped.
 
 ### Dark Colony
 
@@ -445,9 +438,9 @@ driven by MAP, SCN, SPR, FIN, and related original assets. Buildings are modeled
 as actors so selection, health, rendering, and production use the same object
 path as units.
 
-The plugin provides hardcoded `ActorType` gameplay values and generated
-`MobjInfo`/`State` animation data. `tools/dc_info_gen` and
-`tools/dc_gamestat_gen` regenerate derived tables from `data/DCOLONY`.
+The plugin provides hardcoded `ActorType` gameplay values and authored
+`MobjInfo`/`State` animation data. `tools/dc_info_gen` exports native FIN animations;
+`tools/dc_gamestat_gen` extracts reference balance tables from `data/DCOLONY`.
 
 ### Dark Reign
 

@@ -1021,3 +1021,14 @@ Local format findings from `data/KKND`:
   Its documented lifetime permits seven subsequent calls; retained strings
   must be copied before reuse. This is a utility design reference, not evidence
   about Dark Colony file formats or retail rendering behavior.
+
+### FIN exporter text format reference (2026-09-09)
+
+Reference inspected: local `/Users/igor/Developer/idTech/doom-utilities-master/`
+`multigen.txt` and `multigen.c` (John Carmack's DOOM STATESCR, version 1.0).
+This checkout has no Git metadata; upstream URL/revision is unverified.
+The text uses `state sprite frame tics action nextstate` rows and semicolon
+comments. Dark Colony's FIN exporter follows that column structure with numeric
+native frame indices and raw durations; it is not directly compatible with the
+original parser, which interprets frame letters. Details and asset exceptions
+are recorded in `docs/DC_EXE_FINDINGS.md`, “FIN-only multigen-style exporter”.
