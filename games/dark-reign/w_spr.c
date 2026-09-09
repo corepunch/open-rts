@@ -345,7 +345,7 @@ static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *ren
 }
 
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const level_t *map, const mobj_t *units,
+                                        const level_t *map, mobj_t *const *units,
                                         int unit_count, spritecache_t *cache) {
     memset(cache, 0, sizeof(*cache));
     uint32_t sprite_palette[256];
@@ -370,7 +370,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                           dec->sprite3_name, sprite_palette, terrain_palette)) ok = false;
     }
     for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *unit = &units[i];
+        const mobj_t *unit = units[i];
         const char *shadow_name = unit->info ? unit->info->shadow_name : NULL;
         if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
                           shadow_name, sprite_palette, terrain_palette)) ok = false;

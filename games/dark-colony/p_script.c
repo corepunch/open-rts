@@ -149,14 +149,14 @@ static const char *script_message(const ScriptState *script, int id) {
     return NULL;
 }
 
-static bool player_near(const level_t *map, const mobj_t *units,
+static bool player_near(const level_t *map, mobj_t *const *units,
                                     int unit_count, int gx, int gy) {
     (void)map;
     fvec2_t center = fvec2_cell_center((ivec2_t){ gx, gy });
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
+        if (units[i]->owner != 0 || units[i]->remove || units[i]->hp <= 0) continue;
         if (fvec2_distance_squared(
-            fixed3_xy_to_fvec2(units[i].core.position), center) <= 16.0f) return true;
+            fixed3_xy_to_fvec2(units[i]->core.position), center) <= 16.0f) return true;
     }
     return false;
 }
@@ -179,8 +179,7 @@ static int script_nearest_vent(const level_t *map, int gx, int gy) {
 }
 
 static void execute_script_block(ScriptState *script, ScriptBlock *block,
-                                              level_t *map, mobj_t *units, int *unit_count,
-                                              const gameinfo_t *game_info, hudtext_t *hud) {
+                                              level_t *map, hudtext_t *hud) {
     if (!script || !block) return;
     for (int i = 0; i < block->command_count; ++i) {
         ScriptCommand *cmd = &block->commands[i];
@@ -204,12 +203,12 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
                             drop_cmd->a[4], drop_cmd->a[3] > 0 ? drop_cmd->a[3] : 1,
                         };
                 }
-                DC_StartDropship(units, unit_count, team,
+                DC_StartDropship(team,
                                  (ivec2_t){ x, y }, payload, payload_count);
             }
             for (int n = 0; n < count; ++n) {
                 if (cmd->type == SCRIPT_CMD_REINFORCE2)
-                    DC_SpawnReinforcement(map, units, unit_count, team, x, y, type, game_info);
+                    DC_SpawnReinforcement(team, x, y, type);
             }
         } else if (cmd->type == SCRIPT_CMD_BAIL) {
             int n = cmd->a[0], m = cmd->a[1];
@@ -724,7 +723,7 @@ static fvec2_t city_slot_cell_center(const CitySlotInfo *slot_info) {
 }
 
 static bool building_alive_at_slot(const ScriptState *script, int team, int slot,
-                                    const mobj_t *units, int unit_count) {
+                                    mobj_t *const *units, int unit_count) {
     fvec2_t expected = (fvec2_t){ 0.0f, 0.0f };
     bool found_slot = false;
     for (int i = 0; i < script->city_slot_count; ++i) {
@@ -737,7 +736,7 @@ static bool building_alive_at_slot(const ScriptState *script, int team, int slot
     }
     if (!found_slot) return false;
     for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *unit = &units[i];
+        const mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0) continue;
         if (unit->owner != (uint8_t)(team == 0 ? 0 : 1)) continue;
         fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
@@ -747,7 +746,7 @@ static bool building_alive_at_slot(const ScriptState *script, int team, int slot
 }
 
 static bool evaluate_condition(const ScriptState *script, const ScriptBlock *block,
-                                const mobj_t *units, int unit_count) {
+                                mobj_t *const *units, int unit_count) {
     switch (block->condition_kind) {
     case COND_ALL_BUILDINGS_DESTROYED: {
         int team = block->building_cond.team;
@@ -763,7 +762,7 @@ static bool evaluate_condition(const ScriptState *script, const ScriptBlock *blo
         int type = block->unit_state_cond.type;
         (void)type;
         for (int i = 0; i < unit_count; ++i) {
-            const mobj_t *unit = &units[i];
+            const mobj_t *unit = units[i];
             if (unit->remove || unit->hp <= 0) continue;
             if (team == 0 && unit->owner != 0) continue;
             if (team != 0 && unit->owner == 0) continue;
@@ -793,9 +792,8 @@ static bool evaluate_condition(const ScriptState *script, const ScriptBlock *blo
     return false;
 }
 
-void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *units, int *unit_count,
-                                const gameinfo_t *game_info, hudtext_t *hud, float dt) {
-    if (!script || !units || !unit_count) return;
+void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *const *units, int *unit_count, hudtext_t *hud, float dt) {
+    if (!script || !unit_count) return;
     if (script->state != MISSION_ACTIVE) return;
     script->elapsed_ms += (int)(dt * 1000.0f);
     bool debug_script = getenv("OPEN_RTS_DEBUG_SCRIPT") != NULL;
@@ -817,8 +815,7 @@ void DC_UpdateScript(ScriptState *script, level_t *map, mobj_t *units, int *unit
                 fprintf(stderr, "Dark Colony script block %d fired (%d commands)\n",
                         block->id, block->command_count);
             }
-            execute_script_block(script, block, map, units, unit_count,
-                                             game_info, hud);
+            execute_script_block(script, block, map, hud);
         }
     }
 }

@@ -862,8 +862,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
 
 /* ── unit SCN parser ────────────────────────────────────────────────────── */
 
-int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_units) {
-    if (max_units <= 0) return 0;
+int load_dark_reign_initial_units(const char *map_path) {
     Definitions defs;
     load_definitions(map_path, &defs);
     char scn_path[1024];
@@ -880,7 +879,7 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
     const char *team_tag = "SetDefaultTeam(";
     const char *unit_tag = "PutUnitAt(";
     char *cursor = text;
-    while (count < max_units) {
+    while (true) {
         char *team_hit = strstr(cursor, team_tag);
         char *hit = strstr(cursor, unit_tag);
         if (team_hit && (!hit || team_hit < hit)) {
@@ -895,20 +894,22 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
         if (sscanf(hit, "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
             (void)object_id;
             if (gx >= 0 && gy >= 0) {
-                units[count].core.position = fixed3_from_fvec2(
+                mobj_t *unit = P_SpawnMobj(fixed3_zero(), 0);
+                if (!unit) break;
+                unit->core.position = fixed3_from_fvec2(
                     fvec2_cell_center((ivec2_t){ gx, gy }), 0);
-                units[count].speed = 5.5f;
-                units[count].owner = current_team >= 0 && current_team < 8 ?
+                unit->speed = 5.5f;
+                unit->owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
-                if (units[count].owner == 0) has_player_unit = true;
-                P_MobjSetSelected(&units[count], units[count].owner == 0 && count == 0);
+                if (unit->owner == 0) has_player_unit = true;
+                P_MobjSetSelected(unit, unit->owner == 0 && count == 0);
                 VisualSpec visual;
                 if (resolve_unit_visual(&defs, unit_type, &visual)) {
-                    snprintf(units[count].core.sprite_name,
-                             sizeof(units[count].core.sprite_name), "%s", visual.sprite_name);
+                    snprintf(unit->core.sprite_name,
+                             sizeof(unit->core.sprite_name), "%s", visual.sprite_name);
                 } else {
-                    snprintf(units[count].core.sprite_name,
-                             sizeof(units[count].core.sprite_name), "%s", DEFAULT_UNIT_SPR);
+                    snprintf(unit->core.sprite_name,
+                             sizeof(unit->core.sprite_name), "%s", DEFAULT_UNIT_SPR);
                     fprintf(stderr, "warning: unresolved Dark Reign unit type %s\n", unit_type);
                 }
                 count++;
@@ -920,7 +921,7 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
     /* Campaign maps may derive their opening freighter from a player's
        AssociatedUnit building declaration rather than PutUnitAt. Resolve that
        relationship through BUILD.TXT and place it at the scenario start. */
-    if (!has_player_unit && count < max_units) {
+    if (!has_player_unit) {
         int team = -1;
         int start_x = 0, start_y = 0;
         bool have_start = false;
@@ -956,7 +957,8 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
             line = next;
         }
         if (have_start && associated_type[0] != '\0') {
-            mobj_t *unit = &units[count];
+            mobj_t *unit = P_SpawnMobj(fixed3_zero(), 0);
+            if (!unit) { free(text); W_FreeFile(&blob); free_definitions(&defs); return count; }
             unit->core.position = fixed3_from_fvec2((fvec2_t){
                 (float)start_x / 24.0f,
                 (float)start_y / 24.0f,
@@ -969,6 +971,8 @@ int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_u
                 snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name),
                          "%s", visual.sprite_name);
                 count++;
+            } else {
+                P_RemoveMobj(unit);
             }
         }
     }

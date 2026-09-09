@@ -17,7 +17,7 @@
 #include <strings.h>
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
-int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units);
+int load_dark_colony_initial_units(const char *map_path);
 extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_t *out);
 
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
@@ -33,9 +33,10 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .hit_effect_sprite = SPR_BLOO,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .blood_type = MT_BLOOD,
     },
+    { .id = MT_BLOOD, .name = "Blood", .sprite_name = "SPRITES/BLOO.SPR",
+      .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     {
         .id = MT_GREY,
         .name = "Grey",
@@ -45,8 +46,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .hit_effect_sprite = SPR_BLOO,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_EXPLOITER,
@@ -68,8 +68,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 30.0f / 32.0f,
         .max_hp = 800,
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-        .hit_effect_sprite = SPR_BLOO,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_THUNDERBOLT,
@@ -80,8 +79,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 15.0f / 32.0f,
         .max_hp = 1200,
         .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200 },
-        .hit_effect_sprite = SPR_BLOO,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_CYBORG,
@@ -92,8 +90,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 45.0f / 32.0f,
         .max_hp = 1200,
         .attack = { .range = 3.0f, .damage = 150, .cooldown_ms = 700 },
-        .hit_effect_sprite = SPR_BLOO,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_SCOUT,
@@ -104,8 +101,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .speed = 47.0f / 32.0f,
         .max_hp = 600,
         .attack = { .range = 5.0f, .damage = 80, .cooldown_ms = 600 },
-        .hit_effect_sprite = SPR_BLOO,
-        .hit_effect_name = "SPRITES/BLOO.SPR",
+        .blood_type = MT_BLOOD,
     },
     {
         .id = MT_EXCOPOD,
@@ -352,10 +348,10 @@ static bool draw_selection(const selectiondrawcontext_t *ctx) {
     return R_DrawSelectionMarkerFrame(ctx, frame, badge) || drawn;
 }
 
-const gameinfo_t *const gameinfo = &runtime_info;
-const mobjtype_t *const mobjinfo =
+const gameinfo_t *gameinfo = &runtime_info;
+const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_COLONY_ACTOR_TYPES;
-const int num_mobjinfo =
+const int num_actor_types =
     (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0]));
 const uidefinition_t *const gameui = NULL;
 
@@ -363,6 +359,7 @@ const uidefinition_t *const gameui = NULL;
 
 void G_InitGame(void) {
     static bool initialized;
+    gameinfo = &runtime_info;
     if (initialized) return;
 
     memcpy(runtime_states, states, sizeof(runtime_states));
@@ -404,25 +401,24 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     return true;
 }
 
-int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
-    return load_dark_colony_initial_units(path, (mobj_t *)mobjs, max);
+int P_LoadThings(const char *path) {
+    return load_dark_colony_initial_units(path);
 }
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                          const mobj_t *mobjs, int count, spritecache_t *cache) {
+                          mobj_t *const *mobjs, int count, spritecache_t *cache) {
     (void)renderer;
-    return load_dark_colony_unit_sprites(root, map, (const mobj_t *)mobjs, count, cache);
+    return load_dark_colony_unit_sprites(root, map, mobjs, count, cache);
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
     return load_font(renderer, root, font);
 }
 
-void G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
-                     effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
+void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
+                     hudtext_t *hud, float dt) {
     if (!map || !map->mission) return;
-    update_mission(map, (mobj_t *)mobjs, count,
-                               effects, max_effects, gameinfo, hud, dt);
+    update_mission(map, mobjs, count, hud, dt);
 }
 
 void *G_InitCustomUI(app_t *app, const char *data_root) {
@@ -430,7 +426,7 @@ void *G_InitCustomUI(app_t *app, const char *data_root) {
 }
 
 bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
-                         mobj_t *units, int unit_count, const SDL_Event *event) {
+                         mobj_t *const *units, int unit_count, const SDL_Event *event) {
     return DC_SB_Responder(ui, app, map, units, unit_count, event);
 }
 
@@ -439,15 +435,15 @@ void G_CustomUITicker(void *ui) {
 }
 
 void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                      const mobj_t *units, int unit_count,
+                      mobj_t *const *units, int unit_count,
                       const spritecache_t *sprites, const hudtext_t *hud) {
     DC_SB_Drawer(ui, app, map, units, unit_count, sprites, hud);
 }
 
-bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
-                        effect_t *effects, int max_effects, float dt) {
+bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
+                        float dt) {
     if (!ui) return false;
-    return G_ModelUpdateProduction(map, units, unit_count, effects, max_effects, dt);
+    return G_ModelUpdateProduction(map, units, unit_count, dt);
 }
 
 void G_ShutdownCustomUI(void *ui) {

@@ -1,3 +1,4 @@
+#include "game.h"
 #include "engine.h"
 #include "info.h"
 
@@ -13,7 +14,7 @@ static void draw_pixels(app_t *app, const spritesheet_t *sheet, const gameinfo_t
     SDL_SetRenderDrawColor(app->renderer, 70, 80, 90, 255);
     SDL_RenderClear(app->renderer);
     const level_t map = {0};
-    R_RenderPlayerView(app, &map, NULL, unit, 1, sheet, NULL, game, 0);
+    R_RenderPlayerView(app, &map, NULL, &unit, 1, sheet, NULL, game, 0);
     CHECK(SDL_RenderReadPixels(app->renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
                               pixels, 2 * sizeof(*pixels)) == 0);
 }
@@ -39,10 +40,10 @@ int main(void) {
     part->layer = 3;
     state_t states[2] = { {0}, { .tics = -1 } };
     gameinfo_t game = { .states = states, .state_count = 2 };
-    statecontext_t ctx = { .game_info = &game };
+    gameinfo = &game;
     mobj_t unit = { .traits = MF_RENDERABLE };
     unit.core.render_flags = UINT32_MAX;
-    CHECK(P_SetMobjState(&ctx, &unit, 1));
+    CHECK(P_SetMobjState(&unit, 1));
     CHECK(unit.core.render_flags == 0);
 
     uint32_t pixels[2], baseline[2];

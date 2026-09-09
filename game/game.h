@@ -23,9 +23,9 @@ extern const char *const g_game_default_sprite;
 extern const int g_cell_w;
 extern const int g_cell_h;
 extern const uint16_t g_debug_enemy_type;
-extern const gameinfo_t *const gameinfo;
-extern const mobjtype_t *const mobjinfo;
-extern const int num_mobjinfo;
+extern const gameinfo_t *gameinfo;
+extern const mobjtype_t *const actor_types;
+extern const int num_actor_types;
 extern const uidefinition_t *const gameui;   /* NULL if unused */
 
 /* ── game functions ────────────────────────────────────────────────────── */
@@ -40,21 +40,21 @@ bool     G_DoLoadLevel(const char *path, level_t *out);
 bool     W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                       const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite);
 
-/* Populate mobjs[] with initial units from the map file.
+/* Spawn initial map objects into the thinker list.
    Returns the number of mobjs spawned, or 0 on none/error. */
-int      P_LoadThings(const char *path, mobj_t *mobjs, int max);
+int      P_LoadThings(const char *path);
 
 /* Load per-unit sprites into cache after units are known.
    Returns true on success (partial loads are allowed). */
 bool     R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                       const mobj_t *mobjs, int count, spritecache_t *cache);
+                       mobj_t *const *mobjs, int count, spritecache_t *cache);
 
 /* Load the game UI font into *font.  Returns false if the game has no font. */
 bool     HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font);
 
 /* Advance mission state by dt seconds. */
-void     G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
-                         effect_t *effects, int max_effects, hudtext_t *hud, float dt);
+void     G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
+                         hudtext_t *hud, float dt);
 
 /* Return mission state: 0=active, 1=won, 2=lost, 3=ally_lost. */
 int      G_MissionState(const level_t *map);
@@ -66,19 +66,19 @@ void    *G_InitCustomUI(app_t *app, const char *data_root);
 
 /* Handle input events for custom UI. Returns true if handled. */
 bool     G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
-                             mobj_t *units, int unit_count, const SDL_Event *event);
+                             mobj_t *const *units, int unit_count, const SDL_Event *event);
 
 /* Advance custom UI state by one tick. */
 void     G_CustomUITicker(void *ui);
 
 /* Draw custom UI overlay/sidebar. */
 void     G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                          const mobj_t *units, int unit_count,
+                          mobj_t *const *units, int unit_count,
                           const spritecache_t *sprites, const hudtext_t *hud);
 
 /* Advance game-specific production queues in interactive mode. Returns true if a unit was spawned. */
-bool     G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
-                            effect_t *effects, int max_effects, float dt);
+bool     G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
+                            float dt);
 
 /* Shutdown and free custom UI. */
 void     G_ShutdownCustomUI(void *ui);
@@ -106,7 +106,7 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
 /* Check if prerequisites are satisfied for an owner to build a product. */
 bool     G_ModelProductAvailable(const RtsGameModel *model, int owner,
                                  const StaticProductDefinition *product);
-bool     G_ModelProductAvailableForUnits(const mobj_t *units, int unit_count,
+bool     G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
                                           const StaticProductDefinition *product);
 
 /* Find the producer mobj index for a product. Returns -1 if no eligible producer. */
@@ -144,14 +144,14 @@ void     G_ModelBuildUIScript(const RtsGameModel *model,
 /* Periodic AI production thinker. */
 void     G_ModelAIProduction(RtsGameModel *model, int elapsed_ms);
 
-/* ── interactive production simulation (raw mobj_t arrays, not RtsGameModel) ── */
+/* ── interactive production simulation (borrowed mobj pointers) ── */
 
 /* Enqueue a unit production order on producer. Returns false if rejected. */
 bool     G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
                                   uint16_t actor_id);
 
 /* Advance production queues by dt seconds, spawning finished units. Returns true if a unit was spawned. */
-bool     G_ModelUpdateProduction(level_t *map, mobj_t *units, int *unit_count,
-                                 effect_t *effects, int max_effects, float dt);
+bool     G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count,
+                                 float dt);
 
 #endif

@@ -12,9 +12,9 @@
 #include <strings.h>
 
 static const mobjtype_t *actor_type_by_id(uint16_t type_id) {
-    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
+    const mobjtype_t *types = (const mobjtype_t *)actor_types;
     if (!types) return NULL;
-    for (int i = 0; i < num_mobjinfo; ++i) {
+    for (int i = 0; i < num_actor_types; ++i) {
         if (types[i].id == type_id) return &types[i];
     }
     return NULL;
@@ -23,52 +23,51 @@ static const mobjtype_t *actor_type_by_id(uint16_t type_id) {
 static const mobjtype_t *actor_type_for_unit(const mobj_t *unit) {
     const mobjtype_t *type = actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
-    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
+    const mobjtype_t *types = (const mobjtype_t *)actor_types;
     if (!types || !unit) return NULL;
-    for (int i = 0; i < num_mobjinfo; ++i) {
+    for (int i = 0; i < num_actor_types; ++i) {
         const char *sprite = types[i].sprite_name;
         if (sprite && sprite[0] != '\0' && strcasecmp(sprite, unit->core.sprite_name) == 0) {
             return &types[i];
         }
     }
-    return num_mobjinfo > 0 ? &types[0] : NULL;
+    return num_actor_types > 0 ? &types[0] : NULL;
 }
 
-static void apply_actor_defaults(mobj_t *units, int count) {
+static void apply_actor_defaults(mobj_t *const *units, int count) {
     for (int i = 0; i < count; ++i) {
-        P_ApplyActorTypeDefaults(&units[i], actor_type_for_unit(&units[i]));
-        P_SpawnMobj(gameinfo, &units[i]);
+        P_ApplyActorTypeDefaults(units[i], actor_type_for_unit(units[i]));
+        P_InitMobj(gameinfo, units[i]);
     }
 }
 
 static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
-                                   mobj_t *units, int *unit_count, int sx, int sy) {
-    if (!map || !app || !units || !unit_count || *unit_count >= MAXMOBJS) return false;
+                                   int sx, int sy) {
+    if (!map || !app) return false;
     const mobjtype_t *type = actor_type_by_id(g_debug_enemy_type);
-    const mobjtype_t *types = (const mobjtype_t *)mobjinfo;
-    if (!type && num_mobjinfo > 0) type = &types[0];
+    const mobjtype_t *types = (const mobjtype_t *)actor_types;
+    if (!type && num_actor_types > 0) type = &types[0];
     if (!type) return false;
     cell_t cell = R_ScreenToMapGrid(app, map, sx, sy);
     if (!L_Contains(map, cell.x, cell.y)) return false;
-    mobj_t *unit = &units[*unit_count];
-    memset(unit, 0, sizeof(*unit));
+    mobj_t *unit = P_SpawnMobj(fixed3_zero(), type->id);
+    if (!unit) return false;
     unit->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ cell.x, cell.y }), 0);
     unit->owner = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     P_ApplyActorTypeDefaults(unit, type);
-    P_SpawnMobj(gameinfo, unit);
-    (*unit_count)++;
+    P_InitMobj(gameinfo, unit);
     return true;
 }
 
 static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
-                                              const mobj_t *units, int unit_count) {
+                                              mobj_t *const *units, int unit_count) {
     if (!app || !map || !units) return false;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i].owner != 0 || units[i].remove || units[i].hp <= 0) continue;
+        if (units[i]->owner != 0 || units[i]->remove || units[i]->hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
-        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
+        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
         app->cam.x += (float)app->win.w * 0.5f - sx;
         app->cam.y += (float)app->win.h * 0.5f - sy;
@@ -152,8 +151,8 @@ int main(int argc, char **argv) {
     app.renderer = renderer.sdl;
     R_RefreshViewport(&app);
 
-    level_t map;
-    if (!G_DoLoadLevel(map_path, &map)) {
+    P_InitThinkers();
+    if (!G_DoLoadLevel(map_path, &level)) {
         renderer_destroy(&renderer);
         return 1;
     }
@@ -162,55 +161,59 @@ int main(int argc, char **argv) {
     spritesheet_t unit_sprite;
     memset(&tileset, 0, sizeof(tileset));
     memset(&unit_sprite, 0, sizeof(unit_sprite));
-    if (!W_LoadAssets(app.renderer, data_root, &map, sprite_name, &tileset, &unit_sprite)) {
-        P_FreeLevel(&map);
+    if (!W_LoadAssets(app.renderer, data_root, &level, sprite_name, &tileset, &unit_sprite)) {
+        P_FreeLevel(&level);
         renderer_destroy(&renderer);
         return 1;
     }
     app.cell.w = g_cell_w > 0 ? g_cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
     app.cell.h = g_cell_h > 0 ? g_cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
 
-    mobj_t units[MAXMOBJS] = { 0 };
-    int unit_count = P_LoadThings(map_path, (mobj_t *)units, MAXMOBJS);
+    P_LoadThings(map_path);
+    mobjlist_t objects = P_ListMobjs();
+    mobj_t **units = objects.items;
+    int unit_count = objects.count;
     if (unit_count <= 0) {
-        unit_count = 6;
-        int cx = map.width / 2;
-        int cy = map.height / 2;
-        const mobjtype_t *fallback_type = num_mobjinfo > 0 ? (const mobjtype_t *)mobjinfo : NULL;
-        for (int i = 0; i < unit_count; ++i) {
-            units[i].core.position = fixed3_from_fvec2(fvec2_cell_center(
-                (ivec2_t){ cx + i % 3, cy + i / 3 }), 0);
-            units[i].owner = 0;
-            P_MobjSetSelected(&units[i], i == 0);
-            if (fallback_type) {
-                P_ApplyActorTypeDefaults(&units[i], fallback_type);
-            } else {
-                units[i].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
-                snprintf(units[i].core.sprite_name, sizeof(units[i].core.sprite_name), "%s", sprite_name);
+        int cx = level.width / 2;
+        int cy = level.height / 2;
+        const mobjtype_t *fallback_type = num_actor_types > 0 ? actor_types : NULL;
+        for (int i = 0; i < 6; ++i) {
+            mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(fvec2_cell_center(
+                (ivec2_t){ cx + i % 3, cy + i / 3 }), 0),
+                fallback_type ? fallback_type->id : 0);
+            if (!unit) break;
+            unit->owner = 0;
+            P_MobjSetSelected(unit, i == 0);
+            if (!fallback_type) {
+                unit->traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
+                snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", sprite_name);
             }
         }
+        P_FreeMobjList(&objects);
+        objects = P_ListMobjs();
+        units = objects.items;
+        unit_count = objects.count;
     }
     apply_actor_defaults(units, unit_count);
-    effect_t effects[MAX_VISUAL_EFFECTS] = { 0 };
 
     spritecache_t decoration_sprites = { 0 };
-    if (!R_InitSprites(app.renderer, data_root, &map, (const mobj_t *)units, unit_count,
+    if (!R_InitSprites(app.renderer, data_root, &level, units, unit_count,
                               &decoration_sprites)) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", g_game_name);
     }
 
-    if (!focus_camera_on_map_start(&app, &map)) {
-        fvec2_t position = unit_count > 0 ? fixed3_xy_to_fvec2(units[0].core.position) :
-            (fvec2_t){ (float)map.width * 0.5f, (float)map.height * 0.5f };
+    if (!focus_camera_on_map_start(&app, &level)) {
+        fvec2_t position = unit_count > 0 ? fixed3_xy_to_fvec2(units[0]->core.position) :
+            (fvec2_t){ (float)level.width * 0.5f, (float)level.height * 0.5f };
         float focus_gx = position.x;
         float focus_gy = position.y;
-        focus_camera_on_grid(&app, &map, focus_gx, focus_gy);
+        focus_camera_on_grid(&app, &level, focus_gx, focus_gy);
     }
-    R_ClampCamera(&app, &map, G_WorldViewportWidth(&app), app.win.h);
+    R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d map decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
-           map_path, map.width, map.height, map.tileset_name, unit_count,
-           map.decoration_count, map.resource_vent_count);
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
+           map_path, level.width, level.height, level.tileset_name, unit_count,
+           level.decoration_count, level.resource_vent_count);
 
     void *custom_ui = G_InitCustomUI(&app, data_root);
     sb_state_t st = { 0 };
@@ -220,37 +223,41 @@ int main(int argc, char **argv) {
     if (check_only || screenshot_only) {
         if (screenshot_only) {
             app.ticks_ms = SDL_GetTicks();
-            if (map.mission) {
+            if (level.mission) {
                 int before_count = unit_count;
-                G_MissionTicker(&map, (mobj_t *)units, &unit_count,
-                                effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
-                if (unit_count != before_count && !map.has_camera)
-                    focus_camera_on_first_player_unit(&app, &map, units, unit_count);
-                R_ClampCamera(&app, &map, G_WorldViewportWidth(&app), app.win.h);
+                G_MissionTicker(&level, units, &unit_count,
+                                &hud_text, FIXED_DT);
+                P_FreeMobjList(&objects);
+                objects = P_ListMobjs();
+                units = objects.items;
+                unit_count = objects.count;
+                if (unit_count != before_count && !level.has_camera)
+                    focus_camera_on_first_player_unit(&app, &level, units, unit_count);
+                R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
             }
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
-            R_DrawLevel(&app, &map, &tileset);
-            R_RenderPlayerView(&app, &map, &tileset, units,
+            R_DrawLevel(&app, &level, &tileset);
+            R_RenderPlayerView(&app, &level, &tileset, units,
                                  unit_count, &unit_sprite,
                                  &decoration_sprites, gameinfo, SDL_GetTicks());
-            R_DrawEffects(&app, &map, effects, MAX_VISUAL_EFFECTS,
-                                  &decoration_sprites, gameinfo);
-            R_DrawGridOverlay(&app, &map);
-            G_CustomUIDrawer(custom_ui, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
-            SB_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
+
+            R_DrawGridOverlay(&app, &level);
+            G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
+            SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                       false, true);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
-               tileset.count, unit_sprite.numlumps, sprite_name, map.resource_vent_count);
+               tileset.count, unit_sprite.numlumps, sprite_name, level.resource_vent_count);
         SB_Shutdown(&st);
         G_ShutdownCustomUI(custom_ui);
         R_FreeSpriteCache(&decoration_sprites);
         R_FreeSprite(&unit_sprite);
         R_FreeTileset(&tileset);
-        P_FreeLevel(&map);
+        P_FreeMobjList(&objects);
+        P_FreeLevel(&level);
         renderer_destroy(&renderer);
         return 0;
     }
@@ -271,87 +278,100 @@ int main(int argc, char **argv) {
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
                 e.key.keysym.sym == SDLK_F10) {
-                map.player_resources[0][0] += 100;
+                level.player_resources[0][0] += 100;
                 HU_PushMessage(&hud_text, "CHEAT: +100 RESOURCES", 2000);
                 continue;
             }
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
                 (SDL_GetModState() & KMOD_ALT) != 0) {
-                if (spawn_debug_enemy_unit(&map, &app, units, &unit_count, e.button.x, e.button.y)) {
-                    if (!R_InitSprites(app.renderer, data_root, &map,
-                                             (const mobj_t *)units, unit_count,
+                if (spawn_debug_enemy_unit(&level, &app, e.button.x, e.button.y)) {
+                    P_FreeMobjList(&objects);
+                    objects = P_ListMobjs();
+                    units = objects.items;
+                    unit_count = objects.count;
+                    if (!R_InitSprites(app.renderer, data_root, &level,
+                                             units, unit_count,
                                              &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load debug enemy sprite\n");
                     }
                 }
                 continue;
             }
-            if (G_CustomUIResponder(custom_ui, &app, &map, units, unit_count, &e) ||
+            if (G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e) ||
                 SB_Responder(&st, &app, &e)) {
                 continue;
             }
-            G_Responder(&app, &map, units, unit_count, &unit_sprite,
+            G_Responder(&app, &level, units, unit_count, &unit_sprite,
                          &decoration_sprites, gameinfo, &e);
         }
         G_CameraMove(&app, frame_dt);
-        R_ClampCamera(&app, &map, G_WorldViewportWidth(&app), app.win.h);
+        R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
         while (accumulator >= FIXED_DT) {
-            P_Ticker(&map, units, &unit_count, effects, MAX_VISUAL_EFFECTS,
-                         gameinfo, FIXED_DT);
-            if (map.mission) {
+            P_Ticker();
+            P_FreeMobjList(&objects);
+            objects = P_ListMobjs();
+            units = objects.items;
+            unit_count = objects.count;
+            if (level.mission) {
                 int before_count = unit_count;
-                G_MissionTicker(&map, (mobj_t *)units, &unit_count,
-                                effects, MAX_VISUAL_EFFECTS, &hud_text, FIXED_DT);
+                G_MissionTicker(&level, units, &unit_count,
+                                &hud_text, FIXED_DT);
+                P_FreeMobjList(&objects);
+                objects = P_ListMobjs();
+                units = objects.items;
+                unit_count = objects.count;
                 if (unit_count != before_count) {
-                    if (!map.has_camera) focus_camera_on_first_player_unit(&app, &map, units, unit_count);
-                    R_ClampCamera(&app, &map, G_WorldViewportWidth(&app), app.win.h);
-                    if (!R_InitSprites(app.renderer, data_root, &map,
-                                             (const mobj_t *)units, unit_count,
+                    if (!level.has_camera) focus_camera_on_first_player_unit(&app, &level, units, unit_count);
+                    R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
+                    if (!R_InitSprites(app.renderer, data_root, &level,
+                                             units, unit_count,
                                              &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load scripted runtime sprites\n");
                     }
                 }
             }
             int before_production_count = unit_count;
-            bool production_spawned = G_UpdateProduction(custom_ui, &map, units, &unit_count,
-                                                         effects, MAX_VISUAL_EFFECTS, FIXED_DT);
+            bool production_spawned = G_UpdateProduction(custom_ui, &level, units, &unit_count,
+                                                         FIXED_DT);
+            P_FreeMobjList(&objects);
+            objects = P_ListMobjs();
+            units = objects.items;
+            unit_count = objects.count;
             if (production_spawned || unit_count != before_production_count) {
-                if (!R_InitSprites(app.renderer, data_root, &map,
-                                         (const mobj_t *)units, unit_count,
+                if (!R_InitSprites(app.renderer, data_root, &level,
+                                         units, unit_count,
                                          &decoration_sprites)) {
                     fprintf(stderr, "warning: failed to load produced unit sprite\n");
                 }
             }
-            P_UpdateEffects(&map, effects, MAX_VISUAL_EFFECTS,
-                                  gameinfo, FIXED_DT);
+
             HU_Ticker(&hud_text, FIXED_DT);
             SB_Ticker(&st);
             G_CustomUITicker(custom_ui);
             accumulator -= FIXED_DT;
         }
-        if (map.player_resources[0][0] != title_resources) {
+        if (level.player_resources[0][0] != title_resources) {
             char title[128];
-            title_resources = map.player_resources[0][0];
+            title_resources = level.player_resources[0][0];
             snprintf(title, sizeof(title), "open-rts - %s - Resources %d", g_game_name, title_resources);
             SDL_SetWindowTitle(app.window, title);
         }
 
         app.ticks_ms = SDL_GetTicks();
         renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
-        R_DrawLevel(&app, &map, &tileset);
-        R_RenderPlayerView(&app, &map, &tileset, units, unit_count, &unit_sprite,
+        R_DrawLevel(&app, &level, &tileset);
+        R_RenderPlayerView(&app, &level, &tileset, units, unit_count, &unit_sprite,
                              &decoration_sprites, gameinfo, SDL_GetTicks());
-        R_DrawEffects(&app, &map, effects, MAX_VISUAL_EFFECTS,
-                              &decoration_sprites, gameinfo);
-        R_DrawGridOverlay(&app, &map);
+
+        R_DrawGridOverlay(&app, &level);
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 220);
             SDL_RenderDrawRect(app.renderer, &app.selection_rect);
         }
-        G_CustomUIDrawer(custom_ui, &app, &map, units, unit_count, &decoration_sprites, &hud_text);
-        SB_Drawer(&st, &app, &map, units, unit_count, &decoration_sprites,
+        G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
+        SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                   false, false);
         renderer_end_frame(&renderer);
     }
@@ -361,7 +381,8 @@ int main(int argc, char **argv) {
     R_FreeSpriteCache(&decoration_sprites);
     R_FreeSprite(&unit_sprite);
     R_FreeTileset(&tileset);
-    P_FreeLevel(&map);
+    P_FreeMobjList(&objects);
+    P_FreeLevel(&level);
     renderer_destroy(&renderer);
     return 0;
 }

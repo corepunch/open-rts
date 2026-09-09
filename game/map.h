@@ -123,6 +123,7 @@ typedef struct level_s {
     flowfield_t *flow_fields;
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
+    uint32_t next_mobj_id;
 } level_t;
 
 static inline int L_ScreenY(const level_t *map, int y) {
@@ -146,5 +147,7 @@ static inline float L_ScreenYF(const level_t *map, float y) {
 static inline float L_WorldYF(const level_t *map, float y) {
     return L_ScreenYF(map, y);
 }
+
+extern level_t level;
 
 #endif

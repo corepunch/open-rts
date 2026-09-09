@@ -244,15 +244,15 @@ static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *i
     SDL_RenderCopy(renderer, image->lumps[0].texture, &src, &dst);
 }
 
-static const mobj_t *dc_first_selected_unit(const mobj_t *units, int unit_count) {
+static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count) {
     if (!units) return NULL;
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsSelected(&units[i]) && !units[i].remove) return &units[i];
+        if (P_MobjIsSelected(units[i]) && !units[i]->remove) return units[i];
     }
     return NULL;
 }
 
-static bool dc_product_prerequisites_met(const mobj_t *units, int unit_count,
+static bool dc_product_prerequisites_met(mobj_t *const *units, int unit_count,
                                          const ProductButton *product) {
     return G_ModelProductAvailableForUnits(units, unit_count, product);
 }
@@ -262,7 +262,7 @@ static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
         selected->type_id >= CLIENT_MT_EXCOPOD;
 }
 
-static int dc_products_for_selected_building(const mobj_t *selected, const mobj_t *units,
+static int dc_products_for_selected_building(const mobj_t *selected, mobj_t *const *units,
                                              int unit_count,
                                              const ProductButton *out[8]) {
     if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
@@ -316,22 +316,22 @@ static const char *dc_sidebar_command_label(const SidebarCommand *cmd,
     return cmd->label;
 }
 
-static void dc_stop_selected_units(mobj_t *units, int unit_count) {
+static void dc_stop_selected_units(mobj_t *const *units, int unit_count) {
     for (int i = 0; i < unit_count; ++i) {
-        if (!P_MobjIsSelected(&units[i])) continue;
-        units[i].movement.flow_field = NULL;
-        units[i].attack.target = -1;
-        units[i].harvest.target = -1;
-        units[i].harvest.timer_ms = 0;
-        units[i].movement.goal = fixed3_xy_to_fvec2(units[i].core.position);
-        units[i].movement.order_id = 0;
-        units[i].movement.order_arrived = false;
-        units[i].core.momentum = fixed3_zero();
+        if (!P_MobjIsSelected(units[i])) continue;
+        units[i]->movement.flow_field = NULL;
+        units[i]->attack.target = NULL;
+        units[i]->harvest.target = -1;
+        units[i]->harvest.timer_ms = 0;
+        units[i]->movement.goal = fixed3_xy_to_fvec2(units[i]->core.position);
+        units[i]->movement.order_id = 0;
+        units[i]->movement.order_arrived = false;
+        units[i]->core.momentum = fixed3_zero();
     }
 }
 
 static bool dc_SB_responder(const app_t *app, level_t *map,
-                            mobj_t *units, int unit_count, const SDL_Event *e) {
+                            mobj_t *const *units, int unit_count, const SDL_Event *e) {
     if (!app || !map || !e) return false;
     if (e->type != SDL_MOUSEBUTTONDOWN) return false;
     int rx = 0, ry = 0;
@@ -340,12 +340,12 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
     if (!irect_contains(layout.outer, (ivec2_t){ rx, ry })) return false;
     int selected_index = -1;
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsSelected(&units[i]) && !units[i].remove) {
+        if (P_MobjIsSelected(units[i]) && !units[i]->remove) {
             selected_index = i;
             break;
         }
     }
-    mobj_t *selected = selected_index >= 0 ? &units[selected_index] : NULL;
+    mobj_t *selected = selected_index >= 0 ? units[selected_index] : NULL;
     if (dc_selected_unit_is_player_building(selected)) {
         const ProductButton *products[8] = { 0 };
         int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
@@ -371,7 +371,7 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
     return true;
 }
 
-static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *units, int unit_count,
+static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                                irect_t rect) {
     if (!app || !map || map->width <= 0 || map->height <= 0) return;
     dc_ui_fill(app->renderer, rect, (SDL_Color){ 4, 8, 9, 255 });
@@ -399,14 +399,14 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, const mobj_t *uni
                    (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
     }
     for (int i = 0; i < unit_count; ++i) {
-        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
-        if (P_MobjIsHidden(&units[i]) || units[i].remove ||
+        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
+        if (P_MobjIsHidden(units[i]) || units[i]->remove ||
             position.x < 0.0f || position.y < 0.0f) continue;
         int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *
                                 (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
-        dc_ui_fill(app->renderer, dot, units[i].owner == 0 ?
+        dc_ui_fill(app->renderer, dot, units[i]->owner == 0 ?
                    (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
     }
     int world_right = app->win.w - 124;
@@ -459,7 +459,7 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
 }
 
 static void dc_SB_drawer(app_t *app, const level_t *map,
-                         const mobj_t *units, int unit_count,
+                         mobj_t *const *units, int unit_count,
                          const spritecache_t *cache, const bitmapfont_t *font,
                          const Sidebar *sidebar,
                          const spritesheet_t *background) {
@@ -631,7 +631,7 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
 }
 
 bool DC_SB_Responder(void *sb_ptr, const app_t *app, level_t *map,
-                  mobj_t *units, int unit_count, const SDL_Event *event) {
+                  mobj_t *const *units, int unit_count, const SDL_Event *event) {
     sb_state_t *sb = sb_ptr;
     return sb && sb->active &&
            dc_SB_responder(app, map, units, unit_count, event);
@@ -643,7 +643,7 @@ void DC_SB_Ticker(void *sb_ptr) {
 }
 
 void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
-               const mobj_t *units, int unit_count,
+               mobj_t *const *units, int unit_count,
                const spritecache_t *sprites, const hudtext_t *hud) {
     sb_state_t *sb = sb_ptr;
     if (!sb || !sb->active || !sb->font_ready) return;

@@ -70,9 +70,9 @@ bool load_dark_map(const char *map_path, level_t *out);
 bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
                                    const level_t *map, const char *sprite_name,
                                    tileset_t *tileset, spritesheet_t *unit_sprite);
-int load_dark_reign_initial_units(const char *map_path, mobj_t *units, int max_units);
+int load_dark_reign_initial_units(const char *map_path);
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const level_t *map, const mobj_t *units, int unit_count,
+                                        const level_t *map, mobj_t *const *units, int unit_count,
                                         spritecache_t *cache);
 
 static const uiimage_t DARK_REIGN_UI_IMAGES[] = {
@@ -435,10 +435,10 @@ const char *const g_game_default_sprite = "ucfcnst0.spr";
 const int g_cell_w = 24;
 const int g_cell_h = 24;
 const uint16_t g_debug_enemy_type = ACTOR_FG_CONSTRUCTION_CREW;
-const gameinfo_t *const gameinfo = &DARK_REIGN_GAME_INFO;
-const mobjtype_t *const mobjinfo =
+const gameinfo_t *gameinfo = &DARK_REIGN_GAME_INFO;
+const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_REIGN_ACTOR_TYPES;
-const int num_mobjinfo =
+const int num_actor_types =
     (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0]));
 const uidefinition_t *const gameui = &DARK_REIGN_UI;
 
@@ -456,14 +456,14 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     return plugin_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
 }
 
-int P_LoadThings(const char *path, mobj_t *mobjs, int max) {
-    return load_dark_reign_initial_units(path, (mobj_t *)mobjs, max);
+int P_LoadThings(const char *path) {
+    return load_dark_reign_initial_units(path);
 }
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                          const mobj_t *mobjs, int count, spritecache_t *cache) {
+                          mobj_t *const *mobjs, int count, spritecache_t *cache) {
     return load_dark_reign_decoration_sprites(renderer, root, map,
-                                              (const mobj_t *)mobjs, count, cache);
+                                              mobjs, count, cache);
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
@@ -471,10 +471,10 @@ bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
     return false;
 }
 
-void  G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,
-                      effect_t *effects, int max_effects, hudtext_t *hud, float dt) {
+void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
+                      hudtext_t *hud, float dt) {
     (void)map; (void)mobjs; (void)count;
-    (void)effects; (void)max_effects; (void)hud; (void)dt;
+    (void)hud; (void)dt;
 }
 
 void *G_InitCustomUI(app_t *app, const char *data_root) {
@@ -483,7 +483,7 @@ void *G_InitCustomUI(app_t *app, const char *data_root) {
 }
 
 bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
-                         mobj_t *units, int unit_count, const SDL_Event *event) {
+                         mobj_t *const *units, int unit_count, const SDL_Event *event) {
     (void)ui; (void)app; (void)map; (void)units; (void)unit_count; (void)event;
     return false;
 }
@@ -493,16 +493,16 @@ void G_CustomUITicker(void *ui) {
 }
 
 void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                      const mobj_t *units, int unit_count,
+                      mobj_t *const *units, int unit_count,
                       const spritecache_t *sprites, const hudtext_t *hud) {
     (void)ui; (void)app; (void)map; (void)units; (void)unit_count;
     (void)sprites; (void)hud;
 }
 
-bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,
-                        effect_t *effects, int max_effects, float dt) {
+bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
+                        float dt) {
     (void)ui; (void)map; (void)units; (void)unit_count;
-    (void)effects; (void)max_effects; (void)dt;
+    (void)dt;
     return false;
 }
 

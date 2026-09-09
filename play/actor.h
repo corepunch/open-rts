@@ -10,12 +10,15 @@
 #include <stdint.h>
 
 typedef struct mobj_s mobj_t;
-typedef struct statecontext_s statecontext_t;
 typedef struct app_s app_t;
 typedef struct spritecache_s spritecache_t;
 typedef struct gameinfo_s gameinfo_t;
 typedef struct production_s production_t;
 typedef void (*actionf_p1)(mobj_t *mo);
+typedef struct thinker_s {
+    struct thinker_s *prev, *next;
+    actionf_p1 function;
+} thinker_t;
 
 typedef enum {
     MF_SELECTABLE = 1u << 0,
@@ -27,6 +30,7 @@ typedef enum {
     MF_FLY = 1u << 6,
     MF_SELECTED = 1u << 7,
     MF_DONTDRAW = 1u << 8,
+    MF_NOBLOCKMAP = 1u << 9, /* Non-interacting puff, blood, or light mobj. */
 } mobjflag_t;
 
 enum {
@@ -53,10 +57,7 @@ typedef struct mobjtype_s {
         int state_id;
         int capacity;
     } harvest;
-    int muzzle_flash_ms;
-    const char *muzzle_flash_name;
-    int hit_effect_sprite;
-    const char *hit_effect_name;
+    uint16_t blood_type;
 } mobjtype_t;
 
 typedef struct state_s {
@@ -141,12 +142,7 @@ struct gameinfo_s {
     selectiondrawf_t draw_selection;
 };
 
-/*
- * State-machine and presentation data shared by gameplay mobjs and transient
- * effects.  Keep this as the single definition of the fields advanced by a
- * state_t; effect_t adds only lifetime policy around the same lightweight
- * object core.
- */
+/* State-machine and presentation fields of an ordinary mobj. */
 typedef struct mobjcore_s {
     fixed3_t position;
     fixed3_t momentum;
@@ -175,6 +171,7 @@ struct production_s {
 };
 
 struct mobj_s {
+    thinker_t thinker;
     mobjcore_t core;
     const mobjtype_t *info;
     float speed;
@@ -189,7 +186,7 @@ struct mobj_s {
     int max_hp;
     struct {
         int cooldown_left_ms;
-        int target;
+        mobj_t *target;
     } attack;
     struct {
         int target;
@@ -246,36 +243,25 @@ static inline bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
 }
 
-typedef struct effect_s {
-    mobjcore_t core;
-    bool active;
-    bool use_state;
-    bool fin_placement;
-    int render_selector;
-    int age_ms;
-    int duration_ms;
-    int frame_ms;
-    int decoration_frame_index;
-    bool add_decoration_on_finish;
-    bool ground_light;
-    int light_radius;
-} effect_t;
+extern thinker_t thinkercap;
+extern int leveltime;
+void P_InitThinkers(void);
+void P_AddThinker(thinker_t *thinker);
+void P_RemoveThinker(thinker_t *thinker);
+void P_RunThinkers(void);
+void P_FreeThinkers(void);
+void P_MobjThinker(mobj_t *mobj);
+mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type);
+void P_RemoveMobj(mobj_t *mobj);
+void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit);
+/* Non-owning snapshots for rendering/UI and batch RTS orders. The thinker list
+ * alone owns objects; these pointers never move or compact their storage. */
+typedef struct { mobj_t **items; int count; } mobjlist_t;
+mobjlist_t P_ListMobjs(void);
+void P_FreeMobjList(mobjlist_t *list);
 
-struct statecontext_s {
-    level_t *map;
-    mobj_t *mobjs;
-    int *mobj_count;
-    effect_t *effects;
-    int max_effects;
-    const gameinfo_t *game_info;
-};
-
-/* Removed objects become allocatable after P_Ticker compacts the live prefix. */
-mobj_t *P_AllocMobj(mobj_t *mobjs, int *count);
-/* Active only during a world-state action; nested dispatch restores its caller. */
-statecontext_t *P_GetStateContext(void);
-bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
-bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
+bool P_SetMobjState(mobj_t *unit, int state_id);
+bool P_TickMobjState(mobj_t *unit);
 production_t *P_EnsureMobjProduction(mobj_t *unit);
 void P_FreeMobjProduction(mobj_t *unit);
 

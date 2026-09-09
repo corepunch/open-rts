@@ -1044,15 +1044,15 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
             fprintf(out, "    S_%s%d,\n", drop_sequences[i].state, f);
     }
     fprintf(out, "    S_DROP_RELEASE,\n");
+    fprintf(out, "    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,\n");
     fprintf(out, "    NUMSTATES\n} statenum_t;\n\n");
-    fprintf(out, "enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, NUMMOBJTYPES };\n\n");
+    fprintf(out, "enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, MT_BLOOD, NUMMOBJTYPES };\n\n");
     fprintf(out, "extern const char *const sprnames[NUMSPRITES];\n");
     fprintf(out, "extern const state_t states[NUMSTATES];\n");
-    fprintf(out, "extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];\n");
+    fprintf(out, "extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];\n");
     fprintf(out, "extern const gameinfo_t game_info;\n\n");
     fprintf(out, "const mobjtype_t *actor_type_by_id(uint16_t type_id);\n\n");
     fprintf(out, "void A_DC_ReaperDeath(mobj_t *unit);\n");
-    fprintf(out, "void A_DC_Corpse(mobj_t *unit);\n\n");
     fprintf(out, "void A_DC_Drop(mobj_t *unit);\nvoid A_DC_Fly(mobj_t *unit);\n\n");
     fprintf(out, "#endif\n");
 }
@@ -1133,10 +1133,10 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
     }
 }
 
-static void gray_die(FILE *out, const char *next, int n, const char *action) {
+static void gray_die(FILE *out, const char *next, int n, int tics) {
     int frame_a = n < 9 ? 262 + n : 286 + (n - 9);
-    fprintf(out, "    { SPR_GRAY, %d, 3, %s, %s, 4 },\n",
-            frame_a, action, next);
+    fprintf(out, "    { SPR_GRAY, %d, %d, A_None, %s, 4 },\n",
+            frame_a, tics, next);
 }
 
 static void state_name(char *dst, size_t dst_size, const char *prefix,
@@ -1446,8 +1446,8 @@ static void write_fin_layer0_overlay_sequence(FILE *out, const char *spr, const 
 static void write_fin_corpse(FILE *out, const char *spr, const DcFinAnimation *fin,
                              const char *label_prefix, int last_step, int fallback_frame,
                              bool mirror_left) {
-    f8_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
-                 "A_DC_Corpse", "S_NULL", 4, last_step + 1, mirror_left);
+    f8_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, -1,
+                 "A_None", "S_NULL", 4, last_step + 1, mirror_left);
 }
 
 static void write_fin_sequence16(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1485,8 +1485,8 @@ static void write_fin_layer5_sequence16(FILE *out, const char *spr, const DcFinA
 
 static void write_fin_corpse16(FILE *out, const char *spr, const DcFinAnimation *fin,
                                const char *label_prefix, int last_step, int fallback_frame) {
-    f16_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, 1,
-                  "A_DC_Corpse", "S_NULL", 4);
+    f16_fin_state(out, spr, fin, label_prefix, last_step, fallback_frame, -1,
+                  "A_None", "S_NULL", 4);
 }
 
 static void write_fin_death_sequence(FILE *out, const SpriteEntry *sprite,
@@ -1507,7 +1507,7 @@ static void write_fin_death_sequence(FILE *out, const SpriteEntry *sprite,
                 sprite->symbol, sprite->frames + frame,
                 fin_runtime_tics(&fin->frames[frame], &timing), next);
     }
-    fprintf(out, "    { %s, %d, 1, A_DC_Corpse, S_NULL, 4 },\n",
+    fprintf(out, "    { %s, %d, -1, A_None, S_NULL, 4 },\n",
             sprite->symbol, sprite->frames + label->end);
 }
 
@@ -1635,7 +1635,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     }
     const char *trsc_die_next[11] = {"S_TRSC_DIE2","S_TRSC_DIE3","S_TRSC_DIE4","S_TRSC_DIE5","S_TRSC_DIE6","S_TRSC_DIE7","S_TRSC_DIE8","S_TRSC_DIE9","S_TRSC_DIE10","S_TRSC_CORPSE","S_NULL"};
     for (int i = 0; i < 10; ++i) f6(out, sprites[trsc].symbol, 3, "A_None", trsc_die_next[i], 4, trsc_die, i);
-    f6(out, sprites[trsc].symbol, 1, "A_DC_Corpse", trsc_die_next[10], 4, trsc_die, 9);
+    f6(out, sprites[trsc].symbol, -1, "A_None", trsc_die_next[10], 4, trsc_die, 9);
 
     f8_fin_state(out, sprites[gray].symbol, &gray_fin, "GRAYSTAND", 0, 0, 1,
                  "A_Look", "S_GRAY_STND", 1, 1, false);
@@ -1651,8 +1651,8 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
                      gray_atk_action[i], gray_atk_next[i], 3, 8, false);
     }
     const char *gray_die_next[13] = {"S_GRAY_DIE2","S_GRAY_DIE3","S_GRAY_DIE4","S_GRAY_DIE5","S_GRAY_DIE6","S_GRAY_DIE7","S_GRAY_DIE8","S_GRAY_DIE9","S_GRAY_ROT1","S_GRAY_ROT2","S_GRAY_ROT3","S_GRAY_CORPSE","S_NULL"};
-    for (int i = 0; i < 12; ++i) gray_die(out, gray_die_next[i], i, "A_None");
-    gray_die(out, gray_die_next[12], 11, "A_DC_Corpse");
+    for (int i = 0; i < 12; ++i) gray_die(out, gray_die_next[i], i, 3);
+    gray_die(out, gray_die_next[12], 11, -1);
 
     f16_fin_state(out, sprites[reap].symbol, &reap_fin, "REAPSTAND", 0, 0, -1,
                   "A_None", "S_REAP_STND", 1);
@@ -1779,9 +1779,18 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     const DcFinAnimationHeader *unload = dc_fin_find_animation_header(&drop_sources[0].fin, "DROPTWO");
     fprintf(out, "    { SPR_DROP, %d, 0, A_DC_Drop, S_DROP_MOVE1, 6 },\n",
             sprites[drop_sources[0].sprite].frames + unload->end);
+    /* Preserve the existing authored 400 ms / 50 ms blood presentation as
+       ordinary states. Native hit-animation selection remains unverified. */
+    for (int i = 0; i < 8; ++i) {
+        char next[32];
+        if (i < 7) snprintf(next, sizeof(next), "S_BLOOD%d", i + 2);
+        else snprintf(next, sizeof(next), "S_NULL");
+        int tics = ((i + 1) * 50 * 30 + 999) / 1000 - (i * 50 * 30 + 999) / 1000;
+        fprintf(out, "    { SPR_BLOO, %d, %d, A_None, %s, 0 },\n", i, tics, next);
+    }
     fprintf(out, "};\n\n");
 
-    fprintf(out, "const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES] = {\n");
+    fprintf(out, "const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {\n");
     fprintf(out, "    {0},\n");
     fprintf(out, "    { 1, S_TRSC_STND, 800, S_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_TRSC_ATK1, S_TRSC_DIE1, S_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, 0 },\n");
     fprintf(out, "    { 2, S_GRAY_STND, 800, S_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_GRAY_ATK1, S_GRAY_DIE1, S_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, 0 },\n");
@@ -1797,13 +1806,14 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 0, S_TONG_STND1, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_TONG_DIE1, S_TONG_DIE1, 0, 0, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_RENDERABLE, S_NULL, 0 },\n");
     fprintf(out, "    { 0, S_DOTT_STND, 300, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 0, 16, 32, 100, 0, 0, MF_RENDERABLE, S_NULL, 0 },\n");
     fprintf(out, "    { 0, S_DROP_MOVE1, 800, S_NULL, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_NULL, S_NULL, 0, 1, 16, 32, 100, 0, 0, MF_RENDERABLE|MF_FLY, S_NULL, FIXED_ONE },\n");
+    fprintf(out, "    [MT_BLOOD] = { .spawnstate = S_BLOOD1, .flags = MF_RENDERABLE|MF_NOBLOCKMAP },\n");
     fprintf(out, "};\n\n");
     fprintf(out, "const gameinfo_t game_info = {\n");
     fprintf(out, "    sprnames,\n");
     fprintf(out, "    NUMSPRITES,\n");
     fprintf(out, "    states,\n");
     fprintf(out, "    NUMSTATES,\n");
-    fprintf(out, "    dc_mobjinfo,\n");
+    fprintf(out, "    mobjinfo,\n");
     fprintf(out, "    NUMMOBJTYPES,\n");
     fprintf(out, "    S_NULL,\n");
     fprintf(out, "    RTS_STATE_COORDS_FIN_TOP_LEFT,\n");

@@ -42,13 +42,13 @@
 $	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	e	enum:__anonf02e1ac70203	file:
 ACTOR_TYPES	games/kknd/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 GAME_INFO	games/kknd/g_game.c	/^static const gameinfo_t GAME_INFO = {$/;"	v	typeref:typename:const gameinfo_t	file:
-G_CustomUIDrawer	games/kknd/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,const mobj_t * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
-G_CustomUIResponder	games/kknd/g_game.c	/^bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,const app_t * app,level_t * map,mobj_t * units,int unit_count,const SDL_Event * event)
+G_CustomUIDrawer	games/kknd/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
+G_CustomUIResponder	games/kknd/g_game.c	/^bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 G_CustomUITicker	games/kknd/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
 G_DoLoadLevel	games/kknd/g_game.c	/^bool G_DoLoadLevel(const char *path, level_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * path,level_t * out)
 G_InitCustomUI	games/kknd/g_game.c	/^void *G_InitCustomUI(app_t *app, const char *data_root) {$/;"	f	typeref:typename:void *	signature:(app_t * app,const char * data_root)
 G_InitGame	games/kknd/g_game.c	/^void G_InitGame(void) {$/;"	f	typeref:typename:void	signature:(void)
-G_MissionTicker	games/kknd/g_game.c	/^void  G_MissionTicker(level_t *map, mobj_t *mobjs, int *count,$/;"	f	typeref:typename:void	signature:(level_t * map,mobj_t * mobjs,int * count,effect_t * effects,int max_effects,hudtext_t * hud,float dt)
+G_MissionTicker	games/kknd/g_game.c	/^void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,$/;"	f	typeref:typename:void	signature:(level_t * map,mobj_t * const * mobjs,int * count,hudtext_t * hud,float dt)
 G_ModelAIProduction	games/kknd/p_prod.c	/^void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {$/;"	f	typeref:typename:void	signature:(RtsGameModel * model,int elapsed_ms)
 G_ModelActorIdForProduct	games/kknd/p_prod.c	/^uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {$/;"	f	typeref:typename:uint16_t	signature:(const StaticProductDefinition * product)
 G_ModelBuildUIScript	games/kknd/p_prod.c	/^void G_ModelBuildUIScript(const RtsGameModel *model,$/;"	f	typeref:typename:void	signature:(const RtsGameModel * model,const RtsRenderSnapshot * snapshot,char * dst,size_t dst_size)
@@ -62,7 +62,7 @@ G_ModelProductTrainingTimeMs	games/kknd/p_prod.c	/^int G_ModelProductTrainingTim
 G_ModelSpecialReleaseSpawnPoint	games/kknd/p_prod.c	/^bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,$/;"	f	typeref:typename:bool	signature:(const RtsGameModel * model,const mobj_t * producer,const StaticProductDefinition * product,const mobj_t * new_unit,float * out_gx,float * out_gy)
 G_ModelStartProductionRelease	games/kknd/p_prod.c	/^bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,$/;"	f	typeref:typename:bool	signature:(RtsGameModel * model,mobj_t * producer,const StaticProductDefinition * product,uint16_t actor_id)
 G_ShutdownCustomUI	games/kknd/g_game.c	/^void G_ShutdownCustomUI(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
-G_UpdateProduction	games/kknd/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * units,int * unit_count,effect_t * effects,int max_effects,float dt)
+G_UpdateProduction	games/kknd/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * const * units,int * unit_count,float dt)
 G_WorldViewportWidth	games/kknd/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
 HU_LoadFont	games/kknd/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
 KkndFrame	games/kknd/w_spr.c	/^} KkndFrame;$/;"	t	typeref:struct:__anon1b3aca940108	file:
@@ -72,8 +72,8 @@ MAX_FRAMES	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 }
 MAX_LAYERS	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	e	enum:__anonf02e1ac70103	file:
 MAX_LAYERS	games/kknd/w_lvl.h	/^enum { MAX_LAYERS = 3 };$/;"	e	enum:__anon1abf4fd20103
 MOBJ_GAME_FIELDS	games/kknd/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
-P_LoadThings	games/kknd/g_game.c	/^int P_LoadThings(const char *path, mobj_t *mobjs, int max) {$/;"	f	typeref:typename:int	signature:(const char * path,mobj_t * mobjs,int max)
-R_InitSprites	games/kknd/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const mobj_t * mobjs,int count,spritecache_t * cache)
+P_LoadThings	games/kknd/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
+R_InitSprites	games/kknd/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
 UI	games/kknd/g_game.c	/^static const uidefinition_t UI = {$/;"	v	typeref:typename:const uidefinition_t	file:
 W_LoadAssets	games/kknd/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
 _DEFAULT_SOURCE	games/kknd/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
@@ -100,6 +100,7 @@ __anon1b3aca940203	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES 
 __anon1b3aca940308	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	s	function:sprite_member_index	file:
 __anonf02e1ac70103	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	g	file:
 __anonf02e1ac70203	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	g	typeref:typename:__anon1abf4fd20103 __anon1abf4fd20208 games/kknd/w_lvl.h/^typedef struct	file:
+actor_types	games/kknd/g_game.c	/^const mobjtype_t *const actor_types = ACTOR_TYPES;$/;"	v	typeref:typename:const mobjtype_t * const
 build_map_tileset	games/kknd/w_spr.c	/^static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const KkndMapData * map,tileset_t * out)
 decode_mapd	games/kknd/w_map.c	/^static bool decode_mapd(const uint8_t *segment, size_t size, uint32_t mapd_offset,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * segment,size_t size,uint32_t mapd_offset,KkndMapData * out)
 decode_mobd	games/kknd/w_spr.c	/^static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const uint8_t * segment,size_t size,uint32_t member,const uint32_t palette[256],spritesheet_t * out)
@@ -112,7 +113,7 @@ g_game_default_root	games/kknd/g_game.c	/^const char *const g_game_default_root 
 g_game_default_sprite	games/kknd/g_game.c	/^const char *const g_game_default_sprite = "LEVELS\/640\/SPRITES.LVL|Infantry.mobd";$/;"	v	typeref:typename:const char * const
 g_game_id	games/kknd/g_game.c	/^const char *const g_game_id            = "kknd";$/;"	v	typeref:typename:const char * const
 g_game_name	games/kknd/g_game.c	/^const char *const g_game_name          = "KKnD";$/;"	v	typeref:typename:const char * const
-gameinfo	games/kknd/g_game.c	/^const gameinfo_t *const gameinfo = &GAME_INFO;$/;"	v	typeref:typename:const gameinfo_t * const
+gameinfo	games/kknd/g_game.c	/^const gameinfo_t *gameinfo = &GAME_INFO;$/;"	v	typeref:typename:const gameinfo_t *
 gameui	games/kknd/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typeref:typename:const uidefinition_t * const
 height	games/kknd/w_lvl.h	/^    int height;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:int
 height	games/kknd/w_spr.c	/^    int height;$/;"	m	struct:__anon1b3aca940108	typeref:typename:int	file:
@@ -129,9 +130,8 @@ lvl_asset	games/kknd/w_lvl.h	/^bool lvl_asset(const uint8_t *segment, size_t siz
 lvl_file_list	games/kknd/w_lvl.c	/^static bool lvl_file_list(const uint8_t *segment, size_t size, const char type[4],$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * segment,size_t size,const char type[4],uint32_t * list_start,uint32_t * list_end)
 map_data_destroy	games/kknd/w_lvl.c	/^void map_data_destroy(void *opaque) {$/;"	f	typeref:typename:void	signature:(void * opaque)
 map_data_destroy	games/kknd/w_lvl.h	/^void map_data_destroy(void *opaque);$/;"	p	typeref:typename:void	signature:(void * opaque)
-mobjinfo	games/kknd/g_game.c	/^const mobjtype_t *const mobjinfo = ACTOR_TYPES;$/;"	v	typeref:typename:const mobjtype_t * const
 name	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940308	typeref:typename:const char *	file:
-num_mobjinfo	games/kknd/g_game.c	/^const int num_mobjinfo =$/;"	v	typeref:typename:const int
+num_actor_types	games/kknd/g_game.c	/^const int num_actor_types =$/;"	v	typeref:typename:const int
 offset_x	games/kknd/w_spr.c	/^    int offset_x;$/;"	m	struct:__anon1b3aca940108	typeref:typename:int	file:
 offset_y	games/kknd/w_spr.c	/^    int offset_y;$/;"	m	struct:__anon1b3aca940108	typeref:typename:int	file:
 open_lvl	games/kknd/w_lvl.c	/^bool open_lvl(const char *path, blob_t *blob, const uint8_t **segment,$/;"	f	typeref:typename:bool	signature:(const char * path,blob_t * blob,const uint8_t ** segment,size_t * segment_size)

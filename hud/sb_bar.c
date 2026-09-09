@@ -82,7 +82,7 @@ void SB_Ticker(sb_state_t *st) {
 }
 
 static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
-                                 const mobj_t *units, int unit_count) {
+                                 mobj_t *const *units, int unit_count) {
     irect_t rect = ui_scaled_rect(app, st->definition, st->definition->minimap);
     if (rect.w <= 0 || rect.h <= 0 || !map || map->width <= 0 || map->height <= 0) return;
     SDL_SetRenderDrawColor(app->renderer, 5, 7, 7, 255);
@@ -96,13 +96,13 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
         SDL_RenderDrawPoint(app->renderer, x, y);
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsHidden(&units[i]) || units[i].remove || units[i].hp <= 0) continue;
-        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
+        if (P_MobjIsHidden(units[i]) || units[i]->remove || units[i]->hp <= 0) continue;
+        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         int x = rect.x + (int)(position.x * (float)rect.w / (float)map->width);
         int y = rect.y + (int)(L_ScreenYF(map, position.y) * (float)rect.h /
                               (float)map->height);
-        SDL_SetRenderDrawColor(app->renderer, units[i].owner == 0 ? 48 : 210,
-                              units[i].owner == 0 ? 220 : 45, 65, 255);
+        SDL_SetRenderDrawColor(app->renderer, units[i]->owner == 0 ? 48 : 210,
+                              units[i]->owner == 0 ? 220 : 45, 65, 255);
         irect_t dot = { x - 1, y - 1, 3, 3 };
         SDL_RenderFillRect(app->renderer, &dot);
     }
@@ -295,7 +295,7 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
 }
 
 void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
-               const mobj_t *units, int unit_count, const spritecache_t *sprites,
+               mobj_t *const *units, int unit_count, const spritecache_t *sprites,
                bool fullscreen, bool refresh) {
     (void)fullscreen;
     if (!st || !st->ready || !st->definition || !app) return;

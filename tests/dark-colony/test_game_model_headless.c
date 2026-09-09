@@ -1,3 +1,5 @@
+#include "mobj_test.h"
+#include "game.h"
 #include "engine_config.h"
 #include "../rts_model_test.h"
 #include "../../games/dark-colony/dc_facing.h"
@@ -34,17 +36,17 @@ static int assert_dark_colony_direction_mapping(void) {
 }
 
 static int assert_dark_colony_state_frames_are_direction_independent(void) {
-    statecontext_t context = { .game_info = &game_info };
+    gameinfo = &game_info;
     mobj_t unit = { 0 };
 
     unit.core.angle = dc_direction_to_angle(1);
-    if (!P_SetMobjState(&context, &unit, S_TRSC_STND) || unit.core.frame != states[S_TRSC_STND].frame ||
+    if (!P_SetMobjState(&unit, S_TRSC_STND) || unit.core.frame != states[S_TRSC_STND].frame ||
         unit.core.render_flags != 0) {
         return fail("Trooper state preserves its logical frame independently of facing");
     }
 
     unit.core.angle = dc_direction_to_angle(15);
-    if (!P_SetMobjState(&context, &unit, S_EXPL_STND) || unit.core.frame != states[S_EXPL_STND].frame ||
+    if (!P_SetMobjState(&unit, S_EXPL_STND) || unit.core.frame != states[S_EXPL_STND].frame ||
         unit.core.render_flags != 0) {
         return fail("Exploiter state preserves its logical frame independently of facing");
     }
@@ -65,8 +67,8 @@ static int find_movable_player_unit(const RtsRenderSnapshot *snapshot) {
 
 static bool snapshot_has_effect(const RtsRenderSnapshot *snapshot, const char *sprite_name) {
     if (!snapshot || !sprite_name) return false;
-    for (int i = 0; i < snapshot->effect_count; ++i) {
-        if (strcmp(snapshot->effects[i].sprite_name, sprite_name) == 0) return true;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        if (strcmp(snapshot->units[i].sprite_name, sprite_name) == 0) return true;
     }
     return false;
 }
@@ -117,9 +119,9 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
         if (unit->render_intensity != 16)
             return fail("unit render intensity is exposed and defaults to FIN neutral");
     }
-    for (int i = 0; i < snapshot->effect_count; ++i) {
-        const RtsRenderEffect *effect = &snapshot->effects[i];
-        if (!effect->active || effect->sprite_name[0] == '\0') continue;
+    for (int i = 0; i < snapshot->unit_count; ++i) {
+        const RtsRenderUnit *effect = &snapshot->units[i];
+        if (effect->sprite_name[0] == '\0') continue;
         if (effect->render_remap != 0)
             return fail("effect render remap is exposed and neutral by default");
         if (effect->render_intensity != 16)
@@ -452,7 +454,7 @@ static int assert_human01(RtsGameModel *model) {
 
     printf("PASS: Human01 headless model loaded %dx%d with %d units and %d effects\n",
            snapshot.map_width, snapshot.map_height, snapshot.unit_count,
-           snapshot.effect_count);
+           snapshot.unit_count);
     return assert_dark_colony_products(model);
 }
 
@@ -831,37 +833,39 @@ static int assert_fixed_momentum_semantics(void) {
         return fail("fixed conversion clamps non-finite values");
     }
 
-    level_t map = { .width = 16, .height = 16 };
-    mobj_t unit = { 0 };
-    unit.core.position = fixed3_from_fvec2((fvec2_t){ 2.25f, 3.5f },
+    P_FreeLevel(&level);
+    gameinfo = NULL;
+    level = (level_t) { .width = 16, .height = 16 };
+    mobj_t *unit = spawn_mobj_fixture((mobj_t){0});
+    unit->core.position = fixed3_from_fvec2((fvec2_t){ 2.25f, 3.5f },
                                               fixed_from_float(7.0f));
-    unit.speed = 3.0f;
-    unit.hp = 1;
-    unit.radius = 0.25f;
-    unit.traits = MF_MOBILE;
-    unit.attack.target = -1;
-    unit.harvest.target = -1;
-    if (!P_MoveUnitTo(&map, &unit, (fvec2_t){ 2.30f, 3.5f }))
+    unit->speed = 3.0f;
+    unit->hp = 1;
+    unit->radius = 0.25f;
+    unit->traits = MF_MOBILE;
+    unit->attack.target = NULL;
+    unit->harvest.target = -1;
+    if (!P_MoveUnitTo(&level, unit, (fvec2_t){ 2.30f, 3.5f }))
         return fail("short final movement creates a flow-field order");
 
-    fixed3_t before = unit.core.position;
+    fixed3_t before = unit->core.position;
     int unit_count = 1;
-    P_Ticker(&map, &unit, &unit_count, NULL, 0, NULL, 1.0f / 30.0f);
-    if (unit_count != 1 || unit.core.momentum.x == 0 || unit.core.momentum.y != 0 ||
-        unit.core.momentum.z != 0 ||
-        unit.core.position.x != fixed_add_saturated(before.x, unit.core.momentum.x) ||
-        unit.core.position.y != fixed_add_saturated(before.y, unit.core.momentum.y) ||
-        unit.core.position.z != before.z || unit.movement.flow_field != NULL) {
+    P_Ticker();
+    if (unit_count != 1 || unit->core.momentum.x == 0 || unit->core.momentum.y != 0 ||
+        unit->core.momentum.z != 0 ||
+        unit->core.position.x != fixed_add_saturated(before.x, unit->core.momentum.x) ||
+        unit->core.position.y != fixed_add_saturated(before.y, unit->core.momentum.y) ||
+        unit->core.position.z != before.z || unit->movement.flow_field != NULL) {
         return fail("short final movement applies position plus fixed momentum and preserves z");
     }
 
-    P_Ticker(&map, &unit, &unit_count, NULL, 0, NULL, 1.0f / 30.0f);
-    if (unit.core.momentum.x != 0 || unit.core.momentum.y != 0 ||
-        unit.core.momentum.z != 0 || unit.core.position.z != before.z) {
-        P_FreeFlowFields(&map);
+    P_Ticker();
+    if (unit->core.momentum.x != 0 || unit->core.momentum.y != 0 ||
+        unit->core.momentum.z != 0 || unit->core.position.z != before.z) {
+        P_FreeFlowFields(&level);
         return fail("idle update clears fixed momentum and preserves z");
     }
-    P_FreeFlowFields(&map);
+    P_FreeFlowFields(&level);
     return 0;
 }
 

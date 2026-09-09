@@ -8,7 +8,6 @@
 #include "m_vec.h"
 
 #define RTS_MODEL_MAX_SNAPSHOT_UNITS 128
-#define RTS_MODEL_MAX_SNAPSHOT_EFFECTS 256
 #define RTS_MODEL_MAX_SNAPSHOT_DECORATIONS MAX_DECORATIONS
 #define RTS_MODEL_MAX_PLAYERS 8
 #define RTS_MODEL_MAX_RESOURCES 8
@@ -143,18 +142,7 @@ typedef struct {
     char shadow_name[32];
 } RtsRenderUnit;
 
-typedef struct {
-    bool active;
-    fvec2_t position;
-    int frame;
-    uint32_t render_flags;
-    int render_remap;
-    int render_intensity;
-    int render_selector;
-    bool ground_light;
-    int light_radius;
-    char sprite_name[32];
-} RtsRenderEffect;
+
 
 typedef struct {
     ivec2_t cell;
@@ -185,12 +173,10 @@ typedef struct {
     int map_width;
     int map_height;
     int unit_count;
-    int effect_count;
     int decoration_count;
     int resource_vent_count;
     int player_resources[RTS_MODEL_MAX_PLAYERS][RTS_MODEL_MAX_RESOURCES];
     RtsRenderUnit units[RTS_MODEL_MAX_SNAPSHOT_UNITS];
-    RtsRenderEffect effects[RTS_MODEL_MAX_SNAPSHOT_EFFECTS];
     RtsRenderDecoration decorations[RTS_MODEL_MAX_SNAPSHOT_DECORATIONS];
     /*
      * Quake-style declarative UI emitted by the model/server.

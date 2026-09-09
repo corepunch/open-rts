@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
+#include "game.h"
 
 enum {
     RTS_HARVEST_INTERVAL_MS = 1000,
@@ -32,21 +33,6 @@ static int mobj_harvest_capacity(const mobj_t *unit) {
     return unit && unit->info ? unit->info->harvest.capacity : 0;
 }
 
-static const char *mobj_muzzle_flash_name(const mobj_t *unit) {
-    return unit && unit->info && unit->info->muzzle_flash_name ?
-        unit->info->muzzle_flash_name : "";
-}
-
-static const char *mobj_hit_effect_name(const mobj_t *unit) {
-    return unit && unit->info && unit->info->hit_effect_name ?
-        unit->info->hit_effect_name : "";
-}
-
-static int mobj_muzzle_flash_ms(const mobj_t *unit) {
-    return unit && unit->info && unit->info->muzzle_flash_ms > 0 ?
-        unit->info->muzzle_flash_ms : 120;
-}
-
 static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
@@ -63,15 +49,9 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     }
 }
 
-static statecontext_t *active_state_context;
-
-statecontext_t *P_GetStateContext(void) {
-    return active_state_context;
-}
-
-bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
-    const gameinfo_t *game_info = ctx ? ctx->game_info : NULL;
-    if (!game_info || !unit) return false;
+bool P_SetMobjState(mobj_t *unit, int state_id) {
+    const gameinfo_t *game_info = gameinfo;
+    if (!game_info || !unit || unit->remove) return false;
     int guard = 0;
     while (guard++ < game_info->state_count + 1) {
         if (state_id == game_info->null_state || state_id < 0 ||
@@ -79,7 +59,7 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
             unit->core.state_id = game_info->null_state;
             unit->core.tics = 0;
             unit->core.momentum = fixed3_zero();
-            unit->remove = true;
+            P_RemoveMobj(unit);
             return false;
         }
         const state_t *state = &game_info->states[state_id];
@@ -99,28 +79,23 @@ bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id) {
                               unit->type_id, unit->core.state_id,
                               sprite_name, unit->core.frame);
         }
-        if (state->action) {
-            statecontext_t *previous = active_state_context;
-            active_state_context = ctx;
-            state->action(unit);
-            active_state_context = previous;
-        }
+        if (state->action) state->action(unit);
         if (unit->remove || unit->core.state_id != state_id) return !unit->remove;
         if (unit->core.tics != 0) return true;
         state_id = state->nextstate;
     }
-    unit->remove = true;
+    P_RemoveMobj(unit);
     return false;
 }
 
-bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit) {
-    if (!ctx || !unit || unit->remove) return false;
+bool P_TickMobjState(mobj_t *unit) {
+    if (!gameinfo || !unit || unit->remove) return false;
     if (unit->core.state_id <= 0) return false;
     if (unit->core.tics > 0) unit->core.tics--;
     if (unit->core.tics != 0) return true;
-    const state_t *state = state_at(ctx->game_info, unit->core.state_id);
-    return P_SetMobjState(ctx, unit,
-                          state ? state->nextstate : ctx->game_info->null_state);
+    const state_t *state = state_at(gameinfo, unit->core.state_id);
+    return P_SetMobjState(unit,
+                          state ? state->nextstate : gameinfo->null_state);
 }
 
 production_t *P_EnsureMobjProduction(mobj_t *unit) {
@@ -144,43 +119,30 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
     if (unit->max_hp <= 0) unit->max_hp = type->max_hp;
     if (unit->hp <= 0) unit->hp = unit->max_hp;
     if (unit->core.render_intensity == 0) unit->core.render_intensity = 16;
-    if (unit->attack.target <= 0) unit->attack.target = -1;
     if (unit->harvest.target == 0) unit->harvest.target = -1;
     if (unit->core.sprite_name[0] == '\0' && type->sprite_name)
         snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
 }
 
-static bool set_effect_state(const gameinfo_t *game_info, effect_t *effect,
-                                 int state_id) {
-    if (!game_info || !effect) return false;
-    int guard = 0;
-    while (guard++ < game_info->state_count + 1) {
-        if (state_id == game_info->null_state || state_id < 0 ||
-            state_id >= game_info->state_count) {
-            memset(effect, 0, sizeof(*effect));
-            return false;
+mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type) {
+    mobj_t *mobj = calloc(1, sizeof(*mobj));
+    if (!mobj) return NULL;
+    mobj->core.position = position;
+    mobj->type_id = type;
+    mobj->id = ++level.next_mobj_id;
+    for (int i = 0; i < num_actor_types; ++i) {
+        if (actor_types[i].id == type) {
+            P_ApplyActorTypeDefaults(mobj, &actor_types[i]);
+            break;
         }
-        const state_t *state = &game_info->states[state_id];
-        effect->core.state_id = state_id;
-        effect->core.tics = state->tics;
-        apply_state_visuals(game_info, &effect->core, state, true);
-        if (effect->core.tics != 0) return true;
-        state_id = state->nextstate;
     }
-    memset(effect, 0, sizeof(*effect));
-    return false;
-}
-
-mobj_t *P_AllocMobj(mobj_t *mobjs, int *count) {
-    if (!mobjs || !count || *count < 0 || *count >= MAXMOBJS) return NULL;
-    /* Do not reuse pending removals: state actions may still hold those pointers.
-     * Compaction releases them into the unused tail after ticking finishes. */
-    mobj_t *mobj = &mobjs[(*count)++];
-    memset(mobj, 0, sizeof(*mobj));
+    P_InitMobj(gameinfo, mobj);
+    mobj->thinker.function = P_MobjThinker;
+    P_AddThinker(&mobj->thinker);
     return mobj;
 }
 
-void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {
+void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit) {
     if (!game_info || !unit || !game_info->mobjinfo ||
         unit->type_id <= 0 || unit->type_id >= game_info->mobj_type_count) {
         return;
@@ -197,12 +159,13 @@ void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit) {
         if (unit->radius > 0.90f) unit->radius = 0.90f;
     }
     if (unit->core.state_id <= 0) {
-        statecontext_t ctx = { .game_info = game_info };
-        P_SetMobjState(&ctx, unit, info->spawnstate);
-    } else {
-        apply_state_visuals(game_info, &unit->core,
-                            state_at(game_info, unit->core.state_id), false);
+        const state_t *state = state_at(game_info, info->spawnstate);
+        if (!state) return;
+        unit->core.state_id = info->spawnstate;
+        unit->core.tics = state->tics;
     }
+    apply_state_visuals(game_info, &unit->core,
+                        state_at(game_info, unit->core.state_id), false);
 }
 
 
@@ -222,224 +185,64 @@ void P_AngleToVec(angle_t angle, float *dx, float *dy) {
     angle_to_screen_vector(angle, dx, dy);
 }
 
-static bool unit_has_attack_target_in_range(const mobj_t *attacker, const mobj_t *units, int unit_count,
-                                            int *target_index_out) {
-    if (target_index_out) *target_index_out = -1;
-    if (!attacker || !units || unit_count <= 0 ||
-        (attacker->traits & MF_ATTACK) == 0 ||
-        mobj_attack_damage(attacker) <= 0 || mobj_attack_range(attacker) <= 0.0f) {
-        return false;
-    }
-
-    int preferred = attacker->attack.target;
-    if (preferred >= 0 && preferred < unit_count) {
-        const mobj_t *target = &units[preferred];
-        if (!target->remove && target->hp > 0 && !P_IsAlly(attacker, target)) {
-            if (fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
-                                       fixed3_xy_to_fvec2(attacker->core.position)) <=
-                mobj_attack_range(attacker) * mobj_attack_range(attacker)) {
-                if (target_index_out) *target_index_out = preferred;
-                return true;
-            }
-        }
-    }
-
-    int best = -1;
-    float best_dist2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
-    for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *candidate = &units[i];
+static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+    if (!(attacker->traits & MF_ATTACK) || mobj_attack_damage(attacker) <= 0)
+        return NULL;
+    float range2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
+    mobj_t *target = attacker->attack.target;
+    if (target && !target->remove && target->hp > 0 && !P_IsAlly(attacker, target) &&
+        fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
+                               fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
+        return target;
+    target = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *candidate = (mobj_t *)th;
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
-            P_IsAlly(attacker, candidate)) {
-            continue;
-        }
+            (candidate->traits & MF_NOBLOCKMAP) || P_IsAlly(attacker, candidate)) continue;
         float dist2 = fvec2_distance_squared(
             fixed3_xy_to_fvec2(candidate->core.position),
             fixed3_xy_to_fvec2(attacker->core.position));
-        if (dist2 <= best_dist2) {
-            best_dist2 = dist2;
-            best = i;
+        if (dist2 <= range2) { range2 = dist2; target = candidate; }
+    }
+    return target;
+}
+
+bool P_Attack(mobj_t *attacker) {
+    if (!attacker || (attacker->traits & MF_ATTACK) == 0) return false;
+    mobj_t *target = attacker->attack.target;
+    if (!target || target->remove || target->hp <= 0 || P_IsAlly(attacker, target)) {
+        target = NULL;
+        float best = mobj_attack_range(attacker) * mobj_attack_range(attacker);
+        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+            mobj_t *candidate = (mobj_t *)th;
+            if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
+                P_IsAlly(attacker, candidate)) continue;
+            float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(candidate->core.position),
+                                                    fixed3_xy_to_fvec2(attacker->core.position));
+            if (distance <= best) { best = distance; target = candidate; }
         }
     }
-    if (best < 0) return false;
-    if (target_index_out) *target_index_out = best;
-    return true;
-}
-
-static bool spawn_visual_effect(effect_t *effects, int max_effects,
-                                const char *sprite_name,
-                                fixed3_t position, angle_t angle, int duration_ms,
-                                int frame_ms, bool fin_placement,
-                                bool add_decoration_on_finish,
-                                int decoration_frame_index,
-                                uint32_t render_flags) {
-    if (!effects || max_effects <= 0 || !sprite_name || sprite_name[0] == '\0') {
-        debug_effects_log("spawn skipped sprite=%s max=%d", sprite_name ? sprite_name : "(null)", max_effects);
-        return false;
-    }
-    for (int i = 0; i < max_effects; ++i) {
-        effect_t *effect = &effects[i];
-        if (effect->active) continue;
-        memset(effect, 0, sizeof(*effect));
-        effect->active = true;
-        effect->core.position = position;
-        effect->core.angle = angle;
-        effect->core.render_intensity = 16;
-        effect->core.render_flags = render_flags;
-        effect->fin_placement = fin_placement;
-        effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
-        effect->frame_ms = frame_ms > 0 ? frame_ms : 90;
-        effect->decoration_frame_index = decoration_frame_index;
-        effect->add_decoration_on_finish = add_decoration_on_finish;
-        snprintf(effect->core.sprite_name, sizeof(effect->core.sprite_name), "%s", sprite_name);
-        fvec2_t position_xy = fixed3_xy_to_fvec2(position);
-        debug_effects_log("spawn slot=%d sprite=%s pos=%.2f,%.2f facing=%d duration=%d frame_ms=%d corpse=%d",
-                          i, effect->core.sprite_name,
-                          position_xy.x, position_xy.y,
-                          angle_to_direction(effect->core.angle, 32, ANG90, true),
-                          effect->duration_ms, effect->frame_ms,
-                          effect->add_decoration_on_finish ? 1 : 0);
-        return true;
-    }
-    debug_effects_log("spawn failed no free slot sprite=%s", sprite_name);
-    return false;
-}
-
-static bool spawn_ground_light(effect_t *effects, int max_effects,
-                               fixed3_t position, int duration_ms, int radius) {
-    if (!effects || max_effects <= 0) return false;
-    for (int i = 0; i < max_effects; ++i) {
-        effect_t *effect = &effects[i];
-        if (effect->active) continue;
-        memset(effect, 0, sizeof(*effect));
-        effect->active = true;
-        effect->ground_light = true;
-        effect->core.position = position;
-        effect->duration_ms = duration_ms > 0 ? duration_ms : 120;
-        effect->light_radius = radius > 0 ? radius : 28;
-        return true;
-    }
-    return false;
-}
-
-bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixed3_t position, angle_t angle) {
-    if (!ctx || !ctx->effects || ctx->max_effects <= 0 || !ctx->game_info) return false;
-    for (int i = 0; i < ctx->max_effects; ++i) {
-        effect_t *effect = &ctx->effects[i];
-        if (effect->active) continue;
-        memset(effect, 0, sizeof(*effect));
-        effect->active = true;
-        effect->use_state = true;
-        effect->core.position = position;
-        effect->core.angle = angle;
-        effect->core.render_intensity = 16;
-        bool ok = set_effect_state(ctx->game_info, effect, state_id);
-        debug_effects_log("spawn state effect slot=%d state=%d ok=%d sprite=%s frame=%d",
-                          i, state_id, ok ? 1 : 0, effect->core.sprite_name, effect->core.frame);
-        return ok;
-    }
-    debug_effects_log("spawn state effect failed no free slot state=%d", state_id);
-    return false;
-}
-
-static void add_effect_finish_decoration(level_t *map, const effect_t *effect) {
-    if (!map || !effect || !effect->add_decoration_on_finish ||
-        effect->core.sprite_name[0] == '\0' || map->decoration_count >= MAX_DECORATIONS) {
-        return;
-    }
-    mapdecoration_t *decorations = realloc(map->decorations,
-                                         (size_t)(map->decoration_count + 1) * sizeof(mapdecoration_t));
-    if (!decorations) return;
-    map->decorations = decorations;
-    mapdecoration_t *dec = &map->decorations[map->decoration_count++];
-    memset(dec, 0, sizeof(*dec));
-    fvec2_t position = fixed3_xy_to_fvec2(effect->core.position);
-    dec->cell = (ivec2_t){ (int)floorf(position.x), (int)floorf(position.y) };
-    dec->footprint = (isize2_t){ 1, 1 };
-    dec->center_anchor = true;
-    dec->frame_index = effect->decoration_frame_index;
-    dec->angle = effect->core.angle;
-    snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", effect->core.sprite_name);
-    debug_effects_log("corpse decoration sprite=%s grid=%d,%d facing=%d frame_index=%d count=%d",
-                      dec->sprite_name, dec->cell.x, dec->cell.y,
-                      angle_to_direction(dec->angle, 32, ANG90, true),
-                      dec->frame_index, map->decoration_count);
-}
-
-bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit) {
-    if (!ctx || !ctx->map || !unit || unit->core.sprite_name[0] == '\0' ||
-        ctx->map->decoration_count >= MAX_DECORATIONS) {
-        return false;
-    }
-    mapdecoration_t *decorations = realloc(ctx->map->decorations,
-                                         (size_t)(ctx->map->decoration_count + 1) * sizeof(mapdecoration_t));
-    if (!decorations) return false;
-    ctx->map->decorations = decorations;
-    mapdecoration_t *dec = &ctx->map->decorations[ctx->map->decoration_count++];
-    memset(dec, 0, sizeof(*dec));
-    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
-    dec->cell = (ivec2_t){ (int)floorf(position.x), (int)floorf(position.y) };
-    dec->footprint = (isize2_t){ 1, 1 };
-    dec->center_anchor = true;
-    dec->frame_index = unit->core.frame;
-    dec->angle = unit->core.angle;
-    dec->render_flags = unit->core.render_flags;
-    snprintf(dec->sprite_name, sizeof(dec->sprite_name), "%s", unit->core.sprite_name);
-    debug_effects_log("corpse unit sprite=%s frame=%d flags=%u grid=%d,%d count=%d",
-                      dec->sprite_name, dec->frame_index, dec->render_flags,
-                      dec->cell.x, dec->cell.y, ctx->map->decoration_count);
-    return true;
-}
-
-bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
-    if (!ctx || !attacker || !ctx->mobjs || !ctx->mobj_count) return false;
-    int count = *ctx->mobj_count;
-    int target_index = attacker->attack.target;
-    if (target_index < 0 || target_index >= count || ctx->mobjs[target_index].hp <= 0 ||
-        P_IsAlly(attacker, &ctx->mobjs[target_index])) {
-        target_index = -1;
-        float best_dist2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
-        for (int i = 0; i < count; ++i) {
-            mobj_t *candidate = &ctx->mobjs[i];
-            if (candidate == attacker || candidate->hp <= 0 || P_IsAlly(attacker, candidate))
-                continue;
-            float dist2 = fvec2_distance_squared(
-                fixed3_xy_to_fvec2(candidate->core.position),
-                fixed3_xy_to_fvec2(attacker->core.position));
-            if (dist2 <= best_dist2) {
-                best_dist2 = dist2;
-                target_index = i;
-            }
-        }
-    }
-    if (target_index < 0) return false;
-
-    mobj_t *target = &ctx->mobjs[target_index];
+    if (!target) return false;
+    attacker->attack.target = target;
     const char *sprite_name = "(unknown)";
-    if (ctx->game_info && attacker->core.sprite_id >= 0 &&
-        attacker->core.sprite_id < ctx->game_info->sprite_count &&
-        ctx->game_info->sprnames && ctx->game_info->sprnames[attacker->core.sprite_id]) {
-        sprite_name = ctx->game_info->sprnames[attacker->core.sprite_id];
+    if (gameinfo && attacker->core.sprite_id >= 0 &&
+        attacker->core.sprite_id < gameinfo->sprite_count &&
+        gameinfo->sprnames && gameinfo->sprnames[attacker->core.sprite_id]) {
+        sprite_name = gameinfo->sprnames[attacker->core.sprite_id];
     }
     debug_effects_log("shoot fire unit_type=%u state=%d facing_code=%d dir_slot=%d sprite=%s frame=%d target=%d",
                       attacker->type_id, attacker->core.state_id,
                       angle_to_direction(attacker->core.angle, 32, ANG90, true),
-                      0, sprite_name, attacker->core.frame, target_index);
+                      0, sprite_name, attacker->core.frame, target->id);
     target->hp -= mobj_attack_damage(attacker);
     if (mobj_attack_cooldown_ms(attacker) > 0)
         attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
-    /* A_DC_MuzzleFlash (fired on the attack state's frame) draws the flash sprite;
-     * pair it with a ground light and, on the target, a hit/blood effect. Hidden
-     * (not-yet-revealed) units must not leak a visible light or blood splash. */
-    if (!P_MobjIsHidden(attacker) && mobj_muzzle_flash_name(attacker)[0] != '\0') {
-        int flash_ms = mobj_muzzle_flash_ms(attacker);
-        spawn_ground_light(ctx->effects, ctx->max_effects, attacker->core.position, flash_ms, 30);
-    }
-    if (!P_MobjIsHidden(target) && mobj_hit_effect_name(target)[0] != '\0') {
-        spawn_visual_effect(ctx->effects, ctx->max_effects, mobj_hit_effect_name(target),
-                            target->core.position, target->core.angle, 400, 50, false, false, 0, 0);
+    if (!P_MobjIsHidden(target) && target->info && target->info->blood_type) {
+        mobj_t *blood = P_SpawnMobj(target->core.position, target->info->blood_type);
+        if (blood) blood->core.angle = target->core.angle;
     }
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
-                      attacker->type_id, target_index, mobj_attack_damage(attacker),
+                      attacker->type_id, target->id, mobj_attack_damage(attacker),
                       target->hp, target->max_hp);
     if (target->hp <= 0) {
         target->hp = 0;
@@ -452,135 +255,50 @@ bool P_Attack(statecontext_t *ctx, mobj_t *attacker) {
         target->harvest.timer_ms = 0;
         target->harvest.phase = 0;
         target->harvest.cargo = 0;
-        target->attack.target = -1;
+        target->attack.target = NULL;
         target->attack.cooldown_left_ms = 0;
         target->core.momentum = fixed3_zero();
-        if (ctx->game_info && target->type_id > 0 &&
-            target->type_id < ctx->game_info->mobj_type_count) {
-            int deathstate = ctx->game_info->mobjinfo[target->type_id].deathstate;
-            P_SetMobjState(ctx, target, deathstate);
+        if (gameinfo && target->type_id > 0 &&
+            target->type_id < gameinfo->mobj_type_count) {
+            int deathstate = gameinfo->mobjinfo[target->type_id].deathstate;
+            P_SetMobjState(target, deathstate);
         } else {
-            target->remove = true;
+            P_RemoveMobj(target);
         }
     }
     return true;
 }
 
 void A_Attack(mobj_t *unit) {
-    statecontext_t *ctx = P_GetStateContext();
-    (void)P_Attack(ctx, unit);
+    (void)P_Attack(unit);
 }
 
 void A_Look(mobj_t *unit) {
-    statecontext_t *ctx = P_GetStateContext();
-    if (!ctx || !unit || !ctx->mobjs || !ctx->mobj_count ||
-        unit->hp <= 0 || (unit->traits & MF_ATTACK) == 0 ||
-        mobj_attack_range(unit) <= 0.0f || unit->attack.cooldown_left_ms > 0 ||
-        !ctx->game_info || unit->type_id <= 0 ||
-        unit->type_id >= ctx->game_info->mobj_type_count) {
-        return;
-    }
-    int target = -1;
-    float best_dist2 = mobj_attack_range(unit) * mobj_attack_range(unit);
-    for (int i = 0; i < *ctx->mobj_count; ++i) {
-        mobj_t *candidate = &ctx->mobjs[i];
+    if (!unit || unit->hp <= 0 || !(unit->traits & MF_ATTACK) ||
+        unit->attack.cooldown_left_ms > 0 || !gameinfo ||
+        unit->type_id >= gameinfo->mobj_type_count) return;
+    mobj_t *target = NULL;
+    float best = mobj_attack_range(unit) * mobj_attack_range(unit);
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        mobj_t *candidate = (mobj_t *)th;
         if (candidate == unit || candidate->remove || candidate->hp <= 0 ||
             P_IsAlly(unit, candidate)) continue;
-        float dist2 = fvec2_distance_squared(
-            fixed3_xy_to_fvec2(candidate->core.position),
-            fixed3_xy_to_fvec2(unit->core.position));
-        if (dist2 <= best_dist2) {
-            best_dist2 = dist2;
-            target = i;
-        }
+        float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(candidate->core.position),
+                                                fixed3_xy_to_fvec2(unit->core.position));
+        if (distance <= best) { best = distance; target = candidate; }
     }
-    if (target < 0) return;
+    if (!target) return;
     unit->attack.target = target;
-    fvec2_t delta = fvec2_sub(
-        fixed3_xy_to_fvec2(ctx->mobjs[target].core.position),
-        fixed3_xy_to_fvec2(unit->core.position));
-    unit->core.angle = angle_from_map_vector(ctx->map, delta.x, delta.y);
-    int attack_state = ctx->game_info->mobjinfo[unit->type_id].missilestate;
-    if (attack_state != ctx->game_info->null_state)
-        P_SetMobjState(ctx, unit, attack_state);
+    fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
+                            fixed3_xy_to_fvec2(unit->core.position));
+    unit->core.angle = angle_from_map_vector(&level, delta.x, delta.y);
+    int attack_state = gameinfo->mobjinfo[unit->type_id].missilestate;
+    if (attack_state != gameinfo->null_state) P_SetMobjState(unit, attack_state);
 }
 
 void A_Chase(mobj_t *unit) {
     /* Movement runs in P_Ticker; state entry checks for an attack. */
     A_Look(unit);
-}
-
-void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,
-                           const gameinfo_t *game_info, float dt) {
-    if (!effects || max_effects <= 0) return;
-    int dt_ms = (int)lroundf(dt * 1000.0f);
-    for (int i = 0; i < max_effects; ++i) {
-        effect_t *effect = &effects[i];
-        if (!effect->active) continue;
-        if (effect->use_state && game_info) {
-            if (effect->core.tics > 0) effect->core.tics--;
-            if (effect->core.tics == 0) {
-                const state_t *state = state_at(game_info, effect->core.state_id);
-                int next = state ? state->nextstate : game_info->null_state;
-                set_effect_state(game_info, effect, next);
-            }
-            continue;
-        }
-        effect->age_ms += dt_ms;
-        if (effect->age_ms < effect->duration_ms) continue;
-        debug_effects_log("finish sprite=%s age=%d duration=%d corpse=%d",
-                  effect->core.sprite_name,
-                          effect->age_ms, effect->duration_ms,
-                          effect->add_decoration_on_finish ? 1 : 0);
-        add_effect_finish_decoration(map, effect);
-        memset(effect, 0, sizeof(*effect));
-    }
-}
-
-static void separate_units(const level_t *map, mobj_t *units, int count) {
-    if (!units || count <= 1) return;
-    for (int iter = 0; iter < 3; ++iter) {
-        for (int i = 0; i < count; ++i) {
-            mobj_t *a = &units[i];
-            if (a->remove || a->hp <= 0 || (a->traits & MF_MOBILE) == 0) continue;
-            for (int j = i + 1; j < count; ++j) {
-                mobj_t *b = &units[j];
-                if (b->remove || b->hp <= 0 || (b->traits & MF_MOBILE) == 0) continue;
-                float min_dist = P_MobjRadius(a) + P_MobjRadius(b);
-                fvec2_t a_position = fixed3_xy_to_fvec2(a->core.position);
-                fvec2_t b_position = fixed3_xy_to_fvec2(b->core.position);
-                fvec2_t delta = fvec2_sub(b_position, a_position);
-                float dist2 = fvec2_length_squared(delta);
-                if (dist2 >= min_dist * min_dist) continue;
-                float dist = sqrtf(dist2);
-                if (dist < 0.0001f) {
-                    float angle = (float)((i * 37 + j * 17) % 360) * 0.01745329252f;
-                    delta = (fvec2_t){ cosf(angle), sinf(angle) };
-                    dist = 1.0f;
-                }
-                float push = (min_dist - dist) * 0.5f;
-                fvec2_t separation = fvec2_scale(delta, push / dist);
-                fvec2_t separated_a = fvec2_sub(a_position, separation);
-                fvec2_t separated_b = fvec2_add(b_position, separation);
-                if (P_CheckPosition(map, a, separated_a.x, separated_a.y)) {
-                    fixed3_t before = a->core.position;
-                    a->core.position = fixed3_with_xy(a->core.position, separated_a);
-                    P_ClampToLevel(map, a);
-                    a->core.momentum = fixed3_add(
-                        a->core.momentum,
-                        fixed3_planar_displacement(before, a->core.position));
-                }
-                if (P_CheckPosition(map, b, separated_b.x, separated_b.y)) {
-                    fixed3_t before = b->core.position;
-                    b->core.position = fixed3_with_xy(b->core.position, separated_b);
-                    P_ClampToLevel(map, b);
-                    b->core.momentum = fixed3_add(
-                        b->core.momentum,
-                        fixed3_planar_displacement(before, b->core.position));
-                }
-            }
-        }
-    }
 }
 
 static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
@@ -647,16 +365,14 @@ static bool unit_has_move_order(const mobj_t *unit) {
     return unit && unit->movement.flow_field && !unit->movement.order_arrived;
 }
 
-static bool final_goal_reaches_arrived_order_cluster(const mobj_t *units, int count, int self_index,
+static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
                                                      float tx, float ty, float dist_to_goal) {
-    if (!units || self_index < 0 || self_index >= count) return false;
-    const mobj_t *unit = &units[self_index];
     if (unit->movement.order_id == 0) return false;
     float radius = P_MobjRadius(unit);
 
-    for (int i = 0; i < count; ++i) {
-        if (i == self_index) continue;
-        const mobj_t *other = &units[i];
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *other = (mobj_t *)th;
+        if (other == unit) continue;
         if (other->remove || other->hp <= 0 || other->movement.order_id != unit->movement.order_id) {
             continue;
         }
@@ -687,28 +403,6 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     return radius;
 }
 
-static void update_resource_vent_smoke(level_t *map, const mobj_t *units, int unit_count) {
-    if (!map || !map->resource_vents) return;
-    for (int vent_index = 0; vent_index < map->resource_vent_count; ++vent_index) {
-        resourcevent_t *vent = &map->resource_vents[vent_index];
-        if (vent->smoke_decoration_index < 0 ||
-            vent->smoke_decoration_index >= map->decoration_count) {
-            continue;
-        }
-        bool attached = false;
-        for (int unit_index = 0; unit_index < unit_count; ++unit_index) {
-            const mobj_t *unit = &units[unit_index];
-            if (!unit->remove && unit->hp > 0 &&
-                unit->harvest.target == vent_index &&
-                unit->harvest.phase == HARVEST_PHASE_MINING) {
-                attached = true;
-                break;
-            }
-        }
-        map->decorations[vent->smoke_decoration_index].hidden = !vent->active || attached;
-    }
-}
-
 static void deactivate_resource_vent(level_t *map, resourcevent_t *vent) {
     if (!map || !vent) return;
     vent->active = false;
@@ -716,7 +410,7 @@ static void deactivate_resource_vent(level_t *map, resourcevent_t *vent) {
         map->decorations[vent->decoration_index].sprite_name[0] = '\0';
 }
 
-static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
+static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
         unit->harvest.phase == HARVEST_PHASE_NONE || unit->harvest.target < 0) {
@@ -766,17 +460,18 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         unit->harvest.phase = HARVEST_PHASE_MINING;
         if (game_info && mobj_harvest_state(unit) > 0 &&
             mobj_harvest_state(unit) < game_info->state_count) {
-            statecontext_t ctx = { .map = map, .game_info = game_info };
-            P_SetMobjState(&ctx, unit, mobj_harvest_state(unit));
+            P_SetMobjState(unit, mobj_harvest_state(unit));
         }
         return false;
     }
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
         if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
-            for (int i = 0; i < unit_count; ++i) {
-                if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
-                    (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
-                fvec2_t base_position = fixed3_xy_to_fvec2(units[i].core.position);
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                    mobj_t *base = (mobj_t *)th;
+                    if (base->remove) continue;
+                if (!P_AreAllegiancesAllied(base->allegiance, unit->allegiance) ||
+                    (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
+                fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
                 unit->harvest.return_position = base_position;
                 if (P_MoveUnitTo(map, unit, base_position)) {
                     unit->harvest.return_position = unit->movement.goal;
@@ -801,7 +496,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     unit->movement.flow_field = NULL;
     unit->movement.order_arrived = true;
     unit->core.momentum = fixed3_zero();
-    unit->attack.target = -1;
+    unit->attack.target = NULL;
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
         unit->harvest.phase != HARVEST_PHASE_TURNING) {
         unit->harvest.phase = HARVEST_PHASE_TURNING;
@@ -822,10 +517,12 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
         if (mobj_harvest_capacity(unit) > 0 &&
             unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
             bool sent_home = false;
-            for (int i = 0; i < unit_count; ++i) {
-                if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
-                    (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
-                fvec2_t base_position = fixed3_xy_to_fvec2(units[i].core.position);
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                    mobj_t *base = (mobj_t *)th;
+                    if (base->remove) continue;
+                if (!P_AreAllegiancesAllied(base->allegiance, unit->allegiance) ||
+                    (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
+                fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
                 unit->harvest.return_position = base_position;
                 sent_home = P_MoveUnitTo(map, unit, base_position);
                 if (sent_home) {
@@ -842,10 +539,12 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
             deactivate_resource_vent(map, vent);
             if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
                 unit->harvest.phase = HARVEST_PHASE_TO_BASE;
-                for (int i = 0; i < unit_count; ++i) {
-                    if (!P_AreAllegiancesAllied(units[i].allegiance, unit->allegiance) ||
-                        (units[i].traits & MF_RESOURCE_BASE) == 0 || units[i].hp <= 0) continue;
-                    fvec2_t base_position = fixed3_xy_to_fvec2(units[i].core.position);
+                for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                    mobj_t *base = (mobj_t *)th;
+                    if (base->remove) continue;
+                    if (!P_AreAllegiancesAllied(base->allegiance, unit->allegiance) ||
+                        (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
+                    fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
                     unit->harvest.return_position = base_position;
                     if (P_MoveUnitTo(map, unit, base_position)) {
                         unit->harvest.return_position = unit->movement.goal;
@@ -857,8 +556,7 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
                 unit->harvest.timer_ms = 0;
                 unit->harvest.phase = HARVEST_PHASE_NONE;
                 if (game_info && mobj_harvest_state(unit) > 0)
-                    P_SetMobjState(&(statecontext_t){ .map = map, .game_info = game_info },
-                                   unit, game_info->mobjinfo[unit->type_id].spawnstate);
+                    P_SetMobjState(unit, game_info->mobjinfo[unit->type_id].spawnstate);
             }
             break;
         }
@@ -866,335 +564,135 @@ static bool update_unit_harvest(level_t *map, mobj_t *units, int unit_count,
     return true;
 }
 
-void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
-                  int max_effects, const gameinfo_t *game_info, float dt) {
-    if (game_info) {
-        if (!units || !unit_count || *unit_count <= 0) return;
-        int count = *unit_count;
-        int dt_ms = (int)lroundf(dt * 1000.0f);
-        statecontext_t ctx = {
-            .map = map,
-            .mobjs = units,
-            .mobj_count = unit_count,
-            .effects = effects,
-            .max_effects = max_effects,
-            .game_info = game_info,
-        };
+static void tick_actor(mobj_t *u) {
+    level_t *map = &level;
+    const gameinfo_t *game_info = gameinfo;
+    float dt = FIXED_DT;
+    int dt_ms = (int)lroundf(dt * 1000.0f);
+    u->core.momentum = fixed3_zero();
+    if (u->remove) return;
+    if (u->core.state_id <= 0) P_InitMobj(game_info, u);
+    P_TickMobjState(u);
+    if (u->remove || u->hp <= 0) return;
 
-        for (int i = 0; i < count; ++i) {
-            mobj_t *u = &units[i];
-            u->core.momentum = fixed3_zero();
-            if (u->remove) continue;
-            if (u->core.state_id <= 0) P_SpawnMobj(game_info, u);
-            P_TickMobjState(&ctx, u);
-            if (u->remove || u->hp <= 0) continue;
-
-            if (u->attack.cooldown_left_ms > 0) {
-                u->attack.cooldown_left_ms -= dt_ms;
-                if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
-            }
-
-            bool moving = unit_has_move_order(u);
-            {
-                const state_t *s = state_at(game_info, u->core.state_id);
-                bool in_attack = s && s->group == 3;
-                if (moving && !in_attack) {
-                    int stop_target = -1;
-                    if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
-                        u->attack.target = stop_target;
-                        mobj_t *target = &units[stop_target];
-                        fvec2_t target_delta = fvec2_sub(
-                            fixed3_xy_to_fvec2(target->core.position),
-                            fixed3_xy_to_fvec2(u->core.position));
-                        u->core.angle = angle_from_map_vector(map,
-                                                         target_delta.x,
-                                                         target_delta.y);
-                        u->movement.flow_field = NULL;
-                        u->movement.order_arrived = false;
-                        moving = false;
-                    }
-                }
-            }
-            fvec2_t move_target = u->movement.goal;
-            bool final = true;
-            if (moving && !P_FlowFieldTarget(
-                    map, u->movement.flow_field,
-                    fixed3_xy_to_fvec2(u->core.position), u->movement.goal,
-                    P_MobjRadius(u), &move_target, &final)) {
-                u->movement.flow_field = NULL;
-                u->movement.order_arrived = false;
-                moving = false;
-            }
-            /* Turn-in-place before moving. */
-            if (moving) {
-                fvec2_t delta = fvec2_sub(
-                    move_target, fixed3_xy_to_fvec2(u->core.position));
-                float dist = sqrtf(fvec2_length_squared(delta));
-                if (dist >= 0.001f) {
-                    angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
-                    if (angle_distance(desired, u->core.angle) >= ANG45 / 8u) {
-                        u->movement.turn_timer_ms -= dt_ms;
-                        if (u->movement.turn_timer_ms <= 0) {
-                            int32_t delta = (int32_t)(desired - u->core.angle);
-                            u->core.angle += delta > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
-                            u->movement.turn_timer_ms = RTS_TURN_STEP_MS;
-                        }
-                        moving = false;
-                    } else {
-                        u->movement.turn_timer_ms = 0;
-                    }
-                }
-            }
-            if (moving) {
-                fvec2_t delta = fvec2_sub(
-                    move_target, fixed3_xy_to_fvec2(u->core.position));
-                float dist = sqrtf(fvec2_length_squared(delta));
-                if (final && final_goal_reaches_arrived_order_cluster(
-                        units, count, i, move_target.x, move_target.y, dist)) {
-                    u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
-                    u->movement.flow_field = NULL;
-                    u->movement.order_arrived = true;
-                    moving = false;
-                } else {
-                    if (dist >= 0.001f)
-                        u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
-                    float step = u->speed * dt;
-                    if (dist <= step || dist < 0.001f) {
-                        if (move_unit_if_walkable(map, u, delta)) {
-                            if (final) {
-                                u->movement.flow_field = NULL;
-                                u->movement.order_arrived = true;
-                                moving = false;
-                            }
-                        } else {
-                            u->movement.flow_field = NULL;
-                            u->movement.order_arrived = false;
-                            moving = false;
-                        }
-                    } else {
-                        fvec2_t displacement = fvec2_scale(delta, step / dist);
-                        if (!move_unit_if_walkable(map, u, displacement)) {
-                            u->movement.flow_field = NULL;
-                            u->movement.order_arrived = false;
-                            moving = false;
-                        }
-                    }
-                }
-            }
-
-            if (update_unit_harvest(map, units, count, u, dt_ms, game_info)) {
-                moving = false;
-                u->core.momentum = fixed3_zero();
-            }
-
-            if ((u->traits & MF_MOBILE) && u->type_id > 0 &&
-                u->type_id < game_info->mobj_type_count) {
-                const mobjinfo_t *mi = &game_info->mobjinfo[u->type_id];
-                const state_t *state = state_at(game_info, u->core.state_id);
-                int group = state ? state->group : 0;
-                if (group != 3) {
-                    if (moving && group != 2) {
-                        P_SetMobjState(&ctx, u, mi->seestate);
-                    } else if (!moving && group == 2) {
-                        P_SetMobjState(&ctx, u, mi->spawnstate);
-                    } else {
-                        apply_state_visuals(game_info, &u->core,
-                                            state_at(game_info, u->core.state_id), false);
-                    }
-                }
-            }
-        }
-
-        /* State actions may append objects; tick those next time, but retain them. */
-        count = *unit_count;
-        separate_units(map, units, count);
-
-        int write = 0;
-        for (int read = 0; read < count; ++read) {
-            if (units[read].remove) {
-                P_FreeMobjProduction(&units[read]);
-                continue;
-            }
-            if (write != read) units[write] = units[read];
-            write++;
-        }
-        if (write != count) debug_effects_log("state compacted units before=%d after=%d", count, write);
-        *unit_count = write;
-        update_resource_vent_smoke(map, units, write);
-        return;
+    if (u->attack.cooldown_left_ms > 0) {
+        u->attack.cooldown_left_ms -= dt_ms;
+        if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
     }
 
-    if (!units || !unit_count || *unit_count <= 0) return;
-    int count = *unit_count;
-    int dt_ms = (int)lroundf(dt * 1000.0f);
-    for (int i = 0; i < count; ++i) {
-        mobj_t *u = &units[i];
-        u->core.momentum = fixed3_zero();
-        if (u->hp <= 0) {
-            continue;
-        }
-        if (u->attack.cooldown_left_ms > 0) {
-            u->attack.cooldown_left_ms -= dt_ms;
-            if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
-        }
-        if (unit_has_move_order(u)) {
-            int stop_target = -1;
-            if (unit_has_attack_target_in_range(u, units, count, &stop_target)) {
-                u->attack.target = stop_target;
-                mobj_t *target = &units[stop_target];
+    bool moving = unit_has_move_order(u);
+    {
+        const state_t *s = state_at(game_info, u->core.state_id);
+        bool in_attack = s && s->group == 3;
+        if (moving && !in_attack) {
+            mobj_t *target = attack_target_in_range(u);
+            if (target) {
+                u->attack.target = target;
                 fvec2_t target_delta = fvec2_sub(
                     fixed3_xy_to_fvec2(target->core.position),
                     fixed3_xy_to_fvec2(u->core.position));
                 u->core.angle = angle_from_map_vector(map,
-                                            target_delta.x, target_delta.y);
+                                                 target_delta.x,
+                                                 target_delta.y);
                 u->movement.flow_field = NULL;
                 u->movement.order_arrived = false;
+                moving = false;
             }
         }
-        if (!unit_has_move_order(u)) {
-            update_unit_harvest(map, units, count, u, dt_ms, NULL);
-            continue;
-        }
-        fvec2_t target;
-        bool final;
-        if (!P_FlowFieldTarget(map, u->movement.flow_field,
-                               fixed3_xy_to_fvec2(u->core.position),
-                               u->movement.goal, P_MobjRadius(u), &target, &final)) {
-            u->movement.flow_field = NULL;
-            u->movement.order_arrived = false;
-            update_unit_harvest(map, units, count, u, dt_ms, NULL);
-            continue;
-        }
+    }
+    fvec2_t move_target = u->movement.goal;
+    bool final = true;
+    if (moving && !P_FlowFieldTarget(
+            map, u->movement.flow_field,
+            fixed3_xy_to_fvec2(u->core.position), u->movement.goal,
+            P_MobjRadius(u), &move_target, &final)) {
+        u->movement.flow_field = NULL;
+        u->movement.order_arrived = false;
+        moving = false;
+    }
+    /* Turn-in-place before moving. */
+    if (moving) {
         fvec2_t delta = fvec2_sub(
-            target, fixed3_xy_to_fvec2(u->core.position));
+            move_target, fixed3_xy_to_fvec2(u->core.position));
+        float dist = sqrtf(fvec2_length_squared(delta));
+        if (dist >= 0.001f) {
+            angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
+            if (angle_distance(desired, u->core.angle) >= ANG45 / 8u) {
+                u->movement.turn_timer_ms -= dt_ms;
+                if (u->movement.turn_timer_ms <= 0) {
+                    int32_t delta = (int32_t)(desired - u->core.angle);
+                    u->core.angle += delta > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
+                    u->movement.turn_timer_ms = RTS_TURN_STEP_MS;
+                }
+                moving = false;
+            } else {
+                u->movement.turn_timer_ms = 0;
+            }
+        }
+    }
+    if (moving) {
+        fvec2_t delta = fvec2_sub(
+            move_target, fixed3_xy_to_fvec2(u->core.position));
         float dist = sqrtf(fvec2_length_squared(delta));
         if (final && final_goal_reaches_arrived_order_cluster(
-                units, count, i, target.x, target.y, dist)) {
+                u, move_target.x, move_target.y, dist)) {
             u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
             u->movement.flow_field = NULL;
             u->movement.order_arrived = true;
-            (void)update_unit_harvest(map, units, count, u, dt_ms, NULL);
-            continue;
-        }
-        if (dist >= 0.001f)
-            u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
-        float step = u->speed * dt;
-        if (dist <= step || dist < 0.001f) {
-            if (move_unit_if_walkable(map, u, delta)) {
-                if (final) {
+            moving = false;
+        } else {
+            if (dist >= 0.001f)
+                u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
+            float step = u->speed * dt;
+            if (dist <= step || dist < 0.001f) {
+                if (move_unit_if_walkable(map, u, delta)) {
+                    if (final) {
+                        u->movement.flow_field = NULL;
+                        u->movement.order_arrived = true;
+                        moving = false;
+                    }
+                } else {
                     u->movement.flow_field = NULL;
-                    u->movement.order_arrived = true;
+                    u->movement.order_arrived = false;
+                    moving = false;
                 }
             } else {
-                u->movement.flow_field = NULL;
-                u->movement.order_arrived = false;
-            }
-        } else {
-            fvec2_t displacement = fvec2_scale(delta, step / dist);
-            if (!move_unit_if_walkable(map, u, displacement)) {
-                u->movement.flow_field = NULL;
-                u->movement.order_arrived = false;
+                fvec2_t displacement = fvec2_scale(delta, step / dist);
+                if (!move_unit_if_walkable(map, u, displacement)) {
+                    u->movement.flow_field = NULL;
+                    u->movement.order_arrived = false;
+                    moving = false;
+                }
             }
         }
-        (void)update_unit_harvest(map, units, count, u, dt_ms, NULL);
     }
 
-    separate_units(map, units, count);
+    if (update_unit_harvest(map, u, dt_ms, game_info)) {
+        moving = false;
+        u->core.momentum = fixed3_zero();
+    }
 
-    for (int i = 0; i < count; ++i) {
-        mobj_t *attacker = &units[i];
-        if (attacker->hp <= 0 || (attacker->traits & MF_ATTACK) == 0 ||
-            mobj_attack_damage(attacker) <= 0 || mobj_attack_range(attacker) <= 0.0f) {
-            continue;
-        }
-
-        int target_index = -1;
-        float best_dist2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
-        for (int j = 0; j < count; ++j) {
-            if (i == j || units[j].hp <= 0 || P_IsAlly(attacker, &units[j])) continue;
-            float dist2 = fvec2_distance_squared(
-                fixed3_xy_to_fvec2(units[j].core.position),
-                fixed3_xy_to_fvec2(attacker->core.position));
-            if (dist2 <= best_dist2) {
-                best_dist2 = dist2;
-                target_index = j;
+    if (game_info && (u->traits & MF_MOBILE) && u->type_id > 0 &&
+        u->type_id < game_info->mobj_type_count) {
+        const mobjinfo_t *mi = &game_info->mobjinfo[u->type_id];
+        const state_t *state = state_at(game_info, u->core.state_id);
+        int group = state ? state->group : 0;
+        if (group != 3) {
+            if (moving && group != 2) {
+                P_SetMobjState(u, mi->seestate);
+            } else if (!moving && group == 2) {
+                P_SetMobjState(u, mi->spawnstate);
+            } else {
+                apply_state_visuals(game_info, &u->core,
+                                    state_at(game_info, u->core.state_id), false);
             }
         }
-        attacker->attack.target = target_index;
-        if (target_index < 0) continue;
-
-        mobj_t *target = &units[target_index];
-        fvec2_t target_delta = fvec2_sub(
-            fixed3_xy_to_fvec2(target->core.position),
-            fixed3_xy_to_fvec2(attacker->core.position));
-        attacker->core.angle = angle_from_map_vector(map,
-                     target_delta.x, target_delta.y);
-        if (attacker->attack.cooldown_left_ms > 0) continue;
-
-        /* A hidden attacker (pre-placed native object outside FOW) must not leak its
-         * position via a visible muzzle flash or ground light before it is revealed. */
-        if (!P_MobjIsHidden(attacker) && mobj_muzzle_flash_name(attacker)[0] != '\0') {
-            int flash_ms = mobj_muzzle_flash_ms(attacker);
-            bool light_spawned = spawn_ground_light(effects, max_effects,
-                                                    attacker->core.position,
-                                                    flash_ms, 30);
-            bool spawned = spawn_visual_effect(effects, max_effects,
-                                               mobj_muzzle_flash_name(attacker),
-                                               attacker->core.position,
-                                               attacker->core.angle,
-                                               flash_ms, 40, false, false, 0, 0);
-            debug_effects_log("attack muzzle attacker=%d target=%d spawned=%d sprite=%s",
-                              i, target_index, spawned ? 1 : 0,
-                              mobj_muzzle_flash_name(attacker));
-            debug_effects_log("attack ground-light attacker=%d spawned=%d", i,
-                              light_spawned ? 1 : 0);
-        }
-        target->hp -= mobj_attack_damage(attacker);
-        debug_effects_log("attack damage attacker=%d target=%d damage=%d hp=%d/%d target_sprite=%s",
-                          i, target_index, mobj_attack_damage(attacker), target->hp,
-                          target->max_hp, target->core.sprite_name);
-        if (mobj_hit_effect_name(target)[0] != '\0' && !P_MobjIsHidden(target)) {
-            spawn_visual_effect(effects, max_effects, mobj_hit_effect_name(target),
-                                target->core.position,
-                                target->core.angle,
-                                400, 50, false, false, 0, 0);
-        }
-        if (target->hp <= 0) {
-            target->hp = 0;
-            P_MobjSetSelected(target, false);
-            target->traits &= ~(MF_SELECTABLE | MF_MOBILE |
-                                MF_ATTACK | MF_HARVESTER);
-            target->movement.flow_field = NULL;
-            target->movement.order_arrived = false;
-            target->attack.target = -1;
-            target->harvest.target = -1;
-            target->harvest.timer_ms = 0;
-            target->attack.cooldown_left_ms = 0;
-            target->core.momentum = fixed3_zero();
-            bool spawned = !P_MobjIsHidden(target) && spawn_visual_effect(effects, max_effects,
-                                               target->core.sprite_name,
-                                               target->core.position,
-                                               target->core.angle,
-                                               900, 90, true, true, -1, 0);
-            debug_effects_log("death target=%d spawned=%d sprite=%s facing=%d duration=%d",
-                              target_index, spawned ? 1 : 0, target->core.sprite_name,
-                              target->core.angle, 900);
-        }
-        attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker) > 0 ?
-            mobj_attack_cooldown_ms(attacker) : 500;
     }
+    if ((!gameinfo || !gameinfo->states) && u->attack.cooldown_left_ms <= 0)
+        P_Attack(u);
+}
 
-    int write = 0;
-    for (int read = 0; read < count; ++read) {
-        if (units[read].hp <= 0) {
-            P_FreeMobjProduction(&units[read]);
-            continue;
-        }
-        if (write != read) units[write] = units[read];
-        write++;
-    }
-    if (write != count) {
-        debug_effects_log("compacted units before=%d after=%d", count, write);
-    }
-    *unit_count = write;
+void P_MobjThinker(mobj_t *mobj) {
+    if (mobj->remove) { P_RemoveMobj(mobj); return; }
+    tick_actor(mobj);
 }

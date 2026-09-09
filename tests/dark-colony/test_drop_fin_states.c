@@ -1,3 +1,4 @@
+#include "game.h"
 #include "engine.h"
 #include "info.h"
 #include "w_spr.h"
@@ -16,6 +17,37 @@ static void clear(app_t *app) {
     SDL_RenderClear(app->renderer);
 }
 
+/* Draw decoded FIN commands directly as an independent pixel reference. */
+static void draw_native_parts(app_t *app, const level_t *map,
+                               const spritecache_t *cache, const spritelayer_t *parts) {
+    float sx, sy;
+    R_MapPositionToScreen(app, map, fixed3_zero(), &sx, &sy);
+    for (const spritelayer_t *part = parts; part->sprite_name[0]; ++part) {
+        const spritesheet_t *sprite = R_CacheLookup(cache,
+            M_va("SPRITES/%s.SPR", M_Upper(M_va("%s", part->sprite_name))));
+        CHECK(sprite && part->lump < sprite->numlumps);
+        const spritecell_t *cell = &sprite->cells[part->lump];
+        irect_t src = cell->rect;
+        irect_t dst = { (int)sx + part->offset.x +
+            ((part->flags & RTS_FRAME_FLIP_X) ? 0 : cell->displacement.x),
+            (int)sy + part->offset.y - src.h, src.w, src.h };
+        if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
+        const spritelump_t *lump = &sprite->lumps[part->lump];
+        SDL_Texture *texture = lump->texture;
+        for (int i = 0; i < lump->translation_count; ++i)
+            if (lump->translations[i].id == part->remap) texture = lump->translations[i].texture;
+        CHECK(texture);
+        int intensity = part->intensity > 0 ? part->intensity : 16;
+        int color = (intensity * 255 + 8) / 16;
+        if (color > 255) color = 255;
+        SDL_SetTextureColorMod(texture, color, color, color);
+        SDL_SetTextureAlphaMod(texture, 255);
+        SDL_RenderCopyEx(app->renderer, texture, &src, &dst, 0, NULL,
+            (part->flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        SDL_SetTextureColorMod(texture, 255, 255, 255);
+    }
+}
+
 static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cache,
                            const char *file, const char *label_name,
                            int first_state, int exit_state) {
@@ -29,8 +61,8 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
     int start = SDL_SwapLE16(label->start), end = SDL_SwapLE16(label->end);
     mobj_t unit = { .traits = MF_RENDERABLE, .team = 7,
         .movement.goal = {16, 16} };
-    statecontext_t ctx = { .game_info = &game_info };
-    CHECK(P_SetMobjState(&ctx, &unit, first_state));
+    gameinfo = &game_info;
+    CHECK(P_SetMobjState(&unit, first_state));
     size_t bytes = (size_t)surface->pitch * surface->h;
     void *expected_pixels = malloc(bytes);
     CHECK(expected_pixels);
@@ -40,29 +72,20 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         spritedirection_t expected = {0};
         CHECK(DC_FINFrame(&fin, f, &expected));
         const spritelayer_t *actual = sheet->spritedef.spriteframes[unit.core.frame].directions[0].layers;
-        effect_t parts[100] = {0};
         int p = 0;
         for (; expected.layers[p].sprite_name[0]; ++p) {
-            CHECK(p < 100);
             const spritelayer_t *part = &expected.layers[p];
             CHECK(!strcasecmp(actual[p].sprite_name, !strcasecmp(part->sprite_name, file) ? "." : part->sprite_name));
             CHECK(actual[p].lump == part->lump && ivec2_equal(actual[p].offset, part->offset));
             CHECK(actual[p].layer == part->layer && actual[p].flags == part->flags);
             CHECK(actual[p].remap == part->remap && actual[p].intensity == part->intensity);
-            parts[p] = (effect_t){ .active = true, .fin_placement = true,
-                .render_selector = part->layer,
-                .core = { .frame = part->lump, .render_offset = part->offset,
-                    .render_flags = part->flags, .render_remap = part->remap,
-                    .render_intensity = part->intensity } };
-            snprintf(parts[p].core.sprite_name, sizeof(parts[p].core.sprite_name),
-                     "SPRITES/%s.SPR", M_Upper(M_va("%s", part->sprite_name)));
         }
         CHECK(!actual[p].sprite_name[0]);
         clear(app);
-        R_DrawEffects(app, &map, parts, p, cache, &game_info);
+        draw_native_parts(app, &map, cache, expected.layers);
         memcpy(expected_pixels, surface->pixels, bytes);
         clear(app);
-        R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
+        R_RenderPlayerView(app, &map, NULL, &(mobj_t *){&unit}, 1, NULL, cache, &game_info, 0);
         CHECK(!memcmp(expected_pixels, surface->pixels, bytes));
         if (f == (start + end) / 2)
             CHECK(SDL_SaveBMP(surface, M_va("/private/tmp/%s.bmp", label_name)) == 0);
@@ -73,7 +96,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         int state = unit.core.state_id;
         for (int t = elapsed; t < boundary; ++t) {
             CHECK(unit.core.state_id == state);
-            P_TickMobjState(&ctx, &unit);
+            P_TickMobjState(&unit);
         }
         elapsed = boundary;
         free(expected.layers);
@@ -93,7 +116,7 @@ int main(void) {
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1);
-    /* With no object context the release action leaves nextstate to advance. */
+    /* An empty cargo lets the release state advance without spawning units. */
     check_sequence(&app, surface, cache, "DROP", "DROPTWO", S_DROP_UNLOAD1, S_DROP_MOVE1);
     static const struct { int product, first, last; const char *file, *label; } builds[] = {
         {20, S_SCNCPOD_BUILD1, S_SCNCPOD_STND1, "DROP", "SCNCPODBUILD0"},

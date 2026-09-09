@@ -21,7 +21,7 @@ void SB_Start(sb_state_t *st);
 bool SB_Responder(sb_state_t *st, const app_t *app, const SDL_Event *event);
 void SB_Ticker(sb_state_t *st);
 void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
-               const mobj_t *units, int unit_count, const spritecache_t *sprites,
+               mobj_t *const *units, int unit_count, const spritecache_t *sprites,
                bool fullscreen, bool refresh);
 void SB_Shutdown(sb_state_t *st);
 

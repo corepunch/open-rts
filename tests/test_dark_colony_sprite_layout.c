@@ -515,7 +515,6 @@ void A_Chase(mobj_t *unit) { (void)unit; }
 void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }
 void A_Attack(mobj_t *unit) { (void)unit; }
 void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }
-void A_DC_Corpse(mobj_t *unit) { (void)unit; }
 void A_DC_Fly(mobj_t *unit) { (void)unit; }
 void A_DC_Drop(mobj_t *unit) { (void)unit; }
 
@@ -568,14 +567,14 @@ static int assert_exploiter_16_direction_states(void) {
 
 static int assert_generated_mobj_table_coverage(void) {
     if (game_info.mobj_type_count != NUMMOBJTYPES ||
-        game_info.mobjinfo != dc_mobjinfo) {
+        game_info.mobjinfo != mobjinfo) {
         return fail("generated mobj metadata covers every declared Dark Colony type");
     }
     return 0;
 }
 
 static int assert_dropship_state_chain(void) {
-    if (dc_mobjinfo[MT_DROPSHIP].spawnstate != S_DROP_MOVE1 ||
+    if (mobjinfo[MT_DROPSHIP].spawnstate != S_DROP_MOVE1 ||
         states[S_DROP_MOVE10].nextstate != S_DROP_MOVE1 ||
         states[S_DROP_UNLOAD10].nextstate != S_DROP_RELEASE ||
         states[S_DROP_RELEASE].action != A_DC_Drop ||

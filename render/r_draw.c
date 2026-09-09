@@ -818,15 +818,6 @@ static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int 
     return (SDL_Point){ 0, 0 };
 }
 
-static int sprite_world_offset_x(const spritesheet_t *sprite, int frame,
-                                 uint32_t render_flags) {
-    SDL_Point p = { 0, 0 };
-    if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
-        p = (SDL_Point){ sprite->cells[frame].displacement.x,
-                         sprite->cells[frame].displacement.y };
-    }
-    return (render_flags & RTS_FRAME_FLIP_X) != 0 ? 0 : p.x;
-}
 
 static SDL_Point sprite_ground_point(const spritesheet_t *sprite, int frame) {
     if (sprite && sprite->lumps && frame >= 0 && frame < sprite->numlumps) {
@@ -940,13 +931,13 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     return true;
 }
 
-static int pick_unit_at(const app_t *app, const level_t *map, const mobj_t *units, int unit_count,
+static int pick_unit_at(const app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                         const spritesheet_t *fallback_sprite, const spritecache_t *cache,
                         const gameinfo_t *game_info, int x, int y, int owner_filter) {
     int best = -1;
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
-        const mobj_t *unit = &units[i];
+        const mobj_t *unit = units[i];
         if (P_MobjIsHidden(unit) || unit->hp <= 0 ||
             (unit->traits & MF_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
@@ -1103,11 +1094,18 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
     });
 }
 
+static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
+                                const spritecache_t *cache, const gameinfo_t *game_info);
+
 static void render_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
                                uint32_t ticks) {
     if (!u || P_MobjIsHidden(u) || (u->traits & MF_RENDERABLE) == 0) return;
+    if (u->traits & MF_NOBLOCKMAP) {
+        render_centered_mobj(app, map, u, cache, game_info);
+        return;
+    }
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(u, fallback_sprite, cache, game_info);
     if (!sprite || sprite->spritedef.numframes <= 0) return;
 
@@ -1220,10 +1218,10 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     }
 }
 
-void R_DrawThings(app_t *app, const mobj_t *units, int unit_count, const spritesheet_t *fallback_sprite,
+void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
     for (int i = 0; i < unit_count; ++i) {
-        render_unit_sprite(app, NULL, &units[i], fallback_sprite, cache, game_info, ticks);
+        render_unit_sprite(app, &level, units[i], fallback_sprite, cache, game_info, ticks);
     }
 }
 
@@ -1270,7 +1268,7 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
 }
 
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,
-                          const mobj_t *units, int unit_count, const spritesheet_t *fallback_sprite,
+                          mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                           const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
     if (!app || !map) return;
     int overlay_count = 0;
@@ -1292,7 +1290,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     if (!commands) {
         R_DrawDecorations(app, map, cache);
         for (int i = 0; i < unit_count; ++i) {
-            render_unit_sprite(app, map, &units[i], fallback_sprite, cache, game_info, ticks);
+            render_unit_sprite(app, map, units[i], fallback_sprite, cache, game_info, ticks);
         }
         return;
     }
@@ -1333,14 +1331,14 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         };
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsHidden(&units[i])) continue;
-        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
+        if (P_MobjIsHidden(units[i])) continue;
+        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
             .layer = RENDER_LAYER_UNIT,
             .sort_y = L_ScreenYF(map, position.y),
             .stable_index = i,
-            .ref.unit = &units[i],
+            .ref.unit = units[i],
         };
     }
 
@@ -1359,131 +1357,49 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     free(commands);
 }
 
-static int sprite_frame_for_effect(const spritesheet_t *sprite, const effect_t *effect) {
-    if (!sprite || !effect) return 0;
-    int frame_ms = effect->frame_ms > 0 ? effect->frame_ms : 90;
-    int anim = effect->age_ms / frame_ms;
-    if (sprite->spritedef.numframes <= 0) return 0;
-    if (anim >= sprite->spritedef.numframes) anim = sprite->spritedef.numframes - 1;
-    bool flip = false;
-    int lump = sprite_lump_for_frame(sprite, anim < 0 ? 0 : anim,
-                                     effect->core.angle, &flip);
-    return lump >= 0 ? lump : 0;
-}
+static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *effect,
+                                const spritecache_t *cache, const gameinfo_t *game_info) {
+    int i = (int)effect->id;
+    const spritesheet_t *sprite = R_StateSprite(cache, game_info,
+                                                (effect->core.state_id > 0) ? effect->core.sprite_id : -1, effect->core.sprite_name);
+    if (!sprite || !sprite->lumps || sprite->numlumps <= 0) {
+        debug_effects_log("render skip slot=%d sprite=%s reason=missing-cache",
+                          i, effect->core.sprite_name);
+        return;
+    }
 
-static void draw_ground_light(app_t *app, const level_t *map, const effect_t *effect) {
-    if (!app || !map || !effect) return;
     float sx, sy;
     fvec2_t position = fixed3_xy_to_fvec2(effect->core.position);
-    R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
-    int radius = effect->light_radius > 0 ? effect->light_radius : 28;
-    int duration = effect->duration_ms > 0 ? effect->duration_ms : 120;
-    int age = effect->age_ms < duration ? effect->age_ms : duration;
-    int fade = duration > 0 ? (255 * (duration - age)) / duration : 0;
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_ADD);
-    for (int y = -radius / 2; y <= radius / 2; ++y) {
-        float shape = 1.0f - fabsf((float)y / (float)(radius / 2 + 1));
-        int half = (int)lroundf(radius * shape);
-        SDL_SetRenderDrawColor(app->renderer, 255, 190, 48,
-                               (uint8_t)((fade * 30) / 255));
-        SDL_RenderDrawLine(app->renderer, (int)sx - half, (int)sy + y,
-                           (int)sx + half, (int)sy + y);
-    }
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-}
-
-void R_DrawEffects(app_t *app, const level_t *map,
-                           const effect_t *effects, int max_effects,
-                           const spritecache_t *cache, const gameinfo_t *game_info) {
-    if (!effects || max_effects <= 0) return;
-    int *draw_order = malloc((size_t)max_effects * sizeof(*draw_order));
-    if (!draw_order) return;
-    int draw_count = 0;
-    for (int i = 0; i < max_effects; ++i) {
-        if (!effects[i].active) continue;
-        draw_order[draw_count++] = i;
-    }
-    for (int draw_index = 0; draw_index < draw_count; ++draw_index) {
-        int i = draw_order[draw_index];
-        const effect_t *effect = &effects[i];
-        if (effect->ground_light) {
-            draw_ground_light(app, map, effect);
-            continue;
-        }
-        const spritesheet_t *sprite = R_StateSprite(cache, game_info,
-                                                    effect->use_state ? effect->core.sprite_id : -1, effect->core.sprite_name);
-        if (!sprite || !sprite->lumps || sprite->numlumps <= 0) {
-            debug_effects_log("render skip slot=%d sprite=%s reason=missing-cache",
-                              i, effect->core.sprite_name);
-            continue;
-        }
-
-        float sx, sy;
-        fvec2_t position = fixed3_xy_to_fvec2(effect->core.position);
-        R_MapPositionToScreen(app, map, effect->core.position, &sx, &sy);
-        int frame = effect->use_state || effect->fin_placement ?
-            effect->core.frame : sprite_frame_for_effect(sprite, effect);
-        if (effect->use_state)
-            frame = sprite_lump_for_frame(sprite, frame, effect->core.angle, NULL);
-        if (frame < 0 || frame >= sprite->numlumps) frame = 0;
-        irect_t frame_rect = sprite_frame_rect(sprite, frame);
-        int sprite_w = frame_rect.w;
-        int sprite_h = frame_rect.h;
-        irect_t dst;
-        if (effect->fin_placement ||
-            (effect->use_state && game_info &&
-             game_info->state_coord_mode == RTS_STATE_COORDS_FIN_TOP_LEFT)) {
-            int offset_x = sprite_world_offset_x(sprite, frame, effect->core.render_flags);
-            dst = (irect_t){
-                (int)lroundf(sx) + effect->core.render_offset.x + offset_x,
-                (int)lroundf(sy) + effect->core.render_offset.y - sprite_h,
-                sprite_w,
-                sprite_h,
-            };
-        } else {
-            dst = (irect_t){
-                (int)(sx - sprite_w / 2),
-                (int)(sy - sprite_h / 2),
-                sprite_w,
-                sprite_h,
-            };
-            if (!ivec2_equal(effect->core.render_offset, (ivec2_t){ 0, 0 })) {
-                dst.x += effect->core.render_offset.x;
-                dst.y += effect->core.render_offset.y;
-            }
-        }
-        if (dst.x > app->win.w || dst.y > app->win.h ||
-            dst.x + dst.w < 0 || dst.y + dst.h < 0) {
-            debug_effects_log("render skip slot=%d sprite=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
-                              i, effect->core.sprite_name,
-                              sprite->numlumps, position.x, position.y,
-                              dst.x, dst.y, dst.w, dst.h);
-            continue;
-        }
-        debug_effects_log("render slot=%d sprite=%s age=%d/%d facing=%d anim=%d frame=%d frame_count=%d offset=%d,%d dst=%d,%d,%d,%d",
-                  i, effect->core.sprite_name,
-                          effect->age_ms, effect->duration_ms,
-                          angle_to_direction(effect->core.angle, 32, ANG90, true),
-                          effect->frame_ms > 0 ? effect->age_ms / effect->frame_ms : 0,
-                          frame, sprite->numlumps,
-                          effect->core.render_offset.x, effect->core.render_offset.y,
+    R_MapPositionToScreen(app, map, effect->core.position, &sx, &sy);
+    int frame = sprite_lump_for_frame(sprite, effect->core.frame, effect->core.angle, NULL);
+    if (frame < 0 || frame >= sprite->numlumps) frame = 0;
+    irect_t frame_rect = sprite_frame_rect(sprite, frame);
+    int sprite_w = frame_rect.w;
+    int sprite_h = frame_rect.h;
+    irect_t dst = { (int)(sx - sprite_w / 2) + effect->core.render_offset.x,
+        (int)(sy - sprite_h / 2) + effect->core.render_offset.y, sprite_w, sprite_h };
+    if (dst.x > app->win.w || dst.y > app->win.h ||
+        dst.x + dst.w < 0 || dst.y + dst.h < 0) {
+        debug_effects_log("render skip slot=%d sprite=%s frame_count=%d pos=%.2f,%.2f dst=%d,%d,%d,%d reason=offscreen",
+                          i, effect->core.sprite_name,
+                          sprite->numlumps, position.x, position.y,
                           dst.x, dst.y, dst.w, dst.h);
-        SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
-            SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
-                                 effect->render_selector)) continue;
-        SDL_Texture *texture = begin_sprite_command(sprite, frame,
-                                                    effect->core.render_remap,
-                                                    effect->core.render_intensity);
-        if (!texture) continue;
-        SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
-                 0.0, NULL, flip);
-        end_sprite_command(texture);
+        return;
     }
-    free(draw_order);
+    SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
+        SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
+                             0)) return;
+    SDL_Texture *texture = begin_sprite_command(sprite, frame,
+                                                effect->core.render_remap,
+                                                effect->core.render_intensity);
+    if (!texture) return;
+    SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
+             0.0, NULL, flip);
+    end_sprite_command(texture);
 }
 
-void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
+void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                   const spritesheet_t *fallback_sprite, const spritecache_t *cache,
                   const gameinfo_t *game_info, const SDL_Event *e) {
     switch (e->type) {
@@ -1501,9 +1417,9 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
             if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
-                    P_MobjSetSelected(&units[i], !P_MobjIsHidden(&units[i]) &&
-                        units[i].owner == 0 && (units[i].traits & MF_SELECTABLE) != 0 &&
-                        units[i].hp > 0);
+                    P_MobjSetSelected(units[i], !P_MobjIsHidden(units[i]) &&
+                        units[i]->owner == 0 && (units[i]->traits & MF_SELECTABLE) != 0 &&
+                        units[i]->hp > 0);
                 }
             }
             break;
@@ -1533,17 +1449,17 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                 screen_to_map_grid_point(app, map, rx, ry, &gx, &gy);
                 int target = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
                                           game_info, rx, ry, -1);
-                if (target >= 0 && units[target].owner != 0 && units[target].hp > 0) {
+                if (target >= 0 && units[target]->owner != 0 && units[target]->hp > 0) {
                     for (int i = 0; i < unit_count; ++i) {
-                        if (!P_MobjIsSelected(&units[i]) || units[i].owner != 0 ||
-                            units[i].hp <= 0) continue;
-                        if ((units[i].traits & MF_ATTACK) == 0) continue;
-                        units[i].attack.target = target;
-                        units[i].harvest.target = -1;
-                        units[i].harvest.timer_ms = 0;
+                        if (!P_MobjIsSelected(units[i]) || units[i]->owner != 0 ||
+                            units[i]->hp <= 0) continue;
+                        if ((units[i]->traits & MF_ATTACK) == 0) continue;
+                        units[i]->attack.target = units[target];
+                        units[i]->harvest.target = -1;
+                        units[i]->harvest.timer_ms = 0;
                     }
                     fvec2_t target_position =
-                        fixed3_xy_to_fvec2(units[target].core.position);
+                        fixed3_xy_to_fvec2(units[target]->core.position);
                     gx = target_position.x;
                     gy = target_position.y;
                 } else {
@@ -1551,8 +1467,8 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                         break;
                     }
                     for (int i = 0; i < unit_count; ++i) {
-                        if (P_MobjIsSelected(&units[i]) && units[i].owner == 0) {
-                            units[i].attack.target = -1;
+                        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) {
+                            units[i]->attack.target = NULL;
                         }
                     }
                 }
@@ -1570,30 +1486,30 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
                 if (!additive) {
                     for (int i = 0; i < unit_count; ++i)
-                        P_MobjSetSelected(&units[i], false);
+                        P_MobjSetSelected(units[i], false);
                 }
                 if (box) {
                     for (int i = 0; i < unit_count; ++i) {
-                        if (P_MobjIsHidden(&units[i])) continue;
-                        if (units[i].hp <= 0) continue;
-                        if ((units[i].traits & MF_SELECTABLE) == 0) continue;
-                        if (units[i].owner != 0) continue;
+                        if (P_MobjIsHidden(units[i])) continue;
+                        if (units[i]->hp <= 0) continue;
+                        if ((units[i]->traits & MF_SELECTABLE) == 0) continue;
+                        if (units[i]->owner != 0) continue;
                         irect_t visible;
                         float sx = 0.0f, sy = 0.0f;
-                        unit_screen_rect_for_view(app, map, &units[i], fallback_sprite, cache,
+                        unit_screen_rect_for_view(app, map, units[i], fallback_sprite, cache,
                                                   game_info, app->ticks_ms, NULL, &visible,
                                                   &sx, &sy, NULL, NULL, NULL);
-                        float radius = unit_pick_radius_px(app, &units[i]);
+                        float radius = unit_pick_radius_px(app, units[i]);
                         if (irect_intersects(visible, rect) ||
                             circle_intersects_rect((fvec2_t){ sx, sy }, radius, rect)) {
-                            P_MobjSetSelected(&units[i], true);
+                            P_MobjSetSelected(units[i], true);
                         }
                     }
                 } else {
                     int picked = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
                                               game_info, bx, by, 0);
                     if (picked >= 0) {
-                        P_MobjSetSelected(&units[picked], true);
+                        P_MobjSetSelected(units[picked], true);
                     }
                 }
                 app->dragging_select = false;
@@ -1647,21 +1563,6 @@ void R_FreeTileset(tileset_t *tileset) {
     free(tileset->tile_lookup);
     free(tileset->animations);
     memset(tileset, 0, sizeof(*tileset));
-}
-
-void P_FreeLevel(level_t *map) {
-    P_FreeFlowFields(map);
-    free(map->tile_ids);
-    for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);
-    for (int i = 0; i < MAX_TILE_OVERLAYS + 1; ++i) free(map->tile_transforms[i]);
-    free(map->blocked);
-    free(map->cell_colors);
-    free(map->decorations);
-    free(map->resource_vents);
-    free(map->extras);
-    if (map->destroy_mission) map->destroy_mission(map->mission);
-    if (map->destroy_native_data) map->destroy_native_data(map->native_data);
-    memset(map, 0, sizeof(*map));
 }
 
 void R_FreeSprite(spritesheet_t *sprite) {

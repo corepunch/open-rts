@@ -14,17 +14,13 @@ Mission *load_mission(const char *map_path) {
     return mission;
 }
 
-void update_mission(level_t *map, mobj_t *units, int *unit_count,
-                    effect_t *effects, int max_effects,
-                    const gameinfo_t *game_info, hudtext_t *hud, float dt) {
-    (void)effects;
-    (void)max_effects;
+void update_mission(level_t *map, mobj_t *const *units, int *unit_count,
+                    hudtext_t *hud, float dt) {
     Mission *mission = map ? map->mission : NULL;
-    if (!mission || !units || !unit_count ||
+    if (!mission || !unit_count ||
         mission_get_state(mission) != MISSION_ACTIVE) return;
     DC_UpdateAI(&mission->ai, map, units, *unit_count, (int)(dt * 1000.0f));
-    DC_UpdateScript(mission->script, map, units, unit_count,
-                    game_info, hud, dt);
+    DC_UpdateScript(mission->script, map, units, unit_count, hud, dt);
 }
 
 MissionState mission_get_state(const void *ptr) {

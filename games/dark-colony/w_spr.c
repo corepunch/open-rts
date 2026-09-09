@@ -419,7 +419,7 @@ static bool load_ui_sprites(const char *root, spritecache_t *cache) {
 }
 
 bool load_dark_colony_unit_sprites(const char *data_root,
-                                   const level_t *map, const mobj_t *units, int unit_count,
+                                   const level_t *map, mobj_t *const *units, int unit_count,
                                    spritecache_t *cache) {
     bool ok = true;
     static const char *const effect_sprites[] = {
@@ -440,10 +440,9 @@ bool load_dark_colony_unit_sprites(const char *data_root,
         }
     }
     for (int i = 0; i < unit_count; ++i) {
-        const mobjtype_t *info = units[i].info;
-        ok &= sprite_cache_load_dark_colony(cache, data_root, units[i].core.sprite_name);
+        const mobjtype_t *info = units[i]->info;
+        ok &= sprite_cache_load_dark_colony(cache, data_root, units[i]->core.sprite_name);
         ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->shadow_name : NULL);
-        ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->hit_effect_name : NULL);
     }
     if (!cache->ui) cache->ui = calloc(1, sizeof(*cache->ui));
     if (!cache->ui) return false;

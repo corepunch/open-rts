@@ -172,26 +172,27 @@ bool sl_load_map(const char *map_path, level_t *out) {
     out->camera = (fvec2_t){ (float)mission.start_x, (float)mission.start_y };
     return true;
 }
-int sl_load_initial_units(const char *map_path, mobj_t *units, int max_units) {
-    if (!units || max_units <= 0) return 0;
+int sl_load_initial_units(const char *map_path) {
     SlMissionConfig mission;
     if (!sl_load_first_mission_config(map_path, &mission)) return 0;
 
     int count = 0;
     int troop_count = strlen(mission.player_start) > 14 ? mission.player_start[14] - '0' : 0;
     int base_count = strlen(mission.player_start) > 42 ? mission.player_start[42] - '0' : 0;
-    for (int i = 0; i < troop_count && count < max_units; ++i) {
-        mobj_t *unit = &units[count++];
-        memset(unit, 0, sizeof(*unit));
+    for (int i = 0; i < troop_count; ++i) {
+        mobj_t *unit = P_SpawnMobj(fixed3_zero(), 1);
+        if (!unit) break;
+        count++;
         unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
             (ivec2_t){ mission.start_x - 6 + i * 2, mission.start_y - 1 }), 0);
         unit->owner = 0;
         unit->type_id = 1;
         unit->core.angle = ANG270;
     }
-    for (int i = 0; i < base_count && count < max_units; ++i) {
-        mobj_t *unit = &units[count++];
-        memset(unit, 0, sizeof(*unit));
+    for (int i = 0; i < base_count; ++i) {
+        mobj_t *unit = P_SpawnMobj(fixed3_zero(), 7);
+        if (!unit) break;
+        count++;
         unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
             (ivec2_t){ mission.start_x + 4 + i * 2, mission.start_y + 1 }), 0);
         unit->owner = 0;

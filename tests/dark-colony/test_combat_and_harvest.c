@@ -1,3 +1,4 @@
+#include "mobj_test.h"
 #include "engine_config.h"
 #include "engine.h"
 #include "../rts_test.h"
@@ -18,127 +19,115 @@ static const mobjtype_t TEST_ATTACKER_INFO = {
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
     .max_hp = 800,
     .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
-    .muzzle_flash_ms = 120,
-    .muzzle_flash_name = "SPRITES/BLAZ.SPR",
-    .hit_effect_name = "SPRITES/BLOO.SPR",
+    .blood_type = MT_BLOOD,
 };
 
 static const mobjtype_t TEST_TARGET_INFO = {
     .id = MT_TROOPER,
     .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
     .max_hp = 800,
-    .hit_effect_name = "SPRITES/BLOO.SPR",
+    .blood_type = MT_BLOOD,
 };
 
-/* Attack: verify damage, muzzle flash, ground light, hit (blood) effect and death,
+/* Attack: verify damage, blood objects, death, and persistent corpses,
  * using two synthetic Troopers so the outcome is deterministic and independent of
- * map travel distance or emergent AI combat elsewhere on the map. */
+ * level travel distance or emergent AI combat elsewhere on the level. */
 static int assert_attack_lifecycle(void) {
-    mobj_t units[2];
-    memset(units, 0, sizeof(units));
+    gameinfo = &game_info;
+    P_FreeThinkers();
+    mobj_t *units[2];
+    for (int i = 0; i < 2; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
-    units[0].type_id = MT_TROOPER;
-    units[0].owner = 0;
-    units[0].allegiance = ALLEGIANCE_PLAYER;
-    units[0].hp = units[0].max_hp = 800;
-    units[0].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK;
-    units[0].info = &TEST_ATTACKER_INFO;
-    units[0].attack.target = 1;
-    snprintf(units[0].core.sprite_name, sizeof(units[0].core.sprite_name), "SPRITES/TRSC.SPR");
-    units[0].core.position = fixed3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0);
+    units[0]->type_id = MT_TROOPER;
+    units[0]->owner = 0;
+    units[0]->allegiance = ALLEGIANCE_PLAYER;
+    units[0]->hp = units[0]->max_hp = 800;
+    units[0]->traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK;
+    units[0]->info = &TEST_ATTACKER_INFO;
+    units[0]->attack.target = units[1];
+    snprintf(units[0]->core.sprite_name, sizeof(units[0]->core.sprite_name), "SPRITES/TRSC.SPR");
+    units[0]->core.position = fixed3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0);
 
-    units[1] = units[0];
-    units[1].owner = 1;
-    units[1].allegiance = ALLEGIANCE_ENEMY;
-    units[1].traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
-    units[1].info = &TEST_TARGET_INFO;
+    copy_mobj_fixture(units[1], units[0]);
+    units[1]->owner = 1;
+    units[1]->allegiance = ALLEGIANCE_ENEMY;
+    units[1]->traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE;
+    units[1]->info = &TEST_TARGET_INFO;
 
-    int count = 2;
-    effect_t effects[16];
-    memset(effects, 0, sizeof(effects));
-    level_t map;
-    memset(&map, 0, sizeof(map));
+    level = (level_t){0};
 
-    int enemy_starting_hp = units[1].hp;
-    bool damage_dealt = false, saw_ground_light = false, saw_muzzle_flash = false, saw_hit_effect = false;
-    /* Combat is animation-driven (muzzle flash fires on the attack-state's frame,
-     * damage lands on a later frame), so observe effects over a window rather than
-     * requiring them on the exact tick hp changes. */
-    for (int tries = 0; tries < 200 && units[1].hp > 0; ++tries) {
-        P_Ticker(&map, units, &count, effects, 16, &game_info, RTS_FIXED_DT);
-        P_UpdateEffects(&map, effects, 16, &game_info, RTS_FIXED_DT);
-        if (units[1].hp < enemy_starting_hp) damage_dealt = true;
-        for (int i = 0; i < 16; ++i) {
-            if (!effects[i].active) continue;
-            if (effects[i].ground_light) saw_ground_light = true;
-            if (strstr(effects[i].core.sprite_name, "BLAZ")) saw_muzzle_flash = true;
-            if (strstr(effects[i].core.sprite_name, "BLOO")) saw_hit_effect = true;
+    int enemy_starting_hp = units[1]->hp;
+    bool damage_dealt = false, saw_hit_effect = false;
+    /* Observe state-driven combat and transient blood over a full attack cycle. */
+    for (int tries = 0; tries < 200 && units[1]->hp > 0; ++tries) {
+        P_Ticker();
+
+        if (units[1]->hp < enemy_starting_hp) damage_dealt = true;
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            const mobj_t *effect = (const mobj_t *)th;
+            if (effect->remove || !(effect->traits & MF_NOBLOCKMAP)) continue;
+            if (strstr(effect->core.sprite_name, "BLOO")) saw_hit_effect = true;
         }
-        if (damage_dealt && saw_ground_light && saw_muzzle_flash && saw_hit_effect) break;
+        if (damage_dealt && saw_hit_effect) break;
     }
     if (!damage_dealt) return fail("attacker never dealt damage to enemy");
-    if (!saw_ground_light) return fail("attack did not spawn a ground-light effect");
-    if (!saw_muzzle_flash) return fail("attack did not spawn a visible muzzle-flash effect");
     if (!saw_hit_effect) return fail("attack did not spawn a visible hit/blood effect");
 
     bool died = false;
     for (int tries = 0; tries < 400 && !died; ++tries) {
-        P_Ticker(&map, units, &count, effects, 16, &game_info, RTS_FIXED_DT);
-        P_UpdateEffects(&map, effects, 16, &game_info, RTS_FIXED_DT);
-        if (units[1].hp <= 0) died = true;
+        P_Ticker();
+
+        if (units[1]->hp <= 0) died = true;
     }
     if (!died) return fail("enemy unit never died");
 
     bool saw_corpse = false;
     for (int tries = 0; tries < 90 && !saw_corpse; ++tries) {
-        P_Ticker(&map, units, &count, effects, 16, &game_info, RTS_FIXED_DT);
-        P_UpdateEffects(&map, effects, 16, &game_info, RTS_FIXED_DT);
-        for (int i = 0; i < map.decoration_count; ++i) {
-            if (strstr(map.decorations[i].sprite_name, "TRSC")) saw_corpse = true;
-        }
-    }
-    if (!saw_corpse) return fail("dead unit left no corpse decoration");
-    free(map.decorations);
+        P_Ticker();
 
-    printf("PASS: attack lifecycle (damage, muzzle flash, ground light, blood, death, corpse)\n");
+        saw_corpse = !units[1]->remove && units[1]->core.tics == -1 &&
+                     units[1]->core.state_id == S_TRSC_CORPSE;
+    }
+    if (!saw_corpse) return fail("dead unit did not persist as a corpse mobj");
+    free(level.decorations);
+
+    printf("PASS: attack lifecycle (damage, blood objects, death, persistent corpse)\n");
     return 0;
 }
 
-/* Regression: a hidden (not-yet-revealed) attacker must not leak visible combat effects. */
-static int assert_hidden_attacker_effects_suppressed(void) {
+/* Hidden targets must not leak visible blood objects. */
+static int assert_hidden_target_blood_suppressed(void) {
     mobj_t attacker, target;
     memset(&attacker, 0, sizeof(attacker));
     memset(&target, 0, sizeof(target));
-    P_MobjSetHidden(&attacker, true);
     attacker.hp = 800;
     attacker.max_hp = 800;
     attacker.traits = MF_SELECTABLE | MF_MOBILE | MF_ATTACK;
     attacker.info = &TEST_ATTACKER_INFO;
+    P_MobjSetHidden(&attacker, true);
     target.hp = 800;
     target.max_hp = 800;
     target.allegiance = ALLEGIANCE_PLAYER;
     target.info = &TEST_TARGET_INFO;
+    P_MobjSetHidden(&target, true);
     attacker.allegiance = ALLEGIANCE_ENEMY;
 
-    mobj_t units[2];
-    units[0] = attacker;
-    units[1] = target;
-    int count = 2;
-    effect_t effects[8];
-    memset(effects, 0, sizeof(effects));
-    level_t map;
-    memset(&map, 0, sizeof(map));
+    P_FreeThinkers();
+    mobj_t *units[2];
+    for (int i = 0; i < 2; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
+    copy_mobj_fixture(units[0], &attacker);
+    copy_mobj_fixture(units[1], &target);
+    level = (level_t){0};
 
-    units[0].attack.target = 1;
-    P_Ticker(&map, units, &count, effects, 8, &game_info, RTS_FIXED_DT);
+    units[0]->attack.target = units[1];
+    if (!P_Attack(units[0])) return fail("hidden attacker never attacked");
 
-    for (int i = 0; i < 8; ++i) {
-        if (effects[i].active && effects[i].ground_light)
-            return fail("hidden attacker must not spawn a ground-light effect");
-        if (effects[i].active && strstr(effects[i].core.sprite_name, "BLAZ"))
-            return fail("hidden attacker must not spawn a muzzle-flash effect");
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *effect = (const mobj_t *)th;
+        if (effect->remove || !(effect->traits & MF_NOBLOCKMAP)) continue;
+        return fail("hidden target must not spawn a blood mobj");
     }
-    printf("PASS: hidden attacker suppresses muzzle flash and ground light\n");
+    printf("PASS: hidden target suppresses blood objects\n");
     return 0;
 }
 
@@ -289,7 +278,7 @@ static int assert_unit_creation_from_production(void) {
 
 int main(void) {
     RTS_RUN(assert_attack_lifecycle());
-    RTS_RUN(assert_hidden_attacker_effects_suppressed());
+    RTS_RUN(assert_hidden_target_blood_suppressed());
     RTS_RUN(assert_exploiter_harvest_lifecycle());
     RTS_RUN(assert_unit_creation_from_production());
     return 0;

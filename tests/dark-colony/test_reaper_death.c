@@ -1,3 +1,4 @@
+#include "game.h"
 #include "engine.h"
 #include "info.h"
 #include "dc_facing.h"
@@ -30,7 +31,6 @@ int main(void) {
         CHECK(label);
         int start = SDL_SwapLE16(label->start), end = SDL_SwapLE16(label->end);
         level_t map = {0};
-        effect_t effects[2] = {0};
         mobj_t unit = { .type_id = MT_REAPER };
         P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_REAPER));
         unit.core.angle = dc_direction_to_angle(direction);
@@ -39,13 +39,10 @@ int main(void) {
         mobj_t attacker = {0};
         P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));
         attacker.allegiance = ALLEGIANCE_ENEMY;
-        attacker.attack.target = 0;
-        int count = 1;
-        statecontext_t ctx = { .map = &map, .game_info = &game_info,
-            .effects = effects, .max_effects = 2, .mobjs = &unit, .mobj_count = &count };
-        CHECK(P_Attack(&ctx, &attacker));
+        attacker.attack.target = &unit;
+        gameinfo = &game_info;
+        CHECK(P_Attack(&attacker));
         CHECK(unit.hp == 0);
-        memset(effects, 0, sizeof(effects));
         CHECK(!(unit.traits & (MF_SELECTABLE | MF_MOBILE | MF_ATTACK)));
         int explosion_frames = 0, elapsed = 0;
         for (int f = start; f <= end; ++f) {
@@ -77,13 +74,12 @@ int main(void) {
                 CHECK(tics == 30 && explosion_frames == 0);
             for (int t = 0; t < tics; ++t) {
                 CHECK(unit.core.state_id == state);
-                P_TickMobjState(&ctx, &unit);
+                P_TickMobjState(&unit);
                 ++elapsed;
-                CHECK(!effects[0].active && !effects[1].active);
             }
         }
-        CHECK(unit.remove && map.decoration_count == 1);
-        CHECK(map.decorations[0].frame_index == sheet.numlumps + end);
+        CHECK(!unit.remove && unit.core.tics == -1);
+        CHECK(unit.core.frame == sheet.numlumps + end);
         CHECK(explosion_frames == (suffixes[direction] == 14 ? 18 : suffixes[direction] == 6 ? 17 : 0));
         CHECK(elapsed == (suffixes[direction] == 14 ? 674 : suffixes[direction] == 10 ? 322 :
                           suffixes[direction] == 6 ? 717 : 398));

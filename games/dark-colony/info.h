@@ -772,21 +772,20 @@ typedef enum {
     S_ROBOPOD2_STND19,
     S_ROBOPOD2_STND20,
     S_DROP_RELEASE,
+    S_BLOOD1, S_BLOOD2, S_BLOOD3, S_BLOOD4, S_BLOOD5, S_BLOOD6, S_BLOOD7, S_BLOOD8,
     NUMSTATES
 } statenum_t;
 
-enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, NUMMOBJTYPES };
+enum { MT_NULL, MT_TROOPER, MT_GREY, MT_EXPLOITER, MT_REAPER, MT_THUNDERBOLT, MT_CYBORG, MT_SCOUT, MT_ORTU, MT_SLUG, MT_MOBILE_TOWER, MT_DROP_LINK, MT_ALIEN_COM, MT_VISION_SIGHT, MT_DROPSHIP, MT_BLOOD, NUMMOBJTYPES };
 
 extern const char *const sprnames[NUMSPRITES];
 extern const state_t states[NUMSTATES];
-extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];
+extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];
 extern const gameinfo_t game_info;
 
 const mobjtype_t *actor_type_by_id(uint16_t type_id);
 
 void A_DC_ReaperDeath(mobj_t *unit);
-void A_DC_Corpse(mobj_t *unit);
-
 void A_DC_Drop(mobj_t *unit);
 void A_DC_Fly(mobj_t *unit);
 

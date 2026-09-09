@@ -1,58 +1,44 @@
-#include "engine.h"
+#include "game.h"
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 int main(void) {
     static const state_t states[] = {
-        {0},
-        { .tics = -1, .nextstate = 1 },
-        { .tics = 2, .nextstate = 0 },
+        {0}, { .tics = -1 }, { .tics = 2, .nextstate = 0 },
     };
     const gameinfo_t info = { .states = states, .state_count = 3 };
-    level_t map = {0};
-    mobj_t *units = calloc(MAXMOBJS, sizeof(*units));
-    assert(units);
-    int count = 0;
-    assert(!P_AllocMobj(NULL, &count) && count == 0);
-    assert(!P_AllocMobj(units, NULL));
-    for (int i = 0; i < MAXMOBJS; ++i) {
-        mobj_t *unit = P_AllocMobj(units, &count);
-        assert(unit == &units[i] && count == i + 1);
-        unit->id = i + 1;
-        unit->hp = 10;
-        unit->core.state_id = 1;
-        unit->core.tics = -1;
+    gameinfo = &info;
+    P_InitThinkers();
+    mobj_t *first = P_SpawnMobj(fixed3_zero(), 0);
+    mobj_t *removed = P_SpawnMobj(fixed3_zero(), 0);
+    mobj_t *corpse = P_SpawnMobj(fixed3_zero(), 0);
+    assert(first && removed && corpse);
+    assert(P_SetMobjState(first, 1) && P_SetMobjState(corpse, 1));
+    assert(P_EnsureMobjProduction(removed));
+    first->attack.target = removed;
+    P_RemoveMobj(removed);
+    assert(!first->attack.target && removed->thinker.function == NULL);
+    assert(first->thinker.next == &removed->thinker); /* Deferred unlink. */
+    for (int i = 0; i < 1000; ++i) {
+        mobj_t *actor = P_SpawnMobj(fixed3_zero(), 0);
+        assert(actor && P_SetMobjState(actor, 1));
     }
-    units[1].hp = 0; /* A persistent corpse remains an object. */
-    units[7].hp = 0;
-    units[7].core.state_id = 2;
-    units[7].core.tics = 2; /* This death animation has not finished. */
-    units[3].remove = true;
-    assert(P_EnsureMobjProduction(&units[3]));
-    assert(!P_AllocMobj(units, &count)); /* Removal is still pending. */
-    assert(count == MAXMOBJS && units[3].remove);
-
-    P_Ticker(&map, units, &count, NULL, 0, &info, FIXED_DT);
-    assert(count == MAXMOBJS - 1);
-    assert(units[1].id == 2 && units[1].hp == 0);
-    assert(units[6].id == 8 && units[6].core.tics == 1);
-    mobj_t *unit = P_AllocMobj(units, &count);
-    assert(unit == &units[MAXMOBJS - 1]);
-    unsigned char zero[sizeof(*unit)] = {0};
-    assert(memcmp(unit, zero, sizeof(*unit)) == 0);
-    unit->id = MAXMOBJS + 1;
-    unit->core.state_id = 1;
-    unit->core.tics = -1;
-
-    P_Ticker(&map, units, &count, NULL, 0, &info, FIXED_DT);
-    assert(count == MAXMOBJS - 1); /* Finished death reached S_NULL. */
-    assert(units[1].id == 2); /* Persistent corpse was not reclaimed. */
-    for (int i = 0; i < count; ++i) assert(units[i].id != 8);
-    assert(P_AllocMobj(units, &count) && count == MAXMOBJS);
-    assert(!P_AllocMobj(units, &count));
-    free(units);
-    puts("PASS: shared mobj allocation, deferred reclamation, and zeroed reuse");
+    P_Ticker();
+    assert(thinkercap.next == &first->thinker);
+    assert(first->thinker.next == &corpse->thinker);
+    assert(corpse->hp == 0 && corpse->core.tics == -1);
+    mobjlist_t objects = P_ListMobjs();
+    assert(objects.count == 1002 && objects.items[0] == first);
+    P_FreeMobjList(&objects);
+    assert(P_SetMobjState(first, 2));
+    P_Ticker();
+    assert(first->core.tics == 1);
+    P_Ticker();
+    assert(first->remove && !first->thinker.function);
+    P_Ticker();
+    assert(thinkercap.next == &corpse->thinker);
+    P_FreeLevel(&level);
+    assert(thinkercap.next == &thinkercap && thinkercap.prev == &thinkercap);
+    puts("PASS: unbounded mobj allocation, stable addresses, deferred removal, persistent corpses");
     return 0;
 }

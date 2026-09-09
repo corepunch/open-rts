@@ -1165,3 +1165,33 @@ and Dark Reign command/event checks pass. The full Dark Colony suite retains
 its existing muzzle-flash, initial Human01 force, and spawn-action expectation
 failures. Its cross-game command test also fails to accept a build with zero
 resources; an isolated build of pre-change `f91e19d` reproduces that same failure.
+
+
+## BLOO asset and inherited hit presentation (2026-09-09)
+
+**Confirmed asset evidence:** `ANIMATE/BLOO.FIN`, SHA-256
+`470e4e805de22c370888e9aabe613f4e6c95ada9d267b1dddb3438ded20217bb`,
+has default ticks 29, 14 labels, 135 frames, and 135 draw parts. Its labels are
+`MNDHIV2BLOODA0` through `MNDHIV2BLOODF0` (ranges 0–9, 10–18, 19–26,
+27–35, 36–46, 47–56), `MNDHIVBLOODG0` (57–67), and
+`BRDRHIV2BLOODA0` through `BRDRHIV2BLOODG0` (68–77, 78–86, 87–94,
+95–103, 104–114, 115–124, 125–134). There is no Trooper-labelled sequence.
+Frame 0 has ticks 0 and a `bloo` part, lump 0, offset (-30,-8), remap 0,
+intensity 16, layer 1, flags 0.
+
+**Unknown:** retail selection of a hit animation for Troopers and other units.
+The existence of BLOO.FIN does not establish that a hive-labelled sequence is
+an interchangeable generic hit animation. No executable was examined for this
+finding, so no DC.EXE address or instruction is claimed.
+
+**Implementation consequence:** the thinker migration keeps the already-authored
+BLOO SPR presentation (400 ms lifetime, 50 ms frames) as `MT_BLOOD` with eight
+ordinary states. At 30 Hz their cumulative boundaries are 2,3,5,6,8,9,11,12
+tics. These values preserve the existing engine policy and must not be cited
+as verified retail timing. No hive FIN sequence is guessed or aliased to a
+Trooper hit. FIN metadata remains owned by the sprite loader.
+
+Reproduce with `make dc-fin-extract`, then
+`build/dc_fin_extract data/DCOLONY/ANIMATE/BLOO.FIN /private/tmp/bloo.json`.
+`test_actor_lifecycle` and the combat portion of `test_combat_and_harvest`
+exercise hit spawning; `test_mobj_allocation` checks the common lifetime.

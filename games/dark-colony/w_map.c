@@ -1061,7 +1061,7 @@ static void compute_team_allegiances(const ScenarioFile *scenario,
     }
 }
 
-static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_units,
+static bool append_dark_colony_object_unit(int *count,
                                             int object_index,
                                             const DcObject *object, int race,
                                             int scenario_team,
@@ -1073,7 +1073,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
                                             int *player_anchor_x,
                                             int *player_anchor_y,
                                             bool hidden) {
-    if (!units || !count || *count >= max_units || !object || object->active == 0) {
+    if (!count || !object || object->active == 0) {
         return false;
     }
     int type = object->type;
@@ -1082,8 +1082,8 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     const mobjtype_t *actor = actor_type_by_id((uint16_t)mobj_type);
     if (!actor) return false;
 
-    mobj_t *u = &units[*count];
-    memset(u, 0, sizeof(*u));
+    mobj_t *u = P_SpawnMobj(fixed3_zero(), (uint16_t)mobj_type);
+    if (!u) return false;
     int render_x_pos = 0, render_z_pos = 0;
     object_render_position_fixed(object, object_index,
                                              &render_x_pos, &render_z_pos);
@@ -1092,7 +1092,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
         fixed_to_cell(render_z_pos),
     }, 0);
     u->core.sprite_id = -1;
-    u->attack.target = -1;
+    u->attack.target = NULL;
     u->harvest.target = -1;
     if (type >= 0 && type < DARK_COLONY_MAX_GAMESTAT_UNITS && unit_config)
         u->speed = unit_config[type].speed;
@@ -1112,16 +1112,12 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     if (P_MobjIsSelected(u)) *player_selected = true;
     u->core.frame = unit_frame_for_type(type);
     snprintf(u->core.sprite_name, sizeof(u->core.sprite_name), "%s", actor->sprite_name);
-    statecontext_t ctx = { .game_info = &game_info };
     int state_id = unit_state_for_type(type);
     if (state_id == S_NULL && u->type_id > 0 && u->type_id < game_info.mobj_type_count)
         state_id = game_info.mobjinfo[u->type_id].spawnstate;
-    if (state_id != S_NULL && !P_SetMobjState(&ctx, u, state_id)) {
-        fprintf(stderr, "[dark-colony] state setup failed for object index=%d native_type=%d "
-                "mobj=%d state=%d sprite=%s\n",
-                object_index, type, mobj_type, state_id, actor->sprite_name);
-        return false;
-    }
+    u->core.state_id = state_id;
+    u->core.tics = game_info.states[state_id].tics;
+    P_InitMobj(&game_info, u);
     if (object_uses_city_render_origin(object_index))
         u->core.render_offset.y += CELL_H;
     if (u->owner == 0) {
@@ -1140,7 +1136,7 @@ static bool append_dark_colony_object_unit(mobj_t *units, int *count, int max_un
     return true;
 }
 
-int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_units) {
+int load_dark_colony_initial_units(const char *map_path) {
     char scn_path[1024];
     replace_extension(scn_path, sizeof(scn_path), map_path, ".SCN");
     ScenarioFile scenario;
@@ -1230,7 +1226,7 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         }
     }
 
-    for (int i = 0; i < object_pool.active_count && count < max_units; ++i) {
+    for (int i = 0; i < object_pool.active_count; ++i) {
         int object_index = object_pool.active_objects[i];
         const DcObject *object = &object_pool.objects[object_index];
         bool hidden = pool_hidden[object_index];
@@ -1241,16 +1237,16 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
             team_allegiances[team] : DC_ALLEGIANCE_ENEMY;
         if (race == 1 && object->type == 14)
             alien_has_slug = true;
-        if (race != 1 && object->type == 16 && count < max_units) {
+        if (race != 1 && object->type == 16) {
             DcObject tower = *object;
             tower.type = 81;
-            append_dark_colony_object_unit(units, &count, max_units, object_index,
+            append_dark_colony_object_unit(&count, object_index,
                                            &tower, race, team, allegiance,
                                            unit_config,
                                            NULL, NULL, NULL, NULL, NULL,
                                            hidden);
         }
-        append_dark_colony_object_unit(units, &count, max_units, object_index, object, race,
+        append_dark_colony_object_unit(&count, object_index, object, race,
                                        team, allegiance,
                                        unit_config,
                                        &player_selected,
@@ -1261,13 +1257,13 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
                                        hidden);
     }
     if (map_path_is_multiplayer(map_path) && !player_has_exploiter &&
-        player_anchor_set && count < max_units) {
+        player_anchor_set) {
         int object_index = object_pool_add_dynamic(&object_pool, player_anchor_x + 2,
                                                                 player_anchor_y, 6, 0, -1, 0,
                                                                 unit_config);
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
-            append_dark_colony_object_unit(units, &count, max_units, object_index, object, 0,
+            append_dark_colony_object_unit(&count, object_index, object, 0,
                                            0, DC_ALLEGIANCE_PLAYER,
                                            unit_config, &player_selected,
                                            &player_has_exploiter,
@@ -1278,13 +1274,13 @@ int load_dark_colony_initial_units(const char *map_path, mobj_t *units, int max_
         }
     }
     if (map_path_is_multiplayer(map_path) && !alien_has_slug &&
-        alien_anchor_set && count < max_units) {
+        alien_anchor_set) {
         int object_index = object_pool_add_dynamic(&object_pool, alien_anchor_x + 2,
                                                                 alien_anchor_y, 14, 1, -1, 0,
                                                                 unit_config);
         if (object_index >= 0) {
             const DcObject *object = &object_pool.objects[object_index];
-            append_dark_colony_object_unit(units, &count, max_units, object_index, object, 1,
+            append_dark_colony_object_unit(&count, object_index, object, 1,
                                            1, DC_ALLEGIANCE_ENEMY,
                                            unit_config, NULL, NULL, NULL, NULL, NULL,
                                            false);

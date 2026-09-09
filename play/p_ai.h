@@ -35,7 +35,7 @@ typedef struct {
 } AiContext;
 
 void P_AiInit(AiContext *ctx);
-void P_AiTick(AiContext *ctx, level_t *map, mobj_t *units, int unit_count,
+void P_AiTick(AiContext *ctx, level_t *map, mobj_t *const *units, int unit_count,
               const gameinfo_t *game_info, int dt_ms);
 
 #endif

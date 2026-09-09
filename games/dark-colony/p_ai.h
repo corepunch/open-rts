@@ -9,5 +9,5 @@ typedef struct {
     uint32_t wave_target_id;
 } AiState;
 
-void DC_UpdateAI(AiState *ai, const level_t *map, mobj_t *units, int unit_count, int dt_ms);
+void DC_UpdateAI(AiState *ai, const level_t *map, mobj_t *const *units, int unit_count, int dt_ms);
 #endif

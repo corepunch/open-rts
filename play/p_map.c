@@ -80,13 +80,13 @@ bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy)
     return map_circle_walkable(map, gx, gy, P_MobjRadius(unit));
 }
 
-static bool position_overlaps_reserved_goal(const mobj_t *units, int unit_count, int self_index,
+static bool position_overlaps_reserved_goal(mobj_t *const *units, int unit_count, int self_index,
                                             float gx, float gy, float radius,
                                             uint32_t order_id) {
     if (!units || order_id == 0) return false;
     for (int i = 0; i < unit_count; ++i) {
         if (i == self_index) continue;
-        const mobj_t *other = &units[i];
+        const mobj_t *other = units[i];
         if (other->remove || other->hp <= 0 || other->movement.order_id != order_id) continue;
         float min_dist = radius + P_MobjRadius(other);
         float dx = other->movement.goal.x - gx;
@@ -273,7 +273,7 @@ static bool find_nearest_walkable_position(const level_t *map, float wanted_gx, 
 }
 
 static bool find_nearest_unreserved_walkable_position(const level_t *map,
-                                                      const mobj_t *units, int unit_count,
+                                                      mobj_t *const *units, int unit_count,
                                                       int self_index, uint32_t order_id,
                                                       float wanted_gx, float wanted_gy,
                                                       float unit_radius, int search_radius,
@@ -473,13 +473,13 @@ bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
 
 
 
-void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
+void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                    fvec2_t goal_position) {
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
-        if (!P_MobjIsSelected(&units[i])) continue;
-        if (units[i].hp <= 0) continue;
-        if (units[i].owner != 0 || (units[i].traits & MF_MOBILE) == 0) continue;
+        if (!P_MobjIsSelected(units[i])) continue;
+        if (units[i]->hp <= 0) continue;
+        if (units[i]->owner != 0 || (units[i]->traits & MF_MOBILE) == 0) continue;
         selected_count++;
     }
     if (selected_count <= 0) return;
@@ -494,47 +494,47 @@ void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
     int selected_index = 0;
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
-        if (!P_MobjIsSelected(&units[i])) continue;
-        if (units[i].hp <= 0) continue;
-        if (units[i].owner != 0 || (units[i].traits & MF_MOBILE) == 0) continue;
-        units[i].core.momentum = fixed3_zero();
-        units[i].movement.order_id = order_id;
-        units[i].movement.order_arrived = false;
-        units[i].harvest.target = -1;
-        units[i].harvest.timer_ms = 0;
-        units[i].harvest.phase = 0;
-        fvec2_t position = fixed3_xy_to_fvec2(units[i].core.position);
+        if (!P_MobjIsSelected(units[i])) continue;
+        if (units[i]->hp <= 0) continue;
+        if (units[i]->owner != 0 || (units[i]->traits & MF_MOBILE) == 0) continue;
+        units[i]->core.momentum = fixed3_zero();
+        units[i]->movement.order_id = order_id;
+        units[i]->movement.order_arrived = false;
+        units[i]->harvest.target = -1;
+        units[i]->harvest.timer_ms = 0;
+        units[i]->harvest.phase = 0;
+        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         int row = selected_index / formation_columns;
         int row_start = row * formation_columns;
         int row_count = selected_count - row_start;
         if (row_count > formation_columns) row_count = formation_columns;
         int col = selected_index - row_start;
-        float spacing = P_MobjRadius(&units[i]) * 2.1f;
+        float spacing = P_MobjRadius(units[i]) * 2.1f;
         float offset_x = ((float)col - ((float)row_count - 1.0f) * 0.5f) * spacing;
         float offset_y = ((float)row - ((float)formation_rows - 1.0f) * 0.5f) * spacing;
-        units[i].movement.goal = fvec2_add(goal_position, (fvec2_t){ offset_x, offset_y });
-        if (!P_CheckPosition(map, &units[i], units[i].movement.goal.x, units[i].movement.goal.y) ||
+        units[i]->movement.goal = fvec2_add(goal_position, (fvec2_t){ offset_x, offset_y });
+        if (!P_CheckPosition(map, units[i], units[i]->movement.goal.x, units[i]->movement.goal.y) ||
             position_overlaps_reserved_goal(units, unit_count, i,
-                                            units[i].movement.goal.x, units[i].movement.goal.y,
-                                            P_MobjRadius(&units[i]), order_id)) {
+                                            units[i]->movement.goal.x, units[i]->movement.goal.y,
+                                            P_MobjRadius(units[i]), order_id)) {
             fvec2_t adjusted = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
             float adjusted_gx = adjusted.x;
             float adjusted_gy = adjusted.y;
             if (!find_nearest_unreserved_walkable_position(map, units, unit_count, i, order_id,
                                                            adjusted_gx, adjusted_gy,
-                                                           P_MobjRadius(&units[i]), 8,
+                                                           P_MobjRadius(units[i]), 8,
                                                            &adjusted_gx, &adjusted_gy)) {
                 find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
-                                               P_MobjRadius(&units[i]), 8,
+                                               P_MobjRadius(units[i]), 8,
                                                &adjusted_gx, &adjusted_gy);
             }
-            units[i].movement.goal.x = adjusted_gx;
-            units[i].movement.goal.y = adjusted_gy;
+            units[i]->movement.goal.x = adjusted_gx;
+            units[i]->movement.goal.y = adjusted_gy;
         }
-        units[i].movement.flow_field = field;
-        units[i].movement.order_arrived =
-            fvec2_distance_squared(units[i].movement.goal, position) <= 0.05f * 0.05f;
-        if (units[i].movement.order_arrived) units[i].movement.flow_field = NULL;
+        units[i]->movement.flow_field = field;
+        units[i]->movement.order_arrived =
+            fvec2_distance_squared(units[i]->movement.goal, position) <= 0.05f * 0.05f;
+        if (units[i]->movement.order_arrived) units[i]->movement.flow_field = NULL;
         selected_index++;
     }
 }
@@ -590,15 +590,15 @@ static int find_resource_vent_at(const level_t *map, fvec2_t position) {
     return best;
 }
 
-static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int unit_count,
+static bool harvest_order_at_for_owner(const level_t *map, mobj_t *const *units, int unit_count,
                                        fvec2_t position, int owner) {
     int vent_index = find_resource_vent_at(map, position);
     if (vent_index < 0) return false;
 
     bool has_harvester = false;
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsSelected(&units[i]) && units[i].owner == owner && units[i].hp > 0 &&
-            (units[i].traits & (MF_MOBILE | MF_HARVESTER)) ==
+        if (P_MobjIsSelected(units[i]) && units[i]->owner == owner && units[i]->hp > 0 &&
+            (units[i]->traits & (MF_MOBILE | MF_HARVESTER)) ==
                 (MF_MOBILE | MF_HARVESTER)) {
             has_harvester = true;
             break;
@@ -610,7 +610,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
     bool issued = false;
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
-        mobj_t *unit = &units[i];
+        mobj_t *unit = units[i];
         if (!P_MobjIsSelected(unit) || unit->owner != owner || unit->hp <= 0) continue;
         if ((unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
             (MF_MOBILE | MF_HARVESTER)) {
@@ -654,7 +654,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
         if (!P_FlowFieldTarget(map, field, position, unit->movement.goal,
                                P_MobjRadius(unit), &target, &final)) continue;
         unit->movement.flow_field = field;
-        unit->attack.target = -1;
+        unit->attack.target = NULL;
         unit->harvest.target = vent_index;
         unit->harvest.timer_ms = 0;
         unit->harvest.cargo = 0;
@@ -666,7 +666,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *units, int un
     return issued;
 }
 
-bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
+bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                       fvec2_t position) {
     return harvest_order_at_for_owner(map, units, unit_count, position, 0);
 }
@@ -675,11 +675,11 @@ bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position) {
     if (!unit || unit->hp <= 0) return false;
     bool selected = P_MobjIsSelected(unit);
     P_MobjSetSelected(unit, true);
-    bool issued = harvest_order_at_for_owner(map, unit, 1, position, unit->owner);
+    bool issued = harvest_order_at_for_owner(map, &unit, 1, position, unit->owner);
     P_MobjSetSelected(unit, selected);
     return issued;
 }
 
-void P_MoveOrder(const level_t *map, mobj_t *units, int unit_count, cell_t goal) {
+void P_MoveOrder(const level_t *map, mobj_t *const *units, int unit_count, cell_t goal) {
     P_MoveOrderAt(map, units, unit_count, fvec2_cell_center(goal));
 }

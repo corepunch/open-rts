@@ -4,11 +4,92 @@ Audit date: 2026-09-07. Scope: actor spawning, state entry/ticking/removal,
 Dark Colony reinforcement ships, and adjacent effect/production lifetimes.
 This is not a claim of full game or network equivalence.
 
-**Superseded dropship implementation (2026-09-09):** ships now occupy the ordinary
-object array, with inline game-specific cargo and native FIN frame states.
-`A_DC_Fly` and `A_DC_Drop` replace the private pool, phase clocks, and part effects.
-See [the current FIN/object audit](DC_EXE_FINDINGS.md#drop-fin-sequences-and-ordinary-objects-2026-09-09).
-The historical comparison below is not the current dropship ownership contract.
+## Current contract: Doom thinker storage (2026-09-09)
+
+The requested refactor removes the flat mobj array, compaction, `effect_t`
+pool, effect ticker, `statecontext_t`, `P_GetStateContext`, and `p_world`.
+The earlier sections below are historical investigations; their array/context
+and Hexen-only zero-tic decisions have been superseded.
+
+`level` is the single active level. `thinkercap` owns individually allocated
+mobjs through `P_SpawnMobj`, `P_AddThinker`, `P_RemoveMobj`, and deferred
+`P_RunThinkers` reclamation. `P_FreeLevel(&level)` frees all thinkers and the
+mission. No actor can move in memory because another actor is removed. Attack
+targets are pointers; removal clears incoming references before reclamation.
+A second loaded headless model replaces the active level and invalidates the
+previous model, rather than swapping action contexts between independent worlds.
+
+Doom evidence: `reference/DOOM/p_mobj.c` `P_SpawnMobj` allocates/clears an
+object, installs its spawn state without running its action, and registers the
+thinker. `P_SpawnPuff` and `P_SpawnBlood` use the same allocation path.
+`reference/DOOM/p_tick.c` owns the circular sentinel, append order, and lazy
+removal. open-rts uses `calloc`/`free` in place of Doom's zone allocator; it
+captures the next link before freeing a thinker. `P_SetMobjState` follows
+Doom's immediate zero-tic chaining and honors redirects made by entry actions.
+
+Blood now has `MT_BLOOD` and ordinary `S_BLOOD*` states. It uses the same
+`P_MobjThinker`, state ticking, and terminal `S_NULL` removal as any actor.
+The inherited 400 ms/50 ms sprite presentation is expressed at 30 Hz with
+alternating 2/1-tic states, rather than a separate presentation clock. This is
+existing engine policy, **not confirmed retail hit-animation selection**; see
+[the BLOO finding](DC_EXE_FINDINGS.md#bloo-asset-and-inherited-hit-presentation-2026-09-09).
+The unused synthetic ground-light path and its muzzle-flash configuration are
+removed; no production actor configured them. FIN attack layers remain intact.
+
+`A_DC_Corpse` and `P_AddCorpse` are gone. Corpse states retain the actor with
+`tics = -1`, preserving its final frame, direction, fractional position, and
+altitude. Death no longer converts an actor to a map decoration. Static native
+map decorations remain map data.
+
+Dropships and both production paths spawn directly into the thinker list.
+Their inline game-specific cargo remains ordinary object data. The existing
+DROP/DROP2/DROP3/DROP4 states and Reaper movement timings are preserved.
+Simulation iteration uses the list directly. `P_ListMobjs` only returns borrowed
+pointers for RTS batch orders, UI, rendering, and model queries. Its allocation
+is not actor ownership or a capacity limit. Exported render snapshots contain
+one object collection, including blood; there is no separate effects array.
+
+Focused checks: `test_mobj_allocation` exercises 1,003 simultaneous allocations,
+stable addresses, target invalidation, delayed unlink/free, and persistent
+corpses. `test_thinker_actions` covers actor-only nested state entry against one
+global level and spawn-without-action. `test_mission_ownership`, `test_dropship`,
+`test_drop_fin_states`, `test_reaper_death`, `test_actor_lifecycle`, and
+`test_flow_field_movement` cover delivery, native pixels/timing, and shared
+simulation behavior. `test_thinker_level` verifies global-level replacement,
+old-model destruction, production spawning into native construction states,
+and blood removal through `S_NULL`. Run with `SDL_VIDEODRIVER=dummy`.
+
+### Verification of the thinker migration
+
+`make` and all four `SDL_VIDEODRIVER=dummy` game `--check` runs pass.
+The 19 Dark Colony test programs report 17 passes and the two existing
+scenario failures below. The generated sprite-layout test and the Dark Reign
+command/event test pass. `make tags` refreshes the symbol indexes.
+
+AddressSanitizer and UndefinedBehaviorSanitizer pass for `test_mobj_allocation`,
+`test_thinker_level`, `test_mission_ownership`, `test_thinker_actions`,
+`test_actor_lifecycle`, `test_drop_fin_states`, and `test_flow_field_movement`.
+Build with `CC='cc -fsanitize=address,undefined'` and
+`CFLAGS='-std=c11 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'`
+in a separate `BUILD_DIR`/`BIN_DIR`. On this machine Homebrew's sdl2-compat
+needs `DYLD_LIBRARY_PATH=/opt/homebrew/lib` for those binaries; without it,
+SDL's initializer displays a missing-library dialog before `main`. A process
+sample confirmed that startup blockage; it was not a thinker loop stall.
+Run with `SDL_VIDEODRIVER=dummy ASAN_OPTIONS=halt_on_error=1
+UBSAN_OPTIONS=halt_on_error=1`.
+
+The full `make test` remains red at three previously identified scenario
+assumptions: `test_game_model_headless` expects 32 initial Human01 Troopers
+(actual 0 before scripted delivery); `test_combat_and_harvest` cannot find the
+expected Human02 player Exploiter; `test_model_commands_dark-colony` cannot
+fund/accept the expected build. The combat test's synthetic attack, blood,
+hidden-target, death, and persistent-corpse checks pass before the Exploiter
+failure. These failures are not counted as passing checks. The new production
+fixture explicitly supplies resources and verifies native Sci-Pod/Sci-Pod II/
+Robo-Factory II construction through the model command path independently of
+those scenario assumptions.
+
+## Historical audit (superseded where it differs from the current contract)
 
 ## Source evidence
 
@@ -125,7 +206,7 @@ with the same local data. They are not treated as passing checks or repaired by
 weakening their assertions. The focused lifecycle and layout checks pass.
 
 
-## Shared object allocation (2026-09-09)
+## Historical bounded allocation (superseded by thinker storage)
 
 The local Doom source allocates and clears an object with
 `Z_Malloc(sizeof(*mobj), PU_LEVEL, NULL)` inside `P_SpawnMobj`
@@ -151,7 +232,7 @@ The cargo-ownership and Human01 delivery tests also pass with shared allocation.
 Run these tests with `SDL_VIDEODRIVER=dummy`.
 
 
-## Actor-only action ABI (2026-09-09)
+## Historical actor-only ABI with temporary context (context removed)
 
 Doom's `P_SetMobjState` dispatches `st->action.acp1(mobj)`
 (`reference/DOOM/p_mobj.c:51–82`). Actions such as `A_Look` take only an actor:

@@ -20,13 +20,13 @@ static const AiConfig ai_config = {
     .attack_eagerness = 1.0f,
 };
 
-static int ai_target(const mobj_t *attacker, const mobj_t *units,
+static int ai_target(const mobj_t *attacker, mobj_t *const *units,
                                  int unit_count, int preferred_index, bool defending) {
     int best = -1;
     float best_score = -INFINITY;
     fvec2_t attacker_position = fixed3_xy_to_fvec2(attacker->core.position);
     for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *candidate = &units[i];
+        const mobj_t *candidate = units[i];
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             candidate->owner == attacker->owner) continue;
         fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(candidate->core.position),
@@ -46,11 +46,11 @@ static int ai_target(const mobj_t *attacker, const mobj_t *units,
     return best;
 }
 
-static int ai_find_wave_target(const mobj_t *units, int unit_count) {
+static int ai_find_wave_target(mobj_t *const *units, int unit_count) {
     int best = -1;
     float best_score = -INFINITY;
     for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *candidate = &units[i];
+        const mobj_t *candidate = units[i];
         if (candidate->remove || candidate->hp <= 0 || candidate->owner != 0) continue;
         float score = (candidate->traits & MF_ATTACK) != 0 ? 3.0f : 0.0f;
         score += (candidate->traits & MF_MOBILE) != 0 ? 1.0f : 0.0f;
@@ -63,12 +63,12 @@ static int ai_find_wave_target(const mobj_t *units, int unit_count) {
     return best;
 }
 
-static bool ai_is_defending(const mobj_t *units, int unit_count,
+static bool ai_is_defending(mobj_t *const *units, int unit_count,
                                         fvec2_t base_position) {
     float radius2 = ai_config.defense_radius *
                     ai_config.defense_radius;
     for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *unit = &units[i];
+        const mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner != 0 ||
             (unit->traits & MF_ATTACK) == 0) continue;
         if (fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
@@ -93,11 +93,11 @@ static int ai_nearest_vent(const level_t *map, fvec2_t position) {
     return best;
 }
 
-static void update_ai_economy(const level_t *map, mobj_t *units,
+static void update_ai_economy(const level_t *map, mobj_t *const *units,
                                           int unit_count) {
     if (!map || !units) return;
     for (int i = 0; i < unit_count; ++i) {
-        mobj_t *unit = &units[i];
+        mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
             (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
                 (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
@@ -109,7 +109,7 @@ static void update_ai_economy(const level_t *map, mobj_t *units,
 }
 
 void DC_UpdateAI(AiState *ai, const level_t *map,
-                                  mobj_t *units, int unit_count, int dt_ms) {
+                                  mobj_t *const *units, int unit_count, int dt_ms) {
     if (!map || !units || unit_count <= 0 ||
         !map_has_ai(map, 1)) return;
     ai->elapsed_ms += dt_ms;
@@ -122,12 +122,12 @@ void DC_UpdateAI(AiState *ai, const level_t *map,
     if (ai->wave_elapsed_ms >= ai_config.attack_wave_interval_ms) {
         ai->wave_elapsed_ms %= ai_config.attack_wave_interval_ms;
         wave_target = ai_find_wave_target(units, unit_count);
-        ai->wave_target_id = wave_target >= 0 ? units[wave_target].id : 0;
+        ai->wave_target_id = wave_target >= 0 ? units[wave_target]->id : 0;
     }
     if (wave_target < 0 && ai->wave_target_id != 0) {
         for (int i = 0; i < unit_count; ++i) {
-            if (units[i].id == ai->wave_target_id &&
-                !units[i].remove && units[i].hp > 0) {
+            if (units[i]->id == ai->wave_target_id &&
+                !units[i]->remove && units[i]->hp > 0) {
                 wave_target = i;
                 break;
             }
@@ -137,7 +137,7 @@ void DC_UpdateAI(AiState *ai, const level_t *map,
     fvec2_t base_position = { 0.0f, 0.0f };
     int base_count = 0;
     for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *unit = &units[i];
+        const mobj_t *unit = units[i];
         if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
             (unit->traits & MF_MOBILE) != 0) continue;
         base_position = fvec2_add(base_position,
@@ -149,7 +149,7 @@ void DC_UpdateAI(AiState *ai, const level_t *map,
                      ai_is_defending(units, unit_count, base_position);
 
     for (int i = 0; i < unit_count; ++i) {
-        mobj_t *attacker = &units[i];
+        mobj_t *attacker = units[i];
         if (attacker->remove || attacker->hp <= 0 || attacker->owner == 0 ||
             (attacker->traits & (MF_MOBILE | MF_ATTACK)) != (MF_MOBILE | MF_ATTACK)) {
             continue;
@@ -158,8 +158,8 @@ void DC_UpdateAI(AiState *ai, const level_t *map,
                                                  defending ? -1 : wave_target,
                                                  defending);
         if (target_index < 0) continue;
-        mobj_t *target = &units[target_index];
-        attacker->attack.target = target_index;
+        mobj_t *target = units[target_index];
+        attacker->attack.target = units[target_index];
         fvec2_t target_position = fixed3_xy_to_fvec2(target->core.position);
         fvec2_t attacker_position = fixed3_xy_to_fvec2(attacker->core.position);
         float range = attacker->info && attacker->info->attack.range > 0.0f ?
@@ -169,4 +169,3 @@ void DC_UpdateAI(AiState *ai, const level_t *map,
         }
     }
 }
-

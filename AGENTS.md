@@ -217,17 +217,35 @@ Key patterns to follow from that lineage:
 - **Gametic / ticrate** — decouple simulation tics from render frames
 - **Lock-step networking** — exchange input commands per tic, never game state
 
+### Refactoring direction: reproduce Doom's runtime architecture
+
+The purpose of this refactor is to replace the existing flat object array,
+effect pool, and per-action context machinery with Doom's architecture.
+Do not justify retaining them with “Our flat object array and effect pool still
+need storage that original Doom doesn't have.” Those structures are exactly
+what we are refactoring away. First establish whether Doom's approach can do
+the job; use it unless concrete game behavior proves it cannot.
+
+Use one global active level, Doom-named state/type tables, individually allocated
+mobjs linked through the global `thinkercap`, and the shared thinker lifecycle.
+Visual effects are ordinary mobjs, as Doom's puffs, blood, and missiles are;
+there must be no separate effect array or effect lifetime system. Object
+references must remain stable through other objects' creation/removal.
+Actions take only `mobj_t *` and use shared level globals, with no context stack.
+The map is principally 2-D here; that is not a reason to replace Doom's object
+storage, spawning, thinker ticking, or deferred removal model.
+
 ### How the object/unit system maps to Doom
 
 | Doom | open-rts |
 |---|---|
 | `state_t.action` — func ptr on the *state*, not the entity | `state_t.action` — same |
 | `P_SetMobjState` chains zero-tic states immediately | `P_SetMobjState` does the same |
-| `mobjinfo_t` with `spawnstate/seestate/missilestate/deathstate` | `MobjInfo` with identical fields |
+| `mobjinfo_t` with `spawnstate/seestate/missilestate/deathstate` | `mobjinfo_t` with identical fields |
 | `mobj->tics` counts down per tick; on 0 → `nextstate` | `unit->tics` — same |
-| Single `P_MobjThinker` drives all objects | `update_units()` is the single loop |
+| Single `P_MobjThinker` drives all objects | `P_RunThinkers()` dispatches `P_MobjThinker` |
 | Action functions fire **on state entry** (e.g. `A_Chase`, `A_PosAttack`) | `state_t.action` fires on entry in `P_SetMobjState` |
-| Doubly-linked `thinker_t` ring (polymorphic: doors, lights, mobjs) | Flat `Unit` array + swap-compaction (no polymorphic thinkers needed) |
+| Doubly-linked `thinker_t` ring (polymorphic: doors, lights, mobjs) | Global `thinkercap` ring with individually allocated objects and deferred removal |
 
 The attack cooldown (`attack_cooldown_left_ms`) is the one remaining non-tic timer. It serves as
 the rate-of-fire gate between attack cycles. In pure Doom style this would be encoded as a
@@ -248,13 +266,10 @@ fields, and `state_userdata` are not part of the runtime contract. Basic
 sprite/frame selection is the current presentation target; do not reintroduce
 parallel directional or overlay metadata without verified game evidence.
 
-World state actions use the Hexen-style `void action(mobj_t *actor)` signature.
-`P_SetMobjState()` installs a temporary active `statecontext_t` while invoking
-the action; an action that needs level, effect, or game-table services calls
-`P_GetStateContext()`. This keeps the action ABI about the object being acted
-on, while still allowing nested state changes and effect spawning. Do not add a
-bespoke context pointer to individual action signatures or store a mission
-back-pointer on an `mobj_t`.
+World state actions use the Doom/Hexen-style `void action(mobj_t *actor)`
+signature and shared level globals. Do not introduce a context struct, getter,
+stack, or per-action save/restore. Spawning initializes an unlinked object's
+state without invoking its action, as in Doom.
 
 Hexen's psprite actions are a separate family: weapon actions receive
 `player_t *` and `pspdef_t *` because they operate on the player's view weapon,
@@ -270,11 +285,12 @@ attaches mission state during `G_DoLoadLevel()`. `G_MissionTicker(level_t *map,
 it. Drivers and `RtsGameModel` must not keep a parallel `void *mission` owner or
 pass mission objects separately through the simulation.
 
-Dark Colony dropships are ordinary `mobj_t` entries in the level's object
-array. Their FIN states advance through `P_Ticker` and their `A_` handlers move
+Dark Colony dropships are ordinary allocated `mobj_t` objects in `thinkercap`. Their FIN states advance through `P_Ticker` and their `A_` handlers move
 and release cargo. There is no separate dropship pool, ticker, or effect bridge.
 Per-game `mobj_data.h` supplies typed inline fields through `MOBJ_GAME_FIELDS`;
-Dark Colony owns delivery payloads there, so object compaction copies them too.
+Dark Colony owns delivery payloads there. Objects remain at stable addresses
+until deferred thinker removal frees them. Temporary UI/render pointer lists
+and exported snapshots are borrowed views, never simulation storage.
 
 ### Unit balance configuration
 

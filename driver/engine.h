@@ -75,15 +75,11 @@ void R_DrawGridOverlay(app_t *app, const level_t *map);
 void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cache);
 bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx);
 bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, irect_t dst);
-void R_DrawThings(app_t *app, const mobj_t *units, int unit_count, const spritesheet_t *fallback_sprite,
+void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,
-                        const mobj_t *units, int unit_count, const spritesheet_t *fallback_sprite,
+                        mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                         const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);
-void R_DrawEffects(app_t *app, const level_t *map,
-                   const effect_t *effects, int max_effects,
-                   const spritecache_t *cache, const gameinfo_t *game_info);
-
 cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name);
 bool R_BindSprites(spritecache_t *cache, const gameinfo_t *game_info);
 const spritesheet_t *R_StateSprite(const spritecache_t *cache, const gameinfo_t *game_info,
@@ -93,27 +89,22 @@ bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations);
 bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
                          int lump, bool flip);
 
-void P_MoveOrder(const level_t *map, mobj_t *units, int unit_count, cell_t goal);
-void P_MoveOrderAt(const level_t *map, mobj_t *units, int unit_count,
+void P_MoveOrder(const level_t *map, mobj_t *const *units, int unit_count, cell_t goal);
+void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                          fvec2_t goal_position);
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position);
-bool P_HarvestOrderAt(const level_t *map, mobj_t *units, int unit_count,
+bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                              fvec2_t position);
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
-void P_SpawnMobj(const gameinfo_t *game_info, mobj_t *unit);
+void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit);
 void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type);
-bool P_SetMobjState(statecontext_t *ctx, mobj_t *unit, int state_id);
-bool P_TickMobjState(statecontext_t *ctx, mobj_t *unit);
-bool P_SpawnEffect(statecontext_t *ctx, int state_id, fixed3_t position, angle_t angle);
-bool P_Attack(statecontext_t *ctx, mobj_t *attacker);
-bool P_AddCorpse(statecontext_t *ctx, const mobj_t *unit);
+bool P_SetMobjState(mobj_t *unit, int state_id);
+bool P_TickMobjState(mobj_t *unit);
+bool P_Attack(mobj_t *attacker);
 angle_t P_PointToAngle(float dx, float dy);
 void P_AngleToVec(angle_t angle, float *dx, float *dy);
-void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
-              int max_effects, const gameinfo_t *game_info, float dt);
-void P_UpdateEffects(level_t *map, effect_t *effects, int max_effects,
-                     const gameinfo_t *game_info, float dt);
-void G_Responder(app_t *app, const level_t *map, mobj_t *units, int unit_count,
+void P_Ticker(void);
+void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                  const spritesheet_t *fallback_sprite, const spritecache_t *cache,
                  const gameinfo_t *game_info, const SDL_Event *e);
 void G_CameraMove(app_t *app, float dt);

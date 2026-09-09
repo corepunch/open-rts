@@ -433,7 +433,7 @@ static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,
 }
 
 bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                             const level_t *map, const mobj_t *units, int unit_count,
+                             const level_t *map, mobj_t *const *units, int unit_count,
                              spritecache_t *cache) {
     (void)map;
     uint32_t palette[256];
@@ -444,9 +444,8 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
     bool ok = true;
     for (int i = 0; i < unit_count; ++i) {
         if (!sl_cache_bim_sprite(cache, renderer, data_root,
-                     units[i].core.sprite_name, palette))
+                     units[i]->core.sprite_name, palette))
             ok = false;
     }
     return ok;
 }
-

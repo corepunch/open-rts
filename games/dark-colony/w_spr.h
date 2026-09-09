@@ -9,7 +9,7 @@ bool load_render_tables(const char *data_root, const char *tileset_name);
 bool load_dark_colony_sprite(const char *path,
                              spritesheet_t *out, uint32_t palette_out[256]);
 bool load_dark_colony_unit_sprites(const char *data_root,
-                                   const level_t *map, const mobj_t *units, int unit_count,
+                                   const level_t *map, mobj_t *const *units, int unit_count,
                                    spritecache_t *cache);
 
 /* Native little-endian file records. These are views, not decoded copies. */
