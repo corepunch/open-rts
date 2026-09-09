@@ -38,13 +38,13 @@ static int assert_dark_colony_state_frames_are_direction_independent(void) {
     mobj_t unit = { 0 };
 
     unit.core.angle = dc_direction_to_angle(1);
-    if (!P_SetMobjState(&context, &unit, S_DC_TRSC_STND) || unit.core.frame != 0 ||
+    if (!P_SetMobjState(&context, &unit, S_DC_TRSC_STND) || unit.core.frame != states[S_DC_TRSC_STND].frame ||
         unit.core.render_flags != 0) {
         return fail("Trooper state preserves its logical frame independently of facing");
     }
 
     unit.core.angle = dc_direction_to_angle(15);
-    if (!P_SetMobjState(&context, &unit, S_DC_EXPL_STND) || unit.core.frame != 0 ||
+    if (!P_SetMobjState(&context, &unit, S_DC_EXPL_STND) || unit.core.frame != states[S_DC_EXPL_STND].frame ||
         unit.core.render_flags != 0) {
         return fail("Exploiter state preserves its logical frame independently of facing");
     }

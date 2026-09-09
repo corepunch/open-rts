@@ -97,6 +97,8 @@ typedef struct cachedsprite_s {
 typedef struct spritecache_s {
     cachedsprite_t entries[MAX_DECORATION_SPRITES];
     int count;
+    const spritesheet_t **sprites; /* Borrowed sheets, indexed by state sprite ID. */
+    int numsprites;
 } spritecache_t;
 
 typedef struct bitmapfont_s {

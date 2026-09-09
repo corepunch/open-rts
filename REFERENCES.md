@@ -9,8 +9,12 @@ plugin-specific behavior.
   - Local source: `reference/DOOM/`.
   - `r_defs.h`: `spriteframe_t` owns `rotate`, `lump[8]`, and `flip[8]`;
     `spritedef_t` owns only frame count and frame pointer.
-  - `r_things.c`: `R_InstallSpriteLump` installs nondirectional images per
-    frame; `R_ProjectSprite` checks that frame's rotation flag.
+  - `info.c`: states refer to a numeric sprite ID and frame; `sprnames[]`
+    supplies the names used during initialization.
+  - `r_things.c`: `R_InitSpriteDefs` scans matching lumps and derives frame and
+    rotation from their suffixes, without classifying walk/fire/death actions.
+    `R_InstallSpriteLump` builds the runtime definitions; `R_ProjectSprite`
+    indexes `sprites[thing->sprite].spriteframes[frame]` directly.
   - SHA-256 of inspected local `r_defs.h`:
     `d8856503bea02282f5f338f3533885e87c6c430ce4f11511d6a04b5fc040db31`.
   - SHA-256 of inspected local `r_things.c`:
@@ -679,9 +683,10 @@ identified.
 **Correction (2026-09-09):** DC.EXE's STAND setup at `0x0043895f` calls
 `0x00423a50` with the literal action name. Missing directions fall back within
 that action; it does not merge SHUF into STAND. The full native stationary/turning selection
-path is still unknown. The user requests sixteen stationary STAND/SHUF poses
-for turning and eight animated MOVE ranges for travel in open-rts; that is a
-separate presentation contract, not a claim that native action names alias.
+path is still unknown. The earlier open-rts presentation rule merged STAND/SHUF
+and filtered singleton MOVE directions. It is superseded by generic FIN loading:
+keep actions separate and use all authored directions, including sixteen when
+present. Animation selection belongs in the state/action code.
 See `docs/DC_EXE_FINDINGS.md`, "Resolve FIN actions by their own names," for
 instruction addresses, file fingerprints, fallback-table evidence, and the
 remaining angle-quantizer limitations. The executable/asset provenance is the

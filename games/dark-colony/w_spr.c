@@ -1,5 +1,6 @@
 #include "w_spr.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,116 +37,76 @@ typedef struct {
 
 static RenderTables render_tables;
 
-static bool install_fin_parts(spriteframe_t *spriteframe, int rotation,
-                              const dc_fin_t *animation, int frame_index,
-                              const char *stem, int numlumps) {
-    spritedirection_t decoded = {0};
-    if (!DC_FINFrame(animation, frame_index, &decoded)) return false;
-    bool body = false;
-    for (spritelayer_t *part = decoded.layers; part->sprite_name[0]; ++part) {
-        if (strcasecmp(part->sprite_name, stem) == 0) {
-            if (!body && part->layer == 1) {
-                if (part->lump >= numlumps) goto fail;
-                body = true;
-            }
+static bool install_fin_frame(spritedirection_t *direction, const dc_fin_t *fin,
+                               int frame, const char *stem) {
+    if (!DC_FINFrame(fin, frame, direction)) return false;
+    for (spritelayer_t *part = direction->layers; part->sprite_name[0]; ++part) {
+        M_Upper(part->sprite_name);
+        if (!strcmp(part->sprite_name, stem)) {
             memset(part->sprite_name, 0, sizeof(part->sprite_name));
             part->sprite_name[0] = '.';
-        } else {
-            M_Upper(part->sprite_name);
         }
     }
-    if (!body) goto fail;
-    free(spriteframe->directions[rotation].layers);
-    spriteframe->directions[rotation] = decoded;
     return true;
-fail:
-    free(decoded.layers);
-    return false;
 }
 
-enum { FIN_STAND, FIN_MOVE, FIN_SHUF, FIN_ACTIONS = 9, FIN_DIRECTIONS = 16 };
-static const char *const fin_actions[FIN_ACTIONS] = {
-    "STAND", "MOVE", "SHUF", "FIREA", "FIREB", "FIRE", "DIEA", "DIEB", "DIEC",
-};
-
-typedef struct {
-    const dc_fin_label_t *directions[FIN_DIRECTIONS];
-} fin_sequence_t;
-
-static int label_length(const dc_fin_label_t *label) {
-    return label ? (int)SDL_SwapLE16(label->end) - SDL_SwapLE16(label->start) + 1 : 0;
-}
-
-/* Resolve names once. FIN ranges already contain the temporal frame ordering. */
-static void collect_sequences(const dc_fin_t *fin, const char *stem,
-                              fin_sequence_t sequences[FIN_ACTIONS]) {
-    size_t prefix_length = strlen(stem);
+/* Raw SPR cells come first, followed by every native FIN frame. */
+static bool install_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin,
+                                   const char *stem) {
+    int count = fin->header ? SDL_SwapLE16(fin->header->frame_count) : 0;
+    if (!R_InitSpriteDef(sheet, count + sheet->numlumps, 1)) return false;
+    for (int i = 0; i < sheet->numlumps; ++i)
+        if (!R_InstallSpriteLump(sheet, i, 0, i, false)) return false;
+    for (int i = 0; i < count; ++i)
+        if (!install_fin_frame(&sheet->spritedef.spriteframes[sheet->numlumps + i].directions[0], fin, i, stem))
+            return false;
+    if (!fin->header) return true;
     for (int i = 0; i < SDL_SwapLE16(fin->header->label_count); ++i) {
         const dc_fin_label_t *label = &fin->labels[i];
-        if (strncmp(label->name, stem, prefix_length)) continue;
-        char *action = M_va("%.*s", (int)(sizeof(label->name) - prefix_length),
-                            label->name + prefix_length);
-        char *number = action + strcspn(action, "0123456789"), *end;
-        if (!*number) continue;
-        long direction = strtol(number, &end, 10);
-        if (*end || direction >= FIN_DIRECTIONS) continue;
-        *number = '\0';
-        for (int a = 0; a < FIN_ACTIONS; ++a) {
-            if (!strcmp(action, fin_actions[a]) && !sequences[a].directions[direction])
-                sequences[a].directions[direction] = label;
+        for (int f = SDL_SwapLE16(label->start); f <= SDL_SwapLE16(label->end) && f < count; ++f) {
+            spriteframe_t *frame = &sheet->spritedef.spriteframes[sheet->numlumps + f];
+            snprintf(frame->frame_name, sizeof(frame->frame_name), "%.16s", label->name);
         }
     }
-}
-
-static int sequence_rotations(const fin_sequence_t *sequence) {
-    for (int stride = 1; stride <= 2; ++stride) {
-        bool complete = true;
-        for (int i = 0; i < FIN_DIRECTIONS; i += stride)
-            if (label_length(sequence->directions[i]) <= 0) complete = false;
-        if (complete) return FIN_DIRECTIONS / stride;
-    }
-    return 0;
-}
-
-static void install_fin_frames(spritesheet_t *sheet, const dc_fin_t *fin, const char *stem) {
-    if (!fin->header) return;
-    fin_sequence_t sequences[FIN_ACTIONS] = {0};
-    collect_sequences(fin, stem, sequences);
-    for (int d = 0; d < FIN_DIRECTIONS; ++d) {
-        /* Standing includes stationary turn poses; travel uses animated ranges. */
-        if (!sequences[FIN_STAND].directions[d])
-            sequences[FIN_STAND].directions[d] = sequences[FIN_SHUF].directions[d];
-        if (label_length(sequences[FIN_MOVE].directions[0]) > 1 &&
-            label_length(sequences[FIN_MOVE].directions[d]) == 1)
-            sequences[FIN_MOVE].directions[d] = NULL;
-    }
-    for (int action = 0; action < FIN_ACTIONS; ++action) {
-        const fin_sequence_t *sequence = &sequences[action];
-        int rotations = sequence_rotations(sequence);
-        if (!rotations) continue;
-        int stride = FIN_DIRECTIONS / rotations;
-        int length = 0;
-        for (int r = 0; r < rotations; ++r) {
-            int count = label_length(sequence->directions[r * stride]);
-            if (count > length) length = count;
+    /* Like Doom's lump suffixes, FIN label suffixes identify rotations. */
+    for (int i = 0; i < SDL_SwapLE16(fin->header->label_count); ++i) {
+        const dc_fin_label_t *base = &fin->labels[i];
+        char name[17];
+        snprintf(name, sizeof(name), "%.16s", base->name);
+        int length = (int)strlen(name);
+        if (length < 2 || name[length - 1] != '0' ||
+            isdigit((unsigned char)name[length - 2])) continue;
+        name[--length] = '\0';
+        int start = SDL_SwapLE16(base->start), end = SDL_SwapLE16(base->end);
+        if (start > end || end >= count) continue;
+        const dc_fin_label_t *directions[16] = {0};
+        for (int d = 0; d < 16; ++d) {
+            const dc_fin_label_t *label = DC_FINLabel(fin, M_va("%s%d", name, d));
+            if (label && SDL_SwapLE16(label->start) <= SDL_SwapLE16(label->end) &&
+                SDL_SwapLE16(label->end) < count)
+                directions[d] = label;
         }
-        const dc_fin_label_t *base = sequence->directions[0];
-        for (int frame = 0; frame < length; ++frame) {
-            int index = SDL_SwapLE16(base->start) + frame;
-            if (index >= sheet->spritedef.numframes) break;
-            spriteframe_t *target = &sheet->spritedef.spriteframes[index];
-            target->rotations = rotations;
-            snprintf(target->frame_name, sizeof(target->frame_name), "%.16s", base->name);
+        int stride;
+        for (stride = 1; stride <= 2; ++stride) {
+            int d;
+            for (d = 0; d < 16 && directions[d]; d += stride) {}
+            if (d == 16) break;
+        }
+        if (stride > 2) continue;
+        int rotations = 16 / stride;
+        for (int f = start; f <= end; ++f) {
+            spriteframe_t *frame = &sheet->spritedef.spriteframes[sheet->numlumps + f];
+            frame->rotations = rotations;
             for (int r = 0; r < rotations; ++r) {
-                const dc_fin_label_t *label = sequence->directions[r * stride];
-                int count = label_length(label);
-                int source = SDL_SwapLE16(label->start) + (frame < count ? frame : count - 1);
-                /* FIN starts south and runs clockwise; runtime starts north, CCW. */
-                install_fin_parts(target, (rotations / 2 - r + rotations) % rotations,
-                                  fin, source, stem, sheet->numlumps);
+                int d = ((rotations / 2 - r + rotations) % rotations) * stride;
+                int source = SDL_SwapLE16(directions[d]->start) + f - start;
+                if (source > SDL_SwapLE16(directions[d]->end))
+                    source = SDL_SwapLE16(directions[d]->end);
+                if (!install_fin_frame(&frame->directions[r], fin, source, stem)) return false;
             }
         }
     }
+    return true;
 }
 
 bool load_render_tables(const char *data_root, const char *tileset_name) {
@@ -322,15 +283,6 @@ static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette
     return true;
 }
 
-static bool init_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin) {
-    int count = fin->header ? SDL_SwapLE16(fin->header->frame_count) : 0;
-    if (count < sheet->numlumps) count = sheet->numlumps;
-    if (!R_InitSpriteDef(sheet, count, 1)) return false;
-    for (int i = 0; i < sheet->numlumps; ++i)
-        if (!R_InstallSpriteLump(sheet, i, 0, i, false)) return false;
-    return true;
-}
-
 static bool load_sprite(const char *path, spritesheet_t *out,
                          uint32_t palette_out[256], dc_fin_t *animation_out) {
     memset(out, 0, sizeof(*out));
@@ -365,9 +317,8 @@ static bool load_sprite(const char *path, spritesheet_t *out,
     snprintf(stem, sizeof(stem), "%.8s", M_FileName(sprite_path));
     stem[strcspn(stem, ".")] = '\0';
     M_Upper(stem);
-    if (!load_cells(&spr, out, palette) || !init_sprite_frames(out, &fin) ||
+    if (!load_cells(&spr, out, palette) || !install_sprite_frames(out, &fin, stem) ||
         !install_ground_points(out, &fin, stem)) goto fail;
-    install_fin_frames(out, &fin, stem);
     out->indexed = true;
     memcpy(out->palette, render_tables.valid ? render_tables.palette : palette,
            sizeof(out->palette));
@@ -450,25 +401,15 @@ bool load_dark_colony_unit_sprites(const char *data_root,
                                    spritecache_t *cache) {
     bool ok = true;
     static const char *const ui_sprites[] = {
-        "INTRFACE/DCSS.SPR",
-        "INTRFACE/DCUT.SPR",
-        "INTRFACE/MAINBUT.SPR",
-        "INTRFACE/SHUMANE.SPR",
         "SPRITES/DROP.SPR",
         "SPRITES/BEAC.SPR",
         "SPRITES/MUZA.SPR",
         "SPRITES/BLOO.SPR",
     };
-    for (int i = 0; i < NUMSTATES; ++i) {
-        int sprite = states[i].sprite;
-        if (sprite >= 0 && sprite < NUMSPRITES)
-            ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[sprite]);
-    }
+    for (int i = 0; i < NUMSPRITES; ++i)
+        ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[i]);
     for (size_t i = 0; i < sizeof(ui_sprites) / sizeof(*ui_sprites); ++i)
         ok &= sprite_cache_load_dark_colony(cache, data_root, ui_sprites[i]);
-    int selection_sprite = game_info.selection_marker.sprite;
-    if (selection_sprite >= 0 && selection_sprite < NUMSPRITES)
-        ok &= sprite_cache_load_dark_colony(cache, data_root, sprnames[selection_sprite]);
     if (map) {
         for (int i = 0; i < map->decoration_count; ++i) {
             ok &= sprite_cache_load_dark_colony(cache, data_root, map->decorations[i].sprite_name);
@@ -482,5 +423,5 @@ bool load_dark_colony_unit_sprites(const char *data_root,
         ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->shadow_name : NULL);
         ok &= sprite_cache_load_dark_colony(cache, data_root, info ? info->hit_effect_name : NULL);
     }
-    return ok;
+    return R_BindSprites(cache, &game_info) && ok;
 }

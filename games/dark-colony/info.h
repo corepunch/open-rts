@@ -711,6 +711,8 @@ extern const state_t states[NUMSTATES];
 extern const mobjinfo_t dc_mobjinfo[NUMMOBJTYPES];
 extern const gameinfo_t game_info;
 
+const mobjtype_t *actor_type_by_id(uint16_t type_id);
+
 void A_DC_TrooperAttackStart(statecontext_t *ctx, mobj_t *unit);
 void A_DC_Fall(statecontext_t *ctx, mobj_t *unit);
 void A_DC_ReaperDeath(statecontext_t *ctx, mobj_t *unit);

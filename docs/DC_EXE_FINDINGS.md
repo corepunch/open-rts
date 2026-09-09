@@ -739,3 +739,60 @@ rendering integrity; it does not exercise every changed stationary pose.
 The full DC suite retains the three previously documented muzzle-effect,
 sprite-catalog, and initial-state failures. Tags were regenerated and
 `git diff --check` passed.
+
+
+## Build sprite definitions directly from FIN labels (2026-09-09)
+
+**Confirmed source architecture:** Doom's `info.c` supplies sprite names and
+state sprite/frame IDs. `R_InitSpriteDefs` in `r_things.c` constructs the runtime
+frame/rotation table from lump suffixes; it does not classify animation actions.
+`R_ProjectSprite` indexes the loaded table by sprite ID and frame. Local source
+provenance and hashes are recorded in `REFERENCES.md`.
+
+**Implementation:** Dark Colony now loads every FIN timeline frame, including
+unlabelled frames, arbitrary action names, and frames containing only external
+sprite layers. Raw SPR cells occupy indices `[0, numlumps)`; FIN frame `f` occupies
+`numlumps + f`. This separates raw-cell state references from timeline references.
+The generator emits the latter indices in states, without duplicating native
+frame/rotation tables in `info.c`. `sprnames[]` stems resolve first to
+`ANIMATE/{stem}.FIN`, with SPR fallback. UI and encyclopedia names retain their
+relative paths to distinguish files with identical stems. The cache binds these
+names once to an array indexed by state sprite ID; sheets retain their existing
+single owner.
+
+The loader groups labels by their literal prefix and numeric direction suffix.
+Complete sixteen-direction groups use sixteen rotations; complete even-direction
+groups use eight. Shorter directional ranges hold their final frame. All other
+frames remain addressable individually. Sparse directional fallback remains an
+unimplemented part of the native action lookup, not a reason to discard frames.
+
+**Correction to the preceding presentation rule:** no STAND/SHUF merging or MOVE
+singleton filtering remains in the loader. The user's latest requirement is
+general: use every authored facing, without unit-name or action-name exceptions.
+STAND and SHUF remain distinct native labels. This means the earlier combined
+sixteen-pose standing definition is no longer installed automatically. Choosing
+between such actions for turning belongs in state/action code; the native
+selection path remains unknown. Loading data does not establish that selection
+behavior. No new DC.EXE behavior is claimed here.
+
+**Confirmed asset evidence:** direction ranges can differ in length, for example
+BARRMOVE0 has thirteen frames, BARRMOVE14 seven, and BARRMOVE12 eight. Requiring
+equal lengths would incorrectly discard rotations. These are label-table range
+words (20-byte labels after the 8-byte header and dependency records). Existing
+asset fingerprints apply. Raw SPR cells, palette translations, anchors, and
+pixels are unaffected by the new frame-index domain. A comparison using the
+existing sprite catalog fingerprint through the cell/texture pass (before hashing
+frame definitions) matches all 461 SPR/FIN paths: 391 successful loads and the
+same 70 failures. Reproduce by running that pixel/placement portion of
+`test_sprite_loading` against the parent and current loader.
+
+**Reproduction/verification:** `test_sprite_definitions` loads a temporary FIN
+whose MOVE labels are renamed to an unrelated WAVE prefix, checks its rotations,
+and compares every nondirectional FIN frame's layers/ticks to the native decoder.
+It also checks sixteen authored directions with unequal ranges, multipart layers,
+raw-cell separation, ownership, and direct sprite-ID lookup. `test-layout` checks
+native ranges and Reaper's `{4,3,3,4,1,3,3,1}` movement timing. The complete build,
+focused sprite/FIN tests, and turn-before-travel simulation test pass. The HUMAN01
+headless screenshot matches the parent byte-for-byte; this is a starting-scene
+check, not coverage of every action. The complete DC suite still has its existing
+muzzle-effect, obsolete sprite-catalog text expectation, and initial-state failures.

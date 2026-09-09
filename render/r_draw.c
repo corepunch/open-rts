@@ -357,6 +357,28 @@ cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name) {
     return NULL;
 }
 
+bool R_BindSprites(spritecache_t *cache, const gameinfo_t *game_info) {
+    int count = game_info->sprite_count;
+    const spritesheet_t **sprites = calloc((size_t)count, sizeof(*sprites));
+    if (!sprites) return false;
+    for (int i = 0; i < count; ++i)
+        sprites[i] = R_CacheLookup(cache, game_info->sprnames[i]);
+    free(cache->sprites);
+    cache->sprites = sprites;
+    cache->numsprites = count;
+    return true;
+}
+
+const spritesheet_t *R_StateSprite(const spritecache_t *cache, const gameinfo_t *game_info,
+                                   int sprite, const char *name) {
+    if (!cache) return NULL;
+    if (cache->sprites && sprite >= 0 && sprite < cache->numsprites)
+        return cache->sprites[sprite];
+    if (game_info && game_info->sprnames && sprite >= 0 && sprite < game_info->sprite_count)
+        name = game_info->sprnames[sprite];
+    return R_CacheLookup(cache, name);
+}
+
 bool R_AllocSpriteCells(spritesheet_t *sprite, int count) {
     if (count <= 0) return false;
     spritecell_t *cells = calloc((size_t)count, sizeof(*cells));
@@ -512,7 +534,11 @@ static int decoration_animation_step(const app_t *app, const mapdecoration_t *de
 
 static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const spritesheet_t *sprite,
                                    int frame_index) {
-    if (frame_index >= 0 && frame_index < sprite->numlumps) return frame_index;
+    if (frame_index >= sprite->numlumps) {
+        int lump = sprite_lump_for_frame(sprite, frame_index, dec->angle, NULL);
+        return lump >= 0 ? lump : 0;
+    }
+    if (frame_index >= 0) return frame_index;
     if (frame_index < 0 && dec->animation_frame_count > 0) {
         int step = decoration_animation_step(app, dec);
         int authored_frame = dec->animation_frames[step].sprite_frame;
@@ -830,12 +856,8 @@ static const spritesheet_t *unit_sprite_sheet_for_view(const mobj_t *unit,
                                                      const spritecache_t *cache,
                                                      const gameinfo_t *game_info) {
     if (!unit) return NULL;
-    const char *sprite_name = unit->core.sprite_name;
-    if (game_info && unit->core.sprite_id >= 0 && unit->core.sprite_id < game_info->sprite_count &&
-        game_info->sprnames && game_info->sprnames[unit->core.sprite_id]) {
-        sprite_name = game_info->sprnames[unit->core.sprite_id];
-    }
-    const spritesheet_t *sprite = R_CacheLookup(cache, sprite_name);
+    const spritesheet_t *sprite = R_StateSprite(cache, game_info,
+                                                unit->core.sprite_id, unit->core.sprite_name);
     return sprite ? sprite : fallback_sprite;
 }
 
@@ -1067,8 +1089,7 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
     const gameinfo_t *game_info = ctx->game_info;
     const selectionmarker_t *info = &game_info->selection_marker;
     if (info->sprite < 0 || info->sprite >= game_info->sprite_count) return false;
-    const char *sprite_name = game_info->sprnames[info->sprite];
-    const spritesheet_t *marker = R_CacheLookup(cache, sprite_name);
+    const spritesheet_t *marker = R_StateSprite(cache, game_info, info->sprite, NULL);
     if (!marker || !marker->lumps || marker->numlumps <= 0) return false;
 
     if (frame < 0 || frame >= marker->numlumps) return false;
@@ -1092,7 +1113,7 @@ bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
     const spritesheet_t *marker = NULL;
     if (ctx->cache && ctx->game_info->sprnames &&
         info->sprite >= 0 && info->sprite < ctx->game_info->sprite_count) {
-        marker = R_CacheLookup(ctx->cache, ctx->game_info->sprnames[info->sprite]);
+        marker = R_StateSprite(ctx->cache, ctx->game_info, info->sprite, NULL);
     }
     if (!marker || frame < 0 || frame >= marker->numlumps) return false;
     irect_t frame_rect = sprite_frame_rect(marker, frame);
@@ -1415,13 +1436,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
             draw_ground_light(app, map, effect);
             continue;
         }
-        const char *sprite_name = effect->core.sprite_name;
-        if (effect->use_state && game_info && effect->core.sprite_id >= 0 &&
-            effect->core.sprite_id < game_info->sprite_count &&
-            game_info->sprnames && game_info->sprnames[effect->core.sprite_id]) {
-            sprite_name = game_info->sprnames[effect->core.sprite_id];
-        }
-        const spritesheet_t *sprite = R_CacheLookup(cache, sprite_name);
+        const spritesheet_t *sprite = R_StateSprite(cache, game_info,
+                                                    effect->use_state ? effect->core.sprite_id : -1, effect->core.sprite_name);
         if (!sprite || !sprite->lumps || sprite->numlumps <= 0) {
             debug_effects_log("render skip slot=%d sprite=%s reason=missing-cache",
                               i, effect->core.sprite_name);
@@ -1433,6 +1449,8 @@ void R_DrawEffects(app_t *app, const level_t *map,
         R_MapPositionToScreen(app, map, effect->core.position, &sx, &sy);
         int frame = effect->use_state || effect->fin_placement ?
             effect->core.frame : sprite_frame_for_effect(sprite, effect);
+        if (effect->use_state)
+            frame = sprite_lump_for_frame(sprite, frame, effect->core.angle, NULL);
         if (frame < 0 || frame >= sprite->numlumps) frame = 0;
         irect_t frame_rect = sprite_frame_rect(sprite, frame);
         int sprite_w = frame_rect.w;
@@ -1706,5 +1724,6 @@ void R_FreeSpriteCache(spritecache_t *cache) {
     for (int i = 0; i < cache->count; ++i) {
         R_FreeSprite(&cache->entries[i].sprite);
     }
+    free(cache->sprites);
     memset(cache, 0, sizeof(*cache));
 }

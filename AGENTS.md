@@ -117,6 +117,9 @@ helpers, and delete intermediate representations and needless indirection.
   what needs conversion; avoid copying whole tables just to rename fields.
 - Use native dimensions, ranges, names, and flags directly. Do not reconstruct
   information already present in the asset or scan pixels to guess metadata.
+- Build sprite frame/rotation definitions from native assets at load time. Do
+  not generate duplicate asset tables into `info.c`; it owns sprite names and
+  state references. Load all FIN frames without an action-name whitelist.
 - No asset-name exceptions, guessed aliases, compensating offsets, or visual
   hacks. Trace the native lookup when data appears inconsistent. Distinguish
   verified native behavior from an explicitly requested engine behavior.
@@ -286,14 +289,14 @@ array, not the binary.
 ### Dark Colony unit notes
 
 - **Exploiter speed**: 3.5 grid-units/s. Heavy harvester — should be slower than infantry (Trooper 5.0).
-- **Exploiter walk cycle**: EXPL.FIN has 16 MOVE directions, with two temporal
-  frames in each even range and one in each odd range. RUN1/RUN2 is intentional;
-  do not invent 14 missing temporal frames. Our standing state uses 16 poses
-  (STAND plus intermediate SHUF facings) to turn smoothly in place before
-  moving; travel uses the eight animated MOVE ranges. Derive these from FIN
-  names/ranges without an EXPL-name exception. Native action lookup treats
-  STAND and SHUF separately; its exact shuffle-selection path is still unknown
-  (see `docs/DC_EXE_FINDINGS.md`).
+- **Sprite directions**: load every FIN frame and use each sequence's authored
+  8/16 facings. Do not merge actions, discard singleton directions, or branch
+  on unit names in the sprite loader. State/action code chooses animations;
+  the loader only builds frame/rotation definitions from the assets.
+- **Exploiter walk cycle**: EXPL.FIN's even MOVE ranges contain two temporal
+  frames and its odd MOVE ranges contain one. RUN1/RUN2 does not imply fourteen
+  missing temporal frames. STAND and SHUF are separate native label sets;
+  their original selection path remains unknown (see `docs/DC_EXE_FINDINGS.md`).
 - **Reaper animation after regeneration**: after regenerating `info.c` or `info.h`, always restore
   and verify the native Reaper movement timing `{4, 3, 3, 4, 1, 3, 3, 1}` for `S_DC_REAP_RUN1`
   through `S_DC_REAP_RUN8`; run `build/bin/test_dark_colony_sprite_layout` before finishing.

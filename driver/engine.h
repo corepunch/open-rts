@@ -85,6 +85,9 @@ void R_DrawEffects(app_t *app, const level_t *map,
                    const spritecache_t *cache, const gameinfo_t *game_info);
 
 cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name);
+bool R_BindSprites(spritecache_t *cache, const gameinfo_t *game_info);
+const spritesheet_t *R_StateSprite(const spritecache_t *cache, const gameinfo_t *game_info,
+                                   int sprite, const char *name);
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name);
 bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations);
 bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,

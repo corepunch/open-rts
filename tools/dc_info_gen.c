@@ -20,6 +20,8 @@ typedef struct {
     int cap;
 } SpriteList;
 
+static SpriteList sprite_list;
+
 typedef struct {
     char name[17];
     int start;
@@ -1281,7 +1283,7 @@ static void write_rotations(FILE *out, int count, const int *directions,
     (void)flags;
 }
 
-static int fin_logical_frame(const DcFinAnimation *fin, const char *label_prefix,
+static int fin_logical_frame(const char *spr, const DcFinAnimation *fin, const char *label_prefix,
                              int step, int fallback_frame) {
     char label[32];
     snprintf(label, sizeof(label), "%s0", label_prefix);
@@ -1289,7 +1291,11 @@ static int fin_logical_frame(const DcFinAnimation *fin, const char *label_prefix
     if (!dc_fin_animation_header_has_valid_frames(fin, header)) return fallback_frame;
     int count = header->end - header->start + 1;
     if (step >= count) step = count - 1;
-    return header->start + step;
+    for (int i = 0; i < sprite_list.count; ++i)
+        if (!strcmp(sprite_list.items[i].symbol, spr))
+            return sprite_list.items[i].frames + header->start + step;
+    die("unknown state sprite", spr);
+    return 0;
 }
 
 static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
@@ -1340,7 +1346,7 @@ static void f8_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
     }
 
     static const int directions[8] = {0,2,4,6,8,10,12,14};
-        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
+        int logical_frame = fin_logical_frame(spr, fin, label_prefix, step, frames[0]);
         fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
             spr, logical_frame, state_tics, state_action, next, group);
     write_rotations(out, 8, directions, frames, flags);
@@ -1432,7 +1438,7 @@ static void f8_fin_layer0_overlay_state(FILE *out, const char *spr, const DcFinA
 
     (void)has_overlay;
     static const int directions[8] = {0,2,4,6,8,10,12,14};
-        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
+        int logical_frame = fin_logical_frame(spr, fin, label_prefix, step, frames[0]);
         fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0",
             spr, logical_frame, tics, action, next, group);
     write_rotations(out, 8, directions, frames, flags);
@@ -1447,7 +1453,7 @@ static void f16_fin_state(FILE *out, const char *spr, const DcFinAnimation *fin,
                                                NULL, NULL, NULL, NULL, NULL,
                                                sizeof(candidates) / sizeof(*candidates));
     if (count > 0) fallback_frame = candidates[step < count ? step : count - 1];
-    int frame = fin_logical_frame(fin, label_prefix, step, fallback_frame);
+    int frame = fin_logical_frame(spr, fin, label_prefix, step, fallback_frame);
     fprintf(out, "    { %s, %d, %d, %s, %s, %d, 0 },\n",
             spr, frame, tics, action, next, group);
 }
@@ -1536,7 +1542,7 @@ static void f16_fin_layer5_state(FILE *out, const char *spr, const DcFinAnimatio
     (void)overlay_remap;
     (void)overlay_intensity;
         static const int directions[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-        int logical_frame = fin_logical_frame(fin, label_prefix, step, frames[0]);
+        int logical_frame = fin_logical_frame(spr, fin, label_prefix, step, frames[0]);
         fprintf(out, "    { %s, %d, %d, %s, %s, %d, %s",
             spr, logical_frame, tics, action, next, group,
             flags[0] ? "FLIPPED" : "0");
@@ -1759,8 +1765,10 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "const char *const sprnames[NUMSPRITES] = {\n");
     int line_length = 4;
     for (int i = 0; i < sprite_count; ++i) {
-        char name[16];
-        sprite_name(sprites[i].path, name, sizeof(name));
+        char name[256];
+        if (!strncmp(sprites[i].path, "SPRITES/", 8))
+            sprite_name(sprites[i].path, name, sizeof(name));
+        else snprintf(name, sizeof(name), "%s", sprites[i].path);
         int entry_length = (int)strlen(name) + 3;
         if (line_length > 4 && line_length + 1 + entry_length > 78) {
             fprintf(out, "\n");
@@ -2001,7 +2009,6 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
 int main(int argc, char **argv) {
     if (argc != 4) die("usage: dc_info_gen DATA/DCOLONY games/dark-colony/info.h games/dark-colony/info.c", NULL);
     const char *root = argv[1];
-    SpriteList sprite_list = {0};
     scan_sprites_recursive(&sprite_list, root, "");
     SpriteEntry *sprites = sprite_list.items;
     int count = sprite_list.count;
