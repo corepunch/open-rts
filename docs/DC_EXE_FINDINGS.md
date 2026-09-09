@@ -2788,3 +2788,63 @@ SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_city_layout
 ```
 
 The test writes `/private/tmp/city-human02.bmp` and `/private/tmp/city-human03.bmp`.
+
+
+### September 9: resolve the stale Human01 headless assertions
+
+**Confirmed test error, not missing startup units:** `HUMAN01.SCN` places
+30 native type-8 Greys: 15 for team 2, 12 for team 3, and 3 for team 4. It
+places no player Troopers. `HUMAN01.TRO` block 8, condition `(c>0)`, issues
+`reinforce 0 22 2 0 4 69 1 0 0 0 0 0 0` at line 49: four type-0 infantry and
+one type-69 commander. The current engine maps both native types to
+`MT_TROOPER`. The assertion requiring 32 player Troopers before the first tic
+was introduced by `485a81a`; that commit replaced the prior 30-Grey assertion
+without supporting scenario evidence. It was wrong, not an accepted mission
+startup limitation. Earlier reports of this pre-existing failure are historical;
+the failure is now resolved.
+
+Asset SHA-256 fingerprints:
+
+| Asset under SCENARIO/HUMAN | SHA-256 |
+| --- | --- |
+| HUMAN01.SCN | `af82c538181ca182481562dfa75ff1f39038a58445b019cd6a52426b33e968e7` |
+| HUMAN01.TRO | `f7fb1c67d68eaa4207ec5053ad7289608f43ca6d631a9d0d45ff3f260011a1a0` |
+| HUMAN02.SCN | `bed27b613d20fb8b2533369d949adb4e90b96922372e7df3e7957140d44c90ab` |
+
+Temporary `OPEN_RTS_DEBUG_HEADLESS` logging printed every Human01 initial
+mobj's type, owner, sprite and hidden flag: 30 enemy `MT_GREY`/GRAY objects,
+three allied city parts and the player beacon, with zero player Troopers.
+After correcting that expectation, the test advanced through the real mission
+script and observed the dropship and all five opening infantry objects before
+selecting a Trooper and issuing its move order. No runtime spawn code or
+mission timing was changed. Retail distinctions for the commander beyond the
+existing type-69 mapping were not investigated here.
+
+**Additional stale checks uncovered:** the old test returned at Human01's
+first failure and never checked Human02/03. Their snapshot sprite assertions
+still compared `SPRITES/DISH.SPR`, `SPRITES/HUBU.SPR`, `SPRITES/TOWR.SPR` and
+`SPRITES/ALBU.SPR`, while ordinary FIN-state mobjs expose stems `DISH`, `HUBU`,
+`TOWR` and `ALBU`. These checks now follow the existing sprite registry contract.
+Human02 has ten native type-8, team-2 records with health -1. The old test
+mistook these for hidden placeholders. As established in “Confirmed executable
+initialization” above, retail `0x419d44` sets active byte +0x2c at `0x41a048`
+and resolves negative health from the type table at `0x41a08c..0x41a0a1`.
+The executable SHA-256 remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+This task reuses that previously verified disassembly, rather than claiming a
+new native discovery. Human02 diagnostics confirmed ten live enemy Greys,
+GRAY sprite, hidden=0, HP=800. The test now checks their exact count, owner,
+visibility and positive health. Diagnostics were removed before committing.
+
+The three mission checks now run even if an earlier mission check fails;
+each reloads its own level. Removed unused test helpers and an obsolete log
+that counted the same mobj list twice as separate units and effects. Verification
+includes the complete Dark Colony suite and sprite-layout tests, with no
+remaining failures:
+
+```sh
+make
+make tags
+SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
+SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+```

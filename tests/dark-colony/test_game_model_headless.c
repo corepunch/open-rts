@@ -107,11 +107,6 @@ static int assert_snapshot_render_command_metadata(const RtsRenderSnapshot *snap
     return 0;
 }
 
-static bool poll_event_type(RtsGameModel *model, RtsGameEventType wanted,
-                            uint32_t subject_id, int product_type) {
-    return rts_event_seen(model, wanted, subject_id, product_type);
-}
-
 static int assert_dark_colony_sprite_catalog(void) {
     for (int i = 0; i < NUMSPRITES; ++i)
         if (strchr(sprnames[i], '/') || strchr(sprnames[i], '.'))
@@ -156,15 +151,6 @@ static int snapshot_count_units_with_sprite(const RtsRenderSnapshot *snapshot,
     return count;
 }
 
-static int snapshot_count_units_with_type(const RtsRenderSnapshot *snapshot, uint16_t type_id) {
-    if (!snapshot) return 0;
-    int count = 0;
-    for (int i = 0; i < snapshot->unit_count; ++i) {
-        if (snapshot->units[i].type_id == type_id) count++;
-    }
-    return count;
-}
-
 static int snapshot_count_units_with_owner_and_type(const RtsRenderSnapshot *snapshot,
                                                     uint8_t owner, uint16_t type_id) {
     if (!snapshot) return 0;
@@ -174,11 +160,6 @@ static int snapshot_count_units_with_owner_and_type(const RtsRenderSnapshot *sna
             count++;
     }
     return count;
-}
-
-static int snapshot_find_unit_with_owner_and_type(const RtsRenderSnapshot *snapshot,
-                                                  uint8_t owner, uint16_t type_id) {
-    return rts_find_unit(snapshot, owner, type_id);
 }
 
 static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *sprite_name,
@@ -319,11 +300,10 @@ static int assert_human01(RtsGameModel *model) {
     }
     int initial_trooper_count = snapshot_count_units_with_owner_and_type(
         &snapshot, 0, MT_TROOPER);
-    if (initial_trooper_count != 32) {
-        fprintf(stderr, "Human01 initial player Troopers: %d (expected 32)\n",
-                initial_trooper_count);
-        return fail("Human01 loads its initial Trooper force");
-    }
+    /* HUMAN01.SCN places 30 enemy Greys; HUMAN01.TRO delivers the player force. */
+    if (initial_trooper_count != 0 ||
+        snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_GREY) != 30)
+        return fail("Human01 starts with 30 enemy Greys and awaits player reinforcements");
     if (snapshot.units[0].sprite_name[0] == '\0') {
         return fail("Human01 snapshot unit has render sprite reference");
     }
@@ -338,8 +318,6 @@ static int assert_human01(RtsGameModel *model) {
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_BEACON) != 1)
         return fail("Human01 beacon is an ordinary FIN-animated mobj");
 
-    int initial_troopers = snapshot_count_units_with_owner_and_type(
-        &snapshot, 0, MT_TROOPER);
     bool saw_dropship = false;
     bool saw_delivery = false;
     for (int tick = 0; tick < 30 * 120 && !saw_delivery; ++tick) {
@@ -348,10 +326,10 @@ static int assert_human01(RtsGameModel *model) {
             saw_dropship = true;
         int troopers = snapshot_count_units_with_owner_and_type(
             &snapshot, 0, MT_TROOPER);
-        if (troopers >= initial_troopers + 4) saw_delivery = true;
+        if (troopers == initial_trooper_count + 5) saw_delivery = true;
     }
     if (!saw_dropship) return fail("Human01 reinforcement spawns a visible Dropship");
-    if (!saw_delivery) return fail("Human01 Dropship delivers four Troopers");
+    if (!saw_delivery) return fail("Human01 opening reinforcement supplies four Troopers and the commander");
 
     int trooper = find_movable_player_unit(&snapshot);
     if (trooper < 0) return fail("find selectable Human01 Trooper");
@@ -375,9 +353,7 @@ static int assert_human01(RtsGameModel *model) {
     if (selected_trooper < 0 || !snapshot.units[selected_trooper].selected)
         return fail("Human01 selects Trooper");
 
-    printf("PASS: Human01 headless model loaded %dx%d with %d units and %d effects\n",
-           snapshot.map_width, snapshot.map_height, snapshot.unit_count,
-           snapshot.unit_count);
+    printf("PASS: Human01 starts with enemy Greys, delivers its player force, and accepts Trooper orders\n");
     return assert_dark_colony_products(model);
 }
 
@@ -403,24 +379,24 @@ static int assert_human02(RtsGameModel *model) {
     }
     int metadata_result = assert_snapshot_render_command_metadata(&snapshot);
     if (metadata_result != 0) return metadata_result;
-    int hidden_grey_count = 0;
+    int grey_count = 0;
     for (int i = 0; i < snapshot.unit_count; ++i) {
-        if (strcmp(snapshot.units[i].sprite_name, "SPRITES/GRAY.SPR") == 0) {
-            if (!snapshot.units[i].hidden) {
-                return fail("Human02 Grey placeholders retain hidden state");
-            }
-            hidden_grey_count++;
+        if (snapshot.units[i].type_id == MT_GREY) {
+            if (snapshot.units[i].owner != 1 || snapshot.units[i].hidden ||
+                snapshot.units[i].hp <= 0 || strcmp(snapshot.units[i].sprite_name, "GRAY"))
+                return fail("Human02 Greys are active; negative SCN health selects defaults");
+            grey_count++;
         }
     }
-    if (hidden_grey_count == 0) {
-        return fail("Human02 hidden Grey placeholders are loaded as starting units");
+    if (grey_count != 10) {
+        return fail("Human02 loads all ten starting enemy Greys");
     }
-    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/DISH.SPR") != 3) {
+    if (snapshot_count_units_with_sprite(&snapshot, "DISH") != 3) {
         return fail("Human02 loads communication dish/base attachment objects");
     }
-    if (snapshot_count_units_with_sprite(&snapshot, "SPRITES/HUBU.SPR") < 2 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/TOWR.SPR") < 1 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0) {
+    if (snapshot_count_units_with_sprite(&snapshot, "HUBU") < 2 ||
+        snapshot_count_units_with_sprite(&snapshot, "TOWR") < 1 ||
+        snapshot_count_units_with_sprite(&snapshot, "ALIEN1") != 0) {
         return fail("Human02 loads active city slots from Dark Colony city data");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 0, MT_EXCOPOD) != 1 ||
@@ -480,9 +456,9 @@ static int assert_human02(RtsGameModel *model) {
     if (rts_game_model_command(model, &train_without_resources)) {
         return fail("Human02 cannot train Trooper before enough Petra-7 is available");
     }
-    if (!snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 33, 58 }) ||
-        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 38, 58 }) ||
-        !snapshot_has_unit_at(&snapshot, "SPRITES/DISH.SPR", (ivec2_t){ 35, 55 })) {
+    if (!snapshot_has_unit_at(&snapshot, "DISH", (ivec2_t){ 33, 58 }) ||
+        !snapshot_has_unit_at(&snapshot, "DISH", (ivec2_t){ 38, 58 }) ||
+        !snapshot_has_unit_at(&snapshot, "DISH", (ivec2_t){ 35, 55 })) {
         return fail("Human02 satellite dish object rows use raw DC world Y coordinates");
     }
     if (snapshot.resource_vent_count <= 0) {
@@ -550,8 +526,8 @@ static int assert_human03_city_slots(RtsGameModel *model) {
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_BRDRHIVE) != 1 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE2) != 0 ||
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_RSCHIVE) != 0 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALIEN1.SPR") != 0 ||
-        snapshot_count_units_with_sprite(&snapshot, "SPRITES/ALBU.SPR") != 3) {
+        snapshot_count_units_with_sprite(&snapshot, "ALIEN1") != 0 ||
+        snapshot_count_units_with_sprite(&snapshot, "ALBU") != 3) {
         return fail("Human03 alien city slots use native ALBU building art");
     }
 
@@ -792,8 +768,9 @@ int main(void) {
     if (!model) return fail("create model");
 
     int result = assert_human01(model);
-    if (result == 0) result = assert_human02(model);
-    if (result == 0) result = assert_human03_city_slots(model);
+    /* Each check reloads its level; report later scenario failures too. */
+    result |= assert_human02(model);
+    result |= assert_human03_city_slots(model);
 #ifdef RTS_GAME_DARK_REIGN
     if (result == 0) result = assert_dark_reign(model);
     if (result == 0) result = assert_dark_reign_fixed_missions(model);

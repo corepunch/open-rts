@@ -1124,3 +1124,14 @@ and thinker-action tests, and the headless DC smoke check pass.
 - See `docs/DC_EXE_FINDINGS.md`, “September 9: phantom cities at AI locations”,
   for exact fields, branch addresses, disproven fallback, native tower gate,
   scenario records and regression commands.
+
+
+### Human01 startup test correction (September 9, 2026)
+
+- Primary data: shipped `data/DCOLONY/SCENARIO/HUMAN/HUMAN01.SCN`,
+  `HUMAN01.TRO` (opening reinforcement at line 49), and `HUMAN02.SCN`.
+  Exact hashes, object counts and the misleading test history are preserved
+  in `docs/DC_EXE_FINDINGS.md`, “September 9: resolve the stale Human01
+  headless assertions”. No new external source or executable analysis was used.
+- Human02 visibility expectations use the already verified retail spawn
+  routine `0x419d44`: negative health selects defaults, not hidden status.
