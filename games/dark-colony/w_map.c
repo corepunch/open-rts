@@ -508,7 +508,7 @@ static int city_unit_type_for_slot(int race, int slot) {
     return city_types[race == 1 ? 1 : 0][slot];
 }
 
-static ivec2_t city_slot_offset(int slot) {
+ivec2_t DC_CitySlotOffset(int slot) {
     static const ivec2_t offsets[DARK_COLONY_SCN_CITY_SLOTS] = {
         { -64, 15 }, { 0, 0 }, { 32, 64 }, { 64, 10 }, { -32, 65 }, { 0, 32 }, { 0, 0 },
     };
@@ -584,7 +584,7 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     if (city_origin) {
         /* The native draw queue subtracts the slot in world coordinates;
          * screen Y runs in the opposite direction. FIN keeps the shared origin. */
-        ivec2_t slot = city_slot_offset(city_slot);
+        ivec2_t slot = DC_CitySlotOffset(city_slot);
         u->core.render_offset = (ivec2_t){ -slot.x, slot.y + g_cell_h };
     }
     if (u->owner == 0) {
@@ -639,7 +639,7 @@ int load_dark_colony_initial_units(const char *map_path) {
             if (!tower && (slot * 2 >= info->city_value_count || info->city_values[slot * 2] <= 0)) continue;
             int type = city_unit_type_for_slot(info->race, slot);
             /* DC.EXE 0x4412d4: city anchor * 256 + authored slot offset * 8. */
-            ivec2_t position = ivec2_add(ivec2_scale(anchor, 256), ivec2_scale(city_slot_offset(slot), 8));
+            ivec2_t position = ivec2_add(ivec2_scale(anchor, 256), ivec2_scale(DC_CitySlotOffset(slot), 8));
             if (position.x < 0 || position.y < 0 || type <= 0) continue;
             int health = default_health_for_type(type);
             spawn_object(&units, type, team, info->race, allegiances[team], position, health, slot);

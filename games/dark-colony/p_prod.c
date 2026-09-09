@@ -27,10 +27,10 @@ static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     /* Robot Factory units */
     { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { MT_ROBOPOD }, 1 },
     { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { MT_ROBOPOD2 }, 1 },
-    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 3, 4 }, 2, { MT_ROBOPOD }, 1 },
+    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 0, 3, 4 }, 3, { MT_ROBOPOD }, 1 },
     /* Upgraded Robot Factory units */
     {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { MT_ROBOPOD2 }, 1 },
-    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 5, 6 }, 2, { MT_ROBOPOD }, 1 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 4, 3, 6 }, 3, { MT_ROBOPOD }, 1 },
 };
 
 static const StaticProductDefinition DARK_COLONY_ALIEN_PRODUCTS[] = {
@@ -156,6 +156,11 @@ static const StaticProductDefinition *product_by_row_id(int row_id) {
     return NULL;
 }
 
+bool DC_ProductActorMatches(int actor, int required) {
+    return actor == required || (actor == MT_SCNCPOD2 && required == MT_SCNCPOD) ||
+        (actor == MT_ROBOPOD2 && required == MT_ROBOPOD);
+}
+
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     if (!product) return false;
@@ -180,7 +185,9 @@ bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
         bool found = false;
         for (int j = 0; j < unit_count; ++j) {
             if (P_MobjIsHidden(units[j]) || units[j]->owner != 0 || units[j]->remove ||
-                units[j]->hp <= 0 || units[j]->type_id != actor_id) continue;
+                units[j]->hp <= 0 ||
+                (states[units[j]->core.state_id].group == 6 && !units[j]->production) ||
+                !DC_ProductActorMatches(units[j]->type_id, actor_id)) continue;
             found = true;
             break;
         }
@@ -336,9 +343,49 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
 
 /* ── interactive production simulation (raw mobj_t arrays, not RtsGameModel) ── */
 
+/* A city's modules share the authored FIN origin, with native slot positions. */
+static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition *product,
+                                 uint16_t actor_id) {
+    int slot;
+    switch (actor_id) {
+    case MT_BRRKPOD: slot = 1; break;
+    case MT_ROBOPOD: case MT_ROBOPOD2: slot = 2; break;
+    case MT_SCNCPOD: case MT_SCNCPOD2: slot = 3; break;
+    case MT_RSCHPOD: slot = 4; break;
+    default: return false;
+    }
+    mobj_t *previous = NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *obj = (mobj_t *)th;
+        if (obj->team != producer->team || obj->remove || obj->hp <= 0) continue;
+        if (DC_ProductActorMatches(obj->type_id, actor_id)) return false;
+        if ((actor_id == MT_SCNCPOD2 && obj->type_id == MT_SCNCPOD) ||
+            (actor_id == MT_ROBOPOD2 && obj->type_id == MT_ROBOPOD)) previous = obj;
+    }
+    ivec2_t offset = DC_CitySlotOffset(slot);
+    /* Native slot pixels become 8.8 via *8, then 16.16 via *256. */
+    ivec2_t delta = ivec2_scale(ivec2_sub(offset, DC_CitySlotOffset(0)), 8 * 256);
+    fixed3_t position = fixed3_add(producer->core.position,
+                                  (fixed3_t){delta.x, delta.y, 0});
+    mobj_t *building = P_SpawnMobj(position, actor_id);
+    if (!building) return false;
+    building->owner = producer->owner;
+    building->team = producer->team;
+    building->allegiance = producer->allegiance;
+    building->native_type_id = product->product_type;
+    building->core.render_offset = (ivec2_t){-offset.x, offset.y + g_cell_h};
+    int state = G_ModelBuildingStateForProduct(gameinfo, product);
+    if (state > 0) P_SetMobjState(building, state);
+    if (previous) P_RemoveMobj(previous);
+    return true;
+}
+
 bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
                               uint16_t actor_id) {
     if (!producer || !product || actor_id == 0) return false;
+    if (product->product_class == RTS_PRODUCT_BUILDING)
+        return dc_build_city_module(producer, product, actor_id);
     production_t *production = P_EnsureMobjProduction(producer);
     if (!production) return false;
     if (production->queue_count > 0) {

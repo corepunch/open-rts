@@ -1167,3 +1167,12 @@ acquisition is traced through `0x432a30` / `0x4323bc`; the separate weighted
 sight calculation is at `0x446240..0x44625e`. See the same Human02 audit
 for exact instructions, the removed unconditional-pursuit policy, regression
 coverage, and remaining native AI/visibility limitations.
+
+### Dark Colony global build-menu configuration
+
+Retail `data/DCOLONY/GAMESTAT/DEPEND.TXT` provides prerequisite row IDs and
+costs; `data/DCOLONY/INTRFACE/MAINE` provides fixed control positions and icon
+frames. The user supplied the initial-menu screenshot in the 2026-09-09 request
+(no external URL). File hashes, the full human dependency graph, screenshot
+identification and implementation limits are recorded in
+[the global build-menu audit](docs/DC_EXE_FINDINGS.md#global-build-menu-and-native-dependency-configuration-2026-09-09).

@@ -3152,3 +3152,92 @@ The executable fingerprint is unchanged from the audit above. Verification
 uses `make`, `make tags`, the full headless Dark Colony suite, sprite-layout
 tests and the Human02 headless smoke check. An isolated checkout was used
 to separate this change from concurrent sidebar/production edits.
+
+## Global build menu and native dependency configuration (2026-09-09)
+
+**Confirmed from retail configuration:** `GAMESTAT/DEPEND.TXT` contains the
+building/unit dependency graph; executable decompilation is unnecessary for
+recovering these entries. SHA-256:
+`9e5e5251d5196677aa96b690413ccf15b601b5e9a00892d393fc260798efc67d`.
+Rows contain ID, cost, UI ID, class, then building slot/upgrade/race or unit
+type, followed by prerequisite row IDs terminated by -1.
+
+| Row | Product | Prerequisite rows |
+|---|---|---|
+| 0 | Exo-Ctr | none |
+| 1 | Barracks | 0 |
+| 2 | Sci-Pod | 0 |
+| 3 | Robo-Ftr | 2, 1 |
+| 4 | Sci-Pod+ | 2 |
+| 5 | Robo-Ftr+ | 3, 2 |
+| 6 | Rsch-Bay | 4 |
+| 7 | Exploiter | 0 |
+| 9 | Trooper | 1 |
+| 29 | Sentinel | 1, 2 |
+| 11 | Reaper | 3, 2 |
+| 10 | Osprey IV | 0, 3, 4 |
+| 8 | Firestorm | 5 |
+| 12 | Barrager | 5, 4 |
+| 13 | S.A.R.G.E | 1, 6 |
+| 83 | Medi-craft | 4, 3, 6 |
+
+**Correction:** the hand-authored Medi-craft prerequisites previously required
+upgraded Robo-Ftr instead of Sci-Pod+, Robo-Ftr and Research Bay. Osprey omitted
+its explicit Exo-Ctr prerequisite. Both now match DEPEND.TXT. Upgraded buildings
+share their base module slot and satisfy the lower-tier requirement in the
+interactive sidebar; they replace the earlier module rather than adding a
+second building at another position.
+
+**Confirmed layout:** `INTRFACE/MAINE`, SHA-256
+`f8dc545cd8d2eae674dd7b1604a1f5d3f5aaf2c14416a31a1a40ac1305beeaad`,
+controls 80–94, 135 and 206 specify fixed 59×41 buttons. Left x=518 has
+Exploiter/Trooper/Sentinel/Osprey/Reaper/Firestorm/Barrager at
+112/153/194/235/276/317/358. Right x=577 has S.A.R.G.E and Medi-craft in its
+first two rows, then Exo-Ctr/Barracks/Sci-Pod/Robo-Ftr/Research Bay at
+194/235/276/317/358. Science and factory upgrades reuse their base button.
+Unavailable controls leave black space; there is no compacted product grid.
+The sidebar now reads those rectangles directly from MAINE.
+
+**User-provided retail screenshot:** the image attached to this request shows
+Exploiter and Trooper in the first two left slots and the Sci-Pod icon (control
+81, MAINBUT frame 21) in the right slot at y=276. This identifies the previously
+unnamed building. The user explicitly specifies this menu when nothing is
+selected. The initial Human02 base supplies Exo-Ctr and Barracks; owned modules
+are omitted, leaving exactly those three controls. This is base-dependent
+availability, not an unconditional unlock on every mission.
+
+**Implementation:** clicks locate an owned producer without requiring its
+selection. Units retain their existing queues. Building clicks create ordinary
+mobjs at the native city module position, reusing the slot table already traced
+to DC.EXE `0x441080` / `0x4412d4` in the city initialization audit above
+(executable SHA-256 `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`).
+Slot pixel deltas become 16.16 positions via *8*256; FIN render offsets keep
+the shared city origin. Sci-Pod enters existing `S_SCNCPOD_BUILD1` and advances
+through P_MobjThinker. Construction-group states do not unlock their dependents
+until finished; a producer playing a unit-release animation remains available.
+Already owned modules cannot be purchased again. Costs are deducted only when
+the production/build request succeeds.
+
+**Limits/unknowns:** the complete retail building-order/delivery scheduling,
+construction cancellation/refunds and queue UI remain unverified. This change
+uses the existing construction state table; entries without a registered build
+chain use their spawn state. Exo-Ctr foundation placement is not implemented.
+Later units without actor mappings remain unsupported. The screenshot does not
+prove selection behavior for every other menu/tab. No timing constant or new
+delivery effect was inferred from it.
+
+**Verification:** all 16 authored human cost/UI/prerequisite entries compared
+exactly to DEPEND.TXT. Temporary `OPEN_RTS_DEBUG_PRODUCTS` logs confirmed initial
+prerequisites and exposed a premature upgrade while Sci-Pod was constructing;
+logging was removed after fixing it. `test_barracks_production` now clicks the
+unselected Trooper and Exploiter slots, checks resource deduction and queues,
+builds Sci-Pod at its native slot, checks its construction state, and prevents a
+second purchase during construction. Reproduce with:
+
+```
+make build/bin/tests/dark-colony/test_barracks_production
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_barracks_production
+```
+
+The test writes `/private/tmp/dc-build-menu.bmp`; visual inspection confirmed
+the three icons and empty slots match the supplied screenshot's menu layout.

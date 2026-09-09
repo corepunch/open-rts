@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "sb_bar.h"
 #include "info.h"
+#include "dc_types.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -31,6 +32,7 @@ typedef struct {
 typedef struct {
     SidebarCommand commands[6];
     int command_count;
+    irect_t products[207]; /* Native MAINE control IDs. */
 } Sidebar;
 
 typedef struct {
@@ -124,6 +126,12 @@ static void sidebar_load(Sidebar *sidebar, const char *data_root) {
                     snprintf(cmd->label, sizeof(cmd->label), "%s", label);
                 }
             } else {
+                int control_id, description, normal, pressed;
+                irect_t rect;
+                if (sscanf(line, "count %d %d %d %d %d %d %d %d",
+                           &control_id, &description, &rect.x, &rect.y, &rect.w, &rect.h,
+                           &normal, &pressed) == 8 && control_id >= 0 && control_id < 207)
+                    sidebar->products[control_id] = rect;
                 char kind[16] = { 0 };
                 int desc = 0, x = 0, y = 0, w = 0, h = 0, frame = 0, pushed = 0;
                 if (sscanf(line, "%15s %d %d %d %d %d %d %d %d",
@@ -168,10 +176,10 @@ static UiLayout ui_layout(const app_t *app) {
     return layout;
 }
 
-static irect_t product_button_rect(const app_t *app, int index) {
-    int col = index / 4;
-    int row = index % 4;
-    return ui_rect(app, 518 + col * 59, 112 + row * 41, 59, 41);
+static irect_t product_button_rect(const app_t *app, const Sidebar *sidebar,
+                                    const ProductButton *product) {
+    irect_t r = sidebar->products[product->ui_id];
+    return ui_rect(app, r.x, r.y, r.w, r.h);
 }
 
 static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {
@@ -237,35 +245,26 @@ static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count
     return NULL;
 }
 
-static bool dc_product_prerequisites_met(mobj_t *const *units, int unit_count,
-                                         const ProductButton *product) {
-    return G_ModelProductAvailableForUnits(units, unit_count, product);
-}
-
 static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
     return selected && selected->owner == 0 && !selected->remove && selected->hp > 0 &&
         selected->type_id >= MT_EXCOPOD;
 }
 
-static int dc_products_for_selected_building(const mobj_t *selected, mobj_t *const *units,
-                                             int unit_count,
-                                             const ProductButton *out[8]) {
-    if (!dc_selected_unit_is_player_building(selected) || !out) return 0;
+static int dc_available_products(mobj_t *const *units, int unit_count,
+                                  const ProductButton *out[16]) {
+    static ProductButton products[16];
     int count = 0;
-    static ProductButton products[RTS_MODEL_MAX_SNAPSHOT_UNITS];
-    int source_count = G_ModelGetProducts(NULL, 0, products,
-                                          (int)(sizeof(products) / sizeof(products[0])));
-    for (int i = 0; i < source_count && count < 8; ++i) {
+    int source_count = G_ModelGetProducts(NULL, 0, products, 16);
+    for (int i = 0; i < source_count; ++i) {
         const ProductButton *product = &products[i];
-        bool this_maker = false;
-        for (int maker = 0; maker < product->maker_count; ++maker) {
-            if (product->makers[maker] == (int)selected->type_id) {
-                this_maker = true;
-                break;
-            }
+        if (!G_ModelProductAvailableForUnits(units, unit_count, product)) continue;
+        if (product->product_class == RTS_PRODUCT_BUILDING) {
+            bool exists = false;
+            for (int j = 0; j < unit_count; ++j)
+                if (units[j]->owner == 0 && !units[j]->remove && units[j]->hp > 0 &&
+                    DC_ProductActorMatches(units[j]->type_id, G_ModelActorIdForProduct(product))) exists = true;
+            if (exists) continue;
         }
-        if (!this_maker) continue;
-        if (!dc_product_prerequisites_met(units, unit_count, product)) continue;
         out[count++] = product;
     }
     return count;
@@ -315,7 +314,7 @@ static void dc_stop_selected_units(mobj_t *const *units, int unit_count) {
     }
 }
 
-static bool dc_SB_responder(const app_t *app, level_t *map,
+static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *map,
                             mobj_t *const *units, int unit_count, const SDL_Event *e) {
     if (!app || !map || !e) return false;
     if (e->type != SDL_MOUSEBUTTONDOWN) return false;
@@ -331,18 +330,26 @@ static bool dc_SB_responder(const app_t *app, level_t *map,
         }
     }
     mobj_t *selected = selected_index >= 0 ? units[selected_index] : NULL;
-    if (dc_selected_unit_is_player_building(selected)) {
-        const ProductButton *products[8] = { 0 };
-        int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
+    if (!selected || dc_selected_unit_is_player_building(selected)) {
+        const ProductButton *products[16] = { 0 };
+        int product_count = dc_available_products(units, unit_count, products);
         if (e->button.button == SDL_BUTTON_LEFT) {
             for (int i = 0; i < product_count; ++i) {
-                if (!irect_contains(product_button_rect(app, i),
+                if (!irect_contains(product_button_rect(app, sidebar, products[i]),
                                     (ivec2_t){ rx, ry })) continue;
                 const ProductButton *product = products[i];
                 uint16_t actor_id = G_ModelActorIdForProduct(product);
                 if (actor_id == 0 || map->player_resources[0][0] < product->cost) return true;
-                if (G_ModelEnqueueProduction(selected, product, actor_id)) {
-                    map->player_resources[0][0] -= product->cost;
+                for (int j = 0; j < unit_count; ++j) {
+                    mobj_t *producer = units[j];
+                    if (producer->owner != 0 || producer->remove || producer->hp <= 0) continue;
+                    for (int k = 0; k < product->maker_count; ++k) {
+                        if (!DC_ProductActorMatches(producer->type_id, product->makers[k])) continue;
+                        if (G_ModelEnqueueProduction(producer, product, actor_id)) {
+                            map->player_resources[0][0] -= product->cost;
+                            return true;
+                        }
+                    }
                 }
                 return true;
             }
@@ -504,12 +511,12 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     }
     int hover_button = -1;
     const mobj_t *selected = dc_first_selected_unit(units, unit_count);
-    const ProductButton *products[8] = { 0 };
-    int product_count = dc_products_for_selected_building(selected, units, unit_count, products);
-    bool product_mode = dc_selected_unit_is_player_building(selected);
+    const ProductButton *products[16] = { 0 };
+    int product_count = dc_available_products(units, unit_count, products);
+    bool product_mode = !selected || dc_selected_unit_is_player_building(selected);
     int visible_button_count = product_mode ? product_count : sidebar->command_count;
     for (int i = 0; i < visible_button_count; ++i) {
-        irect_t button_rect = product_mode ? product_button_rect(app, i) :
+        irect_t button_rect = product_mode ? product_button_rect(app, sidebar, products[i]) :
             layout.buttons[i];
         if (irect_contains(button_rect, app->mouse)) {
             hover_button = i;
@@ -555,15 +562,10 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
                            line, dim, 1);
         }
     }
-    int button_slots = product_mode ? 8 : 6;
+    int button_slots = visible_button_count;
     for (int i = 0; i < button_slots; ++i) {
-        irect_t button_rect = product_mode ? product_button_rect(app, i) :
+        irect_t button_rect = product_mode ? product_button_rect(app, sidebar, products[i]) :
             layout.buttons[i];
-        if (product_mode && i >= product_count) {
-            dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 10, 12, 12, 185 });
-            dc_ui_stroke(app->renderer, button_rect, (SDL_Color){ 66, 72, 70, 255 });
-            continue;
-        }
         int frame = product_mode && products[i] ? products[i]->icon_frame :
             dc_sidebar_command_frame(&sidebar->commands[i], selected);
         if (buttons && buttons->lumps && buttons->lumps[0].texture) {
@@ -619,7 +621,7 @@ bool DC_SB_Responder(void *sb_ptr, const app_t *app, level_t *map,
                   mobj_t *const *units, int unit_count, const SDL_Event *event) {
     sb_state_t *sb = sb_ptr;
     return sb && sb->active &&
-           dc_SB_responder(app, map, units, unit_count, event);
+           dc_SB_responder(&sb->sidebar, app, map, units, unit_count, event);
 }
 
 void DC_SB_Ticker(void *sb_ptr) {

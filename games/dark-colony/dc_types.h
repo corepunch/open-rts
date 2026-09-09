@@ -83,4 +83,7 @@ _Static_assert(offsetof(DcObject, cell_z) == 0xce, "DcObject.cell_z offset");
 _Static_assert(offsetof(DcObject, target_a) == 0xd2, "DcObject.target_a offset");
 _Static_assert(offsetof(DcObject, target_b) == 0xd4, "DcObject.target_b offset");
 
+ivec2_t DC_CitySlotOffset(int slot);
+bool DC_ProductActorMatches(int actor, int required);
+
 #endif

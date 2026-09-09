@@ -143,11 +143,11 @@ int main(void) {
         assert(rts_tick(model, NULL));
     assert(level.player_resources[0][0] >= product->cost);
     mobjlist_t objects = P_ListMobjs();
-    for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], objects.items[i] == barracks);
+    for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
     void *ui = G_InitCustomUI(&app, "data/DCOLONY");
     assert(ui);
     SDL_Event click = {.button = {.type = SDL_MOUSEBUTTONDOWN,
-                                  .button = SDL_BUTTON_LEFT, .x = 530, .y = 125}};
+                                  .button = SDL_BUTTON_LEFT, .x = 530, .y = 165}};
     money = level.player_resources[0][0];
     assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
     assert(barracks->production && barracks->production->queue_count == 1);
@@ -175,6 +175,36 @@ int main(void) {
     mobj_t *trooper = (mobj_t *)thinkercap.prev;
     assert(trooper->type_id == MT_TROOPER && trooper->core.state_id == S_TRSC_STND);
     assert(fvec2_near(fixed3_xy_to_fvec2(trooper->core.position), exit, 0.0001f));
+    /* No selection: native fixed slots remain empty until prerequisites exist. */
+    objects = P_ListMobjs();
+    for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
+    level.player_resources[0][0] = 10000;
+    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, NULL);
+    SDL_RenderPresent(r_renderer);
+    assert(!SDL_SaveBMP(surface, "/private/tmp/dc-build-menu.bmp"));
+    mobj_t *center = find(MT_EXCOPOD);
+    assert(center && !center->production);
+    click.button.x = 530;
+    click.button.y = 125; /* Exploiter keeps the first unit slot. */
+    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    assert(center->production && center->production->actor_id == MT_EXPLOITER);
+    assert(level.player_resources[0][0] == 8500);
+    level.player_resources[0][0] = 10000;
+    click.button.x = 590;
+    click.button.y = 290; /* MAINE control 81: Sci-Pod at (577,276). */
+    assert(!find(MT_SCNCPOD));
+    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    mobj_t *science = find(MT_SCNCPOD), *exco = find(MT_EXCOPOD);
+    assert(science && exco && level.player_resources[0][0] == 8000);
+    assert(science->core.state_id == S_SCNCPOD_BUILD1);
+    assert(fvec2_near(fixed3_xy_to_fvec2(science->core.position),
+                      fvec2_add(fixed3_xy_to_fvec2(exco->core.position),
+                                (fvec2_t){4.0f, -5.0f / 32.0f}), 0.0001f));
+    P_FreeMobjList(&objects);
+    objects = P_ListMobjs();
+    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    assert(level.player_resources[0][0] == 8000); /* No duplicate module. */
+    P_FreeMobjList(&objects);
     G_ShutdownCustomUI(ui);
     R_FreeSpriteCache(cache);
     free(cache);
