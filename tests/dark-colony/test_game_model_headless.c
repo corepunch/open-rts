@@ -432,15 +432,15 @@ static int assert_human02(RtsGameModel *model) {
         snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE) < 1) {
         return fail("Human02 city slots materialize human and alien base structures");
     }
-    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 0,
-                                      S_EXCOPOD_STND, (fvec2_t){ 56.0f, 55.0f },
-                                      (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 4,
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
+                                      S_EXCOPOD_STND, (fvec2_t){ 54.0f, 55.46875f },
+                                      (ivec2_t){ 64, 32 + 15 }) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 38,
                                       S_BRRKPOD_STND, (fvec2_t){ 56.0f, 55.0f },
-                                      (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 0,
-                                      S_TOWR_STND, (fvec2_t){ 56.0f, 55.0f },
-                                      (ivec2_t){ 0, CELL_H })) {
+                                      (ivec2_t){ 0, 32 }) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 1,
+                                      S_TOWR_STND, (fvec2_t){ 56.0f, 56.0f },
+                                      (ivec2_t){ 0, 32 + 32 })) {
         return fail("Human02 city buildings retain the native origin and render on the terrain row");
     }
     if (snapshot_has_owner_type_frame_at(&snapshot, 1, MT_EXCOPOD, 0,
@@ -523,26 +523,26 @@ static int assert_human03_city_slots(RtsGameModel *model) {
     if (!rts_game_model_snapshot(model, &snapshot)) {
         return fail("initial Human03 snapshot");
     }
-    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 0,
-                                      S_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
-                                      (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 4,
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
+                                      S_EXCOPOD_STND, (fvec2_t){ 73.0f, 6.46875f },
+                                      (ivec2_t){ 64, 32 + 15 }) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_BRRKPOD, 38,
                                       S_BRRKPOD_STND, (fvec2_t){ 75.0f, 6.0f },
-                                      (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_SCNCPOD, 2,
-                                      S_NULL, (fvec2_t){ 75.0f, 6.0f },
-                                      (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 0,
-                                      S_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
-                                      (ivec2_t){ 0, CELL_H })) {
+                                      (ivec2_t){ 0, 32 }) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_SCNCPOD, 41,
+                                      S_SCNCPOD_STND1, (fvec2_t){ 77.0f, 6.3125f },
+                                      (ivec2_t){ -64, 32 + 10 }) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 1,
+                                      S_TOWR_STND, (fvec2_t){ 75.0f, 7.0f },
+                                      (ivec2_t){ 0, 32 + 32 })) {
         return fail("Human03 city slots retain the native origin and render on the terrain row");
     }
-    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 0,
-                                      S_EXCOPOD_STND, (fvec2_t){ 75.0f, 6.0f },
-                                      (ivec2_t){ 0, CELL_H }) ||
-        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 0,
-                                      S_TOWR_STND, (fvec2_t){ 75.0f, 6.0f },
-                                      (ivec2_t){ 0, CELL_H })) {
+    if (!snapshot_has_owner_type_pose(&snapshot, 0, MT_EXCOPOD, 19,
+                                      S_EXCOPOD_STND, (fvec2_t){ 73.0f, 6.46875f },
+                                      (ivec2_t){ 64, 32 + 15 }) ||
+        !snapshot_has_owner_type_pose(&snapshot, 0, MT_CITY_TOWER, 1,
+                                      S_TOWR_STND, (fvec2_t){ 75.0f, 7.0f },
+                                      (ivec2_t){ 0, 32 + 32 })) {
         return fail("Human03 DC city AISlot is the player city base");
     }
     if (snapshot_count_units_with_owner_and_type(&snapshot, 1, MT_ALIEN_MINDHIVE) != 1 ||

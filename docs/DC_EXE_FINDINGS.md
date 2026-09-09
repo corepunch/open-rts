@@ -2482,3 +2482,124 @@ from unmodified `ba5092f` against the same assets: `test_combat_and_harvest`
 cannot find the player Exploiter, and `test_game_model_headless` counts zero
 initial Human01 Troopers where it expects 32. These scenario-model failures
 are not introduced by this change.
+
+## Restore city FIN initialization and native slot positions (2026-09-09)
+
+**Confirmed, executable and history:** the city geometry was not lost. The table
+at VA `0x475b64` in `data/DCOLONY/DC.EXE` remains identical to
+`city_slot_offset()` in `w_map.c`. Executable SHA-256:
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`
+(566272 bytes). This restores findings recorded in `db463f4` (2026-08-31),
+also checked against the pre-September-8 loader in `8aabd1b`.
+
+| Slot | Native pixel offset | Human base module |
+| --- | --- | --- |
+| 0 | (-64, 15) | EXCOPOD |
+| 1 | (0, 0) | BRRKPOD |
+| 2 | (32, 64) | ROBOPOD |
+| 3 | (64, 10) | SCNCPOD |
+| 4 | (-32, 65) | RSCHPOD |
+| 5 | (0, 32) | TOWR |
+| 6–14 | (0, 0) | remaining city slots |
+
+The constructor `0x4412d4` uses the second `%AISlots` pair, stored at team
+`+0x2c/+0x30`. Instructions `0x44145a..0x4414b3` compute signed 8.8 object
+coordinates as `anchor * 256 + slot_offset * 8`. Slot lookup uses two dwords
+per pair (low signed words are consumed); native type lookup is at `0x475f9c`,
+indexed by race, upgrade, and slot. At `0x4414f6`, slot 5 bypasses the occupancy
+loop. Unlike mobiles (`0x419f1a..0x419f3e`), cities do not add `0x80` to center
+their coordinates. Human02's anchor is `(56,55)`, giving EXCOPOD
+`(54,55.46875)`, Barracks `(56,55)`, and TOWR `(56,56)`.
+
+For city object indices below 120 and slots below six,
+`0x43654f..0x436567` calls `0x441080` to recover `slot_offset * 8`.
+Queue construction then uses:
+
+```text
+0x436662..0x436675: draw_z = object_z - slot_z * 8 + FIN.runtime_y
+0x43667c..0x436687: draw_x = object_x - slot_x * 8 + FIN.runtime_x
+```
+
+Thus the scattered coordinates are intentional gameplay positions. FIN
+commands use the common city origin. Ordinary depth-key setup at
+`0x4365a7..0x4365c0` consumes object Z before this subtraction. One separate
+branch, `0x43657b..0x4365a5`, tests team field `+0xbb8 == 1` and slot 2 and
+subtracts `0x108` before sorting; its complete condition semantics remain
+**unknown here**, and this correction does not claim to reproduce that branch.
+
+**Confirmed source regression:** `23cbabb` replaced the loader's
+`P_SetMobjState()` call with an authored state ID/tic assignment followed by
+`P_InitMobj()`. City types are configured by `ActorType` with IDs 1000–1015,
+outside `mobjinfo[]`; initialization returned before copying sprite/frame.
+Temporary `OPEN_RTS_DEBUG_CITY` logging at spawn showed Human02 EXCOPOD,
+Barracks and TOWR with the correct states (1, 9, 11), but all had sprite `-1`
+and frame `0`, instead of `(SPR_HUBU,19)`, `(SPR_HUBU,38)`, `(SPR_TOWR,1)`.
+TOWR's persistent state never transitioned to repair its visuals. Raw SPR
+cell zero explained both the duplicate pod appearance and the misplaced tower.
+The diagnostic was removed after confirming the corrected values.
+
+Initialization now applies an explicitly supplied valid state even when no
+`mobjinfo` defaults exist. It preserves tics and does not run actions, following
+`reference/DOOM/p_mobj.c`'s `P_SpawnMobj` initialization contract. The loader
+also retains native physical coordinates for sorting and cancels slot offsets
+only through the object's render offset. In bottom-up projection this is
+`(-slot.x, slot.y + g_cell_h)`; the existing terrain-row conversion now uses
+DC's actual 32-pixel cell instead of the engine's stale 24-pixel `CELL_H`.
+FIN command offsets themselves and terrain geometry are unchanged.
+
+Human TOWR now uses slot 5, as the type/geometry table specifies, rather than
+copying EXCOPOD's slot-0 physical position. The existing synthesized-tower
+policy is retained for both races, but an explicitly populated tower slot no
+longer creates a second human tower. The retail justification for synthesizing
+a missing tower, the first-AISlots fallback, and dynamic-object tower companions
+remains **unknown / preserved**, as recorded in the loader findings above.
+
+**Confirmed native assets:** the existing SCNCPOD, SCNCPOD2 and ROBOPOD2 idle
+states were not selected for starting objects. They are now selected alongside
+new ROBOPOD and RSCHPOD idle chains from `HUBU.FIN`:
+
+| Exact FIN label | Native frames | Logical frames (19 SPR cells) |
+| --- | --- | --- |
+| ROBOPODSTAND0 | 48–67 | 67–86 |
+| ROBOPOD2STAND0 | 68–87 | 87–106 |
+| SCNCPODSTAND0 | 22 | 41 |
+| SCNCPOD2STAND0 | 24–25 | 43–44 |
+| RSCHPODSTAND0 | 9–17 | 28–36 |
+
+The two new chains retain all FIN commands. ROBOPOD has raw delay zero in every
+frame; RSCHPOD has zero except raw 80 in frame 17. Native delays are 2 and 12,
+respectively; durations use cumulative 66 ms native-to-30 Hz boundaries, as
+already established in the native damage timing findings. HUBU/TOWR asset
+fingerprints are listed in the complete FIN-state findings above. TOWR's
+single command supplies offset `(-36,-9)` relative to the common origin;
+EXCOPOD's initial body command is `hubu/0 (-114,12)`, and Barracks is
+`hubu/4 (-36,37)`, explaining why raw-cell fallback cannot position them.
+
+**Disproven:** missing geometry table, a city-only half-cell adjustment, or
+moving the terrain to assemble the base. The older mixed Human02 anchor
+`(56,53.5)` and centered `(56,55.5)` both contradict the constructor. The user
+screenshot and new local Human02/Human03 renders establish the visible
+regression/correction; they are not retail screenshot equivalence evidence.
+
+Reproduce the native evidence and regression:
+
+```sh
+r2 -q -e bin.cache=true -c 'pxw 120 @ 0x475b64' \
+  -c 'af @ 0x4412d4' -c 'pdf @ 0x4412d4' \
+  -c 'pd 42 @ 0x43654f' -c 'pd 25 @ 0x436650' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --label ROBOPODSTAND0 data/DCOLONY/ANIMATE/HUBU.FIN
+build/dc_info_conv --label RSCHPODSTAND0 data/DCOLONY/ANIMATE/HUBU.FIN
+make build/bin/tests/dark-colony/test_city_layout
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_city_layout
+```
+
+The city test loads Human02 and Human03, checks initial FIN visuals for human
+and alien buildings, verifies the player's native slot positions and shared
+projected origin, checks the two new FIN timelines, and writes
+`/private/tmp/city-human02.bmp` and `/private/tmp/city-human03.bmp` for visual
+inspection. `test_mobj_states` protects action-free authored-state initialization.
+`make`, `make tags`, Dark Colony `--check`, and the game screenshot pass.
+The full Dark Colony suite retains the two previously reproduced baseline
+failures: missing Human01 initial Troopers (`test_game_model_headless`) and
+missing player Exploiter (`test_combat_and_harvest`). City, sprite layout,
+complete FIN states, Trooper/Grey rendering, and vent/beacon tests pass.

@@ -19,7 +19,7 @@ int main(void) {
         {0},
         { .tics = 1, .action = count_action, .nextstate = 2 },
         { .tics = 0, .action = redirect_action, .nextstate = 0 },
-        { .tics = 2, .action = count_action, .nextstate = 4 },
+        { .sprite = 7, .frame = 9, .tics = 2, .action = count_action, .nextstate = 4 },
         { .tics = -1, .action = count_action, .nextstate = 0 },
         { .tics = 0, .action = count_action, .nextstate = 3 },
     };
@@ -27,6 +27,11 @@ int main(void) {
     const gameinfo_t game = { .states = states, .state_count = 6,
         .mobjinfo = info, .mobj_type_count = 2, .null_state = 0 };
     gameinfo = &game;
+    mobj_t city = { .type_id = 1000, .core = { .state_id = 3, .tics = 1, .sprite_id = -1 } };
+    P_InitMobj(&game, &city);
+    RTS_CHECK(calls == 0 && city.core.sprite_id == 7 && city.core.frame == 9 &&
+                  city.core.state_id == 3 && city.core.tics == 1,
+              "states", "authored city spawn state initializes visuals without actions or resetting tics");
     mobj_t unit = { .type_id = 1 };
     P_InitMobj(&game, &unit);
     RTS_CHECK(calls == 0 && unit.core.state_id == 1 && unit.core.tics == 1,

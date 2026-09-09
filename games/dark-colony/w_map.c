@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "engine.h"
+#include "game.h"
 #include "info.h"
 #include "gamestat.h"
 #include "dc_types.h"
@@ -502,6 +503,11 @@ static int unit_state_for_type(int type) {
     switch (type) {
         case 16: return S_EXCOPOD_STND;
         case 17: return S_BRRKPOD_STND;
+        case 18: return S_ROBOPOD_STND1;
+        case 19: return S_ROBOPOD2_STND1;
+        case 20: return S_SCNCPOD_STND1;
+        case 21: return S_SCNCPOD2_STND1;
+        case 22: return S_RSCHPOD_STND1;
         case 81: return S_TOWR_STND;
         case 28: return S_ALIEN_MINDHIVE_STND;
         case 29: return S_ALIEN_WARHIVE_STND;
@@ -580,12 +586,11 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     if (mobj_type <= 0 || !actor_type_by_id((uint16_t)mobj_type)) return;
     mobj_t *u = P_SpawnMobj(fixed3_zero(), (uint16_t)mobj_type);
     if (!u) return;
-    /* The retail object record stores signed 8.8 coordinates. Preserve its
-       narrowing before undoing the city-slot offset for rendering. */
-    ivec2_t render = { (int16_t)position.x, (int16_t)position.y };
+    /* Preserve native signed 8.8 gameplay positions, including city slots.
+     * Their raw Z controls depth sorting, as in DC.EXE 0x4365a7. */
+    ivec2_t native = { (int16_t)position.x, (int16_t)position.y };
     bool city_origin = city_slot >= 0 && city_slot < 6;
-    if (city_origin) render = ivec2_sub(render, ivec2_scale(city_slot_offset(city_slot), 8));
-    u->core.position = (fixed3_t){ render.x * 256, render.y * 256, 0 };
+    u->core.position = (fixed3_t){ native.x * 256, native.y * 256, 0 };
     u->core.sprite_id = -1;
     u->attack.target = NULL;
     u->harvest.target = -1;
@@ -611,7 +616,12 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     u->core.state_id = state_id;
     u->core.tics = game_info.states[state_id].tics;
     P_InitMobj(&game_info, u);
-    if (city_origin) u->core.render_offset = ivec2_add(u->core.render_offset, (ivec2_t){ 0, CELL_H });
+    if (city_origin) {
+        /* The native draw queue subtracts the slot in world coordinates;
+         * screen Y runs in the opposite direction. FIN keeps the shared origin. */
+        ivec2_t slot = city_slot_offset(city_slot);
+        u->core.render_offset = (ivec2_t){ -slot.x, slot.y + g_cell_h };
+    }
     if (u->owner == 0) {
         ivec2_t cell = { (uint8_t)(position.x >> 8), (uint8_t)(position.y >> 8) };
         if (!units->player_anchor_set || cell.x > units->player_anchor.x) {
@@ -659,7 +669,7 @@ int load_dark_colony_initial_units(const char *map_path) {
             alien_anchor_set = true;
         }
         for (int slot = 0; slot < DARK_COLONY_SCN_CITY_SLOTS; ++slot) {
-            bool tower = slot == 5 && info->race == 1 && info->city_values[0] > 0 &&
+            bool tower = slot == 5 && info->city_values[0] > 0 &&
                          info->city_values[10] <= 0;
             if (!tower && (slot * 2 >= info->city_value_count || info->city_values[slot * 2] <= 0)) continue;
             int type = city_unit_type_for_slot(info->race, slot);
@@ -667,8 +677,6 @@ int load_dark_colony_initial_units(const char *map_path) {
             ivec2_t position = ivec2_add(ivec2_scale(anchor, 256), ivec2_scale(city_slot_offset(slot), 8));
             if (position.x < 0 || position.y < 0 || type <= 0) continue;
             int health = default_health_for_type(type);
-            if (info->race != 1 && type == 16)
-                spawn_object(&units, 81, team, info->race, allegiances[team], position, health, slot);
             spawn_object(&units, type, team, info->race, allegiances[team], position, health, slot);
         }
     }

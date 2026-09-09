@@ -613,6 +613,12 @@ Dark Colony `info.c` must use the frame-major formula instead.
 
 ### DC.EXE / DC16.EXE Findings
 
+City placement was rechecked directly in the local `data/DCOLONY/DC.EXE`
+using r2 on 2026-09-09: slot table `0x475b64`, constructor `0x4412d4`, and
+render-origin subtraction `0x436662..0x436687`. The earlier findings survive
+in commit `db463f4` (2026-08-31). See [city initialization and placement](docs/DC_EXE_FINDINGS.md#restore-city-fin-initialization-and-native-slot-positions-2026-09-09)
+for the fingerprint, formulas, asset ranges, corrected hypotheses and tests.
+
 See `docs/DC_EXE_FINDINGS.md` for the consolidated executable fingerprint,
 rendering call graph, native data layouts, animation timing, direction lookup,
 open-rts consequences, and unresolved questions.

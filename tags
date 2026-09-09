@@ -1096,6 +1096,7 @@ cells	tools/dc_spr_extract.c	/^    Cell *cells;$/;"	m	struct:__anonf6c4462b0208	
 center_anchor	game/g_game.h	/^    bool center_anchor;$/;"	m	struct:__anon42a104c41108	typeref:typename:bool
 center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
 check_all_fin_frames	tests/dark-colony/test_sprite_definitions.c	/^static void check_all_fin_frames(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
+check_city	tests/dark-colony/test_city_layout.c	/^static void check_city(const char *path, fvec2_t anchor, const char *screenshot) {$/;"	f	typeref:typename:void	file:	signature:(const char * path,fvec2_t anchor,const char * screenshot)
 check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit,const char * stem,const char * sequence,int sprite,int corpse,int total_tics)
 check_pixels	tests/dark-colony/test_sprite_loading.c	/^static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture,const uint8_t * indices,int remap)
 check_selection	tests/dark-colony/test_trooper_rendering.c	/^static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,spritecache_t * cache,mobj_t * unit)
@@ -1574,6 +1575,7 @@ main	tests/cross-game/test_model_commands.c	/^int main(void) {$/;"	f	typeref:typ
 main	tests/dark-colony/test_actor_lifecycle.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_ai_team_aware.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_blood_fin.c	/^int main(void) { lifecycle(); pixels(); return 0; }$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_city_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_combat_and_harvest.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_drop_fin_states.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_dropship.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
