@@ -1155,17 +1155,6 @@ void P_Ticker(level_t *map, mobj_t *units, int *unit_count, effect_t *effects,
             target->harvest.timer_ms = 0;
             target->attack.cooldown_left_ms = 0;
             target->core.momentum = fixed3_zero();
-            if (target->info && target->info->death_effect_action && !P_MobjIsHidden(target)) {
-                statecontext_t death_ctx = {
-                    .map = map,
-                    .mobjs = units,
-                    .mobj_count = &count,
-                    .effects = effects,
-                    .max_effects = max_effects,
-                    .game_info = game_info,
-                };
-                target->info->death_effect_action(&death_ctx, target);
-            }
             bool spawned = !P_MobjIsHidden(target) && spawn_visual_effect(effects, max_effects,
                                                target->core.sprite_name,
                                                target->core.position,

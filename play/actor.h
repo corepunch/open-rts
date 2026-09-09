@@ -57,7 +57,6 @@ typedef struct mobjtype_s {
     const char *muzzle_flash_name;
     int hit_effect_sprite;
     const char *hit_effect_name;
-    actionf_p1 death_effect_action;
 } mobjtype_t;
 
 typedef struct state_s {

@@ -880,3 +880,53 @@ tables exactly after substituting `SPR_DC_`/`S_DC_`/`MT_DC_` with
 `env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check` pass. The full
 headless DC suite retains its three previously recorded failures: visible
 muzzle effect, Human01 initial Trooper force, and spawn-state action invocation.
+
+### Replace synthetic FX states with complete Reaper death timelines
+
+**Correction/implementation:** `_FX1`, `_FX2`, etc. were generator-created state
+names, never FIN labels. The user requested their removal. The generator now
+emits one state per native FIN frame for each of `REAPDIEA14`, `REAPDIEA10`,
+`REAPDIEA6`, and `REAPDIEA2`, followed by a corpse state using that timeline's
+final frame. These states reference `REAP.SPR` cell count + FIN frame index;
+the existing loader supplies all body and BLAM layers, offsets, remaps,
+intensities, and flips together. There is no generated BLAM-only death chain,
+external-command flattening, or separate `P_SpawnEffect()` call. The obsolete
+`mobjtype_t.death_effect_action` hook, whose sole user was Reaper, is removed.
+
+`A_DC_ReaperDeath` now clears live-unit traits and enters the selected complete
+timeline. The preexisting nearest-direction/tie choice is retained explicitly
+in action code, not moved into the loader or presented as newly verified retail
+behavior. For engine direction codes 0–15 it selects suffixes
+`{2,14,14,14,14,10,10,10,10,6,6,6,6,2,2,2}`. Native sparse-direction selection
+remains unknown; no new DC.EXE investigation is claimed.
+
+**Timing correction:** the synthetic death body/effect states previously used
+fixed three/two-tic delays. Complete death frames now reuse the existing FIN
+production-timeline conversion, including cumulative 19 Hz to 30 Hz boundaries.
+The native conversion (`0` becomes `15`, then `((ticks + 3) * 19) / 100`) is
+documented with instruction addresses in `REFERENCES.md` under Reaper movement
+timing. The opening tick word 100 in A14/A6 becomes 19 native ticks / 30 engine
+tics before BLAM appears. A14's later body frames include tick words **200 and
+250**, correcting the preceding abbreviated description of them as 250.
+The full timelines sum to 427/204/454/252 native ticks for A14/A10/A6/A2,
+or 674/322/717/398 engine tics. Reaper movement timing remains unchanged.
+
+**Verification:** `test_reaper_death` drives the actual death action and state
+thinker for all sixteen engine directions. For every visited frame it checks
+the FIN frame index and decoded layers, including offsets, flip, remap,
+intensity, and layer order. It verifies the opening delay, total duration,
+18/0/17/0 BLAM-bearing frames, no separate effects, and the final corpse frame.
+Temporary `OPEN_RTS_DEBUG_REAPER_FIN` logging confirmed these values and was
+removed afterward. Run headlessly:
+
+```sh
+make build/bin/tests/dark-colony/test_reaper_death
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_reaper_death
+```
+
+Every generated state outside Reaper death matches the parent by state name.
+The build, Reaper layout/timing test, and headless DC smoke check pass. The
+HUMAN01 screenshot was inspected and remains byte-identical to the parent;
+death coverage comes from the focused test, not that starting-scene image.
+The complete DC suite retains only the three previously recorded failures
+(muzzle effect, initial Trooper force, and spawn-state action invocation).

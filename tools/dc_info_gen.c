@@ -73,9 +73,7 @@ typedef struct {
     int trsc_attack_b;
     int reap_run;
     int reap_attack;
-    int reap_death;
-    int reap_diefx_a14;
-    int reap_diefx_a6;
+    int reap_death[4];
     int barr_run;
     int barr_attack;
     int barr_death;
@@ -840,23 +838,6 @@ static int fin_sequence_tics(const DcFinAnimation *fin, const char *prefix,
     return runtime_tics > 0 ? runtime_tics : 1;
 }
 
-static int fin_effect_draw_part_count_for_label(const DcFinAnimation *fin, const char *label_name) {
-    const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
-    if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
-        return 0;
-    }
-    int count = 0;
-    const DcFinDrawPart *draw_parts[512];
-    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
-                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
-    for (int i = 0; i < draw_part_count; ++i) {
-        const DcFinDrawPart *cmd = draw_parts[i];
-        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) continue;
-        count++;
-    }
-    return count;
-}
-
 static int fin_frame_count_for_label(const DcFinAnimation *fin, const char *label_name) {
     const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
     if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
@@ -1044,9 +1025,11 @@ static DcFinStateCounts load_fin_state_counts(const char *root) {
     counts.trsc_attack_b = 4;
     counts.reap_run = fin_state_count_for_sequence16(&reap_fin, "REAPMOVE");
     counts.reap_attack = fin_state_count_for_sequence16(&reap_fin, "REAPFIRE");
-    counts.reap_death = fin_state_count_for_sequence16(&reap_fin, "REAPDIEA");
-    counts.reap_diefx_a14 = fin_effect_draw_part_count_for_label(&reap_fin, "REAPDIEA14");
-    counts.reap_diefx_a6 = fin_effect_draw_part_count_for_label(&reap_fin, "REAPDIEA6");
+    for (int i = 0; i < 4; ++i) {
+        char label[32];
+        snprintf(label, sizeof(label), "REAPDIEA%d", 14 - i * 4);
+        counts.reap_death[i] = fin_frame_count_for_label(&reap_fin, label);
+    }
     counts.barr_run = fin_state_count_for_sequence16(&barr_fin, "BARRMOVE");
     counts.barr_attack = fin_state_count_for_sequence16(&barr_fin, "BARRFIREA");
     counts.barr_death = fin_state_count_for_sequence16(&barr_fin, "BARRDIE");
@@ -1128,10 +1111,12 @@ static void write_header(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    S_REAP_STND,\n");
     for (int i = 1; i <= counts->reap_run; ++i) fprintf(out, "    S_REAP_RUN%d,\n", i);
     for (int i = 1; i <= counts->reap_attack; ++i) fprintf(out, "    S_REAP_ATK%d,\n", i);
-    for (int i = 1; i <= counts->reap_death; ++i) fprintf(out, "    S_REAP_DIE%d,\n", i);
-    fprintf(out, "    S_REAP_CORPSE,\n");
-    for (int i = 1; i <= counts->reap_diefx_a14; ++i) fprintf(out, "    S_REAP_DIEA14_FX%d,\n", i);
-    for (int i = 1; i <= counts->reap_diefx_a6; ++i) fprintf(out, "    S_REAP_DIEA6_FX%d,\n", i);
+    fprintf(out, "    S_REAP_DIE_SELECT,\n");
+    for (int direction = 0; direction < 4; ++direction) {
+        for (int i = 1; i <= counts->reap_death[direction]; ++i)
+            fprintf(out, "    S_REAP_DIEA%d_%d,\n", 14 - direction * 4, i);
+        fprintf(out, "    S_REAP_DIEA%d_CORPSE,\n", 14 - direction * 4);
+    }
     fprintf(out, "    S_BARR_STND,\n");
     for (int i = 1; i <= counts->barr_run; ++i) fprintf(out, "    S_BARR_RUN%d,\n", i);
     for (int i = 1; i <= counts->barr_attack; ++i) fprintf(out, "    S_BARR_ATK%d,\n", i);
@@ -1207,6 +1192,24 @@ static const char *fin_flip_flag_expr(const DcFinDrawPart *cmd) {
     return (cmd && (cmd->flags & 1)) ? "FLIPPED" : "0";
 }
 
+typedef struct {
+    int native;
+    int simulation;
+} FinTiming;
+
+static int fin_runtime_tics(const DcFinFrame *frame, FinTiming *elapsed) {
+    int raw_ticks = frame->ticks;
+    if (raw_ticks == 0) raw_ticks = 15;
+    int native_tics = ((raw_ticks + 3) * 19) / 100;
+    if (native_tics <= 0) native_tics = 1;
+    elapsed->native += native_tics;
+    /* Scale cumulative boundaries to retain native elapsed time at 30 Hz. */
+    int next = (elapsed->native * 30 + 9) / 19;
+    int tics = next - elapsed->simulation;
+    elapsed->simulation = next;
+    return tics;
+}
+
 static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
                                      int sprite_count, const DcFinAnimation *fin,
                                      const char *label_name,
@@ -1219,8 +1222,7 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
         exit(1);
     }
     int state_count = label->end - label->start + 1;
-    int native_tics_elapsed = 0;
-    int simulation_tics_elapsed = 0;
+    FinTiming timing = {0};
     for (int frame_index = label->start; frame_index <= label->end; ++frame_index) {
         const DcFinFrame *fin_frame = &fin->frames[frame_index];
         const DcFinDrawPart *primary = NULL;
@@ -1243,15 +1245,7 @@ static void write_fin_build_sequence(FILE *out, const SpriteEntry *sprites,
         if (index < state_count) snprintf(next, sizeof(next), "S_%s%d", state_prefix, index + 1);
         else snprintf(next, sizeof(next), "%s", exit_state);
 
-        int raw_ticks = fin_frame->ticks;
-        if (raw_ticks == 0) raw_ticks = 15;
-        int native_tics = ((raw_ticks + 3) * 19) / 100;
-        if (native_tics <= 0) native_tics = 1;
-        native_tics_elapsed += native_tics;
-        /* Scale cumulative boundaries so short frames retain the native elapsed time. */
-        int next_simulation_tics = (native_tics_elapsed * 30 + 9) / 19;
-        int runtime_tics = next_simulation_tics - simulation_tics_elapsed;
-        simulation_tics_elapsed = next_simulation_tics;
+        int runtime_tics = fin_runtime_tics(fin_frame, &timing);
 
         int primary_sprite = find_sprite_for_fin_stem(sprites, sprite_count, primary->sprite);
         fprintf(out,
@@ -1629,50 +1623,26 @@ static void write_fin_corpse16(FILE *out, const char *spr, const DcFinAnimation 
                   "A_DC_Corpse", "S_NULL", 4);
 }
 
-static void write_fin_label_effect_chain(FILE *out, const char *root,
-                                         const SpriteEntry *sprites, int sprite_count,
-                                         const DcFinAnimation *fin, const char *label_name,
-                                         const char *state_prefix, int direction_code,
-                                         int tics) {
-    (void)root;
-    (void)direction_code;
+static void write_fin_death_sequence(FILE *out, const SpriteEntry *sprite,
+                                     const DcFinAnimation *fin, int direction) {
+    char label_name[32];
+    snprintf(label_name, sizeof(label_name), "REAPDIEA%d", direction);
+    int count = fin_frame_count_for_label(fin, label_name);
     const DcFinAnimationHeader *label = dc_fin_find_animation_header(fin, label_name);
-    if (!dc_fin_animation_header_has_valid_frames(fin, label)) {
-        return;
-    }
-    const DcFinDrawPart *draw_parts[512];
-    int draw_part_count = dc_fin_draw_parts_for_animation_header(fin, label, draw_parts,
-                                               (int)(sizeof(draw_parts) / sizeof(draw_parts[0])));
-    int effect_index = 0;
-    for (int i = 0; i < draw_part_count; ++i) {
-        const DcFinDrawPart *cmd = draw_parts[i];
-        if (strcmp(cmd->sprite, fin->stem_lower) == 0 && cmd->layer == 1) continue;
-        effect_index++;
-
-        int sprite_index = find_sprite_for_fin_stem(sprites, sprite_count, cmd->sprite);
-
+    FinTiming timing = {0};
+    for (int i = 0; i < count; ++i) {
+        int frame = label->start + i;
         char next[64];
-        if (effect_index < fin_effect_draw_part_count_for_label(fin, label_name)) {
-            snprintf(next, sizeof(next), "S_%s_FX%d", state_prefix, effect_index + 1);
-        } else {
-            snprintf(next, sizeof(next), "S_NULL");
-        }
-
-        bool blaz = strcmp(cmd->sprite, "blaz") == 0;
-        char flag_expr[96];
-        if (blaz && (cmd->flags & 1)) {
-            snprintf(flag_expr, sizeof(flag_expr),
-                     "RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW|FLIPPED");
-        } else if (blaz) {
-            snprintf(flag_expr, sizeof(flag_expr), "RTS_FRAME_ADDITIVE|RTS_FRAME_TINT_YELLOW");
-        } else if (cmd->flags & 1) {
-            snprintf(flag_expr, sizeof(flag_expr), "FLIPPED");
-        } else {
-            snprintf(flag_expr, sizeof(flag_expr), "0");
-        }
-        fprintf(out, "    { %s, %d, %d, A_None, %s, 5, %s },\n",
-                sprites[sprite_index].symbol, cmd->frame, tics, next, flag_expr);
+        if (i + 1 < count)
+            snprintf(next, sizeof(next), "S_REAP_DIEA%d_%d", direction, i + 2);
+        else
+            snprintf(next, sizeof(next), "S_REAP_DIEA%d_CORPSE", direction);
+        fprintf(out, "    { %s, %d, %d, A_None, %s, 4, 0 },\n",
+                sprite->symbol, sprite->frames + frame,
+                fin_runtime_tics(&fin->frames[frame], &timing), next);
     }
+    fprintf(out, "    { %s, %d, 1, A_DC_Corpse, S_NULL, 4, 0 },\n",
+            sprite->symbol, sprite->frames + label->end);
 }
 
 static void write_muzzle(FILE *out, const char *spr, int frame, const int offsets_x[8],
@@ -1852,13 +1822,9 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     write_fin_layer5_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPFIRE", "REAP", "ATK",
                                 counts->reap_attack, 0, 2, 3, reap_atk_actions,
                                 "S_REAP_STND");
-    write_fin_sequence16(out, sprites[reap].symbol, &reap_fin, "REAPDIEA", "REAP", "DIE",
-                         counts->reap_death, 0, 3, 4, "A_DC_ReaperDeath", "S_REAP_CORPSE", false);
-    write_fin_corpse16(out, sprites[reap].symbol, &reap_fin, "REAPDIEA", counts->reap_death - 1, 0);
-    write_fin_label_effect_chain(out, root, sprites, sprite_count, &reap_fin,
-                                 "REAPDIEA14", "REAP_DIEA14", 2, 2);
-    write_fin_label_effect_chain(out, root, sprites, sprite_count, &reap_fin,
-                                 "REAPDIEA6", "REAP_DIEA6", 10, 2);
+    fprintf(out, "    { SPR_REAP, 0, 0, A_DC_ReaperDeath, S_NULL, 4, 0 },\n");
+    for (int i = 0; i < 4; ++i)
+        write_fin_death_sequence(out, &sprites[reap], &reap_fin, 14 - i * 4);
 
     f16_fin_state(out, sprites[barr].symbol, &barr_fin, "BARRSTAND", 0, 0, -1,
                   "A_None", "S_BARR_STND", 1);
@@ -1962,7 +1928,7 @@ static void write_source(FILE *out, const SpriteEntry *sprites, int sprite_count
     fprintf(out, "    { 1, S_TRSC_STND, 800, S_TRSC_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_TRSC_ATK_SELECT, S_TRSC_DIE1, S_TRSC_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_TRSC_MUZZLE, 0 },\n");
     fprintf(out, "    { 2, S_GRAY_STND, 800, S_GRAY_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_GRAY_ATK1, S_GRAY_DIE1, S_GRAY_DIE1, 0, 5, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_GRAY_MUZZLE, 0 },\n");
     fprintf(out, "    { 3, S_EXPL_STND, 800, S_EXPL_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_EXPL_DIE1, S_EXPL_DIE1, 0, 5, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER, S_NULL, S_NULL, 0 },\n");
-    fprintf(out, "    { 2, S_REAP_STND, 800, S_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_REAP_ATK1, S_REAP_DIE1, S_REAP_DIE1, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_REAP_MUZZLE, 0 },\n");
+    fprintf(out, "    { 2, S_REAP_STND, 800, S_REAP_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_REAP_ATK1, S_REAP_DIE_SELECT, S_REAP_DIE_SELECT, 0, 6, 16, 32, 100, 100, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK, S_NULL, S_REAP_MUZZLE, 0 },\n");
     fprintf(out, "    { 3, S_BARR_STND, 400, S_BARR_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_BARR_DIE1, S_BARR_DIE1, 0, 3, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 4, S_SARG_STND, 800, S_SARG_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_SARG_DIE1, S_SARG_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");
     fprintf(out, "    { 5, S_SCGM_STND, 800, S_SCGM_RUN1, 0, 0, 0, S_NULL, 0, 0, 0, S_NULL, S_SCGM_DIE1, S_SCGM_DIE1, 0, 9, 16, 32, 100, 0, 0, MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE, S_NULL, S_NULL, 0 },\n");

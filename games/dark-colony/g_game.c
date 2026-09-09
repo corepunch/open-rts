@@ -73,7 +73,6 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .muzzle_flash_sprite = SPR_BLAZ,
         .hit_effect_sprite = SPR_BLOO,
         .hit_effect_name = "SPRITES/BLOO.SPR",
-        .death_effect_action = A_DC_ReaperDeath,
     },
     {
         .id = MT_THUNDERBOLT,
