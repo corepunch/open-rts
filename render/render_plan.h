@@ -22,6 +22,7 @@ typedef enum {
 typedef struct drawcommand_s {
     DrawCommandKind kind;
     RenderLayer layer;
+    fixed_t sort_z;
     float sort_y;
     int stable_index;
     union {

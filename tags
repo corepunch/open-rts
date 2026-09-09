@@ -1194,6 +1194,7 @@ drawcommand_s::kind	render/render_plan.h	/^    DrawCommandKind kind;$/;"	m	struc
 drawcommand_s::layer	render/render_plan.h	/^    RenderLayer layer;$/;"	m	struct:drawcommand_s	typeref:typename:RenderLayer
 drawcommand_s::ref	render/render_plan.h	/^    } ref;$/;"	m	struct:drawcommand_s	typeref:union:drawcommand_s::__anonba488bd4030a
 drawcommand_s::sort_y	render/render_plan.h	/^    float sort_y;$/;"	m	struct:drawcommand_s	typeref:typename:float
+drawcommand_s::sort_z	render/render_plan.h	/^    fixed_t sort_z;$/;"	m	struct:drawcommand_s	typeref:typename:fixed_t
 drawcommand_s::stable_index	render/render_plan.h	/^    int stable_index;$/;"	m	struct:drawcommand_s	typeref:typename:int
 drawcommand_t	render/render_plan.h	/^} drawcommand_t;$/;"	t	typeref:struct:drawcommand_s
 duration_ms	game/map.h	/^    int duration_ms;$/;"	m	struct:mapdecorationframe_s	typeref:typename:int
@@ -1524,6 +1525,7 @@ main	tests/dark-colony/test_mobj_states.c	/^int main(void) {$/;"	f	typeref:typen
 main	tests/dark-colony/test_reaper_death.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_render_trait_helpers.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_definitions.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_sprite_height.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_layer_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_loading.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
 main	tests/dark-colony/test_temp_strings.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2019,6 +2021,7 @@ snapshot_has_owner_type_pose	tests/dark-colony/test_game_model_headless.c	/^stat
 snapshot_has_unit_at	tests/dark-colony/test_game_model_headless.c	/^static bool snapshot_has_unit_at(const RtsRenderSnapshot *snapshot, const char *sprite_name,$/;"	f	typeref:typename:bool	file:	signature:(const RtsRenderSnapshot * snapshot,const char * sprite_name,ivec2_t cell)
 solid	game/map.h	/^    bool solid;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
 sort_y	render/render_plan.h	/^    float sort_y;$/;"	m	struct:drawcommand_s	typeref:typename:float
+sort_z	render/render_plan.h	/^    fixed_t sort_z;$/;"	m	struct:drawcommand_s	typeref:typename:fixed_t
 source	hud/ui_definition.h	/^    irect_t source;$/;"	m	struct:uiimage_s	typeref:typename:irect_t
 spawn_debug_enemy_unit	driver/d_main.c	/^static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,const app_t * app,int sx,int sy)
 spawn_finished_model_product	game/g_game.c	/^static bool spawn_finished_model_product(RtsGameModel *model,$/;"	f	typeref:typename:bool	file:	signature:(RtsGameModel * model,const StaticProductDefinition * product,int producer_index)

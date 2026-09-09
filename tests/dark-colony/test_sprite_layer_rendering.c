@@ -37,7 +37,7 @@ int main(void) {
     CHECK(R_InitSpriteDef(&sheet, 1, 1) && R_InstallSpriteLump(&sheet, 0, 0, 0, false));
     spritelayer_t *part = sheet.spritedef.spriteframes[0].directions[0].layers;
     part->offset = (ivec2_t){ 0, 1 };
-    part->layer = 3;
+    part->layer = 1;
     state_t states[2] = { {0}, { .tics = -1 } };
     gameinfo_t game = { .states = states, .state_count = 2 };
     gameinfo = &game;
@@ -65,10 +65,31 @@ int main(void) {
     draw_pixels(&app, &sheet, &game, &unit, pixels);
     CHECK(pixels[0] == 0xff102040 && pixels[1] == 0xff402010);
 
+    part->layer = 3;
+    part->intensity = 16;
+    draw_pixels(&app, &sheet, &game, &unit, pixels);
+    /* Background + flipped/remapped source * old yellow tint * 230/255.
+     * SDL software backends may truncate at each modulation step. */
+    const uint32_t additive[2] = { 0xff62857a, 0xffb98562 };
+    for (int i = 0; i < 2; ++i)
+        for (int shift = 0; shift < 24; shift += 8)
+            CHECK(abs((int)((pixels[i] >> shift) & 255) -
+                      (int)((additive[i] >> shift) & 255)) <= 2);
+    part->intensity = 8;
+    draw_pixels(&app, &sheet, &game, &unit, pixels);
+    const uint32_t dim_additive[2] = { 0xff546a6a, 0xff7f6a5e };
+    for (int i = 0; i < 2; ++i)
+        for (int shift = 0; shift < 24; shift += 8)
+            CHECK(abs((int)((pixels[i] >> shift) & 255) -
+                      (int)((dim_additive[i] >> shift) & 255)) <= 2);
+    part->layer = 1;
+    draw_pixels(&app, &sheet, &game, &unit, pixels);
+    CHECK(pixels[0] == 0xff102040 && pixels[1] == 0xff402010);
+
     R_FreeSprite(&sheet);
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);
-    puts("PASS: sprite layers own flags, remap and intensity; selector 3 gets no forced tint");
+    puts("PASS: sprite layers own flags, remap and intensity; layer 3 is yellow/additive without leaking texture state");
     return 0;
 }

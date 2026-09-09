@@ -1,4 +1,5 @@
 #include "engine_config.h"
+#include "game.h"
 #include "../rts_model_test.h"
 #include "../../games/dark-colony/info.h"
 
@@ -25,6 +26,16 @@ int main(void) {
         bool visible = false;
         for (int i = 0; i < snapshot.unit_count; ++i)
             visible |= snapshot.units[i].type_id == MT_DROPSHIP;
+        mobjlist_t objects = P_ListMobjs();
+        for (int i = 0; i < objects.count; ++i) {
+            const mobj_t *unit = objects.items[i];
+            if (unit->type_id == MT_DROPSHIP)
+                RTS_CHECK(unit->core.position.z * g_cell_h == 50 * FIXED_ONE,
+                          "dropship", "retain 50 px altitude through every flight/unload state");
+            if (unit->type_id == MT_TROOPER)
+                RTS_CHECK(unit->core.position.z == 0, "dropship", "cargo stays on ground");
+        }
+        P_FreeMobjList(&objects);
         seen |= visible;
         delivered |= troopers(&snapshot) >= initial + 4;
         if (seen && !visible) { departed = true; break; }

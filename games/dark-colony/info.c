@@ -836,7 +836,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .height = 32,
         .mass = 100,
         .flags = MF_RENDERABLE|MF_FLY,
-        .spawnz = FIXED_ONE,
+        .spawnz = 50 * FIXED_ONE / 32, /* Requested 50 px altitude; DC cells are 32 px. */
     },
     { // MT_BLOOD
         .spawnstate = S_BLOOD1,

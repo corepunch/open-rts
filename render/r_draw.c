@@ -1161,12 +1161,23 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             SDL_Texture *part_texture = begin_sprite_command(
                 source, part->lump, remap, part->intensity);
             if (!part_texture) continue;
+            SDL_BlendMode blend;
+            SDL_GetTextureBlendMode(part_texture, &blend);
+            if (part->layer == 3) {
+                uint8_t intensity = fin_intensity_color_mod(part->intensity);
+                SDL_SetTextureBlendMode(part_texture, SDL_BLENDMODE_ADD);
+                SDL_SetTextureColorMod(part_texture, intensity,
+                    (uint8_t)((intensity * 236 + 127) / 255),
+                    (uint8_t)((intensity * 72 + 127) / 255));
+                SDL_SetTextureAlphaMod(part_texture, 230);
+            }
             SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
                 SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
             SDL_RenderCopyEx(app->renderer, part_texture,
                              &source->cells[part->lump].rect, &part_dst,
                              0.0, NULL, part_flip);
             end_sprite_command(part_texture);
+            SDL_SetTextureBlendMode(part_texture, blend);
         }
     } else {
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
@@ -1228,6 +1239,9 @@ void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const sprite
 static int compare_draw_commands(const void *a, const void *b) {
     const drawcommand_t *ia = a;
     const drawcommand_t *ib = b;
+    /* Elevated objects cover ground objects regardless of their ground Y. */
+    if (ia->sort_z < ib->sort_z) return -1;
+    if (ia->sort_z > ib->sort_z) return 1;
     if (ia->sort_y < ib->sort_y) return -1;
     if (ia->sort_y > ib->sort_y) return 1;
     if (ia->layer != ib->layer) return (int)ia->layer - (int)ib->layer;
@@ -1336,6 +1350,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
             .layer = RENDER_LAYER_UNIT,
+            .sort_z = units[i]->core.position.z,
             .sort_y = L_ScreenYF(map, position.y),
             .stable_index = i,
             .ref.unit = units[i],

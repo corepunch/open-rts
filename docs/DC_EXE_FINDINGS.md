@@ -1281,3 +1281,52 @@ starters, the first-AISlots fallback for city anchors, and synthesized city
 towers was not re-established here. Removing staging arrays is not evidence
 for changing these behaviors. Likewise, gameplay numbers still come from the
 same checked-in tables; no runtime GAMESTAT parsing or rebalance was added.
+
+
+## Restore requested flight ordering and layer-3 appearance (2026-09-09)
+
+**Confirmed source-history regression:** `6067a66` introduced Z-aware sprite
+projection and a one-cell dropship altitude. `85ec838` moved dropships from the
+late effects pass into the ordinary object pass; `mobjinfo[MT_DROPSHIP].spawnz`
+still supplies one world cell through `P_InitMobj`, and planar movement preserves
+it. The ordinary draw comparator considered ground Y only, allowing released
+Troopers to cover the ship. Temporary spawn logging confirmed Z = 1 after
+initialization. This corrects the tempting diagnosis that the zero passed in
+`DC_StartDropship` meant the initialized ship had zero altitude.
+
+**Requested engine behavior:** dropships now spawn at `50 * FIXED_ONE / 32`,
+exactly 50 screen pixels at Dark Colony's native 32-pixel cell scale. Draw commands
+sort by world Z before ground Y, placing elevated objects above ground objects
+regardless of their ground position. Existing `R_MapPositionToScreen` projects
+Z upward and scales it with cell height; movement and cargo placement are
+unchanged. This altitude and ordering are explicit user requirements, not newly
+verified retail constants. Doom's `reference/DOOM/r_things.c:R_ProjectSprite`
+likewise retains object Z in `vis->gz/gzt` and derives vertical sprite placement
+from it; our top-down draw ordering serves the requested overhead view.
+
+**Confirmed source-history removal:** `46376ba` explicitly removed selector-3
+SDL additive/yellow rendering. Per the user's requested appearance, FIN layer 3
+again uses `SDL_BLENDMODE_ADD`, RGB modulation `(255,236,72)` scaled by FIN
+intensity, and alpha 230, restoring the previous engine formula. Other FIN flags,
+remaps and intensities remain command-owned. The indexed composition path is
+preserved, and texture blend/color/alpha state is restored after drawing.
+This supersedes the earlier implementation decision to leave selector 3 plain;
+it does not supersede the finding that additive/yellow were not native flag
+bits. The exact DC.EXE selector-3 formula remains **unknown**. No new executable
+or native-asset format was examined; fingerprints and binary addresses above
+remain unchanged.
+
+**Verification:** `test_sprite_height` checks 50-pixel projection, scaling, and
+occluding ground objects on either side of ground Y in either input order.
+`test_dropship` checks that altitude survives every observed HUMAN01 flight and
+unload tick while Troopers remain at ground Z. `test_sprite_layer_rendering`
+checks additive pixels with the historical tint, remap/flip, full and half
+intensity, and ordinary rendering after a layer-3 draw. Run these under
+`build/bin/tests/dark-colony/` with `SDL_VIDEODRIVER=dummy`.
+
+Build and visual checks: `make -j4`, `make tags`,
+`build/bin/test_dark_colony_sprite_layout`, and `test_drop_fin_states` pass.
+The headless Dark Colony `--check` and `--screenshot` pass. Software-rendered
+previews of a ship overlapping five Troopers and the five Trooper attack frames
+show the ship covering troops and yellow additive muzzle/light layers. These
+are open-rts previews, not retail evidence.
