@@ -35,13 +35,14 @@ static int sprite_member_index(const char *name) {
 
 static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
                                uint32_t frame_offset, const uint32_t palette[256],
-                               spritecell_t *cell, spritelump_t *lump) {
+                               spritecell_t *cell, spritelump_t *lump, bool *flip_out) {
     if (!range_ok(size, frame_offset, 28)) return false;
     ivec2_t offset = { read_i32_le(segment + frame_offset), read_i32_le(segment + frame_offset + 4) };
     uint32_t flags_offset = read_u32_le(segment + frame_offset + 12);
     if (!range_ok(size, flags_offset, 12) || memcmp(segment + flags_offset, "TRPS", 4) != 0)
         return false;
     uint32_t flags = read_u32_le(segment + flags_offset + 4);
+    *flip_out = (flags & 1u) != 0;
     uint32_t image = read_u32_le(segment + flags_offset + 8);
     if (!range_ok(size, image, 9)) return false;
     int width = (int)read_u32_le(segment + image);
@@ -84,14 +85,6 @@ static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, si
             uint8_t index = segment[pos + i];
             pixels[i] = index ? palette[index] : 0;
         }
-    }
-    if ((flags & 1u) != 0) {
-        for (int y = 0; y < height; ++y)
-            for (int x = 0; x < width / 2; ++x) {
-                uint32_t tmp = pixels[(size_t)y * width + x];
-                pixels[(size_t)y * width + x] = pixels[(size_t)y * width + width - 1 - x];
-                pixels[(size_t)y * width + width - 1 - x] = tmp;
-            }
     }
     cell->rect = cell->bounds = (irect_t){ 0, 0, width, height };
     cell->displacement = ivec2_sub((ivec2_t){ width / 2, height / 2 }, offset);
@@ -163,11 +156,12 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
     }
     if (frame_count == 0) goto fail;
 
+    bool flips[MAX_FRAMES] = {0};
     if (!R_AllocSpriteCells(out, frame_count)) goto fail;
     out->frame_size = (isize2_t){ 1, 1 };
     for (int i = 0; i < frame_count; ++i) {
         spritecell_t *cell = &out->cells[i];
-        if (!decode_mobd_image(renderer, segment, size, frames[i], palette, cell, &out->lumps[i])) goto fail;
+        if (!decode_mobd_image(renderer, segment, size, frames[i], palette, cell, &out->lumps[i], &flips[i])) goto fail;
         if (cell->rect.w > out->frame_size.w) out->frame_size.w = cell->rect.w;
         if (cell->rect.h > out->frame_size.h) out->frame_size.h = cell->rect.h;
     }
@@ -186,9 +180,11 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
         int length = group_lengths[block * 16];
         if (length <= 0) continue;
         for (int frame = 0; frame < length; ++frame, ++logical_frame)
-            for (int rotation = 0; rotation < 16; ++rotation)
+            for (int rotation = 0; rotation < 16; ++rotation) {
+                int lump = group_starts[block * 16 + rotation] + frame;
                 R_InstallSpriteLump(out, logical_frame, (16 - rotation) % 16,
-                    group_starts[block * 16 + rotation] + frame, false);
+                    lump, flips[lump]);
+            }
     }
     return true;
 

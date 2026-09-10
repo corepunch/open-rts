@@ -1,5 +1,20 @@
 # 7th Legion loader evidence
 
+## Info-table generation audit (2026-09-10)
+
+**Confirmed from installed assets.** The current playable actor catalog has
+seven entries, and all seven referenced BIM files exist under `data/7LEGION/GFX`:
+Legionnaire, slave, spider mech, tank, rock mech, truck, and mobile base.
+`tools/7legion_info_gen.c` now validates those assets and emits the Doom-style
+`sprnames[]`, `states[]`, and `mobjinfo[]` tables. Reproduce with
+`make test-info-gen`.
+
+**Known limit.** The installed GFX directory contains many more unit-part and
+effect BIM files. No open-source rules implementation or executable evidence
+was found in this audit that maps those assets into a complete actor roster,
+so the generator deliberately preserves the verified seven-actor vertical
+slice rather than guessing additional `mobjinfo` records.
+
 ## Representation cleanup (2026-09-09)
 
 **Confirmed by asset-loader comparison to `46f826a`.** The installed MAPT.000

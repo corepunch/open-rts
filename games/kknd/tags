@@ -41,7 +41,6 @@
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
 $	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	e	enum:__anonf02e1ac70203	file:
 ACTOR_TYPES	games/kknd/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
-GAME_INFO	games/kknd/g_game.c	/^static const gameinfo_t GAME_INFO = {$/;"	v	typeref:typename:const gameinfo_t	file:
 G_CustomUIDrawer	games/kknd/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 G_CustomUIResponder	games/kknd/g_game.c	/^bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 G_CustomUITicker	games/kknd/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
@@ -71,8 +70,184 @@ MAX_FRAMES	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 }
 MAX_LAYERS	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	e	enum:__anonf02e1ac70103	file:
 MAX_LAYERS	games/kknd/w_lvl.h	/^enum { MAX_LAYERS = 3 };$/;"	e	enum:__anon1abf4fd20103
 MOBJ_GAME_FIELDS	games/kknd/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
+MT_MUTE_ALCHEMY_HALL	games/kknd/info.h	/^    MT_MUTE_ALCHEMY_HALL,  \/* doomednum=66 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_BAZOOKA	games/kknd/info.h	/^    MT_MUTE_BAZOOKA,  \/* doomednum=15 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_BEAST_ENCLOSURE	games/kknd/info.h	/^    MT_MUTE_BEAST_ENCLOSURE,  \/* doomednum=62 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_BERSERKER	games/kknd/info.h	/^    MT_MUTE_BERSERKER,  \/* doomednum=1 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_BIKE_SIDECAR	games/kknd/info.h	/^    MT_MUTE_BIKE_SIDECAR,  \/* doomednum=29 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_BLACKSMITH	games/kknd/info.h	/^    MT_MUTE_BLACKSMITH,  \/* doomednum=61 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_CLANHALL	games/kknd/info.h	/^    MT_MUTE_CLANHALL,  \/* doomednum=59 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_CLANHALL_WAGON	games/kknd/info.h	/^    MT_MUTE_CLANHALL_WAGON,  \/* doomednum=41 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_CRAZY_HARRY	games/kknd/info.h	/^    MT_MUTE_CRAZY_HARRY,  \/* doomednum=17 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_DIRE_WOLF	games/kknd/info.h	/^    MT_MUTE_DIRE_WOLF,  \/* doomednum=27 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_DRILLRIG	games/kknd/info.h	/^    MT_MUTE_DRILLRIG,  \/* doomednum=47 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_GIANT_BEETLE	games/kknd/info.h	/^    MT_MUTE_GIANT_BEETLE,  \/* doomednum=37 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_GIANT_SCORPION	games/kknd/info.h	/^    MT_MUTE_GIANT_SCORPION,  \/* doomednum=33 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_GRAPESHOT_TOWER	games/kknd/info.h	/^    MT_MUTE_GRAPESHOT_TOWER,  \/* doomednum=55 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_MACHINEGUN_NEST	games/kknd/info.h	/^    MT_MUTE_MACHINEGUN_NEST,  \/* doomednum=53 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_MEKANIK	games/kknd/info.h	/^    MT_MUTE_MEKANIK,  \/* doomednum=13 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_MENAGERIE	games/kknd/info.h	/^    MT_MUTE_MENAGERIE,  \/* doomednum=64 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_MISSILE_CRAB	games/kknd/info.h	/^    MT_MUTE_MISSILE_CRAB,  \/* doomednum=39 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_MOBILE_DERRICK	games/kknd/info.h	/^    MT_MUTE_MOBILE_DERRICK,  \/* doomednum=22 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_MONSTER_TRUCK	games/kknd/info.h	/^    MT_MUTE_MONSTER_TRUCK,  \/* doomednum=31 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_OIL_TANKER	games/kknd/info.h	/^    MT_MUTE_OIL_TANKER,  \/* doomednum=24 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_POWER_STATION	games/kknd/info.h	/^    MT_MUTE_POWER_STATION,  \/* doomednum=49 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_PYROMANIAC	games/kknd/info.h	/^    MT_MUTE_PYROMANIAC,  \/* doomednum=3 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_RIOTER	games/kknd/info.h	/^    MT_MUTE_RIOTER,  \/* doomednum=7 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_ROTARY_CANNON	games/kknd/info.h	/^    MT_MUTE_ROTARY_CANNON,  \/* doomednum=57 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_SHOTGUNNER	games/kknd/info.h	/^    MT_MUTE_SHOTGUNNER,  \/* doomednum=5 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_VANDAL	games/kknd/info.h	/^    MT_MUTE_VANDAL,  \/* doomednum=11 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_WAR_MASTADONT	games/kknd/info.h	/^    MT_MUTE_WAR_MASTADONT,  \/* doomednum=35 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_MUTE_WASP	games/kknd/info.h	/^    MT_MUTE_WASP,  \/* doomednum=43 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_NULL	games/kknd/info.h	/^    MT_NULL,$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_4X4_PICKUP	games/kknd/info.h	/^    MT_SURV_4X4_PICKUP,  \/* doomednum=28 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_ANACONDA_TANK	games/kknd/info.h	/^    MT_SURV_ANACONDA_TANK,  \/* doomednum=34 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_ATV	games/kknd/info.h	/^    MT_SURV_ATV,  \/* doomednum=30 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_ATV_FLAMETHROWER	games/kknd/info.h	/^    MT_SURV_ATV_FLAMETHROWER,  \/* doomednum=32 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_AUTOCANNON_TANK	games/kknd/info.h	/^    MT_SURV_AUTOCANNON_TANK,  \/* doomednum=38 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_BARRAGE_CRAFT	games/kknd/info.h	/^    MT_SURV_BARRAGE_CRAFT,  \/* doomednum=36 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_BOMBER	games/kknd/info.h	/^    MT_SURV_BOMBER,  \/* doomednum=44 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_CANNON_TOWER	games/kknd/info.h	/^    MT_SURV_CANNON_TOWER,  \/* doomednum=54 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_DIRT_BIKE	games/kknd/info.h	/^    MT_SURV_DIRT_BIKE,  \/* doomednum=26 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_DRILLRIG	games/kknd/info.h	/^    MT_SURV_DRILLRIG,  \/* doomednum=46 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_FLAMER	games/kknd/info.h	/^    MT_SURV_FLAMER,  \/* doomednum=2 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_GUARD_TOWER	games/kknd/info.h	/^    MT_SURV_GUARD_TOWER,  \/* doomednum=52 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_MACHINE_SHOP	games/kknd/info.h	/^    MT_SURV_MACHINE_SHOP,  \/* doomednum=60 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_MISSILE_BATTERY	games/kknd/info.h	/^    MT_SURV_MISSILE_BATTERY,  \/* doomednum=56 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_MOBILE_DERRICK	games/kknd/info.h	/^    MT_SURV_MOBILE_DERRICK,  \/* doomednum=21 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_MOBILE_OUTPOST	games/kknd/info.h	/^    MT_SURV_MOBILE_OUTPOST,  \/* doomednum=40 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_OIL_TANKER	games/kknd/info.h	/^    MT_SURV_OIL_TANKER,  \/* doomednum=23 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_OUTPOST	games/kknd/info.h	/^    MT_SURV_OUTPOST,  \/* doomednum=58 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_POWER_STATION	games/kknd/info.h	/^    MT_SURV_POWER_STATION,  \/* doomednum=48 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_REPAIR_BAY	games/kknd/info.h	/^    MT_SURV_REPAIR_BAY,  \/* doomednum=63 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_RESEARCH_LAB	games/kknd/info.h	/^    MT_SURV_RESEARCH_LAB,  \/* doomednum=65 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_RIFLEMAN	games/kknd/info.h	/^    MT_SURV_RIFLEMAN,  \/* doomednum=0 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_RPG_LAUNCHER	games/kknd/info.h	/^    MT_SURV_RPG_LAUNCHER,  \/* doomednum=14 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_SABOTEUR	games/kknd/info.h	/^    MT_SURV_SABOTEUR,  \/* doomednum=10 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_SAPPER	games/kknd/info.h	/^    MT_SURV_SAPPER,  \/* doomednum=6 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_SNIPER	games/kknd/info.h	/^    MT_SURV_SNIPER,  \/* doomednum=16 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_SWAT	games/kknd/info.h	/^    MT_SURV_SWAT,  \/* doomednum=4 *\/$/;"	e	enum:__anon9b61d11a0303
+MT_SURV_TECHNICIAN	games/kknd/info.h	/^    MT_SURV_TECHNICIAN,  \/* doomednum=12 *\/$/;"	e	enum:__anon9b61d11a0303
+NUMMOBJTYPES	games/kknd/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon9b61d11a0303
+NUMSPRITES	games/kknd/info.h	/^    NUMSPRITES$/;"	e	enum:__anon9b61d11a0103
+NUMSTATES	games/kknd/info.h	/^    NUMSTATES$/;"	e	enum:__anon9b61d11a0203
 P_LoadThings	games/kknd/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
 R_InitSprites	games/kknd/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
+SPR_MUTE_ALCHEMY_HALL	games/kknd/info.h	/^    SPR_MUTE_ALCHEMY_HALL,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_BAZOOKA	games/kknd/info.h	/^    SPR_MUTE_BAZOOKA,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_BEAST_ENCLOSURE	games/kknd/info.h	/^    SPR_MUTE_BEAST_ENCLOSURE,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_BERSERKER	games/kknd/info.h	/^    SPR_MUTE_BERSERKER,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_BIKE_SIDECAR	games/kknd/info.h	/^    SPR_MUTE_BIKE_SIDECAR,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_BLACKSMITH	games/kknd/info.h	/^    SPR_MUTE_BLACKSMITH,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_CLANHALL	games/kknd/info.h	/^    SPR_MUTE_CLANHALL,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_CLANHALL_WAGON	games/kknd/info.h	/^    SPR_MUTE_CLANHALL_WAGON,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_CRAZY_HARRY	games/kknd/info.h	/^    SPR_MUTE_CRAZY_HARRY,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_DIRE_WOLF	games/kknd/info.h	/^    SPR_MUTE_DIRE_WOLF,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_DRILLRIG	games/kknd/info.h	/^    SPR_MUTE_DRILLRIG,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_GIANT_BEETLE	games/kknd/info.h	/^    SPR_MUTE_GIANT_BEETLE,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_GIANT_SCORPION	games/kknd/info.h	/^    SPR_MUTE_GIANT_SCORPION,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_GRAPESHOT_TOWER	games/kknd/info.h	/^    SPR_MUTE_GRAPESHOT_TOWER,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_MACHINEGUN_NEST	games/kknd/info.h	/^    SPR_MUTE_MACHINEGUN_NEST,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_MEKANIK	games/kknd/info.h	/^    SPR_MUTE_MEKANIK,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_MENAGERIE	games/kknd/info.h	/^    SPR_MUTE_MENAGERIE,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_MISSILE_CRAB	games/kknd/info.h	/^    SPR_MUTE_MISSILE_CRAB,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_MOBILE_DERRICK	games/kknd/info.h	/^    SPR_MUTE_MOBILE_DERRICK,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_MONSTER_TRUCK	games/kknd/info.h	/^    SPR_MUTE_MONSTER_TRUCK,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_OIL_TANKER	games/kknd/info.h	/^    SPR_MUTE_OIL_TANKER,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_POWER_STATION	games/kknd/info.h	/^    SPR_MUTE_POWER_STATION,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_PYROMANIAC	games/kknd/info.h	/^    SPR_MUTE_PYROMANIAC,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_RIOTER	games/kknd/info.h	/^    SPR_MUTE_RIOTER,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_ROTARY_CANNON	games/kknd/info.h	/^    SPR_MUTE_ROTARY_CANNON,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_SHOTGUNNER	games/kknd/info.h	/^    SPR_MUTE_SHOTGUNNER,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_VANDAL	games/kknd/info.h	/^    SPR_MUTE_VANDAL,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_WAR_MASTADONT	games/kknd/info.h	/^    SPR_MUTE_WAR_MASTADONT,$/;"	e	enum:__anon9b61d11a0103
+SPR_MUTE_WASP	games/kknd/info.h	/^    SPR_MUTE_WASP,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_4X4_PICKUP	games/kknd/info.h	/^    SPR_SURV_4X4_PICKUP,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_ANACONDA_TANK	games/kknd/info.h	/^    SPR_SURV_ANACONDA_TANK,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_ATV	games/kknd/info.h	/^    SPR_SURV_ATV,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_ATV_FLAMETHROWER	games/kknd/info.h	/^    SPR_SURV_ATV_FLAMETHROWER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_AUTOCANNON_TANK	games/kknd/info.h	/^    SPR_SURV_AUTOCANNON_TANK,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_BARRAGE_CRAFT	games/kknd/info.h	/^    SPR_SURV_BARRAGE_CRAFT,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_BOMBER	games/kknd/info.h	/^    SPR_SURV_BOMBER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_CANNON_TOWER	games/kknd/info.h	/^    SPR_SURV_CANNON_TOWER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_DIRT_BIKE	games/kknd/info.h	/^    SPR_SURV_DIRT_BIKE,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_DRILLRIG	games/kknd/info.h	/^    SPR_SURV_DRILLRIG,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_FLAMER	games/kknd/info.h	/^    SPR_SURV_FLAMER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_GUARD_TOWER	games/kknd/info.h	/^    SPR_SURV_GUARD_TOWER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_MACHINE_SHOP	games/kknd/info.h	/^    SPR_SURV_MACHINE_SHOP,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_MISSILE_BATTERY	games/kknd/info.h	/^    SPR_SURV_MISSILE_BATTERY,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_MOBILE_DERRICK	games/kknd/info.h	/^    SPR_SURV_MOBILE_DERRICK,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_MOBILE_OUTPOST	games/kknd/info.h	/^    SPR_SURV_MOBILE_OUTPOST,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_OIL_TANKER	games/kknd/info.h	/^    SPR_SURV_OIL_TANKER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_OUTPOST	games/kknd/info.h	/^    SPR_SURV_OUTPOST,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_POWER_STATION	games/kknd/info.h	/^    SPR_SURV_POWER_STATION,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_REPAIR_BAY	games/kknd/info.h	/^    SPR_SURV_REPAIR_BAY,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_RESEARCH_LAB	games/kknd/info.h	/^    SPR_SURV_RESEARCH_LAB,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_RIFLEMAN	games/kknd/info.h	/^    SPR_SURV_RIFLEMAN,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_RPG_LAUNCHER	games/kknd/info.h	/^    SPR_SURV_RPG_LAUNCHER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_SABOTEUR	games/kknd/info.h	/^    SPR_SURV_SABOTEUR,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_SAPPER	games/kknd/info.h	/^    SPR_SURV_SAPPER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_SNIPER	games/kknd/info.h	/^    SPR_SURV_SNIPER,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_SWAT	games/kknd/info.h	/^    SPR_SURV_SWAT,$/;"	e	enum:__anon9b61d11a0103
+SPR_SURV_TECHNICIAN	games/kknd/info.h	/^    SPR_SURV_TECHNICIAN,$/;"	e	enum:__anon9b61d11a0103
+S_MUTE_ALCHEMY_HALL_STND	games/kknd/info.h	/^    S_MUTE_ALCHEMY_HALL_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_STND	games/kknd/info.h	/^    S_MUTE_BAZOOKA_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BEAST_ENCLOSURE_STND	games/kknd/info.h	/^    S_MUTE_BEAST_ENCLOSURE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_STND	games/kknd/info.h	/^    S_MUTE_BERSERKER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BIKE_SIDECAR_STND	games/kknd/info.h	/^    S_MUTE_BIKE_SIDECAR_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BLACKSMITH_STND	games/kknd/info.h	/^    S_MUTE_BLACKSMITH_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CLANHALL_STND	games/kknd/info.h	/^    S_MUTE_CLANHALL_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CLANHALL_WAGON_STND	games/kknd/info.h	/^    S_MUTE_CLANHALL_WAGON_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_STND	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_DIRE_WOLF_STND	games/kknd/info.h	/^    S_MUTE_DIRE_WOLF_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_DRILLRIG_STND	games/kknd/info.h	/^    S_MUTE_DRILLRIG_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_STND	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_STND	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GRAPESHOT_TOWER_STND	games/kknd/info.h	/^    S_MUTE_GRAPESHOT_TOWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MACHINEGUN_NEST_STND	games/kknd/info.h	/^    S_MUTE_MACHINEGUN_NEST_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_STND	games/kknd/info.h	/^    S_MUTE_MEKANIK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MENAGERIE_STND	games/kknd/info.h	/^    S_MUTE_MENAGERIE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_STND	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MOBILE_DERRICK_STND	games/kknd/info.h	/^    S_MUTE_MOBILE_DERRICK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MONSTER_TRUCK_STND	games/kknd/info.h	/^    S_MUTE_MONSTER_TRUCK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_OIL_TANKER_STND	games/kknd/info.h	/^    S_MUTE_OIL_TANKER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_POWER_STATION_STND	games/kknd/info.h	/^    S_MUTE_POWER_STATION_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_STND	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_STND	games/kknd/info.h	/^    S_MUTE_RIOTER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_ROTARY_CANNON_STND	games/kknd/info.h	/^    S_MUTE_ROTARY_CANNON_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_STND	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_STND	games/kknd/info.h	/^    S_MUTE_VANDAL_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_STND	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WASP_STND	games/kknd/info.h	/^    S_MUTE_WASP_STND,$/;"	e	enum:__anon9b61d11a0203
+S_NULL	games/kknd/info.h	/^    S_NULL = 0,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_4X4_PICKUP_STND	games/kknd/info.h	/^    S_SURV_4X4_PICKUP_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ANACONDA_TANK_STND	games/kknd/info.h	/^    S_SURV_ANACONDA_TANK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_FLAMETHROWER_STND	games/kknd/info.h	/^    S_SURV_ATV_FLAMETHROWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_STND	games/kknd/info.h	/^    S_SURV_ATV_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_STND	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_BARRAGE_CRAFT_STND	games/kknd/info.h	/^    S_SURV_BARRAGE_CRAFT_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_BOMBER_STND	games/kknd/info.h	/^    S_SURV_BOMBER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_CANNON_TOWER_STND	games/kknd/info.h	/^    S_SURV_CANNON_TOWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_DIRT_BIKE_STND	games/kknd/info.h	/^    S_SURV_DIRT_BIKE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_DRILLRIG_STND	games/kknd/info.h	/^    S_SURV_DRILLRIG_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_STND	games/kknd/info.h	/^    S_SURV_FLAMER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_GUARD_TOWER_STND	games/kknd/info.h	/^    S_SURV_GUARD_TOWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MACHINE_SHOP_STND	games/kknd/info.h	/^    S_SURV_MACHINE_SHOP_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MISSILE_BATTERY_STND	games/kknd/info.h	/^    S_SURV_MISSILE_BATTERY_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_DERRICK_STND	games/kknd/info.h	/^    S_SURV_MOBILE_DERRICK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_OUTPOST_STND	games/kknd/info.h	/^    S_SURV_MOBILE_OUTPOST_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_OIL_TANKER_STND	games/kknd/info.h	/^    S_SURV_OIL_TANKER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_OUTPOST_STND	games/kknd/info.h	/^    S_SURV_OUTPOST_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_POWER_STATION_STND	games/kknd/info.h	/^    S_SURV_POWER_STATION_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_REPAIR_BAY_STND	games/kknd/info.h	/^    S_SURV_REPAIR_BAY_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RESEARCH_LAB_STND	games/kknd/info.h	/^    S_SURV_RESEARCH_LAB_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_STND	games/kknd/info.h	/^    S_SURV_RIFLEMAN_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_STND	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_STND	games/kknd/info.h	/^    S_SURV_SABOTEUR_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_STND	games/kknd/info.h	/^    S_SURV_SAPPER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_STND	games/kknd/info.h	/^    S_SURV_SNIPER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_STND	games/kknd/info.h	/^    S_SURV_SWAT_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_STND	games/kknd/info.h	/^    S_SURV_TECHNICIAN_STND,$/;"	e	enum:__anon9b61d11a0203
 UI	games/kknd/g_game.c	/^static const uidefinition_t UI = {$/;"	v	typeref:typename:const uidefinition_t	file:
 W_LoadAssets	games/kknd/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
 _DEFAULT_SOURCE	games/kknd/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
@@ -91,6 +266,9 @@ __anon1abf4fd20208::pixels	games/kknd/w_lvl.h	/^    uint32_t *pixels;$/;"	m	stru
 __anon1abf4fd20208::tile_count	games/kknd/w_lvl.h	/^    int tile_count;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:int
 __anon1b3aca940103	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };$/;"	g	file:
 __anon1b3aca940208	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	s	function:sprite_member_index	file:
+__anon9b61d11a0103	games/kknd/info.h	/^typedef enum {$/;"	g
+__anon9b61d11a0203	games/kknd/info.h	/^typedef enum {$/;"	g
+__anon9b61d11a0303	games/kknd/info.h	/^enum {$/;"	g
 __anonf02e1ac70103	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	g	file:
 __anonf02e1ac70203	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	g	typeref:typename:__anon1abf4fd20103 __anon1abf4fd20208 games/kknd/w_lvl.h/^typedef struct	file:
 activesound	games/kknd/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -103,7 +281,7 @@ deathsound	games/kknd/info.h	/^    int deathsound;$/;"	m	struct:mobjinfo_s	typer
 deathstate	games/kknd/info.h	/^    int deathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 decode_mapd	games/kknd/w_map.c	/^static bool decode_mapd(const uint8_t *segment, size_t size, uint32_t mapd_offset,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * segment,size_t size,uint32_t mapd_offset,level_t * out,KkndMapData * native)
 decode_mobd	games/kknd/w_spr.c	/^static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const uint8_t * segment,size_t size,uint32_t member,const uint32_t palette[256],spritesheet_t * out)
-decode_mobd_image	games/kknd/w_spr.c	/^static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const uint8_t * segment,size_t size,uint32_t frame_offset,const uint32_t palette[256],spritecell_t * cell,spritelump_t * lump)
+decode_mobd_image	games/kknd/w_spr.c	/^static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const uint8_t * segment,size_t size,uint32_t frame_offset,const uint32_t palette[256],spritecell_t * cell,spritelump_t * lump,bool * flip_out)
 doomednum	games/kknd/info.h	/^    int doomednum;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 flags	games/kknd/info.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 g_cell_h	games/kknd/g_game.c	/^const int g_cell_h = 32;$/;"	v	typeref:typename:const int
@@ -114,7 +292,8 @@ g_game_default_root	games/kknd/g_game.c	/^const char *const g_game_default_root 
 g_game_default_sprite	games/kknd/g_game.c	/^const char *const g_game_default_sprite = "LEVELS\/640\/SPRITES.LVL|Infantry.mobd";$/;"	v	typeref:typename:const char * const
 g_game_id	games/kknd/g_game.c	/^const char *const g_game_id            = "kknd";$/;"	v	typeref:typename:const char * const
 g_game_name	games/kknd/g_game.c	/^const char *const g_game_name          = "KKnD";$/;"	v	typeref:typename:const char * const
-gameinfo	games/kknd/g_game.c	/^const gameinfo_t *gameinfo = &GAME_INFO;$/;"	v	typeref:typename:const gameinfo_t *
+game_info	games/kknd/info.c	/^const gameinfo_t game_info = {$/;"	v	typeref:typename:const gameinfo_t
+gameinfo	games/kknd/g_game.c	/^const gameinfo_t *gameinfo = &game_info;$/;"	v	typeref:typename:const gameinfo_t *
 gameui	games/kknd/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typeref:typename:const uidefinition_t * const
 height	games/kknd/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 index	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940208	typeref:typename:int	file:
@@ -131,6 +310,7 @@ map_data_destroy	games/kknd/w_lvl.h	/^void map_data_destroy(void *opaque);$/;"	p
 mass	games/kknd/info.h	/^    int mass;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 meleestate	games/kknd/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 missilestate	games/kknd/info.h	/^    int missilestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo	games/kknd/info.c	/^const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {$/;"	v	typeref:typename:const mobjinfo_t[]
 mobjinfo_s	games/kknd/info.h	/^typedef struct mobjinfo_s {$/;"	s
 mobjinfo_s::activesound	games/kknd/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 mobjinfo_s::attacksound	games/kknd/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -181,5 +361,9 @@ speed	games/kknd/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typenam
 sprite_member_index	games/kknd/w_spr.c	/^static int sprite_member_index(const char *name) {$/;"	f	typeref:typename:int	file:	signature:(const char * name)
 sprite_member_index::__anon1b3aca940208::index	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940208	typeref:typename:int	file:
 sprite_member_index::__anon1b3aca940208::name	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940208	typeref:typename:const char *	file:
+spritenum_t	games/kknd/info.h	/^} spritenum_t;$/;"	t	typeref:enum:__anon9b61d11a0103
+sprnames	games/kknd/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	typeref:typename:const char * const[]
+statenum_t	games/kknd/info.h	/^} statenum_t;$/;"	t	typeref:enum:__anon9b61d11a0203
+states	games/kknd/info.c	/^const state_t states[NUMSTATES] = {$/;"	v	typeref:typename:const state_t[]
 tile_count	games/kknd/w_lvl.h	/^    int tile_count;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:int
 xdeathstate	games/kknd/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

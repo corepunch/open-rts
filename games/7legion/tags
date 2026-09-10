@@ -41,7 +41,6 @@
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
 ACTOR_TYPES	games/7legion/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 ATLAS_COLS	games/7legion/w_bim.c	/^#define ATLAS_COLS /;"	d	file:
-GAME_INFO	games/7legion/g_game.c	/^static const gameinfo_t GAME_INFO = {$/;"	v	typeref:typename:const gameinfo_t	file:
 G_CustomUIDrawer	games/7legion/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 G_CustomUIResponder	games/7legion/g_game.c	/^bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 G_CustomUITicker	games/7legion/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
@@ -66,8 +65,34 @@ G_UpdateProduction	games/7legion/g_game.c	/^bool G_UpdateProduction(void *ui, le
 G_WorldViewportWidth	games/7legion/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
 HU_LoadFont	games/7legion/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
 MOBJ_GAME_FIELDS	games/7legion/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
+MT_MOBILE_BASE	games/7legion/info.h	/^    MT_MOBILE_BASE,$/;"	e	enum:__anon8e5a0b470303
+MT_NULL	games/7legion/info.h	/^    MT_NULL,$/;"	e	enum:__anon8e5a0b470303
+MT_ROCK_MECH	games/7legion/info.h	/^    MT_ROCK_MECH,$/;"	e	enum:__anon8e5a0b470303
+MT_SLAVE	games/7legion/info.h	/^    MT_SLAVE,$/;"	e	enum:__anon8e5a0b470303
+MT_SPIDER_MECH	games/7legion/info.h	/^    MT_SPIDER_MECH,$/;"	e	enum:__anon8e5a0b470303
+MT_TANK	games/7legion/info.h	/^    MT_TANK,$/;"	e	enum:__anon8e5a0b470303
+MT_TROOPER	games/7legion/info.h	/^    MT_TROOPER,$/;"	e	enum:__anon8e5a0b470303
+MT_TRUCK	games/7legion/info.h	/^    MT_TRUCK,$/;"	e	enum:__anon8e5a0b470303
+NUMMOBJTYPES	games/7legion/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon8e5a0b470303
+NUMSPRITES	games/7legion/info.h	/^    NUMSPRITES$/;"	e	enum:__anon8e5a0b470103
+NUMSTATES	games/7legion/info.h	/^    NUMSTATES$/;"	e	enum:__anon8e5a0b470203
 P_LoadThings	games/7legion/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
 R_InitSprites	games/7legion/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
+SPR_LTROOP	games/7legion/info.h	/^    SPR_LTROOP,$/;"	e	enum:__anon8e5a0b470103
+SPR_MOBBASE	games/7legion/info.h	/^    SPR_MOBBASE,$/;"	e	enum:__anon8e5a0b470103
+SPR_ROCKMECH	games/7legion/info.h	/^    SPR_ROCKMECH,$/;"	e	enum:__anon8e5a0b470103
+SPR_SLAVEN1	games/7legion/info.h	/^    SPR_SLAVEN1,$/;"	e	enum:__anon8e5a0b470103
+SPR_SPIDER	games/7legion/info.h	/^    SPR_SPIDER,$/;"	e	enum:__anon8e5a0b470103
+SPR_TANKBASE	games/7legion/info.h	/^    SPR_TANKBASE,$/;"	e	enum:__anon8e5a0b470103
+SPR_TRUCK	games/7legion/info.h	/^    SPR_TRUCK,$/;"	e	enum:__anon8e5a0b470103
+S_LTROOP_STND	games/7legion/info.h	/^    S_LTROOP_STND,$/;"	e	enum:__anon8e5a0b470203
+S_MOBBASE_STND	games/7legion/info.h	/^    S_MOBBASE_STND,$/;"	e	enum:__anon8e5a0b470203
+S_NULL	games/7legion/info.h	/^    S_NULL = 0,$/;"	e	enum:__anon8e5a0b470203
+S_ROCKMECH_STND	games/7legion/info.h	/^    S_ROCKMECH_STND,$/;"	e	enum:__anon8e5a0b470203
+S_SLAVEN1_STND	games/7legion/info.h	/^    S_SLAVEN1_STND,$/;"	e	enum:__anon8e5a0b470203
+S_SPIDER_STND	games/7legion/info.h	/^    S_SPIDER_STND,$/;"	e	enum:__anon8e5a0b470203
+S_TANKBASE_STND	games/7legion/info.h	/^    S_TANKBASE_STND,$/;"	e	enum:__anon8e5a0b470203
+S_TRUCK_STND	games/7legion/info.h	/^    S_TRUCK_STND,$/;"	e	enum:__anon8e5a0b470203
 SlBimFrameInfo	games/7legion/w_bim.c	/^} SlBimFrameInfo;$/;"	t	typeref:struct:__anon6c02bde40108	file:
 SlMissionConfig	games/7legion/w_map.c	/^} SlMissionConfig;$/;"	t	typeref:struct:__anon6cc5752a0108	file:
 TILE_H	games/7legion/sl_types.h	/^#define TILE_H /;"	d
@@ -94,6 +119,9 @@ __anon6cc5752a0108::player_start	games/7legion/w_map.c	/^    char player_start[6
 __anon6cc5752a0108::start	games/7legion/w_map.c	/^    ivec2_t start;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:ivec2_t	file:
 __anon6cc5752a0108::start_cash	games/7legion/w_map.c	/^    int start_cash;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 __anon6cc5752a0108::terrain	games/7legion/w_map.c	/^    int terrain;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
+__anon8e5a0b470103	games/7legion/info.h	/^typedef enum {$/;"	g
+__anon8e5a0b470203	games/7legion/info.h	/^typedef enum {$/;"	g
+__anon8e5a0b470303	games/7legion/info.h	/^enum {$/;"	g
 activesound	games/7legion/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 actor_types	games/7legion/g_game.c	/^const mobjtype_t *const actor_types =$/;"	v	typeref:typename:const mobjtype_t * const
 attacksound	games/7legion/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -111,7 +139,8 @@ g_game_default_root	games/7legion/g_game.c	/^const char *const g_game_default_ro
 g_game_default_sprite	games/7legion/g_game.c	/^const char *const g_game_default_sprite = "GFX\/LTROOP.BIM";$/;"	v	typeref:typename:const char * const
 g_game_id	games/7legion/g_game.c	/^const char *const g_game_id            = "7legion";$/;"	v	typeref:typename:const char * const
 g_game_name	games/7legion/g_game.c	/^const char *const g_game_name          = "7th Legion";$/;"	v	typeref:typename:const char * const
-gameinfo	games/7legion/g_game.c	/^const gameinfo_t *gameinfo = &GAME_INFO;$/;"	v	typeref:typename:const gameinfo_t *
+game_info	games/7legion/info.c	/^const gameinfo_t game_info = {$/;"	v	typeref:typename:const gameinfo_t
+gameinfo	games/7legion/g_game.c	/^const gameinfo_t *gameinfo = &game_info;$/;"	v	typeref:typename:const gameinfo_t *
 gameui	games/7legion/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typeref:typename:const uidefinition_t * const
 height	games/7legion/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 height	games/7legion/w_bim.c	/^    uint16_t height;$/;"	m	struct:__anon6c02bde40108	typeref:typename:uint16_t	file:
@@ -122,6 +151,7 @@ meleestate	games/7legion/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	ty
 min_x	games/7legion/w_bim.c	/^    int min_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 min_y	games/7legion/w_bim.c	/^    int min_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 missilestate	games/7legion/info.h	/^    int missilestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+mobjinfo	games/7legion/info.c	/^const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {$/;"	v	typeref:typename:const mobjinfo_t[]
 mobjinfo_s	games/7legion/info.h	/^typedef struct mobjinfo_s {$/;"	s
 mobjinfo_s::activesound	games/7legion/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 mobjinfo_s::attacksound	games/7legion/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -181,8 +211,12 @@ spawnhealth	games/7legion/info.h	/^    int spawnhealth;$/;"	m	struct:mobjinfo_s	
 spawnstate	games/7legion/info.h	/^    int spawnstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 spawnz	games/7legion/info.h	/^    fixed_t spawnz;$/;"	m	struct:mobjinfo_s	typeref:typename:fixed_t
 speed	games/7legion/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+spritenum_t	games/7legion/info.h	/^} spritenum_t;$/;"	t	typeref:enum:__anon8e5a0b470103
+sprnames	games/7legion/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	typeref:typename:const char * const[]
 start	games/7legion/w_map.c	/^    ivec2_t start;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:ivec2_t	file:
 start_cash	games/7legion/w_map.c	/^    int start_cash;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
+statenum_t	games/7legion/info.h	/^} statenum_t;$/;"	t	typeref:enum:__anon8e5a0b470203
+states	games/7legion/info.c	/^const state_t states[NUMSTATES] = {$/;"	v	typeref:typename:const state_t[]
 terrain	games/7legion/w_map.c	/^    int terrain;$/;"	m	struct:__anon6cc5752a0108	typeref:typename:int	file:
 width	games/7legion/w_bim.c	/^    int width;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 xdeathstate	games/7legion/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

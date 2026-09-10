@@ -939,6 +939,7 @@ Current engine gaps before this can be made interactive:
 
 - OpenDR:
   https://github.com/drogoganor/OpenDR
+  - Info-table audit pinned revision: `98079a904746440433795fe7f21c4b35eb6b3959`.
   - Primary Dark Reign reference for map import, `.TIL` frame layout, generated
     transition masks, resource handling, and OpenRA-style plugin structure.
 
@@ -996,6 +997,7 @@ Local game-data files that have already been useful:
 
 - OpenKrush (the successor to the archived OpenRA KKnD mod):
   https://github.com/IceReaper/OpenKrush
+  - Info-table audit pinned revision: `76c634d05984e48e1e474460c46607aee0bc78a1`.
   - `Assets/FileFormats/Lvl.cs` documents the `DATA` container's typed file
     lists and archive-global asset offsets.
   - `Assets/FileFormats/Mapd.cs` documents embedded palettes, `SCRL` layers,
@@ -1004,6 +1006,7 @@ Local game-data files that have already been useful:
     `SPRT` render records, and the Gen1 per-scanline sprite decompressor.
 - Archived OpenRA KKnD mod:
   https://github.com/Dzierzan/KKnD
+  - Info-table audit pinned revision: `d094389c01f1a985115e7a865b4fbc36b706c006`.
   - Provides the original named index for `SPRITES.LVL` members. In particular,
     `34.mobd` is `Infantry.mobd`.
 - OpenRA multi-layer map discussion:

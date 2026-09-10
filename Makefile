@@ -15,6 +15,10 @@ BIN_DIR   := $(BUILD_DIR)/bin
 
 ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_CONV_TARGET    := $(BUILD_DIR)/dc_info_conv
+DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
+DR_INFO_GEN_TARGET     := $(BUILD_DIR)/dr_info_gen
+SL_INFO_GEN_TARGET     := $(BUILD_DIR)/7legion_info_gen
+KKND_INFO_GEN_TARGET   := $(BUILD_DIR)/kknd_info_gen
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
 DC_SPR_EXTRACT_TARGET  := $(BUILD_DIR)/dc_spr_extract
 DC_FIN_EXTRACT_TARGET  := $(BUILD_DIR)/dc_fin_extract
@@ -24,6 +28,7 @@ MODEL_COMMAND_TEST_SOURCE := tests/cross-game/test_model_commands.c
 DATA_DIR         := data
 DARK_REIGN_ROOT  := $(DATA_DIR)/REIGN/dark
 DARK_COLONY_ROOT := $(DATA_DIR)/DCOLONY
+SEVENTH_LEGION_ROOT := $(DATA_DIR)/7LEGION
 KKND_ROOT        := $(DATA_DIR)/KKND
 
 # ── per-game engine sources (shared by all game binaries) ────────────────────
@@ -39,8 +44,12 @@ KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
 MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render -name '*.c' ! -name 'd_main.c'))
 
 # ── tool sources ─────────────────────────────────────────────────────────────
-ANIM_EXTRACT_SOURCE  := tools/anim_extract.c
-DC_INFO_CONV_SOURCES := $(sort $(shell find tools/dc_info_conv -name '*.c'))
+ANIM_EXTRACT_SOURCE    := tools/anim_extract.c
+DC_INFO_CONV_SOURCES   := $(sort $(shell find tools/dc_info_conv -name '*.c'))
+DC_INFO_GEN_SOURCE     := tools/dc_info_gen.c
+DR_INFO_GEN_SOURCE     := tools/dr_info_gen.c
+SL_INFO_GEN_SOURCE     := tools/7legion_info_gen.c
+KKND_INFO_GEN_SOURCE   := tools/kknd_info_gen.c
 DC_GAMESTAT_GEN_SOURCE := tools/dc_gamestat_gen.c
 DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 
@@ -49,7 +58,8 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
         test-headless test-dc-info-conv test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-states dark-colony-gamestat 7legion kknd \
-        kknd-check anim-extract dc-info-conv dc-spr-extract dc-fin-extract clean help tags
+		kknd-check anim-extract dc-info-conv dc-info-gen dr-info-gen 7legion-info-gen kknd-info-gen test-info-gen \
+		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help tags
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -124,6 +134,18 @@ $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
 $(DC_INFO_CONV_TARGET): $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_CONV_SOURCES))
 	$(CC) $^ -o $@
 
+$(DC_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dc_info_gen.o
+	$(CC) $^ -o $@
+
+$(DR_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dr_info_gen.o
+	$(CC) $^ -o $@
+
+$(SL_INFO_GEN_TARGET): $(BUILD_DIR)/tools/7legion_info_gen.o
+	$(CC) $^ -o $@
+
+$(KKND_INFO_GEN_TARGET): $(BUILD_DIR)/tools/kknd_info_gen.o
+	$(CC) $^ -o $@
+
 $(DC_GAMESTAT_GEN_TARGET): $(BUILD_DIR)/tools/dc_gamestat_gen.o
 	$(CC) $^ -o $@
 
@@ -139,18 +161,58 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 
 -include $(BUILD_DIR)/tools/anim_extract.d
 -include $(patsubst %.c,$(BUILD_DIR)/%.d,$(DC_INFO_CONV_SOURCES))
+-include $(BUILD_DIR)/tools/dc_info_gen.d
+-include $(BUILD_DIR)/tools/dr_info_gen.d
+-include $(BUILD_DIR)/tools/7legion_info_gen.d
+-include $(BUILD_DIR)/tools/kknd_info_gen.d
 -include $(BUILD_DIR)/tools/dc_gamestat_gen.d
 -include $(BUILD_DIR)/tools/dc_spr_extract.d
 -include $(BUILD_DIR)/tools/dc_fin_extract.d
 
 dc-info-conv: $(DC_INFO_CONV_TARGET)
 
+dc-info-gen: $(DC_INFO_GEN_TARGET)
+
+dr-info-gen: $(DR_INFO_GEN_TARGET)
+
+7legion-info-gen: $(SL_INFO_GEN_TARGET)
+
+kknd-info-gen: $(KKND_INFO_GEN_TARGET)
+
+dark-reign-info: $(DR_INFO_GEN_TARGET)
+	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) \
+	    games/dark-reign/info.h games/dark-reign/info.c
+
+7legion-info: $(SL_INFO_GEN_TARGET)
+	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) \
+	    games/7legion/info.h games/7legion/info.c
+
+kknd-info: $(KKND_INFO_GEN_TARGET)
+	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG \
+	    games/kknd/info.h games/kknd/info.c
+
 test-dc-info-conv: $(DC_INFO_CONV_TARGET)
 	python3 tests/tools/test_dc_info_conv.py
+
+test-info-gen: $(DR_INFO_GEN_TARGET) $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGET)
+	@mkdir -p $(BUILD_DIR)/info-check/dark-reign $(BUILD_DIR)/info-check/7legion $(BUILD_DIR)/info-check/kknd
+	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c
+	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) $(BUILD_DIR)/info-check/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.c
+	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c
+	cmp games/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.h
+	cmp games/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/info.c
+	cmp games/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.h
+	cmp games/7legion/info.c $(BUILD_DIR)/info-check/7legion/info.c
+	cmp games/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.h
+	cmp games/kknd/info.c $(BUILD_DIR)/info-check/kknd/info.c
 
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_CONV_TARGET)
 	$(DC_INFO_CONV_TARGET) --states $(sort $(wildcard $(DARK_COLONY_ROOT)/ANIMATE/*.FIN)) > $(BUILD_DIR)/dc-animations.txt
+
+dark-colony-states: $(DC_INFO_GEN_TARGET)
+	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT)/ANIMATE \
+	    games/dark-colony/animate games/dark-colony/info.h
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
@@ -192,7 +254,7 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-dc-info-conv test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
+test: test-dc-info-conv test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
 
 test-loaders: all
 	env SDL_VIDEODRIVER=dummy python3 tools/test_loaders.py --fixtures --no-build
@@ -238,9 +300,13 @@ help:
 	@echo "Tools:"
 	@echo "  dc-info-conv         Build the FIN/SPR inspector and state exporter"
 	@echo "  dc-fin-extract       Extract a Dark Colony FIN file as JSON"
+	@echo "  dark-reign-info      Regenerate Dark Reign info.c and info.h"
+	@echo "  7legion-info         Regenerate 7th Legion info.c and info.h"
+	@echo "  kknd-info            Regenerate KKnD info.c and info.h"
 	@echo ""
 	@echo "Test / check:"
 	@echo "  test                 Run all headless tests"
+	@echo "  test-info-gen        Verify generated info.c and info.h files are current"
 	@echo "  kknd-check           Headless smoke check for KKnD"
 	@echo ""
 	@echo "Smoke tests (headless):"
