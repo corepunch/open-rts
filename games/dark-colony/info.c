@@ -30,45 +30,51 @@ const char *const sprnames[NUMSPRITES] = {
 
 const state_t states[NUMSTATES] = {
     { 0, 0, -1, NULL, S_NULL, 0 },
-#include "animate/ALBU.inc"
-#include "animate/ATRIL.inc"
-#include "animate/BARR.inc"
-#include "animate/BEAC.inc"
-#include "animate/BLOO.inc"
-#include "animate/BURN.inc"
-#include "animate/BURN2.inc"
-#include "animate/CENT.inc"
-#include "animate/DISH.inc"
-#include "animate/DOTT.inc"
-#include "animate/DROA.inc"
-#include "animate/DROP.inc"
-#include "animate/DROP3.inc"
-#include "animate/DROP4.inc"
-#include "animate/EXPL.inc"
-#include "animate/FILL.inc"
-#include "animate/FUEL.inc"
-#include "animate/GRAY.inc"
-#include "animate/HUBU.inc"
-#include "animate/HYYK.inc"
-#include "animate/ORTU.inc"
-#include "animate/REAP.inc"
-#include "animate/SALA.inc"
-#include "animate/SARG.inc"
-#include "animate/SCGM.inc"
-#include "animate/SCYT.inc"
-#include "animate/SHRI.inc"
-#include "animate/SLUG.inc"
-#include "animate/TONG.inc"
-#include "animate/TOWR.inc"
-#include "animate/TRSC.inc"
-#include "animate/TURR.inc"
-#include "animate/VENT.inc"
-#include "animate/WATC.inc"
-#include "animate/XENO.inc"
+    #include "animate/ALBU.inc"
+    #include "animate/ATRIL.inc"
+    #include "animate/BARR.inc"
+    #include "animate/BEAC.inc"
+    #include "animate/BLOO.inc"
+    #include "animate/BURN.inc"
+    #include "animate/BURN2.inc"
+    #include "animate/CENT.inc"
+    #include "animate/DISH.inc"
+    #include "animate/DOTT.inc"
+    #include "animate/DROA.inc"
+    #include "animate/DROP.inc"
+    #include "animate/DROP3.inc"
+    #include "animate/DROP4.inc"
+    #include "animate/EXPL.inc"
+    #include "animate/FILL.inc"
+    #include "animate/FUEL.inc"
+    #include "animate/GRAY.inc"
+    #include "animate/HUBU.inc"
+    #include "animate/HYYK.inc"
+    #include "animate/ORTU.inc"
+    #include "animate/REAP.inc"
+    #include "animate/SALA.inc"
+    #include "animate/SARG.inc"
+    #include "animate/SCGM.inc"
+    #include "animate/SCYT.inc"
+    #include "animate/SHRI.inc"
+    #include "animate/SLUG.inc"
+    #include "animate/TONG.inc"
+    #include "animate/TOWR.inc"
+    #include "animate/TRSC.inc"
+    #include "animate/TURR.inc"
+    #include "animate/VENT.inc"
+    #include "animate/WATC.inc"
+    #include "animate/XENO.inc"
 };
 
 const dc_building_sequence_t dc_building_sequences[MT_RSCHPOD - MT_EXCOPOD + 1][3] = {
-#include "building_sequences.inc"
+    { { "EXCOPODSCRCH0", S_EXCOPODSCRCH0_170, S_EXCOPODSCRCH0_185 }, { "EXCOPODBURN0", S_EXCOPODBURN0_186, S_EXCOPODBURN0_201 }, { "EXCOPODDIE0", S_EXCOPODDIE0_191, S_EXCOPODDIE0_219 } },
+    { { "BRRKPODSCRCH0", S_BRRKPODSCRCH0_301, S_BRRKPODSCRCH0_320 }, { "BRRKPODBURN0", S_BRRKPODBURN0_57, S_BRRKPODBURN0_76 }, { "BRRKPODDIE0", S_BRRKPODDIE0_112, S_BRRKPODDIE0_146 } },
+    { { "ROBOPODSCRCH0", S_ROBOPODSCRCH0_88, S_ROBOPODSCRCH0_107 }, { "ROBOPODBURN0", S_ROBOPODBURN0_386, S_ROBOPODBURN0_405 }, { "ROBOPODDIE0", S_ROBOPODDIE0_147, S_ROBOPODDIE0_181 } },
+    { { "ROBOPOD2SCRCH0", S_ROBOPOD2SCRCH0_0, S_ROBOPOD2SCRCH0_19 }, { "ROBOPOD2BURN0", S_ROBOPOD2BURN0_108, S_ROBOPOD2BURN0_127 }, { "ROBOPOD2DIE0", S_ROBOPOD2DIE0_217, S_ROBOPOD2DIE0_251 } },
+    { { "SCNCPODSCRCH0", S_SCNCPODSCRCH0_289, S_SCNCPODSCRCH0_304 }, { "SCNCPODBURN0", S_SCNCPODBURN0_72, S_SCNCPODBURN0_87 }, { "SCNCPODDIE0", S_SCNCPODDIE0_321, S_SCNCPODDIE0_352 } },
+    { { "SCNCPOD2SCRCH0", S_SCNCPOD2SCRCH0_408, S_SCNCPOD2SCRCH0_423 }, { "SCNCPOD2BURN0", S_SCNCPOD2BURN0_466, S_SCNCPOD2BURN0_481 }, { "SCNCPOD2DIE0", S_SCNCPOD2DIE0_353, S_SCNCPOD2DIE0_385 } },
+    { { "RSCHPODSCRCH0", S_RSCHPODSCRCH0_128, S_RSCHPODSCRCH0_148 }, { "RSCHPODBURN0", S_RSCHPODBURN0_149, S_RSCHPODBURN0_169 }, { "RSCHPODDIE0", S_RSCHPODDIE0_182, S_RSCHPODDIE0_216 } },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {

@@ -73,9 +73,9 @@ The exporter writes raw designated initializers to
 `games/dark-colony/animate/<FIN stem>.inc`, included directly by `info.c`.
 All 2,719 existing state IDs retain their values; designated initializers permit
 per-FIN grouping without renumbering. `info.h` receives ordinary enum entries.
-No state/label expansion macros are involved. `blood_labels.inc` is the raw
-exact-label lookup; `building_sequences.inc` is the raw SCRCH/BURN/DIE range
-table shared by building logic and native-metadata verification.
+No state/label expansion macros are involved. The raw exact-label lookup is emitted directly into `p_blood.c`; the raw
+SCRCH/BURN/DIE range table is emitted directly into `info.c` and shared by
+building logic and native-metadata verification. Neither needs a separate include.
 
 The blood catalog still retains all 208 BLOOD-labelled sequences from supported
 FIN files, including labels the native A–G/facing lookup cannot select.
@@ -93,4 +93,5 @@ explicit timing policies. See [the native findings](DC_EXE_FINDINGS.md).
 
 Regenerate after editing the authored table or family rules; `--check` makes
 stale output a failure. `info.c` still owns `sprnames[]` and `mobjinfo[]`;
-the exporter replaces only its state-array block and `info.h`'s state enum.
+the exporter replaces its state-array and building-range blocks, `info.h`'s
+state enum, and `p_blood.c`'s label-table block.
