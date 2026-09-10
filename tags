@@ -391,6 +391,8 @@ R_AddTileAnim	driver/engine.h	/^bool R_AddTileAnim(tileset_t *tileset, int value
 R_AddTileAnim	render/r_main.c	/^bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,$/;"	f	typeref:typename:bool	signature:(tileset_t * tileset,int value,const int * frames,int frame_count,uint16_t frame_ms)
 R_AllocSpriteCells	driver/engine.h	/^bool R_AllocSpriteCells(spritesheet_t *sprite, int count);$/;"	p	typeref:typename:bool	signature:(spritesheet_t * sprite,int count)
 R_AllocSpriteCells	render/r_draw.c	/^bool R_AllocSpriteCells(spritesheet_t *sprite, int count) {$/;"	f	typeref:typename:bool	signature:(spritesheet_t * sprite,int count)
+R_AllocSpriteDirections	driver/engine.h	/^bool R_AllocSpriteDirections(spriteframe_t *frame, int rotations);$/;"	p	typeref:typename:bool	signature:(spriteframe_t * frame,int rotations)
+R_AllocSpriteDirections	render/r_draw.c	/^bool R_AllocSpriteDirections(spriteframe_t *frame, int rotations) {$/;"	f	typeref:typename:bool	signature:(spriteframe_t * frame,int rotations)
 R_BindSprites	driver/engine.h	/^bool R_BindSprites(spritecache_t *cache, const gameinfo_t *game_info);$/;"	p	typeref:typename:bool	signature:(spritecache_t * cache,const gameinfo_t * game_info)
 R_BindSprites	render/r_draw.c	/^bool R_BindSprites(spritecache_t *cache, const gameinfo_t *game_info) {$/;"	f	typeref:typename:bool	signature:(spritecache_t * cache,const gameinfo_t * game_info)
 R_CacheFind	driver/engine.h	/^cachedsprite_t *R_CacheFind(spritecache_t *cache, const char *name);$/;"	p	typeref:typename:cachedsprite_t *	signature:(spritecache_t * cache,const char * name)
@@ -940,6 +942,7 @@ ai	game/g_game.c	/^    AiContext ai;$/;"	m	struct:RtsGameModel	typeref:typename:
 ai_tick_attack_waves	play/p_ai.c	/^static void ai_tick_attack_waves(AiTeamState *team,$/;"	f	typeref:typename:void	file:	signature:(AiTeamState * team,level_t * map,mobj_t * const * units,int unit_count,int dt_ms)
 ai_tick_defense	play/p_ai.c	/^static void ai_tick_defense(AiTeamState *team,$/;"	f	typeref:typename:void	file:	signature:(AiTeamState * team,level_t * map,mobj_t * const * units,int unit_count,const gameinfo_t * game_info)
 ai_tick_harvesting	play/p_ai.c	/^static void ai_tick_harvesting(AiTeamState *team,$/;"	f	typeref:typename:void	file:	signature:(AiTeamState * team,level_t * map,mobj_t * const * units,int unit_count)
+alias	render/sprites.h	/^    const spritesheet_t *alias; \/* Borrowed image for another native resource name. *\/$/;"	m	struct:cachedsprite_s	typeref:typename:const spritesheet_t *
 allegiance	play/actor.h	/^    uint8_t allegiance;$/;"	m	struct:mobj_s	typeref:typename:uint8_t
 allegiance	play/p_ai.h	/^    uint8_t allegiance;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:uint8_t
 amount	game/map.h	/^    int amount;$/;"	m	struct:resourcevent_s	typeref:typename:int
@@ -1073,6 +1076,7 @@ bytes	driver/assets.h	/^    uint8_t *bytes; \/* W_ReadFile appends a NUL byte ou
 cache	play/actor.h	/^    const spritecache_t *cache;$/;"	m	struct:selectiondrawcontext_s	typeref:typename:const spritecache_t *
 cached_palette_index	render/r_draw.c	/^static uint8_t cached_palette_index(uint32_t rgba, const uint32_t palette[256],$/;"	f	typeref:typename:uint8_t	file:	signature:(uint32_t rgba,const uint32_t palette[256],uint32_t matches[4096])
 cachedsprite_s	render/sprites.h	/^typedef struct cachedsprite_s {$/;"	s
+cachedsprite_s::alias	render/sprites.h	/^    const spritesheet_t *alias; \/* Borrowed image for another native resource name. *\/$/;"	m	struct:cachedsprite_s	typeref:typename:const spritesheet_t *
 cachedsprite_s::name	render/sprites.h	/^    char name[32];$/;"	m	struct:cachedsprite_s	typeref:typename:char[32]
 cachedsprite_s::sprite	render/sprites.h	/^    spritesheet_t sprite;$/;"	m	struct:cachedsprite_s	typeref:typename:spritesheet_t
 cachedsprite_t	render/sprites.h	/^} cachedsprite_t;$/;"	t	typeref:struct:cachedsprite_s
@@ -1200,7 +1204,7 @@ die	tools/dc_info_conv/main.c	/^static void die(const char *path, const char *re
 die	tools/dc_info_conv/states.c	/^static void die(const char *path, const char *message) {$/;"	f	typeref:typename:void	file:	signature:(const char * path,const char * message)
 direction_to_angle	play/facing.h	/^angle_t direction_to_angle(int direction, int count, angle_t first_angle, bool clockwise);$/;"	p	typeref:typename:angle_t	signature:(int direction,int count,angle_t first_angle,bool clockwise)
 direction_to_angle	play/p_facing.c	/^angle_t direction_to_angle(int direction, int count, angle_t first_angle, bool clockwise) {$/;"	f	typeref:typename:angle_t	signature:(int direction,int count,angle_t first_angle,bool clockwise)
-directions	render/sprites.h	/^    spritedirection_t directions[MAX_SPRITE_ROTATIONS];$/;"	m	struct:spriteframe_s	typeref:typename:spritedirection_t[]
+directions	render/sprites.h	/^    spritedirection_t *directions;$/;"	m	struct:spriteframe_s	typeref:typename:spritedirection_t *
 dis_x	tests/test_dark_colony_sprite_layout.c	/^    int dis_x;$/;"	m	struct:__anona4e7c35f0508	typeref:typename:int	file:
 dis_x	tools/dc_spr_extract.c	/^    uint16_t width, height, dis_x, dis_y;$/;"	m	struct:__anonf6c4462b0108	typeref:typename:uint16_t	file:
 dis_y	tests/test_dark_colony_sprite_layout.c	/^    int dis_y;$/;"	m	struct:__anona4e7c35f0508	typeref:typename:int	file:
@@ -1376,6 +1380,7 @@ frect_from_points	driver/m_vec.h	/^static inline frect_t frect_from_points(fvec2
 frect_intersects	driver/m_vec.h	/^static inline bool frect_intersects(frect_t a, frect_t b) {$/;"	f	typeref:typename:bool	signature:(frect_t a,frect_t b)
 frect_t	driver/m_vec.h	/^typedef SDL_FRect frect_t;$/;"	t	typeref:typename:SDL_FRect
 free_fin	tools/dc_info_conv/main.c	/^static void free_fin(fin_t *fin) {$/;"	f	typeref:typename:void	file:	signature:(fin_t * fin)
+free_sprite_def	render/r_draw.c	/^static void free_sprite_def(spritedef_t *def) {$/;"	f	typeref:typename:void	file:	signature:(spritedef_t * def)
 free_strings	tools/anim_extract.c	/^static void free_strings(AnimString *items, size_t count) {$/;"	f	typeref:typename:void	file:	signature:(AnimString * items,size_t count)
 free_thinker	play/p_tick.c	/^static void free_thinker(thinker_t *thinker) {$/;"	f	typeref:typename:void	file:	signature:(thinker_t * thinker)
 function	play/actor.h	/^    actionf_p1 function;$/;"	m	struct:thinker_s	typeref:typename:actionf_p1
@@ -2179,7 +2184,7 @@ spritedirection_s::layers	render/sprites.h	/^    spritelayer_t *layers;$/;"	m	st
 spritedirection_s::ticks	render/sprites.h	/^    int ticks;$/;"	m	struct:spritedirection_s	typeref:typename:int
 spritedirection_t	render/sprites.h	/^} spritedirection_t;$/;"	t	typeref:struct:spritedirection_s
 spriteframe_s	render/sprites.h	/^typedef struct spriteframe_s {$/;"	s
-spriteframe_s::directions	render/sprites.h	/^    spritedirection_t directions[MAX_SPRITE_ROTATIONS];$/;"	m	struct:spriteframe_s	typeref:typename:spritedirection_t[]
+spriteframe_s::directions	render/sprites.h	/^    spritedirection_t *directions;$/;"	m	struct:spriteframe_s	typeref:typename:spritedirection_t *
 spriteframe_s::frame_name	render/sprites.h	/^    char frame_name[17];$/;"	m	struct:spriteframe_s	typeref:typename:char[17]
 spriteframe_s::rotations	render/sprites.h	/^    int rotations; \/* 1 is nondirectional; slots start north, counterclockwise. *\/$/;"	m	struct:spriteframe_s	typeref:typename:int
 spriteframe_t	render/sprites.h	/^} spriteframe_t;$/;"	t	typeref:struct:spriteframe_s

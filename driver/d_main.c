@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
-    bool software_renderer = false;
+    bool software_renderer = strcmp(g_game_id, "dark-colony") == 0;
     while (argc > arg_base) {
         if (strcmp(argv[arg_base], "--software") == 0) {
             software_renderer = true;

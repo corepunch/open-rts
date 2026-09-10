@@ -130,9 +130,9 @@ static int assert_dark_colony_exploiter_work_states(void) {
     }
     const state_t *lit = &states[S_EXPL_WORK1];
     const state_t *unlit = &states[S_EXPL_WORK2];
-    if (lit->sprite != SPR_EXPL || lit->frame != 103 || lit->tics != 2 ||
+    if (lit->sprite != SPR_EXPL || lit->frame != 102 || lit->tics != 2 ||
         lit->nextstate != S_EXPL_WORK2) {
-        return fail("Dark Colony Exploiter work uses the native deployed body frame");
+        return fail("Dark Colony Exploiter work uses the lit deployed FIN frame");
     }
     if (unlit->sprite != SPR_EXPL || unlit->frame != 103 || unlit->tics != 4 ||
         unlit->nextstate != S_EXPL_WORK1) {

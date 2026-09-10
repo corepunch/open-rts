@@ -1233,3 +1233,25 @@ and `tools/dc_states.py` for native family policy and raw `animate/*.inc`
 output. See `docs/DC_INFO_CONV.md` for syntax and regeneration. Existing numeric
 state IDs and all row values are preserved; the C preprocessor no longer
 expands blood/building state or label macros.
+
+## SDL software rendering memory (September 10, 2026)
+
+- Installed macOS dependency: Homebrew `sdl2-compat` 2.32.70 with SDL 3.4.12
+  (`pkg-config --modversion sdl2 sdl3`; `otool -L build/bin/dark-colony`).
+- [sdl2-compat 2.32.70](https://github.com/libsdl-org/sdl2-compat/blob/release-2.32.70/src/sdl2_compat.c):
+  `SDL_CreateRenderer` chooses SDL3's software backend for the software flag;
+  `SDL_RenderCopy`/`SDL_RenderCopyEx` forward to SDL3 texture draws.
+- [SDL 3.4.12 software renderer](https://github.com/libsdl-org/SDL/blob/release-3.4.12/src/render/software/SDL_render_sw.c):
+  `SW_CreateTexture` enables RLE for static surfaces; `SW_RenderCopyEx` locks
+  the entire source before accessing pixels, then unlocks it. Uncompressed
+  streaming surfaces avoid repeated whole-atlas RLE conversion when flipping
+  small terrain rectangles. This is distinct from original-game SPR RLE.
+- [SDL 3.4.12 video](https://github.com/libsdl-org/SDL/blob/release-3.4.12/src/video/SDL_video.c):
+  `ShouldAttemptTextureFramebuffer`, `SDL_CreateWindowFramebuffer`, and
+  `SDL_CreateWindowTexture` explain single-framebuffer presentation through an
+  accelerated backend. Disabling that path is unsupported by this Cocoa driver;
+  it is independent of CPU sprite/palette blits. Do not infer the installed
+  implementation from classic SDL2 sources simply because the app uses SDL2 APIs.
+- Measurements, rejected hypotheses, pixel comparisons, and remaining indexed
+  framebuffer limitations are recorded in `docs/DC_EXE_FINDINGS.md`,
+  “September 10: remaining memory after indexed sprite conversion”.

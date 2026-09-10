@@ -345,7 +345,8 @@ void R_DrawGridOverlay(app_t *app, const level_t *map) {
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name) {
     if (!cache || !name || name[0] == '\0') return NULL;
     for (int i = 0; i < cache->count; ++i) {
-        if (strcasecmp(cache->entries[i].name, name) == 0) return &cache->entries[i].sprite;
+        if (strcasecmp(cache->entries[i].name, name) == 0)
+            return cache->entries[i].alias ? cache->entries[i].alias : &cache->entries[i].sprite;
     }
     return NULL;
 }
@@ -395,13 +396,43 @@ bool R_AllocSpriteCells(spritesheet_t *sprite, int count) {
     return true;
 }
 
+static void free_sprite_def(spritedef_t *def) {
+    for (int i = 0; i < def->numframes; ++i) {
+        spriteframe_t *frame = &def->spriteframes[i];
+        for (int r = 0; r < frame->rotations; ++r)
+            free(frame->directions[r].layers);
+        free(frame->directions);
+    }
+    free(def->spriteframes);
+    *def = (spritedef_t){0};
+}
+
+bool R_AllocSpriteDirections(spriteframe_t *frame, int rotations) {
+    if (!frame || rotations < frame->rotations || rotations < 1 ||
+        rotations > MAX_SPRITE_ROTATIONS) return false;
+    spritedirection_t *directions = realloc(frame->directions,
+        (size_t)rotations * sizeof(*directions));
+    if (!directions) return false;
+    memset(directions + frame->rotations, 0,
+           (size_t)(rotations - frame->rotations) * sizeof(*directions));
+    frame->directions = directions;
+    frame->rotations = rotations;
+    return true;
+}
+
 bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations) {
     if (!sprite || numframes <= 0 || rotations <= 0 ||
         rotations > MAX_SPRITE_ROTATIONS) return false;
     spriteframe_t *frames = calloc((size_t)numframes, sizeof(*frames));
     if (!frames) return false;
-    for (int i = 0; i < numframes; ++i) frames[i].rotations = rotations;
-    free(sprite->spritedef.spriteframes);
+    for (int i = 0; i < numframes; ++i) {
+        if (!R_AllocSpriteDirections(&frames[i], rotations)) {
+            for (int j = 0; j < i; ++j) free(frames[j].directions);
+            free(frames);
+            return false;
+        }
+    }
+    free_sprite_def(&sprite->spritedef);
     sprite->spritedef = (spritedef_t){
         .numframes = numframes,
         .spriteframes = frames,
@@ -1599,16 +1630,10 @@ void R_FreeSprite(spritesheet_t *sprite) {
         if (lump->texture) SDL_DestroyTexture(lump->texture);
         free(lump->indices);
     }
-    if (sprite->spritedef.spriteframes) {
-        for (int frame = 0; frame < sprite->spritedef.numframes; ++frame) {
-            for (int rotation = 0; rotation < MAX_SPRITE_ROTATIONS; ++rotation)
-                free(sprite->spritedef.spriteframes[frame].directions[rotation].layers);
-        }
-    }
+    free_sprite_def(&sprite->spritedef);
     free(sprite->cells);
     free(sprite->lumps);
     free(sprite->palette_maps);
-    free(sprite->spritedef.spriteframes);
     memset(sprite, 0, sizeof(*sprite));
 }
 

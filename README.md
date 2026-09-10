@@ -126,6 +126,11 @@ env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony-ui.bmp --game dark-colony
 ```
 
+Dark Colony uses software rendering by default: one indexed sprite image with
+palette translations at draw time, and a shared upload surface. It does not
+require OpenGL or palette shaders. SDL handles presentation of the completed
+framebuffer to the window.
+
 If the map renders the same tile everywhere on a particular machine (Metal/GPU driver bug),
 force the SDL software renderer:
 

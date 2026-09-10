@@ -170,7 +170,9 @@ static int catalog(const char *manifest) {
             hash_bytes(frame->frame_name, sizeof(frame->frame_name));
             hash_int(sheet.spritedef.spriteframes[i].rotations);
             for (int j = 0; j < MAX_SPRITE_ROTATIONS; ++j) {
-                const spritedirection_t *direction = &frame->directions[j];
+                const spritedirection_t empty = {0};
+                const spritedirection_t *direction = j < frame->rotations ?
+                    &frame->directions[j] : &empty;
                 hash_int(direction->ticks);
                 if (direction->layers)
                     for (const spritelayer_t *part = direction->layers; part->sprite_name[0]; ++part)

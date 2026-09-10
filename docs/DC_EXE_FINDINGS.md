@@ -3725,3 +3725,116 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading /private/tmp/dc-sprites.txt
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-indexed.bmp
 ```
+
+### September 10: remaining memory after indexed sprite conversion
+
+**Confirmed engine measurements**, HUMAN01 at the default 640x480, macOS arm64,
+with Homebrew sdl2-compat 2.32.70 backed by SDL 3.4.12. The starting revision is
+`33f932d`. These are open-rts measurements, not the retail executable's working
+set. The retail evidence remains the preceding “Indexed sprites and DirectDraw”
+section, for DC.EXE SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+No new executable routines were decoded during this memory investigation.
+
+The retained images already were one byte per pixel, with eight small index
+translation tables, rather than eight RGBA copies. Three independent costs
+remained:
+
+- Startup scanned every SPR in CURSOR, ENCYCLO, and INTRFACE, although gameplay
+  only consumes MAINBUT and the CLIENT selection marker there. The font and GIF
+  background have their own owners. The scan retained 32.36 MiB of encyclopedia
+  pixels and 21.94 MiB of interface pixels, including unused EARTHG (5,398,614
+  bytes) and GLOBES (4,599,665 bytes). This is an engine loading error; it does
+  not establish the original executable's screen-specific loading order.
+- The same gameplay image was loaded under its state-table stem, SPR path, and
+  FIN dependency path. Our loader already pairs SPRITES/X.SPR and ANIMATE/X.FIN
+  in either direction, so these keys must share one owner. UI paths stay
+  distinct: ENCYCLO/BARR.SPR is not the gameplay BARR image. Alias entries now
+  borrow the canonical sheet; freeing the cache only frees owners.
+- Every logical frame reserved 32 direction records even for nondirectional
+  raw cells and FIN frames. Frame definitions now allocate their actual
+  authored rotation count (including genuine 16/32-direction definitions),
+  retaining the same frame/layer ownership and renderer-independent source
+  images. This avoids expanding Doom's fixed eight rotations into 32 unused
+  slots for every frame.
+
+Temporary loader counters showed 455 SPR loads, 90.52 MiB of indexed pixels,
+20.35 MiB of frame/direction storage, and 2.78 MiB of layers before cleanup.
+After sharing resource names and loading gameplay UI only: 198 SPR loads,
+19.44 MiB of indexed pixels, 0.90 MiB of frame/direction storage, and 1.37 MiB
+of layers. Counts include the separately owned default sprite and font. The
+catalog itself is unchanged; unused screens' images remain loadable.
+
+**Confirmed SDL allocation cause:** after asset cleanup the headless process
+was around 63 MB resident after loading, but jumped above 230 MB on the first
+terrain draw while live malloc bytes stayed around 39 MB. SDL's software
+`SW_CreateTexture` enables surface RLE for `SDL_TEXTUREACCESS_STATIC`.
+`SW_RenderCopyEx` locks an RLE source before accessing its pixels and unlocks
+it afterward. Flipped atlas tiles therefore cause repeated decode/re-encode
+of the entire 768x2976 ARGB atlas, leaving large freed allocations in the
+allocator. Choosing `SDL_TEXTUREACCESS_STREAMING` for software textures keeps
+those surfaces uncompressed and removes the spike. Accelerated renderers retain
+static textures. This is SDL surface RLE, separate from native SPR compression.
+
+Paired `/usr/bin/time -l` measurements, identical HUMAN01 screenshot:
+
+| Measurement (bytes) | Starting revision | Final storage/software blits |
+| --- | ---: | ---: |
+| Maximum resident set | 337,002,496 | 66,912,256 |
+| Peak physical footprint | 448,007,104 | 57,804,224 |
+
+A normal Cocoa window with software rendering measured **70.2 MiB physical
+footprint, 72.7 MiB peak** after three seconds; its pre-draw RSS included shared
+macOS libraries and was about 130 MB. Do not equate RSS, physical footprint,
+retained asset bytes, and virtual address space. A comparison using accelerated
+scene rendering with the same cleaned assets measured 236.9 MiB footprint,
+including about 166 MiB of IOAccelerator graphics allocations. Dark Colony now
+selects software scene rendering by default.
+
+**Disproven workaround:** `SDL_HINT_FRAMEBUFFER_ACCELERATION=0` did not affect
+the headless RLE spike, and prevents SDL 3's Cocoa software renderer from
+creating a window framebuffer. It is not retained. SDL may use a GPU texture
+to present the completed software framebuffer on macOS; sprite/palette drawing
+still runs on the CPU and needs no application OpenGL or palette shader. The
+backbuffer and terrain atlas still use ARGB for SDL presentation/compositing.
+This change does not claim a fully indexed destination surface or an exact
+DirectDraw implementation. Retail's shared 8-bit destination and native RMP
+lighting/blend dispatch remain the fidelity reference.
+
+Reproduction (run the same commands at each revision):
+
+```sh
+make -j8 all
+/usr/bin/time -l env SDL_VIDEODRIVER=dummy build/bin/dark-colony \
+  --screenshot /private/tmp/dc-memory.bmp
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_definitions
+env SDL_VIDEODRIVER=dummy build/bin/test_dark_colony_sprite_layout
+find data/DCOLONY -type f \( -iname '*.SPR' -o -iname '*.FIN' \) | sort \
+  > /private/tmp/dc-sprites.txt
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading \
+  /private/tmp/dc-sprites.txt > /private/tmp/dc-catalog.txt
+```
+
+All 461 catalog entries match (447 loads, the same 14 rejects), including
+source/team pixels and frame/layer metadata. Catalog SHA-256:
+`22966ed476bd8a86bf63287a25a9af0a989d74fc9f5d2ed60a276f661788a3dd`.
+HUMAN01 BMP SHA-256 before/after:
+`d791c1fdb6914dcaf0cffc77a9f48250d4f276b081e9c38965fa8504c081910c`.
+Temporary allocation/stage logging was removed after measurement.
+
+**Correction to the earlier Exploiter presentation contract:** the wider suite's
+`test_game_model_headless` expected both WORK states to use frame 103, but
+starting revision `33f932d` already has WORK1=102 in `animate/EXPL.inc`. The user
+confirmed the current animation is correct and requested updating the test.
+The intended cycle is now explicitly WORK1=102 for two tics (native FIN frame
+52, deployed body plus GLIT), WORK2=103 for four tics (native FIN frame 53,
+body only). The test now checks this cycle; the animation table is unchanged.
+This supersedes the earlier body-only presentation requirement. It is user
+confirmation of intended presentation, not new executable evidence for retail
+harvesting dispatch, which remains unknown.
+
+Final verification after correcting that test: all 28 Dark Colony model tests,
+SPR/FIN layout, and headless smoke checks for Dark Colony, Dark Reign,
+7th Legion, and KKND pass. All four game binaries build without new warnings;
+`make tags` and `git diff --check` complete successfully.

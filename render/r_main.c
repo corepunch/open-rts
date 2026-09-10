@@ -4,7 +4,13 @@
 SDL_Renderer *r_renderer;
 
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
-    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
+    SDL_RendererInfo info = {0};
+    SDL_GetRendererInfo(renderer, &info);
+    /* Software static textures enable SDL RLE. Flipped atlas blits repeatedly
+     * unpack/repack the whole atlas; keep its surface uncompressed instead. */
+    int access = info.flags & SDL_RENDERER_SOFTWARE ?
+                 SDL_TEXTUREACCESS_STREAMING : SDL_TEXTUREACCESS_STATIC;
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, access, w, h);
     if (!texture) {
         fprintf(stderr, "SDL_CreateTexture %dx%d ARGB8888: %s\n", w, h, SDL_GetError());
         return NULL;

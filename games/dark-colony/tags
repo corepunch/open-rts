@@ -3993,6 +3993,7 @@ speed	games/dark-colony/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:
 sprite	games/dark-colony/gamestat.h	/^    const char *sprite;$/;"	m	struct:__anon7371b25f0208	typeref:typename:const char *
 sprite	games/dark-colony/gamestat.h	/^    const char *sprite;$/;"	m	struct:__anon7371b25f0408	typeref:typename:const char *
 sprite	games/dark-colony/w_spr.h	/^    char sprite[8];$/;"	m	struct:__anonef9947740608	typeref:typename:char[8]
+sprite_cache_key	games/dark-colony/w_spr.c	/^static void sprite_cache_key(const char *name, char key[32]) {$/;"	f	typeref:typename:void	file:	signature:(const char * name,char key[32])
 sprite_cache_load_dark_colony	games/dark-colony/w_spr.c	/^static bool sprite_cache_load_dark_colony(spritecache_t *cache,$/;"	f	typeref:typename:bool	file:	signature:(spritecache_t * cache,const char * data_root,const char * name)
 spritenum_t	games/dark-colony/info.h	/^} spritenum_t;$/;"	t	typeref:enum:__anonf7269e950103
 sprnames	games/dark-colony/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	typeref:typename:const char * const[]

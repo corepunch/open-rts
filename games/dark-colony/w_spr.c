@@ -1,7 +1,6 @@
 #include "w_spr.h"
 
 #include <ctype.h>
-#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -106,7 +105,7 @@ static bool install_sprite_frames(spritesheet_t *sheet, const dc_fin_t *fin,
         int rotations = 16 / stride;
         for (int f = start; f <= end; ++f) {
             spriteframe_t *frame = &sheet->spritedef.spriteframes[sheet->numlumps + f];
-            frame->rotations = rotations;
+            if (!R_AllocSpriteDirections(frame, rotations)) return false;
             for (int r = 0; r < rotations; ++r) {
                 int d = ((rotations / 2 - r + rotations) % rotations) * stride;
                 int source = SDL_SwapLE16(directions[d]->start) + f - start;
@@ -350,6 +349,20 @@ static const char *resolve_sprite_path(const char *root, const char *name) {
     return NULL;
 }
 
+/* Loading SPRITES/X.SPR also loads ANIMATE/X.FIN, and conversely. Both
+ * paths and the state-table name X therefore identify the same owned sheet.
+ * UI directories remain distinct even when their basenames match. */
+static void sprite_cache_key(const char *name, char key[32]) {
+    if (!strncasecmp(name, "SPRITES/", 8) || !strncasecmp(name, "ANIMATE/", 8)) {
+        snprintf(key, 32, "%s", name + 8);
+        char *extension = strrchr(key, '.');
+        if (extension && (!strcasecmp(extension, ".SPR") || !strcasecmp(extension, ".FIN")))
+            *extension = '\0';
+    } else {
+        snprintf(key, 32, "%s", name);
+    }
+}
+
 static bool sprite_cache_load_dark_colony(spritecache_t *cache,
                                           const char *data_root, const char *name) {
     if (!name || name[0] == '\0') return true;
@@ -360,6 +373,17 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
     }
     cachedsprite_t *entry = &cache->entries[cache->count];
     snprintf(entry->name, sizeof(entry->name), "%s", name);
+    char key[32];
+    sprite_cache_key(entry->name, key);
+    for (int i = 0; i < cache->count; ++i) {
+        char existing[32];
+        sprite_cache_key(cache->entries[i].name, existing);
+        if (!strcasecmp(key, existing)) {
+            entry->alias = R_CacheLookup(cache, cache->entries[i].name);
+            ++cache->count;
+            return true;
+        }
+    }
     const char *sprite_path = resolve_sprite_path(data_root, name);
     if (!sprite_path) {
         fprintf(stderr, "failed to resolve Dark Colony sprite %s\n", entry->name);
@@ -389,21 +413,10 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
 }
 
 static bool load_ui_sprites(const char *root, spritecache_t *cache) {
-    static const char *const directories[] = { "CURSOR", "ENCYCLO", "INTRFACE" };
-    bool ok = true;
-    for (size_t i = 0; i < sizeof(directories) / sizeof(*directories); ++i) {
-        DIR *dir = opendir(M_va("%s/%s", root, directories[i]));
-        if (!dir) return false;
-        struct dirent *entry;
-        while ((entry = readdir(dir))) {
-            const char *extension = strrchr(entry->d_name, '.');
-            if (extension && !strcasecmp(extension, ".SPR"))
-                ok &= sprite_cache_load_dark_colony(
-                    cache, root, M_va("%s/%s", directories[i], entry->d_name));
-        }
-        closedir(dir);
-    }
-    return ok;
+    /* These are the gameplay HUD's consumers. Fonts/background have their
+     * own owners; encyclopedia and menu animations belong to those screens. */
+    return sprite_cache_load_dark_colony(cache, root, "INTRFACE/MAINBUT.SPR") &&
+           sprite_cache_load_dark_colony(cache, root, game_info.selection_marker.image);
 }
 
 bool load_dark_colony_unit_sprites(const char *data_root,

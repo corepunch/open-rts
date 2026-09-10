@@ -205,8 +205,7 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
         W_FreeFile(&blob);
         return false;
     }
-    out->spritedef.spriteframes = calloc(1, sizeof(*out->spritedef.spriteframes));
-    if (!out->spritedef.spriteframes || !R_AllocSpriteCells(out, 1)) {
+    if (!R_InitSpriteDef(out, 1, 1) || !R_AllocSpriteCells(out, 1)) {
         free(canvas);
         W_FreeFile(&blob);
         R_FreeSprite(out);
@@ -224,17 +223,10 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
     out->cells[0].rect = (irect_t){ 0, 0, canvas_w, canvas_h };
     out->cells[0].bounds = out->cells[0].rect;
     out->cells[0].ground_point = (ivec2_t){ canvas_w / 2, canvas_h };
-    out->spritedef.numframes = 1;
-    out->spritedef.spriteframes[0].rotations = 1;
-    spritelayer_t *layer = calloc(2, sizeof(*layer));
-    if (!layer) {
+    if (!R_InstallSpriteLump(out, 0, 0, 0, false)) {
         R_FreeSprite(out);
         return false;
     }
-    out->spritedef.spriteframes[0].directions[0].layers = layer;
-    snprintf(layer->sprite_name, sizeof(layer->sprite_name), ".");
-    layer->lump = 0;
-    layer->intensity = 16;
     out->frame_size = (isize2_t){ canvas_w, canvas_h };
     return true;
 }

@@ -91,6 +91,7 @@ const spritesheet_t *R_StateSprite(const spritecache_t *cache, const gameinfo_t 
                                    int sprite, const char *name);
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name);
 bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations);
+bool R_AllocSpriteDirections(spriteframe_t *frame, int rotations);
 bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
                          int lump, bool flip);
 

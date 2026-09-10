@@ -41,7 +41,7 @@ typedef struct spritedirection_s {
 typedef struct spriteframe_s {
     int rotations; /* 1 is nondirectional; slots start north, counterclockwise. */
     char frame_name[17];
-    spritedirection_t directions[MAX_SPRITE_ROTATIONS];
+    spritedirection_t *directions;
 } spriteframe_t;
 
 typedef struct spritedef_s {
@@ -94,6 +94,7 @@ typedef struct tileset_s {
 typedef struct cachedsprite_s {
     char name[32];
     spritesheet_t sprite;
+    const spritesheet_t *alias; /* Borrowed image for another native resource name. */
 } cachedsprite_t;
 
 typedef struct spritecache_s {

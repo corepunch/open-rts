@@ -361,11 +361,12 @@ array, not the binary.
 - **Exploiter deploy orientation**: when ordered to harvest, the unit first rotates to face
   south-east (code 6), then plays the DEPLOY1-20 animation. Code already does this; preserve it.
 - **Exploiter work (harvesting) animation**: the WORK1-15 data (frames 25-33) was incorrectly
-  interpreted as a probe-arm animation. WORK states show only the static deployed body
-  (SPR cell 34 through FIN frame 53, the final `EDPLYSTAND14` frame). The original
-  game appears to use a pulsating light during harvesting, but its native
-  implementation is still unknown; preserve that unknown and
-  investigate it in DC.EXE before adding a spawned visual effect.
+  interpreted as a probe-arm animation. The user confirmed the current cycle:
+  WORK1 uses logical frame 102 for two tics (native FIN frame 52, deployed body
+  plus GLIT); WORK2 uses logical frame 103 for four tics (native FIN frame 53,
+  body only). Preserve this cycle and test both frames. This supersedes the
+  earlier body-only requirement. Retail harvesting dispatch remains unknown;
+  do not infer a spawned visual effect from the authored FIN layers.
 
 ## Dark Colony direction
 

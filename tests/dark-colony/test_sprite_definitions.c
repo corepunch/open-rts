@@ -96,8 +96,11 @@ static void check_ui_storage(SDL_Renderer *renderer) {
     CHECK(R_StateSprite(cache, NULL, SPR_BARR, NULL));
     CHECK(!R_CacheLookup(cache, "ENCYCLO/BARR.SPR"));
     CHECK(!R_CacheLookup(cache->ui, "BARR"));
-    CHECK(R_CacheLookup(cache->ui, "ENCYCLO/BARR.SPR"));
-    CHECK(R_CacheLookup(cache->ui, "CURSOR/CURS.SPR"));
+    CHECK(!R_CacheLookup(cache->ui, "ENCYCLO/BARR.SPR"));
+    CHECK(!R_CacheLookup(cache->ui, "INTRFACE/EARTHG.SPR"));
+    CHECK(R_CacheLookup(cache, "TRSC"));
+    CHECK(R_CacheLookup(cache, "TRSC") == R_CacheLookup(cache, "SPRITES/TRSC.SPR"));
+    CHECK(!R_CacheLookup(cache->ui, "CURSOR/CURS.SPR"));
     CHECK(R_CacheLookup(cache->ui, "INTRFACE/MAINBUT.SPR"));
     const spritesheet_t *marker = R_CacheLookup(cache->ui, game_info.selection_marker.image);
     CHECK(marker);
@@ -257,12 +260,15 @@ int main(void) {
     if (!R_AllocSpriteCells(&mixed, 32) || !R_InitSpriteDef(&mixed, 2, 1)) {
         valid = false;
     } else {
-        mixed.spritedef.spriteframes[1].rotations = 32;
+        CHECK(R_AllocSpriteDirections(&mixed.spritedef.spriteframes[1], 32));
         valid &= R_InstallSpriteLump(&mixed, 0, 0, 0, false);
         valid &= !R_InstallSpriteLump(&mixed, 0, 1, 0, false);
         for (int r = 0; r < 32; ++r)
             valid &= R_InstallSpriteLump(&mixed, 1, r, r, false);
         valid &= !R_InstallSpriteLump(&mixed, 1, 32, 0, false);
+        CHECK(R_InitSpriteDef(&mixed, 1, 1));
+        CHECK(!mixed.spritedef.spriteframes[0].directions[0].layers);
+        CHECK(R_InstallSpriteLump(&mixed, 0, 0, 0, false));
     }
     R_FreeSprite(&mixed);
     r_renderer = NULL;
