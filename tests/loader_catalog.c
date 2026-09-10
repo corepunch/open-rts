@@ -59,8 +59,11 @@ static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite) {
         const spriteframe_t *frame = &sprite->spritedef.spriteframes[i];
         HASH(frame->rotations); HASH(frame->frame_name);
         for (int j = 0; j < MAX_SPRITE_ROTATIONS; ++j) {
-            HASH(frame->directions[j].ticks);
-            const spritelayer_t *layer = frame->directions[j].layers;
+            const spritedirection_t empty = {0};
+            const spritedirection_t *direction = j < frame->rotations ?
+                &frame->directions[j] : &empty;
+            HASH(direction->ticks);
+            const spritelayer_t *layer = direction->layers;
             for (; layer && layer->sprite_name[0]; ++layer) HASH(*layer);
             int end = -1;
             HASH(end);

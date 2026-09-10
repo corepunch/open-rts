@@ -78,8 +78,18 @@ typedef struct spritesheet_s {
     const uint8_t *shadowmap; /* Destination colormap for native projected shadows. */
 } spritesheet_t;
 
+typedef struct tilepalettecycle_s {
+    uint8_t *tiles;
+    uint8_t indices[256];
+    int count;
+    uint16_t frame_ms;
+} tilepalettecycle_t;
+
 typedef struct tileset_s {
     SDL_Texture *texture;
+    uint8_t *indices; /* Contiguous native tiles, one byte per pixel. */
+    uint32_t palette[256];
+    tilepalettecycle_t palette_cycle;
     int *tile_lookup;
     int tile_lookup_count;
     TileAnimation *animations;

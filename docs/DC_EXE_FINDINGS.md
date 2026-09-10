@@ -3838,3 +3838,78 @@ Final verification after correcting that test: all 28 Dark Colony model tests,
 SPR/FIN layout, and headless smoke checks for Dark Colony, Dark Reign,
 7th Legion, and KKND pass. All four game binaries build without new warnings;
 `make tags` and `git diff --check` complete successfully.
+
+### September 10: indexed terrain and palette-driven water
+
+**Confirmed asset/storage finding:** the ARGB terrain atlas was unnecessary.
+BTS already stores 32x32 indexed tiles: count at byte 4, the 256-entry RGB palette
+at byte 8, then records starting at byte 776, each a four-byte key followed by
+1024 pixel indices. Retain those native pixel bytes once per tile, with a
+separate palette. Neither BTS loading nor SPR loading now needs a renderer.
+
+The previous engine loader (`86ef7e8`) added synthetic keys and full pixel
+copies for every water phase. DESERT had 1382 native tiles expanded to 2222
+atlas entries, occupying 768x2976x4 = 9,142,272 bytes (8.72 MiB). The indexed
+replacement retains 1382x1024 = 1,415,168 bytes (1.35 MiB), plus its palette,
+key lookup and one water-selection byte per tile. No synthetic tiles or water
+pixel copies remain. `R_DrawIndexed` is shared by sprites and terrain and
+expands only the requested source rectangle into the existing reusable SDL
+upload surface. The final framebuffer/upload format remains ARGB; terrain
+source storage does not. No OpenGL or palette shader is required.
+
+**Existing engine behavior preserved, not verified retail behavior:** the old
+water heuristic accepts palette indices 201–211 with R<80, G>36, B>36 and
+G+B>2R. A tile animates when at least 96 pixels qualify and they comprise at
+least one quarter of its nontransparent pixels. The cycling subset is the
+qualifying entries within 201–207, ascending, advancing every 180 ms. At draw
+time, destination palette entry i selects cycle[(i+phase)%count]; static tiles
+keep the base palette. The old wave ranking selected the top seven out of at
+most seven candidates, so removing that ranking changes no selection.
+ATLANTIS selects five cycling colors; the other three BTS files select seven.
+
+These thresholds, palette ranges and 180-ms period were already in the engine.
+This task does not establish them from DC.EXE, nor does it establish whether
+retail cycles globally or restricts cycling to specific tiles. Preserve that
+unknown; a future native palette investigation should replace the heuristic
+from evidence rather than tune it visually. The confirmed retail 8-bit
+DirectDraw surface/shared-palette evidence remains in the preceding section.
+
+Asset fingerprints and native tile counts:
+
+| BTS | Tiles | SHA-256 |
+| --- | ---: | --- |
+| ATLANTIS | 1313 | `61a2aed6ac8d36fcb6fe07f14dfe96ead9bedf5320d6f951cbedd7d381dc9420` |
+| DESERT | 1382 | `3243b51139cb3cf71de9336ee282ba1502c90e2b12520ac1c349965c7f97fc6d` |
+| HTRAIN | 749 | `af18c80699bc610997fb7cc83c16599fca5677ae867b2fa0728067f492751495` |
+| JUNGLE | 1320 | `ab72a4cb1358de2e5ea4ad190fe634d43046d1320311e93e6ad3e15035d8b02e` |
+
+`test_terrain_loading` checks all 4764 native tiles across seven 180-ms phases
+and all four map flips against fingerprints captured from the old ARGB path.
+It additionally checks byte-identical native indexed storage, absence of
+terrain textures/synthetic animations, live palette edits, transparency,
+cropping, scaling and clipping. Its single-row map uses camera Y=-32 because
+`L_ScreenYF` maps world Y=0 to map height; an initial baseline harness without
+that offset drew outside the output and was discarded, not used as a golden.
+The retained camera value is test geometry, not a gameplay offset correction.
+
+```sh
+make -j8 all build/bin/tests/dark-colony/test_terrain_loading
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_terrain_loading
+env SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony \
+  --screenshot /private/tmp/dc-indexed-terrain.bmp
+```
+
+HUMAN01's BMP remains byte-identical to `86ef7e8` (SHA-256
+`d791c1fdb6914dcaf0cffc77a9f48250d4f276b081e9c38965fa8504c081910c`).
+Temporary per-BTS allocation/palette diagnostics were removed after verification.
+The old auxiliary multi-game loader catalog also needed to read only allocated
+sprite directions after the preceding memory change; missing slots still hash
+as zero, preserving its previous fingerprint format.
+
+Final verification: all 29 Dark Colony tests and sprite layout pass; all four
+binaries build and pass dummy-video smoke checks. The full SPR/FIN catalog
+remains identical to the preceding revision. The same headless HUMAN01 run
+measures 48,988,160 bytes maximum RSS and 39,847,232 bytes peak physical
+footprint with `/usr/bin/time -l`; these are headless process measurements,
+not a new windowed-game measurement. Tags were regenerated and the diff checked.

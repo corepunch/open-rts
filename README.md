@@ -126,8 +126,9 @@ env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-dark-colony-ui.bmp --game dark-colony
 ```
 
-Dark Colony uses software rendering by default: one indexed sprite image with
-palette translations at draw time, and a shared upload surface. It does not
+Dark Colony uses software rendering by default: indexed sprites and terrain with
+palette lookups at draw time, and a shared upload surface. Water cycles palette
+colors without duplicating terrain tiles. It does not
 require OpenGL or palette shaders. SDL handles presentation of the completed
 framebuffer to the window.
 

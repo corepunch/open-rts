@@ -19,7 +19,7 @@
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(const char *map_path);
-extern bool load_dark_colony_tileset(SDL_Renderer *renderer, const char *path, tileset_t *out);
+extern bool load_dark_colony_tileset(const char *path, tileset_t *out);
 
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
@@ -440,13 +440,14 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                   const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
+    (void)renderer; /* Both terrain and sprites decode into indexed CPU storage. */
     if (!load_render_tables(root, map->tileset_name)) {
         fprintf(stderr, "failed to load Dark Colony render tables for %s\n", map->tileset_name);
         return false;
     }
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", root, map->tileset_name);
-    if (!load_dark_colony_tileset(renderer, bts_path, tileset)) return false;
+    if (!load_dark_colony_tileset(bts_path, tileset)) return false;
 
     char sprite_path[1024];
     uint32_t sprite_palette[256] = { 0 };

@@ -34,6 +34,9 @@ void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint
 void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                    const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
+bool R_DrawIndexed(SDL_Renderer *renderer, const uint8_t *indices, isize2_t size,
+                   const uint32_t palette[256], const irect_t *src, const irect_t *dst,
+                   SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend);
 bool R_AllocSpriteCells(spritesheet_t *sprite, int count);
 /* Palette is a source-index translation ID; -1 selects the source palette.
  * Indexed sprites never acquire textures or retain expanded color copies. */

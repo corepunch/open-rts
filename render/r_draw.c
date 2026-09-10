@@ -173,38 +173,48 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
     SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
-void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part) {
-    tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
-    if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
-    irect_t src = {
-        (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
-        (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
-        src_part.w,
-        src_part.h,
-    };
-    SDL_RenderCopy(app->renderer, tileset->texture, &src, &dst_part);
-}
-
 static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int tile,
                                    irect_t src_part, irect_t dst_part, uint8_t transforms) {
     tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
-    if (!tileset->texture || tile < 0 || tile >= tileset->count) return;
-    irect_t src = {
-        (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
-        (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
-        src_part.w,
-        src_part.h,
-    };
+    if (tile < 0 || tile >= tileset->count) return;
     SDL_RendererFlip flip = SDL_FLIP_NONE;
     if (transforms & MAP_TILE_TRANSFORM_FLIP_X)
         flip = (SDL_RendererFlip)(flip | SDL_FLIP_HORIZONTAL);
     if (transforms & MAP_TILE_TRANSFORM_FLIP_Y)
         flip = (SDL_RendererFlip)(flip | SDL_FLIP_VERTICAL);
+    if (tileset->indices) {
+        const uint32_t *palette = tileset->palette;
+        uint32_t colors[256];
+        const tilepalettecycle_t *cycle = &tileset->palette_cycle;
+        if (cycle->tiles && cycle->tiles[tile] && cycle->count > 1 && cycle->frame_ms) {
+            unsigned phase = (app->ticks_ms / cycle->frame_ms) % cycle->count;
+            memcpy(colors, palette, sizeof(colors));
+            for (int i = 0; i < cycle->count; ++i)
+                colors[cycle->indices[i]] = palette[cycle->indices[(i + phase) % cycle->count]];
+            palette = colors;
+        }
+        isize2_t size = {tileset->tile_w, tileset->tile_h};
+        const uint8_t *indices = tileset->indices + (size_t)tile * size.w * size.h;
+        R_DrawIndexed(app->renderer, indices, size, palette, &src_part, &dst_part,
+                       flip, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
+        return;
+    }
+    if (!tileset->texture) return;
+    irect_t src = {
+        (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
+        (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
+        src_part.w,
+        src_part.h,
+    };
     if (flip == SDL_FLIP_NONE) {
         SDL_RenderCopy(app->renderer, tileset->texture, &src, &dst_part);
     } else {
         SDL_RenderCopyEx(app->renderer, tileset->texture, &src, &dst_part, 0.0, NULL, flip);
     }
+}
+
+void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part) {
+    render_tile_at_flipped(app, tileset, tile, src_part, dst_part, 0);
 }
 
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
@@ -288,8 +298,10 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
     if ((map->render_capabilities & MAP_RENDER_CAP_TERRAIN_TRANSITIONS) &&
         !(map->render_capabilities & MAP_RENDER_CAP_CELL_COLORS) &&
         map->render_transitions) {
-        SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_BLEND);
-        SDL_SetTextureAlphaMod(tileset->texture, 255);
+        if (tileset->texture) {
+            SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(tileset->texture, 255);
+        }
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
@@ -303,8 +315,10 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 map->render_transitions(app, map, tileset, x, y, dx, dy);
             }
         }
-        SDL_SetTextureAlphaMod(tileset->texture, 255);
-        SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_NONE);
+        if (tileset->texture) {
+            SDL_SetTextureAlphaMod(tileset->texture, 255);
+            SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_NONE);
+        }
     }
 
     if (app->show_blocked) {
@@ -1618,6 +1632,8 @@ void R_ClampCamera(app_t *app, const level_t *map, int viewport_w, int viewport_
 
 void R_FreeTileset(tileset_t *tileset) {
     if (tileset->texture) SDL_DestroyTexture(tileset->texture);
+    free(tileset->indices);
+    free(tileset->palette_cycle.tiles);
     free(tileset->tile_lookup);
     free(tileset->animations);
     memset(tileset, 0, sizeof(*tileset));
