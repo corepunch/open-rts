@@ -1,5 +1,6 @@
 #include "game.h"
 #include "dr_types.h"
+#include "info.h"
 
 /* Native AIP values recovered from the shipped FG AIP files.  These are
  * configuration inputs for the generic AI layer, not executable-specific
@@ -421,9 +422,6 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     },
 };
 
-static const gameinfo_t DARK_REIGN_GAME_INFO = {
-    .selection_marker = { .style = SELECTION_STYLE_BRACKETS },
-};
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
@@ -435,7 +433,7 @@ const char *const g_game_default_sprite = "ucfcnst0.spr";
 const int g_cell_w = 24;
 const int g_cell_h = 24;
 const uint16_t g_debug_enemy_type = ACTOR_FG_CONSTRUCTION_CREW;
-const gameinfo_t *gameinfo = &DARK_REIGN_GAME_INFO;
+const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_REIGN_ACTOR_TYPES;
 const int num_actor_types =

@@ -15,6 +15,8 @@ BIN_DIR   := $(BUILD_DIR)/bin
 
 ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_CONV_TARGET    := $(BUILD_DIR)/dc_info_conv
+DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
+KKND_INFO_GEN_TARGET   := $(BUILD_DIR)/kknd_info_gen
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
 DC_SPR_EXTRACT_TARGET  := $(BUILD_DIR)/dc_spr_extract
 DC_FIN_EXTRACT_TARGET  := $(BUILD_DIR)/dc_fin_extract
@@ -39,8 +41,10 @@ KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
 MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render -name '*.c' ! -name 'd_main.c'))
 
 # ── tool sources ─────────────────────────────────────────────────────────────
-ANIM_EXTRACT_SOURCE  := tools/anim_extract.c
-DC_INFO_CONV_SOURCES := $(sort $(shell find tools/dc_info_conv -name '*.c'))
+ANIM_EXTRACT_SOURCE    := tools/anim_extract.c
+DC_INFO_CONV_SOURCES   := $(sort $(shell find tools/dc_info_conv -name '*.c'))
+DC_INFO_GEN_SOURCE     := tools/dc_info_gen.c
+KKND_INFO_GEN_SOURCE   := tools/kknd_info_gen.c
 DC_GAMESTAT_GEN_SOURCE := tools/dc_gamestat_gen.c
 DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 
@@ -49,7 +53,7 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
         test-headless test-dc-info-conv test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-states dark-colony-gamestat 7legion kknd \
-        kknd-check anim-extract dc-info-conv dc-spr-extract dc-fin-extract clean help tags
+        kknd-check anim-extract dc-info-conv dc-info-gen kknd-info-gen kknd-info dc-spr-extract dc-fin-extract clean help tags
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -124,6 +128,12 @@ $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
 $(DC_INFO_CONV_TARGET): $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_CONV_SOURCES))
 	$(CC) $^ -o $@
 
+$(DC_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dc_info_gen.o
+	$(CC) $^ -o $@
+
+$(KKND_INFO_GEN_TARGET): $(BUILD_DIR)/tools/kknd_info_gen.o
+	$(CC) $^ -o $@
+
 $(DC_GAMESTAT_GEN_TARGET): $(BUILD_DIR)/tools/dc_gamestat_gen.o
 	$(CC) $^ -o $@
 
@@ -139,11 +149,21 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 
 -include $(BUILD_DIR)/tools/anim_extract.d
 -include $(patsubst %.c,$(BUILD_DIR)/%.d,$(DC_INFO_CONV_SOURCES))
+-include $(BUILD_DIR)/tools/dc_info_gen.d
+-include $(BUILD_DIR)/tools/kknd_info_gen.d
 -include $(BUILD_DIR)/tools/dc_gamestat_gen.d
 -include $(BUILD_DIR)/tools/dc_spr_extract.d
 -include $(BUILD_DIR)/tools/dc_fin_extract.d
 
 dc-info-conv: $(DC_INFO_CONV_TARGET)
+
+dc-info-gen: $(DC_INFO_GEN_TARGET)
+
+kknd-info-gen: $(KKND_INFO_GEN_TARGET)
+
+kknd-info: $(KKND_INFO_GEN_TARGET)
+	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG \
+	    games/kknd/info.h games/kknd/info.c
 
 test-dc-info-conv: $(DC_INFO_CONV_TARGET)
 	python3 tests/tools/test_dc_info_conv.py
@@ -151,6 +171,10 @@ test-dc-info-conv: $(DC_INFO_CONV_TARGET)
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_CONV_TARGET)
 	$(DC_INFO_CONV_TARGET) --states $(sort $(wildcard $(DARK_COLONY_ROOT)/ANIMATE/*.FIN)) > $(BUILD_DIR)/dc-animations.txt
+
+dark-colony-states: $(DC_INFO_GEN_TARGET)
+	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT)/ANIMATE \
+	    games/dark-colony/animate games/dark-colony/info.h
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
