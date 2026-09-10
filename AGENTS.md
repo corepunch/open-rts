@@ -2,6 +2,9 @@
 
 ## Build
 
+All repository tools and generators must be implemented in C. Do not add or
+retain Python-based build, extraction, conversion, or code-generation tools.
+
 ```sh
 make
 ```
