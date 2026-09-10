@@ -69,8 +69,8 @@ S_EXPL_STND                      EXPL    50                 -1                  
 S_EXPL_RUN{1..2}                 EXPL    66..67             3                        A_Chase                S_EXPL_RUN1                  2
 ; EXPLDEPLOY14: complete native FIN sequence.
 S_EXPL_DEPLOY{1..20}             EXPL    82..101            5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5 NULL                   S_EXPL_WORK1                 5
-; EDPLYSTAND14 final FIN frame: static body; work light remains unverified.
-S_EXPL_WORK{1..2}                EXPL    103                2,4                      NULL                   S_EXPL_WORK1                 5
+; EDPLYSTAND14: alternate the static body and its authored blinking-light frame.
+S_EXPL_WORK{1..2}                EXPL    102..103           2,4                      NULL                   S_EXPL_WORK1                 5
 ; EXPLDIE0: complete native FIN sequence.
 S_EXPL_DIE{1..12}                EXPL    104..115           5,4,5,5,5,4,5,5,5,4,5,5  NULL                   S_EXPL_CORPSE                4
 S_EXPL_CORPSE                    EXPL    115                -1                       NULL                   S_NULL                       4
