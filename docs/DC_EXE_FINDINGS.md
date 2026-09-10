@@ -3568,6 +3568,52 @@ sequences including repeated prefixes), and all 106 prefixes/exit variants
 match the separately extracted `gamestat.h`. `make`, `make tags`, the Dark Colony
 headless smoke check, `test_barracks_production`, and `test_building_damage` pass.
 
+## Retail dropship unload timing correction (2026-09-10)
+
+This section supersedes the earlier `DROP FIN sequences and ordinary objects`
+claim that the unload cycle is 47 engine tics. That claim followed the wrong
+multiplier in an earlier timing interpretation.
+
+**Confirmed executable evidence:** the inspected `data/DCOLONY/DC.EXE` is the
+same retail fingerprint recorded at the top of this report: SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5`, 566272
+bytes, PE32 i386, image base `0x00400000`, timestamp August 11, 1997
+20:53:20. In `fcn.004230ac`, the FIN loader:
+
+- tests the frame delay word at `0x00423544`;
+- writes 15 for a zero delay at `0x0042354b`;
+- computes the converted count at `0x00423563`–`0x0042358f` using a 15x
+  multiplier (`5x`, then `20x - 5x`), i.e. `((raw + 3) * 15) / 100`.
+
+`DROP.FIN` frames 0–9, the `DROPTWO` label, all have raw delay 0. Therefore
+each unload frame is 2 retail animation ticks, and the complete ten-frame
+unload is 20 ticks. The retail animation ticker calls `fcn.00423dd0` from
+`fcn.00418394` once per animation update, consuming that converted frame count.
+At open-rts's 30 Hz simulation rate, the corresponding unload duration is
+20/30 seconds, approximately 0.67 seconds. This matches the requested
+near-continuous retail drop better than the previous 47-tic (1.57 second)
+state chain.
+
+**Implementation consequence:** `S_DROP_UNLOAD1` through `S_DROP_UNLOAD10`
+now use 2 tics each; `A_DC_Drop` remains on the zero-tic `S_DROP_RELEASE` state.
+The change is in the authored `tools/dc_states.txt` row and its checked-in
+`games/dark-colony/animate/DROP.inc` output. Dropship flight speed remains an
+independent `ActorType`/`mobjinfo` setting; this correction does not change
+movement speed or reposition orders.
+
+**Disproven/superseded:** the previous statement that the focused instruction
+sequence computes `((raw + 3) * 19) / 100`, and the resulting 47-tic `DROPTWO`
+cycle, are not supported by the retail bytes. `DROPMOVE0` remains on the
+existing authored movement-frame timing in this change; its movement duration
+is controlled independently by the dropship flying order and speed.
+
+Reproduce the native conversion and focused state check with:
+
+```sh
+build/dc_info_conv --label DROPTWO data/DCOLONY/ANIMATE/DROP.FIN
+build/bin/tests/dark-colony/test_drop_fin_states
+```
+
 ## Replace macro state catalogs with per-FIN raw includes (2026-09-10)
 
 **Implementation-only refactor:** supersedes the exporter commands and macro

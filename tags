@@ -1053,6 +1053,7 @@ available	game/g_game.h	/^    bool available;$/;"	m	struct:__anon42a104c41308	ty
 backend	interface/renderer.h	/^    const rendererbackend_t *backend;$/;"	m	struct:renderer_s	typeref:typename:const rendererbackend_t *
 base_position	play/p_ai.h	/^    fvec2_t base_position;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:fvec2_t
 begin_frame	interface/renderer.h	/^    void (*begin_frame)(renderer_t *renderer, SDL_Color clear);$/;"	m	struct:rendererbackend_s	typeref:typename:void (*)(renderer_t * renderer,SDL_Color clear)
+behavior	docs/DC_DROPSHIP_ANIMATION.md	/^> correction in `DC_EXE_FINDINGS.md`; this is requested engine behavior, not a new$/;"	v	typeref:typename:this is requested engine
 bitmapfont_s	render/sprites.h	/^typedef struct bitmapfont_s {$/;"	s
 bitmapfont_s::draw_divisor	render/sprites.h	/^    int draw_divisor;$/;"	m	struct:bitmapfont_s	typeref:typename:int
 bitmapfont_s::glyph_index	render/sprites.h	/^    int glyph_index[128];$/;"	m	struct:bitmapfont_s	typeref:typename:int[128]

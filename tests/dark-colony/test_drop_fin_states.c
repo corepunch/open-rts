@@ -85,10 +85,17 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         CHECK(!memcmp(expected_pixels, surface->pixels, bytes));
         if (f == (start + end) / 2)
             CHECK(SDL_SaveBMP(surface, M_va("/private/tmp/%s.bmp", label_name)) == 0);
-        int raw = expected.ticks ? expected.ticks : 15;
         bool barracks = first_state == S_BRRKPOD_BUILD_TRSC1;
-        native += ((raw + 3) * (barracks ? 15 : 19)) / 100;
-        int boundary = barracks ? (native * 66 * 30 + 500) / 1000 : (native * 30 + 9) / 19;
+        int boundary;
+        if (first_state == S_DROP_UNLOAD1) {
+            /* DC.EXE 0x423544–0x42358f maps DROP raw 0 to two ticks. */
+            CHECK(expected.ticks == 0);
+            boundary = elapsed + 2;
+        } else {
+            int raw = expected.ticks ? expected.ticks : 15;
+            native += ((raw + 3) * (barracks ? 15 : 19)) / 100;
+            boundary = barracks ? (native * 66 * 30 + 500) / 1000 : (native * 30 + 9) / 19;
+        }
         CHECK(unit.core.tics == boundary - elapsed);
         int state = unit.core.state_id;
         for (int t = elapsed; t < boundary; ++t) {

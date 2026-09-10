@@ -124,8 +124,9 @@ S_ALIEN_MINDHIVE3_STND_2         ALBU    34                 8                   
 ; Retail standing-label selection remains unverified.
 S_ALIEN_RSCHIVE_STND             ALBU    40                 -1                       NULL                   S_ALIEN_RSCHIVE_STND         1
 S_DROP_MOVE{1..10}               DROP    86..95             5,4,5,5,5,4,5,5,5,4      NULL                   S_DROP_MOVE1                 2
-S_DROP_UNLOAD1                   DROP    2                  5                        A_DC_Arrive            S_DROP_UNLOAD2               6
-S_DROP_UNLOAD{2..10}             DROP    3..11              4,5,5,5,4,5,5,5,4        NULL                   S_DROP_RELEASE               6
+; DC.EXE maps DROP.FIN raw delay 0 to two runtime animation ticks.
+S_DROP_UNLOAD1                   DROP    2                  2                        A_DC_Arrive            S_DROP_UNLOAD2               6
+S_DROP_UNLOAD{2..10}             DROP    3..11              2                        NULL                   S_DROP_RELEASE               6
 S_SCNCPOD_BUILD{1..42}           DROP    96..137            5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5 NULL                   S_SCNCPOD_STND1              6
 S_SCNCPOD2_BUILD{1..37}          DROP3   0..36              5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4 NULL                   S_SCNCPOD2_STND1             6
 S_ROBOPOD2_BUILD{1..23}          DROP4   0..22              5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5 NULL                   S_ROBOPOD2_STND1             6

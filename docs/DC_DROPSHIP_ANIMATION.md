@@ -6,6 +6,14 @@
 
 # DC.EXE Dropship Animation System
 
+> Retail unload timing correction (2026-09-10): DC.EXE's FIN loader replaces a
+> zero `DROP.FIN` frame delay with 15, then computes `((15 + 3) * 15) / 100 = 2`
+> runtime animation ticks. The ten-frame `DROPTWO` unload therefore takes 20
+> ticks, about 0.67 seconds at the open-rts 30 Hz simulation rate. The old
+> 47-tic unload policy was too slow and is superseded; this correction is based
+> on the instruction sequence at `0x00423544`–`0x0042358f` in the fingerprinted
+> retail executable.
+
 This document records the Dark Colony dropship animation system as traced through
 DC.EXE disassembly and native asset analysis. Addresses refer to the executable
 fingerprint below.
@@ -76,10 +84,10 @@ Only the first 4 bytes are meaningful:
 Duration conversion (`w_spr.c:1043–1045`):
 ```
 if (raw_ticks == 0) raw_ticks = 15;
-runtime_tics = ((raw_ticks + 3) * 19) / 100;
+runtime_tics = ((raw_ticks + 3) * 15) / 100;
 duration_ms = (runtime_tics * 1000 + 15) / 30;
 ```
-When `raw_ticks=0`: `runtime_tics = (18*19)/100 = 3`, `duration_ms ≈ 103ms`.
+When `raw_ticks=0`: `runtime_tics = (18*15)/100 = 2`, `duration_ms ≈ 67ms`.
 
 ### Commands (22 bytes each, 1307 total, offset 22616)
 
@@ -198,8 +206,8 @@ for (int i = 0; i < animation->frame_count; ++i) {
 return animation->frame_count - 1;
 ```
 
-Animation loops via modulo. Since all `raw_ticks` are 0, every frame is ~103ms,
-so a 10-frame animation loops every ~1030ms.
+Animation loops via modulo. Since all `raw_ticks` are 0, every frame is ~67ms,
+so the ten-frame `DROPTWO` unload runs for ~670ms.
 
 ## Complete lifecycle
 
@@ -218,8 +226,8 @@ and sparkles). State auto-transitions to `S_DROPSHIP_UNLOAD`.
 
 ### 3. Unload
 
-`A_DC_DropshipUnload` sets `phase_duration_ms = unload.animation.duration_ms`
-(~1030ms). The animation switches to `DROPTWO` — the complex multi-part
+The ten-frame `DROPTWO` sequence runs for 20 runtime ticks (~670ms). The
+animation switches to `DROPTWO` — the complex multi-part
 composition with scattered debris, dust clouds, and sparkles. This is when
 the ship visually "deposits" units.
 
