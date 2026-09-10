@@ -1,6 +1,7 @@
 /* Authored gameplay tables; FIN animation extraction lives in tools/dc_info_conv/. */
 #include "engine.h"
 #include "info.h"
+#include "r_selection.h"
 
 const char *const sprnames[NUMSPRITES] = {
     "DROP3", "DROP4", "ACAR", "ACOM", "AIRD", "ALBU", "ALIEN1", "ARTILER2",
@@ -381,7 +382,6 @@ const gameinfo_t game_info = {
     NUMMOBJTYPES,
     S_NULL,
     RTS_STATE_COORDS_FIN_TOP_LEFT,
-    { .style = SELECTION_STYLE_SPRITE, .image = "INTRFACE/CLIENT.SPR",
-      .healthy_frame = 0, .wounded_frame = 1, .critical_frame = 3, .top_offset_y = -3 },
-    NULL,
+    { .style = SELECTION_STYLE_SPRITE, .image = "INTRFACE/CLIENT.SPR" },
+    DC_DrawUnitOverlays,
 };

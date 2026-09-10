@@ -423,24 +423,6 @@ const uint16_t g_debug_enemy_type = MT_GREY;
 static state_t runtime_states[NUMSTATES];
 static gameinfo_t runtime_info;
 
-static bool draw_selection(const selectiondrawcontext_t *ctx) {
-    if (!ctx || !ctx->unit) return false;
-    bool drawn = R_DrawSelectionMarkerSprite(ctx);
-    uint16_t type = ctx->unit->native_type_id;
-    if ((type < 69 || type > 76) || !ctx->game_info || !ctx->cache ||
-        !ctx->game_info->selection_marker.image) {
-        return drawn;
-    }
-    int frame = 30 + (type - 69) % 4;
-    irect_t badge = {
-        ctx->visible.x + (ctx->visible.w - 30) / 2,
-        ctx->visible.y - 15,
-        30,
-        15,
-    };
-    return R_DrawSelectionMarkerFrame(ctx, frame, badge) || drawn;
-}
-
 const gameinfo_t *gameinfo = &runtime_info;
 const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_COLONY_ACTOR_TYPES;
@@ -458,7 +440,6 @@ void G_InitGame(void) {
     memcpy(runtime_states, states, sizeof(runtime_states));
     runtime_info = game_info;
     runtime_info.states = runtime_states;
-    runtime_info.draw_selection = draw_selection;
     initialized = true;
 }
 

@@ -1269,3 +1269,18 @@ expands blood/building state or label macros.
 - Measurements, rejected hypotheses, pixel comparisons, and remaining indexed
   framebuffer limitations are recorded in `docs/DC_EXE_FINDINGS.md`,
   “September 10: remaining memory after indexed sprite conversion”.
+
+## Dark Colony commander badges and selection (2026-09-10)
+
+- Primary evidence: local retail `data/DCOLONY/DC.EXE` (SHA-256
+  `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`),
+  `INTRFACE/CLIENT.SPR`, `ANIMATE/{TRSC,GRAY}.FIN`,
+  `GAMESTAT/GAMESTAT.TXT`, and `SCENARIO/HUMAN/HUMAN01.SCN`.
+- Visual provenance: two user-provided HUMAN01 retail screenshots in the
+  September 10 conversation, showing the commander unselected and selected.
+  No external image URL was supplied.
+- Native overlay loop: `0x4333b4`; type presentation flags at record `+0xf4`;
+  persistent human badges 35–38 and alien badges 47–50. Native standing origin:
+  `0x438972–0x4389f8`, FIN slot 6 via `0x423ccc`, STAND union via `0x4239f0`.
+- Detailed formulas, hashes, corrections and reproduction commands:
+  [DC executable findings](docs/DC_EXE_FINDINGS.md#persistent-commander-rank-and-selection-composition-2026-09-10).

@@ -48,6 +48,7 @@ mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type) {
     }
     unit->core.angle = dc_direction_to_angle(unit->owner == 0 ? 6 : 14);
     unit->native_type_id = (uint16_t)(type >= 0 ? type : 0);
+    unit->ability_charge = 0x40;
     unit->team = team;
     unit->allegiance = team == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
     return unit;

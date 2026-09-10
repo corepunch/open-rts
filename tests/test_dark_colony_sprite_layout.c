@@ -521,6 +521,7 @@ void A_DC_BuildingStand(mobj_t *unit) { (void)unit; }
 void A_DC_ProductionReady(mobj_t *unit) { (void)unit; }
 void A_DC_Vent(mobj_t *unit) { (void)unit; }
 void A_DC_Drop(mobj_t *unit) { (void)unit; }
+void DC_DrawUnitOverlays(const unitoverlaycontext_t *ctx) { (void)ctx; }
 
 static int assert_reaper_move_timing(void) {
     static const int expected_tics[] = {4, 3, 3, 4, 1, 3, 3, 1};

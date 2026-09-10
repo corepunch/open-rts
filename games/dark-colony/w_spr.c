@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "info.h"
+#include "r_selection.h"
 
 static const char *dependency_name(const char *dependency) {
     char *stem = M_Upper(M_va("%.8s", dependency));
@@ -408,6 +409,7 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
             }
         }
     }
+    DC_LoadSelectionOrigin(key, &animation, cache);
     DC_FreeFIN(&animation);
     return true;
 }

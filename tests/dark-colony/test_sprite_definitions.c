@@ -104,10 +104,8 @@ static void check_ui_storage(SDL_Renderer *renderer) {
     CHECK(R_CacheLookup(cache->ui, "INTRFACE/MAINBUT.SPR"));
     const spritesheet_t *marker = R_CacheLookup(cache->ui, game_info.selection_marker.image);
     CHECK(marker);
-    app_t app = { .renderer = renderer };
-    mobj_t unit = {0};
-    selectiondrawcontext_t ctx = { .app = &app, .unit = &unit, .cache = cache, .game_info = &game_info };
-    CHECK(R_DrawSelectionMarkerFrame(&ctx, 0, marker->cells[0].rect));
+    CHECK(R_DrawSprite(renderer, marker, 0, 0, NULL, &marker->cells[0].rect,
+                       SDL_FLIP_NONE, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND));
     R_FreeSpriteCache(cache);
     CHECK(!cache->ui && !cache->sprites && !cache->count);
     free(cache);

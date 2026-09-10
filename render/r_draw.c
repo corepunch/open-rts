@@ -1112,55 +1112,6 @@ static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *
     }
 }
 
-bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, irect_t dst) {
-    if (!ctx || !ctx->app || !ctx->app->renderer || !ctx->unit ||
-        !ctx->cache || !ctx->cache->ui || !ctx->game_info) return false;
-    app_t *app = ctx->app;
-    const spritesheet_t *marker = R_CacheLookup(
-        ctx->cache->ui, ctx->game_info->selection_marker.image);
-    if (!marker || !marker->lumps || marker->numlumps <= 0) return false;
-
-    if (frame < 0 || frame >= marker->numlumps) return false;
-    irect_t frame_rect = sprite_frame_rect(marker, frame);
-    if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
-
-    if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
-    return R_DrawSprite(app->renderer, marker, frame, 0, NULL, &dst,
-                         SDL_FLIP_NONE, sprite_color(16), SDL_BLENDMODE_BLEND);
-}
-
-bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
-    if (!ctx || !ctx->unit || !ctx->game_info) return false;
-    const selectionmarker_t *info = &ctx->game_info->selection_marker;
-    int bucket = selection_health_bucket(ctx->unit);
-    int frame = bucket == 2 ? info->critical_frame :
-                bucket == 1 ? info->wounded_frame : info->healthy_frame;
-    const spritesheet_t *marker = ctx->cache && ctx->cache->ui ?
-        R_CacheLookup(ctx->cache->ui, info->image) : NULL;
-    if (!marker || frame < 0 || frame >= marker->numlumps) return false;
-    irect_t frame_rect = sprite_frame_rect(marker, frame);
-    /* Keep the marker over the object, using the standing pose's height. */
-    float top = ctx->visible.y;
-    const gameinfo_t *game = ctx->game_info;
-    if (game->mobjinfo && ctx->unit->type_id < game->mobj_type_count) {
-        int state = game->mobjinfo[ctx->unit->type_id].spawnstate;
-        if (game->states && state > 0 && state < game->state_count) {
-            const state_t *standing = &game->states[state];
-            const spritesheet_t *body = R_StateSprite(ctx->cache, game, standing->sprite, NULL);
-            int lump = sprite_lump_for_frame(body, standing->frame, 0, NULL);
-            if (lump >= 0)
-                top = ctx->anchor.y + sprite_visible_bounds(body, lump).y -
-                      sprite_ground_point(body, lump).y;
-        }
-    }
-    return R_DrawSelectionMarkerFrame(ctx, frame, (irect_t){
-        (int)lroundf(ctx->anchor.x) - frame_rect.w / 2,
-        (int)lroundf(top) - frame_rect.h + info->top_offset_y,
-        frame_rect.w,
-        frame_rect.h,
-    });
-}
-
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
                                 const spritecache_t *cache, const gameinfo_t *game_info);
 
@@ -1199,7 +1150,6 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         R_DrawSprite(app->renderer, shadow, shadow_frame, -1, NULL, &shadow_dst,
                      SDL_FLIP_NONE, sprite_color(16), SDL_BLENDMODE_BLEND);
     }
-    float content_y = (float)visible.y;
     int logical_frame = game_info && game_info->states && game_info->state_count > 0 ?
         u->core.frame : 0;
     int rotation = sprite_rotation_for_frame(sprite, logical_frame, u->core.angle);
@@ -1251,28 +1201,14 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     R_DrawSprite(app->renderer, sprite, frame, u->core.render_remap, NULL, &dst,
                  flip, sprite_color(u->core.render_intensity), SDL_BLENDMODE_BLEND);
     }
-    if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE) != 0) {
-        selectiondrawcontext_t selection_ctx = {
-            .app = app,
-            .unit = u,
-            .cache = cache,
-            .game_info = game_info,
-            .body_dst = dst,
-            .visible = visible,
-            .anchor = { sx, sy },
-            .ticks = ticks,
-        };
-        bool selection_drawn = game_info && game_info->draw_selection &&
-            game_info->draw_selection(&selection_ctx);
-        if (!selection_drawn && game_info &&
-            game_info->selection_marker.style == SELECTION_STYLE_CIRCLE) {
+    if (game_info && game_info->draw_overlays) return;
+    if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE)) {
+        if (game_info && game_info->selection_marker.style == SELECTION_STYLE_CIRCLE) {
             int radius = (int)(unit_pick_radius_px(app, u) * 0.85f);
             draw_selection_circle(app, u, (int)sx, (int)sy, radius);
-        }
-        else if (!selection_drawn && game_info &&
-                 game_info->selection_marker.style == SELECTION_STYLE_BRACKETS)
+        } else if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS)
             draw_selection_brackets(app, u, &visible);
-        else if (!selection_drawn && !R_DrawSelectionMarkerSprite(&selection_ctx))
+        else
             draw_selection_triangle(app, u, &visible);
     }
     if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&
@@ -1281,7 +1217,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         int bar_w = dst.w / 2;
         int bar_h = 2;
         int bx = (int)(sx - bar_w / 2);
-        int by = (int)content_y - bar_h - 4;
+        int by = visible.y - bar_h - 4;
         irect_t back = { bx, by, bar_w, bar_h };
         irect_t fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
         SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
@@ -1291,11 +1227,27 @@ static void render_unit_sprite(app_t *app, const level_t *map,
     }
 }
 
+static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *units,
+                                 int unit_count, const spritecache_t *cache,
+                                 const gameinfo_t *game_info) {
+    if (!game_info || !game_info->draw_overlays) return;
+    for (int i = 0; i < unit_count; ++i) {
+        const mobj_t *unit = units[i];
+        if (!unit || !P_VisibleToPlayer(unit) || !(unit->traits & MF_RENDERABLE)) continue;
+        unitoverlaycontext_t ctx = {
+            .app = app, .unit = unit, .cache = cache,
+            .game_info = game_info,
+        };
+        R_MapPositionToScreen(app, map, unit->core.position, &ctx.anchor.x, &ctx.anchor.y);
+        game_info->draw_overlays(&ctx);
+    }
+}
+
 void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks) {
-    for (int i = 0; i < unit_count; ++i) {
+    for (int i = 0; i < unit_count; ++i)
         render_unit_sprite(app, &level, units[i], fallback_sprite, cache, game_info, ticks);
-    }
+    render_unit_overlays(app, &level, units, unit_count, cache, game_info);
 }
 
 static int compare_draw_commands(const void *a, const void *b) {
@@ -1368,6 +1320,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         for (int i = 0; i < unit_count; ++i) {
             render_unit_sprite(app, map, units[i], fallback_sprite, cache, game_info, ticks);
         }
+        render_unit_overlays(app, map, units, unit_count, cache, game_info);
         return;
     }
 
@@ -1432,6 +1385,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         }
     }
     free(commands);
+    render_unit_overlays(app, map, units, unit_count, cache, game_info);
 }
 
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *effect,

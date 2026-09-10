@@ -591,6 +591,7 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     u->attack.target = NULL;
     u->harvest.target = -1;
     u->native_type_id = (uint16_t)type;
+    u->ability_charge = 0x40; /* DC.EXE 0x419d44: object byte +0x0a. */
     u->owner = (allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_COMMS_DISH) ? 0 :
                (allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
     u->team = (uint8_t)team;

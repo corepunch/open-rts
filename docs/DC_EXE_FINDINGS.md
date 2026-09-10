@@ -4185,3 +4185,152 @@ alignment, and real HUMAN01 flag/header decoding. The BTS render catalog
 checks unchanged source pixels and metadata. The separate cross-game DC
 command fixture still fails to earn its required build funds on the unchanged
 revision as well; the Dark Reign command test now rejects unseen targets.
+
+## Persistent commander rank and selection composition (2026-09-10)
+
+**Provenance:** the user supplied two retail HUMAN01 screenshots, one with
+unselected troops and one with the group selected. The first shows a persistent
+blue chevron over the human commander; the second shows a green segmented meter,
+a green star and the same blue chevron, vertically composed. These are local
+conversation attachments, not external web images. Executable SHA-256 remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+
+**Confirmed controlling routine:** `0x4333b4` iterates the 800 native objects,
+rejecting inactive/destroyed (`+0x2c` = 0 or 10), team 8 and unseen objects before
+examining selection byte `+0x13`. It reads presentation flags from native type
+record `0x4ec880 + type * 0x118 + 0xf4`. The GAMESTAT loader `0x4385f8` reads
+that field from numeric column 23 (zero based, excluding the sprite prefix).
+The committed `dc_gamestat_units[].values[23]` contains that existing extracted
+metadata; it is used for presentation only, not to load gameplay balance.
+
+| Native types | Race | Flags, in rank order | Unselected badge cells |
+| --- | --- | --- | --- |
+| 69–72 (TRSC) | 0 | 12, 28, 44, 60 | CLIENT 35, 36, 37, 38 |
+| 73–76 (GRAY) | 1 | 12, 28, 44, 60 | CLIENT 47, 48, 49, 50 |
+
+At `0x43349e–0x433545`, bit 4 enables the persistent badge and rank is
+`(flags & 0x70) >> 4`. Race comes from type `+4`, not team color. The selected
+branch `0x433753–0x4337c1` draws the same badge and a star. Ordinary selected
+units use cells 0–4; bit 2 uses 5–9; commanders use 10–14. The five health
+colors are selected by **integer percentage** `hp * 100 / max_hp`, with tests
+`>80`, `>60`, `>40`, `>20`, otherwise critical, at `0x4336d2–0x433725`.
+
+**Confirmed asset:** `INTRFACE/CLIENT.SPR`, SHA-256
+`3f790667ec55fa6d982a3d9c9c5035ee892d6563f56bedc2d1b028e1d24c56f2`,
+has 51 cells. Cell 0 is 12x5. Cells 30–33 are explosion graphics, **not rank
+badges**. The former `30 + (type - 69) % 4` lookup and imposed 30x15 rectangle
+were therefore disproven. CLIENT stays a separately cached UI image and is drawn
+at native cell dimensions without team palette translation.
+
+### Shared native origin
+
+`0x438972–0x4389f8` loads STAND, unions its directions with `0x4239f0`, and
+asks `0x423ccc` for attachment slot **6 of STAND0's first frame**. The frame
+records previously called `unknown_04[160]` are eight 20-byte records:
+`char name[16]; int16_t x, y`. The FIN loader `0x4230ac` reads eight records per
+164-byte frame. `0x422f4e` explicitly treats `NONAME` as no attachment.
+`0x423ccc` negates file Y, and the type loader negates it again; the overlay's
+screen offset is consequently the authored `(x,y)` directly.
+
+Without that attachment, type `+0x58,+0x5c` is `(0, -standing_max_y / 8)` in
+retail's scaled bounds. `0x4238c8` visits all commands in all standing frames,
+uses SPR dimensions and FIN command offsets, and `0x4239f0` unions all 32
+possible directions. For screen-space height this reduces to the minimum of
+`FIN.offset.y - SPR.height`. It is not a scan of opaque pixels, the current
+walking frame, or only the first standing facing. SHUF completion remains a
+separate presentation rule and is not added to this native STAND union.
+
+TRSC and GRAY STAND0 both have slot 6 `NONAME (0,0)`. Their standing tops are
+respectively -43 and -34 pixels. Asset SHA-256 values:
+
+- TRSC.FIN: `eb94f6f3fff53b9f46f1540abf5287c11f83a7db7957d6288b2330b13e1f3b2a`;
+  frame 0 at file offset 1,588, attachment 6 at 1,712.
+- GRAY.FIN: `077887b708009109740a518bf8cff9c547a21145617dbf5dde575342fe5a641a`.
+- HUMAN01.SCN: `af82c538181ca182481562dfa75ff1f39038a58445b019cd6a52426b33e968e7`.
+- GAMESTAT/GAMESTAT.TXT: `ed13afe21ffea368a5892b49de40ef063014c0a9376c5d5bb5abf1396cb27629`.
+
+Let `P` be projected object XY/Z plus the native type offset and, for city
+objects, the existing slot rendering offset. `0x4334e4–0x433509` and
+`0x4336a0–0x4336cf` subtract half the first CLIENT cell width and its height,
+giving `B = P - (6,5)`. All following offsets are from that one base:
+
+| Part | Cell | Offset from B | Instruction evidence |
+| --- | --- | --- | --- |
+| Ordinary selection | health color 0–4 | (0,-2) | 0x433733, 0x4337e2 |
+| Rank badge | human 35+rank / alien 47+rank | (0,-3*rank) | 0x43350b–0x433521, 0x433759–0x433775 |
+| Commander selection star | 10+health color | (0,-8-3*rank) | 0x43379b–0x4337bc |
+| Commander segmented meter | 15+min(9,charge*9/32) | (0,-12-3*rank) | 0x433857–0x4338bc |
+
+Bit 8 enables the segmented meter. Its charge is native object byte `+0x0a`,
+initialized to `0x40` by `0x419d44` (store immediately after `0x4114a4`). Thus
+HUMAN01's newly delivered type-69 commander shows full cell 24. This is **not a
+health bar**: health colors the star while charge controls the segments.
+
+**Supersedes the earlier selection-anchor section:** the previous canonical
+standing-pose height and configured 3-pixel gap were an engine policy. This
+change replaces them with the now-traced retail origin and relative offsets;
+the stability requirement is preserved. At projected `(128,110)`, the human
+sergeant's badge/star/meter destinations are `(122,62)`, `(122,54)`, `(122,50)`.
+The badge occupies the same position with selection off. The generic damaged
+unit health rectangle is also suppressed for DC; native selection uses colors.
+
+### Implementation and verification
+
+`games/dark-colony/r_selection.c` owns origin extraction, rank/health lookup,
+composition and drawing. The game loads a single origin per sprite from the
+checked native FIN records after dependencies are cached. No native data or
+callbacks are attached to renderer-owned sprite textures. Shared drawing invokes
+the game's overlay pass **after all world bodies**, so another unit cannot paint
+over a badge. This follows the late overlay separation of Doom's
+`reference/DOOM/r_things.c:R_DrawMasked`, while retaining DC's native world-unit
+UI semantics rather than treating it as a weapon psprite or simulation effect.
+The old selected-only callback, shared sprite-marker positioning and guessed
+badge rectangle are removed.
+
+Temporary `OPEN_RTS_DEBUG_SELECTION` logging captured type, selected flag,
+native presentation flags, rank, origin and charge. It confirmed HUMAN01 type 69
+was initially unselected and had charge 64; logging was removed after diagnosis.
+A first test exposed unresolved SPR path aliases during recursive cache loading:
+origin calculation now uses the same native bare-name/SPRITES-path lookup as
+FIN layer drawing. An initial overlay call in `R_DrawThings` alone did not reach
+the sorted scene path; both scene paths now run the final overlay pass.
+
+Reproduce with:
+
+```sh
+r2 -q -e scr.color=0 -e bin.cache=true -c 'af @ 0x4333b4' \
+  -c 'pdf @ 0x4333b4' -c q data/DCOLONY/DC.EXE
+make dc-spr-extract
+build/dc_spr_extract data/DCOLONY /private/tmp/dc-interface
+make build/bin/tests/dark-colony/test_selection_overlays
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_selection_overlays
+```
+
+The focused test compares indexed source pixels at independently specified
+retail destinations for all eight commander types, both selection states,
+all health thresholds, and charge boundaries. It checks ordinary troops and
+suppresses dead actors. It also runs actual HUMAN01 until the initial infantry
+arrive, confirms the type-69 commander's startup charge, and writes selected and
+unselected scene previews to `/private/tmp/dc-human01-{selected,unselected}.bmp`.
+Those previews were visually inspected against the supplied composition.
+Existing Trooper tests verify stability through all walking frames/facings and
+XY/Z/camera translation, along with unchanged native death pixels and timing.
+
+**Remaining scope/unknowns:** commander charge consumption and regeneration are
+not implemented by this rendering fix. The game-owned byte retains the native
+startup value and the renderer responds to its value; it does not invent a
+recharge timer. Retail bit 1 additionally draws cells 25–34 at `B+(-8,-7)`;
+`+0xd6` can select a star for a noncommander; and bit 8 with native type `+0x110`
+not -1 can draw cells 39–46 at `B+(0,-9-3*rank)` for special-ability readiness.
+The readiness index is `max(0,(charge-32)*7/223)`, with the full index blinking
+between cells 39 and 46 using client `+0xfc` bit 8. At `0x40a323–0x40a329`,
+client `+0xfc` copies the native simulation counter at level `+0x94c`.
+These additional ability
+indicators and their gameplay dispatch remain outside this rank-badge fix;
+HUMAN01's type-69 commander has `+0x110 == -1` and does not use the readiness row.
+Native spawning also normalizes types 69–72 and 73–76 against the team's rank
+byte at team `+0x19bc` in `0x419d44`; team promotion gameplay remains unchanged.
+
+Final verification: `make`, all 31 Dark Colony tests, the standalone sprite
+layout test (including Reaper timing), and all four games' headless `--check`
+commands passed. `make tags` regenerated the checked-in symbol indexes.

@@ -90,24 +90,17 @@ typedef enum {
 typedef struct selectionmarker_s {
     SelectionStyle style;
     const char *image;
-    int healthy_frame;
-    int wounded_frame;
-    int critical_frame;
-    int top_offset_y;
 } selectionmarker_t;
 
-typedef struct selectiondrawcontext_s {
+typedef struct unitoverlaycontext_s {
     app_t *app;
     const mobj_t *unit;
     const spritecache_t *cache;
     const gameinfo_t *game_info;
-    irect_t body_dst;
-    irect_t visible;
     fvec2_t anchor;
-    uint32_t ticks;
-} selectiondrawcontext_t;
+} unitoverlaycontext_t;
 
-typedef bool (*selectiondrawf_t)(const selectiondrawcontext_t *ctx);
+typedef void (*unitoverlaydrawf_t)(const unitoverlaycontext_t *ctx);
 
 struct gameinfo_s {
     const char *const *sprnames;
@@ -119,7 +112,7 @@ struct gameinfo_s {
     int null_state;
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
-    selectiondrawf_t draw_selection;
+    unitoverlaydrawf_t draw_overlays;
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

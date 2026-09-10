@@ -27,8 +27,13 @@ typedef struct {
 } dc_fin_label_t;
 
 typedef struct {
+    char name[16];
+    int16_t x, y;
+} dc_fin_point_t;
+
+typedef struct {
     uint16_t part_count, ticks;
-    uint8_t unknown_04[160];
+    dc_fin_point_t points[8];
 } dc_fin_frame_t;
 
 typedef struct {
