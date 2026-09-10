@@ -28,14 +28,12 @@ int main(void) {
         shadowmap[i] = i / 2;
     }
     sprite.shadowmap = shadowmap;
-    uint32_t body[64] = {0};
+    sprite.source_palette[0] = 0;
     /* A different single pixel in each row exposes row duplication and flip. */
     for (int y = 0; y < 16; ++y) {
         sprite.lumps[0].indices[y * 4 + y % 4] = y + 1;
-        body[y * 4 + y % 4] = 0xffffffff;
+        sprite.source_palette[y + 1] = 0xffffffff;
     }
-    assert(R_CreateSpriteLumpTexture(r_renderer, &sprite.lumps[0], body, 4,
-                                     sprite.cells[0].rect, true, -1));
     assert(R_InitSpriteDef(&sprite, 1, 1) && R_InstallSpriteLump(&sprite, 0, 0, 0, false));
     /* Instruction-derived source rows: carry after source rows 6 and 12
      * repeats each once. A uniform scale has different rounding here. */
@@ -148,6 +146,7 @@ int main(void) {
         W_FreeFile(&rmp);
         R_FreeSprite(&sprite);
     }
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);

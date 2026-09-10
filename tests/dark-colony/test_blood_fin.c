@@ -33,16 +33,12 @@ static void draw_native_parts(app_t *app, const level_t *map,
         }
         if (part->layer == 2) continue;
         if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
-        SDL_Texture *texture = R_GetSpriteTexture(app->renderer, sprite, part->lump, team);
-        CHECK(texture);
         int intensity = part->intensity > 0 ? part->intensity : 16;
         int color = (intensity * 255 + 8) / 16;
         if (color > 255) color = 255;
-        SDL_SetTextureColorMod(texture, color, color, color);
-        SDL_SetTextureAlphaMod(texture, 255);
-        SDL_RenderCopyEx(app->renderer, texture, &src, &dst, 0, NULL,
-            (part->flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
-        SDL_SetTextureColorMod(texture, 255, 255, 255);
+        CHECK(R_DrawSprite(app->renderer, sprite, part->lump, team, &src, &dst,
+            (part->flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE,
+            (SDL_Color){color, color, color, 255}, SDL_BLENDMODE_BLEND));
     }
 }
 
@@ -181,6 +177,7 @@ static void pixels(void) {
     }
     free(expected);
     R_FreeSpriteCache(cache); free(cache);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer); r_renderer = NULL;
     SDL_FreeSurface(surface);
     puts("PASS: complete organic, machine and cross-FIN blood layers/pixels at independent mobj anchors");

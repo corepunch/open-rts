@@ -157,6 +157,7 @@ int main(void) {
     }
     R_FreeSpriteCache(cache);
     free(cache);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);

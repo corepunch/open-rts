@@ -79,7 +79,6 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
             font->glyph_width[ch] : font->glyph_size.w;
         if (frame >= 0 && frame < font->sprite.numlumps) {
             const spritecell_t *cell = &font->sprite.cells[frame];
-            SDL_Texture *texture = R_GetSpriteTexture(renderer, &font->sprite, frame, remap);
             irect_t src = cell->rect;
             if (cell->bounds.w > 0 && cell->bounds.h > 0) {
                 irect_t bounds = cell->bounds;
@@ -96,13 +95,8 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
                     (src.w * scale + divisor - 1) / divisor,
                     (src.h * scale + divisor - 1) / divisor,
                 };
-                if (texture) {
-                    SDL_SetTextureColorMod(texture, color.r, color.g, color.b);
-                    SDL_SetTextureAlphaMod(texture, color.a);
-                    SDL_RenderCopy(renderer, texture, &src, &dst);
-                    SDL_SetTextureColorMod(texture, 255, 255, 255);
-                    SDL_SetTextureAlphaMod(texture, 255);
-                }
+                R_DrawSprite(renderer, &font->sprite, frame, remap, &src, &dst,
+                             SDL_FLIP_NONE, color, SDL_BLENDMODE_BLEND);
             }
         }
         cx += advance * scale;

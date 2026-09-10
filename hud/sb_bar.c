@@ -286,11 +286,9 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
         irect_t dst = { cell.x + (cell.w - (int)((float)src.w * scale)) / 2,
                          cell.y + (cell.h - (int)((float)src.h * scale)) / 2,
                          (int)((float)src.w * scale), (int)((float)src.h * scale) };
-        SDL_Texture *texture = R_GetSpriteTexture(app->renderer, &cached->sprite, 0, -1);
-        if (!texture) continue;
-        SDL_SetTextureColorMod(texture, 210, 48, 52);
-        SDL_RenderCopy(app->renderer, texture, &src, &dst);
-        SDL_SetTextureColorMod(texture, 255, 255, 255);
+        if (!R_DrawSprite(app->renderer, &cached->sprite, 0, -1, &src, &dst,
+                          SDL_FLIP_NONE, (SDL_Color){210, 48, 52, 255},
+                          SDL_BLENDMODE_BLEND)) continue;
         slot++;
     }
 }

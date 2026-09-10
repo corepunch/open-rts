@@ -224,7 +224,8 @@ static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *s
         draw_h,
     };
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_RenderCopyEx(renderer, R_GetSpriteTexture(renderer, sprite, frame, -1), &src, &dst, 0.0, NULL, flip);
+    R_DrawSprite(renderer, sprite, frame, -1, &src, &dst, flip,
+                 (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_BLEND);
 }
 
 static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *image,
@@ -234,7 +235,8 @@ static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *i
         dst.w <= 0 || dst.h <= 0) {
         return;
     }
-    SDL_RenderCopy(renderer, R_GetSpriteTexture(renderer, image, 0, -1), &src, &dst);
+    R_DrawSprite(renderer, image, 0, -1, &src, &dst, SDL_FLIP_NONE,
+                 (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_BLEND);
 }
 
 static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count) {

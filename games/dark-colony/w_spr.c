@@ -243,15 +243,13 @@ static bool load_cell(dc_spr_t *spr, int index,
         !decode_cell(lump->indices, pixels, source, bytes, spr->compressed))) return false;
     cell->bounds = cell->rect;
     cell->ground_point = (ivec2_t){ cell->rect.w / 2, cell->rect.h };
-    for (size_t i = 0; i < pixels; ++i)
-        lump->translatable |= lump->indices[i] >= 138 && lump->indices[i] <= 143;
     return true;
 }
 
 static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette[256]) {
     int count = SDL_SwapLE16(spr->header->cell_count);
     if (!R_AllocSpriteCells(out, count)) return false;
-    memcpy(out->texture_palette, palette, sizeof(out->texture_palette));
+    memcpy(out->source_palette, palette, sizeof(out->source_palette));
     out->palette_maps = calloc(8, sizeof(*out->palette_maps));
     if (!out->palette_maps) return false;
     out->palette_map_count = 8;

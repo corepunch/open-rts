@@ -179,6 +179,7 @@ int main(void) {
                                  &sprite, NULL)) {
         fprintf(stderr, "FAIL: load Trooper sprite definition\n");
         r_renderer = NULL;
+        R_FreeSpriteBuffer();
         SDL_DestroyRenderer(renderer);
         SDL_FreeSurface(surface);
         return 1;
@@ -265,6 +266,7 @@ int main(void) {
     }
     R_FreeSprite(&mixed);
     r_renderer = NULL;
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);
     return valid ? 0 : 1;

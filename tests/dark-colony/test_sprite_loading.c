@@ -57,12 +57,12 @@ static void rejected(const uint8_t *file, size_t size) {
     R_FreeSprite(&sheet); /* Failure leaves the public result safe to free. */
 }
 
-static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,
+static void check_pixels(SDL_Renderer *renderer, const spritesheet_t *sprite,
                          const uint8_t *indices, int remap) {
     uint32_t actual[6];
     SDL_Rect rect = { 0, 0, 3, 2 };
-    CHECK(SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE) == 0);
-    CHECK(SDL_RenderCopy(renderer, texture, NULL, &rect) == 0);
+    CHECK(R_DrawSprite(renderer, sprite, 0, remap, NULL, &rect, SDL_FLIP_NONE,
+                       (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_NONE));
     CHECK(SDL_RenderReadPixels(renderer, &rect, SDL_PIXELFORMAT_ARGB8888, actual, 12) == 0);
     for (int i = 0; i < 6; ++i) {
         int index = indices[i];
@@ -71,6 +71,41 @@ static void check_pixels(SDL_Renderer *renderer, SDL_Texture *texture,
         uint32_t expected = index ? 0xff000000u | channel * 0x010101u : 0;
         CHECK(actual[i] == expected);
     }
+}
+
+static void check_blits(SDL_Renderer *renderer, const spritesheet_t *sprite) {
+    SDL_Color white = {255, 255, 255, 255};
+    irect_t left = {0, 0, 3, 2}, right = {4, 0, 3, 2};
+    CHECK(R_DrawSprite(renderer, sprite, 0, 0, NULL, &left,
+                       SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+    CHECK(R_DrawSprite(renderer, sprite, 0, 7, NULL, &right,
+                       SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+    uint32_t actual[64];
+    CHECK(!SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, actual, 32));
+    CHECK(actual[1] == sprite->source_palette[96]);
+    CHECK(actual[5] == sprite->source_palette[138]);
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    irect_t src = {1, 0, 2, 2}, dst = {1, 1, 4, 4}, clip = {2, 2, 3, 3};
+    CHECK(!SDL_RenderSetClipRect(renderer, &clip));
+    CHECK(R_DrawSprite(renderer, sprite, 0, -1, &src, &dst,
+                       SDL_FLIP_HORIZONTAL, white, SDL_BLENDMODE_BLEND));
+    CHECK(!SDL_RenderSetClipRect(renderer, NULL));
+    CHECK(!SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, actual, 32));
+    for (int y = 0; y < 8; ++y) {
+        for (int x = 0; x < 8; ++x) {
+            uint32_t expected = 0xff000000;
+            if (y == 2 && x >= 2 && x <= 4)
+                expected = sprite->source_palette[x == 2 ? 5 : 138];
+            if ((y == 3 || y == 4) && x == 2)
+                expected = sprite->source_palette[2];
+            CHECK(actual[y * 8 + x] == expected);
+        }
+    }
+    src.x = 2; /* Crop crosses the right edge. */
+    CHECK(!R_DrawSprite(renderer, sprite, 0, -1, &src, &dst,
+                        SDL_FLIP_NONE, white, SDL_BLENDMODE_BLEND));
 }
 
 
@@ -86,13 +121,14 @@ static void hash_bytes(const void *data, size_t size) {
 }
 static void hash_int(int value) { hash_bytes(&value, sizeof(value)); }
 
-static void hash_texture(SDL_Renderer *renderer, SDL_Texture *texture, irect_t rect) {
+static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame, int palette) {
+    irect_t rect = sprite->cells[frame].rect;
     size_t size = (size_t)rect.w * (size_t)rect.h * sizeof(uint32_t);
     uint32_t *pixels = malloc(size);
     SDL_Rect area = { 0, 0, rect.w, rect.h };
     CHECK(pixels);
-    CHECK(SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE) == 0);
-    CHECK(SDL_RenderCopy(renderer, texture, NULL, &area) == 0);
+    CHECK(R_DrawSprite(renderer, sprite, frame, palette, NULL, &area, SDL_FLIP_NONE,
+                       (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_NONE));
     CHECK(SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, pixels, rect.w * 4) == 0);
     hash_bytes(pixels, size);
     free(pixels);
@@ -124,11 +160,9 @@ static int catalog(const char *manifest) {
             hash_bytes(&cell->ground_point, sizeof(cell->ground_point));
             hash_bytes(&cell->displacement, sizeof(cell->displacement));
             hash_bytes(lump->indices, (size_t)cell->rect.w * (size_t)cell->rect.h);
-            hash_texture(renderer, R_GetSpriteTexture(renderer, &sheet, i, -1), cell->rect);
-            for (int remap = 0; remap < 8; ++remap) {
-                SDL_Texture *texture = R_GetSpriteTexture(renderer, &sheet, i, remap);
-                hash_texture(renderer, texture, cell->rect);
-            }
+            for (int remap = -1; remap < 8; ++remap)
+                hash_sprite(renderer, &sheet, i, remap);
+            CHECK(!lump->texture); /* Drawing never expands the image's storage. */
         }
         hash_int(sheet.spritedef.numframes);
         for (int i = 0; i < sheet.spritedef.numframes; ++i) {
@@ -149,12 +183,14 @@ static int catalog(const char *manifest) {
     }
     fclose(files);
     r_renderer = NULL;
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);
     return 0;
 }
 
 int main(int argc, char **argv) {
+    SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
     if (argc == 2) return catalog(argv[1]);
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
@@ -184,30 +220,34 @@ int main(int argc, char **argv) {
         CHECK(sheet.lumps[2].indices[0] == 0);
         CHECK(ivec2_equal(sheet.cells[0].displacement, (ivec2_t){ 7, 9 }));
         CHECK(ivec2_equal(sheet.cells[0].ground_point, (ivec2_t){ 1, 2 }));
-        CHECK(!sheet.lumps[0].texture && !sheet.lumps[0].translations);
-        CHECK(sheet.lumps[0].translation_count == 0);
-        CHECK(sheet.lumps[1].translation_count == 0 && sheet.lumps[2].translation_count == 0);
-        /* World colormaps must not replace the SPR's source texture palette. */
+        CHECK(!sheet.lumps[0].texture);
+        /* World colormaps must not replace the SPR's source palette. */
         memset(sheet.palette, 0, sizeof(sheet.palette));
-        CHECK(!R_GetSpriteTexture(NULL, &sheet, 0, 2));
-        CHECK(sheet.lumps[0].translation_count == 0);
-        SDL_Texture *team = R_GetSpriteTexture(renderer, &sheet, 0, 2);
-        check_pixels(renderer, team, pixels, 2);
-        CHECK(!sheet.lumps[0].texture && sheet.lumps[0].translation_count == 1);
-        CHECK(R_GetSpriteTexture(renderer, &sheet, 0, 2) == team);
-        CHECK(sheet.lumps[0].translation_count == 1);
-        check_pixels(renderer, R_GetSpriteTexture(renderer, &sheet, 0, -1), pixels, -1);
-        for (int i = 0; i < 8; ++i) {
-            check_pixels(renderer, R_GetSpriteTexture(renderer, &sheet, 0, i), pixels, i);
-        }
-        CHECK(sheet.lumps[0].translation_count == 8);
-        SDL_Texture *plain = R_GetSpriteTexture(renderer, &sheet, 1, 0);
-        CHECK(plain && R_GetSpriteTexture(renderer, &sheet, 1, 7) == plain);
-        CHECK(sheet.lumps[1].translation_count == 0);
-        CHECK(R_GetSpriteTexture(renderer, &sheet, 0, 99) == sheet.lumps[0].texture);
-        CHECK(!R_GetSpriteTexture(renderer, &sheet, -1, 0));
-        CHECK(!R_GetSpriteTexture(renderer, &sheet, sheet.numlumps, 0));
-        CHECK(!sheet.lumps[2].texture); /* Undrawn cells stay CPU-only. */
+        for (int pass = 0; pass < 2; ++pass)
+            for (int i = -1; i < 8; ++i)
+                check_pixels(renderer, &sheet, pixels, i);
+        check_pixels(renderer, &sheet, pixels, -1);
+        check_blits(renderer, &sheet);
+        SDL_Color white = {255, 255, 255, 255};
+        CHECK(!R_DrawSprite(NULL, &sheet, 0, 2, NULL, NULL,
+                           SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+        CHECK(!R_DrawSprite(renderer, &sheet, -1, 0, NULL, NULL,
+                           SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+        CHECK(!R_DrawSprite(renderer, &sheet, sheet.numlumps, 0, NULL, NULL,
+                           SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+        for (int i = 0; i < sheet.numlumps; ++i) CHECK(!sheet.lumps[i].texture);
+        /* Unknown palette IDs select source colors, and source palettes remain live. */
+        irect_t dst = {0, 0, 3, 2};
+        CHECK(R_DrawSprite(renderer, &sheet, 0, 99, NULL, &dst,
+                          SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+        uint32_t actual[6];
+        CHECK(!SDL_RenderReadPixels(renderer, &dst, SDL_PIXELFORMAT_ARGB8888, actual, 12));
+        CHECK(actual[1] == sheet.source_palette[138]);
+        sheet.source_palette[138] = 0xff123456;
+        CHECK(R_DrawSprite(renderer, &sheet, 0, -1, NULL, &dst,
+                          SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+        CHECK(!SDL_RenderReadPixels(renderer, &dst, SDL_PIXELFORMAT_ARGB8888, actual, 12));
+        CHECK(actual[1] == 0xff123456);
         R_FreeSprite(&sheet);
         rejected(file, size - 1); /* Truncated last cell, after allocations. */
         rejected(file, HEADER - 1);
@@ -248,6 +288,7 @@ int main(int argc, char **argv) {
     CHECK(!decoded.lumps[0].texture);
     R_FreeSprite(&decoded);
     r_renderer = NULL;
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);
     puts("PASS: direct SPR loading, translations, empty cells, and malformed spans");

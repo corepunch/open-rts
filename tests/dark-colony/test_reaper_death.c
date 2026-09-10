@@ -87,6 +87,7 @@ int main(void) {
     }
     R_FreeSprite(&sheet);
     DC_FreeFIN(&fin);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);

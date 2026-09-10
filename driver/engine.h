@@ -35,11 +35,12 @@ void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                    const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
 bool R_AllocSpriteCells(spritesheet_t *sprite, int count);
-SDL_Texture *R_GetSpriteTexture(SDL_Renderer *renderer, const spritesheet_t *sprite,
-                                int lump, int translation);
-bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
-                              const uint32_t *pixels, int source_stride,
-                              irect_t source, bool blend, int translation);
+/* Palette is a source-index translation ID; -1 selects the source palette.
+ * Indexed sprites never acquire textures or retain expanded color copies. */
+bool R_DrawSprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int lump,
+                  int palette, const irect_t *src, const irect_t *dst,
+                  SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend);
+void R_FreeSpriteBuffer(void);
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t dst, uint32_t flags, int selector);
 bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,

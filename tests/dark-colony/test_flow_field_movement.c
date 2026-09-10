@@ -95,6 +95,7 @@ static int exploiter_turns_before_moving(void) {
     }
     P_FreeFlowFields(&level);
     R_FreeSprite(&sprite);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);

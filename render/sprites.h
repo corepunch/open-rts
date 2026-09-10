@@ -13,11 +13,6 @@ typedef struct app_s app_t;
 
 typedef struct {
     int id;
-    SDL_Texture *texture;
-} spritetranslation_t;
-
-typedef struct {
-    int id;
     uint8_t indices[256];
 } spritepalettemap_t;
 
@@ -56,10 +51,7 @@ typedef struct spritedef_s {
 
 typedef struct spritelump_s {
     SDL_Texture *texture;
-    spritetranslation_t *translations;
-    int translation_count;
     uint8_t *indices;
-    bool translatable;
 } spritelump_t;
 
 /* Sprite geometry, indexed by the layer cell number; no renderer resources. */
@@ -78,7 +70,7 @@ typedef struct spritesheet_s {
     spritedef_t spritedef;
     bool indexed;
     uint32_t palette[256];
-    uint32_t texture_palette[256]; /* Source colors, independent of world colormaps. */
+    uint32_t source_palette[256]; /* Source colors, independent of world colormaps. */
     spritepalettemap_t *palette_maps;
     int palette_map_count;
     int indexed_blend_selector;

@@ -35,6 +35,7 @@ static bool sdl_renderer_create(renderer_t *renderer, const char *title, int wid
 }
 
 static void sdl_renderer_destroy(renderer_t *renderer) {
+    R_FreeSpriteBuffer();
     if (renderer->sdl) SDL_DestroyRenderer(renderer->sdl);
     if (renderer->window) SDL_DestroyWindow(renderer->window);
     SDL_Quit();

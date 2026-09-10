@@ -37,9 +37,11 @@ plugin-specific behavior.
     every sprite.
     Source: [hw_texcontainer.h](https://github.com/ZDoom/gzdoom/blob/c26ce2e6ca2a0c770f140cb25dde0d30073ca8f7/src/common/textures/hw_texcontainer.h),
     `GetTexID`, `GetHardwareTexture`, `AddHardwareTexture`, and `Clean`.
-    Dark Colony's indexed images now use the same demand-driven texture and
-    translation ownership through `R_GetSpriteTexture`; loading a cell does
-    not allocate a hardware texture.
+    The former `R_GetSpriteTexture` cache followed this approach. The user's
+    indexed-sprite storage requirement supersedes translation-specific GPU
+    caching: `R_DrawSprite` now expands into one reusable renderer upload
+    surface, retaining no Dark Colony cell/team textures. Source images and
+    frame definitions remain independent of renderer resources.
   - This supports converting each game format into engine-owned indexed sprite
     images at load time, then creating renderer textures from those images. It
     does not support keeping game-loader state or format callbacks on the
@@ -71,6 +73,24 @@ plugin-specific behavior.
     comparison and independently document any conclusions derived from it.
 
 ## Dark Colony
+
+- DirectDraw API definitions used to identify the retail COM calls:
+  - [Microsoft SDK ddraw.h](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/um/ddraw.h):
+    original interface method order and numeric surface/palette flags.
+    In particular 0x4000 is VIDEOMEMORY, 0x800 SYSTEMMEMORY, and 0x40
+    OFFSCREENPLAIN; do not confuse 0x4000 with 3DDEVICE (0x2000).
+  - [IDirectDraw::SetDisplayMode](https://learn.microsoft.com/en-us/previous-versions/ms785064(v=vs.85)):
+    width, height and bits-per-pixel arguments. DC.EXE `0x42bce5` supplies
+    640, 480 and 8; surrounding assertions name `ddex4.c`.
+  - [DirectDraw interfaces](https://learn.microsoft.com/en-us/windows/win32/api/_directdraw/)
+    and [surface palettes](https://learn.microsoft.com/en-us/windows/win32/api/ddraw/nf-ddraw-idirectdrawsurface7-setpalette).
+    The retail binary uses the original interfaces; later interface docs
+    explain operations, not the retail vtable offsets. See the instruction
+    evidence in `docs/DC_EXE_FINDINGS.md`, “Indexed sprites and DirectDraw”.
+  - [SDL2 streaming texture locking](https://wiki.libsdl.org/SDL2/SDL_LockTexture):
+    the portable upload buffer uses write-only locks, respecting returned
+    pitch and writing every pixel of the locked rectangle. It is not a
+    DirectDraw implementation or an indexed destination framebuffer.
 
 - MobyGames Dark Colony screenshots:
   https://www.mobygames.com/game/2737/dark-colony/screenshots/

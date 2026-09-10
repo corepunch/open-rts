@@ -212,8 +212,8 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
         R_FreeSprite(out);
         return false;
     }
-    if (!R_CreateSpriteLumpTexture(renderer, &out->lumps[0], canvas, canvas_w,
-                                   (irect_t){ 0, 0, canvas_w, canvas_h }, false, -1)) {
+    out->lumps[0].texture = I_CreateTexture(renderer, canvas, canvas_w, canvas_h, false);
+    if (!out->lumps[0].texture) {
         free(canvas);
         W_FreeFile(&blob);
         R_FreeSprite(out);

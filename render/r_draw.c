@@ -395,48 +395,6 @@ bool R_AllocSpriteCells(spritesheet_t *sprite, int count) {
     return true;
 }
 
-bool R_CreateSpriteLumpTexture(SDL_Renderer *renderer, spritelump_t *lump,
-                              const uint32_t *pixels, int source_stride,
-                              irect_t source, bool blend, int translation) {
-    if (!renderer || !lump || !pixels || source_stride <= 0 ||
-        source.x < 0 || source.y < 0 || source.w <= 0 || source.h <= 0)
-        return false;
-    size_t pixel_count = (size_t)source.w * (size_t)source.h;
-    uint32_t *frame_pixels = malloc(pixel_count * sizeof(*frame_pixels));
-    if (!frame_pixels) return false;
-    for (int y = 0; y < source.h; ++y) {
-        memcpy(frame_pixels + (size_t)y * (size_t)source.w,
-               pixels + (size_t)(source.y + y) * (size_t)source_stride + (size_t)source.x,
-               (size_t)source.w * sizeof(*frame_pixels));
-    }
-    SDL_Texture *texture = I_CreateTexture(renderer, frame_pixels, source.w, source.h, blend);
-    free(frame_pixels);
-    if (!texture) return false;
-
-    if (translation < 0) {
-        if (lump->texture) {
-            SDL_DestroyTexture(texture);
-            return false;
-        }
-        lump->texture = texture;
-        return true;
-    }
-
-    spritetranslation_t *translations = realloc(
-        lump->translations,
-        (size_t)(lump->translation_count + 1) * sizeof(*translations));
-    if (!translations) {
-        SDL_DestroyTexture(texture);
-        return false;
-    }
-    lump->translations = translations;
-    lump->translations[lump->translation_count++] = (spritetranslation_t){
-        .id = translation,
-        .texture = texture,
-    };
-    return true;
-}
-
 bool R_InitSpriteDef(spritesheet_t *sprite, int numframes, int rotations) {
     if (!sprite || numframes <= 0 || rotations <= 0 ||
         rotations > MAX_SPRITE_ROTATIONS) return false;
@@ -558,65 +516,9 @@ static uint8_t fin_intensity_color_mod(int intensity) {
     return (uint8_t)clamp255((intensity * 255 + 8) / 16);
 }
 
-SDL_Texture *R_GetSpriteTexture(SDL_Renderer *renderer, const spritesheet_t *sprite,
-                                int frame, int render_remap) {
-    if (!sprite || !sprite->lumps || frame < 0 || frame >= sprite->numlumps) return NULL;
-    spritelump_t *lump = &sprite->lumps[frame];
-    for (int i = 0; i < lump->translation_count; ++i) {
-        if (lump->translations[i].id == render_remap)
-            return lump->translations[i].texture;
-    }
-    const uint8_t *map = NULL;
-    if (lump->translatable) {
-        for (int i = 0; i < sprite->palette_map_count; ++i)
-            if (sprite->palette_maps[i].id == render_remap)
-                map = sprite->palette_maps[i].indices;
-    }
-    if (!map && lump->texture) return lump->texture;
-    if (!renderer || !lump->indices) return NULL;
-    irect_t rect = sprite->cells[frame].rect;
-    size_t count = (size_t)rect.w * rect.h;
-    uint32_t *pixels = malloc(count * sizeof(*pixels));
-    if (!pixels) return NULL;
-    for (size_t i = 0; i < count; ++i) {
-        uint8_t index = lump->indices[i];
-        pixels[i] = sprite->texture_palette[map ? map[index] : index];
-    }
-    SDL_Texture *texture = I_CreateTexture(renderer, pixels, rect.w, rect.h, true);
-    free(pixels);
-    if (!texture) return NULL;
-    if (map) {
-        spritetranslation_t *translations = realloc(lump->translations,
-            (size_t)(lump->translation_count + 1) * sizeof(*translations));
-        if (!translations) {
-            SDL_DestroyTexture(texture);
-            return NULL;
-        }
-        lump->translations = translations;
-        lump->translations[lump->translation_count++] =
-            (spritetranslation_t){ .id = render_remap, .texture = texture };
-    } else {
-        lump->texture = texture;
-    }
-    return texture;
-}
-
-static SDL_Texture *begin_sprite_command(const spritesheet_t *sprite, int frame,
-                                         int render_remap,
-                                         int render_intensity) {
-    SDL_Texture *texture = R_GetSpriteTexture(r_renderer, sprite, frame, render_remap);
-    if (!texture) return NULL;
-
-    uint8_t intensity = fin_intensity_color_mod(render_intensity);
-    SDL_SetTextureColorMod(texture, intensity, intensity, intensity);
-    SDL_SetTextureAlphaMod(texture, 255);
-    return texture;
-}
-
-static void end_sprite_command(SDL_Texture *texture) {
-    if (!texture) return;
-    SDL_SetTextureColorMod(texture, 255, 255, 255);
-    SDL_SetTextureAlphaMod(texture, 255);
+static SDL_Color sprite_color(int intensity) {
+    uint8_t value = fin_intensity_color_mod(intensity);
+    return (SDL_Color){ value, value, value, 255 };
 }
 
 static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256]) {
@@ -853,12 +755,8 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
     }
     if (R_RenderIndexedBlend(app, sprite, frame, dst, render_flags, render_selector)) return;
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, frame,
-                                                dec->render_remap, 16);
-    if (!texture) return;
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
-                     0.0, NULL, flip);
-    end_sprite_command(texture);
+    R_DrawSprite(app->renderer, sprite, frame, dec->render_remap, NULL, &dst,
+                 flip, sprite_color(16), SDL_BLENDMODE_BLEND);
 }
 
 static void render_decoration(app_t *app, const level_t *map,
@@ -1182,11 +1080,8 @@ bool R_DrawSelectionMarkerFrame(const selectiondrawcontext_t *ctx, int frame, ir
     if (frame_rect.w <= 0 || frame_rect.h <= 0) return false;
 
     if (dst.w != frame_rect.w || dst.h != frame_rect.h) return false;
-    SDL_Texture *texture = begin_sprite_command(marker, frame, 0, 16);
-    if (!texture) return false;
-    SDL_RenderCopy(app->renderer, texture, &marker->cells[frame].rect, &dst);
-    end_sprite_command(texture);
-    return true;
+    return R_DrawSprite(app->renderer, marker, frame, 0, NULL, &dst,
+                         SDL_FLIP_NONE, sprite_color(16), SDL_BLENDMODE_BLEND);
 }
 
 bool R_DrawSelectionMarkerSprite(const selectiondrawcontext_t *ctx) {
@@ -1256,8 +1151,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         int shadow_frame = frame < shadow->numlumps ? frame : 0;
         irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
         irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
-        SDL_RenderCopy(app->renderer, R_GetSpriteTexture(app->renderer, shadow, shadow_frame, -1),
-                   &shadow->cells[shadow_frame].rect, &shadow_dst);
+        R_DrawSprite(app->renderer, shadow, shadow_frame, -1, NULL, &shadow_dst,
+                     SDL_FLIP_NONE, sprite_color(16), SDL_BLENDMODE_BLEND);
     }
     float content_y = (float)visible.y;
     int logical_frame = game_info && game_info->states && game_info->state_count > 0 ?
@@ -1293,36 +1188,23 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                      part_flags, part->layer)) continue;
             /* DC.EXE queues object team color separately from FIN remap,
              * which selects a clipping path, not a palette translation. */
-            SDL_Texture *part_texture = begin_sprite_command(
-                source, part->lump, u->team, part->intensity);
-            if (!part_texture) continue;
-            SDL_BlendMode blend;
-            SDL_GetTextureBlendMode(part_texture, &blend);
+            SDL_Color color = sprite_color(part->intensity);
+            SDL_BlendMode blend = SDL_BLENDMODE_BLEND;
             if (part->layer == 3) {
-                uint8_t intensity = fin_intensity_color_mod(part->intensity);
-                SDL_SetTextureBlendMode(part_texture, SDL_BLENDMODE_ADD);
-                SDL_SetTextureColorMod(part_texture, intensity,
-                    (uint8_t)((intensity * 236 + 127) / 255),
-                    (uint8_t)((intensity * 72 + 127) / 255));
-                SDL_SetTextureAlphaMod(part_texture, 230);
+                blend = SDL_BLENDMODE_ADD;
+                color.g = (uint8_t)((color.g * 236 + 127) / 255);
+                color.b = (uint8_t)((color.b * 72 + 127) / 255);
+                color.a = 230;
             }
             SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
                 SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-            SDL_RenderCopyEx(app->renderer, part_texture,
-                             &source->cells[part->lump].rect, &part_dst,
-                             0.0, NULL, part_flip);
-            end_sprite_command(part_texture);
-            SDL_SetTextureBlendMode(part_texture, blend);
+            R_DrawSprite(app->renderer, source, part->lump, u->team, NULL,
+                         &part_dst, part_flip, color, blend);
         }
     } else {
     SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    SDL_Texture *texture = begin_sprite_command(sprite, frame,
-                                                u->core.render_remap,
-                                                u->core.render_intensity);
-    if (!texture) return;
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
-                     0.0, NULL, flip);
-    end_sprite_command(texture);
+    R_DrawSprite(app->renderer, sprite, frame, u->core.render_remap, NULL, &dst,
+                 flip, sprite_color(u->core.render_intensity), SDL_BLENDMODE_BLEND);
     }
     if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE) != 0) {
         selectiondrawcontext_t selection_ctx = {
@@ -1540,13 +1422,8 @@ static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *e
         SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
                              0)) return;
-    SDL_Texture *texture = begin_sprite_command(sprite, frame,
-                                                effect->core.render_remap,
-                                                effect->core.render_intensity);
-    if (!texture) return;
-    SDL_RenderCopyEx(app->renderer, texture, &sprite->cells[frame].rect, &dst,
-             0.0, NULL, flip);
-    end_sprite_command(texture);
+    R_DrawSprite(app->renderer, sprite, frame, effect->core.render_remap, NULL, &dst,
+                 flip, sprite_color(effect->core.render_intensity), SDL_BLENDMODE_BLEND);
 }
 
 void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
@@ -1720,10 +1597,6 @@ void R_FreeSprite(spritesheet_t *sprite) {
     for (int i = 0; i < sprite->numlumps; ++i) {
         spritelump_t *lump = &sprite->lumps[i];
         if (lump->texture) SDL_DestroyTexture(lump->texture);
-        for (int j = 0; j < lump->translation_count; ++j)
-            if (lump->translations[j].texture)
-                SDL_DestroyTexture(lump->translations[j].texture);
-        free(lump->translations);
         free(lump->indices);
     }
     if (sprite->spritedef.spriteframes) {

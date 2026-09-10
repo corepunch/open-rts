@@ -3599,3 +3599,129 @@ Regenerate with `make dark-colony-states`; validate generated output with
 `python3 tools/dc_states.py --check`. Native metadata/pixel/timing coverage remains
 in `test_drop_fin_states`, `test_building_damage`, `test_barracks_production`,
 `test_dark_colony_sprite_layout`, and `tests/tools/test_dc_info_conv.py`.
+
+## Indexed sprites and DirectDraw (2026-09-10)
+
+**Confirmed native evidence:** the local `data/DCOLONY/DC.EXE` still hashes to
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+The PE/toolchain fingerprint and Watcom calling-convention caveats above apply.
+The broad r2ghidra export led to the functions below; conclusions were checked
+against disassembly, including indirect-call arguments and byte loads/stores.
+
+- `0x42bc80` calls the DirectDrawCreate import thunk at `0x46a1cc`, passing
+  the object destination `0x4745ec`. `0x42bcd1–0x42bce5` passes **640, 480, 8**
+  to vtable slot `+0x54` (`IDirectDraw::SetDisplayMode`). Failure text at
+  `0x470900` is “Setting to 8 bit mode Failure”; assertions name `ddex4.c`.
+- `0x42bdc4` creates the primary flip chain: descriptor size `0x6c`, flags
+  `0x21` (CAPS | BACKBUFFERCOUNT), caps `0x4218` (PRIMARYSURFACE | FLIP |
+  COMPLEX | VIDEOMEMORY), backbuffer count 1. `0x42be1f` calls CreateSurface
+  (`+0x18`), writing the primary at `0x4745f0`. `0x42be49` requests its
+  BACKBUFFER (`caps=4`) through GetAttachedSurface (`+0x30`), storing
+  `0x4745f4`. The inspected sprite path below is a CPU byte blitter.
+- `0x42be77–0x42beb7` creates a separate 640×480 offscreen surface at
+  `0x4745f8`, with caps `0x840` (OFFSCREENPLAIN | SYSTEMMEMORY), set at
+  `0x42be61` / `0x42be81`. `0x42bed2–0x42bee1` loads the initial palette from
+  `intrface/load.bmp` using `0x44bee4`, storing the palette at `0x4745fc`.
+  That helper reads BMP/resource palette records and calls CreatePalette
+  (`+0x14`) with flag 4 (8BIT) at `0x44c1af–0x44c1b5`. This confirms an
+  initial **BMP** palette path, not the still-unknown SPR six-bit RGB expansion.
+- `0x42bf02` and `0x42bf1c` attach that same palette to the primary and
+  offscreen surfaces with SetPalette (`+0x7c`). The loop at
+  `0x42bf33–0x42bfdb` also loads 32 `cursor/cursor%d.bmp` surfaces and attaches
+  the shared palette. Thus some UI images really are DirectDraw surfaces;
+  this does not imply one surface per gameplay SPR cell or per team.
+- Presentation routine `0x42b54c` uses BltFast (`+0x1c`) to copy the offscreen
+  surface onto the attached backbuffer, optionally blits the color-keyed
+  cursor (`0x42b6c6`), then calls primary Flip (`+0x2c`) at `0x42b6d5`.
+- Normal FIN body dispatch `0x45c060` calls `0x45b990` / `0x45aec3` for
+  compressed spans. At `0x45ba03–0x45ba08` and `0x45af36–0x45af3b`, EAX
+  receives the aligned RMP base from `0x4841f0` and AH receives the queued
+  palette/lighting byte from `0x4841e4`. `0x45ba24–0x45ba3c` reads a signed
+  RLE control byte, skips negative runs, and dispatches nonnegative literal
+  runs through `0x45a49b`. Its first entries are `0x459e71`, `0x459e69`,
+  `0x459e61`. For example `0x459e71–0x459e75` does:
+
+  ```text
+  AL = source_byte[ESI]
+  AL = lookup_byte[EAX]
+  destination_byte[EDI] = AL
+  ```
+
+  Together with the earlier instruction-verified queue formula
+  `(light << 3) + (team & 7)`, this establishes indexed source and destination
+  with team/lighting applied during the blit:
+  `dst = RMP[((light * 8 + team) << 8) | src]` for this normal lookup path.
+  Transparent RLE spans preserve the destination. Native projected shadows
+  use a different destination-index lookup, documented above.
+
+**Disproven for the inspected path:** rendering each team requires storing an
+RGB copy of every sprite, or switching a separate RGB display palette per
+unit. Different teams coexist through index translation into the shared
+palette. DirectDraw supplies surface/palette/presentation operations; these
+sprite spans are written by the game's own CPU routines.
+
+**Unknown / scope:** this is not a complete inventory of every video mode,
+surface, palette update or special blitter. Decompiler output also exposes
+other display/conversion routines (for example `0x406fb0`); their purpose and
+mode selection were not established, so the 8-bit finding applies to the
+verified gameplay setup above, not every possible executable path. Full
+native terrain masks, blend modes and SPR channel expansion remain the
+previously documented unknowns. No retail runtime capture was made here.
+
+### Engine change and verification
+
+**Supersedes the lazy-cache implementation in “Sprite texture memory
+regression”:** indexed cells now remain indexed even after drawing.
+`R_DrawSprite(renderer, sprite, cell, palette, src, dst, flip, color, blend)`
+selects a source-index translation at draw time; it retains no per-cell or
+per-team expanded image. The palette argument is a translation ID, with -1
+or an unknown ID selecting source colors. `source_palette` remains separate
+from the world palette used by blend/shadow tables. The SDL renderer owns
+one streaming upload buffer, growing only to the maximum requested width
+and height and released at renderer teardown. Crop, scaling, reflection,
+modulation and draw order remain handled by SDL. The per-cell translation
+cache, scan for team pixels, and now-unused RGBA slicing helper were removed.
+World, HUD, font, selection-marker and direct FIN reference draws use the
+same drawing API. Other games' existing RGBA source textures remain supported.
+
+This storage requirement follows the user's request and Doom's
+`reference/DOOM/r_draw.c::R_DrawTranslatedColumn` translation-at-draw model;
+it replaces the previous GZDoom translation-specific texture cache. It does
+not claim to implement DirectDraw or the native indexed framebuffer. SDL
+still receives expanded ARGB pixels for the current draw. Updating the single
+buffer serializes pending uses; GPU throughput has not been benchmarked.
+Shadow/blend destination readback and temporary composite textures remain,
+as do terrain textures. Those are separate from retained sprite/team copies.
+
+Temporary `OPEN_RTS_DEBUG_SPRITE_BUFFER` logging on HUMAN01 reported upload
+extents 13×36, 77×257, 116×257, then **127×257 (130,556 bytes)**. One upload
+texture remains live; SDL may also own staging storage. This is the observed
+scene's pixel payload, not the process footprint or a universal upper bound.
+Diagnostics were removed before commit.
+
+Compared against parent `233d95e`, the full 461-entry SPR/FIN catalog is
+byte-identical: 447 loadable entries, the same 14 rejected entries documented
+above. It hashes indices, all eight translated pixel outputs, source/world
+palette data, geometry, layers, directions and timing. Manifest-output SHA-256:
+`22966ed476bd8a86bf63287a25a9af0a989d74fc9f5d2ed60a276f661788a3dd`.
+The HUMAN01 BMP is also byte-identical and visually inspected; SHA-256:
+`d791c1fdb6914dcaf0cffc77a9f48250d4f276b081e9c38965fa8504c081910c`.
+Focused tests cover two palettes queued before readback, live palette changes,
+clipped/scaled/reflected crops, invalid spans/IDs, no textures after drawing,
+FIN layers, shadows, height, blood, dropships, Trooper death and Reaper timing.
+All four game builds and headless checks pass; tags were regenerated.
+
+Reproduce the native and engine checks:
+
+```sh
+r2 -q -e scr.color=0 -e bin.cache=true -A \
+  -c 'pdf @ 0x42bccc' -c 'pdf @ 0x42bdc4' -c 'pdf @ 0x44bee4' \
+  -c 'pdf @ 0x42b54c' -c 'pdf @ 0x45c060' -c 'pdf @ 0x45b990' \
+  -c 'pdf @ 0x45aec3' -c 'pxw 16 @ 0x45a49b' \
+  -c 'pd 10 @ 0x459e61' -c q data/DCOLONY/DC.EXE
+make -j8 all build/bin/tests/dark-colony/test_sprite_loading
+rg --files data/DCOLONY | rg '\.(SPR|FIN)$' | sort > /private/tmp/dc-sprites.txt
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading /private/tmp/dc-sprites.txt
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-indexed.bmp
+```

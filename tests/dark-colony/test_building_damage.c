@@ -163,6 +163,7 @@ int main(void) {
     free(cache);
     R_FreeSprite(&fallback);
     R_FreeTileset(&tiles);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);

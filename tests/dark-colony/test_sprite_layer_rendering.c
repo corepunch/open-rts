@@ -30,10 +30,15 @@ int main(void) {
     sheet.cells[0].rect = (irect_t){ 0, 0, 2, 1 };
     const uint32_t colors[2] = { 0xff123456, 0xffabcdef };
     const uint32_t remapped[2] = { 0xff804020, 0xff204080 };
-    CHECK(R_CreateSpriteLumpTexture(r_renderer, &sheet.lumps[0], colors, 2,
-                                   sheet.cells[0].rect, true, -1));
-    CHECK(R_CreateSpriteLumpTexture(r_renderer, &sheet.lumps[0], remapped, 2,
-                                   sheet.cells[0].rect, true, 1));
+    sheet.lumps[0].indices = malloc(2);
+    sheet.palette_maps = calloc(1, sizeof(*sheet.palette_maps));
+    CHECK(sheet.lumps[0].indices && sheet.palette_maps);
+    sheet.lumps[0].indices[0] = 1; sheet.lumps[0].indices[1] = 2;
+    sheet.source_palette[1] = colors[0]; sheet.source_palette[2] = colors[1];
+    sheet.source_palette[3] = remapped[0]; sheet.source_palette[4] = remapped[1];
+    sheet.palette_map_count = 1;
+    sheet.palette_maps[0].id = 1;
+    sheet.palette_maps[0].indices[1] = 3; sheet.palette_maps[0].indices[2] = 4;
     CHECK(R_InitSpriteDef(&sheet, 1, 1) && R_InstallSpriteLump(&sheet, 0, 0, 0, false));
     spritelayer_t *part = sheet.spritedef.spriteframes[0].directions[0].layers;
     part->offset = (ivec2_t){ 0, 1 };
@@ -94,6 +99,7 @@ int main(void) {
     CHECK(pixels[0] == 0xff102040 && pixels[1] == 0xff402010);
 
     R_FreeSprite(&sheet);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);

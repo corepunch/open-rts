@@ -15,16 +15,16 @@ int main(void) {
     spritesheet_t sheet = {0};
     assert(R_AllocSpriteCells(&sheet, 1));
     sheet.cells[0].rect = (irect_t){0, 0, 2, 64};
-    uint32_t red[128], green[128];
-    for (int i = 0; i < 128; ++i) {
-        red[i] = 0xffff0000;
-        green[i] = 0xff00ff00;
-    }
-    assert(R_CreateSpriteLumpTexture(r_renderer, &sheet.lumps[0], red, 2,
-                                    sheet.cells[0].rect, true, -1));
-    assert(R_CreateSpriteLumpTexture(r_renderer, &sheet.lumps[0], green, 2,
-                                    sheet.cells[0].rect, true, 1));
-    /* Two frames share a texture; the elevated object belongs to the green team. */
+    sheet.lumps[0].indices = malloc(128);
+    sheet.palette_maps = calloc(1, sizeof(*sheet.palette_maps));
+    assert(sheet.lumps[0].indices && sheet.palette_maps);
+    memset(sheet.lumps[0].indices, 1, 128);
+    sheet.source_palette[1] = 0xffff0000;
+    sheet.source_palette[2] = 0xff00ff00;
+    sheet.palette_map_count = 1;
+    sheet.palette_maps[0].id = 1;
+    sheet.palette_maps[0].indices[1] = 2;
+    /* Two frames share indexed pixels; the elevated object belongs to green. */
     assert(R_InitSpriteDef(&sheet, 2, 1));
     assert(R_InstallSpriteLump(&sheet, 0, 0, 0, false));
     assert(R_InstallSpriteLump(&sheet, 1, 0, 0, false));
@@ -60,6 +60,7 @@ int main(void) {
         }
     }
     R_FreeSprite(&sheet);
+    R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
     SDL_FreeSurface(surface);
