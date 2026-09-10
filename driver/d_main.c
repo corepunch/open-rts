@@ -55,6 +55,7 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     unit->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ cell.x, cell.y }), 0);
     unit->owner = 1;
+    unit->team = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
     P_ApplyActorTypeDefaults(unit, type);
     P_InitMobj(gameinfo, unit);
@@ -152,7 +153,8 @@ int main(int argc, char **argv) {
     R_RefreshViewport(&app);
 
     P_InitThinkers();
-    if (!G_DoLoadLevel(map_path, &level)) {
+    if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
+        P_FreeLevel(&level);
         renderer_destroy(&renderer);
         return 1;
     }
@@ -195,6 +197,7 @@ int main(int argc, char **argv) {
         unit_count = objects.count;
     }
     apply_actor_defaults(units, unit_count);
+    P_UpdateSight();
 
     spritecache_t decoration_sprites = { 0 };
     if (!R_InitSprites(app.renderer, data_root, &level, units, unit_count,
@@ -235,6 +238,7 @@ int main(int argc, char **argv) {
                     focus_camera_on_first_player_unit(&app, &level, units, unit_count);
                 R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
             }
+            P_UpdateSight();
             renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
             R_DrawLevel(&app, &level, &tileset);
             R_RenderPlayerView(&app, &level, &tileset, units,
@@ -242,6 +246,7 @@ int main(int argc, char **argv) {
                                  &decoration_sprites, gameinfo, SDL_GetTicks());
 
             R_DrawGridOverlay(&app, &level);
+            R_DrawFog(&app, &level);
             G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
             SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                       false, true);
@@ -364,6 +369,7 @@ int main(int argc, char **argv) {
                              &decoration_sprites, gameinfo, SDL_GetTicks());
 
         R_DrawGridOverlay(&app, &level);
+        R_DrawFog(&app, &level);
         if (app.dragging_select) {
             SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
             SDL_RenderFillRect(app.renderer, &app.selection_rect);

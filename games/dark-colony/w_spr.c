@@ -416,6 +416,7 @@ static bool load_ui_sprites(const char *root, spritecache_t *cache) {
     /* These are the gameplay HUD's consumers. Fonts/background have their
      * own owners; encyclopedia and menu animations belong to those screens. */
     return sprite_cache_load_dark_colony(cache, root, "INTRFACE/MAINBUT.SPR") &&
+           sprite_cache_load_dark_colony(cache, root, "SPRITES/CLOC.SPR") &&
            sprite_cache_load_dark_colony(cache, root, game_info.selection_marker.image);
 }
 

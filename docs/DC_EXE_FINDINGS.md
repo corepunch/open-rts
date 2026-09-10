@@ -1,5 +1,9 @@
 # DC.EXE Fog-of-War Visibility and Compositing
 
+The opening investigation contains superseded hypotheses. See “Confirmed fog,
+map flags and day/night clock (2026-09-10)” below for the instruction-verified
+implementation and its remaining fidelity limits.
+
 This document records the Dark Colony executable fog-of-war visibility system
 behavior. It is a focused technical report on visibility and compositing.
 Addresses refer to the exact executable fingerprint below.
@@ -3959,3 +3963,225 @@ remains identical to the preceding revision. The same headless HUMAN01 run
 measures 48,988,160 bytes maximum RSS and 39,847,232 bytes peak physical
 footprint with `/usr/bin/time -l`; these are headless process measurements,
 not a new windowed-game measurement. Tags were regenerated and the diff checked.
+
+## Confirmed fog, map flags and day/night clock (2026-09-10)
+
+This trace supersedes the opening report's unverified fog model and the
+2026-09-03 audit's remaining unknowns where explicitly identified below.
+Evidence: retail `data/DCOLONY/DC.EXE`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566272 bytes, PE32 image base `0x400000`. The local r2ghidra decompilation
+was used to find candidates; fresh radare2 instruction listings established
+addresses, register arguments, flags and integer operations. In particular,
+Watcom register arguments must not be inferred from decompiler signatures.
+
+### Map storage and visibility ownership
+
+**Confirmed:** `0x44e720` reads 32-bit width and height, two 16-bit tile IDs
+per cell, then a separate 16-bit flag plane. Runtime terrain packs
+`background | (foreground << 11) | (flags << 22)` into one dword. Rows at
+map `+4` are top-down; `+0x404` is a reversed row-pointer view of the same
+storage. The visibility/occupancy rows are at `+0x804`; additional occupancy
+planes are at `+0xc04` and `+0x1004`. These are distinct from terrain.
+
+`0x44ea30` forces terrain bit 29 on when bit 31 is absent: in the on-disk
+flag word, non-obstacles (bit 9 clear) always get sight-pass bit 7. Bit 8
+means near-only current visibility. Bit 9 remains the movement obstacle.
+The existing tile-flip interpretation (bits 5 and 6) is unchanged.
+
+The engine now retains the full normalized flag word instead of discarding
+all but movement and flips. Level cleanup owns this plane and the visibility
+plane. It still decodes tile IDs into the common renderer arrays; it does not
+copy DC's pointer aliases or impose its 11-bit tile-ID packing on other games.
+As with Doom's level geometry and REJECT storage in
+`reference/DOOM/p_setup.c`, visibility belongs to the active
+level, independent of renderer resources. A tile grid is necessary here:
+DC's authored traversal consumes cell flags, whereas Doom's REJECT bits
+represent sector pairs.
+
+**Confirmed engine bug:** bottom-up terrain rectangles were drawn using
+`L_ScreenYF(height,y) = height-y`, the transform for continuous world points.
+The first terrain row therefore started one cell below its proper rectangle.
+Tile, overlay and blocked-cell drawing now use `L_ScreenY = height-1-y`,
+already used by the minimap and tile sort keys. World points retain the
+continuous transform. The two-row framebuffer test verifies the alignment;
+the BTS catalog still produces identical pixels for every tile/flip/water
+phase when its camera targets the corrected cell rectangle.
+
+**Correction:** the `kev: maskbuffer` allocation at `0x432c53` is only
+`0x7000` bytes, stored at `0x4e1844`; the references examined do not make it
+the simulation visibility plane. `0x44ecd0` separately allocates the
+viewport-sized light buffer at viewport `+0x1c`. Neither allocation's label
+establishes a three-value simulation encoding.
+
+### Sight traversal and bit layout
+
+**Confirmed:** explored terrain uses bit 31, `0x80000000`. Current sight for
+team `t` uses `0x40000000 >> t`, for teams 0 through 7. The local allied mask
+is stored at game `+0x19c0` with team stride `0xe30`. The clear pass at
+`0x441a20` removes current team visibility while preserving exploration and
+native occupancy/memory metadata. The engine stores current team bits plus
+persistent local exploration; SCN alliances initialize the team masks.
+
+`0x446158` visits active objects (native stride `0xdc`), requires team < 8,
+and skips object `+0xcb` values 1 and 2. It selects one of sixteen specialized
+traversals according to flying sight, aircraft detection, local alliance and
+whether clipping is necessary. `0x4447a0` and `0x4458d0` establish the ground
+rules; `0x441d54` establishes flying sight:
+
+- Reveal the current cell before pruning. If flag bit 7 is absent, stop its
+  descendants for ground observers. Flying sight ignores this pruning.
+- At tree depth >= 2, flag bit 8 suppresses current team visibility, but an
+  allied observer still marks the terrain explored. This rule also applies
+  to flying sight. It does not itself stop descendants.
+- Clipped traversals stop an out-of-bounds branch.
+
+The root pointer table starts at `0x483fbc`. Indices 1 through 10 point to
+`0x477128`, `0x477364`, `0x477860`, `0x4780cc`, `0x478eb8`, `0x47a224`,
+`0x47bbc0`, `0x47dd9c`, `0x480918`, and `0x483f94`. Nodes are 44 bytes:
+signed X/Y offsets, `(child_count-1)*4`, and eight child pointers. The stack
+visits children in reverse pointer order; `0x47608c` supplies depth increments.
+Open-terrain counts are 5, 13, 29, 49, 81, 113, 149, 197, 253, 317. Each is
+an integer Euclidean circle, but its parent branches determine occlusion.
+A generic ray or distance test would not reproduce that pruning.
+
+The new C extractor verifies that all ten trees are restrictions of the
+largest tree with identical cells, parent coordinates and depths. It also
+checks that squared distance strictly increases along every parent edge.
+The engine therefore needs just 317 offsets/depths/subtree ends; skipping a
+subtree preserves native occlusion without ten duplicate tables. Table index
+0 is not one of these roots. Values at indices 11/12 are 1/15, not valid
+pointers, despite the traversal's broader radius bound; the engine accepts
+only the ten verified radii.
+
+### Soft square brightness, not a DOTT overlay
+
+**Confirmed:** `0x44ee68` samples brightness 16 for currently visible terrain,
+10 for explored terrain and 0 for undiscovered terrain. The bypass flag
+skips visibility masking. It replicates boundary samples, averages four
+adjacent cells with `sum >> 2` at each tile corner, and interpolates across
+each 32×32 tile. First interpolate left/right edges vertically with integer
+division by 31, then interpolate horizontally with another division by 31.
+Do not replace this with one floating-point bilinear interpolation: intermediate
+truncation changes the stepped contour.
+
+`0x44ecd0` constructs the 17×17×32 lookup table at `0x50f62c`:
+`(((31-position)*a + position*b)/31) << 3`. Rendering ORs the selector into
+the bottom three bits. Thus there are seventeen brightness levels, with
+square/rectangular patches formed by quantized interpolation, not a fixed
+2×2 alpha mask inside each terrain tile. The user's screenshots are visually
+consistent with these patches; the algorithm and constants come from the
+instructions, not tuning against a screenshot.
+
+`0x44a7b0` generates the RMP light bank using intensity 0..31 and selector
+0..7: channels are scaled by intensity/16 and clamped, then mapped back into
+the palette. The selector also affects color remapping, including team slots
+138..143. The engine implements the same 0/10/16 samples and integer light
+field as its default, then multiplies the composed RGB world by light/16.
+It does **not** yet reproduce every RMP nearest-palette choice or the native
+per-layer light selector. UI is drawn afterward; the fog texture is clipped
+to the world viewport and owned by the renderer. Terrain sampling is stable
+under camera scrolling and independent of unit sprite dimensions.
+
+**Disproven:** DOTT.SPR is not the source of this fog gradient. Its GAMESTAT
+field with value 7 is not a seven-cell radius. The native radius is from
+OBS_DAY/OBS_NIGHT; DOTT has 8/8. The previously inferred 0/1/2 cell encoding
+and per-unit radial-sprite compositor are superseded by the bitfield and
+light-buffer consumers above.
+
+### Day/night timing, vision and HUD
+
+**Confirmed:** GAMESTAT loader `0x4385f8`, specifically the destination
+addresses near `0x4387bb–0x4387c5`, places OBS_DAY at type `+0x14`
+(`0x4ec894`) and OBS_NIGHT at `+0x10` (`0x4ec890`), stride `0x118`.
+Consequently game `+0x540` is a **night weight**, 0 by day and 256 at night.
+`0x446240–0x44625e` computes
+`(night_weight*night + (256-night_weight)*day) >> 8`.
+Troopers have 7/4 sight and Greys 4/7; these are separately authored C stats,
+not a runtime dependency on extracted GAMESTAT tables. Field 12, copied to
+`0x4ec8e0` (type `+0x60`), selects the flying-sight traversal. Field 10 is a
+movement category, despite the older generated enum naming it FLY. Scout,
+Ortu and buildings bypass ground pruning; ordinary infantry does not.
+
+SCN load `0x41a61c` writes starting phase to `+0x53c`, phase length to
+`+0x534`, elapsed phase time to `+0x530`, and transition length to `+0x538`;
+initial night weight is `phase << 8`. These are header values 2..5 in our
+parser. HUMAN01 supplies day, 6750, 1500, 75. The ticker at
+`0x418aba–0x418b46` increments elapsed time, flips phase and resets elapsed
+to zero when elapsed **exceeds** phase length. During the transition:
+night weight is `(elapsed<<8)/transition` entering night, or its complement
+to 256 entering day. `0x418b54` refreshes sight every sixteen native tics;
+`0x4189b8` supplies startup visibility. A full native tick is 66 ms at the
+default speed (`0x41a728`, `0x41cb5a–0x41cbc5`, documented above). The engine
+uses cumulative 66 ms boundaries on its 30 Hz thinker clock, avoiding a
+cycle that runs twice as fast. This environment cadence is the shared
+engine default; maps without a cycle duration stay in daylight.
+
+HUD initialization `0x437630` loads `sprites/cloc`, divides its frame count
+in half and divides phase duration by that half. `0x4376a8` chooses a frame
+from the first half by day and the second half by night, clamping the exact
+phase endpoint to its last frame. `0x4377e3–0x437806` subtracts the SPR
+cell displacement from the (608,450) draw origin; the blitter reapplies it.
+`0x437824` prints the total elapsed clock divided by phase length and by two.
+The engine uses this native dial from its separate UI image cache and removes
+CLOC from gameplay sprite IDs. Its day counter now uses the world clock,
+not a parallel HUD timer. `SPRITES/CLOC.SPR` contains 36 28×28 cells with
+(66,67) displacement; SHA-256
+`99453d9544a3afbd64af760e9e1baf437127f30f7c9c4e848f70fbe1157fcb65`.
+GAMESTAT.TXT SHA-256:
+`ed13afe21ffea368a5892b49de40ef063014c0a9376c5d5bb5abf1396cb27629`.
+
+**Unknown / not inferred:** a separate night terrain tint. Examined direct
+phase/weight consumers cover sight, clock UI, saved state and script gates.
+The world queue initializes global light `0x474660` to 16. The call immediately
+following the transition, `0x440ab4`, only increments the pathfinding stamp
+`0x475974` by two; it is not a palette update. No unsupported night color or
+darkening constant has been introduced.
+
+### Remaining fidelity boundaries
+
+The common renderer, picking, minimap, model snapshots and target acquisition
+now use current sight; exploration survives losing sight and observer death.
+Games whose authored sight is still absent use an explicit engine default of
+seven cells for selectable actors. This is engine policy, not evidence about
+Dark Reign, 7th Legion or KKND. Dark Reign now initializes `team` from `owner`
+so enemy units cannot reveal the player's map by retaining team zero.
+
+Native `0x450078` also remembers object/type metadata in visibility-cell bits
+10..17; drawing at `0x4368c9–0x436a2b` uses remembered representations outside
+current sight. That object-memory rendering is not yet ported. Other
+unported details include detection updates at object `+0xca` (type `+0x6c`),
+status-10 sight shrinking by `(radius*(150-object[+0x46]))/150`, and special
+observer eligibility outside our live actors. Native super-unit types
+69..76 have 10/8 or 8/10 sight, but the current engine maps them to the normal
+Trooper/Grey actor types; they still inherit those normal stats. These limits
+must not be mistaken for confirmed native equivalence.
+
+### Reproduction and verification
+
+```sh
+make build/dc_sight_gen
+build/dc_sight_gen data/DCOLONY/DC.EXE > /private/tmp/dc-sight.h
+cmp play/p_sight_data.h /private/tmp/dc-sight.h
+r2 -q -e bin.cache=true -e scr.color=false \
+  -c 'af @ 0x44ecd0; pdf @ 0x44ecd0; af @ 0x44ee68; pdf @ 0x44ee68' \
+  -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false \
+  -c 'af @ 0x4458d0; pdf @ 0x4458d0; af @ 0x446158; pdf @ 0x446158' \
+  -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false \
+  -c 'af @ 0x418818; pdf @ 0x418818; af @ 0x437630; pdf @ 0x437630' \
+  -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --cell 0 data/DCOLONY/SPRITES/CLOC.SPR
+env SDL_VIDEODRIVER=dummy make test-dark-colony test-dark-reign test-7legion test-kknd
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-fog.bmp
+```
+
+`test_fog` checks all circle cells, branch occlusion, flying and near-only
+rules, map edges, alliances, retained exploration, day/night sight reversal,
+phase transitions, native clock cadence, exact interpolation samples,
+software-rendered brightness, camera movement, HUD exclusion, bottom-up row
+alignment, and real HUMAN01 flag/header decoding. The BTS render catalog
+checks unchanged source pixels and metadata. The separate cross-game DC
+command fixture still fails to earn its required build funds on the unchanged
+revision as well; the Dark Reign command test now rejects unseen targets.

@@ -13,6 +13,23 @@ typedef struct flowfield_s flowfield_t;
 
 typedef ivec2_t cell_t;
 
+/* Native DC terrain flag positions, shared by the engine sight traversal. */
+enum {
+    MAP_SIGHT_PASS = 1u << 7,
+    MAP_SIGHT_NEAR = 1u << 8,
+};
+
+#define SIGHT_EXPLORED UINT32_C(0x80000000)
+typedef struct {
+    uint32_t *cells; /* Current team bits and persistent local exploration. */
+    uint32_t allies[8];
+} sightmap_t;
+
+typedef struct {
+    /* weight: 0 = day, 256 = night (DC.EXE level +0x540). */
+    int phase, tics, duration, transition, weight;
+} daylight_t;
+
 enum {
     MAP_RENDER_CAP_CELL_COLORS = 1 << 0,
     MAP_RENDER_CAP_TERRAIN_TRANSITIONS = 1 << 1,
@@ -101,6 +118,9 @@ typedef struct level_s {
     uint8_t *tile_transforms[MAX_TILE_OVERLAYS + 1];
     int tile_overlay_count;
     uint8_t *blocked;
+    uint16_t *tile_flags;
+    sightmap_t sight;
+    daylight_t daylight;
     uint32_t *cell_colors;
     uint32_t render_capabilities;
     mapdecoration_t *decorations;
@@ -111,7 +131,6 @@ typedef struct level_s {
     int extra_count;
     bool has_camera;
     fvec2_t camera;
-    int day_rate;
     int player_resources[8][RTS_MAX_RESOURCES];
     char tileset_name[32];
     void *native_data;

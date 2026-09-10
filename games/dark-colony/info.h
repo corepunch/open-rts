@@ -66,7 +66,6 @@ typedef enum {
     SPR_CHOB,
     SPR_CHOC,
     SPR_CHOD,
-    SPR_CLOC,
     SPR_CLOD,
     SPR_CRYO,
     SPR_CURS,

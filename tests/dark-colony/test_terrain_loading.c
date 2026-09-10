@@ -60,7 +60,7 @@ int main(void) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 32, 32, 32, SDL_PIXELFORMAT_ARGB8888);
     SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
     assert(renderer);
-    app_t app = {.renderer = renderer, .win = {32,32}, .cell = {32,32}, .cam = {0,-32}};
+    app_t app = {.renderer = renderer, .win = {32,32}, .cell = {32,32}};
     check_live_palette(&app);
     for (size_t f = 0; f < sizeof(catalog) / sizeof(*catalog); ++f) {
         blob_t file;

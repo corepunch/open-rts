@@ -132,5 +132,24 @@ static void separate_units(const level_t *map) {
 void P_Ticker(void) {
     P_RunThinkers();
     separate_units(&level);
+    /* Advance the native environment clock on cumulative 66 ms boundaries,
+     * independently of the engine's 30 Hz thinker clock. */
+    int64_t before = (int64_t)leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
+    int64_t clock = ((int64_t)leveltime + 1) * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
+    daylight_t *day = &level.daylight;
+    if (clock != before && day->duration > 0) {
+        if (++day->tics > day->duration) {
+            day->tics = 0;
+            day->phase = !day->phase;
+        }
+        if (day->transition > 0 && day->tics <= day->transition) {
+            int weight = (int)((int64_t)day->tics * 256 / day->transition);
+            day->weight = day->phase ? weight : 256 - weight;
+        } else {
+            day->weight = day->phase ? 256 : 0;
+        }
+    }
+    /* DC.EXE 0x418b54's mask pass runs every sixteen native tics. */
+    if (clock != before && (clock & 15) == 0) P_UpdateSight();
     leveltime++;
 }

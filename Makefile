@@ -1,5 +1,10 @@
 .DEFAULT_GOAL := all
 
+DC_SIGHT_GEN_SOURCES := $(sort $(shell find tools/dc_sight_gen -name '*.c'))
+build/dc_sight_gen: $(DC_SIGHT_GEN_SOURCES)
+	@mkdir -p build
+	$(CC) $(CFLAGS) $^ -o $@
+
 CC ?= cc
 AR ?= ar
 PKG_CONFIG ?= pkg-config

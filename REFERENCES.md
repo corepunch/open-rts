@@ -74,6 +74,17 @@ plugin-specific behavior.
 
 ## Dark Colony
 
+- Retail fog and environment clock: local `data/DCOLONY/DC.EXE`, SHA-256
+  `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+  Fresh radare2 disassembly of `0x44e720` (map planes), `0x446158` and
+  `0x4458d0` (sight), `0x44ecd0` / `0x44ee68` (quantized light field),
+  `0x418818` (day/night ticker), and `0x437630` / `0x4376a8` (CLOC HUD).
+  The screenshot references supplied by the user on 2026-09-10 show soft,
+  square brightness patches; constants and interpolation are established
+  independently from executable instructions. See
+  [the verified findings](docs/DC_EXE_FINDINGS.md#confirmed-fog-map-flags-and-daynight-clock-2026-09-10),
+  including the C extractor, asset hashes, corrections and reproduction commands.
+
 - DirectDraw API definitions used to identify the retail COM calls:
   - [Microsoft SDK ddraw.h](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/um/ddraw.h):
     original interface method order and numeric surface/palette flags.

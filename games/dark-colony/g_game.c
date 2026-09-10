@@ -24,6 +24,7 @@ extern bool load_dark_colony_tileset(const char *path, tileset_t *out);
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_TROOPER,
+        .sight = { 7, 4, false },
         .native_type_id = 0,
         .damage_action = A_DC_Damage,
         .name = "Trooper",
@@ -38,6 +39,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
     },
     { .id = MT_BEACON, .native_type_id = 84,
+      .sight = { 8, 5, false },
       .name = "Beacon", .sprite_name = "SPRITES/BEAC.SPR", .max_hp = 800,
       .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     { .id = MT_VENT, .native_type_id = OBJECT_TYPE_PETRA7_VENT,
@@ -48,6 +50,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     { .id = MT_BLOOD, .name = "Blood", .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     {
         .id = MT_GREY,
+        .sight = { 4, 7, false },
         .native_type_id = 8,
         .damage_action = A_DC_Damage,
         .name = "Grey",
@@ -60,6 +63,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_EXPLOITER,
+        .sight = { 6, 4, false },
         .native_type_id = 6,
         .damage_action = A_DC_Damage,
         .name = "Exploiter",
@@ -73,6 +77,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_REAPER,
+        .sight = { 7, 4, false },
         .native_type_id = 2,
         .damage_action = A_DC_Damage,
         .name = "Mech",
@@ -85,6 +90,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_THUNDERBOLT,
+        .sight = { 7, 4, false },
         .native_type_id = 3,
         .damage_action = A_DC_Damage,
         .name = "Thunderbolt",
@@ -97,6 +103,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_CYBORG,
+        .sight = { 10, 10, false },
         .native_type_id = 4,
         .damage_action = A_DC_Damage,
         .name = "Cyborg",
@@ -109,6 +116,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SCOUT,
+        .sight = { 8, 8, true },
         .native_type_id = 5,
         .damage_action = A_DC_Damage,
         .name = "Scout",
@@ -121,6 +129,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_EXCOPOD,
+        .sight = { 9, 6, true },
         .native_type_id = 16,
         .damage_action = A_DC_Damage,
         .name = "Exco Center",
@@ -130,6 +139,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_BRRKPOD,
+        .sight = { 9, 6, true },
         .native_type_id = 17,
         .damage_action = A_DC_Damage,
         .name = "Barracks",
@@ -139,6 +149,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ROBOPOD,
+        .sight = { 9, 6, true },
         .native_type_id = 18,
         .damage_action = A_DC_Damage,
         .name = "Robot Factory",
@@ -148,6 +159,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ROBOPOD2,
+        .sight = { 9, 6, true },
         .native_type_id = 19,
         .damage_action = A_DC_Damage,
         .name = "Robot Factory II",
@@ -157,6 +169,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SCNCPOD,
+        .sight = { 9, 6, true },
         .native_type_id = 20,
         .damage_action = A_DC_Damage,
         .name = "Science Pod",
@@ -166,6 +179,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SCNCPOD2,
+        .sight = { 9, 6, true },
         .native_type_id = 21,
         .damage_action = A_DC_Damage,
         .name = "Science Pod II",
@@ -175,6 +189,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_RSCHPOD,
+        .sight = { 9, 6, true },
         .native_type_id = 22,
         .damage_action = A_DC_Damage,
         .name = "Research Pod",
@@ -184,6 +199,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_MINDHIVE,
+        .sight = { 6, 9, true },
         .native_type_id = 28,
         .damage_action = A_DC_Damage,
         .name = "Mind Hive",
@@ -193,6 +209,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_WARHIVE,
+        .sight = { 6, 9, true },
         .native_type_id = 29,
         .damage_action = A_DC_Damage,
         .name = "Warrior Hive",
@@ -202,6 +219,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_BRDRHIVE,
+        .sight = { 6, 9, true },
         .native_type_id = 30,
         .damage_action = A_DC_Damage,
         .name = "Breeder Hive",
@@ -211,6 +229,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_BRDRHIVE2,
+        .sight = { 6, 9, true },
         .native_type_id = 31,
         .damage_action = A_DC_Damage,
         .name = "Breeder Hive II",
@@ -220,6 +239,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_MINDHIVE2,
+        .sight = { 6, 9, true },
         .native_type_id = 32,
         .damage_action = A_DC_Damage,
         .name = "Mind Hive II",
@@ -229,6 +249,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_MINDHIVE3,
+        .sight = { 6, 9, true },
         .native_type_id = 33,
         .damage_action = A_DC_Damage,
         .name = "Mind Hive III",
@@ -238,6 +259,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_RSCHIVE,
+        .sight = { 6, 9, true },
         .native_type_id = 34,
         .damage_action = A_DC_Damage,
         .name = "Research Hive",
@@ -247,6 +269,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_COMMS_DISH,
+        .sight = { 8, 5, false },
         .native_type_id = 86,
         .damage_action = A_DC_Damage,
         .name = "Communication Dish",
@@ -256,6 +279,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_CITY_TOWER,
+        .sight = { 9, 6, true },
         .native_type_id = 81,
         .damage_action = A_DC_Damage,
         .name = "City Tower",
@@ -265,6 +289,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ORTU,
+        .sight = { 8, 8, true },
         .native_type_id = 13,
         .damage_action = A_DC_Damage,
         .name = "Saucer Scout",
@@ -277,6 +302,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SLUG,
+        .sight = { 4, 6, false },
         .native_type_id = 14,
         .damage_action = A_DC_Damage,
         .name = "Alien Worker",
@@ -288,6 +314,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_MOBILE_TOWER,
+        .sight = { 9, 5, false },
         .native_type_id = 41,
         .damage_action = A_DC_Damage,
         .name = "Mobile Tower",
@@ -298,6 +325,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_DROPSHIP,
+        .sight = { 8, 8, true },
         .native_type_id = 92,
         .damage_action = A_DC_Damage,
         .name = "Dropship",
@@ -308,6 +336,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_DROP_LINK,
+        .sight = { 8, 5, false },
         .native_type_id = 89,
         .damage_action = A_DC_Damage,
         .name = "Dropship Link",
@@ -317,6 +346,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ALIEN_COM,
+        .sight = { 8, 5, false },
         .native_type_id = 91,
         .damage_action = A_DC_Damage,
         .name = "Alien Com Tower",
@@ -326,6 +356,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_VISION_SIGHT,
+        .sight = { 8, 8, true },
         .native_type_id = 94,
         .damage_action = A_DC_Damage,
         .name = "Vision Sight",
@@ -494,7 +525,7 @@ bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
 }
 
 void G_CustomUITicker(void *ui) {
-    DC_SB_Ticker(ui);
+    (void)ui;
 }
 
 void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,

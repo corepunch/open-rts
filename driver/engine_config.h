@@ -14,6 +14,7 @@
 #define RTS_MAX_PRODUCTION_QUEUE 9
 #define MAX_PATH_CELLS 4096
 #define RTS_TICRATE 30
+#define WORLD_CLOCK_MS 66 /* DC.EXE's default environment clock. */
 #define FIXED_DT (1.0f / RTS_TICRATE)
 
 #ifndef RTS_WORLD_Y_UP

@@ -41,7 +41,6 @@ typedef struct {
     bitmapfont_t font;
     spritesheet_t background;
     Sidebar sidebar;
-    uint64_t clock;
 } sb_state_t;
 
 typedef StaticProductDefinition ProductButton;
@@ -380,12 +379,15 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
             uint8_t r = (uint8_t)(color >> 16);
             uint8_t g = (uint8_t)(color >> 8);
             uint8_t b = (uint8_t)color;
-            SDL_SetRenderDrawColor(app->renderer, r / 2, g / 2, b / 2, 255);
+            int light = P_SightBrightness(map, (ivec2_t){gx, gy});
+            SDL_SetRenderDrawColor(app->renderer, r * light / 16, g * light / 16,
+                                  b * light / 16, 255);
             SDL_RenderDrawPoint(app->renderer, clip.x + px, clip.y + py);
         }
     }
     for (int i = 0; i < map->resource_vent_count; ++i) {
         const resourcevent_t *vent = &map->resource_vents[i];
+        if (!P_SightBrightness(map, vent->cell)) continue;
         int x = clip.x + vent->cell.x * clip.w / map->width;
         int y = clip.y + (int)(L_ScreenY(map, vent->cell.y) * clip.h / map->height);
         irect_t dot = { x - 1, y - 1, 3, 3 };
@@ -394,7 +396,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
     }
     for (int i = 0; i < unit_count; ++i) {
         fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
-        if (P_MobjIsHidden(units[i]) || units[i]->remove ||
+        if (!P_VisibleToPlayer(units[i]) || units[i]->remove ||
             position.x < 0.0f || position.y < 0.0f) continue;
         int x = clip.x + (int)(position.x * (float)clip.w / (float)map->width);
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *
@@ -429,8 +431,7 @@ static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *fo
 static void dc_ui_draw_status(app_t *app, const level_t *map,
                               const bitmapfont_t *font,
                               const UiLayout *layout,
-                              const spritecache_t *cache,
-                              uint64_t clock) {
+                              const spritecache_t *cache) {
     if (!app || !map || !font || !layout) return;
     char text[32];
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
@@ -443,8 +444,22 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
                           layout->money.y + 2, text,
                           (SDL_Color){ 41, 217, 230, 255 });
 
-    int days = map->day_rate > 0 ?
-        (int)(clock / (uint64_t)map->day_rate / 2u) : 0;
+    const spritesheet_t *dial = R_CacheLookup(cache, "SPRITES/CLOC.SPR");
+    if (dial && dial->numlumps >= 2 && map->daylight.duration > 0) {
+        int half = dial->numlumps / 2;
+        int frame = (int)((int64_t)map->daylight.tics * half / map->daylight.duration);
+        if (frame >= half) frame = half - 1;
+        frame += map->daylight.phase * half;
+        irect_t src = dial->cells[frame].rect;
+        /* 0x4377e3–0x437806 cancels the SPR displacement at (608,450). */
+        irect_t dst = ui_rect(app, 608, 450, src.w, src.h);
+        dst.y += app->win.h - 480;
+        R_DrawSprite(app->renderer, dial, frame, -1, &src, &dst, SDL_FLIP_NONE,
+                     (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
+    }
+    uint64_t clock = (uint64_t)leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
+    int days = map->daylight.duration > 0 ?
+        (int)(clock / (uint64_t)map->daylight.duration / 2u) : 0;
     if (days > 999) days = 999;
     snprintf(text, sizeof(text), "%03d", days);
     int x = layout->days.x - HU_TextWidth(font, text, 1) / 2;
@@ -626,11 +641,6 @@ bool DC_SB_Responder(void *sb_ptr, const app_t *app, level_t *map,
            dc_SB_responder(&sb->sidebar, app, map, units, unit_count, event);
 }
 
-void DC_SB_Ticker(void *sb_ptr) {
-    sb_state_t *sb = sb_ptr;
-    if (sb && sb->active) sb->clock++;
-}
-
 void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
                mobj_t *const *units, int unit_count,
                const spritecache_t *sprites, const hudtext_t *hud) {
@@ -640,7 +650,7 @@ void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
     dc_SB_drawer(app, map, units, unit_count, images, &sb->font,
                  &sb->sidebar, &sb->background);
     UiLayout layout = ui_layout(app);
-    dc_ui_draw_status(app, map, &sb->font, &layout, images, sb->clock);
+    dc_ui_draw_status(app, map, &sb->font, &layout, images);
     render_hud_messages(app, hud, &sb->font);
 }
 

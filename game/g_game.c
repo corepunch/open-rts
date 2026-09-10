@@ -503,7 +503,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     model->loaded = false;
 
     P_InitThinkers();
-    if (!G_DoLoadLevel(map_path, &level)) {
+    if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
         P_FreeLevel(&level);
         model_set_error(model, "failed to load map '%s'", map_path);
         return false;
@@ -511,6 +511,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     P_LoadThings(map_path);
     refresh_model_objects(model);
     apply_plugin_actor_defaults(model);
+    P_UpdateSight();
     P_AiInit(&model->ai);
     model->loaded = true;
     active_model = model;
@@ -591,12 +592,13 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         for (int i = 0; i < model->objects.count; ++i) {
             mobj_t *unit = model->objects.items[i];
             P_MobjSetSelected(unit, unit->owner == 0 && unit->hp > 0 &&
-                (unit->traits & MF_SELECTABLE) != 0);
+                (unit->traits & MF_SELECTABLE) != 0 && P_VisibleToPlayer(unit));
         }
         return true;
     case RTS_GAME_COMMAND_SELECT_UNIT_INDEX:
         if (command->data.select_unit_index.unit_index < 0 ||
-            command->data.select_unit_index.unit_index >= model->objects.count) {
+            command->data.select_unit_index.unit_index >= model->objects.count ||
+            !P_VisibleToPlayer(model->objects.items[command->data.select_unit_index.unit_index])) {
             return false;
         }
         if (!command->data.select_unit_index.additive) {
@@ -623,7 +625,8 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
             for (int i = 0; i < model->objects.count; ++i)
                 if (model->objects.items[i]->id == command->data.attack_unit.target_id) { target = i; break; }
         }
-        if (target < 0 || target >= model->objects.count || model->objects.items[target]->hp <= 0) return false;
+        if (target < 0 || target >= model->objects.count || model->objects.items[target]->hp <= 0 ||
+            !P_VisibleToPlayer(model->objects.items[target])) return false;
         for (int i = 0; i < model->objects.count; ++i) {
             mobj_t *unit = model->objects.items[i];
             if (P_MobjIsSelected(unit) && unit->owner == 0 && (unit->traits & MF_ATTACK))
@@ -709,7 +712,7 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
         dst->selected = P_MobjIsSelected(src);
         dst->has_move_order = src->movement.order_id != 0;
         dst->harvest_target = src->harvest.target;
-        dst->hidden = P_MobjIsHidden(src);
+        dst->hidden = !P_VisibleToPlayer(src);
         snprintf(dst->sprite_name, sizeof(dst->sprite_name), "%s", src->core.sprite_name);
         snprintf(dst->shadow_name, sizeof(dst->shadow_name), "%s",
              src->info && src->info->shadow_name ? src->info->shadow_name : "");

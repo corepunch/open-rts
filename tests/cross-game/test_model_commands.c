@@ -135,7 +135,9 @@ int main(void) {
     if (enemy >= 0) {
         RtsGameCommand attack = { .kind = RTS_GAME_COMMAND_ATTACK_UNIT,
             .data.attack_unit = { snapshot.units[enemy].id, enemy } };
-        if (!rts_game_model_command(model, &attack)) return fail("attack command");
+        bool accepted = rts_game_model_command(model, &attack);
+        if (accepted == snapshot.units[enemy].hidden)
+            return fail("attack command respects fog visibility");
     }
 
     RtsGameEvent event;

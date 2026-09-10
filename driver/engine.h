@@ -121,6 +121,14 @@ void R_ClampCamera(app_t *app, const level_t *map, int viewport_w, int viewport_
 
 void R_FreeTileset(tileset_t *tileset);
 void P_FreeLevel(level_t *map);
+bool P_InitSight(void);
+void P_UpdateSight(void);
+void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne);
+bool P_VisibleToPlayer(const mobj_t *mobj);
+bool P_VisibleTo(const mobj_t *observer, const mobj_t *target);
+int P_SightBrightness(const level_t *map, ivec2_t cell);
+int R_FogSample(const int corners[4], ivec2_t pixel);
+void R_DrawFog(app_t *app, const level_t *map);
 void R_FreeSprite(spritesheet_t *sprite);
 void HU_FreeFont(bitmapfont_t *font);
 void R_FreeSpriteCache(spritecache_t *cache);

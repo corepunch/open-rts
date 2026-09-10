@@ -374,11 +374,12 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
                                MAP_RENDER_CAP_TILE_TRANSFORMS;
     out->tile_ids = calloc(count, sizeof(*out->tile_ids));
     out->blocked = calloc(count, sizeof(*out->blocked));
+    out->tile_flags = calloc(count, sizeof(*out->tile_flags));
     out->tile_overlay_count = 1;
     out->tile_overlays[0] = calloc(count, sizeof(*out->tile_overlays[0]));
     out->tile_transforms[0] = calloc(count, sizeof(*out->tile_transforms[0]));
     out->tile_transforms[1] = calloc(count, sizeof(*out->tile_transforms[1]));
-    if (!out->tile_ids || !out->blocked || !out->tile_overlays[0] ||
+    if (!out->tile_ids || !out->blocked || !out->tile_flags || !out->tile_overlays[0] ||
         !out->tile_transforms[0] || !out->tile_transforms[1]) goto fail;
 
     blob_t overview = {0};
@@ -398,6 +399,8 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
             if (map.terrain) {
                 const uint8_t *pair = map.file.bytes + 8 + src * 4;
                 uint16_t flags = read_u16_le(map.file.bytes + 8 + count * 4 + src * 2);
+                /* DC.EXE 0x44ea30: non-obstacle cells always pass sight. */
+                out->tile_flags[dst] = flags | ((flags & (1u << 9)) ? 0 : MAP_SIGHT_PASS);
                 out->tile_ids[dst] = read_u16_le(pair);
                 out->tile_overlays[0][dst] = read_u16_le(pair + 2);
                 out->blocked[dst] = (flags & (1u << 9)) != 0;
@@ -405,6 +408,7 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
                 out->tile_transforms[1][dst] = (flags & (1u << 6)) ? MAP_TILE_TRANSFORM_FLIP_X : 0;
             } else {
                 out->tile_ids[dst] = map.file.bytes[2 + src];
+                out->tile_flags[dst] = MAP_SIGHT_PASS;
             }
             if (out->cell_colors)
                 out->cell_colors[dst] = rgb565_to_rgba(read_u16_le(overview.bytes + src * 2));
@@ -425,8 +429,23 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         snprintf(out->tileset_name, sizeof(out->tileset_name), "%s", M_Upper(scenario->tileset_file));
         load_dark_colony_camera_from_scenario(scenario, out);
         load_dark_colony_resource_vents_from_scenario(scenario, out);
-        if (scenario->header_value_count > 3 && scenario->header_values[3] > 0)
-            out->day_rate = scenario->header_values[3];
+        if (scenario->header_value_count >= 6) {
+            if (scenario->header_values[3] < 0 || scenario->header_values[4] < 0 ||
+                scenario->header_values[5] < 0) goto fail;
+            out->daylight = (daylight_t){
+                .phase = scenario->header_values[2] != 0,
+                .duration = scenario->header_values[3],
+                .tics = scenario->header_values[4],
+                .transition = scenario->header_values[5],
+                .weight = scenario->header_values[2] ? 256 : 0,
+            };
+        }
+        for (int team = 0; team < scenario->team_count && team < 8; ++team) {
+            const ScenarioTeam *info = &scenario->teams[team];
+            for (int i = 0; i < info->allies_count && i < 8; ++i)
+                if (info->allies[i] == 1)
+                    out->sight.allies[team] |= UINT32_C(0x40000000) >> i;
+        }
         for (int i = 0; i < scenario->team_count && i < 8; ++i)
             out->player_resources[i][0] = scenario->teams[i].money;
     }

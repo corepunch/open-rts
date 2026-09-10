@@ -49,6 +49,10 @@ typedef struct mobjtype_s {
     float speed;
     int max_hp;
     struct {
+        int day, night;
+        bool airborne;
+    } sight;
+    struct {
         float range;
         int damage;
         int cooldown_ms;

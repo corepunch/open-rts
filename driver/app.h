@@ -10,6 +10,7 @@
 typedef struct app_s {
     SDL_Window *window;
     SDL_Renderer *renderer;
+    SDL_Texture *fog_texture; /* Owned and destroyed by the SDL renderer. */
     isize2_t win;
     isize2_t cell;
     fvec2_t  cam;

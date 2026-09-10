@@ -382,7 +382,8 @@ static int assert_human02(RtsGameModel *model) {
     int grey_count = 0;
     for (int i = 0; i < snapshot.unit_count; ++i) {
         if (snapshot.units[i].type_id == MT_GREY) {
-            if (snapshot.units[i].owner != 1 || snapshot.units[i].hidden ||
+            /* A living SCN actor can now be hidden by player fog. */
+            if (snapshot.units[i].owner != 1 ||
                 snapshot.units[i].hp <= 0 || strcmp(snapshot.units[i].sprite_name, "GRAY"))
                 return fail("Human02 Greys are active; negative SCN health selects defaults");
             grey_count++;

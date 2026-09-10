@@ -158,7 +158,7 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
         for (int x = 0; x < map->width; ++x) {
             if (!map->blocked[L_Index(map, x, y)]) continue;
             float sx, sy;
-            R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
+            R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
             if (sx < -cell_w || sy < -cell_h ||
                 sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
                 continue;
@@ -226,7 +226,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
-            R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
+            R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
             if ((map->render_capabilities & MAP_RENDER_CAP_CELL_COLORS) && map->cell_colors) {
                 if (sx < -cell_w || sy < -cell_h ||
                     sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
@@ -271,7 +271,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
+                R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
@@ -305,7 +305,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
+                R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
@@ -994,7 +994,7 @@ static int pick_unit_at(const app_t *app, const level_t *map, mobj_t *const *uni
     float best_score = 1000000000.0f;
     for (int i = unit_count - 1; i >= 0; --i) {
         const mobj_t *unit = units[i];
-        if (P_MobjIsHidden(unit) || unit->hp <= 0 ||
+        if (!P_VisibleToPlayer(unit) || unit->hp <= 0 ||
             (unit->traits & MF_SELECTABLE) == 0) continue;
         if (owner_filter >= 0 && unit->owner != owner_filter) continue;
         irect_t visible;
@@ -1168,7 +1168,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                const mobj_t *u, const spritesheet_t *fallback_sprite,
                                const spritecache_t *cache, const gameinfo_t *game_info,
                                uint32_t ticks) {
-    if (!u || P_MobjIsHidden(u) || (u->traits & MF_RENDERABLE) == 0) return;
+    if (!u || !P_VisibleToPlayer(u) || (u->traits & MF_RENDERABLE) == 0) return;
     if ((u->traits & MF_NOBLOCKMAP) &&
         (!game_info || game_info->state_coord_mode != RTS_STATE_COORDS_FIN_TOP_LEFT)) {
         render_centered_mobj(app, map, u, cache, game_info);
@@ -1325,7 +1325,7 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
     int tile_h = app_tile_h(app, tileset);
     int draw_y_offset = tileset->draw_y_offset;
     float sx, sy;
-    R_MapToScreen(app, map, (float)x, (float)y, &sx, &sy);
+    R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
     if (sx < -tile_w || sy < -tile_h ||
         sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
         return;
@@ -1407,7 +1407,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
         };
     }
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsHidden(units[i])) continue;
+        if (!P_VisibleToPlayer(units[i])) continue;
         fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_UNIT,
@@ -1489,7 +1489,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
             if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
-                    P_MobjSetSelected(units[i], !P_MobjIsHidden(units[i]) &&
+                    P_MobjSetSelected(units[i], P_VisibleToPlayer(units[i]) &&
                         units[i]->owner == 0 && (units[i]->traits & MF_SELECTABLE) != 0 &&
                         units[i]->hp > 0);
                 }
@@ -1562,7 +1562,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 }
                 if (box) {
                     for (int i = 0; i < unit_count; ++i) {
-                        if (P_MobjIsHidden(units[i])) continue;
+                        if (!P_VisibleToPlayer(units[i])) continue;
                         if (units[i]->hp <= 0) continue;
                         if ((units[i]->traits & MF_SELECTABLE) == 0) continue;
                         if (units[i]->owner != 0) continue;

@@ -7,7 +7,7 @@ const char *const sprnames[NUMSPRITES] = {
     "ARTY", "ATRIL", "ATTACK2", "AVII", "BARR", "BBIT", "BEAC", "BEES",
     "BEON", "BIGC", "BITS", "BLAH", "BLAM", "BLAZ", "BLOO", "BOIG", "BRIT",
     "BUILDNG", "CAMM", "CENT", "CHAA", "CHAB", "CHOA", "CHOB", "CHOC", "CHOD",
-    "CLOC", "CLOD", "CRYO", "CURS", "CYBORG", "DCSS", "DCUK", "DCUT", "DISH",
+    "CLOD", "CRYO", "CURS", "CYBORG", "DCSS", "DCUK", "DCUT", "DISH",
     "DOTT", "DROA", "DROP", "DSTY", "DUTS", "EGG", "ENCA", "ENCB", "ENCC",
     "ENCD", "ENCE", "ENCF", "ENGI", "EXPL", "FACT", "FETU", "FILL", "FIRA",
     "FIRB", "FIRE", "FLUCTION", "FRIEGHT", "FUEL", "GASY", "GLAT", "GLIT",

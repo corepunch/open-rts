@@ -108,7 +108,7 @@ static bool catalog_map(SDL_Renderer *renderer, const char *path) {
     if (ok) {
         HASH(level.width); HASH(level.height); HASH(level.tileset_name);
         HASH(level.render_capabilities); HASH(level.camera); HASH(level.has_camera);
-        HASH(level.day_rate); HASH(level.player_resources);
+        HASH(level.daylight.duration); HASH(level.player_resources);
         size_t cells = (size_t)level.width * level.height;
         hash_bytes(level.tile_ids, cells * sizeof(*level.tile_ids));
         hash_bytes(level.blocked, cells * sizeof(*level.blocked));
