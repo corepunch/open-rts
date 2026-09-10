@@ -57,11 +57,11 @@ static void check_fin_sequence(const char *name, int first, int last) {
 }
 
 static void check_states(void) {
-#define DC_BUILDING_LABEL(type, action, first, last) check_fin_sequence(#type #action "0", first, last);
-#define DC_BUILDING_STATE(id, sprite, frame, tics, action, next, group)
-#include "building_states.inc"
-#undef DC_BUILDING_STATE
-#undef DC_BUILDING_LABEL
+    for (int type = 0; type < 7; ++type)
+        for (int band = 0; band < 3; ++band) {
+            const dc_building_sequence_t *seq = &dc_building_sequences[type][band];
+            check_fin_sequence(seq->name, seq->first, seq->last);
+        }
     /* Boundaries come from DC.EXE comparisons, independently of state selection. */
     const int scratch[] = {S_EXCOPODSCRCH0_170, S_BRRKPODSCRCH0_301, S_ROBOPODSCRCH0_88,
         S_ROBOPOD2SCRCH0_0, S_SCNCPODSCRCH0_289, S_SCNCPOD2SCRCH0_408, S_RSCHPODSCRCH0_128};

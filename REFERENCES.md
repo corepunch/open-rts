@@ -1189,3 +1189,22 @@ channels +0x14/+0x1c/+0x24 (`0x418567`, `0x43645b`), production startup
 (`0x419c60`, `0x419c00`), and remaining implementation gaps.
 `python3 tools/dc_production_audit.py` reproduces all 106 type lookups,
 selected native ranges and first/last commands without changing gameplay data.
+
+### Multigen action assignment and per-FIN includes (2026-09-10)
+
+The actual input is present locally at
+`reference/doom-utilities-master/multigen.txt`; `multigen.c:194–195` opens that
+literal filename. Input lines 405–415 assign `A_Look` and `A_Chase` explicitly.
+`ParseState` interns the action token (`multigen.c:110–120`); output code
+at lines 349–365 emits declarations and the function name in each raw state row.
+The tool does not generate action bodies or infer behavior from sprite names.
+Doom implements these actions in `reference/DOOM/p_enemy.c` (`A_Look:604`,
+`A_Chase:672`, `A_PosAttack:802`); weapon actions live in `p_pspr.c`.
+The utilities checkout has no verified upstream revision or URL, as recorded
+above. This is a local source comparison, not new retail DC executable evidence.
+
+Dark Colony now uses `tools/dc_states.txt` for authored sequence/action policy
+and `tools/dc_states.py` for native family policy and raw `animate/*.inc`
+output. See `docs/DC_INFO_CONV.md` for syntax and regeneration. Existing numeric
+state IDs and all row values are preserved; the C preprocessor no longer
+expands blood/building state or label macros.

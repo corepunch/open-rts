@@ -3512,3 +3512,35 @@ Verification: the audit reports 48 types with a selected family (50 directional
 sequences including repeated prefixes), and all 106 prefixes/exit variants
 match the separately extracted `gamestat.h`. `make`, `make tags`, the Dark Colony
 headless smoke check, `test_barracks_production`, and `test_building_damage` pass.
+
+## Replace macro state catalogs with per-FIN raw includes (2026-09-10)
+
+**Implementation-only refactor:** supersedes the exporter commands and macro
+consumer descriptions in earlier sections; their native behavior findings are
+unchanged. `tools/dc_states.py` now emits `animate/<FIN>.inc` raw designated
+state initializers, ordinary enum entries, a raw blood-label lookup and a raw
+building-range table. The old blood/building macro catalogs and exporters are
+removed. `tools/dc_states.txt` explicitly owns authored frames, tics, actions,
+next states and groups; `FAMILY_RULES` explicitly assigns native damage-family
+actions, including `A_DC_BuildingStand` for SCRCH/BURN, and terminal/timing policy.
+
+**Confirmed local reference:** Doom's `multigen.txt` is the actual input opened
+by `multigen.c:194–195`. Action names are authored per state, interned by the
+parser, and emitted as declarations/function references, not generated function
+bodies. Doom's `p_enemy.c` supplies A_Look/A_Chase/A_PosAttack; see REFERENCES.md.
+
+**Verification:** before editing, expanded every row and enum in the old tables
+into an independent snapshot. After exporting, all **2,719** numeric IDs and
+all six state fields compare exactly, including NULL actions, complete FIN
+references, Reaper `{4,3,3,4,1,3,3,1}` movement, static Exploiter WORK, production
+completion and every damage/death chain. Blood retains 208 exact labels.
+The comparison also distinguishes input sets: blood retains supported files
+from the ANIMATE directory; human building families use ANIM.DAT membership.
+Searching all supported FINs for building labels instead of respecting that
+load set finds duplicate BRRKPODDIE0 labels and is not equivalent.
+No native behavior, palette, frame geometry, timer or action assignment changes.
+
+Regenerate with `make dark-colony-states`; validate generated output with
+`python3 tools/dc_states.py --check`. Native metadata/pixel/timing coverage remains
+in `test_drop_fin_states`, `test_building_damage`, `test_barracks_production`,
+`test_dark_colony_sprite_layout`, and `tests/tools/test_dc_info_conv.py`.

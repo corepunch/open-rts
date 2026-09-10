@@ -36,36 +36,61 @@ Unsupported older FIN layouts are reported, not reinterpreted as retail records.
 `--states` preserves raw durations and placeholder actions/terminal states; it
 does not regenerate gameplay actions or the complete hand-authored `info.c`.
 
-The damage-state reference catalog can be regenerated deterministically:
+## Gameplay state export
 
 ```sh
-build/dc_info_conv --blood-states data/DCOLONY > games/dark-colony/blood_states.inc
-python3 tests/tools/test_dc_info_conv.py
+make dark-colony-states
+python3 tools/dc_states.py --check
+make test-dc-info-conv
 ```
 
-This scans FIN labels globally, retaining all 208 BLOOD-labelled sequences,
-including labels the native A–G/numeric-suffix lookup cannot select. The catalog
-contains state references and delays; command layers/pixels remain owned by the
-native asset loader. Its three consumers build enum IDs, ordinary `state_t`
-rows, and the exact-label lookup from the same source. Runtime selection uses
-the GAMESTAT type prefix, independently of the FIN/SPR filename. Each hit spawns
-an ordinary mobj with copied position/facing/team; it does not follow the unit.
+`tools/dc_states.txt` is the authored gameplay input, following multigen's
+`state sprite frame tics action nextstate` column order with a final group.
+It has explicit action names; FIN assets never supply C action functions.
+For example:
 
-The catalog follows DC.EXE's mode-1 startup advance and byte timer semantics.
-Native delay is `floor(((raw ? raw : 15) + 3) * 15 / 100)`; the default 66 ms
-native tick is converted to cumulative 30 Hz boundaries. See
-[the executable findings](DC_EXE_FINDINGS.md#native-damage-channel-implementation-2026-09-09)
-for instruction addresses and the correction to earlier timing notes.
-
-Human city damage and death references use the retail ANIM.DAT load list:
-
-```sh
-make dc-info-conv
-python3 tools/dc_building_states.py > games/dark-colony/building_states.inc
+```text
+S_TRSC_RUN{1..8}  TRSC 225..232 3                 A_Chase             S_TRSC_RUN1 2
+S_REAP_RUN{1..8}  REAP 124..131 4,3,3,4,1,3,3,1   A_Chase             S_REAP_RUN1 2
+S_BRRKPOD_STND    HUBU 38       5                 A_DC_BuildingStand  S_BRRKPOD_STND_2 1
 ```
 
-This exports the seven human city types' SCRCH/BURN/DIE labels from BURN,
-BURN2 and HUBU, including complete fire/explosion frames. The index excludes
-BURN3's obsolete duplicate Barracks death label. Runtime health selection
-follows DC.EXE's signed 11/16 and 5/16 HP comparisons; see the building damage
-findings for the counterintuitive BURN/SCRCH ordering and main-channel timing.
+Numbered names and integer ranges expand inclusively. A scalar frame/tic repeats;
+comma-separated values preserve authored timing. Intermediate states chain to
+the following expanded state, and the last takes the explicit `nextstate`.
+Frames are engine logical FIN indices (raw SPR cell count plus native FIN frame),
+not image pixels or per-direction metadata. The explicitly held Exploiter WORK
+pose and Reaper timing remain authored policy, not inferred from label names.
+
+`tools/dc_states.py` contains the small `FAMILY_RULES` table for native BLOOD,
+SCRCH, BURN and DIE families: action, group, terminal behavior and timing policy.
+`A_DC_BuildingStand` is explicit for SCRCH/BURN; BLOOD/DIE use NULL. The
+zero-tic production completion action is explicit in `TERMINAL_STATES`.
+These entries explain where custom actions get assigned; their implementations
+remain ordinary handwritten `void action(mobj_t *)` functions.
+
+The exporter writes raw designated initializers to
+`games/dark-colony/animate/<FIN stem>.inc`, included directly by `info.c`.
+All 2,719 existing state IDs retain their values; designated initializers permit
+per-FIN grouping without renumbering. `info.h` receives ordinary enum entries.
+No state/label expansion macros are involved. `blood_labels.inc` is the raw
+exact-label lookup; `building_sequences.inc` is the raw SCRCH/BURN/DIE range
+table shared by building logic and native-metadata verification.
+
+The blood catalog still retains all 208 BLOOD-labelled sequences from supported
+FIN files, including labels the native A–G/facing lookup cannot select.
+Building families follow ANIM.DAT's load set, where the requested labels are
+unique. Other unsupported FIN layouts are reported and skipped as in the former
+blood exporter. The inspector validates file spans and label ranges.
+The two former macro exporters (`--blood-states`, `dc_building_states.py`) and
+their macro-based output files have been removed.
+
+Native family timing is unchanged: delay is the low byte of
+`floor(((raw ? raw : 15) + 3) * 15 / 100)`, zero underflows to 256 ticks,
+and cumulative 66 ms boundaries are rounded to 30 Hz. Blood's skipped reset
+frame and building death's initial one-tick presentation remain separate,
+explicit timing policies. See [the native findings](DC_EXE_FINDINGS.md).
+
+Regenerate after editing the authored table or family rules; `--check` makes
+stale output a failure. `info.c` still owns `sprnames[]` and `mobjinfo[]`;
+the exporter replaces only its state-array block and `info.h`'s state enum.

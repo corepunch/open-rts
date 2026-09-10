@@ -91,8 +91,6 @@ CHECK	tests/loader_catalog.c	/^#define CHECK(/;"	d	file:	signature:(c)
 COMMANDS	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
 Cell	tools/dc_spr_extract.c	/^} Cell;$/;"	t	typeref:struct:__anonf6c4462b0108	file:
 DATA	tests/dark-colony/test_sprite_loading.c	/^enum { HEADER = 8 + 256 * 3, DATA = HEADER + 3 * 8 };$/;"	e	enum:__anon576c22dd0103	file:
-DC_BUILDING_LABEL	tests/dark-colony/test_building_damage.c	/^#define DC_BUILDING_LABEL(/;"	d	file:	signature:(type,action,first,last)
-DC_BUILDING_STATE	tests/dark-colony/test_building_damage.c	/^#define DC_BUILDING_STATE(/;"	d	file:	signature:(id,sprite,frame,tics,action,next,group)
 DRAW_COMMAND_DECORATION	render/render_plan.h	/^    DRAW_COMMAND_DECORATION,$/;"	e	enum:__anonba488bd40203
 DRAW_COMMAND_TILE_OVERLAY	render/render_plan.h	/^    DRAW_COMMAND_TILE_OVERLAY,$/;"	e	enum:__anonba488bd40203
 DRAW_COMMAND_UNIT	render/render_plan.h	/^    DRAW_COMMAND_UNIT,$/;"	e	enum:__anonba488bd40203
@@ -187,7 +185,6 @@ HU_TextWidth	render/r_main.c	/^int HU_TextWidth(const bitmapfont_t *font, const 
 HU_Ticker	driver/engine.h	/^void HU_Ticker(hudtext_t *hud, float dt);$/;"	p	typeref:typename:void	signature:(hudtext_t * hud,float dt)
 HU_Ticker	driver/w_file.c	/^void HU_Ticker(hudtext_t *hud, float dt) {$/;"	f	typeref:typename:void	signature:(hudtext_t * hud,float dt)
 HudMessage	render/sprites.h	/^} HudMessage;$/;"	t	typeref:struct:__anon761761540308
-IDs	docs/DC_INFO_CONV.md	/^native asset loader. Its three consumers build enum IDs, ordinary `state_t`$/;"	v	typeref:meta:enum
 I_CreateTexture	driver/engine.h	/^SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool /;"	p	typeref:typename:SDL_Texture *	signature:(SDL_Renderer * renderer,const uint32_t * pixels,int w,int h,bool blend)
 I_CreateTexture	render/r_main.c	/^SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool /;"	f	typeref:typename:SDL_Texture *	signature:(SDL_Renderer * renderer,const uint32_t * pixels,int w,int h,bool blend)
 Juice	tools/dc_spr_extract.c	/^} Juice;$/;"	t	typeref:struct:__anonf6c4462b0208	file:
@@ -1057,7 +1054,6 @@ blob_s::size	driver/assets.h	/^    size_t size;$/;"	m	struct:blob_s	typeref:type
 blob_t	driver/assets.h	/^} blob_t;$/;"	t	typeref:struct:blob_s
 blocked	game/map.h	/^    uint8_t *blocked;$/;"	m	struct:level_s	typeref:typename:uint8_t *
 blocked	play/actor.h	/^    bool blocked;$/;"	m	struct:production_s	typeref:typename:bool
-blood_states	tools/dc_info_conv/main.c	/^static void blood_states(const char *root) {$/;"	f	typeref:typename:void	file:	signature:(const char * root)
 body	docs/DC_DROPSHIP_ANIMATION.md	/^(the ship body):$/;"	v	typeref:typename:the ship
 body_dst	play/actor.h	/^    irect_t body_dst;$/;"	m	struct:selectiondrawcontext_s	typeref:typename:irect_t
 boom_count	tools/dc_gamestat_gen.c	/^    int boom_count;$/;"	m	struct:__anon006eef8b0908	typeref:typename:int	file:
@@ -1348,6 +1344,7 @@ frame	plans/009-sprite-direction-unification.md	/^from simulation facing → spr
 frame	play/actor.h	/^    int frame;$/;"	m	struct:mobjcore_s	typeref:typename:int
 frame	play/actor.h	/^    int frame;$/;"	m	struct:state_s	typeref:typename:int
 frame	tests/test_dark_colony_sprite_layout.c	/^    int frame;$/;"	m	struct:__anona4e7c35f0208	typeref:typename:int	file:
+frame	tools/dc_states.txt	/^; EDPLYSTAND14 final FIN frame: static body; work light remains unverified.$/;"	v	typeref:typename:EDPLYSTAND14 final FIN	file:
 frame2_index	game/g_game.h	/^    int frame2_index;$/;"	m	struct:__anon42a104c41108	typeref:typename:int
 frame2_index	game/map.h	/^    int frame2_index;$/;"	m	struct:mapdecoration_s	typeref:typename:int
 frame3_index	game/g_game.h	/^    int frame3_index;$/;"	m	struct:__anon42a104c41108	typeref:typename:int
@@ -1779,6 +1776,7 @@ name	play/actor.h	/^    const char *name;$/;"	m	struct:mobjtype_s	typeref:typena
 name	render/sprites.h	/^    char name[32];$/;"	m	struct:cachedsprite_s	typeref:typename:char[32]
 name	tests/test_dark_colony_sprite_layout.c	/^    char name[17];$/;"	m	struct:__anona4e7c35f0108	typeref:typename:char[17]	file:
 names	tools/dc_gamestat_gen.c	/^    char names[8][128];$/;"	m	struct:__anon006eef8b0808	typeref:typename:char[8][128]	file:
+names	tools/dc_states.txt	/^; {first..last} expands numbered state names; a..b expands integers;$/;"	v	typeref:typename:expands numbered state
 native_data	game/map.h	/^    void *native_data;$/;"	m	struct:level_s	typeref:typename:void *
 native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobj_s	typeref:typename:uint16_t
 native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobjtype_s	typeref:typename:uint16_t
@@ -1841,6 +1839,7 @@ player_resources	game/g_game.h	/^    int player_resources[RTS_MODEL_MAX_PLAYERS]
 player_resources	game/map.h	/^    int player_resources[8][RTS_MAX_RESOURCES];$/;"	m	struct:level_s	typeref:typename:int[8][]
 plugin_actor_type_by_id	game/g_game.c	/^static const mobjtype_t *plugin_actor_type_by_id(uint16_t type_id) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(uint16_t type_id)
 plugin_actor_type_for_unit	game/g_game.c	/^static const mobjtype_t *plugin_actor_type_for_unit(const mobj_t *unit) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(const mobj_t * unit)
+policy	tools/dc_states.txt	/^; Authored gameplay policy, in multigen column order. Generated C is not the input.$/;"	v	typeref:typename:Authored gameplay
 pool	ARCHITECTURE.md	/^active level, effect pool, or game tables. The action signature remains about$/;"	v
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c40f08	typeref:typename:fvec2_t
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c41008	typeref:typename:fvec2_t
@@ -2003,7 +2002,6 @@ root	tools/test_loaders.py	/^    for game, root, pattern in ($/;"	v	typeref:stru
 rotations	render/sprites.h	/^    int rotations; \/* 1 is nondirectional; slots start north, counterclockwise. *\/$/;"	m	struct:spriteframe_s	typeref:typename:int
 row_id	game/g_game.h	/^    int row_id;$/;"	m	struct:__anon42a104c40608	typeref:typename:int
 row_id	tools/dc_gamestat_gen.c	/^    int row_id;$/;"	m	struct:__anon006eef8b0208	typeref:typename:int	file:
-rows	docs/DC_INFO_CONV.md	/^rows, and the exact-label lookup from the same source. Runtime selection uses$/;"	v	typeref:enum:ordinary`state_t`
 rts_event_matches	tests/rts_model_test.h	/^static inline bool rts_event_matches(const RtsGameEvent *event, RtsGameEventType wanted,$/;"	f	typeref:typename:bool	signature:(const RtsGameEvent * event,RtsGameEventType wanted,uint32_t subject_id,int product_type)
 rts_event_seen	tests/rts_model_test.h	/^static inline bool rts_event_seen(RtsGameModel *model, RtsGameEventType wanted,$/;"	f	typeref:typename:bool	signature:(RtsGameModel * model,RtsGameEventType wanted,uint32_t subject_id,int product_type)
 rts_fail	tests/rts_test.h	/^static inline int rts_fail(const char *tag, const char *message) {$/;"	f	typeref:typename:int	signature:(const char * tag,const char * message)

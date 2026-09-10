@@ -48,11 +48,7 @@ uint32_t P_DC_Random(void) {
 }
 
 static const struct { const char *name; int state; } blood_labels[] = {
-#define DC_BLOOD_LABEL(name, state) { name, state },
-#define DC_BLOOD_STATE(id, sprite, frame, tics, next)
-#include "blood_states.inc"
-#undef DC_BLOOD_STATE
-#undef DC_BLOOD_LABEL
+#include "blood_labels.inc"
 };
 
 /* 0x4385a8 / 0x438df2: exact type-prefix lookup in the common FIN label
