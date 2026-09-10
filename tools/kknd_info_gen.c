@@ -16,76 +16,81 @@
 /* ── MOBD index table ─────────────────────────────────────────────────────── */
 /* Derived from wdigger/OpenKKND src/kknd.h MOBD_ID enum (hex values are
    MOBD member indices in LEVELS/640/SPRITES.LVL).                           */
-typedef struct { const char *cfg_name; int mobd; int unit_stats_id; } mobd_entry_t;
+typedef struct {
+    const char *cfg_name;
+    const char *symbol;
+    int mobd;
+    int unit_stats_id;
+} mobd_entry_t;
 
 static const mobd_entry_t MOBD_TABLE[] = {
     /* Survivor infantry */
-    { "UNIT_SURV_INFANTRY",       34,  0  },   /* MOBD_SURV_RIFLEMAN       */
-    { "UNIT_SURV_FLAMER",         25,  2  },   /* MOBD_SURV_FLAMER         */
-    { "UNIT_SURV_SWAT",           76,  4  },   /* MOBD_SURV_SWAT           */
-    { "UNIT_SURV_SAPPER",         63,  6  },   /* MOBD_SURV_SAPPER         */
-    { "UNIT_SURV_SABOTEUR",       62,  10 },   /* MOBD_SURV_SABOTEUR       */
-    { "UNIT_SURV_TECHNICIAN",     78,  12 },   /* MOBD_SURV_TECHNICIAN     */
-    { "UNIT_SURV_ROCKETLAUNCHER", 59,  14 },   /* MOBD_SURV_RPG_LAUNCHER   */
-    { "UNIT_SURV_SNIPER",         71,  16 },   /* MOBD_SURV_SNIPER         */
+    { "UNIT_SURV_INFANTRY",       "SURV_RIFLEMAN",         34,  0  },
+    { "UNIT_SURV_FLAMER",         "SURV_FLAMER",           25,  2  },
+    { "UNIT_SURV_SWAT",           "SURV_SWAT",             76,  4  },
+    { "UNIT_SURV_SAPPER",         "SURV_SAPPER",           63,  6  },
+    { "UNIT_SURV_SABOTEUR",       "SURV_SABOTEUR",         62,  10 },
+    { "UNIT_SURV_TECHNICIAN",     "SURV_TECHNICIAN",       78,  12 },
+    { "UNIT_SURV_ROCKETLAUNCHER", "SURV_RPG_LAUNCHER",     59,  14 },
+    { "UNIT_SURV_SNIPER",         "SURV_SNIPER",           71,  16 },
     /* Mutant infantry */
-    { "UNIT_MUTE_BERSERKER",      5,   1  },   /* MOBD_MUTE_BERSERKER      */
-    { "UNIT_MUTE_PYRO",           55,  3  },   /* MOBD_MUTE_PYROMANIAC     */
-    { "UNIT_MUTE_SHOTGUNNER",     68,  5  },   /* MOBD_MUTE_SHOTGUNNER     */
-    { "UNIT_MUTE_RIOTER",         58,  7  },   /* MOBD_MUTE_RIOTER         */
-    { "UNIT_MUTE_VANDAL",         81,  11 },   /* MOBD_MUTE_VANDAL         */
-    { "UNIT_MUTE_TECHNICIAN",     41,  13 },   /* MOBD_MUTE_MEKANIK        */
-    { "UNIT_MUTE_ROCKETLAUNCHER", 60,  15 },   /* MOBD_MUTE_BAZOOKA        */
-    { "UNIT_MUTE_CRAZYHARRY",     31,  17 },   /* MOBD_MUTE_CRAZY_HARRY    */
+    { "UNIT_MUTE_BERSERKER",      "MUTE_BERSERKER",        5,   1  },
+    { "UNIT_MUTE_PYRO",           "MUTE_PYROMANIAC",       55,  3  },
+    { "UNIT_MUTE_SHOTGUNNER",     "MUTE_SHOTGUNNER",       68,  5  },
+    { "UNIT_MUTE_RIOTER",         "MUTE_RIOTER",           58,  7  },
+    { "UNIT_MUTE_VANDAL",         "MUTE_VANDAL",           81,  11 },
+    { "UNIT_MUTE_TECHNICIAN",     "MUTE_MEKANIK",          41,  13 },
+    { "UNIT_MUTE_ROCKETLAUNCHER", "MUTE_BAZOOKA",          60,  15 },
+    { "UNIT_MUTE_CRAZYHARRY",     "MUTE_CRAZY_HARRY",      31,  17 },
     /* Survivor vehicles */
-    { "UNIT_SURV_BIKE",           7,   26 },   /* MOBD_SURV_DIRT_BIKE      */
-    { "UNIT_SURV_PICKUP",         54,  28 },   /* MOBD_SURV_4X4_PICKUP     */
-    { "UNIT_SURV_ATV",            1,   30 },   /* MOBD_SURV_ATV            */
-    { "UNIT_SURV_FLAMEATV",       24,  32 },   /* MOBD_SURV_ATV_FLAMETHROWER */
-    { "UNIT_SURV_ANACONDA",       77,  34 },   /* MOBD_SURV_ANACONDA_TANK  */
-    { "UNIT_SURV_BARAGECRAFT",    2,   36 },   /* MOBD_SURV_BARRAGE_CRAFT  */
-    { "UNIT_SURV_CANNONTANK",     11,  38 },   /* MOBD_SURV_AUTOCANNON_TANK */
-    { "UNIT_SURV_DERRICK",        65,  21 },   /* MOBD_SURV_MOBILE_DERRICK */
-    { "UNIT_SURV_TANKER",         73,  23 },   /* MOBD_SURV_OIL_TANKER     */
-    { "UNIT_SURV_MOBILE_BASE",    53,  40 },   /* MOBD_SURV_MOBILE_OUTPOST */
+    { "UNIT_SURV_BIKE",           "SURV_DIRT_BIKE",        7,   26 },
+    { "UNIT_SURV_PICKUP",         "SURV_4X4_PICKUP",       54,  28 },
+    { "UNIT_SURV_ATV",            "SURV_ATV",              1,   30 },
+    { "UNIT_SURV_FLAMEATV",       "SURV_ATV_FLAMETHROWER", 24,  32 },
+    { "UNIT_SURV_ANACONDA",       "SURV_ANACONDA_TANK",    77,  34 },
+    { "UNIT_SURV_BARAGECRAFT",    "SURV_BARRAGE_CRAFT",    2,   36 },
+    { "UNIT_SURV_CANNONTANK",     "SURV_AUTOCANNON_TANK",  11,  38 },
+    { "UNIT_SURV_DERRICK",        "SURV_MOBILE_DERRICK",   65,  21 },
+    { "UNIT_SURV_TANKER",         "SURV_OIL_TANKER",       73,  23 },
+    { "UNIT_SURV_MOBILE_BASE",    "SURV_MOBILE_OUTPOST",   53,  40 },
     /* Mutant vehicles */
-    { "UNIT_MUTE_WOLF",           19,  27 },   /* MOBD_MUTE_DIRE_WOLF      */
-    { "UNIT_MUTE_SIDECAR",        70,  29 },   /* MOBD_MUTE_BIKE_SIDECAR   */
-    { "UNIT_MUTE_MONTRUCK",       47,  31 },   /* MOBD_MUTE_MONSTER_TRUCK  */
-    { "UNIT_MUTE_SCORPION",       64,  33 },   /* MOBD_MUTE_GIANT_SCORPION */
-    { "UNIT_MUTE_MASTODON",       38,  35 },   /* MOBD_MUTE_WAR_MASTADONT  */
-    { "UNIT_MUTE_BEETLE",         4,   37 },   /* MOBD_MUTE_GIANT_BEETLE   */
-    { "UNIT_MUTE_CRAB",           16,  39 },   /* MOBD_MUTE_MISSILE_CRAB   */
-    { "UNIT_MUTE_DERRICK",        39,  22 },   /* MOBD_MUTE_MOBILE_DERRICK */
-    { "UNIT_MUTE_TANKER",         48,  24 },   /* MOBD_MUTE_OIL_TANKER     */
-    { "UNIT_MUTE_MOBILE_BASE",    14,  41 },   /* MOBD_MUTE_CLANHALL_WAGON */
+    { "UNIT_MUTE_WOLF",           "MUTE_DIRE_WOLF",        19,  27 },
+    { "UNIT_MUTE_SIDECAR",        "MUTE_BIKE_SIDECAR",     70,  29 },
+    { "UNIT_MUTE_MONTRUCK",       "MUTE_MONSTER_TRUCK",    47,  31 },
+    { "UNIT_MUTE_SCORPION",       "MUTE_GIANT_SCORPION",   64,  33 },
+    { "UNIT_MUTE_MASTODON",       "MUTE_WAR_MASTADONT",    38,  35 },
+    { "UNIT_MUTE_BEETLE",         "MUTE_GIANT_BEETLE",     4,   37 },
+    { "UNIT_MUTE_CRAB",           "MUTE_MISSILE_CRAB",     16,  39 },
+    { "UNIT_MUTE_DERRICK",        "MUTE_MOBILE_DERRICK",   39,  22 },
+    { "UNIT_MUTE_TANKER",         "MUTE_OIL_TANKER",       48,  24 },
+    { "UNIT_MUTE_MOBILE_BASE",    "MUTE_CLANHALL_WAGON",   14,  41 },
     /* Survivor buildings */
-    { "UNIT_SURV_DRILLRIG",       75,  46 },   /* MOBD_SURV_DRILLRIG       */
-    { "UNIT_SURV_POWERPLANT",     74,  48 },   /* MOBD_SURV_POWER_STATION  */
-    { "UNIT_SURV_OUTPOST",        52,  58 },   /* MOBD_SURV_OUTPOST        */
-    { "UNIT_SURV_MACHINESHOP",    37,  60 },   /* MOBD_SURV_MACHINE_SHOP   */
-    { "UNIT_SURV_REPAIRBAY",      56,  63 },   /* MOBD_SURV_REPAIR_BAY     */
-    { "UNIT_SURV_RESEARCHLAB",    57,  65 },   /* MOBD_SURV_RESEARCH_LAB   */
+    { "UNIT_SURV_DRILLRIG",       "SURV_DRILLRIG",         75,  46 },
+    { "UNIT_SURV_POWERPLANT",     "SURV_POWER_STATION",    74,  48 },
+    { "UNIT_SURV_OUTPOST",        "SURV_OUTPOST",          52,  58 },
+    { "UNIT_SURV_MACHINESHOP",    "SURV_MACHINE_SHOP",     37,  60 },
+    { "UNIT_SURV_REPAIRBAY",      "SURV_REPAIR_BAY",       56,  63 },
+    { "UNIT_SURV_RESEARCHLAB",    "SURV_RESEARCH_LAB",     57,  65 },
     /* Mutant buildings */
-    { "UNIT_MUTE_DRILLRIG",       50,  47 },   /* MOBD_MUTE_DRILLRIG       */
-    { "UNIT_MUTE_POWERPLANT",     49,  49 },   /* MOBD_MUTE_POWER_STATION  */
-    { "UNIT_MUTE_CLANHALL",       13,  59 },   /* MOBD_MUTE_CLANHALL       */
-    { "UNIT_MUTE_BLACKSMITH",     8,   61 },   /* MOBD_MUTE_BLACKSMITH     */
-    { "UNIT_MUTE_BEASTENCLOSURE", 3,   62 },   /* MOBD_MUTE_BEAST_ENCLOSURE */
-    { "UNIT_MUTE_MENAGERIE",      42,  64 },   /* MOBD_MUTE_MENAGERIE      */
-    { "UNIT_MUTE_ALCHEMYHALL",    0,   66 },   /* MOBD_MUTE_ALCHEMY_HALL   */
+    { "UNIT_MUTE_DRILLRIG",       "MUTE_DRILLRIG",         50,  47 },
+    { "UNIT_MUTE_POWERPLANT",     "MUTE_POWER_STATION",    49,  49 },
+    { "UNIT_MUTE_CLANHALL",       "MUTE_CLANHALL",         13,  59 },
+    { "UNIT_MUTE_BLACKSMITH",     "MUTE_BLACKSMITH",       8,   61 },
+    { "UNIT_MUTE_BEASTENCLOSURE", "MUTE_BEAST_ENCLOSURE",  3,   62 },
+    { "UNIT_MUTE_MENAGERIE",      "MUTE_MENAGERIE",        42,  64 },
+    { "UNIT_MUTE_ALCHEMYHALL",    "MUTE_ALCHEMY_HALL",     0,   66 },
     /* Survivor towers */
-    { "UNIT_SURV_GUARDTOWER",     67,  52 },   /* MOBD_SURV_GUARD_TOWER    */
-    { "UNIT_SURV_MISSILEBATTERY", 44,  56 },   /* MOBD_SURV_MISSILE_BATTERY */
-    { "UNIT_SURV_CANNONTOWER",    12,  54 },   /* MOBD_SURV_CANNON_TOWER   */
+    { "UNIT_SURV_GUARDTOWER",     "SURV_GUARD_TOWER",      67,  52 },
+    { "UNIT_SURV_MISSILEBATTERY", "SURV_MISSILE_BATTERY",  44,  56 },
+    { "UNIT_SURV_CANNONTOWER",    "SURV_CANNON_TOWER",     12,  54 },
     /* Mutant towers */
-    { "UNIT_MUTE_MACHGUNNEST",    43,  53 },   /* MOBD_MUTE_MACHINEGUN_NEST */
-    { "UNIT_MUTE_GRAPESHOT",      29,  55 },   /* MOBD_MUTE_GRAPESHOT_TOWER */
-    { "UNIT_MUTE_ROTARYCANNON",   61,  57 },   /* MOBD_MUTE_ROTARY_CANNON  */
+    { "UNIT_MUTE_MACHGUNNEST",    "MUTE_MACHINEGUN_NEST",  43,  53 },
+    { "UNIT_MUTE_GRAPESHOT",      "MUTE_GRAPESHOT_TOWER",  29,  55 },
+    { "UNIT_MUTE_ROTARYCANNON",   "MUTE_ROTARY_CANNON",    61,  57 },
     /* Air */
-    { "UNIT_SURV_BOMBER",         83,  44 },   /* MOBD_SURV_BOMBER         */
-    { "UNIT_MUTE_WASP",           82,  43 },   /* MOBD_MUTE_WASP           */
-    { NULL, 0, 0 }
+    { "UNIT_SURV_BOMBER",         "SURV_BOMBER",           83,  44 },
+    { "UNIT_MUTE_WASP",           "MUTE_WASP",             82,  43 },
+    { NULL, NULL, 0, 0 }
 };
 
 static const mobd_entry_t *lookup_mobd(const char *cfg_name) {
@@ -125,14 +130,6 @@ typedef struct {
 
 static unit_t g_units[MAX_UNITS];
 static int    g_unit_count = 0;
-
-/* Convert "UNIT_SURV_INFANTRY" → "SURV_INFANTRY" (strip "UNIT_" prefix). */
-static void strip_unit_prefix(const char *cfg, char *out, size_t n) {
-    if (strncasecmp(cfg, "UNIT_", 5) == 0) cfg += 5;
-    strncpy(out, cfg, n - 1);
-    out[n - 1] = 0;
-    for (char *p = out; *p; ++p) *p = (char)toupper((unsigned char)*p);
-}
 
 /* Determine category from cfg_name. */
 static void classify_unit(unit_t *u) {
@@ -181,12 +178,9 @@ static int parse_units_cfg(const char *path) {
         }
         if (ncols < 1) continue;
 
-        if (g_unit_count >= MAX_UNITS) {
-            fprintf(stderr, "kknd_info_gen: too many units\n");
-            break;
-        }
-
-        unit_t *u = &g_units[g_unit_count];
+        const mobd_entry_t *me = lookup_mobd(cols[0]);
+        if (!me) continue;
+        unit_t *u = &g_units[me - MOBD_TABLE];
         memset(u, 0, sizeof(*u));
         strncpy(u->name, cols[0], sizeof(u->name) - 1);
         for (char *q = u->name; *q; ++q) *q = (char)toupper((unsigned char)*q);
@@ -195,27 +189,25 @@ static int parse_units_cfg(const char *path) {
         u->speed  = (ncols > 4) ? atoi(cols[4]) : 0;
         u->i_dmg  = (ncols > 11) ? atoi(cols[11]) : 0;
 
-        /* Look up MOBD index. */
-        const mobd_entry_t *me = lookup_mobd(u->name);
-        if (!me) {
-            /* Not in our table — skip (mission-only units, etc.) */
-            continue;
-        }
         u->mobd         = me->mobd;
         u->unit_stats_id = me->unit_stats_id;
 
-        /* Build C identifier suffixes. */
-        char suffix[48];
-        strip_unit_prefix(u->name, suffix, sizeof(suffix));
-        snprintf(u->spr_suffix,  sizeof(u->spr_suffix),  "%s", suffix);
-        snprintf(u->mt_name,     sizeof(u->mt_name),      "MT_%s", suffix);
-        snprintf(u->spr_name,    sizeof(u->spr_name),     "SPR_%s", suffix);
-        snprintf(u->state_name,  sizeof(u->state_name),   "S_%s_STND", suffix);
+        snprintf(u->spr_suffix,  sizeof(u->spr_suffix),  "%s", me->symbol);
+        snprintf(u->mt_name,     sizeof(u->mt_name),      "MT_%s", me->symbol);
+        snprintf(u->spr_name,    sizeof(u->spr_name),     "SPR_%s", me->symbol);
+        snprintf(u->state_name,  sizeof(u->state_name),   "S_%s_STND", me->symbol);
 
         classify_unit(u);
-        ++g_unit_count;
     }
     fclose(f);
+    while (MOBD_TABLE[g_unit_count].cfg_name) {
+        if (!g_units[g_unit_count].name[0]) {
+            fprintf(stderr, "kknd_info_gen: missing %s in %s\n",
+                    MOBD_TABLE[g_unit_count].cfg_name, path);
+            return 0;
+        }
+        ++g_unit_count;
+    }
     return g_unit_count;
 }
 
@@ -315,6 +307,31 @@ static void unit_flags(const unit_t *u, char *out, size_t n) {
     snprintf(out, n, "%s", buf);
 }
 
+static void unit_size(const unit_t *u, int *radius, int *height, int *mass) {
+    int id = u->unit_stats_id;
+    if (u->is_flyer) {
+        *radius = 20; *height = 16; *mass = 200;
+    } else if (!u->is_mobile) {
+        *radius = *height = *mass = 0;
+    } else if (id <= 17) {
+        *radius = 12; *height = 24; *mass = 100;
+    } else if (id == 21 || id == 22) {
+        *radius = 24; *height = 32; *mass = 800;
+    } else if (id == 23 || id == 24 || (id >= 36 && id <= 39)) {
+        *radius = 24; *height = 32; *mass = 600;
+    } else if (id == 26 || id == 27) {
+        *radius = 16; *height = 24; *mass = 200;
+    } else if (id == 28 || id == 29) {
+        *radius = 16; *height = 24; *mass = 300;
+    } else if (id >= 30 && id <= 33) {
+        *radius = 20; *height = 28; *mass = 400;
+    } else if (id == 34 || id == 35) {
+        *radius = 24; *height = 32; *mass = 500;
+    } else {
+        *radius = 32; *height = 40; *mass = 1000;
+    }
+}
+
 /* ── Write info.c ─────────────────────────────────────────────────────────── */
 
 static void write_info_c(const char *path) {
@@ -354,11 +371,8 @@ static void write_info_c(const char *path) {
         char flags[256];
         unit_flags(u, flags, sizeof(flags));
 
-        int radius = u->is_mobile ? (u->is_flyer ? 20 : (u->speed > 60 ? 12 : 16)) : 32;
-        int height = u->is_mobile ? (u->is_flyer ? 16 : 24) : 40;
-        int mass   = u->hitpts / 8;
-        if (mass < 100) mass = 100;
-        if (mass > 1000) mass = 1000;
+        int radius, height, mass;
+        unit_size(u, &radius, &height, &mass);
 
         fprintf(f, "    { // %s  (%s)\n", g_units[i].mt_name, u->name);
         fprintf(f, "        .doomednum    = %d,\n", u->unit_stats_id);
@@ -370,11 +384,11 @@ static void write_info_c(const char *path) {
             fprintf(f, "        .missilestate = %s,\n", u->state_name);
         fprintf(f, "        .deathstate   = S_NULL, .xdeathstate = S_NULL,\n");
         if (u->is_mobile)
-            fprintf(f, "        .speed = %d, ", u->speed);
-        else
-            fprintf(f, "        ");
-        fprintf(f, ".radius = %d, .height = %d, .mass = %d,\n",
-                radius, height, mass);
+            fprintf(f, "        .speed = %d, .radius = %d, .height = %d, .mass = %d,\n",
+                    u->speed, radius, height, mass);
+        else if (radius)
+            fprintf(f, "        .radius = %d, .height = %d, .mass = %d,\n",
+                    radius, height, mass);
         if (u->is_combat)
             fprintf(f, "        .damage = %d,\n", u->i_dmg);
         fprintf(f, "        .flags = %s,\n", flags);

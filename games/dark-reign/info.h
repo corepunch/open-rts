@@ -1,3 +1,4 @@
+/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */
 #ifndef __INFO__
 #define __INFO__
 
@@ -31,38 +32,61 @@ typedef struct mobjinfo_s {
 } mobjinfo_t;
 
 typedef enum {
-    /* Support */
-    SPR_UCFCNST0, SPR_UCFRGST0, SPR_UCHFRST0,
-    /* Infantry */
-    SPR_UFRADST0, SPR_UFMRCST0, SPR_UFSNPST0, SPR_UFSCTST0,
-    SPR_UFMEDST0, SPR_UFSABST0, SPR_UFMECST0, SPR_UFMTRST0, SPR_UCINFST0,
-    /* Vehicles */
-    SPR_UFSPBST0, SPR_UFRATST0, SPR_UFSKTST0, SPR_UFTHNST0,
-    SPR_UFPHTST0, SPR_UFFLKST0, SPR_UFTRTST0, SPR_UFFARST0,
-    /* Air */
-    SPR_UFSKBST0, SPR_UFOUTST0,
-    /* Experimental */
-    SPR_UFSWVST0, SPR_UCWCOST0, SPR_UCPHRST0, SPR_UCBMVST0,
-    /* Buildings */
-    SPR_NFHQT1L0, SPR_NFHQT2L0, SPR_NFHQT3L0,
-    SPR_NFUTF1L0, SPR_NFUTF2L0,
-    SPR_NFVCY1L0, SPR_NFVCY2L0,
-    SPR_NFHSP1L0, SPR_NFREP1L0,
-    SPR_NFPHF1L0, SPR_NFPHF2L0,
-    SPR_NCCAM1L0, SPR_NCLNC1L0, SPR_NCPOW1L0,
+    SPR_UCFCNST0,
+    SPR_UCFRGST0,
+    SPR_UCHFRST0,
+    SPR_UFRADST0,
+    SPR_UFMRCST0,
+    SPR_UFSNPST0,
+    SPR_UFSCTST0,
+    SPR_UFMEDST0,
+    SPR_UFSABST0,
+    SPR_UFMECST0,
+    SPR_UFMTRST0,
+    SPR_UCINFST0,
+    SPR_UFSPBST0,
+    SPR_UFRATST0,
+    SPR_UFSKTST0,
+    SPR_UFTHNST0,
+    SPR_UFPHTST0,
+    SPR_UFFLKST0,
+    SPR_UFTRTST0,
+    SPR_UFFARST0,
+    SPR_UFSKBST0,
+    SPR_UFOUTST0,
+    SPR_UFSWVST0,
+    SPR_UCWCOST0,
+    SPR_UFPHRST0,
+    SPR_UFBAMST0,
+    SPR_NFHQT1L0,
+    SPR_NFHQT2L0,
+    SPR_NFHQT3L0,
+    SPR_NFUTF1L0,
+    SPR_NFUTF2L0,
+    SPR_NFVCY1L0,
+    SPR_NFVCY2L0,
+    SPR_NFHSP1L0,
+    SPR_NFREP1L0,
+    SPR_NFPHF1L0,
+    SPR_NFPHF2L0,
+    SPR_NCCAM1L0,
+    SPR_NCLNC1L0,
+    SPR_NCPOW1L0,
     SPR_NFRRM1L0,
-    SPR_NCSBH1L0, SPR_NCSBV1L0, SPR_NCSBC1L0,
-    SPR_NFGDT1L0, SPR_NFAGT1L0, SPR_NFAAR1L0,
+    SPR_NCSBH1L0,
+    SPR_NCSBV1L0,
+    SPR_NCSBC1L0,
+    SPR_NFGDT1L0,
+    SPR_NFAGT1L0,
+    SPR_NFAAR1L0,
     NUMSPRITES
 } spritenum_t;
 
 typedef enum {
     S_NULL = 0,
-    /* Support */
     S_UCFCNST0_STND,
     S_UCFRGST0_STND,
     S_UCHFRST0_STND,
-    /* Infantry */
     S_UFRADST0_STND,
     S_UFMRCST0_STND,
     S_UFSNPST0_STND,
@@ -72,7 +96,6 @@ typedef enum {
     S_UFMECST0_STND,
     S_UFMTRST0_STND,
     S_UCINFST0_STND,
-    /* Vehicles */
     S_UFSPBST0_STND,
     S_UFRATST0_STND,
     S_UFSKTST0_STND,
@@ -81,15 +104,12 @@ typedef enum {
     S_UFFLKST0_STND,
     S_UFTRTST0_STND,
     S_UFFARST0_STND,
-    /* Air */
     S_UFSKBST0_STND,
     S_UFOUTST0_STND,
-    /* Experimental */
     S_UFSWVST0_STND,
     S_UCWCOST0_STND,
-    S_UCPHRST0_STND,
-    S_UCBMVST0_STND,
-    /* Buildings */
+    S_UFPHRST0_STND,
+    S_UFBAMST0_STND,
     S_NFHQT1L0_STND,
     S_NFHQT2L0_STND,
     S_NFHQT3L0_STND,
@@ -116,11 +136,9 @@ typedef enum {
 
 enum {
     MT_NULL,
-    /* Support */
     MT_FG_CONSTRUCTION_CREW,
     MT_FG_FREIGHTER,
     MT_FG_HOVER_FREIGHTER,
-    /* Infantry */
     MT_FG_RAIDER,
     MT_FG_MERCENARY,
     MT_FG_SNIPER,
@@ -130,7 +148,6 @@ enum {
     MT_FG_MECHANIC,
     MT_FG_MARTYR,
     MT_FG_SPY,
-    /* Vehicles */
     MT_FG_SPYDER_BIKE,
     MT_FG_IFV,
     MT_FG_MEDIUM_TANK,
@@ -139,15 +156,12 @@ enum {
     MT_FG_MAD,
     MT_FG_TRIPLE_RAIL_TANK,
     MT_FG_SPA,
-    /* Air */
     MT_FG_SKY_BIKE,
     MT_FG_OUTRIDER,
-    /* Experimental */
     MT_FG_SHOCKWAVE,
     MT_FG_CONTAMINATOR,
     MT_FG_UNDERGROUND_TUNNEL,
     MT_FG_BASE_MOVER,
-    /* Buildings */
     MT_FG_HQ1,
     MT_FG_HQ2,
     MT_FG_HQ3,

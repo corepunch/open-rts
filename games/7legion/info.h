@@ -1,3 +1,4 @@
+/* Generated from the verified 7th Legion BIM actor catalog. Do not edit by hand. */
 #ifndef __INFO__
 #define __INFO__
 

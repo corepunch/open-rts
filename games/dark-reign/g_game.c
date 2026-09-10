@@ -347,7 +347,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     {   /* Spawned from Phasing Facility — internal tunnel unit */
         .id = ACTOR_FG_UNDERGROUND_TUNNEL,
         .name = "Phase Runner",
-        .sprite_name = "ucphrst0.spr",
+        .sprite_name = "ufphrst0.spr",
         .shadow_name = "ufphrst0.spr",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
         .speed = 4.5f,
@@ -356,7 +356,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     {   /* Base relocation unit */
         .id = ACTOR_FG_BASE_MOVER,
         .name = "Base Mover",
-        .sprite_name = "ucbmvst0.spr",
+        .sprite_name = "ufbamst0.spr",
         .shadow_name = "ufbamst0.spr",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
         .speed = 3.0f,

@@ -1,5 +1,26 @@
 # Dark Reign executable and AI findings
 
+## Info-table generation audit (2026-09-10)
+
+**Confirmed from retail definitions and OpenDR revision
+`98079a904746440433795fe7f21c4b35eb6b3959`.** The 47-entry engine catalog uses
+the same primary body sprite names represented in OpenDR's unit and structure
+sequence files. `tools/dr_info_gen.c` now owns that mapping and validates every
+sprite name against retail `deftxt/UNITS.TXT` or `deftxt/BUILD.TXT` before
+emitting the Doom-style `sprnames[]`, `states[]`, and `mobjinfo[]` tables.
+
+The audit found two stale engine names. The Phase Runner is
+`ufphrst0.spr` in the `FGundergtunnel` retail definition, not
+`ucphrst0.spr`; the Base Mover is `ufbamst0.spr` in `FGBaseMover`, not
+`ucbmvst0.spr`. Both generated state identifiers and runtime actor sprite names
+now use the retail spellings. Reproduce the check with `make test-info-gen`.
+
+**Known limit.** This generator preserves the current Freedom Guard vertical
+slice. It does not claim that the 47 entries cover every retail faction,
+decoy, civilian, attachment layer, shadow, or animation sequence. OpenDR's
+sequence metadata remains the reference for expanding each one-state body into
+native run, fire, idle, and facing states.
+
 Investigation date: 2026-09-01
 
 ## Fingerprint
