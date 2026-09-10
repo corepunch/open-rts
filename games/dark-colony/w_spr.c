@@ -195,42 +195,6 @@ static bool install_ground_points(spritesheet_t *sheet, const dc_fin_t *fin, con
     return true;
 }
 
-static bool create_cell_textures(spritelump_t *lump, irect_t rect,
-                                  const uint32_t palette[256]) {
-    size_t count = (size_t)rect.w * (size_t)rect.h;
-    uint32_t *rgba = malloc(count * sizeof(*rgba));
-    if (!rgba) return false;
-    bool team_colors = false;
-    for (size_t i = 0; i < count; ++i) {
-        uint8_t index = lump->indices[i];
-        rgba[i] = palette[index];
-        team_colors |= index >= 138 && index <= 143;
-    }
-    lump->texture = I_CreateTexture(r_renderer, rgba, rect.w, rect.h, true);
-    if (!lump->texture) goto fail;
-    if (team_colors) {
-        lump->translations = calloc(8, sizeof(*lump->translations));
-        if (!lump->translations) goto fail;
-        for (int remap = 0; remap < 8; ++remap) {
-            for (size_t i = 0; i < count; ++i) {
-                int index = lump->indices[i];
-                if (index >= 138 && index <= 143) index += (remap - 7) * 6;
-                rgba[i] = palette[index];
-            }
-            SDL_Texture *texture = I_CreateTexture(
-                r_renderer, rgba, rect.w, rect.h, true);
-            if (!texture) goto fail;
-            lump->translations[lump->translation_count++] =
-                (spritetranslation_t){ .id = remap, .texture = texture };
-        }
-    }
-    free(rgba);
-    return true;
-fail:
-    free(rgba);
-    return false; /* The sheet owns every texture already created. */
-}
-
 typedef struct {
     blob_t file;
     const dc_spr_header_t *header;
@@ -253,7 +217,7 @@ static bool open_spr(const char *path, dc_spr_t *spr) {
 }
 
 static bool load_cell(dc_spr_t *spr, int index,
-                      spritesheet_t *sheet, const uint32_t palette[256]) {
+                      spritesheet_t *sheet) {
     const dc_spr_cell_t *record = &spr->cells[index];
     isize2_t size = { SDL_SwapLE16(record->size.w), SDL_SwapLE16(record->size.h) };
     size_t bytes = (size_t)size.w * (size_t)size.h;
@@ -279,15 +243,28 @@ static bool load_cell(dc_spr_t *spr, int index,
         !decode_cell(lump->indices, pixels, source, bytes, spr->compressed))) return false;
     cell->bounds = cell->rect;
     cell->ground_point = (ivec2_t){ cell->rect.w / 2, cell->rect.h };
-    return create_cell_textures(lump, cell->rect, palette);
+    for (size_t i = 0; i < pixels; ++i)
+        lump->translatable |= lump->indices[i] >= 138 && lump->indices[i] <= 143;
+    return true;
 }
 
 static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette[256]) {
     int count = SDL_SwapLE16(spr->header->cell_count);
     if (!R_AllocSpriteCells(out, count)) return false;
+    memcpy(out->texture_palette, palette, sizeof(out->texture_palette));
+    out->palette_maps = calloc(8, sizeof(*out->palette_maps));
+    if (!out->palette_maps) return false;
+    out->palette_map_count = 8;
+    for (int remap = 0; remap < out->palette_map_count; ++remap) {
+        spritepalettemap_t *map = &out->palette_maps[remap];
+        map->id = remap;
+        for (int index = 0; index < 256; ++index)
+            map->indices[index] = index >= 138 && index <= 143 ?
+                index + (remap - 7) * 6 : index;
+    }
     out->frame_size = (isize2_t){ 1, 1 };
     for (int i = 0; i < count; ++i) {
-        if (!load_cell(spr, i, out, palette)) return false;
+        if (!load_cell(spr, i, out)) return false;
         const spritecell_t *cell = &out->cells[i];
         isize2_t extent = { cell->displacement.x + cell->rect.w,
                            cell->displacement.y + cell->rect.h };

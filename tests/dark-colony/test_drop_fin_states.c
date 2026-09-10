@@ -32,10 +32,7 @@ static void draw_native_parts(app_t *app, const level_t *map,
             ((part->flags & RTS_FRAME_FLIP_X) ? 0 : cell->displacement.x),
             (int)sy + part->offset.y - src.h, src.w, src.h };
         if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
-        const spritelump_t *lump = &sprite->lumps[part->lump];
-        SDL_Texture *texture = lump->texture;
-        for (int i = 0; i < lump->translation_count; ++i)
-            if (lump->translations[i].id == team) texture = lump->translations[i].texture;
+        SDL_Texture *texture = R_GetSpriteTexture(app->renderer, sprite, part->lump, team);
         CHECK(texture);
         int intensity = part->intensity > 0 ? part->intensity : 16;
         int color = (intensity * 255 + 8) / 16;

@@ -454,6 +454,61 @@ retuned. See `docs/DC_ARCHITECTURE.md` for the reproducible catalog probe and
 its fingerprint; `test_sprite_loading` independently checks raw/RLE fixtures,
 empty cells, team translations, and rejected malformed spans.
 
+## Sprite texture memory regression (2026-09-10)
+
+**Confirmed engine allocation bug, not a retail behavior finding:** on HUMAN01,
+temporary `OPEN_RTS_DEBUG_MEMORY` logging in `I_CreateTexture` counted more than
+73,000 startup textures and 1,879,333,416 bytes of uploaded RGBA pixels by the
+73,000th texture. `create_cell_textures` created a base texture for every loaded
+SPR cell and eight more for every cell containing indices 138..143, including
+animations, teams, and encyclopedia images never drawn. Renderer storage adds
+to the pixel payload. This explains multi-gigabyte use without a per-tic leak.
+The diagnostic logging was removed after verification.
+
+`R_GetSpriteTexture` now creates and retains only requested cell/translation
+textures. The loader owns decoded indexed cells, the SPR source palette and
+ordinary index translation maps; world RMP palette data remains separate.
+Frames, facings, FIN layers, anchors, and palette rules are unchanged. HUD,
+fonts, shadows and world rendering all use the same cache, and `R_FreeSprite`
+releases both source data and every created texture. This follows GZDoom's
+`FHardwareTextureContainer` (pinned source linked in `REFERENCES.md`). The earlier
+cell-at-a-time conversion described above is now deferred until drawing.
+
+**Measured on macOS with SDL's dummy/software renderer:** the original
+`4c61fe8` build's HUMAN01 screenshot run peaked at 2,696,141,888 bytes of memory
+footprint; the fixed run peaked at 382,585,472 bytes. A sustained fixed run used
+196,336 KiB RSS at 29 seconds and 204,128 KiB at 76 seconds. These are headless
+measurements; they do not establish the exact Metal footprint or a universal
+memory ceiling as additional animations and teams become visible.
+
+**Confirmed preservation:** the 461-entry SPR/FIN catalog was byte-identical:
+447 loadable entries matched the original build's pixel/translation, palette,
+geometry and animation fingerprints. Both builds rejected the same 14 FIN
+entries: ANIM, BUILDING, LIGHT1B, LIGHT1M, LIGHT2B, LIGHT2M, LIGHT3B, LIGHT3F,
+LIGHT3M, LIGHT4B, LIGHT4F, LIGHT4M, LITE and TOP. Their rejection was not
+investigated in this memory fix. The
+HUMAN01 screenshots were byte-identical, SHA-1
+`824e714d6402b2ea74e78502246716c056d93c0c`. This audit adds no new DC.EXE address,
+native layout or timing claim; the executable fingerprint above is the existing
+provenance, and no executable was reinterpreted for this fix.
+
+Reproduce from the repository root (compare outputs against `4c61fe8`):
+
+```sh
+make -j8 all build/bin/tests/dark-colony/test_sprite_loading
+rg --files data/DCOLONY | rg '\.(SPR|FIN)$' | sort > /private/tmp/dc-sprites.txt
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_sprite_loading /private/tmp/dc-sprites.txt
+/usr/bin/time -l env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-memory.bmp
+```
+
+The sprite fixtures also check decoding without a renderer, allocation only on
+first draw, cache reuse, all eight team colors, untranslatable-cell sharing,
+invalid requests, and independence of the source and world palettes. Dark
+Colony rendering/loader tests and all four game smoke checks pass. The broader
+suite still has two failures reproduced on unmodified `4c61fe8` with the same
+data: the Exploiter deployed-body assertion in `test_game_model_headless` and
+the available-build-command assertion in `test_model_commands_dark-colony`.
+
 ## Direct FIN decoding regression check (2026-09-09)
 
 **Confirmed by comparison with commit `c70a99c`:** the sprite loader can keep

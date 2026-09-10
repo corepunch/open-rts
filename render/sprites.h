@@ -17,6 +17,11 @@ typedef struct {
 } spritetranslation_t;
 
 typedef struct {
+    int id;
+    uint8_t indices[256];
+} spritepalettemap_t;
+
+typedef struct {
     int value;
     int frames[MAX_TILE_ANIMATION_FRAMES];
     int frame_count;
@@ -54,6 +59,7 @@ typedef struct spritelump_s {
     spritetranslation_t *translations;
     int translation_count;
     uint8_t *indices;
+    bool translatable;
 } spritelump_t;
 
 /* Sprite geometry, indexed by the layer cell number; no renderer resources. */
@@ -72,6 +78,9 @@ typedef struct spritesheet_s {
     spritedef_t spritedef;
     bool indexed;
     uint32_t palette[256];
+    uint32_t texture_palette[256]; /* Source colors, independent of world colormaps. */
+    spritepalettemap_t *palette_maps;
+    int palette_map_count;
     int indexed_blend_selector;
     const uint8_t *indexed_blend_table;
     const uint8_t *shadowmap; /* Destination colormap for native projected shadows. */

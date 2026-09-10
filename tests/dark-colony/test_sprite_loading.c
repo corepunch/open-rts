@@ -124,11 +124,9 @@ static int catalog(const char *manifest) {
             hash_bytes(&cell->ground_point, sizeof(cell->ground_point));
             hash_bytes(&cell->displacement, sizeof(cell->displacement));
             hash_bytes(lump->indices, (size_t)cell->rect.w * (size_t)cell->rect.h);
-            hash_texture(renderer, lump->texture, cell->rect);
+            hash_texture(renderer, R_GetSpriteTexture(renderer, &sheet, i, -1), cell->rect);
             for (int remap = 0; remap < 8; ++remap) {
-                SDL_Texture *texture = lump->texture;
-                for (int j = 0; j < lump->translation_count; ++j)
-                    if (lump->translations[j].id == remap) texture = lump->translations[j].texture;
+                SDL_Texture *texture = R_GetSpriteTexture(renderer, &sheet, i, remap);
                 hash_texture(renderer, texture, cell->rect);
             }
         }
@@ -186,13 +184,30 @@ int main(int argc, char **argv) {
         CHECK(sheet.lumps[2].indices[0] == 0);
         CHECK(ivec2_equal(sheet.cells[0].displacement, (ivec2_t){ 7, 9 }));
         CHECK(ivec2_equal(sheet.cells[0].ground_point, (ivec2_t){ 1, 2 }));
-        CHECK(sheet.lumps[0].translation_count == 8);
+        CHECK(!sheet.lumps[0].texture && !sheet.lumps[0].translations);
+        CHECK(sheet.lumps[0].translation_count == 0);
         CHECK(sheet.lumps[1].translation_count == 0 && sheet.lumps[2].translation_count == 0);
-        check_pixels(renderer, sheet.lumps[0].texture, pixels, -1);
+        /* World colormaps must not replace the SPR's source texture palette. */
+        memset(sheet.palette, 0, sizeof(sheet.palette));
+        CHECK(!R_GetSpriteTexture(NULL, &sheet, 0, 2));
+        CHECK(sheet.lumps[0].translation_count == 0);
+        SDL_Texture *team = R_GetSpriteTexture(renderer, &sheet, 0, 2);
+        check_pixels(renderer, team, pixels, 2);
+        CHECK(!sheet.lumps[0].texture && sheet.lumps[0].translation_count == 1);
+        CHECK(R_GetSpriteTexture(renderer, &sheet, 0, 2) == team);
+        CHECK(sheet.lumps[0].translation_count == 1);
+        check_pixels(renderer, R_GetSpriteTexture(renderer, &sheet, 0, -1), pixels, -1);
         for (int i = 0; i < 8; ++i) {
-            CHECK(sheet.lumps[0].translations[i].id == i);
-            check_pixels(renderer, sheet.lumps[0].translations[i].texture, pixels, i);
+            check_pixels(renderer, R_GetSpriteTexture(renderer, &sheet, 0, i), pixels, i);
         }
+        CHECK(sheet.lumps[0].translation_count == 8);
+        SDL_Texture *plain = R_GetSpriteTexture(renderer, &sheet, 1, 0);
+        CHECK(plain && R_GetSpriteTexture(renderer, &sheet, 1, 7) == plain);
+        CHECK(sheet.lumps[1].translation_count == 0);
+        CHECK(R_GetSpriteTexture(renderer, &sheet, 0, 99) == sheet.lumps[0].texture);
+        CHECK(!R_GetSpriteTexture(renderer, &sheet, -1, 0));
+        CHECK(!R_GetSpriteTexture(renderer, &sheet, sheet.numlumps, 0));
+        CHECK(!sheet.lumps[2].texture); /* Undrawn cells stay CPU-only. */
         R_FreeSprite(&sheet);
         rejected(file, size - 1); /* Truncated last cell, after allocations. */
         rejected(file, HEADER - 1);
@@ -228,7 +243,10 @@ int main(int argc, char **argv) {
     rejected(file, size);
     size = fixture(file, false);
     r_renderer = NULL;
-    rejected(file, size); /* Texture failure cleans up decoded storage. */
+    spritesheet_t decoded;
+    CHECK(load(file, size, &decoded)); /* Decoding needs no renderer. */
+    CHECK(!decoded.lumps[0].texture);
+    R_FreeSprite(&decoded);
     r_renderer = NULL;
     SDL_DestroyRenderer(renderer);
     SDL_FreeSurface(surface);

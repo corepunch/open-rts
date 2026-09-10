@@ -558,21 +558,53 @@ static uint8_t fin_intensity_color_mod(int intensity) {
     return (uint8_t)clamp255((intensity * 255 + 8) / 16);
 }
 
-static SDL_Texture *sprite_texture_for_remap(const spritesheet_t *sprite, int frame,
-                                             int render_remap) {
+SDL_Texture *R_GetSpriteTexture(SDL_Renderer *renderer, const spritesheet_t *sprite,
+                                int frame, int render_remap) {
     if (!sprite || !sprite->lumps || frame < 0 || frame >= sprite->numlumps) return NULL;
-    const spritelump_t *lump = &sprite->lumps[frame];
+    spritelump_t *lump = &sprite->lumps[frame];
     for (int i = 0; i < lump->translation_count; ++i) {
         if (lump->translations[i].id == render_remap)
             return lump->translations[i].texture;
     }
-    return lump->texture;
+    const uint8_t *map = NULL;
+    if (lump->translatable) {
+        for (int i = 0; i < sprite->palette_map_count; ++i)
+            if (sprite->palette_maps[i].id == render_remap)
+                map = sprite->palette_maps[i].indices;
+    }
+    if (!map && lump->texture) return lump->texture;
+    if (!renderer || !lump->indices) return NULL;
+    irect_t rect = sprite->cells[frame].rect;
+    size_t count = (size_t)rect.w * rect.h;
+    uint32_t *pixels = malloc(count * sizeof(*pixels));
+    if (!pixels) return NULL;
+    for (size_t i = 0; i < count; ++i) {
+        uint8_t index = lump->indices[i];
+        pixels[i] = sprite->texture_palette[map ? map[index] : index];
+    }
+    SDL_Texture *texture = I_CreateTexture(renderer, pixels, rect.w, rect.h, true);
+    free(pixels);
+    if (!texture) return NULL;
+    if (map) {
+        spritetranslation_t *translations = realloc(lump->translations,
+            (size_t)(lump->translation_count + 1) * sizeof(*translations));
+        if (!translations) {
+            SDL_DestroyTexture(texture);
+            return NULL;
+        }
+        lump->translations = translations;
+        lump->translations[lump->translation_count++] =
+            (spritetranslation_t){ .id = render_remap, .texture = texture };
+    } else {
+        lump->texture = texture;
+    }
+    return texture;
 }
 
 static SDL_Texture *begin_sprite_command(const spritesheet_t *sprite, int frame,
                                          int render_remap,
                                          int render_intensity) {
-    SDL_Texture *texture = sprite_texture_for_remap(sprite, frame, render_remap);
+    SDL_Texture *texture = R_GetSpriteTexture(r_renderer, sprite, frame, render_remap);
     if (!texture) return NULL;
 
     uint8_t intensity = fin_intensity_color_mod(render_intensity);
@@ -941,7 +973,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     float sx = 0.0f, sy = 0.0f;
     R_MapPositionToScreen(app, map, unit->core.position, &sx, &sy);
     const spritesheet_t *sprite = unit_sprite_sheet_for_view(unit, fallback_sprite, cache, game_info);
-    if (!sprite || !sprite->lumps || sprite->numlumps <= 0 || !sprite->lumps[0].texture) {
+    if (!sprite || !sprite->lumps || sprite->numlumps <= 0) {
         float radius = unit_pick_radius_px(app, unit);
         irect_t fallback = {
             (int)floorf(sx - radius),
@@ -1224,7 +1256,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         int shadow_frame = frame < shadow->numlumps ? frame : 0;
         irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
         irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
-        SDL_RenderCopy(app->renderer, shadow->lumps[shadow_frame].texture,
+        SDL_RenderCopy(app->renderer, R_GetSpriteTexture(app->renderer, shadow, shadow_frame, -1),
                    &shadow->cells[shadow_frame].rect, &shadow_dst);
     }
     float content_y = (float)visible.y;
@@ -1702,6 +1734,7 @@ void R_FreeSprite(spritesheet_t *sprite) {
     }
     free(sprite->cells);
     free(sprite->lumps);
+    free(sprite->palette_maps);
     free(sprite->spritedef.spriteframes);
     memset(sprite, 0, sizeof(*sprite));
 }

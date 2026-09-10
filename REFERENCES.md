@@ -35,6 +35,11 @@ plugin-specific behavior.
     translation-specific GPU textures for one source image. The translated
     cache is keyed by translation rather than represented as fixed slots on
     every sprite.
+    Source: [hw_texcontainer.h](https://github.com/ZDoom/gzdoom/blob/c26ce2e6ca2a0c770f140cb25dde0d30073ca8f7/src/common/textures/hw_texcontainer.h),
+    `GetTexID`, `GetHardwareTexture`, `AddHardwareTexture`, and `Clean`.
+    Dark Colony's indexed images now use the same demand-driven texture and
+    translation ownership through `R_GetSpriteTexture`; loading a cell does
+    not allocate a hardware texture.
   - This supports converting each game format into engine-owned indexed sprite
     images at load time, then creating renderer textures from those images. It
     does not support keeping game-loader state or format callbacks on the

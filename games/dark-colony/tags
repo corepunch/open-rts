@@ -3629,7 +3629,6 @@ count	games/dark-colony/w_map.c	/^    int count;$/;"	m	struct:__anonef2472380708
 counter_gt_state_slot	games/dark-colony/p_script.c	/^    int counter_gt_state_slot;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
 counter_gt_state_team	games/dark-colony/p_script.c	/^    int counter_gt_state_team;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
 counter_gt_state_type	games/dark-colony/p_script.c	/^    int counter_gt_state_type;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
-create_cell_textures	games/dark-colony/w_spr.c	/^static bool create_cell_textures(spritelump_t *lump, irect_t rect,$/;"	f	typeref:typename:bool	file:	signature:(spritelump_t * lump,irect_t rect,const uint32_t palette[256])
 current	games/dark-colony/mobj_data.h	/^    int current;$/;"	m	struct:__anonad7a03aa0508	typeref:typename:int
 cycle_water_index	games/dark-colony/w_bts.c	/^static uint8_t cycle_water_index(uint8_t index, const uint32_t palette[256], int phase) {$/;"	f	typeref:typename:uint8_t	file:	signature:(uint8_t index,const uint32_t palette[256],int phase)
 damage	games/dark-colony/gamestat.h	/^    int damage;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
@@ -3778,7 +3777,7 @@ label_count	games/dark-colony/w_spr.h	/^    uint16_t magic, frame_count, label_c
 labels	games/dark-colony/w_spr.h	/^    const dc_fin_label_t *labels;$/;"	m	struct:__anonef9947740b08	typeref:typename:const dc_fin_label_t *
 last	games/dark-colony/info.h	/^typedef struct { const char *name; int first, last; } dc_building_sequence_t;$/;"	m	struct:__anonf7269e950408	typeref:typename:int
 layer	games/dark-colony/w_spr.h	/^    int16_t intensity, layer, flags;$/;"	m	struct:__anonef9947740608	typeref:typename:int16_t
-load_cell	games/dark-colony/w_spr.c	/^static bool load_cell(dc_spr_t *spr, int index,$/;"	f	typeref:typename:bool	file:	signature:(dc_spr_t * spr,int index,spritesheet_t * sheet,const uint32_t palette[256])
+load_cell	games/dark-colony/w_spr.c	/^static bool load_cell(dc_spr_t *spr, int index,$/;"	f	typeref:typename:bool	file:	signature:(dc_spr_t * spr,int index,spritesheet_t * sheet)
 load_cells	games/dark-colony/w_spr.c	/^static bool load_cells(dc_spr_t *spr, spritesheet_t *out, const uint32_t palette[256]) {$/;"	f	typeref:typename:bool	file:	signature:(dc_spr_t * spr,spritesheet_t * out,const uint32_t palette[256])
 load_city_slot_data	games/dark-colony/p_script.c	/^static void load_city_slot_data(ScriptState *script, const char *map_path) {$/;"	f	typeref:typename:void	file:	signature:(ScriptState * script,const char * map_path)
 load_city_slot_data::__anon9b5a71c80c08::active	games/dark-colony/p_script.c	/^    struct { int active; int race; int ai_slot_count; int ai_slots[2][2];$/;"	m	struct:load_city_slot_data::__anon9b5a71c80c08	typeref:typename:int	file:
