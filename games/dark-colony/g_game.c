@@ -303,7 +303,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .name = "Dropship",
         .sprite_name = "SPRITES/DROP.SPR",
         .traits = MF_RENDERABLE | MF_MOBILE | MF_FLY,
-        .speed = 1.0f,
+        .speed = 4.0f,
         .max_hp = 800,
     },
     {
