@@ -38,7 +38,7 @@ int main(void) {
         P_Ticker();
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *mobj = (mobj_t *)th;
-            if (!mobj->remove && (mobj->traits & MF_PROJECTILE)) {
+            if (!mobj->remove && (mobj->traits & MF_MISSILE)) {
                 launched = true;
                 projectile = mobj;
                 break;
@@ -48,7 +48,9 @@ int main(void) {
     }
     CHECK(launched);
     CHECK(target->hp == starting_hp);
-    CHECK(projectile->projectile.target == target);
+    CHECK(projectile->target == barrager);
+    CHECK(game_info.mobjinfo[MT_CANNONBALL].speed == 8);
+    CHECK(game_info.mobjinfo[MT_CANNONBALL].damage == 180);
     CHECK(projectile->core.position.x > barrager->core.position.x);
     CHECK(projectile->core.position.y == barrager->core.position.y);
 
@@ -62,6 +64,39 @@ int main(void) {
     CHECK(projectile->remove);
 
     P_FreeThinkers();
-    puts("PASS: Barrager launches a moving cannonball and damages on impact");
+    barrager = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){ 10.0f, 10.0f }, 0),
+                           MT_THUNDERBOLT);
+    mobj_t *far_target = P_SpawnMobj(
+        fixed3_from_fvec2((fvec2_t){ 14.0f, 10.0f }, 0), MT_TROOPER);
+    mobj_t *interceptor = P_SpawnMobj(
+        fixed3_from_fvec2((fvec2_t){ 12.5f, 10.0f }, 0), MT_TROOPER);
+    CHECK(barrager && far_target && interceptor);
+    barrager->traits &= ~MF_ATTACK;
+    far_target->traits &= ~MF_ATTACK;
+    interceptor->traits &= ~MF_ATTACK;
+    barrager->allegiance = ALLEGIANCE_PLAYER;
+    far_target->allegiance = ALLEGIANCE_ENEMY;
+    interceptor->allegiance = ALLEGIANCE_ENEMY;
+    int far_target_hp = far_target->hp;
+    int interceptor_hp = interceptor->hp;
+    mobj_t *missile = P_SpawnMissile(barrager, far_target, MT_CANNONBALL);
+    CHECK(missile && missile->target == barrager);
+    for (int tic = 0; tic < 40; ++tic) {
+        bool missile_alive = false;
+        P_Ticker();
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *mobj = (mobj_t *)th;
+            if (!mobj->remove && (mobj->traits & MF_MISSILE)) {
+                missile_alive = true;
+                break;
+            }
+        }
+        if (!missile_alive) break;
+    }
+    CHECK(interceptor->hp == interceptor_hp - 180);
+    CHECK(far_target->hp == far_target_hp);
+
+    P_FreeThinkers();
+    puts("PASS: Doom-style cannonball launch, movement, and collision");
     return 0;
 }

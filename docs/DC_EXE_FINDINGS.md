@@ -4347,19 +4347,23 @@ frames follow the raw SPR cells, the first complete MISA image is logical frame
 representation.
 
 **Inferred implementation:** the Barrager (`MT_THUNDERBOLT`, native sprite
-`BARR`) launches the first MISA animation as a cannonball. Its projectile speed
-is currently authored as 8 map cells per second in the C actor table so the
-behavior is deterministic and can be tuned as gameplay balance. This is an
-engine implementation choice, not a claimed retail constant.
+`BARR`) launches the first MISA animation as a cannonball. Its missile type,
+speed (8 map cells per second), and damage (180) are authored in the C gameplay
+tables so the behavior is deterministic. These are implementation choices, not
+claimed retail constants.
 
 **Unknown:** the retail executable's exact projectile type, speed, collision
 timing, and whether MISA is specifically the Barrager projectile have not yet
 been traced. Do not treat the Barrager-to-MISA mapping or speed as executable-
 confirmed native behavior.
 
-**Implementation consequence:** projectiles are ordinary thinker-linked mobjs
-with a target, owner/team, damage, speed, and finite attack range. The Barrager
-attack action creates one; each tic advances it and performs swept collision
-against its target; impact applies the existing damage/death path and removes
-the projectile. Reproduce the current behavior with
+**Implementation consequence:** the runtime now follows Doom's
+`P_SpawnMissile`/`P_MobjThinker`/`P_ExplodeMissile` model. A missile is an
+ordinary thinker-linked mobj; its type supplies speed and damage through
+`mobjinfo`, and `mobj->target` stores the originator. It has no separate
+target, damage, speed, or range state. Each tic moves it, checks map collision,
+and performs swept collision against the first eligible non-allied mobj. Impact
+uses the missile's death state, just as Doom does. The intentional Dark Colony
+adaptation is planar movement and no friendly fire, so allied mobjs are passed
+through. Reproduce the behavior with
 `build/bin/tests/dark-colony/test_projectiles`.

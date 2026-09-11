@@ -31,7 +31,7 @@ typedef enum {
     MF_SELECTED = 1u << 7,
     MF_DONTDRAW = 1u << 8,
     MF_NOBLOCKMAP = 1u << 9, /* Non-interacting puff, blood, or light mobj. */
-    MF_PROJECTILE = 1u << 10,
+    MF_MISSILE = 1u << 10,
 } mobjflag_t;
 
 enum {
@@ -58,7 +58,6 @@ typedef struct mobjtype_s {
         int damage;
         int cooldown_ms;
         uint16_t projectile_type;
-        float projectile_speed;
     } attack;
     struct {
         int state_id;
@@ -160,6 +159,7 @@ struct mobj_s {
     uint32_t traits;
     int hp;
     int max_hp;
+    mobj_t *target; /* Doom: missile originator, or another mobj target. */
     struct {
         int cooldown_left_ms;
         mobj_t *target;
@@ -181,12 +181,6 @@ struct mobj_s {
         bool order_arrived;
         int turn_timer_ms;
     } movement;
-    struct {
-        mobj_t *target;
-        int damage;
-        float speed;
-        float distance_left;
-    } projectile;
     MOBJ_GAME_FIELDS
 };
 
@@ -234,7 +228,8 @@ void P_RunThinkers(void);
 void P_FreeThinkers(void);
 void P_MobjThinker(mobj_t *mobj);
 mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type);
-mobj_t *P_SpawnProjectile(mobj_t *source, mobj_t *target);
+mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type);
+void P_ExplodeMissile(mobj_t *missile);
 void P_RemoveMobj(mobj_t *mobj);
 void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit);
 /* Non-owning snapshots for rendering/UI and batch RTS orders. The thinker list

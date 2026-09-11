@@ -379,9 +379,11 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     { // MT_CANNONBALL
         .spawnstate = S_MISA_CANNONBALL,
         .spawnhealth = 1,
+        .speed = 8,
+        .damage = 180,
         .radius = 4,
         .height = 4,
-        .flags = MF_RENDERABLE|MF_NOBLOCKMAP|MF_PROJECTILE,
+        .flags = MF_RENDERABLE|MF_MISSILE,
     },
     { // MT_SENTINEL
         .doomednum = 43,
