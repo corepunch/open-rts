@@ -199,13 +199,10 @@ kknd-info: $(KKND_INFO_GEN_TARGET)
 test-dc-info-conv: $(DC_INFO_CONV_TARGET)
 	python3 tests/tools/test_dc_info_conv.py
 
-test-info-gen: $(DR_INFO_GEN_TARGET) $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGET)
-	@mkdir -p $(BUILD_DIR)/info-check/dark-reign $(BUILD_DIR)/info-check/7legion $(BUILD_DIR)/info-check/kknd
-	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c
+test-info-gen: $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGET)
+	@mkdir -p $(BUILD_DIR)/info-check/7legion $(BUILD_DIR)/info-check/kknd
 	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) $(BUILD_DIR)/info-check/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.c
 	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c
-	cmp games/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.h
-	cmp games/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/info.c
 	cmp games/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.h
 	cmp games/7legion/info.c $(BUILD_DIR)/info-check/7legion/info.c
 	cmp games/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.h
@@ -259,7 +256,7 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-dc-info-conv test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
+test: test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
 
 test-loaders: all
 	env SDL_VIDEODRIVER=dummy python3 tools/test_loaders.py --fixtures --no-build

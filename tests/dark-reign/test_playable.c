@@ -140,28 +140,57 @@ static int test_combat(void) {
     if (!rts_game_model_load(model, &config)) return fail("load for combat");
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot for combat");
+
+    /* Require both player attack unit and enemy unit to exist initially. */
     int player = -1, enemy = -1;
     for (int i = 0; i < snap.unit_count; ++i) {
-        if (snap.units[i].owner == 0 && (snap.units[i].traits & RTS_RENDER_TRAIT_MOBILE))
+        if (player < 0 && snap.units[i].owner == 0 &&
+            (snap.units[i].traits & (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK)) ==
+            (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK))
             player = i;
-        if (snap.units[i].owner == 1) enemy = i;
+        if (snap.units[i].owner == 1 &&
+            (enemy < 0 || (snap.units[i].traits & RTS_RENDER_TRAIT_MOBILE)))
+            enemy = i;
     }
-    if (player < 0 || enemy < 0) return fail("find player and enemy");
-    RtsGameCommand sel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
-        .data.select_unit_index = { player, false } };
-    rts_game_model_command(model, &sel);
-    RtsGameCommand attack = { .kind = RTS_GAME_COMMAND_ATTACK_UNIT,
-        .data.attack_unit = { snap.units[enemy].id, enemy } };
-    bool accepted = rts_game_model_command(model, &attack);
-    if (accepted == snap.units[enemy].hidden) return fail("attack respects fog");
-    bool saw_attack = false;
-    for (int t = 0; t < 30 * 60 && !saw_attack; ++t) {
-        if (!rts_tick(model, NULL)) return fail("tick combat");
-        RtsGameEvent ev;
-        while (rts_game_model_poll_event(model, &ev))
-            if (ev.type == RTS_GAME_EVENT_ATTACK_STARTED) saw_attack = true;
+    if (player < 0) return fail("find attack-capable player unit");
+    if (enemy < 0) return fail("find enemy unit");
+
+    /* Record initial HP of all enemy units. */
+    uint32_t enemy_ids[RTS_MODEL_MAX_SNAPSHOT_UNITS];
+    int enemy_hps[RTS_MODEL_MAX_SNAPSHOT_UNITS];
+    int enemy_count = 0;
+    for (int i = 0; i < snap.unit_count; ++i) {
+        if (snap.units[i].owner == 1 && snap.units[i].hp > 0) {
+            enemy_ids[enemy_count] = snap.units[i].id;
+            enemy_hps[enemy_count] = snap.units[i].hp;
+            enemy_count++;
+        }
     }
-    printf("PASS: dark-reign combat %s\n", saw_attack ? "triggered" : "fog-blocked (expected)");
+    if (enemy_count == 0) return fail("find enemy units for HP tracking");
+
+    fvec2_t enemy_pos = snap.units[enemy].position;
+    RtsGameCommand selall = { .kind = RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS };
+    rts_game_model_command(model, &selall);
+    RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+        .data.move_selected = { .target = enemy_pos } };
+    rts_game_model_command(model, &move);
+
+    /* Tick up to 5 min; any enemy HP drop or death counts as combat. */
+    bool saw_damage = false;
+    for (int t = 0; t < 30 * 300 && !saw_damage; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick combat");
+        if (t % 90 == 0) {
+            rts_game_model_command(model, &selall);
+            rts_game_model_command(model, &move);
+        }
+        for (int j = 0; j < enemy_count && !saw_damage; ++j) {
+            int idx = rts_find_unit_by_id(&snap, enemy_ids[j]);
+            if (idx < 0 || snap.units[idx].hp < enemy_hps[j])
+                saw_damage = true;
+        }
+    }
+    if (!saw_damage) return fail("enemy took damage in combat");
+    printf("PASS: dark-reign combat (enemy HP decreased)\n");
     rts_game_model_destroy(model);
     return 0;
 }
