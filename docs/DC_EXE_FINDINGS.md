@@ -4336,3 +4336,30 @@ byte at team `+0x19bc` in `0x419d44`; team promotion gameplay remains unchanged.
 Final verification: `make`, all 31 Dark Colony tests, the standalone sprite
 layout test (including Reaper timing), and all four games' headless `--check`
 commands passed. `make tags` regenerated the checked-in symbol indexes.
+
+## Projectile implementation evidence (2026-09-11)
+
+**Confirmed:** `data/DCOLONY/ANIMATE/MISA.FIN` contains six authored
+animations and 124 FIN frames. Its first animation uses FIN frames 0–23, and
+`data/DCOLONY/SPRITES/MISA.SPR` contains 24 raw cells. Because runtime FIN
+frames follow the raw SPR cells, the first complete MISA image is logical frame
+24. The loader already combines this SPR/FIN pair into the common sprite
+representation.
+
+**Inferred implementation:** the Barrager (`MT_THUNDERBOLT`, native sprite
+`BARR`) launches the first MISA animation as a cannonball. Its projectile speed
+is currently authored as 8 map cells per second in the C actor table so the
+behavior is deterministic and can be tuned as gameplay balance. This is an
+engine implementation choice, not a claimed retail constant.
+
+**Unknown:** the retail executable's exact projectile type, speed, collision
+timing, and whether MISA is specifically the Barrager projectile have not yet
+been traced. Do not treat the Barrager-to-MISA mapping or speed as executable-
+confirmed native behavior.
+
+**Implementation consequence:** projectiles are ordinary thinker-linked mobjs
+with a target, owner/team, damage, speed, and finite attack range. The Barrager
+attack action creates one; each tic advances it and performs swept collision
+against its target; impact applies the existing damage/death path and removes
+the projectile. Reproduce the current behavior with
+`build/bin/tests/dark-colony/test_projectiles`.

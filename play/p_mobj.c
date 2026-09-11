@@ -189,6 +189,15 @@ void P_AngleToVec(angle_t angle, float *dx, float *dy) {
     angle_to_screen_vector(angle, dx, dy);
 }
 
+static fvec2_t angle_to_map_vector(angle_t angle) {
+    fvec2_t direction;
+    P_AngleToVec(angle, &direction.x, &direction.y);
+#if RTS_WORLD_Y_UP
+    direction.y = -direction.y;
+#endif
+    return direction;
+}
+
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (!(attacker->traits & MF_ATTACK) || mobj_attack_damage(attacker) <= 0)
         return NULL;
@@ -212,6 +221,61 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         if (dist2 <= range2) { range2 = dist2; target = candidate; }
     }
     return target;
+}
+
+static void damage_mobj(mobj_t *target, int damage) {
+    if (!target || target->remove || target->hp <= 0 || damage <= 0) return;
+    target->hp -= damage;
+    if (target->info && target->info->damage_action) target->info->damage_action(target);
+    if (target->hp > 0) return;
+
+    target->hp = 0;
+    P_MobjSetSelected(target, false);
+    target->traits &= ~(MF_SELECTABLE | MF_MOBILE |
+                        MF_ATTACK | MF_HARVESTER);
+    target->movement.flow_field = NULL;
+    target->movement.order_arrived = false;
+    target->harvest.target = -1;
+    target->harvest.timer_ms = 0;
+    target->harvest.phase = 0;
+    target->harvest.cargo = 0;
+    target->attack.target = NULL;
+    target->attack.cooldown_left_ms = 0;
+    target->core.momentum = fixed3_zero();
+    if (gameinfo && target->type_id > 0 &&
+        target->type_id < gameinfo->mobj_type_count) {
+        int deathstate = gameinfo->mobjinfo[target->type_id].deathstate;
+        P_SetMobjState(target, deathstate);
+    } else {
+        P_RemoveMobj(target);
+    }
+}
+
+mobj_t *P_SpawnProjectile(mobj_t *source, mobj_t *target) {
+    if (!source || !target || target->remove || target->hp <= 0 ||
+        !source->info || source->info->attack.projectile_type == 0)
+        return NULL;
+
+    float speed = source->info->attack.projectile_speed;
+    fvec2_t direction = angle_to_map_vector(source->core.angle);
+    float direction_length = sqrtf(fvec2_length_squared(direction));
+    if (speed <= 0.0f || direction_length <= 0.0001f) return NULL;
+    direction = fvec2_scale(direction, 1.0f / direction_length);
+
+    mobj_t *projectile = P_SpawnMobj(source->core.position,
+                                     source->info->attack.projectile_type);
+    if (!projectile) return NULL;
+    projectile->owner = source->owner;
+    projectile->team = source->team;
+    projectile->allegiance = source->allegiance;
+    projectile->core.angle = source->core.angle;
+    projectile->projectile.target = target;
+    projectile->projectile.damage = mobj_attack_damage(source);
+    projectile->projectile.speed = speed;
+    projectile->projectile.distance_left = mobj_attack_range(source);
+    projectile->core.momentum = fixed3_planar_delta(
+        fvec2_scale(direction, speed * FIXED_DT));
+    return projectile;
 }
 
 bool P_Attack(mobj_t *attacker) {
@@ -244,35 +308,24 @@ bool P_Attack(mobj_t *attacker) {
                       attacker->type_id, attacker->core.state_id,
                       angle_to_direction(attacker->core.angle, 32, ANG90, true),
                       0, sprite_name, attacker->core.frame, target->id);
-    target->hp -= mobj_attack_damage(attacker);
+
+    if (attacker->info && attacker->info->attack.projectile_type != 0) {
+        mobj_t *projectile = P_SpawnProjectile(attacker, target);
+        if (!projectile) return false;
+        if (mobj_attack_cooldown_ms(attacker) > 0)
+            attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
+        debug_effects_log("projectile launch source=%d type=%u target=%d speed=%.2f",
+                          attacker->id, projectile->type_id, target->id,
+                          projectile->projectile.speed);
+        return true;
+    }
+
+    damage_mobj(target, mobj_attack_damage(attacker));
     if (mobj_attack_cooldown_ms(attacker) > 0)
         attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
-    if (target->info && target->info->damage_action) target->info->damage_action(target);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
                       attacker->type_id, target->id, mobj_attack_damage(attacker),
                       target->hp, target->max_hp);
-    if (target->hp <= 0) {
-        target->hp = 0;
-        P_MobjSetSelected(target, false);
-        target->traits &= ~(MF_SELECTABLE | MF_MOBILE |
-                            MF_ATTACK | MF_HARVESTER);
-        target->movement.flow_field = NULL;
-        target->movement.order_arrived = false;
-        target->harvest.target = -1;
-        target->harvest.timer_ms = 0;
-        target->harvest.phase = 0;
-        target->harvest.cargo = 0;
-        target->attack.target = NULL;
-        target->attack.cooldown_left_ms = 0;
-        target->core.momentum = fixed3_zero();
-        if (gameinfo && target->type_id > 0 &&
-            target->type_id < gameinfo->mobj_type_count) {
-            int deathstate = gameinfo->mobjinfo[target->type_id].deathstate;
-            P_SetMobjState(target, deathstate);
-        } else {
-            P_RemoveMobj(target);
-        }
-    }
     return true;
 }
 
@@ -346,6 +399,61 @@ static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
     }
     unit->core.momentum = fixed3_zero();
     return false;
+}
+
+static bool projectile_hits_target(const mobj_t *projectile,
+                                   fvec2_t start, fvec2_t end) {
+    const mobj_t *target = projectile ? projectile->projectile.target : NULL;
+    if (!projectile || !target || target->remove || target->hp <= 0 ||
+        P_IsAlly(projectile, target)) return false;
+
+    fvec2_t target_position = fixed3_xy_to_fvec2(target->core.position);
+    fvec2_t path = fvec2_sub(end, start);
+    float path_length2 = fvec2_length_squared(path);
+    float along = 0.0f;
+    if (path_length2 > 0.0001f) {
+        fvec2_t to_target = fvec2_sub(target_position, start);
+        along = (to_target.x * path.x + to_target.y * path.y) / path_length2;
+        if (along < 0.0f) along = 0.0f;
+        if (along > 1.0f) along = 1.0f;
+    }
+    fvec2_t closest = fvec2_add(start, fvec2_scale(path, along));
+    float radius = P_MobjRadius(projectile) + P_MobjRadius(target);
+    return fvec2_distance_squared(closest, target_position) <= radius * radius;
+}
+
+static void tick_projectile(mobj_t *projectile) {
+    if (!projectile || projectile->remove) return;
+    mobj_t *target = projectile->projectile.target;
+    if (!target || target->remove || target->hp <= 0 ||
+        P_IsAlly(projectile, target)) {
+        P_RemoveMobj(projectile);
+        return;
+    }
+
+    fvec2_t start = fixed3_xy_to_fvec2(projectile->core.position);
+    fvec2_t step = fixed3_xy_to_fvec2(projectile->core.momentum);
+    fvec2_t end = fvec2_add(start, step);
+    float distance = sqrtf(fvec2_length_squared(step));
+    if (projectile_hits_target(projectile, start, end)) {
+        damage_mobj(target, projectile->projectile.damage);
+        debug_effects_log("projectile impact projectile=%d target=%d damage=%d hp=%d/%d",
+                          projectile->id, target->id, projectile->projectile.damage,
+                          target->hp, target->max_hp);
+        P_RemoveMobj(projectile);
+        return;
+    }
+    if (distance <= 0.0001f || projectile->projectile.distance_left <= distance) {
+        P_RemoveMobj(projectile);
+        return;
+    }
+    if (level.width > 0 && !P_CheckPosition(&level, projectile, end.x, end.y)) {
+        P_RemoveMobj(projectile);
+        return;
+    }
+    projectile->core.position = fixed3_add_planar(projectile->core.position,
+                                                   projectile->core.momentum);
+    projectile->projectile.distance_left -= distance;
 }
 
 static bool unit_has_move_order(const mobj_t *unit) {
@@ -678,5 +786,9 @@ static void tick_actor(mobj_t *u) {
 
 void P_MobjThinker(mobj_t *mobj) {
     if (mobj->remove) { P_RemoveMobj(mobj); return; }
+    if (mobj->traits & MF_PROJECTILE) {
+        tick_projectile(mobj);
+        return;
+    }
     tick_actor(mobj);
 }

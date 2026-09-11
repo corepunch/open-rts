@@ -31,6 +31,7 @@ void P_RemoveMobj(mobj_t *mobj) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *other = (mobj_t *)th;
         if (other->attack.target == mobj) other->attack.target = NULL;
+        if (other->projectile.target == mobj) other->projectile.target = NULL;
     }
 }
 

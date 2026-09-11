@@ -99,7 +99,9 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 15.0f / 32.0f,
         .max_hp = 1200,
-        .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200 },
+        .attack = { .range = 6.0f, .damage = 180, .cooldown_ms = 1200,
+                    .projectile_type = MT_CANNONBALL,
+                    .projectile_speed = 8.0f },
     },
     {
         .id = MT_CYBORG,
@@ -363,6 +365,13 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/DOTT.SPR",
         .traits = MF_RENDERABLE,
         .max_hp = 300,
+    },
+    {
+        .id = MT_CANNONBALL,
+        .name = "Cannonball",
+        .sprite_name = "SPRITES/MISA.SPR",
+        .traits = MF_RENDERABLE | MF_NOBLOCKMAP | MF_PROJECTILE,
+        .max_hp = 1,
     },
     {
         .id = MT_SENTINEL,

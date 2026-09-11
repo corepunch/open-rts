@@ -48,12 +48,16 @@ S_REAP_DIEA6_{1..26}             REAP    363..388           30,5,4,5,5,5,4,5,5,5
 S_REAP_DIEA6_CORPSE              REAP    388                -1                       NULL                   S_NULL                       4
 S_REAP_DIEA2_{1..15}             REAP    252..266           5,4,5,5,5,4,5,5,5,75,76,76,43,42,43 NULL                   S_REAP_DIEA2_CORPSE          4
 S_REAP_DIEA2_CORPSE              REAP    266                -1                       NULL                   S_NULL                       4
-S_BARR_STND                      BARR    106                -1                       NULL                   S_BARR_STND                  1
+S_BARR_STND                      BARR    106                1                        A_Look                 S_BARR_STND                  1
 S_BARR_RUN{1..13}                BARR    122..134           3                        A_Chase                S_BARR_RUN1                  2
-S_BARR_ATK{1..8}                 BARR    195..202           2                        NULL                   S_BARR_STND                  3
+S_BARR_ATK{1..2}                 BARR    195..196           2                        NULL                   S_BARR_ATK3                  3
+S_BARR_ATK3                      BARR    197                2                        A_Attack               S_BARR_ATK4                  3
+S_BARR_ATK{4..8}                 BARR    198..202           2                        NULL                   S_BARR_STND                  3
 ; BARRDIE14: complete native FIN sequence.
 S_BARR_DIE{1..15}                BARR    246..260           5,4,5,5,5,4,5,5,5,75,76,76,43,42,43 NULL                   S_BARR_CORPSE                4
 S_BARR_CORPSE                    BARR    260                -1                       NULL                   S_NULL                       4
+; MISA's first authored FIN animation is the Barrager cannonball.
+S_MISA_CANNONBALL                MISA    24                 -1                       NULL                   S_MISA_CANNONBALL             0
 S_SARG_STND                      SARG    663                1                        A_Look                 S_SARG_STND                  1
 S_SARG_RUN{1..8}                 SARG    198..205           3                        A_Chase                S_SARG_RUN1                  2
 S_SARG_ATK{1..3}                 SARG    270..272           2                        NULL                   S_SARG_STND                  3

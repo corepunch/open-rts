@@ -37,6 +37,7 @@ const state_t states[NUMSTATES] = {
     #include "animate/BEAC.inc"
     #include "animate/BEON.inc"
     #include "animate/ENGI.inc"
+    #include "animate/MISA.inc"
     #include "animate/BLOO.inc"
     #include "animate/BURN.inc"
     #include "animate/BURN2.inc"
@@ -147,13 +148,15 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnstate = S_BARR_STND,
         .spawnhealth = 400,
         .seestate = S_BARR_RUN1,
+        .missilestate = S_BARR_ATK1,
         .deathstate = S_BARR_DIE1,
         .xdeathstate = S_BARR_DIE1,
         .speed = 3,
         .radius = 16,
         .height = 32,
         .mass = 100,
-        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+        .damage = 180,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
     },
     { // MT_CYBORG
         .doomednum = 4,
@@ -372,6 +375,13 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     { // MT_PRODUCTION_RELEASE
         .spawnstate = S_BRRKPOD_BUILD_TRSC1,
         .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
+    },
+    { // MT_CANNONBALL
+        .spawnstate = S_MISA_CANNONBALL,
+        .spawnhealth = 1,
+        .radius = 4,
+        .height = 4,
+        .flags = MF_RENDERABLE|MF_NOBLOCKMAP|MF_PROJECTILE,
     },
     { // MT_SENTINEL
         .doomednum = 43,
