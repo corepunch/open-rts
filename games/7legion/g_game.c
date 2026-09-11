@@ -30,6 +30,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_HARVESTER,
         .speed       = 3.5f,
         .max_hp      = 60,
+        .harvest     = { .capacity = 50 },
     },
     {
         .id          = 3,
@@ -69,13 +70,14 @@ static const mobjtype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_HARVESTER,
         .speed       = 5.0f,
         .max_hp      = 200,
+        .harvest     = { .capacity = 100 },
     },
     {
         .id          = 7,
         .name        = "Mobile Base",
         .sprite_name = "GFX/MOBBASE.BIM",
         .traits      = MF_SELECTABLE | MF_MOBILE |
-                       MF_RENDERABLE,
+                       MF_RENDERABLE | MF_RESOURCE_BASE,
         .speed       = 2.5f,
         .max_hp      = 1000,
     },

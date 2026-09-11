@@ -2,23 +2,171 @@
 #include "kknd.h"
 #include "info.h"
 
+#define SPR(idx) "LEVELS/640/SPRITES.LVL|" #idx ".mobd"
+
 static const mobjtype_t ACTOR_TYPES[] = {
-    {
-        .id = 1,
-        .name = "Survivor Infantry",
-        .sprite_name = "LEVELS/640/SPRITES.LVL|Infantry.mobd",
-        .traits = MF_SELECTABLE | MF_MOBILE |
-                  MF_RENDERABLE | MF_ATTACK,
-        .speed = 4.0f,
-        .max_hp = 100,
-        .attack = { .range = 4.0f, .damage = 10, .cooldown_ms = 650 },
+    /* === Survivor Infantry === */
+    { .id = MT_SURV_RIFLEMAN, .name = "Rifleman",
+      .sprite_name = SPR(34),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 4.0f, .max_hp = 100,
+      .attack = { .range = 4.0f, .damage = 10, .cooldown_ms = 650 },
+    },
+    { .id = MT_SURV_FLAMER, .name = "Flamer",
+      .sprite_name = SPR(25),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.5f, .max_hp = 120,
+      .attack = { .range = 3.0f, .damage = 15, .cooldown_ms = 500 },
+    },
+    { .id = MT_SURV_RPG_LAUNCHER, .name = "RPG Launcher",
+      .sprite_name = SPR(59),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.5f, .max_hp = 80,
+      .attack = { .range = 6.0f, .damage = 30, .cooldown_ms = 1200 },
+    },
+    { .id = MT_SURV_SNIPER, .name = "Sniper",
+      .sprite_name = SPR(71),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.0f, .max_hp = 60,
+      .attack = { .range = 8.0f, .damage = 50, .cooldown_ms = 2000 },
+    },
+    /* === Survivor Vehicles === */
+    { .id = MT_SURV_DIRT_BIKE, .name = "Dirt Bike",
+      .sprite_name = SPR(7),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 7.0f, .max_hp = 80,
+      .attack = { .range = 4.0f, .damage = 8, .cooldown_ms = 400 },
+    },
+    { .id = MT_SURV_4X4_PICKUP, .name = "4x4 Pickup",
+      .sprite_name = SPR(54),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 5.5f, .max_hp = 200,
+      .attack = { .range = 5.0f, .damage = 12, .cooldown_ms = 500 },
+    },
+    { .id = MT_SURV_ANACONDA_TANK, .name = "Anaconda Tank",
+      .sprite_name = SPR(77),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.5f, .max_hp = 500,
+      .attack = { .range = 7.0f, .damage = 40, .cooldown_ms = 1500 },
+    },
+    { .id = MT_SURV_AUTOCANNON_TANK, .name = "Autocannon Tank",
+      .sprite_name = SPR(11),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 4.0f, .max_hp = 350,
+      .attack = { .range = 6.0f, .damage = 25, .cooldown_ms = 800 },
+    },
+    /* === Survivor Harvesters === */
+    { .id = MT_SURV_OIL_TANKER, .name = "Oil Tanker",
+      .sprite_name = SPR(73),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER,
+      .speed = 4.0f, .max_hp = 300,
+      .harvest = { .capacity = 100 },
+    },
+    /* === Survivor Buildings === */
+    { .id = MT_SURV_DRILLRIG, .name = "Drill Rig",
+      .sprite_name = SPR(75),
+      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE,
+      .max_hp = 600,
+    },
+    { .id = MT_SURV_OUTPOST, .name = "Outpost",
+      .sprite_name = SPR(52),
+      .traits = MF_SELECTABLE | MF_RENDERABLE,
+      .max_hp = 800,
+    },
+    { .id = MT_SURV_MACHINE_SHOP, .name = "Machine Shop",
+      .sprite_name = SPR(37),
+      .traits = MF_SELECTABLE | MF_RENDERABLE,
+      .max_hp = 600,
+    },
+    /* === Mutant Infantry === */
+    { .id = MT_MUTE_BERSERKER, .name = "Berserker",
+      .sprite_name = SPR(5),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 4.5f, .max_hp = 120,
+      .attack = { .range = 2.0f, .damage = 20, .cooldown_ms = 600 },
+    },
+    { .id = MT_MUTE_PYROMANIAC, .name = "Pyromaniac",
+      .sprite_name = SPR(55),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.5f, .max_hp = 100,
+      .attack = { .range = 3.0f, .damage = 15, .cooldown_ms = 500 },
+    },
+    { .id = MT_MUTE_SHOTGUNNER, .name = "Shotgunner",
+      .sprite_name = SPR(68),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 4.0f, .max_hp = 100,
+      .attack = { .range = 4.0f, .damage = 12, .cooldown_ms = 700 },
+    },
+    { .id = MT_MUTE_BAZOOKA, .name = "Bazooka",
+      .sprite_name = SPR(60),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.5f, .max_hp = 80,
+      .attack = { .range = 6.0f, .damage = 30, .cooldown_ms = 1200 },
+    },
+    /* === Mutant Vehicles === */
+    { .id = MT_MUTE_DIRE_WOLF, .name = "Dire Wolf",
+      .sprite_name = SPR(19),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 7.0f, .max_hp = 100,
+      .attack = { .range = 2.0f, .damage = 15, .cooldown_ms = 400 },
+    },
+    { .id = MT_MUTE_MONSTER_TRUCK, .name = "Monster Truck",
+      .sprite_name = SPR(47),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 5.0f, .max_hp = 250,
+      .attack = { .range = 5.0f, .damage = 15, .cooldown_ms = 600 },
+    },
+    { .id = MT_MUTE_GIANT_SCORPION, .name = "Giant Scorpion",
+      .sprite_name = SPR(64),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 4.0f, .max_hp = 400,
+      .attack = { .range = 3.0f, .damage = 35, .cooldown_ms = 1000 },
+    },
+    { .id = MT_MUTE_WAR_MASTADONT, .name = "War Mastadont",
+      .sprite_name = SPR(38),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .speed = 3.0f, .max_hp = 600,
+      .attack = { .range = 6.0f, .damage = 45, .cooldown_ms = 1500 },
+    },
+    /* === Mutant Harvesters === */
+    { .id = MT_MUTE_OIL_TANKER, .name = "Mutant Oil Tanker",
+      .sprite_name = SPR(48),
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER,
+      .speed = 4.0f, .max_hp = 250,
+      .harvest = { .capacity = 100 },
+    },
+    /* === Mutant Buildings === */
+    { .id = MT_MUTE_DRILLRIG, .name = "Mutant Drill Rig",
+      .sprite_name = SPR(50),
+      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE,
+      .max_hp = 500,
+    },
+    { .id = MT_MUTE_CLANHALL, .name = "Clan Hall",
+      .sprite_name = SPR(13),
+      .traits = MF_SELECTABLE | MF_RENDERABLE,
+      .max_hp = 800,
+    },
+    { .id = MT_MUTE_BEAST_ENCLOSURE, .name = "Beast Enclosure",
+      .sprite_name = SPR(3),
+      .traits = MF_SELECTABLE | MF_RENDERABLE,
+      .max_hp = 600,
+    },
+    /* === Survivor Towers === */
+    { .id = MT_SURV_GUARD_TOWER, .name = "Guard Tower",
+      .sprite_name = SPR(67),
+      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
+      .max_hp = 400,
+      .attack = { .range = 6.0f, .damage = 12, .cooldown_ms = 500 },
+    },
+    /* === Mutant Towers === */
+    { .id = MT_MUTE_MACHINEGUN_NEST, .name = "Machinegun Nest",
+      .sprite_name = SPR(43),
+      .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK,
+      .max_hp = 350,
+      .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 400 },
     },
 };
 
-
-/* OpenKKnD uses a 48-pixel button rail on the right and a centered 180x28
-   status box.  Keep those native proportions while command icons are loaded
-   independently from the original game's MOBD assets. */
 static const uidefinition_t UI = {
     .logical_width = 640,
     .logical_height = 480,
@@ -50,7 +198,7 @@ const char *const g_game_default_map   = "LEVELS/640/SURV_01.LVL";
 const char *const g_game_default_sprite = "LEVELS/640/SPRITES.LVL|Infantry.mobd";
 const int g_cell_w = 32;
 const int g_cell_h = 32;
-const uint16_t g_debug_enemy_type = 1;
+const uint16_t g_debug_enemy_type = MT_MUTE_BERSERKER;
 const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types = ACTOR_TYPES;
 const int num_actor_types =
@@ -73,7 +221,88 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
 
 int P_LoadThings(const char *path) {
     (void)path;
-    return 0;
+    int count = 0;
+    float cx = level.width * 0.25f;
+    float cy = level.height * 0.25f;
+
+    /* Spawn player base + starting units */
+    struct { uint16_t type; float dx; float dy; } player_units[] = {
+        { MT_SURV_DRILLRIG,  0.0f,  0.0f },
+        { MT_SURV_OIL_TANKER, -2.0f, 0.0f },
+        { MT_SURV_RIFLEMAN,  2.0f, -1.0f },
+        { MT_SURV_RIFLEMAN,  2.0f,  1.0f },
+        { MT_SURV_RIFLEMAN,  3.0f,  0.0f },
+        { MT_SURV_OUTPOST,  -3.0f, -2.0f },
+    };
+    for (int i = 0; i < (int)(sizeof(player_units) / sizeof(player_units[0])); ++i) {
+        fvec2_t pos = { cx + player_units[i].dx, cy + player_units[i].dy };
+        if (pos.x < 1) pos.x = 1;
+        if (pos.y < 1) pos.y = 1;
+        mobj_t *unit = P_SpawnMobj(fixed3_zero(), player_units[i].type);
+        if (!unit) continue;
+        unit->core.position = fixed3_from_fvec2(pos, 0);
+        unit->owner = 0;
+        unit->team = 0;
+        unit->type_id = player_units[i].type;
+        count++;
+    }
+
+    /* Spawn enemy base + units on the far side */
+    float ex = level.width * 0.75f;
+    float ey = level.height * 0.75f;
+    struct { uint16_t type; float dx; float dy; } enemy_units[] = {
+        { MT_MUTE_DRILLRIG,   0.0f,  0.0f },
+        { MT_MUTE_OIL_TANKER, 2.0f,  0.0f },
+        { MT_MUTE_BERSERKER, -2.0f, -1.0f },
+        { MT_MUTE_BERSERKER, -2.0f,  1.0f },
+        { MT_MUTE_SHOTGUNNER,-3.0f,  0.0f },
+        { MT_MUTE_CLANHALL,   3.0f, -2.0f },
+    };
+    for (int i = 0; i < (int)(sizeof(enemy_units) / sizeof(enemy_units[0])); ++i) {
+        fvec2_t pos = { ex + enemy_units[i].dx, ey + enemy_units[i].dy };
+        if (pos.x >= level.width) pos.x = (float)level.width - 1.0f;
+        if (pos.y >= level.height) pos.y = (float)level.height - 1.0f;
+        mobj_t *unit = P_SpawnMobj(fixed3_zero(), enemy_units[i].type);
+        if (!unit) continue;
+        unit->core.position = fixed3_from_fvec2(pos, 0);
+        unit->owner = 1;
+        unit->team = 1;
+        unit->allegiance = ALLEGIANCE_ENEMY;
+        unit->type_id = enemy_units[i].type;
+        count++;
+    }
+
+    /* Place resource vents near both bases */
+    static const struct { float fx; float fy; } vent_rel[] = {
+        { -6.0f, -4.0f }, { 6.0f, 4.0f },
+        { -4.0f, 6.0f },  { 4.0f, -6.0f },
+    };
+    float bases[][2] = { { cx, cy }, { ex, ey } };
+    for (int b = 0; b < 2; ++b) {
+        for (int v = 0; v < (int)(sizeof(vent_rel) / sizeof(vent_rel[0])); ++v) {
+            float vx = bases[b][0] + vent_rel[v].fx;
+            float vy = bases[b][1] + vent_rel[v].fy;
+            int ix = (int)vx, iy = (int)vy;
+            if (!L_Contains(&level, ix, iy)) continue;
+            resourcevent_t *vents = realloc(level.resource_vents,
+                (size_t)(level.resource_vent_count + 1) * sizeof(resourcevent_t));
+            if (!vents) break;
+            level.resource_vents = vents;
+            resourcevent_t *rv = &level.resource_vents[level.resource_vent_count++];
+            rv->cell = (ivec2_t){ ix, iy };
+            rv->attachment = (fvec2_t){ vx + 0.5f, vy + 0.5f };
+            rv->amount = 5000;
+            rv->rate = 25;
+            rv->active = true;
+            rv->resource_type = 0;
+        }
+    }
+
+    level.player_resources[0][0] = 5000;
+    level.player_resources[1][0] = 5000;
+    level.has_camera = true;
+    level.camera = (fvec2_t){ cx, cy };
+    return count;
 }
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
