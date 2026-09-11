@@ -3281,9 +3281,11 @@ the production/build request succeeds.
 construction cancellation/refunds and queue UI remain unverified. This change
 uses the existing construction state table; entries without a registered build
 chain use their spawn state. Exo-Ctr foundation placement is not implemented.
-Later units without actor mappings remain unsupported. The screenshot does not
-prove selection behavior for every other menu/tab. No timing constant or new
-delivery effect was inferred from it.
+All listed human unit rows now resolve to runtime actors, including Sentinel and
+Medi-craft; their production availability and spawn paths are covered by the
+focused production test. The screenshot does not prove selection behavior for
+every other menu/tab. No timing constant or new delivery effect was inferred
+from it.
 
 **Verification:** all 16 authored human cost/UI/prerequisite entries compared
 exactly to DEPEND.TXT. Temporary `OPEN_RTS_DEBUG_PRODUCTS` logs confirmed initial

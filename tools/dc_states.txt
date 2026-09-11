@@ -88,6 +88,8 @@ S_SLUG_CORPSE                    SLUG    169                -1                  
 S_SLUG_DEPLOY{1..14}             SLUG    237..250           5,4,5,5,5,4,5,5,5,4,5,5,5,4 NULL                   S_SLUG_DEPLOY1               5
 ; SLUGRETRACT14: complete native FIN sequence.
 S_SLUG_RETRACT{1..14}            SLUG    251..264           5,4,5,5,5,4,5,5,5,4,5,5,5,4 NULL                   S_NULL                       5
+S_ENGI_STND                      ENGI    29                 -1                       NULL                   S_ENGI_STND                  1
+S_BEON_STND                      BEON    26                 -1                       NULL                   S_BEON_STND                  1
 S_TURR_STND                      TURR    60                 -1                       NULL                   S_TURR_STND                  1
 S_TURR_FIRE                      TURR    111                2                        A_Attack               S_TURR_STND                  3
 ; TURRDIE0: complete native FIN sequence.

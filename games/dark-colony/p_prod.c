@@ -60,11 +60,14 @@ static uint16_t actor_id_for_product_type(int product_type) {
 static uint16_t unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
     case 0: return MT_TROOPER;
+    case 1: return MT_MOBILE_TOWER;
     case 2: return MT_REAPER;
     case 3: return MT_THUNDERBOLT;
     case 4: return MT_CYBORG;
     case 5: return MT_SCOUT;
     case 6: return MT_EXPLOITER;
+    case 43: return MT_SENTINEL;
+    case 49: return MT_MEDI_CRAFT;
     case 14: return MT_SLUG;
     case  8: return MT_GREY;
     case 13: return MT_ORTU;
@@ -161,6 +164,15 @@ bool DC_ProductActorMatches(int actor, int required) {
         (actor == MT_ROBOPOD2 && required == MT_ROBOPOD);
 }
 
+static bool dc_unit_is_ready(const mobj_t *unit) {
+    if (!unit || P_MobjIsHidden(unit) || unit->owner != 0 || unit->remove || unit->hp <= 0)
+        return false;
+    if (gameinfo && gameinfo->states && unit->core.state_id >= 0 &&
+        unit->core.state_id < gameinfo->state_count &&
+        gameinfo->states[unit->core.state_id].group == 6) return false;
+    return true;
+}
+
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     if (!product) return false;
@@ -184,9 +196,7 @@ bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
         uint16_t actor_id = G_ModelActorIdForProduct(prereq);
         bool found = false;
         for (int j = 0; j < unit_count; ++j) {
-            if (P_MobjIsHidden(units[j]) || units[j]->owner != 0 || units[j]->remove ||
-                units[j]->hp <= 0 ||
-                (states[units[j]->core.state_id].group == 6 && !units[j]->production) ||
+            if (!dc_unit_is_ready(units[j]) ||
                 !DC_ProductActorMatches(units[j]->type_id, actor_id)) continue;
             found = true;
             break;

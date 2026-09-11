@@ -364,6 +364,28 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .traits = MF_RENDERABLE,
         .max_hp = 300,
     },
+    {
+        .id = MT_SENTINEL,
+        .sight = { 7, 4, false },
+        .native_type_id = 43,
+        .damage_action = A_DC_Damage,
+        .name = "Sentinel",
+        .sprite_name = "SPRITES/ENGI.SPR",
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+        .speed = 30.0f / 32.0f,
+        .max_hp = 800,
+    },
+    {
+        .id = MT_MEDI_CRAFT,
+        .sight = { 8, 8, true },
+        .native_type_id = 49,
+        .damage_action = A_DC_Damage,
+        .name = "Medi-craft",
+        .sprite_name = "SPRITES/BEON.SPR",
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY,
+        .speed = 47.0f / 32.0f,
+        .max_hp = 400,
+    },
 };
 
 const mobjtype_t *actor_type_by_id(uint16_t type_id) {

@@ -35,6 +35,8 @@ const state_t states[NUMSTATES] = {
     #include "animate/ATRIL.inc"
     #include "animate/BARR.inc"
     #include "animate/BEAC.inc"
+    #include "animate/BEON.inc"
+    #include "animate/ENGI.inc"
     #include "animate/BLOO.inc"
     #include "animate/BURN.inc"
     #include "animate/BURN2.inc"
@@ -370,6 +372,28 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     { // MT_PRODUCTION_RELEASE
         .spawnstate = S_BRRKPOD_BUILD_TRSC1,
         .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
+    },
+    { // MT_SENTINEL
+        .doomednum = 43,
+        .spawnstate = S_ENGI_STND,
+        .seestate = S_ENGI_STND,
+        .spawnhealth = 800,
+        .speed = 30,
+        .radius = 16,
+        .height = 32,
+        .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
+    { // MT_MEDI_CRAFT
+        .doomednum = 49,
+        .spawnstate = S_BEON_STND,
+        .seestate = S_BEON_STND,
+        .spawnhealth = 400,
+        .speed = 47,
+        .radius = 16,
+        .height = 32,
+        .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_FLY,
     },
 };
 

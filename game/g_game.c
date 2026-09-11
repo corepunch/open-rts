@@ -99,11 +99,19 @@ static void apply_plugin_actor_defaults(RtsGameModel *model) {
     }
 }
 
+static bool model_unit_is_ready(const mobj_t *unit) {
+    if (!unit || unit->remove || unit->hp <= 0) return false;
+    if (gameinfo && gameinfo->states && unit->core.state_id >= 0 &&
+        unit->core.state_id < gameinfo->state_count &&
+        gameinfo->states[unit->core.state_id].group == 6) return false;
+    return true;
+}
+
 bool G_ModelHasActorType(const RtsGameModel *model, int owner, uint16_t actor_id) {
     if (!model || actor_id == 0) return false;
     for (int i = 0; i < model->objects.count; ++i) {
-        if (model->objects.items[i]->owner == owner && !model->objects.items[i]->remove &&
-            model->objects.items[i]->hp > 0 && model->objects.items[i]->type_id == actor_id)
+        const mobj_t *unit = model->objects.items[i];
+        if (unit->owner == owner && unit->type_id == actor_id && model_unit_is_ready(unit))
             return true;
     }
     return false;
@@ -115,8 +123,8 @@ int G_ModelFindProducerIndex(const RtsGameModel *model, int owner,
     for (int i = 0; i < product->maker_count; ++i) {
         for (int j = 0; j < model->objects.count; ++j) {
             const mobj_t *unit = model->objects.items[j];
-            if (unit->owner == owner && !unit->remove && unit->hp > 0 &&
-                unit->type_id == (uint16_t)product->makers[i])
+            if (unit->owner == owner && unit->type_id == (uint16_t)product->makers[i] &&
+                model_unit_is_ready(unit))
                 return j;
         }
     }
