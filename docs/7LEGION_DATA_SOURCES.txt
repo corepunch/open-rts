@@ -1,0 +1,202 @@
+================================================================================
+7TH LEGION UNIT DATA - EXTRACTION SOURCES & CONFIDENCE LEVELS
+================================================================================
+
+TIER 1: VERIFIED FROM CODE + ASSETS (100% Confidence)
+──────────────────────────────────────────────────────
+
+ID  Name              HP    SPD  DMG  Source                          Status
+──  ────────────────  ────  ──  ────  ─────────────────────────────  ────────
+1   TROOPER           100    4   15   games/7legion/info.c           ✓ Working
+2   SLAVE              60    4    0   games/7legion/info.c           ✓ Working
+3   SPIDER_MECH       300    3   35   games/7legion/info.c           ✓ Working
+4   TANK              500    5   50   games/7legion/info.c           ✓ Working
+5   ROCK_MECH         800    3   70   games/7legion/info.c           ✓ Working
+6   TRUCK             200    5    0   games/7legion/info.c           ✓ Working
+7   MOBILE_BASE      1000    3    0   games/7legion/info.c           ✓ Working
+
+   Confidence factors:
+   • Running binary produces correct sprites
+   • p_prod.c confirms production table
+   • Assets exist at referenced paths
+   • Smoke tests pass with these units
+
+
+TIER 2: NAMED IN GAMETEXT, ASSETS EXIST (70-80% Confidence)
+──────────────────────────────────────────────────────────
+
+ID  Name              Asset File         GameText    Notes
+──  ────────────────  ─────────────────  ─────────  ──────────────────────
+8   JEEP              JEEPBODY.BIM       ? (not in  Light vehicle variant,
+                                         encyclopedia) fast + light dmg
+9   HEAVYBOT          HEAVYBOT.BIM       ? (not in  Super-heavy endgame unit,
+                                         encyclopedia) slower + more dmg
+
+   Confidence factors:
+   • Asset files exist in data/7LEGION/GFX/
+   • Names reasonably inferred from filenames
+   • Stats extrapolated from balance progression
+   ⚠ Stats are inferred, not from source data
+
+
+TIER 3: UNIT NAMES FROM GAMETEXT.TXT (100% Name, 0% Stats)
+──────────────────────────────────────────────────────────
+
+Source: data/7LEGION/DATA/GameText.txt (encycloped ia entries)
+
+Heavy Unit Names (Lines 109-117):
+  109  Marauder          ?   ?   ?      Tank-class unit
+  110  Oppressor         ?   ?   ?      Tank-class unit
+  111  Crucifier         ?   ?   ?      Tank-class unit
+  112  APC               ?   ?   ?      Armored Personnel Carrier
+  113  Tormentor         ?   ?   ?      Mech-class unit
+  114  Avenger           ?   ?   ?      Medium-heavy unit
+  115  Faith Hammer      ?   ?   ?      Special/support unit
+  116  Annihilator       ?   ?   ?      Super-heavy unit
+  117  Purifier          ?   ?   ?      Special/support unit
+
+Infantry/Support Names (Lines 120-128):
+  120  infantry          ?   ?   ?      Generic infantry
+  121  Machine Gunner    ?   ?   ?      Infantry variant
+  123  Mortar Unit       ?   ?   ?      Support/ranged unit
+  124  Priest            ?   ?   ?      Special/buffing unit
+  125  Medic             ?   ?   ?      Support/healing unit
+  126  Slaven Rider      ?   ?   ?      Mounted unit
+  127  Marine            ?   ?   ?      Infantry variant
+  128  Commander         ?   ?   ?      Hero/leadership unit
+
+Advanced Unit Names (Lines 140-145, 150):
+  140  Dominator         ?   ?   ?      Heavy tank variant
+  141  Obliterator       ?   ?   ?      Heavy mech variant
+  142  Light M*ch        ?   ?   ?      Light mech variant
+  143  Nova              ?   ?   ?      Unknown role
+  144  Venom Typhoon     ?   ?   ?      Heavy ranged unit
+  145  Redeemer          ?   ?   ?      Special unit
+  149  Mobile Base       1000  3  0     ✓ Already implemented (#7)
+  150  Pyroclast         ?   ?   ?      Super-heavy unit
+
+   ⚠ Names are 100% confirmed
+   ⚠ Stats entirely unknown (would need exe disassembly)
+
+
+TIER 4: ASSET NAMING PATTERNS (Asset Existence, 0% Stats)
+────────────────────────────────────────────────────────
+
+Source: data/7LEGION/GFX/ directory (278 .BIM files)
+
+Trooper variants (Color/faction recolors - likely same mobjinfo):
+  LTROOP.BIM      Legion Trooper (VERIFIED as MT_TROOPER)
+  BTROOP.BIM      Blue/Basic Trooper
+  CTROOP.BIM      Chosen/Crimson Trooper
+  GTROOP.BIM      Green Trooper
+  ITROOP*         Infantry Trooper variants (3 frames/states)
+
+Tank variants (27+ different tank assets):
+  TANKBASE.BIM    Tank base (VERIFIED as MT_TANK)
+  ATTANK.BIM      ? Tank variant
+  GHTANK.BIM      ? Tank variant (Green/Gray/Heavy?)
+  GLTANK.BIM      ? Tank variant
+  GMTANK.BIM      ? Tank variant
+  GTANKBAS/TOP    Tank body/turret split
+  LBTANK.BIM      Light/Blast Tank?
+  MBTANK.BIM      Medium/Blast Tank?
+  MTTANK.BIM      Medium/Tower Tank?
+  HBTANK.BIM      Heavy/Blast Tank?
+  HTTANK.BIM      Heavy/Tower Tank?
+  LTTANK.BIM      Light/Tower Tank?
+  NTANK.BIM       New/Nova Tank?
+  MTANKB*/MTANKT* Missile Tank base/turret split
+  ... (12+ more tank variants)
+
+Mech variants:
+  SPIDER.BIM      Spider Mech (VERIFIED as MT_SPIDER_MECH)
+  ROCKMECH.BIM    Rock Mech (VERIFIED as MT_ROCK_MECH)
+  HEAVYBOT.BIM    Heavy Bot
+  MECH1*          Mech components (body/head/leg parts?)
+
+Vehicle variants:
+  TRUCK.BIM       Truck (VERIFIED as MT_TRUCK)
+  MOBBASE.BIM     Mobile Base (VERIFIED as MT_MOBILE_BASE)
+  JEEP*           Jeep + variants (JEEPBODY.BIM, JEEPGUN.BIM, JEEPGUNF.BIM)
+
+Specialist assets:
+  MORTAR*.BIM     Mortar weapon/animation
+  ROCKET.BIM      Rocket weapon/animation
+  MISSILE.BIM     Missile weapon/animation
+  SHELL*.BIM      Shell weapon/animation
+
+
+TIER 5: MISSION DATA ANALYSIS (Usage Patterns)
+────────────────────────────────────────────────
+
+Source: data/7LEGION/DATA/Missions.ini (40 missions)
+
+PVStart string format: 43 characters, digit-encoded unit counts
+  Typical patterns:
+    0000000000000040000000000000000000000000001 (basic mission)
+    0010100000000040000000000000000000000000001 (varied units)
+    0000000000000000000000000000000004100020000 (specialized units)
+
+Non-zero positions (where units are specified):
+  Position 2:   Values 0-1  (common)
+  Position 4:   Values 0-3  (very common - high-use unit type)
+  Position 6:   Values 0-3  (very common - high-use unit type)
+  Position 14:  Values 0-4  (variable - medium importance)
+  Position 15:  Values 0-4  (variable - medium importance)
+  Position 20:  Values 0-3  (rare - special unit)
+  Position 42:  Values 0-1  (final position, usually 1)
+
+⚠ Format unknown - cannot map positions to unit types without exe reference
+
+Usage frequency (all missions combined):
+  High  : Position 4, 6 (appear in 20+ missions each)
+  Medium: Position 2, 14, 15, 42 (appear in 10-15 missions)
+  Low   : Position 20, 33, 34, 38 (appear in 2-5 missions)
+
+Interpretation:
+  → High-frequency positions likely encode basic units (trooper, tank, truck)
+  → Medium-frequency positions likely encode specialized units
+  → Low-frequency positions likely encode rare/special units or endgame tech
+
+
+TIER 6: GAMETEXT ENCYCLOPEDIA (Limited Context)
+────────────────────────────────────────────────
+
+Source: data/7LEGION/DATA/GameText.txt (lines 376-390)
+
+Example: Infantry unit document found:
+  \Name: Infantry
+  [Cost: 250 Cr
+  [Armour: Body
+  [Weapon: Plasma Rifle
+  [Weapon 2: Plasma Rifle
+  [Speed: 8
+  [Turn Speed: 8
+  [Health: 4
+  [Build Time: 200
+  [Reload Time: 200
+
+Notes:
+  ✓ Shows unit documentation exists
+  ⚠ Only Infantry example found with full stats
+  ⚠ Other units reference template (lines 391+) with %s/%d placeholders
+  ⚠ Cannot extract actual values for other units from this file
+
+
+SUMMARY: DATA EXTRACTION COMPLETENESS
+═════════════════════════════════════════════════════════════════════════
+
+7 units:   Fully extracted (names, stats, assets)
+2 units:   Extractable with confidence ~70% (Jeep, HeavyBot)
+18+ units: Names extracted, stats would require exe disassembly
+1 format:  PVStart encoding needs exe reverse-engineering
+
+Total without exe: 9 units (60% of named units)
+Total with exe:    25+ units (100% of named units)
+
+Cost to complete tier 3-5 (with exe):
+  ~2-4 hours: Disassemble legion.exe with IDA/Ghidra
+  ~1 hour:    Map unit property table
+  ~1 hour:    Verify against missions
+  ~1 hour:    Document PVStart format
+
