@@ -338,6 +338,8 @@ static void write_info_h(const char *path) {
         if (a->shoot >= 0 && a->slen > 0)
             for (int k = 1; k <= a->slen; ++k)
                 fprintf(f, "    S_%s_ATCK%d,\n", g_units[i].spr_suffix, k);
+        else if (g_units[i].is_combat)
+            fprintf(f, "    S_%s_ATCK1,\n", g_units[i].spr_suffix);
     }
     fprintf(f, "    NUMSTATES\n} statenum_t;\n\n");
 
@@ -463,6 +465,10 @@ static void write_info_c(const char *path) {
                 fprintf(f, "    { %s, %d, 4, %s, %s, 3 },  /* S_%s_ATCK%d */\n",
                         spr, a->shoot + k - 1, act, nxt_buf, sfx, k);
             }
+        } else if (g_units[i].is_combat) {
+            /* Melee/no-animation attack: single ATCK1 frame using idle pose */
+            fprintf(f, "    { %s, %d, 4, A_Attack, %s, 3 },  /* S_%s_ATCK1 */\n",
+                    spr, a->idle, stnd, sfx);
         }
     }
     fprintf(f, "};\n\n");
@@ -486,7 +492,7 @@ static void write_info_c(const char *path) {
             snprintf(see_state, sizeof(see_state), "S_%s_WALK1", u->spr_suffix);
         else
             snprintf(see_state, sizeof(see_state), "%s", u->state_name);
-        if (u->is_combat && a->shoot >= 0 && a->slen > 0)
+        if (u->is_combat)
             snprintf(missile_state, sizeof(missile_state), "S_%s_ATCK1", u->spr_suffix);
         else
             snprintf(missile_state, sizeof(missile_state), "S_NULL");
