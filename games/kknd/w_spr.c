@@ -167,7 +167,24 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
     }
 
     int sequence_blocks = ordered_count / 16;
-    if (sequence_blocks > 3) sequence_blocks = 3;
+    if (sequence_blocks > 4) sequence_blocks = 4;
+
+    /* Buildings: fewer than 16 ordered groups → non-rotational animation. */
+    if (sequence_blocks == 0 && ordered_count > 0) {
+        int nframes = 0;
+        for (int g = 0; g < ordered_count; ++g) nframes += group_lengths[g];
+        if (nframes <= 0 || !R_InitSpriteDef(out, nframes, 16)) goto fail;
+        int lf = 0;
+        for (int g = 0; g < ordered_count; ++g) {
+            for (int f = 0; f < group_lengths[g]; ++f, ++lf) {
+                int lump = group_starts[g] + f;
+                for (int rot = 0; rot < 16; ++rot)
+                    R_InstallSpriteLump(out, lf, rot, lump, flips[lump]);
+            }
+        }
+        return true;
+    }
+
     int logical_frames = 0;
     for (int block = 0; block < sequence_blocks; ++block) {
         int length = group_lengths[block * 16];

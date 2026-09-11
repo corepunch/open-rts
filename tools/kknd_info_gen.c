@@ -100,6 +100,73 @@ static const mobd_entry_t *lookup_mobd(const char *cfg_name) {
     return NULL;
 }
 
+/* ── Animation frame offsets derived from actual MOBD data ───────────────── */
+/* Each entry matches the corresponding MOBD_TABLE index.
+   idle/shoot/move are logical-frame indices (block offsets) into the sprite.
+   slen/mlen = number of animation frames for shoot/move cycles.
+   -1 = animation not present for this unit.                               */
+typedef struct { int idle; int shoot; int slen; int move; int mlen; } anim_t;
+
+static const anim_t ANIM_TABLE[] = {
+    /* 0  SURV_RIFLEMAN (34) [1,4,6] */            {  0,  1, 4,  5, 6 },
+    /* 1  SURV_FLAMER (25) [1,4,6] */              {  0,  1, 4,  5, 6 },
+    /* 2  SURV_SWAT (76) [1,4,6] */                {  0,  1, 4,  5, 6 },
+    /* 3  SURV_SAPPER (63) [8,1,6,6] */            {  8,  9, 6, 15, 6 },
+    /* 4  SURV_SABOTEUR (62) [1,4,6] */            {  0,  1, 4,  5, 6 },
+    /* 5  SURV_TECHNICIAN (78) [1,6] */            {  0, -1, 0,  1, 6 },
+    /* 6  SURV_RPG_LAUNCHER (59) [1,5,6] */        {  0,  1, 5,  6, 6 },
+    /* 7  SURV_SNIPER (71) [1,4,6] */              {  0,  1, 4,  5, 6 },
+    /* 8  MUTE_BERSERKER (5) [1,1,4,6] */          {  1,  2, 4,  6, 6 },
+    /* 9  MUTE_PYROMANIAC (55) [1,4,6] */          {  0,  1, 4,  5, 6 },
+    /* 10 MUTE_SHOTGUNNER (68) [1,5,6] */          {  0,  1, 5,  6, 6 },
+    /* 11 MUTE_RIOTER (58) [1,6,6] */              {  0,  1, 6,  7, 6 },
+    /* 12 MUTE_VANDAL (81) [1,4,6] */              {  0,  1, 4,  5, 6 },
+    /* 13 MUTE_MEKANIK (41) [1,6] */               {  0, -1, 0,  1, 6 },
+    /* 14 MUTE_BAZOOKA (60) [2,1,5,6] */           {  2,  3, 5,  8, 6 },
+    /* 15 MUTE_CRAZY_HARRY (31) [1,4,6] */         {  0,  1, 4,  5, 6 },
+    /* 16 SURV_DIRT_BIKE (7) [1,2,1] */            {  0,  1, 2,  3, 1 },
+    /* 17 SURV_4X4_PICKUP (54) [1,1,2] */          {  1, -1, 0,  2, 2 },
+    /* 18 SURV_ATV (1) [1,1,2] */                  {  1, -1, 0,  2, 2 },
+    /* 19 SURV_ATV_FLAMETHROWER (24) [1,1,2] */    {  1, -1, 0,  2, 2 },
+    /* 20 SURV_ANACONDA_TANK (77) [1,1,1,2] */     {  2, -1, 0,  3, 2 },
+    /* 21 SURV_BARRAGE_CRAFT (2) [1,1,1] */        {  2, -1, 0,  2, 1 },
+    /* 22 SURV_AUTOCANNON_TANK (11) [4,1,1,2] */   {  5,  0, 4,  6, 2 },
+    /* 23 SURV_MOBILE_DERRICK (65) partial */      {  0, -1, 0,  1, 2 },
+    /* 24 SURV_OIL_TANKER (73) [1,2] */            {  0, -1, 0,  1, 2 },
+    /* 25 SURV_MOBILE_OUTPOST (53) [1,4] */        {  0, -1, 0,  1, 4 },
+    /* 26 MUTE_DIRE_WOLF (19) non-uniform */       {  0, -1, 0, -1, 0 },
+    /* 27 MUTE_BIKE_SIDECAR (70) [1,1,2] */        {  1, -1, 0,  2, 2 },
+    /* 28 MUTE_MONSTER_TRUCK (47) [1,1,2] */       {  1, -1, 0,  2, 2 },
+    /* 29 MUTE_GIANT_SCORPION (64) [1,4,8] */      {  0,  1, 4,  5, 8 },
+    /* 30 MUTE_WAR_MASTADONT (38) [1,1,1,10] */    {  2, -1, 0,  3,10 },
+    /* 31 MUTE_GIANT_BEETLE (4) [4,1,11,10] */     {  4,  5,11, 16,10 },
+    /* 32 MUTE_MISSILE_CRAB (16) [2,1,1,9] */      {  3, -1, 0,  4, 9 },
+    /* 33 MUTE_MOBILE_DERRICK (39) [1,2] */        {  0, -1, 0,  1, 2 },
+    /* 34 MUTE_OIL_TANKER (48) [1,2] */            {  0, -1, 0,  1, 2 },
+    /* 35 MUTE_CLANHALL_WAGON (14) [1,2] */        {  0, -1, 0,  1, 2 },
+    /* 36 SURV_DRILLRIG (75) building */           {  0, -1, 0, -1, 0 },
+    /* 37 SURV_POWER_STATION (74) building */      {  0, -1, 0, -1, 0 },
+    /* 38 SURV_OUTPOST (52) building */            {  0, -1, 0, -1, 0 },
+    /* 39 SURV_MACHINE_SHOP (37) building */       {  0, -1, 0, -1, 0 },
+    /* 40 SURV_REPAIR_BAY (56) building */         {  0, -1, 0, -1, 0 },
+    /* 41 SURV_RESEARCH_LAB (57) building */       {  0, -1, 0, -1, 0 },
+    /* 42 MUTE_DRILLRIG (50) building */           {  0, -1, 0, -1, 0 },
+    /* 43 MUTE_POWER_STATION (49) building */      {  0, -1, 0, -1, 0 },
+    /* 44 MUTE_CLANHALL (13) building */           {  0, -1, 0, -1, 0 },
+    /* 45 MUTE_BLACKSMITH (8) building */          {  0, -1, 0, -1, 0 },
+    /* 46 MUTE_BEAST_ENCLOSURE (3) building */     {  0, -1, 0, -1, 0 },
+    /* 47 MUTE_MENAGERIE (42) building */          {  0, -1, 0, -1, 0 },
+    /* 48 MUTE_ALCHEMY_HALL (0) building */        {  0, -1, 0, -1, 0 },
+    /* 49 SURV_GUARD_TOWER (67) [1+partial] */     {  0, -1, 0, -1, 0 },
+    /* 50 SURV_MISSILE_BATTERY (44) [9fps+] */     {  0, -1, 0, -1, 0 },
+    /* 51 SURV_CANNON_TOWER (12) [3fps,1fps] */    {  3,  0, 3, -1, 0 },
+    /* 52 MUTE_MACHINEGUN_NEST (43) [1+partial] */ {  0, -1, 0, -1, 0 },
+    /* 53 MUTE_GRAPESHOT_TOWER (29) [1,1] */       {  1, -1, 0, -1, 0 },
+    /* 54 MUTE_ROTARY_CANNON (61) [4fps,1fps] */   {  4,  0, 4, -1, 0 },
+    /* 55 SURV_BOMBER (83) [1,1] */                {  1, -1, 0, -1, 0 },
+    /* 56 MUTE_WASP (82) [1,3fps] */               {  0, -1, 0,  1, 3 },
+};
+
 /* ── UNITS.CFG parsing ────────────────────────────────────────────────────── */
 
 /*  Column layout from UNITS.CFG:
@@ -219,7 +286,8 @@ static void write_info_h(const char *path) {
 
     fprintf(f,
         "/* Generated by tools/kknd_info_gen.c. Do not edit by hand.\n"
-        "   Source data: data/KKND/UNITS.CFG + OpenKKnD MOBD_ID table. */\n"
+        "   Source data: data/KKND/UNITS.CFG + OpenKKnD MOBD_ID table.\n"
+        "   Animation offsets derived from reference/OpenKrush sequences. */\n"
         "#ifndef __INFO__\n"
         "#define __INFO__\n"
         "\n"
@@ -261,8 +329,16 @@ static void write_info_h(const char *path) {
 
     /* statenum_t */
     fprintf(f, "typedef enum {\n    S_NULL = 0,\n");
-    for (int i = 0; i < g_unit_count; ++i)
-        fprintf(f, "    %s,\n", g_units[i].state_name);
+    for (int i = 0; i < g_unit_count; ++i) {
+        const anim_t *a = &ANIM_TABLE[i];
+        fprintf(f, "    %s,\n", g_units[i].state_name);   /* STND */
+        if (a->move >= 0 && a->mlen > 0)
+            for (int k = 1; k <= a->mlen; ++k)
+                fprintf(f, "    S_%s_WALK%d,\n", g_units[i].spr_suffix, k);
+        if (a->shoot >= 0 && a->slen > 0)
+            for (int k = 1; k <= a->slen; ++k)
+                fprintf(f, "    S_%s_ATCK%d,\n", g_units[i].spr_suffix, k);
+    }
     fprintf(f, "    NUMSTATES\n} statenum_t;\n\n");
 
     /* MT_ enum — doomednum = UNIT_STATS_* from OpenKKnD */
@@ -341,6 +417,7 @@ static void write_info_c(const char *path) {
     fprintf(f,
         "/* Generated by tools/kknd_info_gen.c. Do not edit by hand.\n"
         "   Source data: data/KKND/UNITS.CFG + OpenKKnD MOBD_ID table.\n"
+        "   Animation offsets derived from reference/OpenKrush sequences.\n"
         "   Sprite names are MOBD member indices into LEVELS/640/SPRITES.LVL. */\n"
         "#include \"engine.h\"\n"
         "#include \"info.h\"\n"
@@ -356,8 +433,37 @@ static void write_info_c(const char *path) {
     fprintf(f, "const state_t states[NUMSTATES] = {\n");
     fprintf(f, "    { 0, 0, -1, NULL, S_NULL, 0 },  /* S_NULL */\n");
     for (int i = 0; i < g_unit_count; ++i) {
-        fprintf(f, "    { %s, 0, -1, NULL, %s, 0 },  /* %s */\n",
-                g_units[i].spr_name, g_units[i].state_name, g_units[i].state_name);
+        const anim_t *a = &ANIM_TABLE[i];
+        const char *spr = g_units[i].spr_name;
+        const char *sfx = g_units[i].spr_suffix;
+        const char *stnd = g_units[i].state_name;   /* S_XXX_STND */
+        /* STND: short-duration loop so A_Chase fires each cycle */
+        fprintf(f, "    { %s, %d, 5, A_Chase, %s, 0 },  /* %s */\n",
+                spr, a->idle, stnd, stnd);
+        /* WALK states */
+        if (a->move >= 0 && a->mlen > 0) {
+            for (int k = 1; k <= a->mlen; ++k) {
+                const char *nxt = (k < a->mlen)
+                    ? NULL : NULL; /* built below */
+                char nxt_buf[80];
+                if (k < a->mlen) snprintf(nxt_buf, sizeof(nxt_buf), "S_%s_WALK%d", sfx, k + 1);
+                else             snprintf(nxt_buf, sizeof(nxt_buf), "S_%s_WALK1",  sfx);
+                (void)nxt;
+                fprintf(f, "    { %s, %d, 4, NULL, %s, 2 },  /* S_%s_WALK%d */\n",
+                        spr, a->move + k - 1, nxt_buf, sfx, k);
+            }
+        }
+        /* ATCK states */
+        if (a->shoot >= 0 && a->slen > 0) {
+            for (int k = 1; k <= a->slen; ++k) {
+                char nxt_buf[80];
+                if (k < a->slen) snprintf(nxt_buf, sizeof(nxt_buf), "S_%s_ATCK%d", sfx, k + 1);
+                else             snprintf(nxt_buf, sizeof(nxt_buf), "%s",           stnd);
+                const char *act = (k == 1) ? "A_Attack" : "NULL";
+                fprintf(f, "    { %s, %d, 4, %s, %s, 3 },  /* S_%s_ATCK%d */\n",
+                        spr, a->shoot + k - 1, act, nxt_buf, sfx, k);
+            }
+        }
     }
     fprintf(f, "};\n\n");
 
@@ -374,14 +480,25 @@ static void write_info_c(const char *path) {
         int radius, height, mass;
         unit_size(u, &radius, &height, &mass);
 
+        const anim_t *a = &ANIM_TABLE[i];
+        char see_state[80], missile_state[80];
+        if (u->is_mobile && a->move >= 0 && a->mlen > 0)
+            snprintf(see_state, sizeof(see_state), "S_%s_WALK1", u->spr_suffix);
+        else
+            snprintf(see_state, sizeof(see_state), "%s", u->state_name);
+        if (u->is_combat && a->shoot >= 0 && a->slen > 0)
+            snprintf(missile_state, sizeof(missile_state), "S_%s_ATCK1", u->spr_suffix);
+        else
+            snprintf(missile_state, sizeof(missile_state), "S_NULL");
+
         fprintf(f, "    { // %s  (%s)\n", g_units[i].mt_name, u->name);
         fprintf(f, "        .doomednum    = %d,\n", u->unit_stats_id);
         fprintf(f, "        .spawnstate   = %s,\n", u->state_name);
         fprintf(f, "        .spawnhealth  = %d,\n", u->hitpts);
         if (u->is_mobile)
-            fprintf(f, "        .seestate     = %s,\n", u->state_name);
+            fprintf(f, "        .seestate     = %s,\n", see_state);
         if (u->is_combat)
-            fprintf(f, "        .missilestate = %s,\n", u->state_name);
+            fprintf(f, "        .missilestate = %s,\n", missile_state);
         fprintf(f, "        .deathstate   = S_NULL, .xdeathstate = S_NULL,\n");
         if (u->is_mobile)
             fprintf(f, "        .speed = %d, .radius = %d, .height = %d, .mass = %d,\n",
