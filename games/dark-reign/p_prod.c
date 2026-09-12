@@ -234,6 +234,46 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
+static const StaticProductDefinition *dr_product_by_type(int product_type) {
+    int count = product_count();
+    for (int i = 0; i < count; ++i) {
+        if (DARK_REIGN_FG_PRODUCTS[i].product_type == product_type)
+            return &DARK_REIGN_FG_PRODUCTS[i];
+    }
+    return NULL;
+}
+
+typedef struct { int product_type; } DrAiGoal;
+
+static const DrAiGoal dr_ai_goals[] = {
+    { 10001 }, /* FG HQ 1 */
+    { 10004 }, /* Barracks */
+    { 10006 }, /* Vehicle Factory */
+    { 10013 }, /* Guard Tower */
+    { 13 },    /* Freighter (harvester) */
+    { 9 },     /* Raider */
+    { 9 },     /* Raider (2nd) */
+    { 10 },    /* Mercenary */
+    { 20 },    /* Skirmish Tank */
+    { 17 },    /* Tank Hunter */
+    { 1 },     /* Spider Bike */
+    { 20 },    /* Skirmish Tank (2nd) */
+};
+
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)model; (void)elapsed_ms;
+    (void)elapsed_ms;
+    if (!model) return;
+
+    for (size_t i = 0; i < sizeof(dr_ai_goals) / sizeof(dr_ai_goals[0]); ++i) {
+        const StaticProductDefinition *product = dr_product_by_type(dr_ai_goals[i].product_type);
+        if (!product) continue;
+        if (!G_ModelProductAvailable(model, 0, product)) continue;
+        if (rts_game_model_player_resources(model, 0, 0) < product->cost) continue;
+
+        RtsGameCommand cmd = {
+            .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+            .data.activate_ui_button = { .ui_id = product->ui_id },
+        };
+        if (rts_game_model_command(model, &cmd)) return;
+    }
 }

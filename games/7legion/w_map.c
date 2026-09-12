@@ -101,7 +101,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
             int source_i = y * W + x;
-            int output_i = x * H + y;
+            int output_i = y * W + x;
             uint16_t stored = read_u16_le(tile_bytes + (size_t)source_i * 2);
             out->tile_ids[output_i] = (uint16_t)((stored ^ key) - x);
             key--;
@@ -123,7 +123,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
                 for (int y = 0; y < H; ++y) {
                     for (int x = 0; x < W; ++x) {
                         int source_i = y * W + x;
-                        int output_i = x * H + y;
+                        int output_i = y * W + x;
                         out->tile_overlays[0][output_i] =
                             (uint16_t)(read_u16_le(p + (size_t)source_i * 2) & 0xffu);
                     }
@@ -144,7 +144,7 @@ bool sl_load_map(const char *map_path, level_t *out) {
                 for (int y = 0; y < H; ++y) {
                     for (int x = 0; x < W; ++x) {
                         int source_i = y * W + x;
-                        int output_i = x * H + y;
+                        int output_i = y * W + x;
                         out->blocked[output_i] = (values[source_i] ^ y) != 0;
                     }
                 }
@@ -161,6 +161,25 @@ bool sl_load_map(const char *map_path, level_t *out) {
 
     out->has_camera = true;
     out->camera = (fvec2_t){ (float)mission.start.x, (float)mission.start.y };
+
+    static const ivec2_t vent_offsets[] = {
+        { -8, -6 }, { 10, 8 }, { -10, 12 }, { 12, -8 },
+    };
+    for (int i = 0; i < (int)(sizeof(vent_offsets) / sizeof(vent_offsets[0])); ++i) {
+        ivec2_t cell = ivec2_add(mission.start, vent_offsets[i]);
+        if (!L_Contains(out, cell.x, cell.y)) continue;
+        resourcevent_t *vents = realloc(out->resource_vents,
+            (size_t)(out->resource_vent_count + 1) * sizeof(resourcevent_t));
+        if (!vents) break;
+        out->resource_vents = vents;
+        resourcevent_t *v = &out->resource_vents[out->resource_vent_count++];
+        v->cell = cell;
+        v->attachment = (fvec2_t){ (float)cell.x + 0.5f, (float)cell.y + 0.5f };
+        v->amount = 5000;
+        v->rate = 25;
+        v->active = true;
+        v->resource_type = 0;
+    }
     return true;
 }
 int sl_load_initial_units(const char *map_path) {
@@ -175,7 +194,7 @@ int sl_load_initial_units(const char *map_path) {
         if (!unit) break;
         count++;
         unit->core.position = fixed3_from_fvec2(fvec2_cell_center(
-            ivec2_add(mission.start, (ivec2_t){ -6 + i * 2, -1 })), 0);
+            ivec2_add(mission.start, (ivec2_t){ i * 2, -2 })), 0);
         unit->owner = 0;
         unit->type_id = 1;
         unit->core.angle = ANG270;
@@ -189,6 +208,49 @@ int sl_load_initial_units(const char *map_path) {
         unit->owner = 0;
         unit->type_id = 7;
         unit->core.angle = ANG270;
+    }
+    /* Spawn a slave harvester for the player near the start */
+    {
+        mobj_t *harvester = P_SpawnMobj(fixed3_zero(), 2);
+        if (harvester) {
+            count++;
+            harvester->core.position = fixed3_from_fvec2(fvec2_cell_center(
+                ivec2_add(mission.start, (ivec2_t){ 0, 3 })), 0);
+            harvester->owner = 0;
+            harvester->type_id = 2;
+        }
+    }
+    /* Spawn enemy force at the far side of the map */
+    ivec2_t enemy_base = { 128 - mission.start.x, 128 - mission.start.y };
+    if (enemy_base.x < 10) enemy_base.x = 10;
+    if (enemy_base.y < 10) enemy_base.y = 10;
+    if (enemy_base.x > 118) enemy_base.x = 118;
+    if (enemy_base.y > 118) enemy_base.y = 118;
+    {
+        mobj_t *ebase = P_SpawnMobj(fixed3_zero(), 7);
+        if (ebase) {
+            count++;
+            ebase->core.position = fixed3_from_fvec2(fvec2_cell_center(enemy_base), 0);
+            ebase->owner = 1;
+            ebase->team = 1;
+            ebase->allegiance = ALLEGIANCE_ENEMY;
+            ebase->type_id = 7;
+        }
+    }
+    static const struct { uint16_t type; ivec2_t off; } enemy_units[] = {
+        { 1, { -2, -1 } }, { 1, {  0, -1 } }, { 1, {  2, -1 } },
+        { 3, { -1,  2 } }, { 2, {  3,  0 } },
+    };
+    for (int i = 0; i < (int)(sizeof(enemy_units) / sizeof(enemy_units[0])); ++i) {
+        mobj_t *eu = P_SpawnMobj(fixed3_zero(), enemy_units[i].type);
+        if (!eu) break;
+        count++;
+        eu->core.position = fixed3_from_fvec2(fvec2_cell_center(
+            ivec2_add(enemy_base, enemy_units[i].off)), 0);
+        eu->owner = 1;
+        eu->team = 1;
+        eu->allegiance = ALLEGIANCE_ENEMY;
+        eu->type_id = enemy_units[i].type;
     }
     return count;
 }
