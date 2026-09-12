@@ -67,8 +67,7 @@ with tempfile.TemporaryDirectory() as tmp:
     bad = Path(tmp) / "bad.SPR"
     bad.write_bytes(raw_spr[:778])
     assert subprocess.run([TOOL, str(bad)], capture_output=True).returncode != 0
-subprocess.run(["python3", "tools/dc_states.py", "--check"], check=True)
 blood_source = Path("games/dark-colony/p_blood.c").read_text()
 blood_table = blood_source.split('blood_labels[] = {', 1)[1].split('};', 1)[0]
 assert blood_table.count('{ "') == 208
-print("PASS: FIN/SPR JSON matches native records, invalid inputs fail, state export reproduces exactly")
+print("PASS: FIN/SPR JSON matches native records and invalid inputs fail")

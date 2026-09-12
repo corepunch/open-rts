@@ -69,7 +69,7 @@ int main(void) {
         int exploiter = -1;
         for (int tries = 0; exploiter < 0 && tries < 30 * 5; ++tries) {
             for (int i = 0; i < snapshot.unit_count; ++i)
-                if (strstr(snapshot.units[i].sprite_name, "EXPL.SPR") != NULL) {
+                if (strstr(snapshot.units[i].sprite_name, "EXPL") != NULL) {
                     exploiter = i;
                     break;
                 }

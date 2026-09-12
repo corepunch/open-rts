@@ -64,6 +64,8 @@ G_ShutdownCustomUI	games/kknd/g_game.c	/^void G_ShutdownCustomUI(void *ui) {$/;"
 G_UpdateProduction	games/kknd/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * const * units,int * unit_count,float dt)
 G_WorldViewportWidth	games/kknd/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
 HU_LoadFont	games/kknd/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
+KKND_PRODUCTS	games/kknd/p_prod.c	/^static const StaticProductDefinition KKND_PRODUCTS[] = {$/;"	v	typeref:typename:const StaticProductDefinition[]	file:
+KkAiGoal	games/kknd/p_prod.c	/^typedef struct { int product_type; } KkAiGoal;$/;"	t	typeref:struct:__anon05eb3c2d0108	file:
 KkndMapData	games/kknd/w_lvl.h	/^} KkndMapData;$/;"	t	typeref:struct:__anon1abf4fd20208
 MAX_ANIMATIONS	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };$/;"	e	enum:__anon1b3aca940103	file:
 MAX_FRAMES	games/kknd/w_spr.c	/^enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };$/;"	e	enum:__anon1b3aca940103	file:
@@ -132,7 +134,16 @@ NUMMOBJTYPES	games/kknd/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon9b61d11a0303
 NUMSPRITES	games/kknd/info.h	/^    NUMSPRITES$/;"	e	enum:__anon9b61d11a0103
 NUMSTATES	games/kknd/info.h	/^    NUMSTATES$/;"	e	enum:__anon9b61d11a0203
 P_LoadThings	games/kknd/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
+P_LoadThings::__anona1679d890108::dx	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:float	file:
+P_LoadThings::__anona1679d890108::dy	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:float	file:
+P_LoadThings::__anona1679d890108::type	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:uint16_t	file:
+P_LoadThings::__anona1679d890208::dx	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:float	file:
+P_LoadThings::__anona1679d890208::dy	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:float	file:
+P_LoadThings::__anona1679d890208::type	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:uint16_t	file:
+P_LoadThings::__anona1679d890308::fx	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	m	struct:P_LoadThings::__anona1679d890308	typeref:typename:float	file:
+P_LoadThings::__anona1679d890308::fy	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	m	struct:P_LoadThings::__anona1679d890308	typeref:typename:float	file:
 R_InitSprites	games/kknd/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
+SPR	games/kknd/g_game.c	/^#define SPR(idx) "LEVELS\/640\/SPRI/;"	d	file:	signature:(idx)
 SPR_MUTE_ALCHEMY_HALL	games/kknd/info.h	/^    SPR_MUTE_ALCHEMY_HALL,$/;"	e	enum:__anon9b61d11a0103
 SPR_MUTE_BAZOOKA	games/kknd/info.h	/^    SPR_MUTE_BAZOOKA,$/;"	e	enum:__anon9b61d11a0103
 SPR_MUTE_BEAST_ENCLOSURE	games/kknd/info.h	/^    SPR_MUTE_BEAST_ENCLOSURE,$/;"	e	enum:__anon9b61d11a0103
@@ -191,63 +202,336 @@ SPR_SURV_SNIPER	games/kknd/info.h	/^    SPR_SURV_SNIPER,$/;"	e	enum:__anon9b61d1
 SPR_SURV_SWAT	games/kknd/info.h	/^    SPR_SURV_SWAT,$/;"	e	enum:__anon9b61d11a0103
 SPR_SURV_TECHNICIAN	games/kknd/info.h	/^    SPR_SURV_TECHNICIAN,$/;"	e	enum:__anon9b61d11a0103
 S_MUTE_ALCHEMY_HALL_STND	games/kknd/info.h	/^    S_MUTE_ALCHEMY_HALL_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_ATCK1	games/kknd/info.h	/^    S_MUTE_BAZOOKA_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_ATCK2	games/kknd/info.h	/^    S_MUTE_BAZOOKA_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_ATCK3	games/kknd/info.h	/^    S_MUTE_BAZOOKA_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_ATCK4	games/kknd/info.h	/^    S_MUTE_BAZOOKA_ATCK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_ATCK5	games/kknd/info.h	/^    S_MUTE_BAZOOKA_ATCK5,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_BAZOOKA_STND	games/kknd/info.h	/^    S_MUTE_BAZOOKA_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_WALK1	games/kknd/info.h	/^    S_MUTE_BAZOOKA_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_WALK2	games/kknd/info.h	/^    S_MUTE_BAZOOKA_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_WALK3	games/kknd/info.h	/^    S_MUTE_BAZOOKA_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_WALK4	games/kknd/info.h	/^    S_MUTE_BAZOOKA_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_WALK5	games/kknd/info.h	/^    S_MUTE_BAZOOKA_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BAZOOKA_WALK6	games/kknd/info.h	/^    S_MUTE_BAZOOKA_WALK6,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_BEAST_ENCLOSURE_STND	games/kknd/info.h	/^    S_MUTE_BEAST_ENCLOSURE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_ATCK1	games/kknd/info.h	/^    S_MUTE_BERSERKER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_ATCK2	games/kknd/info.h	/^    S_MUTE_BERSERKER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_ATCK3	games/kknd/info.h	/^    S_MUTE_BERSERKER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_ATCK4	games/kknd/info.h	/^    S_MUTE_BERSERKER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_BERSERKER_STND	games/kknd/info.h	/^    S_MUTE_BERSERKER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_WALK1	games/kknd/info.h	/^    S_MUTE_BERSERKER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_WALK2	games/kknd/info.h	/^    S_MUTE_BERSERKER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_WALK3	games/kknd/info.h	/^    S_MUTE_BERSERKER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_WALK4	games/kknd/info.h	/^    S_MUTE_BERSERKER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_WALK5	games/kknd/info.h	/^    S_MUTE_BERSERKER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BERSERKER_WALK6	games/kknd/info.h	/^    S_MUTE_BERSERKER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BIKE_SIDECAR_ATCK1	games/kknd/info.h	/^    S_MUTE_BIKE_SIDECAR_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_BIKE_SIDECAR_STND	games/kknd/info.h	/^    S_MUTE_BIKE_SIDECAR_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BIKE_SIDECAR_WALK1	games/kknd/info.h	/^    S_MUTE_BIKE_SIDECAR_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_BIKE_SIDECAR_WALK2	games/kknd/info.h	/^    S_MUTE_BIKE_SIDECAR_WALK2,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_BLACKSMITH_STND	games/kknd/info.h	/^    S_MUTE_BLACKSMITH_STND,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_CLANHALL_STND	games/kknd/info.h	/^    S_MUTE_CLANHALL_STND,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_CLANHALL_WAGON_STND	games/kknd/info.h	/^    S_MUTE_CLANHALL_WAGON_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CLANHALL_WAGON_WALK1	games/kknd/info.h	/^    S_MUTE_CLANHALL_WAGON_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CLANHALL_WAGON_WALK2	games/kknd/info.h	/^    S_MUTE_CLANHALL_WAGON_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_ATCK1	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_ATCK2	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_ATCK3	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_ATCK4	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_CRAZY_HARRY_STND	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_WALK1	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_WALK2	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_WALK3	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_WALK4	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_WALK5	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_CRAZY_HARRY_WALK6	games/kknd/info.h	/^    S_MUTE_CRAZY_HARRY_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_DIRE_WOLF_ATCK1	games/kknd/info.h	/^    S_MUTE_DIRE_WOLF_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_DIRE_WOLF_STND	games/kknd/info.h	/^    S_MUTE_DIRE_WOLF_STND,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_DRILLRIG_STND	games/kknd/info.h	/^    S_MUTE_DRILLRIG_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK1	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK10	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK10,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK11	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK11,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK2	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK3	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK4	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK5	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK6	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK7	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK7,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK8	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK8,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_ATCK9	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_ATCK9,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_GIANT_BEETLE_STND	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK1	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK10	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK10,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK2	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK3	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK4	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK5	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK6	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK7	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK7,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK8	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK8,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_BEETLE_WALK9	games/kknd/info.h	/^    S_MUTE_GIANT_BEETLE_WALK9,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_ATCK1	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_ATCK2	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_ATCK3	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_ATCK4	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_GIANT_SCORPION_STND	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK1	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK2	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK3	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK4	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK5	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK6	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK7	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK7,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GIANT_SCORPION_WALK8	games/kknd/info.h	/^    S_MUTE_GIANT_SCORPION_WALK8,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_GRAPESHOT_TOWER_ATCK1	games/kknd/info.h	/^    S_MUTE_GRAPESHOT_TOWER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_GRAPESHOT_TOWER_STND	games/kknd/info.h	/^    S_MUTE_GRAPESHOT_TOWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MACHINEGUN_NEST_ATCK1	games/kknd/info.h	/^    S_MUTE_MACHINEGUN_NEST_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_MACHINEGUN_NEST_STND	games/kknd/info.h	/^    S_MUTE_MACHINEGUN_NEST_STND,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_MEKANIK_STND	games/kknd/info.h	/^    S_MUTE_MEKANIK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_WALK1	games/kknd/info.h	/^    S_MUTE_MEKANIK_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_WALK2	games/kknd/info.h	/^    S_MUTE_MEKANIK_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_WALK3	games/kknd/info.h	/^    S_MUTE_MEKANIK_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_WALK4	games/kknd/info.h	/^    S_MUTE_MEKANIK_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_WALK5	games/kknd/info.h	/^    S_MUTE_MEKANIK_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MEKANIK_WALK6	games/kknd/info.h	/^    S_MUTE_MEKANIK_WALK6,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_MENAGERIE_STND	games/kknd/info.h	/^    S_MUTE_MENAGERIE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_ATCK1	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_MISSILE_CRAB_STND	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK1	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK2	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK3	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK4	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK5	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK6	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK7	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK7,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK8	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK8,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MISSILE_CRAB_WALK9	games/kknd/info.h	/^    S_MUTE_MISSILE_CRAB_WALK9,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_MOBILE_DERRICK_STND	games/kknd/info.h	/^    S_MUTE_MOBILE_DERRICK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MOBILE_DERRICK_WALK1	games/kknd/info.h	/^    S_MUTE_MOBILE_DERRICK_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MOBILE_DERRICK_WALK2	games/kknd/info.h	/^    S_MUTE_MOBILE_DERRICK_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MONSTER_TRUCK_ATCK1	games/kknd/info.h	/^    S_MUTE_MONSTER_TRUCK_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_MONSTER_TRUCK_STND	games/kknd/info.h	/^    S_MUTE_MONSTER_TRUCK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MONSTER_TRUCK_WALK1	games/kknd/info.h	/^    S_MUTE_MONSTER_TRUCK_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_MONSTER_TRUCK_WALK2	games/kknd/info.h	/^    S_MUTE_MONSTER_TRUCK_WALK2,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_OIL_TANKER_STND	games/kknd/info.h	/^    S_MUTE_OIL_TANKER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_OIL_TANKER_WALK1	games/kknd/info.h	/^    S_MUTE_OIL_TANKER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_OIL_TANKER_WALK2	games/kknd/info.h	/^    S_MUTE_OIL_TANKER_WALK2,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_POWER_STATION_STND	games/kknd/info.h	/^    S_MUTE_POWER_STATION_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_ATCK1	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_ATCK2	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_ATCK3	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_ATCK4	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_PYROMANIAC_STND	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_WALK1	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_WALK2	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_WALK3	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_WALK4	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_WALK5	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_PYROMANIAC_WALK6	games/kknd/info.h	/^    S_MUTE_PYROMANIAC_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_ATCK1	games/kknd/info.h	/^    S_MUTE_RIOTER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_ATCK2	games/kknd/info.h	/^    S_MUTE_RIOTER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_ATCK3	games/kknd/info.h	/^    S_MUTE_RIOTER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_ATCK4	games/kknd/info.h	/^    S_MUTE_RIOTER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_ATCK5	games/kknd/info.h	/^    S_MUTE_RIOTER_ATCK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_ATCK6	games/kknd/info.h	/^    S_MUTE_RIOTER_ATCK6,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_RIOTER_STND	games/kknd/info.h	/^    S_MUTE_RIOTER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_WALK1	games/kknd/info.h	/^    S_MUTE_RIOTER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_WALK2	games/kknd/info.h	/^    S_MUTE_RIOTER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_WALK3	games/kknd/info.h	/^    S_MUTE_RIOTER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_WALK4	games/kknd/info.h	/^    S_MUTE_RIOTER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_WALK5	games/kknd/info.h	/^    S_MUTE_RIOTER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_RIOTER_WALK6	games/kknd/info.h	/^    S_MUTE_RIOTER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_ROTARY_CANNON_ATCK1	games/kknd/info.h	/^    S_MUTE_ROTARY_CANNON_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_ROTARY_CANNON_ATCK2	games/kknd/info.h	/^    S_MUTE_ROTARY_CANNON_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_ROTARY_CANNON_ATCK3	games/kknd/info.h	/^    S_MUTE_ROTARY_CANNON_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_ROTARY_CANNON_ATCK4	games/kknd/info.h	/^    S_MUTE_ROTARY_CANNON_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_ROTARY_CANNON_STND	games/kknd/info.h	/^    S_MUTE_ROTARY_CANNON_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_ATCK1	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_ATCK2	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_ATCK3	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_ATCK4	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_ATCK5	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_ATCK5,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_SHOTGUNNER_STND	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_WALK1	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_WALK2	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_WALK3	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_WALK4	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_WALK5	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_SHOTGUNNER_WALK6	games/kknd/info.h	/^    S_MUTE_SHOTGUNNER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_ATCK1	games/kknd/info.h	/^    S_MUTE_VANDAL_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_ATCK2	games/kknd/info.h	/^    S_MUTE_VANDAL_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_ATCK3	games/kknd/info.h	/^    S_MUTE_VANDAL_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_ATCK4	games/kknd/info.h	/^    S_MUTE_VANDAL_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_VANDAL_STND	games/kknd/info.h	/^    S_MUTE_VANDAL_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_WALK1	games/kknd/info.h	/^    S_MUTE_VANDAL_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_WALK2	games/kknd/info.h	/^    S_MUTE_VANDAL_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_WALK3	games/kknd/info.h	/^    S_MUTE_VANDAL_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_WALK4	games/kknd/info.h	/^    S_MUTE_VANDAL_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_WALK5	games/kknd/info.h	/^    S_MUTE_VANDAL_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_VANDAL_WALK6	games/kknd/info.h	/^    S_MUTE_VANDAL_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_ATCK1	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_WAR_MASTADONT_STND	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK1	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK10	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK10,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK2	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK3	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK4	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK5	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK6	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK7	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK7,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK8	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK8,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WAR_MASTADONT_WALK9	games/kknd/info.h	/^    S_MUTE_WAR_MASTADONT_WALK9,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WASP_ATCK1	games/kknd/info.h	/^    S_MUTE_WASP_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_MUTE_WASP_STND	games/kknd/info.h	/^    S_MUTE_WASP_STND,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WASP_WALK1	games/kknd/info.h	/^    S_MUTE_WASP_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WASP_WALK2	games/kknd/info.h	/^    S_MUTE_WASP_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_MUTE_WASP_WALK3	games/kknd/info.h	/^    S_MUTE_WASP_WALK3,$/;"	e	enum:__anon9b61d11a0203
 S_NULL	games/kknd/info.h	/^    S_NULL = 0,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_4X4_PICKUP_ATCK1	games/kknd/info.h	/^    S_SURV_4X4_PICKUP_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_4X4_PICKUP_STND	games/kknd/info.h	/^    S_SURV_4X4_PICKUP_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_4X4_PICKUP_WALK1	games/kknd/info.h	/^    S_SURV_4X4_PICKUP_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_4X4_PICKUP_WALK2	games/kknd/info.h	/^    S_SURV_4X4_PICKUP_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ANACONDA_TANK_ATCK1	games/kknd/info.h	/^    S_SURV_ANACONDA_TANK_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_ANACONDA_TANK_STND	games/kknd/info.h	/^    S_SURV_ANACONDA_TANK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ANACONDA_TANK_WALK1	games/kknd/info.h	/^    S_SURV_ANACONDA_TANK_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ANACONDA_TANK_WALK2	games/kknd/info.h	/^    S_SURV_ANACONDA_TANK_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_ATCK1	games/kknd/info.h	/^    S_SURV_ATV_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_FLAMETHROWER_ATCK1	games/kknd/info.h	/^    S_SURV_ATV_FLAMETHROWER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_ATV_FLAMETHROWER_STND	games/kknd/info.h	/^    S_SURV_ATV_FLAMETHROWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_FLAMETHROWER_WALK1	games/kknd/info.h	/^    S_SURV_ATV_FLAMETHROWER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_FLAMETHROWER_WALK2	games/kknd/info.h	/^    S_SURV_ATV_FLAMETHROWER_WALK2,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_ATV_STND	games/kknd/info.h	/^    S_SURV_ATV_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_WALK1	games/kknd/info.h	/^    S_SURV_ATV_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_ATV_WALK2	games/kknd/info.h	/^    S_SURV_ATV_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_ATCK1	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_ATCK2	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_ATCK3	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_ATCK4	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_AUTOCANNON_TANK_STND	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_WALK1	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_AUTOCANNON_TANK_WALK2	games/kknd/info.h	/^    S_SURV_AUTOCANNON_TANK_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_BARRAGE_CRAFT_ATCK1	games/kknd/info.h	/^    S_SURV_BARRAGE_CRAFT_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_BARRAGE_CRAFT_STND	games/kknd/info.h	/^    S_SURV_BARRAGE_CRAFT_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_BARRAGE_CRAFT_WALK1	games/kknd/info.h	/^    S_SURV_BARRAGE_CRAFT_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_BOMBER_ATCK1	games/kknd/info.h	/^    S_SURV_BOMBER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_BOMBER_STND	games/kknd/info.h	/^    S_SURV_BOMBER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_CANNON_TOWER_ATCK1	games/kknd/info.h	/^    S_SURV_CANNON_TOWER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_CANNON_TOWER_ATCK2	games/kknd/info.h	/^    S_SURV_CANNON_TOWER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_CANNON_TOWER_ATCK3	games/kknd/info.h	/^    S_SURV_CANNON_TOWER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_CANNON_TOWER_STND	games/kknd/info.h	/^    S_SURV_CANNON_TOWER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_DIRT_BIKE_ATCK1	games/kknd/info.h	/^    S_SURV_DIRT_BIKE_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_DIRT_BIKE_ATCK2	games/kknd/info.h	/^    S_SURV_DIRT_BIKE_ATCK2,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_DIRT_BIKE_STND	games/kknd/info.h	/^    S_SURV_DIRT_BIKE_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_DIRT_BIKE_WALK1	games/kknd/info.h	/^    S_SURV_DIRT_BIKE_WALK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_DRILLRIG_STND	games/kknd/info.h	/^    S_SURV_DRILLRIG_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_ATCK1	games/kknd/info.h	/^    S_SURV_FLAMER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_ATCK2	games/kknd/info.h	/^    S_SURV_FLAMER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_ATCK3	games/kknd/info.h	/^    S_SURV_FLAMER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_ATCK4	games/kknd/info.h	/^    S_SURV_FLAMER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_FLAMER_STND	games/kknd/info.h	/^    S_SURV_FLAMER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_WALK1	games/kknd/info.h	/^    S_SURV_FLAMER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_WALK2	games/kknd/info.h	/^    S_SURV_FLAMER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_WALK3	games/kknd/info.h	/^    S_SURV_FLAMER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_WALK4	games/kknd/info.h	/^    S_SURV_FLAMER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_WALK5	games/kknd/info.h	/^    S_SURV_FLAMER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_FLAMER_WALK6	games/kknd/info.h	/^    S_SURV_FLAMER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_GUARD_TOWER_ATCK1	games/kknd/info.h	/^    S_SURV_GUARD_TOWER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_GUARD_TOWER_STND	games/kknd/info.h	/^    S_SURV_GUARD_TOWER_STND,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_MACHINE_SHOP_STND	games/kknd/info.h	/^    S_SURV_MACHINE_SHOP_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MISSILE_BATTERY_ATCK1	games/kknd/info.h	/^    S_SURV_MISSILE_BATTERY_ATCK1,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_MISSILE_BATTERY_STND	games/kknd/info.h	/^    S_SURV_MISSILE_BATTERY_STND,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_MOBILE_DERRICK_STND	games/kknd/info.h	/^    S_SURV_MOBILE_DERRICK_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_DERRICK_WALK1	games/kknd/info.h	/^    S_SURV_MOBILE_DERRICK_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_DERRICK_WALK2	games/kknd/info.h	/^    S_SURV_MOBILE_DERRICK_WALK2,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_MOBILE_OUTPOST_STND	games/kknd/info.h	/^    S_SURV_MOBILE_OUTPOST_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_OUTPOST_WALK1	games/kknd/info.h	/^    S_SURV_MOBILE_OUTPOST_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_OUTPOST_WALK2	games/kknd/info.h	/^    S_SURV_MOBILE_OUTPOST_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_OUTPOST_WALK3	games/kknd/info.h	/^    S_SURV_MOBILE_OUTPOST_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_MOBILE_OUTPOST_WALK4	games/kknd/info.h	/^    S_SURV_MOBILE_OUTPOST_WALK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_OIL_TANKER_STND	games/kknd/info.h	/^    S_SURV_OIL_TANKER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_OIL_TANKER_WALK1	games/kknd/info.h	/^    S_SURV_OIL_TANKER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_OIL_TANKER_WALK2	games/kknd/info.h	/^    S_SURV_OIL_TANKER_WALK2,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_OUTPOST_STND	games/kknd/info.h	/^    S_SURV_OUTPOST_STND,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_POWER_STATION_STND	games/kknd/info.h	/^    S_SURV_POWER_STATION_STND,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_REPAIR_BAY_STND	games/kknd/info.h	/^    S_SURV_REPAIR_BAY_STND,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_RESEARCH_LAB_STND	games/kknd/info.h	/^    S_SURV_RESEARCH_LAB_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_ATCK1	games/kknd/info.h	/^    S_SURV_RIFLEMAN_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_ATCK2	games/kknd/info.h	/^    S_SURV_RIFLEMAN_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_ATCK3	games/kknd/info.h	/^    S_SURV_RIFLEMAN_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_ATCK4	games/kknd/info.h	/^    S_SURV_RIFLEMAN_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_RIFLEMAN_STND	games/kknd/info.h	/^    S_SURV_RIFLEMAN_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_WALK1	games/kknd/info.h	/^    S_SURV_RIFLEMAN_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_WALK2	games/kknd/info.h	/^    S_SURV_RIFLEMAN_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_WALK3	games/kknd/info.h	/^    S_SURV_RIFLEMAN_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_WALK4	games/kknd/info.h	/^    S_SURV_RIFLEMAN_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_WALK5	games/kknd/info.h	/^    S_SURV_RIFLEMAN_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RIFLEMAN_WALK6	games/kknd/info.h	/^    S_SURV_RIFLEMAN_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_ATCK1	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_ATCK2	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_ATCK3	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_ATCK4	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_ATCK5	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_ATCK5,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_RPG_LAUNCHER_STND	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_WALK1	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_WALK2	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_WALK3	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_WALK4	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_WALK5	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_RPG_LAUNCHER_WALK6	games/kknd/info.h	/^    S_SURV_RPG_LAUNCHER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_ATCK1	games/kknd/info.h	/^    S_SURV_SABOTEUR_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_ATCK2	games/kknd/info.h	/^    S_SURV_SABOTEUR_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_ATCK3	games/kknd/info.h	/^    S_SURV_SABOTEUR_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_ATCK4	games/kknd/info.h	/^    S_SURV_SABOTEUR_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_SABOTEUR_STND	games/kknd/info.h	/^    S_SURV_SABOTEUR_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_WALK1	games/kknd/info.h	/^    S_SURV_SABOTEUR_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_WALK2	games/kknd/info.h	/^    S_SURV_SABOTEUR_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_WALK3	games/kknd/info.h	/^    S_SURV_SABOTEUR_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_WALK4	games/kknd/info.h	/^    S_SURV_SABOTEUR_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_WALK5	games/kknd/info.h	/^    S_SURV_SABOTEUR_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SABOTEUR_WALK6	games/kknd/info.h	/^    S_SURV_SABOTEUR_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_ATCK1	games/kknd/info.h	/^    S_SURV_SAPPER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_ATCK2	games/kknd/info.h	/^    S_SURV_SAPPER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_ATCK3	games/kknd/info.h	/^    S_SURV_SAPPER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_ATCK4	games/kknd/info.h	/^    S_SURV_SAPPER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_ATCK5	games/kknd/info.h	/^    S_SURV_SAPPER_ATCK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_ATCK6	games/kknd/info.h	/^    S_SURV_SAPPER_ATCK6,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_SAPPER_STND	games/kknd/info.h	/^    S_SURV_SAPPER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_WALK1	games/kknd/info.h	/^    S_SURV_SAPPER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_WALK2	games/kknd/info.h	/^    S_SURV_SAPPER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_WALK3	games/kknd/info.h	/^    S_SURV_SAPPER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_WALK4	games/kknd/info.h	/^    S_SURV_SAPPER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_WALK5	games/kknd/info.h	/^    S_SURV_SAPPER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SAPPER_WALK6	games/kknd/info.h	/^    S_SURV_SAPPER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_ATCK1	games/kknd/info.h	/^    S_SURV_SNIPER_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_ATCK2	games/kknd/info.h	/^    S_SURV_SNIPER_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_ATCK3	games/kknd/info.h	/^    S_SURV_SNIPER_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_ATCK4	games/kknd/info.h	/^    S_SURV_SNIPER_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_SNIPER_STND	games/kknd/info.h	/^    S_SURV_SNIPER_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_WALK1	games/kknd/info.h	/^    S_SURV_SNIPER_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_WALK2	games/kknd/info.h	/^    S_SURV_SNIPER_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_WALK3	games/kknd/info.h	/^    S_SURV_SNIPER_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_WALK4	games/kknd/info.h	/^    S_SURV_SNIPER_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_WALK5	games/kknd/info.h	/^    S_SURV_SNIPER_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SNIPER_WALK6	games/kknd/info.h	/^    S_SURV_SNIPER_WALK6,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_ATCK1	games/kknd/info.h	/^    S_SURV_SWAT_ATCK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_ATCK2	games/kknd/info.h	/^    S_SURV_SWAT_ATCK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_ATCK3	games/kknd/info.h	/^    S_SURV_SWAT_ATCK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_ATCK4	games/kknd/info.h	/^    S_SURV_SWAT_ATCK4,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_SWAT_STND	games/kknd/info.h	/^    S_SURV_SWAT_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_WALK1	games/kknd/info.h	/^    S_SURV_SWAT_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_WALK2	games/kknd/info.h	/^    S_SURV_SWAT_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_WALK3	games/kknd/info.h	/^    S_SURV_SWAT_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_WALK4	games/kknd/info.h	/^    S_SURV_SWAT_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_WALK5	games/kknd/info.h	/^    S_SURV_SWAT_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_SWAT_WALK6	games/kknd/info.h	/^    S_SURV_SWAT_WALK6,$/;"	e	enum:__anon9b61d11a0203
 S_SURV_TECHNICIAN_STND	games/kknd/info.h	/^    S_SURV_TECHNICIAN_STND,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_WALK1	games/kknd/info.h	/^    S_SURV_TECHNICIAN_WALK1,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_WALK2	games/kknd/info.h	/^    S_SURV_TECHNICIAN_WALK2,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_WALK3	games/kknd/info.h	/^    S_SURV_TECHNICIAN_WALK3,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_WALK4	games/kknd/info.h	/^    S_SURV_TECHNICIAN_WALK4,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_WALK5	games/kknd/info.h	/^    S_SURV_TECHNICIAN_WALK5,$/;"	e	enum:__anon9b61d11a0203
+S_SURV_TECHNICIAN_WALK6	games/kknd/info.h	/^    S_SURV_TECHNICIAN_WALK6,$/;"	e	enum:__anon9b61d11a0203
 UI	games/kknd/g_game.c	/^static const uidefinition_t UI = {$/;"	v	typeref:typename:const uidefinition_t	file:
 W_LoadAssets	games/kknd/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
 _DEFAULT_SOURCE	games/kknd/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
@@ -258,6 +542,8 @@ __INFO__	games/kknd/info.h	/^#define __INFO__$/;"	d
 __KKND__	games/kknd/kknd.h	/^#define __KKND__$/;"	d
 __MOBJ_DATA__	games/kknd/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __W_LVL__	games/kknd/w_lvl.h	/^#define __W_LVL__$/;"	d
+__anon05eb3c2d0108	games/kknd/p_prod.c	/^typedef struct { int product_type; } KkAiGoal;$/;"	s	file:
+__anon05eb3c2d0108::product_type	games/kknd/p_prod.c	/^typedef struct { int product_type; } KkAiGoal;$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
 __anon1abf4fd20103	games/kknd/w_lvl.h	/^enum { MAX_LAYERS = 3 };$/;"	g
 __anon1abf4fd20208	games/kknd/w_lvl.h	/^typedef struct {$/;"	s
 __anon1abf4fd20208::atlas	games/kknd/w_lvl.h	/^    isize2_t atlas;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:isize2_t
@@ -269,10 +555,14 @@ __anon1b3aca940208	games/kknd/w_spr.c	/^    static const struct { const char *na
 __anon9b61d11a0103	games/kknd/info.h	/^typedef enum {$/;"	g
 __anon9b61d11a0203	games/kknd/info.h	/^typedef enum {$/;"	g
 __anon9b61d11a0303	games/kknd/info.h	/^enum {$/;"	g
+__anona1679d890108	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	s	function:P_LoadThings	file:
+__anona1679d890208	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	s	function:P_LoadThings	file:
+__anona1679d890308	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	s	function:P_LoadThings	file:
 __anonf02e1ac70103	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	g	file:
 __anonf02e1ac70203	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	g	typeref:typename:__anon1abf4fd20103 __anon1abf4fd20208 games/kknd/w_lvl.h/^typedef struct	file:
 activesound	games/kknd/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 actor_types	games/kknd/g_game.c	/^const mobjtype_t *const actor_types = ACTOR_TYPES;$/;"	v	typeref:typename:const mobjtype_t * const
+append_ui_script	games/kknd/p_prod.c	/^static void append_ui_script(char *dst, size_t dst_size, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * fmt,...)
 atlas	games/kknd/w_lvl.h	/^    isize2_t atlas;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:isize2_t
 attacksound	games/kknd/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 build_map_tileset	games/kknd/w_spr.c	/^static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const KkndMapData * map,tileset_t * out)
@@ -283,10 +573,16 @@ decode_mapd	games/kknd/w_map.c	/^static bool decode_mapd(const uint8_t *segment,
 decode_mobd	games/kknd/w_spr.c	/^static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const uint8_t * segment,size_t size,uint32_t member,const uint32_t palette[256],spritesheet_t * out)
 decode_mobd_image	games/kknd/w_spr.c	/^static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const uint8_t * segment,size_t size,uint32_t frame_offset,const uint32_t palette[256],spritecell_t * cell,spritelump_t * lump,bool * flip_out)
 doomednum	games/kknd/info.h	/^    int doomednum;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+dx	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:float	file:
+dx	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:float	file:
+dy	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:float	file:
+dy	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:float	file:
 flags	games/kknd/info.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+fx	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	m	struct:P_LoadThings::__anona1679d890308	typeref:typename:float	file:
+fy	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	m	struct:P_LoadThings::__anona1679d890308	typeref:typename:float	file:
 g_cell_h	games/kknd/g_game.c	/^const int g_cell_h = 32;$/;"	v	typeref:typename:const int
 g_cell_w	games/kknd/g_game.c	/^const int g_cell_w = 32;$/;"	v	typeref:typename:const int
-g_debug_enemy_type	games/kknd/g_game.c	/^const uint16_t g_debug_enemy_type = 1;$/;"	v	typeref:typename:const uint16_t
+g_debug_enemy_type	games/kknd/g_game.c	/^const uint16_t g_debug_enemy_type = MT_MUTE_BERSERKER;$/;"	v	typeref:typename:const uint16_t
 g_game_default_map	games/kknd/g_game.c	/^const char *const g_game_default_map   = "LEVELS\/640\/SURV_01.LVL";$/;"	v	typeref:typename:const char * const
 g_game_default_root	games/kknd/g_game.c	/^const char *const g_game_default_root  = "data\/KKND";$/;"	v	typeref:typename:const char * const
 g_game_default_sprite	games/kknd/g_game.c	/^const char *const g_game_default_sprite = "LEVELS\/640\/SPRITES.LVL|Infantry.mobd";$/;"	v	typeref:typename:const char * const
@@ -297,6 +593,7 @@ gameinfo	games/kknd/g_game.c	/^const gameinfo_t *gameinfo = &game_info;$/;"	v	ty
 gameui	games/kknd/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typeref:typename:const uidefinition_t * const
 height	games/kknd/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 index	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940208	typeref:typename:int	file:
+kk_ai_goals	games/kknd/p_prod.c	/^static const KkAiGoal kk_ai_goals[] = {$/;"	v	typeref:typename:const KkAiGoal[]	file:
 load_assets	games/kknd/kknd.h	/^bool load_assets(SDL_Renderer *renderer, const char *data_root,$/;"	p	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * data_root,const level_t * map,const char * sprite_name,tileset_t * tileset,spritesheet_t * unit_sprite)
 load_assets	games/kknd/w_spr.c	/^bool load_assets(SDL_Renderer *renderer, const char *data_root,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * data_root,const level_t * map,const char * sprite_name,tileset_t * tileset,spritesheet_t * unit_sprite)
 load_kknd_map	games/kknd/kknd.h	/^bool load_kknd_map(const char *map_path, level_t *out);$/;"	p	typeref:typename:bool	signature:(const char * map_path,level_t * out)
@@ -346,6 +643,8 @@ painsound	games/kknd/info.h	/^    int painsound;$/;"	m	struct:mobjinfo_s	typeref
 painstate	games/kknd/info.h	/^    int painstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 palette	games/kknd/w_lvl.h	/^    uint32_t palette[256];$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint32_t[256]
 pixels	games/kknd/w_lvl.h	/^    uint32_t *pixels;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint32_t *
+product_count	games/kknd/p_prod.c	/^static int product_count(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
+product_type	games/kknd/p_prod.c	/^typedef struct { int product_type; } KkAiGoal;$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
 radius	games/kknd/info.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 raisestate	games/kknd/info.h	/^    int raisestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 range_ok	games/kknd/w_lvl.c	/^bool range_ok(size_t size, uint32_t offset, size_t length) {$/;"	f	typeref:typename:bool	signature:(size_t size,uint32_t offset,size_t length)
@@ -366,4 +665,6 @@ sprnames	games/kknd/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	ty
 statenum_t	games/kknd/info.h	/^} statenum_t;$/;"	t	typeref:enum:__anon9b61d11a0203
 states	games/kknd/info.c	/^const state_t states[NUMSTATES] = {$/;"	v	typeref:typename:const state_t[]
 tile_count	games/kknd/w_lvl.h	/^    int tile_count;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:int
+type	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:uint16_t	file:
+type	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:uint16_t	file:
 xdeathstate	games/kknd/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

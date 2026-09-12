@@ -1,4 +1,4 @@
-/* Unit type and state definitions for Dark Reign Freedom Guard faction. */
+/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */
 #ifndef __INFO__
 #define __INFO__
 
@@ -326,7 +326,6 @@ typedef enum {
     S_NFGDT1L0_STND,
     S_NFAGT1L0_STND,
     S_NFAAR1L0_STND,
-    /* Single-frame fire states for units without dedicated shoot animations. */
     S_UCFCNST0_FIRE,
     S_UCHFRST0_FIRE,
     S_UFSKTST0_FIRE,

@@ -54,6 +54,15 @@ static int tics_from_tick(int tick) {
     return t > 1 ? t : 2;
 }
 
+static bool has_attack_flag(const dr_entry_t *entry) {
+    return strstr(entry->flags, "MF_ATTACK") != NULL;
+}
+
+static bool has_fire_state(const dr_entry_t *entry) {
+    return has_attack_flag(entry) && entry->damage > 0 &&
+           entry->anim.shoot_start < 0;
+}
+
 /* ------------------------------------------------------------------ entries */
 /* Animation data sourced from OpenDR sequences/units.yaml and
  * sequences/structures.yaml, pinned revision 98079a9.
@@ -243,7 +252,7 @@ static bool write_dr_info_h(const char *path, const dr_entry_t *entries, int cou
     for (int i = 0; i < count; ++i) fprintf(f, "    SPR_%s,\n", entries[i].sprite);
     fprintf(f, "    NUMSPRITES\n} spritenum_t;\n\n");
 
-    /* statenum_t: STND + RUN* + SHOOT* + IDLE* per entry */
+    /* statenum_t: STND + RUN* + SHOOT* + IDLE* per entry, then FIRE states. */
     fprintf(f, "typedef enum {\n    S_NULL = 0,\n");
     for (int i = 0; i < count; ++i) {
         const dr_entry_t *e = &entries[i];
@@ -259,6 +268,9 @@ static bool write_dr_info_h(const char *path, const dr_entry_t *entries, int cou
             for (int s = 0; s < a->idle_len; ++s)
                 fprintf(f, "    S_%s_IDLE%d,\n", e->sprite, s + 1);
     }
+    for (int i = 0; i < count; ++i)
+        if (has_fire_state(&entries[i]))
+            fprintf(f, "    S_%s_FIRE,\n", entries[i].sprite);
     fprintf(f, "    NUMSTATES\n} statenum_t;\n\n");
 
     /* MT_ enum */
@@ -302,21 +314,27 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
         bool has_run   = a->run_start >= 0 && a->run_len > 0;
         bool has_shoot = a->shoot_start >= 0 && a->shoot_len > 0;
         bool has_idle  = a->idle_start >= 0 && a->idle_len > 0;
+        bool attacking = has_attack_flag(e);
 
-        /* STND: infinite hold, loops to self */
-        fprintf(f, "    { SPR_%s, %d, -1, NULL, S_%s_STND, 0 },\n",
-                e->sprite, a->stand_start, e->sprite);
+        /* Attacking actors periodically scan while standing. */
+        fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_STND, 0 },\n",
+                e->sprite, a->stand_start, attacking ? 20 : -1,
+                attacking ? "A_Look" : "NULL", e->sprite);
 
         /* RUN states: cycle run_start .. run_start+run_len-1, then wrap */
         if (has_run) {
             int tics = tics_from_tick(a->run_tick);
             for (int s = 0; s < a->run_len; ++s) {
                 if (s < a->run_len - 1)
-                    fprintf(f, "    { SPR_%s, %d, %d, NULL, S_%s_RUN%d, 0 },\n",
-                            e->sprite, a->run_start + s, tics, e->sprite, s + 2);
+                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_RUN%d, 2 },\n",
+                            e->sprite, a->run_start + s, tics,
+                            s == 0 && attacking ? "A_Chase" : "NULL",
+                            e->sprite, s + 2);
                 else
-                    fprintf(f, "    { SPR_%s, %d, %d, NULL, S_%s_RUN1, 0 },\n",
-                            e->sprite, a->run_start + s, tics, e->sprite);
+                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_RUN1, 2 },\n",
+                            e->sprite, a->run_start + s, tics,
+                            s == 0 && attacking ? "A_Chase" : "NULL",
+                            e->sprite);
             }
         }
 
@@ -325,11 +343,15 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
             int tics = tics_from_tick(a->shoot_tick);
             for (int s = 0; s < a->shoot_len; ++s) {
                 if (s < a->shoot_len - 1)
-                    fprintf(f, "    { SPR_%s, %d, %d, NULL, S_%s_SHOOT%d, 0 },\n",
-                            e->sprite, a->shoot_start + s, tics, e->sprite, s + 2);
+                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_SHOOT%d, 3 },\n",
+                            e->sprite, a->shoot_start + s, tics,
+                            s == 0 && attacking ? "A_Attack" : "NULL",
+                            e->sprite, s + 2);
                 else
-                    fprintf(f, "    { SPR_%s, %d, %d, NULL, S_%s_STND, 0 },\n",
-                            e->sprite, a->shoot_start + s, tics, e->sprite);
+                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_STND, 3 },\n",
+                            e->sprite, a->shoot_start + s, tics,
+                            s == 0 && attacking ? "A_Attack" : "NULL",
+                            e->sprite);
             }
         }
 
@@ -344,6 +366,12 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
                             e->sprite, a->idle_start + s, e->sprite);
             }
         }
+    }
+    for (int i = 0; i < count; ++i) {
+        const dr_entry_t *e = &entries[i];
+        if (has_fire_state(e))
+            fprintf(f, "    { SPR_%s, %d, 1, A_Attack, S_%s_STND, 3 },\n",
+                    e->sprite, e->anim.stand_start, e->sprite);
     }
     fprintf(f, "};\n\n");
 
@@ -371,6 +399,9 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
         if (e->damage) {
             if (has_shoot)
                 fprintf(f, "        .missilestate = S_%s_SHOOT1, .damage = %d,\n",
+                        e->sprite, e->damage);
+            else if (has_fire_state(e))
+                fprintf(f, "        .missilestate = S_%s_FIRE, .damage = %d,\n",
                         e->sprite, e->damage);
             else if (has_run)
                 /* shoot cycle same as run or absent; use run animation */

@@ -3,7 +3,7 @@
 ; {first..last} expands numbered state names; a..b expands integers;
 ; comma lists retain authored timing. Scalars repeat. Intermediate next states chain.
 ; Logical frames include the raw SPR-cell prefix; FIN owns layers and directions.
-; Blood and building damage families are selected by FAMILY_RULES in dc_states.py.
+; Blood and building damage families are selected by the C state generator.
 
 ; EXCOPODSTAND0: complete native FIN sequence.
 S_EXCOPOD_STND                   HUBU    19                 5                        A_DC_BuildingStand     S_EXCOPOD_STND_2             1
