@@ -102,23 +102,24 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     file[49] = 1; file[50] = 2;
     spritecell_t cell = {0};
     spritelump_t lump = {0};
-    CHECK(decode_mobd_image(renderer, file, 51, 0, palette, &cell, &lump));
+    bool flip = false;
+    CHECK(decode_mobd_image(renderer, file, 51, 0, palette, &cell, &lump, &flip));
     CHECK(ivec2_equal(cell.displacement, (ivec2_t){ -2, -4 }));
     uint32_t actual[2];
     SDL_Rect area = { 0, 0, 2, 1 };
     CHECK(SDL_SetTextureBlendMode(lump.texture, SDL_BLENDMODE_NONE) == 0);
     CHECK(SDL_RenderCopy(renderer, lump.texture, NULL, &area) == 0);
     CHECK(SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, actual, 8) == 0);
-    CHECK(actual[0] == palette[2] && actual[1] == palette[1]);
+    CHECK(actual[0] == palette[1] && actual[1] == palette[2]);
     SDL_DestroyTexture(lump.texture);
     lump = (spritelump_t){0};
     for (size_t n = 0; n < 51; ++n)
-        CHECK(!decode_mobd_image(renderer, file, n, 0, palette, &cell, &lump));
-    CHECK(!decode_mobd_image(NULL, file, 51, 0, palette, &cell, &lump));
+        CHECK(!decode_mobd_image(renderer, file, n, 0, palette, &cell, &lump, &flip));
+    CHECK(!decode_mobd_image(NULL, file, 51, 0, palette, &cell, &lump, &flip));
     file[48] = 2; file[49] = 4; file[50] = 0; file[51] = 3; file[52] = 1;
-    CHECK(!decode_mobd_image(renderer, file, 53, 0, palette, &cell, &lump));
+    CHECK(!decode_mobd_image(renderer, file, 53, 0, palette, &cell, &lump, &flip));
     file[49] = 2; file[50] = 3; /* Transparent skip past the two-pixel canvas. */
-    CHECK(!decode_mobd_image(renderer, file, 51, 0, palette, &cell, &lump));
+    CHECK(!decode_mobd_image(renderer, file, 51, 0, palette, &cell, &lump, &flip));
 #else
     (void)renderer; (void)palette;
     extern bool load_dark_colony_map(const char *, level_t *);

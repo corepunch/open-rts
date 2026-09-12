@@ -167,8 +167,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
     /* === Survivor Aircraft === */
     { .id = MT_SURV_BOMBER, .name = "Bomber",
       .sprite_name = SPR(83),
-      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY,
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY | MF_ATTACK,
       .speed = 14.0f, .max_hp = 375,
+      .attack = { .range = 3.0f, .damage = 2000, .cooldown_ms = 3000 },
     },
     /* === Mutant Infantry === */
     { .id = MT_MUTE_BERSERKER, .name = "Berserker",
@@ -257,8 +258,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
     },
     { .id = MT_MUTE_MISSILE_CRAB, .name = "Missile Crab",
       .sprite_name = SPR(16),
-      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
       .speed = 4.0f, .max_hp = 450,
+      .attack = { .range = 8.0f, .damage = 100, .cooldown_ms = 990 },
     },
     /* === Mutant Harvesters === */
     { .id = MT_MUTE_MOBILE_DERRICK, .name = "Mutant Mobile Derrick",
@@ -336,8 +338,9 @@ static const mobjtype_t ACTOR_TYPES[] = {
     /* === Mutant Aircraft === */
     { .id = MT_MUTE_WASP, .name = "Wasp",
       .sprite_name = SPR(82),
-      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY,
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY | MF_ATTACK,
       .speed = 14.0f, .max_hp = 375,
+      .attack = { .range = 3.0f, .damage = 2000, .cooldown_ms = 3000 },
     },
 };
 
