@@ -342,7 +342,9 @@ array, not the binary.
 - **Exploiter speed**: 3.5 grid-units/s. Heavy harvester — should be slower than infantry (Trooper 5.0).
 - **Sprite directions**: load every FIN frame and use each sequence's authored
   facings. For stationary turning, complete STAND's missing directions with
-  the same prefix's SHUF poses. Animated MOVE uses animated directional ranges;
+  the same prefix's SHUF poses; where a matching singleton MOVE exists, use
+  that complete pose's authored placement (SHUF offsets can differ, as in BARR).
+  Animated MOVE uses animated directional ranges;
   singleton MOVE poses do not become frozen walking directions. These are
   shared presentation rules for every unit, never unit-name exceptions. Retain
   all native frames individually, including singleton MOVE and SHUF records.

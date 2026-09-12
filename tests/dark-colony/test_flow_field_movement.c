@@ -50,18 +50,18 @@ static int shared_flow_field_moves_units(void) {
     return 0;
 }
 
-static int exploiter_turns_before_moving(void) {
-    const char *tag = "exploiter_turn";
+static int unit_turns_before_moving(int type, const char *stem) {
+    const char *tag = stem;
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32, SDL_PIXELFORMAT_ARGB8888);
     r_renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
     spritesheet_t sprite;
-    RTS_CHECK(r_renderer && load_dark_colony_sprite("data/DCOLONY/ANIMATE/EXPL.FIN", &sprite, NULL),
-              tag, "load actual Exploiter turning and travel poses");
+    RTS_CHECK(r_renderer && load_dark_colony_sprite(M_va("data/DCOLONY/ANIMATE/%s.FIN", stem), &sprite, NULL),
+              tag, "load actual turning and travel poses");
     level = (level_t){ .width = 16, .height = 16 };
     P_FreeThinkers();
     gameinfo = &game_info;
     mobj_t *unit = spawn_mobj_fixture((mobj_t){
-        .type_id = MT_EXPLOITER, .traits = MF_MOBILE,
+        .type_id = type, .traits = MF_MOBILE,
         .core = { .angle = ANG90 },
         .attack.target = NULL, .harvest.target = -1,
     });
@@ -75,21 +75,20 @@ static int exploiter_turns_before_moving(void) {
         P_Ticker();
         const spriteframe_t *frame = &sprite.spritedef.spriteframes[unit->core.frame];
         if (memcmp(&unit->core.position, &start, sizeof(start)) != 0) {
-            RTS_CHECK(unit->core.state_id == S_EXPL_RUN1 ||
-                      unit->core.state_id == S_EXPL_RUN2, tag,
+            RTS_CHECK(states[unit->core.state_id].group == 2, tag,
                       "translation selects the travel cycle");
             RTS_CHECK(frame->rotations == 8, tag, "travel renders eight animated facings");
             moved = true;
             break;
         }
-        RTS_CHECK(unit->core.state_id == S_EXPL_STND, tag,
+        RTS_CHECK(unit->core.state_id == mobjinfo[type].spawnstate, tag,
                   "turning stays in the standing state without translating");
         RTS_CHECK(frame->rotations == 16, tag, "turning renders all sixteen poses");
         int rotation = angle_to_direction(unit->core.angle, frame->rotations, ANG90, false);
         if (rotation & 1) {
             static const int lumps[8] = { 7, 5, 3, 1, 1, 3, 5, 7 };
             RTS_CHECK(frame->directions[rotation].layers[0].lump == lumps[rotation / 2],
-                      tag, "intermediate angle selects the authored SHUF body");
+                      tag, "intermediate angle selects the authored stationary body");
             saw_intermediate_pose = true;
         }
     }
@@ -106,7 +105,8 @@ static int exploiter_turns_before_moving(void) {
 
 int main(void) {
     RTS_RUN(shared_flow_field_moves_units());
-    RTS_RUN(exploiter_turns_before_moving());
+    RTS_RUN(unit_turns_before_moving(MT_EXPLOITER, "EXPL"));
+    RTS_RUN(unit_turns_before_moving(MT_THUNDERBOLT, "BARR"));
     puts("All flow-field movement tests passed.");
     return 0;
 }

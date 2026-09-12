@@ -112,7 +112,7 @@ static void check_ui_storage(SDL_Renderer *renderer) {
 }
 
 static void check_turn_and_travel_definitions(void) {
-    static const char *const stems[] = { "TRSC", "EXPL", "REAP", "BARR", "SLUG", "ORTU" };
+    static const char *const stems[] = { "TRSC", "EXPL", "REAP", "BARR", "SLUG", "ORTU", "ATRIL" };
     for (size_t i = 0; i < sizeof(stems) / sizeof(*stems); ++i) {
         dc_fin_t fin;
         spritesheet_t sheet;
@@ -134,6 +134,10 @@ static void check_turn_and_travel_definitions(void) {
                     const char *label_action = !moving && (suffix & 1) ? "SHUF" : action;
                     const dc_fin_label_t *label = DC_FINLabel(&fin, M_va("%s%s%d", stem, label_action, suffix));
                     CHECK(label);
+                    if (!moving && (suffix & 1)) {
+                        const dc_fin_label_t *pose = DC_FINLabel(&fin, M_va("%sMOVE%d", stem, suffix));
+                        if (pose && pose->start == pose->end) label = pose;
+                    }
                     int source = SDL_SwapLE16(label->start) + f - start;
                     if (source > SDL_SwapLE16(label->end)) source = SDL_SwapLE16(label->end);
                     spritedirection_t expected = {0};

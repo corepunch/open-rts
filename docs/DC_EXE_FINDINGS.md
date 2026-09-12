@@ -4461,3 +4461,100 @@ retail framebuffer captures.
 Verification passed: all four game builds, all four per-game test suites,
 Dark Colony sprite layout/Reaper timing, all four dummy-video smoke checks,
 HUMAN02 screenshot inspection, regenerated tags and `git diff --check`.
+
+## Barrager stationary pose placement (2026-09-12)
+
+**Confirmed asset/layout defect in our selection:** BARR has eight even
+STAND labels, eight odd singleton MOVE labels interleaved with them at native
+frames 0–15, and eight later SHUF labels at frames 132–139. The old standing
+definition already had sixteen rotations, but selected those later SHUF
+commands for the odd directions. SHUF reuses the same SPR cells with different
+placement. It is not an eight-frame temporal shuffle animation.
+
+| FIN suffix | SPR cell | MOVE offset | SHUF offset |
+| --- | --- | --- | --- |
+| 1 | 1, mirrored | (-30,34) | (-38,45) |
+| 3 | 3, mirrored | (-29,34) | (-37,44) |
+| 5 | 5, mirrored | (-31,33) | (-39,44) |
+| 7 | 7, mirrored | (-28,31) | (-35,41) |
+| 9 | 7 | (-159,31) | (-159,41) |
+| 11 | 5 | (-159,33) | (-159,44) |
+| 13 | 3 | (-159,34) | (-159,44) |
+| 15 | 1 | (-159,34) | (-159,45) |
+
+The 10–11 pixel vertical alternation and 7–8 pixel mirrored horizontal
+alternation are differences between complete native commands, not missing
+SPR displacement or a renderer correction to estimate. For example, cell 1
+is 68×63 with displacement (128,104): MOVE15 draws at (-31,-29) relative to
+the object, while SHUF15 draws at (-31,-18).
+
+**Implementation/presentation policy:** when completing an absent standing
+direction from SHUF, prefer the same prefix/direction's singleton MOVE label
+if present. Preserve that entire frame, not just its offset. Otherwise retain
+SHUF, including animated SHUF where authored. This supersedes unconditional
+SHUF selection in the September 9 stationary/travel section. All original
+FIN records remain individually addressable; animated MOVE ranges and state
+timing are unchanged. The standing set still contains sixteen rotations.
+This implements the requested stationary turning presentation; it does not
+claim that retail merges STAND, MOVE and SHUF in this way.
+
+**Scope audit:** among readable retail FIN files, the only differing command
+streams when both an absent STAND direction's SHUF and singleton MOVE exist
+are BARR's eight odd directions, ATRIL's mirrored suffixes 1/3/5 (MOVE X is
+two pixels less), and REAP's mirrored suffixes 1/3/5/7 (MOVE X is seven pixels
+less). Other matching pairs, including EXPL and SLUG, retain their commands.
+ORTU's animated MOVE is not substituted. The scan also found singleton MOVE
+without SHUF in AIRD, BEON, GRND, GRUB, LUNA, MAKT, PSYC, RNAT, SALY, SARG,
+SCGM, SCOU, SPID and ZISP; this change does not expand those standing sets.
+TRUK's absent SHUF7 remains absent. No pixel data, palette, dimensions, or
+native command bytes are changed.
+
+**Executable reconfirmation:** the executable fingerprint below is unchanged.
+At `0x438939–0x43895a`, type setup loads MOVE into type +0x7c; at
+`0x43895f–0x438983` it loads STAND separately into +0x80.
+`0x423acb–0x423b12` performs literal prefix/action/direction lookup.
+There is no SHUF substitution in those paths. FIN loading at
+`0x423745–0x42375f` multiplies command X/Y by eight and negates Y for native
+world coordinates; it does not scale the Y offset by 3/4. Queue setup at
+`0x432e61–0x432e9d` converts world eighth-pixels to screen coordinates.
+The normal body blitter adds SPR displacement X at `0x45c0bd–0x45c0ca` and
+subtracts cell height at `0x45c0df–0x45c0e3`. The mirrored path uses width
+at `0x45c479–0x45c485` for its right-to-left draw and also subtracts height
+at `0x45c49a–0x45c49e`. No additional vertical-displacement correction was
+established. Native SHUF dispatch and any further retail turning behavior
+remain **unknown**. Do not infer those from the similar-looking offsets.
+
+**Evidence fingerprints (SHA-256):**
+
+| Asset | SHA-256 |
+| --- | --- |
+| BARR.FIN | `08ef8a38d3d0ba5629dcd58c91441569dde7c4ed09c60925b4a86d3d33c65894` |
+| BARR.SPR | `446622924f43aefe33726a28b274d8c050e059cecee60fe47dc419acc848f28d` |
+| ATRIL.FIN | `84bc2c0a62db56cd2eed1316148d3f08a4d6d8d69a280ffaf46d7b55779e7455` |
+| REAP.FIN | `44d1e85d5a28bca0ca3e45b5bc8032544f16e1dc04fdfd655c3d70ec15ab540b` |
+
+BARR's label/frame/command file offsets are 104/1124/38680. Its labels are
+20 bytes, frame records 164 bytes, and commands 22 bytes.
+
+**Verification:** temporary `OPEN_RTS_DEBUG_TURN_POSES` diagnostics printed
+the standing rotation count, selected FIN frame, cell, offset and flags.
+They confirmed the eight odd selections changing from FIN 132–139 to the
+interleaved frames 1,3,…15. Logging was removed after use.
+`test_barrager_turning` compares every rendered pixel for all sixteen angles
+against the independent native STAND/singleton MOVE command and SPR pixels;
+it failed at exactly the eight odd angles before the fix. It writes a contact
+sheet to `/private/tmp/barrager-turning.bmp`. This verifies native placement,
+not retail animation dispatch or a subjective absence of all visual motion.
+The flow-field test now checks Barrager as well as Exploiter: no translation
+while turning, sixteen standing rotations including intermediate poses, then
+eight animated travel directions. The definition test covers complete layer
+metadata for BARR, ATRIL, REAP, EXPL, TRSC, SLUG and ORTU.
+
+```sh
+build/dc_info_conv --label BARRMOVE15 data/DCOLONY/ANIMATE/BARR.FIN
+build/dc_info_conv --label BARRSHUF15 data/DCOLONY/ANIMATE/BARR.FIN
+build/dc_info_conv --cell 1 data/DCOLONY/SPRITES/BARR.SPR
+env SDL_VIDEODRIVER=dummy make -j8 all test-dark-colony test-layout
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_barrager_turning
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+```

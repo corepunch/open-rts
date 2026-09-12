@@ -303,6 +303,7 @@ NCOLS	tools/dc_info_gen.c	/^#define NCOLS /;"	d	file:
 OWNER_PRODUCER	tests/7legion/test_production.c	/^#define OWNER_PRODUCER /;"	d	file:
 OWNER_PRODUCER	tests/dark-reign/test_production.c	/^#define OWNER_PRODUCER /;"	d	file:
 OWNER_PRODUCER	tests/kknd/test_production.c	/^#define OWNER_PRODUCER /;"	d	file:
+PIXELS	tests/dark-colony/test_barrager_turning.c	/^enum { SIZE = 160, PIXELS = SIZE * SIZE };$/;"	e	enum:__anon7f26dad50103	file:
 PIXELS	tests/dark-colony/test_selection_overlays.c	/^enum { WIDTH = 512, HEIGHT = 256, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon978e18430103	file:
 PIXELS	tests/dark-colony/test_trooper_rendering.c	/^enum { WIDTH = 256, HEIGHT = 192, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon3439e5910103	file:
 PLAYER	tests/dark-colony/test_fog.c	/^#define PLAYER /;"	d	file:
@@ -590,6 +591,7 @@ SELECTION_STYLE_BRACKETS	play/actor.h	/^    SELECTION_STYLE_BRACKETS,$/;"	e	enum
 SELECTION_STYLE_CIRCLE	play/actor.h	/^    SELECTION_STYLE_CIRCLE,$/;"	e	enum:__anon175231d90703
 SELECTION_STYLE_SPRITE	play/actor.h	/^    SELECTION_STYLE_SPRITE = 0,$/;"	e	enum:__anon175231d90703
 SIGHT_EXPLORED	game/map.h	/^#define SIGHT_EXPLORED /;"	d
+SIZE	tests/dark-colony/test_barrager_turning.c	/^enum { SIZE = 160, PIXELS = SIZE * SIZE };$/;"	e	enum:__anon7f26dad50103	file:
 SIZE	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
 SLOPE_RANGE	play/p_facing.c	/^enum { SLOPE_RANGE = 2048 };$/;"	e	enum:__anonf3fea0520103	file:
 SceneMission	tools/dc_gamestat_gen.c	/^} SceneMission;$/;"	t	typeref:struct:__anon006eef8b0708	file:
@@ -977,6 +979,7 @@ __anon7b6e77cd0108::texture	render/r_sprite.c	/^    SDL_Texture *texture;$/;"	m	
 __anon7d9edf9b0108	tests/dark-colony/test_terrain_loading.c	/^static const struct {$/;"	s	file:
 __anon7d9edf9b0108::hash	tests/dark-colony/test_terrain_loading.c	/^    uint64_t hash;$/;"	m	struct:__anon7d9edf9b0108	typeref:typename:uint64_t	file:
 __anon7d9edf9b0108::path	tests/dark-colony/test_terrain_loading.c	/^    const char *path;$/;"	m	struct:__anon7d9edf9b0108	typeref:typename:const char *	file:
+__anon7f26dad50103	tests/dark-colony/test_barrager_turning.c	/^enum { SIZE = 160, PIXELS = SIZE * SIZE };$/;"	g	file:
 __anon82d667f30103	tools/dc_fin_extract.c	/^enum {$/;"	g	file:
 __anon82d667f30208	tools/dc_fin_extract.c	/^typedef struct {$/;"	s	file:
 __anon82d667f30208::data	tools/dc_fin_extract.c	/^    unsigned char *data;$/;"	m	struct:__anon82d667f30208	typeref:typename:unsigned char *	file:
@@ -1558,7 +1561,6 @@ expected	tests/dark-colony/test_selection_overlays.c	/^static uint32_t expected[
 expected_index	tests/dark-colony/test_production_requirements.c	/^static int expected_index(int row_id) {$/;"	f	typeref:typename:int	file:	signature:(int row_id)
 expected_makers	tests/dark-colony/test_production_requirements.c	/^static const int expected_makers[] = {$/;"	v	typeref:typename:const int[]	file:
 expected_products	tests/dark-colony/test_production_requirements.c	/^static const ExpectedProduct expected_products[] = {$/;"	v	typeref:typename:const ExpectedProduct[]	file:
-exploiter_turns_before_moving	tests/dark-colony/test_flow_field_movement.c	/^static int exploiter_turns_before_moving(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 export_fin	tools/dc_info_conv/states.c	/^static void export_fin(const char *path) {$/;"	f	typeref:typename:void	file:	signature:(const char * path)
 export_states	tools/dc_info_conv/main.c	/^int export_states(int argc, char **argv);$/;"	p	typeref:typename:int	file:	signature:(int argc,char ** argv)
 export_states	tools/dc_info_conv/states.c	/^int export_states(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
@@ -1931,6 +1933,7 @@ main	tests/cross-game/test_model_commands.c	/^int main(void) {$/;"	f	typeref:typ
 main	tests/dark-colony/test_actor_lifecycle.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_ai_team_aware.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_barracks_production.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_barrager_turning.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_blood_fin.c	/^int main(void) { lifecycle(); pixels(); return 0; }$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_building_damage.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_city_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2875,6 +2878,7 @@ unit_sprite_sheet_for_view	render/r_draw.c	/^static const spritesheet_t *unit_sp
 unit_stats_id	tools/kknd_info_gen.c	/^    int  unit_stats_id;$/;"	m	struct:__anoncbabb2620308	typeref:typename:int	file:
 unit_stats_id	tools/kknd_info_gen.c	/^    int unit_stats_id;$/;"	m	struct:__anoncbabb2620108	typeref:typename:int	file:
 unit_t	tools/kknd_info_gen.c	/^} unit_t;$/;"	t	typeref:struct:__anoncbabb2620308	file:
+unit_turns_before_moving	tests/dark-colony/test_flow_field_movement.c	/^static int unit_turns_before_moving(int type, const char *stem) {$/;"	f	typeref:typename:int	file:	signature:(int type,const char * stem)
 unit_type	tools/dc_gamestat_gen.c	/^    int unit_type;$/;"	m	struct:__anon006eef8b0408	typeref:typename:int	file:
 unitoverlaycontext_s	play/actor.h	/^typedef struct unitoverlaycontext_s {$/;"	s
 unitoverlaycontext_s::anchor	play/actor.h	/^    fvec2_t anchor;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:fvec2_t

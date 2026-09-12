@@ -355,6 +355,15 @@ Local game-data files that have already been useful:
 
 ### Dark Colony SPR/FIN Sprite Placement
 
+Barrager's standing definition uses all sixteen directions. For a missing
+STAND direction completed from SHUF, a matching singleton MOVE takes precedence:
+the same body can have different native placement in those two labels. BARR's
+SHUF poses differ by 10–11 vertical pixels, and several mirrored BARR, REAP and
+ATRIL poses differ horizontally. This is an engine turning presentation rule,
+not a claim about retail SHUF dispatch. See “Barrager stationary pose placement
+(2026-09-12)” in `docs/DC_EXE_FINDINGS.md` for fingerprints, commands and the
+reconfirmed loader/queue/blitter addresses. Raw FIN placement remains unchanged.
+
 Each `.SPR` frame descriptor is raw data: `width`, `height`, `disX`, `disY`.
 Our Dark Colony loader keeps those values unmutated: frame pixels are decoded at
 the start of their atlas cell, the source rectangle is the raw `width × height`,
