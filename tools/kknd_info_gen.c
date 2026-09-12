@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -165,6 +166,8 @@ static const anim_t ANIM_TABLE[] = {
     /* 54 MUTE_ROTARY_CANNON (61) [4fps,1fps] */   {  4,  0, 4, -1, 0 },
     /* 55 SURV_BOMBER (83) [1,1] */                {  1, -1, 0, -1, 0 },
     /* 56 MUTE_WASP (82) [1,3fps] */               {  0, -1, 0,  1, 3 },
+    /* OpenKrush PNG sequences: both infantry producers idle at frame 3. */
+    {3, -1, 0, -1, 0}, {3, -1, 0, -1, 0},
 };
 
 /* ── UNITS.CFG parsing ────────────────────────────────────────────────────── */
@@ -188,6 +191,7 @@ typedef struct {
     int  is_building;
     int  mobd;
     int  unit_stats_id;
+    const char *png;
     /* Derived short name for C identifiers: SURV_INFANTRY → SURV_RIFLEMAN etc. */
     char spr_suffix[48];   /* e.g. "SURV_RIFLEMAN" */
     char mt_name[64];      /* e.g. "MT_SURV_RIFLEMAN" */
@@ -274,6 +278,20 @@ static int parse_units_cfg(const char *path) {
             return 0;
         }
         ++g_unit_count;
+    }
+    const char *symbols[] = {"SURV_BARRACKS", "MUTE_WARRIOR_HALL"};
+    const char *images[] = {"openkrush/barracks.png", "openkrush/warriorhall.png"};
+    for (int i = 0; i < 2; ++i) {
+        unit_t *u = &g_units[g_unit_count++];
+        snprintf(u->name, sizeof(u->name), "%s", symbols[i]);
+        snprintf(u->spr_suffix, sizeof(u->spr_suffix), "%s", symbols[i]);
+        snprintf(u->mt_name, sizeof(u->mt_name), "MT_%s", symbols[i]);
+        snprintf(u->spr_name, sizeof(u->spr_name), "SPR_%s", symbols[i]);
+        snprintf(u->state_name, sizeof(u->state_name), "S_%s_STND", symbols[i]);
+        u->unit_stats_id = -1; /* Mod-authored actors have no retail UNIT_STATS id. */
+        u->is_building = 1;
+        u->hitpts = 3000;
+        u->png = images[i];
     }
     return g_unit_count;
 }
@@ -427,9 +445,12 @@ static void write_info_c(const char *path) {
 
     /* sprnames[] */
     fprintf(f, "const char *const sprnames[NUMSPRITES] = {\n");
-    for (int i = 0; i < g_unit_count; ++i)
-        fprintf(f, "    \"%d\",  /* %s */\n", g_units[i].mobd, g_units[i].name);
+    for (int i = 0; i < g_unit_count; ++i) {
+        if (g_units[i].png) fprintf(f, "    \"%s\",\n", g_units[i].png);
+        else fprintf(f, "    \"%d\",  /* %s */\n", g_units[i].mobd, g_units[i].name);
+    }
     fprintf(f, "};\n\n");
+    fprintf(f, "void A_KkndResearch(mobj_t *actor);\n\n");
 
     /* states[] */
     fprintf(f, "const state_t states[NUMSTATES] = {\n");
@@ -440,8 +461,10 @@ static void write_info_c(const char *path) {
         const char *sfx = g_units[i].spr_suffix;
         const char *stnd = g_units[i].state_name;   /* S_XXX_STND */
         /* STND: short-duration loop so A_Chase fires each cycle */
-        fprintf(f, "    { %s, %d, 5, A_Chase, %s, 0 },  /* %s */\n",
-                spr, a->idle, stnd, stnd);
+        bool research = strcmp(sfx, "SURV_RESEARCH_LAB") == 0 ||
+                        strcmp(sfx, "MUTE_ALCHEMY_HALL") == 0;
+        fprintf(f, "    { %s, %d, %d, %s, %s, 0 },  /* %s */\n",
+                spr, a->idle, research ? 1 : 5, research ? "A_KkndResearch" : "A_Chase", stnd, stnd);
         /* WALK states */
         if (a->move >= 0 && a->mlen > 0) {
             for (int k = 1; k <= a->mlen; ++k) {

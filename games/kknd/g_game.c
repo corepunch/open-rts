@@ -1,10 +1,16 @@
 #include "game.h"
 #include "kknd.h"
 #include "info.h"
+#include "sb_bar.h"
+#include "d_net.h"
 
 #define SPR(idx) "LEVELS/640/SPRITES.LVL|" #idx ".mobd"
 
 static const mobjtype_t ACTOR_TYPES[] = {
+    { .id = MT_SURV_BARRACKS, .name = "Barracks", .sprite_name = "openkrush/barracks.png",
+      .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 3000 },
+    { .id = MT_MUTE_WARRIOR_HALL, .name = "Warrior Hall", .sprite_name = "openkrush/warriorhall.png",
+      .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 3000 },
     /* === Survivor Infantry === */
     { .id = MT_SURV_RIFLEMAN, .name = "Rifleman",
       .sprite_name = SPR(34),
@@ -344,27 +350,6 @@ static const mobjtype_t ACTOR_TYPES[] = {
     },
 };
 
-static const uidefinition_t UI = {
-    .logical_width = 640,
-    .logical_height = 480,
-    .world_viewport = { 0, 0, 480, 480 },
-    .command_grid = { 480, 32, 160, 448 },
-    .resources = {
-        [0] = { .text = { 400, 3 }, .color = { 255, 255, 255, 255 } },
-    },
-    .resource_count = 1,
-    .status_panel = {
-        .rect = { 230, 0, 180, 28 },
-        .fill = { 0, 0, 0, 255 },
-        .border = { 255, 255, 255, 255 },
-    },
-    .status_elapsed_time = true,
-    .sidebar_panel = {
-        .rect = { 480, 0, 160, 480 },
-        .fill = { 0, 0, 0, 255 },
-        .border = { 104, 104, 96, 255 },
-    },
-};
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
@@ -380,7 +365,6 @@ const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types = ACTOR_TYPES;
 const int num_actor_types =
     (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = &UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
@@ -410,6 +394,7 @@ int P_LoadThings(const char *path) {
         { MT_SURV_RIFLEMAN,  2.0f,  1.0f },
         { MT_SURV_RIFLEMAN,  3.0f,  0.0f },
         { MT_SURV_OUTPOST,  -3.0f, -2.0f },
+        { MT_SURV_BARRACKS, -3.0f, 3.0f },
     };
     for (int i = 0; i < (int)(sizeof(player_units) / sizeof(player_units[0])); ++i) {
         fvec2_t pos = { cx + player_units[i].dx, cy + player_units[i].dy };
@@ -434,6 +419,7 @@ int P_LoadThings(const char *path) {
         { MT_MUTE_BERSERKER, -2.0f,  1.0f },
         { MT_MUTE_SHOTGUNNER,-3.0f,  0.0f },
         { MT_MUTE_CLANHALL,   3.0f, -2.0f },
+        { MT_MUTE_WARRIOR_HALL, 3.0f, 3.0f },
     };
     for (int i = 0; i < (int)(sizeof(enemy_units) / sizeof(enemy_units[0])); ++i) {
         fvec2_t pos = { ex + enemy_units[i].dx, ey + enemy_units[i].dy };
@@ -513,6 +499,24 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
                       const spritecache_t *sprites, const hudtext_t *hud) {
     (void)ui; (void)app; (void)map; (void)units; (void)unit_count;
     (void)sprites; (void)hud;
+    for (int i = 0; i < unit_count; ++i) {
+        const mobj_t *u = units[i];
+        if (u->owner != consoleplayer || !P_MobjIsSelected(u) || u->remove || u->hp <= 0) continue;
+        if (!KK_NextTechLevel(u) && !u->research.level) continue;
+        char text[128];
+        snprintf(text,sizeof(text),"TECH LEVEL %d",u->research.level);
+        for (int j = 0; j < unit_count; ++j) {
+            const mobj_t *lab = units[j];
+            if (lab->remove || lab->hp <= 0 || lab->research.target != u->id) continue;
+            snprintf(text,sizeof(text),"TECH %d - RESEARCH %d%% - %d OIL LEFT",u->research.level,
+                100*(lab->research.total_time-lab->research.remaining_time)/lab->research.total_time,
+                lab->research.remaining_cost);
+            break;
+        }
+        SDL_SetRenderDrawColor(app->renderer,255,255,255,255);
+        SB_DrawText(app,(ivec2_t){gameui->status_panel.rect.x,gameui->status_panel.rect.h+8},text,400);
+        break;
+    }
 }
 
 bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,

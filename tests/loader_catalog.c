@@ -3,7 +3,7 @@
 #include <inttypes.h>
 
 /* The catalog exercises the private format decoders without adding runtime
- * APIs just for tests. tools/test_loaders.py omits the included loader object. */
+ * APIs just for tests. The Makefile omits the included loader object. */
 #if defined(DR)
 #include "games/dark-reign/w_spr.c"
 #elif defined(SL)

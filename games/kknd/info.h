@@ -91,6 +91,8 @@ typedef enum {
     SPR_MUTE_ROTARY_CANNON,
     SPR_SURV_BOMBER,
     SPR_MUTE_WASP,
+    SPR_SURV_BARRACKS,
+    SPR_MUTE_WARRIOR_HALL,
     NUMSPRITES
 } spritenum_t;
 
@@ -437,6 +439,8 @@ typedef enum {
     S_MUTE_WASP_WALK2,
     S_MUTE_WASP_WALK3,
     S_MUTE_WASP_ATCK1,
+    S_SURV_BARRACKS_STND,
+    S_MUTE_WARRIOR_HALL_STND,
     NUMSTATES
 } statenum_t;
 
@@ -500,6 +504,8 @@ enum {
     MT_MUTE_ROTARY_CANNON,  /* doomednum=57 */
     MT_SURV_BOMBER,  /* doomednum=44 */
     MT_MUTE_WASP,  /* doomednum=43 */
+    MT_SURV_BARRACKS,  /* doomednum=-1 */
+    MT_MUTE_WARRIOR_HALL,  /* doomednum=-1 */
     NUMMOBJTYPES,
 };
 

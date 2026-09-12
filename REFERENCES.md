@@ -1338,3 +1338,44 @@ expands blood/building state or label macros.
   `0x438972–0x4389f8`, FIN slot 6 via `0x423ccc`, STAND union via `0x4239f0`.
 - Detailed formulas, hashes, corrections and reproduction commands:
   [DC executable findings](docs/DC_EXE_FINDINGS.md#persistent-commander-rank-and-selection-composition-2026-09-10).
+
+## OpenRA UI and KKnD production references (2026-09-13)
+
+The requested reference checkouts are in the existing ignored `reference/`
+directory (case-insensitive `Reference` on this workspace filesystem):
+
+- [OpenDR](https://github.com/drogoganor/OpenDR), `reference/OpenDR`, pinned to
+  `98079a904746440433795fe7f21c4b35eb6b3959`.
+  `mods/dr/chrome/ingame-player.yaml`, `mods/dr/chrome.yaml`,
+  `mods/dr/sequences/{structures,infantry,vehicles}.yaml`, and
+  `mods/dr/rules/structures-building.yaml` supply sidebar rectangles, glyphs,
+  original SPR menu-image names, and retained base prerequisites after upgrades.
+- [OpenKrush](https://github.com/IceReaper/OpenKrush), `reference/OpenKrush`,
+  pinned to `76c634d05984e48e1e474460c46607aee0bc78a1`.
+  `OpenRA.Mods.OpenKrush/Widgets/Ingame/` supplies the 48-pixel sidebar and
+  category/action layout. `mods/openkrush_gen1/actors/` supplies the two faction
+  skins, product icons, rule values, and custom Barracks/Warrior Hall images.
+  `OpenRA.Mods.OpenKrush/Mechanics/Researching/` supplies research behavior;
+  `mods/openkrush_gen1/core/rules/palette.png` supplies the indexed palette.
+- [OpenRA PNG sheet loader](https://github.com/OpenRA/OpenRA/blob/bleed/OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs),
+  `RegionsFromSlices`, inspected 2026-09-13: `FrameSize` slices the sheet in row
+  order; omitted `FrameAmount` defaults to the number of complete cells.
+  Our two committed sheets use this documented subset of PNG metadata.
+
+To reproduce the checkouts:
+
+```sh
+git clone https://github.com/drogoganor/OpenDR.git reference/OpenDR
+git -C reference/OpenDR checkout 98079a904746440433795fe7f21c4b35eb6b3959
+git clone https://github.com/IceReaper/OpenKrush.git reference/OpenKrush
+git -C reference/OpenKrush checkout 76c634d05984e48e1e474460c46607aee0bc78a1
+```
+
+Copied assets live in `games/dark-reign/ui`, `games/kknd/ui`, and
+`games/kknd/openkrush`. Each UI directory includes the upstream GPL COPYING;
+KKnD icons retain upstream per-actor credits as `<product id>-CREDITS.md`.
+The custom Barracks and Warrior Hall retain their separate authorship notes.
+Dark Reign menu SPRs are loaded from the user's game data and are not copied.
+Detailed findings and limitations are in `docs/DR_EXE_FINDINGS.md` and
+`docs/KKND_EXE_FINDINGS.md`; these OpenRA-derived rules are not claims about
+retail executable behavior.

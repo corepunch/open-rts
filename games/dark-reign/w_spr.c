@@ -242,6 +242,15 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
 
 /* ── sprite cache ───────────────────────────────────────────────────────── */
 
+bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
+                      const char *name, spritesheet_t *out) {
+    char path[1024];
+    uint32_t palette[256];
+    M_PathJoin(path, sizeof(path), root, "graphics/BARREN.PAL");
+    return load_dark_sprite_palette(path, palette) &&
+           load_unit_sprite(renderer, root, "BARREN", name, palette, out);
+}
+
 static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *renderer,
                                          const char *data_root, const char *tileset_name,
                                          const char *name, const uint32_t sprite_palette[256],

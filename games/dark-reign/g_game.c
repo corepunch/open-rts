@@ -76,33 +76,6 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                         const level_t *map, mobj_t *const *units, int unit_count,
                                         spritecache_t *cache);
 
-static const uiimage_t DARK_REIGN_UI_IMAGES[] = {
-    { "graphics/INTFACE/IGI/TOPBTNS.BMP", {   0, 0, 126, 32 }, {   0,   0, 126,  32 } },
-    { "graphics/INTFACE/IGI/TOPBITS.BMP", {   0, 0, 154, 32 }, { 126,   0, 154,  32 } },
-    { "graphics/INTFACE/IGI/TOPBTNS.BMP", { 126, 0, 168, 32 }, { 280,   0, 168,  32 } },
-    { "graphics/INTFACE/IGI/MFDBTNS.BMP", {   0, 0, 192, 64 }, { 448,   0, 192,  64 } },
-    { "graphics/INTFACE/IGI/MFDBAC1.BMP", {   0, 0, 192,278 }, { 448,  64, 192, 278 } },
-    { "graphics/INTFACE/IGI/BUBLDBIT.BMP",{   0, 0, 192, 28 }, { 448, 314, 192,  28 } },
-    { "graphics/INTFACE/IGI/MINIMAP.BMP", {   0, 0, 140,138 }, { 448, 342, 140, 138 } },
-    { "graphics/INTFACE/IGI/RESOBARS.BMP",{   0, 0,  52,104 }, { 588, 376,  52, 104 } },
-};
-
-static const uidefinition_t DARK_REIGN_UI = {
-    .logical_width = 640,
-    .logical_height = 480,
-    .world_viewport = { 0, 32, 448, 448 },
-    .minimap = { 454, 348, 128, 126 },
-    .command_grid = { 450, 66, 188, 246 },
-    .command_columns = 3,
-    .command_rows = 4,
-    .resources = {
-        [0] = { .text = { 216, 5 }, .color = { 55, 242, 238, 255 } },
-    },
-    .resource_count = 1,
-    .images = DARK_REIGN_UI_IMAGES,
-    .image_count = (int)(sizeof(DARK_REIGN_UI_IMAGES) / sizeof(DARK_REIGN_UI_IMAGES[0])),
-};
-
 static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     /* === Special / support units === */
     {
@@ -438,7 +411,6 @@ const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_REIGN_ACTOR_TYPES;
 const int num_actor_types =
     (int)(sizeof(DARK_REIGN_ACTOR_TYPES) / sizeof(DARK_REIGN_ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = &DARK_REIGN_UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 

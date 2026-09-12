@@ -12,8 +12,8 @@ PKG_CONFIG ?= pkg-config
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 CPPFLAGS += -Idriver -Igame -Iplay -Irender -Iinterface -Ihud -Itests
 DEPFLAGS = -MMD -MP
-SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
-SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
+SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2 libpng)
+SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2 libpng)
 
 BUILD_DIR := build
 BIN_DIR   := $(BUILD_DIR)/bin
@@ -258,8 +258,24 @@ dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
 test: test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
 
-test-loaders: all
-	env SDL_VIDEODRIVER=dummy python3 tools/test_loaders.py --fixtures --no-build
+# The C catalog includes private decoders; exclude their separate objects.
+LOADER_CATALOG_SOURCES := $(sort $(shell find tests -maxdepth 1 -name 'loader_catalog.c'))
+LOADER_RUNNER_SOURCES := $(sort $(shell find tools/test_loaders -name '*.c'))
+build/test_loaders: $(LOADER_RUNNER_SOURCES)
+	@mkdir -p build
+	$(CC) $(CFLAGS) $^ -o $@
+define LOADER_CATALOG
+$(BIN_DIR)/loader-$(1): $(LOADER_CATALOG_SOURCES) $$(filter-out %/driver/d_main.o $(BUILD_DIR)/$(1)/games/$(1)/$(3).o,$$(ALL_OBJS_$(1)))
+	$(CC) $(CPPFLAGS) -I. -Igames/$(1) $(CFLAGS) $(SDL_CFLAGS) -D$(2) -DRTS_WORLD_Y_UP=$(4) -DLOADER_FIXTURES $$^ $(SDL_LIBS) -lm -o $$@
+loader-catalogs: $(BIN_DIR)/loader-$(1)
+test-loaders: test-loader-$(1)
+test-loader-$(1): $(BIN_DIR)/loader-$(1)
+	env SDL_VIDEODRIVER=dummy $$< --fixtures
+endef
+$(eval $(call LOADER_CATALOG,dark-colony,DC,none,1))
+$(eval $(call LOADER_CATALOG,dark-reign,DR,w_spr,0))
+$(eval $(call LOADER_CATALOG,7legion,SL,w_bim,0))
+$(eval $(call LOADER_CATALOG,kknd,KK,w_spr,0))
 
 test-headless: test-dark-colony
 test-ai: test-dark-colony
@@ -353,3 +369,9 @@ tags:
 
 # Headless/layout/command test objects also depend on shared runtime headers.
 -include $(sort $(shell find $(BUILD_DIR) -name '*.d' 2>/dev/null))
+
+# One-time OpenKrush economy and sidebar import; runtime uses committed C rows.
+KKND_RULES_IMPORT_SOURCES := $(sort $(shell find tools/kknd_rules_import -name '*.c'))
+build/kknd_rules_import: $(KKND_RULES_IMPORT_SOURCES)
+	@mkdir -p build
+	$(CC) $(CFLAGS) $^ -o $@

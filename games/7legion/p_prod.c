@@ -164,3 +164,13 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
     return G_QueueProduct(producer, product);
 }
+
+bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product) {
+    (void)producer; (void)product;
+    return true;
+}
+
+int G_ModelRadarLevel(int owner) {
+    (void)owner;
+    return 2;
+}

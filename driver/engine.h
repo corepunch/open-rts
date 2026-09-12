@@ -21,6 +21,10 @@ int32_t read_i32_le(const uint8_t *p);
 uint32_t read_u32_le(const uint8_t *p);
 
 bool W_ReadFile(const char *path, blob_t *out);
+SDL_Surface *W_LoadPNG(const char *path);
+bool W_LoadMenuPNG(SDL_Renderer *renderer, const char *root,
+                    const char *name, const char *palette, spritesheet_t *out);
+bool W_SetPNGPalette(SDL_Surface *surface, const char *path);
 void W_FreeFile(blob_t *blob);
 bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out);
 /* Temporary strings survive seven further M_va calls on this thread.
@@ -80,6 +84,9 @@ void R_DrawCell(app_t *app, int gx, int gy, SDL_Color color);
 void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part);
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset);
 void R_DrawGridOverlay(app_t *app, const level_t *map);
+int R_PickUnit(const app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
+               const spritesheet_t *fallback_sprite, const spritecache_t *cache,
+               const gameinfo_t *game_info, int x, int y, int owner_filter);
 void R_DrawDecorations(app_t *app, const level_t *map, const spritecache_t *cache);
 void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallback_sprite,
                   const spritecache_t *cache, const gameinfo_t *game_info, uint32_t ticks);

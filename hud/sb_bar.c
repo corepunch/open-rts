@@ -1,5 +1,6 @@
 #include "d_net.h"
 #include "sb_bar.h"
+#include "game.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -22,13 +23,19 @@ static irect_t ui_scaled_rect(const app_t *app, const uidefinition_t *def, irect
 bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
              const uidefinition_t *definition) {
     if (!st || !renderer || !data_root || !definition ||
-        definition->image_count < 0 || definition->image_count > RTS_UI_MAX_LAYERS) return false;
+        definition->image_count < 0 || definition->image_count > RTS_UI_MAX_LAYERS ||
+        definition->product_count < 0 || definition->product_count > 64) return false;
     memset(st, 0, sizeof(*st));
     st->definition = definition;
     for (int i = 0; i < definition->image_count; ++i) {
         char path[1024];
-        M_PathJoin(path, sizeof(path), data_root, definition->images[i].asset_path);
-        SDL_Surface *surface = SDL_LoadBMP(path);
+        M_PathJoin(path, sizeof(path), definition->asset_root ? definition->asset_root : data_root,
+                   definition->images[i].asset_path);
+        SDL_Surface *surface = strstr(path, ".png") ? W_LoadPNG(path) : SDL_LoadBMP(path);
+        if (surface && definition->palette && !W_SetPNGPalette(surface, definition->palette)) {
+            SDL_FreeSurface(surface);
+            surface = NULL;
+        }
         if (!surface) {
             fprintf(stderr, "warning: failed to load UI asset %s: %s\n", path, SDL_GetError());
             SB_Shutdown(st);
@@ -41,6 +48,18 @@ bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
             return false;
         }
     }
+    if (definition->product_count > 0) {
+        st->product_icons = calloc(definition->product_count, sizeof(*st->product_icons));
+        if (!st->product_icons) { SB_Shutdown(st); return false; }
+        for (int i = 0; i < definition->product_count; ++i) {
+            if (!G_LoadMenuSprite(renderer, data_root, definition->products[i].image,
+                                  &st->product_icons[i])) {
+                fprintf(stderr, "failed to load menu image %s\n", definition->products[i].image);
+                SB_Shutdown(st);
+                return false;
+            }
+        }
+    }
     st->ready = true;
     SB_Start(st);
     return true;
@@ -51,6 +70,8 @@ void SB_Start(sb_state_t *st) {
     st->first_draw = true;
     st->pressed_button = -1;
     st->clock = 0;
+    st->production_category = st->definition->palette_type == UI_PALETTE_OPENDR ? 0 : -1;
+    st->radar_visible = st->definition->minimap.w > 0;
 }
 
 bool SB_Responder(sb_state_t *st, const app_t *app, const SDL_Event *event) {
@@ -82,12 +103,26 @@ void SB_Ticker(sb_state_t *st) {
     if (st && st->ready) st->clock++;
 }
 
+irect_t SB_MinimapRect(const level_t *map) {
+    if (gameui->minimap_scale && map)
+        return (irect_t){0, gameui->logical_height - map->height * gameui->minimap_scale,
+            map->width * gameui->minimap_scale, map->height * gameui->minimap_scale};
+    return gameui->minimap;
+}
+
 static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
                                  mobj_t *const *units, int unit_count) {
-    irect_t rect = ui_scaled_rect(app, st->definition, st->definition->minimap);
+    if (st->definition->product_count && !st->radar_visible) return;
+    int radar_level = G_ModelRadarLevel(consoleplayer);
+    if (!radar_level) return;
+    irect_t rect = ui_scaled_rect(app, st->definition, SB_MinimapRect(map));
     if (rect.w <= 0 || rect.h <= 0 || !map || map->width <= 0 || map->height <= 0) return;
     SDL_SetRenderDrawColor(app->renderer, 5, 7, 7, 255);
     SDL_RenderFillRect(app->renderer, &rect);
+    SDL_Rect previous_clip;
+    bool clipped = SDL_RenderIsClipEnabled(app->renderer);
+    SDL_RenderGetClipRect(app->renderer, &previous_clip);
+    SDL_RenderSetClipRect(app->renderer, &rect);
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
         if (!P_SightBrightness(map, dec->cell)) continue;
@@ -98,6 +133,7 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
         SDL_RenderDrawPoint(app->renderer, x, y);
     }
     for (int i = 0; i < unit_count; ++i) {
+        if (radar_level < 2 && units[i]->owner != consoleplayer) continue;
         if (!P_VisibleToPlayer(units[i]) || units[i]->remove || units[i]->hp <= 0) continue;
         fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         int x = rect.x + (int)(position.x * (float)rect.w / (float)map->width);
@@ -115,11 +151,12 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
     irect_t view = {
         rect.x + (int)(left * (float)rect.w / (float)map->width),
         rect.y + (int)(top_screen * (float)rect.h / (float)map->height),
-        app->win.w * rect.w / (cell_w * map->width),
+        G_WorldViewportWidth(app) * rect.w / (cell_w * map->width),
         app->win.h * rect.h / (cell_h * map->height),
     };
     SDL_SetRenderDrawColor(app->renderer, 215, 215, 205, 255);
     SDL_RenderDrawRect(app->renderer, &view);
+    SDL_RenderSetClipRect(app->renderer, clipped ? &previous_clip : NULL);
 }
 
 static void draw_digit(SDL_Renderer *renderer, int x, int y, int digit, SDL_Color color) {
@@ -233,6 +270,12 @@ static void SB_drawResource(const sb_state_t *st, app_t *app,
     if (amount < 0) amount = 0;
     snprintf(value, sizeof(value), "%d", amount);
     int count = (int)strlen(value);
+    if (st->definition->palette_type != UI_PALETTE_NONE) {
+        ivec2_t point = {display->text.x - (display->right_aligned ? count*6 : count*3), display->text.y};
+        SDL_SetRenderDrawColor(app->renderer,display->color.r,display->color.g,display->color.b,display->color.a);
+        SB_DrawText(app,point,value,count*6);
+        return;
+    }
     float sx = (float)app->win.w / (float)st->definition->logical_width;
     float sy = (float)app->win.h / (float)st->definition->logical_height;
     int anchor_x = (int)((float)display->text.x * sx);
@@ -250,6 +293,16 @@ static void SB_drawElapsedTime(const sb_state_t *st, app_t *app) {
     int seconds = (int)(st->clock / 30u);
     int minutes = (seconds / 60) % 100;
     seconds %= 60;
+    if (st->definition->palette_type != UI_PALETTE_NONE) {
+        char value[8];
+        snprintf(value,sizeof(value),"%02d:%02d",minutes,seconds);
+        irect_t logical = st->definition->status_panel.rect;
+        ivec2_t point = {logical.x+9,logical.y+10};
+        if (st->definition->palette_type == UI_PALETTE_OPENDR) point.x = logical.x+logical.w/2-15;
+        SDL_SetRenderDrawColor(app->renderer,255,255,255,255);
+        SB_DrawText(app,point,value,30);
+        return;
+    }
     int x = panel.x + 9;
     int y = panel.y + 3;
     SDL_Color white = { 255, 255, 255, 255 };
@@ -264,7 +317,7 @@ static void SB_drawElapsedTime(const sb_state_t *st, app_t *app) {
 
 static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t *sprites) {
     const uidefinition_t *def = st->definition;
-    if (!sprites || def->command_columns <= 0 || def->command_rows <= 0) return;
+    if (!sprites || def->product_count || def->command_columns <= 0 || def->command_rows <= 0) return;
     irect_t grid = ui_scaled_rect(app, def, def->command_grid);
     int cell_w = grid.w / def->command_columns;
     int cell_h = grid.h / def->command_rows;
@@ -298,6 +351,7 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
 void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
                mobj_t *const *units, int unit_count, const spritecache_t *sprites,
                bool fullscreen, bool refresh) {
+    st->sprites = sprites;
     (void)fullscreen;
     if (!st || !st->ready || !st->definition || !app) return;
     const uidefinition_t *def = st->definition;
@@ -308,6 +362,7 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
     SB_drawSidebarCells(st, app);
     SB_drawPanel(st, app, def->status_panel);
     for (int i = 0; i < def->image_count; ++i) {
+        if (def->images[i].destination.w <= 0 || def->images[i].destination.h <= 0) continue;
         irect_t dst = ui_scaled_rect(app, def, def->images[i].destination);
         const irect_t *src = def->images[i].source.w > 0 && def->images[i].source.h > 0 ?
             &def->images[i].source : NULL;
@@ -326,6 +381,11 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
 
 void SB_Shutdown(sb_state_t *st) {
     if (!st) return;
+    if (st->product_icons) {
+        for (int i = 0; i < st->definition->product_count; ++i)
+            R_FreeSprite(&st->product_icons[i]);
+        free(st->product_icons);
+    }
     for (int i = 0; i < RTS_UI_MAX_LAYERS; ++i) {
         if (st->textures[i]) SDL_DestroyTexture(st->textures[i]);
     }

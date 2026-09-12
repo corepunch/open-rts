@@ -191,3 +191,8 @@ int G_WorldViewportWidth(const app_t *app) {
         return gameui->world_viewport.w * app->win.w / gameui->logical_width;
     return app->win.w > 0 ? app->win.w : 1;
 }
+
+bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
+                      const char *name, spritesheet_t *out) {
+    return W_LoadMenuPNG(renderer, root, name, NULL, out);
+}

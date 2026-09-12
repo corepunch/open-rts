@@ -272,3 +272,25 @@ Sources:
   https://github.com/btigi/drExplorer
 - OpenDR importer and terrain renderer:
   https://github.com/drogoganor/OpenDR
+
+## OpenDR and OpenKrush interfaces
+
+Build dependencies include SDL2 and libpng (`pkg-config` must find `sdl2 libpng`).
+Run games from the repository root so the committed UI assets under `games/`
+can be located. The ignored OpenRA source checkouts and pins are documented in
+[REFERENCES.md](REFERENCES.md).
+
+Dark Reign uses the OpenDR sidebar, category palette and native SPR menu icons.
+KKnD uses OpenKrush's faction sidebars and production rules: Barracks/Warrior Hall
+train infantry, Machine Shop/Blacksmith/Beast Enclosure produce their respective
+vehicles, and Outpost/Clan Hall build structures. Build a Research Lab/Alchemy
+Hall, click Research, then click a producer to unlock its next technology level.
+Repeat that order to cancel; right click cancels the targeting cursor. Research
+is paid incrementally and pauses when oil runs out. Research the base for radar.
+Select the researched building to see its technology and progress.
+
+Category buttons open production palettes; the mouse wheel changes pages.
+Icons show queue counts, progress and dependency/funds availability. Unsupported
+advanced actions remain disabled; the precise port boundaries are recorded in
+[the KKnD findings](docs/KKND_EXE_FINDINGS.md) and
+[the Dark Reign findings](docs/DR_EXE_FINDINGS.md).

@@ -26,6 +26,30 @@ typedef struct uipanel_s {
     SDL_Color border;
 } uipanel_t;
 
+typedef struct uiproduct_s {
+    int id;
+    int category;
+    const char *image;
+} uiproduct_t;
+
+typedef struct uicategory_s {
+    const char *label;
+    irect_t rect;
+    int image;
+    irect_t source;
+} uicategory_t;
+
+typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } uiactionkind_t;
+typedef struct uiaction_s {
+    const char *label;
+    uiactionkind_t action;
+    irect_t rect;
+    int image;
+    irect_t source;
+    int product;
+} uiaction_t;
+typedef enum { UI_PALETTE_NONE, UI_PALETTE_OPENDR, UI_PALETTE_OPENKRUSH } uipalettetype_t;
+
 /* Games describe native assets and layout; the client owns loading and rendering. */
 typedef struct uidefinition_s {
     int logical_width;
@@ -43,6 +67,17 @@ typedef struct uidefinition_s {
     int sidebar_cell_size;
     const uiimage_t *images;
     int image_count;
+    const char *asset_root;
+    const char *palette;
+    const uiproduct_t *products;
+    int product_count;
+    const uicategory_t *categories;
+    int category_count;
+    isize2_t icon_size;
+    const uiaction_t *actions;
+    int action_count;
+    int minimap_scale;
+    uipalettetype_t palette_type;
 } uidefinition_t;
 
 #endif

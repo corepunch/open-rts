@@ -109,3 +109,20 @@ does not verify them anew against executables. See the game findings documents
 for preserved unknowns and the distinction between loader equivalence and
 retail behavior. In particular, no missing animation directions, guessed
 hotspots, sprite-name aliases, terrain offsets, or balance changes were added.
+
+## Current C runner (2026-09-13)
+
+The Python commands above record the original comparison procedure. The current
+checkout builds the fixture/catalog binaries directly with Make, so they inherit
+all engine libraries (including libpng). `tools/test_loaders/main.c` replaces the
+old Python runner for sorted map/SPR manifests and catalog execution:
+
+```sh
+make build/test_loaders
+build/test_loaders --fixtures
+build/test_loaders --output /private/tmp/loaders-current
+```
+
+`--source-tree DIR` targets checkouts that have the new `loader-catalogs` Make
+rules; `--no-build` uses their existing catalog binaries. Catalog records and
+manifest naming remain unchanged. All new repository tools are C.

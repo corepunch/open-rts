@@ -27,6 +27,12 @@ int main(void) {
     units = P_ListMobjs();
     CHECK(R_InitSprites(renderer, config.data_root, &level, units.items, units.count, cache));
     CHECK(cache->count == NUMSPRITES);
+    const spritesheet_t *barracks = R_StateSprite(cache,gameinfo,SPR_SURV_BARRACKS,NULL);
+    const spritesheet_t *warriors = R_StateSprite(cache,gameinfo,SPR_MUTE_WARRIOR_HALL,NULL);
+    CHECK(barracks && barracks->spritedef.numframes == 13);
+    CHECK(warriors && warriors->spritedef.numframes == 6);
+    CHECK(ivec2_equal(barracks->cells[3].displacement, (ivec2_t){-5,0}));
+    CHECK(ivec2_equal(warriors->cells[3].displacement, (ivec2_t){0,0}));
     CHECK(R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL)->lumps[0].texture == retained);
     const spritesheet_t *derrick = R_StateSprite(cache, gameinfo, SPR_SURV_MOBILE_DERRICK, NULL);
     const spritesheet_t *wolf = R_StateSprite(cache, gameinfo, SPR_MUTE_DIRE_WOLF, NULL);

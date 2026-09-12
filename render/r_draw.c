@@ -988,7 +988,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
     return true;
 }
 
-static int pick_unit_at(const app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
+int R_PickUnit(const app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                         const spritesheet_t *fallback_sprite, const spritecache_t *cache,
                         const gameinfo_t *game_info, int x, int y, int owner_filter) {
     int best = -1;
@@ -1432,7 +1432,7 @@ static void order_selected_at(app_t *app, const level_t *map,
                               const gameinfo_t *game_info, ivec2_t mouse) {
     fvec2_t goal;
     screen_to_map_grid_point(app, map, mouse.x, mouse.y, &goal.x, &goal.y);
-    int target = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
+    int target = R_PickUnit(app, map, units, unit_count, fallback_sprite, cache,
                               game_info, mouse.x, mouse.y, -1);
     bool attack = target >= 0 && units[target]->owner != consoleplayer && units[target]->hp > 0;
     G_SelectedTiccmd(attack ? TC_ATTACK : TC_ORDER, units, unit_count, goal,
@@ -1508,7 +1508,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
                 app->dragging_select = false;
                 app->selection_rect = (irect_t){0};
-                int picked = box ? -1 : pick_unit_at(app, map, units, unit_count,
+                int picked = box ? -1 : R_PickUnit(app, map, units, unit_count,
                     fallback_sprite, cache, game_info, bx, by, consoleplayer);
                 if (!box && !additive && picked < 0 &&
                     !(game_info && game_info->right_click_orders)) {

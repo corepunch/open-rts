@@ -4,6 +4,9 @@
 #include "sb_bar.h"
 #include "info.h"
 #include "rts_test.h"
+#ifdef RTS_GAME_KKND
+void A_KkndResearch(mobj_t *actor);
+#endif
 
 #define CHECK(c) RTS_CHECK(c, g_game_id, #c)
 
@@ -28,13 +31,15 @@ static int test_ai_goals(void) {
     for (int owner = 0; owner < 3; ++owner) {
         level.player_resources[owner][0] = 50000;
         CHECK(spawn_owner(OWNER_PRODUCER, owner, (fvec2_t){16 + owner * 30, 16}));
-#ifdef RTS_GAME_KKND
-        CHECK(spawn_owner(MT_MUTE_CLANHALL, owner, (fvec2_t){16 + owner * 30, 32}));
-#endif
     }
     for (int tick = 0; tick < 600; ++tick) {
         G_ModelAIProduction(NULL, 1000);
         G_ProductionTicker(1.0f);
+#ifdef RTS_GAME_KKND
+        for (int tic = 0; tic < RTS_TICRATE; ++tic)
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
+                if (th->function == P_MobjThinker) A_KkndResearch((mobj_t *)th);
+#endif
     }
     CHECK(level.player_resources[0][0] == 50000);
     CHECK(G_CountPlannedActors(0, AI_ADVANCED_UNIT) == 0);
@@ -88,8 +93,8 @@ static int test_interactive_queue(void) {
     CHECK(SB_Init(&bar, app.renderer, g_game_default_root, gameui));
     SDL_Event click = {.type = SDL_MOUSEBUTTONDOWN};
     click.button.button = SDL_BUTTON_LEFT;
-    click.button.x = gameui->command_grid.x + 10;
-    click.button.y = gameui->command_grid.y + 10;
+    click.button.x = (gameui->command_grid.x + 10) * app.win.w / gameui->logical_width;
+    click.button.y = (gameui->command_grid.y + 10) * app.win.h / gameui->logical_height;
     CHECK(SB_ProductionResponder(&bar, &app, &click));
     CHECK(!producer->production);
     CHECK(second->production && second->production->queue_count == 1);

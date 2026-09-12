@@ -132,6 +132,9 @@ uint32_t G_Consistency(void) {
         HASH(u->core.momentum.x); HASH(u->core.momentum.y); HASH(u->core.momentum.z);
         HASH(u->core.angle); HASH(u->core.state_id); HASH(u->core.tics);
         HASH(u->hp); HASH(u->traits & ~MF_SELECTED); HASH(u->remove);
+#ifdef MOBJ_GAME_CHECKSUM
+        MOBJ_GAME_CHECKSUM(HASH, u);
+#endif
         HASH(u->target ? u->target->id : 0);
         HASH(u->attack.target ? u->attack.target->id : 0); HASH(u->attack.cooldown_left_ms);
         HASH(u->harvest.target); HASH(u->harvest.phase); HASH(u->harvest.timer_ms); HASH(u->harvest.cargo);

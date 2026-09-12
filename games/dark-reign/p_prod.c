@@ -24,10 +24,10 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     BUILD(10005, "Advanced Barracks", 750, 10005, 10002, 0),
     BUILD(10006, "Vehicle Factory", 2200, 10006, 10001, 0),
     BUILD(10007, "Advanced Vehicle Factory", 2500, 10007, 10002, 0),
-    BUILD(10008, "Hover Factory", 500, 10008, 10004, 0),
+    BUILD(10008, "Field Hospital", 500, 10008, 10004, 0),
     BUILD(10009, "Repair Bay", 800, 10009, 10006, 0),
     BUILD(10010, "Camera Tower", 200, 10010, 10002, 0),
-    BUILD(10011, "Refinery", 1000, 10011, 10003, 0),
+    BUILD(10011, "Rearming Deck", 1000, 10011, 10003, 0),
     BUILD(10012, "Anti-Air Site", 1000, 10012, 10002, 0),
     BUILD(10013, "Guard Tower", 500, 10013, 10001, 0),
     BUILD(10014, "Advanced Guard Tower", 1700, 10014, 10002, 0),
@@ -143,12 +143,27 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
     return NULL;
 }
 
+/* OpenDR upgrades retain the producer's base prerequisite. Our upgraded
+ * buildings have separate mobj types, so include their lower tiers here. */
+static bool has_prerequisite(const RtsGameModel *model, int owner, int type) {
+    if (G_ModelHasActorType(model, owner, actor_for_native_type(type))) return true;
+    switch (type) {
+    case 10001:
+        if (G_ModelHasActorType(model, owner, MT_FG_HQ2)) return true;
+        /* fall through */
+    case 10002: return G_ModelHasActorType(model, owner, MT_FG_HQ3);
+    case 10004: return G_ModelHasActorType(model, owner, MT_FG_ADV_BARRACKS);
+    case 10006: return G_ModelHasActorType(model, owner, MT_FG_ADV_VEHICLE_FACTORY);
+    case 10015: return G_ModelHasActorType(model, owner, MT_FG_PHASE_FACTORY_2);
+    default: return false;
+    }
+}
+
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
-        if (!G_ModelHasActorType(model, owner,
-                                 actor_for_native_type(product->prerequisites[i])))
+        if (!has_prerequisite(model, owner, product->prerequisites[i]))
             return false;
     }
     if (product->maker_count <= 0) return true;
@@ -220,8 +235,8 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
 
         int col = button_index % 3;
         int row = button_index / 3;
-        int button_x = 516 + col * 36;
-        int button_y = 92 + row * 42;
+        int button_x = gameui->command_grid.x + col * gameui->icon_size.w;
+        int button_y = gameui->command_grid.y + row * gameui->icon_size.h;
         button_index++;
         bool available = G_ModelProductAvailable(model, consoleplayer, product) &&
                          snapshot->player_resources[consoleplayer][0] >= product->cost;
@@ -229,9 +244,6 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
                          "x %d y %d btn %d enabled %d pic %d\n",
                          button_x, button_y, product->ui_id, available ? 1 : 0,
                          product->icon_frame);
-        append_ui_script(dst, dst_size,
-                         "x %d y %d text \"%s %d\"\n",
-                         button_x + 8, button_y + 34, product->label, product->cost);
     }
 }
 
@@ -255,4 +267,14 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
     return G_QueueProduct(producer, product);
+}
+
+bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product) {
+    (void)producer; (void)product;
+    return true;
+}
+
+int G_ModelRadarLevel(int owner) {
+    (void)owner;
+    return 2;
 }

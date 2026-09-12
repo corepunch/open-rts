@@ -558,3 +558,8 @@ void G_ShutdownCustomUI(void *ui) {
 int G_WorldViewportWidth(const app_t *app) {
     return DC_SB_WorldViewportWidth(app);
 }
+
+bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
+                      const char *name, spritesheet_t *out) {
+    return W_LoadMenuPNG(renderer, root, name, NULL, out);
+}

@@ -688,3 +688,13 @@ bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count
     }
     return spawned;
 }
+
+bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product) {
+    (void)producer; (void)product;
+    return true;
+}
+
+int G_ModelRadarLevel(int owner) {
+    (void)owner;
+    return 2;
+}

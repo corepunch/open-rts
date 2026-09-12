@@ -107,3 +107,111 @@ all 57 catalog sheets, checks distinct textures and cache retention, verifies
 Derrick/Wolf frame counts and corrected idle selections, and checks every
 generated state's frame bounds. `build/bin/kknd --screenshot /private/tmp/kknd.bmp`
 under the same dummy video driver verifies initial building presentation.
+
+## OpenKrush interface and production/research port (2026-09-13)
+
+**Confirmed from the pinned OpenKrush source and PNGs**, with provenance in
+`REFERENCES.md`. No original executable was examined in this task; consequently
+there are no new retail function addresses or executable behavior claims.
+The user explicitly requested OpenKrush's additional gameplay rules.
+
+- `SidebarWidget` and `SidebarButtonWidget` use 48-pixel cells at the right
+  edge, with a separate product column. Infantry, vehicles, buildings, towers,
+  and walls use the faction's own six-frame `actors/<faction>/sidebar.png`.
+  The buttons, palette, icons and frame assets are separate UI images, not
+  entries in gameplay `sprnames[]`.
+- The embedded palette in individual PNGs is **not the rendered palette**.
+  `core/rules/palettes.yaml` selects `core/rules/palette.png`. Keeping palette
+  indices and replacing the palette reproduces the authored colors;
+  decoding directly into embedded-palette RGBA was a disproven approach.
+  Transparent index is 0. The upstream player-color range is 8–13; custom
+  building images currently use the base palette, without team translation.
+- Infantry uses the new Barracks / Warrior Hall, not Outpost / Clan Hall.
+  Outpost / Clan Hall produce structures. Evolved vehicle production is split
+  between Blacksmith and Beast Enclosure. The old Drill Rig construction
+  queue and Clan Hall infantry queue were incompatible with these rules.
+- `games/kknd/products.inc` contains the 55 supported actor products as C
+  literals: faction, category, cost, producer, normal-speed build duration,
+  tech level, build limit, and label. Research Lab / Alchemy Hall have limit 1,
+  including queued buildings. Normal OpenKrush speed is 25 tics per second,
+  so authored production ticks convert to milliseconds by multiplying by 40.
+  The importer reads only these explicit fields and a checked registry of
+  existing actor identities; it is not a general YAML inheritance interpreter.
+- `Researchable.NextTechLevel` chooses the next authored level that unlocks
+  something for that specific producer. The default mode unlocks all products
+  at that level. Rebuilding a destroyed producer starts at level 0. Labs can
+  research themselves through level 5. Research is an ordinary state-entry
+  action on the lab mobj, with the target's stable object ID, not an array index.
+- `Researches.StartResearch` computes cost `250 + 500 * nextLevel * rate / 100`
+  and time `400 + 300 * nextLevel * rate / 100`. Lab levels 0–5 have rates
+  `{100,90,80,70,60,50}`. Only the per-level term is discounted. At our 30 Hz,
+  an integer accumulator executes exactly 25 research steps per second.
+  Incremental debits preserve the reference's rounding, including its initial
+  zero-cost step. Insufficient cash pauses progress. Repeating the order
+  cancels research without refund; a busy lab cannot accept another target.
+  Destroyed/captured targets cancel; normal production can run concurrently.
+- `ProvidesResearchableRadarInfo` enables the radar/friendly dots at level 1
+  and visible enemy dots at level 2. These levels are included in the base's
+  next-research calculation, even where no new product uses that level.
+  Research fields participate in the network consistency checksum.
+- Barracks sheet: 847×192, `FrameSize=121,96`, `FrameAmount=13`, idle frame 3,
+  authored sequence offset (-5,0). Warrior Hall: 396×220, `FrameSize=130,110`,
+  no FrameAmount; OpenRA's complete-cell rule yields 6 frames, idle frame 3.
+  The remaining six columns of the Warrior Hall image are not an extra frame.
+  The first loader attempt incorrectly required FrameAmount and rejected this
+  valid sheet; the loader now follows OpenRA's metadata default.
+
+Asset SHA-256:
+
+- Barracks: `bea6942782ab61fdf16c9c65d563ddbcfc5a8c5bf9d843c1b4801e817fcca5ff`
+- Warrior Hall: `643715dfcaec7a829e56ac2638b3876f2deb52007339701eda65f76691cf0cec`
+- Shared palette: `a75ec48dca69a3f5bab08a3064b8c9c370daef861ea2124a197585c97fffc7d3`
+
+Reproduce the committed economy and icons, then verify:
+
+```sh
+make build/kknd_rules_import
+build/kknd_rules_import reference/OpenKrush games/kknd/products.inc games/kknd/ui
+make kknd-info
+env SDL_VIDEODRIVER=dummy make test-kknd test-info-gen
+```
+
+`test_research` checks exact debits, timing, per-producer unlocks, lab upgrades,
+limits, radar, checksum changes, cancellation, destruction and ownership.
+`test_research_ui` checks button-to-world targeting and both faction palettes.
+`test_runtime_sprites` checks every runtime state frame, including both new
+buildings. `test_production` checks AI progression through the tech gates.
+
+**Port boundaries:** this adds OpenKrush production/research rules to the
+existing simulation; it is not a complete OpenKrush engine port. Wall placement,
+bombing, deconstruction selling, technician repair, auto-research, infinite
+queues, full combat balance, mobile-building deployment and construction-stage
+presentation remain unported. Corresponding unsupported sidebar actions are
+visibly disabled. The new structures use their authored idle images; research
+progress is shown for the selected structure. The existing scenario startup,
+combat, harvesting and building placement remain engine behavior. The minimap
+currently shows known decorations and unit markers, not a terrain thumbnail.
+
+## Uncommanded human tanker movement (2026-09-13)
+
+**Confirmed engine bug**, not retail behavior. Temporary
+`OPEN_RTS_DEBUG_TRUCK` logging recorded human owner 0, tanker id 2 at
+(10.50,10.00), receiving an AI harvest assignment to vent 5 at (44.00,34.50).
+The logged distance-squared was about 210 rather than the actual 1722.5.
+`vent->attachment` is already an `fvec2_t`; applying `fixed_to_float` to it
+moved every candidate toward the origin during nearest-deposit selection.
+Additionally, the AI ran for human owners, so it issued the movement without
+player input. This disproves a sprite-facing or southeast movement-vector bug.
+
+The fix skips human players, restricts orders to the AI's own owner, and uses
+`fvec2_distance_squared(vent->attachment, position)`. The shared AI fix landed
+in concurrent networking commit `89cfc04`; this task adds the specific KKnD
+regression. `test_truck_orders` checks 1,800 untouched simulation ticks, a
+subsequent explicit movement order, and a synthetic AI tanker whose nearest
+vent is far from the origin. Diagnostic logging is removed from the code.
+
+The committed companion `openkrush/{barracks,warriorhall}.yaml` files are the
+unchanged upstream sequence definitions. The PNG loader reads their authored
+idle Offset, which is shared by all frame sequences in these two sheets;
+there is no filename-specific placement adjustment. Frame-count and offset
+checks are part of `test_runtime_sprites`.

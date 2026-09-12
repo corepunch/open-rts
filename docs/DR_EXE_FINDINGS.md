@@ -165,3 +165,38 @@ The reason each is unsupported remains outside this cleanup's investigation.
 Map setup now borrows one SCN buffer for terrain, decorations, resources, and
 team settings; the final team pass may tokenize it in place. The separate
 initial-unit pass still owns its own SCN buffer because it also mutates text.
+
+## OpenDR sidebar reference (2026-09-13)
+
+**Confirmed from OpenDR source and original menu SPR loading**, not from a new
+retail executable investigation. The pinned checkout and upstream license are
+recorded in `REFERENCES.md`. `chrome/ingame-player.yaml` and `chrome.yaml` define
+238-pixel sidebar chrome, a 220×220 radar, 64×49 production slots, category
+buttons, and the bottom order bar. Native menu SPR names come from the
+`icon` sequences in `sequences/{structures,infantry,vehicles}.yaml`; they load
+through the existing FTG/SPR decoder with BARREN.PAL, independently of world
+sprite IDs. All 45 current Free Guard products have their own menu images.
+
+`structures-building.yaml` preserves base prerequisites when an HQ, barracks,
+vehicle factory or phase facility is upgraded. Our higher-tier actor types
+now satisfy the corresponding lower-tier prerequisite. Ready, living,
+owner-matching units are required, as in the Dark Colony dependency path.
+The sidebar uses the shared producer queue and rejects missing technology,
+insufficient money, busy producers and enemy-owned producers. The two stale
+menu labels for Field Hospital and Rearming Deck were corrected against the
+OpenDR sequences/rules; their existing simulation actor IDs are unchanged.
+
+Copied chrome fingerprints (SHA-256):
+
+- `sidebar.png`: `c40c69b2cda5332a160ab834fe6b3b9ce71b70da7ccb068318cd6a055ec52840`
+- `glyphs.png`: `0fdab62379e80bba508731569d11b1072b915d6eac4222627c0cefebe08dff3f`
+
+Verification: `env SDL_VIDEODRIVER=dummy make test-dark-reign`. `test_palette`
+loads every icon and verifies category clicks, dependencies, upgraded-HQ
+compatibility, owner isolation, insufficient money and production dispatch.
+The default screenshot and an open production-palette screenshot are checked
+with the software renderer. Move, attack, stop, category selection, tooltips,
+radar panning and the options popup are functional. Unsupported stance,
+attack-move, deploy, repair, power, sell and beacon controls are visibly disabled;
+this is not a complete OpenDR gameplay or menu-system port. Text uses the
+engine's bitmap font, and radar terrain rendering remains unimplemented.

@@ -63,7 +63,11 @@ const char *const sprnames[NUMSPRITES] = {
     "61",  /* UNIT_MUTE_ROTARYCANNON */
     "83",  /* UNIT_SURV_BOMBER */
     "82",  /* UNIT_MUTE_WASP */
+    "openkrush/barracks.png",
+    "openkrush/warriorhall.png",
 };
+
+void A_KkndResearch(mobj_t *actor);
 
 const state_t states[NUMSTATES] = {
     { 0, 0, -1, NULL, S_NULL, 0 },  /* S_NULL */
@@ -376,14 +380,14 @@ const state_t states[NUMSTATES] = {
     { SPR_SURV_OUTPOST, 170, 5, A_Chase, S_SURV_OUTPOST_STND, 0 },  /* S_SURV_OUTPOST_STND */
     { SPR_SURV_MACHINE_SHOP, 5, 5, A_Chase, S_SURV_MACHINE_SHOP_STND, 0 },  /* S_SURV_MACHINE_SHOP_STND */
     { SPR_SURV_REPAIR_BAY, 20, 5, A_Chase, S_SURV_REPAIR_BAY_STND, 0 },  /* S_SURV_REPAIR_BAY_STND */
-    { SPR_SURV_RESEARCH_LAB, 5, 5, A_Chase, S_SURV_RESEARCH_LAB_STND, 0 },  /* S_SURV_RESEARCH_LAB_STND */
+    { SPR_SURV_RESEARCH_LAB, 5, 1, A_KkndResearch, S_SURV_RESEARCH_LAB_STND, 0 },  /* S_SURV_RESEARCH_LAB_STND */
     { SPR_MUTE_DRILLRIG, 5, 5, A_Chase, S_MUTE_DRILLRIG_STND, 0 },  /* S_MUTE_DRILLRIG_STND */
     { SPR_MUTE_POWER_STATION, 5, 5, A_Chase, S_MUTE_POWER_STATION_STND, 0 },  /* S_MUTE_POWER_STATION_STND */
     { SPR_MUTE_CLANHALL, 132, 5, A_Chase, S_MUTE_CLANHALL_STND, 0 },  /* S_MUTE_CLANHALL_STND */
     { SPR_MUTE_BLACKSMITH, 5, 5, A_Chase, S_MUTE_BLACKSMITH_STND, 0 },  /* S_MUTE_BLACKSMITH_STND */
     { SPR_MUTE_BEAST_ENCLOSURE, 5, 5, A_Chase, S_MUTE_BEAST_ENCLOSURE_STND, 0 },  /* S_MUTE_BEAST_ENCLOSURE_STND */
     { SPR_MUTE_MENAGERIE, 1, 5, A_Chase, S_MUTE_MENAGERIE_STND, 0 },  /* S_MUTE_MENAGERIE_STND */
-    { SPR_MUTE_ALCHEMY_HALL, 5, 5, A_Chase, S_MUTE_ALCHEMY_HALL_STND, 0 },  /* S_MUTE_ALCHEMY_HALL_STND */
+    { SPR_MUTE_ALCHEMY_HALL, 5, 1, A_KkndResearch, S_MUTE_ALCHEMY_HALL_STND, 0 },  /* S_MUTE_ALCHEMY_HALL_STND */
     { SPR_SURV_GUARD_TOWER, 0, 5, A_Chase, S_SURV_GUARD_TOWER_STND, 0 },  /* S_SURV_GUARD_TOWER_STND */
     { SPR_SURV_GUARD_TOWER, 0, 4, A_Attack, S_SURV_GUARD_TOWER_STND, 3 },  /* S_SURV_GUARD_TOWER_ATCK1 */
     { SPR_SURV_MISSILE_BATTERY, 0, 5, A_Chase, S_SURV_MISSILE_BATTERY_STND, 0 },  /* S_SURV_MISSILE_BATTERY_STND */
@@ -408,6 +412,8 @@ const state_t states[NUMSTATES] = {
     { SPR_MUTE_WASP, 2, 4, NULL, S_MUTE_WASP_WALK3, 2 },  /* S_MUTE_WASP_WALK2 */
     { SPR_MUTE_WASP, 3, 4, NULL, S_MUTE_WASP_WALK1, 2 },  /* S_MUTE_WASP_WALK3 */
     { SPR_MUTE_WASP, 0, 4, A_Attack, S_MUTE_WASP_STND, 3 },  /* S_MUTE_WASP_ATCK1 */
+    { SPR_SURV_BARRACKS, 3, 5, A_Chase, S_SURV_BARRACKS_STND, 0 },  /* S_SURV_BARRACKS_STND */
+    { SPR_MUTE_WARRIOR_HALL, 3, 5, A_Chase, S_MUTE_WARRIOR_HALL_STND, 0 },  /* S_MUTE_WARRIOR_HALL_STND */
 };
 
 /* Stats from UNITS.CFG; doomednum = UNIT_STATS_* id. */
@@ -961,6 +967,20 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .speed = 120, .radius = 20, .height = 16, .mass = 200,
         .damage = 2000,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK|MF_FLY,
+    },
+    { // MT_SURV_BARRACKS  (SURV_BARRACKS)
+        .doomednum    = -1,
+        .spawnstate   = S_SURV_BARRACKS_STND,
+        .spawnhealth  = 3000,
+        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_MUTE_WARRIOR_HALL  (MUTE_WARRIOR_HALL)
+        .doomednum    = -1,
+        .spawnstate   = S_MUTE_WARRIOR_HALL_STND,
+        .spawnhealth  = 3000,
+        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
     },
 };
 

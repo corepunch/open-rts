@@ -137,6 +137,7 @@ static bool producer_accepts(const mobj_t *unit, int owner,
                              const StaticProductDefinition *product) {
     if (!unit || !product || unit->owner != owner || !model_unit_is_ready(unit))
         return false;
+    if (!G_ModelProducerHasTech(unit, product)) return false;
     const production_t *queue = unit->production;
     if (queue && queue->queue_count > 0 &&
         (queue->queue_count >= RTS_MAX_PRODUCTION_QUEUE ||
