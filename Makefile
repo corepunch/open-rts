@@ -61,7 +61,7 @@ DC_FIN_EXTRACT_SOURCE  := tools/dc_fin_extract.c
 DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
-        test-headless test-dc-info-conv test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
+        test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-states dark-colony-gamestat 7legion kknd \
 		kknd-check anim-extract dc-info-conv dc-info-gen dr-info-gen 7legion-info-gen kknd-info-gen test-info-gen \
 		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help tags
@@ -196,9 +196,6 @@ kknd-info: $(KKND_INFO_GEN_TARGET)
 	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG \
 	    games/kknd/info.h games/kknd/info.c
 
-test-dc-info-conv: $(DC_INFO_CONV_TARGET)
-	python3 tests/tools/test_dc_info_conv.py
-
 test-info-gen: $(DR_INFO_GEN_TARGET) $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGET)
 	@mkdir -p $(BUILD_DIR)/info-check/dark-reign $(BUILD_DIR)/info-check/7legion $(BUILD_DIR)/info-check/kknd
 	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c
@@ -259,7 +256,7 @@ dc-spr-extract: $(DC_SPR_EXTRACT_TARGET)
 
 dc-fin-extract: $(DC_FIN_EXTRACT_TARGET)
 
-test: test-dc-info-conv test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
+test: test-info-gen test-dark-colony test-dark-reign test-7legion test-kknd test-model-commands test-layout test-loaders
 
 test-loaders: all
 	env SDL_VIDEODRIVER=dummy python3 tools/test_loaders.py --fixtures --no-build

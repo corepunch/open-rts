@@ -564,7 +564,6 @@ TEST_TARGET_INFO	tests/dark-colony/test_combat_and_harvest.c	/^static const mobj
 TILE_ATLAS_COLS	driver/engine_config.h	/^#define TILE_ATLAS_COLS /;"	d
 TILE_PIX_H	driver/engine_config.h	/^#define TILE_PIX_H /;"	d
 TILE_PIX_W	driver/engine_config.h	/^#define TILE_PIX_W /;"	d
-TOOL	tests/tools/test_dc_info_conv.py	/^TOOL = "build\/dc_info_conv"$/;"	v	typeref:struct:import subprocess import tempfile
 TileAnimation	render/sprites.h	/^} TileAnimation;$/;"	t	typeref:struct:__anon761761540208
 UnitIdStat	tools/dc_gamestat_gen.c	/^} UnitIdStat;$/;"	t	typeref:struct:__anon006eef8b0408	file:
 UnitOrder	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	t	typeref:struct:__anon3d3e43c00108	file:
@@ -1333,6 +1332,7 @@ collect_strings	tools/anim_extract.c	/^static void collect_strings(const unsigne
 color	docs/7LEGION_EXE_FINDINGS.md	/^palette value inside a span retains the supplied color, including index zero.$/;"	v
 color	hud/ui_definition.h	/^    SDL_Color color;$/;"	m	struct:uiresource_s	typeref:typename:SDL_Color
 color	tools/dc_gamestat_gen.c	/^    int color[3];$/;"	m	struct:__anon006eef8b0708	typeref:typename:int[3]	file:
+combat	.claude/project-game-status.md	/^**Working:** map load, unit movement, autonomous combat, production (12 Survivor + 12$/;"	v	typeref:typename:Last unit autonomous
 combat_unit_count	play/p_ai.h	/^    int combat_unit_count;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:int
 command_columns	hud/ui_definition.h	/^    int command_columns;$/;"	m	struct:uidefinition_s	typeref:typename:int
 command_count	tests/test_dark_colony_sprite_layout.c	/^    int command_count;$/;"	m	struct:__anona4e7c35f0408	typeref:typename:int	file:
@@ -1404,7 +1404,6 @@ decorations	game/map.h	/^    mapdecoration_t *decorations;$/;"	m	struct:level_s	
 default_ticks	tools/dc_fin_extract.c	/^    uint16_t default_ticks;$/;"	m	struct:__anon82d667f30208	typeref:typename:uint16_t	file:
 definition	hud/sb_bar.h	/^    const uidefinition_t *definition;$/;"	m	struct:__anona3f56ed40108	typeref:typename:const uidefinition_t *
 depend_count	tools/dc_gamestat_gen.c	/^    int depend_count;$/;"	m	struct:__anon006eef8b0908	typeref:typename:int	file:
-dependencies	tests/tools/test_dc_info_conv.py	/^header, frames, labels, dependencies = struct.unpack_from("<4H", raw)$/;"	v	typeref:struct:import subprocess import tempfile
 dependency_count	tools/dc_fin_extract.c	/^    uint16_t dependency_count;$/;"	m	struct:__anon82d667f30208	typeref:typename:uint16_t	file:
 dependency_count	tools/dc_info_conv/main.c	/^    unsigned frame_count, label_count, dependency_count;$/;"	m	struct:__anonfa7209510108	typeref:typename:unsigned	file:
 depends	tools/dc_gamestat_gen.c	/^    DependStat depends[MAX_DEPENDS];$/;"	m	struct:__anon006eef8b0908	typeref:typename:DependStat[]	file:
@@ -1557,6 +1556,7 @@ find_product	tests/dark-colony/test_game_model_headless.c	/^static const RtsProd
 find_product	tests/dark-colony/test_production_requirements.c	/^static const StaticProductDefinition *find_product(const StaticProductDefinition *products,$/;"	f	typeref:typename:const StaticProductDefinition *	file:	signature:(const StaticProductDefinition * products,int count,int row_id)
 find_resource_vent_at	play/p_map.c	/^static int find_resource_vent_at(const level_t *map, fvec2_t position) {$/;"	f	typeref:typename:int	file:	signature:(const level_t * map,fvec2_t position)
 find_spawn_position_near	game/g_game.c	/^static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,$/;"	f	typeref:typename:bool	file:	signature:(const RtsGameModel * model,const mobj_t * producer,float radius,float * out_gx,float * out_gy)
+first	.claude/project-game-status.md	/^and `PVStart` mapping first; document addresses in `docs\/7LEGION_EXE_FINDINGS.md`.$/;"	v
 first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
 first	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
 first_draw	hud/sb_bar.h	/^    bool first_draw;$/;"	m	struct:__anona3f56ed40108	typeref:typename:bool
@@ -1624,7 +1624,6 @@ frame_part_start	tools/dc_fin_extract.c	/^static int frame_part_start(const FinF
 frame_size	render/sprites.h	/^    isize2_t frame_size;$/;"	m	struct:spritesheet_s	typeref:typename:isize2_t
 frames	render/sprites.h	/^    int frames[MAX_TILE_ANIMATION_FRAMES];$/;"	m	struct:__anon761761540208	typeref:typename:int[]
 frames	tests/test_dark_colony_sprite_layout.c	/^    FinFrame frames[4096];$/;"	m	struct:__anona4e7c35f0408	typeref:typename:FinFrame[4096]	file:
-frames	tests/tools/test_dc_info_conv.py	/^header, frames, labels, dependencies = struct.unpack_from("<4H", raw)$/;"	v	typeref:struct:import subprocess import tempfile
 frames	tools/dc_info_conv/main.c	/^    const unsigned char *labels, *frames, *commands;$/;"	m	struct:__anonfa7209510108	typeref:typename:const unsigned char *	file:
 frames	tools/dc_info_gen.c	/^    fin_frame_t frames[MAX_FIN_FRAMES];$/;"	m	struct:__anon292f5ac10308	typeref:typename:fin_frame_t[]	file:
 frect_contains	driver/m_vec.h	/^static inline bool frect_contains(frect_t rect, fvec2_t point) {$/;"	f	typeref:typename:bool	signature:(frect_t rect,fvec2_t point)
@@ -1806,7 +1805,6 @@ label_count	tools/dc_info_conv/main.c	/^    unsigned frame_count, label_count, d
 label_count	tools/dc_info_gen.c	/^    int         label_count;$/;"	m	struct:__anon292f5ac10308	typeref:typename:int	file:
 label_offset	tools/dc_fin_extract.c	/^    size_t label_offset;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 labels	tests/test_dark_colony_sprite_layout.c	/^    FinLabel labels[512];$/;"	m	struct:__anona4e7c35f0408	typeref:typename:FinLabel[512]	file:
-labels	tests/tools/test_dc_info_conv.py	/^header, frames, labels, dependencies = struct.unpack_from("<4H", raw)$/;"	v	typeref:struct:import subprocess import tempfile
 labels	tools/dc_info_conv/main.c	/^    const unsigned char *labels, *frames, *commands;$/;"	m	struct:__anonfa7209510108	typeref:typename:const unsigned char *	file:
 labels	tools/dc_info_gen.c	/^    fin_label_t labels[MAX_FIN_LABELS];$/;"	m	struct:__anon292f5ac10308	typeref:typename:fin_label_t[]	file:
 last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
@@ -2100,6 +2098,7 @@ move	tools/kknd_info_gen.c	/^typedef struct { int idle; int shoot; int slen; int
 move_goal	game/g_game.h	/^    fvec2_t move_goal;$/;"	m	struct:__anon42a104c41008	typeref:typename:fvec2_t
 move_selected	game/g_game.h	/^        } move_selected;$/;"	m	union:__anon42a104c40708::__anon42a104c4080a	typeref:struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40a08
 move_unit_if_walkable	play/p_mobj.c	/^static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,mobj_t * unit,fvec2_t displacement)
+movement	.claude/project-game-status.md	/^**Working:** map load, unit movement, autonomous combat, production (12 Survivor + 12$/;"	v	typeref:typename:Last unit
 movement	play/actor.h	/^    } movement;$/;"	m	struct:mobj_s	typeref:struct:mobj_s::__anon175231d90a08
 mt_name	tools/kknd_info_gen.c	/^    char mt_name[64];      \/* e.g. "MT_SURV_RIFLEMAN" *\/$/;"	m	struct:__anoncbabb2620308	typeref:typename:char[64]	file:
 name	interface/renderer.h	/^    const char *name;$/;"	m	struct:rendererbackend_s	typeref:typename:const char *
@@ -2194,6 +2193,7 @@ plugin_actor_type_by_id	game/g_game.c	/^static const mobjtype_t *plugin_actor_ty
 plugin_actor_type_for_unit	game/g_game.c	/^static const mobjtype_t *plugin_actor_type_for_unit(const mobj_t *unit) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(const mobj_t * unit)
 policy	tools/dc_states.txt	/^; Authored gameplay policy, in multigen column order. Generated C is not the input.$/;"	v	typeref:typename:Authored gameplay
 pool	ARCHITECTURE.md	/^active level, effect pool, or game tables. The action signature remains about$/;"	v
+pooling	.claude/arch-doom-heritage.md	/^- **mobj_t** individually heap-allocated; no pooling, no flat arrays of structs.$/;"	v	typeref:typename:no
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c40f08	typeref:typename:fvec2_t
 position	game/g_game.h	/^    fvec2_t position;$/;"	m	struct:__anon42a104c41008	typeref:typename:fvec2_t
 position	play/actor.h	/^    fixed3_t position;$/;"	m	struct:mobjcore_s	typeref:typename:fixed3_t
@@ -2644,6 +2644,7 @@ test_loader_fixtures	tests/loader_fixtures.h	/^static void test_loader_fixtures(
 test_map_and_units	tests/kknd/test_playable.c	/^static int test_map_and_units(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_map_loads	tests/7legion/test_playable.c	/^static int test_map_loads(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_map_loads	tests/dark-reign/test_playable.c	/^static int test_map_loads(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
+test_metadata_consistency	tests/kknd/test_playable.c	/^static int test_metadata_consistency(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_production	tests/7legion/test_playable.c	/^static int test_production(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_production	tests/dark-reign/test_playable.c	/^static int test_production(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_production	tests/kknd/test_playable.c	/^static int test_production(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
@@ -2813,6 +2814,7 @@ units	game/g_game.h	/^    RtsRenderUnit units[RTS_MODEL_MAX_SNAPSHOT_UNITS];$/;"
 units	tools/dc_gamestat_gen.c	/^    UnitStat units[MAX_GAMESTAT_UNITS];$/;"	m	struct:__anon006eef8b0908	typeref:typename:UnitStat[]	file:
 update_model_production	game/g_game.c	/^static void update_model_production(RtsGameModel *model, float dt) {$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model,float dt)
 update_unit_harvest	play/p_mobj.c	/^static bool update_unit_harvest(level_t *map,$/;"	f	typeref:typename:bool	file:	signature:(level_t * map,mobj_t * unit,int dt_ms,const gameinfo_t * game_info)
+updated	.claude/project-game-status.md	/^Last updated: 2026-09-11 (after PR #29\/30 fixes).$/;"	v	typeref:typename:Last
 valid_source	render/r_sprite.c	/^static bool valid_source(irect_t rect, isize2_t size) {$/;"	f	typeref:typename:bool	file:	signature:(irect_t rect,isize2_t size)
 value	game/map.h	/^    int value;$/;"	m	struct:mapextra_s	typeref:typename:int
 value	render/sprites.h	/^    int value;$/;"	m	struct:__anon761761540208	typeref:typename:int

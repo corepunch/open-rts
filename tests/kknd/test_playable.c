@@ -1,5 +1,6 @@
 #include "../rts_model_test.h"
 #include "../../games/kknd/info.h"
+#include "game.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -131,37 +132,93 @@ static int test_combat(void) {
     if (!rts_game_model_load(model, &config)) return fail("load for combat");
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
+
     int player = -1, enemy = -1;
     for (int i = 0; i < snap.unit_count; ++i) {
-        if (snap.units[i].owner == 0 &&
+        if (player < 0 && snap.units[i].owner == 0 &&
             (snap.units[i].traits & (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK)) ==
             (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK))
             player = i;
-        if (snap.units[i].owner == 1 && !snap.units[i].hidden &&
-            (snap.units[i].traits & RTS_RENDER_TRAIT_MOBILE))
+        /* Prefer mobile enemy; fall back to any enemy unit. */
+        if (snap.units[i].owner == 1 &&
+            (enemy < 0 || (snap.units[i].traits & RTS_RENDER_TRAIT_MOBILE)))
             enemy = i;
     }
-    if (player < 0 || enemy < 0) {
-        printf("PASS: kknd combat (enemies fog-hidden, as expected on large map)\n");
-        rts_game_model_destroy(model);
-        return 0;
-    }
+    if (player < 0) return fail("find attack-capable player unit");
+    if (enemy < 0) return fail("find enemy unit");
+
+    uint32_t player_id = snap.units[player].id;
+    uint32_t enemy_id  = snap.units[enemy].id;
+    int initial_hp  = snap.units[enemy].hp;
+    fvec2_t enemy_pos = snap.units[enemy].position;
+
     RtsGameCommand sel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
         .data.select_unit_index = { player, false } };
     rts_game_model_command(model, &sel);
-    RtsGameCommand atk = { .kind = RTS_GAME_COMMAND_ATTACK_UNIT,
-        .data.attack_unit = { snap.units[enemy].id, enemy } };
-    if (!rts_game_model_command(model, &atk)) return fail("attack command accepted");
-    bool saw_attack = false;
-    for (int t = 0; t < 30 * 120 && !saw_attack; ++t) {
-        if (!rts_tick(model, NULL)) return fail("tick combat");
-        RtsGameEvent ev;
-        while (rts_game_model_poll_event(model, &ev))
-            if (ev.type == RTS_GAME_EVENT_ATTACK_STARTED) saw_attack = true;
+    RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+        .data.move_selected = { .target = enemy_pos } };
+    rts_game_model_command(model, &move);
+
+    bool saw_damage = false;
+    for (int t = 0; t < 30 * 120 && !saw_damage; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick combat");
+        if (t % 60 == 0) {
+            int pidx = rts_find_unit_by_id(&snap, player_id);
+            int eidx2 = rts_find_unit_by_id(&snap, enemy_id);
+            if (pidx >= 0) {
+                RtsGameCommand resel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
+                    .data.select_unit_index = { pidx, false } };
+                rts_game_model_command(model, &resel);
+                if (eidx2 >= 0) {
+                    enemy_pos = snap.units[eidx2].position;
+                    RtsGameCommand atk = { .kind = RTS_GAME_COMMAND_ATTACK_UNIT,
+                        .data.attack_unit = { enemy_id, eidx2 } };
+                    if (!rts_game_model_command(model, &atk)) {
+                        RtsGameCommand mv = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+                            .data.move_selected = { .target = enemy_pos } };
+                        rts_game_model_command(model, &mv);
+                    }
+                } else {
+                    RtsGameCommand mv = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
+                        .data.move_selected = { .target = enemy_pos } };
+                    rts_game_model_command(model, &mv);
+                }
+            }
+        }
+        int eidx = rts_find_unit_by_id(&snap, enemy_id);
+        if (eidx < 0 || snap.units[eidx].hp < initial_hp)
+            saw_damage = true;
     }
-    if (!saw_attack) return fail("attack event fired");
-    printf("PASS: kknd combat attack events fire\n");
+    if (!saw_damage) return fail("enemy took damage in combat");
+    printf("PASS: kknd combat (enemy HP decreased)\n");
     rts_game_model_destroy(model);
+    return 0;
+}
+
+static int test_metadata_consistency(void) {
+    int mismatches = 0;
+    for (int i = 0; i < NUMMOBJTYPES; ++i) {
+        if (!(mobjinfo[i].flags & MF_ATTACK) && mobjinfo[i].missilestate == S_NULL)
+            continue;
+        bool found = false;
+        for (int j = 0; j < num_actor_types; ++j) {
+            if (actor_types[j].id != (uint16_t)i) continue;
+            found = true;
+            if (!(actor_types[j].traits & MF_ATTACK) || actor_types[j].attack.damage <= 0) {
+                printf("FAIL: mobjinfo[%d] claims attack (flags=0x%x missilestate=%d) "
+                       "but ActorType has no attack (traits=0x%x damage=%d)\n",
+                       i, mobjinfo[i].flags, mobjinfo[i].missilestate,
+                       actor_types[j].traits, actor_types[j].attack.damage);
+                mismatches++;
+            }
+            break;
+        }
+        if (!found) {
+            printf("WARN: mobjinfo[%d] has attack flags but no matching ActorType\n", i);
+        }
+    }
+    if (mismatches > 0) return fail("mobjinfo/ActorType combat metadata consistent");
+    printf("PASS: kknd mobjinfo/ActorType combat metadata consistent\n");
     return 0;
 }
 
@@ -170,6 +227,7 @@ int main(void) {
     RTS_RUN(test_select_and_move());
     RTS_RUN(test_production());
     RTS_RUN(test_ai_production());
+    RTS_RUN(test_metadata_consistency());
     RTS_RUN(test_combat());
     return 0;
 }

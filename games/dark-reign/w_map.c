@@ -853,6 +853,7 @@ int load_dark_reign_initial_units(const char *map_path) {
                 unit->owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
                 unit->team = unit->owner;
+                unit->allegiance = unit->owner == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
                 if (unit->owner == 0) has_player_unit = true;
                 P_MobjSetSelected(unit, unit->owner == 0 && count == 0);
                 VisualSpec visual;
