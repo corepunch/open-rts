@@ -420,4 +420,5 @@ const gameinfo_t game_info = {
     RTS_STATE_COORDS_FIN_TOP_LEFT,
     { .style = SELECTION_STYLE_SPRITE, .image = "INTRFACE/CLIENT.SPR" },
     DC_DrawUnitOverlays,
+    .right_click_orders = false,
 };

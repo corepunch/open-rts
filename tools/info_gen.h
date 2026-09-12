@@ -104,7 +104,8 @@ static bool write_info_c(const char *path, const char *source, const char *extra
         "};\n\nconst gameinfo_t game_info = {\n"
         "    sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES,\n"
         "    S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,\n"
-        "    { .style = %s },\n    NULL,\n};\n", selection_style);
+        "    { .style = %s },\n    NULL,\n"
+        "    .right_click_orders = false,\n};\n", selection_style);
     return fclose(file) == 0;
 }
 

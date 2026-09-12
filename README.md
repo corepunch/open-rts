@@ -142,10 +142,11 @@ build/bin/open-rts --software --game dark-colony
 
 ## Controls
 
-- Left click: select a unit
+- Left click: select a friendly unit, or order selected units to move, attack,
+  or harvest by clicking terrain, an enemy, or a resource
 - Left drag: box select
 - Shift + left select: add to selection
-- Right click: order selected units to move with grid A*
+- Right click: clear selection and cancel a selection drag
 - Alt + left click: debug-spawn an enemy unit from the active plugin's actor
   table
 - WASD/arrows: pan
@@ -153,6 +154,10 @@ build/bin/open-rts --software --game dark-colony
 - Mouse wheel: scroll camera
 - `G`: toggle grid
 - `Ctrl+A`: select all
+
+All current games use these controls. Future Warcraft and StarCraft support
+can set `gameinfo_t.right_click_orders` to keep left-click selection and use
+right-click orders instead.
 
 ## Shape
 

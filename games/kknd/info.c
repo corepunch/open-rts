@@ -975,4 +975,5 @@ const gameinfo_t game_info = {
     RTS_STATE_COORDS_GROUND_OFFSET,
     { .style = SELECTION_STYLE_CIRCLE },
     NULL,
+    .right_click_orders = false,
 };

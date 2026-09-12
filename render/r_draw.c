@@ -1425,6 +1425,32 @@ static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *e
                  flip, sprite_color(effect->core.render_intensity), SDL_BLENDMODE_BLEND);
 }
 
+static void order_selected_at(app_t *app, const level_t *map,
+                              mobj_t *const *units, int unit_count,
+                              const spritesheet_t *fallback_sprite, const spritecache_t *cache,
+                              const gameinfo_t *game_info, ivec2_t mouse) {
+    fvec2_t goal;
+    screen_to_map_grid_point(app, map, mouse.x, mouse.y, &goal.x, &goal.y);
+    int target = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
+                              game_info, mouse.x, mouse.y, -1);
+    if (target >= 0 && units[target]->owner != 0 && units[target]->hp > 0) {
+        for (int i = 0; i < unit_count; ++i) {
+            if (!P_MobjIsSelected(units[i]) || units[i]->owner != 0 ||
+                units[i]->hp <= 0 || !(units[i]->traits & MF_ATTACK)) continue;
+            units[i]->attack.target = units[target];
+            units[i]->harvest.target = -1;
+            units[i]->harvest.timer_ms = 0;
+        }
+        goal = fixed3_xy_to_fvec2(units[target]->core.position);
+    } else {
+        if (P_HarvestOrderAt(map, units, unit_count, goal)) return;
+        for (int i = 0; i < unit_count; ++i)
+            if (P_MobjIsSelected(units[i]) && units[i]->owner == 0)
+                units[i]->attack.target = NULL;
+    }
+    P_MoveOrderAt(map, units, unit_count, goal);
+}
+
 void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                   const spritesheet_t *fallback_sprite, const spritecache_t *cache,
                   const gameinfo_t *game_info, const SDL_Event *e) {
@@ -1464,41 +1490,23 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
-            R_WindowToRenderPt(app, e->button.x, e->button.y, &app->mouse_down.x, &app->mouse_down.y);
             if (e->button.button == SDL_BUTTON_LEFT) {
+                R_WindowToRenderPt(app, e->button.x, e->button.y,
+                                   &app->mouse_down.x, &app->mouse_down.y);
                 app->dragging_select = true;
                 app->selection_rect = (irect_t){ app->mouse_down.x, app->mouse_down.y, 0, 0 };
             } else if (e->button.button == SDL_BUTTON_RIGHT) {
-                int rx = 0, ry = 0;
-                R_WindowToRenderPt(app, e->button.x, e->button.y, &rx, &ry);
-                float gx = 0.0f, gy = 0.0f;
-                screen_to_map_grid_point(app, map, rx, ry, &gx, &gy);
-                int target = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
-                                          game_info, rx, ry, -1);
-                if (target >= 0 && units[target]->owner != 0 && units[target]->hp > 0) {
-                    for (int i = 0; i < unit_count; ++i) {
-                        if (!P_MobjIsSelected(units[i]) || units[i]->owner != 0 ||
-                            units[i]->hp <= 0) continue;
-                        if ((units[i]->traits & MF_ATTACK) == 0) continue;
-                        units[i]->attack.target = units[target];
-                        units[i]->harvest.target = -1;
-                        units[i]->harvest.timer_ms = 0;
-                    }
-                    fvec2_t target_position =
-                        fixed3_xy_to_fvec2(units[target]->core.position);
-                    gx = target_position.x;
-                    gy = target_position.y;
+                if (game_info && game_info->right_click_orders) {
+                    ivec2_t mouse;
+                    R_WindowToRenderPt(app, e->button.x, e->button.y, &mouse.x, &mouse.y);
+                    order_selected_at(app, map, units, unit_count, fallback_sprite, cache,
+                                      game_info, mouse);
                 } else {
-                    if (P_HarvestOrderAt(map, units, unit_count, (fvec2_t){ gx, gy })) {
-                        break;
-                    }
-                    for (int i = 0; i < unit_count; ++i) {
-                        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) {
-                            units[i]->attack.target = NULL;
-                        }
-                    }
+                    app->dragging_select = false;
+                    app->selection_rect = (irect_t){0};
+                    for (int i = 0; i < unit_count; ++i)
+                        P_MobjSetSelected(units[i], false);
                 }
-                P_MoveOrderAt(map, units, unit_count, (fvec2_t){ gx, gy });
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = true;
             }
@@ -1510,6 +1518,20 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 irect_t rect = irect_from_points(app->mouse_down, (ivec2_t){ bx, by });
                 bool box = rect.w > 5 || rect.h > 5;
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
+                app->dragging_select = false;
+                app->selection_rect = (irect_t){0};
+                int picked = box ? -1 : pick_unit_at(app, map, units, unit_count,
+                    fallback_sprite, cache, game_info, bx, by, 0);
+                if (!box && !additive && picked < 0 &&
+                    !(game_info && game_info->right_click_orders)) {
+                    for (int i = 0; i < unit_count; ++i) {
+                        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0 && units[i]->hp > 0) {
+                            order_selected_at(app, map, units, unit_count, fallback_sprite,
+                                              cache, game_info, (ivec2_t){bx, by});
+                            return;
+                        }
+                    }
+                }
                 if (!additive) {
                     for (int i = 0; i < unit_count; ++i)
                         P_MobjSetSelected(units[i], false);
@@ -1532,13 +1554,10 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                         }
                     }
                 } else {
-                    int picked = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
-                                              game_info, bx, by, 0);
                     if (picked >= 0) {
                         P_MobjSetSelected(units[picked], true);
                     }
                 }
-                app->dragging_select = false;
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = false;
             }

@@ -649,6 +649,7 @@ __FACING__	play/facing.h	/^#define __FACING__$/;"	d
 __GAME__	game/game.h	/^#define __GAME__$/;"	d
 __G_GAME__	game/g_game.h	/^#define __G_GAME__$/;"	d
 __INFO_GEN__	tools/info_gen.h	/^#define __INFO_GEN__$/;"	d
+__INPUT_REGRESSION__	tests/input_regression.h	/^#define __INPUT_REGRESSION__$/;"	d
 __LOADER_FIXTURES__	tests/loader_fixtures.h	/^#define __LOADER_FIXTURES__$/;"	d
 __MAP__	game/map.h	/^#define __MAP__$/;"	d
 __MOBJ_TEST__	tests/mobj_test.h	/^#define __MOBJ_TEST__$/;"	d
@@ -1306,6 +1307,7 @@ build_event_seen	tests/cross-game/test_model_commands.c	/^static int build_event
 build_flow_field	play/p_map.c	/^static FlowCell *build_flow_field(const level_t *map, cell_t goal) {$/;"	f	typeref:typename:FlowCell *	file:	signature:(const level_t * map,cell_t goal)
 build_map_path	game/g_game.c	/^static bool build_map_path(char *out, size_t out_size, const char *data_root, const char *map_pa/;"	f	typeref:typename:bool	file:	signature:(char * out,size_t out_size,const char * data_root,const char * map_path)
 build_product	game/g_game.h	/^        } build_product;$/;"	m	union:__anon42a104c40708::__anon42a104c4080a	typeref:struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40e08
+button	tests/input_regression.h	/^static void button(app_t *app, gameinfo_t *game, mobj_t **units,$/;"	f	typeref:typename:void	signature:(app_t * app,gameinfo_t * game,mobj_t ** units,Uint32 event,Uint8 button_id,ivec2_t point)
 bytes	driver/assets.h	/^    uint8_t *bytes; \/* W_ReadFile appends a NUL byte outside size. *\/$/;"	m	struct:blob_s	typeref:typename:uint8_t *
 cache	play/actor.h	/^    const spritecache_t *cache;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const spritecache_t *
 cached_palette_index	render/r_draw.c	/^static uint8_t cached_palette_index(uint32_t rgba, const uint32_t palette[256],$/;"	f	typeref:typename:uint8_t	file:	signature:(uint32_t rgba,const uint32_t palette[256],uint32_t matches[4096])
@@ -1370,6 +1372,7 @@ clear	tests/dark-colony/test_terrain_loading.c	/^static void clear(SDL_Renderer 
 clear	tests/dark-colony/test_trooper_rendering.c	/^static void clear(SDL_Renderer *renderer) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer)
 clear_model_production	game/g_game.c	/^static void clear_model_production(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 clear_sight	tests/dark-colony/test_fog.c	/^static void clear_sight(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
+click	tests/input_regression.h	/^static void click(app_t *app, gameinfo_t *game, mobj_t **units,$/;"	f	typeref:typename:void	signature:(app_t * app,gameinfo_t * game,mobj_t ** units,Uint8 button_id,ivec2_t point)
 clock	hud/sb_bar.h	/^    uint64_t clock;$/;"	m	struct:__anona3f56ed40108	typeref:typename:uint64_t
 clock_tick	tests/dark-colony/test_fog.c	/^static void clock_tick(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 closed	play/p_map.c	/^    uint8_t closed;$/;"	m	struct:__anon9020bd480208	typeref:typename:uint8_t	file:
@@ -1706,6 +1709,7 @@ gameinfo_s::draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays;$/
 gameinfo_s::mobj_type_count	play/actor.h	/^    int mobj_type_count;$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s::mobjinfo	play/actor.h	/^    const mobjinfo_t *mobjinfo;$/;"	m	struct:gameinfo_s	typeref:typename:const mobjinfo_t *
 gameinfo_s::null_state	play/actor.h	/^    int null_state;$/;"	m	struct:gameinfo_s	typeref:typename:int
+gameinfo_s::right_click_orders	play/actor.h	/^    bool right_click_orders; \/* Default: left selects\/orders, right deselects. *\/$/;"	m	struct:gameinfo_s	typeref:typename:bool
 gameinfo_s::selection_marker	play/actor.h	/^    selectionmarker_t selection_marker;$/;"	m	struct:gameinfo_s	typeref:typename:selectionmarker_t
 gameinfo_s::sprite_count	play/actor.h	/^    int sprite_count;$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s::sprnames	play/actor.h	/^    const char *const *sprnames;$/;"	m	struct:gameinfo_s	typeref:typename:const char * const *
@@ -1958,6 +1962,7 @@ main	tests/dark-colony/test_thinker_level.c	/^int main(void) {$/;"	f	typeref:typ
 main	tests/dark-colony/test_trooper_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_vent_states.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-reign/test_playable.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/input_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_playable.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_runtime_sprites.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/loader_catalog.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
@@ -2194,6 +2199,7 @@ order_barracks_exit_spacing	game/g_game.c	/^static void order_barracks_exit_spac
 order_count	plans/freeciv-arch.md	/^   int order_count, order_index;$/;"	v	typeref:typename:int
 order_id	play/actor.h	/^        uint32_t order_id;$/;"	m	struct:mobj_s::__anon175231d90a08	typeref:typename:uint32_t
 order_index	plans/freeciv-arch.md	/^   int order_count, order_index;$/;"	v	typeref:typename:int
+order_selected_at	render/r_draw.c	/^static void order_selected_at(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritesheet_t * fallback_sprite,const spritecache_t * cache,const gameinfo_t * game_info,ivec2_t mouse)
 orders	plans/freeciv-arch.md	/^   UnitOrder orders[MAX_UNIT_ORDERS];$/;"	v	typeref:typename:UnitOrder[]
 other	tests/dark-colony/test_thinker_actions.c	/^static mobj_t *other;$/;"	v	typeref:typename:mobj_t *	file:
 outro_avi	tools/dc_gamestat_gen.c	/^    char outro_avi[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
@@ -2425,6 +2431,7 @@ resourcevent_s::resource_type	game/map.h	/^    int resource_type; \/* 0-based in
 resourcevent_t	game/map.h	/^} resourcevent_t;$/;"	t	typeref:struct:resourcevent_s
 return_position	play/actor.h	/^        fvec2_t return_position;$/;"	m	struct:mobj_s::__anon175231d90908	typeref:typename:fvec2_t
 right_aligned	hud/ui_definition.h	/^    bool right_aligned;$/;"	m	struct:uiresource_s	typeref:typename:bool
+right_click_orders	play/actor.h	/^    bool right_click_orders; \/* Default: left selects\/orders, right deselects. *\/$/;"	m	struct:gameinfo_s	typeref:typename:bool
 root	tools/test_loaders.py	/^    for game, root, pattern in ($/;"	v	typeref:struct:import subprocess import tempfile
 rotations	render/sprites.h	/^    int rotations; \/* 1 is nondirectional; slots start north, counterclockwise. *\/$/;"	m	struct:spriteframe_s	typeref:typename:int
 row_id	game/g_game.h	/^    int row_id;$/;"	m	struct:__anon42a104c40608	typeref:typename:int
@@ -2472,6 +2479,7 @@ sb_state_t	hud/sb_bar.h	/^} sb_state_t;$/;"	t	typeref:struct:__anona3f56ed40108
 scaled_rect	hud/sb_prod.c	/^static irect_t scaled_rect(const app_t *app, irect_t rect) {$/;"	f	typeref:typename:irect_t	file:	signature:(const app_t * app,irect_t rect)
 scan_dir	tools/dc_spr_extract.c	/^static void scan_dir(const char *data_root, const char *subdir, const char *out_dir) {$/;"	f	typeref:typename:void	file:	signature:(const char * data_root,const char * subdir,const char * out_dir)
 scenario	tools/dc_gamestat_gen.c	/^    char scenario[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
+screen_point	tests/input_regression.h	/^static ivec2_t screen_point(app_t *app, fvec2_t position) {$/;"	f	typeref:typename:ivec2_t	signature:(app_t * app,fvec2_t position)
 screen_to_grid_point	render/r_draw.c	/^static void screen_to_grid_point(const app_t *app, int sx, int sy, float *gx, float *gy) {$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,int sx,int sy,float * gx,float * gy)
 screen_to_map_grid_point	render/r_draw.c	/^static void screen_to_map_grid_point(const app_t *app, const level_t *map, int sx, int sy,$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,const level_t * map,int sx,int sy,float * gx,float * gy)
 screenshot	tests/dark-colony/test_barracks_production.c	/^static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,tileset_t * tiles,spritecache_t * cache,const char * path)

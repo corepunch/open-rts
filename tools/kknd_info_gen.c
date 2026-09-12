@@ -532,6 +532,7 @@ static void write_info_c(const char *path) {
         "    RTS_STATE_COORDS_GROUND_OFFSET,\n"
         "    { .style = SELECTION_STYLE_CIRCLE },\n"
         "    NULL,\n"
+        "    .right_click_orders = false,\n"
         "};\n");
 
     fclose(f);

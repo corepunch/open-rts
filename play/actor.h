@@ -115,6 +115,7 @@ struct gameinfo_s {
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
     unitoverlaydrawf_t draw_overlays;
+    bool right_click_orders; /* Default: left selects/orders, right deselects. */
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

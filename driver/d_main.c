@@ -215,7 +215,7 @@ int main(int argc, char **argv) {
     }
     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag, right move/harvest, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag/order, right deselect, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
            level.decoration_count, level.resource_vent_count);
 
@@ -306,9 +306,21 @@ int main(int argc, char **argv) {
                 }
                 continue;
             }
+            /* Cancellation applies over the HUD too, before its responders
+             * consume mouse buttons. Future games can retain right orders. */
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT &&
+                !(gameinfo && gameinfo->right_click_orders)) {
+                G_Responder(&app, &level, units, unit_count, &unit_sprite,
+                             &decoration_sprites, gameinfo, &e);
+                continue;
+            }
             if ((!custom_ui && SB_ProductionResponder(&st, &app, &e)) ||
                 G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e) ||
                 SB_Responder(&st, &app, &e)) {
+                if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
+                    app.dragging_select = false;
+                    app.selection_rect = (irect_t){0};
+                }
                 continue;
             }
             G_Responder(&app, &level, units, unit_count, &unit_sprite,

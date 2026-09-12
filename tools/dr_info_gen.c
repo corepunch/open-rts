@@ -422,7 +422,8 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
                "const gameinfo_t game_info = {\n"
                "    sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES,\n"
                "    S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,\n"
-               "    { .style = SELECTION_STYLE_BRACKETS },\n    NULL,\n};\n");
+               "    { .style = SELECTION_STYLE_BRACKETS },\n    NULL,\n"
+               "    .right_click_orders = false,\n};\n");
 
     return fclose(f) == 0;
 }
