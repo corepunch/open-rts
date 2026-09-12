@@ -37,6 +37,7 @@ int main(void) {
         if (actor->type_id != MT_VENT) continue;
         count++;
         const resourcevent_t *resource = &level.resource_vents[actor->resource_vent_index];
+        assert(fvec2_near(resource->attachment, fvec2_cell_center(resource->cell), 0.001f));
         assert(fvec2_near(fixed3_xy_to_fvec2(actor->core.position),
                           resource->attachment, 0.001f));
         assert(active(actor) == resource->active);

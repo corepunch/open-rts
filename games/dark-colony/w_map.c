@@ -300,7 +300,7 @@ static bool append_dark_colony_resource_vent(level_t *map, int x, int y, int rat
     map->resource_vents = vents;
     resourcevent_t *vent = &map->resource_vents[map->resource_vent_count++];
     vent->cell = (ivec2_t){ x, y };
-    vent->attachment = (fvec2_t){ (float)x + 0.5f, (float)y - 0.5f };
+    vent->attachment = fvec2_cell_center(vent->cell);
     vent->amount = amount;
     vent->rate = rate;
     vent->active = rate > 0 && amount > 0;
@@ -605,7 +605,7 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
         /* The native draw queue subtracts the slot in world coordinates;
          * screen Y runs in the opposite direction. FIN keeps the shared origin. */
         ivec2_t slot = DC_CitySlotOffset(city_slot);
-        u->core.render_offset = (ivec2_t){ -slot.x, slot.y + g_cell_h };
+        u->core.render_offset = (ivec2_t){ -slot.x, slot.y };
     }
     if (u->owner == 0) {
         ivec2_t cell = { (uint8_t)(position.x >> 8), (uint8_t)(position.y >> 8) };

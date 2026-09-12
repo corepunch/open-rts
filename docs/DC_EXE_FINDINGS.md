@@ -2445,6 +2445,11 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_flow_field_movement
 
 ## Vent and beacon mobj states and vent origin (2026-09-09)
 
+**Origin correction (September 12):** the `y-0.5` attachment described below
+compensated for the old terrain-row transform. With the corrected terrain
+rectangles it displaces the plume one row down. See “HUMAN02 sprite offsets
+after terrain-row correction” below; attachment now uses the SCN cell center.
+
 **Confirmed regression in open-rts:** the scenario object pass skipped types 40
 and 84. Resource loading left both vent decoration indices at -1, and no code
 created the referenced glow/smoke decorations. Human02 diagnostics reported
@@ -2622,6 +2627,11 @@ only through the object's render offset. In bottom-up projection this is
 DC's actual 32-pixel cell instead of the engine's stale 24-pixel `CELL_H`.
 FIN command offsets themselves and terrain geometry are unchanged.
 
+**Superseded September 12:** the extra `g_cell_h` was an engine terrain-row
+compensation, not part of the native slot subtraction above. After `67d3c98`
+corrected terrain rectangles it must be removed from loaded and produced
+cities. The shared FIN origin is now exactly the city anchor.
+
 Human TOWR now uses slot 5, as the type/geometry table specifies, rather than
 copying EXCOPOD's slot-0 physical position. The existing synthesized-tower
 policy is retained for both races, but an explicitly populated tower slot no
@@ -2760,6 +2770,11 @@ actual emitted mobjs against their command delta. Ignoring the producer's
 32-pixel city-row render offset would create a one-cell jump at release.
 Temporary production logs confirmed state 12 (`S_BRRKPOD_BUILD_TRSC1`), the
 exact delta/position above, and one handoff per queued Trooper. Logs were removed.
+
+**Coordinate correction September 12:** removal of the obsolete city-row
+compensation changes HUMAN02's delta to `(16,79)` and handoff position to
+`(56.5,52.53125)`. The formula and FIN commands remain unchanged; the release
+animation and spawned Trooper move together. See the investigation below.
 
 **Confirmed user flow:** the focused test loads Human02, waits for its native
 Exploiter delivery, rejects a Trooper order below 350 Petra-7, issues a harvest
@@ -4367,3 +4382,82 @@ uses the missile's death state, just as Doom does. The intentional Dark Colony
 adaptation is planar movement and no friendly fire, so allied mobjs are passed
 through. Reproduce the behavior with
 `build/bin/tests/dark-colony/test_projectiles`.
+
+## HUMAN02 sprite offsets after terrain-row correction (2026-09-12)
+
+**Confirmed regression and corrected attribution:** the user's city and vent
+screenshots show sprite content one 32-pixel terrain row too low. A HUMAN02
+city render from `86ef7e8^` and the same render after applying `86ef7e8` are
+byte-identical. Shared SPR/FIN cache ownership, compact direction storage and
+software texture access therefore do not explain this case. `67d3c98` later
+changed terrain rectangles from `height-y` to `height-1-y`, moving terrain up
+one row, but retained two compensations for the old terrain placement:
+
+- Loaded and newly produced city buildings used
+  `render_offset=(-slot.x, slot.y+g_cell_h)`. Remove the extra cell height;
+  only native slot cancellation belongs in this offset.
+- Vent visual/harvesting attachment used `(cell.x+0.5, cell.y-0.5)`. Use the
+  cell center, so both the vent mobj and harvesting destination move together.
+
+Terrain rectangles, continuous world projection, SPR geometry and FIN layer
+commands are unchanged. This supersedes the old city-row and vent-attachment
+justifications above; a global sprite shift would incorrectly move ordinary
+actors whose positions were already cell-centered.
+
+**Native evidence reconfirmed:** DC.EXE SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+At `0x419f1a..0x419f3e`, ordinary object construction stores each SCN coordinate
+as `(cell<<8)+0x80`. At `0x436662..0x436687`, city rendering subtracts the
+native slot offsets and adds FIN offsets, with no extra terrain-row term.
+The city constructor and slot table remain documented above (`0x4412d4`,
+`0x475b64`). No new asset format or special vent drawing rule was discovered.
+The complete retail editor-stamp/vent-attachment path remains **unknown**;
+cell-center placement is supported by the constructor, corrected map transform
+and the HUMAN02 crater alignment, not a new claim about that untraced path.
+
+**Diagnostics:** temporary `OPEN_RTS_DEBUG_SPRITE_OFFSETS` logging reported
+HUMAN02 EXCOPOD anchor `(256,355)`, object offset `(64,47)`, FIN `(-114,12)`,
+cell size `116x149` and draw position `(210,265)`. Slot cancellation should
+produce offset `(64,15)` and draw position `(210,233)`. Barracks similarly
+moves from `(288,334)` to `(288,302)` with the same camera and terrain.
+The focused vent render now places VENT2's glow inside the crater rather than
+below it. All temporary diagnostics were removed.
+
+**Production consequence:** the corrected Barracks handoff is
+`(56.5,52.53125)` instead of `(56.5,51.53125)`, derived from unchanged final
+release/standing FIN offsets. Logging confirmed that its cell is walkable,
+but the separate spawn bounding-box check rejected adjacent foundation cells.
+Use the authored handoff point and test its cell with `L_IsWalkable` in both
+model and interactive production. A blocked exit still waits and retries;
+it never selects another location. Delete the two redundant bounding-box
+helpers. This is an engine handoff rule, not a newly verified retail collision
+algorithm. Doom's `reference/DOOM/p_mobj.c::P_SpawnMobj` similarly installs an
+authored position directly; the caller controls whether spawning is allowed.
+Generic free-space searches for other products remain unchanged.
+
+**Regression coverage:** city-origin and vent-cell-center assertions fail on
+the unfixed tree. City tests cover HUMAN02 and HUMAN03, model snapshots retain
+native physical coordinates with corrected offsets, and production verifies
+new Sci-Pod slot cancellation. The Barracks test covers two queued Troopers,
+exact FIN-to-mobj continuity, sidebar production and blocked-exit retry.
+The native FIN/SPR tests and terrain catalog guard against asset changes.
+Reproduce the focused checks and images:
+
+```sh
+r2 -q -e scr.color=false -e bin.cache=true \
+  -c 'pd 12 @ 0x419f1a' -c 'pd 25 @ 0x436650' -c q data/DCOLONY/DC.EXE
+env SDL_VIDEODRIVER=dummy make -j8 all test-dark-colony test-layout
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_city_layout
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_vent_states
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony \
+  --screenshot /private/tmp/dc-human02-fixed.bmp data/DCOLONY \
+  SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
+```
+
+City and vent tests write `/private/tmp/city-human02.bmp` and
+`/private/tmp/vent-active.bmp`. These are engine regression previews, not
+retail framebuffer captures.
+
+Verification passed: all four game builds, all four per-game test suites,
+Dark Colony sprite layout/Reaper timing, all four dummy-video smoke checks,
+HUMAN02 screenshot inspection, regenerated tags and `git diff --check`.

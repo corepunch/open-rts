@@ -398,7 +398,7 @@ static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition
     building->team = producer->team;
     building->allegiance = producer->allegiance;
     building->native_type_id = product->product_type;
-    building->core.render_offset = (ivec2_t){-offset.x, offset.y + g_cell_h};
+    building->core.render_offset = (ivec2_t){-offset.x, offset.y};
     int state = G_ModelBuildingStateForProduct(gameinfo, product);
     if (state > 0) P_SetMobjState(building, state);
     if (previous) P_RemoveMobj(previous);
@@ -483,26 +483,6 @@ static bool dc_position_available_for_spawn(const level_t *map, mobj_t *const *u
         if (fvec2_distance_squared(fixed3_xy_to_fvec2(other->core.position),
                                    (fvec2_t){ gx, gy }) <
             min_dist * min_dist) return false;
-    }
-    return true;
-}
-
-static bool dc_position_walkable_for_spawn(const level_t *map, float gx, float gy,
-                                           float radius) {
-    if (!map) return false;
-    if (radius < 0.32f) radius = 0.32f;
-    if (gx - radius < 0.0f || gy - radius < 0.0f ||
-        gx + radius > (float)map->width || gy + radius > (float)map->height) {
-        return false;
-    }
-    int min_x = (int)floorf(gx - radius);
-    int max_x = (int)floorf(gx + radius);
-    int min_y = (int)floorf(gy - radius);
-    int max_y = (int)floorf(gy + radius);
-    for (int y = min_y; y <= max_y; ++y) {
-        for (int x = min_x; x <= max_x; ++x) {
-            if (!L_IsWalkable(map, x, y)) return false;
-        }
     }
     return true;
 }
@@ -622,7 +602,8 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
     bool use_barracks_release = dc_product_uses_barracks_release(producer, product, actor_id);
     if (use_barracks_release &&
         G_ModelSpecialReleaseSpawnPoint(NULL, producer, product, new_unit, &gx, &gy)) {
-        if (!dc_position_walkable_for_spawn(map, gx, gy, radius)) {
+        /* Match the model path: FIN owns the point, terrain gates its cell. */
+        if (!L_IsWalkable(map, (int)floorf(gx), (int)floorf(gy))) {
             P_RemoveMobj(new_unit);
             return false;
         }

@@ -49,7 +49,9 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
             fvec2_t screen;
             R_MapPositionToScreen(&app, &level, actor->core.position, &screen.x, &screen.y);
             screen = fvec2_add(screen, (fvec2_t){actor->core.render_offset.x, actor->core.render_offset.y});
-            assert(fvec2_near(screen, (fvec2_t){320, 370 + 32}, 0.0001f));
+            /* Slot cancellation must return to the city origin, without a
+             * terrain-row correction in the object's FIN transform. */
+            assert(fvec2_near(screen, (fvec2_t){320, 370}, 0.0001f));
         }
     }
     assert(counts[0] == 1 && counts[1] == 1 && counts[5] == 1);

@@ -2141,7 +2141,6 @@ model	docs/STATE_ARCHITECTURE_AUDIT.md	/^previous model, rather than swapping ac
 model_emit_build_completion	game/g_game.c	/^static void model_emit_build_completion(RtsGameModel *model, const mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model,const mobj_t * unit,const mobj_t * producer,const StaticProductDefinition * product)
 model_emit_event	game/g_game.c	/^static void model_emit_event(void *user, int type, const mobj_t *subject,$/;"	f	typeref:typename:void	file:	signature:(void * user,int type,const mobj_t * subject,const mobj_t * target,int product_class,int product_type)
 model_position_available	game/g_game.c	/^static bool model_position_available(const mobj_t *spawned, float gx, float gy,$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * spawned,float gx,float gy,float radius)
-model_position_walkable_only	game/g_game.c	/^static bool model_position_walkable_only(float gx, float gy,$/;"	f	typeref:typename:bool	file:	signature:(float gx,float gy,float radius)
 model_set_error	game/g_game.c	/^static void model_set_error(RtsGameModel *model, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model,const char * fmt,...)
 model_unit_is_ready	game/g_game.c	/^static bool model_unit_is_ready(const mobj_t *unit) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit)
 momentum	play/actor.h	/^    fixed3_t momentum;$/;"	m	struct:mobjcore_s	typeref:typename:fixed3_t

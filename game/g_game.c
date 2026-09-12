@@ -195,26 +195,6 @@ static bool model_position_available(const mobj_t *spawned, float gx, float gy,
     return true;
 }
 
-static bool model_position_walkable_only(float gx, float gy,
-                                         float radius) {
-    if (radius < 0.32f) radius = 0.32f;
-    if (gx - radius < 0.0f || gy - radius < 0.0f ||
-        gx + radius > (float)level.width || gy + radius > (float)level.height) {
-        return false;
-    }
-
-    int min_x = (int)floorf(gx - radius);
-    int max_x = (int)floorf(gx + radius);
-    int min_y = (int)floorf(gy - radius);
-    int max_y = (int)floorf(gy + radius);
-    for (int y = min_y; y <= max_y; ++y) {
-        for (int x = min_x; x <= max_x; ++x) {
-            if (!L_IsWalkable(&level, x, y)) return false;
-        }
-    }
-    return true;
-}
-
 static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *producer,
                                      float radius, float *out_gx, float *out_gy) {
     if (!producer || !out_gx || !out_gy) return false;
@@ -306,7 +286,9 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
     float gy = 0.0f;
     bool use_special_release = false;
     if (G_ModelSpecialReleaseSpawnPoint(active_model, producer, product, new_unit, &gx, &gy)) {
-        if (!model_position_walkable_only(gx, gy, radius)) {
+        /* The FIN release has already placed the actor at this authored
+         * point. Adjacent foundation cells must not reject the handoff. */
+        if (!L_IsWalkable(&level, (int)floorf(gx), (int)floorf(gy))) {
             P_RemoveMobj(new_unit);
             return false;
         }

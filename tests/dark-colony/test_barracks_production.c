@@ -204,6 +204,8 @@ int main(void) {
     mobj_t *science = find(MT_SCNCPOD), *exco = find(MT_EXCOPOD);
     assert(science && exco && level.player_resources[0][0] == 8000);
     assert(science->core.state_id == S_SCNCPOD_BUILD1);
+    /* Native slot 3 is (64,10): cancel it without adding a terrain row. */
+    assert(ivec2_equal(science->core.render_offset, (ivec2_t){-64, 10}));
     assert(fvec2_near(fixed3_xy_to_fvec2(science->core.position),
                       fvec2_add(fixed3_xy_to_fvec2(exco->core.position),
                                 (fvec2_t){4.0f, -5.0f / 32.0f}), 0.0001f));
