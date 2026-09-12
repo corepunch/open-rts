@@ -108,32 +108,64 @@ static bool model_unit_is_ready(const mobj_t *unit) {
 }
 
 bool G_ModelHasActorType(const RtsGameModel *model, int owner, uint16_t actor_id) {
-    if (!model || actor_id == 0) return false;
-    for (int i = 0; i < model->objects.count; ++i) {
-        const mobj_t *unit = model->objects.items[i];
+    (void)model;
+    if (actor_id == 0) return false;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *unit = (mobj_t *)th;
         if (unit->owner == owner && unit->type_id == actor_id && model_unit_is_ready(unit))
             return true;
     }
     return false;
 }
 
+int G_CountPlannedActors(int owner, uint16_t actor_id) {
+    int count = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *unit = (mobj_t *)th;
+        if (unit->owner != owner || unit->remove || unit->hp <= 0) continue;
+        if (unit->type_id == actor_id) count++;
+        if (unit->production && unit->production->actor_id == actor_id)
+            count += unit->production->queue_count;
+    }
+    return count;
+}
+
+static bool producer_accepts(const mobj_t *unit, int owner,
+                             const StaticProductDefinition *product) {
+    if (!unit || !product || unit->owner != owner || !model_unit_is_ready(unit))
+        return false;
+    const production_t *queue = unit->production;
+    if (queue && queue->queue_count > 0 &&
+        (queue->queue_count >= RTS_MAX_PRODUCTION_QUEUE ||
+         queue->product_class != product->product_class ||
+         queue->product_type != product->product_type)) return false;
+    for (int i = 0; i < product->maker_count; ++i)
+        if (unit->type_id == product->makers[i]) return true;
+    return false;
+}
+
+mobj_t *G_FindProducer(int owner, const StaticProductDefinition *product) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (producer_accepts(unit, owner, product)) return unit;
+    }
+    return NULL;
+}
+
 int G_ModelFindProducerIndex(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     if (!model || !product) return -1;
-    for (int i = 0; i < product->maker_count; ++i) {
-        for (int j = 0; j < model->objects.count; ++j) {
-            const mobj_t *unit = model->objects.items[j];
-            if (unit->owner == owner && unit->type_id == (uint16_t)product->makers[i] &&
-                model_unit_is_ready(unit))
-                return j;
-        }
-    }
+    const mobj_t *producer = G_FindProducer(owner, product);
+    for (int j = 0; j < model->objects.count; ++j)
+        if (model->objects.items[j] == producer) return j;
     return -1;
 }
 
-static bool model_position_available(const RtsGameModel *model, float gx, float gy,
+static bool model_position_available(const mobj_t *spawned, float gx, float gy,
                                      float radius) {
-    if (!model) return false;
     if (radius < 0.32f) radius = 0.32f;
     if (gx - radius < 0.0f || gy - radius < 0.0f ||
         gx + radius > (float)level.width || gy + radius > (float)level.height) {
@@ -150,9 +182,10 @@ static bool model_position_available(const RtsGameModel *model, float gx, float 
         }
     }
 
-    for (int i = 0; i < model->objects.count; ++i) {
-        const mobj_t *other = model->objects.items[i];
-        if (other->remove || other->hp <= 0) continue;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *other = (mobj_t *)th;
+        if (other == spawned || other->remove || other->hp <= 0) continue;
         float other_radius = other->radius > 0.05f ? other->radius : 0.42f;
         float min_dist = radius + other_radius;
         if (fvec2_distance_squared(fixed3_xy_to_fvec2(other->core.position),
@@ -162,9 +195,8 @@ static bool model_position_available(const RtsGameModel *model, float gx, float 
     return true;
 }
 
-static bool model_position_walkable_only(const RtsGameModel *model, float gx, float gy,
+static bool model_position_walkable_only(float gx, float gy,
                                          float radius) {
-    if (!model) return false;
     if (radius < 0.32f) radius = 0.32f;
     if (gx - radius < 0.0f || gy - radius < 0.0f ||
         gx + radius > (float)level.width || gy + radius > (float)level.height) {
@@ -183,9 +215,9 @@ static bool model_position_walkable_only(const RtsGameModel *model, float gx, fl
     return true;
 }
 
-static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *producer,
+static bool find_spawn_position_near(const mobj_t *spawned, const mobj_t *producer,
                                      float radius, float *out_gx, float *out_gy) {
-    if (!model || !producer || !out_gx || !out_gy) return false;
+    if (!producer || !out_gx || !out_gy) return false;
     fvec2_t producer_position = fixed3_xy_to_fvec2(producer->core.position);
     int origin_x = (int)floorf(producer_position.x);
     int origin_y = (int)floorf(producer_position.y);
@@ -200,7 +232,7 @@ static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *pr
             int y = origin_y + preferred[i][1] * dist;
             float candidate_gx = (float)x + 0.5f;
             float candidate_gy = (float)y + 0.5f;
-            if (!model_position_available(model, candidate_gx, candidate_gy, radius)) continue;
+            if (!model_position_available(spawned, candidate_gx, candidate_gy, radius)) continue;
             *out_gx = candidate_gx;
             *out_gy = candidate_gy;
             return true;
@@ -210,7 +242,7 @@ static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *pr
                 if (dx != -dist && dx != dist && dy != -dist && dy != dist) continue;
                 float candidate_gx = (float)(origin_x + dx) + 0.5f;
                 float candidate_gy = (float)(origin_y + dy) + 0.5f;
-                if (!model_position_available(model, candidate_gx, candidate_gy, radius)) continue;
+                if (!model_position_available(spawned, candidate_gx, candidate_gy, radius)) continue;
                 *out_gx = candidate_gx;
                 *out_gy = candidate_gy;
                 return true;
@@ -220,32 +252,9 @@ static bool find_spawn_position_near(const RtsGameModel *model, const mobj_t *pr
     return false;
 }
 
-static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
+static void order_barracks_exit_spacing(mobj_t *spawned,
                                         const mobj_t *producer, float exit_gx,
                                         float exit_gy) {
-    if (!model || !producer || spawned_index < 0 || spawned_index >= model->objects.count)
-        return;
-    bool saved[model->objects.count ? model->objects.count : 1];
-    for (int i = 0; i < model->objects.count; ++i) {
-        saved[i] = P_MobjIsSelected(model->objects.items[i]);
-        P_MobjSetSelected(model->objects.items[i], false);
-    }
-
-    float crowd_radius = 2.75f;
-    float crowd_radius_sq = crowd_radius * crowd_radius;
-    for (int i = 0; i < model->objects.count; ++i) {
-        mobj_t *unit = model->objects.items[i];
-        if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
-            (unit->traits & MF_MOBILE) == 0) {
-            continue;
-        }
-        if (i == spawned_index ||
-            fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
-                                   (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
-            P_MobjSetSelected(unit, true);
-        }
-    }
-
     fvec2_t delta = fvec2_sub((fvec2_t){ exit_gx, exit_gy },
                              fixed3_xy_to_fvec2(producer->core.position));
     float len = sqrtf(fvec2_length_squared(delta));
@@ -255,19 +264,22 @@ static void order_barracks_exit_spacing(RtsGameModel *model, int spawned_index,
     }
     fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
                             fvec2_scale(delta, 1.5f / len));
-    P_MoveOrderAt(&level, model->objects.items, model->objects.count, goal);
-    for (int i = 0; i < model->objects.count; ++i) {
-        P_MobjSetSelected(model->objects.items[i], saved[i]);
+    float crowd_radius = 2.75f;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit->remove || unit->hp <= 0 || unit->owner != producer->owner ||
+            !(unit->traits & MF_MOBILE)) continue;
+        if (unit == spawned || fvec2_distance_squared(
+                fixed3_xy_to_fvec2(unit->core.position), (fvec2_t){exit_gx, exit_gy}) <=
+                crowd_radius * crowd_radius)
+            P_MoveUnitTo(&level, unit, goal);
     }
 }
 
-static bool spawn_finished_model_product(RtsGameModel *model,
-                                         const StaticProductDefinition *product,
-                                         int producer_index) {
-    if (!model || !product || producer_index < 0 ||
-        producer_index >= model->objects.count) {
-        return false;
-    }
+static bool spawn_finished_product(const StaticProductDefinition *product,
+                                    mobj_t *producer) {
+    if (!product || !producer) return false;
 
     uint16_t actor_id = G_ModelActorIdForProduct(product);
     const mobjtype_t *actor_type = plugin_actor_type_by_id(actor_id);
@@ -275,9 +287,9 @@ static bool spawn_finished_model_product(RtsGameModel *model,
 
     mobj_t *new_unit = P_SpawnMobj(fixed3_zero(), actor_id);
     if (!new_unit) return false;
-    new_unit->owner = model->objects.items[producer_index]->owner;
-    new_unit->team = model->objects.items[producer_index]->team;
-    new_unit->allegiance = model->objects.items[producer_index]->allegiance;
+    new_unit->owner = producer->owner;
+    new_unit->team = producer->team;
+    new_unit->allegiance = producer->allegiance;
     new_unit->core.angle = ANG90;
     new_unit->harvest.target = -1;
     if (new_unit->core.state_id <= 0)
@@ -292,36 +304,29 @@ static bool spawn_finished_model_product(RtsGameModel *model,
 
     float gx = 0.0f;
     float gy = 0.0f;
-    mobj_t *producer = model->objects.items[producer_index];
     bool use_special_release = false;
-    if (G_ModelSpecialReleaseSpawnPoint(model, producer, product, new_unit, &gx, &gy)) {
-        if (!model_position_walkable_only(model, gx, gy, radius)) {
+    if (G_ModelSpecialReleaseSpawnPoint(active_model, producer, product, new_unit, &gx, &gy)) {
+        if (!model_position_walkable_only(gx, gy, radius)) {
             P_RemoveMobj(new_unit);
             return false;
         }
         use_special_release = true;
-    } else if (!find_spawn_position_near(model, producer, radius, &gx, &gy)) {
+    } else if (!find_spawn_position_near(new_unit, producer, radius, &gx, &gy)) {
         P_RemoveMobj(new_unit);
         return false;
     }
 
     new_unit->core.position = fixed3_from_fvec2((fvec2_t){ gx, gy }, 0);
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
-    int spawned_index = model->objects.count;
-    refresh_model_objects(model);
-    model_emit_build_completion(model, new_unit, producer, product);
+    model_emit_build_completion(active_model, new_unit, producer, product);
     if (use_special_release)
-        order_barracks_exit_spacing(model, spawned_index, producer, gx, gy);
+        order_barracks_exit_spacing(new_unit, producer, gx, gy);
     return true;
 }
 
-static bool enqueue_model_unit_product(RtsGameModel *model,
+static bool enqueue_product(mobj_t *producer,
                                        const StaticProductDefinition *product,
-                                       int producer_index,
                                        uint16_t actor_id) {
-    if (!model || !product || producer_index < 0 || producer_index >= model->objects.count)
-        return false;
-    mobj_t *producer = model->objects.items[producer_index];
     production_t *production = P_EnsureMobjProduction(producer);
     if (!production) return false;
     if (production->queue_count > 0) {
@@ -332,7 +337,7 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
             return false;
         }
         production->queue_count++;
-        model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
+        model_emit_event(active_model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                          product->product_class, product->product_type);
         return true;
     }
@@ -346,9 +351,9 @@ static bool enqueue_model_unit_product(RtsGameModel *model,
     production->release_active = false;
     production->release_ready = false;
     production->blocked = false;
-    model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
+    model_emit_event(active_model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                      product->product_class, product->product_type);
-    model_emit_event(model, RTS_GAME_EVENT_BUILD_STARTED, producer, NULL,
+    model_emit_event(active_model, RTS_GAME_EVENT_BUILD_STARTED, producer, NULL,
                      product->product_class, product->product_type);
     return true;
 }
@@ -370,47 +375,43 @@ static void advance_model_production_queue(mobj_t *producer) {
     }
 }
 
-static bool create_model_product_for_owner(RtsGameModel *model, int owner,
-                                           const StaticProductDefinition *product) {
-    if (!model || !product) return false;
-    if (!G_ModelProductAvailable(model, owner, product)) return false;
+bool G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product) {
+    if (!producer || producer->owner >= RTS_MODEL_MAX_PLAYERS || !product || product->cost < 0)
+        return false;
+    int owner = producer->owner;
+    if (!producer_accepts(producer, owner, product) ||
+        !G_ModelProductAvailable(active_model, owner, product)) return false;
     if (level.player_resources[owner][0] < product->cost) return false;
 
     uint16_t actor_id = G_ModelActorIdForProduct(product);
     if (actor_id == 0 || !plugin_actor_type_by_id(actor_id)) return false;
 
-    int producer_index = G_ModelFindProducerIndex(model, owner, product);
-    if (producer_index < 0) return false;
-
     if (G_ModelProductTrainingTimeMs(product) > 0) {
-        if (!enqueue_model_unit_product(model, product, producer_index, actor_id)) return false;
+        if (!enqueue_product(producer, product, actor_id)) return false;
         level.player_resources[owner][0] -= product->cost;
         return true;
     }
 
-    model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, model->objects.items[producer_index], NULL,
+    model_emit_event(active_model, RTS_GAME_EVENT_BUILD_QUEUED, producer, NULL,
                      product->product_class, product->product_type);
-    if (!spawn_finished_model_product(model, product, producer_index)) return false;
+    if (!spawn_finished_product(product, producer)) return false;
     level.player_resources[owner][0] -= product->cost;
     return true;
 }
 
-static bool create_model_product(RtsGameModel *model,
-                                 const StaticProductDefinition *product) {
-    return create_model_product_for_owner(model, 0, product);
-}
-
-static void update_model_production(RtsGameModel *model, float dt) {
-    if (!model || dt <= 0.0f) return;
+bool G_ProductionTicker(float dt) {
+    if (dt <= 0.0f) return false;
+    bool spawned = false;
     int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
     if (elapsed_ms <= 0) elapsed_ms = 1;
-    for (int i = 0; i < model->objects.count; ++i) {
-        mobj_t *producer = model->objects.items[i];
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *producer = (mobj_t *)th;
         production_t *production = producer->production;
         if (!production || production->queue_count <= 0) continue;
         if (producer->remove || producer->hp <= 0) {
             if (!production->blocked)
-                model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
+                model_emit_event(active_model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
                                  production->product_class,
                                  production->product_type);
             production->blocked = true;
@@ -421,42 +422,57 @@ static void update_model_production(RtsGameModel *model, float dt) {
         if (production->release_active) {
             if (!production->release_ready) continue;
             const StaticProductDefinition *product = G_ModelProductByClassType(
-                model, production->product_class, production->product_type);
-            if (!product || !spawn_finished_model_product(model, product, i)) {
+                active_model, production->product_class, production->product_type);
+            if (!product || !spawn_finished_product(product, producer)) {
                 if (!production->blocked)
-                    model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
+                    model_emit_event(active_model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
                                      production->product_class,
                                      production->product_type);
                 production->blocked = true;
                 continue;
             }
-            producer = model->objects.items[i];
+            spawned = true;
             advance_model_production_queue(producer);
             continue;
         }
         production->time_left_ms -= elapsed_ms;
         while (production->queue_count > 0 && production->time_left_ms <= 0) {
             const StaticProductDefinition *product = G_ModelProductByClassType(
-                model, production->product_class, production->product_type);
+                active_model, production->product_class, production->product_type);
             if (!product) {
                 production->time_left_ms = 250;
                 break;
             }
-            if (G_ModelStartProductionRelease(model, producer, product,
+            if (G_ModelStartProductionRelease(active_model, producer, product,
                                               production->actor_id)) {
                 break;
             }
-            if (!spawn_finished_model_product(model, product, i)) {
+            if (!spawn_finished_product(product, producer)) {
                 if (!production->blocked)
-                    model_emit_event(model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
+                    model_emit_event(active_model, RTS_GAME_EVENT_BUILD_BLOCKED, producer, NULL,
                                      production->product_class,
                                      production->product_type);
                 production->blocked = true;
                 production->time_left_ms = 250;
                 break;
             }
-            producer = model->objects.items[i];
+            spawned = true;
             advance_model_production_queue(producer);
+            production = producer->production;
+            if (!production) break;
+        }
+    }
+    return spawned;
+}
+
+void G_ProductionGoals(const productiongoal_t *goals, int count) {
+    for (int owner = 1; owner < RTS_MODEL_MAX_PLAYERS; ++owner) {
+        for (int i = 0; i < count; ++i) {
+            const StaticProductDefinition *product =
+                G_ModelProductByUIId(active_model, goals[i].ui_id);
+            if (!product || G_CountPlannedActors(owner, G_ModelActorIdForProduct(product)) >=
+                            goals[i].count) continue;
+            if (G_QueueProduct(G_FindProducer(owner, product), product)) break;
         }
     }
 }
@@ -551,7 +567,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
                     &model->hud, dt);
     refresh_model_objects(model);
     G_ModelAIProduction(model, (int)(dt * 1000.0f));
-    update_model_production(model, dt);
+    G_ProductionTicker(dt);
 
     refresh_model_objects(model);
     HU_Ticker(&model->hud, dt);
@@ -653,22 +669,18 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         }
         if (producer < 0 || producer >= model->objects.count) return false;
         const StaticProductDefinition *product = G_ModelProductByUIId(model, command->data.build_product.ui_id);
-        if (!product || !G_ModelProductAvailable(model, 0, product) ||
-            level.player_resources[0][0] < product->cost ||
-            G_ModelFindProducerIndex(model, 0, product) != producer) return false;
-        uint16_t actor_id = G_ModelActorIdForProduct(product);
-        bool queued = G_ModelProductTrainingTimeMs(product) > 0;
-        if (!queued)
-            model_emit_event(model, RTS_GAME_EVENT_BUILD_QUEUED, model->objects.items[producer], NULL,
-                             product->product_class, product->product_type);
-        bool ok = queued ? enqueue_model_unit_product(model, product, producer, actor_id) :
-            spawn_finished_model_product(model, product, producer);
-        if (ok) level.player_resources[0][0] -= product->cost;
+        if (model->objects.items[producer]->owner != 0) return false;
+        bool ok = G_QueueProduct(model->objects.items[producer], product);
+        refresh_model_objects(model);
         return ok;
     }
-    case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON:
-        return create_model_product(
-            model, G_ModelProductByUIId(model, command->data.activate_ui_button.ui_id));
+    case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON: {
+        const StaticProductDefinition *product =
+            G_ModelProductByUIId(model, command->data.activate_ui_button.ui_id);
+        bool ok = G_QueueProduct(G_FindProducer(0, product), product);
+        refresh_model_objects(model);
+        return ok;
+    }
     default:
         return false;
     }

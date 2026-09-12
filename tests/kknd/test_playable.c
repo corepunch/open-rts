@@ -114,14 +114,25 @@ static int test_ai_production(void) {
     if (!rts_game_model_load(model, &config)) return fail("load for AI");
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
-    int initial_total = snap.unit_count;
+    int initial_enemy = 0;
+    int initial_player = 0;
+    int initial_resources = snap.player_resources[0][0];
+    for (int i = 0; i < snap.unit_count; ++i) {
+        initial_enemy += snap.units[i].owner == 1;
+        initial_player += snap.units[i].owner == 0;
+    }
     for (int t = 0; t < 30 * 60; ++t)
         if (!rts_tick(model, NULL)) return fail("tick AI");
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot after AI");
-    if (snap.unit_count <= initial_total)
-        return fail("AI produced new units");
-    printf("PASS: kknd AI production (%d -> %d units)\n",
-           initial_total, snap.unit_count);
+    int enemies = 0, players = 0;
+    for (int i = 0; i < snap.unit_count; ++i) {
+        enemies += snap.units[i].owner == 1;
+        players += snap.units[i].owner == 0;
+    }
+    if (enemies <= initial_enemy) return fail("enemy AI produced units");
+    if (players > initial_player || snap.player_resources[0][0] < initial_resources)
+        return fail("AI leaves human production and resources alone");
+    printf("PASS: kknd enemy AI production (%d -> %d units)\n", initial_enemy, enemies);
     rts_game_model_destroy(model);
     return 0;
 }

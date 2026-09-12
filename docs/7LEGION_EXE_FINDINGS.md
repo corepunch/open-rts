@@ -45,3 +45,21 @@ Unchanged rejected sprite candidates: `FOGGY.BIM`, `FOGWAR.BIM`, `FONT16.BIM`,
 investigation**; no fallback, name exception, or guessed frame metadata was
 added. Existing MAPT/MAPOVL/MAPL indexing and decoding formulas are preserved,
 not newly verified against an executable by this comparison.
+
+## Engine combat and production wiring (2026-09-12)
+
+**Engine behavior, not a retail finding:** combat-capable generated actors now
+enter `A_Look` and `A_Attack` through normal state ticking. Previously every
+state had infinite duration and no action, preventing attacks entirely. The
+one-tic dispatch states reuse existing C-authored range, damage and cooldown;
+the current frame-zero presentation is unchanged. This does not establish
+native attack animation lengths or timings. No executable or new asset format
+was examined for this change.
+
+The engine-added skirmish opponent receives the mission's starting cash, then
+maintains bounded goals using its own living and queued actors and budget.
+It no longer spends owner zero's resources. This opponent and the shared text
+production sidebar are engine features, not reproductions of retail mission AI
+or interface scripts. `env SDL_VIDEODRIVER=dummy make test-7legion` verifies
+all attack-capable types acquire nearby targets, respect range and cooldown,
+deal damage through `P_Ticker`, and maintain enemy production goals.

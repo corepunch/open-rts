@@ -2,6 +2,7 @@
 #include "game.h"
 #include "g_game.h"
 #include "dr_types.h"
+#include "info.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -10,7 +11,7 @@
 static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
 #define BUILD(ui_, label_, cost_, type_, p0_, p1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
-      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { 11 }, 1 }
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_FG_CONSTRUCTION_CREW }, 1 }
 #define UNIT(ui_, label_, cost_, type_, p0_, p1_, m0_, m1_) \
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), \
@@ -37,30 +38,30 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     BUILD(10041, "Small Vertical Bridge", 100, 10041, 0, 0),
     BUILD(10042, "Small Centre Bridge", 150, 10042, 0, 0),
     { 11, 11, "Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 11, 0,
-      { 10001 }, 1, { 10001, 10002, 10003 }, 3 },
-    UNIT(9, "Raider", 150, 9, 10004, 0, 10004, 10005),
-    UNIT(10, "Mercenary", 300, 10, 10004, 0, 10004, 10005),
-    UNIT(8, "Sniper", 700, 8, 10005, 0, 10004, 10005),
-    UNIT(6, "Scout", 300, 6, 10004, 0, 10004, 10005),
-    UNIT(7, "Medic", 500, 7, 10004, 10009, 10004, 10005),
-    UNIT(3, "Saboteur", 800, 3, 10005, 0, 10004, 10005),
-    UNIT(2, "Mechanic", 500, 2, 10004, 10009, 10004, 10005),
-    UNIT(5, "Martyr", 600, 5, 10004, 0, 10004, 10005),
-    UNIT(4, "Spy", 1000, 4, 10005, 0, 10004, 10005),
-    UNIT(1, "Spider Bike", 500, 1, 10006, 0, 10006, 10007),
-    UNIT(15, "RAT", 450, 15, 10006, 0, 10006, 10007),
-    UNIT(20, "Skirmish Tank", 600, 20, 10006, 0, 10006, 10007),
-    UNIT(17, "Tank Hunter", 700, 17, 10006, 0, 10006, 10007),
-    UNIT(21, "Phase Tank", 600, 21, 10006, 10015, 10006, 10007),
-    UNIT(12, "Flak Jack", 500, 12, 10002, 10006, 10006, 10007),
-    UNIT(16, "Triple Rail Tank", 1300, 16, 10007, 0, 10006, 10007),
-    UNIT(19, "Hellstorm Artillery", 1100, 19, 10007, 0, 10006, 10007),
-    UNIT(23, "Sky Bike", 800, 23, 10006, 10011, 10006, 10007),
-    UNIT(24, "Outrider", 1400, 24, 10006, 10011, 10006, 10007),
-    UNIT(18, "Shockwave", 4000, 18, 10006, 10003, 10006, 10007),
-    UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, 10006, 10007),
-    UNIT(13, "Freighter", 1000, 13, 10006, 0, 10006, 10007),
-    UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, 10006, 10007),
+      { 10001 }, 1, { MT_FG_HQ1, MT_FG_HQ2, MT_FG_HQ3 }, 3 },
+    UNIT(9, "Raider", 150, 9, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(10, "Mercenary", 300, 10, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(8, "Sniper", 700, 8, 10005, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(6, "Scout", 300, 6, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(7, "Medic", 500, 7, 10004, 10009, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(3, "Saboteur", 800, 3, 10005, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(2, "Mechanic", 500, 2, 10004, 10009, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(5, "Martyr", 600, 5, 10004, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(4, "Spy", 1000, 4, 10005, 0, MT_FG_BARRACKS, MT_FG_ADV_BARRACKS),
+    UNIT(1, "Spider Bike", 500, 1, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(15, "RAT", 450, 15, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(20, "Skirmish Tank", 600, 20, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(17, "Tank Hunter", 700, 17, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(21, "Phase Tank", 600, 21, 10006, 10015, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(12, "Flak Jack", 500, 12, 10002, 10006, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(16, "Triple Rail Tank", 1300, 16, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(19, "Hellstorm Artillery", 1100, 19, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(23, "Sky Bike", 800, 23, 10006, 10011, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(24, "Outrider", 1400, 24, 10006, 10011, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(18, "Shockwave", 4000, 18, 10006, 10003, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(13, "Freighter", 1000, 13, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
 #undef BUILD
 #undef UNIT
 };
@@ -70,15 +71,14 @@ static int product_count(void) {
                  sizeof(DARK_REIGN_FG_PRODUCTS[0]));
 }
 
-static uint16_t actor_id_for_requirement(int requirement_id) {
-    if (requirement_id == 11 ||
-        (requirement_id >= 10001 && requirement_id <= 10020))
-        return (uint16_t)requirement_id;
-    return 0;
+static uint16_t actor_for_native_type(int native_type) {
+    for (int i = 1; i < NUMMOBJTYPES; ++i)
+        if (mobjinfo[i].doomednum == native_type) return (uint16_t)i;
+    return MT_NULL;
 }
 
 uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {
-    return product ? actor_id_for_requirement(product->product_type) : 0;
+    return product ? actor_for_native_type(product->product_type) : MT_NULL;
 }
 
 int G_ModelBuildingFrameForProduct(const StaticProductDefinition *product) {
@@ -147,13 +147,13 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
         if (!G_ModelHasActorType(model, owner,
-                                 actor_id_for_requirement(product->prerequisites[i])))
+                                 actor_for_native_type(product->prerequisites[i])))
             return false;
     }
     if (product->maker_count <= 0) return true;
     for (int i = 0; i < product->maker_count; ++i) {
         if (G_ModelHasActorType(model, owner,
-                                actor_id_for_requirement(product->makers[i])))
+                                (uint16_t)product->makers[i]))
             return true;
     }
     return false;
@@ -234,46 +234,20 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-static const StaticProductDefinition *dr_product_by_type(int product_type) {
-    int count = product_count();
-    for (int i = 0; i < count; ++i) {
-        if (DARK_REIGN_FG_PRODUCTS[i].product_type == product_type)
-            return &DARK_REIGN_FG_PRODUCTS[i];
-    }
-    return NULL;
-}
-
-typedef struct { int product_type; } DrAiGoal;
-
-static const DrAiGoal dr_ai_goals[] = {
-    { 10001 }, /* FG HQ 1 */
-    { 10004 }, /* Barracks */
-    { 10006 }, /* Vehicle Factory */
-    { 10013 }, /* Guard Tower */
-    { 13 },    /* Freighter (harvester) */
-    { 9 },     /* Raider */
-    { 9 },     /* Raider (2nd) */
-    { 10 },    /* Mercenary */
-    { 20 },    /* Skirmish Tank */
-    { 17 },    /* Tank Hunter */
-    { 1 },     /* Spider Bike */
-    { 20 },    /* Skirmish Tank (2nd) */
+static const productiongoal_t dr_ai_goals[] = {
+    { 10001, 1 }, /* FG HQ 1 */
+    { 10004, 1 }, /* Barracks */
+    { 10006, 1 }, /* Vehicle Factory */
+    { 10013, 1 }, /* Guard Tower */
+    { 13, 1 },    /* Freighter */
+    { 9, 2 },     /* Raiders */
+    { 10, 1 },    /* Mercenary */
+    { 20, 2 },    /* Skirmish Tanks */
+    { 17, 1 },    /* Tank Hunter */
+    { 1, 1 },     /* Spider Bike */
 };
 
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)elapsed_ms;
-    if (!model) return;
-
-    for (size_t i = 0; i < sizeof(dr_ai_goals) / sizeof(dr_ai_goals[0]); ++i) {
-        const StaticProductDefinition *product = dr_product_by_type(dr_ai_goals[i].product_type);
-        if (!product) continue;
-        if (!G_ModelProductAvailable(model, 0, product)) continue;
-        if (rts_game_model_player_resources(model, 0, 0) < product->cost) continue;
-
-        RtsGameCommand cmd = {
-            .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
-            .data.activate_ui_button = { .ui_id = product->ui_id },
-        };
-        if (rts_game_model_command(model, &cmd)) return;
-    }
+    (void)model; (void)elapsed_ms;
+    G_ProductionGoals(dr_ai_goals, sizeof(dr_ai_goals) / sizeof(*dr_ai_goals));
 }

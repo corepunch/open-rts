@@ -170,37 +170,18 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-typedef struct { int product_type; } KkAiGoal;
-
-static const KkAiGoal kk_ai_goals[] = {
-    { MT_SURV_OIL_TANKER },
-    { MT_SURV_RIFLEMAN },
-    { MT_SURV_RIFLEMAN },
-    { MT_SURV_FLAMER },
-    { MT_SURV_RPG_LAUNCHER },
-    { MT_SURV_DIRT_BIKE },
-    { MT_SURV_ANACONDA_TANK },
+/* Engine skirmish goals for either faction; makers determine eligibility. */
+static const productiongoal_t kk_ai_goals[] = {
+    { 21, 1 }, { 121, 1 },   /* Vehicle production */
+    { 14, 1 }, { 114, 1 },   /* Oil tanker */
+    { 1, 2 }, { 101, 2 },    /* Infantry */
+    { 2, 1 }, { 102, 1 },    /* Flame infantry */
+    { 3, 1 }, { 104, 1 },    /* Rockets */
+    { 10, 1 }, { 110, 1 },   /* Fast vehicle */
+    { 12, 1 }, { 113, 1 },   /* Heavy vehicle */
 };
 
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)elapsed_ms;
-    if (!model) return;
-
-    for (size_t i = 0; i < sizeof(kk_ai_goals) / sizeof(kk_ai_goals[0]); ++i) {
-        const StaticProductDefinition *product = NULL;
-        for (int j = 0; j < product_count(); ++j)
-            if (KKND_PRODUCTS[j].product_type == kk_ai_goals[i].product_type) {
-                product = &KKND_PRODUCTS[j];
-                break;
-            }
-        if (!product) continue;
-        if (!G_ModelProductAvailable(model, 0, product)) continue;
-        if (rts_game_model_player_resources(model, 0, 0) < product->cost) continue;
-
-        RtsGameCommand cmd = {
-            .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
-            .data.activate_ui_button = { .ui_id = product->ui_id },
-        };
-        if (rts_game_model_command(model, &cmd)) return;
-    }
+    (void)model; (void)elapsed_ms;
+    G_ProductionGoals(kk_ai_goals, sizeof(kk_ai_goals) / sizeof(*kk_ai_goals));
 }

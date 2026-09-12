@@ -347,7 +347,8 @@ static const mobjtype_t ACTOR_TYPES[] = {
 static const uidefinition_t UI = {
     .logical_width = 640,
     .logical_height = 480,
-    .world_viewport = { 0, 0, 592, 480 },
+    .world_viewport = { 0, 0, 480, 480 },
+    .command_grid = { 480, 32, 160, 448 },
     .resources = {
         [0] = { .text = { 400, 3 }, .color = { 255, 255, 255, 255 } },
     },
@@ -359,11 +360,10 @@ static const uidefinition_t UI = {
     },
     .status_elapsed_time = true,
     .sidebar_panel = {
-        .rect = { 592, 0, 48, 480 },
+        .rect = { 480, 0, 160, 480 },
         .fill = { 0, 0, 0, 255 },
         .border = { 104, 104, 96, 255 },
     },
-    .sidebar_cell_size = 48,
 };
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
@@ -480,12 +480,6 @@ int P_LoadThings(const char *path) {
     level.has_camera = true;
     level.camera = (fvec2_t){ cx, cy };
     return count;
-}
-
-bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                          mobj_t *const *mobjs, int count, spritecache_t *cache) {
-    (void)renderer; (void)root; (void)map; (void)mobjs; (void)count; (void)cache;
-    return true;
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {

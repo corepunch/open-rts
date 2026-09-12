@@ -148,36 +148,14 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-typedef struct { int product_type; } SlAiGoal;
-
-static const SlAiGoal sl_ai_goals[] = {
-    { 2 },  /* Slave (harvester) */
-    { 1 },  /* Trooper */
-    { 1 },  /* Trooper (2nd) */
-    { 3 },  /* Spider Mech */
-    { 1 },  /* Trooper (3rd) */
-    { 4 },  /* Tank */
+static const productiongoal_t sl_ai_goals[] = {
+    { 2, 1 },  /* Slave */
+    { 1, 3 },  /* Troopers */
+    { 3, 1 },  /* Spider Mech */
+    { 4, 1 },  /* Tank */
 };
 
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)elapsed_ms;
-    if (!model) return;
-
-    for (size_t i = 0; i < sizeof(sl_ai_goals) / sizeof(sl_ai_goals[0]); ++i) {
-        const StaticProductDefinition *product = NULL;
-        for (int j = 0; j < product_count(); ++j)
-            if (SL_PRODUCTS[j].product_type == sl_ai_goals[i].product_type) {
-                product = &SL_PRODUCTS[j];
-                break;
-            }
-        if (!product) continue;
-        if (!G_ModelProductAvailable(model, 0, product)) continue;
-        if (rts_game_model_player_resources(model, 0, 0) < product->cost) continue;
-
-        RtsGameCommand cmd = {
-            .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
-            .data.activate_ui_button = { .ui_id = product->ui_id },
-        };
-        if (rts_game_model_command(model, &cmd)) return;
-    }
+    (void)model; (void)elapsed_ms;
+    G_ProductionGoals(sl_ai_goals, sizeof(sl_ai_goals) / sizeof(*sl_ai_goals));
 }

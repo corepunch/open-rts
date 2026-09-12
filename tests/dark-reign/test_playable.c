@@ -26,9 +26,9 @@ static int test_map_loads(void) {
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot 2NIC");
     if (snap.map_width <= 0 || snap.map_height <= 0) return fail("map dimensions");
     if (snap.unit_count < 6) return fail("units spawn from SCN");
-    if (count_owner_type(&snap, 0, ACTOR_FG_CONSTRUCTION_CREW) < 1)
+    if (count_owner_type(&snap, 0, MT_FG_CONSTRUCTION_CREW) < 1)
         return fail("player has construction crews");
-    if (count_owner_type(&snap, 1, ACTOR_FG_CONSTRUCTION_CREW) < 1)
+    if (count_owner_type(&snap, 1, MT_FG_CONSTRUCTION_CREW) < 1)
         return fail("enemy has construction crews");
     if (snap.player_resources[0][0] <= 0 || snap.player_resources[1][0] <= 0)
         return fail("team credits from SCN");
@@ -102,7 +102,7 @@ static int test_production(void) {
                 ev.type == RTS_GAME_EVENT_UNIT_BUILT) hq_built = true;
     }
     if (!hq_built) return fail("HQ build completed");
-    if (count_owner_type(&snap, 0, ACTOR_FG_HEADQUARTERS_1) < 1)
+    if (count_owner_type(&snap, 0, MT_FG_HQ1) < 1)
         return fail("HQ was built");
     printf("PASS: dark-reign production builds HQ\n");
     rts_game_model_destroy(model);
@@ -118,15 +118,26 @@ static int test_ai_production(void) {
     if (!rts_game_model_load(model, &config)) return fail("load for AI");
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot for AI");
-    int initial_total = snap.unit_count;
+    int initial_enemy = 0;
+    int initial_player = 0;
+    int initial_resources = snap.player_resources[0][0];
+    for (int i = 0; i < snap.unit_count; ++i) {
+        initial_enemy += snap.units[i].owner == 1;
+        initial_player += snap.units[i].owner == 0;
+    }
     for (int t = 0; t < 30 * 120; ++t) {
         if (!rts_tick(model, NULL)) return fail("tick AI");
     }
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot after AI ticks");
-    if (snap.unit_count <= initial_total)
-        return fail("AI production increased total units");
-    printf("PASS: dark-reign AI production (%d -> %d units)\n",
-           initial_total, snap.unit_count);
+    int enemies = 0, players = 0;
+    for (int i = 0; i < snap.unit_count; ++i) {
+        enemies += snap.units[i].owner == 1;
+        players += snap.units[i].owner == 0;
+    }
+    if (enemies <= initial_enemy) return fail("enemy AI produced units");
+    if (players > initial_player || snap.player_resources[0][0] < initial_resources)
+        return fail("AI leaves human production and resources alone");
+    printf("PASS: dark-reign enemy AI production (%d -> %d units)\n", initial_enemy, enemies);
     rts_game_model_destroy(model);
     return 0;
 }

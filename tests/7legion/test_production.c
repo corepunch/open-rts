@@ -1,0 +1,8 @@
+#define OWNER_PRODUCER MT_MOBILE_BASE
+#define PLAYER_PRODUCER MT_MOBILE_BASE
+#define PLAYER_PRODUCT 1
+#define AI_FIRST_UNIT MT_SLAVE
+#define AI_FIRST_COUNT 1
+#define AI_ADVANCED_UNIT MT_TANK
+#define AI_ADVANCED_COUNT 1
+#include "../production_regression.h"

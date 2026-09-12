@@ -11,6 +11,8 @@ typedef struct {
     bool first_draw;
     int pressed_button;
     uint64_t clock;
+    uint32_t production_selection;
+    int production_page;
 } sb_state_t;
 
 /* Doom-style status-bar lifecycle.  The explicit state argument replaces the
@@ -24,5 +26,7 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
                mobj_t *const *units, int unit_count, const spritecache_t *sprites,
                bool fullscreen, bool refresh);
 void SB_Shutdown(sb_state_t *st);
+bool SB_ProductionResponder(sb_state_t *st, const app_t *app, const SDL_Event *event);
+void SB_ProductionDrawer(sb_state_t *st, const app_t *app);
 
 #endif

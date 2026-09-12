@@ -45,10 +45,14 @@ typedef enum {
 typedef enum {
     S_NULL = 0,
     S_LTROOP_STND,
+    S_LTROOP_FIRE,
     S_SLAVEN1_STND,
     S_SPIDER_STND,
+    S_SPIDER_FIRE,
     S_TANKBASE_STND,
+    S_TANKBASE_FIRE,
     S_ROCKMECH_STND,
+    S_ROCKMECH_FIRE,
     S_TRUCK_STND,
     S_MOBBASE_STND,
     NUMSTATES

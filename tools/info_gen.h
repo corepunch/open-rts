@@ -39,7 +39,10 @@ static bool write_info_h(const char *path, const char *source,
     fprintf(file, "typedef enum {\n");
     for (int i = 0; i < count; ++i) fprintf(file, "    SPR_%s,\n", entries[i].sprite);
     fprintf(file, "    NUMSPRITES\n} spritenum_t;\n\ntypedef enum {\n    S_NULL = 0,\n");
-    for (int i = 0; i < count; ++i) fprintf(file, "    S_%s_STND,\n", entries[i].sprite);
+    for (int i = 0; i < count; ++i) {
+        fprintf(file, "    S_%s_STND,\n", entries[i].sprite);
+        if (entries[i].damage) fprintf(file, "    S_%s_FIRE,\n", entries[i].sprite);
+    }
     fprintf(file, "    NUMSTATES\n} statenum_t;\n\nenum {\n    MT_NULL,\n");
     for (int i = 0; i < count; ++i) fprintf(file, "    MT_%s,\n", entries[i].type);
     fprintf(file,
@@ -67,9 +70,17 @@ static bool write_info_c(const char *path, const char *source, const char *extra
     }
     fprintf(file, "};\n\nconst state_t states[NUMSTATES] = {\n"
                   "    { 0, 0, -1, NULL, S_NULL, 0 },\n");
-    for (int i = 0; i < count; ++i)
-        fprintf(file, "    { SPR_%s, 0, -1, NULL, S_%s_STND, 0 },\n",
-                entries[i].sprite, entries[i].sprite);
+    for (int i = 0; i < count; ++i) {
+        const info_entry_t *entry = &entries[i];
+        /* One-tic polling preserves the authored engine cooldown without
+           inventing a native BIM attack animation or another firing delay. */
+        fprintf(file, "    { SPR_%s, 0, %d, %s, S_%s_STND, 0 },\n",
+                entry->sprite, entry->damage ? 1 : -1,
+                entry->damage ? "A_Look" : "NULL", entry->sprite);
+        if (entry->damage)
+            fprintf(file, "    { SPR_%s, 0, 1, A_Attack, S_%s_STND, 3 },\n",
+                    entry->sprite, entry->sprite);
+    }
     fprintf(file, "};\n\nconst mobjinfo_t mobjinfo[NUMMOBJTYPES] = {\n    { 0 },\n");
     for (int i = 0; i < count; ++i) {
         const info_entry_t *entry = &entries[i];
@@ -81,7 +92,7 @@ static bool write_info_c(const char *path, const char *source, const char *extra
             fprintf(file, "        .seestate = S_%s_STND, .speed = %d,\n",
                     entry->sprite, entry->speed);
         if (entry->damage)
-            fprintf(file, "        .missilestate = S_%s_STND, .damage = %d,\n",
+            fprintf(file, "        .missilestate = S_%s_FIRE, .damage = %d,\n",
                     entry->sprite, entry->damage);
         fprintf(file, "        .deathstate = S_NULL, .xdeathstate = S_NULL,\n");
         if (entry->radius || entry->height || entry->mass)

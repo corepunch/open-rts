@@ -272,7 +272,6 @@ static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *ren
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
                                         const level_t *map, mobj_t *const *units,
                                         int unit_count, spritecache_t *cache) {
-    memset(cache, 0, sizeof(*cache));
     uint32_t sprite_palette[256];
     uint32_t terrain_palette[256];
     char palette_path[1024];

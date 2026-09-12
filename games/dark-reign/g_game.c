@@ -106,7 +106,7 @@ static const uidefinition_t DARK_REIGN_UI = {
 static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     /* === Special / support units === */
     {
-        .id = ACTOR_FG_CONSTRUCTION_CREW,
+        .id = MT_FG_CONSTRUCTION_CREW,
         .name = "Construction Rig",
         .sprite_name = "ucfcnst0.spr",
         .shadow_name = "ucfcnsh0.spr",
@@ -116,7 +116,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 9.0f, .damage = 20, .cooldown_ms = 700 },
     },
     {
-        .id = ACTOR_FG_GROUND_TRANSPORTER,
+        .id = MT_FG_FREIGHTER,
         .name = "Freighter",
         .sprite_name = "ucfrgst0.spr",
         .shadow_name = "ucfrgst0.spr",
@@ -126,7 +126,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .harvest = { .capacity = 100 },
     },
     {   /* Laser-armed hover harvester */
-        .id = ACTOR_FG_HOVER_TRANSPORTER,
+        .id = MT_FG_HOVER_FREIGHTER,
         .name = "Hover Freighter",
         .sprite_name = "uchfrst0.spr",
         .shadow_name = "uchfrst0.spr",
@@ -138,7 +138,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     },
     /* === Infantry === */
     {   /* LaserRifle: range 4, 267ms cd, 11 dmg */
-        .id = ACTOR_FG_RAIDER,
+        .id = MT_FG_RAIDER,
         .name = "Raider",
         .sprite_name = "ufradst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -148,7 +148,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267 },
     },
     {   /* RailGun: range 5, 367ms cd, 11 dmg */
-        .id = ACTOR_FG_MERCENARY,
+        .id = MT_FG_MERCENARY,
         .name = "Mercenary",
         .sprite_name = "ufmrcst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -158,7 +158,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 5.0f, .damage = 11, .cooldown_ms = 367 },
     },
     {   /* SniperRifle: range 8, 1667ms cd, 150 dmg */
-        .id = ACTOR_FG_SNIPER,
+        .id = MT_FG_SNIPER,
         .name = "Sniper",
         .sprite_name = "ufsnpst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -168,7 +168,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 8.0f, .damage = 150, .cooldown_ms = 1667 },
     },
     {   /* Recon only — no weapon */
-        .id = ACTOR_FG_SCOUT,
+        .id = MT_FG_SCOUT,
         .name = "Scout",
         .sprite_name = "ufsctst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -177,7 +177,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .max_hp = 66,
     },
     {   /* MedicHeal — support, no offensive attack */
-        .id = ACTOR_FG_MEDIC,
+        .id = MT_FG_MEDIC,
         .name = "Field Medic",
         .sprite_name = "ufmedst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -186,7 +186,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .max_hp = 66,
     },
     {   /* Sabotage ability — no ranged weapon */
-        .id = ACTOR_FG_SABOTEUR,
+        .id = MT_FG_SABOTEUR,
         .name = "Saboteur",
         .sprite_name = "ufsabst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -195,7 +195,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .max_hp = 100,
     },
     {   /* MechanicRepair — support, no offensive attack */
-        .id = ACTOR_FG_MECHANIC,
+        .id = MT_FG_MECHANIC,
         .name = "Mechanic",
         .sprite_name = "ufmecst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -204,7 +204,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .max_hp = 66,
     },
     {   /* SuicideNuke: range 2, 1667ms, 180 dmg, large AoE */
-        .id = ACTOR_FG_SUICIDE_NUKER,
+        .id = MT_FG_MARTYR,
         .name = "Martyr",
         .sprite_name = "ufmtrst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -214,7 +214,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 2.0f, .damage = 180, .cooldown_ms = 1667 },
     },
     {   /* Infiltrate ability — no ranged weapon */
-        .id = ACTOR_FG_SPY,
+        .id = MT_FG_SPY,
         .name = "Infiltrator",
         .sprite_name = "ucinfst0.spr",
         .shadow_name = "ucmensh0.spr",
@@ -224,7 +224,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     },
     /* === Vehicles === */
     {   /* DoubleRailGun: range 5, 433ms cd, 10 dmg */
-        .id = ACTOR_FG_SPYDER_BIKE,
+        .id = MT_FG_SPYDER_BIKE,
         .name = "Spider Bike",
         .sprite_name = "ufspbst0.spr",
         .shadow_name = "ufspbsh0.spr",
@@ -234,7 +234,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 433 },
     },
     {   /* Rapid armored transport — no weapon */
-        .id = ACTOR_FG_IFV,
+        .id = MT_FG_IFV,
         .name = "RAT",
         .sprite_name = "ufratst0.spr",
         .shadow_name = "ufratst0.spr",
@@ -243,7 +243,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .max_hp = 200,
     },
     {   /* SkirmishGun (dual): range 6, 667ms cd, 14 dmg */
-        .id = ACTOR_FG_MEDIUM_TANK,
+        .id = MT_FG_MEDIUM_TANK,
         .name = "Skirmish Tank",
         .sprite_name = "ufsktst0.spr",
         .shadow_name = "ufsktst0.spr",
@@ -253,7 +253,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 6.0f, .damage = 14, .cooldown_ms = 667 },
     },
     {   /* TankHunterGun: range 3, 667ms cd, 60 dmg — high anti-armor */
-        .id = ACTOR_FG_TANK_HUNTER,
+        .id = MT_FG_TANK_HUNTER,
         .name = "Tank Hunter",
         .sprite_name = "ufthnst0.spr",
         .shadow_name = "ufthnst0.spr",
@@ -263,7 +263,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 3.0f, .damage = 60, .cooldown_ms = 667 },
     },
     {   /* PhaseTankCannon: range 6, 433ms cd, 30 dmg */
-        .id = ACTOR_FG_PHASE_TANK,
+        .id = MT_FG_PHASE_TANK,
         .name = "Phase Tank",
         .sprite_name = "ufphtst0.spr",
         .shadow_name = "ufphtst0.spr",
@@ -273,7 +273,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 6.0f, .damage = 30, .cooldown_ms = 433 },
     },
     {   /* Chaff: range 8, 500ms cd, 8 dmg — anti-air */
-        .id = ACTOR_FG_MAD,
+        .id = MT_FG_MAD,
         .name = "Flak Jack",
         .sprite_name = "ufflkst0.spr",
         .shadow_name = "ufflksh0.spr",
@@ -283,7 +283,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 8.0f, .damage = 8, .cooldown_ms = 500 },
     },
     {   /* TripleRailGun: range 8, 667ms cd, 24 dmg */
-        .id = ACTOR_FG_TRIPLE_RAIL_TANK,
+        .id = MT_FG_TRIPLE_RAIL_TANK,
         .name = "Triple Rail Tank",
         .sprite_name = "uftrtst0.spr",
         .shadow_name = "uftrtst0.spr",
@@ -293,7 +293,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 8.0f, .damage = 24, .cooldown_ms = 667 },
     },
     {   /* ArtilleryShell: range 45, 2667ms cd, 30 dmg, large AoE */
-        .id = ACTOR_FG_SPA,
+        .id = MT_FG_SPA,
         .name = "Hellstorm Artillery",
         .sprite_name = "uffarst0.spr",
         .shadow_name = "uffarst0.spr",
@@ -304,7 +304,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     },
     /* === Air units === */
     {   /* BkLaser: range 5, 233ms cd, 10 dmg */
-        .id = ACTOR_FG_SKY_BIKE,
+        .id = MT_FG_SKY_BIKE,
         .name = "Sky Bike",
         .sprite_name = "ufskbst0.spr",
         .shadow_name = "ufskbst0.spr",
@@ -314,7 +314,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 233 },
     },
     {   /* OutriderMissile: range 5, 333ms cd, 20 dmg */
-        .id = ACTOR_FG_OUTRIDER,
+        .id = MT_FG_OUTRIDER,
         .name = "Outrider",
         .sprite_name = "ufoutst0.spr",
         .shadow_name = "ufoutst0.spr",
@@ -325,7 +325,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     },
     /* === Experimental / special === */
     {   /* SeismicWave: range 24, slow cd, 17 dmg */
-        .id = ACTOR_FG_SHOCKWAVE,
+        .id = MT_FG_SHOCKWAVE,
         .name = "Shockwave",
         .sprite_name = "ufswvst0.spr",
         .shadow_name = "ufswvst0.spr",
@@ -335,7 +335,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 24.0f, .damage = 17, .cooldown_ms = 2000 },
     },
     {   /* Contaminator: range 1, 67ms cd, 5 dmg — targets buildings */
-        .id = ACTOR_FG_CONTAMINATOR,
+        .id = MT_FG_CONTAMINATOR,
         .name = "Water Contaminator",
         .sprite_name = "ucwcost0.spr",
         .shadow_name = "ucwcost0.spr",
@@ -345,7 +345,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 1.0f, .damage = 5, .cooldown_ms = 67 },
     },
     {   /* Spawned from Phasing Facility — internal tunnel unit */
-        .id = ACTOR_FG_UNDERGROUND_TUNNEL,
+        .id = MT_FG_UNDERGROUND_TUNNEL,
         .name = "Phase Runner",
         .sprite_name = "ufphrst0.spr",
         .shadow_name = "ufphrst0.spr",
@@ -354,7 +354,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .max_hp = 150,
     },
     {   /* Base relocation unit */
-        .id = ACTOR_FG_BASE_MOVER,
+        .id = MT_FG_BASE_MOVER,
         .name = "Base Mover",
         .sprite_name = "ufbamst0.spr",
         .shadow_name = "ufbamst0.spr",
@@ -367,34 +367,34 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
     { .id = (id_), .name = (name_), .sprite_name = (sprite_), .shadow_name = (shadow_), \
       .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = (hp_) }
     {
-        .id = ACTOR_FG_HEADQUARTERS_1,
+        .id = MT_FG_HQ1,
         .name = "FG Headquarters 1",
         .sprite_name = "nfhqt1l0.spr",
         .shadow_name = "bfhqtsh0.spr",
         .traits = MF_SELECTABLE | MF_RENDERABLE | MF_RESOURCE_BASE,
         .max_hp = 1200,
     },
-    BUILDING(ACTOR_FG_HEADQUARTERS_2, "FG Headquarters 2", "nfhqt2l0.spr", "bfhqtsh0.spr", 2400),
-    BUILDING(ACTOR_FG_HEADQUARTERS_3, "FG Headquarters 3", "nfhqt3l0.spr", "bfhqtsh0.spr", 3600),
-    BUILDING(ACTOR_FG_TRAINING_FACILITY_1, "Barracks", "nfutf1l0.spr", "bfutfmn0.spr", 750),
-    BUILDING(ACTOR_FG_TRAINING_FACILITY_2, "Advanced Barracks", "nfutf2l0.spr", "bfutfmn1.spr", 1500),
-    BUILDING(ACTOR_FG_VEHICLE_FACTORY_1, "Vehicle Factory", "nfvcy1l0.spr", "bfvcymn0.spr", 1000),
-    BUILDING(ACTOR_FG_VEHICLE_FACTORY_2, "Advanced Vehicle Factory", "nfvcy2l0.spr", "bfvcymn1.spr", 2000),
-    BUILDING(ACTOR_FG_HOVER_FACTORY, "Hovercraft Factory", "nfhsp1l0.spr", "bfhspmn0.spr", 600),
-    BUILDING(ACTOR_FG_REPAIR_BAY, "Repair Bay", "nfrep1l0.spr", "bfrepmn0.spr", 600),
-    BUILDING(ACTOR_FG_PHASE_FACTORY_1, "Phase Factory 1", "nfphf1l0.spr", "bfphfmn0.spr", 1000),
-    BUILDING(ACTOR_FG_PHASE_FACTORY_2, "Phase Factory 2", "nfphf2l0.spr", "bfphfmn1.spr", 2000),
-    BUILDING(ACTOR_FG_CAMERA_TOWER, "Camera Tower", "nccam1l0.spr", "bccammn0.spr", 150),
-    BUILDING(ACTOR_FG_LIFE_PLANT, "Life Plant", "nclnc1l0.spr", "bclncmn0.spr", 1300),
-    BUILDING(ACTOR_FG_POWER_PLANT, "Power Plant", "ncpow1l0.spr", "bcpowmn0.spr", 1450),
-    BUILDING(ACTOR_FG_REFINERY, "Refinery", "nfrrm1l0.spr", "bfrrmmn0.spr", 800),
-    BUILDING(ACTOR_FG_SMALL_HORIZONTAL_BRIDGE, "Small Horizontal Bridge", "ncsbh1l0.spr", "bcsbhmn0.spr", 400),
-    BUILDING(ACTOR_FG_SMALL_VERTICAL_BRIDGE, "Small Vertical Bridge", "ncsbv1l0.spr", "bcsbvmn0.spr", 400),
-    BUILDING(ACTOR_FG_SMALL_CENTRE_BRIDGE, "Small Centre Bridge", "ncsbc1l0.spr", "bcsbcmn0.spr", 400),
+    BUILDING(MT_FG_HQ2, "FG Headquarters 2", "nfhqt2l0.spr", "bfhqtsh0.spr", 2400),
+    BUILDING(MT_FG_HQ3, "FG Headquarters 3", "nfhqt3l0.spr", "bfhqtsh0.spr", 3600),
+    BUILDING(MT_FG_BARRACKS, "Barracks", "nfutf1l0.spr", "bfutfmn0.spr", 750),
+    BUILDING(MT_FG_ADV_BARRACKS, "Advanced Barracks", "nfutf2l0.spr", "bfutfmn1.spr", 1500),
+    BUILDING(MT_FG_VEHICLE_FACTORY, "Vehicle Factory", "nfvcy1l0.spr", "bfvcymn0.spr", 1000),
+    BUILDING(MT_FG_ADV_VEHICLE_FACTORY, "Advanced Vehicle Factory", "nfvcy2l0.spr", "bfvcymn1.spr", 2000),
+    BUILDING(MT_FG_HOVER_FACTORY, "Hovercraft Factory", "nfhsp1l0.spr", "bfhspmn0.spr", 600),
+    BUILDING(MT_FG_REPAIR_BAY, "Repair Bay", "nfrep1l0.spr", "bfrepmn0.spr", 600),
+    BUILDING(MT_FG_PHASE_FACTORY_1, "Phase Factory 1", "nfphf1l0.spr", "bfphfmn0.spr", 1000),
+    BUILDING(MT_FG_PHASE_FACTORY_2, "Phase Factory 2", "nfphf2l0.spr", "bfphfmn1.spr", 2000),
+    BUILDING(MT_FG_CAMERA_TOWER, "Camera Tower", "nccam1l0.spr", "bccammn0.spr", 150),
+    BUILDING(MT_FG_LIFE_PLANT, "Life Plant", "nclnc1l0.spr", "bclncmn0.spr", 1300),
+    BUILDING(MT_FG_POWER_PLANT, "Power Plant", "ncpow1l0.spr", "bcpowmn0.spr", 1450),
+    BUILDING(MT_FG_REFINERY, "Refinery", "nfrrm1l0.spr", "bfrrmmn0.spr", 800),
+    BUILDING(MT_FG_BRIDGE_H, "Small Horizontal Bridge", "ncsbh1l0.spr", "bcsbhmn0.spr", 400),
+    BUILDING(MT_FG_BRIDGE_V, "Small Vertical Bridge", "ncsbv1l0.spr", "bcsbvmn0.spr", 400),
+    BUILDING(MT_FG_BRIDGE_C, "Small Centre Bridge", "ncsbc1l0.spr", "bcsbcmn0.spr", 400),
 #undef BUILDING
     /* === Buildings — combat (MF_ATTACK) === */
     {   /* GatLaser: range 5, 100ms cd, 10 dmg */
-        .id = ACTOR_FG_GUARD_TOWER,
+        .id = MT_FG_GUARD_TOWER,
         .name = "Guard Tower",
         .sprite_name = "nfgdt1l0.spr",
         .shadow_name = "bfgdtmn0.spr",
@@ -403,7 +403,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 5.0f, .damage = 10, .cooldown_ms = 100 },
     },
     {   /* FixedLaserPlat: range 8, 333ms cd, 13 dmg */
-        .id = ACTOR_FG_ADVANCED_GUARD_TOWER,
+        .id = MT_FG_ADV_GUARD_TOWER,
         .name = "Advanced Guard Tower",
         .sprite_name = "nfagt1l0.spr",
         .shadow_name = "bfagtmn0.spr",
@@ -412,7 +412,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .attack = { .range = 8.0f, .damage = 13, .cooldown_ms = 333 },
     },
     {   /* FixedGroundToAirLaser: range 10, 467ms cd, 40 dmg — anti-air */
-        .id = ACTOR_FG_AA_SITE,
+        .id = MT_FG_AA_SITE,
         .name = "Anti-Air Site",
         .sprite_name = "nfaar1l0.spr",
         .shadow_name = "bfaarmn0.spr",
@@ -432,7 +432,7 @@ const char *const g_game_default_map   = "scenario/FIXED/M01F/M01F.SCN";
 const char *const g_game_default_sprite = "ucfcnst0.spr";
 const int g_cell_w = 24;
 const int g_cell_h = 24;
-const uint16_t g_debug_enemy_type = ACTOR_FG_CONSTRUCTION_CREW;
+const uint16_t g_debug_enemy_type = MT_FG_CONSTRUCTION_CREW;
 const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_REIGN_ACTOR_TYPES;

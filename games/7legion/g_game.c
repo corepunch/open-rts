@@ -87,7 +87,8 @@ static const mobjtype_t ACTOR_TYPES[] = {
 static const uidefinition_t UI = {
     .logical_width = 640,
     .logical_height = 480,
-    .world_viewport = { 0, 28, 640, 452 },
+    .world_viewport = { 0, 28, 480, 452 },
+    .command_grid = { 480, 28, 160, 452 },
     .resources = {
         [0] = { .text = { 630, 3 }, .color = { 230, 215, 80, 255 },
                 .right_aligned = true },

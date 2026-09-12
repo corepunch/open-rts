@@ -158,6 +158,8 @@ bool sl_load_map(const char *map_path, level_t *out) {
     snprintf(out->tileset_name, sizeof(out->tileset_name), "%s",
              sl_tileset_for_terrain(mission.terrain));
     out->player_resources[0][0] = mission.start_cash;
+    /* The engine-added skirmish opponent starts with the same mission budget. */
+    out->player_resources[1][0] = mission.start_cash;
 
     out->has_camera = true;
     out->camera = (fvec2_t){ (float)mission.start.x, (float)mission.start.y };

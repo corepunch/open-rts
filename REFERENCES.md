@@ -1006,6 +1006,38 @@ Local game-data files that have already been useful:
 
 ## KKnD
 
+September 12 sprite-channel verification uses OpenKrush revision
+`76c634d05984e48e1e474460c46607aee0bc78a1` and the fingerprinted local SPRITES.LVL.
+Detailed offsets, rejected interpretations and limitations are recorded in
+[KKnD loader evidence](docs/KKND_EXE_FINDINGS.md#runtime-sprite-catalog-and-native-animation-channels-2026-09-12).
+Pinned source paths:
+
+- [Assets/FileFormats/Mobd.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Assets/FileFormats/Mobd.cs)
+- [Assets/FileFormats/MobdAnimation.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Assets/FileFormats/MobdAnimation.cs)
+- [Assets/SpriteLoaders/MobdLoader.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Assets/SpriteLoaders/MobdLoader.cs)
+- [survivors/vehicles/derrick/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/vehicles/derrick/sequences.yaml)
+- [evolved/vehicles/direwolf/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/vehicles/direwolf/sequences.yaml)
+- [survivors/buildings/drillrig/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/buildings/drillrig/sequences.yaml)
+- [survivors/buildings/powerstation/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/buildings/powerstation/sequences.yaml)
+- [survivors/buildings/outpost/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/buildings/outpost/sequences.yaml)
+- [survivors/buildings/machineshop/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/buildings/machineshop/sequences.yaml)
+- [survivors/buildings/repairbay/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/buildings/repairbay/sequences.yaml)
+- [survivors/buildings/researchlab/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/buildings/researchlab/sequences.yaml)
+- [evolved/buildings/drillrig/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/drillrig/sequences.yaml)
+- [evolved/buildings/powerstation/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/powerstation/sequences.yaml)
+- [evolved/buildings/clanhall/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/clanhall/sequences.yaml)
+- [evolved/buildings/blacksmith/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/blacksmith/sequences.yaml)
+- [evolved/buildings/beastenclosure/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/beastenclosure/sequences.yaml)
+- [evolved/buildings/menagerie/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/menagerie/sequences.yaml)
+- [evolved/buildings/alchemyhall/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/buildings/alchemyhall/sequences.yaml)
+- [survivors/towers/guardtower/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/towers/guardtower/sequences.yaml)
+- [survivors/towers/missilebattery/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/towers/missilebattery/sequences.yaml)
+- [survivors/towers/cannontower/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/towers/cannontower/sequences.yaml)
+- [evolved/towers/machinegunnest/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/towers/machinegunnest/sequences.yaml)
+- [evolved/towers/grapeshotcannon/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/towers/grapeshotcannon/sequences.yaml)
+- [evolved/towers/rotarycannon/sequences.yaml](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/towers/rotarycannon/sequences.yaml)
+
+
 - OpenKrush (the successor to the archived OpenRA KKnD mod):
   https://github.com/IceReaper/OpenKrush
   - Info-table audit pinned revision: `76c634d05984e48e1e474460c46607aee0bc78a1`.

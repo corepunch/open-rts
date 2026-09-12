@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #include "kknd.h"
 #include "w_lvl.h"
+#include "game.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -122,18 +123,31 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
     }
 
     uint32_t ordered[MAX_ANIMATIONS];
+    int channels[MAX_ANIMATIONS], directions[MAX_ANIMATIONS];
+    int channel_lengths[MAX_ANIMATIONS] = {0}, channel_groups[MAX_ANIMATIONS] = {0};
     int ordered_count = 0;
+    uint32_t table_start = pos;
+    if ((first_frame - table_start) % (16 * 4) != 0) goto fail;
+    int channel_count = (int)((first_frame - table_start) / (16 * 4));
+    if (channel_count > MAX_ANIMATIONS) goto fail;
     while (pos < first_frame && ordered_count < MAX_ANIMATIONS) {
         if (!range_ok(size, pos, 4)) return false;
         uint32_t value = read_u32_le(segment + pos);
         pos += 4;
         if (value == 0) continue;
+        channels[ordered_count] = (int)((pos - table_start - 4) / (16 * 4));
+        directions[ordered_count] = (int)((pos - table_start - 4) / 4 % 16);
         ordered[ordered_count++] = value;
         for (int i = 0; i < animation_count; ++i)
             if (animation_offsets[i] == value) animation_offsets[i] = 0;
     }
-    for (int i = 0; i < animation_count && ordered_count < MAX_ANIMATIONS; ++i)
-        if (animation_offsets[i] != 0) ordered[ordered_count++] = animation_offsets[i];
+    for (int i = 0; i < animation_count; ++i) {
+        if (!animation_offsets[i]) continue;
+        if (ordered_count >= MAX_ANIMATIONS || channel_count >= MAX_ANIMATIONS) goto fail;
+        channels[ordered_count] = channel_count++;
+        directions[ordered_count] = 0;
+        ordered[ordered_count++] = animation_offsets[i];
+    }
 
     uint32_t frames[MAX_FRAMES];
     int group_starts[MAX_ANIMATIONS] = {0};
@@ -153,6 +167,10 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
             frames[frame_count++] = (uint32_t)frame;
             group_lengths[group]++;
         }
+        int channel = channels[group];
+        if (group_lengths[group] > channel_lengths[channel])
+            channel_lengths[channel] = group_lengths[group];
+        if (group_lengths[group]) channel_groups[channel]++;
     }
     if (frame_count == 0) goto fail;
 
@@ -166,42 +184,33 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
         if (cell->rect.h > out->frame_size.h) out->frame_size.h = cell->rect.h;
     }
 
-    int sequence_blocks = ordered_count / 16;
-    if (sequence_blocks > 4) sequence_blocks = 4;
-
-    /* Buildings: fewer than 16 ordered groups → non-rotational animation. */
-    if (sequence_blocks == 0 && ordered_count > 0) {
-        int nframes = 0;
-        for (int g = 0; g < ordered_count; ++g) nframes += group_lengths[g];
-        if (nframes <= 0 || !R_InitSpriteDef(out, nframes, 16)) goto fail;
-        int lf = 0;
-        for (int g = 0; g < ordered_count; ++g) {
-            for (int f = 0; f < group_lengths[g]; ++f, ++lf) {
-                int lump = group_starts[g] + f;
-                for (int rot = 0; rot < 16; ++rot)
-                    R_InstallSpriteLump(out, lf, rot, lump, flips[lump]);
-            }
-        }
-        return true;
-    }
-
+    /* Native animation tables keep sixteen slots per channel. Complete
+       direction sets share logical frames; sparse channels retain their
+       individual sequences (e.g. the two Dire Wolf death sequences). */
     int logical_frames = 0;
-    for (int block = 0; block < sequence_blocks; ++block) {
-        int length = group_lengths[block * 16];
-        if (length > 0) logical_frames += length;
+    for (int channel = 0; channel < channel_count; ++channel) {
+        if (channel_groups[channel] == 16) logical_frames += channel_lengths[channel];
+        else for (int group = 0; group < ordered_count; ++group)
+            if (channels[group] == channel) logical_frames += group_lengths[group];
     }
-    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames, 16))
-        goto fail;
+    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames, 16)) goto fail;
     int logical_frame = 0;
-    for (int block = 0; block < sequence_blocks; ++block) {
-        int length = group_lengths[block * 16];
-        if (length <= 0) continue;
-        for (int frame = 0; frame < length; ++frame, ++logical_frame)
-            for (int rotation = 0; rotation < 16; ++rotation) {
-                int lump = group_starts[block * 16 + rotation] + frame;
-                R_InstallSpriteLump(out, logical_frame, (16 - rotation) % 16,
-                    lump, flips[lump]);
+    for (int channel = 0; channel < channel_count; ++channel) {
+        for (int group = 0; group < ordered_count; ++group) {
+            if (channels[group] != channel) continue;
+            for (int frame = 0; frame < group_lengths[group]; ++frame) {
+                int lump = group_starts[group] + frame;
+                if (channel_groups[channel] != 16) {
+                    for (int rotation = 0; rotation < 16; ++rotation)
+                        R_InstallSpriteLump(out, logical_frame + frame, rotation, lump, flips[lump]);
+                } else {
+                    R_InstallSpriteLump(out, logical_frame + frame,
+                        (16 - directions[group]) % 16, lump, flips[lump]);
+                }
             }
+            if (channel_groups[channel] != 16) logical_frame += group_lengths[group];
+        }
+        if (channel_groups[channel] == 16) logical_frame += channel_lengths[channel];
     }
     return true;
 
@@ -243,6 +252,26 @@ static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
     if (!ok) fprintf(stderr, "failed to decode MOBD member %d from %s\n", member_index, path);
     W_FreeFile(&blob);
     return ok;
+}
+
+bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
+                   mobj_t *const *mobjs, int count, spritecache_t *cache) {
+    const KkndMapData *native = map ? map->native_data : NULL;
+    if (!native || !cache) return false;
+    bool ok = true;
+    for (int i = 0; i < count; ++i) {
+        const char *name = mobjs[i]->core.sprite_name;
+        if (R_CacheFind(cache, name)) continue;
+        if (cache->count >= MAX_DECORATION_SPRITES) return false;
+        cachedsprite_t *entry = &cache->entries[cache->count];
+        if (!load_sprite(renderer, root, name, native->palette, &entry->sprite)) {
+            ok = false;
+            continue;
+        }
+        snprintf(entry->name, sizeof(entry->name), "%s", name);
+        cache->count++;
+    }
+    return R_BindSprites(cache, gameinfo) && ok;
 }
 
 bool load_assets(SDL_Renderer *renderer, const char *data_root,

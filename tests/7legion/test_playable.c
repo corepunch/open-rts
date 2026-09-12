@@ -1,4 +1,5 @@
 #include "../rts_model_test.h"
+#include "game.h"
 #include "../../games/7legion/info.h"
 
 #include <math.h>
@@ -102,43 +103,22 @@ static int test_production(void) {
     return 0;
 }
 
-static int test_ai_and_combat(void) {
+static int test_ai_production(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = { .data_root = "data/7LEGION" };
     if (!rts_game_model_load(model, &config)) return fail("load for AI");
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot for AI");
-    int initial_total = snap.unit_count;
+    int initial_enemy = count_owner(&snap, 1);
+    int initial_player = count_owner(&snap, 0);
+    int initial_resources = snap.player_resources[0][0];
     for (int t = 0; t < 30 * 60; ++t)
         if (!rts_tick(model, NULL)) return fail("tick AI");
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot after AI");
-    if (snap.unit_count <= initial_total) return fail("AI produced units");
-    int player = -1, enemy = -1;
-    for (int i = 0; i < snap.unit_count; ++i) {
-        if (snap.units[i].owner == 0 &&
-            (snap.units[i].traits & (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK)) ==
-            (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK))
-            player = i;
-        if (snap.units[i].owner == 1 && !snap.units[i].hidden) enemy = i;
-    }
-    if (player >= 0 && enemy >= 0) {
-        RtsGameCommand sel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
-            .data.select_unit_index = { player, false } };
-        rts_game_model_command(model, &sel);
-        RtsGameCommand atk = { .kind = RTS_GAME_COMMAND_ATTACK_UNIT,
-            .data.attack_unit = { snap.units[enemy].id, enemy } };
-        rts_game_model_command(model, &atk);
-        bool saw_attack = false;
-        for (int t = 0; t < 30 * 120 && !saw_attack; ++t) {
-            if (!rts_tick(model, NULL)) break;
-            RtsGameEvent ev;
-            while (rts_game_model_poll_event(model, &ev))
-                if (ev.type == RTS_GAME_EVENT_ATTACK_STARTED) saw_attack = true;
-        }
-        if (!saw_attack) return fail("attack event fired");
-    }
-    printf("PASS: 7legion AI produced %d units, combat works\n",
-           snap.unit_count - initial_total);
+    if (count_owner(&snap, 1) <= initial_enemy) return fail("enemy AI produced units");
+    if (count_owner(&snap, 0) > initial_player || snap.player_resources[0][0] < initial_resources)
+        return fail("AI leaves human production and resources alone");
+    printf("PASS: 7legion enemy AI produced units\n");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -161,12 +141,12 @@ static int test_harvesting(void) {
     if (!rts_game_model_command(model, &sel)) return fail("select harvester");
     if (snap.resource_vent_count <= 0) return fail("vents exist");
     RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-        .data.harvest_selected = { .target = { (float)(snap.map_width / 4) - 8.0f + 0.5f,
-                                                (float)(snap.map_height / 4) - 6.0f + 0.5f } } };
-    rts_game_model_command(model, &harvest);
+        .data.harvest_selected = { .target = level.resource_vents[0].attachment } };
+    if (!rts_game_model_command(model, &harvest)) return fail("order harvester to native vent");
     int initial_resources = snap.player_resources[0][0];
     for (int t = 0; t < 30 * 60; ++t)
         if (!rts_tick(model, &snap)) return fail("tick harvest");
+    if (snap.player_resources[0][0] <= initial_resources) return fail("harvester delivered resources");
     printf("PASS: 7legion harvesting (resources %d -> %d)\n",
            initial_resources, snap.player_resources[0][0]);
     rts_game_model_destroy(model);
@@ -177,7 +157,7 @@ int main(void) {
     RTS_RUN(test_map_loads());
     RTS_RUN(test_select_and_move());
     RTS_RUN(test_production());
-    RTS_RUN(test_ai_and_combat());
+    RTS_RUN(test_ai_production());
     RTS_RUN(test_harvesting());
     return 0;
 }

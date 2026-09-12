@@ -3,6 +3,7 @@
 #include "game.h"
 #include "renderer.h"
 #include "sb_bar.h"
+#include "p_ai.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -219,6 +220,8 @@ int main(int argc, char **argv) {
            level.decoration_count, level.resource_vent_count);
 
     void *custom_ui = G_InitCustomUI(&app, data_root);
+    AiContext ai;
+    P_AiInit(&ai);
     sb_state_t st = { 0 };
     if (gameui && !SB_Init(&st, app.renderer, data_root, gameui))
         fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
@@ -250,6 +253,7 @@ int main(int argc, char **argv) {
             G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
             SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                       false, true);
+            if (!custom_ui) SB_ProductionDrawer(&st, &app);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
@@ -302,7 +306,8 @@ int main(int argc, char **argv) {
                 }
                 continue;
             }
-            if (G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e) ||
+            if ((!custom_ui && SB_ProductionResponder(&st, &app, &e)) ||
+                G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e) ||
                 SB_Responder(&st, &app, &e)) {
                 continue;
             }
@@ -336,8 +341,15 @@ int main(int argc, char **argv) {
                 }
             }
             int before_production_count = unit_count;
-            bool production_spawned = G_UpdateProduction(custom_ui, &level, units, &unit_count,
-                                                         FIXED_DT);
+            bool production_spawned;
+            if (custom_ui) {
+                production_spawned = G_UpdateProduction(custom_ui, &level, units, &unit_count,
+                                                        FIXED_DT);
+            } else {
+                P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
+                G_ModelAIProduction(NULL, (int)(FIXED_DT * 1000));
+                production_spawned = G_ProductionTicker(FIXED_DT);
+            }
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
             units = objects.items;
@@ -379,6 +391,7 @@ int main(int argc, char **argv) {
         G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
         SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                   false, false);
+        if (!custom_ui) SB_ProductionDrawer(&st, &app);
         renderer_end_frame(&renderer);
     }
 
