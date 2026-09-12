@@ -186,13 +186,13 @@ static int assert_ai_defense_rally(void) {
     mobj_t *units[3];
     for (int i = 0; i < 3; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
-    units[0]->owner = 0;
+    units[0]->owner = 3;
     units[0]->hp = 100;
     units[0]->allegiance = ALLEGIANCE_PLAYER;
     units[0]->traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0]->core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
-    units[1]->owner = 0;
+    units[1]->owner = 3;
     units[1]->hp = 100;
     units[1]->allegiance = ALLEGIANCE_PLAYER;
     units[1]->traits = MF_ATTACK | MF_MOBILE;
@@ -222,7 +222,7 @@ static int assert_ai_attack_wave_timer(void) {
     P_FreeThinkers();
     mobj_t *units[2];
     for (int i = 0; i < 2; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
-    units[0]->owner = 0;
+    units[0]->owner = 3;
     units[0]->hp = 100;
     units[0]->allegiance = ALLEGIANCE_PLAYER;
     units[0]->traits = MF_RESOURCE_BASE | MF_MOBILE;
@@ -234,9 +234,9 @@ static int assert_ai_attack_wave_timer(void) {
     units[1]->traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[1]->core.position = (fixed3_t){ 50 << 16, 50 << 16, 0 };
 
-    int timer_before = ctx.teams[0].attack_wave_timer_ms;
+    int timer_before = ctx.teams[3].attack_wave_timer_ms;
     P_AiTick(&ctx, &map, units, 2, NULL, 16);
-    int timer_after = ctx.teams[0].attack_wave_timer_ms;
+    int timer_after = ctx.teams[3].attack_wave_timer_ms;
 
     if (timer_after >= timer_before)
         return fail("attack wave timer should decrease");
@@ -256,13 +256,13 @@ static int assert_allegiance_targeting(void) {
     mobj_t *units[4];
     for (int i = 0; i < 4; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
-    units[0]->owner = 0;
+    units[0]->owner = 3;
     units[0]->hp = 100;
     units[0]->allegiance = ALLEGIANCE_PLAYER;
     units[0]->traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0]->core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
-    units[1]->owner = 0;
+    units[1]->owner = 3;
     units[1]->hp = 100;
     units[1]->allegiance = ALLEGIANCE_PLAYER;
     units[1]->traits = MF_ATTACK | MF_MOBILE;
@@ -314,13 +314,13 @@ static int assert_harvesting_assignment(void) {
     mobj_t *units[2];
     for (int i = 0; i < 2; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
-    units[0]->owner = 0;
+    units[0]->owner = 3;
     units[0]->hp = 100;
     units[0]->allegiance = ALLEGIANCE_PLAYER;
     units[0]->traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0]->core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
-    units[1]->owner = 0;
+    units[1]->owner = 3;
     units[1]->hp = 100;
     units[1]->allegiance = ALLEGIANCE_PLAYER;
     units[1]->traits = MF_HARVESTER | MF_MOBILE;
@@ -330,9 +330,9 @@ static int assert_harvesting_assignment(void) {
 
     P_AiTick(&ctx, &map, units, 2, NULL, 16);
 
-    if (ctx.teams[0].harvest_assignment_count != 1)
+    if (ctx.teams[3].harvest_assignment_count != 1)
         return fail("should assign 1 slug to harvest");
-    if (ctx.teams[0].harvest_assignments[0].vent_index != 0)
+    if (ctx.teams[3].harvest_assignments[0].vent_index != 0)
         return fail("should assign to vent 0");
 
     return 0;
@@ -350,13 +350,13 @@ static int assert_defense_trigger(void) {
     mobj_t *units[3];
     for (int i = 0; i < 3; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
-    units[0]->owner = 0;
+    units[0]->owner = 3;
     units[0]->hp = 100;
     units[0]->allegiance = ALLEGIANCE_PLAYER;
     units[0]->traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0]->core.position = (fixed3_t){ 50 << 16, 50 << 16, 0 };
 
-    units[1]->owner = 0;
+    units[1]->owner = 3;
     units[1]->hp = 100;
     units[1]->allegiance = ALLEGIANCE_PLAYER;
     units[1]->traits = MF_ATTACK | MF_MOBILE;
@@ -380,7 +380,7 @@ static int assert_defense_trigger(void) {
 static int assert_attack_wave_dispatch(void) {
     AiContext ctx;
     P_AiInit(&ctx);
-    ctx.teams[0].attack_wave_timer_ms = 0;
+    ctx.teams[3].attack_wave_timer_ms = 0;
 
     level_t map;
     memset(&map, 0, sizeof(map));
@@ -391,13 +391,13 @@ static int assert_attack_wave_dispatch(void) {
     mobj_t *units[4];
     for (int i = 0; i < 4; ++i) units[i] = spawn_mobj_fixture((mobj_t){0});
 
-    units[0]->owner = 0;
+    units[0]->owner = 3;
     units[0]->hp = 100;
     units[0]->allegiance = ALLEGIANCE_PLAYER;
     units[0]->traits = MF_RESOURCE_BASE | MF_MOBILE;
     units[0]->core.position = (fixed3_t){ 10 << 16, 10 << 16, 0 };
 
-    units[1]->owner = 0;
+    units[1]->owner = 3;
     units[1]->hp = 100;
     units[1]->allegiance = ALLEGIANCE_PLAYER;
     units[1]->traits = MF_ATTACK | MF_MOBILE;

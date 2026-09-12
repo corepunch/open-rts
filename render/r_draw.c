@@ -1,3 +1,4 @@
+#include "d_net.h"
 #define _DEFAULT_SOURCE
 #include "p_local.h"
 #include "info.h"
@@ -1433,22 +1434,9 @@ static void order_selected_at(app_t *app, const level_t *map,
     screen_to_map_grid_point(app, map, mouse.x, mouse.y, &goal.x, &goal.y);
     int target = pick_unit_at(app, map, units, unit_count, fallback_sprite, cache,
                               game_info, mouse.x, mouse.y, -1);
-    if (target >= 0 && units[target]->owner != 0 && units[target]->hp > 0) {
-        for (int i = 0; i < unit_count; ++i) {
-            if (!P_MobjIsSelected(units[i]) || units[i]->owner != 0 ||
-                units[i]->hp <= 0 || !(units[i]->traits & MF_ATTACK)) continue;
-            units[i]->attack.target = units[target];
-            units[i]->harvest.target = -1;
-            units[i]->harvest.timer_ms = 0;
-        }
-        goal = fixed3_xy_to_fvec2(units[target]->core.position);
-    } else {
-        if (P_HarvestOrderAt(map, units, unit_count, goal)) return;
-        for (int i = 0; i < unit_count; ++i)
-            if (P_MobjIsSelected(units[i]) && units[i]->owner == 0)
-                units[i]->attack.target = NULL;
-    }
-    P_MoveOrderAt(map, units, unit_count, goal);
+    bool attack = target >= 0 && units[target]->owner != consoleplayer && units[target]->hp > 0;
+    G_SelectedTiccmd(attack ? TC_ATTACK : TC_ORDER, units, unit_count, goal,
+                     attack ? units[target]->id : 0);
 }
 
 void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
@@ -1470,7 +1458,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
             if (e->key.keysym.sym == SDLK_a && (e->key.keysym.mod & KMOD_CTRL)) {
                 for (int i = 0; i < unit_count; ++i) {
                     P_MobjSetSelected(units[i], P_VisibleToPlayer(units[i]) &&
-                        units[i]->owner == 0 && (units[i]->traits & MF_SELECTABLE) != 0 &&
+                        units[i]->owner == consoleplayer && (units[i]->traits & MF_SELECTABLE) != 0 &&
                         units[i]->hp > 0);
                 }
             }
@@ -1521,11 +1509,11 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 app->dragging_select = false;
                 app->selection_rect = (irect_t){0};
                 int picked = box ? -1 : pick_unit_at(app, map, units, unit_count,
-                    fallback_sprite, cache, game_info, bx, by, 0);
+                    fallback_sprite, cache, game_info, bx, by, consoleplayer);
                 if (!box && !additive && picked < 0 &&
                     !(game_info && game_info->right_click_orders)) {
                     for (int i = 0; i < unit_count; ++i) {
-                        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0 && units[i]->hp > 0) {
+                        if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->hp > 0) {
                             order_selected_at(app, map, units, unit_count, fallback_sprite,
                                               cache, game_info, (ivec2_t){bx, by});
                             return;
@@ -1541,7 +1529,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                         if (!P_VisibleToPlayer(units[i])) continue;
                         if (units[i]->hp <= 0) continue;
                         if ((units[i]->traits & MF_SELECTABLE) == 0) continue;
-                        if (units[i]->owner != 0) continue;
+                        if (units[i]->owner != consoleplayer) continue;
                         irect_t visible;
                         float sx = 0.0f, sy = 0.0f;
                         unit_screen_rect_for_view(app, map, units[i], fallback_sprite, cache,

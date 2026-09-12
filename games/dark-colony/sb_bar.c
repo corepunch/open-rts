@@ -1,3 +1,4 @@
+#include "d_net.h"
 #define _DEFAULT_SOURCE
 #include "sb_bar.h"
 #include "info.h"
@@ -247,7 +248,7 @@ static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count
 }
 
 static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
-    return selected && selected->owner == 0 && !selected->remove && selected->hp > 0 &&
+    return selected && selected->owner == consoleplayer && !selected->remove && selected->hp > 0 &&
         selected->type_id >= MT_EXCOPOD;
 }
 
@@ -255,14 +256,14 @@ static int dc_available_products(mobj_t *const *units, int unit_count,
                                   const ProductButton *out[16]) {
     static ProductButton products[16];
     int count = 0;
-    int source_count = G_ModelGetProducts(NULL, 0, products, 16);
+    int source_count = G_ModelGetProducts(NULL, consoleplayer, products, 16);
     for (int i = 0; i < source_count; ++i) {
         const ProductButton *product = &products[i];
         if (!G_ModelProductAvailableForUnits(units, unit_count, product)) continue;
         if (product->product_class == RTS_PRODUCT_BUILDING) {
             bool exists = false;
             for (int j = 0; j < unit_count; ++j)
-                if (units[j]->owner == 0 && !units[j]->remove && units[j]->hp > 0 &&
+                if (units[j]->owner == consoleplayer && !units[j]->remove && units[j]->hp > 0 &&
                     DC_ProductActorMatches(units[j]->type_id, G_ModelActorIdForProduct(product))) exists = true;
             if (exists) continue;
         }
@@ -302,17 +303,7 @@ static const char *dc_sidebar_command_label(const SidebarCommand *cmd,
 }
 
 static void dc_stop_selected_units(mobj_t *const *units, int unit_count) {
-    for (int i = 0; i < unit_count; ++i) {
-        if (!P_MobjIsSelected(units[i])) continue;
-        units[i]->movement.flow_field = NULL;
-        units[i]->attack.target = NULL;
-        units[i]->harvest.target = -1;
-        units[i]->harvest.timer_ms = 0;
-        units[i]->movement.goal = fixed3_xy_to_fvec2(units[i]->core.position);
-        units[i]->movement.order_id = 0;
-        units[i]->movement.order_arrived = false;
-        units[i]->core.momentum = fixed3_zero();
-    }
+    G_SelectedTiccmd(TC_STOP, units, unit_count, (fvec2_t){0}, 0);
 }
 
 static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *map,
@@ -340,14 +331,13 @@ static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *m
                                     (ivec2_t){ rx, ry })) continue;
                 const ProductButton *product = products[i];
                 uint16_t actor_id = G_ModelActorIdForProduct(product);
-                if (actor_id == 0 || map->player_resources[0][0] < product->cost) return true;
+                if (actor_id == 0 || map->player_resources[consoleplayer][0] < product->cost) return true;
                 for (int j = 0; j < unit_count; ++j) {
                     mobj_t *producer = units[j];
-                    if (producer->owner != 0 || producer->remove || producer->hp <= 0) continue;
+                    if (producer->owner != consoleplayer || producer->remove || producer->hp <= 0) continue;
                     for (int k = 0; k < product->maker_count; ++k) {
                         if (!DC_ProductActorMatches(producer->type_id, product->makers[k])) continue;
-                        if (G_ModelEnqueueProduction(producer, product, actor_id)) {
-                            map->player_resources[0][0] -= product->cost;
+                        if (G_BuildOrder(producer, product->ui_id)) {
                             return true;
                         }
                     }
@@ -402,7 +392,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *
                                 (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
-        dc_ui_fill(app->renderer, dot, units[i]->owner == 0 ?
+        dc_ui_fill(app->renderer, dot, units[i]->owner == consoleplayer ?
                    (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
     }
     int world_right = app->win.w - 124;
@@ -437,7 +427,7 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
     if (buttons && buttons->lumps && buttons->numlumps > 0)
         dc_ui_draw_sprite_fit(app->renderer, buttons, 104, layout->money, 0);
-    int resources = map->player_resources[0][0];
+    int resources = map->player_resources[consoleplayer][0];
     if (resources < 0) resources = 0;
     snprintf(text, sizeof(text), "%d", resources);
     dc_ui_draw_text_right(app->renderer, font, layout->money,
@@ -554,7 +544,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
                      products[hover_button]->label, products[hover_button]->cost);
             HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            line,
-                           map->player_resources[0][0] >= products[hover_button]->cost ?
+                           map->player_resources[consoleplayer][0] >= products[hover_button]->cost ?
                            amber : (SDL_Color){ 208, 103, 88, 255 },
                            1);
         } else {
@@ -587,7 +577,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
             dc_sidebar_command_frame(&sidebar->commands[i], selected);
         if (buttons && buttons->lumps && buttons->numlumps > 0) {
             dc_ui_draw_sprite_fit(app->renderer, buttons, frame, button_rect, 0);
-            if (product_mode && products[i] && map->player_resources[0][0] < products[i]->cost) {
+            if (product_mode && products[i] && map->player_resources[consoleplayer][0] < products[i]->cost) {
                 dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
             }
         } else {

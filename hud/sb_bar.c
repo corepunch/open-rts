@@ -1,3 +1,4 @@
+#include "d_net.h"
 #include "sb_bar.h"
 
 #include <ctype.h>
@@ -102,8 +103,8 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
         int x = rect.x + (int)(position.x * (float)rect.w / (float)map->width);
         int y = rect.y + (int)(L_ScreenYF(map, position.y) * (float)rect.h /
                               (float)map->height);
-        SDL_SetRenderDrawColor(app->renderer, units[i]->owner == 0 ? 48 : 210,
-                              units[i]->owner == 0 ? 220 : 45, 65, 255);
+        SDL_SetRenderDrawColor(app->renderer, units[i]->owner == consoleplayer ? 48 : 210,
+                              units[i]->owner == consoleplayer ? 220 : 45, 65, 255);
         irect_t dot = { x - 1, y - 1, 3, 3 };
         SDL_RenderFillRect(app->renderer, &dot);
     }
@@ -320,7 +321,7 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
     if (resource_count > RTS_UI_MAX_RESOURCES) resource_count = RTS_UI_MAX_RESOURCES;
     for (int i = 0; i < resource_count; ++i)
         SB_drawResource(st, app, &def->resources[i],
-                        map ? map->player_resources[0][i] : 0);
+                        map ? map->player_resources[consoleplayer][i] : 0);
 }
 
 void SB_Shutdown(sb_state_t *st) {

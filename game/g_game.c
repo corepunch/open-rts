@@ -4,6 +4,7 @@
 #include "engine.h"
 #include "game.h"
 #include "p_ai.h"
+#include "d_net.h"
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -449,6 +450,7 @@ bool G_ProductionTicker(float dt) {
 
 void G_ProductionGoals(const productiongoal_t *goals, int count) {
     for (int owner = 1; owner < RTS_MODEL_MAX_PLAYERS; ++owner) {
+        if (D_PlayerIsHuman(owner)) continue;
         for (int i = 0; i < count; ++i) {
             const StaticProductDefinition *product =
                 G_ModelProductByUIId(active_model, goals[i].ui_id);
@@ -528,6 +530,16 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
 bool rts_game_model_tick(RtsGameModel *model, float dt) {
     if (!model || !model->loaded) return false;
     if (dt <= 0.0f) return true;
+    if (netactive) {
+        NetUpdate();
+        if (neterror[0]) { model_set_error(model, "%s", neterror); return false; }
+        if (!netready || !D_RunTiccmds()) {
+            if (neterror[0]) model_set_error(model, "%s", neterror);
+            return !neterror[0];
+        }
+        dt = FIXED_DT;
+        refresh_model_objects(model);
+    }
     uint32_t old_ids[model->objects.count ? model->objects.count : 1];
     uint16_t old_types[model->objects.count ? model->objects.count : 1];
     int old_hp[model->objects.count ? model->objects.count : 1];
@@ -585,6 +597,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
             model_emit_event(model, RTS_GAME_EVENT_ATTACK_STARTED, unit, target, 0, 0);
         }
     }
+    if (netactive) ++gametic;
     return true;
 }
 
@@ -597,7 +610,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
     case RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS:
         for (int i = 0; i < model->objects.count; ++i) {
             mobj_t *unit = model->objects.items[i];
-            P_MobjSetSelected(unit, unit->owner == 0 && unit->hp > 0 &&
+            P_MobjSetSelected(unit, unit->owner == consoleplayer && unit->hp > 0 &&
                 (unit->traits & MF_SELECTABLE) != 0 && P_VisibleToPlayer(unit));
         }
         return true;
@@ -614,6 +627,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         P_MobjSetSelected(model->objects.items[command->data.select_unit_index.unit_index], true);
         return true;
     case RTS_GAME_COMMAND_MOVE_SELECTED: {
+        if (netactive)
+            return G_SelectedTiccmd(TC_MOVE, model->objects.items, model->objects.count,
+                                   command->data.move_selected.target, 0);
         P_MoveOrderAt(&level, model->objects.items, model->objects.count,
                       command->data.move_selected.target);
         for (int i = 0; i < model->objects.count; ++i)
@@ -622,6 +638,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         return true;
     }
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
+        if (netactive)
+            return G_SelectedTiccmd(TC_HARVEST, model->objects.items, model->objects.count,
+                                   command->data.harvest_selected.target, 0);
         return P_HarvestOrderAt(&level, model->objects.items, model->objects.count,
                                 command->data.harvest_selected.target);
     case RTS_GAME_COMMAND_ATTACK_UNIT: {
@@ -633,6 +652,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         }
         if (target < 0 || target >= model->objects.count || model->objects.items[target]->hp <= 0 ||
             !P_VisibleToPlayer(model->objects.items[target])) return false;
+        if (netactive)
+            return G_SelectedTiccmd(TC_ATTACK, model->objects.items, model->objects.count,
+                                   (fvec2_t){0}, model->objects.items[target]->id);
         for (int i = 0; i < model->objects.count; ++i) {
             mobj_t *unit = model->objects.items[i];
             if (P_MobjIsSelected(unit) && unit->owner == 0 && (unit->traits & MF_ATTACK))
@@ -651,7 +673,8 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         }
         if (producer < 0 || producer >= model->objects.count) return false;
         const StaticProductDefinition *product = G_ModelProductByUIId(model, command->data.build_product.ui_id);
-        if (model->objects.items[producer]->owner != 0) return false;
+        if (model->objects.items[producer]->owner != consoleplayer) return false;
+        if (netactive) return G_BuildOrder(model->objects.items[producer], command->data.build_product.ui_id);
         bool ok = G_QueueProduct(model->objects.items[producer], product);
         refresh_model_objects(model);
         return ok;
@@ -659,6 +682,8 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
     case RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON: {
         const StaticProductDefinition *product =
             G_ModelProductByUIId(model, command->data.activate_ui_button.ui_id);
+        if (netactive)
+            return G_BuildOrder(G_FindProducer(consoleplayer, product), command->data.activate_ui_button.ui_id);
         bool ok = G_QueueProduct(G_FindProducer(0, product), product);
         refresh_model_objects(model);
         return ok;
@@ -762,7 +787,7 @@ int rts_game_model_player_resources(const RtsGameModel *model, int player, int r
 int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products) {
     if (!model || !out || max_products <= 0) return 0;
     StaticProductDefinition static_defs[64];
-    int static_count = G_ModelGetProducts(model, 0, static_defs, 64);
+    int static_count = G_ModelGetProducts(model, consoleplayer, static_defs, 64);
     int count = static_count < max_products ? static_count : max_products;
     for (int i = 0; i < count; ++i) {
         const StaticProductDefinition *src = &static_defs[i];
@@ -779,7 +804,7 @@ int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out
         for (int j = 0; j < src->prerequisite_count && j < RTS_MODEL_MAX_PRODUCT_PREREQUISITES; ++j) {
             dst->prerequisites[j] = src->prerequisites[j];
         }
-        dst->available = G_ModelProductAvailable(model, 0, src);
+        dst->available = G_ModelProductAvailable(model, consoleplayer, src);
     }
     return count;
 }

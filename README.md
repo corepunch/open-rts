@@ -32,9 +32,8 @@ engines solved a similar problem with unusually direct, durable code:
 - Units advance through compiled `state_t`-style tables with typed C action
   callbacks. State transitions, animation timing, and gameplay behavior are
   visible to the compiler and debugger.
-- Simulation advances in discrete tics, separate from rendered frames. The
-  intended network model is deterministic lock-step: exchange player commands
-  for each tic, not continuously serialized world state.
+- Simulation advances in discrete tics, separate from rendered frames. Doom-style
+  UDP lockstep exchanges player commands for each tic and waits for every peer.
 - Each supported game keeps its native file formats and game-shaped procedures.
   Shared code is extracted only after the games demonstrate that it is truly
   shared.
@@ -90,6 +89,19 @@ make dark-reign
 make dark-colony
 make kknd
 ```
+
+## Network play
+
+Two to four peers can play over UDP using Doom-style `--net`, `--port`,
+`--dup` and `--extratic` switches. For two windows on one machine:
+
+```sh
+build/bin/dark-colony --port 25029 --net 1 127.0.0.1:25030
+build/bin/dark-colony --port 25030 --net 2 127.0.0.1:25029
+```
+
+Use identical builds and game data, and a map with units for the chosen owners.
+See [network setup, protocol details and tests](docs/NETWORK.md).
 
 ## Tests
 

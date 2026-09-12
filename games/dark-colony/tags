@@ -194,6 +194,7 @@ G_ModelProductTrainingTimeMs	games/dark-colony/p_prod.c	/^int G_ModelProductTrai
 G_ModelSpecialReleaseSpawnPoint	games/dark-colony/p_prod.c	/^bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,$/;"	f	typeref:typename:bool	signature:(const RtsGameModel * model,const mobj_t * producer,const StaticProductDefinition * product,const mobj_t * new_unit,float * out_gx,float * out_gy)
 G_ModelStartProductionRelease	games/dark-colony/p_prod.c	/^bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,$/;"	f	typeref:typename:bool	signature:(RtsGameModel * model,mobj_t * producer,const StaticProductDefinition * product,uint16_t actor_id)
 G_ModelUpdateProduction	games/dark-colony/p_prod.c	/^bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(level_t * map,mobj_t * const * units,int * unit_count,float dt)
+G_PlayerBuildProduct	games/dark-colony/p_prod.c	/^bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {$/;"	f	typeref:typename:bool	signature:(mobj_t * producer,const StaticProductDefinition * product)
 G_ShutdownCustomUI	games/dark-colony/g_game.c	/^void G_ShutdownCustomUI(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
 G_UpdateProduction	games/dark-colony/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * const * units,int * unit_count,float dt)
 G_WorldViewportWidth	games/dark-colony/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
@@ -3813,7 +3814,7 @@ dc_ui_draw_text_right	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_text_r
 dc_ui_fill	games/dark-colony/sb_bar.c	/^static void dc_ui_fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,irect_t rect,SDL_Color color)
 dc_ui_set_draw	games/dark-colony/sb_bar.c	/^static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Color color)
 dc_ui_stroke	games/dark-colony/sb_bar.c	/^static void dc_ui_stroke(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,irect_t rect,SDL_Color color)
-dc_unit_is_ready	games/dark-colony/p_prod.c	/^static bool dc_unit_is_ready(const mobj_t *unit) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit)
+dc_unit_is_ready	games/dark-colony/p_prod.c	/^static bool dc_unit_is_ready(const mobj_t *unit, int owner) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit,int owner)
 dc_waypoints_t	games/dark-colony/mobj_data.h	/^} dc_waypoints_t;$/;"	t	typeref:struct:__anonad7a03aa0508
 deathsound	games/dark-colony/info.h	/^    int deathsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 deathstate	games/dark-colony/info.h	/^    int deathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

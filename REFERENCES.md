@@ -7,6 +7,19 @@ plugin-specific behavior.
 
 - id Software: https://github.com/id-Software/DOOM/tree/master/linuxdoom-1.10
   - Local source: `reference/DOOM/`.
+  - Networking: `d_net.c` (`NetUpdate`, `GetPackets`, `ExpandTics`,
+    `TryRunTics`, `D_ArbitrateNetStart`, `D_QuitNetGame`), `d_net.h`
+    (`doomcom_t`, `doomdata_t`, `BACKUPTICS`), `i_net.c` (UDP transport),
+    `d_ticcmd.h` and `g_game.c` (`G_BuildTiccmd` and delayed consistency).
+    The verified source behavior and necessary RTS adaptations are documented
+    in [docs/NETWORK.md](docs/NETWORK.md). No original-game executable or
+    native multiplayer protocol was reverse-engineered for this implementation.
+  - SHA-256 of inspected networking sources:
+    - `d_net.c`: `8f28965cb410bc918c7741c4e93e683292e8c9e18cbcc87e242f564863bb5f87`
+    - `d_net.h`: `54d77e10fe98e7ad640c711e7146f1440e4bd3f73e46d27905f9c19b8117ac3d`
+    - `d_ticcmd.h`: `2f70caa7c187365850e467254d8b0a31c07ea304d59339c68fde63d05274d146`
+    - `i_net.c`: `bc7637299d67665e8294e86b7089df57ccffcf067f6b0017eaab5b78d6a52fca`
+    - `g_game.c`: `bc8e2e0d76a70f8120174946641a82c46f0116a624f51c011b292e2ffcb78a29`
   - `r_defs.h`: `spriteframe_t` owns `rotate`, `lump[8]`, and `flip[8]`;
     `spritedef_t` owns only frame count and frame pointer.
   - `info.c`: states refer to a numeric sprite ID and frame; `sprnames[]`

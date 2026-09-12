@@ -264,6 +264,15 @@ test-loaders: all
 test-headless: test-dark-colony
 test-ai: test-dark-colony
 
+NETWORK_TEST_SOURCES := $(sort $(shell find tests/network -name '*.c'))
+NETWORK_TEST_OBJS := $(patsubst %.c,$(BUILD_DIR)/model-test-dark-colony/%.o,$(NETWORK_TEST_SOURCES))
+$(BIN_DIR)/test_network: $(NETWORK_TEST_OBJS) $(dark-colony_TEST_ENGINE_OBJS) | $(BIN_DIR)
+	$(CC) $^ -o $@ $(SDL_LIBS) -lm
+
+.PHONY: test-network
+test-network: $(BIN_DIR)/test_network
+	env SDL_VIDEODRIVER=dummy $(BIN_DIR)/test_network
+
 $(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dc/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 

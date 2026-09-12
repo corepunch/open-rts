@@ -147,6 +147,7 @@ void     G_ModelAIProduction(RtsGameModel *model, int elapsed_ms);
 /* Shared level production: UI and AI enqueue on the actual producer. */
 mobj_t  *G_FindProducer(int owner, const StaticProductDefinition *product);
 bool     G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product);
+bool     G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product);
 bool     G_ProductionTicker(float dt);
 int      G_CountPlannedActors(int owner, uint16_t actor_id);
 typedef struct {

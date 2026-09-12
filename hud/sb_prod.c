@@ -1,3 +1,4 @@
+#include "d_net.h"
 #include "sb_bar.h"
 #include "game.h"
 #include <ctype.h>
@@ -9,7 +10,7 @@ static mobj_t *selected_producer(void) {
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         if (th->function != P_MobjThinker) continue;
         mobj_t *unit = (mobj_t *)th;
-        if (unit->owner == 0 && unit->hp > 0 && !unit->remove && P_MobjIsSelected(unit))
+        if (unit->owner == consoleplayer && unit->hp > 0 && !unit->remove && P_MobjIsSelected(unit))
             return unit;
     }
     return NULL;
@@ -23,7 +24,7 @@ static int production_list(sb_state_t *st, mobj_t *producer,
         st->production_page = 0;
     }
     if (!producer) return 0;
-    int count = G_ModelGetProducts(NULL, 0, products, PRODUCT_LIST_MAX);
+    int count = G_ModelGetProducts(NULL, consoleplayer, products, PRODUCT_LIST_MAX);
     int output = 0;
     for (int i = 0; i < count; ++i) {
         for (int j = 0; j < products[i].maker_count; ++j) {
@@ -44,8 +45,8 @@ static irect_t scaled_rect(const app_t *app, irect_t rect) {
 
 static bool product_enabled(const mobj_t *producer, const StaticProductDefinition *product) {
     const production_t *queue = producer->production;
-    return G_ModelProductAvailable(NULL, 0, product) &&
-        level.player_resources[0][0] >= product->cost &&
+    return G_ModelProductAvailable(NULL, consoleplayer, product) &&
+        level.player_resources[consoleplayer][0] >= product->cost &&
         (!queue || queue->queue_count == 0 ||
          (queue->product_type == product->product_type &&
           queue->product_class == product->product_class &&
@@ -74,7 +75,7 @@ bool SB_ProductionResponder(sb_state_t *st, const app_t *app, const SDL_Event *e
     } else {
         int index = st->production_page * rows + row;
         if (index < count && product_enabled(producer, &products[index]))
-            G_QueueProduct(producer, &products[index]);
+            G_BuildOrder(producer, products[index].ui_id);
     }
     return true;
 }

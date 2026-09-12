@@ -1,5 +1,6 @@
 #include "p_ai.h"
 #include "dc_types.h"
+#include "d_net.h"
 #include <math.h>
 
 static int ai_nearest_vent(const level_t *map, fvec2_t position) {
@@ -23,7 +24,7 @@ static void update_ai_economy(const level_t *map, mobj_t *const *units,
     if (!map || !units) return;
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = units[i];
-        if (unit->remove || unit->hp <= 0 || unit->owner == 0 ||
+        if (unit->remove || unit->hp <= 0 || D_PlayerIsHuman(unit->owner) ||
             (unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
                 (MF_MOBILE | MF_HARVESTER) || unit->harvest.target >= 0) continue;
         int vent_index = ai_nearest_vent(
@@ -41,6 +42,7 @@ void DC_UpdateAI(const level_t *map, mobj_t *const *units, int unit_count) {
     if (map_has_ai(map, 1)) update_ai_economy(map, units, unit_count);
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *actor = units[i];
+        if (netgame && D_PlayerIsHuman(actor->owner)) continue;
         if (actor->remove || actor->hp <= 0 || actor->waypoints.count == 0) continue;
         mobj_t *target = actor->attack.target;
         float range = actor->info ? actor->info->attack.range : 0;

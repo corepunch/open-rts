@@ -4,6 +4,7 @@
 #include "renderer.h"
 #include "sb_bar.h"
 #include "p_ai.h"
+#include "d_net.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -67,7 +68,7 @@ static bool focus_camera_on_first_player_unit(app_t *app, const level_t *map,
                                               mobj_t *const *units, int unit_count) {
     if (!app || !map || !units) return false;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i]->owner != 0 || units[i]->remove || units[i]->hp <= 0) continue;
+        if (units[i]->owner != consoleplayer || units[i]->remove || units[i]->hp <= 0) continue;
         float sx = 0.0f, sy = 0.0f;
         fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
         R_MapToScreen(app, map, position.x, position.y, &sx, &sy);
@@ -102,13 +103,28 @@ static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
 
 int main(int argc, char **argv) {
     G_InitGame();
+    if (!I_InitNetwork(&argc, argv)) {
+        fprintf(stderr, "%s\n", neterror);
+        return 1;
+    }
+    atexit(D_QuitNetGame);
+    consoleplayer = doomcom->consoleplayer;
     bool check_only = argc > 1 && strcmp(argv[1], "--check") == 0;
     bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
     const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
     int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
     bool software_renderer = strcmp(g_game_id, "dark-colony") == 0;
+    int check_tics = 0;
     while (argc > arg_base) {
-        if (strcmp(argv[arg_base], "--software") == 0) {
+        if (strcmp(argv[arg_base], "--net-check") == 0 && argc > arg_base + 1) {
+            char *end;
+            long count = strtol(argv[arg_base + 1], &end, 10);
+            if (*end || count < 1 || count > 1000000) {
+                fprintf(stderr, "--net-check requires 1..1000000 tics\n"); return 1;
+            }
+            check_tics = (int)count;
+            arg_base += 2;
+        } else if (strcmp(argv[arg_base], "--software") == 0) {
             software_renderer = true;
             arg_base += 1;
         } else if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
@@ -145,8 +161,8 @@ int main(int argc, char **argv) {
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
                              app.win.w, app.win.h,
-                             check_only || screenshot_only,
-                             check_only || screenshot_only || software_renderer)) {
+                             check_only || screenshot_only || check_tics,
+                             check_only || screenshot_only || check_tics || software_renderer)) {
         return 1;
     }
     app.window = renderer.window;
@@ -198,6 +214,8 @@ int main(int argc, char **argv) {
         unit_count = objects.count;
     }
     apply_actor_defaults(units, unit_count);
+    for (int i = 0; i < unit_count; ++i)
+        if (units[i]->owner != consoleplayer) P_MobjSetSelected(units[i], false);
     P_UpdateSight();
 
     spritecache_t decoration_sprites = { 0 };
@@ -273,26 +291,35 @@ int main(int argc, char **argv) {
 
     uint64_t prev = SDL_GetPerformanceCounter();
     double freq = (double)SDL_GetPerformanceFrequency();
-    float accumulator = 0.0f;
     int title_resources = -1;
+    uint32_t signature;
+    if (!G_NetSignature(map_path, &signature)) {
+        fprintf(stderr, "Could not fingerprint map %s\n", map_path);
+        app.running = false;
+        snprintf(neterror, sizeof(neterror), "Map fingerprint failed");
+    } else {
+        D_CheckNetGame(signature);
+    }
+    uint64_t check_started = SDL_GetTicks64();
 
     while (app.running) {
         uint64_t now = SDL_GetPerformanceCounter();
         float frame_dt = (float)((double)(now - prev) / freq);
         if (frame_dt > 0.25f) frame_dt = 0.25f;
         prev = now;
-        accumulator += frame_dt;
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
                 e.key.keysym.sym == SDLK_F10) {
-                level.player_resources[0][0] += 100;
+                if (netgame) continue;
+                level.player_resources[consoleplayer][0] += 100;
                 HU_PushMessage(&hud_text, "CHEAT: +100 RESOURCES", 2000);
                 continue;
             }
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT &&
                 (SDL_GetModState() & KMOD_ALT) != 0) {
+                if (netgame) continue;
                 if (spawn_debug_enemy_unit(&level, &app, e.button.x, e.button.y)) {
                     P_FreeMobjList(&objects);
                     objects = P_ListMobjs();
@@ -328,7 +355,10 @@ int main(int argc, char **argv) {
         }
         G_CameraMove(&app, frame_dt);
         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
-        while (accumulator >= FIXED_DT) {
+        int runtics = TryRunTics();
+        if (check_tics && runtics > check_tics - gametic) runtics = check_tics - gametic;
+        while (runtics-- > 0) {
+            if (!D_RunTiccmds()) break;
             P_Ticker();
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
@@ -377,11 +407,27 @@ int main(int argc, char **argv) {
             HU_Ticker(&hud_text, FIXED_DT);
             SB_Ticker(&st);
             G_CustomUITicker(custom_ui);
-            accumulator -= FIXED_DT;
+            ++gametic;
+            NetUpdate();
         }
-        if (level.player_resources[0][0] != title_resources) {
+        if (neterror[0]) {
+            fprintf(stderr, "%s\n", neterror);
+            app.running = false;
+        }
+        if (check_tics && gametic == check_tics) {
+            printf("Network check: player=%d gametic=%d consistency=%08x\n",
+                   consoleplayer + 1, gametic, G_Consistency());
+            app.running = false;
+        }
+        if (check_tics && SDL_GetTicks64() - check_started > (uint64_t)check_tics * 1000 / RTS_TICRATE + 30000) {
+            snprintf(neterror, sizeof(neterror), "Network check timed out at tic %d", gametic);
+            fprintf(stderr, "%s\n", neterror);
+            app.running = false;
+        }
+        if (check_tics) { SDL_Delay(1); continue; }
+        if (level.player_resources[consoleplayer][0] != title_resources) {
             char title[128];
-            title_resources = level.player_resources[0][0];
+            title_resources = level.player_resources[consoleplayer][0];
             snprintf(title, sizeof(title), "open-rts - %s - Resources %d", g_game_name, title_resources);
             SDL_SetWindowTitle(app.window, title);
         }
@@ -407,6 +453,8 @@ int main(int argc, char **argv) {
         renderer_end_frame(&renderer);
     }
 
+    int exit_code = neterror[0] ? 1 : 0;
+    D_QuitNetGame();
     SB_Shutdown(&st);
     G_ShutdownCustomUI(custom_ui);
     R_FreeSpriteCache(&decoration_sprites);
@@ -415,5 +463,5 @@ int main(int argc, char **argv) {
     P_FreeMobjList(&objects);
     P_FreeLevel(&level);
     renderer_destroy(&renderer);
-    return 0;
+    return exit_code;
 }

@@ -28,6 +28,8 @@ bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
                        fvec2_t position, fvec2_t goal, float radius,
                        fvec2_t *target, bool *final);
 void P_FreeFlowFields(level_t *map);
+void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int count, fvec2_t goal);
+bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count, fvec2_t goal);
 
 void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                          fvec2_t goal_position);

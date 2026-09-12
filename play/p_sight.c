@@ -1,3 +1,4 @@
+#include "d_net.h"
 #include "game.h"
 #include "p_local.h"
 #include "p_sight_data.h"
@@ -16,7 +17,7 @@ bool P_InitSight(void) {
 
 void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne) {
     if (!level.sight.cells || radius < 1 || radius > 10) return;
-    uint32_t explored = mask & level.sight.allies[0] ? SIGHT_EXPLORED : 0;
+    uint32_t explored = mask & level.sight.allies[consoleplayer] ? SIGHT_EXPLORED : 0;
     /* DC.EXE 0x4458d0: a blocked branch ends after revealing its own cell.
      * The near-only flag suppresses current sight at depth >= 2, but still
      * allows the local player to discover terrain. Flying sight skips pruning. */
@@ -60,7 +61,7 @@ int P_SightBrightness(const level_t *map, ivec2_t cell) {
     if (!L_Contains(map, cell.x, cell.y)) return 0;
     uint32_t bits = map->sight.cells[L_Index(map, cell.x, cell.y)];
     if (!(bits & SIGHT_EXPLORED)) return 0;
-    return bits & map->sight.allies[0] ? 16 : 10;
+    return bits & map->sight.allies[consoleplayer] ? 16 : 10;
 }
 
 static uint32_t object_sight(const mobj_t *mobj) {
@@ -72,7 +73,7 @@ static uint32_t object_sight(const mobj_t *mobj) {
 bool P_VisibleToPlayer(const mobj_t *mobj) {
     if (!mobj || mobj->remove || P_MobjIsHidden(mobj)) return false;
     if (!level.sight.cells) return true;
-    return (object_sight(mobj) & level.sight.allies[0]) != 0;
+    return (object_sight(mobj) & level.sight.allies[consoleplayer]) != 0;
 }
 
 bool P_VisibleTo(const mobj_t *observer, const mobj_t *target) {

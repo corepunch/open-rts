@@ -21,12 +21,9 @@ struct flowfield_s {
     flowfield_t *next;
 };
 
-static uint32_t g_next_move_order_id = 1;
-
 static uint32_t next_move_order_id(void) {
-    uint32_t id = g_next_move_order_id++;
-    if (g_next_move_order_id == 0) g_next_move_order_id = 1;
-    return id;
+    if (++level.next_move_order_id == 0) ++level.next_move_order_id;
+    return level.next_move_order_id;
 }
 
 int L_Index(const level_t *map, int x, int y) {
@@ -473,13 +470,12 @@ bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
 
 
 
-void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
+void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
                    fvec2_t goal_position) {
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
-        if (!P_MobjIsSelected(units[i])) continue;
         if (units[i]->hp <= 0) continue;
-        if (units[i]->owner != 0 || (units[i]->traits & MF_MOBILE) == 0) continue;
+        if ((units[i]->traits & MF_MOBILE) == 0) continue;
         selected_count++;
     }
     if (selected_count <= 0) return;
@@ -494,9 +490,8 @@ void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
     int selected_index = 0;
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
-        if (!P_MobjIsSelected(units[i])) continue;
         if (units[i]->hp <= 0) continue;
-        if (units[i]->owner != 0 || (units[i]->traits & MF_MOBILE) == 0) continue;
+        if ((units[i]->traits & MF_MOBILE) == 0) continue;
         units[i]->core.momentum = fixed3_zero();
         units[i]->movement.order_id = order_id;
         units[i]->movement.order_arrived = false;
@@ -597,14 +592,14 @@ static int find_resource_vent_at(const level_t *map, fvec2_t position) {
     return best;
 }
 
-static bool harvest_order_at_for_owner(const level_t *map, mobj_t *const *units, int unit_count,
-                                       fvec2_t position, int owner) {
+bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
+                     fvec2_t position) {
     int vent_index = find_resource_vent_at(map, position);
     if (vent_index < 0) return false;
 
     bool has_harvester = false;
     for (int i = 0; i < unit_count; ++i) {
-        if (P_MobjIsSelected(units[i]) && units[i]->owner == owner && units[i]->hp > 0 &&
+        if (units[i]->hp > 0 &&
             (units[i]->traits & (MF_MOBILE | MF_HARVESTER)) ==
                 (MF_MOBILE | MF_HARVESTER)) {
             has_harvester = true;
@@ -618,7 +613,7 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *const *units,
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = units[i];
-        if (!P_MobjIsSelected(unit) || unit->owner != owner || unit->hp <= 0) continue;
+        if (unit->hp <= 0) continue;
         if ((unit->traits & (MF_MOBILE | MF_HARVESTER)) !=
             (MF_MOBILE | MF_HARVESTER)) {
             continue;
@@ -675,16 +670,25 @@ static bool harvest_order_at_for_owner(const level_t *map, mobj_t *const *units,
 
 bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                       fvec2_t position) {
-    return harvest_order_at_for_owner(map, units, unit_count, position, 0);
+    mobj_t *selected[unit_count > 0 ? unit_count : 1];
+    int count = 0;
+    for (int i = 0; i < unit_count; ++i)
+        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) selected[count++] = units[i];
+    return P_HarvestUnitsAt(map, selected, count, position);
 }
 
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position) {
     if (!unit || unit->hp <= 0) return false;
-    bool selected = P_MobjIsSelected(unit);
-    P_MobjSetSelected(unit, true);
-    bool issued = harvest_order_at_for_owner(map, &unit, 1, position, unit->owner);
-    P_MobjSetSelected(unit, selected);
-    return issued;
+    return P_HarvestUnitsAt(map, &unit, 1, position);
+}
+
+void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
+                   fvec2_t position) {
+    mobj_t *selected[unit_count > 0 ? unit_count : 1];
+    int count = 0;
+    for (int i = 0; i < unit_count; ++i)
+        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) selected[count++] = units[i];
+    P_MoveUnitsAt(map, selected, count, position);
 }
 
 void P_MoveOrder(const level_t *map, mobj_t *const *units, int unit_count, cell_t goal) {

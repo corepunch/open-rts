@@ -208,9 +208,12 @@ void rts_game_model_destroy(RtsGameModel *model);
 
 /* Loads or reloads a game/model instance. This does not create a window or renderer. */
 bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config);
-/* Advances deterministic model time by dt seconds. */
+/* Advances one model tic. With D_CheckNetGame active, pumps networking and
+ * advances only when all commands are present, using FIXED_DT. While waiting,
+ * returns true without advancing gametic; false reports a network/load error. */
 bool rts_game_model_tick(RtsGameModel *model, float dt);
-/* Applies a player/game command. Renderers should translate input into these commands. */
+/* Applies local selection; world orders are queued when D_CheckNetGame is active.
+ * Otherwise retains immediate commands for manually ticked headless clients. */
 bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command);
 /* Pops the oldest simulation transition event. Returns false when empty. */
 bool rts_game_model_poll_event(RtsGameModel *model, RtsGameEvent *out);

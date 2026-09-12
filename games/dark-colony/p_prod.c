@@ -1,4 +1,6 @@
 #define _DEFAULT_SOURCE
+#include "d_net.h"
+#include "p_local.h"
 #include "game.h"
 #include "g_game.h"
 #include "dc_types.h"
@@ -166,8 +168,8 @@ bool DC_ProductActorMatches(int actor, int required) {
         (actor == MT_ROBOPOD2 && required == MT_ROBOPOD);
 }
 
-static bool dc_unit_is_ready(const mobj_t *unit) {
-    if (!unit || P_MobjIsHidden(unit) || unit->owner != 0 || unit->remove || unit->hp <= 0)
+static bool dc_unit_is_ready(const mobj_t *unit, int owner) {
+    if (!unit || P_MobjIsHidden(unit) || unit->owner != owner || unit->remove || unit->hp <= 0)
         return false;
     if (gameinfo && gameinfo->states && unit->core.state_id >= 0 &&
         unit->core.state_id < gameinfo->state_count &&
@@ -177,13 +179,22 @@ static bool dc_unit_is_ready(const mobj_t *unit) {
 
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
+    (void)model;
     if (!product) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
         const StaticProductDefinition *prereq =
             product_by_row_id(product->prerequisites[i]);
         if (!prereq || prereq->product_class != RTS_PRODUCT_BUILDING) return false;
         uint16_t actor_id = G_ModelActorIdForProduct(prereq);
-        if (!G_ModelHasActorType(model, owner, actor_id)) return false;
+        bool found = false;
+        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+            const mobj_t *unit = (mobj_t *)th;
+            if (dc_unit_is_ready(unit, owner) && DC_ProductActorMatches(unit->type_id, actor_id)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
     }
     return true;
 }
@@ -198,7 +209,7 @@ bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
         uint16_t actor_id = G_ModelActorIdForProduct(prereq);
         bool found = false;
         for (int j = 0; j < unit_count; ++j) {
-            if (!dc_unit_is_ready(units[j]) ||
+            if (!dc_unit_is_ready(units[j], consoleplayer) ||
                 !DC_ProductActorMatches(units[j]->type_id, actor_id)) continue;
             found = true;
             break;
@@ -280,11 +291,11 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
 
     append_ui_script(dst, dst_size, "ui dark-colony 1\n");
     append_ui_script(dst, dst_size, "x 520 y 464 text \"P-7 %d\"\n",
-                     snapshot->player_resources[0][0]);
+                     snapshot->player_resources[consoleplayer][0]);
 
     uint16_t selected_type = 0;
     for (int i = 0; i < snapshot->unit_count; ++i) {
-        if (snapshot->units[i].selected && snapshot->units[i].owner == 0 &&
+        if (snapshot->units[i].selected && snapshot->units[i].owner == consoleplayer &&
             (snapshot->units[i].traits & RTS_RENDER_TRAIT_SELECTABLE) != 0 &&
             (snapshot->units[i].traits & RTS_RENDER_TRAIT_MOBILE) == 0 &&
             snapshot->units[i].type_id >= MT_EXCOPOD) {
@@ -312,7 +323,7 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
         slot++;
         int button_x = 516 + col * 36;
         int button_y = 92 + row * 42;
-        bool available = G_ModelProductAvailable(model, 0, product);
+        bool available = G_ModelProductAvailable(model, consoleplayer, product);
         append_ui_script(dst, dst_size,
                          "x %d y %d btn %d enabled %d pic %d\n",
                          button_x, button_y, product->ui_id, available ? 1 : 0,
@@ -343,6 +354,7 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
     (void)elapsed_ms;
     if (!model) return;
     enum { AI_OWNER = 1 };
+    if (D_PlayerIsHuman(AI_OWNER)) return;
 
     for (size_t i = 0; i < sizeof(ai_production_goals) /
                          sizeof(ai_production_goals[0]); ++i) {
@@ -433,6 +445,20 @@ bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *p
     production->release_active = false;
     production->release_ready = false;
     return true;
+}
+
+bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
+    if (!producer || !product || producer->remove || producer->hp <= 0 ||
+        producer->owner >= RTS_MODEL_MAX_PLAYERS ||
+        !G_ModelProductAvailable(NULL, producer->owner, product) ||
+        level.player_resources[producer->owner][0] < product->cost) return false;
+    for (int i = 0; i < product->maker_count; ++i) {
+        if (!DC_ProductActorMatches(producer->type_id, product->makers[i])) continue;
+        if (!G_ModelEnqueueProduction(producer, product, G_ModelActorIdForProduct(product))) return false;
+        level.player_resources[producer->owner][0] -= product->cost;
+        return true;
+    }
+    return false;
 }
 
 static bool dc_product_uses_barracks_release(const mobj_t *producer,
@@ -533,11 +559,8 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *const *un
                                            float exit_gx, float exit_gy) {
     if (!map || !units || !producer || spawned_index < 0 || spawned_index >= unit_count)
         return;
-    bool saved[unit_count ? unit_count : 1];
-    for (int i = 0; i < unit_count; ++i) {
-        saved[i] = P_MobjIsSelected(units[i]);
-        P_MobjSetSelected(units[i], false);
-    }
+    mobj_t *crowd[unit_count ? unit_count : 1];
+    int count = 0;
 
     float crowd_radius = 2.75f;
     float crowd_radius_sq = crowd_radius * crowd_radius;
@@ -550,7 +573,7 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *const *un
         if (i == spawned_index ||
             fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
                                    (fvec2_t){ exit_gx, exit_gy }) <= crowd_radius_sq) {
-            P_MobjSetSelected(unit, true);
+            crowd[count++] = unit;
         }
     }
 
@@ -563,11 +586,7 @@ static void dc_order_barracks_exit_spacing(const level_t *map, mobj_t *const *un
     }
     fvec2_t goal = fvec2_add((fvec2_t){ exit_gx, exit_gy },
                             fvec2_scale(delta, 1.5f / len));
-    P_MoveOrderAt(map, units, unit_count, goal);
-
-    for (int i = 0; i < unit_count; ++i) {
-        P_MobjSetSelected(units[i], saved[i]);
-    }
+    P_MoveUnitsAt(map, crowd, count, goal);
 }
 
 static bool dc_spawn_finished_unit_product(const level_t *map,

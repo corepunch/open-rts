@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "game.h"
+#include "d_net.h"
 #include "g_game.h"
 #include "info.h"
 
@@ -115,11 +116,11 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     dst[0] = '\0';
     append_ui_script(dst, dst_size, "ui 7legion 1\n");
     append_ui_script(dst, dst_size, "x 630 y 3 text \"Credits %d\"\n",
-                     snapshot->player_resources[0][0]);
+                     snapshot->player_resources[consoleplayer][0]);
 
     int selected_idx = -1;
     for (int i = 0; i < snapshot->unit_count; ++i) {
-        if (snapshot->units[i].selected && snapshot->units[i].owner == 0) {
+        if (snapshot->units[i].selected && snapshot->units[i].owner == consoleplayer) {
             selected_idx = i;
             break;
         }
@@ -139,8 +140,8 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
         int bx = 500 + col * 44;
         int by = 40 + row * 44;
         button_index++;
-        bool available = G_ModelProductAvailable(model, 0, product) &&
-                         snapshot->player_resources[0][0] >= product->cost;
+        bool available = G_ModelProductAvailable(model, consoleplayer, product) &&
+                         snapshot->player_resources[consoleplayer][0] >= product->cost;
         append_ui_script(dst, dst_size, "x %d y %d btn %d enabled %d pic %d\n",
                          bx, by, product->ui_id, available ? 1 : 0, product->icon_frame);
         append_ui_script(dst, dst_size, "x %d y %d text \"%s %d\"\n",
@@ -158,4 +159,8 @@ static const productiongoal_t sl_ai_goals[] = {
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
     (void)model; (void)elapsed_ms;
     G_ProductionGoals(sl_ai_goals, sizeof(sl_ai_goals) / sizeof(*sl_ai_goals));
+}
+
+bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
+    return G_QueueProduct(producer, product);
 }

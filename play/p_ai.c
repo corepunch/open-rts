@@ -1,6 +1,7 @@
 #include "p_ai.h"
 #include "p_local.h"
 #include "engine.h"
+#include "d_net.h"
 
 #include <math.h>
 #include <string.h>
@@ -14,9 +15,9 @@ void P_AiInit(AiContext *ctx) {
     }
 }
 
-static bool is_idle_slug(const mobj_t *u, const AiTeamState *team) {
+static bool is_idle_slug(const mobj_t *u, int owner) {
     return u && u->hp > 0 && !u->remove &&
-           P_AreAllegiancesAllied(u->allegiance, team->allegiance) &&
+           u->owner == owner &&
            (u->traits & MF_HARVESTER) != 0 &&
            u->harvest.phase == HARVEST_PHASE_NONE;
 }
@@ -29,13 +30,13 @@ static bool vent_occupied_by_team(const AiTeamState *team, int vent_index) {
     return false;
 }
 
-static bool find_friendly_base(const AiTeamState *team, mobj_t *const *units,
+static bool find_friendly_base(int owner, mobj_t *const *units,
                                 int unit_count, fvec2_t *out_position) {
-    if (!team || !out_position) return false;
+    if (!out_position) return false;
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove) continue;
-        if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
+        if (u->owner != owner) continue;
         if ((u->traits & MF_RESOURCE_BASE) == 0) continue;
         *out_position = fixed3_xy_to_fvec2(u->core.position);
         return true;
@@ -43,26 +44,23 @@ static bool find_friendly_base(const AiTeamState *team, mobj_t *const *units,
     return false;
 }
 
-static void ai_tick_harvesting(AiTeamState *team,
+static void ai_tick_harvesting(AiTeamState *team, int owner,
                                 level_t *map, mobj_t *const *units, int unit_count) {
     if (!team || !map) return;
 
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *u = units[i];
-        if (!is_idle_slug(u, team)) continue;
+        if (!is_idle_slug(u, owner)) continue;
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
 
-        float ux = fixed_to_float(u->core.position.x);
-        float uy = fixed_to_float(u->core.position.y);
+        fvec2_t position = fixed3_xy_to_fvec2(u->core.position);
         int best_vent = -1;
         float best_dist2 = 1e30f;
         for (int v = 0; v < map->resource_vent_count; ++v) {
             const resourcevent_t *vent = &map->resource_vents[v];
             if (!vent->active || vent->amount <= 0) continue;
             if (vent_occupied_by_team(team, v)) continue;
-            float dx = fixed_to_float(vent->attachment.x) - ux;
-            float dy = fixed_to_float(vent->attachment.y) - uy;
-            float dist2 = dx * dx + dy * dy;
+            float dist2 = fvec2_distance_squared(vent->attachment, position);
             if (dist2 < best_dist2) {
                 best_dist2 = dist2;
                 best_vent = v;
@@ -77,7 +75,7 @@ static void ai_tick_harvesting(AiTeamState *team,
             a->slug_unit_index = i;
 
             fvec2_t base_pos;
-            if (find_friendly_base(team, units, unit_count, &base_pos)) {
+            if (find_friendly_base(owner, units, unit_count, &base_pos)) {
                 u->harvest.return_position = base_pos;
             }
         }
@@ -86,12 +84,12 @@ static void ai_tick_harvesting(AiTeamState *team,
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove) continue;
-        if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
+        if (u->owner != owner) continue;
         if ((u->traits & MF_HARVESTER) == 0) continue;
         if (u->harvest.phase != HARVEST_PHASE_TO_BASE) continue;
 
         fvec2_t base_pos;
-        if (find_friendly_base(team, units, unit_count, &base_pos)) {
+        if (find_friendly_base(owner, units, unit_count, &base_pos)) {
             float dx = fixed_to_float(u->core.position.x) - base_pos.x;
             float dy = fixed_to_float(u->core.position.y) - base_pos.y;
             float dist2 = dx * dx + dy * dy;
@@ -117,7 +115,7 @@ static void ai_tick_harvesting(AiTeamState *team,
     team->harvest_assignment_count = write;
 }
 
-static void ai_tick_defense(AiTeamState *team,
+static void ai_tick_defense(AiTeamState *team, int owner,
                              level_t *map, mobj_t *const *units, int unit_count,
                              const gameinfo_t *game_info) {
     (void)game_info;
@@ -138,7 +136,7 @@ static void ai_tick_defense(AiTeamState *team,
         for (int j = 0; j < unit_count; ++j) {
             mobj_t *defender = units[j];
             if (defender->hp <= 0 || defender->remove) continue;
-            if (!P_AreAllegiancesAllied(defender->allegiance, team->allegiance)) continue;
+            if (defender->owner != owner) continue;
             if ((defender->traits & MF_ATTACK) == 0) continue;
             if (defender->harvest.phase != HARVEST_PHASE_NONE) continue;
             if (defender->movement.order_arrived) {
@@ -150,7 +148,7 @@ static void ai_tick_defense(AiTeamState *team,
     }
 }
 
-static void ai_tick_attack_waves(AiTeamState *team,
+static void ai_tick_attack_waves(AiTeamState *team, int owner,
                                   level_t *map, mobj_t *const *units, int unit_count,
                                   int dt_ms) {
     if (!team || !team->has_base || !map) return;
@@ -182,7 +180,7 @@ static void ai_tick_attack_waves(AiTeamState *team,
     for (int i = 0; i < unit_count && dispatched < AI_ATTACK_WAVE_MAX_SIZE; ++i) {
         mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove) continue;
-        if (!P_AreAllegiancesAllied(u->allegiance, team->allegiance)) continue;
+        if (u->owner != owner) continue;
         if ((u->traits & MF_ATTACK) == 0) continue;
         if (u->harvest.phase != HARVEST_PHASE_NONE) continue;
         if (!u->movement.order_arrived) continue;
@@ -221,9 +219,9 @@ void P_AiTick(AiContext *ctx, level_t *map, mobj_t *const *units, int unit_count
 
     for (int t = 0; t < AI_MAX_TEAMS; ++t) {
         AiTeamState *team = &ctx->teams[t];
-        if (!team->has_base) continue;
-        ai_tick_harvesting(team, map, units, unit_count);
-        ai_tick_defense(team, map, units, unit_count, game_info);
-        ai_tick_attack_waves(team, map, units, unit_count, dt_ms);
+        if (D_PlayerIsHuman(t) || !team->has_base) continue;
+        ai_tick_harvesting(team, t, map, units, unit_count);
+        ai_tick_defense(team, t, map, units, unit_count, game_info);
+        ai_tick_attack_waves(team, t, map, units, unit_count, dt_ms);
     }
 }

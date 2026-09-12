@@ -1,3 +1,4 @@
+#include "d_net.h"
 #include "p_reinforce.h"
 #include "dc_facing.h"
 #include "info.h"
@@ -35,11 +36,11 @@ mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type) {
     unit->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }), 0);
     unit->owner = team == 0 ? 0 : 1;
-    if (unit->owner == 0) {
+    if (unit->owner == consoleplayer) {
         bool has_selected_player = false;
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *other = (mobj_t *)th;
-            if (!other->remove && other->owner == 0 && P_MobjIsSelected(other)) {
+            if (!other->remove && other->owner == consoleplayer && P_MobjIsSelected(other)) {
                 has_selected_player = true;
                 break;
             }
