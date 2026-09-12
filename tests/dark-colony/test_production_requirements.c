@@ -201,6 +201,47 @@ static int verify_model_construction_gate(void) {
     if (!finished || !G_ModelProductAvailable(model, 0, science_upgrade))
         return rts_fail("production", "finished Sci-Pod did not unlock its upgrade");
 
+    /* Reproduce the next purchase after Sci-Pod, then cover the remaining
+     * modules and upgrades through the same UI command path. */
+    const int ui_ids[] = {82, 86, 85, 83, 80};
+    level.player_resources[0][0] = 20000;
+    for (size_t i = 0; i < sizeof(ui_ids) / sizeof(ui_ids[0]); ++i) {
+        const StaticProductDefinition *product = G_ModelProductByUIId(model, ui_ids[i]);
+        uint16_t actor_id = G_ModelActorIdForProduct(product);
+        if (ui_ids[i] == 80) {
+            mobjlist_t objects = P_ListMobjs();
+            for (int j = 0; j < objects.count; ++j)
+                if (objects.items[j]->team == 0 && objects.items[j]->type_id == MT_BRRKPOD)
+                    P_RemoveMobj(objects.items[j]);
+            P_FreeMobjList(&objects);
+        }
+        build.data.activate_ui_button.ui_id = ui_ids[i];
+        int money = level.player_resources[0][0];
+        if (!G_ModelProductAvailable(model, 0, product) || !rts_game_model_command(model, &build))
+            return rts_fail("production", "purchase the next city module");
+        if (!rts_game_model_snapshot(model, &snapshot))
+            return rts_fail("production", "snapshot newly purchased module");
+        int index = rts_find_unit(&snapshot, 0, actor_id);
+        if (index < 0 || states[snapshot.units[index].state_id].group != 6)
+            return rts_fail("production", "every purchased module must play its construction animation");
+        if (level.player_resources[0][0] != money - product->cost)
+            return rts_fail("production", "charge for module construction");
+        finished = false;
+        for (int tick = 0; tick < 300; ++tick) {
+            if (!rts_tick(model, &snapshot))
+                return rts_fail("production", "tick module construction");
+            index = rts_find_unit(&snapshot, 0, actor_id);
+            if (index < 0) return rts_fail("production", "construction removed its building");
+            if (states[snapshot.units[index].state_id].group == 1) {
+                finished = true;
+                break;
+            }
+            if (ui_ids[i] == 82 && G_ModelProductAvailable(model, 0, G_ModelProductByUIId(model, 86)))
+                return rts_fail("production", "factory upgrade unlocked during construction");
+        }
+        if (!finished) return rts_fail("production", "module construction did not finish");
+    }
+
     rts_game_model_destroy(model);
     return 0;
 }

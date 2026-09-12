@@ -25,19 +25,17 @@ int main(void) {
     assert(producer);
     level.player_resources[0][0] = 10000; /* Explicit production test fixture. */
     const int buttons[] = {81, 85, 82, 86};
-    const int spawnstates[] = {S_SCNCPOD_BUILD1, S_SCNCPOD2_BUILD1, 0, S_ROBOPOD2_BUILD1};
-    const int finalstates[] = {S_SCNCPOD_STND1, S_SCNCPOD2_STND1, 0, S_ROBOPOD2_STND1};
+    const int spawnstates[] = {S_SCNCPOD_BUILD1, S_SCNCPOD2_BUILD1, S_ROBOPOD_BUILD1, S_ROBOPOD2_BUILD1};
+    const int finalstates[] = {S_SCNCPOD_STND1, S_SCNCPOD2_STND1, S_ROBOPOD_STND1, S_ROBOPOD2_STND1};
     for (int i = 0; i < 4; ++i) {
         RtsGameCommand build = { .kind = RTS_GAME_COMMAND_BUILD_PRODUCT,
             .data.build_product = { .producer_id = producer->id, .ui_id = buttons[i] } };
         assert(rts_game_model_command(second, &build));
         mobj_t *building = (mobj_t *)thinkercap.prev;
         assert(building != producer && building->thinker.function == P_MobjThinker);
-        if (spawnstates[i]) {
-            assert(building->core.state_id == spawnstates[i]);
-            for (int tic = 0; tic < 500 && building->core.state_id != finalstates[i]; ++tic) P_Ticker();
-            assert(!building->remove && building->core.state_id == finalstates[i]);
-        }
+        assert(building->core.state_id == spawnstates[i]);
+        for (int tic = 0; tic < 500 && building->core.state_id != finalstates[i]; ++tic) P_Ticker();
+        assert(!building->remove && building->core.state_id == finalstates[i]);
     }
     mobj_t *blood = P_SpawnMobj(producer->core.position, MT_BLOOD);
     assert(blood && blood->thinker.function == P_MobjThinker);

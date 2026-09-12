@@ -93,11 +93,13 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
                                   const StaticProductDefinition *product) {
     if (!game_info || !game_info->states || !game_info->sprnames || !product) return -1;
     switch (product->product_type) {
-    case 16: return S_EXCOPOD_STND;
-    case 17: return S_BRRKPOD_STND;
+    case 16: return S_EXCOPOD_BUILD1;
+    case 17: return S_BRRKPOD_BUILD1;
+    case 18: return S_ROBOPOD_BUILD1;
     case 19: return S_ROBOPOD2_BUILD1;
     case 20: return S_SCNCPOD_BUILD1;
     case 21: return S_SCNCPOD2_BUILD1;
+    case 22: return S_RSCHPOD_BUILD1;
     default: return -1;
     }
 }

@@ -26,7 +26,7 @@ const char *const sprnames[NUMSPRITES] = {
     "SSSS", "TEKT", "TEKTARA", "TIMEMIS", "TONG", "TORT", "TOWR", "TOXX",
     "TROOPER1", "TROOPER2", "TRSC", "TRUK", "TURR", "VCAL", "VCEA", "VENT",
     "VENT2", "WATC", "WEATH", "WINA", "WINB", "WINC", "WIND", "WINE", "WINF",
-    "XENO", "YABA", "ZISP", "BURN", "BURN2",
+    "XENO", "YABA", "ZISP", "BURN", "BURN2", "PART2", "PART4", "ROBO",
 };
 
 const state_t states[NUMSTATES] = {
@@ -55,7 +55,10 @@ const state_t states[NUMSTATES] = {
     #include "animate/HUBU.inc"
     #include "animate/HYYK.inc"
     #include "animate/ORTU.inc"
+    #include "animate/PART2.inc"
+    #include "animate/PART4.inc"
     #include "animate/REAP.inc"
+    #include "animate/ROBO.inc"
     #include "animate/SALA.inc"
     #include "animate/SARG.inc"
     #include "animate/SCGM.inc"

@@ -4558,3 +4558,92 @@ env SDL_VIDEODRIVER=dummy make -j8 all test-dark-colony test-layout
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_barrager_turning
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
 ```
+
+## Complete human city construction animations (2026-09-12)
+
+**Confirmed bug:** the first available Human02 module, Sci-Pod (type 20),
+entered its DROP construction chain, but the next purchase, Robo-Ftr (type 18),
+returned -1 from `G_ModelBuildingStateForProduct` and kept its finished spawn
+state. Barracks and Exo-Ctr explicitly selected standing states; Research Bay
+also returned -1. Temporary `OPEN_RTS_DEBUG_CONSTRUCTION` logging reproduced
+Sci-Pod followed by Robo-Ftr; the new consecutive-purchase test failed before
+registering the missing chains. Logging was removed after verification.
+
+**Confirmed native assets:** all missing human construction labels exist in
+FIN files included by retail `data/DCOLONY/ANIM.DAT`:
+
+| Product type | FIN | Exact label | Inclusive native frames | Frames |
+|---|---|---|---|---|
+| 16, Exo-Ctr | PART4 | EXCOPODBUILD0 | 61–81 | 21 |
+| 17, Barracks | PART4 | BRRKPODBUILD0 | 103–123 | 21 |
+| 18, Robo-Ftr | ROBO | ROBOPODBUILD0 | 0–41 | 42 |
+| 22, Research Bay | PART2 | RSCHPODBUILD0 | 61–83 | 23 |
+
+Each frame's raw delay is zero. These FIN-only sources have no corresponding
+SPR cells, so their logical frame numbers equal the native FIN indices. Their
+commands reference DROP's two body parts together with the authored exhaust,
+lighting and HUBU building cells. The ordinary complete-FIN renderer already
+supports these files; no separate delivery object or placement compensation is
+needed. Load PART2/PART4/ROBO as source images, register their state chains, and
+finish in the corresponding HUBU standing state. Existing map buildings still
+initialize in their standing states through `mobjinfo[].spawnstate`.
+
+Asset SHA-256 fingerprints:
+
+- ROBO.FIN: `7a4aa44ebb7b9a4d310b13e63e32d595f298f5f2cbe49f164fef4a47b4c54600`
+- PART2.FIN: `65df874d78adfffc41701b43245027700ff7e96e13a222e1ac6557185425dee9`
+- PART4.FIN: `726d14cb9347a393b854143b5239f7b5d3652ac69853e360fc73e081821e39d9`
+
+**Executable cross-check:** retail DC.EXE SHA-256 remains
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+Construction startup at `0x44143a–0x44144b` loads the type's animation pointer
+at +0x98 and calls `0x423c34` with mode 1, as recorded in the production-channel
+audit. This inspection does not establish the complete caller-side type/label
+binding or retail delivery scheduling. Matching exact labels and building
+body cells support the implemented handoffs; those remain **inferred**.
+
+**Disproven avenue:** a missing numbered DROP file is not the explanation.
+DROP2 contains another SCNCPODBUILD0 (94–135), plus TAKE2 (136–177), and is
+absent from ANIM.DAT. DROP5.FIN does not exist in these assets. The active
+ROBO/PART2/PART4 names, rather than guessed DROP aliases, supply the missing
+human construction sequences. The earlier note that unregistered building
+products use spawn states describes the bug and is superseded by this fix.
+
+**Preserved engine policy / unknowns:** use the existing construction timing
+conversion, accumulating `floor(((raw ? raw : 15) + 3) * 19 / 100)` and rounding
+cumulative boundaries to 30 Hz with `(native * 30 + 9) / 19`. This gives 99 tics
+for Exo-Ctr/Barracks, 199 for Robo-Ftr, and 109 for Research Bay. No new retail
+timing claim is made. Exo-Ctr foundation placement, retail scheduling and
+cancellation/refunds remain outside this change. All seven human product
+selectors now have construction chains, including the previously supported
+science/factory upgrades. The four new chains are authored in `dc_states.txt`;
+`dc_info_gen` generated the three new per-FIN includes in a temporary directory,
+which were then copied into the repository. Existing state IDs and unrelated
+animation tables were retained.
+
+**Verification:** `test_drop_fin_states` compares every frame's complete layer
+metadata and rendered pixels to the native FIN commands for all seven human
+build sequences, including cumulative timing and final standing-state handoff.
+`test_production_requirements` reproduces consecutive Human02 purchases through
+the model command path and checks the factory upgrade stays locked during
+construction. `test_barracks_production` clicks the real sidebar to construct
+Robo-Ftr, both upgrades and Research Bay after Sci-Pod, checks costs and duplicate
+purchase rejection, and ticks each module into its finished state. Its factory
+and research construction screenshots show the authored dropships over the
+native city slots. The full Dark Colony suite, sprite-layout/Reaper timing,
+`make`, and headless check/screenshot are the verification commands:
+
+```sh
+build/dc_info_conv --label ROBOPODBUILD0 data/DCOLONY/ANIMATE/ROBO.FIN
+build/dc_info_conv --label RSCHPODBUILD0 data/DCOLONY/ANIMATE/PART2.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/PART4.FIN
+r2 -q -e bin.cache=true -c 'pd 5 @ 0x44143a' -c q data/DCOLONY/DC.EXE
+make
+SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
+SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-construction-smoke.bmp
+```
+
+Screenshots: `/private/tmp/dc-factory-construction.bmp` and
+`/private/tmp/dc-research-construction.bmp`; the pixel test also writes a
+mid-sequence BMP named for each exact construction label.

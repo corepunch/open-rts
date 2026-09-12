@@ -936,6 +936,7 @@ __anon42a104c41308::product_class	game/g_game.h	/^    RtsProductClass product_cl
 __anon42a104c41308::product_type	game/g_game.h	/^    int product_type;$/;"	m	struct:__anon42a104c41308	typeref:typename:int
 __anon42a104c41308::ui_id	game/g_game.h	/^    int ui_id;$/;"	m	struct:__anon42a104c41308	typeref:typename:int
 __anon447e5c2f0103	hud/sb_prod.c	/^enum { PRODUCT_ROWSIZE = 32, PRODUCT_LIST_MAX = 64 };$/;"	g	file:
+__anon457a6b980108	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	s	function:main	file:
 __anon5083fbb30108	tests/dark-colony/test_production_requirements.c	/^typedef struct {$/;"	s	file:
 __anon5083fbb30108::prerequisite_count	tests/dark-colony/test_production_requirements.c	/^    int prerequisite_count;$/;"	m	struct:__anon5083fbb30108	typeref:typename:int	file:
 __anon5083fbb30108::prerequisites	tests/dark-colony/test_production_requirements.c	/^    int prerequisites[3];$/;"	m	struct:__anon5083fbb30108	typeref:typename:int[3]	file:
@@ -1410,6 +1411,7 @@ correctly	plans/010-dc-info-gen-coverage-and-dropship-actions.md	/^   already ge
 cost	game/g_game.h	/^    int cost;$/;"	m	struct:__anon42a104c40608	typeref:typename:int
 cost	game/g_game.h	/^    int cost;$/;"	m	struct:__anon42a104c41308	typeref:typename:int
 cost	play/p_map.c	/^    int cost;$/;"	m	struct:__anon9020bd480208	typeref:typename:int	file:
+cost	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
 cost	tools/dc_gamestat_gen.c	/^    int cost;$/;"	m	struct:__anon006eef8b0208	typeref:typename:int	file:
 count	game/game.h	/^    int count;$/;"	m	struct:__anon03fa0f1e0108	typeref:typename:int
 count	play/actor.h	/^typedef struct { mobj_t **items; int count; } mobjlist_t;$/;"	m	struct:__anon175231d90b08	typeref:typename:int
@@ -1802,6 +1804,7 @@ idle	tools/kknd_info_gen.c	/^typedef struct { int idle; int shoot; int slen; int
 idle_len	tools/dr_info_gen.c	/^    int idle_start,  idle_len;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 idle_start	tools/dr_info_gen.c	/^    int idle_start,  idle_len;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 image	play/actor.h	/^    const char *image;$/;"	m	struct:selectionmarker_s	typeref:typename:const char *
+image	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:const char *	file:
 image_count	hud/ui_definition.h	/^    int image_count;$/;"	m	struct:uidefinition_s	typeref:typename:int
 images	hud/ui_definition.h	/^    const uiimage_t *images;$/;"	m	struct:uidefinition_s	typeref:typename:const uiimage_t *
 indexed	render/sprites.h	/^    bool indexed;$/;"	m	struct:spritesheet_s	typeref:typename:bool
@@ -1981,6 +1984,11 @@ main	tools/dc_sight_gen/main.c	/^int main(int argc, char **argv) {$/;"	f	typeref
 main	tools/dc_spr_extract.c	/^int main(int argc, char *argv[]) {$/;"	f	typeref:typename:int	signature:(int argc,char * argv[])
 main	tools/dr_info_gen.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
 main	tools/kknd_info_gen.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
+main::__anon457a6b980108::cost	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
+main::__anon457a6b980108::image	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:const char *	file:
+main::__anon457a6b980108::state	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
+main::__anon457a6b980108::type	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
+main::__anon457a6b980108::ui_y	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
 main::__anon625b5c910108::corpse	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int type, corpse; } deaths[] = {$/;"	m	struct:main::__anon625b5c910108	typeref:typename:int	file:
 main::__anon625b5c910108::type	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int type, corpse; } deaths[] = {$/;"	m	struct:main::__anon625b5c910108	typeref:typename:int	file:
 main::__anon759eab0d0108::file	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:const char *	file:
@@ -2666,6 +2674,7 @@ start	tests/test_dark_colony_sprite_layout.c	/^    int start;$/;"	m	struct:__ano
 start	tools/dc_info_gen.c	/^    uint16_t start;$/;"	m	struct:__anon292f5ac10108	typeref:typename:uint16_t	file:
 state	ARCHITECTURE.md	/^death state; those come from product tables and `MobjInfo[]`\/`State[]` data.$/;"	v
 state	play/p_map.c	/^    uint8_t state;$/;"	m	struct:__anon9020bd480108	typeref:typename:uint8_t	file:
+state	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
 state	tests/dark-colony/test_blood_fin.c	/^    static const struct { const char *file, *label; int state; } cases[] = {$/;"	m	struct:pixels::__anon289a07350108	typeref:typename:int	file:
 state_at	play/p_mobj.c	/^static const state_t *state_at(const gameinfo_t *game_info, int state_id) {$/;"	f	typeref:typename:const state_t *	file:	signature:(const gameinfo_t * game_info,int state_id)
 state_coord_mode	play/actor.h	/^    StateCoordMode state_coord_mode;$/;"	m	struct:gameinfo_s	typeref:typename:StateCoordMode
@@ -2808,6 +2817,7 @@ turn_timer_ms	play/actor.h	/^        int turn_timer_ms;$/;"	m	struct:mobj_s::__a
 type	game/g_game.h	/^    RtsGameEventType type;$/;"	m	struct:__anon42a104c40f08	typeref:typename:RtsGameEventType
 type	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	m	struct:__anon3d3e43c00108	typeref:typename:uint8_t	file:
 type	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int type, corpse; } deaths[] = {$/;"	m	struct:main::__anon625b5c910108	typeref:typename:int	file:
+type	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
 type	tools/dr_info_gen.c	/^    const char *type;$/;"	m	struct:__anon0771d3700208	typeref:typename:const char *	file:
 type	tools/info_gen.h	/^    const char *type;$/;"	m	struct:__anond5c6e2e00108	typeref:typename:const char *
 type_id	game/g_game.h	/^    uint16_t type_id;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint16_t
@@ -2827,6 +2837,7 @@ ui_id	tests/dark-colony/test_production_requirements.c	/^    int ui_id;$/;"	m	st
 ui_id	tools/dc_gamestat_gen.c	/^    int ui_id;$/;"	m	struct:__anon006eef8b0208	typeref:typename:int	file:
 ui_scaled_rect	hud/sb_bar.c	/^static irect_t ui_scaled_rect(const app_t *app, const uidefinition_t *def, irect_t rect) {$/;"	f	typeref:typename:irect_t	file:	signature:(const app_t * app,const uidefinition_t * def,irect_t rect)
 ui_script	game/g_game.h	/^    char ui_script[RTS_MODEL_UI_SCRIPT_BYTES];$/;"	m	struct:__anon42a104c41208	typeref:typename:char[]
+ui_y	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
 uidefinition_s	hud/ui_definition.h	/^typedef struct uidefinition_s {$/;"	s
 uidefinition_s::command_columns	hud/ui_definition.h	/^    int command_columns;$/;"	m	struct:uidefinition_s	typeref:typename:int
 uidefinition_s::command_grid	hud/ui_definition.h	/^    irect_t command_grid;$/;"	m	struct:uidefinition_s	typeref:typename:irect_t

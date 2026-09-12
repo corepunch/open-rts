@@ -163,6 +163,10 @@ int main(void) {
         check_sequence(&app, surface, cache, "DROP", "DROPTWO", S_DROP_UNLOAD1, S_DROP_MOVE1, team);
     }
     static const struct { int product, first, last; const char *file, *label; } builds[] = {
+        {16, S_EXCOPOD_BUILD1, S_EXCOPOD_STND, "PART4", "EXCOPODBUILD0"},
+        {17, S_BRRKPOD_BUILD1, S_BRRKPOD_STND, "PART4", "BRRKPODBUILD0"},
+        {18, S_ROBOPOD_BUILD1, S_ROBOPOD_STND1, "ROBO", "ROBOPODBUILD0"},
+        {22, S_RSCHPOD_BUILD1, S_RSCHPOD_STND1, "PART2", "RSCHPODBUILD0"},
         {20, S_SCNCPOD_BUILD1, S_SCNCPOD_STND1, "DROP", "SCNCPODBUILD0"},
         {21, S_SCNCPOD2_BUILD1, S_SCNCPOD2_STND1, "DROP3", "SCNCPOD2BUILD0"},
         {19, S_ROBOPOD2_BUILD1, S_ROBOPOD2_STND1, "DROP4", "ROBOPOD2BUILD0"},

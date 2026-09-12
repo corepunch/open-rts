@@ -214,6 +214,36 @@ int main(void) {
     assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
     assert(level.player_resources[0][0] == 8000); /* No duplicate module. */
     P_FreeMobjList(&objects);
+    for (int tic = 0; tic < 300 && states[science->core.state_id].group == 6; ++tic)
+        assert(rts_tick(model, NULL));
+    assert(states[science->core.state_id].group == 1);
+    level.player_resources[0][0] = 20000;
+    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {
+        {330, MT_ROBOPOD, S_ROBOPOD_BUILD1, 2000, "/private/tmp/dc-factory-construction.bmp"},
+        {290, MT_SCNCPOD2, S_SCNCPOD2_BUILD1, 2000, NULL},
+        {330, MT_ROBOPOD2, S_ROBOPOD2_BUILD1, 2000, NULL},
+        {370, MT_RSCHPOD, S_RSCHPOD_BUILD1, 3000, "/private/tmp/dc-research-construction.bmp"},
+    };
+    for (size_t i = 0; i < sizeof(modules) / sizeof(modules[0]); ++i) {
+        click.button.y = modules[i].ui_y;
+        objects = P_ListMobjs();
+        money = level.player_resources[0][0];
+        assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+        P_FreeMobjList(&objects);
+        mobj_t *module = find(modules[i].type);
+        assert(module && module->core.state_id == modules[i].state);
+        assert(level.player_resources[0][0] == money - modules[i].cost);
+        objects = P_ListMobjs();
+        assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+        P_FreeMobjList(&objects);
+        assert(level.player_resources[0][0] == money - modules[i].cost);
+        for (int tic = 0; tic < 300 && states[module->core.state_id].group == 6; ++tic) {
+            if (tic == 50 && modules[i].image)
+                screenshot(&app, surface, &tiles, cache, modules[i].image);
+            assert(rts_tick(model, NULL));
+        }
+        assert(states[module->core.state_id].group == 1);
+    }
     G_ShutdownCustomUI(ui);
     R_FreeSpriteCache(cache);
     free(cache);

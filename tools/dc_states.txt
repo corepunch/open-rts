@@ -152,3 +152,9 @@ S_ROBOPOD_STND{1..20}            HUBU    67..86             4,4,4,4,4,4,4,4,4,4,
 ; RSCHPODSTAND0: complete native FIN sequence, 66 ms native ticks.
 S_RSCHPOD_STND{1..9}             HUBU    28..36             4,4,4,4,4,4,4,4,23       A_DC_BuildingStand     S_RSCHPOD_STND1              1
 S_DISH_STND{1..17}               DISH    3..19              4,4,4,4,4,4,4,4,4,4,4,4,3,4,4,4,4 NULL                   S_DISH_STND1                 1
+; Construction labels from ANIM.DAT's PART4, ROBO and PART2 FIN files.
+; Preserve the existing construction timing conversion and complete FIN frames.
+S_EXCOPOD_BUILD{1..21}           PART4   61..81             5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4 NULL                   S_EXCOPOD_STND               6
+S_BRRKPOD_BUILD{1..21}           PART4   103..123           5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4 NULL                   S_BRRKPOD_STND               6
+S_ROBOPOD_BUILD{1..42}           ROBO    0..41              5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5 NULL                   S_ROBOPOD_STND1              6
+S_RSCHPOD_BUILD{1..23}           PART2   61..83             5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5 NULL                   S_RSCHPOD_STND1              6
