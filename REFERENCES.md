@@ -1028,6 +1028,14 @@ Local game-data files that have already been useful:
 
 ## KKnD
 
+September 13 selection-bar search: the native Buttons/Cursors/Gui groups were
+inspected, and the procedural OpenKrush implementation is documented in
+[selection health-bar findings](docs/KKND_EXE_FINDINGS.md#selection-health-bars-and-native-ui-search-2026-09-13).
+
+- [AdvancedSelectionDecorations.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Mechanics/Ui/Traits/AdvancedSelectionDecorations.cs)
+- [StatusBar.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Mechanics/Ui/Graphics/StatusBar.cs)
+- [Core category and selection rules](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush/rules/core.yaml)
+
 September 13 anchor verification uses the same pinned OpenKrush revision below.
 `MobdFrame` reads the native anchor; `MobdImage` flips pixels independently;
 `MobdLoader` converts the anchor to a center-relative drawing offset. See

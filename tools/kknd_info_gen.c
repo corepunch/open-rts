@@ -426,6 +426,7 @@ static void write_info_c(const char *path) {
         "   Sprite names are MOBD member indices into LEVELS/640/SPRITES.LVL. */\n"
         "#include \"engine.h\"\n"
         "#include \"info.h\"\n"
+        "#include \"kknd.h\"\n"
         "\n");
 
     /* sprnames[] */
@@ -545,8 +546,8 @@ static void write_info_c(const char *path) {
         "    NUMMOBJTYPES,\n"
         "    S_NULL,\n"
         "    RTS_STATE_COORDS_GROUND_OFFSET,\n"
-        "    { .style = SELECTION_STYLE_CIRCLE },\n"
-        "    NULL,\n"
+        "    { .style = SELECTION_STYLE_DEFAULT },\n"
+        "    KK_DrawUnitOverlays,\n"
         "    .right_click_orders = false,\n"
         "};\n");
 

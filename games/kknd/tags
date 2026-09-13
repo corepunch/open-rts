@@ -71,10 +71,13 @@ G_WorldViewportWidth	games/kknd/g_game.c	/^int G_WorldViewportWidth(const app_t 
 HU_LoadFont	games/kknd/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
 KKND_PRODUCTS	games/kknd/p_prod.c	/^static const StaticProductDefinition KKND_PRODUCTS[] = {$/;"	v	typeref:typename:const StaticProductDefinition[]	file:
 KKND_RESEARCH	games/kknd/kknd.h	/^enum { KKND_RESEARCH = 9000 };$/;"	e	enum:__anon9fda0d160103
+KK_DrawUnitOverlays	games/kknd/kknd.h	/^void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx);$/;"	p	typeref:typename:void	signature:(const unitoverlaycontext_t * ctx)
+KK_DrawUnitOverlays	games/kknd/r_selection.c	/^void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {$/;"	f	typeref:typename:void	signature:(const unitoverlaycontext_t * ctx)
 KK_NextTechLevel	games/kknd/kknd.h	/^int KK_NextTechLevel(const mobj_t *actor);$/;"	p	typeref:typename:int	signature:(const mobj_t * actor)
 KK_NextTechLevel	games/kknd/p_prod.c	/^int KK_NextTechLevel(const mobj_t *actor) {$/;"	f	typeref:typename:int	signature:(const mobj_t * actor)
 KK_PRODUCT	games/kknd/g_ui.c	/^#define KK_PRODUCT(/;"	d	file:	signature:(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label)
 KK_PRODUCT	games/kknd/p_prod.c	/^#define KK_PRODUCT(/;"	d	file:	signature:(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label)
+KK_PRODUCT	games/kknd/r_selection.c	/^#define KK_PRODUCT(/;"	d	file:	signature:(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label)
 KK_Research	games/kknd/kknd.h	/^bool KK_Research(mobj_t *target);$/;"	p	typeref:typename:bool	signature:(mobj_t * target)
 KK_Research	games/kknd/p_research.c	/^bool KK_Research(mobj_t *target) {$/;"	f	typeref:typename:bool	signature:(mobj_t * target)
 KkndMapData	games/kknd/w_lvl.h	/^} KkndMapData;$/;"	t	typeref:struct:__anon1abf4fd20208
@@ -597,6 +600,7 @@ actor_types	games/kknd/g_game.c	/^const mobjtype_t *const actor_types = ACTOR_TY
 append_ui_script	games/kknd/p_prod.c	/^static void append_ui_script(char *dst, size_t dst_size, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * fmt,...)
 atlas	games/kknd/w_lvl.h	/^    isize2_t atlas;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:isize2_t
 attacksound	games/kknd/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+bar_widths	games/kknd/r_selection.c	/^static const uint8_t bar_widths[NUMMOBJTYPES] = {$/;"	v	typeref:typename:const uint8_t[]	file:
 build_map_tileset	games/kknd/w_spr.c	/^static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const KkndMapData * map,tileset_t * out)
 categories	games/kknd/g_ui.c	/^static const uicategory_t categories[] = {$/;"	v	typeref:typename:const uicategory_t[]	file:
 damage	games/kknd/info.h	/^    int damage;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -610,6 +614,7 @@ dx	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy
 dx	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:float	file:
 dy	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } enemy_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890208	typeref:typename:float	file:
 dy	games/kknd/g_game.c	/^    struct { uint16_t type; float dx; float dy; } player_units[] = {$/;"	m	struct:P_LoadThings::__anona1679d890108	typeref:typename:float	file:
+fill	games/kknd/r_selection.c	/^static void fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,irect_t rect,SDL_Color color)
 flags	games/kknd/info.h	/^    int flags;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 fx	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	m	struct:P_LoadThings::__anona1679d890308	typeref:typename:float	file:
 fy	games/kknd/g_game.c	/^    static const struct { float fx; float fy; } vent_rel[] = {$/;"	m	struct:P_LoadThings::__anona1679d890308	typeref:typename:float	file:

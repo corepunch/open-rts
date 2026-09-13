@@ -84,8 +84,8 @@ typedef enum {
 } StateCoordMode;
 
 typedef enum {
-    SELECTION_STYLE_SPRITE = 0,
-    SELECTION_STYLE_CIRCLE,
+    SELECTION_STYLE_DEFAULT = 0, /* Green sprite rectangle and health bar. */
+    SELECTION_STYLE_SPRITE,
     SELECTION_STYLE_BRACKETS,
 } SelectionStyle;
 
@@ -100,6 +100,7 @@ typedef struct unitoverlaycontext_s {
     const spritecache_t *cache;
     const gameinfo_t *game_info;
     fvec2_t anchor;
+    irect_t bounds; /* Current sprite bounds in screen pixels. */
 } unitoverlaycontext_t;
 
 typedef void (*unitoverlaydrawf_t)(const unitoverlaycontext_t *ctx);
@@ -114,7 +115,7 @@ struct gameinfo_s {
     int null_state;
     StateCoordMode state_coord_mode;
     selectionmarker_t selection_marker;
-    unitoverlaydrawf_t draw_overlays;
+    unitoverlaydrawf_t draw_overlays; /* Replaces the engine selection and health overlay. */
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
 };
 

@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     }
     if (!write_info_h(argv[2], "the verified 7th Legion BIM actor catalog", entries, count) ||
         !write_info_c(argv[3], "the verified 7th Legion BIM actor catalog", NULL,
-                      "SELECTION_STYLE_CIRCLE", false, entries, count)) {
+                      "SELECTION_STYLE_DEFAULT", false, entries, count)) {
         fprintf(stderr, "7legion_info_gen: cannot write output: %s\n", strerror(errno));
         return 1;
     }

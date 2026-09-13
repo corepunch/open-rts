@@ -1028,33 +1028,6 @@ static SDL_Color selection_health_tint(int bucket) {
     }
 }
 
-static void draw_ellipse_outline(SDL_Renderer *renderer, int cx, int cy, int rx, int ry) {
-    if (rx <= 0 || ry <= 0) return;
-    int steps = (rx + ry) * 2;
-    if (steps < 16) steps = 16;
-    for (int i = 0; i < steps; ++i) {
-        float a = (float)i / (float)steps * 6.28318530f;
-        int x = (int)(rx * cosf(a) + 0.5f);
-        int y = (int)(ry * sinf(a) + 0.5f);
-        SDL_RenderDrawPoint(renderer, cx + x, cy + y);
-    }
-}
-
-static void draw_selection_circle(app_t *app, const mobj_t *u, int cx, int cy, int radius) {
-    if (!app || !app->renderer || radius < 2) return;
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
-    int rx = radius;
-    int ry = radius / 2;
-    if (ry < 2) ry = 2;
-    SDL_Color tint = selection_health_tint(selection_health_bucket(u));
-    SDL_SetRenderDrawColor(app->renderer, 8, 10, 8, 255);
-    draw_ellipse_outline(app->renderer, cx, cy + 1, rx + 1, ry);
-    draw_ellipse_outline(app->renderer, cx, cy + 1, rx,     ry);
-    SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, 255);
-    draw_ellipse_outline(app->renderer, cx, cy, rx + 1, ry);
-    draw_ellipse_outline(app->renderer, cx, cy, rx,     ry);
-}
-
 static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *visible) {
     if (!app || !app->renderer || !u || !visible || visible->w <= 0 || visible->h <= 0) return;
     irect_t box = {
@@ -1090,27 +1063,6 @@ static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *
     SDL_RenderFillRect(app->renderer, &(irect_t){ bar_x - 1, bar_y - 1, bar_w + 2, 4 });
     SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, 255);
     SDL_RenderFillRect(app->renderer, &(irect_t){ bar_x, bar_y, fill_w, 2 });
-}
-
-static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *visible) {
-    if (!app || !app->renderer || !visible || visible->w <= 0 || visible->h <= 0) return;
-    int cx = visible->x + visible->w / 2;
-    int top_y = visible->y - 11;
-    int tip_y = top_y + 7;
-    int half_w = 8;
-    SDL_Color tint = selection_health_tint(selection_health_bucket(u));
-
-    SDL_SetRenderDrawColor(app->renderer, 8, 10, 8, 235);
-    SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx + half_w + 1, top_y - 1);
-    SDL_RenderDrawLine(app->renderer, cx - half_w - 1, top_y - 1, cx, tip_y + 1);
-    SDL_RenderDrawLine(app->renderer, cx + half_w + 1, top_y - 1, cx, tip_y + 1);
-
-    SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, tint.a);
-    for (int y = top_y; y <= tip_y; ++y) {
-        float t = (float)(y - top_y) / (float)(tip_y - top_y);
-        int span = (int)lroundf((float)half_w * (1.0f - t));
-        SDL_RenderDrawLine(app->renderer, cx - span, y, cx + span, y);
-    }
 }
 
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
@@ -1215,27 +1167,28 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                  flip, sprite_color(u->core.render_intensity), SDL_BLENDMODE_BLEND);
     }
     if (game_info && game_info->draw_overlays) return;
-    if (P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE)) {
-        if (game_info && game_info->selection_marker.style == SELECTION_STYLE_CIRCLE) {
-            int radius = (int)(unit_pick_radius_px(app, u) * 0.85f);
-            draw_selection_circle(app, u, (int)sx, (int)sy, radius);
-        } else if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS)
+    bool selected = P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE);
+    if (selected) {
+        if (game_info && game_info->selection_marker.style == SELECTION_STYLE_BRACKETS) {
             draw_selection_brackets(app, u, &visible);
-        else
-            draw_selection_triangle(app, u, &visible);
+            return;
+        }
+        SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
+        SDL_SetRenderDrawColor(app->renderer, 83, 245, 92, 255);
+        SDL_RenderDrawRect(app->renderer, &visible);
     }
-    if (u->max_hp > 0 && u->hp > 0 && u->hp < u->max_hp &&
-        (!game_info || game_info->selection_marker.style != SELECTION_STYLE_BRACKETS ||
-         !P_MobjIsSelected(u))) {
-        int bar_w = dst.w / 2;
+    if (u->max_hp > 0 && u->hp > 0 && (selected || u->hp < u->max_hp)) {
+        int bar_w = visible.w;
         int bar_h = 2;
-        int bx = (int)(sx - bar_w / 2);
+        int bx = visible.x;
         int by = visible.y - bar_h - 4;
-        irect_t back = { bx, by, bar_w, bar_h };
-        irect_t fill = { bx, by, (bar_w * u->hp) / u->max_hp, bar_h };
-        SDL_SetRenderDrawColor(app->renderer, 40, 20, 20, 220);
+        int hp = u->hp < u->max_hp ? u->hp : u->max_hp;
+        irect_t back = { bx - 1, by - 1, bar_w + 2, bar_h + 2 };
+        irect_t fill = { bx, by, (int)((int64_t)bar_w * hp / u->max_hp), bar_h };
+        SDL_SetRenderDrawColor(app->renderer, 20, 20, 18, 255);
         SDL_RenderFillRect(app->renderer, &back);
-        SDL_SetRenderDrawColor(app->renderer, 98, 224, 161, 230);
+        SDL_Color tint = selection_health_tint(selection_health_bucket(u));
+        SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, tint.a);
         SDL_RenderFillRect(app->renderer, &fill);
     }
 }
@@ -1252,6 +1205,8 @@ static void render_unit_overlays(app_t *app, const level_t *map, mobj_t *const *
             .game_info = game_info,
         };
         R_MapPositionToScreen(app, map, unit->core.position, &ctx.anchor.x, &ctx.anchor.y);
+        unit_screen_rect_for_view(app, map, unit, NULL, cache, game_info, 0,
+                                  NULL, &ctx.bounds, NULL, NULL, NULL, NULL, NULL);
         game_info->draw_overlays(&ctx);
     }
 }

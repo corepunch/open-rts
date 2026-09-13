@@ -87,7 +87,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
 const gameinfo_t game_info = {
     sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES,
     S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,
-    { .style = SELECTION_STYLE_CIRCLE },
+    { .style = SELECTION_STYLE_DEFAULT },
     NULL,
     .right_click_orders = false,
 };

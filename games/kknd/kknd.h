@@ -4,6 +4,7 @@
 #include "engine.h"
 
 enum { KKND_RESEARCH = 9000 };
+void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx);
 bool KK_Research(mobj_t *target);
 int KK_NextTechLevel(const mobj_t *actor);
 

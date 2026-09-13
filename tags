@@ -669,8 +669,8 @@ SB_drawSidebarCells	hud/sb_bar.c	/^static void SB_drawSidebarCells(const sb_stat
 SB_drawSidebarIcon	hud/sb_bar.c	/^static void SB_drawSidebarIcon(SDL_Renderer *renderer, irect_t cell, int slot) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,irect_t cell,int slot)
 SB_drawWidgets	hud/sb_bar.c	/^static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t *sprites) {$/;"	f	typeref:typename:void	file:	signature:(const sb_state_t * st,app_t * app,const spritecache_t * sprites)
 SELECTION_STYLE_BRACKETS	play/actor.h	/^    SELECTION_STYLE_BRACKETS,$/;"	e	enum:__anon175231d90703
-SELECTION_STYLE_CIRCLE	play/actor.h	/^    SELECTION_STYLE_CIRCLE,$/;"	e	enum:__anon175231d90703
-SELECTION_STYLE_SPRITE	play/actor.h	/^    SELECTION_STYLE_SPRITE = 0,$/;"	e	enum:__anon175231d90703
+SELECTION_STYLE_DEFAULT	play/actor.h	/^    SELECTION_STYLE_DEFAULT = 0, \/* Green sprite rectangle and health bar. *\/$/;"	e	enum:__anon175231d90703
+SELECTION_STYLE_SPRITE	play/actor.h	/^    SELECTION_STYLE_SPRITE,$/;"	e	enum:__anon175231d90703
 SIGHT_EXPLORED	game/map.h	/^#define SIGHT_EXPLORED /;"	d
 SIZE	tests/dark-colony/test_barrager_turning.c	/^enum { SIZE = 160, PIXELS = SIZE * SIZE };$/;"	e	enum:__anon7f26dad50103	file:
 SIZE	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
@@ -1491,6 +1491,7 @@ boom_count	tools/dc_gamestat_gen.c	/^    int boom_count;$/;"	m	struct:__anon006e
 booms	tools/dc_gamestat_gen.c	/^    BoomStat booms[MAX_BOOMS];$/;"	m	struct:__anon006eef8b0908	typeref:typename:BoomStat[]	file:
 border	hud/ui_definition.h	/^    SDL_Color border;$/;"	m	struct:uipanel_s	typeref:typename:SDL_Color
 bound_socket	tests/network/test_network.c	/^static int bound_socket(struct sockaddr_in *address) {$/;"	f	typeref:typename:int	file:	signature:(struct sockaddr_in * address)
+bounds	play/actor.h	/^    irect_t bounds; \/* Current sprite bounds in screen pixels. *\/$/;"	m	struct:unitoverlaycontext_s	typeref:typename:irect_t
 bounds	render/sprites.h	/^    irect_t bounds;$/;"	m	struct:spritecell_s	typeref:typename:irect_t
 build	docs/NETWORK.md	/^Use the same engine build, game data, map and `--dup` setting on every machine.$/;"	v
 build_event_seen	tests/cross-game/test_model_commands.c	/^static int build_event_seen(RtsGameModel *model, RtsGameEventType wanted,$/;"	f	typeref:typename:int	file:	signature:(RtsGameModel * model,RtsGameEventType wanted,uint32_t producer_id,int product_class,int product_type)
@@ -1708,19 +1709,16 @@ draw	tests/dark-colony/test_vent_states.c	/^static void draw(app_t *app, const t
 draw_digit	hud/sb_bar.c	/^static void draw_digit(SDL_Renderer *renderer, int x, int y, int digit, SDL_Color color) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,int x,int y,int digit,SDL_Color color)
 draw_digit	tools/dc_spr_extract.c	/^static void draw_digit(uint32_t *px, int stride, int x0, int y0, int digit, uint32_t color) {$/;"	f	typeref:typename:void	file:	signature:(uint32_t * px,int stride,int x0,int y0,int digit,uint32_t color)
 draw_divisor	render/sprites.h	/^    int draw_divisor;$/;"	m	struct:bitmapfont_s	typeref:typename:int
-draw_ellipse_outline	render/r_draw.c	/^static void draw_ellipse_outline(SDL_Renderer *renderer, int cx, int cy, int rx, int ry) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,int cx,int cy,int rx,int ry)
 draw_image	hud/sb_palette.c	/^static void draw_image(sb_state_t *st, const app_t *app, int image, irect_t src, irect_t dst) {$/;"	f	typeref:typename:void	file:	signature:(sb_state_t * st,const app_t * app,int image,irect_t src,irect_t dst)
 draw_native_parts	tests/dark-colony/test_blood_fin.c	/^static void draw_native_parts(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,const spritecache_t * cache,const spritelayer_t * parts,int team,fixed3_t position)
 draw_native_parts	tests/dark-colony/test_drop_fin_states.c	/^static void draw_native_parts(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,const spritecache_t * cache,const spritelayer_t * parts,int team)
 draw_number	tools/dc_spr_extract.c	/^static void draw_number(uint32_t *px, int stride, int x0, int y0, int n, uint32_t color) {$/;"	f	typeref:typename:void	file:	signature:(uint32_t * px,int stride,int x0,int y0,int n,uint32_t color)
-draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays;$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
+draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays; \/* Replaces the engine selection and health overlay. *\/$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
 draw_part_count	tools/dc_fin_extract.c	/^    size_t draw_part_count;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 draw_part_offset	tools/dc_fin_extract.c	/^    size_t draw_part_offset;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 draw_part_size	tools/dc_fin_extract.c	/^    size_t draw_part_size;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 draw_pixels	tests/dark-colony/test_sprite_layer_rendering.c	/^static void draw_pixels(app_t *app, const spritesheet_t *sheet, const gameinfo_t *game,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const spritesheet_t * sheet,const gameinfo_t * game,mobj_t * unit,uint32_t pixels[2])
 draw_selection_brackets	render/r_draw.c	/^static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *visible) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const mobj_t * u,const irect_t * visible)
-draw_selection_circle	render/r_draw.c	/^static void draw_selection_circle(app_t *app, const mobj_t *u, int cx, int cy, int radius) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const mobj_t * u,int cx,int cy,int radius)
-draw_selection_triangle	render/r_draw.c	/^static void draw_selection_triangle(app_t *app, const mobj_t *u, const irect_t *visible) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const mobj_t * u,const irect_t * visible)
 draw_texture	render/r_sprite.c	/^static bool draw_texture(SDL_Renderer *renderer, SDL_Texture *texture,$/;"	f	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture,const irect_t * src,const irect_t * dst,SDL_RendererFlip flip,SDL_Color color,SDL_BlendMode blend)
 draw_y_offset	render/sprites.h	/^    int draw_y_offset;$/;"	m	struct:tileset_s	typeref:typename:int
 drawcommand_s	render/render_plan.h	/^typedef struct drawcommand_s {$/;"	s
@@ -1940,7 +1938,7 @@ g_units	tools/kknd_info_gen.c	/^static unit_t g_units[MAX_UNITS];$/;"	v	typeref:
 game	tools/test_loaders/main.c	/^static const struct { const char *game,*root,*extension; } games[] = {$/;"	m	struct:__anon81eaeff30108	typeref:typename:const char *	file:
 game_info	play/actor.h	/^    const gameinfo_t *game_info;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const gameinfo_t *
 gameinfo_s	play/actor.h	/^struct gameinfo_s {$/;"	s
-gameinfo_s::draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays;$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
+gameinfo_s::draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays; \/* Replaces the engine selection and health overlay. *\/$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
 gameinfo_s::mobj_type_count	play/actor.h	/^    int mobj_type_count;$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s::mobjinfo	play/actor.h	/^    const mobjinfo_t *mobjinfo;$/;"	m	struct:gameinfo_s	typeref:typename:const mobjinfo_t *
 gameinfo_s::null_state	play/actor.h	/^    int null_state;$/;"	m	struct:gameinfo_s	typeref:typename:int
@@ -3270,6 +3268,7 @@ unit_type	tools/dc_gamestat_gen.c	/^    int unit_type;$/;"	m	struct:__anon006eef
 unitoverlaycontext_s	play/actor.h	/^typedef struct unitoverlaycontext_s {$/;"	s
 unitoverlaycontext_s::anchor	play/actor.h	/^    fvec2_t anchor;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:fvec2_t
 unitoverlaycontext_s::app	play/actor.h	/^    app_t *app;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:app_t *
+unitoverlaycontext_s::bounds	play/actor.h	/^    irect_t bounds; \/* Current sprite bounds in screen pixels. *\/$/;"	m	struct:unitoverlaycontext_s	typeref:typename:irect_t
 unitoverlaycontext_s::cache	play/actor.h	/^    const spritecache_t *cache;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const spritecache_t *
 unitoverlaycontext_s::game_info	play/actor.h	/^    const gameinfo_t *game_info;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const gameinfo_t *
 unitoverlaycontext_s::unit	play/actor.h	/^    const mobj_t *unit;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const mobj_t *

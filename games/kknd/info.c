@@ -3,6 +3,7 @@
    Sprite names are MOBD member indices into LEVELS/640/SPRITES.LVL. */
 #include "engine.h"
 #include "info.h"
+#include "kknd.h"
 
 const char *const sprnames[NUMSPRITES] = {
     "34",  /* UNIT_SURV_INFANTRY */
@@ -1035,7 +1036,7 @@ const gameinfo_t game_info = {
     NUMMOBJTYPES,
     S_NULL,
     RTS_STATE_COORDS_GROUND_OFFSET,
-    { .style = SELECTION_STYLE_CIRCLE },
-    NULL,
+    { .style = SELECTION_STYLE_DEFAULT },
+    KK_DrawUnitOverlays,
     .right_click_orders = false,
 };

@@ -301,3 +301,77 @@ Verification passed: full build, KKND suite and loader fixtures, and headless
 checks for KKND, Dark Colony, and Dark Reign. The corrected KKND screenshot was
 visually inspected; Dark Colony and Dark Reign screenshots are byte-identical
 to their before-fix baselines. Tags were regenerated.
+
+## Selection health bars and native UI search (2026-09-13)
+
+**Confirmed engine behavior:** the removed circle was drawn by the shared
+renderer, explicitly selected by KKND's `SELECTION_STYLE_CIRCLE` configuration.
+It was not a native KKND sprite. The user's supplied original-game screenshot
+shows framed health bars above selected units, without ground circles.
+
+**Confirmed OpenKrush implementation:** at the pinned revision above,
+`Mechanics/Ui/Traits/AdvancedSelectionDecorations.cs` selects the status-bar
+overlay and emits no additional selection outline. Its companion
+`Mechanics/Ui/Graphics/StatusBar.cs` draws rectangles, not an image asset:
+outer RGB (206,206,206), inset (16,16,16), green fill rows (0,255,0) and
+(0,181,0). The empty lower fill is (49,49,49); the empty upper row is gray.
+The health-only small variant is six pixels high, with a two-pixel inset;
+the big variant is seven high. `mods/openkrush/rules/core.yaml` specifies
+widths 16 for infantry, 32 for vehicles/towers, and 64 for buildings.
+
+**Native asset search, bounded result:** a temporary C diagnostic walked each
+animation's frame pointers and decoded its images using `decode_mobd_image`.
+The following offsets are relative to the DATA segment (file offset +8), in
+the same SHA-256 SPRITES.LVL documented above:
+
+| Member | Name | Member start | Pointer table | First frame | Frame references |
+| --- | --- | --- | --- | --- | --- |
+| 10 | Buttons | 559712 | 561932 | 562672 | 185 |
+| 17 | Cursors | 1548487 | 1549371 | 1549547 | 155 |
+| 22 | Extras | 1741072 | 1743256 | 1743704 | 392 |
+| 30 | Gui | 2377068 | 2377776 | 2377980 | 59 |
+
+Buttons, Cursors, and Gui contact sheets were visually inspected. No matching
+framed health-bar image was found there. Buttons frame references 167–170 are
+32x8 colored strips, but lack the screenshot's light-gray enclosing frame;
+reference 169 was also inspected enlarged. Cursors includes 82x18 segmented
+meters, which likewise do not match. Gui contains interface panels and menu
+labels. OpenKrush's Extras sequence definitions identify weapon effects,
+explosions, craters, and death sequences. These observations do **not** prove
+that no other native resource or executable drawing path exists; the original
+executable's health-bar implementation remains **unknown**.
+
+The gameplay loader rejects members 10, 17, and 30 because their pointer-table
+spans (740, 176, and 204 bytes) are not multiples of a sixteen-facing channel.
+That restriction must not be treated as absence of images. The diagnostic
+enumerated the animation frame lists directly, without synthesizing gameplay
+channels or registering UI images in `sprnames`. No runtime loader change was
+needed for the procedural bar. To reproduce the header evidence on this
+little-endian host, the first Buttons animation has timing 268435456, frame
+offset 562672, and terminator 0:
+
+```sh
+od -An -tu4 -j 559720 -N 12 data/KKND/LEVELS/640/SPRITES.LVL
+od -An -tu4 -j 562680 -N 28 data/KKND/LEVELS/640/SPRITES.LVL
+```
+
+**Implementation consequence:** KKND now overrides the engine overlay with a
+procedural health bar using the confirmed OpenKrush border/fill geometry and
+category widths. Selection alone enables it, including full health; dead and
+unselected objects have no selection bar. The fill remains green and shrinks
+with HP. Bars use the current sprite's screen bounds, as requested for this
+engine's presentation; OpenRA's separate mouse bounds, YAML placement offsets,
+damage-state colors, and extra oil/research/veterancy rows are not ported or
+claimed as reproduced retail behavior. Existing product categories supply the
+widths without authoring another per-unit mapping.
+
+The engine default is now a green sprite-bounds rectangle plus a health bar;
+7th Legion uses that default. Games can replace both through `draw_overlays`,
+whose context now includes the sprite bounds. Dark Colony's native sprite
+overlay and Dark Reign's configured brackets remain their game overrides.
+Full/reduced-health previews and a selected KKND scene were inspected headlessly.
+
+Verification: full build and generated-file consistency checks, all four game
+test suites, all four headless smoke checks, and regenerated tags. Three
+existing Dark Colony synthetic rendering fixtures omitted their FIN coordinate
+mode; that omission was corrected so they exercise the intended renderer path.
