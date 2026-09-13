@@ -6,8 +6,9 @@
       "type": "shell",
       "command": "make",
       "args": [
-        "dark-colony-human02"
+        // "dark-colony-human02"
         // "dark-colony"
+        "dark-reign"
       ],
       "group": {
         "kind": "build",

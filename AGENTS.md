@@ -223,6 +223,25 @@ Key patterns to follow from that lineage:
 - **Gametic / ticrate** — decouple simulation tics from render frames
 - **Lock-step networking** — exchange input commands per tic, never game state
 
+### HUD and sidebar (`sb_bar.c` pattern)
+
+The sidebar/HUD follows Doom's `st_bar.c` ancestry.  Full design is in
+`ARCHITECTURE.md` § "HUD and sidebar architecture"; the quick rules are:
+
+- **`hud/`** owns the generic lifecycle (`SB_Init/Responder/Ticker/Drawer/Shutdown`),
+  the icon-palette grid (`sb_palette.c`), and the text-list fallback (`sb_prod.c`).
+  `hud/ui_definition.h` defines `uidefinition_t`.
+- **`games/<game>/g_game.c`** fills `const uidefinition_t *const gameui` with the
+  game's layout rects, BMP asset list, and `uiproduct_t`/`uicategory_t`/`uiaction_t`
+  tables.  This is the data-only path; no custom drawing code is needed.
+- **`games/<game>/sb_bar.c`** (optional) implements the `G_CustomUI*` hooks for a
+  fully custom sidebar.  Dark Colony uses this; Dark Reign/KKnD/7th Legion do not.
+- New product rows with icons: `games/<game>/p_prod.c` (gameplay) plus a matching
+  `uiproduct_t` entry in the `products[]` array in `g_game.c` (icon sprite path).
+- New engine-wide sidebar capability: add a field to `uidefinition_t` and handle it
+  in `hud/sb_bar.c` or `hud/sb_palette.c`.  Never put generic widget logic in a
+  per-game file.
+
 ### Standing refactoring rule: move closer to Doom at every opportunity
 
 Whenever work exposes a difference between our code and Doom, treat it as an

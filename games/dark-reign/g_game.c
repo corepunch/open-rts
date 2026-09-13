@@ -77,14 +77,57 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
                                         spritecache_t *cache);
 
 static const uiimage_t DARK_REIGN_UI_IMAGES[] = {
-    { "graphics/INTFACE/IGI/TOPBTNS.BMP", {   0, 0, 126, 32 }, {   0,   0, 126,  32 } },
-    { "graphics/INTFACE/IGI/TOPBITS.BMP", {   0, 0, 154, 32 }, { 126,   0, 154,  32 } },
-    { "graphics/INTFACE/IGI/TOPBTNS.BMP", { 126, 0, 168, 32 }, { 280,   0, 168,  32 } },
-    { "graphics/INTFACE/IGI/MFDBTNS.BMP", {   0, 0, 192, 64 }, { 448,   0, 192,  64 } },
-    { "graphics/INTFACE/IGI/MFDBAC1.BMP", {   0, 0, 192,278 }, { 448,  64, 192, 278 } },
-    { "graphics/INTFACE/IGI/BUBLDBIT.BMP",{   0, 0, 192, 28 }, { 448, 314, 192,  28 } },
-    { "graphics/INTFACE/IGI/MINIMAP.BMP", {   0, 0, 140,138 }, { 448, 342, 140, 138 } },
-    { "graphics/INTFACE/IGI/RESOBARS.BMP",{   0, 0,  52,104 }, { 588, 376,  52, 104 } },
+    { "graphics/INTFACE/IGI/TOPBTNS.BMP", {   0, 0, 126, 32 }, {   0,   0, 126,  32 } }, /* 0 */
+    { "graphics/INTFACE/IGI/TOPBITS.BMP", {   0, 0, 154, 32 }, { 126,   0, 154,  32 } }, /* 1 */
+    { "graphics/INTFACE/IGI/TOPBTNS.BMP", { 126, 0, 168, 32 }, { 280,   0, 168,  32 } }, /* 2 */
+    { "graphics/INTFACE/IGI/MFDBTNS.BMP", {   0, 0, 192, 64 }, { 448,   0, 192,  64 } }, /* 3 */
+    { "graphics/INTFACE/IGI/MFDBAC1.BMP", {   0, 0, 192,278 }, { 448,  64, 192, 278 } }, /* 4 */
+    { "graphics/INTFACE/IGI/BUBLDBIT.BMP",{   0, 0, 192, 28 }, { 448, 314, 192,  28 } }, /* 5 */
+    { "graphics/INTFACE/IGI/MINIMAP.BMP", {   0, 0, 140,138 }, { 448, 342, 140, 138 } }, /* 6 */
+    { "graphics/INTFACE/IGI/RESOBARS.BMP",{   0, 0,  52,104 }, { 588, 376,  52, 104 } }, /* 7 */
+};
+
+/* Categories: BUILD=all buildings, COMMS=infantry, MENU=vehicles.
+   Each maps to one 64x32 cell in row 1 of MFDBTNS.BMP (image 3, 192x64). */
+static const uicategory_t DARK_REIGN_UI_CATEGORIES[] = {
+    { "BUILD",    { 448, 0, 64, 32 }, 3, {   0, 0, 64, 32 } },
+    { "COMMS",    { 512, 0, 64, 32 }, 3, {  64, 0, 64, 32 } },
+    { "Vehicles", { 576, 0, 64, 32 }, 3, { 128, 0, 64, 32 } },
+};
+
+/* ORDERS=Stop, PATHS=Move, SPECIAL=Attack — row 2 of MFDBTNS.BMP. */
+static const uiaction_t DARK_REIGN_UI_ACTIONS[] = {
+    { "Stop",   UI_STOP,   { 448, 32, 64, 32 }, 3, {   0, 32, 64, 32 }, 0 },
+    { "Move",   UI_MOVE,   { 512, 32, 64, 32 }, 3, {  64, 32, 64, 32 }, 0 },
+    { "Attack", UI_ATTACK, { 576, 32, 64, 32 }, 3, { 128, 32, 64, 32 }, 0 },
+};
+
+/* Products: categories 0-2 match DARK_REIGN_UI_CATEGORIES above.
+   Sprites are menu icons from the FTG archive (loaded via G_LoadMenuSprite).
+   Upgraded buildings (HQ2/3, Adv Barracks, etc.) stay in BUILD (cat 0) so
+   the second row is free for action buttons and no category overlaps them. */
+static const uiproduct_t DARK_REIGN_UI_PRODUCTS[] = {
+    /* BUILD: all buildings and Construction Rig */
+    { 10001, 0, "bfhqtmn0.spr" }, { 10002, 0, "bfhqtmn1.spr" }, { 10003, 0, "bfhqtmn2.spr" },
+    { 10004, 0, "bfutfmn0.spr" }, { 10005, 0, "bfutfmn1.spr" },
+    { 10006, 0, "bfvcymn0.spr" }, { 10007, 0, "bfvcymn1.spr" },
+    { 10008, 0, "bfhspmn0.spr" }, { 10009, 0, "bfrepmn0.spr" },
+    { 10010, 0, "bccammn0.spr" }, { 10011, 0, "bfrrmmn0.spr" },
+    { 10012, 0, "bfaarmn0.spr" }, { 10013, 0, "bfgdtmn0.spr" }, { 10014, 0, "bfagtmn0.spr" },
+    { 10015, 0, "bfphfmn0.spr" }, { 10016, 0, "bfphfmn1.spr" },
+    { 10019, 0, "bclncmn0.spr" }, { 10020, 0, "bcpowmn0.spr" },
+    { 10040, 0, "bcsbhmn0.spr" }, { 10041, 0, "bcsbvmn0.spr" }, { 10042, 0, "bcsbcmn0.spr" },
+    {    11, 0, "ucfcnmn0.spr" },
+    /* COMMS: infantry */
+    {  9, 1, "ufradmn0.spr" }, { 10, 1, "ufmrcmn0.spr" }, {  8, 1, "ufsnpmn0.spr" },
+    {  6, 1, "ufsctmn0.spr" }, {  7, 1, "ufmedmn0.spr" }, {  3, 1, "ufsabmn0.spr" },
+    {  2, 1, "ufmecmn0.spr" }, {  5, 1, "ufmtrmn0.spr" }, {  4, 1, "ucinfmn0.spr" },
+    /* Vehicles */
+    {  1, 2, "ufspbmn0.spr" }, { 15, 2, "ufratmn0.spr" }, { 20, 2, "ufsktmn0.spr" },
+    { 17, 2, "ufthnmn0.spr" }, { 21, 2, "ufphtmn0.spr" }, { 12, 2, "ufflkmn0.spr" },
+    { 16, 2, "uftrtmn0.spr" }, { 19, 2, "uffarmn0.spr" }, { 23, 2, "ufskbmn0.spr" },
+    { 24, 2, "ufoutmn0.spr" }, { 18, 2, "ufswvmn0.spr" }, { 30, 2, "ucwcomn0.spr" },
+    { 13, 2, "ucfrgmn0.spr" }, { 14, 2, "uchfrmn0.spr" },
 };
 
 static const uidefinition_t DARK_REIGN_UI = {
@@ -95,12 +138,19 @@ static const uidefinition_t DARK_REIGN_UI = {
     .command_grid = { 450, 66, 188, 246 },
     .command_columns = 3,
     .command_rows = 4,
+    .icon_size = { 62, 61 },
     .resources = {
         [0] = { .text = { 216, 5 }, .color = { 55, 242, 238, 255 } },
     },
     .resource_count = 1,
     .images = DARK_REIGN_UI_IMAGES,
     .image_count = (int)(sizeof(DARK_REIGN_UI_IMAGES) / sizeof(DARK_REIGN_UI_IMAGES[0])),
+    .products = DARK_REIGN_UI_PRODUCTS,
+    .product_count = (int)(sizeof(DARK_REIGN_UI_PRODUCTS) / sizeof(DARK_REIGN_UI_PRODUCTS[0])),
+    .categories = DARK_REIGN_UI_CATEGORIES,
+    .category_count = (int)(sizeof(DARK_REIGN_UI_CATEGORIES) / sizeof(DARK_REIGN_UI_CATEGORIES[0])),
+    .actions = DARK_REIGN_UI_ACTIONS,
+    .action_count = (int)(sizeof(DARK_REIGN_UI_ACTIONS) / sizeof(DARK_REIGN_UI_ACTIONS[0])),
 };
 
 const uidefinition_t *const gameui = &DARK_REIGN_UI;

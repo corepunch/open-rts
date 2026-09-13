@@ -475,6 +475,82 @@ and a declarative UI script. This lets the interactive renderer, tests, or a
 future network/client frontend consume the same simulation without reaching into
 plugin internals.
 
+### HUD and sidebar architecture
+
+The HUD follows the Doom `sb_bar.c` / `st_bar.c` family: a shared engine
+sidebar handles the generic lifecycle, and each game plugin fills in data or
+overrides drawing through well-defined hooks.
+
+```text
+hud/
+  ui_definition.h   uidefinition_t  — layout/asset description filled by the game
+  sb_bar.c          SB_Init/Start/Responder/Ticker/Drawer/Shutdown  — shared lifecycle
+  sb_palette.c      SB_PaletteDrawer/Responder  — icon-grid production panel
+  sb_prod.c         SB_ProductionDrawer/Responder  — text-list fallback + SB_DrawText
+
+games/<game>/
+  g_game.c          const uidefinition_t *const gameui  — game supplies this extern
+                    G_CustomUI* stubs (all no-ops unless the game needs custom drawing)
+  sb_bar.c          (optional) full custom sidebar — see Dark Colony below
+```
+
+**`uidefinition_t`** (`hud/ui_definition.h`) is the contract between a game
+plugin and the engine sidebar.  It describes:
+- logical screen dimensions and world viewport rectangle;
+- positions of the minimap, resource counters, and command grid;
+- BMP/image layers loaded and blitted verbatim as the chrome background;
+- category tabs, action buttons, and product icon definitions used by the
+  palette drawer when `product_count > 0`.
+
+**Two patterns for per-game UI:**
+
+1. **Data-only (Dark Reign, KKnD, 7th Legion).**
+   The game defines `gameui` as a static `uidefinition_t` in `g_game.c`,
+   populating images, categories, products, actions, icon sizes, and layout
+   rects.  The shared `SB_*` functions handle all drawing and input.
+   `G_CustomUI*` functions in `g_game.c` are stubs that return NULL/false/void.
+   Add a `games/<game>/g_game.c` entry for layout changes; add or change product
+   rows in `games/<game>/p_prod.c`.
+
+2. **Custom sidebar (Dark Colony).**
+   `games/dark-colony/sb_bar.c` implements the full `G_InitCustomUI`,
+   `G_CustomUIDrawer`, `G_CustomUIResponder`, `G_CustomUITicker`,
+   `G_UpdateProduction`, and `G_ShutdownCustomUI` hooks.  The driver skips
+   `SB_ProductionDrawer` when `G_InitCustomUI` returns a non-NULL pointer,
+   delegating all production and sidebar drawing to the game's own code.
+   Use this pattern only when the native UI cannot be expressed through
+   `uidefinition_t` fields — for example, Dark Colony's scripted MAINE-derived
+   button layout and animated selection panel.
+
+**Hook call sites in `driver/d_main.c`:**
+
+```text
+SB_Init(gameui)               — on load: loads BMP layers and FTG product icons
+G_InitCustomUI()              — on load: game allocates custom sidebar state (or NULL)
+  event loop:
+    SB_ProductionResponder    — if no custom_ui and gameui->product_count > 0
+    G_CustomUIResponder       — always
+    SB_Responder              — always (minimap, category tabs, generic clicks)
+  tick:
+    SB_Ticker / G_CustomUITicker
+    G_UpdateProduction        — custom_ui only: spawns completed units/buildings
+  draw:
+    G_CustomUIDrawer          — always (no-op when custom_ui is NULL)
+    SB_Drawer                 — always (background images, minimap, resource counters)
+    SB_ProductionDrawer       — if no custom_ui (palette grid or text fallback)
+G_ShutdownCustomUI / SB_Shutdown — on unload
+```
+
+**Where to put new UI code:**
+
+| What you are adding | Where it goes |
+|---|---|
+| Layout rects, BMP asset list, icon/category/action definitions | `games/<game>/g_game.c` — extend the `uidefinition_t` constant |
+| New product rows with icons | `games/<game>/p_prod.c` (gameplay) + `games/<game>/g_game.c` `products[]` (icon path) |
+| Game-specific drawing that fits no existing field | `games/<game>/sb_bar.c` implementing the `G_CustomUI*` hooks |
+| Engine-wide sidebar capability (new widget type, new state) | `hud/sb_bar.c` or `hud/sb_palette.c` — keep it generic and driven by `uidefinition_t` fields |
+| Font loading, message display, HUD text | `hud/` — `HU_*` functions in the existing font/message code |
+
 ## Determinism and future networking
 
 Simulation state is advanced from commands and ticks. The intended multiplayer
