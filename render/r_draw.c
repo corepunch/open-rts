@@ -16,26 +16,22 @@ static int app_cell_h(const app_t *app) {
 
 static float viewport_scale_x(const app_t *app) {
     int window_w = 0, window_h = 0;
-    int render_w = 0, render_h = 0;
     if (!app || !app->window || !app->renderer) return 1.0f;
     SDL_GetWindowSize(app->window, &window_w, &window_h);
-    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
-        window_w <= 0 || window_h <= 0 || render_w <= 0 || render_h <= 0) {
+    if (window_w <= 0 || app->win.w <= 0) {
         return 1.0f;
     }
-    return (float)render_w / (float)window_w;
+    return (float)app->win.w / (float)window_w;
 }
 
 static float viewport_scale_y(const app_t *app) {
     int window_w = 0, window_h = 0;
-    int render_w = 0, render_h = 0;
     if (!app || !app->window || !app->renderer) return 1.0f;
     SDL_GetWindowSize(app->window, &window_w, &window_h);
-    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
-        window_w <= 0 || window_h <= 0 || render_w <= 0 || render_h <= 0) {
+    if (window_h <= 0 || app->win.h <= 0) {
         return 1.0f;
     }
-    return (float)render_h / (float)window_h;
+    return (float)app->win.h / (float)window_h;
 }
 
 static int app_tile_w(const app_t *app, const tileset_t *tileset) {
@@ -117,6 +113,11 @@ static void screen_to_map_grid_point(const app_t *app, const level_t *map, int s
 
 void R_RefreshViewport(app_t *app) {
     if (!app || !app->window || !app->renderer) return;
+    SDL_Texture *target = SDL_GetRenderTarget(app->renderer);
+    if (target) {
+        SDL_QueryTexture(target, NULL, NULL, &app->win.w, &app->win.h);
+        return;
+    }
     int render_w = 0, render_h = 0;
     if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
         render_w <= 0 || render_h <= 0) {

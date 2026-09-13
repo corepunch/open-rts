@@ -16,7 +16,7 @@ static bool sdl_renderer_create(renderer_t *renderer, const char *title, int wid
     renderer->height = height;
     Uint32 window_flags = SDL_WINDOW_RESIZABLE | (hidden ? SDL_WINDOW_HIDDEN : 0);
     renderer->window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                        width, height, window_flags);
+                                        width * 2, height * 2, window_flags);
     Uint32 renderer_flags = software ? SDL_RENDERER_SOFTWARE :
                                       (SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     renderer->sdl = renderer->window ? SDL_CreateRenderer(renderer->window, -1, renderer_flags) : NULL;
@@ -29,13 +29,27 @@ static bool sdl_renderer_create(renderer_t *renderer, const char *title, int wid
         return false;
     }
 
+    /* Scale the completed native frame, including destination-pixel effects. */
+    renderer->framebuffer = SDL_CreateTexture(renderer->sdl, SDL_PIXELFORMAT_ARGB8888,
+                                               SDL_TEXTUREACCESS_TARGET, width, height);
+    if (!renderer->framebuffer ||
+        SDL_SetTextureScaleMode(renderer->framebuffer, SDL_ScaleModeNearest) != 0 ||
+        SDL_SetRenderTarget(renderer->sdl, renderer->framebuffer) != 0) {
+        fprintf(stderr, "SDL framebuffer: %s\n", SDL_GetError());
+        if (renderer->framebuffer) SDL_DestroyTexture(renderer->framebuffer);
+        SDL_DestroyRenderer(renderer->sdl);
+        SDL_DestroyWindow(renderer->window);
+        SDL_Quit();
+        memset(renderer, 0, sizeof(*renderer));
+        return false;
+    }
     SDL_SetRenderDrawBlendMode(renderer->sdl, SDL_BLENDMODE_BLEND);
-    SDL_GetRendererOutputSize(renderer->sdl, &renderer->width, &renderer->height);
     return true;
 }
 
 static void sdl_renderer_destroy(renderer_t *renderer) {
     R_FreeSpriteBuffer();
+    if (renderer->framebuffer) SDL_DestroyTexture(renderer->framebuffer);
     if (renderer->sdl) SDL_DestroyRenderer(renderer->sdl);
     if (renderer->window) SDL_DestroyWindow(renderer->window);
     SDL_Quit();
@@ -47,11 +61,24 @@ static void sdl_renderer_begin_frame(renderer_t *renderer, SDL_Color clear) {
     SDL_RenderClear(renderer->sdl);
 }
 
+static bool sdl_renderer_copy_frame(renderer_t *renderer) {
+    if (SDL_SetRenderTarget(renderer->sdl, NULL) != 0 ||
+        SDL_RenderCopy(renderer->sdl, renderer->framebuffer, NULL, NULL) != 0) {
+        fprintf(stderr, "SDL frame presentation: %s\n", SDL_GetError());
+        SDL_SetRenderTarget(renderer->sdl, renderer->framebuffer);
+        return false;
+    }
+    return true;
+}
+
 static void sdl_renderer_end_frame(renderer_t *renderer) {
+    if (!sdl_renderer_copy_frame(renderer)) return;
     SDL_RenderPresent(renderer->sdl);
+    SDL_SetRenderTarget(renderer->sdl, renderer->framebuffer);
 }
 
 static bool sdl_renderer_save_screenshot(renderer_t *renderer, const char *path) {
+    if (!sdl_renderer_copy_frame(renderer)) return false;
     int width = renderer->width;
     int height = renderer->height;
     SDL_GetRendererOutputSize(renderer->sdl, &width, &height);
@@ -63,6 +90,7 @@ static bool sdl_renderer_save_screenshot(renderer_t *renderer, const char *path)
                                                           32, SDL_PIXELFORMAT_ARGB8888);
     if (!surface) {
         fprintf(stderr, "SDL_CreateRGBSurfaceWithFormat: %s\n", SDL_GetError());
+        SDL_SetRenderTarget(renderer->sdl, renderer->framebuffer);
         return false;
     }
 
@@ -76,6 +104,7 @@ static bool sdl_renderer_save_screenshot(renderer_t *renderer, const char *path)
         ok = true;
     }
     SDL_FreeSurface(surface);
+    SDL_SetRenderTarget(renderer->sdl, renderer->framebuffer);
     return ok;
 }
 

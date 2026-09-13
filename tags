@@ -1928,6 +1928,7 @@ frames	tools/dc_info_conv/main.c	/^    const unsigned char *labels, *frames, *co
 frames	tools/dc_info_gen.c	/^    fin_frame_t frames[MAX_FIN_FRAMES];$/;"	m	struct:__anon292f5ac10308	typeref:typename:fin_frame_t[]	file:
 frameskip	driver/d_net.c	/^static int skiptics, frameon, frameskip[4], oldnettics;$/;"	v	typeref:typename:int[4]	file:
 frect_contains	driver/m_vec.h	/^static inline bool frect_contains(frect_t rect, fvec2_t point) {$/;"	f	typeref:typename:bool	signature:(frect_t rect,fvec2_t point)
+framebuffer	interface/renderer.h	/^    SDL_Texture *framebuffer;$/;"	m	struct:renderer_s	typeref:typename:SDL_Texture *
 frect_from_points	driver/m_vec.h	/^static inline frect_t frect_from_points(fvec2_t a, fvec2_t b) {$/;"	f	typeref:typename:frect_t	signature:(fvec2_t a,fvec2_t b)
 frect_intersects	driver/m_vec.h	/^static inline bool frect_intersects(frect_t a, frect_t b) {$/;"	f	typeref:typename:bool	signature:(frect_t a,frect_t b)
 frect_t	driver/m_vec.h	/^typedef SDL_FRect frect_t;$/;"	t	typeref:typename:SDL_FRect
@@ -2761,6 +2762,7 @@ renderer_save_screenshot	interface/i_video.c	/^bool renderer_save_screenshot(ren
 renderer_save_screenshot	interface/renderer.h	/^bool renderer_save_screenshot(renderer_t *renderer, const char *path);$/;"	p	typeref:typename:bool	signature:(renderer_t * renderer,const char * path)
 renderer_t	interface/renderer.h	/^typedef struct renderer_s renderer_t;$/;"	t	typeref:struct:renderer_s
 rendererbackend_s	interface/renderer.h	/^typedef struct rendererbackend_s {$/;"	s
+renderer_s::framebuffer	interface/renderer.h	/^    SDL_Texture *framebuffer;$/;"	m	struct:renderer_s	typeref:typename:SDL_Texture *
 rendererbackend_s::begin_frame	interface/renderer.h	/^    void (*begin_frame)(renderer_t *renderer, SDL_Color clear);$/;"	m	struct:rendererbackend_s	typeref:typename:void (*)(renderer_t * renderer,SDL_Color clear)
 rendererbackend_s::create	interface/renderer.h	/^    bool (*create)(renderer_t *renderer, const char *title, int width, int height,$/;"	m	struct:rendererbackend_s	typeref:typename:bool (*)(renderer_t * renderer,const char * title,int width,int height,bool hidden,bool software)
 rendererbackend_s::destroy	interface/renderer.h	/^    void (*destroy)(renderer_t *renderer);$/;"	m	struct:rendererbackend_s	typeref:typename:void (*)(renderer_t * renderer)
@@ -2857,6 +2859,7 @@ select_unit_index	game/g_game.h	/^        } select_unit_index;$/;"	m	union:__ano
 selected	game/g_game.h	/^    bool selected;$/;"	m	struct:__anon42a104c41008	typeref:typename:bool
 selected_producer	hud/sb_prod.c	/^static mobj_t *selected_producer(void) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(void)
 selection_health_bucket	render/r_draw.c	/^static int selection_health_bucket(const mobj_t *u) {$/;"	f	typeref:typename:int	file:	signature:(const mobj_t * u)
+sdl_renderer_copy_frame	interface/i_video.c	/^static bool sdl_renderer_copy_frame(renderer_t *renderer) {$/;"	f	typeref:typename:bool	file:	signature:(renderer_t * renderer)
 selection_health_tint	render/r_draw.c	/^static SDL_Color selection_health_tint(int bucket) {$/;"	f	typeref:typename:SDL_Color	file:	signature:(int bucket)
 selection_marker	play/actor.h	/^    selectionmarker_t selection_marker;$/;"	m	struct:gameinfo_s	typeref:typename:selectionmarker_t
 selection_rect	driver/app.h	/^    irect_t selection_rect;$/;"	m	struct:app_s	typeref:typename:irect_t

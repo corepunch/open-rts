@@ -4,6 +4,9 @@
 currently wired to the original data files from Dark Reign: The Future of War,
 Dark Colony, 7th Legion, and KKnD.
 
+Games start in a 1280×960 window, displaying the native 640×480 frame at 2×
+pixel size with nearest-neighbor scaling. Resizing the window scales the frame.
+
 ## Why open-rts exists
 
 This is a preservation engine, not a general-purpose game-construction kit. Its
