@@ -1,5 +1,5 @@
-#ifndef M_VEC_H
-#define M_VEC_H
+#ifndef __M_VEC__
+#define __M_VEC__
 
 #include <SDL.h>
 #include <limits.h>
@@ -45,6 +45,9 @@ static inline bool fvec2_near(fvec2_t a, fvec2_t b, float epsilon) {
 }
 static inline fvec2_t fvec2_cell_center(ivec2_t cell) {
     return (fvec2_t){ (float)cell.x + 0.5f, (float)cell.y + 0.5f };
+}
+static inline ivec2_t fvec2_cell(fvec2_t value) {
+    return (ivec2_t){ (int)floorf(value.x), (int)floorf(value.y) };
 }
 static inline ivec2_t ivec2_add(ivec2_t a, ivec2_t b) {
     return (ivec2_t){ a.x + b.x, a.y + b.y };

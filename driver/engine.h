@@ -111,6 +111,7 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type);
 bool P_SetMobjState(mobj_t *unit, int state_id);
 bool P_TickMobjState(mobj_t *unit);
 bool P_Attack(mobj_t *attacker);
+void P_DamageMobj(mobj_t *target, mobj_t *source, int damage);
 angle_t P_PointToAngle(float dx, float dy);
 void P_AngleToVec(angle_t angle, float *dx, float *dy);
 void P_Ticker(void);

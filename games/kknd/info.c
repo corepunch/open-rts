@@ -63,6 +63,7 @@ const char *const sprnames[NUMSPRITES] = {
     "61",  /* UNIT_MUTE_ROTARYCANNON */
     "83",  /* UNIT_SURV_BOMBER */
     "82",  /* UNIT_MUTE_WASP */
+    "22",  /* Extras: muzzle flashes, deaths, explosions */
 };
 
 const char *const cplc_names[NUMMOBJTYPES] = {
@@ -137,10 +138,11 @@ const state_t states[NUMSTATES] = {
     { SPR_SURV_RIFLEMAN, 8, 4, NULL, S_SURV_RIFLEMAN_WALK5, 2 },  /* S_SURV_RIFLEMAN_WALK4 */
     { SPR_SURV_RIFLEMAN, 9, 4, NULL, S_SURV_RIFLEMAN_WALK6, 2 },  /* S_SURV_RIFLEMAN_WALK5 */
     { SPR_SURV_RIFLEMAN, 10, 4, NULL, S_SURV_RIFLEMAN_WALK1, 2 },  /* S_SURV_RIFLEMAN_WALK6 */
-    { SPR_SURV_RIFLEMAN, 1, 4, A_Attack, S_SURV_RIFLEMAN_ATCK2, 3 },  /* S_SURV_RIFLEMAN_ATCK1 */
+    { SPR_SURV_RIFLEMAN, 11, 2, A_Attack, S_SURV_RIFLEMAN_FLASH2, 3 },  /* S_SURV_RIFLEMAN_ATCK1 */
     { SPR_SURV_RIFLEMAN, 2, 4, NULL, S_SURV_RIFLEMAN_ATCK3, 3 },  /* S_SURV_RIFLEMAN_ATCK2 */
     { SPR_SURV_RIFLEMAN, 3, 4, NULL, S_SURV_RIFLEMAN_ATCK4, 3 },  /* S_SURV_RIFLEMAN_ATCK3 */
     { SPR_SURV_RIFLEMAN, 4, 4, NULL, S_SURV_RIFLEMAN_STND, 3 },  /* S_SURV_RIFLEMAN_ATCK4 */
+    { SPR_SURV_RIFLEMAN, 12, 2, NULL, S_SURV_RIFLEMAN_ATCK2, 3 },  /* S_SURV_RIFLEMAN_FLASH2 */
     { SPR_SURV_FLAMER, 0, 5, A_Chase, S_SURV_FLAMER_STND, 0 },  /* S_SURV_FLAMER_STND */
     { SPR_SURV_FLAMER, 5, 4, NULL, S_SURV_FLAMER_WALK2, 2 },  /* S_SURV_FLAMER_WALK1 */
     { SPR_SURV_FLAMER, 6, 4, NULL, S_SURV_FLAMER_WALK3, 2 },  /* S_SURV_FLAMER_WALK2 */
@@ -183,10 +185,11 @@ const state_t states[NUMSTATES] = {
     { SPR_SURV_SABOTEUR, 8, 4, NULL, S_SURV_SABOTEUR_WALK5, 2 },  /* S_SURV_SABOTEUR_WALK4 */
     { SPR_SURV_SABOTEUR, 9, 4, NULL, S_SURV_SABOTEUR_WALK6, 2 },  /* S_SURV_SABOTEUR_WALK5 */
     { SPR_SURV_SABOTEUR, 10, 4, NULL, S_SURV_SABOTEUR_WALK1, 2 },  /* S_SURV_SABOTEUR_WALK6 */
-    { SPR_SURV_SABOTEUR, 1, 4, A_Attack, S_SURV_SABOTEUR_ATCK2, 3 },  /* S_SURV_SABOTEUR_ATCK1 */
+    { SPR_SURV_SABOTEUR, 11, 2, A_Attack, S_SURV_SABOTEUR_FLASH2, 3 },  /* S_SURV_SABOTEUR_ATCK1 */
     { SPR_SURV_SABOTEUR, 2, 4, NULL, S_SURV_SABOTEUR_ATCK3, 3 },  /* S_SURV_SABOTEUR_ATCK2 */
     { SPR_SURV_SABOTEUR, 3, 4, NULL, S_SURV_SABOTEUR_ATCK4, 3 },  /* S_SURV_SABOTEUR_ATCK3 */
     { SPR_SURV_SABOTEUR, 4, 4, NULL, S_SURV_SABOTEUR_STND, 3 },  /* S_SURV_SABOTEUR_ATCK4 */
+    { SPR_SURV_SABOTEUR, 12, 2, NULL, S_SURV_SABOTEUR_ATCK2, 3 },  /* S_SURV_SABOTEUR_FLASH2 */
     { SPR_SURV_TECHNICIAN, 0, 5, A_Chase, S_SURV_TECHNICIAN_STND, 0 },  /* S_SURV_TECHNICIAN_STND */
     { SPR_SURV_TECHNICIAN, 1, 4, NULL, S_SURV_TECHNICIAN_WALK2, 2 },  /* S_SURV_TECHNICIAN_WALK1 */
     { SPR_SURV_TECHNICIAN, 2, 4, NULL, S_SURV_TECHNICIAN_WALK3, 2 },  /* S_SURV_TECHNICIAN_WALK2 */
@@ -213,10 +216,11 @@ const state_t states[NUMSTATES] = {
     { SPR_SURV_SNIPER, 8, 4, NULL, S_SURV_SNIPER_WALK5, 2 },  /* S_SURV_SNIPER_WALK4 */
     { SPR_SURV_SNIPER, 9, 4, NULL, S_SURV_SNIPER_WALK6, 2 },  /* S_SURV_SNIPER_WALK5 */
     { SPR_SURV_SNIPER, 10, 4, NULL, S_SURV_SNIPER_WALK1, 2 },  /* S_SURV_SNIPER_WALK6 */
-    { SPR_SURV_SNIPER, 1, 4, A_Attack, S_SURV_SNIPER_ATCK2, 3 },  /* S_SURV_SNIPER_ATCK1 */
+    { SPR_SURV_SNIPER, 11, 2, A_Attack, S_SURV_SNIPER_FLASH2, 3 },  /* S_SURV_SNIPER_ATCK1 */
     { SPR_SURV_SNIPER, 2, 4, NULL, S_SURV_SNIPER_ATCK3, 3 },  /* S_SURV_SNIPER_ATCK2 */
     { SPR_SURV_SNIPER, 3, 4, NULL, S_SURV_SNIPER_ATCK4, 3 },  /* S_SURV_SNIPER_ATCK3 */
     { SPR_SURV_SNIPER, 4, 4, NULL, S_SURV_SNIPER_STND, 3 },  /* S_SURV_SNIPER_ATCK4 */
+    { SPR_SURV_SNIPER, 12, 2, NULL, S_SURV_SNIPER_ATCK2, 3 },  /* S_SURV_SNIPER_FLASH2 */
     { SPR_MUTE_BERSERKER, 1, 5, A_Chase, S_MUTE_BERSERKER_STND, 0 },  /* S_MUTE_BERSERKER_STND */
     { SPR_MUTE_BERSERKER, 6, 4, NULL, S_MUTE_BERSERKER_WALK2, 2 },  /* S_MUTE_BERSERKER_WALK1 */
     { SPR_MUTE_BERSERKER, 7, 4, NULL, S_MUTE_BERSERKER_WALK3, 2 },  /* S_MUTE_BERSERKER_WALK2 */
@@ -246,11 +250,12 @@ const state_t states[NUMSTATES] = {
     { SPR_MUTE_SHOTGUNNER, 9, 4, NULL, S_MUTE_SHOTGUNNER_WALK5, 2 },  /* S_MUTE_SHOTGUNNER_WALK4 */
     { SPR_MUTE_SHOTGUNNER, 10, 4, NULL, S_MUTE_SHOTGUNNER_WALK6, 2 },  /* S_MUTE_SHOTGUNNER_WALK5 */
     { SPR_MUTE_SHOTGUNNER, 11, 4, NULL, S_MUTE_SHOTGUNNER_WALK1, 2 },  /* S_MUTE_SHOTGUNNER_WALK6 */
-    { SPR_MUTE_SHOTGUNNER, 1, 4, A_Attack, S_MUTE_SHOTGUNNER_ATCK2, 3 },  /* S_MUTE_SHOTGUNNER_ATCK1 */
+    { SPR_MUTE_SHOTGUNNER, 12, 2, A_Attack, S_MUTE_SHOTGUNNER_FLASH2, 3 },  /* S_MUTE_SHOTGUNNER_ATCK1 */
     { SPR_MUTE_SHOTGUNNER, 2, 4, NULL, S_MUTE_SHOTGUNNER_ATCK3, 3 },  /* S_MUTE_SHOTGUNNER_ATCK2 */
     { SPR_MUTE_SHOTGUNNER, 3, 4, NULL, S_MUTE_SHOTGUNNER_ATCK4, 3 },  /* S_MUTE_SHOTGUNNER_ATCK3 */
     { SPR_MUTE_SHOTGUNNER, 4, 4, NULL, S_MUTE_SHOTGUNNER_ATCK5, 3 },  /* S_MUTE_SHOTGUNNER_ATCK4 */
     { SPR_MUTE_SHOTGUNNER, 5, 4, NULL, S_MUTE_SHOTGUNNER_STND, 3 },  /* S_MUTE_SHOTGUNNER_ATCK5 */
+    { SPR_MUTE_SHOTGUNNER, 13, 2, NULL, S_MUTE_SHOTGUNNER_ATCK2, 3 },  /* S_MUTE_SHOTGUNNER_FLASH2 */
     { SPR_MUTE_RIOTER, 0, 5, A_Chase, S_MUTE_RIOTER_STND, 0 },  /* S_MUTE_RIOTER_STND */
     { SPR_MUTE_RIOTER, 7, 4, NULL, S_MUTE_RIOTER_WALK2, 2 },  /* S_MUTE_RIOTER_WALK1 */
     { SPR_MUTE_RIOTER, 8, 4, NULL, S_MUTE_RIOTER_WALK3, 2 },  /* S_MUTE_RIOTER_WALK2 */
@@ -271,10 +276,11 @@ const state_t states[NUMSTATES] = {
     { SPR_MUTE_VANDAL, 8, 4, NULL, S_MUTE_VANDAL_WALK5, 2 },  /* S_MUTE_VANDAL_WALK4 */
     { SPR_MUTE_VANDAL, 9, 4, NULL, S_MUTE_VANDAL_WALK6, 2 },  /* S_MUTE_VANDAL_WALK5 */
     { SPR_MUTE_VANDAL, 10, 4, NULL, S_MUTE_VANDAL_WALK1, 2 },  /* S_MUTE_VANDAL_WALK6 */
-    { SPR_MUTE_VANDAL, 1, 4, A_Attack, S_MUTE_VANDAL_ATCK2, 3 },  /* S_MUTE_VANDAL_ATCK1 */
+    { SPR_MUTE_VANDAL, 11, 2, A_Attack, S_MUTE_VANDAL_FLASH2, 3 },  /* S_MUTE_VANDAL_ATCK1 */
     { SPR_MUTE_VANDAL, 2, 4, NULL, S_MUTE_VANDAL_ATCK3, 3 },  /* S_MUTE_VANDAL_ATCK2 */
     { SPR_MUTE_VANDAL, 3, 4, NULL, S_MUTE_VANDAL_ATCK4, 3 },  /* S_MUTE_VANDAL_ATCK3 */
     { SPR_MUTE_VANDAL, 4, 4, NULL, S_MUTE_VANDAL_STND, 3 },  /* S_MUTE_VANDAL_ATCK4 */
+    { SPR_MUTE_VANDAL, 12, 2, NULL, S_MUTE_VANDAL_ATCK2, 3 },  /* S_MUTE_VANDAL_FLASH2 */
     { SPR_MUTE_MEKANIK, 0, 5, A_Chase, S_MUTE_MEKANIK_STND, 0 },  /* S_MUTE_MEKANIK_STND */
     { SPR_MUTE_MEKANIK, 1, 4, NULL, S_MUTE_MEKANIK_WALK2, 2 },  /* S_MUTE_MEKANIK_WALK1 */
     { SPR_MUTE_MEKANIK, 2, 4, NULL, S_MUTE_MEKANIK_WALK3, 2 },  /* S_MUTE_MEKANIK_WALK2 */
@@ -301,18 +307,21 @@ const state_t states[NUMSTATES] = {
     { SPR_MUTE_CRAZY_HARRY, 8, 4, NULL, S_MUTE_CRAZY_HARRY_WALK5, 2 },  /* S_MUTE_CRAZY_HARRY_WALK4 */
     { SPR_MUTE_CRAZY_HARRY, 9, 4, NULL, S_MUTE_CRAZY_HARRY_WALK6, 2 },  /* S_MUTE_CRAZY_HARRY_WALK5 */
     { SPR_MUTE_CRAZY_HARRY, 10, 4, NULL, S_MUTE_CRAZY_HARRY_WALK1, 2 },  /* S_MUTE_CRAZY_HARRY_WALK6 */
-    { SPR_MUTE_CRAZY_HARRY, 1, 4, A_Attack, S_MUTE_CRAZY_HARRY_ATCK2, 3 },  /* S_MUTE_CRAZY_HARRY_ATCK1 */
+    { SPR_MUTE_CRAZY_HARRY, 11, 2, A_Attack, S_MUTE_CRAZY_HARRY_FLASH2, 3 },  /* S_MUTE_CRAZY_HARRY_ATCK1 */
     { SPR_MUTE_CRAZY_HARRY, 2, 4, NULL, S_MUTE_CRAZY_HARRY_ATCK3, 3 },  /* S_MUTE_CRAZY_HARRY_ATCK2 */
     { SPR_MUTE_CRAZY_HARRY, 3, 4, NULL, S_MUTE_CRAZY_HARRY_ATCK4, 3 },  /* S_MUTE_CRAZY_HARRY_ATCK3 */
     { SPR_MUTE_CRAZY_HARRY, 4, 4, NULL, S_MUTE_CRAZY_HARRY_STND, 3 },  /* S_MUTE_CRAZY_HARRY_ATCK4 */
+    { SPR_MUTE_CRAZY_HARRY, 12, 2, NULL, S_MUTE_CRAZY_HARRY_ATCK2, 3 },  /* S_MUTE_CRAZY_HARRY_FLASH2 */
     { SPR_SURV_DIRT_BIKE, 0, 5, A_Chase, S_SURV_DIRT_BIKE_STND, 0 },  /* S_SURV_DIRT_BIKE_STND */
     { SPR_SURV_DIRT_BIKE, 3, 4, NULL, S_SURV_DIRT_BIKE_WALK1, 2 },  /* S_SURV_DIRT_BIKE_WALK1 */
-    { SPR_SURV_DIRT_BIKE, 1, 4, A_Attack, S_SURV_DIRT_BIKE_ATCK2, 3 },  /* S_SURV_DIRT_BIKE_ATCK1 */
+    { SPR_SURV_DIRT_BIKE, 4, 2, A_Attack, S_SURV_DIRT_BIKE_FLASH2, 3 },  /* S_SURV_DIRT_BIKE_ATCK1 */
     { SPR_SURV_DIRT_BIKE, 2, 4, NULL, S_SURV_DIRT_BIKE_STND, 3 },  /* S_SURV_DIRT_BIKE_ATCK2 */
+    { SPR_SURV_DIRT_BIKE, 5, 2, NULL, S_SURV_DIRT_BIKE_ATCK2, 3 },  /* S_SURV_DIRT_BIKE_FLASH2 */
     { SPR_SURV_4X4_PICKUP, 1, 5, A_Chase, S_SURV_4X4_PICKUP_STND, 0 },  /* S_SURV_4X4_PICKUP_STND */
     { SPR_SURV_4X4_PICKUP, 2, 4, NULL, S_SURV_4X4_PICKUP_WALK2, 2 },  /* S_SURV_4X4_PICKUP_WALK1 */
     { SPR_SURV_4X4_PICKUP, 3, 4, NULL, S_SURV_4X4_PICKUP_WALK1, 2 },  /* S_SURV_4X4_PICKUP_WALK2 */
-    { SPR_SURV_4X4_PICKUP, 1, 4, A_Attack, S_SURV_4X4_PICKUP_STND, 3 },  /* S_SURV_4X4_PICKUP_ATCK1 */
+    { SPR_SURV_4X4_PICKUP, 4, 2, A_Attack, S_SURV_4X4_PICKUP_FLASH2, 3 },  /* S_SURV_4X4_PICKUP_ATCK1 */
+    { SPR_SURV_4X4_PICKUP, 5, 2, NULL, S_SURV_4X4_PICKUP_STND, 3 },  /* S_SURV_4X4_PICKUP_FLASH2 */
     { SPR_SURV_ATV, 1, 5, A_Chase, S_SURV_ATV_STND, 0 },  /* S_SURV_ATV_STND */
     { SPR_SURV_ATV, 2, 4, NULL, S_SURV_ATV_WALK2, 2 },  /* S_SURV_ATV_WALK1 */
     { SPR_SURV_ATV, 3, 4, NULL, S_SURV_ATV_WALK1, 2 },  /* S_SURV_ATV_WALK2 */
@@ -354,11 +363,12 @@ const state_t states[NUMSTATES] = {
     { SPR_MUTE_DIRE_WOLF, 50, 4, NULL, S_MUTE_DIRE_WOLF_WALK6, 2 },  /* S_MUTE_DIRE_WOLF_WALK5 */
     { SPR_MUTE_DIRE_WOLF, 51, 4, NULL, S_MUTE_DIRE_WOLF_WALK7, 2 },  /* S_MUTE_DIRE_WOLF_WALK6 */
     { SPR_MUTE_DIRE_WOLF, 52, 4, NULL, S_MUTE_DIRE_WOLF_WALK1, 2 },  /* S_MUTE_DIRE_WOLF_WALK7 */
-    { SPR_MUTE_DIRE_WOLF, 41, 4, A_Attack, S_MUTE_DIRE_WOLF_ATCK2, 3 },  /* S_MUTE_DIRE_WOLF_ATCK1 */
+    { SPR_MUTE_DIRE_WOLF, 53, 2, A_Attack, S_MUTE_DIRE_WOLF_FLASH2, 3 },  /* S_MUTE_DIRE_WOLF_ATCK1 */
     { SPR_MUTE_DIRE_WOLF, 42, 4, NULL, S_MUTE_DIRE_WOLF_ATCK3, 3 },  /* S_MUTE_DIRE_WOLF_ATCK2 */
     { SPR_MUTE_DIRE_WOLF, 43, 4, NULL, S_MUTE_DIRE_WOLF_ATCK4, 3 },  /* S_MUTE_DIRE_WOLF_ATCK3 */
     { SPR_MUTE_DIRE_WOLF, 44, 4, NULL, S_MUTE_DIRE_WOLF_ATCK5, 3 },  /* S_MUTE_DIRE_WOLF_ATCK4 */
     { SPR_MUTE_DIRE_WOLF, 45, 4, NULL, S_MUTE_DIRE_WOLF_STND, 3 },  /* S_MUTE_DIRE_WOLF_ATCK5 */
+    { SPR_MUTE_DIRE_WOLF, 54, 2, NULL, S_MUTE_DIRE_WOLF_ATCK2, 3 },  /* S_MUTE_DIRE_WOLF_FLASH2 */
     { SPR_MUTE_BIKE_SIDECAR, 1, 5, A_Chase, S_MUTE_BIKE_SIDECAR_STND, 0 },  /* S_MUTE_BIKE_SIDECAR_STND */
     { SPR_MUTE_BIKE_SIDECAR, 2, 4, NULL, S_MUTE_BIKE_SIDECAR_WALK2, 2 },  /* S_MUTE_BIKE_SIDECAR_WALK1 */
     { SPR_MUTE_BIKE_SIDECAR, 3, 4, NULL, S_MUTE_BIKE_SIDECAR_WALK1, 2 },  /* S_MUTE_BIKE_SIDECAR_WALK2 */
@@ -471,6 +481,62 @@ const state_t states[NUMSTATES] = {
     { SPR_MUTE_WASP, 2, 4, NULL, S_MUTE_WASP_WALK3, 2 },  /* S_MUTE_WASP_WALK2 */
     { SPR_MUTE_WASP, 3, 4, NULL, S_MUTE_WASP_WALK1, 2 },  /* S_MUTE_WASP_WALK3 */
     { SPR_MUTE_WASP, 0, 4, A_Attack, S_MUTE_WASP_STND, 3 },  /* S_MUTE_WASP_ATCK1 */
+    { SPR_EXTRAS, 128, 4, NULL, S_SURV_INFANTRY_DIE2, 4 },  /* S_SURV_INFANTRY_DIE1 */
+    { SPR_EXTRAS, 129, 4, NULL, S_SURV_INFANTRY_DIE3, 4 },  /* S_SURV_INFANTRY_DIE2 */
+    { SPR_EXTRAS, 130, 3, NULL, S_SURV_INFANTRY_DIE4, 4 },  /* S_SURV_INFANTRY_DIE3 */
+    { SPR_EXTRAS, 131, 4, NULL, S_SURV_INFANTRY_DIE5, 4 },  /* S_SURV_INFANTRY_DIE4 */
+    { SPR_EXTRAS, 132, 3, NULL, S_SURV_INFANTRY_DIE6, 4 },  /* S_SURV_INFANTRY_DIE5 */
+    { SPR_EXTRAS, 133, 4, NULL, S_SURV_INFANTRY_DIE7, 4 },  /* S_SURV_INFANTRY_DIE6 */
+    { SPR_EXTRAS, 134, 4, NULL, S_SURV_INFANTRY_DIE8, 4 },  /* S_SURV_INFANTRY_DIE7 */
+    { SPR_EXTRAS, 135, 3, NULL, S_SURV_INFANTRY_DIE9, 4 },  /* S_SURV_INFANTRY_DIE8 */
+    { SPR_EXTRAS, 136, 4, NULL, S_SURV_INFANTRY_DIE10, 4 },  /* S_SURV_INFANTRY_DIE9 */
+    { SPR_EXTRAS, 137, 3, NULL, S_SURV_INFANTRY_DIE11, 4 },  /* S_SURV_INFANTRY_DIE10 */
+    { SPR_EXTRAS, 138, 4, NULL, S_SURV_INFANTRY_DIE12, 4 },  /* S_SURV_INFANTRY_DIE11 */
+    { SPR_EXTRAS, 139, 4, NULL, S_SURV_INFANTRY_DIE13, 4 },  /* S_SURV_INFANTRY_DIE12 */
+    { SPR_EXTRAS, 140, 3, NULL, S_SURV_INFANTRY_DIE14, 4 },  /* S_SURV_INFANTRY_DIE13 */
+    { SPR_EXTRAS, 141, 4, NULL, S_SURV_INFANTRY_DIE15, 4 },  /* S_SURV_INFANTRY_DIE14 */
+    { SPR_EXTRAS, 142, 3, NULL, S_NULL, 4 },  /* S_SURV_INFANTRY_DIE15 */
+    { SPR_EXTRAS, 143, 4, NULL, S_MUTE_INFANTRY_DIE2, 4 },  /* S_MUTE_INFANTRY_DIE1 */
+    { SPR_EXTRAS, 144, 4, NULL, S_MUTE_INFANTRY_DIE3, 4 },  /* S_MUTE_INFANTRY_DIE2 */
+    { SPR_EXTRAS, 145, 3, NULL, S_MUTE_INFANTRY_DIE4, 4 },  /* S_MUTE_INFANTRY_DIE3 */
+    { SPR_EXTRAS, 146, 4, NULL, S_MUTE_INFANTRY_DIE5, 4 },  /* S_MUTE_INFANTRY_DIE4 */
+    { SPR_EXTRAS, 147, 3, NULL, S_MUTE_INFANTRY_DIE6, 4 },  /* S_MUTE_INFANTRY_DIE5 */
+    { SPR_EXTRAS, 148, 4, NULL, S_MUTE_INFANTRY_DIE7, 4 },  /* S_MUTE_INFANTRY_DIE6 */
+    { SPR_EXTRAS, 149, 4, NULL, S_MUTE_INFANTRY_DIE8, 4 },  /* S_MUTE_INFANTRY_DIE7 */
+    { SPR_EXTRAS, 150, 3, NULL, S_MUTE_INFANTRY_DIE9, 4 },  /* S_MUTE_INFANTRY_DIE8 */
+    { SPR_EXTRAS, 151, 4, NULL, S_MUTE_INFANTRY_DIE10, 4 },  /* S_MUTE_INFANTRY_DIE9 */
+    { SPR_EXTRAS, 152, 3, NULL, S_MUTE_INFANTRY_DIE11, 4 },  /* S_MUTE_INFANTRY_DIE10 */
+    { SPR_EXTRAS, 153, 4, NULL, S_MUTE_INFANTRY_DIE12, 4 },  /* S_MUTE_INFANTRY_DIE11 */
+    { SPR_EXTRAS, 154, 4, NULL, S_MUTE_INFANTRY_DIE13, 4 },  /* S_MUTE_INFANTRY_DIE12 */
+    { SPR_EXTRAS, 155, 3, NULL, S_MUTE_INFANTRY_DIE14, 4 },  /* S_MUTE_INFANTRY_DIE13 */
+    { SPR_EXTRAS, 156, 4, NULL, S_MUTE_INFANTRY_DIE15, 4 },  /* S_MUTE_INFANTRY_DIE14 */
+    { SPR_EXTRAS, 157, 3, NULL, S_NULL, 4 },  /* S_MUTE_INFANTRY_DIE15 */
+    { SPR_MUTE_DIRE_WOLF, 2, 4, NULL, S_DIRE_WOLF_DIE2, 4 },  /* S_DIRE_WOLF_DIE1 */
+    { SPR_MUTE_DIRE_WOLF, 3, 4, NULL, S_DIRE_WOLF_DIE3, 4 },  /* S_DIRE_WOLF_DIE2 */
+    { SPR_MUTE_DIRE_WOLF, 4, 3, NULL, S_DIRE_WOLF_DIE4, 4 },  /* S_DIRE_WOLF_DIE3 */
+    { SPR_MUTE_DIRE_WOLF, 5, 4, NULL, S_DIRE_WOLF_DIE5, 4 },  /* S_DIRE_WOLF_DIE4 */
+    { SPR_MUTE_DIRE_WOLF, 6, 3, NULL, S_DIRE_WOLF_DIE6, 4 },  /* S_DIRE_WOLF_DIE5 */
+    { SPR_MUTE_DIRE_WOLF, 7, 4, NULL, S_DIRE_WOLF_DIE7, 4 },  /* S_DIRE_WOLF_DIE6 */
+    { SPR_MUTE_DIRE_WOLF, 8, 4, NULL, S_DIRE_WOLF_DIE8, 4 },  /* S_DIRE_WOLF_DIE7 */
+    { SPR_MUTE_DIRE_WOLF, 9, 3, NULL, S_DIRE_WOLF_DIE9, 4 },  /* S_DIRE_WOLF_DIE8 */
+    { SPR_MUTE_DIRE_WOLF, 10, 4, NULL, S_DIRE_WOLF_DIE10, 4 },  /* S_DIRE_WOLF_DIE9 */
+    { SPR_MUTE_DIRE_WOLF, 11, 3, NULL, S_DIRE_WOLF_DIE11, 4 },  /* S_DIRE_WOLF_DIE10 */
+    { SPR_MUTE_DIRE_WOLF, 12, 4, NULL, S_DIRE_WOLF_DIE12, 4 },  /* S_DIRE_WOLF_DIE11 */
+    { SPR_MUTE_DIRE_WOLF, 13, 4, NULL, S_DIRE_WOLF_DIE13, 4 },  /* S_DIRE_WOLF_DIE12 */
+    { SPR_MUTE_DIRE_WOLF, 14, 3, NULL, S_NULL, 4 },  /* S_DIRE_WOLF_DIE13 */
+    { SPR_EXTRAS, 44, 4, NULL, S_VEHICLE_DIE2, 4 },  /* S_VEHICLE_DIE1 */
+    { SPR_EXTRAS, 45, 4, NULL, S_VEHICLE_DIE3, 4 },  /* S_VEHICLE_DIE2 */
+    { SPR_EXTRAS, 46, 3, NULL, S_VEHICLE_DIE4, 4 },  /* S_VEHICLE_DIE3 */
+    { SPR_EXTRAS, 47, 4, NULL, S_VEHICLE_DIE5, 4 },  /* S_VEHICLE_DIE4 */
+    { SPR_EXTRAS, 48, 3, NULL, S_VEHICLE_DIE6, 4 },  /* S_VEHICLE_DIE5 */
+    { SPR_EXTRAS, 49, 4, NULL, S_VEHICLE_DIE7, 4 },  /* S_VEHICLE_DIE6 */
+    { SPR_EXTRAS, 50, 4, NULL, S_VEHICLE_DIE8, 4 },  /* S_VEHICLE_DIE7 */
+    { SPR_EXTRAS, 51, 3, NULL, S_VEHICLE_DIE9, 4 },  /* S_VEHICLE_DIE8 */
+    { SPR_EXTRAS, 52, 4, NULL, S_VEHICLE_DIE10, 4 },  /* S_VEHICLE_DIE9 */
+    { SPR_EXTRAS, 53, 3, NULL, S_VEHICLE_DIE11, 4 },  /* S_VEHICLE_DIE10 */
+    { SPR_EXTRAS, 54, 4, NULL, S_VEHICLE_DIE12, 4 },  /* S_VEHICLE_DIE11 */
+    { SPR_EXTRAS, 55, 4, NULL, S_VEHICLE_DIE13, 4 },  /* S_VEHICLE_DIE12 */
+    { SPR_EXTRAS, 56, 3, NULL, S_NULL, 4 },  /* S_VEHICLE_DIE13 */
 };
 
 /* Stats from UNITS.CFG; doomednum = UNIT_STATS_* id. */
@@ -484,7 +550,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 400,
         .seestate     = S_SURV_RIFLEMAN_WALK1,
         .missilestate = S_SURV_RIFLEMAN_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 2, 1, 0 },
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -495,7 +562,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 400,
         .seestate     = S_SURV_FLAMER_WALK1,
         .missilestate = S_SURV_FLAMER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 15,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -506,7 +573,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 500,
         .seestate     = S_SURV_SWAT_WALK1,
         .missilestate = S_SURV_SWAT_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 70,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -517,7 +584,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 500,
         .seestate     = S_SURV_SAPPER_WALK1,
         .missilestate = S_SURV_SAPPER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 90,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -528,7 +595,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 600,
         .seestate     = S_SURV_SABOTEUR_WALK1,
         .missilestate = S_SURV_SABOTEUR_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 2, 1, 0 },
         .speed = 35, .radius = 12, .height = 24, .mass = 100,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -538,7 +606,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnstate   = S_SURV_TECHNICIAN_STND,
         .spawnhealth  = 500,
         .seestate     = S_SURV_TECHNICIAN_WALK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 35, .radius = 12, .height = 24, .mass = 100,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
     },
@@ -548,7 +616,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 400,
         .seestate     = S_SURV_RPG_LAUNCHER_WALK1,
         .missilestate = S_SURV_RPG_LAUNCHER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 80,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -559,7 +627,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 600,
         .seestate     = S_SURV_SNIPER_WALK1,
         .missilestate = S_SURV_SNIPER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_SURV_INFANTRY_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 2, 1, 0 },
         .speed = 35, .radius = 12, .height = 24, .mass = 100,
         .damage = 250,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -570,7 +639,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 320,
         .seestate     = S_MUTE_BERSERKER_WALK1,
         .missilestate = S_MUTE_BERSERKER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -581,7 +650,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 400,
         .seestate     = S_MUTE_PYROMANIAC_WALK1,
         .missilestate = S_MUTE_PYROMANIAC_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 15,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -592,7 +661,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 500,
         .seestate     = S_MUTE_SHOTGUNNER_WALK1,
         .missilestate = S_MUTE_SHOTGUNNER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 2, 1, 0 },
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 70,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -603,7 +673,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 500,
         .seestate     = S_MUTE_RIOTER_WALK1,
         .missilestate = S_MUTE_RIOTER_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 90,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -614,7 +684,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 600,
         .seestate     = S_MUTE_VANDAL_WALK1,
         .missilestate = S_MUTE_VANDAL_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 2, 1, 0 },
         .speed = 35, .radius = 12, .height = 24, .mass = 100,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -624,7 +695,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnstate   = S_MUTE_MEKANIK_STND,
         .spawnhealth  = 500,
         .seestate     = S_MUTE_MEKANIK_WALK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 35, .radius = 12, .height = 24, .mass = 100,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
     },
@@ -634,7 +705,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 400,
         .seestate     = S_MUTE_BAZOOKA_WALK1,
         .missilestate = S_MUTE_BAZOOKA_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 80,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -645,7 +716,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 500,
         .seestate     = S_MUTE_CRAZY_HARRY_WALK1,
         .missilestate = S_MUTE_CRAZY_HARRY_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_MUTE_INFANTRY_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 2, 1, 0 },
         .speed = 30, .radius = 12, .height = 24, .mass = 100,
         .damage = 250,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -656,7 +728,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 500,
         .seestate     = S_SURV_DIRT_BIKE_WALK1,
         .missilestate = S_SURV_DIRT_BIKE_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_VEHICLE_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 0, 1, 0 },
         .speed = 80, .radius = 16, .height = 24, .mass = 200,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -667,7 +740,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 800,
         .seestate     = S_SURV_4X4_PICKUP_WALK1,
         .missilestate = S_SURV_4X4_PICKUP_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_VEHICLE_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 0, 1, SPR_MUTE_MONSTER_TRUCK },
         .speed = 70, .radius = 16, .height = 24, .mass = 300,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
@@ -760,7 +834,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnhealth  = 600,
         .seestate     = S_MUTE_DIRE_WOLF_WALK1,
         .missilestate = S_MUTE_DIRE_WOLF_ATCK1,
-        .deathstate   = S_NULL, .xdeathstate = S_NULL,
+        .deathstate   = S_DIRE_WOLF_DIE1, .xdeathstate = S_NULL,
+        .muzzle = { SPR_EXTRAS, 0, 41, 0 },
         .speed = 75, .radius = 16, .height = 24, .mass = 200,
         .damage = 40,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,

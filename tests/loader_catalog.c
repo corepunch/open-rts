@@ -92,7 +92,7 @@ static bool catalog_sprite(SDL_Renderer *renderer, char *path) {
 #elif defined(SL)
     ok = sl_load_bim_sprite(renderer, path, palette, &sprite);
 #elif defined(KK)
-    ok = load_sprite(renderer, "data/KKND", path, palette, &sprite);
+    ok = load_sprite(renderer, "data/KKND", path, palette, &sprite, NULL, NULL);
 #else
     (void)path;
 #endif

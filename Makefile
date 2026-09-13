@@ -97,15 +97,22 @@ all: $(BIN_DIR)/dark-colony $(BIN_DIR)/dark-reign $(BIN_DIR)/7legion $(BIN_DIR)/
 
 .SECONDARY:
 
+SHARED_MODEL_TEST_SOURCES := $(sort $(shell find tests/shared -name 'test_*.c'))
+
 define MODEL_TESTS_FOR_GAME
-$(1)_TEST_SOURCES := $$(wildcard tests/$(1)/test_*.c)
+$(1)_TEST_SOURCES := $$(sort $$(shell find tests/$(1) -name 'test_*.c'))
 $(1)_TEST_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$$($(1)_TEST_SOURCES))
+$(1)_TEST_OBJS += $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(SHARED_MODEL_TEST_SOURCES))
 $(1)_TEST_ENGINE_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(MODEL_ENGINE_SOURCES) $(2))
 $(1)_TEST_BINS := $$(patsubst tests/$(1)/%.c,$(BIN_DIR)/tests/$(1)/%,$$($(1)_TEST_SOURCES))
+$(1)_TEST_BINS += $$(patsubst tests/shared/%.c,$(BIN_DIR)/tests/$(1)/%,$(SHARED_MODEL_TEST_SOURCES))
 $(BUILD_DIR)/model-test-$(1)/%.o: %.c
 	@mkdir -p $$(dir $$@)
 	$(CC) $(CPPFLAGS) $(3) -I./games/$(1) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
 $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/$(1)/%.o $$($(1)_TEST_ENGINE_OBJS) | $(BIN_DIR)
+	@mkdir -p $$(dir $$@)
+	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
+$(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/shared/%.o $$($(1)_TEST_ENGINE_OBJS) | $(BIN_DIR)
 	@mkdir -p $$(dir $$@)
 	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
 test-$(1): $$($(1)_TEST_BINS)

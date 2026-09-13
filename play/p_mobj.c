@@ -202,7 +202,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
                                fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
         return target;
     target = NULL;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
@@ -216,11 +216,20 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     return target;
 }
 
-static void damage_mobj(mobj_t *target, int damage) {
+void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (!target || target->remove || target->hp <= 0 || damage <= 0) return;
     target->hp -= damage;
     if (target->info && target->info->damage_action) target->info->damage_action(target);
-    if (target->hp > 0) return;
+    if (target->hp > 0) {
+        /* Doom's damage source wakes the victim and becomes its target. Keep
+         * an existing live enemy so repeated hits do not restart its pursuit. */
+        mobj_t *enemy = target->attack.target;
+        if ((target->traits & MF_ATTACK) && source && source != target &&
+            !source->remove && source->hp > 0 && !P_IsAlly(target, source) &&
+            (!enemy || enemy->remove || enemy->hp <= 0 || P_IsAlly(target, enemy)))
+            target->attack.target = source;
+        return;
+    }
 
     target->hp = 0;
     P_MobjSetSelected(target, false);
@@ -336,7 +345,7 @@ bool P_Attack(mobj_t *attacker) {
         return true;
     }
 
-    damage_mobj(target, mobj_attack_damage(attacker));
+    P_DamageMobj(target, attacker, mobj_attack_damage(attacker));
     if (mobj_attack_cooldown_ms(attacker) > 0)
         attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
@@ -353,17 +362,7 @@ void A_Look(mobj_t *unit) {
     if (!unit || unit->hp <= 0 || !(unit->traits & MF_ATTACK) ||
         unit->attack.cooldown_left_ms > 0 || !gameinfo ||
         unit->type_id >= gameinfo->mobj_type_count) return;
-    mobj_t *target = NULL;
-    float best = mobj_attack_range(unit) * mobj_attack_range(unit);
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        mobj_t *candidate = (mobj_t *)th;
-        if (candidate == unit || candidate->remove || candidate->hp <= 0 ||
-            (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
-            P_IsAlly(unit, candidate)) continue;
-        float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(candidate->core.position),
-                                                fixed3_xy_to_fvec2(unit->core.position));
-        if (distance <= best) { best = distance; target = candidate; }
-    }
+    mobj_t *target = attack_target_in_range(unit);
     if (!target) return;
     unit->attack.target = target;
     fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
@@ -471,7 +470,7 @@ static void tick_missile(mobj_t *missile) {
         mobj_t *hit = missile_collision(missile, start, end);
         if (hit) {
             int damage = gameinfo->mobjinfo[missile->type_id].damage;
-            damage_mobj(hit, damage);
+            P_DamageMobj(hit, missile->target, damage);
             debug_effects_log("missile impact missile=%d target=%d damage=%d hp=%d/%d",
                               missile->id, hit->id, damage, hit->hp, hit->max_hp);
             P_ExplodeMissile(missile);
@@ -701,6 +700,17 @@ static void tick_actor(mobj_t *u) {
     {
         const state_t *s = state_at(game_info, u->core.state_id);
         bool in_attack = s && s->group == 3;
+        mobj_t *enemy = u->attack.target;
+        if (!in_attack && (u->traits & (MF_ATTACK | MF_MOBILE)) == (MF_ATTACK | MF_MOBILE) &&
+            enemy && !enemy->remove && enemy->hp > 0 && !P_IsAlly(u, enemy) &&
+            P_VisibleTo(u, enemy)) {
+            fvec2_t goal = fixed3_xy_to_fvec2(enemy->core.position);
+            float range = mobj_attack_range(u);
+            if (fvec2_distance_squared(fixed3_xy_to_fvec2(u->core.position), goal) > range * range &&
+                (!moving || !ivec2_equal(fvec2_cell(u->movement.goal), fvec2_cell(goal))))
+                moving = P_MoveUnitTo(map, u, goal);
+        }
+        if (in_attack) moving = false;
         if (moving && !in_attack) {
             mobj_t *target = attack_target_in_range(u);
             if (target) {

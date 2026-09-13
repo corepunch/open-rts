@@ -15,7 +15,7 @@ static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {
         {MT_SURV_BARRACKS, {65,48}}, /* 121x96 centered sheet, Offset: -5,0 */
         {MT_MUTE_WARRIOR_HALL, {65,55}}, /* 130x110 centered sheet */
     };
-    app_t app = {.renderer = renderer, .win = {640,480}, .cell = {32,32}};
+    app_t app = {.renderer = renderer, .win = {640,480}, .cell = {32,32}, .cam = {-960,-720}};
     size_t bytes = (size_t)app.win.w * app.win.h * sizeof(uint32_t);
     void *expected = malloc(bytes), *actual = malloc(bytes);
     CHECK(expected && actual);
@@ -99,10 +99,10 @@ int main(void) {
     CHECK(R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL)->lumps[0].texture == retained);
     const spritesheet_t *derrick = R_StateSprite(cache, gameinfo, SPR_SURV_MOBILE_DERRICK, NULL);
     const spritesheet_t *wolf = R_StateSprite(cache, gameinfo, SPR_MUTE_DIRE_WOLF, NULL);
-    CHECK(derrick->spritedef.numframes == 4 && wolf->spritedef.numframes == 53);
+    CHECK(derrick->spritedef.numframes == 4 && wolf->spritedef.numframes == 55);
     CHECK(states[S_SURV_MOBILE_DERRICK_WALK1].frame == 2);
     CHECK(states[S_MUTE_DIRE_WOLF_STND].frame == 40);
-    CHECK(states[S_MUTE_DIRE_WOLF_ATCK1].frame == 41);
+    CHECK(states[S_MUTE_DIRE_WOLF_ATCK1].frame == 53);
     CHECK(states[S_MUTE_DIRE_WOLF_WALK1].frame == 46);
     CHECK(states[S_SURV_DRILLRIG_STND].frame == 7);
     CHECK(states[S_SURV_OUTPOST_STND].frame == 170);

@@ -406,3 +406,151 @@ Verification: full build and generated-file consistency checks, all four game
 test suites, all four headless smoke checks, and regenerated tags. Three
 existing Dark Colony synthetic rendering fixtures omitted their FIN coordinate
 mode; that omission was corrected so they exercise the intended renderer path.
+
+## Opening combat: layered fire, retaliation and deaths (2026-09-13)
+
+**Confirmed engine omissions:** a temporary `OPEN_RTS_DEBUG_COMBAT` trace of
+SURV_01 recorded Berserker id 15, type 9, HP 80, damage 10, target id 0,
+range 2.50, and death state 0. Riflemen stop within their range of 4, outside
+the Berserker's range of 2.5. Damage did not record the shooter; generic AI
+base defense requires a base, and this native opening force has none. Every
+KKND death entry was S_NULL. The old combat test stopped at the first HP
+reduction, so it missed both retaliation and presentation failures.
+
+The fix is shared engine behavior, as requested: `P_DamageMobj` credits the
+shooter (the originator for missile impacts), makes an idle combatant acquire
+that enemy, and preserves an existing live hostile target. Shared thinker
+movement pursues visible targets into the unit's data-defined range and
+updates its path when a target changes cells. `A_Look` uses the same range,
+visibility and target validation as moving combatants. Attack states stop
+movement while their animation plays. There is no KKND AI callback, base
+requirement, mission-specific trigger, or new balance value. This follows
+Doom's `P_DamageMobj` source/target wake-up rule in `reference/DOOM/p_inter.c`;
+flow-field movement and visibility remain this engine's existing RTS rules.
+
+**Confirmed native assets and pinned reference sequences:** SPRITES.LVL has
+SHA-256 `3e7dbe10624c706afd963e18f54f780052e6ee0b415fc8008add6e37de669ae6`.
+A temporary C inspector followed the native animation lists, seven-channel
+pointer tables, frame records, and point lists. Offsets below are relative
+to the DATA segment (add 8 for file offsets). OpenKrush revision
+`76c634d05984e48e1e474460c46607aee0bc78a1` supplies sequence names/timing;
+links are in REFERENCES.md. No DOS executable instructions were traced.
+`file` identifies the installed KKND.EXE as DOS/LE with embedded DOS4GW;
+its SHA-256 is `92cc8440992620e91de596f266b6dd23e58650efd85ccdb1521ffab766393e21`.
+
+| Sprite member | Member offset | Channel table | First frame record |
+| --- | ---: | ---: | ---: |
+| Extras (22) | 1741072 | 1743256 | 1743704 |
+| Rifleman (34) | 2733128 | 2734216 | 2734664 |
+| Pickup (54) | 3699753 | 3700393 | 3700841 |
+| Monster Truck (47) | 3352575 | 3353215 | 3353663 |
+| Dire Wolf (19) | 1661004 | 1662396 | 1662844 |
+
+Extras channels 0 and 1 each contain sixteen two-frame sequences: flat starts
+0 and 32, logical starts 0 and 2. Channel 4 contains sixteen eight-frame
+sequences, flat start 64/logical start 4. Unreferenced simple animations
+follow at flat 192/logical 12. Therefore:
+
+| Presentation | Simple animation offset | Flat start | Logical start | Frames |
+| --- | ---: | ---: | ---: | ---: |
+| Medium vehicle explosion | 1741216 | 224 | 44 | 13 |
+| Survivor infantry death | 1741640 | 308 | 128 | 15 |
+| Evolved infantry death | 1741708 | 323 | 143 | 15 |
+
+OpenKrush's `die` for Dire Wolf uses its own logical frames 2–14 (13 frames).
+Death boundaries use its 120 ms per frame, rounded cumulatively to engine
+30 Hz tics: 54 tics for infantry, 47 for the Wolf and vehicle explosion.
+The complete sequences run on the dying mobj and end at S_NULL; there is no
+separate effect/corpse lifetime. All infantry share their faction's death
+sequence; the opening bikes and Pickup use the medium explosion. Other
+vehicle-specific deaths are not newly inferred from this investigation.
+
+**Layer composition, explicitly requested engine presentation:** preserve
+every native frame, then append two complete firing poses to each supported
+gun sprite. These share the first shooting body image with the two Extras
+muzzle frames, using ordinary `spritelayer_t` layers and existing renderer
+ownership. Native frame counts remain 11 (Rifleman), 4 (Bike), 53 (Wolf), and
+4 (Pickup); runtime definitions add two composed frames. The state table
+splits the old four-tic first attack pose into two two-tic states. Only the
+first calls A_Attack, so damage and cooldown do not double. Later body attack
+frames stay unchanged. Rifleman/Saboteur/Sniper/Shotgunner/Vandal/Crazy Harry
+use the infantry flash; Bike/Wolf/Pickup use the vehicle flash. Berserker
+throws a projectile and has no gun-muzzle layer in the reference. Porting its
+projectile flight is outside these presentation changes.
+
+Frame byte +24 points to optional 16-byte records `{id, x, y, z}` terminated
+by id -1. Point 0 supplies the weapon or turret location. Signed x/y are
+converted by arithmetic shift 8, exactly as `MobdPoint.cs`; absent points
+mean no additional displacement, as in `OffsetsArmament.cs`. Sprite flip
+flags do not reflect these already-authored points again. With native body
+anchor B, point P, and flash anchor F, the flash's offset relative to our
+body canvas is `B + P - F`. For a turret, P is the sum of body point 0 and
+turret point 0. This is an anchor conversion, not a tuned visual offset.
+
+For example, Rifleman north shooting frame 2736120 has point list 2740760:
+point 0 is (3,-21), after point 2. Pickup north idle frame 3700841 has point
+list 3702221, with point 0 (0,3). The actor's own channel-2 turret frames
+3701737 onward have no point lists; using them produced a malformed north
+pose and put flashes at the mount. That attempted composition is
+**disproven as the intended turret selection** and is not retained.
+
+**Confirmed decompiled reference lookup, corroborated by OpenKrush:** pinned
+OpenKKnD revision `3702e29992d0abf5e3b0648a57858fd578afc991`,
+`src/_unsorted_data.cpp`, gives `turret_4x4Pickup` the member
+`MOBD_MUTE_MONSTER_TRUCK` (0x2f = 47), and the Pickup UnitStat references that
+attachment. The companion handler is labeled `UNIT_AttachHandler_Turret`
+at 0x4479d0 in this Extreme-version reconstruction. These addresses are
+**not** mapped to the installed DOS executable. OpenKrush's Pickup sequence
+independently selects MonsterTruck.mobd and comments on the broken native
+Pickup north frame. Reusing member 47 is thus a documented table lookup,
+not a guessed sprite-name alias. Applying that Extreme lookup to the DOS
+assets is **corroborated/inferred**, not a new DOS instruction trace.
+
+In the installed member 47, channel 1 is sixteen single-frame turret poses,
+logical frame 0. Its north frame 3354559 points to 3356231 with point 0
+(0,-14); east is (13,-5), south (0,5), west (-13,-5). Pickup bodies retain
+their own point lists. Idle/movement and both fire poses compose the selected
+turret, sharing the cached member-47 images; native Pickup channel 2 is still
+preserved individually. The current presentation keeps body and turret
+facing together. Independent turret aiming and full retail firing dispatch
+remain unported, as do exact DOS timing-word semantics.
+
+Verification:
+
+```sh
+make kknd-info
+make
+env SDL_VIDEODRIVER=dummy make test
+# Optional eight-facing contact sheet of both flash phases and native deaths:
+env SDL_VIDEODRIVER=dummy OPEN_RTS_TEST_COMBAT_BMP=/private/tmp/kknd-combat.bmp \
+  build/bin/tests/kknd/test_combat_rendering
+env SDL_VIDEODRIVER=dummy build/bin/kknd --check
+env SDL_VIDEODRIVER=dummy build/bin/kknd --screenshot /private/tmp/kknd-opening.bmp
+```
+
+`test_combat` drives one native opening Rifleman into the first encounter,
+requires enemy advance and return fire, then requires a visible death state.
+It separately checks every frame and exact total duration for all five opening
+unit types. `test_combat_rendering` compares actual world rendering with
+direct native-anchor placement for both muzzle phases in all sixteen facings;
+point arrays preserve the inspected values, and checks require nonempty pixels.
+The muzzle and death contact sheet was visually inspected. The existing anchor
+test's camera was corrected to place its test objects on screen; previously
+its pixel comparisons could compare two empty offscreen renders. Shared
+retaliation tests run against all four game data sets, without a mission or
+base, and cover pursuit, return fire, moving targets, allies and removal.
+Temporary diagnostic logging was removed.
+
+Final checks passed: full build, `make test` (including all four game suites,
+shared AI tests, generated-file consistency, layout, command and loader tests),
+and all four headless smoke checks. The raw MOBD catalog was also compared
+against a catalog binary built from the pre-change `w_spr.c`: all 100 member
+candidates, including the same 78 accepted members, have identical hashes for
+pixels, native frame definitions, flips and anchors. The intentional runtime
+changes are the appended layered firing poses and Pickup turret composition.
+The native parser refactoring does not change raw asset decoding. Tags were
+regenerated, and the default mission screenshot was visually inspected.
+The network regression also passed all seven modes, including packet loss,
+setup mismatch, desync detection, peer quit and the model path. Its UDP bind
+requires running outside the filesystem/network sandbox; the sandboxed attempt
+failed at bind before the network scenarios could run.

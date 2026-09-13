@@ -2,6 +2,7 @@
 #include "kknd.h"
 #include "w_lvl.h"
 #include "game.h"
+#include "info.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -10,6 +11,38 @@
 #include <strings.h>
 
 enum { MAX_ANIMATIONS = 512, MAX_FRAMES = 4096 };
+
+typedef struct {
+    uint32_t animations[MAX_ANIMATIONS];
+    int count;
+    uint32_t table, first_frame;
+} mobd_layout_t;
+
+static bool mobd_layout(const uint8_t *segment, size_t size, uint32_t member,
+                        mobd_layout_t *out) {
+    *out = (mobd_layout_t){.first_frame = (uint32_t)size};
+    uint32_t pos = member;
+    while (pos < out->first_frame && out->count < MAX_ANIMATIONS) {
+        if (!range_ok(size, pos, 4)) return false;
+        int32_t value = read_i32_le(segment + pos);
+        pos += 4;
+        if (value == 0 || (value < (int32_t)pos && value >= (int32_t)member)) {
+            pos -= 4;
+            break;
+        }
+        out->animations[out->count++] = pos - 4;
+        while (true) {
+            if (!range_ok(size, pos, 4)) return false;
+            value = read_i32_le(segment + pos);
+            pos += 4;
+            if (value == 0 || value == -1) break;
+            if (value < 0 || (uint32_t)value >= size) return false;
+            if ((uint32_t)value < out->first_frame) out->first_frame = (uint32_t)value;
+        }
+    }
+    out->table = pos;
+    return pos <= out->first_frame && (out->first_frame - pos) % (16 * 4) == 0;
+}
 static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,
                                    tileset_t *out) {
     out->texture = I_CreateTexture(renderer, map->pixels, map->atlas.w, map->atlas.h, true);
@@ -92,30 +125,109 @@ fail:
     return false;
 }
 
-static bool decode_mobd(const uint8_t *segment, size_t size,
-                             uint32_t member, const uint32_t palette[256], spritesheet_t *out) {
-    uint32_t animation_offsets[MAX_ANIMATIONS];
-    int animation_count = 0;
-    uint32_t first_frame = (uint32_t)size;
-    uint32_t pos = member;
-    while (pos < first_frame && animation_count < MAX_ANIMATIONS) {
-        if (!range_ok(size, pos, 4)) return false;
-        int32_t value = read_i32_le(segment + pos);
-        pos += 4;
-        if (value == 0 || (value < (int32_t)pos && value >= (int32_t)member)) {
-            pos -= 4;
-            break;
+static bool weapon_point(const uint8_t *segment, size_t size, uint32_t frame, ivec2_t *out) {
+    *out = (ivec2_t){0, 0};
+    if (!range_ok(size, frame, 28)) return false;
+    uint32_t point = read_u32_le(segment + frame + 24);
+    if (!point) return true; /* Optional MOBD point list: use the actor origin. */
+    while (range_ok(size, point, 4)) {
+        int32_t id = read_i32_le(segment + point);
+        if (id == -1) return true;
+        if (!range_ok(size, point, 16)) return false;
+        if (id == 0) {
+            *out = (ivec2_t){ read_i32_le(segment + point + 4) >> 8,
+                             read_i32_le(segment + point + 8) >> 8 };
+            return true;
         }
-        animation_offsets[animation_count++] = pos - 4;
-        while (true) {
-            if (!range_ok(size, pos, 4)) return false;
-            value = read_i32_le(segment + pos);
-            pos += 4;
-            if (value == 0 || value == -1) break;
-            if (value < 0 || (uint32_t)value >= size) return false;
-            if ((uint32_t)value < first_frame) first_frame = (uint32_t)value;
+        point += 16;
+    }
+    return false;
+}
+
+static ivec2_t layer_anchor(const spritesheet_t *sprite, const spritelayer_t *layer) {
+    const spritecell_t *cell = &sprite->cells[layer->lump];
+    return layer->flags & RTS_FRAME_FLIP_X ?
+        (ivec2_t){cell->rect.w - cell->ground_point.x, cell->ground_point.y} : cell->ground_point;
+}
+
+static bool compose_shooting(const uint8_t *segment, size_t size, const uint32_t *frames,
+                             spritesheet_t *out, int native_frames,
+                             const mobjinfo_t *info, const spritesheet_t *extras,
+                             const spritesheet_t *turret) {
+    if (states[info->missilestate].frame != native_frames ||
+        info->muzzle.body < 0 || info->muzzle.body >= native_frames ||
+        info->muzzle.frame < 0 || info->muzzle.frame + 2 > extras->spritedef.numframes)
+        return false;
+    /* A turret's point 0 is relative to the body's point 0. Keep native poses
+     * and image anchors; no sprite-name aliases or placement adjustments. */
+    ivec2_t turret_points[16] = {0};
+    if (info->muzzle.turret) {
+        uint32_t member;
+        mobd_layout_t layout;
+        if (!turret || !lvl_asset(segment, size, "MOBD",
+                sprite_member_index(sprnames[info->muzzle.turret]), &member) ||
+            !mobd_layout(segment, size, member, &layout)) return false;
+        /* The first populated channel is the turret's first logical frame. */
+        uint32_t channel = layout.table;
+        while (channel < layout.first_frame && !read_u32_le(segment + channel)) channel += 64;
+        if (!range_ok(size, channel, 64) || channel + 64 > layout.first_frame) return false;
+        for (int rotation = 0; rotation < 16; ++rotation) {
+            uint32_t animation = read_u32_le(segment + channel + ((16 - rotation) % 16) * 4);
+            if (!animation || !range_ok(size, animation, 8) ||
+                !weapon_point(segment, size, read_u32_le(segment + animation + 4), &turret_points[rotation]))
+                return false;
+        }
+        for (int frame = info->muzzle.body; frame < native_frames; ++frame) {
+            for (int rotation = 0; rotation < 16; ++rotation) {
+                spritedirection_t *direction = &out->spritedef.spriteframes[frame].directions[rotation];
+                const spritelayer_t *turret_layer = turret->spritedef.spriteframes[0].directions[rotation].layers;
+                ivec2_t point;
+                if (!weapon_point(segment, size, frames[direction->layers[0].lump], &point)) return false;
+                spritelayer_t *layers = calloc(3, sizeof(*layers));
+                if (!layers) return false;
+                layers[0] = direction->layers[0];
+                layers[1] = *turret_layer;
+                snprintf(layers[1].sprite_name, sizeof(layers[1].sprite_name),
+                         "%s", sprnames[info->muzzle.turret]);
+                layers[1].offset = ivec2_add(layer_anchor(out, layers),
+                    ivec2_sub(point, layer_anchor(turret, turret_layer)));
+                free(direction->layers);
+                direction->layers = layers;
+            }
         }
     }
+    for (int rotation = 0; rotation < 16; ++rotation) {
+        const spritelayer_t *body = out->spritedef.spriteframes[info->muzzle.body].directions[rotation].layers;
+        ivec2_t point;
+        if (!weapon_point(segment, size, frames[body->lump], &point)) return false;
+        int body_layers = info->muzzle.turret ? 2 : 1;
+        if (info->muzzle.turret) point = ivec2_add(point, turret_points[rotation]);
+        for (int frame = 0; frame < 2; ++frame) {
+            const spritelayer_t *flash = extras->spritedef.spriteframes[info->muzzle.frame + frame].directions[rotation].layers;
+            spritelayer_t *layers = calloc((size_t)body_layers + 2, sizeof(*layers));
+            if (!layers) return false;
+            memcpy(layers, body, (size_t)body_layers * sizeof(*layers));
+            layers[body_layers] = *flash;
+            snprintf(layers[body_layers].sprite_name, sizeof(layers[body_layers].sprite_name),
+                     "%s", sprnames[info->muzzle.sprite]);
+            layers[body_layers].offset = ivec2_add(layer_anchor(out, body),
+                ivec2_sub(point, layer_anchor(extras, flash)));
+            out->spritedef.spriteframes[native_frames + frame].directions[rotation].layers = layers;
+        }
+    }
+    return true;
+}
+
+static bool decode_mobd(const uint8_t *segment, size_t size,
+                       uint32_t member, const uint32_t palette[256], spritesheet_t *out,
+                       const mobjinfo_t *info, const spritesheet_t *extras,
+                       const spritesheet_t *turret) {
+    mobd_layout_t layout;
+    if (!mobd_layout(segment, size, member, &layout)) return false;
+    uint32_t *animation_offsets = layout.animations;
+    int animation_count = layout.count;
+    uint32_t first_frame = layout.first_frame;
+    uint32_t pos = layout.table;
 
     uint32_t ordered[MAX_ANIMATIONS];
     int channels[MAX_ANIMATIONS], directions[MAX_ANIMATIONS];
@@ -193,7 +305,8 @@ static bool decode_mobd(const uint8_t *segment, size_t size,
         else for (int group = 0; group < ordered_count; ++group)
             if (channels[group] == channel) logical_frames += group_lengths[group];
     }
-    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames, 16)) goto fail;
+    bool compose = info && info->muzzle.sprite && extras;
+    if (logical_frames <= 0 || !R_InitSpriteDef(out, logical_frames + (compose ? 2 : 0), 16)) goto fail;
     int logical_frame = 0;
     for (int channel = 0; channel < channel_count; ++channel) {
         for (int group = 0; group < ordered_count; ++group) {
@@ -212,6 +325,7 @@ static bool decode_mobd(const uint8_t *segment, size_t size,
         }
         if (channel_groups[channel] == 16) logical_frame += channel_lengths[channel];
     }
+    if (compose && !compose_shooting(segment, size, frames, out, logical_frames, info, extras, turret)) goto fail;
     return true;
 
 fail:
@@ -219,8 +333,9 @@ fail:
     return false;
 }
 
-static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
-                             const char *spec, const uint32_t palette[256], spritesheet_t *out) {
+static bool load_sprite(const char *data_root,
+                       const char *spec, const uint32_t palette[256], spritesheet_t *out,
+                       const spritesheet_t *extras, const spritesheet_t *turret) {
     char archive_rel[768];
     const char *member_name = NULL;
     const char *bar = spec ? strrchr(spec, '|') : NULL;
@@ -247,8 +362,19 @@ static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
     size_t segment_size = 0;
     if (!open_lvl(path, &blob, &segment, &segment_size)) return false;
     uint32_t member = 0;
+    const mobjinfo_t *info = NULL;
+    if (extras) {
+        for (int i = 1; i < NUMMOBJTYPES; ++i) {
+            const mobjinfo_t *candidate = &mobjinfo[i];
+            if (candidate->muzzle.sprite &&
+                sprite_member_index(sprnames[states[candidate->spawnstate].sprite]) == member_index) {
+                info = candidate;
+                break;
+            }
+        }
+    }
     bool ok = lvl_asset(segment, segment_size, "MOBD", member_index, &member) &&
-              decode_mobd(segment, segment_size, member, palette, out);
+              decode_mobd(segment, segment_size, member, palette, out, info, extras, turret);
     if (!ok) fprintf(stderr, "failed to decode MOBD member %d from %s\n", member_index, path);
     W_FreeFile(&blob);
     return ok;
@@ -256,15 +382,42 @@ static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
                    mobj_t *const *mobjs, int count, spritecache_t *cache) {
+    (void)renderer;
     const KkndMapData *native = map ? map->native_data : NULL;
     if (!native || !cache) return false;
+    const char *extra_name = sprnames[SPR_EXTRAS];
+    cachedsprite_t *cached_extras = R_CacheFind(cache, extra_name);
+    const spritesheet_t *extras = cached_extras ? &cached_extras->sprite : NULL;
+    if (!extras) {
+        if (cache->count >= MAX_DECORATION_SPRITES) return false;
+        cachedsprite_t *entry = &cache->entries[cache->count];
+        if (!load_sprite(root, extra_name, native->palette, &entry->sprite, NULL, NULL)) return false;
+        snprintf(entry->name, sizeof(entry->name), "%s", extra_name);
+        cache->count++;
+        extras = &entry->sprite;
+    }
     bool ok = true;
     for (int i = 0; i < count; ++i) {
         const char *name = mobjs[i]->core.sprite_name;
         if (R_CacheFind(cache, name)) continue;
+        const spritesheet_t *turret = NULL;
+        int type = mobjs[i]->type_id;
+        int turret_id = type > 0 && type < NUMMOBJTYPES ? mobjinfo[type].muzzle.turret : 0;
+        if (turret_id) {
+            const char *turret_name = sprnames[turret_id];
+            cachedsprite_t *entry = R_CacheFind(cache, turret_name);
+            if (!entry) {
+                if (cache->count >= MAX_DECORATION_SPRITES) return false;
+                entry = &cache->entries[cache->count];
+                if (!load_sprite(root, turret_name, native->palette, &entry->sprite, NULL, NULL)) return false;
+                snprintf(entry->name, sizeof(entry->name), "%s", turret_name);
+                cache->count++;
+            }
+            turret = &entry->sprite;
+        }
         if (cache->count >= MAX_DECORATION_SPRITES) return false;
         cachedsprite_t *entry = &cache->entries[cache->count];
-        if (!load_sprite(renderer, root, name, native->palette, &entry->sprite)) {
+        if (!load_sprite(root, name, native->palette, &entry->sprite, extras, turret)) {
             ok = false;
             continue;
         }
@@ -279,7 +432,7 @@ bool load_assets(SDL_Renderer *renderer, const char *data_root,
                       tileset_t *tileset, spritesheet_t *unit_sprite) {
     const KkndMapData *native = map ? map->native_data : NULL;
     if (!native || !build_map_tileset(renderer, native, tileset)) return false;
-    if (!load_sprite(renderer, data_root, sprite_name, native->palette, unit_sprite)) {
+    if (!load_sprite(data_root, sprite_name, native->palette, unit_sprite, NULL, NULL)) {
         R_FreeTileset(tileset);
         return false;
     }

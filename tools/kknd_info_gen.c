@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include "engine_config.h"
 
 /* ── MOBD index table ─────────────────────────────────────────────────────── */
 /* Derived from wdigger/OpenKKND src/kknd.h MOBD_ID enum (hex values are
@@ -106,68 +107,83 @@ static const mobd_entry_t *lookup_mobd(const char *cfg_name) {
    idle/shoot/move are logical-frame indices (block offsets) into the sprite.
    slen/mlen = number of animation frames for shoot/move cycles.
    -1 = animation not present for this unit.                               */
-typedef struct { int idle; int shoot; int slen; int move; int mlen; } anim_t;
+typedef struct {
+    int idle, shoot, slen, move, mlen;
+    int muzzle;
+    const char *turret;
+} anim_t;
 
 static const anim_t ANIM_TABLE[] = {
-    /* 0  SURV_RIFLEMAN (34) [1,4,6] */            {  0,  1, 4,  5, 6 },
-    /* 1  SURV_FLAMER (25) [1,4,6] */              {  0,  1, 4,  5, 6 },
-    /* 2  SURV_SWAT (76) [1,4,6] */                {  0,  1, 4,  5, 6 },
-    /* 3  SURV_SAPPER (63) [8,1,6,6] */            {  8,  9, 6, 15, 6 },
-    /* 4  SURV_SABOTEUR (62) [1,4,6] */            {  0,  1, 4,  5, 6 },
-    /* 5  SURV_TECHNICIAN (78) [1,6] */            {  0, -1, 0,  1, 6 },
-    /* 6  SURV_RPG_LAUNCHER (59) [1,5,6] */        {  0,  1, 5,  6, 6 },
-    /* 7  SURV_SNIPER (71) [1,4,6] */              {  0,  1, 4,  5, 6 },
-    /* 8  MUTE_BERSERKER (5) [1,1,4,6] */          {  1,  2, 4,  6, 6 },
-    /* 9  MUTE_PYROMANIAC (55) [1,4,6] */          {  0,  1, 4,  5, 6 },
-    /* 10 MUTE_SHOTGUNNER (68) [1,5,6] */          {  0,  1, 5,  6, 6 },
-    /* 11 MUTE_RIOTER (58) [1,6,6] */              {  0,  1, 6,  7, 6 },
-    /* 12 MUTE_VANDAL (81) [1,4,6] */              {  0,  1, 4,  5, 6 },
-    /* 13 MUTE_MEKANIK (41) [1,6] */               {  0, -1, 0,  1, 6 },
-    /* 14 MUTE_BAZOOKA (60) [2,1,5,6] */           {  2,  3, 5,  8, 6 },
-    /* 15 MUTE_CRAZY_HARRY (31) [1,4,6] */         {  0,  1, 4,  5, 6 },
-    /* 16 SURV_DIRT_BIKE (7) [1,2,1] */            {  0,  1, 2,  3, 1 },
-    /* 17 SURV_4X4_PICKUP (54) [1,1,2] */          {  1, -1, 0,  2, 2 },
-    /* 18 SURV_ATV (1) [1,1,2] */                  {  1, -1, 0,  2, 2 },
-    /* 19 SURV_ATV_FLAMETHROWER (24) [1,1,2] */    {  1, -1, 0,  2, 2 },
-    /* 20 SURV_ANACONDA_TANK (77) [1,1,1,2] */     {  2, -1, 0,  3, 2 },
-    /* 21 SURV_BARRAGE_CRAFT (2) [1,1,1] */        {  2, -1, 0,  2, 1 },
-    /* 22 SURV_AUTOCANNON_TANK (11) [4,1,1,2] */   {  5,  0, 4,  6, 2 },
-    /* 23 SURV_MOBILE_DERRICK (65) [1,1,2] */    {  0, -1, 0,  2, 2 },
-    /* 24 SURV_OIL_TANKER (73) [1,2] */            {  0, -1, 0,  1, 2 },
-    /* 25 SURV_MOBILE_OUTPOST (53) [1,4] */        {  0, -1, 0,  1, 4 },
-    /* 26 MUTE_DIRE_WOLF (19) [16,24,1,5,7] */    { 40, 41, 5, 46, 7 },
-    /* 27 MUTE_BIKE_SIDECAR (70) [1,1,2] */        {  1, -1, 0,  2, 2 },
-    /* 28 MUTE_MONSTER_TRUCK (47) [1,1,2] */       {  1, -1, 0,  2, 2 },
-    /* 29 MUTE_GIANT_SCORPION (64) [1,4,8] */      {  0,  1, 4,  5, 8 },
-    /* 30 MUTE_WAR_MASTADONT (38) [1,1,1,10] */    {  2, -1, 0,  3,10 },
-    /* 31 MUTE_GIANT_BEETLE (4) [4,1,11,10] */     {  4,  5,11, 16,10 },
-    /* 32 MUTE_MISSILE_CRAB (16) [2,1,1,9] */      {  3, -1, 0,  4, 9 },
-    /* 33 MUTE_MOBILE_DERRICK (39) [1,2] */        {  0, -1, 0,  1, 2 },
-    /* 34 MUTE_OIL_TANKER (48) [1,2] */            {  0, -1, 0,  1, 2 },
-    /* 35 MUTE_CLANHALL_WAGON (14) [1,2] */        {  0, -1, 0,  1, 2 },
-    /* 36 SURV_DRILLRIG (75) building */           {  7, -1, 0, -1, 0 },
-    /* 37 SURV_POWER_STATION (74) building */      {  5, -1, 0, -1, 0 },
-    /* 38 SURV_OUTPOST (52) building */            {170, -1, 0, -1, 0 },
-    /* 39 SURV_MACHINE_SHOP (37) building */       {  5, -1, 0, -1, 0 },
-    /* 40 SURV_REPAIR_BAY (56) building */         { 20, -1, 0, -1, 0 },
-    /* 41 SURV_RESEARCH_LAB (57) building */       {  5, -1, 0, -1, 0 },
-    /* 42 MUTE_DRILLRIG (50) building */           {  5, -1, 0, -1, 0 },
-    /* 43 MUTE_POWER_STATION (49) building */      {  5, -1, 0, -1, 0 },
-    /* 44 MUTE_CLANHALL (13) building */           {132, -1, 0, -1, 0 },
-    /* 45 MUTE_BLACKSMITH (8) building */          {  5, -1, 0, -1, 0 },
-    /* 46 MUTE_BEAST_ENCLOSURE (3) building */     {  5, -1, 0, -1, 0 },
-    /* 47 MUTE_MENAGERIE (42) building */          {  1, -1, 0, -1, 0 },
-    /* 48 MUTE_ALCHEMY_HALL (0) building */        {  5, -1, 0, -1, 0 },
-    /* 49 SURV_GUARD_TOWER (67) [1+partial] */     {  0, -1, 0, -1, 0 },
-    /* 50 SURV_MISSILE_BATTERY (44) [9fps+] */     {  0, -1, 0, -1, 0 },
-    /* 51 SURV_CANNON_TOWER (12) [3fps,1fps] */    {  3,  0, 3, -1, 0 },
-    /* 52 MUTE_MACHINEGUN_NEST (43) [1+partial] */ {  0, -1, 0, -1, 0 },
-    /* 53 MUTE_GRAPESHOT_TOWER (29) [1,1] */       {  1, -1, 0, -1, 0 },
-    /* 54 MUTE_ROTARY_CANNON (61) [4fps,1fps] */   {  4,  0, 4, -1, 0 },
-    /* 55 SURV_BOMBER (83) [1,1] */                {  1, -1, 0, -1, 0 },
-    /* 56 MUTE_WASP (82) [1,3fps] */               {  0, -1, 0,  1, 3 },
-    /* OpenKrush PNG sequences: both infantry producers idle at frame 3. */
-    {3, -1, 0, -1, 0}, {3, -1, 0, -1, 0},
+    /* 0  SURV_RIFLEMAN (34) [1,4,6] */            {  0,  1, 4,  5, 6, .muzzle = 8 },
+    /* 1  SURV_FLAMER (25) [1,4,6] */              {  0,  1, 4,  5, 6, .muzzle = 0 },
+    /* 2  SURV_SWAT (76) [1,4,6] */                {  0,  1, 4,  5, 6, .muzzle = 0 },
+    /* 3  SURV_SAPPER (63) [8,1,6,6] */            {  8,  9, 6, 15, 6, .muzzle = 0 },
+    /* 4  SURV_SABOTEUR (62) [1,4,6] */            {  0,  1, 4,  5, 6, .muzzle = 8 },
+    /* 5  SURV_TECHNICIAN (78) [1,6] */            {  0, -1, 0,  1, 6, .muzzle = 0 },
+    /* 6  SURV_RPG_LAUNCHER (59) [1,5,6] */        {  0,  1, 5,  6, 6, .muzzle = 0 },
+    /* 7  SURV_SNIPER (71) [1,4,6] */              {  0,  1, 4,  5, 6, .muzzle = 8 },
+    /* 8  MUTE_BERSERKER (5) [1,1,4,6] */          {  1,  2, 4,  6, 6, .muzzle = 0 },
+    /* 9  MUTE_PYROMANIAC (55) [1,4,6] */          {  0,  1, 4,  5, 6, .muzzle = 0 },
+    /* 10 MUTE_SHOTGUNNER (68) [1,5,6] */          {  0,  1, 5,  6, 6, .muzzle = 8 },
+    /* 11 MUTE_RIOTER (58) [1,6,6] */              {  0,  1, 6,  7, 6, .muzzle = 0 },
+    /* 12 MUTE_VANDAL (81) [1,4,6] */              {  0,  1, 4,  5, 6, .muzzle = 8 },
+    /* 13 MUTE_MEKANIK (41) [1,6] */               {  0, -1, 0,  1, 6, .muzzle = 0 },
+    /* 14 MUTE_BAZOOKA (60) [2,1,5,6] */           {  2,  3, 5,  8, 6, .muzzle = 0 },
+    /* 15 MUTE_CRAZY_HARRY (31) [1,4,6] */         {  0,  1, 4,  5, 6, .muzzle = 8 },
+    /* 16 SURV_DIRT_BIKE (7) [1,2,1] */            {  0,  1, 2,  3, 1, .muzzle = 16 },
+    /* OpenKKnD turret_4x4Pickup selects MOBD_MUTE_MONSTER_TRUCK. */
+    /* 17 SURV_4X4_PICKUP (54) [1,1,2] */          {  1, -1, 0,  2, 2, 16, "SPR_MUTE_MONSTER_TRUCK" },
+    /* 18 SURV_ATV (1) [1,1,2] */                  {  1, -1, 0,  2, 2, .muzzle = 0 },
+    /* 19 SURV_ATV_FLAMETHROWER (24) [1,1,2] */    {  1, -1, 0,  2, 2, .muzzle = 0 },
+    /* 20 SURV_ANACONDA_TANK (77) [1,1,1,2] */     {  2, -1, 0,  3, 2, .muzzle = 0 },
+    /* 21 SURV_BARRAGE_CRAFT (2) [1,1,1] */        {  2, -1, 0,  2, 1, .muzzle = 0 },
+    /* 22 SURV_AUTOCANNON_TANK (11) [4,1,1,2] */   {  5,  0, 4,  6, 2, .muzzle = 0 },
+    /* 23 SURV_MOBILE_DERRICK (65) [1,1,2] */    {  0, -1, 0,  2, 2, .muzzle = 0 },
+    /* 24 SURV_OIL_TANKER (73) [1,2] */            {  0, -1, 0,  1, 2, .muzzle = 0 },
+    /* 25 SURV_MOBILE_OUTPOST (53) [1,4] */        {  0, -1, 0,  1, 4, .muzzle = 0 },
+    /* 26 MUTE_DIRE_WOLF (19) [16,24,1,5,7] */    { 40, 41, 5, 46, 7, .muzzle = 16 },
+    /* 27 MUTE_BIKE_SIDECAR (70) [1,1,2] */        {  1, -1, 0,  2, 2, .muzzle = 0 },
+    /* 28 MUTE_MONSTER_TRUCK (47) [1,1,2] */       {  1, -1, 0,  2, 2, .muzzle = 0 },
+    /* 29 MUTE_GIANT_SCORPION (64) [1,4,8] */      {  0,  1, 4,  5, 8, .muzzle = 0 },
+    /* 30 MUTE_WAR_MASTADONT (38) [1,1,1,10] */    {  2, -1, 0,  3,10, .muzzle = 0 },
+    /* 31 MUTE_GIANT_BEETLE (4) [4,1,11,10] */     {  4,  5,11, 16,10, .muzzle = 0 },
+    /* 32 MUTE_MISSILE_CRAB (16) [2,1,1,9] */      {  3, -1, 0,  4, 9, .muzzle = 0 },
+    /* 33 MUTE_MOBILE_DERRICK (39) [1,2] */        {  0, -1, 0,  1, 2, .muzzle = 0 },
+    /* 34 MUTE_OIL_TANKER (48) [1,2] */            {  0, -1, 0,  1, 2, .muzzle = 0 },
+    /* 35 MUTE_CLANHALL_WAGON (14) [1,2] */        {  0, -1, 0,  1, 2, .muzzle = 0 },
+    /* 36 SURV_DRILLRIG (75) building */           {  7, -1, 0, -1, 0, .muzzle = 0 },
+    /* 37 SURV_POWER_STATION (74) building */      {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 38 SURV_OUTPOST (52) building */            {170, -1, 0, -1, 0, .muzzle = 0 },
+    /* 39 SURV_MACHINE_SHOP (37) building */       {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 40 SURV_REPAIR_BAY (56) building */         { 20, -1, 0, -1, 0, .muzzle = 0 },
+    /* 41 SURV_RESEARCH_LAB (57) building */       {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 42 MUTE_DRILLRIG (50) building */           {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 43 MUTE_POWER_STATION (49) building */      {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 44 MUTE_CLANHALL (13) building */           {132, -1, 0, -1, 0, .muzzle = 0 },
+    /* 45 MUTE_BLACKSMITH (8) building */          {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 46 MUTE_BEAST_ENCLOSURE (3) building */     {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 47 MUTE_MENAGERIE (42) building */          {  1, -1, 0, -1, 0, .muzzle = 0 },
+    /* 48 MUTE_ALCHEMY_HALL (0) building */        {  5, -1, 0, -1, 0, .muzzle = 0 },
+    /* 49 SURV_GUARD_TOWER (67) [1+partial] */     {  0, -1, 0, -1, 0, .muzzle = 0 },
+    /* 50 SURV_MISSILE_BATTERY (44) [9fps+] */     {  0, -1, 0, -1, 0, .muzzle = 0 },
+    /* 51 SURV_CANNON_TOWER (12) [3fps,1fps] */    {  3,  0, 3, -1, 0, .muzzle = 0 },
+    /* 52 MUTE_MACHINEGUN_NEST (43) [1+partial] */ {  0, -1, 0, -1, 0, .muzzle = 0 },
+    /* 53 MUTE_GRAPESHOT_TOWER (29) [1,1] */       {  1, -1, 0, -1, 0, .muzzle = 0 },
+    /* 54 MUTE_ROTARY_CANNON (61) [4fps,1fps] */   {  4,  0, 4, -1, 0, .muzzle = 0 },
+    /* 55 SURV_BOMBER (83) [1,1] */                {  1, -1, 0, -1, 0, .muzzle = 0 },
+    /* 56 MUTE_WASP (82) [1,3fps] */               {  0, -1, 0,  1, 3, .muzzle = 0 },
+};
+
+/* Native Extras simple sequences, normalized after rotational channels.
+ * OpenKrush Gen1 names/timing; see docs/KKND_EXE_FINDINGS.md. */
+static const struct {
+    const char *name, *sprite;
+    int frame, length;
+} DEATHS[] = {
+    { "SURV_INFANTRY_DIE", "SPR_EXTRAS", 128, 15 },
+    { "MUTE_INFANTRY_DIE", "SPR_EXTRAS", 143, 15 },
+    { "DIRE_WOLF_DIE", "SPR_MUTE_DIRE_WOLF", 2, 13 },
+    { "VEHICLE_DIE", "SPR_EXTRAS", 44, 13 },
 };
 
 /* ── UNITS.CFG parsing ────────────────────────────────────────────────────── */
@@ -321,6 +337,7 @@ static void write_info_h(const char *path) {
         "    int flags;\n"
         "    int raisestate;\n"
         "    fixed_t spawnz;\n"
+        "    struct { int sprite, frame, body, turret; } muzzle;\n"
         "} mobjinfo_t;\n"
         "\n");
 
@@ -328,7 +345,7 @@ static void write_info_h(const char *path) {
     fprintf(f, "typedef enum {\n");
     for (int i = 0; i < g_unit_count; ++i)
         fprintf(f, "    %s,\n", g_units[i].spr_name);
-    fprintf(f, "    NUMSPRITES\n} spritenum_t;\n\n");
+    fprintf(f, "    SPR_EXTRAS,\n    NUMSPRITES\n} spritenum_t;\n\n");
 
     /* statenum_t */
     fprintf(f, "typedef enum {\n    S_NULL = 0,\n");
@@ -343,7 +360,12 @@ static void write_info_h(const char *path) {
                 fprintf(f, "    S_%s_ATCK%d,\n", g_units[i].spr_suffix, k);
         else if (g_units[i].is_combat)
             fprintf(f, "    S_%s_ATCK1,\n", g_units[i].spr_suffix);
+        if (a->muzzle)
+            fprintf(f, "    S_%s_FLASH2,\n", g_units[i].spr_suffix);
     }
+    for (size_t i = 0; i < sizeof(DEATHS) / sizeof(*DEATHS); ++i)
+        for (int k = 1; k <= DEATHS[i].length; ++k)
+            fprintf(f, "    S_%s%d,\n", DEATHS[i].name, k);
     fprintf(f, "    NUMSTATES\n} statenum_t;\n\n");
 
     /* MT_ enum — doomednum = UNIT_STATS_* from OpenKKnD */
@@ -434,7 +456,7 @@ static void write_info_c(const char *path) {
     for (int i = 0; i < g_unit_count; ++i) {
         fprintf(f, "    \"%d\",  /* %s */\n", g_units[i].mobd, g_units[i].name);
     }
-    fprintf(f, "};\n\n");
+    fprintf(f, "    \"22\",  /* Extras: muzzle flashes, deaths, explosions */\n};\n\n");
 
     /* cplc_names[] — reverse-lookup from MT_ index to CPLC type string */
     fprintf(f, "const char *const cplc_names[NUMMOBJTYPES] = {\n");
@@ -478,13 +500,39 @@ static void write_info_c(const char *path) {
                 if (k < a->slen) snprintf(nxt_buf, sizeof(nxt_buf), "S_%s_ATCK%d", sfx, k + 1);
                 else             snprintf(nxt_buf, sizeof(nxt_buf), "%s",           stnd);
                 const char *act = (k == 1) ? "A_Attack" : "NULL";
-                fprintf(f, "    { %s, %d, 4, %s, %s, 3 },  /* S_%s_ATCK%d */\n",
-                        spr, a->shoot + k - 1, act, nxt_buf, sfx, k);
+                bool flash = a->muzzle && k == 1;
+                if (flash) snprintf(nxt_buf, sizeof(nxt_buf), "S_%s_FLASH2", sfx);
+                fprintf(f, "    { %s, %d, %d, %s, %s, 3 },  /* S_%s_ATCK%d */\n",
+                        spr, flash ? a->move + a->mlen : a->shoot + k - 1,
+                        flash ? 2 : 4, act, nxt_buf, sfx, k);
             }
         } else if (g_units[i].is_combat) {
             /* Melee/no-animation attack: single ATCK1 frame using idle pose */
-            fprintf(f, "    { %s, %d, 4, A_Attack, %s, 3 },  /* S_%s_ATCK1 */\n",
-                    spr, a->idle, stnd, sfx);
+            char next[80];
+            if (a->muzzle) snprintf(next, sizeof(next), "S_%s_FLASH2", sfx);
+            else snprintf(next, sizeof(next), "%s", stnd);
+            fprintf(f, "    { %s, %d, %d, A_Attack, %s, 3 },  /* S_%s_ATCK1 */\n",
+                    spr, a->muzzle ? a->move + a->mlen : a->idle,
+                    a->muzzle ? 2 : 4, next, sfx);
+        }
+        if (a->muzzle) {
+            char next[80];
+            if (a->slen > 1) snprintf(next, sizeof(next), "S_%s_ATCK2", sfx);
+            else snprintf(next, sizeof(next), "%s", stnd);
+            fprintf(f, "    { %s, %d, 2, NULL, %s, 3 },  /* S_%s_FLASH2 */\n",
+                    spr, a->move + a->mlen + 1, next, sfx);
+        }
+    }
+    for (size_t i = 0; i < sizeof(DEATHS) / sizeof(*DEATHS); ++i) {
+        for (int k = 1; k <= DEATHS[i].length; ++k) {
+            char next[80] = "S_NULL";
+            if (k < DEATHS[i].length)
+                snprintf(next, sizeof(next), "S_%s%d", DEATHS[i].name, k + 1);
+            /* Quantize cumulative 120 ms frame boundaries to the 30 Hz tic. */
+            int tics = (k * 120 * RTS_TICRATE + 999) / 1000 -
+                       ((k - 1) * 120 * RTS_TICRATE + 999) / 1000;
+            fprintf(f, "    { %s, %d, %d, NULL, %s, 4 },  /* S_%s%d */\n",
+                    DEATHS[i].sprite, DEATHS[i].frame + k - 1, tics, next, DEATHS[i].name, k);
         }
     }
     fprintf(f, "};\n\n");
@@ -521,7 +569,16 @@ static void write_info_c(const char *path) {
             fprintf(f, "        .seestate     = %s,\n", see_state);
         if (u->is_combat)
             fprintf(f, "        .missilestate = %s,\n", missile_state);
-        fprintf(f, "        .deathstate   = S_NULL, .xdeathstate = S_NULL,\n");
+        const char *death = "S_NULL";
+        if (u->unit_stats_id >= 0 && u->unit_stats_id <= 17)
+            death = u->unit_stats_id % 2 ? "S_MUTE_INFANTRY_DIE1" : "S_SURV_INFANTRY_DIE1";
+        else if (u->unit_stats_id == 27) death = "S_DIRE_WOLF_DIE1";
+        else if (u->unit_stats_id == 26 || u->unit_stats_id == 28) death = "S_VEHICLE_DIE1";
+        fprintf(f, "        .deathstate   = %s, .xdeathstate = S_NULL,\n", death);
+        if (a->muzzle)
+            fprintf(f, "        .muzzle = { SPR_EXTRAS, %d, %d, %s },\n",
+                    a->muzzle == 16 ? 0 : 2, a->shoot >= 0 ? a->shoot : a->idle,
+                    a->turret ? a->turret : "0");
         if (u->is_mobile)
             fprintf(f, "        .speed = %d, .radius = %d, .height = %d, .mass = %d,\n",
                     u->speed, radius, height, mass);

@@ -1403,3 +1403,32 @@ Dark Reign menu SPRs are loaded from the user's game data and are not copied.
 Detailed findings and limitations are in `docs/DR_EXE_FINDINGS.md` and
 `docs/KKND_EXE_FINDINGS.md`; these OpenRA-derived rules are not claims about
 retail executable behavior.
+
+### KKnD opening combat and turret composition (2026-09-13)
+
+Native asset offsets, fingerprints, verified/inferred boundaries and focused
+checks are recorded in [KKND_EXE_FINDINGS.md](docs/KKND_EXE_FINDINGS.md),
+“Opening combat: layered fire, retaliation and deaths”. The installed DOS/LE
+executable was fingerprinted but its instructions were not traced here.
+
+OpenKrush, existing local checkout `reference/OpenKrush`, revision
+`76c634d05984e48e1e474460c46607aee0bc78a1`:
+
+- [Native muzzle sequences](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/core/sequences/muzzle.yaml)
+- [Survivor infantry deaths](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/infantry/sequences.yaml)
+- [Evolved infantry deaths](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/evolved/infantry/sequences.yaml)
+- [Explosion frames and timing](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/core/weapons/explosions/sequences.yaml)
+- [Death explosion selection](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/core/weapons/explosions/weapons.yaml)
+- [Pickup turret source](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/vehicles/4x4pickup/sequences.yaml)
+- [MOBD point records](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Assets/FileFormats/MobdPoint.cs)
+- [Weapon point selection and turret composition](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Mechanics/DataFromAssets/Traits/OffsetsArmament.cs)
+
+[OpenKKnD](https://github.com/wdigger/OpenKKND), local checkout
+`reference/OpenKKND`, pinned revision `3702e29992d0abf5e3b0648a57858fd578afc991`,
+is an Extreme-version reconstruction based on executable decompilation. Its
+[attachment and unit tables](https://github.com/wdigger/OpenKKND/blob/3702e29992d0abf5e3b0648a57858fd578afc991/src/_unsorted_data.cpp)
+confirm `turret_4x4Pickup -> MOBD_MUTE_MONSTER_TRUCK` and the Pickup's attachment
+reference. [kknd.h](https://github.com/wdigger/OpenKKND/blob/3702e29992d0abf5e3b0648a57858fd578afc991/src/kknd.h)
+identifies member 0x2f. This corroborates OpenKrush's explicit selection; its
+Windows function addresses must not be presented as addresses in our DOS game.
+No upstream code or game binaries were copied into tracked source files.
