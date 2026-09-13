@@ -1106,10 +1106,17 @@ Local format findings from `data/KKND`:
   to 176 referenced frames: 16 single-frame standing directions, 16×4 attack
   frames, and 16×6 walking frames. Repeated frame pointers are intentional and
   preserve the original direction table.
-- `CPLC` (mission objects/scripts) and `BOXD` (collision/passability) are still
-  unimplemented. The current vertical slice renders the original two-layer
-  mission art and original MOBD infantry, then uses the engine's fallback units
-  to make sprite loading and movement visible.
+- The first CPLC member contains four linked lists of mission records. In
+  `SURV_01.LVL`, the unit records contain native pixel positions and resolve to
+  10 Survivor infantry, 2 Survivor bikes, 1 Survivor pickup, 17 mutant
+  berserkers, and 3 mutant wolves. There are no starting building records in
+  the unit-name records. The loader divides these positions by 32 and centers
+  the initial camera on the player formation; the camera-centroid choice is an
+  inferred presentation rule, not a confirmed executable camera field.
+- `BOXD` (collision/passability), resource-node records, and non-unit CPLC
+  records are still unimplemented. Starting resources remain the temporary
+  5000-per-side gameplay value. The previous engine fallback setup of two bases,
+  tankers, buildings, units, and vents is no longer used for `SURV_01.LVL`.
 
 ## Hexen and Strife actor lifecycle audit (2026-09-07)
 

@@ -42,6 +42,37 @@ members; these failures are not interpreted as corrupt retail assets. Animation
 selection limits, member-name aliases, and the retail meaning of unsupported
 members remain **unverified here** and were not changed.
 
+## Native SURV_01 mission starts (2026-09-13)
+
+**Confirmed from the shipped `SURV_01.LVL` asset; KKND.EXE was not inspected.**
+The first CPLC member has a 20-byte header followed by four linked-list heads.
+Each object record stores native pixel coordinates at offsets `+5` and `+9`,
+linked-list pointers at `+16..+28`, a name pointer at `+52`, and the native
+team at `+56`. The declared CPLC size covers the structured records but not the
+string table; strings are bounded by the following MAPD asset.
+
+Traversing all four lists with node cycle detection finds 33 mobile unit
+records in `SURV_01.LVL`:
+
+- Survivor team 1: 10 `UNIT_SURV_INFANTRY`, 2 `UNIT_SURV_BIKE`, and 1
+  `UNIT_SURV_PICKUP`.
+- Mutant team 2: 17 `UNIT_MUTE_BERSERKER` and 3 `UNIT_MUTE_WOLF`.
+
+No starting building record was found in the CPLC unit names. The loader maps
+these records to the common actor types and divides native pixel coordinates by
+32 to obtain world cells. The initial camera is the centroid of the player
+formation. This camera rule is **inferred** from the native player positions
+and the expected first view; a distinct retail camera record has not yet been
+identified. Starting resources remain the existing 5000-per-side gameplay
+value; resource-node and BOXD decoding are still **unknown**.
+
+The old two-base setup was synthetic: it placed drill rigs, tankers, buildings,
+units, and vents at map-quarter positions. It is removed. A focused check is:
+
+```sh
+env SDL_VIDEODRIVER=dummy build/bin/kknd --check
+```
+
 ## Runtime sprite catalog and native animation channels (2026-09-12)
 
 **Confirmed from assets**, using the SPRITES.LVL fingerprint above. No executable

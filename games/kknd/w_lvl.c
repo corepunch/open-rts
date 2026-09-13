@@ -20,7 +20,6 @@ void map_data_destroy(void *opaque) {
     KkndMapData *data = opaque;
     if (!data) return;
     free(data->pixels);
-    free(data->units);
     free(data);
 }
 
@@ -70,4 +69,88 @@ bool lvl_asset(const uint8_t *segment, size_t size, const char type[4],
     if (offset == 0 || offset >= size) return false;
     *asset_offset = offset;
     return true;
+}
+
+static bool cplc_node_ok(uint32_t offset, uint32_t cplc_end, size_t size) {
+    return offset >= 20 && offset < cplc_end &&
+           range_ok(size, offset, 64) && offset + 64 <= cplc_end;
+}
+
+int load_kknd_map_units(const char *path, KkndMapUnit *out, int max_units) {
+    if (!out || max_units <= 0) return 0;
+
+    blob_t blob;
+    const uint8_t *segment;
+    size_t size;
+    if (!open_lvl(path, &blob, &segment, &size)) return 0;
+
+    uint32_t cplc, mapd;
+    bool ok = lvl_asset(segment, size, "CPLC", 0, &cplc) &&
+              lvl_asset(segment, size, "MAPD", 0, &mapd) &&
+              cplc < mapd && range_ok(size, cplc, 20);
+    if (!ok) {
+        W_FreeFile(&blob);
+        return 0;
+    }
+
+    uint32_t cplc_size = read_u32_le(segment + cplc);
+    if (cplc_size < 20 || cplc_size > mapd - cplc) {
+        W_FreeFile(&blob);
+        return 0;
+    }
+    /* The header's file_size covers the structured data, but its strings are
+       stored in the space before the following MAPD asset. */
+    uint32_t cplc_end = mapd;
+
+    size_t visited_size = (size_t)cplc_end;
+    uint8_t *visited = calloc(visited_size, 1);
+    if (!visited) {
+        W_FreeFile(&blob);
+        return 0;
+    }
+
+    int count = 0;
+    for (int list = 0; list < 4; ++list) {
+        uint32_t node = read_u32_le(segment + cplc + 4 + (size_t)list * 4);
+        while (node != 0) {
+            if (!cplc_node_ok(node, cplc_end, size)) {
+                fprintf(stderr, "%s has an invalid CPLC node at 0x%x\n", path, node);
+                free(visited);
+                W_FreeFile(&blob);
+                return 0;
+            }
+            size_t visit = node;
+            if (visited[visit]) break;
+            visited[visit] = 1;
+
+            const uint8_t *record = segment + node;
+            uint32_t name_offset = read_u32_le(record + 52);
+            if (name_offset < cplc_end && name_offset >= cplc &&
+                range_ok(size, name_offset, 1)) {
+                size_t name_size = cplc_end - name_offset;
+                size_t name_length = strnlen((const char *)segment + name_offset, name_size);
+                if (name_length < sizeof(out[0].name) &&
+                    name_length >= 5 &&
+                    strncmp((const char *)segment + name_offset, "UNIT_", 5) == 0 &&
+                    strcmp((const char *)segment + name_offset, "UNIT_DUMMY") != 0) {
+                    if (count < max_units) {
+                        KkndMapUnit *unit = &out[count];
+                        memset(unit, 0, sizeof(*unit));
+                        memcpy(unit->name, segment + name_offset, name_length);
+                        unit->native_team = read_u16_le(record + 56);
+                        unit->position = (fvec2_t){
+                            (float)read_u32_le(record + 5) / 32.0f,
+                            (float)read_u32_le(record + 9) / 32.0f,
+                        };
+                    }
+                    count++;
+                }
+            }
+            node = read_u32_le(record + 16 + (size_t)list * 4);
+        }
+    }
+
+    free(visited);
+    W_FreeFile(&blob);
+    return count > max_units ? max_units : count;
 }

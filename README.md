@@ -238,7 +238,8 @@ The code keeps old-game-specific file and coordinate details as adapters:
   archive-global offsets. The first Survivor mission's two `MAPD` layers are
   decoded with their embedded palette and 32×32 tiles; `MOBD` sprite images
   are decoded from `SPRITES.LVL`, including Gen1 scanline compression and
-  16-facing stand, attack, and walk sequences.
+  16-facing stand, attack, and walk sequences. `SURV_01.LVL` CPLC records supply
+  the native player and enemy formations and initial camera location.
 
 That gives a place to add sibling adapters later for Dark Colony, Warcraft II,
 or other 8-bit paletted games without changing the simulation loop.

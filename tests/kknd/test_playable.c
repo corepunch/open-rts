@@ -29,19 +29,34 @@ static int test_map_and_units(void) {
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
     if (snap.map_width <= 0 || snap.map_height <= 0) return fail("map dimensions");
-    if (snap.unit_count < 10) return fail("units spawn (player + enemy)");
-    if (count_owner(&snap, 0) < 4) return fail("player has starting force");
-    if (count_owner(&snap, 1) < 4) return fail("enemy has starting force");
-    if (count_owner_type(&snap, 0, MT_SURV_DRILLRIG) < 1)
-        return fail("player has drill rig");
-    if (count_owner_type(&snap, 1, MT_MUTE_DRILLRIG) < 1)
-        return fail("enemy has mutant drill rig");
-    if (count_owner_type(&snap, 0, MT_SURV_OIL_TANKER) < 1)
-        return fail("player has oil tanker");
-    if (snap.resource_vent_count < 4) return fail("resource vents placed");
+    if (snap.unit_count != 33) return fail("native CPLC unit count");
+    if (count_owner(&snap, 0) != 13) return fail("native player formation");
+    if (count_owner(&snap, 1) != 20) return fail("native enemy formation");
+    if (count_owner_type(&snap, 0, MT_SURV_RIFLEMAN) != 10)
+        return fail("native Survivor infantry");
+    if (count_owner_type(&snap, 0, MT_SURV_DIRT_BIKE) != 2)
+        return fail("native Survivor bikes");
+    if (count_owner_type(&snap, 0, MT_SURV_4X4_PICKUP) != 1)
+        return fail("native Survivor pickup");
+    if (count_owner_type(&snap, 1, MT_MUTE_BERSERKER) != 17)
+        return fail("native mutant berserkers");
+    if (count_owner_type(&snap, 1, MT_MUTE_DIRE_WOLF) != 3)
+        return fail("native mutant wolves");
+    if (count_owner_type(&snap, 0, MT_SURV_DRILLRIG) != 0 ||
+        count_owner_type(&snap, 1, MT_MUTE_DRILLRIG) != 0 ||
+        count_owner_type(&snap, 0, MT_SURV_OUTPOST) != 0 ||
+        count_owner_type(&snap, 0, MT_SURV_BARRACKS) != 0)
+        return fail("no synthetic starting buildings");
+    fvec2_t player_sum = { 0.0f, 0.0f };
+    for (int i = 0; i < snap.unit_count; ++i)
+        if (snap.units[i].owner == 0)
+            player_sum = fvec2_add(player_sum, snap.units[i].position);
+    if (!level.has_camera || !fvec2_near(level.camera,
+            fvec2_scale(player_sum, 1.0f / 13.0f), 0.01f))
+        return fail("camera follows native player formation");
     if (snap.player_resources[0][0] <= 0) return fail("player starting resources");
     if (snap.player_resources[1][0] <= 0) return fail("enemy starting resources");
-    printf("PASS: kknd map loads with %d units, %d vents, %d/%d oil\n",
+    printf("PASS: kknd native mission loads with %d units, %d vents, %d/%d oil\n",
            snap.unit_count, snap.resource_vent_count,
            snap.player_resources[0][0], snap.player_resources[1][0]);
     rts_game_model_destroy(model);
@@ -56,7 +71,7 @@ static int test_select_and_move(void) {
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
     int player = -1;
     for (int i = 0; i < snap.unit_count; ++i)
-        if (snap.units[i].owner == 0 &&
+        if (snap.units[i].owner == 0 && snap.units[i].type_id == MT_SURV_RIFLEMAN &&
             (snap.units[i].traits & RTS_RENDER_TRAIT_MOBILE)) {
             player = i; break;
         }
@@ -65,7 +80,7 @@ static int test_select_and_move(void) {
     RtsGameCommand sel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
         .data.select_unit_index = { player, false } };
     if (!rts_game_model_command(model, &sel)) return fail("select");
-    fvec2_t target = { start.x + 3.0f, start.y };
+    fvec2_t target = { start.x - 3.0f, start.y };
     RtsGameCommand move = { .kind = RTS_GAME_COMMAND_MOVE_SELECTED,
         .data.move_selected = { .target = target } };
     if (!rts_game_model_command(model, &move)) return fail("move");
@@ -78,7 +93,7 @@ static int test_select_and_move(void) {
     return 0;
 }
 
-static int test_production(void) {
+static int test_native_start_has_no_production(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = { .data_root = "data/KKND" };
     if (!rts_game_model_load(model, &config)) return fail("load for production");
@@ -87,23 +102,12 @@ static int test_production(void) {
     RtsProductDefinition products[64];
     int product_count = rts_game_model_products(model, products, 64);
     if (product_count < 5) return fail("product table has entries");
-    int riflemen_before = count_owner_type(&snap, 0, MT_SURV_RIFLEMAN);
     RtsGameCommand build = {
         .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
         .data.activate_ui_button = { .ui_id = 1 },
     };
-    if (!rts_game_model_command(model, &build)) return fail("queue rifleman");
-    bool built = false;
-    for (int t = 0; t < 30 * 60 && !built; ++t) {
-        if (!rts_tick(model, &snap)) return fail("tick production");
-        RtsGameEvent ev;
-        while (rts_game_model_poll_event(model, &ev))
-            if (ev.type == RTS_GAME_EVENT_UNIT_BUILT) built = true;
-    }
-    if (!built) return fail("rifleman was built");
-    if (count_owner_type(&snap, 0, MT_SURV_RIFLEMAN) <= riflemen_before)
-        return fail("rifleman count increased");
-    printf("PASS: kknd production builds riflemen\n");
+    if (rts_game_model_command(model, &build)) return fail("native start has no producer");
+    printf("PASS: kknd native mission has no synthetic production base\n");
     rts_game_model_destroy(model);
     return 0;
 }
@@ -129,10 +133,10 @@ static int test_ai_production(void) {
         enemies += snap.units[i].owner == 1;
         players += snap.units[i].owner == 0;
     }
-    if (enemies <= initial_enemy) return fail("enemy AI produced units");
+    if (enemies != initial_enemy) return fail("enemy AI did not invent a base");
     if (players > initial_player || snap.player_resources[0][0] < initial_resources)
         return fail("AI leaves human production and resources alone");
-    printf("PASS: kknd enemy AI production (%d -> %d units)\n", initial_enemy, enemies);
+    printf("PASS: kknd enemy AI preserves native force (%d units)\n", enemies);
     rts_game_model_destroy(model);
     return 0;
 }
@@ -145,16 +149,16 @@ static int test_combat(void) {
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
 
     int player = -1, enemy = -1;
-    for (int i = 0; i < snap.unit_count; ++i) {
+    for (int i = 0; i < snap.unit_count; ++i)
         if (player < 0 && snap.units[i].owner == 0 &&
             (snap.units[i].traits & (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK)) ==
             (RTS_RENDER_TRAIT_MOBILE | RTS_RENDER_TRAIT_ATTACK))
             player = i;
-        /* Prefer mobile enemy; fall back to any enemy unit. */
-        if (snap.units[i].owner == 1 &&
-            (enemy < 0 || (snap.units[i].traits & RTS_RENDER_TRAIT_MOBILE)))
+    for (int i = 0; i < snap.unit_count; ++i)
+        if (snap.units[i].owner == 1 && (enemy < 0 ||
+            fvec2_distance_squared(snap.units[player].position, snap.units[i].position) <
+            fvec2_distance_squared(snap.units[player].position, snap.units[enemy].position)))
             enemy = i;
-    }
     if (player < 0) return fail("find attack-capable player unit");
     if (enemy < 0) return fail("find enemy unit");
 
@@ -236,7 +240,7 @@ static int test_metadata_consistency(void) {
 int main(void) {
     RTS_RUN(test_map_and_units());
     RTS_RUN(test_select_and_move());
-    RTS_RUN(test_production());
+    RTS_RUN(test_native_start_has_no_production());
     RTS_RUN(test_ai_production());
     RTS_RUN(test_metadata_consistency());
     RTS_RUN(test_combat());

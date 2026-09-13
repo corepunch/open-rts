@@ -10,10 +10,11 @@ int main(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/KKND"};
     assert(model && rts_game_model_load(model, &config));
-    mobj_t *truck = NULL;
-    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-        mobj_t *unit = (mobj_t *)th;
-        if (unit->owner == 0 && unit->type_id == MT_SURV_OIL_TANKER) truck = unit;
+    mobj_t *truck = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8,6},0), MT_SURV_RIFLEMAN);
+    if (truck) {
+        truck->owner = 0;
+        truck->team = 0;
+        truck->allegiance = ALLEGIANCE_PLAYER;
     }
     assert(truck);
     fixed3_t start = truck->core.position;
@@ -53,6 +54,6 @@ int main(void) {
     assert(truck->harvest.target == 1); /* Nearby southeast vent, not the one closest to origin. */
     P_FreeMobjList(&objects);
     P_FreeLevel(&level);
-    puts("PASS: human tanker stays idle and AI preserves explicit movement");
+    puts("PASS: native human unit stays idle and AI preserves explicit movement");
     return 0;
 }

@@ -400,27 +400,52 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     return load_assets(renderer, root, map, sprite, tileset, unit_sprite);
 }
 
+static uint16_t kknd_unit_type(const char *name) {
+    for (int i = 1; i < NUMMOBJTYPES; ++i)
+        if (cplc_names[i] && strcasecmp(cplc_names[i], name) == 0)
+            return (uint16_t)i;
+    return 0;
+}
+
+static uint16_t kknd_player_native_team(const char *path) {
+    const char *name = strrchr(path, '/');
+    name = name ? name + 1 : path;
+    return strncasecmp(name, "MUTE_", 5) == 0 ? 2 : 1;
+}
+
 int P_LoadThings(const char *path) {
-    (void)path;
-    const KkndMapData *native = level.native_data;
-    if (!native || !native->units) return 0;
+    KkndMapUnit native[128];
+    int native_count = load_kknd_map_units(path, native,
+                                           (int)(sizeof(native) / sizeof(native[0])));
+    if (native_count <= 0) return 0;
+
+    uint16_t player_team = kknd_player_native_team(path);
+    fvec2_t player_position_sum = { 0.0f, 0.0f };
+    int player_count = 0;
     int count = 0;
-    for (int i = 0; i < native->unit_count; ++i) {
-        const KkndUnitPlacement *u = &native->units[i];
-        mobj_t *mobj = P_SpawnMobj(fixed3_zero(), u->type);
-        if (!mobj) continue;
-        mobj->core.position = fixed3_from_fvec2((fvec2_t){ u->x, u->y }, 0);
-        mobj->owner = u->owner;
-        mobj->team  = u->owner;
-        mobj->type_id = u->type;
-        if (u->owner != 0)
-            mobj->allegiance = ALLEGIANCE_ENEMY;
-        if (u->owner == 0 && !level.has_camera) {
-            level.has_camera = true;
-            level.camera = (fvec2_t){ u->x, u->y };
+    for (int i = 0; i < native_count; ++i) {
+        uint16_t type = kknd_unit_type(native[i].name);
+        if (type == 0) continue;
+        mobj_t *unit = P_SpawnMobj(fixed3_zero(), type);
+        if (!unit) continue;
+        bool player = native[i].native_team == player_team;
+        unit->core.position = fixed3_from_fvec2(native[i].position, 0);
+        unit->owner = player ? 0 : 1;
+        unit->team = unit->owner;
+        unit->allegiance = player ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
+        if (player) {
+            player_position_sum = fvec2_add(player_position_sum, native[i].position);
+            player_count++;
         }
         count++;
     }
+
+    if (player_count > 0) {
+        level.has_camera = true;
+        level.camera = fvec2_scale(player_position_sum, 1.0f / (float)player_count);
+    }
+    level.player_resources[0][0] = 5000;
+    level.player_resources[1][0] = 5000;
     return count;
 }
 

@@ -19,7 +19,7 @@ static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {
     size_t bytes = (size_t)app.win.w * app.win.h * sizeof(uint32_t);
     void *expected = malloc(bytes), *actual = malloc(bytes);
     CHECK(expected && actual);
-    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8,6},0), MT_SURV_OIL_TANKER);
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){40,30},0), MT_SURV_OIL_TANKER);
     CHECK(unit);
     for (int pose = 0; pose < 18; ++pose) {
         ivec2_t anchor;
@@ -30,7 +30,7 @@ static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {
             unit->core.angle = direction_to_angle(rotation, 16, ANG90, false);
         } else {
             P_RemoveMobj(unit);
-            unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8,6},0), buildings[pose-16].type);
+            unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){40,30},0), buildings[pose-16].type);
             CHECK(unit);
             anchor = buildings[pose-16].anchor;
         }
@@ -81,7 +81,7 @@ int main(void) {
     CHECK(R_InitSprites(renderer, config.data_root, &level, units.items, units.count, cache));
     const spritesheet_t *rifleman = R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL);
     const spritesheet_t *rig = R_StateSprite(cache, gameinfo, SPR_SURV_DRILLRIG, NULL);
-    CHECK(rifleman && rig && rifleman != rig && rifleman->lumps[0].texture != rig->lumps[0].texture);
+    CHECK(rifleman && !rig);
     SDL_Texture *retained = rifleman->lumps[0].texture;
     P_FreeMobjList(&units);
     for (int i = 0; i < num_actor_types; ++i)
