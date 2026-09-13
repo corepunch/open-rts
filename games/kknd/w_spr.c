@@ -34,8 +34,8 @@ static int sprite_member_index(const char *name) {
     return -1;
 }
 
-static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
-                               uint32_t frame_offset, const uint32_t palette[256],
+static bool decode_mobd_image(const uint8_t *segment, size_t size,
+                               uint32_t frame_offset,
                                spritecell_t *cell, spritelump_t *lump, bool *flip_out) {
     if (!range_ok(size, frame_offset, 28)) return false;
     ivec2_t offset = { read_i32_le(segment + frame_offset), read_i32_le(segment + frame_offset + 4) };
@@ -50,8 +50,8 @@ static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, si
     int height = (int)read_u32_le(segment + image + 4);
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) return false;
     size_t count = (size_t)width * (size_t)height;
-    uint32_t *pixels = calloc(count, sizeof(*pixels));
-    if (!pixels) return false;
+    uint8_t *indices = calloc(count, 1); /* index 0 = transparent */
+    if (!indices) return false;
     uint32_t pos = image + 9;
     if (segment[image + 8] == 2) {
         size_t write = 0;
@@ -66,13 +66,10 @@ static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, si
             while (pos < end) {
                 uint8_t chunk = segment[pos++];
                 if ((size_t)chunk > count - write) goto fail;
-                if (skip) write += chunk;
+                if (skip) write += chunk; /* gap pixels stay 0 (transparent) */
                 else {
                     if (chunk > end - pos) goto fail;
-                    for (int i = 0; i < chunk; ++i) {
-                        uint8_t index = segment[pos + i];
-                        pixels[write + i] = index ? palette[index] : 0;
-                    }
+                    memcpy(indices + write, segment + pos, chunk);
                     write += chunk;
                     pos += chunk;
                 }
@@ -82,24 +79,20 @@ static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, si
         }
     } else {
         if (!range_ok(size, pos, count)) goto fail;
-        for (size_t i = 0; i < count; ++i) {
-            uint8_t index = segment[pos + i];
-            pixels[i] = index ? palette[index] : 0;
-        }
+        memcpy(indices, segment + pos, count);
     }
     cell->rect = cell->bounds = (irect_t){ 0, 0, width, height };
     /* MOBD offsets anchor the final, mirrored image. The renderer mirrors
      * ground_point with the pixels, so store it in unmirrored coordinates. */
     cell->ground_point = *flip_out ? (ivec2_t){ width - offset.x, offset.y } : offset;
-    lump->texture = I_CreateTexture(renderer, pixels, width, height, true);
-    free(pixels);
-    return lump->texture != NULL;
+    lump->indices = indices;
+    return true;
 fail:
-    free(pixels);
+    free(indices);
     return false;
 }
 
-static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t size,
+static bool decode_mobd(const uint8_t *segment, size_t size,
                              uint32_t member, const uint32_t palette[256], spritesheet_t *out) {
     uint32_t animation_offsets[MAX_ANIMATIONS];
     int animation_count = 0;
@@ -181,10 +174,15 @@ static bool decode_mobd(SDL_Renderer *renderer, const uint8_t *segment, size_t s
     out->frame_size = (isize2_t){ 1, 1 };
     for (int i = 0; i < frame_count; ++i) {
         spritecell_t *cell = &out->cells[i];
-        if (!decode_mobd_image(renderer, segment, size, frames[i], palette, cell, &out->lumps[i], &flips[i])) goto fail;
+        if (!decode_mobd_image(segment, size, frames[i], cell, &out->lumps[i], &flips[i])) goto fail;
         if (cell->rect.w > out->frame_size.w) out->frame_size.w = cell->rect.w;
         if (cell->rect.h > out->frame_size.h) out->frame_size.h = cell->rect.h;
     }
+
+    memcpy(out->palette,        palette, sizeof(out->palette));
+    memcpy(out->source_palette, palette, sizeof(out->source_palette));
+    out->palette[0] = out->source_palette[0] = 0x00000000u; /* index 0 = transparent */
+    out->indexed = true;
 
     /* Native animation tables keep sixteen slots per channel. Complete
        direction sets share logical frames; sparse channels retain their
@@ -251,7 +249,7 @@ static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
     if (!open_lvl(path, &blob, &segment, &segment_size)) return false;
     uint32_t member = 0;
     bool ok = lvl_asset(segment, segment_size, "MOBD", member_index, &member) &&
-              decode_mobd(renderer, segment, segment_size, member, palette, out);
+              decode_mobd(segment, segment_size, member, palette, out);
     if (!ok) fprintf(stderr, "failed to decode MOBD member %d from %s\n", member_index, path);
     W_FreeFile(&blob);
     return ok;

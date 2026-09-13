@@ -10,8 +10,7 @@
 #include <string.h>
 #include <strings.h>
 
-bool load_dark_tileset(SDL_Renderer *renderer, const char *path,
-                       const uint32_t palette[256], tileset_t *out);
+bool load_dark_tileset(const char *path, const uint32_t palette[256], tileset_t *out);
 void add_water_animations(tileset_t *tileset);
 
 /* ── FTG archive ────────────────────────────────────────────────────────── */
@@ -91,91 +90,106 @@ static bool load_dark_terrain_palette(const char *path, uint32_t colors[256]) {
 
 /* ── sprite loader ──────────────────────────────────────────────────────── */
 
-static irect_t visible_bounds(const uint32_t *rgba, int atlas_w, irect_t frame) {
-    int min_x = frame.w, min_y = frame.h, max_x = -1, max_y = -1;
-    for (int y = 0; y < frame.h; ++y) {
-        for (int x = 0; x < frame.w; ++x) {
-            uint32_t px = rgba[(frame.y + y) * atlas_w + frame.x + x];
-            if ((px >> 24) == 0) continue;
+typedef struct {
+    uint32_t fourcc;
+    int32_t  version;
+    int32_t  nanims;
+    int32_t  nrots;
+    int32_t  szx;
+    int32_t  szy;
+    int32_t  npics;
+    int32_t  nsects;
+} dr_spr_header_t;
+
+#define DR_SPR_RSPR ((uint32_t)'R'|((uint32_t)'S'<<8)|((uint32_t)'P'<<16)|((uint32_t)'R'<<24))
+#define DR_SPR_SSPR ((uint32_t)'S'|((uint32_t)'S'<<8)|((uint32_t)'P'<<16)|((uint32_t)'R'<<24))
+#define DR_SPR_LSPR ((uint32_t)'L'|((uint32_t)'S'<<8)|((uint32_t)'P'<<16)|((uint32_t)'R'<<24))
+
+static irect_t visible_bounds_indexed(const uint8_t *indices, int w, int h) {
+    int min_x = w, min_y = h, max_x = -1, max_y = -1;
+    for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+            if (!indices[(size_t)y * w + x]) continue;
             if (x < min_x) min_x = x;
             if (y < min_y) min_y = y;
             if (x > max_x) max_x = x;
             if (y > max_y) max_y = y;
         }
-    }
-    if (max_x < min_x || max_y < min_y) return (irect_t){ 0, 0, frame.w, frame.h };
+    if (max_x < min_x || max_y < min_y) return (irect_t){ 0, 0, w, h };
     return (irect_t){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
-static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
+static bool load_dark_sprite(const uint8_t *data, size_t size,
                              const uint32_t palette[256], spritesheet_t *out) {
     memset(out, 0, sizeof(*out));
-    if (size < 32 || (memcmp(data, "RSPR", 4) != 0 && memcmp(data, "SSPR", 4) != 0 &&
-                      memcmp(data, "LSPR", 4) != 0)) return false;
-    bool shadow = memcmp(data, "SSPR", 4) == 0;
-    int version = read_i32_le(data + 4);
-    int nanims  = read_i32_le(data + 8);
-    int nrots   = read_i32_le(data + 12);
-    int szx     = read_i32_le(data + 16);
-    int szy     = read_i32_le(data + 20);
-    int npics   = read_i32_le(data + 24);
-    int nsects  = read_i32_le(data + 28);
-    if ((version != 0x0210 && version != 0x0200) || nanims <= 0 || nrots <= 0 ||
-        szx <= 0 || szy <= 0 || npics <= 0 || nsects <= 0) return false;
+    if (size < sizeof(dr_spr_header_t)) return false;
+    dr_spr_header_t hdr;
+    memcpy(&hdr, data, sizeof(hdr));
+    uint32_t *fields = (uint32_t *)&hdr;
+    for (size_t i = 0; i < sizeof(hdr) / sizeof(uint32_t); ++i)
+        fields[i] = SDL_SwapLE32(fields[i]);
+    if (hdr.fourcc != DR_SPR_RSPR && hdr.fourcc != DR_SPR_SSPR && hdr.fourcc != DR_SPR_LSPR) return false;
+    bool shadow = (hdr.fourcc == DR_SPR_SSPR);
+    if ((hdr.version != 0x0210 && hdr.version != 0x0200) || hdr.nanims <= 0 || hdr.nrots <= 0 ||
+        hdr.szx <= 0 || hdr.szy <= 0 || hdr.npics <= 0 || hdr.nsects <= 0) return false;
 
-    if (nrots > MAX_SPRITE_ROTATIONS) return false;
-    size_t off_sections = 32 + 4 * (size_t)nanims * nrots;
-    size_t off_picoffs = off_sections + 16 * (size_t)nsects + 4 * (size_t)nanims;
-    size_t off_bits = off_picoffs + 8 * (size_t)npics + 4;
+    if (hdr.nrots > MAX_SPRITE_ROTATIONS) return false;
+    size_t off_sections = 32 + 4 * (size_t)hdr.nanims * hdr.nrots;
+    size_t off_picoffs  = off_sections + 16 * (size_t)hdr.nsects + 4 * (size_t)hdr.nanims;
+    size_t off_bits     = off_picoffs + 8 * (size_t)hdr.npics + 4;
     if (off_bits > size) return false;
 
     int logical_frames = 0;
-    for (int s = 0; s < nsects; ++s) {
+    for (int s = 0; s < hdr.nsects; ++s) {
         const uint8_t *section = data + off_sections + (size_t)s * 16;
         int first = read_i32_le(section), last = read_i32_le(section + 4);
-        if (first < 0 || last < first || last >= nanims ||
-            last - first + 1 > INT_MAX / nrots - logical_frames) return false;
+        if (first < 0 || last < first || last >= hdr.nanims ||
+            last - first + 1 > INT_MAX / hdr.nrots - logical_frames) return false;
         logical_frames += last - first + 1;
     }
-    if (!R_AllocSpriteCells(out, logical_frames * nrots) ||
-        !R_InitSpriteDef(out, logical_frames, nrots)) goto fail;
-    out->frame_size = (isize2_t){ szx, szy };
-    if ((size_t)szx > SIZE_MAX / sizeof(uint32_t) / szy) goto fail;
-    size_t pixels = (size_t)szx * szy;
-    uint32_t *rgba = malloc(pixels * sizeof(*rgba));
-    if (!rgba) goto fail;
+    if (!R_AllocSpriteCells(out, logical_frames * hdr.nrots) ||
+        !R_InitSpriteDef(out, logical_frames, hdr.nrots)) goto fail;
+    out->frame_size = (isize2_t){ hdr.szx, hdr.szy };
+    if ((size_t)hdr.szx > SIZE_MAX / (size_t)hdr.szy) goto fail;
+    size_t pixels = (size_t)hdr.szx * hdr.szy;
+    uint8_t *frame_indices = malloc(pixels);
+    if (!frame_indices) goto fail;
 
-    int rot_offset = nrots >= 4 ? nrots / 4 : 0;
+    memcpy(out->palette,        palette, sizeof(out->palette));
+    memcpy(out->source_palette, palette, sizeof(out->source_palette));
+    out->indexed = true;
+
+    int rot_offset = hdr.nrots >= 4 ? hdr.nrots / 4 : 0;
     int lump = 0, logical_frame = 0;
-    for (int s = 0; s < nsects; ++s) {
+    for (int s = 0; s < hdr.nsects; ++s) {
         const uint8_t *section = data + off_sections + (size_t)s * 16;
         int first = read_i32_le(section), last = read_i32_le(section + 4);
-        for (int r = 0; r < nrots; ++r) {
-            int disk_r = (r + rot_offset) % nrots;
+        for (int r = 0; r < hdr.nrots; ++r) {
+            int disk_r = (r + rot_offset) % hdr.nrots;
             for (int a = first; a <= last; ++a, ++lump) {
-                size_t picindex = (size_t)a * nrots + disk_r;
+                size_t picindex = (size_t)a * hdr.nrots + disk_r;
                 int picnr = read_i32_le(data + 32 + picindex * 4);
-                if (picnr < 0 || picnr >= npics) goto decode_fail;
+                if (picnr < 0 || picnr >= hdr.npics) goto decode_fail;
                 const uint8_t *picture = data + off_picoffs + 8 * (size_t)picnr;
                 int start = read_i32_le(picture), end = read_i32_le(picture + 8);
                 if (start < 0 || end < start || (size_t)end > size - off_bits) goto decode_fail;
                 const uint8_t *compressed = data + off_bits + start;
                 size_t remaining = (size_t)(end - start);
-                for (size_t i = 0; i < pixels; ++i) rgba[i] = palette[0];
-                for (int y = 0; y < szy; ++y) {
+                memset(frame_indices, 0, pixels);
+                for (int y = 0; y < hdr.szy; ++y) {
                     int x = 0, step = 0;
-                    while (x < szx) {
+                    while (x < hdr.szx) {
                         if (!remaining) goto decode_fail;
                         int count = *compressed++; remaining--;
                         if (step & 1) count &= 0x7f;
-                        if (count > szx - x) goto decode_fail;
+                        if (count > hdr.szx - x) goto decode_fail;
                         if (step & 1) {
-                            uint32_t *dst = rgba + (size_t)y * szx + x;
+                            uint8_t *dst = frame_indices + (size_t)y * hdr.szx + x;
                             if (shadow) {
-                                for (int i = 0; i < count; ++i) dst[i] = palette[47];
+                                memset(dst, 47, count);
                             } else {
                                 if ((size_t)count > remaining) goto decode_fail;
-                                V_IndexedToRGBA(dst, compressed, count, palette);
+                                memcpy(dst, compressed, count);
                                 compressed += count; remaining -= count;
                             }
                         }
@@ -183,27 +197,28 @@ static bool load_dark_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t
                     }
                 }
                 spritecell_t *cell = &out->cells[lump];
-                cell->rect = (irect_t){ 0, 0, szx, szy };
-                cell->bounds = visible_bounds(rgba, szx, cell->rect);
+                cell->rect = (irect_t){ 0, 0, hdr.szx, hdr.szy };
+                cell->bounds = visible_bounds_indexed(frame_indices, hdr.szx, hdr.szy);
                 /* RSPR canvases are centered on the object's world origin. */
-                cell->ground_point = (ivec2_t){ szx / 2, szy / 2 };
-                out->lumps[lump].texture = I_CreateTexture(renderer, rgba, szx, szy, true);
-                if (!out->lumps[lump].texture) goto decode_fail;
+                cell->ground_point = (ivec2_t){ hdr.szx / 2, hdr.szy / 2 };
+                out->lumps[lump].indices = malloc(pixels);
+                if (!out->lumps[lump].indices) goto decode_fail;
+                memcpy(out->lumps[lump].indices, frame_indices, pixels);
                 R_InstallSpriteLump(out, logical_frame + a - first, r, lump, false);
             }
         }
         logical_frame += last - first + 1;
     }
-    free(rgba);
+    free(frame_indices);
     return true;
 decode_fail:
-    free(rgba);
+    free(frame_indices);
 fail:
     R_FreeSprite(out);
     return false;
 }
 
-static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
+static bool load_unit_sprite(const char *data_root,
                              const char *tileset_name, const char *sprite_name,
                              const uint32_t palette[256], spritesheet_t *out) {
     const char *asset_name = sprite_name;
@@ -230,7 +245,7 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
             (size_t)offset + (size_t)size > ftg.file.size) {
             ftg_free(&ftg); return false;
         }
-        bool ok = load_dark_sprite(renderer, ftg.file.bytes + offset,
+        bool ok = load_dark_sprite(ftg.file.bytes + offset,
                                    (size_t)size, palette, out);
         ftg_free(&ftg);
         return ok;
@@ -244,14 +259,15 @@ static bool load_unit_sprite(SDL_Renderer *renderer, const char *data_root,
 
 bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
                       const char *name, spritesheet_t *out) {
+    (void)renderer;
     char path[1024];
     uint32_t palette[256];
     M_PathJoin(path, sizeof(path), root, "graphics/BARREN.PAL");
     return load_dark_sprite_palette(path, palette) &&
-           load_unit_sprite(renderer, root, "BARREN", name, palette, out);
+           load_unit_sprite(root, "BARREN", name, palette, out);
 }
 
-static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *renderer,
+static bool sprite_cache_load_dark_reign(spritecache_t *cache,
                                          const char *data_root, const char *tileset_name,
                                          const char *name, const uint32_t sprite_palette[256],
                                          const uint32_t terrain_palette[256]) {
@@ -265,7 +281,7 @@ static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *ren
     snprintf(entry->name, sizeof(entry->name), "%s", name);
     const uint32_t *palette = strncasecmp(name, "tileset|", 8) == 0 ?
         terrain_palette : sprite_palette;
-    if (!load_unit_sprite(renderer, data_root, tileset_name, name, palette, &entry->sprite)) {
+    if (!load_unit_sprite(data_root, tileset_name, name, palette, &entry->sprite)) {
         if (strncasecmp(name, "tileset|", 8) == 0) {
             /* Not every building has a terrain-specific underlay. Cache the
                absence so repeated instances do not retry or report failure. */
@@ -281,6 +297,7 @@ static bool sprite_cache_load_dark_reign(spritecache_t *cache, SDL_Renderer *ren
 bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
                                         const level_t *map, mobj_t *const *units,
                                         int unit_count, spritecache_t *cache) {
+    (void)renderer;
     uint32_t sprite_palette[256];
     uint32_t terrain_palette[256];
     char palette_path[1024];
@@ -293,21 +310,21 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
     bool ok = true;
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
-        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+        if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                                           dec->shadow_name, sprite_palette, terrain_palette)) ok = false;
-        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+        if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                                           dec->sprite_name, sprite_palette, terrain_palette)) ok = false;
-        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+        if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                                           dec->sprite2_name, sprite_palette, terrain_palette)) ok = false;
-        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+        if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                                           dec->sprite3_name, sprite_palette, terrain_palette)) ok = false;
     }
     for (int i = 0; i < unit_count; ++i) {
         const mobj_t *unit = units[i];
         const char *shadow_name = unit->info ? unit->info->shadow_name : NULL;
-        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+        if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                           shadow_name, sprite_palette, terrain_palette)) ok = false;
-        if (!sprite_cache_load_dark_reign(cache, renderer, data_root, map->tileset_name,
+        if (!sprite_cache_load_dark_reign(cache, data_root, map->tileset_name,
                                           unit->core.sprite_name, sprite_palette, terrain_palette)) ok = false;
     }
     return ok;
@@ -318,6 +335,7 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
 bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
                                    const level_t *map, const char *sprite_name,
                                    tileset_t *tileset, spritesheet_t *unit_sprite) {
+    (void)renderer;
     uint32_t terrain_palette[256], sprite_palette[256];
     char palette_path[1024];
     snprintf(palette_path, sizeof(palette_path), "%s/graphics/%s.PAL", data_root, map->tileset_name);
@@ -330,14 +348,14 @@ bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
 
     char til_path[1024];
     snprintf(til_path, sizeof(til_path), "%s/graphics/%s.TIL", data_root, map->tileset_name);
-    if (!load_dark_tileset(renderer, til_path, terrain_palette, tileset)) {
+    if (!load_dark_tileset(til_path, terrain_palette, tileset)) {
         snprintf(til_path, sizeof(til_path), "%s/graphics/BARREN.TIL", data_root);
-        if (!load_dark_tileset(renderer, til_path, terrain_palette, tileset)) return false;
+        if (!load_dark_tileset(til_path, terrain_palette, tileset)) return false;
     }
     if (strcasecmp(map->tileset_name, "SNOW") != 0)
         add_water_animations(tileset);
 
-    if (!load_unit_sprite(renderer, data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
+    if (!load_unit_sprite(data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);
         R_FreeTileset(tileset);
         return false;

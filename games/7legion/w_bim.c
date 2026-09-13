@@ -39,7 +39,7 @@ static bool sl_load_col_palette(const char *path, uint32_t palette[256]) {
 
 #define ATLAS_COLS 64
 
-static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
+static bool sl_load_bim_tileset(const char *path,
                                 const uint32_t palette[256], tileset_t *out) {
     memset(out, 0, sizeof(*out));
 
@@ -73,36 +73,23 @@ static bool sl_load_bim_tileset(SDL_Renderer *renderer, const char *path,
         return false;
     }
 
-    int atlas_rows = (usable + ATLAS_COLS - 1) / ATLAS_COLS;
-    int atlas_w    = ATLAS_COLS * TILE_W;
-    int atlas_h    = atlas_rows  * TILE_H;
-
-    uint32_t *rgba = calloc((size_t)atlas_w * (size_t)atlas_h, sizeof(uint32_t));
-    if (!rgba) { W_FreeFile(&blob); return false; }
+    size_t tile_bytes = (size_t)TILE_W * TILE_H;
+    out->indices = malloc((size_t)usable * tile_bytes);
+    if (!out->indices) { W_FreeFile(&blob); return false; }
 
     for (int i = 0; i < usable; ++i) {
         uint32_t off = read_u32_le(data + (size_t)i * 4);
-        const uint8_t *pixels = data + off + 4; /* skip 4-byte header */
-
-        int tx = (i % ATLAS_COLS) * TILE_W;
-        int ty = (i / ATLAS_COLS) * TILE_H;
-        for (int py = 0; py < TILE_H; ++py) {
-            for (int px = 0; px < TILE_W; ++px) {
-                uint8_t idx = pixels[py * TILE_W + px];
-                rgba[(ty + py) * atlas_w + tx + px] = palette[idx];
-            }
-        }
+        memcpy(out->indices + (size_t)i * tile_bytes, data + off + 4, tile_bytes);
     }
 
-    out->texture    = I_CreateTexture(renderer, rgba, atlas_w, atlas_h, false);
+    memcpy(out->palette, palette, sizeof(out->palette));
     out->count      = usable;
     out->atlas_cols = ATLAS_COLS;
     out->tile_w     = TILE_W;
     out->tile_h     = TILE_H;
 
-    free(rgba);
     W_FreeFile(&blob);
-    return out->texture != NULL;
+    return true;
 }
 
 /* ── sparse BIM sprites ─────────────────────────────────────────────────── */
@@ -223,13 +210,13 @@ static bool sl_bim_frame_info(const uint8_t *data, size_t size,
     return true;
 }
 
-static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
+static bool sl_load_bim_sprite(const char *path,
                                const uint32_t palette[256], spritesheet_t *out) {
     memset(out, 0, sizeof(*out));
 
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
-    uint32_t *rgba = NULL;
+    uint8_t *frame_buf = NULL;
     if (blob.size >= 4 && memcmp(blob.bytes, "VCLZ", 4) == 0) {
         blob_t expanded = {0};
         if (!sl_expand_vclz(blob.bytes, blob.size, &expanded.bytes, &expanded.size)) goto fail;
@@ -260,13 +247,19 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
     out->numlumps = frame_count;
     out->frame_size = canvas;
     size_t pixels = (size_t)canvas.w * canvas.h;
-    rgba = calloc(pixels, sizeof(*rgba));
-    if (!rgba) goto fail;
+    frame_buf = calloc(pixels, 1);
+    if (!frame_buf) goto fail;
+
+    memcpy(out->palette,        palette, sizeof(out->palette));
+    memcpy(out->source_palette, palette, sizeof(out->source_palette));
+    out->palette[0] = out->source_palette[0] = 0x00000000u; /* gap pixels → transparent */
+    out->indexed = true;
+
     for (int i = 0; i < frame_count; ++i) {
         spritecell_t *cell = &out->cells[i];
         cell->rect = (irect_t){ 0, 0, canvas.w, canvas.h };
         cell->ground_point = (ivec2_t){ canvas.w / 2, canvas.h };
-        memset(rgba, 0, pixels * sizeof(*rgba));
+        memset(frame_buf, 0, pixels);
         uint32_t offset = read_u32_le(data + (size_t)i * 4);
         uint32_t end = i + 1 < table_count ? read_u32_le(data + (size_t)(i + 1) * 4) : (uint32_t)blob.size;
         if (offset != end) {
@@ -279,13 +272,14 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
                 for (int span = 0; span < spans; ++span) {
                     int x = read_u16_le(data + command), length = read_u16_le(data + command + 2);
                     command += 4;
-                    V_IndexedToRGBA(rgba + (size_t)y * canvas.w + x, data + source, length, palette);
+                    memcpy(frame_buf + (size_t)y * canvas.w + x, data + source, length);
                     source += length;
                 }
             }
         }
-        out->lumps[i].texture = I_CreateTexture(renderer, rgba, canvas.w, canvas.h, true);
-        if (!out->lumps[i].texture) goto fail;
+        out->lumps[i].indices = malloc(pixels);
+        if (!out->lumps[i].indices) goto fail;
+        memcpy(out->lumps[i].indices, frame_buf, pixels);
     }
     /* Movement sheets are arranged as eight contiguous facing blocks. */
     int rotations = frame_count >= 8 && frame_count % 8 == 0 ? 8 : 1;
@@ -295,11 +289,11 @@ static bool sl_load_bim_sprite(SDL_Renderer *renderer, const char *path,
         for (int rotation = 0; rotation < rotations; ++rotation)
             R_InstallSpriteLump(out, frame, (rotations - rotation) % rotations,
                                 rotation * frames + frame, false);
-    free(rgba);
+    free(frame_buf);
     W_FreeFile(&blob);
     return true;
 fail:
-    free(rgba);
+    free(frame_buf);
     W_FreeFile(&blob);
     R_FreeSprite(out);
     return false;
@@ -315,8 +309,7 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
                     const level_t *map,
                     const char *sprite_name,
                     tileset_t *tileset, spritesheet_t *unit_sprite) {
-
-    /* Palette */
+    (void)renderer;
     uint32_t palette[256];
     char col_path[512];
     snprintf(col_path, sizeof(col_path), "%s/%s", data_root, sl_palette_for_tileset(map));
@@ -325,20 +318,18 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
         return false;
     }
 
-    /* tileset_t */
     char til_path[512];
     snprintf(til_path, sizeof(til_path), "%s/%s", data_root,
              map && map->tileset_name[0] ? map->tileset_name : "GFX/TILES.BIM");
-    if (!sl_load_bim_tileset(renderer, til_path, palette, tileset)) {
+    if (!sl_load_bim_tileset(til_path, palette, tileset)) {
         fprintf(stderr, "7legion: failed to load tileset %s\n", til_path);
         return false;
     }
 
-    /* mobj_t sprite */
     char sprite_path[512];
     snprintf(sprite_path, sizeof(sprite_path), "%s/%s", data_root,
              sprite_name && sprite_name[0] ? sprite_name : "GFX/TROOP1W.BIM");
-    if (!sl_load_bim_sprite(renderer, sprite_path, palette, unit_sprite)) {
+    if (!sl_load_bim_sprite(sprite_path, palette, unit_sprite)) {
         fprintf(stderr, "7legion: failed to load sprite %s\n", sprite_path);
         R_FreeTileset(tileset);
         return false;
@@ -346,7 +337,7 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
     return true;
 }
 
-static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,
+static bool sl_cache_bim_sprite(spritecache_t *cache,
                                 const char *data_root, const char *sprite_name,
                                 const uint32_t palette[256]) {
     if (!sprite_name || sprite_name[0] == '\0') return true;
@@ -357,7 +348,7 @@ static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,
     snprintf(path, sizeof(path), "%s/%s", data_root, sprite_name);
     cachedsprite_t *entry = &cache->entries[cache->count];
     memset(entry, 0, sizeof(*entry));
-    if (!sl_load_bim_sprite(renderer, path, palette, &entry->sprite)) {
+    if (!sl_load_bim_sprite(path, palette, &entry->sprite)) {
         fprintf(stderr, "7legion: failed to load runtime sprite %s\n", path);
         return false;
     }
@@ -369,6 +360,7 @@ static bool sl_cache_bim_sprite(spritecache_t *cache, SDL_Renderer *renderer,
 bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
                              const level_t *map, mobj_t *const *units, int unit_count,
                              spritecache_t *cache) {
+    (void)renderer;
     uint32_t palette[256];
     char col_path[512];
     snprintf(col_path, sizeof(col_path), "%s/%s", data_root, sl_palette_for_tileset(map));
@@ -376,7 +368,7 @@ bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
 
     bool ok = true;
     for (int i = 0; i < unit_count; ++i) {
-        if (!sl_cache_bim_sprite(cache, renderer, data_root,
+        if (!sl_cache_bim_sprite(cache, data_root,
                      units[i]->core.sprite_name, palette))
             ok = false;
     }
