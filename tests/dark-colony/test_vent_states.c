@@ -24,6 +24,23 @@ static void draw(app_t *app, const tileset_t *tiles, const spritecache_t *cache,
     SDL_RenderPresent(app->renderer);
 }
 
+static void check_harvester_attachment(uint16_t type, int harvest_state,
+                                       resourcevent_t *resource, mobj_t *vent) {
+    mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), type);
+    assert(unit && (unit->traits & MF_HARVESTER));
+    assert(P_HarvestUnitTo(&level, unit, resource->attachment));
+    for (int tic = 0; tic < 120 && unit->harvest.phase != HARVEST_PHASE_MINING; ++tic)
+        P_Ticker();
+    assert(unit->harvest.phase == HARVEST_PHASE_MINING);
+    assert(unit->core.state_id == harvest_state);
+    for (int tic = 0; tic < 30 && vent->core.state_id != S_VENT_ATTACHED; ++tic)
+        P_Ticker();
+    assert(vent->core.state_id == S_VENT_ATTACHED && P_MobjIsHidden(vent));
+    P_RemoveMobj(unit);
+    P_Ticker();
+    assert(active(vent) && !P_MobjIsHidden(vent));
+}
+
 int main(void) {
     const char *path = "data/DCOLONY/SCENARIO/HUMAN/HUMAN02.MAP";
     G_InitGame();
@@ -131,6 +148,9 @@ int main(void) {
     P_RemoveMobj(exploiter);
     tick(1);
     assert(active(vent) && !P_MobjIsHidden(vent));
+
+    check_harvester_attachment(MT_EXPLOITER, S_EXPL_DEPLOY1, resource, vent);
+    check_harvester_attachment(MT_SLUG, S_SLUG_DEPLOY1, resource, vent);
 
     exploiter = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), MT_EXPLOITER);
     assert(exploiter);

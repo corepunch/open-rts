@@ -312,6 +312,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_HARVESTER,
         .speed = 40.0f / 32.0f,
         .max_hp = 800,
+        .harvest = { .capacity = 0, .state_id = S_SLUG_DEPLOY1 },
     },
     {
         .id = MT_MOBILE_TOWER,

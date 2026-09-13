@@ -5010,3 +5010,19 @@ loss/duplication/reordering. The final hosted-suite rerun also covers D2PLAY01.
 The four-pose Osprey strip `/private/tmp/dc-osprey-idle.bmp` is emitted by the
 focused test and was visually inspected, along with
 `/private/tmp/dc-multiplayer-fixed.bmp`. No image assets were changed.
+
+## Brozaar harvest deploy state (2026-09-13)
+
+**Confirmed runtime cause:** the alien Brozaar uses engine type `MT_SLUG` and
+already carried `MF_MOBILE | MF_HARVESTER`, but its actor table did not provide
+a harvest state. Exploiter uses `S_EXPL_DEPLOY1`; the shared harvest thinker
+enters `HARVEST_PHASE_MINING` and the vent attachment thinker keys off that
+phase and vent target. Without a Brozaar state, it could not follow the same
+deploy/mining presentation path.
+
+**Correction:** `MT_SLUG` now uses `S_SLUG_DEPLOY1`, with zero capacity matching
+the existing Exploiter resource model. The focused vent regression issues a
+real harvest order for both `MT_EXPLOITER` and `MT_SLUG`, verifies their
+respective deploy states on mining entry, waits for `S_VENT_ATTACHED`, and
+checks that the vent resumes after each harvester is removed. No asset or
+balance data changed.
