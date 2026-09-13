@@ -442,14 +442,8 @@ int main(int argc, char **argv) {
         R_DrawGridOverlay(&app, &level);
         R_DrawFog(&app, &level);
         if (app.dragging_select) {
-            SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
-            SDL_GetRenderDrawBlendMode(app.renderer, &old_blend);
-            SDL_SetRenderDrawBlendMode(app.renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 70);
-            SDL_RenderFillRect(app.renderer, &app.selection_rect);
-            SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 220);
+            SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 255);
             SDL_RenderDrawRect(app.renderer, &app.selection_rect);
-            SDL_SetRenderDrawBlendMode(app.renderer, old_blend);
         }
         G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
         SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
