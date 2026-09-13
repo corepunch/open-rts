@@ -1446,3 +1446,16 @@ were checked against local `data/REIGN/dkreign.exe`,
 `dark/graphics/INTFACE/IGI/` and the PALS RGB555 lookup. Detailed addresses,
 executable fingerprint, corrections and remaining unknowns are in
 `docs/DR_EXE_FINDINGS.md`, “Mission 01 and retail HUD correction”.
+
+- D2PLAY01 multiplayer movement and SCGM hover: local DC.EXE SHA-256
+  `008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+  fresh radare2 disassembly of `0x43f07c` (PTH loader), `0x411ec4` and
+  `0x43f730` (neighbor/path expansion), `0x41a11f` (air flag),
+  `0x4238c8` (animation bounds), plus existing `0x4385f8` type-load evidence.
+  Native D2PLAY01 SCN/MAP/PTH and SCGM/SARG FIN inputs establish authored
+  positions, blocked starting cells, idle bobbing and the high Sarge marker.
+  See [the findings and fingerprints](docs/DC_EXE_FINDINGS.md#d2play01-starting-units-blocked-spawns-and-osprey-idle-2026-09-13).
+  Doom `reference/DOOM/p_map.c` (`P_CheckPosition`, `P_TryMove`) and
+  `reference/DOOM/p_inter.c` (`P_KillMobj`, clearing flight flags) informed
+  the shared movement/cleanup ownership. Complete retail blocked-start
+  recovery and projection of aircraft object word +0x02 remain unverified.

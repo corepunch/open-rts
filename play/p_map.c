@@ -43,7 +43,14 @@ float P_MobjRadius(const mobj_t *unit) {
     return 0.42f;
 }
 
-static bool map_circle_walkable(const level_t *map, float gx, float gy, float radius) {
+static float cell_distance_squared(fvec2_t position, ivec2_t cell) {
+    fvec2_t closest = {fmaxf(cell.x, fminf(position.x, cell.x + 1)),
+                       fmaxf(cell.y, fminf(position.y, cell.y + 1))};
+    return fvec2_distance_squared(position, closest);
+}
+
+static bool map_circle_walkable(const level_t *map, float gx, float gy, float radius,
+                                const fvec2_t *from) {
     if (!map) return true;
     if (radius < 0.01f) radius = 0.01f;
     if (gx - radius < 0.0f || gy - radius < 0.0f ||
@@ -59,22 +66,33 @@ static bool map_circle_walkable(const level_t *map, float gx, float gy, float ra
     for (int y = min_y; y <= max_y; ++y) {
         for (int x = min_x; x <= max_x; ++x) {
             if (L_IsWalkable(map, x, y)) continue;
-            float closest_x = gx;
-            float closest_y = gy;
-            if (closest_x < (float)x) closest_x = (float)x;
-            if (closest_x > (float)x + 1.0f) closest_x = (float)x + 1.0f;
-            if (closest_y < (float)y) closest_y = (float)y;
-            if (closest_y > (float)y + 1.0f) closest_y = (float)y + 1.0f;
-            float dx = gx - closest_x;
-            float dy = gy - closest_y;
-            if (dx * dx + dy * dy < radius2) return false;
+            ivec2_t cell = {x, y};
+            float distance = cell_distance_squared((fvec2_t){gx, gy}, cell);
+            if (distance >= radius2) continue;
+            /* An authored spawn can overlap terrain. Permit escape from
+             * that overlap, but never enter or deepen another obstruction. */
+            if (from) {
+                float previous = cell_distance_squared(*from, cell);
+                if (previous < radius2 && distance >= previous) continue;
+            }
+            return false;
         }
     }
     return true;
 }
 
 bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy) {
-    return map_circle_walkable(map, gx, gy, P_MobjRadius(unit));
+    return map_circle_walkable(map, gx, gy, P_MobjRadius(unit), NULL);
+}
+
+bool P_TryMove(mobj_t *unit, fixed3_t position) {
+    fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
+    fvec2_t to = fixed3_xy_to_fvec2(position);
+    if (!(unit->traits & MF_FLY) &&
+        !map_circle_walkable(&level, to.x, to.y, P_MobjRadius(unit), &from)) return false;
+    unit->core.momentum = fixed3_planar_displacement(unit->core.position, position);
+    unit->core.position = position;
+    return true;
 }
 
 static bool position_overlaps_reserved_goal(mobj_t *const *units, int unit_count, int self_index,
@@ -237,7 +255,7 @@ static bool find_nearest_walkable_position(const level_t *map, float wanted_gx, 
                                            float unit_radius, int search_radius,
                                            float *gx_out, float *gy_out) {
     if (!gx_out || !gy_out) return false;
-    if (map_circle_walkable(map, wanted_gx, wanted_gy, unit_radius)) {
+    if (map_circle_walkable(map, wanted_gx, wanted_gy, unit_radius, NULL)) {
         *gx_out = wanted_gx;
         *gy_out = wanted_gy;
         return true;
@@ -251,7 +269,7 @@ static bool find_nearest_walkable_position(const level_t *map, float wanted_gx, 
         for (int dx = -search_radius; dx <= search_radius; ++dx) {
             float gx = (float)(wanted.x + dx) + 0.5f;
             float gy = (float)(wanted.y + dy) + 0.5f;
-            if (!map_circle_walkable(map, gx, gy, unit_radius)) continue;
+            if (!map_circle_walkable(map, gx, gy, unit_radius, NULL)) continue;
             float ddx = gx - wanted_gx;
             float ddy = gy - wanted_gy;
             float d2 = ddx * ddx + ddy * ddy;
@@ -276,7 +294,7 @@ static bool find_nearest_unreserved_walkable_position(const level_t *map,
                                                       float unit_radius, int search_radius,
                                                       float *gx_out, float *gy_out) {
     if (!gx_out || !gy_out) return false;
-    if (map_circle_walkable(map, wanted_gx, wanted_gy, unit_radius) &&
+    if (map_circle_walkable(map, wanted_gx, wanted_gy, unit_radius, NULL) &&
         !position_overlaps_reserved_goal(units, unit_count, self_index,
                                          wanted_gx, wanted_gy, unit_radius, order_id)) {
         *gx_out = wanted_gx;
@@ -293,7 +311,7 @@ static bool find_nearest_unreserved_walkable_position(const level_t *map,
         for (int dx = -search_radius; dx <= search_radius; ++dx) {
             float gx = (float)(wanted.x + dx) + 0.5f;
             float gy = (float)(wanted.y + dy) + 0.5f;
-            if (!map_circle_walkable(map, gx, gy, unit_radius)) continue;
+            if (!map_circle_walkable(map, gx, gy, unit_radius, NULL)) continue;
             if (position_overlaps_reserved_goal(units, unit_count, self_index,
                                                 gx, gy, unit_radius, order_id)) {
                 continue;
@@ -408,17 +426,19 @@ void P_FreeFlowFields(level_t *map) {
     map->flow_fields = NULL;
 }
 
-static bool line_walkable(const level_t *map, cell_t a, cell_t b, float radius) {
+static bool line_walkable(const level_t *map, cell_t a, cell_t b, float radius,
+                          const fvec2_t *from) {
     if (!map) return true;
     int dx = abs(b.x - a.x);
     int dy = abs(b.y - a.y);
     int steps = (dx > dy ? dx : dy) * 4;
-    if (steps <= 0) return map_circle_walkable(map, (float)a.x + 0.5f, (float)a.y + 0.5f, radius);
+    fvec2_t start = from ? *from : fvec2_cell_center(a);
+    fvec2_t delta = fvec2_sub(fvec2_cell_center(b), start);
+    if (steps <= 0) return map_circle_walkable(map, start.x, start.y, radius, from);
     for (int i = 0; i <= steps; ++i) {
         float t = (float)i / (float)steps;
-        float x = (float)a.x + 0.5f + ((float)b.x - (float)a.x) * t;
-        float y = (float)a.y + 0.5f + ((float)b.y - (float)a.y) * t;
-        if (!map_circle_walkable(map, x, y, radius)) return false;
+        fvec2_t at = fvec2_add(start, fvec2_scale(delta, t));
+        if (!map_circle_walkable(map, at.x, at.y, radius, from)) return false;
     }
     return true;
 }
@@ -428,14 +448,30 @@ bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
                        fvec2_t *target, bool *final) {
     if (!map || !field || !field->cells || !target || !final) return false;
     cell_t start = { (int)floorf(position.x), (int)floorf(position.y) };
-    if (!L_IsWalkable(map, start.x, start.y)) return false;
+    if (!L_Contains(map, start.x, start.y)) return false;
     int current = L_Index(map, start.x, start.y);
-    if (field->cells[current].cost >= 1000000000) return false;
     cell_t waypoint = start;
     static const int dirs[8][2] = {
         { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
         { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 },
     };
+    if (!L_IsWalkable(map, start.x, start.y)) {
+        int best_cost = 1000000000;
+        for (int d = 0; d < 8; ++d) {
+            ivec2_t next = ivec2_add(start, (ivec2_t){dirs[d][0], dirs[d][1]});
+            if (!L_IsWalkable(map, next.x, next.y)) continue;
+            int cost = field->cells[L_Index(map, next.x, next.y)].cost;
+            fvec2_t center = fvec2_cell_center(next);
+            if (cost < best_cost && map_circle_walkable(map, center.x, center.y, radius, NULL) &&
+                line_walkable(map, start, next, radius, &position)) {
+                best_cost = cost;
+                *target = center;
+            }
+        }
+        *final = false;
+        return best_cost < 1000000000;
+    }
+    if (field->cells[current].cost >= 1000000000) return false;
     int guard = map->width * map->height;
     while (field->cells[current].cost > 0 && guard-- > 0) {
         int cx = current % map->width;
@@ -459,7 +495,7 @@ bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
         }
         if (best == current) break;
         cell_t candidate = { best % map->width, best / map->width };
-        if (!line_walkable(map, start, candidate, radius)) break;
+        if (!line_walkable(map, start, candidate, radius, NULL)) break;
         current = best;
         waypoint = candidate;
     }
@@ -476,6 +512,13 @@ void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->hp <= 0) continue;
         if ((units[i]->traits & MF_MOBILE) == 0) continue;
+        if (units[i]->traits & MF_FLY) {
+            units[i]->harvest.target = -1;
+            units[i]->harvest.timer_ms = 0;
+            units[i]->harvest.phase = 0;
+            P_MoveUnitTo(map, units[i], goal_position);
+            continue;
+        }
         selected_count++;
     }
     if (selected_count <= 0) return;
@@ -492,6 +535,7 @@ void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->hp <= 0) continue;
         if ((units[i]->traits & MF_MOBILE) == 0) continue;
+        if (units[i]->traits & MF_FLY) continue;
         units[i]->core.momentum = fixed3_zero();
         units[i]->movement.order_id = order_id;
         units[i]->movement.order_arrived = false;

@@ -243,7 +243,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
 
     target->hp = 0;
     P_MobjSetSelected(target, false);
-    target->traits &= ~(MF_SELECTABLE | MF_MOBILE |
+    target->traits &= ~(MF_SELECTABLE | MF_MOBILE | MF_FLY |
                         MF_ATTACK | MF_HARVESTER);
     target->movement.flow_field = NULL;
     target->movement.order_arrived = false;
@@ -387,42 +387,17 @@ void A_Chase(mobj_t *unit) {
     A_Look(unit);
 }
 
-static bool move_unit_if_walkable(const level_t *map, mobj_t *unit,
-                                  fvec2_t displacement) {
+static bool move_unit_if_walkable(mobj_t *unit, fvec2_t displacement) {
     if (!unit) return false;
     fixed3_t momentum = fixed3_planar_delta(displacement);
-    if (unit->traits & MF_FLY) {
-        unit->core.momentum = momentum;
-        unit->core.position = fixed3_add_planar(unit->core.position,
-                                                   unit->core.momentum);
-        return true;
-    }
     fixed3_t candidate = fixed3_add_planar(unit->core.position, momentum);
-    fvec2_t candidate_xy = fixed3_xy_to_fvec2(candidate);
-    if (P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
-        unit->core.momentum = momentum;
-        unit->core.position = fixed3_add_planar(unit->core.position,
-                                                   unit->core.momentum);
-        return true;
-    }
+    if (P_TryMove(unit, candidate)) return true;
     momentum.y = 0;
     candidate = fixed3_add_planar(unit->core.position, momentum);
-    candidate_xy = fixed3_xy_to_fvec2(candidate);
-    if (momentum.x != 0 && P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
-        unit->core.momentum = momentum;
-        unit->core.position = fixed3_add_planar(unit->core.position,
-                                                   unit->core.momentum);
-        return true;
-    }
+    if (momentum.x != 0 && P_TryMove(unit, candidate)) return true;
     momentum = fixed3_planar_delta((fvec2_t){ 0.0f, displacement.y });
     candidate = fixed3_add_planar(unit->core.position, momentum);
-    candidate_xy = fixed3_xy_to_fvec2(candidate);
-    if (momentum.y != 0 && P_CheckPosition(map, unit, candidate_xy.x, candidate_xy.y)) {
-        unit->core.momentum = momentum;
-        unit->core.position = fixed3_add_planar(unit->core.position,
-                                                   unit->core.momentum);
-        return true;
-    }
+    if (momentum.y != 0 && P_TryMove(unit, candidate)) return true;
     unit->core.momentum = fixed3_zero();
     return false;
 }
@@ -783,7 +758,7 @@ static void tick_actor(mobj_t *u) {
                 u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
             float step = u->speed * dt;
             if (dist <= step || dist < 0.001f) {
-                if (move_unit_if_walkable(map, u, delta)) {
+                if (move_unit_if_walkable(u, delta)) {
                     if (final) {
                         u->movement.flow_field = NULL;
                         u->movement.order_arrived = true;
@@ -796,7 +771,7 @@ static void tick_actor(mobj_t *u) {
                 }
             } else {
                 fvec2_t displacement = fvec2_scale(delta, step / dist);
-                if (!move_unit_if_walkable(map, u, displacement)) {
+                if (!move_unit_if_walkable(u, displacement)) {
                     u->movement.flow_field = NULL;
                     u->movement.order_arrived = false;
                     moving = false;

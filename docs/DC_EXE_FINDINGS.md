@@ -4866,3 +4866,138 @@ through tic 550. Two actual CLI processes also reach tic 300 on D2PLAY01 with
 matching checksum `2591d80d`. Both faction sidebar screenshots were inspected:
 each displays all nine native unit icons in the shared MAINE slots. A middle
 BIOHIVBUILD0 frame shows the native saucer and forming module layers.
+
+## D2PLAY01 starting units, blocked spawns and Osprey idle (2026-09-13)
+
+**Confirmed native inputs:** D2PLAY01.SCN explicitly places human native type 4
+(`SARG`, engine `MT_CYBORG`) at `(68,76)`, alongside types 0,0,2,3,5 at
+`(60,76)` through `(70,76)` in two-cell steps. Sarge is not a synthesized
+commander or a building. Type 5 is `SCGM`, Osprey. The alien side has type 0
+at `(32,6)` (race-remapped to GRAY) and type 69 at `(30,11)`. The human type-69
+commander is at `(61,71)`. City anchors are the second TEAM coordinate pairs,
+`(67,74)` and `(25,5)`. The existing native slot formula places base objects at
+`(65,74.46875)` and `(23,5.46875)`; FIN rendering still uses their city origins.
+
+Neither an Exploiter nor a Brozaar/Slug occurs in this SCN. The old engine-only
+MPLAYER path appended workers at `(72.5,76.5)` and `(27.5,5.5)`, deriving the
+human location from the rightmost player object and the alien location from
+`city_anchor+(2,0)`. **User-requested correction:** remove both bonus workers
+on multiplayer maps and retain authored forces. This supersedes the earlier
+preservation of this unverified bonus policy. D2PLAY01 now loads 21 mobjs rather
+than 23, including eight vents. No retail lobby starting-force policy is claimed.
+
+**Confirmed diagnostic reproduction:** Sarge had owner 0, `MF_SELECTABLE`,
+`MF_MOBILE`, and HP; single-click body picking and SDL rectangle selection
+worked. The user's later clarification confirmed selection and narrowed the
+failure to movement. Its SCN position converts to `(68.5,76.5)` in native 8.8
+coordinates, exactly as `0x419d44` initializes cell centers. That cell, the
+Thunderbolt cell `(66,76)`, and the synthesized alien worker cell `(27,5)` all
+have MAP flags `0x0280`, including obstacle bit 9. Their PTH region bytes are
+also zero. Flipping coordinates, changing ownership, or moving the base is
+not supported by these inputs.
+
+**Confirmed path data and executable:** `0x43f07c` opens `.pth` at
+`0x43f0e9..0x43f0f5`, reads a 0x10000-byte region-connection table at
+`0x43f0fa..0x43f10c`, then reads one byte per cell into path-record `+0x0c`
+(`0x43f18c..0x43f20e`, record stride 0x18). This cell plane is already bottom-up.
+D2PLAY01.PTH is 73600 bytes: 65536 plus 96*84. At `(68,76)` the direct byte is
+zero; reversing it gives 85, which is not the native path-row mapping. The
+neighbor search `0x411ec4` checks destination occupancy and nonzero destination
+region, not an unconditional current-cell obstacle rejection. `0x43f730` also
+expands neighboring path records and applies occupancy separately. Ground and
+air occupancy are distinct (`map+0x804`, `map+0xc04`).
+
+**Engine implementation / fidelity limit:** the shared flow-field path now
+allows a blocked starting cell to lead into an adjacent reachable free cell,
+provided the segment does not encounter another obstruction. `P_TryMove`
+commits the fixed-point position/momentum and permits only existing terrain
+overlaps to stay equal or shrink during escape. `P_CheckPosition` remains a
+strict placement predicate. This fixes Sarge's reported movement without
+changing authored coordinates, terrain, radius, or flow-field ownership. It
+is an engine implementation of escaping an invalid starting overlap, not a
+literal port of the complete native region/path search. Completely enclosed
+spawns still cannot cross new blocked cells; the authored Thunderbolt remains
+an example requiring further retail investigation. The earlier diagnostic
+also reproduced the stuck synthetic worker; removing that unlisted object
+supersedes attempts to relocate it. Doom's `p_map.c` separates `P_CheckPosition`
+and `P_TryMove`; its `p_inter.c` clears floating/flight flags on death. Flight
+is now likewise cleared on death, as verified by the existing lifecycle test.
+
+**Confirmed Osprey animation:** SCGM.SPR has 30 raw cells. SCGM.FIN STAND0 is
+frames 32..35, logical frames 62..65. All eight even facings have four standing
+frames. For native direction 0, body cell 15 has FIN Y offsets `23,24,23,22`;
+the GLIT layers also change. This is authored bobbing, not a sine-wave offset
+or an altitude guess. MOVE0 is frames 0..3, logical frames 30..33. Its raw
+delays are `0,13,0,13`; STAND0 delays are all zero. Both decode to two retail
+timer ticks per frame. The documented delay conversion and 66 ms clock give
+four engine tics per frame, 16 per cycle. The runtime previously held STAND's
+first frame forever and used three tics for each MOVE frame. Both loops now
+use the complete native ranges and timing; existing Reaper timing is unchanged.
+
+**Confirmed flight flag:** GAMESTAT numeric column 12 (zero-based after the
+sprite token) is 1 for SCGM/type 5 and ORTU/type 13. The loader at
+`0x438832..0x438835` writes this byte into type `+0x60`; spawning at
+`0x41a11f..0x41a128` checks it and writes 600 to object word `+0x02`. Ground
+and air occupancy then diverge at `0x41a188..0x41a1e0`. The existing
+`GAMESTAT_UNIT_FLY` enum naming column 10 is misleading: that column is not
+this flag (see the earlier sight findings). The C actor and mobj tables now
+mark both aircraft with `MF_FLY`. Group commands dispatch aircraft before
+creating a ground flow field, so an all-air group can fly to blocked terrain
+and a mixed group keeps the aircraft's requested destination. Ground-unit
+separation already excludes flying mobjs. **Unknown:** the complete retail
+use/projection of object `+0x02 = 600` was not established here; no compensating
+height was invented. The visible hover uses the FIN placement directly.
+
+**Confirmed high Sarge marker, not building metadata:** STAND0 starts at FIN
+465, logical 663, with SARG cell 0. The native selection-bounds computation
+`0x4238c8` visits every command in every frame, and `0x4239f0` unions standing
+directions; `0x4389af..0x4389f8` first tries attachment slot 6, then falls back
+to this union. SARG's unlabelled attachment falls back. STAND includes GLIT and
+SSSS electrical layers, even though the current Sarge state holds the first
+body frame. Diagnostics found successive tops -48 (body), -90 (SSSS cell 7 in
+STAND0 frame 475), -94 (STAND4 frame 527), and -95 (STAND6 frame 537). The
+selection arrow is consequently high. Its offset remains native; neither
+body-only bounds nor a guessed downward correction was introduced. Sarge's
+full idle-effect dispatch remains outside this Osprey animation correction.
+
+All temporary `OPEN_RTS_DEBUG_MP` spawn, movement, picking and marker logs were
+removed after reproduction. Regression `test_multiplayer_units` loads the
+actual map, checks authored counts and base positions, rectangle-selects Sarge,
+queues/builds/applies a network ticcmd, verifies arrival and rejection of
+re-entry into blocked terrain, checks all four Osprey idle poses and bob offsets,
+and verifies mixed and all-air orders over blocked terrain.
+
+SHA-256 fingerprints:
+
+| Input | SHA-256 |
+|---|---|
+|DC.EXE|008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a|
+|D2PLAY01.MAP|36f5a52bcd65480d33dab8f479d0a6a2e820b4beb4d7c9ccf5124bc79e73799a|
+|D2PLAY01.SCN|991842691ba44ff54f3da8da7b0d7ea9dc4f76ab6a8977c35f69a23eee7bafec|
+|D2PLAY01.PTH|965cac1ed2eecd947f15d1f95d0b7267ce85af6ea5f4c046aedeb5712d574d61|
+|ANIMATE/SCGM.FIN|5504da63bf95910593f909a259624a77e3c1d839cc68d751ef76d638769b8638|
+|ANIMATE/SARG.FIN|3c29f398dfdb315cf4399b2037f43a499a26e9156ef1bc6d8f20e7236c8803db|
+|SPRITES/SSSS.SPR|339750af854e60c6c6cfa4a5157c1588920725c06f0ac8d0d8f553a3f50515ad|
+
+Reproduce:
+
+```sh
+build/dc_info_conv --label SCGMSTAND0 data/DCOLONY/ANIMATE/SCGM.FIN
+build/dc_info_conv --label SCGMMOVE0 data/DCOLONY/ANIMATE/SCGM.FIN
+build/dc_info_conv --label SARGSTAND0 data/DCOLONY/ANIMATE/SARG.FIN
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x43f07c' -c 'pdf @ 0x43f07c' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x411ec4' -c 'pdf @ 0x411ec4' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'pd 45 @ 0x41a11c' -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_multiplayer_units
+SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_multiplayer_units
+```
+
+Verification: all 39 Dark Colony and 22 other-game test executables passed,
+as did the two model-command regressions and sprite-layout check. The full
+UDP suite passed its eleven modes, including D2PLAY01 human/alien production
+for 550 synchronized tics, mismatch/desync detection, peer quit and packet
+loss/duplication/reordering. The final hosted-suite rerun also covers D2PLAY01.
+`make` succeeds; D2PLAY01 headless check and screenshot load 21 objects.
+The four-pose Osprey strip `/private/tmp/dc-osprey-idle.bmp` is emitted by the
+focused test and was visually inspected, along with
+`/private/tmp/dc-multiplayer-fixed.bmp`. No image assets were changed.

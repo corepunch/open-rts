@@ -584,10 +584,6 @@ typedef struct {
     int count;
     int dynamic_count;
     bool player_selected;
-    bool player_has_exploiter;
-    bool player_anchor_set;
-    ivec2_t player_anchor;
-    bool alien_has_slug;
 } InitialUnits;
 
 static void spawn_object(InitialUnits *units, int type, int team, int race,
@@ -621,14 +617,6 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
         ivec2_t slot = DC_CitySlotOffset(city_slot);
         u->core.render_offset = (ivec2_t){ -slot.x, slot.y };
     }
-    if (u->owner == 0) {
-        ivec2_t cell = { (uint8_t)(position.x >> 8), (uint8_t)(position.y >> 8) };
-        if (!units->player_anchor_set || cell.x > units->player_anchor.x) {
-            units->player_anchor = cell;
-            units->player_anchor_set = true;
-        }
-        if (mobj_type == MT_EXPLOITER) units->player_has_exploiter = true;
-    }
     units->count++;
 }
 
@@ -643,30 +631,23 @@ static void spawn_dynamic(InitialUnits *units, const ScenarioFile *scenario,
     ivec2_t position = ivec2_add(ivec2_scale(object.cell, 256),
                                (ivec2_t){ FIXED_TILE_CENTER, FIXED_TILE_CENTER });
     int health = object.status >= 0 ? object.status : default_health_for_type(object.type);
-    if (race == 1 && object.type == 14) units->alien_has_slug = true;
     if (race != 1 && object.type == 16)
         spawn_object(units, 81, object.team, race, allegiance, position, health, -1);
     spawn_object(units, object.type, object.team, race, allegiance, position, health, -1);
 }
 
-int load_dark_colony_initial_units(const char *map_path) {
+int load_dark_colony_initial_units(void) {
     /* The active level already owns the parsed SCN used for terrain setup. */
     const ScenarioFile *scenario = level.native_data;
     if (!scenario) return 0;
     InitialUnits units = {0};
     int allegiances[DARK_COLONY_SCN_MAX_TEAMS];
     compute_team_allegiances(scenario, allegiances);
-    bool alien_anchor_set = false;
-    ivec2_t alien_anchor = {0};
     for (int team = 0; team < scenario->team_count && team < 8; ++team) {
         const ScenarioTeam *info = &scenario->teams[team];
         if (!info->active) continue;
         ivec2_t anchor;
         if (!team_city_anchor(info, &anchor)) continue;
-        if (info->race == 1 && !alien_anchor_set) {
-            alien_anchor = anchor;
-            alien_anchor_set = true;
-        }
         for (int slot = 0; slot < DARK_COLONY_SCN_CITY_SLOTS; ++slot) {
             bool tower = slot == 5 && info->city_values[0] > 0 &&
                          info->city_values[10] <= 0;
@@ -696,23 +677,6 @@ int load_dark_colony_initial_units(const char *map_path) {
                 units.count++;
             }
             vent_index++;
-        }
-    }
-    if (strcasestr(map_path, "/MPLAYER/") || strcasestr(map_path, "\\MPLAYER\\")) {
-        if (!units.player_has_exploiter && units.player_anchor_set) {
-            ivec2_t position = ivec2_add(ivec2_scale(ivec2_add(units.player_anchor, (ivec2_t){2, 0}), 256),
-                                       (ivec2_t){ FIXED_TILE_CENTER, FIXED_TILE_CENTER });
-            if (units.dynamic_count < MAX_OBJECTS - DYNAMIC_OBJECT_FIRST) {
-                units.dynamic_count++;
-                spawn_object(&units, 6, 0, 0, DC_ALLEGIANCE_PLAYER, position, default_health_for_type(6), -1);
-            }
-        }
-        if (!units.alien_has_slug && alien_anchor_set) {
-            ivec2_t position = ivec2_add(ivec2_scale(ivec2_add(alien_anchor, (ivec2_t){2, 0}), 256),
-                                       (ivec2_t){ FIXED_TILE_CENTER, FIXED_TILE_CENTER });
-            if (units.dynamic_count < MAX_OBJECTS - DYNAMIC_OBJECT_FIRST) {
-                spawn_object(&units, 14, 1, 1, DC_ALLEGIANCE_ENEMY, position, default_health_for_type(14), -1);
-            }
         }
     }
     return units.count;

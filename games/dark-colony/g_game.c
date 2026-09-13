@@ -18,7 +18,7 @@
 #include <strings.h>
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
-int load_dark_colony_initial_units(const char *map_path);
+int load_dark_colony_initial_units(void);
 extern bool load_dark_colony_tileset(const char *path, tileset_t *out);
 
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
@@ -120,9 +120,9 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sight = { 8, 8, true },
         .native_type_id = 5,
         .damage_action = A_DC_Damage,
-        .name = "Scout",
+        .name = "Osprey",
         .sprite_name = "SPRITES/SCGM.SPR",
-        .traits = MF_SELECTABLE | MF_MOBILE |
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_FLY |
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 47.0f / 32.0f,
         .max_hp = 600,
@@ -295,7 +295,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .damage_action = A_DC_Damage,
         .name = "Saucer Scout",
         .sprite_name = "SPRITES/ORTU.SPR",
-        .traits = MF_SELECTABLE | MF_MOBILE |
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_FLY |
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 47.0f / 32.0f,
         .max_hp = 800,
@@ -535,7 +535,8 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
 }
 
 int P_LoadThings(const char *path) {
-    return load_dark_colony_initial_units(path);
+    (void)path;
+    return load_dark_colony_initial_units();
 }
 
 bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,

@@ -64,8 +64,9 @@ S_SARG_ATK{1..3}                 SARG    270..272           2                   
 ; SARGDIE14: complete native FIN sequence.
 S_SARG_DIE{1..37}                SARG    390..426           9,8,8,10,9,10,9,10,9,10,9,10,9,9,10,5,4,5,5,5,4,5,5,5,4,5,5,5,4,5,5,4,5,5,5,75,76 NULL                   S_SARG_CORPSE                4
 S_SARG_CORPSE                    SARG    426                -1                       NULL                   S_NULL                       4
-S_SCGM_STND                      SCGM    62                 1                        A_Look                 S_SCGM_STND                  1
-S_SCGM_RUN{1..4}                 SCGM    30..33             3                        A_Chase                S_SCGM_RUN1                  2
+S_SCGM_STND                      SCGM    62                 4                        A_Look                 S_SCGM_STND2                 1
+S_SCGM_STND{2..4}                SCGM    63..65             4                        A_Look                 S_SCGM_STND                  1
+S_SCGM_RUN{1..4}                 SCGM    30..33             4                        A_Chase                S_SCGM_RUN1                  2
 ; SCGMDIE0: complete native FIN sequence.
 S_SCGM_DIE{1..30}                SCGM    102..131           2,1,2,1,2,1,2,2,1,2,1,2,2,1,2,1,2,1,2,2,1,2,1,2,1,2,2,1,2,1 NULL                   S_SCGM_CORPSE                4
 S_SCGM_CORPSE                    SCGM    131                -1                       NULL                   S_NULL                       4

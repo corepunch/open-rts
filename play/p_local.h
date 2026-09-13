@@ -23,6 +23,7 @@ void debug_effects_log(const char *fmt, ...);
 
 float P_MobjRadius(const mobj_t *unit);
 bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy);
+bool P_TryMove(mobj_t *unit, fixed3_t position);
 void P_ClampToLevel(const level_t *map, mobj_t *unit);
 bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
                        fvec2_t position, fvec2_t goal, float radius,

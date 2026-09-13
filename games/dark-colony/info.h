@@ -3512,6 +3512,9 @@ typedef enum {
     S_RSCHIV_BUILD59,
     S_RSCHIV_BUILD60,
     S_RSCHIV_BUILD61,
+    S_SCGM_STND2,
+    S_SCGM_STND3,
+    S_SCGM_STND4,
     NUMSTATES
 } statenum_t;
 

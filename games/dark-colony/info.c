@@ -191,7 +191,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16,
         .height = 32,
         .mass = 100,
-        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_FLY,
     },
     { // MT_ORTU
         .spawnstate = S_ORTU_STND,
@@ -203,7 +203,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16,
         .height = 32,
         .mass = 100,
-        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK|MF_FLY,
     },
     { // MT_SLUG
         .spawnstate = S_SLUG_STND,
