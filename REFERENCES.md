@@ -1434,3 +1434,15 @@ reference. [kknd.h](https://github.com/wdigger/OpenKKND/blob/3702e29992d0abf5e3b
 identifies member 0x2f. This corroborates OpenKrush's explicit selection; its
 Windows function addresses must not be presented as addresses in our DOS game.
 No upstream code or game binaries were copied into tracked source files.
+
+### Dark Reign Mission 01 / HUD evidence (2026-09-13)
+
+The user supplied a retail Mission 01 screenshot (three orange Freedom Guard
+buildings, 4,000 credits) and an open-rts screenshot (three rigs, 12,000 credits)
+in the September 13 conversation. No external URL was supplied. These are visual
+comparison references; layout, font, icon translations and mission selection
+were checked against local `data/REIGN/dkreign.exe`,
+`dark/scenario/FIXED/M01F/M01F.SCN`, `dark/deftxt/{UNITS,BUILD}.TXT`,
+`dark/graphics/INTFACE/IGI/` and the PALS RGB555 lookup. Detailed addresses,
+executable fingerprint, corrections and remaining unknowns are in
+`docs/DR_EXE_FINDINGS.md`, “Mission 01 and retail HUD correction”.

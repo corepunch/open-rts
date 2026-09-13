@@ -54,8 +54,6 @@ static bool product_enabled(const mobj_t *producer, const StaticProductDefinitio
 }
 
 bool SB_ProductionResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
-    if (st && st->ready && app && gameui && gameui->product_count)
-        return SB_PaletteResponder(st, app, event);
     if (!st || !st->ready || !app || !gameui ||
         gameui->command_grid.h < PRODUCT_ROWSIZE * 2) return false;
     if (event->type != SDL_MOUSEBUTTONDOWN && event->type != SDL_MOUSEBUTTONUP)
@@ -120,10 +118,6 @@ void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
 }
 
 void SB_ProductionDrawer(sb_state_t *st, const app_t *app) {
-    if (st && st->ready && app && gameui && gameui->product_count) {
-        SB_PaletteDrawer(st, app);
-        return;
-    }
     if (!st || !st->ready || !app || !gameui ||
         gameui->command_grid.h < PRODUCT_ROWSIZE * 2) return;
     StaticProductDefinition products[PRODUCT_LIST_MAX];

@@ -1,6 +1,8 @@
 #include "d_net.h"
-#include "sb_bar.h"
+#include "dr_hud.h"
 #include "game.h"
+#include "dr_types.h"
+#include "info.h"
 
 static irect_t scaled(const app_t *app, irect_t r) {
     return (irect_t){r.x * app->win.w / gameui->logical_width,
@@ -45,25 +47,22 @@ static void update_selection(sb_state_t *st) {
     if (st->production_selection == id) return;
     st->production_selection = id;
     st->production_page = 0;
-    if (!u) return;
-    for (int i = 0; i < gameui->product_count; ++i) {
-        const uiproduct_t *item = &gameui->products[i];
-        if (makes(u, G_ModelProductByUIId(NULL, item->id))) {
-            st->production_category = item->category;
-            return;
-        }
-    }
 }
 
 static int product_list(sb_state_t *st, int *items) {
     update_selection(st);
-    StaticProductDefinition products[64];
-    int total = G_ModelGetProducts(NULL, consoleplayer, products, 64);
+    const dr_mission_t *mission = level.mission;
+    mobj_t *u = selection();
+    bool buildings = u && u->type_id == MT_FG_CONSTRUCTION_CREW;
     int count = 0;
-    for (int i = 0; i < gameui->product_count; ++i) {
-        if (gameui->products[i].category != st->production_category) continue;
-        for (int j = 0; j < total; ++j)
-            if (products[j].ui_id == gameui->products[i].id) { items[count++] = i; break; }
+    int total = mission ? mission->product_count : gameui->product_count;
+    for (int j = 0; j < total; ++j) {
+        int id = mission ? mission->products[j].type : gameui->products[j].id;
+        const StaticProductDefinition *product = G_ModelProductByUIId(NULL, id);
+        if (!product || !DR_ProductInTech(product->ui_id) ||
+            (product->product_class == RTS_PRODUCT_BUILDING) != buildings) continue;
+        for (int i = 0; i < gameui->product_count; ++i)
+            if (gameui->products[i].id == id) { items[count++] = i; break; }
     }
     return count;
 }
@@ -90,8 +89,8 @@ static void tooltip(const app_t *app, ivec2_t mouse, const char *title,
     SDL_RenderFillRect(app->renderer, &rect);
     SDL_SetRenderDrawColor(app->renderer, 220, 220, 205, 255);
     SDL_RenderDrawRect(app->renderer, &rect);
-    SB_DrawText(app, (ivec2_t){box.x + 6, box.y + 7}, title, box.w - 12);
-    if (p) SB_DrawText(app, (ivec2_t){box.x + 6, box.y + 24}, text, box.w - 12);
+    DR_DrawText(app, (ivec2_t){box.x + 6, box.y + 7}, title, box.w - 12);
+    if (p) DR_DrawText(app, (ivec2_t){box.x + 6, box.y + 24}, text, box.w - 12);
 }
 
 static irect_t menu_rect(void) {
@@ -112,7 +111,7 @@ static bool selected_order(ticorder_t order, fvec2_t goal, uint32_t target) {
     return G_SelectedTiccmd(order, units, count, goal, target);
 }
 
-bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
+bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     update_selection(st);
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT && st->order) {
         st->order = UI_UNAVAILABLE;
@@ -159,11 +158,10 @@ bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
         }
         return true;
     }
-    irect_t radar = SB_MinimapRect(&level);
+    irect_t radar = DR_MinimapRect(&level);
     if (st->radar_visible && G_ModelRadarLevel(consoleplayer) && irect_contains(radar, mouse)) {
         if (click) {
-            fvec2_t position = {(float)(mouse.x-radar.x)*level.width/radar.w,
-                                (float)(mouse.y-radar.y)*level.height/radar.h};
+            fvec2_t position = {(float)(mouse.x-radar.x), (float)(mouse.y-radar.y)};
             app->cam = fvec2_sub((fvec2_t){G_WorldViewportWidth(app)/2.0f,app->win.h/2.0f},
                 (fvec2_t){position.x*app->cell.w,position.y*app->cell.h});
             R_ClampCamera(app, &level, G_WorldViewportWidth(app), app->win.h);
@@ -180,6 +178,13 @@ bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     }
     int items[64];
     int count = product_list(st, items);
+    if (irect_contains((irect_t){448,316,44,22}, mouse)) {
+        int capacity = gameui->command_columns * gameui->command_rows;
+        int pages = count ? (count + capacity - 1) / capacity : 1;
+        if (click) st->production_page = (st->production_page +
+            (mouse.x < 470 ? pages - 1 : 1)) % pages;
+        return true;
+    }
     irect_t grid = gameui->command_grid;
     if (st->production_category >= 0 && irect_contains(grid, mouse)) {
         int capacity = gameui->command_columns * gameui->command_rows;
@@ -227,7 +232,7 @@ bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     return false;
 }
 
-void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
+void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
     int items[64];
     int count = product_list(st, items);
     ivec2_t mouse;
@@ -239,87 +244,59 @@ void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
     int hovered_action = -1;
     for (int i = 0; i < gameui->action_count; ++i) {
         const uiaction_t *a = &gameui->actions[i];
-        irect_t dst = {a->rect.x+(a->rect.w-a->source.w)/2,
-            a->rect.y+(a->rect.h-a->source.h)/2,a->source.w,a->source.h};
-        draw_image(st, app, a->image, a->source, dst);
-        if (st->order && st->order == a->action) {
-            irect_t r = scaled(app,a->rect);
-            SDL_SetRenderDrawColor(app->renderer,70,230,235,255);
-            SDL_RenderDrawRect(app->renderer,&r);
+        irect_t src = a->source;
+        if (irect_contains(a->rect, mouse)) {
+            hovered_action = i;
+            src.x += 192;
         }
-        if (a->action == UI_UNAVAILABLE || (a->action == UI_RADAR && !G_ModelRadarLevel(consoleplayer)) ||
-            (a->action == UI_PRODUCT && !G_ModelProductAvailable(NULL,consoleplayer,G_ModelProductByUIId(NULL,a->product)))) {
-            irect_t r = scaled(app, a->rect);
-            SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(app->renderer, 0,0,0,145);
-            SDL_RenderFillRect(app->renderer, &r);
-        }
-        if (irect_contains(a->rect, mouse)) hovered_action = i;
+        draw_image(st, app, a->image, src, a->rect);
     }
     for (int i = 0; i < gameui->category_count; ++i) {
         const uicategory_t *c = &gameui->categories[i];
-        irect_t dst = c->rect;
-        draw_image(st, app, c->image, c->source, dst);
-        if (i == st->production_category) {
-            irect_t r = scaled(app, c->rect);
-            SDL_SetRenderDrawColor(app->renderer, 70,230,235,255);
-            SDL_RenderDrawRect(app->renderer, &r);
-        }
+        irect_t src = c->source;
+        src.x += 384;
+        draw_image(st, app, c->image, src, c->rect);
         if (irect_contains(c->rect, mouse)) hovered_category = i;
     }
     int capacity = gameui->command_columns * gameui->command_rows;
     int pages = count > 0 ? (count + capacity - 1) / capacity : 1;
     if (st->production_page >= pages) st->production_page = 0;
+    irect_t grid = scaled(app, gameui->command_grid);
+    SDL_SetRenderDrawColor(app->renderer, 0,0,0,255);
+    SDL_RenderFillRect(app->renderer, &grid);
     for (int slot = 0; slot < capacity; ++slot) {
         int index = st->production_page * capacity + slot;
-        if (index >= count) break;
-        int item = items[index];
-        const StaticProductDefinition *p = G_ModelProductByUIId(NULL, gameui->products[item].id);
-        if (!p) continue;
-        mobj_t *producer = producer_for(p);
-        irect_t cell = {gameui->command_grid.x + slot % gameui->command_columns * gameui->icon_size.w,
-            gameui->command_grid.y + slot / gameui->command_columns * gameui->icon_size.h,
-            gameui->icon_size.w, gameui->icon_size.h};
-        {
-            irect_t background = scaled(app,cell);
-            SDL_SetRenderDrawColor(app->renderer,0,0,0,255);
-            SDL_RenderFillRect(app->renderer,&background);
-        }
-        const spritesheet_t *sprite = &st->product_icons[item];
-        irect_t src = sprite->cells[0].rect;
-        float scale = fminf((float)cell.w / src.w, (float)cell.h / src.h);
-        irect_t dst = {cell.x + (cell.w - (int)(src.w*scale))/2,
-            cell.y + (cell.h - (int)(src.h*scale))/2, (int)(src.w*scale), (int)(src.h*scale)};
-        dst = scaled(app, dst);
-        R_DrawSprite(app->renderer, sprite, 0, -1, &src, &dst, SDL_FLIP_NONE,
-                     (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
-        irect_t rect = scaled(app, cell);
-        if (!enabled(p, producer)) {
-            SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(app->renderer, 0,0,0,160);
-            SDL_RenderFillRect(app->renderer, &rect);
-        }
-        const production_t *q = producer ? producer->production : NULL;
-        if (q && q->product_type == p->product_type && q->product_class == p->product_class) {
-            char amount[16];
-            snprintf(amount, sizeof(amount), "%d", q->queue_count);
-            SDL_SetRenderDrawColor(app->renderer, 255,255,255,255);
-            SB_DrawText(app, (ivec2_t){cell.x+4,cell.y+4}, amount, cell.w-8);
-            if (q->time_ms > 0) {
-                irect_t bar = scaled(app, (irect_t){cell.x,cell.y+cell.h-3,
-                    cell.w*(q->time_ms-q->time_left_ms)/q->time_ms,3});
-                SDL_SetRenderDrawColor(app->renderer, 40,220,70,255);
-                SDL_RenderFillRect(app->renderer, &bar);
+        irect_t cell = {448 + slot % 3 * 64, 64 + slot / 3 * 50, 64, 50};
+        int item = index < count ? items[index] : -1;
+        const StaticProductDefinition *p = item >= 0 ?
+            G_ModelProductByUIId(NULL, gameui->products[item].id) : NULL;
+        if (p) {
+            mobj_t *producer = producer_for(p);
+            const spritesheet_t *sprite = &st->product_icons[item];
+            irect_t src = sprite->cells[0].rect;
+            irect_t dst = scaled(app, (irect_t){cell.x+9,cell.y+2,src.w,src.h});
+            R_DrawSprite(app->renderer, sprite, 0, enabled(p, producer) ? -1 : 1,
+                         &src, &dst, SDL_FLIP_NONE, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
+            const production_t *q = producer ? producer->production : NULL;
+            if (q && q->product_type == p->product_type && q->product_class == p->product_class) {
+                char amount[16];
+                snprintf(amount, sizeof(amount), "%d", q->queue_count);
+                SDL_SetRenderDrawColor(app->renderer, 255,255,255,255);
+                DR_DrawText(app, (ivec2_t){cell.x+4,cell.y+4}, amount, cell.w-8);
             }
         }
-        if (irect_contains(cell, mouse)) hovered_product = item;
+        bool hover = p && irect_contains(cell, mouse);
+        draw_image(st, app, 8, (irect_t){hover ? 64 : 0,0,64,50}, cell);
+        if (hover) hovered_product = item;
     }
-    if (pages > 1) {
-        char page[48];
-        snprintf(page, sizeof(page), "SCROLL %d OF %d", st->production_page+1, pages);
-        SDL_SetRenderDrawColor(app->renderer, 230,230,230,255);
-        SB_DrawText(app, (ivec2_t){gameui->command_grid.x,gameui->command_grid.y-12}, page, gameui->command_grid.w);
-    }
+    draw_image(st, app, 9, (irect_t){0,0,22,22}, (irect_t){448,316,22,22});
+    draw_image(st, app, 10, (irect_t){0,0,22,22}, (irect_t){470,316,22,22});
+    draw_image(st, app, 12, (irect_t){213,0,71,22}, (irect_t){496,316,71,22});
+    draw_image(st, app, 12, (irect_t){0,0,71,22}, (irect_t){568,316,71,22});
+    SDL_SetRenderDrawColor(app->renderer, 150,70,40,255);
+    DR_DrawText(app, (ivec2_t){507,323}, "Upgrade", 60);
+    SDL_SetRenderDrawColor(app->renderer, 220,165,65,255);
+    DR_DrawText(app, (ivec2_t){586,323}, "Decoy", 48);
     if (hovered_product >= 0) {
         const StaticProductDefinition *p = G_ModelProductByUIId(NULL, gameui->products[hovered_product].id);
         tooltip(app, mouse, p->label, p, producer_for(p));
@@ -331,8 +308,8 @@ void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
         SDL_RenderFillRect(app->renderer, &rect);
         SDL_SetRenderDrawColor(app->renderer, 230,230,230,255);
         SDL_RenderDrawRect(app->renderer, &rect);
-        SB_DrawText(app, (ivec2_t){menu.x+20,menu.y+25}, "RESUME GAME", menu.w-40);
-        SB_DrawText(app, (ivec2_t){menu.x+20,menu.y+70}, "QUIT GAME", menu.w-40);
+        DR_DrawText(app, (ivec2_t){menu.x+20,menu.y+25}, "RESUME GAME", menu.w-40);
+        DR_DrawText(app, (ivec2_t){menu.x+20,menu.y+70}, "QUIT GAME", menu.w-40);
     }
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
 }

@@ -12,6 +12,7 @@
 
 bool load_dark_tileset(const char *path, const uint32_t palette[256], tileset_t *out);
 void add_water_animations(tileset_t *tileset);
+bool DR_BuildingImages(const char *root, const char *sprite, char images[3][32]);
 
 /* ── FTG archive ────────────────────────────────────────────────────────── */
 
@@ -265,14 +266,85 @@ static bool load_unit_sprite(const char *data_root,
 
 /* ── sprite cache ───────────────────────────────────────────────────────── */
 
+/* Bake the existing completed-building presentation into one engine image.
+ * Keep exact source colors; never quantize the snow underlay into BARREN. */
+static bool load_building_sprite(const char *root, const char *tileset,
+                                char images[3][32], const uint32_t body_palette[256],
+                                const uint32_t ground_palette[256], spritesheet_t *out) {
+    spritesheet_t layers[3] = {0};
+    bool ok = false;
+    char name[48];
+    isize2_t size = {0};
+    for (int i = 0; i < 3; ++i) {
+        snprintf(name, sizeof(name), "%s|%s", i ? "base" : "tileset", images[i == 2 ? 1 : 0]);
+        if (!load_unit_sprite(root, tileset, name, i ? body_palette : ground_palette, &layers[i])) {
+            if (!i) continue; /* Native underlays are optional. */
+            goto done;
+        }
+        if (layers[i].frame_size.w > size.w) size.w = layers[i].frame_size.w;
+        if (layers[i].frame_size.h > size.h) size.h = layers[i].frame_size.h;
+    }
+    if (!R_AllocSpriteCells(out, 1) || !R_InitSpriteDef(out, 1, 1)) goto done;
+    out->frame_size = size;
+    out->indexed = true;
+    out->cells[0].rect = (irect_t){0, 0, size.w, size.h};
+    out->cells[0].bounds = out->cells[0].rect;
+    out->cells[0].ground_point = (ivec2_t){0, 0};
+    out->lumps[0].indices = calloc((size_t)size.w, size.h);
+    if (!out->lumps[0].indices) goto done;
+    int colors = 1;
+    for (int i = 0; i < 3; ++i) {
+        const spritesheet_t *layer = &layers[i];
+        if (!layer->numlumps) continue;
+        int frame = layer->numlumps > 1 ? 1 : 0;
+        for (int y = 0; y < layer->frame_size.h; ++y)
+            for (int x = 0; x < layer->frame_size.w; ++x) {
+                int index = layer->lumps[frame].indices[y * layer->frame_size.w + x];
+                if (!index) continue;
+                uint32_t color = layer->palette[index];
+                int dest = 1;
+                while (dest < colors && out->palette[dest] != color) ++dest;
+                if (dest == 256) goto done;
+                if (dest == colors) out->palette[colors++] = color;
+                out->lumps[0].indices[y * size.w + x] = dest;
+            }
+    }
+    memcpy(out->source_palette, out->palette, sizeof(out->palette));
+    ok = R_InstallSpriteLump(out, 0, 0, 0, false);
+done:
+    for (int i = 0; i < 3; ++i) R_FreeSprite(&layers[i]);
+    if (!ok) R_FreeSprite(out);
+    return ok;
+}
+
 bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
                       const char *name, spritesheet_t *out) {
     (void)renderer;
     char path[1024];
     uint32_t palette[256];
     M_PathJoin(path, sizeof(path), root, "graphics/BARREN.PAL");
-    return load_dark_sprite_palette(path, palette) &&
-           load_unit_sprite(root, "BARREN", name, palette, out);
+    if (!load_dark_sprite_palette(path, palette) ||
+        !load_unit_sprite(root, "BARREN", name, palette, out)) return false;
+    blob_t file;
+    if (!W_ReadFile(path, &file)) { R_FreeSprite(out); return false; }
+    /* dkreign.exe 0048b030 reads the RGB555 lookup after six 256-byte
+       channels; 0048ad10 uses ((R+G+B)/6)<<10 for unavailable icons. */
+    if (file.size < 8 + 6*256 + 32768 || read_i32_le(file.bytes + 4) != 0x102) {
+        W_FreeFile(&file); R_FreeSprite(out); return false;
+    }
+    out->palette_maps = calloc(1, sizeof(*out->palette_maps));
+    if (!out->palette_maps) { W_FreeFile(&file); R_FreeSprite(out); return false; }
+    out->palette_map_count = 1;
+    out->palette_maps[0].id = 1;
+    const uint8_t *rgb = file.bytes + 8;
+    const uint8_t *lookup = rgb + 6*256;
+    for (int i = 1; i < 256; ++i) {
+        int red = (rgb[i] + rgb[256+i] + rgb[512+i]) / 6;
+        if (red > 31) { W_FreeFile(&file); R_FreeSprite(out); return false; }
+        out->palette_maps[0].indices[i] = lookup[red << 10];
+    }
+    W_FreeFile(&file);
+    return true;
 }
 
 static bool sprite_cache_load_dark_reign(spritecache_t *cache,
@@ -289,7 +361,12 @@ static bool sprite_cache_load_dark_reign(spritecache_t *cache,
     snprintf(entry->name, sizeof(entry->name), "%s", name);
     const uint32_t *palette = strncasecmp(name, "tileset|", 8) == 0 ?
         terrain_palette : sprite_palette;
-    if (!load_unit_sprite(data_root, tileset_name, name, palette, &entry->sprite)) {
+    char images[3][32];
+    bool building = !strchr(name, '|') && DR_BuildingImages(data_root, name, images);
+    bool loaded = building ? load_building_sprite(data_root, tileset_name, images,
+        sprite_palette, terrain_palette, &entry->sprite) :
+        load_unit_sprite(data_root, tileset_name, name, palette, &entry->sprite);
+    if (!loaded) {
         if (strncasecmp(name, "tileset|", 8) == 0) {
             /* Not every building has a terrain-specific underlay. Cache the
                absence so repeated instances do not retry or report failure. */

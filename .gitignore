@@ -52,6 +52,7 @@ Mkfile.old
 dkms.conf
 /build
 /reverse/dc-exe-r2ghidra/
+/reverse/dr-hud/
 /reference/
 .DS_Store
 .claude/worktrees/

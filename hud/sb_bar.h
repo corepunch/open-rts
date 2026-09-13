@@ -35,8 +35,6 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
 void SB_Shutdown(sb_state_t *st);
 bool SB_ProductionResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
 void SB_ProductionDrawer(sb_state_t *st, const app_t *app);
-bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
-void SB_PaletteDrawer(sb_state_t *st, const app_t *app);
 irect_t SB_MinimapRect(const level_t *map);
 void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width);
 bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,

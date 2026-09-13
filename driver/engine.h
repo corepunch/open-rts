@@ -22,6 +22,7 @@ uint32_t read_u32_le(const uint8_t *p);
 
 bool W_ReadFile(const char *path, blob_t *out);
 void W_FreeFile(blob_t *blob);
+SDL_Surface *W_LoadImage(const char *path);
 bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out);
 /* Temporary strings survive seven further M_va calls on this thread.
  * Returns NULL on formatting failure or overflow; copy results kept longer. */

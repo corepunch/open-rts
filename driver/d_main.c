@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
     AiContext ai;
     P_AiInit(&ai);
     sb_state_t st = { 0 };
-    if (gameui && !SB_Init(&st, app.renderer, data_root, gameui))
+    if (!custom_ui && gameui && !SB_Init(&st, app.renderer, data_root, gameui))
         fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
     if (check_only || screenshot_only) {
@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
              * consume mouse buttons. Future games can retain right orders. */
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT &&
                 !(gameinfo && gameinfo->right_click_orders)) {
-                if (gameui->product_count) SB_ProductionResponder(&st, &app, &e);
+                G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e);
                 G_Responder(&app, &level, units, unit_count, &unit_sprite,
                              &decoration_sprites, gameinfo, &e);
                 continue;

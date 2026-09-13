@@ -1,5 +1,8 @@
 #define _GNU_SOURCE
 #include "engine.h"
+#include "game.h"
+#include "dr_types.h"
+#include "info.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -210,6 +213,40 @@ static bool resolve_animation_sprite(const Definitions *defs,
     return find_call_arg(body, body_len, "SetSprite", sprite_name, sprite_name_size);
 }
 
+static bool load_mission(const char *path, const char *text, level_t *map) {
+    dr_mission_t *mission = calloc(1, sizeof(*mission));
+    if (!mission) return false;
+    const char *tech = strstr(text, "SetTechLevel(");
+    if (tech) sscanf(tech, "SetTechLevel(%d", &mission->tech_level);
+    Definitions defs;
+    load_definitions(path, &defs);
+    const char *sources[] = {defs.units, defs.buildings};
+    for (int source = 0; source < 2; ++source) {
+        const char *tag = source ? "DefineBuildingType" : "DefineUnitType";
+        const char *p = sources[source];
+        while (p && (p = strstr(p, tag))) {
+            char name[96], type[32], required[32];
+            const char *body;
+            size_t size;
+            p += strlen(tag);
+            if (sscanf(p, "(%95[^)]", name) != 1 ||
+                !find_definition_block(sources[source], tag, name, &body, &size) ||
+                !find_call_arg(body, size, "SetType", type, sizeof(type))) continue;
+            int id = atoi(type);
+            if (!G_ModelProductByUIId(NULL, id)) continue;
+            if (mission->product_count == 64) break;
+            int i = mission->product_count++;
+            mission->products[i].type = id;
+            if (find_call_arg(body, size, "SetTechLevel", required, sizeof(required)))
+                mission->products[i].tech_level = atoi(required);
+        }
+    }
+    free_definitions(&defs);
+    map->mission = mission;
+    map->destroy_mission = free;
+    return true;
+}
+
 typedef struct {
     const char *type_name, *sprite_name, *shadow_name;
     isize2_t footprint;
@@ -341,6 +378,31 @@ static bool resolve_building_visual(const Definitions *defs, const char *type_na
     return true;
 }
 
+static uint16_t building_actor(const Definitions *defs, const char *name) {
+    const char *body;
+    size_t size;
+    char type[32];
+    if (!find_definition_block(defs->buildings, "DefineBuildingType", name, &body, &size) ||
+        !find_call_arg(body, size, "SetType", type, sizeof(type))) return 0;
+    for (int i = 1; i < gameinfo->mobj_type_count; ++i)
+        if (gameinfo->mobjinfo[i].doomednum == atoi(type)) return i;
+    return 0;
+}
+
+bool DR_BuildingImages(const char *root, const char *sprite, char images[3][32]) {
+    char path[1024];
+    M_PathJoin(path, sizeof(path), root, "deftxt/BUILD.TXT");
+    char *text = load_text_file(path);
+    if (!text) return false;
+    bool found = false;
+    for (char *p = text; (p = strstr(p, "SetBuildingImages(")); ++p) {
+        if (find_call_args(p, strlen(p), "SetBuildingImages", images, 3) == 3 &&
+            !strcasecmp(images[0], sprite)) { found = true; break; }
+    }
+    free(text);
+    return found;
+}
+
 static bool resolve_thing_visual(const Definitions *defs, const char *type_name,
                                             VisualSpec *out) {
     memset(out, 0, sizeof(*out));
@@ -417,8 +479,12 @@ static void load_dark_reign_decorations(const char *map_path, char *text, level_
             bool resolved = building ?
                 resolve_building_visual(&defs, type_name, &visual) :
                 resolve_thing_visual(&defs, type_name, &visual);
-            if (resolved) add_dark_reign_decoration(map, &visual, (ivec2_t){ gx, gy });
-            else fprintf(stderr, "warning: unresolved Dark Reign %s type %s\n",
+            if (resolved && building && building_actor(&defs, type_name)) {
+                for (int y = 0; y < visual.footprint.h; ++y)
+                    for (int x = 0; x < visual.footprint.w; ++x)
+                        if (L_Contains(map, gx+x, gy+y)) map->blocked[L_Index(map, gx+x, gy+y)] = 1;
+            } else if (resolved) add_dark_reign_decoration(map, &visual, (ivec2_t){ gx, gy });
+            else if (!resolved) fprintf(stderr, "warning: unresolved Dark Reign %s type %s\n",
                          building ? "building" : "thing", type_name);
         }
         cursor = hit + (building ? strlen("AddBuildingAt(") : strlen("AddThingAt("));
@@ -803,6 +869,7 @@ bool load_dark_map(const char *map_path, level_t *out) {
     scn_path_from_map(map_path, scn_path, sizeof(scn_path));
     char *text = load_text_file(scn_path);
     if (text) {
+        if (!load_mission(map_path, text, out)) { free(text); W_FreeFile(&blob); return false; }
         detect_tileset_from_scn(text, out->tileset_name, sizeof(out->tileset_name));
         load_dark_reign_decorations(map_path, text, out);
         load_dark_reign_resource_vents(text, out);
@@ -833,6 +900,9 @@ int load_dark_reign_initial_units(const char *map_path) {
     while (true) {
         char *team_hit = strstr(cursor, team_tag);
         char *hit = strstr(cursor, unit_tag);
+        char *building_hit = strstr(cursor, "AddBuildingAt(");
+        bool building = building_hit && (!hit || building_hit < hit);
+        if (building) hit = building_hit;
         if (team_hit && (!hit || team_hit < hit)) {
             int team = 0;
             if (sscanf(team_hit, "SetDefaultTeam(%d", &team) == 1) current_team = team;
@@ -842,33 +912,38 @@ int load_dark_reign_initial_units(const char *map_path) {
         if (!hit) break;
         int object_id = 0, gx = 0, gy = 0;
         char unit_type[64] = { 0 };
-        if (sscanf(hit, "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
+        if (sscanf(hit, building ? "AddBuildingAt(%d %63[^ )] %d %d" :
+                   "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
             (void)object_id;
+            uint16_t type = building ? building_actor(&defs, unit_type) : 0;
+            if (building && !type) { cursor = hit + strlen("AddBuildingAt("); continue; }
             if (gx >= 0 && gy >= 0) {
-                mobj_t *unit = P_SpawnMobj(fixed3_zero(), 0);
+                mobj_t *unit = P_SpawnMobj(fixed3_zero(), type);
                 if (!unit) break;
                 unit->core.position = fixed3_from_fvec2(
-                    fvec2_cell_center((ivec2_t){ gx, gy }), 0);
-                unit->speed = 5.5f;
+                    building ? (fvec2_t){gx, gy} : fvec2_cell_center((ivec2_t){ gx, gy }), 0);
+                if (!building) unit->speed = 5.5f;
                 unit->owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
                 unit->team = unit->owner;
                 unit->allegiance = unit->owner == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
-                if (unit->owner == 0) has_player_unit = true;
+                if (!building && unit->owner == 0) has_player_unit = true;
                 P_MobjSetSelected(unit, unit->owner == 0 && count == 0);
-                VisualSpec visual;
-                if (resolve_unit_visual(&defs, unit_type, &visual)) {
-                    snprintf(unit->core.sprite_name,
-                             sizeof(unit->core.sprite_name), "%s", visual.sprite_name);
-                } else {
-                    snprintf(unit->core.sprite_name,
-                             sizeof(unit->core.sprite_name), "%s", DEFAULT_UNIT_SPR);
-                    fprintf(stderr, "warning: unresolved Dark Reign unit type %s\n", unit_type);
+                if (!building) {
+                    VisualSpec visual;
+                    if (resolve_unit_visual(&defs, unit_type, &visual)) {
+                        snprintf(unit->core.sprite_name,
+                                 sizeof(unit->core.sprite_name), "%s", visual.sprite_name);
+                    } else {
+                        snprintf(unit->core.sprite_name,
+                                 sizeof(unit->core.sprite_name), "%s", DEFAULT_UNIT_SPR);
+                        fprintf(stderr, "warning: unresolved Dark Reign unit type %s\n", unit_type);
+                    }
                 }
                 count++;
             }
         }
-        cursor = hit + strlen(unit_tag);
+        cursor = hit + strlen(building ? "AddBuildingAt(" : unit_tag);
     }
 
     /* Campaign maps may derive their opening freighter from a player's

@@ -228,19 +228,22 @@ Key patterns to follow from that lineage:
 The sidebar/HUD follows Doom's `st_bar.c` ancestry.  Full design is in
 `ARCHITECTURE.md` § "HUD and sidebar architecture"; the quick rules are:
 
-- **`hud/`** owns the generic lifecycle (`SB_Init/Responder/Ticker/Drawer/Shutdown`),
-  the icon-palette grid (`sb_palette.c`), and the text-list fallback (`sb_prod.c`).
+- **`hud/`** owns the generic lifecycle (`SB_Init/Responder/Ticker/Drawer/Shutdown`)
+  and the text-list fallback (`sb_prod.c`). BMP/PCX decoding belongs in engine
+  code (`driver/w_image.c`), never in per-game HUD code.
   `hud/ui_definition.h` defines `uidefinition_t`.
 - **`games/<game>/g_game.c`** fills `const uidefinition_t *const gameui` with the
   game's layout rects, BMP asset list, and `uiproduct_t`/`uicategory_t`/`uiaction_t`
   tables.  This is the data-only path; no custom drawing code is needed.
 - **`games/<game>/sb_bar.c`** (optional) implements the `G_CustomUI*` hooks for a
-  fully custom sidebar.  Dark Colony uses this; Dark Reign/KKnD/7th Legion do not.
+  fully custom sidebar. Dark Colony uses this; KKnD/7th Legion do not. Dark Reign owns its
+  native drawing, fonts, layout and icon palette in `games/dark-reign/hud/`.
+  New per-game HUD drawing belongs in `games/<game>/hud/`.
 - New product rows with icons: `games/<game>/p_prod.c` (gameplay) plus a matching
-  `uiproduct_t` entry in the `products[]` array in `g_game.c` (icon sprite path).
+  `uiproduct_t` entry in the game's HUD definition (icon sprite path).
 - New engine-wide sidebar capability: add a field to `uidefinition_t` and handle it
-  in `hud/sb_bar.c` or `hud/sb_palette.c`.  Never put generic widget logic in a
-  per-game file.
+  in `hud/sb_bar.c` or another shared engine HUD file. Never put generic widget
+  logic in a per-game file.
 
 ### Standing refactoring rule: move closer to Doom at every opportunity
 

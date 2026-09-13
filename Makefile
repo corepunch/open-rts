@@ -237,7 +237,7 @@ mission-2: $(BIN_DIR)/dark-reign
 	$(BIN_DIR)/dark-reign $(DARK_REIGN_ROOT) scenario/FIXED/M02F/M02F.SCN ucfcnst0.spr
 
 dark-reign: $(BIN_DIR)/dark-reign
-	$(BIN_DIR)/dark-reign $(DARK_REIGN_ROOT) scenario/MULTI/2NIC/2NIC.SCN ucfcnst0.spr
+	$(BIN_DIR)/dark-reign $(DARK_REIGN_ROOT)
 
 dark-colony: $(BIN_DIR)/dark-colony
 	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN01.MAP SPRITES/TROOPER1.SPR
@@ -323,7 +323,7 @@ help:
 	@echo ""
 	@echo "Run games:"
 	@echo "  run                  Dark Reign (multiplayer map)"
-	@echo "  dark-reign           Dark Reign (2NIC multiplayer map)"
+	@echo "  dark-reign           Dark Reign (Freedom Guard Mission 01)"
 	@echo "  mission-1            Dark Reign campaign mission 1"
 	@echo "  mission-2            Dark Reign campaign mission 2"
 	@echo "  dark-colony          Dark Colony HUMAN01 scenario"

@@ -31,6 +31,14 @@ typedef struct {
 extern const ai_profile_t g_dark_reign_ai_profiles[];
 extern const int g_dark_reign_ai_profile_count;
 
+typedef struct {
+    int tech_level;
+    struct { int type, tech_level; } products[64];
+    int product_count;
+} dr_mission_t;
+
+bool DR_ProductInTech(int type);
+
 enum {
     /* Freedom Guard mobile units (UNITS.TXT SetType values). */
     ACTOR_FG_SPYDER_BIKE = 1,

@@ -72,6 +72,15 @@ static int product_count(void) {
                  sizeof(DARK_REIGN_FG_PRODUCTS[0]));
 }
 
+bool DR_ProductInTech(int type) {
+    const dr_mission_t *mission = level.mission;
+    if (!mission) return true;
+    for (int i = 0; i < mission->product_count; ++i)
+        if (mission->products[i].type == type)
+            return mission->products[i].tech_level <= mission->tech_level;
+    return false;
+}
+
 static uint16_t actor_for_native_type(int native_type) {
     for (int i = 1; i < NUMMOBJTYPES; ++i)
         if (mobjinfo[i].doomednum == native_type) return (uint16_t)i;
@@ -161,7 +170,7 @@ static bool has_prerequisite(const RtsGameModel *model, int owner, int type) {
 
 bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
-    if (!product) return false;
+    if (!product || !DR_ProductInTech(product->ui_id)) return false;
     for (int i = 0; i < product->prerequisite_count; ++i) {
         if (!has_prerequisite(model, owner, product->prerequisites[i]))
             return false;

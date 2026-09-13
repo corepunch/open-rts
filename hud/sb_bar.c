@@ -31,7 +31,7 @@ bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
         char path[1024];
         M_PathJoin(path, sizeof(path), definition->asset_root ? definition->asset_root : data_root,
                    definition->images[i].asset_path);
-        SDL_Surface *surface = SDL_LoadBMP(path);
+        SDL_Surface *surface = W_LoadImage(path);
         if (!surface) {
             fprintf(stderr, "warning: failed to load UI asset %s: %s\n", path, SDL_GetError());
             SB_Shutdown(st);

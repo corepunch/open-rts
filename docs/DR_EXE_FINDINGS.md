@@ -200,3 +200,150 @@ radar panning and the options popup are functional. Unsupported stance,
 attack-move, deploy, repair, power, sell and beacon controls are visibly disabled;
 this is not a complete OpenDR gameplay or menu-system port. Text uses the
 engine's bitmap font, and radar terrain rendering remains unimplemented.
+
+## Mission 01 and retail HUD correction (2026-09-13)
+
+Reference: the two screenshots supplied by the user in this session (retail
+Mission 01 and the open-rts three-rig start). Executable SHA-256:
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`.
+This investigation uses the same PE32 executable described above. Its routines
+use ECX/EDX as well as stack arguments; decompiler signatures alone are not
+sufficient to identify draw coordinates. Addresses below were cross-checked
+against disassembly and the shipped assets.
+
+### Mission identity and objects
+
+**Confirmed.** The wrong start was the Makefile convenience target's explicit
+`scenario/MULTI/2NIC/2NIC.SCN`, not a replacement of M01F's file. 2NIC has
+`SetTechLevel(100)`, three Construction Rigs per side and 12,000 player credits.
+The binary's existing default is `scenario/FIXED/M01F/M01F.SCN`. `make dark-reign`
+now uses that default too. M01F is the Freedom Guard first campaign mission,
+SNOW, 60×60, `SetCredit(4000)`, `SetTechLevel(0)`, and
+`SetStartLocation(225 1160)` (world pixels, divided by the native 24-pixel cell).
+Its team-zero building records are:
+
+| SCN object | Native type | Cell | BUILD.TXT SetType |
+|---|---|---|---|
+| 152 | fh1 | 12,44 | 10001 |
+| 149 | fglp | 4,53 | 10019 |
+| 146 | fgpp | 5,39 | 10020 |
+
+These were previously decorations only. Known building types now become
+ordinary mobjs, resolved through the native SetType and mobjinfo.doomednum.
+Their original blocked footprints remain marked; the scenery copies are
+removed. This gives the HQ ownership, sight and production. All three definitions
+specify SetSeeingRange(8). The launch pad and generator use `bclncsh0.spr` and
+`bcpowsh0.spr`; using their menu icons as shadows was wrong.
+
+**Presentation preserved, not a new animation claim.** Completed building
+images retain the existing three-layer choice: terrain-archive underlay, shared
+archive body, shared archive top, native frame 1 where present. Their authored
+canvas top-left stays at AddBuildingAt's coordinates. The loader combines these
+into one engine indexed image with exact colors and a zero ground point, with
+no native-format renderer callbacks. The regression compares every output pixel
+against the original layers: **40,320 matching pixels** across the three buildings.
+It deliberately does not claim to recover full native building animation.
+
+**Still unverified.** The preexisting AssociatedUnit freighter-at-start behavior
+is retained. BUILD.TXT confirms the association; the retail release timing and
+placement have not been traced. M01F still loads twelve enemy mobile records,
+the three player buildings and that freighter. Other unsupported factions'
+buildings still use the prior scenery path.
+
+### HUD assets, coordinates and draw order
+
+**Confirmed.** The image descriptor table starts at `0x005be94c`: 29 records,
+12 bytes each (16-bit width/height, ID, filename pointer). Loader `0x004957b0`
+iterates those records, and `0x00495660` checks the loaded BMP size. Examples:
+TOPBTNS 882×32, TOPBITS 154×32, MFDBTNS 576×64, MINIMAP 140×138,
+RESOBARS 104×104, BUISOBOX 192×50. Asset names begin at `0x005beac4`.
+
+The static HUD frame at `0x00494d70` places the minimap chrome at (448,342),
+TOPBITS' six-pixel left edge at (0,0), and its seven-pixel right edge at
+(441,0). Zone setup uses 49×32 top buttons at x=6,55,104 and x=294,343,392.
+The money panel occupies x=153..293, using TOPBITS source x=6,width=141.
+`0x004947b0`, BUILD case, clears (448,64,192,250) and draws BUBLDBIT at
+(448,314). This is not the MFDBAC1 communications background.
+
+**Confirmed.** `0x00468300` creates production lists with row height 50 and
+`0x004b4990(64)` column width. List drawer `0x004b4fa0` invokes callbacks for
+empty slots too. Unit callback `0x0048d900` and building callback `0x0048dd30`
+place menu images at slot+(9,2), without fitting/stretching to the slot. They
+then draw BUISOBOX's 64×50 frame over the icon, using source x=0,64,128 for
+normal/hover/pressed. The 250-pixel viewport therefore contains five rows and
+three columns. The former four 62×61 cells, black rectangles over slot chrome,
+and SCROLL label over the second tab row are disproven substitutes.
+
+MFDBTNS drawer `0x00490770` selects source x=`column*64 + state*192`, y=`row*32`.
+Normal, hover and active use state 0,1,2; active BUILD uses source x=384.
+COMMS/MENU are actual pages, not infantry/vehicle categories. The current MENU
+opens the engine resume/quit popup. Unimplemented COMMS/ORDERS/PATHS/SPECIAL
+pages consume their clicks without issuing unrelated stop/move/attack commands.
+The BUILD list switches to structures when a rig is selected, otherwise units;
+it follows native definition order and scenario tech limits. M01F's four unit
+entries are rig, freighter, Freedom Fighter (engine label Raider), Spider Bike.
+The rig is initially available through the HQ; the others lack producers.
+
+**Confirmed.** `0x00490900`, money case at `0x00490f13..0x00490fae`, formats
+`%0.9d`, replaces leading zeroes with ':' (up to eight), and draws font 2 at
+panel+(25,6), hence (178,6). `0x0049594a..0x00495979` loads FONT16.PCX as font 2;
+FONT12W/FONT12T supply the other fonts. Font loader `0x00469530` uses the first
+row's first pixel as a delimiter, records starts at x=1, and stores the width
+between delimiters for successive byte character codes. ':' is a dark digit
+placeholder, not punctuation in this font. The PCX palette is not the game's
+active GUI palette; using it produced white money digits. Remapping its indices
+through the chrome palette restores cyan. `0x00477e00` initializes the
+translation tables from `0x005cc9c0`: entries are 2,1,4,3,5,6,7,0,2,
+and indices 32..41 receive `entry*8`. Normal HUD font text therefore maps
+32..41 to 48..57; retaining the unmodified PCX indices incorrectly made
+the footer labels purple. `0x00495a30` initializes the small SBTNS geometry
+to width 71 and height 22, so its disabled state starts at source x=213. BMP/PCX decoding belongs to the
+engine (`W_LoadImage`); game HUD code owns glyph interpretation and drawing.
+
+**Confirmed.** Palette loader `0x0048b030` reads PALS version 0x102: six
+256-byte channels followed by a 32,768-byte RGB555 lookup at file offset 1544.
+`0x0048ad10` builds unavailable-red translation `0x006d6a00` using
+`lookup[((R[i]+G[i]+B[i])/6)<<10]` from the first three native channels.
+`0x0048d900` selects this translation when the unit is unavailable. Menu images
+now use this table rather than a gray rectangle or an arbitrary RGB tint.
+
+**Confirmed.** Minimap setup `0x0048fac0` takes w=min(map width,130),
+h=min(map height,127), then centers the one-cell-per-pixel image at
+x=453+(130-w)/2, y=348+(127-h)/2. M01F's rectangle is (488,381,60,60).
+The prior 128×126 stretch covered the native minimap housing. The HUD now keeps
+that housing and uses this native rectangle for markers and camera interaction.
+
+### Remaining fidelity limits
+
+The radar terrain-color path is identified but not ported: `0x0048fac0` calls
+`0x0047ad10`, which combines tile information from `0x004190c0`/`0x00413d20`
+with brightness lookup offsets at `0x005b9410` into the palette's lighting
+lookup. Current radar contents are object markers and the camera outline.
+No guessed terrain color or sample pixel was substituted.
+
+Resource gauges still lack the retail economy inputs. `0x0048f340` smooths team
+supply/demand and maximum per-building water stock toward displayed values by
+signed delta/16 with a minimum one-unit step. It selects a dynamic power scale
+in five-step increments, fills x=596,width=17 with height `supply*81/scale`
+bottom-aligned at y=473, and draws a demand tick. Colors depend on supply versus
+demand (native indices 0x16,0x18,0x8a). The controlling scale and full economy
+inputs are not yet implemented; the frame remains visible without a fabricated
+fill. Upgrade/Decoy labels and controls are presentation only. Full campaign
+FSMs, communications, order/path/special pages, and native popup behavior remain
+outside this correction. Footer text uses the native font; its full native
+state-dependent color translations have not been ported.
+
+### Reproduction
+
+```sh
+shasum -a 256 data/REIGN/dkreign.exe
+rabin2 -z data/REIGN/dkreign.exe | rg -i 'buisobox|mfdbtns|font16|topbits'
+r2 -q -e bin.cache=true -c 'af @ 0x48d900' -c 'pdg @ 0x48d900' -c q data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'pd 75 @ 0x490ec0' -c q data/REIGN/dkreign.exe
+env SDL_VIDEODRIVER=dummy make test-dark-reign
+env SDL_VIDEODRIVER=dummy build/bin/dark-reign --screenshot /private/tmp/open-rts-mission01.bmp
+```
+
+This supersedes the earlier OpenDR sidebar implementation description above:
+no OpenDR PNG chrome is loaded or bundled. The shared generic palette has moved
+into `games/dark-reign/hud/`, with retail asset selection and draw procedures.
