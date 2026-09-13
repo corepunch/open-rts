@@ -13,7 +13,8 @@
 
 enum { TESTTICS = 550 };
 typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;
-typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;
+typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,
+               HOSTED, HOSTED_MAP, HOSTED_LOSSY } testmode_t;
 
 static mobj_t *actors[MAXPLAYERS];
 
@@ -129,6 +130,50 @@ static int bound_socket(struct sockaddr_in *address) {
     return fd;
 }
 
+static void session_tests(void) {
+    struct sockaddr_in address;
+    int socket = bound_socket(&address);
+    char port[16], server[64];
+    snprintf(port, sizeof(port), "%d", ntohs(address.sin_port));
+    snprintf(server, sizeof(server), "127.0.0.1:%s", port);
+    close(socket);
+    fflush(NULL);
+    pid_t host = fork();
+    assert(host >= 0);
+    if (!host) {
+        char *args[] = {"test", "--host", "--port", port, "--dup", "3", "--extratic", NULL};
+        int argc = 7;
+        char map[512] = "SCENARIO/MPLAYER/J2PLAY01.MAP";
+        assert(I_InitNetwork(&argc, args));
+        assert(argc == 1 && !I_NetJoining());
+        assert(I_StartNetGame("dark-colony", map, sizeof(map)));
+        I_ShutdownNetwork();
+        _exit(0);
+    }
+    char *badargs[] = {"test", "--join", server, NULL};
+    int argc = 3;
+    char map[512] = "";
+    assert(I_InitNetwork(&argc, badargs));
+    assert(!I_StartNetGame("wrong-game", map, sizeof(map)));
+    assert(strstr(neterror, "mismatch"));
+    char *args[] = {"test", "--join", server, NULL};
+    argc = 3;
+    assert(I_InitNetwork(&argc, args));
+    assert(argc == 1 && I_NetJoining());
+    assert(I_StartNetGame("dark-colony", map, sizeof(map)));
+    assert(!strcmp(map, "SCENARIO/MPLAYER/J2PLAY01.MAP"));
+    assert(doomcom->consoleplayer == 1 && doomcom->numplayers == 2);
+    assert(doomcom->ticdup == 3 && doomcom->extratics == 1);
+    D_QuitNetGame();
+    int status;
+    assert(waitpid(host, &status, 0) == host && WIFEXITED(status) && !WEXITSTATUS(status));
+    char *invalid[] = {"test", "--host", "--join", server, NULL};
+    argc = 4;
+    assert(!I_InitNetwork(&argc, invalid));
+    D_QuitNetGame();
+    puts("PASS: session rejects another game, assigns slots, distributes map and timing, validates switches");
+}
+
 static void peer(int player, int players, const struct sockaddr_in *addresses,
                  const struct sockaddr_in *proxies, testmode_t mode, int output) {
     assert(SDL_Init(SDL_INIT_TIMER) == 0);
@@ -145,21 +190,59 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         argv[argc++] = hosts[p];
     }
     argv[argc] = NULL;
+    char map[512] = "SCENARIO/MPLAYER/J4PLAY01.MAP";
+    bool hosted = mode == HOSTED || mode == HOSTED_MAP || mode == HOSTED_LOSSY;
+    if (hosted) {
+        char server[64], playercount[8];
+        snprintf(server, sizeof(server), "127.0.0.1:%d",
+                 ntohs((mode == HOSTED_LOSSY ? proxies : addresses)[0].sin_port));
+        snprintf(playercount, sizeof(playercount), "%d", players);
+        char *hostargs[] = {"test", "--host", "--port", port, "--players", playercount, NULL};
+        char *joinargs[] = {"test", "--join", server, "--port", port, NULL};
+        int session_argc = player ? (mode == HOSTED_LOSSY ? 5 : 3) : 6;
+        assert(I_InitNetwork(&session_argc, player ? joinargs : hostargs));
+        if (player) map[0] = '\0';
+        assert(I_StartNetGame("dark-colony", map, sizeof(map)));
+        assert(!strcmp(map, "SCENARIO/MPLAYER/J4PLAY01.MAP"));
+        assert(doomcom->numplayers == players);
+        player = doomcom->consoleplayer;
+    } else
     assert(I_InitNetwork(&argc, argv));
     RtsGameModel *model = NULL;
-    if (mode == MODEL) {
+    if (mode == MODEL || mode == HOSTED_MAP) {
         model = rts_game_model_create();
-        RtsGameModelConfig config = {.data_root = "data/DCOLONY", .map_path = "SCENARIO/HUMAN/HUMAN02.MAP"};
+        RtsGameModelConfig config = {.data_root = "data/DCOLONY",
+            .map_path = mode == HOSTED_MAP ? map : "SCENARIO/HUMAN/HUMAN02.MAP"};
         assert(model && rts_game_model_load(model, &config));
         /* Explicit test units: campaign starting forces need not cover all peers. */
-        for (int p = 0; p < players; ++p) {
+        for (int p = 0; mode == MODEL && p < players; ++p) {
             actors[p] = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){32.5f + p * 2, 32.5f}, 0), MT_TROOPER);
             assert(actors[p]);
             actors[p]->owner = actors[p]->team = (uint8_t)p;
         }
+        if (mode == HOSTED_MAP) {
+            memset(actors, 0, sizeof(actors));
+            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+                mobj_t *u = (mobj_t *)th;
+                if (u->type_id == MT_EXCOPOD && u->team < players) {
+                    assert(u->owner == u->team);
+                    actors[u->owner] = u;
+                }
+            }
+            for (int p = 0; p < players; ++p) {
+                assert(actors[p] && level.player_resources[p][0] == 1500);
+                for (int q = 0; q < players; ++q)
+                    assert(P_IsAlly(actors[p], actors[q]) == (p == q));
+            }
+        }
         P_UpdateSight();
     } else init_world();
     D_CheckNetGame(G_Consistency() + (mode == MISMATCH && player == 1));
+    if (mode == HOSTED_MAP) {
+        /* A real native base for every slot: queue a Barracks purchase through
+         * the same command API as the sidebar, without granting test money. */
+        assert(G_BuildOrder(actors[player], 80));
+    }
     /* Different local selection and render cadence must not affect the world. */
     if (model) {
         RtsGameCommand select = {.kind = RTS_GAME_COMMAND_SELECT_ALL_PLAYER_UNITS};
@@ -173,7 +256,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
                                (fvec2_t){4.5f + player * 6, 24.5f}, 0));
     }
     result_t result = {0};
-    int end = mode == MISMATCH || mode == DESYNC || mode == MODEL ? 90 : TESTTICS;
+    int end = mode == MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP ? 90 : TESTTICS;
     if (mode == QUIT && player == 1) end = 40;
     uint64_t deadline = SDL_GetTicks64() + 45000;
     while (gametic < end && !neterror[0] && SDL_GetTicks64() < deadline) {
@@ -199,6 +282,27 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     result.failed = neterror[0] != '\0';
     if (neterror[0]) fprintf(stderr, "peer %d: %s\n", player + 1, neterror);
     if (mode != MISMATCH && mode != DESYNC) assert(gametic == end && !result.failed);
+    if (mode == HOSTED_MAP) {
+        bool barracks[MAXPLAYERS] = {0};
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            mobj_t *u = (mobj_t *)th;
+            if (u->type_id == MT_BRRKPOD && u->owner < players) barracks[u->owner] = true;
+        }
+        for (int p = 0; p < players; ++p) {
+            assert(barracks[p]);
+            assert(level.player_resources[p][0] == 500);
+        }
+    }
+    if (hosted && !player) {
+        uint64_t until = SDL_GetTicks64() + 2000;
+        bool waiting = true;
+        while (waiting && SDL_GetTicks64() < until) {
+            NetUpdate();
+            waiting = false;
+            for (int p = 1; p < players; ++p) waiting |= playeringame[p];
+            SDL_Delay(1);
+        }
+    }
     D_QuitNetGame();
     assert(write(output, &result, sizeof(result)) == sizeof(result));
     close(output);
@@ -209,6 +313,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
 }
 
 static void network_test(testmode_t mode, int players) {
+    bool lossy = mode == LOSSY || mode == HOSTED_LOSSY;
     struct sockaddr_in addresses[MAXPLAYERS], proxies[2];
     int sockets[MAXPLAYERS], proxy[2] = {-1,-1}, pipes[MAXPLAYERS][2];
     pid_t children[MAXPLAYERS];
@@ -216,7 +321,7 @@ static void network_test(testmode_t mode, int players) {
         sockets[i] = bound_socket(&addresses[i]);
         assert(pipe(pipes[i]) == 0);
     }
-    if (mode == LOSSY)
+    if (lossy)
         for (int i = 0; i < 2; ++i) proxy[i] = bound_socket(&proxies[i]);
     /* Release the reserved peer ports before starting the children. */
     for (int i = 0; i < players; ++i) close(sockets[i]);
@@ -227,7 +332,7 @@ static void network_test(testmode_t mode, int players) {
             for (int p = 0; p < players; ++p) {
                 close(pipes[p][0]); if (p != i) close(pipes[p][1]);
             }
-            if (mode == LOSSY) { close(proxy[0]); close(proxy[1]); }
+            if (lossy) { close(proxy[0]); close(proxy[1]); }
             peer(i, players, addresses, proxies, mode, pipes[i][1]);
         }
         close(pipes[i][1]);
@@ -238,7 +343,7 @@ static void network_test(testmode_t mode, int players) {
     ssize_t delayed_size[2] = {0};
     uint64_t deadline = SDL_GetTicks64() + 50000;
     while (remaining && SDL_GetTicks64() < deadline) {
-        if (mode == LOSSY) {
+        if (lossy) {
             for (int to = 0; to < 2; ++to) {
                 uint8_t wire[65536];
                 ssize_t size = recv(proxy[to], wire, sizeof(wire), 0);
@@ -297,7 +402,7 @@ static void network_test(testmode_t mode, int players) {
             for (int tic = 0; tic < results[p].tics; ++tic)
                 assert(results[p].hashes[tic] == results[0].hashes[tic]);
     }
-    if (mode == LOSSY) {
+    if (lossy) {
         assert(dropped && duplicated && reordered);
         close(proxy[0]); close(proxy[1]);
     }
@@ -312,7 +417,16 @@ int main(int argc, char **argv) {
         SDL_Quit();
         return 0;
     }
+    if (argc == 2 && !strcmp(argv[1], "--hosted")) {
+        session_tests();
+        network_test(HOSTED, 4);
+        network_test(HOSTED_MAP, 4);
+        network_test(HOSTED_LOSSY, 2);
+        SDL_Quit();
+        return 0;
+    }
     command_tests();
+    session_tests();
     network_test(DIRECT, 4);
     network_test(LOSSY, 2);
     network_test(DUPLICATED, 2);
@@ -320,6 +434,9 @@ int main(int argc, char **argv) {
     network_test(DESYNC, 2);
     network_test(QUIT, 2);
     network_test(MODEL, 2);
+    network_test(HOSTED, 4);
+    network_test(HOSTED_MAP, 4);
+    network_test(HOSTED_LOSSY, 2);
     SDL_Quit();
     return 0;
 }

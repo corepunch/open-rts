@@ -4647,3 +4647,51 @@ SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-constru
 Screenshots: `/private/tmp/dc-factory-construction.bmp` and
 `/private/tmp/dc-research-construction.bmp`; the pixel test also writes a
 mid-sequence BMP named for each exact construction label.
+
+## Network owners and playable human map fixtures (2026-09-13)
+
+**Confirmed from native SCN text and loaded objects, not newly traced executable
+behavior:** `SCENARIO/MPLAYER/J2PLAY01.SCN` names “Pond Thing”, declares two
+players, and activates teams 0 and 1. Both have `%Race` 0 and `%Money` 1500,
+with Exco city modules and authored infantry. `J4PLAY01.SCN` names “4 Kingdoms”,
+declares four players, and activates human teams 0–3 with 1500 each and Exco
+city modules. SHA-256:
+
+- `J2PLAY01.SCN`: `db4832373563be5cc612bbe8cdd91a7f738a18c5a8355a791a25d9e7dace5a10`
+- `J4PLAY01.SCN`: `884a2e01228164dfc34bfc7d6913eff6278794eaf3eb5ca108eca5a117363705`
+
+**Disproven engine assumption:** campaign allegiance (player, enemy, allied)
+is sufficient ownership for multiplayer. `spawn_object` folded all enemy teams
+into owner 1 and all allied teams into owner 2, despite preserving the original
+team separately. This merges the third and fourth players' units. In network
+games, objects now retain the SCN team as owner, including scripted dropships
+and reinforcements; production already copies ownership from its producer.
+Campaign ownership remains unchanged. The shared engine compares owners and
+SCN-derived alliance masks for network combat and resource-base access, rather
+than treating every non-player-zero object as the same enemy faction.
+
+**Engine behavior requested for network play:** host/join sessions assign human
+players to owners 0–3, preserve scenario starting money/forces, and focus each
+camera on its own units. The new session protocol is engine-defined. No claim
+is made that these lobby defaults or transport messages reproduce retail
+DC.EXE (`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`).
+The existing city slot formula traced at `0x4412d4` is unchanged.
+
+**Known limits / unknown retail behavior:** `D2PLAY01.SCN` uses an alien second
+team; the current human production UI is not a complete alien production UI,
+so it is not the recommended end-to-end multiplayer fixture. The existing
+synthesized bonus Exploiter/Slug path remains unchanged, including its
+previously documented unknown retail justification. It is not evidence of
+fair or symmetric retail lobby starting forces. Native multiplayer race
+selection, initial-force options, menus and victory arbitration were not
+traced in this task.
+
+Reproduce with `make test-network` or `build/bin/test_network --hosted`, always
+with `SDL_VIDEODRIVER=dummy`. Four separate UDP processes load J4PLAY01 without
+injected units or money, verify independent bases and enemy relationships,
+queue a Barracks purchase from each owner, assert four Barracks and 500 credits
+per owner, and compare every simulation checksum. The command-line two-process
+J2PLAY01 check reached tic 90 with matching checksum `b9d7b2de`. Temporary gated
+spawn diagnostics recorded type, team, owner, native position and HP; they were
+removed after verification. An offline J2PLAY01 screenshot also confirmed the
+native terrain, starting force and HUD load correctly.

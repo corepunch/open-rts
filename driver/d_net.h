@@ -38,6 +38,9 @@ extern char neterror[256];
 
 /* Remove network switches from argv before the game parses its arguments. */
 bool I_InitNetwork(int *argc, char **argv);
+/* Host distributes a data-root-relative map before any level is loaded. */
+bool I_StartNetGame(const char *game, char *map, size_t capacity);
+bool I_NetJoining(void);
 void I_NetCmd(void);
 void I_ShutdownNetwork(void);
 void D_CheckNetGame(uint32_t signature);

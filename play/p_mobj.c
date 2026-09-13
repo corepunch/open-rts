@@ -2,6 +2,16 @@
 #include "p_local.h"
 #include "game.h"
 #include "info.h"
+#include "d_net.h"
+
+bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
+    if (!a || !b) return false;
+    if (!netgame) return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
+    if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
+        return false;
+    return a->owner == b->owner || (a->team < 8 && b->team < 8 &&
+        (level.sight.allies[a->team] & (UINT32_C(0x40000000) >> b->team)));
+}
 
 enum {
     RTS_HARVEST_INTERVAL_MS = 1000,
@@ -585,7 +595,7 @@ static bool update_unit_harvest(level_t *map,
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                     mobj_t *base = (mobj_t *)th;
                     if (base->remove) continue;
-                if (!P_AreAllegiancesAllied(base->allegiance, unit->allegiance) ||
+                if (!P_IsAlly(base, unit) ||
                     (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
                 fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
                 unit->harvest.return_position = base_position;
@@ -636,7 +646,7 @@ static bool update_unit_harvest(level_t *map,
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                     mobj_t *base = (mobj_t *)th;
                     if (base->remove) continue;
-                if (!P_AreAllegiancesAllied(base->allegiance, unit->allegiance) ||
+                if (!P_IsAlly(base, unit) ||
                     (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
                 fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
                 unit->harvest.return_position = base_position;
@@ -658,7 +668,7 @@ static bool update_unit_harvest(level_t *map,
                 for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                     mobj_t *base = (mobj_t *)th;
                     if (base->remove) continue;
-                    if (!P_AreAllegiancesAllied(base->allegiance, unit->allegiance) ||
+                    if (!P_IsAlly(base, unit) ||
                         (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
                     fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
                     unit->harvest.return_position = base_position;

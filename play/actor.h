@@ -216,10 +216,7 @@ static inline bool P_AreAllegiancesAllied(uint8_t a, uint8_t b) {
     return false;
 }
 
-static inline bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
-    if (!a || !b) return false;
-    return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
-}
+bool P_IsAlly(const mobj_t *a, const mobj_t *b);
 
 extern thinker_t thinkercap;
 extern int leveltime;

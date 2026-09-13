@@ -102,6 +102,8 @@ static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
 }
 
 int main(int argc, char **argv) {
+    for (int i = 1; i < argc; ++i)
+        if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) goto help;
     G_InitGame();
     if (!I_InitNetwork(&argc, argv)) {
         fprintf(stderr, "%s\n", neterror);
@@ -109,44 +111,46 @@ int main(int argc, char **argv) {
     }
     atexit(D_QuitNetGame);
     consoleplayer = doomcom->consoleplayer;
-    bool check_only = argc > 1 && strcmp(argv[1], "--check") == 0;
-    bool screenshot_only = argc > 1 && strcmp(argv[1], "--screenshot") == 0;
-    const char *screenshot_path = screenshot_only && argc > 2 ? argv[2] : NULL;
-    int arg_base = check_only ? 2 : (screenshot_only ? 3 : 1);
+    bool check_only = false, screenshot_only = false;
+    const char *screenshot_path = NULL;
     bool software_renderer = strcmp(g_game_id, "dark-colony") == 0;
-    int check_tics = 0;
-    while (argc > arg_base) {
-        if (strcmp(argv[arg_base], "--net-check") == 0 && argc > arg_base + 1) {
+    int check_tics = 0, positional = 0;
+    const char *paths[3] = {NULL, NULL, NULL};
+    for (int i = 1; i < argc; ++i) {
+        const char *arg = argv[i];
+        if (!strcmp(arg, "--check")) check_only = true;
+        else if (!strcmp(arg, "--software")) software_renderer = true;
+        else if (!strcmp(arg, "--map") || !strcmp(arg, "--data") || !strcmp(arg, "--sprite")) {
+            int slot = !strcmp(arg, "--data") ? 0 : !strcmp(arg, "--map") ? 1 : 2;
+            if (++i == argc || !argv[i][0] || paths[slot]) goto usage;
+            paths[slot] = argv[i];
+        } else if (!strcmp(arg, "--screenshot")) {
+            if (++i == argc || !argv[i][0]) goto usage;
+            screenshot_only = true; screenshot_path = argv[i];
+        } else if (!strcmp(arg, "--net-check")) {
+            if (++i == argc) goto usage;
             char *end;
-            long count = strtol(argv[arg_base + 1], &end, 10);
-            if (*end || count < 1 || count > 1000000) {
-                fprintf(stderr, "--net-check requires 1..1000000 tics\n"); return 1;
-            }
+            long count = strtol(argv[i], &end, 10);
+            if (!argv[i][0] || *end || count < 1 || count > 1000000) goto usage;
             check_tics = (int)count;
-            arg_base += 2;
-        } else if (strcmp(argv[arg_base], "--software") == 0) {
-            software_renderer = true;
-            arg_base += 1;
-        } else if (argc > arg_base + 1 && strcmp(argv[arg_base], "--game") == 0) {
-            /* --game is ignored: the binary IS the game */
-            arg_base += 2;
-        } else if (strncmp(argv[arg_base], "--game=", 7) == 0) {
-            /* --game=xxx is ignored */
-            arg_base += 1;
-        } else {
-            break;
+        } else if (!strcmp(arg, "--game")) {
+            if (++i == argc || strcmp(argv[i], g_game_id)) goto usage;
+        } else if (!strncmp(arg, "--game=", 7)) {
+            if (strcmp(arg + 7, g_game_id)) goto usage;
+        } else if (arg[0] == '-') goto usage;
+        else {
+            if (positional == 3 || paths[positional]) goto usage;
+            paths[positional++] = arg;
         }
     }
-
-    const char *data_root = argc > arg_base ? argv[arg_base] : g_game_default_root;
-    const char *map_rel_or_abs = argc > arg_base + 1 ? argv[arg_base + 1] : g_game_default_map;
-    const char *sprite_name = argc > arg_base + 2 ? argv[arg_base + 2] : g_game_default_sprite;
-    char map_path[1024];
-    if (map_rel_or_abs[0] == '/') {
-        snprintf(map_path, sizeof(map_path), "%s", map_rel_or_abs);
-    } else {
-        M_PathJoin(map_path, sizeof(map_path), data_root, map_rel_or_abs);
-    }
+    if ((check_only && screenshot_only) || (check_tics && (check_only || screenshot_only)) ||
+        (netgame && (check_only || screenshot_only)) || (I_NetJoining() && paths[1])) goto usage;
+    const char *data_root = paths[0] ? paths[0] : g_game_default_root;
+    const char *sprite_name = paths[2] ? paths[2] : g_game_default_sprite;
+    const char *map_arg = paths[1] ? paths[1] : g_game_default_map;
+    char map_name[1024], map_path[1024];
+    if (strlen(map_arg) >= sizeof(map_name)) goto usage;
+    strcpy(map_name, map_arg);
 
     renderer_t renderer;
     app_t app = { 0 };
@@ -169,6 +173,20 @@ int main(int argc, char **argv) {
     app.renderer = renderer.sdl;
     R_RefreshViewport(&app);
 
+    if (!I_StartNetGame(g_game_id, map_name, sizeof(map_name))) {
+        fprintf(stderr, "%s\n", neterror);
+        renderer_destroy(&renderer);
+        return 1;
+    }
+    consoleplayer = doomcom->consoleplayer;
+    int path_length = map_name[0] == '/' ?
+        snprintf(map_path, sizeof(map_path), "%s", map_name) :
+        snprintf(map_path, sizeof(map_path), "%s/%s", data_root, map_name);
+    if (path_length < 0 || (size_t)path_length >= sizeof(map_path)) {
+        fprintf(stderr, "Map path is too long\n");
+        renderer_destroy(&renderer);
+        return 1;
+    }
     P_InitThinkers();
     if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
         P_FreeLevel(&level);
@@ -192,7 +210,7 @@ int main(int argc, char **argv) {
     mobjlist_t objects = P_ListMobjs();
     mobj_t **units = objects.items;
     int unit_count = objects.count;
-    if (unit_count <= 0) {
+    if (unit_count <= 0 && !netgame) {
         int cx = level.width / 2;
         int cy = level.height / 2;
         const mobjtype_t *fallback_type = num_actor_types > 0 ? actor_types : NULL;
@@ -224,7 +242,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", g_game_name);
     }
 
-    if (!focus_camera_on_map_start(&app, &level)) {
+    if (!(netgame && focus_camera_on_first_player_unit(&app, &level, units, unit_count)) &&
+        !focus_camera_on_map_start(&app, &level)) {
         fvec2_t position = unit_count > 0 ? fixed3_xy_to_fvec2(units[0]->core.position) :
             (fvec2_t){ (float)level.width * 0.5f, (float)level.height * 0.5f };
         float focus_gx = position.x;
@@ -299,6 +318,20 @@ int main(int argc, char **argv) {
         snprintf(neterror, sizeof(neterror), "Map fingerprint failed");
     } else {
         D_CheckNetGame(signature);
+        if (netgame) {
+            for (int player = 0; player < doomcom->numplayers; ++player) {
+                bool has_units = false;
+                for (int i = 0; i < unit_count; ++i)
+                    if (units[i]->owner == player && units[i]->hp > 0 &&
+                        !units[i]->remove && (units[i]->traits & MF_SELECTABLE)) has_units = true;
+                if (has_units) continue;
+                snprintf(neterror, sizeof(neterror),
+                         "Map has no starting units for player %d; choose a multiplayer map with --map", player + 1);
+                fprintf(stderr, "%s\n", neterror);
+                app.running = false;
+                break;
+            }
+        }
     }
     uint64_t check_started = SDL_GetTicks64();
 
@@ -452,6 +485,18 @@ int main(int argc, char **argv) {
         renderer_end_frame(&renderer);
     }
 
+    /* Let bounded-check clients consume the final commands and quit before
+     * shutting down their relay. No further simulation tics run here. */
+    if (check_tics && gametic == check_tics && netgame && !consoleplayer && !I_NetJoining()) {
+        uint64_t until = SDL_GetTicks64() + 2000;
+        bool waiting = true;
+        while (waiting && !neterror[0] && SDL_GetTicks64() < until) {
+            NetUpdate();
+            waiting = false;
+            for (int p = 1; p < doomcom->numplayers; ++p) waiting |= playeringame[p];
+            SDL_Delay(1);
+        }
+    }
     int exit_code = neterror[0] ? 1 : 0;
     D_QuitNetGame();
     SB_Shutdown(&st);
@@ -463,4 +508,22 @@ int main(int argc, char **argv) {
     P_FreeLevel(&level);
     renderer_destroy(&renderer);
     return exit_code;
+usage:
+    fprintf(stderr, "Invalid arguments. Use --help for command-line options.\n");
+    return 1;
+help:
+    printf("Usage: %s [options] [data-root [map [sprite]]]\n"
+           "  --host                 Host a game (you are player 1)\n"
+           "  --players <2..4>       Players to wait for; default 2\n"
+           "  --join <host[:port]>   Join; receive the host's map and player slot\n"
+           "  --port <1..65535>      Local UDP port; host 5029, client automatic\n"
+           "  --map <path>           Map relative to data root; chosen by host\n"
+           "  --data <directory>     Local game data directory\n"
+           "  --sprite <path>        Default sprite asset\n"
+           "  --software            Use the software renderer\n"
+           "  --check | --screenshot <file.bmp>   Offline smoke check\n"
+           "  --net-check <tics>     Run a bounded headless simulation\n"
+           "  --net <1..4> <peers...>  Legacy manual peer setup\n"
+           "  --dup <1..9> --extratic  Doom command timing/redundancy\n", argv[0]);
+    return 0;
 }

@@ -1,56 +1,96 @@
-# Doom-style network play
+# Network play
 
-Build with `make`. Each game binary supports two to four peers over IPv4 UDP.
-Every peer simulates the entire level; only player commands are transmitted.
-Use the same engine build, game data, map and `--dup` setting on every machine.
-Player numbers are one-based on the command line and map to existing map owners
-0–3. Networking does not create starting armies or rewrite a scenario's teams,
-alliances, scripts or victory conditions. Choose a map with the owners you need.
+Build with `make`. All game binaries use the same engine-provided command-line
+flow. The host plays as player 1 and relays UDP traffic; every machine runs the
+full lock-step simulation. This is a listen server, not a dedicated server.
 
-For two machines on a LAN (substitute their actual addresses):
+For Dark Colony, start a two-player game with this verified human-versus-human
+map (Pond Thing):
 
 ```sh
-# Machine 1, address 192.168.1.10
-build/bin/dark-colony --net 1 192.168.1.11
-# Machine 2, address 192.168.1.11
-build/bin/dark-colony --net 2 192.168.1.10
+# Host
+build/bin/dark-colony --host --map SCENARIO/MPLAYER/J2PLAY01.MAP
+
+# Other machine: substitute the host's IP address
+build/bin/dark-colony --join 192.168.1.10
+
+# Or a second window on the host's machine
+build/bin/dark-colony --join 127.0.0.1
 ```
 
-For two windows on one machine:
+The host waits for two players by default. Joiners receive their player number,
+map path, player count, `ticdup` and `extratics` settings automatically. A match
+starts after all expected players connect and validate the loaded world.
+
+For four players, use the verified all-human 4 Kingdoms map:
 
 ```sh
-build/bin/dark-colony --port 25029 --net 1 127.0.0.1:25030
-build/bin/dark-colony --port 25030 --net 2 127.0.0.1:25029
+build/bin/dark-colony --host --players 4 --map SCENARIO/MPLAYER/J4PLAY01.MAP
 ```
 
-For three or four players, list **every other player in ascending player-number
-order**, omitting yourself. Player 2 in a four-player game lists players 1, 3, 4.
-UDP port 5029 is the default. `--port` changes the local port and the default
-remote port; an explicit `host:port` overrides the remote port. Hostnames and
-Doom's `.127.0.0.1` address syntax are accepted. Single-dash Doom switches
-(`-net`, `-port`, `-dup`, `-extratic`) also work.
+Each of the other three players runs `--join HOST_IP`. Slots are assigned in
+connection order. Dark Colony preserves the scenario team as the network owner;
+players 1–4 control teams 0–3. Camera, selection, fog and resources follow the
+local player. Combat uses distinct owners and the map's team alliances, so
+players 2–4 are not treated as one campaign enemy faction.
 
-Put the peer list last, or terminate it with another option before map paths:
+The same options work in `build/bin/dark-reign`, `build/bin/7legion` and
+`build/bin/kknd`; choose a map appropriate to that game. The executable selects
+the game. A client running a different game is rejected.
+
+## Options and requirements
+
+- `--map PATH`: host-selected map relative to each machine's data root.
+  `--join` does not accept a separate map. Network paths cannot be absolute or
+  contain `..` or backslashes. Map and asset files are **not downloaded**.
+- `--data DIRECTORY`: local game installation, which may differ between machines.
+  Use identical engine builds and game data on matching platforms.
+- `--port PORT`: local UDP port. Hosts default to **5029**; joiners use an
+  OS-assigned port, so multiple clients can run on one machine. A custom server
+  port goes in the join address, e.g. `--join 192.168.1.10:25029`.
+- `--players 2..4`: number of players including the host; host-only.
+- `--software`: software renderer. Dark Colony already defaults to it.
+- `--dup 1..9`, `--extratic`: Doom input sampling/redundancy options. The host
+  distributes them to clients. Default `ticdup` is 1 at 30 simulation Hz.
+- `--help`: shared engine usage. Named options can appear before or after the
+  existing positional `data-root map sprite` arguments, without defining a
+  path twice. `--map` also works for offline play and smoke checks.
+
+Allow inbound UDP on the host port. For Internet play, forward that UDP port to
+the host or use a VPN that provides reachability. There is no automatic NAT
+traversal, matchmaking, late joining or reconnection. Clients communicate only
+with the host; no client port forwarding or peer list is needed.
+
+Escape or closing the window cancels startup. The lobby times out after 60
+seconds, and missing gameplay/setup traffic fails after 30 seconds. A departing
+client leaves its units idle; remaining players continue. The host must remain
+running: leaving ends the hosted game. Debug resource/spawn cheats are disabled.
+
+Choose maps with starting units for every player: the engine reports missing
+slots instead of starting an unplayable match or inventing armies. Dark Colony
+uses the map's existing money, units, alliances and scripts. Alien production
+and campaign-specific victory flows remain incomplete; the two maps above
+provide human bases with working production. This does not reproduce DC.EXE's
+multiplayer menu, race selection or lobby configuration. Existing synthesized
+multiplayer starter units remain as documented in `DC_EXE_FINDINGS.md`.
+
+## Legacy manual peer setup
+
+The original Doom-style `--net` flow remains available for two to four peers.
+List every other player in ascending player-number order, omitting yourself:
 
 ```sh
-build/bin/dark-colony --net 1 192.168.1.11 --software \
-    data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
+build/bin/dark-colony --port 25029 --net 1 127.0.0.1:25030 \
+    --map SCENARIO/MPLAYER/J2PLAY01.MAP
+build/bin/dark-colony --port 25030 --net 2 127.0.0.1:25029 \
+    --map SCENARIO/MPLAYER/J2PLAY01.MAP
 ```
 
-`--extratic` repeats one previous command tic in each packet. `--dup 2` through
-`--dup 9` samples input less frequently and runs that many simulation tics per
-command tic. Group orders and production clicks execute once, like Doom's
-special buttons, rather than once per duplicated tic. The existing game clock
-remains 30 Hz; changing it to Doom's 35 Hz would change authored animation and
-movement timing.
-
-The window remains responsive while waiting for peers. Escape quits and sends
-four exit notifications. A missing peer stalls simulation until packets return;
-there is no timeout that silently converts a disconnected human into an AI.
-Graceful exits let the remaining peers continue. Human-owned units are excluded
-from AI orders. Selection, camera, resource display and fog use `consoleplayer`;
-selection itself is local and never enters a command checksum. Debug resource
-and spawn cheats are disabled in network games.
+Here each player supplies the same map and timing settings; `--port` also sets
+the default remote port. A subsequent option terminates the peer list. Single
+hyphens (`-net`, `-host`, `-join`, `-port`, `-dup`, `-extratic`) and Doom's
+`.127.0.0.1` address syntax are accepted by the network parser. `--host`, `--join`
+and `--net` are mutually exclusive.
 
 ## Relationship to the reference
 
@@ -85,6 +125,15 @@ Concrete adaptations for this engine:
   initial world checksum, protocol version, player count, tic rate and ticdup.
   Setup replies continue until the remote peer starts sending commands, so
   lost startup packets do not leave a peer behind.
+- Host/join adds a versioned `ORTS` session envelope in `i_net.c`. Repeated
+  join requests are assigned the same slot by source IP and port. Once the
+  roster is full, welcome replies distribute the game/map and timing. The
+  host keeps replying during level loading and gameplay. Addressed data
+  envelopes carry the original Doom tic packets; the host validates their
+  sender and relays them to the destination. Joiners accept traffic only
+  from the host. `d_net.c` retains its logical peer nodes, command histories,
+  retransmissions and simulation ordering. Doom's `D_ArbitrateNetStart`
+  similarly lets its key player distribute the map before starting play.
 - The consistency sample hashes object IDs, positions, momentum, animation
   state/tics, HP, orders, targets, production, resource amounts and RNG index.
   It excludes pointers, local selection, local fog exploration and render
@@ -95,8 +144,8 @@ Concrete adaptations for this engine:
   runs the existing simulation, increments `gametic`, and calls `NetUpdate`.
 
 This is **not wire-compatible with Doom executables**: RTS orders cannot fit
-Doom's FPS movement/button command. It provides Doom's peer-to-peer lockstep
-architecture, not client/server snapshots, prediction, rollback, late joining,
+Doom's FPS movement/button command. It preserves Doom's logical peer lockstep
+with an optional host relay, not client/server snapshots, prediction, rollback, late joining,
 matchmaking or NAT traversal. The existing pathing and collision code still
 uses floats at planar boundaries; cross-architecture floating-point identity
 has not been established. Use matching builds/platforms. No claim is made
@@ -108,9 +157,9 @@ because their initial setup hashes match.
 ```sh
 make test-network
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony --net-check 300 \
-    --port 25029 --net 1 127.0.0.1:25030
+    --host --map SCENARIO/MPLAYER/J2PLAY01.MAP
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony --net-check 300 \
-    --port 25030 --net 2 127.0.0.1:25029
+    --join 127.0.0.1
 ```
 
 Launch the two `--net-check` commands in separate terminals. They print final
@@ -123,8 +172,15 @@ selection independence, command ownership, stable IDs and production charging.
 The model API test uses a loaded campaign with explicit test units for both
 owners, and verifies queued movement through `rts_game_model_command` and
 `rts_game_model_tick`.
+Host/join tests additionally verify game rejection, automatic slots, map and
+timing distribution, four-player relayed commands, native J4PLAY01 base
+ownership and Barracks purchases for all four players, plus lossy session
+startup and gameplay. `test_network --hosted` runs just these session tests.
 
-For a headless model client, call `I_InitNetwork`, load the model normally,
+For a headless model client, initialize SDL's timer/events, call `I_InitNetwork`,
+then `I_StartNetGame(game_id, map_buffer, capacity)` before loading the model
+with the resulting relative map path. For legacy/offline mode the latter is
+a no-op. After loading,
 compute `G_NetSignature` with the resolved map path, and call `D_CheckNetGame`.
 Feed `rts_game_model_command` as usual and pump `rts_game_model_tick`: it builds
 and receives commands, waits for missing peers, and advances at most one fixed

@@ -3,6 +3,7 @@
 #include "p_local.h"
 #include "dc_facing.h"
 #include "info.h"
+#include "d_net.h"
 #include <math.h>
 #include <string.h>
 
@@ -78,7 +79,7 @@ bool DC_StartDropship(int team, ivec2_t origin,
         fvec2_cell_center(ivec2_add(origin, (ivec2_t){ -1, -1 })), 0), MT_DROPSHIP);
     if (!ship) return false;
     ship->team = team;
-    ship->owner = team == 0 ? 0 : 1;
+    ship->owner = netgame ? team : team == 0 ? 0 : 1;
     ship->allegiance = team == 0 ? ALLEGIANCE_PLAYER : ALLEGIANCE_ENEMY;
     ship->drop = (dc_drop_t){ .origin = origin, .payload_count = payload_count };
     memcpy(ship->drop.payload, payload, (size_t)payload_count * sizeof(*payload));

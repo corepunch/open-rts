@@ -121,16 +121,17 @@ COL_STATE	tools/dc_info_gen.c	/^#define COL_STATE /;"	d	file:
 COL_TICKS	tools/dc_info_gen.c	/^#define COL_TICKS /;"	d	file:
 COMMANDS	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
 Cell	tools/dc_spr_extract.c	/^} Cell;$/;"	t	typeref:struct:__anonf6c4462b0108	file:
+DATA	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
 DATA	tests/dark-colony/test_sprite_loading.c	/^enum { HEADER = 8 + 256 * 3, DATA = HEADER + 3 * 8 };$/;"	e	enum:__anon576c22dd0103	file:
 DC_DrawUnitOverlays	tests/test_dark_colony_sprite_layout.c	/^void DC_DrawUnitOverlays(const unitoverlaycontext_t *ctx) { (void)ctx; }$/;"	f	typeref:typename:void	signature:(const unitoverlaycontext_t * ctx)
 DEATHS	tools/kknd_info_gen.c	/^} DEATHS[] = {$/;"	v	typeref:typename:const struct __anoncbabb2620308[]	file:
-DESYNC	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
-DIRECT	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+DESYNC	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
+DIRECT	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
 DOOMCOM_ID	driver/d_net.h	/^#define DOOMCOM_ID /;"	d
 DRAW_COMMAND_DECORATION	render/render_plan.h	/^    DRAW_COMMAND_DECORATION,$/;"	e	enum:__anonba488bd40203
 DRAW_COMMAND_TILE_OVERLAY	render/render_plan.h	/^    DRAW_COMMAND_TILE_OVERLAY,$/;"	e	enum:__anonba488bd40203
 DRAW_COMMAND_UNIT	render/render_plan.h	/^    DRAW_COMMAND_UNIT,$/;"	e	enum:__anonba488bd40203
-DUPLICATED	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+DUPLICATED	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
 D_CheckNetGame	driver/d_net.c	/^void D_CheckNetGame(uint32_t signature) {$/;"	f	typeref:typename:void	signature:(uint32_t signature)
 D_CheckNetGame	driver/d_net.h	/^void D_CheckNetGame(uint32_t signature);$/;"	p	typeref:typename:void	signature:(uint32_t signature)
 D_PlayerIsHuman	driver/d_net.c	/^bool D_PlayerIsHuman(int owner) {$/;"	f	typeref:typename:bool	signature:(int owner)
@@ -174,6 +175,7 @@ GAMESTAT_MBULLET_COLS	tools/dc_gamestat_gen.c	/^#define GAMESTAT_MBULLET_COLS /;
 GAMESTAT_MBULLET_ROWS	tools/dc_gamestat_gen.c	/^#define GAMESTAT_MBULLET_ROWS /;"	d	file:
 GAMESTAT_UNIT_VALUE_COUNT	tools/dc_gamestat_gen.c	/^#define GAMESTAT_UNIT_VALUE_COUNT /;"	d	file:
 GAMESTAT_WEAPON_VALUE_COUNT	tools/dc_gamestat_gen.c	/^#define GAMESTAT_WEAPON_VALUE_COUNT /;"	d	file:
+GAME_LENGTH	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
 GIF_MAX_CODES	driver/w_gif.c	/^    enum { GIF_MAX_CODES = 4096 };$/;"	e	enum:gif_decode_lzw::__anon9b76b3fd0103	file:
 G_BuildOrder	driver/d_ticcmd.h	/^bool G_BuildOrder(mobj_t *producer, int product);$/;"	p	typeref:typename:bool	signature:(mobj_t * producer,int product)
 G_BuildOrder	game/g_cmd.c	/^bool G_BuildOrder(mobj_t *producer, int product) {$/;"	f	typeref:typename:bool	signature:(mobj_t * producer,int product)
@@ -253,6 +255,8 @@ HEADER	tests/dark-colony/test_sprite_loading.c	/^enum { HEADER = 8 + 256 * 3, DA
 HEIGHT	tests/dark-colony/test_selection_overlays.c	/^enum { WIDTH = 512, HEIGHT = 256, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon978e18430103	file:
 HEIGHT	tests/dark-colony/test_trooper_rendering.c	/^enum { WIDTH = 256, HEIGHT = 192, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon3439e5910103	file:
 HGetPacket	driver/d_net.c	/^static bool HGetPacket(void) {$/;"	f	typeref:typename:bool	file:	signature:(void)
+HOSTED	tests/network/test_network.c	/^               HOSTED, HOSTED_MAP } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+HOSTED_MAP	tests/network/test_network.c	/^               HOSTED, HOSTED_MAP } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
 HSendPacket	driver/d_net.c	/^static void HSendPacket(int node, uint32_t flags) {$/;"	f	typeref:typename:void	file:	signature:(int node,uint32_t flags)
 HU_DrawText	driver/engine.h	/^void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,$/;"	p	typeref:typename:void	signature:(SDL_Renderer * renderer,const bitmapfont_t * font,int x,int y,const char * text,SDL_Color color,int scale)
 HU_DrawText	render/r_main.c	/^void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,$/;"	f	typeref:typename:void	signature:(SDL_Renderer * renderer,const bitmapfont_t * font,int x,int y,const char * text,SDL_Color color,int scale)
@@ -277,12 +281,17 @@ I_InitNetwork	driver/d_net.h	/^bool I_InitNetwork(int *argc, char **argv);$/;"	p
 I_InitNetwork	driver/i_net.c	/^bool I_InitNetwork(int *argc, char **argv) {$/;"	f	typeref:typename:bool	signature:(int * argc,char ** argv)
 I_NetCmd	driver/d_net.h	/^void I_NetCmd(void);$/;"	p	typeref:typename:void	signature:(void)
 I_NetCmd	driver/i_net.c	/^void I_NetCmd(void) {$/;"	f	typeref:typename:void	signature:(void)
+I_NetJoining	driver/d_net.h	/^bool I_NetJoining(void);$/;"	p	typeref:typename:bool	signature:(void)
+I_NetJoining	driver/i_net.c	/^bool I_NetJoining(void) { return joining; }$/;"	f	typeref:typename:bool	signature:(void)
 I_ShutdownNetwork	driver/d_net.h	/^void I_ShutdownNetwork(void);$/;"	p	typeref:typename:void	signature:(void)
 I_ShutdownNetwork	driver/i_net.c	/^void I_ShutdownNetwork(void) {$/;"	f	typeref:typename:void	signature:(void)
+I_StartNetGame	driver/d_net.h	/^bool I_StartNetGame(const char *game, char *map, size_t capacity);$/;"	p	typeref:typename:bool	signature:(const char * game,char * map,size_t capacity)
+I_StartNetGame	driver/i_net.c	/^bool I_StartNetGame(const char *game, char *map, size_t capacity) {$/;"	f	typeref:typename:bool	signature:(const char * game,char * map,size_t capacity)
+JOIN	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
 Juice	tools/dc_spr_extract.c	/^} Juice;$/;"	t	typeref:struct:__anonf6c4462b0208	file:
 LABEL	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
 LABEL_H	tools/dc_spr_extract.c	/^#define LABEL_H /;"	d	file:
-LOSSY	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+LOSSY	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
 L_Contains	driver/engine.h	/^bool L_Contains(const level_t *map, int x, int y);$/;"	p	typeref:typename:bool	signature:(const level_t * map,int x,int y)
 L_Contains	play/p_map.c	/^bool L_Contains(const level_t *map, int x, int y) {$/;"	f	typeref:typename:bool	signature:(const level_t * map,int x,int y)
 L_Index	driver/engine.h	/^int L_Index(const level_t *map, int x, int y);$/;"	p	typeref:typename:int	signature:(const level_t * map,int x,int y)
@@ -296,6 +305,7 @@ MAP_DECORATION_MAX_ANIMATION_FRAMES	game/map.h	/^#define MAP_DECORATION_MAX_ANIM
 MAP_EXTRA_DECORATION	game/map.h	/^    MAP_EXTRA_DECORATION,$/;"	e	enum:__anon6564a8e20603
 MAP_EXTRA_OVERLAY	game/map.h	/^    MAP_EXTRA_OVERLAY,$/;"	e	enum:__anon6564a8e20603
 MAP_EXTRA_RESOURCE_VENT	game/map.h	/^    MAP_EXTRA_RESOURCE_VENT,$/;"	e	enum:__anon6564a8e20603
+MAP_LENGTH	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
 MAP_RENDER_CAP_CELL_COLORS	game/map.h	/^    MAP_RENDER_CAP_CELL_COLORS = 1 << 0,$/;"	e	enum:__anon6564a8e20403
 MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS	game/map.h	/^    MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS = 1 << 3,$/;"	e	enum:__anon6564a8e20403
 MAP_RENDER_CAP_TERRAIN_TRANSITIONS	game/map.h	/^    MAP_RENDER_CAP_TERRAIN_TRANSITIONS = 1 << 1,$/;"	e	enum:__anon6564a8e20403
@@ -340,12 +350,12 @@ MF_RENDERABLE	play/actor.h	/^    MF_RENDERABLE = 1u << 2,$/;"	e	enum:__anon17523
 MF_RESOURCE_BASE	play/actor.h	/^    MF_RESOURCE_BASE = 1u << 5,$/;"	e	enum:__anon175231d90103
 MF_SELECTABLE	play/actor.h	/^    MF_SELECTABLE = 1u << 0,$/;"	e	enum:__anon175231d90103
 MF_SELECTED	play/actor.h	/^    MF_SELECTED = 1u << 7,$/;"	e	enum:__anon175231d90103
-MISMATCH	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+MISMATCH	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
 MOBD_TABLE	tools/kknd_info_gen.c	/^static const mobd_entry_t MOBD_TABLE[] = {$/;"	v	typeref:typename:const mobd_entry_t[]	file:
 MOBILE	tools/7legion_expanded_units.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,asset,id,hp,speed,damage,extra)
 MOBILE	tools/7legion_info_gen.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,asset,id,hp,speed,damage,extra)
 MOBILE	tools/dr_info_gen.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,actor,hp,speed,damage,extra,anim_data)
-MODEL	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+MODEL	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
 M_FileName	driver/engine.h	/^const char *M_FileName(const char *path);$/;"	p	typeref:typename:const char *	signature:(const char * path)
 M_FileName	driver/w_file.c	/^const char *M_FileName(const char *path) {$/;"	f	typeref:typename:const char *	signature:(const char * path)
 M_PathJoin	driver/engine.h	/^void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b);$/;"	p	typeref:typename:void	signature:(char * dst,size_t dst_size,const char * a,const char * b)
@@ -433,7 +443,8 @@ P_InitSight	driver/engine.h	/^bool P_InitSight(void);$/;"	p	typeref:typename:boo
 P_InitSight	play/p_sight.c	/^bool P_InitSight(void) {$/;"	f	typeref:typename:bool	signature:(void)
 P_InitThinkers	play/actor.h	/^void P_InitThinkers(void);$/;"	p	typeref:typename:void	signature:(void)
 P_InitThinkers	play/p_tick.c	/^void P_InitThinkers(void) {$/;"	f	typeref:typename:void	signature:(void)
-P_IsAlly	play/actor.h	/^static inline bool P_IsAlly(const mobj_t *a, const mobj_t *b) {$/;"	f	typeref:typename:bool	signature:(const mobj_t * a,const mobj_t * b)
+P_IsAlly	play/actor.h	/^bool P_IsAlly(const mobj_t *a, const mobj_t *b);$/;"	p	typeref:typename:bool	signature:(const mobj_t * a,const mobj_t * b)
+P_IsAlly	play/p_mobj.c	/^bool P_IsAlly(const mobj_t *a, const mobj_t *b) {$/;"	f	typeref:typename:bool	signature:(const mobj_t * a,const mobj_t * b)
 P_ListMobjs	play/actor.h	/^mobjlist_t P_ListMobjs(void);$/;"	p	typeref:typename:mobjlist_t	signature:(void)
 P_ListMobjs	play/p_tick.c	/^mobjlist_t P_ListMobjs(void) {$/;"	f	typeref:typename:mobjlist_t	signature:(void)
 P_LoadThings	game/game.h	/^int      P_LoadThings(const char *path);$/;"	p	typeref:typename:int	signature:(const char * path)
@@ -485,7 +496,8 @@ P_VisibleTo	driver/engine.h	/^bool P_VisibleTo(const mobj_t *observer, const mob
 P_VisibleTo	play/p_sight.c	/^bool P_VisibleTo(const mobj_t *observer, const mobj_t *target) {$/;"	f	typeref:typename:bool	signature:(const mobj_t * observer,const mobj_t * target)
 P_VisibleToPlayer	driver/engine.h	/^bool P_VisibleToPlayer(const mobj_t *mobj);$/;"	p	typeref:typename:bool	signature:(const mobj_t * mobj)
 P_VisibleToPlayer	play/p_sight.c	/^bool P_VisibleToPlayer(const mobj_t *mobj) {$/;"	f	typeref:typename:bool	signature:(const mobj_t * mobj)
-QUIT	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	e	enum:__anon3666449a0303	file:
+QUIT	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
+REJECT	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
 RENDER_LAYER_DECORATION	render/render_plan.h	/^    RENDER_LAYER_DECORATION = 20,$/;"	e	enum:__anonba488bd40103
 RENDER_LAYER_EFFECT	render/render_plan.h	/^    RENDER_LAYER_EFFECT = 40,$/;"	e	enum:__anonba488bd40103
 RENDER_LAYER_TERRAIN	render/render_plan.h	/^    RENDER_LAYER_TERRAIN = 0,$/;"	e	enum:__anonba488bd40103
@@ -667,6 +679,8 @@ SB_drawWidgets	hud/sb_bar.c	/^static void SB_drawWidgets(const sb_state_t *st, a
 SELECTION_STYLE_BRACKETS	play/actor.h	/^    SELECTION_STYLE_BRACKETS,$/;"	e	enum:__anon175231d90703
 SELECTION_STYLE_DEFAULT	play/actor.h	/^    SELECTION_STYLE_DEFAULT = 0, \/* Green sprite rectangle and health bar. *\/$/;"	e	enum:__anon175231d90703
 SELECTION_STYLE_SPRITE	play/actor.h	/^    SELECTION_STYLE_SPRITE,$/;"	e	enum:__anon175231d90703
+SESSION_MAGIC	driver/i_net.c	/^enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 1,$/;"	e	enum:__anon664417000103	file:
+SESSION_VERSION	driver/i_net.c	/^enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 1,$/;"	e	enum:__anon664417000103	file:
 SIGHT_EXPLORED	game/map.h	/^#define SIGHT_EXPLORED /;"	d
 SIZE	tests/dark-colony/test_barrager_turning.c	/^enum { SIZE = 160, PIXELS = SIZE * SIZE };$/;"	e	enum:__anon7f26dad50103	file:
 SIZE	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
@@ -708,6 +722,8 @@ V_BlitIndexed	driver/engine.h	/^void V_BlitIndexed(uint32_t *dst, int dst_w, int
 V_BlitIndexed	driver/w_file.c	/^void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,$/;"	f	typeref:typename:void	signature:(uint32_t * dst,int dst_w,int dst_h,int dst_x,int dst_y,const uint8_t * src,int src_w,int src_h,const uint32_t palette[256])
 V_IndexedToRGBA	driver/engine.h	/^void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint32_t palette[256/;"	p	typeref:typename:void	signature:(uint32_t * dst,const uint8_t * src,size_t count,const uint32_t palette[256])
 V_IndexedToRGBA	driver/w_file.c	/^void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint32_t palette[256/;"	f	typeref:typename:void	signature:(uint32_t * dst,const uint8_t * src,size_t count,const uint32_t palette[256])
+WELCOME	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
+WELCOME_SIZE	driver/i_net.c	/^       WELCOME_SIZE = 10 + GAME_LENGTH + MAP_LENGTH };$/;"	e	enum:__anon664417000103	file:
 WIDTH	tests/dark-colony/test_selection_overlays.c	/^enum { WIDTH = 512, HEIGHT = 256, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon978e18430103	file:
 WIDTH	tests/dark-colony/test_trooper_rendering.c	/^enum { WIDTH = 256, HEIGHT = 192, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon3439e5910103	file:
 WIRECMD	driver/i_net.c	/^#define WIRECMD /;"	d	file:
@@ -912,7 +928,7 @@ __anon3666449a0208	tests/network/test_network.c	/^typedef struct { int tics, fai
 __anon3666449a0208::failed	tests/network/test_network.c	/^typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;$/;"	m	struct:__anon3666449a0208	typeref:typename:int	file:
 __anon3666449a0208::hashes	tests/network/test_network.c	/^typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;$/;"	m	struct:__anon3666449a0208	typeref:typename:uint32_t[]	file:
 __anon3666449a0208::tics	tests/network/test_network.c	/^typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;$/;"	m	struct:__anon3666449a0208	typeref:typename:int	file:
-__anon3666449a0303	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	g	file:
+__anon3666449a0303	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	g	file:
 __anon3d3e43c00108	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	s	file:
 __anon3d3e43c00108::gx	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	m	struct:__anon3d3e43c00108	typeref:typename:float	file:
 __anon3d3e43c00108::gy	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	m	struct:__anon3d3e43c00108	typeref:typename:float	file:
@@ -1083,6 +1099,7 @@ __anon6564a8e20308::weight	game/map.h	/^    int phase, tics, duration, transitio
 __anon6564a8e20403	game/map.h	/^enum {$/;"	g
 __anon6564a8e20503	game/map.h	/^enum {$/;"	g
 __anon6564a8e20603	game/map.h	/^typedef enum {$/;"	g
+__anon664417000103	driver/i_net.c	/^enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 1,$/;"	g	file:
 __anon759eab0d0108	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	s	function:main	file:
 __anon759eab0d0208	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	s	function:main	file:
 __anon761761540108	render/sprites.h	/^typedef struct {$/;"	s
@@ -1485,7 +1502,6 @@ border	hud/ui_definition.h	/^    SDL_Color border;$/;"	m	struct:uipanel_s	typere
 bound_socket	tests/network/test_network.c	/^static int bound_socket(struct sockaddr_in *address) {$/;"	f	typeref:typename:int	file:	signature:(struct sockaddr_in * address)
 bounds	play/actor.h	/^    irect_t bounds; \/* Current sprite bounds in screen pixels. *\/$/;"	m	struct:unitoverlaycontext_s	typeref:typename:irect_t
 bounds	render/sprites.h	/^    irect_t bounds;$/;"	m	struct:spritecell_s	typeref:typename:irect_t
-build	docs/NETWORK.md	/^Use the same engine build, game data, map and `--dup` setting on every machine.$/;"	v
 build_event_seen	tests/cross-game/test_model_commands.c	/^static int build_event_seen(RtsGameModel *model, RtsGameEventType wanted,$/;"	f	typeref:typename:int	file:	signature:(RtsGameModel * model,RtsGameEventType wanted,uint32_t producer_id,int product_class,int product_type)
 build_flow_field	play/p_map.c	/^static FlowCell *build_flow_field(const level_t *map, cell_t goal) {$/;"	f	typeref:typename:FlowCell *	file:	signature:(const level_t * map,cell_t goal)
 build_map_path	game/g_game.c	/^static bool build_map_path(char *out, size_t out_size, const char *data_root, const char *map_pa/;"	f	typeref:typename:bool	file:	signature:(char * out,size_t out_size,const char * data_root,const char * map_path)
@@ -1633,7 +1649,6 @@ damage	tools/dc_gamestat_gen.c	/^    int damage[GAMESTAT_MAX_BOOM_SIZE][GAMESTAT
 damage	tools/dr_info_gen.c	/^    int health, speed, radius, height, mass, damage;$/;"	m	struct:__anon0771d3700208	typeref:typename:int	file:
 damage	tools/info_gen.h	/^    int damage;$/;"	m	struct:__anond5c6e2e00108	typeref:typename:int
 damage_action	play/actor.h	/^    actionf_p1 damage_action;$/;"	m	struct:mobjtype_s	typeref:typename:actionf_p1
-data	docs/NETWORK.md	/^Use the same engine build, game data, map and `--dup` setting on every machine.$/;"	v
 data	driver/d_net.h	/^    doomdata_t data;$/;"	m	struct:__anone560e7400208	typeref:typename:doomdata_t
 data	game/g_game.h	/^    } data;$/;"	m	struct:__anon42a104c40708	typeref:union:__anon42a104c40708::__anon42a104c4080a
 data	tools/dc_fin_extract.c	/^    unsigned char *data;$/;"	m	struct:__anon82d667f30208	typeref:typename:unsigned char *	file:
@@ -2011,6 +2026,7 @@ hidden	game/g_game.h	/^    bool hidden;$/;"	m	struct:__anon42a104c41108	typeref:
 hidden	game/map.h	/^    bool hidden;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
 hit	tests/dark-colony/test_building_damage.c	/^static void hit(mobj_t *building, int remaining_hp) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * building,int remaining_hp)
 hitpts	tools/kknd_info_gen.c	/^    int  hitpts;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
+hosting	driver/i_net.c	/^static bool hosting, joining, session_received;$/;"	v	typeref:typename:bool	file:
 hp	game/g_game.h	/^    int hp;$/;"	m	struct:__anon42a104c41008	typeref:typename:int
 hp	play/actor.h	/^    int hp;$/;"	m	struct:mobj_s	typeref:typename:int
 hscene	tools/dc_gamestat_gen.c	/^    SceneTable hscene;$/;"	m	struct:__anon006eef8b0908	typeref:typename:SceneTable	file:
@@ -2086,6 +2102,8 @@ ivec2_equal	driver/m_vec.h	/^static inline bool ivec2_equal(ivec2_t a, ivec2_t b
 ivec2_scale	driver/m_vec.h	/^static inline ivec2_t ivec2_scale(ivec2_t v, int scale) {$/;"	f	typeref:typename:ivec2_t	signature:(ivec2_t v,int scale)
 ivec2_sub	driver/m_vec.h	/^static inline ivec2_t ivec2_sub(ivec2_t a, ivec2_t b) {$/;"	f	typeref:typename:ivec2_t	signature:(ivec2_t a,ivec2_t b)
 ivec2_t	driver/m_vec.h	/^typedef struct { int x, y; }   ivec2_t;$/;"	t	typeref:struct:__anon9abd85c00108
+joined	driver/i_net.c	/^static int joined;$/;"	v	typeref:typename:int	file:
+joining	driver/i_net.c	/^static bool hosting, joining, session_received;$/;"	v	typeref:typename:bool	file:
 json_indent	tools/dc_fin_extract.c	/^static void json_indent(FILE *out, int depth) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,int depth)
 json_string	tools/dc_fin_extract.c	/^static void json_string(FILE *out, const char *value) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * value)
 juice_free	tools/dc_spr_extract.c	/^static void juice_free(Juice *j) {$/;"	f	typeref:typename:void	file:	signature:(Juice * j)
@@ -2110,6 +2128,7 @@ labels	tools/dc_info_conv/main.c	/^    const unsigned char *labels, *frames, *co
 labels	tools/dc_info_gen.c	/^    fin_label_t labels[MAX_FIN_LABELS];$/;"	m	struct:__anon292f5ac10308	typeref:typename:fin_label_t[]	file:
 last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { const char *file, *label; int first, last; } sequences[] = {$/;"	m	struct:main::__anon759eab0d0108	typeref:typename:int	file:
 last	tests/dark-colony/test_drop_fin_states.c	/^    static const struct { int product, first, last; const char *file, *label; } builds[] = {$/;"	m	struct:main::__anon759eab0d0208	typeref:typename:int	file:
+lastreceived	driver/d_net.c	/^static uint64_t lastreceived[MAXNETNODES];$/;"	v	typeref:typename:uint64_t[]	file:
 layer	game/map.h	/^    int layer;$/;"	m	struct:mapextra_s	typeref:typename:int
 layer	render/render_plan.h	/^            int layer;$/;"	m	struct:drawcommand_s::__anonba488bd4030a::__anonba488bd40408	typeref:typename:int
 layer	render/render_plan.h	/^    RenderLayer layer;$/;"	m	struct:drawcommand_s	typeref:typename:RenderLayer
@@ -2122,7 +2141,6 @@ le32	tools/test_loaders/main.c	/^static uint32_t le32(const unsigned char *p) { 
 length	tests/kknd/test_combat.c	/^    static const struct {int type, sprite, first, length;} cases[] = {$/;"	m	struct:death_sequences::__anon531b0ea40108	typeref:typename:int	file:
 length	tools/anim_extract.c	/^    uint16_t length;$/;"	m	struct:__anon0c7be7350108	typeref:typename:uint16_t	file:
 length	tools/kknd_info_gen.c	/^    int frame, length;$/;"	m	struct:__anoncbabb2620308	typeref:typename:int	file:
-level	docs/NETWORK.md	/^Every peer simulates the entire level; only player commands are transmitted.$/;"	v
 level	play/p_tick.c	/^level_t level;$/;"	v	typeref:typename:level_t
 level_s	game/map.h	/^typedef struct level_s {$/;"	s
 level_s::blocked	game/map.h	/^    uint8_t *blocked;$/;"	m	struct:level_s	typeref:typename:uint8_t *
@@ -2665,6 +2683,7 @@ ref	render/render_plan.h	/^    } ref;$/;"	m	struct:drawcommand_s	typeref:union:d
 reference	tests/dark-colony/test_selection_overlays.c	/^static void reference(const spritesheet_t *client, int frame, ivec2_t at) {$/;"	f	typeref:typename:void	file:	signature:(const spritesheet_t * client,int frame,ivec2_t at)
 refresh_model_objects	game/g_game.c	/^static void refresh_model_objects(RtsGameModel *model) {$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model)
 region	tools/dc_gamestat_gen.c	/^    char region[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
+reject_join	driver/i_net.c	/^static void reject_join(const struct sockaddr_in *to, const char *reason) {$/;"	f	typeref:typename:void	file:	signature:(const struct sockaddr_in * to,const char * reason)
 reject_sprite	tests/loader_fixtures.h	/^static void reject_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,$/;"	f	typeref:typename:void	signature:(SDL_Renderer * renderer,const uint8_t * data,size_t size,const uint32_t * palette)
 rejected	tests/dark-colony/test_sprite_loading.c	/^static void rejected(const uint8_t *file, size_t size) {$/;"	f	typeref:typename:void	file:	signature:(const uint8_t * file,size_t size)
 release_active	play/actor.h	/^    bool release_active;$/;"	m	struct:production_s	typeref:typename:bool
@@ -2801,6 +2820,7 @@ run_len	tools/dr_info_gen.c	/^    int run_start,   run_len,   run_tick;$/;"	m	st
 run_start	tools/dr_info_gen.c	/^    int run_start,   run_len,   run_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 run_tick	tools/dr_info_gen.c	/^    int run_start,   run_len,   run_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 running	driver/app.h	/^    bool running;$/;"	m	struct:app_s	typeref:typename:bool
+same_address	driver/i_net.c	/^static bool same_address(const struct sockaddr_in *a, const struct sockaddr_in *b) {$/;"	f	typeref:typename:bool	file:	signature:(const struct sockaddr_in * a,const struct sockaddr_in * b)
 sanitize_symbol	tools/anim_extract.c	/^static void sanitize_symbol(const char *path, char *out, size_t out_size) {$/;"	f	typeref:typename:void	file:	signature:(const char * path,char * out,size_t out_size)
 save_screenshot	interface/renderer.h	/^    bool (*save_screenshot)(renderer_t *renderer, const char *path);$/;"	m	struct:rendererbackend_s	typeref:typename:bool (*)(renderer_t * renderer,const char * path)
 sb_state_t	hud/sb_bar.h	/^} sb_state_t;$/;"	t	typeref:struct:__anona3f56ed40108
@@ -2832,8 +2852,15 @@ selectionmarker_s	play/actor.h	/^typedef struct selectionmarker_s {$/;"	s
 selectionmarker_s::image	play/actor.h	/^    const char *image;$/;"	m	struct:selectionmarker_s	typeref:typename:const char *
 selectionmarker_s::style	play/actor.h	/^    SelectionStyle style;$/;"	m	struct:selectionmarker_s	typeref:typename:SelectionStyle
 selectionmarker_t	play/actor.h	/^} selectionmarker_t;$/;"	t	typeref:struct:selectionmarker_s
+send_wire	driver/i_net.c	/^static void send_wire(const uint8_t *wire, size_t size, const struct sockaddr_in *to) {$/;"	f	typeref:typename:void	file:	signature:(const uint8_t * wire,size_t size,const struct sockaddr_in * to)
 sendaddress	driver/i_net.c	/^static struct sockaddr_in sendaddress[MAXNETNODES];$/;"	v	typeref:struct:sockaddr_in[]	file:
 separate_units	play/p_tick.c	/^static void separate_units(const level_t *map) {$/;"	f	typeref:typename:void	file:	signature:(const level_t * map)
+session_game	driver/i_net.c	/^static char session_game[GAME_LENGTH], session_map[MAP_LENGTH];$/;"	v	typeref:typename:char[]	file:
+session_header	driver/i_net.c	/^static void session_header(uint8_t *wire, int kind, int player, int players) {$/;"	f	typeref:typename:void	file:	signature:(uint8_t * wire,int kind,int player,int players)
+session_map	driver/i_net.c	/^static char session_game[GAME_LENGTH], session_map[MAP_LENGTH];$/;"	v	typeref:typename:char[]	file:
+session_packet	driver/i_net.c	/^static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *from) {$/;"	f	typeref:typename:int	file:	signature:(uint8_t * wire,size_t size,const struct sockaddr_in * from)
+session_received	driver/i_net.c	/^static bool hosting, joining, session_received;$/;"	v	typeref:typename:bool	file:
+session_tests	tests/network/test_network.c	/^static void session_tests(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 setup	docs/NETWORK.md	/^corrupted packets through a relay; ticdup; incompatible setup; intentional$/;"	v	typeref:typename:incompatible
 shadow_name	game/g_game.h	/^    char shadow_name[32];$/;"	m	struct:__anon42a104c41008	typeref:typename:char[32]
 shadow_name	game/g_game.h	/^    char shadow_name[32];$/;"	m	struct:__anon42a104c41108	typeref:typename:char[32]
@@ -3068,7 +3095,7 @@ test_production	tests/dark-reign/test_playable.c	/^static int test_production(vo
 test_select_and_move	tests/7legion/test_playable.c	/^static int test_select_and_move(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_select_and_move	tests/dark-reign/test_playable.c	/^static int test_select_and_move(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_select_and_move	tests/kknd/test_playable.c	/^static int test_select_and_move(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
-testmode_t	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL } testmode_t;$/;"	t	typeref:enum:__anon3666449a0303	file:
+testmode_t	tests/network/test_network.c	/^               HOSTED, HOSTED_MAP } testmode_t;$/;"	t	typeref:enum:__anon3666449a0303	file:
 text	hud/ui_definition.h	/^    SDL_Point text; \/* amount anchor in logical UI coordinates *\/$/;"	m	struct:uiresource_s	typeref:typename:SDL_Point
 text	render/sprites.h	/^    char text[256];$/;"	m	struct:__anon761761540308	typeref:typename:char[256]
 text	tools/anim_extract.c	/^    char *text;$/;"	m	struct:__anon0c7be7350108	typeref:typename:char *	file:

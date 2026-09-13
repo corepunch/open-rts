@@ -4,6 +4,7 @@
 #include "info.h"
 #include "gamestat.h"
 #include "dc_types.h"
+#include "d_net.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -594,6 +595,7 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     u->ability_charge = 0x40; /* DC.EXE 0x419d44: object byte +0x0a. */
     u->owner = (allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_COMMS_DISH) ? 0 :
                (allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
+    if (netgame) u->owner = (uint8_t)team;
     u->team = (uint8_t)team;
     u->allegiance = allegiance == DC_ALLEGIANCE_PLAYER ? ALLEGIANCE_PLAYER :
                     allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED : ALLEGIANCE_ENEMY;

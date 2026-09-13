@@ -81,16 +81,19 @@ make kknd
 
 ## Network play
 
-Two to four peers can play over UDP using Doom-style `--net`, `--port`,
-`--dup` and `--extratic` switches. For two windows on one machine:
+Host/join and map selection are provided by the engine for every game binary.
+For two-player Dark Colony (the human-versus-human Pond Thing map):
 
 ```sh
-build/bin/dark-colony --port 25029 --net 1 127.0.0.1:25030
-build/bin/dark-colony --port 25030 --net 2 127.0.0.1:25029
+build/bin/dark-colony --host --map SCENARIO/MPLAYER/J2PLAY01.MAP
+build/bin/dark-colony --join 192.168.1.10
 ```
 
-Use identical builds and game data, and a map with units for the chosen owners.
-See [network setup, protocol details and tests](docs/NETWORK.md).
+Replace the address with the host's IP, or use `127.0.0.1` for two windows on
+one machine. The host sends the map choice and assigns player slots. Both
+machines need matching builds and game data. Use `--players 4` with
+`SCENARIO/MPLAYER/J4PLAY01.MAP` for four players. See
+[network setup, requirements and tests](docs/NETWORK.md).
 
 ## Tests
 

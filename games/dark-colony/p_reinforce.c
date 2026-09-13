@@ -35,7 +35,7 @@ mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type) {
     }
     unit->core.position = fixed3_from_fvec2(
         fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }), 0);
-    unit->owner = team == 0 ? 0 : 1;
+    unit->owner = netgame ? team : team == 0 ? 0 : 1;
     if (unit->owner == consoleplayer) {
         bool has_selected_player = false;
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {

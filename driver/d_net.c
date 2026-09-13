@@ -21,6 +21,7 @@ static uint32_t consistancy[BACKUPTICS], startsignature;
 static doomdata_t reboundstore;
 static bool reboundpacket;
 static uint64_t gametime, oldentertics;
+static uint64_t lastreceived[MAXNETNODES];
 static int skiptics, frameon, frameskip[4], oldnettics;
 
 enum { RESENDCOUNT = 10, NETVERSION = 1 };
@@ -81,6 +82,7 @@ static void GetPackets(void) {
             snprintf(neterror, sizeof(neterror), "Network player numbers or peer order disagree (node %d, player %d)", node, player + 1);
             return;
         }
+        lastreceived[node] = SDL_GetTicks64();
         if (netbuffer->checksum & NCMD_KILL) {
             snprintf(neterror, sizeof(neterror), "Network game killed by player %d", player + 1);
             return;
@@ -101,6 +103,10 @@ static void GetPackets(void) {
         if (!gotsetup[node] || !nodeingame[node]) continue;
         gotcommands[node] = true;
         if (netbuffer->checksum & NCMD_EXIT) {
+            if (I_NetJoining() && player == 0) {
+                snprintf(neterror, sizeof(neterror), "Host left the game");
+                return;
+            }
             nodeingame[node] = playeringame[player] = false;
             printf("Player %d left the game.\n", player + 1);
             continue;
@@ -160,12 +166,21 @@ void D_CheckNetGame(uint32_t signature) {
         nodeingame[n] = playeringame[player] = true;
     }
     gametime = oldentertics = I_GetTime();
+    for (int n = 0; n < doomcom->numnodes; ++n) lastreceived[n] = SDL_GetTicks64();
     if (netgame) printf("Synchronizing player %d of %d...\n", consoleplayer + 1, doomcom->numplayers);
 }
 
 void NetUpdate(void) {
     if (neterror[0]) return;
     GetPackets();
+    if (netgame) {
+        for (int node = 1; node < doomcom->numnodes; ++node) {
+            if (nodeingame[node] && SDL_GetTicks64() - lastreceived[node] >= 30000) {
+                snprintf(neterror, sizeof(neterror), "Network timed out waiting for player %d", playerfornode[node] + 1);
+                return;
+            }
+        }
+    }
     uint64_t now = I_GetTime();
     int newtics = now > gametime ? (int)(now - gametime) : 0;
     gametime = now;

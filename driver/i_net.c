@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200112L
 #include "d_net.h"
 #include <arpa/inet.h>
+#include <SDL.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -75,6 +76,165 @@ static bool decode(const uint8_t *wire, size_t size) {
     return true;
 }
 
+
+/* Session discovery is separate from Doom's tic protocol. The host relays
+ * addressed tic packets so joiners only need one reachable UDP endpoint. */
+enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 1,
+       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,
+       WELCOME_SIZE = 10 + GAME_LENGTH + MAP_LENGTH };
+static bool hosting, joining, session_received;
+static int joined;
+static char session_game[GAME_LENGTH], session_map[MAP_LENGTH];
+
+bool I_NetJoining(void) { return joining; }
+
+static bool same_address(const struct sockaddr_in *a, const struct sockaddr_in *b) {
+    return a->sin_addr.s_addr == b->sin_addr.s_addr && a->sin_port == b->sin_port;
+}
+
+static void send_wire(const uint8_t *wire, size_t size, const struct sockaddr_in *to) {
+    if (sendto(insocket, wire, size, 0, (const struct sockaddr *)to, sizeof(*to)) < 0 &&
+        errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
+        snprintf(neterror, sizeof(neterror), "Network send: %s", strerror(errno));
+}
+
+static void session_header(uint8_t *wire, int kind, int player, int players) {
+    put32(wire, SESSION_MAGIC);
+    wire[4] = SESSION_VERSION; wire[5] = (uint8_t)kind;
+    wire[6] = (uint8_t)player; wire[7] = (uint8_t)players;
+}
+
+static void reject_join(const struct sockaddr_in *to, const char *reason) {
+    uint8_t wire[264] = {0};
+    session_header(wire, REJECT, 0, 0);
+    snprintf((char *)wire + 8, sizeof(wire) - 8, "%s", reason);
+    send_wire(wire, sizeof(wire), to);
+}
+
+/* Returns a logical Doom node for DATA, or -1 for handled session traffic. */
+static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *from) {
+    if (size < 8 || get32(wire) != SESSION_MAGIC) return -1;
+    int node = 1;
+    if (hosting) {
+        while (node <= joined && !same_address(from, &sendaddress[node])) ++node;
+        if (wire[5] == JOIN) {
+            if (size != 8 + GAME_LENGTH || wire[4] != SESSION_VERSION ||
+                !memchr(wire + 8, 0, GAME_LENGTH) ||
+                strcmp((char *)wire + 8, session_game)) {
+                reject_join(from, "Network game or session version mismatch"); return -1;
+            }
+            if (node > joined) {
+                if (joined == doomcom->numplayers - 1) {
+                    reject_join(from, "Server is full; late joining is not supported"); return -1;
+                }
+                sendaddress[node] = *from;
+                ++joined;
+                printf("Player %d joined (%d/%d).\n", node + 1, joined + 1, doomcom->numplayers);
+                fflush(stdout);
+            }
+            /* Nobody loads until the roster is full. Earlier joiners retry
+             * and receive the same assignment even after the host has loaded. */
+            if (joined != doomcom->numplayers - 1) return -1;
+            uint8_t reply[WELCOME_SIZE] = {0};
+            session_header(reply, WELCOME, node, doomcom->numplayers);
+            reply[8] = (uint8_t)doomcom->ticdup; reply[9] = (uint8_t)doomcom->extratics;
+            memcpy(reply + 10, session_game, GAME_LENGTH);
+            memcpy(reply + 10 + GAME_LENGTH, session_map, MAP_LENGTH);
+            send_wire(reply, sizeof(reply), from);
+            return -1;
+        }
+        if (node > joined) return -1;
+    } else if (!same_address(from, &sendaddress[1])) return -1;
+    if (wire[4] != SESSION_VERSION) return -1;
+    if (joining && !session_received && wire[5] == REJECT && size > 8 &&
+        memchr(wire + 8, 0, size - 8)) {
+        snprintf(neterror, sizeof(neterror), "%s", (char *)wire + 8);
+        return -1;
+    }
+    if (joining && !session_received && wire[5] == WELCOME) {
+        if (size != WELCOME_SIZE || wire[7] < 2 || wire[7] > MAXPLAYERS ||
+            wire[6] < 1 || wire[6] >= wire[7] || wire[8] < 1 || wire[8] > 9 || wire[9] > 1 ||
+            !memchr(wire + 10, 0, GAME_LENGTH) || strcmp((char *)wire + 10, session_game) ||
+            !memchr(wire + 10 + GAME_LENGTH, 0, MAP_LENGTH)) return -1;
+        memcpy(session_map, wire + 10 + GAME_LENGTH, MAP_LENGTH);
+        doomcom->consoleplayer = wire[6];
+        doomcom->numplayers = doomcom->numnodes = wire[7];
+        doomcom->ticdup = wire[8]; doomcom->extratics = wire[9];
+        session_received = true;
+        return -1;
+    }
+    if (wire[5] != DATA || size < 16 || !decode(wire + 8, size - 8)) return -1;
+    int player = doomcom->data.player, destination = wire[6];
+    if (player >= doomcom->numplayers || destination >= doomcom->numplayers ||
+        player == destination) return -1;
+    if (hosting) {
+        if (player != node) return -1;
+        if (destination) {
+            if (destination <= joined) send_wire(wire, size, &sendaddress[destination]);
+            return -1;
+        }
+        return node;
+    }
+    if (!session_received || destination != doomcom->consoleplayer) return -1;
+    return player < doomcom->consoleplayer ? player + 1 : player;
+}
+
+bool I_StartNetGame(const char *game, char *map, size_t capacity) {
+    if (!hosting && !joining) return true;
+    if (strlen(game) >= GAME_LENGTH || strlen(map) >= MAP_LENGTH ||
+        (hosting && !map[0])) {
+        snprintf(neterror, sizeof(neterror), "Network game/map name is missing or too long");
+        return false;
+    }
+    if (hosting && (map[0] == '/' || strstr(map, "..") || strchr(map, '\\'))) {
+        snprintf(neterror, sizeof(neterror), "Network maps must be relative to the data root, without '..'");
+        return false;
+    }
+    strcpy(session_game, game);
+    strcpy(session_map, map);
+    if (hosting)
+        printf("Hosting %s: %s; waiting for %d players on UDP.\n", game, map, doomcom->numplayers);
+    else printf("Joining %s; waiting for the host's map.\n", game);
+    fflush(stdout);
+    uint64_t started = SDL_GetTicks64(), retry = 0;
+    while (!neterror[0]) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) {
+                snprintf(neterror, sizeof(neterror), "Network startup cancelled"); return false;
+            }
+        }
+        uint64_t now = SDL_GetTicks64();
+        if (joining && now >= retry) {
+            uint8_t wire[8 + GAME_LENGTH] = {0};
+            session_header(wire, JOIN, 0, 0);
+            memcpy(wire + 8, session_game, GAME_LENGTH);
+            send_wire(wire, sizeof(wire), &sendaddress[1]);
+            retry = now + 250;
+        }
+        doomcom->command = CMD_GET;
+        I_NetCmd();
+        if ((hosting && joined == doomcom->numplayers - 1) || (joining && session_received)) {
+            if (!session_map[0] || session_map[0] == '/' || strstr(session_map, "..") ||
+                strchr(session_map, '\\') || strlen(session_map) >= capacity) {
+                snprintf(neterror, sizeof(neterror), "Network maps must be relative to the data root, without '..'");
+                return false;
+            }
+            strcpy(map, session_map);
+            printf("Session ready: player %d/%d, map %s.\n",
+                   doomcom->consoleplayer + 1, doomcom->numplayers, map);
+            fflush(stdout);
+            return true;
+        }
+        if (now - started >= 60000) {
+            snprintf(neterror, sizeof(neterror), "Network startup timed out waiting for %s", hosting ? "players" : "host");
+            break;
+        }
+        SDL_Delay(10);
+    }
+    return false;
+}
+
 static bool number(const char *s, int min, int max, int *out) {
     char *end;
     long value = strtol(s, &end, 10);
@@ -88,12 +248,28 @@ bool I_InitNetwork(int *argc, char **argv) {
     *doomcom = (doomcom_t){ .id = DOOMCOM_ID, .numnodes = 1, .numplayers = 1, .ticdup = 1 };
     neterror[0] = '\0';
     netgame = false;
+    hosting = joining = session_received = false;
+    joined = 0;
+    memset(sendaddress, 0, sizeof(sendaddress));
+    memset(session_game, 0, sizeof(session_game));
+    memset(session_map, 0, sizeof(session_map));
     const char *hosts[MAXPLAYERS - 1];
-    int hostcount = 0, port = 5029, output = 1;
+    int hostcount = 0, port = 5029, output = 1, players = 2;
+    bool port_set = false, players_set = false;
     for (int i = 1; i < *argc; ++i) {
         const char *arg = argv[i];
         if (arg[0] == '-' && arg[1] == '-') ++arg;
-        if (!strcmp(arg, "-net")) {
+        if (!strcmp(arg, "-host")) {
+            if (netgame) goto usage;
+            netgame = hosting = true;
+        } else if (!strcmp(arg, "-join")) {
+            if (netgame || ++i == *argc || !argv[i][0]) goto usage;
+            netgame = joining = true;
+            hosts[hostcount++] = argv[i];
+        } else if (!strcmp(arg, "-players")) {
+            if (players_set || ++i == *argc || !number(argv[i], 2, MAXPLAYERS, &players)) goto usage;
+            players_set = true;
+        } else if (!strcmp(arg, "-net")) {
             int player;
             if (netgame || ++i == *argc || !number(argv[i], 1, MAXPLAYERS, &player)) goto usage;
             netgame = true;
@@ -104,6 +280,7 @@ bool I_InitNetwork(int *argc, char **argv) {
             }
         } else if (!strcmp(arg, "-port") || !strcmp(arg, "-dup")) {
             bool isport = !strcmp(arg, "-port");
+            if (isport) port_set = true;
             if (++i == *argc || !number(argv[i], 1, isport ? 65535 : 9,
                                        isport ? &port : &doomcom->ticdup)) goto usage;
         } else if (!strcmp(arg, "-extratic")) {
@@ -113,15 +290,16 @@ bool I_InitNetwork(int *argc, char **argv) {
         }
     }
     *argc = output; argv[output] = NULL;
+    if (players_set && !hosting) goto usage;
     if (!netgame) return true;
-    if (!hostcount || doomcom->consoleplayer > hostcount) goto usage;
-    doomcom->numplayers = doomcom->numnodes = hostcount + 1;
+    if (!hosting && (!hostcount || doomcom->consoleplayer > hostcount)) goto usage;
+    doomcom->numplayers = doomcom->numnodes = hosting ? players : hostcount + 1;
     for (int i = 0; i < hostcount; ++i) {
         char host[256], service[16];
         if (strlen(hosts[i]) >= sizeof(host)) goto usage;
         strcpy(host, hosts[i][0] == '.' ? hosts[i] + 1 : hosts[i]);
         char *colon = strrchr(host, ':');
-        int remoteport = port;
+        int remoteport = joining ? 5029 : port;
         if (colon) { *colon++ = '\0'; if (!number(colon, 1, 65535, &remoteport)) goto usage; }
         snprintf(service, sizeof(service), "%d", remoteport);
         struct addrinfo hints = { .ai_family = AF_INET, .ai_socktype = SOCK_DGRAM }, *result;
@@ -134,6 +312,7 @@ bool I_InitNetwork(int *argc, char **argv) {
                 sendaddress[j].sin_port == sendaddress[i + 1].sin_port) goto usage;
     }
     insocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (joining && !port_set) port = 0; /* OS-assigned client port permits same-machine play. */
     struct sockaddr_in local = { .sin_family = AF_INET, .sin_port = htons(port),
                                 .sin_addr.s_addr = htonl(INADDR_ANY) };
     if (insocket < 0 || bind(insocket, (struct sockaddr *)&local, sizeof(local)) < 0 ||
@@ -143,18 +322,21 @@ bool I_InitNetwork(int *argc, char **argv) {
     }
     return true;
 usage:
-    snprintf(neterror, sizeof(neterror), "Usage: --port 5029 --dup 1 --extratic --net <1..4> <peer[:port]> ... (put --software before map paths)");
+    snprintf(neterror, sizeof(neterror), "Usage: --host [--players 2..4] [--port 5029] | --join host[:port] | --net <1..4> <peer[:port]> ...; --dup 1..9 --extratic");
     return false;
 }
 
 void I_NetCmd(void) {
-    uint8_t wire[WIREMAX + 1];
+    uint8_t wire[WIREMAX + 9];
     if (doomcom->command == CMD_SEND) {
-        size_t size = encode(wire);
-        const struct sockaddr_in *to = &sendaddress[doomcom->remotenode];
-        if (sendto(insocket, wire, size, 0, (const struct sockaddr *)to, sizeof(*to)) < 0 &&
-            errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
-            snprintf(neterror, sizeof(neterror), "Network send: %s", strerror(errno));
+        int node = doomcom->remotenode;
+        size_t size;
+        if (hosting || joining) {
+            int player = node <= doomcom->consoleplayer ? node - 1 : node;
+            session_header(wire, DATA, player, doomcom->numplayers);
+            size = 8 + encode(wire + 8);
+        } else size = encode(wire);
+        send_wire(wire, size, &sendaddress[joining ? 1 : node]);
         return;
     }
     doomcom->remotenode = -1;
@@ -166,6 +348,12 @@ void I_NetCmd(void) {
         if (size < 0) {
             if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
                 snprintf(neterror, sizeof(neterror), "Network receive: %s", strerror(errno));
+            return;
+        }
+        if (hosting || joining) {
+            int node = session_packet(wire, (size_t)size, &from);
+            if (node < 0) continue;
+            doomcom->remotenode = node; doomcom->datalength = (int)size - 8;
             return;
         }
         for (int node = 1; node < doomcom->numnodes; ++node) {
