@@ -31,19 +31,32 @@ static void draw_native_parts(app_t *app, const level_t *map,
         irect_t dst = { (int)sx + part->offset.x +
             ((part->flags & RTS_FRAME_FLIP_X) ? 0 : cell->displacement.x),
             (int)sy + part->offset.y - src.h, src.w, src.h };
+        if (part->layer == 1 || part->layer == 2)
+            R_RenderSpriteShadow(app, sprite, part->lump, dst, part->flags);
+        if (sprite->shadowmap && part->layer == 2) continue;
         if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
         int intensity = part->intensity > 0 ? part->intensity : 16;
         int color = (intensity * 255 + 8) / 16;
         if (color > 255) color = 255;
+        SDL_Color tint = {color, color, color, 255};
+        SDL_BlendMode blend = SDL_BLENDMODE_BLEND;
+        if (part->layer == 3) {
+            /* Existing requested glow policy; the native formula is unknown.
+             * Alien construction uses selector 3 for its forming city cells. */
+            blend = SDL_BLENDMODE_ADD;
+            tint.g = (color * 236 + 127) / 255;
+            tint.b = (color * 72 + 127) / 255;
+            tint.a = 230;
+        }
         CHECK(R_DrawSprite(app->renderer, sprite, part->lump, team, &src, &dst,
             (part->flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE,
-            (SDL_Color){color, color, color, 255}, SDL_BLENDMODE_BLEND));
+            tint, blend));
     }
 }
 
 static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cache,
                            const char *file, const char *label_name,
-                           int first_state, int exit_state, int team) {
+                           int first_state, int exit_state, int team, bool ticks66) {
     level_t map = {0};
     dc_fin_t fin;
     CHECK(DC_LoadFIN(M_va("data/DCOLONY/ANIMATE/%s.FIN", file), &fin));
@@ -85,7 +98,7 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         CHECK(!memcmp(expected_pixels, surface->pixels, bytes));
         if (f == (start + end) / 2)
             CHECK(SDL_SaveBMP(surface, M_va("/private/tmp/%s.bmp", label_name)) == 0);
-        bool barracks = first_state == S_BRRKPOD_BUILD_TRSC1;
+        bool native_timer = ticks66 || first_state == S_BRRKPOD_BUILD_TRSC1;
         int boundary;
         if (first_state == S_DROP_UNLOAD1) {
             /* DC.EXE 0x423544–0x42358f maps DROP raw 0 to two ticks. */
@@ -93,8 +106,13 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
             boundary = elapsed + 2;
         } else {
             int raw = expected.ticks ? expected.ticks : 15;
-            native += ((raw + 3) * (barracks ? 15 : 19)) / 100;
-            boundary = barracks ? (native * 66 * 30 + 500) / 1000 : (native * 30 + 9) / 19;
+            int delay = ((raw + 3) * (native_timer ? 15 : 19)) / 100;
+            if (native_timer) {
+                delay &= 255;
+                if (!delay) delay = 256;
+            }
+            native += delay;
+            boundary = native_timer ? (native * 66 * 30 + 500) / 1000 : (native * 30 + 9) / 19;
         }
         CHECK(unit.core.tics == boundary - elapsed);
         int state = unit.core.state_id;
@@ -156,25 +174,33 @@ int main(void) {
     };
     for (size_t i = 0; i < sizeof(sequences) / sizeof(sequences[0]); ++i)
         check_sequence(&app, surface, cache, sequences[i].file, sequences[i].label,
-                       sequences[i].first, sequences[i].last, 0);
+                       sequences[i].first, sequences[i].last, 0, false);
     for (int team = 0; team < 8; ++team) {
-        check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1, team);
+        check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1, team, false);
         /* An empty cargo lets the release state advance without spawning units. */
-        check_sequence(&app, surface, cache, "DROP", "DROPTWO", S_DROP_UNLOAD1, S_DROP_MOVE1, team);
+        check_sequence(&app, surface, cache, "DROP", "DROPTWO", S_DROP_UNLOAD1, S_DROP_MOVE1, team, false);
     }
-    static const struct { int product, first, last; const char *file, *label; } builds[] = {
-        {16, S_EXCOPOD_BUILD1, S_EXCOPOD_STND, "PART4", "EXCOPODBUILD0"},
-        {17, S_BRRKPOD_BUILD1, S_BRRKPOD_STND, "PART4", "BRRKPODBUILD0"},
-        {18, S_ROBOPOD_BUILD1, S_ROBOPOD_STND1, "ROBO", "ROBOPODBUILD0"},
-        {22, S_RSCHPOD_BUILD1, S_RSCHPOD_STND1, "PART2", "RSCHPODBUILD0"},
-        {20, S_SCNCPOD_BUILD1, S_SCNCPOD_STND1, "DROP", "SCNCPODBUILD0"},
-        {21, S_SCNCPOD2_BUILD1, S_SCNCPOD2_STND1, "DROP3", "SCNCPOD2BUILD0"},
-        {19, S_ROBOPOD2_BUILD1, S_ROBOPOD2_STND1, "DROP4", "ROBOPOD2BUILD0"},
+    static const struct { int product, first, last; const char *file, *label; bool ticks66; } builds[] = {
+        {16, S_EXCOPOD_BUILD1, S_EXCOPOD_STND, "PART4", "EXCOPODBUILD0", false},
+        {17, S_BRRKPOD_BUILD1, S_BRRKPOD_STND, "PART4", "BRRKPODBUILD0", false},
+        {18, S_ROBOPOD_BUILD1, S_ROBOPOD_STND1, "ROBO", "ROBOPODBUILD0", false},
+        {22, S_RSCHPOD_BUILD1, S_RSCHPOD_STND1, "PART2", "RSCHPODBUILD0", false},
+        {20, S_SCNCPOD_BUILD1, S_SCNCPOD_STND1, "DROP", "SCNCPODBUILD0", false},
+        {21, S_SCNCPOD2_BUILD1, S_SCNCPOD2_STND1, "DROP3", "SCNCPOD2BUILD0", false},
+        {19, S_ROBOPOD2_BUILD1, S_ROBOPOD2_STND1, "DROP4", "ROBOPOD2BUILD0", false},
+        {28, S_BIOHIV_BUILD1, S_ALIEN_MINDHIVE_STND, "SAUC", "BIOHIVBUILD0", true},
+        {29, S_WARHIVE_BUILD1, S_ALIEN_WARHIVE_STND, "SAUC", "WARHIVEBUILD0", true},
+        {30, S_BRDRHIV_BUILD1, S_ALIEN_BRDRHIVE_STND, "SAUC2", "BRDRHIVBUILD0", true},
+        {31, S_BRDRHIV2_BUILD1, S_ALIEN_BRDRHIVE2_STND, "SAUC2", "BRDRHIV2BUILD0", true},
+        {32, S_MINDHIV_BUILD1, S_ALIEN_MINDHIVE2_STND, "SAUC2", "MINDHIVBUILD0", true},
+        {33, S_MNDHIV2_BUILD1, S_ALIEN_MINDHIVE3_STND, "SAUC2", "MNDHIV2BUILD0", true},
+        {34, S_RSCHIV_BUILD1, S_ALIEN_RSCHIVE_STND, "SAUC4", "RSCHIVBUILD0", true},
     };
     for (size_t i = 0; i < sizeof(builds) / sizeof(builds[0]); ++i) {
         const StaticProductDefinition *product = G_ModelProductByClassType(NULL, RTS_PRODUCT_BUILDING, builds[i].product);
         CHECK(product && G_ModelBuildingStateForProduct(&game_info, product) == builds[i].first);
-        check_sequence(&app, surface, cache, builds[i].file, builds[i].label, builds[i].first, builds[i].last, 7);
+        check_sequence(&app, surface, cache, builds[i].file, builds[i].label,
+                       builds[i].first, builds[i].last, 7, builds[i].ticks66);
     }
     R_FreeSpriteCache(cache);
     free(cache);

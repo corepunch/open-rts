@@ -685,7 +685,7 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
             G_ModelProductByUIId(model, command->data.activate_ui_button.ui_id);
         if (netactive)
             return G_BuildOrder(G_FindProducer(consoleplayer, product), command->data.activate_ui_button.ui_id);
-        bool ok = G_QueueProduct(G_FindProducer(0, product), product);
+        bool ok = G_QueueProduct(G_FindProducer(consoleplayer, product), product);
         refresh_model_objects(model);
         return ok;
     }

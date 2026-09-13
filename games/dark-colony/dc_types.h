@@ -15,6 +15,7 @@ const struct mobjtype_s *actor_type_by_id(uint16_t type_id);
  * the simulation.  owner 0 is the human side; non-zero owners are DC's
  * computer-controlled side in the current runtime mapping. */
 bool map_has_ai(const struct level_s *map, int owner);
+int DC_PlayerRace(int owner);
 
 
 enum {

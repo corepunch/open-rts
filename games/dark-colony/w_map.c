@@ -122,6 +122,12 @@ bool map_has_ai(const level_t *map, int owner) {
     return false;
 }
 
+int DC_PlayerRace(int owner) {
+    const ScenarioFile *scenario = level.native_data;
+    return scenario && owner >= 0 && owner < scenario->team_count ?
+        scenario->teams[owner].race : 0;
+}
+
 static bool scenario_append_object(ScenarioFile *scenario,
                                                const ScenarioObject *object) {
     ScenarioObject *objects = realloc(
@@ -505,6 +511,12 @@ static int mobj_type_for_type(int type, int race) {
         if (type == 0 || type == 8 || (type >= 69 && type <= 76)) return MT_GREY;
         if (type == 13) return MT_ORTU;
         if (type == 14) return MT_SLUG;
+        if (type == 9) return MT_XENOWORT;
+        if (type == 10) return MT_SY_DEMON;
+        if (type == 11) return MT_ATRIL;
+        if (type == 12) return MT_GORREM;
+        if (type == 44) return MT_SLOM;
+        if (type == 50) return MT_ZISP;
         return 0;
     }
 

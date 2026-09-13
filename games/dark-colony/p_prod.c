@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
+static const StaticProductDefinition DARK_COLONY_PRODUCTS[] = {
     /* Buildings — all built from the Exco Center */
     {  0, 206, "Exo-Ctr",   2000, 129, RTS_PRODUCT_BUILDING, 16, 0, { 0 }, 0, { MT_EXCOPOD }, 1 },
     {  1,  80, "Barracks",  1000,  20, RTS_PRODUCT_BUILDING, 17, 0, { 0 }, 1, { MT_EXCOPOD }, 1 },
@@ -27,23 +27,34 @@ static const StaticProductDefinition DARK_COLONY_HUMAN_PRODUCTS[] = {
     { 29,  90, "Sentinel",   450,   5, RTS_PRODUCT_UNIT,     43, 0, { 1, 2 }, 2, { MT_BRRKPOD }, 1 },
     { 13,  94, "S.A.R.G.E", 1500,  12, RTS_PRODUCT_UNIT,      4, 0, { 1, 6 }, 2, { MT_BRRKPOD }, 1 },
     /* Robot Factory units */
-    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { MT_ROBOPOD }, 1 },
+    { 11,  91, "Reaper",     600,  11, RTS_PRODUCT_UNIT,      2, 0, { 3, 2 }, 2, { MT_ROBOPOD, MT_ROBOPOD2 }, 2 },
     { 12,  93, "Barrager",  1000,   7, RTS_PRODUCT_UNIT,      3, 0, { 5, 4 }, 2, { MT_ROBOPOD2 }, 1 },
-    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 0, 3, 4 }, 3, { MT_ROBOPOD }, 1 },
+    { 10,  92, "Osprey IV",  600,   9, RTS_PRODUCT_UNIT,      5, 0, { 0, 3, 4 }, 3, { MT_ROBOPOD, MT_ROBOPOD2 }, 2 },
     /* Upgraded Robot Factory units */
     {  8,  88, "Firestorm",  900,  10, RTS_PRODUCT_UNIT,      1, 0, { 5 }, 1, { MT_ROBOPOD2 }, 1 },
-    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 4, 3, 6 }, 3, { MT_ROBOPOD }, 1 },
-};
-
-static const StaticProductDefinition DARK_COLONY_ALIEN_PRODUCTS[] = {
-    { 14, 0, "Slug",  350,  6, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
-    {  8, 0, "Grey",  450,  5, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
-    { 13, 0, "Ortu",  600, 11, RTS_PRODUCT_UNIT, 0, 0, { 0 }, 1, { 0 }, 0 },
+    { 83, 135, "Medi-craft", 900,  29, RTS_PRODUCT_UNIT,     49, 0, { 4, 3, 6 }, 3, { MT_ROBOPOD, MT_ROBOPOD2 }, 2 },
+    /* Alien rows: DEPEND.TXT owns cost/dependencies; MAINE owns IDs/icons. */
+    { 14, 205, "Mind-Hive", 2000, 130, RTS_PRODUCT_BUILDING, 28, 1, { 0 }, 0, { MT_ALIEN_MINDHIVE }, 1 },
+    { 15,  41, "War. Fold", 1000,  24, RTS_PRODUCT_BUILDING, 29, 1, { 14 }, 1, { MT_ALIEN_MINDHIVE }, 1 },
+    { 16,  42, "Breed-Pod", 2000, 114, RTS_PRODUCT_BUILDING, 32, 1, { 14 }, 1, { MT_ALIEN_MINDHIVE }, 1 },
+    { 17,  43, "Gene-Sac",  2000,  25, RTS_PRODUCT_BUILDING, 30, 1, { 16, 15 }, 2, { MT_ALIEN_MINDHIVE }, 1 },
+    { 20,  44, "Neur-Hive", 3000,  46, RTS_PRODUCT_BUILDING, 34, 1, { 18 }, 1, { MT_ALIEN_MINDHIVE }, 1 },
+    { 18,  97, "Pod-Upgrd", 2000, 115, RTS_PRODUCT_BUILDING, 33, 1, { 16 }, 1, { MT_ALIEN_MINDHIVE }, 1 },
+    { 19,  98, "Gene-Upgrd",2000,  39, RTS_PRODUCT_BUILDING, 31, 1, { 17, 14 }, 2, { MT_ALIEN_MINDHIVE }, 1 },
+    { 21,  46, "Brozaar",   1500,  15, RTS_PRODUCT_UNIT, 14, 1, { 14 }, 1, { MT_ALIEN_MINDHIVE }, 1 },
+    { 23,  48, "Gray",       350,  13, RTS_PRODUCT_UNIT,  8, 1, { 15 }, 1, { MT_ALIEN_WARHIVE }, 1 },
+    { 28,  71, "Slom",       450, 116, RTS_PRODUCT_UNIT, 44, 1, { 15, 16 }, 2, { MT_ALIEN_WARHIVE }, 1 },
+    { 27,  52, "Gorrem",    1500,  19, RTS_PRODUCT_UNIT, 12, 1, { 15, 20 }, 2, { MT_ALIEN_WARHIVE }, 1 },
+    { 25,  50, "Sy-Demon",   600,  18, RTS_PRODUCT_UNIT, 10, 1, { 17, 16 }, 2, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
+    { 26,  51, "Atril",     1000,  14, RTS_PRODUCT_UNIT, 11, 1, { 19, 18 }, 2, { MT_ALIEN_BRDRHIVE2 }, 1 },
+    { 24,  49, "Ortu",       600,  16, RTS_PRODUCT_UNIT, 13, 1, { 14, 17, 18 }, 3, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
+    { 22,  47, "Xenowort",   900,  17, RTS_PRODUCT_UNIT,  9, 1, { 19 }, 1, { MT_ALIEN_BRDRHIVE2 }, 1 },
+    { 84, 134, "Zisp",       900,  36, RTS_PRODUCT_UNIT, 50, 1, { 18, 15, 20 }, 3, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
 };
 
 static int product_count(void) {
-    return (int)(sizeof(DARK_COLONY_HUMAN_PRODUCTS) /
-                 sizeof(DARK_COLONY_HUMAN_PRODUCTS[0]));
+    return (int)(sizeof(DARK_COLONY_PRODUCTS) /
+                 sizeof(DARK_COLONY_PRODUCTS[0]));
 }
 
 static uint16_t actor_id_for_product_type(int product_type) {
@@ -55,6 +66,13 @@ static uint16_t actor_id_for_product_type(int product_type) {
     case 20: return MT_SCNCPOD;
     case 21: return MT_SCNCPOD2;
     case 22: return MT_RSCHPOD;
+    case 28: return MT_ALIEN_MINDHIVE;
+    case 29: return MT_ALIEN_WARHIVE;
+    case 30: return MT_ALIEN_BRDRHIVE;
+    case 31: return MT_ALIEN_BRDRHIVE2;
+    case 32: return MT_ALIEN_MINDHIVE2;
+    case 33: return MT_ALIEN_MINDHIVE3;
+    case 34: return MT_ALIEN_RSCHIVE;
     default: return 0;
     }
 }
@@ -73,6 +91,12 @@ static uint16_t unit_actor_id_for_product_type(int product_type) {
     case 14: return MT_SLUG;
     case  8: return MT_GREY;
     case 13: return MT_ORTU;
+    case 9: return MT_XENOWORT;
+    case 10: return MT_SY_DEMON;
+    case 11: return MT_ATRIL;
+    case 12: return MT_GORREM;
+    case 44: return MT_SLOM;
+    case 50: return MT_ZISP;
     default: return 0;
     }
 }
@@ -102,6 +126,13 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
     case 20: return S_SCNCPOD_BUILD1;
     case 21: return S_SCNCPOD2_BUILD1;
     case 22: return S_RSCHPOD_BUILD1;
+    case 28: return S_BIOHIV_BUILD1;
+    case 29: return S_WARHIVE_BUILD1;
+    case 30: return S_BRDRHIV_BUILD1;
+    case 31: return S_BRDRHIV2_BUILD1;
+    case 32: return S_MINDHIV_BUILD1;
+    case 33: return S_MNDHIV2_BUILD1;
+    case 34: return S_RSCHIV_BUILD1;
     default: return -1;
     }
 }
@@ -115,19 +146,19 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
 
 int G_ModelAlienProducts(StaticProductDefinition *out, int max_products) {
     if (!out || max_products <= 0) return 0;
-    int count = (int)(sizeof(DARK_COLONY_ALIEN_PRODUCTS) / sizeof(DARK_COLONY_ALIEN_PRODUCTS[0]));
-    if (count > max_products) count = max_products;
-    memcpy(out, DARK_COLONY_ALIEN_PRODUCTS, (size_t)count * sizeof(StaticProductDefinition));
+    int count = 0;
+    for (int i = 0; i < product_count() && count < max_products; ++i)
+        if (DARK_COLONY_PRODUCTS[i].faction == 1) out[count++] = DARK_COLONY_PRODUCTS[i];
     return count;
 }
 
 int G_ModelGetProducts(const RtsGameModel *model, int owner,
                        StaticProductDefinition *out, int max_products) {
-    (void)model; (void)owner;
+    (void)model;
     if (!out || max_products <= 0) return 0;
-    int count = product_count();
-    if (count > max_products) count = max_products;
-    memcpy(out, DARK_COLONY_HUMAN_PRODUCTS, (size_t)count * sizeof(StaticProductDefinition));
+    int count = 0, race = DC_PlayerRace(owner);
+    for (int i = 0; i < product_count() && count < max_products; ++i)
+        if (DARK_COLONY_PRODUCTS[i].faction == race) out[count++] = DARK_COLONY_PRODUCTS[i];
     return count;
 }
 
@@ -135,8 +166,8 @@ const StaticProductDefinition *G_ModelProductByUIId(const RtsGameModel *model, i
     (void)model;
     int count = product_count();
     for (int i = 0; i < count; ++i) {
-        if (DARK_COLONY_HUMAN_PRODUCTS[i].ui_id == ui_id)
-            return &DARK_COLONY_HUMAN_PRODUCTS[i];
+        if (DARK_COLONY_PRODUCTS[i].ui_id == ui_id)
+            return &DARK_COLONY_PRODUCTS[i];
     }
     return NULL;
 }
@@ -147,9 +178,9 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
     (void)model;
     int count = product_count();
     for (int i = 0; i < count; ++i) {
-        if ((int)DARK_COLONY_HUMAN_PRODUCTS[i].product_class == product_class &&
-            DARK_COLONY_HUMAN_PRODUCTS[i].product_type == product_type)
-            return &DARK_COLONY_HUMAN_PRODUCTS[i];
+        if ((int)DARK_COLONY_PRODUCTS[i].product_class == product_class &&
+            DARK_COLONY_PRODUCTS[i].product_type == product_type)
+            return &DARK_COLONY_PRODUCTS[i];
     }
     return NULL;
 }
@@ -157,15 +188,17 @@ const StaticProductDefinition *G_ModelProductByClassType(const RtsGameModel *mod
 static const StaticProductDefinition *product_by_row_id(int row_id) {
     int count = product_count();
     for (int i = 0; i < count; ++i) {
-        if (DARK_COLONY_HUMAN_PRODUCTS[i].row_id == row_id)
-            return &DARK_COLONY_HUMAN_PRODUCTS[i];
+        if (DARK_COLONY_PRODUCTS[i].row_id == row_id)
+            return &DARK_COLONY_PRODUCTS[i];
     }
     return NULL;
 }
 
 bool DC_ProductActorMatches(int actor, int required) {
     return actor == required || (actor == MT_SCNCPOD2 && required == MT_SCNCPOD) ||
-        (actor == MT_ROBOPOD2 && required == MT_ROBOPOD);
+        (actor == MT_ROBOPOD2 && required == MT_ROBOPOD) ||
+        (actor == MT_ALIEN_MINDHIVE3 && required == MT_ALIEN_MINDHIVE2) ||
+        (actor == MT_ALIEN_BRDRHIVE2 && required == MT_ALIEN_BRDRHIVE);
 }
 
 static bool dc_unit_is_ready(const mobj_t *unit, int owner) {
@@ -303,12 +336,14 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
             break;
         }
     }
-    if (selected_type == 0) selected_type = MT_EXCOPOD;
+    if (selected_type == 0)
+        selected_type = DC_PlayerRace(consoleplayer) ? MT_ALIEN_MINDHIVE : MT_EXCOPOD;
 
     int slot = 0;
     int available_product_count = product_count();
     for (int i = 0; i < available_product_count; ++i) {
-        const StaticProductDefinition *product = &DARK_COLONY_HUMAN_PRODUCTS[i];
+        const StaticProductDefinition *product = &DARK_COLONY_PRODUCTS[i];
+        if (product->faction != DC_PlayerRace(consoleplayer)) continue;
         bool this_maker = false;
         for (int m = 0; m < product->maker_count; ++m) {
             if (product->makers[m] == (int)selected_type) {
@@ -386,10 +421,12 @@ static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition
                                  uint16_t actor_id) {
     int slot;
     switch (actor_id) {
-    case MT_BRRKPOD: slot = 1; break;
-    case MT_ROBOPOD: case MT_ROBOPOD2: slot = 2; break;
-    case MT_SCNCPOD: case MT_SCNCPOD2: slot = 3; break;
-    case MT_RSCHPOD: slot = 4; break;
+    case MT_BRRKPOD: case MT_ALIEN_WARHIVE: slot = 1; break;
+    case MT_ROBOPOD: case MT_ROBOPOD2:
+    case MT_ALIEN_BRDRHIVE: case MT_ALIEN_BRDRHIVE2: slot = 2; break;
+    case MT_SCNCPOD: case MT_SCNCPOD2:
+    case MT_ALIEN_MINDHIVE2: case MT_ALIEN_MINDHIVE3: slot = 3; break;
+    case MT_RSCHPOD: case MT_ALIEN_RSCHIVE: slot = 4; break;
     default: return false;
     }
     mobj_t *previous = NULL;
@@ -399,7 +436,9 @@ static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition
         if (obj->team != producer->team || obj->remove || obj->hp <= 0) continue;
         if (DC_ProductActorMatches(obj->type_id, actor_id)) return false;
         if ((actor_id == MT_SCNCPOD2 && obj->type_id == MT_SCNCPOD) ||
-            (actor_id == MT_ROBOPOD2 && obj->type_id == MT_ROBOPOD)) previous = obj;
+            (actor_id == MT_ROBOPOD2 && obj->type_id == MT_ROBOPOD) ||
+            (actor_id == MT_ALIEN_MINDHIVE3 && obj->type_id == MT_ALIEN_MINDHIVE2) ||
+            (actor_id == MT_ALIEN_BRDRHIVE2 && obj->type_id == MT_ALIEN_BRDRHIVE)) previous = obj;
     }
     ivec2_t offset = DC_CitySlotOffset(slot);
     /* Native slot pixels become 8.8 via *8, then 16.16 via *256. */

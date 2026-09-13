@@ -249,6 +249,7 @@ static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count
 
 static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
     return selected && selected->owner == consoleplayer && !selected->remove && selected->hp > 0 &&
+        !(selected->traits & MF_MOBILE) &&
         selected->type_id >= MT_EXCOPOD;
 }
 
@@ -282,6 +283,13 @@ static const char *dc_selected_building_label(const mobj_t *selected) {
     case MT_SCNCPOD: return "Sci-Pod";
     case MT_SCNCPOD2: return "Sci-Pod+";
     case MT_RSCHPOD: return "Rsch-Bay";
+    case MT_ALIEN_MINDHIVE: return "Mind-Hive";
+    case MT_ALIEN_WARHIVE: return "War. Fold";
+    case MT_ALIEN_BRDRHIVE: return "Gene-Sac";
+    case MT_ALIEN_BRDRHIVE2: return "Gene-Upgrd";
+    case MT_ALIEN_MINDHIVE2: return "Breed-Pod";
+    case MT_ALIEN_MINDHIVE3: return "Pod-Upgrd";
+    case MT_ALIEN_RSCHIVE: return "Neur-Hive";
     default: return "";
     }
 }

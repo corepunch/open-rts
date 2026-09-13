@@ -82,16 +82,18 @@ make kknd
 ## Network play
 
 Host/join and map selection are provided by the engine for every game binary.
-For two-player Dark Colony (the human-versus-human Pond Thing map):
+For two-player Dark Colony with a human host and an alien opponent:
 
 ```sh
-build/bin/dark-colony --host --map SCENARIO/MPLAYER/J2PLAY01.MAP
+build/bin/dark-colony --host --map SCENARIO/MPLAYER/D2PLAY01.MAP
 build/bin/dark-colony --join 192.168.1.10
 ```
 
 Replace the address with the host's IP, or use `127.0.0.1` for two windows on
 one machine. The host sends the map choice and assigns player slots. Both
-machines need matching builds and game data. Use `--players 4` with
+machines need matching builds and game data. Both factions have their native
+building and unit production buttons. Use `J2PLAY01.MAP` for human versus human,
+or `--players 4` with
 `SCENARIO/MPLAYER/J4PLAY01.MAP` for four players. See
 [network setup, requirements and tests](docs/NETWORK.md).
 

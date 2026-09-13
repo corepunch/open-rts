@@ -4,12 +4,11 @@ Build with `make`. All game binaries use the same engine-provided command-line
 flow. The host plays as player 1 and relays UDP traffic; every machine runs the
 full lock-step simulation. This is a listen server, not a dedicated server.
 
-For Dark Colony, start a two-player game with this verified human-versus-human
-map (Pond Thing):
+For Dark Colony, start a two-player game with a human host and an alien joiner:
 
 ```sh
 # Host
-build/bin/dark-colony --host --map SCENARIO/MPLAYER/J2PLAY01.MAP
+build/bin/dark-colony --host --map SCENARIO/MPLAYER/D2PLAY01.MAP
 
 # Other machine: substitute the host's IP address
 build/bin/dark-colony --join 192.168.1.10
@@ -21,6 +20,9 @@ build/bin/dark-colony --join 127.0.0.1
 The host waits for two players by default. Joiners receive their player number,
 map path, player count, `ticdup` and `extratics` settings automatically. A match
 starts after all expected players connect and validate the loaded world.
+The scenario supplies each slot's race. Both factions use the same native
+sidebar, with seven building/module entries and nine unit entries each.
+For human versus human, choose `SCENARIO/MPLAYER/J2PLAY01.MAP` (Pond Thing).
 
 For four players, use the verified all-human 4 Kingdoms map:
 
@@ -68,9 +70,10 @@ running: leaving ends the hosted game. Debug resource/spawn cheats are disabled.
 
 Choose maps with starting units for every player: the engine reports missing
 slots instead of starting an unplayable match or inventing armies. Dark Colony
-uses the map's existing money, units, alliances and scripts. Alien production
-and campaign-specific victory flows remain incomplete; the two maps above
-provide human bases with working production. This does not reproduce DC.EXE's
+uses the map's existing money, units, alliances and scripts. Building, module
+upgrades and unit training work for both factions; specialist unit abilities,
+research, foundation placement and campaign-specific victory flows remain
+incomplete. This does not reproduce DC.EXE's
 multiplayer menu, race selection or lobby configuration. Existing synthesized
 multiplayer starter units remain as documented in `DC_EXE_FINDINGS.md`.
 
@@ -174,7 +177,8 @@ owners, and verifies queued movement through `rts_game_model_command` and
 `rts_game_model_tick`.
 Host/join tests additionally verify game rejection, automatic slots, map and
 timing distribution, four-player relayed commands, native J4PLAY01 base
-ownership and Barracks purchases for all four players, plus lossy session
+ownership and Barracks purchases for all four players, human/alien base
+ownership, completed modules and Trooper/Gray training on D2PLAY01, plus lossy session
 startup and gameplay. `test_network --hosted` runs just these session tests.
 
 For a headless model client, initialize SDL's timer/events, call `I_InitNetwork`,

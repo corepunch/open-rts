@@ -74,7 +74,9 @@ static int verify_table(const StaticProductDefinition *products, int count) {
         if (product->ui_id != expected->ui_id || product->product_class != expected->product_class ||
             product->product_type != expected->product_type ||
             product->prerequisite_count != expected->prerequisite_count ||
-            product->maker_count != 1 || product->makers[0] != expected_makers[i] ||
+            product->maker_count != (expected_makers[i] == MT_ROBOPOD ? 2 : 1) ||
+            product->makers[0] != expected_makers[i] ||
+            (product->maker_count == 2 && product->makers[1] != MT_ROBOPOD2) ||
             memcmp(product->prerequisites, expected->prerequisites,
                    (size_t)expected->prerequisite_count * sizeof(int)) != 0)
             return rts_fail("production", "product prerequisites do not match DEPEND.TXT");

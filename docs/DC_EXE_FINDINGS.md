@@ -4695,3 +4695,174 @@ J2PLAY01 check reached tic 90 with matching checksum `b9d7b2de`. Temporary gated
 spawn diagnostics recorded type, team, owner, native position and HP; they were
 removed after verification. An offline J2PLAY01 screenshot also confirmed the
 native terrain, starting force and HUD load correctly.
+
+## Human/alien production parity for network players (2026-09-13)
+
+This supersedes the incomplete-alien-production limitation in the previous
+section. D2PLAY01 now supplies a playable human host (team/race 0) and alien
+joiner (team/race 1), each starting with 1500 credits and an authored base.
+The same MAINE sidebar parser, drawing and input handlers serve both races;
+`DC_PlayerRace` reads the active SCN team rather than assuming local race 0.
+
+**Confirmed native data:** DEPEND.TXT rows below give costs, GUI IDs, product
+classes/types and prerequisites. Building rows encode city slot, upgrade and
+race, rather than a direct object type. The existing native city-slot mapping
+resolves the object types shown. MAINE supplies the fixed button rectangles
+and icon cells. Alien prerequisites differ in some places from human ones;
+they must not be made identical merely because the UI layout is shared.
+
+| Row | UI ID | Display name | Cost | Object type | Icon | Prerequisite rows |
+|---|---|---|---|---|---|---|
+|14|205|Mind-Hive|2000|28|130|none|
+|15|41|War. Fold|1000|29|24|14|
+|16|42|Breed-Pod|2000|32|114|14|
+|17|43|Gene-Sac|2000|30|25|16,15|
+|18|97|Pod-Upgrd|2000|33|115|16|
+|19|98|Gene-Upgrd|2000|31|39|17,14|
+|20|44|Neur-Hive|3000|34|46|18|
+|21|46|Brozaar|1500|14|15|14|
+|22|47|Xenowort|900|9|17|19|
+|23|48|Gray|350|8|13|15|
+|24|49|Ortu|600|13|16|14,17,18|
+|25|50|Sy-Demon|600|10|18|17,16|
+|26|51|Atril|1000|11|14|19,18|
+|27|52|Gorrem|1500|12|19|15,20|
+|28|71|Slom|450|44|116|15,16|
+|84|134|Zisp|900|50|36|18,15,20|
+
+**Confirmed executable race gate:** focused disassembly of `0x4350ac` computes
+DEPEND stride 0x34 and checks its enabled byte at base `0x4e1d70`. At
+`0x435108` it requires class +0x10 == 1 (unit); `0x43511b` reads native type
++0x14. Instructions `0x43511e..0x435135` compute a 0x118-byte type record at
+`0x4ec880`. The comparison at `0x43513a..0x435143` matches type +4 against
+`game + 0xb98 + team*0xe30 + 0x20` (race). Only then does it walk up to five
+prerequisites from dependency +0x20, calling `0x434f30`. This supports filtering
+production by the scenario player's race. Cached decompilation of `0x434f30`,
+`0x434920` and `0x451680` was also inspected while investigating availability;
+no new queue-routing rule was established from those decompiler guesses.
+
+**Confirmed FIN records:** native construction uses these complete sequences.
+SAUC has nine raw SPR cells; SAUC2/SAUC4 are FIN-only containers whose layers
+reference other SPR assets. Do not invent SAUC2.SPR or SAUC4.SPR files. Logical
+frames are raw-cell count plus FIN index. Existing ALBU standing states provide
+the finished module poses; the precise retail build-to-stand dispatch remains
+untraced, so these runtime handoffs are **inferred** from the existing city
+module mapping and authored sequences.
+
+| Product type | FIN / label | FIN frames | Logical frames | 30 Hz tics |
+|---|---|---|---|---|
+|28|SAUC / BIOHIVBUILD0|67–150|76–159|333|
+|29|SAUC / WARHIVEBUILD0|151–206|160–215|222|
+|30|SAUC2 / BRDRHIVBUILD0|78–152|78–152|297|
+|31|SAUC2 / BRDRHIV2BUILD0|207–229|207–229|91|
+|32|SAUC2 / MINDHIVBUILD0|0–71|0–71|285|
+|33|SAUC2 / MNDHIV2BUILD0|167–188|167–188|87|
+|34|SAUC4 / RSCHIVBUILD0|0–60|0–60|242|
+
+Six previously absent purchasable actors now use their own native sprite/FIN
+sets. The following source ranges were inspected and authored in the state
+DSL and per-FIN C includes; all native facing records remain in the loader.
+
+| Native type / FIN | Raw cells | STAND0 | MOVE0 | Attack | Death |
+|---|---|---|---|---|---|
+|9 / XENO|114|0|16–25|none before deployment|DIE14:120–127|
+|10 / SCYT|127|0|8–15|FIREA0:72–74|DIE14:168–176|
+|11 / ATRIL|113|0|16–25|FIREA0:103–108|DIE14:156–164|
+|12 / PSYC|123|0|16–25|FIRE0:96–102|DIE14:159–169|
+|44 / SLOM|50|0|16–17|none|DIE0:82–93|
+|50 / ZISP|72|0–3|40–43|none|DIE14:146–154|
+
+New sequence timing follows the already-confirmed FIN delay multiplication at
+`0x423544..0x42358f` and default 66 ms clock at `0x41a728`: substitute 15 for
+zero raw delay, take `floor((raw+3)*15/100)`, retain its low byte, and count a
+zero timer through 256 ticks. Round cumulative millisecond boundaries to
+30 Hz with `(elapsed_ms*30+500)/1000`. This preserves every authored frame.
+Movement totals for XENO/SCYT/ATRIL/PSYC/SLOM/ZISP are 40/32/48/40/20/16 engine
+tics; death totals are 208/218/287/321/103/36. Attack actions on the first attack
+state and standard A_Look/A_Chase loops remain **engine behavior**, not a claim
+that retail fires at that precise FIN frame. Existing Reaper timing is intact.
+
+GAMESTAT native types 9/10/11/12/44/50 give raw speeds 15/36/15/47/30/47,
+HP 800/800/400/800/800/400, and day/night sight 4:7/4:7/4:7/10:10/4:6/3:5.
+Their C ActorType entries preserve these values using the existing engine
+speed conversion (/32), with Zisp marked flying. SCYT/ATRIL/PSYC weapons use
+WEAPSTAT records 21/24/30 for range/damage/rate-of-fire; the existing engine attack
+cooldown conversion is retained. This is authored C balance, not a runtime
+GAMESTAT table binding. XENO has -1 weapon IDs before deployment; Slom and
+Zisp likewise get no invented attack. Their specialist abilities, as with
+existing human tower/engineer/healer units, remain incomplete.
+
+**Disproven avenues / verification corrections:** INTRG.GIF was visually
+inspected and contains the introductory starfield/planet and Take 2 logo;
+it is not an alternate alien gameplay HUD. Both races use INTRFACE.GIF.
+The pixel fixture initially failed at SAUC FIN frame 97, logical frame 106:
+the expected-image helper omitted the engine's existing requested selector-3
+glow, while that native frame contains ALBU cells 4 and 0 with selector 3.
+Layer metadata matched. Extending the fixture to include the documented
+selector-3 policy and shadow handling resolves the discrepancy; no renderer
+change or claim of a newly discovered native blend formula was needed.
+
+**Engine policy / remaining unknowns:** the shared queue model and cost-based
+training time are retained. Maker routing mirrors existing human categories:
+base for workers, warrior module for infantry, factory/gene module for other
+units. Exact retail enqueue/release routing (including Zisp) remains unknown;
+prerequisites alone do not establish it. Upgraded factories explicitly remain
+eligible makers in both product tables, so both SDL clicks and model commands
+continue to train earlier units after replacement. Additional foundation
+placement, research, cancellation/refunds, lobby race selection and victory
+arbitration are not implemented by this change. The seven product definitions
+include each race's starting base; purchase tests construct the six extensions
+and train all nine units, rather than claiming extra-base placement works.
+
+The existing `dc_info_gen` automatic FIN path still chooses raw cells and
+uniform timing; it must not replace these explicit complete-frame records.
+New enum values were appended, and only the corresponding authored `.inc`
+and `dc_states.txt` entries were added. Regeneration of unrelated states was
+not used as evidence of correctness.
+
+**Fingerprints (SHA-256):** DC.EXE is still
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+
+| Native input | SHA-256 |
+|---|---|
+|GAMESTAT/DEPEND.TXT|9e5e5251d5196677aa96b690413ccf15b601b5e9a00892d393fc260798efc67d|
+|GAMESTAT/GAMESTAT.TXT|ed13afe21ffea368a5892b49de40ef063014c0a9376c5d5bb5abf1396cb27629|
+|INTRFACE/MAINE|f8dc545cd8d2eae674dd7b1604a1f5d3f5aaf2c14416a31a1a40ac1305beeaad|
+|SCENARIO/MPLAYER/D2PLAY01.SCN|991842691ba44ff54f3da8da7b0d7ea9dc4f76ab6a8977c35f69a23eee7bafec|
+|ANIMATE/SAUC.FIN|e3378e2f627df2550e899844e8e13e4b65c5e3c10db1d792f1479096a6d58dd7|
+|ANIMATE/SAUC2.FIN|33fea87c7688d98a5832e8ad01c6cf4a41ae9511e039ab94ef0eef4e7b5160ef|
+|ANIMATE/SAUC4.FIN|14ff0c939946a214d9622cfa942a01cbf1b733414ba6d7ce3db4039d8ddea6c7|
+|ANIMATE/XENO.FIN|2c4c436d26db6a49d7b46ce12bcf55a46adcf7e6239a6c31dd772bbf0d6a6f84|
+|ANIMATE/SCYT.FIN|a07924ca5d72d666ccf9266df0593cb77811f6ac3679a7a19e8a5b804dbd6f55|
+|ANIMATE/ATRIL.FIN|84bc2c0a62db56cd2eed1316148d3f08a4d6d8d69a280ffaf46d7b55779e7455|
+|ANIMATE/PSYC.FIN|24735b9d142797d337feada4dc4cc8e92ea51d3dba5ce6b575161bcf9d77db02|
+|ANIMATE/SLOM.FIN|54b62a8a750695fcfb2076095ea7bd46c466da6b467bb2ee7fef74fcdce40984|
+|ANIMATE/ZISP.FIN|de5990b2cc372c92831103f5bef7621b6c7282f507056c812dedb1971a67796c|
+|GAMESTAT/WEAPSTAT.TXT|391e5603108b73cff4a5d2135ae751a0c8aebb934e6f3d6e5e09c5e807e520d0|
+
+Reproduce native inspection and checks:
+
+```sh
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x4350ac' -c 'pdf @ 0x4350ac' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --label BIOHIVBUILD0 data/DCOLONY/ANIMATE/SAUC.FIN
+build/dc_info_conv --frame 97 data/DCOLONY/ANIMATE/SAUC.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/SAUC2.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/ZISP.FIN
+SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
+SDL_VIDEODRIVER=dummy build/bin/test_network --hosted
+```
+
+`test_alien_production` validates all 32 human/alien product records against
+native DEPEND and MAINE, clicks the real sidebar to buy both sets of modules,
+checks duplicate charging and replacement upgrades, and trains all 18 unit
+types. It writes `/private/tmp/dc-{human,alien}-production.bmp`.
+`test_drop_fin_states` verifies all seven new construction chains against
+native FIN layer metadata, independently drawn pixels and cumulative timing.
+The hosted mixed-faction test loads D2PLAY01 in two UDP processes, purchases
+Barracks/War. Fold from their native starting funds, verifies separate owners
+and then trains a Trooper/Gray through the model command API once construction
+finishes. Both players have 150 credits left, and every checksum matches
+through tic 550. Two actual CLI processes also reach tic 300 on D2PLAY01 with
+matching checksum `2591d80d`. Both faction sidebar screenshots were inspected:
+each displays all nine native unit icons in the shared MAINE slots. A middle
+BIOHIVBUILD0 frame shows the native saucer and forming module layers.

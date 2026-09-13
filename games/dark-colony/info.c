@@ -26,7 +26,7 @@ const char *const sprnames[NUMSPRITES] = {
     "SSSS", "TEKT", "TEKTARA", "TIMEMIS", "TONG", "TORT", "TOWR", "TOXX",
     "TROOPER1", "TROOPER2", "TRSC", "TRUK", "TURR", "VCAL", "VCEA", "VENT",
     "VENT2", "WATC", "WEATH", "WINA", "WINB", "WINC", "WIND", "WINE", "WINF",
-    "XENO", "YABA", "ZISP", "BURN", "BURN2", "PART2", "PART4", "ROBO",
+    "XENO", "YABA", "ZISP", "BURN", "BURN2", "PART2", "PART4", "ROBO", "SAUC2", "SAUC4",
 };
 
 const state_t states[NUMSTATES] = {
@@ -59,6 +59,12 @@ const state_t states[NUMSTATES] = {
     #include "animate/PART4.inc"
     #include "animate/REAP.inc"
     #include "animate/ROBO.inc"
+    #include "animate/PSYC.inc"
+    #include "animate/SLOM.inc"
+    #include "animate/ZISP.inc"
+    #include "animate/SAUC.inc"
+    #include "animate/SAUC2.inc"
+    #include "animate/SAUC4.inc"
     #include "animate/SALA.inc"
     #include "animate/SARG.inc"
     #include "animate/SCGM.inc"
@@ -410,6 +416,33 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .mass = 100,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_FLY,
     },
+    [MT_XENOWORT] = { .doomednum = 9, .spawnhealth = 800,
+        .spawnstate = S_XENO_STND1, .seestate = S_XENO_RUN1, .deathstate = S_XENO_DIE1,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE },
+    [MT_SY_DEMON] = { .doomednum = 10, .spawnhealth = 800,
+        .spawnstate = S_SCYT_STND1, .seestate = S_SCYT_RUN1,
+        .missilestate = S_SCYT_ATK1, .deathstate = S_SCYT_DIE1,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK },
+    [MT_ATRIL] = { .doomednum = 11, .spawnhealth = 400,
+        .spawnstate = S_ATRIL_STND1, .seestate = S_ATRIL_RUN1,
+        .missilestate = S_ATRIL_ATK1, .deathstate = S_ATRIL_DIE1,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK },
+    [MT_GORREM] = { .doomednum = 12, .spawnhealth = 800,
+        .spawnstate = S_PSYC_STND1, .seestate = S_PSYC_RUN1,
+        .missilestate = S_PSYC_ATK1, .deathstate = S_PSYC_DIE1,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK },
+    [MT_SLOM] = { .doomednum = 44, .spawnhealth = 800,
+        .spawnstate = S_SLOM_STND1, .seestate = S_SLOM_RUN1, .deathstate = S_SLOM_DIE1,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE },
+    [MT_ZISP] = { .doomednum = 50, .spawnhealth = 400,
+        .spawnstate = S_ZISP_STND1, .seestate = S_ZISP_RUN1, .deathstate = S_ZISP_DIE1,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY },
 };
 
 const gameinfo_t game_info = {

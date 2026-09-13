@@ -14,7 +14,7 @@
 enum { TESTTICS = 550 };
 typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;
 typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,
-               HOSTED, HOSTED_MAP, HOSTED_LOSSY } testmode_t;
+               HOSTED, HOSTED_MAP, HOSTED_LOSSY, HOSTED_MIXED } testmode_t;
 
 static mobj_t *actors[MAXPLAYERS];
 
@@ -190,8 +190,12 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         argv[argc++] = hosts[p];
     }
     argv[argc] = NULL;
-    char map[512] = "SCENARIO/MPLAYER/J4PLAY01.MAP";
-    bool hosted = mode == HOSTED || mode == HOSTED_MAP || mode == HOSTED_LOSSY;
+    bool native_map = mode == HOSTED_MAP || mode == HOSTED_MIXED;
+    const char *chosen_map = mode == HOSTED_MIXED ? "SCENARIO/MPLAYER/D2PLAY01.MAP" :
+                                                  "SCENARIO/MPLAYER/J4PLAY01.MAP";
+    char map[512];
+    snprintf(map, sizeof(map), "%s", chosen_map);
+    bool hosted = mode == HOSTED || native_map || mode == HOSTED_LOSSY;
     if (hosted) {
         char server[64], playercount[8];
         snprintf(server, sizeof(server), "127.0.0.1:%d",
@@ -203,16 +207,16 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         assert(I_InitNetwork(&session_argc, player ? joinargs : hostargs));
         if (player) map[0] = '\0';
         assert(I_StartNetGame("dark-colony", map, sizeof(map)));
-        assert(!strcmp(map, "SCENARIO/MPLAYER/J4PLAY01.MAP"));
+        assert(!strcmp(map, chosen_map));
         assert(doomcom->numplayers == players);
         player = doomcom->consoleplayer;
     } else
     assert(I_InitNetwork(&argc, argv));
     RtsGameModel *model = NULL;
-    if (mode == MODEL || mode == HOSTED_MAP) {
+    if (mode == MODEL || native_map) {
         model = rts_game_model_create();
         RtsGameModelConfig config = {.data_root = "data/DCOLONY",
-            .map_path = mode == HOSTED_MAP ? map : "SCENARIO/HUMAN/HUMAN02.MAP"};
+            .map_path = native_map ? map : "SCENARIO/HUMAN/HUMAN02.MAP"};
         assert(model && rts_game_model_load(model, &config));
         /* Explicit test units: campaign starting forces need not cover all peers. */
         for (int p = 0; mode == MODEL && p < players; ++p) {
@@ -220,11 +224,11 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
             assert(actors[p]);
             actors[p]->owner = actors[p]->team = (uint8_t)p;
         }
-        if (mode == HOSTED_MAP) {
+        if (native_map) {
             memset(actors, 0, sizeof(actors));
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
                 mobj_t *u = (mobj_t *)th;
-                if (u->type_id == MT_EXCOPOD && u->team < players) {
+                if ((u->type_id == MT_EXCOPOD || u->type_id == MT_ALIEN_MINDHIVE) && u->team < players) {
                     assert(u->owner == u->team);
                     actors[u->owner] = u;
                 }
@@ -238,10 +242,11 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         P_UpdateSight();
     } else init_world();
     D_CheckNetGame(G_Consistency() + (mode == MISMATCH && player == 1));
-    if (mode == HOSTED_MAP) {
+    uint32_t first_production_id = level.next_mobj_id;
+    if (native_map) {
         /* A real native base for every slot: queue a Barracks purchase through
          * the same command API as the sidebar, without granting test money. */
-        assert(G_BuildOrder(actors[player], 80));
+        assert(G_BuildOrder(actors[player], actors[player]->type_id == MT_EXCOPOD ? 80 : 41));
     }
     /* Different local selection and render cadence must not affect the world. */
     if (model) {
@@ -258,9 +263,20 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     result_t result = {0};
     int end = mode == MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP ? 90 : TESTTICS;
     if (mode == QUIT && player == 1) end = 40;
+    bool trained = false;
     uint64_t deadline = SDL_GetTicks64() + 45000;
     while (gametic < end && !neterror[0] && SDL_GetTicks64() < deadline) {
         if (model) {
+            if (mode == HOSTED_MIXED && !trained) {
+                int ui_id = player ? 48 : 89;
+                const StaticProductDefinition *product = G_ModelProductByUIId(model, ui_id);
+                if (G_ModelProductAvailable(model, player, product) && G_FindProducer(player, product)) {
+                    RtsGameCommand train = {.kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
+                        .data.activate_ui_button.ui_id = ui_id};
+                    assert(rts_game_model_command(model, &train));
+                    trained = true;
+                }
+            }
             int before = gametic;
             if (!rts_game_model_tick(model, FIXED_DT)) break;
             if (gametic > before) result.hashes[before] = G_Consistency();
@@ -282,15 +298,20 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     result.failed = neterror[0] != '\0';
     if (neterror[0]) fprintf(stderr, "peer %d: %s\n", player + 1, neterror);
     if (mode != MISMATCH && mode != DESYNC) assert(gametic == end && !result.failed);
-    if (mode == HOSTED_MAP) {
+    if (native_map) {
         bool barracks[MAXPLAYERS] = {0};
+        bool troops[MAXPLAYERS] = {0};
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *u = (mobj_t *)th;
-            if (u->type_id == MT_BRRKPOD && u->owner < players) barracks[u->owner] = true;
+            if ((u->type_id == MT_BRRKPOD || u->type_id == MT_ALIEN_WARHIVE) && u->owner < players)
+                barracks[u->owner] = true;
+            if (!u->remove && u->owner < players && u->id >= first_production_id &&
+                u->type_id == (u->owner ? MT_GREY : MT_TROOPER)) troops[u->owner] = true;
         }
         for (int p = 0; p < players; ++p) {
             assert(barracks[p]);
-            assert(level.player_resources[p][0] == 500);
+            assert(level.player_resources[p][0] == (mode == HOSTED_MIXED ? 150 : 500));
+            if (mode == HOSTED_MIXED) assert(trained && troops[p]);
         }
     }
     if (hosted && !player) {
@@ -421,6 +442,7 @@ int main(int argc, char **argv) {
         session_tests();
         network_test(HOSTED, 4);
         network_test(HOSTED_MAP, 4);
+        network_test(HOSTED_MIXED, 2);
         network_test(HOSTED_LOSSY, 2);
         SDL_Quit();
         return 0;
@@ -436,6 +458,7 @@ int main(int argc, char **argv) {
     network_test(MODEL, 2);
     network_test(HOSTED, 4);
     network_test(HOSTED_MAP, 4);
+    network_test(HOSTED_MIXED, 2);
     network_test(HOSTED_LOSSY, 2);
     SDL_Quit();
     return 0;
