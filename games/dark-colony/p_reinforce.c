@@ -33,8 +33,8 @@ mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type) {
         if (spawn_y < 0) spawn_y = 0;
         if (spawn_y >= map->height) spawn_y = map->height - 1;
     }
-    unit->core.position = fixed3_from_fvec2(
-        fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }), 0);
+    unit->core.position = fixed3_with_xy(unit->core.position,
+        fvec2_cell_center((ivec2_t){ spawn_x, spawn_y }));
     unit->owner = netgame ? team : team == 0 ? 0 : 1;
     if (unit->owner == consoleplayer) {
         bool has_selected_player = false;

@@ -673,7 +673,8 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
         P_RemoveMobj(new_unit);
         return false;
     }
-    new_unit->core.position = fixed3_from_fvec2((fvec2_t){ gx, gy }, 0);
+    new_unit->core.position = fixed3_with_xy(new_unit->core.position,
+                                             (fvec2_t){ gx, gy });
     if (use_barracks_release) {
         mobjlist_t objects = P_ListMobjs();
         dc_order_barracks_exit_spacing(map, objects.items, objects.count, objects.count - 1, producer, gx, gy);

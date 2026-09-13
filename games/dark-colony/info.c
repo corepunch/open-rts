@@ -191,6 +191,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16,
         .height = 32,
         .mass = 100,
+        .spawnz = 50 * FIXED_ONE / 32, /* Match the dropship's 50 px flight altitude. */
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_FLY,
     },
     { // MT_ORTU
@@ -203,6 +204,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16,
         .height = 32,
         .mass = 100,
+        .spawnz = 50 * FIXED_ONE / 32, /* Match the dropship's 50 px flight altitude. */
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK|MF_FLY,
     },
     { // MT_SLUG
@@ -414,6 +416,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16,
         .height = 32,
         .mass = 100,
+        .spawnz = 50 * FIXED_ONE / 32, /* Match the dropship's 50 px flight altitude. */
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_FLY,
     },
     [MT_XENOWORT] = { .doomednum = 9, .spawnhealth = 800,
@@ -442,6 +445,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ZISP] = { .doomednum = 50, .spawnhealth = 400,
         .spawnstate = S_ZISP_STND1, .seestate = S_ZISP_RUN1, .deathstate = S_ZISP_DIE1,
         .radius = 16, .height = 32, .mass = 100,
+        .spawnz = 50 * FIXED_ONE / 32,
         .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY },
 };
 

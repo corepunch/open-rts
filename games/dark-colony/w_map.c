@@ -596,7 +596,8 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
      * Their raw Z controls depth sorting, as in DC.EXE 0x4365a7. */
     ivec2_t native = { (int16_t)position.x, (int16_t)position.y };
     bool city_origin = city_slot >= 0 && city_slot < 6;
-    u->core.position = (fixed3_t){ native.x * 256, native.y * 256, 0 };
+    u->core.position = (fixed3_t){ native.x * 256, native.y * 256,
+                                   u->core.position.z };
     u->attack.target = NULL;
     u->harvest.target = -1;
     u->native_type_id = (uint16_t)type;

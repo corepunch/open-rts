@@ -300,7 +300,8 @@ static bool spawn_finished_product(const StaticProductDefinition *product,
         return false;
     }
 
-    new_unit->core.position = fixed3_from_fvec2((fvec2_t){ gx, gy }, 0);
+    new_unit->core.position = fixed3_with_xy(new_unit->core.position,
+                                             (fvec2_t){ gx, gy });
     if (state_id > 0 && !P_SetMobjState(new_unit, state_id)) return false;
     model_emit_build_completion(active_model, new_unit, producer, product);
     if (use_special_release)

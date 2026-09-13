@@ -50,6 +50,11 @@ static void check_sarge(app_t *app, const spritecache_t *cache,
 static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface *surface) {
     assert(osprey->traits & MF_FLY);
     assert(actor_type_by_id(MT_ORTU)->traits & MF_FLY);
+    assert(osprey->core.position.z == mobjinfo[MT_DROPSHIP].spawnz);
+    mobj_t *ortu = P_SpawnMobj(fixed3_zero(), MT_ORTU);
+    assert(ortu && ortu->core.position.z == mobjinfo[MT_DROPSHIP].spawnz);
+    P_RemoveMobj(ortu);
+    P_Ticker();
     const spritesheet_t *sprite = R_StateSprite(cache, gameinfo, SPR_SCGM, NULL);
     assert(sprite);
     dc_fin_t fin;

@@ -54,8 +54,8 @@ static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
     if (!L_Contains(map, cell.x, cell.y)) return false;
     mobj_t *unit = P_SpawnMobj(fixed3_zero(), type->id);
     if (!unit) return false;
-    unit->core.position = fixed3_from_fvec2(
-        fvec2_cell_center((ivec2_t){ cell.x, cell.y }), 0);
+    unit->core.position = fixed3_with_xy(unit->core.position,
+        fvec2_cell_center((ivec2_t){ cell.x, cell.y }));
     unit->owner = 1;
     unit->team = 1;
     unit->core.angle = direction_to_angle(12, 32, ANG90, true);
