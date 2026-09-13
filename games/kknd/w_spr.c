@@ -88,7 +88,7 @@ static bool decode_mobd_image(SDL_Renderer *renderer, const uint8_t *segment, si
         }
     }
     cell->rect = cell->bounds = (irect_t){ 0, 0, width, height };
-    cell->displacement = ivec2_sub((ivec2_t){ width / 2, height / 2 }, offset);
+    cell->ground_point = ivec2_sub((ivec2_t){ width / 2, height / 2 }, offset);
     lump->texture = I_CreateTexture(renderer, pixels, width, height, true);
     free(pixels);
     return lump->texture != NULL;

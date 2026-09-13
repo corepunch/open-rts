@@ -1167,13 +1167,25 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             irect_t source_rect = sprite_frame_rect(source, part->lump);
             SDL_Point displacement = sprite_frame_raw_displacement(source, part->lump);
             uint32_t part_flags = part->flags;
-            irect_t part_dst = {
-                (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
-                    ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
-                (int)lroundf(sy) + u->core.render_offset.y + part->offset.y - source_rect.h,
-                source_rect.w,
-                source_rect.h,
-            };
+            irect_t part_dst;
+            if (game_info && game_info->state_coord_mode == RTS_STATE_COORDS_GROUND_OFFSET) {
+                /* DR/KKnD: dst already has ground_point applied; use it as canvas origin. */
+                part_dst = (irect_t){
+                    dst.x + part->offset.x +
+                        ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
+                    dst.y + part->offset.y,
+                    source_rect.w,
+                    source_rect.h,
+                };
+            } else {
+                part_dst = (irect_t){
+                    (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
+                        ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
+                    (int)lroundf(sy) + u->core.render_offset.y + part->offset.y - source_rect.h,
+                    source_rect.w,
+                    source_rect.h,
+                };
+            }
             if (part->layer == 1 || part->layer == 2) {
                 irect_t ground_dst = part_dst;
                 ground_dst.y += (int)lroundf(fixed_to_float(u->core.position.z) * app_cell_h(app));
