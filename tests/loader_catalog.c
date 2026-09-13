@@ -52,7 +52,19 @@ static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite) {
     HASH(sprite->numlumps); HASH(sprite->frame_size);
     for (int i = 0; i < sprite->numlumps; ++i) {
         HASH(sprite->cells[i]);
-        hash_texture(renderer, sprite->lumps[i].texture);
+        if (sprite->lumps[i].indices) {
+            int width = sprite->cells[i].rect.w, height = sprite->cells[i].rect.h;
+            HASH(width); HASH(height);
+            for (int y = 0; y < height; y += 2048)
+                for (int x = 0; x < width; x += 2048)
+                    for (int row = y; row < height && row < y + 2048; ++row)
+                        for (int col = x; col < width && col < x + 2048; ++col) {
+                            uint32_t color = sprite->source_palette[sprite->lumps[i].indices[(size_t)row * width + col]];
+                            HASH(color);
+                        }
+        } else {
+            hash_texture(renderer, sprite->lumps[i].texture);
+        }
     }
     HASH(sprite->spritedef.numframes);
     for (int i = 0; i < sprite->spritedef.numframes; ++i) {
@@ -85,14 +97,14 @@ static bool catalog_sprite(SDL_Renderer *renderer, char *path) {
         size_t offset = strtoul(bar + 1, NULL, 10);
         size_t size = strtoul(strchr(bar + 1, ',') + 1, NULL, 10);
         CHECK(offset <= file.size && size <= file.size - offset);
-        ok = load_dark_sprite(renderer, file.bytes + offset, size, palette, &sprite);
+        ok = load_dark_sprite(file.bytes + offset, size, palette, &sprite);
         W_FreeFile(&file);
     }
     *bar = '|';
 #elif defined(SL)
-    ok = sl_load_bim_sprite(renderer, path, palette, &sprite);
+    ok = sl_load_bim_sprite(path, palette, &sprite);
 #elif defined(KK)
-    ok = load_sprite(renderer, "data/KKND", path, palette, &sprite, NULL, NULL);
+    ok = load_sprite("data/KKND", path, palette, &sprite, NULL, NULL);
 #else
     (void)path;
 #endif

@@ -1,5 +1,33 @@
 # KKnD loader evidence
 
+## Integration after PNG removal (2026-09-13)
+
+The rebase onto `d09886c` retains the native indexed sprite representation and
+the removal of PNG loaders, bundled OpenDR/OpenKrush images, and OpenKrush
+production rows. Historical PNG and interface findings below remain evidence
+of the former implementation; their runtime behavior and reproduction commands
+are superseded. The research simulation still supports native Outpost/Clan
+Hall radar and laboratory upgrades, but the removed category/research UI and
+PNG-only Barracks/Warrior Hall are not restored. The historical C rules importer
+now accepts only a source root and output `.inc`, with no icon copying.
+
+Mission placement uses the linked CPLC decoder documented below, with main's
+complete generated `cplc_names[]` lookup. The duplicate fixed-stride CPLC scan
+and its separate map-owned placement array are removed. No new retail asset
+or executable investigation was performed for this integration.
+
+Verification: `env SDL_VIDEODRIVER=dummy make test` checks native mission counts,
+combat attachments, all runtime state frames, tanker anchors, research, and an
+empty production table. The obsolete PNG-building and category-UI fixtures are
+removed. Loader fixtures now inspect retained indices and render through the
+shared palette path instead of expecting a texture at load time. This preserves
+main's BIM index-zero transparency contract, superseding the former fixture's
+opaque span-zero expectation; retail span-zero semantics were not reverified.
+The health-bar widths retain the previously documented infantry/vehicle/building
+categories independently of the now-empty production table. Temporary AI
+diagnostics confirmed missing product definitions are null; AI skips those
+entries without creating units or spending oil.
+
 ## Representation cleanup (2026-09-09)
 
 **Confirmed by asset-loader comparison to `46f826a`.** All 47 installed LVL map

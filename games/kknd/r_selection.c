@@ -3,12 +3,6 @@
 #include "info.h"
 
 /* OpenKrush core.yaml: infantry 16, vehicles/towers 32, buildings 64. */
-static const uint8_t bar_widths[NUMMOBJTYPES] = {
-#define KK_PRODUCT(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label) \
-    [type] = category == 0 ? 16 : category == 2 ? 64 : 32,
-#include "products.inc"
-#undef KK_PRODUCT
-};
 
 static void fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -19,8 +13,8 @@ void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {
     const mobj_t *unit = ctx->unit;
     if (!(unit->traits & MF_SELECTABLE) || !P_MobjIsSelected(unit) ||
         unit->hp <= 0 || unit->max_hp <= 0 || ctx->bounds.w <= 0) return;
-    int width = unit->type_id < NUMMOBJTYPES ? bar_widths[unit->type_id] : 0;
-    if (!width) width = (unit->traits & MF_MOBILE) ? 32 : 64;
+    int width = unit->type_id >= MT_SURV_RIFLEMAN && unit->type_id <= MT_MUTE_CRAZY_HARRY ? 16 :
+                unit->traits & (MF_MOBILE | MF_ATTACK) ? 32 : 64;
     int height = width == 64 ? 3 : 2;
     int hp = unit->hp < unit->max_hp ? unit->hp : unit->max_hp;
     int progress = (int)((int64_t)(width - 4) * hp / unit->max_hp);

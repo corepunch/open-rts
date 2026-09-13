@@ -15,17 +15,19 @@ static const StaticProductDefinition KKND_PRODUCTS[] = {
     {id,id,label,cost,0,kind,type,faction,{maker},1,{maker},1},
 #include "products.inc"
 #undef KK_PRODUCT
+    {0}, /* Sentinel also permits an empty native product table in C11. */
 };
 static const struct { int id, ticks, level, limit; } rules[] = {
 #define KK_PRODUCT(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label) {id,ticks,tech,limit},
 #include "products.inc"
 #undef KK_PRODUCT
+    {0},
 };
 static const StaticProductDefinition research_product = {
     .ui_id = KKND_RESEARCH, .label = "Research", .cost = 0,
 };
 static int product_count(void) {
-    return (int)(sizeof(KKND_PRODUCTS) / sizeof(KKND_PRODUCTS[0]));
+    return (int)(sizeof(KKND_PRODUCTS) / sizeof(KKND_PRODUCTS[0])) - 1;
 }
 
 int G_ModelGetProducts(const RtsGameModel *model, int owner,
@@ -207,6 +209,7 @@ void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
         if (D_PlayerIsHuman(owner)) continue;
         for (unsigned i = 0; i < sizeof(kk_ai_goals)/sizeof(*kk_ai_goals); ++i) {
             const StaticProductDefinition *p = G_ModelProductByUIId(NULL, kk_ai_goals[i].ui_id);
+            if (!p) continue;
             if (G_CountPlannedActors(owner, p->product_type) >= kk_ai_goals[i].count) continue;
             for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
                 if (th->function != P_MobjThinker) continue;

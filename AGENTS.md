@@ -5,6 +5,9 @@
 All repository tools and generators must be implemented in C. Do not add or
 retain Python-based build, extraction, conversion, or code-generation tools.
 
+Use native game image assets. PNG loading and bundled PNG assets have been
+removed; do not reintroduce them or a libpng build dependency.
+
 ```sh
 make
 ```

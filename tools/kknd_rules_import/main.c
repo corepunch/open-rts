@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <errno.h>
 
 typedef struct { int id, faction, category; const char *type, *maker, *path; } entry_t;
 static const entry_t entries[] = {
@@ -67,17 +65,8 @@ E(129,3,"ROTARY_CANNON","CLANHALL","towers/rotarycannon"),
 #undef S
 #undef E
 };
-static int copy(const char *source, const char *dest) {
-    FILE *in=fopen(source,"rb"), *out=in?fopen(dest,"wb"):NULL;
-    if (!in || !out) { if(in)fclose(in); if(out)fclose(out); return 0; }
-    char bytes[8192]; size_t n; int ok=1;
-    while ((n=fread(bytes,1,sizeof(bytes),in))) if(fwrite(bytes,1,n,out)!=n){ok=0;break;}
-    if(ferror(in))ok=0;
-    fclose(in); if(fclose(out))ok=0;
-    return ok;
-}
 int main(int argc,char **argv) {
-    if(argc!=4){fprintf(stderr,"usage: %s OpenKrush-root output.inc icon-directory\n",argv[0]);return 1;}
+    if(argc!=3){fprintf(stderr,"usage: %s OpenKrush-root output.inc\n",argv[0]);return 1;}
     FILE *out=fopen(argv[2],"w"); if(!out)return 1;
     fprintf(out,"/* OpenKrush 76c634d economy. Regenerate with build/kknd_rules_import. */\n");
     for(size_t i=0;i<sizeof(entries)/sizeof(*entries);++i){
@@ -97,12 +86,6 @@ int main(int argc,char **argv) {
         if(cost<0||ticks<0||!label[0]||strchr(label,'"')){fprintf(stderr,"incomplete %s\n",path);return 1;}
         fprintf(out,"KK_PRODUCT(%d, %d, %d, %s, %s, %s, %d, %d, %d, %d, \"%s\")\n",e->id,e->faction,e->category,
             e->category>=2?"RTS_PRODUCT_BUILDING":"RTS_PRODUCT_UNIT",e->type,e->maker,cost,ticks,level,limit,label);
-        snprintf(path,sizeof(path),"%s/mods/openkrush_gen1/actors/%s/icon.png",argv[1],e->path);
-        char dest[1024];snprintf(dest,sizeof(dest),"%s/%d.png",argv[3],e->id);
-        if(!copy(path,dest)){fprintf(stderr,"copy %s: %s\n",path,strerror(errno));return 1;}
-        snprintf(path,sizeof(path),"%s/mods/openkrush_gen1/actors/%s/README.MD",argv[1],e->path);
-        snprintf(dest,sizeof(dest),"%s/%d-CREDITS.md",argv[3],e->id);
-        if(!copy(path,dest)){fprintf(stderr,"copy attribution %s\n",path);return 1;}
     }
     return fclose(out)!=0;
 }

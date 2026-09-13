@@ -44,8 +44,7 @@ static int test_map_and_units(void) {
         return fail("native mutant wolves");
     if (count_owner_type(&snap, 0, MT_SURV_DRILLRIG) != 0 ||
         count_owner_type(&snap, 1, MT_MUTE_DRILLRIG) != 0 ||
-        count_owner_type(&snap, 0, MT_SURV_OUTPOST) != 0 ||
-        count_owner_type(&snap, 0, MT_SURV_BARRACKS) != 0)
+        count_owner_type(&snap, 0, MT_SURV_OUTPOST) != 0)
         return fail("no synthetic starting buildings");
     fvec2_t player_sum = { 0.0f, 0.0f };
     for (int i = 0; i < snap.unit_count; ++i)
@@ -101,7 +100,7 @@ static int test_native_start_has_no_production(void) {
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
     RtsProductDefinition products[64];
     int product_count = rts_game_model_products(model, products, 64);
-    if (product_count < 5) return fail("product table has entries");
+    if (product_count != 0) return fail("native production remains unimplemented");
     RtsGameCommand build = {
         .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
         .data.activate_ui_button = { .ui_id = 1 },

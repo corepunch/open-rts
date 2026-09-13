@@ -1384,7 +1384,9 @@ directory (case-insensitive `Reference` on this workspace filesystem):
 - [OpenRA PNG sheet loader](https://github.com/OpenRA/OpenRA/blob/bleed/OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs),
   `RegionsFromSlices`, inspected 2026-09-13: `FrameSize` slices the sheet in row
   order; omitted `FrameAmount` defaults to the number of complete cells.
-  Our two committed sheets use this documented subset of PNG metadata.
+  The former Barracks/Warrior Hall sheets used this subset of PNG metadata.
+  PNG loading and bundled OpenDR/OpenKrush images were removed from the engine;
+  these links preserve historical provenance, not current asset dependencies.
 
 To reproduce the checkouts:
 

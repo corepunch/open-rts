@@ -41,20 +41,16 @@
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
 AI_ADVANCED_COUNT	tests/7legion/test_production.c	/^#define AI_ADVANCED_COUNT /;"	d	file:
 AI_ADVANCED_COUNT	tests/dark-reign/test_production.c	/^#define AI_ADVANCED_COUNT /;"	d	file:
-AI_ADVANCED_COUNT	tests/kknd/test_production.c	/^#define AI_ADVANCED_COUNT /;"	d	file:
 AI_ADVANCED_UNIT	tests/7legion/test_production.c	/^#define AI_ADVANCED_UNIT /;"	d	file:
 AI_ADVANCED_UNIT	tests/dark-reign/test_production.c	/^#define AI_ADVANCED_UNIT /;"	d	file:
-AI_ADVANCED_UNIT	tests/kknd/test_production.c	/^#define AI_ADVANCED_UNIT /;"	d	file:
 AI_ATTACK_WAVE_INTERVAL_MS	play/p_ai.h	/^#define AI_ATTACK_WAVE_INTERVAL_MS /;"	d
 AI_ATTACK_WAVE_MAX_SIZE	play/p_ai.h	/^#define AI_ATTACK_WAVE_MAX_SIZE /;"	d
 AI_ATTACK_WAVE_MIN_SIZE	play/p_ai.h	/^#define AI_ATTACK_WAVE_MIN_SIZE /;"	d
 AI_DEFENSE_RADIUS	play/p_ai.h	/^#define AI_DEFENSE_RADIUS /;"	d
 AI_FIRST_COUNT	tests/7legion/test_production.c	/^#define AI_FIRST_COUNT /;"	d	file:
 AI_FIRST_COUNT	tests/dark-reign/test_production.c	/^#define AI_FIRST_COUNT /;"	d	file:
-AI_FIRST_COUNT	tests/kknd/test_production.c	/^#define AI_FIRST_COUNT /;"	d	file:
 AI_FIRST_UNIT	tests/7legion/test_production.c	/^#define AI_FIRST_UNIT /;"	d	file:
 AI_FIRST_UNIT	tests/dark-reign/test_production.c	/^#define AI_FIRST_UNIT /;"	d	file:
-AI_FIRST_UNIT	tests/kknd/test_production.c	/^#define AI_FIRST_UNIT /;"	d	file:
 AI_MAX_HARVEST_ASSIGNMENTS	play/p_ai.h	/^#define AI_MAX_HARVEST_ASSIGNMENTS /;"	d
 AI_MAX_TEAMS	play/p_ai.h	/^#define AI_MAX_TEAMS /;"	d
 ALLEGIANCE_ALLIED	play/actor.h	/^    ALLEGIANCE_ALLIED = 2,$/;"	e	enum:__anon175231d90203
@@ -370,17 +366,14 @@ NetUpdate	driver/d_net.c	/^void NetUpdate(void) {$/;"	f	typeref:typename:void	si
 NetUpdate	driver/d_net.h	/^void NetUpdate(void);$/;"	p	typeref:typename:void	signature:(void)
 OWNER_PRODUCER	tests/7legion/test_production.c	/^#define OWNER_PRODUCER /;"	d	file:
 OWNER_PRODUCER	tests/dark-reign/test_production.c	/^#define OWNER_PRODUCER /;"	d	file:
-OWNER_PRODUCER	tests/kknd/test_production.c	/^#define OWNER_PRODUCER /;"	d	file:
 PIXELS	tests/dark-colony/test_barrager_turning.c	/^enum { SIZE = 160, PIXELS = SIZE * SIZE };$/;"	e	enum:__anon7f26dad50103	file:
 PIXELS	tests/dark-colony/test_selection_overlays.c	/^enum { WIDTH = 512, HEIGHT = 256, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon978e18430103	file:
 PIXELS	tests/dark-colony/test_trooper_rendering.c	/^enum { WIDTH = 256, HEIGHT = 192, PIXELS = WIDTH * HEIGHT };$/;"	e	enum:__anon3439e5910103	file:
 PLAYER	tests/dark-colony/test_fog.c	/^#define PLAYER /;"	d	file:
 PLAYER_PRODUCER	tests/7legion/test_production.c	/^#define PLAYER_PRODUCER /;"	d	file:
 PLAYER_PRODUCER	tests/dark-reign/test_production.c	/^#define PLAYER_PRODUCER /;"	d	file:
-PLAYER_PRODUCER	tests/kknd/test_production.c	/^#define PLAYER_PRODUCER /;"	d	file:
 PLAYER_PRODUCT	tests/7legion/test_production.c	/^#define PLAYER_PRODUCT /;"	d	file:
 PLAYER_PRODUCT	tests/dark-reign/test_production.c	/^#define PLAYER_PRODUCT /;"	d	file:
-PLAYER_PRODUCT	tests/kknd/test_production.c	/^#define PLAYER_PRODUCT /;"	d	file:
 PRODUCT_LIST_MAX	hud/sb_prod.c	/^enum { PRODUCT_ROWSIZE = 32, PRODUCT_LIST_MAX = 64 };$/;"	e	enum:__anon447e5c2f0103	file:
 PRODUCT_ROWSIZE	hud/sb_prod.c	/^enum { PRODUCT_ROWSIZE = 32, PRODUCT_LIST_MAX = 64 };$/;"	e	enum:__anon447e5c2f0103	file:
 P_AddThinker	play/actor.h	/^void P_AddThinker(thinker_t *thinker);$/;"	p	typeref:typename:void	signature:(thinker_t * thinker)
@@ -696,11 +689,6 @@ TC_ORDER	driver/d_ticcmd.h	/^    TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTA
 TC_STOP	driver/d_ticcmd.h	/^    TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD$/;"	e	enum:__anon81be5d2d0103
 TESTTICS	tests/network/test_network.c	/^enum { TESTTICS = 550 };$/;"	e	enum:__anon3666449a0103	file:
 TEST_ATTACKER_INFO	tests/dark-colony/test_combat_and_harvest.c	/^static const mobjtype_t TEST_ATTACKER_INFO = {$/;"	v	typeref:typename:const mobjtype_t	file:
-TEST_MAKER	tests/dark-reign/test_palette.c	/^#define TEST_MAKER /;"	d	file:
-TEST_MAKER	tests/kknd/test_palette.c	/^#define TEST_MAKER /;"	d	file:
-TEST_PREREQUISITE	tests/dark-reign/test_palette.c	/^#define TEST_PREREQUISITE /;"	d	file:
-TEST_PRODUCT	tests/dark-reign/test_palette.c	/^#define TEST_PRODUCT /;"	d	file:
-TEST_PRODUCT	tests/kknd/test_palette.c	/^#define TEST_PRODUCT /;"	d	file:
 TEST_TARGET_INFO	tests/dark-colony/test_combat_and_harvest.c	/^static const mobjtype_t TEST_TARGET_INFO = {$/;"	v	typeref:typename:const mobjtype_t	file:
 TILE_ATLAS_COLS	driver/engine_config.h	/^#define TILE_ATLAS_COLS /;"	d
 TILE_PIX_H	driver/engine_config.h	/^#define TILE_PIX_H /;"	d
@@ -711,9 +699,6 @@ TryRunTics	driver/d_net.h	/^int TryRunTics(void);$/;"	p	typeref:typename:int	sig
 UI_ATTACK	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	e	enum:__anon259a4b510103
 UI_MOVE	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	e	enum:__anon259a4b510103
 UI_OPTIONS	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	e	enum:__anon259a4b510103
-UI_PALETTE_NONE	hud/ui_definition.h	/^typedef enum { UI_PALETTE_NONE, UI_PALETTE_OPENDR, UI_PALETTE_OPENKRUSH } uipalettetype_t;$/;"	e	enum:__anon259a4b510203
-UI_PALETTE_OPENDR	hud/ui_definition.h	/^typedef enum { UI_PALETTE_NONE, UI_PALETTE_OPENDR, UI_PALETTE_OPENKRUSH } uipalettetype_t;$/;"	e	enum:__anon259a4b510203
-UI_PALETTE_OPENKRUSH	hud/ui_definition.h	/^typedef enum { UI_PALETTE_NONE, UI_PALETTE_OPENDR, UI_PALETTE_OPENKRUSH } uipalettetype_t;$/;"	e	enum:__anon259a4b510203
 UI_PRODUCT	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	e	enum:__anon259a4b510103
 UI_RADAR	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	e	enum:__anon259a4b510103
 UI_STOP	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	e	enum:__anon259a4b510103
@@ -735,14 +720,8 @@ W_FreeFile	driver/w_file.c	/^void W_FreeFile(blob_t *blob) {$/;"	f	typeref:typen
 W_LoadAssets	game/game.h	/^bool     W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	p	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
 W_LoadGIFTexture	driver/engine.h	/^bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out);$/;"	p	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * path,spritesheet_t * out)
 W_LoadGIFTexture	driver/w_gif.c	/^bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * path,spritesheet_t * out)
-W_LoadMenuPNG	driver/engine.h	/^bool W_LoadMenuPNG(SDL_Renderer *renderer, const char *root,$/;"	p	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const char * name,const char * palette,spritesheet_t * out)
-W_LoadMenuPNG	driver/w_png.c	/^bool W_LoadMenuPNG(SDL_Renderer *renderer, const char *root,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const char * name,const char * palette,spritesheet_t * out)
-W_LoadPNG	driver/engine.h	/^SDL_Surface *W_LoadPNG(const char *path);$/;"	p	typeref:typename:SDL_Surface *	signature:(const char * path)
-W_LoadPNG	driver/w_png.c	/^SDL_Surface *W_LoadPNG(const char *path) {$/;"	f	typeref:typename:SDL_Surface *	signature:(const char * path)
 W_ReadFile	driver/engine.h	/^bool W_ReadFile(const char *path, blob_t *out);$/;"	p	typeref:typename:bool	signature:(const char * path,blob_t * out)
 W_ReadFile	driver/w_file.c	/^bool W_ReadFile(const char *path, blob_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * path,blob_t * out)
-W_SetPNGPalette	driver/engine.h	/^bool W_SetPNGPalette(SDL_Surface *surface, const char *path);$/;"	p	typeref:typename:bool	signature:(SDL_Surface * surface,const char * path)
-W_SetPNGPalette	driver/w_png.c	/^bool W_SetPNGPalette(SDL_Surface *surface, const char *path) {$/;"	f	typeref:typename:bool	signature:(SDL_Surface * surface,const char * path)
 WeaponStat	tools/dc_gamestat_gen.c	/^} WeaponStat;$/;"	t	typeref:struct:__anon006eef8b0308	file:
 _DARWIN_C_SOURCE	tests/dark-colony/test_sprite_definitions.c	/^#define _DARWIN_C_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	driver/d_main.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
@@ -781,7 +760,6 @@ __LOADER_FIXTURES__	tests/loader_fixtures.h	/^#define __LOADER_FIXTURES__$/;"	d
 __MAP__	game/map.h	/^#define __MAP__$/;"	d
 __MOBJ_TEST__	tests/mobj_test.h	/^#define __MOBJ_TEST__$/;"	d
 __M_VEC__	driver/m_vec.h	/^#define __M_VEC__$/;"	d
-__PALETTE_REGRESSION__	tests/palette_regression.h	/^#define __PALETTE_REGRESSION__$/;"	d
 __PRODUCTION_REGRESSION__	tests/production_regression.h	/^#define __PRODUCTION_REGRESSION__$/;"	d
 __P_AI__	play/p_ai.h	/^#define __P_AI__$/;"	d
 __P_LOCAL__	play/p_local.h	/^#define __P_LOCAL__$/;"	d
@@ -903,7 +881,6 @@ __anon175231d90b08	play/actor.h	/^typedef struct { mobj_t **items; int count; } 
 __anon175231d90b08::count	play/actor.h	/^typedef struct { mobj_t **items; int count; } mobjlist_t;$/;"	m	struct:__anon175231d90b08	typeref:typename:int
 __anon175231d90b08::items	play/actor.h	/^typedef struct { mobj_t **items; int count; } mobjlist_t;$/;"	m	struct:__anon175231d90b08	typeref:typename:mobj_t **
 __anon259a4b510103	hud/ui_definition.h	/^typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } u/;"	g
-__anon259a4b510203	hud/ui_definition.h	/^typedef enum { UI_PALETTE_NONE, UI_PALETTE_OPENDR, UI_PALETTE_OPENKRUSH } uipalettetype_t;$/;"	g
 __anon289a07350108	tests/dark-colony/test_blood_fin.c	/^    static const struct { const char *file, *label; int state; } cases[] = {$/;"	s	function:pixels	file:
 __anon292f5ac10108	tools/dc_info_gen.c	/^typedef struct {$/;"	s	file:
 __anon292f5ac10108::end	tools/dc_info_gen.c	/^    uint16_t end;$/;"	m	struct:__anon292f5ac10108	typeref:typename:uint16_t	file:
@@ -1157,7 +1134,6 @@ __anon82d667f30208::label_offset	tools/dc_fin_extract.c	/^    size_t label_offse
 __anon82d667f30208::parsed	tools/dc_fin_extract.c	/^    bool parsed;$/;"	m	struct:__anon82d667f30208	typeref:typename:bool	file:
 __anon82d667f30208::path	tools/dc_fin_extract.c	/^    const char *path;$/;"	m	struct:__anon82d667f30208	typeref:typename:const char *	file:
 __anon82d667f30208::size	tools/dc_fin_extract.c	/^    size_t size;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
-__anon8e8cd87b0108	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	s	function:check_anchors	file:
 __anon9020bd480108	play/p_map.c	/^typedef struct {$/;"	s	file:
 __anon9020bd480108::f	play/p_map.c	/^    int f;$/;"	m	struct:__anon9020bd480108	typeref:typename:int	file:
 __anon9020bd480108::g	play/p_map.c	/^    int g;$/;"	m	struct:__anon9020bd480108	typeref:typename:int	file:
@@ -1269,7 +1245,6 @@ __anoncbabb2620408::is_mobile	tools/kknd_info_gen.c	/^    int  is_mobile;$/;"	m	
 __anoncbabb2620408::mobd	tools/kknd_info_gen.c	/^    int  mobd;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
 __anoncbabb2620408::mt_name	tools/kknd_info_gen.c	/^    char mt_name[64];      \/* e.g. "MT_SURV_RIFLEMAN" *\/$/;"	m	struct:__anoncbabb2620408	typeref:typename:char[64]	file:
 __anoncbabb2620408::name	tools/kknd_info_gen.c	/^    char name[64];$/;"	m	struct:__anoncbabb2620408	typeref:typename:char[64]	file:
-__anoncbabb2620408::png	tools/kknd_info_gen.c	/^    const char *png;$/;"	m	struct:__anoncbabb2620408	typeref:typename:const char *	file:
 __anoncbabb2620408::speed	tools/kknd_info_gen.c	/^    int  speed;     \/* in original pixels\/s; 0 for buildings *\/$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
 __anoncbabb2620408::spr_name	tools/kknd_info_gen.c	/^    char spr_name[64];     \/* e.g. "SPR_SURV_RIFLEMAN" *\/$/;"	m	struct:__anoncbabb2620408	typeref:typename:char[64]	file:
 __anoncbabb2620408::spr_suffix	tools/kknd_info_gen.c	/^    char spr_suffix[48];   \/* e.g. "SURV_RIFLEMAN" *\/$/;"	m	struct:__anoncbabb2620408	typeref:typename:char[48]	file:
@@ -1380,7 +1355,6 @@ allegiance	play/p_ai.h	/^    uint8_t allegiance;$/;"	m	struct:__anonf4d3b9790208
 allies	game/map.h	/^    uint32_t allies[8];$/;"	m	struct:__anon6564a8e20208	typeref:typename:uint32_t[8]
 amount	game/map.h	/^    int amount;$/;"	m	struct:resourcevent_s	typeref:typename:int
 anchor	play/actor.h	/^    fvec2_t anchor;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:fvec2_t
-anchor	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:ivec2_t	file:
 angle	game/map.h	/^    angle_t angle;$/;"	m	struct:mapdecoration_s	typeref:typename:angle_t
 angle	play/actor.h	/^    angle_t angle;$/;"	m	struct:mobjcore_s	typeref:typename:angle_t
 angle_distance	play/facing.h	/^uint32_t angle_distance(angle_t a, angle_t b);$/;"	p	typeref:typename:uint32_t	signature:(angle_t a,angle_t b)
@@ -1557,8 +1531,6 @@ center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	
 cfg_name	tools/kknd_info_gen.c	/^    const char *cfg_name;$/;"	m	struct:__anoncbabb2620108	typeref:typename:const char *	file:
 check_all_fin_frames	tests/dark-colony/test_sprite_definitions.c	/^static void check_all_fin_frames(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 check_anchors	tests/kknd/test_runtime_sprites.c	/^static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {$/;"	f	typeref:typename:int	file:	signature:(SDL_Renderer * renderer,const spritecache_t * cache)
-check_anchors::__anon8e8cd87b0108::anchor	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:ivec2_t	file:
-check_anchors::__anon8e8cd87b0108::type	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:int	file:
 check_blits	tests/dark-colony/test_sprite_loading.c	/^static void check_blits(SDL_Renderer *renderer, const spritesheet_t *sprite) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite)
 check_city	tests/dark-colony/test_city_layout.c	/^static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams, const char *sc/;"	f	typeref:typename:void	file:	signature:(const char * path,fvec2_t anchor,unsigned expected_teams,const char * screenshot)
 check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit,const char * stem,const char * sequence,int sprite,int corpse,int total_tics)
@@ -1591,8 +1563,6 @@ clear	tests/dark-colony/test_trooper_rendering.c	/^static void clear(SDL_Rendere
 clear_model_production	game/g_game.c	/^static void clear_model_production(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 clear_sight	tests/dark-colony/test_fog.c	/^static void clear_sight(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 click	tests/input_regression.h	/^static void click(app_t *app, gameinfo_t *game, mobj_t **units,$/;"	f	typeref:typename:void	signature:(app_t * app,gameinfo_t * game,mobj_t ** units,Uint8 button_id,ivec2_t point)
-click	tests/kknd/test_research_ui.c	/^static bool click(sb_state_t *st, app_t *app, int button, ivec2_t p) {$/;"	f	typeref:typename:bool	file:	signature:(sb_state_t * st,app_t * app,int button,ivec2_t p)
-click	tests/palette_regression.h	/^static void click(sb_state_t *bar, app_t *app, ivec2_t pos) {$/;"	f	typeref:typename:void	signature:(sb_state_t * bar,app_t * app,ivec2_t pos)
 clock	hud/sb_bar.h	/^    uint64_t clock;$/;"	m	struct:__anona3f56ed40108	typeref:typename:uint64_t
 clock_tick	tests/dark-colony/test_fog.c	/^static void clock_tick(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 closed	play/p_map.c	/^    uint8_t closed;$/;"	m	struct:__anon9020bd480208	typeref:typename:uint8_t	file:
@@ -1626,7 +1596,6 @@ consoleplayer	driver/d_net.c	/^int consoleplayer, gametic, maketic, ticdup = 1;$
 consoleplayer	driver/d_net.h	/^    int numnodes, numplayers, consoleplayer, ticdup, extratics;$/;"	m	struct:__anone560e7400208	typeref:typename:int
 cooldown_left_ms	play/actor.h	/^        int cooldown_left_ms;$/;"	m	struct:mobj_s::__anon175231d90808	typeref:typename:int
 cooldown_ms	play/actor.h	/^        int cooldown_ms;$/;"	m	struct:mobjtype_s::__anon175231d90408	typeref:typename:int
-copy	tools/kknd_rules_import/main.c	/^static int copy(const char *source, const char *dest) {$/;"	f	typeref:typename:int	file:	signature:(const char * source,const char * dest)
 copy_clean_scene_name	tools/dc_gamestat_gen.c	/^static void copy_clean_scene_name(char *out, size_t out_size, char *line) {$/;"	f	typeref:typename:void	file:	signature:(char * out,size_t out_size,char * line)
 copy_mobj_fixture	tests/mobj_test.h	/^static inline void copy_mobj_fixture(mobj_t *actor, const mobj_t *value) {$/;"	f	typeref:typename:void	signature:(mobj_t * actor,const mobj_t * value)
 copy_padded_name	tests/test_dark_colony_sprite_layout.c	/^static void copy_padded_name(char *out, size_t out_size, const unsigned char *src, size_t src_si/;"	f	typeref:typename:void	file:	signature:(char * out,size_t out_size,const unsigned char * src,size_t src_size)
@@ -1795,6 +1764,7 @@ entries	tools/7legion_info_gen.c	/^static const info_entry_t entries[] = {$/;"	v
 entries	tools/dr_info_gen.c	/^static const dr_entry_t entries[] = {$/;"	v	typeref:typename:const dr_entry_t[]	file:
 entries	tools/kknd_rules_import/main.c	/^static const entry_t entries[] = {$/;"	v	typeref:typename:const entry_t[]	file:
 entry_t	tools/kknd_rules_import/main.c	/^typedef struct { int id, faction, category; const char *type, *maker, *path; } entry_t;$/;"	t	typeref:struct:__anon4d59e3560108	file:
+enums	AGENTS.md	/^enums, typedefs, and other C symbols. Editor integrations (vim, VS Code, etc.)$/;"	v
 equals_ci	tools/dc_gamestat_gen.c	/^static bool equals_ci(const char *a, const char *b) {$/;"	f	typeref:typename:bool	file:	signature:(const char * a,const char * b)
 error	game/g_game.c	/^    char error[256];$/;"	m	struct:RtsGameModel	typeref:typename:char[256]	file:
 event_count	game/g_game.c	/^    int event_count;$/;"	m	struct:RtsGameModel	typeref:typename:int	file:
@@ -1945,6 +1915,7 @@ free_sprite_def	render/r_draw.c	/^static void free_sprite_def(spritedef_t *def) 
 free_strings	tools/anim_extract.c	/^static void free_strings(AnimString *items, size_t count) {$/;"	f	typeref:typename:void	file:	signature:(AnimString * items,size_t count)
 free_thinker	play/p_tick.c	/^static void free_thinker(thinker_t *thinker) {$/;"	f	typeref:typename:void	file:	signature:(thinker_t * thinker)
 function	play/actor.h	/^    actionf_p1 function;$/;"	m	struct:thinker_s	typeref:typename:actionf_p1
+functions	AGENTS.md	/^Use the generated `tags` files to jump to definitions of functions, structs,$/;"	v
 fvec2_add	driver/m_vec.h	/^static inline fvec2_t fvec2_add(fvec2_t a, fvec2_t b) { return (fvec2_t){ a.x + b.x, a.y + b.y }/;"	f	typeref:typename:fvec2_t	signature:(fvec2_t a,fvec2_t b)
 fvec2_cell	driver/m_vec.h	/^static inline ivec2_t fvec2_cell(fvec2_t value) {$/;"	f	typeref:typename:ivec2_t	signature:(fvec2_t value)
 fvec2_cell_center	driver/m_vec.h	/^static inline fvec2_t fvec2_cell_center(ivec2_t cell) {$/;"	f	typeref:typename:fvec2_t	signature:(ivec2_t cell)
@@ -2202,6 +2173,7 @@ load_fin_info	tests/test_dark_colony_sprite_layout.c	/^static bool load_fin_info
 load_fins	tools/dc_info_gen.c	/^static void load_fins(const char *dir) {$/;"	f	typeref:typename:void	file:	signature:(const char * dir)
 load_spr_frame_info	tests/test_dark_colony_sprite_layout.c	/^static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,int frame,SprFrameInfo * out)
 loaded	game/g_game.c	/^    bool loaded;$/;"	m	struct:RtsGameModel	typeref:typename:bool	file:
+loaders	docs/KKND_EXE_FINDINGS.md	/^the removal of PNG loaders, bundled OpenDR\/OpenKrush images, and OpenKrush$/;"	v
 localcmds	driver/d_net.c	/^static ticcmd_t localcmds[BACKUPTICS];$/;"	v	typeref:typename:ticcmd_t[]	file:
 logical_height	hud/ui_definition.h	/^    int logical_height;$/;"	m	struct:uidefinition_s	typeref:typename:int
 logical_width	hud/ui_definition.h	/^    int logical_width;$/;"	m	struct:uidefinition_s	typeref:typename:int
@@ -2251,13 +2223,12 @@ main	tests/input_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	sign
 main	tests/kknd/test_combat.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_combat_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_playable.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/kknd/test_production.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_research.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
-main	tests/kknd/test_research_ui.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_runtime_sprites.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_truck_orders.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/loader_catalog.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
 main	tests/network/test_network.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
-main	tests/palette_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/production_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/shared/test_retaliation.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/test_dark_colony_sprite_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2536,14 +2507,12 @@ outro_avi	tools/dc_gamestat_gen.c	/^    char outro_avi[128];$/;"	m	struct:__anon
 owner	game/g_game.h	/^    uint8_t owner;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint8_t
 owner	play/actor.h	/^    uint8_t owner;$/;"	m	struct:mobj_s	typeref:typename:uint8_t
 palette	docs/KKND_EXE_FINDINGS.md	/^  building images currently use the base palette, without team translation.$/;"	v
-palette	hud/ui_definition.h	/^    const char *palette;$/;"	m	struct:uidefinition_s	typeref:typename:const char *
 palette	render/sprites.h	/^    uint32_t palette[256];$/;"	m	struct:spritesheet_s	typeref:typename:uint32_t[256]
 palette	render/sprites.h	/^    uint32_t palette[256];$/;"	m	struct:tileset_s	typeref:typename:uint32_t[256]
 palette	tools/dc_spr_extract.c	/^    uint32_t palette[256]; \/* ARGB8888, index 0 = transparent *\/$/;"	m	struct:__anonf6c4462b0208	typeref:typename:uint32_t[256]	file:
 palette_cycle	render/sprites.h	/^    tilepalettecycle_t palette_cycle;$/;"	m	struct:tileset_s	typeref:typename:tilepalettecycle_t
 palette_map_count	render/sprites.h	/^    int palette_map_count;$/;"	m	struct:spritesheet_s	typeref:typename:int
 palette_maps	render/sprites.h	/^    spritepalettemap_t *palette_maps;$/;"	m	struct:spritesheet_s	typeref:typename:spritepalettemap_t *
-palette_type	hud/ui_definition.h	/^    uipalettetype_t palette_type;$/;"	m	struct:uidefinition_s	typeref:typename:uipalettetype_t
 panning	driver/app.h	/^    bool panning;$/;"	m	struct:app_s	typeref:typename:bool
 parameter_count	tools/dc_gamestat_gen.c	/^    int parameter_count;$/;"	m	struct:__anon006eef8b0208	typeref:typename:int	file:
 parameters	tools/dc_gamestat_gen.c	/^    int parameters[GAMESTAT_MAX_DEPEND_PARAMS];$/;"	m	struct:__anon006eef8b0208	typeref:typename:int[]	file:
@@ -2589,7 +2558,6 @@ playerfornode	driver/d_net.c	/^static int nodeforplayer[MAXPLAYERS], playerforno
 playeringame	driver/d_net.c	/^bool nodeingame[MAXNETNODES], playeringame[MAXPLAYERS];$/;"	v	typeref:typename:bool[]
 plugin_actor_type_by_id	game/g_game.c	/^static const mobjtype_t *plugin_actor_type_by_id(uint16_t type_id) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(uint16_t type_id)
 plugin_actor_type_for_unit	game/g_game.c	/^static const mobjtype_t *plugin_actor_type_for_unit(const mobj_t *unit) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(const mobj_t * unit)
-png	tools/kknd_info_gen.c	/^    const char *png;$/;"	m	struct:__anoncbabb2620408	typeref:typename:const char *	file:
 points	tests/kknd/test_combat_rendering.c	/^static const struct {int type, native_frames; ivec2_t points[16];} weapons[] = {$/;"	m	struct:__anon40d74d410108	typeref:typename:ivec2_t[16]	file:
 policy	tools/dc_states.txt	/^; Authored gameplay policy, in multigen column order. Generated C is not the input.$/;"	v	typeref:typename:Authored gameplay
 pool	ARCHITECTURE.md	/^active level, effect pool, or game tables. The action signature remains about$/;"	v
@@ -2916,8 +2884,6 @@ source	hud/ui_definition.h	/^    irect_t source;$/;"	m	struct:uicategory_s	typer
 source	hud/ui_definition.h	/^    irect_t source;$/;"	m	struct:uiimage_s	typeref:typename:irect_t
 source_palette	render/sprites.h	/^    uint32_t source_palette[256]; \/* Source colors, independent of world colormaps. *\/$/;"	m	struct:spritesheet_s	typeref:typename:uint32_t[256]
 spawn	tests/kknd/test_research.c	/^static mobj_t *spawn(uint16_t type) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(uint16_t type)
-spawn	tests/kknd/test_research_ui.c	/^static mobj_t *spawn(int type, fvec2_t position) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(int type,fvec2_t position)
-spawn	tests/palette_regression.h	/^static mobj_t *spawn(uint16_t type, int owner) {$/;"	f	typeref:typename:mobj_t *	signature:(uint16_t type,int owner)
 spawn_debug_enemy_unit	driver/d_main.c	/^static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,const app_t * app,int sx,int sy)
 spawn_finished_product	game/g_game.c	/^static bool spawn_finished_product(const StaticProductDefinition *product,$/;"	f	typeref:typename:bool	file:	signature:(const StaticProductDefinition * product,mobj_t * producer)
 spawn_mobj_fixture	tests/mobj_test.h	/^static inline mobj_t *spawn_mobj_fixture(mobj_t value) {$/;"	f	typeref:typename:mobj_t *	signature:(mobj_t value)
@@ -3067,6 +3033,7 @@ status_elapsed_time	hud/ui_definition.h	/^    bool status_elapsed_time;$/;"	m	st
 status_panel	hud/ui_definition.h	/^    uipanel_t status_panel;$/;"	m	struct:uidefinition_s	typeref:typename:uipanel_t
 stem_lower	tests/test_dark_colony_sprite_layout.c	/^    char stem_lower[9];$/;"	m	struct:__anona4e7c35f0408	typeref:typename:char[9]	file:
 string	tools/dc_info_conv/main.c	/^static void string(const unsigned char *p, size_t n) {$/;"	f	typeref:typename:void	file:	signature:(const unsigned char * p,size_t n)
+structs	AGENTS.md	/^Use the generated `tags` files to jump to definitions of functions, structs,$/;"	v
 style	play/actor.h	/^    SelectionStyle style;$/;"	m	struct:selectionmarker_s	typeref:typename:SelectionStyle
 subject_id	game/g_game.h	/^    uint32_t subject_id;$/;"	m	struct:__anon42a104c40f08	typeref:typename:uint32_t
 subject_type_id	game/g_game.h	/^    uint16_t subject_type_id;$/;"	m	struct:__anon42a104c40f08	typeref:typename:uint16_t
@@ -3200,12 +3167,12 @@ type	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int ty
 type	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
 type	tests/kknd/test_combat.c	/^    static const struct {int type, sprite, first, length;} cases[] = {$/;"	m	struct:death_sequences::__anon531b0ea40108	typeref:typename:int	file:
 type	tests/kknd/test_combat_rendering.c	/^static const struct {int type, native_frames; ivec2_t points[16];} weapons[] = {$/;"	m	struct:__anon40d74d410108	typeref:typename:int	file:
-type	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:int	file:
 type	tools/dr_info_gen.c	/^    const char *type;$/;"	m	struct:__anon0771d3700208	typeref:typename:const char *	file:
 type	tools/info_gen.h	/^    const char *type;$/;"	m	struct:__anond5c6e2e00108	typeref:typename:const char *
 type	tools/kknd_rules_import/main.c	/^typedef struct { int id, faction, category; const char *type, *maker, *path; } entry_t;$/;"	m	struct:__anon4d59e3560108	typeref:typename:const char *	file:
 type_id	game/g_game.h	/^    uint16_t type_id;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint16_t
 type_id	play/actor.h	/^    uint16_t type_id;$/;"	m	struct:mobj_s	typeref:typename:uint16_t
+typedefs	AGENTS.md	/^enums, typedefs, and other C symbols. Editor integrations (vim, VS Code, etc.)$/;"	v
 u16	tests/dark-colony/test_fin_loading.c	/^static void u16(uint8_t *p, unsigned value) { p[0] = value; p[1] = value >> 8; }$/;"	f	typeref:typename:void	file:	signature:(uint8_t * p,unsigned value)
 u16	tests/dark-colony/test_sprite_loading.c	/^static void u16(uint8_t *p, unsigned n) { p[0] = n; p[1] = n >> 8; }$/;"	f	typeref:typename:void	file:	signature:(uint8_t * p,unsigned n)
 u16le	tools/dc_spr_extract.c	/^static uint16_t u16le(const uint8_t *p) {$/;"	f	typeref:typename:uint16_t	file:	signature:(const uint8_t * p)
@@ -3253,8 +3220,6 @@ uidefinition_s::logical_height	hud/ui_definition.h	/^    int logical_height;$/;"
 uidefinition_s::logical_width	hud/ui_definition.h	/^    int logical_width;$/;"	m	struct:uidefinition_s	typeref:typename:int
 uidefinition_s::minimap	hud/ui_definition.h	/^    irect_t minimap;$/;"	m	struct:uidefinition_s	typeref:typename:irect_t
 uidefinition_s::minimap_scale	hud/ui_definition.h	/^    int minimap_scale;$/;"	m	struct:uidefinition_s	typeref:typename:int
-uidefinition_s::palette	hud/ui_definition.h	/^    const char *palette;$/;"	m	struct:uidefinition_s	typeref:typename:const char *
-uidefinition_s::palette_type	hud/ui_definition.h	/^    uipalettetype_t palette_type;$/;"	m	struct:uidefinition_s	typeref:typename:uipalettetype_t
 uidefinition_s::product_count	hud/ui_definition.h	/^    int product_count;$/;"	m	struct:uidefinition_s	typeref:typename:int
 uidefinition_s::products	hud/ui_definition.h	/^    const uiproduct_t *products;$/;"	m	struct:uidefinition_s	typeref:typename:const uiproduct_t *
 uidefinition_s::resource_count	hud/ui_definition.h	/^    int resource_count;$/;"	m	struct:uidefinition_s	typeref:typename:int
@@ -3270,7 +3235,6 @@ uiimage_s::asset_path	hud/ui_definition.h	/^    const char *asset_path;$/;"	m	st
 uiimage_s::destination	hud/ui_definition.h	/^    irect_t destination;$/;"	m	struct:uiimage_s	typeref:typename:irect_t
 uiimage_s::source	hud/ui_definition.h	/^    irect_t source;$/;"	m	struct:uiimage_s	typeref:typename:irect_t
 uiimage_t	hud/ui_definition.h	/^} uiimage_t;$/;"	t	typeref:struct:uiimage_s
-uipalettetype_t	hud/ui_definition.h	/^typedef enum { UI_PALETTE_NONE, UI_PALETTE_OPENDR, UI_PALETTE_OPENKRUSH } uipalettetype_t;$/;"	t	typeref:enum:__anon259a4b510203
 uipanel_s	hud/ui_definition.h	/^typedef struct uipanel_s {$/;"	s
 uipanel_s::border	hud/ui_definition.h	/^    SDL_Color border;$/;"	m	struct:uipanel_s	typeref:typename:SDL_Color
 uipanel_s::fill	hud/ui_definition.h	/^    SDL_Color fill;$/;"	m	struct:uipanel_s	typeref:typename:SDL_Color
