@@ -7,10 +7,6 @@
 #define SPR(idx) "LEVELS/640/SPRITES.LVL|" #idx ".mobd"
 
 static const mobjtype_t ACTOR_TYPES[] = {
-    { .id = MT_SURV_BARRACKS, .name = "Barracks", .sprite_name = "openkrush/barracks.png",
-      .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 3000 },
-    { .id = MT_MUTE_WARRIOR_HALL, .name = "Warrior Hall", .sprite_name = "openkrush/warriorhall.png",
-      .traits = MF_SELECTABLE | MF_RENDERABLE, .max_hp = 3000 },
     /* === Survivor Infantry === */
     { .id = MT_SURV_RIFLEMAN, .name = "Rifleman",
       .sprite_name = SPR(34),
@@ -351,6 +347,28 @@ static const mobjtype_t ACTOR_TYPES[] = {
 };
 
 
+static const uidefinition_t UI = {
+    .logical_width = 640,
+    .logical_height = 480,
+    .world_viewport = { 0, 0, 480, 480 },
+    .command_grid = { 480, 32, 160, 448 },
+    .resources = {
+        [0] = { .text = { 400, 3 }, .color = { 255, 255, 255, 255 } },
+    },
+    .resource_count = 1,
+    .status_panel = {
+        .rect = { 230, 0, 180, 28 },
+        .fill = { 0, 0, 0, 255 },
+        .border = { 255, 255, 255, 255 },
+    },
+    .status_elapsed_time = true,
+    .sidebar_panel = {
+        .rect = { 480, 0, 160, 480 },
+        .fill = { 0, 0, 0, 255 },
+        .border = { 104, 104, 96, 255 },
+    },
+};
+
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
 const char *const g_game_id            = "kknd";
@@ -365,6 +383,7 @@ const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types = ACTOR_TYPES;
 const int num_actor_types =
     (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
+const uidefinition_t *const gameui = &UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
@@ -394,7 +413,6 @@ int P_LoadThings(const char *path) {
         { MT_SURV_RIFLEMAN,  2.0f,  1.0f },
         { MT_SURV_RIFLEMAN,  3.0f,  0.0f },
         { MT_SURV_OUTPOST,  -3.0f, -2.0f },
-        { MT_SURV_BARRACKS, -3.0f, 3.0f },
     };
     for (int i = 0; i < (int)(sizeof(player_units) / sizeof(player_units[0])); ++i) {
         fvec2_t pos = { cx + player_units[i].dx, cy + player_units[i].dy };
@@ -419,7 +437,6 @@ int P_LoadThings(const char *path) {
         { MT_MUTE_BERSERKER, -2.0f,  1.0f },
         { MT_MUTE_SHOTGUNNER,-3.0f,  0.0f },
         { MT_MUTE_CLANHALL,   3.0f, -2.0f },
-        { MT_MUTE_WARRIOR_HALL, 3.0f, 3.0f },
     };
     for (int i = 0; i < (int)(sizeof(enemy_units) / sizeof(enemy_units[0])); ++i) {
         fvec2_t pos = { ex + enemy_units[i].dx, ey + enemy_units[i].dy };

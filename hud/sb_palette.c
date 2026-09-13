@@ -69,10 +69,6 @@ static int product_list(sb_state_t *st, int *items) {
 }
 
 static void draw_image(sb_state_t *st, const app_t *app, int image, irect_t src, irect_t dst) {
-    if (gameui->palette_type == UI_PALETTE_OPENKRUSH && image == 1) {
-        StaticProductDefinition p;
-        if (G_ModelGetProducts(NULL, consoleplayer, &p, 1) && p.faction == 1) image = 2;
-    }
     dst = scaled(app, dst);
     SDL_RenderCopy(app->renderer, st->textures[image], &src, &dst);
 }
@@ -177,8 +173,7 @@ bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     for (int i = 0; i < gameui->category_count; ++i) {
         if (!irect_contains(gameui->categories[i].rect, mouse)) continue;
         if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
-            st->production_category = st->production_category == i &&
-                gameui->palette_type == UI_PALETTE_OPENKRUSH ? -1 : i;
+            st->production_category = i;
             st->production_page = 0;
         }
         return true;
@@ -235,14 +230,6 @@ bool SB_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
 void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
     int items[64];
     int count = product_list(st, items);
-    bool dr = gameui->palette_type == UI_PALETTE_OPENDR;
-    if (!dr) {
-        for (int y = 0; y < gameui->logical_height; y += 48)
-            draw_image(st, app, 0, (irect_t){0,0,48,48}, (irect_t){912,y,48,48});
-    } else {
-        for (int row = 0; row < gameui->command_rows; ++row)
-            draw_image(st, app, 4, (irect_t){0,495,238,49}, (irect_t){710,339+row*49,238,49});
-    }
     ivec2_t mouse;
     SDL_GetMouseState(&mouse.x, &mouse.y);
     R_WindowToRenderPt(app, mouse.x, mouse.y, &mouse.x, &mouse.y);
@@ -252,8 +239,6 @@ void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
     int hovered_action = -1;
     for (int i = 0; i < gameui->action_count; ++i) {
         const uiaction_t *a = &gameui->actions[i];
-        if (dr) draw_image(st, app, 4, (irect_t){56,28,28,28}, a->rect);
-        else draw_image(st, app, 0, (irect_t){0,0,48,48}, a->rect);
         irect_t dst = {a->rect.x+(a->rect.w-a->source.w)/2,
             a->rect.y+(a->rect.h-a->source.h)/2,a->source.w,a->source.h};
         draw_image(st, app, a->image, a->source, dst);
@@ -273,9 +258,7 @@ void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
     }
     for (int i = 0; i < gameui->category_count; ++i) {
         const uicategory_t *c = &gameui->categories[i];
-        if (dr) draw_image(st, app, 4, (irect_t){56,28,28,28}, c->rect);
         irect_t dst = c->rect;
-        if (dr) dst = (irect_t){dst.x+6,dst.y+6,16,16};
         draw_image(st, app, c->image, c->source, dst);
         if (i == st->production_category) {
             irect_t r = scaled(app, c->rect);
@@ -297,11 +280,10 @@ void SB_PaletteDrawer(sb_state_t *st, const app_t *app) {
         irect_t cell = {gameui->command_grid.x + slot % gameui->command_columns * gameui->icon_size.w,
             gameui->command_grid.y + slot / gameui->command_columns * gameui->icon_size.h,
             gameui->icon_size.w, gameui->icon_size.h};
-        if (!dr) {
+        {
             irect_t background = scaled(app,cell);
             SDL_SetRenderDrawColor(app->renderer,0,0,0,255);
             SDL_RenderFillRect(app->renderer,&background);
-            draw_image(st,app,0,(irect_t){48,0,48,48},cell);
         }
         const spritesheet_t *sprite = &st->product_icons[item];
         irect_t src = sprite->cells[0].rect;

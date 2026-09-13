@@ -221,7 +221,6 @@ fail:
 
 static bool load_sprite(SDL_Renderer *renderer, const char *data_root,
                              const char *spec, const uint32_t palette[256], spritesheet_t *out) {
-    if (spec && strncmp(spec,"openkrush/",sizeof("openkrush/")-1) == 0) return W_LoadKkndPNG(renderer,spec,out);
     char archive_rel[768];
     const char *member_name = NULL;
     const char *bar = spec ? strrchr(spec, '|') : NULL;
@@ -289,6 +288,6 @@ bool load_assets(SDL_Renderer *renderer, const char *data_root,
 
 bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
                       const char *name, spritesheet_t *out) {
-    (void)root;
-    return W_LoadMenuPNG(renderer, "games/kknd/ui", name, "games/kknd/ui/palette.png", out);
+    (void)renderer; (void)root; (void)name; (void)out;
+    return false;
 }

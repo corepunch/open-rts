@@ -12,8 +12,8 @@ PKG_CONFIG ?= pkg-config
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 CPPFLAGS += -Idriver -Igame -Iplay -Irender -Iinterface -Ihud -Itests
 DEPFLAGS = -MMD -MP
-SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2 libpng)
-SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2 libpng)
+SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
+SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)
 
 BUILD_DIR := build
 BIN_DIR   := $(BUILD_DIR)/bin

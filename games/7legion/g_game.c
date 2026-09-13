@@ -194,5 +194,6 @@ int G_WorldViewportWidth(const app_t *app) {
 
 bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
                       const char *name, spritesheet_t *out) {
-    return W_LoadMenuPNG(renderer, root, name, NULL, out);
+    (void)renderer; (void)root; (void)name; (void)out;
+    return false;
 }

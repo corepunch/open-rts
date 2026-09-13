@@ -21,10 +21,6 @@ int32_t read_i32_le(const uint8_t *p);
 uint32_t read_u32_le(const uint8_t *p);
 
 bool W_ReadFile(const char *path, blob_t *out);
-SDL_Surface *W_LoadPNG(const char *path);
-bool W_LoadMenuPNG(SDL_Renderer *renderer, const char *root,
-                    const char *name, const char *palette, spritesheet_t *out);
-bool W_SetPNGPalette(SDL_Surface *surface, const char *path);
 void W_FreeFile(blob_t *blob);
 bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out);
 /* Temporary strings survive seven further M_va calls on this thread.

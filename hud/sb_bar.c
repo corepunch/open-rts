@@ -31,11 +31,7 @@ bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
         char path[1024];
         M_PathJoin(path, sizeof(path), definition->asset_root ? definition->asset_root : data_root,
                    definition->images[i].asset_path);
-        SDL_Surface *surface = strstr(path, ".png") ? W_LoadPNG(path) : SDL_LoadBMP(path);
-        if (surface && definition->palette && !W_SetPNGPalette(surface, definition->palette)) {
-            SDL_FreeSurface(surface);
-            surface = NULL;
-        }
+        SDL_Surface *surface = SDL_LoadBMP(path);
         if (!surface) {
             fprintf(stderr, "warning: failed to load UI asset %s: %s\n", path, SDL_GetError());
             SB_Shutdown(st);
@@ -70,7 +66,7 @@ void SB_Start(sb_state_t *st) {
     st->first_draw = true;
     st->pressed_button = -1;
     st->clock = 0;
-    st->production_category = st->definition->palette_type == UI_PALETTE_OPENDR ? 0 : -1;
+    st->production_category = -1;
     st->radar_visible = st->definition->minimap.w > 0;
 }
 
@@ -270,12 +266,6 @@ static void SB_drawResource(const sb_state_t *st, app_t *app,
     if (amount < 0) amount = 0;
     snprintf(value, sizeof(value), "%d", amount);
     int count = (int)strlen(value);
-    if (st->definition->palette_type != UI_PALETTE_NONE) {
-        ivec2_t point = {display->text.x - (display->right_aligned ? count*6 : count*3), display->text.y};
-        SDL_SetRenderDrawColor(app->renderer,display->color.r,display->color.g,display->color.b,display->color.a);
-        SB_DrawText(app,point,value,count*6);
-        return;
-    }
     float sx = (float)app->win.w / (float)st->definition->logical_width;
     float sy = (float)app->win.h / (float)st->definition->logical_height;
     int anchor_x = (int)((float)display->text.x * sx);
@@ -293,16 +283,6 @@ static void SB_drawElapsedTime(const sb_state_t *st, app_t *app) {
     int seconds = (int)(st->clock / 30u);
     int minutes = (seconds / 60) % 100;
     seconds %= 60;
-    if (st->definition->palette_type != UI_PALETTE_NONE) {
-        char value[8];
-        snprintf(value,sizeof(value),"%02d:%02d",minutes,seconds);
-        irect_t logical = st->definition->status_panel.rect;
-        ivec2_t point = {logical.x+9,logical.y+10};
-        if (st->definition->palette_type == UI_PALETTE_OPENDR) point.x = logical.x+logical.w/2-15;
-        SDL_SetRenderDrawColor(app->renderer,255,255,255,255);
-        SB_DrawText(app,point,value,30);
-        return;
-    }
     int x = panel.x + 9;
     int y = panel.y + 3;
     SDL_Color white = { 255, 255, 255, 255 };
