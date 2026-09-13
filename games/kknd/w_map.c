@@ -1,10 +1,56 @@
 #define _DEFAULT_SOURCE
 #include "kknd.h"
 #include "w_lvl.h"
+#include "info.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+
+static uint16_t cplc_to_type(const char *name) {
+    for (int i = 1; i < NUMMOBJTYPES; ++i)
+        if (cplc_names[i] && strcasecmp(cplc_names[i], name) == 0)
+            return (uint16_t)i;
+    return 0;
+}
+
+static void decode_cplc(const uint8_t *segment, size_t size,
+                         uint32_t cplc_offset, KkndMapData *native) {
+    if (!range_ok(size, cplc_offset, 4)) return;
+    uint32_t strtab = read_u32_le(segment + cplc_offset);
+    if (!strtab || strtab >= size) return;
+    /* Unit records follow a 584-byte (146 × uint32_le) header.
+       Each record is 132 bytes: +0x08=type-string ptr, +0x0c=team,
+       +0x5c=X pixel (>>8), +0x60=Y pixel (>>8). */
+    uint32_t pos = cplc_offset + 584;
+    while (pos + 132 <= strtab) {
+        uint32_t type_ptr = read_u32_le(segment + pos + 8);
+        if (type_ptr >= strtab && type_ptr + 5 < size &&
+            strncmp((const char *)(segment + type_ptr), "UNIT_", 5) == 0) {
+            const char *type_str = (const char *)(segment + type_ptr);
+            uint16_t type = cplc_to_type(type_str);
+            if (type) {
+                uint32_t team  = read_u32_le(segment + pos + 0x0c);
+                uint32_t x_enc = read_u32_le(segment + pos + 0x5c);
+                uint32_t y_enc = read_u32_le(segment + pos + 0x60);
+                KkndUnitPlacement *u = realloc(native->units,
+                    (size_t)(native->unit_count + 1) * sizeof(*native->units));
+                if (!u) return;
+                native->units = u;
+                u[native->unit_count++] = (KkndUnitPlacement){
+                    .type  = type,
+                    .owner = (team == 2) ? 1 : 0,
+                    .x     = (float)(x_enc >> 8) / 32.0f,
+                    .y     = (float)(y_enc >> 8) / 32.0f,
+                };
+            }
+            pos += 132;
+        } else {
+            pos += 4;
+        }
+    }
+}
 static bool decode_mapd(const uint8_t *segment, size_t size, uint32_t mapd_offset,
                          level_t *out, KkndMapData *native) {
     if (!range_ok(size, mapd_offset, 12)) return false;
@@ -78,9 +124,11 @@ bool load_kknd_map(const char *map_path, level_t *out) {
     KkndMapData *native = calloc(1, sizeof(*native));
     out->native_data = native;
     out->destroy_native_data = map_data_destroy;
-    uint32_t mapd;
+    uint32_t mapd, cplc;
     bool ok = native && lvl_asset(segment, size, "MAPD", 0, &mapd) &&
               decode_mapd(segment, size, mapd, out, native);
+    if (ok && lvl_asset(segment, size, "CPLC", 0, &cplc))
+        decode_cplc(segment, size, cplc, native);
     W_FreeFile(&blob);
     if (!ok) {
         fprintf(stderr, "%s has an invalid or unsupported KKnD MAPD asset\n", map_path);

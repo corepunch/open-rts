@@ -6,10 +6,18 @@
 enum { MAX_LAYERS = 3 };
 
 typedef struct {
+    uint16_t type;   /* MT_ value */
+    uint8_t  owner;  /* 0 = player (survivors), 1 = enemy (mutants) */
+    float    x, y;   /* cell-space position */
+} KkndUnitPlacement;
+
+typedef struct {
     isize2_t atlas;
     int tile_count;
     uint32_t palette[256];
     uint32_t *pixels;
+    KkndUnitPlacement *units;
+    int unit_count;
 } KkndMapData;
 
 bool range_ok(size_t size, uint32_t offset, size_t length);

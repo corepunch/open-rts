@@ -3,6 +3,7 @@
 #include "info.h"
 #include "sb_bar.h"
 #include "d_net.h"
+#include "w_lvl.h"
 
 #define SPR(idx) "LEVELS/640/SPRITES.LVL|" #idx ".mobd"
 
@@ -401,87 +402,25 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
 
 int P_LoadThings(const char *path) {
     (void)path;
+    const KkndMapData *native = level.native_data;
+    if (!native || !native->units) return 0;
     int count = 0;
-    float cx = level.width * 0.25f;
-    float cy = level.height * 0.25f;
-
-    /* Spawn player base + starting units */
-    struct { uint16_t type; float dx; float dy; } player_units[] = {
-        { MT_SURV_DRILLRIG,  0.0f,  0.0f },
-        { MT_SURV_OIL_TANKER, -2.0f, 0.0f },
-        { MT_SURV_RIFLEMAN,  2.0f, -1.0f },
-        { MT_SURV_RIFLEMAN,  2.0f,  1.0f },
-        { MT_SURV_RIFLEMAN,  3.0f,  0.0f },
-        { MT_SURV_OUTPOST,  -3.0f, -2.0f },
-    };
-    for (int i = 0; i < (int)(sizeof(player_units) / sizeof(player_units[0])); ++i) {
-        fvec2_t pos = { cx + player_units[i].dx, cy + player_units[i].dy };
-        if (pos.x < 1) pos.x = 1;
-        if (pos.y < 1) pos.y = 1;
-        mobj_t *unit = P_SpawnMobj(fixed3_zero(), player_units[i].type);
-        if (!unit) continue;
-        unit->core.position = fixed3_from_fvec2(pos, 0);
-        unit->owner = 0;
-        unit->team = 0;
-        unit->type_id = player_units[i].type;
-        count++;
-    }
-
-    /* Spawn enemy base + units on the far side */
-    float ex = level.width * 0.75f;
-    float ey = level.height * 0.75f;
-    struct { uint16_t type; float dx; float dy; } enemy_units[] = {
-        { MT_MUTE_DRILLRIG,   0.0f,  0.0f },
-        { MT_MUTE_OIL_TANKER, 2.0f,  0.0f },
-        { MT_MUTE_BERSERKER, -2.0f, -1.0f },
-        { MT_MUTE_BERSERKER, -2.0f,  1.0f },
-        { MT_MUTE_SHOTGUNNER,-3.0f,  0.0f },
-        { MT_MUTE_CLANHALL,   3.0f, -2.0f },
-    };
-    for (int i = 0; i < (int)(sizeof(enemy_units) / sizeof(enemy_units[0])); ++i) {
-        fvec2_t pos = { ex + enemy_units[i].dx, ey + enemy_units[i].dy };
-        if (pos.x >= level.width) pos.x = (float)level.width - 1.0f;
-        if (pos.y >= level.height) pos.y = (float)level.height - 1.0f;
-        mobj_t *unit = P_SpawnMobj(fixed3_zero(), enemy_units[i].type);
-        if (!unit) continue;
-        unit->core.position = fixed3_from_fvec2(pos, 0);
-        unit->owner = 1;
-        unit->team = 1;
-        unit->allegiance = ALLEGIANCE_ENEMY;
-        unit->type_id = enemy_units[i].type;
-        count++;
-    }
-
-    /* Place resource vents near both bases */
-    static const struct { float fx; float fy; } vent_rel[] = {
-        { -6.0f, -4.0f }, { 6.0f, 4.0f },
-        { -4.0f, 6.0f },  { 4.0f, -6.0f },
-    };
-    float bases[][2] = { { cx, cy }, { ex, ey } };
-    for (int b = 0; b < 2; ++b) {
-        for (int v = 0; v < (int)(sizeof(vent_rel) / sizeof(vent_rel[0])); ++v) {
-            float vx = bases[b][0] + vent_rel[v].fx;
-            float vy = bases[b][1] + vent_rel[v].fy;
-            int ix = (int)vx, iy = (int)vy;
-            if (!L_Contains(&level, ix, iy)) continue;
-            resourcevent_t *vents = realloc(level.resource_vents,
-                (size_t)(level.resource_vent_count + 1) * sizeof(resourcevent_t));
-            if (!vents) break;
-            level.resource_vents = vents;
-            resourcevent_t *rv = &level.resource_vents[level.resource_vent_count++];
-            rv->cell = (ivec2_t){ ix, iy };
-            rv->attachment = (fvec2_t){ vx + 0.5f, vy + 0.5f };
-            rv->amount = 5000;
-            rv->rate = 25;
-            rv->active = true;
-            rv->resource_type = 0;
+    for (int i = 0; i < native->unit_count; ++i) {
+        const KkndUnitPlacement *u = &native->units[i];
+        mobj_t *mobj = P_SpawnMobj(fixed3_zero(), u->type);
+        if (!mobj) continue;
+        mobj->core.position = fixed3_from_fvec2((fvec2_t){ u->x, u->y }, 0);
+        mobj->owner = u->owner;
+        mobj->team  = u->owner;
+        mobj->type_id = u->type;
+        if (u->owner != 0)
+            mobj->allegiance = ALLEGIANCE_ENEMY;
+        if (u->owner == 0 && !level.has_camera) {
+            level.has_camera = true;
+            level.camera = (fvec2_t){ u->x, u->y };
         }
+        count++;
     }
-
-    level.player_resources[0][0] = 5000;
-    level.player_resources[1][0] = 5000;
-    level.has_camera = true;
-    level.camera = (fvec2_t){ cx, cy };
     return count;
 }
 

@@ -359,6 +359,7 @@ static void write_info_h(const char *path) {
     /* externs */
     fprintf(f,
         "extern const char *const sprnames[NUMSPRITES];\n"
+        "extern const char *const cplc_names[NUMMOBJTYPES];\n"
         "extern const state_t states[NUMSTATES];\n"
         "extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];\n"
         "extern const gameinfo_t game_info;\n"
@@ -433,6 +434,14 @@ static void write_info_c(const char *path) {
         fprintf(f, "    \"%d\",  /* %s */\n", g_units[i].mobd, g_units[i].name);
     }
     fprintf(f, "};\n\n");
+
+    /* cplc_names[] — reverse-lookup from MT_ index to CPLC type string */
+    fprintf(f, "const char *const cplc_names[NUMMOBJTYPES] = {\n");
+    fprintf(f, "    NULL,  /* MT_NULL */\n");
+    for (int i = 0; i < g_unit_count; ++i)
+        fprintf(f, "    \"%s\",  /* MT_%s */\n", g_units[i].name, g_units[i].spr_suffix);
+    fprintf(f, "};\n\n");
+
     fprintf(f, "void A_KkndResearch(mobj_t *actor);\n\n");
 
     /* states[] */

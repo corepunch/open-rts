@@ -20,6 +20,7 @@ void map_data_destroy(void *opaque) {
     KkndMapData *data = opaque;
     if (!data) return;
     free(data->pixels);
+    free(data->units);
     free(data);
 }
 

@@ -504,6 +504,7 @@ enum {
 };
 
 extern const char *const sprnames[NUMSPRITES];
+extern const char *const cplc_names[NUMMOBJTYPES];
 extern const state_t states[NUMSTATES];
 extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];
 extern const gameinfo_t game_info;
