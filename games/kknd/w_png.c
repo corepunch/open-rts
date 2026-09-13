@@ -61,7 +61,7 @@ bool W_LoadKkndPNG(SDL_Renderer *renderer, const char *name, spritesheet_t *out)
         if (!out->lumps[i].texture) goto done;
         out->cells[i].rect = out->cells[i].bounds = (irect_t){0,0,size.w,size.h};
         /* These sheets' frame sequences share the idle sequence's placement. */
-        out->cells[i].displacement = offset;
+        out->cells[i].ground_point = ivec2_sub((ivec2_t){size.w/2,size.h/2}, offset);
         if (!R_InstallSpriteLump(out,i,0,i,false)) goto done;
     }
     ok = true;

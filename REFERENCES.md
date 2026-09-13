@@ -1028,6 +1028,15 @@ Local game-data files that have already been useful:
 
 ## KKnD
 
+September 13 anchor verification uses the same pinned OpenKrush revision below.
+`MobdFrame` reads the native anchor; `MobdImage` flips pixels independently;
+`MobdLoader` converts the anchor to a center-relative drawing offset. See
+[sprite anchor evidence](docs/KKND_EXE_FINDINGS.md#sprite-anchors-and-tanker-rotation-2026-09-13).
+
+- [Assets/FileFormats/MobdFrame.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Assets/FileFormats/MobdFrame.cs)
+- [Assets/FileFormats/MobdImage.cs](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/OpenRA.Mods.OpenKrush/Assets/FileFormats/MobdImage.cs)
+- [Survivor oil tanker sequences](https://github.com/IceReaper/OpenKrush/blob/76c634d05984e48e1e474460c46607aee0bc78a1/mods/openkrush_gen1/actors/survivors/vehicles/oiltanker/sequences.yaml)
+
 September 12 sprite-channel verification uses OpenKrush revision
 `76c634d05984e48e1e474460c46607aee0bc78a1` and the fingerprinted local SPRITES.LVL.
 Detailed offsets, rejected interpretations and limitations are recorded in

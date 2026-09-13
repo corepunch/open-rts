@@ -1146,6 +1146,7 @@ __anon82d667f30208::label_offset	tools/dc_fin_extract.c	/^    size_t label_offse
 __anon82d667f30208::parsed	tools/dc_fin_extract.c	/^    bool parsed;$/;"	m	struct:__anon82d667f30208	typeref:typename:bool	file:
 __anon82d667f30208::path	tools/dc_fin_extract.c	/^    const char *path;$/;"	m	struct:__anon82d667f30208	typeref:typename:const char *	file:
 __anon82d667f30208::size	tools/dc_fin_extract.c	/^    size_t size;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
+__anon8e8cd87b0108	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	s	function:check_anchors	file:
 __anon9020bd480108	play/p_map.c	/^typedef struct {$/;"	s	file:
 __anon9020bd480108::f	play/p_map.c	/^    int f;$/;"	m	struct:__anon9020bd480108	typeref:typename:int	file:
 __anon9020bd480108::g	play/p_map.c	/^    int g;$/;"	m	struct:__anon9020bd480108	typeref:typename:int	file:
@@ -1361,6 +1362,7 @@ allegiance	play/p_ai.h	/^    uint8_t allegiance;$/;"	m	struct:__anonf4d3b9790208
 allies	game/map.h	/^    uint32_t allies[8];$/;"	m	struct:__anon6564a8e20208	typeref:typename:uint32_t[8]
 amount	game/map.h	/^    int amount;$/;"	m	struct:resourcevent_s	typeref:typename:int
 anchor	play/actor.h	/^    fvec2_t anchor;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:fvec2_t
+anchor	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:ivec2_t	file:
 angle	game/map.h	/^    angle_t angle;$/;"	m	struct:mapdecoration_s	typeref:typename:angle_t
 angle	play/actor.h	/^    angle_t angle;$/;"	m	struct:mobjcore_s	typeref:typename:angle_t
 angle_distance	play/facing.h	/^uint32_t angle_distance(angle_t a, angle_t b);$/;"	p	typeref:typename:uint32_t	signature:(angle_t a,angle_t b)
@@ -1535,6 +1537,9 @@ center_anchor	game/g_game.h	/^    bool center_anchor;$/;"	m	struct:__anon42a104c
 center_anchor	game/map.h	/^    bool center_anchor;$/;"	m	struct:mapdecoration_s	typeref:typename:bool
 cfg_name	tools/kknd_info_gen.c	/^    const char *cfg_name;$/;"	m	struct:__anoncbabb2620108	typeref:typename:const char *	file:
 check_all_fin_frames	tests/dark-colony/test_sprite_definitions.c	/^static void check_all_fin_frames(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
+check_anchors	tests/kknd/test_runtime_sprites.c	/^static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {$/;"	f	typeref:typename:int	file:	signature:(SDL_Renderer * renderer,const spritecache_t * cache)
+check_anchors::__anon8e8cd87b0108::anchor	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:ivec2_t	file:
+check_anchors::__anon8e8cd87b0108::type	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:int	file:
 check_blits	tests/dark-colony/test_sprite_loading.c	/^static void check_blits(SDL_Renderer *renderer, const spritesheet_t *sprite) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite)
 check_city	tests/dark-colony/test_city_layout.c	/^static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams, const char *sc/;"	f	typeref:typename:void	file:	signature:(const char * path,fvec2_t anchor,unsigned expected_teams,const char * screenshot)
 check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit,const char * stem,const char * sequence,int sprite,int corpse,int total_tics)
@@ -3155,6 +3160,7 @@ type	game/g_game.h	/^    RtsGameEventType type;$/;"	m	struct:__anon42a104c40f08	
 type	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit; float gx, gy; } UnitOrder;$/;"	m	struct:__anon3d3e43c00108	typeref:typename:uint8_t	file:
 type	tests/dark-colony/test_actor_lifecycle.c	/^    static const struct { int type, corpse; } deaths[] = {$/;"	m	struct:main::__anon625b5c910108	typeref:typename:int	file:
 type	tests/dark-colony/test_barracks_production.c	/^    static const struct { int ui_y, type, state, cost; const char *image; } modules[] = {$/;"	m	struct:main::__anon457a6b980108	typeref:typename:int	file:
+type	tests/kknd/test_runtime_sprites.c	/^    static const struct { int type; ivec2_t anchor; } buildings[] = {$/;"	m	struct:check_anchors::__anon8e8cd87b0108	typeref:typename:int	file:
 type	tools/dr_info_gen.c	/^    const char *type;$/;"	m	struct:__anon0771d3700208	typeref:typename:const char *	file:
 type	tools/info_gen.h	/^    const char *type;$/;"	m	struct:__anond5c6e2e00108	typeref:typename:const char *
 type	tools/kknd_rules_import/main.c	/^typedef struct { int id, faction, category; const char *type, *maker, *path; } entry_t;$/;"	m	struct:__anon4d59e3560108	typeref:typename:const char *	file:

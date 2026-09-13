@@ -95,7 +95,7 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     reject_sprite(renderer, file, 11, palette); /* Expanded file shorter than its offset word. */
 #endif
 #elif defined(KK)
-    /* Frame -> TRPS flags -> two raw pixels, with authored displacement. */
+    /* Frame -> TRPS flags -> two raw pixels, with a final-image anchor. */
     put32(file, 3); put32(file + 4, 4); put32(file + 12, 28);
     memcpy(file + 28, "TRPS", 4); put32(file + 32, 1); put32(file + 36, 40);
     put32(file + 40, 2); put32(file + 44, 1);
@@ -105,13 +105,19 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     bool flip = false;
     CHECK(decode_mobd_image(renderer, file, 51, 0, palette, &cell, &lump, &flip));
     CHECK(flip);
-    CHECK(ivec2_equal(cell.displacement, (ivec2_t){ -2, -4 }));
+    CHECK(ivec2_equal(cell.ground_point, (ivec2_t){ -1, 4 }));
+    CHECK(ivec2_equal(cell.displacement, (ivec2_t){ 0, 0 }));
     uint32_t actual[2];
     SDL_Rect area = { 0, 0, 2, 1 };
     CHECK(SDL_SetTextureBlendMode(lump.texture, SDL_BLENDMODE_NONE) == 0);
     CHECK(SDL_RenderCopy(renderer, lump.texture, NULL, &area) == 0);
     CHECK(SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, actual, 8) == 0);
     CHECK(actual[0] == palette[1] && actual[1] == palette[2]);
+    SDL_DestroyTexture(lump.texture);
+    lump = (spritelump_t){0};
+    put32(file + 32, 0);
+    CHECK(decode_mobd_image(renderer, file, 51, 0, palette, &cell, &lump, &flip));
+    CHECK(!flip && ivec2_equal(cell.ground_point, (ivec2_t){3,4}));
     SDL_DestroyTexture(lump.texture);
     lump = (spritelump_t){0};
     for (size_t n = 0; n < 51; ++n)
