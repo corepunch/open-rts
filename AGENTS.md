@@ -441,6 +441,41 @@ logging before committing the fix.
 
 - Commit all completed working-tree changes after verification so progress stays
   easy to inspect and bisect.
-- Write a clear imperative subject and a detailed commit body describing the
-  behavior changed, the reason for the change, and the verification performed.
 - Do not push commits unless the user explicitly asks for a push.
+
+### Commit message format
+
+Every commit message must have three layers — what, how, and why:
+
+```
+<imperative subject line, ≤72 chars>
+
+<Body — one paragraph per logical concern.  Describe:>
+
+  WHAT changed: the observable behavior or API that is different after
+  this commit (not a list of files touched).
+
+  HOW it works: the mechanism — which data structures, functions, or
+  file-format fields were introduced or changed, and why that design was
+  chosen over obvious alternatives.
+
+  WHY it was needed: the defect, missing feature, or wrong assumption
+  that motivated the change.  Quote level/mission names, asset paths,
+  or reference-source facts where they make the reason concrete.
+
+<Verification line: smoke-test outcome, unit count, or other concrete
+check that confirms the change is correct.>
+```
+
+**Rules:**
+- Subject is imperative ("Load CPLC units", not "Loading CPLC units" or
+  "Loaded CPLC units").  Never start with "Update", "Fix up", "Cleanup",
+  or other vague verbs when a precise one exists.
+- Body is mandatory for every commit that touches logic, data layout, or
+  build rules.  A one-line commit is only acceptable for pure mechanical
+  changes (whitespace, rename with no semantic effect).
+- Name the concrete evidence: asset chunk tag, struct field offset, MOBD
+  index, executable address, observed pixel count, or test output.
+- Never describe what a diff already makes obvious ("remove the loop",
+  "add the function").  Explain intent and mechanism instead.
+- Include the `Co-Authored-By: Claude <noreply@anthropic.com>` trailer.
