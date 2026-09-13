@@ -119,6 +119,32 @@ static irect_t visible_bounds_indexed(const uint8_t *indices, int w, int h) {
     return (irect_t){ min_x, min_y, max_x - min_x + 1, max_y - min_y + 1 };
 }
 
+static bool decode_dr_frame(const uint8_t **src, size_t *remaining,
+                            uint8_t *dst, int w, int h, bool shadow) {
+    memset(dst, 0, (size_t)w * h);
+    for (int y = 0; y < h; ++y) {
+        int x = 0, step = 0;
+        while (x < w) {
+            if (!*remaining) return false;
+            int count = *(*src)++; (*remaining)--;
+            if (step & 1) count &= 0x7f;
+            if (count > w - x) return false;
+            if (step & 1) {
+                uint8_t *d = dst + (size_t)y * w + x;
+                if (shadow) {
+                    memset(d, 47, count);
+                } else {
+                    if ((size_t)count > *remaining) return false;
+                    memcpy(d, *src, count);
+                    *src += count; *remaining -= count;
+                }
+            }
+            x += count; step++;
+        }
+    }
+    return true;
+}
+
 static bool load_dark_sprite(const uint8_t *data, size_t size,
                              const uint32_t palette[256], spritesheet_t *out) {
     memset(out, 0, sizeof(*out));
@@ -175,27 +201,9 @@ static bool load_dark_sprite(const uint8_t *data, size_t size,
                 if (start < 0 || end < start || (size_t)end > size - off_bits) goto decode_fail;
                 const uint8_t *compressed = data + off_bits + start;
                 size_t remaining = (size_t)(end - start);
-                memset(frame_indices, 0, pixels);
-                for (int y = 0; y < hdr.szy; ++y) {
-                    int x = 0, step = 0;
-                    while (x < hdr.szx) {
-                        if (!remaining) goto decode_fail;
-                        int count = *compressed++; remaining--;
-                        if (step & 1) count &= 0x7f;
-                        if (count > hdr.szx - x) goto decode_fail;
-                        if (step & 1) {
-                            uint8_t *dst = frame_indices + (size_t)y * hdr.szx + x;
-                            if (shadow) {
-                                memset(dst, 47, count);
-                            } else {
-                                if ((size_t)count > remaining) goto decode_fail;
-                                memcpy(dst, compressed, count);
-                                compressed += count; remaining -= count;
-                            }
-                        }
-                        x += count; step++;
-                    }
-                }
+                if (!decode_dr_frame(&compressed, &remaining,
+                                     frame_indices, hdr.szx, hdr.szy, shadow))
+                    goto decode_fail;
                 spritecell_t *cell = &out->cells[lump];
                 cell->rect = (irect_t){ 0, 0, hdr.szx, hdr.szy };
                 cell->bounds = visible_bounds_indexed(frame_indices, hdr.szx, hdr.szy);
