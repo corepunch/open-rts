@@ -79,8 +79,10 @@ S_EXPL_WORK{1..2}                EXPL    102..103           2,4                 
 ; EXPLDIE0: complete native FIN sequence.
 S_EXPL_DIE{1..12}                EXPL    104..115           5,4,5,5,5,4,5,5,5,4,5,5  NULL                   S_EXPL_CORPSE                4
 S_EXPL_CORPSE                    EXPL    115                -1                       NULL                   S_NULL                       4
-S_ORTU_STND                      ORTU    240                -1                       NULL                   S_ORTU_STND                  1
-S_ORTU_RUN{1..7}                 ORTU    86..92             3                        A_Chase                S_ORTU_RUN1                  2
+; ORTUSTAND0/ORTUMOVE0: complete native hover and travel sequences.
+S_ORTU_STND                      ORTU    240                4                        A_Look                 S_ORTU_STND2                 1
+S_ORTU_STND{2..7}                ORTU    241..246           4                        A_Look                 S_ORTU_STND                  1
+S_ORTU_RUN{1..7}                 ORTU    86..92             4                        A_Chase                S_ORTU_RUN1                  2
 ; ORTUDIE14: complete native FIN sequence.
 S_ORTU_DIE{1..7}                 ORTU    212..218           6,7,6,6,7,6,6            NULL                   S_ORTU_CORPSE                4
 S_ORTU_CORPSE                    ORTU    218                -1                       NULL                   S_NULL                       4

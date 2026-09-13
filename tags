@@ -1561,6 +1561,7 @@ check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death
 check_dependency	tests/dark-colony/test_alien_production.c	/^static void check_dependency(const StaticProductDefinition *product) {$/;"	f	typeref:typename:void	file:	signature:(const StaticProductDefinition * product)
 check_fin_sequence	tests/dark-colony/test_building_damage.c	/^static void check_fin_sequence(const char *name, int first, int last) {$/;"	f	typeref:typename:void	file:	signature:(const char * name,int first,int last)
 check_live_palette	tests/dark-colony/test_terrain_loading.c	/^static void check_live_palette(app_t *app) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app)
+check_ortu_animation	tests/dark-colony/test_actor_lifecycle.c	/^static void check_ortu_animation(mobj_t *unit) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * unit)
 check_osprey	tests/dark-colony/test_multiplayer_units.c	/^static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface *surface) {$/;"	f	typeref:typename:void	file:	signature:(const spritecache_t * cache,mobj_t * osprey,SDL_Surface * surface)
 check_pixels	tests/dark-colony/test_sprite_loading.c	/^static void check_pixels(SDL_Renderer *renderer, const spritesheet_t *sprite,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite,const uint8_t * indices,int remap)
 check_player	tests/dark-colony/test_alien_production.c	/^static void check_player(int player) {$/;"	f	typeref:typename:void	file:	signature:(int player)

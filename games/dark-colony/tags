@@ -1954,6 +1954,12 @@ S_ORTU_RUN5	games/dark-colony/info.h	/^    S_ORTU_RUN5,$/;"	e	enum:__anonf7269e9
 S_ORTU_RUN6	games/dark-colony/info.h	/^    S_ORTU_RUN6,$/;"	e	enum:__anonf7269e950203
 S_ORTU_RUN7	games/dark-colony/info.h	/^    S_ORTU_RUN7,$/;"	e	enum:__anonf7269e950203
 S_ORTU_STND	games/dark-colony/info.h	/^    S_ORTU_STND,$/;"	e	enum:__anonf7269e950203
+S_ORTU_STND2	games/dark-colony/info.h	/^    S_ORTU_STND2,$/;"	e	enum:__anonf7269e950203
+S_ORTU_STND3	games/dark-colony/info.h	/^    S_ORTU_STND3,$/;"	e	enum:__anonf7269e950203
+S_ORTU_STND4	games/dark-colony/info.h	/^    S_ORTU_STND4,$/;"	e	enum:__anonf7269e950203
+S_ORTU_STND5	games/dark-colony/info.h	/^    S_ORTU_STND5,$/;"	e	enum:__anonf7269e950203
+S_ORTU_STND6	games/dark-colony/info.h	/^    S_ORTU_STND6,$/;"	e	enum:__anonf7269e950203
+S_ORTU_STND7	games/dark-colony/info.h	/^    S_ORTU_STND7,$/;"	e	enum:__anonf7269e950203
 S_PRODUCTION_READY	games/dark-colony/info.h	/^    S_PRODUCTION_READY,$/;"	e	enum:__anonf7269e950203
 S_PSYC_ATK1	games/dark-colony/info.h	/^    S_PSYC_ATK1,$/;"	e	enum:__anonf7269e950203
 S_PSYC_ATK2	games/dark-colony/info.h	/^    S_PSYC_ATK2,$/;"	e	enum:__anonf7269e950203

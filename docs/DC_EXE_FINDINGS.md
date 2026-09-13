@@ -4934,6 +4934,15 @@ four engine tics per frame, 16 per cycle. The runtime previously held STAND's
 first frame forever and used three tics for each MOVE frame. Both loops now
 use the complete native ranges and timing; existing Reaper timing is unchanged.
 
+**Confirmed Ortu animation:** ORTU.SPR has 86 raw cells. ORTU.FIN STAND0 is
+frames 154..160, logical frames 240..246, and MOVE0 is frames 0..6, logical
+frames 86..92. Every even STAND direction and every odd SHUF direction is
+authored, while all sixteen MOVE directions are animated; the native frame
+records report two retail ticks each. Ortu now uses all seven STAND and MOVE
+frames at four engine tics per frame, preserving the native hover bob and the
+existing sixteen-direction travel definitions instead of freezing STAND0 or
+shortening the movement cycle.
+
 **Confirmed flight flag:** GAMESTAT numeric column 12 (zero-based after the
 sprite token) is 1 for SCGM/type 5 and ORTU/type 13. The loader at
 `0x438832..0x438835` writes this byte into type `+0x60`; spawning at
