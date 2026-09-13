@@ -889,7 +889,7 @@ int load_dark_reign_initial_units(const char *map_path) {
             while (isspace((unsigned char)*line)) line++;
             int parsed_team = 0;
             if (sscanf(line, "SetTeam(%d", &parsed_team) == 1) team = parsed_team;
-            if (team == 0 && sscanf(line, "SetStartLocation(%d %d", &start_x, &start_y) == 2)
+            if (sscanf(line, "SetStartLocation(%d %d", &start_x, &start_y) == 2)
                 have_start = true;
             if (sscanf(line, "SetDefaultTeam(%d", &parsed_team) == 1) team = parsed_team;
             if (team == 0 && associated_type[0] == '\0') {
