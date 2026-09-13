@@ -91,7 +91,8 @@ int main(void) {
     /* The FIN dispatcher must suppress the body for layer 2, and keep
      * shadows at ground height when Z raises the body. */
     state_t states[2] = {{0}, {.tics = -1}};
-    gameinfo_t game = {.states = states, .state_count = 2};
+    gameinfo_t game = {.states = states, .state_count = 2,
+                      .state_coord_mode = RTS_STATE_COORDS_FIN_TOP_LEFT};
     gameinfo = &game;
     level_t map = {0};
     mobj_t unit = {.traits = MF_RENDERABLE};

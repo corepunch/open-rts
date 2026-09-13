@@ -44,7 +44,8 @@ int main(void) {
     part->offset = (ivec2_t){ 0, 1 };
     part->layer = 1;
     state_t states[2] = { {0}, { .tics = -1 } };
-    gameinfo_t game = { .states = states, .state_count = 2 };
+    gameinfo_t game = { .states = states, .state_count = 2,
+                       .state_coord_mode = RTS_STATE_COORDS_FIN_TOP_LEFT };
     gameinfo = &game;
     mobj_t unit = { .traits = MF_RENDERABLE };
     unit.core.render_flags = UINT32_MAX;

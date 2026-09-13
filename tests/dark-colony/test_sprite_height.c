@@ -30,7 +30,8 @@ int main(void) {
     assert(R_InstallSpriteLump(&sheet, 1, 0, 0, false));
     sheet.spritedef.spriteframes[1].directions[0].layers[0].remap = 4;
     state_t states[3] = {{0}, {.tics = -1}, {.frame = 1, .tics = -1}};
-    gameinfo_t game = {.states = states, .state_count = 3};
+    gameinfo_t game = {.states = states, .state_count = 3,
+                      .state_coord_mode = RTS_STATE_COORDS_FIN_TOP_LEFT};
     gameinfo = &game;
     mobj_t ground = {.traits = MF_RENDERABLE};
     mobj_t ship = {.traits = MF_RENDERABLE, .team = 1};
