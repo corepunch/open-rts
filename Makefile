@@ -240,7 +240,7 @@ dark-reign: $(BIN_DIR)/dark-reign
 	$(BIN_DIR)/dark-reign $(DARK_REIGN_ROOT)
 
 dark-colony: $(BIN_DIR)/dark-colony
-	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN01.MAP SPRITES/TROOPER1.SPR
+	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT)
 
 dark-colony-human02: $(BIN_DIR)/dark-colony
 	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR

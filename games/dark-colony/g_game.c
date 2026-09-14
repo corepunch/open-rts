@@ -432,12 +432,13 @@ const mobjtype_t *actor_type_by_id(uint16_t type_id) {
     return NULL;
 }
 
-static bool load_font(SDL_Renderer *renderer, const char *data_root, bitmapfont_t *font) {
-    if (!renderer || !data_root || !font) return false;
+bool DC_LoadFont(const char *data_root, const char *name,
+                 bitmapfont_t *font) {
+    if (!data_root || !font) return false;
     memset(font, 0, sizeof(*font));
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
     char path[1024];
-    M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MFONTO7.SPR");
+    M_PathJoin(path, sizeof(path), data_root, name);
     uint32_t palette[256] = { 0 };
     if (!load_dark_colony_sprite(path, &font->sprite, palette)) return false;
     const int font_offset = 31;
@@ -547,7 +548,8 @@ bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
 }
 
 bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
-    return load_font(renderer, root, font);
+    (void)renderer;
+    return DC_LoadFont(root, "INTRFACE/MFONTO7.SPR", font);
 }
 
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,

@@ -145,6 +145,12 @@ MT_SURV_SAPPER	games/kknd/info.h	/^    MT_SURV_SAPPER,  \/* doomednum=6 *\/$/;"	
 MT_SURV_SNIPER	games/kknd/info.h	/^    MT_SURV_SNIPER,  \/* doomednum=16 *\/$/;"	e	enum:__anon9b61d11a0403
 MT_SURV_SWAT	games/kknd/info.h	/^    MT_SURV_SWAT,  \/* doomednum=4 *\/$/;"	e	enum:__anon9b61d11a0403
 MT_SURV_TECHNICIAN	games/kknd/info.h	/^    MT_SURV_TECHNICIAN,  \/* doomednum=12 *\/$/;"	e	enum:__anon9b61d11a0403
+M_Drawer	games/kknd/m_menu.c	/^void M_Drawer(const app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(const app_t * app)
+M_Init	games/kknd/m_menu.c	/^bool M_Init(app_t *app, const char *root) { (void)app; (void)root; return true; }$/;"	f	typeref:typename:bool	signature:(app_t * app,const char * root)
+M_Responder	games/kknd/m_menu.c	/^bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {$/;"	f	typeref:typename:bool	signature:(app_t * app,const SDL_Event * event,bool inlevel)
+M_Shutdown	games/kknd/m_menu.c	/^void M_Shutdown(void) {}$/;"	f	typeref:typename:void	signature:(void)
+M_StartControlPanel	games/kknd/m_menu.c	/^void M_StartControlPanel(app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(app_t * app)
+M_Ticker	games/kknd/m_menu.c	/^void M_Ticker(void) {}$/;"	f	typeref:typename:void	signature:(void)
 NUMMOBJTYPES	games/kknd/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon9b61d11a0403
 NUMSPRITES	games/kknd/info.h	/^    NUMSPRITES$/;"	e	enum:__anon9b61d11a0203
 NUMSTATES	games/kknd/info.h	/^    NUMSTATES$/;"	e	enum:__anon9b61d11a0303
@@ -713,6 +719,9 @@ map_data_destroy	games/kknd/w_lvl.c	/^void map_data_destroy(void *opaque) {$/;"	
 map_data_destroy	games/kknd/w_lvl.h	/^void map_data_destroy(void *opaque);$/;"	p	typeref:typename:void	signature:(void * opaque)
 mass	games/kknd/info.h	/^    int mass;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 meleestate	games/kknd/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+menuactive	games/kknd/m_menu.c	/^bool menuactive;$/;"	v	typeref:typename:bool
+menuerror	games/kknd/m_menu.c	/^bool menuerror;$/;"	v	typeref:typename:bool
+menumap	games/kknd/m_menu.c	/^const char *menumap;$/;"	v	typeref:typename:const char *
 missilestate	games/kknd/info.h	/^    int missilestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 mobd_layout	games/kknd/w_spr.c	/^static bool mobd_layout(const uint8_t *segment, size_t size, uint32_t member,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * segment,size_t size,uint32_t member,mobd_layout_t * out)
 mobd_layout_t	games/kknd/w_spr.c	/^} mobd_layout_t;$/;"	t	typeref:struct:__anon1b3aca940208	file:

@@ -96,6 +96,7 @@ CHECK	tests/dark-colony/test_actor_lifecycle.c	/^#define CHECK(/;"	d	file:	signa
 CHECK	tests/dark-colony/test_blood_fin.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-colony/test_drop_fin_states.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-colony/test_fin_loading.c	/^#define CHECK(/;"	d	file:	signature:(c)
+CHECK	tests/dark-colony/test_menu.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-colony/test_projectiles.c	/^#define CHECK(/;"	d	file:	signature:(condition)
 CHECK	tests/dark-colony/test_reaper_death.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-colony/test_sprite_definitions.c	/^#define CHECK(/;"	d	file:	signature:(c)
@@ -358,11 +359,17 @@ MOBILE	tools/7legion_expanded_units.c	/^#define MOBILE(/;"	d	file:	signature:(ty
 MOBILE	tools/7legion_info_gen.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,asset,id,hp,speed,damage,extra)
 MOBILE	tools/dr_info_gen.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,actor,hp,speed,damage,extra,anim_data)
 MODEL	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
+M_Drawer	driver/m_menu.h	/^void M_Drawer(const app_t *app);$/;"	p	typeref:typename:void	signature:(const app_t * app)
 M_FileName	driver/engine.h	/^const char *M_FileName(const char *path);$/;"	p	typeref:typename:const char *	signature:(const char * path)
 M_FileName	driver/w_file.c	/^const char *M_FileName(const char *path) {$/;"	f	typeref:typename:const char *	signature:(const char * path)
+M_Init	driver/m_menu.h	/^bool M_Init(app_t *app, const char *root);$/;"	p	typeref:typename:bool	signature:(app_t * app,const char * root)
 M_PathJoin	driver/engine.h	/^void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b);$/;"	p	typeref:typename:void	signature:(char * dst,size_t dst_size,const char * a,const char * b)
 M_PathJoin	driver/w_file.c	/^void M_PathJoin(char *dst, size_t dst_size, const char *a, const char *b) {$/;"	f	typeref:typename:void	signature:(char * dst,size_t dst_size,const char * a,const char * b)
 M_PathJoin	tools/dc_gamestat_gen.c	/^static void M_PathJoin(char *out, size_t out_size, const char *dir, const char *name) {$/;"	f	typeref:typename:void	file:	signature:(char * out,size_t out_size,const char * dir,const char * name)
+M_Responder	driver/m_menu.h	/^bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel);$/;"	p	typeref:typename:bool	signature:(app_t * app,const SDL_Event * event,bool inlevel)
+M_Shutdown	driver/m_menu.h	/^void M_Shutdown(void);$/;"	p	typeref:typename:void	signature:(void)
+M_StartControlPanel	driver/m_menu.h	/^void M_StartControlPanel(app_t *app);$/;"	p	typeref:typename:void	signature:(app_t * app)
+M_Ticker	driver/m_menu.h	/^void M_Ticker(void);$/;"	p	typeref:typename:void	signature:(void)
 M_Upper	driver/engine.h	/^char *M_Upper(char *text);$/;"	p	typeref:typename:char *	signature:(char * text)
 M_Upper	driver/w_file.c	/^char *M_Upper(char *text) {$/;"	f	typeref:typename:char *	signature:(char * text)
 M_va	driver/engine.h	/^char *M_va(const char *format, ...) __attribute__((format(printf, 1, 2)));$/;"	p	typeref:typename:char *	signature:(const char * format,...)
@@ -780,6 +787,7 @@ __INPUT_REGRESSION__	tests/input_regression.h	/^#define __INPUT_REGRESSION__$/;"
 __LOADER_FIXTURES__	tests/loader_fixtures.h	/^#define __LOADER_FIXTURES__$/;"	d
 __MAP__	game/map.h	/^#define __MAP__$/;"	d
 __MOBJ_TEST__	tests/mobj_test.h	/^#define __MOBJ_TEST__$/;"	d
+__M_MENU__	driver/m_menu.h	/^#define __M_MENU__$/;"	d
 __M_VEC__	driver/m_vec.h	/^#define __M_VEC__$/;"	d
 __PRODUCTION_REGRESSION__	tests/production_regression.h	/^#define __PRODUCTION_REGRESSION__$/;"	d
 __P_AI__	play/p_ai.h	/^#define __P_AI__$/;"	d
@@ -1392,6 +1400,7 @@ angle_to_screen_vector	play/facing.h	/^void angle_to_screen_vector(angle_t angle
 angle_to_screen_vector	play/p_facing.c	/^void angle_to_screen_vector(angle_t angle, float *dx, float *dy) {$/;"	f	typeref:typename:void	signature:(angle_t angle,float * dx,float * dy)
 anim	tools/dr_info_gen.c	/^    dr_anim_t anim;$/;"	m	struct:__anon0771d3700208	typeref:typename:dr_anim_t	file:
 anim_t	tools/kknd_info_gen.c	/^} anim_t;$/;"	t	typeref:struct:__anoncbabb2620208	file:
+animation	REFERENCES.md	/^Keep these links handy when touching loaders, tile animation, map objects, or$/;"	v
 animation_count	render/sprites.h	/^    int animation_count;$/;"	m	struct:tileset_s	typeref:typename:int
 animation_frame_count	game/map.h	/^    int animation_frame_count;$/;"	m	struct:mapdecoration_s	typeref:typename:int
 animation_frames	game/map.h	/^    mapdecorationframe_t animation_frames[MAP_DECORATION_MAX_ANIMATION_FRAMES];$/;"	m	struct:mapdecoration_s	typeref:typename:mapdecorationframe_t[]
@@ -1593,6 +1602,7 @@ clear	tests/dark-colony/test_trooper_rendering.c	/^static void clear(SDL_Rendere
 clear_model_production	game/g_game.c	/^static void clear_model_production(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 clear_sight	tests/dark-colony/test_fog.c	/^static void clear_sight(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 click	tests/dark-colony/test_alien_production.c	/^static void click(void *ui, app_t *app, const StaticProductDefinition *product) {$/;"	f	typeref:typename:void	file:	signature:(void * ui,app_t * app,const StaticProductDefinition * product)
+click	tests/dark-colony/test_menu.c	/^static void click(app_t *app, int x, int y) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,int x,int y)
 click	tests/input_regression.h	/^static void click(app_t *app, gameinfo_t *game, mobj_t **units,$/;"	f	typeref:typename:void	signature:(app_t * app,gameinfo_t * game,mobj_t ** units,Uint8 button_id,ivec2_t point)
 clock	hud/sb_bar.h	/^    uint64_t clock;$/;"	m	struct:__anona3f56ed40108	typeref:typename:uint64_t
 clock_tick	tests/dark-colony/test_fog.c	/^static void clock_tick(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
@@ -2126,6 +2136,7 @@ json_indent	tools/dc_fin_extract.c	/^static void json_indent(FILE *out, int dept
 json_string	tools/dc_fin_extract.c	/^static void json_string(FILE *out, const char *value) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * value)
 juice_free	tools/dc_spr_extract.c	/^static void juice_free(Juice *j) {$/;"	f	typeref:typename:void	file:	signature:(Juice * j)
 juice_load	tools/dc_spr_extract.c	/^static bool juice_load(const char *path, Juice *out) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,Juice * out)
+key	tests/dark-colony/test_menu.c	/^static void key(app_t *app, SDL_Keycode code, bool inlevel) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Keycode code,bool inlevel)
 kind	game/g_game.h	/^    RtsGameCommandKind kind;$/;"	m	struct:__anon42a104c40708	typeref:typename:RtsGameCommandKind
 kind	game/map.h	/^    MapExtraKind kind;$/;"	m	struct:mapextra_s	typeref:typename:MapExtraKind
 kind	render/render_plan.h	/^    DrawCommandKind kind;$/;"	m	struct:drawcommand_s	typeref:typename:DrawCommandKind
@@ -2208,6 +2219,7 @@ load_fin_info	tests/test_dark_colony_sprite_layout.c	/^static bool load_fin_info
 load_fins	tools/dc_info_gen.c	/^static void load_fins(const char *dir) {$/;"	f	typeref:typename:void	file:	signature:(const char * dir)
 load_spr_frame_info	tests/test_dark_colony_sprite_layout.c	/^static bool load_spr_frame_info(const char *path, int frame, SprFrameInfo *out) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,int frame,SprFrameInfo * out)
 loaded	game/g_game.c	/^    bool loaded;$/;"	m	struct:RtsGameModel	typeref:typename:bool	file:
+loaders	REFERENCES.md	/^Keep these links handy when touching loaders, tile animation, map objects, or$/;"	v
 loaders	docs/KKND_EXE_FINDINGS.md	/^the removal of PNG loaders, bundled OpenDR\/OpenKrush images, and OpenKrush$/;"	v
 localcmds	driver/d_net.c	/^static ticcmd_t localcmds[BACKUPTICS];$/;"	v	typeref:typename:ticcmd_t[]	file:
 logical_height	hud/ui_definition.h	/^    int logical_height;$/;"	m	struct:uidefinition_s	typeref:typename:int
@@ -2234,6 +2246,7 @@ main	tests/dark-colony/test_fin_loading.c	/^int main(void) {$/;"	f	typeref:typen
 main	tests/dark-colony/test_flow_field_movement.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_fog.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_game_model_headless.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_menu.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_mission_ownership.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_mobj_allocation.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_mobj_states.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2523,6 +2536,7 @@ numplayers	driver/d_net.h	/^    int numnodes, numplayers, consoleplayer, ticdup,
 numsprites	render/sprites.h	/^    int numsprites;$/;"	m	struct:spritecache_s	typeref:typename:int
 numtics	driver/d_net.h	/^    uint8_t retransmitfrom, starttic, player, numtics;$/;"	m	struct:__anone560e7400108	typeref:typename:uint8_t
 object_sight	play/p_sight.c	/^static uint32_t object_sight(const mobj_t *mobj) {$/;"	f	typeref:typename:uint32_t	file:	signature:(const mobj_t * mobj)
+objects	REFERENCES.md	/^Keep these links handy when touching loaders, tile animation, map objects, or$/;"	v
 objects	game/g_game.c	/^    mobjlist_t objects;$/;"	m	struct:RtsGameModel	typeref:typename:mobjlist_t	file:
 observation	docs/DC_EXE_FINDINGS.md	/^of adding three to a channel. This is a decompiler observation, not a new$/;"	v
 offset	play/p_sight_data.h	/^    ivec2_t offset;$/;"	m	struct:__anonfad66be70108	typeref:typename:ivec2_t
@@ -2857,6 +2871,7 @@ screen_to_grid_point	render/r_draw.c	/^static void screen_to_grid_point(const ap
 screen_to_map_grid_point	render/r_draw.c	/^static void screen_to_map_grid_point(const app_t *app, const level_t *map, int sx, int sy,$/;"	f	typeref:typename:void	file:	signature:(const app_t * app,const level_t * map,int sx,int sy,float * gx,float * gy)
 screenshot	tests/dark-colony/test_barracks_production.c	/^static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,tileset_t * tiles,spritecache_t * cache,const char * path)
 screenshot	tests/dark-colony/test_building_damage.c	/^static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,tileset_t * tiles,spritecache_t * cache,const char * name)
+screenshot	tests/dark-colony/test_menu.c	/^static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,const char * name)
 sdl	interface/renderer.h	/^    SDL_Renderer *sdl;$/;"	m	struct:renderer_s	typeref:typename:SDL_Renderer *
 sdl_renderer_backend	interface/i_video.c	/^const rendererbackend_t *sdl_renderer_backend(void) {$/;"	f	typeref:typename:const rendererbackend_t *	signature:(void)
 sdl_renderer_backend	interface/renderer.h	/^const rendererbackend_t *sdl_renderer_backend(void);$/;"	p	typeref:typename:const rendererbackend_t *	signature:(void)

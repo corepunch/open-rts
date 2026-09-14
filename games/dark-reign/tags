@@ -206,6 +206,12 @@ MT_FG_TRIPLE_RAIL_TANK	games/dark-reign/info.h	/^    MT_FG_TRIPLE_RAIL_TANK,$/;"
 MT_FG_UNDERGROUND_TUNNEL	games/dark-reign/info.h	/^    MT_FG_UNDERGROUND_TUNNEL,$/;"	e	enum:__anon66710f960303
 MT_FG_VEHICLE_FACTORY	games/dark-reign/info.h	/^    MT_FG_VEHICLE_FACTORY,$/;"	e	enum:__anon66710f960303
 MT_NULL	games/dark-reign/info.h	/^    MT_NULL,$/;"	e	enum:__anon66710f960303
+M_Drawer	games/dark-reign/m_menu.c	/^void M_Drawer(const app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(const app_t * app)
+M_Init	games/dark-reign/m_menu.c	/^bool M_Init(app_t *app, const char *root) { (void)app; (void)root; return true; }$/;"	f	typeref:typename:bool	signature:(app_t * app,const char * root)
+M_Responder	games/dark-reign/m_menu.c	/^bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {$/;"	f	typeref:typename:bool	signature:(app_t * app,const SDL_Event * event,bool inlevel)
+M_Shutdown	games/dark-reign/m_menu.c	/^void M_Shutdown(void) {}$/;"	f	typeref:typename:void	signature:(void)
+M_StartControlPanel	games/dark-reign/m_menu.c	/^void M_StartControlPanel(app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(app_t * app)
+M_Ticker	games/dark-reign/m_menu.c	/^void M_Ticker(void) {}$/;"	f	typeref:typename:void	signature:(void)
 NUMMOBJTYPES	games/dark-reign/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon66710f960303
 NUMSPRITES	games/dark-reign/info.h	/^    NUMSPRITES$/;"	e	enum:__anon66710f960103
 NUMSTATES	games/dark-reign/info.h	/^    NUMSTATES$/;"	e	enum:__anon66710f960203
@@ -723,6 +729,9 @@ max_perimeter_force	games/dark-reign/dr_types.h	/^    int max_perimeter_force;$/
 max_resource_force	games/dark-reign/dr_types.h	/^    int max_resource_force;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
 meleestate	games/dark-reign/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 menu_rect	games/dark-reign/hud/sb_palette.c	/^static irect_t menu_rect(void) {$/;"	f	typeref:typename:irect_t	file:	signature:(void)
+menuactive	games/dark-reign/m_menu.c	/^bool menuactive;$/;"	v	typeref:typename:bool
+menuerror	games/dark-reign/m_menu.c	/^bool menuerror;$/;"	v	typeref:typename:bool
+menumap	games/dark-reign/m_menu.c	/^const char *menumap;$/;"	v	typeref:typename:const char *
 min_building_defense_force	games/dark-reign/dr_types.h	/^    int min_building_defense_force;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
 min_exploration_force	games/dark-reign/dr_types.h	/^    int min_exploration_force;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
 min_matching_force_ratio	games/dark-reign/dr_types.h	/^    double min_matching_force_ratio;$/;"	m	struct:__anonc98b33940108	typeref:typename:double

@@ -520,6 +520,32 @@ labels are no longer repurposed as unrelated production categories or commands.
 Remaining retail page, gauge and radar-terrain work is documented with the
 executable evidence in `docs/DR_EXE_FINDINGS.md`.
 
+## Menu lifecycle versus HUD
+
+`driver/m_menu.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
+`M_Responder`, `M_Ticker`, `M_Drawer`, and `M_Shutdown` lifecycle. Dark Colony
+implements it in `games/dark-colony/menu/`; the other games currently provide
+inert implementations. Native screen parsing, assets, animation and campaign
+dispatch belong to the game, outside its level HUD.
+
+The driver opens DC's menu before allocating a level, mission, thinkers or
+sidebar. `menumap` is a deferred level request: menu input selects a native
+campaign table entry, then the driver runs its ordinary loading path. Starting
+another campaign first tears down the old level and its owners. Menu images and
+FIN records have a screen owner; their image cache is never registered in
+gameplay `sprnames[]`. GIF decoding and GPU resources remain engine-owned code.
+
+Menu input precedes cheats, sidebar responders and world commands. Menu drawing
+runs last. Menu animation has a wall-clock lifecycle, independent of simulation
+and the HUD. Single-player menu pause continues the command/tic clock but skips
+world, mission, production and HUD tickers. Network simulation continues while
+the local menu is open; a network player cannot start a replacement campaign.
+
+Doom itself enters its title/demo loop by default, and opens the menu on input;
+`autostart` (including `-warp`) or a network game calls `G_InitNew` instead.
+Opening DC's menu immediately, accepting `-map=`, and keeping automated checks
+on the default level are explicit open-rts startup policies.
+
 ## Determinism and future networking
 
 Simulation state is advanced from commands and ticks. The intended multiplayer

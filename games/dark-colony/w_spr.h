@@ -6,8 +6,11 @@
 #include <stdbool.h>
 
 bool load_render_tables(const char *data_root, const char *tileset_name);
+bool DC_LoadFont(const char *root, const char *name,
+                 bitmapfont_t *font);
 bool load_dark_colony_sprite(const char *path,
                              spritesheet_t *out, uint32_t palette_out[256]);
+bool DC_LoadSpriteImage(const char *path, spritesheet_t *out);
 bool load_dark_colony_unit_sprites(const char *data_root,
                                    const level_t *map, mobj_t *const *units, int unit_count,
                                    spritecache_t *cache);

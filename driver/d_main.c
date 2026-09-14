@@ -5,6 +5,7 @@
 #include "sb_bar.h"
 #include "p_ai.h"
 #include "d_net.h"
+#include "m_menu.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -120,6 +121,11 @@ int main(int argc, char **argv) {
         const char *arg = argv[i];
         if (!strcmp(arg, "--check")) check_only = true;
         else if (!strcmp(arg, "--software")) software_renderer = true;
+        else if (!strncmp(arg, "-map=", 5) || !strncmp(arg, "--map=", 6)) {
+            const char *value = strchr(arg, '=') + 1;
+            if (!*value || paths[1]) goto usage;
+            paths[1] = value;
+        }
         else if (!strcmp(arg, "--map") || !strcmp(arg, "--data") || !strcmp(arg, "--sprite")) {
             int slot = !strcmp(arg, "--data") ? 0 : !strcmp(arg, "--map") ? 1 : 2;
             if (++i == argc || !argv[i][0] || paths[slot]) goto usage;
@@ -173,8 +179,50 @@ int main(int argc, char **argv) {
     app.renderer = renderer.sdl;
     R_RefreshViewport(&app);
 
+    if (!strcmp(g_game_id, "dark-colony") && !check_only && !check_tics) {
+        if (!M_Init(&app, data_root)) {
+            fprintf(stderr, "Could not load Dark Colony menu assets\n");
+            M_Shutdown();
+            renderer_destroy(&renderer);
+            return 1;
+        }
+        if (!paths[1] && !netgame) M_StartControlPanel(&app);
+    }
+    /* No level, thinkers, mission or sidebar exists while choosing New Game. */
+    while (app.running && menuactive) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            M_Responder(&app, &event, false);
+            if (event.type == SDL_WINDOWEVENT) R_RefreshViewport(&app);
+            if (!menuactive || !app.running) break;
+        }
+        if (!menuactive || !app.running) break;
+        M_Ticker();
+        renderer_begin_frame(&renderer, (SDL_Color){11, 14, 16, 255});
+        M_Drawer(&app);
+        if (screenshot_only) {
+            bool saved = renderer_save_screenshot(&renderer, screenshot_path);
+            M_Shutdown();
+            renderer_destroy(&renderer);
+            return saved ? 0 : 1;
+        }
+        renderer_end_frame(&renderer);
+        SDL_Delay(1);
+    }
+    if (!app.running) {
+        M_Shutdown();
+        renderer_destroy(&renderer);
+        return menuerror ? 1 : 0;
+    }
+load_level:
+    if (menumap) {
+        snprintf(map_name, sizeof(map_name), "%s", menumap);
+        menumap = NULL;
+    }
+
     if (!I_StartNetGame(g_game_id, map_name, sizeof(map_name))) {
         fprintf(stderr, "%s\n", neterror);
+        M_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -184,12 +232,14 @@ int main(int argc, char **argv) {
         snprintf(map_path, sizeof(map_path), "%s/%s", data_root, map_name);
     if (path_length < 0 || (size_t)path_length >= sizeof(map_path)) {
         fprintf(stderr, "Map path is too long\n");
+        M_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
     P_InitThinkers();
     if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
         P_FreeLevel(&level);
+        M_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -200,6 +250,7 @@ int main(int argc, char **argv) {
     memset(&unit_sprite, 0, sizeof(unit_sprite));
     if (!W_LoadAssets(app.renderer, data_root, &level, sprite_name, &tileset, &unit_sprite)) {
         P_FreeLevel(&level);
+        M_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -304,6 +355,7 @@ int main(int argc, char **argv) {
         R_FreeTileset(&tileset);
         P_FreeMobjList(&objects);
         P_FreeLevel(&level);
+        M_Shutdown();
         renderer_destroy(&renderer);
         return 0;
     }
@@ -343,6 +395,10 @@ int main(int argc, char **argv) {
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            if (M_Responder(&app, &e, true)) {
+                if (menumap || !app.running) break;
+                continue;
+            }
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
                 e.key.keysym.sym == SDLK_F10) {
                 if (netgame) continue;
@@ -387,12 +443,21 @@ int main(int argc, char **argv) {
             G_Responder(&app, &level, units, unit_count, &unit_sprite,
                          &decoration_sprites, gameinfo, &e);
         }
-        G_CameraMove(&app, frame_dt);
+        if (menumap || !app.running) break;
+        if (!menuactive) G_CameraMove(&app, frame_dt);
+        M_Ticker();
         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
         int runtics = TryRunTics();
         if (check_tics && runtics > check_tics - gametic) runtics = check_tics - gametic;
         while (runtics-- > 0) {
             if (!D_RunTiccmds()) break;
+            /* Like Doom, menu pause stops the world, not the tic clock.
+             * Multiplayer continues so opening a menu cannot stall peers. */
+            if (menuactive && !netgame) {
+                ++gametic;
+                NetUpdate();
+                continue;
+            }
             P_Ticker();
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
@@ -482,6 +547,7 @@ int main(int argc, char **argv) {
         SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                   false, false);
         if (!custom_ui) SB_ProductionDrawer(&st, &app);
+        M_Drawer(&app);
         renderer_end_frame(&renderer);
     }
 
@@ -497,7 +563,7 @@ int main(int argc, char **argv) {
             SDL_Delay(1);
         }
     }
-    int exit_code = neterror[0] ? 1 : 0;
+    int exit_code = neterror[0] || menuerror ? 1 : 0;
     D_QuitNetGame();
     SB_Shutdown(&st);
     G_ShutdownCustomUI(custom_ui);
@@ -506,6 +572,8 @@ int main(int argc, char **argv) {
     R_FreeTileset(&tileset);
     P_FreeMobjList(&objects);
     P_FreeLevel(&level);
+    if (app.running && menumap && !exit_code) goto load_level;
+    M_Shutdown();
     renderer_destroy(&renderer);
     return exit_code;
 usage:
@@ -518,6 +586,9 @@ help:
            "  --join <host[:port]>   Join; receive the host's map and player slot\n"
            "  --port <1..65535>      Local UDP port; host 5029, client automatic\n"
            "  --map <path>           Map relative to data root; chosen by host\n"
+           "  -map=<path>           Start directly in a map (also --map=<path>)\n"
+           "  Dark Colony opens its main menu when no map is supplied.\n"
+           "  --check and --net-check use the default map; screenshots show startup.\n"
            "  --data <directory>     Local game data directory\n"
            "  --sprite <path>        Default sprite asset\n"
            "  --software            Use the software renderer\n"

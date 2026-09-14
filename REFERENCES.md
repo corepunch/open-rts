@@ -7,6 +7,13 @@ plugin-specific behavior.
 
 - id Software: https://github.com/id-Software/DOOM/tree/master/linuxdoom-1.10
   - Local source: `reference/DOOM/`.
+  - Menu/startup: `d_main.c::D_ProcessEvents` gives `M_Responder` first refusal;
+    `D_Display` draws `M_Drawer` last. `D_DoomMain` chooses `G_InitNew` for
+    `autostart || netgame`, otherwise `D_StartTitle`. `m_menu.c` owns its own
+    lifecycle and `menuactive`; `p_tick.c::P_Ticker` pauses the single-player
+    world while a menu is active. DC uses that lifecycle separation with its
+    own native screen scripts and assets, not Doom's menu graphics. See
+    [the DC menu findings](docs/DC_EXE_FINDINGS.md#main-menu-screens-and-campaign-start-2026-09-14).
   - Networking: `d_net.c` (`NetUpdate`, `GetPackets`, `ExpandTics`,
     `TryRunTics`, `D_ArbitrateNetStart`, `D_QuitNetGame`), `d_net.h`
     (`doomcom_t`, `doomdata_t`, `BACKUPTICS`), `i_net.c` (UDP transport),

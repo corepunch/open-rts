@@ -77,6 +77,12 @@ MT_SPIDER_MECH	games/7legion/info.h	/^    MT_SPIDER_MECH,$/;"	e	enum:__anon8e5a0
 MT_TANK	games/7legion/info.h	/^    MT_TANK,$/;"	e	enum:__anon8e5a0b470303
 MT_TROOPER	games/7legion/info.h	/^    MT_TROOPER,$/;"	e	enum:__anon8e5a0b470303
 MT_TRUCK	games/7legion/info.h	/^    MT_TRUCK,$/;"	e	enum:__anon8e5a0b470303
+M_Drawer	games/7legion/m_menu.c	/^void M_Drawer(const app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(const app_t * app)
+M_Init	games/7legion/m_menu.c	/^bool M_Init(app_t *app, const char *root) { (void)app; (void)root; return true; }$/;"	f	typeref:typename:bool	signature:(app_t * app,const char * root)
+M_Responder	games/7legion/m_menu.c	/^bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {$/;"	f	typeref:typename:bool	signature:(app_t * app,const SDL_Event * event,bool inlevel)
+M_Shutdown	games/7legion/m_menu.c	/^void M_Shutdown(void) {}$/;"	f	typeref:typename:void	signature:(void)
+M_StartControlPanel	games/7legion/m_menu.c	/^void M_StartControlPanel(app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(app_t * app)
+M_Ticker	games/7legion/m_menu.c	/^void M_Ticker(void) {}$/;"	f	typeref:typename:void	signature:(void)
 NUMMOBJTYPES	games/7legion/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon8e5a0b470303
 NUMSPRITES	games/7legion/info.h	/^    NUMSPRITES$/;"	e	enum:__anon8e5a0b470103
 NUMSTATES	games/7legion/info.h	/^    NUMSTATES$/;"	e	enum:__anon8e5a0b470203
@@ -159,6 +165,9 @@ mass	games/7legion/info.h	/^    int mass;$/;"	m	struct:mobjinfo_s	typeref:typena
 max_x	games/7legion/w_bim.c	/^    int max_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 max_y	games/7legion/w_bim.c	/^    int max_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 meleestate	games/7legion/info.h	/^    int meleestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+menuactive	games/7legion/m_menu.c	/^bool menuactive;$/;"	v	typeref:typename:bool
+menuerror	games/7legion/m_menu.c	/^bool menuerror;$/;"	v	typeref:typename:bool
+menumap	games/7legion/m_menu.c	/^const char *menumap;$/;"	v	typeref:typename:const char *
 min_x	games/7legion/w_bim.c	/^    int min_x;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 min_y	games/7legion/w_bim.c	/^    int min_y;$/;"	m	struct:__anon6c02bde40108	typeref:typename:int	file:
 missilestate	games/7legion/info.h	/^    int missilestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int

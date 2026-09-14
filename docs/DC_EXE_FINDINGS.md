@@ -5026,3 +5026,217 @@ real harvest order for both `MT_EXPLOITER` and `MT_SLUG`, verifies their
 respective deploy states on mining entry, waits for `S_VENT_ATTACHED`, and
 checks that the vent resumes after each harvester is removed. No asset or
 balance data changed.
+
+## Main-menu screens and campaign start (2026-09-14)
+
+**Confirmed executable:** retail `data/DCOLONY/DC.EXE`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566272-byte PE32 i386 at image base 0x400000. Analysis used the existing r2
+function/decompiler discovery plus fresh `pdf`/`pdg` on the addresses below.
+Decompiler register arguments were checked against instructions, particularly
+for filename selection, control IDs, picture windows, and animation modes.
+No external screenshots or downloaded assets were used.
+
+### Screens and native asset paths
+
+- `0x404a84` is the main-screen routine. `0x404b45` passes the string at
+  `0x46d454`, `intrface/intro.dat`, to `0x4240a0`; `0x404b54` passes
+  `0x46d468`, `intrface/intro`, to screen loader `0x420f88`.
+- `INTRFACE/INTROE` is the shipped English script: 640x480, background
+  `intrface/intro`, pictures `intrface/knobe`, font `intrface/mfonto5`, character
+  offset 31. `INTRO.GIF` is a 640x480 GIF87a planet/starfield background with
+  an SSI footer. It does **not** contain the full logo or menu labels.
+- `INTRO.DAT` lists `knobe.fin` and `dcss.fin`. Animation-list loader `0x4240a0`
+  calls `0x4230ac` at `0x424169`; that loader formats `animate/%s` at
+  `0x4230c3` and resolves dependency stems through `0x422dec` at `0x423152`.
+  The dependency loader formats **`sprites/%s`** at `0x422e16`.
+  Consequently menu FIN dependencies come from `SPRITES`, despite being UI.
+  Keep those screen-owned images outside the gameplay sprite registry.
+- **Disproven:** loading all menu animation images from `INTRFACE` because the
+  backgrounds/fonts live there. Some same-named files exist in both directories,
+  but `INTRFACE/CHOA.SPR` is absent whereas `SPRITES/CHOA.SPR` is present.
+  Do not invent a fallback or alias: use the executable's `SPRITES` path.
+- `BINTROE` is an alternate script selecting `INTRG.GIF`, with a Take-Two footer
+  and DCUK/DCUT logo gadgets. `DINTROE` uses INTRO.GIF but exposes Play Demo,
+  Ordering Information and Quit. **Unknown:** variant-selection logic; neither
+  script is selected by the confirmed retail main-screen call above.
+- `NEWGAMEE` selects CHOO.GIF. `STORYE` selects STORY.GIF. `SHUMANE` selects
+  SHUMAN.GIF. Their DAT lists are CHOO.DAT, LOADG.DAT, and SHUMAN.DAT. These are
+  front-end screens, separate from the gameplay INTRFACE.GIF/MAINE HUD.
+
+Main INTROE controls, using native IDs and rectangles:
+
+| ID | Label | x,y,w,h |
+|---|---|---|
+| 0 | NEW CAMPAIGN | 138,314,179,25 |
+| 1 | TRAINING | 138,340,179,25 |
+| 2 | LOAD GAME | 138,366,179,25 |
+| 3 | MULTI PLAYER WAR | 318,314,179,25 |
+| 4 | SINGLE PLAYER WAR | 318,340,179,25 |
+| 5 | ENCYCLOPEDIA | 318,366,179,25 |
+| 12 | QUIT | 318,392,179,25 |
+| 16 | PLAY INTRO | 138,392,179,25 |
+
+Gadget 14 is DCSS at (130,0), extent 378x123. KNOBE's LARGEBUTTON label is
+FIN frames 0..11; its first command uses cell 28 at offset (0,26). That SPR
+cell is 180x26, while the native control hit rectangle is 179x25. Preserve both
+values; do not shrink the image to the hit rectangle. DCSS has frames 0..28,
+with matching source cell numbers and offsets (0,123). The final cell is the
+complete logo. A C atlas extraction confirmed that frame zero only shows the
+edge of the entering logo, not the completed title. DCSS/CHOA inspected commands
+have remap=0, intensity=16, layer=0, flags=0.
+
+### Campaign dispatch
+
+Main routine `0x404c20..0x404c37` accepts IDs 0..5, 12 and 16. At `0x404c95`
+ID 0 sets the setup object's +0x14a0 to 0 and calls `0x401bc4`; ID 1 sets it
+to 3 and calls the same wrapper. Other branches route to saved games
+(`0x4038bc`), multiplayer (`0x405770`), skirmish (`0x405634`), encyclopedia
+(`0x4025a0`), intro (`0x401028`) or shutdown (ID 12).
+
+`0x401bc4` loops through setup routine `0x401db8`. The setup loads CHOO.DAT at
+`0x401e01` and NEWGAME at `0x401e15`. Native controls:
+
+- 0/1 select Human/Gray and store 0/1 at setup +0x1494. The name is at +0x862;
+  NEWGAMEE input 5 allows 17 characters at (205,308).
+- 2 is Start Training; 3 is Start Campaign. They share (399,349,179,26), and
+  `0x401e24..0x401e5c` makes only the appropriate control visible.
+- 4 is Back at (521,431,90,26).
+- The script's HREZIN/HREZOUT/HLOOP and AREZIN/AREZOUT/ALOOP are separate native
+  gadgets. Startup selects Human; the executable explicitly starts gadget 21
+  at `0x401f07..0x401f26`. `0x401cb8` and `0x401d38` handle race transitions.
+- Native decorative setup loops are started for IDs 13..16 and 29..35.
+
+Start Campaign calls `0x402380` at `0x402359`. This loads STORY, chooses
+HSTORY.TXT or ASTORY.TXT from race +0x1494, and exposes Back (4) and Next (5).
+The text viewport supplied to `0x425c4c` is (10,13,579,420), at
+`0x4023f8..0x40240f`. Story text contains `~digit` inline colour commands.
+Next calls `0x403680`; training calls that wrapper directly. Its briefing
+routine is `0x402f1c`.
+
+`0x402f2f..0x402f6f` selects GAMESTAT/HSCENE.TXT or GSCENE.TXT for campaign,
+and HTSCENE.TXT or GTSCENE.TXT for training, and calls `0x42710c`.
+The shipped lists begin with eight faction-name lines and a mission count;
+the first record then contains scenario filename, mission title, region,
+map prefix, two AVI paths, three coordinates, a planet selector, and successor
+mission information. This implementation consumes the first record's title,
+region and map prefix for a fresh campaign; it does not author duplicate paths.
+
+| List | First map prefix | Title | Region |
+|---|---|---|---|
+| HSCENE | scenario/human/human01 | RED LANDING | CHRYSE BASIN |
+| GSCENE | scenario/alien/alien01 | FIRST STRIKE | CYDONIA REGION |
+| HTSCENE | scenario/test/htrain1 | TRAINING 1 | AREA 51 |
+
+The driver needs MAP, so the menu appends `.MAP` to the native prefix and
+requests loading only after To Battle. `0x40360e..0x40364a` dispatches native
+briefing control 2 into level startup. SHUMANE control 0 is Back, 1 is
+**Encyclopedia**, and 2 is To Battle; control 10 is an alternate Menu control.
+The briefing text viewport is (310,212,294,225), from `0x403028..0x40303f`.
+
+**Disproven:** the briefing text is MISSION/H1.TXT or G1.TXT. Those stems at
+`0x402fb1`/`0x402fc1` select spoken mission audio (the directory contains WAVs).
+At `0x402ff2` the routine instead takes the setup object's scenario-prefix
+field at +0x882, then appends `.txt` at `0x403002..0x40300d`. The shipped text
+files are SCENARIO/HUMAN/HUMAN01.TXT and SCENARIO/ALIEN/ALIEN01.TXT.
+
+### Menu animation is not world animation
+
+`0x421e94` checks the wall-clock delta against 16 at `0x421ebd`, updates when
+it is greater, and visits up to 300 controls. Each native control is 0x34 bytes,
+starting at screen +0x88; gadget type is 10. The FIN delay conversion is the
+already-confirmed `((raw ? raw : 15) + 3) * 15 / 100` in `0x4230ac`.
+`0x422c48` selects a gadget animation/mode through `0x423c34`.
+
+**Confirmed correction:** gadgets advance through `0x422828`, not the world
+animation ticker `0x423dd0`. At `0x422897..0x4228b0`, a completed forward mode-1
+one-shot sets mode 2 (stopped) and **keeps the final frame**. The world ticker's
+`0x423e23..0x423e2f` instead resets the frame to zero on completion. Applying
+that rule to a menu makes the completed title disappear. Mode 0 loops;
+mode 2 stops. Gadget ticking also has a reverse-direction input. The current
+menu implements forward animation and holds the terminal pose. A test compares
+all opaque pixels of the settled logo against native DCSS SPR cell 28 at
+INTROE's authored (130,0) position.
+
+### Implementation scope, inferences, and remaining unknowns
+
+The menu reads native screen dimensions, backgrounds, fonts, labels, rectangles,
+FIN names/ranges and DAT dependency lists. Main menu, campaign/training setup,
+overview, briefing, Back and To Battle work independently of any loaded level.
+The first selected map is handed to the existing level loader. Other main-menu
+branches remain explicit unimplemented actions rather than unrelated shortcuts.
+Doom supplies M_* lifecycle and input/draw ordering, not DC's appearance.
+
+`DC_LoadSpriteImage` reuses the checked SPR decoder to load only dependency
+images; it does not load a second FIN or build gameplay frame/rotation tables.
+The screen retains one copy of each DAT-listed FIN and one cached source image
+per dependency. All commands in the thirteen inspected screen FINs use
+remap=0, intensity=16 and layer=0; KNOBE additionally uses horizontal-flip
+flag 1, which the menu preserves. This does not establish drawing rules for
+other FIN modes or future screens.
+
+The following are deliberately **not** claimed as full retail reproduction:
+
+- Keyboard navigation, Escape pause/resume, direct `-map=` startup, resizing,
+  and the requirement to enter a nonempty leader name are engine UI policies.
+  Network startup and automated checks bypass the menu. Name length comes
+  from NEWGAMEE; non-ASCII entry is excluded because the font loader is ASCII.
+- Race selection currently uses authored HLOOP/ALOOP poses, without the full
+  native REZIN/REZOUT transition handoff. Decorative menus use their native FIN
+  layers but do not yet reproduce all control shading, reverse hover animation,
+  push/release timing, sound, clipping/background-erase modes, or palette rules.
+- `banim` names separate gadget and button groups; controls sharing native
+  origins (e.g. Start Training/Start Campaign) share the matching gadget in
+  this implementation. This correspondence is inferred from the scripts;
+  the complete native banim responder has not yet been ported.
+- Story/briefing prose is wrapped and scrollable; inline `~digit` commands are
+  recognized and removed, but their per-span colour changes are not rendered.
+- Briefing picture windows are separate from SHUMANE gadgets: `0x403052`
+  selects GLOBEG/GLOBES versus EARTHG/EARTHS using setup +0x1488. Calls at
+  `0x40307b`, `0x4030b1`, `0x4030d9` create them through `0x426168` at native
+  (34,26); GLOBES cell 0 is 250x250. That helper retains a 0x60-byte picture
+  record and the source's native size. Their rotation/coordinate selection and
+  visibility/transition playback have not been ported; the briefing's globe
+  pane remains empty. Rank/medal progression is also not implemented.
+- Campaign progression, persistence/saved games, AVI/audio playback, multiplayer
+  lobby, skirmish configuration and encyclopedia navigation are separate work.
+  The start request and basic setup fields are not a savegame format.
+
+No compensating logo offset or guessed asset alias was added. Temporary
+`OPEN_RTS_DEBUG_MENU` logging confirmed the DCSS command (cell 0, offset 0,123,
+rect 130,0,378,123, resulting destination 130,0,378,123) and native button
+image/control extents; it was removed after diagnosing the wrong ticker.
+
+### Fingerprints and reproduction
+
+| Asset | SHA-256 |
+|---|---|
+| INTRFACE/INTROE | 1dcfd89f40c10e39253a6d763317a1a67586aab3e09b38f7c305b7dbb9e5006a |
+| INTRFACE/INTRO.GIF | 89fb1e3cf6149831c4394285ad1eb6ec8890bdabe8aa2b8d15ad79162787784b |
+| INTRFACE/NEWGAMEE | 15a24d2b7113b0d2bd4a8da8f532f57dda168c29a357624975631978395780b2 |
+| INTRFACE/CHOO.GIF | 5cbc0043a694f899a2613ecf40cfdac6766a1e403b7e04f71052166d1961bc76 |
+| ANIMATE/DCSS.FIN | 0757533a94df917e5b9fb7eb7dc07b7433c9699f17ed6c5ff9ce29f9462f9731 |
+| SPRITES/DCSS.SPR | f6f59e3d1cc79ae214c57dae434dac956179591e5a5e862195277c818f6a8573 |
+| GAMESTAT/HSCENE.TXT | 56740dba1f63d7e1523f8c7126eb8c268c698fa7c8a882c70dcbd391e0e68b0b |
+| GAMESTAT/GSCENE.TXT | 6924a69e14be0148cbee2e88f8a3c3b9c6af3fad0c751928a0068134babd87fc |
+
+```sh
+r2 -q -e scr.color=0 -e bin.cache=true -A \
+  -c 'pdf @ 0x404a84' -c 'pdf @ 0x401db8' -c 'pdf @ 0x402380' \
+  -c 'pdf @ 0x402f1c' -c 'pdf @ 0x4240a0' -c 'pdf @ 0x422dec' \
+  -c 'pdf @ 0x421e94' -c 'pdf @ 0x422828' -c 'pdf @ 0x423dd0' \
+  -c 'pdf @ 0x426168' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --label DCSS data/DCOLONY/ANIMATE/DCSS.FIN
+build/dc_info_conv --label LARGEBUTTON data/DCOLONY/ANIMATE/KNOBE.FIN
+make build/bin/tests/dark-colony/test_menu
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_menu
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-menu.bmp
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony -map=SCENARIO/HUMAN/HUMAN01.MAP --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony -map=SCENARIO/ALIEN/ALIEN01.MAP --check
+```
+
+The focused test writes native-menu/setup/overview/briefing BMPs under
+`/private/tmp/dc-menu-*.bmp`, checks both campaign map requests without loading
+mission state, and covers menu input capture, Escape, drag cancellation and
+quit, plus Gray training startup. It verifies the settled logo pixel-for-pixel against its native final
+cell. This is an asset-based check, not a claim of whole-screen retail parity.

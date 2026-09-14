@@ -342,6 +342,25 @@ bool load_dark_colony_sprite(const char *path, spritesheet_t *out,
     return load_sprite(path, out, palette_out, NULL);
 }
 
+/* Menu DAT lists own FINs separately; dependencies need only source images. */
+bool DC_LoadSpriteImage(const char *path, spritesheet_t *out) {
+    dc_spr_t spr = {0};
+    uint32_t palette[256];
+    memset(out, 0, sizeof(*out));
+    bool ok = open_spr(path, &spr);
+    if (ok) {
+        decode_palette(spr.header->palette, palette);
+        ok = load_cells(&spr, out, palette);
+    }
+    W_FreeFile(&spr.file);
+    if (!ok) R_FreeSprite(out);
+    else {
+        out->indexed = true;
+        memcpy(out->palette, palette, sizeof(out->palette));
+    }
+    return ok;
+}
+
 static const char *resolve_sprite_path(const char *root, const char *name) {
     if (*name == '/') return name;
     if (strchr(name, '/')) return M_va("%s/%s", root, name);

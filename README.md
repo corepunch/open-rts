@@ -82,6 +82,23 @@ make dark-colony
 make kknd
 ```
 
+Dark Colony opens its native main menu. Choose **New Campaign**, select Human
+or Gray, enter a leader name, then follow **Start Campaign → Next → To Battle**.
+Training follows the same setup screen. Escape opens the menu during play and
+resumes from its main page; single-player simulation pauses while it is open.
+Other main-menu branches are displayed but are not implemented yet.
+
+Supply a map to start directly, bypassing the menu:
+
+```sh
+build/bin/dark-colony -map=SCENARIO/HUMAN/HUMAN01.MAP
+```
+
+`--map <path>`, `--map=<path>`, and the existing positional map argument also
+start directly. Network startup, `--check`, and `--net-check` still use a level.
+A Dark Colony `--screenshot` without a map captures the main menu; supply a map
+to capture gameplay.
+
 ## Network play
 
 Host/join and map selection are provided by the engine for every game binary.
