@@ -1559,6 +1559,9 @@ void R_ClampCamera(app_t *app, const level_t *map, int viewport_w, int viewport_
 }
 
 void R_FreeTileset(tileset_t *tileset) {
+    if (tileset->indices && tileset->count > 0 && tileset->tile_w > 0 && tileset->tile_h > 0)
+        R_DropIndexed(tileset->indices,
+                      (size_t)tileset->count * (size_t)tileset->tile_w * (size_t)tileset->tile_h);
     if (tileset->texture) SDL_DestroyTexture(tileset->texture);
     free(tileset->indices);
     free(tileset->palette_cycle.tiles);
@@ -1571,6 +1574,7 @@ void R_FreeSprite(spritesheet_t *sprite) {
     if (!sprite) return;
     for (int i = 0; i < sprite->numlumps; ++i) {
         spritelump_t *lump = &sprite->lumps[i];
+        R_DropIndexed(lump->indices, 0);
         if (lump->texture) SDL_DestroyTexture(lump->texture);
         free(lump->indices);
     }

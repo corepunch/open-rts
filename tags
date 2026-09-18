@@ -596,6 +596,8 @@ R_DrawThings	driver/engine.h	/^void R_DrawThings(app_t *app, mobj_t *const *unit
 R_DrawThings	render/r_draw.c	/^void R_DrawThings(app_t *app, mobj_t *const *units, int unit_count, const spritesheet_t *fallbac/;"	f	typeref:typename:void	signature:(app_t * app,mobj_t * const * units,int unit_count,const spritesheet_t * fallback_sprite,const spritecache_t * cache,const gameinfo_t * game_info,uint32_t ticks)
 R_DrawTile	driver/engine.h	/^void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_pa/;"	p	typeref:typename:void	signature:(app_t * app,const tileset_t * tileset,int tile,irect_t src_part,irect_t dst_part)
 R_DrawTile	render/r_draw.c	/^void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_pa/;"	f	typeref:typename:void	signature:(app_t * app,const tileset_t * tileset,int tile,irect_t src_part,irect_t dst_part)
+R_DropIndexed	driver/engine.h	/^void R_DropIndexed(const uint8_t *base, size_t bytes);$/;"	p	typeref:typename:void	signature:(const uint8_t * base,size_t bytes)
+R_DropIndexed	render/r_sprite.c	/^void R_DropIndexed(const uint8_t *base, size_t bytes) {$/;"	f	typeref:typename:void	signature:(const uint8_t * base,size_t bytes)
 R_FogSample	driver/engine.h	/^int R_FogSample(const int corners[4], ivec2_t pixel);$/;"	p	typeref:typename:int	signature:(const int corners[4],ivec2_t pixel)
 R_FogSample	render/r_fog.c	/^int R_FogSample(const int corners[4], ivec2_t pixel) {$/;"	f	typeref:typename:int	signature:(const int corners[4],ivec2_t pixel)
 R_FreeSprite	driver/engine.h	/^void R_FreeSprite(spritesheet_t *sprite);$/;"	p	typeref:typename:void	signature:(spritesheet_t * sprite)
@@ -1133,6 +1135,16 @@ __anon7b6e77cd0108	render/r_sprite.c	/^static struct {$/;"	s	file:
 __anon7b6e77cd0108::renderer	render/r_sprite.c	/^    SDL_Renderer *renderer;$/;"	m	struct:__anon7b6e77cd0108	typeref:typename:SDL_Renderer *	file:
 __anon7b6e77cd0108::size	render/r_sprite.c	/^    isize2_t size;$/;"	m	struct:__anon7b6e77cd0108	typeref:typename:isize2_t	file:
 __anon7b6e77cd0108::texture	render/r_sprite.c	/^    SDL_Texture *texture;$/;"	m	struct:__anon7b6e77cd0108	typeref:typename:SDL_Texture *	file:
+__anon7b6e77cd0208	render/r_sprite.c	/^typedef struct {$/;"	s	file:
+__anon7b6e77cd0208::indices	render/r_sprite.c	/^    const uint8_t *indices;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:const uint8_t *	file:
+__anon7b6e77cd0208::palette_hash	render/r_sprite.c	/^    uint32_t palette_hash;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:uint32_t	file:
+__anon7b6e77cd0208::size	render/r_sprite.c	/^    isize2_t size;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:isize2_t	file:
+__anon7b6e77cd0208::texture	render/r_sprite.c	/^    SDL_Texture *texture;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:SDL_Texture *	file:
+__anon7b6e77cd0308	render/r_sprite.c	/^static struct {$/;"	s	file:
+__anon7b6e77cd0308::capacity	render/r_sprite.c	/^    int capacity;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:int	file:
+__anon7b6e77cd0308::count	render/r_sprite.c	/^    int count;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:int	file:
+__anon7b6e77cd0308::entries	render/r_sprite.c	/^    indexed_cache_entry_t *entries;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:indexed_cache_entry_t *	file:
+__anon7b6e77cd0308::renderer	render/r_sprite.c	/^    SDL_Renderer *renderer;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:SDL_Renderer *	file:
 __anon7c9e55d40508	tags	/^renderer_t	interface\/renderer.h	\/^typedef struct renderer_s renderer_t;$\/;"	t	typeref:struct:/;"	s	file:
 __anon7d9edf9b0108	tests/dark-colony/test_terrain_loading.c	/^static const struct {$/;"	s	file:
 __anon7d9edf9b0108::hash	tests/dark-colony/test_terrain_loading.c	/^    uint64_t hash;$/;"	m	struct:__anon7d9edf9b0108	typeref:typename:uint64_t	file:
@@ -1527,6 +1539,7 @@ button	tests/dark-colony/test_multiplayer_units.c	/^static void button(app_t *ap
 button	tests/input_regression.h	/^static void button(app_t *app, gameinfo_t *game, mobj_t **units,$/;"	f	typeref:typename:void	signature:(app_t * app,gameinfo_t * game,mobj_t ** units,Uint32 event,Uint8 button_id,ivec2_t point)
 bytes	driver/assets.h	/^    uint8_t *bytes; \/* W_ReadFile appends a NUL byte outside size. *\/$/;"	m	struct:blob_s	typeref:typename:uint8_t *
 cache	play/actor.h	/^    const spritecache_t *cache;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const spritecache_t *
+cached_indexed	render/r_sprite.c	/^static SDL_Texture *cached_indexed(SDL_Renderer *renderer, const uint8_t *indices,$/;"	f	typeref:typename:SDL_Texture *	file:	signature:(SDL_Renderer * renderer,const uint8_t * indices,isize2_t size,const uint32_t palette[256])
 cached_palette_index	render/r_draw.c	/^static uint8_t cached_palette_index(uint32_t rgba, const uint32_t palette[256],$/;"	f	typeref:typename:uint8_t	file:	signature:(uint32_t rgba,const uint32_t palette[256],uint32_t matches[4096])
 cachedsprite_s	render/sprites.h	/^typedef struct cachedsprite_s {$/;"	s
 cachedsprite_s::alias	render/sprites.h	/^    const spritesheet_t *alias; \/* Borrowed image for another native resource name. *\/$/;"	m	struct:cachedsprite_s	typeref:typename:const spritesheet_t *
@@ -1537,6 +1550,7 @@ calls	tests/dark-colony/test_mobj_states.c	/^static int calls;$/;"	v	typeref:typ
 cam	driver/app.h	/^    fvec2_t  cam;$/;"	m	struct:app_s	typeref:typename:fvec2_t
 camera	game/map.h	/^    fvec2_t camera;$/;"	m	struct:level_s	typeref:typename:fvec2_t
 capacity	play/actor.h	/^        int capacity;$/;"	m	struct:mobjtype_s::__anon175231d90508	typeref:typename:int
+capacity	render/r_sprite.c	/^    int capacity;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:int	file:
 cargo	play/actor.h	/^        int cargo;$/;"	m	struct:mobj_s::__anon175231d90908	typeref:typename:int
 catalog	tests/dark-colony/test_sprite_loading.c	/^static int catalog(const char *manifest) {$/;"	f	typeref:typename:int	file:	signature:(const char * manifest)
 catalog	tests/dark-colony/test_terrain_loading.c	/^} catalog[] = {$/;"	v	typeref:typename:const struct __anon7d9edf9b0108[]	file:
@@ -1657,6 +1671,7 @@ cost	tools/dc_gamestat_gen.c	/^    int cost;$/;"	m	struct:__anon006eef8b0208	typ
 count	driver/d_ticcmd.h	/^    unsigned count;$/;"	m	struct:__anon81be5d2d0208	typeref:typename:unsigned
 count	game/game.h	/^    int count;$/;"	m	struct:__anon03fa0f1e0108	typeref:typename:int
 count	play/actor.h	/^typedef struct { mobj_t **items; int count; } mobjlist_t;$/;"	m	struct:__anon175231d90b08	typeref:typename:int
+count	render/r_sprite.c	/^    int count;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:int	file:
 count	render/sprites.h	/^    int count;$/;"	m	struct:hudtext_s	typeref:typename:int
 count	render/sprites.h	/^    int count;$/;"	m	struct:spritecache_s	typeref:typename:int
 count	render/sprites.h	/^    int count;$/;"	m	struct:tilepalettecycle_s	typeref:typename:int
@@ -1799,6 +1814,7 @@ end	tools/dc_info_gen.c	/^    uint16_t end;$/;"	m	struct:__anon292f5ac10108	type
 end	tools/dc_sight_gen/main.c	/^static struct { int x, y, depth, end, parent; } nodes[2048];$/;"	m	struct:__anona78801480108	typeref:typename:int	file:
 end_frame	interface/renderer.h	/^    void (*end_frame)(renderer_t *renderer);$/;"	m	struct:rendererbackend_s	typeref:typename:void (*)(renderer_t * renderer)
 enqueue_product	game/g_game.c	/^static bool enqueue_product(mobj_t *producer,$/;"	f	typeref:typename:bool	file:	signature:(mobj_t * producer,const StaticProductDefinition * product,uint16_t actor_id)
+entries	render/r_sprite.c	/^    indexed_cache_entry_t *entries;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:indexed_cache_entry_t *	file:
 entries	render/sprites.h	/^    cachedsprite_t entries[MAX_DECORATION_SPRITES];$/;"	m	struct:spritecache_s	typeref:typename:cachedsprite_t[]
 entries	tools/7legion_expanded_units.c	/^static const info_entry_t entries[] = {$/;"	v	typeref:typename:const info_entry_t[]	file:
 entries	tools/7legion_info_gen.c	/^static const info_entry_t entries[] = {$/;"	v	typeref:typename:const info_entry_t[]	file:
@@ -1954,7 +1970,9 @@ frect_from_points	driver/m_vec.h	/^static inline frect_t frect_from_points(fvec2
 frect_intersects	driver/m_vec.h	/^static inline bool frect_intersects(frect_t a, frect_t b) {$/;"	f	typeref:typename:bool	signature:(frect_t a,frect_t b)
 frect_t	driver/m_vec.h	/^typedef SDL_FRect frect_t;$/;"	t	typeref:typename:SDL_FRect
 free_fin	tools/dc_info_conv/main.c	/^static void free_fin(fin_t *fin) {$/;"	f	typeref:typename:void	file:	signature:(fin_t * fin)
+free_indexed_cache	render/r_sprite.c	/^static void free_indexed_cache(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 free_sprite_def	render/r_draw.c	/^static void free_sprite_def(spritedef_t *def) {$/;"	f	typeref:typename:void	file:	signature:(spritedef_t * def)
+free_streaming_buffer	render/r_sprite.c	/^static void free_streaming_buffer(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 free_strings	tools/anim_extract.c	/^static void free_strings(AnimString *items, size_t count) {$/;"	f	typeref:typename:void	file:	signature:(AnimString * items,size_t count)
 free_thinker	play/p_tick.c	/^static void free_thinker(thinker_t *thinker) {$/;"	f	typeref:typename:void	file:	signature:(thinker_t * thinker)
 function	play/actor.h	/^    actionf_p1 function;$/;"	m	struct:thinker_s	typeref:typename:actionf_p1
@@ -2034,6 +2052,7 @@ hash	tests/loader_catalog.c	/^static uint64_t hash;$/;"	v	typeref:typename:uint6
 hash_bytes	tests/dark-colony/test_sprite_loading.c	/^static void hash_bytes(const void *data, size_t size) {$/;"	f	typeref:typename:void	file:	signature:(const void * data,size_t size)
 hash_bytes	tests/loader_catalog.c	/^static void hash_bytes(const void *data, size_t size) {$/;"	f	typeref:typename:void	file:	signature:(const void * data,size_t size)
 hash_int	tests/dark-colony/test_sprite_loading.c	/^static void hash_int(int value) { hash_bytes(&value, sizeof(value)); }$/;"	f	typeref:typename:void	file:	signature:(int value)
+hash_palette	render/r_sprite.c	/^static uint32_t hash_palette(const uint32_t colors[256]) {$/;"	f	typeref:typename:uint32_t	file:	signature:(const uint32_t colors[256])
 hash_sprite	tests/dark-colony/test_sprite_loading.c	/^static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame, int pale/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite,int frame,int palette)
 hash_sprite	tests/loader_catalog.c	/^static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite)
 hash_texture	tests/loader_catalog.c	/^static void hash_texture(SDL_Renderer *renderer, SDL_Texture *texture) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture)
@@ -2095,7 +2114,10 @@ images	hud/ui_definition.h	/^    const uiimage_t *images;$/;"	m	struct:uidefinit
 indexed	render/sprites.h	/^    bool indexed;$/;"	m	struct:spritesheet_s	typeref:typename:bool
 indexed_blend_selector	render/sprites.h	/^    int indexed_blend_selector;$/;"	m	struct:spritesheet_s	typeref:typename:int
 indexed_blend_table	render/sprites.h	/^    const uint8_t *indexed_blend_table;$/;"	m	struct:spritesheet_s	typeref:typename:const uint8_t *
+indexed_cache	render/r_sprite.c	/^} indexed_cache;$/;"	v	typeref:struct:__anon7b6e77cd0308	file:
+indexed_cache_entry_t	render/r_sprite.c	/^} indexed_cache_entry_t;$/;"	t	typeref:struct:__anon7b6e77cd0208	file:
 indexed_upload	render/r_sprite.c	/^static SDL_Texture *indexed_upload(SDL_Renderer *renderer, const uint8_t *indices,$/;"	f	typeref:typename:SDL_Texture *	file:	signature:(SDL_Renderer * renderer,const uint8_t * indices,int stride,const uint32_t colors[256],irect_t rect)
+indices	render/r_sprite.c	/^    const uint8_t *indices;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:const uint8_t *	file:
 indices	render/sprites.h	/^    uint8_t *indices; \/* Contiguous native tiles, one byte per pixel. *\/$/;"	m	struct:tileset_s	typeref:typename:uint8_t *
 indices	render/sprites.h	/^    uint8_t *indices;$/;"	m	struct:spritelump_s	typeref:typename:uint8_t *
 indices	render/sprites.h	/^    uint8_t indices[256];$/;"	m	struct:__anon761761540108	typeref:typename:uint8_t[256]
@@ -2567,6 +2589,7 @@ palette	render/sprites.h	/^    uint32_t palette[256];$/;"	m	struct:spritesheet_s
 palette	render/sprites.h	/^    uint32_t palette[256];$/;"	m	struct:tileset_s	typeref:typename:uint32_t[256]
 palette	tools/dc_spr_extract.c	/^    uint32_t palette[256]; \/* ARGB8888, index 0 = transparent *\/$/;"	m	struct:__anonf6c4462b0208	typeref:typename:uint32_t[256]	file:
 palette_cycle	render/sprites.h	/^    tilepalettecycle_t palette_cycle;$/;"	m	struct:tileset_s	typeref:typename:tilepalettecycle_t
+palette_hash	render/r_sprite.c	/^    uint32_t palette_hash;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:uint32_t	file:
 palette_map_count	render/sprites.h	/^    int palette_map_count;$/;"	m	struct:spritesheet_s	typeref:typename:int
 palette_maps	render/sprites.h	/^    spritepalettemap_t *palette_maps;$/;"	m	struct:spritesheet_s	typeref:typename:spritepalettemap_t *
 panning	driver/app.h	/^    bool panning;$/;"	m	struct:app_s	typeref:typename:bool
@@ -2768,6 +2791,7 @@ render_unit_overlays	render/r_draw.c	/^static void render_unit_overlays(app_t *a
 render_unit_sprite	render/r_draw.c	/^static void render_unit_sprite(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,const mobj_t * u,const spritesheet_t * fallback_sprite,const spritecache_t * cache,const gameinfo_t * game_info,uint32_t ticks)
 renderer	driver/app.h	/^    SDL_Renderer *renderer;$/;"	m	struct:app_s	typeref:typename:SDL_Renderer *
 renderer	render/r_sprite.c	/^    SDL_Renderer *renderer;$/;"	m	struct:__anon7b6e77cd0108	typeref:typename:SDL_Renderer *	file:
+renderer	render/r_sprite.c	/^    SDL_Renderer *renderer;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:SDL_Renderer *	file:
 renderer_backend_by_id	interface/i_video.c	/^const rendererbackend_t *renderer_backend_by_id(const char *id) {$/;"	f	typeref:typename:const rendererbackend_t *	signature:(const char * id)
 renderer_backend_by_id	interface/renderer.h	/^const rendererbackend_t *renderer_backend_by_id(const char *id);$/;"	p	typeref:typename:const rendererbackend_t *	signature:(const char * id)
 renderer_begin_frame	interface/i_video.c	/^void renderer_begin_frame(renderer_t *renderer, SDL_Color clear) {$/;"	f	typeref:typename:void	signature:(renderer_t * renderer,SDL_Color clear)
@@ -2926,6 +2950,7 @@ sightnodes	play/p_sight_data.h	/^} sightnodes[] = {$/;"	v	typeref:typename:const
 single	plans/009-sprite-direction-unification.md	/^Tracking the work needed to give every plugin a single, consistent path$/;"	v
 size	driver/assets.h	/^    size_t size;$/;"	m	struct:blob_s	typeref:typename:size_t
 size	render/r_sprite.c	/^    isize2_t size;$/;"	m	struct:__anon7b6e77cd0108	typeref:typename:isize2_t	file:
+size	render/r_sprite.c	/^    isize2_t size;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:isize2_t	file:
 size	tools/dc_fin_extract.c	/^    size_t size;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 size	tools/dc_gamestat_gen.c	/^    int size;$/;"	m	struct:__anon006eef8b0608	typeref:typename:int	file:
 skipped	tools/dc_info_conv/states.c	/^static void skipped(const char *path, const char *message) {$/;"	f	typeref:typename:void	file:	signature:(const char * path,const char * message)
@@ -3142,6 +3167,7 @@ text	hud/ui_definition.h	/^    SDL_Point text; \/* amount anchor in logical UI c
 text	render/sprites.h	/^    char text[256];$/;"	m	struct:__anon761761540308	typeref:typename:char[256]
 text	tools/anim_extract.c	/^    char *text;$/;"	m	struct:__anon0c7be7350108	typeref:typename:char *	file:
 texture	render/r_sprite.c	/^    SDL_Texture *texture;$/;"	m	struct:__anon7b6e77cd0108	typeref:typename:SDL_Texture *	file:
+texture	render/r_sprite.c	/^    SDL_Texture *texture;$/;"	m	struct:__anon7b6e77cd0208	typeref:typename:SDL_Texture *	file:
 texture	render/sprites.h	/^    SDL_Texture *texture;$/;"	m	struct:spritelump_s	typeref:typename:SDL_Texture *
 texture	render/sprites.h	/^    SDL_Texture *texture;$/;"	m	struct:tileset_s	typeref:typename:SDL_Texture *
 textures	hud/sb_bar.h	/^    SDL_Texture *textures[RTS_UI_MAX_LAYERS];$/;"	m	struct:__anona3f56ed40108	typeref:typename:SDL_Texture * []

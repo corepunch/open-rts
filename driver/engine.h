@@ -47,6 +47,7 @@ bool R_DrawSprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int lump,
                   int palette, const irect_t *src, const irect_t *dst,
                   SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend);
 void R_FreeSpriteBuffer(void);
+void R_DropIndexed(const uint8_t *base, size_t bytes);
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t dst, uint32_t flags, int selector);
 bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,

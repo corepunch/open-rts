@@ -1,30 +1,112 @@
 #include "engine.h"
 
+#include <stdlib.h>
 #include <string.h>
 
-/* One upload surface serves indexed sprites and terrain, never an image/team.
- * Locking flushes queued uses before its pixels are overwritten. */
+/* Streaming fallback when a cached upload cannot be stored. Reusing one
+ * texture requires a GPU wait; the cache below avoids that on the hot path. */
 static struct {
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     isize2_t size;
 } sprite_buffer;
 
-void R_FreeSpriteBuffer(void) {
+typedef struct {
+    const uint8_t *indices;
+    uint32_t palette_hash;
+    isize2_t size;
+    SDL_Texture *texture;
+} indexed_cache_entry_t;
+
+static struct {
+    SDL_Renderer *renderer;
+    indexed_cache_entry_t *entries;
+    int count;
+    int capacity;
+} indexed_cache;
+
+static void free_streaming_buffer(void) {
     if (sprite_buffer.texture) SDL_DestroyTexture(sprite_buffer.texture);
     memset(&sprite_buffer, 0, sizeof(sprite_buffer));
 }
 
+static void free_indexed_cache(void) {
+    for (int i = 0; i < indexed_cache.count; ++i)
+        if (indexed_cache.entries[i].texture)
+            SDL_DestroyTexture(indexed_cache.entries[i].texture);
+    free(indexed_cache.entries);
+    memset(&indexed_cache, 0, sizeof(indexed_cache));
+}
+
+void R_FreeSpriteBuffer(void) {
+    free_streaming_buffer();
+    free_indexed_cache();
+}
+
+void R_DropIndexed(const uint8_t *base, size_t bytes) {
+    if (!base) return;
+    for (int i = 0; i < indexed_cache.count; ) {
+        const uint8_t *indices = indexed_cache.entries[i].indices;
+        bool drop = bytes ? indices >= base && indices < base + bytes : indices == base;
+        if (!drop) { ++i; continue; }
+        if (indexed_cache.entries[i].texture)
+            SDL_DestroyTexture(indexed_cache.entries[i].texture);
+        indexed_cache.entries[i] = indexed_cache.entries[--indexed_cache.count];
+    }
+}
+
+static uint32_t hash_palette(const uint32_t colors[256]) {
+    uint32_t hash = 2166136261u;
+    for (int i = 0; i < 256; ++i) {
+        hash ^= colors[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+static SDL_Texture *cached_indexed(SDL_Renderer *renderer, const uint8_t *indices,
+                                   isize2_t size, const uint32_t palette[256]) {
+    if (indexed_cache.renderer != renderer) {
+        free_indexed_cache();
+        indexed_cache.renderer = renderer;
+    }
+    uint32_t hash = hash_palette(palette);
+    for (int i = 0; i < indexed_cache.count; ++i) {
+        const indexed_cache_entry_t *entry = &indexed_cache.entries[i];
+        if (entry->indices == indices && entry->palette_hash == hash &&
+            entry->size.w == size.w && entry->size.h == size.h)
+            return entry->texture;
+    }
+    if (indexed_cache.count == indexed_cache.capacity) {
+        int capacity = indexed_cache.capacity ? indexed_cache.capacity * 2 : 64;
+        indexed_cache_entry_t *entries = realloc(indexed_cache.entries,
+            (size_t)capacity * sizeof(*entries));
+        if (!entries) return NULL;
+        indexed_cache.entries = entries;
+        indexed_cache.capacity = capacity;
+    }
+    uint32_t *pixels = malloc((size_t)size.w * (size_t)size.h * sizeof(*pixels));
+    if (!pixels) return NULL;
+    V_IndexedToRGBA(pixels, indices, (size_t)size.w * (size_t)size.h, palette);
+    SDL_Texture *texture = I_CreateTexture(renderer, pixels, size.w, size.h, true);
+    free(pixels);
+    if (!texture) return NULL;
+    indexed_cache.entries[indexed_cache.count++] = (indexed_cache_entry_t){
+        .indices = indices, .palette_hash = hash, .size = size, .texture = texture
+    };
+    return texture;
+}
+
 static SDL_Texture *indexed_upload(SDL_Renderer *renderer, const uint8_t *indices,
                                     int stride, const uint32_t colors[256], irect_t rect) {
-    if (sprite_buffer.renderer != renderer) R_FreeSpriteBuffer();
+    if (sprite_buffer.renderer != renderer) free_streaming_buffer();
     if (rect.w > sprite_buffer.size.w || rect.h > sprite_buffer.size.h) {
         isize2_t size = { SDL_max(rect.w, sprite_buffer.size.w),
                          SDL_max(rect.h, sprite_buffer.size.h) };
         SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
             SDL_TEXTUREACCESS_STREAMING, size.w, size.h);
         if (!texture) return NULL;
-        R_FreeSpriteBuffer();
+        free_streaming_buffer();
         sprite_buffer.renderer = renderer;
         sprite_buffer.texture = texture;
         sprite_buffer.size = size;
@@ -72,7 +154,10 @@ bool R_DrawIndexed(SDL_Renderer *renderer, const uint8_t *indices, isize2_t size
                    SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend) {
     irect_t rect = src ? *src : (irect_t){0, 0, size.w, size.h};
     if (!renderer || !indices || !palette || !valid_source(rect, size)) return false;
-    SDL_Texture *texture = indexed_upload(renderer, indices, size.w, palette, rect);
+    SDL_Texture *texture = cached_indexed(renderer, indices, size, palette);
+    if (texture)
+        return draw_texture(renderer, texture, &rect, dst, flip, color, blend);
+    texture = indexed_upload(renderer, indices, size.w, palette, rect);
     rect.x = rect.y = 0;
     return draw_texture(renderer, texture, &rect, dst, flip, color, blend);
 }

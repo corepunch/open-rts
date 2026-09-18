@@ -17,8 +17,7 @@ static bool sdl_renderer_create(renderer_t *renderer, const char *title, int wid
     Uint32 window_flags = SDL_WINDOW_RESIZABLE | (hidden ? SDL_WINDOW_HIDDEN : 0);
     renderer->window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                         width * 2, height * 2, window_flags);
-    Uint32 renderer_flags = software ? SDL_RENDERER_SOFTWARE :
-                                      (SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    Uint32 renderer_flags = software ? SDL_RENDERER_SOFTWARE : SDL_RENDERER_ACCELERATED;
     renderer->sdl = renderer->window ? SDL_CreateRenderer(renderer->window, -1, renderer_flags) : NULL;
     if (!renderer->window || !renderer->sdl) {
         fprintf(stderr, "SDL window/renderer: %s\n", SDL_GetError());
