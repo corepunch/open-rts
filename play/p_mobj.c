@@ -590,6 +590,8 @@ static bool update_unit_harvest(level_t *map,
     fvec2_t attachment_delta = fvec2_sub(
         vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
+    float vent_radius = P_ResourceVentRadius(vent);
+    if (vent_radius > interaction_radius) interaction_radius = vent_radius;
     if (unit_has_move_order(unit)) return false;
     if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
         return false;

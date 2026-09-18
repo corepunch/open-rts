@@ -22,6 +22,26 @@ enum {
 void debug_effects_log(const char *fmt, ...);
 
 float P_MobjRadius(const mobj_t *unit);
+
+static inline isize2_t P_ResourceVentFootprint(const resourcevent_t *vent) {
+    int w = vent && vent->footprint.w > 0 ? vent->footprint.w : 1;
+    int h = vent && vent->footprint.h > 0 ? vent->footprint.h : 1;
+    return (isize2_t){ w, h };
+}
+
+static inline bool P_ResourceVentContainsCell(const resourcevent_t *vent, ivec2_t cell) {
+    if (!vent) return false;
+    isize2_t fp = P_ResourceVentFootprint(vent);
+    return cell.x >= vent->cell.x && cell.x < vent->cell.x + fp.w &&
+           cell.y >= vent->cell.y && cell.y < vent->cell.y + fp.h;
+}
+
+static inline float P_ResourceVentRadius(const resourcevent_t *vent) {
+    isize2_t fp = P_ResourceVentFootprint(vent);
+    float hx = (float)fp.w * 0.5f, hy = (float)fp.h * 0.5f;
+    float r = sqrtf(hx * hx + hy * hy);
+    return r > 1.45f ? r : 1.45f;
+}
 bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy);
 bool P_TryMove(mobj_t *unit, fixed3_t position);
 void P_ClampToLevel(const level_t *map, mobj_t *unit);

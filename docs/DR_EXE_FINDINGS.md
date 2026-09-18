@@ -313,6 +313,32 @@ x=453+(130-w)/2, y=348+(127-h)/2. M01F's rectangle is (488,381,60,60).
 The prior 128×126 stretch covered the native minimap housing. The HUD now keeps
 that housing and uses this native rectangle for markers and camera interaction.
 
+## Freighter harvest and resource pits (2026-09-18)
+
+**Confirmed from retail RSPR headers and OpenDR sequences/units.yaml.** The
+Freedom Guard Freighter (`ucfrgst0.spr`) has 18 logical animations and 16
+facings. Section 0 is the three-frame run cycle (anims 0..2). Section 1 is the
+fifteen-frame harvest cycle (anims 3..17), matching OpenDR `harvest` /
+`dock-loop` at Start=48, Facings=16, Length=15, Tick=100. The Hover Freighter
+(`uchfrst0.spr`) stores a one-frame body plus harvest anims 1..15.
+
+**Confirmed from BUILD.TXT.** `impmn` is the Common Taelon Mine
+(`SetBuildingImages(ncmin1l0.spr ...)`, 3×3, passable). `impww` is the Water
+Extractor (`SetResource(0 20 10000 10000)`). Both are pits the Freighter drives
+into. Campaign M01F places four `impmn` and six `impww` stamps.
+
+**Confirmed from OpenDR `sequences/misc.yaml`.** Resource sprites use
+`ZOffset: -8196`, so the pit draws under the harvester standing on it.
+
+**Implementation.** Harvest states `S_UCFRGST0_HARVEST1..15` / hover equivalent
+use gameplay group 5, the same group Dark Colony uses for Exploiter DEPLOY/WORK.
+Water wells are resource vents with the native 3×3 footprint. Passable
+decorations sort at the north of their footprint so units in the pit are visible.
+
+**Reproduce.** `env SDL_VIDEODRIVER=dummy make test-dark-reign` includes
+`test_harvesting` on M01F: the starting Freighter is ordered onto a pit corner,
+enters `HARVEST_PHASE_MINING` on the harvest cycle, and cargo increases.
+
 ### Remaining fidelity limits
 
 The radar terrain-color path is identified but not ported: `0x0048fac0` calls

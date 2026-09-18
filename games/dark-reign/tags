@@ -297,11 +297,41 @@ S_UCFCNST0_RUN4	games/dark-reign/info.h	/^    S_UCFCNST0_RUN4,$/;"	e	enum:__anon
 S_UCFCNST0_RUN5	games/dark-reign/info.h	/^    S_UCFCNST0_RUN5,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN6	games/dark-reign/info.h	/^    S_UCFCNST0_RUN6,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_STND	games/dark-reign/info.h	/^    S_UCFCNST0_STND,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST1	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST1,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST10	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST10,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST11	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST11,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST12	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST12,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST13	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST13,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST14	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST14,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST15	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST15,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST2	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST2,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST3	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST3,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST4	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST4,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST5	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST5,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST6	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST6,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST7	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST7,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST8	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST8,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_HARVEST9	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST9,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_RUN1	games/dark-reign/info.h	/^    S_UCFRGST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_RUN2	games/dark-reign/info.h	/^    S_UCFRGST0_RUN2,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_RUN3	games/dark-reign/info.h	/^    S_UCFRGST0_RUN3,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_STND	games/dark-reign/info.h	/^    S_UCFRGST0_STND,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_FIRE	games/dark-reign/info.h	/^    S_UCHFRST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST1	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST1,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST10	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST10,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST11	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST11,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST12	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST12,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST13	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST13,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST14	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST14,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST15	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST15,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST2	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST2,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST3	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST3,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST4	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST4,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST5	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST5,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST6	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST6,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST7	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST7,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST8	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST8,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_HARVEST9	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST9,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_RUN1	games/dark-reign/info.h	/^    S_UCHFRST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_STND	games/dark-reign/info.h	/^    S_UCHFRST0_STND,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_IDLE1	games/dark-reign/info.h	/^    S_UCINFST0_IDLE1,$/;"	e	enum:__anon66710f960203
@@ -522,6 +552,8 @@ TAELON_MINE_AMOUNT	games/dark-reign/w_map.c	/^#define TAELON_MINE_AMOUNT /;"	d	f
 TAELON_MINE_RATE	games/dark-reign/w_map.c	/^#define TAELON_MINE_RATE /;"	d	file:
 UNIT	games/dark-reign/p_prod.c	/^#define UNIT(/;"	d	file:	signature:(ui_,label_,cost_,type_,p0_,p1_,m0_,m1_)
 VisualSpec	games/dark-reign/w_map.c	/^} VisualSpec;$/;"	t	typeref:struct:__anon47bd03590308	file:
+WATER_WELL_AMOUNT	games/dark-reign/w_map.c	/^#define WATER_WELL_AMOUNT /;"	d	file:
+WATER_WELL_RATE	games/dark-reign/w_map.c	/^#define WATER_WELL_RATE /;"	d	file:
 W_LoadAssets	games/dark-reign/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
 _DEFAULT_SOURCE	games/dark-reign/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/dark-reign/w_spr.c	/^#define _DEFAULT_SOURCE$/;"	d	file:

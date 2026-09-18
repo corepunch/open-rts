@@ -496,9 +496,12 @@ static void load_dark_reign_decorations(const char *map_path, char *text, level_
 
 /* Default taelon amount and harvest rate per mine.  The BUILD.TXT definition
    lists SetResource(1 1 500 40) but does not encode per-scenario deposits; we
-   use a fixed baseline that matches the original game's economy pacing. */
+   use a fixed baseline that matches the original game's economy pacing.
+   Water extractors use the native SetResource(0 20 10000 10000) values. */
 #define TAELON_MINE_AMOUNT 3000
 #define TAELON_MINE_RATE   20
+#define WATER_WELL_AMOUNT  10000
+#define WATER_WELL_RATE    20
 
 static void load_dark_reign_resource_vents(char *text, level_t *map) {
     const char *tag = "AddBuildingAt(";
@@ -510,7 +513,8 @@ static void load_dark_reign_resource_vents(char *text, level_t *map) {
         char type_name[64] = { 0 };
         if (sscanf(hit, "AddBuildingAt(%d %63[^ )] %d %d",
                    &object_id, type_name, &gx, &gy) == 4 &&
-            strcasecmp(type_name, "impmn") == 0 &&
+            (strcasecmp(type_name, "impmn") == 0 ||
+             strcasecmp(type_name, "impww") == 0) &&
             L_Contains(map, gx, gy)) {
             (void)object_id;
             resourcevent_t *vents = realloc(map->resource_vents,
@@ -518,12 +522,15 @@ static void load_dark_reign_resource_vents(char *text, level_t *map) {
             if (vents) {
                 map->resource_vents = vents;
                 resourcevent_t *v = &map->resource_vents[map->resource_vent_count++];
+                bool water = strcasecmp(type_name, "impww") == 0;
                 v->cell = (ivec2_t){ gx, gy };
-                /* 3×3 mine footprint: attach to the centre cell */
+                /* 3×3 extractor footprint: attach to the centre cell */
                 v->attachment = (fvec2_t){ (float)gx + 1.5f, (float)gy + 1.5f };
-                v->amount = TAELON_MINE_AMOUNT;
-                v->rate = TAELON_MINE_RATE;
+                v->footprint = (isize2_t){ 3, 3 };
+                v->amount = water ? WATER_WELL_AMOUNT : TAELON_MINE_AMOUNT;
+                v->rate = water ? WATER_WELL_RATE : TAELON_MINE_RATE;
                 v->active = true;
+                /* HUD currently displays player_resources[][0] as the stockpile. */
                 v->resource_type = 0;
             }
         }

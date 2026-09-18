@@ -1,6 +1,7 @@
 #include "../rts_model_test.h"
 #include "../../games/dark-reign/dr_types.h"
 #include "../../games/dark-reign/info.h"
+#include "../../play/p_local.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -206,11 +207,91 @@ static int test_combat(void) {
     return 0;
 }
 
+static mobj_t *player_harvester(void) {
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (!unit->remove && unit->hp > 0 && unit->owner == 0 &&
+            (unit->traits & MF_HARVESTER))
+            return unit;
+    }
+    return NULL;
+}
+
+static int nearest_vent_index(fvec2_t position) {
+    int best = -1;
+    float best_dist2 = 1e30f;
+    for (int i = 0; i < level.resource_vent_count; ++i) {
+        const resourcevent_t *vent = &level.resource_vents[i];
+        if (!vent->active || vent->amount <= 0) continue;
+        float dist2 = fvec2_distance_squared(vent->attachment, position);
+        if (dist2 < best_dist2) {
+            best_dist2 = dist2;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static int test_harvesting(void) {
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {
+        .data_root = "data/REIGN/dark",
+        .map_path = "scenario/FIXED/M01F/M01F.SCN",
+    };
+    if (!model || !rts_game_model_load(model, &config)) return fail("load M01F for harvest");
+    RtsRenderSnapshot snap;
+    if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot M01F harvest");
+    /* M01F has 4 Taelon mines (impmn) and 6 water extractors (impww). */
+    if (snap.resource_vent_count < 10) return fail("water wells and taelon mines are vents");
+
+    mobj_t *harvester = player_harvester();
+    if (!harvester) return fail("find starting Freighter");
+    int vent_index = nearest_vent_index(fixed3_xy_to_fvec2(harvester->core.position));
+    if (vent_index < 0) return fail("find nearest extractor");
+    const resourcevent_t *vent = &level.resource_vents[vent_index];
+    if (vent->footprint.w != 3 || vent->footprint.h != 3)
+        return fail("extractor footprint is 3x3");
+
+    int harvester_index = rts_find_unit_by_id(&snap, harvester->id);
+    if (harvester_index < 0) return fail("snapshot has Freighter");
+    RtsGameCommand sel = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
+        .data.select_unit_index = { harvester_index, false } };
+    if (!rts_game_model_command(model, &sel)) return fail("select Freighter");
+    /* Click the north-west cell of the 3x3 pit, not the attachment centre. */
+    fvec2_t pit_corner = { (float)vent->cell.x + 0.25f, (float)vent->cell.y + 0.25f };
+    RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
+        .data.harvest_selected = { .target = pit_corner } };
+    if (!rts_game_model_command(model, &harvest)) return fail("order Freighter onto extractor");
+
+    bool mining = false;
+    for (int t = 0; t < 30 * 90 && !mining; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick harvest");
+        mining = harvester->harvest.phase == HARVEST_PHASE_MINING &&
+                 harvester->core.state_id >= S_UCFRGST0_HARVEST1 &&
+                 harvester->core.state_id <= S_UCFRGST0_HARVEST15;
+    }
+    if (!mining) return fail("Freighter started harvest animation at the pit");
+    int cargo_or_stock = harvester->harvest.cargo + snap.player_resources[0][0];
+    for (int t = 0; t < 30 * 20; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick mining");
+        if (harvester->harvest.cargo + snap.player_resources[0][0] > cargo_or_stock)
+            break;
+    }
+    if (harvester->harvest.cargo + snap.player_resources[0][0] <= cargo_or_stock)
+        return fail("Freighter extracted resources");
+    printf("PASS: dark-reign Freighter mines with harvest animation (state %d cargo %d)\n",
+           harvester->core.state_id, harvester->harvest.cargo);
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(test_map_loads());
     RTS_RUN(test_select_and_move());
     RTS_RUN(test_production());
     RTS_RUN(test_ai_production());
     RTS_RUN(test_combat());
+    RTS_RUN(test_harvesting());
     return 0;
 }

@@ -104,6 +104,8 @@ typedef struct resourcevent_s {
     /* Visual/interaction attachment point inside the authored vent stamp.
        cell remains the integer scenario coordinate used by scripts. */
     fvec2_t attachment;
+    /* Occupied cells for click and harvest range.  0x0 means 1x1. */
+    isize2_t footprint;
     int amount;
     int rate;
     bool active;

@@ -18,6 +18,7 @@ typedef struct {
     int shoot_start, shoot_len, shoot_tick;
     int stand_start;
     int idle_start,  idle_len;
+    int harvest_start, harvest_len, harvest_tick;
 } dr_anim_t;
 
 typedef struct {
@@ -32,12 +33,17 @@ typedef struct {
 
 /* ANIM(facings, run_start,run_len,run_tick,
  *            shoot_start,shoot_len,shoot_tick,
- *            stand_start, idle_start,idle_len) */
+ *            stand_start, idle_start,idle_len).  Harvest is absent. */
 #define ANIM(f,rs,rl,rt, ss,sl,st, stnd, is,il) \
-    { (f), (rs),(rl),(rt), (ss),(sl),(st), (stnd), (is),(il) }
+    { (f), (rs),(rl),(rt), (ss),(sl),(st), (stnd), (is),(il), -1, 0, 0 }
+
+/* Same fields plus harvest_start, harvest_len, harvest_tick.
+ * harvest_start is the logical RSPR step (OpenDR Start / Facings). */
+#define HARVEST_ANIM(f,rs,rl,rt, ss,sl,st, stnd, is,il, hs,hl,ht) \
+    { (f), (rs),(rl),(rt), (ss),(sl),(st), (stnd), (is),(il), (hs),(hl),(ht) }
 
 /* Buildings get a trivial static anim: no walk/shoot, stand at frame 0. */
-#define BLDANIM { 1, -1,0,0, -1,0,0, 0, -1,0 }
+#define BLDANIM { 1, -1,0,0, -1,0,0, 0, -1,0, -1,0,0 }
 
 #define MOBILE(type, sprite, actor, hp, speed, damage, extra, anim_data) \
     { type, sprite, sprite ".spr", actor, hp, speed, 16, 32, 100, damage, \
@@ -80,13 +86,15 @@ static const dr_entry_t entries[] = {
 
     MOBILE("FG_FREIGHTER", "UCFRGST0", "ACTOR_FG_GROUND_TRANSPORTER",
            750, 5, 0, "|MF_HARVESTER",
-           /* run: Start=0,F=16,L=3,T=100  stand at step 0 (Stride=3) */
-           ANIM(16, 0,3,100, -1,0,0,  0,  -1,0)),
+           /* run: Start=0,F=16,L=3,T=100  stand at step 0 (Stride=3)
+            * harvest: RSPR sect 1 anims 3..17, 16 facings (OpenDR Start=48) */
+           HARVEST_ANIM(16, 0,3,100, -1,0,0,  0,  -1,0,  3,15,100)),
 
     MOBILE("FG_HOVER_FREIGHTER", "UCHFRST0", "ACTOR_FG_HOVER_TRANSPORTER",
            500, 5, 11, "|MF_HARVESTER|MF_ATTACK",
-           /* single-frame body (F=16,L=1) */
-           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+           /* run: single-frame body (F=16,L=1)
+            * harvest: RSPR sect 1 anims 1..15, 16 facings */
+           HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,100)),
 
     MOBILE("FG_RAIDER", "UFRADST0", "ACTOR_FG_RAIDER",
            100, 5, 11, "|MF_ATTACK",
@@ -267,6 +275,9 @@ static bool write_dr_info_h(const char *path, const dr_entry_t *entries, int cou
         if (a->idle_start >= 0 && a->idle_len > 0)
             for (int s = 0; s < a->idle_len; ++s)
                 fprintf(f, "    S_%s_IDLE%d,\n", e->sprite, s + 1);
+        if (a->harvest_start >= 0 && a->harvest_len > 0)
+            for (int s = 0; s < a->harvest_len; ++s)
+                fprintf(f, "    S_%s_HARVEST%d,\n", e->sprite, s + 1);
     }
     for (int i = 0; i < count; ++i)
         if (has_fire_state(&entries[i]))
@@ -311,10 +322,11 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
     for (int i = 0; i < count; ++i) {
         const dr_entry_t *e = &entries[i];
         const dr_anim_t  *a = &e->anim;
-        bool has_run   = a->run_start >= 0 && a->run_len > 0;
-        bool has_shoot = a->shoot_start >= 0 && a->shoot_len > 0;
-        bool has_idle  = a->idle_start >= 0 && a->idle_len > 0;
-        bool attacking = has_attack_flag(e);
+        bool has_run     = a->run_start >= 0 && a->run_len > 0;
+        bool has_shoot   = a->shoot_start >= 0 && a->shoot_len > 0;
+        bool has_idle    = a->idle_start >= 0 && a->idle_len > 0;
+        bool has_harvest = a->harvest_start >= 0 && a->harvest_len > 0;
+        bool attacking   = has_attack_flag(e);
 
         /* Attacking actors periodically scan while standing. */
         fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_STND, 0 },\n",
@@ -364,6 +376,16 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
                 else
                     fprintf(f, "    { SPR_%s, %d, 10, NULL, S_%s_IDLE1, 0 },\n",
                             e->sprite, a->idle_start + s, e->sprite);
+            }
+        }
+
+        /* HARVEST states: loop like Dark Colony WORK. Group 5 is not walk/attack. */
+        if (has_harvest) {
+            int tics = tics_from_tick(a->harvest_tick);
+            for (int s = 0; s < a->harvest_len; ++s) {
+                int next = s < a->harvest_len - 1 ? s + 2 : 1;
+                fprintf(f, "    { SPR_%s, %d, %d, NULL, S_%s_HARVEST%d, 5 },\n",
+                        e->sprite, a->harvest_start + s, tics, e->sprite, next);
             }
         }
     }

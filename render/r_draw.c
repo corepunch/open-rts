@@ -1313,11 +1313,19 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
         int footprint_height = dec->footprint.h > 0 ? dec->footprint.h : 1;
-        float sort_y = dec->has_sprite_pivot ?
-            (float)dec->cell.y + (float)footprint_height :
-            dec->center_anchor ?
-            (float)dec->cell.y + 0.5f :
-            (float)dec->cell.y + (float)footprint_height;
+        float sort_y;
+        if (!dec->solid) {
+            /* Passable ground stamps (Taelon/water pits, rubble) stay under
+               units standing on them. OpenDR draws resource sprites at
+               ZOffset -8196. */
+            sort_y = (float)dec->cell.y;
+        } else {
+            sort_y = dec->has_sprite_pivot ?
+                (float)dec->cell.y + (float)footprint_height :
+                dec->center_anchor ?
+                (float)dec->cell.y + 0.5f :
+                (float)dec->cell.y + (float)footprint_height;
+        }
         sort_y = L_ScreenYF(map, sort_y);
         commands[count++] = (drawcommand_t){
             .kind = DRAW_COMMAND_DECORATION,

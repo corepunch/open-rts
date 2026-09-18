@@ -96,7 +96,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_HARVESTER,
         .speed = 4.5f,
         .max_hp = 750,
-        .harvest = { .capacity = 100 },
+        .harvest = { .capacity = 100, .state_id = S_UCFRGST0_HARVEST1 },
     },
     {   /* Laser-armed hover harvester */
         .id = MT_FG_HOVER_FREIGHTER,
@@ -107,7 +107,7 @@ static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
         .speed = 4.5f,
         .max_hp = 500,
         .attack = { .range = 4.0f, .damage = 11, .cooldown_ms = 267 },
-        .harvest = { .capacity = 100 },
+        .harvest = { .capacity = 100, .state_id = S_UCHFRST0_HARVEST1 },
     },
     /* === Infantry === */
     {   /* LaserRifle: range 4, 267ms cd, 11 dmg */
