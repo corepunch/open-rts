@@ -336,8 +336,10 @@ Water wells are resource vents with the native 3×3 footprint. Passable
 decorations sort at the north of their footprint so units in the pit are visible.
 
 **Reproduce.** `env SDL_VIDEODRIVER=dummy make test-dark-reign` includes
-`test_harvesting` on M01F: the starting Freighter is ordered onto a pit corner,
-enters `HARVEST_PHASE_MINING` on the harvest cycle, and cargo increases.
+`test_harvesting` ( Freighter harvest animation and cargo on M01F ) and
+`test_harvest_build`: credits are drained so a Construction Rig is unaffordable,
+the Freighter is ordered onto a pit corner, attaches, plays at least two harvest
+frames, cargo flows, three 100-credit deliveries fund the HQ, and the Rig trains.
 
 ### Remaining fidelity limits
 
