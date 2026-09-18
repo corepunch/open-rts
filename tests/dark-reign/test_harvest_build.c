@@ -3,6 +3,7 @@
 #include "../../play/p_local.h"
 #include "game.h"
 
+#include <math.h>
 #include <stdio.h>
 
 static int fail(const char *msg) { return rts_fail("dark-reign", msg); }
@@ -59,8 +60,14 @@ static int count_owner_type(uint8_t owner, uint16_t type) {
     return n;
 }
 
-/* M01F: send the starting Freighter to a pit, attach, play harvest, deliver
- * cargo to the HQ, then spend it on a Construction Rig. */
+static bool on_vent(const mobj_t *unit, const resourcevent_t *vent) {
+    if (!unit || !vent) return false;
+    fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
+    return P_ResourceVentContainsCell(vent, (ivec2_t){ (int)floorf(pos.x), (int)floorf(pos.y) });
+}
+
+/* M01F: send the starting Freighter to a pit, attach, play harvest, leave for
+ * the Water Launch Pad, deliver cargo, then spend it on a Construction Rig. */
 static int test_gather_attach_animate_and_build(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {
@@ -83,8 +90,10 @@ static int test_gather_attach_animate_and_build(void) {
 
     mobj_t *harvester = player_harvester();
     mobj_t *hq = find_owner_type(0, MT_FG_HQ1);
+    mobj_t *pad = find_owner_type(0, MT_FG_LIFE_PLANT);
     if (!harvester) return fail("starting Freighter");
     if (!hq) return fail("starting HQ");
+    if (!pad) return fail("starting Water Launch Pad");
     int vent_index = nearest_vent_index(fixed3_xy_to_fvec2(harvester->core.position));
     if (vent_index < 0) return fail("extractor near Freighter");
     const resourcevent_t *vent = &level.resource_vents[vent_index];
@@ -151,9 +160,20 @@ static int test_gather_attach_animate_and_build(void) {
     if (!(harvester->harvest.cargo > cargo_at_attach || level.player_resources[0][0] > 0))
         return fail("resources started flowing at the pit");
 
+    bool left_pit = false, reached_pad = false;
+    fvec2_t pad_pos = fixed3_xy_to_fvec2(pad->core.position);
     for (int t = 0; t < 30 * 180 && level.player_resources[0][0] < rig->cost; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick delivery");
+        if (harvester->harvest.phase == HARVEST_PHASE_TO_BASE && !on_vent(harvester, vent))
+            left_pit = true;
+        if (left_pit &&
+            fvec2_distance_squared(fixed3_xy_to_fvec2(harvester->core.position), pad_pos) < 6.0f * 6.0f)
+            reached_pad = true;
+        if (level.player_resources[0][0] > 0 && !left_pit)
+            return fail("credits arrived while the Freighter was still on the pit");
     }
+    if (!left_pit) return fail("Freighter left the pit to return cargo");
+    if (!reached_pad) return fail("Freighter reached the Water Launch Pad");
     if (level.player_resources[0][0] < rig->cost)
         return fail("Freighter delivered enough credits for a Construction Rig");
 

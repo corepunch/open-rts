@@ -334,6 +334,11 @@ into. Campaign M01F places four `impmn` and six `impww` stamps.
 use gameplay group 5, the same group Dark Colony uses for Exploiter DEPLOY/WORK.
 Water wells are resource vents with the native 3×3 footprint. Passable
 decorations sort at the north of their footprint so units in the pit are visible.
+The Freighter parks on the attachment while mining, then hauls cargo to the
+Water Launch Pad (`fglp` / `MT_FG_LIFE_PLANT`, OpenDR `DockHost`) or Taelon
+Power Generator — not the HQ, which sits on the M01F water pit and made the
+unit shuffle around the extractor. Drop-offs whose origin is inside or within
+three cells of the current pit are skipped.
 
 **Reproduce.** `env SDL_VIDEODRIVER=dummy make test-dark-reign` includes
 `test_harvesting` ( Freighter harvest animation and cargo on M01F ) and

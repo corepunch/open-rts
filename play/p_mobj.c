@@ -44,6 +44,51 @@ static int mobj_harvest_capacity(const mobj_t *unit) {
     return unit && unit->info ? unit->info->harvest.capacity : 0;
 }
 
+/* Drop-off buildings next to the pit make the Freighter shuffle around the
+ * extractor instead of leaving. Native water/taelon pads are farther away. */
+static bool harvest_dropoff_too_close(const resourcevent_t *vent, fvec2_t position) {
+    if (!vent) return true;
+    ivec2_t cell = { (int)floorf(position.x), (int)floorf(position.y) };
+    if (P_ResourceVentContainsCell(vent, cell)) return true;
+    return fvec2_distance_squared(position, vent->attachment) < 3.0f * 3.0f;
+}
+
+static bool send_harvester_home(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
+    if (!map || !unit || !vent) return false;
+    fvec2_t unit_pos = fixed3_xy_to_fvec2(unit->core.position);
+    mobj_t *best = NULL, *fallback = NULL;
+    float best_d2 = 1e30f, fallback_d2 = 1e30f;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *base = (mobj_t *)th;
+        if (base->remove || base->hp <= 0) continue;
+        if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
+        fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
+        float d2 = fvec2_distance_squared(unit_pos, base_position);
+        if (d2 < fallback_d2) {
+            fallback_d2 = d2;
+            fallback = base;
+        }
+        if (harvest_dropoff_too_close(vent, base_position)) continue;
+        if (d2 < best_d2) {
+            best_d2 = d2;
+            best = base;
+        }
+    }
+    mobj_t *base = best ? best : fallback;
+    if (!base) return false;
+    if (!P_MoveUnitTo(map, unit, fixed3_xy_to_fvec2(base->core.position))) return false;
+    unit->harvest.return_position = unit->movement.goal;
+    unit->harvest.phase = HARVEST_PHASE_TO_BASE;
+    return true;
+}
+
+static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
+    if (!map || !unit || !vent) return false;
+    if (!P_MoveUnitTo(map, unit, vent->attachment)) return false;
+    unit->harvest.phase = HARVEST_PHASE_TO_MINE;
+    return true;
+}
+
 static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
@@ -536,9 +581,7 @@ static bool update_unit_harvest(level_t *map,
             unit->harvest.phase = HARVEST_PHASE_NONE;
             return false;
         }
-        fvec2_t vent_center = fvec2_cell_center(vent->cell);
-        if (!P_MoveUnitTo(map, unit, vent_center)) return false;
-        unit->harvest.phase = HARVEST_PHASE_TO_MINE;
+        if (!send_harvester_to_vent(map, unit, vent)) return false;
         return false;
     }
     if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
@@ -566,21 +609,9 @@ static bool update_unit_harvest(level_t *map,
         return false;
     }
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
-        if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
-            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-                    mobj_t *base = (mobj_t *)th;
-                    if (base->remove) continue;
-                if (!P_IsAlly(base, unit) ||
-                    (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
-                fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
-                unit->harvest.return_position = base_position;
-                if (P_MoveUnitTo(map, unit, base_position)) {
-                    unit->harvest.return_position = unit->movement.goal;
-                    unit->harvest.phase = HARVEST_PHASE_TO_BASE;
-                    return false;
-                }
-            }
-        }
+        if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0 &&
+            send_harvester_home(map, unit, vent))
+            return false;
         unit->harvest.target = -1;
         unit->harvest.timer_ms = 0;
         unit->harvest.phase = HARVEST_PHASE_NONE;
@@ -600,6 +631,8 @@ static bool update_unit_harvest(level_t *map,
     unit->movement.order_arrived = true;
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
+    if (P_CheckPosition(map, unit, vent->attachment.x, vent->attachment.y))
+        unit->core.position = fixed3_from_fvec2(vent->attachment, unit->core.position.z);
     if (unit->harvest.phase != HARVEST_PHASE_MINING &&
         unit->harvest.phase != HARVEST_PHASE_TURNING) {
         unit->harvest.phase = HARVEST_PHASE_TURNING;
@@ -619,41 +652,12 @@ static bool update_unit_harvest(level_t *map,
             map->player_resources[owner][rtype] += take;
         if (mobj_harvest_capacity(unit) > 0 &&
             unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
-            bool sent_home = false;
-            for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-                    mobj_t *base = (mobj_t *)th;
-                    if (base->remove) continue;
-                if (!P_IsAlly(base, unit) ||
-                    (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
-                fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
-                unit->harvest.return_position = base_position;
-                sent_home = P_MoveUnitTo(map, unit, base_position);
-                if (sent_home) {
-                    unit->harvest.return_position = unit->movement.goal;
-                }
-                if (sent_home) break;
-            }
-            if (sent_home) {
-                unit->harvest.phase = HARVEST_PHASE_TO_BASE;
-                break;
-            }
+            if (send_harvester_home(map, unit, vent)) break;
         }
         if (vent->amount <= 0) {
             vent->active = false;
             if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
-                unit->harvest.phase = HARVEST_PHASE_TO_BASE;
-                for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
-                    mobj_t *base = (mobj_t *)th;
-                    if (base->remove) continue;
-                    if (!P_IsAlly(base, unit) ||
-                        (base->traits & MF_RESOURCE_BASE) == 0 || base->hp <= 0) continue;
-                    fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
-                    unit->harvest.return_position = base_position;
-                    if (P_MoveUnitTo(map, unit, base_position)) {
-                        unit->harvest.return_position = unit->movement.goal;
-                        break;
-                    }
-                }
+                send_harvester_home(map, unit, vent);
             } else {
                 unit->harvest.target = -1;
                 unit->harvest.timer_ms = 0;

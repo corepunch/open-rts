@@ -1690,6 +1690,7 @@ count_action	tests/dark-colony/test_thinker_actions.c	/^static void count_action
 count_owner	tests/7legion/test_playable.c	/^static int count_owner(const RtsRenderSnapshot *s, uint8_t owner) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner)
 count_owner	tests/kknd/test_playable.c	/^static int count_owner(const RtsRenderSnapshot *s, uint8_t owner) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner)
 count_owner_type	tests/7legion/test_playable.c	/^static int count_owner_type(const RtsRenderSnapshot *s, uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner,uint16_t type)
+count_owner_type	tests/dark-reign/test_harvest_build.c	/^static int count_owner_type(uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:int	file:	signature:(uint8_t owner,uint16_t type)
 count_owner_type	tests/dark-reign/test_playable.c	/^static int count_owner_type(const RtsRenderSnapshot *s, uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner,uint16_t type)
 count_owner_type	tests/kknd/test_playable.c	/^static int count_owner_type(const RtsRenderSnapshot *s, uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner,uint16_t type)
 create	interface/renderer.h	/^    bool (*create)(renderer_t *renderer, const char *title, int width, int height,$/;"	m	struct:rendererbackend_s	typeref:typename:bool (*)(renderer_t * renderer,const char * title,int width,int height,bool hidden,bool software)
@@ -1862,6 +1863,7 @@ fail	tests/cross-game/test_model_commands.c	/^static int fail(const char *messag
 fail	tests/dark-colony/test_ai_team_aware.c	/^static int fail(const char *message) {$/;"	f	typeref:typename:int	file:	signature:(const char * message)
 fail	tests/dark-colony/test_combat_and_harvest.c	/^static int fail(const char *message) {$/;"	f	typeref:typename:int	file:	signature:(const char * message)
 fail	tests/dark-colony/test_game_model_headless.c	/^static int fail(const char *message) {$/;"	f	typeref:typename:int	file:	signature:(const char * message)
+fail	tests/dark-reign/test_harvest_build.c	/^static int fail(const char *msg) { return rts_fail("dark-reign", msg); }$/;"	f	typeref:typename:int	file:	signature:(const char * msg)
 fail	tests/dark-reign/test_playable.c	/^static int fail(const char *msg) { return rts_fail("dark-reign", msg); }$/;"	f	typeref:typename:int	file:	signature:(const char * msg)
 fail	tests/kknd/test_playable.c	/^static int fail(const char *msg) { return rts_fail("kknd", msg); }$/;"	f	typeref:typename:int	file:	signature:(const char * msg)
 fail	tests/test_dark_colony_sprite_layout.c	/^static int fail(const char *message) {$/;"	f	typeref:typename:int	file:	signature:(const char * message)
@@ -1892,6 +1894,7 @@ find_movable_player_unit	tests/dark-colony/test_game_model_headless.c	/^static i
 find_nearest_unreserved_walkable_position	play/p_map.c	/^static bool find_nearest_unreserved_walkable_position(const level_t *map,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,mobj_t * const * units,int unit_count,int self_index,uint32_t order_id,float wanted_gx,float wanted_gy,float unit_radius,int search_radius,float * gx_out,float * gy_out)
 find_nearest_walkable_cell	play/p_map.c	/^static bool find_nearest_walkable_cell(const level_t *map, cell_t wanted, int radius, cell_t *ou/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,cell_t wanted,int radius,cell_t * out)
 find_nearest_walkable_position	play/p_map.c	/^static bool find_nearest_walkable_position(const level_t *map, float wanted_gx, float wanted_gy,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,float wanted_gx,float wanted_gy,float unit_radius,int search_radius,float * gx_out,float * gy_out)
+find_owner_type	tests/dark-reign/test_harvest_build.c	/^static mobj_t *find_owner_type(uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(uint8_t owner,uint16_t type)
 find_product	tests/dark-colony/test_game_model_headless.c	/^static const RtsProductDefinition *find_product(const RtsProductDefinition *products,$/;"	f	typeref:typename:const RtsProductDefinition *	file:	signature:(const RtsProductDefinition * products,int product_count,int ui_id)
 find_product	tests/dark-colony/test_production_requirements.c	/^static const StaticProductDefinition *find_product(const StaticProductDefinition *products,$/;"	f	typeref:typename:const StaticProductDefinition *	file:	signature:(const StaticProductDefinition * products,int count,int row_id)
 find_resource_vent_at	play/p_map.c	/^static int find_resource_vent_at(const level_t *map, fvec2_t position) {$/;"	f	typeref:typename:int	file:	signature:(const level_t * map,fvec2_t position)
@@ -2043,8 +2046,10 @@ gy	plans/freeciv-arch.md	/^   typedef struct { uint8_t type; int16_t target_unit
 h	driver/m_vec.h	/^typedef struct { int w, h; }   isize2_t;$/;"	m	struct:__anon9abd85c00308	typeref:typename:int
 harvest	play/actor.h	/^    } harvest;$/;"	m	struct:mobj_s	typeref:struct:mobj_s::__anon175231d90908
 harvest	play/actor.h	/^    } harvest;$/;"	m	struct:mobjtype_s	typeref:struct:mobjtype_s::__anon175231d90508
+harvest_animating	tests/dark-reign/test_harvest_build.c	/^static bool harvest_animating(const mobj_t *unit) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit)
 harvest_assignment_count	play/p_ai.h	/^    int harvest_assignment_count;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:int
 harvest_assignments	play/p_ai.h	/^    AiHarvestAssignment harvest_assignments[AI_MAX_HARVEST_ASSIGNMENTS];$/;"	m	struct:__anonf4d3b9790208	typeref:typename:AiHarvestAssignment[]
+harvest_dropoff_too_close	play/p_mobj.c	/^static bool harvest_dropoff_too_close(const resourcevent_t *vent, fvec2_t position) {$/;"	f	typeref:typename:bool	file:	signature:(const resourcevent_t * vent,fvec2_t position)
 harvest_len	tools/dr_info_gen.c	/^    int harvest_start, harvest_len, harvest_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 harvest_selected	game/g_game.h	/^        } harvest_selected;$/;"	m	union:__anon42a104c40708::__anon42a104c4080a	typeref:struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40b08
 harvest_start	tools/dr_info_gen.c	/^    int harvest_start, harvest_len, harvest_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
@@ -2303,6 +2308,7 @@ main	tests/dark-colony/test_thinker_actions.c	/^int main(void) {$/;"	f	typeref:t
 main	tests/dark-colony/test_thinker_level.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_trooper_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_vent_states.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-reign/test_harvest_build.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-reign/test_mission_hud.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-reign/test_playable.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/input_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2538,6 +2544,7 @@ native_frames	tests/kknd/test_combat_rendering.c	/^static const struct {int type
 native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobj_s	typeref:typename:uint16_t
 native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobjtype_s	typeref:typename:uint16_t
 nearest_palette_index	render/r_draw.c	/^static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256]) {$/;"	f	typeref:typename:uint8_t	file:	signature:(uint32_t rgba,const uint32_t palette[256])
+nearest_vent_index	tests/dark-reign/test_harvest_build.c	/^static int nearest_vent_index(fvec2_t position) {$/;"	f	typeref:typename:int	file:	signature:(fvec2_t position)
 nearest_vent_index	tests/dark-reign/test_playable.c	/^static int nearest_vent_index(fvec2_t position) {$/;"	f	typeref:typename:int	file:	signature:(fvec2_t position)
 nested_action	tests/dark-colony/test_thinker_actions.c	/^static void nested_action(mobj_t *actor) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * actor)
 netactive	driver/d_net.c	/^bool netgame, netready, netactive;$/;"	v	typeref:typename:bool
@@ -2580,6 +2587,7 @@ offset	render/sprites.h	/^    ivec2_t offset;$/;"	m	struct:spritelayer_s	typeref
 offset	tools/anim_extract.c	/^    uint32_t offset;$/;"	m	struct:__anon0c7be7350108	typeref:typename:uint32_t	file:
 oldentertics	driver/d_net.c	/^static uint64_t gametime, oldentertics;$/;"	v	typeref:typename:uint64_t	file:
 oldnettics	driver/d_net.c	/^static int skiptics, frameon, frameskip[4], oldnettics;$/;"	v	typeref:typename:int	file:
+on_vent	tests/dark-reign/test_harvest_build.c	/^static bool on_vent(const mobj_t *unit, const resourcevent_t *vent) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit,const resourcevent_t * vent)
 opening_encounter	tests/kknd/test_combat.c	/^static int opening_encounter(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 options_visible	hud/sb_bar.h	/^    bool options_visible;$/;"	m	struct:__anona3f56ed40108	typeref:typename:bool
 order	driver/d_ticcmd.h	/^    ticorder_t order;$/;"	m	struct:__anon81be5d2d0208	typeref:typename:ticorder_t
@@ -2643,6 +2651,7 @@ pixels::__anon289a07350108::file	tests/dark-colony/test_blood_fin.c	/^    static
 pixels::__anon289a07350108::label	tests/dark-colony/test_blood_fin.c	/^    static const struct { const char *file, *label; int state; } cases[] = {$/;"	m	struct:pixels::__anon289a07350108	typeref:typename:const char *	file:
 pixels::__anon289a07350108::state	tests/dark-colony/test_blood_fin.c	/^    static const struct { const char *file, *label; int state; } cases[] = {$/;"	m	struct:pixels::__anon289a07350108	typeref:typename:int	file:
 player	driver/d_net.h	/^    uint8_t retransmitfrom, starttic, player, numtics;$/;"	m	struct:__anone560e7400108	typeref:typename:uint8_t
+player_harvester	tests/dark-reign/test_harvest_build.c	/^static mobj_t *player_harvester(void) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(void)
 player_harvester	tests/dark-reign/test_playable.c	/^static mobj_t *player_harvester(void) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(void)
 player_resources	game/g_game.h	/^    int player_resources[RTS_MODEL_MAX_PLAYERS][RTS_MODEL_MAX_RESOURCES];$/;"	m	struct:__anon42a104c41208	typeref:typename:int[][]
 player_resources	game/map.h	/^    int player_resources[8][RTS_MAX_RESOURCES];$/;"	m	struct:level_s	typeref:typename:int[8][]
@@ -2932,6 +2941,8 @@ selectionmarker_s	play/actor.h	/^typedef struct selectionmarker_s {$/;"	s
 selectionmarker_s::image	play/actor.h	/^    const char *image;$/;"	m	struct:selectionmarker_s	typeref:typename:const char *
 selectionmarker_s::style	play/actor.h	/^    SelectionStyle style;$/;"	m	struct:selectionmarker_s	typeref:typename:SelectionStyle
 selectionmarker_t	play/actor.h	/^} selectionmarker_t;$/;"	t	typeref:struct:selectionmarker_s
+send_harvester_home	play/p_mobj.c	/^static bool send_harvester_home(level_t *map, mobj_t *unit, const resourcevent_t *vent) {$/;"	f	typeref:typename:bool	file:	signature:(level_t * map,mobj_t * unit,const resourcevent_t * vent)
+send_harvester_to_vent	play/p_mobj.c	/^static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourcevent_t *vent) {$/;"	f	typeref:typename:bool	file:	signature:(level_t * map,mobj_t * unit,const resourcevent_t * vent)
 send_wire	driver/i_net.c	/^static void send_wire(const uint8_t *wire, size_t size, const struct sockaddr_in *to) {$/;"	f	typeref:typename:void	file:	signature:(const uint8_t * wire,size_t size,const struct sockaddr_in * to)
 sendaddress	driver/i_net.c	/^static struct sockaddr_in sendaddress[MAXNETNODES];$/;"	v	typeref:struct:sockaddr_in[]	file:
 separate_units	play/p_tick.c	/^static void separate_units(const level_t *map) {$/;"	f	typeref:typename:void	file:	signature:(const level_t * map)
@@ -3163,6 +3174,7 @@ test_ai_production	tests/kknd/test_playable.c	/^static int test_ai_production(vo
 test_combat	tests/dark-reign/test_playable.c	/^static int test_combat(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_combat	tests/kknd/test_playable.c	/^static int test_combat(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_find_helpers	tests/dark-colony/test_render_trait_helpers.c	/^static int test_find_helpers(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
+test_gather_attach_animate_and_build	tests/dark-reign/test_harvest_build.c	/^static int test_gather_attach_animate_and_build(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_harvesting	tests/7legion/test_playable.c	/^static int test_harvesting(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_harvesting	tests/dark-reign/test_playable.c	/^static int test_harvesting(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_interactive_queue	tests/production_regression.h	/^static int test_interactive_queue(void) {$/;"	f	typeref:typename:int	signature:(void)

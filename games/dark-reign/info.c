@@ -604,7 +604,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     { // MT_FG_LIFE_PLANT
         .doomednum = ACTOR_FG_LIFE_PLANT, .spawnstate = S_NCLNC1L0_STND, .spawnhealth = 1300,
         .deathstate = S_NULL, .xdeathstate = S_NULL,
-        .flags = MF_SELECTABLE|MF_RENDERABLE,
+        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_BASE,
     },
     { // MT_FG_POWER_PLANT
         .doomednum = ACTOR_FG_POWER_PLANT, .spawnstate = S_NCPOW1L0_STND, .spawnhealth = 1450,
