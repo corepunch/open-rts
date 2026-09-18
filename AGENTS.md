@@ -89,7 +89,15 @@ build/bin/open-rts --software --game 7legion
 data/REIGN/dark    — Dark Reign game files
 data/DCOLONY       — Dark Colony game files
 data/7LEGION       — 7th Legion game files (GFX/TILES*.BIM, GFX/*.COL, SFX/)
+data/OpenDR        — Dark Reign reference (OpenDR)
+data/OpenKrush     — KKnD reference (OpenKrush)
 ```
+
+Use `data/OpenDR` as the Dark Reign reference implementation and
+`data/OpenKrush` as the KKnD reference implementation. Consult them when
+reproducing Reign or KKnD sequences, rules, UI, or asset layout. Native
+retail data under `data/REIGN/dark` and `data/KKND` remains the source of
+game files we load at runtime.
 
 ## Build: never list individual source files in the Makefile
 
