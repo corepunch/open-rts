@@ -420,7 +420,6 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
 bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
                                    const level_t *map, const char *sprite_name,
                                    tileset_t *tileset, spritesheet_t *unit_sprite) {
-    (void)renderer;
     uint32_t terrain_palette[256], sprite_palette[256];
     char palette_path[1024];
     snprintf(palette_path, sizeof(palette_path), "%s/graphics/%s.PAL", data_root, map->tileset_name);
@@ -439,6 +438,8 @@ bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
     }
     if (strcasecmp(map->tileset_name, "SNOW") != 0)
         add_water_animations(tileset);
+    if (!R_UploadTileset(renderer, tileset))
+        fprintf(stderr, "warning: Dark Reign tileset atlas was not uploaded\n");
 
     if (!load_unit_sprite(data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);

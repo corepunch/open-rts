@@ -309,7 +309,6 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
                     const level_t *map,
                     const char *sprite_name,
                     tileset_t *tileset, spritesheet_t *unit_sprite) {
-    (void)renderer;
     uint32_t palette[256];
     char col_path[512];
     snprintf(col_path, sizeof(col_path), "%s/%s", data_root, sl_palette_for_tileset(map));
@@ -325,6 +324,8 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
         fprintf(stderr, "7legion: failed to load tileset %s\n", til_path);
         return false;
     }
+    if (!R_UploadTileset(renderer, tileset))
+        fprintf(stderr, "warning: 7th Legion tileset atlas was not uploaded\n");
 
     char sprite_path[512];
     snprintf(sprite_path, sizeof(sprite_path), "%s/%s", data_root,

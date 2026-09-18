@@ -184,11 +184,14 @@ static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int til
         flip = (SDL_RendererFlip)(flip | SDL_FLIP_HORIZONTAL);
     if (transforms & MAP_TILE_TRANSFORM_FLIP_Y)
         flip = (SDL_RendererFlip)(flip | SDL_FLIP_VERTICAL);
-    if (tileset->indices) {
+    const tilepalettecycle_t *cycle = &tileset->palette_cycle;
+    bool live_palette = tileset->indices && cycle->tiles && cycle->count > 1 &&
+                        cycle->frame_ms && cycle->tiles[tile];
+    if (live_palette || !tileset->texture) {
+        if (!tileset->indices) return;
         const uint32_t *palette = tileset->palette;
         uint32_t colors[256];
-        const tilepalettecycle_t *cycle = &tileset->palette_cycle;
-        if (cycle->tiles && cycle->tiles[tile] && cycle->count > 1 && cycle->frame_ms) {
+        if (live_palette) {
             unsigned phase = (app->ticks_ms / cycle->frame_ms) % cycle->count;
             memcpy(colors, palette, sizeof(colors));
             for (int i = 0; i < cycle->count; ++i)
@@ -201,7 +204,7 @@ static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int til
                        flip, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
         return;
     }
-    if (!tileset->texture) return;
+    if (tileset->atlas_cols <= 0) return;
     irect_t src = {
         (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
         (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
@@ -225,6 +228,10 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
     int tile_w = app_tile_w(app, tileset);
     int tile_h = app_tile_h(app, tileset);
     int draw_y_offset = tileset->draw_y_offset;
+    if (tileset->texture) {
+        SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureAlphaMod(tileset->texture, 255);
+    }
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
@@ -300,10 +307,6 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
     if ((map->render_capabilities & MAP_RENDER_CAP_TERRAIN_TRANSITIONS) &&
         !(map->render_capabilities & MAP_RENDER_CAP_CELL_COLORS) &&
         map->render_transitions) {
-        if (tileset->texture) {
-            SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_BLEND);
-            SDL_SetTextureAlphaMod(tileset->texture, 255);
-        }
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
@@ -316,10 +319,6 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 int dy = (int)(sy + draw_y_offset);
                 map->render_transitions(app, map, tileset, x, y, dx, dy);
             }
-        }
-        if (tileset->texture) {
-            SDL_SetTextureAlphaMod(tileset->texture, 255);
-            SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_NONE);
         }
     }
 

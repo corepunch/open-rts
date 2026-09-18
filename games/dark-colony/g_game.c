@@ -512,7 +512,6 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
 
 bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
                   const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
-    (void)renderer; /* Both terrain and sprites decode into indexed CPU storage. */
     if (!load_render_tables(root, map->tileset_name)) {
         fprintf(stderr, "failed to load Dark Colony render tables for %s\n", map->tileset_name);
         return false;
@@ -520,6 +519,8 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", root, map->tileset_name);
     if (!load_dark_colony_tileset(bts_path, tileset)) return false;
+    if (!R_UploadTileset(renderer, tileset))
+        fprintf(stderr, "warning: Dark Colony tileset atlas was not uploaded\n");
 
     char sprite_path[1024];
     uint32_t sprite_palette[256] = { 0 };

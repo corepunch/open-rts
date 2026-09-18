@@ -1,6 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
 
+#include <stdlib.h>
+
 SDL_Renderer *r_renderer;
 
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
@@ -27,6 +29,32 @@ SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int
         fprintf(stderr, "SDL_SetTextureScaleMode: %s\n", SDL_GetError());
     }
     return texture;
+}
+
+bool R_UploadTileset(SDL_Renderer *renderer, tileset_t *tileset) {
+    if (!tileset) return false;
+    if (tileset->texture) return true;
+    if (!tileset->indices || tileset->count <= 0 ||
+        tileset->tile_w <= 0 || tileset->tile_h <= 0) return false;
+    if (!renderer) return true;
+    if (tileset->atlas_cols <= 0)
+        tileset->atlas_cols = tileset->count < 32 ? tileset->count : 32;
+    int cols = tileset->atlas_cols;
+    int rows = (tileset->count + cols - 1) / cols;
+    int width = cols * tileset->tile_w;
+    int height = rows * tileset->tile_h;
+    uint32_t *pixels = calloc((size_t)width * (size_t)height, sizeof(*pixels));
+    if (!pixels) return false;
+    size_t tile_bytes = (size_t)tileset->tile_w * (size_t)tileset->tile_h;
+    for (int i = 0; i < tileset->count; ++i) {
+        V_BlitIndexed(pixels, width, height,
+                      (i % cols) * tileset->tile_w, (i / cols) * tileset->tile_h,
+                      tileset->indices + (size_t)i * tile_bytes,
+                      tileset->tile_w, tileset->tile_h, tileset->palette);
+    }
+    tileset->texture = I_CreateTexture(renderer, pixels, width, height, true);
+    free(pixels);
+    return tileset->texture != NULL;
 }
 
 bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,

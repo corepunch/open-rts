@@ -35,6 +35,8 @@ void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint
 void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                    const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
 SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
+/* Bake indexed tiles into a GPU atlas. Palette-cycled tiles keep the CPU path. */
+bool R_UploadTileset(SDL_Renderer *renderer, tileset_t *tileset);
 bool R_DrawIndexed(SDL_Renderer *renderer, const uint8_t *indices, isize2_t size,
                    const uint32_t palette[256], const irect_t *src, const irect_t *dst,
                    SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend);
