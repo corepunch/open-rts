@@ -17,6 +17,9 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_UNIT, (type_), 0, \
       { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), \
       { (m0_), (m1_) }, ((m1_) == 0 ? 1 : 2) }
+#define BUILD_IMP(ui_, label_, cost_, type_, p0_, p1_) \
+    { (ui_), (ui_), (label_), (cost_), 0, RTS_PRODUCT_BUILDING, (type_), 0, \
+      { (p0_), (p1_) }, ((p1_) == 0 ? ((p0_) == 0 ? 0 : 1) : 2), { MT_IMP_CONSTRUCTION_CREW }, 1 }
     BUILD(10001, "FG HQ 1", 750, 10001, 0, 0),
     BUILD(10002, "FG HQ 2", 1000, 10002, 10004, 10006),
     BUILD(10003, "FG HQ 3", 1250, 10003, 10005, 10007),
@@ -63,7 +66,48 @@ static const StaticProductDefinition DARK_REIGN_FG_PRODUCTS[] = {
     UNIT(30, "Water Contaminator", 10000, 30, 10007, 10003, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(13, "Freighter", 1000, 13, 10006, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
     UNIT(14, "Hover Freighter", 1500, 14, 10007, 0, MT_FG_VEHICLE_FACTORY, MT_FG_ADV_VEHICLE_FACTORY),
+    /* --- Imperium buildings (BUILD.TXT costs/prereqs, maker = Imp rig) --- */
+    BUILD_IMP(11001, "Imp HQ 1", 750, 11001, 0, 0),
+    BUILD_IMP(11002, "Imp HQ 2", 1000, 11002, 11004, 11006),
+    BUILD_IMP(11003, "Imp HQ 3", 1250, 11003, 11005, 11007),
+    BUILD_IMP(11004, "Imp Training Facility", 1500, 11004, 11001, 0),
+    BUILD_IMP(11005, "Imp Advanced Training", 750, 11005, 11002, 0),
+    BUILD_IMP(11006, "Imp Assembly Plant", 2200, 11006, 11001, 0),
+    BUILD_IMP(11007, "Imp Advanced Assembly", 2500, 11007, 11002, 0),
+    BUILD_IMP(11009, "Imp Field Hospital", 500, 11009, 11004, 0),
+    BUILD_IMP(11010, "Imp Repair Station", 800, 11010, 11006, 0),
+    BUILD_IMP(11011, "Imp Camera Tower", 200, 11011, 11002, 0),
+    BUILD_IMP(11012, "Imp Rearming Deck", 1000, 11012, 11003, 0),
+    BUILD_IMP(11013, "Imp Air Defense", 1000, 11013, 11002, 0),
+    BUILD_IMP(11014, "Imp Guard Tower", 500, 11014, 11001, 0),
+    BUILD_IMP(11015, "Imp Neutron Accelerator", 1700, 11015, 11002, 0),
+    BUILD_IMP(11008, "Imp Temporal Gate", 1800, 11008, 11002, 0),
+    BUILD_IMP(11021, "Imp Rift Creator", 8000, 11021, 11003, 11008),
+    BUILD_IMP(11019, "Imp Launch Pad", 2500, 11019, 0, 0),
+    BUILD_IMP(11020, "Imp Power Generator", 2000, 11020, 0, 0),
+    { 1005, 1005, "Imp Construction Rig", 300, 0, RTS_PRODUCT_UNIT, 1005, 0,
+      { 11001 }, 1, { MT_IMP_HQ1, MT_IMP_HQ2, MT_IMP_HQ3 }, 3 },
+    UNIT(1002, "Guardian", 150, 1002, 11004, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),
+    UNIT(1003, "Bion", 350, 1003, 11004, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),
+    UNIT(1004, "Exterminator", 500, 1004, 11005, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),
+    UNIT(1001, "Imp Spy", 1000, 1001, 11005, 0, MT_IMP_BARRACKS, MT_IMP_ADV_BARRACKS),
+    UNIT(1010, "Scout Tank", 500, 1010, 11006, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1009, "Invader Transport", 600, 1009, 11006, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1011, "Plasma Tank", 700, 1011, 11006, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1008, "Amper", 500, 1008, 11006, 11009, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1013, "Imp MAD", 800, 1013, 11006, 11002, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1019, "Recon Drone", 400, 1019, 11006, 11002, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1015, "Shredder", 700, 1015, 11006, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1014, "Hostage Taker", 600, 1014, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1012, "Tachyon Tank", 1500, 1012, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1017, "S.C.A.R.A.B.", 1300, 1017, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1020, "Cyclone", 1500, 1020, 11006, 11012, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1018, "Sky Fortress", 2500, 1018, 11006, 11012, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1016, "Imp Contaminator", 10000, 1016, 11007, 11003, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1006, "Imp Freighter", 1000, 1006, 11006, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
+    UNIT(1007, "Imp Hover Freighter", 1500, 1007, 11007, 0, MT_IMP_VEHICLE_FACTORY, MT_IMP_ADV_VEHICLE_FACTORY),
 #undef BUILD
+#undef BUILD_IMP
 #undef UNIT
 };
 
@@ -113,6 +157,15 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
         {5,18},{4,30},{1,15},{15,14},{20,18},{17,21},{21,18},
         {12,15},{16,39},{19,33},{23,24},{24,42},{18,120},{30,150},
         {13,30},{14,45},
+        /* Imperium build times are the SetCost seconds from UNITS.TXT/BUILD.TXT. */
+        {11001,22},{11002,30},{11003,37},{11004,45},{11005,23},
+        {11006,66},{11007,75},{11009,15},{11010,24},{11011,6},
+        {11012,30},{11013,30},{11014,22},{11015,51},{11008,54},{11021,240},
+        {11019,45},{11020,30},
+        {1005,9},{1002,5},{1003,11},{1004,15},{1001,30},
+        {1010,15},{1009,18},{1011,21},{1008,15},{1013,24},
+        {1019,12},{1015,21},{1014,18},{1012,45},{1017,39},
+        {1020,45},{1018,75},{1016,150},{1006,30},{1007,45},
     };
     for (size_t i = 0; i < sizeof(times) / sizeof(times[0]); ++i)
         if (times[i].type == product->product_type) return times[i].seconds * 1000;
@@ -164,6 +217,12 @@ static bool has_prerequisite(const RtsGameModel *model, int owner, int type) {
     case 10004: return G_ModelHasActorType(model, owner, MT_FG_ADV_BARRACKS);
     case 10006: return G_ModelHasActorType(model, owner, MT_FG_ADV_VEHICLE_FACTORY);
     case 10015: return G_ModelHasActorType(model, owner, MT_FG_PHASE_FACTORY_2);
+    case 11001:
+        if (G_ModelHasActorType(model, owner, MT_IMP_HQ2)) return true;
+        /* fall through */
+    case 11002: return G_ModelHasActorType(model, owner, MT_IMP_HQ3);
+    case 11004: return G_ModelHasActorType(model, owner, MT_IMP_ADV_BARRACKS);
+    case 11006: return G_ModelHasActorType(model, owner, MT_IMP_ADV_VEHICLE_FACTORY);
     default: return false;
     }
 }
