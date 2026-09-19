@@ -212,6 +212,83 @@ static const dr_entry_t entries[] = {
            /* no OpenDR data; conservative single-frame default */
            ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
 
+    /* --- Imperium infantry (OpenDR sequences/units.yaml) --- */
+    MOBILE("IMP_GUARDIAN", "UIGRDST0", "ACTOR_IMP_STRIKE_MARINE",
+           100, 5, 11, "|MF_ATTACK",
+           /* run:0..5  shoot:6..7 (Start=48/8)  stand/idle:8 (Start=64/8) */
+           ANIM(8,  0,6,100,  6,2,100,  8,  8,1)),
+
+    MOBILE("IMP_BION", "UIBONST0", "ACTOR_IMP_FIRE_SUPPORT_MARINE",
+           150, 5, 18, "|MF_ATTACK",
+           /* run:0..7  shoot:8..10 (Start=64/8)  idle:11..18  stand:25 */
+           ANIM(8,  0,8,100,  8,3,100,  25,  11,8)),
+
+    MOBILE("IMP_EXTERMINATOR", "UIEXTST0", "ACTOR_IMP_HOVER_MARINE",
+           75, 5, 15, "|MF_ATTACK",
+           /* run single-frame  sync with shoot Start=16/16 */
+           ANIM(16, 0,1,100,  1,2,100,  0,  0,1)),
+
+    /* --- Imperium vehicles --- */
+    MOBILE("IMP_SCOUT_TANK", "UISTTST0", "ACTOR_IMP_SCOUT_TANK",
+           150, 6, 10, "|MF_ATTACK",
+           /* single-frame body; shoot identical to run */
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_ASSAULT_VEHICLE", "UIITTST0", "ACTOR_IMP_ASSAULT_VEHICLE",
+           150, 5, 11, "|MF_ATTACK",
+           /* single-frame body with separate turret overlay */
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_PLASMA_TANK", "UIPLTST0", "ACTOR_IMP_PLASMA_TANK",
+           250, 4, 19, "|MF_ATTACK",
+           /* single-frame body with separate turret overlay */
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_AMPER", "UIAMPST0", "ACTOR_IMP_AMPER",
+           66, 5, 0, "",
+           /* run:0..5  shoot:6..8  idle:9..11  stand:15 (Start=120/8) */
+           ANIM(8,  0,6,100,  6,3,100,  15,  9,3)),
+
+    MOBILE("IMP_MAD", "UIMADST0", "ACTOR_IMP_MAD",
+           150, 4, 48, "|MF_ATTACK",
+           /* single-frame body */
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_RECON_SAUCER", "UIRDRST0", "ACTOR_IMP_RECON_SAUCER",
+           66, 6, 0, "|MF_FLY",
+           /* recon only — shoot strip is sensor sweep, not a weapon */
+           ANIM(8,  0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_SHREDDER", "UISHRST0", "ACTOR_IMP_SHREDDER",
+           100, 5, 10, "|MF_ATTACK",
+           /* run/shoot identical 0..3; shoot=-1 so missilestate=seestate */
+           ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_HOSTAGE_TAKER", "UIHOSST0", "ACTOR_IMP_HOSTAGE_TAKER",
+           450, 4, 0, "",
+           /* transport/ability unit — no ranged weapon */
+           ANIM(16, 0,3,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_TACHYON_TANK", "UITCTST0", "ACTOR_IMP_TACHYON_TANK",
+           410, 4, 30, "|MF_ATTACK",
+           /* single-frame body */
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE("IMP_SCARAB", "UIIARST0", "ACTOR_IMP_SPA",
+           133, 4, 30, "|MF_ATTACK",
+           /* run single-frame  shoot:1..3 (Start=16/16) */
+           ANIM(16, 0,1,100,  1,3,100,  0,  -1,0)),
+
+    MOBILE("IMP_CYCLONE", "UICYCST0", "ACTOR_IMP_VTOL",
+           150, 6, 24, "|MF_ATTACK|MF_FLY",
+           /* run single-frame  shoot:1 (Start=16/16) */
+           ANIM(16, 0,1,100,  1,1,100,  0,  -1,0)),
+
+    MOBILE("IMP_SKY_FORTRESS", "UISKYST0", "ACTOR_IMP_SKY_FORTRESS",
+           266, 4, 650, "|MF_ATTACK|MF_FLY",
+           /* run single-frame  shoot:0..2 */
+           ANIM(8,  0,1,100,  0,3,100,  0,  -1,0)),
+
     /* --- Freedom Guard buildings --- */
     BUILDING("FG_HQ1",               "NFHQT1L0", "ACTOR_FG_HEADQUARTERS_1",      1200,  0, "|MF_RESOURCE_BASE"),
     BUILDING("FG_HQ2",               "NFHQT2L0", "ACTOR_FG_HEADQUARTERS_2",       2400,  0, ""),
@@ -234,6 +311,23 @@ static const dr_entry_t entries[] = {
     BUILDING("FG_GUARD_TOWER",       "NFGDT1L0", "ACTOR_FG_GUARD_TOWER",           400, 10, "|MF_ATTACK"),
     BUILDING("FG_ADV_GUARD_TOWER",   "NFAGT1L0", "ACTOR_FG_ADVANCED_GUARD_TOWER",  550, 13, "|MF_ATTACK"),
     BUILDING("FG_AA_SITE",           "NFAAR1L0", "ACTOR_FG_AA_SITE",               600, 40, "|MF_ATTACK"),
+
+    /* --- Imperium buildings (retail BUILD.TXT hitpoints) --- */
+    BUILDING("IMP_HQ1",               "NIHQT1L0", "ACTOR_IMP_HEADQUARTERS_1",      1440,  0, "|MF_RESOURCE_BASE"),
+    BUILDING("IMP_HQ2",               "NIHQT2L0", "ACTOR_IMP_HEADQUARTERS_2",      2880,  0, ""),
+    BUILDING("IMP_HQ3",               "NIHQT3L0", "ACTOR_IMP_HEADQUARTERS_3",      4330,  0, ""),
+    BUILDING("IMP_BARRACKS",          "NIUTF1L0", "ACTOR_IMP_TRAINING_FACILITY_1",  900,  0, ""),
+    BUILDING("IMP_ADV_BARRACKS",      "NIUTF2L0", "ACTOR_IMP_TRAINING_FACILITY_2", 1800,  0, ""),
+    BUILDING("IMP_VEHICLE_FACTORY",   "NIVCY1L0", "ACTOR_IMP_VEHICLE_FACTORY_1",   1200,  0, ""),
+    BUILDING("IMP_ADV_VEHICLE_FACTORY","NIVCY2L0","ACTOR_IMP_VEHICLE_FACTORY_2",   2400,  0, ""),
+    BUILDING("IMP_HOVER_FACTORY",     "NIHSP1L0", "ACTOR_IMP_HOVER_FACTORY",        720,  0, ""),
+    BUILDING("IMP_REPAIR_BAY",        "NIREP1L0", "ACTOR_IMP_REPAIR_BAY",           720,  0, ""),
+    BUILDING("IMP_TACHYON_PLANT",     "NITGT1L0", "ACTOR_IMP_TACHYON_PLANT",       1000,  0, ""),
+    BUILDING("IMP_REFINERY",          "NIRRM1L0", "ACTOR_IMP_REFINERY",             960,  0, ""),
+    BUILDING("IMP_RIFT_CREATOR",      "NITRC1L0", "ACTOR_IMP_RIFT_CREATOR",        1000,  0, ""),
+    BUILDING("IMP_GUARD_TOWER",       "NIGDT1L0", "ACTOR_IMP_GUARD_TOWER",          400, 10, "|MF_ATTACK"),
+    BUILDING("IMP_ADV_GUARD_TOWER",   "NIAGT1L0", "ACTOR_IMP_ADVANCED_GUARD_TOWER", 550,180, "|MF_ATTACK"),
+    BUILDING("IMP_AA_SITE",           "NIAAR1L0", "ACTOR_IMP_AA_SITE",              720, 14, "|MF_ATTACK"),
 };
 
 /* ------------------------------------------------------------------ writers */
