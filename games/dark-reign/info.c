@@ -51,6 +51,12 @@ const char *const sprnames[NUMSPRITES] = {
     "ucinfst0.spr",
     "ufmtrst0.spr",
     "ucwcost0.spr",
+    "uiittst0.spr",
+    "uipltst0.spr",
+    "uitctst0.spr",
+    "uimadst0.spr",
+    "uishrst0.spr",
+    "uiiarst0.spr",
     "uocvmst0.spr",
     "uorcmst0.spr",
     "uocspst0.spr",
@@ -99,6 +105,54 @@ const char *const sprnames[NUMSPRITES] = {
     "nccam1l0.spr",
     "nclnc1l0.spr",
     "ncpow1l0.spr",
+    "ncsbh1l0.spr",
+    "ncsbv1l0.spr",
+    "ncsbc1l0.spr",
+    "ncswl1l0.spr",
+    "ncswm1l0.spr",
+    "ncbwl1l0.spr",
+    "ncbwm1l0.spr",
+    "nfvcy1l0.spr",
+    "nfvcy2l0.spr",
+    "nfphf1l0.spr",
+    "nfphf2l0.spr",
+    "nfhqt1l0.spr",
+    "nfhqt2l0.spr",
+    "nfhqt3l0.spr",
+    "nfutf2l0.spr",
+    "nfhsp1l0.spr",
+    "nfrep1l0.spr",
+    "nfrrm1l0.spr",
+    "ncpow1l0.spr",
+    "nfutf1l0.spr",
+    "nocen1l0.spr",
+    "ncwel1l0.spr",
+    "ncmin1l0.spr",
+    "nowat1l0.spr",
+    "nohov1l0.spr",
+    "nodes1l0.spr",
+    "nomdr1l0.spr",
+    "noshl1l0.spr",
+    "nosub1l0.spr",
+    "notcn1l0.spr",
+    "notyh1l0.spr",
+    "nothq1l0.spr",
+    "nomlt1l0.spr",
+    "notdr1l0.spr",
+    "norvp1l0.spr",
+    "nopld1l0.spr",
+    "nocbs1l0.spr",
+    "nowar1l0.spr",
+    "nopri1l0.spr",
+    "nochm4l0.spr",
+    "nofrm1l0.spr",
+    "nofrm1l1.spr",
+    "nofrm1l2.spr",
+    "nobrd1l0.spr",
+    "nobrd1l1.spr",
+    "ncsbh1l0.spr",
+    "ncsbv1l0.spr",
+    "ncsbc1l0.spr",
 };
 
 const state_t states[NUMSTATES] = {
@@ -150,6 +204,12 @@ const state_t states[NUMSTATES] = {
     #include "animate/UCINFST0_IMP.inc"
     #include "animate/UFMTRST0_IMP.inc"
     #include "animate/UCWCOST0_IMP.inc"
+    #include "animate/UIITTST0_D.inc"
+    #include "animate/UIPLTST0_D.inc"
+    #include "animate/UITCTST0_D.inc"
+    #include "animate/UIMADST0_D.inc"
+    #include "animate/UISHRST0_D.inc"
+    #include "animate/UIIARST0_D.inc"
     #include "animate/UOCVMST0.inc"
     #include "animate/UORCMST0.inc"
     #include "animate/UOCSPST0.inc"
@@ -198,6 +258,54 @@ const state_t states[NUMSTATES] = {
     #include "animate/NCCAM1L0_IMP.inc"
     #include "animate/NCLNC1L0_IMP.inc"
     #include "animate/NCPOW1L0_IMP.inc"
+    #include "animate/NCSBH1L0_IMP.inc"
+    #include "animate/NCSBV1L0_IMP.inc"
+    #include "animate/NCSBC1L0_IMP.inc"
+    #include "animate/NCSWL1L0.inc"
+    #include "animate/NCSWM1L0.inc"
+    #include "animate/NCBWL1L0.inc"
+    #include "animate/NCBWM1L0.inc"
+    #include "animate/NFVCY1L0_D.inc"
+    #include "animate/NFVCY2L0_D.inc"
+    #include "animate/NFPHF1L0_D.inc"
+    #include "animate/NFPHF2L0_D.inc"
+    #include "animate/NFHQT1L0_D.inc"
+    #include "animate/NFHQT2L0_D.inc"
+    #include "animate/NFHQT3L0_D.inc"
+    #include "animate/NFUTF2L0_D.inc"
+    #include "animate/NFHSP1L0_D.inc"
+    #include "animate/NFREP1L0_D.inc"
+    #include "animate/NFRRM1L0_D.inc"
+    #include "animate/NCPOW1L0_D.inc"
+    #include "animate/NFUTF1L0_D.inc"
+    #include "animate/NOCEN1L0.inc"
+    #include "animate/NCWEL1L0.inc"
+    #include "animate/NCMIN1L0.inc"
+    #include "animate/NOWAT1L0.inc"
+    #include "animate/NOHOV1L0.inc"
+    #include "animate/NODES1L0.inc"
+    #include "animate/NOMDR1L0.inc"
+    #include "animate/NOSHL1L0.inc"
+    #include "animate/NOSUB1L0.inc"
+    #include "animate/NOTCN1L0.inc"
+    #include "animate/NOTYH1L0.inc"
+    #include "animate/NOTHQ1L0.inc"
+    #include "animate/NOMLT1L0.inc"
+    #include "animate/NOTDR1L0.inc"
+    #include "animate/NORVP1L0.inc"
+    #include "animate/NOPLD1L0.inc"
+    #include "animate/NOCBS1L0.inc"
+    #include "animate/NOWAR1L0.inc"
+    #include "animate/NOPRI1L0.inc"
+    #include "animate/NOCHM4L0.inc"
+    #include "animate/NOFRM1L0.inc"
+    #include "animate/NOFRM1L1.inc"
+    #include "animate/NOFRM1L2.inc"
+    #include "animate/NOBRD1L0.inc"
+    #include "animate/NOBRD1L1.inc"
+    #include "animate/NCSBH1L0_T.inc"
+    #include "animate/NCSBV1L0_T.inc"
+    #include "animate/NCSBC1L0_T.inc"
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
@@ -564,6 +672,49 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16, .height = 32, .mass = 100,
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
     },
+    { // MT_IMP_ASSAULT_VEHICLE_DECOY
+        .doomednum = ACTOR_IMP_ASSAULT_VEHICLE_DECOY, .spawnstate = S_UIITTST0_D_STND, .spawnhealth = 75,
+        .seestate = S_UIITTST0_D_RUN1, .speed = 5,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
+    { // MT_IMP_PLASMA_TANK_DECOY
+        .doomednum = ACTOR_IMP_PLASMA_TANK_DECOY, .spawnstate = S_UIPLTST0_D_STND, .spawnhealth = 75,
+        .seestate = S_UIPLTST0_D_RUN1, .speed = 4,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
+    { // MT_IMP_TACHYON_TANK_DECOY
+        .doomednum = ACTOR_IMP_TACHYON_TANK_DECOY, .spawnstate = S_UITCTST0_D_STND, .spawnhealth = 100,
+        .seestate = S_UITCTST0_D_RUN1, .speed = 4,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
+    { // MT_IMP_MAD_DECOY
+        .doomednum = ACTOR_IMP_MAD_DECOY, .spawnstate = S_UIMADST0_D_STND, .spawnhealth = 100,
+        .seestate = S_UIMADST0_D_RUN1, .speed = 4,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
+    { // MT_IMP_SHREDDER_DECOY
+        .doomednum = ACTOR_IMP_SHREDDER_DECOY, .spawnstate = S_UISHRST0_D_STND, .spawnhealth = 100,
+        .seestate = S_UISHRST0_D_RUN1, .speed = 5,
+        .missilestate = S_UISHRST0_D_FIRE, .damage = 50,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_ATTACK,
+    },
+    { // MT_IMP_SPA_DECOY
+        .doomednum = ACTOR_IMP_SPA_DECOY, .spawnstate = S_UIIARST0_D_STND, .spawnhealth = 100,
+        .seestate = S_UIIARST0_D_RUN1, .speed = 4,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .radius = 16, .height = 32, .mass = 100,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
+    },
     { // MT_CIV_MALE
         .doomednum = ACTOR_CIV_MALE, .spawnstate = S_UOCVMST0_STND, .spawnhealth = 30,
         .seestate = S_UOCVMST0_RUN1, .speed = 6,
@@ -827,6 +978,246 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     },
     { // MT_IMP_POWER_PLANT
         .doomednum = ACTOR_IMP_POWER_PLANT, .spawnstate = S_NCPOW1L0_IMP_STND, .spawnhealth = 1450,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_BRIDGE_H
+        .doomednum = ACTOR_IMP_SMALL_HORIZONTAL_BRIDGE, .spawnstate = S_NCSBH1L0_IMP_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_BRIDGE_V
+        .doomednum = ACTOR_IMP_SMALL_VERTICAL_BRIDGE, .spawnstate = S_NCSBV1L0_IMP_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_BRIDGE_C
+        .doomednum = ACTOR_IMP_SMALL_CENTRE_BRIDGE, .spawnstate = S_NCSBC1L0_IMP_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_WALL_1
+        .doomednum = ACTOR_IMP_SMALL_WALL_1, .spawnstate = S_NCSWL1L0_STND, .spawnhealth = 100,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_WALL_2
+        .doomednum = ACTOR_IMP_SMALL_WALL_2, .spawnstate = S_NCSWM1L0_STND, .spawnhealth = 100,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_LARGE_WALL_1
+        .doomednum = ACTOR_IMP_LARGE_WALL_1, .spawnstate = S_NCBWL1L0_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_LARGE_WALL_2
+        .doomednum = ACTOR_IMP_LARGE_WALL_2, .spawnstate = S_NCBWM1L0_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_VEHICLE_FACTORY_1_DECOY
+        .doomednum = ACTOR_FG_VEHICLE_FACTORY_1_DECOY, .spawnstate = S_NFVCY1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_VEHICLE_FACTORY_2_DECOY
+        .doomednum = ACTOR_FG_VEHICLE_FACTORY_2_DECOY, .spawnstate = S_NFVCY2L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_PHASE_FACTORY_1_DECOY
+        .doomednum = ACTOR_FG_PHASE_FACTORY_1_DECOY, .spawnstate = S_NFPHF1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_PHASE_FACTORY_2_DECOY
+        .doomednum = ACTOR_FG_PHASE_FACTORY_2_DECOY, .spawnstate = S_NFPHF2L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_HQ1_DECOY
+        .doomednum = ACTOR_FG_HEADQUARTERS_1_DECOY, .spawnstate = S_NFHQT1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_HQ2_DECOY
+        .doomednum = ACTOR_FG_HEADQUARTERS_2_DECOY, .spawnstate = S_NFHQT2L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_HQ3_DECOY
+        .doomednum = ACTOR_FG_HEADQUARTERS_3_DECOY, .spawnstate = S_NFHQT3L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_ADV_BARRACKS_DECOY
+        .doomednum = ACTOR_FG_TRAINING_FACILITY_2_DECOY, .spawnstate = S_NFUTF2L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_HOVER_FACTORY_DECOY
+        .doomednum = ACTOR_FG_HOVER_FACTORY_DECOY, .spawnstate = S_NFHSP1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_REPAIR_BAY_DECOY
+        .doomednum = ACTOR_FG_REPAIR_BAY_DECOY, .spawnstate = S_NFREP1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_REFINERY_DECOY
+        .doomednum = ACTOR_FG_REFINERY_DECOY, .spawnstate = S_NFRRM1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_POWER_PLANT_DECOY
+        .doomednum = ACTOR_FG_POWER_PLANT_DECOY, .spawnstate = S_NCPOW1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_BARRACKS_DECOY
+        .doomednum = ACTOR_FG_TRAINING_FACILITY_1_DECOY, .spawnstate = S_NFUTF1L0_D_STND, .spawnhealth = 200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_ENTERTAINMENT
+        .doomednum = ACTOR_CIV_ENTERTAINMENT, .spawnstate = S_NOCEN1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_WATER_EXTRACTOR
+        .doomednum = ACTOR_WATER_EXTRACTOR, .spawnstate = S_NCWEL1L0_STND, .spawnhealth = 500,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TAELON_EXTRACTOR
+        .doomednum = ACTOR_TAELON_EXTRACTOR, .spawnstate = S_NCMIN1L0_STND, .spawnhealth = 600,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_WATER_RESEARCH
+        .doomednum = ACTOR_IMP_WATER_RESEARCH, .spawnstate = S_NOWAT1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_HOVER_RESEARCH
+        .doomednum = ACTOR_IMP_HOVER_RESEARCH, .spawnstate = S_NOHOV1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_DESICATOR_RESEARCH
+        .doomednum = ACTOR_IMP_DESICATOR_RESEARCH, .spawnstate = S_NODES1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_GENETIC_RESEARCH
+        .doomednum = ACTOR_IMP_GENETIC_RESEARCH, .spawnstate = S_NOMDR1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_SHELTER
+        .doomednum = ACTOR_CIV_SHELTER, .spawnstate = S_NOSHL1L0_STND, .spawnhealth = 600,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_SUB_TRANSIT
+        .doomednum = ACTOR_CIV_SUB_TRANSIT, .spawnstate = S_NOSUB1L0_STND, .spawnhealth = 600,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_TRANSIT_CENTRE
+        .doomednum = ACTOR_CIV_TRANSIT_CENTRE, .spawnstate = S_NOTCN1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_TREATY_HALL
+        .doomednum = ACTOR_FG_TREATY_HALL, .spawnstate = S_NOTYH1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TOGRAN_LANDING_VESSEL
+        .doomednum = ACTOR_TOGRAN_LANDING_VESSEL, .spawnstate = S_NOTHQ1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TOGRAN_MONOLITH
+        .doomednum = ACTOR_TOGRAN_MONOLITH, .spawnstate = S_NOMLT1L0_STND, .spawnhealth = 92000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TOGRAN_LABORATORY
+        .doomednum = ACTOR_TOGRAN_LABORATORY, .spawnstate = S_NOTDR1L0_STND, .spawnhealth = 90000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_RENDEZVOUS_POINT
+        .doomednum = ACTOR_RENDEZVOUS_POINT, .spawnstate = S_NORVP1L0_STND, .spawnhealth = 1000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_FG_PLANETARY_DEFENSE
+        .doomednum = ACTOR_FG_PLANETARY_DEFENSE, .spawnstate = S_NOPLD1L0_STND, .spawnhealth = 2500,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_COMMERCIAL
+        .doomednum = ACTOR_CIV_COMMERCIAL, .spawnstate = S_NOCBS1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_FACTORY
+        .doomednum = ACTOR_CIV_FACTORY, .spawnstate = S_NOWAR1L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_IMP_PRISON
+        .doomednum = ACTOR_IMP_PRISON, .spawnstate = S_NOPRI1L0_STND, .spawnhealth = 2500,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_RURAL
+        .doomednum = ACTOR_CIV_RURAL, .spawnstate = S_NOCHM4L0_STND, .spawnhealth = 1200,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_GRAIN_FARM
+        .doomednum = ACTOR_CIV_GRAIN_FARM, .spawnstate = S_NOFRM1L0_STND, .spawnhealth = 600,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_HYDRO_FARM
+        .doomednum = ACTOR_CIV_HYDRO_FARM, .spawnstate = S_NOFRM1L1_STND, .spawnhealth = 600,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIV_FARMHOUSE
+        .doomednum = ACTOR_CIV_FARMHOUSE, .spawnstate = S_NOFRM1L2_STND, .spawnhealth = 600,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIVILIAN_BRIDGE
+        .doomednum = ACTOR_CIVILIAN_BRIDGE, .spawnstate = S_NOBRD1L0_STND, .spawnhealth = 4000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_CIVILIAN_VERTICAL_BRIDGE
+        .doomednum = ACTOR_CIVILIAN_VERTICAL_BRIDGE, .spawnstate = S_NOBRD1L1_STND, .spawnhealth = 4000,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TOGRAN_BRIDGE_H
+        .doomednum = ACTOR_TOGRAN_SMALL_HORIZONTAL_BRIDGE, .spawnstate = S_NCSBH1L0_T_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TOGRAN_BRIDGE_V
+        .doomednum = ACTOR_TOGRAN_SMALL_VERTICAL_BRIDGE, .spawnstate = S_NCSBV1L0_T_STND, .spawnhealth = 400,
+        .deathstate = S_NULL, .xdeathstate = S_NULL,
+        .flags = MF_SELECTABLE|MF_RENDERABLE,
+    },
+    { // MT_TOGRAN_BRIDGE_C
+        .doomednum = ACTOR_TOGRAN_SMALL_CENTRE_BRIDGE, .spawnstate = S_NCSBC1L0_T_STND, .spawnhealth = 400,
         .deathstate = S_NULL, .xdeathstate = S_NULL,
         .flags = MF_SELECTABLE|MF_RENDERABLE,
     },

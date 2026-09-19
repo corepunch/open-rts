@@ -350,6 +350,38 @@ static const dr_entry_t entries[] = {
            166, 3, 5, "|MF_ATTACK",
            ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
 
+    /* --- Imperium decoy mobile units (share sprites with parent IMP units) --- */
+    MOBILE_ASSET("IMP_ASSAULT_VEHICLE_DECOY", "UIITTST0_D", "uiittst0.spr",
+           "ACTOR_IMP_ASSAULT_VEHICLE_DECOY",
+           75, 5, 0, "",
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE_ASSET("IMP_PLASMA_TANK_DECOY", "UIPLTST0_D", "uipltst0.spr",
+           "ACTOR_IMP_PLASMA_TANK_DECOY",
+           75, 4, 0, "",
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE_ASSET("IMP_TACHYON_TANK_DECOY", "UITCTST0_D", "uitctst0.spr",
+           "ACTOR_IMP_TACHYON_TANK_DECOY",
+           100, 4, 0, "",
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE_ASSET("IMP_MAD_DECOY", "UIMADST0_D", "uimadst0.spr",
+           "ACTOR_IMP_MAD_DECOY",
+           100, 4, 0, "",
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE_ASSET("IMP_SHREDDER_DECOY", "UISHRST0_D", "uishrst0.spr",
+           "ACTOR_IMP_SHREDDER_DECOY",
+           100, 5, 50, "|MF_ATTACK",
+           /* run/shoot identical 0..3; shoot=-1 so missilestate=seestate */
+           ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
+
+    MOBILE_ASSET("IMP_SPA_DECOY", "UIIARST0_D", "uiiarst0.spr",
+           "ACTOR_IMP_SPA_DECOY",
+           100, 4, 0, "",
+           ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
+
     /* --- Civilians and neutral units (UNITS.TXT SetType values) --- */
     MOBILE("CIV_MALE", "UOCVMST0", "ACTOR_CIV_MALE",
            30, 6, 0, "",
@@ -446,6 +478,85 @@ static const dr_entry_t entries[] = {
            "ACTOR_IMP_LIFE_PLANT", 1300, 0, "|MF_RESOURCE_BASE"),
     BUILDING_ASSET("IMP_POWER_PLANT", "NCPOW1L0_IMP", "ncpow1l0.spr",
            "ACTOR_IMP_POWER_PLANT", 1450, 0, ""),
+
+    /* --- Imperium bridges (share sprites with FG bridges) --- */
+    BUILDING_ASSET("IMP_BRIDGE_H", "NCSBH1L0_IMP", "ncsbh1l0.spr",
+           "ACTOR_IMP_SMALL_HORIZONTAL_BRIDGE", 400, 0, ""),
+    BUILDING_ASSET("IMP_BRIDGE_V", "NCSBV1L0_IMP", "ncsbv1l0.spr",
+           "ACTOR_IMP_SMALL_VERTICAL_BRIDGE", 400, 0, ""),
+    BUILDING_ASSET("IMP_BRIDGE_C", "NCSBC1L0_IMP", "ncsbc1l0.spr",
+           "ACTOR_IMP_SMALL_CENTRE_BRIDGE", 400, 0, ""),
+
+    /* --- Imperium walls --- */
+    BUILDING("IMP_WALL_1", "NCSWL1L0", "ACTOR_IMP_SMALL_WALL_1", 100, 0, ""),
+    BUILDING("IMP_WALL_2", "NCSWM1L0", "ACTOR_IMP_SMALL_WALL_2", 100, 0, ""),
+    BUILDING("IMP_LARGE_WALL_1", "NCBWL1L0", "ACTOR_IMP_LARGE_WALL_1", 400, 0, ""),
+    BUILDING("IMP_LARGE_WALL_2", "NCBWM1L0", "ACTOR_IMP_LARGE_WALL_2", 400, 0, ""),
+
+    /* --- FG decoy buildings (share sprites with parent FG buildings) --- */
+    BUILDING_ASSET("FG_VEHICLE_FACTORY_1_DECOY", "NFVCY1L0_D", "nfvcy1l0.spr",
+           "ACTOR_FG_VEHICLE_FACTORY_1_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_VEHICLE_FACTORY_2_DECOY", "NFVCY2L0_D", "nfvcy2l0.spr",
+           "ACTOR_FG_VEHICLE_FACTORY_2_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_PHASE_FACTORY_1_DECOY", "NFPHF1L0_D", "nfphf1l0.spr",
+           "ACTOR_FG_PHASE_FACTORY_1_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_PHASE_FACTORY_2_DECOY", "NFPHF2L0_D", "nfphf2l0.spr",
+           "ACTOR_FG_PHASE_FACTORY_2_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_HQ1_DECOY", "NFHQT1L0_D", "nfhqt1l0.spr",
+           "ACTOR_FG_HEADQUARTERS_1_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_HQ2_DECOY", "NFHQT2L0_D", "nfhqt2l0.spr",
+           "ACTOR_FG_HEADQUARTERS_2_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_HQ3_DECOY", "NFHQT3L0_D", "nfhqt3l0.spr",
+           "ACTOR_FG_HEADQUARTERS_3_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_ADV_BARRACKS_DECOY", "NFUTF2L0_D", "nfutf2l0.spr",
+           "ACTOR_FG_TRAINING_FACILITY_2_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_HOVER_FACTORY_DECOY", "NFHSP1L0_D", "nfhsp1l0.spr",
+           "ACTOR_FG_HOVER_FACTORY_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_REPAIR_BAY_DECOY", "NFREP1L0_D", "nfrep1l0.spr",
+           "ACTOR_FG_REPAIR_BAY_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_REFINERY_DECOY", "NFRRM1L0_D", "nfrrm1l0.spr",
+           "ACTOR_FG_REFINERY_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_POWER_PLANT_DECOY", "NCPOW1L0_D", "ncpow1l0.spr",
+           "ACTOR_FG_POWER_PLANT_DECOY", 200, 0, ""),
+    BUILDING_ASSET("FG_BARRACKS_DECOY", "NFUTF1L0_D", "nfutf1l0.spr",
+           "ACTOR_FG_TRAINING_FACILITY_1_DECOY", 200, 0, ""),
+
+    /* --- Civilian and general buildings --- */
+    BUILDING("CIV_ENTERTAINMENT", "NOCEN1L0", "ACTOR_CIV_ENTERTAINMENT", 1200, 0, ""),
+    BUILDING("WATER_EXTRACTOR", "NCWEL1L0", "ACTOR_WATER_EXTRACTOR", 500, 0, ""),
+    BUILDING("TAELON_EXTRACTOR", "NCMIN1L0", "ACTOR_TAELON_EXTRACTOR", 600, 0, ""),
+    BUILDING("IMP_WATER_RESEARCH", "NOWAT1L0", "ACTOR_IMP_WATER_RESEARCH", 1200, 0, ""),
+    BUILDING("IMP_HOVER_RESEARCH", "NOHOV1L0", "ACTOR_IMP_HOVER_RESEARCH", 1200, 0, ""),
+    BUILDING("IMP_DESICATOR_RESEARCH", "NODES1L0", "ACTOR_IMP_DESICATOR_RESEARCH", 1200, 0, ""),
+    BUILDING("IMP_GENETIC_RESEARCH", "NOMDR1L0", "ACTOR_IMP_GENETIC_RESEARCH", 1200, 0, ""),
+    BUILDING("CIV_SHELTER", "NOSHL1L0", "ACTOR_CIV_SHELTER", 600, 0, ""),
+    BUILDING("CIV_SUB_TRANSIT", "NOSUB1L0", "ACTOR_CIV_SUB_TRANSIT", 600, 0, ""),
+    BUILDING("CIV_TRANSIT_CENTRE", "NOTCN1L0", "ACTOR_CIV_TRANSIT_CENTRE", 1200, 0, ""),
+    BUILDING("FG_TREATY_HALL", "NOTYH1L0", "ACTOR_FG_TREATY_HALL", 1200, 0, ""),
+    BUILDING("TOGRAN_LANDING_VESSEL", "NOTHQ1L0", "ACTOR_TOGRAN_LANDING_VESSEL", 1200, 0, ""),
+    BUILDING("TOGRAN_MONOLITH", "NOMLT1L0", "ACTOR_TOGRAN_MONOLITH", 92000, 0, ""),
+    BUILDING("TOGRAN_LABORATORY", "NOTDR1L0", "ACTOR_TOGRAN_LABORATORY", 90000, 0, ""),
+    BUILDING("RENDEZVOUS_POINT", "NORVP1L0", "ACTOR_RENDEZVOUS_POINT", 1000, 0, ""),
+    BUILDING("FG_PLANETARY_DEFENSE", "NOPLD1L0", "ACTOR_FG_PLANETARY_DEFENSE", 2500, 0, ""),
+    BUILDING("CIV_COMMERCIAL", "NOCBS1L0", "ACTOR_CIV_COMMERCIAL", 1200, 0, ""),
+    BUILDING("CIV_FACTORY", "NOWAR1L0", "ACTOR_CIV_FACTORY", 1200, 0, ""),
+    BUILDING("IMP_PRISON", "NOPRI1L0", "ACTOR_IMP_PRISON", 2500, 0, ""),
+    BUILDING("CIV_RURAL", "NOCHM4L0", "ACTOR_CIV_RURAL", 1200, 0, ""),
+    BUILDING("CIV_GRAIN_FARM", "NOFRM1L0", "ACTOR_CIV_GRAIN_FARM", 600, 0, ""),
+    BUILDING("CIV_HYDRO_FARM", "NOFRM1L1", "ACTOR_CIV_HYDRO_FARM", 600, 0, ""),
+    BUILDING("CIV_FARMHOUSE", "NOFRM1L2", "ACTOR_CIV_FARMHOUSE", 600, 0, ""),
+
+    /* --- Civilian bridges --- */
+    BUILDING("CIVILIAN_BRIDGE", "NOBRD1L0", "ACTOR_CIVILIAN_BRIDGE", 4000, 0, ""),
+    BUILDING("CIVILIAN_VERTICAL_BRIDGE", "NOBRD1L1", "ACTOR_CIVILIAN_VERTICAL_BRIDGE", 4000, 0, ""),
+
+    /* --- Togran bridges (share sprites with FG/IMP bridges) --- */
+    BUILDING_ASSET("TOGRAN_BRIDGE_H", "NCSBH1L0_T", "ncsbh1l0.spr",
+           "ACTOR_TOGRAN_SMALL_HORIZONTAL_BRIDGE", 400, 0, ""),
+    BUILDING_ASSET("TOGRAN_BRIDGE_V", "NCSBV1L0_T", "ncsbv1l0.spr",
+           "ACTOR_TOGRAN_SMALL_VERTICAL_BRIDGE", 400, 0, ""),
+    BUILDING_ASSET("TOGRAN_BRIDGE_C", "NCSBC1L0_T", "ncsbc1l0.spr",
+           "ACTOR_TOGRAN_SMALL_CENTRE_BRIDGE", 400, 0, ""),
 };
 
 /* ------------------------------------------------------------------ writers */
