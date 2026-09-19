@@ -313,6 +313,40 @@ x=453+(130-w)/2, y=348+(127-h)/2. M01F's rectangle is (488,381,60,60).
 The prior 128×126 stretch covered the native minimap housing. The HUD now keeps
 that housing and uses this native rectangle for markers and camera interaction.
 
+## Imperium faction implementation (2026-09-19)
+
+**Confirmed from retail `deftxt/UNITS.TXT`, `deftxt/BUILD.TXT`,
+`deftxt/WEAPON.TXT` and OpenDR `sequences/units.yaml` (pinned
+`98079a9`).** Imperium reuses six Freedom Guard bodies
+(`ucfcnst0`, `ucfrgst0`, `uchfrst0`, `ucinfst0`, `ufmtrst0`,
+`ucwcost0`) under its own SetType IDs (1001/1005/1006/1007/1099/1016)
+and adds 15 unique mobiles plus 15 unique `ni*` buildings and three
+shared common structures (camera, launch pad, generator).
+
+Animation steps use the same `Start/Facings` formula as FG. Weapon
+range/damage come from `SetAttributes` max and `SetOffense`
+strength; cooldown is `firedelay*33ms` (one 30Hz cycle). Examples:
+LaserRifle 4/11/8cy, PlasmaRifle 4/18/8cy, TachyonCannon 8/30/20cy,
+IMPArtilleryShell 45/30/80cy, FortressCannon 7/650/20cy. Shredder has
+`0 0 0 0` attributes, so it uses melee range 2 with a 500ms fallback.
+Amper (AmperAmp, zero offense), Recon Drone and Hostage Taker have no
+ranged weapon and stay support-only.
+
+`tools/dr_info_gen.c` gains `MOBILE_ASSET`/`BUILDING_ASSET` for the
+shared bodies: unique `SPR_*`/`S_*` IDs loading the same retail file,
+so Imperium makers (1005 rig) and map things resolve. The Freighter
+harvest suit carries over: group-5 `HARVEST` states from the same RSPR
+sections, capacity 100, delivery to the launch pad.
+
+Reproduce: `make dark-reign-info`, `make test-info-gen`,
+`env SDL_VIDEODRIVER=dummy make test-dark-reign`.
+
+**Remaining.** Togran test variants (`T*`), decoys (`*Decoy`,
+`fh*_decoy`), civilians and expansion units (`units-addon.yaml`,
+`units-expansion.yaml`) are not yet mapped. Imperium guard-tower
+shadows use the retail `bi*sh0.spr` names; in-game building
+composites for `ni*` bodies go through the existing three-layer path.
+
 ## Freighter harvest and resource pits (2026-09-18)
 
 **Confirmed from retail RSPR headers and OpenDR sequences/units.yaml.** The

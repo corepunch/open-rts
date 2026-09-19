@@ -350,11 +350,12 @@ static bool resolve_building_visual(const Definitions *defs, const char *type_na
 
     out->footprint = (isize2_t){ 3, 3 };
     if (strcasecmp(type_name, "fh1") == 0 || strcasecmp(type_name, "fh2") == 0 ||
-        strcasecmp(type_name, "fh3") == 0) {
+        strcasecmp(type_name, "fh3") == 0 || strcasecmp(type_name, "ih1") == 0 ||
+        strcasecmp(type_name, "ih2") == 0 || strcasecmp(type_name, "ih3") == 0) {
         out->footprint = (isize2_t){ 4, 4 };
-    } else if (strcasecmp(type_name, "fglp") == 0) {
+    } else if (strcasecmp(type_name, "fglp") == 0 || strcasecmp(type_name, "implp") == 0) {
         out->footprint = (isize2_t){ 4, 3 };
-    } else if (strcasecmp(type_name, "fgpp") == 0) {
+    } else if (strcasecmp(type_name, "fgpp") == 0 || strcasecmp(type_name, "imppp") == 0) {
         out->footprint = (isize2_t){ 3, 4 };
     } else if (strcasecmp(type_name, "CivilianBridge") == 0 ||
                strcasecmp(type_name, "CivilianVerticalBridge") == 0) {
