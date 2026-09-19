@@ -48,8 +48,16 @@ typedef struct {
 #define MOBILE(type, sprite, actor, hp, speed, damage, extra, anim_data) \
     { type, sprite, sprite ".spr", actor, hp, speed, 16, 32, 100, damage, \
       "MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE" extra, anim_data }
+/* Shared-sprite variant: distinct state/sprite IDs, same retail asset.
+ * Used when Imperium reuses a Freedom Guard body (e.g. ucfcnst0.spr). */
+#define MOBILE_ASSET(type, sprite, asset, actor, hp, speed, damage, extra, anim_data) \
+    { type, sprite, asset, actor, hp, speed, 16, 32, 100, damage, \
+      "MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE" extra, anim_data }
 #define BUILDING(type, sprite, actor, hp, damage, extra) \
     { type, sprite, sprite ".spr", actor, hp, 0, 0, 0, 0, damage, \
+      "MF_SELECTABLE|MF_RENDERABLE" extra, BLDANIM }
+#define BUILDING_ASSET(type, sprite, asset, actor, hp, damage, extra) \
+    { type, sprite, asset, actor, hp, 0, 0, 0, 0, damage, \
       "MF_SELECTABLE|MF_RENDERABLE" extra, BLDANIM }
 
 /* OpenDR Tick → engine tics.  Tick is approximately 1/100 s; engine runs at
@@ -289,6 +297,37 @@ static const dr_entry_t entries[] = {
            /* run single-frame  shoot:0..2 */
            ANIM(8,  0,1,100,  0,3,100,  0,  -1,0)),
 
+    /* --- Imperium shared-sprite units (retail reuses FG bodies) --- */
+    MOBILE_ASSET("IMP_CONSTRUCTION_CREW", "UCFNST0_IMP", "ucfcnst0.spr",
+           "ACTOR_IMP_CONSTRUCTION_CREW",
+           100, 6, 20, "|MF_ATTACK",
+           ANIM(8,  0,6,60,  -1,0,0,  6,  -1,0)),
+
+    MOBILE_ASSET("IMP_GROUND_TRANSPORTER", "UCFRGST0_IMP", "ucfrgst0.spr",
+           "ACTOR_IMP_GROUND_TRANSPORTER",
+           750, 5, 0, "|MF_HARVESTER",
+           HARVEST_ANIM(16, 0,3,100, -1,0,0,  0,  -1,0,  3,15,100)),
+
+    MOBILE_ASSET("IMP_HOVER_TRANSPORTER", "UCHFRST0_IMP", "uchfrst0.spr",
+           "ACTOR_IMP_HOVER_TRANSPORTER",
+           500, 5, 11, "|MF_HARVESTER|MF_ATTACK",
+           HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,100)),
+
+    MOBILE_ASSET("IMP_SPY", "UCINFST0_IMP", "ucinfst0.spr",
+           "ACTOR_IMP_SPY",
+           66, 5, 0, "",
+           ANIM(8,  0,8,100, -1,0,0,  8,  8,3)),
+
+    MOBILE_ASSET("IMP_SUICIDE_ZOMBIE", "UFMTRST0_IMP", "ufmtrst0.spr",
+           "ACTOR_IMP_SUICIDE_ZOMBIE",
+           100, 5, 180, "|MF_ATTACK",
+           ANIM(8,  0,6,100,  6,16,100,  25,  22,4)),
+
+    MOBILE_ASSET("IMP_CONTAMINATOR", "UCWCOST0_IMP", "ucwcost0.spr",
+           "ACTOR_IMP_CONTAMINATOR",
+           166, 3, 5, "|MF_ATTACK",
+           ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
+
     /* --- Freedom Guard buildings --- */
     BUILDING("FG_HQ1",               "NFHQT1L0", "ACTOR_FG_HEADQUARTERS_1",      1200,  0, "|MF_RESOURCE_BASE"),
     BUILDING("FG_HQ2",               "NFHQT2L0", "ACTOR_FG_HEADQUARTERS_2",       2400,  0, ""),
@@ -328,6 +367,12 @@ static const dr_entry_t entries[] = {
     BUILDING("IMP_GUARD_TOWER",       "NIGDT1L0", "ACTOR_IMP_GUARD_TOWER",          400, 10, "|MF_ATTACK"),
     BUILDING("IMP_ADV_GUARD_TOWER",   "NIAGT1L0", "ACTOR_IMP_ADVANCED_GUARD_TOWER", 550,180, "|MF_ATTACK"),
     BUILDING("IMP_AA_SITE",           "NIAAR1L0", "ACTOR_IMP_AA_SITE",              720, 14, "|MF_ATTACK"),
+    BUILDING_ASSET("IMP_CAMERA_TOWER", "NCCAM1L0_IMP", "nccam1l0.spr",
+           "ACTOR_IMP_CAMERA_TOWER", 150, 0, ""),
+    BUILDING_ASSET("IMP_LIFE_PLANT", "NCLNC1L0_IMP", "nclnc1l0.spr",
+           "ACTOR_IMP_LIFE_PLANT", 1300, 0, "|MF_RESOURCE_BASE"),
+    BUILDING_ASSET("IMP_POWER_PLANT", "NCPOW1L0_IMP", "ncpow1l0.spr",
+           "ACTOR_IMP_POWER_PLANT", 1450, 0, ""),
 };
 
 /* ------------------------------------------------------------------ writers */
