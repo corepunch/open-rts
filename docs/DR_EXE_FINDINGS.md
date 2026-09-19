@@ -15,11 +15,12 @@ The audit found two stale engine names. The Phase Runner is
 `ucbmvst0.spr`. Both generated state identifiers and runtime actor sprite names
 now use the retail spellings. Reproduce the check with `make test-info-gen`.
 
-**Known limit.** This generator preserves the current Freedom Guard vertical
-slice. It does not claim that the 47 entries cover every retail faction,
-decoy, civilian, attachment layer, shadow, or animation sequence. OpenDR's
-sequence metadata remains the reference for expanding each one-state body into
-native run, fire, idle, and facing states.
+**Known limit.** All 71 unique non-T unit types and 86 unique non-T building
+types from retail `UNITS.TXT` and `BUILD.TXT` now have mobjinfo entries,
+`ACTOR_*` enum values, and runtime actor stats. T-prefix training mirrors,
+expansion/addon units, and full per-state animation are not yet covered.
+OpenDR's sequence metadata remains the reference for expanding one-state
+bodies into native run, fire, idle, and facing states.
 
 Investigation date: 2026-09-01
 
@@ -341,11 +342,22 @@ sections, capacity 100, delivery to the launch pad.
 Reproduce: `make dark-reign-info`, `make test-info-gen`,
 `env SDL_VIDEODRIVER=dummy make test-dark-reign`.
 
-**Remaining.** Togran test variants (`T*`), decoys (`*Decoy`,
-`fh*_decoy`), civilians and expansion units (`units-addon.yaml`,
-`units-expansion.yaml`) are not yet mapped. Imperium guard-tower
-shadows use the retail `bi*sh0.spr` names; in-game building
-composites for `ni*` bodies go through the existing three-layer path.
+**T-prefix types (training mirrors).** `UNITS.TXT` defines 41 T-prefix unit
+types (SetType 40500–40644) and `BUILD.TXT` defines 30+ T-prefix building
+types (SetType 40001–40052). These are alternate definitions for tutorial and
+training missions — they share sprites with their non-T counterparts but have
+their own SetType IDs, stats, and prerequisites. Binary `.SCN` map files do
+**not** reference T-prefix type names; the names appear only in per-scenario
+copies of the DEFTXT files (e.g. `scenario/FIXED/M10I/UNITS.TXT`). T-prefix
+types are therefore not needed for map loading and would only be required to
+implement the training mission mode where the game swaps in alternate unit stats
+at runtime.
+
+**Decoys and civilians now covered.** IMP decoy mobiles (SetType 1109–1117),
+FG/IMP building decoys, IMP walls (11044–11047), IMP bridges (11040–11042),
+civilian buildings (50005–50071), and Togran bridges (55500–55504) all have
+`ACTOR_*` entries, mobjinfo rows, and runtime actor stats. Expansion units
+(`units-addon.yaml`, `units-expansion.yaml`) remain unmapped.
 
 ## Freighter harvest and resource pits (2026-09-18)
 
