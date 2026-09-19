@@ -1,6 +1,7 @@
 /* Generate 7th Legion's Doom-style state and mobjinfo tables.
-   The initial catalog is intentionally limited to the native BIM actors used by
-   the current playable vertical slice. */
+   The catalog is intentionally limited to the native BIM actors used by the
+   current playable vertical slice.  Each sprite's states are emitted into its
+   own animate/<sprite>.inc file, like the other game generators. */
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,8 +24,8 @@ static const info_entry_t entries[] = {
 };
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
-        fprintf(stderr, "usage: 7legion_info_gen <7legion-root> <info.h> <info.c>\n");
+    if (argc != 5) {
+        fprintf(stderr, "usage: 7legion_info_gen <7legion-root> <info.h> <info.c> <animate-dir>\n");
         return 1;
     }
     int count = (int)(sizeof(entries) / sizeof(*entries));
@@ -33,6 +34,13 @@ int main(int argc, char **argv) {
         snprintf(path, sizeof(path), "%s/%s", argv[1], entries[i].asset);
         if (access(path, R_OK) != 0) {
             fprintf(stderr, "7legion_info_gen: missing native asset %s: %s\n", path, strerror(errno));
+            return 1;
+        }
+    }
+    for (int i = 0; i < count; ++i) {
+        if (!write_info_inc(argv[4], &entries[i])) {
+            fprintf(stderr, "7legion_info_gen: cannot write %s/%s.inc: %s\n",
+                    argv[4], entries[i].sprite, strerror(errno));
             return 1;
         }
     }

@@ -193,27 +193,33 @@ kknd-info-gen: $(KKND_INFO_GEN_TARGET)
 
 dark-reign-info: $(DR_INFO_GEN_TARGET)
 	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) \
-	    games/dark-reign/info.h games/dark-reign/info.c
+	    games/dark-reign/info.h games/dark-reign/info.c \
+	    games/dark-reign/animate
 
 7legion-info: $(SL_INFO_GEN_TARGET)
 	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) \
-	    games/7legion/info.h games/7legion/info.c
+	    games/7legion/info.h games/7legion/info.c \
+	    games/7legion/animate
 
 kknd-info: $(KKND_INFO_GEN_TARGET)
 	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG \
-	    games/kknd/info.h games/kknd/info.c
+	    games/kknd/info.h games/kknd/info.c games/kknd/animate
 
 test-info-gen: $(DR_INFO_GEN_TARGET) $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGET)
 	@mkdir -p $(BUILD_DIR)/info-check/dark-reign $(BUILD_DIR)/info-check/7legion $(BUILD_DIR)/info-check/kknd
-	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c
-	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) $(BUILD_DIR)/info-check/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.c
-	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c
+	@mkdir -p $(BUILD_DIR)/info-check/dark-reign/animate
+	@mkdir -p $(BUILD_DIR)/info-check/7legion/animate $(BUILD_DIR)/info-check/kknd/animate
+	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/animate
+	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) $(BUILD_DIR)/info-check/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.c $(BUILD_DIR)/info-check/7legion/animate
+	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c $(BUILD_DIR)/info-check/kknd/animate
 	cmp games/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.h
 	cmp games/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/info.c
 	cmp games/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.h
 	cmp games/7legion/info.c $(BUILD_DIR)/info-check/7legion/info.c
 	cmp games/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.h
 	cmp games/kknd/info.c $(BUILD_DIR)/info-check/kknd/info.c
+	diff -ru games/7legion/animate $(BUILD_DIR)/info-check/7legion/animate
+	diff -ru games/kknd/animate $(BUILD_DIR)/info-check/kknd/animate
 
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_CONV_TARGET)

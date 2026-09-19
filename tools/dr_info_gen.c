@@ -1,13 +1,26 @@
-/* Generate Dark Reign's Doom-style state and mobjinfo tables.
+/* Generate per-sprite .inc files and the statenum_t enum for Dark Reign's
+   info.h, plus the complete info.c (sprnames, states with #include, mobjinfo,
+   game_info).
+
+   Reads the entries table and writes:
+     <animate-dir>/<SPRITE>.inc  — one per sprite, designated-initializer rows
+     <info.h>                    — updates only the statenum_t enum between markers
+     <info.c>                    — complete file with #include per sprite
+
    Animation data derived from OpenDR sequences YAML at revision
    98079a904746440433795fe7f21c4b35eb6b3959.  Sprite names validated
-   against retail DEFTXT. */
+   against retail DEFTXT.
+
+   Usage:
+     dr_info_gen <dark-reign-root> <info.h> <info.c> <animate-dir>
+*/
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 
 /* Animation sequence from OpenDR sequences YAML.
  * run_start/shoot_start/idle_start are logical RSPR animation steps
@@ -60,7 +73,7 @@ typedef struct {
     { type, sprite, asset, actor, hp, 0, 0, 0, 0, damage, \
       "MF_SELECTABLE|MF_RENDERABLE" extra, BLDANIM }
 
-/* OpenDR Tick → engine tics.  Tick is approximately 1/100 s; engine runs at
+/* OpenDR Tick -> engine tics.  Tick is approximately 1/100 s; engine runs at
  * ~15 tics/s, so divide by 15 and clamp to at least 2 tics per frame. */
 static int tics_from_tick(int tick) {
     if (tick <= 0) return 3;
@@ -75,6 +88,15 @@ static bool has_attack_flag(const dr_entry_t *entry) {
 static bool has_fire_state(const dr_entry_t *entry) {
     return has_attack_flag(entry) && entry->damage > 0 &&
            entry->anim.shoot_start < 0;
+}
+
+static int mkdir_p(const char *path) {
+    char tmp[1024];
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    for (char *p = tmp + 1; *p; ++p) {
+        if (*p == '/') { *p = 0; mkdir(tmp, 0755); *p = '/'; }
+    }
+    return mkdir(tmp, 0755) == 0 || errno == EEXIST ? 0 : -1;
 }
 
 /* ------------------------------------------------------------------ entries */
@@ -264,7 +286,7 @@ static const dr_entry_t entries[] = {
 
     MOBILE("IMP_RECON_SAUCER", "UIRDRST0", "ACTOR_IMP_RECON_SAUCER",
            66, 6, 0, "|MF_FLY",
-           /* recon only — shoot strip is sensor sweep, not a weapon */
+           /* recon only -- shoot strip is sensor sweep, not a weapon */
            ANIM(8,  0,1,100, -1,0,0,  0,  -1,0)),
 
     MOBILE("IMP_SHREDDER", "UISHRST0", "ACTOR_IMP_SHREDDER",
@@ -274,7 +296,7 @@ static const dr_entry_t entries[] = {
 
     MOBILE("IMP_HOSTAGE_TAKER", "UIHOSST0", "ACTOR_IMP_HOSTAGE_TAKER",
            450, 4, 0, "",
-           /* transport/ability unit — no ranged weapon */
+           /* transport/ability unit -- no ranged weapon */
            ANIM(16, 0,3,100, -1,0,0,  0,  -1,0)),
 
     MOBILE("IMP_TACHYON_TANK", "UITCTST0", "ACTOR_IMP_TACHYON_TANK",
@@ -328,6 +350,57 @@ static const dr_entry_t entries[] = {
            166, 3, 5, "|MF_ATTACK",
            ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
 
+    /* --- Civilians and neutral units (UNITS.TXT SetType values) --- */
+    MOBILE("CIV_MALE", "UOCVMST0", "ACTOR_CIV_MALE",
+           30, 6, 0, "",
+           /* run:0..5  stand:22 */
+           ANIM(8,  0,6,40,  -1,0,0, 22,  -1,0)),
+
+    MOBILE("CIV_ROWDY", "UORCMST0", "ACTOR_CIV_ROWDY",
+           66, 5, 2, "|MF_ATTACK",
+           /* run:0..7  shoot:8..10 (Start=64/8)  stand:23 */
+           ANIM(8,  0,8,40,  8,3,60, 23,  -1,0)),
+
+    MOBILE("CIV_SPY", "UOCSPST0", "ACTOR_CIV_SPY",
+           66, 8, 0, "",
+           /* run:0..3  stand:0 (single-frame) */
+           ANIM(8,  0,4,40,  -1,0,0,  0,  -1,0)),
+
+    /* Civilians that share sprites need unique sprite names for distinct states. */
+    MOBILE_ASSET("CIV_PRISONER", "UOCVMST0_CPR", "uocvmst0.spr",
+           "ACTOR_CIV_PRISONER",
+           30, 6, 0, "",
+           /* same animation as male civilian */
+           ANIM(8,  0,6,40,  -1,0,0, 22,  -1,0)),
+
+    MOBILE_ASSET("CIV_JEBRAD", "UORCMST0_CJR", "uorcmst0.spr",
+           "ACTOR_CIV_JEB_RAD",
+           500, 8, 170, "|MF_ATTACK",
+           /* same animation as rowdy, Radec weapon: range 7, 99ms cd, 170 dmg */
+           ANIM(8,  0,8,40,  8,3,60, 23,  -1,0)),
+
+    MOBILE_ASSET("CIV_KAROCH", "UOCSPST0_CK", "uocspst0.spr",
+           "ACTOR_CIV_KAROCH",
+           250, 5, 0, "",
+           /* same animation as civ spy, MedicHeal support */
+           ANIM(8,  0,4,40,  -1,0,0,  0,  -1,0)),
+
+    MOBILE_ASSET("CIV_COLONEL", "UOCVMST0_CCM", "uocvmst0.spr",
+           "ACTOR_CIV_COLONEL_MARTEL",
+           100, 6, 0, "",
+           /* same animation as male civilian */
+           ANIM(8,  0,6,40,  -1,0,0, 22,  -1,0)),
+
+    MOBILE("CIV_WHEEL", "UOWTRST0", "ACTOR_CIV_WHEEL_TRANSPORTER",
+           150, 4, 0, "",
+           /* run:0..2 (16 facings, L=3, T=40) */
+           ANIM(16, 0,3,40,  -1,0,0,  0,  -1,0)),
+
+    MOBILE("CIV_HOVER", "UOHTRST0", "ACTOR_CIV_HOVER_TRANSPORTER",
+           100, 7, 0, "",
+           /* single-frame body (16 facings, L=1) */
+           ANIM(16, 0,1,40,  -1,0,0,  0,  -1,0)),
+
     /* --- Freedom Guard buildings --- */
     BUILDING("FG_HQ1",               "NFHQT1L0", "ACTOR_FG_HEADQUARTERS_1",      1200,  0, "|MF_RESOURCE_BASE"),
     BUILDING("FG_HQ2",               "NFHQT2L0", "ACTOR_FG_HEADQUARTERS_2",       2400,  0, ""),
@@ -377,67 +450,212 @@ static const dr_entry_t entries[] = {
 
 /* ------------------------------------------------------------------ writers */
 
-static bool write_dr_info_h(const char *path, const dr_entry_t *entries, int count) {
+/* Write one sprite's states to <animate-dir>/<SPRITE>.inc using C99
+ * designated initializers so include order does not matter. */
+static bool write_inc(const char *animate_dir, const char *sprite,
+                      const dr_entry_t *e) {
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/%s.inc", animate_dir, sprite);
+
     FILE *f = fopen(path, "w");
     if (!f) return false;
 
-    fprintf(f,
-        "/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */\n"
-        "#ifndef __INFO__\n#define __INFO__\n\n#include \"actor.h\"\n\n"
-        "typedef struct mobjinfo_s {\n"
-        "    int doomednum;\n    int spawnstate;\n    int spawnhealth;\n"
-        "    int seestate;\n    int seesound;\n    int reactiontime;\n"
-        "    int attacksound;\n    int painstate;\n    int painchance;\n"
-        "    int painsound;\n    int meleestate;\n    int missilestate;\n"
-        "    int deathstate;\n    int xdeathstate;\n    int deathsound;\n"
-        "    int speed;\n    int radius;\n    int height;\n    int mass;\n"
-        "    int damage;\n    int activesound;\n    int flags;\n"
-        "    int raisestate;\n    fixed_t spawnz;\n} mobjinfo_t;\n\n");
+    fprintf(f, "/* Generated by tools/dr_info_gen. Do not edit. */\n");
 
-    /* spritenum_t */
-    fprintf(f, "typedef enum {\n");
-    for (int i = 0; i < count; ++i) fprintf(f, "    SPR_%s,\n", entries[i].sprite);
-    fprintf(f, "    NUMSPRITES\n} spritenum_t;\n\n");
+    const dr_anim_t *a = &e->anim;
+    bool attacking = has_attack_flag(e);
 
-    /* statenum_t: STND + RUN* + SHOOT* + IDLE* per entry, then FIRE states. */
-    fprintf(f, "typedef enum {\n    S_NULL = 0,\n");
-    for (int i = 0; i < count; ++i) {
-        const dr_entry_t *e = &entries[i];
-        const dr_anim_t  *a = &e->anim;
-        fprintf(f, "    S_%s_STND,\n", e->sprite);
-        if (a->run_start >= 0 && a->run_len > 0)
-            for (int s = 0; s < a->run_len; ++s)
-                fprintf(f, "    S_%s_RUN%d,\n", e->sprite, s + 1);
-        if (a->shoot_start >= 0 && a->shoot_len > 0)
-            for (int s = 0; s < a->shoot_len; ++s)
-                fprintf(f, "    S_%s_SHOOT%d,\n", e->sprite, s + 1);
-        if (a->idle_start >= 0 && a->idle_len > 0)
-            for (int s = 0; s < a->idle_len; ++s)
-                fprintf(f, "    S_%s_IDLE%d,\n", e->sprite, s + 1);
-        if (a->harvest_start >= 0 && a->harvest_len > 0)
-            for (int s = 0; s < a->harvest_len; ++s)
-                fprintf(f, "    S_%s_HARVEST%d,\n", e->sprite, s + 1);
+    /* STND */
+    fprintf(f, "    [S_%s_STND] = { SPR_%s, %d, %d, %s, S_%s_STND, 0 },\n",
+            sprite, sprite, a->stand_start, attacking ? 20 : -1,
+            attacking ? "A_Look" : "NULL", sprite);
+
+    /* RUN */
+    if (a->run_start >= 0 && a->run_len > 0) {
+        int tics = tics_from_tick(a->run_tick);
+        for (int s = 0; s < a->run_len; ++s) {
+            int next = s < a->run_len - 1 ? s + 2 : 1;
+            fprintf(f, "    [S_%s_RUN%d] = { SPR_%s, %d, %d, %s, S_%s_RUN%d, 2 },\n",
+                    sprite, s + 1, sprite, a->run_start + s, tics,
+                    s == 0 && attacking ? "A_Chase" : "NULL",
+                    sprite, next);
+        }
     }
-    for (int i = 0; i < count; ++i)
-        if (has_fire_state(&entries[i]))
-            fprintf(f, "    S_%s_FIRE,\n", entries[i].sprite);
-    fprintf(f, "    NUMSTATES\n} statenum_t;\n\n");
 
-    /* MT_ enum */
-    fprintf(f, "enum {\n    MT_NULL,\n");
-    for (int i = 0; i < count; ++i) fprintf(f, "    MT_%s,\n", entries[i].type);
-    fprintf(f, "    NUMMOBJTYPES,\n};\n\n");
+    /* SHOOT */
+    if (a->shoot_start >= 0 && a->shoot_len > 0) {
+        int tics = tics_from_tick(a->shoot_tick);
+        for (int s = 0; s < a->shoot_len; ++s) {
+            if (s < a->shoot_len - 1)
+                fprintf(f, "    [S_%s_SHOOT%d] = { SPR_%s, %d, %d, %s, S_%s_SHOOT%d, 3 },\n",
+                        sprite, s + 1, sprite, a->shoot_start + s, tics,
+                        s == 0 && attacking ? "A_Attack" : "NULL",
+                        sprite, s + 2);
+            else
+                fprintf(f, "    [S_%s_SHOOT%d] = { SPR_%s, %d, %d, %s, S_%s_STND, 3 },\n",
+                        sprite, s + 1, sprite, a->shoot_start + s, tics,
+                        s == 0 && attacking ? "A_Attack" : "NULL",
+                        sprite);
+        }
+    }
 
-    fprintf(f,
-        "extern const char *const sprnames[NUMSPRITES];\n"
-        "extern const state_t states[NUMSTATES];\n"
-        "extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];\n"
-        "extern const gameinfo_t game_info;\n\n#endif\n");
+    /* IDLE */
+    if (a->idle_start >= 0 && a->idle_len > 0) {
+        for (int s = 0; s < a->idle_len; ++s) {
+            if (s < a->idle_len - 1)
+                fprintf(f, "    [S_%s_IDLE%d] = { SPR_%s, %d, 10, NULL, S_%s_IDLE%d, 0 },\n",
+                        sprite, s + 1, sprite, a->idle_start + s, sprite, s + 2);
+            else
+                fprintf(f, "    [S_%s_IDLE%d] = { SPR_%s, %d, 10, NULL, S_%s_IDLE1, 0 },\n",
+                        sprite, s + 1, sprite, a->idle_start + s, sprite);
+        }
+    }
 
-    return fclose(f) == 0;
+    /* HARVEST */
+    if (a->harvest_start >= 0 && a->harvest_len > 0) {
+        int tics = tics_from_tick(a->harvest_tick);
+        for (int s = 0; s < a->harvest_len; ++s) {
+            int next = s < a->harvest_len - 1 ? s + 2 : 1;
+            fprintf(f, "    [S_%s_HARVEST%d] = { SPR_%s, %d, %d, NULL, S_%s_HARVEST%d, 5 },\n",
+                    sprite, s + 1, sprite, a->harvest_start + s, tics,
+                    sprite, next);
+        }
+    }
+
+    fclose(f);
+    return true;
 }
 
-static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int count) {
+static bool is_first_sprite(const dr_entry_t *entries, int index) {
+    for (int i = 0; i < index; ++i)
+        if (strcmp(entries[i].sprite, entries[index].sprite) == 0)
+            return false;
+    return true;
+}
+
+/* Emit statenum_t entries for one entry to the given stream. */
+static void emit_statenum(FILE *f, const dr_entry_t *e) {
+    const dr_anim_t *a = &e->anim;
+
+    fprintf(f, "    S_%s_STND,\n", e->sprite);
+    if (a->run_start >= 0 && a->run_len > 0)
+        for (int s = 0; s < a->run_len; ++s)
+            fprintf(f, "    S_%s_RUN%d,\n", e->sprite, s + 1);
+    if (a->shoot_start >= 0 && a->shoot_len > 0)
+        for (int s = 0; s < a->shoot_len; ++s)
+            fprintf(f, "    S_%s_SHOOT%d,\n", e->sprite, s + 1);
+    if (a->idle_start >= 0 && a->idle_len > 0)
+        for (int s = 0; s < a->idle_len; ++s)
+            fprintf(f, "    S_%s_IDLE%d,\n", e->sprite, s + 1);
+    if (a->harvest_start >= 0 && a->harvest_len > 0)
+        for (int s = 0; s < a->harvest_len; ++s)
+            fprintf(f, "    S_%s_HARVEST%d,\n", e->sprite, s + 1);
+}
+
+/* Emit the S_*_FIRE entry for an entry that needs one. */
+static void emit_fire_statenum(FILE *f, const dr_entry_t *e) {
+    fprintf(f, "    S_%s_FIRE,\n", e->sprite);
+}
+
+static void write_statenum(FILE *f, const dr_entry_t *entries, int count) {
+    fprintf(f, "typedef enum {\n    S_NULL = 0,\n");
+    for (int i = 0; i < count; ++i)
+        emit_statenum(f, &entries[i]);
+    for (int i = 0; i < count; ++i)
+        if (has_fire_state(&entries[i]))
+            emit_fire_statenum(f, &entries[i]);
+    fprintf(f, "    NUMSTATES\n} statenum_t;\n");
+}
+
+/* Write the statenum_t enum section to info.h between marker comments.
+ * If the file doesn't exist, creates the full template. */
+static bool write_info_h_enum(const char *info_h_path, const dr_entry_t *entries,
+                              int count) {
+    const char *BEGIN = "/* BEGIN_GENERATED_STATENUM */";
+    const char *END   = "/* END_GENERATED_STATENUM */";
+
+    /* Read the existing file if present. */
+    char *old = NULL;
+    long size = 0;
+    FILE *rf = fopen(info_h_path, "r");
+    if (rf) {
+        fseek(rf, 0, SEEK_END);
+        size = ftell(rf);
+        rewind(rf);
+        old = malloc((size_t)size + 1);
+        if (old) {
+            if (fread(old, 1, (size_t)size, rf) != (size_t)size) {
+                free(old); old = NULL;
+            } else {
+                old[size] = '\0';
+            }
+        }
+        fclose(rf);
+    }
+
+    char *begin_pos = old ? strstr(old, BEGIN) : NULL;
+    char *end_pos   = begin_pos ? strstr(begin_pos, END) : NULL;
+
+    FILE *out = fopen(info_h_path, "w");
+    if (!out) { free(old); return false; }
+
+    if (begin_pos && end_pos) {
+        /* Update between markers in existing file. */
+        fwrite(old, 1, (size_t)(begin_pos - old), out);
+
+        fprintf(out, "%s\n", BEGIN);
+        write_statenum(out, entries, count);
+        fprintf(out, "%s\n", END);
+
+        const char *after = end_pos + strlen(END);
+        if (*after == '\n') ++after;
+        fwrite(after, 1, (size_t)(old + size - after), out);
+    } else {
+        /* Create the full info.h from scratch. */
+        fprintf(out,
+            "/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */\n"
+            "#ifndef __INFO__\n#define __INFO__\n\n"
+            "#include \"actor.h\"\n\n"
+            "typedef struct mobjinfo_s {\n"
+            "    int doomednum;\n    int spawnstate;\n    int spawnhealth;\n"
+            "    int seestate;\n    int seesound;\n    int reactiontime;\n"
+            "    int attacksound;\n    int painstate;\n    int painchance;\n"
+            "    int painsound;\n    int meleestate;\n    int missilestate;\n"
+            "    int deathstate;\n    int xdeathstate;\n    int deathsound;\n"
+            "    int speed;\n    int radius;\n    int height;\n    int mass;\n"
+            "    int damage;\n    int activesound;\n    int flags;\n"
+            "    int raisestate;\n    fixed_t spawnz;\n} mobjinfo_t;\n\n");
+
+        /* spritenum_t */
+        fprintf(out, "typedef enum {\n");
+        for (int i = 0; i < count; ++i)
+            fprintf(out, "    SPR_%s,\n", entries[i].sprite);
+        fprintf(out, "    NUMSPRITES\n} spritenum_t;\n\n");
+
+        /* statenum_t with markers */
+        fprintf(out, "%s\n", BEGIN);
+        write_statenum(out, entries, count);
+        fprintf(out, "%s\n\n", END);
+
+        /* MT_ enum */
+        fprintf(out, "enum {\n    MT_NULL,\n");
+        for (int i = 0; i < count; ++i)
+            fprintf(out, "    MT_%s,\n", entries[i].type);
+        fprintf(out, "    NUMMOBJTYPES,\n};\n\n");
+
+        fprintf(out,
+            "extern const char *const sprnames[NUMSPRITES];\n"
+            "extern const state_t states[NUMSTATES];\n"
+            "extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];\n"
+            "extern const gameinfo_t game_info;\n\n#endif\n");
+    }
+
+    free(old);
+    return fclose(out) == 0;
+}
+
+/* Write the complete info.c file with #include per sprite. */
+static bool write_info_c(const char *path, const dr_entry_t *entries, int count) {
     FILE *f = fopen(path, "w");
     if (!f) return false;
 
@@ -455,85 +673,16 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
     }
     fprintf(f, "};\n\n");
 
-    /* states */
+    /* states with #include per sprite */
     fprintf(f, "const state_t states[NUMSTATES] = {\n"
                "    { 0, 0, -1, NULL, S_NULL, 0 },\n");
+
+    /* Collect unique sprites in order of first appearance. */
     for (int i = 0; i < count; ++i) {
-        const dr_entry_t *e = &entries[i];
-        const dr_anim_t  *a = &e->anim;
-        bool has_run     = a->run_start >= 0 && a->run_len > 0;
-        bool has_shoot   = a->shoot_start >= 0 && a->shoot_len > 0;
-        bool has_idle    = a->idle_start >= 0 && a->idle_len > 0;
-        bool has_harvest = a->harvest_start >= 0 && a->harvest_len > 0;
-        bool attacking   = has_attack_flag(e);
-
-        /* Attacking actors periodically scan while standing. */
-        fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_STND, 0 },\n",
-                e->sprite, a->stand_start, attacking ? 20 : -1,
-                attacking ? "A_Look" : "NULL", e->sprite);
-
-        /* RUN states: cycle run_start .. run_start+run_len-1, then wrap */
-        if (has_run) {
-            int tics = tics_from_tick(a->run_tick);
-            for (int s = 0; s < a->run_len; ++s) {
-                if (s < a->run_len - 1)
-                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_RUN%d, 2 },\n",
-                            e->sprite, a->run_start + s, tics,
-                            s == 0 && attacking ? "A_Chase" : "NULL",
-                            e->sprite, s + 2);
-                else
-                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_RUN1, 2 },\n",
-                            e->sprite, a->run_start + s, tics,
-                            s == 0 && attacking ? "A_Chase" : "NULL",
-                            e->sprite);
-            }
-        }
-
-        /* SHOOT states: play once, return to STND */
-        if (has_shoot) {
-            int tics = tics_from_tick(a->shoot_tick);
-            for (int s = 0; s < a->shoot_len; ++s) {
-                if (s < a->shoot_len - 1)
-                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_SHOOT%d, 3 },\n",
-                            e->sprite, a->shoot_start + s, tics,
-                            s == 0 && attacking ? "A_Attack" : "NULL",
-                            e->sprite, s + 2);
-                else
-                    fprintf(f, "    { SPR_%s, %d, %d, %s, S_%s_STND, 3 },\n",
-                            e->sprite, a->shoot_start + s, tics,
-                            s == 0 && attacking ? "A_Attack" : "NULL",
-                            e->sprite);
-            }
-        }
-
-        /* IDLE states: cycle idle_start .. idle_start+idle_len-1, then wrap */
-        if (has_idle) {
-            for (int s = 0; s < a->idle_len; ++s) {
-                if (s < a->idle_len - 1)
-                    fprintf(f, "    { SPR_%s, %d, 10, NULL, S_%s_IDLE%d, 0 },\n",
-                            e->sprite, a->idle_start + s, e->sprite, s + 2);
-                else
-                    fprintf(f, "    { SPR_%s, %d, 10, NULL, S_%s_IDLE1, 0 },\n",
-                            e->sprite, a->idle_start + s, e->sprite);
-            }
-        }
-
-        /* HARVEST states: loop like Dark Colony WORK. Group 5 is not walk/attack. */
-        if (has_harvest) {
-            int tics = tics_from_tick(a->harvest_tick);
-            for (int s = 0; s < a->harvest_len; ++s) {
-                int next = s < a->harvest_len - 1 ? s + 2 : 1;
-                fprintf(f, "    { SPR_%s, %d, %d, NULL, S_%s_HARVEST%d, 5 },\n",
-                        e->sprite, a->harvest_start + s, tics, e->sprite, next);
-            }
-        }
+        if (is_first_sprite(entries, i))
+            fprintf(f, "    #include \"animate/%s.inc\"\n", entries[i].sprite);
     }
-    for (int i = 0; i < count; ++i) {
-        const dr_entry_t *e = &entries[i];
-        if (has_fire_state(e))
-            fprintf(f, "    { SPR_%s, %d, 1, A_Attack, S_%s_STND, 3 },\n",
-                    e->sprite, e->anim.stand_start, e->sprite);
-    }
+
     fprintf(f, "};\n\n");
 
     /* mobjinfo */
@@ -565,7 +714,6 @@ static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int cou
                 fprintf(f, "        .missilestate = S_%s_FIRE, .damage = %d,\n",
                         e->sprite, e->damage);
             else if (has_run)
-                /* shoot cycle same as run or absent; use run animation */
                 fprintf(f, "        .missilestate = S_%s_RUN1, .damage = %d,\n",
                         e->sprite, e->damage);
             else
@@ -609,20 +757,25 @@ static char *read_text(const char *path) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
-        fprintf(stderr, "usage: dr_info_gen <dark-reign-root> <info.h> <info.c>\n");
+    if (argc != 5) {
+        fprintf(stderr, "usage: dr_info_gen <dark-reign-root> <info.h> <info.c> <animate-dir>\n");
         return 1;
     }
 
+    const char *dr_root    = argv[1];
+    const char *info_h     = argv[2];
+    const char *info_c     = argv[3];
+    const char *animate_dir = argv[4];
+
     /* Validate every sprite name against the retail DEFTXT files. */
     char path[1024];
-    snprintf(path, sizeof(path), "%s/deftxt/UNITS.TXT", argv[1]);
+    snprintf(path, sizeof(path), "%s/deftxt/UNITS.TXT", dr_root);
     char *units = read_text(path);
-    snprintf(path, sizeof(path), "%s/deftxt/BUILD.TXT", argv[1]);
+    snprintf(path, sizeof(path), "%s/deftxt/BUILD.TXT", dr_root);
     char *buildings = read_text(path);
     if (!units || !buildings) {
         fprintf(stderr, "dr_info_gen: cannot read retail DEFTXT under %s: %s\n",
-                argv[1], strerror(errno));
+                dr_root, strerror(errno));
         free(units);
         free(buildings);
         return 1;
@@ -644,10 +797,36 @@ int main(int argc, char **argv) {
     free(units);
     free(buildings);
 
-    if (!write_dr_info_h(argv[2], entries, count) ||
-        !write_dr_info_c(argv[3], entries, count)) {
-        fprintf(stderr, "dr_info_gen: cannot write output: %s\n", strerror(errno));
+    /* Create the animate directory. */
+    if (mkdir_p(animate_dir) < 0 && errno != EEXIST) {
+        fprintf(stderr, "dr_info_gen: mkdir %s: %s\n", animate_dir, strerror(errno));
         return 1;
     }
+
+    /* Write per-sprite .inc files. */
+    for (int i = 0; i < count; ++i) {
+        if (!is_first_sprite(entries, i)) continue;
+        if (!write_inc(animate_dir, entries[i].sprite, &entries[i])) {
+            fprintf(stderr, "dr_info_gen: cannot write %s/%s.inc: %s\n",
+                    animate_dir, entries[i].sprite, strerror(errno));
+            return 1;
+        }
+    }
+    fprintf(stderr, "dr_info_gen: wrote .inc files to %s\n", animate_dir);
+
+    /* Update the statenum_t enum in info.h. */
+    if (!write_info_h_enum(info_h, entries, count)) {
+        fprintf(stderr, "dr_info_gen: cannot update %s: %s\n", info_h, strerror(errno));
+        return 1;
+    }
+    fprintf(stderr, "dr_info_gen: updated statenum_t in %s\n", info_h);
+
+    /* Write info.c. */
+    if (!write_info_c(info_c, entries, count)) {
+        fprintf(stderr, "dr_info_gen: cannot write %s: %s\n", info_c, strerror(errno));
+        return 1;
+    }
+    fprintf(stderr, "dr_info_gen: wrote %s\n", info_c);
+
     return 0;
 }
