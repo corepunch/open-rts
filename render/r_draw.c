@@ -1479,7 +1479,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 int bx = 0, by = 0;
                 R_WindowToRenderPt(app, e->button.x, e->button.y, &bx, &by);
                 irect_t rect = irect_from_points(app->mouse_down, (ivec2_t){ bx, by });
-                bool box = rect.w > 5 || rect.h > 5;
+                bool box = rect.w >= 10 && rect.h >= 10;
                 bool additive = (SDL_GetModState() & KMOD_SHIFT) != 0;
                 app->dragging_select = false;
                 app->selection_rect = (irect_t){0};

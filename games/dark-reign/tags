@@ -39,6 +39,27 @@
 !_TAG_ROLE_DESCRIPTION!C!header	system	/system header/
 !_TAG_ROLE_DESCRIPTION!C!macro	undef	/undefined/
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
+ACTOR_CIVILIAN_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_CIVILIAN_BRIDGE = 50070,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIVILIAN_VERTICAL_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_CIVILIAN_VERTICAL_BRIDGE = 50071,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_COLONEL_MARTEL	games/dark-reign/dr_types.h	/^    ACTOR_CIV_COLONEL_MARTEL = 3120,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_COMMERCIAL	games/dark-reign/dr_types.h	/^    ACTOR_CIV_COMMERCIAL = 50056,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_ENTERTAINMENT	games/dark-reign/dr_types.h	/^    ACTOR_CIV_ENTERTAINMENT = 13004,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_FACTORY	games/dark-reign/dr_types.h	/^    ACTOR_CIV_FACTORY = 50058,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_FARMHOUSE	games/dark-reign/dr_types.h	/^    ACTOR_CIV_FARMHOUSE = 50066,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_GRAIN_FARM	games/dark-reign/dr_types.h	/^    ACTOR_CIV_GRAIN_FARM = 50062,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_HOVER_TRANSPORTER	games/dark-reign/dr_types.h	/^    ACTOR_CIV_HOVER_TRANSPORTER = 3012,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_HYDRO_FARM	games/dark-reign/dr_types.h	/^    ACTOR_CIV_HYDRO_FARM = 50064,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_JEB_RAD	games/dark-reign/dr_types.h	/^    ACTOR_CIV_JEB_RAD = 3116,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_KAROCH	games/dark-reign/dr_types.h	/^    ACTOR_CIV_KAROCH = 3117,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_MALE	games/dark-reign/dr_types.h	/^    ACTOR_CIV_MALE = 3002,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_PRISONER	games/dark-reign/dr_types.h	/^    ACTOR_CIV_PRISONER = 3018,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_ROWDY	games/dark-reign/dr_types.h	/^    ACTOR_CIV_ROWDY = 3004,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_RURAL	games/dark-reign/dr_types.h	/^    ACTOR_CIV_RURAL = 50060,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_SHELTER	games/dark-reign/dr_types.h	/^    ACTOR_CIV_SHELTER = 50026,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_SPY	games/dark-reign/dr_types.h	/^    ACTOR_CIV_SPY = 3010,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_SUB_TRANSIT	games/dark-reign/dr_types.h	/^    ACTOR_CIV_SUB_TRANSIT = 50028,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_TRANSIT_CENTRE	games/dark-reign/dr_types.h	/^    ACTOR_CIV_TRANSIT_CENTRE = 50030,$/;"	e	enum:__anonc98b33940403
+ACTOR_CIV_WHEEL_TRANSPORTER	games/dark-reign/dr_types.h	/^    ACTOR_CIV_WHEEL_TRANSPORTER = 3019,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_AA_SITE	games/dark-reign/dr_types.h	/^    ACTOR_FG_AA_SITE = 10012,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_ADVANCED_GUARD_TOWER	games/dark-reign/dr_types.h	/^    ACTOR_FG_ADVANCED_GUARD_TOWER = 10014,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_BASE_MOVER	games/dark-reign/dr_types.h	/^    ACTOR_FG_BASE_MOVER = 25,$/;"	e	enum:__anonc98b33940403
@@ -48,9 +69,13 @@ ACTOR_FG_CONTAMINATOR	games/dark-reign/dr_types.h	/^    ACTOR_FG_CONTAMINATOR = 
 ACTOR_FG_GROUND_TRANSPORTER	games/dark-reign/dr_types.h	/^    ACTOR_FG_GROUND_TRANSPORTER = 13,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_GUARD_TOWER	games/dark-reign/dr_types.h	/^    ACTOR_FG_GUARD_TOWER = 10013,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_HEADQUARTERS_1	games/dark-reign/dr_types.h	/^    ACTOR_FG_HEADQUARTERS_1 = 10001,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_HEADQUARTERS_1_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_HEADQUARTERS_1_DECOY = 10101,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_HEADQUARTERS_2	games/dark-reign/dr_types.h	/^    ACTOR_FG_HEADQUARTERS_2 = 10002,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_HEADQUARTERS_2_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_HEADQUARTERS_2_DECOY = 10102,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_HEADQUARTERS_3	games/dark-reign/dr_types.h	/^    ACTOR_FG_HEADQUARTERS_3 = 10003,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_HEADQUARTERS_3_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_HEADQUARTERS_3_DECOY = 10103,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_HOVER_FACTORY	games/dark-reign/dr_types.h	/^    ACTOR_FG_HOVER_FACTORY = 10008,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_HOVER_FACTORY_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_HOVER_FACTORY_DECOY = 10108,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_HOVER_OUTPOST	games/dark-reign/dr_types.h	/^    ACTOR_FG_HOVER_OUTPOST = 10008,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_HOVER_TRANSPORTER	games/dark-reign/dr_types.h	/^    ACTOR_FG_HOVER_TRANSPORTER = 14,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_IFV	games/dark-reign/dr_types.h	/^    ACTOR_FG_IFV = 15,$/;"	e	enum:__anonc98b33940403
@@ -62,12 +87,18 @@ ACTOR_FG_MEDIUM_TANK	games/dark-reign/dr_types.h	/^    ACTOR_FG_MEDIUM_TANK = 20
 ACTOR_FG_MERCENARY	games/dark-reign/dr_types.h	/^    ACTOR_FG_MERCENARY = 10,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_OUTRIDER	games/dark-reign/dr_types.h	/^    ACTOR_FG_OUTRIDER = 24,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_PHASE_FACTORY_1	games/dark-reign/dr_types.h	/^    ACTOR_FG_PHASE_FACTORY_1 = 10015,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_PHASE_FACTORY_1_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_PHASE_FACTORY_1_DECOY = 10023,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_PHASE_FACTORY_2	games/dark-reign/dr_types.h	/^    ACTOR_FG_PHASE_FACTORY_2 = 10016,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_PHASE_FACTORY_2_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_PHASE_FACTORY_2_DECOY = 10024,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_PHASE_TANK	games/dark-reign/dr_types.h	/^    ACTOR_FG_PHASE_TANK = 21,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_PLANETARY_DEFENSE	games/dark-reign/dr_types.h	/^    ACTOR_FG_PLANETARY_DEFENSE = 50055,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_POWER_PLANT	games/dark-reign/dr_types.h	/^    ACTOR_FG_POWER_PLANT = 10020,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_POWER_PLANT_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_POWER_PLANT_DECOY = 10120,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_RAIDER	games/dark-reign/dr_types.h	/^    ACTOR_FG_RAIDER = 9,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_REFINERY	games/dark-reign/dr_types.h	/^    ACTOR_FG_REFINERY = 10011,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_REFINERY_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_REFINERY_DECOY = 10111,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_REPAIR_BAY	games/dark-reign/dr_types.h	/^    ACTOR_FG_REPAIR_BAY = 10009,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_REPAIR_BAY_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_REPAIR_BAY_DECOY = 10109,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_SABOTEUR	games/dark-reign/dr_types.h	/^    ACTOR_FG_SABOTEUR = 3,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_SCOUT	games/dark-reign/dr_types.h	/^    ACTOR_FG_SCOUT = 6,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_SHOCKWAVE	games/dark-reign/dr_types.h	/^    ACTOR_FG_SHOCKWAVE = 18,$/;"	e	enum:__anonc98b33940403
@@ -82,14 +113,91 @@ ACTOR_FG_SPYDER_BIKE	games/dark-reign/dr_types.h	/^    ACTOR_FG_SPYDER_BIKE = 1,
 ACTOR_FG_SUICIDE_NUKER	games/dark-reign/dr_types.h	/^    ACTOR_FG_SUICIDE_NUKER = 5,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_TANK_HUNTER	games/dark-reign/dr_types.h	/^    ACTOR_FG_TANK_HUNTER = 17,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_TRAINING_FACILITY_1	games/dark-reign/dr_types.h	/^    ACTOR_FG_TRAINING_FACILITY_1 = 10004,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_TRAINING_FACILITY_1_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_TRAINING_FACILITY_1_DECOY = 10121,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_TRAINING_FACILITY_2	games/dark-reign/dr_types.h	/^    ACTOR_FG_TRAINING_FACILITY_2 = 10005,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_TRAINING_FACILITY_2_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_TRAINING_FACILITY_2_DECOY = 10105,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_TREATY_HALL	games/dark-reign/dr_types.h	/^    ACTOR_FG_TREATY_HALL = 50042,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_TRIPLE_RAIL_TANK	games/dark-reign/dr_types.h	/^    ACTOR_FG_TRIPLE_RAIL_TANK = 16,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_UNDERGROUND_TUNNEL	games/dark-reign/dr_types.h	/^    ACTOR_FG_UNDERGROUND_TUNNEL = 22,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_VEHICLE_FACTORY_1	games/dark-reign/dr_types.h	/^    ACTOR_FG_VEHICLE_FACTORY_1 = 10006,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_VEHICLE_FACTORY_1_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_VEHICLE_FACTORY_1_DECOY = 10021,$/;"	e	enum:__anonc98b33940403
 ACTOR_FG_VEHICLE_FACTORY_2	games/dark-reign/dr_types.h	/^    ACTOR_FG_VEHICLE_FACTORY_2 = 10007,$/;"	e	enum:__anonc98b33940403
+ACTOR_FG_VEHICLE_FACTORY_2_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_FG_VEHICLE_FACTORY_2_DECOY = 10022,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_AA_BUILDING	games/dark-reign/dr_types.h	/^    ACTOR_IMP_AA_BUILDING = 11013,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_AA_SITE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_AA_SITE = 5100,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_ADVANCED_GUARD_TOWER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_ADVANCED_GUARD_TOWER = 5102,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_ADVANCED_GUARD_TOWER_BUILDING	games/dark-reign/dr_types.h	/^    ACTOR_IMP_ADVANCED_GUARD_TOWER_BUILDING = 11015,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_AMPER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_AMPER = 1008,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_ASSAULT_VEHICLE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_ASSAULT_VEHICLE = 1009,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_ASSAULT_VEHICLE_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_ASSAULT_VEHICLE_DECOY = 1109,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_CAMERA_TOWER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_CAMERA_TOWER = 11011,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_CONSTRUCTION_CREW	games/dark-reign/dr_types.h	/^    ACTOR_IMP_CONSTRUCTION_CREW = 1005,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_CONTAMINATOR	games/dark-reign/dr_types.h	/^    ACTOR_IMP_CONTAMINATOR = 1016,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_DESICATOR_RESEARCH	games/dark-reign/dr_types.h	/^    ACTOR_IMP_DESICATOR_RESEARCH = 50009,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_FIRE_SUPPORT_MARINE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_FIRE_SUPPORT_MARINE = 1003,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_GENETIC_RESEARCH	games/dark-reign/dr_types.h	/^    ACTOR_IMP_GENETIC_RESEARCH = 50011,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_GROUND_TRANSPORTER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_GROUND_TRANSPORTER = 1006,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_GUARD_TOWER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_GUARD_TOWER = 5101,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_GUARD_TOWER_BUILDING	games/dark-reign/dr_types.h	/^    ACTOR_IMP_GUARD_TOWER_BUILDING = 11014,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HEADQUARTERS_1	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HEADQUARTERS_1 = 11001,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HEADQUARTERS_2	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HEADQUARTERS_2 = 11002,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HEADQUARTERS_3	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HEADQUARTERS_3 = 11003,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HOSTAGE_TAKER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HOSTAGE_TAKER = 1014,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HOVER_FACTORY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HOVER_FACTORY = 11009,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HOVER_MARINE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HOVER_MARINE = 1004,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HOVER_RESEARCH	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HOVER_RESEARCH = 50007,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_HOVER_TRANSPORTER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_HOVER_TRANSPORTER = 1007,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_LARGE_WALL_1	games/dark-reign/dr_types.h	/^    ACTOR_IMP_LARGE_WALL_1 = 11046,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_LARGE_WALL_2	games/dark-reign/dr_types.h	/^    ACTOR_IMP_LARGE_WALL_2 = 11047,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_LIFE_PLANT	games/dark-reign/dr_types.h	/^    ACTOR_IMP_LIFE_PLANT = 11019,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_MAD	games/dark-reign/dr_types.h	/^    ACTOR_IMP_MAD = 1013,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_MAD_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_MAD_DECOY = 1113,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_PLASMA_TANK	games/dark-reign/dr_types.h	/^    ACTOR_IMP_PLASMA_TANK = 1011,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_PLASMA_TANK_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_PLASMA_TANK_DECOY = 1111,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_POWER_PLANT	games/dark-reign/dr_types.h	/^    ACTOR_IMP_POWER_PLANT = 11020,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_PRISON	games/dark-reign/dr_types.h	/^    ACTOR_IMP_PRISON = 50059,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_RECON_SAUCER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_RECON_SAUCER = 1019,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_REFINERY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_REFINERY = 11012,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_REPAIR_BAY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_REPAIR_BAY = 11010,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_RIFT_CREATOR	games/dark-reign/dr_types.h	/^    ACTOR_IMP_RIFT_CREATOR = 11021,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_RIFT_CREATOR_UNIT	games/dark-reign/dr_types.h	/^    ACTOR_IMP_RIFT_CREATOR_UNIT = 11103,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SCOUT_TANK	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SCOUT_TANK = 1010,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SHIELDED_SPA	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SHIELDED_SPA = 1026,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SHREDDER	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SHREDDER = 1015,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SHREDDER_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SHREDDER_DECOY = 1115,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SKY_FORTRESS	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SKY_FORTRESS = 1018,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SMALL_CENTRE_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SMALL_CENTRE_BRIDGE = 11042,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SMALL_HORIZONTAL_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SMALL_HORIZONTAL_BRIDGE = 11040,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SMALL_VERTICAL_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SMALL_VERTICAL_BRIDGE = 11041,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SMALL_WALL_1	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SMALL_WALL_1 = 11044,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SMALL_WALL_2	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SMALL_WALL_2 = 11045,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SPA	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SPA = 1017,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SPA_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SPA_DECOY = 1117,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SPY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SPY = 1001,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_STRIKE_MARINE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_STRIKE_MARINE = 1002,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_SUICIDE_ZOMBIE	games/dark-reign/dr_types.h	/^    ACTOR_IMP_SUICIDE_ZOMBIE = 1099,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_TACHYON_PLANT	games/dark-reign/dr_types.h	/^    ACTOR_IMP_TACHYON_PLANT = 11008,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_TACHYON_TANK	games/dark-reign/dr_types.h	/^    ACTOR_IMP_TACHYON_TANK = 1012,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_TACHYON_TANK_DECOY	games/dark-reign/dr_types.h	/^    ACTOR_IMP_TACHYON_TANK_DECOY = 1112,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_TRAINING_FACILITY_1	games/dark-reign/dr_types.h	/^    ACTOR_IMP_TRAINING_FACILITY_1 = 11004,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_TRAINING_FACILITY_2	games/dark-reign/dr_types.h	/^    ACTOR_IMP_TRAINING_FACILITY_2 = 11005,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_VEHICLE_FACTORY_1	games/dark-reign/dr_types.h	/^    ACTOR_IMP_VEHICLE_FACTORY_1 = 11006,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_VEHICLE_FACTORY_2	games/dark-reign/dr_types.h	/^    ACTOR_IMP_VEHICLE_FACTORY_2 = 11007,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_VTOL	games/dark-reign/dr_types.h	/^    ACTOR_IMP_VTOL = 1020,$/;"	e	enum:__anonc98b33940403
+ACTOR_IMP_WATER_RESEARCH	games/dark-reign/dr_types.h	/^    ACTOR_IMP_WATER_RESEARCH = 50005,$/;"	e	enum:__anonc98b33940403
+ACTOR_RENDEZVOUS_POINT	games/dark-reign/dr_types.h	/^    ACTOR_RENDEZVOUS_POINT = 50054,$/;"	e	enum:__anonc98b33940403
+ACTOR_TAELON_EXTRACTOR	games/dark-reign/dr_types.h	/^    ACTOR_TAELON_EXTRACTOR = 14006,$/;"	e	enum:__anonc98b33940403
+ACTOR_TOGRAN_LABORATORY	games/dark-reign/dr_types.h	/^    ACTOR_TOGRAN_LABORATORY = 50053,$/;"	e	enum:__anonc98b33940403
+ACTOR_TOGRAN_LANDING_VESSEL	games/dark-reign/dr_types.h	/^    ACTOR_TOGRAN_LANDING_VESSEL = 50050,$/;"	e	enum:__anonc98b33940403
+ACTOR_TOGRAN_MONOLITH	games/dark-reign/dr_types.h	/^    ACTOR_TOGRAN_MONOLITH = 50052,$/;"	e	enum:__anonc98b33940403
+ACTOR_TOGRAN_SMALL_CENTRE_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_TOGRAN_SMALL_CENTRE_BRIDGE = 55504,$/;"	e	enum:__anonc98b33940403
+ACTOR_TOGRAN_SMALL_HORIZONTAL_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_TOGRAN_SMALL_HORIZONTAL_BRIDGE = 55500,$/;"	e	enum:__anonc98b33940403
+ACTOR_TOGRAN_SMALL_VERTICAL_BRIDGE	games/dark-reign/dr_types.h	/^    ACTOR_TOGRAN_SMALL_VERTICAL_BRIDGE = 55502,$/;"	e	enum:__anonc98b33940403
+ACTOR_WATER_EXTRACTOR	games/dark-reign/dr_types.h	/^    ACTOR_WATER_EXTRACTOR = 14005,$/;"	e	enum:__anonc98b33940403
 ADD_INDEXED_FRAME	games/dark-reign/w_til.c	/^#define ADD_INDEXED_FRAME(/;"	d	file:	signature:(SRC)
 BUILD	games/dark-reign/p_prod.c	/^#define BUILD(/;"	d	file:	signature:(ui_,label_,cost_,type_,p0_,p1_)
 BUILDING	games/dark-reign/g_game.c	/^#define BUILDING(/;"	d	file:	signature:(id_,name_,sprite_,shadow_,hp_)
+BUILD_IMP	games/dark-reign/p_prod.c	/^#define BUILD_IMP(/;"	d	file:	signature:(ui_,label_,cost_,type_,p0_,p1_)
 DARK_REIGN_ACTOR_TYPES	games/dark-reign/g_game.c	/^static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 DARK_REIGN_DECORATION_SPECS	games/dark-reign/w_map.c	/^static const DecorationSpec DARK_REIGN_DECORATION_SPECS[] = {$/;"	v	typeref:typename:const DecorationSpec[]	file:
 DARK_REIGN_EDGE_RULES	games/dark-reign/w_map.c	/^static const EdgeMatchRule DARK_REIGN_EDGE_RULES[] = {$/;"	v	typeref:typename:const EdgeMatchRule[]	file:
@@ -158,11 +266,34 @@ G_UpdateProduction	games/dark-reign/g_game.c	/^bool G_UpdateProduction(void *ui,
 G_WorldViewportWidth	games/dark-reign/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
 HU_LoadFont	games/dark-reign/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
 MOBJ_GAME_FIELDS	games/dark-reign/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
+MT_CIVILIAN_BRIDGE	games/dark-reign/info.h	/^    MT_CIVILIAN_BRIDGE,$/;"	e	enum:__anon66710f960303
+MT_CIVILIAN_VERTICAL_BRIDGE	games/dark-reign/info.h	/^    MT_CIVILIAN_VERTICAL_BRIDGE,$/;"	e	enum:__anon66710f960303
+MT_CIV_COLONEL	games/dark-reign/info.h	/^    MT_CIV_COLONEL,$/;"	e	enum:__anon66710f960303
+MT_CIV_COMMERCIAL	games/dark-reign/info.h	/^    MT_CIV_COMMERCIAL,$/;"	e	enum:__anon66710f960303
+MT_CIV_ENTERTAINMENT	games/dark-reign/info.h	/^    MT_CIV_ENTERTAINMENT,$/;"	e	enum:__anon66710f960303
+MT_CIV_FACTORY	games/dark-reign/info.h	/^    MT_CIV_FACTORY,$/;"	e	enum:__anon66710f960303
+MT_CIV_FARMHOUSE	games/dark-reign/info.h	/^    MT_CIV_FARMHOUSE,$/;"	e	enum:__anon66710f960303
+MT_CIV_GRAIN_FARM	games/dark-reign/info.h	/^    MT_CIV_GRAIN_FARM,$/;"	e	enum:__anon66710f960303
+MT_CIV_HOVER	games/dark-reign/info.h	/^    MT_CIV_HOVER,$/;"	e	enum:__anon66710f960303
+MT_CIV_HYDRO_FARM	games/dark-reign/info.h	/^    MT_CIV_HYDRO_FARM,$/;"	e	enum:__anon66710f960303
+MT_CIV_JEBRAD	games/dark-reign/info.h	/^    MT_CIV_JEBRAD,$/;"	e	enum:__anon66710f960303
+MT_CIV_KAROCH	games/dark-reign/info.h	/^    MT_CIV_KAROCH,$/;"	e	enum:__anon66710f960303
+MT_CIV_MALE	games/dark-reign/info.h	/^    MT_CIV_MALE,$/;"	e	enum:__anon66710f960303
+MT_CIV_PRISONER	games/dark-reign/info.h	/^    MT_CIV_PRISONER,$/;"	e	enum:__anon66710f960303
+MT_CIV_ROWDY	games/dark-reign/info.h	/^    MT_CIV_ROWDY,$/;"	e	enum:__anon66710f960303
+MT_CIV_RURAL	games/dark-reign/info.h	/^    MT_CIV_RURAL,$/;"	e	enum:__anon66710f960303
+MT_CIV_SHELTER	games/dark-reign/info.h	/^    MT_CIV_SHELTER,$/;"	e	enum:__anon66710f960303
+MT_CIV_SPY	games/dark-reign/info.h	/^    MT_CIV_SPY,$/;"	e	enum:__anon66710f960303
+MT_CIV_SUB_TRANSIT	games/dark-reign/info.h	/^    MT_CIV_SUB_TRANSIT,$/;"	e	enum:__anon66710f960303
+MT_CIV_TRANSIT_CENTRE	games/dark-reign/info.h	/^    MT_CIV_TRANSIT_CENTRE,$/;"	e	enum:__anon66710f960303
+MT_CIV_WHEEL	games/dark-reign/info.h	/^    MT_CIV_WHEEL,$/;"	e	enum:__anon66710f960303
 MT_FG_AA_SITE	games/dark-reign/info.h	/^    MT_FG_AA_SITE,$/;"	e	enum:__anon66710f960303
 MT_FG_ADV_BARRACKS	games/dark-reign/info.h	/^    MT_FG_ADV_BARRACKS,$/;"	e	enum:__anon66710f960303
+MT_FG_ADV_BARRACKS_DECOY	games/dark-reign/info.h	/^    MT_FG_ADV_BARRACKS_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_ADV_GUARD_TOWER	games/dark-reign/info.h	/^    MT_FG_ADV_GUARD_TOWER,$/;"	e	enum:__anon66710f960303
 MT_FG_ADV_VEHICLE_FACTORY	games/dark-reign/info.h	/^    MT_FG_ADV_VEHICLE_FACTORY,$/;"	e	enum:__anon66710f960303
 MT_FG_BARRACKS	games/dark-reign/info.h	/^    MT_FG_BARRACKS,$/;"	e	enum:__anon66710f960303
+MT_FG_BARRACKS_DECOY	games/dark-reign/info.h	/^    MT_FG_BARRACKS_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_BASE_MOVER	games/dark-reign/info.h	/^    MT_FG_BASE_MOVER,$/;"	e	enum:__anon66710f960303
 MT_FG_BRIDGE_C	games/dark-reign/info.h	/^    MT_FG_BRIDGE_C,$/;"	e	enum:__anon66710f960303
 MT_FG_BRIDGE_H	games/dark-reign/info.h	/^    MT_FG_BRIDGE_H,$/;"	e	enum:__anon66710f960303
@@ -173,10 +304,14 @@ MT_FG_CONTAMINATOR	games/dark-reign/info.h	/^    MT_FG_CONTAMINATOR,$/;"	e	enum:
 MT_FG_FREIGHTER	games/dark-reign/info.h	/^    MT_FG_FREIGHTER,$/;"	e	enum:__anon66710f960303
 MT_FG_GUARD_TOWER	games/dark-reign/info.h	/^    MT_FG_GUARD_TOWER,$/;"	e	enum:__anon66710f960303
 MT_FG_HOVER_FACTORY	games/dark-reign/info.h	/^    MT_FG_HOVER_FACTORY,$/;"	e	enum:__anon66710f960303
+MT_FG_HOVER_FACTORY_DECOY	games/dark-reign/info.h	/^    MT_FG_HOVER_FACTORY_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_HOVER_FREIGHTER	games/dark-reign/info.h	/^    MT_FG_HOVER_FREIGHTER,$/;"	e	enum:__anon66710f960303
 MT_FG_HQ1	games/dark-reign/info.h	/^    MT_FG_HQ1,$/;"	e	enum:__anon66710f960303
+MT_FG_HQ1_DECOY	games/dark-reign/info.h	/^    MT_FG_HQ1_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_HQ2	games/dark-reign/info.h	/^    MT_FG_HQ2,$/;"	e	enum:__anon66710f960303
+MT_FG_HQ2_DECOY	games/dark-reign/info.h	/^    MT_FG_HQ2_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_HQ3	games/dark-reign/info.h	/^    MT_FG_HQ3,$/;"	e	enum:__anon66710f960303
+MT_FG_HQ3_DECOY	games/dark-reign/info.h	/^    MT_FG_HQ3_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_IFV	games/dark-reign/info.h	/^    MT_FG_IFV,$/;"	e	enum:__anon66710f960303
 MT_FG_LIFE_PLANT	games/dark-reign/info.h	/^    MT_FG_LIFE_PLANT,$/;"	e	enum:__anon66710f960303
 MT_FG_MAD	games/dark-reign/info.h	/^    MT_FG_MAD,$/;"	e	enum:__anon66710f960303
@@ -187,12 +322,18 @@ MT_FG_MEDIUM_TANK	games/dark-reign/info.h	/^    MT_FG_MEDIUM_TANK,$/;"	e	enum:__
 MT_FG_MERCENARY	games/dark-reign/info.h	/^    MT_FG_MERCENARY,$/;"	e	enum:__anon66710f960303
 MT_FG_OUTRIDER	games/dark-reign/info.h	/^    MT_FG_OUTRIDER,$/;"	e	enum:__anon66710f960303
 MT_FG_PHASE_FACTORY_1	games/dark-reign/info.h	/^    MT_FG_PHASE_FACTORY_1,$/;"	e	enum:__anon66710f960303
+MT_FG_PHASE_FACTORY_1_DECOY	games/dark-reign/info.h	/^    MT_FG_PHASE_FACTORY_1_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_PHASE_FACTORY_2	games/dark-reign/info.h	/^    MT_FG_PHASE_FACTORY_2,$/;"	e	enum:__anon66710f960303
+MT_FG_PHASE_FACTORY_2_DECOY	games/dark-reign/info.h	/^    MT_FG_PHASE_FACTORY_2_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_PHASE_TANK	games/dark-reign/info.h	/^    MT_FG_PHASE_TANK,$/;"	e	enum:__anon66710f960303
+MT_FG_PLANETARY_DEFENSE	games/dark-reign/info.h	/^    MT_FG_PLANETARY_DEFENSE,$/;"	e	enum:__anon66710f960303
 MT_FG_POWER_PLANT	games/dark-reign/info.h	/^    MT_FG_POWER_PLANT,$/;"	e	enum:__anon66710f960303
+MT_FG_POWER_PLANT_DECOY	games/dark-reign/info.h	/^    MT_FG_POWER_PLANT_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_RAIDER	games/dark-reign/info.h	/^    MT_FG_RAIDER,$/;"	e	enum:__anon66710f960303
 MT_FG_REFINERY	games/dark-reign/info.h	/^    MT_FG_REFINERY,$/;"	e	enum:__anon66710f960303
+MT_FG_REFINERY_DECOY	games/dark-reign/info.h	/^    MT_FG_REFINERY_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_REPAIR_BAY	games/dark-reign/info.h	/^    MT_FG_REPAIR_BAY,$/;"	e	enum:__anon66710f960303
+MT_FG_REPAIR_BAY_DECOY	games/dark-reign/info.h	/^    MT_FG_REPAIR_BAY_DECOY,$/;"	e	enum:__anon66710f960303
 MT_FG_SABOTEUR	games/dark-reign/info.h	/^    MT_FG_SABOTEUR,$/;"	e	enum:__anon66710f960303
 MT_FG_SCOUT	games/dark-reign/info.h	/^    MT_FG_SCOUT,$/;"	e	enum:__anon66710f960303
 MT_FG_SHOCKWAVE	games/dark-reign/info.h	/^    MT_FG_SHOCKWAVE,$/;"	e	enum:__anon66710f960303
@@ -202,10 +343,79 @@ MT_FG_SPA	games/dark-reign/info.h	/^    MT_FG_SPA,$/;"	e	enum:__anon66710f960303
 MT_FG_SPY	games/dark-reign/info.h	/^    MT_FG_SPY,$/;"	e	enum:__anon66710f960303
 MT_FG_SPYDER_BIKE	games/dark-reign/info.h	/^    MT_FG_SPYDER_BIKE,$/;"	e	enum:__anon66710f960303
 MT_FG_TANK_HUNTER	games/dark-reign/info.h	/^    MT_FG_TANK_HUNTER,$/;"	e	enum:__anon66710f960303
+MT_FG_TREATY_HALL	games/dark-reign/info.h	/^    MT_FG_TREATY_HALL,$/;"	e	enum:__anon66710f960303
 MT_FG_TRIPLE_RAIL_TANK	games/dark-reign/info.h	/^    MT_FG_TRIPLE_RAIL_TANK,$/;"	e	enum:__anon66710f960303
 MT_FG_UNDERGROUND_TUNNEL	games/dark-reign/info.h	/^    MT_FG_UNDERGROUND_TUNNEL,$/;"	e	enum:__anon66710f960303
 MT_FG_VEHICLE_FACTORY	games/dark-reign/info.h	/^    MT_FG_VEHICLE_FACTORY,$/;"	e	enum:__anon66710f960303
+MT_FG_VEHICLE_FACTORY_1_DECOY	games/dark-reign/info.h	/^    MT_FG_VEHICLE_FACTORY_1_DECOY,$/;"	e	enum:__anon66710f960303
+MT_FG_VEHICLE_FACTORY_2_DECOY	games/dark-reign/info.h	/^    MT_FG_VEHICLE_FACTORY_2_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_AA_SITE	games/dark-reign/info.h	/^    MT_IMP_AA_SITE,$/;"	e	enum:__anon66710f960303
+MT_IMP_ADV_BARRACKS	games/dark-reign/info.h	/^    MT_IMP_ADV_BARRACKS,$/;"	e	enum:__anon66710f960303
+MT_IMP_ADV_GUARD_TOWER	games/dark-reign/info.h	/^    MT_IMP_ADV_GUARD_TOWER,$/;"	e	enum:__anon66710f960303
+MT_IMP_ADV_VEHICLE_FACTORY	games/dark-reign/info.h	/^    MT_IMP_ADV_VEHICLE_FACTORY,$/;"	e	enum:__anon66710f960303
+MT_IMP_AMPER	games/dark-reign/info.h	/^    MT_IMP_AMPER,$/;"	e	enum:__anon66710f960303
+MT_IMP_ASSAULT_VEHICLE	games/dark-reign/info.h	/^    MT_IMP_ASSAULT_VEHICLE,$/;"	e	enum:__anon66710f960303
+MT_IMP_ASSAULT_VEHICLE_DECOY	games/dark-reign/info.h	/^    MT_IMP_ASSAULT_VEHICLE_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_BARRACKS	games/dark-reign/info.h	/^    MT_IMP_BARRACKS,$/;"	e	enum:__anon66710f960303
+MT_IMP_BION	games/dark-reign/info.h	/^    MT_IMP_BION,$/;"	e	enum:__anon66710f960303
+MT_IMP_BRIDGE_C	games/dark-reign/info.h	/^    MT_IMP_BRIDGE_C,$/;"	e	enum:__anon66710f960303
+MT_IMP_BRIDGE_H	games/dark-reign/info.h	/^    MT_IMP_BRIDGE_H,$/;"	e	enum:__anon66710f960303
+MT_IMP_BRIDGE_V	games/dark-reign/info.h	/^    MT_IMP_BRIDGE_V,$/;"	e	enum:__anon66710f960303
+MT_IMP_CAMERA_TOWER	games/dark-reign/info.h	/^    MT_IMP_CAMERA_TOWER,$/;"	e	enum:__anon66710f960303
+MT_IMP_CONSTRUCTION_CREW	games/dark-reign/info.h	/^    MT_IMP_CONSTRUCTION_CREW,$/;"	e	enum:__anon66710f960303
+MT_IMP_CONTAMINATOR	games/dark-reign/info.h	/^    MT_IMP_CONTAMINATOR,$/;"	e	enum:__anon66710f960303
+MT_IMP_CYCLONE	games/dark-reign/info.h	/^    MT_IMP_CYCLONE,$/;"	e	enum:__anon66710f960303
+MT_IMP_DESICATOR_RESEARCH	games/dark-reign/info.h	/^    MT_IMP_DESICATOR_RESEARCH,$/;"	e	enum:__anon66710f960303
+MT_IMP_EXTERMINATOR	games/dark-reign/info.h	/^    MT_IMP_EXTERMINATOR,$/;"	e	enum:__anon66710f960303
+MT_IMP_GENETIC_RESEARCH	games/dark-reign/info.h	/^    MT_IMP_GENETIC_RESEARCH,$/;"	e	enum:__anon66710f960303
+MT_IMP_GROUND_TRANSPORTER	games/dark-reign/info.h	/^    MT_IMP_GROUND_TRANSPORTER,$/;"	e	enum:__anon66710f960303
+MT_IMP_GUARDIAN	games/dark-reign/info.h	/^    MT_IMP_GUARDIAN,$/;"	e	enum:__anon66710f960303
+MT_IMP_GUARD_TOWER	games/dark-reign/info.h	/^    MT_IMP_GUARD_TOWER,$/;"	e	enum:__anon66710f960303
+MT_IMP_HOSTAGE_TAKER	games/dark-reign/info.h	/^    MT_IMP_HOSTAGE_TAKER,$/;"	e	enum:__anon66710f960303
+MT_IMP_HOVER_FACTORY	games/dark-reign/info.h	/^    MT_IMP_HOVER_FACTORY,$/;"	e	enum:__anon66710f960303
+MT_IMP_HOVER_RESEARCH	games/dark-reign/info.h	/^    MT_IMP_HOVER_RESEARCH,$/;"	e	enum:__anon66710f960303
+MT_IMP_HOVER_TRANSPORTER	games/dark-reign/info.h	/^    MT_IMP_HOVER_TRANSPORTER,$/;"	e	enum:__anon66710f960303
+MT_IMP_HQ1	games/dark-reign/info.h	/^    MT_IMP_HQ1,$/;"	e	enum:__anon66710f960303
+MT_IMP_HQ2	games/dark-reign/info.h	/^    MT_IMP_HQ2,$/;"	e	enum:__anon66710f960303
+MT_IMP_HQ3	games/dark-reign/info.h	/^    MT_IMP_HQ3,$/;"	e	enum:__anon66710f960303
+MT_IMP_LARGE_WALL_1	games/dark-reign/info.h	/^    MT_IMP_LARGE_WALL_1,$/;"	e	enum:__anon66710f960303
+MT_IMP_LARGE_WALL_2	games/dark-reign/info.h	/^    MT_IMP_LARGE_WALL_2,$/;"	e	enum:__anon66710f960303
+MT_IMP_LIFE_PLANT	games/dark-reign/info.h	/^    MT_IMP_LIFE_PLANT,$/;"	e	enum:__anon66710f960303
+MT_IMP_MAD	games/dark-reign/info.h	/^    MT_IMP_MAD,$/;"	e	enum:__anon66710f960303
+MT_IMP_MAD_DECOY	games/dark-reign/info.h	/^    MT_IMP_MAD_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_PLASMA_TANK	games/dark-reign/info.h	/^    MT_IMP_PLASMA_TANK,$/;"	e	enum:__anon66710f960303
+MT_IMP_PLASMA_TANK_DECOY	games/dark-reign/info.h	/^    MT_IMP_PLASMA_TANK_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_POWER_PLANT	games/dark-reign/info.h	/^    MT_IMP_POWER_PLANT,$/;"	e	enum:__anon66710f960303
+MT_IMP_PRISON	games/dark-reign/info.h	/^    MT_IMP_PRISON,$/;"	e	enum:__anon66710f960303
+MT_IMP_RECON_SAUCER	games/dark-reign/info.h	/^    MT_IMP_RECON_SAUCER,$/;"	e	enum:__anon66710f960303
+MT_IMP_REFINERY	games/dark-reign/info.h	/^    MT_IMP_REFINERY,$/;"	e	enum:__anon66710f960303
+MT_IMP_REPAIR_BAY	games/dark-reign/info.h	/^    MT_IMP_REPAIR_BAY,$/;"	e	enum:__anon66710f960303
+MT_IMP_RIFT_CREATOR	games/dark-reign/info.h	/^    MT_IMP_RIFT_CREATOR,$/;"	e	enum:__anon66710f960303
+MT_IMP_SCARAB	games/dark-reign/info.h	/^    MT_IMP_SCARAB,$/;"	e	enum:__anon66710f960303
+MT_IMP_SCOUT_TANK	games/dark-reign/info.h	/^    MT_IMP_SCOUT_TANK,$/;"	e	enum:__anon66710f960303
+MT_IMP_SHREDDER	games/dark-reign/info.h	/^    MT_IMP_SHREDDER,$/;"	e	enum:__anon66710f960303
+MT_IMP_SHREDDER_DECOY	games/dark-reign/info.h	/^    MT_IMP_SHREDDER_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_SKY_FORTRESS	games/dark-reign/info.h	/^    MT_IMP_SKY_FORTRESS,$/;"	e	enum:__anon66710f960303
+MT_IMP_SPA_DECOY	games/dark-reign/info.h	/^    MT_IMP_SPA_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_SPY	games/dark-reign/info.h	/^    MT_IMP_SPY,$/;"	e	enum:__anon66710f960303
+MT_IMP_SUICIDE_ZOMBIE	games/dark-reign/info.h	/^    MT_IMP_SUICIDE_ZOMBIE,$/;"	e	enum:__anon66710f960303
+MT_IMP_TACHYON_PLANT	games/dark-reign/info.h	/^    MT_IMP_TACHYON_PLANT,$/;"	e	enum:__anon66710f960303
+MT_IMP_TACHYON_TANK	games/dark-reign/info.h	/^    MT_IMP_TACHYON_TANK,$/;"	e	enum:__anon66710f960303
+MT_IMP_TACHYON_TANK_DECOY	games/dark-reign/info.h	/^    MT_IMP_TACHYON_TANK_DECOY,$/;"	e	enum:__anon66710f960303
+MT_IMP_VEHICLE_FACTORY	games/dark-reign/info.h	/^    MT_IMP_VEHICLE_FACTORY,$/;"	e	enum:__anon66710f960303
+MT_IMP_WALL_1	games/dark-reign/info.h	/^    MT_IMP_WALL_1,$/;"	e	enum:__anon66710f960303
+MT_IMP_WALL_2	games/dark-reign/info.h	/^    MT_IMP_WALL_2,$/;"	e	enum:__anon66710f960303
+MT_IMP_WATER_RESEARCH	games/dark-reign/info.h	/^    MT_IMP_WATER_RESEARCH,$/;"	e	enum:__anon66710f960303
 MT_NULL	games/dark-reign/info.h	/^    MT_NULL,$/;"	e	enum:__anon66710f960303
+MT_RENDEZVOUS_POINT	games/dark-reign/info.h	/^    MT_RENDEZVOUS_POINT,$/;"	e	enum:__anon66710f960303
+MT_TAELON_EXTRACTOR	games/dark-reign/info.h	/^    MT_TAELON_EXTRACTOR,$/;"	e	enum:__anon66710f960303
+MT_TOGRAN_BRIDGE_C	games/dark-reign/info.h	/^    MT_TOGRAN_BRIDGE_C,$/;"	e	enum:__anon66710f960303
+MT_TOGRAN_BRIDGE_H	games/dark-reign/info.h	/^    MT_TOGRAN_BRIDGE_H,$/;"	e	enum:__anon66710f960303
+MT_TOGRAN_BRIDGE_V	games/dark-reign/info.h	/^    MT_TOGRAN_BRIDGE_V,$/;"	e	enum:__anon66710f960303
+MT_TOGRAN_LABORATORY	games/dark-reign/info.h	/^    MT_TOGRAN_LABORATORY,$/;"	e	enum:__anon66710f960303
+MT_TOGRAN_LANDING_VESSEL	games/dark-reign/info.h	/^    MT_TOGRAN_LANDING_VESSEL,$/;"	e	enum:__anon66710f960303
+MT_TOGRAN_MONOLITH	games/dark-reign/info.h	/^    MT_TOGRAN_MONOLITH,$/;"	e	enum:__anon66710f960303
+MT_WATER_EXTRACTOR	games/dark-reign/info.h	/^    MT_WATER_EXTRACTOR,$/;"	e	enum:__anon66710f960303
 M_Drawer	games/dark-reign/m_menu.c	/^void M_Drawer(const app_t *app) { (void)app; }$/;"	f	typeref:typename:void	signature:(const app_t * app)
 M_Init	games/dark-reign/m_menu.c	/^bool M_Init(app_t *app, const char *root) { (void)app; (void)root; return true; }$/;"	f	typeref:typename:bool	signature:(app_t * app,const char * root)
 M_Responder	games/dark-reign/m_menu.c	/^bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {$/;"	f	typeref:typename:bool	signature:(app_t * app,const SDL_Event * event,bool inlevel)
@@ -217,32 +427,103 @@ NUMSPRITES	games/dark-reign/info.h	/^    NUMSPRITES$/;"	e	enum:__anon66710f96010
 NUMSTATES	games/dark-reign/info.h	/^    NUMSTATES$/;"	e	enum:__anon66710f960203
 P_LoadThings	games/dark-reign/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
 R_InitSprites	games/dark-reign/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
+SPR_NCBWL1L0	games/dark-reign/info.h	/^    SPR_NCBWL1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCBWM1L0	games/dark-reign/info.h	/^    SPR_NCBWM1L0,$/;"	e	enum:__anon66710f960103
 SPR_NCCAM1L0	games/dark-reign/info.h	/^    SPR_NCCAM1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCCAM1L0_IMP	games/dark-reign/info.h	/^    SPR_NCCAM1L0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_NCLNC1L0	games/dark-reign/info.h	/^    SPR_NCLNC1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCLNC1L0_IMP	games/dark-reign/info.h	/^    SPR_NCLNC1L0_IMP,$/;"	e	enum:__anon66710f960103
+SPR_NCMIN1L0	games/dark-reign/info.h	/^    SPR_NCMIN1L0,$/;"	e	enum:__anon66710f960103
 SPR_NCPOW1L0	games/dark-reign/info.h	/^    SPR_NCPOW1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCPOW1L0_D	games/dark-reign/info.h	/^    SPR_NCPOW1L0_D,$/;"	e	enum:__anon66710f960103
+SPR_NCPOW1L0_IMP	games/dark-reign/info.h	/^    SPR_NCPOW1L0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_NCSBC1L0	games/dark-reign/info.h	/^    SPR_NCSBC1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCSBC1L0_IMP	games/dark-reign/info.h	/^    SPR_NCSBC1L0_IMP,$/;"	e	enum:__anon66710f960103
+SPR_NCSBC1L0_T	games/dark-reign/info.h	/^    SPR_NCSBC1L0_T,$/;"	e	enum:__anon66710f960103
 SPR_NCSBH1L0	games/dark-reign/info.h	/^    SPR_NCSBH1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCSBH1L0_IMP	games/dark-reign/info.h	/^    SPR_NCSBH1L0_IMP,$/;"	e	enum:__anon66710f960103
+SPR_NCSBH1L0_T	games/dark-reign/info.h	/^    SPR_NCSBH1L0_T,$/;"	e	enum:__anon66710f960103
 SPR_NCSBV1L0	games/dark-reign/info.h	/^    SPR_NCSBV1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCSBV1L0_IMP	games/dark-reign/info.h	/^    SPR_NCSBV1L0_IMP,$/;"	e	enum:__anon66710f960103
+SPR_NCSBV1L0_T	games/dark-reign/info.h	/^    SPR_NCSBV1L0_T,$/;"	e	enum:__anon66710f960103
+SPR_NCSWL1L0	games/dark-reign/info.h	/^    SPR_NCSWL1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCSWM1L0	games/dark-reign/info.h	/^    SPR_NCSWM1L0,$/;"	e	enum:__anon66710f960103
+SPR_NCWEL1L0	games/dark-reign/info.h	/^    SPR_NCWEL1L0,$/;"	e	enum:__anon66710f960103
 SPR_NFAAR1L0	games/dark-reign/info.h	/^    SPR_NFAAR1L0,$/;"	e	enum:__anon66710f960103
 SPR_NFAGT1L0	games/dark-reign/info.h	/^    SPR_NFAGT1L0,$/;"	e	enum:__anon66710f960103
 SPR_NFGDT1L0	games/dark-reign/info.h	/^    SPR_NFGDT1L0,$/;"	e	enum:__anon66710f960103
 SPR_NFHQT1L0	games/dark-reign/info.h	/^    SPR_NFHQT1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFHQT1L0_D	games/dark-reign/info.h	/^    SPR_NFHQT1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFHQT2L0	games/dark-reign/info.h	/^    SPR_NFHQT2L0,$/;"	e	enum:__anon66710f960103
+SPR_NFHQT2L0_D	games/dark-reign/info.h	/^    SPR_NFHQT2L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFHQT3L0	games/dark-reign/info.h	/^    SPR_NFHQT3L0,$/;"	e	enum:__anon66710f960103
+SPR_NFHQT3L0_D	games/dark-reign/info.h	/^    SPR_NFHQT3L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFHSP1L0	games/dark-reign/info.h	/^    SPR_NFHSP1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFHSP1L0_D	games/dark-reign/info.h	/^    SPR_NFHSP1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFPHF1L0	games/dark-reign/info.h	/^    SPR_NFPHF1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFPHF1L0_D	games/dark-reign/info.h	/^    SPR_NFPHF1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFPHF2L0	games/dark-reign/info.h	/^    SPR_NFPHF2L0,$/;"	e	enum:__anon66710f960103
+SPR_NFPHF2L0_D	games/dark-reign/info.h	/^    SPR_NFPHF2L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFREP1L0	games/dark-reign/info.h	/^    SPR_NFREP1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFREP1L0_D	games/dark-reign/info.h	/^    SPR_NFREP1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFRRM1L0	games/dark-reign/info.h	/^    SPR_NFRRM1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFRRM1L0_D	games/dark-reign/info.h	/^    SPR_NFRRM1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFUTF1L0	games/dark-reign/info.h	/^    SPR_NFUTF1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFUTF1L0_D	games/dark-reign/info.h	/^    SPR_NFUTF1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFUTF2L0	games/dark-reign/info.h	/^    SPR_NFUTF2L0,$/;"	e	enum:__anon66710f960103
+SPR_NFUTF2L0_D	games/dark-reign/info.h	/^    SPR_NFUTF2L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFVCY1L0	games/dark-reign/info.h	/^    SPR_NFVCY1L0,$/;"	e	enum:__anon66710f960103
+SPR_NFVCY1L0_D	games/dark-reign/info.h	/^    SPR_NFVCY1L0_D,$/;"	e	enum:__anon66710f960103
 SPR_NFVCY2L0	games/dark-reign/info.h	/^    SPR_NFVCY2L0,$/;"	e	enum:__anon66710f960103
+SPR_NFVCY2L0_D	games/dark-reign/info.h	/^    SPR_NFVCY2L0_D,$/;"	e	enum:__anon66710f960103
+SPR_NIAAR1L0	games/dark-reign/info.h	/^    SPR_NIAAR1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIAGT1L0	games/dark-reign/info.h	/^    SPR_NIAGT1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIGDT1L0	games/dark-reign/info.h	/^    SPR_NIGDT1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIHQT1L0	games/dark-reign/info.h	/^    SPR_NIHQT1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIHQT2L0	games/dark-reign/info.h	/^    SPR_NIHQT2L0,$/;"	e	enum:__anon66710f960103
+SPR_NIHQT3L0	games/dark-reign/info.h	/^    SPR_NIHQT3L0,$/;"	e	enum:__anon66710f960103
+SPR_NIHSP1L0	games/dark-reign/info.h	/^    SPR_NIHSP1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIREP1L0	games/dark-reign/info.h	/^    SPR_NIREP1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIRRM1L0	games/dark-reign/info.h	/^    SPR_NIRRM1L0,$/;"	e	enum:__anon66710f960103
+SPR_NITGT1L0	games/dark-reign/info.h	/^    SPR_NITGT1L0,$/;"	e	enum:__anon66710f960103
+SPR_NITRC1L0	games/dark-reign/info.h	/^    SPR_NITRC1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIUTF1L0	games/dark-reign/info.h	/^    SPR_NIUTF1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIUTF2L0	games/dark-reign/info.h	/^    SPR_NIUTF2L0,$/;"	e	enum:__anon66710f960103
+SPR_NIVCY1L0	games/dark-reign/info.h	/^    SPR_NIVCY1L0,$/;"	e	enum:__anon66710f960103
+SPR_NIVCY2L0	games/dark-reign/info.h	/^    SPR_NIVCY2L0,$/;"	e	enum:__anon66710f960103
+SPR_NOBRD1L0	games/dark-reign/info.h	/^    SPR_NOBRD1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOBRD1L1	games/dark-reign/info.h	/^    SPR_NOBRD1L1,$/;"	e	enum:__anon66710f960103
+SPR_NOCBS1L0	games/dark-reign/info.h	/^    SPR_NOCBS1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOCEN1L0	games/dark-reign/info.h	/^    SPR_NOCEN1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOCHM4L0	games/dark-reign/info.h	/^    SPR_NOCHM4L0,$/;"	e	enum:__anon66710f960103
+SPR_NODES1L0	games/dark-reign/info.h	/^    SPR_NODES1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOFRM1L0	games/dark-reign/info.h	/^    SPR_NOFRM1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOFRM1L1	games/dark-reign/info.h	/^    SPR_NOFRM1L1,$/;"	e	enum:__anon66710f960103
+SPR_NOFRM1L2	games/dark-reign/info.h	/^    SPR_NOFRM1L2,$/;"	e	enum:__anon66710f960103
+SPR_NOHOV1L0	games/dark-reign/info.h	/^    SPR_NOHOV1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOMDR1L0	games/dark-reign/info.h	/^    SPR_NOMDR1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOMLT1L0	games/dark-reign/info.h	/^    SPR_NOMLT1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOPLD1L0	games/dark-reign/info.h	/^    SPR_NOPLD1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOPRI1L0	games/dark-reign/info.h	/^    SPR_NOPRI1L0,$/;"	e	enum:__anon66710f960103
+SPR_NORVP1L0	games/dark-reign/info.h	/^    SPR_NORVP1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOSHL1L0	games/dark-reign/info.h	/^    SPR_NOSHL1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOSUB1L0	games/dark-reign/info.h	/^    SPR_NOSUB1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOTCN1L0	games/dark-reign/info.h	/^    SPR_NOTCN1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOTDR1L0	games/dark-reign/info.h	/^    SPR_NOTDR1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOTHQ1L0	games/dark-reign/info.h	/^    SPR_NOTHQ1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOTYH1L0	games/dark-reign/info.h	/^    SPR_NOTYH1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOWAR1L0	games/dark-reign/info.h	/^    SPR_NOWAR1L0,$/;"	e	enum:__anon66710f960103
+SPR_NOWAT1L0	games/dark-reign/info.h	/^    SPR_NOWAT1L0,$/;"	e	enum:__anon66710f960103
 SPR_UCFCNST0	games/dark-reign/info.h	/^    SPR_UCFCNST0,$/;"	e	enum:__anon66710f960103
+SPR_UCFNST0_IMP	games/dark-reign/info.h	/^    SPR_UCFNST0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_UCFRGST0	games/dark-reign/info.h	/^    SPR_UCFRGST0,$/;"	e	enum:__anon66710f960103
+SPR_UCFRGST0_IMP	games/dark-reign/info.h	/^    SPR_UCFRGST0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_UCHFRST0	games/dark-reign/info.h	/^    SPR_UCHFRST0,$/;"	e	enum:__anon66710f960103
+SPR_UCHFRST0_IMP	games/dark-reign/info.h	/^    SPR_UCHFRST0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_UCINFST0	games/dark-reign/info.h	/^    SPR_UCINFST0,$/;"	e	enum:__anon66710f960103
+SPR_UCINFST0_IMP	games/dark-reign/info.h	/^    SPR_UCINFST0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_UCWCOST0	games/dark-reign/info.h	/^    SPR_UCWCOST0,$/;"	e	enum:__anon66710f960103
+SPR_UCWCOST0_IMP	games/dark-reign/info.h	/^    SPR_UCWCOST0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_UFBAMST0	games/dark-reign/info.h	/^    SPR_UFBAMST0,$/;"	e	enum:__anon66710f960103
 SPR_UFFARST0	games/dark-reign/info.h	/^    SPR_UFFARST0,$/;"	e	enum:__anon66710f960103
 SPR_UFFLKST0	games/dark-reign/info.h	/^    SPR_UFFLKST0,$/;"	e	enum:__anon66710f960103
@@ -250,6 +531,7 @@ SPR_UFMECST0	games/dark-reign/info.h	/^    SPR_UFMECST0,$/;"	e	enum:__anon66710f
 SPR_UFMEDST0	games/dark-reign/info.h	/^    SPR_UFMEDST0,$/;"	e	enum:__anon66710f960103
 SPR_UFMRCST0	games/dark-reign/info.h	/^    SPR_UFMRCST0,$/;"	e	enum:__anon66710f960103
 SPR_UFMTRST0	games/dark-reign/info.h	/^    SPR_UFMTRST0,$/;"	e	enum:__anon66710f960103
+SPR_UFMTRST0_IMP	games/dark-reign/info.h	/^    SPR_UFMTRST0_IMP,$/;"	e	enum:__anon66710f960103
 SPR_UFOUTST0	games/dark-reign/info.h	/^    SPR_UFOUTST0,$/;"	e	enum:__anon66710f960103
 SPR_UFPHRST0	games/dark-reign/info.h	/^    SPR_UFPHRST0,$/;"	e	enum:__anon66710f960103
 SPR_UFPHTST0	games/dark-reign/info.h	/^    SPR_UFPHTST0,$/;"	e	enum:__anon66710f960103
@@ -264,30 +546,129 @@ SPR_UFSPBST0	games/dark-reign/info.h	/^    SPR_UFSPBST0,$/;"	e	enum:__anon66710f
 SPR_UFSWVST0	games/dark-reign/info.h	/^    SPR_UFSWVST0,$/;"	e	enum:__anon66710f960103
 SPR_UFTHNST0	games/dark-reign/info.h	/^    SPR_UFTHNST0,$/;"	e	enum:__anon66710f960103
 SPR_UFTRTST0	games/dark-reign/info.h	/^    SPR_UFTRTST0,$/;"	e	enum:__anon66710f960103
+SPR_UIAMPST0	games/dark-reign/info.h	/^    SPR_UIAMPST0,$/;"	e	enum:__anon66710f960103
+SPR_UIBONST0	games/dark-reign/info.h	/^    SPR_UIBONST0,$/;"	e	enum:__anon66710f960103
+SPR_UICYCST0	games/dark-reign/info.h	/^    SPR_UICYCST0,$/;"	e	enum:__anon66710f960103
+SPR_UIEXTST0	games/dark-reign/info.h	/^    SPR_UIEXTST0,$/;"	e	enum:__anon66710f960103
+SPR_UIGRDST0	games/dark-reign/info.h	/^    SPR_UIGRDST0,$/;"	e	enum:__anon66710f960103
+SPR_UIHOSST0	games/dark-reign/info.h	/^    SPR_UIHOSST0,$/;"	e	enum:__anon66710f960103
+SPR_UIIARST0	games/dark-reign/info.h	/^    SPR_UIIARST0,$/;"	e	enum:__anon66710f960103
+SPR_UIIARST0_D	games/dark-reign/info.h	/^    SPR_UIIARST0_D,$/;"	e	enum:__anon66710f960103
+SPR_UIITTST0	games/dark-reign/info.h	/^    SPR_UIITTST0,$/;"	e	enum:__anon66710f960103
+SPR_UIITTST0_D	games/dark-reign/info.h	/^    SPR_UIITTST0_D,$/;"	e	enum:__anon66710f960103
+SPR_UIMADST0	games/dark-reign/info.h	/^    SPR_UIMADST0,$/;"	e	enum:__anon66710f960103
+SPR_UIMADST0_D	games/dark-reign/info.h	/^    SPR_UIMADST0_D,$/;"	e	enum:__anon66710f960103
+SPR_UIPLTST0	games/dark-reign/info.h	/^    SPR_UIPLTST0,$/;"	e	enum:__anon66710f960103
+SPR_UIPLTST0_D	games/dark-reign/info.h	/^    SPR_UIPLTST0_D,$/;"	e	enum:__anon66710f960103
+SPR_UIRDRST0	games/dark-reign/info.h	/^    SPR_UIRDRST0,$/;"	e	enum:__anon66710f960103
+SPR_UISHRST0	games/dark-reign/info.h	/^    SPR_UISHRST0,$/;"	e	enum:__anon66710f960103
+SPR_UISHRST0_D	games/dark-reign/info.h	/^    SPR_UISHRST0_D,$/;"	e	enum:__anon66710f960103
+SPR_UISKYST0	games/dark-reign/info.h	/^    SPR_UISKYST0,$/;"	e	enum:__anon66710f960103
+SPR_UISTTST0	games/dark-reign/info.h	/^    SPR_UISTTST0,$/;"	e	enum:__anon66710f960103
+SPR_UITCTST0	games/dark-reign/info.h	/^    SPR_UITCTST0,$/;"	e	enum:__anon66710f960103
+SPR_UITCTST0_D	games/dark-reign/info.h	/^    SPR_UITCTST0_D,$/;"	e	enum:__anon66710f960103
+SPR_UOCSPST0	games/dark-reign/info.h	/^    SPR_UOCSPST0,$/;"	e	enum:__anon66710f960103
+SPR_UOCSPST0_CK	games/dark-reign/info.h	/^    SPR_UOCSPST0_CK,$/;"	e	enum:__anon66710f960103
+SPR_UOCVMST0	games/dark-reign/info.h	/^    SPR_UOCVMST0,$/;"	e	enum:__anon66710f960103
+SPR_UOCVMST0_CCM	games/dark-reign/info.h	/^    SPR_UOCVMST0_CCM,$/;"	e	enum:__anon66710f960103
+SPR_UOCVMST0_CPR	games/dark-reign/info.h	/^    SPR_UOCVMST0_CPR,$/;"	e	enum:__anon66710f960103
+SPR_UOHTRST0	games/dark-reign/info.h	/^    SPR_UOHTRST0,$/;"	e	enum:__anon66710f960103
+SPR_UORCMST0	games/dark-reign/info.h	/^    SPR_UORCMST0,$/;"	e	enum:__anon66710f960103
+SPR_UORCMST0_CJR	games/dark-reign/info.h	/^    SPR_UORCMST0_CJR,$/;"	e	enum:__anon66710f960103
+SPR_UOWTRST0	games/dark-reign/info.h	/^    SPR_UOWTRST0,$/;"	e	enum:__anon66710f960103
+S_NCBWL1L0_STND	games/dark-reign/info.h	/^    S_NCBWL1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCBWM1L0_STND	games/dark-reign/info.h	/^    S_NCBWM1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCCAM1L0_IMP_STND	games/dark-reign/info.h	/^    S_NCCAM1L0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_NCCAM1L0_STND	games/dark-reign/info.h	/^    S_NCCAM1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCLNC1L0_IMP_STND	games/dark-reign/info.h	/^    S_NCLNC1L0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_NCLNC1L0_STND	games/dark-reign/info.h	/^    S_NCLNC1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCMIN1L0_STND	games/dark-reign/info.h	/^    S_NCMIN1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCPOW1L0_D_STND	games/dark-reign/info.h	/^    S_NCPOW1L0_D_STND,$/;"	e	enum:__anon66710f960203
+S_NCPOW1L0_IMP_STND	games/dark-reign/info.h	/^    S_NCPOW1L0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_NCPOW1L0_STND	games/dark-reign/info.h	/^    S_NCPOW1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCSBC1L0_IMP_STND	games/dark-reign/info.h	/^    S_NCSBC1L0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_NCSBC1L0_STND	games/dark-reign/info.h	/^    S_NCSBC1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCSBC1L0_T_STND	games/dark-reign/info.h	/^    S_NCSBC1L0_T_STND,$/;"	e	enum:__anon66710f960203
+S_NCSBH1L0_IMP_STND	games/dark-reign/info.h	/^    S_NCSBH1L0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_NCSBH1L0_STND	games/dark-reign/info.h	/^    S_NCSBH1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCSBH1L0_T_STND	games/dark-reign/info.h	/^    S_NCSBH1L0_T_STND,$/;"	e	enum:__anon66710f960203
+S_NCSBV1L0_IMP_STND	games/dark-reign/info.h	/^    S_NCSBV1L0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_NCSBV1L0_STND	games/dark-reign/info.h	/^    S_NCSBV1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCSBV1L0_T_STND	games/dark-reign/info.h	/^    S_NCSBV1L0_T_STND,$/;"	e	enum:__anon66710f960203
+S_NCSWL1L0_STND	games/dark-reign/info.h	/^    S_NCSWL1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCSWM1L0_STND	games/dark-reign/info.h	/^    S_NCSWM1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NCWEL1L0_STND	games/dark-reign/info.h	/^    S_NCWEL1L0_STND,$/;"	e	enum:__anon66710f960203
 S_NFAAR1L0_FIRE	games/dark-reign/info.h	/^    S_NFAAR1L0_FIRE,$/;"	e	enum:__anon66710f960203
 S_NFAAR1L0_STND	games/dark-reign/info.h	/^    S_NFAAR1L0_STND,$/;"	e	enum:__anon66710f960203
 S_NFAGT1L0_FIRE	games/dark-reign/info.h	/^    S_NFAGT1L0_FIRE,$/;"	e	enum:__anon66710f960203
 S_NFAGT1L0_STND	games/dark-reign/info.h	/^    S_NFAGT1L0_STND,$/;"	e	enum:__anon66710f960203
 S_NFGDT1L0_FIRE	games/dark-reign/info.h	/^    S_NFGDT1L0_FIRE,$/;"	e	enum:__anon66710f960203
 S_NFGDT1L0_STND	games/dark-reign/info.h	/^    S_NFGDT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFHQT1L0_D_STND	games/dark-reign/info.h	/^    S_NFHQT1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFHQT1L0_STND	games/dark-reign/info.h	/^    S_NFHQT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFHQT2L0_D_STND	games/dark-reign/info.h	/^    S_NFHQT2L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFHQT2L0_STND	games/dark-reign/info.h	/^    S_NFHQT2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFHQT3L0_D_STND	games/dark-reign/info.h	/^    S_NFHQT3L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFHQT3L0_STND	games/dark-reign/info.h	/^    S_NFHQT3L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFHSP1L0_D_STND	games/dark-reign/info.h	/^    S_NFHSP1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFHSP1L0_STND	games/dark-reign/info.h	/^    S_NFHSP1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFPHF1L0_D_STND	games/dark-reign/info.h	/^    S_NFPHF1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFPHF1L0_STND	games/dark-reign/info.h	/^    S_NFPHF1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFPHF2L0_D_STND	games/dark-reign/info.h	/^    S_NFPHF2L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFPHF2L0_STND	games/dark-reign/info.h	/^    S_NFPHF2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFREP1L0_D_STND	games/dark-reign/info.h	/^    S_NFREP1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFREP1L0_STND	games/dark-reign/info.h	/^    S_NFREP1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFRRM1L0_D_STND	games/dark-reign/info.h	/^    S_NFRRM1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFRRM1L0_STND	games/dark-reign/info.h	/^    S_NFRRM1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFUTF1L0_D_STND	games/dark-reign/info.h	/^    S_NFUTF1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFUTF1L0_STND	games/dark-reign/info.h	/^    S_NFUTF1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFUTF2L0_D_STND	games/dark-reign/info.h	/^    S_NFUTF2L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFUTF2L0_STND	games/dark-reign/info.h	/^    S_NFUTF2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFVCY1L0_D_STND	games/dark-reign/info.h	/^    S_NFVCY1L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFVCY1L0_STND	games/dark-reign/info.h	/^    S_NFVCY1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NFVCY2L0_D_STND	games/dark-reign/info.h	/^    S_NFVCY2L0_D_STND,$/;"	e	enum:__anon66710f960203
 S_NFVCY2L0_STND	games/dark-reign/info.h	/^    S_NFVCY2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIAAR1L0_FIRE	games/dark-reign/info.h	/^    S_NIAAR1L0_FIRE,$/;"	e	enum:__anon66710f960203
+S_NIAAR1L0_STND	games/dark-reign/info.h	/^    S_NIAAR1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIAGT1L0_FIRE	games/dark-reign/info.h	/^    S_NIAGT1L0_FIRE,$/;"	e	enum:__anon66710f960203
+S_NIAGT1L0_STND	games/dark-reign/info.h	/^    S_NIAGT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIGDT1L0_FIRE	games/dark-reign/info.h	/^    S_NIGDT1L0_FIRE,$/;"	e	enum:__anon66710f960203
+S_NIGDT1L0_STND	games/dark-reign/info.h	/^    S_NIGDT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIHQT1L0_STND	games/dark-reign/info.h	/^    S_NIHQT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIHQT2L0_STND	games/dark-reign/info.h	/^    S_NIHQT2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIHQT3L0_STND	games/dark-reign/info.h	/^    S_NIHQT3L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIHSP1L0_STND	games/dark-reign/info.h	/^    S_NIHSP1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIREP1L0_STND	games/dark-reign/info.h	/^    S_NIREP1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIRRM1L0_STND	games/dark-reign/info.h	/^    S_NIRRM1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NITGT1L0_STND	games/dark-reign/info.h	/^    S_NITGT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NITRC1L0_STND	games/dark-reign/info.h	/^    S_NITRC1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIUTF1L0_STND	games/dark-reign/info.h	/^    S_NIUTF1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIUTF2L0_STND	games/dark-reign/info.h	/^    S_NIUTF2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIVCY1L0_STND	games/dark-reign/info.h	/^    S_NIVCY1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NIVCY2L0_STND	games/dark-reign/info.h	/^    S_NIVCY2L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOBRD1L0_STND	games/dark-reign/info.h	/^    S_NOBRD1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOBRD1L1_STND	games/dark-reign/info.h	/^    S_NOBRD1L1_STND,$/;"	e	enum:__anon66710f960203
+S_NOCBS1L0_STND	games/dark-reign/info.h	/^    S_NOCBS1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOCEN1L0_STND	games/dark-reign/info.h	/^    S_NOCEN1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOCHM4L0_STND	games/dark-reign/info.h	/^    S_NOCHM4L0_STND,$/;"	e	enum:__anon66710f960203
+S_NODES1L0_STND	games/dark-reign/info.h	/^    S_NODES1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOFRM1L0_STND	games/dark-reign/info.h	/^    S_NOFRM1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOFRM1L1_STND	games/dark-reign/info.h	/^    S_NOFRM1L1_STND,$/;"	e	enum:__anon66710f960203
+S_NOFRM1L2_STND	games/dark-reign/info.h	/^    S_NOFRM1L2_STND,$/;"	e	enum:__anon66710f960203
+S_NOHOV1L0_STND	games/dark-reign/info.h	/^    S_NOHOV1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOMDR1L0_STND	games/dark-reign/info.h	/^    S_NOMDR1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOMLT1L0_STND	games/dark-reign/info.h	/^    S_NOMLT1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOPLD1L0_STND	games/dark-reign/info.h	/^    S_NOPLD1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOPRI1L0_STND	games/dark-reign/info.h	/^    S_NOPRI1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NORVP1L0_STND	games/dark-reign/info.h	/^    S_NORVP1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOSHL1L0_STND	games/dark-reign/info.h	/^    S_NOSHL1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOSUB1L0_STND	games/dark-reign/info.h	/^    S_NOSUB1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOTCN1L0_STND	games/dark-reign/info.h	/^    S_NOTCN1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOTDR1L0_STND	games/dark-reign/info.h	/^    S_NOTDR1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOTHQ1L0_STND	games/dark-reign/info.h	/^    S_NOTHQ1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOTYH1L0_STND	games/dark-reign/info.h	/^    S_NOTYH1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOWAR1L0_STND	games/dark-reign/info.h	/^    S_NOWAR1L0_STND,$/;"	e	enum:__anon66710f960203
+S_NOWAT1L0_STND	games/dark-reign/info.h	/^    S_NOWAT1L0_STND,$/;"	e	enum:__anon66710f960203
 S_NULL	games/dark-reign/info.h	/^    S_NULL = 0,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_FIRE	games/dark-reign/info.h	/^    S_UCFCNST0_FIRE,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN1	games/dark-reign/info.h	/^    S_UCFCNST0_RUN1,$/;"	e	enum:__anon66710f960203
@@ -297,6 +678,14 @@ S_UCFCNST0_RUN4	games/dark-reign/info.h	/^    S_UCFCNST0_RUN4,$/;"	e	enum:__anon
 S_UCFCNST0_RUN5	games/dark-reign/info.h	/^    S_UCFCNST0_RUN5,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN6	games/dark-reign/info.h	/^    S_UCFCNST0_RUN6,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_STND	games/dark-reign/info.h	/^    S_UCFCNST0_STND,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_FIRE	games/dark-reign/info.h	/^    S_UCFNST0_IMP_FIRE,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_RUN2	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN2,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_RUN3	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN3,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_RUN4	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN4,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_RUN5	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN5,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_RUN6	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN6,$/;"	e	enum:__anon66710f960203
+S_UCFNST0_IMP_STND	games/dark-reign/info.h	/^    S_UCFNST0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_HARVEST1	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST1,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_HARVEST10	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST10,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_HARVEST11	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST11,$/;"	e	enum:__anon66710f960203
@@ -312,6 +701,25 @@ S_UCFRGST0_HARVEST6	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST6,$/;"	e	enu
 S_UCFRGST0_HARVEST7	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST7,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_HARVEST8	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST8,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_HARVEST9	games/dark-reign/info.h	/^    S_UCFRGST0_HARVEST9,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST1	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST1,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST10	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST10,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST11	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST11,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST12	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST12,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST13	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST13,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST14	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST14,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST15	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST15,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST2	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST2,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST3	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST3,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST4	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST4,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST5	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST5,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST6	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST6,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST7	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST7,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST8	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST8,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_HARVEST9	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_HARVEST9,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_RUN2	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_RUN2,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_RUN3	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_RUN3,$/;"	e	enum:__anon66710f960203
+S_UCFRGST0_IMP_STND	games/dark-reign/info.h	/^    S_UCFRGST0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_RUN1	games/dark-reign/info.h	/^    S_UCFRGST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_RUN2	games/dark-reign/info.h	/^    S_UCFRGST0_RUN2,$/;"	e	enum:__anon66710f960203
 S_UCFRGST0_RUN3	games/dark-reign/info.h	/^    S_UCFRGST0_RUN3,$/;"	e	enum:__anon66710f960203
@@ -332,11 +740,41 @@ S_UCHFRST0_HARVEST6	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST6,$/;"	e	enu
 S_UCHFRST0_HARVEST7	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST7,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_HARVEST8	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST8,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_HARVEST9	games/dark-reign/info.h	/^    S_UCHFRST0_HARVEST9,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_FIRE	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_FIRE,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST1	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST1,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST10	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST10,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST11	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST11,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST12	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST12,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST13	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST13,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST14	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST14,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST15	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST15,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST2	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST2,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST3	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST3,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST4	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST4,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST5	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST5,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST6	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST6,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST7	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST7,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST8	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST8,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_HARVEST9	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_HARVEST9,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
+S_UCHFRST0_IMP_STND	games/dark-reign/info.h	/^    S_UCHFRST0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_RUN1	games/dark-reign/info.h	/^    S_UCHFRST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCHFRST0_STND	games/dark-reign/info.h	/^    S_UCHFRST0_STND,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_IDLE1	games/dark-reign/info.h	/^    S_UCINFST0_IDLE1,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_IDLE2	games/dark-reign/info.h	/^    S_UCINFST0_IDLE2,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_IDLE3	games/dark-reign/info.h	/^    S_UCINFST0_IDLE3,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_IDLE1	games/dark-reign/info.h	/^    S_UCINFST0_IMP_IDLE1,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_IDLE2	games/dark-reign/info.h	/^    S_UCINFST0_IMP_IDLE2,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_IDLE3	games/dark-reign/info.h	/^    S_UCINFST0_IMP_IDLE3,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN2	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN2,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN3	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN3,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN4	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN4,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN5	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN5,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN6	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN6,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN7	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN7,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_RUN8	games/dark-reign/info.h	/^    S_UCINFST0_IMP_RUN8,$/;"	e	enum:__anon66710f960203
+S_UCINFST0_IMP_STND	games/dark-reign/info.h	/^    S_UCINFST0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_RUN1	games/dark-reign/info.h	/^    S_UCINFST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_RUN2	games/dark-reign/info.h	/^    S_UCINFST0_RUN2,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_RUN3	games/dark-reign/info.h	/^    S_UCINFST0_RUN3,$/;"	e	enum:__anon66710f960203
@@ -347,6 +785,12 @@ S_UCINFST0_RUN7	games/dark-reign/info.h	/^    S_UCINFST0_RUN7,$/;"	e	enum:__anon
 S_UCINFST0_RUN8	games/dark-reign/info.h	/^    S_UCINFST0_RUN8,$/;"	e	enum:__anon66710f960203
 S_UCINFST0_STND	games/dark-reign/info.h	/^    S_UCINFST0_STND,$/;"	e	enum:__anon66710f960203
 S_UCWCOST0_FIRE	games/dark-reign/info.h	/^    S_UCWCOST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UCWCOST0_IMP_FIRE	games/dark-reign/info.h	/^    S_UCWCOST0_IMP_FIRE,$/;"	e	enum:__anon66710f960203
+S_UCWCOST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UCWCOST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
+S_UCWCOST0_IMP_RUN2	games/dark-reign/info.h	/^    S_UCWCOST0_IMP_RUN2,$/;"	e	enum:__anon66710f960203
+S_UCWCOST0_IMP_RUN3	games/dark-reign/info.h	/^    S_UCWCOST0_IMP_RUN3,$/;"	e	enum:__anon66710f960203
+S_UCWCOST0_IMP_RUN4	games/dark-reign/info.h	/^    S_UCWCOST0_IMP_RUN4,$/;"	e	enum:__anon66710f960203
+S_UCWCOST0_IMP_STND	games/dark-reign/info.h	/^    S_UCWCOST0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_UCWCOST0_RUN1	games/dark-reign/info.h	/^    S_UCWCOST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCWCOST0_RUN2	games/dark-reign/info.h	/^    S_UCWCOST0_RUN2,$/;"	e	enum:__anon66710f960203
 S_UCWCOST0_RUN3	games/dark-reign/info.h	/^    S_UCWCOST0_RUN3,$/;"	e	enum:__anon66710f960203
@@ -430,6 +874,33 @@ S_UFMTRST0_IDLE1	games/dark-reign/info.h	/^    S_UFMTRST0_IDLE1,$/;"	e	enum:__an
 S_UFMTRST0_IDLE2	games/dark-reign/info.h	/^    S_UFMTRST0_IDLE2,$/;"	e	enum:__anon66710f960203
 S_UFMTRST0_IDLE3	games/dark-reign/info.h	/^    S_UFMTRST0_IDLE3,$/;"	e	enum:__anon66710f960203
 S_UFMTRST0_IDLE4	games/dark-reign/info.h	/^    S_UFMTRST0_IDLE4,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_IDLE1	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_IDLE1,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_IDLE2	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_IDLE2,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_IDLE3	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_IDLE3,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_IDLE4	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_IDLE4,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_RUN2	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_RUN2,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_RUN3	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_RUN3,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_RUN4	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_RUN4,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_RUN5	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_RUN5,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_RUN6	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_RUN6,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT1	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT10	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT10,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT11	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT11,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT12	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT12,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT13	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT13,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT14	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT14,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT15	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT15,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT16	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT16,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT2	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT3	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT4	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT4,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT5	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT5,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT6	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT6,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT7	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT7,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT8	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT8,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_SHOOT9	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_SHOOT9,$/;"	e	enum:__anon66710f960203
+S_UFMTRST0_IMP_STND	games/dark-reign/info.h	/^    S_UFMTRST0_IMP_STND,$/;"	e	enum:__anon66710f960203
 S_UFMTRST0_RUN1	games/dark-reign/info.h	/^    S_UFMTRST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UFMTRST0_RUN2	games/dark-reign/info.h	/^    S_UFMTRST0_RUN2,$/;"	e	enum:__anon66710f960203
 S_UFMTRST0_RUN3	games/dark-reign/info.h	/^    S_UFMTRST0_RUN3,$/;"	e	enum:__anon66710f960203
@@ -548,6 +1019,171 @@ S_UFTHNST0_STND	games/dark-reign/info.h	/^    S_UFTHNST0_STND,$/;"	e	enum:__anon
 S_UFTRTST0_FIRE	games/dark-reign/info.h	/^    S_UFTRTST0_FIRE,$/;"	e	enum:__anon66710f960203
 S_UFTRTST0_RUN1	games/dark-reign/info.h	/^    S_UFTRTST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UFTRTST0_STND	games/dark-reign/info.h	/^    S_UFTRTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_IDLE1	games/dark-reign/info.h	/^    S_UIAMPST0_IDLE1,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_IDLE2	games/dark-reign/info.h	/^    S_UIAMPST0_IDLE2,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_IDLE3	games/dark-reign/info.h	/^    S_UIAMPST0_IDLE3,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_RUN1	games/dark-reign/info.h	/^    S_UIAMPST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_RUN2	games/dark-reign/info.h	/^    S_UIAMPST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_RUN3	games/dark-reign/info.h	/^    S_UIAMPST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_RUN4	games/dark-reign/info.h	/^    S_UIAMPST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_RUN5	games/dark-reign/info.h	/^    S_UIAMPST0_RUN5,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_RUN6	games/dark-reign/info.h	/^    S_UIAMPST0_RUN6,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_SHOOT1	games/dark-reign/info.h	/^    S_UIAMPST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_SHOOT2	games/dark-reign/info.h	/^    S_UIAMPST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_SHOOT3	games/dark-reign/info.h	/^    S_UIAMPST0_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UIAMPST0_STND	games/dark-reign/info.h	/^    S_UIAMPST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE1	games/dark-reign/info.h	/^    S_UIBONST0_IDLE1,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE2	games/dark-reign/info.h	/^    S_UIBONST0_IDLE2,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE3	games/dark-reign/info.h	/^    S_UIBONST0_IDLE3,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE4	games/dark-reign/info.h	/^    S_UIBONST0_IDLE4,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE5	games/dark-reign/info.h	/^    S_UIBONST0_IDLE5,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE6	games/dark-reign/info.h	/^    S_UIBONST0_IDLE6,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE7	games/dark-reign/info.h	/^    S_UIBONST0_IDLE7,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_IDLE8	games/dark-reign/info.h	/^    S_UIBONST0_IDLE8,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN1	games/dark-reign/info.h	/^    S_UIBONST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN2	games/dark-reign/info.h	/^    S_UIBONST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN3	games/dark-reign/info.h	/^    S_UIBONST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN4	games/dark-reign/info.h	/^    S_UIBONST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN5	games/dark-reign/info.h	/^    S_UIBONST0_RUN5,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN6	games/dark-reign/info.h	/^    S_UIBONST0_RUN6,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN7	games/dark-reign/info.h	/^    S_UIBONST0_RUN7,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_RUN8	games/dark-reign/info.h	/^    S_UIBONST0_RUN8,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_SHOOT1	games/dark-reign/info.h	/^    S_UIBONST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_SHOOT2	games/dark-reign/info.h	/^    S_UIBONST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_SHOOT3	games/dark-reign/info.h	/^    S_UIBONST0_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UIBONST0_STND	games/dark-reign/info.h	/^    S_UIBONST0_STND,$/;"	e	enum:__anon66710f960203
+S_UICYCST0_RUN1	games/dark-reign/info.h	/^    S_UICYCST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UICYCST0_SHOOT1	games/dark-reign/info.h	/^    S_UICYCST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UICYCST0_STND	games/dark-reign/info.h	/^    S_UICYCST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIEXTST0_IDLE1	games/dark-reign/info.h	/^    S_UIEXTST0_IDLE1,$/;"	e	enum:__anon66710f960203
+S_UIEXTST0_RUN1	games/dark-reign/info.h	/^    S_UIEXTST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIEXTST0_SHOOT1	games/dark-reign/info.h	/^    S_UIEXTST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UIEXTST0_SHOOT2	games/dark-reign/info.h	/^    S_UIEXTST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UIEXTST0_STND	games/dark-reign/info.h	/^    S_UIEXTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_IDLE1	games/dark-reign/info.h	/^    S_UIGRDST0_IDLE1,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_RUN1	games/dark-reign/info.h	/^    S_UIGRDST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_RUN2	games/dark-reign/info.h	/^    S_UIGRDST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_RUN3	games/dark-reign/info.h	/^    S_UIGRDST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_RUN4	games/dark-reign/info.h	/^    S_UIGRDST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_RUN5	games/dark-reign/info.h	/^    S_UIGRDST0_RUN5,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_RUN6	games/dark-reign/info.h	/^    S_UIGRDST0_RUN6,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_SHOOT1	games/dark-reign/info.h	/^    S_UIGRDST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_SHOOT2	games/dark-reign/info.h	/^    S_UIGRDST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UIGRDST0_STND	games/dark-reign/info.h	/^    S_UIGRDST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIHOSST0_RUN1	games/dark-reign/info.h	/^    S_UIHOSST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIHOSST0_RUN2	games/dark-reign/info.h	/^    S_UIHOSST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UIHOSST0_RUN3	games/dark-reign/info.h	/^    S_UIHOSST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UIHOSST0_STND	games/dark-reign/info.h	/^    S_UIHOSST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_D_RUN1	games/dark-reign/info.h	/^    S_UIIARST0_D_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_D_STND	games/dark-reign/info.h	/^    S_UIIARST0_D_STND,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_RUN1	games/dark-reign/info.h	/^    S_UIIARST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_SHOOT1	games/dark-reign/info.h	/^    S_UIIARST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_SHOOT2	games/dark-reign/info.h	/^    S_UIIARST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_SHOOT3	games/dark-reign/info.h	/^    S_UIIARST0_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UIIARST0_STND	games/dark-reign/info.h	/^    S_UIIARST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIITTST0_D_RUN1	games/dark-reign/info.h	/^    S_UIITTST0_D_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIITTST0_D_STND	games/dark-reign/info.h	/^    S_UIITTST0_D_STND,$/;"	e	enum:__anon66710f960203
+S_UIITTST0_FIRE	games/dark-reign/info.h	/^    S_UIITTST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UIITTST0_RUN1	games/dark-reign/info.h	/^    S_UIITTST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIITTST0_STND	games/dark-reign/info.h	/^    S_UIITTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIMADST0_D_RUN1	games/dark-reign/info.h	/^    S_UIMADST0_D_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIMADST0_D_STND	games/dark-reign/info.h	/^    S_UIMADST0_D_STND,$/;"	e	enum:__anon66710f960203
+S_UIMADST0_FIRE	games/dark-reign/info.h	/^    S_UIMADST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UIMADST0_RUN1	games/dark-reign/info.h	/^    S_UIMADST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIMADST0_STND	games/dark-reign/info.h	/^    S_UIMADST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIPLTST0_D_RUN1	games/dark-reign/info.h	/^    S_UIPLTST0_D_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIPLTST0_D_STND	games/dark-reign/info.h	/^    S_UIPLTST0_D_STND,$/;"	e	enum:__anon66710f960203
+S_UIPLTST0_FIRE	games/dark-reign/info.h	/^    S_UIPLTST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UIPLTST0_RUN1	games/dark-reign/info.h	/^    S_UIPLTST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIPLTST0_STND	games/dark-reign/info.h	/^    S_UIPLTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UIRDRST0_RUN1	games/dark-reign/info.h	/^    S_UIRDRST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UIRDRST0_STND	games/dark-reign/info.h	/^    S_UIRDRST0_STND,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_D_FIRE	games/dark-reign/info.h	/^    S_UISHRST0_D_FIRE,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_D_RUN1	games/dark-reign/info.h	/^    S_UISHRST0_D_RUN1,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_D_RUN2	games/dark-reign/info.h	/^    S_UISHRST0_D_RUN2,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_D_RUN3	games/dark-reign/info.h	/^    S_UISHRST0_D_RUN3,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_D_RUN4	games/dark-reign/info.h	/^    S_UISHRST0_D_RUN4,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_D_STND	games/dark-reign/info.h	/^    S_UISHRST0_D_STND,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_FIRE	games/dark-reign/info.h	/^    S_UISHRST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_RUN1	games/dark-reign/info.h	/^    S_UISHRST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_RUN2	games/dark-reign/info.h	/^    S_UISHRST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_RUN3	games/dark-reign/info.h	/^    S_UISHRST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_RUN4	games/dark-reign/info.h	/^    S_UISHRST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UISHRST0_STND	games/dark-reign/info.h	/^    S_UISHRST0_STND,$/;"	e	enum:__anon66710f960203
+S_UISKYST0_RUN1	games/dark-reign/info.h	/^    S_UISKYST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UISKYST0_SHOOT1	games/dark-reign/info.h	/^    S_UISKYST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UISKYST0_SHOOT2	games/dark-reign/info.h	/^    S_UISKYST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UISKYST0_SHOOT3	games/dark-reign/info.h	/^    S_UISKYST0_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UISKYST0_STND	games/dark-reign/info.h	/^    S_UISKYST0_STND,$/;"	e	enum:__anon66710f960203
+S_UISTTST0_FIRE	games/dark-reign/info.h	/^    S_UISTTST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UISTTST0_RUN1	games/dark-reign/info.h	/^    S_UISTTST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UISTTST0_STND	games/dark-reign/info.h	/^    S_UISTTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UITCTST0_D_RUN1	games/dark-reign/info.h	/^    S_UITCTST0_D_RUN1,$/;"	e	enum:__anon66710f960203
+S_UITCTST0_D_STND	games/dark-reign/info.h	/^    S_UITCTST0_D_STND,$/;"	e	enum:__anon66710f960203
+S_UITCTST0_FIRE	games/dark-reign/info.h	/^    S_UITCTST0_FIRE,$/;"	e	enum:__anon66710f960203
+S_UITCTST0_RUN1	games/dark-reign/info.h	/^    S_UITCTST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UITCTST0_STND	games/dark-reign/info.h	/^    S_UITCTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_CK_RUN1	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_CK_RUN2	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN2,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_CK_RUN3	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN3,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_CK_RUN4	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN4,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_CK_STND	games/dark-reign/info.h	/^    S_UOCSPST0_CK_STND,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_RUN1	games/dark-reign/info.h	/^    S_UOCSPST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_RUN2	games/dark-reign/info.h	/^    S_UOCSPST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_RUN3	games/dark-reign/info.h	/^    S_UOCSPST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_RUN4	games/dark-reign/info.h	/^    S_UOCSPST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_STND	games/dark-reign/info.h	/^    S_UOCSPST0_STND,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_RUN1	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_RUN2	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_RUN2,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_RUN3	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_RUN3,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_RUN4	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_RUN4,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_RUN5	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_RUN5,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_RUN6	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_RUN6,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CCM_STND	games/dark-reign/info.h	/^    S_UOCVMST0_CCM_STND,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_RUN1	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_RUN2	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_RUN2,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_RUN3	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_RUN3,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_RUN4	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_RUN4,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_RUN5	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_RUN5,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_RUN6	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_RUN6,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_CPR_STND	games/dark-reign/info.h	/^    S_UOCVMST0_CPR_STND,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_RUN1	games/dark-reign/info.h	/^    S_UOCVMST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_RUN2	games/dark-reign/info.h	/^    S_UOCVMST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_RUN3	games/dark-reign/info.h	/^    S_UOCVMST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_RUN4	games/dark-reign/info.h	/^    S_UOCVMST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_RUN5	games/dark-reign/info.h	/^    S_UOCVMST0_RUN5,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_RUN6	games/dark-reign/info.h	/^    S_UOCVMST0_RUN6,$/;"	e	enum:__anon66710f960203
+S_UOCVMST0_STND	games/dark-reign/info.h	/^    S_UOCVMST0_STND,$/;"	e	enum:__anon66710f960203
+S_UOHTRST0_RUN1	games/dark-reign/info.h	/^    S_UOHTRST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOHTRST0_STND	games/dark-reign/info.h	/^    S_UOHTRST0_STND,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN1	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN1,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN2	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN2,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN3	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN3,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN4	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN4,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN5	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN5,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN6	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN6,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN7	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN7,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_RUN8	games/dark-reign/info.h	/^    S_UORCMST0_CJR_RUN8,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_SHOOT1	games/dark-reign/info.h	/^    S_UORCMST0_CJR_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_SHOOT2	games/dark-reign/info.h	/^    S_UORCMST0_CJR_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_SHOOT3	games/dark-reign/info.h	/^    S_UORCMST0_CJR_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_CJR_STND	games/dark-reign/info.h	/^    S_UORCMST0_CJR_STND,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN1	games/dark-reign/info.h	/^    S_UORCMST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN2	games/dark-reign/info.h	/^    S_UORCMST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN3	games/dark-reign/info.h	/^    S_UORCMST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN4	games/dark-reign/info.h	/^    S_UORCMST0_RUN4,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN5	games/dark-reign/info.h	/^    S_UORCMST0_RUN5,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN6	games/dark-reign/info.h	/^    S_UORCMST0_RUN6,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN7	games/dark-reign/info.h	/^    S_UORCMST0_RUN7,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_RUN8	games/dark-reign/info.h	/^    S_UORCMST0_RUN8,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_SHOOT1	games/dark-reign/info.h	/^    S_UORCMST0_SHOOT1,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_SHOOT2	games/dark-reign/info.h	/^    S_UORCMST0_SHOOT2,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_SHOOT3	games/dark-reign/info.h	/^    S_UORCMST0_SHOOT3,$/;"	e	enum:__anon66710f960203
+S_UORCMST0_STND	games/dark-reign/info.h	/^    S_UORCMST0_STND,$/;"	e	enum:__anon66710f960203
+S_UOWTRST0_RUN1	games/dark-reign/info.h	/^    S_UOWTRST0_RUN1,$/;"	e	enum:__anon66710f960203
+S_UOWTRST0_RUN2	games/dark-reign/info.h	/^    S_UOWTRST0_RUN2,$/;"	e	enum:__anon66710f960203
+S_UOWTRST0_RUN3	games/dark-reign/info.h	/^    S_UOWTRST0_RUN3,$/;"	e	enum:__anon66710f960203
+S_UOWTRST0_STND	games/dark-reign/info.h	/^    S_UOWTRST0_STND,$/;"	e	enum:__anon66710f960203
 TAELON_MINE_AMOUNT	games/dark-reign/w_map.c	/^#define TAELON_MINE_AMOUNT /;"	d	file:
 TAELON_MINE_RATE	games/dark-reign/w_map.c	/^#define TAELON_MINE_RATE /;"	d	file:
 UNIT	games/dark-reign/p_prod.c	/^#define UNIT(/;"	d	file:	signature:(ui_,label_,cost_,type_,p0_,p1_,m0_,m1_)

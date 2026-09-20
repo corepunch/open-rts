@@ -89,6 +89,7 @@ AnimString	tools/anim_extract.c	/^} AnimString;$/;"	t	typeref:struct:__anon0c7be
 BACKUPTICS	driver/d_net.h	/^#define BACKUPTICS /;"	d
 BLDANIM	tools/dr_info_gen.c	/^#define BLDANIM /;"	d	file:
 BUILDING	tools/dr_info_gen.c	/^#define BUILDING(/;"	d	file:	signature:(type,sprite,actor,hp,damage,extra)
+BUILDING_ASSET	tools/dr_info_gen.c	/^#define BUILDING_ASSET(/;"	d	file:	signature:(type,sprite,asset,actor,hp,damage,extra)
 BoomStat	tools/dc_gamestat_gen.c	/^} BoomStat;$/;"	t	typeref:struct:__anon006eef8b0608	file:
 CELL_H	driver/engine_config.h	/^#define CELL_H /;"	d
 CELL_W	driver/engine_config.h	/^#define CELL_W /;"	d
@@ -141,6 +142,8 @@ D_QuitNetGame	driver/d_net.c	/^void D_QuitNetGame(void) {$/;"	f	typeref:typename
 D_QuitNetGame	driver/d_net.h	/^void D_QuitNetGame(void);$/;"	p	typeref:typename:void	signature:(void)
 D_RunTiccmds	driver/d_net.c	/^bool D_RunTiccmds(void) {$/;"	f	typeref:typename:bool	signature:(void)
 D_RunTiccmds	driver/d_net.h	/^bool D_RunTiccmds(void);$/;"	p	typeref:typename:bool	signature:(void)
+D_SetGameSpeed	driver/d_net.c	/^void D_SetGameSpeed(int speed) {$/;"	f	typeref:typename:void	signature:(int speed)
+D_SetGameSpeed	driver/d_net.h	/^void D_SetGameSpeed(int speed);$/;"	p	typeref:typename:void	signature:(int speed)
 DependStat	tools/dc_gamestat_gen.c	/^} DependStat;$/;"	t	typeref:struct:__anon006eef8b0208	file:
 DrawCommandKind	render/render_plan.h	/^} DrawCommandKind;$/;"	t	typeref:enum:__anonba488bd40203
 E	tools/kknd_rules_import/main.c	/^#define E(id,cat,type,maker,path) {id,1,cat,"MT_MUTE_" type,"MT_MUTE_/;"	d	file:	signature:(id,cat,type,maker,path)
@@ -359,6 +362,7 @@ MOBD_TABLE	tools/kknd_info_gen.c	/^static const mobd_entry_t MOBD_TABLE[] = {$/;
 MOBILE	tools/7legion_expanded_units.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,asset,id,hp,speed,damage,extra)
 MOBILE	tools/7legion_info_gen.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,asset,id,hp,speed,damage,extra)
 MOBILE	tools/dr_info_gen.c	/^#define MOBILE(/;"	d	file:	signature:(type,sprite,actor,hp,speed,damage,extra,anim_data)
+MOBILE_ASSET	tools/dr_info_gen.c	/^#define MOBILE_ASSET(/;"	d	file:	signature:(type,sprite,asset,actor,hp,speed,damage,extra,anim_data)
 MODEL	tests/network/test_network.c	/^typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,$/;"	e	enum:__anon3666449a0303	file:
 M_Drawer	driver/m_menu.h	/^void M_Drawer(const app_t *app);$/;"	p	typeref:typename:void	signature:(const app_t * app)
 M_FileName	driver/engine.h	/^const char *M_FileName(const char *path);$/;"	p	typeref:typename:const char *	signature:(const char * path)
@@ -1804,12 +1808,14 @@ emit_bytes	tools/anim_extract.c	/^static void emit_bytes(FILE *out, const unsign
 emit_c_string	tools/anim_extract.c	/^static void emit_c_string(FILE *out, const unsigned char *data, size_t len) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const unsigned char * data,size_t len)
 emit_c_string	tools/dc_gamestat_gen.c	/^static void emit_c_string(FILE *out, const char *s) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * s)
 emit_depends	tools/dc_gamestat_gen.c	/^static void emit_depends(FILE *out, const GameStatData *data) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const GameStatData * data)
+emit_fire_statenum	tools/dr_info_gen.c	/^static void emit_fire_statenum(FILE *f, const dr_entry_t *e) {$/;"	f	typeref:typename:void	file:	signature:(FILE * f,const dr_entry_t * e)
 emit_header	tools/dc_gamestat_gen.c	/^static void emit_header(const char *path, const GameStatData *data) {$/;"	f	typeref:typename:void	file:	signature:(const char * path,const GameStatData * data)
 emit_header_prelude	tools/dc_gamestat_gen.c	/^static void emit_header_prelude(FILE *out, const GameStatData *data) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const GameStatData * data)
 emit_int_array	tools/dc_gamestat_gen.c	/^static void emit_int_array(FILE *out, const int *values, int count) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const int * values,int count)
 emit_mbullet	tools/dc_gamestat_gen.c	/^static void emit_mbullet(FILE *out, const GameStatData *data) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const GameStatData * data)
 emit_scene_mission	tools/dc_gamestat_gen.c	/^static void emit_scene_mission(FILE *out, const SceneMission *mission) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const SceneMission * mission)
 emit_scene_table	tools/dc_gamestat_gen.c	/^static void emit_scene_table(FILE *out, const char *symbol, const SceneTable *table) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const char * symbol,const SceneTable * table)
+emit_statenum	tools/dr_info_gen.c	/^static void emit_statenum(FILE *f, const dr_entry_t *e) {$/;"	f	typeref:typename:void	file:	signature:(FILE * f,const dr_entry_t * e)
 emit_strings	tools/anim_extract.c	/^static void emit_strings(FILE *out, const AnimString *items, size_t count, const char *symbol) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const AnimString * items,size_t count,const char * symbol)
 emit_unit_ids	tools/dc_gamestat_gen.c	/^static void emit_unit_ids(FILE *out, const GameStatData *data) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const GameStatData * data)
 emit_units	tools/dc_gamestat_gen.c	/^static void emit_units(FILE *out, const GameStatData *data) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const GameStatData * data)
@@ -2006,6 +2012,7 @@ g_unit_count	tools/kknd_info_gen.c	/^static int    g_unit_count = 0;$/;"	v	typer
 g_units	tools/kknd_info_gen.c	/^static unit_t g_units[MAX_UNITS];$/;"	v	typeref:typename:unit_t[]	file:
 game	tools/test_loaders/main.c	/^static const struct { const char *game,*root,*extension; } games[] = {$/;"	m	struct:__anon81eaeff30108	typeref:typename:const char *	file:
 game_info	play/actor.h	/^    const gameinfo_t *game_info;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const gameinfo_t *
+game_speed	driver/d_net.c	/^int game_speed = 1;$/;"	v	typeref:typename:int
 gameinfo_s	play/actor.h	/^struct gameinfo_s {$/;"	s
 gameinfo_s::draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays; \/* Replaces the engine selection and health overlay. *\/$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
 gameinfo_s::mobj_type_count	play/actor.h	/^    int mobj_type_count;$/;"	m	struct:gameinfo_s	typeref:typename:int
@@ -2140,6 +2147,7 @@ indices	render/sprites.h	/^    uint8_t indices[256];$/;"	m	struct:__anon76176154
 indices	render/sprites.h	/^    uint8_t indices[256];$/;"	m	struct:tilepalettecycle_s	typeref:typename:uint8_t[256]
 info	play/actor.h	/^    const mobjtype_t *info;$/;"	m	struct:mobj_s	typeref:typename:const mobjtype_t *
 info_entry_t	tools/info_gen.h	/^} info_entry_t;$/;"	t	typeref:struct:__anond5c6e2e00108
+info_mkdir	tools/info_gen.h	/^static bool info_mkdir(const char *path) {$/;"	f	typeref:typename:bool	signature:(const char * path)
 init_world	tests/network/test_network.c	/^static void init_world(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 initialized	play/p_ai.h	/^    bool initialized;$/;"	m	struct:__anonf4d3b9790308	typeref:typename:bool
 insocket	driver/i_net.c	/^static int insocket = -1;$/;"	v	typeref:typename:int	file:
@@ -2155,6 +2163,7 @@ irect_t	driver/m_vec.h	/^typedef SDL_Rect  irect_t;$/;"	t	typeref:typename:SDL_R
 is_autogen_label	tools/dc_info_gen.c	/^static int is_autogen_label(const char *name) {$/;"	f	typeref:typename:int	file:	signature:(const char * name)
 is_building	tools/kknd_info_gen.c	/^    int  is_building;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
 is_combat	tools/kknd_info_gen.c	/^    int  is_combat;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
+is_first_sprite	tools/dr_info_gen.c	/^static bool is_first_sprite(const dr_entry_t *entries, int index) {$/;"	f	typeref:typename:bool	file:	signature:(const dr_entry_t * entries,int index)
 is_flyer	tools/kknd_info_gen.c	/^    int  is_flyer;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
 is_harvester	tools/kknd_info_gen.c	/^    int  is_harvester;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
 is_idle_slug	play/p_ai.c	/^static bool is_idle_slug(const mobj_t *u, int owner) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * u,int owner)
@@ -2420,6 +2429,8 @@ mission_count	tools/dc_gamestat_gen.c	/^    int mission_count;$/;"	m	struct:__an
 missions	tools/dc_gamestat_gen.c	/^    SceneMission missions[MAX_SCENE_MISSIONS];$/;"	m	struct:__anon006eef8b0808	typeref:typename:SceneMission[]	file:
 mkdir_p	tools/dc_info_gen.c	/^static int mkdir_p(const char *path) {$/;"	f	typeref:typename:int	file:	signature:(const char * path)
 mkdir_p	tools/dc_spr_extract.c	/^static void mkdir_p(const char *path) {$/;"	f	typeref:typename:void	file:	signature:(const char * path)
+mkdir_p	tools/dr_info_gen.c	/^static int mkdir_p(const char *path) {$/;"	f	typeref:typename:int	file:	signature:(const char * path)
+mkdir_p	tools/kknd_info_gen.c	/^static bool mkdir_p(const char *path) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path)
 mlen	tools/kknd_info_gen.c	/^    int idle, shoot, slen, move, mlen;$/;"	m	struct:__anoncbabb2620208	typeref:typename:int	file:
 mobd	tools/kknd_info_gen.c	/^    int  mobd;$/;"	m	struct:__anoncbabb2620408	typeref:typename:int	file:
 mobd	tools/kknd_info_gen.c	/^    int mobd;$/;"	m	struct:__anoncbabb2620108	typeref:typename:int	file:
@@ -3440,17 +3451,22 @@ word	tools/dc_info_conv/states.c	/^static unsigned word(const unsigned char *p) 
 word	tools/dc_sight_gen/main.c	/^static int32_t word(uint32_t address) {$/;"	f	typeref:typename:int32_t	file:	signature:(uint32_t address)
 world_viewport	hud/ui_definition.h	/^    irect_t world_viewport;$/;"	m	struct:uidefinition_s	typeref:typename:irect_t
 write_bmp	tools/dc_spr_extract.c	/^static bool write_bmp(const char *path, const uint32_t *argb, int w, int h) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,const uint32_t * argb,int w,int h)
-write_dr_info_c	tools/dr_info_gen.c	/^static bool write_dr_info_c(const char *path, const dr_entry_t *entries, int count) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,const dr_entry_t * entries,int count)
-write_dr_info_h	tools/dr_info_gen.c	/^static bool write_dr_info_h(const char *path, const dr_entry_t *entries, int count) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,const dr_entry_t * entries,int count)
 write_draw_part	tools/dc_fin_extract.c	/^static void write_draw_part(FILE *out, const unsigned char *data, int part_index,$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const unsigned char * data,int part_index,int depth,bool has_flags)
+write_extra_inc	tools/kknd_info_gen.c	/^static bool write_extra_inc(const char *directory) {$/;"	f	typeref:typename:bool	file:	signature:(const char * directory)
 write_fixture	tests/loader_fixtures.h	/^static void write_fixture(char path[64], const uint8_t *data, size_t size) {$/;"	f	typeref:typename:void	signature:(char path[64],const uint8_t * data,size_t size)
 write_inc	tools/dc_info_gen.c	/^static void write_inc(const char *animate_dir, const char *sprite) {$/;"	f	typeref:typename:void	file:	signature:(const char * animate_dir,const char * sprite)
+write_inc	tools/dr_info_gen.c	/^static bool write_inc(const char *animate_dir, const char *sprite,$/;"	f	typeref:typename:bool	file:	signature:(const char * animate_dir,const char * sprite,const dr_entry_t * e)
+write_info_c	tools/dr_info_gen.c	/^static bool write_info_c(const char *path, const dr_entry_t *entries, int count) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,const dr_entry_t * entries,int count)
 write_info_c	tools/info_gen.h	/^static bool write_info_c(const char *path, const char *source, const char *extra_include,$/;"	f	typeref:typename:bool	signature:(const char * path,const char * source,const char * extra_include,const char * selection_style,bool lowercase_assets,const info_entry_t * entries,int count)
 write_info_c	tools/kknd_info_gen.c	/^static void write_info_c(const char *path) {$/;"	f	typeref:typename:void	file:	signature:(const char * path)
 write_info_h	tools/info_gen.h	/^static bool write_info_h(const char *path, const char *source,$/;"	f	typeref:typename:bool	signature:(const char * path,const char * source,const info_entry_t * entries,int count)
 write_info_h	tools/kknd_info_gen.c	/^static void write_info_h(const char *path) {$/;"	f	typeref:typename:void	file:	signature:(const char * path)
 write_info_h_enum	tools/dc_info_gen.c	/^static void write_info_h_enum(const char *info_h_path) {$/;"	f	typeref:typename:void	file:	signature:(const char * info_h_path)
+write_info_h_enum	tools/dr_info_gen.c	/^static bool write_info_h_enum(const char *info_h_path, const dr_entry_t *entries,$/;"	f	typeref:typename:bool	file:	signature:(const char * info_h_path,const dr_entry_t * entries,int count)
+write_info_inc	tools/info_gen.h	/^static bool write_info_inc(const char *directory, const info_entry_t *entry) {$/;"	f	typeref:typename:bool	signature:(const char * directory,const info_entry_t * entry)
 write_json	tools/dc_fin_extract.c	/^static void write_json(FILE *out, const FinFile *fin) {$/;"	f	typeref:typename:void	file:	signature:(FILE * out,const FinFile * fin)
+write_sprite_inc	tools/kknd_info_gen.c	/^static bool write_sprite_inc(const char *directory, const unit_t *u,$/;"	f	typeref:typename:bool	file:	signature:(const char * directory,const unit_t * u,const anim_t * a)
+write_statenum	tools/dr_info_gen.c	/^static void write_statenum(FILE *f, const dr_entry_t *entries, int count) {$/;"	f	typeref:typename:void	file:	signature:(FILE * f,const dr_entry_t * entries,int count)
 x	driver/m_vec.h	/^typedef struct { fixed_t x, y, z; } fixed3_t;$/;"	m	struct:__anon9abd85c00408	typeref:typename:fixed_t
 x	driver/m_vec.h	/^typedef struct { float x, y; } fvec2_t;$/;"	m	struct:__anon9abd85c00208	typeref:typename:float
 x	driver/m_vec.h	/^typedef struct { int x, y; }   ivec2_t;$/;"	m	struct:__anon9abd85c00108	typeref:typename:int
