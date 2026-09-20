@@ -32,6 +32,7 @@ extern doomdata_t *netbuffer;
 extern bool netgame, netready, nodeingame[MAXNETNODES], playeringame[MAXPLAYERS];
 extern bool netactive;
 extern int consoleplayer, gametic, maketic, ticdup;
+extern int game_speed;
 extern int nettics[MAXNETNODES];
 extern ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
 extern char neterror[256];
@@ -44,6 +45,7 @@ bool I_NetJoining(void);
 void I_NetCmd(void);
 void I_ShutdownNetwork(void);
 void D_CheckNetGame(uint32_t signature);
+void D_SetGameSpeed(int speed);
 void D_QuitNetGame(void);
 void NetUpdate(void);
 /* Returns available simulation tics; the driver runs each and advances gametic. */

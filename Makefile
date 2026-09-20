@@ -233,6 +233,8 @@ dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
 
 # ── run targets ───────────────────────────────────────────────────────────────
+speed ?= 1
+
 run: $(BIN_DIR)/dark-reign
 	$(BIN_DIR)/dark-reign
 
@@ -246,7 +248,11 @@ dark-reign: $(BIN_DIR)/dark-reign
 	$(BIN_DIR)/dark-reign $(DARK_REIGN_ROOT)
 
 dark-colony: $(BIN_DIR)/dark-colony
-	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT)
+ifdef map
+	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) --map $(shell echo '$(map)' | tr '[:lower:]' '[:upper:]' | sed -E 's/^(HUMAN|ALIEN)(.*)/SCENARIO\/\1\/\1\2.MAP/') --speed $(speed)
+else
+	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) --speed $(speed)
+endif
 
 dark-colony-human02: $(BIN_DIR)/dark-colony
 	$(BIN_DIR)/dark-colony $(DARK_COLONY_ROOT) SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR
@@ -332,7 +338,9 @@ help:
 	@echo "  dark-reign           Dark Reign (Freedom Guard Mission 01)"
 	@echo "  mission-1            Dark Reign campaign mission 1"
 	@echo "  mission-2            Dark Reign campaign mission 2"
-	@echo "  dark-colony          Dark Colony HUMAN01 scenario"
+	@echo "  dark-colony          Dark Colony (default: HUMAN01)"
+	@echo "  dark-colony map=X    Dark Colony scenario (e.g. human02, alien03)"
+	@echo "  dark-colony speed=X  Simulation speed multiplier (default: 1)"
 	@echo "  dark-colony-human02  Dark Colony HUMAN02 scenario"
 	@echo "  7legion              7th Legion"
 	@echo "  kknd                 KKnD"

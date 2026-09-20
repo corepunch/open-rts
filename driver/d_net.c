@@ -8,6 +8,11 @@ doomdata_t *netbuffer;
 bool netgame, netready, netactive;
 bool nodeingame[MAXNETNODES], playeringame[MAXPLAYERS];
 int consoleplayer, gametic, maketic, ticdup = 1;
+int game_speed = 1;
+
+void D_SetGameSpeed(int speed) {
+    if (speed >= 1 && speed <= 9) game_speed = speed;
+}
 int nettics[MAXNETNODES];
 ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
 char neterror[256];
@@ -27,7 +32,7 @@ static int skiptics, frameon, frameskip[4], oldnettics;
 enum { RESENDCOUNT = 10, NETVERSION = 1 };
 
 static uint64_t I_GetTime(void) {
-    return SDL_GetTicks64() * RTS_TICRATE / 1000 / ticdup;
+    return SDL_GetTicks64() * RTS_TICRATE * (uint64_t)game_speed / 1000 / (uint64_t)ticdup;
 }
 
 int ExpandTics(int low) {
@@ -70,7 +75,7 @@ static void SendSetup(int node) {
     *netbuffer = (doomdata_t){ .player = (uint8_t)consoleplayer, .numtics = 1 };
     netbuffer->cmds[0] = (ticcmd_t){ .consistancy = startsignature,
         .product = NETVERSION, .target = (uint32_t)doomcom->numplayers,
-        .position = { ticdup, RTS_TICRATE, 0 } };
+        .position = { ticdup, RTS_TICRATE, game_speed } };
     HSendPacket(node, NCMD_SETUP);
 }
 
@@ -91,8 +96,9 @@ static void GetPackets(void) {
             const ticcmd_t *setup = &netbuffer->cmds[0];
             if (netbuffer->numtics != 1 || setup->product != NETVERSION ||
                 setup->consistancy != startsignature || setup->target != (unsigned)doomcom->numplayers ||
-                setup->position.x != ticdup || setup->position.y != RTS_TICRATE) {
-                snprintf(neterror, sizeof(neterror), "Network setup mismatch: game, map, initial state, version or ticdup (player %d)", player + 1);
+                setup->position.x != ticdup || setup->position.y != RTS_TICRATE ||
+                setup->position.z != game_speed) {
+                snprintf(neterror, sizeof(neterror), "Network setup mismatch: game, map, initial state, version, ticdup or speed (player %d)", player + 1);
                 return;
             }
             gotsetup[node] = true;

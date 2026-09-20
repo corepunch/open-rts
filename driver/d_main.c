@@ -130,6 +130,18 @@ int main(int argc, char **argv) {
             int slot = !strcmp(arg, "--data") ? 0 : !strcmp(arg, "--map") ? 1 : 2;
             if (++i == argc || !argv[i][0] || paths[slot]) goto usage;
             paths[slot] = argv[i];
+        } else if (!strncmp(arg, "-speed=", 7) || !strncmp(arg, "--speed=", 8)) {
+            const char *value = strchr(arg, '=') + 1;
+            char *end;
+            long speed = strtol(value, &end, 10);
+            if (!value[0] || *end || speed < 1 || speed > 9) goto usage;
+            D_SetGameSpeed((int)speed);
+        } else if (!strcmp(arg, "--speed") || !strcmp(arg, "-speed")) {
+            if (++i == argc) goto usage;
+            char *end;
+            long speed = strtol(argv[i], &end, 10);
+            if (!argv[i][0] || *end || speed < 1 || speed > 9) goto usage;
+            D_SetGameSpeed((int)speed);
         } else if (!strcmp(arg, "--screenshot")) {
             if (++i == argc || !argv[i][0]) goto usage;
             screenshot_only = true; screenshot_path = argv[i];
@@ -587,6 +599,7 @@ help:
            "  --port <1..65535>      Local UDP port; host 5029, client automatic\n"
            "  --map <path>           Map relative to data root; chosen by host\n"
            "  -map=<path>           Start directly in a map (also --map=<path>)\n"
+           "  --speed <1..9>        Simulation speed multiplier; default 1\n"
            "  Dark Colony opens its main menu when no map is supplied.\n"
            "  --check and --net-check use the default map; screenshots show startup.\n"
            "  --data <directory>     Local game data directory\n"
