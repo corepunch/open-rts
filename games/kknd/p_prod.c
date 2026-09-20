@@ -12,13 +12,14 @@
 /* OpenKrush economy: one authored row owns cost, producer, duration and tech. */
 static const StaticProductDefinition KKND_PRODUCTS[] = {
 #define KK_PRODUCT(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label) \
-    {id,id,label,cost,0,kind,type,faction,{maker},1,{maker},1},
+    {(id),(id),(label),(cost),0,(kind),(type),(faction),{(maker)},1,{(maker)},1},
 #include "products.inc"
 #undef KK_PRODUCT
     {0}, /* Sentinel also permits an empty native product table in C11. */
 };
 static const struct { int id, ticks, level, limit; } rules[] = {
-#define KK_PRODUCT(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label) {id,ticks,tech,limit},
+#define KK_PRODUCT(id,faction,category,kind,type,maker,cost,ticks,tech,limit,label) \
+    {(id),(ticks),(tech),(limit)},
 #include "products.inc"
 #undef KK_PRODUCT
     {0},
