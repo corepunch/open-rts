@@ -557,8 +557,7 @@ static bool update_unit_harvest(level_t *map,
 
     resourcevent_t *vent = &map->resource_vents[unit->harvest.target];
     if (unit->harvest.phase == HARVEST_PHASE_TO_BASE) {
-        if (fvec2_distance_squared(unit->harvest.return_position,
-                                   fixed3_xy_to_fvec2(unit->core.position)) > 1.0f) return false;
+        if (!unit->movement.order_arrived) return false;
         int owner = unit->owner < 8 ? unit->owner : 0;
         int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
         map->player_resources[owner][rtype] += unit->harvest.cargo;

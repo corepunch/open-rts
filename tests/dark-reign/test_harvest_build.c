@@ -198,13 +198,20 @@ static int test_gather_attach_animate_and_build(void) {
 
     bool left_pit = false, reached_pad = false, unloaded = false;
     fvec2_t pad_pos = fixed3_xy_to_fvec2(pad->core.position);
+    int credited_resources = level.player_resources[0][0];
     for (int t = 0; t < 30 * 180 && level.player_resources[0][0] < rig->cost; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick delivery");
         if (harvester->harvest.phase == HARVEST_PHASE_TO_BASE && !on_vent(harvester, vent))
             left_pit = true;
-        if (left_pit &&
-            fvec2_distance_squared(fixed3_xy_to_fvec2(harvester->core.position), pad_pos) < 6.0f * 6.0f)
+        if (level.player_resources[0][0] > credited_resources) {
+            fvec2_t position = fixed3_xy_to_fvec2(harvester->core.position);
+            if (fvec2_distance_squared(position, harvester->harvest.return_position) > 0.0001f)
+                return fail("Freighter unloaded before reaching its return goal");
+            if (fvec2_distance_squared(harvester->harvest.return_position, pad_pos) > 6.0f * 6.0f)
+                return fail("Freighter returned to the Water Launch Pad");
+            credited_resources = level.player_resources[0][0];
             reached_pad = true;
+        }
         if (level.player_resources[0][0] > 0 && !left_pit)
             return fail("credits arrived while the Freighter was still on the pit");
         if (level.player_resources[0][0] > 0 && !reached_pad)
@@ -305,10 +312,21 @@ static int test_taelon_delivery_uses_power_generator(void) {
         return fail("Freighter selected its Taelon power generator");
 
     int stock = level.player_resources[0][1];
+    /* This drop-off goal is only one cell from the pit. Keep cargo aboard
+     * while the return movement is still active. */
+    if (!rts_tick(model, &snap)) return fail("tick Taelon return approach");
+    if (level.player_resources[0][1] != stock ||
+        freighter->harvest.phase != HARVEST_PHASE_TO_BASE)
+        return fail("Taelon cargo stayed aboard until the return path arrived");
     bool unloaded = false;
     for (int t = 0; t < 30 * 90 && !unloaded; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick Taelon delivery");
-        unloaded = level.player_resources[0][1] > stock;
+        if (level.player_resources[0][1] > stock) {
+            if (fvec2_distance_squared(fixed3_xy_to_fvec2(freighter->core.position),
+                                       freighter->harvest.return_position) > 0.0001f)
+                return fail("Taelon cargo unloaded before reaching the power generator");
+            unloaded = true;
+        }
     }
     if (!unloaded) return fail("Freighter unloaded Taelon at the generator");
     if (freighter->harvest.phase != HARVEST_PHASE_TO_MINE ||
