@@ -59,6 +59,31 @@ static bool harvest_animating(const mobj_t *unit) {
            unit->core.state_id <= S_UCFRGST0_HARVEST15;
 }
 
+static int test_dark_reign_transport_and_flight_traits(void) {
+    const int transporters[] = {
+        MT_FG_FREIGHTER, MT_FG_HOVER_FREIGHTER,
+        MT_IMP_GROUND_TRANSPORTER, MT_IMP_HOVER_TRANSPORTER,
+    };
+    for (size_t i = 0; i < sizeof(transporters) / sizeof(transporters[0]); ++i) {
+        if (!(mobjinfo[transporters[i]].flags & MF_HARVESTER))
+            return fail("all ground and hover transporter types support harvesting");
+    }
+    if (mobjinfo[MT_FG_HOVER_FREIGHTER].flags & MF_FLY ||
+        mobjinfo[MT_IMP_HOVER_TRANSPORTER].flags & MF_FLY)
+        return fail("Hover Freighters use hover movement, not Fly movement");
+
+    const int flyers[] = {
+        MT_FG_SKY_BIKE, MT_FG_OUTRIDER, MT_IMP_RECON_SAUCER,
+        MT_IMP_CYCLONE, MT_IMP_SKY_FORTRESS,
+    };
+    for (size_t i = 0; i < sizeof(flyers) / sizeof(flyers[0]); ++i) {
+        if (!(mobjinfo[flyers[i]].flags & MF_FLY))
+            return fail("all mapped retail Fly unit types have MF_FLY");
+    }
+    puts("PASS: all four transporter types harvest; mapped Fly types retain MF_FLY");
+    return 0;
+}
+
 static int count_owner_type(uint8_t owner, uint16_t type) {
     int n = 0;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -273,9 +298,8 @@ static int test_taelon_delivery_uses_power_generator(void) {
     }
     if (freighter->harvest.phase != HARVEST_PHASE_TO_BASE)
         return fail("full Taelon cargo started a return trip");
-    if (!(generator->traits & MF_RESOURCE_BASE) ||
-        !(generator->info->resource_mask & (1u << 1)))
-        return fail("power generator accepts Taelon resources");
+    if (!(generator->traits & MF_RESOURCE_BASE))
+        return fail("power generator is a resource drop-off");
     if (fvec2_distance_squared(freighter->harvest.return_position,
             fixed3_xy_to_fvec2(generator->core.position)) > 6.0f * 6.0f)
         return fail("Freighter selected its Taelon power generator");
@@ -297,6 +321,7 @@ static int test_taelon_delivery_uses_power_generator(void) {
 }
 
 int main(void) {
+    RTS_RUN(test_dark_reign_transport_and_flight_traits());
     RTS_RUN(test_gather_attach_animate_and_build());
     RTS_RUN(test_taelon_delivery_uses_power_generator());
     return 0;

@@ -13,6 +13,9 @@ typedef struct mobj_s mobj_t;
 typedef struct app_s app_t;
 typedef struct spritecache_s spritecache_t;
 typedef struct gameinfo_s gameinfo_t;
+typedef bool (*harvestdropoffmatchf_t)(const mobj_t *unit,
+                                       const resourcevent_t *vent,
+                                       const mobj_t *base);
 typedef struct production_s production_t;
 typedef void (*actionf_p1)(mobj_t *mo);
 typedef struct thinker_s {
@@ -47,7 +50,6 @@ typedef struct mobjtype_s {
     const char *sprite_name;
     const char *shadow_name;
     uint32_t traits;
-    uint32_t resource_mask; /* MF_RESOURCE_BASE: bit N accepts resource N; 0 accepts all. */
     float speed;
     int max_hp;
     struct {
@@ -118,6 +120,7 @@ struct gameinfo_s {
     selectionmarker_t selection_marker;
     unitoverlaydrawf_t draw_overlays; /* Replaces the engine selection and health overlay. */
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
+    harvestdropoffmatchf_t harvest_dropoff_matches;
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

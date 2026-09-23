@@ -2,6 +2,7 @@
 #include "engine.h"
 #include "dr_types.h"
 #include "info.h"
+#include "p_harvest.h"
 
 const char *const sprnames[NUMSPRITES] = {
     "ucfcnst0.spr",
@@ -1229,4 +1230,5 @@ const gameinfo_t game_info = {
     { .style = SELECTION_STYLE_BRACKETS },
     NULL,
     .right_click_orders = false,
+    .harvest_dropoff_matches = DR_HarvestDropoffMatches,
 };

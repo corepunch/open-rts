@@ -53,9 +53,8 @@ static bool send_harvester_home(level_t *map, mobj_t *unit, const resourcevent_t
         mobj_t *base = (mobj_t *)th;
         if (base->remove || base->hp <= 0) continue;
         if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
-        uint32_t resource_mask = base->info ? base->info->resource_mask : 0;
-        if (resource_mask && (vent->resource_type >= 32 ||
-            (resource_mask & (UINT32_C(1) << vent->resource_type)) == 0)) continue;
+        if (gameinfo && gameinfo->harvest_dropoff_matches &&
+            !gameinfo->harvest_dropoff_matches(unit, vent, base)) continue;
         fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
         float d2 = fvec2_distance_squared(unit_pos, base_position);
         if (d2 < best_d2) {

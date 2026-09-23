@@ -397,12 +397,24 @@ resource 0 with max 750 and resource 1 with max 50. The runtime matcher at
 rule. The remaining two values in each transport record's tuple are not yet
 interpreted.
 
-**Implementation consequence.** Resource bases carry a resource acceptance
-mask. Freighters select the nearest base accepting the mine's resource, and
-return when full; an unrelated HQ is not a fallback. Removed the prior
-three-cell distance exclusion: the executable evidence describes typed source
-and destination matching, not a distance rule. `impmn` now yields resource 1
-while `impww` yields resource 0.
+**Implementation consequence.** A game-specific drop-off matcher now carries
+the retail source/destination rule (`DR_HarvestDropoffMatches` in
+`games/dark-reign/p_harvest.c`). For every transporter definition, it maps
+resource 0 to Life Plants and resource 1 to Power Generators; the engine then
+chooses the nearest allied compatible building. Other games can leave this
+callback unset and use the generic `MF_RESOURCE_BASE` behavior. Removed the
+prior three-cell distance exclusion: the executable evidence describes typed
+source and destination matching, not a distance rule. `impmn` yields resource
+1 while `impww` yields resource 0.
+
+**Transporter and flight support.** All four mapped FG/Imperium ground and
+hover transporter types carry `MF_HARVESTER`. Retail calls the hover units
+`SetMoveMode(Hover)`, so they remain ground-path units; only native
+`SetMoveMode(Fly)` types get `MF_FLY`. All five mapped flying types (FG Sky
+Bike, FG Outrider, IMP Recon Saucer, IMP Cyclone, IMP Sky Fortress) have that
+trait. `P_MoveUnitTo` and `P_TryMove` support direct flying movement that skips
+ground walkability. This is 2-D movement support; altitude/elevation behavior
+is not represented.
 
 **Test coverage and limit.** `test_harvest_build` runs a real `TC_ORDER` through
 the simulation without launching the app. Its water case covers approach,

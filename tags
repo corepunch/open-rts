@@ -2015,6 +2015,7 @@ game_info	play/actor.h	/^    const gameinfo_t *game_info;$/;"	m	struct:unitoverl
 game_speed	driver/d_net.c	/^int game_speed = 1;$/;"	v	typeref:typename:int
 gameinfo_s	play/actor.h	/^struct gameinfo_s {$/;"	s
 gameinfo_s::draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays; \/* Replaces the engine selection and health overlay. *\/$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
+gameinfo_s::harvest_dropoff_matches	play/actor.h	/^    harvestdropoffmatchf_t harvest_dropoff_matches;$/;"	m	struct:gameinfo_s	typeref:typename:harvestdropoffmatchf_t
 gameinfo_s::mobj_type_count	play/actor.h	/^    int mobj_type_count;$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s::mobjinfo	play/actor.h	/^    const mobjinfo_t *mobjinfo;$/;"	m	struct:gameinfo_s	typeref:typename:const mobjinfo_t *
 gameinfo_s::null_state	play/actor.h	/^    int null_state;$/;"	m	struct:gameinfo_s	typeref:typename:int
@@ -2056,11 +2057,13 @@ harvest	play/actor.h	/^    } harvest;$/;"	m	struct:mobjtype_s	typeref:struct:mob
 harvest_animating	tests/dark-reign/test_harvest_build.c	/^static bool harvest_animating(const mobj_t *unit) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * unit)
 harvest_assignment_count	play/p_ai.h	/^    int harvest_assignment_count;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:int
 harvest_assignments	play/p_ai.h	/^    AiHarvestAssignment harvest_assignments[AI_MAX_HARVEST_ASSIGNMENTS];$/;"	m	struct:__anonf4d3b9790208	typeref:typename:AiHarvestAssignment[]
+harvest_dropoff_matches	play/actor.h	/^    harvestdropoffmatchf_t harvest_dropoff_matches;$/;"	m	struct:gameinfo_s	typeref:typename:harvestdropoffmatchf_t
 harvest_len	tools/dr_info_gen.c	/^    int harvest_start, harvest_len, harvest_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 harvest_selected	game/g_game.h	/^        } harvest_selected;$/;"	m	union:__anon42a104c40708::__anon42a104c4080a	typeref:struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40b08
 harvest_start	tools/dr_info_gen.c	/^    int harvest_start, harvest_len, harvest_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
 harvest_target	game/g_game.h	/^    int harvest_target;$/;"	m	struct:__anon42a104c41008	typeref:typename:int
 harvest_tick	tools/dr_info_gen.c	/^    int harvest_start, harvest_len, harvest_tick;$/;"	m	struct:__anon0771d3700108	typeref:typename:int	file:
+harvestdropoffmatchf_t	play/actor.h	/^typedef bool (*harvestdropoffmatchf_t)(const mobj_t *unit,$/;"	t	typeref:typename:bool (*)(const mobj_t * unit,const resourcevent_t * vent,const mobj_t * base)
 harvester_count	play/p_ai.h	/^    int harvester_count;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:int
 has_attack_flag	tools/dr_info_gen.c	/^static bool has_attack_flag(const dr_entry_t *entry) {$/;"	f	typeref:typename:bool	file:	signature:(const dr_entry_t * entry)
 has_base	play/p_ai.h	/^    bool has_base;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:bool
@@ -2515,7 +2518,6 @@ mobjtype_s::id	play/actor.h	/^    uint16_t id;$/;"	m	struct:mobjtype_s	typeref:t
 mobjtype_s::max_hp	play/actor.h	/^    int max_hp;$/;"	m	struct:mobjtype_s	typeref:typename:int
 mobjtype_s::name	play/actor.h	/^    const char *name;$/;"	m	struct:mobjtype_s	typeref:typename:const char *
 mobjtype_s::native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobjtype_s	typeref:typename:uint16_t
-mobjtype_s::resource_mask	play/actor.h	/^    uint32_t resource_mask; \/* MF_RESOURCE_BASE: bit N accepts resource N; 0 accepts all. *\/$/;"	m	struct:mobjtype_s	typeref:typename:uint32_t
 mobjtype_s::shadow_name	play/actor.h	/^    const char *shadow_name;$/;"	m	struct:mobjtype_s	typeref:typename:const char *
 mobjtype_s::sight	play/actor.h	/^    } sight;$/;"	m	struct:mobjtype_s	typeref:struct:mobjtype_s::__anon175231d90308
 mobjtype_s::speed	play/actor.h	/^    float speed;$/;"	m	struct:mobjtype_s	typeref:typename:float
@@ -2857,7 +2859,6 @@ rendererbackend_t	interface/renderer.h	/^} rendererbackend_t;$/;"	t	typeref:stru
 resendcount	driver/d_net.c	/^static int resendto[MAXNETNODES], resendcount[MAXNETNODES];$/;"	v	typeref:typename:int[]	file:
 resendto	driver/d_net.c	/^static int resendto[MAXNETNODES], resendcount[MAXNETNODES];$/;"	v	typeref:typename:int[]	file:
 resource_count	hud/ui_definition.h	/^    int resource_count;$/;"	m	struct:uidefinition_s	typeref:typename:int
-resource_mask	play/actor.h	/^    uint32_t resource_mask; \/* MF_RESOURCE_BASE: bit N accepts resource N; 0 accepts all. *\/$/;"	m	struct:mobjtype_s	typeref:typename:uint32_t
 resource_type	game/map.h	/^    int resource_type; \/* 0-based index into player_resources[][resource_type] *\/$/;"	m	struct:resourcevent_s	typeref:typename:int
 resource_vent_count	game/g_game.h	/^    int resource_vent_count;$/;"	m	struct:__anon42a104c41208	typeref:typename:int
 resource_vent_count	game/map.h	/^    int resource_vent_count;$/;"	m	struct:level_s	typeref:typename:int
@@ -3185,6 +3186,7 @@ test_ai_production	tests/dark-reign/test_playable.c	/^static int test_ai_product
 test_ai_production	tests/kknd/test_playable.c	/^static int test_ai_production(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_combat	tests/dark-reign/test_playable.c	/^static int test_combat(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_combat	tests/kknd/test_playable.c	/^static int test_combat(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
+test_dark_reign_transport_and_flight_traits	tests/dark-reign/test_harvest_build.c	/^static int test_dark_reign_transport_and_flight_traits(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_find_helpers	tests/dark-colony/test_render_trait_helpers.c	/^static int test_find_helpers(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_gather_attach_animate_and_build	tests/dark-reign/test_harvest_build.c	/^static int test_gather_attach_animate_and_build(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 test_harvesting	tests/7legion/test_playable.c	/^static int test_harvesting(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
