@@ -1365,6 +1365,7 @@ has_prerequisite	games/dark-reign/p_prod.c	/^static bool has_prerequisite(const 
 has_sprite_pivot	games/dark-reign/w_map.c	/^    bool has_sprite_pivot;$/;"	m	struct:__anon47bd03590308	typeref:typename:bool	file:
 height	games/dark-reign/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 is_commented_call	games/dark-reign/w_map.c	/^static bool is_commented_call(const char *body_start, const char *hit) {$/;"	f	typeref:typename:bool	file:	signature:(const char * body_start,const char * hit)
+is_resource_node	games/dark-reign/w_map.c	/^static bool is_resource_node(const char *type_name) {$/;"	f	typeref:typename:bool	file:	signature:(const char * type_name)
 layer	games/dark-reign/w_map.c	/^    int layer;$/;"	m	struct:__anon47bd03590608	typeref:typename:int	file:
 load_building_sprite	games/dark-reign/w_spr.c	/^static bool load_building_sprite(const char *root, const char *tileset,$/;"	f	typeref:typename:bool	file:	signature:(const char * root,const char * tileset,char images[3][32],const uint32_t body_palette[256],const uint32_t ground_palette[256],spritesheet_t * out)
 load_dark_map	games/dark-reign/g_game.c	/^bool load_dark_map(const char *map_path, level_t *out);$/;"	p	typeref:typename:bool	file:	signature:(const char * map_path,level_t * out)

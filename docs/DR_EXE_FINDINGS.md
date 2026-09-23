@@ -426,3 +426,32 @@ env SDL_VIDEODRIVER=dummy build/bin/dark-reign --screenshot /private/tmp/open-rt
 This supersedes the earlier OpenDR sidebar implementation description above:
 no OpenDR PNG chrome is loaded or bundled. The shared generic palette has moved
 into `games/dark-reign/hud/`, with retail asset selection and draw procedures.
+
+## Resource-extractor side and FIRE-state coverage (2026-09-20)
+
+**Confirmed from retail `data/REIGN/dark/deftxt/BUILD.TXT`.** `SetSide(0)` is
+Freedom Guard (`fh1` FG Headquarters 1), `SetSide(1)` is Imperium (`ih1`
+Imperium Headquarters 1), and `SetSide(2)` is civilian/neutral (`ce` Civilian
+Entertainment Facility). Both extractor buildings are side 2 with authored
+hitpoints and harvest parameters: `impww` (Water Extractor, type 14005,
+`SetResource(0 20 10000 10000)`, 500 HP) and `impmn` (Taelon Extractor, type
+14006, `SetResource(1 1 500 40)`, 600 HP).
+
+**Implementation consequence.** Pre-placed extractors are neutral map features
+backed by the ownerless vent list, never garrisoned mobjs. Spawning them as
+team-owned buildings (as the full-coverage batch did) both marks the 3x3 pit
+footprint blocked, so harvesters circle the pit instead of attaching, and hands
+nearby attack-capable units a hostile target that cancels their move orders.
+`games/dark-reign/w_map.c` keeps extractor coverage tables but loads `impmn` /
+`impww` as passable decorations and skips their mobj spawn.
+
+**Corrected generator regression (inferred from test evidence, restored to the
+pre-refactor emission).** The per-sprite `.inc` refactor dropped the `S_*_FIRE`
+row that the monolithic writer emitted for attacking actors without a native
+shoot cycle (`{ SPR, stand_start, 1, A_Attack, S_STND, 3 }`). The dangling enum
+left a zero-filled state, so the first `A_Look`/`A_Chase` acquisition removed
+the unit via the `S_NULL` path in `P_SetMobjState`. Bisected to `c2b9338`;
+`tools/dr_info_gen.c` `write_inc` now emits the FIRE row again. Reproduce with
+`make test-dark-reign` (`test_playable` move/combat, shared `test_retaliation`).
+
+Investigation date: 2026-09-20

@@ -328,8 +328,13 @@ static bool resolve_unit_visual(const Definitions *defs, const char *type_name,
     return true;
 }
 
+static bool is_resource_node(const char *type_name) {
+    return strcasecmp(type_name, "impmn") == 0 ||
+           strcasecmp(type_name, "impww") == 0;
+}
+
 static bool resolve_building_visual(const Definitions *defs, const char *type_name,
-                                               VisualSpec *out) {
+                                                VisualSpec *out) {
     memset(out, 0, sizeof(*out));
     const char *body = NULL; size_t body_len = 0;
     if (!find_definition_block(defs->buildings, "DefineBuildingType", type_name, &body, &body_len))
@@ -365,10 +370,10 @@ static bool resolve_building_visual(const Definitions *defs, const char *type_na
                find_case_insensitive_n(type_name, strlen(type_name), "SmallCentreBridge")) {
         out->footprint = (isize2_t){ 4, 4 };
     }
-    /* Resource nodes (impmn, impww) must be passable: harvesters walk into
-       them to reach the attachment point at the centre of the footprint. */
-    out->solid = !(strcasecmp(type_name, "impmn") == 0 ||
-                   strcasecmp(type_name, "impww") == 0);
+    /* Resource nodes are vents, not garrisoned buildings: harvesters walk
+       into them to reach the attachment point at the centre of the
+       footprint. */
+    out->solid = !is_resource_node(type_name);
     /* AddBuildingAt coordinates identify the top-left of Dark Reign's authored
        RSPR canvas.  They are not the top-left of a collision footprint.  The
        canvas sizes (for example 144x120 for the bridge and 120x144 for the FG
@@ -480,10 +485,16 @@ static void load_dark_reign_decorations(const char *map_path, char *text, level_
             bool resolved = building ?
                 resolve_building_visual(&defs, type_name, &visual) :
                 resolve_thing_visual(&defs, type_name, &visual);
-            if (resolved && building && building_actor(&defs, type_name)) {
-                for (int y = 0; y < visual.footprint.h; ++y)
-                    for (int x = 0; x < visual.footprint.w; ++x)
-                        if (L_Contains(map, gx+x, gy+y)) map->blocked[L_Index(map, gx+x, gy+y)] = 1;
+            /* Resource nodes are vents rather than garrisoned buildings, so
+               they fall through to the passable decoration below instead of
+               marking the pit footprint blocked. */
+            if (resolved && building && !is_resource_node(type_name) &&
+                building_actor(&defs, type_name)) {
+                if (visual.solid) {
+                    for (int y = 0; y < visual.footprint.h; ++y)
+                        for (int x = 0; x < visual.footprint.w; ++x)
+                            if (L_Contains(map, gx+x, gy+y)) map->blocked[L_Index(map, gx+x, gy+y)] = 1;
+                }
             } else if (resolved) add_dark_reign_decoration(map, &visual, (ivec2_t){ gx, gy });
             else if (!resolved) fprintf(stderr, "warning: unresolved Dark Reign %s type %s\n",
                          building ? "building" : "thing", type_name);
@@ -923,6 +934,12 @@ int load_dark_reign_initial_units(const char *map_path) {
         if (sscanf(hit, building ? "AddBuildingAt(%d %63[^ )] %d %d" :
                    "PutUnitAt(%d %63[^ )] %d %d", &object_id, unit_type, &gx, &gy) == 4) {
             (void)object_id;
+            /* Resource nodes live in the vent list, not as building mobjs;
+               spawning them would garrison neutral pits to whichever team
+               the scenario parse happens to be tracking. */
+            if (building && is_resource_node(unit_type)) {
+                cursor = hit + strlen("AddBuildingAt("); continue;
+            }
             uint16_t type = building ? building_actor(&defs, unit_type) : 0;
             if (building && !type) { cursor = hit + strlen("AddBuildingAt("); continue; }
             if (gx >= 0 && gy >= 0) {

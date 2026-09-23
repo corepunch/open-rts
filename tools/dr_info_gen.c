@@ -633,6 +633,14 @@ static bool write_inc(const char *animate_dir, const char *sprite,
         }
     }
 
+    /* FIRE: single attack state for attacking actors without a native shoot
+     * cycle. Plays the stand frame once, fires through A_Attack, and returns
+     * to STND. Without this row the S_*_FIRE slot stays zero-filled and
+     * entering it removes the unit. */
+    if (has_fire_state(e))
+        fprintf(f, "    [S_%s_FIRE] = { SPR_%s, %d, 1, A_Attack, S_%s_STND, 3 },\n",
+                sprite, sprite, a->stand_start, sprite);
+
     fclose(f);
     return true;
 }
