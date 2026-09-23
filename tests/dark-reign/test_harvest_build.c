@@ -1,4 +1,5 @@
 #include "../rts_model_test.h"
+#include "../../driver/d_ticcmd.h"
 #include "../../games/dark-reign/info.h"
 #include "../../play/p_local.h"
 #include "game.h"
@@ -42,6 +43,15 @@ static int nearest_vent_index(fvec2_t position) {
         }
     }
     return best;
+}
+
+static int vent_at_resource_cell(ivec2_t cell, int resource_type) {
+    for (int i = 0; i < level.resource_vent_count; ++i) {
+        const resourcevent_t *vent = &level.resource_vents[i];
+        if (!vent->active || vent->amount <= 0 || vent->resource_type != resource_type) continue;
+        if (ivec2_equal(vent->cell, cell)) return i;
+    }
+    return -1;
 }
 
 static bool harvest_animating(const mobj_t *unit) {
@@ -117,18 +127,25 @@ static int test_gather_attach_animate_and_build(void) {
         .data.select_unit_index = { harvester_index, false } };
     if (!rts_game_model_command(model, &sel)) return fail("select Freighter");
     fvec2_t pit_corner = { (float)vent->cell.x + 0.25f, (float)vent->cell.y + 0.25f };
-    RtsGameCommand harvest = { .kind = RTS_GAME_COMMAND_HARVEST_SELECTED,
-        .data.harvest_selected = { .target = pit_corner } };
-    if (!rts_game_model_command(model, &harvest))
-        return fail("order Freighter to gather");
+    /* Match the map-click path: TC_ORDER resolves a resource pit to harvesting. */
+    ticcmd_t order = {
+        .order = TC_ORDER,
+        .position = fixed3_from_fvec2(pit_corner, 0),
+        .count = 1,
+        .units = { harvester->id },
+    };
+    G_RunTiccmd(0, &order);
     if (harvester->harvest.target != vent_index)
         return fail("harvest order attached the Freighter to the pit");
+    if (harvester->harvest.phase != HARVEST_PHASE_TO_MINE ||
+        harvester->movement.order_arrived || !harvester->movement.flow_field)
+        return fail("map-click order started movement toward the pit");
 
-    bool attached = false, mining = false, animating = false, cargo_flowed = false;
+    bool attached = false, mining = false, animating = false;
     int harvest_states_seen = 0;
     uint8_t harvest_seen[16] = { 0 };
-    int cargo_at_attach = 0;
-    for (int t = 0; t < 30 * 90; ++t) {
+    for (int t = 0; t < 30 * 90 &&
+         harvester->harvest.phase != HARVEST_PHASE_TO_BASE; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick gather");
         fvec2_t pos = fixed3_xy_to_fvec2(harvester->core.position);
         if (harvester->harvest.target == vent_index &&
@@ -143,24 +160,18 @@ static int test_gather_attach_animate_and_build(void) {
                 harvest_states_seen++;
             }
         }
-        if (attached && mining && animating && !cargo_flowed) {
-            cargo_at_attach = harvester->harvest.cargo;
-            cargo_flowed = true;
-        }
-        if (cargo_flowed &&
-            (harvester->harvest.cargo > cargo_at_attach ||
-             level.player_resources[0][0] > 0) &&
-            harvest_states_seen >= 2)
-            break;
     }
     if (!attached) return fail("Freighter attached on the extractor footprint");
+    if (!fvec2_near(fixed3_xy_to_fvec2(harvester->core.position), vent->attachment, 0.001f))
+        return fail("Freighter parked at the pit attachment point");
     if (!mining) return fail("Freighter entered HARVEST_PHASE_MINING");
-    if (!animating || harvest_states_seen < 2)
-        return fail("Freighter played harvest animation");
-    if (!(harvester->harvest.cargo > cargo_at_attach || level.player_resources[0][0] > 0))
-        return fail("resources started flowing at the pit");
+    if (!animating || harvest_states_seen != 15)
+        return fail("Freighter played all 15 harvest frames before leaving");
+    if (harvester->harvest.phase != HARVEST_PHASE_TO_BASE ||
+        harvester->harvest.cargo != harvester->info->harvest.capacity)
+        return fail("full cargo started a return trip");
 
-    bool left_pit = false, reached_pad = false;
+    bool left_pit = false, reached_pad = false, unloaded = false;
     fvec2_t pad_pos = fixed3_xy_to_fvec2(pad->core.position);
     for (int t = 0; t < 30 * 180 && level.player_resources[0][0] < rig->cost; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick delivery");
@@ -171,9 +182,13 @@ static int test_gather_attach_animate_and_build(void) {
             reached_pad = true;
         if (level.player_resources[0][0] > 0 && !left_pit)
             return fail("credits arrived while the Freighter was still on the pit");
+        if (level.player_resources[0][0] > 0 && !reached_pad)
+            return fail("Freighter unloaded before reaching the Water Launch Pad");
+        if (level.player_resources[0][0] > 0) unloaded = true;
     }
     if (!left_pit) return fail("Freighter left the pit to return cargo");
     if (!reached_pad) return fail("Freighter reached the Water Launch Pad");
+    if (!unloaded) return fail("Freighter unloaded cargo into player resources");
     if (level.player_resources[0][0] < rig->cost)
         return fail("Freighter delivered enough credits for a Construction Rig");
 
@@ -206,7 +221,83 @@ static int test_gather_attach_animate_and_build(void) {
     return 0;
 }
 
+/* Retail FGGroundTransporter/FGHoverTransporter map impmn to fgpp. */
+static int test_taelon_delivery_uses_power_generator(void) {
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {
+        .data_root = "data/REIGN/dark",
+        .map_path = "scenario/FIXED/M01F/M01F.SCN",
+    };
+    if (!model || !rts_game_model_load(model, &config)) return fail("load M01F for Taelon");
+
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit->owner != 0 && (unit->traits & MF_MOBILE)) P_RemoveMobj(unit);
+    }
+    RtsRenderSnapshot snap;
+    if (!rts_tick(model, &snap)) return fail("tick after isolating Taelon test");
+
+    mobj_t *freighter = player_harvester();
+    mobj_t *generator = find_owner_type(0, MT_FG_POWER_PLANT);
+    if (!freighter || !generator) return fail("find Freighter and FG power generator");
+    int vent_index = vent_at_resource_cell((ivec2_t){3, 38}, 1);
+    if (vent_index < 0) return fail("find Taelon mine paired with the FG power generator");
+    const resourcevent_t *vent = &level.resource_vents[vent_index];
+    freighter->core.position = fixed3_from_fvec2(vent->attachment, 0);
+
+    int selected = rts_find_unit_by_id(&snap, freighter->id);
+    RtsGameCommand select = { .kind = RTS_GAME_COMMAND_SELECT_UNIT_INDEX,
+        .data.select_unit_index = { selected, false } };
+    if (selected < 0 || !rts_game_model_command(model, &select))
+        return fail("select Freighter for Taelon");
+    fvec2_t mine = { (float)vent->cell.x + 0.25f, (float)vent->cell.y + 0.25f };
+    ticcmd_t order = {
+        .order = TC_ORDER,
+        .position = fixed3_from_fvec2(mine, 0),
+        .count = 1,
+        .units = { freighter->id },
+    };
+    G_RunTiccmd(0, &order);
+    if (freighter->harvest.target != vent_index)
+        return fail("TC_ORDER attached Freighter to Taelon mine");
+    /* This mine overlaps the generator footprint on M01F, so begin the
+     * movement assertion at its retail interaction point. The water test
+     * covers movement from the starting position through attachment. */
+    freighter->movement.flow_field = NULL;
+    freighter->movement.order_arrived = true;
+
+    for (int t = 0; t < 30 * 30 &&
+         freighter->harvest.phase != HARVEST_PHASE_TO_BASE; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick Taelon gathering");
+    }
+    if (freighter->harvest.phase != HARVEST_PHASE_TO_BASE)
+        return fail("full Taelon cargo started a return trip");
+    if (!(generator->traits & MF_RESOURCE_BASE) ||
+        !(generator->info->resource_mask & (1u << 1)))
+        return fail("power generator accepts Taelon resources");
+    if (fvec2_distance_squared(freighter->harvest.return_position,
+            fixed3_xy_to_fvec2(generator->core.position)) > 6.0f * 6.0f)
+        return fail("Freighter selected its Taelon power generator");
+
+    int stock = level.player_resources[0][1];
+    bool unloaded = false;
+    for (int t = 0; t < 30 * 90 && !unloaded; ++t) {
+        if (!rts_tick(model, &snap)) return fail("tick Taelon delivery");
+        unloaded = level.player_resources[0][1] > stock;
+    }
+    if (!unloaded) return fail("Freighter unloaded Taelon at the generator");
+    if (freighter->harvest.phase != HARVEST_PHASE_TO_MINE ||
+        freighter->harvest.target != vent_index)
+        return fail("Freighter returned to its Taelon mine after unloading");
+
+    puts("PASS: Taelon cargo returns to the compatible power generator");
+    rts_game_model_destroy(model);
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(test_gather_attach_animate_and_build());
+    RTS_RUN(test_taelon_delivery_uses_power_generator());
     return 0;
 }

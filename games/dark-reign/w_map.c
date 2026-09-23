@@ -542,8 +542,7 @@ static void load_dark_reign_resource_vents(char *text, level_t *map) {
                 v->amount = water ? WATER_WELL_AMOUNT : TAELON_MINE_AMOUNT;
                 v->rate = water ? WATER_WELL_RATE : TAELON_MINE_RATE;
                 v->active = true;
-                /* HUD currently displays player_resources[][0] as the stockpile. */
-                v->resource_type = 0;
+                v->resource_type = water ? 0 : 1;
             }
         }
         cursor = hit + strlen(tag);

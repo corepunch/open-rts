@@ -47,6 +47,7 @@ typedef struct mobjtype_s {
     const char *sprite_name;
     const char *shadow_name;
     uint32_t traits;
+    uint32_t resource_mask; /* MF_RESOURCE_BASE: bit N accepts resource N; 0 accepts all. */
     float speed;
     int max_hp;
     struct {

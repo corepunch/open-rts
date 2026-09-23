@@ -382,9 +382,36 @@ Water wells are resource vents with the native 3×3 footprint. Passable
 decorations sort at the north of their footprint so units in the pit are visible.
 The Freighter parks on the attachment while mining, then hauls cargo to the
 Water Launch Pad (`fglp` / `MT_FG_LIFE_PLANT`, OpenDR `DockHost`) or Taelon
-Power Generator — not the HQ, which sits on the M01F water pit and made the
-unit shuffle around the extractor. Drop-offs whose origin is inside or within
-three cells of the current pit are skipped.
+Power Generator. The HQ is not a configured drop-off.
+
+**Confirmed from `dkreign.exe` (SHA-256
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`, PE32,
+1997-09-02).** The `SetBuildingSrcAndDst` parser at `0x0044661d` accepts
+source/destination building type pairs. M01F's `UNITS.TXT` configures
+`(impmn,fgpp)` and `(impmn,tfgpp)` for Taelon, and `(impww,fglp)`,
+`(impww,tfglp)`, `(impww,implp)` for water. `SetResourceTransport` at
+`0x00446745` stores up to three per-resource transport records; M01F declares
+resource 0 with max 750 and resource 1 with max 50. The runtime matcher at
+`0x0046b580` contains the error “Unit and building unmatched for transporting
+!” at `0x0046b5c2`, confirming that unit/building compatibility is a native
+rule. The remaining two values in each transport record's tuple are not yet
+interpreted.
+
+**Implementation consequence.** Resource bases carry a resource acceptance
+mask. Freighters select the nearest base accepting the mine's resource, and
+return when full; an unrelated HQ is not a fallback. Removed the prior
+three-cell distance exclusion: the executable evidence describes typed source
+and destination matching, not a distance rule. `impmn` now yields resource 1
+while `impww` yields resource 0.
+
+**Test coverage and limit.** `test_harvest_build` runs a real `TC_ORDER` through
+the simulation without launching the app. Its water case covers approach,
+pit attachment, all 15 harvest frames, full-cargo return, launch-pad unloading,
+and repeated trips funding construction. Its Taelon case checks typed return
+to the power generator and resource-1 unloading. The M01F Taelon pit at
+`(3,38)` overlaps the power-plant footprint at `(5,39)`; that case begins at
+the attachment point to isolate typed destination selection. Taelon approach
+pathing through this overlap remains unverified.
 
 **Reproduce.** `env SDL_VIDEODRIVER=dummy make test-dark-reign` includes
 `test_harvesting` ( Freighter harvest animation and cargo on M01F ) and
