@@ -32,6 +32,7 @@ void P_RemoveMobj(mobj_t *mobj) {
         mobj_t *other = (mobj_t *)th;
         if (other->attack.target == mobj) other->attack.target = NULL;
         if (other->target == mobj) other->target = NULL;
+        if (other->harvest.base == mobj) other->harvest.base = NULL;
     }
 }
 
@@ -107,9 +108,12 @@ static void separate_units(const level_t *map) {
                 }
                 float push = (min_dist - dist) * 0.5f;
                 fvec2_t separation = fvec2_scale(delta, push / dist);
+                bool docked_a = P_HarvesterDocked(a), docked_b = P_HarvesterDocked(b);
+                if (docked_a && docked_b) continue;
+                if (docked_a || docked_b) separation = fvec2_scale(separation, 2.0f);
                 fvec2_t separated_a = fvec2_sub(a_position, separation);
                 fvec2_t separated_b = fvec2_add(b_position, separation);
-                if (P_CheckPosition(map, a, separated_a.x, separated_a.y)) {
+                if (!docked_a && P_CheckPosition(map, a, separated_a.x, separated_a.y)) {
                     fixed3_t before = a->core.position;
                     a->core.position = fixed3_with_xy(a->core.position, separated_a);
                     P_ClampToLevel(map, a);
@@ -117,7 +121,7 @@ static void separate_units(const level_t *map) {
                         a->core.momentum,
                         fixed3_planar_displacement(before, a->core.position));
                 }
-                if (P_CheckPosition(map, b, separated_b.x, separated_b.y)) {
+                if (!docked_b && P_CheckPosition(map, b, separated_b.x, separated_b.y)) {
                     fixed3_t before = b->core.position;
                     b->core.position = fixed3_with_xy(b->core.position, separated_b);
                     P_ClampToLevel(map, b);

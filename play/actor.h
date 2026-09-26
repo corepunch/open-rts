@@ -13,9 +13,8 @@ typedef struct mobj_s mobj_t;
 typedef struct app_s app_t;
 typedef struct spritecache_s spritecache_t;
 typedef struct gameinfo_s gameinfo_t;
-typedef bool (*harvestdropoffmatchf_t)(const mobj_t *unit,
-                                       const resourcevent_t *vent,
-                                       const mobj_t *base);
+typedef bool (*harvestdropoffmatchf_t)(const mobj_t *unit, int resource_type,
+                                     const mobj_t *base, fvec2_t *position);
 typedef struct production_s production_t;
 typedef void (*actionf_p1)(mobj_t *mo);
 typedef struct thinker_s {
@@ -44,6 +43,8 @@ enum {
     ALLEGIANCE_NEUTRAL = 3,
 };
 
+typedef struct { int capacity, load_amount, unload_amount; } harvestresource_t;
+
 typedef struct mobjtype_s {
     uint16_t id;
     const char *name;
@@ -51,6 +52,7 @@ typedef struct mobjtype_s {
     const char *shadow_name;
     uint32_t traits;
     float speed;
+    angle_t turn_step; /* Per simulation tic; zero uses the legacy turn cadence. */
     int max_hp;
     struct {
         int day, night;
@@ -64,7 +66,9 @@ typedef struct mobjtype_s {
     } attack;
     struct {
         int state_id;
-        int capacity;
+        int unload_state_id;
+        angle_t dock_angle;
+        harvestresource_t resources[RTS_MAX_RESOURCES];
     } harvest;
     uint16_t native_type_id;
     actionf_p1 damage_action;
@@ -174,7 +178,9 @@ struct mobj_s {
         int target;
         int timer_ms;
         int cargo;
+        int resource_type;
         int phase;
+        mobj_t *base;
         fvec2_t return_position;
     } harvest;
     bool remove;

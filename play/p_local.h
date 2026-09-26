@@ -17,7 +17,11 @@ enum {
     HARVEST_PHASE_MINING = 2,
     HARVEST_PHASE_TO_BASE = 3,
     HARVEST_PHASE_TURNING = 4,
+    HARVEST_PHASE_UNLOAD_TURNING = 5,
+    HARVEST_PHASE_UNLOADING = 6,
 };
+
+bool P_HarvesterDocked(const mobj_t *unit);
 
 void debug_effects_log(const char *fmt, ...);
 

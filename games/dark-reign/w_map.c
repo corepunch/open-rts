@@ -18,7 +18,7 @@
 
 /* ── definition-file parser ─────────────────────────────────────────────── */
 
-typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;
+typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } Definitions;
 
 static char *load_text_file(const char *path) {
     blob_t blob;
@@ -122,10 +122,12 @@ static void load_definitions(const char *map_path, Definitions *defs) {
     M_PathJoin(path, sizeof(path), root, "deftxt/BUILD.TXT");   defs->buildings = load_text_file(path);
     M_PathJoin(path, sizeof(path), root, "deftxt/OVERLAY.TXT"); defs->overlay   = load_text_file(path);
     M_PathJoin(path, sizeof(path), root, "deftxt/ANIMATE.TXT"); defs->animate   = load_text_file(path);
+    M_PathJoin(path, sizeof(path), root, "deftxt/OVLEFF.TXT"); defs->effects   = load_text_file(path);
 }
 
 static void free_definitions(Definitions *defs) {
     free(defs->units); free(defs->buildings); free(defs->overlay); free(defs->animate);
+    free(defs->effects);
     memset(defs, 0, sizeof(*defs));
 }
 
@@ -214,8 +216,11 @@ static bool resolve_animation_sprite(const Definitions *defs,
 }
 
 static bool load_mission(const char *path, const char *text, level_t *map) {
-    dr_mission_t *mission = calloc(1, sizeof(*mission));
+    dr_mission_t *mission = calloc(1, sizeof(*mission) +
+        (size_t)gameinfo->mobj_type_count * sizeof(ivec2_t));
     if (!mission) return false;
+    for (int i = 0; i < gameinfo->mobj_type_count; ++i)
+        mission->bays[i] = (ivec2_t){-1, -1};
     const char *tech = strstr(text, "SetTechLevel(");
     if (tech) sscanf(tech, "SetTechLevel(%d", &mission->tech_level);
     Definitions defs;
@@ -233,8 +238,14 @@ static bool load_mission(const char *path, const char *text, level_t *map) {
                 !find_definition_block(sources[source], tag, name, &body, &size) ||
                 !find_call_arg(body, size, "SetType", type, sizeof(type))) continue;
             int id = atoi(type);
+            char bay[2][32];
+            if (source && find_call_args(body, size, "SetBay", bay, 2) == 2) {
+                for (int i = 1; i < gameinfo->mobj_type_count; ++i)
+                    if (gameinfo->mobjinfo[i].doomednum == id)
+                        mission->bays[i] = (ivec2_t){atoi(bay[0]), atoi(bay[1])};
+            }
             if (!G_ModelProductByUIId(NULL, id)) continue;
-            if (mission->product_count == 64) break;
+            if (mission->product_count == 64) continue;
             int i = mission->product_count++;
             mission->products[i].type = id;
             if (find_call_arg(body, size, "SetTechLevel", required, sizeof(required)))
@@ -298,7 +309,52 @@ typedef struct {
     bool has_sprite_pivot;
     ivec2_t sprite_pivot;
     int frame_index;
+    const char *effects; /* Borrowed, validated OVLEFF cell pairs. */
 } VisualSpec;
+
+static bool resolve_effects(const Definitions *defs, const char *sprite, VisualSpec *out) {
+    const char *p = defs->effects;
+    while (p && (p = strstr(p, "DefineOvlEffect("))) {
+        char name[64];
+        isize2_t size;
+        int used = 0;
+        p += strlen("DefineOvlEffect(");
+        if (sscanf(p, "%63s %d %d) {%n", name, &size.w, &size.h, &used) != 3 ||
+            !used || strcasecmp(name, sprite)) continue;
+        if (size.w <= 0 || size.h <= 0 || size.w > 512 || size.h > 512) return false;
+        const char *cells = p + used;
+        p = cells;
+        for (int i = 0; i < size.w * size.h; ++i) {
+            int effect, altitude;
+            used = 0;
+            if (sscanf(p, "%d %d%n", &effect, &altitude, &used) != 2 || !used ||
+                (effect != -1 && effect != 2 && effect != 3)) return false;
+            p += used;
+        }
+        while (isspace((unsigned char)*p)) ++p;
+        if (*p != '}') return false;
+        out->footprint = size;
+        out->effects = cells;
+        return true;
+    }
+    return false;
+}
+
+static void apply_effects(level_t *map, const VisualSpec *spec, ivec2_t origin) {
+    const char *p = spec->effects;
+    for (int y = 0; y < spec->footprint.h; ++y)
+        for (int x = 0; x < spec->footprint.w; ++x) {
+            int effect = spec->solid ? 3 : -1;
+            if (p) {
+                int altitude, used;
+                if (sscanf(p, "%d %d%n", &effect, &altitude, &used) != 2) return;
+                p += used;
+            }
+            ivec2_t cell = ivec2_add(origin, (ivec2_t){x, y});
+            if (effect != -1 && L_Contains(map, cell.x, cell.y))
+                map->blocked[L_Index(map, cell.x, cell.y)] = effect == 3;
+        }
+}
 
 static bool visual_from_static(const char *type_name, VisualSpec *out) {
     size_t count = sizeof(DARK_REIGN_DECORATION_SPECS) / sizeof(DARK_REIGN_DECORATION_SPECS[0]);
@@ -353,23 +409,7 @@ static bool resolve_building_visual(const Definitions *defs, const char *type_na
     if (find_call_arg(body, body_len, "SetShadowImage", shadow, sizeof(shadow)))
         snprintf(out->shadow_name, sizeof(out->shadow_name), "base|%s", shadow);
 
-    out->footprint = (isize2_t){ 3, 3 };
-    if (strcasecmp(type_name, "fh1") == 0 || strcasecmp(type_name, "fh2") == 0 ||
-        strcasecmp(type_name, "fh3") == 0 || strcasecmp(type_name, "ih1") == 0 ||
-        strcasecmp(type_name, "ih2") == 0 || strcasecmp(type_name, "ih3") == 0) {
-        out->footprint = (isize2_t){ 4, 4 };
-    } else if (strcasecmp(type_name, "fglp") == 0 || strcasecmp(type_name, "implp") == 0) {
-        out->footprint = (isize2_t){ 4, 3 };
-    } else if (strcasecmp(type_name, "fgpp") == 0 || strcasecmp(type_name, "imppp") == 0) {
-        out->footprint = (isize2_t){ 3, 4 };
-    } else if (strcasecmp(type_name, "CivilianBridge") == 0 ||
-               strcasecmp(type_name, "CivilianVerticalBridge") == 0) {
-        out->footprint = (isize2_t){ 4, 3 };
-    } else if (find_case_insensitive_n(type_name, strlen(type_name), "SmallHorizontalBridge") ||
-               find_case_insensitive_n(type_name, strlen(type_name), "SmallVerticalBridge") ||
-               find_case_insensitive_n(type_name, strlen(type_name), "SmallCentreBridge")) {
-        out->footprint = (isize2_t){ 4, 4 };
-    }
+    if (!resolve_effects(defs, images[0], out)) return false;
     /* Resource nodes are vents, not garrisoned buildings: harvesters walk
        into them to reach the attachment point at the centre of the
        footprint. */
@@ -454,13 +494,7 @@ static void add_dark_reign_decoration(level_t *map, const VisualSpec *spec,
     snprintf(dec->sprite2_name, sizeof(dec->sprite2_name), "%s", spec->sprite2_name);
     snprintf(dec->sprite3_name, sizeof(dec->sprite3_name), "%s", spec->sprite3_name);
     snprintf(dec->shadow_name, sizeof(dec->shadow_name), "%s", spec->shadow_name);
-    if (!spec->solid) return;
-    for (int y = 0; y < spec->footprint.h; ++y)
-        for (int x = 0; x < spec->footprint.w; ++x) {
-            int mx = cell.x + x, my = cell.y + y;
-            if (mx >= 0 && my >= 0 && mx < map->width && my < map->height)
-                map->blocked[L_Index(map, mx, my)] = 1;
-        }
+    apply_effects(map, spec, cell);
 }
 
 static void load_dark_reign_decorations(const char *map_path, char *text, level_t *map) {
@@ -490,11 +524,7 @@ static void load_dark_reign_decorations(const char *map_path, char *text, level_
                marking the pit footprint blocked. */
             if (resolved && building && !is_resource_node(type_name) &&
                 building_actor(&defs, type_name)) {
-                if (visual.solid) {
-                    for (int y = 0; y < visual.footprint.h; ++y)
-                        for (int x = 0; x < visual.footprint.w; ++x)
-                            if (L_Contains(map, gx+x, gy+y)) map->blocked[L_Index(map, gx+x, gy+y)] = 1;
-                }
+                apply_effects(map, &visual, (ivec2_t){gx, gy});
             } else if (resolved) add_dark_reign_decoration(map, &visual, (ivec2_t){ gx, gy });
             else if (!resolved) fprintf(stderr, "warning: unresolved Dark Reign %s type %s\n",
                          building ? "building" : "thing", type_name);

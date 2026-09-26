@@ -90,6 +90,18 @@ bool P_TryMove(mobj_t *unit, fixed3_t position) {
     fvec2_t to = fixed3_xy_to_fvec2(position);
     if (!(unit->traits & MF_FLY) &&
         !map_circle_walkable(&level, to.x, to.y, P_MobjRadius(unit), &from)) return false;
+    if (!(unit->traits & MF_FLY)) {
+        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+            if (th->function != P_MobjThinker) continue;
+            const mobj_t *other = (const mobj_t *)th;
+            if (other == unit || other->remove || other->hp <= 0 || !P_HarvesterDocked(other)) continue;
+            float radius = P_MobjRadius(unit) + P_MobjRadius(other);
+            fvec2_t position = fixed3_xy_to_fvec2(other->core.position);
+            if (fvec2_distance_squared(to, position) < radius * radius &&
+                fvec2_distance_squared(to, position) < fvec2_distance_squared(from, position))
+                return false;
+        }
+    }
     unit->core.momentum = fixed3_planar_displacement(unit->core.position, position);
     unit->core.position = position;
     return true;
@@ -654,8 +666,8 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
     if (!has_harvester) return false;
 
     const resourcevent_t *vent = &map->resource_vents[vent_index];
+    if (vent->resource_type < 0 || vent->resource_type >= RTS_MAX_RESOURCES) return false;
     bool issued = false;
-    uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *unit = units[i];
         if (unit->hp <= 0) continue;
@@ -704,9 +716,10 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         unit->attack.target = NULL;
         unit->harvest.target = vent_index;
         unit->harvest.timer_ms = 0;
-        unit->harvest.cargo = 0;
-        unit->harvest.phase = 1;
-        unit->movement.order_id = order_id;
+        if (!unit->harvest.cargo) unit->harvest.resource_type = vent->resource_type;
+        unit->harvest.base = NULL;
+        unit->harvest.phase = HARVEST_PHASE_TO_MINE;
+        unit->movement.order_id = 0; /* A shared resource bay requires exact arrival. */
         unit->movement.order_arrived = false;
         issued = true;
     }

@@ -4,7 +4,7 @@
 #include "actor.h"
 
 bool DR_HarvestDropoffMatches(const mobj_t *unit,
-                              const resourcevent_t *vent,
-                              const mobj_t *base);
+                              int resource_type, const mobj_t *base,
+                              fvec2_t *position);
 
 #endif

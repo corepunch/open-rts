@@ -2,6 +2,7 @@
 #define __DR_TYPES__
 
 #include <stdbool.h>
+#include "m_vec.h"
 
 typedef struct {
     const char *name;
@@ -35,6 +36,7 @@ typedef struct {
     int tech_level;
     struct { int type, tech_level; } products[64];
     int product_count;
+    ivec2_t bays[]; /* Native SetBay by mobj type; (-1,-1) means no bay. */
 } dr_mission_t;
 
 bool DR_ProductInTech(int type);

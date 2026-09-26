@@ -30,7 +30,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_HARVESTER,
         .speed       = 3.5f,
         .max_hp      = 60,
-        .harvest     = { .capacity = 50 },
+        .harvest     = { .resources = { { .capacity = 50 } } },
     },
     {
         .id          = 3,
@@ -70,7 +70,7 @@ static const mobjtype_t ACTOR_TYPES[] = {
                        MF_RENDERABLE | MF_HARVESTER,
         .speed       = 5.0f,
         .max_hp      = 200,
-        .harvest     = { .capacity = 100 },
+        .harvest     = { .resources = { { .capacity = 100 } } },
     },
     {
         .id          = 7,

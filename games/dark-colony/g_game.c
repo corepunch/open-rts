@@ -73,7 +73,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         /* The gameplay tuning uses the documented heavy-harvester rate. */
         .speed = 3.5f,
         .max_hp = 800,
-        .harvest = { .capacity = 0, .state_id = S_EXPL_DEPLOY1 },
+        .harvest = { .state_id = S_EXPL_DEPLOY1 },
     },
     {
         .id = MT_REAPER,
@@ -312,7 +312,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_HARVESTER,
         .speed = 40.0f / 32.0f,
         .max_hp = 800,
-        .harvest = { .capacity = 0, .state_id = S_SLUG_DEPLOY1 },
+        .harvest = { .state_id = S_SLUG_DEPLOY1 },
     },
     {
         .id = MT_MOBILE_TOWER,

@@ -84,6 +84,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
             unit->movement.order_arrived = true;
             unit->attack.target = NULL;
             unit->harvest.target = -1;
+            unit->harvest.base = NULL;
             unit->harvest.phase = unit->harvest.timer_ms = 0;
             unit->core.momentum = fixed3_zero();
         }
@@ -104,6 +105,8 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     for (int i = 0; i < count; ++i) {
         units[i]->attack.target = (units[i]->traits & MF_ATTACK) ? target : NULL;
         units[i]->harvest.target = -1;
+        units[i]->harvest.base = NULL;
+        units[i]->harvest.phase = 0;
         units[i]->harvest.timer_ms = 0;
     }
     P_MoveUnitsAt(&level, units, count, goal);
@@ -138,6 +141,9 @@ uint32_t G_Consistency(void) {
         HASH(u->target ? u->target->id : 0);
         HASH(u->attack.target ? u->attack.target->id : 0); HASH(u->attack.cooldown_left_ms);
         HASH(u->harvest.target); HASH(u->harvest.phase); HASH(u->harvest.timer_ms); HASH(u->harvest.cargo);
+        HASH(u->harvest.resource_type); HASH(u->harvest.base ? u->harvest.base->id : 0);
+        fixed3_t bay = fixed3_from_fvec2(u->harvest.return_position, 0);
+        HASH(bay.x); HASH(bay.y);
         fixed3_t goal = fixed3_from_fvec2(u->movement.goal, 0);
         HASH(goal.x); HASH(goal.y); HASH(u->movement.order_id); HASH(u->movement.order_arrived);
         if (u->production) {

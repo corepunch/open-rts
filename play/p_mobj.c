@@ -41,30 +41,47 @@ static int mobj_harvest_state(const mobj_t *unit) {
 }
 
 static int mobj_harvest_capacity(const mobj_t *unit) {
-    return unit && unit->info ? unit->info->harvest.capacity : 0;
+    return unit && unit->info && unit->harvest.resource_type >= 0 &&
+           unit->harvest.resource_type < RTS_MAX_RESOURCES ?
+        unit->info->harvest.resources[unit->harvest.resource_type].capacity : 0;
 }
 
-static bool send_harvester_home(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
-    if (!map || !unit || !vent) return false;
+bool P_HarvesterDocked(const mobj_t *unit) {
+    if (!unit || !unit->info || !unit->info->harvest.unload_state_id) return false;
+    return unit->harvest.phase == HARVEST_PHASE_TURNING ||
+           unit->harvest.phase == HARVEST_PHASE_MINING ||
+           unit->harvest.phase == HARVEST_PHASE_UNLOAD_TURNING ||
+           unit->harvest.phase == HARVEST_PHASE_UNLOADING;
+}
+
+static bool send_harvester_home(level_t *map, mobj_t *unit) {
+    if (!map || !unit) return false;
     fvec2_t unit_pos = fixed3_xy_to_fvec2(unit->core.position);
     mobj_t *best = NULL;
+    fvec2_t best_position = {0};
     float best_d2 = 1e30f;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
         mobj_t *base = (mobj_t *)th;
         if (base->remove || base->hp <= 0) continue;
         if (!P_IsAlly(base, unit) || (base->traits & MF_RESOURCE_BASE) == 0) continue;
-        if (gameinfo && gameinfo->harvest_dropoff_matches &&
-            !gameinfo->harvest_dropoff_matches(unit, vent, base)) continue;
         fvec2_t base_position = fixed3_xy_to_fvec2(base->core.position);
+        if (gameinfo && gameinfo->harvest_dropoff_matches &&
+            !gameinfo->harvest_dropoff_matches(unit, unit->harvest.resource_type,
+                                              base, &base_position)) continue;
+        if (gameinfo && gameinfo->harvest_dropoff_matches &&
+            !P_CheckPosition(map, unit, base_position.x, base_position.y)) continue;
         float d2 = fvec2_distance_squared(unit_pos, base_position);
         if (d2 < best_d2) {
             best_d2 = d2;
             best = base;
+            best_position = base_position;
         }
     }
     if (!best) return false;
-    mobj_t *base = best;
-    if (!P_MoveUnitTo(map, unit, fixed3_xy_to_fvec2(base->core.position))) return false;
+    if (!P_MoveUnitTo(map, unit, best_position)) return false;
+    unit->movement.order_id = 0;
+    unit->harvest.base = best;
     unit->harvest.return_position = unit->movement.goal;
     unit->harvest.phase = HARVEST_PHASE_TO_BASE;
     return true;
@@ -73,8 +90,76 @@ static bool send_harvester_home(level_t *map, mobj_t *unit, const resourcevent_t
 static bool send_harvester_to_vent(level_t *map, mobj_t *unit, const resourcevent_t *vent) {
     if (!map || !unit || !vent) return false;
     if (!P_MoveUnitTo(map, unit, vent->attachment)) return false;
+    unit->movement.order_id = 0;
     unit->harvest.phase = HARVEST_PHASE_TO_MINE;
     return true;
+}
+
+static bool turn_unit_toward(mobj_t *unit, angle_t desired, int dt_ms) {
+    if (unit->info && unit->info->turn_step) {
+        angle_t step = unit->info->turn_step;
+        int32_t delta = (int32_t)(desired - unit->core.angle);
+        if (angle_distance(desired, unit->core.angle) <= step) unit->core.angle = desired;
+        else unit->core.angle += delta > 0 ? step : 0u - step;
+        return unit->core.angle == desired;
+    }
+    if (angle_distance(desired, unit->core.angle) < ANG45 / 8u) {
+        unit->movement.turn_timer_ms = 0;
+        return true;
+    }
+    unit->movement.turn_timer_ms -= dt_ms;
+    if (unit->movement.turn_timer_ms <= 0) {
+        int32_t delta = (int32_t)(desired - unit->core.angle);
+        unit->core.angle += delta > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
+        unit->movement.turn_timer_ms = RTS_TURN_STEP_MS;
+    }
+    return false;
+}
+
+/* Leave room for a transporter exiting the same bay. The regular movement
+ * goal is temporary; harvest.return_position remains the required dock. */
+static void yield_harvest_bay(level_t *map, mobj_t *unit) {
+    if (!fvec2_near(unit->movement.goal, unit->harvest.return_position, 0.001f)) return;
+    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *other = (const mobj_t *)th;
+        if (other == unit || other->remove || other->hp <= 0 ||
+            other->harvest.base != unit->harvest.base ||
+            other->harvest.phase != HARVEST_PHASE_TO_MINE || other->harvest.cargo) continue;
+        fvec2_t from = fixed3_xy_to_fvec2(other->core.position);
+        float contact = P_MobjRadius(unit) + P_MobjRadius(other) + unit->speed * FIXED_DT;
+        if (fvec2_distance_squared(position, from) > contact * contact) continue;
+        fvec2_t direction = fvec2_sub(other->movement.goal, from);
+        fvec2_t best = position;
+        float best_clearance = 0;
+        ivec2_t cell = fvec2_cell(position);
+        for (int y = -1; y <= 1; ++y)
+            for (int x = -1; x <= 1; ++x) {
+                if (!x && !y) continue;
+                fvec2_t candidate = fvec2_cell_center(ivec2_add(cell, (ivec2_t){x,y}));
+                if (!P_CheckPosition(map, unit, candidate.x, candidate.y)) continue;
+                bool occupied = false;
+                for (thinker_t *it = thinkercap.next; it != &thinkercap; it = it->next) {
+                    if (it->function != P_MobjThinker) continue;
+                    const mobj_t *occupant = (const mobj_t *)it;
+                    if (occupant == unit || occupant->remove || occupant->hp <= 0 ||
+                        !(occupant->traits & MF_MOBILE)) continue;
+                    float radius = P_MobjRadius(unit) + P_MobjRadius(occupant);
+                    if (fvec2_distance_squared(candidate, fixed3_xy_to_fvec2(occupant->core.position)) < radius * radius)
+                        occupied = true;
+                }
+                if (occupied) continue;
+                fvec2_t delta = fvec2_sub(candidate, from);
+                float clearance = fabsf(direction.x * delta.y - direction.y * delta.x);
+                if (clearance > best_clearance) {
+                    best_clearance = clearance;
+                    best = candidate;
+                }
+            }
+        if (best_clearance > 0) P_MoveUnitTo(map, unit, best);
+        return;
+    }
 }
 
 static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
@@ -556,38 +641,82 @@ static bool update_unit_harvest(level_t *map,
     }
 
     resourcevent_t *vent = &map->resource_vents[unit->harvest.target];
-    if (unit->harvest.phase == HARVEST_PHASE_TO_BASE) {
-        if (!unit->movement.order_arrived) return false;
+    bool animated_transfer = unit->info && unit->info->harvest.unload_state_id > 0;
+    if (unit->harvest.phase == HARVEST_PHASE_TO_BASE ||
+        unit->harvest.phase == HARVEST_PHASE_UNLOAD_TURNING ||
+        unit->harvest.phase == HARVEST_PHASE_UNLOADING) {
+        mobj_t *base = unit->harvest.base;
+        fvec2_t bay = unit->harvest.return_position;
+        if (!base || base->remove || base->hp <= 0 || !P_IsAlly(unit, base) ||
+            (game_info->harvest_dropoff_matches &&
+             (!game_info->harvest_dropoff_matches(unit, unit->harvest.resource_type, base, &bay) ||
+              !fvec2_near(bay, unit->harvest.return_position, 0.001f) ||
+              !P_CheckPosition(map, unit, bay.x, bay.y)))) {
+            unit->movement.flow_field = NULL;
+            unit->movement.order_arrived = false;
+            unit->harvest.base = NULL;
+            unit->harvest.phase = HARVEST_PHASE_TO_BASE;
+            P_SetMobjState(unit, game_info->mobjinfo[unit->type_id].spawnstate);
+            send_harvester_home(map, unit);
+            return true;
+        }
+        if (!unit->movement.order_arrived) {
+            if (animated_transfer) yield_harvest_bay(map, unit);
+            if (!unit_has_move_order(unit)) send_harvester_home(map, unit);
+            return false;
+        }
+        if (!fvec2_near(fixed3_xy_to_fvec2(unit->core.position),
+                         unit->harvest.return_position, 0.001f)) {
+            send_harvester_home(map, unit);
+            return false;
+        }
+        if (animated_transfer) {
+            if (unit->harvest.phase == HARVEST_PHASE_TO_BASE)
+                unit->harvest.phase = HARVEST_PHASE_UNLOAD_TURNING;
+            if (unit->harvest.phase == HARVEST_PHASE_UNLOAD_TURNING) {
+                if (turn_unit_toward(unit, unit->info->harvest.dock_angle, dt_ms)) {
+                    unit->harvest.phase = HARVEST_PHASE_UNLOADING;
+                    P_SetMobjState(unit, unit->info->harvest.unload_state_id);
+                }
+                return true;
+            }
+            const state_t *state = state_at(game_info, unit->core.state_id);
+            if (state && state->group == 5) return true;
+        }
         int owner = unit->owner < 8 ? unit->owner : 0;
-        int rtype = vent->resource_type < RTS_MAX_RESOURCES ? vent->resource_type : 0;
-        map->player_resources[owner][rtype] += unit->harvest.cargo;
-        unit->harvest.cargo = 0;
+        int rtype = unit->harvest.resource_type;
+        int amount = unit->harvest.cargo;
+        int unload = unit->info->harvest.resources[rtype].unload_amount;
+        if (unload > 0 && amount > unload) amount = unload;
+        map->player_resources[owner][rtype] += amount;
+        unit->harvest.cargo -= amount;
+        if (unit->harvest.cargo > 0) {
+            if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
+            return true;
+        }
         if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
             unit->harvest.target = -1;
             unit->harvest.timer_ms = 0;
             unit->harvest.phase = HARVEST_PHASE_NONE;
             return false;
         }
+        unit->harvest.resource_type = vent->resource_type;
+        unit->harvest.phase = HARVEST_PHASE_TO_MINE;
         if (!send_harvester_to_vent(map, unit, vent)) return false;
         return false;
     }
     if (unit->harvest.phase == HARVEST_PHASE_TURNING) {
         fvec2_t att_delta = fvec2_sub(
             vent->attachment, fixed3_xy_to_fvec2(unit->core.position));
-        if (fvec2_length_squared(att_delta) > 0.000001f) {
+        if (animated_transfer) {
+            if (!turn_unit_toward(unit, unit->info->harvest.dock_angle, dt_ms)) return true;
+        } else if (fvec2_length_squared(att_delta) > 0.000001f) {
             angle_t desired = angle_from_map_vector(map, att_delta.x, att_delta.y);
-            if (angle_distance(desired, unit->core.angle) >= ANG45 / 8u) {
-                unit->movement.turn_timer_ms -= dt_ms;
-                if (unit->movement.turn_timer_ms <= 0) {
-                    int32_t da = (int32_t)(desired - unit->core.angle);
-                    unit->core.angle += da > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
-                    unit->movement.turn_timer_ms = RTS_TURN_STEP_MS;
-                }
-                return false;
-            }
+            if (!turn_unit_toward(unit, desired, dt_ms)) return false;
             unit->core.angle = desired;
         }
         unit->movement.turn_timer_ms = 0;
+        unit->harvest.base = NULL;
         unit->harvest.phase = HARVEST_PHASE_MINING;
         if (game_info && mobj_harvest_state(unit) > 0 &&
             mobj_harvest_state(unit) < game_info->state_count) {
@@ -595,9 +724,40 @@ static bool update_unit_harvest(level_t *map,
         }
         return false;
     }
+    if (animated_transfer) {
+        int capacity = mobj_harvest_capacity(unit);
+        if (unit->harvest.cargo > 0 && (unit->harvest.cargo >= capacity ||
+            unit->harvest.resource_type != vent->resource_type || !vent->active || vent->amount <= 0)) {
+            unit->harvest.phase = HARVEST_PHASE_TO_BASE;
+            send_harvester_home(map, unit);
+            return true;
+        }
+        if (unit->harvest.phase == HARVEST_PHASE_MINING) {
+            const state_t *state = state_at(game_info, unit->core.state_id);
+            if (state && state->group == 5) return true;
+            int take = unit->info->harvest.resources[unit->harvest.resource_type].load_amount;
+            if (take > capacity - unit->harvest.cargo) take = capacity - unit->harvest.cargo;
+            if (take > vent->amount) take = vent->amount;
+            if (take < 0) take = 0;
+            unit->harvest.cargo += take;
+            vent->amount -= take;
+            if (vent->amount <= 0) vent->active = false;
+            if (unit->harvest.cargo >= capacity || !vent->active) {
+                unit->harvest.phase = HARVEST_PHASE_TO_BASE;
+                send_harvester_home(map, unit);
+            } else P_SetMobjState(unit, mobj_harvest_state(unit));
+            return true;
+        }
+        if (!unit_has_move_order(unit) && !unit->movement.order_arrived)
+            send_harvester_to_vent(map, unit, vent);
+        if (!unit->movement.order_arrived ||
+            !fvec2_near(fixed3_xy_to_fvec2(unit->core.position), vent->attachment, 0.001f)) return false;
+        unit->harvest.phase = HARVEST_PHASE_TURNING;
+        return true;
+    }
     if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
         if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0 &&
-            send_harvester_home(map, unit, vent))
+            send_harvester_home(map, unit))
             return false;
         unit->harvest.target = -1;
         unit->harvest.timer_ms = 0;
@@ -639,12 +799,12 @@ static bool update_unit_harvest(level_t *map,
             map->player_resources[owner][rtype] += take;
         if (mobj_harvest_capacity(unit) > 0 &&
             unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
-            if (send_harvester_home(map, unit, vent)) break;
+            if (send_harvester_home(map, unit)) break;
         }
         if (vent->amount <= 0) {
             vent->active = false;
             if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0) {
-                send_harvester_home(map, unit, vent);
+                send_harvester_home(map, unit);
             } else {
                 unit->harvest.target = -1;
                 unit->harvest.timer_ms = 0;
@@ -723,17 +883,7 @@ static void tick_actor(mobj_t *u) {
         float dist = sqrtf(fvec2_length_squared(delta));
         if (dist >= 0.001f) {
             angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
-            if (angle_distance(desired, u->core.angle) >= ANG45 / 8u) {
-                u->movement.turn_timer_ms -= dt_ms;
-                if (u->movement.turn_timer_ms <= 0) {
-                    int32_t delta = (int32_t)(desired - u->core.angle);
-                    u->core.angle += delta > 0 ? ANG45 / 4u : 0u - ANG45 / 4u;
-                    u->movement.turn_timer_ms = RTS_TURN_STEP_MS;
-                }
-                moving = false;
-            } else {
-                u->movement.turn_timer_ms = 0;
-            }
+            if (!turn_unit_toward(u, desired, dt_ms)) moving = false;
         }
     }
     if (moving) {

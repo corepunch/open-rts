@@ -433,6 +433,9 @@ frames, cargo flows, three 100-credit deliveries fund the HQ, and the Rig trains
 
 ### Freighter delivery-point investigation (2026-09-26)
 
+Historical investigation; the implementation and resolved unknowns are recorded
+in “Retail transporter docking correction” below.
+
 **Confirmed engine defect.** `send_harvester_home` in `play/p_mobj.c`
 requests the compatible building's position through `P_MoveUnitTo`. That
 general movement function substitutes a nearby walkable position for blocked
@@ -577,3 +580,162 @@ the unit via the `S_NULL` path in `P_SetMobjState`. Bisected to `c2b9338`;
 `make test-dark-reign` (`test_playable` move/combat, shared `test_retaliation`).
 
 Investigation date: 2026-09-20
+
+## Retail transporter docking correction (2026-09-26)
+
+This implementation supersedes the unresolved runtime questions and the
+documentation-only outcome in “Freighter delivery-point investigation” above.
+The user's September 26 open-rts screenshot shows the Freighter stopped
+northwest of the Launch Pad; it is evidence of the engine defect, not a retail
+reference image. The executable fingerprint remains SHA-256
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`
+(`data/REIGN/dkreign.exe`, PE32/i386, September 2, 1997).
+
+**Confirmed: destination and arrival.** `0x0049bbb0` builds transport routes
+from source and destination building origins (`+0x70`, `+0x74`) plus the signed
+four-bit coordinates in building type `+0x22c`. It inserts waypoints through
+`0x004754d0` and starts order 6 through `0x004b7b10`. `0x00422550` resolves a
+building by its exact bay cell. Order 6 in `0x004baac0` uses that lookup and
+calls the resource-transfer routine `0x0049c010` on arrival. Proximity to an
+arbitrary edge of a building is not the arrival condition.
+
+Both factions' `BUILD.TXT` Launch Pads (`fglp`, `implp`) have `SetBay(3 2)`;
+Power Generators (`fgpp`, `imppp`) have `SetBay(1 3)`. Both extractor types
+(`impww`, `impmn`) have `SetBay(1 1)`. Native unit placement uses `cell * 24`
+(`0x00448860`, `0x00445180`); native building region bounds at `0x004968d0` and
+`0x00496a10` begin at `cell * 24 - 12`. The same half-cell base appears in
+attached-part placement at `0x00510390`. Our building canvas starts at the stored building
+anchor and our unit positions use cell centers. Therefore the corresponding
+engine destination is `building anchor + cell_center(SetBay)`. In M01F this is
+`(7.5,55.5)` for water and `(6.5,42.5)` for Taelon. The half-cell follows the
+coordinate representation; it is not a tuned sprite offset.
+
+**Confirmed: the bay must be walkable.** `deftxt/OVLEFF.TXT` contains authored
+footprint dimensions followed by row-major `(effect, altitude)` pairs. Effect
+`-1` leaves the underlying terrain unchanged, `2` is a walkable building bay,
+and `3` is solid. Parser `0x0042ca50` reads the pairs and encodes `-1` as
+`0x1f`; `0x00481090` owns the effect definitions. `SetBuildingImages` goes
+through `0x0049eda0` and sprite-name lookup `0x00481120`. The relevant masks
+are:
+
+```
+nclnc1l0.spr (5 x 4)      ncpow1l0.spr (4 x 5)
+-1 -1 -1 -1 -1           -1 -1 -1 -1
+-1  2  3  3  2           -1  2  2 -1
+ 3  3  3  2  2            2  3  3  3
+ 2  3  3  2 -1            2  2  3  2
+                          2  2  2  2
+```
+
+Both extractor masks (`ncwel1l0.spr`, `ncmin1l0.spr`) are 3 x 3, all effect 2.
+**Disproven:** the old guessed solid rectangles (Launch Pad 4 x 3, Power
+Generator 3 x 4) describe native collision. They blocked the authored docking
+cell. Merely adding `SetBay` while retaining those rectangles would still send
+the transporter to the movement system's fallback location. The loader now
+uses native masks for every resolved building, preserving walkable bays for
+all ground units. Altitude pairs are consumed but their separate height effects
+remain outside this collision correction.
+
+**Confirmed: facing, animation, and transfer batches.** `0x0049c010` uses
+unit-type `+0x608/+0x60c` for load facing/section and `+0x610/+0x614` for unload
+facing/section. It compares the part's facing (`+0x80 >> 16`), turns through
+`0x004a8480`, starts the section through `0x004a8920` with multiplier `0x10000`
+and one-shot mode 2, and waits for `0x004a8aa0` before transferring resources.
+`UNITS.TXT` gives all four mapped ground/hover transporters, across both
+factions, `SetTransportLoadAnimation(135 1)` and
+`SetTransportUnLoadAnimation(135 1)`. These are 135 degrees in the native
+east-zero, counterclockwise frame system, corresponding to engine
+`ANG90 + ANG45`, disk rotation slot 6. Degree conversion is visible at
+`0x004467e8..0x00446807`, using float `0x47360b61` at `0x005901f4` (approximately
+`2^24 / 360`). The native direction calculation uses `atan2(-dy, dx)`.
+
+Transporter part `SetRotationRate(10)` is converted with that same factor at
+`0x00447ab4` and stored at part-type `+0x54` at `0x00447ac4`.
+`0x004a8e00` advances along the shorter direction and clamps to the target.
+The four transporter definitions now use the native truncated 24-bit step
+`floor(2^24 * 10 / 360)`, shifted eight bits into the engine's 32-bit angle,
+per simulation tic. Other unit turn rates have not been inferred from this.
+
+The transfer records have stride 12: capacity `+0x500`, load batch `+0x504`,
+unload batch `+0x508`, indexed by resource. All four mapped transporter types
+declare water `(750,270,270)` and Taelon `(50,10,25)`. Each completed animation
+transfers a batch limited by cargo capacity, available resource, and receiver
+storage. The last water batch of a full load is therefore 210; Taelon takes two
+25-unit unload cycles. The former universal capacity 100 and continuous looping
+harvest animation were not native transporter behavior.
+
+**Confirmed: native section timing.** In `ucfrgst0.spr`, section 0 is frames
+0..2 at rate 65536 and section 1 is frames 3..17 at rate 19660, with 16
+rotations. In `uchfrst0.spr`, section 0 is frame 0 at rate 65536 and section 1
+is frames 1..15 at rate 19660, also with 16 rotations. Both sections report
+six hotspots. Section startup `0x004a8920` multiplies the shifted fixed-point
+operands: `(65536 >> 8) * (19660 >> 8) = 19456`. `0x004a96f0` advances the
+cursor and completes at `(last_frame + 1) << 16`. Thus one 15-frame pass takes
+51 simulation tics. Frame durations are consecutive differences of
+`ceil(n * 65536 / 19456)`, starting at n=0. Generated one-shot state chains
+encode those durations and terminate at standing; the shared thinker starts
+another pass only when another batch is required. Retail game speed is
+configurable from 1 to 60 (`0x004048b0`, global `0x006ccac0`), so 51 tics is
+not a claim of identical wall-clock duration at every retail speed setting.
+
+**Implementation and verification.** The shared thinker owns travel, exact
+arrival, turning, one-shot unloading, and credit transfer. Game definitions
+supply resource capacities/batches, states, facing, and compatibility; the
+level-owned Dark Reign mission stores authored bays. Cargo type and a stable
+destination-mobj reference persist during the trip. Removal clears references
+through the thinker lifecycle. Destroyed, incompatible, or blocked destinations
+cannot receive cargo. New harvest orders preserve retained cargo. Dark Colony
+retains automatic credits with zero cargo capacity; KKnD and 7th Legion retain
+their previous capacities and delivery behavior.
+
+Docking units cannot be displaced by ordinary unit separation. A transporter
+approaching a shared bay yields to one leaving it, using an unoccupied walkable
+neighbor before resuming its exact destination. **Engine behavior, not a
+verified retail algorithm:** this traffic procedure prevents opposing flow
+goals from pushing indefinitely against each other; the retail local avoidance
+algorithm remains unported. No distance-based fallback counts as unloading.
+
+`test_harvest_build` now drives all four transporter types through two complete
+water trips and two complete Taelon trips each. It checks the exact bay and
+135-degree pose, all 15 frames and 51 tics before every credit, batch sizes,
+resource conservation, return to the source, both factions' native bay data,
+the Launch Pad's full collision mask, destroyed/replaced/blocked destinations,
+shared-bay traffic, and stop/resume without cargo loss. Temporary diagnostics
+recorded every credited amount, position, facing, and the opposing-traffic
+stall; they are removed from the final implementation. A headless rendered
+M01F run, without removing other units, reached `(7.5,55.5)` with full cargo
+750 and unloading frame 10 (25 tics into the first pass). Visual inspection
+confirmed the unloading transporter on the Launch Pad's bay, instead of its
+previous northwest stopping point.
+
+**Remaining fidelity boundary:** exact native docking/transfer sequencing does
+not establish a complete retail economy or pathfinder. Extractor regeneration
+and stock, per-building receiving storage, water launch/economy timing, and
+retail local traffic arbitration are not fully implemented. Our existing
+resource balance receives delivered batches directly. The old six-cell
+proximity test is superseded by exact-coordinate and animation checks.
+
+Verification completed with `make`, `make tags`, generated-table comparison,
+53 test executables across `test-dark-reign`, `test-dark-colony`, and
+`test-7legion`, both model-command tests, and all four game binaries' headless
+`--check`. KKnD's `test_combat` death-frame assertion, `test_playable` assertion
+that production is unimplemented, and `test_production` zero-product assertion
+also fail in a clean archive of pre-change commit `efbac35`. The network suite
+passes command/session setup tests but fails its four-peer initial-state
+handshake both here and on that same clean baseline. These are recorded as
+existing failures, not reported as passing regressions. The local `/usr/local/bin/cmp`
+has an incompatible CPU architecture; generated comparisons pass using
+`/usr/bin/cmp` by putting `/usr/bin` first on PATH.
+
+Reproduce:
+
+```sh
+rg -n 'SetBay|SetBuildingImages' data/REIGN/dark/deftxt/BUILD.TXT
+rg -n 'SetTransport|SetRotationRate' data/REIGN/dark/deftxt/UNITS.TXT
+rg -n 'nclnc1l0|ncpow1l0|ncwel1l0|ncmin1l0' data/REIGN/dark/deftxt/OVLEFF.TXT
+r2 -q -e bin.cache=true -c 'af @ 0x49bbb0' -c 'pdf @ 0x49bbb0' -c q data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'af @ 0x49c010' -c 'pdf @ 0x49c010' -c q data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'af @ 0x4a96f0' -c 'pdf @ 0x4a96f0' -c q data/REIGN/dkreign.exe
+make build/bin/tests/dark-reign/test_harvest_build
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_harvest_build
+```

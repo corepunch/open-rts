@@ -216,8 +216,8 @@ DR_BuildingImages	games/dark-reign/w_map.c	/^bool DR_BuildingImages(const char *
 DR_BuildingImages	games/dark-reign/w_spr.c	/^bool DR_BuildingImages(const char *root, const char *sprite, char images[3][32]);$/;"	p	typeref:typename:bool	file:	signature:(const char * root,const char * sprite,char images[3][32])
 DR_DrawText	games/dark-reign/hud/dr_hud.h	/^void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width);$/;"	p	typeref:typename:void	signature:(const app_t * app,ivec2_t point,const char * text,int width)
 DR_DrawText	games/dark-reign/hud/sb_bar.c	/^void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {$/;"	f	typeref:typename:void	signature:(const app_t * app,ivec2_t point,const char * text,int width)
-DR_HarvestDropoffMatches	games/dark-reign/p_harvest.c	/^bool DR_HarvestDropoffMatches(const mobj_t *unit,$/;"	f	typeref:typename:bool	signature:(const mobj_t * unit,const resourcevent_t * vent,const mobj_t * base)
-DR_HarvestDropoffMatches	games/dark-reign/p_harvest.h	/^bool DR_HarvestDropoffMatches(const mobj_t *unit,$/;"	p	typeref:typename:bool	signature:(const mobj_t * unit,const resourcevent_t * vent,const mobj_t * base)
+DR_HarvestDropoffMatches	games/dark-reign/p_harvest.c	/^bool DR_HarvestDropoffMatches(const mobj_t *unit,$/;"	f	typeref:typename:bool	signature:(const mobj_t * unit,int resource_type,const mobj_t * base,fvec2_t * position)
+DR_HarvestDropoffMatches	games/dark-reign/p_harvest.h	/^bool DR_HarvestDropoffMatches(const mobj_t *unit,$/;"	p	typeref:typename:bool	signature:(const mobj_t * unit,int resource_type,const mobj_t * base,fvec2_t * position)
 DR_MinimapRect	games/dark-reign/hud/dr_hud.h	/^irect_t DR_MinimapRect(const level_t *map);$/;"	p	typeref:typename:irect_t	signature:(const level_t * map)
 DR_MinimapRect	games/dark-reign/hud/sb_bar.c	/^irect_t DR_MinimapRect(const level_t *map) {$/;"	f	typeref:typename:irect_t	signature:(const level_t * map)
 DR_PaletteDrawer	games/dark-reign/hud/dr_hud.h	/^void DR_PaletteDrawer(sb_state_t *st, const app_t *app);$/;"	p	typeref:typename:void	signature:(sb_state_t * st,const app_t * app)
@@ -230,7 +230,7 @@ DR_SPR_LSPR	games/dark-reign/w_spr.c	/^#define DR_SPR_LSPR /;"	d	file:
 DR_SPR_RSPR	games/dark-reign/w_spr.c	/^#define DR_SPR_RSPR /;"	d	file:
 DR_SPR_SSPR	games/dark-reign/w_spr.c	/^#define DR_SPR_SSPR /;"	d	file:
 DecorationSpec	games/dark-reign/w_map.c	/^} DecorationSpec;$/;"	t	typeref:struct:__anon47bd03590208	file:
-Definitions	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	t	typeref:struct:__anon47bd03590108	file:
+Definitions	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	t	typeref:struct:__anon47bd03590108	file:
 EDGE_MATCH_BELOW	games/dark-reign/w_map.c	/^    EDGE_MATCH_BELOW,$/;"	e	enum:__anon47bd03590403	file:
 EDGE_MATCH_EQUAL	games/dark-reign/w_map.c	/^    EDGE_MATCH_EQUAL,$/;"	e	enum:__anon47bd03590403	file:
 EdgeFrame	games/dark-reign/w_map.c	/^} EdgeFrame;$/;"	t	typeref:struct:__anon47bd03590608	file:
@@ -1202,11 +1202,12 @@ __DR_TYPES__	games/dark-reign/dr_types.h	/^#define __DR_TYPES__$/;"	d
 __INFO__	games/dark-reign/info.h	/^#define __INFO__$/;"	d
 __MOBJ_DATA__	games/dark-reign/mobj_data.h	/^#define __MOBJ_DATA__$/;"	d
 __P_HARVEST__	games/dark-reign/p_harvest.h	/^#define __P_HARVEST__$/;"	d
-__anon47bd03590108	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	s	file:
-__anon47bd03590108::animate	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
-__anon47bd03590108::buildings	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
-__anon47bd03590108::overlay	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
-__anon47bd03590108::units	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+__anon47bd03590108	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	s	file:
+__anon47bd03590108::animate	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+__anon47bd03590108::buildings	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+__anon47bd03590108::effects	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+__anon47bd03590108::overlay	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+__anon47bd03590108::units	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 __anon47bd03590208	games/dark-reign/w_map.c	/^typedef struct {$/;"	s	file:
 __anon47bd03590208::footprint	games/dark-reign/w_map.c	/^    isize2_t footprint;$/;"	m	struct:__anon47bd03590208	typeref:typename:isize2_t	file:
 __anon47bd03590208::shadow_name	games/dark-reign/w_map.c	/^    const char *type_name, *sprite_name, *shadow_name;$/;"	m	struct:__anon47bd03590208	typeref:typename:const char *	file:
@@ -1215,6 +1216,7 @@ __anon47bd03590208::sprite_name	games/dark-reign/w_map.c	/^    const char *type_
 __anon47bd03590208::type_name	games/dark-reign/w_map.c	/^    const char *type_name, *sprite_name, *shadow_name;$/;"	m	struct:__anon47bd03590208	typeref:typename:const char *	file:
 __anon47bd03590308	games/dark-reign/w_map.c	/^typedef struct {$/;"	s	file:
 __anon47bd03590308::center_anchor	games/dark-reign/w_map.c	/^    bool center_anchor;$/;"	m	struct:__anon47bd03590308	typeref:typename:bool	file:
+__anon47bd03590308::effects	games/dark-reign/w_map.c	/^    const char *effects; \/* Borrowed, validated OVLEFF cell pairs. *\/$/;"	m	struct:__anon47bd03590308	typeref:typename:const char *	file:
 __anon47bd03590308::footprint	games/dark-reign/w_map.c	/^    isize2_t footprint;$/;"	m	struct:__anon47bd03590308	typeref:typename:isize2_t	file:
 __anon47bd03590308::frame_index	games/dark-reign/w_map.c	/^    int frame_index;$/;"	m	struct:__anon47bd03590308	typeref:typename:int	file:
 __anon47bd03590308::has_sprite_pivot	games/dark-reign/w_map.c	/^    bool has_sprite_pivot;$/;"	m	struct:__anon47bd03590308	typeref:typename:bool	file:
@@ -1284,6 +1286,7 @@ __anonc98b33940208	games/dark-reign/dr_types.h	/^typedef struct {$/;"	s
 __anonc98b33940208::__anonc98b33940308	games/dark-reign/dr_types.h	/^    struct { int type, tech_level; } products[64];$/;"	s	struct:__anonc98b33940208
 __anonc98b33940208::__anonc98b33940308::tech_level	games/dark-reign/dr_types.h	/^    struct { int type, tech_level; } products[64];$/;"	m	struct:__anonc98b33940208::__anonc98b33940308	typeref:typename:int
 __anonc98b33940208::__anonc98b33940308::type	games/dark-reign/dr_types.h	/^    struct { int type, tech_level; } products[64];$/;"	m	struct:__anonc98b33940208::__anonc98b33940308	typeref:typename:int
+__anonc98b33940208::bays	games/dark-reign/dr_types.h	/^    ivec2_t bays[]; \/* Native SetBay by mobj type; (-1,-1) means no bay. *\/$/;"	m	struct:__anonc98b33940208	typeref:typename:ivec2_t[]
 __anonc98b33940208::product_count	games/dark-reign/dr_types.h	/^    int product_count;$/;"	m	struct:__anonc98b33940208	typeref:typename:int
 __anonc98b33940208::products	games/dark-reign/dr_types.h	/^    struct { int type, tech_level; } products[64];$/;"	m	struct:__anonc98b33940208	typeref:struct:__anonc98b33940208::__anonc98b33940308[64]
 __anonc98b33940208::tech_level	games/dark-reign/dr_types.h	/^    int tech_level;$/;"	m	struct:__anonc98b33940208	typeref:typename:int
@@ -1297,14 +1300,16 @@ add_dark_reign_decoration	games/dark-reign/w_map.c	/^static void add_dark_reign_
 add_water_animations	games/dark-reign/w_spr.c	/^void add_water_animations(tileset_t *tileset);$/;"	p	typeref:typename:void	file:	signature:(tileset_t * tileset)
 add_water_animations	games/dark-reign/w_til.c	/^void add_water_animations(tileset_t *tileset) {$/;"	f	typeref:typename:void	signature:(tileset_t * tileset)
 ai_profile_t	games/dark-reign/dr_types.h	/^} ai_profile_t;$/;"	t	typeref:struct:__anonc98b33940108
-animate	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+animate	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 append_ui_script	games/dark-reign/p_prod.c	/^static void append_ui_script(char *dst, size_t dst_size, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * fmt,...)
+apply_effects	games/dark-reign/w_map.c	/^static void apply_effects(level_t *map, const VisualSpec *spec, ivec2_t origin) {$/;"	f	typeref:typename:void	file:	signature:(level_t * map,const VisualSpec * spec,ivec2_t origin)
 attack_enemy_base_priority	games/dark-reign/dr_types.h	/^    int attack_enemy_base_priority;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
 attacksound	games/dark-reign/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 bar	games/dark-reign/hud/sb_bar.c	/^static sb_state_t bar;$/;"	v	typeref:typename:sb_state_t	file:
 base_frame_for_type	games/dark-reign/w_map.c	/^static int base_frame_for_type(int terrain_type, int variation) {$/;"	f	typeref:typename:int	file:	signature:(int terrain_type,int variation)
+bays	games/dark-reign/dr_types.h	/^    ivec2_t bays[]; \/* Native SetBay by mobj type; (-1,-1) means no bay. *\/$/;"	m	struct:__anonc98b33940208	typeref:typename:ivec2_t[]
 building_actor	games/dark-reign/w_map.c	/^static uint16_t building_actor(const Definitions *defs, const char *name) {$/;"	f	typeref:typename:uint16_t	file:	signature:(const Definitions * defs,const char * name)
-buildings	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+buildings	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 center_anchor	games/dark-reign/w_map.c	/^    bool center_anchor;$/;"	m	struct:__anon47bd03590308	typeref:typename:bool	file:
 compare_map_decorations	games/dark-reign/w_map.c	/^static int compare_map_decorations(const void *a, const void *b) {$/;"	f	typeref:typename:int	file:	signature:(const void * a,const void * b)
 copy_trimmed_token	games/dark-reign/w_map.c	/^static void copy_trimmed_token(char *dst, size_t dst_size, const char *src, size_t len) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * src,size_t len)
@@ -1330,6 +1335,8 @@ dr_spr_header_t	games/dark-reign/w_spr.c	/^} dr_spr_header_t;$/;"	t	typeref:stru
 draw_image	games/dark-reign/hud/sb_palette.c	/^static void draw_image(sb_state_t *st, const app_t *app, int image, irect_t src, irect_t dst) {$/;"	f	typeref:typename:void	file:	signature:(sb_state_t * st,const app_t * app,int image,irect_t src,irect_t dst)
 draw_minimap	games/dark-reign/hud/sb_bar.c	/^static void draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, int count) {$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,mobj_t * const * units,int count)
 edge_frame_for_template	games/dark-reign/w_map.c	/^static int edge_frame_for_template(int template_id) {$/;"	f	typeref:typename:int	file:	signature:(int template_id)
+effects	games/dark-reign/w_map.c	/^    const char *effects; \/* Borrowed, validated OVLEFF cell pairs. *\/$/;"	m	struct:__anon47bd03590308	typeref:typename:const char *	file:
+effects	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 enabled	games/dark-reign/hud/sb_palette.c	/^static bool enabled(const StaticProductDefinition *p, mobj_t *u) {$/;"	f	typeref:typename:bool	file:	signature:(const StaticProductDefinition * p,mobj_t * u)
 entries	games/dark-reign/w_spr.c	/^typedef struct { blob_t file; const FtgEntry *entries; int count; } FtgArchive;$/;"	m	struct:__anon4831d8900208	typeref:typename:const FtgEntry *	file:
 exploration_priority	games/dark-reign/dr_types.h	/^    int exploration_priority;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
@@ -1449,7 +1456,7 @@ nrots	games/dark-reign/w_spr.c	/^    int32_t  nrots;$/;"	m	struct:__anon4831d890
 nsects	games/dark-reign/w_spr.c	/^    int32_t  nsects;$/;"	m	struct:__anon4831d8900308	typeref:typename:int32_t	file:
 num_actor_types	games/dark-reign/g_game.c	/^const int num_actor_types =$/;"	v	typeref:typename:const int
 offset	games/dark-reign/w_spr.c	/^typedef struct { char name[28]; uint8_t offset[4], size[4]; } FtgEntry;$/;"	m	struct:__anon4831d8900108	typeref:typename:uint8_t[4]	file:
-overlay	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+overlay	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 painchance	games/dark-reign/info.h	/^    int painchance;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 painsound	games/dark-reign/info.h	/^    int painsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 painstate	games/dark-reign/info.h	/^    int painstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -1470,6 +1477,7 @@ repair_buildings	games/dark-reign/dr_types.h	/^    bool repair_buildings;$/;"	m	
 replace_extension	games/dark-reign/w_map.c	/^static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * path,const char * ext)
 resolve_animation_sprite	games/dark-reign/w_map.c	/^static bool resolve_animation_sprite(const Definitions *defs,$/;"	f	typeref:typename:bool	file:	signature:(const Definitions * defs,const char * animation_name,char * sprite_name,size_t sprite_name_size)
 resolve_building_visual	games/dark-reign/w_map.c	/^static bool resolve_building_visual(const Definitions *defs, const char *type_name,$/;"	f	typeref:typename:bool	file:	signature:(const Definitions * defs,const char * type_name,VisualSpec * out)
+resolve_effects	games/dark-reign/w_map.c	/^static bool resolve_effects(const Definitions *defs, const char *sprite, VisualSpec *out) {$/;"	f	typeref:typename:bool	file:	signature:(const Definitions * defs,const char * sprite,VisualSpec * out)
 resolve_thing_visual	games/dark-reign/w_map.c	/^static bool resolve_thing_visual(const Definitions *defs, const char *type_name,$/;"	f	typeref:typename:bool	file:	signature:(const Definitions * defs,const char * type_name,VisualSpec * out)
 resolve_unit_visual	games/dark-reign/w_map.c	/^static bool resolve_unit_visual(const Definitions *defs, const char *type_name,$/;"	f	typeref:typename:bool	file:	signature:(const Definitions * defs,const char * type_name,VisualSpec * out)
 resource_priority	games/dark-reign/dr_types.h	/^    int resource_priority;$/;"	m	struct:__anonc98b33940108	typeref:typename:int
@@ -1516,7 +1524,7 @@ tooltip	games/dark-reign/hud/sb_palette.c	/^static void tooltip(const app_t *app
 type	games/dark-reign/dr_types.h	/^    struct { int type, tech_level; } products[64];$/;"	m	struct:__anonc98b33940208::__anonc98b33940308	typeref:typename:int
 type	games/dark-reign/p_prod.c	/^    static const struct { int type; int seconds; } times[] = {$/;"	m	struct:G_ModelProductTrainingTimeMs::__anond1c409a90108	typeref:typename:int	file:
 type_name	games/dark-reign/w_map.c	/^    const char *type_name, *sprite_name, *shadow_name;$/;"	m	struct:__anon47bd03590208	typeref:typename:const char *	file:
-units	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; } Definitions;$/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
+units	games/dark-reign/w_map.c	/^typedef struct { char *units; char *buildings; char *overlay; char *animate; char *effects; } De/;"	m	struct:__anon47bd03590108	typeref:typename:char *	file:
 update_selection	games/dark-reign/hud/sb_palette.c	/^static void update_selection(sb_state_t *st) {$/;"	f	typeref:typename:void	file:	signature:(sb_state_t * st)
 version	games/dark-reign/w_spr.c	/^    int32_t  version;$/;"	m	struct:__anon4831d8900308	typeref:typename:int32_t	file:
 visible_bounds_indexed	games/dark-reign/w_spr.c	/^static irect_t visible_bounds_indexed(const uint8_t *indices, int w, int h) {$/;"	f	typeref:typename:irect_t	file:	signature:(const uint8_t * indices,int w,int h)

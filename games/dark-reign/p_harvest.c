@@ -1,14 +1,21 @@
 #include "p_harvest.h"
 
 #include "info.h"
+#include "dr_types.h"
+#include "p_local.h"
+#include "game.h"
 
 bool DR_HarvestDropoffMatches(const mobj_t *unit,
-                              const resourcevent_t *vent,
-                              const mobj_t *base) {
+                              int resource_type, const mobj_t *base,
+                              fvec2_t *position) {
     (void)unit;
-    if (!vent || !base) return false;
+    const dr_mission_t *mission = level.mission;
+    if (!mission || !base || base->type_id >= gameinfo->mobj_type_count) return false;
+    ivec2_t bay = mission->bays[base->type_id];
+    if (bay.x < 0 || bay.y < 0) return false;
+    *position = fvec2_add(fixed3_xy_to_fvec2(base->core.position), fvec2_cell_center(bay));
 
-    switch (vent->resource_type) {
+    switch (resource_type) {
         case 0:
             return base->type_id == MT_FG_LIFE_PLANT ||
                    base->type_id == MT_IMP_LIFE_PLANT;

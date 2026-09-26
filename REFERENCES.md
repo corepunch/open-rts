@@ -1390,7 +1390,15 @@ directory (case-insensitive `Reference` on this workspace filesystem):
   locally). Retail `BUILD.TXT` instead supplies `SetBay`; `dkreign.exe`
   `0x004a056c..0x004a059c` stores its arguments in the low two nibbles of the
   building-type field at `+0x22c`. See the delivery-point investigation in
-  `docs/DR_EXE_FINDINGS.md` for executable fingerprint, diagnostics, and unknowns.
+  `docs/DR_EXE_FINDINGS.md` for executable fingerprint and diagnostics. The
+  subsequent “Retail transporter docking correction” traces route creation
+  (`0x0049bbb0`), exact bay lookup (`0x00422550`), transfer/facing/one-shot
+  handoff (`0x0049c010`), and animation advancement (`0x004a96f0`) in the same
+  executable. Local native `dark/deftxt/{BUILD,UNITS,OVLEFF}.TXT` and
+  `ucfrgst0.spr`/`uchfrst0.spr` supply bay coordinates, collision masks,
+  capacities/batches, facing and section timing. The user's September 26
+  screenshot is of the defective open-rts result, not retail. No upstream
+  DockOffset or DockAngle was substituted for the native rules.
 - [OpenKrush](https://github.com/IceReaper/OpenKrush), `reference/OpenKrush`,
   pinned to `76c634d05984e48e1e474460c46607aee0bc78a1`.
   `OpenRA.Mods.OpenKrush/Widgets/Ingame/` supplies the 48-pixel sidebar and

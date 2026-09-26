@@ -31,7 +31,7 @@ typedef struct {
     int shoot_start, shoot_len, shoot_tick;
     int stand_start;
     int idle_start,  idle_len;
-    int harvest_start, harvest_len, harvest_tick;
+    int harvest_start, harvest_len, harvest_rate;
 } dr_anim_t;
 
 typedef struct {
@@ -50,7 +50,7 @@ typedef struct {
 #define ANIM(f,rs,rl,rt, ss,sl,st, stnd, is,il) \
     { (f), (rs),(rl),(rt), (ss),(sl),(st), (stnd), (is),(il), -1, 0, 0 }
 
-/* Same fields plus harvest_start, harvest_len, harvest_tick.
+/* Same fields plus harvest_start, harvest_len, native 16.16 harvest_rate.
  * harvest_start is the logical RSPR step (OpenDR Start / Facings). */
 #define HARVEST_ANIM(f,rs,rl,rt, ss,sl,st, stnd, is,il, hs,hl,ht) \
     { (f), (rs),(rl),(rt), (ss),(sl),(st), (stnd), (is),(il), (hs),(hl),(ht) }
@@ -118,13 +118,13 @@ static const dr_entry_t entries[] = {
            750, 5, 0, "|MF_HARVESTER",
            /* run: Start=0,F=16,L=3,T=100  stand at step 0 (Stride=3)
             * harvest: RSPR sect 1 anims 3..17, 16 facings (OpenDR Start=48) */
-           HARVEST_ANIM(16, 0,3,100, -1,0,0,  0,  -1,0,  3,15,100)),
+           HARVEST_ANIM(16, 0,3,100, -1,0,0,  0,  -1,0,  3,15,19660)),
 
     MOBILE("FG_HOVER_FREIGHTER", "UCHFRST0", "ACTOR_FG_HOVER_TRANSPORTER",
            500, 5, 11, "|MF_HARVESTER|MF_ATTACK",
            /* run: single-frame body (F=16,L=1)
             * harvest: RSPR sect 1 anims 1..15, 16 facings */
-           HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,100)),
+           HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,19660)),
 
     MOBILE("FG_RAIDER", "UFRADST0", "ACTOR_FG_RAIDER",
            100, 5, 11, "|MF_ATTACK",
@@ -328,12 +328,12 @@ static const dr_entry_t entries[] = {
     MOBILE_ASSET("IMP_GROUND_TRANSPORTER", "UCFRGST0_IMP", "ucfrgst0.spr",
            "ACTOR_IMP_GROUND_TRANSPORTER",
            750, 5, 0, "|MF_HARVESTER",
-           HARVEST_ANIM(16, 0,3,100, -1,0,0,  0,  -1,0,  3,15,100)),
+           HARVEST_ANIM(16, 0,3,100, -1,0,0,  0,  -1,0,  3,15,19660)),
 
     MOBILE_ASSET("IMP_HOVER_TRANSPORTER", "UCHFRST0_IMP", "uchfrst0.spr",
            "ACTOR_IMP_HOVER_TRANSPORTER",
            500, 5, 11, "|MF_HARVESTER|MF_ATTACK",
-           HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,100)),
+           HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,19660)),
 
     MOBILE_ASSET("IMP_SPY", "UCINFST0_IMP", "ucinfst0.spr",
            "ACTOR_IMP_SPY",
@@ -624,12 +624,19 @@ static bool write_inc(const char *animate_dir, const char *sprite,
 
     /* HARVEST */
     if (a->harvest_start >= 0 && a->harvest_len > 0) {
-        int tics = tics_from_tick(a->harvest_tick);
+        /* Retail section 1 advances by (19660 >> 8) * 256 = 19456
+         * fixed-point frames per simulation tic (004a8920/004a96f0).
+         * Play once; the shared harvester transfers a batch on completion. */
+        const int rate = (a->harvest_rate >> 8) * 256;
         for (int s = 0; s < a->harvest_len; ++s) {
-            int next = s < a->harvest_len - 1 ? s + 2 : 1;
-            fprintf(f, "    [S_%s_HARVEST%d] = { SPR_%s, %d, %d, NULL, S_%s_HARVEST%d, 5 },\n",
-                    sprite, s + 1, sprite, a->harvest_start + s, tics,
-                    sprite, next);
+            int tics = ((s + 1) * 65536 + rate - 1) / rate -
+                       (s * 65536 + rate - 1) / rate;
+            if (s < a->harvest_len - 1)
+                fprintf(f, "    [S_%s_HARVEST%d] = { SPR_%s, %d, %d, NULL, S_%s_HARVEST%d, 5 },\n",
+                        sprite, s + 1, sprite, a->harvest_start + s, tics, sprite, s + 2);
+            else
+                fprintf(f, "    [S_%s_HARVEST%d] = { SPR_%s, %d, %d, NULL, S_%s_STND, 5 },\n",
+                        sprite, s + 1, sprite, a->harvest_start + s, tics, sprite);
         }
     }
 
@@ -780,7 +787,7 @@ static bool write_info_c(const char *path, const dr_entry_t *entries, int count)
 
     fprintf(f,
         "/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */\n"
-        "#include \"engine.h\"\n#include \"dr_types.h\"\n#include \"info.h\"\n\n");
+        "#include \"engine.h\"\n#include \"dr_types.h\"\n#include \"info.h\"\n#include \"p_harvest.h\"\n\n");
 
     /* sprnames */
     fprintf(f, "const char *const sprnames[NUMSPRITES] = {\n");
@@ -851,7 +858,8 @@ static bool write_info_c(const char *path, const dr_entry_t *entries, int count)
                "    sprnames, NUMSPRITES, states, NUMSTATES, mobjinfo, NUMMOBJTYPES,\n"
                "    S_NULL, RTS_STATE_COORDS_GROUND_OFFSET,\n"
                "    { .style = SELECTION_STYLE_BRACKETS },\n    NULL,\n"
-               "    .right_click_orders = false,\n};\n");
+               "    .right_click_orders = false,\n"
+               "    .harvest_dropoff_matches = DR_HarvestDropoffMatches,\n};\n");
 
     return fclose(f) == 0;
 }
