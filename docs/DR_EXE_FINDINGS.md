@@ -431,6 +431,89 @@ pathing through this overlap remains unverified.
 the Freighter is ordered onto a pit corner, attaches, plays at least two harvest
 frames, cargo flows, three 100-credit deliveries fund the HQ, and the Rig trains.
 
+### Freighter delivery-point investigation (2026-09-26)
+
+**Confirmed engine defect.** `send_harvester_home` in `play/p_mobj.c`
+requests the compatible building's position through `P_MoveUnitTo`. That
+general movement function substitutes a nearby walkable position for blocked
+goals. The substituted goal becomes `harvest.return_position`, and
+`update_unit_harvest` credits the cargo as soon as `movement.order_arrived`
+becomes true. There is no destination-building reference, authored bay,
+delivery-facing check, or unloading state in this path. Reaching the movement
+fallback therefore counts as delivery regardless of its relation to a bay.
+
+Temporary env-gated diagnostics at return-goal assignment and crediting,
+running `test_harvest_build` on M01F, recorded:
+
+| Resource | Building position | Movement goal and actual unloading position |
+| --- | --- | --- |
+| Water | Launch Pad `(4,53)` | `(3.5,52.5)` |
+| Taelon | Power Generator `(5,39)` | `(4.5,38.5)` |
+
+All three existing test cases pass, including three water deliveries funding
+a Construction Rig. **Disproven:** these passing tests establish correct
+docking. They establish arrival at the substituted movement goal and a
+destination within six cells of the building, not arrival at its native bay.
+Diagnostics were removed after the investigation.
+
+**Confirmed OpenDR configuration**, revision
+`98079a904746440433795fe7f21c4b35eb6b3959` in `reference/OpenDR`:
+`mods/dr/rules/structures.yaml` gives `WaterLaunchPad` a `DockHost` with
+`Type: Unload`, `DockOffset: -1c0,1c0,0`, and `DockAngle: 0` (with a commented
+`32` alternative). `vehicles.yaml` gives both Freighters `Harvester`,
+`StoresResources`, `DockClientManager`, and `WithDockingAnimation`. Its
+`Power` entry has the old refinery configuration commented out and no active
+`DockHost`. `DrRefinery.cs` calls `AddWater(value)` for accepted resources in
+both storage branches. Thus this checkout is evidence for an explicit dock
+model, not a verified complete retail water/Taelon implementation.
+`mod.config` pins OpenRA to `playtest-20260222`; its engine checkout is absent
+locally, so the shared C# docking activity was not inspected here.
+
+**Confirmed native asset and parser evidence.** Retail
+`dark/deftxt/BUILD.TXT` describes `SetBay` as the bay location within the
+building type and declares `SetBay(3 2)` for `fglp`, `SetBay(1 3)` for `fgpp`.
+The current Dark Reign loader does not consume `SetBay`. In
+`data/REIGN/dkreign.exe`, SHA-256
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`
+(the PE32/i386 executable fingerprinted above), the parser compares the
+`SetBay` string at `0x005c42dc` from `0x004a04e5`, reads two integers, and
+stores them in the building-type record at `+0x22c`:
+
+```
+bits 0..3 = first argument & 15
+bits 4..7 = second argument & 15
+```
+
+Instructions `0x004a056c..0x004a059c` confirm the masks and second-argument
+shift; higher bits are preserved. Broad discovery used the existing
+`reverse/dr-hud/dkreign.c`, then these stores were checked in disassembly.
+**Unknown:** the runtime transformation from these local bay coordinates to
+the transporter's destination, the required delivery facing, and the
+unloading handoff/timing. No OpenDR offset has been substituted for those
+unknown retail rules.
+
+**Implementation consequence.** Keep return travel, arrival validation, and
+cargo transfer in the shared simulation, with game-owned building/resource
+compatibility and native docking data. The existing shared distinction is
+`harvest.capacity > 0` for cargo trips versus zero for automatic credits;
+Dark Colony's Exploiter and Slug use zero. A return trip and a final facing
+requirement are separate behaviors. Trace readers of the bay field and the
+retail transport state machine before implementing exact Dark Reign docking.
+This investigation changes documentation only; the delivery defect remains.
+
+Reproduce the current behavior and parser evidence:
+
+```sh
+make build/bin/tests/dark-reign/test_harvest_build
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_harvest_build
+rg -n 'SetBay' data/REIGN/dark/deftxt/BUILD.TXT
+r2 -q -e bin.cache=true -c 'pd 85 @ 0x004a04dc' -c q data/REIGN/dkreign.exe
+```
+
+For the position trace, temporarily print `base->core.position` and
+`unit->movement.goal` just after `harvest.return_position` is assigned, and
+`unit->core.position` immediately before cargo is credited.
+
 ### Remaining fidelity limits
 
 The radar terrain-color path is identified but not ported: `0x0048fac0` calls

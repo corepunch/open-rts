@@ -1381,6 +1381,16 @@ directory (case-insensitive `Reference` on this workspace filesystem):
   `mods/dr/sequences/{structures,infantry,vehicles}.yaml`, and
   `mods/dr/rules/structures-building.yaml` supply sidebar rectangles, glyphs,
   original SPR menu-image names, and retained base prerequisites after upgrades.
+  Delivery investigation (2026-09-26): `mods/dr/rules/structures.yaml` defines
+  the Water Launch Pad's `DockHost` offset/facing, while the power refinery is
+  commented out; `mods/dr/rules/vehicles.yaml` configures shared harvester and
+  docking traits. `OpenRA.Mods.Dr/Traits/Buildings/DrRefinery.cs` credits water
+  for accepted resources. These are reference behavior, not proof of retail
+  docking. `mod.config` pins OpenRA to `playtest-20260222` (engine not present
+  locally). Retail `BUILD.TXT` instead supplies `SetBay`; `dkreign.exe`
+  `0x004a056c..0x004a059c` stores its arguments in the low two nibbles of the
+  building-type field at `+0x22c`. See the delivery-point investigation in
+  `docs/DR_EXE_FINDINGS.md` for executable fingerprint, diagnostics, and unknowns.
 - [OpenKrush](https://github.com/IceReaper/OpenKrush), `reference/OpenKrush`,
   pinned to `76c634d05984e48e1e474460c46607aee0bc78a1`.
   `OpenRA.Mods.OpenKrush/Widgets/Ingame/` supplies the 48-pixel sidebar and
