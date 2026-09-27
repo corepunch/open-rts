@@ -122,6 +122,7 @@ typedef struct bitmapfont_s {
     isize2_t glyph_size;
     int line_h;
     int draw_divisor;
+    bool native_origin; /* Draw cells at their authored displacement. */
 } bitmapfont_t;
 
 #define RTS_MAX_HUD_MESSAGES 8

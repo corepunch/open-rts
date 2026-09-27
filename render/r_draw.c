@@ -1158,7 +1158,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             }
             SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
                 SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-            R_DrawSprite(app->renderer, source, part->lump, u->team, NULL,
+            int translation = level.player_teams && u->team < 8 ? level.player_colors[u->team] : u->team;
+            R_DrawSprite(app->renderer, source, part->lump, translation, NULL,
                          &part_dst, part_flip, color, blend);
         }
     } else {

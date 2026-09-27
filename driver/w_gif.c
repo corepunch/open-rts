@@ -196,6 +196,8 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
                 }
             }
         }
+        memcpy(out->source_palette, palette, sizeof(out->source_palette));
+        memcpy(out->palette, palette, sizeof(out->palette));
         free(indices);
         decoded = true;
     }

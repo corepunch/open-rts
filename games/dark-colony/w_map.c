@@ -5,6 +5,8 @@
 #include "gamestat.h"
 #include "dc_types.h"
 #include "d_net.h"
+#include "dc_skirmish.h"
+#include "m_random.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -83,6 +85,8 @@ typedef struct {
     int team_count;
     ScenarioObject *objects;
     int object_count;
+    bool skirmish;
+    dc_skirmish_t setup;
 } ScenarioFile;
 
 static int parse_dark_colony_int_list(const char *token, int *out, int max_count) {
@@ -117,9 +121,70 @@ bool map_has_ai(const level_t *map, int owner) {
     const ScenarioFile *scenario = map->native_data;
     for (int i = 0; i < scenario->team_count; ++i) {
         const ScenarioTeam *team = &scenario->teams[i];
+        if (scenario->skirmish && i != owner) continue;
         if (team->active && team->number != 0 && team->ai > 0) return true;
     }
     return false;
+}
+
+const dc_skirmish_t *DC_LevelSkirmish(const level_t *map) {
+    const ScenarioFile *scenario = map ? map->native_data : NULL;
+    return scenario && scenario->skirmish ? &scenario->setup : NULL;
+}
+
+static bool apply_skirmish(ScenarioFile *scenario, level_t *map) {
+    ScenarioTeam starts[8];
+    memcpy(starts, scenario->teams, sizeof(starts));
+    int capacity = scenario->header_values[1], count = 0;
+    if (scenario->header_value_count < 2 || capacity < 1 || capacity > 8) return false;
+    int players[8] = {-1,-1,-1,-1,-1,-1,-1,-1};
+    for (int i = 0; i < 8; ++i)
+        if (scenario->setup.players[i].type != DC_PLAYER_NONE) players[count++] = i;
+    if (count > capacity) return false;
+    map->player_teams = true;
+    /* 0x401507..0x401595: compact occupied slots, include empty starts,
+     * then shuffle with the native table RNG. Keep engine player IDs stable. */
+    uint8_t random = scenario->setup.seed;
+    for (int i = 0; i < capacity; ++i) {
+        int j = i + M_DC_Random(&random) % (capacity - i);
+        int swap = players[i]; players[i] = players[j]; players[j] = swap;
+    }
+    memset(scenario->teams, 0, sizeof(starts));
+    for (int i = 0; i < capacity; ++i)
+        if (players[i] >= 0) scenario->teams[players[i]] = starts[i];
+    if (scenario->team_count < 8) scenario->team_count = 8;
+    map->random_index = scenario->setup.seed; /* Native SCN load resets RNG. */
+    for (int i = 0; i < 8; ++i) {
+        const dc_skirmish_player_t *player = &scenario->setup.players[i];
+        ScenarioTeam *team = &scenario->teams[i];
+        team->active = player->type != DC_PLAYER_NONE;
+        team->number = i;
+        team->race = player->race;
+        team->ai = player->type == DC_PLAYER_HUMAN ? 0 : 3;
+        team->allies_count = 8;
+        for (int j = 0; j < 8; ++j)
+            team->allies[j] = player->team == scenario->setup.players[j].team;
+        map->player_colors[i] = player->color;
+    }
+    for (int i = 0; i < scenario->object_count; ++i) {
+        ScenarioObject *object = &scenario->objects[i];
+        if (object->type == OBJECT_TYPE_PETRA7_VENT || object->team < 0 || object->team >= 8) continue;
+        object->team = players[object->team];
+        if (object->team < 0) continue;
+        if (object->type >= 0 && object->type < GAMESTAT_UNIT_COUNT) {
+            const DcGamestatUnit *type = &dc_gamestat_units[object->type];
+            /* 0x4385f8 loads column 30 into type +0x114;
+             * 0x41b158 uses it when SCN and player races differ. */
+            if (type->value_count > 30 && type->values[GAMESTAT_UNIT_RACE] != scenario->teams[object->team].race &&
+                type->values[30] >= 0 && type->values[30] < GAMESTAT_UNIT_COUNT)
+                object->type = type->values[30];
+        }
+        if (object->type >= 69 && object->type <= 76) {
+            object->type = (scenario->teams[object->team].race ? 73 : 69) + scenario->setup.rank;
+            object->status = -1;
+        }
+    }
+    return true;
 }
 
 int DC_PlayerRace(int owner) {
@@ -321,8 +386,14 @@ static void load_dark_colony_resource_vents_from_scenario(const ScenarioFile *sc
     for (int i = 0; i < scenario->object_count; ++i) {
         const ScenarioObject *object = &scenario->objects[i];
         if (object->type == OBJECT_TYPE_PETRA7_VENT) {
+            int rate = object->team, amount = object->status;
+            if (scenario->skirmish) {
+                /* 0x41b1af/0x41b22a: stats (0,2)/(0,1), signed 8.8. */
+                rate = (int)((int64_t)rate * scenario->setup.flow / 4);
+                amount = (int)((int64_t)amount * scenario->setup.quantity / 4);
+            }
             append_dark_colony_resource_vent(map, object->cell.x, object->cell.y,
-                                             object->team, object->status);
+                                             rate, amount);
         }
     }
 }
@@ -431,6 +502,8 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     char path[1024];
     replace_extension(path, sizeof(path), map.path, ".SCN");
     if (scenario_load(path, scenario)) {
+        scenario->skirmish = DC_TakeSkirmish(map_path, &scenario->setup);
+        if (scenario->skirmish && !apply_skirmish(scenario, out)) goto fail;
         char *dot = strrchr(scenario->tileset_file, '.');
         if (dot) *dot = '\0';
         snprintf(out->tileset_name, sizeof(out->tileset_name), "%s", M_Upper(scenario->tileset_file));
@@ -604,7 +677,7 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     u->ability_charge = 0x40; /* DC.EXE 0x419d44: object byte +0x0a. */
     u->owner = (allegiance == DC_ALLEGIANCE_PLAYER || mobj_type == MT_COMMS_DISH) ? 0 :
                (allegiance == DC_ALLEGIANCE_ALLIED ? 2 : 1);
-    if (netgame) u->owner = (uint8_t)team;
+    if (netgame || level.player_teams) u->owner = (uint8_t)team;
     u->team = (uint8_t)team;
     u->allegiance = allegiance == DC_ALLEGIANCE_PLAYER ? ALLEGIANCE_PLAYER :
                     allegiance == DC_ALLEGIANCE_ALLIED ? ALLEGIANCE_ALLIED : ALLEGIANCE_ENEMY;
@@ -627,6 +700,7 @@ static void spawn_dynamic(InitialUnits *units, const ScenarioFile *scenario,
         object.type < 0 || object.type > 255 ||
         units->dynamic_count >= MAX_OBJECTS - DYNAMIC_OBJECT_FIRST) return;
     units->dynamic_count++;
+    if (scenario->skirmish && object.team < 8 && !scenario->teams[object.team].active) return;
     int race = scenario->teams[object.team].race;
     int allegiance = allegiances[object.team];
     ivec2_t position = ivec2_add(ivec2_scale(object.cell, 256),
@@ -644,6 +718,10 @@ int load_dark_colony_initial_units(void) {
     InitialUnits units = {0};
     int allegiances[DARK_COLONY_SCN_MAX_TEAMS];
     compute_team_allegiances(scenario, allegiances);
+    if (scenario->skirmish)
+        for (int i = 0; i < 8; ++i)
+            allegiances[i] = i == 0 ? DC_ALLEGIANCE_PLAYER :
+                scenario->teams[0].allies[i] ? DC_ALLEGIANCE_ALLIED : DC_ALLEGIANCE_ENEMY;
     for (int team = 0; team < scenario->team_count && team < 8; ++team) {
         const ScenarioTeam *info = &scenario->teams[team];
         if (!info->active) continue;

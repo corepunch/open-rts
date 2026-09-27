@@ -439,33 +439,24 @@ bool DC_LoadFont(const char *data_root, const char *name,
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, name);
-    uint32_t palette[256] = { 0 };
-    if (!load_dark_colony_sprite(path, &font->sprite, palette)) return false;
+    if (!DC_LoadSpriteImage(path, &font->sprite)) return false;
     const int font_offset = 31;
     int max_w = 0, max_h = 0;
     for (int ch = font_offset; ch < 128; ++ch) {
         int frame = ch - font_offset;
         if (frame >= font->sprite.numlumps) break;
         font->glyph_index[ch] = frame;
-        irect_t bounds = font->sprite.lumps ? font->sprite.cells[frame].bounds :
-                             (irect_t){ 0, 0, 0, 0 };
-        if (bounds.w > max_w) max_w = bounds.w;
-        if (bounds.h > max_h) max_h = bounds.h;
+        irect_t rect = font->sprite.cells[frame].rect;
+        if (rect.w > max_w) max_w = rect.w;
+        if (rect.h > max_h) max_h = rect.h;
     }
     font->draw_divisor = 1;
-    font->glyph_size = (isize2_t){
-        max_w > 0 ? max_w : 6,
-        max_h > 0 ? max_h : font->sprite.frame_size.h,
-    };
+    font->native_origin = true;
+    font->glyph_size = (isize2_t){max_w, max_h};
     font->line_h = font->glyph_size.h + 1;
     for (int ch = 0; ch < 128; ++ch) {
-        int frame = font->glyph_index[ch];
-        int advance = font->glyph_size.w;
-        if (frame >= 0 && frame < font->sprite.numlumps && font->sprite.lumps) {
-            irect_t bounds = font->sprite.cells[frame].bounds;
-            if (bounds.w > 0) advance = bounds.w + 1;
-        }
-        font->glyph_width[ch] = (uint8_t)advance;
+        /* 0x424446: every glyph, including space, advances max width + 1. */
+        font->glyph_width[ch] = (uint8_t)(font->glyph_size.w + 1);
     }
     return true;
 }

@@ -1409,6 +1409,7 @@ add_state	tools/dc_info_gen.c	/^static state_def_t *add_state(void) {$/;"	f	type
 additive	game/g_game.h	/^            bool additive;$/;"	m	struct:__anon42a104c40708::__anon42a104c4080a::__anon42a104c40908	typeref:typename:bool
 advance_model_production_queue	game/g_game.c	/^static void advance_model_production_queue(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 ai	game/g_game.c	/^    AiContext ai;$/;"	m	struct:RtsGameModel	typeref:typename:AiContext	file:
+ai_is_ally	play/p_ai.c	/^static bool ai_is_ally(const level_t *map, const AiTeamState *team,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,const AiTeamState * team,int owner,const mobj_t * other)
 ai_tick_attack_waves	play/p_ai.c	/^static void ai_tick_attack_waves(AiTeamState *team, int owner,$/;"	f	typeref:typename:void	file:	signature:(AiTeamState * team,int owner,level_t * map,mobj_t * const * units,int unit_count,int dt_ms)
 ai_tick_defense	play/p_ai.c	/^static void ai_tick_defense(AiTeamState *team, int owner,$/;"	f	typeref:typename:void	file:	signature:(AiTeamState * team,int owner,level_t * map,mobj_t * const * units,int unit_count,const gameinfo_t * game_info)
 ai_tick_harvesting	play/p_ai.c	/^static void ai_tick_harvesting(AiTeamState *team, int owner,$/;"	f	typeref:typename:void	file:	signature:(AiTeamState * team,int owner,level_t * map,mobj_t * const * units,int unit_count)
@@ -1536,6 +1537,7 @@ bitmapfont_s::glyph_index	render/sprites.h	/^    int glyph_index[128];$/;"	m	str
 bitmapfont_s::glyph_size	render/sprites.h	/^    isize2_t glyph_size;$/;"	m	struct:bitmapfont_s	typeref:typename:isize2_t
 bitmapfont_s::glyph_width	render/sprites.h	/^    uint8_t glyph_width[128];$/;"	m	struct:bitmapfont_s	typeref:typename:uint8_t[128]
 bitmapfont_s::line_h	render/sprites.h	/^    int line_h;$/;"	m	struct:bitmapfont_s	typeref:typename:int
+bitmapfont_s::native_origin	render/sprites.h	/^    bool native_origin; \/* Draw cells at their authored displacement. *\/$/;"	m	struct:bitmapfont_s	typeref:typename:bool
 bitmapfont_s::sprite	render/sprites.h	/^    spritesheet_t sprite;$/;"	m	struct:bitmapfont_s	typeref:typename:spritesheet_t
 bitmapfont_t	render/sprites.h	/^} bitmapfont_t;$/;"	t	typeref:struct:bitmapfont_s
 blob_s	driver/assets.h	/^typedef struct blob_s {$/;"	s
@@ -2251,7 +2253,9 @@ level_s::mission	game/map.h	/^    void *mission;$/;"	m	struct:level_s	typeref:ty
 level_s::native_data	game/map.h	/^    void *native_data;$/;"	m	struct:level_s	typeref:typename:void *
 level_s::next_mobj_id	game/map.h	/^    uint32_t next_mobj_id;$/;"	m	struct:level_s	typeref:typename:uint32_t
 level_s::next_move_order_id	game/map.h	/^    uint32_t next_move_order_id;$/;"	m	struct:level_s	typeref:typename:uint32_t
+level_s::player_colors	game/map.h	/^    uint8_t player_colors[8];$/;"	m	struct:level_s	typeref:typename:uint8_t[8]
 level_s::player_resources	game/map.h	/^    int player_resources[8][RTS_MAX_RESOURCES];$/;"	m	struct:level_s	typeref:typename:int[8][]
+level_s::player_teams	game/map.h	/^    bool player_teams; \/* Independent players use the alliance masks. *\/$/;"	m	struct:level_s	typeref:typename:bool
 level_s::random_index	game/map.h	/^    uint8_t random_index;$/;"	m	struct:level_s	typeref:typename:uint8_t
 level_s::render_capabilities	game/map.h	/^    uint32_t render_capabilities;$/;"	m	struct:level_s	typeref:typename:uint32_t
 level_s::render_transitions	game/map.h	/^    void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,$/;"	m	struct:level_s	typeref:typename:void (*)(app_t * app,const struct level_s * map,const tileset_t * tileset,int x,int y,int dx,int dy)
@@ -2320,6 +2324,7 @@ main	tests/dark-colony/test_projectiles.c	/^int main(void) {$/;"	f	typeref:typen
 main	tests/dark-colony/test_reaper_death.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_render_trait_helpers.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_selection_overlays.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_skirmish.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_definitions.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_height.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_sprite_layer_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2571,6 +2576,7 @@ names	tools/dc_states.txt	/^; {first..last} expands numbered state names; a..b e
 native_button	tests/dark-colony/test_alien_production.c	/^static irect_t native_button(const StaticProductDefinition *product) {$/;"	f	typeref:typename:irect_t	file:	signature:(const StaticProductDefinition * product)
 native_data	game/map.h	/^    void *native_data;$/;"	m	struct:level_s	typeref:typename:void *
 native_frames	tests/kknd/test_combat_rendering.c	/^static const struct {int type, native_frames; ivec2_t points[16];} weapons[] = {$/;"	m	struct:__anon40d74d410108	typeref:typename:int	file:
+native_origin	render/sprites.h	/^    bool native_origin; \/* Draw cells at their authored displacement. *\/$/;"	m	struct:bitmapfont_s	typeref:typename:bool
 native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobj_s	typeref:typename:uint16_t
 native_type_id	play/actor.h	/^    uint16_t native_type_id;$/;"	m	struct:mobjtype_s	typeref:typename:uint16_t
 nearest_palette_index	render/r_draw.c	/^static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256]) {$/;"	f	typeref:typename:uint8_t	file:	signature:(uint32_t rgba,const uint32_t palette[256])
@@ -2681,10 +2687,12 @@ pixels::__anon289a07350108::file	tests/dark-colony/test_blood_fin.c	/^    static
 pixels::__anon289a07350108::label	tests/dark-colony/test_blood_fin.c	/^    static const struct { const char *file, *label; int state; } cases[] = {$/;"	m	struct:pixels::__anon289a07350108	typeref:typename:const char *	file:
 pixels::__anon289a07350108::state	tests/dark-colony/test_blood_fin.c	/^    static const struct { const char *file, *label; int state; } cases[] = {$/;"	m	struct:pixels::__anon289a07350108	typeref:typename:int	file:
 player	driver/d_net.h	/^    uint8_t retransmitfrom, starttic, player, numtics;$/;"	m	struct:__anone560e7400108	typeref:typename:uint8_t
+player_colors	game/map.h	/^    uint8_t player_colors[8];$/;"	m	struct:level_s	typeref:typename:uint8_t[8]
 player_harvester	tests/dark-reign/test_harvest_build.c	/^static mobj_t *player_harvester(void) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(void)
 player_harvester	tests/dark-reign/test_playable.c	/^static mobj_t *player_harvester(void) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(void)
 player_resources	game/g_game.h	/^    int player_resources[RTS_MODEL_MAX_PLAYERS][RTS_MODEL_MAX_RESOURCES];$/;"	m	struct:__anon42a104c41208	typeref:typename:int[][]
 player_resources	game/map.h	/^    int player_resources[8][RTS_MAX_RESOURCES];$/;"	m	struct:level_s	typeref:typename:int[8][]
+player_teams	game/map.h	/^    bool player_teams; \/* Independent players use the alliance masks. *\/$/;"	m	struct:level_s	typeref:typename:bool
 playerfornode	driver/d_net.c	/^static int nodeforplayer[MAXPLAYERS], playerfornode[MAXNETNODES];$/;"	v	typeref:typename:int[]	file:
 playeringame	driver/d_net.c	/^bool nodeingame[MAXNETNODES], playeringame[MAXPLAYERS];$/;"	v	typeref:typename:bool[]
 plugin_actor_type_by_id	game/g_game.c	/^static const mobjtype_t *plugin_actor_type_by_id(uint16_t type_id) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(uint16_t type_id)

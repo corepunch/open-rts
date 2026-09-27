@@ -5240,3 +5240,243 @@ The focused test writes native-menu/setup/overview/briefing BMPs under
 mission state, and covers menu input capture, Escape, drag cancellation and
 quit, plus Gray training startup. It verifies the settled logo pixel-for-pixel against its native final
 cell. This is an asset-based check, not a claim of whole-screen retail parity.
+
+## Single Player War and native menu blitting (2026-09-27)
+
+### Evidence and scope
+
+**Confirmed executable:** the same 566,272-byte PE32/i386 `DC.EXE`, image base
+`0x400000`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+The existing Watcom register-calling-convention fingerprint applies; an exact
+compiler release has not been established. Broad discovery used the existing
+r2ghidra function/C dumps; the addresses below were checked with fresh focused
+`pdf`/`pdg` output, kept under ignored `reverse/dc-exe-r2ghidra/`.
+
+The user supplied `Screen Recording 2026-09-27 at 13.27.04.mov` (30.687 seconds,
+SHA-256 `6ed67deddd0af7a6d69e44b66bd2049a9011badf1552ce61f30fb92a74ce2152`).
+Sampled frames show the Single Player War setup, then a battle. The later lobby
+has local Human, seven Gray AI+ players, Circle of Friends, 500% quantity and
+flow, and COL. This establishes the requested visual reference, not an unknown
+executable instruction. A temporary C/AVFoundation decoder extracted JPEGs;
+no image assets or video decoder were added to the repository.
+
+### Lobby records, controls and map catalog
+
+**Confirmed:** `0x405634` enters single-player war through the local transport
+setup `0x40b624` (setup `+0x14a0 = 1`), then `0x401210`. The lobby routine
+`0x40fb20` loads `TCPWAIT.DAT` at `0x40fec8` and the localized `MULTI` script
+(`MULTIE` here) at `0x40fed2`.
+
+The eight records at `0x485018` have stride `0x48`: race `+0x1c`, type `+0x20`,
+color `+0x24`, team `+0x28`. Type values are AI=0, AI+=1, Human=2, None=3;
+`0x410a3d` skips Human when cycling an AI slot. `0x410091` formats `Player%d`.
+The native controls have these roles:
+
+| IDs | Role |
+|---|---|
+| 0–7 | Player names (16 character columns) |
+| 8–15 | Race gadgets |
+| 16–23 | Ready checks |
+| 26–30 | Selected map title, list, arrows, scrollbar |
+| 32–47 | Color direction buttons |
+| 72–87 | Type/race text |
+| 88–95 | Player type gadgets |
+| 96–103 | Color wheel gadgets |
+| 105–108, 110–113 | Storage/artifact levels |
+| 115–119 | Erupting/renewable choices |
+| 121–131 | Quantity, flow, rank and their arrows |
+| 132–135 | Menu/Ready buttons and animations |
+| 142–165 | Team gadgets and direction buttons |
+
+The defaults at `0x473db4` begin `{0,0,1,0,4,4,0}`: storage off, artifacts off,
+erupting on, renewable off, flow/quantity 100%, first commander rank. They are
+copied to setup `+0xa670..+0xa688`. Both multipliers clamp to 1..20 in 25% steps;
+the launch globals `0x48f690/0x48f694` shift these steps left six bits for 8.8
+scaling. Human rank messages 30..33 are LEUT., CAPT., MAJ., COL.; Gray messages
+40..43 are XIMAL., IDRAC., SITRUC., REGLIA.
+
+`0x4103fe..0x41050c` allocates each AI the first unused color `(slot+j)%8`,
+reserving Human colors. Color/team directions add 1 or 7 modulo eight. Wheel
+poses use two frames per value. The native wheel transition threshold is
+`0x41` milliseconds; this implementation displays the settled native poses,
+without claiming the transitional wheel timing has been reproduced.
+
+`0x40f840` reads the SCN terrain name, third-line title and second integer of
+its header for capacity. `0x40f744` filters capacity against occupied slots;
+`0x43cf08` sorts the labels. Format string `0x46e14c` is
+`%-43s (%d Player %s)`, with `Desert Map `, `Jungle Map ` or `Underground`.
+The implementation enumerates the native SCN/MAP pairs, preserves the titles,
+filters/sorts them and loads the selected MAP. Mouse selection, arrows, wheel,
+keyboard selection and scrollbar position use the same visible catalog.
+
+### Fonts, palettes and control composition
+
+**Confirmed corrections to the September 14 menu implementation:** menu
+rendering must not use gameplay FIN placement. At `0x4223c0`, particularly
+`0x4224d7..0x4224ef`, a gadget passes the control origin, dependency SPR and cell
+to its UI blitter (`+0x58`, `0x44b6c8`). `0x44b5e4` adds only the SPR cell's
+stored X/Y displacement (`0x44b65d`, `0x44b665`). World FIN offsets, world
+bottom-origin subtraction and flip flags do not position this UI draw.
+`0x44b6c8` uses identity remap 8 and intensity 16. The former world formula
+happened to align DCSS but put RACEFACE about 12 pixels too low: its 33×14 cell
+and FIN offset `(1,26)` were being interpreted as a world object.
+
+**Disproven:** this was not a different KNOBE asset or a compensating offset.
+`INTRFACE/KNOBE.SPR` and `SPRITES/KNOBE.SPR` are byte-identical (SHA-256
+`915d4c2edef29069144b664186159dacd5a9c25dac185d2df37d6932a1074240`).
+MEDBUTTON FIN frames 33..40 use cells `{33,127,34,35,128,2,129,78}`, raw ticks 2;
+the terminal cell 78's FIN offset `(15,10)` is likewise irrelevant to UI origin.
+The previous menu findings about retaining FIN flip/world placement are
+superseded by this direct call-chain evidence.
+
+`0x420c8c` derives font extent from maximum raw SPR cell width/height.
+`0x424350` uses fixed advance `max_width+1`, including spaces; labels use
+`(strlen-1)*(max_width+1)` when centered, add max_width when left aligned, and
+center vertically by max_height. SPR displacement is retained. MFONTO5 has
+maximum extent 7×14 and stride 8. Its empty space cell is not a two-pixel
+advance; the prior bounds-derived widths collapsed the map-description columns.
+The list draw `0x427790` advances by max_height (14) at `0x427964`, not the
+ordinary text line height (15). `0x4278c6` gives a selected row intensity zero;
+ordinary rows retain intensity 16. `MULTIE` supplies the cyan selection fill.
+
+The global menu palette comes from the background GIF, not the dependency SPR
+palette. The full native background RMP contains the mapping at
+`(intensity*8+remap)*256` (`0x44b2f0`, `0x44b45c`). Control initialization at
+`0x4203e7` uses remap 7, intensity 16. Remap 5 has special neutral lookup data
+at `0x477004` (`2f 3d 41 42 43 fe`, for source 138..143); `0x44a7b0` also builds
+other shade mappings. A simple team-color shift is insufficient. The loader
+now retains the GIF palette and uses all 256 native RMP rows, rather than
+reconstructing this table. Source index zero is transparent **before** the
+lookup: mapping an opaque glyph index to palette zero must draw opaque black.
+The shared indexed renderer therefore preserves source alpha across translations.
+
+`0x424638` interprets a negative normal image such as `-11` as brightness 11
+for the other, positive image, not as a missing image or background restoration.
+The script's pushed/highlight additions are 8/4. This restores dim arrows and
+option frames without synthesizing graphics. `0x427ea0` draws a scroll track
+and thumb from list start/end fractions; default color 1 corresponds to the
+red track seen in the recording.
+
+**Inferred/incomplete animation:** `0x4250bc` stores the banim gadget/button
+lists. Showing only the corresponding linked gadget and advancing its authored
+sequence reproduces the observed settled button arrangement. The full native
+reverse/hover banim responder has not been ported; do not claim complete
+frame-by-frame transition parity. A separate engine bug discovered during QA
+was that unused controls defaulted their gadget link to zero, hiding the player
+name on hover. Unbound links now initialize to -1. Temporary diagnostics printed
+focus, name visibility and that link before the fix; they were removed afterward.
+
+### Match startup and option boundaries
+
+**Confirmed:** `0x401507..0x401595` compacts occupied lobby slots, pads with -1,
+then shuffles the map's available starts: for each `i`, swap with
+`i + Random() % (capacity-i)`. The 256-dword table at `0x473df8` is the same
+one already used by damage logic. `0x411284` stores the seed modulo 256;
+`0x411294` increments/wraps the byte index before reading the table. The
+launch seed is carried in `0x48f69c`; the original source of its time value is
+still untraced. open-rts uses the low SDL tick byte. `0x41a61c` resets the
+simulation RNG to this seed before SCN loading. The table now has one owner
+in `m_random.c` and both menu/startup and simulation use it.
+
+Retail reorders lobby records and the console-player index to SCN start slots.
+open-rts keeps local player zero and remaps the authored start records and
+object owners instead. This preserves starts, colors and ownership for the
+engine's input model; it is an explicit engine integration difference. Script
+operands that refer directly to a retail player index need auditing before
+claiming full mission-script parity. A player in lobby slot seven must survive
+on a two-player map. Invalid capacity/occupied-count combinations fail loading.
+
+The `0x401210` launch routine sets native player AI type 0 for Human, 3 for AI/AI+, 4 for None,
+color at player `+0x100`, rank at `+0x19bc`, and alliances from equal lobby
+teams. AI+ receives multiplier `0x200` versus ordinary AI's `0x100`. The current
+engine keeps distinct owners for all eight slots, colors independently from
+owners, and alliance masks for skirmish targeting. The retail AI+ economic
+multiplier and AI logic are not ported by this UI change.
+
+Race conversion is native data, not an alias: `0x4385f8` loads zero-based
+GAMESTAT column 30 into type `+0x114` (base `0x4ec880`, first counterpart at
+`0x4ec994`); `0x41b158..0x41b179` uses it when the authored type's race differs
+from the selected player race. D2PLAY01's Cyborg/Osprey become Atril/Ortu for a
+Gray player. Commander native IDs 69..72 and 73..76 select Human/Gray rank.
+Cities use the selected race and authored city slots. Armageddon (D8PLAY01)
+has eight authored starts with 1500 credits and commander type 69.
+
+Vent SCN type 40 stores flow in the team column and quantity in status.
+`0x41b1af..0x41b1ce` scales quantity by `s(0,2)/256`;
+`0x41b22a..0x41b24d` scales flow by `s(0,1)/256`. These multipliers are applied
+at load time, preserving the native integer truncation. D8PLAY01 contains flow
+0/25 and quantities 15000/25000. Selected setup is consumed once and retained
+with the level's owned SCN data; it does not affect subsequent campaign loads.
+
+**Disproven hypothesis:** `0x419288` is not a general mission-script array
+setter. With reader `0x419458` it handles result/stat fields: type zero indexes
+1 flow, 2 quantity, 3 eruption, 4 renewable, 5 storage, 6 artifacts.
+
+**Remaining gameplay work:** the storage, artifact, eruption and renewable
+choices are represented and retained but their complete retail effects are
+not implemented here. `0x41b256` gates authored artifact type 37 on stat(0,6)>0
+(or the campaign path). `0x41b34a` begins storage generation, uses a divisor
+five, storage stat(0,5), types 85/90, dimensions `+0x9a4b0/+0x9a4b4` and site
+helper `0x41a1f4`; the full spawn-count/site-selection rule is not established.
+D8PLAY01.TRO reads `s(3,0)` and `s(4,0)` for eruption/renewal, with `r%210`
+and 90..299 timing, counters, `setarray`, `setlifes`, `newrate2`, `setmoney`
+and `m(x,y)`. The current interpreter lacks the complete expression/command
+semantics. Do not replace these with guessed vent timers or spawn densities.
+These options must not be described as verified gameplay features.
+
+Other pre-existing gaps remain: save/load, campaign progression, encyclopedia,
+network lobby, AVI/audio, briefing globe/medal progression. This investigation
+implements the Single Player War screen shown in the recording and corrects
+the shared native menu renderer; it is not evidence that every menu branch or
+retail simulation subsystem is complete.
+
+### Fingerprints and checks
+
+| Asset | SHA-256 |
+|---|---|
+| INTRFACE/MULTIE | b52a6a61658da070462bd3edd78cf68248edfe01a141a9b77e72030418d8031c |
+| INTRFACE/TCPWAIT.RMP | a21a5386076a0a02a45e3fb523f5dbd8f66fcfb7eced6b796605ef9a2c9fadb3 |
+| INTRFACE/TCPWAIT.GIF | 8489cd28f689a6ccae847e1baaf2160f4734f1ffe4a5e1746af6a2203106b630 |
+| SCENARIO/MPLAYER/D8PLAY01.SCN | 2f70631e6a07c9570243c521319d100ca67b4c0ae583c5e842fae927aac7ec4a |
+| SCENARIO/MPLAYER/D8PLAY01.TRO | a4500557821d2d81ba705801dede74e34627d77e43dc32938b8a4e47ff443db5 |
+
+```sh
+r2 -q -e scr.color=0 -e bin.cache=true -A \
+  -c 'pdf @ 0x405634' -c 'pdf @ 0x40fb20' -c 'pdf @ 0x40f840' \
+  -c 'pdf @ 0x401210' -c 'pdf @ 0x411294' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=0 -e bin.cache=true -A \
+  -c 'pdf @ 0x420c8c' -c 'pdf @ 0x424350' -c 'pdf @ 0x4223c0' \
+  -c 'pdf @ 0x44b6c8' -c 'pdf @ 0x44b5e4' -c 'pdf @ 0x427790' \
+  -c 'pdf @ 0x424638' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=0 -e bin.cache=true -A \
+  -c 'pdf @ 0x4385f8' -c 'pdf @ 0x41a61c' -c 'pdf @ 0x419288' \
+  -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_menu build/bin/tests/dark-colony/test_skirmish
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_menu
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_skirmish
+```
+
+`test_menu` emits `/private/tmp/dc-menu-skirmish*.bmp`, checks the native glyph
+stride and opaque black selected-map glyph pixels, player-name visibility,
+eight-player map filtering and clamped setup launch values. `test_skirmish`
+checks ownership, race counterparts, alliances, colors, commander rank, resource
+multipliers, a sparse two-player lobby and campaign isolation. These are focused
+asset/behavior checks, not a claim of whole-screen or whole-game retail parity.
+
+Additional scrollbar input trace: vtable `0x4745b0` is the scrollbar draw/input
+pair `0x427ea0/0x427ff0`. The neighboring `0x4282f8` is a numeric-image widget
+(renderer with `list.c` width assertion), not the scrollbar input handler.
+Automatic analysis omitted these indirect targets; `af @ 0x427ff0` followed by
+`pdf` exposes the handler. `0x428036..0x428038` captures the control on event 4;
+`0x428022` releases on event 0x104. Event 5 at `0x42805f..0x4280d6` scales the
+pointer through the track, subtracts half the visible range and converts it
+back to a list offset. The implementation centers the thumb on that position,
+clamps to list bounds and retains mouse capture while dragging outside the
+track. The menu test drags below-to-above and verifies the first map afterward.
+
+Verification for this change: 41 Dark Colony test executables passed, as did
+the Dark Reign and 7th Legion suites and all four headless game smoke checks.
+KKnD's `test_combat`, `test_playable` and `test_production` failed identically
+in an isolated archive of unchanged parent `f540172`; they are baseline
+failures, not regressions from these shared rendering changes.

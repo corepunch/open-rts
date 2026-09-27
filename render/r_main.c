@@ -114,7 +114,7 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
         if (frame >= 0 && frame < font->sprite.numlumps) {
             const spritecell_t *cell = &font->sprite.cells[frame];
             irect_t src = cell->rect;
-            if (cell->bounds.w > 0 && cell->bounds.h > 0) {
+            if (!font->native_origin && cell->bounds.w > 0 && cell->bounds.h > 0) {
                 irect_t bounds = cell->bounds;
                 src.x += bounds.x;
                 src.y += bounds.y;
@@ -124,8 +124,8 @@ void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x
             if (src.w > 0 && src.h > 0) {
                 int divisor = font->draw_divisor > 0 ? font->draw_divisor : 1;
                 irect_t dst = {
-                    cx,
-                    cy,
+                    cx + (font->native_origin ? cell->displacement.x * scale : 0),
+                    cy + (font->native_origin ? cell->displacement.y * scale : 0),
                     (src.w * scale + divisor - 1) / divisor,
                     (src.h * scale + divisor - 1) / divisor,
                 };

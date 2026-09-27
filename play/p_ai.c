@@ -115,6 +115,13 @@ static void ai_tick_harvesting(AiTeamState *team, int owner,
     team->harvest_assignment_count = write;
 }
 
+static bool ai_is_ally(const level_t *map, const AiTeamState *team,
+                       int owner, const mobj_t *other) {
+    if (!map->player_teams) return P_AreAllegiancesAllied(other->allegiance, team->allegiance);
+    return other->owner == owner || (other->team < 8 &&
+        (map->sight.allies[owner] & (UINT32_C(0x40000000) >> other->team)));
+}
+
 static void ai_tick_defense(AiTeamState *team, int owner,
                              level_t *map, mobj_t *const *units, int unit_count,
                              const gameinfo_t *game_info) {
@@ -124,7 +131,7 @@ static void ai_tick_defense(AiTeamState *team, int owner,
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *enemy = units[i];
         if (enemy->hp <= 0 || enemy->remove) continue;
-        if (P_AreAllegiancesAllied(enemy->allegiance, team->allegiance)) continue;
+        if (ai_is_ally(map, team, owner, enemy)) continue;
 
         float ex = fixed_to_float(enemy->core.position.x);
         float ey = fixed_to_float(enemy->core.position.y);
@@ -161,7 +168,7 @@ static void ai_tick_attack_waves(AiTeamState *team, int owner,
     float enemy_dist2 = 1e30f;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->hp <= 0 || units[i]->remove) continue;
-        if (P_AreAllegiancesAllied(units[i]->allegiance, team->allegiance)) continue;
+        if (ai_is_ally(map, team, owner, units[i])) continue;
         if ((units[i]->traits & MF_RESOURCE_BASE) == 0) continue;
         float ex = fixed_to_float(units[i]->core.position.x);
         float ey = fixed_to_float(units[i]->core.position.y);

@@ -6,7 +6,7 @@
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (!a || !b) return false;
-    if (!netgame) return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
+    if (!netgame && !level.player_teams) return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
     if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
         return false;
     return a->owner == b->owner || (a->team < 8 && b->team < 8 &&

@@ -177,7 +177,8 @@ bool R_DrawSprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame
                 map = sprite->palette_maps[i].indices;
         uint32_t colors[256];
         for (int i = 0; i < 256; ++i)
-            colors[i] = sprite->source_palette[map ? map[i] : i];
+            colors[i] = (sprite->source_palette[map ? map[i] : i] & 0x00ffffffu) |
+                        (sprite->source_palette[i] & 0xff000000u);
         return R_DrawIndexed(renderer, sprite->lumps[frame].indices, size, colors,
                              &rect, dst, flip, color, blend);
     }

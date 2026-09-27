@@ -1484,3 +1484,24 @@ executable fingerprint, corrections and remaining unknowns are in
   `reference/DOOM/p_inter.c` (`P_KillMobj`, clearing flight flags) informed
   the shared movement/cleanup ownership. Complete retail blocked-start
   recovery and projection of aircraft object word +0x02 remain unverified.
+
+### Dark Colony Single Player War reference (2026-09-27)
+
+User-supplied local recording:
+`/Users/igor/Desktop/Screen Recording 2026-09-27 at 13.27.04.mov`, 30.687 seconds,
+SHA-256 `6ed67deddd0af7a6d69e44b66bd2049a9011badf1552ce61f30fb92a74ce2152`.
+No public URL was supplied. It shows the native eight-player setup and a match.
+The file was sampled with a temporary C program using macOS AVFoundation;
+no media or generated screenshots were bundled as game assets.
+
+The controlling evidence is local `data/DCOLONY/DC.EXE` (SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`) and
+`INTRFACE/MULTIE`, `TCPWAIT.{DAT,GIF,RMP}`, native MFONTO/KNOBE SPR/FIN files,
+SCENARIO/MPLAYER SCNs and TRO scripts. Fresh radare2/r2ghidra reads traced
+`0x40fb20`, `0x401210`, `0x40f840`, `0x420c8c`, `0x424350`, `0x4223c0`,
+`0x44b5e4`, `0x427790`, `0x424638`, `0x41a61c` and `0x4385f8`.
+[Detailed findings](docs/DC_EXE_FINDINGS.md#single-player-war-and-native-menu-blitting-2026-09-27)
+preserve fingerprints, data fields, corrected hypotheses, implementation
+boundaries and reproduction commands. In particular, native menu blitting
+supersedes the older world-FIN placement assumption; unported storage/artifact,
+vent-script and AI+ effects remain explicitly identified.

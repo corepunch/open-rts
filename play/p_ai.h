@@ -4,7 +4,7 @@
 #include "actor.h"
 #include "map.h"
 
-#define AI_MAX_TEAMS 4
+#define AI_MAX_TEAMS 8
 #define AI_MAX_HARVEST_ASSIGNMENTS 32
 #define AI_DEFENSE_RADIUS 15.0f
 #define AI_ATTACK_WAVE_INTERVAL_MS 30000
