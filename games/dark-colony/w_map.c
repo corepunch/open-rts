@@ -571,6 +571,10 @@ static int mobj_type_for_type(int type, int race) {
         case 33: return MT_ALIEN_MINDHIVE3;
         case 34: return MT_ALIEN_RSCHIVE;
         case 41: return MT_MOBILE_TOWER;
+        case 1: return MT_TURRET_CARRIER;
+        case 42: return MT_XENO_TOWER;
+        case 45: return MT_HUMAN_MINE;
+        case 46: return MT_ALIEN_MINE;
         case 81: return MT_CITY_TOWER;
         case 84: return MT_BEACON;
         case 86: return MT_COMMS_DISH;

@@ -256,18 +256,19 @@ void P_ApplyActorTypeDefaults(mobj_t *unit, const mobjtype_t *type) {
         snprintf(unit->core.sprite_name, sizeof(unit->core.sprite_name), "%s", type->sprite_name);
 }
 
+static const mobjtype_t *mobj_type(uint16_t type) {
+    for (int i = 0; i < num_actor_types; ++i)
+        if (actor_types[i].id == type) return &actor_types[i];
+    return NULL;
+}
+
 mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type) {
     mobj_t *mobj = calloc(1, sizeof(*mobj));
     if (!mobj) return NULL;
     mobj->core.position = position;
     mobj->type_id = type;
     mobj->id = ++level.next_mobj_id;
-    for (int i = 0; i < num_actor_types; ++i) {
-        if (actor_types[i].id == type) {
-            P_ApplyActorTypeDefaults(mobj, &actor_types[i]);
-            break;
-        }
-    }
+    P_ApplyActorTypeDefaults(mobj, mobj_type(type));
     P_InitMobj(gameinfo, mobj);
     mobj->thinker.function = P_MobjThinker;
     P_AddThinker(&mobj->thinker);
@@ -325,6 +326,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
+        !((attacker->traits & MF_LANDMINE) && (target->traits & MF_FLY)) &&
         !P_IsAlly(attacker, target) &&
         fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
                                fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
@@ -334,6 +336,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         mobj_t *candidate = (mobj_t *)th;
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
+            ((attacker->traits & MF_LANDMINE) && (candidate->traits & MF_FLY)) ||
             P_IsAlly(attacker, candidate) ||
             !P_VisibleTo(attacker, candidate)) continue;
         float dist2 = fvec2_distance_squared(
@@ -387,11 +390,13 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
         return NULL;
 
     const mobjinfo_t *missile_info = &gameinfo->mobjinfo[type];
+    const mobjtype_t *definition = mobj_type(type);
+    const missiledef_t *flight = definition ? &definition->missile : NULL;
     fvec2_t direction = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
                                   fixed3_xy_to_fvec2(source->core.position));
     float distance = sqrtf(fvec2_length_squared(direction));
-    if (missile_info->speed <= 0 || distance <= 0.0001f) return NULL;
-    direction = fvec2_scale(direction, 1.0f / distance);
+    if ((!flight || flight->step <= 0) && missile_info->speed <= 0) return NULL;
+    if (distance > 0) direction = fvec2_scale(direction, 1.0f / distance);
 
     mobj_t *missile = P_SpawnMobj(source->core.position, type);
     if (!missile) return NULL;
@@ -400,6 +405,18 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
     missile->team = source->team;
     missile->allegiance = source->allegiance;
     missile->core.angle = angle_from_map_vector(&level, direction.x, direction.y);
+    if (flight && flight->period_ms > 0 && flight->step > 0) {
+        missile->core.momentum = fixed3_planar_delta(
+            fvec2_scale(direction, fixed_to_float(flight->step)));
+        missile->missile.duration = (int)(distance / fixed_to_float(flight->step));
+        if (missile->missile.duration < 1) missile->missile.duration = 1;
+        if (flight->weave && gameinfo->random_table)
+            missile->missile.phase = gameinfo->random_table[++level.random_index] % flight->weave_count;
+        if (!flight->arc)
+            missile->core.momentum.z = (target->core.position.z - source->core.position.z) /
+                                      missile->missile.duration;
+        return missile;
+    }
     missile->core.momentum = fixed3_planar_delta(
         fvec2_scale(direction, (float)missile_info->speed * FIXED_DT));
 
@@ -424,30 +441,69 @@ void P_ExplodeMissile(mobj_t *missile) {
         P_RemoveMobj(missile);
         return;
     }
-    if (!P_SetMobjState(missile, gameinfo->mobjinfo[missile->type_id].deathstate)) return;
     missile->traits &= ~MF_MISSILE;
+    missile->traits |= MF_NOBLOCKMAP;
+    if (missile->info && missile->info->blast.size) missile->traits |= MF_RENDERABLE;
+    if (!P_SetMobjState(missile, gameinfo->mobjinfo[missile->type_id].deathstate)) return;
+}
+
+static int missile_damage(const mobj_t *missile, const mobj_t *victim) {
+    const blastdef_t *blast = missile->info ? &missile->info->blast : NULL;
+    unsigned armor = victim->info ? victim->info->armor_class : 0;
+    int factor = blast && blast->damage_factors && armor < (unsigned)blast->armor_classes
+               ? blast->damage_factors[armor] : 256;
+    return (gameinfo->mobjinfo[missile->type_id].damage * factor) >> 8;
+}
+
+void A_Explode(mobj_t *actor) {
+    if (!actor || !actor->info) return;
+    const blastdef_t *blast = &actor->info->blast;
+    if (!blast->weights || blast->size <= 0) return;
+    ivec2_t center = fvec2_cell(fixed3_xy_to_fvec2(actor->core.position));
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *victim = (mobj_t *)th;
+        if (victim == actor || victim->remove || victim->hp <= 0 ||
+            (victim->traits & (MF_NOBLOCKMAP | MF_MISSILE | MF_FLY))) continue;
+        ivec2_t cell = ivec2_add(ivec2_sub(
+            fvec2_cell(fixed3_xy_to_fvec2(victim->core.position)), center),
+            (ivec2_t){ blast->size / 2, blast->size / 2 });
+        if (cell.x < 0 || cell.y < 0 || cell.x >= blast->size || cell.y >= blast->size) continue;
+        int damage = missile_damage(actor, victim);
+        int weight = blast->weights[cell.y * blast->size + cell.x] * 256 / 100;
+        if (victim->owner == actor->owner) weight /= 4;
+        damage = (damage * weight) >> 8;
+        P_DamageMobj(victim, actor->target, damage);
+    }
+}
+
+bool P_Deploy(mobj_t *actor) {
+    if (!actor || actor->remove || actor->hp <= 0 || !actor->info ||
+        !actor->info->deploy.state || !actor->info->deploy.type ||
+        !(actor->traits & MF_MOBILE)) return false;
+    actor->movement.flow_field = NULL;
+    actor->movement.order_id = 0;
+    actor->traits &= ~MF_MOBILE;
+    actor->attack.target = NULL;
+    actor->core.momentum = fixed3_zero();
+    return P_SetMobjState(actor, actor->info->deploy.state);
+}
+
+void A_Deploy(mobj_t *actor) {
+    const mobjtype_t *type = mobj_type(actor->info->deploy.type);
+    if (!type) return;
+    unsigned selected = actor->traits & MF_SELECTED;
+    actor->speed = type->speed;
+    actor->core.sprite_name[0] = '\0';
+    P_ApplyActorTypeDefaults(actor, type);
+    actor->traits |= selected;
+    P_SetMobjState(actor, gameinfo->mobjinfo[type->id].spawnstate);
 }
 
 bool P_Attack(mobj_t *attacker) {
     if (!attacker || (attacker->traits & MF_ATTACK) == 0) return false;
+    /* State actions must recheck range: the target can move during windup. */
+    attacker->attack.target = attack_target_in_range(attacker);
     mobj_t *target = attacker->attack.target;
-    if (!target || target->remove || target->hp <= 0 ||
-        (target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
-        P_IsAlly(attacker, target) ||
-        !P_VisibleTo(attacker, target)) {
-        target = NULL;
-        float best = mobj_attack_range(attacker) * mobj_attack_range(attacker);
-        for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-            mobj_t *candidate = (mobj_t *)th;
-            if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
-                (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
-                P_IsAlly(attacker, candidate) ||
-                !P_VisibleTo(attacker, candidate)) continue;
-            float distance = fvec2_distance_squared(fixed3_xy_to_fvec2(candidate->core.position),
-                                                    fixed3_xy_to_fvec2(attacker->core.position));
-            if (distance <= best) { best = distance; target = candidate; }
-        }
-    }
     if (!target) return false;
     attacker->attack.target = target;
     const char *sprite_name = "(unknown)";
@@ -465,6 +521,10 @@ bool P_Attack(mobj_t *attacker) {
         mobj_t *missile = P_SpawnMissile(attacker, target,
                                          attacker->info->attack.projectile_type);
         if (!missile) return false;
+        if (attacker->info->attack.health_cost > 0) {
+            attacker->hp -= attacker->info->attack.health_cost;
+            if (attacker->hp < 0) attacker->hp = 1;
+        }
         if (mobj_attack_cooldown_ms(attacker) > 0)
             attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
         debug_effects_log("missile launch source=%d type=%u target=%d speed=%d",
@@ -495,7 +555,10 @@ void A_Look(mobj_t *unit) {
     unit->attack.target = target;
     fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
                             fixed3_xy_to_fvec2(unit->core.position));
-    unit->core.angle = angle_from_map_vector(&level, delta.x, delta.y);
+    angle_t desired = angle_from_map_vector(&level, delta.x, delta.y);
+    if (unit->traits & MF_TURRET) {
+        if (!turn_unit_toward(unit, desired, 1000 / RTS_TICRATE)) return;
+    } else unit->core.angle = desired;
     int attack_state = gameinfo->mobjinfo[unit->type_id].missilestate;
     if (attack_state != gameinfo->null_state) P_SetMobjState(unit, attack_state);
 }
@@ -560,6 +623,56 @@ static mobj_t *missile_collision(const mobj_t *missile, fvec2_t start, fvec2_t e
 
 static void tick_missile(mobj_t *missile) {
     if (!missile || missile->remove) return;
+
+    const missiledef_t *flight = missile->info ? &missile->info->missile : NULL;
+    if (flight && flight->period_ms > 0) {
+        missile->missile.clock += 1000;
+        while (missile->missile.clock >= flight->period_ms * RTS_TICRATE) {
+            missile->missile.clock -= flight->period_ms * RTS_TICRATE;
+            fvec2_t start = fixed3_xy_to_fvec2(missile->core.position);
+            missile->core.position = fixed3_add(missile->core.position, missile->core.momentum);
+            if (flight->weave && flight->weave_count > 0) {
+                int index = (missile->missile.age * flight->weave_step + missile->missile.phase) % flight->weave_count;
+                int amount = flight->weave[index];
+                fixed3_t momentum = missile->core.momentum;
+                fixed3_t offset = { momentum.y * amount / 100,
+                                    -momentum.x * amount / 100,
+                                    momentum.z * amount / 100 };
+                missile->core.position = fixed3_add(missile->core.position, offset);
+                if (flight->trail_type) {
+                    mobj_t *trail = P_SpawnMobj(missile->core.position, flight->trail_type);
+                    if (trail) { trail->owner = missile->owner; trail->team = missile->team; }
+                }
+            }
+            int remaining = missile->missile.duration - missile->missile.age;
+            if (flight->arc && remaining >= 0) {
+                int index = remaining * (flight->arc_count - 1) / missile->missile.duration;
+                missile->core.position.z = missile->missile.duration * flight->arc[index];
+            }
+            missile->missile.age++;
+            if (flight->timed) {
+                if (missile->missile.age >= missile->missile.duration) {
+                    missile->core.position.z = 0;
+                    P_ExplodeMissile(missile);
+                    return;
+                }
+            } else {
+                mobj_t *hit = missile_collision(missile, start,
+                    fixed3_xy_to_fvec2(missile->core.position));
+                if (hit) {
+                    P_DamageMobj(hit, missile->target, missile_damage(missile, hit));
+                    P_ExplodeMissile(missile);
+                    return;
+                }
+            }
+            if (flight->lifetime > 0 && missile->missile.age > flight->lifetime) {
+                P_RemoveMobj(missile);
+                return;
+            }
+        }
+        P_TickMobjState(missile);
+        return;
+    }
 
     fvec2_t start = fixed3_xy_to_fvec2(missile->core.position);
     fvec2_t step = fixed3_xy_to_fvec2(missile->core.momentum);
@@ -833,6 +946,9 @@ static void tick_actor(mobj_t *u) {
         u->attack.cooldown_left_ms -= dt_ms;
         if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
     }
+    const state_t *active_state = state_at(game_info, u->core.state_id);
+    if ((u->traits & (MF_TURRET | MF_LANDMINE)) && active_state &&
+        active_state->group != 3) A_Look(u);
 
     bool moving = unit_has_move_order(u);
     {

@@ -3,7 +3,7 @@
 
 /* DC.EXE 0x473df8, SHA-256 008052f5bc7fadfb...; same increment/wrap
  * lifecycle as Doom's P_Random, with the retail DC dword table. */
-static const uint32_t random_table[256] = {
+const uint32_t dc_random_table[256] = {
     16838, 5758, 10113, 17515, 31051, 5627, 23010, 7419,
     16212, 4086, 2749, 12767, 9084, 12060, 32225, 17543,
     25089, 21183, 25137, 25566, 26966, 4978, 20495, 10311,
@@ -40,7 +40,7 @@ static const uint32_t random_table[256] = {
 
 uint32_t M_DC_Random(uint8_t *index) {
     ++*index;
-    return random_table[*index];
+    return dc_random_table[*index];
 }
 
 uint32_t P_DC_Random(void) {

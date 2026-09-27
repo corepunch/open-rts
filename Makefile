@@ -301,6 +301,7 @@ test-ai: test-dark-colony
 
 NETWORK_TEST_SOURCES := $(sort $(shell find tests/network -name '*.c'))
 NETWORK_TEST_OBJS := $(patsubst %.c,$(BUILD_DIR)/model-test-dark-colony/%.o,$(NETWORK_TEST_SOURCES))
+-include $(NETWORK_TEST_OBJS:.o=.d)
 $(BIN_DIR)/test_network: $(NETWORK_TEST_OBJS) $(dark-colony_TEST_ENGINE_OBJS) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 

@@ -1505,3 +1505,16 @@ preserve fingerprints, data fields, corrected hypotheses, implementation
 boundaries and reproduction commands. In particular, native menu blitting
 supersedes the older world-FIN placement assumption; unported storage/artifact,
 vent-script and AI+ effects remain explicitly identified.
+
+### Dark Colony artillery, tower rockets and mines (2026-09-27)
+
+Local retail `DC.EXE` SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`:
+weapon loader `0x4381ac`, fire `0x412174`, projectile spawn/tick
+`0x43dc74`/`0x43e92c`, damage/blast `0x43de94`/`0x43e150`, curve tables
+`0x4758b0`/`0x4758f4`. Cross-checked with native GAMESTAT, WEAPSTAT, BOOMSTAT,
+MBULLET, BDF, ENGI encyclopedia and FIN files using radare2 and the C
+`dc_info_conv` inspector. No new external source was used.
+[Detailed findings and remaining gaps](docs/DC_EXE_FINDINGS.md#artillery-tower-rockets-and-deployed-mines-2026-09-27).
+Doom's local `reference/DOOM/p_mobj.c` supplies the missile ownership/state
+lifecycle reference; `p_map.c` supplies the explosion damage traversal pattern.

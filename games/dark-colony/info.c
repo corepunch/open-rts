@@ -37,7 +37,8 @@ const state_t states[NUMSTATES] = {
     #include "animate/BEAC.inc"
     #include "animate/BEON.inc"
     #include "animate/ENGI.inc"
-    #include "animate/MISA.inc"
+    #include "animate/NUKE.inc"
+    #include "animate/GASY.inc"
     #include "animate/BLOO.inc"
     #include "animate/BURN.inc"
     #include "animate/BURN2.inc"
@@ -220,15 +221,15 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER,
     },
     { // MT_MOBILE_TOWER
-        .spawnstate = S_TURR_STND,
+        .spawnstate = S_T_STND1,
         .spawnhealth = 800,
-        .missilestate = S_TURR_FIRE,
-        .deathstate = S_TURR_DIE1,
-        .xdeathstate = S_TURR_DIE1,
+        .missilestate = S_T_ATTACK,
+        .deathstate = S_T_DIE1,
+        .xdeathstate = S_T_DIE1,
         .radius = 16,
         .height = 32,
         .mass = 100,
-        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_ATTACK,
+        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_ATTACK|MF_TURRET,
     },
     { // MT_DROP_LINK
         .spawnstate = S_CENT_STND1,
@@ -388,10 +389,10 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .flags = MF_RENDERABLE|MF_NOBLOCKMAP,
     },
     { // MT_CANNONBALL
-        .spawnstate = S_MISA_CANNONBALL,
+        .spawnstate = S_BARR_BULLET,
+        .deathstate = S_ARTILLERY_IMPACT,
         .spawnhealth = 1,
-        .speed = 8,
-        .damage = 180,
+        .damage = 250,
         .radius = 4,
         .height = 4,
         .flags = MF_RENDERABLE|MF_MISSILE,
@@ -447,8 +448,34 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .radius = 16, .height = 32, .mass = 100,
         .spawnz = 50 * FIXED_ONE / 32,
         .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY },
+    [MT_PUS_BOMB] = { .spawnstate = S_PUS_BULLET1, .spawnhealth = 1,
+        .deathstate = S_ARTILLERY_IMPACT, .damage = 250,
+        .flags = MF_RENDERABLE | MF_MISSILE },
+    [MT_TOWER_ROCKET] = { .spawnstate = S_TURR_BULLET1, .spawnhealth = 1,
+        .damage = 100, .radius = 4, .flags = MF_RENDERABLE | MF_MISSILE },
+    [MT_XENO_BOLT] = { .spawnstate = S_XENO_BULLET1, .spawnhealth = 1,
+        .damage = 100, .radius = 4, .flags = MF_RENDERABLE | MF_MISSILE },
+    [MT_MINE_BLAST] = { .spawnstate = S_MINE_BULLET, .spawnhealth = 1,
+        .deathstate = S_MINE_IMPACT, .damage = 1300, .flags = MF_MISSILE },
+    [MT_TURRET_CARRIER] = { .doomednum = 1, .spawnhealth = 800,
+        .spawnstate = S_TURR_STND, .seestate = S_TURR_RUN1,
+        .deathstate = S_TURR_DIE1, .radius = 16, .height = 32,
+        .flags = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE },
+    [MT_XENO_TOWER] = { .doomednum = 42, .spawnhealth = 800,
+        .spawnstate = S_XDEPLOY_STND1, .missilestate = S_XDEPLOY_ATTACK,
+        .deathstate = S_XDEPLOY_DIE1, .radius = 16, .height = 32,
+        .flags = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_TURRET },
+    [MT_ROCKET_SMOKE] = { .spawnstate = S_ROCKET_SMOKE1, .spawnhealth = 1,
+        .flags = MF_RENDERABLE | MF_NOBLOCKMAP },
+    [MT_HUMAN_MINE] = { .doomednum = 45, .spawnhealth = 800,
+        .spawnstate = S_HMINE_STND1, .missilestate = S_HMINE_ATTACK,
+        .flags = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE },
+    [MT_ALIEN_MINE] = { .doomednum = 46, .spawnhealth = 800,
+        .spawnstate = S_HMINE_STND1, .missilestate = S_HMINE_ATTACK,
+        .flags = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE },
 };
 
+extern const uint32_t dc_random_table[256];
 const gameinfo_t game_info = {
     sprnames,
     NUMSPRITES,
@@ -461,4 +488,5 @@ const gameinfo_t game_info = {
     { .style = SELECTION_STYLE_SPRITE, .image = "INTRFACE/CLIENT.SPR" },
     DC_DrawUnitOverlays,
     .right_click_orders = false,
+    .random_table = dc_random_table,
 };

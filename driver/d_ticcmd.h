@@ -7,7 +7,7 @@
 /* RTS replacement for Doom's movement/buttons. A group order is atomic. */
 #define MAXCOMMANDUNITS 1024
 typedef enum {
-    TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD
+    TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY
 } ticorder_t;
 
 typedef struct {

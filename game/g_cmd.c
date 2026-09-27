@@ -11,7 +11,7 @@ void G_ClearTiccmds(void) {
 }
 
 bool G_QueueTiccmd(const ticcmd_t *cmd) {
-    if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_BUILD) return false;
+    if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_DEPLOY) return false;
     if (!netactive) { G_RunTiccmd(consoleplayer, cmd); return true; }
     if (commandcount == MAXPENDINGCOMMANDS) {
         fprintf(stderr, "Order queue full; order was not accepted.\n");
@@ -69,6 +69,10 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
+    if (cmd->order == TC_DEPLOY) {
+        for (int i = 0; i < count; ++i) P_Deploy(units[i]);
+        return;
+    }
     fvec2_t goal = fixed3_xy_to_fvec2(cmd->position);
     if (cmd->order == TC_BUILD) {
         const StaticProductDefinition *product = G_ModelProductByUIId(NULL, cmd->product);
@@ -133,6 +137,8 @@ uint32_t G_Consistency(void) {
         HASH(u->id); HASH(u->type_id); HASH(u->owner); HASH(u->team); HASH(u->allegiance);
         HASH(u->core.position.x); HASH(u->core.position.y); HASH(u->core.position.z);
         HASH(u->core.momentum.x); HASH(u->core.momentum.y); HASH(u->core.momentum.z);
+        HASH(u->missile.clock); HASH(u->missile.age); HASH(u->missile.duration);
+        HASH(u->missile.phase);
         HASH(u->core.angle); HASH(u->core.state_id); HASH(u->core.tics);
         HASH(u->hp); HASH(u->traits & ~MF_SELECTED); HASH(u->remove);
 #ifdef MOBJ_GAME_CHECKSUM

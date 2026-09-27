@@ -175,6 +175,17 @@ int main(void) {
     for (size_t i = 0; i < sizeof(sequences) / sizeof(sequences[0]); ++i)
         check_sequence(&app, surface, cache, sequences[i].file, sequences[i].label,
                        sequences[i].first, sequences[i].last, 0, false);
+    static const struct { const char *file, *label; int first, last; } weapons[] = {
+        {"ATRIL", "PUSBULLET0", S_PUS_BULLET1, S_PUS_BULLET1},
+        {"TURR", "TURRBULLET0", S_TURR_BULLET1, S_TURR_BULLET1},
+        {"XENO", "XENOBULLET0", S_XENO_BULLET1, S_XENO_BULLET1},
+        {"TURR", "SMOKEXPLODE0", S_ROCKET_SMOKE1, S_NULL},
+        {"NUKE", "NUKE", S_NUKE1, S_NULL},
+        {"GASY", "GASY", S_GASY1, S_NULL},
+    };
+    for (size_t i = 0; i < sizeof(weapons) / sizeof(weapons[0]); ++i)
+        check_sequence(&app, surface, cache, weapons[i].file, weapons[i].label,
+                       weapons[i].first, weapons[i].last, 0, true);
     for (int team = 0; team < 8; ++team) {
         check_sequence(&app, surface, cache, "DROP", "DROPMOVE0", S_DROP_MOVE1, S_DROP_MOVE1, team, false);
         /* An empty cargo lets the release state advance without spawning units. */

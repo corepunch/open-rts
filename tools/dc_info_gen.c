@@ -547,8 +547,9 @@ static void write_info_h_enum(const char *info_h_path) {
             const char *enum_start = strstr(old, "typedef enum {");
             /* Look for the one that contains S_NULL. */
             while (enum_start) {
-                if (strstr(enum_start, "S_NULL") &&
-                    strstr(enum_start, "NUMSTATES")) break;
+                const char *end = strchr(enum_start, '}');
+                const char *null_state = strstr(enum_start, "S_NULL");
+                if (end && null_state && null_state < end) break;
                 enum_start = strstr(enum_start + 1, "typedef enum {");
             }
             if (enum_start) {

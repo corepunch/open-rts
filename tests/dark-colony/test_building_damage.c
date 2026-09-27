@@ -22,6 +22,7 @@ static void hit(mobj_t *building, int remaining_hp) {
     P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));
     attacker.allegiance = ALLEGIANCE_ENEMY;
     attacker.attack.target = building;
+    attacker.core.position = building->core.position;
     building->hp = remaining_hp + attacker.info->attack.damage;
     assert(P_Attack(&attacker));
     assert(building->hp == remaining_hp);

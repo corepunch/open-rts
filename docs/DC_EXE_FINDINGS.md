@@ -5480,3 +5480,236 @@ the Dark Reign and 7th Legion suites and all four headless game smoke checks.
 KKnD's `test_combat`, `test_playable` and `test_production` failed identically
 in an isolated archive of unchanged parent `f540172`; they are baseline
 failures, not regressions from these shared rendering changes.
+
+## Artillery, tower rockets and deployed mines (2026-09-27)
+
+**Fingerprint:** retail `data/DCOLONY/DC.EXE`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+Evidence is instruction-level disassembly, cross-checked against local
+`GAMESTAT/{GAMESTAT,WEAPSTAT,BOOMSTAT,MBULLET}.TXT`, FIN labels and the retail
+encyclopedia. The earlier “Barrager launches MISA at speed 8, damage 180”
+implementation above is **superseded and disproven** by the native lookup.
+
+### Confirmed weapon lookup and data
+
+`0x4381ac` loads weapons into 0x48-byte records at `0x4eb200`: class +0,
+sound +4, rate of fire +8, damage +0xc, speed +0x10, range +0x14,
+lifetime +0x18, boom +0x1c, shots +0x20, reload +0x24, magic +0x28,
+bullet animation +0x2c, explosion variants +0x30, variant count +0x40,
+and trajectory byte +0x44. At `0x438391` it probes prefix + `BULLET0`,
+then resolves `BULLET`; `0x4383cf` probes `EXPLODE0` or `EXPL0`.
+Labels are global: the file basename need not match the weapon prefix.
+
+| Actor / native type | Base weapon | Damage / speed / range | ROF / trajectory / boom |
+| --- | --- | --- | --- |
+| Barrager, BARR / 3 | 10, BARR | 250 / 60 / 12 | 75 / 1 / 1 |
+| Atril, ATRIL / 11 | 24, PUS | 250 / 60 / 12 | 75 / 1 / 9 |
+| Deployed human tower, T / 41 | 34, TURR | 100 / 60 / 6 | 15 / 2 / 0 |
+| Deployed Xenowort / 42 | 40, XENO | 100 / 60 / 6 | 15 / 0 / 0 |
+| Deployed Sentinel / Slom, 45 / 46 | 38 | 1300 / 60 / 1 | 150 / 0 / 2 |
+| Osprey / Ortu, 5 / 13 | 37, SPAK | 100 / 15 / 2 | 10 / 0 / 5 |
+
+ROF is in the already established 66 ms native ticks; speed is 8.8 map-cell
+units per tick. Native lifetime is `((range*256+1024)*2+1)/(speed*2)+1`.
+Barrager upgrades 11/12 extend range to 14/16. Atril upgrades 25/26 also use
+range 14/16 but ROF 150. Towers use weapons 34..36 / 40..42; human damage
+upgrades are 125/150. Aircraft weapon 37 has three shots and reload 30;
+SPAK has `SPAKEXPLODE0`, but no `SPAKBULLET0`. No missing SPR/FIN should be
+invented for this absent bullet animation. These upgrade/burst paths are not
+implemented by this change.
+
+Both artillery actors have native HP 400, speed 15, damage class 3. Human
+mobile TURR (1) and XENO (9) have HP 800, speed 15 and weapon IDs -1; only
+the deployed forms (41/42) fire. Deployed forms have speed 0, turn speed 5,
+class 6 and sight 9/5 (human) or 5/9 (alien). ENGI/SLOM (43/44) have HP 800,
+speed 30, class 5; deployed HMINE (45/46) has speed 0 and class 7. Ordinary
+infantry is class 0, Reaper/Sy-Demon 1, aircraft 2, artillery 3,
+Sarge/Gorrem 4, workers 5, towers 6, mines 7, invulnerable objects 8 and
+city buildings 9. `MBULLET.TXT` supplies damage percentages by this class.
+The added missile definitions author their base values as C literals.
+
+### Confirmed flight, impact and damage
+
+`0x412174` resolves the firing team's weapon and obtains muzzle placement
+through FIN channel 7 (`0x423d00`). Blast weapons choose aim scatter before
+launch. Direction uses `0x43da94` and the native trig scale 2048, multiplied
+by weapon speed. Timed flight derives duration from the dominant horizontal
+axis delta/velocity; untimed same-height non-blast shots use -1.
+`0x43dc74` creates the native 40-byte projectile record with source, velocity,
+weapon, duration, trajectory and a random phase byte at +0x1f.
+
+`0x43e92c` advances projectiles at the native cadence. Timed shots bypass
+intervening object collisions and detonate when their flight counter expires.
+Modes 1/4 use `duration * curve[remaining*16/duration] >> 6` for height in
+8.8 cells. The 17 signed dwords at `0x4758b0` are:
+
+```
+25 150 280 390 480 550 600 630 640 630 600 550 480 390 280 150 25
+```
+
+In 16.16 cells the curve entries multiply by four. Mode 2 uses the table at
+`0x4758f4` with index `(age*4 + random_byte)&31`:
+
+```
+0 19 38 55 70 83 92 98 99 98 92 83 70 55 38 19
+0 -19 -38 -55 -70 -83 -92 -98 -99 -98 -92 -83 -70 -55 -38 -19
+```
+
+It adds `{dy,-dx,dz} * table[index]/100` after forward velocity and emits
+weapon 43 (`SMOK`) through `0x43dde4`. Xenowort's trajectory 0 is straight.
+
+`0x43e150` scans a ground blast square, with fallback to the other ground
+occupancy layer, not aircraft. Boom 1 and 9 share this 5x5 weight matrix:
+
+```
+10 25  50 25 10
+25 50  75 50 25
+50 75 100 75 50
+25 50  75 50 25
+10 25  50 25 10
+```
+
+Boom 2 is a 7x7 mine blast:
+
+```
+ 5 10 15  20 15 10  5
+10 15 30  50 30 15 10
+15 30 75  90 75 30 15
+20 50 90 100 90 50 20
+15 30 75  90 75 30 15
+10 15 30  50 30 15 10
+ 5 10 15  20 15 10  5
+```
+
+Boom 5 is 3x3 with only its center at 100%, using SMAY. Artillery aim scatter
+is a separate 3x3 matrix `3,10,3 / 10,48,10 / 3,10,3`; the mine scatter is
+center-only. Do not confuse aim scatter with blast damage.
+
+`0x4380f3..0x438106` converts blast percentages to 8.8. At
+`0x43e645`, SAME OWNER damage is quartered (factor 64 versus 256); this
+comparison is not an alliance check. `0x43de94` applies weapon-class damage,
+blast weight and defense factors by successive `>>8` operations, with a
+further race/daylight adjustment on its relevant branch. Weapon classes
+3, 5 and 6 in MBULLET have respectively these percentages:
+
+```
+artillery: 100 35  0 25 70 180 15 50 0 10
+ towers:   100 33 50 33 66  80 33 50 0 33
+ mines:    164 25  0 25 50 130 13  2 0  2
+ aircraft:   7 25  0  8 25  45  5 25 0  5
+```
+
+`0x43e501..0x43e521` randomly chooses ONE boom animation. Artillery boom
+1/9 lists NUKE and GASY; this is not an instruction to spawn both effects.
+Mine boom 2 lists NUKE only.
+
+### Confirmed deployment and mine charges
+
+`INTRFACE/BDF.TXT` assigns Enter to deployment (human tower 68, Xenowort
+69, engineer/Slom 75). `ENCYCLO/ENGI.TXT` describes the Sentinel as a buried,
+hidden proximity mine with three charges; the last destroys it. Native fire
+at `0x412586..0x4125a1` subtracts 300 HP for types 45/46 and clamps negative
+HP to 1 before spawning the shot. The mine's own quarter-strength splash
+then consumes the final residual HP. A full-health, otherwise undamaged
+mine therefore survives two charges, rather than disappearing on first use.
+The 1-cell weapon range triggers against enemies; air must not trigger it.
+`0x413af8` is a thin fire wrapper; it does not itself implement concealment.
+`0x411570` turns using type +8's byte-sized rate and the shortest heading
+change. The deployed tower rate 5 is converted to a per-engine-tic angle.
+
+Retail README explicitly names Sarge/Gorrem as mine detectors and artillery
+as a way to clear mines. **Unported/unknown:** the exact hidden/detection
+lifecycle and range, including suspected object fields +0x68 and +0xca.
+These field interpretations are not established by this weapon investigation.
+Mines in the current engine are visible when ordinary team sight reveals
+that cell. There is no invented concealment distance or detector threshold.
+Retraction into mobile tower/mine forms also remains unimplemented.
+
+### Confirmed FIN images and implementation
+
+| File | Label | Native frames | Engine logical frames |
+| --- | --- | --- | --- |
+| BARR | BARRBULLET0 | 176 | 282 |
+| ATRIL | PUSBULLET0 | 208..211 | 321..324 |
+| TURR | TURRBULLET0 | 113..118 | 173..178 |
+| XENO | XENOBULLET0 | 206..211 | 320..325 |
+| TURR | SMOKEXPLODE0 | 184..191 | 244..251 |
+| NUKE | NUKE | 0..26 | 21..47 |
+| GASY | GASY | 20..39 | 41..60 |
+| TURR | TURRDEPLOY0 | 32..48 | 92..108 |
+| TURR | TSTAND0 | 81..82 | 141..142 |
+| TURR | TDIE14 | 119..132 | 179..192 |
+| XENO | XENODEPLOY0 | 150..161 | 264..275 |
+| XENO | XDEPLOYSTAND0 | 174..175 | 288..289 |
+| XENO | XDEPLOYDIE0 | 212..223 | 326..337 |
+| ENGI | HMINESTAND0 | 56..57 | 85..86 |
+| ENGI | ENGIDEPLOY0 | 58..90 | 87..119 |
+| SLOM | SLOMDEPLOY0 | 40..60 | 90..110 |
+
+PUS and HMINE are labels inside ATRIL/ENGI, not standalone FIN assets.
+GASY also has a different `GHASY2` label at 0..19; boom's exact name selects
+20..39. SMAY occupies native 0..12 (logical 13..25). Smoke's engine ticks
+are `2,4,4,6,8,6,4,2`. The new animation delays use native 66 ms boundaries;
+existing Reaper movement `{4,3,3,4,1,3,3,1}` is preserved.
+
+The shared engine owns `MF_TURRET`, `MF_LANDMINE`, deployment commands,
+fixed-point projectile motion, authored curve/weave, impact class factors
+and blast matrices. DC enables them with C definitions and native FIN states.
+Deployment changes the existing mobj's type after its animation: pointers and
+ID remain stable. Tower/mine stand states acquire targets even when the native
+pose has no A_Look action. Mines reject air; towers rotate before firing.
+All projectiles, smoke and explosions remain ordinary allocated mobjs in
+`thinkercap`, using death states and deferred removal. This follows Doom's
+`p_mobj.c` missile ownership (`target = source`) and state lifecycle;
+DC's measured square weights replace Doom's radial falloff for these weapons.
+Native's separate projectile array is deliberately not copied into the engine.
+
+**Limits of this port:** initial direction still uses the engine's planar
+normalization instead of DC's quantized trig table; duration uses planar
+distance/step instead of the exact dominant-axis computation. Muzzle-channel
+placement, aim scatter, armor upgrades/daylight damage, aircraft bursts,
+native occupancy/terrain collision and exact RNG consumption remain unported.
+Straight projectiles use the existing swept object collision. Consequently
+these are native-authored weapon rules within the existing simulation, not
+bit-exact retail trajectories. The audit also found that the older Sarge,
+Osprey and Ortu definitions still lack attack-state entry points; Reaper's
+held idle state does not autonomously acquire. Specialist healing, transports
+and other abilities have not been certified. Do not describe all units as
+correct because the artillery/tower/mine tests pass.
+
+State-generation maintenance: the legacy C generator's unmarked-header
+fallback searched past each enum's closing brace, so it could replace the
+sprite enum when looking for S_NULL. The search is now bounded to its own
+enum. Full native autogeneration still changes unrelated authored timings;
+this change retains existing state rows and authors the new rows in
+`tools/dc_states.txt`. No Python tooling was introduced.
+
+Reproduce with:
+
+```sh
+shasum -a 256 data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -A -c 'pdf @ 0x4381ac' -c 'pdf @ 0x412174' -c 'pdf @ 0x43e92c' -c 'pdf @ 0x43e150' -c 'pdf @ 0x43de94' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --label BARRBULLET0 data/DCOLONY/ANIMATE/BARR.FIN
+build/dc_info_conv --label PUSBULLET0 data/DCOLONY/ANIMATE/ATRIL.FIN
+build/dc_info_conv --label SMOKEXPLODE0 data/DCOLONY/ANIMATE/TURR.FIN
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_projectiles
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_drop_fin_states
+build/bin/test_dark_colony_sprite_layout
+```
+
+`test_projectiles` checks both artillery families' arc/flight, delayed area
+impact, friendly quarter damage, air exclusion, intervening objects, tower
+rocket collision, removed source/target lifetime, in-place deployment of all
+four mobile forms, automatic tower fire and three mine charges.
+`test_drop_fin_states` compares the new projectile, smoke and explosion FIN
+layers, pixels and native timing and checks all visible state indices.
+
+Verification of this change: all 41 Dark Colony model tests and the sprite
+layout test pass; new FIN pixel checks cover PUS, TURR, XENO, smoke, NUKE and
+GASY. All four game binaries build and pass headless `--check`. Dark Reign,
+7th Legion and model-command regressions pass. Three KKnD tests (combat,
+playable, production) and the UDP network setup suite fail identically in a
+fresh export of the unchanged parent revision. Network diagnostics showed
+matching initial simulation hashes; the existing wire codec drops position.z
+although setup compares it to game_speed. This separate protocol defect is
+not changed here, so multiplayer deployment is not certified end to end.

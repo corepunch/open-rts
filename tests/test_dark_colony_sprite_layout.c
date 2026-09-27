@@ -515,6 +515,10 @@ void A_Look(mobj_t *unit) { (void)unit; }
 void A_Chase(mobj_t *unit) { (void)unit; }
 void A_DC_MuzzleFlash(mobj_t *unit) { (void)unit; }
 void A_Attack(mobj_t *unit) { (void)unit; }
+const uint32_t dc_random_table[256] = {0};
+void A_Explode(mobj_t *unit) { (void)unit; }
+void A_Deploy(mobj_t *unit) { (void)unit; }
+void A_DC_ArtilleryExplode(mobj_t *unit) { (void)unit; }
 void A_DC_ReaperDeath(mobj_t *unit) { (void)unit; }
 void A_DC_Arrive(mobj_t *unit) { (void)unit; }
 void A_DC_BuildingStand(mobj_t *unit) { (void)unit; }

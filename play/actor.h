@@ -34,6 +34,8 @@ typedef enum {
     MF_DONTDRAW = 1u << 8,
     MF_NOBLOCKMAP = 1u << 9, /* Non-interacting puff, blood, or light mobj. */
     MF_MISSILE = 1u << 10,
+    MF_TURRET = 1u << 11,
+    MF_LANDMINE = 1u << 12,
 } mobjflag_t;
 
 enum {
@@ -45,6 +47,25 @@ enum {
 
 typedef struct { int capacity, load_amount, unload_amount; } harvestresource_t;
 
+/* Authored weapon data. Distances are map cells; fixed values are 16.16. */
+typedef struct {
+    const uint8_t *weights;
+    int size;
+    const uint16_t *damage_factors; /* 8.8 multipliers by armor class. */
+    int armor_classes;
+} blastdef_t;
+
+typedef struct {
+    fixed_t step;
+    int period_ms, lifetime;
+    bool timed;
+    const fixed_t *arc; /* Height per flight tick, indexed by remaining fraction. */
+    int arc_count;
+    const int8_t *weave;
+    int weave_count, weave_step;
+    uint16_t trail_type;
+} missiledef_t;
+
 typedef struct mobjtype_s {
     uint16_t id;
     const char *name;
@@ -54,6 +75,7 @@ typedef struct mobjtype_s {
     float speed;
     angle_t turn_step; /* Per simulation tic; zero uses the legacy turn cadence. */
     int max_hp;
+    unsigned armor_class;
     struct {
         int day, night;
         bool airborne;
@@ -63,7 +85,11 @@ typedef struct mobjtype_s {
         int damage;
         int cooldown_ms;
         uint16_t projectile_type;
+        int health_cost;
     } attack;
+    missiledef_t missile;
+    blastdef_t blast;
+    struct { int state; uint16_t type; } deploy;
     struct {
         int state_id;
         int unload_state_id;
@@ -125,6 +151,7 @@ struct gameinfo_s {
     unitoverlaydrawf_t draw_overlays; /* Replaces the engine selection and health overlay. */
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
     harvestdropoffmatchf_t harvest_dropoff_matches;
+    const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */
@@ -170,6 +197,7 @@ struct mobj_s {
     int hp;
     int max_hp;
     mobj_t *target; /* Doom: missile originator, or another mobj target. */
+    struct { int clock, age, duration, phase; } missile;
     struct {
         int cooldown_left_ms;
         mobj_t *target;
@@ -239,6 +267,9 @@ void P_MobjThinker(mobj_t *mobj);
 mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type);
 mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type);
 void P_ExplodeMissile(mobj_t *missile);
+void A_Explode(mobj_t *actor);
+bool P_Deploy(mobj_t *actor);
+void A_Deploy(mobj_t *actor);
 void P_RemoveMobj(mobj_t *mobj);
 void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit);
 /* Non-owning snapshots for rendering/UI and batch RTS orders. The thinker list

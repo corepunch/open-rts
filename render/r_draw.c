@@ -1428,6 +1428,9 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
             }
             break;
         case SDL_KEYDOWN:
+            if (!e->key.repeat && (e->key.keysym.sym == SDLK_RETURN ||
+                                  e->key.keysym.sym == SDLK_KP_ENTER))
+                G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fvec2_t){0}, 0);
             if (e->key.keysym.sym == SDLK_ESCAPE) app->running = false;
             if (e->key.keysym.sym == SDLK_g) app->show_grid = !app->show_grid;
             if (e->key.keysym.sym == SDLK_b) app->show_blocked = !app->show_blocked;

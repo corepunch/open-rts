@@ -639,6 +639,9 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
                 model_emit_event(model, RTS_GAME_EVENT_UNIT_ARRIVED, model->objects.items[i], NULL, 0, 0);
         return true;
     }
+    case RTS_GAME_COMMAND_DEPLOY_SELECTED:
+        return G_SelectedTiccmd(TC_DEPLOY, model->objects.items, model->objects.count,
+                               (fvec2_t){0}, 0);
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
         if (netactive)
             return G_SelectedTiccmd(TC_HARVEST, model->objects.items, model->objects.count,

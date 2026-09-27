@@ -40,6 +40,7 @@ int main(void) {
         P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));
         attacker.allegiance = ALLEGIANCE_ENEMY;
         attacker.attack.target = &unit;
+        attacker.core.position = unit.core.position;
         gameinfo = &game_info;
         CHECK(P_Attack(&attacker));
         CHECK(unit.hp == 0);

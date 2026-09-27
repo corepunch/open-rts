@@ -61,12 +61,12 @@ static bool decode(const uint8_t *wire, size_t size) {
         if (size - offset < 28) return false;
         const uint8_t *p = wire + offset;
         ticcmd_t *c = &packet.cmds[i];
-        if (get32(p + 4) > TC_BUILD) return false;
+        if (get32(p + 4) > TC_DEPLOY) return false;
         c->consistancy = get32(p); c->order = get32(p + 4);
         c->position = (fixed3_t){ (int32_t)get32(p + 8), (int32_t)get32(p + 12), 0 };
         c->target = get32(p + 16); c->product = (int32_t)get32(p + 20);
         c->count = get32(p + 24);
-        if (c->order > TC_BUILD || c->count > MAXCOMMANDUNITS ||
+        if (c->order > TC_DEPLOY || c->count > MAXCOMMANDUNITS ||
             c->count > (size - offset - 28) / 4) return false;
         for (unsigned j = 0; j < c->count; ++j) c->units[j] = get32(p + 28 + 4 * j);
         offset += 28 + 4 * c->count;

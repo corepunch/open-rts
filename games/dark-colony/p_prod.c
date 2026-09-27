@@ -80,7 +80,7 @@ static uint16_t actor_id_for_product_type(int product_type) {
 static uint16_t unit_actor_id_for_product_type(int product_type) {
     switch (product_type) {
     case 0: return MT_TROOPER;
-    case 1: return MT_MOBILE_TOWER;
+    case 1: return MT_TURRET_CARRIER;
     case 2: return MT_REAPER;
     case 3: return MT_THUNDERBOLT;
     case 4: return MT_CYBORG;
