@@ -1518,3 +1518,17 @@ MBULLET, BDF, ENGI encyclopedia and FIN files using radare2 and the C
 [Detailed findings and remaining gaps](docs/DC_EXE_FINDINGS.md#artillery-tower-rockets-and-deployed-mines-2026-09-27).
 Doom's local `reference/DOOM/p_mobj.c` supplies the missile ownership/state
 lifecycle reference; `p_map.c` supplies the explosion damage traversal pattern.
+
+### Dark Colony pathfinding and multiple-unit movement (2026-09-29)
+
+Local `data/DCOLONY/DC.EXE`, 566,272 bytes, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`;
+native scenario `.PTH` files supply the 256-by-256 next-family table and
+bottom-up family plane. Radare2/r2ghidra discovery plus exact instruction/data
+reads established `0x43f07c` (load), `0x43f730`/`0x44085c` (bucket search),
+`0x440dc4` (main family route), `0x4409d8` (local occupied search), `0x440ac0`
+(aircraft), `0x4759a8` (9-by-9 direction costs), `0x41bdd0` (shared selected-unit
+destination), `0x414418`/`0x414680` (congestion), and `0x4117fc` (release origin
+occupancy). No external source was added. Local `reference/DOOM/p_map.c`
+provided the validate-then-commit movement ownership reference.
+[Detailed evidence, behavioral vectors and unported ticker behavior](docs/DC_EXE_FINDINGS.md#native-path-search-and-group-movement-2026-09-29).

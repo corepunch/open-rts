@@ -5713,3 +5713,183 @@ fresh export of the unchanged parent revision. Network diagnostics showed
 matching initial simulation hashes; the existing wire codec drops position.z
 although setup compares it to game_speed. This separate protocol defect is
 not changed here, so multiplayer deployment is not certified end to end.
+
+## Native path search and group movement (2026-09-29)
+
+### Evidence and calling convention
+
+This investigation uses the fingerprinted `data/DCOLONY/DC.EXE` above:
+566,272 bytes, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+PE32 image base `0x400000`, linker 2.18. The Watcom compiler attribution remains
+**inferred**. Register arguments EAX/EDX/EBX/ECX and callee-cleaned extra stack
+arguments are **confirmed** in the path callers; e.g. `0x4409d8` ends in
+`ret 8`. Ghidra's displayed parameter lists are not reliable C prototypes.
+Broad r2ghidra discovery was followed by focused `pdf`/data reads and caller
+inspection. Linear disassembly also found command handlers omitted by automatic
+function discovery. Generated dumps remain under ignored `reverse/`.
+
+### Confirmed terrain and search rules
+
+- `0x43f07c` loads a PTH: the first 65,536 bytes are a family-to-family next-hop
+  table, followed by `width * height` family bytes in native bottom-up world
+  order. `0x43f0fa` reads the table; `0x43f18c..0x43f20e` puts each family at
+  record `+0x0c`. Family zero is blocked; 255 is the padded outside sentinel.
+  This is not the MAP tile-obstacle bit plane and must not be reconstructed
+  from it. D2PLAY01's Sarge cell `(68,76)` really has family zero; reversing the
+  PTH rows to make that spawn walkable is disproven.
+- Native path cells are `0x18` bytes: search stamp at `+0`, signed score at
+  `+4` (zero closed, -1 unseen), byte x/y at `+8/+9`, parent x/y at `+a/+b`,
+  family at `+c`, adjustment at `+d`, and bucket next/previous pointers at
+  `+10/+14`. The loaded adjustment is zero in the inspected search path.
+- `0x440dc4` seeds the search at the **order destination** and searches back to
+  the actor. It permits only the family chain obtained by repeatedly reading
+  `table[current_family * 256 + actor_family]`. Both endpoint families are
+  asserted nonzero in retail. Searching actor-to-goal changes the route.
+- `0x43f730` uses the 81 signed dwords at `0x4759a8` as a 9-by-9 cost table.
+  Both axes use raster 3-by-3 ordering. The row is
+  `sign(actor.x-cell.x)+1 + 3*(sign(actor.y-cell.y)+1)`; the column identifies
+  the neighbor. The literal table is preserved in `games/dark-colony/p_path.c`.
+  This is a directional bucket search, not A* with 10/14 distances or a shared
+  flow field. For example, unobstructed `(1,1)` to `(6,3)` produces
+  `(2,1),(3,1),(4,1),(5,2),(6,3)`.
+- Expansion order is E, NE, SE, W, SW, NW, N, S in world-y-up coordinates.
+  A diagonal requires its destination and **either** orthogonal side to pass.
+  Requiring both sides is disproven. The occupancy-aware search applies the
+  occupancy predicate to those sides too.
+- `0x43ef10` initializes 256 circular buckets; `0x44085c` pops/expands them.
+  Insertion is at the head (LIFO). `0x43fd0d` replaces an existing parent on an
+  **equal** score as well as on a better one. These ties matter: with `(4,3)`
+  blocked, `(1,3)` to `(7,3)` selects `(4,2)`, not `(4,4)`, even though the
+  latter is expanded first and both offer cost 13 to `(3,3)`.
+- `0x43f4e8` measures the parent chain; `0x43f56c` encodes it using nibble
+  direction table `0x475978`: `0,1,2,3,-1,4,5,6,7`. Order setup at `0x41434e`
+  retains at most 32 steps and continues the route later.
+- `0x413fc0` clamps the destination. For a blocked ground destination,
+  `0x414133..0x4141e3` searches expanding squares, X outer/Y inner, taking the
+  first nonzero family. It centers the result at `(cell << 8) + 0x80`.
+- Aircraft use `0x440ac0`, which writes parents along the major axis and then
+  diagonally **backwards**. Forward flight therefore goes diagonally first,
+  then along the remaining axis. Aircraft ignore terrain families on the main
+  route; order setup limits destination y to `height-3`.
+
+### Confirmed multiple-unit orders and congestion
+
+`0x41bdd0` reads a player byte and one pair of coordinate words, then scans
+800 objects at stride `0xdc`. For selected objects (selection field `+0x12`),
+`0x41be6e/0x41be72` copy the **same** destination to `+0x2e/+0x30`. The individual
+handler `0x41bd78` writes those same fields. Assigning formation slots or
+reserving distinct final destinations at order issue is **disproven** for this
+command path. Each actor has its own route; a group does not share a flow field.
+
+`0x414f8b..0x415017` claims the next cell before translation. The movement setup
+call at `0x415089` enters `0x4117fc`, which releases the old cell before physical
+movement completes. Thus occupancy follows the reserved step destination,
+not the floor of the current drawn position. Ground occupancy uses map rows
+at `+0x804` (32-bit cells), aircraft use `+0xc04` (16-bit cells); the low ten
+bits hold the object index and `0x3ff` means empty. The two layers do not block
+each other. `0x43f6e8` enables this occupancy filter; `0x43f720` disables it.
+
+When blocked, `0x414680` walks the remaining packed route to its first empty
+cell. `0x414418` requests a local occupancy-aware route to that cell and splices
+back the remaining route if the total is below 32; otherwise it retains the
+local portion. `0x4409d8` permits every nonzero non-sentinel family (including
+family zero for aircraft), expands the seed, then allows up to 256 bucket pops.
+
+When **all** remaining route cells are occupied, `0x414809..0x41487e` consumes
+two entries from the native random table at `0x473df8`, shifting each destination
+axis by `(random % 3 - 1) * 256` in 8.8 units. `0x414881..0x4148d4` corrects
+one-cell edge overflow. If the destination differs from the current cell,
+`0x414913` starts another main search. This explains a group's spread around
+its common destination without invented spacing, arrival radii or slot grids.
+
+### Implementation and explicit fidelity limits
+
+The engine now uses these search costs, ties, family chains, step order, corner
+rules, 32-cell routes, aircraft routes, local detours, shared group targets and
+native random destination shifts. `level.paths` owns native PTH storage and
+search scratch space; individual thinker-owned mobjs own routes. Bucket links
+are 32-bit indices (preserving the `0x18` record layout on a 64-bit host);
+routes store up to 32 cell coordinates instead of packed nibbles. Occupancy is
+resolved through stable mobjs in Doom's thinker ring rather than duplicating
+simulation objects into a flat native array. Level cleanup releases the search
+storage. This follows the local Doom `p_map.c` movement ownership convention:
+validate a step before committing the object's position.
+
+The following are engine adaptations, not claims of a complete ticker port:
+
+- Simulation retains the existing 16.16 mobj positions, configured speeds,
+  thinker clock, turn-in-place presentation, attack and harvesting state
+  machines. All locomotion deltas are now cardinal or exactly diagonal;
+  off-center spawned/retargeted units first align to their current cell center.
+  Exact harvesting attachment/bay coordinates are preserved, reached by
+  diagonal then axial segments. Ordinary group move orders use cell centers.
+- The existing authored blocked-spawn escape is retained for Sarge: a main
+  route whose actor cell has family zero may reach that endpoint through
+  adjacent traversable cells. Retail asserts on this case; this is not evidence
+  that family zero is normally traversable. Enclosed units still fail to route.
+- Procedural test maps without a PTH have one family derived from their blocked
+  plane. Retail map loading requires the native PTH. Broken family chains,
+  out-of-range endpoints and truncated files fail safely.
+- Native blocked-object yielding also writes a direction to object byte `+0x35`
+  at `0x41499b` for an allied blocker, then selects ticker state 4 through
+  `0x4116e8`. `0x41203c` handles local evade modes and `0x411ec4` tries five
+  direction candidates, requiring a free destination, nonzero family and either
+  orthogonal side for diagonals. The complete idle-yield/state/timer protocol is
+  **not ported** here. Failed local routes retry on the next engine tic; exact
+  retail congestion timing and automatic displacement of idle blockers remain
+  unverified. This does not change the confirmed search or shared order rules.
+
+Temporary diagnostics exposed two engine interactions. The old post-thinker
+radius-separation pass pushed an Exploiter from x=66.5 to x=66.500046 each tic,
+preventing its route waypoint from completing and adding arbitrary-angle
+movement. It is disabled for DC, as are axis sliding and radius-based group
+arrival. Also, Human02 can release a Trooper into `(65,49)` after an Exploiter
+has already claimed it; route execution rechecks occupancy and detours from
+its current cell rather than discarding the harvesting order. The old patrol
+test's rectangular movement envelope was an engine assumption: a native detour
+can pass `(49,27)` outside it. The test now checks eight-direction deltas, live
+noncombat guards, valid map cells and completion of a full patrol loop.
+All temporary `OPEN_RTS_DEBUG_PATH` logging was removed after diagnosis.
+
+### Reproduction and behavioral vectors
+
+```sh
+r2 -q -e bin.cache=true -e scr.color=false -A \
+  -c 'pdf @ 0x43f730' -c 'pdf @ 0x440dc4' -c 'pdf @ 0x4409d8' \
+  -c 'pxw 324 @ 0x4759a8' -c 'pdf @ 0x440ac0' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false \
+  -c 'af @ 0x41bdd0' -c 'pdf @ 0x41bdd0' \
+  -c 'af @ 0x414680' -c 'pdf @ 0x414680' \
+  -c 'pd 100 @ 0x414f8b' -c 'af @ 0x4117fc' -c 'pdf @ 0x4117fc' \
+  -c q data/DCOLONY/DC.EXE
+make build/bin/tests/dark-colony/test_native_pathfinding
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_native_pathfinding
+env SDL_VIDEODRIVER=dummy make test-dark-colony
+```
+
+The focused C test checks exact open-map and equal-cost routes, both corner
+branches, reverse family chaining, invalid chains/files, route continuation,
+ground/air motion in all octants, occupied-route detours and cell claiming
+before translation. Sixteen-unit ground and aircraft orders verify identical
+initial goals, distinct claimed cells and completed arrivals without any
+arbitrary-angle tic. The blocked-destination vector checks random entries
+5758 and 10113 produce offset `(0,-1)` and consume exactly two random draws.
+
+Verification for this change: `make`, all 42 Dark Colony model/shared tests,
+both model-command suites, sprite-layout and DC loader fixtures pass. The
+loader fixture now authors a companion native-size PTH. Dark Reign's seven
+and 7th Legion's six model/shared tests also pass. Headless Dark Colony `--check`
+and a Human02 BMP screenshot pass; the latter was visually inspected. Symbols
+were regenerated with `make tags`.
+
+The broader KKnD run reports three failures in untouched expectations:
+`test_combat` opening frames, `test_playable` expecting production to be
+unimplemented, and `test_production` expecting zero products. The loopback
+network suite initially needs permission to bind; with sockets available its
+setup fails before simulation. Temporary diagnostics showed identical world
+hashes (`5f9090cd` on all four peers), but received speed zero versus expected
+one. `driver/d_net.c::SendSetup` stores speed in `position.z`, whereas the
+existing `driver/i_net.c` packet codec transfers only x/y. That unrelated
+protocol issue is not changed here, and the end-to-end network suite is not
+claimed to pass. Its temporary diagnostics were removed.

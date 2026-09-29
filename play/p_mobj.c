@@ -1,5 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
+#ifdef RTS_GAME_DARK_COLONY
+#include "p_path.h"
+#endif
 #include "game.h"
 #include "info.h"
 #include "d_net.h"
@@ -366,7 +369,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     P_MobjSetSelected(target, false);
     target->traits &= ~(MF_SELECTABLE | MF_MOBILE | MF_FLY |
                         MF_ATTACK | MF_HARVESTER);
-    target->movement.flow_field = NULL;
+    P_ClearMove(target);
     target->movement.order_arrived = false;
     target->harvest.target = -1;
     target->harvest.timer_ms = 0;
@@ -480,7 +483,7 @@ bool P_Deploy(mobj_t *actor) {
     if (!actor || actor->remove || actor->hp <= 0 || !actor->info ||
         !actor->info->deploy.state || !actor->info->deploy.type ||
         !(actor->traits & MF_MOBILE)) return false;
-    actor->movement.flow_field = NULL;
+    P_ClearMove(actor);
     actor->movement.order_id = 0;
     actor->traits &= ~MF_MOBILE;
     actor->attack.target = NULL;
@@ -573,6 +576,10 @@ static bool move_unit_if_walkable(mobj_t *unit, fvec2_t displacement) {
     fixed3_t momentum = fixed3_planar_delta(displacement);
     fixed3_t candidate = fixed3_add_planar(unit->core.position, momentum);
     if (P_TryMove(unit, candidate)) return true;
+#ifdef RTS_GAME_DARK_COLONY
+    /* A DC route step has one of eight directions; do not slide off it. */
+    return false;
+#endif
     momentum.y = 0;
     candidate = fixed3_add_planar(unit->core.position, momentum);
     if (momentum.x != 0 && P_TryMove(unit, candidate)) return true;
@@ -698,12 +705,17 @@ static void tick_missile(mobj_t *missile) {
     P_TickMobjState(missile);
 }
 
-static bool unit_has_move_order(const mobj_t *unit) {
+bool P_HasMoveOrder(const mobj_t *unit) {
+#ifdef RTS_GAME_DARK_COLONY
+    return unit && unit->route.count && !unit->movement.order_arrived;
+#else
     return unit && (unit->movement.flow_field ||
                     ((unit->traits & MF_FLY) && unit->movement.order_id)) &&
            !unit->movement.order_arrived;
+#endif
 }
 
+#ifndef RTS_GAME_DARK_COLONY
 static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
                                                      float tx, float ty, float dist_to_goal) {
     if (unit->movement.order_id == 0) return false;
@@ -735,6 +747,8 @@ static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
     return false;
 }
 
+#endif
+
 static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     float radius = P_MobjRadius(unit) + 0.55f;
     if (radius < 0.75f) radius = 0.75f;
@@ -765,7 +779,7 @@ static bool update_unit_harvest(level_t *map,
              (!game_info->harvest_dropoff_matches(unit, unit->harvest.resource_type, base, &bay) ||
               !fvec2_near(bay, unit->harvest.return_position, 0.001f) ||
               !P_CheckPosition(map, unit, bay.x, bay.y)))) {
-            unit->movement.flow_field = NULL;
+            P_ClearMove(unit);
             unit->movement.order_arrived = false;
             unit->harvest.base = NULL;
             unit->harvest.phase = HARVEST_PHASE_TO_BASE;
@@ -775,7 +789,7 @@ static bool update_unit_harvest(level_t *map,
         }
         if (!unit->movement.order_arrived) {
             if (animated_transfer) yield_harvest_bay(map, unit);
-            if (!unit_has_move_order(unit)) send_harvester_home(map, unit);
+            if (!P_HasMoveOrder(unit)) send_harvester_home(map, unit);
             return false;
         }
         if (!fvec2_near(fixed3_xy_to_fvec2(unit->core.position),
@@ -861,7 +875,7 @@ static bool update_unit_harvest(level_t *map,
             } else P_SetMobjState(unit, mobj_harvest_state(unit));
             return true;
         }
-        if (!unit_has_move_order(unit) && !unit->movement.order_arrived)
+        if (!P_HasMoveOrder(unit) && !unit->movement.order_arrived)
             send_harvester_to_vent(map, unit, vent);
         if (!unit->movement.order_arrived ||
             !fvec2_near(fixed3_xy_to_fvec2(unit->core.position), vent->attachment, 0.001f)) return false;
@@ -883,11 +897,11 @@ static bool update_unit_harvest(level_t *map,
     float interaction_radius = unit_harvest_interaction_radius_cells(unit);
     float vent_radius = P_ResourceVentRadius(vent);
     if (vent_radius > interaction_radius) interaction_radius = vent_radius;
-    if (unit_has_move_order(unit)) return false;
+    if (P_HasMoveOrder(unit)) return false;
     if (fvec2_length_squared(attachment_delta) > interaction_radius * interaction_radius)
         return false;
 
-    unit->movement.flow_field = NULL;
+    P_ClearMove(unit);
     unit->movement.order_arrived = true;
     unit->core.momentum = fixed3_zero();
     unit->attack.target = NULL;
@@ -950,7 +964,7 @@ static void tick_actor(mobj_t *u) {
     if ((u->traits & (MF_TURRET | MF_LANDMINE)) && active_state &&
         active_state->group != 3) A_Look(u);
 
-    bool moving = unit_has_move_order(u);
+    bool moving = P_HasMoveOrder(u);
     {
         const state_t *s = state_at(game_info, u->core.state_id);
         bool in_attack = s && s->group == 3;
@@ -975,7 +989,7 @@ static void tick_actor(mobj_t *u) {
                 u->core.angle = angle_from_map_vector(map,
                                                  target_delta.x,
                                                  target_delta.y);
-                u->movement.flow_field = NULL;
+                P_ClearMove(u);
                 u->movement.order_id = 0;
                 u->movement.order_arrived = false;
                 moving = false;
@@ -984,15 +998,38 @@ static void tick_actor(mobj_t *u) {
     }
     fvec2_t move_target = u->movement.goal;
     bool final = true;
+#ifdef RTS_GAME_DARK_COLONY
+    bool has_target = !moving || DC_MoveTarget(map, u, &move_target, &final);
+    if (moving && !has_target) {
+#else
     if (moving && !(u->traits & MF_FLY) && !P_FlowFieldTarget(
             map, u->movement.flow_field,
             fixed3_xy_to_fvec2(u->core.position), u->movement.goal,
             P_MobjRadius(u), &move_target, &final)) {
-        u->movement.flow_field = NULL;
+#endif
+        P_ClearMove(u);
         u->movement.order_arrived = false;
         moving = false;
     }
     /* Turn-in-place before moving. */
+#ifdef RTS_GAME_DARK_COLONY
+    if (moving) {
+        /* Split an off-center endpoint into diagonal then axial segments.
+         * Use fixed deltas so rounding cannot turn a 45-degree step into
+         * arbitrary-angle travel, including aircraft and harvesting bays. */
+        fixed3_t end = fixed3_with_xy(u->core.position, move_target);
+        fixed3_t delta = fixed3_planar_displacement(u->core.position, end);
+        fixed_t ax = abs(delta.x), ay = abs(delta.y);
+        if (!ax && !ay && !final) moving = false;
+        if (ax && ay && ax != ay) {
+            fixed_t distance = ax < ay ? ax : ay;
+            fixed3_t step = {delta.x < 0 ? -distance : distance,
+                             delta.y < 0 ? -distance : distance, 0};
+            move_target = fixed3_xy_to_fvec2(fixed3_add_planar(u->core.position, step));
+            final = false;
+        }
+    }
+#endif
     if (moving) {
         fvec2_t delta = fvec2_sub(
             move_target, fixed3_xy_to_fvec2(u->core.position));
@@ -1006,32 +1043,35 @@ static void tick_actor(mobj_t *u) {
         fvec2_t delta = fvec2_sub(
             move_target, fixed3_xy_to_fvec2(u->core.position));
         float dist = sqrtf(fvec2_length_squared(delta));
+#ifndef RTS_GAME_DARK_COLONY
         if (final && !(u->traits & MF_FLY) && final_goal_reaches_arrived_order_cluster(
                 u, move_target.x, move_target.y, dist)) {
             u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
-            u->movement.flow_field = NULL;
+            P_ClearMove(u);
             u->movement.order_arrived = true;
             moving = false;
-        } else {
+        } else
+#endif
+        {
             if (dist >= 0.001f)
                 u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
             float step = u->speed * dt;
             if (dist <= step || dist < 0.001f) {
                 if (move_unit_if_walkable(u, delta)) {
                     if (final) {
-                        u->movement.flow_field = NULL;
+                        P_ClearMove(u);
                         u->movement.order_arrived = true;
                         moving = false;
                     }
                 } else {
-                    u->movement.flow_field = NULL;
+                    P_ClearMove(u);
                     u->movement.order_arrived = false;
                     moving = false;
                 }
             } else {
                 fvec2_t displacement = fvec2_scale(delta, step / dist);
                 if (!move_unit_if_walkable(u, displacement)) {
-                    u->movement.flow_field = NULL;
+                    P_ClearMove(u);
                     u->movement.order_arrived = false;
                     moving = false;
                 }
@@ -1053,7 +1093,7 @@ static void tick_actor(mobj_t *u) {
             if (moving && group != 2) {
                 P_SetMobjState(u, mi->seestate);
             } else if (!moving && group == 2 &&
-                       !((u->traits & MF_FLY) && unit_has_move_order(u))) {
+                       !((u->traits & MF_FLY) && P_HasMoveOrder(u))) {
                 P_SetMobjState(u, mi->spawnstate);
             } else {
                 apply_state_visuals(game_info, &u->core,

@@ -55,9 +55,9 @@ void DC_UpdateAI(const level_t *map, mobj_t *const *units, int unit_count) {
         if (actor->movement.order_arrived) {
             actor->waypoints.current = (actor->waypoints.current + 1) % actor->waypoints.count;
             actor->movement.order_arrived = false;
-            actor->movement.flow_field = NULL;
+            P_ClearMove(actor);
         }
-        if (!actor->movement.flow_field)
+        if (!P_HasMoveOrder(actor))
             P_MoveUnitTo(map, actor, fvec2_cell_center(actor->waypoints.points[actor->waypoints.current]));
     }
 }

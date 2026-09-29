@@ -224,6 +224,13 @@ struct mobj_s {
     MOBJ_GAME_FIELDS
 };
 
+static inline void P_ClearMove(mobj_t *unit) {
+    unit->movement.flow_field = NULL;
+#ifdef RTS_GAME_DARK_COLONY
+    unit->route = (dc_route_t){0};
+#endif
+}
+
 static inline bool P_MobjIsSelected(const mobj_t *mobj) {
     return mobj && (mobj->traits & MF_SELECTED) != 0;
 }

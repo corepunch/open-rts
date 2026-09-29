@@ -21,13 +21,18 @@ int main(void) {
     assert(count == 10);
     fixed3_t start = guards[0]->core.position;
     for (int tic = 0; tic < 60 * RTS_TICRATE; ++tic) {
+        fixed3_t before[10];
+        for (int i = 0; i < count; ++i) before[i] = guards[i]->core.position;
         assert(rts_game_model_tick(model, FIXED_DT));
         for (int i = 0; i < count; ++i) {
             mobj_t *guard = guards[i];
             fvec2_t position = fixed3_xy_to_fvec2(guard->core.position);
-            /* Native route envelope separates the vent encounter from the city. */
+            /* Crowded native routes detour beyond the waypoint rectangle. */
             assert(!guard->remove && guard->hp == guard->max_hp);
-            assert(position.x >= 50 && position.x <= 57 && position.y >= 24 && position.y <= 31);
+            ivec2_t cell = fvec2_cell(position);
+            assert(L_Contains(&level, cell.x, cell.y));
+            fixed3_t delta = fixed3_planar_displacement(before[i], guard->core.position);
+            assert(!delta.x || !delta.y || abs(delta.x) == abs(delta.y));
             if (tic >= RTS_TICRATE) assert(guard->waypoints.count == 2);
             assert(!guard->attack.target);
         }

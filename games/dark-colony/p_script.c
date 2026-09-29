@@ -198,7 +198,7 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
                 if (!ivec2_equal(cell, cmd->waypoint.origin)) continue;
                 actor->waypoints = cmd->waypoint.route;
                 actor->attack.target = NULL;
-                actor->movement.flow_field = NULL;
+                P_ClearMove(actor);
                 actor->movement.order_id = 0;
                 actor->movement.order_arrived = false;
                 break;

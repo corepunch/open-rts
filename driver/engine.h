@@ -104,6 +104,7 @@ bool R_InstallSpriteLump(spritesheet_t *sprite, int frame, int rotation,
                          int lump, bool flip);
 
 void P_MoveOrder(const level_t *map, mobj_t *const *units, int unit_count, cell_t goal);
+bool P_HasMoveOrder(const mobj_t *unit);
 void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
                          fvec2_t goal_position);
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position);

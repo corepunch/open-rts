@@ -82,7 +82,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     if (cmd->order == TC_STOP) {
         for (int i = 0; i < count; ++i) {
             mobj_t *unit = units[i];
-            unit->movement.flow_field = NULL;
+            P_ClearMove(unit);
             unit->movement.goal = fixed3_xy_to_fvec2(unit->core.position);
             unit->movement.order_id = 0;
             unit->movement.order_arrived = true;

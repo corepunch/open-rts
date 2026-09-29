@@ -1,5 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "p_local.h"
+#ifdef RTS_GAME_DARK_COLONY
+#include "p_path.h"
+#endif
 
 
 typedef struct {
@@ -88,6 +91,14 @@ bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy)
 bool P_TryMove(mobj_t *unit, fixed3_t position) {
     fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
     fvec2_t to = fixed3_xy_to_fvec2(position);
+#ifdef RTS_GAME_DARK_COLONY
+    if (unit->traits & MF_MOBILE) {
+        if (!DC_CheckStep(&level, unit, from, to)) return false;
+        unit->core.momentum = fixed3_planar_displacement(unit->core.position, position);
+        unit->core.position = position;
+        return true;
+    }
+#endif
     if (!(unit->traits & MF_FLY) &&
         !map_circle_walkable(&level, to.x, to.y, P_MobjRadius(unit), &from)) return false;
     if (!(unit->traits & MF_FLY)) {
@@ -147,6 +158,14 @@ static int heuristic(cell_t a, cell_t b) {
 }
 
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path) {
+#ifdef RTS_GAME_DARK_COLONY
+    if (!out_path || max_path <= 0 || !map || !L_Contains(map, start.x, start.y)) return 0;
+    if (ivec2_equal(start, goal)) { out_path[0] = start; return 1; }
+    int count = DC_FindPath(map, start, goal, NULL, false, out_path + 1, max_path - 1);
+    if (!count) return 0;
+    out_path[0] = start;
+    return count + 1;
+#endif
     if (!L_IsWalkable(map, start.x, start.y) || !L_Contains(map, goal.x, goal.y) || max_path <= 0) return 0;
     if (!L_IsWalkable(map, goal.x, goal.y)) {
         const int radius = 8;
@@ -520,6 +539,19 @@ bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
 
 void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
                    fvec2_t goal_position) {
+#ifdef RTS_GAME_DARK_COLONY
+    uint32_t order = next_move_order_id();
+    goal_position = fvec2_cell_center(fvec2_cell(goal_position));
+    for (int i = 0; i < unit_count; ++i) {
+        mobj_t *unit = units[i];
+        if (P_MoveUnitTo(map, unit, goal_position)) {
+            unit->movement.order_id = order;
+            unit->harvest.target = -1;
+            unit->harvest.timer_ms = unit->harvest.phase = 0;
+        }
+    }
+    return;
+#endif
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
         if (units[i]->hp <= 0) continue;
@@ -593,6 +625,9 @@ void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
     if (!map || !unit || unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0) return false;
     unit->core.momentum = fixed3_zero();
+#ifdef RTS_GAME_DARK_COLONY
+    return DC_MoveUnitTo(map, unit, goal_position);
+#endif
     if (unit->traits & MF_FLY) {
         unit->movement.goal = goal_position;
         unit->movement.flow_field = NULL;
@@ -677,6 +712,9 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         }
         unit->core.momentum = fixed3_zero();
 
+#ifdef RTS_GAME_DARK_COLONY
+        if (!P_MoveUnitTo(map, unit, vent->attachment)) continue;
+#else
         fvec2_t goal_position = vent->attachment;
         float goal_gx = goal_position.x;
         float goal_gy = goal_position.y;
@@ -713,6 +751,7 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         if (!P_FlowFieldTarget(map, field, position, unit->movement.goal,
                                P_MobjRadius(unit), &target, &final)) continue;
         unit->movement.flow_field = field;
+#endif
         unit->attack.target = NULL;
         unit->harvest.target = vent_index;
         unit->harvest.timer_ms = 0;

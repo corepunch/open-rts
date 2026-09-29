@@ -88,7 +88,7 @@ $(BUILD_DIR)/$(1)/%.o: %.c
 -include $$(ALL_DEPS_$(1))
 endef
 
-$(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony,-DRTS_WORLD_Y_UP=1))
+$(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony,-DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY))
 $(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
@@ -131,7 +131,7 @@ DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
 
 $(BUILD_DIR)/dc-test/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 $(DC_LAYOUT_TEST_TARGET): $(DC_LAYOUT_TEST_OBJ) $(DC_LAYOUT_DC_INFO_OBJ) | $(BIN_DIR)
 	$(CC) $^ -o $@ -lm
@@ -285,13 +285,13 @@ build/test_loaders: $(LOADER_RUNNER_SOURCES)
 	$(CC) $(CFLAGS) $^ -o $@
 define LOADER_CATALOG
 $(BIN_DIR)/loader-$(1): $(LOADER_CATALOG_SOURCES) $$(filter-out %/driver/d_main.o $(BUILD_DIR)/$(1)/games/$(1)/$(3).o,$$(ALL_OBJS_$(1)))
-	$(CC) $(CPPFLAGS) -I. -Igames/$(1) $(CFLAGS) $(SDL_CFLAGS) -D$(2) -DRTS_WORLD_Y_UP=$(4) -DLOADER_FIXTURES $$^ $(SDL_LIBS) -lm -o $$@
+	$(CC) $(CPPFLAGS) -I. -Igames/$(1) $(CFLAGS) $(SDL_CFLAGS) -D$(2) $(5) -DRTS_WORLD_Y_UP=$(4) -DLOADER_FIXTURES $$^ $(SDL_LIBS) -lm -o $$@
 loader-catalogs: $(BIN_DIR)/loader-$(1)
 test-loaders: test-loader-$(1)
 test-loader-$(1): $(BIN_DIR)/loader-$(1)
 	env SDL_VIDEODRIVER=dummy $$< --fixtures
 endef
-$(eval $(call LOADER_CATALOG,dark-colony,DC,none,1))
+$(eval $(call LOADER_CATALOG,dark-colony,DC,none,1,-DRTS_GAME_DARK_COLONY))
 $(eval $(call LOADER_CATALOG,dark-reign,DR,w_spr,0))
 $(eval $(call LOADER_CATALOG,7legion,SL,w_bim,0))
 $(eval $(call LOADER_CATALOG,kknd,KK,w_spr,0))

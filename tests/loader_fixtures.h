@@ -18,6 +18,17 @@ static void write_fixture(char path[64], const uint8_t *data, size_t size) {
 }
 #endif
 
+#ifdef DC
+static void write_path_fixture(const char *map_path, char path[80]) {
+    uint8_t pth[0x10000 + 4] = {0};
+    memset(pth + 0x10000, 1, 4);
+    snprintf(path, 80, "%s.PTH", map_path);
+    FILE *file = fopen(path, "wb");
+    CHECK(file && fwrite(pth, 1, sizeof(pth), file) == sizeof(pth));
+    CHECK(fclose(file) == 0);
+}
+#endif
+
 #if defined(DR) || defined(SL)
 static bool fixture_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
                             const uint32_t *palette, spritesheet_t *sprite) {
@@ -136,6 +147,8 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     put16(file + 30, 1u << 6);
     char path[64];
     write_fixture(path, file, 32);
+    char path_file[80];
+    write_path_fixture(path, path_file);
     level_t map;
     CHECK(load_dark_colony_map(path, &map));
     CHECK(map.width == 2 && map.height == 2);
@@ -146,6 +159,7 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     CHECK(map.tile_transforms[1][1] == MAP_TILE_TRANSFORM_FLIP_X);
     P_FreeLevel(&map);
     CHECK(unlink(path) == 0);
+    CHECK(unlink(path_file) == 0);
     for (size_t n = 0; n < 32; ++n) {
         write_fixture(path, file, n);
         CHECK(!load_dark_colony_map(path, &map));
@@ -155,10 +169,12 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     }
     const uint8_t mtg[] = { 2, 2, 1, 2, 3, 4 };
     write_fixture(path, mtg, sizeof(mtg));
+    write_path_fixture(path, path_file);
     CHECK(load_dark_colony_map(path, &map));
     CHECK(map.tile_ids[0] == 3 && map.tile_ids[3] == 2);
     P_FreeLevel(&map);
     CHECK(unlink(path) == 0);
+    CHECK(unlink(path_file) == 0);
 #endif
     puts("PASS: loader pixels, metadata, truncated spans, and cleanup");
 }

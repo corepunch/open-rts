@@ -86,6 +86,7 @@ void P_FreeMobjList(mobjlist_t *list) {
     *list = (mobjlist_t){0};
 }
 
+#ifndef RTS_GAME_DARK_COLONY
 static void separate_units(const level_t *map) {
     for (int iter = 0; iter < 3; ++iter) {
         for (thinker_t *tha = thinkercap.next; tha != &thinkercap; tha = tha->next) {
@@ -134,9 +135,13 @@ static void separate_units(const level_t *map) {
     }
 }
 
+#endif
+
 void P_Ticker(void) {
     P_RunThinkers();
+#ifndef RTS_GAME_DARK_COLONY
     separate_units(&level);
+#endif
     /* Advance the native environment clock on cumulative 66 ms boundaries,
      * independently of the engine's 30 Hz thinker clock. */
     int64_t before = (int64_t)leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);

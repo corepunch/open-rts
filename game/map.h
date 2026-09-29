@@ -142,6 +142,9 @@ typedef struct level_s {
     void *mission;
     void (*destroy_mission)(void *);
     flowfield_t *flow_fields;
+#ifdef RTS_GAME_DARK_COLONY
+    struct dc_pathmap_s *paths;
+#endif
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);
     uint32_t next_mobj_id;

@@ -7,8 +7,8 @@
 
 #include <stdio.h>
 
-static int shared_flow_field_moves_units(void) {
-    const char *tag = "flow_field_movement";
+static int native_routes_move_units(void) {
+    const char *tag = "native_route_movement";
     gameinfo = NULL;
     level = (level_t){ .width = 16, .height = 16 };
     P_FreeThinkers();
@@ -25,11 +25,14 @@ static int shared_flow_field_moves_units(void) {
         units[i]->attack.target = NULL;
         units[i]->harvest.target = -1;
         RTS_CHECK(P_MoveUnitTo(&level, units[i], (fvec2_t){ 10.5f, 8.5f }), tag,
-                  "flow-field order created");
+                  "native route created");
     }
 
-    RTS_CHECK(units[0]->movement.flow_field == units[1]->movement.flow_field, tag,
-              "units with one destination share a flow field");
+    RTS_CHECK(units[0]->route.count && units[1]->route.count && !level.flow_fields, tag,
+              "units own native cell routes without cached flow fields");
+    RTS_CHECK(ivec2_equal(fvec2_cell(units[0]->movement.goal),
+                           fvec2_cell(units[1]->movement.goal)), tag,
+              "units receive the shared destination without formation slots");
 
     int unit_count = 2;
     for (int tic = 0; tic < 300 &&
@@ -37,16 +40,16 @@ static int shared_flow_field_moves_units(void) {
         P_Ticker();
     }
 
-    RTS_CHECK(unit_count == 2, tag, "flow movement preserves both units");
+    RTS_CHECK(unit_count == 2, tag, "movement preserves both units");
     RTS_CHECK(units[0]->movement.order_arrived && units[1]->movement.order_arrived,
               tag,
-              "both units arrive through the shared flow field");
+              "both units arrive through native routes");
     RTS_CHECK(units[0]->core.position.z == fixed_from_float(2.0f) &&
               units[1]->core.position.z == fixed_from_float(2.0f),
               tag,
-              "planar flow movement preserves z");
+              "planar movement preserves z");
 
-    P_FreeFlowFields(&level);
+    P_FreeLevel(&level);
     return 0;
 }
 
@@ -65,10 +68,10 @@ static int unit_turns_before_moving(int type, const char *stem) {
         .core = { .angle = ANG90 },
         .attack.target = NULL, .harvest.target = -1,
     });
-    unit->core.position = fixed3_from_fvec2((fvec2_t){ 2.0f, 3.0f }, 0);
+    unit->core.position = fixed3_from_fvec2((fvec2_t){ 2.5f, 3.5f }, 0);
     P_InitMobj(&game_info, unit);
     fixed3_t start = unit->core.position;
-    RTS_CHECK(P_MoveUnitTo(&level, unit, (fvec2_t){ 10.0f, 3.0f }), tag,
+    RTS_CHECK(P_MoveUnitTo(&level, unit, (fvec2_t){ 10.5f, 3.5f }), tag,
               "create eastbound movement order");
     bool saw_intermediate_pose = false, moved = false;
     for (int tic = 0; tic < 120; ++tic) {
@@ -92,7 +95,7 @@ static int unit_turns_before_moving(int type, const char *stem) {
             saw_intermediate_pose = true;
         }
     }
-    P_FreeFlowFields(&level);
+    P_FreeLevel(&level);
     R_FreeSprite(&sprite);
     R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
@@ -104,9 +107,9 @@ static int unit_turns_before_moving(int type, const char *stem) {
 }
 
 int main(void) {
-    RTS_RUN(shared_flow_field_moves_units());
+    RTS_RUN(native_routes_move_units());
     RTS_RUN(unit_turns_before_moving(MT_EXPLOITER, "EXPL"));
     RTS_RUN(unit_turns_before_moving(MT_THUNDERBOLT, "BARR"));
-    puts("All flow-field movement tests passed.");
+    puts("All native route movement tests passed.");
     return 0;
 }
