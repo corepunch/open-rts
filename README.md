@@ -296,3 +296,5 @@ Historical interface and research findings remain in
 [the KKnD findings](docs/KKND_EXE_FINDINGS.md),
 [the Dark Reign findings](docs/DR_EXE_FINDINGS.md), and
 [REFERENCES.md](REFERENCES.md).
+The [DKREIGN.EXE disassembly index](docs/DR_DISASSEMBLY.md) links the Dark Reign
+unit, HUD, transport, architecture, generation and development-status reports.

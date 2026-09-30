@@ -1,5 +1,13 @@
 # Dark Reign executable and AI findings
 
+Topic navigation: [disassembly index](DR_DISASSEMBLY.md),
+[unit comparison](DR_UNIT_BEHAVIORS.md),
+[transporter animation](DR_TRANSPORTER_ANIMATION.md),
+[HUD disassembly](DR_HUD_DISASSEMBLY.md),
+[module boundaries](DR_ARCHITECTURE.md),
+[state generation](DR_INFO_GEN.md), and
+[development status](DR_DEVELOPMENT_STATUS.md).
+
 ## Runtime capability and HUD audit (2026-09-30)
 
 Reference: retail `data/REIGN/dkreign.exe`, SHA-256
@@ -13,13 +21,22 @@ copying Dark Colony object offsets or capability meanings into Dark Reign.
 `0x00445c90` stores movement at unit type `+0xf0`: Fly=0 at `0x004462d3`,
 Hover=1 at `0x004462f6`, Fixed=2 at `0x00446319`, Ground=3 at `0x00446339`,
 Tunnel=4 at `0x00446359`. `IsHuman()` sets type `+0x53c` bit `0x100`
-(`0x00446b3c`). `NoAutoTarget()` sets that field's bit `0x40000`
+(`0x00446935`). `NoAutoTarget()` sets that field's bit `0x40000`
 (`0x00446f80`). These are native bits, not engine flag numeric identities.
 The shipped definitions assign Fly to Sky Bike, Outrider, Recon Drone,
 Cyclone and Sky Fortress. Runtime `P_ApplyActorTypeDefaults()` replaced the
 generated flags with the authored actor flags, which lacked Fly for all five.
 Generated flags alone were therefore insufficient evidence that flight worked.
 Both layers now agree. Ground/hover resource transporters remain ground-bound.
+
+**Address correction (2026-09-30).** The original report mistakenly attributed
+the human bit to `0x00446b3c`. Fresh instruction windows establish the
+`IsHuman` string comparison at `0x00446901`, the `0x100` OR at
+`0x00446935`, and its store at `0x0044693a`. `0x00446b3c` instead belongs
+to `CanSpy`: it ORs `0x10` and stores the three arguments at
+`+0x560/+0x564/+0x568`. The human classification and implementation remain
+correct; the cited instruction address was wrong. Reproduce with
+`r2 -q -e bin.cache=true -c 'pd 4 @ 0x44692f' -c 'pd 8 @ 0x446b3c' -c q data/REIGN/dkreign.exe`.
 
 **Confirmed: rigs are unarmed.** Neither faction's Construction Crew definition
 has `AddWeapon`. The old range-nine, damage-20 actor defaults and generated
@@ -147,6 +164,13 @@ Investigation date: 2026-09-01
 reports PE32/i386, 2,478,592 bytes, Windows GUI, with a 1997-09-02 timestamp.
 It is not the Dark Colony executable and must not share native offsets or data
 layout assumptions with `DC.EXE`.
+
+**PE metadata rechecked September 30, 2026.** `rabin2 -H` confirms seven
+sections, raw timestamp `0x340c98ca`, image base `0x00400000`, entry-point
+RVA `0x000ccb20` (VA `0x004ccb20`), and linker fields 4.20. These are header
+facts, not proof of an exact compiler version or universal calling convention.
+The full fingerprint and commands are in
+[the disassembly index](DR_DISASSEMBLY.md#executable-fingerprint).
 
 ## Native AI configuration model
 

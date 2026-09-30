@@ -996,6 +996,10 @@ Local game-data files that have already been useful:
     `+0x53c`; weapon parser `0x00483e70` owns human/nonhuman target classifiers
     `+0xa1/+0xa2`. Detailed evidence, corrections to catalog coverage, tests
     and unported abilities are preserved in `docs/DR_EXE_FINDINGS.md`.
+    `docs/DR_DISASSEMBLY.md` indexes the matching unit, HUD, transport,
+    architecture, generation and development-status Markdown reports.
+    Address correction: the human-bit OR is `0x00446935`; `0x00446b3c`
+    belongs to CanSpy, with bit `0x10` and arguments at `+0x560/+0x564/+0x568`.
 - `data/REIGN/dark/aip/*.AIP`, `*.FSM`, and `aip/AIPDEF.H` for the shipped
   strategy profiles, construction-account modes, force matching, and
   conditional AI switching.
