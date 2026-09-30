@@ -18,6 +18,10 @@
 #include <strings.h>
 #include "p_weapon.h"
 
+/* DC.EXE (0x4117fc/0x411a30) moves an object speed/256 of a cell once per
+ * 66 ms world tick; the simulation stores cells per second. */
+#define DC_SPEED(raw) ((float)(raw) * (1000.0f / 66.0f) / 256.0f)
+
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(void);
 extern bool load_dark_colony_tileset(const char *path, tileset_t *out);
@@ -60,10 +64,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/TRSC.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        /* GAMESTAT.TXT stores movement in pixels per 32 Hz tick.  The
-         * simulation stores map cells per second: 25 / 32 is the authored
-         * Trooper rate, not the old placeholder 5.0. */
-        .speed = 25.0f / 32.0f,
+        /* GAMESTAT.TXT speed is 8.8 map units per native world tick. */
+        .speed = DC_SPEED(25),
         .max_hp = 800,
         .attack = { .range = 4, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
@@ -87,7 +89,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/GRAY.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 25.0f / 32.0f,
+        .speed = DC_SPEED(25),
         .max_hp = 800,
         .attack = { .range = 4, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
@@ -117,7 +119,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/REAP.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 30.0f / 32.0f,
+        .speed = DC_SPEED(30),
         .max_hp = 800,
         .attack = { .range = 2, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
@@ -133,7 +135,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/BARR.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 15.0f / 32.0f,
+        .speed = DC_SPEED(15),
         .max_hp = 400,
         .attack = { .range = 12.0f, .damage = 250, .cooldown_ms = 75 * 66,
                     .projectile_type = MT_CANNONBALL },
@@ -149,7 +151,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/SARG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_DETECTOR |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 45.0f / 32.0f,
+        .speed = DC_SPEED(45),
         .max_hp = 1200,
         .attack = { .range = 8, .damage = 200, .upgrade_damage = {250,250}, .cooldown_ms = 15 * 66 },
     },
@@ -165,7 +167,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/SCGM.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_FLY |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 47.0f / 32.0f,
+        .speed = DC_SPEED(47),
         .max_hp = 800,
         .attack = { .range = 2, .damage = 100, .cooldown_ms = 10 * 66,
                     .projectile_type = MT_SCOUT_BOMB, .shots = 3, .reload_ms = 30 * 66 },
@@ -356,7 +358,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/ORTU.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_FLY |
                   MF_RENDERABLE | MF_ATTACK,
-        .speed = 47.0f / 32.0f,
+        .speed = DC_SPEED(47),
         .max_hp = 800,
         .attack = { .range = 2, .damage = 100, .cooldown_ms = 10 * 66,
                     .projectile_type = MT_SCOUT_BOMB, .shots = 3, .reload_ms = 30 * 66 },
@@ -371,7 +373,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .sprite_name = "SPRITES/SLUG.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE |
                   MF_RENDERABLE | MF_HARVESTER,
-        .speed = 40.0f / 32.0f,
+        .speed = DC_SPEED(40),
         .max_hp = 800,
         .harvest = { .state_id = S_SLUG_DEPLOY1 },
     },
@@ -451,7 +453,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .name = "Sentinel",
         .sprite_name = "SPRITES/ENGI.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_DETECTOR,
-        .speed = 30.0f / 32.0f,
+        .speed = DC_SPEED(30),
         .max_hp = 800,
         .armor_class = 5,
         .deploy = { S_ENGI_DEPLOY1, MT_HUMAN_MINE },
@@ -467,20 +469,20 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .name = "Medi-craft",
         .sprite_name = "SPRITES/BEON.SPR",
         .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY,
-        .speed = 47.0f / 32.0f,
+        .speed = DC_SPEED(47),
         .max_hp = 400,
     },
     /* GAMESTAT.TXT native types 9..12, 44 and 50; authored C gameplay stats. */
     { .id = MT_XENOWORT, .native_type_id = 9, .sight = {4, 7, false},
       .damage_action = A_DC_Damage, .name = "Xenowort", .sprite_name = "SPRITES/XENO.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
-      .speed = 15.0f / 32.0f, .max_hp = 800,
+      .speed = DC_SPEED(15), .max_hp = 800,
       .deploy = { S_XENO_DEPLOY1, MT_XENO_TOWER } },
     { .id = MT_SY_DEMON, .native_type_id = 10, .sight = {4, 7, false},
       .defense = {256,204,170},
       .damage_action = A_DC_Damage, .name = "Sy-Demon", .sprite_name = "SPRITES/SCYT.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
-      .speed = 36.0f / 32.0f, .max_hp = 800,
+      .speed = DC_SPEED(36), .max_hp = 800,
       .armor_class = 1,
       .attack = { .range = 1, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 } },
     { .id = MT_ATRIL, .native_type_id = 11, .sight = {4, 7, false},
@@ -488,7 +490,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .defense = {256,204,170},
       .damage_action = A_DC_Damage, .name = "Atril", .sprite_name = "SPRITES/ATRIL.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
-      .speed = 15.0f / 32.0f, .max_hp = 400,
+      .speed = DC_SPEED(15), .max_hp = 400,
       .armor_class = 3,
       .attack = { .range = 12, .damage = 250, .cooldown_ms = 75 * 66,
                   .projectile_type = MT_PUS_BOMB } },
@@ -496,14 +498,14 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .defense = {256,204,170},
       .damage_action = A_DC_Damage, .name = "Gorrem", .sprite_name = "SPRITES/PSYC.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK | MF_DETECTOR,
-      .speed = 47.0f / 32.0f, .max_hp = 800,
+      .speed = DC_SPEED(47), .max_hp = 800,
       .armor_class = 4,
       .attack = { .range = 9, .damage = 200, .upgrade_damage = {250,300}, .cooldown_ms = 30 * 66 } },
     { .id = MT_SLOM, .native_type_id = 44, .sight = {4, 6, false},
       .defense = {256,213,182},
       .damage_action = A_DC_Damage, .name = "Slom", .sprite_name = "SPRITES/SLOM.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_DETECTOR,
-      .speed = 30.0f / 32.0f, .max_hp = 800, .armor_class = 5,
+      .speed = DC_SPEED(30), .max_hp = 800, .armor_class = 5,
       .deploy = { S_SLOM_DEPLOY1, MT_ALIEN_MINE } },
     { .id = MT_ZISP, .native_type_id = 50, .sight = {3, 5, true},
       .turn_step = (uint64_t)10 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
@@ -511,7 +513,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .armor_class = 2,
       .damage_action = A_DC_Damage, .name = "Zisp", .sprite_name = "SPRITES/ZISP.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY,
-      .speed = 47.0f / 32.0f, .max_hp = 400 },
+      .speed = DC_SPEED(47), .max_hp = 400 },
     { .id = MT_SCOUT_BOMB, .name = "Scout bomb", .max_hp = 1,
       .traits = MF_MISSILE,
       .missile = { .step = 15 * FIXED_ONE / 256, .period_ms = 66,
@@ -543,7 +545,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     { .id = MT_TURRET_CARRIER, .native_type_id = 1, .name = "Firestorm",
       .sprite_name = "SPRITES/TURR.SPR", .sight = {7,4,false},
       .traits = MF_SELECTABLE | MF_RENDERABLE | MF_MOBILE,
-      .speed = 15.0f / 32.0f, .max_hp = 800,
+      .speed = DC_SPEED(15), .max_hp = 800,
       .deploy = { S_TURR_DEPLOY1, MT_MOBILE_TOWER } },
     { .id = MT_XENO_TOWER, .native_type_id = 42, .name = "Deployed Xenowort",
       .sprite_name = "SPRITES/XENO.SPR", .sight = {5,9,false},

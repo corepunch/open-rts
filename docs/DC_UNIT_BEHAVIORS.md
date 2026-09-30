@@ -80,9 +80,11 @@ it. Scenario loading subsequently assigns authored/default scenario HP and can
 therefore differ from fresh-spawn HP while retaining the 600 maximum. Do not
 infer actual runtime stats from `info.c` alone.
 
-Movement speeds above deliberately retain the distinction between raw retail
-fields and engine cells/second. This audit does not certify the `/32` conversion
-or continuous movement timing against the complete retail movement ticker.
+Movement speeds in the table above are raw GAMESTAT fields. The engine
+converts them as `raw * (1000/66) / 256` cells/second (`DC_SPEED` in
+`g_game.c`): DC.EXE moves an object `raw/256` of a cell once per 66 ms world
+tick (see DC_EXE_FINDINGS, "Retail movement speed"). The table's `/32`
+engine values predate this and are superseded.
 
 ## Aircraft bombs
 

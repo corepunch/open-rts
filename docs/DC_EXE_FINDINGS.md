@@ -6816,3 +6816,19 @@ applies before parsing `--speed <10..200>`, so the flag still overrides it.
 Dark Colony sets 150. The percentage scales only the tic clock; the
 simulation and its consistency hash are identical at every speed
 (`--net-check 120` reports `30c2b9e2` at 100, 150 and 200). `tests/shared/test_game_speed.c` checks each game's default.
+
+## Retail movement speed (2026-09-30)
+
+**Confirmed:** the GAMESTAT loader (`0x4385f8`) stores the Speed column unscaled
+at type `+0x0c` (`0x4ec88c`, stride `0x118`); Turn is `+0x08`. Move setup
+`0x4117fc` computes the step count `distance / speed` and a per-step vector
+`(sin, cos) * speed >> 11` in 8.8 units (256 = one cell). The step action
+`0x411a30` applies one step, decrements the count and returns 0, which ends the
+object's turn in the `ticker.c` dispatch loop (`0x41863e`). The world tick runs
+once per `level+0x970` = 66 ms at 100 percent. A Trooper (25) therefore moves
+25/256 cell per 66 ms, about 1.48 cells/s, regardless of diagonal or axial
+heading. No other speed modifier was found.
+
+**Port:** `DC_SPEED(raw)` in `games/dark-colony/g_game.c` uses this conversion
+for all GAMESTAT-derived speeds; the previous `raw/32` (0.78 cells/s for a
+Trooper) was about 1.9x too slow. Game speed stays at the retail 100 percent.

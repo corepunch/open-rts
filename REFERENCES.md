@@ -312,9 +312,10 @@ Local game-data files that have already been useful:
 - `data/DCOLONY/GAMESTAT/WEAPSTAT.TXT` for weapon range, damage, and rate of
   fire. Trooper/Grey weapon rows use range `4`, damage `100`, and rate `15`.
 - `data/DCOLONY/GAMESTAT/DEPEND.TXT` for unit/building dependency names.
-- `GAMESTAT.TXT` speed values are pixel-scale movement rates on 32px Dark
-  Colony cells. Convert to model cells/sec by dividing by 32, not by a small
-  gameplay fudge factor.
+- `GAMESTAT.TXT` speed is stored raw at type `+0x0c` and is 8.8 map units per
+  66 ms world tick (one step per tick, `0x4117fc`/`0x411a30`): cells/sec =
+  `speed * (1000/66) / 256`. Trooper 25 is ~1.48 cells/sec. The earlier
+  `speed / 32` conversion was disproven (it ran units ~1.9x too slow).
 - `data/DCOLONY/SCENARIO/*.MAP`, `*.SCN`, and `*.BTS` for maps, starting
   objects, tilesets, and water palette bands.
 - Dark Colony `.SCN` object rows shaped `x y 40 rate amount` are Petra-7 vents,
