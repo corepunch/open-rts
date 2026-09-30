@@ -346,3 +346,6 @@ int G_ModelRadarLevel(int owner) {
     (void)owner;
     return 2;
 }
+
+/* This game still uses its own production goals; no universal AI hooks yet. */
+const struct AiGameInterface *G_AiInterface(void) { return NULL; }

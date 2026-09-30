@@ -55,6 +55,8 @@ static void model_emit_event(void *user, int type, const mobj_t *subject,
     event->target_id = target ? target->id : 0;
     event->subject_type_id = subject ? subject->type_id : 0;
     event->target_type_id = target ? target->type_id : 0;
+    event->subject_owner = subject ? subject->owner : 0;
+    event->target_owner = target ? target->owner : 0;
     event->product_class = product_class;
     event->product_type = product_type;
     event->position = subject ? fixed3_xy_to_fvec2(subject->core.position) :
@@ -532,6 +534,7 @@ bool rts_game_model_load(RtsGameModel *model, const RtsGameModelConfig *config) 
     apply_plugin_actor_defaults(model);
     P_UpdateSight();
     P_AiInit(&model->ai);
+    P_AiAttachGame(&model->ai, G_AiInterface());
     model->loaded = true;
     active_model = model;
     model->error[0] = '\0';
@@ -554,6 +557,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     if (paused) return true;
     uint32_t old_ids[model->objects.count ? model->objects.count : 1];
     uint16_t old_types[model->objects.count ? model->objects.count : 1];
+    uint8_t old_owners[model->objects.count ? model->objects.count : 1];
     int old_hp[model->objects.count ? model->objects.count : 1];
     int old_state[model->objects.count ? model->objects.count : 1];
     bool old_arrived[model->objects.count ? model->objects.count : 1];
@@ -561,6 +565,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     for (int i = 0; i < old_count; ++i) {
         old_ids[i] = model->objects.items[i]->id;
         old_types[i] = model->objects.items[i]->type_id;
+        old_owners[i] = model->objects.items[i]->owner;
         old_hp[i] = model->objects.items[i]->hp;
         old_state[i] = model->objects.items[i]->core.state_id;
         old_arrived[i] = model->objects.items[i]->movement.order_arrived;
@@ -584,7 +589,8 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
         if (now < 0 && old_hp[i] > 0) {
             RtsGameEvent event = { .type = RTS_GAME_EVENT_UNIT_DIED,
                                    .tick = (uint64_t)leveltime, .subject_id = old_ids[i],
-                                   .subject_type_id = old_types[i] };
+                                   .subject_type_id = old_types[i],
+                                   .subject_owner = old_owners[i] };
             if (model->event_count < (int)(sizeof(model->events) / sizeof(model->events[0]))) {
                 int slot = (model->event_head + model->event_count) %
                     (int)(sizeof(model->events) / sizeof(model->events[0]));
@@ -786,6 +792,10 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out) 
 
 const char *rts_game_model_last_error(const RtsGameModel *model) {
     return model && model->error[0] ? model->error : "";
+}
+
+struct AiContext *rts_game_model_ai(RtsGameModel *model) {
+    return model ? &model->ai : NULL;
 }
 
 int rts_game_model_player_resources(const RtsGameModel *model, int player, int resource_type) {

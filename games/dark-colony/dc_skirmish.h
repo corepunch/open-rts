@@ -23,5 +23,7 @@ void DC_RequestSkirmish(const char *map, const dc_skirmish_t *setup);
 bool DC_TakeSkirmish(const char *map, dc_skirmish_t *setup);
 struct level_s;
 const dc_skirmish_t *DC_LevelSkirmish(const struct level_s *map);
+/* Applies the AI+ credit multiplier to the level's income_scale. */
+void DC_ApplyAiIncome(struct level_s *map, const dc_skirmish_t *setup);
 
 #endif

@@ -449,49 +449,10 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-typedef struct {
-    int row_id;
-    int desired_count;
-} AiProductionGoal;
-
-static const AiProductionGoal ai_production_goals[] = {
-    { 1, 1 }, /* Barracks */
-    { 2, 1 }, /* Sci-Pod */
-    { 3, 1 }, /* Robo-Ftr */
-    { 7, 2 }, /* Exploiters */
-    { 9, 6 }, /* Troopers */
-    { 11, 4 }, /* Reapers */
-    { 10, 2 }, /* Osprey IV */
-    { 13, 1 }, /* S.A.R.G.E. */
-};
-
+/* Computer players buy through the universal AI (p_ai.c, G_AiInterface);
+ * the former owner-1-only goal list lived here and is gone. */
 void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)elapsed_ms;
-    if (!model) return;
-    enum { AI_OWNER = 1 };
-    if (D_PlayerIsHuman(AI_OWNER)) return;
-
-    for (size_t i = 0; i < sizeof(ai_production_goals) /
-                         sizeof(ai_production_goals[0]); ++i) {
-        const AiProductionGoal *goal = &ai_production_goals[i];
-        const StaticProductDefinition *product = product_by_row_id(goal->row_id);
-        if (!product) continue;
-        if (!G_ModelProductAvailable(model, AI_OWNER, product)) continue;
-        if (rts_game_model_player_resources(model, AI_OWNER, 0) < product->cost) continue;
-
-        int producer_index = G_ModelFindProducerIndex(model, AI_OWNER, product);
-        if (producer_index >= 0) {
-            RtsGameCommand cmd = {
-                .kind = RTS_GAME_COMMAND_BUILD_PRODUCT,
-                .data.build_product = {
-                    .producer_id = 0,
-                    .producer_index = producer_index,
-                    .ui_id = product->ui_id,
-                },
-            };
-            if (rts_game_model_command(model, &cmd)) return;
-        }
-    }
+    (void)model; (void)elapsed_ms;
 }
 
 /* ── interactive production simulation (raw mobj_t arrays, not RtsGameModel) ── */

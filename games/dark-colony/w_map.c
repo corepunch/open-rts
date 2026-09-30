@@ -172,6 +172,7 @@ static bool apply_skirmish(ScenarioFile *scenario, level_t *map) {
             team->allies[j] = player->team == scenario->setup.players[j].team;
         map->player_colors[i] = player->color;
     }
+    DC_ApplyAiIncome(map, &scenario->setup);
     for (int i = 0; i < scenario->object_count; ++i) {
         ScenarioObject *object = &scenario->objects[i];
         if (object->type == OBJECT_TYPE_PETRA7_VENT || object->team < 0 || object->team >= 8) continue;
@@ -692,7 +693,13 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
     if (!u) return;
     /* Preserve native signed 8.8 gameplay positions, including city slots.
      * Their raw Z controls depth sorting, as in DC.EXE 0x4365a7. */
-    ivec2_t native = { (int16_t)position.x, (int16_t)position.y };
+    /* Non-negative positions stay unsigned: maps wider than 128 cells (D4PLAY02
+     * is 160) place objects at 8.8 values above 0x7fff, which a signed 16-bit
+     * cast would wrap off the map. */
+    ivec2_t native = {
+        position.x >= 0 && position.x <= 0xffff ? position.x : (int16_t)position.x,
+        position.y >= 0 && position.y <= 0xffff ? position.y : (int16_t)position.y,
+    };
     bool city_origin = city_slot >= 0 && city_slot < 6;
     u->core.position = (fixed3_t){ native.x * 256, native.y * 256,
                                    u->core.position.z };

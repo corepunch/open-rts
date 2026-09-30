@@ -62,6 +62,12 @@ static int mobj_harvest_capacity(const mobj_t *unit) {
         unit->info->harvest.resources[unit->harvest.resource_type].capacity : 0;
 }
 
+int P_ScaleIncome(const level_t *map, int owner, int amount) {
+    if (!map || owner < 0 || owner >= 8 || map->income_scale[owner] == 0) return amount;
+    /* DC.EXE 0x412daa..0x412dbd: credits * scale >> 8, rounding toward zero. */
+    return (int)(((int64_t)amount * map->income_scale[owner]) / 256);
+}
+
 bool P_HarvesterDocked(const mobj_t *unit) {
     if (!unit || !unit->info || !unit->info->harvest.unload_state_id) return false;
     return unit->harvest.phase == HARVEST_PHASE_TURNING ||
@@ -918,7 +924,7 @@ static bool update_unit_harvest(level_t *map,
         int amount = unit->harvest.cargo;
         int unload = unit->info->harvest.resources[rtype].unload_amount;
         if (unload > 0 && amount > unload) amount = unload;
-        map->player_resources[owner][rtype] += amount;
+        map->player_resources[owner][rtype] += P_ScaleIncome(map, owner, amount);
         unit->harvest.cargo -= amount;
         if (unit->harvest.cargo > 0) {
             if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
@@ -1026,7 +1032,7 @@ static bool update_unit_harvest(level_t *map,
         if (mobj_harvest_capacity(unit) > 0)
             unit->harvest.cargo += take;
         else
-            map->player_resources[owner][rtype] += take;
+            map->player_resources[owner][rtype] += P_ScaleIncome(map, owner, take);
         if (mobj_harvest_capacity(unit) > 0 &&
             unit->harvest.cargo >= mobj_harvest_capacity(unit)) {
             if (send_harvester_home(map, unit)) break;

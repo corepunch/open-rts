@@ -141,6 +141,11 @@ void     G_ModelBuildUIScript(const RtsGameModel *model,
                               const RtsRenderSnapshot *snapshot,
                               char *dst, size_t dst_size);
 
+/* Universal AI hooks (see play/p_ai.h). Returns the game's interface, or NULL
+ * when the game keeps only its own production AI. */
+struct AiGameInterface;
+const struct AiGameInterface *G_AiInterface(void);
+
 /* Periodic AI production thinker. */
 void     G_ModelAIProduction(RtsGameModel *model, int elapsed_ms);
 

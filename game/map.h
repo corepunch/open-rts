@@ -134,6 +134,7 @@ typedef struct level_s {
     bool has_camera;
     fvec2_t camera;
     int player_resources[8][RTS_MAX_RESOURCES];
+    uint16_t income_scale[8]; /* 8.8 credit multiplier per owner; 0 means 1.0. */
     bool player_teams; /* Independent players use the alliance masks. */
     uint8_t player_colors[8];
     char tileset_name[32];

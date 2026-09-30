@@ -22,6 +22,8 @@ enum {
 };
 
 bool P_HarvesterDocked(const mobj_t *unit);
+/* Scales a harvested credit amount by the owner's 8.8 income_scale. */
+int P_ScaleIncome(const level_t *map, int owner, int amount);
 
 void debug_effects_log(const char *fmt, ...);
 

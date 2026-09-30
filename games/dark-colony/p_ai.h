@@ -1,5 +1,5 @@
-#ifndef __P_AI__
-#define __P_AI__
+#ifndef __DC_AI__
+#define __DC_AI__
 
 #include "game.h"
 

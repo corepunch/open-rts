@@ -345,6 +345,7 @@ load_level:
     void *custom_ui = G_InitCustomUI(&app, data_root);
     AiContext ai;
     P_AiInit(&ai);
+    P_AiAttachGame(&ai, G_AiInterface());
     sb_state_t st = { 0 };
     if (!custom_ui && gameui && !SB_Init(&st, app.renderer, data_root, gameui))
         fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
@@ -520,6 +521,9 @@ load_level:
             int before_production_count = unit_count;
             bool production_spawned;
             if (custom_ui) {
+                /* Custom-UI games (Dark Colony) buy through the universal AI. */
+                if (G_AiInterface())
+                    P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
                 production_spawned = G_UpdateProduction(custom_ui, &level, units, &unit_count,
                                                         FIXED_DT);
             } else {

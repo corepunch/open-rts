@@ -119,6 +119,8 @@ typedef struct {
     uint32_t target_id;
     uint16_t subject_type_id;
     uint16_t target_type_id;
+    uint8_t subject_owner;
+    uint8_t target_owner;
     int product_class;
     int product_type;
     fvec2_t position;
@@ -229,6 +231,9 @@ bool rts_game_model_snapshot(const RtsGameModel *model, RtsRenderSnapshot *out);
 int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out, int max_products);
 
 const char *rts_game_model_last_error(const RtsGameModel *model);
+/* Computer-player state (stats and event log) for inspection by tests and tools. */
+struct AiContext;
+struct AiContext *rts_game_model_ai(RtsGameModel *model);
 int rts_game_model_player_resources(const RtsGameModel *model, int player, int resource_type);
 
 #endif
