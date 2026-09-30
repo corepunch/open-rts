@@ -6,6 +6,7 @@
 
 #include "engine_config.h"
 #include "m_vec.h"
+#include "p_waypoint.h"
 
 #define RTS_MODEL_MAX_SNAPSHOT_UNITS 128
 #define RTS_MODEL_MAX_SNAPSHOT_DECORATIONS MAX_DECORATIONS
@@ -33,6 +34,8 @@ typedef enum {
     RTS_GAME_COMMAND_ATTACK_UNIT,
     RTS_GAME_COMMAND_BUILD_PRODUCT,
     RTS_GAME_COMMAND_DEPLOY_SELECTED,
+    RTS_GAME_COMMAND_PATH_SELECTED,
+    RTS_GAME_COMMAND_STOP_SELECTED,
 } RtsGameCommandKind;
 
 typedef enum {
@@ -90,6 +93,7 @@ typedef struct {
         struct {
             fvec2_t target;
         } move_selected;
+        waypoints_t path_selected;
         struct {
             fvec2_t target;
         } harvest_selected;

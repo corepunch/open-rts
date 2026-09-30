@@ -880,3 +880,100 @@ r2 -q -e bin.cache=true -c 'af @ 0x4a96f0' -c 'pdf @ 0x4a96f0' -c q data/REIGN/d
 make build/bin/tests/dark-reign/test_harvest_build
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_harvest_build
 ```
+
+## PATHS controls and shared engine routes (2026-09-30)
+
+Executable: `data/REIGN/dkreign.exe`, SHA-256
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`,
+PE32 i386, 2,478,592 bytes, image base `0x00400000`. The broad r2ghidra dump
+was used to locate controls, then focused native instruction/data reads
+verified their coordinates, node layout, selector values and traversal.
+The complete control table and implementation limits are retained in
+[DR_HUD_DISASSEMBLY.md](DR_HUD_DISASSEMBLY.md#paths-controls-and-traversal).
+
+**Confirmed:** `0x00467d60` constructs PATHS; callbacks `0x00460c40`,
+`0x00460c70`, `0x00460db0`, `0x00460df0`, `0x004616a0`, `0x004610d0`
+implement Add/Clear/Delete/Go/De-Select/Save. Native rectangles derive from
+constructor arguments, not visual estimates. SBTNS type 0 is 71x22/source 0,
+type 1 is 103x22/source 284 (`0x00495a30`); label offsets are (7,5)/(9,5).
+BASADV draws at (448,64), with source 0/192 (`0x00494700`). Header positions
+are Basic (461,75)/(462,78), Advanced (560,77)/(561,78). The native header
+uses text translation `0x006d6600` (table entry 7, indices 32..41 shifted by
+56); the engine loads this native FONT12T variant separately. Caption anchors are (544,205), (468,258), (555,257),
+using FONT12W, subtracting glyph height and 2. Saved rows are 12 pixels high
+(`0x00468300`), text begins at left+2 (`0x0048d8c0`). Native name field at
+(468,258,80,17) has two-pixel internal padding; editable names remain unknown
+in the engine implementation.
+
+**Confirmed:** `0x005beab0` stores selector x/width pairs (0,24), (24,23),
+(47,24); `0x00490900` advances state source by 71/142. `0x00461070` maps
+buttons through values 2,0,1. Default is 2. `0x00475c10` proves 0 backtrack,
+1 loop and 2 one pass: the first reverses on linked-list endpoints, the second
+wraps to head, the third terminates at tail. A singleton backtrack terminates.
+`0x004755b0` allocates six dwords: kind, x, y, auxiliary, next, previous at
++0/+4/+8/+12/+16/+20. `0x004754d0` appends; `0x00475d00` checks existing
+points. These are dynamic lists; **unknown** native point-count limit.
+
+**Confirmed:** Add enables input mode 6 without issuing movement. Go sends
+one complete free route through `0x0046d1d0` (event 10); saved Go dispatches
+through `0x0046cc30` (event 13), whose index check permits 0..29. Retail
+HELP.TXT supplies B/O/P/C page shortcuts and M/A/S orders. Local PathT3 text
+explains plotting, patrols and saved paths. These native text assets support
+intent, while controlling executable branches establish the traversal rule.
+
+**Confirmed:** radar route drawer `0x0048f990` walks next pointers at +16,
+connects kind-0 cells with palette index 22 (24 selected), and centers a 3x3
+index-138 marker. Kind 1 uses index 22 and does not replace the previous
+kind-0 connection origin. **Unknown/unported:** target/building node semantics
+and the world-overlay dispatch chain.
+
+**Disproven/corrected:** an early case-number reading assigned case 4 to
+ORDERS and case 5 to PATHS. Page drawer `0x004947b0` actually assigns case 2
+ORDERS, 3 PATHS, 4 COMMS and 5 MENU. `0x00467b60` is ORDERS, not PATHS.
+MFDBAC1 is shared PATHS/COMMS chrome, not a BUILD-grid background.
+
+**Implementation consequence:** common `waypoints_t` lives in `mobj_t`,
+advanced by `P_TickWaypoints` in the ordinary thinker. DC's private fields and
+AI route loop were removed; DC mission patrols explicitly retain loop mode.
+Common HUD editing/save/load lives in `hud/sb_path.c`; DR owns native drawing.
+TC_PATH snapshots selected stable IDs and all cells in one delayed command;
+protocol 3 encodes the complete route and checks spans, shape and bounds.
+An eight-point capacity is retained from DC as an explicit **engine adaptation**,
+not native DR evidence. Thirty saved routes are local to the current HUD;
+editable names and persistence, exact disabled/selected text palettes and
+world overlays remain unported.
+
+Support commands now use the existing shared target eligibility rule, allowing
+Medics/Mechanics to receive explicit friendly orders. Invalid targets preserve
+prior orders. Investigation logging confirmed old input/network fixtures had
+allegiance PLAYER on both their attacker and purported enemy (allied=1); the
+fixtures now define an actual enemy. No friendly-fire workaround was added.
+Temporary diagnostic logging was removed after confirming the cause.
+
+Reproduce the evidence and focused checks:
+
+```sh
+r2 -q -e scr.color=0 -e bin.cache=true -c 'af @ 0x467d60' -c 'pdf @ 0x467d60' -c q data/REIGN/dkreign.exe
+r2 -q -e scr.color=0 -e bin.cache=true -c 'af @ 0x475c10' -c 'pdf @ 0x475c10' -c q data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'px 6 @ 0x5beab0' -c q data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'af @ 0x48f990' -c 'pdf @ 0x48f990' -c q data/REIGN/dkreign.exe
+rg -n 'waypoint|patrol|save|path' data/REIGN/dark/local/HELP.TXT
+make build/bin/tests/dark-reign/test_mission_hud build/bin/tests/dark-reign/test_waypoints
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_mission_hud
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_waypoints
+```
+
+`test_mission_hud` writes `/private/tmp/open-rts-paths-hud.bmp`; the isolated
+native HUD image was inspected. Shared tests verify all traversal modes,
+stop/move cancellation, ownership, stable-ID snapshots, invalid-route rejection,
+route checksums and independent saved/draft storage. Network regression peers
+submit real two-point backtrack routes in direct and hosted lossy sessions.
+
+A final flying-route regression exposed stale movement IDs: after an arrival,
+clearing the ground flow field left the ID that `P_HasMoveOrder` uses for air
+movement. Logging showed the flying actor still at (5.5,5.5) while a three-leg
+one-pass route had already ended. Route advancement now clears that ID before
+issuing the next leg. The shared test crosses a fully blocked terrain row with
+MF_FLY and reaches the final cell in all four game builds; temporary logging
+was removed. This correction concerns engine route execution, not a newly
+recovered retail timing or offset.

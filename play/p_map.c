@@ -770,7 +770,10 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
     mobj_t *selected[unit_count > 0 ? unit_count : 1];
     int count = 0;
     for (int i = 0; i < unit_count; ++i)
-        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) selected[count++] = units[i];
+        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) {
+            units[i]->waypoints = (waypoints_t){0};
+            selected[count++] = units[i];
+        }
     return P_HarvestUnitsAt(map, selected, count, position);
 }
 
@@ -784,7 +787,10 @@ void P_MoveOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
     mobj_t *selected[unit_count > 0 ? unit_count : 1];
     int count = 0;
     for (int i = 0; i < unit_count; ++i)
-        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) selected[count++] = units[i];
+        if (P_MobjIsSelected(units[i]) && units[i]->owner == 0) {
+            units[i]->waypoints = (waypoints_t){0};
+            selected[count++] = units[i];
+        }
     P_MoveUnitsAt(map, selected, count, position);
 }
 

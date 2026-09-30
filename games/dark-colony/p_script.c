@@ -92,7 +92,7 @@ typedef struct {
         int a[8];
         struct {
             ivec2_t origin;
-            dc_waypoints_t route;
+            waypoints_t route;
         } waypoint;
     };
 } ScriptCommand;
@@ -520,10 +520,11 @@ static void parse_tro(ScriptState *script, const char *path) {
             int v[32] = { 0 };
             int parsed = 0;
             if ((parsed = parse_command_ints(token, "waypoint", v, 31)) >= 3) {
-                if (v[2] > 0 && v[2] <= DC_MAX_WAYPOINTS && parsed == 3 + v[2] * 2) {
+                if (v[2] > 0 && v[2] <= MAXWAYPOINTS && parsed == 3 + v[2] * 2) {
                     cmd.type = SCRIPT_CMD_WAYPOINT;
                     cmd.waypoint.origin = (ivec2_t){ v[0], v[1] };
                     cmd.waypoint.route.count = v[2];
+                    cmd.waypoint.route.mode = WP_LOOP;
                     for (int j = 0; j < v[2]; ++j)
                         cmd.waypoint.route.points[j] = (ivec2_t){ v[3 + j * 2], v[4 + j * 2] };
                     script_add_command(block, cmd);

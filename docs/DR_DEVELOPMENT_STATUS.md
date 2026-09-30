@@ -18,6 +18,8 @@ topic reports; [DR_EXE_FINDINGS.md](DR_EXE_FINDINGS.md) retains the dated eviden
 | Construction rigs | Move and build, with invented offensive weapons removed | `test_unit_traits`, `test_playable` |
 | Production | Authored faction products, makers, prerequisites, resources, queueing and AI production | `test_production`, `test_playable` |
 | Native HUD presentation | Retail chrome, fonts, unavailable-red icons, slot geometry and minimap rectangle | `test_mission_hud` |
+| PATHS | Native Basic/Advanced controls, draft editing, save/reload, Go, three traversal modes and radar routes | `test_mission_hud`, shared `test_waypoints` |
+| Engine routes | Shared DC/DR storage and thinker execution; atomic network orders and deterministic route checksums | Shared `test_waypoints`, `test_network` |
 | Both faction HUD catalogs | One icon per authored product; either selected rig exposes buildings | `test_mission_hud`, including Imperium HQ debit |
 | Model/input | Selection, movement, attack, harvest, production and command integration | `test_input`, model-command tests |
 
@@ -39,7 +41,7 @@ for KKnD/networking; prior baseline failures are recorded in the findings.
 | Combat | Full projectile, blast, suicide, armor and target-class rules | [Unit report](DR_UNIT_BEHAVIORS.md) |
 | Support fidelity | Native projectile, H1/R1 defense factors, search/orders, cadence and boost cancellation | [Support limits](DR_UNIT_BEHAVIORS.md#support-path-and-its-limits) |
 | Economy/pathing | Extractor stock/regeneration, receiver storage, launching and local traffic arbitration | [Transport report](DR_TRANSPORTER_ANIMATION.md#superseded-rules-and-remaining-unknowns) |
-| HUD | COMMS/ORDERS/PATHS/SPECIAL, native MENU, upgrade/decoy, radar terrain and resource gauge inputs | [HUD report](DR_HUD_DISASSEMBLY.md) |
+| HUD | COMMS/ORDERS/SPECIAL, native MENU, upgrade/decoy, radar terrain and resource gauge inputs; PATHS target nodes, names/persistence, unbounded native routes and exact text states | [HUD report](DR_HUD_DISASSEMBLY.md) |
 | Campaign/AI | Full mission FSM execution and native AIP scheduling/scoring | [Architecture](DR_ARCHITECTURE.md), findings |
 | Training/expansions | T-prefix definition swapping and additional rosters | Findings' catalog sections |
 
@@ -62,3 +64,11 @@ Use [REVERSE_ENGINEERING.md](../REVERSE_ENGINEERING.md) for new investigation.
 Record the executable hash, controlling instructions, native inputs, edge cases
 and focused tests before implementing a rule. Preserve disproven hypotheses
 and unknowns; avoid guessed aliases or compensating visual/timing constants.
+
+The PATHS follow-up also integrates completed DC HUD work `05f753d`, with
+route ownership moved into the shared engine. Verification: 62 test executables
+across DR/DC/7th Legion, both model-command tests, native DC sprite-layout
+validation, all four games' waypoint tests and headless smoke checks, plus the
+full direct/hosted network suite (including packet loss/duplication/reordering).
+Native PATHS and M01F HUD captures were visually inspected. This establishes
+implemented route behavior; the remaining native work above is still open.

@@ -9,7 +9,8 @@
 typedef enum {
     TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
-    TC_MAX = TC_PAUSE
+    TC_PATH,
+    TC_MAX = TC_PATH
 } ticorder_t;
 
 typedef struct {
@@ -20,6 +21,7 @@ typedef struct {
     int product;
     unsigned count;
     uint32_t units[MAXCOMMANDUNITS];
+    waypoints_t path; /* TC_PATH installs the complete route atomically. */
 } ticcmd_t;
 
 extern bool paused;
@@ -33,5 +35,6 @@ bool G_NetSignature(const char *map_path, uint32_t *signature);
 bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
                      fvec2_t position, uint32_t target);
 bool G_BuildOrder(mobj_t *producer, int product);
+bool G_PathOrder(mobj_t *const *units, int count, const waypoints_t *path);
 
 #endif

@@ -29,7 +29,7 @@ static uint64_t gametime, oldentertics;
 static uint64_t lastreceived[MAXNETNODES];
 static int skiptics, frameon, frameskip[4], oldnettics;
 
-enum { RESENDCOUNT = 10, NETVERSION = 2 };
+enum { RESENDCOUNT = 10, NETVERSION = 3 };
 
 static uint64_t I_GetTime(void) {
     return SDL_GetTicks64() * RTS_TICRATE * (uint64_t)game_speed / 1000 / (uint64_t)ticdup;

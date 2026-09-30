@@ -40,10 +40,17 @@ The same options work in `build/bin/dark-reign`, `build/bin/7legion` and
 `build/bin/kknd`; choose a map appropriate to that game. The executable selects
 the game. A client running a different game is rejected.
 
-Setup and session protocol versions are 2. Tic commands encode all three
+Setup and session protocol versions are 3. Tic commands encode all three
 fixed-point position components; setup uses the third for game speed. Dark
 Colony purchase reservations, refunds, Build submission, movement modes,
-waypoints and pause use the same delayed command path as unit orders.
+waypoints and pause use the same delayed command path as unit orders. Shared
+TC_PATH installs a complete route in one command; it snapshots unit IDs and
+route cells when accepted. Its trailer after the unit IDs contains two
+big-endian 32-bit values (point count and mode), followed by signed 32-bit
+x/y cells. Counts 1..8, modes 0..2 and the complete packet span are validated;
+simulation validates every cell before installing any route. Ordinary commands
+retain their 32-byte base and used unit IDs. Route cursor, direction and points
+participate in the deterministic world checksum; local drafts/saved lists do not.
 
 ## Options and requirements
 

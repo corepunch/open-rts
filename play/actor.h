@@ -4,6 +4,7 @@
 #include "engine_config.h"
 #include "facing.h"
 #include "map.h"
+#include "p_waypoint.h"
 #include "mobj_data.h"
 
 #include <stdbool.h>
@@ -223,6 +224,8 @@ struct mobj_s {
     bool remove;
     production_t *production;
     float radius;
+    waypoints_t waypoints;
+    bool move_only;
     struct {
         fvec2_t goal;
         const flowfield_t *flow_field;
@@ -280,6 +283,8 @@ void P_RemoveThinker(thinker_t *thinker);
 void P_RunThinkers(void);
 void P_FreeThinkers(void);
 void P_MobjThinker(mobj_t *mobj);
+void P_TickWaypoints(mobj_t *actor);
+bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim);
 mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type);
 mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type);
 void P_ExplodeMissile(mobj_t *missile);

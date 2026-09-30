@@ -652,6 +652,10 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
     case RTS_GAME_COMMAND_DEPLOY_SELECTED:
         return G_SelectedTiccmd(TC_DEPLOY, model->objects.items, model->objects.count,
                                (fvec2_t){0}, 0);
+    case RTS_GAME_COMMAND_PATH_SELECTED:
+        return G_PathOrder(model->objects.items, model->objects.count, &command->data.path_selected);
+    case RTS_GAME_COMMAND_STOP_SELECTED:
+        return G_SelectedTiccmd(TC_STOP, model->objects.items, model->objects.count, (fvec2_t){0}, 0);
     case RTS_GAME_COMMAND_HARVEST_SELECTED:
         if (netactive)
             return G_SelectedTiccmd(TC_HARVEST, model->objects.items, model->objects.count,
@@ -667,17 +671,8 @@ bool rts_game_model_command(RtsGameModel *model, const RtsGameCommand *command) 
         }
         if (target < 0 || target >= model->objects.count || model->objects.items[target]->hp <= 0 ||
             !P_VisibleToPlayer(model->objects.items[target])) return false;
-        if (netactive)
-            return G_SelectedTiccmd(TC_ATTACK, model->objects.items, model->objects.count,
-                                   (fvec2_t){0}, model->objects.items[target]->id);
-        for (int i = 0; i < model->objects.count; ++i) {
-            mobj_t *unit = model->objects.items[i];
-            if (P_MobjIsSelected(unit) && unit->owner == 0 && (unit->traits & MF_ATTACK))
-                unit->attack.target = model->objects.items[target];
-        }
-        P_MoveOrderAt(&level, model->objects.items, model->objects.count,
-                      fixed3_xy_to_fvec2(model->objects.items[target]->core.position));
-        return true;
+        return G_SelectedTiccmd(TC_ATTACK, model->objects.items, model->objects.count,
+                               (fvec2_t){0}, model->objects.items[target]->id);
     }
     case RTS_GAME_COMMAND_BUILD_PRODUCT: {
         int producer = command->data.build_product.producer_index;

@@ -29,6 +29,8 @@ definition capacity and campaign definition swaps are not certified.
 | [p_harvest.c](../games/dark-reign/p_harvest.c) | Water/Taelon receiver compatibility and mission-bay coordinate conversion |
 | [play/p_mobj.c](../play/p_mobj.c) | Shared allocation, state actions, movement, attack/support targeting, resource transfer, cargo and borrowed-target cleanup |
 | [play/p_tick.c](../play/p_tick.c) | Shared deterministic simulation lifecycle |
+| [play/p_waypoint.c](../play/p_waypoint.c) | Shared one-pass, loop and backtrack execution in the ordinary mobj thinker |
+| [game/g_cmd.c](../game/g_cmd.c) | Stable-ID group commands, atomic routes, ownership validation and deterministic checksums |
 | [play/p_ai.c](../play/p_ai.c) | Shared AI integration; not a complete port of retail AIP scheduling |
 
 World objects are individually allocated `mobj_t` instances linked through
@@ -80,18 +82,22 @@ See [DR_INFO_GEN.md](DR_INFO_GEN.md) for the existing tool workflow.
 | [hud/sb_palette.c](../games/dark-reign/hud/sb_palette.c) | Production list, slot drawing, input, tooltips, queue dispatch and engine MENU popup |
 | [hud/dr_hud.h](../games/dark-reign/hud/dr_hud.h) | Private cross-file HUD declarations |
 | [hud/sb_bar.c](../hud/sb_bar.c) | Shared bitmap/icon ownership and generic HUD services |
+| [hud/sb_path.c](../hud/sb_path.c) | Shared route editing, saved lists, actions and atomic command dispatch |
 | [driver/w_image.c](../driver/w_image.c) | Engine BMP/PCX decoding |
 | [m_menu.c](../games/dark-reign/m_menu.c) | Game menu interface outside level HUD ownership |
 
 One active `sb_state_t` is owned through `G_InitCustomUI` and the
 `G_CustomUIResponder/Ticker/Drawer/Shutdown` lifecycle. The generic sidebar is
 not initialized as a second live owner. Native layout, glyph interpretation,
-translation and page behavior stay in the game's `hud/` directory.
+translation and native drawing stay in the game's `hud/` directory. Route
+editing and execution belong to the engine. `mobj_t` owns one `waypoints_t`;
+there is no per-game route ticker or parallel object store. UI drafts and
+saved paths are copied into a single TC_PATH command when Go is pressed.
 
 Both factions share one dynamically allocated menu-icon catalog. The selected
 FG or Imperium rig chooses structure products; other selections use the unit
 list, with loaded technology and producer availability checks. This shared
-catalog does not make COMMS/ORDERS/PATHS/SPECIAL, upgrade or decoy controls
+catalog does not make COMMS/ORDERS/SPECIAL, upgrade or decoy controls
 functional. The [HUD disassembly report](DR_HUD_DISASSEMBLY.md) identifies the
 native routines and each remaining gap.
 

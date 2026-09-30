@@ -1,6 +1,7 @@
 #include "../rts_model_test.h"
 #include "game.h"
 #include "info.h"
+#include "d_net.h"
 
 #define CHECK(c) RTS_CHECK(c, "Dark Reign traits", #c)
 
@@ -79,6 +80,12 @@ static int support(void) {
     mobj_t *vehicle = spawn(MT_FG_FREIGHTER, (fvec2_t){20, 20.5f});
     CHECK(medic && human && vehicle);
     human->hp = 50; vehicle->hp = 500;
+    ticcmd_t heal = {.order = TC_ATTACK,.target = human->id,.count = 1,.units = {medic->id}};
+    G_RunTiccmd(0,&heal);
+    CHECK(medic->attack.target == human);
+    heal.target = vehicle->id;
+    G_RunTiccmd(0,&heal);
+    CHECK(medic->attack.target == human); /* An invalid support order preserves its target. */
     CHECK(P_Attack(medic));
     CHECK(human->hp == 70 && vehicle->hp == 500);
     CHECK(!P_Attack(medic)); /* Ten native cycles between pulses. */

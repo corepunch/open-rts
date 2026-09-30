@@ -6645,3 +6645,14 @@ incomplete; native availability and visuals alone do not establish parity.
 Reproduce the options evidence with `r2 -q -e bin.cache=true -c
 'af @ 0x42fa38; pdf @ 0x42fa38; af @ 0x42f97c; pdf @ 0x42f97c' DC.EXE`
 and compare the original `INTRFACE/LOPTE` and `INTRFACE/LQCE` scripts.
+
+## Shared route ownership follow-up (2026-09-30)
+
+The completed sidebar work in `05f753d` has been integrated with DR PATHS.
+The earlier per-game `dc_waypoints_t`, AI traversal loop and consecutive
+TC_WAYPOINT submission are superseded: `mobj_t.waypoints`, the ordinary shared
+thinker and one atomic TC_PATH own route storage, progression and dispatch.
+DC's eight-point capacity, loop patrols and existing sidebar completion controls
+are preserved. Shared tests cover traversal/ownership/cancellation; DC's native
+HUD and Petrovent guard tests cover the preserved gameplay interaction. This
+is an engine ownership/command change, not new DC.EXE evidence.

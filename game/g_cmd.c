@@ -16,6 +16,8 @@ void G_ClearTiccmds(void) {
 
 bool G_QueueTiccmd(const ticcmd_t *cmd) {
     if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_MAX) return false;
+    if (cmd->order == TC_PATH && (cmd->path.count < 1 || cmd->path.count > MAXWAYPOINTS ||
+                                 (unsigned)cmd->path.mode > WP_ONCE)) return false;
     if (!netactive) { G_RunTiccmd(consoleplayer, cmd); return true; }
     if (commandcount == MAXPENDINGCOMMANDS) {
         fprintf(stderr, "Order queue full; order was not accepted.\n");
@@ -34,19 +36,34 @@ void G_BuildTiccmd(ticcmd_t *cmd) {
     }
 }
 
-bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
-                     fvec2_t position, uint32_t target) {
-    ticcmd_t cmd = { .order = order, .position = fixed3_from_fvec2(position, 0), .target = target };
+static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
     for (int i = 0; i < count; ++i) {
         const mobj_t *unit = units[i];
         if (!P_MobjIsSelected(unit) || unit->owner != consoleplayer || unit->remove || unit->hp <= 0) continue;
-        if (cmd.count == MAXCOMMANDUNITS) {
+        if (cmd->count == MAXCOMMANDUNITS) {
             fprintf(stderr, "Too many units in one order (maximum %d).\n", MAXCOMMANDUNITS);
             return false;
         }
-        cmd.units[cmd.count++] = unit->id;
+        cmd->units[cmd->count++] = unit->id;
     }
-    return cmd.count && G_QueueTiccmd(&cmd);
+    return cmd->count && G_QueueTiccmd(cmd);
+}
+
+bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,
+                     fvec2_t position, uint32_t target) {
+    ticcmd_t cmd = { .order = order, .position = fixed3_from_fvec2(position, 0), .target = target };
+    return selected_command(&cmd, units, count);
+}
+
+bool G_PathOrder(mobj_t *const *units, int count, const waypoints_t *path) {
+    if (!path || path->count < 1 || path->count > MAXWAYPOINTS ||
+        (unsigned)path->mode > WP_ONCE) return false;
+    for (int i = 0; i < path->count; ++i)
+        if (!L_Contains(&level, path->points[i].x, path->points[i].y)) return false;
+    ticcmd_t cmd = {.order = TC_PATH, .path = *path};
+    cmd.path.current = 0;
+    cmd.path.backwards = false;
+    return selected_command(&cmd, units, count);
 }
 
 bool G_BuildOrder(mobj_t *producer, int product) {
@@ -58,6 +75,12 @@ bool G_BuildOrder(mobj_t *producer, int product) {
 void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     if (!cmd || cmd->order == TC_NONE || (unsigned)cmd->order > TC_MAX || cmd->count > MAXCOMMANDUNITS ||
         player < 0 || player >= RTS_MODEL_MAX_PLAYERS) return;
+    if (cmd->order == TC_PATH) {
+        if (cmd->path.count < 1 || cmd->path.count > MAXWAYPOINTS ||
+            (unsigned)cmd->path.mode > WP_ONCE) return;
+        for (int i = 0; i < cmd->path.count; ++i)
+            if (!L_Contains(&level, cmd->path.points[i].x, cmd->path.points[i].y)) return;
+    }
     if (cmd->order == TC_PAUSE) { paused = !paused; return; }
 #ifdef RTS_GAME_DARK_COLONY
     if (cmd->order == TC_PURCHASE) {
@@ -70,6 +93,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     int count = 0;
     /* Resolve in thinker order, never in UI selection order or by array index. */
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
         mobj_t *unit = (mobj_t *)th;
         if (unit->remove || unit->hp <= 0) continue;
         if (unit->id == cmd->target) target = unit;
@@ -81,31 +105,51 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
-#ifdef RTS_GAME_DARK_COLONY
+    if (cmd->order == TC_ATTACK) {
+        bool eligible = false;
+        for (int i = 0; i < count; ++i) eligible |= P_CanTarget(units[i], target);
+        if (!eligible) return;
+    }
+    if ((cmd->order == TC_MOVE || cmd->order == TC_ORDER || cmd->order == TC_HARVEST) &&
+        !L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS,
+                    cmd->position.y >> FIXED_FRAC_BITS)) return;
     if (cmd->order == TC_MODE) {
         for (int i = 0; i < count; ++i) {
-            units[i]->move_only = cmd->target == 33;
+            units[i]->move_only = cmd->target != 0;
             if (units[i]->move_only) units[i]->attack.target = NULL;
         }
         return;
     }
-    if (cmd->order == TC_WAYPOINT) {
+    if (cmd->order == TC_PATH || cmd->order == TC_WAYPOINT) {
         ivec2_t point = {cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS};
-        if (!L_Contains(&level, point.x, point.y)) return;
+        if (cmd->order == TC_WAYPOINT && !L_Contains(&level, point.x, point.y)) return;
         for (int i = 0; i < count; ++i) {
             mobj_t *actor = units[i];
             if (!(actor->traits & MF_MOBILE)) continue;
-            if (!cmd->target) actor->waypoints = (dc_waypoints_t){0};
-            if (actor->waypoints.count < DC_MAX_WAYPOINTS)
-                actor->waypoints.points[actor->waypoints.count++] = point;
-            if (actor->waypoints.count == 1)
-                P_MoveUnitTo(&level, actor, fvec2_cell_center(point));
+            if (cmd->order == TC_PATH) {
+                actor->waypoints = cmd->path;
+                actor->waypoints.current = 0;
+                actor->waypoints.backwards = false;
+            } else {
+                if (!cmd->target) actor->waypoints = (waypoints_t){.mode = WP_LOOP};
+                if (actor->waypoints.count < MAXWAYPOINTS)
+                    actor->waypoints.points[actor->waypoints.count++] = point;
+            }
+            if (cmd->order == TC_PATH || !cmd->target) {
+                actor->attack.target = NULL;
+                actor->harvest.target = -1;
+                actor->harvest.base = NULL;
+                actor->harvest.phase = actor->harvest.timer_ms = 0;
+                P_ClearMove(actor);
+                actor->movement.order_id = 0;
+                actor->movement.order_arrived = false;
+                P_MoveUnitTo(&level, actor, fvec2_cell_center(actor->waypoints.points[0]));
+            }
         }
         return;
     }
     if (cmd->order != TC_BUILD)
-        for (int i = 0; i < count; ++i) units[i]->waypoints = (dc_waypoints_t){0};
-#endif
+        for (int i = 0; i < count; ++i) units[i]->waypoints = (waypoints_t){0};
     if (cmd->order == TC_DEPLOY) {
         for (int i = 0; i < count; ++i) P_Deploy(units[i]);
         return;
@@ -132,7 +176,6 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         return;
     }
     if (cmd->order == TC_ATTACK) {
-        if (!target || target->owner == player) return;
         goal = fixed3_xy_to_fvec2(target->core.position);
     } else {
         target = NULL;
@@ -144,7 +187,7 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     if (!L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS,
                    cmd->position.y >> FIXED_FRAC_BITS) && cmd->order != TC_ATTACK) return;
     for (int i = 0; i < count; ++i) {
-        units[i]->attack.target = (units[i]->traits & MF_ATTACK) ? target : NULL;
+        units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;
         units[i]->harvest.target = -1;
         units[i]->harvest.base = NULL;
         units[i]->harvest.phase = 0;
@@ -192,6 +235,11 @@ uint32_t G_Consistency(void) {
         HASH(u->missile.phase);
         HASH(u->core.angle); HASH(u->core.state_id); HASH(u->core.tics);
         HASH(u->hp); HASH(u->traits & ~MF_SELECTED); HASH(u->remove);
+        HASH(u->move_only); HASH(u->waypoints.count); HASH(u->waypoints.current);
+        HASH(u->waypoints.mode); HASH(u->waypoints.backwards);
+        for (int i = 0; i < u->waypoints.count; ++i) {
+            HASH(u->waypoints.points[i].x); HASH(u->waypoints.points[i].y);
+        }
 #ifdef MOBJ_GAME_CHECKSUM
         MOBJ_GAME_CHECKSUM(HASH, u);
 #endif

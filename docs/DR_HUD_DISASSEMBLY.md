@@ -31,7 +31,7 @@ x=294,343,392. The money housing occupies x=153..293, using TOPBITS source
 x=6,width=141.
 
 BUILD drawing in `0x004947b0` clears `(448,64,192,250)` and draws BUBLDBIT
-at `(448,314)`. MFDBAC1 is a communications background; it must not be treated
+at `(448,314)`. MFDBAC1 supplies the PATHS/COMMS background; it must not be treated
 as the BUILD grid's native background.
 
 | Logical region | Geometry / rule |
@@ -72,9 +72,60 @@ production entry has exactly one retail menu icon, from `SetMenuImage` or
 the third `SetBuildingImages` argument. Availability uses the shared producer,
 technology, money and queue rules.
 
-**Unported:** COMMS/ORDERS/PATHS/SPECIAL contents, full MENU behavior, upgrade
+**Unported:** COMMS/ORDERS/SPECIAL contents, full MENU behavior, upgrade
 and decoy interactions. MENU currently opens an engine resume/quit popup.
 Those interactions are not certified retail page behavior.
+
+## PATHS controls and traversal
+
+**Confirmed:** `0x00467d60` constructs PATHS; `0x00467b60` constructs
+ORDERS. Drawer `0x004947b0` case 3 is PATHS, case 4 COMMS and case 5 MENU.
+PATHS uses MFDBAC1 and the BASADV composite at `(448,64,192,32)`;
+`0x00494700` chooses source x=0 for Basic or 192 for Advanced.
+
+| Control | Native rectangle | Callback |
+|---|---|---|
+| Add Waypoints | `(502,100,103,22)` | `0x00460c40` |
+| Clear All | `(478,125,71,22)` | `0x00460c70` |
+| Delete | `(559,125,71,22)` | `0x00460db0` |
+| Go | `(502,150,103,22)` | `0x00460df0` |
+| De-Select | `(468,280,71,22)` | `0x004616a0` |
+| Save Path | `(468,305,71,22)` | `0x004610d0` |
+| Direction selector | `(508,205,71,22)` | `0x00461070` |
+| Saved list | `(555,257,80,78)` | `0x00461320` |
+
+SBTNS button styles initialized by `0x00495a30` use 71x22 at source x=0
+or 103x22 at x=284; each state advances one button width. Labels start at
+button+(7,5) or +(9,5). TRAILMDE's selector segments come from `0x005beab0`:
+`(x,width)=(0,24),(24,23),(47,24)`; hover adds 71, active adds 142.
+`0x00490900` draws the selector and `0x00461070` maps its buttons to modes
+2,0,1. Native default is 2. FONT12W captions use their anchor minus font
+height and two pixels. Saved-list constructor `0x00468300` uses 12-pixel rows;
+`0x0048d8c0` draws at list x+2.
+
+**Confirmed:** `0x00475c10` implements mode 0 backtrack, mode 1 loop and
+mode 2 one pass. Backtrack reverses at either endpoint, loop wraps to the
+head and one pass returns NULL at the tail. A one-node backtrack ends.
+Native node allocator `0x004755b0` allocates 24 bytes: kind at +0, cell x/y
+at +4/+8, auxiliary value +12, next +16 and previous +20. Routes are linked
+lists. `0x00475d00` checks existing points. Add Waypoints changes input mode;
+Go dispatches a complete route (`0x0046d1d0`, event 10), or a saved route
+(`0x0046cc30`, event 13). Saved indices are checked against 0..29.
+
+**Implemented engine behavior:** `hud/sb_path.c` owns editing, selection,
+30 in-memory saved paths and atomic Go dispatch. `play/p_waypoint.c` advances
+ordinary mobile mobjs through all three modes, resumes after combat/support,
+and uses the shared movement system. Stop/new orders cancel routes. DC uses
+the same storage, thinker and command; its scripted patrols retain loop mode.
+DR owns only native assets, layout and drawing. B/P and M/A/S use the retail
+HELP.TXT shortcuts. Radar routes use native `0x0048f990` line colors 22/24
+and centered 3x3 markers with palette index 138.
+
+**Limits:** the engine retains DC's eight-cell capacity; this is an engine
+adaptation, not a discovered DR limit. Retail DR uses dynamically allocated
+nodes. Target/building nodes (kind 1), editable path names, disk persistence,
+world-overlay drawing and exact disabled/selected text palettes remain
+unimplemented. The current names are engine-generated `Trail n`.
 
 ## Money and font decoding
 
@@ -149,7 +200,8 @@ does not become a second owner. `hud/sb_bar.c` supplies image/icon lifetimes,
 while the game HUD owns native layout, fonts, palette and drawing/input.
 See [DR_ARCHITECTURE.md](DR_ARCHITECTURE.md) for source boundaries.
 
-`test_mission_hud` checks M01F start, native minimap geometry, completed-building
+`test_mission_hud` checks PATHS tabs, draft editing, mode selection, saved-path
+copying/reloading, Go and Stop, as well as M01F start, native minimap geometry, completed-building
 layer pixels, combined faction icon coverage, FG production availability, MENU
 and Imperium rig structure dispatch. The Imperium check deliberately narrows
 the fixture's tech list; it is not an entire Imperium campaign certification.
@@ -166,6 +218,7 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_mission_hud
 env SDL_VIDEODRIVER=dummy build/bin/dark-reign --screenshot /private/tmp/open-rts-dr-hud.bmp
 ```
 
-The focused test also writes `/private/tmp/open-rts-mission01-hud.bmp` and
+The focused test also writes `/private/tmp/open-rts-paths-hud.bmp`,
+`/private/tmp/open-rts-mission01-hud.bmp` and
 `/private/tmp/open-rts-imperium-hud.bmp`. Native game assets remain BMP/PCX/SPR;
 temporary inspection conversions do not add PNG assets or loading dependencies.

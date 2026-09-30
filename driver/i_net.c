@@ -17,7 +17,7 @@ static doomcom_t communication;
 doomcom_t *doomcom = &communication;
 
 /* Explicit encoding: no host padding, pointers, enums or floats on the wire. */
-#define WIRECMD (32 + 4 * MAXCOMMANDUNITS)
+#define WIRECMD (32 + 4 * MAXCOMMANDUNITS + 8 + 8 * MAXWAYPOINTS)
 #define WIREMAX (8 + BACKUPTICS * WIRECMD)
 static void put32(uint8_t *p, uint32_t v) {
     p[0] = v >> 24; p[1] = v >> 16; p[2] = v >> 8; p[3] = v;
@@ -47,6 +47,15 @@ static size_t encode(uint8_t *wire) {
         put32(p + 28, c->count);
         for (unsigned j = 0; j < c->count; ++j) put32(p + 32 + 4 * j, c->units[j]);
         size += 32 + 4 * c->count;
+        if (c->order == TC_PATH) {
+            p = wire + size;
+            put32(p, c->path.count); put32(p + 4, c->path.mode);
+            for (int j = 0; j < c->path.count; ++j) {
+                put32(p + 8 + 8 * j, c->path.points[j].x);
+                put32(p + 12 + 8 * j, c->path.points[j].y);
+            }
+            size += 8 + 8 * c->path.count;
+        }
     }
     put32(wire, checksum(wire, size) | (packet->checksum & ~NCMD_CHECKSUM));
     return size;
@@ -71,6 +80,18 @@ static bool decode(const uint8_t *wire, size_t size) {
             c->count > (size - offset - 32) / 4) return false;
         for (unsigned j = 0; j < c->count; ++j) c->units[j] = get32(p + 32 + 4 * j);
         offset += 32 + 4 * c->count;
+        if (c->order == TC_PATH) {
+            if (size - offset < 8) return false;
+            p = wire + offset;
+            unsigned count = get32(p), mode = get32(p + 4);
+            if (!count || count > MAXWAYPOINTS || mode > WP_ONCE ||
+                count > (size - offset - 8) / 8) return false;
+            c->path.count = count; c->path.mode = mode;
+            for (unsigned j = 0; j < count; ++j)
+                c->path.points[j] = (ivec2_t){(int32_t)get32(p + 8 + 8 * j),
+                                            (int32_t)get32(p + 12 + 8 * j)};
+            offset += 8 + 8 * count;
+        }
     }
     if (offset != size) return false;
     doomcom->data = packet;
@@ -80,7 +101,7 @@ static bool decode(const uint8_t *wire, size_t size) {
 
 /* Session discovery is separate from Doom's tic protocol. The host relays
  * addressed tic packets so joiners only need one reachable UDP endpoint. */
-enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 2,
+enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 3,
        JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,
        WELCOME_SIZE = 10 + GAME_LENGTH + MAP_LENGTH };
 static bool hosting, joining, session_received;

@@ -98,22 +98,24 @@ static irect_t menu_rect(void) {
     return (irect_t){gameui->logical_width/2-120, gameui->logical_height/2-50, 240, 100};
 }
 
-static bool selected_order(ticorder_t order, fvec2_t goal, uint32_t target) {
-    mobj_t *units[MAXCOMMANDUNITS];
-    int count = 0;
-    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-        if (th->function != P_MobjThinker) continue;
-        mobj_t *u = (mobj_t *)th;
-        if (u->owner == consoleplayer && u->hp > 0 && !u->remove && P_MobjIsSelected(u)) {
-            if (count == MAXCOMMANDUNITS) return false;
-            units[count++] = u;
-        }
-    }
-    return G_SelectedTiccmd(order, units, count, goal, target);
+static bool path_action_visible(const sb_state_t *st, const uiaction_t *action) {
+    return st->path_advanced || (action->action != UI_PATH_SAVE &&
+        action->action != UI_PATH_DESELECT && action->action != UI_PATH_MODE);
 }
 
 bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     update_selection(st);
+    if (event->type == SDL_KEYDOWN && !event->key.repeat &&
+        !(event->key.keysym.mod & (KMOD_CTRL | KMOD_ALT))) {
+        switch (event->key.keysym.sym) {
+        case SDLK_b: st->page = DR_PAGE_BUILD; st->order = UI_UNAVAILABLE; return true;
+        case SDLK_p: st->page = DR_PAGE_PATHS; st->order = UI_UNAVAILABLE; return true;
+        case SDLK_m: st->order = UI_MOVE; return true;
+        case SDLK_a: st->order = UI_ATTACK; return true;
+        case SDLK_s: SB_SelectedOrder(TC_STOP, (fvec2_t){0}, 0); return true;
+        default: break;
+        }
+    }
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT && st->order) {
         st->order = UI_UNAVAILABLE;
         return true;
@@ -148,14 +150,11 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
         if (!irect_contains(a->rect, mouse)) continue;
         if (click) {
             if (a->action == UI_RADAR && G_ModelRadarLevel(consoleplayer)) st->radar_visible = !st->radar_visible;
-            else if (a->action == UI_OPTIONS) st->options_visible = true;
-            else if (a->action == UI_STOP) selected_order(TC_STOP, (fvec2_t){0,0}, 0);
-            else if (a->action == UI_MOVE || a->action == UI_ATTACK) st->order = a->action;
             else if (a->action == UI_PRODUCT) {
                 if (!G_ModelProductAvailable(NULL,consoleplayer,G_ModelProductByUIId(NULL,a->product))) return true;
                 st->order = a->action;
                 st->order_product = a->product;
-            }
+            } else SB_ActivateAction(st, a);
         }
         return true;
     }
@@ -174,12 +173,25 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
         if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
             st->production_category = i;
             st->production_page = 0;
+            st->page = DR_PAGE_BUILD;
+            st->order = UI_UNAVAILABLE;
         }
         return true;
     }
+    if (st->page == DR_PAGE_PATHS) {
+        for (int i = 0; i < gameui->path_action_count; ++i) {
+            const uiaction_t *action = &gameui->path_actions[i];
+            if (!path_action_visible(st,action)) continue;
+            if (!irect_contains(action->rect, mouse)) continue;
+            if (click) SB_ActivateAction(st, action);
+            return true;
+        }
+        if (st->path_advanced && SB_PathListResponder(st,event,mouse)) return true;
+        if (irect_contains((irect_t){448,64,192,278}, mouse)) return true;
+    }
     int items[gameui->product_count];
     int count = product_list(st, items);
-    if (irect_contains((irect_t){448,316,44,22}, mouse)) {
+    if (st->page == DR_PAGE_BUILD && irect_contains((irect_t){448,316,44,22}, mouse)) {
         int capacity = gameui->command_columns * gameui->command_rows;
         int pages = count ? (count + capacity - 1) / capacity : 1;
         if (click) st->production_page = (st->production_page +
@@ -187,7 +199,7 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
         return true;
     }
     irect_t grid = gameui->command_grid;
-    if (st->production_category >= 0 && irect_contains(grid, mouse)) {
+    if (st->page == DR_PAGE_BUILD && st->production_category >= 0 && irect_contains(grid, mouse)) {
         int capacity = gameui->command_columns * gameui->command_rows;
         int pages = count > 0 ? (count + capacity - 1) / capacity : 1;
         if (event->type == SDL_MOUSEWHEEL) {
@@ -207,13 +219,14 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     if (irect_contains(gameui->sidebar_panel.rect, mouse)) return true;
     for (int i = 0; i < gameui->image_count; ++i)
         if (irect_contains(gameui->images[i].destination, mouse)) return true;
+    if (SB_PathResponder(st, app, event)) return true;
     if (st->order && event->type == SDL_MOUSEBUTTONDOWN) {
         if (click) {
             ivec2_t render = {mouse.x*app->win.w/gameui->logical_width,
                               mouse.y*app->win.h/gameui->logical_height};
             cell_t cell = R_ScreenToMapGrid(app, &level, render.x, render.y);
             fvec2_t goal = fvec2_cell_center(cell);
-            if (st->order == UI_MOVE) selected_order(TC_MOVE, goal, 0);
+            if (st->order == UI_MOVE) SB_SelectedOrder(TC_MOVE, goal, 0);
             else {
                 mobjlist_t units = P_ListMobjs();
                 int picked = R_PickUnit(app, &level, units.items, units.count, NULL,
@@ -221,7 +234,7 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
                 if (picked >= 0) {
                     mobj_t *u = units.items[picked];
                     if (st->order == UI_PRODUCT) G_BuildOrder(u, st->order_product);
-                    else if (u->owner != consoleplayer) selected_order(TC_ATTACK, goal, u->id);
+                    else SB_SelectedOrder(TC_ATTACK, goal, u->id);
                 }
                 P_FreeMobjList(&units);
 
@@ -231,6 +244,41 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
         return true;
     }
     return false;
+}
+
+static void draw_paths(sb_state_t *st, const app_t *app, ivec2_t mouse) {
+    draw_image(st, app, 4, (irect_t){0,0,192,278}, (irect_t){448,64,192,278});
+    draw_image(st, app, 13, (irect_t){st->path_advanced ? 192 : 0,0,192,32}, (irect_t){448,64,192,32});
+    DR_DrawHeader(app,(ivec2_t){st->path_advanced ? 462 : 461,st->path_advanced ? 78 : 75},"Basic",71);
+    DR_DrawHeader(app,(ivec2_t){st->path_advanced ? 561 : 560,st->path_advanced ? 78 : 77},"Advanced",78);
+    for (int i = 0; i < gameui->path_action_count; ++i) {
+        const uiaction_t *a = &gameui->path_actions[i];
+        if (!path_action_visible(st,a) || a->action == UI_PATH_ADVANCED) continue;
+        bool active = a->action == UI_WAYPOINT ? st->order == UI_WAYPOINT :
+                      a->action == UI_PATH_MODE && (int)st->path.mode == a->product;
+        bool hover = irect_contains(a->rect, mouse);
+        irect_t src = a->source;
+        src.x += (active ? 2 : hover ? 1 : 0) * (a->image == 14 ? 71 : src.w);
+        draw_image(st, app, a->image, src, a->rect);
+        if (a->image != 14) DR_DrawText(app, ivec2_add((ivec2_t){a->rect.x,a->rect.y},
+            (ivec2_t){a->rect.w == 71 ? 7 : 9,5}), a->label, a->rect.w - 14);
+    }
+    if (!st->path_advanced) return;
+    DR_DrawCaption(app,(ivec2_t){544,205},"Path Direction",true);
+    DR_DrawCaption(app,(ivec2_t){468,258},"Current Path",false);
+    DR_DrawCaption(app,(ivec2_t){555,257},"Saved Paths",false);
+    for (int i = 0; i < gameui->path_list.h / gameui->path_row_height &&
+         i + st->path_scroll < st->saved_path_count; ++i) {
+        char text[24];
+        snprintf(text, sizeof(text), "Trail %d", i + st->path_scroll + 1);
+        DR_DrawText(app, (ivec2_t){gameui->path_list.x + 2,
+            gameui->path_list.y + i*gameui->path_row_height}, text, gameui->path_list.w - 2);
+    }
+    char current[24];
+    if (st->saved_path_selection >= 0)
+        snprintf(current, sizeof(current), "Trail %d", st->saved_path_selection + 1);
+    else snprintf(current, sizeof(current), "None Selected");
+    DR_DrawText(app, (ivec2_t){470,260}, current, 76);
 }
 
 void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
@@ -246,18 +294,24 @@ void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
     for (int i = 0; i < gameui->action_count; ++i) {
         const uiaction_t *a = &gameui->actions[i];
         irect_t src = a->source;
+        bool active = a->action == UI_PAGE && st->page == a->product;
+        if (active) src.x += 384;
         if (irect_contains(a->rect, mouse)) {
             hovered_action = i;
-            src.x += 192;
+            if (!active) src.x += 192;
         }
         draw_image(st, app, a->image, src, a->rect);
     }
     for (int i = 0; i < gameui->category_count; ++i) {
         const uicategory_t *c = &gameui->categories[i];
         irect_t src = c->source;
-        src.x += 384;
+        src.x += st->page == DR_PAGE_BUILD ? 384 : irect_contains(c->rect, mouse) ? 192 : 0;
         draw_image(st, app, c->image, src, c->rect);
         if (irect_contains(c->rect, mouse)) hovered_category = i;
+    }
+    if (st->page == DR_PAGE_PATHS) {
+        draw_paths(st, app, mouse);
+        goto overlays;
     }
     int capacity = gameui->command_columns * gameui->command_rows;
     int pages = count > 0 ? (count + capacity - 1) / capacity : 1;
@@ -298,6 +352,7 @@ void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
     DR_DrawText(app, (ivec2_t){507,323}, "Upgrade", 60);
     SDL_SetRenderDrawColor(app->renderer, 220,165,65,255);
     DR_DrawText(app, (ivec2_t){586,323}, "Decoy", 48);
+overlays:
     if (hovered_product >= 0) {
         const StaticProductDefinition *p = G_ModelProductByUIId(NULL, gameui->products[hovered_product].id);
         tooltip(app, mouse, p->label, p, producer_for(p));

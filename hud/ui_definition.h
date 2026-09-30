@@ -39,7 +39,11 @@ typedef struct uicategory_s {
     irect_t source;
 } uicategory_t;
 
-typedef enum { UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT } uiactionkind_t;
+typedef enum {
+    UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT,
+    UI_PAGE, UI_WAYPOINT, UI_PATH_CLEAR, UI_PATH_DELETE, UI_PATH_GO,
+    UI_PATH_SAVE, UI_PATH_DESELECT, UI_PATH_MODE, UI_PATH_ADVANCED
+} uiactionkind_t;
 typedef struct uiaction_s {
     const char *label;
     uiactionkind_t action;
@@ -75,6 +79,10 @@ typedef struct uidefinition_s {
     const uiaction_t *actions;
     int action_count;
     int minimap_scale;
+    const uiaction_t *path_actions;
+    int path_action_count;
+    irect_t path_list;
+    int path_row_height;
 } uidefinition_t;
 
 #endif

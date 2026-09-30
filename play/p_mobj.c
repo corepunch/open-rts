@@ -349,7 +349,10 @@ static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
            shot->blast.damage_factors[armor] != 0;
 }
 
-static bool weapon_target(const mobj_t *attacker, const mobj_t *victim) {
+bool P_CanTarget(const mobj_t *attacker, const mobj_t *victim) {
+    if (!attacker || !victim || attacker == victim || victim->remove || victim->hp <= 0 ||
+        !(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
+        (victim->traits & (MF_MISSILE | MF_NOBLOCKMAP))) return false;
     if (attacker->traits & (MF_HEAL | MF_REPAIR)) {
         return victim != attacker && P_IsAlly(attacker, victim) &&
             victim->hp < victim->max_hp &&
@@ -361,9 +364,7 @@ static bool weapon_target(const mobj_t *attacker, const mobj_t *victim) {
 }
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
-#ifdef RTS_GAME_DARK_COLONY
     if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
-#endif
     if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         mobj_attack_damage(attacker) == 0)
         return NULL;
@@ -372,7 +373,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
-        weapon_target(attacker, target) &&
+        P_CanTarget(attacker, target) &&
         fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
                                fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
         return target;
@@ -382,7 +383,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         mobj_t *candidate = (mobj_t *)th;
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
-            !weapon_target(attacker, candidate) ||
+            !P_CanTarget(attacker, candidate) ||
             !P_VisibleTo(attacker, candidate)) continue;
         float dist2 = fvec2_distance_squared(
             fixed3_xy_to_fvec2(candidate->core.position),
@@ -1057,6 +1058,7 @@ static void tick_actor(mobj_t *u) {
     if (u->core.state_id <= 0) P_InitMobj(game_info, u);
     P_TickMobjState(u);
     if (u->remove || u->hp <= 0) return;
+    P_TickWaypoints(u);
 
     if (u->attack.cooldown_left_ms > 0) {
         u->attack.cooldown_left_ms -= dt_ms;

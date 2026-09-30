@@ -67,6 +67,8 @@ void SB_Start(sb_state_t *st) {
     st->pressed_button = -1;
     st->clock = 0;
     st->production_category = -1;
+    st->path.mode = WP_ONCE;
+    st->saved_path_selection = -1;
     st->radar_visible = st->definition->minimap.w > 0;
 }
 

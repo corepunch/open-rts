@@ -16,6 +16,8 @@ static const uiimage_t DARK_REIGN_UI_IMAGES[] = {
     { "graphics/INTFACE/IGI/BUSCRLDN.BMP", {0}, {0} }, /* 10 */
     { "graphics/INTFACE/IGI/TEAMPIC.BMP", {0,0,52,34}, {588,342,52,34} }, /* 11 */
     { "graphics/INTFACE/IGI/SBTNS.BMP", {0}, {0} }, /* 12 */
+    { "graphics/INTFACE/IGI/BASADV.BMP", {0}, {0} }, /* 13 */
+    { "graphics/INTFACE/IGI/TRAILMDE.BMP", {0}, {0} }, /* 14 */
 };
 
 /* Retail MFDBTNS are pages, not infantry/vehicle categories. */
@@ -26,8 +28,23 @@ static const uiaction_t DARK_REIGN_UI_ACTIONS[] = {
     { "COMMS", UI_UNAVAILABLE, {512, 0, 64, 32}, 3, {64, 0, 64, 32}, 0 },
     { "MENU", UI_OPTIONS, {576, 0, 64, 32}, 3, {128, 0, 64, 32}, 0 },
     { "ORDERS", UI_UNAVAILABLE, {448, 32, 64, 32}, 3, {0, 32, 64, 32}, 0 },
-    { "PATHS", UI_UNAVAILABLE, {512, 32, 64, 32}, 3, {64, 32, 64, 32}, 0 },
+    { "PATHS", UI_PAGE, {512, 32, 64, 32}, 3, {64, 32, 64, 32}, DR_PAGE_PATHS },
     { "SPECIAL", UI_UNAVAILABLE, {576, 32, 64, 32}, 3, {128, 32, 64, 32}, 0 },
+};
+
+/* 00467d60 constructs these controls; 00490900 selects TRAILMDE states. */
+static const uiaction_t DARK_REIGN_PATH_ACTIONS[] = {
+    {"Add Waypoints", UI_WAYPOINT, {502,100,103,22}, 12, {284,0,103,22}, 0},
+    {"Clear All", UI_PATH_CLEAR, {478,125,71,22}, 12, {0,0,71,22}, 0},
+    {"Delete", UI_PATH_DELETE, {559,125,71,22}, 12, {0,0,71,22}, 0},
+    {"Go", UI_PATH_GO, {502,150,103,22}, 12, {284,0,103,22}, 0},
+    {"De-Select", UI_PATH_DESELECT, {468,280,71,22}, 12, {0,0,71,22}, 0},
+    {"Save Path", UI_PATH_SAVE, {468,305,71,22}, 12, {0,0,71,22}, 0},
+    {"One Pass", UI_PATH_MODE, {508,205,24,22}, 14, {0,0,24,22}, WP_ONCE},
+    {"Backtrack", UI_PATH_MODE, {532,205,23,22}, 14, {24,0,23,22}, WP_BACKTRACK},
+    {"Loop", UI_PATH_MODE, {555,205,24,22}, 14, {47,0,24,22}, WP_LOOP},
+    {"Basic", UI_PATH_ADVANCED, {448,64,96,32}, 13, {0}, 0},
+    {"Advanced", UI_PATH_ADVANCED, {544,64,96,32}, 13, {0}, 1},
 };
 
 /* Native menu sprites, separate from world sprite IDs. */
@@ -88,6 +105,10 @@ static const uidefinition_t DARK_REIGN_UI = {
     .category_count = (int)(sizeof(DARK_REIGN_UI_CATEGORIES) / sizeof(DARK_REIGN_UI_CATEGORIES[0])),
     .actions = DARK_REIGN_UI_ACTIONS,
     .action_count = (int)(sizeof(DARK_REIGN_UI_ACTIONS) / sizeof(DARK_REIGN_UI_ACTIONS[0])),
+    .path_actions = DARK_REIGN_PATH_ACTIONS,
+    .path_action_count = sizeof(DARK_REIGN_PATH_ACTIONS) / sizeof(*DARK_REIGN_PATH_ACTIONS),
+    .path_list = {555,257,80,78},
+    .path_row_height = 12,
 };
 
 const uidefinition_t *const gameui = &DARK_REIGN_UI;
@@ -95,14 +116,34 @@ const uidefinition_t *const gameui = &DARK_REIGN_UI;
 /* One active status bar, following Doom's ST_Init/Start/Stop ownership. */
 static sb_state_t bar;
 typedef struct { SDL_Texture *texture; irect_t glyphs[256]; } dr_font_t;
-static dr_font_t fonts[2];
+static dr_font_t fonts[4];
 
 static irect_t scaled(const app_t *app, irect_t r) {
     return (irect_t){r.x * app->win.w / 640, r.y * app->win.h / 480,
                      r.w * app->win.w / 640, r.h * app->win.h / 480};
 }
 
-static bool load_font(app_t *app, const char *root, const char *name, dr_font_t *font) {
+/* 0048f990: cell coordinates, connecting lines and centered 3x3 markers. */
+static void draw_path(app_t *app, irect_t radar, const waypoints_t *path, int line) {
+    if (!bar.product_icons) return;
+    const uint32_t *palette = bar.product_icons[0].palette;
+    for (int i = 0; i < path->count; ++i) {
+        ivec2_t point = ivec2_add((ivec2_t){radar.x,radar.y}, path->points[i]);
+        if (i) {
+            ivec2_t previous = ivec2_add((ivec2_t){radar.x,radar.y}, path->points[i-1]);
+            uint32_t color = palette[line];
+            SDL_SetRenderDrawColor(app->renderer, color >> 16, color >> 8, color, 255);
+            SDL_RenderDrawLine(app->renderer, previous.x*app->win.w/640, previous.y*app->win.h/480,
+                              point.x*app->win.w/640, point.y*app->win.h/480);
+        }
+        uint32_t color = palette[0x8a];
+        SDL_SetRenderDrawColor(app->renderer, color >> 16, color >> 8, color, 255);
+        irect_t marker = scaled(app, (irect_t){point.x-1,point.y-1,3,3});
+        SDL_RenderFillRect(app->renderer, &marker);
+    }
+}
+
+static bool load_font(app_t *app, const char *root, const char *name, int translation, dr_font_t *font) {
     char path[1024];
     snprintf(path, sizeof(path), "%s/graphics/INTFACE/IGI/%s", root, name);
     SDL_Surface *surface = W_LoadImage(path);
@@ -121,8 +162,8 @@ static bool load_font(app_t *app, const char *root, const char *name, dr_font_t 
     }
     SDL_SetPaletteColors(surface->format->palette, chrome->format->palette->colors,
                          0, chrome->format->palette->ncolors);
-    /* 00477e00 translates indices 32..41; table 0 at 005cc9c0 adds 2*8. */
-    SDL_SetPaletteColors(surface->format->palette, chrome->format->palette->colors + 48,
+    /* 00477e00: native normal/header tables add 2*8/7*8 to indices 32..41. */
+    SDL_SetPaletteColors(surface->format->palette, chrome->format->palette->colors + 32 + translation*8,
                          32, 10);
     SDL_FreeSurface(chrome);
     SDL_SetColorKey(surface, SDL_TRUE, 0);
@@ -150,7 +191,10 @@ static void draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, i
                               u->owner == consoleplayer ? 160 : 40, 40,255);
         irect_t dot = scaled(app, (irect_t){area.x + cell.x, area.y + cell.y, 1,1});
         SDL_RenderFillRect(app->renderer, &dot);
+        if (P_MobjIsSelected(u) && u->owner == consoleplayer)
+            draw_path(app, area, &u->waypoints, 0x16);
     }
+    if (bar.page == DR_PAGE_PATHS) draw_path(app, area, &bar.path, 0x18);
     irect_t view = scaled(app, (irect_t){area.x - (int)(app->cam.x / app->cell.w),
         area.y + (int)((32*app->win.h/480 - app->cam.y) / app->cell.h),
         G_WorldViewportWidth(app) / app->cell.w, (app->win.h - 32*app->win.h/480) / app->cell.h});
@@ -160,8 +204,10 @@ static void draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, i
 }
 
 void *G_InitCustomUI(app_t *app, const char *root) {
-    if (!SB_Init(&bar, app->renderer, root, gameui) || !load_font(app, root, "FONT16.PCX", &fonts[0]) ||
-        !load_font(app, root, "FONT12T.PCX", &fonts[1])) {
+    if (!SB_Init(&bar, app->renderer, root, gameui) || !load_font(app, root, "FONT16.PCX", 2, &fonts[0]) ||
+        !load_font(app, root, "FONT12T.PCX", 2, &fonts[1]) ||
+        !load_font(app, root, "FONT12W.PCX", 2, &fonts[2]) ||
+        !load_font(app, root, "FONT12T.PCX", 7, &fonts[3])) {
         G_ShutdownCustomUI(&bar);
         return NULL;
     }
@@ -216,15 +262,15 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
 
 void G_ShutdownCustomUI(void *ui) {
     if (!ui) return;
-    for (int i = 0; i < 2; ++i) {
+    for (unsigned i = 0; i < sizeof(fonts)/sizeof(*fonts); ++i) {
         SDL_DestroyTexture(fonts[i].texture);
         memset(&fonts[i], 0, sizeof(fonts[i]));
     }
     SB_Shutdown(ui);
 }
 
-void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
-    const dr_font_t *font = &fonts[1];
+static void draw_text(const app_t *app, const dr_font_t *font,
+                      ivec2_t point, const char *text, int width) {
     int x = point.x;
     for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
         irect_t src = font->glyphs[*p];
@@ -233,4 +279,20 @@ void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
         SDL_RenderCopy(app->renderer, font->texture, &src, &dst);
         x += src.w;
     }
+}
+
+void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
+    draw_text(app, &fonts[1], point, text, width);
+}
+
+void DR_DrawHeader(const app_t *app, ivec2_t point, const char *text, int width) {
+    draw_text(app, &fonts[3], point, text, width);
+}
+
+void DR_DrawCaption(const app_t *app, ivec2_t anchor, const char *text, bool centered) {
+    const dr_font_t *font = &fonts[2];
+    int width = 0;
+    for (const unsigned char *p = (const unsigned char *)text; *p; ++p) width += font->glyphs[*p].w;
+    ivec2_t offset = {centered ? -width/2 : 0, -font->glyphs['A'].h - 2};
+    draw_text(app,font,ivec2_add(anchor,offset),text,width);
 }

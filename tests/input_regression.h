@@ -44,6 +44,8 @@ int main(void) {
     second->core.position = fixed3_from_fvec2((fvec2_t){6.5f, 3.5f}, 0);
     enemy->core.position = fixed3_from_fvec2((fvec2_t){9.5f, 6.5f}, 0);
     enemy->owner = 1;
+    enemy->team = 1;
+    enemy->allegiance = ALLEGIANCE_ENEMY;
     mobj_t *units[] = {first, second, enemy};
     ivec2_t a = screen_point(&app, fixed3_xy_to_fvec2(first->core.position));
     ivec2_t b = screen_point(&app, fixed3_xy_to_fvec2(second->core.position));

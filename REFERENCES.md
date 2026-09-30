@@ -1581,3 +1581,19 @@ as previous unit investigations. `r2` instruction checks supplement the cached
 addresses, negative brightness semantics, purchase reservations, all research
 rows, and the unfinished special/secondary/options dispatch evidence. No web
 source or executable-derived runtime balance configuration was introduced.
+
+### Dark Reign PATHS evidence (2026-09-30)
+
+Primary sources are the local retail `data/REIGN/dkreign.exe` (SHA-256
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`),
+`dark/graphics/INTFACE/IGI/{MFDBAC1,BASADV,SBTNS,TRAILMDE}.BMP`, FONT12W/T.PCX,
+retail HELP.TXT and PathT3 tutorial text. No external image or generated asset
+replaces retail files. Focused r2 reads verify PATHS initializer `0x467d60`,
+callbacks `0x460c40..0x4616a0`, traversal `0x475c10`, node allocation
+`0x4755b0`, selector table `0x5beab0` and radar routes `0x48f990`.
+[DR_EXE_FINDINGS.md](docs/DR_EXE_FINDINGS.md#paths-controls-and-shared-engine-routes-2026-09-30)
+records instructions, provenance, disproven page assignments and unresolved
+contracts. OpenDR is a secondary local reference; its path support does not
+certify the retail HUD. Completed DC HUD commit `05f753d` was inspected and
+integrated before moving its real route storage/execution into common engine
+code. Doom's existing thinker/command lifecycle remains the execution owner.

@@ -27,6 +27,7 @@ static void init_world(void) {
     for (int i = 0; i < MAXPLAYERS; ++i) {
         actors[i] = spawn_mobj_fixture((mobj_t){ .hp = 100, .max_hp = 100,
             .owner = (uint8_t)i, .team = (uint8_t)i, .speed = 4, .radius = 0.25f,
+            .allegiance = i ? ALLEGIANCE_ENEMY : ALLEGIANCE_PLAYER,
             .traits = MF_MOBILE | MF_SELECTABLE,
             .core.position = fixed3_from_fvec2((fvec2_t){4.5f + i * 6, 4.5f}, 0),
             .harvest.target = -1 });
@@ -282,6 +283,9 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         P_MobjSetSelected(actors[player], true);
         assert(G_SelectedTiccmd(TC_MOVE, actors, MAXPLAYERS,
                                (fvec2_t){4.5f + player * 6, 24.5f}, 0));
+        waypoints_t path = {.points = {{4 + player*6,24},{4 + player*6,12}},
+                            .count = 2,.mode = WP_BACKTRACK};
+        assert(G_PathOrder(actors,MAXPLAYERS,&path));
     }
     result_t result = {0};
     int end = mode == MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP ? 90 : TESTTICS;

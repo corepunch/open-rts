@@ -38,7 +38,7 @@ typedef struct {
     SidebarCommand controls[207]; /* Native MAINE control IDs. */
     int tab;
     int targeting;
-    dc_waypoints_t waypoints;
+    waypoints_t waypoints;
     bool assault;
     int bright_pushed, bright_highlight;
 } Sidebar;
@@ -315,10 +315,9 @@ static int dc_commands(mobj_t *const *units, int count, int ids[6]) {
 }
 
 static void finish_waypoints(Sidebar *sidebar, mobj_t *const *units, int count) {
-    for (int i = 0; i < sidebar->waypoints.count; ++i)
-        G_SelectedTiccmd(TC_WAYPOINT, units, count,
-                        fvec2_cell_center(sidebar->waypoints.points[i]), i != 0);
-    sidebar->waypoints = (dc_waypoints_t){0};
+    sidebar->waypoints.mode = WP_LOOP;
+    if (sidebar->waypoints.count && !G_PathOrder(units, count, &sidebar->waypoints)) return;
+    sidebar->waypoints = (waypoints_t){0};
     sidebar->targeting = 0;
 }
 
@@ -339,10 +338,10 @@ static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,
         if (id == 150) { G_SelectedTiccmd(TC_STOP, units, unit_count, (fvec2_t){0}, 0); return true; }
         if (id == 33 || id == 35) {
             sidebar->assault = id == 35;
-            G_SelectedTiccmd(TC_MODE, units, unit_count, (fvec2_t){0}, id);
+            G_SelectedTiccmd(TC_MODE, units, unit_count, (fvec2_t){0}, id == 33);
             return true;
         }
-        if (id == 36) { sidebar->targeting = 36; sidebar->waypoints = (dc_waypoints_t){0}; return true; }
+        if (id == 36) { sidebar->targeting = 36; sidebar->waypoints = (waypoints_t){0}; return true; }
     }
     if (e->type != SDL_MOUSEBUTTONDOWN && e->type != SDL_MOUSEBUTTONUP) return false;
     int rx = 0, ry = 0;
@@ -434,10 +433,10 @@ static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,
             G_SelectedTiccmd(TC_STOP, units, unit_count, (fvec2_t){0}, 0);
         else if (ids[i] == 33 || ids[i] == 35) {
             sidebar->assault = ids[i] == 35;
-            G_SelectedTiccmd(TC_MODE, units, unit_count, (fvec2_t){0}, ids[i]);
+            G_SelectedTiccmd(TC_MODE, units, unit_count, (fvec2_t){0}, ids[i] == 33);
         } else if (ids[i] == 139 || ids[i] == 140 || ids[i] == 37)
             G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fvec2_t){0}, 0);
-        else { sidebar->targeting = ids[i]; sidebar->waypoints = (dc_waypoints_t){0}; }
+        else { sidebar->targeting = ids[i]; sidebar->waypoints = (waypoints_t){0}; }
         break;
     }
     return true;
