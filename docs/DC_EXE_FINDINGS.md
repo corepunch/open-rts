@@ -5893,3 +5893,283 @@ one. `driver/d_net.c::SendSetup` stores speed in `position.z`, whereas the
 existing `driver/i_net.c` packet codec transfers only x/y. That unrelated
 protocol issue is not changed here, and the end-to-end network suite is not
 claimed to pass. Its temporary diagnostics were removed.
+
+## Bombs, flying units and artillery comparison (2026-09-30)
+
+The readable baseline comparison is [DC_UNIT_BEHAVIORS.md](DC_UNIT_BEHAVIORS.md).
+This section records additional native evidence and reproducible engine failures
+at `ce24ce5`, before the requested follow-up implementation.
+
+### Evidence and scope
+
+DC.EXE remains 566,272 bytes, PE32/i386, image base `0x400000`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+`rabin2 -I` reconfirmed the August 11, 1997 timestamp. The previously recorded
+linker 2.18 and inferred Watcom attribution apply; register/stack arguments
+were checked in instructions rather than accepted from Ghidra prototypes.
+Existing broad r2ghidra discovery was followed by fresh disassembly of fire,
+projectile spawn/tick, targeting, damage, blast and healing functions. This is
+static retail analysis plus headless engine execution, not a retail playthrough.
+
+| Input under data/DCOLONY | SHA-256 |
+|---|---|
+| GAMESTAT/GAMESTAT.TXT | ed13afe21ffea368a5892b49de40ef063014c0a9376c5d5bb5abf1396cb27629 |
+| GAMESTAT/WEAPSTAT.TXT | 391e5603108b73cff4a5d2135ae751a0c8aebb934e6f3d6e5e09c5e807e520d0 |
+| GAMESTAT/BOOMSTAT.TXT | b80addf8e43bacc66c0ab63f4852f0ef13341f3a914d7305743557968baac33a |
+| GAMESTAT/MBULLET.TXT | 2244665ec4fc4f344b4ad32ec47e209c79a1a240d48f8f43a6035ceab0ae1d22 |
+| ANIMATE/SCGM.FIN | 5504da63bf95910593f909a259624a77e3c1d839cc68d751ef76d638769b8638 |
+| ANIMATE/ORTU.FIN | 410a683cfbafcc28cb2f6d6e569da8b5e595114692c4b92f65ccd79052ddd387 |
+| ANIMATE/SPAK.FIN | fd1a26eb5be810e2f442ed36d4ed3e626faabc1adac8869b63f3ff9a9822a4d0 |
+| ANIMATE/BARR.FIN | 08ef8a38d3d0ba5629dcd58c91441569dde7c4ed09c60925b4a86d3d33c65894 |
+| ANIMATE/ATRIL.FIN | 84bc2c0a62db56cd2eed1316148d3f08a4d6d8d69a280ffaf46d7b55779e7455 |
+| ANIMATE/BEON.FIN | eeb1966287f7f51ec9dd0633b6ba74014ef21d17a0915e017abe9959f5c41987 |
+| ANIMATE/ZISP.FIN | de5990b2cc372c92831103f5bef7621b6c7282f507056c812dedb1971a67796c |
+
+Retail `ENCYCLO/{SCGM,ORTU,BARR,ATRIL,ENGI,BEON,ZISP}.TXT` supplies unit roles
+and descriptions. Its prose is not authority for numeric radii, altitude
+conversion, persistent napalm, or attack timing when executable/data fields
+say otherwise. No external source was needed.
+
+### Confirmed bomber weapon and burst dispatch
+
+GAMESTAT types 5/13 both select weapons 37/44/45. WEAPSTAT gives class 2,
+damage 100/125/150, speed 15, range 2, boom 5, shots 3, reload 30, trajectory 0.
+The base prefix is SPAK; both upgrades use SPIKE. Fire `0x412174` resolves the
+team's upgrade byte at `0x4ec8b0 + type*0x118 + owner` and selects the weapon
+from the three IDs beginning at type `+0x18` (`0x4ec898`).
+
+At `0x4125f5..0x41261d`, weapon `+8` supplies the default delay. When weapon
+`+0x20` is positive, object **byte +0x34** increments. Reaching the shot count
+resets that byte and substitutes weapon **+0x24** as delay. `0x41164c` obtains
+object timer/action slot 11 through `0x4112b8`, then stores the delay as a word.
+For these bombers that means delays **10,10,30** after successive firing events,
+not three simultaneous bombs and not a permanent 30-tick cooldown. At the
+established default clock these fields represent 660/660/1,980 ms. Exact action
+wake-up boundaries still need caller/ticker verification before promising
+those wall-clock inter-shot intervals.
+
+`0x41227a..0x412281` waits for `0x411570` turning to complete. FIN channel 7 is
+queried at `0x4122da..0x4122eb`; no attachment produces one zero-offset record.
+The loop at `0x41230d` processes attachment records, independently of the burst
+counter increment after the loop. Per-attachment launch delay becomes a waiting
+projectile state at `0x43dd99..0x43ddb1`: a nonzero argument is multiplied by four
+and stored at projectile `+0x12`; state `+0x1c` starts at zero instead of one.
+The waiting-state tick at `0x43e983..0x43e9a4` decrements this field before flight.
+Ignoring attachment records can therefore change both origin and release time.
+
+The 40-byte projectile layout is confirmed by stores in `0x43dc74`:
+
+| Offset | Field |
+|---|---|
+| +00/+02/+04 | signed-word planar x/y and height (object uses x/height/y order) |
+| +06/+08/+0a | word velocity x/y/height |
+| +0c/+0e | weapon/source object indices |
+| +10 | elapsed flight counter |
+| +12 | initial wait counter |
+| +14 | next projectile index |
+| +16 | weapon sound value |
+| +18 | remaining flight duration (-1 for untimed collision flight) |
+| +1a | direction word, low byte retained at spawn |
+| +1c | lifecycle state |
+| +1e/+1f | trajectory/random phase bytes |
+| +20 | animation state storage; can be null |
+
+`0x43dd10` copies object `+2` to projectile `+4`. Fire computes target-height
+minus source-height at `0x412455..0x412463`; it derives vertical velocity by
+dividing that difference by flight duration. A nonzero boom requests timed
+flight even for trajectory 0. `0x43e92c` adds velocity each tick; its curve
+branch only accepts modes 1/4. **Confirmed consequence:** scout bombs descend
+with linear vertical velocity and timed impact; they are not trajectory-1
+artillery shells. They do not home after launch. Exact zero-distance launch
+and out-of-range limiting behavior still require boundary tests.
+
+Boom 5's 3×3 weight matrix is center=100 and all neighbors=0. Its scatter matrix
+is also center-only, and its explosion name is SMAY. `0x43e150` uses the ground
+occupancy row at map `+0x804`, falling back to `+0x1004`; it does not scan air
+`+0xc04`. Thus this is an impact-cell ground blast, not radial splash or an
+anti-air weapon. Weapon 37's computed lifetime limit is 103 ticks; artillery's
+base weapon limit is 69, from the formula recorded in the earlier weapon report.
+
+### Confirmed target eligibility and impact arithmetic
+
+Common automatic target selection `0x4323bc` resolves the weapon class and
+victim type's class at `0x4327e6..0x432856`. The word compare at **0x432856** and
+jump at **0x43285a** reject a zero MBULLET multiplier before scoring the target.
+This rejects aircraft (class 2) for artillery, bombs and mines, and rejects the
+invulnerable class 8. Manual attack command validation was not fully traced by
+this comparison; do not generalize this finding to every command path.
+
+Untimed projectile collision separately checks the class-2 multiplier at
+`0x43eaf6..0x43eb0d` before calling `0x431e00` with its aircraft-search flag.
+That routine examines native occupancy and bounds; engine planar swept-radius
+collision is not an equivalent port.
+
+Blast owner reduction is confirmed again at `0x43e645..0x43e654`: equality of
+owner bytes chooses 64 instead of 256. Weight is multiplied by this factor
+before calling damage. An allied but differently owned unit does not qualify
+for the same-owner quarter factor.
+
+Damage `0x43de94` at `0x43df4c..0x43df61` performs three sequential products
+and shifts: weapon damage × class factor >>8; result × passed impact factor
+>>8; result × victim defense factor >>8. The defense selection uses the victim
+owner's upgrade byte and the table beginning at type `+0x24` (`0x4ec8a4`).
+At `0x43df64..0x43df73`, a nonzero flag then applies `(damage*3)>>2`.
+
+**Correction to an overly broad reading of the earlier report:** the normal
+area-blast call explicitly pushes **zero** for that last flag at **0x43e678**.
+The direct-impact branch `0x43ecbd..0x43ece1` sets it for race/day combinations.
+Do not apply a blanket daylight penalty to artillery, mine or bomber area
+blasts merely because the shared damage function has such a branch.
+
+Class-2 percentages are `7,25,0,8,25,45,5,25,0,5`; at damage 100, before defense
+and owner reduction, native fixed-point conversion gives
+`6,25,0,7,25,44,4,25,0,4`. Examples: `floor(7*256/100)=17`, then `100*17>>8=6`.
+The earlier artillery/mine section preserves their complete class and blast
+matrices; these were reconfirmed against the native text files.
+
+The curve's **rounding order** is another baseline difference. Retail
+`0x43ec31..0x43ec3c` calculates `(duration*curve[index])>>6` into an 8.8 word.
+Converting that result to engine 16.16 requires a subsequent ×256. Baseline
+`tick_missile` instead uses `duration*(curve[index]*4)`, retaining bits retail
+truncates. At duration 17 and curve entry 25, retail converted height is 1,536;
+baseline engine height is 1,700. The existing apex check (17 × 640 × 4) cannot
+catch this because that product divides evenly. This is a numeric mismatch,
+not justification for a visually tuned offset.
+
+### Confirmed flight fields, specialist healing, and asset corrections
+
+Fresh disassembly at `0x41a11f..0x41a128` confirms type `+0x60` causes object
+word `+2=600`. Numeric GAMESTAT column 12 is the flight byte; column 10 is the
+victim damage class. SCGM, ORTU, BEON and ZISP all have class 2 and flight 1.
+BEON sight is 5/3, ZISP 3/5; both have HP 400 and no weapon. The existing engine
+50 px altitude policy remains distinct from this native value; the screen
+projection and death-altitude lifecycle were not established here.
+
+The previously verified aircraft path algorithm is `0x440ac0`; see the
+2026-09-29 path section for costs, diagonal-first routing, `height-3` clamp,
+separate occupancy, and remaining local yielding differences. Earlier claims
+that DC still uses a shared flow field are superseded by that implementation.
+The configured speed conversion and complete retail turn/translation cadence
+remain outside that path-algorithm proof.
+
+Healing is no longer wholly unidentified: **0x413ccd..0x413cdf explicitly tests
+native types 49/50 and dispatches to 0x412f74**. In that function:
+
+- `0x413080..0x4130b6` reads ground/air occupancy; `0x4130fb..0x413101` requires
+  equal owners. This is not established as healing all allied owners.
+- `0x41311a..0x413164` obtains missing HP from native type maximum, reads MBULLET
+  row 7 (pointer-table offset `+0x1c`) by victim class, and computes
+  `36*factor/256` with signed truncation. A subsequent branch caps to missing HP.
+  Row 7 percentages are `100,50,50,50,50,100,50,50,0,200`.
+- Object charge byte `+0x0a` gates work; the scan checks it against 3, and healing
+  paths clear it. Nested square scans advance through radii 0..7 (limit at
+  `0x413329`), visiting air and ground. This alone is not a complete user-facing
+  healing-radius or recharge-rate specification.
+- A successful operation chooses the type's animation and writes 50 to action
+  slot 13 at `0x4133bb..0x4133ca`; the no-work branch calls `0x4114a4`.
+
+**Unknown:** full recharge cadence, activation orders, interruption semantics,
+all eligibility cases, and how these action slots interact with the main tick.
+The instruction-level portions above can guide implementation, but inventing a
+periodic unconditional healing aura would not be supported by this evidence.
+
+The C FIN inspector reconfirmed Osprey STAND0 32..35, MOVE0 0..3, DIE0 72..101;
+SCGM also owns **SPIKEBULLET0 102..105**. ORTU owns **EGGBULLET0 264**,
+STAND0 154..160 and MOVE0 0..6. **Correction:** ORTU direction 8 MOVE8 56..60
+and STAND8 210..214 each have five frames; “seven frames in every direction”
+is disproven. Its other MOVE directions remain genuinely animated, including
+odd facings. Neither FIN has a FIRE label. SPAK.FIN contains only
+SPAKEXPLODE0 0..11 and XENOEXPLODE0 12..23. A binary-string search over ANIMATE
+found SPIKE/EGG bullet labels only in SCGM/ORTU and no SPAKBULLET label.
+SPIKE.FIN does not exist. Global label lookup in `0x4381ac` explains why a weapon
+prefix need not be a filename. Whether another runtime path substitutes EGG for
+an alien bomber remains **unknown**, not permission to invent an alias.
+
+The encyclopedia calls Osprey ammunition napalm, but the actual scout weapon
+uses boom 5; separate weapon 50 has boom 10 and trajectory 4. **Disproven
+inference:** that wording alone requires a persistent fire field from each
+ordinary bomber shot. Mine concealment is likewise documented in retail prose,
+but exact detector range, visibility fields and retraction state transitions
+still need an instruction-level port.
+
+### Baseline runtime diagnostics and validation
+
+Temporary env-gated C diagnostics in `tests/dark-colony/test_behavior_audit_tmp.c`
+spawned each subject at (10,10), an enemy Trooper at (11,10), disabled the target's
+attack, set opposing ownership **and allegiance**, and ran 300 P_Ticker calls.
+The initial probe accidentally retained common allegiance and neither artillery
+unit fired; correcting the fixture produced these results. This was a diagnostic
+setup error, not another combat finding.
+
+| Actor | max HP | damage class | 16.16 Z | attack state | range / damage / cooldown ms | target HP after 300 tics |
+|---|---:|---:|---:|---:|---|---:|
+| Osprey | 600 | 2 | 102400 | 0 | 5 / 80 / 600 | 800 |
+| Ortu | 800 | 2 | 102400 | 0 | 2 / 100 / 500 | 800 |
+| Medi-craft | 400 | 0 | 102400 | 0 | 0 / 0 / 0 | 800 |
+| Zisp | 400 | 0 | 102400 | 0 | 0 / 0 / 0 | 800 |
+| Barrager | 400 | 3 | 0 | 208 | 12 / 250 / 4950 | 426 |
+| Atril | 400 | 3 | 0 | 2885 | 12 / 250 / 4950 | 426 |
+
+A separate Barrager-versus-Osprey probe, with the same placement/ownership and
+20 tics, printed `acquired=1 cooldown=4422 air_hp=600`: artillery selects and
+fires at an aircraft it cannot damage. `attack_target_in_range` lacks the
+native zero-class-factor rejection. `A_Look` cannot enter bomber attacks because
+both missilestate fields are S_NULL; adding an A_Attack call alone would use
+their direct-damage fallback rather than a native bomb projectile.
+
+The temporary source/logging is removed after diagnosis. Reproduce the core
+baseline probe by placing this C source temporarily under
+`tests/dark-colony/test_behavior_audit_tmp.c` and building the normal test target:
+
+```c
+#include "mobj_test.h"
+#include "info.h"
+#include <stdio.h>
+#include <stdlib.h>
+int main(void) {
+    gameinfo = &game_info;
+    level = (level_t){0};
+    const int types[] = {MT_SCOUT, MT_ORTU, MT_MEDI_CRAFT, MT_ZISP,
+                         MT_THUNDERBOLT, MT_ATRIL};
+    for (unsigned i = 0; i < sizeof(types)/sizeof(types[0]); ++i) {
+        P_FreeThinkers();
+        mobj_t *a = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10,10},0),types[i]);
+        mobj_t *b = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){11,10},0),MT_TROOPER);
+        a->allegiance = ALLEGIANCE_PLAYER;
+        b->owner = b->team = 1;
+        b->allegiance = ALLEGIANCE_ENEMY;
+        b->traits &= ~MF_ATTACK;
+        a->attack.target = b;
+        for (int tic = 0; tic < 300; ++tic) P_Ticker();
+        if (getenv("OPEN_RTS_DEBUG_BEHAVIOR_AUDIT"))
+            fprintf(stderr,"%s max=%d class=%u state=%d target_hp=%d\n",
+                a->info->name,a->max_hp,a->info->armor_class,
+                gameinfo->mobjinfo[types[i]].missilestate,b->hp);
+    }
+    P_FreeThinkers();
+    return 0;
+}
+```
+
+```sh
+make build/bin/tests/dark-colony/test_behavior_audit_tmp
+env SDL_VIDEODRIVER=dummy OPEN_RTS_DEBUG_BEHAVIOR_AUDIT=1 build/bin/tests/dark-colony/test_behavior_audit_tmp
+shasum -a 256 data/DCOLONY/DC.EXE
+rabin2 -I data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x412174' -c 'pdf @ 0x412174' -c 'af @ 0x41164c' -c 'pdf @ 0x41164c' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x43dc74' -c 'pdf @ 0x43dc74' -c 'af @ 0x43e92c' -c 'pdf @ 0x43e92c' -c 'pxw 68 @ 0x4758b0' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x4323bc' -c 'pdf @ 0x4323bc' -c 'af @ 0x431e00' -c 'pdf @ 0x431e00' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x43de94' -c 'pdf @ 0x43de94' -c 'af @ 0x43e150' -c 'pdf @ 0x43e150' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'pd 12 @ 0x413cc7' -c 'af @ 0x412f74' -c 'pdf @ 0x412f74' -c 'pd 48 @ 0x41a11c' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/SCGM.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/ORTU.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/SPAK.FIN
+rg -a -l 'SPAKBULLET|SPIKEBULLET|EGGBULLET' data/DCOLONY/ANIMATE
+```
+
+Baseline verification: `test_projectiles`, `test_native_pathfinding`,
+`test_multiplayer_units`, `test_actor_lifecycle`, `test_drop_fin_states`, and
+`test_dark_colony_sprite_layout` passed headlessly. `build/bin/dark-colony --check`
+passed for HUMAN01 (34 units). The malformed-PTH stderr message in the path test
+is expected. These checks cover current engine behavior and selected FIN
+pixels/timing, not all missing bomber/healing/upgrade/native collision behavior.

@@ -1532,3 +1532,18 @@ destination), `0x414418`/`0x414680` (congestion), and `0x4117fc` (release origin
 occupancy). No external source was added. Local `reference/DOOM/p_map.c`
 provided the validate-then-commit movement ownership reference.
 [Detailed evidence, behavioral vectors and unported ticker behavior](docs/DC_EXE_FINDINGS.md#native-path-search-and-group-movement-2026-09-29).
+
+### Dark Colony bombs, aircraft and artillery audit (2026-09-30)
+
+Local retail DC.EXE SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+with GAMESTAT/WEAPSTAT/BOOMSTAT/MBULLET text, aircraft/artillery FINs and retail
+encyclopedia text. Radare2/r2ghidra discovery and fresh instruction reads establish
+burst counter `0x4125f5..0x41261d`, timer slot write `0x41164c`, flight spawn/tick
+`0x43dc74`/`0x43e92c`, zero-damage target rejection `0x432856`, impact search
+`0x431e00`, damage `0x43de94`, ground blast `0x43e150`, and native types 49/50
+healing dispatch `0x413cc7..0x413cdf` to `0x412f74`. C `dc_info_conv` verifies global
+SPIKE/EGG labels and absent SPAKBULLET. No external source was added.
+[Comparison](docs/DC_UNIT_BEHAVIORS.md) and
+[detailed findings, fingerprints and reproducers](docs/DC_EXE_FINDINGS.md#bombs-flying-units-and-artillery-comparison-2026-09-30)
+preserve baseline failures, newly confirmed rules and unresolved behavior.
