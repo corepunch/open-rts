@@ -77,9 +77,11 @@ static void sidebar_defaults(Sidebar *sidebar) {
 static irect_t ui_rect(const app_t *app, int x, int y, int w, int h) {
     int win_w = app && app->win.w > 0 ? app->win.w : 640;
     int win_h = app && app->win.h > 0 ? app->win.h : 480;
+    /* The sidebar column keeps its 480-pixel background at the top-right
+     * corner; only the message strip below the world follows the bottom edge. */
     irect_t r = {
         x >= 516 ? win_w - (640 - x) : x,
-        y >= 455 ? win_h - (480 - y) : y,
+        x < 516 && y >= 455 ? win_h - (480 - y) : y,
         w,
         h,
     };
@@ -376,7 +378,7 @@ static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,
         fvec2_t screen;
         R_MapToScreen(app, map, position.x, position.y, &screen.x, &screen.y);
         app->cam = fvec2_add(app->cam, fvec2_sub(
-            (fvec2_t){DC_SB_WorldViewportWidth(app) / 2.0f, 455 / 2.0f}, screen));
+            (fvec2_t){DC_SB_WorldViewportWidth(app) / 2.0f, (app->win.h - 25) / 2.0f}, screen));
         return true;
     }
     if (e->button.button == SDL_BUTTON_LEFT) {
@@ -531,7 +533,6 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
         irect_t src = dial->cells[frame].rect;
         /* 0x4377e3–0x437806 cancels the SPR displacement at (608,450). */
         irect_t dst = ui_rect(app, 608, 450, src.w, src.h);
-        dst.y += app->win.h - 480;
         R_DrawSprite(app->renderer, dial, frame, -1, &src, &dst, SDL_FLIP_NONE,
                      (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
     }
@@ -556,6 +557,11 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
 
     UiLayout layout = ui_layout(app);
+    /* Taller windows expose the world under the column; it is not viewport. */
+    if (app->win.h > layout.outer.h)
+        dc_ui_fill(app->renderer, (irect_t){ layout.outer.x, layout.outer.h, layout.outer.w,
+                                             app->win.h - layout.outer.h },
+                   (SDL_Color){ 0, 0, 0, 255 });
     if (background && background->lumps && background->numlumps > 0) {
         dc_ui_draw_image_part(app->renderer, background,
                               (irect_t){ 516, 0, 124, 480 }, layout.outer);

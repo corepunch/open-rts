@@ -5,6 +5,7 @@
 #include "d_net.h"
 #include "../rts_model_test.h"
 #include <assert.h>
+#include <stdlib.h>
 
 static mobj_t *find(int type) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -115,6 +116,40 @@ int main(void) {
     assert(trooper->waypoints.count == 2);
     click(ui,&app,150,SDL_BUTTON_LEFT);
     assert(!trooper->waypoints.count && !P_HasMoveOrder(trooper));
+    /* Taller windows keep the sidebar column at the top-right corner and
+     * cover the world under it; only the message strip follows the bottom.
+     * The HUD owns textures of the renderer it was created with. */
+    G_ShutdownCustomUI(ui);
+    SDL_DestroyRenderer(r_renderer);
+    SDL_FreeSurface(surface);
+    surface = SDL_CreateRGBSurfaceWithFormat(0,800,600,32,SDL_PIXELFORMAT_ARGB8888);
+    assert(surface);
+    r_renderer = SDL_CreateSoftwareRenderer(surface);
+    assert(r_renderer);
+    app_t tall = {.renderer = r_renderer, .win = {800,600}, .cell = {32,32}, .running = true};
+    ui = G_InitCustomUI(&tall, "data/DCOLONY");
+    assert(ui);
+    SDL_SetRenderDrawColor(r_renderer, 255, 255, 255, 255);
+    SDL_RenderClear(r_renderer);
+    spritecache_t sprites = {0};
+    hudtext_t hud = {0};
+    mobjlist_t objects = P_ListMobjs();
+    G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+    P_FreeMobjList(&objects);
+    static uint32_t pixels[800 * 600];
+    assert(!SDL_RenderReadPixels(r_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 800 * 4));
+    const char *screenshot = getenv("OPEN_RTS_HUD_SCREENSHOT");
+    if (screenshot) assert(!SDL_SaveBMP(surface, screenshot));
+    for (int y = 480; y < 600; ++y)
+        for (int x = 676; x < 800; ++x) assert(pixels[y * 800 + x] == 0xff000000);
+    int box = 0, strip = 0, world = 0;
+    for (int y = 456; y < 473; ++y)
+        for (int x = 684; x < 756; ++x) box += pixels[y * 800 + x] != 0xffffffff;
+    for (int y = 575; y < 600; ++y)
+        for (int x = 0; x < 516; ++x) strip += pixels[y * 800 + x] != 0xffffffff;
+    for (int y = 100; y < 575; ++y)
+        for (int x = 0; x < 516; ++x) world += pixels[y * 800 + x] != 0xffffffff;
+    assert(box == 72 * 17 && strip > 516 * 20 && world == 0);
     G_ShutdownCustomUI(ui);
     SDL_DestroyRenderer(r_renderer); r_renderer = NULL;
     SDL_FreeSurface(surface); SDL_Quit();

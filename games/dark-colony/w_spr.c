@@ -20,6 +20,20 @@ static const char *dependency_name(const char *dependency) {
 
 static bool asset_exists(const char *path) { return path && access(path, R_OK) == 0; }
 
+/* JUNGLE.BTS and ATLANTIS.BTS store the team slots 138..143 as a (0,63,0)
+ * placeholder, whereas 225 SPR files and the retail JUNGLE/DESERT/PALETTE
+ * GIF palettes hold the cyan team ramp there. The terrain light tables send
+ * shadowed grass (index 232) and water to these slots, so the placeholder
+ * would draw bright green speckles under every shadow. */
+void DC_RuntimePalette(uint32_t colors[256]) {
+    static const uint8_t cyan[6] = { 63, 50, 39, 29, 19, 9 };
+    for (int i = 0; i < 6; ++i) {
+        if ((colors[138 + i] & 0x00ffffffu) != 0x0003ff03u) continue;
+        int c = clamp255((int)cyan[i] * 4 + 3);
+        colors[138 + i] = 0xff000000u | (uint32_t)3 << 16 | (uint32_t)c << 8 | (uint32_t)c;
+    }
+}
+
 static void decode_palette(const uint8_t palette[256][3], uint32_t colors[256]) {
     for (int i = 0; i < 256; ++i) {
         int r = clamp255((int)palette[i][0] * 4 + 3);
@@ -28,6 +42,7 @@ static void decode_palette(const uint8_t palette[256][3], uint32_t colors[256]) 
         colors[i] = i == 0 ? 0x00000000u :
             (0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
     }
+    DC_RuntimePalette(colors);
 }
 
 typedef struct {

@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "w_spr.h"
 
 /* Preserve the existing water selection until retail cycling is verified. */
 static bool palette_index_is_water(uint8_t index, const uint32_t palette[256]) {
@@ -59,6 +60,7 @@ bool load_dark_colony_tileset(const char *path, tileset_t *out) {
         palette[i] = (transparent ? 0x00000000u : 0xff000000u) |
                      ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
     }
+    DC_RuntimePalette(palette);
 
     for (int index = 201; index <= 207; ++index)
         if (palette_index_is_wave(index, palette))
