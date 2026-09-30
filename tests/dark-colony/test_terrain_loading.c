@@ -38,7 +38,7 @@ static void check_live_palette(app_t *app) {
     tileset.palette[1] = 0xff123456;
     R_DrawTile(app, &tileset, 0, src, dst);
     assert(!SDL_RenderReadPixels(app->renderer, &dst, SDL_PIXELFORMAT_ARGB8888, pixels, 8));
-    assert(pixels[0] == 0xff123456 && !tileset.texture);
+    assert(pixels[0] == 0xff123456);
     assert(!memcmp(indices, (uint8_t[]){1,0,2,3}, sizeof(indices)));
     /* Draw a cropped pixel at a different size, retaining destination clipping. */
     src = (irect_t){0,1,1,1};
@@ -68,7 +68,7 @@ int main(void) {
         assert(W_ReadFile(catalog[f].path, &file));
         assert(load_dark_colony_tileset(catalog[f].path, &tileset));
         int count = read_u32_le(file.bytes + 4);
-        assert(tileset.count == count && tileset.indices && !tileset.texture);
+        assert(tileset.count == count && tileset.indices);
         assert(!tileset.animations && !tileset.animation_count);
         for (int i = 0; i < count; ++i)
             assert(!memcmp(tileset.indices + (size_t)i * 1024,

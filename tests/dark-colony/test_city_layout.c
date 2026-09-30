@@ -58,9 +58,9 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
     assert(city_teams == expected_teams);
     tileset_t tiles = {0};
     spritesheet_t fallback = {0};
-    assert(W_LoadAssets(r_renderer, "data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
+    assert(W_LoadAssets("data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    assert(cache && R_InitSprites(r_renderer, "data/DCOLONY", &level, actors, count, cache));
+    assert(cache && R_InitSprites("data/DCOLONY", &level, actors, count, cache));
     const spritesheet_t *sheet = R_StateSprite(cache, gameinfo, SPR_HUBU, NULL);
     dc_fin_t fin;
     assert(sheet && DC_LoadFIN("data/DCOLONY/ANIMATE/HUBU.FIN", &fin));

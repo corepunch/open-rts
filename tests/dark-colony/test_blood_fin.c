@@ -34,11 +34,8 @@ static void draw_native_parts(app_t *app, const level_t *map,
         if (part->layer == 2) continue;
         if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
         int intensity = part->intensity > 0 ? part->intensity : 16;
-        int color = (intensity * 255 + 8) / 16;
-        if (color > 255) color = 255;
-        CHECK(R_DrawSprite(app->renderer, sprite, part->lump, team, &src, &dst,
-            (part->flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE,
-            (SDL_Color){color, color, color, 255}, SDL_BLENDMODE_BLEND));
+        uint32_t flags = (part->flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
+        CHECK(R_DrawSprite(sprite, part->lump, team, &src, &dst, flags, intensity));
     }
 }
 
@@ -112,9 +109,8 @@ static void lifecycle(void) {
 static void pixels(void) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    CHECK(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {640,480}, .cam = {320,360}, .cell = {32,32}};
+    V_AllocScreen(640, 480);
+    app_t app = {.win = {640,480}, .cam = {320,360}, .cell = {32,32}};
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(load_render_tables("data/DCOLONY", "JUNGLE"));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
@@ -158,14 +154,16 @@ static void pixels(void) {
             unsigned boundary = (native * 66 * 30 + 500) / 1000;
             CHECK(blood.core.tics == (int)(boundary - elapsed));
             elapsed = boundary;
-            SDL_SetRenderDrawColor(r_renderer, 70,80,90,255); SDL_RenderClear(r_renderer);
+            V_BeginFrame(0xff46505au);
             R_DrawThings(&app, &(mobj_t *){&body}, 1, NULL, cache, &game_info, 0);
             draw_native_parts(&app, &level, cache, parts.layers, blood.team, blood.core.position);
+            V_ReadPixels(surface->pixels, surface->pitch);
             memcpy(expected, surface->pixels, bytes);
-            SDL_SetRenderDrawColor(r_renderer, 70,80,90,255); SDL_RenderClear(r_renderer);
+            V_BeginFrame(0xff46505au);
             /* Independent mobjs sort by their own spawn positions. */
             mobj_t *list[] = {&body, &blood};
             R_RenderPlayerView(&app, &level, NULL, list, 2, NULL, cache, &game_info, 0);
+            V_ReadPixels(surface->pixels, surface->pitch);
             CHECK(!memcmp(expected, surface->pixels, bytes));
             if (c == 0 && f == first + 4) SDL_SaveBMP(surface, "/private/tmp/dc-native-blood.bmp");
             free(parts.layers);
@@ -178,7 +176,7 @@ static void pixels(void) {
     free(expected);
     R_FreeSpriteCache(cache); free(cache);
     R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer); r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     puts("PASS: complete organic, machine and cross-FIN blood layers/pixels at independent mobj anchors");
 }

@@ -139,9 +139,9 @@ static void check_player(int player) {
     void *ui = G_InitCustomUI(&app, "data/DCOLONY");
     assert(ui);
     tileset_t tiles = {0}; spritesheet_t sprite = {0};
-    assert(W_LoadAssets(r_renderer, "data/DCOLONY", &level, "SPRITES/GRAY.SPR", &tiles, &sprite));
+    assert(W_LoadAssets("data/DCOLONY", &level, "SPRITES/GRAY.SPR", &tiles, &sprite));
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    assert(cache && R_InitSprites(r_renderer, "data/DCOLONY", &level, NULL, 0, cache));
+    assert(cache && R_InitSprites("data/DCOLONY", &level, NULL, 0, cache));
     const int modules[2][6] = {{80, 81, 82, 85, 86, 83}, {41, 42, 43, 97, 98, 44}};
     level.player_resources[player][0] = 100000;
     for (size_t i = 0; i < sizeof(modules[player])/sizeof(*modules[player]); ++i) {

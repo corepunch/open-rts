@@ -50,7 +50,7 @@ int main(void) {
     spritecache_t *cache = calloc(1,sizeof(*cache));
     CHECK(cache);
     mobjlist_t objects = P_ListMobjs();
-    CHECK(R_InitSprites(renderer,config.data_root,&level,objects.items,objects.count,cache));
+    CHECK(R_InitSprites(config.data_root,&level,objects.items,objects.count,cache));
     P_FreeMobjList(&objects);
     P_FreeThinkers();
     free(level.sight.cells);

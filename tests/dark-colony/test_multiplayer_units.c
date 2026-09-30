@@ -128,7 +128,7 @@ int main(void) {
     r_renderer = SDL_CreateSoftwareRenderer(surface);
     app_t app = {.renderer = r_renderer, .win = {640,480}, .cell = {32,32}};
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    assert(R_InitSprites(r_renderer, "data/DCOLONY", &level, NULL, 0, cache));
+    assert(R_InitSprites("data/DCOLONY", &level, NULL, 0, cache));
     mobjlist_t objects = P_ListMobjs();
     assert(objects.count == 21);
     mobj_t *sarge = NULL, *osprey = NULL;

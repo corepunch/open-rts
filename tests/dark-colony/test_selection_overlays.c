@@ -117,7 +117,7 @@ static void human01(app_t *app, SDL_Surface *surface, spritecache_t *cache) {
     assert(sergeant && sergeant->ability_charge == 64);
     tileset_t tiles = {0};
     spritesheet_t fallback = {0};
-    assert(W_LoadAssets(app->renderer, config.data_root, &level, g_game_default_sprite, &tiles, &fallback));
+    assert(W_LoadAssets(config.data_root, &level, g_game_default_sprite, &tiles, &fallback));
     /* Aim the actual level at the delivered HUMAN01 sergeant. */
     app->cam = (fvec2_t){0};
     fvec2_t position;

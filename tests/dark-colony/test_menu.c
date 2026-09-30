@@ -43,10 +43,10 @@ static uint64_t region_sum(const SDL_Surface *surface, irect_t rect) {
 }
 
 static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {
-    SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
-    SDL_RenderClear(app->renderer);
+    V_AllocScreen(640, 480);
+    V_BeginFrame(0xff000000u);
     M_Drawer(app);
-    SDL_RenderPresent(app->renderer);
+    V_ReadPixels(surface->pixels, surface->pitch);
     CHECK(SDL_SaveBMP(surface, name) == 0);
 }
 
@@ -108,8 +108,7 @@ int main(void) {
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
     app_t app = {.win = {640, 480}, .running = true};
-    r_renderer = app.renderer = SDL_CreateSoftwareRenderer(surface);
-    CHECK(app.renderer);
+    V_AllocScreen(640, 480);
     G_InitGame();
     CHECK(M_Init(&app, "data/DCOLONY"));
     CHECK(!menuactive && !menumap && !level.mission);
@@ -141,7 +140,7 @@ int main(void) {
     uint32_t palette[256];
     CHECK(load_dark_colony_sprite("data/DCOLONY/SPRITES/DCSS.SPR", &logo, palette));
     spritesheet_t menu_background = {0};
-    CHECK(W_LoadGIFTexture(app.renderer, "data/DCOLONY/INTRFACE/INTRO.GIF", &menu_background));
+    CHECK(W_LoadGIFTexture("data/DCOLONY/INTRFACE/INTRO.GIF", &menu_background));
     int compared = 0;
     const spritecell_t *cell = &logo.cells[28];
     for (int y = 0; y < cell->rect.h; ++y) {

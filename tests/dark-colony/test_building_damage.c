@@ -126,9 +126,9 @@ int main(void) {
     app.cam = fvec2_sub((fvec2_t){320, 370}, center);
     tileset_t tiles = {0};
     spritesheet_t fallback = {0};
-    assert(W_LoadAssets(r_renderer, "data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
+    assert(W_LoadAssets("data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    assert(cache && R_InitSprites(r_renderer, "data/DCOLONY", &level, NULL, 0, cache));
+    assert(cache && R_InitSprites("data/DCOLONY", &level, NULL, 0, cache));
     mobj_t *building = NULL, *exco = NULL;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;

@@ -222,7 +222,6 @@ int main(int argc, char **argv) {
         CHECK(sheet.lumps[2].indices[0] == 0);
         CHECK(ivec2_equal(sheet.cells[0].displacement, (ivec2_t){ 7, 9 }));
         CHECK(ivec2_equal(sheet.cells[0].ground_point, (ivec2_t){ 1, 2 }));
-        CHECK(!sheet.lumps[0].texture);
         /* World colormaps must not replace the SPR's source palette. */
         memset(sheet.palette, 0, sizeof(sheet.palette));
         for (int pass = 0; pass < 2; ++pass)
@@ -287,7 +286,6 @@ int main(int argc, char **argv) {
     r_renderer = NULL;
     spritesheet_t decoded;
     CHECK(load(file, size, &decoded)); /* Decoding needs no renderer. */
-    CHECK(!decoded.lumps[0].texture);
     R_FreeSprite(&decoded);
     r_renderer = NULL;
     R_FreeSpriteBuffer();

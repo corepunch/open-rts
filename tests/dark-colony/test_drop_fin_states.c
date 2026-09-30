@@ -13,8 +13,60 @@
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL: %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 
 static void clear(app_t *app) {
-    SDL_SetRenderDrawColor(app->renderer, 70, 80, 90, 255);
-    SDL_RenderClear(app->renderer);
+    (void)app;
+    V_BeginFrame(0xff46505au);
+}
+
+/* Same requested glow as render/r_draw.c additive_table: not a native DC.EXE table. */
+static const uint8_t *additive_rows(const spritesheet_t *sprite, const uint8_t *team, int intensity) {
+    static struct {
+        const uint32_t *palette;
+        const uint8_t *team;
+        int intensity;
+        uint32_t screen_hash;
+        uint8_t table[65536];
+        bool used;
+    } cache[4];
+    if (intensity <= 0 || intensity > 16) intensity = 16;
+    uint32_t screen_hash = 2166136261u;
+    for (int i = 0; i < 256; ++i) {
+        screen_hash ^= vpalette[i];
+        screen_hash *= 16777619u;
+    }
+    for (int i = 0; i < 4; ++i)
+        if (cache[i].used && cache[i].palette == sprite->source_palette &&
+            cache[i].team == team && cache[i].intensity == intensity &&
+            cache[i].screen_hash == screen_hash)
+            return cache[i].table;
+    int slot = 0;
+    for (int i = 0; i < 4; ++i) if (!cache[i].used) { slot = i; break; }
+    int factor = (intensity * 255 + 8) / 16;
+    int cg = (factor * 236 + 127) / 255;
+    int cb = (factor * 72 + 127) / 255;
+    uint8_t *table = cache[slot].table;
+    for (int src = 0; src < 256; ++src) {
+        uint8_t mapped = team ? team[src] : (uint8_t)src;
+        uint32_t color = sprite->source_palette[mapped];
+        int sr = ((int)((color >> 16) & 255) * factor / 255) * 230 / 255;
+        int sg = ((int)((color >> 8) & 255) * cg / 255) * 230 / 255;
+        int sb = ((int)(color & 255) * cb / 255) * 230 / 255;
+        for (int dst = 0; dst < 256; ++dst) {
+            int r = sr + (int)((vpalette[dst] >> 16) & 255);
+            int g = sg + (int)((vpalette[dst] >> 8) & 255);
+            int b = sb + (int)(vpalette[dst] & 255);
+            if (r > 255) r = 255;
+            if (g > 255) g = 255;
+            if (b > 255) b = 255;
+            table[(src << 8) | dst] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) |
+                                                     ((uint32_t)g << 8) | (uint32_t)b);
+        }
+    }
+    cache[slot].palette = sprite->source_palette;
+    cache[slot].team = team;
+    cache[slot].intensity = intensity;
+    cache[slot].screen_hash = screen_hash;
+    cache[slot].used = true;
+    return table;
 }
 
 /* Draw decoded FIN commands directly as an independent pixel reference. */
@@ -36,21 +88,16 @@ static void draw_native_parts(app_t *app, const level_t *map,
         if (sprite->shadowmap && part->layer == 2) continue;
         if (R_RenderIndexedBlend(app, sprite, part->lump, dst, part->flags, part->layer)) continue;
         int intensity = part->intensity > 0 ? part->intensity : 16;
-        int color = (intensity * 255 + 8) / 16;
-        if (color > 255) color = 255;
-        SDL_Color tint = {color, color, color, 255};
-        SDL_BlendMode blend = SDL_BLENDMODE_BLEND;
+        uint32_t flags = (part->flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
         if (part->layer == 3) {
-            /* Existing requested glow policy; the native formula is unknown.
-             * Alien construction uses selector 3 for its forming city cells. */
-            blend = SDL_BLENDMODE_ADD;
-            tint.g = (color * 236 + 127) / 255;
-            tint.b = (color * 72 + 127) / 255;
-            tint.a = 230;
+            /* Existing requested glow policy; the native formula is unknown. */
+            const uint8_t *team_map = R_PaletteMap(sprite, team);
+            const uint8_t *table = additive_rows(sprite, team_map, intensity);
+            V_DrawBlockTranslucent((ivec2_t){dst.x, dst.y}, sprite->lumps[part->lump].indices,
+                                   (isize2_t){src.w, src.h}, src.w, table, flags);
+            continue;
         }
-        CHECK(R_DrawSprite(app->renderer, sprite, part->lump, team, &src, &dst,
-            (part->flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE,
-            tint, blend));
+        CHECK(R_DrawSprite(sprite, part->lump, team, &src, &dst, flags, intensity));
     }
 }
 
@@ -92,9 +139,11 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
         CHECK(!actual[p].sprite_name[0]);
         clear(app);
         draw_native_parts(app, &map, cache, expected.layers, team);
+        V_ReadPixels(surface->pixels, surface->pitch);
         memcpy(expected_pixels, surface->pixels, bytes);
         clear(app);
         R_RenderPlayerView(app, &map, NULL, &(mobj_t *){&unit}, 1, NULL, cache, &game_info, 0);
+        V_ReadPixels(surface->pixels, surface->pitch);
         CHECK(!memcmp(expected_pixels, surface->pixels, bytes));
         if (f == (start + end) / 2)
             CHECK(SDL_SaveBMP(surface, M_va("/private/tmp/%s.bmp", label_name)) == 0);
@@ -133,9 +182,8 @@ int main(void) {
     P_InitThinkers();
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    CHECK(r_renderer);
-    app_t app = { .renderer = r_renderer, .win = {640, 480}, .cam = {320, 360} };
+    V_AllocScreen(640, 480);
+    app_t app = { .win = {640, 480}, .cam = {320, 360} };
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     /* Every persistent state, including damage effects, selects complete FIN
@@ -218,8 +266,7 @@ int main(void) {
     R_FreeSpriteCache(cache);
     free(cache);
     R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     puts("PASS: FIN state coverage and complete death/deploy/building/dropship pixels and timing");
     return 0;
