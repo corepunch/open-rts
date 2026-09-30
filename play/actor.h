@@ -161,7 +161,7 @@ struct gameinfo_s {
     bool right_click_orders; /* Default: left selects/orders, right deselects. */
     harvestdropoffmatchf_t harvest_dropoff_matches;
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
-    int game_speed; /* Default simulation speed multiplier, 1..9; 0 means 1. */
+    int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */

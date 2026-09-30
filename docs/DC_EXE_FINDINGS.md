@@ -6782,10 +6782,10 @@ no `.ini`/`.cfg` strings, and the confirmed values live on the interface object
 percent; `MSREG.INI` is the installer's registration file and `FULL` is the
 install-type marker, neither holds options.
 
-**Port:** `gameinfo_t.game_speed` declares a per-game default multiplier that
-`d_main.c` applies before parsing `--speed`, so the flag still overrides it.
-Dark Colony sets 2, the retail 200 percent maximum, because the engine's
-`WORLD_CLOCK_MS` of 66 already reproduces retail 100 percent at multiplier 1.
-The multiplier scales only the tic clock; the simulation and its consistency
-hash are identical at every speed (`--net-check 120` reports `30c2b9e2` at
-1, 2 and 3). `tests/shared/test_game_speed.c` checks each game's default.
+**Port:** `game_speed` uses the retail percent unit, 10..200, with 100 as the
+engine default because `WORLD_CLOCK_MS` of 66 already reproduces retail 100
+percent. `gameinfo_t.game_speed` declares a per-game default that `d_main.c`
+applies before parsing `--speed <10..200>`, so the flag still overrides it.
+Dark Colony sets 150. The percentage scales only the tic clock; the
+simulation and its consistency hash are identical at every speed
+(`--net-check 120` reports `30c2b9e2` at 100, 150 and 200). `tests/shared/test_game_speed.c` checks each game's default.

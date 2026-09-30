@@ -8,10 +8,10 @@ doomdata_t *netbuffer;
 bool netgame, netready, netactive;
 bool nodeingame[MAXNETNODES], playeringame[MAXPLAYERS];
 int consoleplayer, gametic, maketic, ticdup = 1;
-int game_speed = 1;
+int game_speed = 100; /* Percent, as DC.EXE's Options dialog: 10..200. */
 
 void D_SetGameSpeed(int speed) {
-    if (speed >= 1 && speed <= 9) game_speed = speed;
+    if (speed >= 10 && speed <= 200) game_speed = speed;
 }
 int nettics[MAXNETNODES];
 ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
@@ -32,7 +32,7 @@ static int skiptics, frameon, frameskip[4], oldnettics;
 enum { RESENDCOUNT = 10, NETVERSION = 3 };
 
 static uint64_t I_GetTime(void) {
-    return SDL_GetTicks64() * RTS_TICRATE * (uint64_t)game_speed / 1000 / (uint64_t)ticdup;
+    return SDL_GetTicks64() * RTS_TICRATE * (uint64_t)game_speed / 100 / 1000 / (uint64_t)ticdup;
 }
 
 int ExpandTics(int low) {

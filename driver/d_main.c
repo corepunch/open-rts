@@ -137,13 +137,13 @@ int main(int argc, char **argv) {
             const char *value = strchr(arg, '=') + 1;
             char *end;
             long speed = strtol(value, &end, 10);
-            if (!value[0] || *end || speed < 1 || speed > 9) goto usage;
+            if (!value[0] || *end || speed < 10 || speed > 200) goto usage;
             D_SetGameSpeed((int)speed);
         } else if (!strcmp(arg, "--speed") || !strcmp(arg, "-speed")) {
             if (++i == argc) goto usage;
             char *end;
             long speed = strtol(argv[i], &end, 10);
-            if (!argv[i][0] || *end || speed < 1 || speed > 9) goto usage;
+            if (!argv[i][0] || *end || speed < 10 || speed > 200) goto usage;
             D_SetGameSpeed((int)speed);
         } else if (!strcmp(arg, "--screenshot")) {
             if (++i == argc || !argv[i][0]) goto usage;
@@ -608,7 +608,7 @@ help:
            "  --port <1..65535>      Local UDP port; host 5029, client automatic\n"
            "  --map <path>           Map relative to data root; chosen by host\n"
            "  -map=<path>           Start directly in a map (also --map=<path>)\n"
-           "  --speed <1..9>        Simulation speed multiplier; default 1 (Dark Colony 2)\n"
+           "  --speed <10..200>     Simulation speed percent; default 100 (Dark Colony 150)\n"
            "  Dark Colony opens its main menu when no map is supplied.\n"
            "  --check and --net-check use the default map; screenshots show startup.\n"
            "  --data <directory>     Local game data directory\n"
