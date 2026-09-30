@@ -3,7 +3,7 @@
 
 #include "m_vec.h"
 
-#include <SDL.h>
+#include <stdint.h>
 #define RTS_UI_MAX_LAYERS 16
 #define RTS_UI_MAX_RESOURCES 8
 
@@ -14,16 +14,16 @@ typedef struct uiimage_s {
 } uiimage_t;
 
 typedef struct uiresource_s {
-    SDL_Point text; /* amount anchor in logical UI coordinates */
-    SDL_Color color;
+    ivec2_t text; /* amount anchor in logical UI coordinates */
+    uint32_t color; /* 0xAARRGGBB, nearest palette index at draw time */
     /* The native UI may center a counter (false) or pin its right edge (true). */
     bool right_aligned;
 } uiresource_t;
 
 typedef struct uipanel_s {
     irect_t rect;
-    SDL_Color fill;
-    SDL_Color border;
+    uint32_t fill;
+    uint32_t border;
 } uipanel_t;
 
 typedef struct uiproduct_s {
@@ -83,6 +83,10 @@ typedef struct uidefinition_s {
     int path_action_count;
     irect_t path_list;
     int path_row_height;
+    /* Native chrome the engine does not draw. Arguments are logical rects. */
+    void (*draw_status)(const struct app_s *app, const struct level_s *map, irect_t rect);
+    void (*draw_minimap_overlay)(const struct app_s *app, const struct level_s *map, irect_t rect);
+    void (*draw_product_slot)(const struct app_s *app, int product, irect_t rect);
 } uidefinition_t;
 
 #endif

@@ -20,9 +20,9 @@ static irect_t ui_scaled_rect(const app_t *app, const uidefinition_t *def, irect
     };
 }
 
-bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
+bool SB_Init(sb_state_t *st, const char *data_root,
              const uidefinition_t *definition) {
-    if (!st || !renderer || !data_root || !definition ||
+    if (!st || !data_root || !definition ||
         definition->image_count < 0 || definition->image_count > RTS_UI_MAX_LAYERS ||
         definition->product_count < 0) return false;
     memset(st, 0, sizeof(*st));
@@ -31,15 +31,8 @@ bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
         char path[1024];
         M_PathJoin(path, sizeof(path), definition->asset_root ? definition->asset_root : data_root,
                    definition->images[i].asset_path);
-        SDL_Surface *surface = W_LoadImage(path);
-        if (!surface) {
-            fprintf(stderr, "warning: failed to load UI asset %s: %s\n", path, SDL_GetError());
-            SB_Shutdown(st);
-            return false;
-        }
-        st->textures[i] = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-        if (!st->textures[i]) {
+        if (!W_LoadIndexedSheet(path, &st->images[i])) {
+            fprintf(stderr, "warning: failed to load UI asset %s\n", path);
             SB_Shutdown(st);
             return false;
         }
@@ -48,7 +41,7 @@ bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
         st->product_icons = calloc(definition->product_count, sizeof(*st->product_icons));
         if (!st->product_icons) { SB_Shutdown(st); return false; }
         for (int i = 0; i < definition->product_count; ++i) {
-            if (!G_LoadMenuSprite(renderer, data_root, definition->products[i].image,
+            if (!G_LoadMenuSprite(data_root, definition->products[i].image,
                                   &st->product_icons[i])) {
                 fprintf(stderr, "failed to load menu image %s\n", definition->products[i].image);
                 SB_Shutdown(st);
@@ -115,21 +108,20 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
     if (!radar_level) return;
     irect_t rect = ui_scaled_rect(app, st->definition, SB_MinimapRect(map));
     if (rect.w <= 0 || rect.h <= 0 || !map || map->width <= 0 || map->height <= 0) return;
-    SDL_SetRenderDrawColor(app->renderer, 5, 7, 7, 255);
-    SDL_RenderFillRect(app->renderer, &rect);
-    SDL_Rect previous_clip;
-    bool clipped = SDL_RenderIsClipEnabled(app->renderer);
-    SDL_RenderGetClipRect(app->renderer, &previous_clip);
-    SDL_RenderSetClipRect(app->renderer, &rect);
+    V_FillRect(rect, V_NearestIndex(0xff050707u));
+    irect_t previous_clip = V_GetClip();
+    V_SetClip(rect);
+    uint8_t solid = V_NearestIndex(0xff5d5b46u);
+    uint8_t open = V_NearestIndex(0xff3f4f34u);
     for (int i = 0; i < map->decoration_count; ++i) {
         const mapdecoration_t *dec = &map->decorations[i];
         if (!P_SightBrightness(map, dec->cell)) continue;
         int x = rect.x + dec->cell.x * rect.w / map->width;
         int y = rect.y + L_ScreenY(map, dec->cell.y) * rect.h / map->height;
-        SDL_SetRenderDrawColor(app->renderer, dec->solid ? 93 : 63,
-                              dec->solid ? 91 : 79, dec->solid ? 70 : 52, 255);
-        SDL_RenderDrawPoint(app->renderer, x, y);
+        V_DrawPoint((ivec2_t){x, y}, dec->solid ? solid : open);
     }
+    uint8_t friendly = V_NearestIndex(0xff30dc41u);
+    uint8_t enemy = V_NearestIndex(0xffd22d41u);
     for (int i = 0; i < unit_count; ++i) {
         if (radar_level < 2 && units[i]->owner != consoleplayer) continue;
         if (!P_VisibleToPlayer(units[i]) || units[i]->remove || units[i]->hp <= 0) continue;
@@ -137,10 +129,8 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
         int x = rect.x + (int)(position.x * (float)rect.w / (float)map->width);
         int y = rect.y + (int)(L_ScreenYF(map, position.y) * (float)rect.h /
                               (float)map->height);
-        SDL_SetRenderDrawColor(app->renderer, units[i]->owner == consoleplayer ? 48 : 210,
-                              units[i]->owner == consoleplayer ? 220 : 45, 65, 255);
         irect_t dot = { x - 1, y - 1, 3, 3 };
-        SDL_RenderFillRect(app->renderer, &dot);
+        V_FillRect(dot, units[i]->owner == consoleplayer ? friendly : enemy);
     }
     int cell_w = app->cell.w > 0 ? app->cell.w : 24;
     int cell_h = app->cell.h > 0 ? app->cell.h : 24;
@@ -152,77 +142,97 @@ static void SB_drawMinimap(const sb_state_t *st, app_t *app, const level_t *map,
         G_WorldViewportWidth(app) * rect.w / (cell_w * map->width),
         app->win.h * rect.h / (cell_h * map->height),
     };
-    SDL_SetRenderDrawColor(app->renderer, 215, 215, 205, 255);
-    SDL_RenderDrawRect(app->renderer, &view);
-    SDL_RenderSetClipRect(app->renderer, clipped ? &previous_clip : NULL);
+    V_DrawRectOutline(view, V_NearestIndex(0xffd7d7cdu));
+    V_SetClip(previous_clip);
+    if (st->definition->draw_minimap_overlay)
+        st->definition->draw_minimap_overlay(app, map, rect);
 }
 
-static void draw_digit(SDL_Renderer *renderer, int x, int y, int digit, SDL_Color color) {
+static void draw_digit(int x, int y, int digit, uint32_t argb) {
     static const unsigned char segments[10] = {
         0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f,
     };
     const irect_t bars[7] = {
         {2,0,8,2},{10,2,2,8},{10,12,2,8},{2,20,8,2},{0,12,2,8},{0,2,2,8},{2,10,8,2},
     };
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    uint8_t color = V_NearestIndex(argb);
     unsigned char mask = segments[digit];
     for (int i = 0; i < 7; ++i) if (mask & (1u << i)) {
         irect_t bar = { x + bars[i].x, y + bars[i].y, bars[i].w, bars[i].h };
-        SDL_RenderFillRect(renderer, &bar);
+        V_FillRect(bar, color);
     }
 }
 
 static void SB_drawPanel(const sb_state_t *st, app_t *app, uipanel_t panel) {
     irect_t rect = ui_scaled_rect(app, st->definition, panel.rect);
     if (rect.w <= 0 || rect.h <= 0) return;
-    SDL_SetRenderDrawColor(app->renderer, panel.fill.r, panel.fill.g,
-                           panel.fill.b, panel.fill.a);
-    SDL_RenderFillRect(app->renderer, &rect);
-    SDL_SetRenderDrawColor(app->renderer, panel.border.r, panel.border.g,
-                           panel.border.b, panel.border.a);
-    SDL_RenderDrawRect(app->renderer, &rect);
+    V_FillRect(rect, V_NearestIndex(panel.fill));
+    V_DrawRectOutline(rect, V_NearestIndex(panel.border));
 }
 
-static void SB_drawSidebarIcon(SDL_Renderer *renderer, irect_t cell, int slot) {
+static void SB_drawSidebarIcon(irect_t cell, int slot) {
     if (slot < 5 || slot > 9) return;
     int cx = cell.x + cell.w / 2;
     int cy = cell.y + cell.h / 2;
     int r = cell.w / 5;
-    SDL_SetRenderDrawColor(renderer, 40, 196, 218, 255);
+    uint8_t color = V_NearestIndex(0xff28c4dau);
     if (slot == 5) { /* bomber */
         for (int y = -r; y <= r; ++y) {
             int half = r - abs(y);
-            SDL_RenderDrawLine(renderer, cx - half, cy + y, cx + half, cy + y);
+            V_DrawLine((ivec2_t){cx - half, cy + y}, (ivec2_t){cx + half, cy + y}, color);
         }
-        SDL_RenderDrawLine(renderer, cx, cy - r - 6, cx + 5, cy - r - 1);
+        V_DrawLine((ivec2_t){cx, cy - r - 6}, (ivec2_t){cx + 5, cy - r - 1}, color);
     } else if (slot == 6) { /* sell */
-        SDL_RenderDrawLine(renderer, cx + 5, cy - r, cx - 5, cy - r);
-        SDL_RenderDrawLine(renderer, cx - 5, cy - r, cx - 7, cy - 1);
-        SDL_RenderDrawLine(renderer, cx - 7, cy - 1, cx + 7, cy + 1);
-        SDL_RenderDrawLine(renderer, cx + 7, cy + 1, cx + 5, cy + r);
-        SDL_RenderDrawLine(renderer, cx + 5, cy + r, cx - 5, cy + r);
-        SDL_RenderDrawLine(renderer, cx, cy - r - 4, cx, cy + r + 4);
+        V_DrawLine((ivec2_t){cx + 5, cy - r}, (ivec2_t){cx - 5, cy - r}, color);
+        V_DrawLine((ivec2_t){cx - 5, cy - r}, (ivec2_t){cx - 7, cy - 1}, color);
+        V_DrawLine((ivec2_t){cx - 7, cy - 1}, (ivec2_t){cx + 7, cy + 1}, color);
+        V_DrawLine((ivec2_t){cx + 7, cy + 1}, (ivec2_t){cx + 5, cy + r}, color);
+        V_DrawLine((ivec2_t){cx + 5, cy + r}, (ivec2_t){cx - 5, cy + r}, color);
+        V_DrawLine((ivec2_t){cx, cy - r - 4}, (ivec2_t){cx, cy + r + 4}, color);
     } else if (slot == 7) { /* research */
-        SDL_RenderDrawLine(renderer, cx - 4, cy - r, cx + 4, cy - r);
-        SDL_RenderDrawLine(renderer, cx - 2, cy - r, cx - 2, cy - 2);
-        SDL_RenderDrawLine(renderer, cx + 2, cy - r, cx + 2, cy - 2);
-        SDL_RenderDrawLine(renderer, cx - 2, cy - 2, cx - r, cy + r);
-        SDL_RenderDrawLine(renderer, cx + 2, cy - 2, cx + r, cy + r);
-        SDL_RenderDrawLine(renderer, cx - r, cy + r, cx + r, cy + r);
-        SDL_RenderDrawLine(renderer, cx - r + 3, cy + 4, cx + r - 3, cy + 4);
+        V_DrawLine((ivec2_t){cx - 4, cy - r}, (ivec2_t){cx + 4, cy - r}, color);
+        V_DrawLine((ivec2_t){cx - 2, cy - r}, (ivec2_t){cx - 2, cy - 2}, color);
+        V_DrawLine((ivec2_t){cx + 2, cy - r}, (ivec2_t){cx + 2, cy - 2}, color);
+        V_DrawLine((ivec2_t){cx - 2, cy - 2}, (ivec2_t){cx - r, cy + r}, color);
+        V_DrawLine((ivec2_t){cx + 2, cy - 2}, (ivec2_t){cx + r, cy + r}, color);
+        V_DrawLine((ivec2_t){cx - r, cy + r}, (ivec2_t){cx + r, cy + r}, color);
+        V_DrawLine((ivec2_t){cx - r + 3, cy + 4}, (ivec2_t){cx + r - 3, cy + 4}, color);
     } else if (slot == 8) { /* repair */
-        SDL_RenderDrawLine(renderer, cx - r, cy + r, cx + r, cy - r);
-        SDL_RenderDrawLine(renderer, cx - r + 1, cy + r, cx - r - 4, cy + r - 5);
-        SDL_RenderDrawLine(renderer, cx + r, cy - r, cx + r + 5, cy - r + 3);
-        SDL_RenderDrawLine(renderer, cx + r, cy - r, cx + r - 3, cy - r - 5);
+        V_DrawLine((ivec2_t){cx - r, cy + r}, (ivec2_t){cx + r, cy - r}, color);
+        V_DrawLine((ivec2_t){cx - r + 1, cy + r}, (ivec2_t){cx - r - 4, cy + r - 5}, color);
+        V_DrawLine((ivec2_t){cx + r, cy - r}, (ivec2_t){cx + r + 5, cy - r + 3}, color);
+        V_DrawLine((ivec2_t){cx + r, cy - r}, (ivec2_t){cx + r - 3, cy - r - 5}, color);
     } else { /* radar */
         for (int y = -r; y <= r; ++y) {
             int x = (int)sqrtf((float)(r * r - y * y));
-            SDL_RenderDrawPoint(renderer, cx - x, cy + y);
-            SDL_RenderDrawPoint(renderer, cx + x, cy + y);
+            V_DrawPoint((ivec2_t){cx - x, cy + y}, color);
+            V_DrawPoint((ivec2_t){cx + x, cy + y}, color);
         }
-        SDL_RenderDrawLine(renderer, cx - r, cy, cx + r, cy);
-        SDL_RenderDrawLine(renderer, cx, cy - r, cx, cy + r);
+        V_DrawLine((ivec2_t){cx - r, cy}, (ivec2_t){cx + r, cy}, color);
+        V_DrawLine((ivec2_t){cx, cy - r}, (ivec2_t){cx, cy + r}, color);
+    }
+}
+
+/* Black at alpha 96 over the bevel: keep each pixel, scaled by (255-96)/255. */
+static void darken_pressed(irect_t cell) {
+    if (!screens[0].pixels || cell.w <= 0 || cell.h <= 0) return;
+    int x0 = cell.x > 0 ? cell.x : 0;
+    int y0 = cell.y > 0 ? cell.y : 0;
+    int x1 = cell.x + cell.w;
+    int y1 = cell.y + cell.h;
+    if (x1 > screens[0].w) x1 = screens[0].w;
+    if (y1 > screens[0].h) y1 = screens[0].h;
+    int kept = 255 - 96;
+    for (int y = y0; y < y1; ++y) {
+        uint8_t *row = screens[0].pixels + (size_t)y * (size_t)screens[0].w;
+        for (int x = x0; x < x1; ++x) {
+            uint32_t src = vpalette[row[x]];
+            int r = (int)((src >> 16) & 255) * kept / 255;
+            int g = (int)((src >> 8) & 255) * kept / 255;
+            int b = (int)(src & 255) * kept / 255;
+            row[x] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) |
+                                    ((uint32_t)g << 8) | (uint32_t)b);
+        }
     }
 }
 
@@ -231,6 +241,9 @@ static void SB_drawSidebarCells(const sb_state_t *st, app_t *app) {
     if (def->sidebar_cell_size <= 0 || def->sidebar_panel.rect.h <= 0) return;
     int count = (def->sidebar_panel.rect.h + def->sidebar_cell_size - 1) /
                 def->sidebar_cell_size;
+    uint8_t fill = V_NearestIndex(0xff322218u);
+    uint8_t highlight = V_NearestIndex(0xff775b43u);
+    uint8_t shadow = V_NearestIndex(0xff18100bu);
     for (int i = 0; i < count; ++i) {
         irect_t cell = ui_scaled_rect(app, def, (irect_t){
             def->sidebar_panel.rect.x,
@@ -238,27 +251,17 @@ static void SB_drawSidebarCells(const sb_state_t *st, app_t *app) {
             def->sidebar_panel.rect.w,
             def->sidebar_cell_size,
         });
-        SDL_SetRenderDrawColor(app->renderer, 50, 34, 24, 255);
-        SDL_RenderFillRect(app->renderer, &cell);
-        SDL_SetRenderDrawColor(app->renderer, 119, 91, 67, 255);
-        SDL_RenderDrawLine(app->renderer, cell.x, cell.y,
-                          cell.x + cell.w - 1, cell.y);
-        SDL_RenderDrawLine(app->renderer, cell.x, cell.y,
-                          cell.x, cell.y + cell.h - 1);
-        SDL_SetRenderDrawColor(app->renderer, 24, 16, 11, 255);
-        SDL_RenderDrawLine(app->renderer, cell.x, cell.y + cell.h - 1,
-                          cell.x + cell.w - 1, cell.y + cell.h - 1);
-        SDL_RenderDrawLine(app->renderer, cell.x + cell.w - 1, cell.y,
-                          cell.x + cell.w - 1, cell.y + cell.h - 1);
-        if (st->pressed_button == i) {
-            SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
-            SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
-            SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 96);
-            SDL_RenderFillRect(app->renderer, &cell);
-            SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
-        }
-        SB_drawSidebarIcon(app->renderer, cell, i);
+        V_FillRect(cell, fill);
+        V_DrawLine((ivec2_t){cell.x, cell.y},
+                   (ivec2_t){cell.x + cell.w - 1, cell.y}, highlight);
+        V_DrawLine((ivec2_t){cell.x, cell.y},
+                   (ivec2_t){cell.x, cell.y + cell.h - 1}, highlight);
+        V_DrawLine((ivec2_t){cell.x, cell.y + cell.h - 1},
+                   (ivec2_t){cell.x + cell.w - 1, cell.y + cell.h - 1}, shadow);
+        V_DrawLine((ivec2_t){cell.x + cell.w - 1, cell.y},
+                   (ivec2_t){cell.x + cell.w - 1, cell.y + cell.h - 1}, shadow);
+        if (st->pressed_button == i) darken_pressed(cell);
+        SB_drawSidebarIcon(cell, i);
     }
 }
 
@@ -273,9 +276,8 @@ static void SB_drawResource(const sb_state_t *st, app_t *app,
     int anchor_x = (int)((float)display->text.x * sx);
     int x = display->right_aligned ? anchor_x - count * 14 + 2 : anchor_x - count * 7;
     int y = (int)((float)display->text.y * sy);
-    for (int i = 0; i < count; ++i) {
-        draw_digit(app->renderer, x + i * 14, y, value[i] - '0', display->color);
-    }
+    for (int i = 0; i < count; ++i)
+        draw_digit(x + i * 14, y, value[i] - '0', display->color);
 }
 
 static void SB_drawElapsedTime(const sb_state_t *st, app_t *app) {
@@ -287,14 +289,13 @@ static void SB_drawElapsedTime(const sb_state_t *st, app_t *app) {
     seconds %= 60;
     int x = panel.x + 9;
     int y = panel.y + 3;
-    SDL_Color white = { 255, 255, 255, 255 };
-    draw_digit(app->renderer, x, y, minutes / 10, white);
-    draw_digit(app->renderer, x + 14, y, minutes % 10, white);
-    SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
-    SDL_RenderDrawPoint(app->renderer, x + 29, y + 7);
-    SDL_RenderDrawPoint(app->renderer, x + 29, y + 14);
-    draw_digit(app->renderer, x + 34, y, seconds / 10, white);
-    draw_digit(app->renderer, x + 48, y, seconds % 10, white);
+    draw_digit(x, y, minutes / 10, 0xffffffffu);
+    draw_digit(x + 14, y, minutes % 10, 0xffffffffu);
+    uint8_t white = V_NearestIndex(0xffffffffu);
+    V_DrawPoint((ivec2_t){x + 29, y + 7}, white);
+    V_DrawPoint((ivec2_t){x + 29, y + 14}, white);
+    draw_digit(x + 34, y, seconds / 10, 0xffffffffu);
+    draw_digit(x + 48, y, seconds % 10, 0xffffffffu);
 }
 
 static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t *sprites) {
@@ -323,9 +324,15 @@ static void SB_drawWidgets(const sb_state_t *st, app_t *app, const spritecache_t
         irect_t dst = { cell.x + (cell.w - (int)((float)src.w * scale)) / 2,
                          cell.y + (cell.h - (int)((float)src.h * scale)) / 2,
                          (int)((float)src.w * scale), (int)((float)src.h * scale) };
-        if (!R_DrawSprite(app->renderer, &cached->sprite, 0, -1, &src, &dst,
-                          SDL_FLIP_NONE, (SDL_Color){210, 48, 52, 255},
-                          SDL_BLENDMODE_BLEND)) continue;
+        irect_t cell_rect = cached->sprite.cells[0].rect;
+        if (!cached->sprite.lumps[0].indices || cell_rect.w <= 0 || cell_rect.h <= 0 ||
+            src.x < cell_rect.x || src.y < cell_rect.y ||
+            src.x + src.w > cell_rect.x + cell_rect.w ||
+            src.y + src.h > cell_rect.y + cell_rect.h)
+            continue;
+        uint8_t tint[256];
+        V_ModulateRemap(tint, cached->sprite.source_palette, 0xffd23034u);
+        V_DrawSpriteCellScaled(dst, &cached->sprite, 0, &src, tint, 0);
         slot++;
     }
 }
@@ -343,12 +350,14 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
     SB_drawPanel(st, app, def->sidebar_panel);
     SB_drawSidebarCells(st, app);
     SB_drawPanel(st, app, def->status_panel);
+    if (def->draw_status)
+        def->draw_status(app, map, ui_scaled_rect(app, def, def->status_panel.rect));
     for (int i = 0; i < def->image_count; ++i) {
         if (def->images[i].destination.w <= 0 || def->images[i].destination.h <= 0) continue;
         irect_t dst = ui_scaled_rect(app, def, def->images[i].destination);
         const irect_t *src = def->images[i].source.w > 0 && def->images[i].source.h > 0 ?
             &def->images[i].source : NULL;
-        SDL_RenderCopy(app->renderer, st->textures[i], src, &dst);
+        R_DrawSprite(&st->images[i], 0, -1, src, &dst, 0, 16);
     }
     SB_drawWidgets(st, app, sprites);
     SB_drawMinimap(st, app, map, units, unit_count);
@@ -368,8 +377,7 @@ void SB_Shutdown(sb_state_t *st) {
             R_FreeSprite(&st->product_icons[i]);
         free(st->product_icons);
     }
-    for (int i = 0; i < RTS_UI_MAX_LAYERS; ++i) {
-        if (st->textures[i]) SDL_DestroyTexture(st->textures[i]);
-    }
+    for (int i = 0; i < RTS_UI_MAX_LAYERS; ++i)
+        R_FreeSprite(&st->images[i]);
     memset(st, 0, sizeof(*st));
 }

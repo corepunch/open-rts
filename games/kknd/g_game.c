@@ -354,19 +354,19 @@ static const uidefinition_t UI = {
     .world_viewport = { 0, 0, 480, 480 },
     .command_grid = { 480, 32, 160, 448 },
     .resources = {
-        [0] = { .text = { 400, 3 }, .color = { 255, 255, 255, 255 } },
+        [0] = { .text = { 400, 3 }, .color = 0xffffffffu },
     },
     .resource_count = 1,
     .status_panel = {
         .rect = { 230, 0, 180, 28 },
-        .fill = { 0, 0, 0, 255 },
-        .border = { 255, 255, 255, 255 },
+        .fill = 0xff000000u,
+        .border = 0xffffffffu,
     },
     .status_elapsed_time = true,
     .sidebar_panel = {
         .rect = { 480, 0, 160, 480 },
-        .fill = { 0, 0, 0, 255 },
-        .border = { 104, 104, 96, 255 },
+        .fill = 0xff000000u,
+        .border = 0xff686860u,
     },
 };
 
@@ -395,9 +395,9 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
     return load_kknd_map(path, out);
 }
 
-bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
-                  const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
-    return load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,
+                  tileset_t *tileset, spritesheet_t *unit_sprite) {
+    return load_assets(root, map, sprite, tileset, unit_sprite);
 }
 
 static uint16_t kknd_unit_type(const char *name) {
@@ -449,8 +449,8 @@ int P_LoadThings(const char *path) {
     return count;
 }
 
-bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
-    (void)renderer; (void)root; (void)font;
+bool HU_LoadFont(const char *root, bitmapfont_t *font) {
+    (void)root; (void)font;
     return false;
 }
 
@@ -494,8 +494,7 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
                 lab->research.remaining_cost);
             break;
         }
-        SDL_SetRenderDrawColor(app->renderer,255,255,255,255);
-        SB_DrawText(app,(ivec2_t){gameui->status_panel.rect.x,gameui->status_panel.rect.h+8},text,400);
+        SB_DrawText(app,(ivec2_t){gameui->status_panel.rect.x,gameui->status_panel.rect.h+8},text,400,0xffffffffu);
         break;
     }
 }

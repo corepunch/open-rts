@@ -9,9 +9,8 @@
 
 typedef struct app_s {
     SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *fog_texture; /* Owned and destroyed by the SDL renderer. */
-    isize2_t win;
+    SDL_Renderer *renderer; /* Present only. Drawing goes through screens[0]. */
+    isize2_t win; /* Logical draw size. The OS window may be a different size. */
     isize2_t cell;
     fvec2_t  cam;
     bool show_grid;

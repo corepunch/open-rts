@@ -2,6 +2,8 @@
 #include "dr_hud.h"
 #include "d_net.h"
 
+#include <string.h>
+
 static const uiimage_t DARK_REIGN_UI_IMAGES[] = {
     { "graphics/INTFACE/IGI/TOPBTNS.BMP", {   0, 0, 147, 32 }, {   6,   0, 147,  32 } }, /* 0 */
     { "graphics/INTFACE/IGI/TOPBITS.BMP", {   6, 0, 141, 32 }, { 153,   0, 141,  32 } }, /* 1 */
@@ -115,7 +117,11 @@ const uidefinition_t *const gameui = &DARK_REIGN_UI;
 
 /* One active status bar, following Doom's ST_Init/Start/Stop ownership. */
 static sb_state_t bar;
-typedef struct { SDL_Texture *texture; irect_t glyphs[256]; } dr_font_t;
+typedef struct {
+    spritesheet_t sheet;
+    uint32_t palette[256];
+    irect_t glyphs[256];
+} dr_font_t;
 static dr_font_t fonts[4];
 
 static irect_t scaled(const app_t *app, irect_t r) {
@@ -131,46 +137,44 @@ static void draw_path(app_t *app, irect_t radar, const waypoints_t *path, int li
         ivec2_t point = ivec2_add((ivec2_t){radar.x,radar.y}, path->points[i]);
         if (i) {
             ivec2_t previous = ivec2_add((ivec2_t){radar.x,radar.y}, path->points[i-1]);
-            uint32_t color = palette[line];
-            SDL_SetRenderDrawColor(app->renderer, color >> 16, color >> 8, color, 255);
-            SDL_RenderDrawLine(app->renderer, previous.x*app->win.w/640, previous.y*app->win.h/480,
-                              point.x*app->win.w/640, point.y*app->win.h/480);
+            uint8_t color = V_NearestIndex(palette[line]);
+            V_DrawLine((ivec2_t){previous.x*app->win.w/640, previous.y*app->win.h/480},
+                       (ivec2_t){point.x*app->win.w/640, point.y*app->win.h/480}, color);
         }
-        uint32_t color = palette[0x8a];
-        SDL_SetRenderDrawColor(app->renderer, color >> 16, color >> 8, color, 255);
+        uint8_t color = V_NearestIndex(palette[0x8a]);
         irect_t marker = scaled(app, (irect_t){point.x-1,point.y-1,3,3});
-        SDL_RenderFillRect(app->renderer, &marker);
+        V_FillRect(marker, color);
     }
 }
 
-static bool load_font(app_t *app, const char *root, const char *name, int translation, dr_font_t *font) {
+static bool load_font(const char *root, const char *name, int translation, dr_font_t *font) {
     char path[1024];
     snprintf(path, sizeof(path), "%s/graphics/INTFACE/IGI/%s", root, name);
-    SDL_Surface *surface = W_LoadImage(path);
-    if (!surface) return false;
-    const uint8_t *pixels = surface->pixels;
+    if (!W_LoadIndexedSheet(path, &font->sheet)) return false;
+    const uint8_t *pixels = font->sheet.lumps[0].indices;
+    int width = font->sheet.cells[0].rect.w;
+    int height = font->sheet.cells[0].rect.h;
     int ch = 0, start = 1;
-    for (int x = 1; x < surface->w && ch < 256; ++x) {
+    for (int x = 1; x < width && ch < 256; ++x) {
         if (pixels[x] != pixels[0]) continue;
-        font->glyphs[ch++] = (irect_t){start, 1, x - start, surface->h - 1};
+        font->glyphs[ch++] = (irect_t){start, 1, x - start, height - 1};
         start = x + 1;
     }
     M_PathJoin(path, sizeof(path), root, "graphics/INTFACE/IGI/TOPBITS.BMP");
-    SDL_Surface *chrome = W_LoadImage(path);
-    if (!chrome || !chrome->format->palette) {
-        SDL_FreeSurface(chrome); SDL_FreeSurface(surface); return false;
+    spritesheet_t chrome = {0};
+    if (!W_LoadIndexedSheet(path, &chrome)) {
+        R_FreeSprite(&font->sheet);
+        return false;
     }
-    SDL_SetPaletteColors(surface->format->palette, chrome->format->palette->colors,
-                         0, chrome->format->palette->ncolors);
+    memcpy(font->palette, chrome.source_palette, sizeof(font->palette));
     /* 00477e00: native normal/header tables add 2*8/7*8 to indices 32..41. */
-    SDL_SetPaletteColors(surface->format->palette, chrome->format->palette->colors + 32 + translation*8,
-                         32, 10);
-    SDL_FreeSurface(chrome);
-    SDL_SetColorKey(surface, SDL_TRUE, 0);
-    font->texture = SDL_CreateTextureFromSurface(app->renderer, surface);
-    SDL_FreeSurface(surface);
-    return font->texture && font->glyphs['0'].w > 0;
+    memcpy(font->palette + 32, chrome.source_palette + 32 + translation * 8,
+           10 * sizeof(uint32_t));
+    R_FreeSprite(&chrome);
+    return font->glyphs['0'].w > 0;
 }
+
+static void draw_glyph(const dr_font_t *font, irect_t glyph, irect_t dst);
 
 irect_t DR_MinimapRect(const level_t *map) {
     int w = map->width < 130 ? map->width : 130;
@@ -180,17 +184,16 @@ irect_t DR_MinimapRect(const level_t *map) {
 
 static void draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, int count) {
     irect_t area = DR_MinimapRect(map), rect = scaled(app, area);
-    SDL_SetRenderDrawColor(app->renderer, 0,0,0,255);
-    SDL_RenderFillRect(app->renderer, &rect);
-    SDL_RenderSetClipRect(app->renderer, &rect);
+    V_FillRect(rect, V_NearestIndex(0xff000000u));
+    irect_t previous = V_GetClip();
+    V_SetClip(rect);
     for (int i = 0; i < count; ++i) {
         const mobj_t *u = units[i];
         if (u->remove || u->hp <= 0 || !P_VisibleToPlayer(u)) continue;
         ivec2_t cell = {u->core.position.x >> FIXED_FRAC_BITS, u->core.position.y >> FIXED_FRAC_BITS};
-        SDL_SetRenderDrawColor(app->renderer, u->owner == consoleplayer ? 230 : 200,
-                              u->owner == consoleplayer ? 160 : 40, 40,255);
+        uint32_t rgb = u->owner == consoleplayer ? 0xffe6a028u : 0xffc82828u;
         irect_t dot = scaled(app, (irect_t){area.x + cell.x, area.y + cell.y, 1,1});
-        SDL_RenderFillRect(app->renderer, &dot);
+        V_FillRect(dot, V_NearestIndex(rgb));
         if (P_MobjIsSelected(u) && u->owner == consoleplayer)
             draw_path(app, area, &u->waypoints, 0x16);
     }
@@ -198,29 +201,27 @@ static void draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, i
     irect_t view = scaled(app, (irect_t){area.x - (int)(app->cam.x / app->cell.w),
         area.y + (int)((32*app->win.h/480 - app->cam.y) / app->cell.h),
         G_WorldViewportWidth(app) / app->cell.w, (app->win.h - 32*app->win.h/480) / app->cell.h});
-    SDL_SetRenderDrawColor(app->renderer, 215,215,205,255);
-    SDL_RenderDrawRect(app->renderer, &view);
-    SDL_RenderSetClipRect(app->renderer, NULL);
+    V_DrawRectOutline(view, V_NearestIndex(0xffd7d7cdu));
+    V_SetClip(previous);
 }
 
 void *G_InitCustomUI(app_t *app, const char *root) {
-    if (!SB_Init(&bar, app->renderer, root, gameui) || !load_font(app, root, "FONT16.PCX", 2, &fonts[0]) ||
-        !load_font(app, root, "FONT12T.PCX", 2, &fonts[1]) ||
-        !load_font(app, root, "FONT12W.PCX", 2, &fonts[2]) ||
-        !load_font(app, root, "FONT12T.PCX", 7, &fonts[3])) {
+    (void)app;
+    if (!SB_Init(&bar, root, gameui) || !load_font(root, "FONT16.PCX", 2, &fonts[0]) ||
+        !load_font(root, "FONT12T.PCX", 2, &fonts[1]) ||
+        !load_font(root, "FONT12W.PCX", 2, &fonts[2]) ||
+        !load_font(root, "FONT12T.PCX", 7, &fonts[3])) {
         G_ShutdownCustomUI(&bar);
         return NULL;
     }
     bar.production_category = 0;
     char path[1024];
     M_PathJoin(path, sizeof(path), root, "graphics/INTFACE/IGI/BUISOBOX.BMP");
-    SDL_Surface *surface = W_LoadImage(path);
-    if (!surface) { G_ShutdownCustomUI(&bar); return NULL; }
-    SDL_SetColorKey(surface, SDL_TRUE, 0);
-    SDL_DestroyTexture(bar.textures[8]);
-    bar.textures[8] = SDL_CreateTextureFromSurface(app->renderer, surface);
-    SDL_FreeSurface(surface);
-    if (!bar.textures[8]) { G_ShutdownCustomUI(&bar); return NULL; }
+    R_FreeSprite(&bar.images[8]);
+    if (!W_LoadIndexedSheet(path, &bar.images[8])) {
+        G_ShutdownCustomUI(&bar);
+        return NULL;
+    }
     return &bar;
 }
 
@@ -245,8 +246,8 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
     draw_minimap(app, map, units, count);
     irect_t left = scaled(app, (irect_t){0,0,6,32});
     irect_t right = scaled(app, (irect_t){441,0,7,32});
-    SDL_RenderCopy(app->renderer, bar.textures[1], &(irect_t){0,0,6,32}, &left);
-    SDL_RenderCopy(app->renderer, bar.textures[1], &(irect_t){147,0,7,32}, &right);
+    R_DrawSprite(&bar.images[1], 0, -1, &(irect_t){0,0,6,32}, &left, V_OPAQUE, 16);
+    R_DrawSprite(&bar.images[1], 0, -1, &(irect_t){147,0,7,32}, &right, V_OPAQUE, 16);
     char value[16];
     snprintf(value, sizeof(value), "%09d", map->player_resources[consoleplayer][0]);
     for (int i = 0; i < 8 && value[i] == '0'; ++i) value[i] = ':';
@@ -254,7 +255,7 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
     for (const unsigned char *p = (const unsigned char *)value; *p; ++p) {
         irect_t src = fonts[0].glyphs[*p];
         irect_t dst = scaled(app, (irect_t){x,6,src.w,src.h});
-        SDL_RenderCopy(app->renderer, fonts[0].texture, &src, &dst);
+        draw_glyph(&fonts[0], src, dst);
         x += src.w;
     }
     DR_PaletteDrawer(ui, app);
@@ -263,10 +264,24 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
 void G_ShutdownCustomUI(void *ui) {
     if (!ui) return;
     for (unsigned i = 0; i < sizeof(fonts)/sizeof(*fonts); ++i) {
-        SDL_DestroyTexture(fonts[i].texture);
+        R_FreeSprite(&fonts[i].sheet);
         memset(&fonts[i], 0, sizeof(fonts[i]));
     }
     SB_Shutdown(ui);
+}
+
+static void draw_glyph(const dr_font_t *font, irect_t glyph, irect_t dst) {
+    if (glyph.w <= 0 || glyph.h <= 0 || !font->sheet.lumps || !font->sheet.lumps[0].indices)
+        return;
+    int pitch = font->sheet.cells[0].rect.w;
+    const uint8_t *src = font->sheet.lumps[0].indices +
+        (size_t)glyph.y * (size_t)pitch + (size_t)glyph.x;
+    const uint8_t *remap = V_RemapPalette(font->palette);
+    isize2_t size = {glyph.w, glyph.h};
+    if (dst.w == size.w && dst.h == size.h)
+        V_DrawBlock((ivec2_t){dst.x, dst.y}, src, size, pitch, remap, 0);
+    else
+        V_DrawBlockScaled(dst, src, size, pitch, remap, 0);
 }
 
 static void draw_text(const app_t *app, const dr_font_t *font,
@@ -276,7 +291,7 @@ static void draw_text(const app_t *app, const dr_font_t *font,
         irect_t src = font->glyphs[*p];
         if (x + src.w > point.x + width) break;
         irect_t dst = scaled(app, (irect_t){x,point.y,src.w,src.h});
-        SDL_RenderCopy(app->renderer, font->texture, &src, &dst);
+        draw_glyph(font, src, dst);
         x += src.w;
     }
 }

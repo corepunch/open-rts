@@ -38,9 +38,8 @@ static bool decode_mapd(const uint8_t *segment, size_t size, uint32_t mapd_offse
             out->tile_ids = calloc(cells, sizeof(*out->tile_ids));
             out->blocked = calloc(cells, sizeof(*out->blocked));
             native->tile_count = (int)(cells * layers + 1);
-            native->atlas = (isize2_t){ 64 * 32, ((native->tile_count + 63) / 64) * 32 };
-            native->pixels = calloc((size_t)native->atlas.w * native->atlas.h, sizeof(*native->pixels));
-            if (!out->tile_ids || !out->blocked || !native->pixels) return false;
+            native->indices = calloc((size_t)native->tile_count * 32u * 32u, 1);
+            if (!out->tile_ids || !out->blocked || !native->indices) return false;
         } else {
             if (grid.w != out->width || grid.h != out->height) return false;
             out->tile_overlays[layer - 1] = calloc(cells, sizeof(*out->tile_overlays[layer - 1]));
@@ -53,18 +52,15 @@ static bool decode_mapd(const uint8_t *segment, size_t size, uint32_t mapd_offse
             uint32_t source = read_u32_le(segment + offset + 20 + cell * 4);
             if (!source) continue;
             if (!range_ok(size, source, 4 + 32 * 32)) return false;
-            const uint8_t *indices = segment + source + 4;
-            ivec2_t origin = { (frame % 64) * 32, (frame / 64) * 32 };
-            bool visible = false;
-            for (int y = 0; y < 32; ++y) {
-                uint32_t *row = native->pixels + (size_t)(origin.y + y) * native->atlas.w + origin.x;
-                for (int x = 0; x < 32; ++x) {
-                    uint8_t index = indices[y * 32 + x];
-                    row[x] = layer && !index ? 0 : native->palette[index];
-                    if (row[x]) visible = true;
-                }
+            const uint8_t *src = segment + source + 4;
+            uint8_t *frame_px = native->indices + (size_t)frame * 32u * 32u;
+            memcpy(frame_px, src, 32u * 32u);
+            if (layer) {
+                bool visible = false;
+                for (int i = 0; i < 32 * 32; ++i)
+                    if (frame_px[i]) { visible = true; break; }
+                if (visible) out->tile_overlays[layer - 1][cell] = (uint16_t)frame;
             }
-            if (layer && visible) out->tile_overlays[layer - 1][cell] = (uint16_t)frame;
         }
     }
     return true;

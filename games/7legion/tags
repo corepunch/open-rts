@@ -47,7 +47,7 @@ G_CustomUITicker	games/7legion/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	
 G_DoLoadLevel	games/7legion/g_game.c	/^bool G_DoLoadLevel(const char *path, level_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * path,level_t * out)
 G_InitCustomUI	games/7legion/g_game.c	/^void *G_InitCustomUI(app_t *app, const char *data_root) {$/;"	f	typeref:typename:void *	signature:(app_t * app,const char * data_root)
 G_InitGame	games/7legion/g_game.c	/^void G_InitGame(void) {$/;"	f	typeref:typename:void	signature:(void)
-G_LoadMenuSprite	games/7legion/g_game.c	/^bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const char * name,spritesheet_t * out)
+G_LoadMenuSprite	games/7legion/g_game.c	/^bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * root,const char * name,spritesheet_t * out)
 G_MissionTicker	games/7legion/g_game.c	/^void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,$/;"	f	typeref:typename:void	signature:(level_t * map,mobj_t * const * mobjs,int * count,hudtext_t * hud,float dt)
 G_ModelAIProduction	games/7legion/p_prod.c	/^void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {$/;"	f	typeref:typename:void	signature:(RtsGameModel * model,int elapsed_ms)
 G_ModelActorIdForProduct	games/7legion/p_prod.c	/^uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {$/;"	f	typeref:typename:uint16_t	signature:(const StaticProductDefinition * product)
@@ -67,7 +67,7 @@ G_PlayerBuildProduct	games/7legion/p_prod.c	/^bool G_PlayerBuildProduct(mobj_t *
 G_ShutdownCustomUI	games/7legion/g_game.c	/^void G_ShutdownCustomUI(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
 G_UpdateProduction	games/7legion/g_game.c	/^bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,$/;"	f	typeref:typename:bool	signature:(void * ui,level_t * map,mobj_t * const * units,int * unit_count,float dt)
 G_WorldViewportWidth	games/7legion/g_game.c	/^int G_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
-HU_LoadFont	games/7legion/g_game.c	/^bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,bitmapfont_t * font)
+HU_LoadFont	games/7legion/g_game.c	/^bool HU_LoadFont(const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(const char * root,bitmapfont_t * font)
 MOBJ_GAME_FIELDS	games/7legion/mobj_data.h	/^#define MOBJ_GAME_FIELDS$/;"	d
 MT_MOBILE_BASE	games/7legion/info.h	/^    MT_MOBILE_BASE,$/;"	e	enum:__anon8e5a0b470303
 MT_NULL	games/7legion/info.h	/^    MT_NULL,$/;"	e	enum:__anon8e5a0b470303
@@ -87,7 +87,7 @@ NUMMOBJTYPES	games/7legion/info.h	/^    NUMMOBJTYPES,$/;"	e	enum:__anon8e5a0b470
 NUMSPRITES	games/7legion/info.h	/^    NUMSPRITES$/;"	e	enum:__anon8e5a0b470103
 NUMSTATES	games/7legion/info.h	/^    NUMSTATES$/;"	e	enum:__anon8e5a0b470203
 P_LoadThings	games/7legion/g_game.c	/^int P_LoadThings(const char *path) {$/;"	f	typeref:typename:int	signature:(const char * path)
-R_InitSprites	games/7legion/g_game.c	/^bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
+R_InitSprites	games/7legion/g_game.c	/^bool R_InitSprites(const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(const char * root,const level_t * map,mobj_t * const * mobjs,int count,spritecache_t * cache)
 SL_PRODUCTS	games/7legion/p_prod.c	/^static const StaticProductDefinition SL_PRODUCTS[] = {$/;"	v	typeref:typename:const StaticProductDefinition[]	file:
 SPR_LTROOP	games/7legion/info.h	/^    SPR_LTROOP,$/;"	e	enum:__anon8e5a0b470103
 SPR_MOBBASE	games/7legion/info.h	/^    SPR_MOBBASE,$/;"	e	enum:__anon8e5a0b470103
@@ -113,7 +113,7 @@ SlMissionConfig	games/7legion/w_map.c	/^} SlMissionConfig;$/;"	t	typeref:struct:
 TILE_H	games/7legion/sl_types.h	/^#define TILE_H /;"	d
 TILE_W	games/7legion/sl_types.h	/^#define TILE_W /;"	d
 UI	games/7legion/g_game.c	/^static const uidefinition_t UI = {$/;"	v	typeref:typename:const uidefinition_t	file:
-W_LoadAssets	games/7legion/g_game.c	/^bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
+W_LoadAssets	games/7legion/g_game.c	/^bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,$/;"	f	typeref:typename:bool	signature:(const char * root,const level_t * map,const char * sprite,tileset_t * tileset,spritesheet_t * unit_sprite)
 _DEFAULT_SOURCE	games/7legion/p_prod.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/7legion/w_bim.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
 _DEFAULT_SOURCE	games/7legion/w_map.c	/^#define _DEFAULT_SOURCE$/;"	d	file:
@@ -215,8 +215,8 @@ sl_ai_goals	games/7legion/p_prod.c	/^static const productiongoal_t sl_ai_goals[]
 sl_bim_frame_info	games/7legion/w_bim.c	/^static bool sl_bim_frame_info(const uint8_t *data, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * data,size_t size,uint32_t offset,uint32_t end,SlBimFrameInfo * out)
 sl_cache_bim_sprite	games/7legion/w_bim.c	/^static bool sl_cache_bim_sprite(spritecache_t *cache,$/;"	f	typeref:typename:bool	file:	signature:(spritecache_t * cache,const char * data_root,const char * sprite_name,const uint32_t palette[256])
 sl_expand_vclz	games/7legion/w_bim.c	/^static bool sl_expand_vclz(const uint8_t *source, size_t source_size,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * source,size_t source_size,uint8_t ** out_data,size_t * out_size)
-sl_load_assets	games/7legion/g_game.c	/^bool sl_load_assets(SDL_Renderer *renderer, const char *data_root, const level_t *map,$/;"	p	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const char * data_root,const level_t * map,const char * sprite_name,tileset_t * tileset,spritesheet_t * unit_sprite)
-sl_load_assets	games/7legion/w_bim.c	/^bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * data_root,const level_t * map,const char * sprite_name,tileset_t * tileset,spritesheet_t * unit_sprite)
+sl_load_assets	games/7legion/g_game.c	/^bool sl_load_assets(const char *data_root, const level_t *map,$/;"	p	typeref:typename:bool	file:	signature:(const char * data_root,const level_t * map,const char * sprite_name,tileset_t * tileset,spritesheet_t * unit_sprite)
+sl_load_assets	games/7legion/w_bim.c	/^bool sl_load_assets(const char *data_root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(const char * data_root,const level_t * map,const char * sprite_name,tileset_t * tileset,spritesheet_t * unit_sprite)
 sl_load_bim_sprite	games/7legion/w_bim.c	/^static bool sl_load_bim_sprite(const char *path,$/;"	f	typeref:typename:bool	file:	signature:(const char * path,const uint32_t palette[256],spritesheet_t * out)
 sl_load_bim_tileset	games/7legion/w_bim.c	/^static bool sl_load_bim_tileset(const char *path,$/;"	f	typeref:typename:bool	file:	signature:(const char * path,const uint32_t palette[256],tileset_t * out)
 sl_load_col_palette	games/7legion/w_bim.c	/^static bool sl_load_col_palette(const char *path, uint32_t palette[256]) {$/;"	f	typeref:typename:bool	file:	signature:(const char * path,uint32_t palette[256])
@@ -227,8 +227,8 @@ sl_load_initial_units::__anon6cc5752a0208::off	games/7legion/w_map.c	/^    stati
 sl_load_initial_units::__anon6cc5752a0208::type	games/7legion/w_map.c	/^    static const struct { uint16_t type; ivec2_t off; } enemy_units[] = {$/;"	m	struct:sl_load_initial_units::__anon6cc5752a0208	typeref:typename:uint16_t	file:
 sl_load_map	games/7legion/g_game.c	/^bool sl_load_map(const char *map_path, level_t *out);$/;"	p	typeref:typename:bool	file:	signature:(const char * map_path,level_t * out)
 sl_load_map	games/7legion/w_map.c	/^bool sl_load_map(const char *map_path, level_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * map_path,level_t * out)
-sl_load_runtime_sprites	games/7legion/g_game.c	/^bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,$/;"	p	typeref:typename:bool	file:	signature:(SDL_Renderer * renderer,const char * data_root,const level_t * map,mobj_t * const * units,int unit_count,spritecache_t * cache)
-sl_load_runtime_sprites	games/7legion/w_bim.c	/^bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,$/;"	f	typeref:typename:bool	signature:(SDL_Renderer * renderer,const char * data_root,const level_t * map,mobj_t * const * units,int unit_count,spritecache_t * cache)
+sl_load_runtime_sprites	games/7legion/g_game.c	/^bool sl_load_runtime_sprites(const char *data_root, const level_t *map,$/;"	p	typeref:typename:bool	file:	signature:(const char * data_root,const level_t * map,mobj_t * const * units,int unit_count,spritecache_t * cache)
+sl_load_runtime_sprites	games/7legion/w_bim.c	/^bool sl_load_runtime_sprites(const char *data_root, const level_t *map,$/;"	f	typeref:typename:bool	signature:(const char * data_root,const level_t * map,mobj_t * const * units,int unit_count,spritecache_t * cache)
 sl_palette_for_tileset	games/7legion/w_bim.c	/^static const char *sl_palette_for_tileset(const level_t *map) {$/;"	f	typeref:typename:const char *	file:	signature:(const level_t * map)
 sl_sibling_path	games/7legion/w_map.c	/^static bool sl_sibling_path(char *out, size_t out_size,$/;"	f	typeref:typename:bool	file:	signature:(char * out,size_t out_size,const char * path,const char * name)
 sl_tileset_for_terrain	games/7legion/w_map.c	/^static const char *sl_tileset_for_terrain(int terrain) {$/;"	f	typeref:typename:const char *	file:	signature:(int terrain)

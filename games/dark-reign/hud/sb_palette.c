@@ -70,7 +70,9 @@ static int product_list(sb_state_t *st, int *items) {
 
 static void draw_image(sb_state_t *st, const app_t *app, int image, irect_t src, irect_t dst) {
     dst = scaled(app, dst);
-    SDL_RenderCopy(app->renderer, st->textures[image], &src, &dst);
+    /* BUISOBOX is color-keyed at index 0. The other chrome sheets are opaque. */
+    uint32_t flags = image == 8 ? 0 : V_OPAQUE;
+    R_DrawSprite(&st->images[image], 0, -1, &src, &dst, flags, 16);
 }
 
 static void tooltip(const app_t *app, ivec2_t mouse, const char *title,
@@ -86,10 +88,8 @@ static void tooltip(const app_t *app, ivec2_t mouse, const char *title,
     if (box.x < 0) box.x = 0;
     if (box.y + box.h > gameui->logical_height) box.y = gameui->logical_height - box.h;
     irect_t rect = scaled(app, box);
-    SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
-    SDL_RenderFillRect(app->renderer, &rect);
-    SDL_SetRenderDrawColor(app->renderer, 220, 220, 205, 255);
-    SDL_RenderDrawRect(app->renderer, &rect);
+    V_FillRect(rect, V_NearestIndex(0xff000000u));
+    V_DrawRectOutline(rect, V_NearestIndex(0xffdcdccdu));
     DR_DrawText(app, (ivec2_t){box.x + 6, box.y + 7}, title, box.w - 12);
     if (p) DR_DrawText(app, (ivec2_t){box.x + 6, box.y + 24}, text, box.w - 12);
 }
@@ -317,8 +317,7 @@ void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
     int pages = count > 0 ? (count + capacity - 1) / capacity : 1;
     if (st->production_page >= pages) st->production_page = 0;
     irect_t grid = scaled(app, gameui->command_grid);
-    SDL_SetRenderDrawColor(app->renderer, 0,0,0,255);
-    SDL_RenderFillRect(app->renderer, &grid);
+    V_FillRect(grid, V_NearestIndex(0xff000000u));
     for (int slot = 0; slot < capacity; ++slot) {
         int index = st->production_page * capacity + slot;
         irect_t cell = {448 + slot % 3 * 64, 64 + slot / 3 * 50, 64, 50};
@@ -330,13 +329,11 @@ void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
             const spritesheet_t *sprite = &st->product_icons[item];
             irect_t src = sprite->cells[0].rect;
             irect_t dst = scaled(app, (irect_t){cell.x+9,cell.y+2,src.w,src.h});
-            R_DrawSprite(app->renderer, sprite, 0, enabled(p, producer) ? -1 : 1,
-                         &src, &dst, SDL_FLIP_NONE, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
+            R_DrawSprite(sprite, 0, enabled(p, producer) ? -1 : 1, &src, &dst, 0, 16);
             const production_t *q = producer ? producer->production : NULL;
             if (q && q->product_type == p->product_type && q->product_class == p->product_class) {
                 char amount[16];
                 snprintf(amount, sizeof(amount), "%d", q->queue_count);
-                SDL_SetRenderDrawColor(app->renderer, 255,255,255,255);
                 DR_DrawText(app, (ivec2_t){cell.x+4,cell.y+4}, amount, cell.w-8);
             }
         }
@@ -348,9 +345,7 @@ void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
     draw_image(st, app, 10, (irect_t){0,0,22,22}, (irect_t){470,316,22,22});
     draw_image(st, app, 12, (irect_t){213,0,71,22}, (irect_t){496,316,71,22});
     draw_image(st, app, 12, (irect_t){0,0,71,22}, (irect_t){568,316,71,22});
-    SDL_SetRenderDrawColor(app->renderer, 150,70,40,255);
     DR_DrawText(app, (ivec2_t){507,323}, "Upgrade", 60);
-    SDL_SetRenderDrawColor(app->renderer, 220,165,65,255);
     DR_DrawText(app, (ivec2_t){586,323}, "Decoy", 48);
 overlays:
     if (hovered_product >= 0) {
@@ -360,12 +355,9 @@ overlays:
     else if (hovered_action >= 0) tooltip(app, mouse, gameui->actions[hovered_action].label, NULL, NULL);
     if (st->options_visible) {
         irect_t menu = menu_rect(), rect = scaled(app, menu);
-        SDL_SetRenderDrawColor(app->renderer, 12,18,22,255);
-        SDL_RenderFillRect(app->renderer, &rect);
-        SDL_SetRenderDrawColor(app->renderer, 230,230,230,255);
-        SDL_RenderDrawRect(app->renderer, &rect);
+        V_FillRect(rect, V_NearestIndex(0xff0c1216u));
+        V_DrawRectOutline(rect, V_NearestIndex(0xffe6e6e6u));
         DR_DrawText(app, (ivec2_t){menu.x+20,menu.y+25}, "RESUME GAME", menu.w-40);
         DR_DrawText(app, (ivec2_t){menu.x+20,menu.y+70}, "QUIT GAME", menu.w-40);
     }
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
 }

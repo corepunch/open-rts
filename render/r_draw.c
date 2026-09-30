@@ -14,28 +14,13 @@ static int app_cell_h(const app_t *app) {
     return app->cell.h > 0 ? app->cell.h : CELL_H;
 }
 
-static float viewport_scale_x(const app_t *app) {
-    int window_w = 0, window_h = 0;
-    int render_w = 0, render_h = 0;
-    if (!app || !app->window || !app->renderer) return 1.0f;
-    SDL_GetWindowSize(app->window, &window_w, &window_h);
-    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
-        window_w <= 0 || window_h <= 0 || render_w <= 0 || render_h <= 0) {
-        return 1.0f;
-    }
-    return (float)render_w / (float)window_w;
-}
-
-static float viewport_scale_y(const app_t *app) {
-    int window_w = 0, window_h = 0;
-    int render_w = 0, render_h = 0;
-    if (!app || !app->window || !app->renderer) return 1.0f;
-    SDL_GetWindowSize(app->window, &window_w, &window_h);
-    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
-        window_w <= 0 || window_h <= 0 || render_w <= 0 || render_h <= 0) {
-        return 1.0f;
-    }
-    return (float)render_h / (float)window_h;
+static void window_pixels(const app_t *app, int *w, int *h) {
+    *w = app && app->win.w > 0 ? app->win.w : SCREENWIDTH;
+    *h = app && app->win.h > 0 ? app->win.h : SCREENHEIGHT;
+    if (!app || !app->window) return;
+    int ww = 0, wh = 0;
+    SDL_GetWindowSize(app->window, &ww, &wh);
+    if (ww > 0 && wh > 0) { *w = ww; *h = wh; }
 }
 
 static int app_tile_w(const app_t *app, const tileset_t *tileset) {
@@ -116,45 +101,36 @@ static void screen_to_map_grid_point(const app_t *app, const level_t *map, int s
 }
 
 void R_RefreshViewport(app_t *app) {
-    if (!app || !app->window || !app->renderer) return;
-    int render_w = 0, render_h = 0;
-    if (SDL_GetRendererOutputSize(app->renderer, &render_w, &render_h) != 0 ||
-        render_w <= 0 || render_h <= 0) {
-        SDL_GetWindowSize(app->window, &render_w, &render_h);
-    }
-    if (render_w > 0) app->win.w = render_w;
-    if (render_h > 0) app->win.h = render_h;
+    (void)app;
 }
 
 void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry) {
-    float sx = viewport_scale_x(app);
-    float sy = viewport_scale_y(app);
-    if (rx) *rx = (int)lroundf((float)wx * sx);
-    if (ry) *ry = (int)lroundf((float)wy * sy);
+    int ww = 1, wh = 1;
+    window_pixels(app, &ww, &wh);
+    if (rx) *rx = wx * app->win.w / ww;
+    if (ry) *ry = wy * app->win.h / wh;
 }
 
 void R_WindowToRenderDelta(const app_t *app, int wx, int wy, float *rx, float *ry) {
-    float sx = viewport_scale_x(app);
-    float sy = viewport_scale_y(app);
-    if (rx) *rx = (float)wx * sx;
-    if (ry) *ry = (float)wy * sy;
+    int ww = 1, wh = 1;
+    window_pixels(app, &ww, &wh);
+    if (rx) *rx = (float)wx * (float)app->win.w / (float)ww;
+    if (ry) *ry = (float)wy * (float)app->win.h / (float)wh;
 }
 
-void R_DrawCell(app_t *app, int gx, int gy, SDL_Color color) {
+void R_DrawCell(app_t *app, int gx, int gy, uint32_t argb) {
     float sx, sy;
     R_GridToScreen(app, (float)gx, (float)gy, &sx, &sy);
-    SDL_SetRenderDrawColor(app->renderer, color.r, color.g, color.b, color.a);
     irect_t r = { (int)sx, (int)sy, app_cell_w(app), app_cell_h(app) };
-    SDL_RenderDrawRect(app->renderer, &r);
+    V_DrawRectOutline(r, V_NearestIndex(argb | 0xff000000u));
 }
 
 static void render_blocked_overlay(app_t *app, const level_t *map) {
     if (!app || !map || !map->blocked) return;
     int cell_w = app_cell_w(app);
     int cell_h = app_cell_h(app);
-    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
-    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    uint8_t fill = V_NearestIndex(0xffe62d28u);
+    uint8_t edge = V_NearestIndex(0xffffcd40u);
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             if (!map->blocked[L_Index(map, x, y)]) continue;
@@ -165,72 +141,68 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
                 continue;
             }
             irect_t r = { (int)sx, (int)sy, cell_w, cell_h };
-            SDL_SetRenderDrawColor(app->renderer, 230, 45, 40, 92);
-            SDL_RenderFillRect(app->renderer, &r);
-            SDL_SetRenderDrawColor(app->renderer, 255, 205, 64, 180);
-            SDL_RenderDrawRect(app->renderer, &r);
+            V_FillRect(r, fill);
+            V_DrawRectOutline(r, edge);
         }
     }
-    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
 static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int tile,
-                                   irect_t src_part, irect_t dst_part, uint8_t transforms) {
+                                   irect_t src_part, irect_t dst_part, uint8_t transforms,
+                                   uint32_t draw_flags) {
     tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
-    if (tile < 0 || tile >= tileset->count) return;
-    SDL_RendererFlip flip = SDL_FLIP_NONE;
-    if (transforms & MAP_TILE_TRANSFORM_FLIP_X)
-        flip = (SDL_RendererFlip)(flip | SDL_FLIP_HORIZONTAL);
-    if (transforms & MAP_TILE_TRANSFORM_FLIP_Y)
-        flip = (SDL_RendererFlip)(flip | SDL_FLIP_VERTICAL);
+    if (tile < 0 || tile >= tileset->count || !tileset->indices) return;
+    uint32_t flags = draw_flags;
+    if (transforms & MAP_TILE_TRANSFORM_FLIP_X) flags |= V_FLIP_X;
+    if (transforms & MAP_TILE_TRANSFORM_FLIP_Y) flags |= V_FLIP_Y;
     const tilepalettecycle_t *cycle = &tileset->palette_cycle;
-    bool live_palette = tileset->indices && cycle->tiles && cycle->count > 1 &&
-                        cycle->frame_ms && cycle->tiles[tile];
-    if (live_palette || !tileset->texture) {
-        if (!tileset->indices) return;
-        const uint32_t *palette = tileset->palette;
-        uint32_t colors[256];
-        if (live_palette) {
-            unsigned phase = (app->ticks_ms / cycle->frame_ms) % cycle->count;
-            memcpy(colors, palette, sizeof(colors));
-            for (int i = 0; i < cycle->count; ++i)
-                colors[cycle->indices[i]] = palette[cycle->indices[(i + phase) % cycle->count]];
-            palette = colors;
+    bool live_palette = cycle->tiles && cycle->count > 1 && cycle->frame_ms && cycle->tiles[tile];
+    uint8_t cycle_map[256];
+    const uint8_t *remap = NULL;
+    if (live_palette) {
+        unsigned phase = (app->ticks_ms / cycle->frame_ms) % (unsigned)cycle->count;
+        for (int i = 0; i < 256; ++i) cycle_map[i] = (uint8_t)i;
+        for (int i = 0; i < cycle->count; ++i)
+            cycle_map[cycle->indices[i]] = cycle->indices[(i + (int)phase) % cycle->count];
+        const uint8_t *to_screen = V_RemapPalette(tileset->palette);
+        if (to_screen) {
+            uint8_t folded[256];
+            for (int i = 0; i < 256; ++i) folded[i] = to_screen[cycle_map[i]];
+            memcpy(cycle_map, folded, sizeof(cycle_map));
         }
-        isize2_t size = {tileset->tile_w, tileset->tile_h};
-        const uint8_t *indices = tileset->indices + (size_t)tile * size.w * size.h;
-        R_DrawIndexed(app->renderer, indices, size, palette, &src_part, &dst_part,
-                       flip, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
-        return;
-    }
-    if (tileset->atlas_cols <= 0) return;
-    irect_t src = {
-        (tile % tileset->atlas_cols) * tileset->tile_w + src_part.x,
-        (tile / tileset->atlas_cols) * tileset->tile_h + src_part.y,
-        src_part.w,
-        src_part.h,
-    };
-    if (flip == SDL_FLIP_NONE) {
-        SDL_RenderCopy(app->renderer, tileset->texture, &src, &dst_part);
+        remap = cycle_map;
     } else {
-        SDL_RenderCopyEx(app->renderer, tileset->texture, &src, &dst_part, 0.0, NULL, flip);
+        remap = V_RemapPalette(tileset->palette);
     }
+    isize2_t size = {tileset->tile_w, tileset->tile_h};
+    const uint8_t *indices = tileset->indices + (size_t)tile * (size_t)size.w * (size_t)size.h;
+    if (src_part.x < 0 || src_part.y < 0 || src_part.w <= 0 || src_part.h <= 0 ||
+        src_part.x + src_part.w > size.w || src_part.y + src_part.h > size.h) return;
+    const uint8_t *source = indices + (size_t)src_part.y * (size_t)size.w + (size_t)src_part.x;
+    isize2_t part = {src_part.w, src_part.h};
+    if (dst_part.w == part.w && dst_part.h == part.h)
+        V_DrawBlock((ivec2_t){dst_part.x, dst_part.y}, source, part, size.w, remap, flags);
+    else
+        V_DrawBlockScaled(dst_part, source, part, size.w, remap, flags);
 }
 
 void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part) {
-    render_tile_at_flipped(app, tileset, tile, src_part, dst_part, 0);
+    render_tile_at_flipped(app, tileset, tile, src_part, dst_part, 0, 0);
 }
 
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
+    if (tileset) {
+        for (int i = 0; i < 256; ++i) {
+            if (!tileset->palette[i]) continue;
+            I_SetPalette(tileset->palette);
+            break;
+        }
+    }
     int cell_w = app_cell_w(app);
     int cell_h = app_cell_h(app);
     int tile_w = app_tile_w(app, tileset);
     int tile_h = app_tile_h(app, tileset);
     int draw_y_offset = tileset->draw_y_offset;
-    if (tileset->texture) {
-        SDL_SetTextureBlendMode(tileset->texture, SDL_BLENDMODE_BLEND);
-        SDL_SetTextureAlphaMod(tileset->texture, 255);
-    }
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
@@ -241,13 +213,8 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                     continue;
                 }
                 uint32_t color = map->cell_colors[L_Index(map, x, y)];
-                SDL_SetRenderDrawColor(app->renderer,
-                                       (uint8_t)(color >> 16),
-                                       (uint8_t)(color >> 8),
-                                       (uint8_t)color,
-                                       255);
                 irect_t dst = { (int)sx, (int)sy, cell_w, cell_h };
-                SDL_RenderFillRect(app->renderer, &dst);
+                V_FillRect(dst, V_NearestIndex(color | 0xff000000u));
                 continue;
             }
             if (sx < -tile_w || sy < -tile_h ||
@@ -267,7 +234,8 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
             uint8_t base_flip =
                 (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
                 map->tile_transforms[0] ? map->tile_transforms[0][idx] : 0;
-            render_tile_at_flipped(app, tileset, tile, src, dst, base_flip);
+            /* Ground tiles are opaque, including palette index 0. */
+            render_tile_at_flipped(app, tileset, tile, src, dst, base_flip, V_OPAQUE);
         }
     }
 
@@ -298,7 +266,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                     (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
                     map->tile_transforms[layer + 1] ?
                     map->tile_transforms[layer + 1][idx] : 0;
-                render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
+                render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip, 0);
             }
         }
     }
@@ -334,26 +302,21 @@ void R_DrawGridOverlay(app_t *app, const level_t *map) {
     R_MapToScreen(app, map, 0.0f, 0.0f, &left, &bottom);
     R_MapToScreen(app, map, (float)map->width, (float)map->height, &right, &top);
 
-    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
-    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
+    uint8_t grid = V_NearestIndex(0xffffffffu);
     for (int x = 0; x <= map->width; ++x) {
         float sx, unused;
         R_MapToScreen(app, map, (float)x, 0.0f, &sx, &unused);
         if (sx < 0.0f || sx > (float)app->win.w) continue;
-        SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
-        SDL_RenderDrawLine(app->renderer, (int)lroundf(sx), (int)lroundf(top),
-                          (int)lroundf(sx), (int)lroundf(bottom));
+        V_DrawLine((ivec2_t){(int)lroundf(sx), (int)lroundf(top)},
+                   (ivec2_t){(int)lroundf(sx), (int)lroundf(bottom)}, grid);
     }
     for (int y = 0; y <= map->height; ++y) {
         float unused, sy;
         R_MapToScreen(app, map, 0.0f, (float)y, &unused, &sy);
         if (sy < 0.0f || sy > (float)app->win.h) continue;
-        SDL_SetRenderDrawColor(app->renderer, 255, 255, 255, 255);
-        SDL_RenderDrawLine(app->renderer, (int)lroundf(left), (int)lroundf(sy),
-                          (int)lroundf(right), (int)lroundf(sy));
+        V_DrawLine((ivec2_t){(int)lroundf(left), (int)lroundf(sy)},
+                   (ivec2_t){(int)lroundf(right), (int)lroundf(sy)}, grid);
     }
-    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
 const spritesheet_t *R_CacheLookup(const spritecache_t *cache, const char *name) {
@@ -556,54 +519,11 @@ static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const
     return 0;
 }
 
-static uint8_t fin_intensity_color_mod(int intensity) {
-    if (intensity <= 0) intensity = 16;
-    return (uint8_t)clamp255((intensity * 255 + 8) / 16);
-}
-
-static SDL_Color sprite_color(int intensity) {
-    uint8_t value = fin_intensity_color_mod(intensity);
-    return (SDL_Color){ value, value, value, 255 };
-}
-
-static uint8_t nearest_palette_index(uint32_t rgba, const uint32_t palette[256]) {
-    int r = (int)((rgba >> 16) & 0xff);
-    int g = (int)((rgba >> 8) & 0xff);
-    int b = (int)(rgba & 0xff);
-    int best_index = 1;
-    int best_distance = INT32_MAX;
-    for (int i = 1; i < 256; ++i) {
-        int dr = r - (int)((palette[i] >> 16) & 0xff);
-        int dg = g - (int)((palette[i] >> 8) & 0xff);
-        int db = b - (int)(palette[i] & 0xff);
-        int distance = dr * dr + dg * dg + db * db;
-        if (distance < best_distance) {
-            best_distance = distance;
-            best_index = i;
-            if (distance == 0) break;
-        }
-    }
-    return (uint8_t)best_index;
-}
-
-static uint8_t cached_palette_index(uint32_t rgba, const uint32_t palette[256],
-                                    uint32_t matches[4096]) {
-    uint32_t rgb = rgba & 0x00ffffffu;
-    uint32_t *match = &matches[(rgb * 2654435761u) >> 20];
-    uint8_t index = (uint8_t)*match;
-    if (!index || (*match >> 8) != rgb) {
-        index = nearest_palette_index(rgb, palette);
-        *match = (rgb << 8) | index;
-    }
-    return index;
-}
-
 /* DC.EXE 0x45c7b0/0x45cc04 project the source silhouette; 0x45ba5a/
- * 0x463bc0 repeat rows using an 8-bit accumulator and remap the destination.
- * Keep the indexed source image as the owner, like Doom's colormap drawing. */
+ * 0x463bc0 repeat rows using an 8-bit accumulator and remap the destination. */
 bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t ground_dst, uint32_t flags) {
-    if (!app || !sprite || !sprite->shadowmap || !sprite->lumps ||
+    if (!app || !sprite || !sprite->shadowmap || !sprite->lumps || !screens[0].pixels ||
         frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
         return false;
     irect_t source = sprite->cells[frame].rect;
@@ -613,36 +533,24 @@ bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
     int top = bottom - height;
     int shear = (bottom < height ? bottom : height) >> 1;
     bool flip = (flags & RTS_FRAME_FLIP_X) != 0;
-    /* The mirrored native span starts at X+width and writes backwards. */
     int left = ground_dst.x - shear + (flip ? 1 : 0);
     int source_y = top < 0 ? -top * 256 / 296 : 0;
     int rows = top < 0 ? bottom : height;
     if (top < 0) top = 0;
-    irect_t bounds = { left, top, source.w + height / 2, rows };
-    irect_t window = { 0, 0, app->win.w, app->win.h }, clip;
-    if (!SDL_IntersectRect(&bounds, &window, &clip)) return true;
-    size_t count = (size_t)clip.w * clip.h;
-    uint32_t *pixels = malloc(count * sizeof(*pixels));
-    if (!pixels) return false;
-    if (SDL_RenderReadPixels(app->renderer, &clip, SDL_PIXELFORMAT_ARGB8888,
-                             pixels, clip.w * (int)sizeof(*pixels)) != 0) {
-        free(pixels);
-        return false;
-    }
-    uint32_t palette_matches[4096] = {0};
+    const uint8_t *indices = sprite->lumps[frame].indices;
     unsigned stretch = 0;
     bool repeated = false;
-    for (int row = 0; row < rows && top + row < clip.y + clip.h && source_y < source.h; ++row) {
+    for (int row = 0; row < rows && source_y < source.h; ++row) {
         int y = top + row;
         int x_start = left + row / 2;
-        for (int x = 0; x < source.w; ++x) {
-            int dst_x = x_start + (flip ? source.w - 1 - x : x);
-            if (dst_x < clip.x || dst_x >= clip.x + clip.w || y < clip.y ||
-                !sprite->lumps[frame].indices[(size_t)source_y * source.w + x]) continue;
-            uint32_t *pixel = &pixels[(size_t)(y - clip.y) * clip.w + dst_x - clip.x];
-            uint8_t index = (*pixel & 0x00ffffffu) == (sprite->palette[0] & 0x00ffffffu) ? 0 :
-                cached_palette_index(*pixel, sprite->palette, palette_matches);
-            *pixel = sprite->palette[sprite->shadowmap[index]] | 0xff000000u;
+        if (y >= 0 && y < screens[0].h) {
+            uint8_t *dst = screens[0].pixels + (size_t)y * (size_t)screens[0].w;
+            for (int x = 0; x < source.w; ++x) {
+                int dst_x = x_start + (flip ? source.w - 1 - x : x);
+                if (dst_x < 0 || dst_x >= screens[0].w) continue;
+                if (!indices[(size_t)source_y * (size_t)source.w + (size_t)x]) continue;
+                dst[dst_x] = sprite->shadowmap[dst[dst_x]];
+            }
         }
         if (!repeated) {
             stretch += 40;
@@ -653,66 +561,78 @@ bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
         repeated = false;
         ++source_y;
     }
-    SDL_Texture *composite = I_CreateTexture(app->renderer, pixels, clip.w, clip.h, false);
-    free(pixels);
-    if (!composite) return false;
-    SDL_RenderCopy(app->renderer, composite, NULL, &clip);
-    SDL_DestroyTexture(composite);
     return true;
 }
 
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t dst, uint32_t flags, int selector) {
-    if (!app || !sprite || !sprite->indexed || !sprite->indexed_blend_table ||
+    (void)app;
+    if (!sprite || !sprite->indexed || !sprite->indexed_blend_table ||
         selector != sprite->indexed_blend_selector || !sprite->lumps ||
         frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
         return false;
-
-    irect_t clip = dst;
-    if (clip.x < 0) { clip.w += clip.x; clip.x = 0; }
-    if (clip.y < 0) { clip.h += clip.y; clip.y = 0; }
-    if (clip.x + clip.w > app->win.w) clip.w = app->win.w - clip.x;
-    if (clip.y + clip.h > app->win.h) clip.h = app->win.h - clip.y;
-    if (clip.w <= 0 || clip.h <= 0) return true;
-
-    size_t pixel_count = (size_t)clip.w * (size_t)clip.h;
-    uint32_t *pixels = malloc(pixel_count * sizeof(*pixels));
-    if (!pixels) return false;
-    SDL_Rect read_rect = { clip.x, clip.y, clip.w, clip.h };
-    if (SDL_RenderReadPixels(app->renderer, &read_rect, SDL_PIXELFORMAT_ARGB8888,
-                             pixels, clip.w * (int)sizeof(*pixels)) != 0) {
-        free(pixels);
-        return false;
-    }
-
-    /* Keep exact RGB matches for this palette/draw. The low byte holds a
-     * nonzero palette index, so zero marks an empty slot. Hash collisions
-     * only cause another search; they never approximate the color. */
-    uint32_t palette_matches[4096] = {0};
     irect_t source = sprite->cells[frame].rect;
-    for (int y = 0; y < clip.h; ++y) {
-        int source_y = clip.y - dst.y + y;
-        for (int x = 0; x < clip.w; ++x) {
-            int local_x = clip.x - dst.x + x;
-            if ((flags & RTS_FRAME_FLIP_X) != 0) local_x = source.w - 1 - local_x;
-            uint8_t source_index = sprite->lumps[frame].indices[
-                (size_t)source_y * (size_t)source.w + (size_t)local_x];
-            if (source_index == 0) continue;
-            size_t pixel = (size_t)y * (size_t)clip.w + (size_t)x;
-            uint8_t destination_index = cached_palette_index(
-                pixels[pixel], sprite->palette, palette_matches);
-            uint8_t result_index = sprite->indexed_blend_table[
-                ((size_t)source_index << 8) | destination_index];
-            pixels[pixel] = sprite->palette[result_index];
+    if (source.w <= 0 || source.h <= 0) return false;
+    uint32_t draw_flags = (flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
+    V_DrawBlockTranslucent((ivec2_t){dst.x, dst.y}, sprite->lumps[frame].indices,
+                           (isize2_t){source.w, source.h}, source.w,
+                           sprite->indexed_blend_table, draw_flags);
+    return true;
+}
+
+/* FIN layer 3 is SDL_BLENDMODE_ADD of a color-modulated source. The table is
+ * dst = nearest(src * rgb/255 * alpha/255 + dst). Built once per palette. */
+static uint8_t *additive_table(const spritesheet_t *sprite, const uint8_t *team, int intensity) {
+    static struct {
+        const uint32_t *palette;
+        const uint8_t *team;
+        int intensity;
+        uint32_t screen_hash;
+        uint8_t table[65536];
+        bool used;
+    } cache[4];
+    if (intensity <= 0 || intensity > 16) intensity = 16;
+    uint32_t screen_hash = 2166136261u;
+    for (int i = 0; i < 256; ++i) {
+        screen_hash ^= vpalette[i];
+        screen_hash *= 16777619u;
+    }
+    for (int i = 0; i < 4; ++i)
+        if (cache[i].used && cache[i].palette == sprite->source_palette &&
+            cache[i].team == team && cache[i].intensity == intensity &&
+            cache[i].screen_hash == screen_hash)
+            return cache[i].table;
+    int slot = 0;
+    for (int i = 0; i < 4; ++i) if (!cache[i].used) { slot = i; break; }
+    int factor = (intensity * 255 + 8) / 16;
+    int cr = factor;
+    int cg = (factor * 236 + 127) / 255;
+    int cb = (factor * 72 + 127) / 255;
+    int alpha = 230;
+    uint8_t *table = cache[slot].table;
+    for (int src = 0; src < 256; ++src) {
+        uint8_t mapped = team ? team[src] : (uint8_t)src;
+        uint32_t color = sprite->source_palette[mapped];
+        int sr = ((int)((color >> 16) & 255) * cr / 255) * alpha / 255;
+        int sg = ((int)((color >> 8) & 255) * cg / 255) * alpha / 255;
+        int sb = ((int)(color & 255) * cb / 255) * alpha / 255;
+        for (int dst = 0; dst < 256; ++dst) {
+            int r = sr + (int)((vpalette[dst] >> 16) & 255);
+            int g = sg + (int)((vpalette[dst] >> 8) & 255);
+            int b = sb + (int)(vpalette[dst] & 255);
+            if (r > 255) r = 255;
+            if (g > 255) g = 255;
+            if (b > 255) b = 255;
+            table[(src << 8) | dst] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) |
+                                                     ((uint32_t)g << 8) | (uint32_t)b);
         }
     }
-
-    SDL_Texture *composite = I_CreateTexture(app->renderer, pixels, clip.w, clip.h, false);
-    free(pixels);
-    if (!composite) return false;
-    SDL_RenderCopy(app->renderer, composite, NULL, &read_rect);
-    SDL_DestroyTexture(composite);
-    return true;
+    cache[slot].palette = sprite->source_palette;
+    cache[slot].team = team;
+    cache[slot].intensity = intensity;
+    cache[slot].screen_hash = screen_hash;
+    cache[slot].used = true;
+    return table;
 }
 
 static SDL_Point sprite_frame_raw_displacement(const spritesheet_t *sprite, int frame);
@@ -799,9 +719,8 @@ static void render_decoration_sprite(app_t *app, const level_t *map,
         return;
     }
     if (R_RenderIndexedBlend(app, sprite, frame, dst, render_flags, render_selector)) return;
-    SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    R_DrawSprite(app->renderer, sprite, frame, dec->render_remap, NULL, &dst,
-                 flip, sprite_color(16), SDL_BLENDMODE_BLEND);
+    uint32_t flip = (render_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
+    R_DrawSprite(sprite, frame, dec->render_remap, NULL, &dst, flip, 16);
 }
 
 static void render_decoration(app_t *app, const level_t *map,
@@ -1019,16 +938,16 @@ static int selection_health_bucket(const mobj_t *u) {
     return 0;
 }
 
-static SDL_Color selection_health_tint(int bucket) {
+static uint8_t selection_health_tint(int bucket) {
     switch (bucket) {
-    case 2: return (SDL_Color){ 255, 76, 54, 255 };
-    case 1: return (SDL_Color){ 255, 218, 62, 255 };
-    default: return (SDL_Color){ 83, 245, 92, 255 };
+    case 2: return V_NearestIndex(0xffff4c36u);
+    case 1: return V_NearestIndex(0xffffda3eu);
+    default: return V_NearestIndex(0xff53f55cu);
     }
 }
 
 static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *visible) {
-    if (!app || !app->renderer || !u || !visible || visible->w <= 0 || visible->h <= 0) return;
+    if (!app || !u || !visible || visible->w <= 0 || visible->h <= 0) return;
     irect_t box = {
         visible->x - 3,
         visible->y - 3,
@@ -1038,30 +957,26 @@ static void draw_selection_brackets(app_t *app, const mobj_t *u, const irect_t *
     int corner = box.w < box.h ? box.w / 4 : box.h / 4;
     if (corner < 4) corner = 4;
     if (corner > 9) corner = 9;
-    int right = box.x + box.w;
-    int bottom = box.y + box.h;
-
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(app->renderer, 236, 236, 220, 230);
-    SDL_RenderDrawLine(app->renderer, box.x, box.y, box.x + corner, box.y);
-    SDL_RenderDrawLine(app->renderer, box.x, box.y, box.x, box.y + corner);
-    SDL_RenderDrawLine(app->renderer, right - corner, box.y, right, box.y);
-    SDL_RenderDrawLine(app->renderer, right, box.y, right, box.y + corner);
-    SDL_RenderDrawLine(app->renderer, box.x, bottom - corner, box.x, bottom);
-    SDL_RenderDrawLine(app->renderer, box.x, bottom, box.x + corner, bottom);
-    SDL_RenderDrawLine(app->renderer, right, bottom - corner, right, bottom);
-    SDL_RenderDrawLine(app->renderer, right - corner, bottom, right, bottom);
+    int right = box.x + box.w - 1;
+    int bottom = box.y + box.h - 1;
+    uint8_t ink = V_NearestIndex(0xffececdc);
+    V_DrawLine((ivec2_t){box.x, box.y}, (ivec2_t){box.x + corner, box.y}, ink);
+    V_DrawLine((ivec2_t){box.x, box.y}, (ivec2_t){box.x, box.y + corner}, ink);
+    V_DrawLine((ivec2_t){right - corner, box.y}, (ivec2_t){right, box.y}, ink);
+    V_DrawLine((ivec2_t){right, box.y}, (ivec2_t){right, box.y + corner}, ink);
+    V_DrawLine((ivec2_t){box.x, bottom - corner}, (ivec2_t){box.x, bottom}, ink);
+    V_DrawLine((ivec2_t){box.x, bottom}, (ivec2_t){box.x + corner, bottom}, ink);
+    V_DrawLine((ivec2_t){right, bottom - corner}, (ivec2_t){right, bottom}, ink);
+    V_DrawLine((ivec2_t){right - corner, bottom}, (ivec2_t){right, bottom}, ink);
 
     int bar_w = box.w - 8;
     if (bar_w < 16) bar_w = 16;
     int bar_x = box.x + (box.w - bar_w) / 2;
     int bar_y = box.y - 5;
     int fill_w = u->max_hp > 0 ? (bar_w * u->hp) / u->max_hp : bar_w;
-    SDL_Color tint = selection_health_tint(selection_health_bucket(u));
-    SDL_SetRenderDrawColor(app->renderer, 20, 20, 18, 235);
-    SDL_RenderFillRect(app->renderer, &(irect_t){ bar_x - 1, bar_y - 1, bar_w + 2, 4 });
-    SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, 255);
-    SDL_RenderFillRect(app->renderer, &(irect_t){ bar_x, bar_y, fill_w, 2 });
+    uint8_t tint = selection_health_tint(selection_health_bucket(u));
+    V_FillRect((irect_t){ bar_x - 1, bar_y - 1, bar_w + 2, 4 }, V_NearestIndex(0xff141412u));
+    V_FillRect((irect_t){ bar_x, bar_y, fill_w, 2 }, tint);
 }
 
 static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *mobj,
@@ -1099,8 +1014,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         int shadow_frame = frame < shadow->numlumps ? frame : 0;
         irect_t shadow_rect = sprite_frame_rect(shadow, shadow_frame);
         irect_t shadow_dst = { dst.x, dst.y, shadow_rect.w, shadow_rect.h };
-        R_DrawSprite(app->renderer, shadow, shadow_frame, -1, NULL, &shadow_dst,
-                     SDL_FLIP_NONE, sprite_color(16), SDL_BLENDMODE_BLEND);
+        R_DrawSprite(shadow, shadow_frame, -1, NULL, &shadow_dst, 0, 16);
     }
     int logical_frame = game_info && game_info->states && game_info->state_count > 0 ?
         u->core.frame : 0;
@@ -1147,24 +1061,23 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                                      part_flags, part->layer)) continue;
             /* DC.EXE queues object team color separately from FIN remap,
              * which selects a clipping path, not a palette translation. */
-            SDL_Color color = sprite_color(part->intensity);
-            SDL_BlendMode blend = SDL_BLENDMODE_BLEND;
-            if (part->layer == 3) {
-                blend = SDL_BLENDMODE_ADD;
-                color.g = (uint8_t)((color.g * 236 + 127) / 255);
-                color.b = (uint8_t)((color.b * 72 + 127) / 255);
-                color.a = 230;
-            }
-            SDL_RendererFlip part_flip = (part_flags & RTS_FRAME_FLIP_X) ?
-                SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
             int translation = level.player_teams && u->team < 8 ? level.player_colors[u->team] : u->team;
-            R_DrawSprite(app->renderer, source, part->lump, translation, NULL,
-                         &part_dst, part_flip, color, blend);
+            uint32_t part_flip = (part_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
+            if (part->layer == 3) {
+                const uint8_t *team = R_PaletteMap(source, translation);
+                const uint8_t *table = additive_table(source, team, part->intensity);
+                V_DrawBlockTranslucent((ivec2_t){part_dst.x, part_dst.y},
+                                       source->lumps[part->lump].indices,
+                                       (isize2_t){source_rect.w, source_rect.h}, source_rect.w,
+                                       table, part_flip);
+                continue;
+            }
+            R_DrawSprite(source, part->lump, translation, NULL, &part_dst, part_flip, part->intensity);
         }
     } else {
-    SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    R_DrawSprite(app->renderer, sprite, frame, u->core.render_remap, NULL, &dst,
-                 flip, sprite_color(u->core.render_intensity), SDL_BLENDMODE_BLEND);
+    uint32_t flip = (render_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
+    R_DrawSprite(sprite, frame, u->core.render_remap, NULL, &dst,
+                 flip, u->core.render_intensity);
     }
     if (game_info && game_info->draw_overlays) return;
     bool selected = P_MobjIsSelected(u) && (u->traits & MF_SELECTABLE);
@@ -1173,9 +1086,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
             draw_selection_brackets(app, u, &visible);
             return;
         }
-        SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_NONE);
-        SDL_SetRenderDrawColor(app->renderer, 83, 245, 92, 255);
-        SDL_RenderDrawRect(app->renderer, &visible);
+        V_DrawRectOutline(visible, V_NearestIndex(0xff53f55cu));
     }
     if (u->max_hp > 0 && u->hp > 0 && (selected || u->hp < u->max_hp)) {
         int bar_w = visible.w;
@@ -1185,11 +1096,8 @@ static void render_unit_sprite(app_t *app, const level_t *map,
         int hp = u->hp < u->max_hp ? u->hp : u->max_hp;
         irect_t back = { bx - 1, by - 1, bar_w + 2, bar_h + 2 };
         irect_t fill = { bx, by, (int)((int64_t)bar_w * hp / u->max_hp), bar_h };
-        SDL_SetRenderDrawColor(app->renderer, 20, 20, 18, 255);
-        SDL_RenderFillRect(app->renderer, &back);
-        SDL_Color tint = selection_health_tint(selection_health_bucket(u));
-        SDL_SetRenderDrawColor(app->renderer, tint.r, tint.g, tint.b, tint.a);
-        SDL_RenderFillRect(app->renderer, &fill);
+        V_FillRect(back, V_NearestIndex(0xff141412u));
+        V_FillRect(fill, selection_health_tint(selection_health_bucket(u)));
     }
 }
 
@@ -1260,7 +1168,7 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
     uint8_t overlay_flip =
         (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
         map->tile_transforms[layer + 1] ? map->tile_transforms[layer + 1][idx] : 0;
-    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip);
+    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip, 0);
 }
 
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,
@@ -1393,12 +1301,11 @@ static void render_centered_mobj(app_t *app, const level_t *map, const mobj_t *e
                           dst.x, dst.y, dst.w, dst.h);
         return;
     }
-    SDL_RendererFlip flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ?
-        SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    uint32_t flip = (effect->core.render_flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;
     if (R_RenderIndexedBlend(app, sprite, frame, dst, effect->core.render_flags,
                              0)) return;
-    R_DrawSprite(app->renderer, sprite, frame, effect->core.render_remap, NULL, &dst,
-                 flip, sprite_color(effect->core.render_intensity), SDL_BLENDMODE_BLEND);
+    R_DrawSprite(sprite, frame, effect->core.render_remap, NULL, &dst,
+                 flip, effect->core.render_intensity);
 }
 
 static void order_selected_at(app_t *app, const level_t *map,
@@ -1582,7 +1489,6 @@ void R_FreeTileset(tileset_t *tileset) {
     if (tileset->indices && tileset->count > 0 && tileset->tile_w > 0 && tileset->tile_h > 0)
         R_DropIndexed(tileset->indices,
                       (size_t)tileset->count * (size_t)tileset->tile_w * (size_t)tileset->tile_h);
-    if (tileset->texture) SDL_DestroyTexture(tileset->texture);
     free(tileset->indices);
     free(tileset->palette_cycle.tiles);
     free(tileset->tile_lookup);
@@ -1595,7 +1501,6 @@ void R_FreeSprite(spritesheet_t *sprite) {
     for (int i = 0; i < sprite->numlumps; ++i) {
         spritelump_t *lump = &sprite->lumps[i];
         R_DropIndexed(lump->indices, 0);
-        if (lump->texture) SDL_DestroyTexture(lump->texture);
         free(lump->indices);
     }
     free_sprite_def(&sprite->spritedef);

@@ -78,7 +78,7 @@ static bool gif_decode_lzw(const uint8_t *data, size_t size, int min_code_size,
     return out_pos == out_size;
 }
 
-bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out) {
+bool W_LoadGIFTexture(const char *path, spritesheet_t *out) {
     memset(out, 0, sizeof(*out));
     blob_t blob;
     if (!W_ReadFile(path, &blob)) return false;
@@ -108,10 +108,9 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
     }
 
     int transparent_index = -1;
-    uint32_t *canvas = calloc((size_t)canvas_w * (size_t)canvas_h, sizeof(uint32_t));
+    uint8_t *canvas = malloc((size_t)canvas_w * (size_t)canvas_h);
     if (!canvas) { W_FreeFile(&blob); return false; }
-    uint32_t bg = bg_index >= 0 && bg_index < global_count ? global_palette[bg_index] : 0xff000000u;
-    for (int i = 0; i < canvas_w * canvas_h; ++i) canvas[i] = bg;
+    memset(canvas, (uint8_t)bg_index, (size_t)canvas_w * (size_t)canvas_h);
 
     bool decoded = false;
     while (pos < size && !decoded) {
@@ -192,7 +191,7 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
                         index == transparent_index || index >= palette_count) {
                         continue;
                     }
-                    canvas[dy * canvas_w + dx] = palette[index];
+                    canvas[dy * canvas_w + dx] = (uint8_t)index;
                 }
             }
         }
@@ -213,14 +212,8 @@ bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *o
         R_FreeSprite(out);
         return false;
     }
-    out->lumps[0].texture = I_CreateTexture(renderer, canvas, canvas_w, canvas_h, false);
-    if (!out->lumps[0].texture) {
-        free(canvas);
-        W_FreeFile(&blob);
-        R_FreeSprite(out);
-        return false;
-    }
-    free(canvas);
+    out->lumps[0].indices = canvas;
+    out->indexed = true;
     W_FreeFile(&blob);
     out->cells[0].rect = (irect_t){ 0, 0, canvas_w, canvas_h };
     out->cells[0].bounds = out->cells[0].rect;

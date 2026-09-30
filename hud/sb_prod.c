@@ -81,7 +81,7 @@ bool SB_ProductionResponder(sb_state_t *st, app_t *app, const SDL_Event *event) 
 }
 
 /* Five-column glyphs for labels and prices; no game font is required. */
-void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
+void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width, uint32_t argb) {
     static const uint8_t glyphs[][5] = {
         {0x3e,0x51,0x49,0x45,0x3e},{0,0x42,0x7f,0x40,0},{0x42,0x61,0x51,0x49,0x46},
         {0x21,0x41,0x45,0x4b,0x31},{0x18,0x14,0x12,0x7f,0x10},{0x27,0x45,0x45,0x45,0x39},
@@ -97,6 +97,7 @@ void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
         {0x1f,0x20,0x40,0x20,0x1f},{0x3f,0x40,0x38,0x40,0x3f},{0x63,0x14,8,0x14,0x63},
         {7,8,0x70,8,7},{0x61,0x51,0x49,0x45,0x43},
     };
+    uint8_t color = V_NearestIndex(argb);
     for (int n = 0; text[n] && n * 6 + 5 <= width; ++n) {
         int ch = toupper((unsigned char)text[n]);
         int glyph = ch >= '0' && ch <= '9' ? ch - '0' :
@@ -112,7 +113,7 @@ void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width) {
             for (int y = 0; y < 7; ++y)
                 if (bits[x] & (1u << y)) {
                     irect_t pixel = scaled_rect(app, (irect_t){point.x + n * 6 + x, point.y + y, 1, 1});
-                    SDL_RenderFillRect(app->renderer, &pixel);
+                    V_FillRect(pixel, color);
                 }
     }
 }
@@ -125,9 +126,9 @@ void SB_ProductionDrawer(sb_state_t *st, const app_t *app) {
     int count = production_list(st, producer, products);
     irect_t grid = gameui->command_grid;
     irect_t panel = scaled_rect(app, grid);
-    SDL_SetRenderDrawColor(app->renderer, 12, 18, 22, 255);
-    SDL_RenderFillRect(app->renderer, &panel);
+    V_FillRect(panel, V_NearestIndex(0xff0c1216u));
     int rows = grid.h / PRODUCT_ROWSIZE - 1;
+    uint8_t border = V_NearestIndex(0xff303e46u);
     for (int row = 0; row < rows; ++row) {
         int index = st->production_page * rows + row;
         if (index >= count) break;
@@ -135,25 +136,25 @@ void SB_ProductionDrawer(sb_state_t *st, const app_t *app) {
         bool enabled = product_enabled(producer, product);
         irect_t cell = {grid.x, grid.y + row * PRODUCT_ROWSIZE, grid.w, PRODUCT_ROWSIZE - 1};
         irect_t rect = scaled_rect(app, cell);
-        SDL_SetRenderDrawColor(app->renderer, 48, 62, 70, 255);
-        SDL_RenderDrawRect(app->renderer, &rect);
-        SDL_SetRenderDrawColor(app->renderer, enabled ? 220 : 100, enabled ? 230 : 100,
-                               enabled ? 220 : 100, 255);
-        SB_DrawText(app, (ivec2_t){cell.x + 5, cell.y + 5}, product->label, cell.w - 10);
+        V_DrawRectOutline(rect, border);
+        uint32_t ink = enabled ? 0xffdce6dcu : 0xff646464u;
+        SB_DrawText(app, (ivec2_t){cell.x + 5, cell.y + 5}, product->label, cell.w - 10, ink);
         char text[48];
         const production_t *queue = producer->production;
         int queued = queue && queue->product_type == product->product_type ? queue->queue_count : 0;
         snprintf(text, sizeof(text), "%d   QUEUED %d", product->cost, queued);
-        SB_DrawText(app, (ivec2_t){cell.x + 5, cell.y + 18}, text, cell.w - 10);
+        SB_DrawText(app, (ivec2_t){cell.x + 5, cell.y + 18}, text, cell.w - 10, ink);
+        if (gameui->draw_product_slot)
+            gameui->draw_product_slot(app, product->ui_id, rect);
     }
-    SDL_SetRenderDrawColor(app->renderer, 200, 210, 180, 255);
     if (!count) {
-        SB_DrawText(app, (ivec2_t){grid.x + 5, grid.y + 8}, "SELECT A PRODUCER", grid.w - 10);
+        SB_DrawText(app, (ivec2_t){grid.x + 5, grid.y + 8}, "SELECT A PRODUCER", grid.w - 10,
+                    0xffc8d2b4u);
     } else if (count > rows) {
         char text[40];
         snprintf(text, sizeof(text), "NEXT PAGE %d OF %d", st->production_page + 1,
                  (count + rows - 1) / rows);
         SB_DrawText(app, (ivec2_t){grid.x + 5, grid.y + rows * PRODUCT_ROWSIZE + 8},
-                         text, grid.w - 10);
+                         text, grid.w - 10, 0xffc8d2b4u);
     }
 }

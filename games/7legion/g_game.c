@@ -3,12 +3,11 @@
 #include "info.h"
 
 bool sl_load_map(const char *map_path, level_t *out);
-bool sl_load_assets(SDL_Renderer *renderer, const char *data_root, const level_t *map,
+bool sl_load_assets(const char *data_root, const level_t *map,
                     const char *sprite_name, tileset_t *tileset, spritesheet_t *unit_sprite);
 int  sl_load_initial_units(const char *map_path);
-bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                             const level_t *map, mobj_t *const *units, int unit_count,
-                             spritecache_t *cache);
+bool sl_load_runtime_sprites(const char *data_root, const level_t *map,
+                             mobj_t *const *units, int unit_count, spritecache_t *cache);
 
 /* mobj_t types defined in 7th Legion based on sprites present in data/7LEGION/GFX/ */
 static const mobjtype_t ACTOR_TYPES[] = {
@@ -90,14 +89,14 @@ static const uidefinition_t UI = {
     .world_viewport = { 0, 28, 480, 452 },
     .command_grid = { 480, 28, 160, 452 },
     .resources = {
-        [0] = { .text = { 630, 3 }, .color = { 230, 215, 80, 255 },
+        [0] = { .text = { 630, 3 }, .color = 0xffe6d750u,
                 .right_aligned = true },
     },
     .resource_count = 1,
     .status_panel = {
         .rect = { 480, 0, 160, 28 },
-        .fill = { 8, 11, 15, 255 },
-        .border = { 126, 132, 126, 255 },
+        .fill = 0xff080b0fu,
+        .border = 0xff7e847eu,
     },
 };
 
@@ -127,22 +126,22 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
     return sl_load_map(path, out);
 }
 
-bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
-                  const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
-    return sl_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,
+                  tileset_t *tileset, spritesheet_t *unit_sprite) {
+    return sl_load_assets(root, map, sprite, tileset, unit_sprite);
 }
 
 int P_LoadThings(const char *path) {
     return sl_load_initial_units(path);
 }
 
-bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                          mobj_t *const *mobjs, int count, spritecache_t *cache) {
-    return sl_load_runtime_sprites(renderer, root, map, mobjs, count, cache);
+bool R_InitSprites(const char *root, const level_t *map,
+                   mobj_t *const *mobjs, int count, spritecache_t *cache) {
+    return sl_load_runtime_sprites(root, map, mobjs, count, cache);
 }
 
-bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
-    (void)renderer; (void)root; (void)font;
+bool HU_LoadFont(const char *root, bitmapfont_t *font) {
+    (void)root; (void)font;
     return false;
 }
 
@@ -192,8 +191,7 @@ int G_WorldViewportWidth(const app_t *app) {
     return app->win.w > 0 ? app->win.w : 1;
 }
 
-bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
-                      const char *name, spritesheet_t *out) {
-    (void)renderer; (void)root; (void)name; (void)out;
+bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
+    (void)root; (void)name; (void)out;
     return false;
 }

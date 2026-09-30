@@ -5,7 +5,6 @@
 #include "facing.h"
 #include "m_vec.h"
 
-#include <SDL.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -50,7 +49,6 @@ typedef struct spritedef_s {
 } spritedef_t;
 
 typedef struct spritelump_s {
-    SDL_Texture *texture;
     uint8_t *indices;
 } spritelump_t;
 
@@ -86,7 +84,6 @@ typedef struct tilepalettecycle_s {
 } tilepalettecycle_t;
 
 typedef struct tileset_s {
-    SDL_Texture *texture;
     uint8_t *indices; /* Contiguous native tiles, one byte per pixel. */
     uint32_t palette[256];
     tilepalettecycle_t palette_cycle;

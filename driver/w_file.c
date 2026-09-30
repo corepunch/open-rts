@@ -2,6 +2,8 @@
 #include "p_local.h"
 #include <ctype.h>
 
+SDL_Renderer *r_renderer;
+
 static bool debug_effects_enabled(void) {
     static int enabled = -1;
     if (enabled < 0) {

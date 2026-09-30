@@ -6,10 +6,9 @@
 enum { MAX_LAYERS = 3 };
 
 typedef struct {
-    isize2_t atlas;
     int tile_count;
     uint32_t palette[256];
-    uint32_t *pixels;
+    uint8_t *indices; /* tile_count tiles, 32x32, contiguous */
 } KkndMapData;
 
 typedef struct {

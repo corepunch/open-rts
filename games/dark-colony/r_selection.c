@@ -56,8 +56,8 @@ static void draw_marker(const unitoverlaycontext_t *ctx, const spritesheet_t *cl
     if (frame < 0 || frame >= client->numlumps) return;
     irect_t cell = client->cells[frame].rect;
     irect_t dst = {position.x, position.y, cell.w, cell.h};
-    R_DrawSprite(ctx->app->renderer, client, frame, -1, NULL, &dst,
-                 SDL_FLIP_NONE, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
+    (void)ctx;
+    R_DrawSprite(client, frame, -1, NULL, &dst, 0, 16);
 }
 
 void DC_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {

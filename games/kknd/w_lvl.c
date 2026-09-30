@@ -19,7 +19,7 @@ bool range_ok(size_t size, uint32_t offset, size_t length) {
 void map_data_destroy(void *opaque) {
     KkndMapData *data = opaque;
     if (!data) return;
-    free(data->pixels);
+    free(data->indices);
     free(data);
 }
 

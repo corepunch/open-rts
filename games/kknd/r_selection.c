@@ -4,9 +4,8 @@
 
 /* OpenKrush core.yaml: infantry 16, vehicles/towers 32, buildings 64. */
 
-static void fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderFillRect(renderer, &rect);
+static void fill(irect_t rect, uint32_t argb) {
+    V_FillRect(rect, V_NearestIndex(argb));
 }
 
 void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {
@@ -20,20 +19,12 @@ void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {
     int progress = (int)((int64_t)(width - 4) * hp / unit->max_hp);
     ivec2_t origin = {ctx->bounds.x + (ctx->bounds.w - width) / 2,
                       ctx->bounds.y - height - 4};
-    SDL_Renderer *renderer = ctx->app->renderer;
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
     /* OpenKrush StatusBar.Render: gray frame, dark inset, two-tone fill.
      * Position above our current sprite bounds; no OpenRA mouse-bound offsets. */
-    fill(renderer, (irect_t){origin.x, origin.y, width, height + 4},
-         (SDL_Color){206,206,206,255});
-    fill(renderer, (irect_t){origin.x + 1, origin.y + 1, width - 2, height + 2},
-         (SDL_Color){16,16,16,255});
-    fill(renderer, (irect_t){origin.x + 2, origin.y + 2, width - 4, 1},
-         (SDL_Color){206,206,206,255});
-    fill(renderer, (irect_t){origin.x + 2, origin.y + 3, width - 4, height - 1},
-         (SDL_Color){49,49,49,255});
-    fill(renderer, (irect_t){origin.x + 2, origin.y + 2, progress, 1},
-         (SDL_Color){0,255,0,255});
-    fill(renderer, (irect_t){origin.x + 2, origin.y + 3, progress, height - 1},
-         (SDL_Color){0,181,0,255});
+    fill((irect_t){origin.x, origin.y, width, height + 4}, 0xffcececeu);
+    fill((irect_t){origin.x + 1, origin.y + 1, width - 2, height + 2}, 0xff101010u);
+    fill((irect_t){origin.x + 2, origin.y + 2, width - 4, 1}, 0xffcececeu);
+    fill((irect_t){origin.x + 2, origin.y + 3, width - 4, height - 1}, 0xff313131u);
+    fill((irect_t){origin.x + 2, origin.y + 2, progress, 1}, 0xff00ff00u);
+    fill((irect_t){origin.x + 2, origin.y + 3, progress, height - 1}, 0xff00b500u);
 }

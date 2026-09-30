@@ -305,10 +305,9 @@ static const char *sl_palette_for_tileset(const level_t *map) {
     if (map && strcmp(map->tileset_name, "GFX/TILES3.BIM") == 0) return "GFX/PAL4.COL";
     return "GFX/PAL1.COL";
 }
-bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
-                    const level_t *map,
-                    const char *sprite_name,
-                    tileset_t *tileset, spritesheet_t *unit_sprite) {
+bool sl_load_assets(const char *data_root, const level_t *map,
+                    const char *sprite_name, tileset_t *tileset,
+                    spritesheet_t *unit_sprite) {
     uint32_t palette[256];
     char col_path[512];
     snprintf(col_path, sizeof(col_path), "%s/%s", data_root, sl_palette_for_tileset(map));
@@ -324,9 +323,6 @@ bool sl_load_assets(SDL_Renderer *renderer, const char *data_root,
         fprintf(stderr, "7legion: failed to load tileset %s\n", til_path);
         return false;
     }
-    if (!R_UploadTileset(renderer, tileset))
-        fprintf(stderr, "warning: 7th Legion tileset atlas was not uploaded\n");
-
     char sprite_path[512];
     snprintf(sprite_path, sizeof(sprite_path), "%s/%s", data_root,
              sprite_name && sprite_name[0] ? sprite_name : "GFX/TROOP1W.BIM");
@@ -358,10 +354,9 @@ static bool sl_cache_bim_sprite(spritecache_t *cache,
     return true;
 }
 
-bool sl_load_runtime_sprites(SDL_Renderer *renderer, const char *data_root,
-                             const level_t *map, mobj_t *const *units, int unit_count,
+bool sl_load_runtime_sprites(const char *data_root, const level_t *map,
+                             mobj_t *const *units, int unit_count,
                              spritecache_t *cache) {
-    (void)renderer;
     uint32_t palette[256];
     char col_path[512];
     snprintf(col_path, sizeof(col_path), "%s/%s", data_root, sl_palette_for_tileset(map));

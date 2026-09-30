@@ -3,58 +3,11 @@
 
 #include <stdlib.h>
 
-SDL_Renderer *r_renderer;
-
-SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend) {
-    SDL_RendererInfo info = {0};
-    SDL_GetRendererInfo(renderer, &info);
-    /* Software static textures enable SDL RLE. Flipped atlas blits repeatedly
-     * unpack/repack the whole atlas; keep its surface uncompressed instead. */
-    int access = info.flags & SDL_RENDERER_SOFTWARE ?
-                 SDL_TEXTUREACCESS_STREAMING : SDL_TEXTUREACCESS_STATIC;
-    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, access, w, h);
-    if (!texture) {
-        fprintf(stderr, "SDL_CreateTexture %dx%d ARGB8888: %s\n", w, h, SDL_GetError());
-        return NULL;
-    }
-    if (SDL_UpdateTexture(texture, NULL, pixels, w * (int)sizeof(uint32_t)) != 0) {
-        fprintf(stderr, "SDL_UpdateTexture %dx%d ARGB8888: %s\n", w, h, SDL_GetError());
-        SDL_DestroyTexture(texture);
-        return NULL;
-    }
-    if (SDL_SetTextureBlendMode(texture, blend ? SDL_BLENDMODE_BLEND : SDL_BLENDMODE_NONE) != 0) {
-        fprintf(stderr, "SDL_SetTextureBlendMode: %s\n", SDL_GetError());
-    }
-    if (SDL_SetTextureScaleMode(texture, SDL_ScaleModeNearest) != 0) {
-        fprintf(stderr, "SDL_SetTextureScaleMode: %s\n", SDL_GetError());
-    }
-    return texture;
-}
-
-bool R_UploadTileset(SDL_Renderer *renderer, tileset_t *tileset) {
-    if (!tileset) return false;
-    if (tileset->texture) return true;
-    if (!tileset->indices || tileset->count <= 0 ||
-        tileset->tile_w <= 0 || tileset->tile_h <= 0) return false;
-    if (!renderer) return true;
-    if (tileset->atlas_cols <= 0)
-        tileset->atlas_cols = tileset->count < 32 ? tileset->count : 32;
-    int cols = tileset->atlas_cols;
-    int rows = (tileset->count + cols - 1) / cols;
-    int width = cols * tileset->tile_w;
-    int height = rows * tileset->tile_h;
-    uint32_t *pixels = calloc((size_t)width * (size_t)height, sizeof(*pixels));
-    if (!pixels) return false;
-    size_t tile_bytes = (size_t)tileset->tile_w * (size_t)tileset->tile_h;
-    for (int i = 0; i < tileset->count; ++i) {
-        V_BlitIndexed(pixels, width, height,
-                      (i % cols) * tileset->tile_w, (i / cols) * tileset->tile_h,
-                      tileset->indices + (size_t)i * tile_bytes,
-                      tileset->tile_w, tileset->tile_h, tileset->palette);
-    }
-    tileset->texture = I_CreateTexture(renderer, pixels, width, height, true);
-    free(pixels);
-    return tileset->texture != NULL;
+const uint8_t *R_PaletteMap(const spritesheet_t *sprite, int id) {
+    if (!sprite || id < 0) return NULL;
+    for (int i = 0; i < sprite->palette_map_count; ++i)
+        if (sprite->palette_maps[i].id == id) return sprite->palette_maps[i].indices;
+    return NULL;
 }
 
 bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
@@ -95,89 +48,13 @@ int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale) {
     return line_width > width ? line_width : width;
 }
 
-void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                         const char *text, SDL_Color color, int scale, int remap) {
-    if (!renderer || !font || !font->sprite.lumps || !text || scale <= 0) return;
-    int cx = x, cy = y;
-    for (const unsigned char *p = (const unsigned char *)text; *p; ++p) {
-        if (*p == '\r') continue;
-        if (*p == '\n') {
-            cx = x;
-            cy += (font->line_h > 0 ? font->line_h : font->glyph_size.h) * scale;
-            continue;
-        }
-        unsigned char ch = *p;
-        if (ch >= 128 || font->glyph_index[ch] < 0) ch = '?';
-        int frame = font->glyph_index[ch];
-        int advance = font->glyph_width[ch] > 0 ?
-            font->glyph_width[ch] : font->glyph_size.w;
-        if (frame >= 0 && frame < font->sprite.numlumps) {
-            const spritecell_t *cell = &font->sprite.cells[frame];
-            irect_t src = cell->rect;
-            if (!font->native_origin && cell->bounds.w > 0 && cell->bounds.h > 0) {
-                irect_t bounds = cell->bounds;
-                src.x += bounds.x;
-                src.y += bounds.y;
-                src.w = bounds.w;
-                src.h = bounds.h;
-            }
-            if (src.w > 0 && src.h > 0) {
-                int divisor = font->draw_divisor > 0 ? font->draw_divisor : 1;
-                irect_t dst = {
-                    cx + (font->native_origin ? cell->displacement.x * scale : 0),
-                    cy + (font->native_origin ? cell->displacement.y * scale : 0),
-                    (src.w * scale + divisor - 1) / divisor,
-                    (src.h * scale + divisor - 1) / divisor,
-                };
-                R_DrawSprite(renderer, &font->sprite, frame, remap, &src, &dst,
-                             SDL_FLIP_NONE, color, SDL_BLENDMODE_BLEND);
-            }
-        }
-        cx += advance * scale;
-    }
+void HU_DrawText(ivec2_t at, const bitmapfont_t *font, const char *text,
+                 const uint8_t *remap, int scale) {
+    V_DrawTextScaled(at, font, text, remap, scale);
 }
 
-void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                 const char *text, SDL_Color color, int scale) {
-    HU_DrawTextRemapped(renderer, font, x, y, text, color, scale, -1);
-}
-
-void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                                int max_w, const char *text, SDL_Color color, int scale) {
-    if (!renderer || !font || !text || max_w <= 0 || scale <= 0) return;
-    char line[256] = { 0 };
-    int line_len = 0;
-    int cy = y;
-    const char *word = text;
-    while (*word) {
-        while (*word == ' ' || *word == '\r' || *word == '\n') {
-            if (*word == '\n' && line_len > 0) {
-                HU_DrawText(renderer, font, x, cy, line, color, scale);
-                cy += (font->line_h > 0 ? font->line_h : font->glyph_size.h) * scale;
-                line[0] = '\0';
-                line_len = 0;
-            }
-            word++;
-        }
-        if (!*word) break;
-        const char *end = word;
-        while (*end && *end != ' ' && *end != '\r' && *end != '\n') end++;
-        size_t word_len = (size_t)(end - word);
-        if (word_len >= sizeof(line)) word_len = sizeof(line) - 1;
-        char candidate[256];
-        if (line_len > 0)
-            snprintf(candidate, sizeof(candidate), "%s %.*s", line, (int)word_len, word);
-        else
-            snprintf(candidate, sizeof(candidate), "%.*s", (int)word_len, word);
-        if (line_len > 0 && HU_TextWidth(font, candidate, scale) > max_w) {
-            HU_DrawText(renderer, font, x, cy, line, color, scale);
-            cy += (font->line_h > 0 ? font->line_h : font->glyph_size.h) * scale;
-            snprintf(line, sizeof(line), "%.*s", (int)word_len, word);
-        } else {
-            snprintf(line, sizeof(line), "%s", candidate);
-        }
-        line_len = (int)strlen(line);
-        word = end;
-    }
-    if (line_len > 0) HU_DrawText(renderer, font, x, cy, line, color, scale);
+void HU_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
+                        const uint8_t *remap, int scale) {
+    (void)scale;
+    V_DrawTextWrapped(box, font, text, remap, 0);
 }

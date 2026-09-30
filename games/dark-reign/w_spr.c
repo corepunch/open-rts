@@ -317,9 +317,7 @@ done:
     return ok;
 }
 
-bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
-                      const char *name, spritesheet_t *out) {
-    (void)renderer;
+bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
     char path[1024];
     uint32_t palette[256];
     M_PathJoin(path, sizeof(path), root, "graphics/BARREN.PAL");
@@ -379,10 +377,9 @@ static bool sprite_cache_load_dark_reign(spritecache_t *cache,
     return true;
 }
 
-bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const level_t *map, mobj_t *const *units,
-                                        int unit_count, spritecache_t *cache) {
-    (void)renderer;
+bool load_dark_reign_decoration_sprites(const char *data_root, const level_t *map,
+                                        mobj_t *const *units, int unit_count,
+                                        spritecache_t *cache) {
     uint32_t sprite_palette[256];
     uint32_t terrain_palette[256];
     char palette_path[1024];
@@ -417,9 +414,9 @@ bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data
 
 /* ── plugin asset loader ────────────────────────────────────────────────── */
 
-bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                   const level_t *map, const char *sprite_name,
-                                   tileset_t *tileset, spritesheet_t *unit_sprite) {
+bool plugin_load_assets(const char *data_root, const level_t *map,
+                        const char *sprite_name, tileset_t *tileset,
+                        spritesheet_t *unit_sprite) {
     uint32_t terrain_palette[256], sprite_palette[256];
     char palette_path[1024];
     snprintf(palette_path, sizeof(palette_path), "%s/graphics/%s.PAL", data_root, map->tileset_name);
@@ -438,8 +435,6 @@ bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
     }
     if (strcasecmp(map->tileset_name, "SNOW") != 0)
         add_water_animations(tileset);
-    if (!R_UploadTileset(renderer, tileset))
-        fprintf(stderr, "warning: Dark Reign tileset atlas was not uploaded\n");
 
     if (!load_unit_sprite(data_root, map->tileset_name, sprite_name, sprite_palette, unit_sprite)) {
         fprintf(stderr, "failed to load %s\n", sprite_name);

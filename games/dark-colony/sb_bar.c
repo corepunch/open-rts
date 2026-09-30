@@ -196,39 +196,36 @@ static irect_t product_button_rect(const app_t *app, const Sidebar *sidebar,
     return ui_rect(app, r.x, r.y, r.w, r.h);
 }
 
-static void dc_ui_set_draw(SDL_Renderer *renderer, SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+static void dc_ui_fill(irect_t rect, uint32_t argb) {
+    V_FillRect(rect, V_NearestIndex(argb));
 }
 
-static void dc_ui_fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
-    dc_ui_set_draw(renderer, color);
-    SDL_RenderFillRect(renderer, &rect);
+static void dc_ui_stroke(irect_t rect, uint32_t argb) {
+    V_DrawRectOutline(rect, V_NearestIndex(argb));
 }
 
-static void dc_ui_stroke(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {
-    dc_ui_set_draw(renderer, color);
-    SDL_RenderDrawRect(renderer, &rect);
+static void dc_ui_text(ivec2_t at, const bitmapfont_t *font, const char *text, uint32_t argb) {
+    uint8_t remap[256];
+    if (!font || !text) return;
+    V_ModulateRemap(remap, font->sprite.source_palette, argb);
+    HU_DrawText(at, font, text, remap, 1);
 }
 
-static void dc_ui_draw_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,
-                              irect_t box, int palette) {
-    if (!renderer || !sprite || !sprite->lumps || frame < 0 || frame >= sprite->numlumps) return;
+static void dc_ui_draw_sprite(const spritesheet_t *sprite, int frame, irect_t box, int palette) {
+    if (!sprite || !sprite->lumps || frame < 0 || frame >= sprite->numlumps) return;
     const spritecell_t *cell = &sprite->cells[frame];
     ivec2_t origin = ivec2_add((ivec2_t){box.x,box.y}, cell->displacement);
     irect_t dst = {origin.x,origin.y,cell->rect.w,cell->rect.h};
-    R_DrawSprite(renderer, sprite, frame, palette, &cell->rect, &dst, SDL_FLIP_NONE,
-                 (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_BLEND);
+    R_DrawSprite(sprite, frame, palette, &cell->rect, &dst, 0, 16);
 }
 
-static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *image,
-                                  irect_t src, irect_t dst) {
-    if (!renderer || !image || !image->lumps || image->numlumps <= 0 ||
+static void dc_ui_draw_image_part(const spritesheet_t *image, irect_t src, irect_t dst) {
+    if (!image || !image->lumps || image->numlumps <= 0 ||
         src.w <= 0 || src.h <= 0 ||
         dst.w <= 0 || dst.h <= 0) {
         return;
     }
-    R_DrawSprite(renderer, image, 0, -1, &src, &dst, SDL_FLIP_NONE,
-                 (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_BLEND);
+    R_DrawSprite(image, 0, -1, &src, &dst, 0, 16);
 }
 
 static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count) {
@@ -447,7 +444,7 @@ static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,
 static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
                                irect_t rect) {
     if (!app || !map || map->width <= 0 || map->height <= 0) return;
-    dc_ui_fill(app->renderer, rect, (SDL_Color){ 4, 8, 9, 255 });
+    dc_ui_fill(rect, 0xff040809u);
     irect_t clip = { rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6 };
     if (clip.w <= 0 || clip.h <= 0) return;
     for (int py = 0; py < clip.h; ++py) {
@@ -460,9 +457,11 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
             uint8_t g = (uint8_t)(color >> 8);
             uint8_t b = (uint8_t)color;
             int light = P_SightBrightness(map, (ivec2_t){gx, gy});
-            SDL_SetRenderDrawColor(app->renderer, r * light / 16, g * light / 16,
-                                  b * light / 16, 255);
-            SDL_RenderDrawPoint(app->renderer, clip.x + px, clip.y + py);
+            V_DrawPoint((ivec2_t){clip.x + px, clip.y + py},
+                        V_NearestIndex(0xff000000u |
+                                       ((uint32_t)(r * light / 16) << 16) |
+                                       ((uint32_t)(g * light / 16) << 8) |
+                                       (uint32_t)(b * light / 16)));
         }
     }
     for (int i = 0; i < map->resource_vent_count; ++i) {
@@ -471,8 +470,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
         int x = clip.x + vent->cell.x * clip.w / map->width;
         int y = clip.y + (int)(L_ScreenY(map, vent->cell.y) * clip.h / map->height);
         irect_t dot = { x - 1, y - 1, 3, 3 };
-        dc_ui_fill(app->renderer, dot, vent->active ?
-                   (SDL_Color){ 89, 226, 184, 255 } : (SDL_Color){ 68, 86, 84, 255 });
+        dc_ui_fill(dot, vent->active ? 0xff59e2b8u : 0xff445654u);
     }
     for (int i = 0; i < unit_count; ++i) {
         fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
@@ -482,8 +480,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
         int y = clip.y + (int)(L_ScreenYF(map, position.y) *
                                 (float)clip.h / (float)map->height);
         irect_t dot = { x - 1, y - 1, 2, 2 };
-        dc_ui_fill(app->renderer, dot, units[i]->owner == consoleplayer ?
-                   (SDL_Color){ 218, 214, 135, 255 } : (SDL_Color){ 204, 68, 72, 255 });
+        dc_ui_fill(dot, units[i]->owner == consoleplayer ? 0xffdad687u : 0xffcc4448u);
     }
     int world_right = app->win.w - 124;
     cell_t tl = R_ScreenToGrid(app, 0, 0);
@@ -495,17 +492,16 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
     if (vw < 3) vw = 3;
     if (vh < 3) vh = 3;
     irect_t view = { vx, vy, vw, vh };
-    dc_ui_stroke(app->renderer, view, (SDL_Color){ 164, 236, 203, 220 });
-    dc_ui_stroke(app->renderer, rect, (SDL_Color){ 72, 91, 88, 255 });
+    dc_ui_stroke(view, 0xdca4eccbu);
+    dc_ui_stroke(rect, 0xff485b58u);
 }
 
-static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *font,
-                                  irect_t rect, int y, const char *text,
-                                  SDL_Color color) {
-    if (!renderer || !font || !text) return;
+static void dc_ui_draw_text_right(const bitmapfont_t *font, irect_t rect, int y,
+                                  const char *text, uint32_t argb) {
+    if (!font || !text) return;
     int x = rect.x + rect.w - 3 - HU_TextWidth(font, text, 1);
     if (x < rect.x + 2) x = rect.x + 2;
-    HU_DrawText(renderer, font, x, y, text, color, 1);
+    dc_ui_text((ivec2_t){x, y}, font, text, argb);
 }
 
 static void dc_ui_draw_status(app_t *app, const level_t *map,
@@ -516,13 +512,11 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
     char text[32];
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
     if (buttons && buttons->lumps && buttons->numlumps > 0)
-        dc_ui_draw_sprite(app->renderer, buttons, 104, layout->money, 16 * 8 + 7);
+        dc_ui_draw_sprite(buttons, 104, layout->money, 16 * 8 + 7);
     int resources = map->player_resources[consoleplayer][0];
     if (resources < 0) resources = 0;
     snprintf(text, sizeof(text), "%d", resources);
-    dc_ui_draw_text_right(app->renderer, font, layout->money,
-                          layout->money.y + 2, text,
-                          (SDL_Color){ 41, 217, 230, 255 });
+    dc_ui_draw_text_right(font, layout->money, layout->money.y + 2, text, 0xff29d9e6u);
 
     const spritesheet_t *dial = R_CacheLookup(cache, "SPRITES/CLOC.SPR");
     if (dial && dial->numlumps >= 2 && map->daylight.duration > 0) {
@@ -533,8 +527,7 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
         irect_t src = dial->cells[frame].rect;
         /* 0x4377e3–0x437806 cancels the SPR displacement at (608,450). */
         irect_t dst = ui_rect(app, 608, 450, src.w, src.h);
-        R_DrawSprite(app->renderer, dial, frame, -1, &src, &dst, SDL_FLIP_NONE,
-                     (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND);
+        R_DrawSprite(dial, frame, -1, &src, &dst, 0, 16);
     }
     uint64_t clock = (uint64_t)leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
     int days = map->daylight.duration > 0 ?
@@ -542,8 +535,7 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
     if (days > 999) days = 999;
     snprintf(text, sizeof(text), "%03d", days);
     int x = layout->days.x - HU_TextWidth(font, text, 1) / 2;
-    HU_DrawTextRemapped(app->renderer, font, x, layout->days.y, text,
-                        (SDL_Color){ 255, 255, 255, 255 }, 1, 0);
+    HU_DrawText((ivec2_t){x, layout->days.y}, font, text, R_PaletteMap(&font->sprite, 0), 1);
 }
 
 static void dc_SB_drawer(app_t *app, const level_t *map,
@@ -552,48 +544,38 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
                          const Sidebar *sidebar,
                          const spritesheet_t *background) {
     if (!app || !font || !font->sprite.lumps || font->sprite.numlumps <= 0) return;
-    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
-    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
 
     UiLayout layout = ui_layout(app);
     /* Taller windows expose the world under the column; it is not viewport. */
     if (app->win.h > layout.outer.h)
-        dc_ui_fill(app->renderer, (irect_t){ layout.outer.x, layout.outer.h, layout.outer.w,
-                                             app->win.h - layout.outer.h },
-                   (SDL_Color){ 0, 0, 0, 255 });
+        dc_ui_fill((irect_t){ layout.outer.x, layout.outer.h, layout.outer.w,
+                              app->win.h - layout.outer.h }, 0xff000000u);
     if (background && background->lumps && background->numlumps > 0) {
-        dc_ui_draw_image_part(app->renderer, background,
-                              (irect_t){ 516, 0, 124, 480 }, layout.outer);
-        dc_ui_draw_image_part(app->renderer, background,
-                              (irect_t){ 0, 455, 516, 25 },
+        dc_ui_draw_image_part(background, (irect_t){ 516, 0, 124, 480 }, layout.outer);
+        dc_ui_draw_image_part(background, (irect_t){ 0, 455, 516, 25 },
                               ui_rect(app, 0, 455, 516, 25));
     } else {
-        dc_ui_fill(app->renderer, layout.outer, (SDL_Color){ 2, 2, 2, 255 });
-        dc_ui_fill(app->renderer, ui_rect(app, 0, 455, 640, 25),
-                   (SDL_Color){ 3, 3, 3, 255 });
-        dc_ui_stroke(app->renderer, layout.outer, (SDL_Color){ 178, 178, 178, 255 });
-        dc_ui_stroke(app->renderer, ui_rect(app, 0, 455, 640, 18),
-                     (SDL_Color){ 164, 164, 164, 255 });
-        dc_ui_stroke(app->renderer, layout.minimap, (SDL_Color){ 154, 154, 154, 255 });
-        dc_ui_stroke(app->renderer, ui_rect(app, 516, 0, 107, 92),
-                     (SDL_Color){ 86, 86, 86, 255 });
-        dc_ui_stroke(app->renderer, ui_rect(app, 516, 92, 124, 363),
-                     (SDL_Color){ 154, 154, 154, 255 });
+        dc_ui_fill(layout.outer, 0xff020202u);
+        dc_ui_fill(ui_rect(app, 0, 455, 640, 25), 0xff030303u);
+        dc_ui_stroke(layout.outer, 0xffb2b2b2u);
+        dc_ui_stroke(ui_rect(app, 0, 455, 640, 18), 0xffa4a4a4u);
+        dc_ui_stroke(layout.minimap, 0xff9a9a9au);
+        dc_ui_stroke(ui_rect(app, 516, 0, 107, 92), 0xff565656u);
+        dc_ui_stroke(ui_rect(app, 516, 92, 124, 363), 0xff9a9a9au);
 
         for (int i = 0; i < 3; ++i) {
-            dc_ui_fill(app->renderer, layout.tabs[i], (SDL_Color){ 126, 126, 126, 255 });
-            dc_ui_stroke(app->renderer, layout.tabs[i], (SDL_Color){ 38, 38, 38, 255 });
+            dc_ui_fill(layout.tabs[i], 0xff7e7e7eu);
+            dc_ui_stroke(layout.tabs[i], 0xff262626u);
             char tab[2] = { (char)('1' + i), '\0' };
-            HU_DrawText(app->renderer, font,
-                               layout.tabs[i].x + layout.tabs[i].w / 2 - HU_TextWidth(font, tab, 1) / 2,
-                               layout.tabs[i].y + layout.tabs[i].h / 2 - font->line_h / 2,
-                               tab, (SDL_Color){ 24, 24, 24, 255 }, 1);
+            dc_ui_text((ivec2_t){
+                           layout.tabs[i].x + layout.tabs[i].w / 2 - HU_TextWidth(font, tab, 1) / 2,
+                           layout.tabs[i].y + layout.tabs[i].h / 2 - font->line_h / 2},
+                       font, tab, 0xff181818u);
         }
     }
 
-    SDL_Color dim = { 112, 130, 125, 255 };
-    SDL_Color amber = { 231, 194, 94, 255 };
+    const uint32_t dim = 0xff70827du;
+    const uint32_t amber = 0xffe7c25eu;
     char line[96];
 
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
@@ -626,7 +608,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     /* MAINE's title pictures 3/4/5 sit over the shared tab strip. */
     if (buttons && buttons->numlumps > 79) {
         irect_t title = ui_rect(app, 521,96,110,12);
-        dc_ui_draw_sprite(app->renderer, buttons, 77 + sidebar->tab, title, 16 * 8 + 7);
+        dc_ui_draw_sprite(buttons, 77 + sidebar->tab, title, 16 * 8 + 7);
     }
     int visible_button_count = product_mode ? product_count : command_count;
     for (int i = 0; i < visible_button_count; ++i) {
@@ -639,26 +621,23 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
         }
     }
     if (!background || !background->lumps || background->numlumps <= 0) {
-        dc_ui_fill(app->renderer, layout.build, (SDL_Color){ 160, 160, 160, 255 });
-        dc_ui_stroke(app->renderer, layout.build, (SDL_Color){ 39, 39, 39, 255 });
-        HU_DrawText(app->renderer, font,
-                           layout.build.x + layout.build.w / 2 - HU_TextWidth(font, "BUILD", 5) / 2,
-                           layout.build.y + layout.build.h / 2 - font->line_h / 2,
-                           "BUILD", (SDL_Color){ 24, 24, 24, 255 }, 1);
+        dc_ui_fill(layout.build, 0xffa0a0a0u);
+        dc_ui_stroke(layout.build, 0xff272727u);
+        dc_ui_text((ivec2_t){
+                       layout.build.x + layout.build.w / 2 - HU_TextWidth(font, "BUILD", 5) / 2,
+                       layout.build.y + layout.build.h / 2 - font->line_h / 2},
+                   font, "BUILD", 0xff181818u);
     }
     if (hover_button >= 0) {
         if (product_mode && products[hover_button]) {
             snprintf(line, sizeof(line), "%s",
                      sidebar->controls[products[hover_button]->ui_id].label);
-            HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
-                           line,
-                           map->player_resources[consoleplayer][0] >= products[hover_button]->cost ?
-                           amber : (SDL_Color){ 208, 103, 88, 255 },
-                           1);
+            dc_ui_text((ivec2_t){layout.message.x + 4, layout.message.y + 2}, font, line,
+                       map->player_resources[consoleplayer][0] >= products[hover_button]->cost ?
+                       amber : 0xffd06758u);
         } else {
-            HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
-                           sidebar->controls[ids[hover_button]].label,
-                           amber, 1);
+            dc_ui_text((ivec2_t){layout.message.x + 4, layout.message.y + 2}, font,
+                       sidebar->controls[ids[hover_button]].label, amber);
         }
     } else if (product_mode) {
         if (selected && selected->production && selected->production->queue_count > 0 &&
@@ -673,8 +652,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
             snprintf(line, sizeof(line), "%s", dc_selected_building_label(selected));
         }
         if (line[0] != '\0') {
-            HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
-                           line, dim, 1);
+            dc_ui_text((ivec2_t){layout.message.x + 4, layout.message.y + 2}, font, line, dim);
         }
     }
     int button_slots = visible_button_count;
@@ -692,43 +670,34 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
             if (checked) intensity += sidebar->bright_pushed;
             else if (i == hover_button) intensity += sidebar->bright_highlight;
             if (intensity > 31) intensity = 31;
-            dc_ui_draw_sprite(app->renderer, buttons, frame, button_rect, intensity * 8 + 7);
-            if (product_mode && products[i] && map->player_resources[consoleplayer][0] < products[i]->cost) {
-                dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
-            }
+            dc_ui_draw_sprite(buttons, frame, button_rect, intensity * 8 + 7);
+            if (product_mode && products[i] && map->player_resources[consoleplayer][0] < products[i]->cost)
+                dc_ui_fill(button_rect, 0x69000000u);
             if (product_mode && products[i]) {
                 int quantity = map->purchases[consoleplayer][products[i]->row_id].selected;
                 if (quantity) {
                     snprintf(line, sizeof(line), "%d", quantity);
                     ivec2_t origin = ivec2_add((ivec2_t){button_rect.x,button_rect.y},
                                                sidebar->controls[products[i]->ui_id].counter);
-                    HU_DrawText(app->renderer, font, origin.x, origin.y,
-                                line, amber, 1);
+                    dc_ui_text(origin, font, line, amber);
                 }
             }
         } else {
-            SDL_Color fill = (i == 0 && !product_mode) ? (SDL_Color){ 150, 150, 145, 255 } :
-                             (SDL_Color){ 175, 175, 168, 255 };
-            dc_ui_fill(app->renderer, button_rect, fill);
-            dc_ui_stroke(app->renderer, button_rect, i == 0 && !product_mode ?
-                         (SDL_Color){ 136, 58, 53, 255 } : (SDL_Color){ 72, 95, 88, 255 });
+            uint32_t fill = (i == 0 && !product_mode) ? 0xff969691u : 0xffafafa8u;
+            dc_ui_fill(button_rect, fill);
+            dc_ui_stroke(button_rect, i == 0 && !product_mode ? 0xff883a35u : 0xff485f58u);
         }
     }
-    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
 }
 
 static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfont_t *font) {
     if (!app || !hud || !font || !font->sprite.lumps ||
         font->sprite.numlumps <= 0 || hud->count <= 0) return;
-    SDL_BlendMode old_blend = SDL_BLENDMODE_NONE;
-    SDL_GetRenderDrawBlendMode(app->renderer, &old_blend);
-    SDL_SetRenderDrawBlendMode(app->renderer, SDL_BLENDMODE_BLEND);
     UiLayout layout = ui_layout(app);
     char message[62];
     snprintf(message, sizeof(message), "%.61s", hud->messages[hud->count - 1].text);
-    HU_DrawTextRemapped(app->renderer, font, layout.message.x, layout.message.y,
-                        message, (SDL_Color){ 255, 255, 255, 255 }, 1, 2);
-    SDL_SetRenderDrawBlendMode(app->renderer, old_blend);
+    HU_DrawText((ivec2_t){layout.message.x, layout.message.y}, font, message,
+                R_PaletteMap(&font->sprite, 2), 1);
 }
 
 void *DC_SB_Init(app_t *app, const char *data_root) {
@@ -738,14 +707,14 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
     sb->active = true;
     sidebar_defaults(&sb->sidebar);
 
-    sb->font_ready = HU_LoadFont(app->renderer, data_root, &sb->font);
+    sb->font_ready = HU_LoadFont(data_root, &sb->font);
     if (!sb->font_ready)
         fprintf(stderr, "warning: failed to create Dark Colony UI font\n");
     sidebar_load(&sb->sidebar, data_root);
 
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/INTRFACE.GIF");
-    if (!W_LoadGIFTexture(app->renderer, path, &sb->background))
+    if (!W_LoadGIFTexture(path, &sb->background))
         fprintf(stderr, "warning: failed to load Dark Colony UI background %s\n", path);
     return sb;
 }

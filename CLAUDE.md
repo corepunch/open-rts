@@ -19,14 +19,12 @@ env SDL_VIDEODRIVER=dummy build/bin/kknd --check
 
 ## Renderer notes
 
-- Hardware renderer (`SDL_RENDERER_ACCELERATED`) is the default for interactive mode.
-- On some machines the Metal/GPU backend renders the same tile everywhere due to
-  incorrect source-rect handling. Pass `--software` to force `SDL_RENDERER_SOFTWARE`:
-  ```sh
-  build/bin/dark-colony --software
-  build/bin/dark-reign --software
-  ```
-- `--check` and `--screenshot` already use the software renderer automatically.
+- The world, HUD, and menus draw into one 8-bit indexed framebuffer. Present
+  uploads that buffer to a single streaming texture and scales it to the window.
+- `--software` selects only the SDL present backend (`SDL_RENDERER_SOFTWARE`).
+  It is not required for the map to show distinct tiles.
+- `--check` and `--screenshot` use the software present backend automatically.
+  `--screenshot` writes an 8-bit indexed BMP.
 
 ## Data layout
 

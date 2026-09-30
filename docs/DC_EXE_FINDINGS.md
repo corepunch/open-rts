@@ -1382,15 +1382,23 @@ from it; our top-down draw ordering serves the requested overhead view.
 
 **Confirmed source-history removal:** `46376ba` explicitly removed selector-3
 SDL additive/yellow rendering. Per the user's requested appearance, FIN layer 3
-again uses `SDL_BLENDMODE_ADD`, RGB modulation `(255,236,72)` scaled by FIN
-intensity, and alpha 230, restoring the previous engine formula. Other FIN flags,
-remaps and intensities remain command-owned. The indexed composition path is
-preserved, and texture blend/color/alpha state is restored after drawing.
-This supersedes the earlier implementation decision to leave selector 3 plain;
-it does not supersede the finding that additive/yellow were not native flag
-bits. The exact DC.EXE selector-3 formula remains **unknown**. No new executable
-or native-asset format was examined; fingerprints and binary addresses above
-remain unchanged.
+again uses the previous engine formula: additive blend, RGB modulation
+`(255,236,72)` scaled by FIN intensity, and alpha 230. Other FIN flags, remaps
+and intensities remain command-owned. This supersedes the earlier implementation
+decision to leave selector 3 plain; it does not supersede the finding that
+additive/yellow were not native flag bits. The exact DC.EXE selector-3 formula
+remains **unknown**. No new executable or native-asset format was examined;
+fingerprints and binary addresses above remain unchanged.
+
+**Indexed implementation (not a new native trace):** the framebuffer is palette
+indices, so layer 3 is a cached 256×256 table rather than `SDL_BLENDMODE_ADD`.
+`additive_table` in `render/r_draw.c` uses the same numbers: intensity 1–16
+becomes `(intensity * 255 + 8) / 16`, green is that factor times 236/255
+(rounded `(n * 236 + 127) / 255`), blue times 72/255 the same way, then alpha
+230/255, added to the destination palette entry and nearest-matched. The table
+is an approximation of the old SDL blend, not a table recovered from DC.EXE.
+Shadow drawing is the native destination-colormap rule (`screens[0][dst] =
+shadowmap[dst]`), documented at DC.EXE 0x45c7b0 / 0x45cc04.
 
 **Verification:** `test_sprite_height` checks 50-pixel projection, scaling, and
 occluding ground objects on either side of ground Y in either input order.

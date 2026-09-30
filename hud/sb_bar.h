@@ -9,7 +9,7 @@ enum { MAXSAVEDPATHS = 30 };
 
 typedef struct {
     const uidefinition_t *definition;
-    SDL_Texture *textures[RTS_UI_MAX_LAYERS];
+    spritesheet_t images[RTS_UI_MAX_LAYERS];
     bool ready;
     bool first_draw;
     int pressed_button;
@@ -34,7 +34,7 @@ typedef struct {
 
 /* Doom-style status-bar lifecycle.  The explicit state argument replaces the
    original globals while keeping call sites directly comparable to sb_bar.c. */
-bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
+bool SB_Init(sb_state_t *st, const char *data_root,
              const uidefinition_t *definition);
 void SB_Start(sb_state_t *st);
 bool SB_Responder(sb_state_t *st, const app_t *app, const SDL_Event *event);
@@ -50,8 +50,7 @@ bool SB_PathResponder(sb_state_t *st, const app_t *app, const SDL_Event *event);
 bool SB_PathListResponder(sb_state_t *st, const SDL_Event *event, ivec2_t mouse);
 void SB_ProductionDrawer(sb_state_t *st, const app_t *app);
 irect_t SB_MinimapRect(const level_t *map);
-void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width);
-bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
-                      const char *name, spritesheet_t *out);
+void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width, uint32_t argb);
+bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out);
 
 #endif

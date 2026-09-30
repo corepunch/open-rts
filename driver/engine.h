@@ -3,7 +3,7 @@
 
 #include "app.h"
 
-/* Active SDL renderer; video initialization installs it, shutdown clears it. */
+/* Present renderer. Drawing does not use it. */
 extern SDL_Renderer *r_renderer;
 #include "actor.h"
 #include "assets.h"
@@ -12,6 +12,7 @@ extern SDL_Renderer *r_renderer;
 #include "map.h"
 #include "render_plan.h"
 #include "sprites.h"
+#include "v_video.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -23,7 +24,9 @@ uint32_t read_u32_le(const uint8_t *p);
 bool W_ReadFile(const char *path, blob_t *out);
 void W_FreeFile(blob_t *blob);
 SDL_Surface *W_LoadImage(const char *path);
-bool W_LoadGIFTexture(SDL_Renderer *renderer, const char *path, spritesheet_t *out);
+/* Decode a BMP or PCX into one indexed spritesheet cell. Owns the lump pixels. */
+bool W_LoadIndexedSheet(const char *path, spritesheet_t *out);
+bool W_LoadGIFTexture(const char *path, spritesheet_t *out);
 /* Temporary strings survive seven further M_va calls on this thread.
  * Returns NULL on formatting failure or overflow; copy results kept longer. */
 char *M_va(const char *format, ...) __attribute__((format(printf, 1, 2)));
@@ -34,18 +37,7 @@ int clamp255(int value);
 void V_IndexedToRGBA(uint32_t *dst, const uint8_t *src, size_t count, const uint32_t palette[256]);
 void V_BlitIndexed(uint32_t *dst, int dst_w, int dst_h, int dst_x, int dst_y,
                    const uint8_t *src, int src_w, int src_h, const uint32_t palette[256]);
-SDL_Texture *I_CreateTexture(SDL_Renderer *renderer, const uint32_t *pixels, int w, int h, bool blend);
-/* Bake indexed tiles into a GPU atlas. Palette-cycled tiles keep the CPU path. */
-bool R_UploadTileset(SDL_Renderer *renderer, tileset_t *tileset);
-bool R_DrawIndexed(SDL_Renderer *renderer, const uint8_t *indices, isize2_t size,
-                   const uint32_t palette[256], const irect_t *src, const irect_t *dst,
-                   SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend);
 bool R_AllocSpriteCells(spritesheet_t *sprite, int count);
-/* Palette is a source-index translation ID; -1 selects the source palette.
- * Indexed sprites never acquire textures or retain expanded color copies. */
-bool R_DrawSprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int lump,
-                  int palette, const irect_t *src, const irect_t *dst,
-                  SDL_RendererFlip flip, SDL_Color color, SDL_BlendMode blend);
 void R_FreeSpriteBuffer(void);
 void R_DropIndexed(const uint8_t *base, size_t bytes);
 bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
@@ -54,12 +46,11 @@ bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
                           irect_t ground_dst, uint32_t flags);
 bool R_AddTileAnim(tileset_t *tileset, int value, const int *frames,
                    int frame_count, uint16_t frame_ms);
-void HU_DrawText(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                 const char *text, SDL_Color color, int scale);
-void HU_DrawTextRemapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                         const char *text, SDL_Color color, int scale, int remap);
-void HU_DrawTextWrapped(SDL_Renderer *renderer, const bitmapfont_t *font, int x, int y,
-                        int max_w, const char *text, SDL_Color color, int scale);
+const uint8_t *R_PaletteMap(const spritesheet_t *sprite, int id);
+void HU_DrawText(ivec2_t at, const bitmapfont_t *font, const char *text,
+                 const uint8_t *remap, int scale);
+void HU_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
+                        const uint8_t *remap, int scale);
 int HU_TextWidth(const bitmapfont_t *font, const char *text, int scale);
 void HU_PushMessage(hudtext_t *hud, const char *text, int ttl_ms);
 void HU_Ticker(hudtext_t *hud, float dt);
@@ -80,7 +71,7 @@ cell_t R_ScreenToMapGrid(const app_t *app, const level_t *map, int sx, int sy);
 void R_RefreshViewport(app_t *app);
 void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry);
 void R_WindowToRenderDelta(const app_t *app, int wx, int wy, float *rx, float *ry);
-void R_DrawCell(app_t *app, int gx, int gy, SDL_Color color);
+void R_DrawCell(app_t *app, int gx, int gy, uint32_t argb);
 void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part);
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset);
 void R_DrawGridOverlay(app_t *app, const level_t *map);

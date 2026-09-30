@@ -656,8 +656,8 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
     return true;
 }
 
-bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
-                  const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
+bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,
+                  tileset_t *tileset, spritesheet_t *unit_sprite) {
     if (!load_render_tables(root, map->tileset_name)) {
         fprintf(stderr, "failed to load Dark Colony render tables for %s\n", map->tileset_name);
         return false;
@@ -665,8 +665,6 @@ bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", root, map->tileset_name);
     if (!load_dark_colony_tileset(bts_path, tileset)) return false;
-    if (!R_UploadTileset(renderer, tileset))
-        fprintf(stderr, "warning: Dark Colony tileset atlas was not uploaded\n");
 
     char sprite_path[1024];
     uint32_t sprite_palette[256] = { 0 };
@@ -688,14 +686,12 @@ int P_LoadThings(const char *path) {
     return load_dark_colony_initial_units();
 }
 
-bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                          mobj_t *const *mobjs, int count, spritecache_t *cache) {
-    (void)renderer;
+bool R_InitSprites(const char *root, const level_t *map, mobj_t *const *mobjs,
+                   int count, spritecache_t *cache) {
     return load_dark_colony_unit_sprites(root, map, mobjs, count, cache);
 }
 
-bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
-    (void)renderer;
+bool HU_LoadFont(const char *root, bitmapfont_t *font) {
     return DC_LoadFont(root, "INTRFACE/MFONTO7.SPR", font);
 }
 
@@ -738,8 +734,7 @@ int G_WorldViewportWidth(const app_t *app) {
     return DC_SB_WorldViewportWidth(app);
 }
 
-bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
-                      const char *name, spritesheet_t *out) {
-    (void)renderer; (void)root; (void)name; (void)out;
+bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
+    (void)root; (void)name; (void)out;
     return false;
 }

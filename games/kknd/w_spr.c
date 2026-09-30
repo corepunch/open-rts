@@ -43,10 +43,14 @@ static bool mobd_layout(const uint8_t *segment, size_t size, uint32_t member,
     out->table = pos;
     return pos <= out->first_frame && (out->first_frame - pos) % (16 * 4) == 0;
 }
-static bool build_map_tileset(SDL_Renderer *renderer, const KkndMapData *map,
-                                   tileset_t *out) {
-    out->texture = I_CreateTexture(renderer, map->pixels, map->atlas.w, map->atlas.h, true);
-    if (!out->texture) return false;
+static bool build_map_tileset(const KkndMapData *map, tileset_t *out) {
+    if (!map->indices || map->tile_count <= 0) return false;
+    size_t bytes = (size_t)map->tile_count * 32u * 32u;
+    uint8_t *indices = malloc(bytes);
+    if (!indices) return false;
+    memcpy(indices, map->indices, bytes);
+    out->indices = indices;
+    memcpy(out->palette, map->palette, sizeof(out->palette));
     out->count = map->tile_count;
     out->atlas_cols = 64;
     out->tile_w = 32;
@@ -380,9 +384,8 @@ static bool load_sprite(const char *data_root,
     return ok;
 }
 
-bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
+bool R_InitSprites(const char *root, const level_t *map,
                    mobj_t *const *mobjs, int count, spritecache_t *cache) {
-    (void)renderer;
     const KkndMapData *native = map ? map->native_data : NULL;
     if (!native || !cache) return false;
     const char *extra_name = sprnames[SPR_EXTRAS];
@@ -427,11 +430,11 @@ bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
     return R_BindSprites(cache, gameinfo) && ok;
 }
 
-bool load_assets(SDL_Renderer *renderer, const char *data_root,
-                      const level_t *map, const char *sprite_name,
-                      tileset_t *tileset, spritesheet_t *unit_sprite) {
+bool load_assets(const char *data_root, const level_t *map,
+                 const char *sprite_name, tileset_t *tileset,
+                 spritesheet_t *unit_sprite) {
     const KkndMapData *native = map ? map->native_data : NULL;
-    if (!native || !build_map_tileset(renderer, native, tileset)) return false;
+    if (!native || !build_map_tileset(native, tileset)) return false;
     if (!load_sprite(data_root, sprite_name, native->palette, unit_sprite, NULL, NULL)) {
         R_FreeTileset(tileset);
         return false;
@@ -439,8 +442,7 @@ bool load_assets(SDL_Renderer *renderer, const char *data_root,
     return true;
 }
 
-bool G_LoadMenuSprite(SDL_Renderer *renderer, const char *root,
-                      const char *name, spritesheet_t *out) {
-    (void)renderer; (void)root; (void)name; (void)out;
+bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
+    (void)root; (void)name; (void)out;
     return false;
 }

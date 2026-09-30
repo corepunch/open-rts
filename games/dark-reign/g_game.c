@@ -68,12 +68,12 @@ const int g_dark_reign_ai_profile_count =
     (int)(sizeof(g_dark_reign_ai_profiles) / sizeof(g_dark_reign_ai_profiles[0]));
 
 bool load_dark_map(const char *map_path, level_t *out);
-bool plugin_load_assets(SDL_Renderer *renderer, const char *data_root,
-                                   const level_t *map, const char *sprite_name,
-                                   tileset_t *tileset, spritesheet_t *unit_sprite);
+bool plugin_load_assets(const char *data_root, const level_t *map,
+                        const char *sprite_name, tileset_t *tileset,
+                        spritesheet_t *unit_sprite);
 int load_dark_reign_initial_units(const char *map_path);
-bool load_dark_reign_decoration_sprites(SDL_Renderer *renderer, const char *data_root,
-                                        const level_t *map, mobj_t *const *units, int unit_count,
+bool load_dark_reign_decoration_sprites(const char *data_root, const level_t *map,
+                                        mobj_t *const *units, int unit_count,
                                         spritecache_t *cache);
 
 static const mobjtype_t DARK_REIGN_ACTOR_TYPES[] = {
@@ -903,23 +903,22 @@ bool G_DoLoadLevel(const char *path, level_t *out) {
     return load_dark_map(path, out);
 }
 
-bool W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
-                  const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite) {
-    return plugin_load_assets(renderer, root, map, sprite, tileset, unit_sprite);
+bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,
+                  tileset_t *tileset, spritesheet_t *unit_sprite) {
+    return plugin_load_assets(root, map, sprite, tileset, unit_sprite);
 }
 
 int P_LoadThings(const char *path) {
     return load_dark_reign_initial_units(path);
 }
 
-bool R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
-                          mobj_t *const *mobjs, int count, spritecache_t *cache) {
-    return load_dark_reign_decoration_sprites(renderer, root, map,
-                                              mobjs, count, cache);
+bool R_InitSprites(const char *root, const level_t *map, mobj_t *const *mobjs,
+                   int count, spritecache_t *cache) {
+    return load_dark_reign_decoration_sprites(root, map, mobjs, count, cache);
 }
 
-bool HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font) {
-    (void)renderer; (void)root; (void)font;
+bool HU_LoadFont(const char *root, bitmapfont_t *font) {
+    (void)root; (void)font;
     return false;
 }
 
