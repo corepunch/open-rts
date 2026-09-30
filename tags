@@ -1920,6 +1920,7 @@ decoration_count	game/map.h	/^    int decoration_count;$/;"	m	struct:level_s	typ
 decoration_sprite_frame	render/r_draw.c	/^static int decoration_sprite_frame(app_t *app, const mapdecoration_t *dec, const spritesheet_t */;"	f	typeref:typename:int	file:	signature:(app_t * app,const mapdecoration_t * dec,const spritesheet_t * sprite,int frame_index)
 decorations	game/g_game.h	/^    RtsRenderDecoration decorations[RTS_MODEL_MAX_SNAPSHOT_DECORATIONS];$/;"	m	struct:__anon42a104c41208	typeref:typename:RtsRenderDecoration[]
 decorations	game/map.h	/^    mapdecoration_t *decorations;$/;"	m	struct:level_s	typeref:typename:mapdecoration_t *
+default_data_root	driver/d_main.c	/^static const char *default_data_root(void) {$/;"	f	typeref:typename:const char *	file:	signature:(void)
 default_ticks	tools/dc_fin_extract.c	/^    uint16_t default_ticks;$/;"	m	struct:__anon82d667f30208	typeref:typename:uint16_t	file:
 defense	play/actor.h	/^    uint16_t defense[3]; \/* Native damage multipliers; zero uses 256. *\/$/;"	m	struct:mobjtype_s	typeref:typename:uint16_t[3]
 definition	hud/sb_bar.h	/^    const uidefinition_t *definition;$/;"	m	struct:__anona3f56ed40208	typeref:typename:const uidefinition_t *
@@ -3096,6 +3097,7 @@ reference	tests/dark-colony/test_selection_overlays.c	/^static void reference(co
 reference_angle	tests/shared/test_facing.c	/^static angle_t reference_angle(double dx, double dy) {$/;"	f	typeref:typename:angle_t	file:	signature:(double dx,double dy)
 refresh_model_objects	game/g_game.c	/^static void refresh_model_objects(RtsGameModel *model) {$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model)
 region	tools/dc_gamestat_gen.c	/^    char region[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
+region_sum	tests/dark-colony/test_menu.c	/^static uint64_t region_sum(const SDL_Surface *surface, irect_t rect) {$/;"	f	typeref:typename:uint64_t	file:	signature:(const SDL_Surface * surface,irect_t rect)
 reject_join	driver/i_net.c	/^static void reject_join(const struct sockaddr_in *to, const char *reason) {$/;"	f	typeref:typename:void	file:	signature:(const struct sockaddr_in * to,const char * reason)
 reject_sprite	tests/loader_fixtures.h	/^static void reject_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,$/;"	f	typeref:typename:void	signature:(SDL_Renderer * renderer,const uint8_t * data,size_t size,const uint32_t * palette)
 rejected	tests/dark-colony/test_sprite_loading.c	/^static void rejected(const uint8_t *file, size_t size) {$/;"	f	typeref:typename:void	file:	signature:(const uint8_t * file,size_t size)

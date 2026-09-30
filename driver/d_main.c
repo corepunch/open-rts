@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 
 static const mobjtype_t *actor_type_by_id(uint16_t type_id) {
     const mobjtype_t *types = (const mobjtype_t *)actor_types;
@@ -102,6 +103,21 @@ static bool focus_camera_on_map_start(app_t *app, const level_t *map) {
     return true;
 }
 
+/* Packaged builds keep the default data tree beside the executable. */
+static const char *default_data_root(void) {
+    static char beside_executable[1024];
+    if (access(g_game_default_root, F_OK) == 0) return g_game_default_root;
+    char *base = SDL_GetBasePath();
+    if (!base) return g_game_default_root;
+    int written = snprintf(beside_executable, sizeof(beside_executable), "%s%s",
+                           base, g_game_default_root);
+    SDL_free(base);
+    if (written < 0 || (size_t)written >= sizeof(beside_executable))
+        return g_game_default_root;
+    if (access(beside_executable, F_OK) == 0) return beside_executable;
+    return g_game_default_root;
+}
+
 int main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i)
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) goto help;
@@ -169,7 +185,7 @@ int main(int argc, char **argv) {
     }
     if ((check_only && screenshot_only) || (check_tics && (check_only || screenshot_only)) ||
         (netgame && (check_only || screenshot_only)) || (I_NetJoining() && paths[1])) goto usage;
-    const char *data_root = paths[0] ? paths[0] : g_game_default_root;
+    const char *data_root = paths[0] ? paths[0] : default_data_root();
     const char *sprite_name = paths[2] ? paths[2] : g_game_default_sprite;
     const char *map_arg = paths[1] ? paths[1] : g_game_default_map;
     char map_name[1024], map_path[1024];
@@ -611,13 +627,14 @@ help:
            "  --speed <10..200>     Simulation speed percent; default 100 (Dark Colony 150)\n"
            "  Dark Colony opens its main menu when no map is supplied.\n"
            "  --check and --net-check use the default map; screenshots show startup.\n"
-           "  --data <directory>     Local game data directory\n"
+           "  --data <directory>     Game data directory (default %s, or that path beside the executable)\n"
            "  --sprite <path>        Default sprite asset\n"
            "  --software            Use the software renderer\n"
            "  --window <WxH>         Initial window size, e.g. 1280x960; default 640x480\n"
            "  --check | --screenshot <file.bmp>   Offline smoke check\n"
            "  --net-check <tics>     Run a bounded headless simulation\n"
            "  --net <1..4> <peers...>  Legacy manual peer setup\n"
-           "  --dup <1..9> --extratic  Doom command timing/redundancy\n", argv[0]);
+           "  --dup <1..9> --extratic  Doom command timing/redundancy\n",
+           argv[0], g_game_default_root);
     return 0;
 }

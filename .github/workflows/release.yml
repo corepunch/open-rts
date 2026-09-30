@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach builds to
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-arm64
+            runner: macos-15
+          - platform: linux-x64
+            runner: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: rel
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+          else
+            tag="${{ inputs.tag }}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.rel.outputs.tag }}
+          fetch-depth: 1
+
+      - name: Require Apple Silicon
+        if: matrix.platform == 'macos-arm64'
+        run: test "$(uname -m)" = arm64
+
+      - name: Require x86_64
+        if: matrix.platform == 'linux-x64'
+        run: test "$(uname -m)" = x86_64
+
+      - name: Install SDL2 (macOS)
+        if: matrix.platform == 'macos-arm64'
+        run: brew install sdl2 pkg-config
+
+      - name: Install SDL2 (Linux)
+        if: matrix.platform == 'linux-x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libsdl2-dev patchelf
+
+      - name: Build
+        run: |
+          if [ "$(uname)" = Darwin ]; then
+            jobs=$(sysctl -n hw.ncpu)
+            prefix=$(brew --prefix sdl2)
+            export PKG_CONFIG_PATH="$prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+          else
+            jobs=$(nproc)
+          fi
+          make -j"$jobs"
+
+      - name: Package
+        run: bash .github/scripts/package-release.sh ${{ matrix.platform }}
+
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.zip dist/*.tar.gz)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no archives produced" >&2
+            exit 1
+          fi
+          ls -lh "${files[@]}"
+          gh release upload "${{ steps.rel.outputs.tag }}" "${files[@]}" --clobber
