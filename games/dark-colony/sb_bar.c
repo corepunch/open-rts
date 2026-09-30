@@ -3,6 +3,8 @@
 #include "sb_bar.h"
 #include "info.h"
 #include "dc_types.h"
+#include "gamestat.h"
+#include "m_menu.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -25,15 +27,20 @@ typedef struct {
 } UiLayout;
 
 typedef struct {
-    int id;
     int frame;
+    int pushed;
     char label[40];
+    irect_t rect;
+    ivec2_t counter;
 } SidebarCommand;
 
 typedef struct {
-    SidebarCommand commands[6];
-    int command_count;
-    irect_t products[207]; /* Native MAINE control IDs. */
+    SidebarCommand controls[207]; /* Native MAINE control IDs. */
+    int tab;
+    int targeting;
+    dc_waypoints_t waypoints;
+    bool assault;
+    int bright_pushed, bright_highlight;
 } Sidebar;
 
 typedef struct {
@@ -45,10 +52,6 @@ typedef struct {
 } sb_state_t;
 
 typedef StaticProductDefinition ProductButton;
-
-enum {
-    CLIENT_PRODUCT_UNIT = 2,
-};
 
 static void sidebar_defaults(Sidebar *sidebar) {
     if (!sidebar) return;
@@ -63,11 +66,11 @@ static void sidebar_defaults(Sidebar *sidebar) {
         "Second Attack",
     };
     memset(sidebar, 0, sizeof(*sidebar));
-    sidebar->command_count = 6;
-    for (int i = 0; i < sidebar->command_count; ++i) {
-        sidebar->commands[i].id = ids[i];
-        sidebar->commands[i].frame = frames[i];
-        snprintf(sidebar->commands[i].label, sizeof(sidebar->commands[i].label), "%s", labels[i]);
+    sidebar->assault = true;
+    for (int i = 0; i < 6; ++i) {
+        sidebar->controls[ids[i]].frame = frames[i];
+        sidebar->controls[ids[i]].rect = (irect_t){518,112 + i * 41,59,41};
+        snprintf(sidebar->controls[ids[i]].label, sizeof(sidebar->controls[ids[i]].label), "%s", labels[i]);
     }
 }
 
@@ -86,10 +89,7 @@ static irect_t ui_rect(const app_t *app, int x, int y, int w, int h) {
 }
 
 static SidebarCommand *sidebar_command(Sidebar *sidebar, int id) {
-    if (!sidebar) return NULL;
-    for (int i = 0; i < sidebar->command_count; ++i)
-        if (sidebar->commands[i].id == id) return &sidebar->commands[i];
-    return NULL;
+    return sidebar && id >= 0 && id < 207 ? &sidebar->controls[id] : NULL;
 }
 
 static void sidebar_load(Sidebar *sidebar, const char *data_root) {
@@ -116,6 +116,8 @@ static void sidebar_load(Sidebar *sidebar, const char *data_root) {
         }
         while (isspace((unsigned char)*line)) line++;
         if (*line != '%' && *line != '\0') {
+            sscanf(line, "bright_pushed %d", &sidebar->bright_pushed);
+            sscanf(line, "bright_highlight %d", &sidebar->bright_highlight);
             int id = 0;
             char label[40] = { 0 };
             if (sscanf(line, "textmsg %d %39[^\r\n]", &id, label) == 2) {
@@ -131,14 +133,24 @@ static void sidebar_load(Sidebar *sidebar, const char *data_root) {
                 if (sscanf(line, "count %d %d %d %d %d %d %d %d",
                            &control_id, &description, &rect.x, &rect.y, &rect.w, &rect.h,
                            &normal, &pressed) == 8 && control_id >= 0 && control_id < 207)
-                    sidebar->products[control_id] = rect;
+        {
+                    sidebar->controls[control_id].rect = rect;
+                    sidebar->controls[control_id].pushed = pressed;
+                    const char *offset = strstr(line, "offset");
+                    if (offset) sscanf(offset, "offset %d %d", &sidebar->controls[control_id].counter.x,
+                                       &sidebar->controls[control_id].counter.y);
+                }
                 char kind[16] = { 0 };
                 int desc = 0, x = 0, y = 0, w = 0, h = 0, frame = 0, pushed = 0;
                 if (sscanf(line, "%15s %d %d %d %d %d %d %d %d",
                            kind, &id, &desc, &x, &y, &w, &h, &frame, &pushed) == 9 &&
                     (strcmp(kind, "pushb") == 0 || strcmp(kind, "checkb") == 0)) {
                     SidebarCommand *cmd = sidebar_command(sidebar, id);
-                    if (cmd) cmd->frame = frame;
+                    if (cmd) {
+                        cmd->frame = frame;
+                        cmd->pushed = pushed;
+                        cmd->rect = (irect_t){x,y,w,h};
+                    }
                 }
             }
         }
@@ -178,7 +190,7 @@ static UiLayout ui_layout(const app_t *app) {
 
 static irect_t product_button_rect(const app_t *app, const Sidebar *sidebar,
                                     const ProductButton *product) {
-    irect_t r = sidebar->products[product->ui_id];
+    irect_t r = sidebar->controls[product->ui_id].rect;
     return ui_rect(app, r.x, r.y, r.w, r.h);
 }
 
@@ -196,35 +208,13 @@ static void dc_ui_stroke(SDL_Renderer *renderer, irect_t rect, SDL_Color color) 
     SDL_RenderDrawRect(renderer, &rect);
 }
 
-static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,
-                                  irect_t box, uint32_t render_flags) {
-    if (!renderer || !sprite || !sprite->lumps || sprite->numlumps <= 0) return;
-    if (frame < 0 || frame >= sprite->numlumps) frame = 0;
-    irect_t src = sprite->cells[frame].rect;
-    if (sprite->cells[frame].bounds.w > 0 && sprite->cells[frame].bounds.h > 0) {
-        irect_t bounds = sprite->cells[frame].bounds;
-        src.x += bounds.x;
-        src.y += bounds.y;
-        src.w = bounds.w;
-        src.h = bounds.h;
-    }
-    if (src.w <= 0 || src.h <= 0 || box.w <= 0 || box.h <= 0) return;
-    int draw_w = box.w;
-    int draw_h = src.h * draw_w / src.w;
-    if (draw_h > box.h) {
-        draw_h = box.h;
-        draw_w = src.w * draw_h / src.h;
-    }
-    if (draw_w <= 0) draw_w = 1;
-    if (draw_h <= 0) draw_h = 1;
-    irect_t dst = {
-        box.x + (box.w - draw_w) / 2,
-        box.y + (box.h - draw_h) / 2,
-        draw_w,
-        draw_h,
-    };
-    SDL_RendererFlip flip = (render_flags & RTS_FRAME_FLIP_X) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    R_DrawSprite(renderer, sprite, frame, -1, &src, &dst, flip,
+static void dc_ui_draw_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,
+                              irect_t box, int palette) {
+    if (!renderer || !sprite || !sprite->lumps || frame < 0 || frame >= sprite->numlumps) return;
+    const spritecell_t *cell = &sprite->cells[frame];
+    ivec2_t origin = ivec2_add((ivec2_t){box.x,box.y}, cell->displacement);
+    irect_t dst = {origin.x,origin.y,cell->rect.w,cell->rect.h};
+    R_DrawSprite(renderer, sprite, frame, palette, &cell->rect, &dst, SDL_FLIP_NONE,
                  (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_BLEND);
 }
 
@@ -253,17 +243,17 @@ static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
         selected->type_id >= MT_EXCOPOD;
 }
 
-static int dc_available_products(mobj_t *const *units, int unit_count, const mobj_t *selected,
+static int dc_available_products(mobj_t *const *units, int unit_count, int tab,
                                   const ProductButton *out[16]) {
     static ProductButton products[64];
     int count = 0;
-    bool research = selected && (selected->type_id == MT_SCNCPOD || selected->type_id == MT_SCNCPOD2 ||
-        selected->type_id == MT_ALIEN_MINDHIVE2 || selected->type_id == MT_ALIEN_MINDHIVE3);
+    bool research = tab == 1;
     int source_count = G_ModelGetProducts(NULL, consoleplayer, products, 64);
     for (int i = 0; i < source_count && count < 16; ++i) {
         const ProductButton *product = &products[i];
         if ((product->product_class == RTS_PRODUCT_UPGRADE) != research) continue;
-        if (!G_ModelProductAvailableForUnits(units, unit_count, product)) continue;
+        if (!level.purchases[consoleplayer][product->row_id].selected &&
+            !G_ModelProductAvailableForUnits(units, unit_count, product)) continue;
         if (product->product_class == RTS_PRODUCT_BUILDING) {
             bool exists = false;
             for (int j = 0; j < unit_count; ++j)
@@ -297,34 +287,107 @@ static const char *dc_selected_building_label(const mobj_t *selected) {
     }
 }
 
-static int dc_sidebar_command_frame(const SidebarCommand *cmd, const mobj_t *selected) {
-    if (!cmd) return 0;
-    (void)selected;
-    return cmd->frame;
-}
-
-static const char *dc_sidebar_command_label(const SidebarCommand *cmd,
-                                            const mobj_t *selected) {
-    if (!cmd) return "";
-    (void)selected;
-    if (cmd->id == 37) {
-        return "Dig";
+static int dc_commands(mobj_t *const *units, int count, int ids[6]) {
+    const int primary[] = {-1,138,139,140,141,142,142,37};
+    const int secondary[] = {-1,144,145,146,197,143,198};
+    int first = 0, second = 0;
+    ids[0] = 150; ids[1] = 33; ids[2] = 35; ids[3] = 36;
+    for (int i = 0; i < count; ++i) {
+        const mobj_t *actor = units[i];
+        if (!P_MobjIsSelected(actor) || actor->owner != consoleplayer || actor->remove ||
+            actor->hp <= 0 || actor->native_type_id >= GAMESTAT_UNIT_COUNT) continue;
+        const DcGamestatUnit *type = &dc_gamestat_units[actor->native_type_id];
+        unsigned flags = type->values[27]; /* DC type +0x104. */
+        if (!(flags & 0x80) || ((flags & 0x40) && actor->ability_charge > 32) || actor->ability_charge == 255) {
+            int ability = flags & 0x3f;
+            if (ability) first = !first || first == ability ? ability : 7;
+        }
+        flags = type->values[28]; /* DC type +0x108. */
+        if (!(flags & 0x80) || actor->ability_charge == 255) {
+            int ability = flags & 0x3f;
+            if (ability) second = !second || second == ability ? ability : 5;
+        }
     }
-    return cmd->label;
+    int n = 4;
+    if (first > 0 && first < 8) ids[n++] = primary[first];
+    if (second > 0 && second < 7) ids[n++] = secondary[second];
+    return n;
 }
 
-static void dc_stop_selected_units(mobj_t *const *units, int unit_count) {
-    G_SelectedTiccmd(TC_STOP, units, unit_count, (fvec2_t){0}, 0);
+static void finish_waypoints(Sidebar *sidebar, mobj_t *const *units, int count) {
+    for (int i = 0; i < sidebar->waypoints.count; ++i)
+        G_SelectedTiccmd(TC_WAYPOINT, units, count,
+                        fvec2_cell_center(sidebar->waypoints.points[i]), i != 0);
+    sidebar->waypoints = (dc_waypoints_t){0};
+    sidebar->targeting = 0;
 }
 
-static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *map,
+static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,
                             mobj_t *const *units, int unit_count, const SDL_Event *e) {
     if (!app || !map || !e) return false;
-    if (e->type != SDL_MOUSEBUTTONDOWN) return false;
+    if (e->type == SDL_KEYDOWN && !e->key.repeat && !(e->key.keysym.mod & (KMOD_CTRL | KMOD_ALT))) {
+        if (e->key.keysym.sym == SDLK_RETURN || e->key.keysym.sym == SDLK_KP_ENTER) {
+            if (sidebar->targeting == 36) finish_waypoints(sidebar, units, unit_count);
+            else G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fvec2_t){0}, 0);
+            return true;
+        }
+        int id = e->key.keysym.sym == SDLK_s ? 150 : e->key.keysym.sym == SDLK_m ? 33 :
+                 e->key.keysym.sym == SDLK_a ? 35 : e->key.keysym.sym == SDLK_w ? 36 :
+                 e->key.keysym.sym == SDLK_SPACE ? 19 : -1;
+        if (e->key.keysym.sym == SDLK_t) { G_QueueTiccmd(&(ticcmd_t){.order = TC_PAUSE}); return true; }
+        if (id == 19) { G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT}); return true; }
+        if (id == 150) { G_SelectedTiccmd(TC_STOP, units, unit_count, (fvec2_t){0}, 0); return true; }
+        if (id == 33 || id == 35) {
+            sidebar->assault = id == 35;
+            G_SelectedTiccmd(TC_MODE, units, unit_count, (fvec2_t){0}, id);
+            return true;
+        }
+        if (id == 36) { sidebar->targeting = 36; sidebar->waypoints = (dc_waypoints_t){0}; return true; }
+    }
+    if (e->type != SDL_MOUSEBUTTONDOWN && e->type != SDL_MOUSEBUTTONUP) return false;
     int rx = 0, ry = 0;
     R_WindowToRenderPt(app, e->button.x, e->button.y, &rx, &ry);
     UiLayout layout = ui_layout(app);
-    if (!irect_contains(layout.outer, (ivec2_t){ rx, ry })) return false;
+    ivec2_t mouse = {rx,ry};
+    if (e->type == SDL_MOUSEBUTTONDOWN && e->button.button == SDL_BUTTON_RIGHT && sidebar->targeting) {
+        if (sidebar->targeting == 36) finish_waypoints(sidebar, units, unit_count);
+        else sidebar->targeting = 0;
+        return true;
+    }
+    if (!irect_contains(layout.outer, mouse)) {
+        if (!sidebar->targeting || e->button.button != SDL_BUTTON_LEFT) return false;
+        if (e->type == SDL_MOUSEBUTTONUP) return true;
+        if (sidebar->targeting == 36) {
+            cell_t cell = R_ScreenToMapGrid(app, map, rx, ry);
+            int count = sidebar->waypoints.count;
+            if (count == 7 || (count && (ivec2_equal(cell, sidebar->waypoints.points[0]) ||
+                                         ivec2_equal(cell, sidebar->waypoints.points[count - 1]))))
+                finish_waypoints(sidebar, units, unit_count);
+            else sidebar->waypoints.points[sidebar->waypoints.count++] = cell;
+        }
+        return true;
+    }
+    if (e->type == SDL_MOUSEBUTTONUP) return true;
+    if (e->button.button == SDL_BUTTON_LEFT && irect_contains(layout.minimap, mouse)) {
+        /* 0x4097f8: native minimap uses (519,90), 96x84, bottom-up Y. */
+        fvec2_t position = {
+            (float)map->width * (2 * (rx - (app->win.w - 121)) + 1) / 192.0f,
+            (float)map->height * (2 * (90 - ry) + 1) / 168.0f
+        };
+        fvec2_t screen;
+        R_MapToScreen(app, map, position.x, position.y, &screen.x, &screen.y);
+        app->cam = fvec2_add(app->cam, fvec2_sub(
+            (fvec2_t){DC_SB_WorldViewportWidth(app) / 2.0f, 455 / 2.0f}, screen));
+        return true;
+    }
+    if (e->button.button == SDL_BUTTON_LEFT) {
+        for (int i = 0; i < 3; ++i)
+            if (irect_contains(layout.tabs[i], mouse)) { sidebar->tab = i; sidebar->targeting = 0; return true; }
+        if (irect_contains(layout.build, mouse)) {
+            G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT});
+            return true;
+        }
+    }
     int selected_index = -1;
     for (int i = 0; i < unit_count; ++i) {
         if (P_MobjIsSelected(units[i]) && !units[i]->remove) {
@@ -333,34 +396,48 @@ static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *m
         }
     }
     mobj_t *selected = selected_index >= 0 ? units[selected_index] : NULL;
-    if (!selected || dc_selected_unit_is_player_building(selected)) {
+    if (sidebar->tab == 2) {
+        const int ids[] = {62,63,64,151,196,202};
+        for (int i = 0; i < 6; ++i) {
+            const SidebarCommand *control = &sidebar->controls[ids[i]];
+            irect_t r = ui_rect(app, control->rect.x, control->rect.y, control->rect.w, control->rect.h);
+            if (e->button.button != SDL_BUTTON_LEFT || !irect_contains(r, mouse)) continue;
+            if (ids[i] == 62 || ids[i] == 64) M_StartControlPanel(app);
+            if (ids[i] == 196) G_QueueTiccmd(&(ticcmd_t){.order = TC_PAUSE});
+            return true;
+        }
+        return true;
+    }
+    if (sidebar->tab == 1 || !selected || dc_selected_unit_is_player_building(selected)) {
         const ProductButton *products[16] = { 0 };
-        int product_count = dc_available_products(units, unit_count, selected, products);
-        if (e->button.button == SDL_BUTTON_LEFT) {
+        int product_count = dc_available_products(units, unit_count, sidebar->tab, products);
+        if (e->button.button == SDL_BUTTON_LEFT || e->button.button == SDL_BUTTON_RIGHT) {
             for (int i = 0; i < product_count; ++i) {
                 if (!irect_contains(product_button_rect(app, sidebar, products[i]),
                                     (ivec2_t){ rx, ry })) continue;
                 const ProductButton *product = products[i];
-                uint16_t actor_id = G_ModelActorIdForProduct(product);
-                if (actor_id == 0 || map->player_resources[consoleplayer][0] < product->cost) return true;
-                for (int j = 0; j < unit_count; ++j) {
-                    mobj_t *producer = units[j];
-                    if (producer->owner != consoleplayer || producer->remove || producer->hp <= 0) continue;
-                    for (int k = 0; k < product->maker_count; ++k) {
-                        if (!DC_ProductActorMatches(producer->type_id, product->makers[k])) continue;
-                        if (G_BuildOrder(producer, product->ui_id)) {
-                            return true;
-                        }
-                    }
-                }
+                G_QueueTiccmd(&(ticcmd_t){.order = TC_PURCHASE, .product = product->ui_id,
+                    .target = e->button.button == SDL_BUTTON_RIGHT});
                 return true;
             }
         }
         return true;
     }
-    if (e->button.button == SDL_BUTTON_LEFT &&
-        irect_contains(layout.buttons[0], (ivec2_t){ rx, ry })) {
-        dc_stop_selected_units(units, unit_count);
+    int ids[6];
+    int count = dc_commands(units, unit_count, ids);
+    for (int i = 0; i < count && e->button.button == SDL_BUTTON_LEFT; ++i) {
+        const SidebarCommand *control = &sidebar->controls[ids[i]];
+        irect_t r = ui_rect(app, control->rect.x, control->rect.y, control->rect.w, control->rect.h);
+        if (!irect_contains(r, mouse)) continue;
+        if (ids[i] == 150 || ids[i] == 138)
+            G_SelectedTiccmd(TC_STOP, units, unit_count, (fvec2_t){0}, 0);
+        else if (ids[i] == 33 || ids[i] == 35) {
+            sidebar->assault = ids[i] == 35;
+            G_SelectedTiccmd(TC_MODE, units, unit_count, (fvec2_t){0}, ids[i]);
+        } else if (ids[i] == 139 || ids[i] == 140 || ids[i] == 37)
+            G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fvec2_t){0}, 0);
+        else { sidebar->targeting = ids[i]; sidebar->waypoints = (dc_waypoints_t){0}; }
+        break;
     }
     return true;
 }
@@ -437,7 +514,7 @@ static void dc_ui_draw_status(app_t *app, const level_t *map,
     char text[32];
     const spritesheet_t *buttons = R_CacheLookup(cache, "INTRFACE/MAINBUT.SPR");
     if (buttons && buttons->lumps && buttons->numlumps > 0)
-        dc_ui_draw_sprite_fit(app->renderer, buttons, 104, layout->money, 0);
+        dc_ui_draw_sprite(app->renderer, buttons, 104, layout->money, 16 * 8 + 7);
     int resources = map->player_resources[consoleplayer][0];
     if (resources < 0) resources = 0;
     snprintf(text, sizeof(text), "%d", resources);
@@ -530,12 +607,26 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     int hover_button = -1;
     const mobj_t *selected = dc_first_selected_unit(units, unit_count);
     const ProductButton *products[16] = { 0 };
-    int product_count = dc_available_products(units, unit_count, selected, products);
-    bool product_mode = !selected || dc_selected_unit_is_player_building(selected);
-    int visible_button_count = product_mode ? product_count : sidebar->command_count;
+    int product_count = dc_available_products(units, unit_count, sidebar->tab, products);
+    bool product_mode = sidebar->tab == 1 || !selected || dc_selected_unit_is_player_building(selected);
+    int ids[6];
+    int command_count = dc_commands(units, unit_count, ids);
+    if (sidebar->tab == 2) {
+        const int options[] = {62,63,64,151,196,202};
+        memcpy(ids, options, sizeof(ids));
+        command_count = 6;
+        product_mode = false;
+    }
+    /* MAINE's title pictures 3/4/5 sit over the shared tab strip. */
+    if (buttons && buttons->numlumps > 79) {
+        irect_t title = ui_rect(app, 521,96,110,12);
+        dc_ui_draw_sprite(app->renderer, buttons, 77 + sidebar->tab, title, 16 * 8 + 7);
+    }
+    int visible_button_count = product_mode ? product_count : command_count;
     for (int i = 0; i < visible_button_count; ++i) {
         irect_t button_rect = product_mode ? product_button_rect(app, sidebar, products[i]) :
-            layout.buttons[i];
+            ui_rect(app, sidebar->controls[ids[i]].rect.x, sidebar->controls[ids[i]].rect.y,
+                    sidebar->controls[ids[i]].rect.w, sidebar->controls[ids[i]].rect.h);
         if (irect_contains(button_rect, app->mouse)) {
             hover_button = i;
             break;
@@ -551,8 +642,8 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     }
     if (hover_button >= 0) {
         if (product_mode && products[hover_button]) {
-            snprintf(line, sizeof(line), "%s %d",
-                     products[hover_button]->label, products[hover_button]->cost);
+            snprintf(line, sizeof(line), "%s",
+                     sidebar->controls[products[hover_button]->ui_id].label);
             HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
                            line,
                            map->player_resources[consoleplayer][0] >= products[hover_button]->cost ?
@@ -560,7 +651,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
                            1);
         } else {
             HU_DrawText(app->renderer, font, layout.message.x + 4, layout.message.y + 2,
-                           dc_sidebar_command_label(&sidebar->commands[hover_button], selected),
+                           sidebar->controls[ids[hover_button]].label,
                            amber, 1);
         }
     } else if (product_mode) {
@@ -583,13 +674,31 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     int button_slots = visible_button_count;
     for (int i = 0; i < button_slots; ++i) {
         irect_t button_rect = product_mode ? product_button_rect(app, sidebar, products[i]) :
-            layout.buttons[i];
+            ui_rect(app, sidebar->controls[ids[i]].rect.x, sidebar->controls[ids[i]].rect.y,
+                    sidebar->controls[ids[i]].rect.w, sidebar->controls[ids[i]].rect.h);
         int frame = product_mode && products[i] ? products[i]->icon_frame :
-            dc_sidebar_command_frame(&sidebar->commands[i], selected);
+            sidebar->controls[ids[i]].frame;
         if (buttons && buttons->lumps && buttons->numlumps > 0) {
-            dc_ui_draw_sprite_fit(app->renderer, buttons, frame, button_rect, 0);
+            bool checked = !product_mode && ((ids[i] == 33 && !sidebar->assault) ||
+                                             (ids[i] == 35 && sidebar->assault));
+            const SidebarCommand *control = &sidebar->controls[product_mode ? products[i]->ui_id : ids[i]];
+            int intensity = checked && control->pushed < 0 ? -control->pushed : 16;
+            if (checked) intensity += sidebar->bright_pushed;
+            else if (i == hover_button) intensity += sidebar->bright_highlight;
+            if (intensity > 31) intensity = 31;
+            dc_ui_draw_sprite(app->renderer, buttons, frame, button_rect, intensity * 8 + 7);
             if (product_mode && products[i] && map->player_resources[consoleplayer][0] < products[i]->cost) {
                 dc_ui_fill(app->renderer, button_rect, (SDL_Color){ 0, 0, 0, 105 });
+            }
+            if (product_mode && products[i]) {
+                int quantity = map->purchases[consoleplayer][products[i]->row_id].selected;
+                if (quantity) {
+                    snprintf(line, sizeof(line), "%d", quantity);
+                    ivec2_t origin = ivec2_add((ivec2_t){button_rect.x,button_rect.y},
+                                               sidebar->controls[products[i]->ui_id].counter);
+                    HU_DrawText(app->renderer, font, origin.x, origin.y,
+                                line, amber, 1);
+                }
             }
         } else {
             SDL_Color fill = (i == 0 && !product_mode) ? (SDL_Color){ 150, 150, 145, 255 } :
@@ -635,7 +744,7 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
     return sb;
 }
 
-bool DC_SB_Responder(void *sb_ptr, const app_t *app, level_t *map,
+bool DC_SB_Responder(void *sb_ptr, app_t *app, level_t *map,
                   mobj_t *const *units, int unit_count, const SDL_Event *event) {
     sb_state_t *sb = sb_ptr;
     return sb && sb->active &&

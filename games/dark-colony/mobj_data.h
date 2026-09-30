@@ -34,6 +34,7 @@ typedef struct {
     int resource_vent_index; \
     dc_waypoints_t waypoints; \
     dc_route_t route; \
+    bool move_only; \
     uint32_t producer_id; \
     uint32_t detected_by; \
     int repair_wait; \
@@ -43,6 +44,13 @@ typedef struct {
     HASH((actor)->ability_charge); \
     HASH((actor)->repair_wait); \
     HASH((actor)->detected_by); \
+    HASH((actor)->move_only); \
+    HASH((actor)->waypoints.count); \
+    HASH((actor)->waypoints.current); \
+    for (int waypoint = 0; waypoint < (actor)->waypoints.count; ++waypoint) { \
+        HASH((actor)->waypoints.points[waypoint].x); \
+        HASH((actor)->waypoints.points[waypoint].y); \
+    } \
 } while (0)
 
 #endif

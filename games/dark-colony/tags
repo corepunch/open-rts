@@ -29,7 +29,7 @@
 !_TAG_OUTPUT_VERSION	1.1	/current.age/
 !_TAG_PARSER_VERSION!C	1.1	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/Users/igor/Developer/open-rts/	//
+!_TAG_PROC_CWD	/Users/igor/.codex/worktrees/2fc8/open-rts/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -39,6 +39,10 @@
 !_TAG_ROLE_DESCRIPTION!C!header	system	/system header/
 !_TAG_ROLE_DESCRIPTION!C!macro	undef	/undefined/
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
+$	games/dark-colony/tags	/^BUILDINGS_PER_SIDE	games\/dark-colony\/dc_types.h	\/^    BUILDINGS_PER_SIDE = 15,$\/;"	e	enum:__/;"	e	enum:__anonabdb4d820103	file:
+$	games/dark-colony/tags	/^DYNAMIC_OBJECT_FIRST	games\/dark-colony\/dc_types.h	\/^    DYNAMIC_OBJECT_FIRST = 0x98,$\/;"	e	e/;"	e	enum:__anonabdb4d820103	file:
+$	games/dark-colony/tags	/^OBJECT_TYPE_PETRA7_VENT	games\/dark-colony\/dc_types.h	\/^    OBJECT_TYPE_PETRA7_VENT = 40,$\/;"/;"	e	enum:__anonabdb4d820103	file:
+$	games/dark-colony/tags	/^__anonf5138b040103	games\/dark-colony\/dc_types.h	\/^enum {$\/;"	g$/;"	e	enum:__anonabdb4d820103	file:
 AI_OWNER	games/dark-colony/p_prod.c	/^    enum { AI_OWNER = 1 };$/;"	e	enum:G_ModelAIProduction::__anon661954680303	file:
 A_DC_Arrive	games/dark-colony/info.h	/^void A_DC_Arrive(mobj_t *unit);$/;"	p	typeref:typename:void	signature:(mobj_t * unit)
 A_DC_Arrive	games/dark-colony/p_drop.c	/^void A_DC_Arrive(mobj_t *ship) {$/;"	f	typeref:typename:void	signature:(mobj_t * ship)
@@ -65,7 +69,6 @@ BUILDING_OBJECT_COUNT	games/dark-colony/dc_types.h	/^    BUILDING_OBJECT_COUNT =
 BURN	games/dark-colony/p_building.c	/^    enum { SCRCH, BURN };$/;"	e	enum:A_DC_BuildingStand::__anon43c6c7810103	file:
 BuildingCondition	games/dark-colony/p_script.c	/^} BuildingCondition;$/;"	t	typeref:struct:__anon9b5a71c80308	file:
 CHECK	games/dark-colony/menu/m_menu.c	/^    enum { NONE, PUSH, CHECK, LABEL, TEXT, GADGET, PICTURE, LIST, SCROLL } kind;$/;"	e	enum:__anon447319890308::__anon447319890403	file:
-CLIENT_PRODUCT_UNIT	games/dark-colony/sb_bar.c	/^    CLIENT_PRODUCT_UNIT = 2,$/;"	e	enum:__anone8fcdccd0503	file:
 COND_ALL_BUILDINGS_DESTROYED	games/dark-colony/p_script.c	/^    COND_ALL_BUILDINGS_DESTROYED, \/* b(team,0..4)==0 *\/$/;"	e	enum:__anon9b5a71c80203	file:
 COND_COUNTER_GT	games/dark-colony/p_script.c	/^    COND_COUNTER_GT,    \/* c > N *\/$/;"	e	enum:__anon9b5a71c80203	file:
 COND_COUNTER_GT_STATE	games/dark-colony/p_script.c	/^    COND_COUNTER_GT_STATE, \/* c > s(team,type,slot) *\/$/;"	e	enum:__anon9b5a71c80203	file:
@@ -148,12 +151,14 @@ DC_ProductActorMatches	games/dark-colony/dc_types.h	/^bool DC_ProductActorMatche
 DC_ProductActorMatches	games/dark-colony/p_prod.c	/^bool DC_ProductActorMatches(int actor, int required) {$/;"	f	typeref:typename:bool	signature:(int actor,int required)
 DC_RequestSkirmish	games/dark-colony/dc_skirmish.h	/^void DC_RequestSkirmish(const char *map, const dc_skirmish_t *setup);$/;"	p	typeref:typename:void	signature:(const char * map,const dc_skirmish_t * setup)
 DC_RequestSkirmish	games/dark-colony/menu/m_skirmish.c	/^void DC_RequestSkirmish(const char *map, const dc_skirmish_t *setup) {$/;"	f	typeref:typename:void	signature:(const char * map,const dc_skirmish_t * setup)
+DC_RunPurchases	games/dark-colony/dc_types.h	/^void DC_RunPurchases(void);$/;"	p	typeref:typename:void	signature:(void)
+DC_RunPurchases	games/dark-colony/p_prod.c	/^void DC_RunPurchases(void) {$/;"	f	typeref:typename:void	signature:(void)
 DC_SB_Drawer	games/dark-colony/sb_bar.c	/^void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * sb_ptr,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 DC_SB_Drawer	games/dark-colony/sb_bar.h	/^void  DC_SB_Drawer(void *sb, app_t *app, const level_t *map,$/;"	p	typeref:typename:void	signature:(void * sb,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 DC_SB_Init	games/dark-colony/sb_bar.c	/^void *DC_SB_Init(app_t *app, const char *data_root) {$/;"	f	typeref:typename:void *	signature:(app_t * app,const char * data_root)
 DC_SB_Init	games/dark-colony/sb_bar.h	/^void *DC_SB_Init(app_t *app, const char *data_root);$/;"	p	typeref:typename:void *	signature:(app_t * app,const char * data_root)
-DC_SB_Responder	games/dark-colony/sb_bar.c	/^bool DC_SB_Responder(void *sb_ptr, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * sb_ptr,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
-DC_SB_Responder	games/dark-colony/sb_bar.h	/^bool  DC_SB_Responder(void *sb, const app_t *app, level_t *map,$/;"	p	typeref:typename:bool	signature:(void * sb,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
+DC_SB_Responder	games/dark-colony/sb_bar.c	/^bool DC_SB_Responder(void *sb_ptr, app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * sb_ptr,app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
+DC_SB_Responder	games/dark-colony/sb_bar.h	/^bool  DC_SB_Responder(void *sb, app_t *app, level_t *map,$/;"	p	typeref:typename:bool	signature:(void * sb,app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 DC_SB_Shutdown	games/dark-colony/sb_bar.c	/^void DC_SB_Shutdown(void *sb_ptr) {$/;"	f	typeref:typename:void	signature:(void * sb_ptr)
 DC_SB_Shutdown	games/dark-colony/sb_bar.h	/^void  DC_SB_Shutdown(void *sb);$/;"	p	typeref:typename:void	signature:(void * sb)
 DC_SB_WorldViewportWidth	games/dark-colony/sb_bar.c	/^int DC_SB_WorldViewportWidth(const app_t *app) {$/;"	f	typeref:typename:int	signature:(const app_t * app)
@@ -162,10 +167,14 @@ DC_ScatterMissile	games/dark-colony/p_weapon.c	/^void DC_ScatterMissile(mobj_t *
 DC_ScatterMissile	games/dark-colony/p_weapon.h	/^void DC_ScatterMissile(mobj_t *missile, fixed3_t destination);$/;"	p	typeref:typename:void	signature:(mobj_t * missile,fixed3_t destination)
 DC_ScriptState	games/dark-colony/p_script.c	/^MissionState DC_ScriptState(const ScriptState *script) {$/;"	f	typeref:typename:MissionState	signature:(const ScriptState * script)
 DC_ScriptState	games/dark-colony/p_script.h	/^MissionState DC_ScriptState(const ScriptState *script);$/;"	p	typeref:typename:MissionState	signature:(const ScriptState * script)
+DC_SelectPurchase	games/dark-colony/dc_types.h	/^void DC_SelectPurchase(int owner, int ui_id, bool refund);$/;"	p	typeref:typename:void	signature:(int owner,int ui_id,bool refund)
+DC_SelectPurchase	games/dark-colony/p_prod.c	/^void DC_SelectPurchase(int owner, int ui_id, bool refund) {$/;"	f	typeref:typename:void	signature:(int owner,int ui_id,bool refund)
 DC_SpawnReinforcement	games/dark-colony/p_reinforce.c	/^mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type) {$/;"	f	typeref:typename:mobj_t *	signature:(int team,int gx,int gy,int type)
 DC_SpawnReinforcement	games/dark-colony/p_reinforce.h	/^mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type);$/;"	p	typeref:typename:mobj_t *	signature:(int team,int gx,int gy,int type)
 DC_StartDropship	games/dark-colony/p_drop.c	/^bool DC_StartDropship(int team, ivec2_t origin,$/;"	f	typeref:typename:bool	signature:(int team,ivec2_t origin,const DropshipPayload * payload,int payload_count)
 DC_StartDropship	games/dark-colony/p_drop.h	/^bool DC_StartDropship(int team, ivec2_t origin,$/;"	p	typeref:typename:bool	signature:(int team,ivec2_t origin,const DropshipPayload * payload,int payload_count)
+DC_SubmitPurchases	games/dark-colony/dc_types.h	/^void DC_SubmitPurchases(int owner);$/;"	p	typeref:typename:void	signature:(int owner)
+DC_SubmitPurchases	games/dark-colony/p_prod.c	/^void DC_SubmitPurchases(int owner) {$/;"	f	typeref:typename:void	signature:(int owner)
 DC_TakeRecords	games/dark-colony/w_fin.c	/^const void *DC_TakeRecords(blob_t *cursor, size_t count, size_t record_size) {$/;"	f	typeref:typename:const void *	signature:(blob_t * cursor,size_t count,size_t record_size)
 DC_TakeRecords	games/dark-colony/w_spr.h	/^const void *DC_TakeRecords(blob_t *cursor, size_t count, size_t record_size);$/;"	p	typeref:typename:const void *	signature:(blob_t * cursor,size_t count,size_t record_size)
 DC_TakeSkirmish	games/dark-colony/dc_skirmish.h	/^bool DC_TakeSkirmish(const char *map, dc_skirmish_t *setup);$/;"	p	typeref:typename:bool	signature:(const char * map,dc_skirmish_t * setup)
@@ -219,7 +228,7 @@ GAMESTAT_UNIT_WEAPON2	games/dark-colony/gamestat.h	/^    GAMESTAT_UNIT_WEAPON2 =
 GAMESTAT_WEAPON_COUNT	games/dark-colony/gamestat.h	/^#define GAMESTAT_WEAPON_COUNT /;"	d
 GAMESTAT_WEAPON_VALUE_COUNT	games/dark-colony/gamestat.h	/^#define GAMESTAT_WEAPON_VALUE_COUNT /;"	d
 G_CustomUIDrawer	games/dark-colony/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
-G_CustomUIResponder	games/dark-colony/g_game.c	/^bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
+G_CustomUIResponder	games/dark-colony/g_game.c	/^bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 G_CustomUITicker	games/dark-colony/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
 G_DoLoadLevel	games/dark-colony/g_game.c	/^bool G_DoLoadLevel(const char *path, level_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * path,level_t * out)
 G_InitCustomUI	games/dark-colony/g_game.c	/^void *G_InitCustomUI(app_t *app, const char *data_root) {$/;"	f	typeref:typename:void *	signature:(app_t * app,const char * data_root)
@@ -4237,7 +4246,7 @@ __anon64e882c00108::prev	games/dark-colony/p_path.c	/^    int32_t next, prev;$/;
 __anon64e882c00108::stamp	games/dark-colony/p_path.c	/^    uint32_t stamp;$/;"	m	struct:__anon64e882c00108	typeref:typename:uint32_t	file:
 __anon64e882c00108::x	games/dark-colony/p_path.c	/^    uint8_t x, y, parent_x, parent_y, family, adjustment;$/;"	m	struct:__anon64e882c00108	typeref:typename:uint8_t	file:
 __anon64e882c00108::y	games/dark-colony/p_path.c	/^    uint8_t x, y, parent_x, parent_y, family, adjustment;$/;"	m	struct:__anon64e882c00108	typeref:typename:uint8_t	file:
-__anon661954680108	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};$/;"	s	function:upgrade_value	file:
+__anon661954680108	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {$/;"	s	function:upgrade_value	file:
 __anon661954680208	games/dark-colony/p_prod.c	/^typedef struct {$/;"	s	file:
 __anon661954680208::desired_count	games/dark-colony/p_prod.c	/^    int desired_count;$/;"	m	struct:__anon661954680208	typeref:typename:int	file:
 __anon661954680208::row_id	games/dark-colony/p_prod.c	/^    int row_id;$/;"	m	struct:__anon661954680208	typeref:typename:int	file:
@@ -4376,6 +4385,7 @@ __anon9b5a71c80d08	games/dark-colony/p_script.c	/^static const struct { int x; i
 __anon9b5a71c80d08::x	games/dark-colony/p_script.c	/^static const struct { int x; int z; } dc_city_slot_offsets[] = {$/;"	m	struct:__anon9b5a71c80d08	typeref:typename:int	file:
 __anon9b5a71c80d08::z	games/dark-colony/p_script.c	/^static const struct { int x; int z; } dc_city_slot_offsets[] = {$/;"	m	struct:__anon9b5a71c80d08	typeref:typename:int	file:
 __anon9b5a71cd0103	games/dark-colony/p_script.h	/^typedef enum {$/;"	g
+__anonabdb4d820103	games/dark-colony/tags	/^__anonf5138b040103	games\/dark-colony\/dc_types.h	\/^enum {$\/;"	g$/;"	g	file:
 __anonad7a03aa0103	games/dark-colony/mobj_data.h	/^enum { DROPSHIP_MAX_PAYLOAD_TYPES = 5 };$/;"	g
 __anonad7a03aa0208	games/dark-colony/mobj_data.h	/^typedef struct { int type; int count; } DropshipPayload;$/;"	s
 __anonad7a03aa0208::count	games/dark-colony/mobj_data.h	/^typedef struct { int type; int count; } DropshipPayload;$/;"	m	struct:__anonad7a03aa0208	typeref:typename:int
@@ -4412,20 +4422,25 @@ __anone8fcdccd0108::outer	games/dark-colony/sb_bar.c	/^    irect_t outer;$/;"	m	
 __anone8fcdccd0108::status	games/dark-colony/sb_bar.c	/^    irect_t status;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 __anone8fcdccd0108::tabs	games/dark-colony/sb_bar.c	/^    irect_t tabs[3];$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t[3]	file:
 __anone8fcdccd0208	games/dark-colony/sb_bar.c	/^typedef struct {$/;"	s	file:
+__anone8fcdccd0208::counter	games/dark-colony/sb_bar.c	/^    ivec2_t counter;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:ivec2_t	file:
 __anone8fcdccd0208::frame	games/dark-colony/sb_bar.c	/^    int frame;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:int	file:
-__anone8fcdccd0208::id	games/dark-colony/sb_bar.c	/^    int id;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:int	file:
 __anone8fcdccd0208::label	games/dark-colony/sb_bar.c	/^    char label[40];$/;"	m	struct:__anone8fcdccd0208	typeref:typename:char[40]	file:
+__anone8fcdccd0208::pushed	games/dark-colony/sb_bar.c	/^    int pushed;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:int	file:
+__anone8fcdccd0208::rect	games/dark-colony/sb_bar.c	/^    irect_t rect;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:irect_t	file:
 __anone8fcdccd0308	games/dark-colony/sb_bar.c	/^typedef struct {$/;"	s	file:
-__anone8fcdccd0308::command_count	games/dark-colony/sb_bar.c	/^    int command_count;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
-__anone8fcdccd0308::commands	games/dark-colony/sb_bar.c	/^    SidebarCommand commands[6];$/;"	m	struct:__anone8fcdccd0308	typeref:typename:SidebarCommand[6]	file:
-__anone8fcdccd0308::products	games/dark-colony/sb_bar.c	/^    irect_t products[207]; \/* Native MAINE control IDs. *\/$/;"	m	struct:__anone8fcdccd0308	typeref:typename:irect_t[207]	file:
+__anone8fcdccd0308::assault	games/dark-colony/sb_bar.c	/^    bool assault;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:bool	file:
+__anone8fcdccd0308::bright_highlight	games/dark-colony/sb_bar.c	/^    int bright_pushed, bright_highlight;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
+__anone8fcdccd0308::bright_pushed	games/dark-colony/sb_bar.c	/^    int bright_pushed, bright_highlight;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
+__anone8fcdccd0308::controls	games/dark-colony/sb_bar.c	/^    SidebarCommand controls[207]; \/* Native MAINE control IDs. *\/$/;"	m	struct:__anone8fcdccd0308	typeref:typename:SidebarCommand[207]	file:
+__anone8fcdccd0308::tab	games/dark-colony/sb_bar.c	/^    int tab;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
+__anone8fcdccd0308::targeting	games/dark-colony/sb_bar.c	/^    int targeting;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
+__anone8fcdccd0308::waypoints	games/dark-colony/sb_bar.c	/^    dc_waypoints_t waypoints;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:dc_waypoints_t	file:
 __anone8fcdccd0408	games/dark-colony/sb_bar.c	/^typedef struct {$/;"	s	file:
 __anone8fcdccd0408::active	games/dark-colony/sb_bar.c	/^    bool active;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:bool	file:
 __anone8fcdccd0408::background	games/dark-colony/sb_bar.c	/^    spritesheet_t background;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:spritesheet_t	file:
 __anone8fcdccd0408::font	games/dark-colony/sb_bar.c	/^    bitmapfont_t font;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:bitmapfont_t	file:
 __anone8fcdccd0408::font_ready	games/dark-colony/sb_bar.c	/^    bool font_ready;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:bool	file:
 __anone8fcdccd0408::sidebar	games/dark-colony/sb_bar.c	/^    Sidebar sidebar;$/;"	m	struct:__anone8fcdccd0408	typeref:typename:Sidebar	file:
-__anone8fcdccd0503	games/dark-colony/sb_bar.c	/^enum {$/;"	g	file:
 __anonef2472380103	games/dark-colony/w_map.c	/^enum {$/;"	g	file:
 __anonef2472380203	games/dark-colony/w_map.c	/^enum {$/;"	g	file:
 __anonef2472380308	games/dark-colony/w_map.c	/^typedef struct {$/;"	s	file:
@@ -4627,6 +4642,7 @@ artillery	games/dark-colony/p_weapon.c	/^struct dc_weapons_s { dc_fin_t artiller
 artillery_arc	games/dark-colony/g_game.c	/^static const fixed_t artillery_arc[] = {$/;"	v	typeref:typename:const fixed_t[]	file:
 artillery_blast	games/dark-colony/g_game.c	/^static const uint8_t artillery_blast[] = {$/;"	v	typeref:typename:const uint8_t[]	file:
 artillery_damage	games/dark-colony/g_game.c	/^static const uint16_t artillery_damage[] = {256,89,0,64,179,460,38,128,0,25};$/;"	v	typeref:typename:const uint16_t[]	file:
+assault	games/dark-colony/sb_bar.c	/^    bool assault;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:bool	file:
 asset_exists	games/dark-colony/w_spr.c	/^static bool asset_exists(const char *path) { return path && access(path, R_OK) == 0; }$/;"	f	typeref:typename:bool	file:	signature:(const char * path)
 attacksound	games/dark-colony/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 background	games/dark-colony/menu/m_menu.c	/^static spritesheet_t background;$/;"	v	typeref:typename:spritesheet_t	file:
@@ -4637,8 +4653,11 @@ blood_labels	games/dark-colony/p_blood.c	/^static const struct { const char *nam
 bomb_blast	games/dark-colony/g_game.c	/^static const uint8_t bomb_blast[] = {0,0,0,0,100,0,0,0,0};$/;"	v	typeref:typename:const uint8_t[]	file:
 bomb_damage	games/dark-colony/g_game.c	/^static const uint16_t bomb_damage[] = {17,64,0,20,64,115,12,64,0,12};$/;"	v	typeref:typename:const uint16_t[]	file:
 bright_highlight	games/dark-colony/menu/m_menu.c	/^static int bright_pushed, bright_highlight;$/;"	v	typeref:typename:int	file:
+bright_highlight	games/dark-colony/sb_bar.c	/^    int bright_pushed, bright_highlight;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
 bright_pushed	games/dark-colony/menu/m_menu.c	/^static int bright_pushed, bright_highlight;$/;"	v	typeref:typename:int	file:
+bright_pushed	games/dark-colony/sb_bar.c	/^    int bright_pushed, bright_highlight;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
 build	games/dark-colony/sb_bar.c	/^    irect_t build;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
+build_product	games/dark-colony/p_prod.c	/^static bool build_product(mobj_t *producer, const StaticProductDefinition *product, bool paid) {$/;"	f	typeref:typename:bool	file:	signature:(mobj_t * producer,const StaticProductDefinition * product,bool paid)
 building_alive_at_slot	games/dark-colony/p_script.c	/^static bool building_alive_at_slot(const ScriptState *script, int team, int slot,$/;"	f	typeref:typename:bool	file:	signature:(const ScriptState * script,int team,int slot,mobj_t * const * units,int unit_count)
 building_cond	games/dark-colony/p_script.c	/^    BuildingCondition building_cond;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:BuildingCondition	file:
 buttons	games/dark-colony/sb_bar.c	/^    irect_t buttons[8];$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t[8]	file:
@@ -4664,10 +4683,8 @@ city_values	games/dark-colony/w_map.c	/^    int city_values[DARK_COLONY_SCN_CITY
 color	games/dark-colony/dc_skirmish.h	/^    int race, type, color, team;$/;"	m	struct:__anon92b1dbd90208	typeref:typename:int
 color	games/dark-colony/gamestat.h	/^    int color[3];$/;"	m	struct:__anon7371b25f0808	typeref:typename:int[3]
 command_count	games/dark-colony/p_script.c	/^    int command_count;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
-command_count	games/dark-colony/sb_bar.c	/^    int command_count;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
 command_count	games/dark-colony/w_spr.h	/^    int command_count;$/;"	m	struct:__anonef9947740c08	typeref:typename:int
 commands	games/dark-colony/p_script.c	/^    ScriptCommand commands[32];$/;"	m	struct:__anon9b5a71c80908	typeref:typename:ScriptCommand[32]	file:
-commands	games/dark-colony/sb_bar.c	/^    SidebarCommand commands[6];$/;"	m	struct:__anone8fcdccd0308	typeref:typename:SidebarCommand[6]	file:
 commands	games/dark-colony/sb_bar.c	/^    irect_t commands;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 commands	games/dark-colony/w_spr.h	/^    const dc_fin_command_t *commands;$/;"	m	struct:__anonef9947740c08	typeref:typename:const dc_fin_command_t *
 compare_maps	games/dark-colony/menu/m_menu.c	/^static int compare_maps(const void *a, const void *b) {$/;"	f	typeref:typename:int	file:	signature:(const void * a,const void * b)
@@ -4683,6 +4700,7 @@ condition_kind	games/dark-colony/p_script.c	/^    ConditionKind condition_kind;$
 condition_negated	games/dark-colony/p_script.c	/^    bool condition_negated; \/* true if condition should be negated (e.g. enabled=0) *\/$/;"	m	struct:__anon9b5a71c80908	typeref:typename:bool	file:
 control_intensity	games/dark-colony/menu/m_menu.c	/^static int control_intensity(const menucontrol_t *c) {$/;"	f	typeref:typename:int	file:	signature:(const menucontrol_t * c)
 controls	games/dark-colony/menu/m_menu.c	/^static menucontrol_t controls[300];$/;"	v	typeref:typename:menucontrol_t[300]	file:
+controls	games/dark-colony/sb_bar.c	/^    SidebarCommand controls[207]; \/* Native MAINE control IDs. *\/$/;"	m	struct:__anone8fcdccd0308	typeref:typename:SidebarCommand[207]	file:
 cooldown_d0	games/dark-colony/dc_types.h	/^    uint8_t cooldown_d0;        \/* +0xd0 *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:uint8_t
 copy_trimmed_token	games/dark-colony/w_map.c	/^static void copy_trimmed_token(char *dst, size_t dst_size, const char *src, size_t len) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * src,size_t len)
 cost	games/dark-colony/gamestat.h	/^    int cost;$/;"	m	struct:__anon7371b25f0308	typeref:typename:int
@@ -4692,6 +4710,7 @@ count	games/dark-colony/mobj_data.h	/^    int count, current;$/;"	m	struct:__ano
 count	games/dark-colony/mobj_data.h	/^    int count;$/;"	m	struct:__anonad7a03aa0508	typeref:typename:int
 count	games/dark-colony/mobj_data.h	/^typedef struct { int type; int count; } DropshipPayload;$/;"	m	struct:__anonad7a03aa0208	typeref:typename:int
 count	games/dark-colony/w_map.c	/^    int count;$/;"	m	struct:__anonef2472380808	typeref:typename:int	file:
+counter	games/dark-colony/sb_bar.c	/^    ivec2_t counter;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:ivec2_t	file:
 counter_gt_state_slot	games/dark-colony/p_script.c	/^    int counter_gt_state_slot;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
 counter_gt_state_team	games/dark-colony/p_script.c	/^    int counter_gt_state_team;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
 counter_gt_state_type	games/dark-colony/p_script.c	/^    int counter_gt_state_type;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
@@ -4702,16 +4721,17 @@ damage	games/dark-colony/gamestat.h	/^    int damage[GAMESTAT_MAX_BOOM_SIZE][GAM
 damage	games/dark-colony/info.h	/^    int damage;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 days	games/dark-colony/sb_bar.c	/^    irect_t days;$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t	file:
 dc_SB_drawer	games/dark-colony/sb_bar.c	/^static void dc_SB_drawer(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * cache,const bitmapfont_t * font,const Sidebar * sidebar,const spritesheet_t * background)
-dc_SB_responder	games/dark-colony/sb_bar.c	/^static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *map,$/;"	f	typeref:typename:bool	file:	signature:(const Sidebar * sidebar,const app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * e)
+dc_SB_responder	games/dark-colony/sb_bar.c	/^static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,$/;"	f	typeref:typename:bool	file:	signature:(Sidebar * sidebar,app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * e)
 dc_advance_production_queue	games/dark-colony/p_prod.c	/^static void dc_advance_production_queue(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
 dc_angle_to_direction	games/dark-colony/dc_facing.h	/^static inline int dc_angle_to_direction(angle_t angle) {$/;"	f	typeref:typename:int	signature:(angle_t angle)
 dc_atan	games/dark-colony/p_weapon_data.h	/^static const int16_t dc_atan[257] = {$/;"	v	typeref:typename:const int16_t[257]
-dc_available_products	games/dark-colony/sb_bar.c	/^static int dc_available_products(mobj_t *const *units, int unit_count, const mobj_t *selected,$/;"	f	typeref:typename:int	file:	signature:(mobj_t * const * units,int unit_count,const mobj_t * selected,const ProductButton * out[16])
+dc_available_products	games/dark-colony/sb_bar.c	/^static int dc_available_products(mobj_t *const *units, int unit_count, int tab,$/;"	f	typeref:typename:int	file:	signature:(mobj_t * const * units,int unit_count,int tab,const ProductButton * out[16])
 dc_build_city_module	games/dark-colony/p_prod.c	/^static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition *product,$/;"	f	typeref:typename:bool	file:	signature:(mobj_t * producer,const StaticProductDefinition * product,uint16_t actor_id)
 dc_building_sequence_t	games/dark-colony/info.h	/^typedef struct { const char *name; int first, last; } dc_building_sequence_t;$/;"	t	typeref:struct:__anonf7269e950408
 dc_building_sequences	games/dark-colony/info.c	/^const dc_building_sequence_t dc_building_sequences[MT_RSCHPOD - MT_EXCOPOD + 1][3] = {$/;"	v	typeref:typename:const dc_building_sequence_t[][3]
 dc_city_slot_offsets	games/dark-colony/p_script.c	/^static const struct { int x; int z; } dc_city_slot_offsets[] = {$/;"	v	typeref:typename:const struct __anon9b5a71c80d08[]	file:
 dc_clear_production	games/dark-colony/p_prod.c	/^static void dc_clear_production(mobj_t *producer) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * producer)
+dc_commands	games/dark-colony/sb_bar.c	/^static int dc_commands(mobj_t *const *units, int count, int ids[6]) {$/;"	f	typeref:typename:int	file:	signature:(mobj_t * const * units,int count,int ids[6])
 dc_direction_to_angle	games/dark-colony/dc_facing.h	/^static inline angle_t dc_direction_to_angle(int direction) {$/;"	f	typeref:typename:angle_t	signature:(int direction)
 dc_drop_t	games/dark-colony/mobj_data.h	/^} dc_drop_t;$/;"	t	typeref:struct:__anonad7a03aa0308
 dc_file_displacement_t	games/dark-colony/w_spr.h	/^} dc_file_displacement_t;$/;"	t	typeref:struct:__anonef9947740908
@@ -4757,8 +4777,6 @@ dc_random_table	games/dark-colony/m_random.c	/^const uint32_t dc_random_table[25
 dc_route_t	games/dark-colony/mobj_data.h	/^} dc_route_t;$/;"	t	typeref:struct:__anonad7a03aa0608
 dc_selected_building_label	games/dark-colony/sb_bar.c	/^static const char *dc_selected_building_label(const mobj_t *selected) {$/;"	f	typeref:typename:const char *	file:	signature:(const mobj_t * selected)
 dc_selected_unit_is_player_building	games/dark-colony/sb_bar.c	/^static bool dc_selected_unit_is_player_building(const mobj_t *selected) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * selected)
-dc_sidebar_command_frame	games/dark-colony/sb_bar.c	/^static int dc_sidebar_command_frame(const SidebarCommand *cmd, const mobj_t *selected) {$/;"	f	typeref:typename:int	file:	signature:(const SidebarCommand * cmd,const mobj_t * selected)
-dc_sidebar_command_label	games/dark-colony/sb_bar.c	/^static const char *dc_sidebar_command_label(const SidebarCommand *cmd,$/;"	f	typeref:typename:const char *	file:	signature:(const SidebarCommand * cmd,const mobj_t * selected)
 dc_sine	games/dark-colony/p_weapon_data.h	/^static const int16_t dc_sine[65] = {$/;"	v	typeref:typename:const int16_t[65]
 dc_skirmish_player_t	games/dark-colony/dc_skirmish.h	/^} dc_skirmish_player_t;$/;"	t	typeref:struct:__anon92b1dbd90208
 dc_skirmish_t	games/dark-colony/dc_skirmish.h	/^} dc_skirmish_t;$/;"	t	typeref:struct:__anon92b1dbd90308
@@ -4766,10 +4784,9 @@ dc_spawn_finished_unit_product	games/dark-colony/p_prod.c	/^static bool dc_spawn
 dc_spr_cell_t	games/dark-colony/w_spr.h	/^} dc_spr_cell_t;$/;"	t	typeref:struct:__anonef9947740b08
 dc_spr_header_t	games/dark-colony/w_spr.h	/^} dc_spr_header_t;$/;"	t	typeref:struct:__anonef9947740a08
 dc_spr_t	games/dark-colony/w_spr.c	/^} dc_spr_t;$/;"	t	typeref:struct:__anonef99476f0208	file:
-dc_stop_selected_units	games/dark-colony/sb_bar.c	/^static void dc_stop_selected_units(mobj_t *const *units, int unit_count) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * const * units,int unit_count)
 dc_ui_draw_image_part	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_image_part(SDL_Renderer *renderer, const spritesheet_t *image,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * image,irect_t src,irect_t dst)
 dc_ui_draw_minimap	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *units, int unit_co/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,mobj_t * const * units,int unit_count,irect_t rect)
-dc_ui_draw_sprite_fit	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_sprite_fit(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite,int frame,irect_t box,uint32_t render_flags)
+dc_ui_draw_sprite	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite,int frame,irect_t box,int palette)
 dc_ui_draw_status	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_status(app_t *app, const level_t *map,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,const level_t * map,const bitmapfont_t * font,const UiLayout * layout,const spritecache_t * cache)
 dc_ui_draw_text_right	games/dark-colony/sb_bar.c	/^static void dc_ui_draw_text_right(SDL_Renderer *renderer, const bitmapfont_t *font,$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const bitmapfont_t * font,irect_t rect,int y,const char * text,SDL_Color color)
 dc_ui_fill	games/dark-colony/sb_bar.c	/^static void dc_ui_fill(SDL_Renderer *renderer, irect_t rect, SDL_Color color) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,irect_t rect,SDL_Color color)
@@ -4822,6 +4839,7 @@ file	games/dark-colony/w_spr.h	/^    blob_t file;$/;"	m	struct:__anonef9947740c0
 filtered_map	games/dark-colony/menu/m_menu.c	/^static int filtered_map(int row) {$/;"	f	typeref:typename:int	file:	signature:(int row)
 fin	games/dark-colony/menu/m_menu.c	/^    const dc_fin_t *fin;$/;"	m	struct:__anon447319890308	typeref:typename:const dc_fin_t *	file:
 fin	games/dark-colony/menu/m_menu.c	/^    dc_fin_t fin;$/;"	m	struct:__anon447319890208	typeref:typename:dc_fin_t	file:
+finish_waypoints	games/dark-colony/sb_bar.c	/^static void finish_waypoints(Sidebar *sidebar, mobj_t *const *units, int count) {$/;"	f	typeref:typename:void	file:	signature:(Sidebar * sidebar,mobj_t * const * units,int count)
 fired	games/dark-colony/p_script.c	/^    bool fired;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:bool	file:
 first	games/dark-colony/info.h	/^typedef struct { const char *name; int first, last; } dc_building_sequence_t;$/;"	m	struct:__anonf7269e950408	typeref:typename:int
 first_mission	games/dark-colony/menu/m_menu.c	/^static bool first_mission(void) {$/;"	f	typeref:typename:bool	file:	signature:(void)
@@ -4867,7 +4885,6 @@ id	games/dark-colony/gamestat.h	/^    int id;$/;"	m	struct:__anon7371b25f0408	ty
 id	games/dark-colony/gamestat.h	/^    int id;$/;"	m	struct:__anon7371b25f0708	typeref:typename:int
 id	games/dark-colony/p_script.c	/^    int id;$/;"	m	struct:__anon9b5a71c80908	typeref:typename:int	file:
 id	games/dark-colony/p_script.c	/^    int id;$/;"	m	struct:__anon9b5a71c80a08	typeref:typename:int	file:
-id	games/dark-colony/sb_bar.c	/^    int id;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:int	file:
 images	games/dark-colony/menu/m_menu.c	/^static spritecache_t images;$/;"	v	typeref:typename:spritecache_t	file:
 init_paths	games/dark-colony/p_path.c	/^static bool init_paths(level_t *map) {$/;"	f	typeref:typename:bool	file:	signature:(level_t * map)
 initialized	games/dark-colony/menu/m_menu.c	/^static bool initialized, training;$/;"	v	typeref:typename:bool	file:
@@ -5070,9 +5087,9 @@ product_by_row_id	games/dark-colony/p_prod.c	/^static const StaticProductDefinit
 product_class	games/dark-colony/gamestat.h	/^    int product_class;$/;"	m	struct:__anon7371b25f0308	typeref:typename:int
 product_count	games/dark-colony/p_prod.c	/^static int product_count(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 product_type	games/dark-colony/gamestat.h	/^    int product_type;$/;"	m	struct:__anon7371b25f0308	typeref:typename:int
-products	games/dark-colony/sb_bar.c	/^    irect_t products[207]; \/* Native MAINE control IDs. *\/$/;"	m	struct:__anone8fcdccd0308	typeref:typename:irect_t[207]	file:
 prose	games/dark-colony/menu/m_menu.c	/^static char *prose;$/;"	v	typeref:typename:char *	file:
 pushed	games/dark-colony/menu/m_menu.c	/^    int normal, pushed;$/;"	m	struct:__anon447319890308	typeref:typename:int	file:
+pushed	games/dark-colony/sb_bar.c	/^    int pushed;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:int	file:
 quantity	games/dark-colony/dc_skirmish.h	/^    int flow, quantity, rank; \/* Multipliers are native 25% steps, 1..20. *\/$/;"	m	struct:__anon92b1dbd90308	typeref:typename:int
 race	games/dark-colony/dc_skirmish.h	/^    int race, type, color, team;$/;"	m	struct:__anon92b1dbd90208	typeref:typename:int
 race	games/dark-colony/menu/m_menu.c	/^static int race, itemOn, scroll;$/;"	v	typeref:typename:int	file:
@@ -5089,6 +5106,7 @@ read_layer	games/dark-colony/w_fin.c	/^static bool read_layer(const dc_fin_comma
 read_text	games/dark-colony/menu/m_menu.c	/^static bool read_text(const char *name) {$/;"	f	typeref:typename:bool	file:	signature:(const char * name)
 reaper_death_state_for_angle	games/dark-colony/p_inter.c	/^static int reaper_death_state_for_angle(angle_t angle) {$/;"	f	typeref:typename:int	file:	signature:(angle_t angle)
 rect	games/dark-colony/menu/m_menu.c	/^    irect_t rect;$/;"	m	struct:__anon447319890308	typeref:typename:irect_t	file:
+rect	games/dark-colony/sb_bar.c	/^    irect_t rect;$/;"	m	struct:__anone8fcdccd0208	typeref:typename:irect_t	file:
 refresh_skirmish	games/dark-colony/menu/m_menu.c	/^static void refresh_skirmish(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
 refresh_skirmish	games/dark-colony/menu/m_menu.c	/^static void refresh_skirmish(void);$/;"	p	typeref:typename:void	file:	signature:(void)
 regen_timer	games/dark-colony/dc_types.h	/^    uint8_t regen_timer;        \/* +0x0a, initialized to 0x40 *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:uint8_t
@@ -5111,7 +5129,7 @@ rgb565_to_rgba	games/dark-colony/w_map.c	/^static uint32_t rgb565_to_rgba(uint16
 rocket_weave	games/dark-colony/g_game.c	/^static const int8_t rocket_weave[] = {$/;"	v	typeref:typename:const int8_t[]	file:
 root	games/dark-colony/menu/m_menu.c	/^static char root[1024], leader[128], mapname[1024];$/;"	v	typeref:typename:char[1024]	file:
 route	games/dark-colony/p_script.c	/^            dc_waypoints_t route;$/;"	m	struct:__anon9b5a71c80608::__anon9b5a71c8070a::__anon9b5a71c80808	typeref:typename:dc_waypoints_t	file:
-row	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
+row	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
 row_id	games/dark-colony/gamestat.h	/^    int row_id;$/;"	m	struct:__anon7371b25f0308	typeref:typename:int
 row_id	games/dark-colony/p_prod.c	/^    int row_id;$/;"	m	struct:__anon661954680208	typeref:typename:int	file:
 runtime_info	games/dark-colony/g_game.c	/^static gameinfo_t runtime_info;$/;"	v	typeref:typename:gameinfo_t	file:
@@ -5185,9 +5203,11 @@ status	games/dark-colony/sb_bar.c	/^    irect_t status;$/;"	m	struct:__anone8fcd
 status	games/dark-colony/w_map.c	/^    int status;$/;"	m	struct:__anonef2472380608	typeref:typename:int	file:
 storage	games/dark-colony/dc_skirmish.h	/^    int storage, artifacts, erupting, renewable;$/;"	m	struct:__anon92b1dbd90308	typeref:typename:int
 subtype	games/dark-colony/dc_types.h	/^    uint8_t subtype;            \/* +0xcb *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:uint8_t
+tab	games/dark-colony/sb_bar.c	/^    int tab;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
 tabs	games/dark-colony/sb_bar.c	/^    irect_t tabs[3];$/;"	m	struct:__anone8fcdccd0108	typeref:typename:irect_t[3]	file:
 target_a	games/dark-colony/dc_types.h	/^    int16_t target_a;           \/* +0xd2, initialized to -2 *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:int16_t
 target_b	games/dark-colony/dc_types.h	/^    int16_t target_b;           \/* +0xd4, initialized to -2 *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:int16_t
+targeting	games/dark-colony/sb_bar.c	/^    int targeting;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:int	file:
 team	games/dark-colony/dc_skirmish.h	/^    int race, type, color, team;$/;"	m	struct:__anon92b1dbd90208	typeref:typename:int
 team	games/dark-colony/dc_types.h	/^    uint8_t team;               \/* +0x07 *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:uint8_t
 team	games/dark-colony/gamestat.h	/^    int team;$/;"	m	struct:__anon7371b25f0508	typeref:typename:int
@@ -5217,7 +5237,7 @@ turret_damage	games/dark-colony/g_game.c	/^static const uint16_t turret_damage[]
 type	games/dark-colony/dc_skirmish.h	/^    int race, type, color, team;$/;"	m	struct:__anon92b1dbd90208	typeref:typename:int
 type	games/dark-colony/dc_types.h	/^    uint8_t type;               \/* +0x06, GAMESTAT object type *\/$/;"	m	struct:__anonf5138b040208	typeref:typename:uint8_t
 type	games/dark-colony/mobj_data.h	/^typedef struct { int type; int count; } DropshipPayload;$/;"	m	struct:__anonad7a03aa0208	typeref:typename:int
-type	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
+type	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
 type	games/dark-colony/p_script.c	/^    ScriptCommandType type;$/;"	m	struct:__anon9b5a71c80608	typeref:typename:ScriptCommandType	file:
 type	games/dark-colony/p_script.c	/^    int type;$/;"	m	struct:__anon9b5a71c80408	typeref:typename:int	file:
 type	games/dark-colony/w_map.c	/^    int type;$/;"	m	struct:__anonef2472380608	typeref:typename:int	file:
@@ -5248,8 +5268,8 @@ update_mission	games/dark-colony/p_mission.h	/^void update_mission(level_t *map,
 update_mission	games/dark-colony/p_spec.c	/^void update_mission(level_t *map, mobj_t *const *units, int *unit_count,$/;"	f	typeref:typename:void	signature:(level_t * map,mobj_t * const * units,int * unit_count,hudtext_t * hud,float dt)
 upgrade_count	games/dark-colony/w_map.c	/^    int upgrade_count;$/;"	m	struct:__anonef2472380408	typeref:typename:int	file:
 upgrade_value	games/dark-colony/p_prod.c	/^static uint8_t *upgrade_value(int owner, const StaticProductDefinition *product, int *tier) {$/;"	f	typeref:typename:uint8_t *	file:	signature:(int owner,const StaticProductDefinition * product,int * tier)
-upgrade_value::__anon661954680108::row	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
-upgrade_value::__anon661954680108::type	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
+upgrade_value::__anon661954680108::row	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
+upgrade_value::__anon661954680108::type	games/dark-colony/p_prod.c	/^    static const struct { int row, type; } groups[] = {$/;"	m	struct:upgrade_value::__anon661954680108	typeref:typename:int	file:
 upgrades	games/dark-colony/w_map.c	/^    struct { uint8_t weapon, armor; } upgrades[8];$/;"	m	struct:__anonef2472380408	typeref:struct:__anonef2472380408::__anonef2472380508[8]	file:
 valid	games/dark-colony/w_spr.c	/^    bool valid;$/;"	m	struct:__anonef99476f0108	typeref:typename:bool	file:
 value_count	games/dark-colony/gamestat.h	/^    int value_count;$/;"	m	struct:__anon7371b25f0208	typeref:typename:int
@@ -5260,6 +5280,7 @@ visible	games/dark-colony/menu/m_menu.c	/^    bool centered, visible, checked, w
 visible_map_rows	games/dark-colony/menu/m_menu.c	/^static int visible_map_rows(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 w	games/dark-colony/w_spr.h	/^    uint16_t w, h;$/;"	m	struct:__anonef9947740808	typeref:typename:uint16_t
 waypoint	games/dark-colony/p_script.c	/^        } waypoint;$/;"	m	union:__anon9b5a71c80608::__anon9b5a71c8070a	typeref:struct:__anon9b5a71c80608::__anon9b5a71c8070a::__anon9b5a71c80808	file:
+waypoints	games/dark-colony/sb_bar.c	/^    dc_waypoints_t waypoints;$/;"	m	struct:__anone8fcdccd0308	typeref:typename:dc_waypoints_t	file:
 weapon	games/dark-colony/w_map.c	/^    struct { uint8_t weapon, armor; } upgrades[8];$/;"	m	struct:__anonef2472380408::__anonef2472380508	typeref:typename:uint8_t	file:
 weapon_class	games/dark-colony/gamestat.h	/^    int weapon_class;$/;"	m	struct:__anon7371b25f0408	typeref:typename:int
 weapon_class	games/dark-colony/gamestat.h	/^    int weapon_class;$/;"	m	struct:__anon7371b25f0508	typeref:typename:int

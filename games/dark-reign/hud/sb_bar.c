@@ -178,7 +178,7 @@ void *G_InitCustomUI(app_t *app, const char *root) {
     return &bar;
 }
 
-bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,
                          mobj_t *const *units, int count, const SDL_Event *event) {
     (void)map; (void)units; (void)count;
     return ui && DR_PaletteResponder(ui, (app_t *)app, event);

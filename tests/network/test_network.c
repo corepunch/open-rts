@@ -4,6 +4,7 @@
 #include "p_local.h"
 #include "info.h"
 #include "p_ai.h"
+#include "dc_types.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -109,6 +110,28 @@ static void command_tests(void) {
     level.player_resources[1][0] = 10000;
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, 81);
     assert(product);
+    cmd = (ticcmd_t){.order = TC_PURCHASE, .product = 81};
+    G_RunTiccmd(1,&cmd);
+    assert(level.player_resources[1][0] == 10000 - product->cost);
+    assert(level.purchases[1][2].selected == 1 && !level.purchases[0][2].selected);
+    uint32_t reserved_hash = G_Consistency();
+    cmd.target = 1;
+    G_RunTiccmd(0,&cmd);
+    assert(G_Consistency() == reserved_hash);
+    G_RunTiccmd(1,&cmd);
+    assert(level.player_resources[1][0] == 10000 && !level.purchases[1][2].selected);
+    cmd.target = 0;
+    G_RunTiccmd(1,&cmd);
+    G_RunTiccmd(1,&(ticcmd_t){.order = TC_SUBMIT});
+    assert(level.player_resources[1][0] == 10000 - product->cost);
+    assert(!level.purchases[1][2].selected);
+    P_FreeLevel(&level);
+    G_InitGame(); P_InitThinkers();
+    level.width = level.height = 32;
+    producer = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){16,16},0),MT_EXCOPOD);
+    assert(producer);
+    producer->owner = producer->team = 1;
+    level.player_resources[1][0] = 10000;
     cmd = (ticcmd_t){ .order = TC_BUILD, .product = 81, .count = 1, .units = {producer->id} };
     G_RunTiccmd(0, &cmd);
     assert(level.player_resources[1][0] == 10000);
@@ -329,7 +352,8 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     close(output);
     if (model) rts_game_model_destroy(model);
     else P_FreeLevel(&level);
-    SDL_Quit();
+    /* SDL's inherited timer thread cannot be joined after fork on macOS.
+     * The child owns no display; _exit releases its process resources. */
     _exit(0);
 }
 

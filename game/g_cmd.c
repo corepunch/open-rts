@@ -1,17 +1,21 @@
 #include "d_net.h"
 #include "game.h"
 #include "p_local.h"
+#ifdef RTS_GAME_DARK_COLONY
+#include "dc_types.h"
+#endif
 
 enum { MAXPENDINGCOMMANDS = 64 };
 static ticcmd_t pending[MAXPENDINGCOMMANDS];
 static unsigned commandhead, commandcount;
+bool paused;
 
 void G_ClearTiccmds(void) {
     commandhead = commandcount = 0;
 }
 
 bool G_QueueTiccmd(const ticcmd_t *cmd) {
-    if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_DEPLOY) return false;
+    if (!cmd || cmd->count > MAXCOMMANDUNITS || (unsigned)cmd->order > TC_MAX) return false;
     if (!netactive) { G_RunTiccmd(consoleplayer, cmd); return true; }
     if (commandcount == MAXPENDINGCOMMANDS) {
         fprintf(stderr, "Order queue full; order was not accepted.\n");
@@ -52,8 +56,16 @@ bool G_BuildOrder(mobj_t *producer, int product) {
 }
 
 void G_RunTiccmd(int player, const ticcmd_t *cmd) {
-    if (!cmd || cmd->order == TC_NONE || cmd->count > MAXCOMMANDUNITS ||
+    if (!cmd || cmd->order == TC_NONE || (unsigned)cmd->order > TC_MAX || cmd->count > MAXCOMMANDUNITS ||
         player < 0 || player >= RTS_MODEL_MAX_PLAYERS) return;
+    if (cmd->order == TC_PAUSE) { paused = !paused; return; }
+#ifdef RTS_GAME_DARK_COLONY
+    if (cmd->order == TC_PURCHASE) {
+        DC_SelectPurchase(player, cmd->product, cmd->target != 0);
+        return;
+    }
+    if (cmd->order == TC_SUBMIT) { DC_SubmitPurchases(player); return; }
+#endif
     mobj_t *units[MAXCOMMANDUNITS], *target = NULL;
     int count = 0;
     /* Resolve in thinker order, never in UI selection order or by array index. */
@@ -69,6 +81,31 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
+#ifdef RTS_GAME_DARK_COLONY
+    if (cmd->order == TC_MODE) {
+        for (int i = 0; i < count; ++i) {
+            units[i]->move_only = cmd->target == 33;
+            if (units[i]->move_only) units[i]->attack.target = NULL;
+        }
+        return;
+    }
+    if (cmd->order == TC_WAYPOINT) {
+        ivec2_t point = {cmd->position.x >> FIXED_FRAC_BITS, cmd->position.y >> FIXED_FRAC_BITS};
+        if (!L_Contains(&level, point.x, point.y)) return;
+        for (int i = 0; i < count; ++i) {
+            mobj_t *actor = units[i];
+            if (!(actor->traits & MF_MOBILE)) continue;
+            if (!cmd->target) actor->waypoints = (dc_waypoints_t){0};
+            if (actor->waypoints.count < DC_MAX_WAYPOINTS)
+                actor->waypoints.points[actor->waypoints.count++] = point;
+            if (actor->waypoints.count == 1)
+                P_MoveUnitTo(&level, actor, fvec2_cell_center(point));
+        }
+        return;
+    }
+    if (cmd->order != TC_BUILD)
+        for (int i = 0; i < count; ++i) units[i]->waypoints = (dc_waypoints_t){0};
+#endif
     if (cmd->order == TC_DEPLOY) {
         for (int i = 0; i < count; ++i) P_Deploy(units[i]);
         return;
@@ -126,10 +163,15 @@ static uint32_t hash_value(uint32_t hash, uint32_t value) {
 uint32_t G_Consistency(void) {
     uint32_t hash = UINT32_C(2166136261);
 #define HASH(v) hash = hash_value(hash, (uint32_t)(v))
-    HASH(leveltime); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
+    HASH(leveltime); HASH(paused); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
     for (int p = 0; p < RTS_MODEL_MAX_PLAYERS; ++p)
         for (int r = 0; r < RTS_MAX_RESOURCES; ++r) HASH(level.player_resources[p][r]);
 #ifdef RTS_GAME_DARK_COLONY
+    for (int owner = 0; owner < 8; ++owner)
+        for (int row = 0; row < 110; ++row) {
+            HASH(level.purchases[owner][row].selected);
+            HASH(level.purchases[owner][row].queued);
+        }
     for (int type = 0; type < 106; ++type)
         for (int owner = 0; owner < 8; ++owner) {
             HASH(level.upgrades[type][owner].weapon);

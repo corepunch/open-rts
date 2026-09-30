@@ -16,6 +16,9 @@ const struct mobjtype_s *actor_type_by_id(uint16_t type_id);
  * computer-controlled side in the current runtime mapping. */
 bool map_has_ai(const struct level_s *map, int owner);
 int DC_PlayerRace(int owner);
+void DC_SelectPurchase(int owner, int ui_id, bool refund);
+void DC_SubmitPurchases(int owner);
+void DC_RunPurchases(void);
 
 
 enum {

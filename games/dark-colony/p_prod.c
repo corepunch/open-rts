@@ -50,28 +50,63 @@ static const StaticProductDefinition DARK_COLONY_PRODUCTS[] = {
     { 24,  49, "Ortu",       600,  16, RTS_PRODUCT_UNIT, 13, 1, { 14, 17, 18 }, 3, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
     { 22,  47, "Xenowort",   900,  17, RTS_PRODUCT_UNIT,  9, 1, { 19 }, 1, { MT_ALIEN_BRDRHIVE2 }, 1 },
     { 84, 134, "Zisp",       900,  36, RTS_PRODUCT_UNIT, 50, 1, { 18, 15, 20 }, 3, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
-    /* DEPEND rows; research product_type is its native dependency row. */
-    {63,114,"Osprey weapon +1",1000,80,RTS_PRODUCT_UPGRADE,63,0,{3,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {64,115,"Osprey weapon +2",2000,31,RTS_PRODUCT_UPGRADE,64,0,{63},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {65,116,"Osprey armor +1",1000,51,RTS_PRODUCT_UPGRADE,65,0,{3,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {66,117,"Osprey armor +2",2000,93,RTS_PRODUCT_UPGRADE,66,0,{65},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {75,126,"Barrager weapon +1",1000,64,RTS_PRODUCT_UPGRADE,75,0,{5,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {76,127,"Barrager weapon +2",2000,28,RTS_PRODUCT_UPGRADE,76,0,{75},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {77,128,"Barrager armor +1",1000,49,RTS_PRODUCT_UPGRADE,77,0,{5,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {78,129,"Barrager armor +2",2000,91,RTS_PRODUCT_UPGRADE,78,0,{77},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
-    {45,57,"Ortu weapon +1",1000,86,RTS_PRODUCT_UPGRADE,45,1,{17,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {46,101,"Ortu weapon +2",2000,41,RTS_PRODUCT_UPGRADE,46,1,{45},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {47,69,"Ortu armor +1",1000,58,RTS_PRODUCT_UPGRADE,47,1,{17,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {48,102,"Ortu armor +2",2000,100,RTS_PRODUCT_UPGRADE,48,1,{47},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {49,59,"Atril weapon +1",1000,85,RTS_PRODUCT_UPGRADE,49,1,{18,19},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {50,105,"Atril weapon +2",2000,38,RTS_PRODUCT_UPGRADE,50,1,{49},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {51,73,"Atril armor +1",1000,56,RTS_PRODUCT_UPGRADE,51,1,{18,19},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
-    {52,106,"Atril armor +2",2000,98,RTS_PRODUCT_UPGRADE,52,1,{51},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    /* Native research rows: six weapon/armor pairs per race. */
+    {30,56,"Alien weapon +1",1000,84,RTS_PRODUCT_UPGRADE,30,1,{15,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {31,100,"Alien weapon +2",2000,37,RTS_PRODUCT_UPGRADE,31,1,{30,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {32,99,"Alien armor +1",1000,55,RTS_PRODUCT_UPGRADE,32,1,{15,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {33,68,"Alien armor +2",2000,97,RTS_PRODUCT_UPGRADE,33,1,{32,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {37,55,"Alien weapon +1",1000,87,RTS_PRODUCT_UPGRADE,37,1,{19,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {38,77,"Alien weapon +2",2000,42,RTS_PRODUCT_UPGRADE,38,1,{37,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {39,66,"Alien armor +1",1000,59,RTS_PRODUCT_UPGRADE,39,1,{19,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {40,67,"Alien armor +2",2000,101,RTS_PRODUCT_UPGRADE,40,1,{39,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {41,58,"Alien weapon +1",1000,88,RTS_PRODUCT_UPGRADE,41,1,{17,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {42,103,"Alien weapon +2",2000,43,RTS_PRODUCT_UPGRADE,42,1,{41,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {43,72,"Alien armor +1",1000,60,RTS_PRODUCT_UPGRADE,43,1,{17,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {44,104,"Alien armor +2",2000,102,RTS_PRODUCT_UPGRADE,44,1,{43,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {45,57,"Alien weapon +1",1000,86,RTS_PRODUCT_UPGRADE,45,1,{17,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {46,101,"Alien weapon +2",2000,41,RTS_PRODUCT_UPGRADE,46,1,{45},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {47,69,"Alien armor +1",1000,58,RTS_PRODUCT_UPGRADE,47,1,{17,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {48,102,"Alien armor +2",2000,100,RTS_PRODUCT_UPGRADE,48,1,{47},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {49,59,"Alien weapon +1",1000,85,RTS_PRODUCT_UPGRADE,49,1,{18,19},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {50,105,"Alien weapon +2",2000,38,RTS_PRODUCT_UPGRADE,50,1,{49},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {51,73,"Alien armor +1",1000,56,RTS_PRODUCT_UPGRADE,51,1,{18,19},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {52,106,"Alien armor +2",2000,98,RTS_PRODUCT_UPGRADE,52,1,{51},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {53,60,"Alien weapon +1",1000,89,RTS_PRODUCT_UPGRADE,53,1,{20,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {54,78,"Alien weapon +2",2000,45,RTS_PRODUCT_UPGRADE,54,1,{53,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {55,74,"Alien armor +1",1000,61,RTS_PRODUCT_UPGRADE,55,1,{20,16},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {56,107,"Alien armor +2",2000,103,RTS_PRODUCT_UPGRADE,56,1,{55,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {59,110,"Human weapon +1",1000,47,RTS_PRODUCT_UPGRADE,59,0,{1,2},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {60,111,"Human weapon +2",2000,27,RTS_PRODUCT_UPGRADE,60,0,{59,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {61,112,"Human armor +1",1000,48,RTS_PRODUCT_UPGRADE,61,0,{1,2},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {62,113,"Human armor +2",2000,90,RTS_PRODUCT_UPGRADE,62,0,{61,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {63,114,"Human weapon +1",1000,80,RTS_PRODUCT_UPGRADE,63,0,{3,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {64,115,"Human weapon +2",2000,31,RTS_PRODUCT_UPGRADE,64,0,{63},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {65,116,"Human armor +1",1000,51,RTS_PRODUCT_UPGRADE,65,0,{3,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {66,117,"Human armor +2",2000,93,RTS_PRODUCT_UPGRADE,66,0,{65},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {67,118,"Human weapon +1",1000,82,RTS_PRODUCT_UPGRADE,67,0,{3,2},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {68,119,"Human weapon +2",2000,33,RTS_PRODUCT_UPGRADE,68,0,{67,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {69,120,"Human armor +1",1000,53,RTS_PRODUCT_UPGRADE,69,0,{3,2},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {70,121,"Human armor +2",2000,95,RTS_PRODUCT_UPGRADE,70,0,{69,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {71,122,"Human weapon +1",1000,81,RTS_PRODUCT_UPGRADE,71,0,{2,5},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {72,123,"Human weapon +2",2000,32,RTS_PRODUCT_UPGRADE,72,0,{71,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {73,124,"Human armor +1",1000,52,RTS_PRODUCT_UPGRADE,73,0,{2,5},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {74,125,"Human armor +2",2000,94,RTS_PRODUCT_UPGRADE,74,0,{73,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {75,126,"Human weapon +1",1000,64,RTS_PRODUCT_UPGRADE,75,0,{5,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {76,127,"Human weapon +2",2000,28,RTS_PRODUCT_UPGRADE,76,0,{75},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {77,128,"Human armor +1",1000,49,RTS_PRODUCT_UPGRADE,77,0,{5,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {78,129,"Human armor +2",2000,91,RTS_PRODUCT_UPGRADE,78,0,{77},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {79,130,"Human weapon +1",1000,83,RTS_PRODUCT_UPGRADE,79,0,{2,6},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {80,131,"Human weapon +2",2000,35,RTS_PRODUCT_UPGRADE,80,0,{4,79},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {81,132,"Human armor +1",1000,54,RTS_PRODUCT_UPGRADE,81,0,{2,6},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {82,133,"Human armor +2",2000,96,RTS_PRODUCT_UPGRADE,82,0,{4,81},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
 };
 
 static uint8_t *upgrade_value(int owner, const StaticProductDefinition *product, int *tier) {
     if (owner < 0 || owner >= 8 || !product || product->product_class != RTS_PRODUCT_UPGRADE) return NULL;
-    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};
+    static const struct { int row, type; } groups[] = {
+        {30,8},{37,42},{41,10},{45,13},{49,11},{53,12},
+        {59,0},{63,5},{67,2},{71,41},{75,3},{79,4}
+    };
     for (unsigned i=0; i<sizeof(groups)/sizeof(*groups); ++i) {
         int offset=product->row_id-groups[i].row;
         if (offset<0 || offset>=4) continue;
@@ -538,18 +573,73 @@ bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *p
     return true;
 }
 
-bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
+static bool build_product(mobj_t *producer, const StaticProductDefinition *product, bool paid) {
     if (!producer || !product || producer->remove || producer->hp <= 0 ||
         producer->owner >= RTS_MODEL_MAX_PLAYERS ||
         !G_ModelProductAvailable(NULL, producer->owner, product) ||
-        level.player_resources[producer->owner][0] < product->cost) return false;
+        (!paid && level.player_resources[producer->owner][0] < product->cost)) return false;
     for (int i = 0; i < product->maker_count; ++i) {
         if (!DC_ProductActorMatches(producer->type_id, product->makers[i])) continue;
         if (!G_ModelEnqueueProduction(producer, product, G_ModelActorIdForProduct(product))) return false;
-        level.player_resources[producer->owner][0] -= product->cost;
+        if (!paid) level.player_resources[producer->owner][0] -= product->cost;
         return true;
     }
     return false;
+}
+
+bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
+    return build_product(producer, product, false);
+}
+
+void DC_SelectPurchase(int owner, int ui_id, bool refund) {
+    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui_id);
+    if (owner < 0 || owner >= 8 || !product || product->faction != DC_PlayerRace(owner) ||
+        product->row_id < 0 || product->row_id >= 110) return;
+    uint8_t *quantity = &level.purchases[owner][product->row_id].selected;
+    if (refund) {
+        if (*quantity) { --*quantity; level.player_resources[owner][0] += product->cost; }
+        return;
+    }
+    /* 0x430075..0x4300bc: fifty units, one building/research purchase. */
+    if (*quantity + level.purchases[owner][product->row_id].queued >=
+            (product->product_class == RTS_PRODUCT_UNIT ? 50 : 1) ||
+        level.player_resources[owner][0] < product->cost ||
+        !G_ModelProductAvailable(NULL, owner, product)) return;
+    if (product->product_class == RTS_PRODUCT_BUILDING) {
+        for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+            const mobj_t *actor = (mobj_t *)th;
+            if (!actor->remove && actor->hp > 0 && actor->owner == owner &&
+                DC_ProductActorMatches(actor->type_id, G_ModelActorIdForProduct(product))) return;
+        }
+    }
+    ++*quantity;
+    level.player_resources[owner][0] -= product->cost;
+}
+
+void DC_SubmitPurchases(int owner) {
+    if (owner < 0 || owner >= 8) return;
+    for (int row = 0; row < 110; ++row) {
+        unsigned quantity = level.purchases[owner][row].selected;
+        if (quantity + level.purchases[owner][row].queued > 50) continue;
+        level.purchases[owner][row].queued += quantity;
+        level.purchases[owner][row].selected = 0;
+    }
+    DC_RunPurchases();
+}
+
+void DC_RunPurchases(void) {
+    /* 0x434c64 walks DEPEND row order, independent of the visible tab. */
+    for (int owner = 0; owner < 8; ++owner)
+    for (int row = 0; row < 110; ++row) {
+        const StaticProductDefinition *product = product_by_row_id(row);
+        uint8_t *quantity = &level.purchases[owner][row].queued;
+        if (!product) continue;
+        while (*quantity) {
+            mobj_t *producer = G_FindProducer(owner, product);
+            if (!producer || !build_product(producer, product, true)) break;
+            --*quantity;
+        }
+    }
 }
 
 static bool dc_product_uses_barracks_release(const mobj_t *producer,
@@ -738,6 +828,7 @@ static bool dc_spawn_finished_unit_product(const level_t *map,
 bool G_ModelUpdateProduction(level_t *map, mobj_t *const *units, int *unit_count,
                              float dt) {
     if (!map || !units || !unit_count || dt <= 0.0f) return false;
+    DC_RunPurchases();
     bool spawned = false;
     int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
     if (elapsed_ms <= 0) elapsed_ms = 1;

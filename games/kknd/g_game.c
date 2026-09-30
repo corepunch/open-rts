@@ -465,7 +465,7 @@ void *G_InitCustomUI(app_t *app, const char *data_root) {
     return NULL;
 }
 
-bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,
                          mobj_t *const *units, int unit_count, const SDL_Event *event) {
     (void)ui; (void)app; (void)map; (void)units; (void)unit_count; (void)event;
     return false;

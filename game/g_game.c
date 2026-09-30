@@ -5,6 +5,9 @@
 #include "game.h"
 #include "p_ai.h"
 #include "d_net.h"
+#ifdef RTS_GAME_DARK_COLONY
+#include "dc_types.h"
+#endif
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -140,6 +143,9 @@ static bool producer_accepts(const mobj_t *unit, int owner,
     if (!G_ModelProducerHasTech(unit, product)) return false;
     const production_t *queue = unit->production;
     if (queue && queue->queue_count > 0 &&
+#ifdef RTS_GAME_DARK_COLONY
+        product->product_class == RTS_PRODUCT_UNIT &&
+#endif
         (queue->queue_count >= RTS_MAX_PRODUCTION_QUEUE ||
          queue->product_class != product->product_class ||
          queue->product_type != product->product_type)) return false;
@@ -386,6 +392,9 @@ bool G_QueueProduct(mobj_t *producer, const StaticProductDefinition *product) {
 
 bool G_ProductionTicker(float dt) {
     if (dt <= 0.0f) return false;
+#ifdef RTS_GAME_DARK_COLONY
+    DC_RunPurchases();
+#endif
     bool spawned = false;
     int elapsed_ms = (int)(dt * 1000.0f + 0.5f);
     if (elapsed_ms <= 0) elapsed_ms = 1;
@@ -542,6 +551,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
         dt = FIXED_DT;
         refresh_model_objects(model);
     }
+    if (paused) return true;
     uint32_t old_ids[model->objects.count ? model->objects.count : 1];
     uint16_t old_types[model->objects.count ? model->objects.count : 1];
     int old_hp[model->objects.count ? model->objects.count : 1];

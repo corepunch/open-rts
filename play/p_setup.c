@@ -1,4 +1,5 @@
 #include "game.h"
+#include "d_ticcmd.h"
 #include <stdlib.h>
 #ifdef RTS_GAME_DARK_COLONY
 #include "p_path.h"
@@ -6,7 +7,7 @@
 #endif
 
 void P_FreeLevel(level_t *map) {
-    if (map == &level) P_FreeThinkers();
+    if (map == &level) { P_FreeThinkers(); paused = false; }
     P_FreeFlowFields(map);
 #ifdef RTS_GAME_DARK_COLONY
     DC_FreePaths(map);

@@ -6432,3 +6432,185 @@ An initial aggregate run also encountered an incompatible `/usr/local/bin/cmp`;
 rerunning with `/usr/bin` ahead of it resolved that tool error. The existing
 signedness warning in `test_dropship.c` and intentional malformed-PTH diagnostic
 are unrelated to these changes. No temporary combat diagnostic logging remains.
+
+## Sidebar purchases, tabs and research audit (2026-09-30)
+
+Executable examined: retail `DC.EXE`, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+This worktree's data subset lacks the executable; the inspected copy was
+`/Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE`. Its cached decompilation
+is under that checkout's `reverse/dc-exe-r2ghidra/`. Instruction checks below
+use the executable itself, not decompiler register/type guesses.
+
+Native asset fingerprints:
+
+| Asset | SHA-256 |
+| --- | --- |
+| INTRFACE/MAINE | 49c9f36817fbc3edbddbb8abc6e852cbc5677022d05464a55138a681d93ee718 |
+| GAMESTAT/DEPEND.TXT | 1348daef307f7577d12c58c0e90067990596dda2f93d263ac52df9b9985ff314 |
+| PALETTE.RMP | 7b0fa7f515db2d5de1f13738d4d314047a66d56d9af86b9bd68d5075d35ca3b4 |
+| GAMESTAT/WEAPSTAT.TXT | 83f33375f74cdb1d908c489c0d3964d6c14fcf2fd734a5e40535fcf8c8e08122 |
+
+### Confirmed purchase and tab dispatch
+
+`0x43001c` dispatches native widget events. Left count event 4 checks fifty
+at `0x430075`; class lookups at `0x43007c` and `0x430087` restrict buildings
+(class 0) and research (class 2) to one selected purchase. Money is checked
+and subtracted at `0x4300ab..0x4300bc` from the player's `+0xbac` account.
+Right count event 5 decreases the count and refunds its cost at `0x430109`.
+`0x434d90` reads cost from `0x4e1d78 + row*0x34`; `0x434edc` reads class from
+`0x4e1d80 + row*0x34`; `0x434e48` maps the control ID to the dependency row.
+
+**Disproven:** clicking a product immediately starts production. Count
+controls reserve money first. Build control 19 calls `0x434c64`, which walks
+DEPEND rows 0..109, submits enabled nonzero counts and clears those counts.
+It dispatches buildings through `0x40bbbc`, units through `0x40bbe8` and
+research through `0x40bc14`. `0x434920` rebuilds dependency availability:
+state 0 hides purchased rows, state 1 enables a row, state 2 disables it for
+prerequisites/busy state. Selecting a Science Pod is not the research-tab
+switch.
+
+`0x434bcc` resolves the presentation ambiguity: it first switches every
+active DEPEND control off through `0x422028`, then switches on only rows with
+state 1 (`0x434c24..0x434c37`). **Disproven:** state 2 means a visible gray
+product button. Both unmet-prerequisite and already-purchased rows are absent
+from the visible product list, although their internal reasons differ.
+
+The table at `0x474634` has human groups `{84,96,65,153}` and alien groups
+`{53,61,65,153}`. Controls 0/1/2 select building/research/options; control 151
+selects the race's fourth, allies group. Selecting a unit on tab 0 exposes
+command group 40. MAINE authors the tab hit rectangles at `(518,92,40,20)`,
+`(557,92,41,20)`, `(598,92,40,20)` and title pictures 77/78/79 at
+`(521,96,110,12)`. Build is `(516,422,86,27)`.
+
+The implementation keeps reservation and submitted quantities in the active
+level, separately for each owner and DEPEND row. Commands carry the owner
+through the existing tic command path. Submitted mixed unit types wait until
+their producer can accept them; reserved money is not charged again. This
+waiting representation is an engine implementation choice, not a claim that
+retail uses the same C queue representation. Single building/research orders
+cannot accumulate duplicate submitted reservations. Producer destruction and
+native queue cancellation/refund behavior still require further tracing.
+
+### Confirmed research rows and combat consequences
+
+DEPEND contains 24 research rows per race, four rows for each of six types:
+weapon 1/2 and armor 1/2. Human group starts/types are
+`{59,0},{63,5},{67,2},{71,41},{75,3},{79,4}`; alien groups are
+`{30,8},{37,42},{41,10},{45,13},{49,11},{53,12}`. Costs, controls, icon frames
+and prerequisites are authored as C literals from DEPEND and MAINE. The old
+sixteen-row implementation covered only Osprey, Barrager, Ortu and Atril.
+Purchased weapon/armor bytes are owner indexed at native type `+0x18/+0x20`
+(`0x4ec8b0/0x4ec8b8`), and subsequent dependency rows read those tiers.
+
+Additional WEAPSTAT primary damage triples are Trooper/Gray/Reaper/Sy-Demon
+`100/125/150`, S.A.R.G.E. `200/250/250`, Gorrem `200/250/300`. Primary ranges
+are respectively `4/4/2/1/8/9`, with native firing intervals 15 ticks except
+Gorrem's 30. These are now authored in the C actor definitions; runtime unit
+spawning does not read the extracted balance table. All these research
+families use defense multipliers `256/204/170`, derived by integer division
+from native defense values `100/125/150`. S.A.R.G.E.'s second weapon tier
+does not increase primary damage again; its secondary Napalm behavior is a
+separate path, not a reason to invent a third primary damage value.
+
+### Confirmed controls, palette states and waypoint collection
+
+MAINE commands are 150 Stop, 33 Move Only, 35 Move & Attack and 36 Waypoints.
+Their native rectangles have X=518, width=59, height=41 and Y=112/153/194/235.
+Primary abilities share Y=276: 37 Deploy, 138 Heal, 139 Turret, 140 Mine,
+141 Inspire, 142 Steal. Secondary abilities share Y=317: 143 Second Attack,
+144 Napalm, 145 Disease, 146 Ground Attack, 197 Drop Ship, 198 Saucer.
+
+`0x4333b4`, specifically `0x4335ec..0x433685`, aggregates selected objects'
+type `+0x104/+0x108` capability fields. Low six bits choose the ability;
+primary bit 0x80 requires charge 255 unless bit 0x40 allows charge greater
+than 32. Secondary bit 0x80 requires 255. Mixed primary abilities choose
+enum 7; mixed secondary abilities choose enum 5. Tables `0x433310/0x433330`
+map primary enums 1..7 to `{138,139,140,141,142,142,37}` and secondary enums
+1..6 to `{144,145,146,197,143,198}`.
+
+**Disproven:** the second number `-24` on these check/push/count records is an
+alternate SPR frame. A negative value selects brightness, as in the already
+traced menu widgets. MAINE specifies pushed/highlight increments of 4.
+Normal intensity is 16; remap is 7. MAINBUT uses native PALETTE.RMP's 256
+indexed maps, with `(intensity*8+remap)`, not gameplay team translations.
+Controls draw native cell dimensions/displacement at their authored origin;
+cropping transparent pixels and scaling to the control box is unnecessary.
+
+KEYS.TXT provides S/M/A/W, Space Build, Enter Deploy/finish waypoints and T
+Pause. The mode checkboxes change sidebar input byte `+0x46a7`. The current
+engine also records the selected actors' move-only mode so deterministic
+orders and automatic target acquisition respect it; this is an adaptation,
+not evidence of a retail per-object mode field.
+
+`0x40924c` and `0x4097f8` collect waypoint points locally until Enter/right
+finish, a repeated first/last point, or a further click after seven points.
+They do not start movement on the first point. The implementation collects
+first and then emits the existing route commands. A network route currently
+uses consecutive commands rather than retail's one route packet.
+Minimap conversion in `0x4097f8` is
+`width*((mouseX-519)*2+1)/192`,
+`height*((90-mouseY)*2+1)/168`, in native 8.8 units with bottom-up Y.
+
+### Additional confirmed dispatch and remaining work
+
+Primary control dispatch calls `0x408fa0`, which sends packet 0x1a with the
+player byte and no destination. The packet dispatcher `0x41c92c` uses the
+28-entry table `0x474374`; slot 26 is `0x41bbc4`. It marks selected capable
+objects `+0x36=1,+0x37=13`. The order table `0x4742ac` maps 13 to `0x41593c`;
+that starts the native ability animation and stack state 13, with value 50.
+Ticker `0x41840c` invokes stack table `0x474304`; stack 13 is `0x416cc4`.
+That routine dispatches transforms, artifact special cases and charged
+abilities. Thus Inspire/Steal are not ordinary targeted attacks.
+
+`0x416320` consumes charge and scans around its source (radius counter 0..10,
+tangent counter -20..20, four edge cases, air before ground), selecting same
+owner weapon-bearing objects without their own charged ability. It sets
+object `+0xd6=(random&15)+20` and source ID at `+0xd8`, stopping at its type's
+`+0x100` count. `0x41840c` decrements `+0xd6` every 16 native ticks.
+`0x412174` consumes the scatter random byte even when `+0xd6` is nonzero,
+but then selects the center scatter cell. **Disproven:** this is an
+unconditional attack-damage multiplier. The meaning of every command labeled
+Steal still needs type-by-type tracing: `0x41698c`, reached by native type 66,
+clones four objects and uses stack 16; interpreting that routine as stealing
+money from its label would be wrong.
+
+Secondary packet 0x1b uses `0x41bc88`: it reads destination X/Y, sets `+0xc6`,
+marks order 18 and writes object `+0xa6/+0xa8`. Order table slot 18 points to
+`0x417080`. Artillery selects its upgraded primary weapon there; other types
+select native type `+0x110` secondary weapon. Range is checked before moving
+toward the point, then stack 18 (`0x4171e0`) handles the actual attack.
+The complete secondary effects and charged primary effects remain unported.
+The current sidebar's pending secondary target state is not native parity.
+
+Options group 65 contains 62 Quit, 63 Save, 64 Options, 151 Allies, 196 Pause,
+202 Objectives. Dispatcher destinations are `0x42f928`, `0x42f528`,
+`0x42fc70`, the race's fourth group, `0x409970`, and `0x42f858` respectively.
+Quit/Options currently open the engine control panel, Pause works, and Save,
+Allies and Objectives still require their native dialogs/behavior. LOPTE
+and LOBJE author popup rectangles `(112,128,308,240)` and
+`(112,96,304,272)`. This audit does **not** claim complete HUD fidelity.
+
+Reproduce instruction checks with `r2 -q -e bin.cache=true -c
+'af @ 0x43001c; pdf @ 0x43001c; pxw 112 @ 0x474374' data/DCOLONY/DC.EXE`.
+Focused checks are `test_hud`, `test_alien_production`,
+`test_barracks_production`, `test_support_combat` and `test_network`, all with
+`SDL_VIDEODRIVER=dummy`. Purchase diagnostic logging was used during the
+audit and removed after verification.
+
+Network verification also exposed an unrelated existing transport omission:
+the encoder discarded `ticcmd.position.z`, although setup uses it for game
+speed. Temporary diagnostics showed identical signatures/version/player
+counts and speed `0/1`. Encoding all three components corrects that loss;
+both setup and session protocol versions are now 2. This is engine protocol
+work, not reverse engineering of Dark Colony's network format.
+
+Verification uses the full main-checkout native data for the aggregate suite:
+this worktree omits MAP files used by the unchanged menu map browser and the
+Dark Reign default smoke scenario. The rebuilt worktree binaries pass the
+complete Dark Colony test suite against the full data, the sprite layout
+check, all eleven UDP modes (including mixed races/loss/duplication), and
+Dark Colony/Dark Reign/7th Legion smoke checks. The macOS network test children
+also needed to avoid `SDL_Quit` before `_exit`: diagnostics showed every child
+at tic 550 after freeing its level, blocked while trying to join SDL's timer
+thread inherited across `fork`. The parent still performs normal SDL shutdown.

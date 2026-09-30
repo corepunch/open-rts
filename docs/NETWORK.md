@@ -40,6 +40,11 @@ The same options work in `build/bin/dark-reign`, `build/bin/7legion` and
 `build/bin/kknd`; choose a map appropriate to that game. The executable selects
 the game. A client running a different game is rejected.
 
+Setup and session protocol versions are 2. Tic commands encode all three
+fixed-point position components; setup uses the third for game speed. Dark
+Colony purchase reservations, refunds, Build submission, movement modes,
+waypoints and pause use the same delayed command path as unit orders.
+
 ## Options and requirements
 
 - `--map PATH`: host-selected map relative to each machine's data root.

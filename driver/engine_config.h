@@ -11,7 +11,11 @@
 #define MAX_TILE_OVERLAYS 3
 #define MAX_TILE_ANIMATION_FRAMES 8
 #define MAX_SPRITE_ROTATIONS 32
+#ifdef RTS_GAME_DARK_COLONY
+#define RTS_MAX_PRODUCTION_QUEUE 50
+#else
 #define RTS_MAX_PRODUCTION_QUEUE 9
+#endif
 #define MAX_PATH_CELLS 4096
 #define RTS_TICRATE 30
 #define WORLD_CLOCK_MS 66 /* DC.EXE's default environment clock. */

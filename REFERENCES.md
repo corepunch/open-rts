@@ -1569,3 +1569,15 @@ No external source was added. Local Doom `p_mobj.c` remains the spawning,
 missile-origin reference and state/thinker lifetime model; FINs and upgrade data
 remain level-owned. The report distinguishes the implemented arithmetic and
 selection rules from unverified retail UI, crash, retraction and action timing.
+
+### Dark Colony sidebar audit (2026-09-30)
+
+The retail executable and native MAINE/DEPEND/PALETTE.RMP/WEAPSTAT assets are
+the sources for the [sidebar findings](docs/DC_EXE_FINDINGS.md#sidebar-purchases-tabs-and-research-audit-2026-09-30).
+The executable was read from the main checkout at
+`/Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE`, with the same fingerprint
+as previous unit investigations. `r2` instruction checks supplement the cached
+`reverse/dc-exe-r2ghidra/dc_exe.c` decompilation. The report preserves native
+addresses, negative brightness semantics, purchase reservations, all research
+rows, and the unfinished special/secondary/options dispatch evidence. No web
+source or executable-derived runtime balance configuration was introduced.

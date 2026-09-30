@@ -7,7 +7,9 @@
 /* RTS replacement for Doom's movement/buttons. A group order is atomic. */
 #define MAXCOMMANDUNITS 1024
 typedef enum {
-    TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY
+    TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
+    TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
+    TC_MAX = TC_PAUSE
 } ticorder_t;
 
 typedef struct {
@@ -19,6 +21,8 @@ typedef struct {
     unsigned count;
     uint32_t units[MAXCOMMANDUNITS];
 } ticcmd_t;
+
+extern bool paused;
 
 void G_BuildTiccmd(ticcmd_t *cmd);
 bool G_QueueTiccmd(const ticcmd_t *cmd);

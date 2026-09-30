@@ -65,7 +65,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
          * Trooper rate, not the old placeholder 5.0. */
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
-        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
+        .attack = { .range = 4, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
     { .id = MT_BEACON, .native_type_id = 84,
       .sight = { 8, 5, false },
@@ -79,6 +79,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     { .id = MT_BLOOD, .name = "Blood", .traits = MF_RENDERABLE | MF_NOBLOCKMAP },
     {
         .id = MT_GREY,
+        .defense = {256,204,170},
         .sight = { 4, 7, false },
         .native_type_id = 8,
         .damage_action = A_DC_Damage,
@@ -88,7 +89,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 25.0f / 32.0f,
         .max_hp = 800,
-        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
+        .attack = { .range = 4, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
     {
         .id = MT_EXPLOITER,
@@ -107,6 +108,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_REAPER,
+        .defense = {256,204,170},
         .sight = { 7, 4, false },
         .native_type_id = 2,
         .damage_action = A_DC_Damage,
@@ -117,7 +119,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 30.0f / 32.0f,
         .max_hp = 800,
-        .attack = { .range = 4.0f, .damage = 100, .cooldown_ms = 500 },
+        .attack = { .range = 2, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 },
     },
     {
         .id = MT_THUNDERBOLT,
@@ -138,6 +140,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_CYBORG,
+        .defense = {256,204,170},
         .sight = { 10, 10, false },
         .native_type_id = 4,
         .damage_action = A_DC_Damage,
@@ -148,7 +151,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 45.0f / 32.0f,
         .max_hp = 1200,
-        .attack = { .range = 3.0f, .damage = 150, .cooldown_ms = 700 },
+        .attack = { .range = 8, .damage = 200, .upgrade_damage = {250,250}, .cooldown_ms = 15 * 66 },
     },
     {
         .id = MT_SCOUT,
@@ -474,11 +477,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .speed = 15.0f / 32.0f, .max_hp = 800,
       .deploy = { S_XENO_DEPLOY1, MT_XENO_TOWER } },
     { .id = MT_SY_DEMON, .native_type_id = 10, .sight = {4, 7, false},
+      .defense = {256,204,170},
       .damage_action = A_DC_Damage, .name = "Sy-Demon", .sprite_name = "SPRITES/SCYT.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
       .speed = 36.0f / 32.0f, .max_hp = 800,
       .armor_class = 1,
-      .attack = { .range = 1, .damage = 100, .cooldown_ms = 1000 * 15 / RTS_TICRATE } },
+      .attack = { .range = 1, .damage = 100, .upgrade_damage = {125,150}, .cooldown_ms = 15 * 66 } },
     { .id = MT_ATRIL, .native_type_id = 11, .sight = {4, 7, false},
       .turn_step = (uint64_t)5 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
       .defense = {256,204,170},
@@ -489,11 +493,12 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .attack = { .range = 12, .damage = 250, .cooldown_ms = 75 * 66,
                   .projectile_type = MT_PUS_BOMB } },
     { .id = MT_GORREM, .native_type_id = 12, .sight = {10, 10, false},
+      .defense = {256,204,170},
       .damage_action = A_DC_Damage, .name = "Gorrem", .sprite_name = "SPRITES/PSYC.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK | MF_DETECTOR,
       .speed = 47.0f / 32.0f, .max_hp = 800,
       .armor_class = 4,
-      .attack = { .range = 9, .damage = 200, .cooldown_ms = 1000 * 30 / RTS_TICRATE } },
+      .attack = { .range = 9, .damage = 200, .upgrade_damage = {250,300}, .cooldown_ms = 30 * 66 } },
     { .id = MT_SLOM, .native_type_id = 44, .sight = {4, 6, false},
       .defense = {256,213,182},
       .damage_action = A_DC_Damage, .name = "Slom", .sprite_name = "SPRITES/SLOM.SPR",
@@ -702,7 +707,7 @@ void *G_InitCustomUI(app_t *app, const char *data_root) {
     return DC_SB_Init(app, data_root);
 }
 
-bool G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,
                          mobj_t *const *units, int unit_count, const SDL_Event *event) {
     return DC_SB_Responder(ui, app, map, units, unit_count, event);
 }

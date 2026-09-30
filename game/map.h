@@ -146,6 +146,7 @@ typedef struct level_s {
     struct dc_pathmap_s *paths;
     struct dc_weapons_s *weapons;
     struct { uint8_t weapon, armor; } upgrades[106][8];
+    struct { uint8_t selected, queued; } purchases[8][110]; /* Native DEPEND rows. */
 #endif
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);

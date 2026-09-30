@@ -65,7 +65,7 @@ int      G_MissionState(const level_t *map);
 void    *G_InitCustomUI(app_t *app, const char *data_root);
 
 /* Handle input events for custom UI. Returns true if handled. */
-bool     G_CustomUIResponder(void *ui, const app_t *app, level_t *map,
+bool     G_CustomUIResponder(void *ui, app_t *app, level_t *map,
                              mobj_t *const *units, int unit_count, const SDL_Event *event);
 
 /* Advance custom UI state by one tick. */

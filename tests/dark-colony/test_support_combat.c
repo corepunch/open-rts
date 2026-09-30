@@ -85,6 +85,24 @@ int main(void) {
     A_Explode(shot);
     CHECK(target->hp==550);
     P_FreeThinkers();
+    /* Every research family must alter combat, not just the purchased icon. */
+    const int research_units[] = {MT_TROOPER,MT_GREY,MT_REAPER,MT_SY_DEMON,MT_CYBORG,MT_GORREM};
+    const int damages[][3] = {{100,125,150},{100,125,150},{100,125,150},
+                             {100,125,150},{200,250,250},{200,250,300}};
+    for (unsigned i = 0; i < sizeof(research_units) / sizeof(*research_units); ++i)
+        for (int tier = 0; tier < 3; ++tier) {
+            mobj_t *attacker = spawn(research_units[i],10,10,0);
+            mobj_t *victim = spawn(research_units[i],11,10,1);
+            attacker->traits |= MF_ATTACK;
+            attacker->attack.target = victim;
+            level.upgrades[attacker->native_type_id][0].weapon = tier;
+            level.upgrades[victim->native_type_id][1].armor = tier;
+            CHECK(P_Attack(attacker));
+            CHECK(victim->hp == victim->max_hp - damages[i][tier] * victim->info->defense[tier] / 256);
+            CHECK(level.upgrades[victim->native_type_id][1].weapon == 0);
+            P_FreeThinkers();
+            memset(level.upgrades,0,sizeof(level.upgrades));
+        }
     CHECK(DC_LoadWeapons(&level,"data/DCOLONY"));
     source=spawn(MT_THUNDERBOLT,10,10,0);
     target=spawn(MT_TROOPER,10,8,1);

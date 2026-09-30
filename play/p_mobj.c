@@ -37,6 +37,11 @@ static float mobj_attack_range(const mobj_t *unit) {
 }
 
 static int mobj_attack_damage(const mobj_t *unit) {
+#ifdef RTS_GAME_DARK_COLONY
+    int tier = DC_WeaponLevel(unit);
+    if (unit && unit->info && tier && unit->info->attack.upgrade_damage[tier - 1])
+        return unit->info->attack.upgrade_damage[tier - 1];
+#endif
     return unit && unit->info ? unit->info->attack.damage : 0;
 }
 
@@ -356,6 +361,9 @@ static bool weapon_target(const mobj_t *attacker, const mobj_t *victim) {
 }
 
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
+#ifdef RTS_GAME_DARK_COLONY
+    if (attacker->move_only && P_HasMoveOrder(attacker) && !attacker->attack.target) return NULL;
+#endif
     if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         mobj_attack_damage(attacker) == 0)
         return NULL;

@@ -89,6 +89,7 @@ typedef struct mobjtype_s {
     struct {
         float range;
         int damage;
+        int upgrade_damage[2];
         int cooldown_ms;
         uint16_t projectile_type;
         int health_cost;

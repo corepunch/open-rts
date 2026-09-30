@@ -438,7 +438,7 @@ load_level:
              * consume mouse buttons. Future games can retain right orders. */
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT &&
                 !(gameinfo && gameinfo->right_click_orders)) {
-                G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e);
+                if (G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e)) continue;
                 G_Responder(&app, &level, units, unit_count, &unit_sprite,
                              &decoration_sprites, gameinfo, &e);
                 continue;
@@ -465,7 +465,7 @@ load_level:
             if (!D_RunTiccmds()) break;
             /* Like Doom, menu pause stops the world, not the tic clock.
              * Multiplayer continues so opening a menu cannot stall peers. */
-            if (menuactive && !netgame) {
+            if (paused || (menuactive && !netgame)) {
                 ++gametic;
                 NetUpdate();
                 continue;

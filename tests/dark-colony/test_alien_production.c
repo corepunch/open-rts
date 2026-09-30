@@ -68,7 +68,7 @@ static void check_dependency(const StaticProductDefinition *product) {
             int category = (int)strtol(p, &end, 10); p = end;
             int tier = (int)strtol(p, &end, 10); p = end;
             assert(product->product_type == row);
-            assert(type == 3 || type == 5 || type == 11 || type == 13);
+            assert(type >= 0 && type < 106);
             assert(category >= 0 && category <= 1 && tier >= 1 && tier <= 2);
         } else assert(type == product->product_type);
         for (int i = 0; i < product->prerequisite_count; ++i) {
@@ -89,7 +89,23 @@ static void click(void *ui, app_t *app, const StaticProductDefinition *product) 
                                   .x = rect.x + rect.w / 2, .y = rect.y + rect.h / 2}};
     mobjlist_t objects = P_ListMobjs();
     assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    event.button.x = 540; event.button.y = 435;
+    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
     P_FreeMobjList(&objects);
+}
+
+static void native_upgrade(const StaticProductDefinition *product, int *type, int *category, int *tier) {
+    FILE *file = fopen("data/DCOLONY/GAMESTAT/DEPEND.TXT", "r");
+    assert(file);
+    char line[512];
+    bool found = false;
+    while (fgets(line, sizeof(line), file)) {
+        int row,cost,ui,kind;
+        if (sscanf(line,"%d %d %d %d %d %d %d", &row,&cost,&ui,&kind,type,category,tier) == 7 &&
+            row == product->row_id) { found = true; break; }
+    }
+    fclose(file);
+    assert(found);
 }
 
 static void check_player(int player) {
@@ -105,9 +121,9 @@ static void check_player(int player) {
     level.mission = NULL; level.destroy_mission = NULL;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
         P_MobjSetSelected((mobj_t *)th, false);
-    StaticProductDefinition products[32];
-    int count = G_ModelGetProducts(NULL, player, products, 32);
-    assert(count == 24);
+    StaticProductDefinition products[64];
+    int count = G_ModelGetProducts(NULL, player, products, 64);
+    assert(count == 40);
     for (int i = 0; i < count; ++i) {
         assert(products[i].faction == player);
         check_dependency(&products[i]);
@@ -181,6 +197,9 @@ static void check_player(int player) {
     assert(science);
     P_MobjSetSelected(science, true);
     objects = P_ListMobjs();
+    SDL_Event tab = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
+                               .x = 570, .y = 100}};
+    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &tab));
     G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, &hud);
     SDL_RenderPresent(r_renderer);
     assert(!SDL_SaveBMP(surface, player ? "/private/tmp/dc-alien-research.bmp" :
@@ -189,15 +208,12 @@ static void check_player(int player) {
     for (int i = 0; i < count; ++i) {
         const StaticProductDefinition *product = &products[i];
         if (product->product_class != RTS_PRODUCT_UPGRADE) continue;
-        int base = player ? (product->row_id < 49 ? 45 : 49) :
-                            (product->row_id < 75 ? 63 : 75);
-        int type = player ? (base == 45 ? 13 : 11) : (base == 63 ? 5 : 3);
-        int offset = product->row_id - base;
-        int tier = 1 + offset % 2;
-        uint8_t *value = offset < 2 ? &level.upgrades[type][player].weapon :
+        int type, category, tier;
+        native_upgrade(product, &type, &category, &tier);
+        uint8_t *value = category == 0 ? &level.upgrades[type][player].weapon :
                                     &level.upgrades[type][player].armor;
         if (tier == 1) {
-            const StaticProductDefinition *next = G_ModelProductByClassType(NULL, RTS_PRODUCT_UPGRADE, base + offset + 1);
+            const StaticProductDefinition *next = G_ModelProductByClassType(NULL, RTS_PRODUCT_UPGRADE, product->row_id + 1);
             assert(next && !G_ModelProductAvailable(NULL, player, next));
             assert(!G_PlayerBuildProduct(science, next));
         }
@@ -234,6 +250,6 @@ int main(void) {
     }
     assert(level.upgrades[13][2].weapon == 1 && level.upgrades[13][2].armor == 0);
     rts_game_model_destroy(model);
-    puts("PASS: 48 native faction products, sidebar purchases, research costs/tiers/owner isolation, 18 trained unit types");
+    puts("PASS: 80 native faction products, sidebar purchases, research costs/tiers/owner isolation, 18 trained unit types");
     return 0;
 }

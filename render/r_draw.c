@@ -1410,7 +1410,16 @@ static void order_selected_at(app_t *app, const level_t *map,
     int target = R_PickUnit(app, map, units, unit_count, fallback_sprite, cache,
                               game_info, mouse.x, mouse.y, -1);
     bool attack = target >= 0 && units[target]->owner != consoleplayer && units[target]->hp > 0;
-    G_SelectedTiccmd(attack ? TC_ATTACK : TC_ORDER, units, unit_count, goal,
+    ticorder_t order = TC_ORDER;
+#ifdef RTS_GAME_DARK_COLONY
+    for (int i = 0; i < unit_count; ++i)
+        if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->move_only) {
+            order = TC_MOVE;
+            attack = false;
+            break;
+        }
+#endif
+    G_SelectedTiccmd(attack ? TC_ATTACK : order, units, unit_count, goal,
                      attack ? units[target]->id : 0);
 }
 

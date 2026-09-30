@@ -42,7 +42,6 @@ void DC_UpdateAI(const level_t *map, mobj_t *const *units, int unit_count) {
     if (map_has_ai(map, 1)) update_ai_economy(map, units, unit_count);
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *actor = units[i];
-        if (netgame && D_PlayerIsHuman(actor->owner)) continue;
         if (actor->remove || actor->hp <= 0 || actor->waypoints.count == 0) continue;
         mobj_t *target = actor->attack.target;
         float range = actor->info ? actor->info->attack.range : 0;

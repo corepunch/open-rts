@@ -25,6 +25,13 @@ static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,
     P_FreeMobjList(&objects);
 }
 
+static bool build_click(void *ui, app_t *app, mobjlist_t objects, const SDL_Event *click) {
+    if (!G_CustomUIResponder(ui, app, &level, objects.items, objects.count, click)) return false;
+    SDL_Event submit = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
+                                  .x = 540, .y = 435}};
+    return G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &submit);
+}
+
 int main(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/DCOLONY", .map_path = "SCENARIO/HUMAN/HUMAN02.MAP"};
@@ -155,7 +162,7 @@ int main(void) {
     SDL_Event click = {.button = {.type = SDL_MOUSEBUTTONDOWN,
                                   .button = SDL_BUTTON_LEFT, .x = 530, .y = 165}};
     money = level.player_resources[0][0];
-    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    assert(build_click(ui, &app, objects, &click));
     assert(barracks->production && barracks->production->queue_count == 1);
     assert(level.player_resources[0][0] == money - product->cost);
     P_FreeMobjList(&objects);
@@ -193,14 +200,14 @@ int main(void) {
     assert(center && !center->production);
     click.button.x = 530;
     click.button.y = 125; /* Exploiter keeps the first unit slot. */
-    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    assert(build_click(ui, &app, objects, &click));
     assert(center->production && center->production->actor_id == MT_EXPLOITER);
     assert(level.player_resources[0][0] == 8500);
     level.player_resources[0][0] = 10000;
     click.button.x = 590;
     click.button.y = 290; /* MAINE control 81: Sci-Pod at (577,276). */
     assert(!find(MT_SCNCPOD));
-    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    assert(build_click(ui, &app, objects, &click));
     mobj_t *science = find(MT_SCNCPOD), *exco = find(MT_EXCOPOD);
     assert(science && exco && level.player_resources[0][0] == 8000);
     assert(science->core.state_id == S_SCNCPOD_BUILD1);
@@ -211,7 +218,7 @@ int main(void) {
                                 (fvec2_t){4.0f, -5.0f / 32.0f}), 0.0001f));
     P_FreeMobjList(&objects);
     objects = P_ListMobjs();
-    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+    assert(build_click(ui, &app, objects, &click));
     assert(level.player_resources[0][0] == 8000); /* No duplicate module. */
     P_FreeMobjList(&objects);
     for (int tic = 0; tic < 300 && states[science->core.state_id].group == 6; ++tic)
@@ -228,13 +235,13 @@ int main(void) {
         click.button.y = modules[i].ui_y;
         objects = P_ListMobjs();
         money = level.player_resources[0][0];
-        assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+        assert(build_click(ui, &app, objects, &click));
         P_FreeMobjList(&objects);
         mobj_t *module = find(modules[i].type);
         assert(module && module->core.state_id == modules[i].state);
         assert(level.player_resources[0][0] == money - modules[i].cost);
         objects = P_ListMobjs();
-        assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &click));
+        assert(build_click(ui, &app, objects, &click));
         P_FreeMobjList(&objects);
         assert(level.player_resources[0][0] == money - modules[i].cost);
         for (int tic = 0; tic < 300 && states[module->core.state_id].group == 6; ++tic) {

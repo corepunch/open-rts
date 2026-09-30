@@ -441,9 +441,24 @@ static bool sprite_cache_load_dark_colony(spritecache_t *cache,
 static bool load_ui_sprites(const char *root, spritecache_t *cache) {
     /* These are the gameplay HUD's consumers. Fonts/background have their
      * own owners; encyclopedia and menu animations belong to those screens. */
-    return sprite_cache_load_dark_colony(cache, root, "INTRFACE/MAINBUT.SPR") &&
-           sprite_cache_load_dark_colony(cache, root, "SPRITES/CLOC.SPR") &&
-           sprite_cache_load_dark_colony(cache, root, game_info.selection_marker.image);
+    if (!sprite_cache_load_dark_colony(cache, root, "INTRFACE/MAINBUT.SPR") ||
+        !sprite_cache_load_dark_colony(cache, root, "SPRITES/CLOC.SPR") ||
+        !sprite_cache_load_dark_colony(cache, root, game_info.selection_marker.image)) return false;
+    blob_t rmp;
+    if (!W_ReadFile(M_va("%s/PALETTE.RMP", root), &rmp)) return false;
+    if (rmp.size < 256 * 256) { W_FreeFile(&rmp); return false; }
+    spritesheet_t *buttons = &R_CacheFind(cache, "INTRFACE/MAINBUT.SPR")->sprite;
+    spritepalettemap_t *maps = calloc(256, sizeof(*maps));
+    if (!maps) { W_FreeFile(&rmp); return false; }
+    for (int i = 0; i < 256; ++i) {
+        maps[i].id = i;
+        memcpy(maps[i].indices, rmp.bytes + i * 256, 256);
+    }
+    free(buttons->palette_maps);
+    buttons->palette_maps = maps;
+    buttons->palette_map_count = 256;
+    W_FreeFile(&rmp);
+    return true;
 }
 
 bool load_dark_colony_unit_sprites(const char *data_root,
