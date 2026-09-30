@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #ifdef RTS_GAME_DARK_COLONY
 #include "p_path.h"
+#include "p_weapon.h"
 #endif
 
 void P_FreeLevel(level_t *map) {
@@ -9,6 +10,7 @@ void P_FreeLevel(level_t *map) {
     P_FreeFlowFields(map);
 #ifdef RTS_GAME_DARK_COLONY
     DC_FreePaths(map);
+    DC_FreeWeapons(map);
 #endif
     free(map->tile_ids);
     for (int i = 0; i < MAX_TILE_OVERLAYS; ++i) free(map->tile_overlays[i]);

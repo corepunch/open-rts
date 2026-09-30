@@ -253,13 +253,16 @@ static bool dc_selected_unit_is_player_building(const mobj_t *selected) {
         selected->type_id >= MT_EXCOPOD;
 }
 
-static int dc_available_products(mobj_t *const *units, int unit_count,
+static int dc_available_products(mobj_t *const *units, int unit_count, const mobj_t *selected,
                                   const ProductButton *out[16]) {
-    static ProductButton products[16];
+    static ProductButton products[64];
     int count = 0;
-    int source_count = G_ModelGetProducts(NULL, consoleplayer, products, 16);
-    for (int i = 0; i < source_count; ++i) {
+    bool research = selected && (selected->type_id == MT_SCNCPOD || selected->type_id == MT_SCNCPOD2 ||
+        selected->type_id == MT_ALIEN_MINDHIVE2 || selected->type_id == MT_ALIEN_MINDHIVE3);
+    int source_count = G_ModelGetProducts(NULL, consoleplayer, products, 64);
+    for (int i = 0; i < source_count && count < 16; ++i) {
         const ProductButton *product = &products[i];
+        if ((product->product_class == RTS_PRODUCT_UPGRADE) != research) continue;
         if (!G_ModelProductAvailableForUnits(units, unit_count, product)) continue;
         if (product->product_class == RTS_PRODUCT_BUILDING) {
             bool exists = false;
@@ -332,7 +335,7 @@ static bool dc_SB_responder(const Sidebar *sidebar, const app_t *app, level_t *m
     mobj_t *selected = selected_index >= 0 ? units[selected_index] : NULL;
     if (!selected || dc_selected_unit_is_player_building(selected)) {
         const ProductButton *products[16] = { 0 };
-        int product_count = dc_available_products(units, unit_count, products);
+        int product_count = dc_available_products(units, unit_count, selected, products);
         if (e->button.button == SDL_BUTTON_LEFT) {
             for (int i = 0; i < product_count; ++i) {
                 if (!irect_contains(product_button_rect(app, sidebar, products[i]),
@@ -527,7 +530,7 @@ static void dc_SB_drawer(app_t *app, const level_t *map,
     int hover_button = -1;
     const mobj_t *selected = dc_first_selected_unit(units, unit_count);
     const ProductButton *products[16] = { 0 };
-    int product_count = dc_available_products(units, unit_count, products);
+    int product_count = dc_available_products(units, unit_count, selected, products);
     bool product_mode = !selected || dc_selected_unit_is_player_building(selected);
     int visible_button_count = product_mode ? product_count : sidebar->command_count;
     for (int i = 0; i < visible_button_count; ++i) {

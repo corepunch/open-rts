@@ -62,6 +62,7 @@ typedef enum {
 typedef enum {
     RTS_PRODUCT_BUILDING = 1,
     RTS_PRODUCT_UNIT = 2,
+    RTS_PRODUCT_UPGRADE = 3,
 } RtsProductClass;
 
 typedef struct {

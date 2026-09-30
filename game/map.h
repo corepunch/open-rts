@@ -144,6 +144,8 @@ typedef struct level_s {
     flowfield_t *flow_fields;
 #ifdef RTS_GAME_DARK_COLONY
     struct dc_pathmap_s *paths;
+    struct dc_weapons_s *weapons;
+    struct { uint8_t weapon, armor; } upgrades[106][8];
 #endif
     void (*render_transitions)(app_t *app, const struct level_s *map, const tileset_t *tileset,
                                int x, int y, int dx, int dy);

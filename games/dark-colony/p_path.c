@@ -82,11 +82,23 @@ static uint8_t family(const level_t *map, ivec2_t cell) {
     return L_IsWalkable(map, cell.x, cell.y) ? 1 : 0;
 }
 
-static ivec2_t occupied_position(const mobj_t *unit) {
+ivec2_t DC_OccupiedPosition(const mobj_t *unit) {
     /* 0x414f8b claims the destination; 0x4117fc releases the origin before
      * displacement. Occupancy follows the step, not the drawn position. */
     return unit->route.traveling ? unit->route.cells[unit->route.current] :
            fvec2_cell(fixed3_xy_to_fvec2(unit->core.position));
+}
+
+mobj_t *DC_Occupant(ivec2_t cell, bool airborne, bool buried) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *unit = (mobj_t *)th;
+        if (unit->remove || unit->hp <= 0 || (unit->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
+            !!(unit->traits & MF_FLY) != airborne ||
+            !!(unit->traits & MF_LANDMINE) != buried) continue;
+        if (ivec2_equal(cell, DC_OccupiedPosition(unit))) return unit;
+    }
+    return NULL;
 }
 
 static bool occupied_cell(const mobj_t *unit, ivec2_t cell) {
@@ -94,9 +106,9 @@ static bool occupied_cell(const mobj_t *unit, ivec2_t cell) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *other = (const mobj_t *)th;
         if (other == unit || other->remove || other->hp <= 0 ||
-            (other->traits & MF_NOBLOCKMAP) ||
+            (other->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
             ((other->traits ^ (unit ? unit->traits : 0)) & MF_FLY)) continue;
-        if (ivec2_equal(cell, occupied_position(other))) return true;
+        if (ivec2_equal(cell, DC_OccupiedPosition(other))) return true;
     }
     return false;
 }
@@ -149,9 +161,9 @@ int DC_FindPath(const level_t *map, ivec2_t start, ivec2_t goal,
             if (th->function != P_MobjThinker) continue;
             const mobj_t *other = (const mobj_t *)th;
             if (other == mover || other->remove || other->hp <= 0 ||
-                (other->traits & MF_NOBLOCKMAP) ||
+                (other->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
                 ((other->traits ^ (mover ? mover->traits : 0)) & MF_FLY)) continue;
-            ivec2_t cell = occupied_position(other);
+            ivec2_t cell = DC_OccupiedPosition(other);
             if (L_Contains(map, cell.x, cell.y)) blocked[L_Index(map, cell.x, cell.y)] = 1;
         }
         if (blocked[L_Index(map, goal.x, goal.y)]) { free(blocked); return 0; }

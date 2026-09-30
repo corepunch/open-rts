@@ -10,5 +10,7 @@ int DC_FindPath(const level_t *map, ivec2_t start, ivec2_t goal,
 bool DC_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal);
 bool DC_MoveTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final);
 bool DC_CheckStep(const level_t *map, const mobj_t *unit, fvec2_t from, fvec2_t to);
+ivec2_t DC_OccupiedPosition(const mobj_t *unit);
+mobj_t *DC_Occupant(ivec2_t cell, bool airborne, bool buried);
 
 #endif

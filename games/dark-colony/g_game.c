@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include "p_weapon.h"
 
 bool load_dark_colony_map(const char *map_path, level_t *out);
 int load_dark_colony_initial_units(void);
@@ -40,6 +41,8 @@ static const uint8_t mine_blast[] = {
 static const uint16_t artillery_damage[] = {256,89,0,64,179,460,38,128,0,25};
 static const uint16_t mine_damage[] = {419,64,0,64,128,332,33,5,0,5};
 static const uint16_t turret_damage[] = {256,84,128,84,168,204,84,128,0,84};
+static const uint16_t bomb_damage[] = {17,64,0,20,64,115,12,64,0,12};
+static const uint8_t bomb_blast[] = {0,0,0,0,100,0,0,0,0};
 /* DC.EXE 0x4758f4; flight mode 2 advances four entries each native tick. */
 static const int8_t rocket_weave[] = {
     0,19,38,55,70,83,92,98,99,98,92,83,70,55,38,19,
@@ -49,6 +52,7 @@ static const int8_t rocket_weave[] = {
 const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     {
         .id = MT_TROOPER,
+        .defense = {256,204,170},
         .sight = { 7, 4, false },
         .native_type_id = 0,
         .damage_action = A_DC_Damage,
@@ -117,6 +121,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_THUNDERBOLT,
+        .turn_step = (uint64_t)5 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
+        .defense = {256,204,170},
         .sight = { 7, 4, false },
         .native_type_id = 3,
         .damage_action = A_DC_Damage,
@@ -138,7 +144,7 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .name = "Cyborg",
         .armor_class = 4,
         .sprite_name = "SPRITES/SARG.SPR",
-        .traits = MF_SELECTABLE | MF_MOBILE |
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_DETECTOR |
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 45.0f / 32.0f,
         .max_hp = 1200,
@@ -146,6 +152,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SCOUT,
+        .turn_step = (uint64_t)10 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
+        .defense = {256,204,170},
         .sight = { 8, 8, true },
         .native_type_id = 5,
         .damage_action = A_DC_Damage,
@@ -155,8 +163,9 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
         .traits = MF_SELECTABLE | MF_MOBILE | MF_FLY |
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 47.0f / 32.0f,
-        .max_hp = 600,
-        .attack = { .range = 5.0f, .damage = 80, .cooldown_ms = 600 },
+        .max_hp = 800,
+        .attack = { .range = 2, .damage = 100, .cooldown_ms = 10 * 66,
+                    .projectile_type = MT_SCOUT_BOMB, .shots = 3, .reload_ms = 30 * 66 },
     },
     {
         .id = MT_EXCOPOD,
@@ -334,6 +343,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_ORTU,
+        .turn_step = (uint64_t)10 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
+        .defense = {256,204,170},
         .sight = { 8, 8, true },
         .native_type_id = 13,
         .damage_action = A_DC_Damage,
@@ -344,7 +355,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   MF_RENDERABLE | MF_ATTACK,
         .speed = 47.0f / 32.0f,
         .max_hp = 800,
-        .attack = { .range = 2.0f, .damage = 100, .cooldown_ms = 500 },
+        .attack = { .range = 2, .damage = 100, .cooldown_ms = 10 * 66,
+                    .projectile_type = MT_SCOUT_BOMB, .shots = 3, .reload_ms = 30 * 66 },
     },
     {
         .id = MT_SLUG,
@@ -429,12 +441,13 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_SENTINEL,
-        .sight = { 7, 4, false },
+        .defense = {256,213,182},
+        .sight = { 6, 4, false },
         .native_type_id = 43,
         .damage_action = A_DC_Damage,
         .name = "Sentinel",
         .sprite_name = "SPRITES/ENGI.SPR",
-        .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+        .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_DETECTOR,
         .speed = 30.0f / 32.0f,
         .max_hp = 800,
         .armor_class = 5,
@@ -442,7 +455,10 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     },
     {
         .id = MT_MEDI_CRAFT,
-        .sight = { 8, 8, true },
+        .turn_step = (uint64_t)10 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
+        .defense = {256,204,170},
+        .sight = { 5, 3, true },
+        .armor_class = 2,
         .native_type_id = 49,
         .damage_action = A_DC_Damage,
         .name = "Medi-craft",
@@ -464,6 +480,8 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
       .armor_class = 1,
       .attack = { .range = 1, .damage = 100, .cooldown_ms = 1000 * 15 / RTS_TICRATE } },
     { .id = MT_ATRIL, .native_type_id = 11, .sight = {4, 7, false},
+      .turn_step = (uint64_t)5 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
+      .defense = {256,204,170},
       .damage_action = A_DC_Damage, .name = "Atril", .sprite_name = "SPRITES/ATRIL.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
       .speed = 15.0f / 32.0f, .max_hp = 400,
@@ -472,19 +490,28 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
                   .projectile_type = MT_PUS_BOMB } },
     { .id = MT_GORREM, .native_type_id = 12, .sight = {10, 10, false},
       .damage_action = A_DC_Damage, .name = "Gorrem", .sprite_name = "SPRITES/PSYC.SPR",
-      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK,
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_ATTACK | MF_DETECTOR,
       .speed = 47.0f / 32.0f, .max_hp = 800,
       .armor_class = 4,
       .attack = { .range = 9, .damage = 200, .cooldown_ms = 1000 * 30 / RTS_TICRATE } },
     { .id = MT_SLOM, .native_type_id = 44, .sight = {4, 6, false},
+      .defense = {256,213,182},
       .damage_action = A_DC_Damage, .name = "Slom", .sprite_name = "SPRITES/SLOM.SPR",
-      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE,
+      .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_DETECTOR,
       .speed = 30.0f / 32.0f, .max_hp = 800, .armor_class = 5,
       .deploy = { S_SLOM_DEPLOY1, MT_ALIEN_MINE } },
     { .id = MT_ZISP, .native_type_id = 50, .sight = {3, 5, true},
+      .turn_step = (uint64_t)10 * (1u << 24) * 1000 / (66 * RTS_TICRATE),
+      .defense = {256,204,170},
+      .armor_class = 2,
       .damage_action = A_DC_Damage, .name = "Zisp", .sprite_name = "SPRITES/ZISP.SPR",
       .traits = MF_SELECTABLE | MF_MOBILE | MF_RENDERABLE | MF_FLY,
       .speed = 47.0f / 32.0f, .max_hp = 400 },
+    { .id = MT_SCOUT_BOMB, .name = "Scout bomb", .max_hp = 1,
+      .traits = MF_MISSILE,
+      .missile = { .step = 15 * FIXED_ONE / 256, .period_ms = 66,
+                   .lifetime = (2 * 256 + 1024) / 15 + 1, .timed = true },
+      .blast = { bomb_blast, 3, bomb_damage, 10 } },
     { .id = MT_PUS_BOMB, .name = "Atril bomb", .sprite_name = "SPRITES/ATRIL.SPR",
       .traits = MF_RENDERABLE | MF_MISSILE, .max_hp = 1,
       .missile = { .step = 60 * FIXED_ONE / 256, .period_ms = 66,
@@ -523,12 +550,14 @@ const mobjtype_t DARK_COLONY_ACTOR_TYPES[] = {
     { .id = MT_ROCKET_SMOKE, .name = "Rocket smoke", .sprite_name = "SPRITES/TURR.SPR",
       .traits = MF_RENDERABLE | MF_NOBLOCKMAP, .max_hp = 1 },
     { .id = MT_HUMAN_MINE, .native_type_id = 45, .name = "Deployed Sentinel",
+      .defense = {256,213,182},
       .sprite_name = "SPRITES/ENGI.SPR", .sight = {6,4,false},
       .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE,
       .max_hp = 800, .armor_class = 7,
       .attack = { .range = 1, .damage = 1300, .cooldown_ms = 150 * 66,
                   .projectile_type = MT_MINE_BLAST, .health_cost = 300 } },
     { .id = MT_ALIEN_MINE, .native_type_id = 46, .name = "Deployed Slom",
+      .defense = {256,213,182},
       .sprite_name = "SPRITES/ENGI.SPR", .sight = {4,6,false},
       .traits = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE,
       .max_hp = 800, .armor_class = 7,
@@ -607,6 +636,14 @@ void G_InitGame(void) {
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
     if (!load_dark_colony_map(path, out)) return false;
+    char root[1024];
+    snprintf(root, sizeof(root), "%s", path);
+    char *scenario = strstr(root, "/SCENARIO/");
+    if (!scenario) scenario = strstr(root, "/scenario/");
+    if (scenario) {
+        *scenario = '\0';
+        if (!DC_LoadWeapons(out, root)) { P_FreeLevel(out); return false; }
+    }
     out->mission = load_mission(path);
     out->destroy_mission = destroy_mission;
     return true;

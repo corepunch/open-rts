@@ -181,6 +181,8 @@ int main(void) {
         {"XENO", "XENOBULLET0", S_XENO_BULLET1, S_XENO_BULLET1},
         {"TURR", "SMOKEXPLODE0", S_ROCKET_SMOKE1, S_NULL},
         {"NUKE", "NUKE", S_NUKE1, S_NULL},
+        {"SMAY", "SMAY", S_SMAY1, S_NULL},
+        {"SCGM", "SPIKEBULLET0", S_SPIKE_BULLET1, S_SPIKE_BULLET1},
         {"GASY", "GASY", S_GASY1, S_NULL},
     };
     for (size_t i = 0; i < sizeof(weapons) / sizeof(weapons[0]); ++i)

@@ -69,6 +69,8 @@ typedef struct {
     ivec2_t ai_slots[DARK_COLONY_SCN_AI_SLOTS];
     int city_value_count;
     int city_values[DARK_COLONY_SCN_CITY_VALUES];
+    int upgrade_count;
+    struct { uint8_t weapon, armor; } upgrades[8];
 } ScenarioTeam;
 
 typedef struct {
@@ -306,6 +308,10 @@ static bool scenario_load(const char *path, ScenarioFile *out) {
                     memcpy(team_info->city_values, values,
                            (size_t)team_info->city_value_count * sizeof(values[0]));
 
+                } else if (value_count >= 5 && team_info->upgrade_count < 8) {
+                    int row = team_info->upgrade_count++;
+                    if (values[2] >= 0 && values[2] <= 2) team_info->upgrades[row].weapon = values[2];
+                    if (values[3] >= 0 && values[3] <= 2) team_info->upgrades[row].armor = values[3];
                 }
             }
             line = next;
@@ -527,6 +533,13 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         }
         for (int team = 0; team < scenario->team_count && team < 8; ++team) {
             const ScenarioTeam *info = &scenario->teams[team];
+            /* 0x419bc0 maps the eight SCN troop rows to native types. */
+            static const uint8_t types[2][8] = {{0,2,3,6,43,5,1,4},{8,10,11,14,44,13,9,12}};
+            for (int row = 0; row < info->upgrade_count; ++row) {
+                int type = types[info->race == 1][row];
+                out->upgrades[type][team].weapon = info->upgrades[row].weapon;
+                out->upgrades[type][team].armor = info->upgrades[row].armor;
+            }
             for (int i = 0; i < info->allies_count && i < 8; ++i)
                 if (info->allies[i] == 1)
                     out->sight.allies[team] |= UINT32_C(0x40000000) >> i;

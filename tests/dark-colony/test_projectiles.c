@@ -95,18 +95,19 @@ int main(void) {
         }
         P_FreeThinkers();
     }
-    mobj_t *mine = spawn(MT_HUMAN_MINE,10,10,0);
+    mobj_t *mine = spawn(MT_HUMAN_MINE,10.5f,10.5f,0);
     mine->traits |= MF_ATTACK;
-    spawn(MT_TROOPER,10.75f,10,0);
-    spawn(MT_SCOUT,10.75f,10,1);
+    mobj_t *friendly = spawn(MT_TROOPER,11.25f,10.5f,0);
+    spawn(MT_SCOUT,11.25f,10.5f,1);
     for (int tic = 0; tic < 20; ++tic) P_Ticker();
     CHECK(mine->hp == 800 && !projectile());
+    P_RemoveMobj(friendly);
     for (int charge = 0; charge < 3; ++charge) {
-        target = spawn(MT_TROOPER,10.75f,10,1);
+        target = spawn(MT_TROOPER,11.25f,10.5f,1);
         mine->attack.cooldown_left_ms = 0;
         for (int tic = 0; tic < 8; ++tic) P_Ticker();
         CHECK(target->hp == 0);
-        if (charge < 2) CHECK(mine->hp == 494 - charge * 306);
+        if (charge < 2) CHECK(mine->hp == 495 - charge * 305);
     }
     bool live_mine = false;
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th=th->next) {

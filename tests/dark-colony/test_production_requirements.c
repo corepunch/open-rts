@@ -64,7 +64,10 @@ static mobj_t ready_building(uint16_t actor_id) {
 }
 
 static int verify_table(const StaticProductDefinition *products, int count) {
-    if (count != (int)(sizeof(expected_products) / sizeof(expected_products[0])))
+    int ordinary_count = 0;
+    for (int i = 0; i < count; ++i)
+        ordinary_count += products[i].product_class != RTS_PRODUCT_UPGRADE;
+    if (ordinary_count != (int)(sizeof(expected_products) / sizeof(expected_products[0])))
         return rts_fail("production", "retail human product count changed");
 
     for (size_t i = 0; i < sizeof(expected_products) / sizeof(expected_products[0]); ++i) {

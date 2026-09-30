@@ -111,6 +111,10 @@ static inline fixed3_t fixed3_zero(void) {
     return (fixed3_t){ 0, 0, 0 };
 }
 
+static inline fixed3_t fixed3_sub(fixed3_t a, fixed3_t b) {
+    return (fixed3_t){a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
 static inline fixed3_t fixed3_planar_delta(fvec2_t delta) {
     return fixed3_from_fvec2(delta, 0);
 }

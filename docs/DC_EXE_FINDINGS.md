@@ -6173,3 +6173,262 @@ Baseline verification: `test_projectiles`, `test_native_pathfinding`,
 passed for HUMAN01 (34 units). The malformed-PTH stderr message in the path test
 is expected. These checks cover current engine behavior and selected FIN
 pixels/timing, not all missing bomber/healing/upgrade/native collision behavior.
+
+## Bomber, support and artillery implementation (2026-09-30)
+
+This follow-up implements the verified gaps from the preceding audit. The
+fingerprint remains DC.EXE SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566,272 bytes, PE32 base `0x400000`, timestamp 1997-08-11, linker 2.18;
+Watcom remains inferred. Evidence is static r2/r2ghidra analysis plus native
+assets and headless engine tests, not a recorded retail gameplay session.
+
+### Confirmed charge, healing and detection
+
+- Object creation `0x419d44` initializes ability byte `+0x0a` to 64.
+  At `0x41840c`, the native clock's low five bits gate replenishment: once per
+  32 native ticks, type `+0xf8` is added and clamped to 255. BEON/ZISP's
+  GAMESTAT field 24 supplies 1. The implementation uses the cumulative 66 ms
+  clock rather than counting engine frames.
+- Dispatch `0x413ccd` sends native types 49/50 to the `0x412f74` idle handler.
+  It requires charge greater than three, scans expanding squares of radius
+  0 through 7 (X outer, Y inner), and checks air before ground occupancy.
+  Recipients must have the same owner and missing HP. MBULLET row 7 supplies
+  fixed-point factors `256,128,128,128,128,256,128,128,0,512`; amount is
+  `36*factor/256`, capped at missing HP. A successful repair clears charge;
+  `0x4133ca` assigns a 50-native-tick recovery timer. One recipient is repaired
+  per call. Four increments after discharge normally require 128 native ticks;
+  the recovery timer alone is not the recharge period.
+- The current port polls idle, non-moving healers on native clock boundaries.
+  Complete retail order interruption, animation and sound dispatch are still
+  **unknown/incomplete**. It does not claim exact action scheduling merely
+  because the arithmetic and search order match.
+- Type `+0x68` (GAMESTAT field 14) is concealment; `+0x6c` (field 15) is detector
+  capability. Buried objects occupy map layer `+0x1004`. Sight refresh
+  `0x446158` clears object `+0xca`; detector traversal `0x441d54` ORs the
+  observing owner mask into this field at covered buried cells. SARG, PSYC,
+  ENGI and SLOM have detector capability. Sentinel sight is **6/4**, correcting
+  its previous engine 7/4. Medi-craft sight is **5/3** and both healers use
+  aircraft damage class **2**.
+- Engine `detected_by` stores that mask; visibility requires detector coverage
+  for enemy mines. Ordinary friendly ownership is retained. Coverage resets
+  each sight pass. Dead detectors lose the flag alongside combat/movement.
+  Ground sight pruning and shared allied masks use the existing sight code.
+
+### Confirmed launch placement, quantization and scatter
+
+`0x423d00` extracts up to eight FIN channel-7 launch records, queried by common
+fire `0x412174`. X is multiplied by 8 and Y by -8 in native 8.8 cells: with
+32 px cells, the engine conversion is point pixels times 2048 in 16.16 cells.
+Preceding FIN time is accumulated and `0x43ddae` multiplies the resulting wait
+by four. Waiting projectiles do not advance position or projectile animation.
+
+For **BARRFIREA0**, FIN frames 89..96 contain a channel-7 record at frame 90,
+with label `BARRDIE10`, X 0, Y -19. This is an authored launch record, not a
+reason to substitute a guessed muzzle point. Preceding raw time 0 loads as
+2 native ticks; waiting time is **8**, position offset **(0,+19 px)** in the
+bottom-up world. Fire is now started at Barrager attack-state entry so this
+pending-projectile delay is not added after the old ATK3 trigger. BARR and ATRIL
+FIN records are loaded with the level and freed by `P_FreeLevel`; no separate
+projectile pool or lifetime owner is added. Procedural test levels without
+native FINs use the native no-attachment zero-offset case.
+
+**Timing correction retained:** raw loader instructions near `0x42356b` use
+`((raw ? raw : 15)+3)*15/100`. A misleading intermediate multiplication was
+previously read as 19; the saved value subtracted after the shift is five times
+the input, giving 15. Do not restore the superseded 19/100 hypothesis.
+
+`0x43d930` computes native heading using an integer ratio and atan table;
+`0x411614` divides by 32 to obtain one of 256 headings. The quarter-sine table
+at `0x4746ac` has scale 2048; atan words start at `0x4756ae` (not the low word
+at `0x4756ac`). The committed `p_weapon_data.h` contains the required 65 sine
+samples and 257 atan entries, extracted once as C literals. Fire's velocity
+at `0x412420..0x412452` truncates native 8.8 components; duration at
+`0x412478..0x4124c8` divides signed displacement by the dominant velocity
+component (ties use Y). Example: delta `(4,2)` cells and speed 60 gives heading
+18, velocity `(54,25)` in 8.8 cells/tick and duration **18**. It is not Euclidean
+normalization followed by distance/step. The arc port truncates stored height
+to 8.8 after sampling the established 17-entry curve.
+
+BOOMSTAT loader `0x43813f..0x43816d` turns each scatter percentage into
+`percent*256/100`. The artillery 3x3 aim weights `3,10,3 / 10,48,10 / 3,10,3`
+become `7,25,7 / 25,122,25 / 7,25,7`, totaling **250**. Fire
+`0x41237c..0x4123df` subtracts these from one random byte in row-major order.
+**Confirmed edge case:** bytes 250..255 exhaust both loops with row=column=3,
+so the aim offset is **(+2,+2)**. Clamping this to the center or last entry
+would differ from the executable. Center-only bomb/mine rows still consume
+one random byte. The common attack-animation selection also consumes a random
+value even with one animation variant. Other unported native RNG consumers
+mean full retail random-stream equivalence is **not certified**.
+
+Source object `+0xd6` can force center aim; the field's complete meaning and
+command path remain **unknown**, so no guessed user control was added. The
+native range-limiting branch compares squared velocity components against
+`range*range*65536` and reduces a local duration by 95 percent if it takes the
+limit path. It cannot trigger for the presently supported speed <=60, range
+>=1 native weapons; it is recorded but not ported as a general weapon feature.
+
+### Confirmed blast occupancy and bomber presentation
+
+Blast `0x43e150` resolves a ground occupant per weighted cell, with buried-layer
+fallback only when that cell has no ground occupant. It does not damage every
+mobj drawn in the square. Reservation follows the next path cell (`0x414f8b`
+claims destination, `0x4117fc` releases origin). `DC_Occupant` now shares that
+reservation rule with pathing; missiles/effects are not occupants. The engine
+still resolves occupants through stable thinker-owned mobjs rather than owning
+another object pool. Native multi-cell building representation and tower
+projectile direct-hit bounds remain separate fidelity work.
+
+The old mine regression stacked multiple ground units in one cell, which is
+not a legal native occupancy arrangement. The corrected fixture has a buried
+mine at (10.5,10.5), an enemy at (11.25,10.5), and no overlapping friendly ground
+unit. Its self-cell has 90% weight: the three mine HP results are **495,190,0**,
+not the old **494,188,0** values produced by firing from an overlapping fixture.
+The existing 300 HP charge cost, clamp and friendly-owner splash attenuation
+remain; damaged mines can still have fewer than three surviving discharges.
+
+Bomber weapon selection and 10/10/30 burst delays are implemented in ordinary
+missile/actor thinkers. Base SPAK has no global BULLET label and remains
+invisible during flight; it detonates into complete SMAY FIN frames 0..12.
+Weapons 44/45 resolve global **SPIKEBULLET0** in SCGM.FIN, including Ortu.
+The implementation does not invent a SPIKE.FIN or race-specific EGG alias.
+SCGM logical frames 132..135 are those complete projectile FIN frames.
+SMAY logical frames 13..25 total 51 engine tics (26 native ticks).
+
+The fixed-point bomb factors are `17,64,0,20,64,115,12,64,0,12`.
+Base damage 100 against unarmored class-0 infantry gives **6 HP per bomb**,
+center cell only; a three-event sequence gives 18, after flight. Osprey maximum
+HP now agrees with the authored 800 in both actor defaults and scenario use.
+Zero-factor recipients are rejected during projectile target acquisition.
+Native turn-rate fields 5 for artillery and 10 for these aircraft are converted
+to the engine's 30 Hz angle step. Exact retail state polling/first-shot latency
+and the movement/attack interaction remain **incomplete**.
+
+### Confirmed scenario upgrades and purchase data
+
+SCN loading `0x41ad91..0x41ade9` reads eight five-column rows following `%City`.
+Columns three and four are weapon and armor levels. Mapping `0x419bc0` gives
+human native types `{0,2,3,6,43,5,1,4}` and alien
+`{8,10,11,14,44,13,9,12}`. The implementation retains tiers 0..2 by native type
+and owner in the active level and includes them in the deterministic checksum.
+HUMAN03 is a useful fixture: owner 1 has weapon/armor 1 for every human row;
+owner 2 has Ortu weapon 1, armor 0. Owner 0's rows are zero.
+
+The upgrade command routine begins at **0x41b698** (the early discovery dump
+missed this boundary; a decompile starting at 0x41b6c0 is misleading).
+Kind 0 selects weapon bytes at `0x4ec8b0`; kind 1 selects defense bytes at
+`0x4ec8b8`, indexed by `type*0x118+owner`. Writes occur at `0x41b79e` and
+`0x41b761`, followed by UI rebuild `0x434920`. The routine distinguishes a
+repeated tier from a new tier in owner counters `+0xbac`/`+0xbb0` and accounts
+for `tier*1000`. The whole retail menu/queue lifecycle is not thereby proven.
+
+DEPEND rows **63..66** (Osprey), **75..78** (Barrager), **45..48** (Ortu), and
+**49..52** (Atril) define two weapon and two armor upgrades each. Tier costs
+are 1000 and 2000, and second tiers require the corresponding first-tier row.
+Native UI IDs/icons are read from MAINE in the regression tests; prerequisite
+rows are read independently from DEPEND.TXT. The game authors these as C
+products, not runtime balance-table extraction. Selecting the existing science
+module exposes them in the sidebar and a deterministic build command applies
+the purchased tier immediately. **Engine integration/inferred:** science-module
+selection is a usable route into the existing UI, not a claim that the complete
+retail research interaction or purchase scheduling has been reproduced.
+
+Artillery range is 12/14/16 by weapon level. Barrager retains ROF 75; upgraded
+Atril uses **150**, rather than copying Barrager's rate. Bomber damage becomes
+100/125/150. Defense fields `+0x24/+0x28/+0x2c` hold factors: defenses
+100/125/150 give `256/204/170`; 100/120/140 give `256/213/182`.
+Damage applies these **after** class and impact truncation: a pre-defense
+187 becomes **149** at tier 1 and **124** at tier 2 for the first family.
+Defense is also applied to the existing immediate attack fallback, so bought
+armor works against its attacks; that fallback's weapon-class/daylight accuracy
+for other unit families is not certified by this task. Factors are currently
+authored for the audited units and Trooper; the remaining roster needs its own
+weapon/defense pass. Purchased tiers are owner-specific, require prerequisites
+and funds, cannot be rebought for another charge, and create no training queue.
+
+### Disproven assumptions and remaining boundaries
+
+- **Correction to the audit:** “mine retraction incomplete” implied a verified
+  feature. ENGI text establishes burial, concealment and three charges; this
+  investigation has not established a native retract command or FIN sequence.
+  Retraction remains **unknown**; reversing DEPLOY would be invention.
+- Retail text also describes a city deployment exclusion. The controlling
+  function and exact radius remain **unknown**, so no guessed radius is added.
+- The current 50 px aircraft altitude policy is preserved. It is not proof of
+  the correct conversion of retail spawn Z=600. Exact movement speed conversion,
+  crash descent/corpse altitude and death facing remain **unknown/incomplete**.
+- No permanent napalm, EGG substitution, or extra hover sine wave is inferred
+  from encyclopedia prose or available sprite names.
+- Healers, missiles and impact visuals remain ordinary mobjs in the shared
+  Doom thinker lifecycle; FIN resources and upgrade state have the level as
+  their sole owner. No renderer-native callbacks or effect pools were added.
+
+### Additional asset provenance and reproduction
+
+| Input under data/DCOLONY | SHA-256 |
+|---|---|
+| ANIMATE/SMAY.FIN | 68e7aaf1585837b01179a77e5d61cffa6dc8254d5c0607e447f9adffc8d1b3e4 |
+| SPRITES/SMAY.SPR | 6c3ab23854931927ced1570aae6f1a446be2516b08a861ddff69a3245ca2d63a |
+| GAMESTAT/DEPEND.TXT | 9e5e5251d5196677aa96b690413ccf15b601b5e9a00892d393fc260798efc67d |
+
+The earlier table fingerprints BARR, ATRIL and SCGM FINs. Reproduce the static
+reads with the same local executable (missing import-SDB warnings are harmless):
+
+```sh
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x412f74' -c 'pdf @ 0x412f74' -c 'af @ 0x418394' -c 'pdf @ 0x418394' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x441d54' -c 'pdf @ 0x441d54' -c 'pd 32 @ 0x446158' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x423d00' -c 'pdf @ 0x423d00' -c 'pd 30 @ 0x42356b' -c 'af @ 0x43d930' -c 'pdf @ 0x43d930' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x412174' -c 'pdf @ 0x412174' -c 'pd 40 @ 0x43813f' -c q data/DCOLONY/DC.EXE
+r2 -q -e bin.cache=true -e scr.color=false -c 'af @ 0x41b698' -c 'pdf @ 0x41b698' -c 'pd 32 @ 0x41ad91' -c q data/DCOLONY/DC.EXE
+r2 -q -e scr.color=false -c 'pxh 4098 @ 0x4746ac' -c 'pxh 514 @ 0x4756ae' -c q data/DCOLONY/DC.EXE
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/BARR.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/ATRIL.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/SMAY.FIN
+```
+
+The data section maps VA `0x46d000` to file offset `0x6aa00`. To reproduce the
+committed trig literals with a C extractor, seek to
+`VA-0x46d000+0x6aa00`, read two little-endian bytes, and print their unsigned
+16-bit value. Sine sample `i=0..64` is at `0x4746ac+i*64`; atan entry `i=0..256`
+is at `0x4756ae+i*2`. Do not regenerate using host floating-point `sin`/`atan`,
+which need not reproduce retail truncation.
+
+Focused behavioral commands:
+
+```sh
+make build/bin/tests/dark-colony/test_aircraft_combat build/bin/tests/dark-colony/test_support_combat build/bin/tests/dark-colony/test_alien_production
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_aircraft_combat
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_support_combat
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_alien_production
+env SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
+make
+make tags
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/dc-combat.bmp
+```
+
+The projectile tests use legal per-layer occupancy; support tests assert the
+native numeric launch vector, FIN muzzle wait, reservation-based blast, repair
+selection/recharge and detector coverage loss. FIN tests compare complete SMAY
+and SPIKE pixels/timing; production tests independently validate native data and
+exercise real sidebar purchases for both factions and HUMAN03 starting tiers.
+
+Verification outcome: `make` built all four games; all **44 Dark Colony test
+executables** passed after the combat/path changes. Dark Reign and 7th Legion
+suites, model commands, sprite layout and native loader fixtures passed.
+`test_alien_production` was rerun after adding research-sidebar captures and
+passed, including HUMAN03 tiers. `make tags` and `git diff --check` completed.
+The Dark Colony smoke check loaded HUMAN01 with 34 units and 1,382 terrain
+tiles. Startup and both faction research sidebars were captured and visually
+inspected; the sidebar-only test intentionally leaves the world canvas black.
+These captures establish UI integration, not visual equivalence to retail play.
+
+The repository-wide `make test` is **not green**: KKnD `test_combat`,
+`test_playable` and `test_production` fail. A separate clean `git archive` of
+pre-implementation commit `a3492f6` reproduced all three exact failures (combat
+sprite/frame assertion; two stale empty-production expectations), confirming
+they predate this patch. They were not changed as part of Dark Colony work.
+An initial aggregate run also encountered an incompatible `/usr/local/bin/cmp`;
+rerunning with `/usr/bin` ahead of it resolved that tool error. The existing
+signedness warning in `test_dropship.c` and intentional malformed-PTH diagnostic
+are unrelated to these changes. No temporary combat diagnostic logging remains.

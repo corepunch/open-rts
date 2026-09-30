@@ -3,6 +3,9 @@
 #include "p_local.h"
 #include "p_sight_data.h"
 #include <stdlib.h>
+#ifdef RTS_GAME_DARK_COLONY
+#include "p_path.h"
+#endif
 
 bool P_InitSight(void) {
     if (level.width <= 0 || level.height <= 0 ||
@@ -15,7 +18,7 @@ bool P_InitSight(void) {
     return level.sight.cells != NULL;
 }
 
-void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne) {
+static void reveal_sight(ivec2_t origin, int radius, uint32_t mask, bool airborne, bool detector) {
     if (!level.sight.cells || radius < 1 || radius > 10) return;
     uint32_t explored = mask & level.sight.allies[consoleplayer] ? SIGHT_EXPLORED : 0;
     /* DC.EXE 0x4458d0: a blocked branch ends after revealing its own cell.
@@ -32,16 +35,32 @@ void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne) {
         int index = L_Index(&level, cell.x, cell.y);
         uint16_t flags = level.tile_flags ? level.tile_flags[index] : MAP_SIGHT_PASS;
         level.sight.cells[index] |= explored;
+#ifdef RTS_GAME_DARK_COLONY
+        if (detector) {
+            mobj_t *mine = DC_Occupant(cell, false, true);
+            if (mine) mine->detected_by |= mask;
+        }
+#else
+        (void)detector;
+#endif
         if (!(flags & MAP_SIGHT_NEAR) || sightnodes[i].depth < 2)
             level.sight.cells[index] |= mask;
         i = airborne || (flags & MAP_SIGHT_PASS) ? i + 1 : sightnodes[i].end;
     }
 }
 
+void P_RevealSight(ivec2_t origin, int radius, uint32_t mask, bool airborne) {
+    reveal_sight(origin, radius, mask, airborne, false);
+}
+
 void P_UpdateSight(void) {
     if (!level.sight.cells) return;
     size_t count = (size_t)level.width * level.height;
     for (size_t i = 0; i < count; ++i) level.sight.cells[i] &= SIGHT_EXPLORED;
+#ifdef RTS_GAME_DARK_COLONY
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
+        ((mobj_t *)th)->detected_by = 0;
+#endif
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;
         if (actor->remove || actor->hp <= 0 || !actor->info || actor->team >= 8) continue;
@@ -51,8 +70,9 @@ void P_UpdateSight(void) {
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
         ivec2_t origin = {actor->core.position.x >> FIXED_FRAC_BITS, actor->core.position.y >> FIXED_FRAC_BITS};
-        P_RevealSight(origin, radius, UINT32_C(0x40000000) >> actor->team,
-                      actor->info->sight.airborne || (actor->traits & MF_FLY));
+        reveal_sight(origin, radius, UINT32_C(0x40000000) >> actor->team,
+                     actor->info->sight.airborne || (actor->traits & MF_FLY),
+                     actor->traits & MF_DETECTOR);
     }
 }
 
@@ -72,12 +92,20 @@ static uint32_t object_sight(const mobj_t *mobj) {
 
 bool P_VisibleToPlayer(const mobj_t *mobj) {
     if (!mobj || mobj->remove || P_MobjIsHidden(mobj)) return false;
+#ifdef RTS_GAME_DARK_COLONY
+    if ((mobj->traits & MF_LANDMINE) && mobj->owner != consoleplayer &&
+        !(mobj->detected_by & level.sight.allies[consoleplayer])) return false;
+#endif
     if (!level.sight.cells) return true;
     return (object_sight(mobj) & level.sight.allies[consoleplayer]) != 0;
 }
 
 bool P_VisibleTo(const mobj_t *observer, const mobj_t *target) {
     if (!target || target->remove) return false;
+#ifdef RTS_GAME_DARK_COLONY
+    if ((target->traits & MF_LANDMINE) && observer && target->owner != observer->owner &&
+        (observer->team >= 8 || !(target->detected_by & level.sight.allies[observer->team]))) return false;
+#endif
     if (!level.sight.cells) return true;
     return observer && observer->team < 8 &&
         (object_sight(target) & level.sight.allies[observer->team]) != 0;

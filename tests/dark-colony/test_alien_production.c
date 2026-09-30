@@ -64,6 +64,12 @@ static void check_dependency(const StaticProductDefinition *product) {
             };
             assert(race == product->faction && type >= 0 && type < 5 && upgrade >= 0 && upgrade < 2);
             assert(product->product_type == city[race][upgrade][type]);
+        } else if (kind == 2) {
+            int category = (int)strtol(p, &end, 10); p = end;
+            int tier = (int)strtol(p, &end, 10); p = end;
+            assert(product->product_type == row);
+            assert(type == 3 || type == 5 || type == 11 || type == 13);
+            assert(category >= 0 && category <= 1 && tier >= 1 && tier <= 2);
         } else assert(type == product->product_type);
         for (int i = 0; i < product->prerequisite_count; ++i) {
             int required = (int)strtol(p, &end, 10); assert(end != p); p = end;
@@ -101,7 +107,7 @@ static void check_player(int player) {
         P_MobjSetSelected((mobj_t *)th, false);
     StaticProductDefinition products[32];
     int count = G_ModelGetProducts(NULL, player, products, 32);
-    assert(count == 16);
+    assert(count == 24);
     for (int i = 0; i < count; ++i) {
         assert(products[i].faction == player);
         check_dependency(&products[i]);
@@ -171,6 +177,42 @@ static void check_player(int player) {
         P_RemoveMobj(born);
         P_RunThinkers();
     }
+    mobj_t *science = find(player ? MT_ALIEN_MINDHIVE3 : MT_SCNCPOD2);
+    assert(science);
+    P_MobjSetSelected(science, true);
+    objects = P_ListMobjs();
+    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, &hud);
+    SDL_RenderPresent(r_renderer);
+    assert(!SDL_SaveBMP(surface, player ? "/private/tmp/dc-alien-research.bmp" :
+                                       "/private/tmp/dc-human-research.bmp"));
+    P_FreeMobjList(&objects);
+    for (int i = 0; i < count; ++i) {
+        const StaticProductDefinition *product = &products[i];
+        if (product->product_class != RTS_PRODUCT_UPGRADE) continue;
+        int base = player ? (product->row_id < 49 ? 45 : 49) :
+                            (product->row_id < 75 ? 63 : 75);
+        int type = player ? (base == 45 ? 13 : 11) : (base == 63 ? 5 : 3);
+        int offset = product->row_id - base;
+        int tier = 1 + offset % 2;
+        uint8_t *value = offset < 2 ? &level.upgrades[type][player].weapon :
+                                    &level.upgrades[type][player].armor;
+        if (tier == 1) {
+            const StaticProductDefinition *next = G_ModelProductByClassType(NULL, RTS_PRODUCT_UPGRADE, base + offset + 1);
+            assert(next && !G_ModelProductAvailable(NULL, player, next));
+            assert(!G_PlayerBuildProduct(science, next));
+        }
+        assert(G_ModelProductAvailable(NULL, player, product));
+        int before = level.player_resources[player][0];
+        level.player_resources[player][0] = product->cost - 1;
+        assert(!G_PlayerBuildProduct(science, product) && *value == tier - 1);
+        level.player_resources[player][0] = before;
+        click(ui, &app, product);
+        assert(*value == tier && level.player_resources[player][0] == before - product->cost);
+        assert(!G_PlayerBuildProduct(science, product));
+        assert(level.player_resources[player][0] == before - product->cost);
+        assert(!level.upgrades[type][1-player].weapon && !level.upgrades[type][1-player].armor);
+        assert(!science->production || !science->production->queue_count);
+    }
     G_ShutdownCustomUI(ui); R_FreeSpriteCache(cache); free(cache);
     R_FreeSprite(&sprite); R_FreeTileset(&tiles);
     SDL_DestroyRenderer(r_renderer); r_renderer = NULL;
@@ -181,6 +223,17 @@ static void check_player(int player) {
 int main(void) {
     check_player(0);
     check_player(1);
-    puts("PASS: 32 native faction products, all sidebar purchases, module upgrades, 18 trained unit types");
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {.data_root = "data/DCOLONY", .map_path = "SCENARIO/HUMAN/HUMAN03.MAP"};
+    assert(model && rts_game_model_load(model, &config));
+    const int human_types[] = {0,2,3,6,43,5,1,4};
+    for (unsigned i = 0; i < sizeof(human_types)/sizeof(*human_types); ++i) {
+        assert(level.upgrades[human_types[i]][1].weapon == 1);
+        assert(level.upgrades[human_types[i]][1].armor == 1);
+        assert(level.upgrades[human_types[i]][0].weapon == 0);
+    }
+    assert(level.upgrades[13][2].weapon == 1 && level.upgrades[13][2].armor == 0);
+    rts_game_model_destroy(model);
+    puts("PASS: 48 native faction products, sidebar purchases, research costs/tiers/owner isolation, 18 trained unit types");
     return 0;
 }

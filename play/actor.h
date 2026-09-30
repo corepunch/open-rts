@@ -36,6 +36,7 @@ typedef enum {
     MF_MISSILE = 1u << 10,
     MF_TURRET = 1u << 11,
     MF_LANDMINE = 1u << 12,
+    MF_DETECTOR = 1u << 13,
 } mobjflag_t;
 
 enum {
@@ -76,6 +77,7 @@ typedef struct mobjtype_s {
     angle_t turn_step; /* Per simulation tic; zero uses the legacy turn cadence. */
     int max_hp;
     unsigned armor_class;
+    uint16_t defense[3]; /* Native damage multipliers; zero uses 256. */
     struct {
         int day, night;
         bool airborne;
@@ -86,6 +88,7 @@ typedef struct mobjtype_s {
         int cooldown_ms;
         uint16_t projectile_type;
         int health_cost;
+        int shots, reload_ms;
     } attack;
     missiledef_t missile;
     blastdef_t blast;
@@ -197,9 +200,10 @@ struct mobj_s {
     int hp;
     int max_hp;
     mobj_t *target; /* Doom: missile originator, or another mobj target. */
-    struct { int clock, age, duration, phase; } missile;
+    struct { int clock, age, duration, phase, damage, wait; } missile;
     struct {
         int cooldown_left_ms;
+        int shots;
         mobj_t *target;
     } attack;
     struct {

@@ -1,9 +1,50 @@
 # Dark Colony unit behavior comparison
 
-Audit date: 2026-09-30. Engine baseline: `ce24ce5`.
+Audit and implementation date: 2026-09-30. Audit baseline: `ce24ce5`.
+
+## Implemented after the audit
+
+The follow-up implements the verified missing combat rules. The historical
+comparison below remains a record of the baseline, not a description of the
+patched engine. Detailed new evidence is in
+[the implementation findings](DC_EXE_FINDINGS.md#bomber-support-and-artillery-implementation-2026-09-30).
+
+| Area | Implemented behavior | Verification |
+|---|---|---|
+| Bombers | Osprey HP 800; both aircraft fire timed, center-cell bombs with native class factors, three-event burst accounting and 660/660/1980 ms cooldown assignments. Base flight is invisible; upgrades use the globally resolved SPIKE frames; impact uses complete SMAY FIN frames. | `test_aircraft_combat`, `test_drop_fin_states` |
+| Eligibility and turning | Projectile attacks reject zero damage classes, including artillery against aircraft. Bombers/artillery use authored turning rates before firing. | `test_aircraft_combat`, existing turret checks |
+| Artillery launch | Native FIN channel-7 muzzle placement and waiting time, weighted scatter including the native residual-probability edge case, quantized heading/velocity, dominant-axis duration and 8.8 height truncation. | `test_support_combat`, `test_projectiles` |
+| Blast occupancy | Each blast cell resolves one ground occupant, then a buried mine only if ground is empty. Traveling units occupy their reserved destination cell. Friendly-owner attenuation remains. | `test_support_combat`, `test_projectiles` |
+| Support aircraft | Class 2, corrected Medi-craft sight 5/3; same-owner repair using native search order, charge threshold, recharge, cap, amount and recovery delay. | `test_support_combat` |
+| Mines | Enemy buried mines need detector coverage. Sarge/Gorrem and Sentinel/Slom detect; coverage resets each sight pass and dead detectors stop revealing. | `test_support_combat`, `test_actor_lifecycle` |
+| Upgrades | Scenario starting weapon/armor tiers load by owner and native type. Bomber damage 100/125/150; artillery range 12/14/16; upgraded Atril reload 150 native ticks. Defense factors apply after class/impact factors. | `test_support_combat`, `test_alien_production` |
+| Purchase access | Both weapon and armor tiers for Osprey, Ortu, Barrager and Atril are available by selecting the science module. Native costs, IDs, icons and prerequisite rows; deterministic purchase command; no duplicate charge or unit production queue. | `test_alien_production` checks both factions, every tier, insufficient funds, prerequisites and owner isolation |
+
+Research presentation uses the existing sidebar and selected science module.
+This is engine integration, not a certification of the complete retail research
+menu or purchase scheduling. Other unit families' research products and weapon
+rules are outside this patch. Defense factors are authored for the audited
+aircraft/artillery, deployed/mobile mines, and Trooper test recipient; the rest
+of the unit roster still needs a separate balance/weapon audit.
+
+Remaining unknown or incomplete fidelity: exact native first-shot/order timing,
+attacking while moving, healer action interruption/animation/sound, flight speed
+conversion and crash descent, complete global RNG call ordering, the meaning of
+the source `+0xd6` forced-center flag, and direct-hit collision for tower rockets.
+The original 50 px aircraft height policy remains. The native projectile range
+limiter is not ported because its tested condition is unreachable for the
+weapon speed/range values in this implementation; see the detailed evidence.
+
+**Correction:** the audit's “retraction incomplete” wording was too strong.
+Burial/concealment and three charges are confirmed; a retail mine retraction
+command/animation is **unknown**. No reversed deployment animation is invented.
+Retail text also mentions a deployment exclusion around cities, but its numeric
+radius and controlling routine remain unknown.
+
+## Historical comparison at `ce24ce5`
 
 Compared local retail `data/DCOLONY/DC.EXE` and its GAMESTAT/FIN assets with
-the current C simulation. This is a documentation audit, not a behavior patch.
+the then-current C simulation. The original audit commit was documentation only.
 Bombs includes aircraft bombs, Atril projectiles, and Sentinel/Slom mines.
 Flying units includes Osprey, Ortu, Medi-craft, and Zisp; dropships are addressed
 separately below because their cargo lifecycle is different.
@@ -170,4 +211,4 @@ Concrete follow-up order:
 5. Trace and implement weapon/defense upgrades, healing/recharge, mine detection
    and retraction; audit exact flight altitude, speed and death behavior.
 
-No gameplay changes are included in this comparison.
+The implementation status at the top supersedes this historical follow-up list.

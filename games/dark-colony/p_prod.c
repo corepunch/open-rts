@@ -50,7 +50,37 @@ static const StaticProductDefinition DARK_COLONY_PRODUCTS[] = {
     { 24,  49, "Ortu",       600,  16, RTS_PRODUCT_UNIT, 13, 1, { 14, 17, 18 }, 3, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
     { 22,  47, "Xenowort",   900,  17, RTS_PRODUCT_UNIT,  9, 1, { 19 }, 1, { MT_ALIEN_BRDRHIVE2 }, 1 },
     { 84, 134, "Zisp",       900,  36, RTS_PRODUCT_UNIT, 50, 1, { 18, 15, 20 }, 3, { MT_ALIEN_BRDRHIVE, MT_ALIEN_BRDRHIVE2 }, 2 },
+    /* DEPEND rows; research product_type is its native dependency row. */
+    {63,114,"Osprey weapon +1",1000,80,RTS_PRODUCT_UPGRADE,63,0,{3,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {64,115,"Osprey weapon +2",2000,31,RTS_PRODUCT_UPGRADE,64,0,{63},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {65,116,"Osprey armor +1",1000,51,RTS_PRODUCT_UPGRADE,65,0,{3,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {66,117,"Osprey armor +2",2000,93,RTS_PRODUCT_UPGRADE,66,0,{65},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {75,126,"Barrager weapon +1",1000,64,RTS_PRODUCT_UPGRADE,75,0,{5,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {76,127,"Barrager weapon +2",2000,28,RTS_PRODUCT_UPGRADE,76,0,{75},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {77,128,"Barrager armor +1",1000,49,RTS_PRODUCT_UPGRADE,77,0,{5,4},2,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {78,129,"Barrager armor +2",2000,91,RTS_PRODUCT_UPGRADE,78,0,{77},1,{MT_SCNCPOD,MT_SCNCPOD2},2},
+    {45,57,"Ortu weapon +1",1000,86,RTS_PRODUCT_UPGRADE,45,1,{17,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {46,101,"Ortu weapon +2",2000,41,RTS_PRODUCT_UPGRADE,46,1,{45},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {47,69,"Ortu armor +1",1000,58,RTS_PRODUCT_UPGRADE,47,1,{17,18},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {48,102,"Ortu armor +2",2000,100,RTS_PRODUCT_UPGRADE,48,1,{47},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {49,59,"Atril weapon +1",1000,85,RTS_PRODUCT_UPGRADE,49,1,{18,19},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {50,105,"Atril weapon +2",2000,38,RTS_PRODUCT_UPGRADE,50,1,{49},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {51,73,"Atril armor +1",1000,56,RTS_PRODUCT_UPGRADE,51,1,{18,19},2,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
+    {52,106,"Atril armor +2",2000,98,RTS_PRODUCT_UPGRADE,52,1,{51},1,{MT_ALIEN_MINDHIVE2,MT_ALIEN_MINDHIVE3},2},
 };
+
+static uint8_t *upgrade_value(int owner, const StaticProductDefinition *product, int *tier) {
+    if (owner < 0 || owner >= 8 || !product || product->product_class != RTS_PRODUCT_UPGRADE) return NULL;
+    static const struct { int row, type; } groups[] = {{45,13},{49,11},{63,5},{75,3}};
+    for (unsigned i=0; i<sizeof(groups)/sizeof(*groups); ++i) {
+        int offset=product->row_id-groups[i].row;
+        if (offset<0 || offset>=4) continue;
+        *tier=1+offset%2;
+        return offset<2 ? &level.upgrades[groups[i].type][owner].weapon :
+                          &level.upgrades[groups[i].type][owner].armor;
+    }
+    return NULL;
+}
 
 static int product_count(void) {
     return (int)(sizeof(DARK_COLONY_PRODUCTS) /
@@ -103,6 +133,7 @@ static uint16_t unit_actor_id_for_product_type(int product_type) {
 
 uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {
     if (!product) return 0;
+    if (product->product_class == RTS_PRODUCT_UPGRADE) return product->makers[0];
     if (product->product_class == RTS_PRODUCT_BUILDING)
         return actor_id_for_product_type(product->product_type);
     if (product->product_class == RTS_PRODUCT_UNIT)
@@ -214,10 +245,22 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
                              const StaticProductDefinition *product) {
     (void)model;
     if (!product) return false;
+    if (product->product_class == RTS_PRODUCT_UPGRADE) {
+        int tier;
+        uint8_t *value=upgrade_value(owner,product,&tier);
+        if (!value || *value+1!=tier) return false;
+    }
     for (int i = 0; i < product->prerequisite_count; ++i) {
         const StaticProductDefinition *prereq =
             product_by_row_id(product->prerequisites[i]);
-        if (!prereq || prereq->product_class != RTS_PRODUCT_BUILDING) return false;
+        if (!prereq) return false;
+        if (prereq->product_class == RTS_PRODUCT_UPGRADE) {
+            int tier;
+            uint8_t *value=upgrade_value(owner,prereq,&tier);
+            if (!value || *value<tier) return false;
+            continue;
+        }
+        if (prereq->product_class != RTS_PRODUCT_BUILDING) return false;
         uint16_t actor_id = G_ModelActorIdForProduct(prereq);
         bool found = false;
         for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
@@ -235,6 +278,8 @@ bool G_ModelProductAvailable(const RtsGameModel *model, int owner,
 bool G_ModelProductAvailableForUnits(mobj_t *const *units, int unit_count,
                                      const StaticProductDefinition *product) {
     if (!units || unit_count < 0 || !product) return false;
+    if (product->product_class == RTS_PRODUCT_UPGRADE)
+        return G_ModelProductAvailable(NULL,consoleplayer,product);
     for (int i = 0; i < product->prerequisite_count; ++i) {
         const StaticProductDefinition *prereq =
             product_by_row_id(product->prerequisites[i]);
@@ -461,6 +506,13 @@ static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition
 bool G_ModelEnqueueProduction(mobj_t *producer, const StaticProductDefinition *product,
                               uint16_t actor_id) {
     if (!producer || !product || actor_id == 0) return false;
+    if (product->product_class == RTS_PRODUCT_UPGRADE) {
+        int tier;
+        uint8_t *value=upgrade_value(producer->owner,product,&tier);
+        if (!value || *value+1!=tier) return false;
+        *value=tier;
+        return true;
+    }
     if (product->product_class == RTS_PRODUCT_BUILDING)
         return dc_build_city_module(producer, product, actor_id);
     production_t *production = P_EnsureMobjProduction(producer);

@@ -129,6 +129,13 @@ uint32_t G_Consistency(void) {
     HASH(leveltime); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
     for (int p = 0; p < RTS_MODEL_MAX_PLAYERS; ++p)
         for (int r = 0; r < RTS_MAX_RESOURCES; ++r) HASH(level.player_resources[p][r]);
+#ifdef RTS_GAME_DARK_COLONY
+    for (int type = 0; type < 106; ++type)
+        for (int owner = 0; owner < 8; ++owner) {
+            HASH(level.upgrades[type][owner].weapon);
+            HASH(level.upgrades[type][owner].armor);
+        }
+#endif
     for (int i = 0; i < level.resource_vent_count; ++i) {
         HASH(level.resource_vents[i].amount); HASH(level.resource_vents[i].active);
     }
@@ -138,6 +145,8 @@ uint32_t G_Consistency(void) {
         HASH(u->core.position.x); HASH(u->core.position.y); HASH(u->core.position.z);
         HASH(u->core.momentum.x); HASH(u->core.momentum.y); HASH(u->core.momentum.z);
         HASH(u->missile.clock); HASH(u->missile.age); HASH(u->missile.duration);
+        HASH(u->missile.damage);
+        HASH(u->missile.wait);
         HASH(u->missile.phase);
         HASH(u->core.angle); HASH(u->core.state_id); HASH(u->core.tics);
         HASH(u->hp); HASH(u->traits & ~MF_SELECTED); HASH(u->remove);
@@ -146,6 +155,7 @@ uint32_t G_Consistency(void) {
 #endif
         HASH(u->target ? u->target->id : 0);
         HASH(u->attack.target ? u->attack.target->id : 0); HASH(u->attack.cooldown_left_ms);
+        HASH(u->attack.shots);
         HASH(u->harvest.target); HASH(u->harvest.phase); HASH(u->harvest.timer_ms); HASH(u->harvest.cargo);
         HASH(u->harvest.resource_type); HASH(u->harvest.base ? u->harvest.base->id : 0);
         fixed3_t bay = fixed3_from_fvec2(u->harvest.return_position, 0);

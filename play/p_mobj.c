@@ -2,6 +2,7 @@
 #include "p_local.h"
 #ifdef RTS_GAME_DARK_COLONY
 #include "p_path.h"
+#include "p_weapon.h"
 #endif
 #include "game.h"
 #include "info.h"
@@ -28,6 +29,10 @@ static const state_t *state_at(const gameinfo_t *game_info, int state_id) {
 }
 
 static float mobj_attack_range(const mobj_t *unit) {
+#ifdef RTS_GAME_DARK_COLONY
+    if (unit && (unit->type_id == MT_THUNDERBOLT || unit->type_id == MT_ATRIL))
+        return unit->info->attack.range + DC_WeaponLevel(unit) * 2;
+#endif
     return unit && unit->info ? unit->info->attack.range : 0.0f;
 }
 
@@ -36,6 +41,9 @@ static int mobj_attack_damage(const mobj_t *unit) {
 }
 
 static int mobj_attack_cooldown_ms(const mobj_t *unit) {
+#ifdef RTS_GAME_DARK_COLONY
+    if (unit && unit->type_id == MT_ATRIL && DC_WeaponLevel(unit)) return 150 * 66;
+#endif
     return unit && unit->info ? unit->info->attack.cooldown_ms : 0;
 }
 
@@ -271,8 +279,13 @@ mobj_t *P_SpawnMobj(fixed3_t position, uint16_t type) {
     mobj->core.position = position;
     mobj->type_id = type;
     mobj->id = ++level.next_mobj_id;
+#ifdef RTS_GAME_DARK_COLONY
+    mobj->ability_charge = 64; /* DC.EXE object +0x0a at creation. */
+#endif
     P_ApplyActorTypeDefaults(mobj, mobj_type(type));
     P_InitMobj(gameinfo, mobj);
+    if (gameinfo && type < gameinfo->mobj_type_count)
+        mobj->missile.damage = gameinfo->mobjinfo[type].damage;
     mobj->thinker.function = P_MobjThinker;
     P_AddThinker(&mobj->thinker);
     return mobj;
@@ -321,6 +334,16 @@ void P_AngleToVec(angle_t angle, float *dx, float *dy) {
     angle_to_screen_vector(angle, dx, dy);
 }
 
+static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
+    if ((attacker->traits & MF_LANDMINE) && (victim->traits & MF_FLY)) return false;
+    const mobjtype_t *shot = attacker->info ?
+        mobj_type(attacker->info->attack.projectile_type) : NULL;
+    if (!shot) return true;
+    unsigned armor = victim->info ? victim->info->armor_class : 0;
+    return !shot->blast.damage_factors || armor >= (unsigned)shot->blast.armor_classes ||
+           shot->blast.damage_factors[armor] != 0;
+}
+
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (!(attacker->traits & MF_ATTACK) || mobj_attack_damage(attacker) <= 0)
         return NULL;
@@ -329,7 +352,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
-        !((attacker->traits & MF_LANDMINE) && (target->traits & MF_FLY)) &&
+        P_CanDamage(attacker, target) &&
         !P_IsAlly(attacker, target) &&
         fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
                                fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
@@ -339,7 +362,7 @@ static mobj_t *attack_target_in_range(const mobj_t *attacker) {
         mobj_t *candidate = (mobj_t *)th;
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
-            ((attacker->traits & MF_LANDMINE) && (candidate->traits & MF_FLY)) ||
+            !P_CanDamage(attacker, candidate) ||
             P_IsAlly(attacker, candidate) ||
             !P_VisibleTo(attacker, candidate)) continue;
         float dist2 = fvec2_distance_squared(
@@ -368,7 +391,7 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     target->hp = 0;
     P_MobjSetSelected(target, false);
     target->traits &= ~(MF_SELECTABLE | MF_MOBILE | MF_FLY |
-                        MF_ATTACK | MF_HARVESTER);
+                        MF_ATTACK | MF_HARVESTER | MF_DETECTOR);
     P_ClearMove(target);
     target->movement.order_arrived = false;
     target->harvest.target = -1;
@@ -407,17 +430,31 @@ mobj_t *P_SpawnMissile(mobj_t *source, mobj_t *target, uint16_t type) {
     missile->owner = source->owner;
     missile->team = source->team;
     missile->allegiance = source->allegiance;
+    missile->missile.damage = missile_info->damage;
+#ifdef RTS_GAME_DARK_COLONY
+    if (type == MT_SCOUT_BOMB && DC_WeaponLevel(source)) {
+        missile->missile.damage += 25 * DC_WeaponLevel(source);
+        missile->traits |= MF_RENDERABLE;
+        P_SetMobjState(missile, S_SPIKE_BULLET1);
+    }
+#endif
     missile->core.angle = angle_from_map_vector(&level, direction.x, direction.y);
     if (flight && flight->period_ms > 0 && flight->step > 0) {
+#ifdef RTS_GAME_DARK_COLONY
+        DC_AimMissile(missile, target->core.position);
+#else
         missile->core.momentum = fixed3_planar_delta(
             fvec2_scale(direction, fixed_to_float(flight->step)));
         missile->missile.duration = (int)(distance / fixed_to_float(flight->step));
         if (missile->missile.duration < 1) missile->missile.duration = 1;
+#endif
         if (flight->weave && gameinfo->random_table)
             missile->missile.phase = gameinfo->random_table[++level.random_index] % flight->weave_count;
+#ifndef RTS_GAME_DARK_COLONY
         if (!flight->arc)
             missile->core.momentum.z = (target->core.position.z - source->core.position.z) /
                                       missile->missile.duration;
+#endif
         return missile;
     }
     missile->core.momentum = fixed3_planar_delta(
@@ -455,7 +492,7 @@ static int missile_damage(const mobj_t *missile, const mobj_t *victim) {
     unsigned armor = victim->info ? victim->info->armor_class : 0;
     int factor = blast && blast->damage_factors && armor < (unsigned)blast->armor_classes
                ? blast->damage_factors[armor] : 256;
-    return (gameinfo->mobjinfo[missile->type_id].damage * factor) >> 8;
+    return (missile->missile.damage * factor) >> 8;
 }
 
 void A_Explode(mobj_t *actor) {
@@ -463,12 +500,26 @@ void A_Explode(mobj_t *actor) {
     const blastdef_t *blast = &actor->info->blast;
     if (!blast->weights || blast->size <= 0) return;
     ivec2_t center = fvec2_cell(fixed3_xy_to_fvec2(actor->core.position));
+#ifdef RTS_GAME_DARK_COLONY
+    for (int y = 0; y < blast->size; ++y) {
+        for (int x = 0; x < blast->size; ++x) {
+            ivec2_t cell = ivec2_add(center, (ivec2_t){x - blast->size/2, y - blast->size/2});
+            mobj_t *victim = DC_Occupant(cell, false, false);
+            if (!victim) victim = DC_Occupant(cell, false, true);
+            if (!victim) continue;
+            int weight = blast->weights[y * blast->size + x] * 256 / 100;
+            if (victim->owner == actor->owner) weight /= 4;
+            int damage = missile_damage(actor, victim) * weight >> 8;
+            P_DamageMobj(victim, actor->target, DC_DefendedDamage(victim, damage));
+        }
+    }
+#else
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *victim = (mobj_t *)th;
         if (victim == actor || victim->remove || victim->hp <= 0 ||
             (victim->traits & (MF_NOBLOCKMAP | MF_MISSILE | MF_FLY))) continue;
-        ivec2_t cell = ivec2_add(ivec2_sub(
-            fvec2_cell(fixed3_xy_to_fvec2(victim->core.position)), center),
+        ivec2_t position = fvec2_cell(fixed3_xy_to_fvec2(victim->core.position));
+        ivec2_t cell = ivec2_add(ivec2_sub(position, center),
             (ivec2_t){ blast->size / 2, blast->size / 2 });
         if (cell.x < 0 || cell.y < 0 || cell.x >= blast->size || cell.y >= blast->size) continue;
         int damage = missile_damage(actor, victim);
@@ -477,6 +528,7 @@ void A_Explode(mobj_t *actor) {
         damage = (damage * weight) >> 8;
         P_DamageMobj(victim, actor->target, damage);
     }
+#endif
 }
 
 bool P_Deploy(mobj_t *actor) {
@@ -521,8 +573,12 @@ bool P_Attack(mobj_t *attacker) {
                       0, sprite_name, attacker->core.frame, target->id);
 
     if (attacker->info && attacker->info->attack.projectile_type != 0) {
+#ifdef RTS_GAME_DARK_COLONY
+        mobj_t *missile = DC_FireMissiles(attacker, target, attacker->info->attack.projectile_type);
+#else
         mobj_t *missile = P_SpawnMissile(attacker, target,
                                          attacker->info->attack.projectile_type);
+#endif
         if (!missile) return false;
         if (attacker->info->attack.health_cost > 0) {
             attacker->hp -= attacker->info->attack.health_cost;
@@ -530,13 +586,22 @@ bool P_Attack(mobj_t *attacker) {
         }
         if (mobj_attack_cooldown_ms(attacker) > 0)
             attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
+        if (attacker->info->attack.shots > 0 &&
+            ++attacker->attack.shots >= attacker->info->attack.shots) {
+            attacker->attack.shots = 0;
+            attacker->attack.cooldown_left_ms = attacker->info->attack.reload_ms;
+        }
         debug_effects_log("missile launch source=%d type=%u target=%d speed=%d",
                           attacker->id, missile->type_id, target->id,
                           gameinfo->mobjinfo[missile->type_id].speed);
         return true;
     }
 
-    P_DamageMobj(target, attacker, mobj_attack_damage(attacker));
+    int damage = mobj_attack_damage(attacker);
+#ifdef RTS_GAME_DARK_COLONY
+    damage = DC_DefendedDamage(target, damage);
+#endif
+    P_DamageMobj(target, attacker, damage);
     if (mobj_attack_cooldown_ms(attacker) > 0)
         attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
@@ -559,11 +624,13 @@ void A_Look(mobj_t *unit) {
     fvec2_t delta = fvec2_sub(fixed3_xy_to_fvec2(target->core.position),
                             fixed3_xy_to_fvec2(unit->core.position));
     angle_t desired = angle_from_map_vector(&level, delta.x, delta.y);
-    if (unit->traits & MF_TURRET) {
+    if ((unit->traits & MF_TURRET) || unit->info->turn_step) {
         if (!turn_unit_toward(unit, desired, 1000 / RTS_TICRATE)) return;
     } else unit->core.angle = desired;
     int attack_state = gameinfo->mobjinfo[unit->type_id].missilestate;
     if (attack_state != gameinfo->null_state) P_SetMobjState(unit, attack_state);
+    else if ((unit->traits & MF_FLY) && unit->info->attack.projectile_type)
+        P_Attack(unit); /* Native bombers have no FIRE animation. */
 }
 
 void A_Chase(mobj_t *unit) {
@@ -636,6 +703,8 @@ static void tick_missile(mobj_t *missile) {
         missile->missile.clock += 1000;
         while (missile->missile.clock >= flight->period_ms * RTS_TICRATE) {
             missile->missile.clock -= flight->period_ms * RTS_TICRATE;
+            if (missile->missile.wait > 0) { missile->missile.wait--; continue; }
+            missile->traits |= missile->info->traits & MF_RENDERABLE;
             fvec2_t start = fixed3_xy_to_fvec2(missile->core.position);
             missile->core.position = fixed3_add(missile->core.position, missile->core.momentum);
             if (flight->weave && flight->weave_count > 0) {
@@ -652,9 +721,13 @@ static void tick_missile(mobj_t *missile) {
                 }
             }
             int remaining = missile->missile.duration - missile->missile.age;
-            if (flight->arc && remaining >= 0) {
+            if (flight->arc && remaining >= 0 && missile->missile.duration > 0) {
                 int index = remaining * (flight->arc_count - 1) / missile->missile.duration;
                 missile->core.position.z = missile->missile.duration * flight->arc[index];
+#ifdef RTS_GAME_DARK_COLONY
+                /* Native 0x43ec31 truncates height to 8.8 before storing. */
+                missile->core.position.z = missile->core.position.z / 256 * 256;
+#endif
             }
             missile->missile.age++;
             if (flight->timed) {
@@ -667,7 +740,11 @@ static void tick_missile(mobj_t *missile) {
                 mobj_t *hit = missile_collision(missile, start,
                     fixed3_xy_to_fvec2(missile->core.position));
                 if (hit) {
-                    P_DamageMobj(hit, missile->target, missile_damage(missile, hit));
+                    int damage = missile_damage(missile, hit);
+#ifdef RTS_GAME_DARK_COLONY
+                    damage = DC_DefendedDamage(hit, damage);
+#endif
+                    P_DamageMobj(hit, missile->target, damage);
                     P_ExplodeMissile(missile);
                     return;
                 }
@@ -677,7 +754,7 @@ static void tick_missile(mobj_t *missile) {
                 return;
             }
         }
-        P_TickMobjState(missile);
+        if (missile->missile.age) P_TickMobjState(missile);
         return;
     }
 
@@ -961,7 +1038,8 @@ static void tick_actor(mobj_t *u) {
         if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
     }
     const state_t *active_state = state_at(game_info, u->core.state_id);
-    if ((u->traits & (MF_TURRET | MF_LANDMINE)) && active_state &&
+    if (((u->traits & (MF_TURRET | MF_LANDMINE)) ||
+         ((u->traits & MF_FLY) && u->info && u->info->attack.projectile_type)) && active_state &&
         active_state->group != 3) A_Look(u);
 
     bool moving = P_HasMoveOrder(u);

@@ -72,6 +72,7 @@ const state_t states[NUMSTATES] = {
     #include "animate/SCYT.inc"
     #include "animate/SHRI.inc"
     #include "animate/SLUG.inc"
+    #include "animate/SMAY.inc"
     #include "animate/TONG.inc"
     #include "animate/TOWR.inc"
     #include "animate/TRSC.inc"
@@ -473,6 +474,8 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
     [MT_ALIEN_MINE] = { .doomednum = 46, .spawnhealth = 800,
         .spawnstate = S_HMINE_STND1, .missilestate = S_HMINE_ATTACK,
         .flags = MF_SELECTABLE | MF_RENDERABLE | MF_ATTACK | MF_LANDMINE },
+    [MT_SCOUT_BOMB] = { .spawnstate = S_SCOUT_BOMB, .spawnhealth = 1,
+        .deathstate = S_SCOUT_BOMB_IMPACT, .damage = 100, .flags = MF_MISSILE },
 };
 
 extern const uint32_t dc_random_table[256];

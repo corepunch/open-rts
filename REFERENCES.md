@@ -1547,3 +1547,15 @@ SPIKE/EGG labels and absent SPAKBULLET. No external source was added.
 [Comparison](docs/DC_UNIT_BEHAVIORS.md) and
 [detailed findings, fingerprints and reproducers](docs/DC_EXE_FINDINGS.md#bombs-flying-units-and-artillery-comparison-2026-09-30)
 preserve baseline failures, newly confirmed rules and unresolved behavior.
+
+Follow-up implementation used the same retail binary and additional focused
+reads: healing/recharge `0x412f74`/`0x41840c`, detector sight `0x441d54` and mask
+reset `0x446158`, FIN attachments `0x423d00`, heading/trig
+`0x43d930`/`0x43da94` with tables `0x4746ac`/`0x4756ae`, scatter loader
+`0x43813f`, SCN upgrade load `0x41ad91`, row mapping `0x419bc0`, and research
+command `0x41b698`. Native DEPEND/MAINE, SMAY, SCGM, BARR and ATRIL inputs are
+fingerprinted in the [implementation findings](docs/DC_EXE_FINDINGS.md#bomber-support-and-artillery-implementation-2026-09-30).
+No external source was added. Local Doom `p_mobj.c` remains the spawning,
+missile-origin reference and state/thinker lifetime model; FINs and upgrade data
+remain level-owned. The report distinguishes the implemented arithmetic and
+selection rules from unverified retail UI, crash, retraction and action timing.

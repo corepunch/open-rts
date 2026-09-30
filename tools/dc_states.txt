@@ -4,6 +4,10 @@
 ; comma lists retain authored timing. Scalars repeat. Intermediate next states chain.
 ; Logical frames include the raw SPR-cell prefix; FIN owns layers and directions.
 ; Blood and building damage families are selected by the C state generator.
+; Scout weapon 37 has no bullet label; boom 5 resolves SMAY.
+S_SCOUT_BOMB                    SMAY    13                 -1                       NULL                   S_SCOUT_BOMB                  0
+S_SCOUT_BOMB_IMPACT             SMAY    13                 0                        A_Explode              S_SMAY1                      0
+S_SMAY{1..13}                   SMAY    13..25             4,4,4,4,4,4,4,4,4,4,4,4,3 NULL                   S_NULL                       0
 
 ; EXCOPODSTAND0: complete native FIN sequence.
 S_EXCOPOD_STND                   HUBU    19                 5                        A_DC_BuildingStand     S_EXCOPOD_STND_2             1
@@ -50,8 +54,8 @@ S_REAP_DIEA2_{1..15}             REAP    252..266           5,4,5,5,5,4,5,5,5,75
 S_REAP_DIEA2_CORPSE              REAP    266                -1                       NULL                   S_NULL                       4
 S_BARR_STND                      BARR    106                1                        A_Look                 S_BARR_STND                  1
 S_BARR_RUN{1..13}                BARR    122..134           3                        A_Chase                S_BARR_RUN1                  2
-S_BARR_ATK{1..2}                 BARR    195..196           2                        NULL                   S_BARR_ATK3                  3
-S_BARR_ATK3                      BARR    197                2                        A_Attack               S_BARR_ATK4                  3
+S_BARR_ATK1                      BARR    195                2                        A_Attack               S_BARR_ATK2                  3
+S_BARR_ATK{2..3}                 BARR    196..197           2                        NULL                   S_BARR_ATK4                  3
 S_BARR_ATK{4..8}                 BARR    198..202           2                        NULL                   S_BARR_STND                  3
 ; BARRDIE14: complete native FIN sequence.
 S_BARR_DIE{1..15}                BARR    246..260           5,4,5,5,5,4,5,5,5,75,76,76,43,42,43 NULL                   S_BARR_CORPSE                4
@@ -735,3 +739,5 @@ S_RSCHIV_BUILD58 SAUC4 57 4 NULL S_RSCHIV_BUILD59 6
 S_RSCHIV_BUILD59 SAUC4 58 4 NULL S_RSCHIV_BUILD60 6
 S_RSCHIV_BUILD60 SAUC4 59 4 NULL S_RSCHIV_BUILD61 6
 S_RSCHIV_BUILD61 SAUC4 60 4 NULL S_ALIEN_RSCHIVE_STND 6
+; Global weapon 44/45 projectile label belongs to SCGM.FIN.
+S_SPIKE_BULLET{1..4} SCGM 132..135 4 NULL S_SPIKE_BULLET1 0
