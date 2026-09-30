@@ -18,14 +18,17 @@
 #include <strings.h>
 
 static void replace_extension(char *dst, size_t dst_size, const char *path, const char *ext) {
-    snprintf(dst, dst_size, "%s", path);
-    char *dot = strrchr(dst, '.');
-    char *slash = strrchr(dst, '/');
+    char copy[1024];
+    /* snprintf destination and source must not overlap; glibc clears the output first. */
+    snprintf(copy, sizeof(copy), "%s", path);
+    char *dot = strrchr(copy, '.');
+    char *slash = strrchr(copy, '/');
     if (dot && (!slash || dot > slash)) {
-        snprintf(dot, dst_size - (size_t)(dot - dst), "%s", ext);
+        snprintf(dot, sizeof(copy) - (size_t)(dot - copy), "%s", ext);
     } else {
-        strncat(dst, ext, dst_size - strlen(dst) - 1);
+        strncat(copy, ext, sizeof(copy) - strlen(copy) - 1);
     }
+    snprintf(dst, dst_size, "%s", copy);
 }
 
 static void copy_trimmed_token(char *dst, size_t dst_size, const char *src, size_t len) {
