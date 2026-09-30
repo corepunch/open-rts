@@ -29,7 +29,7 @@
 !_TAG_OUTPUT_VERSION	1.1	/current.age/
 !_TAG_PARSER_VERSION!C	1.1	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/Users/igor/.codex/worktrees/cb6d/open-rts/	//
+!_TAG_PROC_CWD	/Users/igor/Developer/open-rts/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -120,6 +120,7 @@ CHECK	tests/kknd/test_combat_rendering.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file
 CHECK	tests/kknd/test_runtime_sprites.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/loader_catalog.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/production_regression.h	/^#define CHECK(c) RTS_CHECK(/;"	d	signature:(c)
+CHECK	tests/shared/test_facing.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/shared/test_images.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/shared/test_retaliation.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/shared/test_waypoints.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
@@ -378,8 +379,10 @@ MAX_PATH_CELLS	driver/engine_config.h	/^#define MAX_PATH_CELLS /;"	d
 MAX_SCENE_MISSIONS	tools/dc_gamestat_gen.c	/^#define MAX_SCENE_MISSIONS /;"	d	file:
 MAX_SPRITE_ROTATIONS	driver/engine_config.h	/^#define MAX_SPRITE_ROTATIONS /;"	d
 MAX_STATES	tools/dc_info_gen.c	/^#define MAX_STATES /;"	d	file:
+MAX_TICS	tests/dark-colony/test_bottleneck_movement.c	/^enum { TROOPERS = 12, MAX_TICS = 6000, MAX_TRAVEL_CELLS = 150 };$/;"	e	enum:__anon93511f1e0103	file:
 MAX_TILE_ANIMATION_FRAMES	driver/engine_config.h	/^#define MAX_TILE_ANIMATION_FRAMES /;"	d
 MAX_TILE_OVERLAYS	driver/engine_config.h	/^#define MAX_TILE_OVERLAYS /;"	d
+MAX_TRAVEL_CELLS	tests/dark-colony/test_bottleneck_movement.c	/^enum { TROOPERS = 12, MAX_TICS = 6000, MAX_TRAVEL_CELLS = 150 };$/;"	e	enum:__anon93511f1e0103	file:
 MAX_UNITS	tools/kknd_info_gen.c	/^#define MAX_UNITS /;"	d	file:
 MAX_UNIT_IDS	tools/dc_gamestat_gen.c	/^#define MAX_UNIT_IDS /;"	d	file:
 MAX_UNIT_ORDERS	plans/freeciv-arch.md	/^   #define MAX_UNIT_ORDERS /;"	d	file:
@@ -807,6 +810,7 @@ TEST_TARGET_INFO	tests/dark-colony/test_combat_and_harvest.c	/^static const mobj
 TILE_ATLAS_COLS	driver/engine_config.h	/^#define TILE_ATLAS_COLS /;"	d
 TILE_PIX_H	driver/engine_config.h	/^#define TILE_PIX_H /;"	d
 TILE_PIX_W	driver/engine_config.h	/^#define TILE_PIX_W /;"	d
+TROOPERS	tests/dark-colony/test_bottleneck_movement.c	/^enum { TROOPERS = 12, MAX_TICS = 6000, MAX_TRAVEL_CELLS = 150 };$/;"	e	enum:__anon93511f1e0103	file:
 Thing	docs/NETWORK.md	/^For human versus human, choose `SCENARIO\/MPLAYER\/J2PLAY01.MAP` (Pond Thing).$/;"	v	typeref:typename:Pond
 TileAnimation	render/sprites.h	/^} TileAnimation;$/;"	t	typeref:struct:__anon761761540208
 TryRunTics	driver/d_net.c	/^int TryRunTics(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -1319,6 +1323,7 @@ __anon9020bd480208	play/p_map.c	/^typedef struct {$/;"	s	file:
 __anon9020bd480208::closed	play/p_map.c	/^    uint8_t closed;$/;"	m	struct:__anon9020bd480208	typeref:typename:uint8_t	file:
 __anon9020bd480208::cost	play/p_map.c	/^    int cost;$/;"	m	struct:__anon9020bd480208	typeref:typename:int	file:
 __anon9020bd480208::queued	play/p_map.c	/^    uint8_t queued;$/;"	m	struct:__anon9020bd480208	typeref:typename:uint8_t	file:
+__anon93511f1e0103	tests/dark-colony/test_bottleneck_movement.c	/^enum { TROOPERS = 12, MAX_TICS = 6000, MAX_TRAVEL_CELLS = 150 };$/;"	g	file:
 __anon952f08d20103	play/p_mobj.c	/^enum {$/;"	g	file:
 __anon978e18430103	tests/dark-colony/test_selection_overlays.c	/^enum { WIDTH = 512, HEIGHT = 256, PIXELS = WIDTH * HEIGHT };$/;"	g	file:
 __anon9abd85c00108	driver/m_vec.h	/^typedef struct { int x, y; }   ivec2_t;$/;"	s
@@ -2211,8 +2216,10 @@ g_units	tools/kknd_info_gen.c	/^static unit_t g_units[MAX_UNITS];$/;"	v	typeref:
 game	tools/test_loaders/main.c	/^static const struct { const char *game,*root,*extension; } games[] = {$/;"	m	struct:__anon81eaeff30108	typeref:typename:const char *	file:
 game_info	play/actor.h	/^    const gameinfo_t *game_info;$/;"	m	struct:unitoverlaycontext_s	typeref:typename:const gameinfo_t *
 game_speed	driver/d_net.c	/^int game_speed = 1;$/;"	v	typeref:typename:int
+game_speed	play/actor.h	/^    int game_speed; \/* Default simulation speed multiplier, 1..9; 0 means 1. *\/$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s	play/actor.h	/^struct gameinfo_s {$/;"	s
 gameinfo_s::draw_overlays	play/actor.h	/^    unitoverlaydrawf_t draw_overlays; \/* Replaces the engine selection and health overlay. *\/$/;"	m	struct:gameinfo_s	typeref:typename:unitoverlaydrawf_t
+gameinfo_s::game_speed	play/actor.h	/^    int game_speed; \/* Default simulation speed multiplier, 1..9; 0 means 1. *\/$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s::harvest_dropoff_matches	play/actor.h	/^    harvestdropoffmatchf_t harvest_dropoff_matches;$/;"	m	struct:gameinfo_s	typeref:typename:harvestdropoffmatchf_t
 gameinfo_s::mobj_type_count	play/actor.h	/^    int mobj_type_count;$/;"	m	struct:gameinfo_s	typeref:typename:int
 gameinfo_s::mobjinfo	play/actor.h	/^    const mobjinfo_t *mobjinfo;$/;"	m	struct:gameinfo_s	typeref:typename:const mobjinfo_t *
@@ -2284,6 +2291,8 @@ hash_sprite	tests/loader_catalog.c	/^static void hash_sprite(SDL_Renderer *rende
 hash_texture	tests/loader_catalog.c	/^static void hash_texture(SDL_Renderer *renderer, SDL_Texture *texture) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,SDL_Texture * texture)
 hash_value	game/g_cmd.c	/^static uint32_t hash_value(uint32_t hash, uint32_t value) {$/;"	f	typeref:typename:uint32_t	file:	signature:(uint32_t hash,uint32_t value)
 hashes	tests/network/test_network.c	/^typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;$/;"	m	struct:__anon3666449a0208	typeref:typename:uint32_t[]	file:
+heading_of	tests/dark-colony/test_bottleneck_movement.c	/^static angle_t heading_of(fixed3_t delta) {$/;"	f	typeref:typename:angle_t	file:	signature:(fixed3_t delta)
+heading_of	tests/dark-colony/test_native_pathfinding.c	/^static angle_t heading_of(fixed3_t delta) {$/;"	f	typeref:typename:angle_t	file:	signature:(fixed3_t delta)
 health	tools/dr_info_gen.c	/^    int health, speed, radius, height, mass, damage;$/;"	m	struct:__anon0771d3700208	typeref:typename:int	file:
 health	tools/info_gen.h	/^    int health;$/;"	m	struct:__anond5c6e2e00108	typeref:typename:int
 health_cost	play/actor.h	/^        int health_cost;$/;"	m	struct:mobjtype_s::__anon175231d90708	typeref:typename:int
@@ -2514,6 +2523,7 @@ main	tests/dark-colony/test_alien_production.c	/^int main(void) {$/;"	f	typeref:
 main	tests/dark-colony/test_barracks_production.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_barrager_turning.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_blood_fin.c	/^int main(void) { lifecycle(); pixels(); return 0; }$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-colony/test_bottleneck_movement.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_building_damage.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_city_layout.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-colony/test_combat_and_harvest.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -2564,6 +2574,8 @@ main	tests/kknd/test_truck_orders.c	/^int main(void) {$/;"	f	typeref:typename:in
 main	tests/loader_catalog.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
 main	tests/network/test_network.c	/^int main(int argc, char **argv) {$/;"	f	typeref:typename:int	signature:(int argc,char ** argv)
 main	tests/production_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/shared/test_facing.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/shared/test_game_speed.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/shared/test_images.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/shared/test_retaliation.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/shared/test_waypoints.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -3081,6 +3093,7 @@ rect	render/sprites.h	/^    irect_t rect;$/;"	m	struct:spritecell_s	typeref:type
 redirect_action	tests/dark-colony/test_mobj_states.c	/^static void redirect_action(mobj_t *unit) {$/;"	f	typeref:typename:void	file:	signature:(mobj_t * unit)
 ref	render/render_plan.h	/^    } ref;$/;"	m	struct:drawcommand_s	typeref:union:drawcommand_s::__anonba488bd4030a
 reference	tests/dark-colony/test_selection_overlays.c	/^static void reference(const spritesheet_t *client, int frame, ivec2_t at) {$/;"	f	typeref:typename:void	file:	signature:(const spritesheet_t * client,int frame,ivec2_t at)
+reference_angle	tests/shared/test_facing.c	/^static angle_t reference_angle(double dx, double dy) {$/;"	f	typeref:typename:angle_t	file:	signature:(double dx,double dy)
 refresh_model_objects	game/g_game.c	/^static void refresh_model_objects(RtsGameModel *model) {$/;"	f	typeref:typename:void	file:	signature:(RtsGameModel * model)
 region	tools/dc_gamestat_gen.c	/^    char region[128];$/;"	m	struct:__anon006eef8b0708	typeref:typename:char[128]	file:
 reject_join	driver/i_net.c	/^static void reject_join(const struct sockaddr_in *to, const char *reason) {$/;"	f	typeref:typename:void	file:	signature:(const struct sockaddr_in * to,const char * reason)

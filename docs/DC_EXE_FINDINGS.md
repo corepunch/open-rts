@@ -6762,3 +6762,30 @@ menu responder. The LAN suite then runs that native map through the menu
 session API for 90 matching simulation tics, verifies both factions' starting
 bases and Barracks/War Hive construction, and confirms 1500 to 500 resource
 deductions for each player. No downloaded assets or external sources were used.
+
+## Retail game speed setting and the port default (2026-09-30)
+
+**Confirmed:** the only retail speed control is the in-game Options dialog
+`INTRFACE/LOPTE` (label 2 "GAME SPEED", value text 46, controls 40/41).
+`0x42fc70` initializes the displayed value as `(6600 / level+0x970) / 10 * 10`
+and `0x42fa38` steps it by 10 within 10..200. Confirm (control 56) stores
+`6600 / percentage` back into `level+0x970`, the millisecond interval that
+`0x41cb5a–0x41cbc5` consumes before each world tick. Level initialization at
+`0x41a728` writes 66, so the retail default is 100 percent and the maximum is
+200 percent (33 ms per native tick). LOW/MEDIUM/HIGH (texts 10..12) belong to
+GAME DETAIL, not speed.
+
+**Confirmed no persistence:** DC.EXE imports no registry or profile API
+(`RegisterClassA` is the only `Reg*` import; no `GetPrivateProfile*`), carries
+no `.ini`/`.cfg` strings, and the confirmed values live on the interface object
+(`+0x4690..+0x4698`) and the level. Every launch therefore starts at 100
+percent; `MSREG.INI` is the installer's registration file and `FULL` is the
+install-type marker, neither holds options.
+
+**Port:** `gameinfo_t.game_speed` declares a per-game default multiplier that
+`d_main.c` applies before parsing `--speed`, so the flag still overrides it.
+Dark Colony sets 2, the retail 200 percent maximum, because the engine's
+`WORLD_CLOCK_MS` of 66 already reproduces retail 100 percent at multiplier 1.
+The multiplier scales only the tic clock; the simulation and its consistency
+hash are identical at every speed (`--net-check 120` reports `30c2b9e2` at
+1, 2 and 3). `tests/shared/test_game_speed.c` checks each game's default.

@@ -492,4 +492,5 @@ const gameinfo_t game_info = {
     DC_DrawUnitOverlays,
     .right_click_orders = false,
     .random_table = dc_random_table,
+    .game_speed = 2, /* Retail options default is 100% (66 ms); we run its 200% maximum. */
 };

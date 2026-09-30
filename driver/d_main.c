@@ -106,6 +106,8 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; ++i)
         if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) goto help;
     G_InitGame();
+    /* A game may default above retail speed; --speed still overrides it. */
+    if (gameinfo->game_speed) D_SetGameSpeed(gameinfo->game_speed);
     if (!I_InitNetwork(&argc, argv)) {
         fprintf(stderr, "%s\n", neterror);
         return 1;
@@ -606,7 +608,7 @@ help:
            "  --port <1..65535>      Local UDP port; host 5029, client automatic\n"
            "  --map <path>           Map relative to data root; chosen by host\n"
            "  -map=<path>           Start directly in a map (also --map=<path>)\n"
-           "  --speed <1..9>        Simulation speed multiplier; default 1\n"
+           "  --speed <1..9>        Simulation speed multiplier; default 1 (Dark Colony 2)\n"
            "  Dark Colony opens its main menu when no map is supplied.\n"
            "  --check and --net-check use the default map; screenshots show startup.\n"
            "  --data <directory>     Local game data directory\n"

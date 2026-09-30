@@ -29,7 +29,7 @@
 !_TAG_OUTPUT_VERSION	1.1	/current.age/
 !_TAG_PARSER_VERSION!C	1.1	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/Users/igor/.codex/worktrees/cb6d/open-rts/	//
+!_TAG_PROC_CWD	/Users/igor/Developer/open-rts/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -152,6 +152,8 @@ DC_RequestSkirmish	games/dark-colony/dc_skirmish.h	/^void DC_RequestSkirmish(con
 DC_RequestSkirmish	games/dark-colony/menu/m_skirmish.c	/^void DC_RequestSkirmish(const char *map, const dc_skirmish_t *setup) {$/;"	f	typeref:typename:void	signature:(const char * map,const dc_skirmish_t * setup)
 DC_RunPurchases	games/dark-colony/dc_types.h	/^void DC_RunPurchases(void);$/;"	p	typeref:typename:void	signature:(void)
 DC_RunPurchases	games/dark-colony/p_prod.c	/^void DC_RunPurchases(void) {$/;"	f	typeref:typename:void	signature:(void)
+DC_RuntimePalette	games/dark-colony/w_spr.c	/^void DC_RuntimePalette(uint32_t colors[256]) {$/;"	f	typeref:typename:void	signature:(uint32_t colors[256])
+DC_RuntimePalette	games/dark-colony/w_spr.h	/^void DC_RuntimePalette(uint32_t colors[256]);$/;"	p	typeref:typename:void	signature:(uint32_t colors[256])
 DC_SB_Drawer	games/dark-colony/sb_bar.c	/^void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * sb_ptr,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 DC_SB_Drawer	games/dark-colony/sb_bar.h	/^void  DC_SB_Drawer(void *sb, app_t *app, const level_t *map,$/;"	p	typeref:typename:void	signature:(void * sb,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 DC_SB_Init	games/dark-colony/sb_bar.c	/^void *DC_SB_Init(app_t *app, const char *data_root) {$/;"	f	typeref:typename:void *	signature:(app_t * app,const char * data_root)
