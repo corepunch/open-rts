@@ -37,6 +37,10 @@ typedef enum {
     MF_TURRET = 1u << 11,
     MF_LANDMINE = 1u << 12,
     MF_DETECTOR = 1u << 13,
+    MF_HUMAN = 1u << 14,
+    MF_HEAL = 1u << 15,
+    MF_REPAIR = 1u << 16,
+    MF_NOAUTOTARGET = 1u << 17,
 } mobjflag_t;
 
 enum {

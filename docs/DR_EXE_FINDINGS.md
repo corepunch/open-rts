@@ -1,5 +1,122 @@
 # Dark Reign executable and AI findings
 
+## Runtime capability and HUD audit (2026-09-30)
+
+Reference: retail `data/REIGN/dkreign.exe`, SHA-256
+`3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`.
+The existing ignored `reverse/dr-hud/dkreign.c` broad r2ghidra dump was
+searched first; controlling parser routines were checked against r2
+disassembly. This follows the same broad-to-narrow workflow as DC.EXE, without
+copying Dark Colony object offsets or capability meanings into Dark Reign.
+
+**Confirmed: movement and human metadata.** Unit-definition parser
+`0x00445c90` stores movement at unit type `+0xf0`: Fly=0 at `0x004462d3`,
+Hover=1 at `0x004462f6`, Fixed=2 at `0x00446319`, Ground=3 at `0x00446339`,
+Tunnel=4 at `0x00446359`. `IsHuman()` sets type `+0x53c` bit `0x100`
+(`0x00446b3c`). `NoAutoTarget()` sets that field's bit `0x40000`
+(`0x00446f80`). These are native bits, not engine flag numeric identities.
+The shipped definitions assign Fly to Sky Bike, Outrider, Recon Drone,
+Cyclone and Sky Fortress. Runtime `P_ApplyActorTypeDefaults()` replaced the
+generated flags with the authored actor flags, which lacked Fly for all five.
+Generated flags alone were therefore insufficient evidence that flight worked.
+Both layers now agree. Ground/hover resource transporters remain ground-bound.
+
+**Confirmed: rigs are unarmed.** Neither faction's Construction Crew definition
+has `AddWeapon`. The old range-nine, damage-20 actor defaults and generated
+attack actions were invented offensive capabilities and are removed. The 2NIC
+combat test previously depended on armed starting rigs; it now explicitly
+spawns a Raider and refreshes the model snapshot before exercising combat.
+
+**Confirmed: support data and target classifiers.** `WEAPON.TXT` gives
+MedicHeal range 1, firing delay 10 cycles, offense H1 strength -20,
+`CanOnlyShootHumans()` and `CanShootGroundUnit()`. MechanicRepair gives the
+same range/delay, R1 strength -5, `CanOnlyShootNonHumans()` and
+`CanShootGroundUnit()`. FGMedic and Karoch use MedicHeal; FGMechanic uses
+MechanicRepair. Weapon parser `0x00483e70` stores the human-only classifier
+at weapon `+0xa1` (`0x0048433b`) and nonhuman-only at `+0xa2`
+(`0x004843d7`). These are weapon properties, distinct from building
+`CanHeal`/`CanRepair` service flags.
+
+**Implementation, with fidelity boundary.** Engine `MF_HUMAN`, `MF_HEAL`,
+`MF_REPAIR` and `MF_NOAUTOTARGET` preserve those capabilities independently of
+state presentation. Support uses ordinary thinker/state-entry dispatch and
+negative authored attack strengths, restricts pulses to damaged allied ground
+units of the appropriate class, and caps restored health at max HP. Ten
+cycles become a minimum cooldown of ceil(10000/30)=334 milliseconds under the
+existing engine timer contract. Support target acquisition and instantaneous
+restoration are engine behavior inferred from the definitions, not a literal
+port of the retail support projectile, armor-factor calculation, or automatic
+support-order dispatcher. Existing generated animation timings can space
+state-entry pulses farther apart. Their exact retail cadence, H1/R1 defense
+factors and boosting cancellation are still unported. `NoAutoTarget` disables
+fallback scanning while preserving an assigned valid target; the distinction
+between retail explicit orders and retaliation has not been traced.
+
+**Confirmed: HUD catalog omissions.** The production table already included
+both factions, but the menu-image table contained only FG products and the
+structure-list selector only recognized the FG rig. All production-table
+entries now have exactly one native menu icon from `SetMenuImage` or the third
+`SetBuildingImages` argument. The Imperium rig also selects structures. The
+generic HUD's unrelated 64-icon ceiling is removed; icon ownership is already
+dynamically allocated and freed by its definition count. The DR slot-index
+arrays now use the actual icon count. Native per-mission technology lists
+remain separate from the combined image catalog.
+
+**Correction to the earlier catalog claim.** The executable/data audit test
+matches 65 non-training `UNITS.TXT` definitions to runtime actors. The earlier
+statement that all 71 non-T units have runtime entries was incorrect. Six
+remain unmapped: FG attached weapons 4100/4101/4102, shielded SCARAB 1026,
+Temporal Rift weapon 11103 and Camera Tower attachment 3006. Their definitions
+are confirmed, but adding ordinary standalone actors would not establish the
+retail attachment/alternate-state behavior. Do not hide these omissions with
+aliases to similarly named building actors.
+
+**Remaining capability work, confirmed from authored definitions.** RAT,
+Invader, civilian convoy and Phase Runner carry units; Phase Runner boomerangs.
+Raider, Mercenary and Phase Tank can phase. Sniper, Scout and Saboteur can
+morph into overlays; both faction spies morph into units and spy with
+`(300,1200,500)` timings. Saboteur has `CanSabotage(120,1,0)`. Amper has
+`CanBoost()` with weapon booster `(200,200,0.5,1)`. Hostage Taker grabs into
+IMPSuicideZombie after 300 cycles. SCARAB alternates into shielded type 1026;
+Sky Fortress charges for 700 cycles and Temporal Rift for 5000. Their retail
+dispatch, payload ownership, damage/projection and command/UI behavior are
+not implemented by this capability correction. Martyr/Zombie suicide blast,
+weapon target classes and native projectile behavior also remain incomplete.
+COMMS/ORDERS/PATHS/SPECIAL pages, upgrade/decoy interactions, resource gauges,
+radar terrain and native menu behavior remain unfinished. Passing the audit
+is a metadata/capability check, not evidence that all units or HUD pages work.
+
+**Verification.** `test_unit_traits` reads retail definitions in C and checks
+Fly, human, harvesting and NoAutoTarget in both runtime and generated tables.
+It exercises support amount, cooldown, cap, enemy/full-health/aircraft rejection,
+ordinary thinker execution including Karoch, unarmed rigs, and assigned versus
+automatic sniper targeting. `test_mission_hud` verifies every production entry
+has one icon, loads the combined catalog, clicks the selected Imperium rig's
+HQ slot and checks the 750-credit debit. Headless BMPs are written under
+`/private/tmp`; 24-bit conversion for local visual inspection is not a game
+asset or PNG loading dependency. Temporary unmapped-type diagnostics exposed
+all six omissions and were removed after recording them here.
+Temporary `OPEN_RTS_DEBUG_DR_TRAITS` logging at `P_ApplyActorTypeDefaults`
+also recorded actual spawned type/traits against generated flags, including
+Medic `0xc007`, Mechanic `0x14007`, Karoch `0xc007` and Sniper `0x2400f`.
+It was removed before the final rebuild. Final verification passed `make`,
+generated-table comparisons, `make tags`, 58 test executables across Dark
+Reign/Dark Colony/7th Legion, both model-command tests and all four game
+binaries' headless `--check`. The Dark Reign world/HUD and isolated Imperium
+HUD screenshots were visually inspected.
+
+Reproduce:
+
+```sh
+shasum -a 256 data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'af @ 0x445c90' -c 'pdf @ 0x445c90' -c q data/REIGN/dkreign.exe
+r2 -q -e bin.cache=true -c 'af @ 0x483e70' -c 'pdf @ 0x483e70' -c q data/REIGN/dkreign.exe
+make dark-reign-info
+env SDL_VIDEODRIVER=dummy make test-dark-reign
+env SDL_VIDEODRIVER=dummy build/bin/dark-reign --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-reign --screenshot /private/tmp/open-rts-dr-traits.bmp
+```
+
 ## Info-table generation audit (2026-09-10)
 
 **Confirmed from retail definitions and OpenDR revision

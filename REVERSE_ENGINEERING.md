@@ -1,8 +1,7 @@
 # Reverse Engineering Games
 
 Use this workflow when reproducing behavior or metadata from the original game
-executables. It currently applies to Dark Colony and 7th Legion, and should be
-adapted to other games as their executable-derived behavior is investigated.
+executables. It applies to Dark Colony, Dark Reign and 7th Legion.
 
 ## Source of truth
 

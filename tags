@@ -114,6 +114,7 @@ CHECK	tests/dark-colony/test_sprite_loading.c	/^#define CHECK(/;"	d	file:	signat
 CHECK	tests/dark-colony/test_support_combat.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-colony/test_temp_strings.c	/^#define CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/dark-reign/test_mission_hud.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
+CHECK	tests/dark-reign/test_unit_traits.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/kknd/test_combat.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/kknd/test_combat_rendering.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
 CHECK	tests/kknd/test_runtime_sprites.c	/^#define CHECK(c) RTS_CHECK(/;"	d	file:	signature:(c)
@@ -131,7 +132,10 @@ COL_SPRITE	tools/dc_info_gen.c	/^#define COL_SPRITE /;"	d	file:
 COL_STATE	tools/dc_info_gen.c	/^#define COL_STATE /;"	d	file:
 COL_TICKS	tools/dc_info_gen.c	/^#define COL_TICKS /;"	d	file:
 COMMANDS	tests/dark-colony/test_fin_loading.c	/^enum { LABEL = 16, FRAMES = 36, COMMANDS = FRAMES + 2 * 164, SIZE = COMMANDS + 3 * 22 };$/;"	e	enum:__anon77117f430103	file:
+CanBoost	docs/DR_EXE_FINDINGS.md	/^`CanBoost()` with weapon booster `(200,200,0.5,1)`. Hostage Taker grabs into$/;"	p	file:	signature:()
 Cell	tools/dc_spr_extract.c	/^} Cell;$/;"	t	typeref:struct:__anonf6c4462b0108	file:
+Confirmed	docs/DR_EXE_FINDINGS.md	/^**Confirmed: HUD catalog omissions.** The production table already included$/;"	v
+Confirmed	docs/DR_EXE_FINDINGS.md	/^**Confirmed: support data and target classifiers.** `WEAPON.TXT` gives$/;"	v
 DATA	driver/i_net.c	/^       JOIN = 1, WELCOME, REJECT, DATA, GAME_LENGTH = 32, MAP_LENGTH = 512,$/;"	e	enum:__anon664417000103	file:
 DATA	tests/dark-colony/test_sprite_loading.c	/^enum { HEADER = 8 + 256 * 3, DATA = HEADER + 3 * 8 };$/;"	e	enum:__anon576c22dd0103	file:
 DC_DrawUnitOverlays	tests/test_dark_colony_sprite_layout.c	/^void DC_DrawUnitOverlays(const unitoverlaycontext_t *ctx) { (void)ctx; }$/;"	f	typeref:typename:void	signature:(const unitoverlaycontext_t * ctx)
@@ -363,11 +367,15 @@ MF_DETECTOR	play/actor.h	/^    MF_DETECTOR = 1u << 13,$/;"	e	enum:__anon175231d9
 MF_DONTDRAW	play/actor.h	/^    MF_DONTDRAW = 1u << 8,$/;"	e	enum:__anon175231d90103
 MF_FLY	play/actor.h	/^    MF_FLY = 1u << 6,$/;"	e	enum:__anon175231d90103
 MF_HARVESTER	play/actor.h	/^    MF_HARVESTER = 1u << 4,$/;"	e	enum:__anon175231d90103
+MF_HEAL	play/actor.h	/^    MF_HEAL = 1u << 15,$/;"	e	enum:__anon175231d90103
+MF_HUMAN	play/actor.h	/^    MF_HUMAN = 1u << 14,$/;"	e	enum:__anon175231d90103
 MF_LANDMINE	play/actor.h	/^    MF_LANDMINE = 1u << 12,$/;"	e	enum:__anon175231d90103
 MF_MISSILE	play/actor.h	/^    MF_MISSILE = 1u << 10,$/;"	e	enum:__anon175231d90103
 MF_MOBILE	play/actor.h	/^    MF_MOBILE = 1u << 1,$/;"	e	enum:__anon175231d90103
+MF_NOAUTOTARGET	play/actor.h	/^    MF_NOAUTOTARGET = 1u << 17,$/;"	e	enum:__anon175231d90103
 MF_NOBLOCKMAP	play/actor.h	/^    MF_NOBLOCKMAP = 1u << 9, \/* Non-interacting puff, blood, or light mobj. *\/$/;"	e	enum:__anon175231d90103
 MF_RENDERABLE	play/actor.h	/^    MF_RENDERABLE = 1u << 2,$/;"	e	enum:__anon175231d90103
+MF_REPAIR	play/actor.h	/^    MF_REPAIR = 1u << 16,$/;"	e	enum:__anon175231d90103
 MF_RESOURCE_BASE	play/actor.h	/^    MF_RESOURCE_BASE = 1u << 5,$/;"	e	enum:__anon175231d90103
 MF_SELECTABLE	play/actor.h	/^    MF_SELECTABLE = 1u << 0,$/;"	e	enum:__anon175231d90103
 MF_SELECTED	play/actor.h	/^    MF_SELECTED = 1u << 7,$/;"	e	enum:__anon175231d90103
@@ -1571,6 +1579,7 @@ attack_unit	game/g_game.h	/^        } attack_unit;$/;"	m	union:__anon42a104c4070
 attack_wave_active	play/p_ai.h	/^    bool attack_wave_active;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:bool
 attack_wave_size	play/p_ai.h	/^    int attack_wave_size;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:int
 attack_wave_timer_ms	play/p_ai.h	/^    int attack_wave_timer_ms;$/;"	m	struct:__anonf4d3b9790208	typeref:typename:int
+audit_traits	tests/dark-reign/test_unit_traits.c	/^static int audit_traits(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 auto_gen	tools/dc_info_gen.c	/^    int  auto_gen;         \/* 1 = generated from FIN label (not from dc_states.txt) *\/$/;"	m	struct:__anon292f5ac10408	typeref:typename:int	file:
 autogen_state_name	tools/dc_info_gen.c	/^static void autogen_state_name(const char *label, int frame_idx, char *out, size_t out_size) {$/;"	f	typeref:typename:void	file:	signature:(const char * label,int frame_idx,char * out,size_t out_size)
 automatically	docs/DC_ARCHITECTURE.md	/^The build discovers all sources automatically; no per-file Makefile list is$/;"	v
@@ -1657,6 +1666,7 @@ check_anchors	tests/kknd/test_runtime_sprites.c	/^static int check_anchors(SDL_R
 check_blits	tests/dark-colony/test_sprite_loading.c	/^static void check_blits(SDL_Renderer *renderer, const spritesheet_t *sprite) {$/;"	f	typeref:typename:void	file:	signature:(SDL_Renderer * renderer,const spritesheet_t * sprite)
 check_city	tests/dark-colony/test_city_layout.c	/^static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams, const char *sc/;"	f	typeref:typename:void	file:	signature:(const char * path,fvec2_t anchor,unsigned expected_teams,const char * screenshot)
 check_death	tests/dark-colony/test_trooper_rendering.c	/^static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, mobj_t *unit,$/;"	f	typeref:typename:void	file:	signature:(app_t * app,SDL_Surface * surface,spritecache_t * cache,mobj_t * unit,const char * stem,const char * sequence,int sprite,int corpse,int total_tics)
+check_definition	tests/dark-reign/test_unit_traits.c	/^static int check_definition(int id, unsigned traits, int *count) {$/;"	f	typeref:typename:int	file:	signature:(int id,unsigned traits,int * count)
 check_dependency	tests/dark-colony/test_alien_production.c	/^static void check_dependency(const StaticProductDefinition *product) {$/;"	f	typeref:typename:void	file:	signature:(const StaticProductDefinition * product)
 check_fin_sequence	tests/dark-colony/test_building_damage.c	/^static void check_fin_sequence(const char *name, int first, int last) {$/;"	f	typeref:typename:void	file:	signature:(const char * name,int first,int last)
 check_groups	tests/dark-colony/test_native_pathfinding.c	/^static void check_groups(void) {$/;"	f	typeref:typename:void	file:	signature:(void)
@@ -1769,6 +1779,7 @@ count_owner_type	tests/dark-reign/test_harvest_build.c	/^static int count_owner_
 count_owner_type	tests/dark-reign/test_playable.c	/^static int count_owner_type(const RtsRenderSnapshot *s, uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner,uint16_t type)
 count_owner_type	tests/kknd/test_playable.c	/^static int count_owner_type(const RtsRenderSnapshot *s, uint8_t owner, uint16_t type) {$/;"	f	typeref:typename:int	file:	signature:(const RtsRenderSnapshot * s,uint8_t owner,uint16_t type)
 create	interface/renderer.h	/^    bool (*create)(renderer_t *renderer, const char *title, int width, int height,$/;"	m	struct:rendererbackend_s	typeref:typename:bool (*)(renderer_t * renderer,const char * title,int width,int height,bool hidden,bool software)
+cycles	docs/DR_EXE_FINDINGS.md	/^MedicHeal range 1, firing delay 10 cycles, offense H1 strength -20,$/;"	v
 damage	play/actor.h	/^        int damage;$/;"	m	struct:mobjtype_s::__anon175231d90708	typeref:typename:int
 damage	play/actor.h	/^    struct { int clock, age, duration, phase, damage, wait; } missile;$/;"	m	struct:mobj_s::__anon175231d90c08	typeref:typename:int
 damage	tools/dc_gamestat_gen.c	/^    int damage[GAMESTAT_MAX_BOOM_SIZE][GAMESTAT_MAX_BOOM_SIZE];$/;"	m	struct:__anon006eef8b0608	typeref:typename:int[][]	file:
@@ -2427,6 +2438,7 @@ main	tests/dark-colony/test_vent_states.c	/^int main(void) {$/;"	f	typeref:typen
 main	tests/dark-reign/test_harvest_build.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-reign/test_mission_hud.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/dark-reign/test_playable.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
+main	tests/dark-reign/test_unit_traits.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/input_regression.h	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_combat.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
 main	tests/kknd/test_combat_rendering.c	/^int main(void) {$/;"	f	typeref:typename:int	signature:(void)
@@ -3168,6 +3180,7 @@ source_palette	render/sprites.h	/^    uint32_t source_palette[256]; \/* Source c
 spawn	tests/dark-colony/test_aircraft_combat.c	/^static mobj_t *spawn(int type, fvec2_t position, int owner) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(int type,fvec2_t position,int owner)
 spawn	tests/dark-colony/test_projectiles.c	/^static mobj_t *spawn(int type, float x, float y, int owner) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(int type,float x,float y,int owner)
 spawn	tests/dark-colony/test_support_combat.c	/^static mobj_t *spawn(int type, int x, int y, int owner) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(int type,int x,int y,int owner)
+spawn	tests/dark-reign/test_unit_traits.c	/^static mobj_t *spawn(uint16_t type, fvec2_t position) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(uint16_t type,fvec2_t position)
 spawn	tests/kknd/test_research.c	/^static mobj_t *spawn(uint16_t type) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(uint16_t type)
 spawn_debug_enemy_unit	driver/d_main.c	/^static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,const app_t * app,int sx,int sy)
 spawn_finished_product	game/g_game.c	/^static bool spawn_finished_product(const StaticProductDefinition *product,$/;"	f	typeref:typename:bool	file:	signature:(const StaticProductDefinition * product,mobj_t * producer)
@@ -3324,6 +3337,7 @@ structs	AGENTS.md	/^Use the generated `tags` files to jump to definitions of fun
 style	play/actor.h	/^    SelectionStyle style;$/;"	m	struct:selectionmarker_s	typeref:typename:SelectionStyle
 subject_id	game/g_game.h	/^    uint32_t subject_id;$/;"	m	struct:__anon42a104c40f08	typeref:typename:uint32_t
 subject_type_id	game/g_game.h	/^    uint16_t subject_type_id;$/;"	m	struct:__anon42a104c40f08	typeref:typename:uint16_t
+support	tests/dark-reign/test_unit_traits.c	/^static int support(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 symbol	tools/dc_info_conv/states.c	/^static void symbol(char *out, const unsigned char *name, size_t length) {$/;"	f	typeref:typename:void	file:	signature:(char * out,const unsigned char * name,size_t length)
 symbol	tools/kknd_info_gen.c	/^    const char *symbol;$/;"	m	struct:__anoncbabb2620108	typeref:typename:const char *	file:
 tangent_to_angle	play/p_facing.c	/^static const angle_t tangent_to_angle[SLOPE_RANGE + 1] = {$/;"	v	typeref:typename:const angle_t[]	file:
@@ -3472,6 +3486,7 @@ type	tests/kknd/test_combat_rendering.c	/^static const struct {int type, native_
 type	tools/dr_info_gen.c	/^    const char *type;$/;"	m	struct:__anon0771d3700208	typeref:typename:const char *	file:
 type	tools/info_gen.h	/^    const char *type;$/;"	m	struct:__anond5c6e2e00108	typeref:typename:const char *
 type	tools/kknd_rules_import/main.c	/^typedef struct { int id, faction, category; const char *type, *maker, *path; } entry_t;$/;"	m	struct:__anon4d59e3560108	typeref:typename:const char *	file:
+type_for_native	tests/dark-reign/test_unit_traits.c	/^static const mobjtype_t *type_for_native(int id) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(int id)
 type_id	game/g_game.h	/^    uint16_t type_id;$/;"	m	struct:__anon42a104c41008	typeref:typename:uint16_t
 type_id	play/actor.h	/^    uint16_t type_id;$/;"	m	struct:mobj_s	typeref:typename:uint16_t
 typedefs	AGENTS.md	/^enums, typedefs, and other C symbols. Editor integrations (vim, VS Code, etc.)$/;"	v
@@ -3616,6 +3631,7 @@ weapon	docs/DC_UNIT_BEHAVIORS.md	/^| Ortu \/ ORTU \/ 13 | HP 800, class 2, speed
 weapon	game/map.h	/^    struct { uint8_t weapon, armor; } upgrades[106][8];$/;"	m	struct:level_s::__anon6564a8e20708	typeref:typename:uint8_t
 weapon_class	tools/dc_gamestat_gen.c	/^    int weapon_class;$/;"	m	struct:__anon006eef8b0408	typeref:typename:int	file:
 weapon_count	tools/dc_gamestat_gen.c	/^    int weapon_count;$/;"	m	struct:__anon006eef8b0908	typeref:typename:int	file:
+weapon_target	play/p_mobj.c	/^static bool weapon_target(const mobj_t *attacker, const mobj_t *victim) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * attacker,const mobj_t * victim)
 weapons	game/map.h	/^    struct dc_weapons_s *weapons;$/;"	m	struct:level_s	typeref:struct:dc_weapons_s *
 weapons	tests/kknd/test_combat_rendering.c	/^static const struct {int type, native_frames; ivec2_t points[16];} weapons[] = {$/;"	v	typeref:typename:const struct __anon40d74d410108[]	file:
 weapons	tools/dc_gamestat_gen.c	/^    WeaponStat weapons[MAX_WEAPONS];$/;"	m	struct:__anon006eef8b0908	typeref:typename:WeaponStat[]	file:

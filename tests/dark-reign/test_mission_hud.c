@@ -62,6 +62,15 @@ int main(void) {
     CHECK(DR_ProductInTech(11) && DR_ProductInTech(13) && DR_ProductInTech(9) && DR_ProductInTech(1));
     CHECK(!DR_ProductInTech(10) && !DR_ProductInTech(14));
     CHECK(gameui->command_rows == 5 && gameui->icon_size.w == 64 && gameui->icon_size.h == 50);
+    StaticProductDefinition products[128];
+    int product_count = G_ModelGetProducts(model, 0, products, 128);
+    CHECK(product_count > 64 && product_count <= 128);
+    for (int i = 0; i < product_count; ++i) {
+        int matches = 0;
+        for (int j = 0; j < gameui->product_count; ++j)
+            matches += gameui->products[j].id == products[i].ui_id;
+        CHECK(matches == 1);
+    }
     irect_t radar = DR_MinimapRect(&level);
     CHECK(radar.x == 488 && radar.y == 381 && radar.w == 60 && radar.h == 60);
 
@@ -91,6 +100,22 @@ int main(void) {
     click.button.x = 590; click.button.y = 10;
     CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &click));
     CHECK(bar->options_visible);
+    bar->options_visible = false;
+    /* The selected Imperium rig must expose structures, just like the FG rig. */
+    dr_mission_t *mission = level.mission;
+    mission->product_count = 1;
+    mission->products[0].type = 11001;
+    mission->products[0].tech_level = 0;
+    mobj_t *rig = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10, 10}, 0), MT_IMP_CONSTRUCTION_CREW);
+    CHECK(rig);
+    rig->owner = rig->team = 0;
+    rig->allegiance = ALLEGIANCE_PLAYER;
+    P_MobjSetSelected(rig, true);
+    click.button.x = 458; click.button.y = 74;
+    CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &click));
+    CHECK(level.player_resources[0][0] == 2950);
+    G_CustomUIDrawer(bar, &app, &level, objects.items, objects.count, cache, NULL);
+    CHECK(SDL_SaveBMP(surface, "/private/tmp/open-rts-imperium-hud.bmp") == 0);
     G_ShutdownCustomUI(bar);
     R_FreeSpriteCache(cache); free(cache);
     P_FreeMobjList(&objects);

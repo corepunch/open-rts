@@ -672,7 +672,6 @@ S_NOTYH1L0_STND	games/dark-reign/info.h	/^    S_NOTYH1L0_STND,$/;"	e	enum:__anon
 S_NOWAR1L0_STND	games/dark-reign/info.h	/^    S_NOWAR1L0_STND,$/;"	e	enum:__anon66710f960203
 S_NOWAT1L0_STND	games/dark-reign/info.h	/^    S_NOWAT1L0_STND,$/;"	e	enum:__anon66710f960203
 S_NULL	games/dark-reign/info.h	/^    S_NULL = 0,$/;"	e	enum:__anon66710f960203
-S_UCFCNST0_FIRE	games/dark-reign/info.h	/^    S_UCFCNST0_FIRE,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN1	games/dark-reign/info.h	/^    S_UCFCNST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN2	games/dark-reign/info.h	/^    S_UCFCNST0_RUN2,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN3	games/dark-reign/info.h	/^    S_UCFCNST0_RUN3,$/;"	e	enum:__anon66710f960203
@@ -680,7 +679,6 @@ S_UCFCNST0_RUN4	games/dark-reign/info.h	/^    S_UCFCNST0_RUN4,$/;"	e	enum:__anon
 S_UCFCNST0_RUN5	games/dark-reign/info.h	/^    S_UCFCNST0_RUN5,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_RUN6	games/dark-reign/info.h	/^    S_UCFCNST0_RUN6,$/;"	e	enum:__anon66710f960203
 S_UCFCNST0_STND	games/dark-reign/info.h	/^    S_UCFCNST0_STND,$/;"	e	enum:__anon66710f960203
-S_UCFNST0_IMP_FIRE	games/dark-reign/info.h	/^    S_UCFNST0_IMP_FIRE,$/;"	e	enum:__anon66710f960203
 S_UCFNST0_IMP_RUN1	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN1,$/;"	e	enum:__anon66710f960203
 S_UCFNST0_IMP_RUN2	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN2,$/;"	e	enum:__anon66710f960203
 S_UCFNST0_IMP_RUN3	games/dark-reign/info.h	/^    S_UCFNST0_IMP_RUN3,$/;"	e	enum:__anon66710f960203
@@ -1125,6 +1123,7 @@ S_UITCTST0_D_STND	games/dark-reign/info.h	/^    S_UITCTST0_D_STND,$/;"	e	enum:__
 S_UITCTST0_FIRE	games/dark-reign/info.h	/^    S_UITCTST0_FIRE,$/;"	e	enum:__anon66710f960203
 S_UITCTST0_RUN1	games/dark-reign/info.h	/^    S_UITCTST0_RUN1,$/;"	e	enum:__anon66710f960203
 S_UITCTST0_STND	games/dark-reign/info.h	/^    S_UITCTST0_STND,$/;"	e	enum:__anon66710f960203
+S_UOCSPST0_CK_FIRE	games/dark-reign/info.h	/^    S_UOCSPST0_CK_FIRE,$/;"	e	enum:__anon66710f960203
 S_UOCSPST0_CK_RUN1	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN1,$/;"	e	enum:__anon66710f960203
 S_UOCSPST0_CK_RUN2	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN2,$/;"	e	enum:__anon66710f960203
 S_UOCSPST0_CK_RUN3	games/dark-reign/info.h	/^    S_UOCSPST0_CK_RUN3,$/;"	e	enum:__anon66710f960203

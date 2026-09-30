@@ -344,26 +344,37 @@ static bool P_CanDamage(const mobj_t *attacker, const mobj_t *victim) {
            shot->blast.damage_factors[armor] != 0;
 }
 
+static bool weapon_target(const mobj_t *attacker, const mobj_t *victim) {
+    if (attacker->traits & (MF_HEAL | MF_REPAIR)) {
+        return victim != attacker && P_IsAlly(attacker, victim) &&
+            victim->hp < victim->max_hp &&
+            (victim->traits & MF_MOBILE) && !(victim->traits & MF_FLY) &&
+            ((victim->traits & MF_HUMAN) ? (attacker->traits & MF_HEAL) :
+                                         (attacker->traits & MF_REPAIR));
+    }
+    return !P_IsAlly(attacker, victim) && P_CanDamage(attacker, victim);
+}
+
 static mobj_t *attack_target_in_range(const mobj_t *attacker) {
-    if (!(attacker->traits & MF_ATTACK) || mobj_attack_damage(attacker) <= 0)
+    if (!(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
+        mobj_attack_damage(attacker) == 0)
         return NULL;
     float range2 = mobj_attack_range(attacker) * mobj_attack_range(attacker);
     mobj_t *target = attacker->attack.target;
     if (target && !target->remove && target->hp > 0 &&
         P_VisibleTo(attacker, target) &&
         !(target->traits & (MF_NOBLOCKMAP | MF_MISSILE)) &&
-        P_CanDamage(attacker, target) &&
-        !P_IsAlly(attacker, target) &&
+        weapon_target(attacker, target) &&
         fvec2_distance_squared(fixed3_xy_to_fvec2(target->core.position),
                                fixed3_xy_to_fvec2(attacker->core.position)) <= range2)
         return target;
+    if (attacker->traits & MF_NOAUTOTARGET) return NULL;
     target = NULL;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *candidate = (mobj_t *)th;
         if (candidate == attacker || candidate->remove || candidate->hp <= 0 ||
             (candidate->traits & (MF_NOBLOCKMAP | MF_MISSILE)) ||
-            !P_CanDamage(attacker, candidate) ||
-            P_IsAlly(attacker, candidate) ||
+            !weapon_target(attacker, candidate) ||
             !P_VisibleTo(attacker, candidate)) continue;
         float dist2 = fvec2_distance_squared(
             fixed3_xy_to_fvec2(candidate->core.position),
@@ -555,7 +566,9 @@ void A_Deploy(mobj_t *actor) {
 }
 
 bool P_Attack(mobj_t *attacker) {
-    if (!attacker || (attacker->traits & MF_ATTACK) == 0) return false;
+    if (!attacker || !(attacker->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
+        ((attacker->traits & (MF_HEAL | MF_REPAIR)) &&
+         attacker->attack.cooldown_left_ms > 0)) return false;
     /* State actions must recheck range: the target can move during windup. */
     attacker->attack.target = attack_target_in_range(attacker);
     mobj_t *target = attacker->attack.target;
@@ -601,7 +614,11 @@ bool P_Attack(mobj_t *attacker) {
 #ifdef RTS_GAME_DARK_COLONY
     damage = DC_DefendedDamage(target, damage);
 #endif
-    P_DamageMobj(target, attacker, damage);
+    if (damage < 0 && (attacker->traits & (MF_HEAL | MF_REPAIR))) {
+        int amount = -damage;
+        if (amount > target->max_hp - target->hp) amount = target->max_hp - target->hp;
+        target->hp += amount;
+    } else P_DamageMobj(target, attacker, damage);
     if (mobj_attack_cooldown_ms(attacker) > 0)
         attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
@@ -615,7 +632,7 @@ void A_Attack(mobj_t *unit) {
 }
 
 void A_Look(mobj_t *unit) {
-    if (!unit || unit->hp <= 0 || !(unit->traits & MF_ATTACK) ||
+    if (!unit || unit->hp <= 0 || !(unit->traits & (MF_ATTACK | MF_HEAL | MF_REPAIR)) ||
         unit->attack.cooldown_left_ms > 0 || !gameinfo ||
         unit->type_id >= gameinfo->mobj_type_count) return;
     mobj_t *target = attack_target_in_range(unit);
@@ -1038,7 +1055,7 @@ static void tick_actor(mobj_t *u) {
         if (u->attack.cooldown_left_ms < 0) u->attack.cooldown_left_ms = 0;
     }
     const state_t *active_state = state_at(game_info, u->core.state_id);
-    if (((u->traits & (MF_TURRET | MF_LANDMINE)) ||
+    if (((u->traits & (MF_TURRET | MF_LANDMINE | MF_HEAL | MF_REPAIR)) ||
          ((u->traits & MF_FLY) && u->info && u->info->attack.projectile_type)) && active_state &&
         active_state->group != 3) A_Look(u);
 

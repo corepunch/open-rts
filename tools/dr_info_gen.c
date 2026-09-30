@@ -82,11 +82,13 @@ static int tics_from_tick(int tick) {
 }
 
 static bool has_attack_flag(const dr_entry_t *entry) {
-    return strstr(entry->flags, "MF_ATTACK") != NULL;
+    return strstr(entry->flags, "MF_ATTACK") != NULL ||
+           strstr(entry->flags, "MF_HEAL") != NULL ||
+           strstr(entry->flags, "MF_REPAIR") != NULL;
 }
 
 static bool has_fire_state(const dr_entry_t *entry) {
-    return has_attack_flag(entry) && entry->damage > 0 &&
+    return has_attack_flag(entry) && entry->damage != 0 &&
            entry->anim.shoot_start < 0;
 }
 
@@ -110,7 +112,7 @@ static int mkdir_p(const char *path) {
 static const dr_entry_t entries[] = {
     /* --- Freedom Guard infantry --- */
     MOBILE("FG_CONSTRUCTION_CREW", "UCFCNST0", "ACTOR_FG_CONSTRUCTION_CREW",
-           100, 6, 20, "|MF_ATTACK",
+           100, 6, 0, "",
            /* run: Start=0,F=8,L=6,T=60  stand:Start=48/F=6  no shoot/idle */
            ANIM(8,  0,6,60,  -1,0,0,  6,  -1,0)),
 
@@ -127,47 +129,47 @@ static const dr_entry_t entries[] = {
            HARVEST_ANIM(16, 0,1,100, -1,0,0,  0,  -1,0,  1,15,19660)),
 
     MOBILE("FG_RAIDER", "UFRADST0", "ACTOR_FG_RAIDER",
-           100, 5, 11, "|MF_ATTACK",
+           100, 5, 11, "|MF_ATTACK|MF_HUMAN",
            /* run:0..5  shoot:6..7  idle:8..14  stand:15 */
            ANIM(16, 0,6,25,  6,2,25,  15,  8,7)),
 
     MOBILE("FG_MERCENARY", "UFMRCST0", "ACTOR_FG_MERCENARY",
-           125, 5, 11, "|MF_ATTACK",
+           125, 5, 11, "|MF_ATTACK|MF_HUMAN",
            /* run:0..5  shoot:6..7  idle:8..12  stand:18 */
            ANIM(16, 0,6,25,  6,2,25,  18,  8,5)),
 
     MOBILE("FG_SNIPER", "UFSNPST0", "ACTOR_FG_SNIPER",
-           100, 5, 150, "|MF_ATTACK",
+           100, 5, 150, "|MF_ATTACK|MF_HUMAN|MF_NOAUTOTARGET",
            /* run:0..5  shoot:9..12 (Start=144/16)  idle/stand:30 (Start=480/16) */
            ANIM(16, 0,6,100, 9,4,100, 30,  30,1)),
 
     MOBILE("FG_SCOUT", "UFSCTST0", "ACTOR_FG_SCOUT",
-           66, 6, 0, "",
+           66, 6, 0, "|MF_HUMAN",
            /* run:0..7  shoot:8..10 (Start=64/8)  idle/stand:19 (Start=152/8) */
            ANIM(8,  0,8,100, 8,3,100, 19,  19,1)),
 
     MOBILE("FG_MEDIC", "UFMEDST0", "ACTOR_FG_MEDIC",
-           66, 5, 0, "",
+           66, 5, -20, "|MF_HEAL|MF_HUMAN",
            /* run:0..5  shoot:6..15 (Start=48/8,L=10)  idle:16..21  stand:22 */
            ANIM(8,  0,6,100, 6,10,100, 22,  16,6)),
 
     MOBILE("FG_SABOTEUR", "UFSABST0", "ACTOR_FG_SABOTEUR",
-           100, 5, 0, "",
+           100, 5, 0, "|MF_HUMAN",
            /* no OpenDR entry; approximate from mechanic (same infantry class) */
            ANIM(8,  0,8,100, -1,0,0,  8,  -1,0)),
 
     MOBILE("FG_MECHANIC", "UFMECST0", "ACTOR_FG_MECHANIC",
-           66, 5, 0, "",
+           66, 5, -5, "|MF_REPAIR|MF_HUMAN",
            /* run:0..7  shoot:8..15 (Start=64/8)  stand:24 (Start=192/8) */
            ANIM(8,  0,8,100, 8,8,100, 24,  -1,0)),
 
     MOBILE("FG_MARTYR", "UFMTRST0", "ACTOR_FG_SUICIDE_NUKER",
-           100, 5, 180, "|MF_ATTACK",
+           100, 5, 180, "|MF_ATTACK|MF_HUMAN",
            /* run:0..5  shoot:6..21 (Start=48/8,L=16)  idle:22..25  stand:25 */
            ANIM(8,  0,6,100, 6,16,100, 25,  22,4)),
 
     MOBILE("FG_SPY", "UCINFST0", "ACTOR_FG_SPY",
-           66, 5, 0, "",
+           66, 5, 0, "|MF_HUMAN|MF_NOAUTOTARGET",
            /* run:0..7  no shoot  idle/stand:8..10 (Start=64/8,L=3) */
            ANIM(8,  0,8,100, -1,0,0,  8,  8,3)),
 
@@ -213,22 +215,22 @@ static const dr_entry_t entries[] = {
            ANIM(16, 0,3,100, 3,2,100,  0,  -1,0)),
 
     MOBILE("FG_SKY_BIKE", "UFSKBST0", "ACTOR_FG_SKY_BIKE",
-           100, 6, 10, "|MF_ATTACK|MF_FLY",
+           100, 6, 10, "|MF_ATTACK|MF_FLY|MF_NOAUTOTARGET",
            /* single-frame body */
            ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
 
     MOBILE("FG_OUTRIDER", "UFOUTST0", "ACTOR_FG_OUTRIDER",
-           200, 5, 20, "|MF_ATTACK|MF_FLY",
+           200, 5, 20, "|MF_ATTACK|MF_FLY|MF_NOAUTOTARGET",
            /* single-frame body */
            ANIM(16, 0,1,100, -1,0,0,  0,  -1,0)),
 
     MOBILE("FG_SHOCKWAVE", "UFSWVST0", "ACTOR_FG_SHOCKWAVE",
-           166, 4, 17, "|MF_ATTACK",
+           166, 4, 17, "|MF_ATTACK|MF_NOAUTOTARGET",
            /* run/shoot identical 0..2; shoot=-1 so missilestate=seestate */
            ANIM(16, 0,3,100, -1,0,0,  0,  -1,0)),
 
     MOBILE("FG_CONTAMINATOR", "UCWCOST0", "ACTOR_FG_CONTAMINATOR",
-           166, 3, 5, "|MF_ATTACK",
+           166, 3, 5, "|MF_ATTACK|MF_NOAUTOTARGET",
            /* run/shoot identical 0..3; shoot=-1 so missilestate=seestate */
            ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
 
@@ -244,17 +246,17 @@ static const dr_entry_t entries[] = {
 
     /* --- Imperium infantry (OpenDR sequences/units.yaml) --- */
     MOBILE("IMP_GUARDIAN", "UIGRDST0", "ACTOR_IMP_STRIKE_MARINE",
-           100, 5, 11, "|MF_ATTACK",
+           100, 5, 11, "|MF_ATTACK|MF_HUMAN",
            /* run:0..5  shoot:6..7 (Start=48/8)  stand/idle:8 (Start=64/8) */
            ANIM(8,  0,6,100,  6,2,100,  8,  8,1)),
 
     MOBILE("IMP_BION", "UIBONST0", "ACTOR_IMP_FIRE_SUPPORT_MARINE",
-           150, 5, 18, "|MF_ATTACK",
+           150, 5, 18, "|MF_ATTACK|MF_HUMAN",
            /* run:0..7  shoot:8..10 (Start=64/8)  idle:11..18  stand:25 */
            ANIM(8,  0,8,100,  8,3,100,  25,  11,8)),
 
     MOBILE("IMP_EXTERMINATOR", "UIEXTST0", "ACTOR_IMP_HOVER_MARINE",
-           75, 5, 15, "|MF_ATTACK",
+           75, 5, 15, "|MF_ATTACK|MF_HUMAN",
            /* run single-frame  sync with shoot Start=16/16 */
            ANIM(16, 0,1,100,  1,2,100,  0,  0,1)),
 
@@ -310,19 +312,19 @@ static const dr_entry_t entries[] = {
            ANIM(16, 0,1,100,  1,3,100,  0,  -1,0)),
 
     MOBILE("IMP_CYCLONE", "UICYCST0", "ACTOR_IMP_VTOL",
-           150, 6, 24, "|MF_ATTACK|MF_FLY",
+           150, 6, 24, "|MF_ATTACK|MF_FLY|MF_NOAUTOTARGET",
            /* run single-frame  shoot:1 (Start=16/16) */
            ANIM(16, 0,1,100,  1,1,100,  0,  -1,0)),
 
     MOBILE("IMP_SKY_FORTRESS", "UISKYST0", "ACTOR_IMP_SKY_FORTRESS",
-           266, 4, 650, "|MF_ATTACK|MF_FLY",
+           266, 4, 650, "|MF_ATTACK|MF_FLY|MF_NOAUTOTARGET",
            /* run single-frame  shoot:0..2 */
            ANIM(8,  0,1,100,  0,3,100,  0,  -1,0)),
 
     /* --- Imperium shared-sprite units (retail reuses FG bodies) --- */
     MOBILE_ASSET("IMP_CONSTRUCTION_CREW", "UCFNST0_IMP", "ucfcnst0.spr",
            "ACTOR_IMP_CONSTRUCTION_CREW",
-           100, 6, 20, "|MF_ATTACK",
+           100, 6, 0, "",
            ANIM(8,  0,6,60,  -1,0,0,  6,  -1,0)),
 
     MOBILE_ASSET("IMP_GROUND_TRANSPORTER", "UCFRGST0_IMP", "ucfrgst0.spr",
@@ -337,17 +339,17 @@ static const dr_entry_t entries[] = {
 
     MOBILE_ASSET("IMP_SPY", "UCINFST0_IMP", "ucinfst0.spr",
            "ACTOR_IMP_SPY",
-           66, 5, 0, "",
+           66, 5, 0, "|MF_HUMAN|MF_NOAUTOTARGET",
            ANIM(8,  0,8,100, -1,0,0,  8,  8,3)),
 
     MOBILE_ASSET("IMP_SUICIDE_ZOMBIE", "UFMTRST0_IMP", "ufmtrst0.spr",
            "ACTOR_IMP_SUICIDE_ZOMBIE",
-           100, 5, 180, "|MF_ATTACK",
+           100, 5, 180, "|MF_ATTACK|MF_HUMAN",
            ANIM(8,  0,6,100,  6,16,100,  25,  22,4)),
 
     MOBILE_ASSET("IMP_CONTAMINATOR", "UCWCOST0_IMP", "ucwcost0.spr",
            "ACTOR_IMP_CONTAMINATOR",
-           166, 3, 5, "|MF_ATTACK",
+           166, 3, 5, "|MF_ATTACK|MF_NOAUTOTARGET",
            ANIM(16, 0,4,100, -1,0,0,  0,  -1,0)),
 
     /* --- Imperium decoy mobile units (share sprites with parent IMP units) --- */
@@ -384,42 +386,42 @@ static const dr_entry_t entries[] = {
 
     /* --- Civilians and neutral units (UNITS.TXT SetType values) --- */
     MOBILE("CIV_MALE", "UOCVMST0", "ACTOR_CIV_MALE",
-           30, 6, 0, "",
+           30, 6, 0, "|MF_HUMAN",
            /* run:0..5  stand:22 */
            ANIM(8,  0,6,40,  -1,0,0, 22,  -1,0)),
 
     MOBILE("CIV_ROWDY", "UORCMST0", "ACTOR_CIV_ROWDY",
-           66, 5, 2, "|MF_ATTACK",
+           66, 5, 2, "|MF_ATTACK|MF_HUMAN",
            /* run:0..7  shoot:8..10 (Start=64/8)  stand:23 */
            ANIM(8,  0,8,40,  8,3,60, 23,  -1,0)),
 
     MOBILE("CIV_SPY", "UOCSPST0", "ACTOR_CIV_SPY",
-           66, 8, 0, "",
+           66, 8, 0, "|MF_HUMAN",
            /* run:0..3  stand:0 (single-frame) */
            ANIM(8,  0,4,40,  -1,0,0,  0,  -1,0)),
 
     /* Civilians that share sprites need unique sprite names for distinct states. */
     MOBILE_ASSET("CIV_PRISONER", "UOCVMST0_CPR", "uocvmst0.spr",
            "ACTOR_CIV_PRISONER",
-           30, 6, 0, "",
+           30, 6, 0, "|MF_HUMAN",
            /* same animation as male civilian */
            ANIM(8,  0,6,40,  -1,0,0, 22,  -1,0)),
 
     MOBILE_ASSET("CIV_JEBRAD", "UORCMST0_CJR", "uorcmst0.spr",
            "ACTOR_CIV_JEB_RAD",
-           500, 8, 170, "|MF_ATTACK",
+           500, 8, 170, "|MF_ATTACK|MF_HUMAN",
            /* same animation as rowdy, Radec weapon: range 7, 99ms cd, 170 dmg */
            ANIM(8,  0,8,40,  8,3,60, 23,  -1,0)),
 
     MOBILE_ASSET("CIV_KAROCH", "UOCSPST0_CK", "uocspst0.spr",
            "ACTOR_CIV_KAROCH",
-           250, 5, 0, "",
+           250, 5, -20, "|MF_HEAL|MF_HUMAN",
            /* same animation as civ spy, MedicHeal support */
            ANIM(8,  0,4,40,  -1,0,0,  0,  -1,0)),
 
     MOBILE_ASSET("CIV_COLONEL", "UOCVMST0_CCM", "uocvmst0.spr",
            "ACTOR_CIV_COLONEL_MARTEL",
-           100, 6, 0, "",
+           100, 6, 0, "|MF_HUMAN",
            /* same animation as male civilian */
            ANIM(8,  0,6,40,  -1,0,0, 22,  -1,0)),
 

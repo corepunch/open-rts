@@ -53,7 +53,8 @@ static int product_list(sb_state_t *st, int *items) {
     update_selection(st);
     const dr_mission_t *mission = level.mission;
     mobj_t *u = selection();
-    bool buildings = u && u->type_id == MT_FG_CONSTRUCTION_CREW;
+    bool buildings = u && (u->type_id == MT_FG_CONSTRUCTION_CREW ||
+                           u->type_id == MT_IMP_CONSTRUCTION_CREW);
     int count = 0;
     int total = mission ? mission->product_count : gameui->product_count;
     for (int j = 0; j < total; ++j) {
@@ -176,7 +177,7 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
         }
         return true;
     }
-    int items[64];
+    int items[gameui->product_count];
     int count = product_list(st, items);
     if (irect_contains((irect_t){448,316,44,22}, mouse)) {
         int capacity = gameui->command_columns * gameui->command_rows;
@@ -233,7 +234,7 @@ bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
 }
 
 void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
-    int items[64];
+    int items[gameui->product_count];
     int count = product_list(st, items);
     ivec2_t mouse;
     SDL_GetMouseState(&mouse.x, &mouse.y);

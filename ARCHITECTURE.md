@@ -520,6 +520,14 @@ labels are no longer repurposed as unrelated production categories or commands.
 Remaining retail page, gauge and radar-terrain work is documented with the
 executable evidence in `docs/DR_EXE_FINDINGS.md`.
 
+The production image catalog covers both factions; either faction's selected
+construction rig switches the BUILD list to structures. Dark Reign's authored
+unit flags preserve retail Fly, IsHuman and NoAutoTarget independently of the
+generated animation table. Medic, Mechanic and Karoch support capabilities run
+through ordinary mobj state actions with class-restricted allied targets.
+The executable findings distinguish these supported behaviors from unfinished
+special abilities, attachment types and native HUD pages.
+
 ## Menu lifecycle versus HUD
 
 `driver/m_menu.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,

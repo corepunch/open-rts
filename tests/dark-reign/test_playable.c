@@ -150,6 +150,12 @@ static int test_combat(void) {
         .map_path = "scenario/MULTI/2NIC/2NIC.SCN",
     };
     if (!rts_game_model_load(model, &config)) return fail("load for combat");
+    /* 2NIC starts with unarmed rigs. Combat needs an actual armed unit. */
+    mobj_t *raider = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){10, 10}, 0), MT_FG_RAIDER);
+    if (!raider) return fail("spawn combat Raider");
+    raider->owner = raider->team = 0;
+    raider->allegiance = ALLEGIANCE_PLAYER;
+    if (!rts_tick(model, NULL)) return fail("publish combat Raider");
     RtsRenderSnapshot snap;
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot for combat");
 

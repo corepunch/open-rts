@@ -53,6 +53,22 @@ static const uiproduct_t DARK_REIGN_UI_PRODUCTS[] = {
     { 16, 2, "uftrtmn0.spr" }, { 19, 2, "uffarmn0.spr" }, { 23, 2, "ufskbmn0.spr" },
     { 24, 2, "ufoutmn0.spr" }, { 18, 2, "ufswvmn0.spr" }, { 30, 2, "ucwcomn0.spr" },
     { 13, 2, "ucfrgmn0.spr" }, { 14, 2, "uchfrmn0.spr" },
+    /* Imperium uses its own native menu images and production IDs. */
+    {11001, 0, "bihqtmn0.spr"}, {11002, 0, "bihqtmn1.spr"}, {11003, 0, "bihqtmn2.spr"},
+    {11004, 0, "biutfmn0.spr"}, {11005, 0, "biutfmn1.spr"},
+    {11006, 0, "bivcymn0.spr"}, {11007, 0, "bivcymn1.spr"},
+    {11008, 0, "bitgtmn0.spr"}, {11009, 0, "bihspmn0.spr"},
+    {11010, 0, "birepmn0.spr"}, {11011, 0, "bccammn0.spr"},
+    {11012, 0, "birrmmn0.spr"}, {11013, 0, "biaarmn0.spr"},
+    {11014, 0, "bigdtmn0.spr"}, {11015, 0, "biagtmn0.spr"},
+    {11019, 0, "bclncmn0.spr"}, {11020, 0, "bcpowmn0.spr"}, {11021, 0, "bitrcmn0.spr"},
+    {1005, 0, "ucfcnmn0.spr"}, {1002, 1, "uigrdmn0.spr"},
+    {1003, 1, "uibonmn0.spr"}, {1004, 1, "uiextmn0.spr"}, {1001, 1, "ucinfmn0.spr"},
+    {1010, 2, "uisttmn0.spr"}, {1009, 2, "uiittmn0.spr"}, {1011, 2, "uipltmn0.spr"},
+    {1008, 2, "uiampmn0.spr"}, {1013, 2, "uimadmn0.spr"}, {1019, 2, "uirdrmn0.spr"},
+    {1015, 2, "uishrmn0.spr"}, {1014, 2, "uihosmn0.spr"}, {1012, 2, "uitctmn0.spr"},
+    {1017, 2, "uiiarmn0.spr"}, {1020, 2, "uicycmn0.spr"}, {1018, 2, "uiskymn0.spr"},
+    {1016, 2, "ucwcomn0.spr"}, {1006, 2, "ucfrgmn0.spr"}, {1007, 2, "uchfrmn0.spr"},
 };
 
 static const uidefinition_t DARK_REIGN_UI = {

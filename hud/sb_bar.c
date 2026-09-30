@@ -24,7 +24,7 @@ bool SB_Init(sb_state_t *st, SDL_Renderer *renderer, const char *data_root,
              const uidefinition_t *definition) {
     if (!st || !renderer || !data_root || !definition ||
         definition->image_count < 0 || definition->image_count > RTS_UI_MAX_LAYERS ||
-        definition->product_count < 0 || definition->product_count > 64) return false;
+        definition->product_count < 0) return false;
     memset(st, 0, sizeof(*st));
     st->definition = definition;
     for (int i = 0; i < definition->image_count; ++i) {

@@ -990,6 +990,12 @@ Current engine gaps before this can be made interactive:
 Local game-data files that have already been useful:
 
 - `data/REIGN/dkreign.exe` for executable AI loader and parameter strings.
+  - Runtime unit capability audit (2026-09-30): SHA-256
+    `3e089777cea09b0fa7cb772c72c871677594515f3508baa04fc13d4dad84a965`.
+    Unit parser `0x00445c90` owns movement `+0xf0` and capability bits
+    `+0x53c`; weapon parser `0x00483e70` owns human/nonhuman target classifiers
+    `+0xa1/+0xa2`. Detailed evidence, corrections to catalog coverage, tests
+    and unported abilities are preserved in `docs/DR_EXE_FINDINGS.md`.
 - `data/REIGN/dark/aip/*.AIP`, `*.FSM`, and `aip/AIPDEF.H` for the shipped
   strategy profiles, construction-account modes, force matching, and
   conditional AI switching.
