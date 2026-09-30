@@ -501,6 +501,23 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     W_FreeFile(&overview);
     W_FreeFile(&map.file);
 
+    /* The PTH's family byte is retail's walkability: 0 is impassable, including
+     * pockets the MAP obstacle bit leaves open. Fold it into the grid the shared
+     * planner searches; its next-hop table is unneeded (regions are flood-filled). */
+    char path_file[1024];
+    replace_extension(path_file, sizeof(path_file), map.path, ".PTH");
+    blob_t pth = {0};
+    if (W_ReadFile(path_file, &pth)) {
+        if (pth.size != 0x10000 + count) {
+            fprintf(stderr, "%s: invalid Dark Colony PTH size\n", path_file);
+            W_FreeFile(&pth);
+            goto fail;
+        }
+        for (size_t i = 0; i < count; ++i)
+            if (!pth.bytes[0x10000 + i]) out->blocked[i] = 1;
+        W_FreeFile(&pth);
+    }
+
     ScenarioFile *scenario = calloc(1, sizeof(*scenario));
     if (!scenario) goto fail;
     out->native_data = scenario;
