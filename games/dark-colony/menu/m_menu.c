@@ -50,7 +50,7 @@ typedef struct {
     enum { NONE, PUSH, CHECK, LABEL, TEXT, GADGET, PICTURE, LIST, SCROLL } kind;
     irect_t rect;
     char text[128], animation[32];
-    int message, font, remap, gadget, mode, frame, delay;
+    int message, font, remap, mode, frame, delay;
     int maxchars;
     int normal, pushed;
     bool centered, visible, checked, writable;
@@ -58,6 +58,16 @@ typedef struct {
     const dc_fin_label_t *sequence;
 } menucontrol_t;
 static menucontrol_t controls[300];
+/* A banim control (native type 12, button.c create_banim 0x4250bc) lists the
+ * entrance gadgets and the push buttons they cover. 0x425214 plays the gadgets
+ * one by one when the screen opens and hides each finished gadget so the
+ * button beneath shows; hovering a button only brightens it (0x424638). */
+typedef struct {
+    int gadgets[300];
+    int count, started, finished;
+} menuentrance_t;
+static menuentrance_t entrances[4];
+static int numentrances, entrance;
 static char messages[300][128];
 static dc_skirmish_t skirmish;
 typedef struct {
@@ -100,8 +110,8 @@ static void free_screen(void) {
     maps = NULL;
     nummaps = 0;
     memset(controls, 0, sizeof(controls));
-    for (int i = 0; i < 300; ++i) controls[i].gadget = -1;
     memset(messages, 0, sizeof(messages));
+    numentrances = entrance = 0;
     screen = (isize2_t){0};
     bright_pushed = bright_highlight = 0;
     pressed = -1;
@@ -364,6 +374,23 @@ static void activate_skirmish(int id) {
     refresh_skirmish();
 }
 
+/* Screens start their decorative gadgets only after the banim entrance:
+ * 0x404b8c..0x404b9c (INTROE DCSS logo), 0x401f26..0x401f70 (NEWGAMEE),
+ * 0x403340..0x403386 (SHUMANE). */
+static void start_page_animations(void) {
+    if (page == MAIN) animate(14, 1);
+    if (page == SETUP) {
+        animate(race ? 26 : 23, 0);
+        for (int i = 13; i <= 16; ++i) animate(i, 0);
+        for (int i = 29; i <= 35; ++i) animate(i, 0);
+    }
+    if (page == BRIEFING) {
+        for (int i = 15; i <= 24; ++i) animate(i, 0);
+        animate(39, 0);
+        animate(race ? 35 : 36, 0);
+    }
+}
+
 static bool load_screen(int next) {
     static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE"};
     static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT"};
@@ -417,7 +444,7 @@ static bool load_screen(int next) {
                     !strcmp(kind, "picture") || !strcmp(kind, "list") || !strcmp(kind, "scroll"))) {
             if (id < 0 || id >= 300 || rect.w <= 0 || rect.h <= 0) { ok = false; break; }
             menucontrol_t *control = &controls[id];
-            *control = (menucontrol_t){ .rect = rect, .gadget = -1, .visible = true, .remap = 7,
+            *control = (menucontrol_t){ .rect = rect, .visible = true, .remap = 7,
                                        .normal = -1, .pushed = -1 };
             control->kind = !strcmp(kind, "pushb") ? PUSH : !strcmp(kind, "checkb") ? CHECK :
                 !strcmp(kind, "label") ? LABEL : !strcmp(kind, "in_text") ? TEXT :
@@ -450,6 +477,9 @@ static bool load_screen(int next) {
                 animate(id, strstr(line, "anim_oneoff") ? 1 : strstr(line, "anim_loop") ? 0 : 2);
             }
         } else if (!strncmp(line, "banim", 5)) {
+            /* banim id desc ngadgets nbuttons gadget... button...: the gadgets
+             * play in list order. Buttons are always drawn beneath their
+             * gadget here, so only the gadget list is retained. */
             int values[300], count = 0;
             char *cursor = line + 5, *end;
             while (count < 300) {
@@ -459,16 +489,12 @@ static bool load_screen(int next) {
                 values[count++] = (int)value;
                 cursor = end;
             }
-            if (count < 4 || values[2] <= 0 || values[2] > values[3] || count != 4 + values[2] + values[3]) { ok = false; break; }
-            for (int j = 0; j < values[2]; ++j) controls[values[4 + j]].visible = j == 0;
-            for (int i = 0; i < values[3]; ++i) {
-                menucontrol_t *button = &controls[values[4 + values[2] + i]];
-                for (int j = 0; j < values[2]; ++j) {
-                    int gadget = values[4 + j];
-                    if (button->rect.x == controls[gadget].rect.x && button->rect.y == controls[gadget].rect.y)
-                        button->gadget = gadget;
-                }
-            }
+            if (count < 4 || values[2] <= 0 || values[3] < 0 || count != 4 + values[2] + values[3] ||
+                numentrances == 4) { ok = false; break; }
+            menuentrance_t *added = &entrances[numentrances++];
+            added->count = values[2];
+            added->started = added->finished = 0;
+            memcpy(added->gadgets, values + 4, (size_t)values[2] * sizeof(int));
         }
     }
     if (ferror(file)) ok = false;
@@ -489,15 +515,11 @@ static bool load_screen(int next) {
             control->rect.h *= font->line_h;
         }
     }
-    if (page == MAIN) animate(14, 1); /* 0x404b8c..0x404b9c. */
     if (page == SETUP) {
         controls[training ? 3 : 2].visible = false;
         controls[19].visible = controls[20].visible = false;
         for (int i = 21; i <= 26; ++i) controls[i].visible = false;
         controls[race ? 26 : 23].visible = true;
-        animate(race ? 26 : 23, 0);
-        for (int i = 13; i <= 16; ++i) animate(i, 0);
-        for (int i = 29; i <= 35; ++i) animate(i, 0);
         snprintf(controls[5].text, sizeof(controls[5].text), "%s", leader);
         SDL_StartTextInput();
     } else SDL_StopTextInput();
@@ -505,9 +527,6 @@ static bool load_screen(int next) {
     if (page == BRIEFING) {
         controls[10].visible = false;
         controls[race ? 36 : 35].visible = false;
-        for (int i = 15; i <= 24; ++i) animate(i, 0);
-        animate(39, 0);
-        animate(race ? 35 : 36, 0);
         snprintf(controls[5].text, sizeof(controls[5].text), "%s", leader);
         snprintf(controls[6].text, sizeof(controls[6].text), "%s", mission_title);
         snprintf(controls[7].text, sizeof(controls[7].text), "%s", mission_region);
@@ -546,9 +565,10 @@ static bool load_screen(int next) {
         /* Use the native button row's unused interval for direct connection. */
         controls[18] = controls[4];
         controls[18].rect.x = controls[17].rect.x + controls[17].rect.w;
-        controls[18].gadget = -1;
         strcpy(controls[18].text, "ADDRESS");
     }
+    entrance = 0;
+    if (!numentrances) start_page_animations();
     menutime = SDL_GetTicks64();
     return ok && screen.w > 0 && screen.h > 0 &&
         (page == QUIT || background.numlumps) && fonts[0].sprite.numlumps;
@@ -782,7 +802,6 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         if (!event->key.repeat) M_StartControlPanel(app);
         return true;
     }
-    int olditem = itemOn;
     if (event->type == SDL_KEYDOWN) {
         switch (event->key.keysym.sym) {
         case SDLK_ESCAPE:
@@ -925,12 +944,31 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         scroll -= event->wheel.y;
         if (scroll < 0) scroll = 0;
     }
-    if (itemOn != olditem) {
-        for (int i = 0; i < 300; ++i)
-            if (controls[i].gadget >= 0) controls[controls[i].gadget].visible = i == itemOn;
-        if (controls[itemOn].gadget >= 0) animate(controls[itemOn].gadget, 1);
-    }
     return true;
+}
+
+static void step_entrances(void) {
+    while (entrance < numentrances) {
+        menuentrance_t *e = &entrances[entrance];
+        if (e->started + 1 < e->count) {
+            const menucontrol_t *g = &controls[e->gadgets[e->started]];
+            /* 0x425257..0x425294: the next gadget starts when the running one
+             * reaches its third frame, so the entrances overlap. */
+            if (!g->visible || !g->sequence || g->frame - g->sequence->start == 2)
+                animate(e->gadgets[++e->started], 1);
+        }
+        if (e->finished < e->count) {
+            menucontrol_t *g = &controls[e->gadgets[e->finished]];
+            /* 0x4252a5..0x4252be: a stopped gadget is hidden and the push
+             * button beneath it is redrawn. */
+            if (!g->sequence || g->mode == 2) {
+                g->visible = false;
+                ++e->finished;
+            }
+        }
+        if (e->finished < e->count) return;
+        if (++entrance == numentrances) start_page_animations();
+    }
 }
 
 void M_Ticker(void) {
@@ -988,6 +1026,7 @@ void M_Ticker(void) {
         }
         if (c->delay) --c->delay;
     }
+    step_entrances();
 }
 
 static void draw_gadget(SDL_Renderer *renderer, const menucontrol_t *c) {
@@ -1102,6 +1141,25 @@ static void draw_sessions(SDL_Renderer *renderer) {
     }
 }
 
+static void draw_text(const app_t *app, int i) {
+    const menucontrol_t *c = &controls[i];
+    if (!c->visible || !c->text[0]) return;
+    const bitmapfont_t *font = &fonts[c->font];
+    ivec2_t at = {c->rect.x, c->rect.y};
+    if (c->centered) at = ivec2_add(at, (ivec2_t){(c->rect.w - HU_TextWidth(font, c->text, 1)) / 2, (c->rect.h - font->glyph_size.h) / 2});
+    else if (c->kind == LABEL) at = ivec2_add(at, (ivec2_t){font->glyph_size.w, (c->rect.h - font->glyph_size.h) / 2});
+    if (c->centered && c->kind != TEXT)
+        at = ivec2_add(at, (ivec2_t){(font->glyph_size.w + 1) / 2, 0});
+    int intensity = c->kind == PUSH || c->kind == CHECK ? control_intensity(c) : 16;
+    if (page == CONNECT && i == 3 && notice == network_notice) {
+        HU_DrawTextWrapped(app->renderer, font, at.x, at.y, c->rect.w, c->text,
+                           (SDL_Color){255,255,255,255}, 1);
+        return;
+    }
+    HU_DrawTextRemapped(app->renderer, font, at.x, at.y, c->text,
+                        (SDL_Color){255, 255, 255, 255}, 1, intensity * 8 + c->remap);
+}
+
 void M_Drawer(const app_t *app) {
     if (!menuactive) return;
     float sx, sy;
@@ -1119,27 +1177,14 @@ void M_Drawer(const app_t *app) {
         if (c->visible && c->sequence) draw_gadget(app->renderer, c);
         if (c->visible && (c->kind == PICTURE || c->kind == PUSH || c->kind == CHECK))
             draw_picture(app->renderer, c);
+        /* Native controls draw in id order with their own label, so a later
+         * entrance gadget covers both the button image and its text. */
+        if (c->kind == PUSH || c->kind == CHECK) draw_text(app, i);
     }
     if (page == SKIRMISH) draw_map_list(app->renderer);
     if (page == BROWSE) draw_sessions(app->renderer);
-    for (int i = 0; i < 300; ++i) {
-        const menucontrol_t *c = &controls[i];
-        if (!c->visible || !c->text[0]) continue;
-        const bitmapfont_t *font = &fonts[c->font];
-        ivec2_t at = {c->rect.x, c->rect.y};
-        if (c->centered) at = ivec2_add(at, (ivec2_t){(c->rect.w - HU_TextWidth(font, c->text, 1)) / 2, (c->rect.h - font->glyph_size.h) / 2});
-        else if (c->kind == LABEL) at = ivec2_add(at, (ivec2_t){font->glyph_size.w, (c->rect.h - font->glyph_size.h) / 2});
-        if (c->centered && c->kind != TEXT)
-            at = ivec2_add(at, (ivec2_t){(font->glyph_size.w + 1) / 2, 0});
-        int intensity = c->kind == PUSH || c->kind == CHECK ? control_intensity(c) : 16;
-        if (page == CONNECT && i == 3 && notice == network_notice) {
-            HU_DrawTextWrapped(app->renderer, font, at.x, at.y, c->rect.w, c->text,
-                               (SDL_Color){255,255,255,255}, 1);
-            continue;
-        }
-        HU_DrawTextRemapped(app->renderer, font, at.x, at.y, c->text,
-                            (SDL_Color){255, 255, 255, 255}, 1, intensity * 8 + c->remap);
-    }
+    for (int i = 0; i < 300; ++i)
+        if (controls[i].kind != PUSH && controls[i].kind != CHECK) draw_text(app, i);
     if (prose) {
         /* Text viewport arguments at 0x4023f8/0x403030, separate from widgets. */
         irect_t clip = page == STORY ? (irect_t){10, 13, 579, 420} : (irect_t){310, 212, 294, 225};

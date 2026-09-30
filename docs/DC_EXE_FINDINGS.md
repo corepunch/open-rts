@@ -5185,10 +5185,8 @@ The following are deliberately **not** claimed as full retail reproduction:
   native REZIN/REZOUT transition handoff. Decorative menus use their native FIN
   layers but do not yet reproduce all control shading, reverse hover animation,
   push/release timing, sound, clipping/background-erase modes, or palette rules.
-- `banim` names separate gadget and button groups; controls sharing native
-  origins (e.g. Start Training/Start Campaign) share the matching gadget in
-  this implementation. This correspondence is inferred from the scripts;
-  the complete native banim responder has not yet been ported.
+- `banim` entrances are ported (see "Button entrance sequencer" below);
+  the entrance sounds (134 on screen open, 186 per gadget) are not played.
 - Story/briefing prose is wrapped and scrollable; inline `~digit` commands are
   recognized and removed, but their per-span colour changes are not rendered.
 - Briefing picture windows are separate from SHUMANE gadgets: `0x403052`
@@ -5358,14 +5356,43 @@ option frames without synthesizing graphics. `0x427ea0` draws a scroll track
 and thumb from list start/end fractions; default color 1 corresponds to the
 red track seen in the recording.
 
-**Inferred/incomplete animation:** `0x4250bc` stores the banim gadget/button
-lists. Showing only the corresponding linked gadget and advancing its authored
-sequence reproduces the observed settled button arrangement. The full native
-reverse/hover banim responder has not been ported; do not claim complete
-frame-by-frame transition parity. A separate engine bug discovered during QA
-was that unused controls defaulted their gadget link to zero, hiding the player
-name on hover. Unbound links now initialize to -1. Temporary diagnostics printed
-focus, name visibility and that link before the fix; they were removed afterward.
+### Button entrance sequencer
+
+**Confirmed:** `create_banim` (`0x4250bc`, button.c line 488..536) is control
+type 12. It reads the gadget count, the button count, then both id lists into
+one array, and keeps a pointer to the button half. `0x42530c` runs every type
+12 control of a screen through `0x425214`, called by each screen constructor
+right after the screen is shown and its open sound played, and **before** the
+screen's own gadget animations start (main menu: `0x404b87` banim, then
+`0x404b9c` DCSS mode 1; setup `0x401ed2` then `0x401f26..0x401f70`; briefing
+`0x403334` then `0x403340..0x403386`).
+
+`0x425214` is a modal loop that calls the menu ticker `0x421e94` until every
+listed gadget has finished:
+
+- `0x425257..0x425294`: while a later gadget remains, if the most recently
+  started gadget's frame index (`0x422b48`, animation byte +4) equals 2, the
+  next gadget is set to one-off mode 1 through `0x422c48` and sound 186 plays.
+  Entrances therefore overlap rather than run strictly back to back. The first
+  gadget is authored `anim_oneoff` in the scripts, so it starts on its own.
+- `0x4252a5..0x4252be`: when the oldest unfinished gadget's mode (`0x422bc8`,
+  byte +6) is 2 (stopped), it is hidden (`0x421f6c` with 0) and the next
+  visible push button in the button list is redrawn (`0x41facc`), skipping
+  buttons whose visible byte is zero (NEWGAMEE's alternate Start button).
+
+KNOBE `LARGEBUTTON` (frames 0..11) alternates cells 28/122/29/123/30/124/31/125,
+holds the plain plate cell 0 for 46 ticks, shows cell 126, and ends on the 1x1
+cell 78, so the hidden gadget reveals the finished button beneath it. All
+plate cells are 180x26 and cover the 179x25 push button and its label, which
+is why the port draws a push button's label together with its image in id
+order. `0x424638` draws a hovered button with `bright_highlight` added to its
+intensity and never touches gadgets, so hovering does not replay the entrance.
+
+open-rts runs the same state machine from `M_Ticker` instead of a modal loop,
+so input stays live during the entrance, and defers each screen's decorative
+`animate()` starts until the sequence completes (or immediately when the screen
+has no banim). `test_menu` checks that the first button settles while the
+last one is still animating and that the DCSS logo starts only afterwards.
 
 ### Match startup and option boundaries
 

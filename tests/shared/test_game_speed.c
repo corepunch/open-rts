@@ -8,7 +8,7 @@
 int main(void) {
     G_InitGame();
     assert(gameinfo);
-    int expected = strcmp(g_game_id, "dark-colony") == 0 ? 150 : 0;
+    int expected = strcmp(g_game_id, "dark-colony") == 0 ? 100 : 0;
     assert(gameinfo->game_speed == expected);
     assert(gameinfo->game_speed >= 0 && gameinfo->game_speed <= 200);
 

@@ -33,6 +33,15 @@ static void click(app_t *app, int x, int y) {
     CHECK(app->running);
 }
 
+static uint64_t region_sum(const SDL_Surface *surface, irect_t rect) {
+    uint64_t sum = 0;
+    for (int y = rect.y; y < rect.y + rect.h; ++y) {
+        const uint32_t *row = (const uint32_t *)((const uint8_t *)surface->pixels + y * surface->pitch);
+        for (int x = rect.x; x < rect.x + rect.w; ++x) sum += (row[x] & 0x00ffffffu) * (uint64_t)(x + y * 640 + 1);
+    }
+    return sum;
+}
+
 static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {
     SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
     SDL_RenderClear(app->renderer);
@@ -106,9 +115,26 @@ int main(void) {
     CHECK(!menuactive && !menumap && !level.mission);
     M_StartControlPanel(&app);
     CHECK(menuactive);
-    /* Let the native one-off logo/button sequences finish. */
-    for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
+    /* INTROE's banim plays LARGEBUTTON over each button in turn (0x425214):
+     * a gadget starts when the previous one reaches its third frame, each
+     * lasts 28 ticks, and the DCSS logo only starts once all eight are done. */
+    const irect_t first_button = {138, 314, 179, 25}, last_button = {318, 392, 179, 25};
+    const irect_t logo_rect = {130, 0, 378, 123};
+    screenshot(&app, surface, "/private/tmp/dc-menu-main-entrance.bmp");
+    uint64_t first_at_start = region_sum(surface, first_button);
+    uint64_t last_at_start = region_sum(surface, last_button);
+    for (int i = 0; i < 35; ++i) { SDL_Delay(17); M_Ticker(); }
+    screenshot(&app, surface, "/private/tmp/dc-menu-main-midway.bmp");
+    uint64_t first_midway = region_sum(surface, first_button);
+    uint64_t last_midway = region_sum(surface, last_button);
+    uint64_t logo_midway = region_sum(surface, logo_rect);
+    for (int i = 0; i < 95; ++i) { SDL_Delay(17); M_Ticker(); }
     screenshot(&app, surface, "/private/tmp/dc-menu-main.bmp");
+    CHECK(first_at_start != region_sum(surface, first_button));
+    CHECK(first_midway == region_sum(surface, first_button));
+    CHECK(last_at_start != region_sum(surface, last_button));
+    CHECK(last_midway != region_sum(surface, last_button) && last_midway != last_at_start);
+    CHECK(logo_midway != region_sum(surface, logo_rect));
     /* Catch the tempting world-ticker reset-to-zero rule: the native menu
      * must retain DCSS's terminal logo pose after the entrance finishes. */
     spritesheet_t logo = {0};

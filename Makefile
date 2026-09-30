@@ -233,7 +233,7 @@ dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
 
 # ── run targets ───────────────────────────────────────────────────────────────
-speed ?= 1
+speed ?= 100
 
 run: $(BIN_DIR)/dark-reign
 	$(BIN_DIR)/dark-reign
@@ -341,7 +341,7 @@ help:
 	@echo "  mission-2            Dark Reign campaign mission 2"
 	@echo "  dark-colony          Dark Colony (default: HUMAN01)"
 	@echo "  dark-colony map=X    Dark Colony scenario (e.g. human02, alien03)"
-	@echo "  dark-colony speed=X  Simulation speed multiplier (default: 1)"
+	@echo "  dark-colony speed=X  Simulation speed percent (default: 100)"
 	@echo "  dark-colony-human02  Dark Colony HUMAN02 scenario"
 	@echo "  7legion              7th Legion"
 	@echo "  kknd                 KKnD"
