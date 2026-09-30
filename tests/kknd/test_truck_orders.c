@@ -42,7 +42,7 @@ int main(void) {
     level.resource_vent_count = 2;
     level.resource_vents[0] = (resourcevent_t){.cell={2,2},.attachment={2,2},.amount=10000,.rate=1,.active=true};
     level.resource_vents[1] = (resourcevent_t){.cell={45,45},.attachment={45,45},.amount=10000,.rate=1,.active=true};
-    mobj_t *base = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){40,40},0),MT_MUTE_DRILLRIG);
+    mobj_t *base = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){40,40},0),MT_MUTE_POWER_STATION);
     truck = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){44,44},0),MT_MUTE_OIL_TANKER);
     assert(base && truck);
     base->owner = truck->owner = 1;

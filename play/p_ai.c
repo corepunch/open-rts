@@ -122,7 +122,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
             float best_dist2 = 1e30f;
             for (int v = 0; v < vent_limit; ++v) {
                 const resourcevent_t *vent = &map->resource_vents[v];
-                if (tried[v] || !vent->active || vent->amount <= 0) continue;
+                if (tried[v] || !P_VentOpenTo(map, vent, u)) continue;
                 if (vent_occupied_by_team(team, v)) continue;
                 float dist2 = fvec2_distance_squared(vent->attachment, position);
                 if (dist2 < best_dist2) {

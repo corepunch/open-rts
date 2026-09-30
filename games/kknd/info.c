@@ -460,7 +460,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .seestate     = S_SURV_MOBILE_DERRICK_WALK1,
         .deathstate   = S_NULL, .xdeathstate = S_NULL,
         .speed = 30, .radius = 24, .height = 32, .mass = 800,
-        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
     },
     { // MT_SURV_OIL_TANKER  (UNIT_SURV_TANKER)
         .doomednum    = 23,
@@ -565,7 +565,7 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .seestate     = S_MUTE_MOBILE_DERRICK_WALK1,
         .deathstate   = S_NULL, .xdeathstate = S_NULL,
         .speed = 30, .radius = 24, .height = 32, .mass = 800,
-        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE|MF_HARVESTER,
+        .flags = MF_SELECTABLE|MF_MOBILE|MF_RENDERABLE,
     },
     { // MT_MUTE_OIL_TANKER  (UNIT_MUTE_TANKER)
         .doomednum    = 24,
@@ -590,14 +590,14 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnstate   = S_SURV_DRILLRIG_STND,
         .spawnhealth  = 4000,
         .deathstate   = S_NULL, .xdeathstate = S_NULL,
-        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_BASE,
+        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_SOURCE,
     },
     { // MT_SURV_POWER_STATION  (UNIT_SURV_POWERPLANT)
         .doomednum    = 48,
         .spawnstate   = S_SURV_POWER_STATION_STND,
         .spawnhealth  = 4000,
         .deathstate   = S_NULL, .xdeathstate = S_NULL,
-        .flags = MF_SELECTABLE|MF_RENDERABLE,
+        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_BASE,
     },
     { // MT_SURV_OUTPOST  (UNIT_SURV_OUTPOST)
         .doomednum    = 58,
@@ -632,14 +632,14 @@ const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {
         .spawnstate   = S_MUTE_DRILLRIG_STND,
         .spawnhealth  = 4000,
         .deathstate   = S_NULL, .xdeathstate = S_NULL,
-        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_BASE,
+        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_SOURCE,
     },
     { // MT_MUTE_POWER_STATION  (UNIT_MUTE_POWERPLANT)
         .doomednum    = 49,
         .spawnstate   = S_MUTE_POWER_STATION_STND,
         .spawnhealth  = 4000,
         .deathstate   = S_NULL, .xdeathstate = S_NULL,
-        .flags = MF_SELECTABLE|MF_RENDERABLE,
+        .flags = MF_SELECTABLE|MF_RENDERABLE|MF_RESOURCE_BASE,
     },
     { // MT_MUTE_CLANHALL  (UNIT_MUTE_CLANHALL)
         .doomednum    = 59,

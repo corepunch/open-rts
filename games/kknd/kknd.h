@@ -4,6 +4,9 @@
 #include "engine.h"
 
 enum { KKND_RESEARCH = 9000 };
+/* Oil a drill rig holds and the rate a docked tanker draws per second. A
+ * tanker (capacity 100) fills in ten seconds. Gameplay values, not retail. */
+enum { KK_DRILLRIG_OIL = 20000, KK_DRILLRIG_RATE = 10 };
 void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx);
 bool KK_Research(mobj_t *target);
 int KK_NextTechLevel(const mobj_t *actor);

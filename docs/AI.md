@@ -34,7 +34,7 @@ builds ladders. Dark Colony keeps its own hooks (custom purchase queue).
 |---|---|---|---|
 | Dark Colony | all (no `develop` hook, so RESEARCH is inert) | race ladder, AI vs AI+ income | skirmish slots only |
 | Dark Reign | economy, production, defense, attack | one table of `{Freedom Guard id, Imperium id, count}`; faction read from the owner's crews/HQs | Imperium previously had no AI at all; applies in campaign missions too |
-| KKnD | all, including research | one table of `{Survivor id, Mutant id, count}` (ids do not pair by parity past row 43); faction read from the owner's units | research hook only fires for products with a tech level, none in `products.inc` today |
+| KKnD | all, including research | one table of `{Survivor id, Mutant id, count}` (ids do not pair by parity past row 43); faction read from the owner's units | a Drill Rig goal buys a Mobile Derrick when there is none to deploy (`kk_ai_owned` / `kk_ai_purchase`); research hook only fires for products with a tech level, none in `products.inc` today |
 | 7th Legion | economy, production, defense, attack | single ladder off the Mobile Base | |
 
 Scheduling mirrors DC.EXE: an owner thinks once per `AI_THINK_INTERVAL_TICKS`
@@ -139,9 +139,18 @@ Engine changes made while porting them, all shared by Dark Colony:
 
 Findings and gaps:
 
-- **KKnD has no economy yet.** The map loader creates no resource vents (the
-  mission test reports `0 vents`), so oil tankers have nowhere to go. The AI
-  spends the starting oil on its ladder; income waits on the loader.
+- **KKnD oil loop.** The level files carry no oil patches (the `CPLC` unit
+  list has none and `BOXD`/`TRPS` are undecoded), so deposits are the drill
+  rigs themselves: a structure with `MF_RESOURCE_SOURCE` and a `deposit`
+  gets a resource vent from `P_SyncDepositStructures` (every `P_Ticker`),
+  bound through `resourcevent_t.source_id`, open only to the owner's allies
+  (`P_VentOpenTo`) and closed when the rig dies. Tankers unload at the power
+  station (`MF_RESOURCE_BASE`). The Mobile Derrick deploys through the
+  "Drill Rig" product (`products.inc` 55/56): after its build time the KKnD
+  `G_ModelStartProductionRelease` turns the derrick into the rig in place, so
+  a rig sits wherever the derrick was driven. Rig oil and rate are gameplay
+  values in `kknd.h`, not retail. `tests/kknd/test_ai.c` runs the loop in real
+  ticks and checks both computer players' oil grows while the human's does not.
 - KKnD's first mission gives the enemy loose units and no buildings, so its AI
   has nothing to produce from and no structure to anchor waves on; it does not
   invent a base. `tests/kknd/test_ai.c` exercises the ladder with real bases for
@@ -156,6 +165,11 @@ Findings and gaps:
   retail AI; their executables were not disassembled.
 - The per-faction ladders use fixed counts. No scouting, retreat, expansion or
   aircraft anywhere.
+
+## Review notes
+
+Structure findings, the AI+ evidence, the KKnD oil loop design and
+environment caveats are in [AI_REVIEW_2026-09.md](AI_REVIEW_2026-09.md).
 
 ## Tests (added with the port)
 

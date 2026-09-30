@@ -142,6 +142,7 @@ static void separate_units(const level_t *map) {
 
 void P_Ticker(void) {
     P_RunThinkers();
+    P_SyncDepositStructures(&level);
 #ifndef RTS_GAME_DARK_COLONY
     separate_units(&level);
 #endif

@@ -56,3 +56,6 @@ KK_PRODUCT(51, 1, 0, 1, MT_SURV_MISSILE_BATTERY, MT_SURV_OUTPOST,        1500,  
 KK_PRODUCT(52, 2, 0, 1, MT_MUTE_GRAPESHOT_TOWER, MT_MUTE_CLANHALL,       1500,  750, 0, 0, "Grapeshot Tower")
 KK_PRODUCT(53, 1, 0, 1, MT_SURV_CANNON_TOWER,    MT_SURV_OUTPOST,        2500, 1125, 0, 0, "Cannon Tower")
 KK_PRODUCT(54, 2, 0, 1, MT_MUTE_ROTARY_CANNON,   MT_MUTE_CLANHALL,       2500, 1125, 0, 0, "Rotary Cannon")
+/* Deploying a mobile derrick: the rig replaces the derrick where it stands. */
+KK_PRODUCT(55, 1, 0, 1, MT_SURV_DRILLRIG,        MT_SURV_MOBILE_DERRICK,    0,   75, 0, 0, "Drill Rig")
+KK_PRODUCT(56, 2, 0, 1, MT_MUTE_DRILLRIG,        MT_MUTE_MOBILE_DERRICK,    0,   75, 0, 0, "Drill Rig")

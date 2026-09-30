@@ -710,6 +710,7 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
             (MF_MOBILE | MF_HARVESTER)) {
             continue;
         }
+        if (!P_VentOpenTo(map, vent, unit)) continue;
         unit->core.momentum = fixed3_zero();
 
 #ifdef RTS_GAME_DARK_COLONY

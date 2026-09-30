@@ -42,6 +42,9 @@ typedef enum {
     MF_HEAL = 1u << 15,
     MF_REPAIR = 1u << 16,
     MF_NOAUTOTARGET = 1u << 17,
+    /* Structure that yields a resource deposit (KKnD drill rig): the engine
+     * keeps a resource vent on it that only its allies' harvesters use. */
+    MF_RESOURCE_SOURCE = 1u << 18,
 } mobjflag_t;
 
 enum {
@@ -99,6 +102,8 @@ typedef struct mobjtype_s {
     missiledef_t missile;
     blastdef_t blast;
     struct { int state; uint16_t type; } deploy;
+    /* MF_RESOURCE_SOURCE structures: the deposit the engine opens on them. */
+    struct { int amount; int rate; int resource_type; } deposit;
     struct {
         int state_id;
         int unload_state_id;
@@ -275,6 +280,15 @@ static inline bool P_AreAllegiancesAllied(uint8_t a, uint8_t b) {
 }
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b);
+/* Live mobj with this id, or NULL. */
+mobj_t *P_MobjById(uint32_t id);
+/* Whether `unit` may harvest `vent`: it is active and either a terrain vent
+ * or one whose source structure is alive and allied with the unit. */
+bool P_VentOpenTo(const struct level_s *map, const struct resourcevent_s *vent,
+                  const mobj_t *unit);
+/* Opens a vent on every living MF_RESOURCE_SOURCE structure (reusing closed
+ * slots) and closes the vents of dead ones. Runs every tick. */
+void P_SyncDepositStructures(struct level_s *map);
 
 extern thinker_t thinkercap;
 extern int leveltime;

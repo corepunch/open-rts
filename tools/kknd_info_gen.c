@@ -224,14 +224,12 @@ static void classify_unit(unit_t *u) {
     u->is_mobile    = (u->speed > 0);
     u->is_combat    = (u->i_dmg > 0);
     u->is_flyer     = (strstr(n, "BOMBER") || strstr(n, "WASP")) ? 1 : 0;
-    u->is_harvester = (strstr(n, "TANKER") || strstr(n, "DERRICK")) ? 1 : 0;
+    u->is_harvester = strstr(n, "TANKER") ? 1 : 0; /* Derricks deploy into rigs. */
     u->is_building  = (!u->is_mobile) ? 1 : 0;
 
     /* Special cases */
     if (strstr(n, "MOBILE_BASE") || strstr(n, "OUTPOST") || strstr(n, "CLANHALL_WAGON"))
         u->is_harvester = 0;
-    if (strstr(n, "DRILLRIG"))
-        u->is_harvester = 0; /* drill rig is MF_RESOURCE_BASE, not harvester */
 }
 
 /* Parse UNITS.CFG, populating g_units. */
@@ -404,8 +402,9 @@ static void unit_flags(const unit_t *u, char *out, size_t n) {
     if (u->is_combat && u->is_building)  strcat(buf, "MF_ATTACK|");
     if (u->is_harvester)  strcat(buf, "MF_HARVESTER|");
     if (u->is_flyer)      strcat(buf, "MF_FLY|");
-    /* Drill rigs are resource bases. */
-    if (strstr(u->name, "DRILLRIG")) strcat(buf, "MF_RESOURCE_BASE|");
+    /* Tankers load oil at drill rigs and unload it at power plants. */
+    if (strstr(u->name, "DRILLRIG"))   strcat(buf, "MF_RESOURCE_SOURCE|");
+    if (strstr(u->name, "POWERPLANT")) strcat(buf, "MF_RESOURCE_BASE|");
     /* Trim trailing pipe. */
     size_t len = strlen(buf);
     if (len > 0 && buf[len - 1] == '|') buf[len - 1] = 0;

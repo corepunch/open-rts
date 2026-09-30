@@ -17,6 +17,73 @@ bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
         (level.sight.allies[a->team] & (UINT32_C(0x40000000) >> b->team)));
 }
 
+mobj_t *P_MobjById(uint32_t id) {
+    if (!id || !thinkercap.next) return NULL;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *u = (mobj_t *)th;
+        if (th->function == P_MobjThinker && u->id == id && !u->remove && u->hp > 0) return u;
+    }
+    return NULL;
+}
+
+bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *unit) {
+    (void)map;
+    if (!vent || !vent->active || vent->amount <= 0) return false;
+    if (!vent->source_id) return true;
+    const mobj_t *source = P_MobjById(vent->source_id);
+    return source && unit && P_IsAlly(source, unit);
+}
+
+/* A deposit structure's vent covers a 3x3 footprint centred on it so that a
+ * harvester counts as docked once it touches the building. */
+static void open_deposit_vent(resourcevent_t *vent, const mobj_t *source) {
+    fvec2_t at = fixed3_xy_to_fvec2(source->core.position);
+    *vent = (resourcevent_t){
+        .cell = { (int)floorf(at.x) - 1, (int)floorf(at.y) - 1 },
+        .attachment = at,
+        .footprint = { 3, 3 },
+        .amount = source->info->deposit.amount,
+        .rate = source->info->deposit.rate,
+        .active = true,
+        .resource_type = source->info->deposit.resource_type,
+        .source_id = source->id,
+    };
+}
+
+void P_SyncDepositStructures(level_t *map) {
+    if (!map || !thinkercap.next) return;
+    /* Close vents whose structure is gone. Slots are never removed because
+     * harvesters hold vent indices; a closed slot is reused below. */
+    for (int v = 0; v < map->resource_vent_count; ++v) {
+        resourcevent_t *vent = &map->resource_vents[v];
+        if (vent->source_id && !P_MobjById(vent->source_id)) {
+            vent->active = false;
+            vent->amount = 0;
+        }
+    }
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        mobj_t *u = (mobj_t *)th;
+        if (th->function != P_MobjThinker || u->remove || u->hp <= 0 ||
+            !(u->traits & MF_RESOURCE_SOURCE) || !u->info ||
+            u->info->deposit.amount <= 0 || u->info->deposit.rate <= 0) continue;
+        int slot = -1, free_slot = -1;
+        for (int v = 0; v < map->resource_vent_count && slot < 0; ++v) {
+            const resourcevent_t *vent = &map->resource_vents[v];
+            if (vent->source_id == u->id) slot = v;
+            else if (free_slot < 0 && vent->source_id && !vent->active) free_slot = v;
+        }
+        if (slot >= 0) continue;
+        if (free_slot < 0) {
+            resourcevent_t *vents = realloc(map->resource_vents,
+                (size_t)(map->resource_vent_count + 1) * sizeof(*vents));
+            if (!vents) return;
+            map->resource_vents = vents;
+            free_slot = map->resource_vent_count++;
+        }
+        open_deposit_vent(&map->resource_vents[free_slot], u);
+    }
+}
+
 enum {
     RTS_HARVEST_INTERVAL_MS = 1000,
     RTS_TURN_STEP_MS = 75,
@@ -930,7 +997,8 @@ static bool update_unit_harvest(level_t *map,
             if (animated_transfer) P_SetMobjState(unit, unit->info->harvest.unload_state_id);
             return true;
         }
-        if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
+        if (!vent->active || vent->rate <= 0 || vent->amount <= 0 ||
+            !P_VentOpenTo(map, vent, unit)) {
             unit->harvest.target = -1;
             unit->harvest.timer_ms = 0;
             unit->harvest.phase = HARVEST_PHASE_NONE;
@@ -991,7 +1059,8 @@ static bool update_unit_harvest(level_t *map,
         unit->harvest.phase = HARVEST_PHASE_TURNING;
         return true;
     }
-    if (!vent->active || vent->rate <= 0 || vent->amount <= 0) {
+    if (!vent->active || vent->rate <= 0 || vent->amount <= 0 ||
+        !P_VentOpenTo(map, vent, unit)) {
         if (mobj_harvest_capacity(unit) > 0 && unit->harvest.cargo > 0 &&
             send_harvester_home(map, unit))
             return false;

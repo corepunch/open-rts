@@ -5,6 +5,7 @@
 #include "info.h"
 #include "kknd.h"
 #include "p_ai.h"
+#include "p_local.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -130,11 +131,44 @@ int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     return 0;
 }
 
+static bool kk_is_drillrig(uint16_t type) {
+    return type == MT_SURV_DRILLRIG || type == MT_MUTE_DRILLRIG;
+}
+
+static bool kk_is_derrick(uint16_t type) {
+    return type == MT_SURV_MOBILE_DERRICK || type == MT_MUTE_MOBILE_DERRICK;
+}
+
+static const mobjtype_t *kk_actor_type(uint16_t type) {
+    for (int i = 0; i < num_actor_types; ++i)
+        if (actor_types[i].id == type) return &actor_types[i];
+    return NULL;
+}
+
+/* The Drill Rig product is the mobile derrick deploying: once its build time
+ * has run, the derrick becomes the rig where it stands (like A_Deploy) instead
+ * of a rig spawning beside it. Returning true tells the ticker the release
+ * has been handled. */
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
                                    const StaticProductDefinition *product,
                                    uint16_t actor_id) {
-    (void)model; (void)producer; (void)product; (void)actor_id;
-    return false;
+    (void)model; (void)product;
+    if (!producer || !kk_is_derrick(producer->type_id) || !kk_is_drillrig(actor_id)) return false;
+    const mobjtype_t *rig = kk_actor_type(actor_id);
+    if (!rig) return false;
+    P_FreeMobjProduction(producer);
+    P_ClearMove(producer);
+    producer->movement.order_id = 0;
+    producer->attack.target = NULL;
+    producer->core.momentum = fixed3_zero();
+    producer->core.sprite_name[0] = '\0';
+    producer->speed = 0.0f;
+    producer->max_hp = rig->max_hp;
+    producer->hp = rig->max_hp;
+    producer->radius = 1.2f;
+    P_ApplyActorTypeDefaults(producer, rig);
+    P_SetMobjState(producer, gameinfo->mobjinfo[actor_id].spawnstate);
+    return true;
 }
 
 bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *producer,
@@ -190,14 +224,18 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-/* One ladder for both factions: {Survivor id, Mutant id, count}. */
+/* One ladder for both factions: {Survivor id, Mutant id, count}. Income needs
+ * the whole oil loop: a power station to unload at, a drill rig (bought as a
+ * mobile derrick that deploys, see kk_ai_owned) and tankers. */
 static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {
     { 40, 41, 1 },  /* Outpost / Clan hall, unpacked from the mobile outpost */
     { 42, 43, 1 },  /* Machine shop / Blacksmith */
+    { 38, 39, 1 },  /* Power station */
+    { 55, 56, 1 },  /* Drill rig */
     { 32, 33, 1 },  /* Oil tanker */
     { 0,  1,  3 },  /* Rifleman / Berserker */
-    { 47, 48, 1 },  /* Research lab / Alchemy hall */
     { 32, 33, 2 },
+    { 47, 48, 1 },  /* Research lab / Alchemy hall */
     { 16, 17, 2 },  /* Dirt bike / Dire wolf */
     { 12, 13, 2 },  /* RPG launcher / Bazooka */
     { 49, 50, 1 },  /* Guard tower / Machinegun nest */
@@ -207,6 +245,8 @@ static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {
     { 14, 15, 2 },  /* Sniper / Crazy Harry */
     { 24, 25, 2 },  /* Anaconda / War mastodon */
     { 51, 52, 1 },  /* Missile battery / Grapeshot tower */
+    { 55, 56, 2 },
+    { 32, 33, 4 },
     { 28, 29, 2 },  /* Autocannon / Missile crab */
     { 0,  1,  10 },
     { 24, 25, 4 },
@@ -254,7 +294,39 @@ static mobj_t *kk_maker_lacking_tech(int owner, const StaticProductDefinition *p
     return NULL;
 }
 
+/* The derrick that deploys into a rig of `ui_id`, or 0. */
+static int kk_derrick_for_rig(int ui_id) {
+    const StaticProductDefinition *rig = G_ModelProductByUIId(NULL, ui_id);
+    if (!rig || !kk_is_drillrig((uint16_t)rig->product_type)) return 0;
+    for (int i = 0; i < product_count(); ++i)
+        if (KKND_PRODUCTS[i].product_type == rig->makers[0]) return KKND_PRODUCTS[i].ui_id;
+    return 0;
+}
+
+static int kk_queued(int owner, uint16_t actor_type) {
+    int n = 0;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        const mobj_t *u = (mobj_t *)th;
+        if (th->function == P_MobjThinker && u->owner == owner && !u->remove && u->hp > 0 &&
+            u->production && u->production->actor_id == actor_type) n += u->production->queue_count;
+    }
+    return n;
+}
+
+/* A rig goal counts rigs (alive or deploying) plus derricks still in the
+ * shop's queue. An idle derrick does not count, so the goal goes on to order
+ * its deployment. */
+static int kk_ai_owned(int owner, int ui_id) {
+    int derrick = kk_derrick_for_rig(ui_id);
+    const StaticProductDefinition *product = derrick ? G_ModelProductByUIId(NULL, derrick) : NULL;
+    return G_AiCatalogOwned(owner, ui_id) +
+           (product ? kk_queued(owner, (uint16_t)product->product_type) : 0);
+}
+
 static int kk_ai_can_purchase(const level_t *map, int owner, int ui_id) {
+    int derrick = kk_derrick_for_rig(ui_id);
+    if (derrick && G_AiCatalogCanPurchase(map, owner, ui_id) == AI_BUY_BLOCKED)
+        return G_AiCatalogCanPurchase(map, owner, derrick);
     int status = G_AiCatalogCanPurchase(map, owner, ui_id);
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui_id);
     if (status == AI_BUY_BLOCKED && product && ui_id != KKND_RESEARCH &&
@@ -273,6 +345,13 @@ static bool kk_ai_develop(level_t *map, int owner, int ui_id) {
         if (th->function == P_MobjThinker && ((mobj_t *)th)->research.target == maker->id)
             return true; /* Already under way: keep waiting. */
     return KK_Research(maker);
+}
+
+static bool kk_ai_purchase(level_t *map, int owner, int ui_id) {
+    int derrick = kk_derrick_for_rig(ui_id);
+    if (derrick && G_AiCatalogCanPurchase(map, owner, ui_id) == AI_BUY_BLOCKED)
+        return G_AiCatalogPurchase(map, owner, derrick);
+    return G_AiCatalogPurchase(map, owner, ui_id);
 }
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
@@ -297,9 +376,9 @@ static const AiGameInterface kk_ai_interface = {
     .features = AI_FEATURE_ALL,
     .player_level = P_AiLevelNonHuman,
     .plan = kk_ai_plan,
-    .owned = G_AiCatalogOwned,
+    .owned = kk_ai_owned,
     .can_purchase = kk_ai_can_purchase,
-    .purchase = G_AiCatalogPurchase,
+    .purchase = kk_ai_purchase,
     .develop = kk_ai_develop,
     .is_anchor = G_AiIsStructure,
 };

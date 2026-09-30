@@ -110,6 +110,10 @@ typedef struct resourcevent_s {
     int rate;
     bool active;
     int resource_type; /* 0-based index into player_resources[][resource_type] */
+    /* Structure that yields this deposit (mobj id), or 0 for a terrain vent.
+       Only the structure's allies may harvest it; it closes when the
+       structure dies. Kept by P_SyncDepositStructures. */
+    uint32_t source_id;
 } resourcevent_t;
 
 typedef struct level_s {
