@@ -6,6 +6,8 @@ static const angle_t tangent_to_angle[SLOPE_RANGE + 1] = {
 #include "p_tantoangle.inc"
 };
 
+/* Doom's SlopeDiv: numerator << 3 must not overflow, so callers scale the
+ * larger component to 2^24 rather than a full fixed_t range. */
 static unsigned slope_div(unsigned numerator, unsigned denominator) {
     if (denominator < 512) return SLOPE_RANGE;
     unsigned result = (numerator << 3) / (denominator >> 8);
@@ -16,7 +18,7 @@ angle_t angle_from_screen_vector(float dx, float dy) {
     if (dx * dx + dy * dy < 1e-6f) return 0;
 
     double largest = fmax(fabs((double)dx), fabs((double)dy));
-    double scale = largest > 0.0 ? 1073741824.0 / largest : 0.0;
+    double scale = largest > 0.0 ? 16777216.0 / largest : 0.0;
     int32_t x = (int32_t)((double)dx * scale);
     int32_t y = (int32_t)(-(double)dy * scale);
 

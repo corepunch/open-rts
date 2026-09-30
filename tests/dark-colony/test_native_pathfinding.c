@@ -78,6 +78,13 @@ static mobj_t *unit_at(fvec2_t position, bool flying) {
         .harvest={.target=-1}});
 }
 
+static angle_t heading_of(fixed3_t delta) {
+    fvec2_t d = fixed3_xy_to_fvec2(delta);
+    double turns = atan2(d.y, d.x) / (2.0 * M_PI); /* Y-up map: north is ANG90. */
+    if (turns < 0.0) turns += 1.0;
+    return (angle_t)(uint64_t)llround(turns * 4294967296.0);
+}
+
 static void run_to_goal(mobj_t *unit, int tics) {
     int translated = 0;
     for (int i=0;i<tics && !unit->movement.order_arrived;++i) {
@@ -85,6 +92,9 @@ static void run_to_goal(mobj_t *unit, int tics) {
         P_Ticker();
         fixed3_t delta = fixed3_planar_displacement(before,unit->core.position);
         assert(!delta.x || !delta.y || abs(delta.x)==abs(delta.y));
+        /* The unit faces its step; diagonals are 45 degrees, not ANG90 - 1. */
+        if (delta.x || delta.y)
+            assert(angle_distance(unit->core.angle, heading_of(delta)) <= ANG45 / 64u);
         assert(unit->core.position.z==before.z);
         translated += delta.x || delta.y;
     }

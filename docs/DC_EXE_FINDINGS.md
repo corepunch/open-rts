@@ -5852,6 +5852,25 @@ can pass `(49,27)` outside it. The test now checks eight-direction deltas, live
 noncombat guards, valid map cells and completion of a full patrol loop.
 All temporary `OPEN_RTS_DEBUG_PATH` logging was removed after diagnosis.
 
+**Facing regression (Bottlenecks, J2PLAY05).** Troopers ordered across the
+retail multiplayer map rotated in place for most of every diagonal step and
+took minutes to cross. The search was not at fault: the unconstrained shortest
+eight-connected walk from the spawn block to the goal is 113 cells and the PTH
+region corridor allows a 120-cell route, so the eastern loop through region
+`(75,80)` is the map's topology. The defect was in shared
+`angle_from_screen_vector`: the larger component was scaled to 2^30 and Doom's
+`SlopeDiv` then shifted the numerator left by three, overflowing for every
+ratio in `[0.5, 1)`. Exact diagonals returned `ANG90 - 1` and sub-cell rounding
+flipped the desired heading between ~63 and ~90 degrees each tic, so
+turn-in-place kept interrupting translation. Flow-field movement had hidden the
+band error behind sixteen-way sprite quantization; eight-direction routes sit
+exactly on the discontinuity. The scale is now 2^24. `tests/shared/test_facing.c`
+checks every tenth of a degree against `atan2` for all games,
+`test_native_pathfinding` asserts the heading of every eight-direction step, and
+`tests/dark-colony/test_bottleneck_movement.c` moves twelve troopers across the
+retail map asserting arrival, per-step headings, unique claimed cells, bounded
+stalls and bounded travel.
+
 ### Reproduction and behavioral vectors
 
 ```sh
