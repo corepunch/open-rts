@@ -751,10 +751,6 @@ static bool move_unit_if_walkable(mobj_t *unit, fvec2_t displacement) {
     fixed3_t momentum = fixed3_planar_delta(displacement);
     fixed3_t candidate = fixed3_add_planar(unit->core.position, momentum);
     if (P_TryMove(unit, candidate)) return true;
-#ifdef RTS_GAME_DARK_COLONY
-    /* A DC route step has one of eight directions; do not slide off it. */
-    return false;
-#endif
     momentum.y = 0;
     candidate = fixed3_add_planar(unit->core.position, momentum);
     if (momentum.x != 0 && P_TryMove(unit, candidate)) return true;
@@ -891,20 +887,27 @@ static void tick_missile(mobj_t *missile) {
 }
 
 bool P_HasMoveOrder(const mobj_t *unit) {
-#ifdef RTS_GAME_DARK_COLONY
-    return unit && unit->route.count && !unit->movement.order_arrived;
-#else
-    return unit && (unit->movement.flow_field ||
-                    ((unit->traits & MF_FLY) && unit->movement.order_id)) &&
-           !unit->movement.order_arrived;
-#endif
+    if (!unit || unit->movement.order_arrived) return false;
+    return unit->movement.path.count ||
+           ((unit->traits & MF_FLY) && unit->movement.order_id);
 }
 
-#ifndef RTS_GAME_DARK_COLONY
 static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
                                                      float tx, float ty, float dist_to_goal) {
     if (unit->movement.order_id == 0) return false;
     float radius = P_MobjRadius(unit);
+
+    /* A group settles as a blob: touching an arrived unit only ends the march once
+     * we are inside the blob's footprint, so arrivals cannot chain into a queue. */
+    int group = 1;
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *member = (mobj_t *)th;
+        group += member != unit && !member->remove && member->hp > 0 &&
+                 member->movement.order_id == unit->movement.order_id;
+    }
+    /* Discs pack at roughly 75% density, so the blob radius is radius * sqrt(n / 0.75). */
+    float footprint = 0.3f + radius * sqrtf((float)group / 0.75f);
+    if (dist_to_goal > footprint) return false;
 
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         const mobj_t *other = (mobj_t *)th;
@@ -925,14 +928,15 @@ static bool final_goal_reaches_arrived_order_cluster(const mobj_t *unit,
             dist_to_goal <= contact_dist) {
             return true;
         }
-        if (unit_dist2 <= contact_dist * contact_dist) {
+        /* Queue behind arrived units that are nearer the goal; never stop for one behind us. */
+        if (unit_dist2 <= contact_dist * contact_dist &&
+            goal_dist2 <= dist_to_goal * dist_to_goal) {
             return true;
         }
     }
     return false;
 }
 
-#endif
 
 static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
     float radius = P_MobjRadius(unit) + 0.55f;
@@ -1187,64 +1191,33 @@ static void tick_actor(mobj_t *u) {
     }
     fvec2_t move_target = u->movement.goal;
     bool final = true;
-#ifdef RTS_GAME_DARK_COLONY
-    bool has_target = !moving || DC_MoveTarget(map, u, &move_target, &final);
-    if (moving && !has_target) {
-#else
-    if (moving && !(u->traits & MF_FLY) && !P_FlowFieldTarget(
-            map, u->movement.flow_field,
-            fixed3_xy_to_fvec2(u->core.position), u->movement.goal,
-            P_MobjRadius(u), &move_target, &final)) {
-#endif
+    if (moving && !(u->traits & MF_FLY) && !P_SteerTarget(map, u, &move_target, &final)) {
         P_ClearMove(u);
         u->movement.order_arrived = false;
         moving = false;
     }
-    /* Turn-in-place before moving. */
-#ifdef RTS_GAME_DARK_COLONY
     if (moving) {
-        /* Split an off-center endpoint into diagonal then axial segments.
-         * Use fixed deltas so rounding cannot turn a 45-degree step into
-         * arbitrary-angle travel, including aircraft and harvesting bays. */
-        fixed3_t end = fixed3_with_xy(u->core.position, move_target);
-        fixed3_t delta = fixed3_planar_displacement(u->core.position, end);
-        fixed_t ax = abs(delta.x), ay = abs(delta.y);
-        if (!ax && !ay && !final) moving = false;
-        if (ax && ay && ax != ay) {
-            fixed_t distance = ax < ay ? ax : ay;
-            fixed3_t step = {delta.x < 0 ? -distance : distance,
-                             delta.y < 0 ? -distance : distance, 0};
-            move_target = fixed3_xy_to_fvec2(fixed3_add_planar(u->core.position, step));
-            final = false;
-        }
-    }
-#endif
-    if (moving) {
-        fvec2_t delta = fvec2_sub(
-            move_target, fixed3_xy_to_fvec2(u->core.position));
-        float dist = sqrtf(fvec2_length_squared(delta));
-        if (dist >= 0.001f) {
+        /* Small bends are taken while moving; large ones turn in place first. */
+        fvec2_t delta = fvec2_sub(move_target, fixed3_xy_to_fvec2(u->core.position));
+        if (fvec2_length_squared(delta) >= 0.001f * 0.001f) {
             angle_t desired = angle_from_map_vector(map, delta.x, delta.y);
-            if (!turn_unit_toward(u, desired, dt_ms)) moving = false;
+            if (angle_distance(desired, u->core.angle) > ANG45 / 2u &&
+                !turn_unit_toward(u, desired, dt_ms)) moving = false;
         }
     }
     if (moving) {
-        fvec2_t delta = fvec2_sub(
-            move_target, fixed3_xy_to_fvec2(u->core.position));
+        fvec2_t delta = fvec2_sub(move_target, fixed3_xy_to_fvec2(u->core.position));
         float dist = sqrtf(fvec2_length_squared(delta));
-#ifndef RTS_GAME_DARK_COLONY
         if (final && !(u->traits & MF_FLY) && final_goal_reaches_arrived_order_cluster(
                 u, move_target.x, move_target.y, dist)) {
             u->movement.goal = fixed3_xy_to_fvec2(u->core.position);
             P_ClearMove(u);
             u->movement.order_arrived = true;
             moving = false;
-        } else
-#endif
-        {
-            if (dist >= 0.001f)
-                u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
+        } else {
             float step = u->speed * dt;
+            bool flying = u->traits & MF_FLY;
+            if (dist >= 0.001f) u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
             if (dist <= step || dist < 0.001f) {
                 if (move_unit_if_walkable(u, delta)) {
                     if (final) {
@@ -1252,14 +1225,22 @@ static void tick_actor(mobj_t *u) {
                         u->movement.order_arrived = true;
                         moving = false;
                     }
-                } else {
+                } else if (flying || !P_SteerProgress(map, u, false)) {
                     P_ClearMove(u);
                     u->movement.order_arrived = false;
                     moving = false;
                 }
             } else {
-                fvec2_t displacement = fvec2_scale(delta, step / dist);
-                if (!move_unit_if_walkable(u, displacement)) {
+                fvec2_t direction = fvec2_scale(delta, 1.0f / dist);
+                if (!flying) direction = P_SteerAvoid(u, direction);
+                fixed3_t before = u->core.position;
+                bool moved = move_unit_if_walkable(u, fvec2_scale(direction, step));
+                if (moved && !flying) {
+                    fixed3_t travelled = fixed3_planar_displacement(before, u->core.position);
+                    float made = sqrtf(fvec2_length_squared(fixed3_xy_to_fvec2(travelled)));
+                    moved = made > step * 0.1f; /* Sliding along a wall is not progress. */
+                }
+                if (flying ? !moved : !P_SteerProgress(map, u, moved)) {
                     P_ClearMove(u);
                     u->movement.order_arrived = false;
                     moving = false;

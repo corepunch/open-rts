@@ -6,9 +6,8 @@
 
 void P_FreeLevel(level_t *map) {
     if (map == &level) { P_FreeThinkers(); paused = false; }
-    P_FreeFlowFields(map);
+    P_NavFree(map);
 #ifdef RTS_GAME_DARK_COLONY
-    DC_FreePaths(map);
     DC_FreeWeapons(map);
 #endif
     free(map->tile_ids);

@@ -175,13 +175,8 @@ void update_mission(level_t *map, mobj_t *const *units, int *unit_count,
 MissionState mission_get_state(const void *mission);
 
 
-bool DC_LoadPaths(level_t *map, const char *path);
-void DC_FreePaths(level_t *map);
-int DC_FindPath(const level_t *map, ivec2_t start, ivec2_t goal,
-                const mobj_t *mover, bool occupied, ivec2_t *route, int capacity);
-bool DC_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal);
-bool DC_MoveTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final);
-bool DC_CheckStep(const level_t *map, const mobj_t *unit, fvec2_t from, fvec2_t to);
+/* Cell occupancy queries for mines, healers and splash damage. Movement and
+ * pathfinding are shared by every game (play/p_nav.c, play/p_steer.c). */
 ivec2_t DC_OccupiedPosition(const mobj_t *unit);
 mobj_t *DC_Occupant(ivec2_t cell, bool airborne, bool buried);
 

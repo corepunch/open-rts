@@ -88,63 +88,10 @@ void P_FreeMobjList(mobjlist_t *list) {
     *list = (mobjlist_t){0};
 }
 
-#ifndef RTS_GAME_DARK_COLONY
-static void separate_units(const level_t *map) {
-    for (int iter = 0; iter < 3; ++iter) {
-        for (thinker_t *tha = thinkercap.next; tha != &thinkercap; tha = tha->next) {
-            mobj_t *a = (mobj_t *)tha;
-            if (a->remove || a->hp <= 0 || (a->traits & (MF_MOBILE | MF_FLY)) != MF_MOBILE) continue;
-            for (thinker_t *thb = tha->next; thb != &thinkercap; thb = thb->next) {
-                mobj_t *b = (mobj_t *)thb;
-                if (b->remove || b->hp <= 0 || (b->traits & (MF_MOBILE | MF_FLY)) != MF_MOBILE) continue;
-                float min_dist = P_MobjRadius(a) + P_MobjRadius(b);
-                fvec2_t a_position = fixed3_xy_to_fvec2(a->core.position);
-                fvec2_t b_position = fixed3_xy_to_fvec2(b->core.position);
-                fvec2_t delta = fvec2_sub(b_position, a_position);
-                float dist2 = fvec2_length_squared(delta);
-                if (dist2 >= min_dist * min_dist) continue;
-                float dist = sqrtf(dist2);
-                if (dist < 0.0001f) {
-                    float angle = (float)((a->id * 37 + b->id * 17) % 360) * 0.01745329252f;
-                    delta = (fvec2_t){ cosf(angle), sinf(angle) };
-                    dist = 1.0f;
-                }
-                float push = (min_dist - dist) * 0.5f;
-                fvec2_t separation = fvec2_scale(delta, push / dist);
-                bool docked_a = P_HarvesterDocked(a), docked_b = P_HarvesterDocked(b);
-                if (docked_a && docked_b) continue;
-                if (docked_a || docked_b) separation = fvec2_scale(separation, 2.0f);
-                fvec2_t separated_a = fvec2_sub(a_position, separation);
-                fvec2_t separated_b = fvec2_add(b_position, separation);
-                if (!docked_a && P_CheckPosition(map, a, separated_a.x, separated_a.y)) {
-                    fixed3_t before = a->core.position;
-                    a->core.position = fixed3_with_xy(a->core.position, separated_a);
-                    P_ClampToLevel(map, a);
-                    a->core.momentum = fixed3_add(
-                        a->core.momentum,
-                        fixed3_planar_displacement(before, a->core.position));
-                }
-                if (!docked_b && P_CheckPosition(map, b, separated_b.x, separated_b.y)) {
-                    fixed3_t before = b->core.position;
-                    b->core.position = fixed3_with_xy(b->core.position, separated_b);
-                    P_ClampToLevel(map, b);
-                    b->core.momentum = fixed3_add(
-                        b->core.momentum,
-                        fixed3_planar_displacement(before, b->core.position));
-                }
-            }
-        }
-    }
-}
-
-#endif
-
 void P_Ticker(void) {
     P_RunThinkers();
     P_SyncDepositStructures(&level);
-#ifndef RTS_GAME_DARK_COLONY
-    separate_units(&level);
-#endif
+    P_SeparateUnits(&level);
     /* Advance the native environment clock on cumulative 66 ms boundaries,
      * independently of the engine's 30 Hz thinker clock. */
     int64_t before = (int64_t)leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);

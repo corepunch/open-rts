@@ -3,26 +3,7 @@
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
-
-
-typedef struct {
-    int g;
-    int f;
-    int parent;
-    uint8_t state;
-} AStarNode;
-
-typedef struct {
-    int cost;
-    uint8_t closed;
-    uint8_t queued;
-} FlowCell;
-
-struct flowfield_s {
-    cell_t goal;
-    FlowCell *cells;
-    flowfield_t *next;
-};
+#include "p_nav.h"
 
 static uint32_t next_move_order_id(void) {
     if (++level.next_move_order_id == 0) ++level.next_move_order_id;
@@ -84,6 +65,11 @@ static bool map_circle_walkable(const level_t *map, float gx, float gy, float ra
     return true;
 }
 
+bool P_MapCircleWalkable(const level_t *map, float gx, float gy, float radius,
+                         const fvec2_t *from) {
+    return map_circle_walkable(map, gx, gy, radius, from);
+}
+
 bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy) {
     return map_circle_walkable(map, gx, gy, P_MobjRadius(unit), NULL);
 }
@@ -91,14 +77,6 @@ bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy)
 bool P_TryMove(mobj_t *unit, fixed3_t position) {
     fvec2_t from = fixed3_xy_to_fvec2(unit->core.position);
     fvec2_t to = fixed3_xy_to_fvec2(position);
-#ifdef RTS_GAME_DARK_COLONY
-    if (unit->traits & MF_MOBILE) {
-        if (!DC_CheckStep(&level, unit, from, to)) return false;
-        unit->core.momentum = fixed3_planar_displacement(unit->core.position, position);
-        unit->core.position = position;
-        return true;
-    }
-#endif
     if (!(unit->traits & MF_FLY) &&
         !map_circle_walkable(&level, to.x, to.y, P_MobjRadius(unit), &from)) return false;
     if (!(unit->traits & MF_FLY)) {
@@ -149,111 +127,6 @@ void P_ClampToLevel(const level_t *map, mobj_t *unit) {
     if (position.x > max_x) position.x = max_x;
     if (position.y > max_y) position.y = max_y;
     unit->core.position = fixed3_with_xy(unit->core.position, position);
-}
-
-static int heuristic(cell_t a, cell_t b) {
-    int dx = abs(a.x - b.x);
-    int dy = abs(a.y - b.y);
-    return 10 * (dx + dy);
-}
-
-int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path) {
-#ifdef RTS_GAME_DARK_COLONY
-    if (!out_path || max_path <= 0 || !map || !L_Contains(map, start.x, start.y)) return 0;
-    if (ivec2_equal(start, goal)) { out_path[0] = start; return 1; }
-    int count = DC_FindPath(map, start, goal, NULL, false, out_path + 1, max_path - 1);
-    if (!count) return 0;
-    out_path[0] = start;
-    return count + 1;
-#endif
-    if (!L_IsWalkable(map, start.x, start.y) || !L_Contains(map, goal.x, goal.y) || max_path <= 0) return 0;
-    if (!L_IsWalkable(map, goal.x, goal.y)) {
-        const int radius = 8;
-        bool found = false;
-        cell_t best = goal;
-        int best_h = 1000000;
-        for (int dy = -radius; dy <= radius; ++dy) {
-            for (int dx = -radius; dx <= radius; ++dx) {
-                int x = goal.x + dx;
-                int y = goal.y + dy;
-                if (!L_IsWalkable(map, x, y)) continue;
-                int h = abs(dx) + abs(dy);
-                if (h < best_h) {
-                    best_h = h;
-                    best = (cell_t){ x, y };
-                    found = true;
-                }
-            }
-        }
-        if (!found) return 0;
-        goal = best;
-    }
-
-    int total = map->width * map->height;
-    AStarNode *nodes = calloc((size_t)total, sizeof(AStarNode));
-    int *open = malloc((size_t)total * sizeof(int));
-    if (!nodes || !open) {
-        free(nodes);
-        free(open);
-        return 0;
-    }
-    for (int i = 0; i < total; ++i) nodes[i].parent = -1;
-    int open_count = 0;
-    int start_idx = L_Index(map, start.x, start.y);
-    int goal_idx = L_Index(map, goal.x, goal.y);
-    nodes[start_idx].g = 0;
-    nodes[start_idx].f = heuristic(start, goal);
-    nodes[start_idx].state = 1;
-    open[open_count++] = start_idx;
-
-    const int dirs[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-    while (open_count > 0) {
-        int best_open = 0;
-        for (int i = 1; i < open_count; ++i) {
-            if (nodes[open[i]].f < nodes[open[best_open]].f) best_open = i;
-        }
-        int current = open[best_open];
-        open[best_open] = open[--open_count];
-        nodes[current].state = 2;
-        if (current == goal_idx) break;
-
-        int cx = current % map->width;
-        int cy = current / map->width;
-        for (int d = 0; d < 4; ++d) {
-            int nx = cx + dirs[d][0];
-            int ny = cy + dirs[d][1];
-            if (!L_IsWalkable(map, nx, ny)) continue;
-            int ni = L_Index(map, nx, ny);
-            if (nodes[ni].state == 2) continue;
-            int ng = nodes[current].g + 10;
-            if (nodes[ni].state != 1 || ng < nodes[ni].g) {
-                nodes[ni].parent = current;
-                nodes[ni].g = ng;
-                nodes[ni].f = ng + heuristic((cell_t){ nx, ny }, goal);
-                if (nodes[ni].state != 1) {
-                    nodes[ni].state = 1;
-                    open[open_count++] = ni;
-                }
-            }
-        }
-    }
-
-    int length = 0;
-    if (nodes[goal_idx].parent != -1 || goal_idx == start_idx) {
-        int cursor = goal_idx;
-        while (cursor != -1 && length < max_path) {
-            out_path[length++] = (cell_t){ cursor % map->width, cursor / map->width };
-            cursor = nodes[cursor].parent;
-        }
-        for (int i = 0; i < length / 2; ++i) {
-            cell_t tmp = out_path[i];
-            out_path[i] = out_path[length - 1 - i];
-            out_path[length - 1 - i] = tmp;
-        }
-    }
-    free(nodes);
-    free(open);
-    return length;
 }
 
 static bool find_nearest_walkable_cell(const level_t *map, cell_t wanted, int radius, cell_t *out) {
@@ -364,198 +237,25 @@ static bool find_nearest_unreserved_walkable_position(const level_t *map,
     return true;
 }
 
-static FlowCell *build_flow_field(const level_t *map, cell_t goal) {
-    if (!map || !L_IsWalkable(map, goal.x, goal.y)) return NULL;
-    int total = map->width * map->height;
-    FlowCell *field = malloc((size_t)total * sizeof(*field));
-    int *open = malloc((size_t)total * sizeof(*open));
-    if (!field || !open) {
-        free(field);
-        free(open);
-        return NULL;
-    }
-    for (int i = 0; i < total; ++i) {
-        field[i].cost = 1000000000;
-        field[i].closed = 0;
-        field[i].queued = 0;
-    }
-
-    int open_count = 0;
-    int goal_idx = L_Index(map, goal.x, goal.y);
-    field[goal_idx].cost = 0;
-    field[goal_idx].queued = 1;
-    open[open_count++] = goal_idx;
-
-    static const int dirs[8][3] = {
-        { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 },
-        { 1, 1, 14 }, { -1, 1, 14 }, { 1, -1, 14 }, { -1, -1, 14 },
-    };
-    while (open_count > 0) {
-        int best_open = 0;
-        for (int i = 1; i < open_count; ++i) {
-            if (field[open[i]].cost < field[open[best_open]].cost) best_open = i;
-        }
-        int current = open[best_open];
-        open[best_open] = open[--open_count];
-        field[current].queued = 0;
-        if (field[current].closed) continue;
-        field[current].closed = 1;
-
-        int cx = current % map->width;
-        int cy = current / map->width;
-        for (int d = 0; d < 8; ++d) {
-            int nx = cx + dirs[d][0];
-            int ny = cy + dirs[d][1];
-            if (!L_IsWalkable(map, nx, ny)) continue;
-            if (dirs[d][0] != 0 && dirs[d][1] != 0 &&
-                (!L_IsWalkable(map, cx + dirs[d][0], cy) ||
-                 !L_IsWalkable(map, cx, cy + dirs[d][1]))) {
-                continue;
-            }
-            int ni = L_Index(map, nx, ny);
-            int next_cost = field[current].cost + dirs[d][2];
-            if (next_cost >= field[ni].cost) continue;
-            field[ni].cost = next_cost;
-            if (!field[ni].queued && !field[ni].closed && open_count < total) {
-                field[ni].queued = 1;
-                open[open_count++] = ni;
-            }
-        }
-    }
-
-    free(open);
-    return field;
-}
-
-static const flowfield_t *flow_field_for_goal(const level_t *map, cell_t goal) {
-    if (!map) return NULL;
-    for (const flowfield_t *field = map->flow_fields; field; field = field->next) {
-        if (ivec2_equal(field->goal, goal)) return field;
-    }
-    flowfield_t *field = calloc(1, sizeof(*field));
-    if (!field) return NULL;
-    field->cells = build_flow_field(map, goal);
-    if (!field->cells) {
-        free(field);
-        return NULL;
-    }
-    field->goal = goal;
-    field->next = map->flow_fields;
-    ((level_t *)map)->flow_fields = field;
-    return field;
-}
-
-void P_FreeFlowFields(level_t *map) {
-    if (!map) return;
-    flowfield_t *field = map->flow_fields;
-    while (field) {
-        flowfield_t *next = field->next;
-        free(field->cells);
-        free(field);
-        field = next;
-    }
-    map->flow_fields = NULL;
-}
-
-static bool line_walkable(const level_t *map, cell_t a, cell_t b, float radius,
-                          const fvec2_t *from) {
-    if (!map) return true;
-    int dx = abs(b.x - a.x);
-    int dy = abs(b.y - a.y);
-    int steps = (dx > dy ? dx : dy) * 4;
-    fvec2_t start = from ? *from : fvec2_cell_center(a);
-    fvec2_t delta = fvec2_sub(fvec2_cell_center(b), start);
-    if (steps <= 0) return map_circle_walkable(map, start.x, start.y, radius, from);
-    for (int i = 0; i <= steps; ++i) {
-        float t = (float)i / (float)steps;
-        fvec2_t at = fvec2_add(start, fvec2_scale(delta, t));
-        if (!map_circle_walkable(map, at.x, at.y, radius, from)) return false;
-    }
+/* Plan a ground route; movement.goal becomes the resolved goal, which is
+ * the request or the nearest reachable spot when the request is unusable. */
+static bool assign_route(const level_t *map, mobj_t *unit, fvec2_t goal) {
+    navpath_t path;
+    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
+    if (!P_NavPlan(map, P_MobjRadius(unit), position, goal, &path)) return false;
+    unit->movement.path = path;
+    unit->movement.goal = path.goal;
+    unit->movement.stuck_tics = unit->movement.replans = 0;
+    unit->movement.order_arrived = false;
+    unit->core.momentum = fixed3_zero();
     return true;
 }
 
-bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
-                       fvec2_t position, fvec2_t goal, float radius,
-                       fvec2_t *target, bool *final) {
-    if (!map || !field || !field->cells || !target || !final) return false;
-    cell_t start = { (int)floorf(position.x), (int)floorf(position.y) };
-    if (!L_Contains(map, start.x, start.y)) return false;
-    int current = L_Index(map, start.x, start.y);
-    cell_t waypoint = start;
-    static const int dirs[8][2] = {
-        { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 },
-        { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 },
-    };
-    if (!L_IsWalkable(map, start.x, start.y)) {
-        int best_cost = 1000000000;
-        for (int d = 0; d < 8; ++d) {
-            ivec2_t next = ivec2_add(start, (ivec2_t){dirs[d][0], dirs[d][1]});
-            if (!L_IsWalkable(map, next.x, next.y)) continue;
-            int cost = field->cells[L_Index(map, next.x, next.y)].cost;
-            fvec2_t center = fvec2_cell_center(next);
-            if (cost < best_cost && map_circle_walkable(map, center.x, center.y, radius, NULL) &&
-                line_walkable(map, start, next, radius, &position)) {
-                best_cost = cost;
-                *target = center;
-            }
-        }
-        *final = false;
-        return best_cost < 1000000000;
-    }
-    if (field->cells[current].cost >= 1000000000) return false;
-    int guard = map->width * map->height;
-    while (field->cells[current].cost > 0 && guard-- > 0) {
-        int cx = current % map->width;
-        int cy = current / map->width;
-        int best = current;
-        int best_cost = field->cells[current].cost;
-        for (int d = 0; d < 8; ++d) {
-            int nx = cx + dirs[d][0];
-            int ny = cy + dirs[d][1];
-            if (!L_IsWalkable(map, nx, ny)) continue;
-            if (dirs[d][0] != 0 && dirs[d][1] != 0 &&
-                (!L_IsWalkable(map, cx + dirs[d][0], cy) ||
-                 !L_IsWalkable(map, cx, cy + dirs[d][1]))) {
-                continue;
-            }
-            int ni = L_Index(map, nx, ny);
-            if (field->cells[ni].cost < best_cost) {
-                best = ni;
-                best_cost = field->cells[ni].cost;
-            }
-        }
-        if (best == current) break;
-        cell_t candidate = { best % map->width, best / map->width };
-        if (!line_walkable(map, start, candidate, radius, NULL)) break;
-        current = best;
-        waypoint = candidate;
-    }
-    *final = field->cells[current].cost == 0;
-    *target = *final ? goal : fvec2_cell_center(waypoint);
-    return *final || !ivec2_equal(waypoint, start);
-}
-
-
-
 void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
                    fvec2_t goal_position) {
-#ifdef RTS_GAME_DARK_COLONY
-    uint32_t order = next_move_order_id();
-    goal_position = fvec2_cell_center(fvec2_cell(goal_position));
-    for (int i = 0; i < unit_count; ++i) {
-        mobj_t *unit = units[i];
-        if (P_MoveUnitTo(map, unit, goal_position)) {
-            unit->movement.order_id = order;
-            unit->harvest.target = -1;
-            unit->harvest.timer_ms = unit->harvest.phase = 0;
-        }
-    }
-    return;
-#endif
     int selected_count = 0;
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i]->hp <= 0) continue;
-        if ((units[i]->traits & MF_MOBILE) == 0) continue;
+        if (units[i]->hp <= 0 || (units[i]->traits & MF_MOBILE) == 0) continue;
         if (units[i]->traits & MF_FLY) {
             units[i]->harvest.target = -1;
             units[i]->harvest.timer_ms = 0;
@@ -569,94 +269,65 @@ void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
 
     cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
     if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return;
-    const flowfield_t *field = flow_field_for_goal(map, goal);
-    if (!field) return;
 
     int formation_columns = selected_count < 3 ? selected_count : 3;
     int formation_rows = (selected_count + formation_columns - 1) / formation_columns;
     int selected_index = 0;
     uint32_t order_id = next_move_order_id();
     for (int i = 0; i < unit_count; ++i) {
-        if (units[i]->hp <= 0) continue;
-        if ((units[i]->traits & MF_MOBILE) == 0) continue;
-        if (units[i]->traits & MF_FLY) continue;
-        units[i]->core.momentum = fixed3_zero();
-        units[i]->movement.order_id = order_id;
-        units[i]->movement.order_arrived = false;
-        units[i]->harvest.target = -1;
-        units[i]->harvest.timer_ms = 0;
-        units[i]->harvest.phase = 0;
-        fvec2_t position = fixed3_xy_to_fvec2(units[i]->core.position);
+        mobj_t *unit = units[i];
+        if (unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0 || (unit->traits & MF_FLY)) continue;
+        unit->core.momentum = fixed3_zero();
+        unit->movement.order_id = order_id;
+        unit->movement.order_arrived = false;
+        unit->harvest.target = -1;
+        unit->harvest.timer_ms = 0;
+        unit->harvest.phase = 0;
+        fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
         int row = selected_index / formation_columns;
         int row_start = row * formation_columns;
         int row_count = selected_count - row_start;
         if (row_count > formation_columns) row_count = formation_columns;
         int col = selected_index - row_start;
-        float spacing = P_MobjRadius(units[i]) * 2.1f;
+        float spacing = P_MobjRadius(unit) * 2.1f;
         float offset_x = ((float)col - ((float)row_count - 1.0f) * 0.5f) * spacing;
         float offset_y = ((float)row - ((float)formation_rows - 1.0f) * 0.5f) * spacing;
-        units[i]->movement.goal = fvec2_add(goal_position, (fvec2_t){ offset_x, offset_y });
-        if (!P_CheckPosition(map, units[i], units[i]->movement.goal.x, units[i]->movement.goal.y) ||
-            position_overlaps_reserved_goal(units, unit_count, i,
-                                            units[i]->movement.goal.x, units[i]->movement.goal.y,
-                                            P_MobjRadius(units[i]), order_id)) {
+        fvec2_t slot = fvec2_add(goal_position, (fvec2_t){ offset_x, offset_y });
+        if (!P_CheckPosition(map, unit, slot.x, slot.y) ||
+            position_overlaps_reserved_goal(units, unit_count, i, slot.x, slot.y,
+                                            P_MobjRadius(unit), order_id)) {
             fvec2_t adjusted = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
-            float adjusted_gx = adjusted.x;
-            float adjusted_gy = adjusted.y;
             if (!find_nearest_unreserved_walkable_position(map, units, unit_count, i, order_id,
-                                                           adjusted_gx, adjusted_gy,
-                                                           P_MobjRadius(units[i]), 8,
-                                                           &adjusted_gx, &adjusted_gy)) {
-                find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
-                                               P_MobjRadius(units[i]), 8,
-                                               &adjusted_gx, &adjusted_gy);
-            }
-            units[i]->movement.goal.x = adjusted_gx;
-            units[i]->movement.goal.y = adjusted_gy;
+                                                           adjusted.x, adjusted.y,
+                                                           P_MobjRadius(unit), 8,
+                                                           &adjusted.x, &adjusted.y))
+                find_nearest_walkable_position(map, adjusted.x, adjusted.y, P_MobjRadius(unit), 8,
+                                               &adjusted.x, &adjusted.y);
+            slot = adjusted;
         }
-        units[i]->movement.flow_field = field;
-        units[i]->movement.order_arrived =
-            fvec2_distance_squared(units[i]->movement.goal, position) <= 0.05f * 0.05f;
-        if (units[i]->movement.order_arrived) units[i]->movement.flow_field = NULL;
         selected_index++;
+        if (fvec2_distance_squared(slot, position) <= 0.05f * 0.05f) {
+            unit->movement.goal = slot;
+            P_ClearMove(unit);
+            unit->movement.order_arrived = true;
+        } else if (!assign_route(map, unit, slot)) {
+            P_ClearMove(unit);
+            unit->movement.order_id = 0;
+        }
     }
 }
 
 bool P_MoveUnitTo(const level_t *map, mobj_t *unit, fvec2_t goal_position) {
     if (!map || !unit || unit->hp <= 0 || (unit->traits & MF_MOBILE) == 0) return false;
     unit->core.momentum = fixed3_zero();
-#ifdef RTS_GAME_DARK_COLONY
-    return DC_MoveUnitTo(map, unit, goal_position);
-#endif
     if (unit->traits & MF_FLY) {
         unit->movement.goal = goal_position;
-        unit->movement.flow_field = NULL;
+        P_ClearMove(unit);
         unit->movement.order_id = next_move_order_id();
         unit->movement.order_arrived = false;
         return true;
     }
-    cell_t goal = { (int)floorf(goal_position.x), (int)floorf(goal_position.y) };
-    if (!find_nearest_walkable_cell(map, goal, 8, &goal)) return false;
-    float goal_gx = goal_position.x;
-    float goal_gy = goal_position.y;
-    if (!find_nearest_walkable_position(map, goal_gx, goal_gy, P_MobjRadius(unit), 8,
-                                        &goal_gx, &goal_gy)) {
-        fvec2_t centered_goal = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
-        goal_gx = centered_goal.x;
-        goal_gy = centered_goal.y;
-    }
-    const flowfield_t *field = flow_field_for_goal(map, goal);
-    if (!field) return false;
-    fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
-    unit->movement.goal.x = goal_gx;
-    unit->movement.goal.y = goal_gy;
-    fvec2_t target;
-    bool final;
-    if (!P_FlowFieldTarget(map, field, position, unit->movement.goal,
-                           P_MobjRadius(unit), &target, &final)) return false;
-    unit->movement.flow_field = field;
-    unit->movement.order_arrived = false;
-    return true;
+    return assign_route(map, unit, goal_position);
 }
 
 static int find_resource_vent_at(const level_t *map, fvec2_t position) {
@@ -713,46 +384,7 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
         if (!P_VentOpenTo(map, vent, unit)) continue;
         unit->core.momentum = fixed3_zero();
 
-#ifdef RTS_GAME_DARK_COLONY
         if (!P_MoveUnitTo(map, unit, vent->attachment)) continue;
-#else
-        fvec2_t goal_position = vent->attachment;
-        float goal_gx = goal_position.x;
-        float goal_gy = goal_position.y;
-        if (!find_nearest_walkable_position(map, goal_gx, goal_gy,
-                                            P_MobjRadius(unit), 8,
-                                            &goal_gx, &goal_gy)) {
-            cell_t fallback = vent->cell;
-            if (!find_nearest_walkable_cell(map, fallback, 8, &fallback)) continue;
-            goal_position = fvec2_cell_center((ivec2_t){ fallback.x, fallback.y });
-            goal_gx = goal_position.x;
-            goal_gy = goal_position.y;
-        }
-
-        cell_t goal = { (int)floorf(goal_gx), (int)floorf(goal_gy) };
-        if (!find_nearest_walkable_cell(map, goal, 8, &goal)) continue;
-        const flowfield_t *field = flow_field_for_goal(map, goal);
-        if (!field) continue;
-
-        fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
-        unit->movement.goal.x = goal_gx;
-        unit->movement.goal.y = goal_gy;
-        if (!P_CheckPosition(map, unit, unit->movement.goal.x, unit->movement.goal.y)) {
-            fvec2_t adjusted = fvec2_cell_center((ivec2_t){ goal.x, goal.y });
-            float adjusted_gx = adjusted.x;
-            float adjusted_gy = adjusted.y;
-            find_nearest_walkable_position(map, adjusted_gx, adjusted_gy,
-                                           P_MobjRadius(unit), 8,
-                                           &adjusted_gx, &adjusted_gy);
-            unit->movement.goal.x = adjusted_gx;
-            unit->movement.goal.y = adjusted_gy;
-        }
-        fvec2_t target;
-        bool final;
-        if (!P_FlowFieldTarget(map, field, position, unit->movement.goal,
-                               P_MobjRadius(unit), &target, &final)) continue;
-        unit->movement.flow_field = field;
-#endif
         unit->attack.target = NULL;
         unit->harvest.target = vent_index;
         unit->harvest.timer_ms = 0;
