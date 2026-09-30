@@ -353,8 +353,12 @@ static void apply_effects(level_t *map, const VisualSpec *spec, ivec2_t origin) 
                 p += used;
             }
             ivec2_t cell = ivec2_add(origin, (ivec2_t){x, y});
-            if (effect != -1 && L_Contains(map, cell.x, cell.y))
-                map->blocked[L_Index(map, cell.x, cell.y)] = effect == 3;
+            if (effect != -1 && L_Contains(map, cell.x, cell.y)) {
+                int index = L_Index(map, cell.x, cell.y);
+                map->blocked[index] = effect == 3;
+                if (map->cell_solid) map->cell_solid[index] = effect == 3;
+                if (map->cell_effect) map->cell_effect[index] = effect >= 0 && effect < 8 ? (uint8_t)effect : 255;
+            }
         }
 }
 
@@ -693,6 +697,69 @@ static int base_frame_for_type(int terrain_type, int variation) {
     return 8 + terrain_type * 8 + variation;
 }
 
+/* TRNEFF.TXT: DefineEffectType(Name speed slope) { SetEffect(terrain variant percent x) ... }.
+ * Variant -1 is the terrain itself; terrain id 16 lists the overlay effects 0..7
+ * (2 building bay, 3 solid, 5 slow passable...). The slope limit is kept for when
+ * maps carry elevation; Dark Reign terrain here is flat. */
+static int move_class_by_name(const char *name, size_t length) {
+    static const struct { const char *name; int move_class; } classes[] = {
+        {"Wheel", DR_MOVE_WHEEL}, {"Wheelf", DR_MOVE_WHEELF}, {"Wheela", DR_MOVE_WHEELA},
+        {"Track", DR_MOVE_TRACK}, {"Foot", DR_MOVE_FOOT}, {"Hover", DR_MOVE_HOVER},
+        {"Hovers", DR_MOVE_HOVERS}, {"Flying", DR_MOVE_FLYING},
+        {"LeggedDroid", DR_MOVE_LEGGEDDROID},
+    };
+    for (size_t i = 0; i < sizeof(classes) / sizeof(*classes); ++i)
+        if (strlen(classes[i].name) == length && !strncasecmp(classes[i].name, name, length))
+            return classes[i].move_class;
+    return 0;
+}
+
+static uint8_t clamp_percent(int value) { return (uint8_t)(value < 0 ? 0 : value > 255 ? 255 : value); }
+
+static void load_terrain_speeds(const char *map_path, level_t *out) {
+    char root[1024], path[1024];
+    root_from_map(map_path, root, sizeof(root));
+    M_PathJoin(path, sizeof(path), root, "deftxt/TRNEFF.TXT");
+    char *text = load_text_file(path);
+    if (!text) return;
+    terrainspeeds_t *speeds = calloc(1, sizeof(*speeds));
+    if (!speeds) { free(text); return; }
+    speeds->class_count = DR_MOVE_COUNT;
+    memset(speeds->terrain, 100, sizeof(speeds->terrain));
+    memset(speeds->overlay, 100, sizeof(speeds->overlay));
+    int current = 0;
+    bool any = false;
+    for (char *line = text; line && *line;) {
+        char *end = strchr(line, '\n');
+        if (end) *end = '\0';
+        char *comment = strchr(line, ';');
+        if (comment) *comment = '\0';
+        char *call = strstr(line, "DefineEffectType(");
+        if (call) {
+            char *name = call + strlen("DefineEffectType(");
+            size_t length = strcspn(name, " \t)");
+            int base, slope;
+            current = move_class_by_name(name, length);
+            if (current && sscanf(name + length, "%d %d", &base, &slope) == 2) {
+                speeds->max_slope[current] = clamp_percent(slope);
+                any = true;
+            }
+        } else if (current && (call = strstr(line, "SetEffect("))) {
+            int terrain, variant, percent, extra;
+            if (sscanf(call, "SetEffect(%d %d %d %d", &terrain, &variant, &percent, &extra) >= 3) {
+                if (terrain >= 0 && terrain < 16 && variant == -1)
+                    speeds->terrain[current][terrain] = clamp_percent(percent);
+                else if (terrain == 16 && variant >= 0 && variant < 8)
+                    speeds->overlay[current][variant] = clamp_percent(percent);
+            }
+        }
+        line = end ? end + 1 : NULL;
+    }
+    free(text);
+    if (!any) { free(speeds); return; }
+    out->speeds = speeds;
+}
+
 static bool terrain_is_blocked(int terrain_type) {
     /* The MAP record's third byte is the authored terrain/effect id.  In
        TRNEFF.TXT, 0 is liquid and 3 is impassable rock/wall.  Values 10..15
@@ -866,8 +933,13 @@ bool load_dark_map(const char *map_path, level_t *out) {
     out->height = height;
     out->tile_ids   = calloc(record_count, sizeof(uint16_t));
     out->blocked    = calloc(record_count, sizeof(uint8_t));
+    out->cell_terrain = calloc(record_count, sizeof(uint8_t));
+    out->cell_solid = calloc(record_count, sizeof(uint8_t));
+    out->cell_effect = malloc(record_count);
+    if (out->cell_effect) memset(out->cell_effect, 255, record_count);
     out->decorations = calloc(MAX_DECORATIONS, sizeof(mapdecoration_t));
-    if (!out->tile_ids || !out->blocked || !out->decorations) {
+    if (!out->tile_ids || !out->blocked || !out->decorations || !out->cell_terrain ||
+        !out->cell_solid || !out->cell_effect) {
         W_FreeFile(&blob);
         P_FreeLevel(out);
         return false;
@@ -885,6 +957,8 @@ bool load_dark_map(const char *map_path, level_t *out) {
                              (uint16_t)(8 + terrain_type * 8 + variation);
             out->tile_ids[i] = frame;
             out->blocked[i]  = terrain_is_blocked(terrain_type);
+            out->cell_terrain[i] = (uint8_t)terrain_type;
+            out->cell_solid[i] = terrain_type == 3;
         }
     } else {
         size_t terrain_offset = 0;
@@ -910,8 +984,11 @@ bool load_dark_map(const char *map_path, level_t *out) {
                              (uint16_t)(8 + terrain_type * 8 + variation);
             out->tile_ids[i] = frame;
             out->blocked[i]  = terrain_is_blocked(terrain_type);
+            out->cell_terrain[i] = (uint8_t)terrain_type;
+            out->cell_solid[i] = terrain_type == 3;
         }
     }
+    load_terrain_speeds(map_path, out);
     detect_tileset_from_mm(map_path,  out->tileset_name, sizeof(out->tileset_name));
     out->render_capabilities |= MAP_RENDER_CAP_TERRAIN_TRANSITIONS;
     out->render_transitions = render_dark_reign_edges_for_cell;
