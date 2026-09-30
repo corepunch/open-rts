@@ -51,7 +51,31 @@ jobs:
 
       - name: Install SDL2 (macOS)
         if: matrix.platform == 'macos-arm64'
-        run: brew install sdl2 pkg-config
+        run: |
+          set -eu
+          # Homebrew's sdl2 formula is sdl2-compat over SDL3. Packaged
+          # --check on the macOS runner never returned with that library.
+          # Bundle classic SDL 2.32, the library local development uses.
+          ver=2.32.10
+          prefix="$RUNNER_TEMP/sdl2"
+          curl -fsSL -o "$RUNNER_TEMP/SDL2.tar.gz" \
+            "https://github.com/libsdl-org/SDL/releases/download/release-${ver}/SDL2-${ver}.tar.gz"
+          tar -xzf "$RUNNER_TEMP/SDL2.tar.gz" -C "$RUNNER_TEMP"
+          cmake -S "$RUNNER_TEMP/SDL2-${ver}" -B "$RUNNER_TEMP/sdl2-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$prefix" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST=OFF
+          cmake --build "$RUNNER_TEMP/sdl2-build" -j"$(sysctl -n hw.ncpu)"
+          cmake --install "$RUNNER_TEMP/sdl2-build"
+          echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+          export PKG_CONFIG_PATH="$prefix/lib/pkgconfig"
+          echo "sdl2 $(pkg-config --modversion sdl2): $(pkg-config --libs sdl2)"
+          if pkg-config --libs sdl2 | grep -q SDL2main; then
+            echo "classic SDL2 pkg-config must not add SDL2main" >&2
+            exit 1
+          fi
+          test -f "$prefix/lib/libSDL2-2.0.0.dylib"
 
       - name: Install SDL2 (Linux)
         if: matrix.platform == 'linux-x64'
@@ -63,15 +87,14 @@ jobs:
         run: |
           if [ "$(uname)" = Darwin ]; then
             jobs=$(sysctl -n hw.ncpu)
-            prefix=$(brew --prefix sdl2)
-            export PKG_CONFIG_PATH="$prefix/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+            echo "sdl2 $(pkg-config --modversion sdl2): $(pkg-config --libs sdl2)"
           else
             jobs=$(nproc)
           fi
           make -j"$jobs"
 
       - name: Package
-        run: bash .github/scripts/package-release.sh ${{ matrix.platform }}
+        run: /bin/bash .github/scripts/package-release.sh ${{ matrix.platform }}
 
       - name: Upload
         env:

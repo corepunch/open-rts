@@ -255,10 +255,16 @@ EOF
         tar -C "$dist" -czf "$dist/${id}-${platform}.tar.gz" "$id"
     fi
 
+    if [ "$platform" = macos-arm64 ]; then
+        echo "linked libraries:" >&2
+        otool -L "$stage/$bin" >&2
+    fi
+    # NSUnbufferedIO makes Apple libc flush printf through the Actions log.
+    # SDL_VIDEO_DRIVER is the SDL3 name; classic SDL2 reads SDL_VIDEODRIVER.
     echo "-- check $bin from the archive directory --" >&2
-    run_within 180 bash -c 'cd "$1" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "./$2" --check' _ "$stage" "$bin"
+    run_within 180 /bin/bash -c 'cd "$1" && NSUnbufferedIO=YES SDL_VIDEODRIVER=dummy SDL_VIDEO_DRIVER=dummy SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_RENDER_DRIVER=software "./$2" --check' _ "$stage" "$bin"
     echo "-- check $bin from another directory --" >&2
-    run_within 180 bash -c 'cd /tmp && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$1/$2" --check' _ "$stage" "$bin"
+    run_within 180 /bin/bash -c 'cd /tmp && NSUnbufferedIO=YES SDL_VIDEODRIVER=dummy SDL_VIDEO_DRIVER=dummy SDL_AUDIODRIVER=dummy SDL_AUDIO_DRIVER=dummy SDL_RENDER_DRIVER=software "$1/$2" --check' _ "$stage" "$bin"
     rm -rf "$stage"
 }
 
