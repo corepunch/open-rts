@@ -74,11 +74,7 @@ int main(void) {
         residual = true;
     }
     CHECK(residual);
-    /* The next cell is reserved while its occupant is still drawn elsewhere. */
-    target->route=(dc_route_t){.cells={{15,12}},.count=1,.traveling=true};
-    CHECK(DC_Occupant((ivec2_t){15,12},false,false)==target);
-    CHECK(!DC_Occupant((ivec2_t){14,12},false,false));
-    shot->core.position=(fixed3_t){15*FIXED_ONE,12*FIXED_ONE,0};
+    shot->core.position=target->core.position;
     A_Explode(shot);
     CHECK(target->hp==550);
     P_FreeThinkers();

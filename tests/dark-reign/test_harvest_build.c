@@ -161,7 +161,7 @@ static int test_gather_attach_animate_and_build(void) {
     if (harvester->harvest.target != vent_index)
         return fail("harvest order attached the Freighter to the pit");
     if (harvester->harvest.phase != HARVEST_PHASE_TO_MINE ||
-        harvester->movement.order_arrived || !harvester->movement.flow_field)
+        harvester->movement.order_arrived || !harvester->movement.path.count)
         return fail("map-click order started movement toward the pit");
 
     bool attached = false, mining = false, animating = false;

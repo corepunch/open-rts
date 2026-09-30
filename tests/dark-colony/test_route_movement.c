@@ -5,8 +5,8 @@
 
 #include <stdio.h>
 
-static int native_routes_move_units(void) {
-    const char *tag = "native_route_movement";
+static int routes_move_units(void) {
+    const char *tag = "route_movement";
     gameinfo = NULL;
     level = (level_t){ .width = 16, .height = 16 };
     P_FreeThinkers();
@@ -23,11 +23,11 @@ static int native_routes_move_units(void) {
         units[i]->attack.target = NULL;
         units[i]->harvest.target = -1;
         RTS_CHECK(P_MoveUnitTo(&level, units[i], (fvec2_t){ 10.5f, 8.5f }), tag,
-                  "native route created");
+                  "route created");
     }
 
-    RTS_CHECK(units[0]->route.count && units[1]->route.count && !level.flow_fields, tag,
-              "units own native cell routes without cached flow fields");
+    RTS_CHECK(units[0]->movement.path.count && units[1]->movement.path.count, tag,
+              "units own waypoint routes");
     RTS_CHECK(ivec2_equal(fvec2_cell(units[0]->movement.goal),
                            fvec2_cell(units[1]->movement.goal)), tag,
               "units receive the shared destination without formation slots");
@@ -41,7 +41,7 @@ static int native_routes_move_units(void) {
     RTS_CHECK(unit_count == 2, tag, "movement preserves both units");
     RTS_CHECK(units[0]->movement.order_arrived && units[1]->movement.order_arrived,
               tag,
-              "both units arrive through native routes");
+              "both units arrive through their routes");
     RTS_CHECK(units[0]->core.position.z == fixed_from_float(2.0f) &&
               units[1]->core.position.z == fixed_from_float(2.0f),
               tag,
@@ -100,9 +100,9 @@ static int unit_turns_before_moving(int type, const char *stem) {
 }
 
 int main(void) {
-    RTS_RUN(native_routes_move_units());
+    RTS_RUN(routes_move_units());
     RTS_RUN(unit_turns_before_moving(MT_EXPLOITER, "EXPL"));
     RTS_RUN(unit_turns_before_moving(MT_THUNDERBOLT, "BARR"));
-    puts("All native route movement tests passed.");
+    puts("All route movement tests passed.");
     return 0;
 }

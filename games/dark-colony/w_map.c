@@ -501,10 +501,6 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     W_FreeFile(&overview);
     W_FreeFile(&map.file);
 
-    char path_file[1024];
-    replace_extension(path_file, sizeof(path_file), map.path, ".PTH");
-    if (!DC_LoadPaths(out, path_file)) goto fail;
-
     ScenarioFile *scenario = calloc(1, sizeof(*scenario));
     if (!scenario) goto fail;
     out->native_data = scenario;

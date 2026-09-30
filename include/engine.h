@@ -17,6 +17,16 @@
 
 typedef struct { int x, y; }   ivec2_t;
 typedef struct { float x, y; } fvec2_t;
+
+enum { NAV_MAX_WAYPOINTS = 64 };
+
+/* Waypoints in world cells, produced by P_NavPlan and owned by one mobj. */
+typedef struct {
+    fvec2_t points[NAV_MAX_WAYPOINTS];
+    int count, current;
+    fvec2_t goal;  /* Resolved goal: the request, or the nearest reachable spot. */
+    bool complete; /* The last point is the goal; otherwise replan when consumed. */
+} navpath_t;
 typedef struct { int w, h; }   isize2_t;
 
 typedef int32_t fixed_t;
@@ -267,7 +277,7 @@ angle_t direction_to_angle(int direction, int count, angle_t first_angle, bool c
 
 typedef struct app_s app_t;
 typedef struct tileset_s tileset_t;
-typedef struct flowfield_s flowfield_t;
+struct nav_s;
 
 typedef ivec2_t cell_t;
 
@@ -404,9 +414,8 @@ typedef struct level_s {
     void (*destroy_native_data)(void *);
     void *mission;
     void (*destroy_mission)(void *);
-    flowfield_t *flow_fields;
+    struct nav_s *nav; /* Planner cache (p_nav.c); validates itself against blocked[]. */
 #ifdef RTS_GAME_DARK_COLONY
-    struct dc_pathmap_s *paths;
     struct dc_weapons_s *weapons;
     struct { uint8_t weapon, armor; } upgrades[106][8];
     struct { uint8_t selected, queued; } purchases[8][110]; /* Native DEPEND rows. */
@@ -697,19 +706,18 @@ struct mobj_s {
     bool move_only;
     struct {
         fvec2_t goal;
-        const flowfield_t *flow_field;
+        navpath_t path;
         uint32_t order_id;
         bool order_arrived;
         int turn_timer_ms;
+        int stuck_tics, replans;
     } movement;
     MOBJ_GAME_FIELDS
 };
 
 static inline void P_ClearMove(mobj_t *unit) {
-    unit->movement.flow_field = NULL;
-#ifdef RTS_GAME_DARK_COLONY
-    unit->route = (dc_route_t){0};
-#endif
+    unit->movement.path = (navpath_t){0};
+    unit->movement.stuck_tics = unit->movement.replans = 0;
 }
 
 static inline bool P_MobjIsSelected(const mobj_t *mobj) {
@@ -1169,7 +1177,7 @@ int L_Index(const level_t *map, int x, int y);
 bool L_Contains(const level_t *map, int x, int y);
 bool L_IsWalkable(const level_t *map, int x, int y);
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
-void P_FreeFlowFields(level_t *map);
+void P_NavFree(level_t *map);
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);
@@ -1953,10 +1961,15 @@ static inline float P_ResourceVentRadius(const resourcevent_t *vent) {
 bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy);
 bool P_TryMove(mobj_t *unit, fixed3_t position);
 void P_ClampToLevel(const level_t *map, mobj_t *unit);
-bool P_FlowFieldTarget(const level_t *map, const flowfield_t *field,
-                       fvec2_t position, fvec2_t goal, float radius,
-                       fvec2_t *target, bool *final);
-void P_FreeFlowFields(level_t *map);
+bool P_MapCircleWalkable(const level_t *map, float gx, float gy, float radius,
+                         const fvec2_t *from);
+
+/* p_steer.c: shared path following, avoidance and overlap resolution. */
+bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final);
+fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction);
+bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved);
+bool P_ReplanUnit(const level_t *map, mobj_t *unit);
+void P_SeparateUnits(const level_t *map);
 void P_MoveUnitsAt(const level_t *map, mobj_t *const *units, int count, fvec2_t goal);
 bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int count, fvec2_t goal);
 

@@ -91,7 +91,7 @@ static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface
     mobj_t *group[] = {ground, osprey};
     fvec2_t goal = {68.5f,76.5f};
     P_MoveUnitsAt(&level, group, 2, goal);
-    assert(!osprey->movement.flow_field && osprey->movement.order_id);
+    assert(!osprey->movement.path.count && osprey->movement.order_id);
     assert(fvec2_distance_squared(osprey->movement.goal, goal) == 0);
     for (int tic = 0; tic < 180 && !osprey->movement.order_arrived; ++tic) P_Ticker();
     assert(osprey->movement.order_arrived);
@@ -101,11 +101,11 @@ static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface
     P_RemoveMobj(ground);
 
     /* Aircraft-only orders need no walkable goal anywhere on the map. */
-    P_FreeFlowFields(&level);
+    P_NavFree(&level);
     memset(level.blocked, 1, (size_t)level.width * level.height);
     goal = (fvec2_t){70.5f,76.5f};
     P_MoveUnitsAt(&level, &osprey, 1, goal);
-    assert(!osprey->movement.flow_field && !level.flow_fields);
+    assert(!osprey->movement.path.count && !level.nav);
     for (int tic = 0; tic < 180 && !osprey->movement.order_arrived; ++tic) P_Ticker();
     assert(osprey->movement.order_arrived);
     assert(fvec2_distance_squared(fixed3_xy_to_fvec2(osprey->core.position), goal) < 0.01f);

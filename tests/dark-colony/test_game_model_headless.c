@@ -737,17 +737,17 @@ static int assert_fixed_momentum_semantics(void) {
         unit->core.momentum.z != 0 ||
         unit->core.position.x != fixed_add_saturated(before.x, unit->core.momentum.x) ||
         unit->core.position.y != fixed_add_saturated(before.y, unit->core.momentum.y) ||
-        unit->core.position.z != before.z || unit->movement.flow_field != NULL) {
+        unit->core.position.z != before.z || unit->movement.path.count != 0) {
         return fail("short final movement applies position plus fixed momentum and preserves z");
     }
 
     P_Ticker();
     if (unit->core.momentum.x != 0 || unit->core.momentum.y != 0 ||
         unit->core.momentum.z != 0 || unit->core.position.z != before.z) {
-        P_FreeFlowFields(&level);
+        P_NavFree(&level);
         return fail("idle update clears fixed momentum and preserves z");
     }
-    P_FreeFlowFields(&level);
+    P_NavFree(&level);
     return 0;
 }
 

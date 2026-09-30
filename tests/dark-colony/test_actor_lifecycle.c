@@ -81,7 +81,7 @@ int main(void) {
         units[0]->attack.target = units[1];
         CHECK(P_Attack(units[0]));
         CHECK(units[1]->hp == 0 && units[1]->traits == MF_RENDERABLE);
-        CHECK(!units[1]->movement.flow_field && !units[1]->movement.order_arrived);
+        CHECK(!units[1]->movement.path.count && !units[1]->movement.order_arrived);
         CHECK(units[1]->attack.target == NULL && units[1]->attack.cooldown_left_ms == 0);
         CHECK(units[1]->harvest.target == -1 && units[1]->harvest.timer_ms == 0);
         CHECK(units[1]->harvest.phase == 0 && units[1]->harvest.cargo == 0);

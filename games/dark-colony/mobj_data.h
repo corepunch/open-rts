@@ -13,18 +13,10 @@ typedef struct {
     int released_count;
 } dc_drop_t;
 
-/* DC.EXE 0x41434e stores the next 32 cell steps of a backward search. */
-typedef struct {
-    ivec2_t cells[32];
-    int count, current;
-    bool traveling;
-} dc_route_t;
-
 /* Game-owned object fields; vent indices refer to the active level. */
 #define MOBJ_GAME_FIELDS \
     dc_drop_t drop; \
     int resource_vent_index; \
-    dc_route_t route; \
     uint32_t producer_id; \
     uint32_t detected_by; \
     int repair_wait; \
