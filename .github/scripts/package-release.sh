@@ -31,6 +31,25 @@ done
 rm -rf "$dist"
 mkdir -p "$dist"
 
+run_within() {
+    local secs=$1
+    shift
+    "$@" &
+    local pid=$!
+    local i=0
+    while kill -0 "$pid" 2>/dev/null; do
+        if [ "$i" -ge "$secs" ]; then
+            kill -9 "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+            echo "timed out after ${secs}s: $*" >&2
+            return 124
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+    wait "$pid"
+}
+
 glibc_lib() {
     case $(basename "$1") in
     libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|libresolv.so.*|libgcc_s.so.*|libstdc++.so.*)
@@ -157,9 +176,10 @@ EOF
 package_game() {
     local id=$1 bin=$2 data_rel=$3 title=$4
     local stage=$dist/$id
-    echo "== $id ($platform) =="
+    echo "== $id ($platform) ==" >&2
     rm -rf "$stage"
     mkdir -p "$stage/data/$(dirname "$data_rel")"
+    echo "copy $bin and data/$data_rel" >&2
     cp "$root/build/bin/$bin" "$stage/$bin"
     chmod +x "$stage/$bin"
     cp -R "$root/data/$data_rel" "$stage/data/$data_rel"
@@ -168,13 +188,16 @@ package_game() {
     cp "$root/LICENSE" "$stage/LICENSE"
 
     if [ "$platform" = macos-arm64 ]; then
+        echo "bundle $bin" >&2
         bundle_macho "$root/build/bin/$bin" "$stage/$bin"
         local lib
         for lib in "$stage"/*.dylib; do
             [ -f "$lib" ] || continue
-            codesign --force --sign - "$lib"
+            echo "sign $(basename "$lib")" >&2
+            run_within 60 codesign --force --sign - --timestamp=none "$lib"
         done
-        codesign --force --sign - "$stage/$bin"
+        echo "sign $bin" >&2
+        run_within 60 codesign --force --sign - --timestamp=none "$stage/$bin"
         if otool -L "$stage/$bin" | awk 'NR>1 {print $1}' | grep -E '^/(opt|usr/local)/'; then
             echo "absolute library path remains in $bin" >&2
             exit 1
@@ -195,6 +218,7 @@ or run: xattr -dr com.quarantine .
 Game data is in data/$data_rel. The engine is MIT licensed (LICENSE).
 The original game data is not covered by that license.
 EOF
+        echo "zip $id" >&2
         rm -f "$dist/${id}-${platform}.zip"
         ditto -c -k --keepParent "$stage" "$dist/${id}-${platform}.zip"
     else
@@ -231,10 +255,10 @@ EOF
         tar -C "$dist" -czf "$dist/${id}-${platform}.tar.gz" "$id"
     fi
 
-    echo "-- check $bin from the archive directory --"
-    ( cd "$stage" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "./$bin" --check )
-    echo "-- check $bin from another directory --"
-    ( cd /tmp && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$stage/$bin" --check )
+    echo "-- check $bin from the archive directory --" >&2
+    run_within 180 bash -c 'cd "$1" && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "./$2" --check' _ "$stage" "$bin"
+    echo "-- check $bin from another directory --" >&2
+    run_within 180 bash -c 'cd /tmp && SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$1/$2" --check' _ "$stage" "$bin"
     rm -rf "$stage"
 }
 
