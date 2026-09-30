@@ -1207,7 +1207,6 @@ __anon7b6e77cd0308::capacity	render/r_sprite.c	/^    int capacity;$/;"	m	struct:
 __anon7b6e77cd0308::count	render/r_sprite.c	/^    int count;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:int	file:
 __anon7b6e77cd0308::entries	render/r_sprite.c	/^    indexed_cache_entry_t *entries;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:indexed_cache_entry_t *	file:
 __anon7b6e77cd0308::renderer	render/r_sprite.c	/^    SDL_Renderer *renderer;$/;"	m	struct:__anon7b6e77cd0308	typeref:typename:SDL_Renderer *	file:
-__anon7c9e55d40508	tags	/^renderer_t	interface\/renderer.h	\/^typedef struct renderer_s renderer_t;$\/;"	t	typeref:struct:/;"	s	file:
 __anon7d9edf9b0108	tests/dark-colony/test_terrain_loading.c	/^static const struct {$/;"	s	file:
 __anon7d9edf9b0108::hash	tests/dark-colony/test_terrain_loading.c	/^    uint64_t hash;$/;"	m	struct:__anon7d9edf9b0108	typeref:typename:uint64_t	file:
 __anon7d9edf9b0108::path	tests/dark-colony/test_terrain_loading.c	/^    const char *path;$/;"	m	struct:__anon7d9edf9b0108	typeref:typename:const char *	file:
@@ -2060,7 +2059,6 @@ frame_name	render/sprites.h	/^    char frame_name[17];$/;"	m	struct:spriteframe_
 frame_offset	tools/dc_fin_extract.c	/^    size_t frame_offset;$/;"	m	struct:__anon82d667f30208	typeref:typename:size_t	file:
 frame_part_start	tools/dc_fin_extract.c	/^static int frame_part_start(const FinFile *fin, int frame_index) {$/;"	f	typeref:typename:int	file:	signature:(const FinFile * fin,int frame_index)
 frame_size	render/sprites.h	/^    isize2_t frame_size;$/;"	m	struct:spritesheet_s	typeref:typename:isize2_t
-framebuffer	interface/renderer.h	/^    SDL_Texture *framebuffer;$/;"	m	struct:renderer_s	typeref:typename:SDL_Texture *
 frameon	driver/d_net.c	/^static int skiptics, frameon, frameskip[4], oldnettics;$/;"	v	typeref:typename:int	file:
 frames	docs/DC_UNIT_BEHAVIORS.md	/^| Bombers | Osprey HP 800; both aircraft fire timed, center-cell bombs with native class factors/;"	v
 frames	render/sprites.h	/^    int frames[MAX_TILE_ANIMATION_FRAMES];$/;"	m	struct:__anon761761540208	typeref:typename:int[]
@@ -2991,7 +2989,6 @@ renderer_end_frame	interface/i_video.c	/^void renderer_end_frame(renderer_t *ren
 renderer_end_frame	interface/renderer.h	/^void renderer_end_frame(renderer_t *renderer);$/;"	p	typeref:typename:void	signature:(renderer_t * renderer)
 renderer_s	interface/renderer.h	/^struct renderer_s {$/;"	s
 renderer_s::backend	interface/renderer.h	/^    const rendererbackend_t *backend;$/;"	m	struct:renderer_s	typeref:typename:const rendererbackend_t *
-renderer_s::framebuffer	interface/renderer.h	/^    SDL_Texture *framebuffer;$/;"	m	struct:renderer_s	typeref:typename:SDL_Texture *
 renderer_s::height	interface/renderer.h	/^    int height;$/;"	m	struct:renderer_s	typeref:typename:int
 renderer_s::sdl	interface/renderer.h	/^    SDL_Renderer *sdl;$/;"	m	struct:renderer_s	typeref:typename:SDL_Renderer *
 renderer_s::width	interface/renderer.h	/^    int width;$/;"	m	struct:renderer_s	typeref:typename:int
@@ -3095,7 +3092,6 @@ sdl	interface/renderer.h	/^    SDL_Renderer *sdl;$/;"	m	struct:renderer_s	typere
 sdl_renderer_backend	interface/i_video.c	/^const rendererbackend_t *sdl_renderer_backend(void) {$/;"	f	typeref:typename:const rendererbackend_t *	signature:(void)
 sdl_renderer_backend	interface/renderer.h	/^const rendererbackend_t *sdl_renderer_backend(void);$/;"	p	typeref:typename:const rendererbackend_t *	signature:(void)
 sdl_renderer_begin_frame	interface/i_video.c	/^static void sdl_renderer_begin_frame(renderer_t *renderer, SDL_Color clear) {$/;"	f	typeref:typename:void	file:	signature:(renderer_t * renderer,SDL_Color clear)
-sdl_renderer_copy_frame	interface/i_video.c	/^static bool sdl_renderer_copy_frame(renderer_t *renderer) {$/;"	f	typeref:typename:bool	file:	signature:(renderer_t * renderer)
 sdl_renderer_create	interface/i_video.c	/^static bool sdl_renderer_create(renderer_t *renderer, const char *title, int width, int height,$/;"	f	typeref:typename:bool	file:	signature:(renderer_t * renderer,const char * title,int width,int height,bool hidden,bool software)
 sdl_renderer_destroy	interface/i_video.c	/^static void sdl_renderer_destroy(renderer_t *renderer) {$/;"	f	typeref:typename:void	file:	signature:(renderer_t * renderer)
 sdl_renderer_end_frame	interface/i_video.c	/^static void sdl_renderer_end_frame(renderer_t *renderer) {$/;"	f	typeref:typename:void	file:	signature:(renderer_t * renderer)

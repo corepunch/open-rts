@@ -22,7 +22,6 @@ struct renderer_s {
     const rendererbackend_t *backend;
     SDL_Window *window;
     SDL_Renderer *sdl;
-    SDL_Texture *framebuffer;
     int width;
     int height;
 };
