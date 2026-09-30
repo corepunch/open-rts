@@ -75,11 +75,6 @@ static int dc_ai_level(const level_t *map, int owner) {
     }
 }
 
-static void plan_add(AiPlan *plan, int product, int count) {
-    if (plan->goal_count < AI_MAX_GOALS)
-        plan->goals[plan->goal_count++] = (AiGoal){ .product = product, .count = count };
-}
-
 static bool dc_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     (void)level;
     if (!map || !out) return false;
@@ -87,62 +82,62 @@ static bool dc_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
     out->wave_min_size = 6;
     out->wave_max_size = 16;
     if (DC_PlayerRace(owner) == 0) {
-        plan_add(out, UI_EXPLOITER, 1);
-        plan_add(out, UI_BARRACKS, 1);
-        plan_add(out, UI_TROOPER, 3);
-        plan_add(out, UI_EXPLOITER, 2);
-        plan_add(out, UI_SCIPOD, 1);
-        plan_add(out, UI_TROOPER, 6);
-        plan_add(out, UI_ROBOFTR, 1);
-        plan_add(out, UI_REAPER, 3);
-        plan_add(out, UI_SENTINEL, 2);
-        plan_add(out, UI_EXPLOITER, 3);
-        plan_add(out, UI_SCIPOD2, 1);
-        plan_add(out, UI_TROOPER, 10);
-        plan_add(out, UI_REAPER, 6);
-        plan_add(out, UI_ROBOFTR2, 1);
-        plan_add(out, UI_BARRAGER, 2);
-        plan_add(out, UI_FIRESTORM, 2);
-        plan_add(out, UI_TROOPER, 16);
-        plan_add(out, UI_REAPER, 10);
-        plan_add(out, UI_SENTINEL, 6);
-        plan_add(out, UI_BARRAGER, 4);
-        plan_add(out, UI_FIRESTORM, 4);
-        plan_add(out, UI_TROOPER, 24);
-        plan_add(out, UI_REAPER, 16);
-        plan_add(out, UI_SENTINEL, 12);
-        plan_add(out, UI_BARRAGER, 8);
-        plan_add(out, UI_FIRESTORM, 8);
-        plan_add(out, UI_TROOPER, 36);
-        plan_add(out, UI_REAPER, 24);
+        P_AiPlanAdd(out, UI_EXPLOITER, 1);
+        P_AiPlanAdd(out, UI_BARRACKS, 1);
+        P_AiPlanAdd(out, UI_TROOPER, 3);
+        P_AiPlanAdd(out, UI_EXPLOITER, 2);
+        P_AiPlanAdd(out, UI_SCIPOD, 1);
+        P_AiPlanAdd(out, UI_TROOPER, 6);
+        P_AiPlanAdd(out, UI_ROBOFTR, 1);
+        P_AiPlanAdd(out, UI_REAPER, 3);
+        P_AiPlanAdd(out, UI_SENTINEL, 2);
+        P_AiPlanAdd(out, UI_EXPLOITER, 3);
+        P_AiPlanAdd(out, UI_SCIPOD2, 1);
+        P_AiPlanAdd(out, UI_TROOPER, 10);
+        P_AiPlanAdd(out, UI_REAPER, 6);
+        P_AiPlanAdd(out, UI_ROBOFTR2, 1);
+        P_AiPlanAdd(out, UI_BARRAGER, 2);
+        P_AiPlanAdd(out, UI_FIRESTORM, 2);
+        P_AiPlanAdd(out, UI_TROOPER, 16);
+        P_AiPlanAdd(out, UI_REAPER, 10);
+        P_AiPlanAdd(out, UI_SENTINEL, 6);
+        P_AiPlanAdd(out, UI_BARRAGER, 4);
+        P_AiPlanAdd(out, UI_FIRESTORM, 4);
+        P_AiPlanAdd(out, UI_TROOPER, 24);
+        P_AiPlanAdd(out, UI_REAPER, 16);
+        P_AiPlanAdd(out, UI_SENTINEL, 12);
+        P_AiPlanAdd(out, UI_BARRAGER, 8);
+        P_AiPlanAdd(out, UI_FIRESTORM, 8);
+        P_AiPlanAdd(out, UI_TROOPER, 36);
+        P_AiPlanAdd(out, UI_REAPER, 24);
     } else {
-        plan_add(out, UI_BROZAAR, 1);
-        plan_add(out, UI_WARFOLD, 1);
-        plan_add(out, UI_GRAY, 3);
-        plan_add(out, UI_BROZAAR, 2);
-        plan_add(out, UI_BREEDPOD, 1);
-        plan_add(out, UI_GRAY, 6);
-        plan_add(out, UI_GENESAC, 1);
-        plan_add(out, UI_SYDEMON, 3);
-        plan_add(out, UI_SLOM, 2);
-        plan_add(out, UI_BROZAAR, 3);
-        plan_add(out, UI_GRAY, 10);
-        plan_add(out, UI_SYDEMON, 6);
-        plan_add(out, UI_PODUPGRADE, 1);
-        plan_add(out, UI_GENEUPGRADE, 1);
-        plan_add(out, UI_ATRIL, 2);
-        plan_add(out, UI_XENOWORT, 2);
-        plan_add(out, UI_GRAY, 16);
-        plan_add(out, UI_SYDEMON, 10);
-        plan_add(out, UI_SLOM, 6);
-        plan_add(out, UI_ATRIL, 4);
-        plan_add(out, UI_GRAY, 24);
-        plan_add(out, UI_SYDEMON, 16);
-        plan_add(out, UI_SLOM, 12);
-        plan_add(out, UI_ATRIL, 8);
-        plan_add(out, UI_XENOWORT, 6);
-        plan_add(out, UI_GRAY, 36);
-        plan_add(out, UI_SYDEMON, 24);
+        P_AiPlanAdd(out, UI_BROZAAR, 1);
+        P_AiPlanAdd(out, UI_WARFOLD, 1);
+        P_AiPlanAdd(out, UI_GRAY, 3);
+        P_AiPlanAdd(out, UI_BROZAAR, 2);
+        P_AiPlanAdd(out, UI_BREEDPOD, 1);
+        P_AiPlanAdd(out, UI_GRAY, 6);
+        P_AiPlanAdd(out, UI_GENESAC, 1);
+        P_AiPlanAdd(out, UI_SYDEMON, 3);
+        P_AiPlanAdd(out, UI_SLOM, 2);
+        P_AiPlanAdd(out, UI_BROZAAR, 3);
+        P_AiPlanAdd(out, UI_GRAY, 10);
+        P_AiPlanAdd(out, UI_SYDEMON, 6);
+        P_AiPlanAdd(out, UI_PODUPGRADE, 1);
+        P_AiPlanAdd(out, UI_GENEUPGRADE, 1);
+        P_AiPlanAdd(out, UI_ATRIL, 2);
+        P_AiPlanAdd(out, UI_XENOWORT, 2);
+        P_AiPlanAdd(out, UI_GRAY, 16);
+        P_AiPlanAdd(out, UI_SYDEMON, 10);
+        P_AiPlanAdd(out, UI_SLOM, 6);
+        P_AiPlanAdd(out, UI_ATRIL, 4);
+        P_AiPlanAdd(out, UI_GRAY, 24);
+        P_AiPlanAdd(out, UI_SYDEMON, 16);
+        P_AiPlanAdd(out, UI_SLOM, 12);
+        P_AiPlanAdd(out, UI_ATRIL, 8);
+        P_AiPlanAdd(out, UI_XENOWORT, 6);
+        P_AiPlanAdd(out, UI_GRAY, 36);
+        P_AiPlanAdd(out, UI_SYDEMON, 24);
     }
     return out->goal_count > 0;
 }

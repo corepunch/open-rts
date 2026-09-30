@@ -93,7 +93,7 @@ static int test_production(void) {
         if (!rts_tick(model, &snap)) return fail("tick production");
         RtsGameEvent ev;
         while (rts_game_model_poll_event(model, &ev))
-            if (ev.type == RTS_GAME_EVENT_UNIT_BUILT) built = true;
+            if (ev.type == RTS_GAME_EVENT_UNIT_BUILT && ev.subject_owner == 0) built = true;
     }
     if (!built) return fail("trooper was built");
     if (count_owner_type(&snap, 0, MT_TROOPER) <= troopers_before)

@@ -17,6 +17,7 @@
 
 #define AI_MAX_TEAMS 8
 #define AI_MAX_HARVEST_ASSIGNMENTS 32
+#define AI_MAX_VENT_TRIES 64 /* Vents considered per harvester order. */
 #define AI_DEFENSE_RADIUS 15.0f
 #define AI_ATTACK_WAVE_INTERVAL_MS 30000
 #define AI_ATTACK_WAVE_MIN_SIZE 3
@@ -30,7 +31,8 @@ typedef enum {
     AI_FEATURE_PRODUCTION = 1u << 1, /* buy along the game's goal ladder */
     AI_FEATURE_DEFENSE    = 1u << 2, /* rally idle fighters on base intruders */
     AI_FEATURE_ATTACK     = 1u << 3, /* periodic attack waves */
-    AI_FEATURE_ALL        = 0xFu,
+    AI_FEATURE_RESEARCH   = 1u << 4, /* start tech-ups a goal is waiting on */
+    AI_FEATURE_ALL        = 0x1Fu,
 } AiFeature;
 
 typedef enum {
@@ -43,6 +45,7 @@ typedef enum {
     AI_BUY_OK = 0,
     AI_BUY_BLOCKED,       /* missing prerequisite/producer or already owned */
     AI_BUY_NEED_CREDITS,  /* possible with more credits: the AI saves up */
+    AI_BUY_NEED_TECH,     /* a producer exists but lacks the tech: see develop() */
 } AiBuyStatus;
 
 /* Keep at least `count` of `product` (alive plus queued) once `after_ms` of
@@ -73,9 +76,17 @@ typedef struct AiGameInterface {
     int  (*owned)(int owner, int product);  /* alive plus queued */
     int  (*can_purchase)(const level_t *map, int owner, int product);
     bool (*purchase)(level_t *map, int owner, int product);
-    /* Base anchors for defense and wave objectives. Optional; the default
-     * is MF_RESOURCE_BASE. */
+    /* Optional. Called for a NEED_TECH goal when RESEARCH is enabled; starts
+     * whatever tech-up unlocks `product`. Returning true makes the AI wait
+     * for it (like saving credits) instead of spending on lower goals. */
+    bool (*develop)(level_t *map, int owner, int product);
+    /* Resource drop-off ("base") units that harvesters return to. Optional;
+     * the default is MF_RESOURCE_BASE. */
     bool (*is_base)(const mobj_t *unit);
+    /* Structures that anchor defense and are the targets of attack waves.
+     * Optional; the default is is_base. Games whose drop-offs are a small
+     * subset of their buildings (Dark Reign, KKnD) widen it to all structures. */
+    bool (*is_anchor)(const mobj_t *unit);
 } AiGameInterface;
 
 typedef enum {
@@ -84,6 +95,7 @@ typedef enum {
     AI_EVENT_PURCHASE,         /* value = product id */
     AI_EVENT_DEFENSE_RALLY,    /* value = defenders sent */
     AI_EVENT_WAVE_LAUNCHED,    /* value = units sent */
+    AI_EVENT_RESEARCH,         /* value = product id that needed the tech */
 } AiEventType;
 
 typedef struct {
@@ -97,6 +109,7 @@ typedef struct {
     int harvest_orders;
     int purchases;
     int defense_rallies;
+    int research_orders;
     int waves;
     int wave_units; /* total units sent in waves */
     int thinks;
@@ -136,6 +149,12 @@ typedef struct AiContext {
     int event_count;
     int events_dropped;
 } AiContext;
+
+/* Appends a goal to a plan (ignored when full). */
+void P_AiPlanAdd(AiPlan *plan, int product, int count);
+/* Default AiGameInterface.player_level: every non-human owner is a NORMAL
+ * computer player. */
+int  P_AiLevelNonHuman(const level_t *map, int owner);
 
 void P_AiInit(AiContext *ctx);
 /* Attaches a game's interface and adopts its feature mask (NULL detaches). */

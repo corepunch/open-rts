@@ -4,6 +4,7 @@
 #include "g_game.h"
 #include "dr_types.h"
 #include "info.h"
+#include "p_ai.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -315,22 +316,51 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-static const productiongoal_t dr_ai_goals[] = {
-    { 10001, 1 }, /* FG HQ 1 */
-    { 10004, 1 }, /* Barracks */
-    { 10006, 1 }, /* Vehicle Factory */
-    { 10013, 1 }, /* Guard Tower */
-    { 13, 1 },    /* Freighter */
-    { 9, 2 },     /* Raiders */
-    { 10, 1 },    /* Mercenary */
-    { 20, 2 },    /* Skirmish Tanks */
-    { 17, 1 },    /* Tank Hunter */
-    { 1, 1 },     /* Spider Bike */
+/* One ladder for both factions: {Freedom Guard id, Imperium id, count}.
+ * Buildings come from Construction Rigs, units from the matching factory. */
+static const struct { int fg, imp, count; } dr_ai_ladder[] = {
+    { 10001, 11001, 1 },   /* HQ 1 */
+    { 10006, 11006, 1 },   /* Vehicle factory / Assembly plant */
+    { 13,    1006,  1 },   /* Freighter */
+    { 10004, 11004, 1 },   /* Barracks / Training facility */
+    { 9,     1002,  3 },   /* Raider / Guardian */
+    { 13,    1006,  2 },
+    { 10013, 11014, 1 },   /* Guard tower */
+    { 20,    1010,  2 },   /* Skirmish tank / Scout tank */
+    { 10,    1003,  2 },   /* Mercenary / Bion */
+    { 17,    1011,  2 },   /* Tank hunter / Plasma tank */
+    { 10002, 11002, 1 },   /* HQ 2 */
+    { 10005, 11005, 1 },   /* Advanced barracks */
+    { 10007, 11007, 1 },   /* Advanced vehicle factory */
+    { 8,     1004,  2 },   /* Sniper / Exterminator */
+    { 9,     1002,  6 },
+    { 20,    1010,  4 },
+    { 16,    1012,  2 },   /* Triple rail tank / Tachyon tank */
+    { 10014, 11015, 1 },   /* Advanced guard tower */
+    { 19,    1017,  2 },   /* Hellstorm / S.C.A.R.A.B. */
+    { 10,    1003,  4 },
+    { 16,    1012,  4 },
+    { 17,    1011,  4 },
 };
 
-void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)model; (void)elapsed_ms;
-    G_ProductionGoals(dr_ai_goals, sizeof(dr_ai_goals) / sizeof(*dr_ai_goals));
+static bool dr_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
+    (void)map; (void)level;
+    bool fg = G_ModelHasActorType(NULL, owner, MT_FG_CONSTRUCTION_CREW) ||
+              G_ModelHasActorType(NULL, owner, MT_FG_HQ1) ||
+              G_ModelHasActorType(NULL, owner, MT_FG_HQ2) ||
+              G_ModelHasActorType(NULL, owner, MT_FG_HQ3);
+    bool imp = G_ModelHasActorType(NULL, owner, MT_IMP_CONSTRUCTION_CREW) ||
+               G_ModelHasActorType(NULL, owner, MT_IMP_HQ1) ||
+               G_ModelHasActorType(NULL, owner, MT_IMP_HQ2) ||
+               G_ModelHasActorType(NULL, owner, MT_IMP_HQ3);
+    if (!fg && !imp) return false; /* Nothing to read the faction from yet. */
+    out->wave_interval_ms = 40000;
+    out->wave_min_size = 6;
+    out->wave_max_size = 14;
+    for (unsigned i = 0; i < sizeof(dr_ai_ladder) / sizeof(*dr_ai_ladder); ++i)
+        P_AiPlanAdd(out, fg ? dr_ai_ladder[i].fg : dr_ai_ladder[i].imp,
+                    dr_ai_ladder[i].count);
+    return true;
 }
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
@@ -347,5 +377,16 @@ int G_ModelRadarLevel(int owner) {
     return 2;
 }
 
-/* This game still uses its own production goals; no universal AI hooks yet. */
-const struct AiGameInterface *G_AiInterface(void) { return NULL; }
+static const AiGameInterface dr_ai_interface = {
+    .name = "dark-reign",
+    .features = AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION |
+                AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK,
+    .player_level = P_AiLevelNonHuman,
+    .plan = dr_ai_plan,
+    .owned = G_AiCatalogOwned,
+    .can_purchase = G_AiCatalogCanPurchase,
+    .purchase = G_AiCatalogPurchase,
+    .is_anchor = G_AiIsStructure,
+};
+
+const AiGameInterface *G_AiInterface(void) { return &dr_ai_interface; }

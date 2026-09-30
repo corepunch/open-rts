@@ -4,6 +4,7 @@
 #include "sb_bar.h"
 #include "info.h"
 #include "rts_test.h"
+#include "p_ai.h"
 #ifdef RTS_GAME_KKND
 void A_KkndResearch(mobj_t *actor);
 #endif
@@ -25,28 +26,46 @@ static mobj_t *spawn_owner(uint16_t type, int owner, fvec2_t position) {
     return unit;
 }
 
-static int test_ai_goals(void) {
-    empty_level();
-    CHECK(level.blocked);
-    for (int owner = 0; owner < 3; ++owner) {
-        level.player_resources[owner][0] = 50000;
-        CHECK(spawn_owner(OWNER_PRODUCER, owner, (fvec2_t){16 + owner * 30, 16}));
-    }
-    for (int tick = 0; tick < 600; ++tick) {
-        G_ModelAIProduction(NULL, 1000);
-        G_ProductionTicker(1.0f);
+/* Runs the universal AI (economy and production only, so no wave disturbs the
+ * counts) and the shared production ticker. */
+static void ai_run(AiContext *ai, int ticks, int dt_ms) {
+    for (int tick = 0; tick < ticks; ++tick) {
+        mobjlist_t list = P_ListMobjs();
+        P_AiTick(ai, &level, list.items, list.count, gameinfo, dt_ms);
+        P_FreeMobjList(&list);
+        G_ProductionTicker((float)dt_ms / 1000.0f);
 #ifdef RTS_GAME_KKND
         for (int tic = 0; tic < RTS_TICRATE; ++tic)
             for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next)
                 if (th->function == P_MobjThinker) A_KkndResearch((mobj_t *)th);
 #endif
     }
+}
+
+static int test_ai_goals(void) {
+    empty_level();
+    CHECK(level.blocked);
+    CHECK(G_AiInterface());
+    for (int owner = 0; owner < 3; ++owner) {
+        level.player_resources[owner][0] = 50000;
+        CHECK(spawn_owner(OWNER_PRODUCER, owner, (fvec2_t){16 + owner * 30, 16}));
+    }
+    AiContext ai;
+    P_AiInit(&ai);
+    P_AiAttachGame(&ai, G_AiInterface());
+    P_AiSetFeatures(&ai, AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION | AI_FEATURE_RESEARCH);
+    ai_run(&ai, 600, 1000);
     CHECK(level.player_resources[0][0] == 50000);
     CHECK(G_CountPlannedActors(0, AI_ADVANCED_UNIT) == 0);
+    CHECK(P_AiStats(&ai, 0)->purchases == 0);
+    int advanced[3] = {0};
     for (int owner = 1; owner < 3; ++owner) {
         CHECK(level.player_resources[owner][0] < 50000);
-        CHECK(G_CountPlannedActors(owner, AI_ADVANCED_UNIT) == AI_ADVANCED_COUNT);
-        CHECK(G_CountPlannedActors(owner, AI_FIRST_UNIT) == AI_FIRST_COUNT);
+        CHECK(P_AiStats(&ai, owner)->purchases > 0);
+        advanced[owner] = G_CountPlannedActors(owner, AI_ADVANCED_UNIT);
+        CHECK(advanced[owner] >= AI_ADVANCED_COUNT && advanced[owner] <= AI_ADVANCED_MAX);
+        int first = G_CountPlannedActors(owner, AI_FIRST_UNIT);
+        CHECK(first >= AI_FIRST_COUNT && first <= AI_FIRST_MAX);
         for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
             mobj_t *u = (mobj_t *)th;
             if (u->owner != owner) continue;
@@ -57,8 +76,8 @@ static int test_ai_goals(void) {
         }
     }
     int money = level.player_resources[1][0];
-    for (int i = 0; i < 100; ++i) G_ModelAIProduction(NULL, 33);
-    CHECK(level.player_resources[1][0] == money);
+    ai_run(&ai, 100, 33);
+    CHECK(level.player_resources[1][0] == money); /* The ladder is finished. */
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *unit = (mobj_t *)th;
         if (unit->owner == 1 && unit->type_id == AI_ADVANCED_UNIT) {
@@ -66,9 +85,9 @@ static int test_ai_goals(void) {
             break;
         }
     }
-    CHECK(G_CountPlannedActors(1, AI_ADVANCED_UNIT) == AI_ADVANCED_COUNT - 1);
-    G_ModelAIProduction(NULL, 33);
-    CHECK(G_CountPlannedActors(1, AI_ADVANCED_UNIT) == AI_ADVANCED_COUNT);
+    CHECK(G_CountPlannedActors(1, AI_ADVANCED_UNIT) == advanced[1] - 1);
+    ai_run(&ai, 20, 1000);
+    CHECK(G_CountPlannedActors(1, AI_ADVANCED_UNIT) == advanced[1]);
     CHECK(level.player_resources[0][0] == 50000);
     P_FreeLevel(&level);
     puts("PASS: enemy ownership, bounded build goals, progression and replacement");

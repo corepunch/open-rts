@@ -23,6 +23,17 @@ void P_AiAttachGame(AiContext *ctx, const AiGameInterface *game) {
     for (int t = 0; t < AI_MAX_TEAMS; ++t) ctx->teams[t].plan_loaded = false;
 }
 
+void P_AiPlanAdd(AiPlan *plan, int product, int count) {
+    if (plan && plan->goal_count < AI_MAX_GOALS)
+        plan->goals[plan->goal_count++] = (AiGoal){ .product = product, .count = count };
+}
+
+int P_AiLevelNonHuman(const level_t *map, int owner) {
+    (void)map;
+    return owner >= 0 && owner < AI_MAX_TEAMS && !D_PlayerIsHuman(owner) ?
+        AI_LEVEL_NORMAL : AI_LEVEL_NONE;
+}
+
 void P_AiSetFeatures(AiContext *ctx, uint32_t features) {
     if (ctx) ctx->features = features;
 }
@@ -55,6 +66,11 @@ static void ai_emit(AiContext *ctx, AiEventType type, int owner, int value) {
 static bool ai_is_base(const AiContext *ctx, const mobj_t *u) {
     if (ctx && ctx->game && ctx->game->is_base) return ctx->game->is_base(u);
     return (u->traits & MF_RESOURCE_BASE) != 0;
+}
+
+static bool ai_is_anchor(const AiContext *ctx, const mobj_t *u) {
+    if (ctx && ctx->game && ctx->game->is_anchor) return ctx->game->is_anchor(u);
+    return ai_is_base(ctx, u);
 }
 
 static bool is_idle_slug(const mobj_t *u, int owner) {
@@ -96,22 +112,28 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
         if (team->harvest_assignment_count >= AI_MAX_HARVEST_ASSIGNMENTS) break;
 
         fvec2_t position = fixed3_xy_to_fvec2(u->core.position);
-        int best_vent = -1;
-        float best_dist2 = 1e30f;
-        for (int v = 0; v < map->resource_vent_count; ++v) {
-            const resourcevent_t *vent = &map->resource_vents[v];
-            if (!vent->active || vent->amount <= 0) continue;
-            if (vent_occupied_by_team(team, v)) continue;
-            float dist2 = fvec2_distance_squared(vent->attachment, position);
-            if (dist2 < best_dist2) {
-                best_dist2 = dist2;
-                best_vent = v;
+        /* Nearest free vent first; a vent the unit cannot path to is skipped
+         * so one unreachable patch never idles the harvester for good. */
+        bool tried[AI_MAX_VENT_TRIES] = { false };
+        int vent_limit = map->resource_vent_count < AI_MAX_VENT_TRIES ?
+            map->resource_vent_count : AI_MAX_VENT_TRIES;
+        for (int attempt = 0; attempt < vent_limit; ++attempt) {
+            int best_vent = -1;
+            float best_dist2 = 1e30f;
+            for (int v = 0; v < vent_limit; ++v) {
+                const resourcevent_t *vent = &map->resource_vents[v];
+                if (tried[v] || !vent->active || vent->amount <= 0) continue;
+                if (vent_occupied_by_team(team, v)) continue;
+                float dist2 = fvec2_distance_squared(vent->attachment, position);
+                if (dist2 < best_dist2) {
+                    best_dist2 = dist2;
+                    best_vent = v;
+                }
             }
-        }
-        if (best_vent < 0) continue;
-
-        const resourcevent_t *vent = &map->resource_vents[best_vent];
-        if (P_HarvestUnitTo(map, u, vent->attachment)) {
+            if (best_vent < 0) break;
+            tried[best_vent] = true;
+            const resourcevent_t *vent = &map->resource_vents[best_vent];
+            if (!P_HarvestUnitTo(map, u, vent->attachment)) continue;
             AiHarvestAssignment *a = &team->harvest_assignments[team->harvest_assignment_count++];
             a->vent_index = best_vent;
             a->slug_unit_index = i;
@@ -122,6 +144,7 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
             if (find_friendly_base(ctx, owner, units, unit_count, &base_pos)) {
                 u->harvest.return_position = base_pos;
             }
+            break;
         }
     }
 
@@ -287,6 +310,15 @@ static void ai_tick_production(AiContext *ctx, AiTeamState *team, int owner,
         if (ctx->clock_ms < goal->after_ms) continue;
         if (game->owned(owner, goal->product) >= goal->count) continue;
         int status = game->can_purchase(map, owner, goal->product);
+        if (status == AI_BUY_NEED_TECH) {
+            if ((ctx->features & AI_FEATURE_RESEARCH) && game->develop &&
+                game->develop(map, owner, goal->product)) {
+                team->stats.research_orders++;
+                ai_emit(ctx, AI_EVENT_RESEARCH, owner, goal->product);
+                break; /* Wait for the tech-up like saving for credits. */
+            }
+            continue;
+        }
         if (status == AI_BUY_BLOCKED) continue;
         if (status == AI_BUY_NEED_CREDITS) break;
         if (!game->purchase(map, owner, goal->product)) continue;
@@ -323,8 +355,9 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
     }
     if (idle_count < min_size) return; /* Keep the timer expired and retry next think. */
 
-    mobj_t *goal = NULL, *fallback = NULL;
-    float goal_d2 = 1e30f, fallback_d2 = 1e30f;
+    /* Objective tiers: enemy base, else any enemy structure, else any object. */
+    mobj_t *goal = NULL, *structure = NULL, *fallback = NULL;
+    float goal_d2 = 1e30f, structure_d2 = 1e30f, fallback_d2 = 1e30f;
     for (int i = 0; i < unit_count; ++i) {
         mobj_t *e = units[i];
         if (!ai_unit_alive(e) || e->owner >= AI_MAX_TEAMS ||
@@ -332,10 +365,11 @@ static void ai_tick_attack_game(AiContext *ctx, AiTeamState *team, int owner,
         float dx = fixed_to_float(e->core.position.x) - team->base_position.x;
         float dy = fixed_to_float(e->core.position.y) - team->base_position.y;
         float d2 = dx * dx + dy * dy;
-        if (ai_is_base(ctx, e) && d2 < goal_d2) { goal_d2 = d2; goal = e; }
+        if (ai_is_anchor(ctx, e) && d2 < goal_d2) { goal_d2 = d2; goal = e; }
+        if (!(e->traits & MF_MOBILE) && d2 < structure_d2) { structure_d2 = d2; structure = e; }
         if (d2 < fallback_d2) { fallback_d2 = d2; fallback = e; }
     }
-    if (!goal) goal = fallback;
+    if (!goal) goal = structure ? structure : fallback;
     if (!goal) { team->attack_wave_timer_ms = interval; return; }
 
     int sent = idle_count < max_size ? idle_count : max_size;
@@ -361,7 +395,7 @@ static void ai_census(const AiContext *ctx, AiTeamState *team, int owner,
         const mobj_t *u = units[i];
         if (u->hp <= 0 || u->remove || u->owner != owner) continue;
         if (team->allegiance == ALLEGIANCE_NEUTRAL) team->allegiance = u->allegiance;
-        if (ai_is_base(ctx, u)) {
+        if (ai_is_anchor(ctx, u)) {
             team->base_position = fixed3_xy_to_fvec2(u->core.position);
             team->has_base = true;
         }

@@ -19,6 +19,8 @@ static struct {
     int order[256];
     int order_count;
     int plan_calls, plan_level;
+    int develop_calls, develop_product;
+    bool develop_result, anchor_structures;
     bool owner4;
     AiPlan plan;
 } mock;
@@ -46,10 +48,21 @@ static bool mock_purchase(level_t *map, int owner, int product) {
     return true;
 }
 
+static bool mock_develop(level_t *map, int owner, int product) {
+    (void)map; (void)owner;
+    mock.develop_calls++;
+    mock.develop_product = product;
+    return mock.develop_result;
+}
+static bool mock_anchor(const mobj_t *unit) {
+    return mock.anchor_structures ? (unit->traits & (MF_MOBILE | MF_SELECTABLE)) == MF_SELECTABLE
+                                  : (unit->traits & MF_RESOURCE_BASE) != 0;
+}
+
 static const AiGameInterface mock_game = {
     .name = "mock", .features = AI_FEATURE_ALL, .player_level = mock_level,
     .plan = mock_plan, .owned = mock_owned, .can_purchase = mock_can,
-    .purchase = mock_purchase,
+    .purchase = mock_purchase, .develop = mock_develop, .is_anchor = mock_anchor,
 };
 
 static level_t map;
@@ -238,6 +251,53 @@ static int test_defense(void) {
     return 0;
 }
 
+static int test_research(void) {
+    reset();
+    goal(1, 1, 0); goal(2, 1, 0); goal(3, 1, 0);
+    mock.status[1] = AI_BUY_NEED_TECH;
+    mock.status[2] = AI_BUY_OK;
+    mock.status[3] = AI_BUY_OK;
+    mock.develop_result = true;
+    add(3, MF_MOBILE, 10, 10, ALLEGIANCE_PLAYER);
+    AiContext ctx; P_AiInit(&ctx); P_AiAttachGame(&ctx, &mock_game);
+    run(&ctx, 8);
+    REQUIRE(mock.develop_calls >= 1 && mock.develop_product == 1, "a tech-blocked goal starts its research");
+    REQUIRE(mock.order_count == 0, "a started tech-up holds the ladder like saving credits");
+    REQUIRE(P_AiStats(&ctx, 3)->research_orders >= 1, "research orders are counted");
+    AiEvent e; bool seen = false;
+    while (P_AiPollEvent(&ctx, &e)) seen |= e.type == AI_EVENT_RESEARCH && e.value == 1;
+    REQUIRE(seen, "a research event is logged");
+    mock.develop_result = false; /* Nothing to research: lower goals proceed. */
+    run(&ctx, 8);
+    REQUIRE(mock.order_count == 2, "a goal that cannot be researched is skipped");
+    mock.order_count = mock.owned[2] = mock.owned[3] = 0;
+    P_AiSetFeatures(&ctx, AI_FEATURE_ALL & ~AI_FEATURE_RESEARCH);
+    mock.develop_result = true;
+    int calls = mock.develop_calls;
+    run(&ctx, 8);
+    REQUIRE(mock.develop_calls == calls, "RESEARCH off: the hook is never called");
+    REQUIRE(mock.order_count == 2, "RESEARCH off: a tech-blocked goal is just skipped");
+    return 0;
+}
+
+static int test_anchor_is_separate_from_base(void) {
+    reset();
+    mock.anchor_structures = true;
+    mock.plan.wave_min_size = 1; mock.plan.wave_interval_ms = 1000;
+    goal(1, 0, 0);
+    /* Structures that are not resource drop-offs. */
+    add(3, MF_SELECTABLE, 10, 10, ALLEGIANCE_PLAYER);
+    mobj_t *enemy_hall = add(1, MF_SELECTABLE, 70, 70, ALLEGIANCE_ENEMY);
+    add(1, MF_ATTACK | MF_MOBILE, 20, 20, ALLEGIANCE_ENEMY);
+    mobj_t *fighter = add(3, MF_ATTACK | MF_MOBILE, 11, 11, ALLEGIANCE_PLAYER);
+    AiContext ctx; P_AiInit(&ctx); P_AiAttachGame(&ctx, &mock_game);
+    P_AiSetFeatures(&ctx, AI_FEATURE_ATTACK);
+    run(&ctx, 80);
+    REQUIRE(P_AiStats(&ctx, 3)->waves >= 1, "a base-less team still anchors on its structures");
+    REQUIRE(fighter->attack.target == enemy_hall, "waves prefer enemy structures over loose units");
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_cadence_and_levels();
@@ -247,6 +307,8 @@ int main(void) {
     rc |= test_event_log();
     rc |= test_waves();
     rc |= test_defense();
+    rc |= test_research();
+    rc |= test_anchor_is_separate_from_base();
     if (!rc) puts("PASS: ai_interface");
     return rc;
 }

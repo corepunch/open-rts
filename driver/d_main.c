@@ -201,11 +201,11 @@ int main(int argc, char **argv) {
         app.win.w = 640;
         app.win.h = 480;
     }
-    if (window.w > 0) app.win = window;
+    isize2_t window_size = window.w > 0 ? window : app.win;
     app.show_grid = false;
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
-                             app.win.w, app.win.h,
+                             window_size.w, window_size.h,
                              check_only || screenshot_only || check_tics,
                              check_only || screenshot_only || check_tics || software_renderer)) {
         return 1;
@@ -283,7 +283,7 @@ load_level:
     spritesheet_t unit_sprite;
     memset(&tileset, 0, sizeof(tileset));
     memset(&unit_sprite, 0, sizeof(unit_sprite));
-    if (!W_LoadAssets(app.renderer, data_root, &level, sprite_name, &tileset, &unit_sprite)) {
+    if (!W_LoadAssets(data_root, &level, sprite_name, &tileset, &unit_sprite)) {
         P_FreeLevel(&level);
         M_Shutdown();
         renderer_destroy(&renderer);
@@ -323,7 +323,7 @@ load_level:
     P_UpdateSight();
 
     spritecache_t decoration_sprites = { 0 };
-    if (!R_InitSprites(app.renderer, data_root, &level, units, unit_count,
+    if (!R_InitSprites(data_root, &level, units, unit_count,
                               &decoration_sprites)) {
         fprintf(stderr, "warning: some %s runtime sprites were not loaded\n", g_game_name);
     }
@@ -347,7 +347,7 @@ load_level:
     P_AiInit(&ai);
     P_AiAttachGame(&ai, G_AiInterface());
     sb_state_t st = { 0 };
-    if (!custom_ui && gameui && !SB_Init(&st, app.renderer, data_root, gameui))
+    if (!custom_ui && gameui && !SB_Init(&st, data_root, gameui))
         fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
     if (check_only || screenshot_only) {
@@ -450,7 +450,7 @@ load_level:
                     objects = P_ListMobjs();
                     units = objects.items;
                     unit_count = objects.count;
-                    if (!R_InitSprites(app.renderer, data_root, &level,
+                    if (!R_InitSprites(data_root, &level,
                                              units, unit_count,
                                              &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load debug enemy sprite\n");
@@ -511,7 +511,7 @@ load_level:
                 if (unit_count != before_count) {
                     if (!level.has_camera) focus_camera_on_first_player_unit(&app, &level, units, unit_count);
                     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
-                    if (!R_InitSprites(app.renderer, data_root, &level,
+                    if (!R_InitSprites(data_root, &level,
                                              units, unit_count,
                                              &decoration_sprites)) {
                         fprintf(stderr, "warning: failed to load scripted runtime sprites\n");
@@ -520,15 +520,12 @@ load_level:
             }
             int before_production_count = unit_count;
             bool production_spawned;
+            /* Every game's computer players buy through the universal AI. */
+            P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
             if (custom_ui) {
-                /* Custom-UI games (Dark Colony) buy through the universal AI. */
-                if (G_AiInterface())
-                    P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
                 production_spawned = G_UpdateProduction(custom_ui, &level, units, &unit_count,
                                                         FIXED_DT);
             } else {
-                P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
-                G_ModelAIProduction(NULL, (int)(FIXED_DT * 1000));
                 production_spawned = G_ProductionTicker(FIXED_DT);
             }
             P_FreeMobjList(&objects);
@@ -536,7 +533,7 @@ load_level:
             units = objects.items;
             unit_count = objects.count;
             if (production_spawned || unit_count != before_production_count) {
-                if (!R_InitSprites(app.renderer, data_root, &level,
+                if (!R_InitSprites(data_root, &level,
                                          units, unit_count,
                                          &decoration_sprites)) {
                     fprintf(stderr, "warning: failed to load produced unit sprite\n");
@@ -579,16 +576,24 @@ load_level:
 
         R_DrawGridOverlay(&app, &level);
         R_DrawFog(&app, &level);
-        if (app.dragging_select) {
-            SDL_SetRenderDrawColor(app.renderer, 98, 224, 161, 255);
-            SDL_RenderDrawRect(app.renderer, &app.selection_rect);
-        }
+        if (app.dragging_select)
+            V_DrawRectOutline(app.selection_rect, V_NearestIndex(0xff62e0a1u));
         G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
         SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
                   false, false);
         if (!custom_ui) SB_ProductionDrawer(&st, &app);
         M_Drawer(&app);
         renderer_end_frame(&renderer);
+        if (getenv("OPEN_RTS_BENCH")) {
+            static int bench_frames;
+            static uint64_t bench_start;
+            if (bench_frames == 0) bench_start = SDL_GetTicks64();
+            if (++bench_frames == 60) {
+                printf("BENCH frames=60 ms=%llu\n",
+                       (unsigned long long)(SDL_GetTicks64() - bench_start));
+                app.running = false;
+            }
+        }
     }
 
     /* Let bounded-check clients consume the final commands and quit before

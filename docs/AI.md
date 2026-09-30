@@ -1,8 +1,9 @@
 # Universal computer-player AI
 
 Engine code: `play/p_ai.{h,c}`. Game hooks: `G_AiInterface()` (`game/game.h`).
-Dark Colony is the first client (`games/dark-colony/p_ai.c`); the other games
-return `NULL` and still use their own `G_ModelAIProduction` goal lists.
+All four games are clients: Dark Colony (`games/dark-colony/p_ai.c`), Dark Reign,
+KKnD and 7th Legion (each in its `p_prod.c`). The old per-game
+`G_ModelAIProduction` goal tickers are gone.
 
 ## Architecture
 
@@ -14,8 +15,27 @@ verbs* through an `AiGameInterface`:
 | `player_level(map, owner)` | `AI_LEVEL_NONE / NORMAL / PLUS`. `NONE` owners are skipped entirely (humans, empty slots, scripted missions). |
 | `plan(map, owner, level, &AiPlan)` | Ordered goal ladder: keep `count` of `product` once `after_ms` has passed, plus wave interval/min/max size. Product ids are opaque to the engine. |
 | `owned`, `can_purchase`, `purchase` | Count (alive + queued), classify (`OK / BLOCKED / NEED_CREDITS`) and buy. |
-| `is_base(unit)` | Defense anchor and wave objective; default `MF_RESOURCE_BASE`. |
-| `features` | `AI_FEATURE_ECONOMY / PRODUCTION / DEFENSE / ATTACK` mask; also `P_AiSetFeatures()` at runtime. |
+| `develop(map, owner, product)` | Optional. For a goal that reports `AI_BUY_NEED_TECH`, start the tech-up that unlocks it. Returning true makes the AI wait (like saving credits). |
+| `is_base(unit)` | Resource drop-off that harvesters return to; default `MF_RESOURCE_BASE`. |
+| `is_anchor(unit)` | Structures that anchor defense and are wave targets; default `is_base`. Dark Reign and KKnD use `G_AiIsStructure` because their drop-offs are a small subset of their buildings. |
+| `features` | `AI_FEATURE_ECONOMY / PRODUCTION / DEFENSE / ATTACK / RESEARCH` mask; also `P_AiSetFeatures()` at runtime. |
+
+### Shared adapters (`game/g_ai.c`, `P_Ai*` helpers)
+
+A game whose purchases go through `G_FindProducer` / `G_QueueProduct` does not
+write `owned / can_purchase / purchase`: it points them at `G_AiCatalogOwned`,
+`G_AiCatalogCanPurchase` and `G_AiCatalogPurchase` (goal product ids are catalog
+`ui_id`s). `P_AiLevelNonHuman` is the default `player_level` and `P_AiPlanAdd`
+builds ladders. Dark Colony keeps its own hooks (custom purchase queue).
+
+### Per-game configuration
+
+| | features | ladder | notes |
+|---|---|---|---|
+| Dark Colony | all (no `develop` hook, so RESEARCH is inert) | race ladder, AI vs AI+ income | skirmish slots only |
+| Dark Reign | economy, production, defense, attack | one table of `{Freedom Guard id, Imperium id, count}`; faction read from the owner's crews/HQs | Imperium previously had no AI at all; applies in campaign missions too |
+| KKnD | all, including research | one table of `{Survivor id, Mutant id, count}` (ids do not pair by parity past row 43); faction read from the owner's units | research hook only fires for products with a tech level, none in `products.inc` today |
+| 7th Legion | economy, production, defense, attack | single ladder off the Mobile Base | |
 
 Scheduling mirrors DC.EXE: an owner thinks once per `AI_THINK_INTERVAL_TICKS`
 (4) ticks, staggered per owner. Per think: census → economy (idle harvesters to
@@ -98,10 +118,50 @@ no aircraft, upgrades unused, economy capped at three harvesters.
   determinism (lockstep), campaign isolation, empty slots, the interactive
   production loop, and a 29-map sweep that also checks every start is on the map.
 
-## Migrating the other games
+## Migrating a game
 
-KKnD, Dark Reign and 7th Legion keep `G_ModelAIProduction` goals. To move one:
-implement the five hooks (their goals map directly onto `AiGoal`), return the
-interface from `G_AiInterface()`, call `P_AiTick` from the interactive loop, and
-delete the game's private goal ticker. `d_main.c` already attaches whatever
-interface the game returns and runs `P_AiTick` on the custom-sidebar path.
+Implement `player_level` (or use `P_AiLevelNonHuman`), a `plan` that fills the
+ladder, and either the catalog adapters or your own `owned / can_purchase /
+purchase`. Return the interface from `G_AiInterface()`; `d_main.c` and
+`rts_game_model_load` attach it and tick `P_AiTick` for every game. A plan that
+returns false (for example because the owner has no unit to read a faction
+from yet) is simply retried on the next think.
+
+## Dark Reign, KKnD, 7th Legion status
+
+Engine changes made while porting them, all shared by Dark Colony:
+
+- A harvester tries free vents nearest-first and skips one it cannot path to
+  (previously one unreachable vent idled it forever).
+- Wave objective tiers: enemy anchor, else any enemy structure, else anything.
+- A separate `is_anchor`, because widening `is_base` would have sent freighters
+  to arbitrary buildings.
+
+Findings and gaps:
+
+- **KKnD has no economy yet.** The map loader creates no resource vents (the
+  mission test reports `0 vents`), so oil tankers have nowhere to go. The AI
+  spends the starting oil on its ladder; income waits on the loader.
+- KKnD's first mission gives the enemy loose units and no buildings, so its AI
+  has nothing to produce from and no structure to anchor waves on; it does not
+  invent a base. `tests/kknd/test_ai.c` exercises the ladder with real bases for
+  both factions.
+- The previous KKnD goal list used ids that no longer matched `products.inc`
+  (for example 25 and 126), so it built nothing; the stale test that asserted an
+  empty product table is replaced by `test_ai.c`.
+- On the default 7th Legion map the enemy's start cannot path to any vent (the
+  player's can), so its Slaves never harvest there; the AI still buys and
+  attacks from its starting credits.
+- Dark Reign and KKnD ladders are an original policy, not a transcription of the
+  retail AI; their executables were not disassembled.
+- The per-faction ladders use fixed counts. No scouting, retreat, expansion or
+  aircraft anywhere.
+
+## Tests (added with the port)
+
+- `tests/shared/test_ai_game.c`: ten simulated minutes on each game's default
+  map (owner 0 untouched, enemy buys and launches waves).
+- `tests/shared/test_ai_vents.c`: unreachable nearest vent falls through to the next.
+- `tests/kknd/test_ai.c`: both factions, exact unit counts, loss replacement.
+- `tests/production_regression.h`: Dark Reign and 7th Legion ladders through `P_AiTick`.
+- `tests/dark-colony/test_ai_interface.c`: research wait and feature gating, anchors.

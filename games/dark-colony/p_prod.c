@@ -449,12 +449,6 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-/* Computer players buy through the universal AI (p_ai.c, G_AiInterface);
- * the former owner-1-only goal list lived here and is gone. */
-void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)model; (void)elapsed_ms;
-}
-
 /* ── interactive production simulation (raw mobj_t arrays, not RtsGameModel) ── */
 
 /* A city's modules share the authored FIN origin, with native slot positions. */

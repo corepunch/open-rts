@@ -577,7 +577,6 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
     G_MissionTicker(&level, model->objects.items, &model->objects.count,
                     &model->hud, dt);
     refresh_model_objects(model);
-    G_ModelAIProduction(model, (int)(dt * 1000.0f));
     G_ProductionTicker(dt);
 
     refresh_model_objects(model);

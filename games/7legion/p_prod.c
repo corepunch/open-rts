@@ -3,6 +3,7 @@
 #include "d_net.h"
 #include "g_game.h"
 #include "info.h"
+#include "p_ai.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -149,16 +150,20 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-static const productiongoal_t sl_ai_goals[] = {
-    { 2, 1 },  /* Slave */
-    { 1, 3 },  /* Troopers */
-    { 3, 1 },  /* Spider Mech */
-    { 4, 1 },  /* Tank */
-};
-
-void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)model; (void)elapsed_ms;
-    G_ProductionGoals(sl_ai_goals, sizeof(sl_ai_goals) / sizeof(*sl_ai_goals));
+/* Computer player: Slaves and Trucks harvest, the Mobile Base builds all. */
+static bool sl_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
+    (void)map; (void)level;
+    static const struct { int product, count; } ladder[] = {
+        { 2, 2 }, { 1, 3 }, { 2, 3 }, { 3, 2 }, { 4, 2 }, { 6, 1 },
+        { 1, 8 }, { 4, 4 }, { 5, 2 }, { 3, 4 }, { 1, 12 }, { 4, 6 }, { 5, 4 },
+    };
+    if (!G_ModelHasActorType(NULL, owner, 7)) return false; /* No Mobile Base yet. */
+    out->wave_interval_ms = 35000;
+    out->wave_min_size = 5;
+    out->wave_max_size = 14;
+    for (unsigned i = 0; i < sizeof(ladder) / sizeof(*ladder); ++i)
+        P_AiPlanAdd(out, ladder[i].product, ladder[i].count);
+    return true;
 }
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
@@ -175,5 +180,15 @@ int G_ModelRadarLevel(int owner) {
     return 2;
 }
 
-/* This game still uses its own production goals; no universal AI hooks yet. */
-const struct AiGameInterface *G_AiInterface(void) { return NULL; }
+static const AiGameInterface sl_ai_interface = {
+    .name = "7legion",
+    .features = AI_FEATURE_ECONOMY | AI_FEATURE_PRODUCTION |
+                AI_FEATURE_DEFENSE | AI_FEATURE_ATTACK,
+    .player_level = P_AiLevelNonHuman,
+    .plan = sl_ai_plan,
+    .owned = G_AiCatalogOwned,
+    .can_purchase = G_AiCatalogCanPurchase,
+    .purchase = G_AiCatalogPurchase,
+};
+
+const AiGameInterface *G_AiInterface(void) { return &sl_ai_interface; }

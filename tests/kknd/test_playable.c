@@ -100,7 +100,7 @@ static int test_native_start_has_no_production(void) {
     if (!rts_game_model_snapshot(model, &snap)) return fail("snapshot");
     RtsProductDefinition products[64];
     int product_count = rts_game_model_products(model, products, 64);
-    if (product_count != 0) return fail("native production remains unimplemented");
+    if (product_count <= 0) return fail("native catalog is exposed");
     RtsGameCommand build = {
         .kind = RTS_GAME_COMMAND_ACTIVATE_UI_BUTTON,
         .data.activate_ui_button = { .ui_id = 1 },

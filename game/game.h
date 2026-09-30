@@ -37,7 +37,7 @@ void     G_InitGame(void);
 bool     G_DoLoadLevel(const char *path, level_t *out);
 
 /* Load tile/sprite assets into tileset and unit_sprite. */
-bool     W_LoadAssets(SDL_Renderer *renderer, const char *root, const level_t *map,
+bool     W_LoadAssets(const char *root, const level_t *map,
                       const char *sprite, tileset_t *tileset, spritesheet_t *unit_sprite);
 
 /* Spawn initial map objects into the thinker list.
@@ -46,11 +46,11 @@ int      P_LoadThings(const char *path);
 
 /* Load per-unit sprites into cache after units are known.
    Returns true on success (partial loads are allowed). */
-bool     R_InitSprites(SDL_Renderer *renderer, const char *root, const level_t *map,
+bool     R_InitSprites(const char *root, const level_t *map,
                        mobj_t *const *mobjs, int count, spritecache_t *cache);
 
 /* Load the game UI font into *font.  Returns false if the game has no font. */
-bool     HU_LoadFont(SDL_Renderer *renderer, const char *root, bitmapfont_t *font);
+bool     HU_LoadFont(const char *root, bitmapfont_t *font);
 
 /* Advance mission state by dt seconds. */
 void     G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
@@ -146,8 +146,12 @@ void     G_ModelBuildUIScript(const RtsGameModel *model,
 struct AiGameInterface;
 const struct AiGameInterface *G_AiInterface(void);
 
-/* Periodic AI production thinker. */
-void     G_ModelAIProduction(RtsGameModel *model, int elapsed_ms);
+/* Catalog-backed owned/can_purchase/purchase hooks (game/g_ai.c) for games
+ * that buy through G_QueueProduct; goal product ids are catalog ui_ids. */
+int      G_AiCatalogOwned(int owner, int ui_id);
+int      G_AiCatalogCanPurchase(const level_t *map, int owner, int ui_id);
+bool     G_AiCatalogPurchase(level_t *map, int owner, int ui_id);
+bool     G_AiIsStructure(const mobj_t *unit); /* AiGameInterface.is_anchor */
 
 /* Shared level production: UI and AI enqueue on the actual producer. */
 mobj_t  *G_FindProducer(int owner, const StaticProductDefinition *product);

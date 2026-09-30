@@ -4,6 +4,7 @@
 #include "g_game.h"
 #include "info.h"
 #include "kknd.h"
+#include "p_ai.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -189,41 +190,89 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     }
 }
 
-/* Engine skirmish goals for either faction; makers determine eligibility. */
-static const productiongoal_t kk_ai_goals[] = {
-    { 25, 1 }, { 126, 1 },   /* Research */
-    { 23, 1 }, { 123, 1 },   /* Infantry production */
-    { 124, 1 },              /* Evolved vehicles */
-    { 21, 1 }, { 121, 1 },   /* Vehicle production */
-    { 14, 1 }, { 114, 1 },   /* Oil tanker */
-    { 1, 2 }, { 101, 2 },    /* Infantry */
-    { 2, 1 }, { 102, 1 },    /* Flame infantry */
-    { 3, 1 }, { 104, 1 },    /* Rockets */
-    { 10, 1 }, { 110, 1 },   /* Fast vehicle */
-    { 12, 1 }, { 113, 1 },   /* Heavy vehicle */
+/* One ladder for both factions: {Survivor id, Mutant id, count}. */
+static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {
+    { 40, 41, 1 },  /* Outpost / Clan hall, unpacked from the mobile outpost */
+    { 42, 43, 1 },  /* Machine shop / Blacksmith */
+    { 32, 33, 1 },  /* Oil tanker */
+    { 0,  1,  3 },  /* Rifleman / Berserker */
+    { 47, 48, 1 },  /* Research lab / Alchemy hall */
+    { 32, 33, 2 },
+    { 16, 17, 2 },  /* Dirt bike / Dire wolf */
+    { 12, 13, 2 },  /* RPG launcher / Bazooka */
+    { 49, 50, 1 },  /* Guard tower / Machinegun nest */
+    { 18, 19, 2 },  /* 4x4 pickup / Bike and sidecar */
+    { 0,  1,  6 },
+    { 20, 21, 2 },  /* ATV / Monster truck */
+    { 14, 15, 2 },  /* Sniper / Crazy Harry */
+    { 24, 25, 2 },  /* Anaconda / War mastodon */
+    { 51, 52, 1 },  /* Missile battery / Grapeshot tower */
+    { 28, 29, 2 },  /* Autocannon / Missile crab */
+    { 0,  1,  10 },
+    { 24, 25, 4 },
+    { 26, 27, 2 },  /* Barrage craft / Giant beetle */
+    { 28, 29, 4 },
+    { 22, 23, 2 },  /* Flame ATV / Giant scorpion */
 };
 
-void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {
-    (void)model; (void)elapsed_ms;
-    G_ProductionGoals(kk_ai_goals, sizeof(kk_ai_goals) / sizeof(*kk_ai_goals));
-    for (int owner = 1; owner < RTS_MODEL_MAX_PLAYERS; ++owner) {
-        if (D_PlayerIsHuman(owner)) continue;
-        for (unsigned i = 0; i < sizeof(kk_ai_goals)/sizeof(*kk_ai_goals); ++i) {
-            const StaticProductDefinition *p = G_ModelProductByUIId(NULL, kk_ai_goals[i].ui_id);
-            if (!p) continue;
-            if (G_CountPlannedActors(owner, p->product_type) >= kk_ai_goals[i].count) continue;
-            for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
-                if (th->function != P_MobjThinker) continue;
-                mobj_t *u = (mobj_t *)th;
-                if (u->owner != owner || u->type_id != p->makers[0] || G_ModelProducerHasTech(u,p)) continue;
-                bool researching = false;
-                for (thinker_t *other = thinkercap.next; other != &thinkercap; other = other->next)
-                    if (other->function == P_MobjThinker && ((mobj_t *)other)->research.target == u->id)
-                        researching = true;
-                if (!researching) KK_Research(u);
-            }
-        }
+/* Ids pair up by faction except the Mutant-only rows, so read the faction
+ * from the catalog entry of any building or unit the owner already has. */
+static int kk_faction(int owner) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        const mobj_t *u = (mobj_t *)th;
+        if (u->owner != owner || u->hp <= 0 || u->remove) continue;
+        for (int i = 0; i < product_count(); ++i)
+            if (KKND_PRODUCTS[i].product_type == u->type_id) return KKND_PRODUCTS[i].faction;
     }
+    return -1;
+}
+
+static bool kk_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
+    (void)map; (void)level;
+    int faction = kk_faction(owner);
+    if (faction < 0) return false;
+    out->wave_interval_ms = 40000;
+    out->wave_min_size = 6;
+    out->wave_max_size = 16;
+    for (unsigned i = 0; i < sizeof(kk_ai_ladder) / sizeof(*kk_ai_ladder); ++i)
+        P_AiPlanAdd(out, faction == 1 ? kk_ai_ladder[i].survivor : kk_ai_ladder[i].mutant,
+                    kk_ai_ladder[i].count);
+    return true;
+}
+
+/* First owned maker of `product` that has not reached the product's tech. */
+static mobj_t *kk_maker_lacking_tech(int owner, const StaticProductDefinition *product) {
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
+        if (th->function != P_MobjThinker) continue;
+        mobj_t *u = (mobj_t *)th;
+        if (u->owner != owner || u->hp <= 0 || u->remove ||
+            gameinfo->states[u->core.state_id].group == 6) continue;
+        for (int i = 0; i < product->maker_count; ++i)
+            if (product->makers[i] == u->type_id && !G_ModelProducerHasTech(u, product)) return u;
+    }
+    return NULL;
+}
+
+static int kk_ai_can_purchase(const level_t *map, int owner, int ui_id) {
+    int status = G_AiCatalogCanPurchase(map, owner, ui_id);
+    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui_id);
+    if (status == AI_BUY_BLOCKED && product && ui_id != KKND_RESEARCH &&
+        kk_maker_lacking_tech(owner, product)) return AI_BUY_NEED_TECH;
+    return status;
+}
+
+/* A lab researches one producer at a time; KK_Research on a producer that is
+ * already being researched would cancel it, so check first. */
+static bool kk_ai_develop(level_t *map, int owner, int ui_id) {
+    (void)map;
+    const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui_id);
+    mobj_t *maker = product ? kk_maker_lacking_tech(owner, product) : NULL;
+    if (!maker) return false;
+    for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next)
+        if (th->function == P_MobjThinker && ((mobj_t *)th)->research.target == maker->id)
+            return true; /* Already under way: keep waiting. */
+    return KK_Research(maker);
 }
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
@@ -243,5 +292,16 @@ int G_ModelRadarLevel(int owner) {
     return radar;
 }
 
-/* This game still uses its own production goals; no universal AI hooks yet. */
-const struct AiGameInterface *G_AiInterface(void) { return NULL; }
+static const AiGameInterface kk_ai_interface = {
+    .name = "kknd",
+    .features = AI_FEATURE_ALL,
+    .player_level = P_AiLevelNonHuman,
+    .plan = kk_ai_plan,
+    .owned = G_AiCatalogOwned,
+    .can_purchase = kk_ai_can_purchase,
+    .purchase = G_AiCatalogPurchase,
+    .develop = kk_ai_develop,
+    .is_anchor = G_AiIsStructure,
+};
+
+const AiGameInterface *G_AiInterface(void) { return &kk_ai_interface; }
