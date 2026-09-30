@@ -183,7 +183,8 @@ int main(void) {
             int dst = L_Index(&level, x, y);
             uint16_t flags = read_u16_le(map.bytes + 8 + count * 4 + src * 2);
             assert(level.tile_flags[dst] == (flags | ((flags & 512) ? 0 : MAP_SIGHT_PASS)));
-            assert(level.blocked[dst] == ((flags & 512) != 0));
+            /* The PTH family byte may block further cells; it never frees an obstacle. */
+            assert(!(flags & 512) || level.blocked[dst]);
             assert(level.tile_ids[dst] == read_u16_le(map.bytes + 8 + src * 4));
         }
     }
