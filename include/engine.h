@@ -384,6 +384,18 @@ typedef struct resourcevent_s {
     uint32_t source_id;
 } resourcevent_t;
 
+/* Movement classes (wheels, tracks, feet, hover...). Class 0 means "plain": the
+ * unit only respects blocked[]. Classes 1.. look up a speed percentage per
+ * terrain id or overlay effect id; 0 is impassable, 25 is a swamp crawl and 200
+ * is a road. A game that has no terrain classes simply leaves `speeds` NULL. */
+#define RTS_MAX_MOVE_CLASSES 16
+typedef struct {
+    int class_count;
+    uint8_t terrain[RTS_MAX_MOVE_CLASSES][16];
+    uint8_t overlay[RTS_MAX_MOVE_CLASSES][8];
+    uint8_t max_slope[RTS_MAX_MOVE_CLASSES]; /* Authored; needs an elevation map to apply. */
+} terrainspeeds_t;
+
 typedef struct level_s {
     int width;
     int height;
@@ -392,6 +404,10 @@ typedef struct level_s {
     uint8_t *tile_transforms[MAX_TILE_OVERLAYS + 1];
     int tile_overlay_count;
     uint8_t *blocked;
+    terrainspeeds_t *speeds;
+    uint8_t *cell_terrain; /* Game terrain id per cell, indexes speeds->terrain. */
+    uint8_t *cell_effect;  /* Overlay effect id per cell (0..7), 255 = none. */
+    uint8_t *cell_solid;   /* Impassable to every class (walls, solid footprints). */
     uint16_t *tile_flags;
     sightmap_t sight;
     daylight_t daylight;
@@ -564,6 +580,7 @@ typedef struct mobjtype_s {
         harvestresource_t resources[RTS_MAX_RESOURCES];
     } harvest;
     uint16_t native_type_id;
+    uint8_t move_class; /* Terrain speed class (see terrainspeeds_t); 0 = plain. */
     actionf_p1 damage_action;
 } mobjtype_t;
 
@@ -711,6 +728,8 @@ struct mobj_s {
         bool order_arrived;
         int turn_timer_ms;
         int stuck_tics, replans;
+        bool plan_pending;   /* Order accepted; the planner has not produced a route yet. */
+        uint32_t plan_seq;   /* FIFO position in the time-sliced planning queue. */
     } movement;
     MOBJ_GAME_FIELDS
 };
@@ -718,6 +737,7 @@ struct mobj_s {
 static inline void P_ClearMove(mobj_t *unit) {
     unit->movement.path = (navpath_t){0};
     unit->movement.stuck_tics = unit->movement.replans = 0;
+    unit->movement.plan_pending = false;
 }
 
 static inline bool P_MobjIsSelected(const mobj_t *mobj) {
@@ -1179,6 +1199,8 @@ void HU_Ticker(hudtext_t *hud, float dt);
 int L_Index(const level_t *map, int x, int y);
 bool L_Contains(const level_t *map, int x, int y);
 bool L_IsWalkable(const level_t *map, int x, int y);
+/* Speed percentage for a movement class at a cell; 0 means impassable. */
+int L_MoveSpeed(const level_t *map, int move_class, int x, int y);
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
 void P_NavFree(level_t *map);
 
@@ -1969,8 +1991,17 @@ static inline float P_ResourceVentRadius(const resourcevent_t *vent) {
 bool P_CheckPosition(const level_t *map, const mobj_t *unit, float gx, float gy);
 bool P_TryMove(mobj_t *unit, fixed3_t position);
 void P_ClampToLevel(const level_t *map, mobj_t *unit);
-bool P_MapCircleWalkable(const level_t *map, float gx, float gy, float radius,
-                         const fvec2_t *from);
+bool P_MapCircleWalkable(const level_t *map, int move_class, float gx, float gy,
+                         float radius, const fvec2_t *from);
+static inline int P_MobjMoveClass(const mobj_t *unit) {
+    return unit && unit->info ? unit->info->move_class : 0;
+}
+/* Cells occupied by idle ground units other than `exclude` (and, when order_id is
+ * not zero, other than members of that order). The planner treats them as costly,
+ * not solid. Returns NULL when there are none. Free with free(). */
+uint8_t *P_IdleBlockers(const level_t *map, const mobj_t *exclude, uint32_t order_id);
+void P_NavBeginTick(void);
+void P_NavRunPlans(const level_t *map);
 
 /* p_steer.c: shared path following, avoidance and overlap resolution. */
 bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final);

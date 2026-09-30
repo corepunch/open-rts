@@ -888,7 +888,7 @@ static void tick_missile(mobj_t *missile) {
 
 bool P_HasMoveOrder(const mobj_t *unit) {
     if (!unit || unit->movement.order_arrived) return false;
-    return unit->movement.path.count ||
+    return unit->movement.path.count || unit->movement.plan_pending ||
            ((unit->traits & MF_FLY) && unit->movement.order_id);
 }
 
@@ -1191,6 +1191,7 @@ static void tick_actor(mobj_t *u) {
     }
     fvec2_t move_target = u->movement.goal;
     bool final = true;
+    if (u->movement.plan_pending) moving = false; /* Waiting in the planning queue. */
     if (moving && !(u->traits & MF_FLY) && !P_SteerTarget(map, u, &move_target, &final)) {
         P_ClearMove(u);
         u->movement.order_arrived = false;
@@ -1215,8 +1216,13 @@ static void tick_actor(mobj_t *u) {
             u->movement.order_arrived = true;
             moving = false;
         } else {
-            float step = u->speed * dt;
             bool flying = u->traits & MF_FLY;
+            float step = u->speed * dt;
+            if (!flying && P_MobjMoveClass(u)) { /* Terrain slows or speeds the class (swamp 25%, road 200%). */
+                ivec2_t under = fvec2_cell(fixed3_xy_to_fvec2(u->core.position));
+                int percent = L_MoveSpeed(map, P_MobjMoveClass(u), under.x, under.y);
+                step *= (float)(percent > 0 ? percent : 100) / 100.0f;
+            }
             if (dist >= 0.001f) u->core.angle = angle_from_map_vector(map, delta.x, delta.y);
             if (dist <= step || dist < 0.001f) {
                 if (move_unit_if_walkable(u, delta)) {

@@ -5,6 +5,15 @@
 #include "engine.h"
 
 
+/* TRNEFF.TXT effect types: one terrain speed table per movement class. Class 0 is
+ * "plain" (blocked[] only) and is used by anything without UseEffects. */
+enum {
+    DR_MOVE_PLAIN = 0,
+    DR_MOVE_WHEEL, DR_MOVE_WHEELF, DR_MOVE_WHEELA, DR_MOVE_TRACK, DR_MOVE_FOOT,
+    DR_MOVE_HOVER, DR_MOVE_HOVERS, DR_MOVE_FLYING, DR_MOVE_LEGGEDDROID,
+    DR_MOVE_COUNT
+};
+
 typedef struct {
     const char *name;
     int recompute_strategy_period;

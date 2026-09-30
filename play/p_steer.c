@@ -12,7 +12,6 @@
 enum {
     STUCK_TICS = 20,   /* about 0.7 s of no progress before replanning */
     MAX_REPLANS = 8,
-    SKIP_LOOKAHEAD_CELLS = 12,
 };
 
 static bool ground_mover(const mobj_t *unit) {
@@ -23,7 +22,13 @@ static bool ground_mover(const mobj_t *unit) {
 bool P_ReplanUnit(const level_t *map, mobj_t *unit) {
     navpath_t path;
     fvec2_t position = fixed3_xy_to_fvec2(unit->core.position);
-    if (!P_NavPlan(map, P_MobjRadius(unit), position, unit->movement.goal, &path)) return false;
+    /* A unit jammed behind idle ones routes around them, as DC's bounded local
+     * detour and DR's blocker-aware search both do. */
+    uint8_t *soft = P_IdleBlockers(map, unit, 0);
+    bool planned = P_NavPlan(map, P_MobjMoveClass(unit), P_MobjRadius(unit), position,
+                             unit->movement.goal, soft, &path);
+    free(soft);
+    if (!planned) return false;
     unit->movement.path = path;
     return true;
 }
@@ -41,14 +46,25 @@ bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *fina
     while (path->current + 1 < path->count) {
         fvec2_t here = path->points[path->current], next = path->points[path->current + 1];
         bool near = fvec2_distance_squared(position, here) < 0.3f * 0.3f;
-        bool cut = !near && fvec2_distance_squared(position, next) <
-                   (float)(SKIP_LOOKAHEAD_CELLS * SKIP_LOOKAHEAD_CELLS) &&
-                   P_NavLineClear(map, position, next, radius);
+        /* As soon as the next waypoint is in sight, stop aiming at this corner; otherwise a
+         * whole group funnels into the same point and jams on it. Throttled: sight tests
+         * along a long leg are the costliest thing a unit does. */
+        bool cut = !near && ((uint32_t)leveltime + unit->id) % 2 == 0 &&
+                   P_NavLineClear(map, P_MobjMoveClass(unit), position, next, radius);
         if (!near && !cut) break;
         ++path->current;
     }
     *final = path->current + 1 >= path->count && path->complete;
     *target = *final ? unit->movement.goal : path->points[path->current];
+    /* Crowds shove units off their line. Every few tics, confirm the segment ahead is
+     * still clear and replan the moment it is not, instead of grinding against a wall. */
+    if (((uint32_t)leveltime + unit->id) % 4 == 0 &&
+        !P_NavLineClear(map, P_MobjMoveClass(unit), position, *target, radius)) {
+        if (!P_ReplanUnit(map, unit)) return false;
+        path->current = 0;
+        *final = path->count == 1 && path->complete;
+        *target = *final ? unit->movement.goal : path->points[0];
+    }
     return true;
 }
 
@@ -121,6 +137,13 @@ void P_SeparateUnits(const level_t *map) {
                 /* Whoever is going somewhere keeps most of its ground. */
                 bool moving_a = P_HasMoveOrder(a), moving_b = P_HasMoveOrder(b);
                 float share_a = moving_a == moving_b ? 0.5f : (moving_a ? 0.2f : 0.8f);
+                if (moving_a && moving_b) {
+                    /* Right of way to whoever is nearer its goal; the other gives way, so a
+                     * packed group drains from the front instead of locking in place. */
+                    float da = fvec2_distance_squared(a_position, a->movement.goal);
+                    float db = fvec2_distance_squared(b_position, b->movement.goal);
+                    share_a = da < db ? 0.25f : da > db ? 0.75f : (a->id < b->id ? 0.4f : 0.6f);
+                }
                 float push = min_dist - dist;
                 fvec2_t unit_push = fvec2_scale(delta, push / dist);
                 float weight_a = docked_a ? 0.0f : (docked_b ? 1.0f : share_a);
