@@ -3,6 +3,7 @@
 #include "m_menu.h"
 #include "w_spr.h"
 #include "dc_skirmish.h"
+#include "dc_types.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -167,6 +168,14 @@ int main(void) {
     M_StartControlPanel(&app);
     key(&app, SDLK_ESCAPE, true);
     CHECK(!menuactive);
+    DC_OpenQuitDialog(&app);
+    CHECK(menuactive);
+    screenshot(&app, surface, "/private/tmp/dc-menu-quit.bmp");
+    click(&app, 360, 284); /* LQCE 57: continue. */
+    CHECK(!menuactive && app.running);
+    DC_OpenQuitDialog(&app);
+    key(&app, SDLK_ESCAPE, true);
+    CHECK(!menuactive);
     SDL_Event repeat = {.type = SDL_KEYDOWN};
     repeat.key.keysym.sym = SDLK_ESCAPE;
     repeat.key.repeat = 1;
@@ -175,6 +184,16 @@ int main(void) {
     app.dragging_select = true;
     key(&app, SDLK_ESCAPE, true);
     CHECK(menuactive && !app.dragging_select);
+    key(&app, SDLK_ESCAPE, true);
+    DC_OpenQuitDialog(&app);
+    SDL_Event confirm = {.type = SDL_MOUSEBUTTONDOWN};
+    confirm.button.button = SDL_BUTTON_LEFT;
+    confirm.button.x = 360;
+    confirm.button.y = 236;
+    CHECK(M_Responder(&app, &confirm, true));
+    CHECK(!menuactive && !app.running);
+    app.running = true;
+    M_StartControlPanel(&app);
     SDL_Event quit = {.type = SDL_QUIT};
     CHECK(M_Responder(&app, &quit, true));
     CHECK(!app.running);

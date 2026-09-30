@@ -7,6 +7,8 @@
 
 struct level_s;
 struct mobjtype_s;
+struct app_s;
+void DC_OpenQuitDialog(struct app_s *app);
 
 /* Gameplay lookup is hand-authored, independent of generated state tables. */
 const struct mobjtype_s *actor_type_by_id(uint16_t type_id);

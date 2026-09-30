@@ -26,7 +26,7 @@ static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
 static char *prose;
-static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH } page;
+static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT } page;
 static isize2_t screen;
 static bitmapfont_t fonts[2];
 static spritesheet_t background;
@@ -336,7 +336,7 @@ static void activate_skirmish(int id) {
 }
 
 static bool load_screen(int next) {
-    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE"};
+    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE"};
     static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT"};
     free_screen();
     page = next;
@@ -344,7 +344,15 @@ static bool load_screen(int next) {
     scroll = 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
-    if (!load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
+    if (page < QUIT && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
+    if (page == QUIT) {
+        spritesheet_t palette = {0};
+        M_PathJoin(path, sizeof(path), root, "PALETTE.GIF");
+        if (!W_LoadGIFTexture(menu_renderer, path, &palette)) return false;
+        memcpy(background.source_palette, palette.source_palette, sizeof(background.source_palette));
+        R_FreeSprite(&palette);
+        M_PathJoin(palette_path, sizeof(palette_path), root, "PALETTE.RMP");
+    }
     M_PathJoin(path, sizeof(path), root, M_va("INTRFACE/%s", scripts[page]));
     FILE *file = fopen(path, "r");
     if (!file) return false;
@@ -353,6 +361,10 @@ static bool load_screen(int next) {
         char kind[32];
         int id, desc;
         irect_t rect;
+        if (sscanf(line, "size %d %d %d %d", &rect.x, &rect.y, &rect.w, &rect.h) == 4) {
+            screen = (isize2_t){640, 480};
+            continue;
+        }
         if (sscanf(line, "size %d %d", &screen.w, &screen.h) == 2) continue;
         if (sscanf(line, "bright_pushed %d", &bright_pushed) == 1 ||
             sscanf(line, "bright_highlight %d", &bright_highlight) == 1) continue;
@@ -482,7 +494,8 @@ static bool load_screen(int next) {
         SDL_StartTextInput();
     }
     menutime = SDL_GetTicks64();
-    return ok && screen.w > 0 && screen.h > 0 && background.numlumps && fonts[0].sprite.numlumps;
+    return ok && screen.w > 0 && screen.h > 0 &&
+        (page == QUIT || background.numlumps) && fonts[0].sprite.numlumps;
 }
 
 bool M_Init(app_t *app, const char *data_root) {
@@ -510,6 +523,19 @@ void M_StartControlPanel(app_t *app) {
     app->selection_rect = (irect_t){0};
 }
 
+void DC_OpenQuitDialog(app_t *app) {
+    if (!initialized || menuactive) return;
+    if (!load_screen(QUIT)) {
+        fprintf(stderr, "Could not load Dark Colony quit dialog\n");
+        menuerror = true;
+        return;
+    }
+    itemOn = 57;
+    menuactive = true;
+    app->dragging_select = false;
+    app->selection_rect = (irect_t){0};
+}
+
 static bool first_mission(void) {
     char path[1024], line[256];
     M_PathJoin(path, sizeof(path), root, M_va("GAMESTAT/%sSCENE.TXT", race ? (training ? "GT" : "G") : (training ? "HT" : "H")));
@@ -532,7 +558,10 @@ static bool first_mission(void) {
 static void activate(app_t *app, int id, bool inlevel) {
     bool ok = true;
     notice = NULL;
-    if (page == MAIN) {
+    if (page == QUIT) {
+        if (id == 56) app->running = false;
+        if (id == 56 || id == 57) menuactive = false;
+    } else if (page == MAIN) {
         if (id == 12) app->running = false;
         else if ((id == 0 || id == 1) && !netgame) {
             training = id == 1;
@@ -608,7 +637,8 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         switch (event->key.keysym.sym) {
         case SDLK_ESCAPE:
             if (event->key.repeat) break;
-            if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == SETUP || page == STORY ? 4 : 0, inlevel);
+            if (page == QUIT) menuactive = false;
+            else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == SETUP || page == STORY ? 4 : 0, inlevel);
             else if (inlevel) menuactive = false;
             break;
         case SDLK_UP: case SDLK_DOWN:
@@ -816,7 +846,7 @@ void M_Drawer(const app_t *app) {
     SDL_RenderGetScale(app->renderer, &sx, &sy);
     SDL_RenderSetScale(app->renderer, (float)app->win.w / screen.w, (float)app->win.h / screen.h);
     irect_t dst = {0, 0, screen.w, screen.h};
-    R_DrawSprite(app->renderer, &background, 0, -1, NULL, &dst,
+    if (background.numlumps) R_DrawSprite(app->renderer, &background, 0, -1, NULL, &dst,
                   SDL_FLIP_NONE, (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_NONE);
     for (int i = 0; i < 300; ++i) {
         const menucontrol_t *c = &controls[i];

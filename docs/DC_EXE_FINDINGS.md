@@ -6614,3 +6614,34 @@ Dark Colony/Dark Reign/7th Legion smoke checks. The macOS network test children
 also needed to avoid `SDL_Quit` before `_exit`: diagnostics showed every child
 at tic 550 after freeing its level, blocked while trying to join SDL's timer
 thread inherited across `fork`. The parent still performs normal SDL shutdown.
+
+### Native quit confirmation and further options evidence
+
+**Confirmed** against the same executable fingerprint above: dispatcher
+`0x43001c` sends control 62 to `0x42f928`, which opens `INTRFACE/LQCE`.
+The script's four-value size is the popup rectangle `(112,160,304,176)`,
+while its controls remain in the full 640 by 480 coordinate space.
+Controls 56 and 57 at `(344,220,32,32)` and `(344,268,32,32)` mean quit
+and continue respectively. `POPP.SPR`, `MFONTO7.SPR`, and the shared
+`PALETTE.GIF`/`PALETTE.RMP` supply its native presentation. The implementation
+now opens this dialog over the game, accepts continue/Escape, and quits only
+on its confirmation control. The menu test exercises cancel, Escape, and
+confirmation and renders `/private/tmp/dc-menu-quit.bmp` for inspection.
+
+**Confirmed** options behavior, not yet implemented: `0x42fc70` initializes
+LOPTE's speed from `(6600 / native_tick_interval) / 10 * 10`; `0x42fa38`
+handles speed decrement/increment controls 40/41 in steps of 10, bounded
+10 through 200 percent. Sound controls 42/43 and CD controls 67/68 change
+levels in steps of one, bounded zero through ten; preview changes call the
+sound interface immediately. Detail controls 44/45 select zero through two,
+shown as LOW/MED/HIGH by `0x42f97c`. Control 56 confirms and stores the
+values, converting speed back to `6600 / percentage`; control 55 cancels.
+This disproves the tempting interpretation that the cross and check controls
+55/56 mean confirm/cancel in ascending order. Our existing main-menu fallback
+for the HUD Options button still does not reproduce this dialog. Save,
+objectives, alliance controls, and the remaining ability dispatch also remain
+incomplete; native availability and visuals alone do not establish parity.
+
+Reproduce the options evidence with `r2 -q -e bin.cache=true -c
+'af @ 0x42fa38; pdf @ 0x42fa38; af @ 0x42f97c; pdf @ 0x42f97c' DC.EXE`
+and compare the original `INTRFACE/LOPTE` and `INTRFACE/LQCE` scripts.

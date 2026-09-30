@@ -402,7 +402,8 @@ static bool dc_SB_responder(Sidebar *sidebar, app_t *app, level_t *map,
             const SidebarCommand *control = &sidebar->controls[ids[i]];
             irect_t r = ui_rect(app, control->rect.x, control->rect.y, control->rect.w, control->rect.h);
             if (e->button.button != SDL_BUTTON_LEFT || !irect_contains(r, mouse)) continue;
-            if (ids[i] == 62 || ids[i] == 64) M_StartControlPanel(app);
+            if (ids[i] == 62) DC_OpenQuitDialog(app);
+            if (ids[i] == 64) M_StartControlPanel(app);
             if (ids[i] == 196) G_QueueTiccmd(&(ticcmd_t){.order = TC_PAUSE});
             return true;
         }
