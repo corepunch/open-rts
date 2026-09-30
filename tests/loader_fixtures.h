@@ -82,7 +82,7 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     CHECK(sprite.cells[0].rect.w == 2 && sprite.cells[0].rect.h == 1);
     uint32_t actual[2];
     SDL_Rect area = { 0, 0, 2, 1 };
-    CHECK(sprite.indexed && sprite.lumps[0].indices && !sprite.lumps[0].texture);
+    CHECK(sprite.indexed && sprite.lumps[0].indices);
     CHECK(R_DrawSprite(renderer, &sprite, 0, 0, NULL, &area, SDL_FLIP_NONE,
                        (SDL_Color){255,255,255,255}, SDL_BLENDMODE_NONE));
     CHECK(SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, actual, 8) == 0);
@@ -120,7 +120,7 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     CHECK(flip);
     CHECK(ivec2_equal(cell.ground_point, (ivec2_t){ -1, 4 }));
     CHECK(ivec2_equal(cell.displacement, (ivec2_t){ 0, 0 }));
-    CHECK(lump.indices && !lump.texture);
+    CHECK(lump.indices);
     CHECK(lump.indices[0] == 1 && lump.indices[1] == 2);
     free(lump.indices);
     lump = (spritelump_t){0};

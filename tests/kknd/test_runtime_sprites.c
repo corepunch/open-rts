@@ -65,17 +65,17 @@ int main(void) {
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache);
     mobjlist_t units = P_ListMobjs();
-    CHECK(R_InitSprites(renderer, config.data_root, &level, units.items, units.count, cache));
+    CHECK(R_InitSprites(config.data_root, &level, units.items, units.count, cache));
     const spritesheet_t *rifleman = R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL);
     const spritesheet_t *rig = R_StateSprite(cache, gameinfo, SPR_SURV_DRILLRIG, NULL);
     CHECK(rifleman && !rig);
     const uint8_t *retained = rifleman->lumps[0].indices;
-    CHECK(rifleman->indexed && retained && !rifleman->lumps[0].texture);
+    CHECK(rifleman->indexed && retained);
     P_FreeMobjList(&units);
     for (int i = 0; i < num_actor_types; ++i)
         CHECK(P_SpawnMobj(fixed3_zero(), actor_types[i].id));
     units = P_ListMobjs();
-    CHECK(R_InitSprites(renderer, config.data_root, &level, units.items, units.count, cache));
+    CHECK(R_InitSprites(config.data_root, &level, units.items, units.count, cache));
     CHECK(cache->count == NUMSPRITES);
     CHECK(check_anchors(renderer, cache) == 0);
     CHECK(R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL)->lumps[0].indices == retained);
@@ -101,7 +101,7 @@ int main(void) {
         }
     }
     CHECK(failures == 0);
-    CHECK(R_InitSprites(renderer, config.data_root, &level, units.items, units.count, cache));
+    CHECK(R_InitSprites(config.data_root, &level, units.items, units.count, cache));
     CHECK(cache->count == NUMSPRITES);
     R_FreeSpriteCache(cache);
     free(cache);

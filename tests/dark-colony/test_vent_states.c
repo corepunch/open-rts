@@ -83,9 +83,9 @@ int main(void) {
     app.cam = fvec2_sub((fvec2_t){320, 240}, screen);
     tileset_t tiles = {0};
     spritesheet_t fallback = {0};
-    assert(W_LoadAssets(r_renderer, "data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
+    assert(W_LoadAssets("data/DCOLONY", &level, "SPRITES/TROOPER1.SPR", &tiles, &fallback));
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    assert(cache && R_InitSprites(r_renderer, "data/DCOLONY", &level, NULL, 0, cache));
+    assert(cache && R_InitSprites("data/DCOLONY", &level, NULL, 0, cache));
     const spritesheet_t *sheet = R_StateSprite(cache, gameinfo, SPR_VENT, NULL);
     assert(sheet);
     dc_fin_t fin;

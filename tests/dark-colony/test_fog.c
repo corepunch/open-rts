@@ -23,29 +23,30 @@ static void clock_tick(void) {
 }
 
 static void check_render(void) {
-    assert(SDL_Init(SDL_INIT_VIDEO) == 0);
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 128, 32, SDL_PIXELFORMAT_ARGB8888);
-    assert(surface);
-    SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(renderer);
-    app_t app = {.renderer = renderer, .win = {640, 128}, .cell = {32, 32}};
+    uint32_t palette[256];
+    for (int i = 0; i < 256; ++i)
+        palette[i] = 0xff000000u | (unsigned)i * 0x010101u;
+    palette[1] = 0xff00ff00u;
+    palette[2] = 0xffff0000u;
+    I_SetPalette(palette);
+    V_AllocScreen(640, 128);
+    app_t app = {.win = {640, 128}, .cell = {32, 32}};
+    uint32_t pixels[640 * 128];
     clear_sight();
     for (int y = 0; y < level.height; ++y)
         level.sight.cells[L_Index(&level, 0, y)] = PLAYER | SIGHT_EXPLORED;
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderClear(renderer);
+    V_BeginFrame(0xffffffffu);
     R_DrawFog(&app, &level);
-    uint32_t pixels[640 * 128];
-    assert(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 640 * 4) == 0);
+    V_ReadPixels(pixels, 640 * 4);
     assert((pixels[32 * 640] & 255) == 255);
     assert((pixels[32 * 640 + 31] & 255) == 127);
     assert((pixels[32 * 640 + 32] & 255) == 127);
     assert((pixels[32 * 640 + 63] & 255) == 0);
     assert((pixels[32 * 640 + 600] & 255) == 255); /* HUD is outside fog. */
     app.cam = (fvec2_t){-16, 0};
-    SDL_RenderClear(renderer);
+    V_BeginFrame(0xffffffffu);
     R_DrawFog(&app, &level);
-    assert(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 640 * 4) == 0);
+    V_ReadPixels(pixels, 640 * 4);
     assert((pixels[32 * 640 + 15] & 255) == 127);
     assert((pixels[32 * 640 + 47] & 255) == 0);
     /* Scene rows use the map's bottom-up coordinates; a bright bottom row
@@ -54,9 +55,9 @@ static void check_render(void) {
     for (int x = 0; x < level.width; ++x)
         level.sight.cells[L_Index(&level, x, 0)] = PLAYER | SIGHT_EXPLORED;
     app.cam = (fvec2_t){0, -30 * 32};
-    SDL_RenderClear(renderer);
+    V_BeginFrame(0xffffffffu);
     R_DrawFog(&app, &level);
-    assert(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 640 * 4) == 0);
+    V_ReadPixels(pixels, 640 * 4);
     assert((pixels[0] & 255) == 0);
     assert((pixels[63 * 640] & 255) == 255);
     /* A cell rectangle starts at its top edge, whereas world positions use
@@ -66,13 +67,11 @@ static void check_render(void) {
                     .render_capabilities = MAP_RENDER_CAP_CELL_COLORS};
     tileset_t tiles = {0};
     app.cam = (fvec2_t){0, 0};
-    SDL_RenderClear(renderer);
+    V_BeginFrame(0xff000000u);
     R_DrawLevel(&app, &rows, &tiles);
-    assert(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 640 * 4) == 0);
+    V_ReadPixels(pixels, 640 * 4);
     assert(pixels[0] == 0xff00ff00 && pixels[32 * 640] == 0xffff0000);
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
-    SDL_Quit();
+    V_FreeScreen();
 }
 
 int main(void) {

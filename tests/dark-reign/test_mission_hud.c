@@ -18,7 +18,7 @@ static int compare_buildings(app_t *app, spritecache_t *cache) {
     level_t fixture = level;
     fixture.decorations = decorations;
     fixture.decoration_count = 3;
-    CHECK(R_InitSprites(app->renderer, g_game_default_root, &fixture, NULL, 0, cache));
+    CHECK(R_InitSprites(g_game_default_root, &fixture, NULL, 0, cache));
     int pixels = 0;
     for (int i = 0; i < 3; ++i) {
         const spritesheet_t *result = R_CacheLookup(cache, bodies[i]);
@@ -82,7 +82,7 @@ int main(void) {
     CHECK(bar && bar->ready);
     mobjlist_t objects = P_ListMobjs();
     spritecache_t *cache = calloc(1, sizeof(*cache));
-    CHECK(cache && R_InitSprites(app.renderer, g_game_default_root, &level, objects.items, objects.count, cache));
+    CHECK(cache && R_InitSprites(g_game_default_root, &level, objects.items, objects.count, cache));
     const spritesheet_t *hq = R_CacheLookup(cache, "nfhqt1l0.spr");
     CHECK(hq && hq->numlumps == 1 && hq->cells[0].ground_point.x == 0 && hq->cells[0].ground_point.y == 0);
     CHECK(compare_buildings(&app, cache) == 0);
