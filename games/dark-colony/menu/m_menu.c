@@ -26,9 +26,13 @@ static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
 static char *prose;
-static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT } page;
+static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAME, BROWSE, CONNECT } page;
+static bool lan, waiting;
+static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
+static char network_notice[128], selected_server[64];
+static int server_scroll;
 static isize2_t screen;
-static bitmapfont_t fonts[2];
+static bitmapfont_t fonts[3];
 static spritesheet_t background;
 static spritesheet_t pictures;
 static SDL_Renderer *menu_renderer;
@@ -84,7 +88,7 @@ static bool screen_palette(spritesheet_t *sprite, const blob_t *rmp) {
 }
 
 static void free_screen(void) {
-    for (int i = 0; i < 2; ++i) HU_FreeFont(&fonts[i]);
+    for (int i = 0; i < 3; ++i) HU_FreeFont(&fonts[i]);
     R_FreeSprite(&background);
     R_FreeSprite(&pictures);
     R_FreeSpriteCache(&images);
@@ -104,6 +108,8 @@ static void free_screen(void) {
 }
 
 void M_Shutdown(void) {
+    if (waiting || page == BROWSE) I_CancelNetGame();
+    waiting = false;
     free_screen();
     initialized = menuactive = false;
     menumap = NULL;
@@ -203,6 +209,11 @@ static bool load_skirmish_maps(void) {
                  (int)(extension - entry->d_name), entry->d_name);
         M_PathJoin(path, sizeof(path), root, map.path);
         file = fopen(path, "rb");
+        /* The level loader also resolves logical .MAP names to retail .MTG. */
+        if (!file) {
+            strcpy(strrchr(path, '.'), ".MTG");
+            file = fopen(path, "rb");
+        }
         if (!file) continue;
         fclose(file);
         skirmishmap_t *grown = realloc(maps, (size_t)(nummaps + 1) * sizeof(*maps));
@@ -280,6 +291,24 @@ static void refresh_skirmish(void) {
     if (selectedmap >= 0 && maps[selectedmap].players < active_players()) selectedmap = -1;
     snprintf(controls[26].text, sizeof(controls[26].text), "%s", selectedmap < 0 ? "" : maps[selectedmap].title);
     scroll_maps(0);
+    if (lan) {
+        for (int i = 0; i < 8; ++i) {
+            if (i) snprintf(controls[i].text, sizeof(controls[i].text), "%s",
+                            i < active_players() ? "LAN Player" : "");
+            controls[16 + i].visible = false;
+            controls[180 + i].visible = false;
+            controls[8 + i].visible = controls[80 + i].visible = false;
+            controls[96 + i].visible = controls[142 + i].visible = false;
+        }
+        for (int i = 32; i <= 47; ++i) controls[i].visible = false;
+        for (int i = 104; i <= 131; ++i) controls[i].visible = false;
+        for (int i = 150; i <= 165; ++i) controls[i].visible = false;
+        controls[137].visible = controls[139].visible = controls[140].visible = controls[141].visible = false;
+        snprintf(controls[133].text, sizeof(controls[133].text), "%s", waiting ? "WAITING" : "CREATE");
+        snprintf(controls[24].text, sizeof(controls[24].text), "%s", network_notice[0] ? network_notice :
+                 "Select map and 2-4 LAN player slots.\nMap supplies factions and game settings.\nStarts when all players connect.");
+        controls[25].visible = false;
+    }
 }
 
 static void activate_skirmish(int id) {
@@ -336,15 +365,15 @@ static void activate_skirmish(int id) {
 }
 
 static bool load_screen(int next) {
-    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE"};
-    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT"};
+    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE"};
+    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT"};
     free_screen();
     page = next;
     itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
     scroll = 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
-    if (page < QUIT && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
+    if (lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
     if (page == QUIT) {
         spritesheet_t palette = {0};
         M_PathJoin(path, sizeof(path), root, "PALETTE.GIF");
@@ -376,7 +405,7 @@ static bool load_screen(int next) {
             M_PathJoin(path, sizeof(path), root, M_va("%s.SPR", M_Upper(name)));
             if (!DC_LoadSpriteImage(path, &pictures)) ok = false;
         } else if (sscanf(line, "font %d %127s", &id, name) == 2) {
-            if (id < 0 || id >= 2 || !DC_LoadFont(root,
+            if (id < 0 || id >= 3 || !DC_LoadFont(root,
                     M_va("%s.SPR", M_Upper(name)), &fonts[id])) ok = false;
         } else if (sscanf(line, "textmsg %d %127[^\r\n]", &id, name) == 2) {
             if (id < 0 || id >= 300) { ok = false; break; }
@@ -408,8 +437,9 @@ static bool load_screen(int next) {
             if (control->kind == TEXT) {
                 control->maxchars = rect.w;
                 sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %d", &control->font);
+                if ((label = strstr(line, " init "))) sscanf(label, " init %d", &control->message);
             }
-            if (control->message < 0 || control->message >= 300 || control->font < 0 || control->font >= 2) { ok = false; break; }
+            if (control->message < 0 || control->message >= 300 || control->font < 0 || control->font >= 3) { ok = false; break; }
             if (control->kind == GADGET) {
                 sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %31s", control->animation);
                 for (int i = 0; i < numanimations && !control->sequence; ++i) {
@@ -447,7 +477,7 @@ static bool load_screen(int next) {
     if (!W_ReadFile(palette_path, &rmp)) return false;
     if (rmp.size < 0x10000) { W_FreeFile(&rmp); return false; }
     ok = screen_palette(&pictures, &rmp) && ok;
-    for (int i = 0; i < 2; ++i) ok = screen_palette(&fonts[i].sprite, &rmp) && ok;
+    for (int i = 0; i < 3; ++i) ok = screen_palette(&fonts[i].sprite, &rmp) && ok;
     for (int i = 0; i < images.count; ++i) ok = screen_palette(&images.entries[i].sprite, &rmp) && ok;
     W_FreeFile(&rmp);
     for (int i = 0; i < 300; ++i) {
@@ -492,6 +522,32 @@ static bool load_screen(int next) {
         for (int i = 17; i <= 23; ++i) controls[i].visible = false;
         refresh_skirmish();
         SDL_StartTextInput();
+    }
+    if (page == NETWORK) {
+        controls[0].checked = true;
+        for (int i = 1; i <= 3; ++i) {
+            controls[i].visible = false;
+            controls[7 + i].visible = false;
+        }
+    }
+    if (page == SESSION_NAME || page == CONNECT) {
+        itemOn = page == SESSION_NAME ? 1 : 3;
+        controls[itemOn].writable = true;
+        snprintf(controls[itemOn].text, sizeof(controls[itemOn].text), "%s",
+                 page == SESSION_NAME ? session_name : server_address);
+        SDL_StartTextInput();
+    }
+    if (page == BROWSE) {
+        itemOn = 0;
+        server_scroll = 0;
+        selected_server[0] = '\0';
+        strcpy(controls[6].text, "Select LAN Session");
+        strcpy(controls[5].text, "JOIN");
+        /* Use the native button row's unused interval for direct connection. */
+        controls[18] = controls[4];
+        controls[18].rect.x = controls[17].rect.x + controls[17].rect.w;
+        controls[18].gadget = -1;
+        strcpy(controls[18].text, "ADDRESS");
     }
     menutime = SDL_GetTicks64();
     return ok && screen.w > 0 && screen.h > 0 &&
@@ -555,6 +611,23 @@ static bool first_mission(void) {
     return true;
 }
 
+static void network_failure(void) {
+    snprintf(network_notice, sizeof(network_notice), "%.127s", neterror);
+    I_CancelNetGame();
+    waiting = false;
+    notice = network_notice;
+    if (page == CONNECT) snprintf(controls[3].text, sizeof(controls[3].text), "%s", network_notice);
+}
+
+static bool join_session(const char *address) {
+    char copy[128];
+    snprintf(copy, sizeof(copy), "%s", address);
+    network_notice[0] = '\0';
+    if (!I_JoinNetGame("dark-colony", copy)) { network_failure(); return true; }
+    waiting = true;
+    return load_screen(CONNECT);
+}
+
 static void activate(app_t *app, int id, bool inlevel) {
     bool ok = true;
     notice = NULL;
@@ -567,7 +640,12 @@ static void activate(app_t *app, int id, bool inlevel) {
             training = id == 1;
             race = 0;
             ok = load_screen(SETUP);
+        } else if (id == 3 && !netgame) {
+            lan = true;
+            network_notice[0] = '\0';
+            ok = load_screen(NETWORK);
         } else if (id == 4 && !netgame) {
+            lan = false;
             skirmish = (dc_skirmish_t){.erupting = 1, .quantity = 4, .flow = 4};
             for (int i = 0; i < 8; ++i)
                 skirmish.players[i] = (dc_skirmish_player_t){.race = i & 1,
@@ -592,9 +670,58 @@ static void activate(app_t *app, int id, bool inlevel) {
         else if (id == 5) ok = load_screen(BRIEFING);
         else if (id == 2) { if (scroll > 0) --scroll; }
         else if (id == 3) ++scroll;
+    } else if (page == NETWORK) {
+        if (id == 6) ok = load_screen(MAIN);
+        else if (id == 4) ok = load_screen(SESSION_NAME);
+        else if (id == 5) {
+            network_notice[0] = '\0';
+            ok = load_screen(BROWSE);
+            if (ok && !I_OpenNetBrowser("dark-colony")) network_failure();
+        }
+    } else if (page == SESSION_NAME) {
+        if (id == 0) {
+            if (!session_name[0]) notice = "Enter a session name";
+            else {
+                skirmish = (dc_skirmish_t){0};
+                for (int i = 0; i < 8; ++i)
+                    skirmish.players[i] = (dc_skirmish_player_t){
+                        .type = i < 2 ? DC_PLAYER_HUMAN : DC_PLAYER_NONE};
+                strcpy(skirmish.players[0].name, "Host");
+                network_notice[0] = '\0';
+                ok = load_screen(SKIRMISH);
+            }
+        } else if (id == 1) itemOn = 1;
+    } else if (page == BROWSE) {
+        if (id == 4) { I_CancelNetGame(); ok = load_screen(NETWORK); }
+        else if (id == 17) {
+            network_notice[0] = '\0';
+            if (!I_OpenNetBrowser("dark-colony")) network_failure();
+            selected_server[0] = '\0';
+            server_scroll = 0;
+        } else if (id == 18) { I_CancelNetGame(); ok = load_screen(CONNECT); }
+        else if (id == 5 && selected_server[0]) ok = join_session(selected_server);
+        else if (id == 2 && server_scroll > 0) --server_scroll;
+        else if (id == 3) ++server_scroll;
+    } else if (page == CONNECT) {
+        if (id == 1) { I_CancelNetGame(); waiting = false; ok = load_screen(NETWORK); }
+        else if (id == 0 && !waiting) ok = join_session(server_address);
     } else if (page == SKIRMISH) {
-        if (id == 132) ok = load_screen(MAIN);
-        else activate_skirmish(id);
+        if (id == 132) {
+            if (lan) I_CancelNetGame();
+            waiting = false;
+            ok = load_screen(lan ? NETWORK : MAIN);
+        } else if (lan && !waiting) {
+            if (id == 90 || id == 91) {
+                int count = active_players();
+                count = count > id - 88 ? id - 88 : id - 87;
+                for (int i = 1; i < 8; ++i)
+                    skirmish.players[i].type = i < count ? DC_PLAYER_HUMAN : DC_PLAYER_NONE;
+            } else if (id == 133 && selectedmap >= 0) {
+                if (I_HostNetGame("dark-colony", session_name, maps[selectedmap].path, active_players())) waiting = true;
+                else network_failure();
+            } else if (id == 28 || id == 29) scroll_maps(id == 28 ? -1 : 1);
+            refresh_skirmish();
+        } else if (!lan) activate_skirmish(id);
     } else if (page == BRIEFING) {
         if (id == 0) ok = load_screen(training ? SETUP : STORY);
         else if (id == 2) { menumap = mapname; menuactive = false; }
@@ -611,7 +738,21 @@ static void activate(app_t *app, int id, bool inlevel) {
 
 static bool selectable(int id) {
     const menucontrol_t *control = &controls[id];
+    if (page == CONNECT && waiting) return id == 1;
+    if (page == CONNECT && id == 3) return !waiting;
+    if (page == SESSION_NAME && id == 1) return true;
+    if (page == BROWSE) {
+        if (id == 5) return selected_server[0] != '\0';
+        if (id == 0 || id == 1) return true;
+    }
     if (page == SKIRMISH) {
+        if (lan) {
+            if (waiting) return id == 132;
+            if (id == 90 || id == 91) return true;
+            if (id == 132) return true;
+            if (id == 133) return selectedmap >= 0;
+            return id == 27 || id == 28 || id == 29 || id == 30;
+        }
         if (id == 88 || (id > 32 && id < 40) || (id > 40 && id < 48)) return false;
         if (id >= 9 && id < 16 && skirmish.players[id - 8].type == DC_PLAYER_NONE) return false;
         if (id >= 150 && id <= 165 && skirmish.players[(id - 150) % 8].type == DC_PLAYER_NONE) return false;
@@ -621,6 +762,15 @@ static bool selectable(int id) {
     }
     return control->visible && (control->kind == PUSH || control->kind == CHECK ||
                                 (page == SETUP && id == 5));
+}
+
+static void drag_server_scroll(ivec2_t point) {
+    int count;
+    I_NetGames(&count);
+    irect_t bar = controls[1].rect;
+    server_scroll = (point.y - bar.y) * count / bar.h -
+                    controls[0].rect.h / fonts[0].glyph_size.h / 2;
+    if (server_scroll < 0) server_scroll = 0;
 }
 
 bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
@@ -638,10 +788,26 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         case SDLK_ESCAPE:
             if (event->key.repeat) break;
             if (page == QUIT) menuactive = false;
-            else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == SETUP || page == STORY ? 4 : 0, inlevel);
+            else if (page == SESSION_NAME) {
+                if (!load_screen(NETWORK)) { menuerror = true; app->running = false; }
+            } else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
+                page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0, inlevel);
             else if (inlevel) menuactive = false;
             break;
         case SDLK_UP: case SDLK_DOWN:
+            if (page == BROWSE && itemOn == 0) {
+                int count, row = -1;
+                const netgame_t *games = I_NetGames(&count);
+                for (int i = 0; i < count; ++i)
+                    if (!strcmp(games[i].address, selected_server)) row = i;
+                row += event->key.keysym.sym == SDLK_UP ? -1 : 1;
+                if (row < 0) row = 0;
+                if (row < count) strcpy(selected_server, games[row].address);
+                int rows = controls[0].rect.h / fonts[0].glyph_size.h;
+                if (row < server_scroll) server_scroll = row;
+                if (row >= server_scroll + rows) server_scroll = row - rows + 1;
+                break;
+            }
             if (page == SKIRMISH && itemOn == 27) {
                 int row = 0;
                 if (selectedmap >= 0) {
@@ -662,9 +828,16 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
             do { itemOn = (itemOn + (event->key.keysym.sym == SDLK_UP ? 299 : 1)) % 300; } while (!selectable(itemOn));
             break;
         case SDLK_RETURN: case SDLK_KP_ENTER:
-            if (!event->key.repeat) activate(app, page == SETUP && itemOn == 5 ? (training ? 2 : 3) : itemOn, inlevel);
+            if (!event->key.repeat) activate(app, page == SETUP && itemOn == 5 ? (training ? 2 : 3) :
+                page == SESSION_NAME && itemOn == 1 ? 0 : page == CONNECT && itemOn == 3 ? 0 :
+                page == BROWSE && itemOn == 0 ? 5 : itemOn, inlevel);
             break;
         case SDLK_BACKSPACE:
+            if ((page == SESSION_NAME && itemOn == 1) || (page == CONNECT && itemOn == 3 && !waiting)) {
+                char *text = page == SESSION_NAME ? session_name : server_address;
+                if (text[0]) text[strlen(text) - 1] = '\0';
+                strcpy(controls[itemOn].text, text);
+            }
             if (page == SKIRMISH && itemOn == 0 && skirmish.players[0].name[0]) {
                 char *name = skirmish.players[0].name;
                 name[strlen(name) - 1] = '\0';
@@ -677,7 +850,17 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
             break;
         default: break;
         }
-    } else if (event->type == SDL_TEXTINPUT && page == SKIRMISH && itemOn == 0) {
+    } else if (event->type == SDL_TEXTINPUT && ((page == SESSION_NAME && itemOn == 1) ||
+               (page == CONNECT && itemOn == 3 && !waiting))) {
+        char *text = page == SESSION_NAME ? session_name : server_address;
+        size_t length = strlen(text), capacity = page == SESSION_NAME ? sizeof(session_name) : sizeof(server_address);
+        for (const unsigned char *p = (const unsigned char *)event->text.text; *p; ++p)
+            if (*p >= 32 && *p < 127 && length + 1 < capacity && length < (size_t)controls[itemOn].maxchars)
+                text[length++] = (char)*p;
+        text[length] = '\0';
+        strcpy(controls[itemOn].text, text);
+        notice = NULL;
+    } else if (event->type == SDL_TEXTINPUT && page == SKIRMISH && itemOn == 0 && !lan) {
         char *name = skirmish.players[0].name;
         size_t length = strlen(name);
         for (const unsigned char *p = (const unsigned char *)event->text.text; *p; ++p)
@@ -701,6 +884,10 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         int y = event->type == SDL_MOUSEMOTION ? event->motion.y : event->button.y;
         R_WindowToRenderPt(app, x, y, &point.x, &point.y);
         point = (ivec2_t){ point.x * screen.w / app->win.w, point.y * screen.h / app->win.h };
+        if (page == BROWSE && pressed == 1 && event->type == SDL_MOUSEMOTION) {
+            drag_server_scroll(point);
+            return true;
+        }
         if (page == SKIRMISH && pressed == 30 && event->type == SDL_MOUSEMOTION) {
             drag_map_scroll(point);
             return true;
@@ -711,7 +898,14 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
             itemOn = i;
             if (event->type == SDL_MOUSEBUTTONDOWN) {
                 pressed = i;
-                if (page == SKIRMISH && i == 27) {
+                if (page == BROWSE && i == 0) {
+                    int count;
+                    const netgame_t *games = I_NetGames(&count);
+                    int row = server_scroll + (point.y - rect.y) / fonts[0].glyph_size.h;
+                    if (row < count) strcpy(selected_server, games[row].address);
+                } else if (page == BROWSE && i == 1) {
+                    drag_server_scroll(point);
+                } else if (page == SKIRMISH && i == 27) {
                     selectedmap = filtered_map(mapscroll + (point.y - rect.y) / fonts[0].glyph_size.h);
                     refresh_skirmish();
                 } else if (page == SKIRMISH && i == 30) {
@@ -722,7 +916,10 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         }
     } else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
         pressed = -1;
-    } else if (event->type == SDL_MOUSEWHEEL && page == SKIRMISH) {
+    } else if (event->type == SDL_MOUSEWHEEL && page == BROWSE) {
+        server_scroll -= event->wheel.y;
+        if (server_scroll < 0) server_scroll = 0;
+    } else if (event->type == SDL_MOUSEWHEEL && page == SKIRMISH && !waiting) {
         scroll_maps(-event->wheel.y);
     } else if (event->type == SDL_MOUSEWHEEL && (page == STORY || page == BRIEFING)) {
         scroll -= event->wheel.y;
@@ -738,6 +935,37 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
 
 void M_Ticker(void) {
     if (!menuactive) return;
+    if (waiting) {
+        int status = I_PollNetGame(mapname, sizeof(mapname));
+        if (status < 0) {
+            network_failure();
+            if (page == SKIRMISH) refresh_skirmish();
+            else snprintf(controls[3].text, sizeof(controls[3].text), "%s", network_notice);
+        } else if (status > 0) {
+            waiting = false;
+            menumap = mapname;
+            menuactive = false;
+            SDL_StopTextInput();
+            return;
+        } else if (page == SKIRMISH) {
+            snprintf(network_notice, sizeof(network_notice), "Waiting for LAN players: %d/%d\nEscape cancels the session.",
+                     I_NetPlayerCount(), doomcom->numplayers);
+            refresh_skirmish();
+        } else {
+            strcpy(controls[3].text, "Connecting... Escape cancels");
+        }
+    }
+    if (page == BROWSE) {
+        int count;
+        const netgame_t *games = I_NetGames(&count);
+        bool found = false;
+        for (int i = 0; i < count; ++i) found |= !strcmp(games[i].address, selected_server);
+        if (!found) selected_server[0] = '\0';
+        int rows = controls[0].rect.h / fonts[0].glyph_size.h;
+        if (server_scroll > count - rows) server_scroll = count - rows;
+        if (server_scroll < 0) server_scroll = 0;
+        if (neterror[0]) network_failure();
+    }
     uint64_t now = SDL_GetTicks64();
     if (now - menutime <= 16) return; /* DC.EXE 0x421ebd: menu cadence. */
     menutime = now;
@@ -836,6 +1064,44 @@ static void draw_map_list(SDL_Renderer *renderer) {
     }
 }
 
+static void draw_sessions(SDL_Renderer *renderer) {
+    int count;
+    const netgame_t *games = I_NetGames(&count);
+    irect_t clip = controls[0].rect;
+    SDL_RenderSetClipRect(renderer, &clip);
+    if (!count)
+        HU_DrawTextWrapped(renderer, &fonts[0], clip.x, clip.y, clip.w,
+            network_notice[0] ? network_notice : "Searching for LAN games...\nUse ADDRESS to connect directly.",
+            (SDL_Color){255,255,255,255}, 1);
+    for (int i = server_scroll; i < count; ++i) {
+        int y = clip.y + (i - server_scroll) * fonts[0].glyph_size.h;
+        if (y >= clip.y + clip.h) break;
+        bool selected = !strcmp(games[i].address, selected_server);
+        if (selected) {
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); /* DPLAYSE colour sel. */
+            SDL_RenderFillRect(renderer, &(irect_t){clip.x, y, clip.w, fonts[0].glyph_size.h});
+        }
+        char label[128];
+        snprintf(label, sizeof(label), "%.24s  %d/%d", games[i].name[0] ? games[i].name : games[i].map,
+                 games[i].players, games[i].capacity);
+        HU_DrawTextRemapped(renderer, &fonts[0], clip.x, y, label,
+            (SDL_Color){255,255,255,255}, 1, (selected ? 0 : 16 * 8) + 4);
+    }
+    SDL_RenderSetClipRect(renderer, NULL);
+    irect_t bar = controls[1].rect;
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderFillRect(renderer, &bar);
+    if (count) {
+        int rows = clip.h / fonts[0].glyph_size.h;
+        int end = server_scroll + rows < count ? server_scroll + rows : count;
+        irect_t thumb = {bar.x, bar.y + bar.h * server_scroll / count,
+                        bar.w, bar.h * (end - server_scroll) / count};
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        SDL_RenderDrawRect(renderer, &bar);
+        SDL_RenderFillRect(renderer, &thumb);
+    }
+}
+
 void M_Drawer(const app_t *app) {
     if (!menuactive) return;
     float sx, sy;
@@ -855,6 +1121,7 @@ void M_Drawer(const app_t *app) {
             draw_picture(app->renderer, c);
     }
     if (page == SKIRMISH) draw_map_list(app->renderer);
+    if (page == BROWSE) draw_sessions(app->renderer);
     for (int i = 0; i < 300; ++i) {
         const menucontrol_t *c = &controls[i];
         if (!c->visible || !c->text[0]) continue;
@@ -865,6 +1132,11 @@ void M_Drawer(const app_t *app) {
         if (c->centered && c->kind != TEXT)
             at = ivec2_add(at, (ivec2_t){(font->glyph_size.w + 1) / 2, 0});
         int intensity = c->kind == PUSH || c->kind == CHECK ? control_intensity(c) : 16;
+        if (page == CONNECT && i == 3 && notice == network_notice) {
+            HU_DrawTextWrapped(app->renderer, font, at.x, at.y, c->rect.w, c->text,
+                               (SDL_Color){255,255,255,255}, 1);
+            continue;
+        }
         HU_DrawTextRemapped(app->renderer, font, at.x, at.y, c->text,
                             (SDL_Color){255, 255, 255, 255}, 1, intensity * 8 + c->remap);
     }

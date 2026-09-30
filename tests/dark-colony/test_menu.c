@@ -1,12 +1,17 @@
+#define _POSIX_C_SOURCE 200809L
 #include "engine.h"
 #include "game.h"
 #include "m_menu.h"
 #include "w_spr.h"
 #include "dc_skirmish.h"
 #include "dc_types.h"
+#include "d_net.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 
@@ -34,6 +39,58 @@ static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {
     M_Drawer(app);
     SDL_RenderPresent(app->renderer);
     CHECK(SDL_SaveBMP(surface, name) == 0);
+}
+
+static void join_lan_menu(app_t *app, SDL_Surface *surface) {
+    int ready[2], done[2];
+    CHECK(pipe(ready) == 0 && pipe(done) == 0);
+    fflush(NULL);
+    pid_t host = fork();
+    CHECK(host >= 0);
+    if (!host) {
+        close(ready[0]); close(done[1]);
+        CHECK(fcntl(done[0], F_SETFL, O_NONBLOCK) == 0);
+        CHECK(I_HostNetGame("dark-colony", "Menu LAN test", "SCENARIO/MPLAYER/D2PLAY01.MAP", 2));
+        CHECK(write(ready[1], "R", 1) == 1);
+        char map[512], byte;
+        uint64_t deadline = SDL_GetTicks64() + 10000;
+        bool finished = false;
+        while (SDL_GetTicks64() < deadline) {
+            CHECK(I_PollNetGame(map, sizeof(map)) >= 0);
+            if (read(done[0], &byte, 1) == 1) { finished = true; break; }
+            SDL_Delay(1);
+        }
+        CHECK(finished && !strcmp(map, "SCENARIO/MPLAYER/D2PLAY01.MAP"));
+        I_ShutdownNetwork();
+        _exit(0);
+    }
+    close(ready[1]); close(done[0]);
+    char byte;
+    CHECK(read(ready[0], &byte, 1) == 1);
+    click(app, 400, 325);
+    click(app, 530, 420);
+    I_QueryNetGames("127.0.0.1");
+    int count;
+    uint64_t deadline = SDL_GetTicks64() + 3000;
+    do { M_Ticker(); I_NetGames(&count); SDL_Delay(1); } while (!count && SDL_GetTicks64() < deadline);
+    CHECK(count > 0);
+    click(app, 150, 110);
+    screenshot(app, surface, "/private/tmp/dc-menu-lan-found.bmp");
+    click(app, 440, 460);
+    CHECK(menuactive && I_NetJoining());
+    deadline = SDL_GetTicks64() + 3000;
+    do { M_Ticker(); SDL_Delay(1); } while (menuactive && SDL_GetTicks64() < deadline);
+    CHECK(!menuactive && menumap && !strcmp(menumap, "SCENARIO/MPLAYER/D2PLAY01.MAP"));
+    CHECK(doomcom->consoleplayer == 1 && doomcom->numplayers == 2 && I_NetMenuSession());
+    char map[512] = "";
+    CHECK(I_StartNetGame("dark-colony", map, sizeof(map)) && !I_NetMenuSession());
+    CHECK(write(done[1], "Q", 1) == 1);
+    int status;
+    CHECK(waitpid(host, &status, 0) == host && WIFEXITED(status) && !WEXITSTATUS(status));
+    close(ready[0]); close(done[1]);
+    D_QuitNetGame();
+    menumap = NULL;
+    M_StartControlPanel(app);
 }
 
 int main(void) {
@@ -104,6 +161,35 @@ int main(void) {
     CHECK(!menuactive && menumap && !strcmp(menumap, "SCENARIO/TEST/ATRAIN1.MAP"));
     menumap = NULL;
     M_StartControlPanel(&app);
+    click(&app, 400, 325); /* Multi Player War. */
+    for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
+    screenshot(&app, surface, "/private/tmp/dc-menu-network.bmp");
+    CHECK(menuactive && !netgame);
+    click(&app, 530, 390); /* Act as Server. */
+    screenshot(&app, surface, "/private/tmp/dc-menu-session-name.bmp");
+    key(&app, SDLK_RETURN, false);
+    screenshot(&app, surface, "/private/tmp/dc-menu-lan-setup.bmp");
+    click(&app, 110, 65); /* Three LAN slots. */
+    click(&app, 110, 84); /* Four LAN slots. */
+    click(&app, 150, 205); /* Select a map with enough slots. */
+    click(&app, 570, 465); /* Create and advertise. */
+    CHECK(menuactive && netgame && doomcom->numplayers == 4 && !menumap);
+    M_Ticker();
+    screenshot(&app, surface, "/private/tmp/dc-menu-lan-wait.bmp");
+    key(&app, SDLK_ESCAPE, false);
+    CHECK(menuactive && !netgame && !menumap);
+    click(&app, 530, 420); /* Browse LAN. */
+    M_Ticker();
+    screenshot(&app, surface, "/private/tmp/dc-menu-lan-browser.bmp");
+    click(&app, 250, 460); /* Direct address. */
+    screenshot(&app, surface, "/private/tmp/dc-menu-lan-address.bmp");
+    key(&app, SDLK_RETURN, false); /* Join localhost asynchronously. */
+    CHECK(menuactive && netgame && I_NetJoining() && !menumap);
+    M_Ticker();
+    key(&app, SDLK_ESCAPE, false);
+    CHECK(menuactive && !netgame && !menumap);
+    key(&app, SDLK_ESCAPE, false);
+    join_lan_menu(&app, surface);
     click(&app, 400, 350); /* Single Player War. */
     for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
     screenshot(&app, surface, "/private/tmp/dc-menu-skirmish.bmp");
@@ -203,6 +289,6 @@ int main(void) {
     r_renderer = NULL;
     SDL_FreeSurface(surface);
     SDL_Quit();
-    puts("Menu OK: native palette, glyphs, campaigns, training, eight-player skirmish, input, resume, quit");
+    puts("Menu OK: native screens, campaigns, training, LAN create/browse/direct join/cancel, eight-player skirmish, resume, quit");
     return 0;
 }

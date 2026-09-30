@@ -459,7 +459,8 @@ load_level:
         if (!menuactive) G_CameraMove(&app, frame_dt);
         M_Ticker();
         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
-        int runtics = TryRunTics();
+        /* A menu lobby belongs to the next level, not the paused old world. */
+        int runtics = I_NetMenuSession() ? 0 : TryRunTics();
         if (check_tics && runtics > check_tics - gametic) runtics = check_tics - gametic;
         while (runtics-- > 0) {
             if (!D_RunTiccmds()) break;
@@ -576,7 +577,8 @@ load_level:
         }
     }
     int exit_code = neterror[0] || menuerror ? 1 : 0;
-    D_QuitNetGame();
+    if (!menumap && I_NetMenuSession()) I_CancelNetGame();
+    if (!(menumap && I_NetMenuSession())) D_QuitNetGame();
     SB_Shutdown(&st);
     G_ShutdownCustomUI(custom_ui);
     R_FreeSpriteCache(&decoration_sprites);

@@ -6656,3 +6656,90 @@ DC's eight-point capacity, loop patrols and existing sidebar completion controls
 are preserved. Shared tests cover traversal/ownership/cancellation; DC's native
 HUD and Petrovent guard tests cover the preserved gameplay interaction. This
 is an engine ownership/command change, not new DC.EXE evidence.
+## Multiplayer menu assets and LAN session entry (2026-09-30)
+
+**Confirmed native asset data:** `INTRFACE/NETOPTE` defines TCP/IP control 0,
+IPX/modem/serial controls 1–3, server control 4 at `(454,377,178,24)`, connect
+control 5 at `(454,409,178,24)`, and main-menu control 6 at
+`(454,441,178,24)`. Its background is `NET.GIF`, with `KNOBE.SPR`, MFONTO5,
+and the `NET.DAT` animation list (KNOBE, NET, NETD FINs).
+
+`IPXNAMEE` provides a 24-character session-name field (control 1), NAME.GIF,
+and OK control 0. `DPLAYSE` provides the session browser: list 0 at
+`(122,104,388,252)`, scrollbar 1 at `(532,139,10,186)`, arrows 2/3, MENU 4,
+OK 5, title 6, REFRESH 17, and native green selection background. Its LOADG
+animation list owns KNOBE, CHOA, ENCA and SERA. `GETSVRE` provides address
+field 3 at `(174,62)` with 35 character columns, CONNECT 0, MENU 1, and
+label field 5 initialized through `init 3` to the IP ADDRESS message. It
+declares three fonts (MFONTO2, MFONTO5, MFONTO8); the old two-font decoder
+cannot load that script. SERVER.DAT lists KNOBE, SERA, MWIN and CHOA.
+
+**Implementation consequence:** reuse these scripts and their native GIF,
+SPR, FIN and RMP ownership through the existing M_* lifecycle. Decode text
+`init` messages and all three declared fonts. MULTIE supplies host map and
+player-slot selection. The ADDRESS button uses DPLAYSE's vacant interval
+between REFRESH and MENU, deriving its rectangle from the existing buttons.
+Only TCP/IP LAN is offered. Session names, two to four contiguous human
+slots, and the native map are configurable. Native scenarios supply races,
+colors, teams and game settings; their unused configuration controls are
+hidden so they cannot imply settings that are not sent to other players.
+
+**Confirmed catalog defect / disproven assumption:** this retail installation
+has `SCENARIO/MPLAYER/*.SCN` and `*.MTG`, without `*.MAP`. The old menu
+catalog checked only for physical MAP files and therefore displayed no maps.
+The existing `map_file_load` resolves logical MAP paths to MTG. Catalog
+validation now checks both files while retaining the same logical MAP path
+used by existing callers and network tests. Reproduce with
+`ls data/DCOLONY/SCENARIO/MPLAYER` and the menu regression below. Temporary
+menu diagnostics showed screen 4 parsing successfully but `maps=0`; they
+were removed after verification.
+
+**Explicit engine behavior, not a retail protocol finding:** LAN discovery
+and joining reuse open-rts's UDP host relay and Doom tic transport. Discovery
+adds version-3 session packet types DISCOVER=5 and OFFER=6. Offers contain
+the game ID, session name, map, occupied/capacity bytes and a 64-bit session
+identity, encoded explicitly in network byte order. The identity deduplicates
+offers arriving through multiple host interfaces while retaining the first
+reachable endpoint. Broadcast queries use UDP 5029 every second; browser
+offers expire after three seconds. These are engine network timings, not
+DC.EXE animation constants. Pending joins retry at the existing 250 ms
+cadence, expire after five seconds without retries, and release their slot
+on LEAVE=7. Host cancellation rejects waiting clients. Menu polling remains
+nonblocking and the match loads when every reserved slot is occupied.
+
+A menu session belongs to the next level: the driver pauses the old world's
+tic transport while it waits, preserves the new socket during old-level
+teardown, and consumes the session at `I_StartNetGame`. Campaign/skirmish
+requests retain their existing path. The map is distributed before loading;
+normal initial-state checks and lock-step simulation still follow.
+
+**Unknown:** DC.EXE's DirectPlay discovery, lobby chat, ready-message and
+race/configuration synchronization procedures. Existing main-menu evidence
+confirms multiplayer dispatch to `0x405770`; no new executable instructions
+were interpreted. The report's existing DC.EXE fingerprint remains applicable.
+This implementation does not claim interoperability with retail DirectPlay.
+
+Native script/list SHA-256 fingerprints:
+
+| Asset | SHA-256 |
+|---|---|
+| NETOPTE | `54a8c9078f025cf22d7fd71be34602b17773af19ed0ea59046d38c2c578e82c1` |
+| IPXNAMEE | `5a7a420a402d7a7069bd9f28099810b29cb706406d08f97db9942751c9e9b161` |
+| DPLAYSE | `16475ba49eff1d7810e7ea7927a220dede1e58a9094540ba4a6c773647743baa` |
+| GETSVRE | `9e90d5953d50b5025201b35cb6ac171ae9d0c8993f4b1f12f7aeb92342beccc9` |
+| NET.DAT | `17c2196fc48f10954c12f4ff31fd220b4560111b1c6f4719d86cf93d72e40bd7` |
+| SERVER.DAT | `3fc77c9e89513459bf5cf838c4325b3b414651d35a8a9acff49ad1987562006a` |
+
+Reproduce with `make build/bin/tests/dark-colony/test_menu
+build/bin/test_network`, then run both tests with `SDL_VIDEODRIVER=dummy`;
+`test_network --lan` isolates discovery/cancellation, while the complete
+network suite also checks four-player play, native starting forces, mixed
+faction production, loss/reordering, setup mismatch and desync detection.
+The menu test writes `/private/tmp/dc-menu-network.bmp`, session-name,
+lan-setup, lan-wait, lan-browser, lan-address and lan-found screenshots.
+Its real host subprocess verifies that selecting a discovered row reaches
+`SCENARIO/MPLAYER/D2PLAY01.MAP`, player 2/2, without loading a level in the
+menu responder. The LAN suite then runs that native map through the menu
+session API for 90 matching simulation tics, verifies both factions' starting
+bases and Barracks/War Hive construction, and confirms 1500 to 500 resource
+deductions for each player. No downloaded assets or external sources were used.

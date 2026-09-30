@@ -98,6 +98,12 @@ to capture gameplay.
 
 ## Network play
 
+Dark Colony's **MULTI PLAYER WAR** menu can create, browse and join LAN games.
+Choose **ACT AS SERVER** to name a session and select its map and two to four
+player slots, or **CONNECT TO SERVER** to browse sessions. **ADDRESS** supports
+direct IP/port entry. Games start when all reserved players connect; Escape
+cancels waiting. The selected native map supplies factions and game settings.
+
 Host/join and map selection are provided by the engine for every game binary.
 For two-player Dark Colony with a human host and an alien opponent:
 

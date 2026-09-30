@@ -42,6 +42,21 @@ bool I_InitNetwork(int *argc, char **argv);
 /* Host distributes a data-root-relative map before any level is loaded. */
 bool I_StartNetGame(const char *game, char *map, size_t capacity);
 bool I_NetJoining(void);
+typedef struct {
+    char address[64], name[32], map[512];
+    int players, capacity;
+    uint64_t id, seen;
+} netgame_t;
+/* Menu sessions use the same transport as --host/--join, without blocking. */
+bool I_HostNetGame(const char *game, const char *name, const char *map, int players);
+bool I_JoinNetGame(const char *game, const char *address);
+bool I_OpenNetBrowser(const char *game);
+void I_QueryNetGames(const char *address);
+const netgame_t *I_NetGames(int *count);
+int I_PollNetGame(char *map, size_t capacity); /* -1 error, 0 waiting, 1 ready */
+int I_NetPlayerCount(void);
+bool I_NetMenuSession(void);
+void I_CancelNetGame(void);
 void I_NetCmd(void);
 void I_ShutdownNetwork(void);
 void D_CheckNetGame(uint32_t signature);

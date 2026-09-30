@@ -15,7 +15,7 @@
 enum { TESTTICS = 550 };
 typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;
 typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,
-               HOSTED, HOSTED_MAP, HOSTED_LOSSY, HOSTED_MIXED } testmode_t;
+               HOSTED, HOSTED_MAP, HOSTED_LOSSY, HOSTED_MIXED, MENU_HOSTED } testmode_t;
 
 static mobj_t *actors[MAXPLAYERS];
 
@@ -198,6 +198,94 @@ static void session_tests(void) {
     puts("PASS: session rejects another game, assigns slots, distributes map and timing, validates switches");
 }
 
+static void lan_tests(void) {
+    int control[2], ready[2];
+    assert(pipe(control) == 0 && pipe(ready) == 0);
+    fflush(NULL);
+    pid_t host = fork();
+    assert(host >= 0);
+    if (!host) {
+        close(control[1]); close(ready[0]);
+        assert(fcntl(control[0], F_SETFL, O_NONBLOCK) == 0);
+        bool hosted = I_HostNetGame("dark-colony", "LAN test", "SCENARIO/MPLAYER/D2PLAY01.MAP", 3);
+        if (!hosted) fprintf(stderr, "LAN host: %s\n", neterror);
+        assert(hosted);
+        assert(write(ready[1], "R", 1) == 1);
+        char map[512], command;
+        uint64_t deadline = SDL_GetTicks64() + 15000;
+        bool finished = false;
+        while (SDL_GetTicks64() < deadline) {
+            int status = I_PollNetGame(map, sizeof(map));
+            assert(status >= 0);
+            if (read(control[0], &command, 1) == 1) {
+                if (command == 'C') {
+                    assert(I_NetPlayerCount() == 2);
+                    I_CancelNetGame();
+                    assert(I_HostNetGame("dark-colony", "LAN test", "SCENARIO/MPLAYER/D2PLAY01.MAP", 2));
+                    assert(write(ready[1], "R", 1) == 1);
+                } else if (command == 'L') {
+                    assert(I_NetPlayerCount() == 1); /* Cancelled join freed its slot. */
+                    assert(write(ready[1], "R", 1) == 1);
+                } else if (command == 'Q') { finished = true; break; }
+            }
+            SDL_Delay(1);
+        }
+        assert(finished);
+        assert(!strcmp(map, "SCENARIO/MPLAYER/D2PLAY01.MAP") && doomcom->numplayers == 2);
+        I_ShutdownNetwork();
+        _exit(0);
+    }
+    close(control[0]); close(ready[1]);
+    char byte;
+    assert(read(ready[0], &byte, 1) == 1);
+    assert(I_OpenNetBrowser("wrong-game"));
+    I_QueryNetGames("127.0.0.1");
+    uint64_t deadline = SDL_GetTicks64() + 100;
+    int count = 0;
+    while (SDL_GetTicks64() < deadline) { I_NetGames(&count); SDL_Delay(1); }
+    assert(count == 0);
+    assert(I_OpenNetBrowser("dark-colony"));
+    I_QueryNetGames("127.0.0.1");
+    deadline = SDL_GetTicks64() + 3000;
+    const netgame_t *games;
+    do { games = I_NetGames(&count); SDL_Delay(1); } while (!count && SDL_GetTicks64() < deadline);
+    assert(count == 1 && !netgame);
+    assert(!strcmp(games[0].name, "LAN test") && games[0].players == 1 && games[0].capacity == 3);
+    assert(!strcmp(games[0].map, "SCENARIO/MPLAYER/D2PLAY01.MAP"));
+    /* Repeated offers update a row rather than creating duplicates. */
+    int before = count;
+    for (int i = 0; i < 10; ++i) { I_QueryNetGames("127.0.0.1"); I_NetGames(&count); SDL_Delay(2); }
+    assert(count == before);
+    assert(I_JoinNetGame("dark-colony", "127.0.0.1"));
+    char map[512] = "";
+    for (int i = 0; i < 100; ++i) { assert(I_PollNetGame(map, sizeof(map)) == 0); SDL_Delay(1); }
+    I_CancelNetGame();
+    assert(!netgame);
+    SDL_Delay(20);
+    assert(write(control[1], "L", 1) == 1);
+    assert(read(ready[0], &byte, 1) == 1);
+    assert(I_JoinNetGame("dark-colony", "127.0.0.1"));
+    for (int i = 0; i < 100; ++i) { assert(I_PollNetGame(map, sizeof(map)) == 0); SDL_Delay(1); }
+    assert(write(control[1], "C", 1) == 1);
+    assert(read(ready[0], &byte, 1) == 1);
+    deadline = SDL_GetTicks64() + 3000;
+    int status;
+    do { status = I_PollNetGame(map, sizeof(map)); SDL_Delay(1); } while (!status && SDL_GetTicks64() < deadline);
+    assert(status == -1 && strstr(neterror, "cancelled"));
+    I_CancelNetGame();
+    assert(I_JoinNetGame("dark-colony", "127.0.0.1"));
+    deadline = SDL_GetTicks64() + 3000;
+    do { status = I_PollNetGame(map, sizeof(map)); SDL_Delay(1); } while (!status && SDL_GetTicks64() < deadline);
+    assert(status == 1 && doomcom->consoleplayer == 1 && doomcom->numplayers == 2);
+    assert(!strcmp(map, "SCENARIO/MPLAYER/D2PLAY01.MAP"));
+    assert(write(control[1], "Q", 1) == 1);
+    int result;
+    assert(waitpid(host, &result, 0) == host && WIFEXITED(result) && !WEXITSTATUS(result));
+    close(control[1]); close(ready[0]);
+    D_QuitNetGame();
+    puts("PASS: LAN discovery, game filtering, offer deduplication, join/host cancellation, rehost, asynchronous map/slot agreement");
+}
+
 static void peer(int player, int players, const struct sockaddr_in *addresses,
                  const struct sockaddr_in *proxies, testmode_t mode, int output) {
     assert(SDL_Init(SDL_INIT_TIMER) == 0);
@@ -214,8 +302,8 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         argv[argc++] = hosts[p];
     }
     argv[argc] = NULL;
-    bool native_map = mode == HOSTED_MAP || mode == HOSTED_MIXED;
-    const char *chosen_map = mode == HOSTED_MIXED ? "SCENARIO/MPLAYER/D2PLAY01.MAP" :
+    bool native_map = mode == HOSTED_MAP || mode == HOSTED_MIXED || mode == MENU_HOSTED;
+    const char *chosen_map = mode == HOSTED_MIXED || mode == MENU_HOSTED ? "SCENARIO/MPLAYER/D2PLAY01.MAP" :
                                                   "SCENARIO/MPLAYER/J4PLAY01.MAP";
     char map[512];
     snprintf(map, sizeof(map), "%s", chosen_map);
@@ -228,9 +316,18 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         char *hostargs[] = {"test", "--host", "--port", port, "--players", playercount, NULL};
         char *joinargs[] = {"test", "--join", server, "--port", port, NULL};
         int session_argc = player ? (mode == HOSTED_LOSSY ? 5 : 3) : 6;
-        assert(I_InitNetwork(&session_argc, player ? joinargs : hostargs));
         if (player) map[0] = '\0';
+        if (mode == MENU_HOSTED) {
+            assert(player ? I_JoinNetGame("dark-colony", "127.0.0.1") :
+                I_HostNetGame("dark-colony", "Menu match", map, players));
+            int status;
+            uint64_t deadline = SDL_GetTicks64() + 3000;
+            do { status = I_PollNetGame(map, sizeof(map)); SDL_Delay(1); }
+            while (!status && SDL_GetTicks64() < deadline);
+            assert(status == 1 && I_NetMenuSession());
+        } else assert(I_InitNetwork(&session_argc, player ? joinargs : hostargs));
         assert(I_StartNetGame("dark-colony", map, sizeof(map)));
+        assert(!I_NetMenuSession());
         assert(!strcmp(map, chosen_map));
         assert(doomcom->numplayers == players);
         player = doomcom->consoleplayer;
@@ -288,7 +385,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         assert(G_PathOrder(actors,MAXPLAYERS,&path));
     }
     result_t result = {0};
-    int end = mode == MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP ? 90 : TESTTICS;
+    int end = mode == MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
     if (mode == QUIT && player == 1) end = 40;
     bool trained = false;
     uint64_t deadline = SDL_GetTicks64() + 45000;
@@ -461,6 +558,12 @@ static void network_test(testmode_t mode, int players) {
 
 int main(int argc, char **argv) {
     assert(SDL_Init(SDL_INIT_TIMER) == 0);
+    if (argc == 2 && !strcmp(argv[1], "--lan")) {
+        lan_tests();
+        network_test(MENU_HOSTED, 2);
+        SDL_Quit();
+        return 0;
+    }
     if (argc == 2 && !strcmp(argv[1], "--model")) {
         network_test(MODEL, 2);
         SDL_Quit();
@@ -476,6 +579,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     command_tests();
+    lan_tests();
     session_tests();
     network_test(DIRECT, 4);
     network_test(LOSSY, 2);
@@ -487,6 +591,7 @@ int main(int argc, char **argv) {
     network_test(HOSTED, 4);
     network_test(HOSTED_MAP, 4);
     network_test(HOSTED_MIXED, 2);
+    network_test(MENU_HOSTED, 2);
     network_test(HOSTED_LOSSY, 2);
     SDL_Quit();
     return 0;

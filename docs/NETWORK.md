@@ -4,6 +4,22 @@ Build with `make`. All game binaries use the same engine-provided command-line
 flow. The host plays as player 1 and relays UDP traffic; every machine runs the
 full lock-step simulation. This is a listen server, not a dedicated server.
 
+Dark Colony also exposes this flow under **MULTI PLAYER WAR** in its native
+main menu. Select **ACT AS SERVER**, enter a session name, choose a map, and
+click the third/fourth player-type controls to reserve two to four LAN slots.
+**CREATE** advertises the session and waits without blocking the menu. The
+match starts automatically when all reserved slots connect.
+
+Other players select **CONNECT TO SERVER** to browse LAN games. Select a row
+and **JOIN**, or use **ADDRESS** to enter a host IP or `host:port` directly.
+**REFRESH** restarts discovery; Escape cancels waiting or returns to the
+previous screen. Host cancellation releases waiting clients, and cancelled
+joins release their reserved slot. Browsing sends UDP broadcasts to port 5029;
+unanswered offers expire after three seconds. Direct connection works when
+broadcasts are unavailable. Native scenario data supplies factions, colors,
+teams and game settings; the menu currently configures the session name,
+player count and map.
+
 For Dark Colony, start a two-player game with a human host and an alien joiner:
 
 ```sh
@@ -85,8 +101,9 @@ slots instead of starting an unplayable match or inventing armies. Dark Colony
 uses the map's existing money, units, alliances and scripts. Building, module
 upgrades and unit training work for both factions; specialist unit abilities,
 research, foundation placement and campaign-specific victory flows remain
-incomplete. This does not reproduce DC.EXE's
-multiplayer menu, race selection or lobby configuration. Existing synthesized
+incomplete. The native network screens are available, but configurable race,
+team, resource settings, lobby chat and DC.EXE's DirectPlay protocol remain
+unimplemented. Existing synthesized
 multiplayer starter units remain as documented in `DC_EXE_FINDINGS.md`.
 
 ## Legacy manual peer setup
@@ -192,6 +209,13 @@ timing distribution, four-player relayed commands, native J4PLAY01 base
 ownership and Barracks purchases for all four players, human/alien base
 ownership, completed modules and Trooper/Gray training on D2PLAY01, plus lossy session
 startup and gameplay. `test_network --hosted` runs just these session tests.
+`test_network --lan` covers broadcast/address discovery, game filtering,
+duplicate offers, cancelled join slot release, host cancellation, rehosting,
+and asynchronous map/player agreement, followed by 90 synchronized native-map
+tics with production through the menu session API.
+`build/bin/tests/dark-colony/test_menu` also
+selects a discovered session through the native controls and verifies the
+handoff to the host's map. Run both with `SDL_VIDEODRIVER=dummy`.
 
 For a headless model client, initialize SDL's timer/events, call `I_InitNetwork`,
 then `I_StartNetGame(game_id, map_buffer, capacity)` before loading the model
