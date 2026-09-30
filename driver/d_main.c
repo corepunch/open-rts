@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
     const char *screenshot_path = NULL;
     bool software_renderer = strcmp(g_game_id, "dark-colony") == 0;
     int check_tics = 0, positional = 0;
+    isize2_t window = {0, 0};
     const char *paths[3] = {NULL, NULL, NULL};
     for (int i = 1; i < argc; ++i) {
         const char *arg = argv[i];
@@ -145,6 +146,9 @@ int main(int argc, char **argv) {
         } else if (!strcmp(arg, "--screenshot")) {
             if (++i == argc || !argv[i][0]) goto usage;
             screenshot_only = true; screenshot_path = argv[i];
+        } else if (!strcmp(arg, "--window")) {
+            if (++i == argc || sscanf(argv[i], "%dx%d", &window.w, &window.h) != 2 ||
+                window.w < 320 || window.h < 240 || window.w > 8192 || window.h > 8192) goto usage;
         } else if (!strcmp(arg, "--net-check")) {
             if (++i == argc) goto usage;
             char *end;
@@ -179,6 +183,7 @@ int main(int argc, char **argv) {
         app.win.w = 640;
         app.win.h = 480;
     }
+    if (window.w > 0) app.win = window;
     app.show_grid = false;
     app.running = true;
     if (!renderer_create(&renderer, sdl_renderer_backend(), "open-rts - paletted RTS base",
@@ -607,6 +612,7 @@ help:
            "  --data <directory>     Local game data directory\n"
            "  --sprite <path>        Default sprite asset\n"
            "  --software            Use the software renderer\n"
+           "  --window <WxH>         Initial window size, e.g. 1280x960; default 640x480\n"
            "  --check | --screenshot <file.bmp>   Offline smoke check\n"
            "  --net-check <tics>     Run a bounded headless simulation\n"
            "  --net <1..4> <peers...>  Legacy manual peer setup\n"

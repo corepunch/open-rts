@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 bool load_render_tables(const char *data_root, const char *tileset_name);
+void DC_RuntimePalette(uint32_t colors[256]);
 bool DC_LoadFont(const char *root, const char *name,
                  bitmapfont_t *font);
 bool load_dark_colony_sprite(const char *path,

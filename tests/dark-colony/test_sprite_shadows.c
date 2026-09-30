@@ -147,6 +147,25 @@ int main(void) {
         W_FreeFile(&rmp);
         R_FreeSprite(&sprite);
     }
+    /* JUNGLE.RMP row 0x48 sends grass index 232 (2% of jungle tile pixels)
+     * to team slot 143. The runtime palette shows that slot as dark cyan,
+     * never the file placeholder green that would speckle every shadow. */
+    assert(load_render_tables("data/DCOLONY", "JUNGLE"));
+    assert(load_dark_colony_sprite("data/DCOLONY/SPRITES/TRSC.SPR", &sprite, NULL));
+    assert(sprite.shadowmap[232] == 143 && sprite.palette[232] == 0xff1f4b33);
+    assert(sprite.palette[143] == 0xff032727 && sprite.source_palette[143] == 0xff032727);
+    SDL_SetRenderDrawColor(r_renderer, 31, 75, 51, 255);
+    SDL_RenderClear(r_renderer);
+    irect_t cell = sprite.cells[0].rect;
+    assert(R_RenderSpriteShadow(&app, &sprite, 0, (irect_t){24, 24, cell.w, cell.h}, 0));
+    assert(!SDL_RenderReadPixels(r_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 64 * 4));
+    int shaded = 0;
+    for (int i = 0; i < 64 * 64; ++i) {
+        assert(pixels[i] == 0xff1f4b33 || pixels[i] == 0xff032727);
+        shaded += pixels[i] == 0xff032727;
+    }
+    assert(shaded > 0);
+    R_FreeSprite(&sprite);
     R_FreeSpriteBuffer();
     SDL_DestroyRenderer(r_renderer);
     r_renderer = NULL;
