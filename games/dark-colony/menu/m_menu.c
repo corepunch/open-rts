@@ -15,13 +15,14 @@ bool menuactive;
 bool menuerror;
 const char *menumap;
 static char root[1024], leader[128], mapname[1024];
-static int race, scroll;
+static int race;
 static int bright_pushed, bright_highlight;
-static menu_t dc_menu = { .grab = -1 };
-static menuitem_t dc_items[300];
-#define itemOn dc_menu.itemOn
-#define pressed dc_menu.grab
-static bool initialized, training;
+/* The native screen object has 300 controls (0x34 bytes each at +0x88); an
+ * item's index is its native control ID. The story text is one more item. */
+enum { NUMCONTROLS = 300, PROSE = NUMCONTROLS, NUMITEMS };
+static menuitem_t items[NUMITEMS];
+static menu_t menu = {.items = items, .numitems = NUMITEMS};
+static bool initialized, training, inlevel;
 static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
@@ -31,32 +32,21 @@ static bool lan, waiting;
 static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
 static char network_notice[128], selected_server[64];
 static int server_scroll;
-static isize2_t screen;
 static bitmapfont_t fonts[3];
 static spritesheet_t background;
 static spritesheet_t pictures;
 static spritecache_t images;
 
-typedef struct {
-    dc_fin_t fin;
-} menuanimation_t;
-static menuanimation_t animations[16];
+static dc_fin_t animations[16];
 static int numanimations;
-
-/* The native screen object has 300 controls (0x34 bytes each at +0x88).
- * Only the presentation fields needed by these screens are decoded. */
+/* A gadget plays one FIN sequence: mode 0 loops, 1 runs once and holds its
+ * last frame, 2 is stopped. */
 typedef struct {
-    enum { NONE, PUSH, CHECK, LABEL, TEXT, GADGET, PICTURE, LIST, SCROLL } kind;
-    irect_t rect;
-    char text[128], animation[32];
-    int message, font, remap, mode, frame, delay;
-    int maxchars;
-    int normal, pushed;
-    bool centered, visible, checked, writable;
     const dc_fin_t *fin;
     const dc_fin_label_t *sequence;
-} menucontrol_t;
-static menucontrol_t controls[300];
+    int mode, frame, delay;
+} gadget_t;
+static gadget_t gadgets[NUMCONTROLS];
 /* A banim control (native type 12, button.c create_banim 0x4250bc) lists the
  * entrance gadgets and the push buttons they cover. 0x425214 plays the gadgets
  * one by one when the screen opens and hides each finished gadget so the
@@ -101,19 +91,19 @@ static void free_screen(void) {
     R_FreeSprite(&background);
     R_FreeSprite(&pictures);
     R_FreeSpriteCache(&images);
-    for (int i = 0; i < numanimations; ++i) DC_FreeFIN(&animations[i].fin);
+    for (int i = 0; i < numanimations; ++i) DC_FreeFIN(&animations[i]);
     numanimations = 0;
     free(prose);
     prose = NULL;
     free(maps);
     maps = NULL;
     nummaps = 0;
-    memset(controls, 0, sizeof(controls));
+    memset(items, 0, sizeof(items));
+    memset(gadgets, 0, sizeof(gadgets));
     memset(messages, 0, sizeof(messages));
     numentrances = entrance = 0;
-    screen = (isize2_t){0};
     bright_pushed = bright_highlight = 0;
-    pressed = -1;
+    menu.held = NULL;
 }
 
 void M_Shutdown(void) {
@@ -133,7 +123,7 @@ static bool load_animations(const char *name) {
     bool ok = true;
     while (fscanf(file, "%127s", entry) == 1) {
         if (numanimations == 16) { ok = false; break; }
-        dc_fin_t *fin = &animations[numanimations++].fin;
+        dc_fin_t *fin = &animations[numanimations++];
         M_PathJoin(path, sizeof(path), root, M_va("ANIMATE/%s", M_Upper(entry)));
         if (!DC_LoadFIN(path, fin)) { ok = false; break; }
         for (int i = 0; i < fin->header->dependency_count; ++i) {
@@ -156,11 +146,11 @@ static bool load_animations(const char *name) {
 }
 
 static void animate(int id, int mode) {
-    menucontrol_t *control = &controls[id];
-    if (!control->sequence) return;
-    control->mode = mode;
-    control->frame = control->sequence->start;
-    control->delay = 0;
+    gadget_t *gadget = &gadgets[id];
+    if (!gadget->sequence) return;
+    gadget->mode = mode;
+    gadget->frame = gadget->sequence->start;
+    gadget->delay = 0;
 }
 
 static bool read_text(const char *name) {
@@ -249,7 +239,7 @@ static int filtered_map(int row) {
 }
 
 static int visible_map_rows(void) {
-    return controls[27].rect.h / fonts[0].glyph_size.h;
+    return items[27].rect.h / fonts[0].glyph_size.h;
 }
 
 static void scroll_maps(int amount) {
@@ -263,60 +253,60 @@ static void scroll_maps(int amount) {
 static void drag_map_scroll(ivec2_t point) {
     int count = 0;
     while (filtered_map(count) >= 0) ++count;
-    irect_t bar = controls[30].rect;
+    irect_t bar = items[30].rect;
     /* 0x42805f..0x4280d6 centers the visible range on the pointer. */
     mapscroll = (point.y - bar.y) * count / bar.h - visible_map_rows() / 2;
     scroll_maps(0);
 }
 
 static void gadget_pose(int id, int pose) {
-    menucontrol_t *c = &controls[id];
-    if (c->sequence && pose >= 0 && c->sequence->start + pose <= c->sequence->end) {
-        c->frame = c->sequence->start + pose;
-        c->mode = 2;
+    gadget_t *gadget = &gadgets[id];
+    if (gadget->sequence && pose >= 0 && gadget->sequence->start + pose <= gadget->sequence->end) {
+        gadget->frame = gadget->sequence->start + pose;
+        gadget->mode = 2;
     }
 }
 
 static void refresh_skirmish(void) {
     for (int i = 0; i < 8; ++i) {
         const dc_skirmish_player_t *p = &skirmish.players[i];
-        snprintf(controls[i].text, sizeof(controls[i].text), "%s", p->type == DC_PLAYER_HUMAN ? p->name : "");
-        strcpy(controls[72 + i].text, messages[52 + p->type]);
-        strcpy(controls[80 + i].text, messages[50 + p->race]);
+        snprintf(items[i].text, sizeof(items[i].text), "%s", p->type == DC_PLAYER_HUMAN ? p->name : "");
+        strcpy(items[72 + i].text, messages[52 + p->type]);
+        strcpy(items[80 + i].text, messages[50 + p->race]);
         gadget_pose(8 + i, p->race);
         gadget_pose(88 + i, p->type);
         gadget_pose(96 + i, p->color * 2);
         gadget_pose(142 + i, p->team * 2);
     }
-    for (int i = 105; i <= 108; ++i) controls[i].checked = i - 105 == skirmish.storage;
-    for (int i = 110; i <= 113; ++i) controls[i].checked = i - 110 == skirmish.artifacts;
-    controls[115].checked = !skirmish.erupting;
-    controls[116].checked = skirmish.erupting;
-    controls[118].checked = !skirmish.renewable;
-    controls[119].checked = skirmish.renewable;
-    snprintf(controls[121].text, sizeof(controls[121].text), "%d%%", skirmish.quantity * 25);
-    snprintf(controls[125].text, sizeof(controls[125].text), "%d%%", skirmish.flow * 25);
-    strcpy(controls[129].text, messages[(skirmish.players[0].race ? 40 : 30) + skirmish.rank]);
+    for (int i = 105; i <= 108; ++i) items[i].value = i - 105 == skirmish.storage;
+    for (int i = 110; i <= 113; ++i) items[i].value = i - 110 == skirmish.artifacts;
+    items[115].value = !skirmish.erupting;
+    items[116].value = skirmish.erupting;
+    items[118].value = !skirmish.renewable;
+    items[119].value = skirmish.renewable;
+    snprintf(items[121].text, sizeof(items[121].text), "%d%%", skirmish.quantity * 25);
+    snprintf(items[125].text, sizeof(items[125].text), "%d%%", skirmish.flow * 25);
+    strcpy(items[129].text, messages[(skirmish.players[0].race ? 40 : 30) + skirmish.rank]);
     if (selectedmap >= 0 && maps[selectedmap].players < active_players()) selectedmap = -1;
-    snprintf(controls[26].text, sizeof(controls[26].text), "%s", selectedmap < 0 ? "" : maps[selectedmap].title);
+    snprintf(items[26].text, sizeof(items[26].text), "%s", selectedmap < 0 ? "" : maps[selectedmap].title);
     scroll_maps(0);
     if (lan) {
         for (int i = 0; i < 8; ++i) {
-            if (i) snprintf(controls[i].text, sizeof(controls[i].text), "%s",
+            if (i) snprintf(items[i].text, sizeof(items[i].text), "%s",
                             i < active_players() ? "LAN Player" : "");
-            controls[16 + i].visible = false;
-            controls[180 + i].visible = false;
-            controls[8 + i].visible = controls[80 + i].visible = false;
-            controls[96 + i].visible = controls[142 + i].visible = false;
+            items[16 + i].visible = false;
+            items[180 + i].visible = false;
+            items[8 + i].visible = items[80 + i].visible = false;
+            items[96 + i].visible = items[142 + i].visible = false;
         }
-        for (int i = 32; i <= 47; ++i) controls[i].visible = false;
-        for (int i = 104; i <= 131; ++i) controls[i].visible = false;
-        for (int i = 150; i <= 165; ++i) controls[i].visible = false;
-        controls[137].visible = controls[139].visible = controls[140].visible = controls[141].visible = false;
-        snprintf(controls[133].text, sizeof(controls[133].text), "%s", waiting ? "WAITING" : "CREATE");
-        snprintf(controls[24].text, sizeof(controls[24].text), "%s", network_notice[0] ? network_notice :
+        for (int i = 32; i <= 47; ++i) items[i].visible = false;
+        for (int i = 104; i <= 131; ++i) items[i].visible = false;
+        for (int i = 150; i <= 165; ++i) items[i].visible = false;
+        items[137].visible = items[139].visible = items[140].visible = items[141].visible = false;
+        snprintf(items[133].text, sizeof(items[133].text), "%s", waiting ? "WAITING" : "CREATE");
+        snprintf(items[24].text, sizeof(items[24].text), "%s", network_notice[0] ? network_notice :
                  "Select map and 2-4 LAN player slots.\nMap supplies factions and game settings.\nStarts when all players connect.");
-        controls[25].visible = false;
+        items[25].visible = false;
     }
 }
 
@@ -390,13 +380,49 @@ static void start_page_animations(void) {
     }
 }
 
+/* A negative frame number is the intensity for drawing the other frame. Only
+ * buttons and pictures brighten when pushed or highlighted. */
+static void set_states(menuitem_t *item, int normal, int pushed, int remap, bool bright) {
+    for (int state = 0; state < MS_STATES; ++state) {
+        bool down = state == MS_PUSHED;
+        int frame = down ? pushed : normal;
+        int intensity = bright && frame < 0 ? -frame : 16;
+        if (bright) intensity += down ? bright_pushed : state == MS_FOCUS ? bright_highlight : 0;
+        item->cell[state] = frame < 0 ? (down ? normal : pushed) : frame;
+        item->palette[state] = (intensity > 31 ? 31 : intensity) * 8 + remap;
+    }
+}
+
+static void draw_gadget(const menu_t *screen, const menuitem_t *item) {
+    (void)screen;
+    const gadget_t *gadget = item->userdata;
+    const dc_fin_frame_t *frame = &gadget->fin->frames[gadget->frame];
+    const dc_fin_command_t *parts = gadget->fin->frame_commands[gadget->frame];
+    for (int i = 0; i < frame->part_count; ++i) {
+        const dc_fin_command_t *part = &parts[i];
+        char key[32];
+        snprintf(key, sizeof(key), "SPRITES/%.8s.SPR", part->sprite);
+        const spritesheet_t *sprite = R_CacheLookup(&images, M_Upper(key));
+        if (!sprite || part->cell < 0 || part->cell >= sprite->numlumps) continue;
+        const spritecell_t *cell = &sprite->cells[part->cell];
+        /* 0x4224d7..0x4224ef passes only the dependency and cell to the UI
+         * blitter. World FIN offsets/flags do not position menu gadgets. */
+        irect_t dst = {item->rect.x + cell->displacement.x,
+                        item->rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
+        R_DrawSprite(sprite, part->cell, -1, &cell->rect, &dst, 0, 16);
+    }
+}
+
+static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action);
+static const char *map_row(const menuitem_t *item, int row);
+static const char *session_row(const menuitem_t *item, int row);
+
 static bool load_screen(int next) {
     static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE"};
     static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT"};
     free_screen();
     page = next;
-    itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
-    scroll = 0;
+    menu.itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
     if (lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
@@ -411,10 +437,18 @@ static bool load_screen(int next) {
     M_PathJoin(path, sizeof(path), root, M_va("INTRFACE/%s", scripts[page]));
     FILE *file = fopen(path, "r");
     if (!file) return false;
+    /* Script fields that need the fonts, messages and brightness lines, which
+     * may follow the control that uses them. */
+    enum { PUSH = 1, CHECK, LABEL, TEXT, GADGET, PICTURE, LIST, SCROLL };
+    typedef struct { int kind, message, font, remap, normal, pushed; } scriptcontrol_t;
+    scriptcontrol_t controls[NUMCONTROLS] = {0};
+    struct { char name[16]; uint32_t argb; } colours[8];
+    int numcolours = 0;
+    isize2_t screen = {0};
     bool ok = true;
     while (fgets(line, sizeof(line), file)) {
         char kind[32];
-        int id, desc;
+        int id, desc, red, green, blue;
         irect_t rect;
         if (sscanf(line, "size %d %d %d %d", &rect.x, &rect.y, &rect.w, &rect.h) == 4) {
             screen = (isize2_t){640, 480};
@@ -423,7 +457,12 @@ static bool load_screen(int next) {
         if (sscanf(line, "size %d %d", &screen.w, &screen.h) == 2) continue;
         if (sscanf(line, "bright_pushed %d", &bright_pushed) == 1 ||
             sscanf(line, "bright_highlight %d", &bright_highlight) == 1) continue;
-        if (sscanf(line, "background %127s", name) == 1) {
+        if (sscanf(line, "colour %15s %d %d %d", name, &red, &green, &blue) == 4) {
+            if (numcolours == 8) { ok = false; break; }
+            snprintf(colours[numcolours].name, sizeof(colours[numcolours].name), "%s", name);
+            colours[numcolours++].argb = 0xff000000u | (uint32_t)red << 16 |
+                (uint32_t)green << 8 | (uint32_t)blue;
+        } else if (sscanf(line, "background %127s", name) == 1) {
             M_PathJoin(path, sizeof(path), root, M_va("%s.GIF", M_Upper(name)));
             if (!W_LoadGIFTexture(path, &background)) ok = false;
             M_PathJoin(palette_path, sizeof(palette_path), root, M_va("%s.RMP", M_Upper(name)));
@@ -434,46 +473,65 @@ static bool load_screen(int next) {
             if (id < 0 || id >= 3 || !DC_LoadFont(root,
                     M_va("%s.SPR", M_Upper(name)), &fonts[id])) ok = false;
         } else if (sscanf(line, "textmsg %d %127[^\r\n]", &id, name) == 2) {
-            if (id < 0 || id >= 300) { ok = false; break; }
+            if (id < 0 || id >= NUMCONTROLS) { ok = false; break; }
             strcpy(messages[id], name);
         } else if (sscanf(line, "%31s %d %d %d %d %d %d", kind, &id, &desc,
                            &rect.x, &rect.y, &rect.w, &rect.h) == 7 &&
                    (!strcmp(kind, "pushb") || !strcmp(kind, "checkb") ||
                     !strcmp(kind, "label") || !strcmp(kind, "in_text") || !strcmp(kind, "gadget") ||
                     !strcmp(kind, "picture") || !strcmp(kind, "list") || !strcmp(kind, "scroll"))) {
-            if (id < 0 || id >= 300 || rect.w <= 0 || rect.h <= 0) { ok = false; break; }
-            menucontrol_t *control = &controls[id];
-            *control = (menucontrol_t){ .rect = rect, .visible = true, .remap = 7,
-                                       .normal = -1, .pushed = -1 };
-            control->kind = !strcmp(kind, "pushb") ? PUSH : !strcmp(kind, "checkb") ? CHECK :
-                !strcmp(kind, "label") ? LABEL : !strcmp(kind, "in_text") ? TEXT :
-                !strcmp(kind, "picture") ? PICTURE : !strcmp(kind, "list") ? LIST :
-                !strcmp(kind, "scroll") ? SCROLL : GADGET;
-            if (control->kind == PUSH || control->kind == CHECK || control->kind == PICTURE)
-                sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %d %d", &control->normal, &control->pushed);
-            control->writable = strstr(line, "read_write") != NULL;
-            control->centered = strstr(line, "align centre") || strstr(line, "align  centre");
+            if (id < 0 || id >= NUMCONTROLS || rect.w <= 0 || rect.h <= 0) { ok = false; break; }
+            menuitem_t *item = &items[id];
+            *item = (menuitem_t){.rect = rect, .visible = true, .link = -1,
+                                 .routine = menu_routine};
+            controls[id] = (scriptcontrol_t){.remap = 7, .normal = -1, .pushed = -1};
+            int script = controls[id].kind = !strcmp(kind, "pushb") ? PUSH :
+                !strcmp(kind, "checkb") ? CHECK : !strcmp(kind, "label") ? LABEL :
+                !strcmp(kind, "in_text") ? TEXT : !strcmp(kind, "picture") ? PICTURE :
+                !strcmp(kind, "list") ? LIST : !strcmp(kind, "scroll") ? SCROLL : GADGET;
+            item->kind = script == PUSH ? MI_BUTTON : script == CHECK ? MI_CHECK :
+                script == LIST ? MI_LIST : script == SCROLL ? MI_SCROLLBAR : MI_STATIC;
+            if (script == PUSH || script == CHECK || script == PICTURE)
+                sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %d %d", &controls[id].normal, &controls[id].pushed);
+            item->centered = strstr(line, "align centre") || strstr(line, "align  centre");
             char *label = strstr(line, "label centre ");
             if (label) {
-                sscanf(label, "label centre %d %d", &control->message, &control->font);
-                control->centered = true;
-            } else if ((label = strstr(line, " label "))) sscanf(label, " label %d", &control->message);
-            if ((label = strstr(line, "remap "))) sscanf(label, "remap %d", &control->remap);
-            if ((label = strstr(line, " font "))) sscanf(label, " font %d", &control->font);
-            if (control->kind == TEXT) {
-                control->maxchars = rect.w;
-                sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %d", &control->font);
-                if ((label = strstr(line, " init "))) sscanf(label, " init %d", &control->message);
+                sscanf(label, "label centre %d %d", &controls[id].message, &controls[id].font);
+                item->centered = true;
+            } else if ((label = strstr(line, " label "))) sscanf(label, " label %d", &controls[id].message);
+            if ((label = strstr(line, "remap "))) sscanf(label, "remap %d", &controls[id].remap);
+            if ((label = strstr(line, " font "))) sscanf(label, " font %d", &controls[id].font);
+            if (script == TEXT) {
+                item->maxchars = rect.w;
+                sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %d", &controls[id].font);
+                if ((label = strstr(line, " init "))) sscanf(label, " init %d", &controls[id].message);
             }
-            if (control->message < 0 || control->message >= 300 || control->font < 0 || control->font >= 3) { ok = false; break; }
-            if (control->kind == GADGET) {
-                sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %31s", control->animation);
-                for (int i = 0; i < numanimations && !control->sequence; ++i) {
-                    control->fin = &animations[i].fin;
-                    control->sequence = DC_FINLabel(control->fin, control->animation);
+            if (controls[id].message < 0 || controls[id].message >= NUMCONTROLS ||
+                controls[id].font < 0 || controls[id].font >= 3) { ok = false; break; }
+            if (script == GADGET) {
+                char animation[32] = "";
+                sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %31s", animation);
+                gadget_t *gadget = &gadgets[id];
+                for (int i = 0; i < numanimations && !gadget->sequence; ++i) {
+                    gadget->fin = &animations[i];
+                    gadget->sequence = DC_FINLabel(gadget->fin, animation);
                 }
-                if (!control->sequence) { ok = false; break; }
+                if (!gadget->sequence) { ok = false; break; }
                 animate(id, strstr(line, "anim_oneoff") ? 1 : strstr(line, "anim_loop") ? 0 : 2);
+                if (strstr(line, "read_write")) item->kind = MI_BUTTON;
+                item->ownerdraw = draw_gadget;
+                item->userdata = gadget;
+            }
+            /* list N ... selbg <colour>; scroll N ... list <id>. */
+            if (script == LIST && (label = strstr(line, " selbg ")) &&
+                sscanf(label, " selbg %15s", name) == 1)
+                for (int i = 0; i < numcolours; ++i)
+                    if (!strcmp(colours[i].name, name)) item->color = colours[i].argb;
+            if (script == SCROLL && (label = strstr(line, " list ")) &&
+                sscanf(label, " list %d", &item->link) == 1) {
+                if (item->link < 0 || item->link >= NUMCONTROLS) { ok = false; break; }
+                item->fill = 0xff000000u;
+                item->color = 0xffff0000u; /* Native default colour 1. */
             }
         } else if (!strncmp(line, "banim", 5)) {
             /* banim id desc ngadgets nbuttons gadget... button...: the gadgets
@@ -484,7 +542,7 @@ static bool load_screen(int next) {
             while (count < 300) {
                 long value = strtol(cursor, &end, 10);
                 if (end == cursor) break;
-                if (value < 0 || value >= 300) { ok = false; break; }
+                if (value < 0 || value >= NUMCONTROLS) { ok = false; break; }
                 values[count++] = (int)value;
                 cursor = end;
             }
@@ -505,66 +563,89 @@ static bool load_screen(int next) {
     for (int i = 0; i < 3; ++i) ok = screen_palette(&fonts[i].sprite, &rmp) && ok;
     for (int i = 0; i < images.count; ++i) ok = screen_palette(&images.entries[i].sprite, &rmp) && ok;
     W_FreeFile(&rmp);
-    for (int i = 0; i < 300; ++i) {
-        menucontrol_t *control = &controls[i];
-        if (control->message) strcpy(control->text, messages[control->message]);
-        if (control->kind == TEXT) {
-            const bitmapfont_t *font = &fonts[control->font];
-            control->rect.w *= font->glyph_size.w + 1;
-            control->rect.h *= font->line_h;
+    for (int i = 0; i < NUMCONTROLS; ++i) {
+        menuitem_t *item = &items[i];
+        int script = controls[i].kind;
+        const bitmapfont_t *font = item->font = &fonts[controls[i].font];
+        if (controls[i].message) strcpy(item->text, messages[controls[i].message]);
+        if (script == TEXT) {
+            item->rect.w *= font->glyph_size.w + 1;
+            item->rect.h *= font->line_h;
+        }
+        /* Centred text sits half a glyph right, except in text fields; a
+         * left-aligned label is inset one glyph and centred vertically. */
+        if (item->centered) item->inset.x = script == TEXT ? 0 : (font->glyph_size.w + 1) / 2;
+        else if (script == LABEL)
+            item->inset = (ivec2_t){font->glyph_size.w, (item->rect.h - font->glyph_size.h) / 2};
+        item->sheet = &pictures;
+        set_states(item, controls[i].normal, controls[i].pushed, controls[i].remap,
+                   script == PUSH || script == CHECK || script == PICTURE);
+        if (script == LIST) {
+            item->row_height = font->glyph_size.h;
+            item->palette[MS_PUSHED] = controls[i].remap;
         }
     }
+    menu.background = &background;
+    menu.palette = background.source_palette;
     if (page == SETUP) {
-        controls[training ? 3 : 2].visible = false;
-        controls[19].visible = controls[20].visible = false;
-        for (int i = 21; i <= 26; ++i) controls[i].visible = false;
-        controls[race ? 26 : 23].visible = true;
-        snprintf(controls[5].text, sizeof(controls[5].text), "%s", leader);
+        items[5].kind = MI_TEXTFIELD;
+        items[training ? 3 : 2].visible = false;
+        items[19].visible = items[20].visible = false;
+        for (int i = 21; i <= 26; ++i) items[i].visible = false;
+        items[race ? 26 : 23].visible = true;
+        snprintf(items[5].text, sizeof(items[5].text), "%s", leader);
         SDL_StartTextInput();
     } else SDL_StopTextInput();
+    /* Text viewport arguments at 0x4023f8/0x403030, separate from widgets. */
+    if (page == STORY || page == BRIEFING)
+        items[PROSE] = (menuitem_t){.visible = true, .font = &fonts[0],
+            .rect = page == STORY ? (irect_t){10, 13, 579, 420} : (irect_t){310, 212, 294, 225}};
     if (page == STORY && !read_text(race ? "INTRFACE/ASTORY.TXT" : "INTRFACE/HSTORY.TXT")) ok = false;
     if (page == BRIEFING) {
-        controls[10].visible = false;
-        controls[race ? 36 : 35].visible = false;
-        snprintf(controls[5].text, sizeof(controls[5].text), "%s", leader);
-        snprintf(controls[6].text, sizeof(controls[6].text), "%s", mission_title);
-        snprintf(controls[7].text, sizeof(controls[7].text), "%s", mission_region);
+        items[10].visible = false;
+        items[race ? 36 : 35].visible = false;
+        snprintf(items[5].text, sizeof(items[5].text), "%s", leader);
+        snprintf(items[6].text, sizeof(items[6].text), "%s", mission_title);
+        snprintf(items[7].text, sizeof(items[7].text), "%s", mission_region);
         if (!read_text(M_va("%.*s.TXT", (int)strlen(mapname) - 4, mapname))) ok = false;
     }
+    items[PROSE].prose = prose;
     if (page == SKIRMISH) {
         selectedmap = -1;
         mapscroll = 0;
         if (!load_skirmish_maps()) ok = false;
-        for (int i = 166; i <= 173; ++i) controls[i].visible = i == 166;
-        for (int i = 180; i <= 187; ++i) controls[i].visible = i == 180;
-        for (int i = 17; i <= 23; ++i) controls[i].visible = false;
+        items[0].kind = MI_TEXTFIELD;
+        items[27].row = map_row;
+        for (int i = 166; i <= 173; ++i) items[i].visible = i == 166;
+        for (int i = 180; i <= 187; ++i) items[i].visible = i == 180;
+        for (int i = 17; i <= 23; ++i) items[i].visible = false;
         refresh_skirmish();
         SDL_StartTextInput();
     }
     if (page == NETWORK) {
-        controls[0].checked = true;
+        items[0].value = true;
         for (int i = 1; i <= 3; ++i) {
-            controls[i].visible = false;
-            controls[7 + i].visible = false;
+            items[i].visible = false;
+            items[7 + i].visible = false;
         }
     }
     if (page == SESSION_NAME || page == CONNECT) {
-        itemOn = page == SESSION_NAME ? 1 : 3;
-        controls[itemOn].writable = true;
-        snprintf(controls[itemOn].text, sizeof(controls[itemOn].text), "%s",
+        menu.itemOn = page == SESSION_NAME ? 1 : 3;
+        items[menu.itemOn].kind = MI_TEXTFIELD;
+        snprintf(items[menu.itemOn].text, sizeof(items[menu.itemOn].text), "%s",
                  page == SESSION_NAME ? session_name : server_address);
         SDL_StartTextInput();
     }
     if (page == BROWSE) {
-        itemOn = 0;
+        items[0].row = session_row;
         server_scroll = 0;
         selected_server[0] = '\0';
-        strcpy(controls[6].text, "Select LAN Session");
-        strcpy(controls[5].text, "JOIN");
+        strcpy(items[6].text, "Select LAN Session");
+        strcpy(items[5].text, "JOIN");
         /* Use the native button row's unused interval for direct connection. */
-        controls[18] = controls[4];
-        controls[18].rect.x = controls[17].rect.x + controls[17].rect.w;
-        strcpy(controls[18].text, "ADDRESS");
+        items[18] = items[4];
+        items[18].rect.x = items[17].rect.x + items[17].rect.w;
+        strcpy(items[18].text, "ADDRESS");
     }
     entrance = 0;
     if (!numentrances) start_page_animations();
@@ -592,7 +673,7 @@ void M_StartControlPanel(app_t *app) {
         return;
     }
     menuactive = true;
-    itemOn = 0;
+    menu.itemOn = 0;
     notice = NULL;
     app->dragging_select = false;
     app->selection_rect = (irect_t){0};
@@ -605,7 +686,7 @@ void DC_OpenQuitDialog(app_t *app) {
         menuerror = true;
         return;
     }
-    itemOn = 57;
+    menu.itemOn = 57;
     menuactive = true;
     app->dragging_select = false;
     app->selection_rect = (irect_t){0};
@@ -635,7 +716,7 @@ static void network_failure(void) {
     I_CancelNetGame();
     waiting = false;
     notice = network_notice;
-    if (page == CONNECT) snprintf(controls[3].text, sizeof(controls[3].text), "%s", network_notice);
+    if (page == CONNECT) snprintf(items[3].text, sizeof(items[3].text), "%s", network_notice);
 }
 
 static bool join_session(const char *address) {
@@ -647,7 +728,7 @@ static bool join_session(const char *address) {
     return load_screen(CONNECT);
 }
 
-static void activate(app_t *app, int id, bool inlevel) {
+static void activate(app_t *app, int id) {
     bool ok = true;
     notice = NULL;
     if (page == QUIT) {
@@ -676,19 +757,19 @@ static void activate(app_t *app, int id, bool inlevel) {
     } else if (page == SETUP) {
         if (id == 0 || id == 1) {
             race = id;
-            controls[23].visible = race == 0;
-            controls[26].visible = race == 1;
+            items[23].visible = race == 0;
+            items[26].visible = race == 1;
             animate(race ? 26 : 23, 0);
         } else if (id == 4) ok = load_screen(MAIN);
         else if (id == 2 || id == 3) {
-            if (!leader[0]) { itemOn = 5; notice = "Type a name for your leader"; }
+            if (!leader[0]) { menu.itemOn = 5; notice = "Type a name for your leader"; }
             else ok = first_mission() && load_screen(training ? BRIEFING : STORY);
         }
     } else if (page == STORY) {
         if (id == 4) ok = load_screen(SETUP);
         else if (id == 5) ok = load_screen(BRIEFING);
-        else if (id == 2) { if (scroll > 0) --scroll; }
-        else if (id == 3) ++scroll;
+        else if (id == 2) { if (items[PROSE].first_row > 0) --items[PROSE].first_row; }
+        else if (id == 3) ++items[PROSE].first_row;
     } else if (page == NETWORK) {
         if (id == 6) ok = load_screen(MAIN);
         else if (id == 4) ok = load_screen(SESSION_NAME);
@@ -709,7 +790,7 @@ static void activate(app_t *app, int id, bool inlevel) {
                 network_notice[0] = '\0';
                 ok = load_screen(SKIRMISH);
             }
-        } else if (id == 1) itemOn = 1;
+        } else if (id == 1) menu.itemOn = 1;
     } else if (page == BROWSE) {
         if (id == 4) { I_CancelNetGame(); ok = load_screen(NETWORK); }
         else if (id == 17) {
@@ -744,8 +825,8 @@ static void activate(app_t *app, int id, bool inlevel) {
     } else if (page == BRIEFING) {
         if (id == 0) ok = load_screen(training ? SETUP : STORY);
         else if (id == 2) { menumap = mapname; menuactive = false; }
-        else if (id == 3) ++scroll;
-        else if (id == 4) { if (scroll > 0) --scroll; }
+        else if (id == 3) ++items[PROSE].first_row;
+        else if (id == 4) { if (items[PROSE].first_row > 0) --items[PROSE].first_row; }
         else if (id == 1) notice = "Encyclopedia is not implemented yet";
     }
     if (!ok) {
@@ -756,7 +837,7 @@ static void activate(app_t *app, int id, bool inlevel) {
 }
 
 static bool selectable(int id) {
-    const menucontrol_t *control = &controls[id];
+    const menuitem_t *item = &items[id];
     if (page == CONNECT && waiting) return id == 1;
     if (page == CONNECT && id == 3) return !waiting;
     if (page == SESSION_NAME && id == 1) return true;
@@ -776,87 +857,99 @@ static bool selectable(int id) {
         if (id >= 9 && id < 16 && skirmish.players[id - 8].type == DC_PLAYER_NONE) return false;
         if (id >= 150 && id <= 165 && skirmish.players[(id - 150) % 8].type == DC_PLAYER_NONE) return false;
         if ((id == 16 || id == 133) && selectedmap < 0) return false;
-        if (id == 0 || control->kind == LIST || control->kind == SCROLL || control->writable)
-            return control->visible;
+        if (item->kind == MI_LIST || item->kind == MI_SCROLLBAR) return item->visible;
     }
-    return control->visible && (control->kind == PUSH || control->kind == CHECK ||
-                                (page == SETUP && id == 5));
+    return item->visible && (item->kind == MI_BUTTON || item->kind == MI_CHECK ||
+                             item->kind == MI_TEXTFIELD);
+}
+
+static const char *map_row(const menuitem_t *item, int row) {
+    (void)item;
+    return maps[filtered_map(row)].label;
+}
+
+static const char *session_row(const menuitem_t *item, int row) {
+    (void)item;
+    static char label[128];
+    int count;
+    const netgame_t *games = I_NetGames(&count);
+    snprintf(label, sizeof(label), "%.24s  %d/%d", games[row].name[0] ? games[row].name : games[row].map,
+             games[row].players, games[row].capacity);
+    return label;
+}
+
+/* Bring the items in line with the setup, the network and the catalog. */
+static void refresh(void) {
+    for (int i = 0; i < NUMCONTROLS; ++i) items[i].enabled = selectable(i);
+    if (page == SKIRMISH) {
+        menuitem_t *list = &items[27];
+        list->first_row = mapscroll;
+        list->value = -1;
+        for (list->rows = 0; filtered_map(list->rows) >= 0; ++list->rows)
+            if (filtered_map(list->rows) == selectedmap) list->value = list->rows;
+    }
+    if (page == BROWSE) {
+        menuitem_t *list = &items[0];
+        const netgame_t *games = I_NetGames(&list->rows);
+        list->first_row = server_scroll;
+        list->value = -1;
+        for (int i = 0; i < list->rows; ++i)
+            if (!strcmp(games[i].address, selected_server)) list->value = i;
+        list->prose = network_notice[0] ? network_notice :
+            "Searching for LAN games...\nUse ADDRESS to connect directly.";
+    }
+    if (page == CONNECT) items[3].prose = notice == network_notice ? network_notice : NULL;
 }
 
 static void drag_server_scroll(ivec2_t point) {
     int count;
     I_NetGames(&count);
-    irect_t bar = controls[1].rect;
+    irect_t bar = items[1].rect;
     server_scroll = (point.y - bar.y) * count / bar.h -
-                    controls[0].rect.h / fonts[0].glyph_size.h / 2;
+                    items[0].rect.h / fonts[0].glyph_size.h / 2;
     if (server_scroll < 0) server_scroll = 0;
 }
 
-/* The native screens hard-wire their lists, scroll bars and editable fields
- * by control id. Every other selectable control acts as a button. */
-static menuitemkind_t item_kind(int id) {
-    if (page == BROWSE && id <= 1) return id ? MI_SCROLLBAR : MI_LIST;
-    if (page == SKIRMISH && (id == 27 || id == 30)) return id == 27 ? MI_LIST : MI_SCROLLBAR;
-    if ((page == SETUP && id == 5) || (page == SESSION_NAME && id == 1) ||
-        (page == CONNECT && id == 3) || (page == SKIRMISH && id == 0))
-        return MI_TEXTFIELD;
-    switch (controls[id].kind) {
-    case CHECK: return MI_CHECK;
-    case PICTURE: return MI_PICTURE;
-    case GADGET: return MI_CUSTOM;
-    case LABEL: case TEXT: case NONE: return MI_LABEL;
-    case PUSH: case LIST: case SCROLL: return MI_BUTTON;
-    }
-    return MI_LABEL;
-}
-
-static void menu_escape(menu_t *menu) {
-    app_t *app = menu->owner;
+static void menu_escape(menu_t *screen) {
+    app_t *app = screen->owner;
     if (page == QUIT) menuactive = false;
     else if (page == SESSION_NAME) {
         if (!load_screen(NETWORK)) { menuerror = true; app->running = false; }
     } else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
-        page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0, menu->inlevel);
-    else if (menu->inlevel) menuactive = false;
+        page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0);
+    else if (inlevel) menuactive = false;
 }
 
-static void menu_wheel(menu_t *menu, int delta) {
-    (void)menu;
+static void menu_wheel(menu_t *screen, int delta) {
+    (void)screen;
     if (page == BROWSE) {
         server_scroll -= delta;
         if (server_scroll < 0) server_scroll = 0;
     } else if (page == SKIRMISH && !waiting) scroll_maps(-delta);
     else if (page == STORY || page == BRIEFING) {
-        scroll -= delta;
-        if (scroll < 0) scroll = 0;
+        items[PROSE].first_row -= delta;
+        if (items[PROSE].first_row < 0) items[PROSE].first_row = 0;
     }
 }
 
-static void copy_field(char *dst, size_t dst_size, const char *src, int id) {
-    snprintf(dst, dst_size, "%s", src ? src : "");
-    snprintf(controls[id].text, sizeof(controls[id].text), "%s", dst);
-}
-
-/* Mouse sets the control's pressed flag before MA_ACTIVATE. Enter does not. */
-#undef pressed
-static void menu_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
-    app_t *app = menu->owner;
-    int id = item->userid;
+static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
+    app_t *app = screen->owner;
+    int id = (int)(item - items);
     if (action == MA_CHANGE && item->kind == MI_TEXTFIELD) {
-        if (page == SESSION_NAME && id == 1) copy_field(session_name, sizeof(session_name), item->text, id);
+        if (page == SESSION_NAME && id == 1) snprintf(session_name, sizeof(session_name), "%s", item->text);
         else if (page == CONNECT && id == 3 && !waiting)
-            copy_field(server_address, sizeof(server_address), item->text, id);
+            snprintf(server_address, sizeof(server_address), "%s", item->text);
         else if (page == SKIRMISH && id == 0 && !lan) {
             snprintf(skirmish.players[0].name, sizeof(skirmish.players[0].name), "%s", item->text);
             refresh_skirmish();
-        } else if (page == SETUP && id == 5) copy_field(leader, sizeof(leader), item->text, id);
+        } else if (page == SETUP && id == 5) snprintf(leader, sizeof(leader), "%s", item->text);
         else return;
         if (!(page == SKIRMISH && id == 0)) notice = NULL;
         return;
     }
     if (action == MA_CHANGE && item->kind == MI_SCROLLBAR) {
-        if (page == BROWSE && id == 1) drag_server_scroll(menu->cursor);
-        else if (page == SKIRMISH && id == 30) drag_map_scroll(menu->cursor);
+        if (page == BROWSE && id == 1) drag_server_scroll(screen->cursor);
+        else if (page == SKIRMISH && id == 30) drag_map_scroll(screen->cursor);
         return;
     }
     if (action == MA_ROW && page == BROWSE && id == 0) {
@@ -871,7 +964,7 @@ static void menu_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
         }
         if (row >= 0 && row < count) strcpy(selected_server, games[row].address);
         if (item->step != 0) {
-            int rows = controls[0].rect.h / fonts[0].glyph_size.h;
+            int rows = items[0].rect.h / fonts[0].glyph_size.h;
             if (row < server_scroll) server_scroll = row;
             if (row >= server_scroll + rows) server_scroll = row - rows + 1;
         }
@@ -900,46 +993,16 @@ static void menu_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (action != MA_ACTIVATE) return;
     /* Enter on a field or the session list confirms the screen. A mouse click
      * acts on the control it hit. */
-    if (!item->pressed) {
+    if (screen->held != item) {
         if (page == SETUP && id == 5) id = training ? 2 : 3;
         else if (page == SESSION_NAME && id == 1) id = 0;
         else if (page == CONNECT && id == 3) id = 0;
         else if (page == BROWSE && id == 0) id = 5;
     }
-    activate(app, id, menu->inlevel);
-}
-#define pressed dc_menu.grab
-
-static void bind_menu(app_t *app, bool inlevel) {
-    int row_h = fonts[0].glyph_size.h > 0 ? fonts[0].glyph_size.h : 1;
-    for (int i = 0; i < 300; ++i) {
-        menucontrol_t *c = &controls[i];
-        menuitem_t *item = &dc_items[i];
-        bool on = selectable(i);
-        *item = (menuitem_t){
-            .kind = item_kind(i),
-            .rect = c->rect,
-            .visible = c->visible || on,
-            .enabled = on,
-            .maxchars = c->maxchars,
-            .routine = menu_routine,
-            .userid = i,
-            .row_height = row_h,
-            .first_row = i == 0 ? server_scroll : mapscroll,
-        };
-        M_MenuSetText(item, c->text);
-    }
-    dc_menu.items = dc_items;
-    dc_menu.numitems = 300;
-    dc_menu.space = screen;
-    dc_menu.owner = app;
-    dc_menu.inlevel = inlevel;
-    dc_menu.escape = menu_escape;
-    dc_menu.wheel = menu_wheel;
-    dc_menu.ticker = NULL;
+    activate(app, id);
 }
 
-bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
+bool M_Responder(app_t *app, const SDL_Event *event, bool in_level) {
     if (!initialized) return false;
     if (event->type == SDL_QUIT) { app->running = false; return true; }
     if (event->type == SDL_WINDOWEVENT) return false;
@@ -948,27 +1011,31 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
         if (!event->key.repeat) M_StartControlPanel(app);
         return true;
     }
-    bind_menu(app, inlevel);
-    M_MenuOpen(&dc_menu);
-    return M_MenuResponder(event);
+    inlevel = in_level;
+    menu.owner = app;
+    menu.escape = menu_escape;
+    menu.wheel = menu_wheel;
+    refresh();
+    return M_MenuResponder(&menu, app, event);
 }
 
 static void step_entrances(void) {
     while (entrance < numentrances) {
         menuentrance_t *e = &entrances[entrance];
         if (e->started + 1 < e->count) {
-            const menucontrol_t *g = &controls[e->gadgets[e->started]];
+            int id = e->gadgets[e->started];
+            const gadget_t *g = &gadgets[id];
             /* 0x425257..0x425294: the next gadget starts when the running one
              * reaches its third frame, so the entrances overlap. */
-            if (!g->visible || !g->sequence || g->frame - g->sequence->start == 2)
+            if (!items[id].visible || !g->sequence || g->frame - g->sequence->start == 2)
                 animate(e->gadgets[++e->started], 1);
         }
         if (e->finished < e->count) {
-            menucontrol_t *g = &controls[e->gadgets[e->finished]];
+            int id = e->gadgets[e->finished];
             /* 0x4252a5..0x4252be: a stopped gadget is hidden and the push
              * button beneath it is redrawn. */
-            if (!g->sequence || g->mode == 2) {
-                g->visible = false;
+            if (!gadgets[id].sequence || gadgets[id].mode == 2) {
+                items[id].visible = false;
                 ++e->finished;
             }
         }
@@ -984,7 +1051,7 @@ void M_Ticker(void) {
         if (status < 0) {
             network_failure();
             if (page == SKIRMISH) refresh_skirmish();
-            else snprintf(controls[3].text, sizeof(controls[3].text), "%s", network_notice);
+            else snprintf(items[3].text, sizeof(items[3].text), "%s", network_notice);
         } else if (status > 0) {
             waiting = false;
             menumap = mapname;
@@ -996,7 +1063,7 @@ void M_Ticker(void) {
                      I_NetPlayerCount(), doomcom->numplayers);
             refresh_skirmish();
         } else {
-            strcpy(controls[3].text, "Connecting... Escape cancels");
+            strcpy(items[3].text, "Connecting... Escape cancels");
         }
     }
     if (page == BROWSE) {
@@ -1005,7 +1072,7 @@ void M_Ticker(void) {
         bool found = false;
         for (int i = 0; i < count; ++i) found |= !strcmp(games[i].address, selected_server);
         if (!found) selected_server[0] = '\0';
-        int rows = controls[0].rect.h / fonts[0].glyph_size.h;
+        int rows = items[0].rect.h / fonts[0].glyph_size.h;
         if (server_scroll > count - rows) server_scroll = count - rows;
         if (server_scroll < 0) server_scroll = 0;
         if (neterror[0]) network_failure();
@@ -1013,177 +1080,32 @@ void M_Ticker(void) {
     uint64_t now = SDL_GetTicks64();
     if (now - menutime <= 16) return; /* DC.EXE 0x421ebd: menu cadence. */
     menutime = now;
-    for (int i = 0; i < 300; ++i) {
-        menucontrol_t *c = &controls[i];
-        if (!c->visible || !c->sequence || c->mode == 2) continue;
-        if (!c->delay) {
-            if (++c->frame > c->sequence->end) {
+    for (int i = 0; i < NUMCONTROLS; ++i) {
+        gadget_t *g = &gadgets[i];
+        if (!items[i].visible || !g->sequence || g->mode == 2) continue;
+        if (!g->delay) {
+            if (++g->frame > g->sequence->end) {
                 /* Gadget ticker 0x422828 holds the last one-off pose;
                  * the world animation ticker 0x423dd0 resets to zero. */
-                if (c->mode == 1) {
-                    c->frame = c->sequence->end;
-                    c->mode = 2;
+                if (g->mode == 1) {
+                    g->frame = g->sequence->end;
+                    g->mode = 2;
                     continue;
                 }
-                c->frame = c->sequence->start;
+                g->frame = g->sequence->start;
             }
-            int raw = c->fin->frames[c->frame].ticks;
-            c->delay = ((raw ? raw : 15) + 3) * 15 / 100;
+            int raw = g->fin->frames[g->frame].ticks;
+            g->delay = ((raw ? raw : 15) + 3) * 15 / 100;
         }
-        if (c->delay) --c->delay;
+        if (g->delay) --g->delay;
     }
     step_entrances();
 }
 
-static void draw_mapped(ivec2_t at, const bitmapfont_t *font, const char *text, int palette_id) {
-    HU_DrawText(at, font, text, R_PaletteMap(&font->sprite, palette_id), 1);
-}
-
-static void draw_gadget(const menucontrol_t *c) {
-    const dc_fin_frame_t *frame = &c->fin->frames[c->frame];
-    const dc_fin_command_t *parts = c->fin->frame_commands[c->frame];
-    for (int i = 0; i < frame->part_count; ++i) {
-        const dc_fin_command_t *part = &parts[i];
-        char key[32];
-        snprintf(key, sizeof(key), "SPRITES/%.8s.SPR", part->sprite);
-        const spritesheet_t *sprite = R_CacheLookup(&images, M_Upper(key));
-        if (!sprite || part->cell < 0 || part->cell >= sprite->numlumps) continue;
-        const spritecell_t *cell = &sprite->cells[part->cell];
-        /* 0x4224d7..0x4224ef passes only the dependency and cell to the UI
-         * blitter. World FIN offsets/flags do not position menu gadgets. */
-        irect_t dst = {c->rect.x + cell->displacement.x,
-                        c->rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
-        R_DrawSprite(sprite, part->cell, -1, &cell->rect, &dst, 0, 16);
-    }
-}
-
-static int control_intensity(const menucontrol_t *c) {
-    bool pushed = c->checked || (pressed >= 0 && c == &controls[pressed]);
-    int frame = pushed ? c->pushed : c->normal;
-    int intensity = 16;
-    if (frame < 0) intensity = -frame;
-    if (pushed) intensity += bright_pushed;
-    else if (c == &controls[itemOn]) intensity += bright_highlight;
-    return intensity > 31 ? 31 : intensity;
-}
-
-static void draw_picture(const menucontrol_t *c) {
-    bool pushed = c->checked || (pressed >= 0 && c == &controls[pressed]);
-    int frame = pushed ? c->pushed : c->normal;
-    if (frame < 0) frame = pushed ? c->normal : c->pushed;
-    if (frame < 0 || frame >= pictures.numlumps) return;
-    const spritecell_t *cell = &pictures.cells[frame];
-    irect_t dst = {c->rect.x + cell->displacement.x, c->rect.y + cell->displacement.y,
-                   cell->rect.w, cell->rect.h};
-    R_DrawSprite(&pictures, frame, control_intensity(c) * 8 + c->remap, &cell->rect, &dst, 0, 16);
-}
-
-static void draw_scroll_chrome(irect_t bar, irect_t thumb, bool show) {
-    V_FillRect(bar, V_NearestIndex(0xff000000u));
-    if (!show) return;
-    uint8_t red = V_NearestIndex(0xffff0000u); /* Native default colour 1. */
-    V_DrawRectOutline(bar, red);
-    V_FillRect(thumb, red);
-}
-
-static void draw_map_list(void) {
-    irect_t clip = controls[27].rect;
-    V_SetClip(clip);
-    for (int row = 0; row < visible_map_rows(); ++row) {
-        int index = filtered_map(mapscroll + row);
-        if (index < 0) break;
-        int y = clip.y + row * fonts[0].glyph_size.h;
-        if (index == selectedmap)
-            V_FillRect((irect_t){clip.x, y, clip.w, fonts[0].glyph_size.h},
-                       V_NearestIndex(0xff00ffffu)); /* MULTIE selbg cyan. */
-        draw_mapped((ivec2_t){clip.x, y}, &fonts[0], maps[index].label,
-                    (index == selectedmap ? 0 : 16 * 8) + 7);
-    }
-    V_SetClip((irect_t){0});
-    /* 0x427f74..0x427fa1: scroll start/end scaled by total list length. */
-    int count = 0;
-    while (filtered_map(count) >= 0) ++count;
-    irect_t bar = controls[30].rect;
-    int rows = visible_map_rows();
-    int end = mapscroll + rows < count ? mapscroll + rows : count;
-    irect_t thumb = {bar.x, bar.y + (count ? bar.h * mapscroll / count : 0),
-                     bar.w, count ? bar.h * end / count - bar.h * mapscroll / count : 0};
-    draw_scroll_chrome(bar, thumb, count > 0);
-}
-
-static void draw_sessions(void) {
-    int count;
-    const netgame_t *games = I_NetGames(&count);
-    irect_t clip = controls[0].rect;
-    V_SetClip(clip);
-    if (!count)
-        HU_DrawTextWrapped(clip, &fonts[0],
-            network_notice[0] ? network_notice : "Searching for LAN games...\nUse ADDRESS to connect directly.",
-            NULL, 1);
-    for (int i = server_scroll; i < count; ++i) {
-        int y = clip.y + (i - server_scroll) * fonts[0].glyph_size.h;
-        if (y >= clip.y + clip.h) break;
-        bool selected = !strcmp(games[i].address, selected_server);
-        if (selected)
-            V_FillRect((irect_t){clip.x, y, clip.w, fonts[0].glyph_size.h},
-                       V_NearestIndex(0xff00ff00u)); /* DPLAYSE colour sel. */
-        char label[128];
-        snprintf(label, sizeof(label), "%.24s  %d/%d", games[i].name[0] ? games[i].name : games[i].map,
-                 games[i].players, games[i].capacity);
-        draw_mapped((ivec2_t){clip.x, y}, &fonts[0], label, (selected ? 0 : 16 * 8) + 4);
-    }
-    V_SetClip((irect_t){0});
-    irect_t bar = controls[1].rect;
-    int rows = clip.h / fonts[0].glyph_size.h;
-    int end = server_scroll + rows < count ? server_scroll + rows : count;
-    irect_t thumb = {bar.x, bar.y + (count ? bar.h * server_scroll / count : 0),
-                     bar.w, count ? bar.h * (end - server_scroll) / count : 0};
-    draw_scroll_chrome(bar, thumb, count > 0);
-}
-
-static void draw_text(int i) {
-    const menucontrol_t *c = &controls[i];
-    if (!c->visible || !c->text[0]) return;
-    const bitmapfont_t *font = &fonts[c->font];
-    ivec2_t at = {c->rect.x, c->rect.y};
-    if (c->centered) at = ivec2_add(at, (ivec2_t){(c->rect.w - HU_TextWidth(font, c->text, 1)) / 2, (c->rect.h - font->glyph_size.h) / 2});
-    else if (c->kind == LABEL) at = ivec2_add(at, (ivec2_t){font->glyph_size.w, (c->rect.h - font->glyph_size.h) / 2});
-    if (c->centered && c->kind != TEXT)
-        at = ivec2_add(at, (ivec2_t){(font->glyph_size.w + 1) / 2, 0});
-    int intensity = c->kind == PUSH || c->kind == CHECK ? control_intensity(c) : 16;
-    if (page == CONNECT && i == 3 && notice == network_notice) {
-        HU_DrawTextWrapped((irect_t){at.x, at.y, c->rect.w, c->rect.h}, font, c->text, NULL, 1);
-        return;
-    }
-    draw_mapped(at, font, c->text, intensity * 8 + c->remap);
-}
-
 void M_Drawer(const app_t *app) {
     if (!menuactive) return;
-    I_SetPalette(background.source_palette);
-    irect_t dst = {0, 0, screen.w, screen.h};
-    if (background.numlumps)
-        R_DrawSprite(&background, 0, -1, NULL, &dst, V_OPAQUE, 16);
-    for (int i = 0; i < 300; ++i) {
-        const menucontrol_t *c = &controls[i];
-        if (c->visible && c->sequence) draw_gadget(c);
-        if (c->visible && (c->kind == PICTURE || c->kind == PUSH || c->kind == CHECK))
-            draw_picture(c);
-        /* Native controls draw in id order with their own label, so a later
-         * entrance gadget covers both the button image and its text. */
-        if (c->kind == PUSH || c->kind == CHECK) draw_text(i);
-    }
-    if (page == SKIRMISH) draw_map_list();
-    if (page == BROWSE) draw_sessions();
-    for (int i = 0; i < 300; ++i)
-        if (controls[i].kind != PUSH && controls[i].kind != CHECK) draw_text(i);
-    if (prose) {
-        /* Text viewport arguments at 0x4023f8/0x403030, separate from widgets.
-         * The wrapper ignores scale; the box origin is already scrolled. */
-        irect_t box = page == STORY ? (irect_t){10, 13, 579, 420} : (irect_t){310, 212, 294, 225};
-        box.y -= scroll * fonts[0].line_h;
-        HU_DrawTextWrapped(box, &fonts[0], prose, NULL, 1);
-    }
+    refresh();
+    M_MenuDrawer(&menu);
     if (app && app->window)
         SDL_SetWindowTitle(app->window, notice ? notice : "Dark Colony");
 }

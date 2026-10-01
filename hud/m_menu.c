@@ -1,79 +1,35 @@
 #include "engine.h"
 
-#include <stdio.h>
 #include <string.h>
-
-static menu_t *current;
 
 static bool item_live(const menuitem_t *item) {
     return item && item->visible && item->enabled;
 }
 
-menuitem_t *M_MenuFind(const menu_t *menu, int userid) {
-    if (!menu) return NULL;
-    for (int i = 0; i < menu->numitems; ++i)
-        if (menu->items[i].userid == userid) return &menu->items[i];
-    return NULL;
+static menuitem_t *focused(const menu_t *menu) {
+    return menu->itemOn >= 0 && menu->itemOn < menu->numitems ? &menu->items[menu->itemOn] : NULL;
 }
 
-void M_MenuFocusId(menu_t *menu, int userid) {
-    if (!menu) return;
-    for (int i = 0; i < menu->numitems; ++i) {
-        if (menu->items[i].userid != userid) continue;
-        menu->itemOn = i;
-        return;
-    }
-}
-
-void M_MenuSetText(menuitem_t *item, const char *text) {
-    if (!item) return;
-    snprintf(item->text, sizeof(item->text), "%s", text ? text : "");
-}
-
-void M_MenuOpen(menu_t *menu) {
-    current = menu;
-    if (menu && menu->grab < -1) menu->grab = -1;
-}
-
-void M_MenuClose(void) {
-    current = NULL;
-}
-
-menuitem_t *M_MenuItemAt(const menu_t *menu, ivec2_t logical) {
-    if (!menu) return NULL;
+static menuitem_t *item_at(const menu_t *menu, ivec2_t point) {
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
-        if (!item_live(item) || !irect_contains(item->rect, logical)) continue;
-        return item;
+        if (item_live(item) && irect_contains(item->rect, point)) return item;
     }
     return NULL;
-}
-
-static ivec2_t event_point(const menu_t *menu, int x, int y) {
-    ivec2_t point = {x, y};
-    if (menu && menu->owner) {
-        const app_t *app = menu->owner;
-        R_WindowToRenderPt(app, x, y, &point.x, &point.y);
-        if (menu->space.w > 0 && menu->space.h > 0 && app->win.w > 0 && app->win.h > 0)
-            point = (ivec2_t){point.x * menu->space.w / app->win.w,
-                              point.y * menu->space.h / app->win.h};
-    }
-    return point;
 }
 
 static void call_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (item && item->routine) item->routine(menu, item, action);
 }
 
-static bool focus_step(menu_t *menu, int delta) {
-    if (!menu || menu->numitems <= 0) return false;
+static void focus_step(menu_t *menu, int delta) {
+    if (menu->numitems <= 0) return;
     int start = menu->itemOn;
     for (int n = 0; n < menu->numitems; ++n) {
         menu->itemOn = (menu->itemOn + delta + menu->numitems * 2) % menu->numitems;
-        if (item_live(&menu->items[menu->itemOn])) return true;
+        if (item_live(&menu->items[menu->itemOn])) return;
     }
     menu->itemOn = start;
-    return false;
 }
 
 static void type_text(menu_t *menu, menuitem_t *item, const char *text, bool erase) {
@@ -93,127 +49,173 @@ static void type_text(menu_t *menu, menuitem_t *item, const char *text, bool era
     call_routine(menu, item, MA_CHANGE);
 }
 
-bool M_MenuResponder(const SDL_Event *event) {
-    menu_t *menu = current;
-    if (!menu || !event) return false;
+bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
     if (event->type == SDL_KEYDOWN) {
         SDL_Keycode key = event->key.keysym.sym;
-        menuitem_t *focus = menu->itemOn >= 0 && menu->itemOn < menu->numitems ?
-            &menu->items[menu->itemOn] : NULL;
+        menuitem_t *focus = focused(menu);
         if (key == SDLK_ESCAPE) {
             if (!event->key.repeat && menu->escape) menu->escape(menu);
             return true;
         }
-        if ((key == SDLK_UP || key == SDLK_DOWN) && focus && focus->kind == MI_LIST &&
-            item_live(focus)) {
+        if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) && focus->kind == MI_LIST) {
             focus->step = key == SDLK_UP ? -1 : 1;
             call_routine(menu, focus, MA_ROW);
             focus->step = 0;
             return true;
         }
         if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB)
-            return focus_step(menu, key == SDLK_UP ? -1 : 1) || true;
-        if ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && !event->key.repeat) {
+            focus_step(menu, key == SDLK_UP ? -1 : 1);
+        else if ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && !event->key.repeat)
             call_routine(menu, focus, MA_ACTIVATE);
-            return true;
-        }
-        if (key == SDLK_BACKSPACE) {
+        else if (key == SDLK_BACKSPACE)
             type_text(menu, focus, NULL, true);
-            return true;
-        }
         return true;
     }
     if (event->type == SDL_TEXTINPUT) {
-        menuitem_t *focus = menu->itemOn >= 0 && menu->itemOn < menu->numitems ?
-            &menu->items[menu->itemOn] : NULL;
-        type_text(menu, focus, event->text.text, false);
+        type_text(menu, focused(menu), event->text.text, false);
         return true;
     }
     if (event->type == SDL_MOUSEMOTION ||
         (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)) {
-        int x = event->type == SDL_MOUSEMOTION ? event->motion.x : event->button.x;
-        int y = event->type == SDL_MOUSEMOTION ? event->motion.y : event->button.y;
-        menu->cursor = event_point(menu, x, y);
-        if (menu->grab >= 0 && menu->grab < menu->numitems && event->type == SDL_MOUSEMOTION) {
-            menuitem_t *held = &menu->items[menu->grab];
-            if (held->kind == MI_SCROLLBAR || held->kind == MI_SLIDER) {
-                held->value = menu->cursor.y - held->rect.y;
-                call_routine(menu, held, MA_CHANGE);
-                return true;
-            }
+        bool motion = event->type == SDL_MOUSEMOTION;
+        R_WindowToRenderPt(app, motion ? event->motion.x : event->button.x,
+                           motion ? event->motion.y : event->button.y,
+                           &menu->cursor.x, &menu->cursor.y);
+        if (motion && menu->held && menu->held->kind == MI_SCROLLBAR) {
+            menu->held->value = menu->cursor.y - menu->held->rect.y;
+            call_routine(menu, menu->held, MA_CHANGE);
+            return true;
         }
-        menuitem_t *hit = M_MenuItemAt(menu, menu->cursor);
+        menuitem_t *hit = item_at(menu, menu->cursor);
         if (!hit) return true;
         menu->itemOn = (int)(hit - menu->items);
-        if (event->type == SDL_MOUSEBUTTONDOWN) {
-            menu->grab = menu->itemOn;
-            hit->pressed = true;
-            call_routine(menu, hit, MA_PRESS);
-            if (hit->kind == MI_LIST) {
-                int row_h = hit->row_height > 0 ? hit->row_height : 1;
-                hit->step = 0;
-                hit->value = hit->first_row + (menu->cursor.y - hit->rect.y) / row_h;
-                call_routine(menu, hit, MA_ROW);
-            } else if (hit->kind == MI_SCROLLBAR || hit->kind == MI_SLIDER) {
-                hit->value = menu->cursor.y - hit->rect.y;
-                call_routine(menu, hit, MA_CHANGE);
-            } else {
-                call_routine(menu, hit, MA_ACTIVATE);
-            }
+        if (motion) return true;
+        menu->held = hit;
+        if (hit->kind == MI_LIST) {
+            int row_h = hit->row_height > 0 ? hit->row_height : 1;
+            hit->step = 0;
+            hit->value = hit->first_row + (menu->cursor.y - hit->rect.y) / row_h;
+            call_routine(menu, hit, MA_ROW);
+        } else if (hit->kind == MI_SCROLLBAR) {
+            hit->value = menu->cursor.y - hit->rect.y;
+            call_routine(menu, hit, MA_CHANGE);
+        } else {
+            call_routine(menu, hit, MA_ACTIVATE);
         }
         return true;
     }
     if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
-        if (menu->grab >= 0 && menu->grab < menu->numitems) {
-            menu->items[menu->grab].pressed = false;
-            call_routine(menu, &menu->items[menu->grab], MA_RELEASE);
-        }
-        menu->grab = -1;
+        menu->held = NULL;
         return true;
     }
-    if (event->type == SDL_MOUSEWHEEL) {
-        if (menu->wheel) menu->wheel(menu, event->wheel.y);
-        return true;
-    }
+    if (event->type == SDL_MOUSEWHEEL && menu->wheel) menu->wheel(menu, event->wheel.y);
     return true;
 }
 
-void M_MenuTicker(void) {
-    if (current && current->ticker) current->ticker(current);
+static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
+    if (menu->held == item || (item->kind == MI_CHECK && item->value)) return MS_PUSHED;
+    return item == focused(menu) ? MS_FOCUS : MS_NORMAL;
 }
 
-static void draw_item(const menu_t *menu, const menuitem_t *item) {
-    if (!item->visible) return;
+static void draw_picture(const menuitem_t *item, menustate_t state) {
+    int cell = item->cell[state];
+    if (!item->sheet || cell < 0 || cell >= item->sheet->numlumps) return;
+    const spritecell_t *source = &item->sheet->cells[cell];
+    irect_t dst = {item->rect.x + source->displacement.x, item->rect.y + source->displacement.y,
+                   source->rect.w, source->rect.h};
+    R_DrawSprite(item->sheet, cell, item->palette[state], &source->rect, &dst, 0, 16);
+}
+
+static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
+    const bitmapfont_t *font = item->font;
+    if (!font) return;
+    if (item->prose) {
+        V_DrawTextWrapped(item->rect, font, item->prose, NULL, item->first_row * font->line_h);
+        return;
+    }
+    const uint8_t *remap = R_PaletteMap(&font->sprite, item->palette[state]);
+    ivec2_t at = ivec2_add((ivec2_t){item->rect.x, item->rect.y}, item->inset);
+    if (item->centered)
+        at = ivec2_add(at, (ivec2_t){(item->rect.w - V_TextWidth(font, item->text)) / 2,
+                                     (item->rect.h - font->glyph_size.h) / 2});
+    V_DrawText(at, font, item->text, remap);
+    /* Engine behaviour: the field being edited ends in an underscore. */
+    if (caret && font->glyph_index['_'] >= 0)
+        V_DrawText((ivec2_t){at.x + V_TextWidth(font, item->text), at.y}, font, "_", remap);
+}
+
+static void draw_list(const menuitem_t *item) {
+    const bitmapfont_t *font = item->font;
+    if (!font || item->row_height <= 0) return;
+    if (!item->rows) {
+        if (item->prose) V_DrawTextWrapped(item->rect, font, item->prose, NULL, 0);
+        return;
+    }
+    irect_t clip = V_GetClip();
+    V_SetClip(item->rect);
+    int visible = item->rect.h / item->row_height;
+    for (int i = 0; i < visible && item->first_row + i < item->rows; ++i) {
+        int row = item->first_row + i;
+        bool selected = row == item->value;
+        irect_t line = {item->rect.x, item->rect.y + i * item->row_height,
+                        item->rect.w, item->row_height};
+        if (selected) V_FillRect(line, V_NearestIndex(item->color));
+        V_DrawText((ivec2_t){line.x, line.y}, font, item->row(item, row),
+                   R_PaletteMap(&font->sprite, item->palette[selected ? MS_PUSHED : MS_NORMAL]));
+    }
+    V_SetClip(clip);
+}
+
+/* The thumb spans the visible rows of the linked list. */
+static void draw_scrollbar(const menu_t *menu, const menuitem_t *item) {
+    if (item->link < 0 || item->link >= menu->numitems) return;
+    const menuitem_t *list = &menu->items[item->link];
+    if (list->rows <= 0 || list->row_height <= 0) return;
+    int end = list->first_row + list->rect.h / list->row_height;
+    if (end > list->rows) end = list->rows;
+    irect_t bar = item->rect;
+    int top = bar.h * list->first_row / list->rows;
+    uint8_t color = V_NearestIndex(item->color);
+    V_DrawRectOutline(bar, color);
+    V_FillRect((irect_t){bar.x, bar.y + top, bar.w, bar.h * end / list->rows - top}, color);
+}
+
+static bool is_button(const menuitem_t *item) {
+    return item->kind == MI_BUTTON || item->kind == MI_CHECK;
+}
+
+static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
+    if (!item->visible || item->kind == MI_LIST || item->kind == MI_SCROLLBAR) return;
+    if (item->fill) V_FillRect(item->rect, V_NearestIndex(item->fill));
     if (item->ownerdraw) {
         item->ownerdraw(menu, item);
         return;
     }
-    bool down = item->pressed || (item->kind == MI_CHECK && item->value);
-    int cell = down && item->cell_pushed >= 0 ? item->cell_pushed : item->cell_normal;
-    if (item->kind == MI_CHECK && item->value && item->cell_checked >= 0)
-        cell = item->cell_checked;
-    if (item->sheet && cell >= 0)
-        V_DrawSpriteCell((ivec2_t){item->rect.x, item->rect.y}, item->sheet, cell, item->remap, 0);
-    if (item->font && item->text[0] &&
-        (item->kind == MI_LABEL || item->kind == MI_BUTTON || item->kind == MI_TEXTFIELD ||
-         item->kind == MI_CHECK)) {
-        ivec2_t at = {item->rect.x, item->rect.y};
-        if (item->centered)
-            at.x += (item->rect.w - V_TextWidth(item->font, item->text)) / 2;
-        V_DrawText(at, item->font, item->text, item->remap);
-    }
+    menustate_t state = item_state(menu, item);
+    draw_picture(item, state);
+    if (is_button(item)) draw_text(item, state, false);
 }
 
-void M_MenuDrawer(void) {
-    if (!current) return;
-    if (current->background && current->background->numlumps) {
-        irect_t dst = {0, 0, current->space.w > 0 ? current->space.w : screens[0].w,
-                       current->space.h > 0 ? current->space.h : screens[0].h};
-        V_DrawSpriteCellScaled(dst, current->background, 0, NULL, NULL, V_OPAQUE);
-    }
-    if (current->drawer) {
-        current->drawer(current);
+static void draw_content(const menu_t *menu, const menuitem_t *item) {
+    if (!item->visible || item->ownerdraw || is_button(item)) return;
+    if (item->kind == MI_LIST || item->kind == MI_SCROLLBAR) {
+        if (item->fill) V_FillRect(item->rect, V_NearestIndex(item->fill));
+        if (item->kind == MI_LIST) draw_list(item);
+        else draw_scrollbar(menu, item);
         return;
     }
-    for (int i = 0; i < current->numitems; ++i) draw_item(current, &current->items[i]);
+    draw_text(item, item_state(menu, item), item->kind == MI_TEXTFIELD && item->enabled &&
+                                             item == focused(menu));
+}
+
+/* Pictures and buttons draw first, in table order; loose text, lists and
+ * scroll bars draw over them. */
+void M_MenuDrawer(const menu_t *menu) {
+    if (menu->palette) I_SetPalette(menu->palette);
+    if (menu->background && menu->background->numlumps) {
+        irect_t dst = menu->background->cells[0].rect;
+        R_DrawSprite(menu->background, 0, -1, NULL, &dst, V_OPAQUE, 16);
+    }
+    for (int i = 0; i < menu->numitems; ++i) draw_chrome(menu, &menu->items[i]);
+    for (int i = 0; i < menu->numitems; ++i) draw_content(menu, &menu->items[i]);
 }
