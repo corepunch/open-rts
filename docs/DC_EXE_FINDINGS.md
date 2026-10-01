@@ -5197,8 +5197,8 @@ The following are deliberately **not** claimed as full retail reproduction:
   native REZIN/REZOUT transition handoff. Decorative menus use their native FIN
   layers but do not yet reproduce all control shading, reverse hover animation,
   push/release timing, sound, clipping/background-erase modes, or palette rules.
-- `banim` entrances are ported (see "Button entrance sequencer" below);
-  the entrance sounds (134 on screen open, 186 per gadget) are not played.
+- `banim` entrances are ported (see "Button entrance sequencer" below),
+  with their sounds (134 on screen open, 186 per gadget); see "Sound".
 - Story/briefing prose is wrapped and scrollable; inline `~digit` commands are
   recognized and removed, but their per-span colour changes are not rendered.
 - Briefing picture windows are separate from SHUMANE gadgets: `0x403052`
@@ -7007,7 +7007,7 @@ Native source fingerprints (SHA-256):
 | LOBJE | 86b0574f945d341bfa88be00d35d6e3718c01a7929aab6f71bb7055768613845 |
 | LSGE | 715cbd0de08d3a295ea4739ea0bc382a9a4acab9f4b9fb91c23a085cd627d494 |
 | LOADGE | a639161965783768b5c485549a0a4837b6daccc3d1146f6067d0b1bf12c1339a |
-| SOUND2.DAT (data root) | b4c1b0de870e87fb95884f7210ceb4555bff6935f854e45d7715bf0a2adbdc93 |
+| SOUND/SOUND2.DAT | b4c1b0de870e87fb95884f7210ceb4555bff6935f854e45d7715bf0a2adbdc93 |
 | KEYS.TXT (data root) | 1e6686694fc0b1fed86af8cdd0760691ed287bc9eef580e1ae8240529d711abd |
 
 ### Confirmed native layout and controls
@@ -7118,13 +7118,13 @@ to single-player; network continuation would require synchronized save loading.
 Reproduce menu and diplomacy regressions with native assets:
 
 ```sh
-make test-dark-colony test-network
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy make test-dark-colony test-network
 # Set SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy for every test run.
-env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/test_menu_actions
-env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/test_diplomacy
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/tests/dark-colony/test_menu_actions
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/tests/dark-colony/test_diplomacy
 # Optional native screenshots:
-env SDL_VIDEODRIVER=dummy OPEN_RTS_HUD_ALLIES_SCREENSHOT=/private/tmp/dc-allies.bmp build/bin/test_hud
-env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy OPEN_RTS_MENU_SCREENSHOT_DIR=/private/tmp build/bin/test_menu_actions
+env SDL_VIDEODRIVER=dummy OPEN_RTS_HUD_ALLIES_SCREENSHOT=/private/tmp/dc-allies.bmp build/bin/tests/dark-colony/test_hud
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy OPEN_RTS_MENU_SCREENSHOT_DIR=/private/tmp build/bin/tests/dark-colony/test_menu_actions
 ```
 
 The tests exercise authored hitboxes, Options limits/preview/cancel/persistence,
@@ -7143,3 +7143,65 @@ Executable traces can be repeated with the repository's documented r2 workflow:
 `r2 -q -c 'pd 80 @ 0x41c190' data/DCOLONY/DC.EXE`, and equivalent reads of
 the addresses above. Read INTRFACE scripts directly to check geometry, IDs,
 fonts, messages and cell numbers; screenshot similarity alone is insufficient.
+## Sound (2026-10-01)
+
+Sources: `DC.EXE` (`sound.c` assert strings at `0x470bec`) and the retail
+`SOUND/` directory. Analysis used the existing `reverse/dc-exe-r2ghidra`
+disassembly and decompilation; no new tool output was needed.
+
+**Confirmed: sound objects.** `0x42d91c` reads `sound/sound2.dat` into 200
+records of 0x74 bytes at `0x4c11b0` (`NUM_SOUND_OBJECTS`). Columns are index,
+path, buffer count (+0x00), an always-1 byte (+0x41), DirectSound volume in
+centibels (+0x44, e.g. `-600`) and a loop flag (+0x49). The loader creates one
+buffer and duplicates it until there are `count` copies. Play (`0x42dea8`, and
+`0x42e0f0` with pan) takes the first copy not playing; with every copy busy the
+request is dropped, not stolen. A volume argument of 1 means the record's
+own volume. The primary buffer is 11025 Hz, 8-bit stereo (`0x42dbbc..0x42dbec`).
+
+**Confirmed: categories.** `0x42e2d0` reads `sound/slist.dat` into a 200 x 8
+table of 13-byte entries at `0x4c6c54`: count, cursor, priority, and up to ten
+sound objects (`SOUNDS_PER_CATEGORY`). Category indices are GUN 0, ACK 1,
+SEL 2, DEA 3, AMB 4, DPY 5, EXP 6, XTR 7. Lines beginning `%` are comments; a
+repeated row replaces the earlier one. Only ACK and SEL rows read the trailing
+priority (`sc->priority<200`). GUN rows are keyed by the GAMESTAT weapon
+`sound` value; ACK/SEL/DEA/DPY rows by native object type.
+
+**Confirmed: playback rules.**
+
+- `0x42ec44` plays a category for an object type: the entry's cursor sound,
+  then `cursor = random % count`. With positional play, attenuation is
+  `-((dx^2 + dy^2) >> 17)` centibels in 1/256-cell units (half the squared
+  cell distance) from the view position at level `+0x108/+0x110`, pan has the
+  same magnitude signed by side, and anything quieter than -8000 is skipped.
+- `0x42edb8` wraps it for world events: it plays only if the event's map
+  cell has the current-sight bit (cell byte 3, `0x80`). DEA, DPY and EXP use
+  this path.
+- `0x42ef5c` requests a bark: for ACK and SEL it keeps one pending sound per
+  category, replacing it only with a lower priority number (200 = none), and
+  re-rolls the entry's cursor until it differs. `0x42f0e0` plays the pending
+  SEL then ACK without position and clears them.
+- `0x42ee98` is the ambience clock: when 5000 ms have passed since timer A
+  it plays (and resets A); otherwise after 7000 ms since timer B. `0x441c04`
+  counts visible cells of the view by block type (count of type 0 divided by
+  four) and returns the commonest; `0x42ee28` plays that type's next sound
+  without position for the current time of day.
+- `0x42e6ac` reads `sound/<tileset>.amb`: `tod btype ids... -1`, time of day
+  0..1, block type 0..32, at most ten ids. `0x44e9e8` gives every tile id the
+  block type (MAP cell flags `>> 10`) most of its cells have, counting overlay
+  tiles too; a cell's type is its overlay's if it has one.
+- Raw sounds: 97 BUTTON on gadget presses (`0x4225d8`, `0x4247db`, ...), 187
+  MSG on message lines (`0x430aca`), 134 HUM on screen open and 186 ACTIVE per
+  entrance gadget, 118 BASE behind 30000/3000 ms checks (`0x4361ff`), 45/82
+  dropship loops chosen by type 92 (`0x4177e7`), 95 ARTDIG (`0x4127e0`), 63
+  NAPALM (`0x43e772`).
+
+**Port.** `games/dark-colony/sounds.c` loads all three tables into the
+engine's `sound/` layer; `test_sounds` checks them. The port keeps the
+distance curve, cutoff, buffer counts, bark priorities, fog gating, ambience
+timing and block-type vote. Deliberate differences: pan follows the
+horizontal offset from the view centre instead of DC's distance-sized pan;
+a new bark stops the previous one rather than overlapping it; warnings
+repeat at most every 30 s per kind (the exact 30000/3000 ms condition is
+**unknown**); and the dropship race choice between 45 and 82 is
+**inferred**. XTR, the AMB category rows (types 98/99), artifact digging and
+napalm are not wired.

@@ -1346,6 +1346,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                         units[i]->owner == consoleplayer && (units[i]->traits & MF_SELECTABLE) != 0 &&
                         units[i]->hp > 0);
                 }
+                S_Bark(units, unit_count, SE_SELECT, true);
             }
             break;
         case SDL_MOUSEMOTION:
@@ -1431,6 +1432,7 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                         P_MobjSetSelected(units[picked], true);
                     }
                 }
+                S_Bark(units, unit_count, SE_SELECT, true);
             } else if (e->button.button == SDL_BUTTON_MIDDLE) {
                 app->panning = false;
             }

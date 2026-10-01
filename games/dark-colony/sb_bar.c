@@ -15,8 +15,20 @@
 enum {
     COLUMN_REST, COLUMN, STRIP, FIRST_CONTROL,
     NUMCONTROLS = 207,
-    MINIMAP = FIRST_CONTROL + NUMCONTROLS, STATUS, MESSAGE, NUMITEMS
+    MINIMAP = FIRST_CONTROL + NUMCONTROLS, STATUS, LABEL, MESSAGE, NUMITEMS
 };
+
+/* MAINE text fields: in_text 79 (the pointer's label above Build), 148 (the
+ * message strip), 234 (days, set by 0x437824) and scount 75 (money). */
+enum { FIELD_LABEL, FIELD_MESSAGE, FIELD_DAYS, FIELD_MONEY, NUMFIELDS };
+static const int field_ids[NUMFIELDS] = {79, 148, 234, 75};
+
+typedef struct {
+    irect_t rect;
+    int palette;  /* PALETTE.RMP row: intens * 8 + remap */
+    int picture;  /* scount: the frame of digit 0 */
+    bool centered;
+} hudfield_t;
 
 typedef StaticProductDefinition ProductButton;
 
@@ -24,9 +36,9 @@ typedef struct {
     menuitem_t items[NUMITEMS];
     menu_t menu;
     char labels[NUMCONTROLS][40]; /* textmsg: shown while the pointer is on the control */
+    hudfield_t fields[NUMFIELDS];
     bitmapfont_t font;
     spritesheet_t background;
-    char button_sound[1024];
     int tab;
     bool allies;
     uint8_t recipients;
@@ -76,13 +88,6 @@ static void dc_ui_fill(irect_t rect, uint32_t argb) {
 
 static void dc_ui_stroke(irect_t rect, uint32_t argb) {
     V_DrawRectOutline(rect, V_NearestIndex(argb));
-}
-
-static void dc_ui_text(ivec2_t at, const bitmapfont_t *font, const char *text, uint32_t argb) {
-    uint8_t remap[256];
-    if (!font || !text) return;
-    V_ModulateRemap(remap, font->sprite.source_palette, argb);
-    HU_DrawText(at, font, text, remap, 1);
 }
 
 static const mobj_t *dc_first_selected_unit(mobj_t *const *units, int unit_count) {
@@ -180,7 +185,6 @@ static void finish_waypoints(dc_hud_t *hud) {
 static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     dc_hud_t *hud = menu->owner;
     if (action != MA_ACTIVATE) return;
-    I_PlaySound(hud->button_sound);
     int id = (int)(item - hud->items) - FIRST_CONTROL;
     if (id == 204 && action == MA_ACTIVATE) {
         ticcmd_t chat = {.order = TC_CHAT, .target = hud->recipients | (1u << consoleplayer)};
@@ -232,12 +236,17 @@ static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     }
 }
 
-/* A left click reserves one of the product; a right click gives one back. */
+/* A left click reserves one of the product; a right click gives one back.
+ * Retail then needs Build (control 19) or Space; BUILD_IMMEDIATELY submits
+ * on the click. Every netplay peer must be built with the same choice. */
 static void purchase(menu_t *menu, menuitem_t *item, menuaction_t action) {
     dc_hud_t *hud = menu->owner;
     if (action != MA_ACTIVATE && action != MA_SECONDARY) return;
     G_QueueTiccmd(&(ticcmd_t){.order = TC_PURCHASE,
         .product = (int)(item - hud->items) - FIRST_CONTROL, .target = action == MA_SECONDARY});
+#ifdef BUILD_IMMEDIATELY
+    if (action == MA_ACTIVATE) G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT});
+#endif
 }
 
 static void center_camera(menu_t *menu, menuitem_t *item, menuaction_t action) {
@@ -318,17 +327,48 @@ static void draw_minimap(const menu_t *menu, const menuitem_t *item) {
                        (irect_t){r.x + 2, r.y + 2, r.w - 4, r.h - 4});
 }
 
-/* The money over its box (control 75), the day dial and the day count. */
+/* An in_text field's text: one line, left or centred in its characters. */
+static void draw_field(const dc_hud_t *hud, const hudfield_t *field, const char *text) {
+    const bitmapfont_t *font = &hud->font;
+    ivec2_t at = {field->rect.x, field->rect.y};
+    if (field->centered)
+        at.x += (field->rect.w - HU_TextWidth(font, text, 1)) / 2;
+    /* The RMP row picks font palette entries; the screen holds the terrain
+     * palette, so each entry's colour is matched into it. */
+    const uint8_t *row = R_PaletteMap(&font->sprite, field->palette);
+    uint8_t remap[256];
+    for (int i = 0; i < 256; ++i)
+        remap[i] = V_NearestIndex(font->sprite.source_palette[row ? row[i] : i] | 0xff000000u);
+    HU_DrawText(at, font, text, remap, 1);
+}
+
+static void draw_control_text(const menu_t *menu, const menuitem_t *item) {
+    draw_field(menu->owner, &(hudfield_t){.rect = item->rect,
+               .palette = item->look[MS_NORMAL].palette}, item->text);
+}
+
+/* The money (scount 75: right-aligned digit pictures), the day dial and the
+ * day count (in_text 234). */
 static void draw_status(const menu_t *menu, const menuitem_t *item) {
+    (void)item;
     const dc_hud_t *hud = menu->owner;
     const level_t *map = hud->map;
-    const bitmapfont_t *font = &hud->font;
     char text[32];
+    const hudfield_t *money = &hud->fields[FIELD_MONEY];
+    const spritesheet_t *buttons = R_CacheLookup(hud->images, "INTRFACE/MAINBUT.SPR");
     int resources = map->player_resources[consoleplayer][0];
     snprintf(text, sizeof(text), "%d", resources < 0 ? 0 : resources);
-    int x = item->rect.x + item->rect.w - 3 - HU_TextWidth(font, text, 1);
-    if (x < item->rect.x + 2) x = item->rect.x + 2;
-    dc_ui_text((ivec2_t){x, item->rect.y + 2}, font, text, 0xff29d9e6u);
+    if (buttons && money->picture >= 0 && money->picture + 9 < buttons->numlumps) {
+        int x = money->rect.x + money->rect.w;
+        for (int i = (int)strlen(text) - 1; i >= 0; --i) {
+            int frame = money->picture + text[i] - '0';
+            irect_t src = buttons->cells[frame].rect;
+            x -= src.w;
+            if (x < money->rect.x) break;
+            irect_t dst = {x, money->rect.y, src.w, src.h};
+            R_DrawSprite(buttons, frame, money->palette, &src, &dst, 0, 16);
+        }
+    }
 
     const spritesheet_t *dial = R_CacheLookup(hud->images, "SPRITES/CLOC.SPR");
     if (dial && dial->numlumps >= 2 && map->daylight.duration > 0) {
@@ -346,25 +386,19 @@ static void draw_status(const menu_t *menu, const menuitem_t *item) {
         (int)(clock / (uint64_t)map->daylight.duration / 2u) : 0;
     if (days > 999) days = 999;
     snprintf(text, sizeof(text), "%03d", days);
-    irect_t at = ui_rect(hud->app, 613, 433, 3, 1);
-    HU_DrawText((ivec2_t){at.x - HU_TextWidth(font, text, 1) / 2, at.y}, font, text,
-                R_PaletteMap(&font->sprite, 0), 1);
+    draw_field(hud, &hud->fields[FIELD_DAYS], text);
 }
 
-/* The strip under the world names the control under the pointer, else what
- * the selected building is doing. The newest HUD message draws over it. */
-static void draw_message(const menu_t *menu, const menuitem_t *item) {
+/* in_text 79, above Build: the control under the pointer, else what the
+ * selected building is doing. */
+static void draw_label(const menu_t *menu, const menuitem_t *item) {
+    (void)item;
     const dc_hud_t *hud = menu->owner;
-    const bitmapfont_t *font = &hud->font;
-    const level_t *map = hud->map;
-    ivec2_t at = {item->rect.x + 4, item->rect.y + 2};
-    int id = menu->itemOn - FIRST_CONTROL;
-    char line[96] = "";
-    if (id >= 0 && id < NUMCONTROLS && hud->labels[id][0]) {
-        const ProductButton *product = menu->items[menu->itemOn].routine == purchase ?
-            G_ModelProductByUIId(NULL, id) : NULL;
-        bool poor = product && map->player_resources[consoleplayer][0] < product->cost;
-        dc_ui_text(at, font, hud->labels[id], poor ? 0xffd06758u : 0xffe7c25eu);
+    const char *description = menu->itemOn >= 0 && menu->itemOn < NUMITEMS ?
+        hud->items[menu->itemOn].userdata : NULL;
+    char line[40] = "";
+    if (description && *description) {
+        snprintf(line, sizeof(line), "%s", description);
     } else if (hud->product_mode) {
         const production_t *making = hud->selected ? hud->selected->production : NULL;
         if (making && making->queue_count > 0 && making->time_ms > 0) {
@@ -374,11 +408,18 @@ static void draw_message(const menu_t *menu, const menuitem_t *item) {
         } else {
             snprintf(line, sizeof(line), "%s", dc_selected_building_label(hud->selected));
         }
-        dc_ui_text(at, font, line, 0xff70827du);
     }
+    draw_field(hud, &hud->fields[FIELD_LABEL], line);
+}
+
+/* in_text 148, the strip under the world: the newest HUD message. */
+static void draw_message(const menu_t *menu, const menuitem_t *item) {
+    (void)item;
+    const dc_hud_t *hud = menu->owner;
     if (!hud->messages || hud->messages->count <= 0) return;
+    char line[96];
     snprintf(line, sizeof(line), "%.61s", hud->messages->messages[hud->messages->count - 1].text);
-    HU_DrawText((ivec2_t){item->rect.x, item->rect.y}, font, line, R_PaletteMap(&font->sprite, 2), 1);
+    draw_field(hud, &hud->fields[FIELD_MESSAGE], line);
 }
 
 /* Show the controls of the open tab and of the selection. */
@@ -391,12 +432,7 @@ static void refresh(dc_hud_t *hud) {
         (!hud->selected || dc_selected_unit_is_player_building(hud->selected)));
     for (int id = 3; id < NUMCONTROLS; ++id) control(hud, id)->visible = false;
     control(hud, 3 + hud->tab)->visible = true; /* The tab strip's title picture. */
-    control(hud, 19)->visible = control(hud, 75)->visible = true;
-    control(hud, 79)->visible = true;
-    int focus = hud->menu.itemOn;
-    const char *description = focus >= 0 && focus < NUMITEMS ? hud->items[focus].userdata : NULL;
-    if (description && *description)
-        snprintf(control(hud, 79)->text, sizeof(control(hud, 79)->text), "%s", description);
+    control(hud, 19)->visible = true;
     if (chat_text.count) {
         control(hud, 203)->visible = true;
         snprintf(control(hud, 203)->text, sizeof(control(hud, 203)->text), "%.72s",
@@ -451,6 +487,24 @@ static void refresh(dc_hud_t *hud) {
     }
 }
 
+/* The font draws through PALETTE.RMP's (intensity*8+remap) maps, like MAINBUT. */
+static bool load_font(dc_hud_t *hud, const char *data_root) {
+    blob_t rmp;
+    if (!HU_LoadFont(data_root, &hud->font) ||
+        !W_ReadFile(M_va("%s/PALETTE.RMP", data_root), &rmp)) return false;
+    spritepalettemap_t *maps = rmp.size >= 256 * 256 ? calloc(256, sizeof(*maps)) : NULL;
+    for (int i = 0; maps && i < 256; ++i) {
+        maps[i].id = i;
+        memcpy(maps[i].indices, rmp.bytes + i * 256, 256);
+    }
+    W_FreeFile(&rmp);
+    if (!maps) return false;
+    free(hud->font.sprite.palette_maps);
+    hud->font.sprite.palette_maps = maps;
+    hud->font.sprite.palette_map_count = 256;
+    return true;
+}
+
 static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) {
     char path[1024], line[512];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/MAINE");
@@ -475,11 +529,38 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
         }
         int normal = -1, pushed = -1;
         if (sscanf(line, "%15s %d %d %d %d %d %d %d %d", kind, &id, &description,
-                   &rect.x, &rect.y, &rect.w, &rect.h, &normal, &pushed) < 7 ||
-            id < 0 || id >= NUMCONTROLS) continue;
+                   &rect.x, &rect.y, &rect.w, &rect.h, &normal, &pushed) < 7) continue;
+        if (!strcmp(kind, "in_text") || !strcmp(kind, "scount")) {
+            bool field = false;
+            for (int f = 0; f < NUMFIELDS; ++f) {
+                if (field_ids[f] != id) continue;
+                field = true;
+                const char *remap = strstr(line, "remap "), *intens = strstr(line, "intens ");
+                int r = 7, light = 16;
+                if (remap) sscanf(remap, "remap %d", &r);
+                if (intens) sscanf(intens, "intens %d", &light);
+                /* Retail draws in_text 79 (remap 2) and 234 (remap 0) in the
+                 * default remap 7's cyan; the path that drops MAINE's text
+                 * remap is not traced, so the screenshots decide. */
+                if (kind[0] == 'i') r = 7;
+                /* in_text sizes count characters and lines. */
+                if (kind[0] == 'i') {
+                    rect.w *= hud->font.glyph_size.w + 1;
+                    rect.h *= hud->font.line_h;
+                }
+                hud->fields[f] = (hudfield_t){
+                    .rect = ui_rect(app, rect.x, rect.y, rect.w, rect.h),
+                    .palette = (light > 31 ? 31 : light) * 8 + r,
+                    .picture = kind[0] == 's' ? normal : -1,
+                    .centered = strstr(line, "align centre") != NULL,
+                };
+            }
+            if (field) continue;
+        }
+        if (id < 0 || id >= NUMCONTROLS) continue;
         bool count = !strcmp(kind, "count"), check = !strcmp(kind, "checkb");
         bool text = !strcmp(kind, "in_text");
-        bool picture = !strcmp(kind, "picture") || !strcmp(kind, "scount");
+        bool picture = !strcmp(kind, "picture");
         if (!count && !check && !picture && !text && strcmp(kind, "pushb")) continue;
         if (text) { rect.w *= hud->font.glyph_size.w + 1; rect.h *= hud->font.line_h; }
         menuitem_t *item = control(hud, id);
@@ -487,6 +568,7 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
             .kind = picture || text ? MI_STATIC : check ? MI_CHECK : MI_BUTTON,
             .rect = ui_rect(app, rect.x, rect.y, rect.w, rect.h),
             .routine = count ? purchase : command,
+            .ownerdraw = text ? draw_control_text : NULL,
             .font = &hud->font,
             .ink = 0xffe7c25eu,
             .userdata = description >= 0 && description < NUMCONTROLS ? hud->labels[description] : NULL,
@@ -508,7 +590,6 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
                 control(hud, id)->look[state].palette = 16 * 8 + (id == 79 || id >= 203 ? 2 : 4);
     control(hud, 204)->kind = MI_TEXTFIELD;
     control(hud, 204)->maxchars = 72;
-    strcpy(control(hud, 79)->text, hud->labels[0]);
     return ok;
 }
 
@@ -519,13 +600,12 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
     hud->recipients = UINT8_MAX; /* 0x41d391..0x41d3a8: all seven chat checks start set. */
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/INTRFACE.GIF");
-    if (!HU_LoadFont(data_root, &hud->font) || !W_LoadGIFTexture(path, &hud->background) ||
+    if (!load_font(hud, data_root) || !W_LoadGIFTexture(path, &hud->background) ||
         !load_script(hud, app, data_root)) {
         fprintf(stderr, "warning: failed to load the Dark Colony HUD\n");
         DC_SB_Shutdown(hud);
         return NULL;
     }
-    M_PathJoin(hud->button_sound, sizeof(hud->button_sound), data_root, "SOUND/BUTTON.WAV");
     hud->menu = (menu_t){.items = hud->items, .numitems = NUMITEMS, .itemOn = -1, .owner = hud};
     /* The sidebar column keeps its 480 rows at the top-right corner; a taller
      * screen is black under it, not world. */
@@ -540,6 +620,8 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
         .rect = ui_rect(app, 520, 5, 96, 84), .routine = center_camera, .ownerdraw = draw_minimap};
     hud->items[STATUS] = (menuitem_t){.visible = true, .rect = ui_rect(app, 524, 456, 72, 17),
         .ownerdraw = draw_status};
+    hud->items[LABEL] = (menuitem_t){.visible = true, .rect = hud->fields[FIELD_LABEL].rect,
+        .ownerdraw = draw_label};
     hud->items[MESSAGE] = (menuitem_t){.visible = true, .rect = ui_rect(app, 50, 462, 427, 11),
         .ownerdraw = draw_message};
     for (int id = 0; id < 3; ++id) control(hud, id)->visible = true;

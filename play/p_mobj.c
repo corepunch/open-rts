@@ -489,6 +489,8 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     if (!target || target->remove || target->hp <= 0 || damage <= 0) return;
     target->hp -= damage;
     if (target->info && target->info->damage_action) target->info->damage_action(target);
+    if (target->owner == consoleplayer && source && source->owner != consoleplayer)
+        S_ActorSound(target, SE_ATTACKED);
     if (target->hp > 0) {
         /* Doom's damage source wakes the victim and becomes its target. Keep
          * an existing live enemy so repeated hits do not restart its pursuit. */
@@ -513,6 +515,8 @@ void P_DamageMobj(mobj_t *target, mobj_t *source, int damage) {
     target->attack.target = NULL;
     target->attack.cooldown_left_ms = 0;
     target->core.momentum = fixed3_zero();
+    S_StopSound(target);
+    S_ActorSound(target, SE_DEATH);
     if (gameinfo && target->type_id > 0 &&
         target->type_id < gameinfo->mobj_type_count) {
         int deathstate = gameinfo->mobjinfo[target->type_id].deathstate;
@@ -595,6 +599,7 @@ void P_ExplodeMissile(mobj_t *missile) {
     }
     missile->traits &= ~MF_MISSILE;
     missile->traits |= MF_NOBLOCKMAP;
+    S_ActorSound(missile, SE_EXPLODE);
     if (missile->info && missile->info->blast.size) missile->traits |= MF_RENDERABLE;
     if (!P_SetMobjState(missile, gameinfo->mobjinfo[missile->type_id].deathstate)) return;
 }
@@ -652,6 +657,7 @@ bool P_Deploy(mobj_t *actor) {
     actor->traits &= ~MF_MOBILE;
     actor->attack.target = NULL;
     actor->core.momentum = fixed3_zero();
+    S_ActorSound(actor, SE_DEPLOY);
     return P_SetMobjState(actor, actor->info->deploy.state);
 }
 
@@ -694,6 +700,7 @@ bool P_Attack(mobj_t *attacker) {
                                          attacker->info->attack.projectile_type);
 #endif
         if (!missile) return false;
+        S_ActorSound(attacker, SE_ATTACK);
         if (attacker->info->attack.health_cost > 0) {
             attacker->hp -= attacker->info->attack.health_cost;
             if (attacker->hp < 0) attacker->hp = 1;
@@ -715,6 +722,7 @@ bool P_Attack(mobj_t *attacker) {
 #ifdef RTS_GAME_DARK_COLONY
     damage = DC_DefendedDamage(target, damage);
 #endif
+    S_ActorSound(attacker, SE_ATTACK);
     if (damage < 0 && (attacker->traits & (MF_HEAL | MF_REPAIR))) {
         int amount = -damage;
         if (amount > target->max_hp - target->hp) amount = target->max_hp - target->hp;

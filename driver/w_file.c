@@ -139,6 +139,7 @@ void HU_PushMessage(hudtext_t *hud, const char *text, int ttl_ms) {
     }
     snprintf(hud->messages[slot].text, sizeof(hud->messages[slot].text), "%s", text);
     hud->messages[slot].ttl_ms = ttl_ms;
+    S_StartUISound(UI_SOUND_MESSAGE);
 }
 
 void HU_Ticker(hudtext_t *hud, float dt) {

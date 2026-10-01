@@ -28,7 +28,7 @@ void D_LoadSettings(void) {
         settings.music >= 0 && settings.music <= 10 && settings.detail >= 0 && settings.detail <= 2) {
         gamesettings = settings;
         D_SetGameSpeed(speed);
-        I_SetVolumes(settings.sound, settings.music);
+        S_SetVolume(settings.sound * 10);
     }
     fclose(file);
 }

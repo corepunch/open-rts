@@ -154,7 +154,7 @@ int main(void) {
     unlink(dc_savefile);
     char settings[1200]; M_PathJoin(settings, sizeof(settings), directory, "settings.cfg");
     unlink(settings); rmdir(directory);
-    M_Shutdown(); I_ShutdownSound(); P_FreeLevel(&level); SDL_Quit();
+    M_Shutdown(); S_Shutdown(); P_FreeLevel(&level); SDL_Quit();
     puts("PASS: native Options limits/cancel/persistence, Objectives, Save/Load, mission/AI/production/reference round-trip and corruption rejection");
     return 0;
 }

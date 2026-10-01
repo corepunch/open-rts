@@ -189,6 +189,15 @@ build/bin/open-rts --software
 build/bin/open-rts --software --game dark-colony
 ```
 
+## Sound
+
+Dark Colony plays its original sound effects: unit acknowledgements and
+selection voices (only for your own units), weapons, deaths, explosions,
+deployment, dropship engines, attack warnings, terrain ambience by day and
+night, and menu/sidebar clicks. Sounds fade with distance from the centre of
+the view. Pass `--nosound` to disable audio. The other games are silent for
+now.
+
 ## Controls
 
 - Left click: select a friendly unit, or order selected units to move, attack,

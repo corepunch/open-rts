@@ -762,6 +762,10 @@ static bool load_screen(int next) {
     entrance = 0;
     if (!numentrances) start_page_animations();
     menutime = SDL_GetTicks64();
+    /* Screen constructors play the open sound before the entrances, and
+     * 0x425214 plays sound 186 as each entrance gadget starts. */
+    S_StartUISound(UI_SOUND_SCREEN);
+    if (numentrances) S_StartUISound(UI_SOUND_GADGET);
     return ok && screen.w > 0 && screen.h > 0 &&
         (popup() || background.numlumps) && fonts[0].sprite.numlumps;
 }
@@ -861,9 +865,6 @@ static bool join_session(const char *address) {
 static void activate(app_t *app, int id) {
     bool ok = true;
     notice = NULL;
-    char sound[1024];
-    M_PathJoin(sound, sizeof(sound), root, "SOUND/BUTTON.WAV");
-    I_PlaySound(sound);
     if (page == QUIT) {
         if (id == 56) app->running = false;
         if (id == 56 || id == 57) menuactive = false;
@@ -878,10 +879,10 @@ static void activate(app_t *app, int id) {
             *value += (id == 40 || id == 42 || id == 44 || id == 67) ? -step : step;
             if (*value < minimum) *value = minimum;
             if (*value > maximum) *value = maximum;
-            I_SetVolumes(editing.sound, editing.music);
+            S_SetVolume(editing.sound * 10);
             option_values();
         } else if (id == 55) {
-            I_SetVolumes(gamesettings.sound, gamesettings.music);
+            S_SetVolume(gamesettings.sound * 10);
             menuactive = false;
         } else if (id == 56) {
             if ((!netgame || consoleplayer == 0) &&
@@ -890,7 +891,7 @@ static void activate(app_t *app, int id) {
                 return;
             }
             gamesettings = editing;
-            I_SetVolumes(editing.sound, editing.music);
+            S_SetVolume(editing.sound * 10);
             if (!D_SaveSettings(editing_speed)) { notice = "Cannot save settings"; M_StartMessage(notice); return; }
             menuactive = false;
         }
@@ -1108,7 +1109,7 @@ static void refresh(void) {
 static void menu_escape(menu_t *screen) {
     app_t *app = screen->owner;
     if (popup()) {
-        if (page == OPTIONS) I_SetVolumes(gamesettings.sound, gamesettings.music);
+        if (page == OPTIONS) S_SetVolume(gamesettings.sound * 10);
         menuactive = false;
     }
     else if (page == LOAD) { if (!load_screen(MAIN)) { menuerror = true; app->running = false; } }
@@ -1184,8 +1185,10 @@ static void step_entrances(void) {
             const menuitem_t *g = &items[e->gadgets[e->started]];
             /* 0x425257..0x425294: the next gadget starts when the running one
              * reaches its third frame, so the entrances overlap. */
-            if (!g->visible || !g->userdata || g->anim.frame - g->anim.first == 2)
+            if (!g->visible || !g->userdata || g->anim.frame - g->anim.first == 2) {
                 animate(e->gadgets[++e->started], MANIM_ONCE);
+                S_StartUISound(UI_SOUND_GADGET);
+            }
         }
         if (e->finished < e->count) {
             menuitem_t *g = &items[e->gadgets[e->finished]];
@@ -1202,7 +1205,11 @@ static void step_entrances(void) {
 }
 
 void M_Ticker(void) {
-    if (!menuactive) return;
+    if (!menuactive) {
+        S_StopUISound(UI_SOUND_SCREEN);
+        return;
+    }
+    S_StartUISound(UI_SOUND_SCREEN);
     if (waiting) {
         int status = I_PollNetGame(mapname, sizeof(mapname));
         if (status < 0) {

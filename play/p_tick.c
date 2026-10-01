@@ -41,6 +41,7 @@ void P_RemoveMobj(mobj_t *mobj) {
 static void free_thinker(thinker_t *thinker) {
     thinker->prev->next = thinker->next;
     thinker->next->prev = thinker->prev;
+    S_UnlinkMobj((mobj_t *)thinker);
     P_FreeMobjProduction((mobj_t *)thinker);
     free(thinker);
 }

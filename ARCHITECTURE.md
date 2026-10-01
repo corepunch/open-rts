@@ -21,6 +21,7 @@ game/         shared game-model API and command/event bridge
 play/         simulation: actors, states, movement, pathfinding, combat
 render/       map, sprite, effect, and decoration rendering
 hud/          fonts, messages, and game UI presentation
+sound/        Doom-style s_sound.c (channels, listener) over an i_sound.c mixer
 games/<game>/ game-specific plugin, loaders, data tables, missions
 tests/        headless model, data-layout, and per-game command tests
 data/<game>/  original game assets and scenario files
@@ -612,6 +613,42 @@ Doom itself enters its title/demo loop by default, and opens the menu on input;
 `autostart` (including `-warp`) or a network game calls `G_InitNew` instead.
 Opening DC's menu immediately, accepting `-map=`, and keeping automated checks
 on the default level are explicit open-rts startup policies.
+
+## Sound
+
+`sound/` follows Doom: `s_sound.c` owns sound channels, the listener and
+origin tracking; `i_sound.c` is the platform layer, an SDL audio callback that
+mixes samples converted at load to 16-bit mono. The simulation starts sounds
+the way Doom's `P_` code does (`S_ActorSound(actor, SE_DEATH)` in
+`P_DamageMobj`, `SE_ATTACK` in `P_Attack`, `SE_DEPLOY`, `SE_EXPLODE`), and the
+interface starts barks and UI sounds (`S_Bark` from order and selection input,
+`S_StartUISound` from menu activation and HUD messages).
+
+A game opts in with `gameinfo_t.sound`, a `soundinfo_t` that registers its sfx
+table (`S_AddSfx`), maps actor events to sfx ids, and runs per-frame ambience.
+Like Hexen's SNDINFO `$random`, an sfx can be a group whose members play in
+turn with a random cursor; a group's priority orders barks. Games without a
+`soundinfo_t` are silent.
+
+Rules the engine applies for every game:
+
+- Barks answer only the owning player (`consoleplayer`), one voice at a time,
+  and the selected unit type with the best priority speaks.
+- World sounds fade with the distance from the centre of the world view
+  (centibels per squared cell, with a silence cutoff) and pan with the
+  horizontal offset. Channels following a moving object are re-spatialized
+  every frame; a freed object leaves its one-shot sounds where it was and
+  stops its loops.
+- Another player's sounds play only from cells the local player currently
+  sees, so fog cannot be heard through.
+- Playback never reads or writes simulation state or the gameplay RNG
+  (`S_Random` is separate), so lockstep peers may hear different things.
+  `--check`, `--screenshot`, `--net-check`, model tests and `--nosound` never
+  open an audio device, and every `S_` call is then a no-op.
+
+Dark Colony's tables come from `SOUND/SOUND2.DAT`, `SOUND/SLIST.DAT` and the
+tileset's `.AMB`; see `games/dark-colony/sounds.c` and the sound section of
+`docs/DC_EXE_FINDINGS.md`.
 
 ## Determinism and future networking
 

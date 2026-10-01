@@ -73,7 +73,7 @@ int main(void) {
     G_RunTiccmd(1,&(ticcmd_t){.order=TC_SPEED,.product=10}); assert(game_speed == speed);
     G_RunTiccmd(0,&(ticcmd_t){.order=TC_SPEED,.product=130}); assert(game_speed == 130);
     consoleplayer = 0; netgame = false;
-    G_ShutdownCustomUI(ui); I_ShutdownSound(); P_FreeLevel(&level); SDL_Quit();
+    G_ShutdownCustomUI(ui); S_Shutdown(); P_FreeLevel(&level); SDL_Quit();
     puts("PASS: native allies clicks, reciprocal peace, independent sight, credit transfer boundary, chat recipients and host-only speed");
     return 0;
 }

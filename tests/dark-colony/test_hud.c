@@ -36,6 +36,77 @@ static void click(void *ui, app_t *app, int id, int button) {
     P_FreeMobjList(&objects);
 }
 
+/* MAINE text fields: the pointer's label is in_text 79 above Build, the strip
+ * (in_text 148) carries only messages, the day count is centred in in_text
+ * 234's three characters, and money is scount 75's right-aligned digit
+ * pictures. All use their intens 31 remaps, which are cyan like retail's. */
+static bool cyan(uint8_t index) {
+    uint32_t c = vpalette[index];
+    int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+    return b > 120 && g > 120 && r < b - 60;
+}
+
+/* Cyan pixels in a 640x480 frame: count and horizontal extent. */
+static int cyan_in(const uint8_t *pixels, irect_t r, int *left, int *right) {
+    int n = 0;
+    *left = r.x + r.w; *right = r.x - 1;
+    for (int y = r.y; y < r.y + r.h; ++y)
+        for (int x = r.x; x < r.x + r.w; ++x) {
+            if (!cyan(pixels[y * 640 + x])) continue;
+            ++n;
+            if (x < *left) *left = x;
+            if (x > *right) *right = x;
+        }
+    return n;
+}
+
+static int text_fields(const spritecache_t *sprites) {
+    V_AllocScreen(640, 480);
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
+    app_t app = {.win = {640, 480}, .cell = {32, 32}, .running = true};
+    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    if (!surface || !ui || !screens[0].pixels) return rts_fail("hud", "640x480 HUD loads");
+    mobjlist_t objects = P_ListMobjs();
+    for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
+    level.player_resources[0][0] = 1506;
+    hudtext_t log = {0};
+    const uint8_t *pixels = screens[0].pixels;
+    int left, right;
+
+    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, sprites, &log);
+    if (cyan_in(pixels, (irect_t){0, 456, 516, 24}, &left, &right))
+        return rts_fail("hud", "the strip is empty without messages");
+    int idle = cyan_in(pixels, (irect_t){516, 400, 124, 18}, &left, &right);
+
+    /* Exploiter's count control is at (518,112,59,41). */
+    SDL_Event hover = {.motion = {.type = SDL_MOUSEMOTION, .x = 547, .y = 132}};
+    G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &hover);
+    HU_PushMessage(&log, "Reinforcements", 5000);
+    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, sprites, &log);
+    const char *screenshot = getenv("OPEN_RTS_HUD_TEXT_SCREENSHOT");
+    if (screenshot) {
+        V_ReadPixels(surface->pixels, surface->pitch);
+        SDL_SaveBMP(surface, screenshot);
+    }
+    int label = cyan_in(pixels, (irect_t){516, 400, 124, 18}, &left, &right);
+    if (label <= idle || left < 518 || left > 524)
+        return rts_fail("hud", "the hovered product's name and cost start at x=520 above Build");
+    int strip = cyan_in(pixels, (irect_t){0, 456, 516, 24}, &left, &right);
+    if (!strip || left < 48 || left > 54)
+        return rts_fail("hud", "the strip shows the message from x=50, not the hover label");
+    /* "000" spans three 1-pixel-spaced glyphs centred in the 3-glyph field at 613. */
+    int days = cyan_in(pixels, (irect_t){600, 430, 40, 12}, &left, &right);
+    if (!days || abs((left + right) / 2 - 623) > 2)
+        return rts_fail("hud", "the day count is centred in its three-character field");
+    int money = cyan_in(pixels, (irect_t){524, 456, 72, 17}, &left, &right);
+    if (!money || right < 590 || left < 596 - 4 * 12)
+        return rts_fail("hud", "money is four right-aligned 12-pixel digits ending at x=596");
+    P_FreeMobjList(&objects);
+    G_ShutdownCustomUI(ui);
+    SDL_FreeSurface(surface);
+    return 0;
+}
+
 int main(void) {
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/DCOLONY", .map_path = "SCENARIO/HUMAN/HUMAN02.MAP"};
@@ -178,12 +249,14 @@ int main(void) {
         for (int x = 0; x < 516; ++x) world += pixels[y * 800 + x] != MARKER;
     assert(box == 72 * 17 && strip > 516 * 20 && world == 0);
     G_ShutdownCustomUI(ui);
+    SDL_FreeSurface(surface);
+    RTS_RUN(text_fields(&sprites));
     M_Shutdown();
     R_FreeSpriteCache(&sprites);
     R_FreeSprite(&fallback);
     R_FreeTileset(&tiles);
     V_FreeScreen();
-    SDL_FreeSurface(surface); I_ShutdownSound(); SDL_Quit();
+    SDL_Quit();
     rts_game_model_destroy(model);
     puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, quit, Options popup, pause, orders and waypoints");
     return 0;

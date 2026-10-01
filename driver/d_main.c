@@ -138,6 +138,7 @@ int main(int argc, char **argv) {
         const char *arg = argv[i];
         if (!strcmp(arg, "--check")) check_only = true;
         else if (!strcmp(arg, "--software")) software_renderer = true;
+        else if (!strcmp(arg, "--nosound")) nosound = true;
         else if (!strncmp(arg, "-map=", 5) || !strncmp(arg, "--map=", 6)) {
             const char *value = strchr(arg, '=') + 1;
             if (!*value || paths[1]) goto usage;
@@ -212,10 +213,12 @@ int main(int argc, char **argv) {
     app.renderer = renderer.sdl;
     R_RefreshViewport(&app);
 
+    if (!check_only && !screenshot_only && !check_tics) S_Init(data_root);
     if (!check_only && !check_tics) {
         if (!M_Init(&app, data_root)) {
             fprintf(stderr, "Could not initialize %s menu\n", g_game_name);
             M_Shutdown();
+            S_Shutdown();
             renderer_destroy(&renderer);
             return 1;
         }
@@ -232,11 +235,13 @@ main_menu:
         }
         if (!menuactive || !app.running) break;
         M_Ticker();
+        S_UpdateSounds(&app, NULL);
         renderer_begin_frame(&renderer, (SDL_Color){11, 14, 16, 255});
         M_Drawer(&app);
         if (screenshot_only) {
             bool saved = renderer_save_screenshot(&renderer, screenshot_path);
             M_Shutdown();
+            S_Shutdown();
             renderer_destroy(&renderer);
             return saved ? 0 : 1;
         }
@@ -245,6 +250,7 @@ main_menu:
     }
     if (!app.running) {
         M_Shutdown();
+        S_Shutdown();
         renderer_destroy(&renderer);
         return menuerror ? 1 : 0;
     }
@@ -262,6 +268,7 @@ load_level:
     if (path_length < 0 || (size_t)path_length >= sizeof(map_path)) {
         fprintf(stderr, "Map path is too long\n");
         M_Shutdown();
+        S_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -269,6 +276,7 @@ load_level:
     if (!G_DoLoadLevel(map_path, &level) || !P_InitSight()) {
         P_FreeLevel(&level);
         M_Shutdown();
+        S_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -280,6 +288,7 @@ load_level:
     if (!W_LoadAssets(data_root, &level, sprite_name, &tileset, &unit_sprite)) {
         P_FreeLevel(&level);
         M_Shutdown();
+        S_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -332,6 +341,7 @@ load_level:
         focus_camera_on_grid(&app, &level, focus_gx, focus_gy);
     }
     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
+    S_Start(&level, data_root);
 
     printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag/order, right deselect, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
@@ -398,6 +408,7 @@ load_level:
         P_FreeMobjList(&objects);
         P_FreeLevel(&level);
         M_Shutdown();
+        S_Shutdown();
         renderer_destroy(&renderer);
         return 0;
     }
@@ -577,6 +588,7 @@ load_level:
         }
 
         app.ticks_ms = SDL_GetTicks();
+        S_UpdateSounds(&app, &level);
         renderer_begin_frame(&renderer, (SDL_Color){ 11, 14, 16, 255 });
         R_DrawLevel(&app, &level, &tileset);
         R_RenderPlayerView(&app, &level, &tileset, units, unit_count, &unit_sprite,
@@ -621,7 +633,7 @@ load_level:
     if (neterror[0]) goto network_failure;
     if (app.running && menumap && !exit_code) goto load_level;
     M_Shutdown();
-    I_ShutdownSound();
+    S_Shutdown();
     renderer_destroy(&renderer);
     return exit_code;
 network_failure:
@@ -629,6 +641,7 @@ network_failure:
     if (check_tics || !app.running || menuerror) {
         D_QuitNetGame();
         M_Shutdown();
+        S_Shutdown();
         renderer_destroy(&renderer);
         return 1;
     }
@@ -651,6 +664,7 @@ help:
            "  --data <directory>     Game data directory (default %s, or that path beside the executable)\n"
            "  --sprite <path>        Default sprite asset\n"
            "  --software            Use the software renderer\n"
+           "  --nosound             Disable sound effects\n"
            "  --window <WxH>         Initial window size, e.g. 1280x960; default 640x480\n"
            "  --check | --screenshot <file.bmp>   Offline smoke check\n"
            "  --net-check <tics>     Run a bounded headless simulation\n"
