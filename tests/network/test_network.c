@@ -445,7 +445,9 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         }
         for (int p = 0; p < players; ++p) {
             assert(barracks[p]);
-            assert(level.player_resources[p][0] == (mode == HOSTED_MIXED ? 150 : 500));
+            /* Plus 3 exo credits per sixteen 66 ms native ticks while the base stands. */
+            int exo = 3 * (int)((int64_t)leveltime * 1000 / (66 * 30) / 16);
+            assert(level.player_resources[p][0] == (mode == HOSTED_MIXED ? 150 : 500) + exo);
             if (mode == HOSTED_MIXED) assert(trained && troops[p]);
         }
     }

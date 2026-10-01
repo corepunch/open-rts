@@ -57,6 +57,7 @@ typedef enum {
     SCRIPT_CMD_SETARRAY,
     SCRIPT_CMD_SETLIFES,
     SCRIPT_CMD_WAYPOINT,
+    SCRIPT_CMD_EXOMONEY,
 } ScriptCommandType;
 
 typedef enum {
@@ -259,6 +260,9 @@ static void execute_script_block(ScriptState *script, ScriptBlock *block,
                     if (msg) HU_PushMessage(hud, msg, -1);
                 }
             }
+        } else if (cmd->type == SCRIPT_CMD_EXOMONEY) {
+            /* Trigger action 12 (0x43a218): team +0xe1c = amount. */
+            if (cmd->a[0] >= 0 && cmd->a[0] < 8) map->exo_income[cmd->a[0]] = cmd->a[1];
         } else if (cmd->type == SCRIPT_CMD_NEWRATE) {
             int rate = cmd->a[0], x = cmd->a[1], y = cmd->a[2];
             int vi = script_nearest_vent(map, x, y);
@@ -550,6 +554,11 @@ static void parse_tro(ScriptState *script, const char *path) {
                 }
             } else if (sscanf(token, "bail %d %d", &v[0], &v[1]) == 2) {
                 cmd.type = SCRIPT_CMD_BAIL;
+                cmd.a[0] = v[0];
+                cmd.a[1] = v[1];
+                script_add_command(block, cmd);
+            } else if (sscanf(token, "exomoney %d %d", &v[0], &v[1]) == 2) {
+                cmd.type = SCRIPT_CMD_EXOMONEY;
                 cmd.a[0] = v[0];
                 cmd.a[1] = v[1];
                 script_add_command(block, cmd);

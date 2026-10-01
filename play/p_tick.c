@@ -114,6 +114,11 @@ void P_Ticker(void) {
         }
     }
     /* DC.EXE 0x418b54's mask pass runs every sixteen native tics. */
-    if (clock != before && (clock & 15) == 0) P_UpdateSight();
+    if (clock != before && (clock & 15) == 0) {
+        P_UpdateSight();
+#ifdef RTS_GAME_DARK_COLONY
+        DC_TickIncome();
+#endif
+    }
     leveltime++;
 }

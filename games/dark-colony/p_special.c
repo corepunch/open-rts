@@ -22,6 +22,19 @@ static void repair(mobj_t *healer) {
                 }
 }
 
+void DC_TickIncome(void) {
+    /* Team +0xbd4 is city slot 0 (Exo-Ctr / Mind-Hive), cleared when it dies
+     * (0x41554a); the credit is added directly, without the AI+ multiplier. */
+    bool base[8] = {false};
+    for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
+        const mobj_t *actor = (mobj_t *)th;
+        if (!actor->remove && actor->hp > 0 && actor->owner < 8 &&
+            (actor->type_id == MT_EXCOPOD || actor->type_id == MT_ALIEN_MINDHIVE)) base[actor->owner] = true;
+    }
+    for (int owner = 0; owner < 8; ++owner)
+        if (base[owner]) level.player_resources[owner][0] += level.exo_income[owner];
+}
+
 void DC_TickSupport(int64_t clock) {
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;

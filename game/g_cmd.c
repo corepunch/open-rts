@@ -208,6 +208,7 @@ uint32_t G_Consistency(void) {
     for (int p = 0; p < RTS_MODEL_MAX_PLAYERS; ++p)
         for (int r = 0; r < RTS_MAX_RESOURCES; ++r) HASH(level.player_resources[p][r]);
 #ifdef RTS_GAME_DARK_COLONY
+    for (int owner = 0; owner < 8; ++owner) HASH(level.exo_income[owner]);
     for (int owner = 0; owner < 8; ++owner)
         for (int row = 0; row < 110; ++row) {
             HASH(level.purchases[owner][row].selected);

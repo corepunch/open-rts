@@ -182,6 +182,8 @@ mobj_t *DC_Occupant(ivec2_t cell, bool airborne, bool buried);
 
 
 void DC_TickSupport(int64_t clock);
+/* 0x418c52: every sixteen native ticks, base owners earn their exo income. */
+void DC_TickIncome(void);
 
 
 void DC_AimMissile(mobj_t *missile, fixed3_t destination);

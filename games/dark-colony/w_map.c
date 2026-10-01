@@ -558,6 +558,8 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
         }
         for (int i = 0; i < scenario->team_count && i < 8; ++i)
             out->player_resources[i][0] = scenario->teams[i].money;
+        /* 0x41ae71: SCN load gives every team three credits of exo income. */
+        for (int i = 0; i < 8; ++i) out->exo_income[i] = 3;
     }
     if (!out->tileset_name[0]) {
         const char *tileset = "DESERT";

@@ -70,16 +70,18 @@ static bool tick_seconds(RtsGameModel *model, int seconds) {
 
 /* The executable's tic body (driver/d_main.c), including the custom UI's
  * production update, which differs from the model's G_ProductionTicker. */
+static void driver_tic(void *ui, AiContext *ai) {
+    P_Ticker();
+    mobjlist_t objects = P_ListMobjs();
+    int count = objects.count;
+    P_AiTick(ai, &level, objects.items, count, gameinfo, (int)(FIXED_DT * 1000));
+    G_UpdateProduction(ui, &level, objects.items, &count, FIXED_DT);
+    P_FreeMobjList(&objects);
+    G_CustomUITicker(ui);
+}
+
 static void driver_seconds(void *ui, AiContext *ai, int seconds) {
-    for (int t = 0; t < seconds * TICKS_PER_SECOND; ++t) {
-        P_Ticker();
-        mobjlist_t objects = P_ListMobjs();
-        int count = objects.count;
-        P_AiTick(ai, &level, objects.items, count, gameinfo, (int)(FIXED_DT * 1000));
-        G_UpdateProduction(ui, &level, objects.items, &count, FIXED_DT);
-        P_FreeMobjList(&objects);
-        G_CustomUITicker(ui);
-    }
+    for (int t = 0; t < seconds * TICKS_PER_SECOND; ++t) driver_tic(ui, ai);
 }
 
 /* Executes everything the local HUD queued, as the network tic loop would. */
@@ -144,8 +146,13 @@ static int test_purchase_commands(const char *map, const int races[2], int playe
     G_RunTiccmd(player, &(ticcmd_t){.order = TC_SUBMIT});
     REQUIRE(level.purchases[player][row].selected == 0, "Build consumes the reservation");
     REQUIRE(level.player_resources[player][0] == START_CREDITS - product->cost, "Build does not charge twice");
-    REQUIRE(tick_seconds(model, 90), "simulation runs");
+    int ready = G_ModelProductTrainingTimeMs(product) / 33, tic = 0;
+    for (; tic < 5 * TICKS_PER_SECOND && count_harvesters(player) == before; ++tic)
+        REQUIRE(rts_tick(model, NULL), "simulation runs");
     REQUIRE(count_harvesters(player) == before + 1, "the harvester appears");
+    REQUIRE(tic >= ready - 2 && tic <= ready + TICKS_PER_SECOND,
+            "the harvester leaves after its native release time, not a cost-based timer");
+    REQUIRE(tick_seconds(model, 30), "simulation runs");
     REQUIRE(count_harvesters(!player) == other, "the other player gains no harvester");
     REQUIRE(level.purchases[player][row].queued == 0, "nothing stays queued");
     REQUIRE(level.player_resources[player][0] >= START_CREDITS - product->cost, "no extra charge");
@@ -178,18 +185,23 @@ static int test_purchase_hud(const char *map, const int races[2], int player) {
     P_MobjSetSelected(base, true);
     P_FreeMobjList(&objects);
 
+    int funds = level.player_resources[player][0]; /* Includes exo income accrued while settling. */
     click(ui, &app, 0, SDL_BUTTON_LEFT); pump(player);
     click(ui, &app, id, SDL_BUTTON_LEFT);
     pump(player);
     REQUIRE(level.purchases[player][product->row_id].selected == 1, "clicking the product shows 1 on its badge");
-    REQUIRE(level.player_resources[player][0] == START_CREDITS - product->cost, "badge reserves the cost");
+    REQUIRE(level.player_resources[player][0] == funds - product->cost, "badge reserves the cost");
     click(ui, &app, BUILD_BUTTON, SDL_BUTTON_LEFT); pump(player);
     AiContext ai;
     P_AiInit(&ai);
     P_AiAttachGame(&ai, G_AiInterface());
-    driver_seconds(ui, &ai, 90);
+    int tic = 0;
+    for (; tic < 5 * TICKS_PER_SECOND && count_harvesters(player) == before; ++tic) driver_tic(ui, &ai);
     REQUIRE(count_harvesters(player) == before + 1, "Build produces the harvester");
-    REQUIRE(level.player_resources[player][0] >= START_CREDITS - product->cost, "charged once");
+    REQUIRE(tic <= G_ModelProductTrainingTimeMs(product) / 33 + TICKS_PER_SECOND,
+            "the harvester appears within a second of its release time after Build");
+    driver_seconds(ui, &ai, 30);
+    REQUIRE(level.player_resources[player][0] >= funds - product->cost, "charged once");
     netactive = false; consoleplayer = 0;
     rts_game_model_destroy(model);
     return 0;

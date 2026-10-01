@@ -184,7 +184,8 @@ static int test_ai_plus_income(void) {
         REQUIRE(model, "skirmish loads");
         REQUIRE(level.income_scale[1] == (pass ? 0x200 : 0) && level.income_scale[0] == 0,
                 "only AI+ gets the 0x200 credit multiplier; AI keeps 1.0 (DC.EXE 0x401694/0x4016a0)");
-        /* Isolate the economy: no AI purchasing, one harvester bought by hand. */
+        /* Isolate the economy: no AI purchasing or exo trickle, one harvester bought by hand. */
+        for (int owner = 0; owner < 8; ++owner) level.exo_income[owner] = 0;
         P_AiSetFeatures(rts_game_model_ai(model), AI_FEATURE_ECONOMY);
         DC_SelectPurchase(1, UI_EXPLOITER, false);
         DC_SubmitPurchases(1);
@@ -213,6 +214,7 @@ static int test_feature_toggles(void) {
         RtsGameModel *model = duel(D2, A, 0, 0);
         REQUIRE(model, "skirmish loads");
         P_AiSetFeatures(rts_game_model_ai(model), cases[i].features);
+        for (int owner = 0; owner < 8; ++owner) level.exo_income[owner] = 0; /* Only purchases move credits. */
         census_t before_h, before; census(0, &before_h); census(1, &before);
         log_t log; init_log(&log);
         REQUIRE(fast_forward(model, 15 * 60, &log), "fifteen simulated minutes run");

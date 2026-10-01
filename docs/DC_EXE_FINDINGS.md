@@ -6889,3 +6889,31 @@ after. State IDs are renumbered and intermediate names are gone; a frame
 inside a run is `(state, mobjcore_t.state_frame)`. The building damage
 sequences hold one state each instead of a first/last pair, and blood enters
 its row at frame 1 through `P_SetMobjStateFrame`.
+
+## Unit production time and exo income (2026-10-01)
+
+**Confirmed: no build timer.** City ticker `0x413620` decrements the queue
+countdown at team `+0x10c` (`0x4136f9..0x413707`); its only other writes reset
+it to zero (`0x41ae07`, `0x44187f`). The 119 stored at `0x41392a` is the
+unit-cap message timer `+0xe2c`, not a delay. A queued unit starts its type's
+`+0x98` release (`<sprite>BUILDSTAND`/`BUILD<even facing>`, `0x438c95`) in
+mode 1 and spawns when that ends; without one, `0x413938` spawns at once. The
+release lasts one native tick plus `((raw ? raw : 15) + 3) * 15 / 100` ticks for
+each later frame, 66 ms each. **Disproven:** the `cost*10 ms` engine policy
+(15 s for an Exploiter). From the ANIM.DAT FINs, `EXPLBUILD0` (BURN.FIN, five
+raw-zero frames) is 9 ticks, 594 ms; `TRSCBUILD0` is 22, matching the
+Barracks release; the longest, `PSYCBUILD0`, is 39 (2.6 s). The literals are in
+`G_ModelProductTrainingTimeMs`, and `test_production_release_times`
+recomputes them from the FIN files. The Trooper keeps its existing 44-tic
+release state as its only delay.
+
+**Confirmed: exo income.** SCN load sets team `+0xe1c` (`game+0x19b4`) to 3
+for all eight teams (`0x41ae71`). The world ticker, when `+0x94c & 15` is zero
+(`0x418c52`, the same sixteen-tick cadence as the sight pass at `0x418b54`),
+adds it directly to `+0xbac` for each team whose city slot 0 entry `+0xbd4`
+is set (`0x418c67..0x418c9a`). That slot is the Exo-Ctr / Mind-Hive and is
+cleared when it is destroyed (`0x41554a`). Trigger action 12 (`0x43a218`,
+jump table `0x43a0ec`) is `exomoney <team> <amount>` and replaces the amount;
+HUMAN01.TRO sets 0 for teams 0..4. The add does not go through the AI+
+multiplier. `test_exo_income` checks the 3 credits per 16 ticks, the base
+requirement and the script override.
