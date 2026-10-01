@@ -88,7 +88,7 @@ static void check_sprite_registry(void) {
     free(cache);
 }
 
-static void check_ui_storage(SDL_Renderer *renderer) {
+static void check_ui_storage(void) {
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     CHECK(cache->numsprites == NUMSPRITES && cache->ui);
@@ -104,8 +104,7 @@ static void check_ui_storage(SDL_Renderer *renderer) {
     CHECK(R_CacheLookup(cache->ui, "INTRFACE/MAINBUT.SPR"));
     const spritesheet_t *marker = R_CacheLookup(cache->ui, game_info.selection_marker.image);
     CHECK(marker);
-    CHECK(R_DrawSprite(renderer, marker, 0, 0, NULL, &marker->cells[0].rect,
-                       SDL_FLIP_NONE, (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND));
+    CHECK(R_DrawSprite(marker, 0, 0, NULL, &marker->cells[0].rect, 0, 16));
     R_FreeSpriteCache(cache);
     CHECK(!cache->ui && !cache->sprites && !cache->count);
     free(cache);
@@ -164,29 +163,22 @@ static void check_turn_and_travel_definitions(void) {
 }
 
 int main(void) {
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32,
-                                                          SDL_PIXELFORMAT_ARGB8888);
-    SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
-    r_renderer = renderer;
-    if (!renderer) {
-        fprintf(stderr, "FAIL: create software renderer: %s\n", SDL_GetError());
-        SDL_FreeSurface(surface);
+    V_AllocScreen(64, 64);
+    if (!screens[0].pixels) {
+        fprintf(stderr, "FAIL: allocate indexed screen\n");
         return 1;
     }
 
     check_all_fin_frames();
     check_sprite_registry();
-    check_ui_storage(renderer);
+    check_ui_storage();
     check_turn_and_travel_definitions();
 
     spritesheet_t sprite;
     if (!load_dark_colony_sprite("data/DCOLONY/ANIMATE/TRSC.FIN",
                                  &sprite, NULL)) {
         fprintf(stderr, "FAIL: load Trooper sprite definition\n");
-        r_renderer = NULL;
-        R_FreeSpriteBuffer();
-        SDL_DestroyRenderer(renderer);
-        SDL_FreeSurface(surface);
+        V_FreeScreen();
         return 1;
     }
 
@@ -273,9 +265,6 @@ int main(void) {
         CHECK(R_InstallSpriteLump(&mixed, 0, 0, 0, false));
     }
     R_FreeSprite(&mixed);
-    r_renderer = NULL;
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
+    V_FreeScreen();
     return valid ? 0 : 1;
 }

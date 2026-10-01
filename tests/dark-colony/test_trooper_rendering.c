@@ -10,19 +10,19 @@
 
 enum { WIDTH = 256, HEIGHT = 192, PIXELS = WIDTH * HEIGHT };
 
-static void clear(SDL_Renderer *renderer) {
-    SDL_SetRenderDrawColor(renderer, 70, 80, 90, 255);
-    SDL_RenderClear(renderer);
+#define BACKGROUND 0xff46505au
+
+static void clear(void) {
+    V_BeginFrame(BACKGROUND);
 }
 
-static void read_pixels(SDL_Renderer *renderer, uint32_t *pixels) {
-    assert(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
-                               pixels, WIDTH * sizeof(*pixels)) == 0);
+static void read_pixels(uint32_t *pixels) {
+    V_ReadPixels(pixels, WIDTH * sizeof(*pixels));
 }
 
 static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {
-    uint32_t plain[PIXELS], selected[PIXELS];
-    uint8_t baseline[PIXELS];
+    static uint32_t plain[PIXELS], selected[PIXELS];
+    static uint8_t baseline[PIXELS];
     const level_t map = {0};
     bool first = true;
     int changed = 0;
@@ -31,13 +31,13 @@ static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {
         for (int step = 0; step < 8; ++step) {
             assert(P_SetMobjState(unit, S_TRSC_RUN1 + step));
             P_MobjSetSelected(unit, false);
-            clear(app->renderer);
+            clear();
             R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
-            read_pixels(app->renderer, plain);
+            read_pixels(plain);
             P_MobjSetSelected(unit, true);
-            clear(app->renderer);
+            clear();
             R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
-            read_pixels(app->renderer, selected);
+            read_pixels(selected);
             for (int i = 0; i < PIXELS; ++i) {
                 bool differs = selected[i] != plain[i];
                 if (first) { baseline[i] = differs; changed += differs; }
@@ -51,13 +51,13 @@ static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {
     unit->core.position = fixed3_from_fvec2((fvec2_t){1, -1}, FIXED_ONE / 4);
     app->cam = fvec2_add(app->cam, (fvec2_t){7, 9});
     P_MobjSetSelected(unit, false);
-    clear(app->renderer);
+    clear();
     R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
-    read_pixels(app->renderer, plain);
+    read_pixels(plain);
     P_MobjSetSelected(unit, true);
-    clear(app->renderer);
+    clear();
     R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
-    read_pixels(app->renderer, selected);
+    read_pixels(selected);
     for (int y = 0; y < HEIGHT; ++y)
         for (int x = 0; x < WIDTH; ++x) {
             bool expected = x >= 39 && y >= 33 && baseline[(y - 33) * WIDTH + x - 39];
@@ -82,7 +82,9 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
     unit->hp = 1;
     assert(P_Attack(&attacker));
     assert(!P_MobjIsSelected(unit) && unit->core.state_id == mobjinfo[unit->type_id].deathstate);
-    uint32_t actual[PIXELS], expected[PIXELS];
+    static uint32_t actual[PIXELS], expected[PIXELS];
+    /* The clear colour reads back as its nearest screen-palette entry. */
+    uint32_t background = vpalette[V_NearestIndex(BACKGROUND)] | 0xff000000u;
     int elapsed = 0, native = 0;
     level_t map = {0};
     for (int f = SDL_SwapLE16(label->start); f <= SDL_SwapLE16(label->end); ++f) {
@@ -99,7 +101,7 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
                       cell->rect.w, cell->rect.h};
         /* Independent indexed reference: team slots use the object's team,
          * never the FIN command's rendering mode. */
-        for (int i = 0; i < PIXELS; ++i) expected[i] = 0xff46505a;
+        for (int i = 0; i < PIXELS; ++i) expected[i] = background;
         int team_pixels = 0;
         for (int y = 0; y < dst.h; ++y)
             for (int x = 0; x < dst.w; ++x) {
@@ -110,13 +112,14 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
                 }
                 if (index && dst.x + x >= 0 && dst.x + x < WIDTH &&
                     dst.y + y >= 0 && dst.y + y < HEIGHT)
-                    expected[(dst.y + y) * WIDTH + dst.x + x] = sheet->palette[index];
+                    expected[(dst.y + y) * WIDTH + dst.x + x] = sheet->palette[index] | 0xff000000u;
             }
         if (f == SDL_SwapLE16(label->start)) assert(team_pixels > 0);
-        clear(app->renderer);
+        clear();
         R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
-        read_pixels(app->renderer, actual);
+        read_pixels(actual);
         assert(!memcmp(actual, expected, sizeof(actual)));
+        memcpy(surface->pixels, actual, sizeof(actual));
         assert(SDL_SaveBMP(surface, M_va("/private/tmp/%s-team%d-death-%d.bmp", stem, unit->team, f)) == 0);
         native += (((frame.ticks ? frame.ticks : 15) + 3) * 19) / 100;
         int boundary = (native * 30 + 9) / 19;
@@ -126,9 +129,9 @@ static void check_death(app_t *app, SDL_Surface *surface, spritecache_t *cache, 
         free(frame.layers);
     }
     assert(elapsed == total_tics && unit->core.state_id == corpse && unit->core.tics == -1);
-    clear(app->renderer);
+    clear();
     R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);
-    read_pixels(app->renderer, actual);
+    read_pixels(actual);
     assert(!memcmp(actual, expected, sizeof(actual)));
     assert(unit->core.position.x == 0 && unit->core.position.y == 0 && unit->core.position.z == 0);
     DC_FreeFIN(&fin);
@@ -138,11 +141,16 @@ int main(void) {
     G_InitGame();
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, WIDTH, HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {WIDTH, HEIGHT}, .cell = {32,32}, .cam = {128,110}};
+    assert(surface->pitch == WIDTH * 4);
+    V_AllocScreen(WIDTH, HEIGHT);
+    assert(screens[0].pixels);
+    app_t app = {.win = {WIDTH, HEIGHT}, .cell = {32,32}, .cam = {128,110}};
     spritecache_t *cache = calloc(1, sizeof(*cache));
     assert(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
+    /* No level is loaded, so install the units' world colormap as the screen palette. */
+    const spritesheet_t *trooper = R_StateSprite(cache, &game_info, SPR_TRSC, NULL);
+    assert(trooper);
+    I_SetPalette(trooper->palette);
     mobj_t unit = {.type_id = MT_TROOPER};
     P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_TROOPER));
     P_InitMobj(&game_info, &unit);
@@ -157,9 +165,7 @@ int main(void) {
     }
     R_FreeSpriteCache(cache);
     free(cache);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     puts("PASS: Trooper selection is stable; Trooper/Grey death FIN pixels, team colors and timing match");
 }

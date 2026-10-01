@@ -106,10 +106,11 @@ static int test_interactive_queue(void) {
     level.player_resources[1][0] = product->cost;
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
-    app_t app = {.renderer = SDL_CreateSoftwareRenderer(surface), .win = {640, 480}};
-    CHECK(app.renderer);
+    app_t app = {.win = {640, 480}};
+    V_AllocScreen(app.win.w, app.win.h);
+    CHECK(screens[0].pixels);
     sb_state_t bar;
-    CHECK(SB_Init(&bar, app.renderer, g_game_default_root, gameui));
+    CHECK(SB_Init(&bar, g_game_default_root, gameui));
     SDL_Event click = {.type = SDL_MOUSEBUTTONDOWN};
     click.button.button = SDL_BUTTON_LEFT;
     click.button.x = (gameui->command_grid.x + 10) * app.win.w / gameui->logical_width;
@@ -122,7 +123,9 @@ static int test_interactive_queue(void) {
     CHECK(level.player_resources[1][0] == product->cost);
     CHECK(SB_ProductionResponder(&bar, &app, &click));
     CHECK(second->production->queue_count == 1); /* Cannot afford another. */
+    V_BeginFrame(0xff000000u);
     SB_ProductionDrawer(&bar, &app);
+    V_ReadPixels(surface->pixels, surface->pitch);
     char screenshot[128];
     snprintf(screenshot, sizeof(screenshot), "/private/tmp/open-rts-production-%s.bmp", g_game_id);
     CHECK(SDL_SaveBMP(surface, screenshot) == 0);
@@ -137,7 +140,7 @@ static int test_interactive_queue(void) {
     CHECK(G_FindProducer(0, product) == second);
     CHECK(G_QueueProduct(second, product));
     SB_Shutdown(&bar);
-    SDL_DestroyRenderer(app.renderer);
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     P_FreeLevel(&level);
     puts("PASS: interactive sidebar queues on the selected producer and shares production ticking");

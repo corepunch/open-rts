@@ -20,7 +20,7 @@ static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,
     mobjlist_t objects = P_ListMobjs();
     R_DrawLevel(app, &level, tiles);
     R_RenderPlayerView(app, &level, tiles, objects.items, objects.count, NULL, cache, gameinfo, 0);
-    SDL_RenderPresent(r_renderer);
+    V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, path));
     P_FreeMobjList(&objects);
 }
@@ -99,9 +99,9 @@ int main(void) {
 
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {640, 480}, .cell = {32, 32}};
+    V_AllocScreen(surface->w, surface->h);
+    assert(screens[0].pixels);
+    app_t app = {.win = {640, 480}, .cell = {32, 32}};
     fvec2_t screen;
     R_MapPositionToScreen(&app, &level, barracks->core.position, &screen.x, &screen.y);
     app.cam = fvec2_sub((fvec2_t){320, 300}, screen);
@@ -194,7 +194,7 @@ int main(void) {
     for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
     level.player_resources[0][0] = 10000;
     G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, NULL);
-    SDL_RenderPresent(r_renderer);
+    V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, "/private/tmp/dc-build-menu.bmp"));
     mobj_t *center = find(MT_EXCOPOD);
     assert(center && !center->production);
@@ -256,9 +256,7 @@ int main(void) {
     free(cache);
     R_FreeTileset(&tiles);
     R_FreeSprite(&fallback);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     rts_game_model_destroy(model);
     puts("PASS: native Human02 mining pays for two queued Troopers; complete door/exit FIN, exact mobj handoff, sidebar build and blocked-exit retry");

@@ -6,12 +6,14 @@
 
 /* Compare the world renderer to OpenKrush's origin = position - MOBD offset.
  * These offsets are from SPRITES.LVL member 73, records 4405007 + 28*n. */
-static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {
+static int check_anchors(const spritecache_t *cache) {
     static const ivec2_t tanker_offsets[16] = {
         {14,26}, {21,26}, {27,23}, {31,20}, {34,18}, {31,22}, {27,26}, {22,26},
         {13,26}, {15,26}, {24,26}, {31,22}, {33,18}, {32,20}, {24,23}, {16,26},
     };
-    app_t app = {.renderer = renderer, .win = {640,480}, .cell = {32,32}, .cam = {-960,-720}};
+    app_t app = {.win = {640,480}, .cell = {32,32}, .cam = {-960,-720}};
+    V_AllocScreen(app.win.w, app.win.h);
+    CHECK(screens[0].pixels);
     size_t bytes = (size_t)app.win.w * app.win.h * sizeof(uint32_t);
     void *expected = malloc(bytes), *actual = malloc(bytes);
     CHECK(expected && actual);
@@ -32,15 +34,13 @@ static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {
         float sx, sy;
         R_MapPositionToScreen(&app, &level, unit->core.position, &sx, &sy);
         irect_t dst = {(int)sx-anchor.x, (int)sy-anchor.y, cell->rect.w, cell->rect.h};
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        CHECK(R_DrawSprite(renderer, sprite, layer->lump, unit->team, NULL, &dst,
-                          flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE,
-                          (SDL_Color){255,255,255,255}, SDL_BLENDMODE_BLEND));
-        CHECK(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, expected, app.win.w*4) == 0);
-        SDL_RenderClear(renderer);
+        I_SetPalette(sprite->source_palette);
+        V_BeginFrame(0xff000000u);
+        CHECK(R_DrawSprite(sprite, layer->lump, unit->team, NULL, &dst, flip ? V_FLIP_X : 0, 16));
+        V_ReadPixels(expected, app.win.w*4);
+        V_BeginFrame(0xff000000u);
         R_DrawThings(&app, &unit, 1, NULL, cache, gameinfo, 0);
-        CHECK(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, actual, app.win.w*4) == 0);
+        V_ReadPixels(actual, app.win.w*4);
         if (memcmp(expected, actual, bytes) != 0) {
             fprintf(stderr, "pose=%d native anchor=(%d,%d) loaded ground=(%d,%d) flip=%d\n",
                     pose, anchor.x, anchor.y, cell->ground_point.x, cell->ground_point.y, flip);
@@ -54,11 +54,6 @@ static int check_anchors(SDL_Renderer *renderer, const spritecache_t *cache) {
 }
 
 int main(void) {
-    CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
-    CHECK(surface);
-    SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(surface);
-    CHECK(renderer);
     RtsGameModel *model = rts_game_model_create();
     RtsGameModelConfig config = {.data_root = "data/KKND"};
     CHECK(rts_game_model_load(model, &config));
@@ -77,7 +72,7 @@ int main(void) {
     units = P_ListMobjs();
     CHECK(R_InitSprites(config.data_root, &level, units.items, units.count, cache));
     CHECK(cache->count == NUMSPRITES);
-    CHECK(check_anchors(renderer, cache) == 0);
+    CHECK(check_anchors(cache) == 0);
     CHECK(R_StateSprite(cache, gameinfo, SPR_SURV_RIFLEMAN, NULL)->lumps[0].indices == retained);
     const spritesheet_t *derrick = R_StateSprite(cache, gameinfo, SPR_SURV_MOBILE_DERRICK, NULL);
     const spritesheet_t *wolf = R_StateSprite(cache, gameinfo, SPR_MUTE_DIRE_WOLF, NULL);
@@ -107,9 +102,7 @@ int main(void) {
     free(cache);
     P_FreeMobjList(&units);
     rts_game_model_destroy(model);
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
-    SDL_Quit();
+    V_FreeScreen();
     puts("PASS: KKND runtime catalog retains indexed pixels, resolves all state frames, and renders native anchors");
     return 0;
 }

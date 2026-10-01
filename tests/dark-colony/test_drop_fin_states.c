@@ -186,6 +186,10 @@ int main(void) {
     app_t app = { .win = {640, 480}, .cam = {320, 360} };
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
+    /* No level is loaded, so install one palette before the first clear. */
+    const spritesheet_t *trooper = R_CacheLookup(cache, "SPRITES/TRSC.SPR");
+    CHECK(trooper);
+    I_SetPalette(trooper->source_palette);
     /* Every persistent state, including damage effects, selects complete FIN
      * frames. Zero-tic actions never present their placeholder frame. */
     for (int i = 1; i < NUMSTATES; ++i) {

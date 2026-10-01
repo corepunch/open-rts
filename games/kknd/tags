@@ -29,7 +29,7 @@
 !_TAG_OUTPUT_VERSION	1.1	/current.age/
 !_TAG_PARSER_VERSION!C	1.1	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/Users/igor/Developer/open-rts/	//
+!_TAG_PROC_CWD	/Users/igor/Developer/open-rts-fb/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -43,6 +43,7 @@ $	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$
 ACTOR_TYPES	games/kknd/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 A_KkndResearch	games/kknd/info.c	/^void A_KkndResearch(mobj_t *actor);$/;"	p	typeref:typename:void	file:	signature:(mobj_t * actor)
 A_KkndResearch	games/kknd/p_research.c	/^void A_KkndResearch(mobj_t *lab) {$/;"	f	typeref:typename:void	signature:(mobj_t * lab)
+G_AiInterface	games/kknd/p_prod.c	/^const AiGameInterface *G_AiInterface(void) { return &kk_ai_interface; }$/;"	f	typeref:typename:const AiGameInterface *	signature:(void)
 G_CustomUIDrawer	games/kknd/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 G_CustomUIResponder	games/kknd/g_game.c	/^bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 G_CustomUITicker	games/kknd/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
@@ -51,7 +52,6 @@ G_InitCustomUI	games/kknd/g_game.c	/^void *G_InitCustomUI(app_t *app, const char
 G_InitGame	games/kknd/g_game.c	/^void G_InitGame(void) {$/;"	f	typeref:typename:void	signature:(void)
 G_LoadMenuSprite	games/kknd/w_spr.c	/^bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * root,const char * name,spritesheet_t * out)
 G_MissionTicker	games/kknd/g_game.c	/^void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,$/;"	f	typeref:typename:void	signature:(level_t * map,mobj_t * const * mobjs,int * count,hudtext_t * hud,float dt)
-G_ModelAIProduction	games/kknd/p_prod.c	/^void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {$/;"	f	typeref:typename:void	signature:(RtsGameModel * model,int elapsed_ms)
 G_ModelActorIdForProduct	games/kknd/p_prod.c	/^uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {$/;"	f	typeref:typename:uint16_t	signature:(const StaticProductDefinition * product)
 G_ModelBuildUIScript	games/kknd/p_prod.c	/^void G_ModelBuildUIScript(const RtsGameModel *model,$/;"	f	typeref:typename:void	signature:(const RtsGameModel * model,const RtsRenderSnapshot * snapshot,char * dst,size_t dst_size)
 G_ModelBuildingFrameForProduct	games/kknd/p_prod.c	/^int G_ModelBuildingFrameForProduct(const StaticProductDefinition *product) {$/;"	f	typeref:typename:int	signature:(const StaticProductDefinition * product)
@@ -72,6 +72,8 @@ G_WorldViewportWidth	games/kknd/g_game.c	/^int G_WorldViewportWidth(const app_t 
 HU_LoadFont	games/kknd/g_game.c	/^bool HU_LoadFont(const char *root, bitmapfont_t *font) {$/;"	f	typeref:typename:bool	signature:(const char * root,bitmapfont_t * font)
 KKND_PRODUCTS	games/kknd/p_prod.c	/^static const StaticProductDefinition KKND_PRODUCTS[] = {$/;"	v	typeref:typename:const StaticProductDefinition[]	file:
 KKND_RESEARCH	games/kknd/kknd.h	/^enum { KKND_RESEARCH = 9000 };$/;"	e	enum:__anon9fda0d160103
+KK_DRILLRIG_OIL	games/kknd/kknd.h	/^enum { KK_DRILLRIG_OIL = 20000, KK_DRILLRIG_RATE = 10 };$/;"	e	enum:__anon9fda0d160203
+KK_DRILLRIG_RATE	games/kknd/kknd.h	/^enum { KK_DRILLRIG_OIL = 20000, KK_DRILLRIG_RATE = 10 };$/;"	e	enum:__anon9fda0d160203
 KK_DrawUnitOverlays	games/kknd/kknd.h	/^void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx);$/;"	p	typeref:typename:void	signature:(const unitoverlaycontext_t * ctx)
 KK_DrawUnitOverlays	games/kknd/r_selection.c	/^void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {$/;"	f	typeref:typename:void	signature:(const unitoverlaycontext_t * ctx)
 KK_NextTechLevel	games/kknd/kknd.h	/^int KK_NextTechLevel(const mobj_t *actor);$/;"	p	typeref:typename:int	signature:(const mobj_t * actor)
@@ -637,11 +639,14 @@ __anon05eb3c2d0108::id	games/kknd/p_prod.c	/^static const struct { int id, ticks
 __anon05eb3c2d0108::level	games/kknd/p_prod.c	/^static const struct { int id, ticks, level, limit; } rules[] = {$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
 __anon05eb3c2d0108::limit	games/kknd/p_prod.c	/^static const struct { int id, ticks, level, limit; } rules[] = {$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
 __anon05eb3c2d0108::ticks	games/kknd/p_prod.c	/^static const struct { int id, ticks, level, limit; } rules[] = {$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
+__anon05eb3c2d0208	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	s	file:
+__anon05eb3c2d0208::count	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	m	struct:__anon05eb3c2d0208	typeref:typename:int	file:
+__anon05eb3c2d0208::mutant	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	m	struct:__anon05eb3c2d0208	typeref:typename:int	file:
+__anon05eb3c2d0208::survivor	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	m	struct:__anon05eb3c2d0208	typeref:typename:int	file:
 __anon1abf4fd20103	games/kknd/w_lvl.h	/^enum { MAX_LAYERS = 3 };$/;"	g
 __anon1abf4fd20208	games/kknd/w_lvl.h	/^typedef struct {$/;"	s
-__anon1abf4fd20208::atlas	games/kknd/w_lvl.h	/^    isize2_t atlas;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:isize2_t
+__anon1abf4fd20208::indices	games/kknd/w_lvl.h	/^    uint8_t *indices; \/* tile_count tiles, 32x32, contiguous *\/$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint8_t *
 __anon1abf4fd20208::palette	games/kknd/w_lvl.h	/^    uint32_t palette[256];$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint32_t[256]
-__anon1abf4fd20208::pixels	games/kknd/w_lvl.h	/^    uint32_t *pixels;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint32_t *
 __anon1abf4fd20208::tile_count	games/kknd/w_lvl.h	/^    int tile_count;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:int
 __anon1abf4fd20308	games/kknd/w_lvl.h	/^typedef struct {$/;"	s
 __anon1abf4fd20308::name	games/kknd/w_lvl.h	/^    char name[32];$/;"	m	struct:__anon1abf4fd20308	typeref:typename:char[32]
@@ -659,17 +664,18 @@ __anon9b61d11a0203	games/kknd/info.h	/^typedef enum {$/;"	g
 __anon9b61d11a0303	games/kknd/info.h	/^typedef enum {$/;"	g
 __anon9b61d11a0403	games/kknd/info.h	/^enum {$/;"	g
 __anon9fda0d160103	games/kknd/kknd.h	/^enum { KKND_RESEARCH = 9000 };$/;"	g
+__anon9fda0d160203	games/kknd/kknd.h	/^enum { KK_DRILLRIG_OIL = 20000, KK_DRILLRIG_RATE = 10 };$/;"	g
 __anonf02e1ac70103	games/kknd/tags	/^__anon1abf4fd20103	games\/kknd\/w_lvl.h	\/^enum { MAX_LAYERS = 3 };$\/;"	g$/;"	g	file:
 __anonf02e1ac70203	games/kknd/tags	/^__anon1abf4fd20208	games\/kknd\/w_lvl.h	\/^typedef struct {$\/;"	s$/;"	g	typeref:typename:__anon1abf4fd20103 __anon1abf4fd20208 games/kknd/w_lvl.h/^typedef struct	file:
 activesound	games/kknd/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 actor_types	games/kknd/g_game.c	/^const mobjtype_t *const actor_types = ACTOR_TYPES;$/;"	v	typeref:typename:const mobjtype_t * const
 animations	games/kknd/w_spr.c	/^    uint32_t animations[MAX_ANIMATIONS];$/;"	m	struct:__anon1b3aca940208	typeref:typename:uint32_t[]	file:
 append_ui_script	games/kknd/p_prod.c	/^static void append_ui_script(char *dst, size_t dst_size, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * fmt,...)
-atlas	games/kknd/w_lvl.h	/^    isize2_t atlas;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:isize2_t
 attacksound	games/kknd/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 body	games/kknd/info.h	/^    struct { int sprite, frame, body, turret; } muzzle;$/;"	m	struct:mobjinfo_s::__anon9b61d11a0108	typeref:typename:int
 build_map_tileset	games/kknd/w_spr.c	/^static bool build_map_tileset(const KkndMapData *map, tileset_t *out) {$/;"	f	typeref:typename:bool	file:	signature:(const KkndMapData * map,tileset_t * out)
 compose_shooting	games/kknd/w_spr.c	/^static bool compose_shooting(const uint8_t *segment, size_t size, const uint32_t *frames,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * segment,size_t size,const uint32_t * frames,spritesheet_t * out,int native_frames,const mobjinfo_t * info,const spritesheet_t * extras,const spritesheet_t * turret)
+count	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	m	struct:__anon05eb3c2d0208	typeref:typename:int	file:
 count	games/kknd/w_spr.c	/^    int count;$/;"	m	struct:__anon1b3aca940208	typeref:typename:int	file:
 cplc_names	games/kknd/info.c	/^const char *const cplc_names[NUMMOBJTYPES] = {$/;"	v	typeref:typename:const char * const[]
 cplc_node_ok	games/kknd/w_lvl.c	/^static bool cplc_node_ok(uint32_t offset, uint32_t cplc_end, size_t size) {$/;"	f	typeref:typename:bool	file:	signature:(uint32_t offset,uint32_t cplc_end,size_t size)
@@ -698,8 +704,22 @@ gameui	games/kknd/g_game.c	/^const uidefinition_t *const gameui = &UI;$/;"	v	typ
 height	games/kknd/info.h	/^    int height;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 id	games/kknd/p_prod.c	/^static const struct { int id, ticks, level, limit; } rules[] = {$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
 index	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940308	typeref:typename:int	file:
+indices	games/kknd/w_lvl.h	/^    uint8_t *indices; \/* tile_count tiles, 32x32, contiguous *\/$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint8_t *
 is_lab	games/kknd/p_research.c	/^static bool is_lab(const mobj_t *u) {$/;"	f	typeref:typename:bool	file:	signature:(const mobj_t * u)
-kk_ai_goals	games/kknd/p_prod.c	/^static const productiongoal_t kk_ai_goals[] = {$/;"	v	typeref:typename:const productiongoal_t[]	file:
+kk_actor_type	games/kknd/p_prod.c	/^static const mobjtype_t *kk_actor_type(uint16_t type) {$/;"	f	typeref:typename:const mobjtype_t *	file:	signature:(uint16_t type)
+kk_ai_can_purchase	games/kknd/p_prod.c	/^static int kk_ai_can_purchase(const level_t *map, int owner, int ui_id) {$/;"	f	typeref:typename:int	file:	signature:(const level_t * map,int owner,int ui_id)
+kk_ai_develop	games/kknd/p_prod.c	/^static bool kk_ai_develop(level_t *map, int owner, int ui_id) {$/;"	f	typeref:typename:bool	file:	signature:(level_t * map,int owner,int ui_id)
+kk_ai_interface	games/kknd/p_prod.c	/^static const AiGameInterface kk_ai_interface = {$/;"	v	typeref:typename:const AiGameInterface	file:
+kk_ai_ladder	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	v	typeref:typename:const struct __anon05eb3c2d0208[]	file:
+kk_ai_owned	games/kknd/p_prod.c	/^static int kk_ai_owned(int owner, int ui_id) {$/;"	f	typeref:typename:int	file:	signature:(int owner,int ui_id)
+kk_ai_plan	games/kknd/p_prod.c	/^static bool kk_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,int owner,int level,AiPlan * out)
+kk_ai_purchase	games/kknd/p_prod.c	/^static bool kk_ai_purchase(level_t *map, int owner, int ui_id) {$/;"	f	typeref:typename:bool	file:	signature:(level_t * map,int owner,int ui_id)
+kk_derrick_for_rig	games/kknd/p_prod.c	/^static int kk_derrick_for_rig(int ui_id) {$/;"	f	typeref:typename:int	file:	signature:(int ui_id)
+kk_faction	games/kknd/p_prod.c	/^static int kk_faction(int owner) {$/;"	f	typeref:typename:int	file:	signature:(int owner)
+kk_is_derrick	games/kknd/p_prod.c	/^static bool kk_is_derrick(uint16_t type) {$/;"	f	typeref:typename:bool	file:	signature:(uint16_t type)
+kk_is_drillrig	games/kknd/p_prod.c	/^static bool kk_is_drillrig(uint16_t type) {$/;"	f	typeref:typename:bool	file:	signature:(uint16_t type)
+kk_maker_lacking_tech	games/kknd/p_prod.c	/^static mobj_t *kk_maker_lacking_tech(int owner, const StaticProductDefinition *product) {$/;"	f	typeref:typename:mobj_t *	file:	signature:(int owner,const StaticProductDefinition * product)
+kk_queued	games/kknd/p_prod.c	/^static int kk_queued(int owner, uint16_t actor_type) {$/;"	f	typeref:typename:int	file:	signature:(int owner,uint16_t actor_type)
 kknd_player_native_team	games/kknd/g_game.c	/^static uint16_t kknd_player_native_team(const char *path) {$/;"	f	typeref:typename:uint16_t	file:	signature:(const char * path)
 kknd_unit_type	games/kknd/g_game.c	/^static uint16_t kknd_unit_type(const char *name) {$/;"	f	typeref:typename:uint16_t	file:	signature:(const char * name)
 layer_anchor	games/kknd/w_spr.c	/^static ivec2_t layer_anchor(const spritesheet_t *sprite, const spritelayer_t *layer) {$/;"	f	typeref:typename:ivec2_t	file:	signature:(const spritesheet_t * sprite,const spritelayer_t * layer)
@@ -758,6 +778,7 @@ mobjinfo_s::spawnz	games/kknd/info.h	/^    fixed_t spawnz;$/;"	m	struct:mobjinfo
 mobjinfo_s::speed	games/kknd/info.h	/^    int speed;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 mobjinfo_s::xdeathstate	games/kknd/info.h	/^    int xdeathstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 mobjinfo_t	games/kknd/info.h	/^} mobjinfo_t;$/;"	t	typeref:struct:mobjinfo_s
+mutant	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	m	struct:__anon05eb3c2d0208	typeref:typename:int	file:
 muzzle	games/kknd/info.h	/^    struct { int sprite, frame, body, turret; } muzzle;$/;"	m	struct:mobjinfo_s	typeref:struct:mobjinfo_s::__anon9b61d11a0108
 name	games/kknd/w_lvl.h	/^    char name[32];$/;"	m	struct:__anon1abf4fd20308	typeref:typename:char[32]
 name	games/kknd/w_spr.c	/^    static const struct { const char *name; int index; } names[] = {$/;"	m	struct:sprite_member_index::__anon1b3aca940308	typeref:typename:const char *	file:
@@ -769,7 +790,6 @@ painchance	games/kknd/info.h	/^    int painchance;$/;"	m	struct:mobjinfo_s	typer
 painsound	games/kknd/info.h	/^    int painsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 painstate	games/kknd/info.h	/^    int painstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 palette	games/kknd/w_lvl.h	/^    uint32_t palette[256];$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint32_t[256]
-pixels	games/kknd/w_lvl.h	/^    uint32_t *pixels;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:uint32_t *
 position	games/kknd/w_lvl.h	/^    fvec2_t position;$/;"	m	struct:__anon1abf4fd20308	typeref:typename:fvec2_t
 product_count	games/kknd/p_prod.c	/^static int product_count(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 radius	games/kknd/info.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -795,6 +815,7 @@ spritenum_t	games/kknd/info.h	/^} spritenum_t;$/;"	t	typeref:enum:__anon9b61d11a
 sprnames	games/kknd/info.c	/^const char *const sprnames[NUMSPRITES] = {$/;"	v	typeref:typename:const char * const[]
 statenum_t	games/kknd/info.h	/^} statenum_t;$/;"	t	typeref:enum:__anon9b61d11a0303
 states	games/kknd/info.c	/^const state_t states[NUMSTATES] = {$/;"	v	typeref:typename:const state_t[]
+survivor	games/kknd/p_prod.c	/^static const struct { int survivor, mutant, count; } kk_ai_ladder[] = {$/;"	m	struct:__anon05eb3c2d0208	typeref:typename:int	file:
 table	games/kknd/w_spr.c	/^    uint32_t table, first_frame;$/;"	m	struct:__anon1b3aca940208	typeref:typename:uint32_t	file:
 ticks	games/kknd/p_prod.c	/^static const struct { int id, ticks, level, limit; } rules[] = {$/;"	m	struct:__anon05eb3c2d0108	typeref:typename:int	file:
 tile_count	games/kknd/w_lvl.h	/^    int tile_count;$/;"	m	struct:__anon1abf4fd20208	typeref:typename:int

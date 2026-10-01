@@ -6,7 +6,7 @@
 
 #define CHECK(c) RTS_CHECK(c, "dark-reign mission HUD", #c)
 
-static int compare_buildings(app_t *app, spritecache_t *cache) {
+static int compare_buildings(spritecache_t *cache) {
     const char *bodies[] = {"nfhqt1l0.spr", "nclnc1l0.spr", "ncpow1l0.spr"};
     const char *tops[] = {"tfhqt1l0.spr", "tclnc1l0.spr", "tcpow1l0.spr"};
     mapdecoration_t decorations[3] = {0};
@@ -76,8 +76,15 @@ int main(void) {
 
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640,480,32,SDL_PIXELFORMAT_ARGB8888);
     CHECK(surface);
-    app_t app = {.renderer = SDL_CreateSoftwareRenderer(surface), .win = {640,480}, .cell = {24,24}};
-    CHECK(app.renderer);
+    app_t app = {.win = {640,480}, .cell = {24,24}};
+    V_AllocScreen(app.win.w, app.win.h);
+    CHECK(screens[0].pixels);
+    /* The HUD draws over a level, whose tileset palette is the screen palette. */
+    tileset_t tiles = {0};
+    spritesheet_t fallback = {0};
+    CHECK(W_LoadAssets(g_game_default_root, &level, g_game_default_sprite, &tiles, &fallback));
+    I_SetPalette(tiles.palette);
+    V_BeginFrame(0xff000000u);
     sb_state_t *bar = G_InitCustomUI(&app, g_game_default_root);
     CHECK(bar && bar->ready);
     mobjlist_t objects = P_ListMobjs();
@@ -85,9 +92,10 @@ int main(void) {
     CHECK(cache && R_InitSprites(g_game_default_root, &level, objects.items, objects.count, cache));
     const spritesheet_t *hq = R_CacheLookup(cache, "nfhqt1l0.spr");
     CHECK(hq && hq->numlumps == 1 && hq->cells[0].ground_point.x == 0 && hq->cells[0].ground_point.y == 0);
-    CHECK(compare_buildings(&app, cache) == 0);
+    CHECK(compare_buildings(cache) == 0);
     for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
     G_CustomUIDrawer(bar, &app, &level, objects.items, objects.count, cache, NULL);
+    V_ReadPixels(surface->pixels, surface->pitch);
     CHECK(SDL_SaveBMP(surface, "/private/tmp/open-rts-mission01-hud.bmp") == 0);
     SDL_Event click = {.type = SDL_MOUSEBUTTONDOWN};
     click.button.button = SDL_BUTTON_LEFT;
@@ -115,6 +123,7 @@ int main(void) {
     CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &click));
     CHECK(level.player_resources[0][0] == 2950);
     G_CustomUIDrawer(bar, &app, &level, objects.items, objects.count, cache, NULL);
+    V_ReadPixels(surface->pixels, surface->pitch);
     CHECK(SDL_SaveBMP(surface, "/private/tmp/open-rts-imperium-hud.bmp") == 0);
     click.button.x = 530; click.button.y = 45;
     CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
@@ -153,7 +162,10 @@ int main(void) {
     G_ShutdownCustomUI(bar);
     R_FreeSpriteCache(cache); free(cache);
     P_FreeMobjList(&objects);
-    SDL_DestroyRenderer(app.renderer); SDL_FreeSurface(surface);
+    R_FreeSprite(&fallback);
+    R_FreeTileset(&tiles);
+    V_FreeScreen();
+    SDL_FreeSurface(surface);
     rts_game_model_destroy(model);
     SDL_Quit();
     puts("PASS: Mission 01 start, native HUD assets, technology, production slots and MENU");

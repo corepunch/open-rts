@@ -309,9 +309,7 @@ int main(void) {
     CHECK(M_Responder(&app, &quit, true));
     CHECK(!app.running);
     M_Shutdown();
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(app.renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     SDL_Quit();
     puts("Menu OK: native screens, campaigns, training, LAN create/browse/direct join/cancel, eight-player skirmish, resume, quit");

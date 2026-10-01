@@ -63,7 +63,7 @@ static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface
     assert(stand && SDL_SwapLE16(stand->start) == 32 && SDL_SwapLE16(stand->end) == 35);
     P_SetMobjState(osprey, S_SCGM_STND);
     fixed3_t start = osprey->core.position;
-    app_t view = {.renderer = r_renderer, .win = {640,480}, .cell = {32,32}};
+    app_t view = {.win = {640,480}, .cell = {32,32}};
     fvec2_t anchor;
     R_MapPositionToScreen(&view, &level, start, &anchor.x, &anchor.y);
     view.cam = fvec2_sub((fvec2_t){320,240}, anchor);
@@ -77,9 +77,9 @@ static void check_osprey(const spritecache_t *cache, mobj_t *osprey, SDL_Surface
         while (strcmp(body->sprite_name, ".")) { assert(body->sprite_name[0]); ++body; }
         static const int native_y[] = {23,24,23,22};
         assert(body->offset.y == native_y[frame]);
-        SDL_SetRenderDrawColor(r_renderer, 40,40,40,255);
-        SDL_RenderClear(r_renderer);
+        V_BeginFrame(0xff282828u);
         R_RenderPlayerView(&view, &level, NULL, &osprey, 1, NULL, cache, gameinfo, 0);
+        V_ReadPixels(surface->pixels, surface->pitch);
         assert(SDL_BlitSurface(surface, &(SDL_Rect){256,176,128,128}, strip,
                                &(SDL_Rect){frame*128,0,128,128}) == 0);
         for (int tic = 0; tic < 4; ++tic) P_Ticker();
@@ -125,8 +125,8 @@ int main(void) {
         .map_path = "SCENARIO/MPLAYER/D2PLAY01.MAP"};
     assert(model && rts_game_model_load(model, &config));
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    app_t app = {.renderer = r_renderer, .win = {640,480}, .cell = {32,32}};
+    V_AllocScreen(surface->w, surface->h);
+    app_t app = {.win = {640,480}, .cell = {32,32}};
     spritecache_t *cache = calloc(1, sizeof(*cache));
     assert(R_InitSprites("data/DCOLONY", &level, NULL, 0, cache));
     mobjlist_t objects = P_ListMobjs();
@@ -149,7 +149,7 @@ int main(void) {
     P_FreeMobjList(&objects);
     R_FreeSpriteCache(cache); free(cache);
     rts_game_model_destroy(model);
-    R_FreeSpriteBuffer(); SDL_DestroyRenderer(r_renderer); r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     puts("PASS: authored multiplayer forces, Sarge drag/move, native Osprey hover and flight orders");
     return 0;
