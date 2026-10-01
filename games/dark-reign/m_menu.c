@@ -1,15 +1,12 @@
 #include "engine.h"
 
-/* This game has no front end yet. */
-bool menuactive;
-bool menuerror;
-const char *menumap;
-bool M_Init(app_t *app, const char *root) { (void)app; (void)root; return true; }
-void M_StartControlPanel(app_t *app) { (void)app; }
-bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel) {
-    (void)app; (void)event; (void)inlevel;
-    return false;
-}
-void M_Drawer(const app_t *app) { (void)app; }
-void M_Shutdown(void) {}
-void M_Ticker(void) {}
+/* Engine fallback screen; native front-end reproduction is still pending. */
+static menuitem_t items[] = {
+    {.kind = MI_STATIC, .visible = true, .rect = {200,170,240,130}, .fill = 0xff0c1216u},
+    {.kind = MI_STATIC, .visible = true, .rect = {200,175,240,30}, .text = "DARK REIGN", .centered = true},
+    {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {220,215,200,30},
+     .fill = 0xff18242du, .color = 0xffdce6dcu, .text = "START GAME", .centered = true, .routine = M_MenuBeginLevel},
+    {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {220,255,200,30},
+     .fill = 0xff18242du, .color = 0xffdce6dcu, .text = "QUIT GAME", .centered = true, .routine = M_MenuQuitGame},
+};
+menu_t gamemenu = {.items = items, .numitems = sizeof(items) / sizeof(*items)};
