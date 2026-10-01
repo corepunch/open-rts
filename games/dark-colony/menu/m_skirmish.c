@@ -1,4 +1,4 @@
-#include "dc_skirmish.h"
+#include "dark-colony.h"
 #include "engine.h"
 #include <string.h>
 #include <strings.h>

@@ -14,7 +14,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/stat.h>
-#include "engine_config.h"
+#define RTS_TICRATE 30 /* keep in sync with include/engine.h; the tool builds without SDL */
 
 /* ── MOBD index table ─────────────────────────────────────────────────────── */
 /* Derived from wdigger/OpenKKND src/kknd.h MOBD_ID enum (hex values are
@@ -309,7 +309,7 @@ static void write_info_h(const char *path) {
         "#ifndef __INFO__\n"
         "#define __INFO__\n"
         "\n"
-        "#include \"actor.h\"\n"
+        "#include \"engine.h\"\n"
         "\n"
         "typedef struct mobjinfo_s {\n"
         "    int doomednum;\n"

@@ -205,7 +205,7 @@ games/7legion/      7th Legion BIM/COL formats and map loading
 games/kknd/         KKnD LVL containers, MAPD terrain, and MOBD sprites
 ```
 
-Game folders implement the `G_*`/`R_*` interface from `game/game.h`; the engine
+Game folders implement the `G_*`/`R_*` interface from `include/engine.h`; the engine
 calls them by name — no plugin registry. In particular, `GameUiDefinition` is a declarative list of native
 image layers, viewport/minimap rectangles, command-grid geometry, and resource
 display placement. The shared `GameUi` loader/renderer uses that description,

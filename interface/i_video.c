@@ -1,5 +1,3 @@
-#include "i_video.h"
-#include "renderer.h"
 #include "engine.h"
 
 #include <stdio.h>

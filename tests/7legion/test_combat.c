@@ -1,6 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "../rts_test.h"
+#include "t_local.h"
 
 int main(void) {
     for (int i = 0; i < num_actor_types; ++i) {

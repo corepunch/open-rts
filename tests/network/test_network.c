@@ -1,10 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
-#include "d_net.h"
-#include "mobj_test.h"
-#include "p_local.h"
+#include "engine.h"
+#include "t_local.h"
 #include "info.h"
-#include "p_ai.h"
-#include "dc_types.h"
+#include "dark-colony.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <signal.h>

@@ -1,5 +1,5 @@
 #include "engine.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 
 /* Preserve the existing water selection until retail cycling is verified. */
 static bool palette_index_is_water(uint8_t index, const uint32_t palette[256]) {

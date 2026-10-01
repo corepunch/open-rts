@@ -2,7 +2,7 @@
 #ifndef __INFO__
 #define __INFO__
 
-#include "actor.h"
+#include "engine.h"
 
 typedef struct mobjinfo_s {
     int doomednum;

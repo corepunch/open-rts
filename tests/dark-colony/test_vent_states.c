@@ -1,9 +1,6 @@
-#include "game.h"
 #include "engine.h"
 #include "info.h"
-#include "p_local.h"
-#include "p_script.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 
 #include <assert.h>
 

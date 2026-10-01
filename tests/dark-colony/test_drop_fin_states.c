@@ -1,9 +1,7 @@
-#include "game.h"
 #include "engine.h"
 #include "info.h"
-#include "w_spr.h"
-#include "p_drop.h"
-#include "rts_model_test.h"
+#include "dark-colony.h"
+#include "t_local.h"
 
 #include <stdio.h>
 #include <stdlib.h>

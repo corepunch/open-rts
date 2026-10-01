@@ -1,7 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "kknd.h"
-#include "w_lvl.h"
-#include "game.h"
+#include "engine.h"
 #include "info.h"
 
 #include <ctype.h>

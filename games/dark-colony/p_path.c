@@ -1,6 +1,5 @@
-#include "p_path.h"
-#include "p_local.h"
-#include "m_random.h"
+#include "dark-colony.h"
+#include "engine.h"
 #include <stddef.h>
 
 /* DC.EXE path.c: +00 stamp, +04 score (0 closed, -1 unseen), +08 cell,

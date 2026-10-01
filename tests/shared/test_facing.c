@@ -1,5 +1,5 @@
 #include "engine.h"
-#include "rts_test.h"
+#include "t_local.h"
 #include <math.h>
 #define CHECK(c) RTS_CHECK(c, "engine facing", #c)
 

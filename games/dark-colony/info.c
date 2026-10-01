@@ -1,7 +1,7 @@
 /* Authored gameplay tables; FIN animation extraction lives in tools/dc_info_conv/. */
 #include "engine.h"
 #include "info.h"
-#include "r_selection.h"
+#include "dark-colony.h"
 
 const char *const sprnames[NUMSPRITES] = {
     "DROP3", "DROP4", "ACAR", "ACOM", "AIRD", "ALBU", "ALIEN1", "ARTILER2",

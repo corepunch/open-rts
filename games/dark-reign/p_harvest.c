@@ -1,9 +1,7 @@
-#include "p_harvest.h"
+#include "dark-reign.h"
 
 #include "info.h"
-#include "dr_types.h"
-#include "p_local.h"
-#include "game.h"
+#include "engine.h"
 
 bool DR_HarvestDropoffMatches(const mobj_t *unit,
                               int resource_type, const mobj_t *base,

@@ -1,11 +1,8 @@
-#include "mobj_test.h"
-#include "game.h"
-#include "engine_config.h"
-#include "../rts_model_test.h"
-#include "../../games/dark-colony/dc_facing.h"
+#include "t_local.h"
+#include "engine.h"
+#include "dark-colony.h"
 #include "../../games/dark-colony/info.h"
-#include "../../games/dark-colony/dc_types.h"
-#include "../../games/dark-reign/dr_types.h"
+#include "dark-reign.h"
 
 #include <limits.h>
 #include <math.h>

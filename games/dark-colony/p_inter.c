@@ -1,6 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "dc_facing.h"
+#include "dark-colony.h"
 
 static int reaper_death_state_for_angle(angle_t angle) {
     /* Preserve the existing sparse-direction choice; retail selection is unknown. */

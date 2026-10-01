@@ -1,8 +1,10 @@
-#ifndef __P_REINFORCE__
-#define __P_REINFORCE__
+#ifndef __DC_LOCAL__
+#define __DC_LOCAL__
 
-#include "game.h"
+#include "engine.h"
+
 
 mobj_t *DC_SpawnReinforcement(int team, int gx, int gy, int type);
+
 
 #endif

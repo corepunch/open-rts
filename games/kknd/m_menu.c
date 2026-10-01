@@ -1,4 +1,4 @@
-#include "m_menu.h"
+#include "engine.h"
 
 /* This game has no front end yet. */
 bool menuactive;

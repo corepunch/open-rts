@@ -1,6 +1,5 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "p_local.h"
 
 void A_DC_Vent(mobj_t *actor) {
     if (actor->resource_vent_index < 0 ||

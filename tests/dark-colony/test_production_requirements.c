@@ -1,7 +1,6 @@
-#include "game.h"
-#include "g_game.h"
+#include "engine.h"
 #include "info.h"
-#include "rts_model_test.h"
+#include "t_local.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -1,5 +1,5 @@
-#include "m_random.h"
-#include "game.h"
+#include "dark-colony.h"
+#include "engine.h"
 
 /* DC.EXE 0x473df8, SHA-256 008052f5bc7fadfb...; same increment/wrap
  * lifecycle as Doom's P_Random, with the retail DC dword table. */

@@ -1,5 +1,5 @@
-#include "../rts_model_test.h"
-#include "../../game/g_game.h"
+#include "t_local.h"
+#include "engine.h"
 
 #include <stdio.h>
 #include <string.h>

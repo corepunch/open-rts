@@ -1,10 +1,6 @@
 #define _DEFAULT_SOURCE
-#include "m_menu.h"
-#include "../../../hud/m_menu.h"
-#include "game.h"
-#include "w_spr.h"
-#include "d_net.h"
-#include "dc_skirmish.h"
+#include "engine.h"
+#include "dark-colony.h"
 
 #include <ctype.h>
 #include <stdio.h>

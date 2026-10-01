@@ -1,6 +1,5 @@
-#include "game.h"
 #include "engine.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

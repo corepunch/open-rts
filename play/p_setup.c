@@ -1,9 +1,7 @@
-#include "game.h"
-#include "d_ticcmd.h"
+#include "engine.h"
 #include <stdlib.h>
 #ifdef RTS_GAME_DARK_COLONY
-#include "p_path.h"
-#include "p_weapon.h"
+#include "dark-colony.h"
 #endif
 
 void P_FreeLevel(level_t *map) {

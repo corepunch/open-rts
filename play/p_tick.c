@@ -1,8 +1,7 @@
-#include "game.h"
-#include "p_local.h"
+#include "engine.h"
 #include <stdlib.h>
 #ifdef RTS_GAME_DARK_COLONY
-#include "p_special.h"
+#include "dark-colony.h"
 #endif
 
 level_t level;

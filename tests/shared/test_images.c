@@ -1,5 +1,5 @@
 #include "engine.h"
-#include "rts_test.h"
+#include "t_local.h"
 #define CHECK(c) RTS_CHECK(c, "engine images", #c)
 
 int main(void) {

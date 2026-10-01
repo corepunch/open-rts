@@ -1,6 +1,5 @@
-#include "mobj_test.h"
+#include "t_local.h"
 #include "engine.h"
-#include "p_local.h"
 #include "info.h"
 #include <stdlib.h>
 #include <stdio.h>

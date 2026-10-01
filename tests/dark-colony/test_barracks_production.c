@@ -1,10 +1,7 @@
-#include "game.h"
-#include "g_game.h"
 #include "engine.h"
 #include "info.h"
-#include "p_local.h"
-#include "w_spr.h"
-#include "../rts_model_test.h"
+#include "dark-colony.h"
+#include "t_local.h"
 #include <assert.h>
 
 static mobj_t *find(int type) {

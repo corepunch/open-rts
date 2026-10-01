@@ -1,8 +1,7 @@
-#include "game.h"
+#include "engine.h"
 #include "kknd.h"
 #include "info.h"
-#include "p_ai.h"
-#include "rts_test.h"
+#include "t_local.h"
 #define CHECK(c) RTS_CHECK(c, "kknd ai", #c)
 
 static mobj_t *spawn_owner(uint16_t type, int owner, fvec2_t at) {

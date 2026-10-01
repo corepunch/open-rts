@@ -150,6 +150,34 @@ the uppercase suffix, e.g. `w_spr.h` → `__W_SPR__`, `dc_types.h` → `__DC_TYP
 #pragma once
 ```
 
+## Code style: minimum headers
+
+Do not add a header per `.c` file. Public headers live in `include/`; the
+include path is `-Iinclude`, so no other folder is on it.
+
+- **Engine**: `driver/`, `game/`, `play/`, `render/`, `hud/` and `interface/`
+  are one module that include each other in a cycle, so they share one public
+  header, `include/engine.h`. Add engine declarations there, in dependency
+  order.
+- **Games**: each `games/<id>/` has one public header, `include/<id>.h`
+  (`dark-colony.h`, `dark-reign.h`, `7legion.h`, `kknd.h`), for what the engine
+  or tests call, and optionally one local header, `games/<id>/<prefix>_local.h`
+  (`dc_local.h`), for declarations shared only between that folder's `.c` files.
+  Nothing outside the folder includes a local header.
+- **Tests**: shared helpers live in `tests/t_local.h`.
+- Selected by `-I./games/<id>`, every game provides `info.h` and `mobj_data.h`
+  (the plug-in contract). Generated data headers (`info.h`, `gamestat.h`,
+  `play/p_sight_data.h`) and tool or test fixtures that carry non-inline code
+  (`tools/info_gen.h`, `tests/*_regression.h`, `tests/loader_fixtures.h`) stay
+  as they are.
+- A declaration that only one `.c` file uses stays `static` or at the top of
+  that file. Put data tables used by a single file in that file.
+- Never include a local header from a public one, and keep header names unique
+  across the tree: the include path is shared, so a duplicate silently shadows
+  another.
+- When a tool must build without SDL, do not include `engine.h` (it pulls in
+  `SDL.h`); define the one constant it needs.
+
 ## Code style: prefer structs over loose fields
 
 Work at the highest abstraction level the data supports. Group related scalars

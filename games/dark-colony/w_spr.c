@@ -1,4 +1,4 @@
-#include "w_spr.h"
+#include "dark-colony.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -8,7 +8,6 @@
 #include <unistd.h>
 
 #include "info.h"
-#include "r_selection.h"
 
 static const char *dependency_name(const char *dependency) {
     char *stem = M_Upper(M_va("%.8s", dependency));

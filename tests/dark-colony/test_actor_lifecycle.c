@@ -1,9 +1,7 @@
-#include "mobj_test.h"
-#include "game.h"
+#include "t_local.h"
 #include "engine.h"
 #include "info.h"
-#include "rts_model_test.h"
-#include "dc_facing.h"
+#include "dark-colony.h"
 
 #include <stdio.h>
 #include <stdlib.h>

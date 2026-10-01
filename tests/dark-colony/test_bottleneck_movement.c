@@ -1,10 +1,6 @@
 #include "engine.h"
-#include "game.h"
-#include "g_game.h"
 #include "info.h"
-#include "p_local.h"
-#include "p_path.h"
-#include "dc_skirmish.h"
+#include "dark-colony.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>

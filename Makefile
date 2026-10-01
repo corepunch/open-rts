@@ -10,7 +10,7 @@ AR ?= ar
 PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
-CPPFLAGS += -Idriver -Igame -Iplay -Irender -Iinterface -Ihud -Itests
+CPPFLAGS += -Iinclude -Itests
 DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)

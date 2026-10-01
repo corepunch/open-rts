@@ -1,7 +1,5 @@
-#include "p_script.h"
-#include "p_drop.h"
-#include "p_reinforce.h"
-#include "dc_types.h"
+#include "dark-colony.h"
+#include "dc_local.h"
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>

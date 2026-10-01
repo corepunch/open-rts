@@ -1,9 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "p_local.h"
-#include "d_net.h"
-#include "sb_bar.h"
-#include "rts_test.h"
+#include "t_local.h"
 
 #define CHECK(c) RTS_CHECK(c, "shared waypoints", #c)
 

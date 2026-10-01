@@ -1,10 +1,7 @@
 #define _DEFAULT_SOURCE
-#include "game.h"
-#include "d_net.h"
-#include "g_game.h"
-#include "dr_types.h"
+#include "engine.h"
+#include "dark-reign.h"
 #include "info.h"
-#include "p_ai.h"
 
 #include <stdio.h>
 #include <string.h>

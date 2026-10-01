@@ -1,12 +1,9 @@
 #define _DEFAULT_SOURCE
-#include "p_local.h"
+#include "engine.h"
 #ifdef RTS_GAME_DARK_COLONY
-#include "p_path.h"
-#include "p_weapon.h"
+#include "dark-colony.h"
 #endif
-#include "game.h"
 #include "info.h"
-#include "d_net.h"
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (!a || !b) return false;

@@ -1,11 +1,6 @@
 #include "engine.h"
-#include "game.h"
-#include "g_game.h"
 #include "info.h"
-#include "d_net.h"
-#include "d_ticcmd.h"
-#include "p_local.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 #include <assert.h>
 
 static void button(app_t *app, const spritecache_t *cache, const mobjlist_t *objects,

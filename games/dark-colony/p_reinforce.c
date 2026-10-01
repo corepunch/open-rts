@@ -1,8 +1,7 @@
-#include "d_net.h"
-#include "p_reinforce.h"
-#include "dc_facing.h"
+#include "engine.h"
+#include "dc_local.h"
+#include "dark-colony.h"
 #include "info.h"
-#include "dc_types.h"
 
 static uint16_t script_unit_type(int team, int type) {
     if (team != 0) {

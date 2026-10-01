@@ -1,5 +1,5 @@
-#include "game.h"
-#include "sl_types.h"
+#include "engine.h"
+#include "7legion.h"
 #include "info.h"
 
 bool sl_load_map(const char *map_path, level_t *out);

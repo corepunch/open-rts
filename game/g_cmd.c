@@ -1,8 +1,6 @@
-#include "d_net.h"
-#include "game.h"
-#include "p_local.h"
+#include "engine.h"
 #ifdef RTS_GAME_DARK_COLONY
-#include "dc_types.h"
+#include "dark-colony.h"
 #endif
 
 enum { MAXPENDINGCOMMANDS = 64 };

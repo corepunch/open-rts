@@ -1,5 +1,4 @@
-#include "game.h"
-#include "p_ai.h"
+#include "engine.h"
 
 /* Catalog-driven AiGameInterface hooks for games whose purchases go through
  * the shared G_FindProducer / G_QueueProduct path. A goal's product id is the

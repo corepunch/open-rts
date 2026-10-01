@@ -1,7 +1,5 @@
-#include "d_net.h"
-#include "dr_hud.h"
-#include "game.h"
-#include "dr_types.h"
+#include "engine.h"
+#include "dark-reign.h"
 #include "info.h"
 
 static irect_t scaled(const app_t *app, irect_t r) {

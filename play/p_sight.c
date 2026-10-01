@@ -1,10 +1,8 @@
-#include "d_net.h"
-#include "game.h"
-#include "p_local.h"
+#include "engine.h"
 #include "p_sight_data.h"
 #include <stdlib.h>
 #ifdef RTS_GAME_DARK_COLONY
-#include "p_path.h"
+#include "dark-colony.h"
 #endif
 
 bool P_InitSight(void) {

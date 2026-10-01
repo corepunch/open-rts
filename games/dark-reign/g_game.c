@@ -1,5 +1,5 @@
-#include "game.h"
-#include "dr_types.h"
+#include "engine.h"
+#include "dark-reign.h"
 #include "info.h"
 
 /* Native AIP values recovered from the shipped FG AIP files.  These are

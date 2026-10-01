@@ -1,7 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
-#include "mobj_test.h"
-#include "p_local.h"
-#include "p_path.h"
+#include "t_local.h"
+#include "engine.h"
+#include "dark-colony.h"
 #include <unistd.h>
 
 static void reset(int width, int height) {

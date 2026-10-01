@@ -1,14 +1,8 @@
 #define _DEFAULT_SOURCE
-#include "game.h"
-#include "dc_facing.h"
 #include "engine.h"
+#include "dark-colony.h"
 #include "info.h"
 #include "gamestat.h"
-#include "dc_types.h"
-#include "sb_bar.h"
-#include "w_spr.h"
-#include "p_mission.h"
-#include "p_blood.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -16,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "p_weapon.h"
 
 /* DC.EXE (0x4117fc/0x411a30) moves an object speed/256 of a cell once per
  * 66 ms world tick; the simulation stores cells per second. */

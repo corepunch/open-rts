@@ -1,7 +1,7 @@
 #ifndef __INPUT_REGRESSION__
 #define __INPUT_REGRESSION__
 
-#include "mobj_test.h"
+#include "t_local.h"
 #include <assert.h>
 
 static void button(app_t *app, gameinfo_t *game, mobj_t **units,

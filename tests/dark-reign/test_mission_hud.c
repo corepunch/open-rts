@@ -1,8 +1,7 @@
-#include "../rts_model_test.h"
-#include "game.h"
+#include "t_local.h"
+#include "engine.h"
 #include "info.h"
-#include "dr_types.h"
-#include "hud/dr_hud.h"
+#include "dark-reign.h"
 
 #define CHECK(c) RTS_CHECK(c, "dark-reign mission HUD", #c)
 

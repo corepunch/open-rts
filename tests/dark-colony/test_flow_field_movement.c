@@ -1,9 +1,7 @@
-#include "mobj_test.h"
+#include "t_local.h"
 #include "engine.h"
-#include "p_local.h"
-#include "rts_test.h"
 #include "info.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 
 #include <stdio.h>
 

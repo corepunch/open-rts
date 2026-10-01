@@ -1,4 +1,4 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
 
 /* DC.EXE 0x41368a–0x4136e6: idle city animation follows remaining HP.

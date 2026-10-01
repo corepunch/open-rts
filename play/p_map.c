@@ -1,7 +1,7 @@
 #define _DEFAULT_SOURCE
-#include "p_local.h"
+#include "engine.h"
 #ifdef RTS_GAME_DARK_COLONY
-#include "p_path.h"
+#include "dark-colony.h"
 #endif
 
 

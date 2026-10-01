@@ -1,14 +1,9 @@
 /* Dark Colony skirmish AI, observed by fast-forwarding the simulation and
  * searching the resulting event streams (model events and AI events). */
 #include "engine.h"
-#include "game.h"
-#include "g_game.h"
 #include "info.h"
-#include "p_local.h"
-#include "dc_skirmish.h"
-#include "dc_types.h"
-#include "rts_model_test.h"
-#include "../../play/p_ai.h"
+#include "dark-colony.h"
+#include "t_local.h"
 #include <stdio.h>
 #include <stdlib.h>
 

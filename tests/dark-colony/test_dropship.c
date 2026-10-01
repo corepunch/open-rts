@@ -1,6 +1,5 @@
-#include "engine_config.h"
-#include "game.h"
-#include "../rts_model_test.h"
+#include "engine.h"
+#include "t_local.h"
 #include "../../games/dark-colony/info.h"
 
 static int troopers(const RtsRenderSnapshot *snapshot) {

@@ -1,8 +1,7 @@
 /* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */
 #include "engine.h"
-#include "dr_types.h"
+#include "dark-reign.h"
 #include "info.h"
-#include "p_harvest.h"
 
 const char *const sprnames[NUMSPRITES] = {
     "ucfcnst0.spr",

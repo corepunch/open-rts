@@ -1,7 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "kknd.h"
 #include "info.h"
-#include "d_net.h"
 #include <assert.h>
 
 static mobj_t *spawn(uint16_t type) {
