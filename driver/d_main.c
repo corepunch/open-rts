@@ -426,7 +426,7 @@ load_level:
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (M_Responder(&app, &e, true)) {
+            if (D_MenuResponder(&app, &e, custom_ui, units, unit_count)) {
                 if (menumap || !app.running) break;
                 continue;
             }

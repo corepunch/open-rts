@@ -1252,6 +1252,8 @@ extern const char *menumap;
 bool M_Init(app_t *app, const char *root);
 void M_StartControlPanel(app_t *app);
 bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel);
+bool D_MenuResponder(app_t *app, const SDL_Event *event, void *ui,
+                      mobj_t *const *units, int unit_count);
 void M_Drawer(const app_t *app);
 void M_Ticker(void);
 void M_Shutdown(void);

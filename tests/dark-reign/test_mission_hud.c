@@ -189,6 +189,30 @@ int main(void) {
     CHECK(bar->page == DR_PAGE_BUILD);
     key.key.keysym.sym = SDLK_x;
     CHECK(!G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
+    /* Use the driver's routing: Escape cancels the HUD before opening a menu. */
+    CHECK(M_Init(&app, g_game_default_root));
+    key.key.keysym.sym = SDLK_m;
+    CHECK(!D_MenuResponder(&app,&key,bar,objects.items,objects.count));
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
+    CHECK(bar->order == UI_MOVE);
+    key.key.keysym.sym = SDLK_ESCAPE;
+    CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
+    CHECK(bar->order == UI_UNAVAILABLE && !menuactive);
+    click.button.x = 1180; click.button.y = 20;
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
+    CHECK(bar->options_visible);
+    CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
+    CHECK(!bar->options_visible && !menuactive);
+    /* With no HUD cancellation, Escape opens the fallback menu. While that
+     * menu is open it takes Escape, leaving a pending HUD order alone. */
+    CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
+    CHECK(menuactive);
+    bar->order = UI_ATTACK;
+    CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
+    CHECK(!menuactive && bar->order == UI_ATTACK);
+    CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
+    CHECK(!menuactive && bar->order == UI_UNAVAILABLE);
+    M_Shutdown();
     G_ShutdownCustomUI(bar);
     R_FreeSpriteCache(cache); free(cache);
     P_FreeMobjList(&objects);
