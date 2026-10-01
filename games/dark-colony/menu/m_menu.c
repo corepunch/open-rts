@@ -244,6 +244,37 @@ static void gadget_pose(int id, int pose) {
     }
 }
 
+/* LAN lobby settings travel to joiners as 40 explicit bytes. */
+enum { LAN_SETUP_SIZE = 40 };
+static size_t pack_setup(uint8_t out[LAN_SETUP_SIZE]) {
+    for (int i = 0; i < 8; ++i) {
+        const dc_skirmish_player_t *p = &skirmish.players[i];
+        out[i * 4] = (uint8_t)p->race; out[i * 4 + 1] = (uint8_t)p->type;
+        out[i * 4 + 2] = (uint8_t)p->color; out[i * 4 + 3] = (uint8_t)p->team;
+    }
+    uint8_t *v = out + 32;
+    v[0] = (uint8_t)skirmish.storage; v[1] = (uint8_t)skirmish.artifacts;
+    v[2] = (uint8_t)skirmish.erupting; v[3] = (uint8_t)skirmish.renewable;
+    v[4] = (uint8_t)skirmish.flow; v[5] = (uint8_t)skirmish.quantity;
+    v[6] = (uint8_t)skirmish.rank; v[7] = skirmish.seed;
+    return LAN_SETUP_SIZE;
+}
+
+static bool unpack_setup(const uint8_t *in, size_t size, dc_skirmish_t *out) {
+    if (size != LAN_SETUP_SIZE) return false;
+    *out = (dc_skirmish_t){0};
+    for (int i = 0; i < 8; ++i) {
+        if (in[i * 4] > 1 || in[i * 4 + 1] > DC_PLAYER_NONE || in[i * 4 + 2] > 7 || in[i * 4 + 3] > 7) return false;
+        out->players[i] = (dc_skirmish_player_t){.race = in[i * 4], .type = in[i * 4 + 1],
+                                                 .color = in[i * 4 + 2], .team = in[i * 4 + 3]};
+        snprintf(out->players[i].name, sizeof(out->players[i].name), "%s", i ? "LAN Player" : "Host");
+    }
+    const uint8_t *v = in + 32;
+    out->storage = v[0]; out->artifacts = v[1]; out->erupting = v[2]; out->renewable = v[3];
+    out->flow = v[4]; out->quantity = v[5]; out->rank = v[6]; out->seed = v[7];
+    return out->flow >= 1 && out->flow <= 20 && out->quantity >= 1 && out->quantity <= 20 && out->rank <= 3;
+}
+
 static void refresh_skirmish(void) {
     for (int i = 0; i < 8; ++i) {
         const dc_skirmish_player_t *p = &skirmish.players[i];
@@ -266,12 +297,11 @@ static void refresh_skirmish(void) {
                             i < active_players() ? "LAN Player" : "");
             items[16 + i].visible = false;
             items[180 + i].visible = false;
-            items[8 + i].visible = items[80 + i].visible = false;
-            items[96 + i].visible = items[142 + i].visible = false;
+            items[8 + i].visible = items[80 + i].visible = i < active_players();
+            items[96 + i].visible = items[142 + i].visible = i < active_players();
+            items[32 + i].visible = items[40 + i].visible = i < active_players();
+            items[150 + i].visible = items[158 + i].visible = i < active_players();
         }
-        for (int i = 32; i <= 47; ++i) items[i].visible = false;
-        for (int i = 104; i <= 131; ++i) items[i].visible = false;
-        for (int i = 150; i <= 165; ++i) items[i].visible = false;
         items[137].visible = items[139].visible = items[140].visible = items[141].visible = false;
         snprintf(items[133].text, sizeof(items[133].text), "%s", waiting ? "WAITING" : "CREATE");
         snprintf(items[24].text, sizeof(items[24].text), "%s", network_notice[0] ? network_notice :
@@ -300,13 +330,13 @@ static void activate_skirmish(int id) {
             }
         }
         items[27].first_row = 0;
-    } else if (id == 32 || id == 40) {
-        int oldcolor = skirmish.players[0].color;
-        int newcolor = (oldcolor + (id == 32 ? 1 : 7)) % 8;
-        for (int i = 1; i < 8; ++i)
-            if (skirmish.players[i].type != DC_PLAYER_NONE && skirmish.players[i].color == newcolor)
+    } else if ((id >= 32 && id < 48) && (id % 8 == 0 || lan)) {
+        int slot = id & 7, oldcolor = skirmish.players[slot].color;
+        int newcolor = (oldcolor + (id < 40 ? 1 : 7)) % 8;
+        for (int i = 0; i < 8; ++i)
+            if (i != slot && skirmish.players[i].type != DC_PLAYER_NONE && skirmish.players[i].color == newcolor)
                 skirmish.players[i].color = oldcolor;
-        skirmish.players[0].color = newcolor;
+        skirmish.players[slot].color = newcolor;
     } else if (id >= 150 && id <= 165) {
         int player = id < 158 ? id - 150 : id - 158;
         skirmish.players[player].team = (skirmish.players[player].team + (id < 158 ? 1 : 7)) % 8;
@@ -767,9 +797,9 @@ static void activate(app_t *app, int id) {
         if (id == 0) {
             if (!session_name[0]) notice = "Enter a session name";
             else {
-                skirmish = (dc_skirmish_t){0};
+                skirmish = (dc_skirmish_t){.erupting = 1, .quantity = 4, .flow = 4};
                 for (int i = 0; i < 8; ++i)
-                    skirmish.players[i] = (dc_skirmish_player_t){
+                    skirmish.players[i] = (dc_skirmish_player_t){.race = i & 1, .color = i, .team = i,
                         .type = i < 2 ? DC_PLAYER_HUMAN : DC_PLAYER_NONE};
                 strcpy(skirmish.players[0].name, "Host");
                 network_notice[0] = '\0';
@@ -799,8 +829,16 @@ static void activate(app_t *app, int id) {
                 count = count > id - 88 ? id - 88 : id - 87;
                 for (int i = 1; i < 8; ++i)
                     skirmish.players[i].type = i < count ? DC_PLAYER_HUMAN : DC_PLAYER_NONE;
+            } else if ((id >= 8 && id < 16 && skirmish.players[id - 8].type != DC_PLAYER_NONE) ||
+                       (id >= 32 && id < 48 && skirmish.players[id & 7].type != DC_PLAYER_NONE) ||
+                       (id >= 150 && id <= 165 && skirmish.players[(id - 150) % 8].type != DC_PLAYER_NONE) ||
+                       (id >= 105 && id <= 131)) {
+                activate_skirmish(id);
             } else if (id == 133 && selectedmap >= 0) {
-                if (I_HostNetGame("dark-colony", session_name, maps[selectedmap].path, active_players())) waiting = true;
+                uint8_t setup[LAN_SETUP_SIZE];
+                skirmish.seed = (uint8_t)SDL_GetTicks();
+                if (I_HostNetGame("dark-colony", session_name, maps[selectedmap].path, active_players()) &&
+                    I_SetNetSetup(setup, pack_setup(setup))) waiting = true;
                 else network_failure();
             }
             refresh_skirmish();
@@ -830,6 +868,10 @@ static bool selectable(int id) {
         if (lan) {
             if (waiting) return id == 132;
             if (id == 90 || id == 91) return true;
+            if (id >= 8 && id < 16) return skirmish.players[id - 8].type != DC_PLAYER_NONE;
+            if (id >= 32 && id < 48) return skirmish.players[id & 7].type != DC_PLAYER_NONE;
+            if (id >= 150 && id <= 165) return skirmish.players[(id - 150) % 8].type != DC_PLAYER_NONE;
+            if (id >= 105 && id <= 131 && id != 124 && id != 125 && id != 128 && id != 129) return items[id].visible;
             if (id == 132) return true;
             if (id == 133) return selectedmap >= 0;
             return id == 27 || id == 28 || id == 29 || id == 30;
@@ -981,6 +1023,18 @@ void M_Ticker(void) {
             else snprintf(items[3].text, sizeof(items[3].text), "%s", network_notice);
         } else if (status > 0) {
             waiting = false;
+            {
+                uint8_t setup[LAN_SETUP_SIZE + 24];
+                dc_skirmish_t shared;
+                size_t size = page == SKIRMISH ? 0 : I_NetSetup(setup, sizeof(setup));
+                if (page == SKIRMISH) shared = skirmish; /* Host: lobby as created. */
+                else if (size && !unpack_setup(setup, size, &shared)) {
+                    snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
+                    network_failure();
+                    return;
+                }
+                if (page == SKIRMISH || size) DC_RequestSkirmish(mapname, &shared);
+            }
             menumap = mapname;
             menuactive = false;
             SDL_StopTextInput();

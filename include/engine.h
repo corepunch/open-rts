@@ -873,6 +873,9 @@ typedef struct {
 } netgame_t;
 /* Menu sessions use the same transport as --host/--join, without blocking. */
 bool I_HostNetGame(const char *game, const char *name, const char *map, int players);
+/* Host-only: up to 64 opaque bytes delivered to every joiner (I_NetSetup). */
+bool I_SetNetSetup(const void *data, size_t size);
+size_t I_NetSetup(void *data, size_t capacity);
 bool I_JoinNetGame(const char *game, const char *address);
 bool I_OpenNetBrowser(const char *game);
 void I_QueryNetGames(const char *address);
