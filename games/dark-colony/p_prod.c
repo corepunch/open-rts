@@ -202,9 +202,26 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *game_info,
 
 int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     if (!product || product->product_class != RTS_PRODUCT_UNIT) return 0;
-    int ms = product->cost * 10;
-    if (ms < 1000) ms = 1000;
-    return ms;
+    /* Retail has no build timer: city ticker 0x413620 plays the produced
+     * type's +0x98 release (<sprite>BUILDSTAND/BUILD<even facing>, loader
+     * 0x438c95) and spawns when it ends. Native ticks are 1 + the remaining
+     * frames' ((raw ? raw : 15) + 3) * 15 / 100 delays, 66 ms each, read from
+     * the ANIM.DAT FIN files (test_production_release_times checks them). */
+    static const uint8_t release_ticks[] = {
+        [0] = 22,  /* TRSC, played by the Barracks release state itself. */
+        [1] = 18,  /* TURR */  [2] = 11,  /* REAP */  [3] = 24,  /* BARR */
+        [4] = 23,  /* SARG */  [5] = 29,  /* SCGM */  [6] = 9,   /* EXPL */
+        [8] = 37,  /* GRAY */  [9] = 13,  /* XENO */  [10] = 18, /* SCYT */
+        [11] = 23, /* ATRIL */ [12] = 39, /* PSYC */  [13] = 25, /* ORTU */
+        [14] = 18, /* SLUG */  [43] = 23, /* ENGI */  [44] = 34, /* SLOM */
+        [49] = 16, /* BEON */  [50] = 23, /* ZISP */
+    };
+    int type = product->product_type;
+    /* The Trooper's 44-tic release animation is the delay; don't add it twice. */
+    if (type == 0) return 1;
+    if (type < 0 || type >= (int)(sizeof(release_ticks) / sizeof(release_ticks[0])) || !release_ticks[type])
+        return 1;
+    return release_ticks[type] * 66;
 }
 
 int G_ModelAlienProducts(StaticProductDefinition *out, int max_products) {
