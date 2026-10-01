@@ -111,7 +111,15 @@ fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction) {
 /* Returns true if the order is still alive. Called after each movement attempt. */
 bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved) {
     navpath_t *path = &unit->movement.path;
-    if (moved) { unit->movement.stuck_tics = 0; return true; }
+    bool last_leg = path->complete && path->current + 1 >= path->count;
+    if (moved && (unit->movement.order_id || !last_leg)) { unit->movement.stuck_tics = 0; return true; }
+    if (moved) {
+        /* Walking in place against a crowd that shoves back is not progress. */
+        float dist = sqrtf(fvec2_distance_squared(fixed3_xy_to_fvec2(unit->core.position),
+                                                  unit->movement.goal));
+        float *best = &unit->movement.best_goal_dist;
+        if (*best <= 0.0f || dist < *best - 0.02f) { *best = dist; unit->movement.stuck_tics = 0; return true; }
+    }
     if (++unit->movement.stuck_tics < STUCK_TICS) return true;
     unit->movement.stuck_tics = 0;
     if (++unit->movement.replans > MAX_REPLANS) return false;
