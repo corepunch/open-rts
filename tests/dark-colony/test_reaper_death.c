@@ -13,10 +13,8 @@
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL: %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 
 int main(void) {
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32, SDL_PIXELFORMAT_ARGB8888);
-    CHECK(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    CHECK(r_renderer);
+    V_AllocScreen(64, 64);
+    CHECK(screens[0].pixels);
     dc_fin_t fin;
     spritesheet_t sheet;
     CHECK(DC_LoadFIN("data/DCOLONY/ANIMATE/REAP.FIN", &fin));
@@ -88,10 +86,7 @@ int main(void) {
     }
     R_FreeSprite(&sheet);
     DC_FreeFIN(&fin);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
-    SDL_FreeSurface(surface);
+    V_FreeScreen();
     puts("PASS: Reaper death uses complete FIN timelines and leaves native corpse frames");
     return 0;
 }

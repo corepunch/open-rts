@@ -13,7 +13,7 @@ static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,
     R_DrawLevel(app, &level, tiles);
     R_RenderPlayerView(app, &level, tiles, actors.items, actors.count, NULL, cache, gameinfo, 0);
     P_FreeMobjList(&actors);
-    SDL_RenderPresent(r_renderer);
+    V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, name));
 }
 
@@ -118,9 +118,9 @@ int main(void) {
     assert(G_DoLoadLevel(map, &level) && P_LoadThings(map) > 0);
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {640, 480}, .cell = {32, 32}};
+    V_AllocScreen(surface->w, surface->h);
+    assert(screens[0].pixels);
+    app_t app = {.win = {640, 480}, .cell = {32, 32}};
     fvec2_t center;
     R_MapPositionToScreen(&app, &level, fixed3_from_fvec2((fvec2_t){56, 55}, 0), &center.x, &center.y);
     app.cam = fvec2_sub((fvec2_t){320, 370}, center);
@@ -164,9 +164,7 @@ int main(void) {
     free(cache);
     R_FreeSprite(&fallback);
     R_FreeTileset(&tiles);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     P_FreeLevel(&level);
     puts("PASS: native building damage thresholds, persistent fire, production handoff, sparks and death");

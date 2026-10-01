@@ -55,10 +55,8 @@ static int native_routes_move_units(void) {
 
 static int unit_turns_before_moving(int type, const char *stem) {
     const char *tag = stem;
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 64, 64, 32, SDL_PIXELFORMAT_ARGB8888);
-    r_renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
     spritesheet_t sprite;
-    RTS_CHECK(r_renderer && load_dark_colony_sprite(M_va("data/DCOLONY/ANIMATE/%s.FIN", stem), &sprite, NULL),
+    RTS_CHECK(load_dark_colony_sprite(M_va("data/DCOLONY/ANIMATE/%s.FIN", stem), &sprite, NULL),
               tag, "load actual turning and travel poses");
     level = (level_t){ .width = 16, .height = 16 };
     P_FreeThinkers();
@@ -97,10 +95,7 @@ static int unit_turns_before_moving(int type, const char *stem) {
     }
     P_FreeLevel(&level);
     R_FreeSprite(&sprite);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
-    SDL_FreeSurface(surface);
+    V_FreeScreen();
     RTS_CHECK(saw_intermediate_pose && moved, tag,
               "turn passes through intermediate stationary facings before travel");
     return 0;

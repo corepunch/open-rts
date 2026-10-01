@@ -29,7 +29,7 @@
 !_TAG_OUTPUT_VERSION	1.1	/current.age/
 !_TAG_PARSER_VERSION!C	1.1	/current.age/
 !_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
-!_TAG_PROC_CWD	/Users/igor/Developer/open-rts/	//
+!_TAG_PROC_CWD	/Users/igor/Developer/open-rts-fb/	//
 !_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
@@ -41,6 +41,7 @@
 !_TAG_ROLE_DESCRIPTION!C!struct	foreigndecl	/declared in foreign languages/
 ACTOR_TYPES	games/7legion/g_game.c	/^static const mobjtype_t ACTOR_TYPES[] = {$/;"	v	typeref:typename:const mobjtype_t[]	file:
 ATLAS_COLS	games/7legion/w_bim.c	/^#define ATLAS_COLS /;"	d	file:
+G_AiInterface	games/7legion/p_prod.c	/^const AiGameInterface *G_AiInterface(void) { return &sl_ai_interface; }$/;"	f	typeref:typename:const AiGameInterface *	signature:(void)
 G_CustomUIDrawer	games/7legion/g_game.c	/^void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,$/;"	f	typeref:typename:void	signature:(void * ui,app_t * app,const level_t * map,mobj_t * const * units,int unit_count,const spritecache_t * sprites,const hudtext_t * hud)
 G_CustomUIResponder	games/7legion/g_game.c	/^bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,$/;"	f	typeref:typename:bool	signature:(void * ui,app_t * app,level_t * map,mobj_t * const * units,int unit_count,const SDL_Event * event)
 G_CustomUITicker	games/7legion/g_game.c	/^void G_CustomUITicker(void *ui) {$/;"	f	typeref:typename:void	signature:(void * ui)
@@ -49,7 +50,6 @@ G_InitCustomUI	games/7legion/g_game.c	/^void *G_InitCustomUI(app_t *app, const c
 G_InitGame	games/7legion/g_game.c	/^void G_InitGame(void) {$/;"	f	typeref:typename:void	signature:(void)
 G_LoadMenuSprite	games/7legion/g_game.c	/^bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {$/;"	f	typeref:typename:bool	signature:(const char * root,const char * name,spritesheet_t * out)
 G_MissionTicker	games/7legion/g_game.c	/^void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,$/;"	f	typeref:typename:void	signature:(level_t * map,mobj_t * const * mobjs,int * count,hudtext_t * hud,float dt)
-G_ModelAIProduction	games/7legion/p_prod.c	/^void G_ModelAIProduction(RtsGameModel *model, int elapsed_ms) {$/;"	f	typeref:typename:void	signature:(RtsGameModel * model,int elapsed_ms)
 G_ModelActorIdForProduct	games/7legion/p_prod.c	/^uint16_t G_ModelActorIdForProduct(const StaticProductDefinition *product) {$/;"	f	typeref:typename:uint16_t	signature:(const StaticProductDefinition * product)
 G_ModelBuildUIScript	games/7legion/p_prod.c	/^void G_ModelBuildUIScript(const RtsGameModel *model,$/;"	f	typeref:typename:void	signature:(const RtsGameModel * model,const RtsRenderSnapshot * snapshot,char * dst,size_t dst_size)
 G_ModelBuildingFrameForProduct	games/7legion/p_prod.c	/^int G_ModelBuildingFrameForProduct(const StaticProductDefinition *product) {$/;"	f	typeref:typename:int	signature:(const StaticProductDefinition * product)
@@ -138,10 +138,12 @@ __anon6cc5752a0208	games/7legion/w_map.c	/^    static const struct { uint16_t ty
 __anon8e5a0b470103	games/7legion/info.h	/^typedef enum {$/;"	g
 __anon8e5a0b470203	games/7legion/info.h	/^typedef enum {$/;"	g
 __anon8e5a0b470303	games/7legion/info.h	/^enum {$/;"	g
+__anon97dab59a0108	games/7legion/p_prod.c	/^    static const struct { int product, count; } ladder[] = {$/;"	s	function:sl_ai_plan	file:
 activesound	games/7legion/info.h	/^    int activesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 actor_types	games/7legion/g_game.c	/^const mobjtype_t *const actor_types =$/;"	v	typeref:typename:const mobjtype_t * const
 append_ui_script	games/7legion/p_prod.c	/^static void append_ui_script(char *dst, size_t dst_size, const char *fmt, ...) {$/;"	f	typeref:typename:void	file:	signature:(char * dst,size_t dst_size,const char * fmt,...)
 attacksound	games/7legion/info.h	/^    int attacksound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
+count	games/7legion/p_prod.c	/^    static const struct { int product, count; } ladder[] = {$/;"	m	struct:sl_ai_plan::__anon97dab59a0108	typeref:typename:int	file:
 damage	games/7legion/info.h	/^    int damage;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 data_offset	games/7legion/w_bim.c	/^    uint16_t data_offset;$/;"	m	struct:__anon6c02bde40108	typeref:typename:uint16_t	file:
 deathsound	games/7legion/info.h	/^    int deathsound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
@@ -205,13 +207,17 @@ painsound	games/7legion/info.h	/^    int painsound;$/;"	m	struct:mobjinfo_s	type
 painstate	games/7legion/info.h	/^    int painstate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 pixel_count	games/7legion/w_bim.c	/^    size_t pixel_count;$/;"	m	struct:__anon6c02bde40108	typeref:typename:size_t	file:
 player_start	games/7legion/w_map.c	/^    char player_start[64];$/;"	m	struct:__anon6cc5752a0108	typeref:typename:char[64]	file:
+product	games/7legion/p_prod.c	/^    static const struct { int product, count; } ladder[] = {$/;"	m	struct:sl_ai_plan::__anon97dab59a0108	typeref:typename:int	file:
 product_count	games/7legion/p_prod.c	/^static int product_count(void) {$/;"	f	typeref:typename:int	file:	signature:(void)
 radius	games/7legion/info.h	/^    int radius;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 raisestate	games/7legion/info.h	/^    int raisestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 reactiontime	games/7legion/info.h	/^    int reactiontime;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 seesound	games/7legion/info.h	/^    int seesound;$/;"	m	struct:mobjinfo_s	typeref:typename:int
 seestate	games/7legion/info.h	/^    int seestate;$/;"	m	struct:mobjinfo_s	typeref:typename:int
-sl_ai_goals	games/7legion/p_prod.c	/^static const productiongoal_t sl_ai_goals[] = {$/;"	v	typeref:typename:const productiongoal_t[]	file:
+sl_ai_interface	games/7legion/p_prod.c	/^static const AiGameInterface sl_ai_interface = {$/;"	v	typeref:typename:const AiGameInterface	file:
+sl_ai_plan	games/7legion/p_prod.c	/^static bool sl_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {$/;"	f	typeref:typename:bool	file:	signature:(const level_t * map,int owner,int level,AiPlan * out)
+sl_ai_plan::__anon97dab59a0108::count	games/7legion/p_prod.c	/^    static const struct { int product, count; } ladder[] = {$/;"	m	struct:sl_ai_plan::__anon97dab59a0108	typeref:typename:int	file:
+sl_ai_plan::__anon97dab59a0108::product	games/7legion/p_prod.c	/^    static const struct { int product, count; } ladder[] = {$/;"	m	struct:sl_ai_plan::__anon97dab59a0108	typeref:typename:int	file:
 sl_bim_frame_info	games/7legion/w_bim.c	/^static bool sl_bim_frame_info(const uint8_t *data, size_t size,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * data,size_t size,uint32_t offset,uint32_t end,SlBimFrameInfo * out)
 sl_cache_bim_sprite	games/7legion/w_bim.c	/^static bool sl_cache_bim_sprite(spritecache_t *cache,$/;"	f	typeref:typename:bool	file:	signature:(spritecache_t * cache,const char * data_root,const char * sprite_name,const uint32_t palette[256])
 sl_expand_vclz	games/7legion/w_bim.c	/^static bool sl_expand_vclz(const uint8_t *source, size_t source_size,$/;"	f	typeref:typename:bool	file:	signature:(const uint8_t * source,size_t source_size,uint8_t ** out_data,size_t * out_size)

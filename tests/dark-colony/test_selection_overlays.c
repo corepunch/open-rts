@@ -10,10 +10,11 @@
 enum { WIDTH = 512, HEIGHT = 256, PIXELS = WIDTH * HEIGHT };
 static uint32_t expected[PIXELS], actual[PIXELS];
 
-static void clear(SDL_Renderer *renderer) {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    for (int i = 0; i < PIXELS; ++i) expected[i] = 0xff000000;
+/* Black reads back as the screen palette's nearest entry. */
+static void clear(void) {
+    V_BeginFrame(0xff000000u);
+    uint32_t black = vpalette[V_NearestIndex(0xff000000u)] | 0xff000000u;
+    for (int i = 0; i < PIXELS; ++i) expected[i] = black;
 }
 
 static void reference(const spritesheet_t *client, int frame, ivec2_t at) {
@@ -21,19 +22,19 @@ static void reference(const spritesheet_t *client, int frame, ivec2_t at) {
     for (int y = 0; y < size.h; ++y)
         for (int x = 0; x < size.w; ++x) {
             unsigned index = client->lumps[frame].indices[y * size.w + x];
-            if (index) expected[(at.y + y) * WIDTH + at.x + x] = client->palette[index];
+            if (index) expected[(at.y + y) * WIDTH + at.x + x] = client->palette[index] | 0xff000000u;
         }
 }
 
-static void compare(SDL_Renderer *renderer) {
-    assert(SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888,
-                               actual, WIDTH * sizeof(*actual)) == 0);
+static void compare(void) {
+    V_ReadPixels(actual, WIDTH * sizeof(*actual));
     assert(!memcmp(actual, expected, sizeof(actual)));
 }
 
 static void check_ranks(app_t *app, spritecache_t *cache) {
     const spritesheet_t *client = R_CacheLookup(cache->ui, "INTRFACE/CLIENT.SPR");
     assert(client && client->numlumps == 51);
+    I_SetPalette(client->palette);
     mobj_t unit = {.type_id = MT_TROOPER, .ability_charge = 64};
     P_ApplyActorTypeDefaults(&unit, actor_type_by_id(MT_TROOPER));
     P_InitMobj(gameinfo, &unit);
@@ -55,14 +56,14 @@ static void check_ranks(app_t *app, spritecache_t *cache) {
             P_MobjSetSelected(&unit, selected);
             for (int h = 0; h < 10; ++h) {
                 unit.max_hp = 100; unit.hp = health[h];
-                clear(app->renderer);
+                clear();
                 DC_DrawUnitOverlays(&ctx);
                 reference(client, badge_frame, ivec2_add(badge[rank], shift));
                 if (selected) {
                     reference(client, 10 + color[h], ivec2_add(star[rank], shift));
                     reference(client, 24, ivec2_add(meter[rank], shift));
                 }
-                compare(app->renderer);
+                compare();
             }
         }
     }
@@ -72,27 +73,27 @@ static void check_ranks(app_t *app, spritecache_t *cache) {
     unit.hp = unit.max_hp;
     for (int i = 0; i < 7; ++i) {
         unit.ability_charge = charge[i];
-        clear(app->renderer);
+        clear();
         DC_DrawUnitOverlays(&ctx);
         reference(client, 35, badge[0]);
         reference(client, 10, star[0]);
         reference(client, charge_frame[i], meter[0]);
-        compare(app->renderer);
+        compare();
     }
     unit.native_type_id = 0;
     for (int selected = 0; selected < 2; ++selected) {
         P_MobjSetSelected(&unit, selected);
         unit.hp = unit.max_hp;
-        clear(app->renderer);
+        clear();
         DC_DrawUnitOverlays(&ctx);
         if (selected) reference(client, 0, (ivec2_t){122,60});
-        compare(app->renderer);
+        compare();
     }
     unit.native_type_id = 69;
     unit.hp = 0;
-    clear(app->renderer);
+    clear();
     DC_DrawUnitOverlays(&ctx);
-    compare(app->renderer);
+    compare();
 }
 
 static void human01(app_t *app, SDL_Surface *surface, spritecache_t *cache) {
@@ -126,9 +127,10 @@ static void human01(app_t *app, SDL_Surface *surface, spritecache_t *cache) {
     for (int selected = 0; selected < 2; ++selected) {
         for (int i = 0; i < objects.count; ++i)
             P_MobjSetSelected(objects.items[i], selected && objects.items[i]->owner == 0);
-        clear(app->renderer);
+        clear();
         R_DrawLevel(app, &level, &tiles);
         R_RenderPlayerView(app, &level, &tiles, objects.items, objects.count, &fallback, cache, gameinfo, 0);
+        V_ReadPixels(surface->pixels, surface->pitch);
         assert(SDL_SaveBMP(surface, selected ? "/private/tmp/dc-human01-selected.bmp" :
                                               "/private/tmp/dc-human01-unselected.bmp") == 0);
     }
@@ -142,18 +144,16 @@ int main(void) {
     G_InitGame();
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, WIDTH, HEIGHT, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {WIDTH,HEIGHT}, .cell = {32,32}, .cam = {128,110}};
+    V_AllocScreen(WIDTH, HEIGHT);
+    assert(screens[0].pixels);
+    app_t app = {.win = {WIDTH,HEIGHT}, .cell = {32,32}, .cam = {128,110}};
     spritecache_t *cache = calloc(1, sizeof(*cache));
     assert(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
     check_ranks(&app, cache);
     human01(&app, surface, cache);
     R_FreeSpriteCache(cache);
     free(cache);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     puts("PASS: persistent rank badges, native selection composition/health thresholds, HUMAN01 delivery");
 }

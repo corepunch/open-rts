@@ -114,6 +114,10 @@ static void pixels(void) {
     spritecache_t *cache = calloc(1, sizeof(*cache));
     CHECK(load_render_tables("data/DCOLONY", "JUNGLE"));
     CHECK(cache && load_dark_colony_unit_sprites("data/DCOLONY", NULL, NULL, 0, cache));
+    /* A level installs its tileset palette; sprites carry the same world colormap. */
+    const spritesheet_t *trooper = R_CacheLookup(cache, "SPRITES/TRSC.SPR");
+    CHECK(trooper);
+    I_SetPalette(trooper->palette);
     size_t bytes = surface->pitch * surface->h;
     void *expected = malloc(bytes);
     CHECK(expected);

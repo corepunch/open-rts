@@ -45,11 +45,7 @@ int main(void) {
     if (level.destroy_mission) level.destroy_mission(level.mission);
     level.mission = NULL; level.destroy_mission = NULL;
     assert(SDL_Init(SDL_INIT_VIDEO) == 0);
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0,640,480,32,SDL_PIXELFORMAT_ARGB8888);
-    assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {640,480}, .cell = {32,32}, .running = true};
+    app_t app = {.win = {640,480}, .cell = {32,32}, .running = true};
     void *ui = G_InitCustomUI(&app, "data/DCOLONY");
     assert(ui);
     mobj_t *barracks = find(MT_BRRKPOD), *center = find(MT_EXCOPOD);
@@ -116,42 +112,51 @@ int main(void) {
     assert(trooper->waypoints.count == 2);
     click(ui,&app,150,SDL_BUTTON_LEFT);
     assert(!trooper->waypoints.count && !P_HasMoveOrder(trooper));
-    /* Taller windows keep the sidebar column at the top-right corner and
-     * cover the world under it; only the message strip follows the bottom.
-     * The HUD owns textures of the renderer it was created with. */
+    /* Taller screens keep the sidebar column at the top-right corner and
+     * cover the world under it; only the message strip follows the bottom. */
     G_ShutdownCustomUI(ui);
-    SDL_DestroyRenderer(r_renderer);
-    SDL_FreeSurface(surface);
-    surface = SDL_CreateRGBSurfaceWithFormat(0,800,600,32,SDL_PIXELFORMAT_ARGB8888);
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0,800,600,32,SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t tall = {.renderer = r_renderer, .win = {800,600}, .cell = {32,32}, .running = true};
+    V_AllocScreen(800, 600);
+    assert(screens[0].pixels);
+    app_t tall = {.win = {800,600}, .cell = {32,32}, .running = true};
     ui = G_InitCustomUI(&tall, "data/DCOLONY");
     assert(ui);
-    SDL_SetRenderDrawColor(r_renderer, 255, 255, 255, 255);
-    SDL_RenderClear(r_renderer);
+    /* The HUD draws over a level, whose tileset palette is the screen palette. */
+    tileset_t tiles = {0};
+    spritesheet_t fallback = {0};
+    assert(W_LoadAssets(config.data_root, &level, g_game_default_sprite, &tiles, &fallback));
+    I_SetPalette(tiles.palette);
+    /* Fill with a marker index the HUD's chrome does not use, so an untouched
+     * pixel is recognisable whatever colours the palette holds. */
+    enum { MARKER = 255 };
+    memset(screens[0].pixels, MARKER, 800 * 600);
     spritecache_t sprites = {0};
     hudtext_t hud = {0};
     mobjlist_t objects = P_ListMobjs();
     G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
     P_FreeMobjList(&objects);
-    static uint32_t pixels[800 * 600];
-    assert(!SDL_RenderReadPixels(r_renderer, NULL, SDL_PIXELFORMAT_ARGB8888, pixels, 800 * 4));
+    const uint8_t *pixels = screens[0].pixels;
     const char *screenshot = getenv("OPEN_RTS_HUD_SCREENSHOT");
-    if (screenshot) assert(!SDL_SaveBMP(surface, screenshot));
+    if (screenshot) {
+        V_ReadPixels(surface->pixels, surface->pitch);
+        assert(!SDL_SaveBMP(surface, screenshot));
+    }
+    uint8_t black = V_NearestIndex(0xff000000u);
     for (int y = 480; y < 600; ++y)
-        for (int x = 676; x < 800; ++x) assert(pixels[y * 800 + x] == 0xff000000);
+        for (int x = 676; x < 800; ++x) assert(pixels[y * 800 + x] == black);
     int box = 0, strip = 0, world = 0;
     for (int y = 456; y < 473; ++y)
-        for (int x = 684; x < 756; ++x) box += pixels[y * 800 + x] != 0xffffffff;
+        for (int x = 684; x < 756; ++x) box += pixels[y * 800 + x] != MARKER;
     for (int y = 575; y < 600; ++y)
-        for (int x = 0; x < 516; ++x) strip += pixels[y * 800 + x] != 0xffffffff;
+        for (int x = 0; x < 516; ++x) strip += pixels[y * 800 + x] != MARKER;
     for (int y = 100; y < 575; ++y)
-        for (int x = 0; x < 516; ++x) world += pixels[y * 800 + x] != 0xffffffff;
+        for (int x = 0; x < 516; ++x) world += pixels[y * 800 + x] != MARKER;
     assert(box == 72 * 17 && strip > 516 * 20 && world == 0);
     G_ShutdownCustomUI(ui);
-    SDL_DestroyRenderer(r_renderer); r_renderer = NULL;
+    R_FreeSprite(&fallback);
+    R_FreeTileset(&tiles);
+    V_FreeScreen();
     SDL_FreeSurface(surface); SDL_Quit();
     rts_game_model_destroy(model);
     puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, pause, orders and waypoints");

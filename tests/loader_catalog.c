@@ -24,47 +24,23 @@ static void hash_bytes(const void *data, size_t size) {
 }
 #define HASH(value) hash_bytes(&(value), sizeof(value))
 
-static void hash_texture(SDL_Renderer *renderer, SDL_Texture *texture) {
-    int width, height;
-    CHECK(SDL_QueryTexture(texture, NULL, NULL, &width, &height) == 0);
-    HASH(width); HASH(height);
-    CHECK(SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE) == 0);
-    /* Terrain atlases can exceed the software render surface. Read every
-     * pixel in bounded chunks, preserving the same order across revisions. */
-    uint32_t *pixels = malloc(2048 * 2048 * sizeof(*pixels));
-    CHECK(pixels);
-    for (int y = 0; y < height; y += 2048) {
-        for (int x = 0; x < width; x += 2048) {
-            SDL_Rect source = { x, y, width - x, height - y };
-            if (source.w > 2048) source.w = 2048;
-            if (source.h > 2048) source.h = 2048;
-            SDL_Rect dest = { 0, 0, source.w, source.h };
-            CHECK(SDL_RenderCopy(renderer, texture, &source, &dest) == 0);
-            CHECK(SDL_RenderReadPixels(renderer, &dest, SDL_PIXELFORMAT_ARGB8888,
-                                       pixels, dest.w * 4) == 0);
-            hash_bytes(pixels, (size_t)dest.w * dest.h * sizeof(*pixels));
-        }
+/* Hash what the loader decoded: every index expanded through its palette. */
+static void hash_indexed(const uint8_t *indices, size_t count, const uint32_t palette[256]) {
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t color = palette[indices[i]];
+        HASH(color);
     }
-    free(pixels);
 }
 
-static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite) {
+static void hash_sprite(const spritesheet_t *sprite) {
     HASH(sprite->numlumps); HASH(sprite->frame_size);
     for (int i = 0; i < sprite->numlumps; ++i) {
         HASH(sprite->cells[i]);
-        if (sprite->lumps[i].indices) {
-            int width = sprite->cells[i].rect.w, height = sprite->cells[i].rect.h;
-            HASH(width); HASH(height);
-            for (int y = 0; y < height; y += 2048)
-                for (int x = 0; x < width; x += 2048)
-                    for (int row = y; row < height && row < y + 2048; ++row)
-                        for (int col = x; col < width && col < x + 2048; ++col) {
-                            uint32_t color = sprite->source_palette[sprite->lumps[i].indices[(size_t)row * width + col]];
-                            HASH(color);
-                        }
-        } else {
-            hash_texture(renderer, sprite->lumps[i].texture);
-        }
+        if (!sprite->lumps[i].indices) continue;
+        int width = sprite->cells[i].rect.w, height = sprite->cells[i].rect.h;
+        HASH(width); HASH(height);
+        hash_indexed(sprite->lumps[i].indices, (size_t)width * (size_t)height,
+                     sprite->source_palette);
     }
     HASH(sprite->spritedef.numframes);
     for (int i = 0; i < sprite->spritedef.numframes; ++i) {
@@ -83,7 +59,7 @@ static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite) {
     }
 }
 
-static bool catalog_sprite(SDL_Renderer *renderer, char *path) {
+static bool catalog_sprite(char *path) {
     spritesheet_t sprite = {0};
     uint32_t palette[256];
     for (int i = 0; i < 256; ++i) palette[i] = i ? 0xff000000u | (i * 0x010101u) : 0;
@@ -108,13 +84,12 @@ static bool catalog_sprite(SDL_Renderer *renderer, char *path) {
 #else
     (void)path;
 #endif
-    if (ok) hash_sprite(renderer, &sprite);
+    if (ok) hash_sprite(&sprite);
     R_FreeSprite(&sprite);
     return ok;
 }
 
-static bool catalog_map(SDL_Renderer *renderer, const char *path) {
-    (void)renderer;
+static bool catalog_map(const char *path) {
     P_InitThinkers();
     bool ok = G_DoLoadLevel(path, &level);
     if (ok) {
@@ -150,9 +125,10 @@ static bool catalog_map(SDL_Renderer *renderer, const char *path) {
         }
 #ifdef KK
         tileset_t tileset = {0};
-        CHECK(build_map_tileset(renderer, level.native_data, &tileset));
-        HASH(tileset.count); HASH(tileset.atlas_cols); HASH(tileset.tile_w); HASH(tileset.tile_h);
-        hash_texture(renderer, tileset.texture);
+        CHECK(build_map_tileset(level.native_data, &tileset));
+        HASH(tileset.count); HASH(tileset.tile_w); HASH(tileset.tile_h);
+        hash_indexed(tileset.indices, (size_t)tileset.count * (size_t)tileset.tile_w *
+                     (size_t)tileset.tile_h, tileset.palette);
         R_FreeTileset(&tileset);
 #endif
     }
@@ -164,13 +140,8 @@ static bool catalog_map(SDL_Renderer *renderer, const char *path) {
 
 int main(int argc, char **argv) {
     G_InitGame();
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 2048, 2048, 32, SDL_PIXELFORMAT_ARGB8888);
-    CHECK(surface);
-    SDL_Renderer *renderer = SDL_CreateSoftwareRenderer(surface);
-    CHECK(renderer);
-    r_renderer = renderer;
     if (argc == 2 && strcmp(argv[1], "--fixtures") == 0) {
-        test_loader_fixtures(renderer);
+        test_loader_fixtures();
     } else {
         CHECK(argc == 3);
         FILE *files = fopen(argv[2], "r");
@@ -180,14 +151,11 @@ int main(int argc, char **argv) {
             path[strcspn(path, "\n")] = 0;
             hash = UINT64_C(14695981039346656037);
             bool ok = strcmp(argv[1], "maps") == 0 ?
-                catalog_map(renderer, path) : catalog_sprite(renderer, path);
+                catalog_map(path) : catalog_sprite(path);
             printf("%s %016" PRIx64 " %s\n", ok ? "OK" : "FAIL", hash, path);
             fflush(stdout);
         }
         fclose(files);
     }
-    r_renderer = NULL;
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
     return 0;
 }

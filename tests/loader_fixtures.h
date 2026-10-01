@@ -30,9 +30,8 @@ static void write_path_fixture(const char *map_path, char path[80]) {
 #endif
 
 #if defined(DR) || defined(SL)
-static bool fixture_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
+static bool fixture_sprite(const uint8_t *data, size_t size,
                             const uint32_t *palette, spritesheet_t *sprite) {
-    (void)renderer;
 #ifdef DR
     return load_dark_sprite(data, size, palette, sprite);
 #else
@@ -44,16 +43,15 @@ static bool fixture_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t s
 #endif
 }
 
-static void reject_sprite(SDL_Renderer *renderer, const uint8_t *data, size_t size,
-                           const uint32_t *palette) {
+static void reject_sprite(const uint8_t *data, size_t size, const uint32_t *palette) {
     spritesheet_t sprite;
-    CHECK(!fixture_sprite(renderer, data, size, palette, &sprite));
+    CHECK(!fixture_sprite(data, size, palette, &sprite));
     CHECK(!sprite.cells && !sprite.lumps && !sprite.spritedef.spriteframes);
     R_FreeSprite(&sprite);
 }
 #endif
 
-static void test_loader_fixtures(SDL_Renderer *renderer) {
+static void test_loader_fixtures(void) {
     uint32_t palette[256] = {0};
     palette[1] = 0xff123456u;
     palette[2] = 0xffabcdefu;
@@ -77,37 +75,43 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     size_t size = 16;
 #endif
     spritesheet_t sprite;
-    CHECK(fixture_sprite(renderer, file, size, palette, &sprite));
+    CHECK(fixture_sprite(file, size, palette, &sprite));
     CHECK(sprite.numlumps == 1 && sprite.spritedef.numframes == 1);
     CHECK(sprite.cells[0].rect.w == 2 && sprite.cells[0].rect.h == 1);
     uint32_t actual[2];
-    SDL_Rect area = { 0, 0, 2, 1 };
+    irect_t area = { 0, 0, 2, 1 };
     CHECK(sprite.indexed && sprite.lumps[0].indices);
-    CHECK(R_DrawSprite(renderer, &sprite, 0, 0, NULL, &area, SDL_FLIP_NONE,
-                       (SDL_Color){255,255,255,255}, SDL_BLENDMODE_NONE));
-    CHECK(SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, actual, 8) == 0);
+    /* Draw over a marker index so an untouched pixel is distinguishable. */
+    enum { MARKER = 200 };
+    V_AllocScreen(2, 1);
+    CHECK(screens[0].pixels);
+    I_SetPalette(sprite.source_palette);
+    memset(screens[0].pixels, MARKER, 2);
+    CHECK(R_DrawSprite(&sprite, 0, 0, NULL, &area, 0, 16));
+    V_ReadPixels(actual, 8);
 #ifdef SL
-    CHECK(actual[0] == 0 && actual[1] == palette[2]);
+    CHECK(screens[0].pixels[0] == MARKER && actual[1] == palette[2]);
 #else
     CHECK(actual[0] == palette[1] && actual[1] == palette[2]);
 #endif
+    V_FreeScreen();
     R_FreeSprite(&sprite);
-    for (size_t n = 0; n < size; ++n) reject_sprite(renderer, file, n, palette);
+    for (size_t n = 0; n < size; ++n) reject_sprite(file, n, palette);
 #ifdef DR
     file[69] = 3; /* A literal run cannot overrun the canvas. */
-    reject_sprite(renderer, file, size, palette);
+    reject_sprite(file, size, palette);
     file[69] = 2;
     put32(file + 8, INT32_MAX); /* Header arithmetic must not wrap. */
-    reject_sprite(renderer, file, size, palette);
+    reject_sprite(file, size, palette);
 #else
     put16(file + 12, 3); /* Span extends past its source pixels. */
-    reject_sprite(renderer, file, size, palette);
+    reject_sprite(file, size, palette);
     memcpy(file, "VCLZ", 4); put32(file + 4, 2);
     file[8] = 3; file[9] = 0; file[10] = 0;
-    reject_sprite(renderer, file, 11, palette); /* Expanded file shorter than its offset word. */
+    reject_sprite(file, 11, palette); /* Expanded file shorter than its offset word. */
 #endif
 #elif defined(KK)
-    (void)renderer; (void)palette;
+    (void)palette;
     /* Frame -> TRPS flags -> two raw pixels, with a final-image anchor. */
     put32(file, 3); put32(file + 4, 4); put32(file + 12, 28);
     memcpy(file + 28, "TRPS", 4); put32(file + 32, 1); put32(file + 36, 40);
@@ -136,7 +140,7 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     file[49] = 2; file[50] = 3; /* Transparent skip past the two-pixel canvas. */
     CHECK(!decode_mobd_image(file, 51, 0, &cell, &lump, &flip));
 #else
-    (void)renderer; (void)palette;
+    (void)palette;
     extern bool load_dark_colony_map(const char *, level_t *);
     put32(file, 2); put32(file + 4, 2);
     for (int i = 0; i < 4; ++i) {
@@ -179,8 +183,7 @@ static void test_loader_fixtures(SDL_Renderer *renderer) {
     puts("PASS: loader pixels, metadata, truncated spans, and cleanup");
 }
 #else
-static void test_loader_fixtures(SDL_Renderer *renderer) {
-    (void)renderer;
+static void test_loader_fixtures(void) {
     CHECK(!"Compile with LOADER_FIXTURES to run format fixtures");
 }
 #endif

@@ -57,42 +57,43 @@ static void rejected(const uint8_t *file, size_t size) {
     R_FreeSprite(&sheet); /* Failure leaves the public result safe to free. */
 }
 
-static void check_pixels(SDL_Renderer *renderer, const spritesheet_t *sprite,
-                         const uint8_t *indices, int remap) {
-    uint32_t actual[6];
-    SDL_Rect rect = { 0, 0, 3, 2 };
-    CHECK(R_DrawSprite(renderer, sprite, 0, remap, NULL, &rect, SDL_FLIP_NONE,
-                       (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_NONE));
-    CHECK(SDL_RenderReadPixels(renderer, &rect, SDL_PIXELFORMAT_ARGB8888, actual, 12) == 0);
+/* The screen is 8x8 indices. Reading it back expands through the screen
+ * palette with alpha forced to 0xff. SPR entry 0 is transparent, so even an
+ * opaque draw leaves the cleared black behind it. */
+static void read_screen(uint32_t actual[64]) {
+    V_ReadPixels(actual, 8 * 4);
+}
+
+static void check_pixels(const spritesheet_t *sprite, const uint8_t *indices, int remap) {
+    uint32_t actual[64];
+    irect_t rect = { 0, 0, 3, 2 };
+    V_BeginFrame(0xff000000u);
+    CHECK(R_DrawSprite(sprite, 0, remap, NULL, &rect, V_OPAQUE, 16));
+    read_screen(actual);
     for (int i = 0; i < 6; ++i) {
         int index = indices[i];
         if (remap >= 0 && index >= 138 && index <= 143) index += (remap - 7) * 6;
         uint32_t channel = (index % 64) * 4 + 3;
-        uint32_t expected = index ? 0xff000000u | channel * 0x010101u : 0;
-        CHECK(actual[i] == expected);
+        uint32_t expected = index ? 0xff000000u | channel * 0x010101u : 0xff000000u;
+        CHECK(actual[(i / 3) * 8 + i % 3] == expected);
     }
 }
 
-static void check_blits(SDL_Renderer *renderer, const spritesheet_t *sprite) {
-    SDL_Color white = {255, 255, 255, 255};
+static void check_blits(const spritesheet_t *sprite) {
     irect_t left = {0, 0, 3, 2}, right = {4, 0, 3, 2};
-    CHECK(R_DrawSprite(renderer, sprite, 0, 0, NULL, &left,
-                       SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
-    CHECK(R_DrawSprite(renderer, sprite, 0, 7, NULL, &right,
-                       SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
+    CHECK(R_DrawSprite(sprite, 0, 0, NULL, &left, V_OPAQUE, 16));
+    CHECK(R_DrawSprite(sprite, 0, 7, NULL, &right, V_OPAQUE, 16));
     uint32_t actual[64];
-    CHECK(!SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, actual, 32));
+    read_screen(actual);
     CHECK(actual[1] == sprite->source_palette[96]);
     CHECK(actual[5] == sprite->source_palette[138]);
 
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    V_BeginFrame(0xff000000u);
     irect_t src = {1, 0, 2, 2}, dst = {1, 1, 4, 4}, clip = {2, 2, 3, 3};
-    CHECK(!SDL_RenderSetClipRect(renderer, &clip));
-    CHECK(R_DrawSprite(renderer, sprite, 0, -1, &src, &dst,
-                       SDL_FLIP_HORIZONTAL, white, SDL_BLENDMODE_BLEND));
-    CHECK(!SDL_RenderSetClipRect(renderer, NULL));
-    CHECK(!SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, actual, 32));
+    V_SetClip(clip);
+    CHECK(R_DrawSprite(sprite, 0, -1, &src, &dst, V_FLIP_X, 16));
+    V_SetClip((irect_t){0});
+    read_screen(actual);
     for (int y = 0; y < 8; ++y) {
         for (int x = 0; x < 8; ++x) {
             uint32_t expected = 0xff000000;
@@ -104,12 +105,11 @@ static void check_blits(SDL_Renderer *renderer, const spritesheet_t *sprite) {
         }
     }
     src.x = 2; /* Crop crosses the right edge. */
-    CHECK(!R_DrawSprite(renderer, sprite, 0, -1, &src, &dst,
-                        SDL_FLIP_NONE, white, SDL_BLENDMODE_BLEND));
+    CHECK(!R_DrawSprite(sprite, 0, -1, &src, &dst, 0, 16));
 }
 
 
-/* Optional catalog fingerprint compares actual SDL pixels (including all team
+/* Optional catalog fingerprint compares drawn pixels (including all team
  * remaps), indices, placement, and FIN definitions across loader revisions. */
 static uint64_t catalog_hash;
 static void hash_bytes(const void *data, size_t size) {
@@ -121,25 +121,24 @@ static void hash_bytes(const void *data, size_t size) {
 }
 static void hash_int(int value) { hash_bytes(&value, sizeof(value)); }
 
-static void hash_sprite(SDL_Renderer *renderer, const spritesheet_t *sprite, int frame, int palette) {
+static void hash_sprite(const spritesheet_t *sprite, int frame, int palette) {
     irect_t rect = sprite->cells[frame].rect;
-    size_t size = (size_t)rect.w * (size_t)rect.h * sizeof(uint32_t);
-    uint32_t *pixels = malloc(size);
-    SDL_Rect area = { 0, 0, rect.w, rect.h };
-    CHECK(pixels);
-    CHECK(R_DrawSprite(renderer, sprite, frame, palette, NULL, &area, SDL_FLIP_NONE,
-                       (SDL_Color){255, 255, 255, 255}, SDL_BLENDMODE_NONE));
-    CHECK(SDL_RenderReadPixels(renderer, &area, SDL_PIXELFORMAT_ARGB8888, pixels, rect.w * 4) == 0);
-    hash_bytes(pixels, size);
-    free(pixels);
+    irect_t area = { 0, 0, rect.w, rect.h };
+    CHECK(rect.w <= screens[0].w && rect.h <= screens[0].h);
+    CHECK(R_DrawSprite(sprite, frame, palette, NULL, &area, V_OPAQUE, 16));
+    for (int y = 0; y < rect.h; ++y) {
+        const uint8_t *row = screens[0].pixels + (size_t)y * (size_t)screens[0].w;
+        for (int x = 0; x < rect.w; ++x) {
+            uint32_t color = vpalette[row[x]] | 0xff000000u;
+            hash_bytes(&color, sizeof(color));
+        }
+    }
 }
 
 static int catalog(const char *manifest) {
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 1024, 1024, 32, SDL_PIXELFORMAT_ARGB8888);
-    SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
-    r_renderer = renderer;
+    V_AllocScreen(1024, 1024);
     FILE *files = fopen(manifest, "r");
-    CHECK(renderer && files);
+    CHECK(screens[0].pixels && files);
     char path[1024];
     while (fgets(path, sizeof(path), files)) {
         path[strcspn(path, "\n")] = '\0';
@@ -148,6 +147,7 @@ static int catalog(const char *manifest) {
             printf("FAIL %s\n", path);
             continue;
         }
+        I_SetPalette(sheet.source_palette);
         catalog_hash = UINT64_C(14695981039346656037);
         hash_int(sheet.numlumps);
         hash_int(sheet.frame_size.w); hash_int(sheet.frame_size.h);
@@ -161,8 +161,7 @@ static int catalog(const char *manifest) {
             hash_bytes(&cell->displacement, sizeof(cell->displacement));
             hash_bytes(lump->indices, (size_t)cell->rect.w * (size_t)cell->rect.h);
             for (int remap = -1; remap < 8; ++remap)
-                hash_sprite(renderer, &sheet, i, remap);
-            CHECK(!lump->texture); /* Drawing never expands the image's storage. */
+                hash_sprite(&sheet, i, remap);
         }
         hash_int(sheet.spritedef.numframes);
         for (int i = 0; i < sheet.spritedef.numframes; ++i) {
@@ -184,20 +183,14 @@ static int catalog(const char *manifest) {
         R_FreeSprite(&sheet);
     }
     fclose(files);
-    r_renderer = NULL;
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
+    V_FreeScreen();
     return 0;
 }
 
 int main(int argc, char **argv) {
-    SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
     if (argc == 2) return catalog(argv[1]);
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 8, 8, 32, SDL_PIXELFORMAT_ARGB8888);
-    SDL_Renderer *renderer = surface ? SDL_CreateSoftwareRenderer(surface) : NULL;
-    r_renderer = renderer;
-    CHECK(renderer);
+    V_AllocScreen(8, 8);
+    CHECK(screens[0].pixels);
     uint8_t file[1024];
     static const uint8_t pixels[] = { 0, 138, 5, 143, 0, 2 };
     /* Transparent margins remain part of the authored SPR geometry. */
@@ -224,30 +217,29 @@ int main(int argc, char **argv) {
         CHECK(ivec2_equal(sheet.cells[0].ground_point, (ivec2_t){ 1, 2 }));
         /* World colormaps must not replace the SPR's source palette. */
         memset(sheet.palette, 0, sizeof(sheet.palette));
+        I_SetPalette(sheet.source_palette);
         for (int pass = 0; pass < 2; ++pass)
             for (int i = -1; i < 8; ++i)
-                check_pixels(renderer, &sheet, pixels, i);
-        check_pixels(renderer, &sheet, pixels, -1);
-        check_blits(renderer, &sheet);
-        SDL_Color white = {255, 255, 255, 255};
-        CHECK(!R_DrawSprite(NULL, &sheet, 0, 2, NULL, NULL,
-                           SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
-        CHECK(!R_DrawSprite(renderer, &sheet, -1, 0, NULL, NULL,
-                           SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
-        CHECK(!R_DrawSprite(renderer, &sheet, sheet.numlumps, 0, NULL, NULL,
-                           SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
-        for (int i = 0; i < sheet.numlumps; ++i) CHECK(!sheet.lumps[i].texture);
+                check_pixels(&sheet, pixels, i);
+        check_pixels(&sheet, pixels, -1);
+        check_blits(&sheet);
+        CHECK(!R_DrawSprite(NULL, 0, 2, NULL, NULL, V_OPAQUE, 16));
+        CHECK(!R_DrawSprite(&sheet, -1, 0, NULL, NULL, V_OPAQUE, 16));
+        CHECK(!R_DrawSprite(&sheet, sheet.numlumps, 0, NULL, NULL, V_OPAQUE, 16));
         /* Unknown palette IDs select source colors, and source palettes remain live. */
         irect_t dst = {0, 0, 3, 2};
-        CHECK(R_DrawSprite(renderer, &sheet, 0, 99, NULL, &dst,
-                          SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
-        uint32_t actual[6];
-        CHECK(!SDL_RenderReadPixels(renderer, &dst, SDL_PIXELFORMAT_ARGB8888, actual, 12));
+        CHECK(R_DrawSprite(&sheet, 0, 99, NULL, &dst, V_OPAQUE, 16));
+        uint32_t actual[64];
+        read_screen(actual);
         CHECK(actual[1] == sheet.source_palette[138]);
+        /* A colour the screen palette lacks is nearest-matched, not invented. */
         sheet.source_palette[138] = 0xff123456;
-        CHECK(R_DrawSprite(renderer, &sheet, 0, -1, NULL, &dst,
-                          SDL_FLIP_NONE, white, SDL_BLENDMODE_NONE));
-        CHECK(!SDL_RenderReadPixels(renderer, &dst, SDL_PIXELFORMAT_ARGB8888, actual, 12));
+        CHECK(R_DrawSprite(&sheet, 0, -1, NULL, &dst, V_OPAQUE, 16));
+        read_screen(actual);
+        CHECK(actual[1] != 0xff123456);
+        I_SetPalette(sheet.source_palette);
+        CHECK(R_DrawSprite(&sheet, 0, -1, NULL, &dst, V_OPAQUE, 16));
+        read_screen(actual);
         CHECK(actual[1] == 0xff123456);
         R_FreeSprite(&sheet);
         rejected(file, size - 1); /* Truncated last cell, after allocations. */
@@ -283,14 +275,10 @@ int main(int argc, char **argv) {
     u16(file + 2, 0);
     rejected(file, size);
     size = fixture(file, false);
-    r_renderer = NULL;
+    V_FreeScreen();
     spritesheet_t decoded;
-    CHECK(load(file, size, &decoded)); /* Decoding needs no renderer. */
+    CHECK(load(file, size, &decoded)); /* Decoding needs no screen. */
     R_FreeSprite(&decoded);
-    r_renderer = NULL;
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(renderer);
-    SDL_FreeSurface(surface);
     puts("PASS: direct SPR loading, translations, empty cells, and malformed spans");
     return 0;
 }

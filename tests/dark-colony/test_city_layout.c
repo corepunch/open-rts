@@ -19,9 +19,9 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
     mobj_t *actors[MAX_OBJECTS];
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = {.renderer = r_renderer, .win = {640, 480}, .cell = {32, 32}};
+    V_AllocScreen(surface->w, surface->h);
+    assert(screens[0].pixels);
+    app_t app = {.win = {640, 480}, .cell = {32, 32}};
     fvec2_t city_screen;
     R_MapPositionToScreen(&app, &level, fixed3_from_fvec2(anchor, 0), &city_screen.x, &city_screen.y);
     app.cam = fvec2_sub((fvec2_t){320, 370}, city_screen);
@@ -89,15 +89,13 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
     DC_FreeFIN(&fin);
     R_DrawLevel(&app, &level, &tiles);
     R_RenderPlayerView(&app, &level, &tiles, actors, count, NULL, cache, gameinfo, 0);
-    SDL_RenderPresent(r_renderer);
+    V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, screenshot));
     R_FreeSpriteCache(cache);
     free(cache);
     R_FreeSprite(&fallback);
     R_FreeTileset(&tiles);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     P_FreeLevel(&level);
 }

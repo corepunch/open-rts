@@ -15,13 +15,12 @@ static bool active(const mobj_t *actor) {
     return actor->core.state_id >= S_VENT_ACTIVE1 && actor->core.state_id <= S_VENT_ACTIVE20;
 }
 
-static void draw(app_t *app, const tileset_t *tiles, const spritecache_t *cache,
-                 mobj_t *actor) {
-    SDL_SetRenderDrawColor(app->renderer, 70, 80, 90, 255);
-    SDL_RenderClear(app->renderer);
+static void draw(app_t *app, SDL_Surface *surface, const tileset_t *tiles,
+                 const spritecache_t *cache, mobj_t *actor) {
+    V_BeginFrame(0xff46505au);
     R_DrawLevel(app, &level, tiles);
     R_RenderPlayerView(app, &level, tiles, &actor, actor ? 1 : 0, NULL, cache, gameinfo, 0);
-    SDL_RenderPresent(app->renderer);
+    V_ReadPixels(surface->pixels, surface->pitch);
 }
 
 static void check_harvester_attachment(uint16_t type, int harvest_state,
@@ -75,9 +74,9 @@ int main(void) {
 
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
-    r_renderer = SDL_CreateSoftwareRenderer(surface);
-    assert(r_renderer);
-    app_t app = { .renderer = r_renderer, .win = {640, 480} };
+    V_AllocScreen(640, 480);
+    assert(screens[0].pixels);
+    app_t app = { .win = {640, 480} };
     fvec2_t screen;
     R_MapPositionToScreen(&app, &level, vent->core.position, &screen.x, &screen.y);
     app.cam = fvec2_sub((fvec2_t){320, 240}, screen);
@@ -96,7 +95,7 @@ int main(void) {
     size_t bytes = (size_t)surface->pitch * surface->h;
     void *first = malloc(bytes), *bare = malloc(bytes);
     assert(first && bare);
-    draw(&app, &tiles, cache, NULL);
+    draw(&app, surface, &tiles, cache, NULL);
     memcpy(bare, surface->pixels, bytes);
     for (int frame = SDL_SwapLE16(label->start); frame <= SDL_SwapLE16(label->end); ++frame) {
         assert(vent->core.frame == sheet->numlumps + frame && !P_MobjIsHidden(vent));
@@ -115,7 +114,7 @@ int main(void) {
         native += (raw + 3) * 15 / 100;
         int boundary = (native * 66 * 30 + 500) / 1000;
         assert(vent->core.tics == boundary - elapsed);
-        draw(&app, &tiles, cache, vent);
+        draw(&app, surface, &tiles, cache, vent);
         assert(memcmp(bare, surface->pixels, bytes));
         if (frame == SDL_SwapLE16(label->start)) memcpy(first, surface->pixels, bytes);
         if (frame == 29) {
@@ -135,7 +134,7 @@ int main(void) {
     exploiter->harvest.phase = HARVEST_PHASE_MINING;
     tick(8);
     assert(vent->core.state_id == S_VENT_ATTACHED && P_MobjIsHidden(vent));
-    draw(&app, &tiles, cache, vent);
+    draw(&app, surface, &tiles, cache, vent);
     assert(!memcmp(bare, surface->pixels, bytes));
     exploiter->harvest.phase = HARVEST_PHASE_NONE;
     exploiter->harvest.target = -1;
@@ -161,7 +160,7 @@ int main(void) {
     tick(8);
     assert(resource->amount == 0 && !resource->active);
     assert(vent->core.state_id == S_VENT_EXHAUSTED && P_MobjIsHidden(vent));
-    draw(&app, &tiles, cache, vent);
+    draw(&app, surface, &tiles, cache, vent);
     assert(!memcmp(bare, surface->pixels, bytes));
     assert(!SDL_SaveBMP(surface, "/private/tmp/vent-exhausted.bmp"));
     tick(100);
@@ -203,7 +202,7 @@ int main(void) {
         }
         assert(!layers[frame + 1].sprite_name[0]);
         assert(beacon->core.tics == (frame ? 4 : 2));
-        draw(&app, &tiles, cache, beacon);
+        draw(&app, surface, &tiles, cache, beacon);
         if (!frame) memcpy(first, surface->pixels, bytes);
         else {
             assert(memcmp(first, surface->pixels, bytes));
@@ -221,9 +220,7 @@ int main(void) {
     free(cache);
     R_FreeTileset(&tiles);
     R_FreeSprite(&fallback);
-    R_FreeSpriteBuffer();
-    SDL_DestroyRenderer(r_renderer);
-    r_renderer = NULL;
+    V_FreeScreen();
     SDL_FreeSurface(surface);
     P_FreeLevel(&level);
     assert(thinkercap.next == &thinkercap);
