@@ -796,21 +796,20 @@ static void drag_server_scroll(ivec2_t point) {
     if (server_scroll < 0) server_scroll = 0;
 }
 
+/* The native screens hard-wire their lists, scroll bars and editable fields
+ * by control id. Every other selectable control acts as a button. */
 static menuitemkind_t item_kind(int id) {
-    const menucontrol_t *c = &controls[id];
-    if (c->kind == TEXT || c->writable || (page == SETUP && id == 5) ||
-        (page == SESSION_NAME && id == 1) || (page == CONNECT && id == 3) ||
-        (page == SKIRMISH && id == 0))
+    if (page == BROWSE && id <= 1) return id ? MI_SCROLLBAR : MI_LIST;
+    if (page == SKIRMISH && (id == 27 || id == 30)) return id == 27 ? MI_LIST : MI_SCROLLBAR;
+    if ((page == SETUP && id == 5) || (page == SESSION_NAME && id == 1) ||
+        (page == CONNECT && id == 3) || (page == SKIRMISH && id == 0))
         return MI_TEXTFIELD;
-    switch (c->kind) {
-    case TEXT: return MI_TEXTFIELD;
-    case LIST: return MI_LIST;
-    case SCROLL: return MI_SCROLLBAR;
+    switch (controls[id].kind) {
     case CHECK: return MI_CHECK;
-    case PUSH: return MI_BUTTON;
     case PICTURE: return MI_PICTURE;
     case GADGET: return MI_CUSTOM;
-    case LABEL: case NONE: return MI_LABEL;
+    case LABEL: case TEXT: case NONE: return MI_LABEL;
+    case PUSH: case LIST: case SCROLL: return MI_BUTTON;
     }
     return MI_LABEL;
 }
@@ -903,12 +902,14 @@ static void menu_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
         return;
     }
     if (action != MA_ACTIVATE) return;
-    if (item->kind == MI_TEXTFIELD) {
-        if (item->pressed) return;
+    /* Enter on a field or the session list confirms the screen. A mouse click
+     * acts on the control it hit. */
+    if (!item->pressed) {
         if (page == SETUP && id == 5) id = training ? 2 : 3;
         else if (page == SESSION_NAME && id == 1) id = 0;
         else if (page == CONNECT && id == 3) id = 0;
-    } else if (page == BROWSE && id == 0) id = 5;
+        else if (page == BROWSE && id == 0) id = 5;
+    }
     activate(app, id, menu->inlevel);
 }
 #define pressed dc_menu.grab
