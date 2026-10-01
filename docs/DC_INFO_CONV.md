@@ -36,62 +36,38 @@ Unsupported older FIN layouts are reported, not reinterpreted as retail records.
 `--states` preserves raw durations and placeholder actions/terminal states; it
 does not regenerate gameplay actions or the complete hand-authored `info.c`.
 
-## Gameplay state export
+## Gameplay states
 
-```sh
-make dark-colony-states
-python3 tools/dc_states.py --check
-make test-dc-info-conv
+Gameplay states are authored by hand in `games/dark-colony/info.c`; there is no
+state generator, `tools/dc_states.txt`, or `animate/*.inc` any more. One row is
+a run of consecutive frames:
+
+```c
+/* sprite, first logical frame, frames, tics per frame, action, next state, group, tics list */
+[S_TRSC_RUN1] = { SPR_TRSC, 225, 8, 3, A_Chase, S_TRSC_RUN1, 2, NULL },
+[S_TRSC_ATK1] = { SPR_TRSC, 297, 2, 2, NULL, S_TRSC_ATK3, 3, NULL },
+[S_TRSC_ATK3] = { SPR_TRSC, 299, 1, 2, A_Attack, S_TRSC_ATK4, 3, NULL },
+[S_REAP_RUN1] = { SPR_REAP, 124, 8, 0, A_Chase, S_REAP_RUN1, 2, TICS(4,3,3,4,1,3,3,1) },
 ```
 
-`tools/dc_states.txt` is the authored gameplay input, following multigen's
-`state sprite frame tics action nextstate` column order with a final group.
-It has explicit action names; FIN assets never supply C action functions.
-For example:
+The action runs on entering every frame of the run, so a frame with its own
+action (the Trooper's firing frame above) is its own row. A row's name keeps
+the number of its first frame. Frames are engine logical FIN indices (raw SPR
+cell count plus native FIN frame), not image pixels or per-direction metadata.
+Add the state's name to `statenum_t` in `info.h` when adding a row.
 
-```text
-S_TRSC_RUN{1..8}  TRSC 225..232 3                 A_Chase             S_TRSC_RUN1 2
-S_REAP_RUN{1..8}  REAP 124..131 4,3,3,4,1,3,3,1   A_Chase             S_REAP_RUN1 2
-S_BRRKPOD_STND    HUBU 38       5                 A_DC_BuildingStand  S_BRRKPOD_STND_2 1
-```
+Native BLOOD, SCRCH, BURN and DIE label families are one row each, named
+`S_<LABEL>_<first FIN frame>`. `p_blood.c` maps exact labels to their rows and
+enters them at frame 1 (`P_SetMobjStateFrame`), as the native channel skips its
+reset frame; `dc_building_sequences` in `info.c` names each human building's
+SCRCH/BURN/DIE row. Building families follow ANIM.DAT's load set, where the
+requested labels are unique.
 
-Numbered names and integer ranges expand inclusively. A scalar frame/tic repeats;
-comma-separated values preserve authored timing. Intermediate states chain to
-the following expanded state, and the last takes the explicit `nextstate`.
-Frames are engine logical FIN indices (raw SPR cell count plus native FIN frame),
-not image pixels or per-direction metadata. The explicitly held Exploiter WORK
-pose and Reaper timing remain authored policy, not inferred from label names.
-
-`tools/dc_states.py` contains the small `FAMILY_RULES` table for native BLOOD,
-SCRCH, BURN and DIE families: action, group, terminal behavior and timing policy.
-`A_DC_BuildingStand` is explicit for SCRCH/BURN; BLOOD/DIE use NULL. The
-zero-tic production completion action is explicit in `TERMINAL_STATES`.
-These entries explain where custom actions get assigned; their implementations
-remain ordinary handwritten `void action(mobj_t *)` functions.
-
-The exporter writes raw designated initializers to
-`games/dark-colony/animate/<FIN stem>.inc`, included directly by `info.c`.
-All 2,719 existing state IDs retain their values; designated initializers permit
-per-FIN grouping without renumbering. `info.h` receives ordinary enum entries.
-No state/label expansion macros are involved. The raw exact-label lookup is emitted directly into `p_blood.c`; the raw
-SCRCH/BURN/DIE range table is emitted directly into `info.c` and shared by
-building logic and native-metadata verification. Neither needs a separate include.
-
-The blood catalog still retains all 208 BLOOD-labelled sequences from supported
-FIN files, including labels the native A–G/facing lookup cannot select.
-Building families follow ANIM.DAT's load set, where the requested labels are
-unique. Other unsupported FIN layouts are reported and skipped as in the former
-blood exporter. The inspector validates file spans and label ranges.
-The two former macro exporters (`--blood-states`, `dc_building_states.py`) and
-their macro-based output files have been removed.
-
-Native family timing is unchanged: delay is the low byte of
+Native family timing: delay is the low byte of
 `floor(((raw ? raw : 15) + 3) * 15 / 100)`, zero underflows to 256 ticks,
-and cumulative 66 ms boundaries are rounded to 30 Hz. Blood's skipped reset
+and cumulative 66 ms boundaries are rounded to 30 Hz, which is why many rows
+carry a `TICS(...)` list instead of one duration. Blood's skipped reset
 frame and building death's initial one-tick presentation remain separate,
 explicit timing policies. See [the native findings](DC_EXE_FINDINGS.md).
-
-Regenerate after editing the authored table or family rules; `--check` makes
-stale output a failure. `info.c` still owns `sprnames[]` and `mobjinfo[]`;
-the exporter replaces its state-array and building-range blocks, `info.h`'s
-state enum, and `p_blood.c`'s label-table block.
+Use `build/dc_info_conv --label` to read a label's frames and delays when
+authoring a row.

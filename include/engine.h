@@ -558,14 +558,30 @@ typedef struct mobjtype_s {
     actionf_p1 damage_action;
 } mobjtype_t;
 
+/* A state is a run of `count` consecutive sprite frames sharing one action,
+ * like Quake II's mmove_t. The action runs on entering every frame; nextstate
+ * follows the last. Doom's one-frame state is the count == 1 case. */
 typedef struct state_s {
     int sprite;
-    int frame;
-    int tics;
+    int frame; /* First logical frame of the run. */
+    int count; /* Frames in the run; zero means one. */
+    int tics;  /* Duration of each frame, unless frame_tics lists them. */
     actionf_p1 action;
     int nextstate;
     int group; /* Gameplay animation group, independent of sprite presentation. */
+    const int16_t *frame_tics; /* Optional per-frame durations, `count` entries. */
 } state_t;
+
+/* Per-frame durations of a state-table row with uneven native timing. */
+#define TICS(...) (const int16_t[]){ __VA_ARGS__ }
+
+static inline int P_StateFrames(const state_t *state) {
+    return state->count > 1 ? state->count : 1;
+}
+
+static inline int P_StateTics(const state_t *state, int frame) {
+    return state->frame_tics ? state->frame_tics[frame] : state->tics;
+}
 
 typedef struct mobjinfo_s mobjinfo_t;
 
@@ -619,6 +635,7 @@ typedef struct mobjcore_s {
     fixed3_t momentum;
     angle_t angle;
     int state_id;
+    int state_frame; /* Index into the current state's run of frames. */
     int tics;
     int sprite_id;
     int frame;
@@ -761,6 +778,8 @@ mobjlist_t P_ListMobjs(void);
 void P_FreeMobjList(mobjlist_t *list);
 
 bool P_SetMobjState(mobj_t *unit, int state_id);
+/* Enters one frame of a state's run; a frame past its end enters nextstate. */
+bool P_SetMobjStateFrame(mobj_t *unit, int state_id, int frame);
 bool P_TickMobjState(mobj_t *unit);
 production_t *P_EnsureMobjProduction(mobj_t *unit);
 void P_FreeMobjProduction(mobj_t *unit);

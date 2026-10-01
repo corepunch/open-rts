@@ -4,6 +4,23 @@ Audit date: 2026-09-07. Scope: actor spawning, state entry/ticking/removal,
 Dark Colony reinforcement ships, and adjacent effect/production lifetimes.
 This is not a claim of full game or network equivalence.
 
+## State runs (2026-10-01)
+
+A `state_t` row is now a run of consecutive frames (`frame`, `count`) sharing
+one action, instead of one row per frame chained through `nextstate`. The
+action still runs on entering each frame, `nextstate` follows the last frame,
+and `mobjcore_t.state_frame` records the position in the run. The thinker,
+spawn, zero-tic and `S_NULL` contracts below are unchanged; "state" in the
+older sections reads as "frame of a state" where it describes per-frame
+timing. Dark Colony went from 3,574 rows to 396, Dark Reign from 606 to 313,
+KKnD from 406 to 164; the per-sprite `animate/*.inc` files are gone.
+
+Native Dark Colony has no state table: an object channel holds an animation
+pointer and frame, timer and mode bytes, and per-type handlers choose labels
+([DC_EXE_FINDINGS.md](DC_EXE_FINDINGS.md)). Quake II likewise replaced Quake's
+per-frame functions with `mmove_t` ranges. Runs keep Doom's action-per-frame
+semantics at that coarser grain.
+
 ## Current contract: Doom thinker storage (2026-09-09)
 
 The requested refactor removes the flat mobj array, compaction, `effect_t`

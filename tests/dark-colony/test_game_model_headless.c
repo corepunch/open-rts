@@ -116,23 +116,19 @@ static int assert_dark_colony_sprite_catalog(void) {
 }
 
 static int assert_dark_colony_exploiter_work_states(void) {
-    enum { EXPECTED_WORK_STATE_COUNT = 2 };
-    int deploy_count = S_EXPL_WORK1 - S_EXPL_DEPLOY1;
-    if (deploy_count <= 0) {
-        return fail("Dark Colony Exploiter deploy state count is positive");
+    enum { EXPECTED_WORK_FRAME_COUNT = 2 };
+    const state_t *deploy = &states[S_EXPL_DEPLOY1];
+    if (P_StateFrames(deploy) <= 0 || deploy->nextstate != S_EXPL_WORK1) {
+        return fail("Dark Colony Exploiter deploy run leads into work");
     }
-    int count = S_EXPL_DIE1 - S_EXPL_WORK1;
-    if (count != EXPECTED_WORK_STATE_COUNT) {
-        return fail("Dark Colony Exploiter mining work state count matches FIN cycle");
+    const state_t *work = &states[S_EXPL_WORK1];
+    if (P_StateFrames(work) != EXPECTED_WORK_FRAME_COUNT) {
+        return fail("Dark Colony Exploiter mining work frame count matches FIN cycle");
     }
-    const state_t *lit = &states[S_EXPL_WORK1];
-    const state_t *unlit = &states[S_EXPL_WORK2];
-    if (lit->sprite != SPR_EXPL || lit->frame != 102 || lit->tics != 2 ||
-        lit->nextstate != S_EXPL_WORK2) {
+    if (work->sprite != SPR_EXPL || work->frame != 102 || P_StateTics(work, 0) != 2) {
         return fail("Dark Colony Exploiter work uses the lit deployed FIN frame");
     }
-    if (unlit->sprite != SPR_EXPL || unlit->frame != 103 || unlit->tics != 4 ||
-        unlit->nextstate != S_EXPL_WORK1) {
+    if (P_StateTics(work, 1) != 4 || work->nextstate != S_EXPL_WORK1) {
         return fail("Dark Colony Exploiter work loops through the native body frame");
     }
     return 0;
@@ -469,7 +465,7 @@ static int assert_human02(RtsGameModel *model) {
             const RtsRenderUnit *unit = &snapshot.units[j];
             if (unit->type_id != MT_VENT ||
                 !fvec2_near(unit->position, vent->attachment, 0.001f)) continue;
-            bool animated = unit->state_id >= S_VENT_ACTIVE1 && unit->state_id <= S_VENT_ACTIVE20;
+            bool animated = unit->state_id == S_VENT_ACTIVE1;
             if (animated != vent->active)
                 return fail("Human02 vent mobj state follows resource activity");
             found = true;

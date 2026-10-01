@@ -169,7 +169,7 @@ static int assert_exploiter_harvest_lifecycle(void) {
         if (now < 0) return fail("exploiter disappeared during harvest");
         if (snapshot.units[now].harvest_target >= 0) saw_harvest_target = true;
         int state_id = snapshot.units[now].state_id;
-        if (state_id >= S_EXPL_DEPLOY1 && state_id <= S_EXPL_WORK2)
+        if (state_id == S_EXPL_DEPLOY1 || state_id == S_EXPL_WORK1)
             saw_deploy_or_work_state = true;
     }
     if (!saw_harvest_target) return fail("exploiter never recorded a harvest target");

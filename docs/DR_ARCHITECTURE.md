@@ -57,7 +57,6 @@ SCN start data is not equivalent to executing the entire retail campaign.
 | [w_til.c](../games/dark-reign/w_til.c) | Native terrain tile loading |
 | [tools/dr_info_gen.c](../tools/dr_info_gen.c) | C generator for sprite names, state IDs, animation chains and type-entry points |
 | [info.c](../games/dark-reign/info.c) / [info.h](../games/dark-reign/info.h) | Generated Doom-style `sprnames[]`, `states[]`, `mobjinfo[]`, enums and game info |
-| [animate/](../games/dark-reign/animate/) | Generated per-sprite state initializer includes |
 
 Native retail assets under `data/REIGN/dark` are the runtime source. OpenDR's
 pinned sequence metadata supports authored animation mapping; it does not

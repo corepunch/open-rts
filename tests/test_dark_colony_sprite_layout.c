@@ -529,10 +529,13 @@ void DC_DrawUnitOverlays(const unitoverlaycontext_t *ctx) { (void)ctx; }
 
 static int assert_reaper_move_timing(void) {
     static const int expected_tics[] = {4, 3, 3, 4, 1, 3, 3, 1};
+    const state_t *run = &states[S_REAP_RUN1];
+    if (P_StateFrames(run) != 8 || run->nextstate != S_REAP_RUN1)
+        return fail("Reaper movement is one looping eight-frame run");
     for (int i = 0; i < 8; ++i) {
-        if (states[S_REAP_RUN1 + i].tics != expected_tics[i]) {
-            fprintf(stderr, "Reaper run state %d has %d tics, expected %d\n",
-                    i + 1, states[S_REAP_RUN1 + i].tics, expected_tics[i]);
+        if (P_StateTics(run, i) != expected_tics[i]) {
+            fprintf(stderr, "Reaper run frame %d has %d tics, expected %d\n",
+                    i + 1, P_StateTics(run, i), expected_tics[i]);
             return fail("Reaper movement preserves native FIN timing");
         }
     }
@@ -541,14 +544,16 @@ static int assert_reaper_move_timing(void) {
 
 static int assert_barracks_trooper_release_timing(void) {
     int total_tics = 0;
-    int state_id = S_BRRKPOD_BUILD_TRSC1;
+    const state_t *release = &states[S_BRRKPOD_BUILD_TRSC1];
+    if (P_StateFrames(release) != 22 || release->group != 6)
+        return fail("Barracks Trooper release is one 22-frame run");
     for (int frame = 0; frame < 22; ++frame) {
-        const state_t *state = &states[state_id];
-        if (state->group != 6 || state->tics < 1 || state->tics > 2)
+        int tics = P_StateTics(release, frame);
+        if (tics < 1 || tics > 2)
             return fail("Barracks Trooper release uses native FIN runtime timing");
-        total_tics += state->tics;
-        state_id = state->nextstate;
+        total_tics += tics;
     }
+    int state_id = release->nextstate;
     if (total_tics != 44 || state_id != S_PRODUCTION_READY ||
         states[state_id].tics != 0 || states[state_id].action != A_DC_ProductionReady ||
         states[state_id].nextstate != S_NULL)
@@ -588,8 +593,11 @@ static int assert_dropship_state_chain(void) {
     if (mobjinfo[MT_DROPSHIP].spawnstate != S_DROP_UNLOAD1 ||
         mobjinfo[MT_DROPSHIP].seestate != S_DROP_MOVE1 ||
         states[S_DROP_UNLOAD1].action != A_DC_Arrive ||
-        states[S_DROP_MOVE10].nextstate != S_DROP_MOVE1 ||
-        states[S_DROP_UNLOAD10].nextstate != S_DROP_RELEASE ||
+        P_StateFrames(&states[S_DROP_MOVE1]) != 10 ||
+        states[S_DROP_MOVE1].nextstate != S_DROP_MOVE1 ||
+        states[S_DROP_UNLOAD1].nextstate != S_DROP_UNLOAD2 ||
+        P_StateFrames(&states[S_DROP_UNLOAD2]) != 9 ||
+        states[S_DROP_UNLOAD2].nextstate != S_DROP_RELEASE ||
         states[S_DROP_RELEASE].action != A_DC_Drop ||
         states[S_DROP_RELEASE].tics != 0) {
         return fail("Dropship uses native frame chains and a payload-release action");

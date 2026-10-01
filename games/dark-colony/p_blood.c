@@ -250,5 +250,5 @@ void A_DC_Damage(mobj_t *target) {
     blood->core.render_offset = target->core.render_offset;
     /* 0x423c34 resets frame/timer to zero; 0x423dd0 advances to +1
      * before loading the first delay. A one-frame label ends immediately. */
-    P_SetMobjState(blood, gameinfo->states[first].nextstate);
+    P_SetMobjStateFrame(blood, first, 1);
 }

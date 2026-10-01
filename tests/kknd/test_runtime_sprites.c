@@ -89,7 +89,8 @@ int main(void) {
     for (int i = 1; i < NUMSTATES; ++i) {
         const state_t *state = &states[i];
         const spritesheet_t *sprite = R_StateSprite(cache, gameinfo, state->sprite, NULL);
-        if (!sprite || state->frame < 0 || state->frame >= sprite->spritedef.numframes) {
+        if (!sprite || state->frame < 0 ||
+            state->frame + P_StateFrames(state) > sprite->spritedef.numframes) {
             fprintf(stderr, "state=%d sprite=%s frame=%d loaded_frames=%d\n", i,
                     sprnames[state->sprite], state->frame, sprite ? sprite->spritedef.numframes : 0);
             failures++;

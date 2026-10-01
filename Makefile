@@ -20,7 +20,6 @@ BIN_DIR   := $(BUILD_DIR)/bin
 
 ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_CONV_TARGET    := $(BUILD_DIR)/dc_info_conv
-DC_INFO_GEN_TARGET     := $(BUILD_DIR)/dc_info_gen
 DR_INFO_GEN_TARGET     := $(BUILD_DIR)/dr_info_gen
 SL_INFO_GEN_TARGET     := $(BUILD_DIR)/7legion_info_gen
 KKND_INFO_GEN_TARGET   := $(BUILD_DIR)/kknd_info_gen
@@ -51,7 +50,6 @@ MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render hud -name '*
 # ── tool sources ─────────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE    := tools/anim_extract.c
 DC_INFO_CONV_SOURCES   := $(sort $(shell find tools/dc_info_conv -name '*.c'))
-DC_INFO_GEN_SOURCE     := tools/dc_info_gen.c
 DR_INFO_GEN_SOURCE     := tools/dr_info_gen.c
 SL_INFO_GEN_SOURCE     := tools/7legion_info_gen.c
 KKND_INFO_GEN_SOURCE   := tools/kknd_info_gen.c
@@ -62,8 +60,8 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
         test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
-        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-states dark-colony-gamestat 7legion kknd \
-		kknd-check anim-extract dc-info-conv dc-info-gen dr-info-gen 7legion-info-gen kknd-info-gen test-info-gen \
+        dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
+		kknd-check anim-extract dc-info-conv dr-info-gen 7legion-info-gen kknd-info-gen test-info-gen \
 		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help
 
 # ── per-game binary rule template ────────────────────────────────────────────
@@ -146,9 +144,6 @@ $(ANIM_EXTRACT_TARGET): $(BUILD_DIR)/tools/anim_extract.o
 $(DC_INFO_CONV_TARGET): $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_CONV_SOURCES))
 	$(CC) $^ -o $@
 
-$(DC_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dc_info_gen.o
-	$(CC) $^ -o $@
-
 $(DR_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dr_info_gen.o
 	$(CC) $^ -o $@
 
@@ -173,7 +168,6 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 
 -include $(BUILD_DIR)/tools/anim_extract.d
 -include $(patsubst %.c,$(BUILD_DIR)/%.d,$(DC_INFO_CONV_SOURCES))
--include $(BUILD_DIR)/tools/dc_info_gen.d
 -include $(BUILD_DIR)/tools/dr_info_gen.d
 -include $(BUILD_DIR)/tools/7legion_info_gen.d
 -include $(BUILD_DIR)/tools/kknd_info_gen.d
@@ -183,8 +177,6 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 
 dc-info-conv: $(DC_INFO_CONV_TARGET)
 
-dc-info-gen: $(DC_INFO_GEN_TARGET)
-
 dr-info-gen: $(DR_INFO_GEN_TARGET)
 
 7legion-info-gen: $(SL_INFO_GEN_TARGET)
@@ -193,45 +185,35 @@ kknd-info-gen: $(KKND_INFO_GEN_TARGET)
 
 dark-reign-info: $(DR_INFO_GEN_TARGET)
 	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) \
-	    games/dark-reign/info.h games/dark-reign/info.c \
-	    games/dark-reign/animate
+	    games/dark-reign/info.h games/dark-reign/info.c
 
 7legion-info: $(SL_INFO_GEN_TARGET)
 	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) \
-	    games/7legion/info.h games/7legion/info.c \
-	    games/7legion/animate
+	    games/7legion/info.h games/7legion/info.c
 
 kknd-info: $(KKND_INFO_GEN_TARGET)
 	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG \
-	    games/kknd/info.h games/kknd/info.c games/kknd/animate
+	    games/kknd/info.h games/kknd/info.c
 
-# Prefer the system tools: a foreign-architecture cmp or diff earlier in PATH
+# Prefer the system tool: a foreign-architecture cmp earlier in PATH
 # fails with "Bad CPU type" and would fail this check for the wrong reason.
 CMP := $(firstword $(wildcard /usr/bin/cmp) cmp)
-DIFF := $(firstword $(wildcard /usr/bin/diff) diff)
 test-info-gen: $(DR_INFO_GEN_TARGET) $(SL_INFO_GEN_TARGET) $(KKND_INFO_GEN_TARGET)
+	@rm -rf $(BUILD_DIR)/info-check
 	@mkdir -p $(BUILD_DIR)/info-check/dark-reign $(BUILD_DIR)/info-check/7legion $(BUILD_DIR)/info-check/kknd
-	@mkdir -p $(BUILD_DIR)/info-check/dark-reign/animate
-	@mkdir -p $(BUILD_DIR)/info-check/7legion/animate $(BUILD_DIR)/info-check/kknd/animate
-	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/animate
-	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) $(BUILD_DIR)/info-check/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.c $(BUILD_DIR)/info-check/7legion/animate
-	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c $(BUILD_DIR)/info-check/kknd/animate
+	$(DR_INFO_GEN_TARGET) $(DARK_REIGN_ROOT) $(BUILD_DIR)/info-check/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.c
+	$(SL_INFO_GEN_TARGET) $(SEVENTH_LEGION_ROOT) $(BUILD_DIR)/info-check/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.c
+	$(KKND_INFO_GEN_TARGET) $(KKND_ROOT)/UNITS.CFG $(BUILD_DIR)/info-check/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.c
 	$(CMP) games/dark-reign/info.h $(BUILD_DIR)/info-check/dark-reign/info.h
 	$(CMP) games/dark-reign/info.c $(BUILD_DIR)/info-check/dark-reign/info.c
 	$(CMP) games/7legion/info.h $(BUILD_DIR)/info-check/7legion/info.h
 	$(CMP) games/7legion/info.c $(BUILD_DIR)/info-check/7legion/info.c
 	$(CMP) games/kknd/info.h $(BUILD_DIR)/info-check/kknd/info.h
 	$(CMP) games/kknd/info.c $(BUILD_DIR)/info-check/kknd/info.c
-	$(DIFF) -ru games/7legion/animate $(BUILD_DIR)/info-check/7legion/animate
-	$(DIFF) -ru games/kknd/animate $(BUILD_DIR)/info-check/kknd/animate
 
 # ── dark-colony-info / dark-colony-gamestat ───────────────────────────────────
 dark-colony-info: $(DC_INFO_CONV_TARGET)
 	$(DC_INFO_CONV_TARGET) --states $(sort $(wildcard $(DARK_COLONY_ROOT)/ANIMATE/*.FIN)) > $(BUILD_DIR)/dc-animations.txt
-
-dark-colony-states: $(DC_INFO_GEN_TARGET)
-	$(DC_INFO_GEN_TARGET) $(DARK_COLONY_ROOT)/ANIMATE \
-	    games/dark-colony/animate games/dark-colony/info.h
 
 dark-colony-gamestat: $(DC_GAMESTAT_GEN_TARGET)
 	$(DC_GAMESTAT_GEN_TARGET) $(DARK_COLONY_ROOT)/GAMESTAT games/dark-colony/gamestat.h
@@ -371,7 +353,6 @@ help:
 	@echo "  anim-extract         Build the anim_extract tool"
 	@echo "  dc-spr-extract       Build the dc_spr_extract tool (SPR → BMP sheets)"
 	@echo "  dark-colony-info     Export raw FIN state rows to build/dc-animations.txt"
-	@echo "  dark-colony-states   Regenerate authored per-FIN gameplay state includes"
 	@echo "  dark-colony-gamestat Regenerate Dark Colony gamestat.h from game data"
 
 $(BIN_DIR):

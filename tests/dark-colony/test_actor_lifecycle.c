@@ -10,32 +10,24 @@
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL: %s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
 
 static void check_ortu_animation(mobj_t *unit) {
-    static const int stand_states[] = {
-        S_ORTU_STND, S_ORTU_STND2, S_ORTU_STND3, S_ORTU_STND4,
-        S_ORTU_STND5, S_ORTU_STND6, S_ORTU_STND7,
-    };
-    static const int run_states[] = {
-        S_ORTU_RUN1, S_ORTU_RUN2, S_ORTU_RUN3, S_ORTU_RUN4,
-        S_ORTU_RUN5, S_ORTU_RUN6, S_ORTU_RUN7,
-    };
-
     CHECK(unit->traits & MF_FLY);
     CHECK(P_SetMobjState(unit, S_ORTU_STND));
-    for (size_t i = 0; i < sizeof(stand_states) / sizeof(*stand_states); ++i) {
-        CHECK(unit->core.state_id == stand_states[i]);
-        CHECK(unit->core.frame == 240 + (int)i);
+    CHECK(P_StateFrames(&states[S_ORTU_STND]) == 7 && P_StateFrames(&states[S_ORTU_RUN1]) == 7);
+    for (int i = 0; i < 7; ++i) {
+        CHECK(unit->core.state_id == S_ORTU_STND && unit->core.state_frame == i);
+        CHECK(unit->core.frame == 240 + i);
         CHECK(unit->core.tics == 4);
         for (int tic = 0; tic < 4; ++tic) CHECK(P_TickMobjState(unit));
     }
-    CHECK(unit->core.state_id == S_ORTU_STND);
+    CHECK(unit->core.state_id == S_ORTU_STND && unit->core.state_frame == 0);
     CHECK(P_SetMobjState(unit, S_ORTU_RUN1));
-    for (size_t i = 0; i < sizeof(run_states) / sizeof(*run_states); ++i) {
-        CHECK(unit->core.state_id == run_states[i]);
-        CHECK(unit->core.frame == 86 + (int)i);
+    for (int i = 0; i < 7; ++i) {
+        CHECK(unit->core.state_id == S_ORTU_RUN1 && unit->core.state_frame == i);
+        CHECK(unit->core.frame == 86 + i);
         CHECK(unit->core.tics == 4);
         for (int tic = 0; tic < 4; ++tic) CHECK(P_TickMobjState(unit));
     }
-    CHECK(unit->core.state_id == S_ORTU_RUN1);
+    CHECK(unit->core.state_id == S_ORTU_RUN1 && unit->core.state_frame == 0);
 }
 
 int main(void) {

@@ -113,20 +113,19 @@ int main(void) {
     for (int tic = 0; tic < 900 && built < 2; ++tic) {
         assert(rts_tick(model, NULL));
         mobj_t *release = find(MT_PRODUCTION_RELEASE);
-        if (release && release->core.state_id >= S_BRRKPOD_BUILD_TRSC1 &&
-            release->core.state_id <= S_BRRKPOD_BUILD_TRSC22) {
-            if (release->core.state_id == S_BRRKPOD_BUILD_TRSC1 &&
-                release->core.tics == states[S_BRRKPOD_BUILD_TRSC1].tics) releases++;
+        if (release && release->core.state_id == S_BRRKPOD_BUILD_TRSC1) {
+            if (release->core.state_frame == 0 &&
+                release->core.tics == P_StateTics(&states[S_BRRKPOD_BUILD_TRSC1], 0)) releases++;
             assert(release->core.sprite_id == SPR_HUBU && !barracks->production->release_ready);
             assert(states[barracks->core.state_id].group == 1);
-            assert(barracks->core.frame == states[S_BRRKPOD_STND].frame ||
-                   barracks->core.frame == states[S_BRRKPOD_STND_2].frame);
+            assert(barracks->core.state_id == S_BRRKPOD_STND &&
+                   P_StateFrames(&states[S_BRRKPOD_STND]) == 2);
             assert(!memcmp(&release->core.position, &barracks->core.position, sizeof(fixed3_t)));
             assert(release->traits == (MF_RENDERABLE | MF_NOBLOCKMAP));
             frames++;
-            if (releases == 1 && release->core.state_id == S_BRRKPOD_BUILD_TRSC4)
+            if (releases == 1 && release->core.state_frame == 3)
                 screenshot(&app, surface, &tiles, cache, "/private/tmp/barracks-open.bmp");
-            if (releases == 1 && release->core.state_id == S_BRRKPOD_BUILD_TRSC18)
+            if (releases == 1 && release->core.state_frame == 17)
                 screenshot(&app, surface, &tiles, cache, "/private/tmp/barracks-exit.bmp");
         }
         RtsGameEvent event;
@@ -169,7 +168,8 @@ int main(void) {
     bool finished = false, blocked = false;
     for (int tic = 0; tic < 600 && !finished; ++tic) {
         mobj_t *release = find(MT_PRODUCTION_RELEASE);
-        if (release && release->core.state_id == S_BRRKPOD_BUILD_TRSC22 && release->core.tics == 1) {
+        if (release && release->core.state_id == S_BRRKPOD_BUILD_TRSC1 &&
+            release->core.state_frame == 21 && release->core.tics == 1) {
             level.blocked[blocked_cell] = 1;
             blocked = true;
         }

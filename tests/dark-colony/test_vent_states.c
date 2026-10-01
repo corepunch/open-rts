@@ -9,7 +9,7 @@ static void tick(int count) {
 }
 
 static bool active(const mobj_t *actor) {
-    return actor->core.state_id >= S_VENT_ACTIVE1 && actor->core.state_id <= S_VENT_ACTIVE20;
+    return actor->core.state_id == S_VENT_ACTIVE1;
 }
 
 static void draw(app_t *app, SDL_Surface *surface, const tileset_t *tiles,

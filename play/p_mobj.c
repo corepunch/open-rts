@@ -252,7 +252,7 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
                                 const state_t *state, bool apply_offsets) {
     if (!game_info || !mobj || !state) return;
     mobj->sprite_id = state->sprite;
-    mobj->frame = state->frame;
+    mobj->frame = state->frame + mobj->state_frame;
     mobj->render_flags = 0;
     mobj->render_remap = 0;
     mobj->render_intensity = 16;
@@ -264,22 +264,30 @@ static void apply_state_visuals(const gameinfo_t *game_info, mobjcore_t *mobj,
     }
 }
 
-bool P_SetMobjState(mobj_t *unit, int state_id) {
+bool P_SetMobjStateFrame(mobj_t *unit, int state_id, int frame) {
     const gameinfo_t *game_info = gameinfo;
     if (!game_info || !unit || unit->remove) return false;
     int guard = 0;
-    while (guard++ < game_info->state_count + 1) {
+    while (guard < game_info->state_count + 1) {
         if (state_id == game_info->null_state || state_id < 0 ||
             state_id >= game_info->state_count) {
             unit->core.state_id = game_info->null_state;
+            unit->core.state_frame = 0;
             unit->core.tics = 0;
             unit->core.momentum = fixed3_zero();
             P_RemoveMobj(unit);
             return false;
         }
         const state_t *state = &game_info->states[state_id];
+        if (frame >= P_StateFrames(state)) {
+            state_id = state->nextstate;
+            frame = 0;
+            ++guard;
+            continue;
+        }
         unit->core.state_id = state_id;
-        unit->core.tics = state->tics;
+        unit->core.state_frame = frame;
+        unit->core.tics = P_StateTics(state, frame);
         apply_state_visuals(game_info, &unit->core, state, false);
         debug_effects_log("state unit type=%u state=%d sprite=%d frame=%d tics=%d",
                           unit->type_id, unit->core.state_id, unit->core.sprite_id,
@@ -295,12 +303,17 @@ bool P_SetMobjState(mobj_t *unit, int state_id) {
                               sprite_name, unit->core.frame);
         }
         if (state->action) state->action(unit);
-        if (unit->remove || unit->core.state_id != state_id) return !unit->remove;
+        if (unit->remove || unit->core.state_id != state_id ||
+            unit->core.state_frame != frame) return !unit->remove;
         if (unit->core.tics != 0) return true;
-        state_id = state->nextstate;
+        ++frame;
     }
     P_RemoveMobj(unit);
     return false;
+}
+
+bool P_SetMobjState(mobj_t *unit, int state_id) {
+    return P_SetMobjStateFrame(unit, state_id, 0);
 }
 
 bool P_TickMobjState(mobj_t *unit) {
@@ -308,9 +321,7 @@ bool P_TickMobjState(mobj_t *unit) {
     if (unit->core.state_id <= 0) return false;
     if (unit->core.tics > 0) unit->core.tics--;
     if (unit->core.tics != 0) return true;
-    const state_t *state = state_at(gameinfo, unit->core.state_id);
-    return P_SetMobjState(unit,
-                          state ? state->nextstate : gameinfo->null_state);
+    return P_SetMobjStateFrame(unit, unit->core.state_id, unit->core.state_frame + 1);
 }
 
 production_t *P_EnsureMobjProduction(mobj_t *unit) {
@@ -386,7 +397,8 @@ void P_InitMobj(const gameinfo_t *game_info, mobj_t *unit) {
         const state_t *state = state_at(game_info, info->spawnstate);
         if (!state) return;
         unit->core.state_id = info->spawnstate;
-        unit->core.tics = state->tics;
+        unit->core.state_frame = 0;
+        unit->core.tics = P_StateTics(state, 0);
     }
     apply_state_visuals(game_info, &unit->core,
                         state_at(game_info, unit->core.state_id), false);
