@@ -728,6 +728,7 @@ struct mobj_s {
         bool order_arrived;
         int turn_timer_ms;
         int stuck_tics, replans;
+        float best_goal_dist; /* Closest approach to goal this order; 0 = not yet measured. */
         bool plan_pending;   /* Order accepted; the planner has not produced a route yet. */
         uint32_t plan_seq;   /* FIFO position in the time-sliced planning queue. */
     } movement;
@@ -737,6 +738,7 @@ struct mobj_s {
 static inline void P_ClearMove(mobj_t *unit) {
     unit->movement.path = (navpath_t){0};
     unit->movement.stuck_tics = unit->movement.replans = 0;
+    unit->movement.best_goal_dist = 0.0f;
     unit->movement.plan_pending = false;
 }
 

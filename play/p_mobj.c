@@ -1247,8 +1247,10 @@ static void tick_actor(mobj_t *u) {
                     moved = made > step * 0.1f; /* Sliding along a wall is not progress. */
                 }
                 if (flying ? !moved : !P_SteerProgress(map, u, moved)) {
+                    /* Given up beside a crowded goal: settle there. */
+                    bool settled = !flying && dist <= 1.5f && u->movement.order_id == 0;
                     P_ClearMove(u);
-                    u->movement.order_arrived = false;
+                    u->movement.order_arrived = settled;
                     moving = false;
                 }
             }
