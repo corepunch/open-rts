@@ -34,7 +34,7 @@ build/bin/dark-colony --join 127.0.0.1
 ```
 
 The host waits for two players by default. Joiners receive their player number,
-map path, player count, `ticdup` and `extratics` settings automatically. A match
+map path, player count, game speed, `ticdup` and `extratics` settings automatically. A match
 starts after all expected players connect and validate the loaded world.
 The scenario supplies each slot's race. Both factions use the same native
 sidebar, with seven building/module entries and nine unit entries each.
@@ -56,8 +56,8 @@ The same options work in `build/bin/dark-reign`, `build/bin/7legion` and
 `build/bin/kknd`; choose a map appropriate to that game. The executable selects
 the game. A client running a different game is rejected.
 
-The setup protocol version is 3; the session protocol version is 4 and carries
-the host's lobby settings. Tic commands encode all three fixed-point position
+The setup protocol version is 3; the session protocol version is 5 and carries
+the host's lobby settings and game speed. Tic commands encode all three fixed-point position
 components; setup uses the third for game speed. Dark
 Colony purchase reservations, refunds, Build submission, movement modes,
 waypoints and pause use the same delayed command path as unit orders. Shared
@@ -105,10 +105,13 @@ dismisses the message without activating a menu item. A new campaign or LAN
 session can then start normally. Closing the window still exits the application.
 `--net-check` keeps its nonzero exit status on failure for automated checks.
 
-Game speed must match on every machine. Dark Colony defaults to 150%; a host
-started with `make dark-colony` receives the Makefile's `--speed 100` unless
-overridden. A client started directly can therefore differ. Use the same
-`--speed` value on all players; the error reports the local and remote values.
+Joiners inherit the server's game speed before loading the level and starting
+the tic clock. The host's `--speed` overrides a joiner's local setting.
+The default is 100%, including Dark Colony; Makefile launch targets use that
+runtime default. The previous 150% note came from stale help text, while
+`games/dark-colony/info.c::game_info.game_speed` already specified 100.
+Legacy manual `--net` peers still require matching speeds because they do not
+use the host/join session handshake.
 
 Choose maps with starting units for every player: the engine reports missing
 slots instead of starting an unplayable match or inventing armies. Dark Colony
@@ -193,6 +196,10 @@ Concrete adaptations for this engine:
   from the host. `d_net.c` retains its logical peer nodes, command histories,
   retransmissions and simulation ordering. Doom's `D_ArbitrateNetStart`
   similarly lets its key player distribute the map before starting play.
+  Session version 5 appends one validated speed byte (10..200, offset 619) to
+  WELCOME. Joiners apply it through `D_SetGameSpeed` before `D_CheckNetGame`
+  initializes the clock. Client preferences therefore cannot reject a valid
+  hosted game, while the tic setup still checks agreement.
 - The consistency sample hashes object IDs, positions, momentum, animation
   state/tics, HP, orders, targets, production, resource amounts and RNG index.
   It excludes pointers, local selection, local fog exploration and render
@@ -245,8 +252,11 @@ selects a discovered session through the native controls and verifies the
 handoff to the host's map, recovery to the main page, a cleared offline
 transport, visible error text and dismissal without activating a campaign.
 `tests/shared/test_simple_menu.c` covers the same recovery for the other games.
-The network harness additionally pairs speeds 100% and 150% and verifies that
-both reject setup before advancing a simulation tic. Run all these checks
+Host/join tests start the server at 150% and clients at 70%, then verify every
+client inherits 150% and every simulation checksum agrees. The session-only
+test also verifies a 35% client inherits a 175% host before loading a level.
+Legacy manual peers at 100% and 150% still reject incompatible setup before
+advancing a simulation tic. Run all these checks
 with `SDL_VIDEODRIVER=dummy`.
 
 For a headless model client, initialize SDL's timer/events, call `I_InitNetwork`,

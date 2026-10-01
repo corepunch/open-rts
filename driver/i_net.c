@@ -101,11 +101,11 @@ static bool decode(const uint8_t *wire, size_t size) {
 
 /* Session discovery is separate from Doom's tic protocol. The host relays
  * addressed tic packets so joiners only need one reachable UDP endpoint. */
-enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 4,
+enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 5,
        JOIN = 1, WELCOME, REJECT, DATA, DISCOVER, OFFER, LEAVE,
        GAME_LENGTH = 32, MAP_LENGTH = 512,
        SETUP_LENGTH = 64,
-       WELCOME_SIZE = 10 + GAME_LENGTH + MAP_LENGTH + 1 + SETUP_LENGTH };
+       WELCOME_SIZE = 10 + GAME_LENGTH + MAP_LENGTH + 1 + SETUP_LENGTH + 1 };
 static bool hosting, joining, session_received;
 static int joined;
 static char session_game[GAME_LENGTH], session_map[MAP_LENGTH];
@@ -213,6 +213,7 @@ static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *
             memcpy(reply + 10 + GAME_LENGTH, session_map, MAP_LENGTH);
             reply[10 + GAME_LENGTH + MAP_LENGTH] = (uint8_t)session_setup_size;
             memcpy(reply + 11 + GAME_LENGTH + MAP_LENGTH, session_setup, SETUP_LENGTH);
+            reply[WELCOME_SIZE - 1] = (uint8_t)game_speed;
             send_wire(reply, sizeof(reply), from);
             return -1;
         }
@@ -234,13 +235,15 @@ static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *
             wire[6] < 1 || wire[6] >= wire[7] || wire[8] < 1 || wire[8] > 9 || wire[9] > 1 ||
             !memchr(wire + 10, 0, GAME_LENGTH) || strcmp((char *)wire + 10, session_game) ||
             !memchr(wire + 10 + GAME_LENGTH, 0, MAP_LENGTH) ||
-            wire[10 + GAME_LENGTH + MAP_LENGTH] > SETUP_LENGTH) return -1;
+            wire[10 + GAME_LENGTH + MAP_LENGTH] > SETUP_LENGTH ||
+            wire[WELCOME_SIZE - 1] < 10 || wire[WELCOME_SIZE - 1] > 200) return -1;
         memcpy(session_map, wire + 10 + GAME_LENGTH, MAP_LENGTH);
         session_setup_size = wire[10 + GAME_LENGTH + MAP_LENGTH];
         memcpy(session_setup, wire + 11 + GAME_LENGTH + MAP_LENGTH, SETUP_LENGTH);
         doomcom->consoleplayer = wire[6];
         doomcom->numplayers = doomcom->numnodes = wire[7];
         doomcom->ticdup = wire[8]; doomcom->extratics = wire[9];
+        D_SetGameSpeed(wire[WELCOME_SIZE - 1]);
         session_received = true;
         return -1;
     }

@@ -169,6 +169,7 @@ static void session_tests(void) {
         char map[512] = "SCENARIO/MPLAYER/J2PLAY01.MAP";
         assert(I_InitNetwork(&argc, args));
         assert(argc == 1 && !I_NetJoining());
+        D_SetGameSpeed(175);
         assert(I_StartNetGame("dark-colony", map, sizeof(map)));
         I_ShutdownNetwork();
         _exit(0);
@@ -181,20 +182,24 @@ static void session_tests(void) {
     assert(strstr(neterror, "mismatch"));
     char *args[] = {"test", "--join", server, NULL};
     argc = 3;
+    D_SetGameSpeed(35);
     assert(I_InitNetwork(&argc, args));
     assert(argc == 1 && I_NetJoining());
+    assert(game_speed == 35);
     assert(I_StartNetGame("dark-colony", map, sizeof(map)));
     assert(!strcmp(map, "SCENARIO/MPLAYER/J2PLAY01.MAP"));
     assert(doomcom->consoleplayer == 1 && doomcom->numplayers == 2);
     assert(doomcom->ticdup == 3 && doomcom->extratics == 1);
+    assert(game_speed == 175);
     D_QuitNetGame();
+    D_SetGameSpeed(100);
     int status;
     assert(waitpid(host, &status, 0) == host && WIFEXITED(status) && !WEXITSTATUS(status));
     char *invalid[] = {"test", "--host", "--join", server, NULL};
     argc = 4;
     assert(!I_InitNetwork(&argc, invalid));
     D_QuitNetGame();
-    puts("PASS: session rejects another game, assigns slots, distributes map and timing, validates switches");
+    puts("PASS: session rejects another game, assigns slots, inherits host map, speed and timing, validates switches");
 }
 
 static void lan_tests(void) {
@@ -307,6 +312,8 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     char map[512];
     snprintf(map, sizeof(map), "%s", chosen_map);
     bool hosted = mode == HOSTED || native_map || mode == HOSTED_LOSSY;
+    D_SetGameSpeed(hosted ? (player ? 70 : 150) :
+                   mode == SPEED_MISMATCH && player == 1 ? 150 : 100);
     if (hosted) {
         char server[64], playercount[8];
         snprintf(server, sizeof(server), "127.0.0.1:%d",
@@ -326,6 +333,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
             assert(status == 1 && I_NetMenuSession());
         } else assert(I_InitNetwork(&session_argc, player ? joinargs : hostargs));
         assert(I_StartNetGame("dark-colony", map, sizeof(map)));
+        assert(game_speed == 150);
         assert(!I_NetMenuSession());
         assert(!strcmp(map, chosen_map));
         assert(doomcom->numplayers == players);
@@ -361,7 +369,6 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         }
         P_UpdateSight();
     } else init_world();
-    D_SetGameSpeed(mode == SPEED_MISMATCH && player == 1 ? 150 : 100);
     D_CheckNetGame(G_Consistency() + (mode == MISMATCH && player == 1));
     uint32_t first_production_id = level.next_mobj_id;
     if (native_map) {
