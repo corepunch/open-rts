@@ -84,5 +84,6 @@ bool DC_StartDropship(int team, ivec2_t origin,
     ship->core.angle = dc_direction_to_angle(6);
     P_MoveUnitTo(&level, ship, fvec2_cell_center(origin));
     P_SetMobjState(ship, S_DROP_MOVE1);
+    S_ActorSound(ship, SE_ACTIVE); /* 0x4177e7: the engine loop follows the ship. */
     return true;
 }

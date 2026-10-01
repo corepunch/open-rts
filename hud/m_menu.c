@@ -107,6 +107,7 @@ static void activate(menu_t *menu, menuitem_t *item) {
         }
     menuitem_t *target = item->kind == MI_BUTTON && item->step ? linked(menu, item) : NULL;
     if (target) scroll_to(target, target->first_row + item->step);
+    S_StartUISound(UI_SOUND_CLICK);
     call_routine(menu, item, MA_ACTIVATE);
 }
 

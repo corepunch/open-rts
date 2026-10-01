@@ -36,7 +36,7 @@ SEVENTH_LEGION_ROOT := $(DATA_DIR)/7LEGION
 KKND_ROOT        := $(DATA_DIR)/KKND
 
 # ── per-game engine sources (shared by all game binaries) ────────────────────
-ENGINE_SOURCES := $(sort $(shell find driver render hud interface play game -name '*.c'))
+ENGINE_SOURCES := $(sort $(shell find driver render hud interface play game sound -name '*.c'))
 
 # ── game-specific sources ────────────────────────────────────────────────────
 DR_GAME_SOURCES   := $(sort $(shell find games/dark-reign  -name '*.c'))
@@ -45,7 +45,7 @@ SL_GAME_SOURCES   := $(sort $(shell find games/7legion     -name '*.c'))
 KKND_GAME_SOURCES := $(sort $(shell find games/kknd        -name '*.c'))
 
 # ── model engine sources (headless: no SDL display entry point or HUD) ───────
-MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render hud -name '*.c' ! -name 'd_main.c'))
+MODEL_ENGINE_SOURCES := $(sort $(shell find game driver play render hud sound -name '*.c' ! -name 'd_main.c'))
 
 # ── tool sources ─────────────────────────────────────────────────────────────
 ANIM_EXTRACT_SOURCE    := tools/anim_extract.c

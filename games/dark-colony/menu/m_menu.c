@@ -668,6 +668,10 @@ static bool load_screen(int next) {
     entrance = 0;
     if (!numentrances) start_page_animations();
     menutime = SDL_GetTicks64();
+    /* Screen constructors play the open sound before the entrances, and
+     * 0x425214 plays sound 186 as each entrance gadget starts. */
+    S_StartUISound(UI_SOUND_SCREEN);
+    if (numentrances) S_StartUISound(UI_SOUND_GADGET);
     return ok && screen.w > 0 && screen.h > 0 &&
         (page == QUIT || background.numlumps) && fonts[0].sprite.numlumps;
 }
@@ -998,8 +1002,10 @@ static void step_entrances(void) {
             const menuitem_t *g = &items[e->gadgets[e->started]];
             /* 0x425257..0x425294: the next gadget starts when the running one
              * reaches its third frame, so the entrances overlap. */
-            if (!g->visible || !g->userdata || g->anim.frame - g->anim.first == 2)
+            if (!g->visible || !g->userdata || g->anim.frame - g->anim.first == 2) {
                 animate(e->gadgets[++e->started], MANIM_ONCE);
+                S_StartUISound(UI_SOUND_GADGET);
+            }
         }
         if (e->finished < e->count) {
             menuitem_t *g = &items[e->gadgets[e->finished]];
@@ -1016,7 +1022,11 @@ static void step_entrances(void) {
 }
 
 void M_Ticker(void) {
-    if (!menuactive) return;
+    if (!menuactive) {
+        S_StopUISound(UI_SOUND_SCREEN);
+        return;
+    }
+    S_StartUISound(UI_SOUND_SCREEN);
     if (waiting) {
         int status = I_PollNetGame(mapname, sizeof(mapname));
         if (status < 0) {
