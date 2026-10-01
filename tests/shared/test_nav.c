@@ -1,8 +1,7 @@
-#include "game.h"
-#include "info.h"
 #include "engine.h"
-#include "p_nav.h"
-#include "rts_test.h"
+#include "info.h"
+#include "t_local.h"
+#include "../../play/p_nav.h"
 
 #define CHECK(c) RTS_CHECK(c, "shared nav", #c)
 
