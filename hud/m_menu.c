@@ -3,7 +3,7 @@
 #include <string.h>
 
 static bool item_live(const menuitem_t *item) {
-    return item && item->visible && item->enabled;
+    return item && item->kind != MI_STATIC && item->visible && item->enabled;
 }
 
 static menuitem_t *focused(const menu_t *menu) {
@@ -88,7 +88,6 @@ static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
 }
 
 static void activate(menu_t *menu, menuitem_t *item) {
-    if (!item_live(item)) return;
     if (item->kind == MI_CHECK && !item->group) item->value = !item->value;
     else if (item->kind == MI_CHECK)
         for (int i = 0; i < menu->numitems; ++i) {
@@ -100,64 +99,102 @@ static void activate(menu_t *menu, menuitem_t *item) {
     call_routine(menu, item, MA_ACTIVATE);
 }
 
-/* The wheel scrolls the screen's list or prose. */
-static void wheel(menu_t *menu, int delta) {
+/* A hotkey works on an enabled item even while it is not shown. */
+static bool hotkey(menu_t *menu, const SDL_Event *event) {
+    if (event->key.repeat || (event->key.keysym.mod & (KMOD_CTRL | KMOD_ALT))) return false;
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
-        if (!item->visible || !(item->kind == MI_LIST || (item->kind == MI_STATIC && item->prose)))
-            continue;
-        scroll_to(item, item->first_row - delta);
-        return;
+        if (!item->enabled || !item->hotkey || item->hotkey != event->key.keysym.sym) continue;
+        activate(menu, item);
+        return true;
     }
+    return false;
 }
 
-static void respond(menu_t *menu, const app_t *app, const SDL_Event *event) {
-    if (event->type == SDL_KEYDOWN) {
-        SDL_Keycode key = event->key.keysym.sym;
-        menuitem_t *focus = focused(menu);
-        if (key == SDLK_ESCAPE) {
-            if (!event->key.repeat && menu->escape) menu->escape(menu);
-        } else if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) &&
-                   focus->kind == MI_LIST) {
-            select_row(menu, focus, focus->value < 0 ? 0 : focus->value + (key == SDLK_UP ? -1 : 1));
-        } else if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB) {
-            focus_step(menu, key == SDLK_UP ? -1 : 1);
-        } else if ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && !event->key.repeat) {
-            activate(menu, focus);
-        } else if (key == SDLK_BACKSPACE) {
-            type_text(menu, focus, NULL, true);
-        }
-    } else if (event->type == SDL_TEXTINPUT) {
-        type_text(menu, focused(menu), event->text.text, false);
-    } else if (event->type == SDL_MOUSEMOTION ||
-               (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)) {
-        bool motion = event->type == SDL_MOUSEMOTION;
-        R_WindowToRenderPt(app, motion ? event->motion.x : event->button.x,
-                           motion ? event->motion.y : event->button.y,
-                           &menu->cursor.x, &menu->cursor.y);
-        if (motion && menu->held && menu->held->kind == MI_SCROLLBAR) {
-            drag_scrollbar(menu, menu->held);
-            return;
-        }
-        menuitem_t *hit = item_at(menu, menu->cursor);
-        if (!hit) return;
-        menu->itemOn = (int)(hit - menu->items);
-        if (motion) return;
-        menu->held = hit;
-        if (hit->kind == MI_LIST)
-            select_row(menu, hit, hit->first_row +
-                       (menu->cursor.y - hit->rect.y) / (hit->row_height > 0 ? hit->row_height : 1));
-        else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
-        else activate(menu, hit);
-    } else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
-        menu->held = NULL;
-    } else if (event->type == SDL_MOUSEWHEEL) {
-        wheel(menu, event->wheel.y);
+static bool key_down(menu_t *menu, const SDL_Event *event) {
+    SDL_Keycode key = event->key.keysym.sym;
+    menuitem_t *focus = focused(menu);
+    bool typing = menu->modal && item_live(focus) && focus->kind == MI_TEXTFIELD;
+    if (!typing && hotkey(menu, event)) return true;
+    if (!menu->modal) return false;
+    if (key == SDLK_ESCAPE) {
+        if (!event->key.repeat && menu->escape) menu->escape(menu);
+    } else if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) && focus->kind == MI_LIST) {
+        select_row(menu, focus, focus->value < 0 ? 0 : focus->value + (key == SDLK_UP ? -1 : 1));
+    } else if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB) {
+        focus_step(menu, key == SDLK_UP || (key == SDLK_TAB && (event->key.keysym.mod & KMOD_SHIFT)) ? -1 : 1);
+    } else if ((key == SDLK_RETURN || key == SDLK_KP_ENTER || (key == SDLK_SPACE && !typing)) && !event->key.repeat) {
+        if (item_live(focus)) activate(menu, focus);
+    } else if (key == SDLK_BACKSPACE) {
+        type_text(menu, focus, NULL, true);
     }
+    return true;
+}
+
+static bool visible_at(const menu_t *menu, ivec2_t point) {
+    for (int i = 0; i < menu->numitems; ++i)
+        if (menu->items[i].visible && irect_contains(menu->items[i].rect, point)) return true;
+    return false;
+}
+
+static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
+    bool motion = event->type == SDL_MOUSEMOTION, down = event->type == SDL_MOUSEBUTTONDOWN;
+    R_WindowToRenderPt(app, motion ? event->motion.x : event->button.x,
+                       motion ? event->motion.y : event->button.y,
+                       &menu->cursor.x, &menu->cursor.y);
+    if (motion && menu->held && menu->held->kind == MI_SCROLLBAR) {
+        drag_scrollbar(menu, menu->held);
+        return true;
+    }
+    /* A modal screen keeps its focus while the pointer is off every item. */
+    menuitem_t *hit = item_at(menu, menu->cursor);
+    if (hit || !menu->modal) menu->itemOn = hit ? (int)(hit - menu->items) : -1;
+    if (motion) return menu->modal;
+    bool left = event->button.button == SDL_BUTTON_LEFT;
+    bool taken = menu->modal || visible_at(menu, menu->cursor) || (left && !down && menu->held);
+    if (left) menu->held = NULL;
+    if (!down || !hit) return taken;
+    if (!left) {
+        if (event->button.button == SDL_BUTTON_RIGHT) call_routine(menu, hit, MA_SECONDARY);
+        return true;
+    }
+    menu->held = hit;
+    if (hit->kind == MI_LIST)
+        select_row(menu, hit, hit->first_row +
+                   (menu->cursor.y - hit->rect.y) / (hit->row_height > 0 ? hit->row_height : 1));
+    else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
+    else activate(menu, hit);
+    return true;
+}
+
+/* The wheel scrolls a list or prose: the one on a modal screen, the one under
+ * the pointer on a HUD. Over any other live HUD item it goes to the routine. */
+static bool wheel(menu_t *menu, int delta) {
+    for (int i = 0; i < menu->numitems; ++i) {
+        menuitem_t *item = &menu->items[i];
+        if (!item->visible || (!menu->modal && !irect_contains(item->rect, menu->cursor))) continue;
+        if (item->kind == MI_LIST || (item->kind == MI_STATIC && item->prose)) {
+            scroll_to(item, item->first_row - delta);
+            return true;
+        }
+        if (!menu->modal && item->enabled) {
+            menu->wheel = delta;
+            call_routine(menu, item, MA_WHEEL);
+            return true;
+        }
+    }
+    return menu->modal || visible_at(menu, menu->cursor);
 }
 
 bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
-    respond(menu, app, event);
+    bool taken = menu->modal;
+    if (event->type == SDL_KEYDOWN) taken = key_down(menu, event);
+    else if (event->type == SDL_TEXTINPUT && menu->modal)
+        type_text(menu, focused(menu), event->text.text, false);
+    else if (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN ||
+             event->type == SDL_MOUSEBUTTONUP) taken = mouse(menu, app, event);
+    else if (event->type == SDL_MOUSEWHEEL) taken = wheel(menu, event->wheel.y);
+    if (!menu->modal) return taken;
     /* The keyboard types into the focused field and nowhere else. */
     const menuitem_t *focus = focused(menu);
     bool typing = item_live(focus) && focus->kind == MI_TEXTFIELD;
@@ -195,17 +232,28 @@ void M_MenuTicker(menu_t *menu) {
 }
 
 static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
-    if (menu->held == item || (item->kind == MI_CHECK && item->value)) return MS_PUSHED;
+    if (item->kind == MI_CHECK && item->value) return MS_PUSHED;
+    if (!item_live(item)) return MS_NORMAL;
+    if (menu->held == item) return MS_PUSHED;
     return item == focused(menu) ? MS_FOCUS : MS_NORMAL;
 }
 
 static void draw_picture(const menuitem_t *item, menustate_t state) {
-    int cell = item->cell[state];
-    if (!item->sheet || cell < 0 || cell >= item->sheet->numlumps) return;
-    const spritecell_t *source = &item->sheet->cells[cell];
-    irect_t dst = {item->rect.x + source->displacement.x, item->rect.y + source->displacement.y,
-                   source->rect.w, source->rect.h};
-    R_DrawSprite(item->sheet, cell, item->palette[state], &source->rect, &dst, 0, 16);
+    const menulook_t *look = &item->look[state];
+    if (!item->sheet || look->cell < 0 || look->cell >= item->sheet->numlumps) return;
+    const spritecell_t *cell = &item->sheet->cells[look->cell];
+    irect_t src = look->part.w > 0 ? look->part : cell->rect;
+    irect_t dst = {item->rect.x + cell->displacement.x, item->rect.y + cell->displacement.y,
+                   src.w, src.h};
+    R_DrawSprite(item->sheet, look->cell, look->palette, &src, &dst,
+                 item->opaque ? V_OPAQUE : 0, item->light ? item->light : 16);
+}
+
+/* Text takes its colour from the ink, or from the state's palette map. */
+static const uint8_t *text_remap(const menuitem_t *item, menustate_t state, uint8_t tint[256]) {
+    if (!item->ink) return R_PaletteMap(&item->font->sprite, item->look[state].palette);
+    V_ModulateRemap(tint, item->font->sprite.source_palette, item->ink);
+    return tint;
 }
 
 static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
@@ -215,7 +263,8 @@ static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
         V_DrawTextWrapped(item->rect, font, item->prose, NULL, item->first_row * font->line_h);
         return;
     }
-    const uint8_t *remap = R_PaletteMap(&font->sprite, item->palette[state]);
+    uint8_t tint[256];
+    const uint8_t *remap = text_remap(item, state, tint);
     ivec2_t at = ivec2_add((ivec2_t){item->rect.x, item->rect.y}, item->inset);
     if (item->centered)
         at = ivec2_add(at, (ivec2_t){(item->rect.w - V_TextWidth(font, item->text)) / 2,
@@ -228,6 +277,7 @@ static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
 
 static void draw_list(const menuitem_t *item) {
     const bitmapfont_t *font = item->font;
+    uint8_t tint[256];
     if (!font || item->row_height <= 0) return;
     if (!item->rows) {
         if (item->prose) V_DrawTextWrapped(item->rect, font, item->prose, NULL, 0);
@@ -243,7 +293,7 @@ static void draw_list(const menuitem_t *item) {
                         item->rect.w, item->row_height};
         if (selected) V_FillRect(line, V_NearestIndex(item->color));
         V_DrawText((ivec2_t){line.x, line.y}, font, item->row(item, row),
-                   R_PaletteMap(&font->sprite, item->palette[selected ? MS_PUSHED : MS_NORMAL]));
+                   text_remap(item, selected ? MS_PUSHED : MS_NORMAL, tint));
     }
     V_SetClip(clip);
 }

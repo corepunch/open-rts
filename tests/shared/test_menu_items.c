@@ -9,11 +9,14 @@ enum { W = 64, MARKER = 77, GLYPH = 2 };
 enum { BUTTON, HIDDEN, CHECK_BOX, RADIO_A, RADIO_B, FIELD, LIST, BAR, DOWN, NUMITEMS };
 
 static menuitem_t items[NUMITEMS];
-static menu_t menu = {.items = items, .numitems = NUMITEMS};
+static menu_t menu = {.items = items, .numitems = NUMITEMS, .modal = true};
 static app_t app = {.win = {W, W}};
 static int activated[NUMITEMS], changed[NUMITEMS], escaped;
+static int secondary, wheeled;
 
 static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
+    if (action == MA_SECONDARY) { ++secondary; return; }
+    if (action == MA_WHEEL) { wheeled += screen->wheel; return; }
     ++(action == MA_ACTIVATE ? activated : changed)[item - screen->items];
 }
 
@@ -88,12 +91,12 @@ static void build(void) {
     memset(items, 0, sizeof(items));
     for (int i = 0; i < NUMITEMS; ++i)
         items[i] = (menuitem_t){.visible = true, .enabled = true, .routine = routine, .link = -1,
-                                .palette = {-1, -1, -1}};
+                                .look = {{.palette = -1}, {.palette = -1}, {.palette = -1}}};
     items[BUTTON].kind = MI_BUTTON;
     items[BUTTON].rect = (irect_t){0, 0, 10, 4};
     items[BUTTON].sheet = &sheet;
-    items[BUTTON].cell[MS_FOCUS] = 1;
-    items[BUTTON].cell[MS_PUSHED] = 2;
+    items[BUTTON].look[MS_FOCUS].cell = 1;
+    items[BUTTON].look[MS_PUSHED].cell = 2;
     items[HIDDEN].kind = MI_BUTTON;
     items[HIDDEN].rect = (irect_t){0, 0, 10, 4}; /* under BUTTON, and never live */
     items[HIDDEN].visible = false;
@@ -302,6 +305,45 @@ static int two_tics(const menuitem_t *item) {
     return 2;
 }
 
+static int hud_input(void) {
+    build();
+    menu.modal = false;
+    items[BUTTON].hotkey = SDLK_b;
+    items[HIDDEN].hotkey = SDLK_h;
+    items[CHECK_BOX].enabled = false;
+    SDL_Event event = {.key = {.type = SDL_KEYDOWN, .keysym.sym = SDLK_x}};
+    CHECK(!M_MenuResponder(&menu, &app, &event));
+    event.key.keysym.sym = SDLK_b;
+    CHECK(M_MenuResponder(&menu, &app, &event) && activated[BUTTON] == 1);
+    event.key.repeat = 1;
+    CHECK(!M_MenuResponder(&menu, &app, &event) && activated[BUTTON] == 1);
+    event.key.repeat = 0;
+    event.key.keysym.sym = SDLK_h;
+    CHECK(M_MenuResponder(&menu, &app, &event) && activated[HIDDEN] == 1);
+    event = (SDL_Event){.button = {.type = SDL_MOUSEBUTTONDOWN,
+        .button = SDL_BUTTON_LEFT, .x = 40, .y = 40}};
+    CHECK(!M_MenuResponder(&menu, &app, &event));
+    event.button.x = 1; event.button.y = 7;
+    CHECK(M_MenuResponder(&menu, &app, &event) && !activated[CHECK_BOX]);
+    event.button.y = 1; event.button.button = SDL_BUTTON_RIGHT;
+    secondary = 0;
+    CHECK(M_MenuResponder(&menu, &app, &event) && secondary == 1 && !menu.held);
+    event.button.button = SDL_BUTTON_LEFT;
+    CHECK(M_MenuResponder(&menu, &app, &event) && menu.held == &items[BUTTON]);
+    event.button.type = SDL_MOUSEBUTTONUP;
+    event.button.x = 40; event.button.y = 40;
+    CHECK(M_MenuResponder(&menu, &app, &event) && !menu.held && menu.itemOn == -1);
+    event = (SDL_Event){.motion = {.type = SDL_MOUSEMOTION, .x = 1, .y = 1}};
+    CHECK(!M_MenuResponder(&menu, &app, &event) && menu.itemOn == BUTTON);
+    event = (SDL_Event){.wheel = {.type = SDL_MOUSEWHEEL, .y = -2}};
+    wheeled = 0;
+    CHECK(M_MenuResponder(&menu, &app, &event) && wheeled == -2);
+    mouse(SDL_MOUSEMOTION, 40, 40);
+    CHECK(menu.itemOn == -1 && !M_MenuResponder(&menu, &app, &event));
+    menu.modal = true;
+    return 0;
+}
+
 static int animation(void) {
     build();
     menuitem_t *item = &items[BUTTON];
@@ -341,6 +383,7 @@ int main(void) {
     RTS_RUN(input());
     RTS_RUN(lists());
     RTS_RUN(animation());
+    RTS_RUN(hud_input());
     RTS_RUN(drawing());
     puts("PASS: menu items focus, activate, check, type, scroll, animate and draw");
     return 0;

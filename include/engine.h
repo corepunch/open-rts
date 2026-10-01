@@ -1971,15 +1971,22 @@ typedef enum {
     MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR
 } menuitemkind_t;
 
+/* How an item looks in one state. */
 typedef enum { MS_NORMAL, MS_FOCUS, MS_PUSHED, MS_STATES } menustate_t;
+typedef struct {
+    int cell;     /* of the item's sheet; negative draws no picture */
+    irect_t part; /* a rectangle of that cell; empty means all of it */
+    int palette;  /* palette map of the sheet and of the font, or -1 */
+} menulook_t;
 
 typedef struct menu_s menu_t;
 typedef struct menuitem_s menuitem_t;
 
-/* MA_ACTIVATE: clicked, or Enter while focused; a check box has already
- * changed. MA_CHANGE: the text of a field or the selected row of a list
- * changed. */
-typedef enum { MA_ACTIVATE, MA_CHANGE } menuaction_t;
+/* MA_ACTIVATE: clicked, its hotkey pressed, or Enter while focused; a check
+ * box has already changed. MA_SECONDARY: clicked with the right button.
+ * MA_CHANGE: the text of a field or the selected row of a list changed.
+ * MA_WHEEL: the wheel turned by menu->wheel over a HUD item. */
+typedef enum { MA_ACTIVATE, MA_SECONDARY, MA_CHANGE, MA_WHEEL } menuaction_t;
 
 /* An item can step through frames first..last. A loop wraps; a one-off stops
  * on its last frame. The game draws the frame, or uses it as it likes. */
@@ -1997,12 +2004,14 @@ struct menuitem_s {
     menuitemkind_t kind;
     irect_t rect;
     bool visible, enabled;
-    /* One sheet cell and palette map per state. The cell is drawn at the rect
-     * origin plus its own displacement; text uses the same map of its font. */
+    SDL_Keycode hotkey; /* activates the item while it is enabled */
+    /* The picture is drawn at the rect origin plus the cell's displacement. */
     const spritesheet_t *sheet;
-    int cell[MS_STATES];
-    int palette[MS_STATES];
+    menulook_t look[MS_STATES];
+    bool opaque; /* the sheet has no colour key: write its index 0 */
+    int light;   /* 1..15 darkens the picture, in sixteenths; 0 is full light */
     const bitmapfont_t *font;
+    uint32_t ink; /* 0xAARRGGBB text colour; 0 draws through the palette map */
     char text[128];
     /* Long text wrapped in the rect, in the font's own colours. A list shows
      * it while it has no rows. */
@@ -2030,9 +2039,14 @@ struct menuitem_s {
 struct menu_s {
     menuitem_t *items;
     int numitems;
-    int itemOn;       /* focused item */
+    /* A modal screen takes every event and has keyboard focus. Any other is a
+     * HUD: it takes hotkeys and the mouse events that land on a visible item,
+     * and its focus is the live item under the pointer. */
+    bool modal;
+    int itemOn;       /* focused item, or -1 */
     menuitem_t *held; /* pressed by the mouse */
     ivec2_t cursor;
+    int wheel;        /* for MA_WHEEL */
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette while the menu draws; NULL keeps the level's */
     void (*escape)(menu_t *menu);
@@ -2041,6 +2055,7 @@ struct menu_s {
     void *owner;
 };
 
+/* Returns whether the screen took the event. */
 bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event);
 /* Advance every visible, running animation by one tick. */
 void M_MenuTicker(menu_t *menu);
