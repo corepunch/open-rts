@@ -150,6 +150,11 @@ static int input(void) {
     CHECK(menu.itemOn == DOWN);
     key(SDLK_TAB);
     CHECK(menu.itemOn == BUTTON);
+    SDL_Event backwards = {.key = {.type = SDL_KEYDOWN,
+        .keysym = {.sym = SDLK_TAB, .mod = KMOD_SHIFT}}};
+    M_MenuResponder(&menu, &app, &backwards);
+    CHECK(menu.itemOn == DOWN);
+    key(SDLK_TAB);
     key(SDLK_RETURN);
     CHECK(activated[BUTTON] == 2);
     /* Enter on a disabled item does nothing. */
@@ -296,6 +301,12 @@ static int drawing(void) {
     items[CHECK_BOX].visible = false;
     draw();
     CHECK(pixel(0, 6) == MARKER);
+    /* A crop can fill a scaled control rectangle, retaining color keying. */
+    items[BUTTON].stretch = true;
+    items[BUTTON].rect = (irect_t){30, 0, 4, 6};
+    menu.itemOn = BUTTON;
+    draw();
+    CHECK(pixel(30, 0) == 2 && pixel(33, 5) == 2 && pixel(34, 5) == MARKER);
     V_FreeScreen();
     return 0;
 }

@@ -217,6 +217,8 @@ bool DR_HarvestDropoffMatches(const mobj_t *unit,
 enum { DR_PAGE_BUILD, DR_PAGE_ORDERS, DR_PAGE_PATHS };
 
 bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
+bool DR_PaletteInit(sb_state_t *st);
+void DR_PaletteShutdown(void);
 void DR_PaletteDrawer(sb_state_t *st, const app_t *app);
 irect_t DR_MinimapRect(const level_t *map);
 void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width);

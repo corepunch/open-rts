@@ -1109,6 +1109,8 @@ void V_DrawSpriteCellScaled(irect_t dst, const spritesheet_t *sheet, int cell,
                             const irect_t *src, const uint8_t *remap, uint32_t flags);
 
 int V_TextWidth(const bitmapfont_t *font, const char *text);
+/* Existing engine fallback glyphs, positioned in the supplied logical space. */
+void V_DrawSmallText(irect_t box, const char *text, uint32_t argb, isize2_t space);
 void V_DrawText(ivec2_t at, const bitmapfont_t *font, const char *text, const uint8_t *remap);
 void V_DrawTextScaled(ivec2_t at, const bitmapfont_t *font, const char *text,
                       const uint8_t *remap, int scale);
@@ -2009,6 +2011,7 @@ struct menuitem_s {
     const spritesheet_t *sheet;
     menulook_t look[MS_STATES];
     bool opaque; /* the sheet has no colour key: write its index 0 */
+    bool stretch; /* scale the source picture to the item's rectangle */
     int light;   /* 1..15 darkens the picture, in sixteenths; 0 is full light */
     const bitmapfont_t *font;
     uint32_t ink; /* 0xAARRGGBB text colour; 0 draws through the palette map */
@@ -2029,10 +2032,10 @@ struct menuitem_s {
      * step scrolls the list or prose at index link by that much. */
     int link, step;
     uint32_t fill;  /* 0xAARRGGBB behind the item; 0 draws none */
-    uint32_t color; /* list selection and scroll bar */
+    uint32_t color; /* list selection, scroll bar or plain button focus outline */
     menuanim_t anim;
     menuroutine_t routine;
-    menudraw_t ownerdraw; /* replaces the standard drawing */
+    menudraw_t ownerdraw; /* native content drawn after the standard picture */
     const void *userdata;
 };
 
@@ -2064,6 +2067,10 @@ void M_MenuAnimate(menuitem_t *item, menuanimmode_t mode);
 /* Set a list's row count and keep its scroll position inside it. */
 void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(const menu_t *menu);
+/* Shared fallback lifecycle; games without a native front end supply this table. */
+extern menu_t gamemenu;
+void M_MenuBeginLevel(menu_t *menu, menuitem_t *item, menuaction_t action);
+void M_MenuQuitGame(menu_t *menu, menuitem_t *item, menuaction_t action);
 
 
 enum { MAXSAVEDPATHS = 30 };
@@ -2089,7 +2096,6 @@ typedef struct {
     waypoints_t saved_paths[MAXSAVEDPATHS];
     int saved_path_count;
     int saved_path_selection;
-    int path_scroll;
     bool path_advanced;
 } sb_state_t;
 
@@ -2108,10 +2114,9 @@ bool SB_ProductionResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
 bool SB_SelectedOrder(ticorder_t order, fvec2_t goal, uint32_t target);
 bool SB_ActivateAction(sb_state_t *st, const uiaction_t *action);
 bool SB_PathResponder(sb_state_t *st, const app_t *app, const SDL_Event *event);
-bool SB_PathListResponder(sb_state_t *st, const SDL_Event *event, ivec2_t mouse);
 void SB_ProductionDrawer(sb_state_t *st, const app_t *app);
 irect_t SB_MinimapRect(const level_t *map);
-void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width, uint32_t argb);
+void SB_DrawText(ivec2_t point, const char *text, int width, uint32_t argb);
 bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out);
 
 
