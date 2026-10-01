@@ -1,6 +1,5 @@
 #define _DEFAULT_SOURCE
 #include "kknd.h"
-#include "w_lvl.h"
 
 #include <stdio.h>
 #include <stdlib.h>

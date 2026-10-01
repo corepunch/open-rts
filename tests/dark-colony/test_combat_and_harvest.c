@@ -1,12 +1,7 @@
-#include "mobj_test.h"
-#include "engine_config.h"
+#include "t_local.h"
 #include "engine.h"
-#include "../rts_test.h"
-#include "../rts_model_test.h"
-#include "../../game/g_game.h"
-#include "../../play/p_local.h"
 #include "../../games/dark-colony/info.h"
-#include "p_blood.h"
+#include "dark-colony.h"
 
 #include <stdio.h>
 #include <string.h>

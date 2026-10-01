@@ -1,11 +1,6 @@
-#include "p_ai.h"
-#include "../../play/p_ai.h"
-#include "dc_types.h"
-#include "dc_skirmish.h"
-#include "game.h"
+#include "dark-colony.h"
+#include "engine.h"
 #include "info.h"
-#include "p_local.h"
-#include "d_net.h"
 #include <math.h>
 #include <string.h>
 

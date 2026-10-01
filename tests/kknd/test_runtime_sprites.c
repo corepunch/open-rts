@@ -1,6 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "../rts_test.h"
+#include "t_local.h"
 
 #define CHECK(c) RTS_CHECK(c, "kknd sprites", #c)
 

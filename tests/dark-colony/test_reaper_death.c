@@ -1,8 +1,6 @@
-#include "game.h"
 #include "engine.h"
 #include "info.h"
-#include "dc_facing.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 
 #include <SDL.h>
 #include <stdio.h>

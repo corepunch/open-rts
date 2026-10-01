@@ -1,7 +1,4 @@
-#include "p_ai.h"
-#include "p_local.h"
 #include "engine.h"
-#include "d_net.h"
 
 #include <math.h>
 #include <string.h>

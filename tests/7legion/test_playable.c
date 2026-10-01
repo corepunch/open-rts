@@ -1,5 +1,5 @@
-#include "../rts_model_test.h"
-#include "game.h"
+#include "t_local.h"
+#include "engine.h"
 #include "../../games/7legion/info.h"
 
 #include <math.h>

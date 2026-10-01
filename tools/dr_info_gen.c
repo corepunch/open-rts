@@ -743,7 +743,7 @@ static bool write_info_h_enum(const char *info_h_path, const dr_entry_t *entries
         fprintf(out,
             "/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */\n"
             "#ifndef __INFO__\n#define __INFO__\n\n"
-            "#include \"actor.h\"\n\n"
+            "#include \"engine.h\"\n\n"
             "typedef struct mobjinfo_s {\n"
             "    int doomednum;\n    int spawnstate;\n    int spawnhealth;\n"
             "    int seestate;\n    int seesound;\n    int reactiontime;\n"
@@ -789,7 +789,7 @@ static bool write_info_c(const char *path, const dr_entry_t *entries, int count)
 
     fprintf(f,
         "/* Generated from retail DEFTXT and the OpenDR sprite catalog. Do not edit by hand. */\n"
-        "#include \"engine.h\"\n#include \"dr_types.h\"\n#include \"info.h\"\n#include \"p_harvest.h\"\n\n");
+        "#include \"engine.h\"\n#include \"dark-reign.h\"\n#include \"info.h\"\n\n");
 
     /* sprnames */
     fprintf(f, "const char *const sprnames[NUMSPRITES] = {\n");

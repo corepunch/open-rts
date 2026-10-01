@@ -1,6 +1,6 @@
-#include "mobj_test.h"
+#include "t_local.h"
 #include "info.h"
-#include "d_ticcmd.h"
+#include "engine.h"
 #include <stdio.h>
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #c); return 1; } } while (0)

@@ -1,5 +1,5 @@
 /* Level-owned mission lifecycle and deterministic subsystem order. */
-#include "p_mission.h"
+#include "dark-colony.h"
 #include <stdlib.h>
 
 Mission *load_mission(const char *map_path) {

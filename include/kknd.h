@@ -1,7 +1,22 @@
-#ifndef __W_LVL__
-#define __W_LVL__
+#ifndef __KKND__
+#define __KKND__
 
-#include "kknd.h"
+#include "engine.h"
+
+
+enum { KKND_RESEARCH = 9000 };
+/* Oil a drill rig holds and the rate a docked tanker draws per second. A
+ * tanker (capacity 100) fills in ten seconds. Gameplay values, not retail. */
+enum { KK_DRILLRIG_OIL = 20000, KK_DRILLRIG_RATE = 10 };
+void KK_DrawUnitOverlays(const unitoverlaycontext_t *ctx);
+bool KK_Research(mobj_t *target);
+int KK_NextTechLevel(const mobj_t *actor);
+
+bool load_kknd_map(const char *map_path, level_t *out);
+bool load_assets(const char *data_root, const level_t *map,
+                 const char *sprite_name, tileset_t *tileset,
+                 spritesheet_t *unit_sprite);
+
 
 enum { MAX_LAYERS = 3 };
 
@@ -24,5 +39,6 @@ bool open_lvl(const char *path, blob_t *blob, const uint8_t **segment,
 bool lvl_asset(const uint8_t *segment, size_t size, const char type[4],
                     int index, uint32_t *asset_offset);
 int load_kknd_map_units(const char *path, KkndMapUnit *out, int max_units);
+
 
 #endif

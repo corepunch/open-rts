@@ -1,6 +1,5 @@
-#include "d_net.h"
+#include "engine.h"
 #define _DEFAULT_SOURCE
-#include "p_local.h"
 #include "info.h"
 
 static irect_t sprite_visible_bounds(const spritesheet_t *sprite, int frame);

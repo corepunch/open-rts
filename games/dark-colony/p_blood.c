@@ -1,5 +1,5 @@
-#include "p_blood.h"
-#include "game.h"
+#include "dark-colony.h"
+#include "engine.h"
 #include "info.h"
 #include "gamestat.h"
 #include <stdio.h>

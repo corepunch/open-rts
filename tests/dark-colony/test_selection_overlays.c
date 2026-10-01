@@ -1,7 +1,7 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "r_selection.h"
-#include "../rts_model_test.h"
+#include "dark-colony.h"
+#include "t_local.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

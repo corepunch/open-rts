@@ -1,11 +1,8 @@
 /* Universal AI engine rules, exercised through a mock game interface so the
  * scheduling, planner, toggles, waves and event log are tested independently
  * of any retail data. */
-#include "mobj_test.h"
+#include "t_local.h"
 #include "engine.h"
-#include "../rts_test.h"
-#include "../../play/p_ai.h"
-#include "../../play/p_local.h"
 
 #include <string.h>
 

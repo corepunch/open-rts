@@ -1,8 +1,5 @@
-#include "game.h"
-#include "g_game.h"
+#include "engine.h"
 #include "info.h"
-#include "p_ai.h"
-#include "p_local.h"
 
 #include <assert.h>
 

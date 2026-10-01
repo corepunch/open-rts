@@ -1,7 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "p_local.h"
-#include "rts_model_test.h"
+#include "t_local.h"
 
 #define CHECK(c) RTS_CHECK(c, "KKND opening combat", #c)
 

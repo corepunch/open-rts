@@ -1,13 +1,8 @@
 #define _GNU_SOURCE
 #include "engine.h"
-#include "game.h"
 #include "info.h"
 #include "gamestat.h"
-#include "dc_types.h"
-#include "d_net.h"
-#include "dc_skirmish.h"
-#include "m_random.h"
-#include "p_path.h"
+#include "dark-colony.h"
 
 #include <ctype.h>
 #include <stdbool.h>

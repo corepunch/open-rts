@@ -1,6 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
-#include "sl_types.h"
+#include "7legion.h"
 
 #include <stdint.h>
 #include <stdio.h>

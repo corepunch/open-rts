@@ -57,7 +57,7 @@ static bool write_info_h(const char *path, const char *source,
     if (!file) return false;
     fprintf(file,
         "/* Generated from %s. Do not edit by hand. */\n"
-        "#ifndef __INFO__\n#define __INFO__\n\n#include \"actor.h\"\n\n"
+        "#ifndef __INFO__\n#define __INFO__\n\n#include \"engine.h\"\n\n"
         "typedef struct mobjinfo_s {\n"
         "    int doomednum;\n    int spawnstate;\n    int spawnhealth;\n"
         "    int seestate;\n    int seesound;\n    int reactiontime;\n"

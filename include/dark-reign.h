@@ -1,8 +1,9 @@
-#ifndef __DR_TYPES__
-#define __DR_TYPES__
+#ifndef __DARK_REIGN__
+#define __DARK_REIGN__
 
 #include <stdbool.h>
-#include "m_vec.h"
+#include "engine.h"
+
 
 typedef struct {
     const char *name;
@@ -206,5 +207,21 @@ enum {
     ACTOR_TOGRAN_SMALL_VERTICAL_BRIDGE = 55502,
     ACTOR_TOGRAN_SMALL_CENTRE_BRIDGE = 55504,
 };
+
+
+bool DR_HarvestDropoffMatches(const mobj_t *unit,
+                              int resource_type, const mobj_t *base,
+                              fvec2_t *position);
+
+
+enum { DR_PAGE_BUILD, DR_PAGE_ORDERS, DR_PAGE_PATHS };
+
+bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
+void DR_PaletteDrawer(sb_state_t *st, const app_t *app);
+irect_t DR_MinimapRect(const level_t *map);
+void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width);
+void DR_DrawHeader(const app_t *app, ivec2_t point, const char *text, int width);
+void DR_DrawCaption(const app_t *app, ivec2_t anchor, const char *text, bool centered);
+
 
 #endif

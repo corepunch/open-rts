@@ -1,12 +1,8 @@
 #define _DEFAULT_SOURCE
-#include "g_game.h"
-
 #include "engine.h"
-#include "game.h"
-#include "p_ai.h"
-#include "d_net.h"
+
 #ifdef RTS_GAME_DARK_COLONY
-#include "dc_types.h"
+#include "dark-colony.h"
 #endif
 #include <math.h>
 #include <stdarg.h>

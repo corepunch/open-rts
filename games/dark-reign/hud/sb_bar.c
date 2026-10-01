@@ -1,6 +1,5 @@
-#include "game.h"
-#include "dr_hud.h"
-#include "d_net.h"
+#include "engine.h"
+#include "dark-reign.h"
 
 #include <string.h>
 

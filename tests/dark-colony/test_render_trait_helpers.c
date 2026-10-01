@@ -1,5 +1,5 @@
-#include "engine_config.h"
-#include "../rts_model_test.h"
+#include "engine.h"
+#include "t_local.h"
 #include <stdio.h>
 
 static int test_find_helpers(void) {

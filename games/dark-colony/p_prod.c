@@ -1,9 +1,6 @@
 #define _DEFAULT_SOURCE
-#include "d_net.h"
-#include "p_local.h"
-#include "game.h"
-#include "g_game.h"
-#include "dc_types.h"
+#include "engine.h"
+#include "dark-colony.h"
 #include "info.h"
 
 #include <math.h>

@@ -1,8 +1,6 @@
-#include "game.h"
-#include "info.h"
-#include "engine_config.h"
 #include "engine.h"
-#include "../rts_model_test.h"
+#include "info.h"
+#include "t_local.h"
 
 static int calls;
 static void count_action(mobj_t *unit) {

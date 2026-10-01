@@ -1,11 +1,7 @@
-#include "mobj_test.h"
-#include "engine_config.h"
-#include "../rts_test.h"
-#include "../../game/g_game.h"
-#include "../../play/p_ai.h"
-#include "../../play/p_local.h"
+#include "t_local.h"
+#include "engine.h"
 #include "../../games/dark-colony/info.h"
-#include "../../games/dark-colony/dc_types.h"
+#include "dark-colony.h"
 
 #include <math.h>
 #include <stdio.h>

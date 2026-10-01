@@ -1,9 +1,7 @@
-#include "p_drop.h"
-#include "p_reinforce.h"
-#include "p_local.h"
-#include "dc_facing.h"
+#include "dark-colony.h"
+#include "dc_local.h"
+#include "engine.h"
 #include "info.h"
-#include "d_net.h"
 #include <math.h>
 #include <string.h>
 

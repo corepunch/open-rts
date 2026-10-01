@@ -1,9 +1,6 @@
-#include "mobj_test.h"
+#include "t_local.h"
 #include "info.h"
-#include "p_path.h"
-#include "p_special.h"
-#include "p_weapon.h"
-#include "m_random.h"
+#include "dark-colony.h"
 #include <stdio.h>
 #include <stdlib.h>
 

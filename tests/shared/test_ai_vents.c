@@ -1,9 +1,5 @@
-#include "mobj_test.h"
+#include "t_local.h"
 #include "engine.h"
-#include "game.h"
-#include "p_ai.h"
-#include "p_local.h"
-#include "rts_test.h"
 #include <string.h>
 
 #define CHECK(c) RTS_CHECK(c, "ai vents", #c)

@@ -1,9 +1,6 @@
 #define _DEFAULT_SOURCE
-#include "game.h"
-#include "d_net.h"
-#include "g_game.h"
+#include "engine.h"
 #include "info.h"
-#include "p_ai.h"
 
 #include <stdio.h>
 #include <string.h>

@@ -1,10 +1,8 @@
 #ifndef __PRODUCTION_REGRESSION__
 #define __PRODUCTION_REGRESSION__
-#include "game.h"
-#include "sb_bar.h"
+#include "engine.h"
 #include "info.h"
-#include "rts_test.h"
-#include "p_ai.h"
+#include "t_local.h"
 #ifdef RTS_GAME_KKND
 void A_KkndResearch(mobj_t *actor);
 #endif

@@ -1,7 +1,6 @@
 #ifndef __MOBJ_DATA__
 #define __MOBJ_DATA__
 
-#include "m_vec.h"
 
 enum { DROPSHIP_MAX_PAYLOAD_TYPES = 5 };
 typedef struct { int type; int count; } DropshipPayload;

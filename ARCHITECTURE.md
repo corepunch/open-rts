@@ -67,7 +67,7 @@ selectable, and a producer without being mobile.
 
 ### Trait flags (`MF_*`)
 
-The trait enum is `mobjflag_t` in `play/actor.h`. Older notes and commits call
+The trait enum is `mobjflag_t` in `include/engine.h`. Older notes and commits call
 these flags `T_*` (`T_MOBILE`, etc.); the current names are `MF_*` following the
 Doom naming convention. Traits are a bitmask stored in both `actortype_t.traits`
 and the live `mobj_t.traits`. `P_ApplyActorTypeDefaults()` copies the authored

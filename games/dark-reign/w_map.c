@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include "engine.h"
-#include "game.h"
-#include "dr_types.h"
+#include "dark-reign.h"
 #include "info.h"
 
 #include <ctype.h>

@@ -1,10 +1,6 @@
-#include "game.h"
 #include "engine.h"
 #include "info.h"
-#include "p_local.h"
-#include "p_blood.h"
-#include "dc_types.h"
-#include "w_spr.h"
+#include "dark-colony.h"
 #include <assert.h>
 
 static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,

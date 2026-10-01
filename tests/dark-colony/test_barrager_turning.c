@@ -1,7 +1,6 @@
 #include "engine.h"
 #include "info.h"
-#include "w_spr.h"
-#include "dc_facing.h"
+#include "dark-colony.h"
 
 #include <assert.h>
 #include <stdio.h>

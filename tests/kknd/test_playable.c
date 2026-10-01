@@ -1,6 +1,6 @@
-#include "../rts_model_test.h"
+#include "t_local.h"
 #include "../../games/kknd/info.h"
-#include "game.h"
+#include "engine.h"
 
 #include <math.h>
 #include <stdio.h>

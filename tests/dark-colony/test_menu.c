@@ -1,11 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "engine.h"
-#include "game.h"
-#include "m_menu.h"
-#include "w_spr.h"
-#include "dc_skirmish.h"
-#include "dc_types.h"
-#include "d_net.h"
+#include "dark-colony.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

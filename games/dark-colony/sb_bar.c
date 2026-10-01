@@ -1,10 +1,8 @@
-#include "d_net.h"
+#include "engine.h"
 #define _DEFAULT_SOURCE
-#include "sb_bar.h"
+#include "dark-colony.h"
 #include "info.h"
-#include "dc_types.h"
 #include "gamestat.h"
-#include "m_menu.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -49,7 +47,7 @@ typedef struct {
     bitmapfont_t font;
     spritesheet_t background;
     Sidebar sidebar;
-} sb_state_t;
+} dc_sb_t;
 
 typedef StaticProductDefinition ProductButton;
 
@@ -702,7 +700,7 @@ static void render_hud_messages(app_t *app, const hudtext_t *hud, const bitmapfo
 
 void *DC_SB_Init(app_t *app, const char *data_root) {
     if (!app || !data_root) return NULL;
-    sb_state_t *sb = calloc(1, sizeof(sb_state_t));
+    dc_sb_t *sb = calloc(1, sizeof(dc_sb_t));
     if (!sb) return NULL;
     sb->active = true;
     sidebar_defaults(&sb->sidebar);
@@ -721,7 +719,7 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
 
 bool DC_SB_Responder(void *sb_ptr, app_t *app, level_t *map,
                   mobj_t *const *units, int unit_count, const SDL_Event *event) {
-    sb_state_t *sb = sb_ptr;
+    dc_sb_t *sb = sb_ptr;
     return sb && sb->active &&
            dc_SB_responder(&sb->sidebar, app, map, units, unit_count, event);
 }
@@ -729,7 +727,7 @@ bool DC_SB_Responder(void *sb_ptr, app_t *app, level_t *map,
 void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
                mobj_t *const *units, int unit_count,
                const spritecache_t *sprites, const hudtext_t *hud) {
-    sb_state_t *sb = sb_ptr;
+    dc_sb_t *sb = sb_ptr;
     if (!sb || !sb->active || !sb->font_ready) return;
     const spritecache_t *images = sprites ? sprites->ui : NULL;
     dc_SB_drawer(app, map, units, unit_count, images, &sb->font,
@@ -740,7 +738,7 @@ void DC_SB_Drawer(void *sb_ptr, app_t *app, const level_t *map,
 }
 
 void DC_SB_Shutdown(void *sb_ptr) {
-    sb_state_t *sb = sb_ptr;
+    dc_sb_t *sb = sb_ptr;
     if (!sb) return;
     R_FreeSprite(&sb->background);
     HU_FreeFont(&sb->font);

@@ -1,5 +1,4 @@
-#include "d_net.h"
-#include "engine_config.h"
+#include "engine.h"
 #include <SDL.h>
 #include <stdio.h>
 #include <string.h>

@@ -1,9 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "kknd.h"
 #include "info.h"
-#include "sb_bar.h"
-#include "d_net.h"
-#include "w_lvl.h"
 
 #define SPR(idx) "LEVELS/640/SPRITES.LVL|" #idx ".mobd"
 

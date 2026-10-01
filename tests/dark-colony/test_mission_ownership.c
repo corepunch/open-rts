@@ -1,7 +1,6 @@
-#include "game.h"
+#include "engine.h"
 #include "info.h"
-#include "p_mission.h"
-#include "p_drop.h"
+#include "dark-colony.h"
 #include <assert.h>
 
 int main(void) {

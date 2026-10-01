@@ -1,5 +1,4 @@
-#include "p_special.h"
-#include "p_path.h"
+#include "dark-colony.h"
 #include "info.h"
 
 static void repair(mobj_t *healer) {

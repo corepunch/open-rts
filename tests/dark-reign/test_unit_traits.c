@@ -1,7 +1,6 @@
-#include "../rts_model_test.h"
-#include "game.h"
+#include "t_local.h"
+#include "engine.h"
 #include "info.h"
-#include "d_net.h"
 
 #define CHECK(c) RTS_CHECK(c, "Dark Reign traits", #c)
 

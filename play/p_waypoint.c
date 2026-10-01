@@ -1,5 +1,4 @@
-#include "p_local.h"
-#include "game.h"
+#include "engine.h"
 
 /* Called by the ordinary mobj thinker: routes survive a local combat stop. */
 void P_TickWaypoints(mobj_t *actor) {

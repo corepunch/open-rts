@@ -1,11 +1,5 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
-#include "game.h"
-#include "renderer.h"
-#include "sb_bar.h"
-#include "p_ai.h"
-#include "d_net.h"
-#include "m_menu.h"
 
 #include <ctype.h>
 #include <math.h>
