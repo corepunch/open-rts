@@ -44,7 +44,12 @@ static bool selected_command(ticcmd_t *cmd, mobj_t *const *units, int count) {
         }
         cmd->units[cmd->count++] = unit->id;
     }
-    return cmd->count && G_QueueTiccmd(cmd);
+    if (!cmd->count || !G_QueueTiccmd(cmd)) return false;
+    /* The units answer an order to go somewhere or do something. */
+    if (cmd->order == TC_ORDER || cmd->order == TC_MOVE || cmd->order == TC_ATTACK ||
+        cmd->order == TC_HARVEST || cmd->order == TC_PATH)
+        S_Bark(units, count, SE_ACK, true);
+    return true;
 }
 
 bool G_SelectedTiccmd(ticorder_t order, mobj_t *const *units, int count,

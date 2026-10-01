@@ -631,6 +631,7 @@ void G_InitGame(void) {
     memcpy(runtime_states, states, sizeof(runtime_states));
     runtime_info = game_info;
     runtime_info.states = runtime_states;
+    runtime_info.sound = &dc_soundinfo;
     initialized = true;
 }
 

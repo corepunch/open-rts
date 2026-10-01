@@ -654,6 +654,7 @@ struct gameinfo_s {
     harvestdropoffmatchf_t harvest_dropoff_matches;
     const uint32_t *random_table; /* Optional native 256-entry gameplay RNG. */
     int game_speed; /* Default simulation speed in percent, 10..200; 0 means 100. */
+    const struct soundinfo_s *sound; /* NULL: the game has no sounds yet. */
 };
 
 /* State-machine and presentation fields of an ordinary mobj. */
@@ -1298,6 +1299,118 @@ void D_NetGameError(app_t *app);
 void M_Drawer(const app_t *app);
 void M_Ticker(void);
 void M_Shutdown(void);
+
+
+/* ── sound: Doom's s_sound.c over an i_sound.c mixer ──────────────────────
+ * Simulation code starts sounds as Doom's P_ code does; playback is local
+ * presentation and never touches game state or the gameplay RNG, so peers in
+ * a lockstep game may hear different things. Every call is a no-op until
+ * S_Init succeeds, which keeps headless and model builds silent. */
+
+#define MAXSFXLINKS 10
+
+/* One playable sound, or a Hexen SNDINFO-style random group of them. */
+typedef struct sfxinfo_s {
+    char name[64];      /* Data-root-relative sample path; empty for a group. */
+    int priority;       /* Bark priority: lower wins (DC SLIST); 0 for samples. */
+    int instances;      /* Simultaneous plays allowed; 0 is unlimited. */
+    int volume;         /* Attenuation in centibels, <= 0 (DirectSound units). */
+    bool loop;
+    int16_t links[MAXSFXLINKS]; /* Group members: sfx ids. */
+    int numlinks;
+    int next;           /* Group cursor: the member the next play uses. */
+    bool norepeat;      /* Group re-rolls its cursor away from the last member. */
+    struct sfxsample_s *data;
+} sfxinfo_t;
+
+/* Actor events a game maps to sounds. */
+typedef enum {
+    SE_NONE,
+    SE_SELECT,   /* Bark: the local player selected the unit. */
+    SE_ACK,      /* Bark: the local player ordered the unit. */
+    SE_ATTACK,   /* Weapon fire. */
+    SE_DEATH,
+    SE_DEPLOY,
+    SE_EXPLODE,  /* A missile's impact. */
+    SE_ATTACKED, /* A local player's object took damage (alert). */
+    SE_ACTIVE,   /* Looping sound while the actor exists (engines, drills). */
+    NUMSOUNDEVENTS
+} soundevent_t;
+
+typedef enum {
+    UI_SOUND_CLICK,   /* Control activated. */
+    UI_SOUND_MESSAGE, /* Message line shown. */
+    UI_SOUND_SCREEN,  /* Menu screen opened (DC loops it while open). */
+    UI_SOUND_GADGET,  /* Menu gadget entrance. */
+    NUMUISOUNDS
+} uisound_t;
+
+/* A game's sound definition, referenced by gameinfo_t.sound. */
+typedef struct soundinfo_s {
+    /* Registers the sfx table with S_AddSfx; false leaves the game silent. */
+    bool (*init)(const char *data_root);
+    /* Per-level data such as tileset ambience. */
+    void (*level_start)(const level_t *map, const char *data_root);
+    /* Sfx id for an actor event, or 0. */
+    int (*actor_sound)(const mobj_t *actor, soundevent_t event);
+    /* Once per rendered frame after the listener moves: ambience. */
+    void (*ticker)(const app_t *app, const level_t *map);
+    int ui[NUMUISOUNDS]; /* Sfx ids; 0 is silent. */
+    /* Distance attenuation in centibels per squared cell, and the silence
+     * threshold. DC.EXE 0x42ec44: d^2/2 with -8000 as the cutoff. */
+    float rolloff;
+    int cutoff;
+} soundinfo_t;
+
+extern bool nosound;
+extern int snd_volume; /* Master volume percent, 0..100. */
+
+/* Opens the audio device and loads the game's sounds. */
+bool S_Init(const char *data_root);
+void S_Shutdown(void);
+/* Game tables add sfx in order; returns the id (ids start at 1), or 0. */
+int S_AddSfx(const sfxinfo_t *sfx);
+sfxinfo_t *S_Sfx(int id);
+/* Stops world sounds and loads the level's own sound data. */
+void S_Start(const level_t *map, const char *data_root);
+/* Positional sound following origin; NULL origin plays at full volume. */
+int S_StartSound(const mobj_t *origin, int sfx);
+int S_StartSoundAt(fvec2_t position, int sfx);
+/* Listener-relative (UI, barks, ambience). */
+int S_StartLocalSound(int sfx);
+void S_StartUISound(uisound_t sound);
+void S_StopUISound(uisound_t sound);
+/* Doom S_StopSound: every channel the origin started. */
+void S_StopSound(const mobj_t *origin);
+/* A freed origin keeps its one-shot sounds at its last position; loops stop. */
+void S_UnlinkMobj(const mobj_t *origin);
+void S_StopAllSounds(void);
+bool S_IsPlaying(int handle);
+void S_StopChannel(int handle);
+/* Resolves the event through the game and plays it if the local player can
+ * see the actor's cell. */
+int S_ActorSound(const mobj_t *actor, soundevent_t event);
+/* Plays one bark for the local player's units among `units`: the highest
+ * priority (lowest number) sound. selected_only limits it to the selection. */
+void S_Bark(mobj_t *const *units, int count, soundevent_t event, bool selected_only);
+/* Moves the listener to the world view's centre, repositions sounds that
+ * follow objects and runs the game's ambience. Call once per frame. */
+void S_UpdateSounds(const app_t *app, const level_t *map);
+/* Presentation-only random numbers (Doom's M_Random), not the gameplay RNG. */
+int S_Random(void);
+/* Whether the local player currently sees the cell at position. */
+bool S_PositionVisible(const level_t *map, fvec2_t position);
+
+/* i_sound.c: platform mixer. Volumes are 0..256 per side. */
+typedef struct sfxsample_s sfxsample_t;
+bool I_InitSound(void);
+void I_ShutdownSound(void);
+sfxsample_t *I_LoadSample(const char *path);
+void I_FreeSample(sfxsample_t *sample);
+int I_StartSound(const sfxsample_t *sample, int left, int right, bool loop);
+void I_UpdateSoundParams(int handle, int left, int right);
+void I_StopSound(int handle);
+bool I_SoundIsPlaying(int handle);
 
 
 #define RTS_MODEL_MAX_SNAPSHOT_UNITS 128

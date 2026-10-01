@@ -18,6 +18,9 @@ void DC_ControlLooks(menuitem_t *item, int normal, int pushed, int remap,
 /* Gameplay lookup is hand-authored, independent of generated state tables. */
 const struct mobjtype_s *actor_type_by_id(uint16_t type_id);
 
+/* SOUND2.DAT, SLIST.DAT and tileset ambience (sounds.c). */
+extern const soundinfo_t dc_soundinfo;
+
 /* Scenario TEAM records are native map data, but AI consumption belongs to
  * the simulation.  owner 0 is the human side; non-zero owners are DC's
  * computer-controlled side in the current runtime mapping. */
