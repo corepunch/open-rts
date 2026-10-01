@@ -49,66 +49,122 @@ static void type_text(menu_t *menu, menuitem_t *item, const char *text, bool era
     call_routine(menu, item, MA_CHANGE);
 }
 
-bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
+static int page_rows(const menuitem_t *list) {
+    return list->row_height > 0 ? list->rect.h / list->row_height : 0;
+}
+
+/* A list scrolls by rows and keeps its view inside them. Prose scrolls by
+ * lines; its length is not known here. */
+static void scroll_to(menuitem_t *item, int first) {
+    int last = item->rows - page_rows(item);
+    if (item->kind == MI_LIST && first > last) first = last;
+    item->first_row = first < 0 ? 0 : first;
+}
+
+void M_MenuSetRows(menuitem_t *list, int rows) {
+    list->rows = rows;
+    scroll_to(list, list->first_row);
+}
+
+static void select_row(menu_t *menu, menuitem_t *list, int row) {
+    if (row < 0 || row >= list->rows) return;
+    list->value = row;
+    if (row < list->first_row) list->first_row = row;
+    if (row >= list->first_row + page_rows(list)) list->first_row = row - page_rows(list) + 1;
+    call_routine(menu, list, MA_CHANGE);
+}
+
+static menuitem_t *linked(const menu_t *menu, const menuitem_t *item) {
+    return item->link >= 0 && item->link < menu->numitems ? &menu->items[item->link] : NULL;
+}
+
+/* The visible range centres on the pointer, as Dark Colony's scroll bars do
+ * (DC.EXE 0x42805f..0x4280d6). */
+static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
+    menuitem_t *list = linked(menu, bar);
+    if (!list || bar->rect.h <= 0) return;
+    scroll_to(list, (menu->cursor.y - bar->rect.y) * list->rows / bar->rect.h -
+                    page_rows(list) / 2);
+}
+
+static void activate(menu_t *menu, menuitem_t *item) {
+    if (!item_live(item)) return;
+    if (item->kind == MI_CHECK && !item->group) item->value = !item->value;
+    else if (item->kind == MI_CHECK)
+        for (int i = 0; i < menu->numitems; ++i) {
+            menuitem_t *other = &menu->items[i];
+            if (other->kind == MI_CHECK && other->group == item->group) other->value = other == item;
+        }
+    menuitem_t *target = item->kind == MI_BUTTON && item->step ? linked(menu, item) : NULL;
+    if (target) scroll_to(target, target->first_row + item->step);
+    call_routine(menu, item, MA_ACTIVATE);
+}
+
+/* The wheel scrolls the screen's list or prose. */
+static void wheel(menu_t *menu, int delta) {
+    for (int i = 0; i < menu->numitems; ++i) {
+        menuitem_t *item = &menu->items[i];
+        if (!item->visible || !(item->kind == MI_LIST || (item->kind == MI_STATIC && item->prose)))
+            continue;
+        scroll_to(item, item->first_row - delta);
+        return;
+    }
+}
+
+static void respond(menu_t *menu, const app_t *app, const SDL_Event *event) {
     if (event->type == SDL_KEYDOWN) {
         SDL_Keycode key = event->key.keysym.sym;
         menuitem_t *focus = focused(menu);
         if (key == SDLK_ESCAPE) {
             if (!event->key.repeat && menu->escape) menu->escape(menu);
-            return true;
-        }
-        if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) && focus->kind == MI_LIST) {
-            focus->step = key == SDLK_UP ? -1 : 1;
-            call_routine(menu, focus, MA_ROW);
-            focus->step = 0;
-            return true;
-        }
-        if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB)
+        } else if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) &&
+                   focus->kind == MI_LIST) {
+            select_row(menu, focus, focus->value < 0 ? 0 : focus->value + (key == SDLK_UP ? -1 : 1));
+        } else if (key == SDLK_UP || key == SDLK_DOWN || key == SDLK_TAB) {
             focus_step(menu, key == SDLK_UP ? -1 : 1);
-        else if ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && !event->key.repeat)
-            call_routine(menu, focus, MA_ACTIVATE);
-        else if (key == SDLK_BACKSPACE)
+        } else if ((key == SDLK_RETURN || key == SDLK_KP_ENTER) && !event->key.repeat) {
+            activate(menu, focus);
+        } else if (key == SDLK_BACKSPACE) {
             type_text(menu, focus, NULL, true);
-        return true;
-    }
-    if (event->type == SDL_TEXTINPUT) {
+        }
+    } else if (event->type == SDL_TEXTINPUT) {
         type_text(menu, focused(menu), event->text.text, false);
-        return true;
-    }
-    if (event->type == SDL_MOUSEMOTION ||
-        (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)) {
+    } else if (event->type == SDL_MOUSEMOTION ||
+               (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT)) {
         bool motion = event->type == SDL_MOUSEMOTION;
         R_WindowToRenderPt(app, motion ? event->motion.x : event->button.x,
                            motion ? event->motion.y : event->button.y,
                            &menu->cursor.x, &menu->cursor.y);
         if (motion && menu->held && menu->held->kind == MI_SCROLLBAR) {
-            menu->held->value = menu->cursor.y - menu->held->rect.y;
-            call_routine(menu, menu->held, MA_CHANGE);
-            return true;
+            drag_scrollbar(menu, menu->held);
+            return;
         }
         menuitem_t *hit = item_at(menu, menu->cursor);
-        if (!hit) return true;
+        if (!hit) return;
         menu->itemOn = (int)(hit - menu->items);
-        if (motion) return true;
+        if (motion) return;
         menu->held = hit;
-        if (hit->kind == MI_LIST) {
-            int row_h = hit->row_height > 0 ? hit->row_height : 1;
-            hit->step = 0;
-            hit->value = hit->first_row + (menu->cursor.y - hit->rect.y) / row_h;
-            call_routine(menu, hit, MA_ROW);
-        } else if (hit->kind == MI_SCROLLBAR) {
-            hit->value = menu->cursor.y - hit->rect.y;
-            call_routine(menu, hit, MA_CHANGE);
-        } else {
-            call_routine(menu, hit, MA_ACTIVATE);
-        }
-        return true;
-    }
-    if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
+        if (hit->kind == MI_LIST)
+            select_row(menu, hit, hit->first_row +
+                       (menu->cursor.y - hit->rect.y) / (hit->row_height > 0 ? hit->row_height : 1));
+        else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
+        else activate(menu, hit);
+    } else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
         menu->held = NULL;
-        return true;
+    } else if (event->type == SDL_MOUSEWHEEL) {
+        wheel(menu, event->wheel.y);
     }
-    if (event->type == SDL_MOUSEWHEEL && menu->wheel) menu->wheel(menu, event->wheel.y);
+}
+
+bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
+    respond(menu, app, event);
+    /* The keyboard types into the focused field and nowhere else. */
+    const menuitem_t *focus = focused(menu);
+    bool typing = item_live(focus) && focus->kind == MI_TEXTFIELD;
+    if (typing != (SDL_IsTextInputActive() == SDL_TRUE)) {
+        if (typing) SDL_StartTextInput();
+        else SDL_StopTextInput();
+    }
     return true;
 }
 

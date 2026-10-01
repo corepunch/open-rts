@@ -21,8 +21,9 @@ static int bright_pushed, bright_highlight;
  * item's index is its native control ID. The story text is one more item. */
 enum { NUMCONTROLS = 300, PROSE = NUMCONTROLS, NUMITEMS };
 static menuitem_t items[NUMITEMS];
-static menu_t menu = {.items = items, .numitems = NUMITEMS};
 static bool initialized, training, inlevel;
+static void menu_escape(menu_t *screen);
+static menu_t menu = {.items = items, .numitems = NUMITEMS, .escape = menu_escape};
 static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
@@ -31,7 +32,6 @@ static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAM
 static bool lan, waiting;
 static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
 static char network_notice[128], selected_server[64];
-static int server_scroll;
 static bitmapfont_t fonts[3];
 static spritesheet_t background;
 static spritesheet_t pictures;
@@ -64,7 +64,7 @@ typedef struct {
     int players;
 } skirmishmap_t;
 static skirmishmap_t *maps;
-static int nummaps, selectedmap = -1, mapscroll;
+static int nummaps, selectedmap = -1;
 
 static void refresh_skirmish(void);
 static bool load_skirmish_maps(void);
@@ -238,27 +238,6 @@ static int filtered_map(int row) {
     return -1;
 }
 
-static int visible_map_rows(void) {
-    return items[27].rect.h / fonts[0].glyph_size.h;
-}
-
-static void scroll_maps(int amount) {
-    int count = 0;
-    while (filtered_map(count) >= 0) ++count;
-    mapscroll += amount;
-    if (mapscroll > count - visible_map_rows()) mapscroll = count - visible_map_rows();
-    if (mapscroll < 0) mapscroll = 0;
-}
-
-static void drag_map_scroll(ivec2_t point) {
-    int count = 0;
-    while (filtered_map(count) >= 0) ++count;
-    irect_t bar = items[30].rect;
-    /* 0x42805f..0x4280d6 centers the visible range on the pointer. */
-    mapscroll = (point.y - bar.y) * count / bar.h - visible_map_rows() / 2;
-    scroll_maps(0);
-}
-
 static void gadget_pose(int id, int pose) {
     gadget_t *gadget = &gadgets[id];
     if (gadget->sequence && pose >= 0 && gadget->sequence->start + pose <= gadget->sequence->end) {
@@ -278,18 +257,11 @@ static void refresh_skirmish(void) {
         gadget_pose(96 + i, p->color * 2);
         gadget_pose(142 + i, p->team * 2);
     }
-    for (int i = 105; i <= 108; ++i) items[i].value = i - 105 == skirmish.storage;
-    for (int i = 110; i <= 113; ++i) items[i].value = i - 110 == skirmish.artifacts;
-    items[115].value = !skirmish.erupting;
-    items[116].value = skirmish.erupting;
-    items[118].value = !skirmish.renewable;
-    items[119].value = skirmish.renewable;
     snprintf(items[121].text, sizeof(items[121].text), "%d%%", skirmish.quantity * 25);
     snprintf(items[125].text, sizeof(items[125].text), "%d%%", skirmish.flow * 25);
     strcpy(items[129].text, messages[(skirmish.players[0].race ? 40 : 30) + skirmish.rank]);
     if (selectedmap >= 0 && maps[selectedmap].players < active_players()) selectedmap = -1;
     snprintf(items[26].text, sizeof(items[26].text), "%s", selectedmap < 0 ? "" : maps[selectedmap].title);
-    scroll_maps(0);
     if (lan) {
         for (int i = 0; i < 8; ++i) {
             if (i) snprintf(items[i].text, sizeof(items[i].text), "%s",
@@ -329,7 +301,7 @@ static void activate_skirmish(int id) {
                 if (!used[color]) { ai->color = color; used[color] = true; break; }
             }
         }
-        mapscroll = 0;
+        items[27].first_row = 0;
     } else if (id == 32 || id == 40) {
         int oldcolor = skirmish.players[0].color;
         int newcolor = (oldcolor + (id == 32 ? 1 : 7)) % 8;
@@ -351,7 +323,6 @@ static void activate_skirmish(int id) {
         if (*value > 20) *value = 20;
     } else if (id == 130 && skirmish.rank > 0) --skirmish.rank;
     else if (id == 131 && skirmish.rank < 3) ++skirmish.rank;
-    else if (id == 28 || id == 29) scroll_maps(id == 28 ? -1 : 1);
     else if ((id == 133 || id == 16) && selectedmap >= 0) {
         skirmish.seed = (uint8_t)SDL_GetTicks();
         snprintf(mapname, sizeof(mapname), "%s", maps[selectedmap].path);
@@ -522,16 +493,19 @@ static bool load_screen(int next) {
                 item->ownerdraw = draw_gadget;
                 item->userdata = gadget;
             }
-            /* list N ... selbg <colour>; scroll N ... list <id>. */
+            /* list N ... selbg <colour>; scroll N ... list <id>;
+             * pushb N ... list <id> <rows>. */
             if (script == LIST && (label = strstr(line, " selbg ")) &&
                 sscanf(label, " selbg %15s", name) == 1)
                 for (int i = 0; i < numcolours; ++i)
                     if (!strcmp(colours[i].name, name)) item->color = colours[i].argb;
-            if (script == SCROLL && (label = strstr(line, " list ")) &&
-                sscanf(label, " list %d", &item->link) == 1) {
+            if ((script == SCROLL || script == PUSH) && (label = strstr(line, " list ")) &&
+                sscanf(label, " list %d %d", &item->link, &item->step) >= 1) {
                 if (item->link < 0 || item->link >= NUMCONTROLS) { ok = false; break; }
-                item->fill = 0xff000000u;
-                item->color = 0xffff0000u; /* Native default colour 1. */
+                if (script == SCROLL) {
+                    item->fill = 0xff000000u;
+                    item->color = 0xffff0000u; /* Native default colour 1. */
+                }
             }
         } else if (!strncmp(line, "banim", 5)) {
             /* banim id desc ngadgets nbuttons gadget... button...: the gadgets
@@ -594,12 +568,19 @@ static bool load_screen(int next) {
         for (int i = 21; i <= 26; ++i) items[i].visible = false;
         items[race ? 26 : 23].visible = true;
         snprintf(items[5].text, sizeof(items[5].text), "%s", leader);
-        SDL_StartTextInput();
-    } else SDL_StopTextInput();
-    /* Text viewport arguments at 0x4023f8/0x403030, separate from widgets. */
-    if (page == STORY || page == BRIEFING)
+        items[0].group = items[1].group = 1;
+        items[race].value = 1;
+    }
+    /* Text viewport arguments at 0x4023f8/0x403030, separate from widgets.
+     * Its two arrow buttons scroll it a line at a time. */
+    if (page == STORY || page == BRIEFING) {
         items[PROSE] = (menuitem_t){.visible = true, .font = &fonts[0],
             .rect = page == STORY ? (irect_t){10, 13, 579, 420} : (irect_t){310, 212, 294, 225}};
+        menuitem_t *up = &items[page == STORY ? 2 : 4], *down = &items[3];
+        up->link = down->link = PROSE;
+        up->step = -1;
+        down->step = 1;
+    }
     if (page == STORY && !read_text(race ? "INTRFACE/ASTORY.TXT" : "INTRFACE/HSTORY.TXT")) ok = false;
     if (page == BRIEFING) {
         items[10].visible = false;
@@ -612,18 +593,22 @@ static bool load_screen(int next) {
     items[PROSE].prose = prose;
     if (page == SKIRMISH) {
         selectedmap = -1;
-        mapscroll = 0;
         if (!load_skirmish_maps()) ok = false;
         items[0].kind = MI_TEXTFIELD;
         items[27].row = map_row;
+        /* The four option rows are each one choice. 133 is a native check
+         * box that this port uses as the start button. */
+        for (int i = 105; i <= 119; ++i) items[i].group = i <= 108 ? 1 : i <= 113 ? 2 : i <= 116 ? 3 : 4;
+        items[105 + skirmish.storage].value = items[110 + skirmish.artifacts].value = 1;
+        items[115 + skirmish.erupting].value = items[118 + skirmish.renewable].value = 1;
+        items[133].kind = MI_BUTTON;
         for (int i = 166; i <= 173; ++i) items[i].visible = i == 166;
         for (int i = 180; i <= 187; ++i) items[i].visible = i == 180;
         for (int i = 17; i <= 23; ++i) items[i].visible = false;
         refresh_skirmish();
-        SDL_StartTextInput();
     }
     if (page == NETWORK) {
-        items[0].value = true;
+        items[0].value = items[0].group = 1;
         for (int i = 1; i <= 3; ++i) {
             items[i].visible = false;
             items[7 + i].visible = false;
@@ -634,11 +619,9 @@ static bool load_screen(int next) {
         items[menu.itemOn].kind = MI_TEXTFIELD;
         snprintf(items[menu.itemOn].text, sizeof(items[menu.itemOn].text), "%s",
                  page == SESSION_NAME ? session_name : server_address);
-        SDL_StartTextInput();
     }
     if (page == BROWSE) {
         items[0].row = session_row;
-        server_scroll = 0;
         selected_server[0] = '\0';
         strcpy(items[6].text, "Select LAN Session");
         strcpy(items[5].text, "JOIN");
@@ -768,8 +751,6 @@ static void activate(app_t *app, int id) {
     } else if (page == STORY) {
         if (id == 4) ok = load_screen(SETUP);
         else if (id == 5) ok = load_screen(BRIEFING);
-        else if (id == 2) { if (items[PROSE].first_row > 0) --items[PROSE].first_row; }
-        else if (id == 3) ++items[PROSE].first_row;
     } else if (page == NETWORK) {
         if (id == 6) ok = load_screen(MAIN);
         else if (id == 4) ok = load_screen(SESSION_NAME);
@@ -797,11 +778,9 @@ static void activate(app_t *app, int id) {
             network_notice[0] = '\0';
             if (!I_OpenNetBrowser("dark-colony")) network_failure();
             selected_server[0] = '\0';
-            server_scroll = 0;
+            items[0].first_row = 0;
         } else if (id == 18) { I_CancelNetGame(); ok = load_screen(CONNECT); }
         else if (id == 5 && selected_server[0]) ok = join_session(selected_server);
-        else if (id == 2 && server_scroll > 0) --server_scroll;
-        else if (id == 3) ++server_scroll;
     } else if (page == CONNECT) {
         if (id == 1) { I_CancelNetGame(); waiting = false; ok = load_screen(NETWORK); }
         else if (id == 0 && !waiting) ok = join_session(server_address);
@@ -819,14 +798,12 @@ static void activate(app_t *app, int id) {
             } else if (id == 133 && selectedmap >= 0) {
                 if (I_HostNetGame("dark-colony", session_name, maps[selectedmap].path, active_players())) waiting = true;
                 else network_failure();
-            } else if (id == 28 || id == 29) scroll_maps(id == 28 ? -1 : 1);
+            }
             refresh_skirmish();
         } else if (!lan) activate_skirmish(id);
     } else if (page == BRIEFING) {
         if (id == 0) ok = load_screen(training ? SETUP : STORY);
         else if (id == 2) { menumap = mapname; menuactive = false; }
-        else if (id == 3) ++items[PROSE].first_row;
-        else if (id == 4) { if (items[PROSE].first_row > 0) --items[PROSE].first_row; }
         else if (id == 1) notice = "Encyclopedia is not implemented yet";
     }
     if (!ok) {
@@ -883,31 +860,24 @@ static void refresh(void) {
     for (int i = 0; i < NUMCONTROLS; ++i) items[i].enabled = selectable(i);
     if (page == SKIRMISH) {
         menuitem_t *list = &items[27];
-        list->first_row = mapscroll;
+        int rows = 0;
         list->value = -1;
-        for (list->rows = 0; filtered_map(list->rows) >= 0; ++list->rows)
-            if (filtered_map(list->rows) == selectedmap) list->value = list->rows;
+        for (; filtered_map(rows) >= 0; ++rows)
+            if (filtered_map(rows) == selectedmap) list->value = rows;
+        M_MenuSetRows(list, rows);
     }
     if (page == BROWSE) {
         menuitem_t *list = &items[0];
-        const netgame_t *games = I_NetGames(&list->rows);
-        list->first_row = server_scroll;
+        int rows;
+        const netgame_t *games = I_NetGames(&rows);
         list->value = -1;
-        for (int i = 0; i < list->rows; ++i)
+        for (int i = 0; i < rows; ++i)
             if (!strcmp(games[i].address, selected_server)) list->value = i;
+        M_MenuSetRows(list, rows);
         list->prose = network_notice[0] ? network_notice :
             "Searching for LAN games...\nUse ADDRESS to connect directly.";
     }
     if (page == CONNECT) items[3].prose = notice == network_notice ? network_notice : NULL;
-}
-
-static void drag_server_scroll(ivec2_t point) {
-    int count;
-    I_NetGames(&count);
-    irect_t bar = items[1].rect;
-    server_scroll = (point.y - bar.y) * count / bar.h -
-                    items[0].rect.h / fonts[0].glyph_size.h / 2;
-    if (server_scroll < 0) server_scroll = 0;
 }
 
 static void menu_escape(menu_t *screen) {
@@ -918,18 +888,6 @@ static void menu_escape(menu_t *screen) {
     } else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
         page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0);
     else if (inlevel) menuactive = false;
-}
-
-static void menu_wheel(menu_t *screen, int delta) {
-    (void)screen;
-    if (page == BROWSE) {
-        server_scroll -= delta;
-        if (server_scroll < 0) server_scroll = 0;
-    } else if (page == SKIRMISH && !waiting) scroll_maps(-delta);
-    else if (page == STORY || page == BRIEFING) {
-        items[PROSE].first_row -= delta;
-        if (items[PROSE].first_row < 0) items[PROSE].first_row = 0;
-    }
 }
 
 static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
@@ -947,47 +905,15 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) 
         if (!(page == SKIRMISH && id == 0)) notice = NULL;
         return;
     }
-    if (action == MA_CHANGE && item->kind == MI_SCROLLBAR) {
-        if (page == BROWSE && id == 1) drag_server_scroll(screen->cursor);
-        else if (page == SKIRMISH && id == 30) drag_map_scroll(screen->cursor);
-        return;
-    }
-    if (action == MA_ROW && page == BROWSE && id == 0) {
-        int count, row = item->value;
+    if (action == MA_CHANGE && page == BROWSE && id == 0) {
+        int count;
         const netgame_t *games = I_NetGames(&count);
-        if (item->step != 0) {
-            row = -1;
-            for (int i = 0; i < count; ++i)
-                if (!strcmp(games[i].address, selected_server)) row = i;
-            row += item->step;
-            if (row < 0) row = 0;
-        }
-        if (row >= 0 && row < count) strcpy(selected_server, games[row].address);
-        if (item->step != 0) {
-            int rows = items[0].rect.h / fonts[0].glyph_size.h;
-            if (row < server_scroll) server_scroll = row;
-            if (row >= server_scroll + rows) server_scroll = row - rows + 1;
-        }
+        if (item->value < count) strcpy(selected_server, games[item->value].address);
         return;
     }
-    if (action == MA_ROW && page == SKIRMISH && id == 27) {
-        if (item->step != 0) {
-            int row = 0;
-            if (selectedmap >= 0) {
-                while (filtered_map(row) >= 0 && filtered_map(row) != selectedmap) ++row;
-                row += item->step;
-            }
-            if (row < 0) row = 0;
-            if (filtered_map(row) >= 0) {
-                selectedmap = filtered_map(row);
-                if (row < mapscroll) mapscroll = row;
-                if (row >= mapscroll + visible_map_rows()) mapscroll = row - visible_map_rows() + 1;
-                refresh_skirmish();
-            }
-        } else {
-            selectedmap = filtered_map(item->value);
-            refresh_skirmish();
-        }
+    if (action == MA_CHANGE && page == SKIRMISH && id == 27) {
+        selectedmap = filtered_map(item->value);
+        refresh_skirmish();
         return;
     }
     if (action != MA_ACTIVATE) return;
@@ -1013,8 +939,6 @@ bool M_Responder(app_t *app, const SDL_Event *event, bool in_level) {
     }
     inlevel = in_level;
     menu.owner = app;
-    menu.escape = menu_escape;
-    menu.wheel = menu_wheel;
     refresh();
     return M_MenuResponder(&menu, app, event);
 }
@@ -1072,9 +996,6 @@ void M_Ticker(void) {
         bool found = false;
         for (int i = 0; i < count; ++i) found |= !strcmp(games[i].address, selected_server);
         if (!found) selected_server[0] = '\0';
-        int rows = items[0].rect.h / fonts[0].glyph_size.h;
-        if (server_scroll > count - rows) server_scroll = count - rows;
-        if (server_scroll < 0) server_scroll = 0;
         if (neterror[0]) network_failure();
     }
     uint64_t now = SDL_GetTicks64();

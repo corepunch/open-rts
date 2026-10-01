@@ -1976,7 +1976,10 @@ typedef enum { MS_NORMAL, MS_FOCUS, MS_PUSHED, MS_STATES } menustate_t;
 typedef struct menu_s menu_t;
 typedef struct menuitem_s menuitem_t;
 
-typedef enum { MA_ACTIVATE, MA_CHANGE, MA_ROW } menuaction_t;
+/* MA_ACTIVATE: clicked, or Enter while focused; a check box has already
+ * changed. MA_CHANGE: the text of a field or the selected row of a list
+ * changed. */
+typedef enum { MA_ACTIVATE, MA_CHANGE } menuaction_t;
 
 typedef void (*menuroutine_t)(menu_t *menu, menuitem_t *item, menuaction_t action);
 typedef void (*menudraw_t)(const menu_t *menu, const menuitem_t *item);
@@ -1999,12 +2002,14 @@ struct menuitem_s {
     ivec2_t inset; /* text origin inside the rect */
     int maxchars;
     int value; /* check: set; list: selected row, or -1 */
-    int step;
+    int group; /* check: nonzero makes it one of a set where exactly one is set */
     /* A list asks for its rows; first_row is the scroll position, in rows for
      * a list and in lines for prose. */
     int rows, first_row, row_height;
     const char *(*row)(const menuitem_t *item, int row);
-    int link; /* scroll bar: index of its list, or -1 */
+    /* A scroll bar shows and drags the list at index link. A button with a
+     * step scrolls the list or prose at index link by that much. */
+    int link, step;
     uint32_t fill;  /* 0xAARRGGBB behind the item; 0 draws none */
     uint32_t color; /* list selection and scroll bar */
     menuroutine_t routine;
@@ -2021,11 +2026,12 @@ struct menu_s {
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette while the menu draws; NULL keeps the level's */
     void (*escape)(menu_t *menu);
-    void (*wheel)(menu_t *menu, int delta);
     void *owner;
 };
 
 bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event);
+/* Set a list's row count and keep its scroll position inside it. */
+void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(const menu_t *menu);
 
 

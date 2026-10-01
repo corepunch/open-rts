@@ -547,7 +547,12 @@ holding a C array of `menuitem_t`: kind, rectangle, sheet cell and palette map
 per state (normal, focused, pushed), font and text, list rows, and a routine.
 The game fills the table once when a screen loads and changes item fields
 afterwards. `M_MenuResponder` hit-tests, keeps focus, edits text fields and
-calls the routines; `M_MenuDrawer` draws the background, pictures, button
+calls the routines. It owns widget state: a check box toggles, or is one of a
+`group` where exactly one is set; a list keeps its selected row and scroll
+position, moved by clicks, Up/Down, the wheel, its scroll bar and any button
+whose `link` and `step` name it; and SDL text input is on only while a text
+field has focus. A routine sees two actions: `MA_ACTIVATE` and `MA_CHANGE`.
+`M_MenuDrawer` draws the background, pictures, button
 labels, loose text, lists, scroll bars and the text caret. Pictures and buttons
 draw first in table order and loose text, lists and scroll bars draw over them.
 An item's `ownerdraw` replaces the standard drawing for native content the
