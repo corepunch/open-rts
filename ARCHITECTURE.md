@@ -536,11 +536,23 @@ special abilities, attachment types and native HUD pages.
 
 ## Menu lifecycle versus HUD
 
-`driver/m_menu.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
+`hud/m_menu.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
 `M_Responder`, `M_Ticker`, `M_Drawer`, and `M_Shutdown` lifecycle. Dark Colony
 implements it in `games/dark-colony/menu/`; the other games currently provide
 inert implementations. Native screen parsing, assets, animation and campaign
 dispatch belong to the game, outside its level HUD.
+
+The same header declares the engine's menu framework. A screen is a `menu_t`
+holding a C array of `menuitem_t`: kind, rectangle, sheet cell and palette map
+per state (normal, focused, pushed), font and text, list rows, and a routine.
+The game fills the table once when a screen loads and changes item fields
+afterwards. `M_MenuResponder` hit-tests, keeps focus, edits text fields and
+calls the routines; `M_MenuDrawer` draws the background, pictures, button
+labels, loose text, lists, scroll bars and the text caret. Pictures and buttons
+draw first in table order and loose text, lists and scroll bars draw over them.
+An item's `ownerdraw` replaces the standard drawing for native content the
+engine does not know, such as Dark Colony's FIN gadgets. Dark Colony's table is
+indexed by the native control ID from its `INTRFACE/*E` scripts.
 
 The driver opens DC's menu before allocating a level, mission, thinkers or
 sidebar. `menumap` is a deferred level request: menu input selects a native

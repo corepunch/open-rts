@@ -1964,17 +1964,19 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
 
 
+/* A screen is a table of items. The game fills the table and supplies the
+ * routines; the engine hit-tests, keeps focus, edits text and draws. */
 typedef enum {
-    MI_LABEL, MI_BUTTON, MI_CHECK, MI_PICTURE, MI_TEXTFIELD, MI_LIST,
-    MI_SCROLLBAR, MI_SLIDER, MI_SPIN, MI_CUSTOM
+    MI_STATIC, /* a picture, text or ownerdraw that takes no input */
+    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR
 } menuitemkind_t;
+
+typedef enum { MS_NORMAL, MS_FOCUS, MS_PUSHED, MS_STATES } menustate_t;
 
 typedef struct menu_s menu_t;
 typedef struct menuitem_s menuitem_t;
 
-typedef enum {
-    MA_ACTIVATE, MA_FOCUS, MA_BLUR, MA_PRESS, MA_RELEASE, MA_CHANGE, MA_ROW
-} menuaction_t;
+typedef enum { MA_ACTIVATE, MA_CHANGE, MA_ROW } menuaction_t;
 
 typedef void (*menuroutine_t)(menu_t *menu, menuitem_t *item, menuaction_t action);
 typedef void (*menudraw_t)(const menu_t *menu, const menuitem_t *item);
@@ -1983,48 +1985,48 @@ struct menuitem_s {
     menuitemkind_t kind;
     irect_t rect;
     bool visible, enabled;
+    /* One sheet cell and palette map per state. The cell is drawn at the rect
+     * origin plus its own displacement; text uses the same map of its font. */
     const spritesheet_t *sheet;
-    int cell_normal, cell_pushed, cell_checked;
+    int cell[MS_STATES];
+    int palette[MS_STATES];
     const bitmapfont_t *font;
-    const uint8_t *remap;
-    bool centered;
     char text[128];
+    /* Long text wrapped in the rect, in the font's own colours. A list shows
+     * it while it has no rows. */
+    const char *prose;
+    bool centered;
+    ivec2_t inset; /* text origin inside the rect */
     int maxchars;
-    int value, min, max, step;
-    int row_height, rows, first_row;
+    int value; /* check: set; list: selected row, or -1 */
+    int step;
+    /* A list asks for its rows; first_row is the scroll position, in rows for
+     * a list and in lines for prose. */
+    int rows, first_row, row_height;
+    const char *(*row)(const menuitem_t *item, int row);
+    int link; /* scroll bar: index of its list, or -1 */
+    uint32_t fill;  /* 0xAARRGGBB behind the item; 0 draws none */
+    uint32_t color; /* list selection and scroll bar */
     menuroutine_t routine;
-    menudraw_t ownerdraw;
+    menudraw_t ownerdraw; /* replaces the standard drawing */
     void *userdata;
-    int userid;
-    bool pressed, hover;
 };
 
 struct menu_s {
     menuitem_t *items;
     int numitems;
-    int itemOn; /* index into items[]; Dark Colony stores native control ids here */
-    int grab;   /* pressed item index, or -1 */
+    int itemOn;       /* focused item */
+    menuitem_t *held; /* pressed by the mouse */
     ivec2_t cursor;
-    isize2_t space; /* script coordinate space; {0,0} means app->win */
     const spritesheet_t *background;
-    menu_t *prevMenu;
+    const uint32_t *palette; /* screen palette while the menu draws; NULL keeps the level's */
     void (*escape)(menu_t *menu);
-    void (*ticker)(menu_t *menu);
     void (*wheel)(menu_t *menu, int delta);
-    void (*drawer)(const menu_t *menu);
     void *owner;
-    bool inlevel;
 };
 
-void M_MenuOpen(menu_t *menu);
-void M_MenuClose(void);
-bool M_MenuResponder(const SDL_Event *ev);
-void M_MenuTicker(void);
-void M_MenuDrawer(void);
-menuitem_t *M_MenuItemAt(const menu_t *menu, ivec2_t logical);
-void M_MenuSetText(menuitem_t *item, const char *text);
-menuitem_t *M_MenuFind(const menu_t *menu, int userid);
-void M_MenuFocusId(menu_t *menu, int userid);
+bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event);
+void M_MenuDrawer(const menu_t *menu);
 
 
 enum { MAXSAVEDPATHS = 30 };
