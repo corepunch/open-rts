@@ -977,3 +977,33 @@ issuing the next leg. The shared test crosses a fully blocked terrain row with
 MF_FLY and reaches the final cell in all four game builds; temporary logging
 was removed. This correction concerns engine route execution, not a newly
 recovered retail timing or offset.
+
+## One screen palette (2026-10-01)
+
+The indexed framebuffer shows one 256-colour palette per frame, so Dark Reign
+sprites can no longer be drawn through a different palette from the terrain.
+
+**Asset fact (measured, not disassembled):** `BARREN.PAL`, `SNOW.PAL` and
+`JUNGLE.PAL` share entries 1–159 except the six entries 16–21; their values
+reach 63, i.e. 6-bit VGA. Every 8-bit interface sheet in
+`graphics/INTFACE/IGI/*.BMP` carries exactly those entries scaled by four in
+its own palette (159 of 159 match `SNOW.PAL`; 153 match the other two, the
+difference being 16–21) and uses no index above 159. Entries 160–254 differ
+per tileset. Scenery sprites (`aoroc*`, `aotre*`, `aoclf*`, …) are mostly
+indices 160–254; unit and building sprites use only 1–159.
+
+**Consequence:** the retail screen is the tileset's PAL, and sprite, scenery
+and interface pixels are indices into it. `games/dark-reign/w_spr.c` now
+derives the sprite palette from the map's terrain palette (`dark_sprite_palette`)
+instead of loading `BARREN.PAL` at six times its stored value. Two visible
+changes follow from that, and both are corrections of the old truecolour path
+rather than new decisions about the look:
+
+- Scenery on SNOW and JUNGLE maps takes that tileset's colours. It was drawn
+  with BARREN's 160–254 entries before, which is why snow rocks looked pink.
+- Units and buildings use the standard range at four times the stored value,
+  like the interface art, instead of six. They are darker than before.
+
+The terrain multiplier for entries 160–254 (six on BARREN and JUNGLE, four on
+SNOW) is unchanged and is still an engine choice, not a recovered value. The
+purple-to-orange team band swap (32–39 from 48–55) is unchanged.
