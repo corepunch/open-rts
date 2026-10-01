@@ -27,6 +27,14 @@ plugin-specific behavior.
     - `d_ticcmd.h`: `2f70caa7c187365850e467254d8b0a31c07ea304d59339c68fde63d05274d146`
     - `i_net.c`: `bc7637299d67665e8294e86b7089df57ccffcf067f6b0017eaab5b78d6a52fca`
     - `g_game.c`: `bc8e2e0d76a70f8120174946641a82c46f0116a624f51c011b292e2ffcb78a29`
+    - `i_system.c`: `19bd049d4c421a8893f6b262569400c2b068a7cee03f18dbd78999ee27a8b3a0`
+    - `m_menu.c`: `62d58889f7dcbdef4a52efd081beb33fed85d7ed46c35e6d7d634652d0ef3e50`
+  - Network error recovery (2026-10-01): the same local Doom sources confirm
+    that version mismatch, synchronization abort, kill packets and consistency
+    failure are fatal through `I_Error`; `i_system.c` prints, shuts down and
+    exits. Its `m_menu.c::M_StartMessage` supplies the menu-message pattern.
+    Returning to an offline main menu is the user's requested open-rts behavior,
+    not a claim of Doom or native RTS fidelity. See [docs/NETWORK.md](docs/NETWORK.md).
   - `r_defs.h`: `spriteframe_t` owns `rotate`, `lump[8]`, and `flip[8]`;
     `spritedef_t` owns only frame count and frame pointer.
   - `info.c`: states refer to a numeric sprite ID and frame; `sprnames[]`

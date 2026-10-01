@@ -22,6 +22,17 @@ int main(void) {
         drawn += screens[0].pixels[y * 640 + x] > 100;
     CHECK(drawn > 0); /* Labels and focus are visible without a native font. */
     SDL_Event event = {.key = {.type = SDL_KEYDOWN, .keysym.sym = SDLK_RETURN}};
+    /* A failed session leaves a usable offline menu, with no click-through. */
+    netactive = true;
+    snprintf(neterror, sizeof(neterror), "Game speed mismatch: yours is 100%%, player 2 uses 150%%.");
+    D_NetGameError(&app);
+    CHECK(app.running && menuactive && !menumap && !neterror[0]);
+    CHECK(!netgame && !netactive && !netready && !consoleplayer);
+    CHECK(doomcom->numplayers == 1 && doomcom->numnodes == 1 && doomcom->ticdup == 1);
+    CHECK(M_Responder(&app, &event, false) && menuactive && !menumap);
+    event.key.keysym.sym = SDLK_ESCAPE;
+    CHECK(M_Responder(&app, &event, false) && menuactive && !menumap);
+    event.key.keysym.sym = SDLK_RETURN;
     CHECK(M_Responder(&app,&event,false));
     CHECK(!menuactive && menumap && !strcmp(menumap,g_game_default_map));
     menumap = NULL;

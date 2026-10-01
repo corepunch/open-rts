@@ -1254,9 +1254,14 @@ extern const char *menumap;
 
 bool M_Init(app_t *app, const char *root);
 void M_StartControlPanel(app_t *app);
+/* Dismissible message over the active control panel; owns a copy of the text. */
+void M_StartMessage(const char *text);
+void M_StopMessage(void);
 bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel);
 bool D_MenuResponder(app_t *app, const SDL_Event *event, void *ui,
                       mobj_t *const *units, int unit_count);
+/* After releasing the failed level, reset networking and show the main menu. */
+void D_NetGameError(app_t *app);
 void M_Drawer(const app_t *app);
 void M_Ticker(void);
 void M_Shutdown(void);

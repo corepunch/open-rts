@@ -218,6 +218,7 @@ int main(int argc, char **argv) {
         if (!strcmp(g_game_id, "dark-colony") && !paths[1] && !netgame) M_StartControlPanel(&app);
     }
     /* No level, thinkers, mission or sidebar exists while choosing New Game. */
+main_menu:
     while (app.running && menuactive) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -249,12 +250,7 @@ load_level:
         menumap = NULL;
     }
 
-    if (!I_StartNetGame(g_game_id, map_name, sizeof(map_name))) {
-        fprintf(stderr, "%s\n", neterror);
-        M_Shutdown();
-        renderer_destroy(&renderer);
-        return 1;
-    }
+    if (!I_StartNetGame(g_game_id, map_name, sizeof(map_name))) goto network_failure;
     consoleplayer = doomcom->consoleplayer;
     int path_length = map_name[0] == '/' ?
         snprintf(map_path, sizeof(map_path), "%s", map_name) :
@@ -397,7 +393,6 @@ load_level:
     uint32_t signature;
     if (!G_NetSignature(map_path, &signature)) {
         fprintf(stderr, "Could not fingerprint map %s\n", map_path);
-        app.running = false;
         snprintf(neterror, sizeof(neterror), "Map fingerprint failed");
     } else {
         D_CheckNetGame(signature);
@@ -410,15 +405,13 @@ load_level:
                 if (has_units) continue;
                 snprintf(neterror, sizeof(neterror),
                          "Map has no starting units for player %d; choose a multiplayer map with --map", player + 1);
-                fprintf(stderr, "%s\n", neterror);
-                app.running = false;
                 break;
             }
         }
     }
     uint64_t check_started = SDL_GetTicks64();
 
-    while (app.running) {
+    while (app.running && !neterror[0]) {
         uint64_t now = SDL_GetPerformanceCounter();
         float frame_dt = (float)((double)(now - prev) / freq);
         if (frame_dt > 0.25f) frame_dt = 0.25f;
@@ -541,10 +534,7 @@ load_level:
             ++gametic;
             NetUpdate();
         }
-        if (neterror[0]) {
-            fprintf(stderr, "%s\n", neterror);
-            app.running = false;
-        }
+        if (neterror[0]) break;
         if (check_tics && gametic == check_tics) {
             printf("Network check: player=%d gametic=%d consistency=%08x\n",
                    consoleplayer + 1, gametic, G_Consistency());
@@ -594,8 +584,10 @@ load_level:
         }
     }
     int exit_code = neterror[0] || menuerror ? 1 : 0;
-    if (!menumap && I_NetMenuSession()) I_CancelNetGame();
-    if (!(menumap && I_NetMenuSession())) D_QuitNetGame();
+    if (!neterror[0]) {
+        if (!menumap && I_NetMenuSession()) I_CancelNetGame();
+        if (!(menumap && I_NetMenuSession())) D_QuitNetGame();
+    }
     SB_Shutdown(&st);
     G_ShutdownCustomUI(custom_ui);
     R_FreeSpriteCache(&decoration_sprites);
@@ -603,10 +595,21 @@ load_level:
     R_FreeTileset(&tileset);
     P_FreeMobjList(&objects);
     P_FreeLevel(&level);
+    if (neterror[0]) goto network_failure;
     if (app.running && menumap && !exit_code) goto load_level;
     M_Shutdown();
     renderer_destroy(&renderer);
     return exit_code;
+network_failure:
+    fprintf(stderr, "%s\n", neterror);
+    if (check_tics || !app.running || menuerror) {
+        D_QuitNetGame();
+        M_Shutdown();
+        renderer_destroy(&renderer);
+        return 1;
+    }
+    D_NetGameError(&app);
+    goto main_menu;
 usage:
     fprintf(stderr, "Invalid arguments. Use --help for command-line options.\n");
     return 1;

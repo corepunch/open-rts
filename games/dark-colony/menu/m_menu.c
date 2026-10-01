@@ -102,6 +102,7 @@ static void free_screen(void) {
 }
 
 void M_Shutdown(void) {
+    M_StopMessage();
     if (waiting || page == BROWSE) I_CancelNetGame();
     waiting = false;
     free_screen();
@@ -674,6 +675,7 @@ static bool load_screen(int next) {
 bool M_Init(app_t *app, const char *data_root) {
     (void)app;
     menuerror = false;
+    M_StopMessage();
     if (strlen(data_root) >= sizeof(root)) return false;
     strcpy(root, data_root);
     initialized = load_screen(MAIN);

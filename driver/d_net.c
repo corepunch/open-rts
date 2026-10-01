@@ -95,9 +95,13 @@ static void GetPackets(void) {
             const ticcmd_t *setup = &netbuffer->cmds[0];
             if (netbuffer->numtics != 1 || setup->product != NETVERSION ||
                 setup->consistancy != startsignature || setup->target != (unsigned)doomcom->numplayers ||
-                setup->position.x != ticdup || setup->position.y != RTS_TICRATE ||
-                setup->position.z != game_speed) {
-                snprintf(neterror, sizeof(neterror), "Network setup mismatch: game, map, initial state, version, ticdup or speed (player %d)", player + 1);
+                setup->position.x != ticdup || setup->position.y != RTS_TICRATE) {
+                snprintf(neterror, sizeof(neterror), "Network setup mismatch: game, map, initial state, version or ticdup (player %d)", player + 1);
+                return;
+            }
+            if (setup->position.z != game_speed) {
+                snprintf(neterror, sizeof(neterror), "Game speed mismatch: yours is %d%%, player %d uses %d%%. Use the same --speed on every player.",
+                         game_speed, player + 1, setup->position.z);
                 return;
             }
             gotsetup[node] = true;

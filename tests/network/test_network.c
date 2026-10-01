@@ -13,7 +13,8 @@
 enum { TESTTICS = 550 };
 typedef struct { int tics, failed; uint32_t hashes[TESTTICS]; } result_t;
 typedef enum { DIRECT, LOSSY, DUPLICATED, MISMATCH, DESYNC, QUIT, MODEL,
-               HOSTED, HOSTED_MAP, HOSTED_LOSSY, HOSTED_MIXED, MENU_HOSTED } testmode_t;
+               HOSTED, HOSTED_MAP, HOSTED_LOSSY, HOSTED_MIXED, MENU_HOSTED,
+               SPEED_MISMATCH } testmode_t;
 
 static mobj_t *actors[MAXPLAYERS];
 
@@ -360,6 +361,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         }
         P_UpdateSight();
     } else init_world();
+    D_SetGameSpeed(mode == SPEED_MISMATCH && player == 1 ? 150 : 100);
     D_CheckNetGame(G_Consistency() + (mode == MISMATCH && player == 1));
     uint32_t first_production_id = level.next_mobj_id;
     if (native_map) {
@@ -383,7 +385,7 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         assert(G_PathOrder(actors,MAXPLAYERS,&path));
     }
     result_t result = {0};
-    int end = mode == MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
+    int end = mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
     if (mode == QUIT && player == 1) end = 40;
     bool trained = false;
     uint64_t deadline = SDL_GetTicks64() + 45000;
@@ -419,7 +421,11 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
     result.tics = gametic;
     result.failed = neterror[0] != '\0';
     if (neterror[0]) fprintf(stderr, "peer %d: %s\n", player + 1, neterror);
-    if (mode != MISMATCH && mode != DESYNC) assert(gametic == end && !result.failed);
+    if (mode != MISMATCH && mode != SPEED_MISMATCH && mode != DESYNC) assert(gametic == end && !result.failed);
+    if (mode == SPEED_MISMATCH) {
+        assert(result.failed && gametic == 0);
+        assert(strstr(neterror, "speed mismatch") || strstr(neterror, "killed"));
+    }
     if (native_map) {
         bool barracks[MAXPLAYERS] = {0};
         bool troops[MAXPLAYERS] = {0};
@@ -538,7 +544,7 @@ static void network_test(testmode_t mode, int players) {
         assert(read(pipes[i][0], &results[i], sizeof(results[i])) == sizeof(results[i]));
         close(pipes[i][0]);
     }
-    if (mode == MISMATCH || mode == DESYNC) {
+    if (mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC) {
         assert(results[0].failed || results[1].failed);
         assert(results[0].tics < 90 && results[1].tics < 90);
     } else {
@@ -583,6 +589,7 @@ int main(int argc, char **argv) {
     network_test(LOSSY, 2);
     network_test(DUPLICATED, 2);
     network_test(MISMATCH, 2);
+    network_test(SPEED_MISMATCH, 2);
     network_test(DESYNC, 2);
     network_test(QUIT, 2);
     network_test(MODEL, 2);

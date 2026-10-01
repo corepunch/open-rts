@@ -56,8 +56,9 @@ The same options work in `build/bin/dark-reign`, `build/bin/7legion` and
 `build/bin/kknd`; choose a map appropriate to that game. The executable selects
 the game. A client running a different game is rejected.
 
-Setup and session protocol versions are 3. Tic commands encode all three
-fixed-point position components; setup uses the third for game speed. Dark
+The setup protocol version is 3; the session protocol version is 4 and carries
+the host's lobby settings. Tic commands encode all three fixed-point position
+components; setup uses the third for game speed. Dark
 Colony purchase reservations, refunds, Build submission, movement modes,
 waypoints and pause use the same delayed command path as unit orders. Shared
 TC_PATH installs a complete route in one command; it snapshots unit IDs and
@@ -95,6 +96,19 @@ Escape or closing the window cancels startup. The lobby times out after 60
 seconds, and missing gameplay/setup traffic fails after 30 seconds. A departing
 client leaves its units idle; remaining players continue. The host must remain
 running: leaving ends the hosted game. Debug resource/spawn cheats are disabled.
+
+Interactive session rejection, setup mismatch, timeout, host departure and
+consistency failure return to the main menu with a dismissible message. The
+driver releases the level, thinkers, mission, HUD and asset caches, then closes
+the transport and resets it to one offline player. Enter, Escape or a click
+dismisses the message without activating a menu item. A new campaign or LAN
+session can then start normally. Closing the window still exits the application.
+`--net-check` keeps its nonzero exit status on failure for automated checks.
+
+Game speed must match on every machine. Dark Colony defaults to 150%; a host
+started with `make dark-colony` receives the Makefile's `--speed 100` unless
+overridden. A client started directly can therefore differ. Use the same
+`--speed` value on all players; the error reports the local and remote values.
 
 Choose maps with starting units for every player: the engine reports missing
 slots instead of starting an unplayable match or inventing armies. Dark Colony
@@ -144,6 +158,19 @@ The implementation retains:
 
 Concrete adaptations for this engine:
 
+- Recoverable network errors return to the main menu at the user's request.
+  **Confirmed reference behavior:** Doom's `d_net.c::D_ArbitrateNetStart`
+  (lines 493–496) calls `I_Error` on a version mismatch; `CheckAbort`
+  (lines 467–468) does the same on Escape during synchronization.
+  `GetPackets` (lines 298–299) treats `NCMD_KILL` as fatal, and `g_game.c`
+  calls `I_Error` on a consistency failure. `i_system.c::I_Error`
+  (lines 162–184) prints to stderr, calls `D_QuitNetGame`, shuts down graphics
+  and calls `exit(-1)`. It does not return to a menu. Doom has no matching
+  game-speed-percent setting; that validation belongs to open-rts.
+  Our control-panel message follows the `m_menu.c::M_StartMessage` /
+  `M_StopMessage` lifecycle, copies the text across transport reset, and
+  retains the control panel after dismissal.
+  No retail-game multiplayer behavior was inferred from this change.
 - An RTS `ticcmd_t` carries an order, fixed-point map position, target ID,
   product ID and up to 1024 unit IDs. One group order per command tic preserves
   formations and input order. A bounded 64-order input queue reports overflow
@@ -215,7 +242,12 @@ and asynchronous map/player agreement, followed by 90 synchronized native-map
 tics with production through the menu session API.
 `build/bin/tests/dark-colony/test_menu` also
 selects a discovered session through the native controls and verifies the
-handoff to the host's map. Run both with `SDL_VIDEODRIVER=dummy`.
+handoff to the host's map, recovery to the main page, a cleared offline
+transport, visible error text and dismissal without activating a campaign.
+`tests/shared/test_simple_menu.c` covers the same recovery for the other games.
+The network harness additionally pairs speeds 100% and 150% and verifies that
+both reject setup before advancing a simulation tic. Run all these checks
+with `SDL_VIDEODRIVER=dummy`.
 
 For a headless model client, initialize SDL's timer/events, call `I_InitNetwork`,
 then `I_StartNetGame(game_id, map_buffer, capacity)` before loading the model

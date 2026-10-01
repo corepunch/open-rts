@@ -341,6 +341,7 @@ bool I_StartNetGame(const char *game, char *map, size_t capacity) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)) {
+                if (event.type == SDL_QUIT) SDL_PushEvent(&event);
                 snprintf(neterror, sizeof(neterror), "Network startup cancelled"); return false;
             }
         }

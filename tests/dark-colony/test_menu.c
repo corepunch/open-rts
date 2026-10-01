@@ -210,6 +210,26 @@ int main(void) {
     CHECK(menuactive && !netgame && !menumap);
     key(&app, SDLK_ESCAPE, false);
     join_lan_menu(&app, surface);
+    /* The post-load error path must also reset the transport and native page. */
+    CHECK(I_HostNetGame("dark-colony", "Failed match", "SCENARIO/MPLAYER/J2PLAY01.MAP", 2));
+    netactive = true;
+    netbuffer = &doomcom->data;
+    menumap = "SCENARIO/MPLAYER/J2PLAY01.MAP";
+    snprintf(neterror, sizeof(neterror), "Game speed mismatch: yours is 100%%, player 2 uses 150%%. Use the same --speed on every player.");
+    D_NetGameError(&app);
+    CHECK(app.running && menuactive && !menumap && !neterror[0]);
+    CHECK(!netgame && !netactive && !netready && !consoleplayer && !I_NetMenuSession());
+    CHECK(doomcom->numplayers == 1 && doomcom->numnodes == 1 && doomcom->ticdup == 1);
+    screenshot(&app, surface, "/private/tmp/dc-menu-network-error.bmp");
+    key(&app, SDLK_RETURN, false); /* Dismiss; do not activate New Campaign. */
+    CHECK(menuactive && !menumap);
+    CHECK(I_HostNetGame("dark-colony", "Failed lobby", "SCENARIO/MPLAYER/J2PLAY01.MAP", 2));
+    CHECK(!netactive);
+    snprintf(neterror, sizeof(neterror), "Network startup cancelled");
+    D_NetGameError(&app);
+    CHECK(app.running && menuactive && !netgame && !netactive && !I_NetMenuSession() && !neterror[0]);
+    key(&app, SDLK_ESCAPE, false);
+    CHECK(menuactive && !menumap);
     click(&app, 400, 350); /* Single Player War. */
     for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
     screenshot(&app, surface, "/private/tmp/dc-menu-skirmish.bmp");

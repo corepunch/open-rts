@@ -2,6 +2,17 @@
 
 #include <string.h>
 
+static char message[256];
+
+void M_StartMessage(const char *text) {
+    snprintf(message, sizeof(message), "%s", text);
+    SDL_StopTextInput();
+}
+
+void M_StopMessage(void) {
+    message[0] = '\0';
+}
+
 static bool item_live(const menuitem_t *item) {
     return item && item->kind != MI_STATIC && item->visible && item->enabled;
 }
@@ -187,6 +198,15 @@ static bool wheel(menu_t *menu, int delta) {
 }
 
 bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
+    if (menu->modal && message[0]) {
+        menu->held = NULL;
+        if ((event->type == SDL_KEYDOWN && !event->key.repeat &&
+             (event->key.keysym.sym == SDLK_RETURN || event->key.keysym.sym == SDLK_KP_ENTER ||
+              event->key.keysym.sym == SDLK_ESCAPE || event->key.keysym.sym == SDLK_SPACE)) ||
+            (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT))
+            M_StopMessage();
+        return true;
+    }
     bool taken = menu->modal;
     if (event->type == SDL_KEYDOWN) taken = key_down(menu, event);
     else if (event->type == SDL_TEXTINPUT && menu->modal)
@@ -352,6 +372,34 @@ static void draw_content(const menu_t *menu, const menuitem_t *item) {
                                              item == focused(menu));
 }
 
+static void draw_message(void) {
+    isize2_t space = {screens[0].w, screens[0].h};
+    irect_t box = {space.w / 8, space.h / 3, space.w * 3 / 4, space.h / 3};
+    V_FillRect(box, V_NearestIndex(0xff0c1216u));
+    V_DrawRectOutline(box, V_NearestIndex(0xffdce6dcu));
+    V_DrawSmallText((irect_t){box.x + 12, box.y + 12, box.w - 24, 7},
+                    "NETWORK GAME ENDED", 0xffdce6dcu, space);
+    int columns = (box.w - 24) / 6;
+    const char *text = message;
+    for (int y = box.y + 36; *text && columns > 0 && y < box.y + box.h - 28; y += 12) {
+        char line[256];
+        size_t count = strcspn(text, "\n");
+        if (count > (size_t)columns) {
+            count = (size_t)columns;
+            while (count && text[count] != ' ') --count;
+            if (!count) count = (size_t)columns;
+        }
+        if (count >= sizeof(line)) count = sizeof(line) - 1;
+        memcpy(line, text, count);
+        line[count] = '\0';
+        V_DrawSmallText((irect_t){box.x + 12, y, box.w - 24, 7}, line, 0xffdce6dcu, space);
+        text += count;
+        while (*text == ' ' || *text == '\n') ++text;
+    }
+    V_DrawSmallText((irect_t){box.x + 12, box.y + box.h - 19, box.w - 24, 7},
+                    "ENTER / ESC / CLICK TO CONTINUE", 0xffdce6dcu, space);
+}
+
 /* Pictures and buttons draw first, in table order; loose text, lists and
  * scroll bars draw over them. */
 void M_MenuDrawer(const menu_t *menu) {
@@ -362,4 +410,5 @@ void M_MenuDrawer(const menu_t *menu) {
     }
     for (int i = 0; i < menu->numitems; ++i) draw_chrome(menu, &menu->items[i]);
     for (int i = 0; i < menu->numitems; ++i) draw_content(menu, &menu->items[i]);
+    if (menu->modal && message[0]) draw_message();
 }

@@ -13,6 +13,10 @@ static void close_menu(menu_t *menu) {
     SDL_StopTextInput();
 }
 
+static void menu_escape(menu_t *menu) {
+    if (level.width) close_menu(menu);
+}
+
 void M_MenuBeginLevel(menu_t *menu, menuitem_t *item, menuaction_t action) {
     (void)item;
     if (action != MA_ACTIVATE) return;
@@ -30,10 +34,11 @@ void M_MenuQuitGame(menu_t *menu, menuitem_t *item, menuaction_t action) {
 bool M_Init(app_t *app, const char *root) {
     (void)root;
     menuactive = menuerror = false;
+    M_StopMessage();
     menumap = NULL;
     gamemenu.owner = app;
     gamemenu.modal = true;
-    gamemenu.escape = close_menu;
+    gamemenu.escape = menu_escape;
     return true;
 }
 
@@ -69,5 +74,5 @@ void M_Drawer(const app_t *app) {
 }
 
 void M_Ticker(void) { if (menuactive) M_MenuTicker(&gamemenu); }
-void M_Shutdown(void) { close_menu(&gamemenu); menumap = NULL; gamemenu.owner = NULL; }
+void M_Shutdown(void) { close_menu(&gamemenu); M_StopMessage(); menumap = NULL; gamemenu.owner = NULL; }
 #endif
