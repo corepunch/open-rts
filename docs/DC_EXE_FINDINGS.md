@@ -6695,8 +6695,12 @@ sound interface immediately. Detail controls 44/45 select zero through two,
 shown as LOW/MED/HIGH by `0x42f97c`. Control 56 confirms and stores the
 values, converting speed back to `6600 / percentage`; control 55 cancels.
 This disproves the tempting interpretation that the cross and check controls
-55/56 mean confirm/cancel in ascending order. Our existing main-menu fallback
-for the HUD Options button still does not reproduce this dialog. Save,
+55/56 mean confirm/cancel in ascending order. The HUD Options button now opens
+LOPTE (`DC_OpenOptionsDialog`): sound level N sets `snd_volume` to 10N percent
+and is heard at once, the speed is stored as `game_speed` (the tic clock stays
+continuous across the change) and its arrows are disabled in a netgame, where
+peers agreed on the speed at session start. There is no CD audio or detail
+level in the port, so those two values are kept but have no effect. Save,
 objectives, alliance controls, and the remaining ability dispatch also remain
 incomplete; native availability and visuals alone do not establish parity.
 

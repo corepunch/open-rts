@@ -143,6 +143,10 @@ static bool spatialize(fvec2_t position, int base, int *left, int *right) {
     return true;
 }
 
+static int flat_volume(int base) {
+    return (int)(256.0 * snd_volume / 100.0 * pow(10.0, base / 2000.0) + 0.5);
+}
+
 static void reap(void) {
     for (int i = 0; i < NUMSCHANNELS; ++i)
         if (schannels[i].handle && !I_SoundIsPlaying(schannels[i].handle))
@@ -163,10 +167,7 @@ static int start(const mobj_t *origin, bool positional, fvec2_t position, int id
     if (sfx->instances && playing >= sfx->instances) return 0;
     int left = 256, right = 256;
     if (positional && !spatialize(position, sfx->volume, &left, &right)) return 0;
-    if (!positional) {
-        double gain = snd_volume / 100.0 * pow(10.0, sfx->volume / 2000.0);
-        left = right = (int)(256.0 * gain + 0.5);
-    }
+    if (!positional) left = right = flat_volume(sfx->volume);
     int slot = -1;
     for (int i = 0; i < NUMSCHANNELS && slot < 0; ++i)
         if (!schannels[i].handle) slot = i;
@@ -281,6 +282,20 @@ void S_Bark(mobj_t *const *units, int count, soundevent_t event, bool selected_o
     /* One voice at a time: a new answer replaces the one still talking. */
     S_StopChannel(barkhandle);
     barkhandle = S_StartLocalSound(best);
+}
+
+void S_SetVolume(int percent) {
+    snd_volume = percent < 0 ? 0 : percent > 100 ? 100 : percent;
+    if (!initialized) return;
+    /* Playing sounds, the menu's own loop among them, take the level at once. */
+    for (int i = 0; i < NUMSCHANNELS; ++i) {
+        schannel_t *channel = &schannels[i];
+        if (!channel->handle) continue;
+        int left, right;
+        if (!channel->positional) left = right = flat_volume(channel->volume);
+        else if (!spatialize(channel->position, channel->volume, &left, &right)) left = right = 0;
+        I_UpdateSoundParams(channel->handle, left, right);
+    }
 }
 
 void S_UpdateSounds(const app_t *app, const level_t *map) {

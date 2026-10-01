@@ -160,7 +160,7 @@ int main(void) {
     assert(M_Responder(&app, &resume, true));
     assert(!menuactive && app.running);
     click(ui,&app,64,SDL_BUTTON_LEFT);
-    assert(menuactive && app.running); /* Current Options fallback: main menu. */
+    assert(menuactive && app.running); /* LOPTE; Escape cancels it. */
     assert(M_Responder(&app, &resume, true));
     assert(!menuactive && app.running);
     click(ui,&app,196,SDL_BUTTON_LEFT);
@@ -250,6 +250,6 @@ int main(void) {
     V_FreeScreen();
     SDL_Quit();
     rts_game_model_destroy(model);
-    puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, quit, Options fallback, pause, orders and waypoints");
+    puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, quit, Options, pause, orders and waypoints");
     return 0;
 }

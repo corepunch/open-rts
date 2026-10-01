@@ -190,7 +190,7 @@ static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     case 19: G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT}); break;
     case 62: DC_OpenQuitDialog(hud->app); break;
-    case 64: M_StartControlPanel(hud->app); break;
+    case 64: DC_OpenOptionsDialog(hud->app); break;
     case 196: G_QueueTiccmd(&(ticcmd_t){.order = TC_PAUSE}); break;
     case 63: case 151: case 202: break;
     case 150: case 138:

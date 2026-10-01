@@ -8,9 +8,15 @@ bool netgame, netready, netactive;
 bool nodeingame[MAXNETNODES], playeringame[MAXPLAYERS];
 int consoleplayer, gametic, maketic, ticdup = 1;
 int game_speed = 100; /* Percent, as DC.EXE's Options dialog: 10..200. */
+/* Speed-weighted milliseconds up to the last speed change, and when it was. */
+static uint64_t speedclock, speedchanged;
 
 void D_SetGameSpeed(int speed) {
-    if (speed >= 10 && speed <= 200) game_speed = speed;
+    if (speed < 10 || speed > 200 || speed == game_speed) return;
+    uint64_t now = SDL_GetTicks64();
+    speedclock += (now - speedchanged) * (uint64_t)game_speed;
+    speedchanged = now;
+    game_speed = speed;
 }
 int nettics[MAXNETNODES];
 ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
@@ -31,7 +37,8 @@ static int skiptics, frameon, frameskip[4], oldnettics;
 enum { RESENDCOUNT = 10, NETVERSION = 3 };
 
 static uint64_t I_GetTime(void) {
-    return SDL_GetTicks64() * RTS_TICRATE * (uint64_t)game_speed / 100 / 1000 / (uint64_t)ticdup;
+    uint64_t clock = speedclock + (SDL_GetTicks64() - speedchanged) * (uint64_t)game_speed;
+    return clock * RTS_TICRATE / 100 / 1000 / (uint64_t)ticdup;
 }
 
 int ExpandTics(int low) {

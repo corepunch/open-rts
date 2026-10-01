@@ -311,6 +311,34 @@ int main(void) {
     key(&app, SDLK_ESCAPE, true);
     CHECK(menuactive && !app.dragging_select);
     key(&app, SDLK_ESCAPE, true);
+    /* LOPTE: arrows 40/41 speed, 42/43 sound; 56 stores, 55 and Escape cancel. */
+    DC_OpenOptionsDialog(&app);
+    CHECK(menuactive);
+    screenshot(&app, surface, "/private/tmp/dc-menu-options.bmp");
+    click(&app, 375, 199);
+    click(&app, 375, 199);
+    click(&app, 279, 231);
+    CHECK(snd_volume == 90 && game_speed == 100); /* Volume previews, speed waits. */
+    click(&app, 336, 348);
+    CHECK(!menuactive && game_speed == 120 && snd_volume == 90);
+    DC_OpenOptionsDialog(&app);
+    for (int i = 0; i < 12; ++i) click(&app, 279, 231);
+    for (int i = 0; i < 25; ++i) click(&app, 279, 199);
+    CHECK(snd_volume == 0 && game_speed == 120);
+    click(&app, 376, 348);
+    CHECK(!menuactive && snd_volume == 90 && game_speed == 120);
+    DC_OpenOptionsDialog(&app);
+    click(&app, 375, 231);
+    key(&app, SDLK_ESCAPE, true);
+    CHECK(!menuactive && snd_volume == 90);
+    netgame = true;
+    DC_OpenOptionsDialog(&app);
+    click(&app, 279, 199);
+    click(&app, 375, 231);
+    click(&app, 336, 348);
+    CHECK(game_speed == 120 && snd_volume == 100); /* Peers keep the agreed speed. */
+    netgame = false;
+    D_SetGameSpeed(100);
     DC_OpenQuitDialog(&app);
     SDL_Event confirm = {.type = SDL_MOUSEBUTTONDOWN};
     confirm.button.button = SDL_BUTTON_LEFT;
@@ -327,6 +355,6 @@ int main(void) {
     V_FreeScreen();
     SDL_FreeSurface(surface);
     SDL_Quit();
-    puts("Menu OK: native screens, campaigns, training, LAN create/browse/direct join/cancel, eight-player skirmish, resume, quit");
+    puts("Menu OK: native screens, campaigns, training, LAN create/browse/direct join/cancel, eight-player skirmish, resume, options, quit");
     return 0;
 }

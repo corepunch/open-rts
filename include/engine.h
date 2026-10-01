@@ -919,6 +919,7 @@ void I_CancelNetGame(void);
 void I_NetCmd(void);
 void I_ShutdownNetwork(void);
 void D_CheckNetGame(uint32_t signature);
+/* Keeps the tic clock continuous, so a running game can change speed. */
 void D_SetGameSpeed(int speed);
 void D_QuitNetGame(void);
 void NetUpdate(void);
@@ -1385,6 +1386,8 @@ void S_StopSound(const mobj_t *origin);
 /* A freed origin keeps its one-shot sounds at its last position; loops stop. */
 void S_UnlinkMobj(const mobj_t *origin);
 void S_StopAllSounds(void);
+/* Sets snd_volume (0..100) and applies it to the sounds already playing. */
+void S_SetVolume(int percent);
 bool S_IsPlaying(int handle);
 void S_StopChannel(int handle);
 /* Resolves the event through the game and plays it if the local player can

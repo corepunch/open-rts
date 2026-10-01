@@ -30,10 +30,14 @@ static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
 static char *prose;
-static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAME, BROWSE, CONNECT } page;
+static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAME, BROWSE, CONNECT, OPTIONS } page;
 static bool lan, waiting;
 static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
 static char network_notice[128], selected_server[64];
+/* LOPTE: speed percent, sound and CD levels 0..10, detail LOW/MEDIUM/HIGH.
+ * The dialog edits the copy; only its confirm button stores it. */
+typedef struct { int speed, sound, cd, detail; } dcoptions_t;
+static dcoptions_t options = {100, 10, 10, 2}, editing;
 static bitmapfont_t fonts[3];
 static spritesheet_t background;
 static spritesheet_t pictures;
@@ -417,15 +421,15 @@ static const char *map_row(const menuitem_t *item, int row);
 static const char *session_row(const menuitem_t *item, int row);
 
 static bool load_screen(int next) {
-    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE"};
-    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT"};
+    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE", "LOPTE"};
+    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT", NULL};
     free_screen();
     page = next;
     menu.itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
     if (lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
-    if (page == QUIT) {
+    if (page == QUIT || page == OPTIONS) {
         spritesheet_t palette = {0};
         M_PathJoin(path, sizeof(path), root, "PALETTE.GIF");
         if (!W_LoadGIFTexture(path, &palette)) return false;
@@ -673,7 +677,7 @@ static bool load_screen(int next) {
     S_StartUISound(UI_SOUND_SCREEN);
     if (numentrances) S_StartUISound(UI_SOUND_GADGET);
     return ok && screen.w > 0 && screen.h > 0 &&
-        (page == QUIT || background.numlumps) && fonts[0].sprite.numlumps;
+        (page == QUIT || page == OPTIONS || background.numlumps) && fonts[0].sprite.numlumps;
 }
 
 bool M_Init(app_t *app, const char *data_root) {
@@ -713,6 +717,43 @@ void DC_OpenQuitDialog(app_t *app) {
     menuactive = true;
     app->dragging_select = false;
     app->selection_rect = (irect_t){0};
+}
+
+/* Opens LOPTE over the game (0x42fc70): the speed starts from the native
+ * tick interval, rounded down to tens. */
+void DC_OpenOptionsDialog(app_t *app) {
+    if (!initialized || menuactive) return;
+    options.speed = game_speed / 10 * 10;
+    options.sound = (snd_volume + 5) / 10;
+    editing = options;
+    if (!load_screen(OPTIONS)) {
+        fprintf(stderr, "Could not load Dark Colony options dialog\n");
+        menuerror = true;
+        return;
+    }
+    menu.itemOn = 56;
+    menuactive = true;
+    app->dragging_select = false;
+    app->selection_rect = (irect_t){0};
+}
+
+/* 0x42fa38: the arrows step speed by 10 within 10..200 and the volumes by one
+ * within 0..10; a sound change is heard at once (0x42f97c shows detail). */
+static void activate_options(int id) {
+    static const int arrows[][2] = {{40, 41}, {42, 43}, {67, 68}, {44, 45}};
+    static const int lows[] = {10, 0, 0, 0}, highs[] = {200, 10, 10, 2}, steps[] = {10, 1, 1, 1};
+    int *values[] = {&editing.speed, &editing.sound, &editing.cd, &editing.detail};
+    for (int i = 0; i < 4; ++i) {
+        if (id != arrows[i][0] && id != arrows[i][1]) continue;
+        int value = *values[i] + (id == arrows[i][0] ? -steps[i] : steps[i]);
+        *values[i] = value < lows[i] ? lows[i] : value > highs[i] ? highs[i] : value;
+    }
+    if (id == 42 || id == 43) S_SetVolume(editing.sound * 10);
+    if (id == 56) {
+        options = editing;
+        if (!netgame) D_SetGameSpeed(options.speed);
+    } else if (id == 55) S_SetVolume(options.sound * 10);
+    if (id == 55 || id == 56) menuactive = false;
 }
 
 static bool first_mission(void) {
@@ -757,6 +798,8 @@ static void activate(app_t *app, int id) {
     if (page == QUIT) {
         if (id == 56) app->running = false;
         if (id == 56 || id == 57) menuactive = false;
+    } else if (page == OPTIONS) {
+        activate_options(id);
     } else if (page == MAIN) {
         if (id == 12) app->running = false;
         else if ((id == 0 || id == 1) && !netgame) {
@@ -864,6 +907,8 @@ static void activate(app_t *app, int id) {
 static bool selectable(int id) {
     const menuitem_t *item = &items[id];
     if (page == CONNECT && waiting) return id == 1;
+    /* Peers agreed on the speed when the session started. */
+    if (page == OPTIONS && (id == 40 || id == 41)) return !netgame;
     if (page == CONNECT && id == 3) return !waiting;
     if (page == SESSION_NAME && id == 1) return true;
     if (page == BROWSE) {
@@ -930,11 +975,18 @@ static void refresh(void) {
             "Searching for LAN games...\nUse ADDRESS to connect directly.";
     }
     if (page == CONNECT) items[3].prose = notice == network_notice ? network_notice : NULL;
+    if (page == OPTIONS) {
+        snprintf(items[46].text, sizeof(items[46].text), "%d%%", editing.speed);
+        snprintf(items[47].text, sizeof(items[47].text), "%d", editing.sound);
+        snprintf(items[69].text, sizeof(items[69].text), "%d", editing.cd);
+        snprintf(items[48].text, sizeof(items[48].text), "%s", messages[10 + editing.detail]);
+    }
 }
 
 static void menu_escape(menu_t *screen) {
     app_t *app = screen->owner;
     if (page == QUIT) menuactive = false;
+    else if (page == OPTIONS) activate_options(55);
     else if (page == SESSION_NAME) {
         if (!load_screen(NETWORK)) { menuerror = true; app->running = false; }
     } else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
