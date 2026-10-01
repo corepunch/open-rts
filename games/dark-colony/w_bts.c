@@ -60,6 +60,9 @@ bool load_dark_colony_tileset(const char *path, tileset_t *out) {
         palette[i] = (transparent ? 0x00000000u : 0xff000000u) |
                      ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
     }
+    /* Entry 0 is the screen's black, as in the SPR palettes: the shadow and
+       blend tables land on it, and the file's key colour is never shown. */
+    palette[0] = 0x00000000u;
     DC_RuntimePalette(palette);
 
     for (int index = 201; index <= 207; ++index)

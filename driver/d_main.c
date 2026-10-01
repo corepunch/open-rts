@@ -289,6 +289,7 @@ load_level:
         renderer_destroy(&renderer);
         return 1;
     }
+    R_SetLevelPalette(&tileset);
     app.cell.w = g_cell_w > 0 ? g_cell_w : (tileset.tile_w > 0 ? tileset.tile_w : CELL_W);
     app.cell.h = g_cell_h > 0 ? g_cell_h : (tileset.tile_h > 0 ? tileset.tile_h : CELL_H);
 
@@ -584,16 +585,6 @@ load_level:
         if (!custom_ui) SB_ProductionDrawer(&st, &app);
         M_Drawer(&app);
         renderer_end_frame(&renderer);
-        if (getenv("OPEN_RTS_BENCH")) {
-            static int bench_frames;
-            static uint64_t bench_start;
-            if (bench_frames == 0) bench_start = SDL_GetTicks64();
-            if (++bench_frames == 60) {
-                printf("BENCH frames=60 ms=%llu\n",
-                       (unsigned long long)(SDL_GetTicks64() - bench_start));
-                app.running = false;
-            }
-        }
     }
 
     /* Let bounded-check clients consume the final commands and quit before

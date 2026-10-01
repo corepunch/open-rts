@@ -1398,7 +1398,11 @@ becomes `(intensity * 255 + 8) / 16`, green is that factor times 236/255
 230/255, added to the destination palette entry and nearest-matched. The table
 is an approximation of the old SDL blend, not a table recovered from DC.EXE.
 Shadow drawing is the native destination-colormap rule (`screens[0][dst] =
-shadowmap[dst]`), documented at DC.EXE 0x45c7b0 / 0x45cc04.
+shadowmap[dst]`), documented at DC.EXE 0x45c7b0 / 0x45cc04. Because those
+tables land on index 0 for black, the BTS loader makes tileset entry 0 black
+like the SPR palettes do; the file's key colour there was never displayed.
+Palette alpha keeps its old meaning on the indexed screen: an entry with alpha
+0 (index 0 and the BTS magenta key) is skipped, also on ground tiles.
 
 **Verification:** `test_sprite_height` checks 50-pixel projection, scaling, and
 occluding ground objects on either side of ground Y in either input order.

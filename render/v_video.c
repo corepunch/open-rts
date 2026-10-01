@@ -14,18 +14,47 @@ static irect_t clip_rect;
 static uint8_t identity_map[256];
 static bool identity_ready;
 
-typedef struct {
-    uint32_t hash;
+/* Exact RGB -> nearest screen index, direct mapped. Bit 24 marks a used slot. */
+enum { NEAREST_SLOTS = 4096 };
+static uint32_t nearest_key[NEAREST_SLOTS];
+static uint8_t nearest_value[NEAREST_SLOTS];
+
+/* Destination colormaps for palette entries with partial alpha. */
+enum { BLEND_SLOTS = 8, BLEND_SKIP = 255 };
+static struct {
+    uint32_t key; /* alpha << 24 | rgb */
     uint8_t map[256];
-    bool used;
+} blend_cache[BLEND_SLOTS];
+static int blend_count;
+
+/* One source palette (plus team map and tint) resolved to the screen palette. */
+typedef struct {
+    uint32_t palette[256];
+    uint8_t team[256];
+    uint8_t map[256];
+    uint8_t blend[256]; /* 0 opaque, BLEND_SKIP, or 1 + blend_cache slot */
+    uint64_t hash;
+    uint32_t tint;
+    bool has_team, has_blend, identity, zero_transparent, used;
 } remap_slot_t;
 
-static remap_slot_t remap_cache[8];
+enum { REMAP_SLOTS = 64 };
+static remap_slot_t remap_cache[REMAP_SLOTS];
+static remap_slot_t *remap_last;
+static int remap_next;
 
 static void ensure_identity(void) {
     if (identity_ready) return;
     for (int i = 0; i < 256; ++i) identity_map[i] = (uint8_t)i;
     identity_ready = true;
+}
+
+static void flush_caches(void) {
+    memset(nearest_key, 0, sizeof(nearest_key));
+    for (int i = 0; i < REMAP_SLOTS; ++i) remap_cache[i].used = false;
+    remap_last = NULL;
+    remap_next = 0;
+    blend_count = 0;
 }
 
 void V_AllocScreen(int w, int h) {
@@ -58,9 +87,11 @@ void V_BeginFrame(uint32_t clear_argb) {
 
 void I_SetPalette(const uint32_t argb[256]) {
     if (!argb) return;
+    /* The world installs its palette every frame; keep the caches when it is unchanged. */
+    if (palette_set && memcmp(vpalette, argb, sizeof(vpalette)) == 0) return;
     memcpy(vpalette, argb, sizeof(vpalette));
     palette_set = true;
-    memset(remap_cache, 0, sizeof(remap_cache));
+    flush_caches();
 }
 
 bool I_ReadScreen(uint8_t *dst) {
@@ -70,9 +101,13 @@ bool I_ReadScreen(uint8_t *dst) {
 }
 
 uint8_t V_NearestIndex(uint32_t argb) {
-    int r = (int)((argb >> 16) & 255);
-    int g = (int)((argb >> 8) & 255);
-    int b = (int)(argb & 255);
+    uint32_t rgb = argb & 0x00ffffffu;
+    uint32_t key = rgb | 0x01000000u;
+    uint32_t slot = (rgb * 2654435761u) >> 20;
+    if (nearest_key[slot] == key) return nearest_value[slot];
+    int r = (int)(rgb >> 16);
+    int g = (int)((rgb >> 8) & 255);
+    int b = (int)(rgb & 255);
     int best = 0;
     int best_distance = 1 << 30;
     for (int i = 0; i < 256; ++i) {
@@ -86,108 +121,123 @@ uint8_t V_NearestIndex(uint32_t argb) {
             if (distance == 0) break;
         }
     }
+    nearest_key[slot] = key;
+    nearest_value[slot] = (uint8_t)best;
     return (uint8_t)best;
 }
 
-static uint32_t hash_palette(const uint32_t colors[256]) {
-    uint32_t hash = 2166136261u;
+static uint32_t scale_rgb(uint32_t rgb, uint32_t tint) {
+    int r = (int)((rgb >> 16) & 255) * (int)((tint >> 16) & 255) / 255;
+    int g = (int)((rgb >> 8) & 255) * (int)((tint >> 8) & 255) / 255;
+    int b = (int)(rgb & 255) * (int)(tint & 255) / 255;
+    return ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+}
+
+/* dst = src * alpha + dst * (1 - alpha), nearest-matched per destination index. */
+static int blend_slot(uint32_t rgb, int alpha) {
+    uint32_t key = ((uint32_t)alpha << 24) | rgb;
+    for (int i = 0; i < blend_count; ++i)
+        if (blend_cache[i].key == key) return i;
+    if (blend_count == BLEND_SLOTS) return -1;
+    int slot = blend_count++;
+    blend_cache[slot].key = key;
+    int sr = (int)((rgb >> 16) & 255) * alpha;
+    int sg = (int)((rgb >> 8) & 255) * alpha;
+    int sb = (int)(rgb & 255) * alpha;
     for (int i = 0; i < 256; ++i) {
-        hash ^= colors[i];
-        hash *= 16777619u;
+        int r = (sr + (int)((vpalette[i] >> 16) & 255) * (255 - alpha)) / 255;
+        int g = (sg + (int)((vpalette[i] >> 8) & 255) * (255 - alpha)) / 255;
+        int b = (sb + (int)(vpalette[i] & 255) * (255 - alpha)) / 255;
+        blend_cache[slot].map[i] =
+            V_NearestIndex(((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
     }
-    return hash ? hash : 1u;
+    return slot;
+}
+
+static uint64_t hash_remap(const uint32_t palette[256], const uint8_t *team, uint32_t tint) {
+    uint64_t hash = 1469598103934665603ull ^ tint;
+    for (int i = 0; i < 256; i += 2) {
+        hash ^= (uint64_t)palette[i] | ((uint64_t)palette[i + 1] << 32);
+        hash *= 1099511628211ull;
+    }
+    if (team) {
+        for (int i = 0; i < 256; i += 8) {
+            uint64_t word;
+            memcpy(&word, team + i, sizeof(word));
+            hash ^= word;
+            hash *= 1099511628211ull;
+        }
+    }
+    return hash;
+}
+
+static bool remap_matches(const remap_slot_t *slot, const uint32_t palette[256],
+                          const uint8_t *team, uint32_t tint) {
+    return slot->used && slot->tint == tint && slot->has_team == (team != NULL) &&
+           memcmp(slot->palette, palette, sizeof(slot->palette)) == 0 &&
+           (!team || memcmp(slot->team, team, sizeof(slot->team)) == 0);
+}
+
+/* A source index whose colour already sits at the same screen index keeps
+ * that index. Palette alpha carries over from the ARGB renderer: 0 skips the
+ * pixel and a partial value blends it over the destination. */
+static const remap_slot_t *remap_for(const uint32_t palette[256], const uint8_t *team,
+                                     uint32_t tint) {
+    tint &= 0x00ffffffu;
+    if (remap_last && remap_matches(remap_last, palette, team, tint)) return remap_last;
+    uint64_t hash = hash_remap(palette, team, tint);
+    for (int i = 0; i < REMAP_SLOTS; ++i) {
+        remap_slot_t *slot = &remap_cache[i];
+        if (slot->hash == hash && remap_matches(slot, palette, team, tint))
+            return remap_last = slot;
+    }
+    remap_slot_t *slot = &remap_cache[remap_next];
+    remap_next = (remap_next + 1) % REMAP_SLOTS;
+    memcpy(slot->palette, palette, sizeof(slot->palette));
+    slot->has_team = team != NULL;
+    if (team) memcpy(slot->team, team, sizeof(slot->team));
+    slot->hash = hash;
+    slot->tint = tint;
+    slot->has_blend = false;
+    slot->identity = true;
+    slot->zero_transparent = (palette[0] >> 24) == 0;
+    for (int i = 0; i < 256; ++i) {
+        int index = team ? team[i] : i;
+        uint32_t rgb = palette[index] & 0x00ffffffu;
+        if (tint != 0x00ffffffu) rgb = scale_rgb(rgb, tint);
+        slot->map[i] = (vpalette[index] & 0x00ffffffu) == rgb ? (uint8_t)index
+                                                               : V_NearestIndex(rgb);
+        if (slot->map[i] != i) slot->identity = false;
+        int alpha = (int)(palette[i] >> 24);
+        slot->blend[i] = 0;
+        if (i == 0) continue; /* Index 0 is handled by the blit's opaque flag. */
+        if (alpha == 0) {
+            slot->blend[i] = BLEND_SKIP;
+        } else if (alpha < 255) {
+            int blend = blend_slot(rgb, alpha);
+            if (blend >= 0) slot->blend[i] = (uint8_t)(blend + 1);
+        }
+        if (slot->blend[i]) slot->has_blend = true;
+    }
+    slot->used = true;
+    return remap_last = slot;
 }
 
 const uint8_t *V_RemapPalette(const uint32_t palette[256]) {
     ensure_identity();
     if (!palette || !palette_set) return identity_map;
-    if (memcmp(palette, vpalette, sizeof(vpalette)) == 0) return identity_map;
-    uint32_t hash = hash_palette(palette);
-    for (int i = 0; i < 8; ++i) {
-        if (remap_cache[i].used && remap_cache[i].hash == hash) return remap_cache[i].map;
-    }
-    int slot = 0;
-    for (int i = 0; i < 8; ++i) if (!remap_cache[i].used) { slot = i; break; }
-    remap_slot_t *entry = &remap_cache[slot];
-    entry->used = true;
-    entry->hash = hash;
-    entry->map[0] = 0;
-    for (int i = 1; i < 256; ++i) {
-        uint32_t saved = vpalette[0];
-        /* Nearest is against the screen palette already installed. */
-        (void)saved;
-        int r = (int)((palette[i] >> 16) & 255);
-        int g = (int)((palette[i] >> 8) & 255);
-        int b = (int)(palette[i] & 255);
-        int best = 1;
-        int best_distance = 1 << 30;
-        for (int k = 1; k < 256; ++k) {
-            int dr = r - (int)((vpalette[k] >> 16) & 255);
-            int dg = g - (int)((vpalette[k] >> 8) & 255);
-            int db = b - (int)(vpalette[k] & 255);
-            int distance = dr * dr + dg * dg + db * db;
-            if (distance < best_distance) {
-                best_distance = distance;
-                best = k;
-                if (distance == 0) break;
-            }
-        }
-        entry->map[i] = (uint8_t)best;
-    }
-    return entry->map;
-}
-
-void V_ComposeRemap(uint8_t out[256], const uint32_t palette[256],
-                    const uint8_t *team, int intensity) {
-    if (!out) return;
-    if (intensity <= 0 || intensity > 16) intensity = 16;
-    const uint8_t *to_screen = V_RemapPalette(palette);
-    if (intensity == 16) {
-        for (int i = 0; i < 256; ++i) {
-            uint8_t index = team ? team[i] : (uint8_t)i;
-            out[i] = to_screen[index];
-        }
-        out[0] = 0;
-        return;
-    }
-    int factor = (intensity * 255 + 8) / 16;
-    out[0] = 0;
-    for (int i = 1; i < 256; ++i) {
-        uint8_t index = team ? team[i] : (uint8_t)i;
-        uint32_t color = palette ? palette[index] : vpalette[index];
-        int r = ((int)((color >> 16) & 255) * factor) / 255;
-        int g = ((int)((color >> 8) & 255) * factor) / 255;
-        int b = ((int)(color & 255) * factor) / 255;
-        uint32_t saved0 = vpalette[0];
-        vpalette[0] = 0xff000000u;
-        out[i] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
-        vpalette[0] = saved0;
-        if (!palette_set) out[i] = index;
-    }
+    const remap_slot_t *slot = remap_for(palette, NULL, 0x00ffffffu);
+    return slot->identity ? identity_map : slot->map;
 }
 
 void V_ModulateRemap(uint8_t out[256], const uint32_t palette[256], uint32_t color) {
     if (!out) return;
-    int cr = (int)((color >> 16) & 255);
-    int cg = (int)((color >> 8) & 255);
-    int cb = (int)(color & 255);
-    const uint8_t *to_screen = V_RemapPalette(palette);
-    out[0] = 0;
-    if (cr == 255 && cg == 255 && cb == 255) {
-        for (int i = 1; i < 256; ++i)
-            out[i] = to_screen ? to_screen[i] : (uint8_t)i;
+    ensure_identity();
+    if (!palette_set) {
+        memcpy(out, identity_map, sizeof(identity_map));
         return;
     }
-    for (int i = 1; i < 256; ++i) {
-        uint32_t src = palette ? palette[i] : vpalette[i];
-        int r = ((int)((src >> 16) & 255) * cr) / 255;
-        int g = ((int)((src >> 8) & 255) * cg) / 255;
-        int b = ((int)(src & 255) * cb) / 255;
-        uint32_t saved0 = vpalette[0];
-        vpalette[0] = 0xff000000u;
-        out[i] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b);
-        vpalette[0] = saved0;
-    }
+    memcpy(out, remap_for(palette ? palette : vpalette, NULL, color)->map, 256);
 }
 
 void V_ReadPixels(uint32_t *dst, int dst_pitch_bytes) {
@@ -266,6 +316,18 @@ void V_FillRect(irect_t r, uint8_t color) {
 }
 
 void V_DrawLine(ivec2_t a, ivec2_t b, uint8_t color) {
+    if (a.y == b.y) {
+        int x0 = a.x < b.x ? a.x : b.x;
+        int x1 = a.x < b.x ? b.x : a.x;
+        V_FillRect((irect_t){x0, a.y, x1 - x0 + 1, 1}, color);
+        return;
+    }
+    if (a.x == b.x) {
+        int y0 = a.y < b.y ? a.y : b.y;
+        int y1 = a.y < b.y ? b.y : a.y;
+        V_FillRect((irect_t){a.x, y0, 1, y1 - y0 + 1}, color);
+        return;
+    }
     int dx = abs(b.x - a.x), sx = a.x < b.x ? 1 : -1;
     int dy = -abs(b.y - a.y), sy = a.y < b.y ? 1 : -1;
     int err = dx + dy;
@@ -290,120 +352,123 @@ void V_DrawRectOutline(irect_t r, uint8_t color) {
     V_DrawLine(tr, br, color);
 }
 
-static uint8_t sample_index(const uint8_t *src, isize2_t size, int pitch,
-                            int x, int y, const uint8_t *remap, uint32_t flags) {
-    if (flags & V_FLIP_X) x = size.w - 1 - x;
-    if (flags & V_FLIP_Y) y = size.h - 1 - y;
-    if (x < 0 || y < 0 || x >= size.w || y >= size.h) return 0;
-    uint8_t index = src[(size_t)y * (size_t)pitch + (size_t)x];
-    if (remap) index = remap[index];
-    return index;
+/* How one source index reaches the screen. Transparency is decided on the
+ * source index, before any remap, so a remap may land on screen index 0. */
+typedef struct {
+    const uint8_t *remap;  /* source index -> screen index, or NULL */
+    const uint8_t *blend;  /* per source index: 0, BLEND_SKIP, or 1 + blend slot */
+    const uint8_t *table;  /* 256x256 [source << 8 | destination], or NULL */
+    const uint8_t *colormap; /* destination -> destination under the silhouette */
+    bool opaque;
+} blit_t;
+
+static inline void put_pixel(uint8_t *dst, uint8_t index, const blit_t *blit) {
+    if (index == 0 && !blit->opaque) return;
+    if (blit->table) {
+        *dst = blit->table[((size_t)index << 8) | *dst];
+    } else if (blit->colormap) {
+        *dst = blit->colormap[*dst];
+    } else if (blit->blend && blit->blend[index]) {
+        if (blit->blend[index] != BLEND_SKIP)
+            *dst = blend_cache[blit->blend[index] - 1].map[*dst];
+    } else {
+        *dst = blit->remap ? blit->remap[index] : index;
+    }
+}
+
+static void blit_block(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
+                       uint32_t flags, const blit_t *blit) {
+    if (!src || size.w <= 0 || size.h <= 0 || src_pitch <= 0) return;
+    irect_t area;
+    if (!intersect_bounds((irect_t){at.x, at.y, size.w, size.h}, &area)) return;
+    int first_x = area.x - at.x;
+    int step = 1;
+    if (flags & V_FLIP_X) {
+        first_x = size.w - 1 - first_x;
+        step = -1;
+    }
+    bool plain = !blit->table && !blit->colormap && !blit->blend;
+    for (int y = 0; y < area.h; ++y) {
+        int sy = area.y - at.y + y;
+        if (flags & V_FLIP_Y) sy = size.h - 1 - sy;
+        const uint8_t *from = src + (size_t)sy * (size_t)src_pitch + first_x;
+        uint8_t *dst = screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x);
+        if (plain && blit->opaque && !blit->remap && step == 1) {
+            memcpy(dst, from, (size_t)area.w);
+        } else if (plain && !blit->opaque) {
+            const uint8_t *remap = blit->remap;
+            for (int x = 0; x < area.w; ++x, from += step) {
+                uint8_t index = *from;
+                if (index) dst[x] = remap ? remap[index] : index;
+            }
+        } else if (blit->blend && !blit->table && !blit->colormap) {
+            const uint8_t *remap = blit->remap ? blit->remap : identity_map;
+            const uint8_t *blend = blit->blend;
+            bool opaque = blit->opaque;
+            for (int x = 0; x < area.w; ++x, from += step) {
+                uint8_t index = *from;
+                if (!index && !opaque) continue;
+                uint8_t mode = blend[index];
+                if (!mode) dst[x] = remap[index];
+                else if (mode != BLEND_SKIP) dst[x] = blend_cache[mode - 1].map[dst[x]];
+            }
+        } else {
+            for (int x = 0; x < area.w; ++x, from += step) put_pixel(&dst[x], *from, blit);
+        }
+    }
+}
+
+static void blit_scaled(irect_t dst_rect, const uint8_t *src, isize2_t size, int src_pitch,
+                        uint32_t flags, const blit_t *blit) {
+    if (!src || size.w <= 0 || size.h <= 0 || src_pitch <= 0 ||
+        dst_rect.w <= 0 || dst_rect.h <= 0) return;
+    if (dst_rect.w == size.w && dst_rect.h == size.h) {
+        blit_block((ivec2_t){dst_rect.x, dst_rect.y}, src, size, src_pitch, flags, blit);
+        return;
+    }
+    irect_t area;
+    if (!intersect_bounds(dst_rect, &area)) return;
+    for (int y = 0; y < area.h; ++y) {
+        int sy = (area.y - dst_rect.y + y) * size.h / dst_rect.h;
+        if (flags & V_FLIP_Y) sy = size.h - 1 - sy;
+        const uint8_t *from = src + (size_t)sy * (size_t)src_pitch;
+        uint8_t *dst = screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x);
+        for (int x = 0; x < area.w; ++x) {
+            int sx = (area.x - dst_rect.x + x) * size.w / dst_rect.w;
+            if (flags & V_FLIP_X) sx = size.w - 1 - sx;
+            put_pixel(&dst[x], from[sx], blit);
+        }
+    }
 }
 
 void V_DrawBlock(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
                  const uint8_t *remap, uint32_t flags) {
-    if (!src || size.w <= 0 || size.h <= 0 || src_pitch <= 0) return;
-    irect_t area;
-    if (!intersect_bounds((irect_t){at.x, at.y, size.w, size.h}, &area)) return;
-    bool opaque = (flags & V_OPAQUE) != 0;
-    for (int y = 0; y < area.h; ++y) {
-        int sy = area.y - at.y + y;
-        uint8_t *dst = screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x);
-        for (int x = 0; x < area.w; ++x) {
-            uint8_t index = sample_index(src, size, src_pitch, area.x - at.x + x, sy, remap, flags);
-            if (!opaque && index == 0) continue;
-            dst[x] = index;
-        }
-    }
+    blit_t blit = {.remap = remap, .opaque = (flags & V_OPAQUE) != 0};
+    blit_block(at, src, size, src_pitch, flags, &blit);
 }
 
 void V_DrawBlockScaled(irect_t dst_rect, const uint8_t *src, isize2_t size, int src_pitch,
                        const uint8_t *remap, uint32_t flags) {
-    if (!src || size.w <= 0 || size.h <= 0 || dst_rect.w <= 0 || dst_rect.h <= 0) return;
-    irect_t area;
-    if (!intersect_bounds(dst_rect, &area)) return;
-    bool opaque = (flags & V_OPAQUE) != 0;
-    for (int y = 0; y < area.h; ++y) {
-        int local_y = area.y - dst_rect.y + y;
-        int sy = local_y * size.h / dst_rect.h;
-        uint8_t *dst = screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x);
-        for (int x = 0; x < area.w; ++x) {
-            int local_x = area.x - dst_rect.x + x;
-            int sx = local_x * size.w / dst_rect.w;
-            uint8_t index = sample_index(src, size, src_pitch, sx, sy, remap, flags);
-            if (!opaque && index == 0) continue;
-            dst[x] = index;
-        }
-    }
+    blit_t blit = {.remap = remap, .opaque = (flags & V_OPAQUE) != 0};
+    blit_scaled(dst_rect, src, size, src_pitch, flags, &blit);
 }
 
 void V_DrawBlockTranslucent(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
                             const uint8_t *table, uint32_t flags) {
-    if (!src || !table || size.w <= 0 || size.h <= 0) return;
-    irect_t area;
-    if (!intersect_bounds((irect_t){at.x, at.y, size.w, size.h}, &area)) return;
-    for (int y = 0; y < area.h; ++y) {
-        int sy = area.y - at.y + y;
-        uint8_t *dst = screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x);
-        for (int x = 0; x < area.w; ++x) {
-            uint8_t index = sample_index(src, size, src_pitch, area.x - at.x + x, sy, NULL, flags);
-            if (index == 0) continue;
-            dst[x] = table[((size_t)index << 8) | dst[x]];
-        }
-    }
+    if (!table) return;
+    blit_t blit = {.table = table};
+    blit_block(at, src, size, src_pitch, flags, &blit);
 }
 
 void V_DrawSilhouetteColormap(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
                               const uint8_t *colormap, uint32_t flags) {
-    if (!src || !colormap || size.w <= 0 || size.h <= 0) return;
-    irect_t area;
-    if (!intersect_bounds((irect_t){at.x, at.y, size.w, size.h}, &area)) return;
-    for (int y = 0; y < area.h; ++y) {
-        int sy = area.y - at.y + y;
-        uint8_t *dst = screens[0].pixels + ((size_t)(area.y + y) * (size_t)screens[0].w + (size_t)area.x);
-        for (int x = 0; x < area.w; ++x) {
-            uint8_t index = sample_index(src, size, src_pitch, area.x - at.x + x, sy, NULL, flags);
-            if (index == 0) continue;
-            dst[x] = colormap[dst[x]];
-        }
-    }
-}
-
-void V_CopyRect(irect_t src, irect_t dst) {
-    if (!screens[0].pixels || src.w <= 0 || src.h <= 0 || dst.w <= 0 || dst.h <= 0) return;
-    int width = src.w < dst.w ? src.w : dst.w;
-    int height = src.h < dst.h ? src.h : dst.h;
-    uint8_t *temp = malloc((size_t)width);
-    if (!temp) return;
-    for (int y = 0; y < height; ++y) {
-        int sy = src.y + y;
-        int dy = dst.y + y;
-        if (sy < 0 || dy < 0 || sy >= screens[0].h || dy >= screens[0].h) continue;
-        int row_w = width;
-        int sx = src.x;
-        int dx = dst.x;
-        if (sx < 0) { row_w += sx; dx -= sx; sx = 0; }
-        if (dx < 0) { row_w += dx; sx -= dx; dx = 0; }
-        if (sx + row_w > screens[0].w) row_w = screens[0].w - sx;
-        if (dx + row_w > screens[0].w) row_w = screens[0].w - dx;
-        if (row_w <= 0) continue;
-        const uint8_t *from = screens[0].pixels + (size_t)sy * (size_t)screens[0].w + (size_t)sx;
-        uint8_t *to = screens[0].pixels + (size_t)dy * (size_t)screens[0].w + (size_t)dx;
-        memcpy(temp, from, (size_t)row_w);
-        memcpy(to, temp, (size_t)row_w);
-    }
-    free(temp);
-}
-
-static const uint8_t *sprite_team_map(const spritesheet_t *sprite, int palette) {
-    if (!sprite || palette < 0) return NULL;
-    for (int i = 0; i < sprite->palette_map_count; ++i)
-        if (sprite->palette_maps[i].id == palette) return sprite->palette_maps[i].indices;
-    return NULL;
+    if (!colormap) return;
+    blit_t blit = {.colormap = colormap};
+    blit_block(at, src, size, src_pitch, flags, &blit);
 }
 
 static bool sprite_source(const spritesheet_t *sprite, int frame, const irect_t *src,
-                          const uint8_t **indices, isize2_t *size, irect_t *local) {
+                          const uint8_t **indices, isize2_t *size) {
     if (!sprite || !sprite->cells || !sprite->lumps || frame < 0 || frame >= sprite->numlumps)
         return false;
     irect_t cell = sprite->cells[frame].rect;
@@ -415,7 +480,6 @@ static bool sprite_source(const spritesheet_t *sprite, int frame, const irect_t 
     *indices = sprite->lumps[frame].indices +
         ((size_t)(rect.y - cell.y) * (size_t)cell.w + (size_t)(rect.x - cell.x));
     *size = (isize2_t){rect.w, rect.h};
-    *local = rect;
     return true;
 }
 
@@ -423,8 +487,7 @@ void V_DrawSpriteCell(ivec2_t at, const spritesheet_t *sheet, int cell,
                       const uint8_t *remap, uint32_t flags) {
     const uint8_t *indices;
     isize2_t size;
-    irect_t local;
-    if (!sprite_source(sheet, cell, NULL, &indices, &size, &local)) return;
+    if (!sprite_source(sheet, cell, NULL, &indices, &size)) return;
     V_DrawBlock(at, indices, size, sheet->cells[cell].rect.w, remap, flags);
 }
 
@@ -432,66 +495,54 @@ void V_DrawSpriteCellScaled(irect_t dst, const spritesheet_t *sheet, int cell,
                             const irect_t *src, const uint8_t *remap, uint32_t flags) {
     const uint8_t *indices;
     isize2_t size;
-    irect_t local;
-    if (!sprite_source(sheet, cell, src, &indices, &size, &local)) return;
-    int pitch = sheet->cells[cell].rect.w;
-    if (dst.w == size.w && dst.h == size.h)
-        V_DrawBlock((ivec2_t){dst.x, dst.y}, indices, size, pitch, remap, flags);
-    else
-        V_DrawBlockScaled(dst, indices, size, pitch, remap, flags);
+    if (!sprite_source(sheet, cell, src, &indices, &size)) return;
+    V_DrawBlockScaled(dst, indices, size, sheet->cells[cell].rect.w, remap, flags);
+}
+
+static void blit_remapped(const irect_t *dst, const uint8_t *indices, isize2_t size, int pitch,
+                          const remap_slot_t *slot, uint32_t flags) {
+    ensure_identity();
+    blit_t blit = {
+        .remap = slot->identity ? NULL : slot->map,
+        .blend = slot->has_blend ? slot->blend : NULL,
+        /* A transparent entry 0 stays see-through even on an opaque draw. */
+        .opaque = (flags & V_OPAQUE) != 0 && !slot->zero_transparent,
+    };
+    blit_scaled(*dst, indices, size, pitch, flags, &blit);
 }
 
 bool R_DrawIndexed(const uint8_t *indices, isize2_t size, const uint32_t palette[256],
                    const irect_t *src, const irect_t *dst, uint32_t flags) {
-    if (!indices || !palette || size.w <= 0 || size.h <= 0) return false;
+    if (!indices || !palette || size.w <= 0 || size.h <= 0 || !dst) return false;
     if (!palette_set) I_SetPalette(palette);
     irect_t rect = src ? *src : (irect_t){0, 0, size.w, size.h};
     if (rect.x < 0 || rect.y < 0 || rect.w <= 0 || rect.h <= 0 ||
         rect.x + rect.w > size.w || rect.y + rect.h > size.h) return false;
-    if (!dst) return false;
-    const uint8_t *remap = V_RemapPalette(palette);
     const uint8_t *source = indices + (size_t)rect.y * (size_t)size.w + (size_t)rect.x;
-    if (dst->w == rect.w && dst->h == rect.h)
-        V_DrawBlock((ivec2_t){dst->x, dst->y}, source, (isize2_t){rect.w, rect.h}, size.w, remap, flags);
-    else
-        V_DrawBlockScaled(*dst, source, (isize2_t){rect.w, rect.h}, size.w, remap, flags);
+    blit_remapped(dst, source, (isize2_t){rect.w, rect.h}, size.w,
+                  remap_for(palette, NULL, 0x00ffffffu), flags);
     return true;
+}
+
+static const uint8_t *sprite_team_map(const spritesheet_t *sprite, int palette) {
+    if (!sprite || palette < 0) return NULL;
+    for (int i = 0; i < sprite->palette_map_count; ++i)
+        if (sprite->palette_maps[i].id == palette) return sprite->palette_maps[i].indices;
+    return NULL;
 }
 
 bool R_DrawSprite(const spritesheet_t *sprite, int frame, int palette,
                   const irect_t *src, const irect_t *dst, uint32_t flags, int intensity) {
     const uint8_t *indices;
     isize2_t size;
-    irect_t local;
-    if (!sprite_source(sprite, frame, src, &indices, &size, &local) || !dst) return false;
+    if (!sprite_source(sprite, frame, src, &indices, &size) || !dst) return false;
     if (!palette_set) I_SetPalette(sprite->source_palette);
-    const uint8_t *team = sprite_team_map(sprite, palette);
-    int pitch = sprite->cells[frame].rect.w;
-    uint8_t composed[256];
-    const uint8_t *remap = team;
-    /* Matching palettes at full brightness are one table lookup per pixel. */
-    bool full = intensity <= 0 || intensity >= 16;
-    bool same = palette_set &&
-        memcmp(sprite->source_palette, vpalette, sizeof(vpalette)) == 0;
-    if (!(full && same)) {
-        uint32_t colors[256];
-        for (int i = 0; i < 256; ++i) {
-            uint8_t mapped = team ? team[i] : (uint8_t)i;
-            colors[i] = (sprite->source_palette[mapped] & 0x00ffffffu) |
-                        (sprite->source_palette[i] & 0xff000000u);
-        }
-        V_ComposeRemap(composed, colors, NULL, intensity);
-        remap = composed;
-    } else if (team && team[0] != 0) {
-        memcpy(composed, team, sizeof(composed));
-        composed[0] = 0;
-        remap = composed;
-    }
-    if ((flags & V_OPAQUE) == 0 && remap == composed) composed[0] = 0;
-    if (dst->w == size.w && dst->h == size.h)
-        V_DrawBlock((ivec2_t){dst->x, dst->y}, indices, size, pitch, remap, flags);
-    else
-        V_DrawBlockScaled(*dst, indices, size, pitch, remap, flags);
+    uint32_t tint = 0x00ffffffu;
+    if (intensity > 0 && intensity < 16)
+        tint = (uint32_t)((intensity * 255 + 8) / 16) * 0x010101u;
+    blit_remapped(dst, indices, size, sprite->cells[frame].rect.w,
+                  remap_for(sprite->source_palette, sprite_team_map(sprite, palette), tint),
+                  flags);
     return true;
 }
 

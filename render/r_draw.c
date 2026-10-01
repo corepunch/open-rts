@@ -157,47 +157,35 @@ static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int til
     if (transforms & MAP_TILE_TRANSFORM_FLIP_Y) flags |= V_FLIP_Y;
     const tilepalettecycle_t *cycle = &tileset->palette_cycle;
     bool live_palette = cycle->tiles && cycle->count > 1 && cycle->frame_ms && cycle->tiles[tile];
-    uint8_t cycle_map[256];
-    const uint8_t *remap = NULL;
+    const uint32_t *palette = tileset->palette;
+    uint32_t colors[256];
     if (live_palette) {
         unsigned phase = (app->ticks_ms / cycle->frame_ms) % (unsigned)cycle->count;
-        for (int i = 0; i < 256; ++i) cycle_map[i] = (uint8_t)i;
+        memcpy(colors, palette, sizeof(colors));
         for (int i = 0; i < cycle->count; ++i)
-            cycle_map[cycle->indices[i]] = cycle->indices[(i + (int)phase) % cycle->count];
-        const uint8_t *to_screen = V_RemapPalette(tileset->palette);
-        if (to_screen) {
-            uint8_t folded[256];
-            for (int i = 0; i < 256; ++i) folded[i] = to_screen[cycle_map[i]];
-            memcpy(cycle_map, folded, sizeof(cycle_map));
-        }
-        remap = cycle_map;
-    } else {
-        remap = V_RemapPalette(tileset->palette);
+            colors[cycle->indices[i]] = palette[cycle->indices[(i + (int)phase) % cycle->count]];
+        palette = colors;
     }
     isize2_t size = {tileset->tile_w, tileset->tile_h};
     const uint8_t *indices = tileset->indices + (size_t)tile * (size_t)size.w * (size_t)size.h;
-    if (src_part.x < 0 || src_part.y < 0 || src_part.w <= 0 || src_part.h <= 0 ||
-        src_part.x + src_part.w > size.w || src_part.y + src_part.h > size.h) return;
-    const uint8_t *source = indices + (size_t)src_part.y * (size_t)size.w + (size_t)src_part.x;
-    isize2_t part = {src_part.w, src_part.h};
-    if (dst_part.w == part.w && dst_part.h == part.h)
-        V_DrawBlock((ivec2_t){dst_part.x, dst_part.y}, source, part, size.w, remap, flags);
-    else
-        V_DrawBlockScaled(dst_part, source, part, size.w, remap, flags);
+    R_DrawIndexed(indices, size, palette, &src_part, &dst_part, flags);
 }
 
 void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part) {
     render_tile_at_flipped(app, tileset, tile, src_part, dst_part, 0, 0);
 }
 
-void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
-    if (tileset) {
-        for (int i = 0; i < 256; ++i) {
-            if (!tileset->palette[i]) continue;
-            I_SetPalette(tileset->palette);
-            break;
-        }
+void R_SetLevelPalette(const tileset_t *tileset) {
+    if (!tileset) return;
+    for (int i = 0; i < 256; ++i) {
+        if (!tileset->palette[i]) continue;
+        I_SetPalette(tileset->palette);
+        return;
     }
+}
+
+void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
+    R_SetLevelPalette(tileset);
     int cell_w = app_cell_w(app);
     int cell_h = app_cell_h(app);
     int tile_w = app_tile_w(app, tileset);
@@ -234,7 +222,8 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
             uint8_t base_flip =
                 (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
                 map->tile_transforms[0] ? map->tile_transforms[0][idx] : 0;
-            /* Ground tiles are opaque, including palette index 0. */
+            /* Ground tiles are opaque: index 0 is a colour unless the palette
+             * marks it transparent. */
             render_tile_at_flipped(app, tileset, tile, src, dst, base_flip, V_OPAQUE);
         }
     }
@@ -581,29 +570,29 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
 }
 
 /* FIN layer 3 is SDL_BLENDMODE_ADD of a color-modulated source. The table is
- * dst = nearest(src * rgb/255 * alpha/255 + dst). Built once per palette. */
+ * dst = nearest(src * rgb/255 * alpha/255 + dst), cached per palette, team map
+ * and intensity. */
 static uint8_t *additive_table(const spritesheet_t *sprite, const uint8_t *team, int intensity) {
+    enum { TABLES = 16 };
     static struct {
-        const uint32_t *palette;
-        const uint8_t *team;
-        int intensity;
-        uint32_t screen_hash;
+        uint64_t key;
         uint8_t table[65536];
         bool used;
-    } cache[4];
+    } cache[TABLES];
+    static int next;
     if (intensity <= 0 || intensity > 16) intensity = 16;
-    uint32_t screen_hash = 2166136261u;
+    /* Keyed on contents: the source palette is live and sheets are freed and reloaded. */
+    uint64_t key = 1469598103934665603ull ^ (uint64_t)intensity;
     for (int i = 0; i < 256; ++i) {
-        screen_hash ^= vpalette[i];
-        screen_hash *= 16777619u;
+        key ^= (uint64_t)sprite->source_palette[i] | ((uint64_t)vpalette[i] << 32);
+        key *= 1099511628211ull;
+        key ^= team ? team[i] : (uint8_t)i;
+        key *= 1099511628211ull;
     }
-    for (int i = 0; i < 4; ++i)
-        if (cache[i].used && cache[i].palette == sprite->source_palette &&
-            cache[i].team == team && cache[i].intensity == intensity &&
-            cache[i].screen_hash == screen_hash)
-            return cache[i].table;
-    int slot = 0;
-    for (int i = 0; i < 4; ++i) if (!cache[i].used) { slot = i; break; }
+    for (int i = 0; i < TABLES; ++i)
+        if (cache[i].used && cache[i].key == key) return cache[i].table;
+    int slot = next;
+    next = (next + 1) % TABLES;
     int factor = (intensity * 255 + 8) / 16;
     int cr = factor;
     int cg = (factor * 236 + 127) / 255;
@@ -627,10 +616,7 @@ static uint8_t *additive_table(const spritesheet_t *sprite, const uint8_t *team,
                                                      ((uint32_t)g << 8) | (uint32_t)b);
         }
     }
-    cache[slot].palette = sprite->source_palette;
-    cache[slot].team = team;
-    cache[slot].intensity = intensity;
-    cache[slot].screen_hash = screen_hash;
+    cache[slot].key = key;
     cache[slot].used = true;
     return table;
 }

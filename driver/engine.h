@@ -73,6 +73,9 @@ void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry);
 void R_WindowToRenderDelta(const app_t *app, int wx, int wy, float *rx, float *ry);
 void R_DrawCell(app_t *app, int gx, int gy, uint32_t argb);
 void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part);
+/* The level's tileset palette is the screen palette. R_DrawLevel installs it
+ * every frame; loading installs it so the first clear already uses it. */
+void R_SetLevelPalette(const tileset_t *tileset);
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset);
 void R_DrawGridOverlay(app_t *app, const level_t *map);
 int R_PickUnit(const app_t *app, const level_t *map, mobj_t *const *units, int unit_count,
