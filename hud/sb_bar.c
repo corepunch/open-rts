@@ -357,7 +357,8 @@ void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
         irect_t dst = ui_scaled_rect(app, def, def->images[i].destination);
         const irect_t *src = def->images[i].source.w > 0 && def->images[i].source.h > 0 ?
             &def->images[i].source : NULL;
-        R_DrawSprite(&st->images[i], 0, -1, src, &dst, 0, 16);
+        /* Chrome sheets have no colour key: index 0 is their black. */
+        R_DrawSprite(&st->images[i], 0, -1, src, &dst, V_OPAQUE, 16);
     }
     SB_drawWidgets(st, app, sprites);
     SB_drawMinimap(st, app, map, units, unit_count);

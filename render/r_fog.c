@@ -27,21 +27,24 @@ static int corner_brightness(const level_t *map, ivec2_t corner) {
 }
 
 /* Destination darkening equivalent to SDL_BLENDMODE_MOD with gray light/255.
- * light is sample * 255 / 16, so 16 stays 255, 8 is 127, and 0 is black. */
-static uint8_t fogmap[256][256];
+ * R_FogSample is 0..16; light is sample * 255 / 16, so 16 keeps the pixel,
+ * 8 is 127/255, and 0 is black. */
+static uint8_t fogmap[17][256];
 static uint32_t fogmap_palette[256];
 static bool fogmap_ready;
 
 static void ensure_fogmap(void) {
     if (fogmap_ready && memcmp(fogmap_palette, vpalette, sizeof(vpalette)) == 0) return;
     memcpy(fogmap_palette, vpalette, sizeof(vpalette));
-    for (int light = 0; light < 256; ++light) {
+    for (int sample = 0; sample <= 16; ++sample) {
+        int light = sample * 255 / 16;
         for (int i = 0; i < 256; ++i) {
+            if (sample == 16) { fogmap[sample][i] = (uint8_t)i; continue; }
             int r = ((int)((vpalette[i] >> 16) & 255) * light) / 255;
             int g = ((int)((vpalette[i] >> 8) & 255) * light) / 255;
             int b = ((int)(vpalette[i] & 255) * light) / 255;
-            fogmap[light][i] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) |
-                                              ((uint32_t)g << 8) | (uint32_t)b);
+            fogmap[sample][i] = V_NearestIndex(0xff000000u | ((uint32_t)r << 16) |
+                                               ((uint32_t)g << 8) | (uint32_t)b);
         }
     }
     fogmap_ready = true;
@@ -81,8 +84,10 @@ void R_DrawFog(app_t *app, const level_t *map) {
             }
             for (int ly = 0; ly < 32; ++ly) {
                 uint8_t *sample = lights + ((size_t)(ty * 32 + ly) * (size_t)src_w + (size_t)tx * 32);
-                for (int lx = 0; lx < 32; ++lx)
-                    sample[lx] = (uint8_t)(R_FogSample(corners, (ivec2_t){lx, ly}) * 255 / 16);
+                for (int lx = 0; lx < 32; ++lx) {
+                    int light = R_FogSample(corners, (ivec2_t){lx, ly});
+                    sample[lx] = (uint8_t)(light < 0 ? 0 : light > 16 ? 16 : light);
+                }
             }
         }
     }

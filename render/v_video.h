@@ -13,7 +13,9 @@
 enum {
     V_FLIP_X = 1u << 0,
     V_FLIP_Y = 1u << 1,
-    /* Write index 0. Sprites skip it; opaque backgrounds do not. */
+    /* Write source index 0. Sprites skip it; opaque backgrounds do not, unless
+     * the palette marks entry 0 transparent (alpha 0). Transparency is decided
+     * on the source index, before any remap. */
     V_OPAQUE = 1u << 2
 };
 
@@ -31,10 +33,9 @@ void V_BeginFrame(uint32_t clear_argb);
 void I_SetPalette(const uint32_t argb[256]);
 bool I_ReadScreen(uint8_t *dst);
 uint8_t V_NearestIndex(uint32_t argb);
-/* Identity when the palette matches the screen. Index 0 stays 0. */
+/* Source index -> screen index. Identity when the palette matches the screen.
+ * The result is only valid until the next palette-resolving call. */
 const uint8_t *V_RemapPalette(const uint32_t palette[256]);
-void V_ComposeRemap(uint8_t out[256], const uint32_t palette[256],
-                    const uint8_t *team, int intensity);
 /* Multiply source RGB by an 0xAARRGGBB color, then nearest-match the screen. */
 void V_ModulateRemap(uint8_t out[256], const uint32_t palette[256], uint32_t color);
 void V_ReadPixels(uint32_t *dst, int dst_pitch_bytes);
@@ -54,7 +55,6 @@ void V_DrawBlockTranslucent(ivec2_t at, const uint8_t *src, isize2_t size, int s
                             const uint8_t *table, uint32_t flags);
 void V_DrawSilhouetteColormap(ivec2_t at, const uint8_t *src, isize2_t size, int src_pitch,
                               const uint8_t *colormap, uint32_t flags);
-void V_CopyRect(irect_t src, irect_t dst);
 
 void V_DrawSpriteCell(ivec2_t at, const spritesheet_t *sheet, int cell,
                       const uint8_t *remap, uint32_t flags);
