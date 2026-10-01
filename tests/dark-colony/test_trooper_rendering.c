@@ -27,7 +27,7 @@ static void check_selection(app_t *app, spritecache_t *cache, mobj_t *unit) {
     for (int direction = 0; direction < 16; ++direction) {
         unit->core.angle = dc_direction_to_angle(direction);
         for (int step = 0; step < 8; ++step) {
-            assert(P_SetMobjState(unit, S_TRSC_RUN1 + step));
+            assert(P_SetMobjStateFrame(unit, S_TRSC_RUN1, step));
             P_MobjSetSelected(unit, false);
             clear();
             R_RenderPlayerView(app, &map, NULL, &unit, 1, NULL, cache, &game_info, 0);

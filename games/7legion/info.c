@@ -13,14 +13,18 @@ const char *const sprnames[NUMSPRITES] = {
 };
 
 const state_t states[NUMSTATES] = {
-    { 0, 0, -1, NULL, S_NULL, 0 },
-    #include "animate/LTROOP.inc"
-    #include "animate/SLAVEN1.inc"
-    #include "animate/SPIDER.inc"
-    #include "animate/TANKBASE.inc"
-    #include "animate/ROCKMECH.inc"
-    #include "animate/TRUCK.inc"
-    #include "animate/MOBBASE.inc"
+    { 0, 0, 0, -1, NULL, S_NULL, 0, NULL },
+    [S_LTROOP_STND] = { SPR_LTROOP, 0, 1, 1, A_Look, S_LTROOP_STND, 0, NULL },
+    [S_LTROOP_FIRE] = { SPR_LTROOP, 0, 1, 1, A_Attack, S_LTROOP_STND, 3, NULL },
+    [S_SLAVEN1_STND] = { SPR_SLAVEN1, 0, 1, -1, NULL, S_SLAVEN1_STND, 0, NULL },
+    [S_SPIDER_STND] = { SPR_SPIDER, 0, 1, 1, A_Look, S_SPIDER_STND, 0, NULL },
+    [S_SPIDER_FIRE] = { SPR_SPIDER, 0, 1, 1, A_Attack, S_SPIDER_STND, 3, NULL },
+    [S_TANKBASE_STND] = { SPR_TANKBASE, 0, 1, 1, A_Look, S_TANKBASE_STND, 0, NULL },
+    [S_TANKBASE_FIRE] = { SPR_TANKBASE, 0, 1, 1, A_Attack, S_TANKBASE_STND, 3, NULL },
+    [S_ROCKMECH_STND] = { SPR_ROCKMECH, 0, 1, 1, A_Look, S_ROCKMECH_STND, 0, NULL },
+    [S_ROCKMECH_FIRE] = { SPR_ROCKMECH, 0, 1, 1, A_Attack, S_ROCKMECH_STND, 3, NULL },
+    [S_TRUCK_STND] = { SPR_TRUCK, 0, 1, -1, NULL, S_TRUCK_STND, 0, NULL },
+    [S_MOBBASE_STND] = { SPR_MOBBASE, 0, 1, -1, NULL, S_MOBBASE_STND, 0, NULL },
 };
 
 const mobjinfo_t mobjinfo[NUMMOBJTYPES] = {

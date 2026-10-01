@@ -19,7 +19,5 @@ void A_DC_Vent(mobj_t *actor) {
         }
     }
     P_MobjSetHidden(actor, state != S_VENT_ACTIVE1);
-    if (state == S_VENT_ACTIVE1 && actor->core.state_id >= S_VENT_ACTIVE1 &&
-        actor->core.state_id <= S_VENT_ACTIVE20) return;
     if (actor->core.state_id != state) P_SetMobjState(actor, state);
 }

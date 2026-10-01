@@ -54,8 +54,7 @@ static int vent_at_resource_cell(ivec2_t cell, int resource_type) {
 }
 
 static bool harvest_animating(const mobj_t *unit) {
-    return unit && unit->core.state_id >= S_UCFRGST0_HARVEST1 &&
-           unit->core.state_id <= S_UCFRGST0_HARVEST15;
+    return unit && unit->core.state_id == S_UCFRGST0_HARVEST1;
 }
 
 static int test_dark_reign_transport_and_flight_traits(void) {
@@ -178,7 +177,7 @@ static int test_gather_attach_animate_and_build(void) {
         if (harvester->harvest.phase == HARVEST_PHASE_MINING) mining = true;
         if (harvest_animating(harvester)) {
             animating = true;
-            int frame = harvester->core.state_id - S_UCFRGST0_HARVEST1;
+            int frame = harvester->core.state_frame;
             if (frame >= 0 && frame < 15 && !harvest_seen[frame]) {
                 harvest_seen[frame] = 1;
                 harvest_states_seen++;
@@ -367,8 +366,9 @@ static int test_all_transporter_deliveries(void) {
                                unit->harvest.phase == HARVEST_PHASE_TURNING;
                 angle_t remaining = angle_distance(unit->core.angle, ANG90 + ANG45);
                 if (unit->harvest.phase == HARVEST_PHASE_UNLOADING) {
-                    int frame = unit->core.state_id - unit->info->harvest.unload_state_id;
-                    if (frame < 0 || frame >= 15) return fail("native unloading frame range");
+                    int frame = unit->core.state_frame;
+                    if (unit->core.state_id != unit->info->harvest.unload_state_id || frame >= 15)
+                        return fail("native unloading frame range");
                     frames |= 1u << frame;
                     animation_tics++;
                     if (!fvec2_near(fixed3_xy_to_fvec2(unit->core.position), bays[resource], 0.001f) ||

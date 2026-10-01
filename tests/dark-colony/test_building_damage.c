@@ -28,25 +28,24 @@ static void hit(mobj_t *building, int remaining_hp) {
     assert(!memcmp(&sparks->core.render_offset, &building->core.render_offset, sizeof(ivec2_t)));
 }
 
-static void check_fin_sequence(const char *name, int first, int last) {
+static void check_fin_sequence(const char *name, int id) {
+    const state_t *state = &states[id];
     dc_fin_t fin;
-    assert(DC_LoadFIN(M_va("data/DCOLONY/ANIMATE/%s.FIN", sprnames[states[first].sprite]), &fin));
+    assert(DC_LoadFIN(M_va("data/DCOLONY/ANIMATE/%s.FIN", sprnames[state->sprite]), &fin));
     const dc_fin_label_t *label = DC_FINLabel(&fin, name);
     assert(label);
     int start = SDL_SwapLE16(label->start), end = SDL_SwapLE16(label->end);
-    assert(last - first == end - start);
+    assert(P_StateFrames(state) == end - start + 1);
+    bool death = state->group == 4;
+    assert(state->nextstate == (death ? S_NULL : id));
     int native = 0, elapsed = 0;
-    for (int state = first; state <= last; ++state) {
+    for (int i = 0; i <= end - start; ++i) {
         spritedirection_t frame = {0};
-        assert(DC_FINFrame(&fin, start + state - first, &frame));
+        assert(DC_FINFrame(&fin, start + i, &frame));
         int ticks = (uint8_t)(((frame.ticks ? frame.ticks : 15) + 3) * 15 / 100);
-        bool death = states[state].group == 4;
-        native += death && state == first ? 1 : ticks ? ticks : 256;
+        native += death && i == 0 ? 1 : ticks ? ticks : 256;
         int boundary = (native * 66 * 30 + 500) / 1000;
-        assert(states[state].tics == boundary - elapsed);
-        assert(states[state].frame == states[first].frame + state - first);
-        assert(states[state].sprite == states[first].sprite);
-        assert(states[state].nextstate == (state < last ? state + 1 : death ? S_NULL : first));
+        assert(P_StateTics(state, i) == boundary - elapsed);
         elapsed = boundary;
         free(frame.layers);
     }
@@ -57,7 +56,7 @@ static void check_states(void) {
     for (int type = 0; type < 7; ++type)
         for (int band = 0; band < 3; ++band) {
             const dc_building_sequence_t *seq = &dc_building_sequences[type][band];
-            check_fin_sequence(seq->name, seq->first, seq->last);
+            check_fin_sequence(seq->name, seq->state);
         }
     /* Boundaries come from DC.EXE comparisons, independently of state selection. */
     const int scratch[] = {S_EXCOPODSCRCH0_170, S_BRRKPODSCRCH0_301, S_ROBOPODSCRCH0_88,

@@ -15,14 +15,20 @@ state and type tables and validates authored body asset names against retail
 make dark-reign-info
 # Equivalent direct invocation after building the generator:
 build/dr_info_gen data/REIGN/dark \
-  games/dark-reign/info.h games/dark-reign/info.c games/dark-reign/animate
+  games/dark-reign/info.h games/dark-reign/info.c
 ```
 
 | Output | Content |
 |---|---|
 | `games/dark-reign/info.h` | Regenerated state enum between `BEGIN_GENERATED_STATENUM` / `END_GENERATED_STATENUM` markers; surrounding declarations preserved |
 | `games/dark-reign/info.c` | `sprnames[]`, `states[]`, `mobjinfo[]`, `game_info` |
-| `games/dark-reign/animate/*.inc` | Per-sprite designated state initializers |
+
+`states[]` is written inline, one row per run of frames (see
+[ARCHITECTURE.md](../ARCHITECTURE.md)). A state's action runs on every frame of
+its run, so a cycle whose first frame calls `A_Chase` or `A_Attack` is two rows:
+`S_*_RUN1` for that frame and `S_*_RUN2` for the rest. `tools/info_gen.h`
+writes the rows and derives the enum from them; `make test-info-gen` checks the
+committed files are current.
 
 Authored mapping and animation inputs live in the C generator's `entries[]`.
 For a missing header, the generator writes a complete template with sprite/type

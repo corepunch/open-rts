@@ -1338,11 +1338,12 @@ Doom implements these actions in `reference/DOOM/p_enemy.c` (`A_Look:604`,
 The utilities checkout has no verified upstream revision or URL, as recorded
 above. This is a local source comparison, not new retail DC executable evidence.
 
-Dark Colony now uses `tools/dc_states.txt` for authored sequence/action policy
-and `tools/dc_states.py` for native family policy and raw `animate/*.inc`
-output. See `docs/DC_INFO_CONV.md` for syntax and regeneration. Existing numeric
-state IDs and all row values are preserved; the C preprocessor no longer
-expands blood/building state or label macros.
+Dark Colony's gameplay states are authored directly in
+`games/dark-colony/info.c`, one row per run of frames; the earlier
+`tools/dc_states.txt`/`dc_states.py` pipeline and its `animate/*.inc` output
+are gone. See `docs/DC_INFO_CONV.md`. Quake II's `mmove_t`
+(`firstframe`, `lastframe`, per-frame callbacks, `endfunc`) is the model for
+the run; no Quake II source is vendored.
 
 ## SDL software rendering memory (September 10, 2026)
 

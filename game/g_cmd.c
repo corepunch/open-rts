@@ -231,7 +231,8 @@ uint32_t G_Consistency(void) {
         HASH(u->missile.damage);
         HASH(u->missile.wait);
         HASH(u->missile.phase);
-        HASH(u->core.angle); HASH(u->core.state_id); HASH(u->core.tics);
+        HASH(u->core.angle); HASH(u->core.state_id); HASH(u->core.state_frame);
+        HASH(u->core.tics);
         HASH(u->hp); HASH(u->traits & ~MF_SELECTED); HASH(u->remove);
         HASH(u->move_only); HASH(u->waypoints.count); HASH(u->waypoints.current);
         HASH(u->waypoints.mode); HASH(u->waypoints.backwards);
@@ -273,8 +274,9 @@ bool G_NetSignature(const char *map_path, uint32_t *signature) {
         for (int i = 0; i < gameinfo->state_count; ++i) {
             const state_t *state = &gameinfo->states[i];
             hash = hash_value(hash, state->sprite); hash = hash_value(hash, state->frame);
-            hash = hash_value(hash, state->tics); hash = hash_value(hash, state->nextstate);
-            hash = hash_value(hash, state->group);
+            hash = hash_value(hash, state->nextstate); hash = hash_value(hash, state->group);
+            for (int frame = 0; frame < P_StateFrames(state); ++frame)
+                hash = hash_value(hash, P_StateTics(state, frame));
         }
     }
     *signature = hash;

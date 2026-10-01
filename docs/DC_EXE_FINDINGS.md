@@ -6844,3 +6844,25 @@ heading. No other speed modifier was found.
 **Port:** `DC_SPEED(raw)` in `games/dark-colony/g_game.c` uses this conversion
 for all GAMESTAT-derived speeds; the previous `raw/32` (0.78 cells/s for a
 Trooper) was about 1.9x too slow. Game speed stays at the retail 100 percent.
+
+## State runs replace per-frame state rows (2026-10-01)
+
+**Port, not new retail evidence:** `state_t` rows became runs of consecutive
+frames (`frame`, `count`, optional `TICS(...)` per-frame durations); see
+[STATE_ARCHITECTURE_AUDIT.md](STATE_ARCHITECTURE_AUDIT.md#state-runs-2026-10-01).
+Dark Colony's 3,574 per-frame rows are 396 rows authored directly in
+`games/dark-colony/info.c`. `games/dark-colony/animate/*.inc`,
+`tools/dc_states.txt` and `tools/dc_info_gen.c` are removed; earlier sections
+that name them, `make dark-colony-states`, or numbered intermediate states
+such as `S_TRSC_RUN3` describe the previous layout. The removed generator no
+longer reproduced the checked-in tables (4,306 states against 3,574), so the
+tables themselves were the source of truth.
+
+**Preserved:** every frame, duration, action, group and transition. Expanding
+the new rows reproduces the old table exactly, and per-tic simulation traces
+(object id, type, position, HP, sprite, frame, tics, angle) of HUMAN01,
+HUMAN02, ALIEN01 and two- and four-AI skirmishes are identical before and
+after. State IDs are renumbered and intermediate names are gone; a frame
+inside a run is `(state, mobjcore_t.state_frame)`. The building damage
+sequences hold one state each instead of a first/last pair, and blood enters
+its row at frame 1 through `P_SetMobjStateFrame`.

@@ -113,11 +113,17 @@ flags. The model resolves an actor's type ID through the selected game's
 
 ### `State[]`: animation and behavior graph
 
-`state_t` is a data-driven state node matching Hexen's `INFO.H` layout. It names
-a sprite/frame, duration in simulation tics, optional action callback, next
-state, and two integer metadata fields (`misc1`/`misc2`). State actions execute
-on state entry. Zero-tic states chain immediately; nonzero states remain active
-until their tic count expires. Directional frame arrays, overlay metadata, and
+`state_t` is a data-driven state node derived from Hexen's `INFO.H` layout, but
+one row is a *run* of consecutive sprite frames, as Quake II's `mmove_t`: it
+names a sprite, the first frame, the number of frames, their duration in
+simulation tics (one value, or a `TICS(...)` list where native timing is
+uneven), an optional action callback, the next state, and a gameplay group.
+The action executes on entering every frame of the run; the next state follows
+the last frame. Doom's one-frame state is a run of one. `mobjcore_t.state_frame`
+is the actor's position in the run, and `P_SetMobjStateFrame` enters a run at a
+given frame. Zero-tic frames chain immediately; nonzero frames remain active
+until their tic count expires. Read durations through `P_StateTics`, never
+`state->tics` directly. Directional frame arrays, overlay metadata, and
 opaque per-state userdata are not part of the current runtime model; direction
 selection and render flags are applied at the presentation boundary.
 
@@ -141,7 +147,7 @@ catalog, gameplay states, actions, and object definitions. They retain the
 previous generator's verified state timing and transitions.
 
 `make dark-colony-info` exports `build/dc-animations.txt` from `ANIMATE/*.FIN`.
-The small `tools/dc_info_gen.c` reads only FIN labels, frame indices, and raw
+`tools/dc_info_conv` reads only FIN labels, frame indices, and raw
 frame durations. Its multigen-style rows use numeric FIN indices rather than
 Doom frame letters. Actions are `NULL` and sequence ends are `S_NULL` placeholders;
 this is an extraction artifact, not a replacement for gameplay tables.
@@ -372,8 +378,8 @@ events for tests or another frontend.
 - production actor/product, queue, timers, and release state.
 
 Actors use `gameinfo_t`, `mobjinfo_t`, and `state_t` tables. `P_SetMobjState`
-enters a state, applies its visuals, runs its action callback, and follows zero-tic
-next states immediately. `P_Ticker` is the central actor update. Dead actors are
+enters a state's first frame, applies its visuals, runs its action callback, and
+follows zero-tic frames and next states immediately. `P_Ticker` is the central actor update. Dead actors are
 removed using swap-compaction, so callers must use stable actor IDs rather than
 array positions across ticks.
 
@@ -444,7 +450,7 @@ as actors so selection, health, rendering, and production use the same object
 path as units.
 
 The plugin provides hardcoded `ActorType` gameplay values and authored
-`MobjInfo`/`State` animation data. `tools/dc_info_gen` exports native FIN animations;
+`MobjInfo`/`State` animation data. `tools/dc_info_conv` inspects native FIN animations;
 `tools/dc_gamestat_gen` extracts reference balance tables from `data/DCOLONY`.
 
 ### Dark Reign

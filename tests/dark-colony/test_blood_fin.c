@@ -67,7 +67,7 @@ static void lifecycle(void) {
     mobj_t *blood = (mobj_t *)thinkercap.prev;
     CHECK(blood != owner && blood->type_id == MT_BLOOD);
     CHECK(blood->thinker.function == P_MobjThinker && !P_MobjIsHidden(blood));
-    CHECK(blood->core.state_id == S_TRSCBLOODE0_348);
+    CHECK(blood->core.state_id == S_TRSCBLOODE0_347 && blood->core.state_frame == 1);
     CHECK(!memcmp(&blood->core.position, &position, sizeof(position)));
     CHECK(blood->team == 3 && blood->core.angle == ANG90);
     int state = blood->core.state_id, tics = blood->core.tics;
@@ -168,7 +168,7 @@ static void pixels(void) {
             CHECK(!memcmp(expected, surface->pixels, bytes));
             if (c == 0 && f == first + 4) SDL_SaveBMP(surface, "/private/tmp/dc-native-blood.bmp");
             free(parts.layers);
-            bool alive = P_SetMobjState(&blood, gameinfo->states[blood.core.state_id].nextstate);
+            bool alive = P_SetMobjStateFrame(&blood, blood.core.state_id, blood.core.state_frame + 1);
             CHECK(alive == (f < last));
         }
         CHECK(blood.core.state_id == S_NULL && blood.remove);

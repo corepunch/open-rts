@@ -33,7 +33,7 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
         assert(actor->core.state_id != S_NULL);
         const state_t *state = &gameinfo->states[actor->core.state_id];
         assert(actor->core.sprite_id == state->sprite && actor->core.frame == state->frame);
-        assert(actor->core.tics == state->tics && actor->thinker.function == P_MobjThinker);
+        assert(actor->core.tics == P_StateTics(state, 0) && actor->thinker.function == P_MobjThinker);
         if (actor->type_id != MT_COMMS_DISH) city_teams |= 1u << actor->team;
         if (actor->team != 0) continue;
         for (int slot = 0; slot < 6; ++slot) {
@@ -67,7 +67,8 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
         const dc_fin_label_t *label = DC_FINLabel(&fin, labels[sequence]);
         assert(label);
         mobj_t pose = {.type_id = types[sequence ? 4 : 2],
-                       .core = {.state_id = starts[sequence], .tics = states[starts[sequence]].tics}};
+                       .core = {.state_id = starts[sequence],
+                                .tics = P_StateTics(&states[starts[sequence]], 0)}};
         P_InitMobj(gameinfo, &pose);
         int native = 0, elapsed = 0;
         for (int frame = SDL_SwapLE16(label->start); frame <= SDL_SwapLE16(label->end); ++frame) {

@@ -274,8 +274,7 @@ static int test_harvesting(void) {
     for (int t = 0; t < 30 * 90 && !mining; ++t) {
         if (!rts_tick(model, &snap)) return fail("tick harvest");
         mining = harvester->harvest.phase == HARVEST_PHASE_MINING &&
-                 harvester->core.state_id >= S_UCFRGST0_HARVEST1 &&
-                 harvester->core.state_id <= S_UCFRGST0_HARVEST15;
+                 harvester->core.state_id == S_UCFRGST0_HARVEST1;
     }
     if (!mining) return fail("Freighter started harvest animation at the pit");
     int cargo_or_stock = harvester->harvest.cargo + snap.player_resources[0][0];

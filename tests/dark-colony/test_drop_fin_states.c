@@ -162,9 +162,9 @@ static void check_sequence(app_t *app, SDL_Surface *surface, spritecache_t *cach
             boundary = native_timer ? (native * 66 * 30 + 500) / 1000 : (native * 30 + 9) / 19;
         }
         CHECK(unit.core.tics == boundary - elapsed);
-        int state = unit.core.state_id;
+        int state = unit.core.state_id, state_frame = unit.core.state_frame;
         for (int t = elapsed; t < boundary; ++t) {
-            CHECK(unit.core.state_id == state);
+            CHECK(unit.core.state_id == state && unit.core.state_frame == state_frame);
             P_TickMobjState(&unit);
         }
         elapsed = boundary;
@@ -193,9 +193,10 @@ int main(void) {
     for (int i = 1; i < NUMSTATES; ++i) {
         const state_t *state = &states[i];
         const spritesheet_t *sheet = R_StateSprite(cache, &game_info, state->sprite, NULL);
-        CHECK(sheet && state->frame < sheet->spritedef.numframes);
-        if (state->tics)
-            CHECK(state->frame >= sheet->numlumps);
+        CHECK(sheet && state->frame + P_StateFrames(state) <= sheet->spritedef.numframes);
+        for (int frame = 0; frame < P_StateFrames(state); ++frame)
+            if (P_StateTics(state, frame))
+                CHECK(state->frame + frame >= sheet->numlumps);
     }
     static const struct { const char *file, *label; int first, last; } sequences[] = {
         {"HUBU", "TRSCBUILD0", S_BRRKPOD_BUILD_TRSC1, S_NULL},

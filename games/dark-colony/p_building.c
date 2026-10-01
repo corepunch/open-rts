@@ -13,14 +13,12 @@ void A_DC_BuildingStand(mobj_t *building) {
                building->hp > (building->max_hp * 5 >> 4) ? BURN : SCRCH;
     int first = mobjinfo[building->type_id].spawnstate;
     if (band >= 0) {
-        first = sequences[band].first;
-        int last = sequences[band].last;
-        if (building->core.state_id >= first && building->core.state_id <= last) return;
+        first = sequences[band].state;
+        if (building->core.state_id == first) return;
     } else {
         bool damaged = false;
         for (int i = SCRCH; i <= BURN; ++i)
-            damaged |= building->core.state_id >= sequences[i].first &&
-                       building->core.state_id <= sequences[i].last;
+            damaged |= building->core.state_id == sequences[i].state;
         if (!damaged) return;
     }
     P_SetMobjState(building, first);
