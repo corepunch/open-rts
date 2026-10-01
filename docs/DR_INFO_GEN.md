@@ -86,7 +86,6 @@ make test-info-gen
 make build/bin/tests/dark-reign/test_unit_traits
 env SDL_VIDEODRIVER=dummy build/bin/tests/dark-reign/test_unit_traits
 env SDL_VIDEODRIVER=dummy make test-dark-reign
-make tags
 ```
 
 `test-info-gen` regenerates tables into `build/info-check/` and compares them

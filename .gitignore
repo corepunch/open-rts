@@ -59,3 +59,6 @@ dkms.conf
 .claude/worktrees/
 .claude/projects/
 .claude/settings.local.json
+
+# Editor symbol indexes are generated locally, not tracked
+tags
