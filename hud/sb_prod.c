@@ -1,5 +1,4 @@
 #include "engine.h"
-#include <ctype.h>
 
 /* Minimal engine production controls. These are not retail sidebar scripts. */
 enum { PRODUCT_ROWSIZE = 32, PRODUCT_LIST_MAX = 64 };

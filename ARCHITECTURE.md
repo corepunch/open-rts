@@ -484,23 +484,25 @@ plugin internals.
 ### HUD and sidebar architecture
 
 The HUD follows Doom's status-bar lifecycle. Shared engine services own image
-loading and generic widgets; each game's `hud/` folder owns its native HUD
-assets, layout, drawing and input behavior.
+loading, widget drawing and input dispatch. Games supply item tables, native
+assets, layout and gameplay callbacks; native content extends the shared
+drawer where necessary.
 
 ```text
 driver/w_image.c              W_LoadImage — engine BMP/PCX decoding
 hud/sb_bar.c                  shared SB_Init/Start/Ticker/Drawer/Shutdown
-hud/sb_prod.c                 text-list production fallback and generic text
-hud/ui_definition.h           common layout/asset types
+hud/sb_prod.c                 text-list production fallback
+hud/m_menu.c                  shared menu/HUD items, drawing and input
+include/engine.h              common layout/asset/item types
 
 games/dark-reign/hud/
   sb_bar.c                    gameui, native fonts, chrome, counter and radar
-  sb_palette.c                native production slots, buttons and input
-  dr_hud.h                    private Dark Reign HUD interface
+  sb_palette.c                item table, native text and gameplay callbacks
+include/dark-reign.h          Dark Reign HUD interface
 ```
 
 Dark Reign owns one active status bar through `G_CustomUI*`. It reuses the
-shared bitmap/icon lifetime functions, then performs its retail drawing in
+shared bitmap/icon lifetime functions and item drawer, with native content in
 `games/dark-reign/hud/`. `W_LoadImage` handles BMP and single-plane 8-bit RLE
 PCX decoding for any game; interpreting the PCX font delimiter row is Dark
 Reign HUD behavior. No PNG dependency or generated replacement chrome is used.
@@ -543,8 +545,8 @@ Start/Resume/Quit item tables to the shared `hud/m_simple.c` lifecycle.
 These are engine fallback screens, with the existing small glyph font, not
 reproductions of those games' retail front ends. Escape opens them during a
 level; their existing automatic level startup is preserved. Native screen
-parsing, assets, animation and campaign
-dispatch belong to the game, outside its level HUD.
+parsing, assets, animation selection and campaign dispatch belong to the game,
+outside its level HUD.
 
 The same header declares the engine's menu and HUD framework. A screen is a `menu_t`
 holding a C array of `menuitem_t`: kind, rectangle, sheet cell and palette map
@@ -565,8 +567,8 @@ draw first in table order and loose text, lists and scroll bars draw over them.
 An item's `ownerdraw` supplies native content after its standard picture,
 such as Dark Colony's FIN gadgets or Dark Reign's variable-width PCX labels.
 The engine still owns list clipping, selection and scroll state when a list
-uses native text drawing. Dark Colony's table is
-indexed by the native control ID from its `INTRFACE/*E` scripts.
+uses native text drawing. Dark Colony's table is indexed by the native control
+ID from its `INTRFACE/*E` scripts.
 
 Dark Colony's MAINE HUD also loads a single item table. The engine draws its
 chrome, buttons and purchase counters and dispatches tabs, orders, purchase

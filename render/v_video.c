@@ -662,6 +662,7 @@ void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
     if (had_clip) V_SetClip(previous);
     else V_SetClip((irect_t){0});
 }
+
 /* Five-column glyphs for labels and prices; no game font is required. */
 void V_DrawSmallText(irect_t box, const char *text, uint32_t argb, isize2_t space) {
     if (!text || space.w <= 0 || space.h <= 0) return;
