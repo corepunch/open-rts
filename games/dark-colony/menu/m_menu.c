@@ -24,7 +24,7 @@ static menuitem_t items[NUMITEMS];
 static bool initialized, training, inlevel;
 static void menu_escape(menu_t *screen);
 static int gadget_tics(const menuitem_t *item);
-static menu_t menu = {.items = items, .numitems = NUMITEMS, .escape = menu_escape,
+static menu_t menu = {.items = items, .numitems = NUMITEMS, .modal = true, .escape = menu_escape,
                       .frametics = gadget_tics};
 static uint64_t menutime;
 static const char *notice;
@@ -349,16 +349,15 @@ static void start_page_animations(void) {
     }
 }
 
-/* A negative frame number is the intensity for drawing the other frame. Only
- * buttons and pictures brighten when pushed or highlighted. */
-static void set_states(menuitem_t *item, int normal, int pushed, int remap, bool bright) {
+void DC_ControlLooks(menuitem_t *item, int normal, int pushed, int remap,
+                     int pushed_light, int highlight) {
     for (int state = 0; state < MS_STATES; ++state) {
         bool down = state == MS_PUSHED;
         int frame = down ? pushed : normal;
-        int intensity = bright && frame < 0 ? -frame : 16;
-        if (bright) intensity += down ? bright_pushed : state == MS_FOCUS ? bright_highlight : 0;
-        item->cell[state] = frame < 0 ? (down ? normal : pushed) : frame;
-        item->palette[state] = (intensity > 31 ? 31 : intensity) * 8 + remap;
+        int light = (frame < 0 ? -frame : 16) +
+            (down ? pushed_light : state == MS_FOCUS ? highlight : 0);
+        item->look[state].cell = frame < 0 ? (down ? normal : pushed) : frame;
+        item->look[state].palette = (light > 31 ? 31 : light) * 8 + remap;
     }
 }
 
@@ -551,12 +550,17 @@ static bool load_screen(int next) {
         if (item->centered) item->inset.x = script == TEXT ? 0 : (font->glyph_size.w + 1) / 2;
         else if (script == LABEL)
             item->inset = (ivec2_t){font->glyph_size.w, (item->rect.h - font->glyph_size.h) / 2};
+        /* Only buttons and pictures have frames; other text is at full light. */
         item->sheet = &pictures;
-        set_states(item, controls[i].normal, controls[i].pushed, controls[i].remap,
-                   script == PUSH || script == CHECK || script == PICTURE);
+        if (script == PUSH || script == CHECK || script == PICTURE)
+            DC_ControlLooks(item, controls[i].normal, controls[i].pushed, controls[i].remap,
+                            bright_pushed, bright_highlight);
+        else
+            for (int state = 0; state < MS_STATES; ++state)
+                item->look[state] = (menulook_t){.cell = -1, .palette = 16 * 8 + controls[i].remap};
         if (script == LIST) {
             item->row_height = font->glyph_size.h;
-            item->palette[MS_PUSHED] = controls[i].remap;
+            item->look[MS_PUSHED].palette = controls[i].remap;
         }
     }
     menu.background = &background;

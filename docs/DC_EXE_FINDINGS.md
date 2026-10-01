@@ -6714,6 +6714,29 @@ DC's eight-point capacity, loop patrols and existing sidebar completion controls
 are preserved. Shared tests cover traversal/ownership/cancellation; DC's native
 HUD and Petrovent guard tests cover the preserved gameplay interaction. This
 is an engine ownership/command change, not new DC.EXE evidence.
+## Engine item-table presentation (2026-10-01)
+
+This changes engine ownership, not the native rules documented below. The
+`INTRFACE/*E` controls and MAINE HUD now populate `menuitem_t` arrays directly;
+there is no second runtime control array. Native FIN ranges, per-frame timing,
+button brightness and script links retain their existing evidence. Generic
+frame stepping, list selection, scrollbar dragging, radio groups, text input,
+hover and click dispatch belong to `hud/m_menu.c`. FIN composition and the
+banim entrance order remain game procedures.
+
+**Requested engine behavior:** text fields draw a caret, story/briefing prose
+scrolls in a fixed clip box, and unaffordable HUD products dim their existing
+pixels instead of filling their rectangle black. The previous indexed fill
+with `0x69000000` was opaque; the new light of 9/16 approximates its intended
+retained brightness `(255 - 105) / 255`. This is presentation behavior, not
+confirmed retail behavior. The executable's harvesting and SHUF unknowns
+are unaffected.
+
+Reproduce with `SDL_VIDEODRIVER=dummy` and the `test_menu`, `test_hud` and
+shared `test_menu_items` binaries. The LAN portion of `test_menu` requires
+permission to open local UDP sockets. No new executable investigation was
+needed for the ownership conversion.
+
 ## Multiplayer menu assets and LAN session entry (2026-09-30)
 
 **Confirmed native asset data:** `INTRFACE/NETOPTE` defines TCP/IP control 0,

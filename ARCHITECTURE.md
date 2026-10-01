@@ -536,13 +536,13 @@ special abilities, attachment types and native HUD pages.
 
 ## Menu lifecycle versus HUD
 
-`hud/m_menu.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
+`include/engine.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
 `M_Responder`, `M_Ticker`, `M_Drawer`, and `M_Shutdown` lifecycle. Dark Colony
 implements it in `games/dark-colony/menu/`; the other games currently provide
 inert implementations. Native screen parsing, assets, animation and campaign
 dispatch belong to the game, outside its level HUD.
 
-The same header declares the engine's menu framework. A screen is a `menu_t`
+The same header declares the engine's menu and HUD framework. A screen is a `menu_t`
 holding a C array of `menuitem_t`: kind, rectangle, sheet cell and palette map
 per state (normal, focused, pushed), font and text, list rows, and a routine.
 The game fills the table once when a screen loads and changes item fields
@@ -551,13 +551,23 @@ calls the routines. It owns widget state: a check box toggles, or is one of a
 `group` where exactly one is set; a list keeps its selected row and scroll
 position, moved by clicks, Up/Down, the wheel, its scroll bar and any button
 whose `link` and `step` name it; and SDL text input is on only while a text
-field has focus. A routine sees two actions: `MA_ACTIVATE` and `MA_CHANGE`.
+field has focus. A routine sees `MA_ACTIVATE`, `MA_CHANGE`, right-click
+`MA_SECONDARY`, and HUD wheel `MA_WHEEL` actions. Modal screens consume input;
+HUD screens consume hotkeys and mouse clicks on visible chrome, leaving world
+input to the caller. Hover and pressed looks come from the shared responder.
 `M_MenuDrawer` draws the background, pictures, button
 labels, loose text, lists, scroll bars and the text caret. Pictures and buttons
 draw first in table order and loose text, lists and scroll bars draw over them.
 An item's `ownerdraw` replaces the standard drawing for native content the
 engine does not know, such as Dark Colony's FIN gadgets. Dark Colony's table is
 indexed by the native control ID from its `INTRFACE/*E` scripts.
+
+Dark Colony's MAINE HUD also loads a single item table. The engine draws its
+chrome, buttons and purchase counters and dispatches tabs, orders, purchase
+and refund callbacks. Native minimap, day dial and status content use
+`ownerdraw`; gameplay callbacks still decide which products and abilities
+are visible and what a world-targeted command means. Screen images remain
+separate from gameplay sprite IDs.
 
 Animation is split along the same line. Every item carries a `menuanim_t`: a
 frame range, the current frame, a loop / one-off / stopped mode and the ticks
