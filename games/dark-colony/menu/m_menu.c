@@ -1187,5 +1187,6 @@ void M_Drawer(const app_t *app) {
         box.y -= scroll * fonts[0].line_h;
         HU_DrawTextWrapped(box, &fonts[0], prose, NULL, 1);
     }
-    SDL_SetWindowTitle(app->window, notice ? notice : "Dark Colony");
+    if (app && app->window)
+        SDL_SetWindowTitle(app->window, notice ? notice : "Dark Colony");
 }
