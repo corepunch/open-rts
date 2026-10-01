@@ -454,8 +454,9 @@ bool load_dark_colony_map(const char *map_path, level_t *out) {
     out->width = map.size.w;
     out->height = map.size.h;
     size_t count = (size_t)out->width * out->height;
-    out->render_capabilities = MAP_RENDER_CAP_DEPTH_SORTED_TILE_LAYERS |
-                               MAP_RENDER_CAP_TILE_TRANSFORMS;
+    /* DC.EXE 0x44ba87 composites the foreground word into the terrain
+       buffer, so foreground tiles are ground: never depth-sorted over units. */
+    out->render_capabilities = MAP_RENDER_CAP_TILE_TRANSFORMS;
     out->tile_ids = calloc(count, sizeof(*out->tile_ids));
     out->blocked = calloc(count, sizeof(*out->blocked));
     out->tile_flags = calloc(count, sizeof(*out->tile_flags));
