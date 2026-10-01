@@ -1981,6 +1981,15 @@ typedef struct menuitem_s menuitem_t;
  * changed. */
 typedef enum { MA_ACTIVATE, MA_CHANGE } menuaction_t;
 
+/* An item can step through frames first..last. A loop wraps; a one-off stops
+ * on its last frame. The game draws the frame, or uses it as it likes. */
+typedef enum { MANIM_STOPPED, MANIM_LOOP, MANIM_ONCE } menuanimmode_t;
+typedef struct {
+    menuanimmode_t mode;
+    int first, last, frame;
+    int delay; /* ticks left on this frame */
+} menuanim_t;
+
 typedef void (*menuroutine_t)(menu_t *menu, menuitem_t *item, menuaction_t action);
 typedef void (*menudraw_t)(const menu_t *menu, const menuitem_t *item);
 
@@ -2012,9 +2021,10 @@ struct menuitem_s {
     int link, step;
     uint32_t fill;  /* 0xAARRGGBB behind the item; 0 draws none */
     uint32_t color; /* list selection and scroll bar */
+    menuanim_t anim;
     menuroutine_t routine;
     menudraw_t ownerdraw; /* replaces the standard drawing */
-    void *userdata;
+    const void *userdata;
 };
 
 struct menu_s {
@@ -2026,10 +2036,16 @@ struct menu_s {
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette while the menu draws; NULL keeps the level's */
     void (*escape)(menu_t *menu);
+    /* Ticks an animated item spends on its current frame; NULL means one. */
+    int (*frametics)(const menuitem_t *item);
     void *owner;
 };
 
 bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event);
+/* Advance every visible, running animation by one tick. */
+void M_MenuTicker(menu_t *menu);
+/* Restart an item's animation from its first frame. */
+void M_MenuAnimate(menuitem_t *item, menuanimmode_t mode);
 /* Set a list's row count and keep its scroll position inside it. */
 void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(const menu_t *menu);
