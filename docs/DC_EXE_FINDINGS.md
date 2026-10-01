@@ -6917,3 +6917,65 @@ jump table `0x43a0ec`) is `exomoney <team> <amount>` and replaces the amount;
 HUMAN01.TRO sets 0 for teams 0..4. The add does not go through the AI+
 multiplier. `test_exo_income` checks the 3 credits per 16 ticks, the base
 requirement and the script override.
+
+## Options and allies screenshot verification (2026-10-01)
+
+Sources: the user's `Screenshot 2026-10-01 at 19.42.00.jpg` (six-button
+options column) and `Screenshot 2026-10-01 at 19.42.06.jpg` (allies/player
+rows), native `INTRFACE/MAINE`, and current sidebar/menu code. MAINE SHA-256
+is `49c9f36817fbc3edbddbb8abc6e852cbc5677022d05464a55138a681d93ee718`.
+The previously traced retail executable is still SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`;
+this verification reused the dispatch evidence above rather than deriving
+new executable behavior.
+
+**Confirmed:** screenshot two is MAINE group 65, reached by tab control 2.
+The script names its controls Quit (62), Save Game (63), Options (64),
+Allies Menu (151), Pause Button (196), and Objectives (202). A headless
+render using the actual UI sprite cache reproduces these six native icons,
+their order, and the sidebar chrome. This establishes presentation, not
+complete functionality.
+
+| Control | Current port behavior | Verification/remaining gap |
+| --- | --- | --- |
+| Quit, 62 | Opens native LQCE confirmation | Sidebar click/Escape in `test_hud`; continue/Escape/confirmed exit in `test_menu` |
+| Save, 63 | No action | Explicit empty dispatcher case; no save dialog or persistence |
+| Options, 64 | Opens the main control panel | Sidebar click/Escape in `test_hud`; native LOPTE settings popup remains absent |
+| Allies, 151 | No action | Explicit empty dispatcher case; no transition to the allies group |
+| Pause, 196 | Toggles the shared pause command | `test_hud` verifies that model ticks stop and resume |
+| Objectives, 202 | No action | Explicit empty dispatcher case; no LOBJE popup |
+
+**Confirmed:** screenshot one's player rows correspond to MAINE group 153.
+Its header picture is control 152 at `(518,112,118,42)`. Seven player-row
+sets cover controls 154..195, with name fields 157/163/169/175/181/187/193,
+checkboxes 156/162/168/174/180/186/192, and right-hand buttons
+158/164/170/176/182/188/194. The screenshot does not prove what each
+per-player button does. The port's `refresh()` exposes only the three tabs,
+products/unit commands and the six options controls. It never exposes group
+153, and `load_script()` skips its `in_text` player-name fields. Configured
+skirmish teams/alliances passing `test_skirmish` do not establish interactive
+allies-menu support. The native per-player dispatch remains unverified here.
+
+**Disproven:** visible native options icons mean the menu is fully working.
+Temporary `OPEN_RTS_DEBUG_OPTIONS` logging recorded clicks on 63/151/202
+while tab=2, menuactive=0 and paused=0; none opened a screen or changed that
+state. Logging and temporary gap assertions were removed after verification.
+The rendered sidebar title is also blank: native `in_text` control 79 is
+skipped, so the screenshot's `Building Tab` caption is not reproduced.
+These missing behaviors were audited, not implemented by this request.
+
+Reproduce the working-button checks and native icon capture:
+
+```sh
+make build/bin/tests/dark-colony/test_hud
+env SDL_VIDEODRIVER=dummy \
+  OPEN_RTS_HUD_OPTIONS_SCREENSHOT=/private/tmp/open-rts-dc-options.bmp \
+  build/bin/tests/dark-colony/test_hud
+```
+
+The screenshot path is optional. The test loads native MAINBUT/CLOC images
+through the level UI image cache, verifies sidebar Quit/Options entry and
+Escape return, and retains the purchase/research/pause/order checks. The
+aggregate suite's first LAN-menu failure was reproduced as `Network socket:
+Operation not permitted` by `test_network`; UDP verification requires socket
+access outside the restricted sandbox, not a gameplay change.

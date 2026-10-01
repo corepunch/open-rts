@@ -1607,3 +1607,13 @@ contracts. OpenDR is a secondary local reference; its path support does not
 certify the retail HUD. Completed DC HUD commit `05f753d` was inspected and
 integrated before moving its real route storage/execution into common engine
 code. Doom's existing thinker/command lifecycle remains the execution owner.
+
+### Dark Colony options/allies screenshots (2026-10-01)
+
+User-provided local screenshots `Screenshot 2026-10-01 at 19.42.00.jpg` and
+`Screenshot 2026-10-01 at 19.42.06.jpg`, supplied from `/Users/igor/Desktop/`,
+show the options column and allies/player rows respectively. Native MAINE
+and the existing retail dispatch findings identify their controls; a headless
+native-asset render and sidebar input tests distinguish implemented actions
+from visible placeholders. No external URL was supplied or web source used.
+[Verification and remaining gaps](docs/DC_EXE_FINDINGS.md#options-and-allies-screenshot-verification-2026-10-01).

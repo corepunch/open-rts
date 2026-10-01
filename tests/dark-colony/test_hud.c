@@ -28,6 +28,7 @@ static void click(void *ui, app_t *app, int id, int button) {
     }
     fclose(file);
     assert(rect.w > 0 && rect.h > 0);
+    if (rect.x >= 516) rect.x += app->win.w - 640;
     SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = button,
                                   .x = rect.x + rect.w / 2, .y = rect.y + rect.h / 2}};
     mobjlist_t objects = P_ListMobjs();
@@ -43,6 +44,7 @@ int main(void) {
     level.mission = NULL; level.destroy_mission = NULL;
     assert(SDL_Init(SDL_INIT_VIDEO) == 0);
     app_t app = {.win = {640,480}, .cell = {32,32}, .running = true};
+    assert(M_Init(&app, config.data_root));
     void *ui = G_InitCustomUI(&app, "data/DCOLONY");
     assert(ui);
     mobj_t *barracks = find(MT_BRRKPOD), *center = find(MT_EXCOPOD);
@@ -81,6 +83,15 @@ int main(void) {
     click(ui,&app,110,SDL_BUTTON_LEFT);
     assert(level.player_resources[0][0] == money); /* Purchased tier stays hidden. */
     click(ui,&app,2,SDL_BUTTON_LEFT);
+    click(ui,&app,62,SDL_BUTTON_LEFT);
+    assert(menuactive && app.running);
+    SDL_Event resume = {.key = {.type = SDL_KEYDOWN, .keysym = {.sym = SDLK_ESCAPE}}};
+    assert(M_Responder(&app, &resume, true));
+    assert(!menuactive && app.running);
+    click(ui,&app,64,SDL_BUTTON_LEFT);
+    assert(menuactive && app.running); /* Current Options fallback: main menu. */
+    assert(M_Responder(&app, &resume, true));
+    assert(!menuactive && app.running);
     click(ui,&app,196,SDL_BUTTON_LEFT);
     assert(paused);
     int stopped_at = leveltime;
@@ -129,9 +140,17 @@ int main(void) {
     enum { MARKER = 255 };
     memset(screens[0].pixels, MARKER, 800 * 600);
     spritecache_t sprites = {0};
+    assert(R_InitSprites(config.data_root, NULL, NULL, 0, &sprites));
     hudtext_t hud = {0};
     mobjlist_t objects = P_ListMobjs();
     G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+    const char *options_screenshot = getenv("OPEN_RTS_HUD_OPTIONS_SCREENSHOT");
+    if (options_screenshot) {
+        click(ui, &tall, 2, SDL_BUTTON_LEFT);
+        G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+        V_ReadPixels(surface->pixels, surface->pitch);
+        assert(!SDL_SaveBMP(surface, options_screenshot));
+    }
     P_FreeMobjList(&objects);
     const uint8_t *pixels = screens[0].pixels;
     const char *screenshot = getenv("OPEN_RTS_HUD_SCREENSHOT");
@@ -151,11 +170,13 @@ int main(void) {
         for (int x = 0; x < 516; ++x) world += pixels[y * 800 + x] != MARKER;
     assert(box == 72 * 17 && strip > 516 * 20 && world == 0);
     G_ShutdownCustomUI(ui);
+    M_Shutdown();
+    R_FreeSpriteCache(&sprites);
     R_FreeSprite(&fallback);
     R_FreeTileset(&tiles);
     V_FreeScreen();
     SDL_FreeSurface(surface); SDL_Quit();
     rts_game_model_destroy(model);
-    puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, pause, orders and waypoints");
+    puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, quit, Options fallback, pause, orders and waypoints");
     return 0;
 }
