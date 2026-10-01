@@ -76,17 +76,19 @@ static bool load_dark_palette_with_multipliers(const char *path, uint32_t colors
     return true;
 }
 
-static bool load_dark_sprite_palette(const char *path, uint32_t colors[256]) {
-    if (!load_dark_palette_with_multipliers(path, colors, 6, 6)) return false;
-    /* SPR art uses the purple authoring ramp (32..39) as its remappable team
-       band. Team zero in the shipped campaigns is Freedom Guard orange. */
-    for (int i = 0; i < 8; ++i) colors[32 + i] = colors[48 + i];
-    return true;
-}
-
 static bool load_dark_terrain_palette(const char *path, uint32_t colors[256]) {
     int terrain_multiplier = (strstr(path, "BARREN") || strstr(path, "JUNGLE")) ? 6 : 4;
     return load_dark_palette_with_multipliers(path, colors, 4, terrain_multiplier);
+}
+
+/* The retail game is one 8-bit screen: sprites, scenery and interface art are
+   indices into the tileset's palette (the IGI interface BMPs carry that PAL's
+   entries 1..159 scaled by four). SPR art uses the purple authoring ramp
+   (32..39) as its remappable team band. Team zero in the shipped campaigns is
+   Freedom Guard orange. */
+static void dark_sprite_palette(const uint32_t terrain[256], uint32_t colors[256]) {
+    memcpy(colors, terrain, 256 * sizeof(*colors));
+    for (int i = 0; i < 8; ++i) colors[32 + i] = colors[48 + i];
 }
 
 /* ── sprite loader ──────────────────────────────────────────────────────── */
@@ -321,8 +323,10 @@ bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
     char path[1024];
     uint32_t palette[256];
     M_PathJoin(path, sizeof(path), root, "graphics/BARREN.PAL");
-    if (!load_dark_sprite_palette(path, palette) ||
-        !load_unit_sprite(root, "BARREN", name, palette, out)) return false;
+    uint32_t terrain[256];
+    if (!load_dark_terrain_palette(path, terrain)) return false;
+    dark_sprite_palette(terrain, palette);
+    if (!load_unit_sprite(root, "BARREN", name, palette, out)) return false;
     blob_t file;
     if (!W_ReadFile(path, &file)) { R_FreeSprite(out); return false; }
     /* dkreign.exe 0048b030 reads the RGB555 lookup after six 256-byte
@@ -383,11 +387,10 @@ bool load_dark_reign_decoration_sprites(const char *data_root, const level_t *ma
     uint32_t sprite_palette[256];
     uint32_t terrain_palette[256];
     char palette_path[1024];
-    snprintf(palette_path, sizeof(palette_path), "%s/graphics/BARREN.PAL", data_root);
-    if (!load_dark_sprite_palette(palette_path, sprite_palette)) return false;
     snprintf(palette_path, sizeof(palette_path), "%s/graphics/%s.PAL",
              data_root, map->tileset_name);
     if (!load_dark_terrain_palette(palette_path, terrain_palette)) return false;
+    dark_sprite_palette(terrain_palette, sprite_palette);
 
     bool ok = true;
     for (int i = 0; i < map->decoration_count; ++i) {
@@ -424,8 +427,7 @@ bool plugin_load_assets(const char *data_root, const level_t *map,
         snprintf(palette_path, sizeof(palette_path), "%s/graphics/BARREN.PAL", data_root);
         if (!load_dark_terrain_palette(palette_path, terrain_palette)) return false;
     }
-    snprintf(palette_path, sizeof(palette_path), "%s/graphics/BARREN.PAL", data_root);
-    if (!load_dark_sprite_palette(palette_path, sprite_palette)) return false;
+    dark_sprite_palette(terrain_palette, sprite_palette);
 
     char til_path[1024];
     snprintf(til_path, sizeof(til_path), "%s/graphics/%s.TIL", data_root, map->tileset_name);
