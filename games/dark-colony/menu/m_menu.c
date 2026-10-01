@@ -819,7 +819,7 @@ static void open_popup(app_t *app, int next, int focus) {
     app->selection_rect = (irect_t){0};
 }
 
-void DC_OpenOptions(app_t *app) { open_popup(app, OPTIONS, 56); }
+void DC_OpenOptionsDialog(app_t *app) { open_popup(app, OPTIONS, 56); }
 void DC_OpenObjectives(app_t *app) { open_popup(app, OBJECTIVES, 56); }
 void DC_OpenSave(app_t *app) {
     if (!netgame) open_popup(app, SAVE, 54);
@@ -1104,6 +1104,7 @@ static void refresh(void) {
             "Searching for LAN games...\nUse ADDRESS to connect directly.";
     }
     if (page == CONNECT) items[3].prose = notice == network_notice ? network_notice : NULL;
+    if (page == OPTIONS) option_values();
 }
 
 static void menu_escape(menu_t *screen) {

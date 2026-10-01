@@ -6695,8 +6695,13 @@ sound interface immediately. Detail controls 44/45 select zero through two,
 shown as LOW/MED/HIGH by `0x42f97c`. Control 56 confirms and stores the
 values, converting speed back to `6600 / percentage`; control 55 cancels.
 This disproves the tempting interpretation that the cross and check controls
-55/56 mean confirm/cancel in ascending order. Our existing main-menu fallback
-for the HUD Options button still does not reproduce this dialog. Save,
+55/56 mean confirm/cancel in ascending order. **Intermediate implementation,
+superseded by the native sidebar section below:** the HUD Options button opens
+LOPTE (`DC_OpenOptionsDialog`): sound level N sets `snd_volume` to 10N percent
+and is heard at once, the speed is stored as `game_speed` (the tic clock stays
+continuous across the change) and its arrows are disabled in a netgame, where
+peers agreed on the speed at session start. There is no CD audio or detail
+level in the port, so those two values are kept but have no effect. Save,
 objectives, alliance controls, and the remaining ability dispatch also remain
 incomplete; native availability and visuals alone do not establish parity.
 
@@ -7024,7 +7029,11 @@ Group 153 has header 152, cell 92 at (518,112,118,42), followed by seven
 non-compacted slots. For row r, controls start at 154+6*r: peace x540,
 shared sight x564, chat checkbox x588, name at (520,172+35*r), gift x612,
 and colour at x518, with button rows starting y154+35*r. Names use native
-`in_text`, sixteen characters and remap 4. Startup 0x41d3d3..0x41d491 skips
+`in_text`, sixteen characters and authored remap 4. The supplied retail image
+shows cyan names. As with HUD in_text 79/234, the renderer uses default remap
+7's cyan and the authored intensity; the native path dropping the text remap
+remains **unknown**. Mapping remap 4 through the shared font produced green
+names, disproved by the supplied image. Startup 0x41d3d3..0x41d491 skips
 the local player, hides all six controls of inactive players, and copies names
 from team+0xb98. The colour widget uses **cell 99** and team+0xc98 through
 0x421bf4, which validates colour 0..7 and stores its remap. **Disproven:**
@@ -7130,7 +7139,8 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy OPEN_RTS_MENU_SCREENSHOT_DIR=/pr
 The tests exercise authored hitboxes, Options limits/preview/cancel/persistence,
 objective scrolling, save-name editing and Load selection, campaign save/restore
 and subsequent deterministic ticks, script/AI/production/reference restoration,
-corrupt-file rejection, independent reciprocal offers, native gift boundaries,
+corrupt-file rejection, absolute map-path handoff to the driver, independent
+reciprocal offers, native gift boundaries,
 chat filtering, and host-only speed commands. UDP regressions include chat and
 mid-game speed changes with loss, duplication and reordering. Initial failures
 exposed a mutable-world save fingerprint and a timer reset under SDL restarts;
@@ -7205,3 +7215,13 @@ repeat at most every 30 s per kind (the exact 30000/3000 ms condition is
 **unknown**); and the dropship race choice between 45 and 82 is
 **inferred**. XTR, the AMB category rows (types 98/99), artifact digging and
 napalm are not wired.
+
+Final integration verification: the four-game aggregate runs 115 game/shared
+regressions, plus loaders, generators, layout and model commands. All thirteen
+UDP modes pass, including loss/duplication/reordering, chat and host speed
+changes. The final Dark Colony rerun also passes the native sound, HUD,
+war-harvester, diplomacy and save suites. A load handoff exposed a relative
+path containing the data root twice; temporary diagnostics printed the input
+and realpath at G_DoLoadLevel, and saves now retain the canonical absolute map
+path. The Load regression requires that path to be absolute and readable.
+Diagnostics were removed before committing.

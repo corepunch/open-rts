@@ -11,7 +11,7 @@ struct level_s;
 struct mobjtype_s;
 struct app_s;
 void DC_OpenQuitDialog(struct app_s *app);
-void DC_OpenOptions(struct app_s *app);
+void DC_OpenOptionsDialog(struct app_s *app);
 void DC_OpenObjectives(struct app_s *app);
 void DC_OpenSave(struct app_s *app);
 /* Native screen-script frames and brightness to engine item looks. */

@@ -287,6 +287,7 @@ void S_Bark(mobj_t *const *units, int count, soundevent_t event, bool selected_o
 void S_SetVolume(int percent) {
     snd_volume = percent < 0 ? 0 : percent > 100 ? 100 : percent;
     if (!initialized) return;
+    /* Playing sounds, the menu's own loop among them, take the level at once. */
     for (int i = 0; i < NUMSCHANNELS; ++i) {
         schannel_t *channel = &schannels[i];
         if (!channel->handle) continue;

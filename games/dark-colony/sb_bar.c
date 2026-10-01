@@ -204,7 +204,7 @@ static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         break;
     case 19: G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT}); break;
     case 62: DC_OpenQuitDialog(hud->app); break;
-    case 64: DC_OpenOptions(hud->app); break;
+    case 64: DC_OpenOptionsDialog(hud->app); break;
     case 63: DC_OpenSave(hud->app); break;
     case 151: hud->allies = true; break;
     case 202: DC_OpenObjectives(hud->app); break;
@@ -343,8 +343,12 @@ static void draw_field(const dc_hud_t *hud, const hudfield_t *field, const char 
 }
 
 static void draw_control_text(const menu_t *menu, const menuitem_t *item) {
+    char text[sizeof(item->text) + 1];
+    bool editing = item->kind == MI_TEXTFIELD && item->enabled &&
+        menu->itemOn >= 0 && item == &menu->items[menu->itemOn];
+    snprintf(text, sizeof(text), "%s%s", item->text, editing ? "_" : "");
     draw_field(menu->owner, &(hudfield_t){.rect = item->rect,
-               .palette = item->look[MS_NORMAL].palette}, item->text);
+               .palette = item->look[MS_NORMAL].palette}, text);
 }
 
 /* The money (scount 75: right-aligned digit pictures), the day dial and the
@@ -512,8 +516,10 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
     if (!file) return false;
     int bright_pushed = 0, bright_highlight = 0;
     /* The brightness lines may follow a control that uses them. */
-    struct { int normal, pushed; } frames[NUMCONTROLS];
-    for (int id = 0; id < NUMCONTROLS; ++id) frames[id].normal = frames[id].pushed = -1;
+    typedef struct { int normal, pushed, textpalette; } controlframes_t;
+    controlframes_t frames[NUMCONTROLS];
+    for (int id = 0; id < NUMCONTROLS; ++id)
+        frames[id] = (controlframes_t){-1, -1, -1};
     while (fgets(line, sizeof(line), file)) {
         char kind[16], label[40];
         int id, description;
@@ -562,7 +568,16 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
         bool text = !strcmp(kind, "in_text");
         bool picture = !strcmp(kind, "picture");
         if (!count && !check && !picture && !text && strcmp(kind, "pushb")) continue;
-        if (text) { rect.w *= hud->font.glyph_size.w + 1; rect.h *= hud->font.line_h; }
+        if (text) {
+            rect.w *= hud->font.glyph_size.w + 1;
+            rect.h *= hud->font.line_h;
+            int light = 16;
+            const char *intens = strstr(line, "intens ");
+            if (intens) sscanf(intens, "intens %d", &light);
+            /* Like in_text 79/234, the supplied retail Allies screenshot
+             * uses default remap 7's cyan, despite the script's remap 4. */
+            frames[id].textpalette = (light > 31 ? 31 : light) * 8 + 7;
+        }
         menuitem_t *item = control(hud, id);
         *item = (menuitem_t){
             .kind = picture || text ? MI_STATIC : check ? MI_CHECK : MI_BUTTON,
@@ -585,9 +600,9 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
         DC_ControlLooks(control(hud, id), frames[id].normal, frames[id].pushed, 7,
                             bright_pushed, bright_highlight);
     for (int id = 0; id < NUMCONTROLS; ++id)
-        if (id == 79 || id == 203 || id == 204 || (id >= 157 && id <= 193 && (id - 157) % 6 == 0))
+        if (frames[id].textpalette >= 0)
             for (int state = 0; state < MS_STATES; ++state)
-                control(hud, id)->look[state].palette = 16 * 8 + (id == 79 || id >= 203 ? 2 : 4);
+                control(hud, id)->look[state].palette = frames[id].textpalette;
     control(hud, 204)->kind = MI_TEXTFIELD;
     control(hud, 204)->maxchars = 72;
     return ok;
