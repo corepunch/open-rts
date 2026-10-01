@@ -245,6 +245,7 @@ static void draw_picture(const menuitem_t *item, menustate_t state) {
     irect_t src = look->part.w > 0 ? look->part : cell->rect;
     irect_t dst = {item->rect.x + cell->displacement.x, item->rect.y + cell->displacement.y,
                    src.w, src.h};
+    if (item->stretch) dst = item->rect;
     R_DrawSprite(item->sheet, look->cell, look->palette, &src, &dst,
                  item->opaque ? V_OPAQUE : 0, item->light ? item->light : 16);
 }
@@ -258,7 +259,16 @@ static const uint8_t *text_remap(const menuitem_t *item, menustate_t state, uint
 
 static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
     const bitmapfont_t *font = item->font;
-    if (!font) return;
+    if (!font) {
+        if (!item->text[0]) return;
+        ivec2_t at = ivec2_add((ivec2_t){item->rect.x, item->rect.y}, item->inset);
+        if (item->centered) at = ivec2_add(at,
+            (ivec2_t){(item->rect.w - (int)strlen(item->text) * 6) / 2, (item->rect.h - 7) / 2});
+        V_DrawSmallText((irect_t){at.x, at.y, item->rect.w - item->inset.x, 7}, item->text,
+                        item->ink ? item->ink : 0xffdce6dcu,
+                        (isize2_t){screens[0].w, screens[0].h});
+        return;
+    }
     if (item->prose) {
         V_DrawTextWrapped(item->rect, font, item->prose, NULL, item->first_row * font->line_h);
         return;
@@ -275,10 +285,10 @@ static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
         V_DrawText((ivec2_t){at.x + V_TextWidth(font, item->text), at.y}, font, "_", remap);
 }
 
-static void draw_list(const menuitem_t *item) {
+static void draw_list(const menu_t *menu, const menuitem_t *item) {
     const bitmapfont_t *font = item->font;
     uint8_t tint[256];
-    if (!font || item->row_height <= 0) return;
+    if ((!font && !item->ownerdraw) || item->row_height <= 0) return;
     if (!item->rows) {
         if (item->prose) V_DrawTextWrapped(item->rect, font, item->prose, NULL, 0);
         return;
@@ -291,10 +301,12 @@ static void draw_list(const menuitem_t *item) {
         bool selected = row == item->value;
         irect_t line = {item->rect.x, item->rect.y + i * item->row_height,
                         item->rect.w, item->row_height};
-        if (selected) V_FillRect(line, V_NearestIndex(item->color));
-        V_DrawText((ivec2_t){line.x, line.y}, font, item->row(item, row),
-                   text_remap(item, selected ? MS_PUSHED : MS_NORMAL, tint));
+        if (selected && item->color) V_FillRect(line, V_NearestIndex(item->color));
+        if (font && item->row)
+            V_DrawText((ivec2_t){line.x, line.y}, font, item->row(item, row),
+                       text_remap(item, selected ? MS_PUSHED : MS_NORMAL, tint));
     }
+    if (item->ownerdraw) item->ownerdraw(menu, item);
     V_SetClip(clip);
 }
 
@@ -319,23 +331,23 @@ static bool is_button(const menuitem_t *item) {
 static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
     if (!item->visible || item->kind == MI_LIST || item->kind == MI_SCROLLBAR) return;
     if (item->fill) V_FillRect(item->rect, V_NearestIndex(item->fill));
-    if (item->ownerdraw) {
-        item->ownerdraw(menu, item);
-        return;
-    }
     menustate_t state = item_state(menu, item);
     draw_picture(item, state);
-    if (is_button(item)) draw_text(item, state, false);
+    if (is_button(item) && item->color && state != MS_NORMAL)
+        V_DrawRectOutline(item->rect, V_NearestIndex(item->color));
+    if (item->ownerdraw) item->ownerdraw(menu, item);
+    else if (is_button(item)) draw_text(item, state, false);
 }
 
 static void draw_content(const menu_t *menu, const menuitem_t *item) {
-    if (!item->visible || item->ownerdraw || is_button(item)) return;
+    if (!item->visible || is_button(item)) return;
     if (item->kind == MI_LIST || item->kind == MI_SCROLLBAR) {
         if (item->fill) V_FillRect(item->rect, V_NearestIndex(item->fill));
-        if (item->kind == MI_LIST) draw_list(item);
+        if (item->kind == MI_LIST) draw_list(menu, item);
         else draw_scrollbar(menu, item);
         return;
     }
+    if (item->ownerdraw) return;
     draw_text(item, item_state(menu, item), item->kind == MI_TEXTFIELD && item->enabled &&
                                              item == focused(menu));
 }

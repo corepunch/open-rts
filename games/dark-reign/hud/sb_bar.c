@@ -221,6 +221,10 @@ void *G_InitCustomUI(app_t *app, const char *root) {
         G_ShutdownCustomUI(&bar);
         return NULL;
     }
+    if (!DR_PaletteInit(&bar)) {
+        G_ShutdownCustomUI(&bar);
+        return NULL;
+    }
     return &bar;
 }
 
@@ -262,6 +266,7 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
 
 void G_ShutdownCustomUI(void *ui) {
     if (!ui) return;
+    DR_PaletteShutdown();
     for (unsigned i = 0; i < sizeof(fonts)/sizeof(*fonts); ++i) {
         R_FreeSprite(&fonts[i].sheet);
         memset(&fonts[i], 0, sizeof(fonts[i]));

@@ -121,6 +121,11 @@ int main(void) {
     click.button.x = 458; click.button.y = 74;
     CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &click));
     CHECK(level.player_resources[0][0] == 2950);
+    SDL_Event release = click;
+    release.type = SDL_MOUSEBUTTONUP;
+    CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &release));
+    SDL_Event motion = {.motion = {.type = SDL_MOUSEMOTION}};
+    CHECK(!G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &motion));
     G_CustomUIDrawer(bar, &app, &level, objects.items, objects.count, cache, NULL);
     V_ReadPixels(surface->pixels, surface->pitch);
     CHECK(SDL_SaveBMP(surface, "/private/tmp/open-rts-imperium-hud.bmp") == 0);
@@ -154,10 +159,36 @@ int main(void) {
     CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
     CHECK(rig->waypoints.count == 2 && rig->waypoints.mode == WP_LOOP);
     G_CustomUIDrawer(bar,&app,&level,objects.items,objects.count,cache,NULL);
+    V_ReadPixels(surface->pixels, surface->pitch);
     CHECK(SDL_SaveBMP(surface,"/private/tmp/open-rts-paths-hud.bmp") == 0);
     SDL_Event key = {.key = {.type = SDL_KEYDOWN,.keysym.sym = SDLK_s}};
     CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
     CHECK(!rig->waypoints.count && !P_HasMoveOrder(rig));
+    /* The saved-path widget owns wheel scrolling even with the native font. */
+    bar->saved_path_count = 12;
+    for (int i = 1; i < bar->saved_path_count; ++i) bar->saved_paths[i] = bar->saved_paths[0];
+    motion.motion.x = 563; motion.motion.y = 261;
+    G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&motion);
+    SDL_Event wheel = {.wheel = {.type = SDL_MOUSEWHEEL, .y = -2}};
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&wheel));
+    click.button.x = 563; click.button.y = 261;
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
+    CHECK(bar->saved_path_selection == 2);
+    /* Controls use scaled rectangles; modal options block build hotkeys. */
+    app.win = (isize2_t){1280,960};
+    click.button.x = 1180; click.button.y = 20;
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
+    CHECK(bar->options_visible);
+    key.key.keysym.sym = SDLK_b;
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
+    CHECK(bar->page == DR_PAGE_PATHS);
+    click.button.x = 430; click.button.y = 400;
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
+    CHECK(!bar->options_visible);
+    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
+    CHECK(bar->page == DR_PAGE_BUILD);
+    key.key.keysym.sym = SDLK_x;
+    CHECK(!G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
     G_ShutdownCustomUI(bar);
     R_FreeSpriteCache(cache); free(cache);
     P_FreeMobjList(&objects);

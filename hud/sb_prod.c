@@ -78,42 +78,9 @@ bool SB_ProductionResponder(sb_state_t *st, app_t *app, const SDL_Event *event) 
     return true;
 }
 
-/* Five-column glyphs for labels and prices; no game font is required. */
-void SB_DrawText(const app_t *app, ivec2_t point, const char *text, int width, uint32_t argb) {
-    static const uint8_t glyphs[][5] = {
-        {0x3e,0x51,0x49,0x45,0x3e},{0,0x42,0x7f,0x40,0},{0x42,0x61,0x51,0x49,0x46},
-        {0x21,0x41,0x45,0x4b,0x31},{0x18,0x14,0x12,0x7f,0x10},{0x27,0x45,0x45,0x45,0x39},
-        {0x3c,0x4a,0x49,0x49,0x30},{1,0x71,9,5,3},{0x36,0x49,0x49,0x49,0x36},
-        {6,0x49,0x49,0x29,0x1e},
-        {0x7e,0x11,0x11,0x11,0x7e},{0x7f,0x49,0x49,0x49,0x36},{0x3e,0x41,0x41,0x41,0x22},
-        {0x7f,0x41,0x41,0x22,0x1c},{0x7f,0x49,0x49,0x49,0x41},{0x7f,9,9,9,1},
-        {0x3e,0x41,0x49,0x49,0x7a},{0x7f,8,8,8,0x7f},{0,0x41,0x7f,0x41,0},
-        {0x20,0x40,0x41,0x3f,1},{0x7f,8,0x14,0x22,0x41},{0x7f,0x40,0x40,0x40,0x40},
-        {0x7f,2,0x0c,2,0x7f},{0x7f,4,8,0x10,0x7f},{0x3e,0x41,0x41,0x41,0x3e},
-        {0x7f,9,9,9,6},{0x3e,0x41,0x51,0x21,0x5e},{0x7f,9,0x19,0x29,0x46},
-        {0x46,0x49,0x49,0x49,0x31},{1,1,0x7f,1,1},{0x3f,0x40,0x40,0x40,0x3f},
-        {0x1f,0x20,0x40,0x20,0x1f},{0x3f,0x40,0x38,0x40,0x3f},{0x63,0x14,8,0x14,0x63},
-        {7,8,0x70,8,7},{0x61,0x51,0x49,0x45,0x43},
-    };
-    uint8_t color = V_NearestIndex(argb);
-    for (int n = 0; text[n] && n * 6 + 5 <= width; ++n) {
-        int ch = toupper((unsigned char)text[n]);
-        int glyph = ch >= '0' && ch <= '9' ? ch - '0' :
-                    ch >= 'A' && ch <= 'Z' ? ch - 'A' + 10 : -1;
-        static const unsigned char punctuation[][5] = {
-            {0,0x36,0x36,0,0}, {8,8,8,8,8}, {0x63,0x13,8,0x64,0x63}, {0x40,0x20,0x10,8,4},
-        };
-        const unsigned char *bits = glyph >= 0 ? glyphs[glyph] :
-            ch == ':' ? punctuation[0] : ch == '-' ? punctuation[1] :
-            ch == '%' ? punctuation[2] : ch == '/' ? punctuation[3] : NULL;
-        if (!bits) continue;
-        for (int x = 0; x < 5; ++x)
-            for (int y = 0; y < 7; ++y)
-                if (bits[x] & (1u << y)) {
-                    irect_t pixel = scaled_rect(app, (irect_t){point.x + n * 6 + x, point.y + y, 1, 1});
-                    V_FillRect(pixel, color);
-                }
-    }
+void SB_DrawText(ivec2_t point, const char *text, int width, uint32_t argb) {
+    V_DrawSmallText((irect_t){point.x, point.y, width, 7}, text, argb,
+                    (isize2_t){gameui->logical_width, gameui->logical_height});
 }
 
 void SB_ProductionDrawer(sb_state_t *st, const app_t *app) {
@@ -136,23 +103,23 @@ void SB_ProductionDrawer(sb_state_t *st, const app_t *app) {
         irect_t rect = scaled_rect(app, cell);
         V_DrawRectOutline(rect, border);
         uint32_t ink = enabled ? 0xffdce6dcu : 0xff646464u;
-        SB_DrawText(app, (ivec2_t){cell.x + 5, cell.y + 5}, product->label, cell.w - 10, ink);
+        SB_DrawText((ivec2_t){cell.x + 5, cell.y + 5}, product->label, cell.w - 10, ink);
         char text[48];
         const production_t *queue = producer->production;
         int queued = queue && queue->product_type == product->product_type ? queue->queue_count : 0;
         snprintf(text, sizeof(text), "%d   QUEUED %d", product->cost, queued);
-        SB_DrawText(app, (ivec2_t){cell.x + 5, cell.y + 18}, text, cell.w - 10, ink);
+        SB_DrawText((ivec2_t){cell.x + 5, cell.y + 18}, text, cell.w - 10, ink);
         if (gameui->draw_product_slot)
             gameui->draw_product_slot(app, product->ui_id, rect);
     }
     if (!count) {
-        SB_DrawText(app, (ivec2_t){grid.x + 5, grid.y + 8}, "SELECT A PRODUCER", grid.w - 10,
+        SB_DrawText((ivec2_t){grid.x + 5, grid.y + 8}, "SELECT A PRODUCER", grid.w - 10,
                     0xffc8d2b4u);
     } else if (count > rows) {
         char text[40];
         snprintf(text, sizeof(text), "NEXT PAGE %d OF %d", st->production_page + 1,
                  (count + rows - 1) / rows);
-        SB_DrawText(app, (ivec2_t){grid.x + 5, grid.y + rows * PRODUCT_ROWSIZE + 8},
+        SB_DrawText((ivec2_t){grid.x + 5, grid.y + rows * PRODUCT_ROWSIZE + 8},
                          text, grid.w - 10, 0xffc8d2b4u);
     }
 }

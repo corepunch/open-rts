@@ -538,8 +538,12 @@ special abilities, attachment types and native HUD pages.
 
 `include/engine.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
 `M_Responder`, `M_Ticker`, `M_Drawer`, and `M_Shutdown` lifecycle. Dark Colony
-implements it in `games/dark-colony/menu/`; the other games currently provide
-inert implementations. Native screen parsing, assets, animation and campaign
+implements it in `games/dark-colony/menu/`; the other games supply static
+Start/Resume/Quit item tables to the shared `hud/m_simple.c` lifecycle.
+These are engine fallback screens, with the existing small glyph font, not
+reproductions of those games' retail front ends. Escape opens them during a
+level; their existing automatic level startup is preserved. Native screen
+parsing, assets, animation and campaign
 dispatch belong to the game, outside its level HUD.
 
 The same header declares the engine's menu and HUD framework. A screen is a `menu_t`
@@ -558,8 +562,10 @@ input to the caller. Hover and pressed looks come from the shared responder.
 `M_MenuDrawer` draws the background, pictures, button
 labels, loose text, lists, scroll bars and the text caret. Pictures and buttons
 draw first in table order and loose text, lists and scroll bars draw over them.
-An item's `ownerdraw` replaces the standard drawing for native content the
-engine does not know, such as Dark Colony's FIN gadgets. Dark Colony's table is
+An item's `ownerdraw` supplies native content after its standard picture,
+such as Dark Colony's FIN gadgets or Dark Reign's variable-width PCX labels.
+The engine still owns list clipping, selection and scroll state when a list
+uses native text drawing. Dark Colony's table is
 indexed by the native control ID from its `INTRFACE/*E` scripts.
 
 Dark Colony's MAINE HUD also loads a single item table. The engine draws its
@@ -568,6 +574,14 @@ and refund callbacks. Native minimap, day dial and status content use
 `ownerdraw`; gameplay callbacks still decide which products and abilities
 are visible and what a world-targeted command means. Screen images remain
 separate from gameplay sprite IDs.
+
+Dark Reign's palette also builds one item table at initialization. Native
+action/category/path tables populate its controls; product slots refresh
+their borrowed icon and product references as selection or page changes.
+`stretch` maps native sheet crops to scaled control rectangles. The engine
+dispatches controls and owns their hover/pressed looks, page-wheel events,
+saved-path list scrolling and chrome click consumption. The game retains
+world orders, native font composition, tooltips and minimap content.
 
 Animation is split along the same line. Every item carries a `menuanim_t`: a
 frame range, the current frame, a loop / one-off / stopped mode and the ticks

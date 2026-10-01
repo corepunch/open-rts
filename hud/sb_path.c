@@ -67,25 +67,3 @@ bool SB_PathResponder(sb_state_t *st, const app_t *app, const SDL_Event *event) 
     }
     return true;
 }
-
-bool SB_PathListResponder(sb_state_t *st, const SDL_Event *event, ivec2_t mouse) {
-    irect_t rect = st->definition->path_list;
-    int height = st->definition->path_row_height;
-    if (height <= 0 || !irect_contains(rect, mouse)) return false;
-    if (event->type == SDL_MOUSEWHEEL) {
-        st->path_scroll -= event->wheel.y;
-        int last = st->saved_path_count - rect.h / height;
-        if (last < 0) last = 0;
-        if (st->path_scroll < 0) st->path_scroll = 0;
-        if (st->path_scroll > last) st->path_scroll = last;
-    } else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
-        int index = st->path_scroll + (mouse.y - rect.y) / height;
-        if (index < st->saved_path_count) {
-            st->saved_path_selection = index;
-            st->path = st->saved_paths[index];
-            st->path.current = 0;
-            st->order = UI_UNAVAILABLE;
-        }
-    }
-    return true;
-}

@@ -494,7 +494,7 @@ void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
                 lab->research.remaining_cost);
             break;
         }
-        SB_DrawText(app,(ivec2_t){gameui->status_panel.rect.x,gameui->status_panel.rect.h+8},text,400,0xffffffffu);
+        SB_DrawText((ivec2_t){gameui->status_panel.rect.x,gameui->status_panel.rect.h+8},text,400,0xffffffffu);
         break;
     }
 }
