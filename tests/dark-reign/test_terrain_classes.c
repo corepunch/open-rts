@@ -1,8 +1,7 @@
-#include "../rts_model_test.h"
-#include "game.h"
-#include "info.h"
-#include "dr_types.h"
-#include "p_local.h"
+#include "t_local.h"
+#include "engine.h"
+#include "../../games/dark-reign/info.h"
+#include "dark-reign.h"
 
 #include <ctype.h>
 #include <stdio.h>

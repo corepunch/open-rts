@@ -535,6 +535,14 @@ bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
             continue;
         }
         if (!P_VentOpenTo(map, vent, unit)) continue;
+        if (!(unit->traits & MF_FLY)) {
+            /* The planner falls back to the nearest reachable spot, which must
+             * still be at the vent: a walled-off vent is not harvestable. */
+            ivec2_t near;
+            if (!P_NavNearestReachable(map, P_MobjMoveClass(unit), fvec2_cell(fixed3_xy_to_fvec2(unit->core.position)),
+                                       fvec2_cell(vent->attachment), (int)ceilf(P_ResourceVentRadius(vent)) + 1, &near))
+                continue;
+        }
         unit->core.momentum = fixed3_zero();
 
         if (!P_MoveUnitTo(map, unit, vent->attachment)) continue;
