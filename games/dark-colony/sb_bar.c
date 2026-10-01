@@ -202,12 +202,17 @@ static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     }
 }
 
-/* A left click reserves one of the product; a right click gives one back. */
+/* A left click reserves one of the product; a right click gives one back.
+ * Retail then needs Build (control 19) or Space; BUILD_IMMEDIATELY submits
+ * on the click. Every netplay peer must be built with the same choice. */
 static void purchase(menu_t *menu, menuitem_t *item, menuaction_t action) {
     dc_hud_t *hud = menu->owner;
     if (action != MA_ACTIVATE && action != MA_SECONDARY) return;
     G_QueueTiccmd(&(ticcmd_t){.order = TC_PURCHASE,
         .product = (int)(item - hud->items) - FIRST_CONTROL, .target = action == MA_SECONDARY});
+#ifdef BUILD_IMMEDIATELY
+    if (action == MA_ACTIVATE) G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT});
+#endif
 }
 
 static void center_camera(menu_t *menu, menuitem_t *item, menuaction_t action) {
