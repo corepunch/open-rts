@@ -297,10 +297,51 @@ static int drawing(void) {
     return 0;
 }
 
+static int two_tics(const menuitem_t *item) {
+    (void)item;
+    return 2;
+}
+
+static int animation(void) {
+    build();
+    menuitem_t *item = &items[BUTTON];
+    item->anim = (menuanim_t){.first = 4, .last = 6, .frame = 5};
+    M_MenuTicker(&menu);
+    CHECK(item->anim.frame == 5); /* Stopped until it is started. */
+    /* A loop wraps to its first frame; one tick a frame without frametics. */
+    M_MenuAnimate(item, MANIM_LOOP);
+    CHECK(item->anim.frame == 4);
+    int seen[5];
+    for (int i = 0; i < 5; ++i) {
+        M_MenuTicker(&menu);
+        seen[i] = item->anim.frame;
+    }
+    CHECK(seen[0] == 5 && seen[1] == 6 && seen[2] == 4 && seen[3] == 5 && seen[4] == 6);
+    /* A hidden item waits. */
+    item->visible = false;
+    M_MenuTicker(&menu);
+    CHECK(item->anim.frame == 6);
+    item->visible = true;
+    /* A one-off holds its last frame and stops; frametics sets the pace. */
+    menu.frametics = two_tics;
+    M_MenuAnimate(item, MANIM_ONCE);
+    for (int i = 0; i < 4; ++i) {
+        M_MenuTicker(&menu);
+        seen[i] = item->anim.frame;
+    }
+    CHECK(seen[0] == 5 && seen[1] == 5 && seen[2] == 6 && seen[3] == 6);
+    CHECK(item->anim.mode == MANIM_ONCE);
+    M_MenuTicker(&menu);
+    CHECK(item->anim.frame == 6 && item->anim.mode == MANIM_STOPPED);
+    menu.frametics = NULL;
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(input());
     RTS_RUN(lists());
+    RTS_RUN(animation());
     RTS_RUN(drawing());
-    puts("PASS: menu items focus, activate, check, type, scroll and draw");
+    puts("PASS: menu items focus, activate, check, type, scroll, animate and draw");
     return 0;
 }

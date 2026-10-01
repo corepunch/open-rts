@@ -23,7 +23,9 @@ enum { NUMCONTROLS = 300, PROSE = NUMCONTROLS, NUMITEMS };
 static menuitem_t items[NUMITEMS];
 static bool initialized, training, inlevel;
 static void menu_escape(menu_t *screen);
-static menu_t menu = {.items = items, .numitems = NUMITEMS, .escape = menu_escape};
+static int gadget_tics(const menuitem_t *item);
+static menu_t menu = {.items = items, .numitems = NUMITEMS, .escape = menu_escape,
+                      .frametics = gadget_tics};
 static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
@@ -37,16 +39,10 @@ static spritesheet_t background;
 static spritesheet_t pictures;
 static spritecache_t images;
 
+/* A gadget is an item that plays one FIN sequence: userdata is its FIN and
+ * the engine steps anim through the sequence's frames. */
 static dc_fin_t animations[16];
 static int numanimations;
-/* A gadget plays one FIN sequence: mode 0 loops, 1 runs once and holds its
- * last frame, 2 is stopped. */
-typedef struct {
-    const dc_fin_t *fin;
-    const dc_fin_label_t *sequence;
-    int mode, frame, delay;
-} gadget_t;
-static gadget_t gadgets[NUMCONTROLS];
 /* A banim control (native type 12, button.c create_banim 0x4250bc) lists the
  * entrance gadgets and the push buttons they cover. 0x425214 plays the gadgets
  * one by one when the screen opens and hides each finished gadget so the
@@ -99,7 +95,6 @@ static void free_screen(void) {
     maps = NULL;
     nummaps = 0;
     memset(items, 0, sizeof(items));
-    memset(gadgets, 0, sizeof(gadgets));
     memset(messages, 0, sizeof(messages));
     numentrances = entrance = 0;
     bright_pushed = bright_highlight = 0;
@@ -145,12 +140,15 @@ static bool load_animations(const char *name) {
     return ok;
 }
 
-static void animate(int id, int mode) {
-    gadget_t *gadget = &gadgets[id];
-    if (!gadget->sequence) return;
-    gadget->mode = mode;
-    gadget->frame = gadget->sequence->start;
-    gadget->delay = 0;
+static void animate(int id, menuanimmode_t mode) {
+    if (items[id].userdata) M_MenuAnimate(&items[id], mode);
+}
+
+/* 0x4230ac: a FIN frame lasts this many menu ticks; a zero count means 15. */
+static int gadget_tics(const menuitem_t *item) {
+    const dc_fin_t *fin = item->userdata;
+    int raw = fin->frames[item->anim.frame].ticks;
+    return ((raw ? raw : 15) + 3) * 15 / 100;
 }
 
 static bool read_text(const char *name) {
@@ -239,10 +237,10 @@ static int filtered_map(int row) {
 }
 
 static void gadget_pose(int id, int pose) {
-    gadget_t *gadget = &gadgets[id];
-    if (gadget->sequence && pose >= 0 && gadget->sequence->start + pose <= gadget->sequence->end) {
-        gadget->frame = gadget->sequence->start + pose;
-        gadget->mode = 2;
+    menuanim_t *anim = &items[id].anim;
+    if (items[id].userdata && pose >= 0 && anim->first + pose <= anim->last) {
+        anim->frame = anim->first + pose;
+        anim->mode = MANIM_STOPPED;
     }
 }
 
@@ -338,16 +336,16 @@ static void activate_skirmish(int id) {
  * 0x404b8c..0x404b9c (INTROE DCSS logo), 0x401f26..0x401f70 (NEWGAMEE),
  * 0x403340..0x403386 (SHUMANE). */
 static void start_page_animations(void) {
-    if (page == MAIN) animate(14, 1);
+    if (page == MAIN) animate(14, MANIM_ONCE);
     if (page == SETUP) {
-        animate(race ? 26 : 23, 0);
-        for (int i = 13; i <= 16; ++i) animate(i, 0);
-        for (int i = 29; i <= 35; ++i) animate(i, 0);
+        animate(race ? 26 : 23, MANIM_LOOP);
+        for (int i = 13; i <= 16; ++i) animate(i, MANIM_LOOP);
+        for (int i = 29; i <= 35; ++i) animate(i, MANIM_LOOP);
     }
     if (page == BRIEFING) {
-        for (int i = 15; i <= 24; ++i) animate(i, 0);
-        animate(39, 0);
-        animate(race ? 35 : 36, 0);
+        for (int i = 15; i <= 24; ++i) animate(i, MANIM_LOOP);
+        animate(39, MANIM_LOOP);
+        animate(race ? 35 : 36, MANIM_LOOP);
     }
 }
 
@@ -366,9 +364,9 @@ static void set_states(menuitem_t *item, int normal, int pushed, int remap, bool
 
 static void draw_gadget(const menu_t *screen, const menuitem_t *item) {
     (void)screen;
-    const gadget_t *gadget = item->userdata;
-    const dc_fin_frame_t *frame = &gadget->fin->frames[gadget->frame];
-    const dc_fin_command_t *parts = gadget->fin->frame_commands[gadget->frame];
+    const dc_fin_t *fin = item->userdata;
+    const dc_fin_frame_t *frame = &fin->frames[item->anim.frame];
+    const dc_fin_command_t *parts = fin->frame_commands[item->anim.frame];
     for (int i = 0; i < frame->part_count; ++i) {
         const dc_fin_command_t *part = &parts[i];
         char key[32];
@@ -482,16 +480,18 @@ static bool load_screen(int next) {
             if (script == GADGET) {
                 char animation[32] = "";
                 sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %31s", animation);
-                gadget_t *gadget = &gadgets[id];
-                for (int i = 0; i < numanimations && !gadget->sequence; ++i) {
-                    gadget->fin = &animations[i];
-                    gadget->sequence = DC_FINLabel(gadget->fin, animation);
+                const dc_fin_label_t *sequence = NULL;
+                for (int i = 0; i < numanimations && !sequence; ++i) {
+                    item->userdata = &animations[i];
+                    sequence = DC_FINLabel(&animations[i], animation);
                 }
-                if (!gadget->sequence) { ok = false; break; }
-                animate(id, strstr(line, "anim_oneoff") ? 1 : strstr(line, "anim_loop") ? 0 : 2);
+                if (!sequence) { ok = false; break; }
+                item->anim.first = sequence->start;
+                item->anim.last = sequence->end;
+                animate(id, strstr(line, "anim_oneoff") ? MANIM_ONCE :
+                            strstr(line, "anim_loop") ? MANIM_LOOP : MANIM_STOPPED);
                 if (strstr(line, "read_write")) item->kind = MI_BUTTON;
                 item->ownerdraw = draw_gadget;
-                item->userdata = gadget;
             }
             /* list N ... selbg <colour>; scroll N ... list <id>;
              * pushb N ... list <id> <rows>. */
@@ -742,7 +742,7 @@ static void activate(app_t *app, int id) {
             race = id;
             items[23].visible = race == 0;
             items[26].visible = race == 1;
-            animate(race ? 26 : 23, 0);
+            animate(race ? 26 : 23, MANIM_LOOP);
         } else if (id == 4) ok = load_screen(MAIN);
         else if (id == 2 || id == 3) {
             if (!leader[0]) { menu.itemOn = 5; notice = "Type a name for your leader"; }
@@ -947,19 +947,18 @@ static void step_entrances(void) {
     while (entrance < numentrances) {
         menuentrance_t *e = &entrances[entrance];
         if (e->started + 1 < e->count) {
-            int id = e->gadgets[e->started];
-            const gadget_t *g = &gadgets[id];
+            const menuitem_t *g = &items[e->gadgets[e->started]];
             /* 0x425257..0x425294: the next gadget starts when the running one
              * reaches its third frame, so the entrances overlap. */
-            if (!items[id].visible || !g->sequence || g->frame - g->sequence->start == 2)
-                animate(e->gadgets[++e->started], 1);
+            if (!g->visible || !g->userdata || g->anim.frame - g->anim.first == 2)
+                animate(e->gadgets[++e->started], MANIM_ONCE);
         }
         if (e->finished < e->count) {
-            int id = e->gadgets[e->finished];
+            menuitem_t *g = &items[e->gadgets[e->finished]];
             /* 0x4252a5..0x4252be: a stopped gadget is hidden and the push
              * button beneath it is redrawn. */
-            if (!gadgets[id].sequence || gadgets[id].mode == 2) {
-                items[id].visible = false;
+            if (g->anim.mode == MANIM_STOPPED) {
+                g->visible = false;
                 ++e->finished;
             }
         }
@@ -1001,25 +1000,9 @@ void M_Ticker(void) {
     uint64_t now = SDL_GetTicks64();
     if (now - menutime <= 16) return; /* DC.EXE 0x421ebd: menu cadence. */
     menutime = now;
-    for (int i = 0; i < NUMCONTROLS; ++i) {
-        gadget_t *g = &gadgets[i];
-        if (!items[i].visible || !g->sequence || g->mode == 2) continue;
-        if (!g->delay) {
-            if (++g->frame > g->sequence->end) {
-                /* Gadget ticker 0x422828 holds the last one-off pose;
-                 * the world animation ticker 0x423dd0 resets to zero. */
-                if (g->mode == 1) {
-                    g->frame = g->sequence->end;
-                    g->mode = 2;
-                    continue;
-                }
-                g->frame = g->sequence->start;
-            }
-            int raw = g->fin->frames[g->frame].ticks;
-            g->delay = ((raw ? raw : 15) + 3) * 15 / 100;
-        }
-        if (g->delay) --g->delay;
-    }
+    /* Gadget ticker 0x422828 holds the last one-off pose, as the engine's
+     * MANIM_ONCE does; the world animation ticker 0x423dd0 resets to zero. */
+    M_MenuTicker(&menu);
     step_entrances();
 }
 

@@ -559,6 +559,16 @@ An item's `ownerdraw` replaces the standard drawing for native content the
 engine does not know, such as Dark Colony's FIN gadgets. Dark Colony's table is
 indexed by the native control ID from its `INTRFACE/*E` scripts.
 
+Animation is split along the same line. Every item carries a `menuanim_t`: a
+frame range, the current frame, a loop / one-off / stopped mode and the ticks
+left on the frame. `M_MenuTicker` steps every visible running item, and the
+menu's `frametics` callback says how long the current frame lasts. What a frame
+looks like, and which item starts when, stay with the game: Dark Colony draws
+the FIN frame in `ownerdraw`, and its `banim` entrance (each gadget covering a
+button starts when the previous one reaches its third frame, then hides) is a
+few lines over `anim` in its own ticker, because that rule and its data are
+DC.EXE's.
+
 The driver opens DC's menu before allocating a level, mission, thinkers or
 sidebar. `menumap` is a deferred level request: menu input selects a native
 campaign table entry, then the driver runs its ordinary loading path. Starting

@@ -168,6 +168,32 @@ bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
     return true;
 }
 
+void M_MenuAnimate(menuitem_t *item, menuanimmode_t mode) {
+    item->anim.mode = mode;
+    item->anim.frame = item->anim.first;
+    item->anim.delay = 0;
+}
+
+void M_MenuTicker(menu_t *menu) {
+    for (int i = 0; i < menu->numitems; ++i) {
+        menuitem_t *item = &menu->items[i];
+        menuanim_t *anim = &item->anim;
+        if (!item->visible || anim->mode == MANIM_STOPPED) continue;
+        if (!anim->delay) {
+            if (++anim->frame > anim->last) {
+                if (anim->mode == MANIM_ONCE) {
+                    anim->frame = anim->last;
+                    anim->mode = MANIM_STOPPED;
+                    continue;
+                }
+                anim->frame = anim->first;
+            }
+            anim->delay = menu->frametics ? menu->frametics(item) : 1;
+        }
+        if (anim->delay) --anim->delay;
+    }
+}
+
 static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     if (menu->held == item || (item->kind == MI_CHECK && item->value)) return MS_PUSHED;
     return item == focused(menu) ? MS_FOCUS : MS_NORMAL;
