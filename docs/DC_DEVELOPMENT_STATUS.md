@@ -36,7 +36,6 @@ still show the former `open-rts --game` invocation.
 
 ```sh
 make
-make tags
 SDL_VIDEODRIVER=dummy make test-dark-colony test-layout
 SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
 ```

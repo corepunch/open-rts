@@ -116,4 +116,4 @@ env SDL_VIDEODRIVER=dummy build/bin/dark-reign --check
 
 The build discovers source files with sorted `find` output. Any future C
 module must be included through its directory, without an individual Makefile
-source list. After source changes, run `make tags`.
+source list.

@@ -64,7 +64,7 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
         test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-states dark-colony-gamestat 7legion kknd \
 		kknd-check anim-extract dc-info-conv dc-info-gen dr-info-gen 7legion-info-gen kknd-info-gen test-info-gen \
-		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help tags
+		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help
 
 # ── per-game binary rule template ────────────────────────────────────────────
 # $(1) = binary name (e.g. dark-colony)
@@ -383,15 +383,6 @@ $(BUILD_DIR):
 clean:
 	rm -rf $(BUILD_DIR)
 
-# ── ctags ────────────────────────────────────────────────────────────────────
-CTAGS_FLAGS := --fields=+S --c-kinds=+defgstup --extras=+q --language-force=c
-
-tags:
-	ctags -R $(CTAGS_FLAGS) --exclude=games --exclude=build --exclude=reference --exclude=data --exclude=reverse .
-	ctags -R $(CTAGS_FLAGS) -f games/dark-colony/tags games/dark-colony/
-	ctags -R $(CTAGS_FLAGS) -f games/dark-reign/tags games/dark-reign/
-	ctags -R $(CTAGS_FLAGS) -f games/7legion/tags games/7legion/
-	ctags -R $(CTAGS_FLAGS) -f games/kknd/tags games/kknd/
 
 # Headless/layout/command test objects also depend on shared runtime headers.
 -include $(sort $(shell find $(BUILD_DIR) -name '*.d' 2>/dev/null))
