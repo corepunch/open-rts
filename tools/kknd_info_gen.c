@@ -519,8 +519,8 @@ static bool write_extra_inc(const char *directory) {
                 snprintf(next, sizeof(next), "S_%s%d", DEATHS[i].name, k + 1);
             int tics = (k * 120 * RTS_TICRATE + 999) / 1000 -
                        ((k - 1) * 120 * RTS_TICRATE + 999) / 1000;
-            fprintf(f, "    [S_%s%d] = { SPR_EXTRAS, %d, %d, NULL, %s, 4 },\n",
-                    DEATHS[i].name, k, DEATHS[i].frame + k - 1, tics, next);
+            fprintf(f, "    [S_%s%d] = { %s, %d, %d, NULL, %s, 4 },\n",
+                    DEATHS[i].name, k, DEATHS[i].sprite, DEATHS[i].frame + k - 1, tics, next);
         }
     }
     return fclose(f) == 0;
