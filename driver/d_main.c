@@ -208,14 +208,14 @@ int main(int argc, char **argv) {
     app.renderer = renderer.sdl;
     R_RefreshViewport(&app);
 
-    if (!strcmp(g_game_id, "dark-colony") && !check_only && !check_tics) {
+    if (!check_only && !check_tics) {
         if (!M_Init(&app, data_root)) {
-            fprintf(stderr, "Could not load Dark Colony menu assets\n");
+            fprintf(stderr, "Could not initialize %s menu\n", g_game_name);
             M_Shutdown();
             renderer_destroy(&renderer);
             return 1;
         }
-        if (!paths[1] && !netgame) M_StartControlPanel(&app);
+        if (!strcmp(g_game_id, "dark-colony") && !paths[1] && !netgame) M_StartControlPanel(&app);
     }
     /* No level, thinkers, mission or sidebar exists while choosing New Game. */
     while (app.running && menuactive) {
