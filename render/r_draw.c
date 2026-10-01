@@ -514,6 +514,9 @@ bool R_RenderSpriteShadow(app_t *app, const spritesheet_t *sprite, int frame,
     if (!app || !sprite || !sprite->shadowmap || !sprite->lumps || !screens[0].pixels ||
         frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
         return false;
+#ifdef RTS_GAME_DARK_COLONY
+    if (gamesettings.detail < 2) return true; /* DC.EXE 0x432ac0 -> 0x45c7e3/0x45cc34. */
+#endif
     irect_t source = sprite->cells[frame].rect;
     if (source.w <= 0 || source.h <= 0) return false;
     int height = source.h + source.h * 40 / 256;
@@ -559,6 +562,9 @@ bool R_RenderIndexedBlend(app_t *app, const spritesheet_t *sprite, int frame,
         selector != sprite->indexed_blend_selector || !sprite->lumps ||
         frame < 0 || frame >= sprite->numlumps || !sprite->lumps[frame].indices)
         return false;
+#ifdef RTS_GAME_DARK_COLONY
+    if (!gamesettings.detail) return true; /* DC.EXE 0x432ac0 -> 0x45d0c0. */
+#endif
     irect_t source = sprite->cells[frame].rect;
     if (source.w <= 0 || source.h <= 0) return false;
     uint32_t draw_flags = (flags & RTS_FRAME_FLIP_X) ? V_FLIP_X : 0;

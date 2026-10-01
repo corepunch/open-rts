@@ -30,7 +30,13 @@ static uint64_t menutime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
 static char *prose;
-static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAME, BROWSE, CONNECT } page;
+static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAME, BROWSE, CONNECT,
+              OPTIONS, OBJECTIVES, SAVE, LOAD } page;
+static gamesettings_t editing;
+static int editing_speed;
+typedef struct { char path[1200]; dc_saveinfo_t info; } saveentry_t;
+static saveentry_t *saves;
+static int numsaves;
 static bool lan, waiting;
 static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
 static char network_notice[128], selected_server[64];
@@ -94,6 +100,9 @@ static void free_screen(void) {
     free(maps);
     maps = NULL;
     nummaps = 0;
+    free(saves);
+    saves = NULL;
+    numsaves = 0;
     memset(items, 0, sizeof(items));
     memset(messages, 0, sizeof(messages));
     numentrances = entrance = 0;
@@ -154,7 +163,8 @@ static int gadget_tics(const menuitem_t *item) {
 
 static bool read_text(const char *name) {
     char path[1024];
-    M_PathJoin(path, sizeof(path), root, name);
+    if (name[0] == '/') snprintf(path, sizeof(path), "%s", name);
+    else M_PathJoin(path, sizeof(path), root, name);
     blob_t file;
     if (!W_ReadFile(path, &file)) return false;
     prose = malloc(file.size + 1);
@@ -416,16 +426,64 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action);
 static const char *map_row(const menuitem_t *item, int row);
 static const char *session_row(const menuitem_t *item, int row);
 
+static bool popup(void) {
+    return page == QUIT || page == OPTIONS || page == OBJECTIVES || page == SAVE;
+}
+
+static const char *save_row(const menuitem_t *item, int row) {
+    (void)item;
+    return row >= 0 && row < numsaves ? saves[row].info.name : "";
+}
+
+static int compare_saves(const void *a, const void *b) {
+    return strcmp(((const saveentry_t *)a)->info.name, ((const saveentry_t *)b)->info.name);
+}
+
+static bool load_saves(void) {
+    DIR *dir = opendir(D_UserDirectory());
+    if (!dir) return false;
+    struct dirent *entry;
+    bool ok = true;
+    while ((entry = readdir(dir))) {
+        size_t n = strlen(entry->d_name);
+        if (n < 5 || strcmp(entry->d_name + n - 4, ".sav")) continue;
+        saveentry_t save;
+        M_PathJoin(save.path, sizeof(save.path), D_UserDirectory(), entry->d_name);
+        if (!DC_SaveInfo(save.path, &save.info)) continue;
+        saveentry_t *added = realloc(saves, (size_t)(numsaves + 1) * sizeof(*saves));
+        if (!added) { ok = false; break; }
+        saves = added;
+        saves[numsaves++] = save;
+    }
+    closedir(dir);
+    if (numsaves) qsort(saves, numsaves, sizeof(*saves), compare_saves);
+    return ok;
+}
+
+static void draw_objectives(const menu_t *screen, const menuitem_t *item) {
+    (void)screen;
+    V_DrawTextWrapped(item->rect, item->font, prose,
+                     R_PaletteMap(&item->font->sprite, item->look[MS_NORMAL].palette),
+                     item->first_row * item->row_height);
+}
+
+static void option_values(void) {
+    snprintf(items[46].text, sizeof(items[46].text), "%d%%", editing_speed);
+    snprintf(items[47].text, sizeof(items[47].text), "%d", editing.sound);
+    snprintf(items[69].text, sizeof(items[69].text), "%d", editing.music);
+    strcpy(items[48].text, messages[10 + editing.detail]);
+}
+
 static bool load_screen(int next) {
-    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE"};
-    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT"};
+    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE", "LOPTE", "LOBJE", "LSGE", "LOADGE"};
+    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT", NULL, NULL, NULL, "LOADG.DAT"};
     free_screen();
     page = next;
     menu.itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
     if (lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
-    if (page == QUIT) {
+    if (popup()) {
         spritesheet_t palette = {0};
         M_PathJoin(path, sizeof(path), root, "PALETTE.GIF");
         if (!W_LoadGIFTexture(path, &palette)) return false;
@@ -665,11 +723,47 @@ static bool load_screen(int next) {
         items[18].rect.x = items[17].rect.x + items[17].rect.w;
         strcpy(items[18].text, "ADDRESS");
     }
+    if (page == OPTIONS) {
+        editing = gamesettings;
+        editing_speed = game_speed;
+        option_values();
+    }
+    if (page == OBJECTIVES) {
+        char briefing[1024];
+        snprintf(briefing, sizeof(briefing), "%s", level.map_path);
+        char *dot = strrchr(briefing, '.');
+        if (dot) strcpy(dot, ".TXT");
+        const char *relative = briefing;
+        size_t prefix = strlen(root);
+        if (!strncmp(briefing, root, prefix) && briefing[prefix] == '/') relative += prefix + 1;
+        if (!dot || !read_text(relative)) {
+            const char *goal = DC_LevelSkirmish(&level) ?
+                "Destroy the opposing colonies and protect your colony." : "No mission briefing is available.";
+            prose = malloc(strlen(goal) + 1);
+            if (prose) strcpy(prose, goal);
+            else ok = false;
+        }
+        menuitem_t *list = &items[50];
+        list->row_height = fonts[0].line_h;
+        list->ownerdraw = draw_objectives;
+        M_MenuSetRows(list, V_TextWrappedHeight(list->rect.w, list->font, prose) / list->row_height);
+        list->value = -1;
+    }
+    if (page == SAVE || page == LOAD) {
+        if (!load_saves()) notice = "Cannot read the save directory";
+        menuitem_t *list = &items[page == SAVE ? 50 : 0];
+        list->row = save_row;
+        list->value = -1;
+        M_MenuSetRows(list, numsaves);
+        list->prose = "No saved games";
+        if (page == SAVE) { items[54].kind = MI_TEXTFIELD; menu.itemOn = 54; }
+        else for (int i = 17; i <= 23; ++i) items[i].visible = false;
+    }
     entrance = 0;
     if (!numentrances) start_page_animations();
     menutime = SDL_GetTicks64();
     return ok && screen.w > 0 && screen.h > 0 &&
-        (page == QUIT || background.numlumps) && fonts[0].sprite.numlumps;
+        (popup() || background.numlumps) && fonts[0].sprite.numlumps;
 }
 
 bool M_Init(app_t *app, const char *data_root) {
@@ -711,6 +805,23 @@ void DC_OpenQuitDialog(app_t *app) {
     app->selection_rect = (irect_t){0};
 }
 
+static void open_popup(app_t *app, int next, int focus) {
+    if (!initialized || menuactive) return;
+    if (!load_screen(next)) { menuerror = true; app->running = false; return; }
+    menuactive = inlevel = true;
+    menu.owner = app;
+    menu.itemOn = focus;
+    app->dragging_select = false;
+    app->selection_rect = (irect_t){0};
+}
+
+void DC_OpenOptions(app_t *app) { open_popup(app, OPTIONS, 56); }
+void DC_OpenObjectives(app_t *app) { open_popup(app, OBJECTIVES, 56); }
+void DC_OpenSave(app_t *app) {
+    if (!netgame) open_popup(app, SAVE, 54);
+    else M_StartMessage("Saving is available in single-player games");
+}
+
 static bool first_mission(void) {
     char path[1024], line[256];
     M_PathJoin(path, sizeof(path), root, M_va("GAMESTAT/%sSCENE.TXT", race ? (training ? "GT" : "G") : (training ? "HT" : "H")));
@@ -750,11 +861,73 @@ static bool join_session(const char *address) {
 static void activate(app_t *app, int id) {
     bool ok = true;
     notice = NULL;
+    char sound[1024];
+    M_PathJoin(sound, sizeof(sound), root, "SOUND/BUTTON.WAV");
+    I_PlaySound(sound);
     if (page == QUIT) {
         if (id == 56) app->running = false;
         if (id == 56 || id == 57) menuactive = false;
+    } else if (page == OPTIONS) {
+        int *value = NULL, step = 1, maximum = 10, minimum = 0;
+        if (id == 40 || id == 41) { value = &editing_speed; step = 10; minimum = 10; maximum = 200; }
+        else if (id == 42 || id == 43) value = &editing.sound;
+        else if (id == 67 || id == 68) value = &editing.music;
+        else if (id == 44 || id == 45) { value = &editing.detail; maximum = 2; }
+        if (value) {
+            if ((id == 40 || id == 41) && netgame && consoleplayer) return;
+            *value += (id == 40 || id == 42 || id == 44 || id == 67) ? -step : step;
+            if (*value < minimum) *value = minimum;
+            if (*value > maximum) *value = maximum;
+            I_SetVolumes(editing.sound, editing.music);
+            option_values();
+        } else if (id == 55) {
+            I_SetVolumes(gamesettings.sound, gamesettings.music);
+            menuactive = false;
+        } else if (id == 56) {
+            if ((!netgame || consoleplayer == 0) &&
+                !G_QueueTiccmd(&(ticcmd_t){.order = TC_SPEED, .product = editing_speed})) {
+                notice = "Command queue is full; try again";
+                return;
+            }
+            gamesettings = editing;
+            I_SetVolumes(editing.sound, editing.music);
+            if (!D_SaveSettings(editing_speed)) { notice = "Cannot save settings"; M_StartMessage(notice); return; }
+            menuactive = false;
+        }
+    } else if (page == OBJECTIVES) {
+        if (id == 56) menuactive = false;
+    } else if (page == SAVE) {
+        if (id == 55) menuactive = false;
+        else if (id == 56) {
+            const char *name = items[54].text;
+            if (!*name) { notice = "Enter a save name"; M_StartMessage(notice); return; }
+            for (const char *p = name; *p; ++p)
+                if (!isalnum((unsigned char)*p) && *p != ' ' && *p != '_' && *p != '-') {
+                    notice = "Use letters, numbers, spaces, hyphens or underscores";
+                    M_StartMessage(notice);
+                    return;
+                }
+            snprintf(dc_savename, sizeof(dc_savename), "%.32s", name);
+            M_PathJoin(dc_savefile, sizeof(dc_savefile), D_UserDirectory(), M_va("%s.sav", dc_savename));
+            menuactive = false;
+        }
+    } else if (page == LOAD) {
+        if (id == 4) ok = load_screen(MAIN);
+        else if (id == 5 && items[0].value >= 0 && items[0].value < numsaves) {
+            saveentry_t *save = &saves[items[0].value];
+            dc_saveinfo_t checked;
+            if (!DC_SaveInfo(save->path, &checked)) {
+                notice = "The saved game is damaged or incompatible"; M_StartMessage(notice); return;
+            }
+            snprintf(dc_loadfile, sizeof(dc_loadfile), "%s", save->path);
+            snprintf(mapname, sizeof(mapname), "%s", checked.map);
+            if (checked.skirmish) DC_RequestSkirmish(mapname, &checked.setup);
+            menumap = mapname;
+            menuactive = false;
+        }
     } else if (page == MAIN) {
         if (id == 12) app->running = false;
+        else if (id == 2 && !netgame) ok = load_screen(LOAD);
         else if ((id == 0 || id == 1) && !netgame) {
             training = id == 1;
             race = 0;
@@ -859,6 +1032,10 @@ static void activate(app_t *app, int id) {
 
 static bool selectable(int id) {
     const menuitem_t *item = &items[id];
+    if (page == OPTIONS && netgame && consoleplayer && (id == 40 || id == 41)) return false;
+    if (page == LOAD && id == 5) return items[0].value >= 0 && items[0].value < numsaves;
+    if ((page == OBJECTIVES || page == SAVE || page == LOAD) &&
+        (item->kind == MI_LIST || item->kind == MI_SCROLLBAR)) return item->visible;
     if (page == CONNECT && waiting) return id == 1;
     if (page == CONNECT && id == 3) return !waiting;
     if (page == SESSION_NAME && id == 1) return true;
@@ -930,7 +1107,11 @@ static void refresh(void) {
 
 static void menu_escape(menu_t *screen) {
     app_t *app = screen->owner;
-    if (page == QUIT) menuactive = false;
+    if (popup()) {
+        if (page == OPTIONS) I_SetVolumes(gamesettings.sound, gamesettings.music);
+        menuactive = false;
+    }
+    else if (page == LOAD) { if (!load_screen(MAIN)) { menuerror = true; app->running = false; } }
     else if (page == SESSION_NAME) {
         if (!load_screen(NETWORK)) { menuerror = true; app->running = false; }
     } else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
@@ -941,6 +1122,10 @@ static void menu_escape(menu_t *screen) {
 static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
     app_t *app = screen->owner;
     int id = (int)(item - items);
+    if (action == MA_CHANGE && page == SAVE && id == 50) {
+        snprintf(items[54].text, sizeof(items[54].text), "%s", save_row(item, item->value));
+        return;
+    }
     if (action == MA_CHANGE && item->kind == MI_TEXTFIELD) {
         if (page == SESSION_NAME && id == 1) snprintf(session_name, sizeof(session_name), "%s", item->text);
         else if (page == CONNECT && id == 3 && !waiting)
@@ -971,7 +1156,8 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) 
         if (page == SETUP && id == 5) id = training ? 2 : 3;
         else if (page == SESSION_NAME && id == 1) id = 0;
         else if (page == CONNECT && id == 3) id = 0;
-        else if (page == BROWSE && id == 0) id = 5;
+        else if ((page == BROWSE || page == LOAD) && id == 0) id = 5;
+        else if (page == SAVE && (id == 54 || id == 50)) id = 56;
     }
     activate(app, id);
 }

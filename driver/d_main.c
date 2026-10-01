@@ -1,5 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#ifdef RTS_GAME_DARK_COLONY
+#include "dark-colony.h"
+#endif
 
 #include <ctype.h>
 #include <math.h>
@@ -9,7 +12,7 @@
 #include <strings.h>
 #include <unistd.h>
 
-static const mobjtype_t *actor_type_by_id(uint16_t type_id) {
+static const mobjtype_t *driver_actor_type_by_id(uint16_t type_id) {
     const mobjtype_t *types = (const mobjtype_t *)actor_types;
     if (!types) return NULL;
     for (int i = 0; i < num_actor_types; ++i) {
@@ -19,7 +22,7 @@ static const mobjtype_t *actor_type_by_id(uint16_t type_id) {
 }
 
 static const mobjtype_t *actor_type_for_unit(const mobj_t *unit) {
-    const mobjtype_t *type = actor_type_by_id(unit ? unit->type_id : 0);
+    const mobjtype_t *type = driver_actor_type_by_id(unit ? unit->type_id : 0);
     if (type) return type;
     const mobjtype_t *types = (const mobjtype_t *)actor_types;
     if (!types || !unit) return NULL;
@@ -42,7 +45,7 @@ static void apply_actor_defaults(mobj_t *const *units, int count) {
 static bool spawn_debug_enemy_unit(const level_t *map, const app_t *app,
                                    int sx, int sy) {
     if (!map || !app) return false;
-    const mobjtype_t *type = actor_type_by_id(g_debug_enemy_type);
+    const mobjtype_t *type = driver_actor_type_by_id(g_debug_enemy_type);
     const mobjtype_t *types = (const mobjtype_t *)actor_types;
     if (!type && num_actor_types > 0) type = &types[0];
     if (!type) return false;
@@ -118,6 +121,7 @@ int main(int argc, char **argv) {
     G_InitGame();
     /* A game may default above retail speed; --speed still overrides it. */
     if (gameinfo->game_speed) D_SetGameSpeed(gameinfo->game_speed);
+    D_LoadSettings();
     if (!I_InitNetwork(&argc, argv)) {
         fprintf(stderr, "%s\n", neterror);
         return 1;
@@ -341,6 +345,17 @@ load_level:
     if (!custom_ui && gameui && !SB_Init(&st, data_root, gameui))
         fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
+#ifdef RTS_GAME_DARK_COLONY
+    if (dc_loadfile[0]) {
+        if (!DC_LoadGame(dc_loadfile, &app, &ai, &hud_text)) {
+            HU_PushMessage(&hud_text, "Could not restore saved game", 5000);
+        }
+        dc_loadfile[0] = '\0';
+        P_FreeMobjList(&objects);
+        objects = P_ListMobjs(); units = objects.items; unit_count = objects.count;
+        R_InitSprites(data_root, &level, units, unit_count, &decoration_sprites);
+    }
+#endif
     if (check_only || screenshot_only) {
         if (screenshot_only) {
             app.ticks_ms = SDL_GetTicks();
@@ -468,6 +483,13 @@ load_level:
                          &decoration_sprites, gameinfo, &e);
         }
         if (menumap || !app.running) break;
+#ifdef RTS_GAME_DARK_COLONY
+        if (dc_savefile[0]) {
+            bool saved = DC_SaveGame(dc_savefile, dc_savename, &app, &ai, &hud_text);
+            HU_PushMessage(&hud_text, saved ? "Game saved" : "Could not save game", 5000);
+            dc_savefile[0] = '\0';
+        }
+#endif
         if (!menuactive) G_CameraMove(&app, frame_dt);
         M_Ticker();
         R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
@@ -529,6 +551,7 @@ load_level:
             }
 
             HU_Ticker(&hud_text, FIXED_DT);
+            HU_Ticker(&chat_text, FIXED_DT);
             SB_Ticker(&st);
             G_CustomUITicker(custom_ui);
             ++gametic;
@@ -598,6 +621,7 @@ load_level:
     if (neterror[0]) goto network_failure;
     if (app.running && menumap && !exit_code) goto load_level;
     M_Shutdown();
+    I_ShutdownSound();
     renderer_destroy(&renderer);
     return exit_code;
 network_failure:

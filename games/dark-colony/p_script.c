@@ -151,6 +151,35 @@ struct ScriptState {
     int state_arrays[8][128];
 };
 
+const void *DC_MissionArchive(size_t *size) {
+    const Mission *mission = level.mission;
+    *size = mission && mission->script ? sizeof(ScriptState) : 0;
+    return *size ? mission->script : NULL;
+}
+
+bool DC_ValidateMissionArchive(const void *data, size_t size) {
+    if (!size) return true;
+    if (size != sizeof(ScriptState)) return false;
+    ScriptState copy;
+    memcpy(&copy, data, sizeof(copy));
+    if (copy.message_count < 0 || copy.message_count > 64 || copy.block_count < 0 ||
+        copy.block_count > 64 || copy.city_slot_count < 0 || copy.city_slot_count > 32 ||
+        (unsigned)copy.state > MISSION_ALLY_LOST) return false;
+    for (int i = 0; i < copy.message_count; ++i)
+        if (!memchr(copy.messages[i].text, 0, sizeof(copy.messages[i].text))) return false;
+    for (int i = 0; i < copy.block_count; ++i)
+        if (copy.blocks[i].command_count < 0 || copy.blocks[i].command_count > 32) return false;
+    return true;
+}
+
+bool DC_RestoreMission(const void *data, size_t size) {
+    Mission *mission = level.mission;
+    if (!size) return !mission;
+    if (!mission || !mission->script || !DC_ValidateMissionArchive(data, size)) return false;
+    memcpy(mission->script, data, size);
+    return true;
+}
+
 static const char *script_message(const ScriptState *script, int id) {
     if (!script) return NULL;
     for (int i = 0; i < script->message_count; ++i)

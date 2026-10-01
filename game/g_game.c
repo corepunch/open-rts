@@ -577,6 +577,7 @@ bool rts_game_model_tick(RtsGameModel *model, float dt) {
 
     refresh_model_objects(model);
     HU_Ticker(&model->hud, dt);
+    HU_Ticker(&chat_text, dt);
     for (int i = 0; i < old_count; ++i) {
         int now = -1;
         for (int j = 0; j < model->objects.count; ++j)

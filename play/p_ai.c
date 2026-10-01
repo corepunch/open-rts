@@ -182,8 +182,12 @@ static void ai_tick_harvesting(AiContext *ctx, AiTeamState *team, int owner,
 static bool ai_is_ally(const level_t *map, const AiTeamState *team,
                        int owner, const mobj_t *other) {
     if (!map->player_teams) return P_AreAllegiancesAllied(other->allegiance, team->allegiance);
+    const uint32_t *allies = map->sight.allies;
+#ifdef RTS_GAME_DARK_COLONY
+    allies = map->peace;
+#endif
     return other->owner == owner || (other->team < 8 &&
-        (map->sight.allies[owner] & (UINT32_C(0x40000000) >> other->team)));
+        (allies[owner] & (UINT32_C(0x40000000) >> other->team)));
 }
 
 static void ai_tick_defense(AiContext *ctx, AiTeamState *team, int owner,

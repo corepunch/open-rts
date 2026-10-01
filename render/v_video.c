@@ -617,12 +617,12 @@ void V_DrawTextScaled(ivec2_t at, const bitmapfont_t *font, const char *text,
     draw_glyphs(at, font, text, remap, scale);
 }
 
-void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
-                       const uint8_t *remap, int scroll_px) {
-    if (!font || !text || box.w <= 0) return;
+static int wrapped_text(irect_t box, const bitmapfont_t *font, const char *text,
+                        const uint8_t *remap, int scroll_px, bool draw) {
+    if (!font || !text || box.w <= 0) return 0;
     irect_t previous = V_GetClip();
     bool had_clip = clip_set;
-    V_SetClip(box);
+    if (draw) V_SetClip(box);
     char line[256];
     int line_len = 0;
     int cy = box.y - scroll_px;
@@ -631,7 +631,7 @@ void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
     while (*word) {
         while (*word == ' ' || *word == '\r' || *word == '\n') {
             if (*word == '\n' && line_len > 0) {
-                V_DrawText((ivec2_t){box.x, cy}, font, line, remap);
+                if (draw) V_DrawText((ivec2_t){box.x, cy}, font, line, remap);
                 cy += line_h;
                 line[0] = '\0';
                 line_len = 0;
@@ -649,7 +649,7 @@ void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
         else
             snprintf(candidate, sizeof(candidate), "%.*s", (int)word_len, word);
         if (line_len > 0 && V_TextWidth(font, candidate) > box.w) {
-            V_DrawText((ivec2_t){box.x, cy}, font, line, remap);
+            if (draw) V_DrawText((ivec2_t){box.x, cy}, font, line, remap);
             cy += line_h;
             snprintf(line, sizeof(line), "%.*s", (int)word_len, word);
         } else {
@@ -658,9 +658,24 @@ void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
         line_len = (int)strlen(line);
         word = end;
     }
-    if (line_len > 0) V_DrawText((ivec2_t){box.x, cy}, font, line, remap);
-    if (had_clip) V_SetClip(previous);
-    else V_SetClip((irect_t){0});
+    if (line_len > 0) {
+        if (draw) V_DrawText((ivec2_t){box.x, cy}, font, line, remap);
+        cy += line_h;
+    }
+    if (draw) {
+        if (had_clip) V_SetClip(previous);
+        else V_SetClip((irect_t){0});
+    }
+    return cy - box.y + scroll_px;
+}
+
+void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
+                       const uint8_t *remap, int scroll_px) {
+    wrapped_text(box, font, text, remap, scroll_px, true);
+}
+
+int V_TextWrappedHeight(int width, const bitmapfont_t *font, const char *text) {
+    return wrapped_text((irect_t){.w = width}, font, text, NULL, 0, false);
 }
 
 /* Five-column glyphs for labels and prices; no game font is required. */

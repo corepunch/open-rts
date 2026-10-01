@@ -636,6 +636,8 @@ void G_InitGame(void) {
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
     if (!load_dark_colony_map(path, out)) return false;
+    snprintf(out->map_path, sizeof(out->map_path), "%s", path);
+    DC_InitAlliances(out);
     char root[1024];
     snprintf(root, sizeof(root), "%s", path);
     char *scenario = strstr(root, "/SCENARIO/");

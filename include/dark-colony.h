@@ -11,6 +11,9 @@ struct level_s;
 struct mobjtype_s;
 struct app_s;
 void DC_OpenQuitDialog(struct app_s *app);
+void DC_OpenOptions(struct app_s *app);
+void DC_OpenObjectives(struct app_s *app);
+void DC_OpenSave(struct app_s *app);
 /* Native screen-script frames and brightness to engine item looks. */
 void DC_ControlLooks(menuitem_t *item, int normal, int pushed, int remap,
                      int bright_pushed, int bright_highlight);
@@ -117,6 +120,18 @@ void DC_RequestSkirmish(const char *map, const dc_skirmish_t *setup);
 bool DC_TakeSkirmish(const char *map, dc_skirmish_t *setup);
 struct level_s;
 const dc_skirmish_t *DC_LevelSkirmish(const struct level_s *map);
+bool DC_PlayerActive(int player);
+const char *DC_PlayerName(int player);
+void DC_SetAlliance(int player, int other, int channel, bool offer);
+void DC_InitAlliances(level_t *map);
+const void *DC_MissionArchive(size_t *size);
+bool DC_ValidateMissionArchive(const void *data, size_t size);
+bool DC_RestoreMission(const void *data, size_t size);
+typedef struct { char name[33], map[1024]; dc_skirmish_t setup; bool skirmish; } dc_saveinfo_t;
+bool DC_SaveInfo(const char *path, dc_saveinfo_t *info);
+bool DC_SaveGame(const char *path, const char *name, const app_t *app, const AiContext *ai, const hudtext_t *hud);
+bool DC_LoadGame(const char *path, app_t *app, AiContext *ai, hudtext_t *hud);
+extern char dc_savefile[1200], dc_loadfile[1200], dc_savename[33];
 /* Applies the AI+ credit multiplier to the level's income_scale. */
 void DC_ApplyAiIncome(struct level_s *map, const dc_skirmish_t *setup);
 

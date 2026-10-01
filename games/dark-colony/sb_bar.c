@@ -26,7 +26,11 @@ typedef struct {
     char labels[NUMCONTROLS][40]; /* textmsg: shown while the pointer is on the control */
     bitmapfont_t font;
     spritesheet_t background;
+    char button_sound[1024];
     int tab;
+    bool allies;
+    uint8_t recipients;
+    bool chatting;
     int targeting; /* control whose order waits for a target on the map */
     waypoints_t waypoints;
     /* What the routines and ownerdraws act on, set by each call. */
@@ -176,17 +180,31 @@ static void finish_waypoints(dc_hud_t *hud) {
 static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
     dc_hud_t *hud = menu->owner;
     if (action != MA_ACTIVATE) return;
+    I_PlaySound(hud->button_sound);
     int id = (int)(item - hud->items) - FIRST_CONTROL;
+    if (id == 204 && action == MA_ACTIVATE) {
+        ticcmd_t chat = {.order = TC_CHAT, .target = hud->recipients | (1u << consoleplayer)};
+        snprintf(chat.text, sizeof(chat.text), "%s", item->text);
+        if (!chat.text[0] || G_QueueTiccmd(&chat)) {
+            hud->chatting = false;
+            hud->menu.modal = false;
+            SDL_StopTextInput();
+        }
+        return;
+    }
     switch (id) {
     case 0: case 1: case 2:
         hud->tab = id;
+        hud->allies = false;
         hud->targeting = 0;
         break;
     case 19: G_QueueTiccmd(&(ticcmd_t){.order = TC_SUBMIT}); break;
     case 62: DC_OpenQuitDialog(hud->app); break;
-    case 64: M_StartControlPanel(hud->app); break;
+    case 64: DC_OpenOptions(hud->app); break;
+    case 63: DC_OpenSave(hud->app); break;
+    case 151: hud->allies = true; break;
+    case 202: DC_OpenObjectives(hud->app); break;
     case 196: G_QueueTiccmd(&(ticcmd_t){.order = TC_PAUSE}); break;
-    case 63: case 151: case 202: break;
     case 150: case 138:
         G_SelectedTiccmd(TC_STOP, hud->units, hud->unit_count, (fvec2_t){0}, 0);
         break;
@@ -197,6 +215,18 @@ static void command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         G_SelectedTiccmd(TC_DEPLOY, hud->units, hud->unit_count, (fvec2_t){0}, 0);
         break;
     default:
+        if (id >= 154 && id <= 195) {
+            int row = (id - 154) / 6, column = (id - 154) % 6;
+            int player = row >= consoleplayer ? row + 1 : row;
+            if (!DC_PlayerActive(player)) break;
+            if (column < 2) {
+                bool offer = !(level.alliance_offers[column][consoleplayer] & (1u << player));
+                G_QueueTiccmd(&(ticcmd_t){.order = column ? TC_SHARE_SIGHT : TC_ALLY,
+                    .target = player, .product = offer});
+            } else if (column == 2) hud->recipients ^= 1u << player;
+            else if (column == 4) G_QueueTiccmd(&(ticcmd_t){.order = TC_GIVE, .target = player});
+            break;
+        }
         hud->targeting = id;
         hud->waypoints = (waypoints_t){0};
     }
@@ -362,7 +392,39 @@ static void refresh(dc_hud_t *hud) {
     for (int id = 3; id < NUMCONTROLS; ++id) control(hud, id)->visible = false;
     control(hud, 3 + hud->tab)->visible = true; /* The tab strip's title picture. */
     control(hud, 19)->visible = control(hud, 75)->visible = true;
-    if (hud->tab == 2) {
+    control(hud, 79)->visible = true;
+    int focus = hud->menu.itemOn;
+    const char *description = focus >= 0 && focus < NUMITEMS ? hud->items[focus].userdata : NULL;
+    if (description && *description)
+        snprintf(control(hud, 79)->text, sizeof(control(hud, 79)->text), "%s", description);
+    if (chat_text.count) {
+        control(hud, 203)->visible = true;
+        snprintf(control(hud, 203)->text, sizeof(control(hud, 203)->text), "%.72s",
+                 chat_text.messages[chat_text.count - 1].text);
+    }
+    control(hud, 204)->visible = hud->chatting;
+    if (hud->allies) {
+        control(hud, 152)->visible = true;
+        for (int row = 0; row < 7; ++row) {
+            int player = row >= consoleplayer ? row + 1 : row;
+            if (!DC_PlayerActive(player)) continue;
+            int base = 154 + row * 6;
+            for (int col = 0; col < 6; ++col) control(hud, base + col)->visible = true;
+            snprintf(control(hud, base + 3)->text, sizeof(control(hud, base + 3)->text),
+                     "%.16s", DC_PlayerName(player));
+            for (int col = 0; col < 2; ++col) {
+                bool sent = level.alliance_offers[col][consoleplayer] & (1u << player);
+                bool received = level.alliance_offers[col][player] & (1u << consoleplayer);
+                int cell = sent && received ? 119 : sent || received ? 120 : 124;
+                for (int state = 0; state < MS_STATES; ++state)
+                    control(hud, base + col)->look[state].cell = cell;
+            }
+            control(hud, base + 2)->value = !!(hud->recipients & (1u << player));
+            for (int state = 0; state < MS_STATES; ++state)
+                control(hud, base + 5)->look[state].palette = 16 * 8 +
+                    (hud->map->player_teams ? hud->map->player_colors[player] : player);
+        }
+    } else if (hud->tab == 2) {
         for (int i = 0; i < 6; ++i) control(hud, options[i])->visible = true;
     } else if (hud->product_mode) {
         int money = hud->map->player_resources[consoleplayer][0];
@@ -416,18 +478,21 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
                    &rect.x, &rect.y, &rect.w, &rect.h, &normal, &pushed) < 7 ||
             id < 0 || id >= NUMCONTROLS) continue;
         bool count = !strcmp(kind, "count"), check = !strcmp(kind, "checkb");
+        bool text = !strcmp(kind, "in_text");
         bool picture = !strcmp(kind, "picture") || !strcmp(kind, "scount");
-        if (!count && !check && !picture && strcmp(kind, "pushb")) continue;
+        if (!count && !check && !picture && !text && strcmp(kind, "pushb")) continue;
+        if (text) { rect.w *= hud->font.glyph_size.w + 1; rect.h *= hud->font.line_h; }
         menuitem_t *item = control(hud, id);
         *item = (menuitem_t){
-            .kind = picture ? MI_STATIC : check ? MI_CHECK : MI_BUTTON,
+            .kind = picture || text ? MI_STATIC : check ? MI_CHECK : MI_BUTTON,
             .rect = ui_rect(app, rect.x, rect.y, rect.w, rect.h),
             .routine = count ? purchase : command,
             .font = &hud->font,
             .ink = 0xffe7c25eu,
+            .userdata = description >= 0 && description < NUMCONTROLS ? hud->labels[description] : NULL,
         };
-        frames[id].normal = normal;
-        frames[id].pushed = pushed;
+        frames[id].normal = text ? -1 : normal;
+        frames[id].pushed = text ? -1 : pushed;
         /* count N ... offset X Y: where the reserved quantity is written. */
         const char *offset = count ? strstr(line, "offset") : NULL;
         if (offset) sscanf(offset, "offset %d %d", &item->inset.x, &item->inset.y);
@@ -436,7 +501,14 @@ static bool load_script(dc_hud_t *hud, const app_t *app, const char *data_root) 
     fclose(file);
     for (int id = 0; id < NUMCONTROLS; ++id)
         DC_ControlLooks(control(hud, id), frames[id].normal, frames[id].pushed, 7,
-                        bright_pushed, bright_highlight);
+                            bright_pushed, bright_highlight);
+    for (int id = 0; id < NUMCONTROLS; ++id)
+        if (id == 79 || id == 203 || id == 204 || (id >= 157 && id <= 193 && (id - 157) % 6 == 0))
+            for (int state = 0; state < MS_STATES; ++state)
+                control(hud, id)->look[state].palette = 16 * 8 + (id == 79 || id >= 203 ? 2 : 4);
+    control(hud, 204)->kind = MI_TEXTFIELD;
+    control(hud, 204)->maxchars = 72;
+    strcpy(control(hud, 79)->text, hud->labels[0]);
     return ok;
 }
 
@@ -444,6 +516,7 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
     if (!app || !data_root) return NULL;
     dc_hud_t *hud = calloc(1, sizeof(*hud));
     if (!hud) return NULL;
+    hud->recipients = UINT8_MAX; /* 0x41d391..0x41d3a8: all seven chat checks start set. */
     char path[1024];
     M_PathJoin(path, sizeof(path), data_root, "INTRFACE/INTRFACE.GIF");
     if (!HU_LoadFont(data_root, &hud->font) || !W_LoadGIFTexture(path, &hud->background) ||
@@ -452,6 +525,7 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
         DC_SB_Shutdown(hud);
         return NULL;
     }
+    M_PathJoin(hud->button_sound, sizeof(hud->button_sound), data_root, "SOUND/BUTTON.WAV");
     hud->menu = (menu_t){.items = hud->items, .numitems = NUMITEMS, .itemOn = -1, .owner = hud};
     /* The sidebar column keeps its 480 rows at the top-right corner; a taller
      * screen is black under it, not world. */
@@ -471,8 +545,10 @@ void *DC_SB_Init(app_t *app, const char *data_root) {
     for (int id = 0; id < 3; ++id) control(hud, id)->visible = true;
     static const struct { int id; SDL_Keycode key; } hotkeys[] = {
         {150, SDLK_s}, {33, SDLK_m}, {35, SDLK_a}, {36, SDLK_w}, {19, SDLK_SPACE}, {196, SDLK_t},
+        {62, SDLK_q}, {63, SDLK_F11}, {64, SDLK_o}, {202, SDLK_j},
     };
-    for (int i = 0; i < 6; ++i) control(hud, hotkeys[i].id)->hotkey = hotkeys[i].key;
+    for (size_t i = 0; i < sizeof(hotkeys) / sizeof(*hotkeys); ++i)
+        control(hud, hotkeys[i].id)->hotkey = hotkeys[i].key;
     /* Move Only and Move & Attack are one choice; units start in the second. */
     control(hud, 33)->group = control(hud, 35)->group = 1;
     control(hud, 35)->value = 1;
@@ -488,9 +564,23 @@ bool DC_SB_Responder(void *sb, app_t *app, level_t *map,
     hud->units = units;
     hud->unit_count = unit_count;
     refresh(hud);
+    if (hud->chatting && e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_ESCAPE) {
+        hud->chatting = false;
+        hud->menu.modal = false;
+        SDL_StopTextInput();
+        return true;
+    }
+    if (hud->chatting) return M_MenuResponder(&hud->menu, app, e);
     if (e->type == SDL_KEYDOWN && !e->key.repeat && !(e->key.keysym.mod & (KMOD_CTRL | KMOD_ALT)) &&
         (e->key.keysym.sym == SDLK_RETURN || e->key.keysym.sym == SDLK_KP_ENTER)) {
-        if (hud->targeting == 36) finish_waypoints(hud);
+        if (hud->allies || (e->key.keysym.mod & KMOD_SHIFT)) {
+            hud->chatting = true;
+            hud->menu.modal = true;
+            control(hud, 204)->visible = control(hud, 204)->enabled = true;
+            control(hud, 204)->text[0] = '\0';
+            hud->menu.itemOn = FIRST_CONTROL + 204;
+            SDL_StartTextInput();
+        } else if (hud->targeting == 36) finish_waypoints(hud);
         else G_SelectedTiccmd(TC_DEPLOY, units, unit_count, (fvec2_t){0}, 0);
         return true;
     }

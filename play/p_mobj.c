@@ -7,11 +7,21 @@
 
 bool P_IsAlly(const mobj_t *a, const mobj_t *b) {
     if (!a || !b) return false;
+#ifdef RTS_GAME_DARK_COLONY
+    if (level.native_data && a->team < 8 && b->team < 8 && level.peace[a->team]) {
+        if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL) return false;
+        return (level.peace[a->team] & (UINT32_C(0x40000000) >> b->team)) != 0;
+    }
+#endif
     if (!netgame && !level.player_teams) return P_AreAllegiancesAllied(a->allegiance, b->allegiance);
     if (a->allegiance == ALLEGIANCE_NEUTRAL || b->allegiance == ALLEGIANCE_NEUTRAL)
         return false;
+    const uint32_t *allies = level.sight.allies;
+#ifdef RTS_GAME_DARK_COLONY
+    allies = level.peace;
+#endif
     return a->owner == b->owner || (a->team < 8 && b->team < 8 &&
-        (level.sight.allies[a->team] & (UINT32_C(0x40000000) >> b->team)));
+        (allies[a->team] & (UINT32_C(0x40000000) >> b->team)));
 }
 
 mobj_t *P_MobjById(uint32_t id) {

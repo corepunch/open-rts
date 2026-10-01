@@ -89,7 +89,7 @@ int main(void) {
     assert(M_Responder(&app, &resume, true));
     assert(!menuactive && app.running);
     click(ui,&app,64,SDL_BUTTON_LEFT);
-    assert(menuactive && app.running); /* Current Options fallback: main menu. */
+    assert(menuactive && app.running); /* Native LOPTE popup. */
     assert(M_Responder(&app, &resume, true));
     assert(!menuactive && app.running);
     click(ui,&app,196,SDL_BUTTON_LEFT);
@@ -151,6 +151,14 @@ int main(void) {
         V_ReadPixels(surface->pixels, surface->pitch);
         assert(!SDL_SaveBMP(surface, options_screenshot));
     }
+    const char *allies_screenshot = getenv("OPEN_RTS_HUD_ALLIES_SCREENSHOT");
+    if (allies_screenshot) {
+        click(ui, &tall, 2, SDL_BUTTON_LEFT);
+        click(ui, &tall, 151, SDL_BUTTON_LEFT);
+        G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+        V_ReadPixels(surface->pixels, surface->pitch);
+        assert(!SDL_SaveBMP(surface, allies_screenshot));
+    }
     P_FreeMobjList(&objects);
     const uint8_t *pixels = screens[0].pixels;
     const char *screenshot = getenv("OPEN_RTS_HUD_SCREENSHOT");
@@ -175,8 +183,8 @@ int main(void) {
     R_FreeSprite(&fallback);
     R_FreeTileset(&tiles);
     V_FreeScreen();
-    SDL_FreeSurface(surface); SDL_Quit();
+    SDL_FreeSurface(surface); I_ShutdownSound(); SDL_Quit();
     rts_game_model_destroy(model);
-    puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, quit, Options fallback, pause, orders and waypoints");
+    puts("PASS: native HUD tabs, reserved purchases/refunds/Build, research, quit, Options popup, pause, orders and waypoints");
     return 0;
 }

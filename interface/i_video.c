@@ -58,6 +58,7 @@ bool I_InitGraphics(app_t *app, int window_width, int window_height, bool hidden
 }
 
 void I_ShutdownGraphics(void) {
+    I_ShutdownSound();
     R_FreeSpriteBuffer();
     if (video_texture) SDL_DestroyTexture(video_texture);
     if (video_renderer) SDL_DestroyRenderer(video_renderer);

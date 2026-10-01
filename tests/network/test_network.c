@@ -392,6 +392,9 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         assert(G_PathOrder(actors,MAXPLAYERS,&path));
     }
     result_t result = {0};
+    assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_CHAT,.target=(1u << players)-1,.text="network chat"}));
+    if (!player && mode != SPEED_MISMATCH && mode != MISMATCH)
+        assert(G_QueueTiccmd(&(ticcmd_t){.order=TC_SPEED,.product=130}));
     int end = mode == MISMATCH || mode == SPEED_MISMATCH || mode == DESYNC || mode == MODEL || mode == HOSTED_MAP || mode == MENU_HOSTED ? 90 : TESTTICS;
     if (mode == QUIT && player == 1) end = 40;
     bool trained = false;
@@ -426,6 +429,10 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
         SDL_Delay(player + 1);
     }
     result.tics = gametic;
+    if (mode != SPEED_MISMATCH && mode != MISMATCH && mode != DESYNC && mode != QUIT) {
+        assert(game_speed == 130);
+        if (!model) assert(chat_text.count > 0 && strstr(chat_text.messages[0].text,"network chat"));
+    }
     result.failed = neterror[0] != '\0';
     if (neterror[0]) fprintf(stderr, "peer %d: %s\n", player + 1, neterror);
     if (mode != MISMATCH && mode != SPEED_MISMATCH && mode != DESYNC) assert(gametic == end && !result.failed);

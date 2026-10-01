@@ -1,4 +1,5 @@
 #include "engine.h"
+#include <limits.h>
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
@@ -7,9 +8,11 @@ enum { MAXPENDINGCOMMANDS = 64 };
 static ticcmd_t pending[MAXPENDINGCOMMANDS];
 static unsigned commandhead, commandcount;
 bool paused;
+hudtext_t chat_text;
 
 void G_ClearTiccmds(void) {
     commandhead = commandcount = 0;
+    chat_text = (hudtext_t){0};
 }
 
 bool G_QueueTiccmd(const ticcmd_t *cmd) {
@@ -80,7 +83,33 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
             if (!L_Contains(&level, cmd->path.points[i].x, cmd->path.points[i].y)) return;
     }
     if (cmd->order == TC_PAUSE) { paused = !paused; return; }
+    if (cmd->order == TC_CHAT) {
+        if (cmd->text[0] && memchr(cmd->text, 0, sizeof(cmd->text)) &&
+            (cmd->target & (1u << consoleplayer))) {
+            char message[256];
+            snprintf(message, sizeof(message), "Player %d: %s", player + 1, cmd->text);
+            HU_PushMessage(&chat_text, message, 10000);
+        }
+        return;
+    }
+    if (cmd->order == TC_SPEED) {
+        if (!netgame || player == 0) D_SetGameSpeed(cmd->product);
+        return;
+    }
 #ifdef RTS_GAME_DARK_COLONY
+    if (cmd->order == TC_ALLY || cmd->order == TC_SHARE_SIGHT) {
+        DC_SetAlliance(player, cmd->target, cmd->order == TC_SHARE_SIGHT, cmd->product != 0);
+        return;
+    }
+    if (cmd->order == TC_GIVE) {
+        if (cmd->target < 8 && cmd->target != (unsigned)player &&
+            DC_PlayerActive(cmd->target) && level.player_resources[player][0] > 1000 &&
+            level.player_resources[cmd->target][0] <= INT_MAX - 1000) {
+            level.player_resources[player][0] -= 1000;
+            level.player_resources[cmd->target][0] += 1000;
+        }
+        return;
+    }
     if (cmd->order == TC_PURCHASE) {
         DC_SelectPurchase(player, cmd->product, cmd->target != 0);
         return;
@@ -204,10 +233,14 @@ static uint32_t hash_value(uint32_t hash, uint32_t value) {
 uint32_t G_Consistency(void) {
     uint32_t hash = UINT32_C(2166136261);
 #define HASH(v) hash = hash_value(hash, (uint32_t)(v))
-    HASH(leveltime); HASH(paused); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
+    HASH(leveltime); HASH(paused); HASH(game_speed); HASH(level.random_index); HASH(level.next_mobj_id); HASH(level.next_move_order_id);
     for (int p = 0; p < RTS_MODEL_MAX_PLAYERS; ++p)
         for (int r = 0; r < RTS_MAX_RESOURCES; ++r) HASH(level.player_resources[p][r]);
 #ifdef RTS_GAME_DARK_COLONY
+    for (int p = 0; p < 8; ++p) {
+        HASH(level.peace[p]); HASH(level.sight.allies[p]);
+        HASH(level.alliance_offers[0][p]); HASH(level.alliance_offers[1][p]);
+    }
     for (int owner = 0; owner < 8; ++owner) HASH(level.exo_income[owner]);
     for (int owner = 0; owner < 8; ++owner)
         for (int row = 0; row < 110; ++row) {

@@ -397,6 +397,7 @@ typedef struct {
 } terrainspeeds_t;
 
 typedef struct level_s {
+    char map_path[1024];
     int width;
     int height;
     uint16_t *tile_ids;
@@ -432,6 +433,8 @@ typedef struct level_s {
     void (*destroy_mission)(void *);
     struct nav_s *nav; /* Planner cache (p_nav.c); validates itself against blocked[]. */
 #ifdef RTS_GAME_DARK_COLONY
+    uint8_t alliance_offers[2][8];
+    uint32_t peace[8];
     struct dc_weapons_s *weapons;
     struct { uint8_t weapon, armor; } upgrades[106][8];
     struct { uint8_t selected, queued; } purchases[8][110]; /* Native DEPEND rows. */
@@ -829,8 +832,8 @@ void A_Attack(mobj_t *unit);
 typedef enum {
     TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
-    TC_PATH,
-    TC_MAX = TC_PATH
+    TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT,
+    TC_MAX = TC_CHAT
 } ticorder_t;
 
 typedef struct {
@@ -842,6 +845,7 @@ typedef struct {
     unsigned count;
     uint32_t units[MAXCOMMANDUNITS];
     waypoints_t path; /* TC_PATH installs the complete route atomically. */
+    char text[128]; /* TC_CHAT: bounded UTF-8 message, target is recipient mask. */
 } ticcmd_t;
 
 extern bool paused;
@@ -888,6 +892,14 @@ extern bool netgame, netready, nodeingame[MAXNETNODES], playeringame[MAXPLAYERS]
 extern bool netactive;
 extern int consoleplayer, gametic, maketic, ticdup;
 extern int game_speed;
+typedef struct { int sound, music, detail; } gamesettings_t;
+extern gamesettings_t gamesettings;
+const char *D_UserDirectory(void);
+void D_LoadSettings(void);
+bool D_SaveSettings(int speed);
+void I_SetVolumes(int sound, int music);
+void I_PlaySound(const char *path);
+void I_ShutdownSound(void);
 extern int nettics[MAXNETNODES];
 extern ticcmd_t netcmds[MAXPLAYERS][BACKUPTICS];
 extern char neterror[256];
@@ -1086,6 +1098,7 @@ typedef struct hudtext_s {
     HudMessage messages[RTS_MAX_HUD_MESSAGES];
     int count;
 } hudtext_t;
+extern hudtext_t chat_text;
 
 
 #define SCREENWIDTH  640
@@ -1150,6 +1163,7 @@ void V_DrawTextScaled(ivec2_t at, const bitmapfont_t *font, const char *text,
                       const uint8_t *remap, int scale);
 void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
                        const uint8_t *remap, int scroll_px);
+int V_TextWrappedHeight(int width, const bitmapfont_t *font, const char *text);
 
 bool R_DrawIndexed(const uint8_t *indices, isize2_t size, const uint32_t palette[256],
                    const irect_t *src, const irect_t *dst, uint32_t flags);

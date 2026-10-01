@@ -17,6 +17,7 @@ static void hit(mobj_t *building, int remaining_hp) {
     mobj_t attacker = {0};
     P_ApplyActorTypeDefaults(&attacker, actor_type_by_id(MT_TROOPER));
     attacker.allegiance = ALLEGIANCE_ENEMY;
+    attacker.owner = attacker.team = 2; /* Human02's team 1 allies with team 0; team 2 does not. */
     attacker.attack.target = building;
     attacker.core.position = building->core.position;
     building->hp = remaining_hp + attacker.info->attack.damage;

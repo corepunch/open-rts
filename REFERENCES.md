@@ -1617,3 +1617,12 @@ and the existing retail dispatch findings identify their controls; a headless
 native-asset render and sidebar input tests distinguish implemented actions
 from visible placeholders. No external URL was supplied or web source used.
 [Verification and remaining gaps](docs/DC_EXE_FINDINGS.md#options-and-allies-screenshot-verification-2026-10-01).
+
+The follow-up implementation traced the cached r2/r2ghidra disassembly against
+the same DC.EXE fingerprint, checked 137,889 complete instruction byte strings
+against PE section bytes with zero mismatches, and implemented the native
+LOPTE/LOBJE/LSGE/LOADGE dialogs and MAINE group 153. No external web sources
+were used. Doom's local `reference/DOOM/p_saveg.c` (P_ArchiveThinkers and
+P_UnArchiveThinkers) supplies the thinker archive/restore ownership model;
+RTS object references are restored by stable IDs rather than discarded.
+[Native menu actions and engine saves](docs/DC_EXE_FINDINGS.md#native-sidebar-dialogs-and-diplomacy-2026-10-01).

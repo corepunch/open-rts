@@ -83,7 +83,27 @@ Dark Colony opens its native main menu. Choose **New Campaign**, select Human
 or Gray, enter a leader name, then follow **Start Campaign → Next → To Battle**.
 Training follows the same setup screen. Escape opens the menu during play and
 resumes from its main page; single-player simulation pauses while it is open.
-Other main-menu branches are displayed but are not implemented yet.
+**Load Game** restores engine saves made from the in-game Save dialog. The
+encyclopedia and Play Intro branches remain outside the implemented front end.
+
+The third sidebar tab provides Quit (Q), Save (F11), Options (O), Allies,
+Pause (T), and Objectives (J). Options persist speed, sound/CD volume and
+detail; Cancel restores the original sound volume. In network games the host
+changes speed through synchronized commands. Native button sounds play from
+`SOUND/BUTTON.WAV`; the installed retail data contains no CD music tracks.
+
+Allies shows active players in their original slots. Peace and shared vision
+are separate reciprocal offers: both players must agree. The rightmost button
+transfers 1000 credits when the sender has more than 1000. Checkboxes choose
+chat recipients; Enter in Allies (or Shift+Enter elsewhere) starts chat, Enter
+sends, and Escape cancels. Selecting another tab exits Allies.
+
+Single-player saves preserve thinkers, production, resources, fog, alliances,
+AI, mission progress and camera position. Enter a name or select an existing
+save to replace it; writes are atomic. They use a versioned engine format,
+not DC.EXE's retail save format, and require the matching map/state table.
+Saves and `settings.cfg` live in SDL's per-user `open-rts/dark-colony`
+preference directory. `OPEN_RTS_USER_DIR` overrides that directory for tests.
 
 Supply a map to start directly, bypassing the menu:
 

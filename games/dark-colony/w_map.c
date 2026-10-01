@@ -195,6 +195,53 @@ int DC_PlayerRace(int owner) {
         scenario->teams[owner].race : 0;
 }
 
+bool DC_PlayerActive(int player) {
+    const ScenarioFile *scenario = level.native_data;
+    return scenario && player >= 0 && player < 8 && player < scenario->team_count &&
+        scenario->teams[player].active;
+}
+
+const char *DC_PlayerName(int player) {
+    const dc_skirmish_t *setup = DC_LevelSkirmish(&level);
+    if (setup && player >= 0 && player < 8) {
+        if (setup->players[player].type == DC_PLAYER_AI) return "AI PLAYER";
+        return setup->players[player].name;
+    }
+    return player == consoleplayer ? "PLAYER" : "AI PLAYER";
+}
+
+static void alliances(level_t *map) {
+    for (int a = 0; a < 8; ++a) {
+        map->peace[a] = map->sight.allies[a] = UINT32_C(0x40000000) >> a;
+        for (int b = 0; b < 8; ++b) {
+            bool peace = (map->alliance_offers[0][a] & (1u << b)) &&
+                         (map->alliance_offers[0][b] & (1u << a));
+            bool vision = (map->alliance_offers[1][a] & (1u << b)) &&
+                          (map->alliance_offers[1][b] & (1u << a));
+            if (peace) map->peace[a] |= UINT32_C(0x40000000) >> b;
+            if (vision) map->sight.allies[a] |= UINT32_C(0x40000000) >> b;
+        }
+    }
+}
+
+void DC_InitAlliances(level_t *map) {
+    for (int a = 0; a < 8; ++a)
+        for (int b = 0; b < 8; ++b)
+            if (map->sight.allies[a] & (UINT32_C(0x40000000) >> b))
+                map->alliance_offers[0][a] |= 1u << b;
+    for (int a = 0; a < 8; ++a) map->alliance_offers[1][a] = 1u << a;
+    alliances(map);
+}
+
+void DC_SetAlliance(int player, int other, int channel, bool offer) {
+    if (player < 0 || player >= 8 || other < 0 || other >= 8 || player == other ||
+        channel < 0 || channel > 1 || !DC_PlayerActive(other)) return;
+    if (offer) level.alliance_offers[channel][player] |= 1u << other;
+    else level.alliance_offers[channel][player] &= ~(1u << other);
+    alliances(&level);
+    P_UpdateSight();
+}
+
 static bool scenario_append_object(ScenarioFile *scenario,
                                                const ScenarioObject *object) {
     ScenarioObject *objects = realloc(

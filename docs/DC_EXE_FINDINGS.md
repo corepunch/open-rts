@@ -6964,6 +6964,11 @@ The rendered sidebar title is also blank: native `in_text` control 79 is
 skipped, so the screenshot's `Building Tab` caption is not reproduced.
 These missing behaviors were audited, not implemented by this request.
 
+**Superseded by the follow-up below:** the user subsequently requested that
+the menus work. Options now opens LOPTE, Save opens LSGE, Objectives opens
+LOBJE, and Allies exposes MAINE group 153. The original audit remains here
+to distinguish the earlier placeholders from the completed implementation.
+
 Reproduce the working-button checks and native icon capture:
 
 ```sh
@@ -6979,3 +6984,162 @@ Escape return, and retains the purchase/research/pause/order checks. The
 aggregate suite's first LAN-menu failure was reproduced as `Network socket:
 Operation not permitted` by `test_network`; UDP verification requires socket
 access outside the restricted sandbox, not a gameplay change.
+
+## Native sidebar dialogs and diplomacy (2026-10-01)
+
+This follow-up implements the screenshot menus after the earlier audit. The
+screenshots supplied on 2026-10-01 show MAINE group 65 (six vertical action
+buttons) and group 153 (seven other-player slots). They establish appearance,
+not hidden behavior. The behavior below is traced from native scripts and
+DC.EXE, SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+The existing cached r2/r2ghidra full instruction listing was compared against
+PE section bytes: 137,889 complete instruction byte strings, zero mismatches;
+truncated byte strings were excluded. Addresses below refer to that executable,
+not decompiler-inferred types. No external web source was used.
+
+Native source fingerprints (SHA-256):
+
+| File under INTRFACE, unless stated | SHA-256 |
+| --- | --- |
+| MAINE | 49c9f36817fbc3edbddbb8abc6e852cbc5677022d05464a55138a681d93ee718 |
+| LOPTE | c97e345cd10100255f83b9943e54738f0c8eb3eaa42d28611b37a5108e14092f |
+| LOBJE | 86b0574f945d341bfa88be00d35d6e3718c01a7929aab6f71bb7055768613845 |
+| LSGE | 715cbd0de08d3a295ea4739ea0bc382a9a4acab9f4b9fb91c23a085cd627d494 |
+| LOADGE | a639161965783768b5c485549a0a4837b6daccc3d1146f6067d0b1bf12c1339a |
+| SOUND2.DAT (data root) | b4c1b0de870e87fb95884f7210ceb4555bff6935f854e45d7715bf0a2adbdc93 |
+| KEYS.TXT (data root) | 1e6686694fc0b1fed86af8cdd0760691ed287bc9eef580e1ae8240529d711abd |
+
+### Confirmed native layout and controls
+
+MAINE group 65 dispatches 62 Quit, 63 Save, 64 Options, 151 Allies, 196 Pause,
+and 202 Objectives. KEYS.TXT assigns Q, F11, O, and J respectively to Quit,
+Save, Options, and Objectives. The screenshot caption is native `in_text` 79
+at (520,404), fifteen characters, using the hovered control's description
+index. Options has description 0, `Building Tab`. The executable
+0x42f312..0x42f337 copies a nonempty hovered label, retaining the previous
+caption otherwise. It is not a fixed Options title.
+
+Group 153 has header 152, cell 92 at (518,112,118,42), followed by seven
+non-compacted slots. For row r, controls start at 154+6*r: peace x540,
+shared sight x564, chat checkbox x588, name at (520,172+35*r), gift x612,
+and colour at x518, with button rows starting y154+35*r. Names use native
+`in_text`, sixteen characters and remap 4. Startup 0x41d3d3..0x41d491 skips
+the local player, hides all six controls of inactive players, and copies names
+from team+0xb98. The colour widget uses **cell 99** and team+0xc98 through
+0x421bf4, which validates colour 0..7 and stores its remap. **Disproven:**
+selecting frame 97+colour is not the native colour-square mechanism. Keep
+cell 99 and apply PALETTE.RMP's intensity/remap row.
+
+LOPTE is the native Options popup (112,128,308,240), using POPP and MFONTO7.
+0x42fc70 opens it, 0x42fa38 handles controls, and 0x42f97c formats fields.
+Arrows 40/41 change speed by ten within 10..200; 42/43 sound and 67/68 CD
+volume by one within 0..10; 44/45 detail within 0..2. Fields 46/47/69/48 show
+speed percent, sound, CD, and messages 10+detail (LOW/MEDIUM/HIGH). Confirm
+56 is at (320,332), Cancel 55 at (360,332). Sound changes preview through the
+native audio interface; Cancel leaves committed settings unchanged. Confirm
+stores sound/CD/detail at +0x4690/+0x4694/+0x4698 and transmits speed.
+The engine previews mixer volume, restores it on Cancel/Escape, persists the
+confirmed values, and sends host speed changes through tic commands.
+
+Detail is a real rendering gate: 0x432ac0..0x432aee sets 0x4e186d for HIGH
+and 0x4e186c/context+0x2a for any nonzero detail. Reads at 0x45c7e3 and
+0x45cc34 gate shadows; 0x45d0c0 gates indexed translucency. Consequently
+HIGH draws shadows and blending, MEDIUM draws blending without shadows,
+and LOW skips those indexed blend layers. These are native flags, not tuned
+visual offsets or replacement geometry.
+
+LOBJE is (112,96,304,272). Text list 50 is (132,147,256,169), scrollbar 51
+(398,160,10,144), arrows 52/53 at y144/y304, step three, and confirm 56 at
+(376,328). 0x42f858 opens it, 0x42f820 closes it, and 0x42f5ec reads the
+mission's companion TXT briefing. **Disproven:** the retail dialog is not
+just the objective bullet subsection. The engine displays that same briefing,
+using its existing tilde-code stripping and wrapped native font. Skirmish's
+fallback objective is engine wording; coloured prose parity is not claimed.
+
+LSGE is (112,48,304,386). List 50 is (132,147,256,217), scrollbar 51 and
+arrows 52/53 advance three rows, name field 54 is (132,104), 32 characters.
+Cancel 55 is at (376,392), Save 56 at (336,392). Callback 0x42f3b4 and opener
+0x42f528 copy a selected row's name into field 54; Enter confirms a nonempty
+name. LOADGE uses the full-screen LOADER background, KNOBE, MFONTO5 and
+MFONTO2, list 0, scrollbar 1, arrows 2/3, Back 4 and Load 5. The engine uses
+these authored dialogs and excludes unused save groups 17/18/21 from Load.
+
+### Confirmed diplomacy and network dispatch
+
+Native packet builder 0x40bc48 emits type 0x0d. Dispatch table 0x474374 entry
+13 points to 0x41c190, decoding source, target, channel 0..1 and offer boolean.
+0x41d138 stores directed offers through pointer arrays at game+0x471a0;
+0x41d15c checks one direction and 0x41d180 requires **both** directions.
+0x42f1a0..0x42f28f chooses cell 124 for neither offer, 120 for either pending
+offer, and 119 for mutual acceptance. Peace is channel zero; shared sight is
+channel one. 0x418a06 stores reciprocal peace at game+0x46f34; 0x418a36
+independently ORs reciprocal sight into team+0x19c0. Sight does not require
+peace. SCN initialization 0x41aae7..0x41aaf8 populates directed peace from
+SCN rows; 0x41ab03..0x41ab57 initializes sight only for self. **Disproven:**
+SCN peace rows do not automatically grant shared vision. The engine keeps
+separate directed offers and effective peace/sight, applies them in lockstep,
+and rebuilds fog when sight changes. The retail AI acceptance policy remains
+**unknown**; no invented automatic AI acceptance is added.
+
+MAINE dispatcher 0x43001c permits the gift column only when credits are
+**strictly greater than 1000**, subtracts 1000 locally, and 0x40bd84 emits
+packet 0x0f with the recipient. Table entry 15 -> 0x41c518 credits the local
+recipient. The engine has a shared world, so TC_GIVE subtracts and adds exactly
+once on all peers; it also prevents recipient integer overflow. This deliberately
+adapts the retail peer-owned accounting while preserving the button's threshold.
+
+Startup 0x41d391..0x41d3a8 selects all seven chat checkboxes. Column two edits
+local recipient bits. 0x409a18 forms the selected-player mask plus self and
+emits packet 0x0e; table entry 14 -> 0x41c394 handles it. The engine sends
+bounded 128-byte text and a recipient mask with TC_CHAT, independently of
+simulation checksums. Enter while Allies is open, or Shift+Enter elsewhere,
+is an explicit engine input choice; native Enter is otherwise Deploy. The
+native packet's string representation is not claimed to match engine UTF-8.
+SOUND2.DAT maps object 97 to SOUND/BUTTON.WAV and 136 to SOUND/HLIGHT.WAV.
+Installed data has effects under SOUND, MISSION and ENCYCLO, but no CD audio
+tracks or CD image. CD volume persists; playback requires those absent tracks
+and its native dispatch remains unverified.
+
+### Engine save ownership and verification
+
+The retail save serialization remains **unknown**. Saves here are deliberately
+engine-owned ORTSDC1 version-one files, not retail interoperability. Doom's
+P_ArchiveThinkers/P_UnArchiveThinkers model supplies allocation and lifecycle:
+archive ordinary thinkers, allocate each restored mobj, reconnect stable ID
+references, and restore state without firing entry actions. Native pointers,
+thinker links, renderer images, and game-interface pointers are not persisted.
+The file preserves world resources, fog, offers, RNG, production, AI, script
+progress, HUD, clock and camera, checks map/state fingerprints and ABI sizes,
+checksums its header/body, and atomically renames a temporary file. Corrupt or
+incompatible files fail without replacing the active world. Saves are limited
+to single-player; network continuation would require synchronized save loading.
+
+Reproduce menu and diplomacy regressions with native assets:
+
+```sh
+make test-dark-colony test-network
+# Set SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy for every test run.
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/test_menu_actions
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/test_diplomacy
+# Optional native screenshots:
+env SDL_VIDEODRIVER=dummy OPEN_RTS_HUD_ALLIES_SCREENSHOT=/private/tmp/dc-allies.bmp build/bin/test_hud
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy OPEN_RTS_MENU_SCREENSHOT_DIR=/private/tmp build/bin/test_menu_actions
+```
+
+The tests exercise authored hitboxes, Options limits/preview/cancel/persistence,
+objective scrolling, save-name editing and Load selection, campaign save/restore
+and subsequent deterministic ticks, script/AI/production/reference restoration,
+corrupt-file rejection, independent reciprocal offers, native gift boundaries,
+chat filtering, and host-only speed commands. UDP regressions include chat and
+mid-game speed changes with loss, duplication and reordering. Initial failures
+exposed a mutable-world save fingerprint and a timer reset under SDL restarts;
+these were corrected rather than relaxed. The building-damage fixture now uses
+native HUMAN02's hostile team 2 instead of ally team 1. Native Reaper timing and
+all FIN sprite layout regressions remain required and unchanged.
+
+Executable traces can be repeated with the repository's documented r2 workflow:
+`r2 -q -c 'pd 100 @ 0x42fa38' data/DCOLONY/DC.EXE`,
+`r2 -q -c 'pd 80 @ 0x41c190' data/DCOLONY/DC.EXE`, and equivalent reads of
+the addresses above. Read INTRFACE scripts directly to check geometry, IDs,
+fonts, messages and cell numbers; screenshot similarity alone is insufficient.
