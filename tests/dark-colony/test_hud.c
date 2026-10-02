@@ -12,7 +12,7 @@ static mobj_t *find(int type) {
     return NULL;
 }
 
-static void click(void *ui, app_t *app, int id, int button) {
+static void click(menu_t *ui, app_t *app, int id, int button) {
     FILE *file = fopen("data/DCOLONY/INTRFACE/MAINE", "r");
     assert(file);
     char line[512], kind[16];
@@ -32,7 +32,7 @@ static void click(void *ui, app_t *app, int id, int button) {
     SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = button,
                                   .x = rect.x + rect.w / 2, .y = rect.y + rect.h / 2}};
     mobjlist_t objects = P_ListMobjs();
-    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    assert(t_hud_event(ui, app, objects.items, objects.count, &event));
     P_FreeMobjList(&objects);
 }
 
@@ -64,7 +64,7 @@ static int text_fields(const spritecache_t *sprites) {
     V_AllocScreen(640, 480);
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
     app_t app = {.win = {640, 480}, .cell = {32, 32}, .running = true};
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY");
     if (!surface || !ui || !screens[0].pixels) return rts_fail("hud", "640x480 HUD loads");
     mobjlist_t objects = P_ListMobjs();
     for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
@@ -73,16 +73,16 @@ static int text_fields(const spritecache_t *sprites) {
     const uint8_t *pixels = screens[0].pixels;
     int left, right;
 
-    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, sprites, &log);
+    t_hud_draw(ui, &app, objects.items, objects.count, sprites, &log);
     if (cyan_in(pixels, (irect_t){0, 456, 516, 24}, &left, &right))
         return rts_fail("hud", "the strip is empty without messages");
     int idle = cyan_in(pixels, (irect_t){516, 400, 124, 18}, &left, &right);
 
     /* Exploiter's count control is at (518,112,59,41). */
     SDL_Event hover = {.motion = {.type = SDL_MOUSEMOTION, .x = 547, .y = 132}};
-    G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &hover);
+    t_hud_event(ui, &app, objects.items, objects.count, &hover);
     HU_PushMessage(&log, "Reinforcements", 5000);
-    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, sprites, &log);
+    t_hud_draw(ui, &app, objects.items, objects.count, sprites, &log);
     const char *screenshot = getenv("OPEN_RTS_HUD_TEXT_SCREENSHOT");
     if (screenshot) {
         V_ReadPixels(surface->pixels, surface->pitch);
@@ -102,7 +102,7 @@ static int text_fields(const spritecache_t *sprites) {
     if (!money || right < 590 || left < 596 - 4 * 12)
         return rts_fail("hud", "money is four right-aligned 12-pixel digits ending at x=596");
     P_FreeMobjList(&objects);
-    G_ShutdownCustomUI(ui);
+    G_ShutdownHUD();
     SDL_FreeSurface(surface);
     return 0;
 }
@@ -116,7 +116,7 @@ int main(void) {
     assert(SDL_Init(SDL_INIT_VIDEO) == 0);
     app_t app = {.win = {640,480}, .cell = {32,32}, .running = true};
     assert(M_Init(&app, config.data_root));
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY");
     assert(ui);
     mobj_t *barracks = find(MT_BRRKPOD), *center = find(MT_EXCOPOD);
     assert(barracks && center);
@@ -182,24 +182,24 @@ int main(void) {
     assert(!P_HasMoveOrder(trooper));
     click(ui,&app,36,SDL_BUTTON_LEFT);
     SDL_Event point = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,.x = 100,.y = 100}};
-    assert(G_CustomUIResponder(ui,&app,&level,&trooper,1,&point));
+    assert(t_hud_event(ui, &app, &trooper,1,&point));
     point.button.x = 150;
-    assert(G_CustomUIResponder(ui,&app,&level,&trooper,1,&point));
+    assert(t_hud_event(ui, &app, &trooper,1,&point));
     assert(!trooper->waypoints.count && !P_HasMoveOrder(trooper));
     point.button.button = SDL_BUTTON_RIGHT;
-    assert(G_CustomUIResponder(ui,&app,&level,&trooper,1,&point));
+    assert(t_hud_event(ui, &app, &trooper,1,&point));
     assert(trooper->waypoints.count == 2);
     click(ui,&app,150,SDL_BUTTON_LEFT);
     assert(!trooper->waypoints.count && !P_HasMoveOrder(trooper));
     /* Taller screens keep the sidebar column at the top-right corner and
      * cover the world under it; only the message strip follows the bottom. */
-    G_ShutdownCustomUI(ui);
+    G_ShutdownHUD();
     SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0,800,600,32,SDL_PIXELFORMAT_ARGB8888);
     assert(surface);
     V_AllocScreen(800, 600);
     assert(screens[0].pixels);
     app_t tall = {.win = {800,600}, .cell = {32,32}, .running = true};
-    ui = G_InitCustomUI(&tall, "data/DCOLONY");
+    ui = G_InitHUD(&tall, "data/DCOLONY");
     assert(ui);
     /* The HUD draws over a level, whose tileset palette is the screen palette. */
     tileset_t tiles = {0};
@@ -214,11 +214,11 @@ int main(void) {
     assert(R_InitSprites(config.data_root, NULL, NULL, 0, &sprites));
     hudtext_t hud = {0};
     mobjlist_t objects = P_ListMobjs();
-    G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+    t_hud_draw(ui, &tall, objects.items, objects.count, &sprites, &hud);
     const char *options_screenshot = getenv("OPEN_RTS_HUD_OPTIONS_SCREENSHOT");
     if (options_screenshot) {
         click(ui, &tall, 2, SDL_BUTTON_LEFT);
-        G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+        t_hud_draw(ui, &tall, objects.items, objects.count, &sprites, &hud);
         V_ReadPixels(surface->pixels, surface->pitch);
         assert(!SDL_SaveBMP(surface, options_screenshot));
     }
@@ -226,7 +226,7 @@ int main(void) {
     if (allies_screenshot) {
         click(ui, &tall, 2, SDL_BUTTON_LEFT);
         click(ui, &tall, 151, SDL_BUTTON_LEFT);
-        G_CustomUIDrawer(ui, &tall, &level, objects.items, objects.count, &sprites, &hud);
+        t_hud_draw(ui, &tall, objects.items, objects.count, &sprites, &hud);
         V_ReadPixels(surface->pixels, surface->pitch);
         assert(!SDL_SaveBMP(surface, allies_screenshot));
     }
@@ -248,7 +248,7 @@ int main(void) {
     for (int y = 100; y < 575; ++y)
         for (int x = 0; x < 516; ++x) world += pixels[y * 800 + x] != MARKER;
     assert(box == 72 * 17 && strip > 516 * 20 && world == 0);
-    G_ShutdownCustomUI(ui);
+    G_ShutdownHUD();
     SDL_FreeSurface(surface);
     RTS_RUN(text_fields(&sprites));
     M_Shutdown();

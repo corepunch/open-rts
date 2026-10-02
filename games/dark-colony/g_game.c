@@ -620,7 +620,6 @@ const mobjtype_t *const actor_types =
     (const mobjtype_t *)DARK_COLONY_ACTOR_TYPES;
 const int num_actor_types =
     (int)(sizeof(DARK_COLONY_ACTOR_TYPES) / sizeof(DARK_COLONY_ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = NULL;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
@@ -729,40 +728,6 @@ void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
     update_mission(map, mobjs, count, hud, dt);
 }
 
-void *G_InitCustomUI(app_t *app, const char *data_root) {
-    return DC_SB_Init(app, data_root);
-}
-
-bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,
-                         mobj_t *const *units, int unit_count, const SDL_Event *event) {
-    return DC_SB_Responder(ui, app, map, units, unit_count, event);
-}
-
-void G_CustomUITicker(void *ui) {
-    (void)ui;
-}
-
-void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                      mobj_t *const *units, int unit_count,
-                      const spritecache_t *sprites, const hudtext_t *hud) {
-    DC_SB_Drawer(ui, app, map, units, unit_count, sprites, hud);
-}
-
-bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
-                        float dt) {
-    if (!ui) return false;
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
     return G_ModelUpdateProduction(map, units, unit_count, dt);
-}
-
-void G_ShutdownCustomUI(void *ui) {
-    DC_SB_Shutdown(ui);
-}
-
-int G_WorldViewportWidth(const app_t *app) {
-    return DC_SB_WorldViewportWidth(app);
-}
-
-bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
-    (void)root; (void)name; (void)out;
-    return false;
 }

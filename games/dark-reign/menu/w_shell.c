@@ -145,6 +145,7 @@ bool DR_StripFont(const spritesheet_t *strip, int top, bitmapfont_t *out) {
     out->glyph_size.h = out->line_h = h;
     out->draw_divisor = 1;
     out->native_origin = true;
+    out->own_palette = true;
     return out->glyph_index['A'] >= 0;
 }
 

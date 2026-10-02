@@ -83,13 +83,20 @@ int main(void) {
     P_MoveOrderAt(&level,&actor,1,(fvec2_t){5.5f,5.5f});
     CHECK(!actor->waypoints.count);
 
-    sb_state_t bar = {.path = {.points = {{4,4},{5,5}},.count = 2,.current = 1,.mode = WP_ONCE}};
-    CHECK(SB_ActivateAction(&bar,&(uiaction_t){.action = UI_PATH_SAVE}));
-    CHECK(bar.saved_path_count == 1 && bar.saved_paths[0].count == 2);
-    CHECK(SB_ActivateAction(&bar,&(uiaction_t){.action = UI_PATH_DELETE}));
-    CHECK(bar.path.count == 1 && bar.path.current == 0 && bar.saved_paths[0].count == 2);
-    CHECK(SB_ActivateAction(&bar,&(uiaction_t){.action = UI_PATH_CLEAR}));
-    CHECK(!bar.path.count && !SB_ActivateAction(&bar,&(uiaction_t){.action = UI_PATH_GO}));
+    pathbook_t book;
+    HU_PathReset(&book);
+    book.path = (waypoints_t){.points = {{4,4},{5,5}},.count = 2,.current = 1,.mode = WP_ONCE};
+    CHECK(HU_PathSave(&book));
+    CHECK(book.saved_count == 1 && book.saved[0].count == 2);
+    CHECK(HU_PathDelete(&book));
+    CHECK(book.path.count == 1 && book.path.current == 0 && book.saved[0].count == 2);
+    HU_PathClear(&book);
+    CHECK(!book.path.count && !HU_PathGo(&book));
+    HU_PathSelect(&book, 0);
+    CHECK(book.selection == 0 && book.path.count == 2 && !book.path.current);
+    CHECK(HU_PathPoint(&book, (cell_t){4,4}) && book.path.count == 2 && book.path.current == 0);
+    HU_PathSelect(&book, -1);
+    CHECK(book.selection == -1 && !book.path.count);
     P_FreeLevel(&level);
     printf("PASS: %s shared route traversal, cancellation, ownership, checksums, atomic commands and editing\n",g_game_id);
     return 0;

@@ -107,22 +107,25 @@ static int test_interactive_queue(void) {
     app_t app = {.win = {640, 480}};
     V_AllocScreen(app.win.w, app.win.h);
     CHECK(screens[0].pixels);
-    sb_state_t bar;
-    CHECK(SB_Init(&bar, g_game_default_root, gameui));
+    /* The engine's product list: a row click buys from the selection. */
+    menuitem_t list = {.kind = MI_LIST, .visible = true, .enabled = true, .rect = {480, 32, 160, 416},
+                       .row_height = 32, .value = -1, .fill = 0xff0c1216u, .link = -1,
+                       .routine = HU_ProductList, .ownerdraw = HU_DrawProducts};
+    menu_t bar = {.items = &list, .numitems = 1, .itemOn = -1, .refresh = HU_RefreshProducts};
     SDL_Event click = {.type = SDL_MOUSEBUTTONDOWN};
     click.button.button = SDL_BUTTON_LEFT;
-    click.button.x = (gameui->command_grid.x + 10) * app.win.w / gameui->logical_width;
-    click.button.y = (gameui->command_grid.y + 10) * app.win.h / gameui->logical_height;
-    CHECK(SB_ProductionResponder(&bar, &app, &click));
+    click.button.x = list.rect.x + 10;
+    click.button.y = list.rect.y + 10;
+    CHECK(M_MenuResponder(&bar, &app, &click));
     CHECK(!producer->production);
     CHECK(second->production && second->production->queue_count == 1);
     CHECK(second->production->product_type == product->product_type);
     CHECK(level.player_resources[0][0] == 0);
     CHECK(level.player_resources[1][0] == product->cost);
-    CHECK(SB_ProductionResponder(&bar, &app, &click));
+    CHECK(M_MenuResponder(&bar, &app, &click));
     CHECK(second->production->queue_count == 1); /* Cannot afford another. */
     V_BeginFrame(0xff000000u);
-    SB_ProductionDrawer(&bar, &app);
+    M_MenuDrawer(&bar);
     V_ReadPixels(surface->pixels, surface->pitch);
     char screenshot[128];
     snprintf(screenshot, sizeof(screenshot), "/private/tmp/open-rts-production-%s.bmp", g_game_id);
@@ -137,7 +140,6 @@ static int test_interactive_queue(void) {
     CHECK(!G_QueueProduct(producer, product));
     CHECK(G_FindProducer(0, product) == second);
     CHECK(G_QueueProduct(second, product));
-    SB_Shutdown(&bar);
     V_FreeScreen();
     SDL_FreeSurface(surface);
     P_FreeLevel(&level);

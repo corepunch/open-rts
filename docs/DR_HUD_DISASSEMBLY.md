@@ -112,7 +112,7 @@ lists. `0x00475d00` checks existing points. Add Waypoints changes input mode;
 Go dispatches a complete route (`0x0046d1d0`, event 10), or a saved route
 (`0x0046cc30`, event 13). Saved indices are checked against 0..29.
 
-**Implemented engine behavior:** `hud/sb_path.c` owns editing, selection,
+**Implemented engine behavior:** `hud/hu_bar.c` owns editing, selection,
 30 in-memory saved paths and atomic Go dispatch. `play/p_waypoint.c` advances
 ordinary mobile mobjs through all three modes, resumes after combat/support,
 and uses the shared movement system. Stop/new orders cancel routes. DC uses
@@ -195,9 +195,9 @@ not reproduce the native supply/demand model.
 
 ## Implementation and verification
 
-The game owns one active `sb_state_t` through `G_CustomUI*`; the generic HUD
-does not become a second owner. `hud/sb_bar.c` supplies image/icon lifetimes,
-while the game HUD owns native layout, fonts, palette and drawing/input.
+The game describes the HUD as one `menu_t` table returned by `G_InitHUD`;
+the engine owns input, map targets and drawing, while the game owns native
+assets, layout, fonts and palette.
 See [DR_ARCHITECTURE.md](DR_ARCHITECTURE.md) for source boundaries.
 
 `test_mission_hud` checks PATHS tabs, draft editing, mode selection, saved-path

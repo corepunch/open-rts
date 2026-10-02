@@ -824,3 +824,8 @@ int rts_game_model_products(const RtsGameModel *model, RtsProductDefinition *out
     }
     return count;
 }
+
+/* The width the camera keeps the world inside. */
+int G_WorldViewportWidth(const app_t *app) {
+    return G_WorldViewport(app).w;
+}

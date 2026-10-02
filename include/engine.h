@@ -277,6 +277,8 @@ angle_t direction_to_angle(int direction, int count, angle_t first_angle, bool c
 
 typedef struct app_s app_t;
 typedef struct tileset_s tileset_t;
+typedef struct menu_s menu_t;
+typedef struct menuitem_s menuitem_t;
 struct nav_s;
 
 typedef ivec2_t cell_t;
@@ -1112,6 +1114,8 @@ typedef struct bitmapfont_s {
     int line_h;
     int draw_divisor;
     bool native_origin; /* Draw cells at their authored displacement. */
+    /* Its colours are its own: menus match them into the screen palette. */
+    bool own_palette;
 } bitmapfont_t;
 
 #define RTS_MAX_HUD_MESSAGES 8
@@ -1321,27 +1325,6 @@ void R_DrawFog(app_t *app, const level_t *map);
 void R_FreeSprite(spritesheet_t *sprite);
 void HU_FreeFont(bitmapfont_t *font);
 void R_FreeSpriteCache(spritecache_t *cache);
-
-
-extern bool menuactive;
-extern bool menuerror;
-extern const char *menumap;
-/* Set by a menu inside a level: release the level and show the main menu. */
-extern bool menuleave;
-
-bool M_Init(app_t *app, const char *root);
-void M_StartControlPanel(app_t *app);
-/* Dismissible message over the active control panel; owns a copy of the text. */
-void M_StartMessage(const char *text);
-void M_StopMessage(void);
-bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel);
-bool D_MenuResponder(app_t *app, const SDL_Event *event, void *ui,
-                      mobj_t *const *units, int unit_count);
-/* After releasing the failed level, reset networking and show the main menu. */
-void D_NetGameError(app_t *app);
-void M_Drawer(const app_t *app);
-void M_Ticker(void);
-void M_Shutdown(void);
 
 
 /* ── sound: Doom's s_sound.c over an i_sound.c mixer ──────────────────────
@@ -1687,92 +1670,6 @@ struct AiContext *rts_game_model_ai(RtsGameModel *model);
 int rts_game_model_player_resources(const RtsGameModel *model, int player, int resource_type);
 
 
-#define RTS_UI_MAX_LAYERS 16
-#define RTS_UI_MAX_RESOURCES 8
-
-typedef struct uiimage_s {
-    const char *asset_path;
-    irect_t source;
-    irect_t destination;
-} uiimage_t;
-
-typedef struct uiresource_s {
-    ivec2_t text; /* amount anchor in logical UI coordinates */
-    uint32_t color; /* 0xAARRGGBB, nearest palette index at draw time */
-    /* The native UI may center a counter (false) or pin its right edge (true). */
-    bool right_aligned;
-} uiresource_t;
-
-typedef struct uipanel_s {
-    irect_t rect;
-    uint32_t fill;
-    uint32_t border;
-} uipanel_t;
-
-typedef struct uiproduct_s {
-    int id;
-    int category;
-    const char *image;
-} uiproduct_t;
-
-typedef struct uicategory_s {
-    const char *label;
-    irect_t rect;
-    int image;
-    irect_t source;
-} uicategory_t;
-
-typedef enum {
-    UI_UNAVAILABLE, UI_MOVE, UI_ATTACK, UI_STOP, UI_RADAR, UI_OPTIONS, UI_PRODUCT,
-    UI_PAGE, UI_WAYPOINT, UI_PATH_CLEAR, UI_PATH_DELETE, UI_PATH_GO,
-    UI_PATH_SAVE, UI_PATH_DESELECT, UI_PATH_MODE, UI_PATH_ADVANCED
-} uiactionkind_t;
-typedef struct uiaction_s {
-    const char *label;
-    uiactionkind_t action;
-    irect_t rect;
-    int image;
-    irect_t source;
-    int product;
-} uiaction_t;
-
-/* Games describe native assets and layout; the client owns loading and rendering. */
-typedef struct uidefinition_s {
-    int logical_width;
-    int logical_height;
-    irect_t world_viewport;
-    irect_t minimap;
-    irect_t command_grid;
-    int command_columns;
-    int command_rows;
-    uiresource_t resources[RTS_UI_MAX_RESOURCES];
-    int resource_count;
-    uipanel_t status_panel;
-    bool status_elapsed_time;
-    uipanel_t sidebar_panel;
-    int sidebar_cell_size;
-    const uiimage_t *images;
-    int image_count;
-    const char *asset_root;
-    const uiproduct_t *products;
-    int product_count;
-    const uicategory_t *categories;
-    int category_count;
-    isize2_t icon_size;
-    const uiaction_t *actions;
-    int action_count;
-    int minimap_scale;
-    const uiaction_t *path_actions;
-    int path_action_count;
-    irect_t path_list;
-    int path_row_height;
-    /* Native chrome the engine does not draw. Arguments are logical rects. */
-    void (*draw_status)(const struct app_s *app, const struct level_s *map, irect_t rect);
-    void (*draw_minimap_overlay)(const struct app_s *app, const struct level_s *map, irect_t rect);
-    void (*draw_product_slot)(const struct app_s *app, int product, irect_t rect);
-} uidefinition_t;
-
-
 /*
  * Doom-style game interface.  Every game binary defines these externs in its
  * own games/{GameDir}/plugin.c (or game.c).  The engine calls them by name —
@@ -1795,7 +1692,6 @@ extern const uint16_t g_debug_enemy_type;
 extern const gameinfo_t *gameinfo;
 extern const mobjtype_t *const actor_types;
 extern const int num_actor_types;
-extern const uidefinition_t *const gameui;   /* NULL if unused */
 
 /* ── game functions ────────────────────────────────────────────────────── */
 
@@ -1828,31 +1724,24 @@ void     G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
 /* Return mission state: 0=active, 1=won, 2=lost, 3=ally_lost. */
 int      G_MissionState(const level_t *map);
 
-/* ── custom interactive UI / sidebar hooks ─────────────────────────────── */
+/* ── front end and HUD tables ───────────────────────────────────────────── */
 
-/* Initialize game-specific interactive UI/sidebar. Returns an opaque pointer, or NULL if none. */
-void    *G_InitCustomUI(app_t *app, const char *data_root);
+/* Load the front end's assets. The engine routes input to the screens. */
+bool     G_InitMenus(app_t *app, const char *root);
+/* The screen Escape opens, built for the level or for the main menu; NULL
+ * keeps the front end closed. */
+menu_t  *G_ControlPanel(app_t *app, bool inlevel);
+void     G_ShutdownMenus(void);
 
-/* Handle input events for custom UI. Returns true if handled. */
-bool     G_CustomUIResponder(void *ui, app_t *app, level_t *map,
-                             mobj_t *const *units, int unit_count, const SDL_Event *event);
-
-/* Advance custom UI state by one tick. */
-void     G_CustomUITicker(void *ui);
-
-/* Draw custom UI overlay/sidebar. */
-void     G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                          mobj_t *const *units, int unit_count,
-                          const spritecache_t *sprites, const hudtext_t *hud);
+/* Build the in-level HUD table, or NULL if the game has none. */
+menu_t  *G_InitHUD(app_t *app, const char *root);
+void     G_ShutdownHUD(void);
 
 /* Advance game-specific production queues in interactive mode. Returns true if a unit was spawned. */
-bool     G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
-                            float dt);
+bool     G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt);
 
-/* Shutdown and free custom UI. */
-void     G_ShutdownCustomUI(void *ui);
-
-/* Return the effective world viewport width in screen pixels. */
+/* The part of the screen that shows the world, in screen pixels. */
+irect_t  G_WorldViewport(const app_t *app);
 int      G_WorldViewportWidth(const app_t *app);
 
 /* ── headless model hooks ───────────────────────────────────────────────── */
@@ -2181,11 +2070,13 @@ bool P_HarvestOrderAt(const level_t *map, mobj_t *const *units, int unit_count,
 bool P_HarvestUnitTo(const level_t *map, mobj_t *unit, fvec2_t position);
 
 
-/* A screen is a table of items. The game fills the table and supplies the
- * routines; the engine hit-tests, keeps focus, edits text and draws. */
+/* A screen is a table of items. The game fills the table with locations,
+ * pictures, text and routines; the engine hit-tests, keeps focus, edits
+ * text, waits for map targets and draws. */
 typedef enum {
     MI_STATIC, /* a picture, text or ownerdraw that takes no input */
-    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR
+    MI_BUTTON, MI_CHECK, MI_TEXTFIELD, MI_LIST, MI_SCROLLBAR,
+    MI_MINIMAP /* the level in small: a click or drag centres the world view there */
 } menuitemkind_t;
 
 /* How an item looks in one state. */
@@ -2194,16 +2085,30 @@ typedef struct {
     int cell;     /* of the item's sheet; negative draws no picture */
     irect_t part; /* a rectangle of that cell; empty means all of it */
     int palette;  /* palette map of the sheet and of the font, or -1 */
+    const bitmapfont_t *font; /* text in this state; NULL uses the item's font */
 } menulook_t;
 
-typedef struct menu_s menu_t;
-typedef struct menuitem_s menuitem_t;
+/* Where text sits in its rect. A zero width or height centres on that edge. */
+enum {
+    MALIGN_LEFT = 0, MALIGN_HCENTER = 1, MALIGN_RIGHT = 2,
+    MALIGN_VCENTER = 4, MALIGN_BOTTOM = 8,
+    MALIGN_CENTER = MALIGN_HCENTER | MALIGN_VCENTER
+};
 
-/* MA_ACTIVATE: clicked, its hotkey pressed, or Enter while focused; a check
- * box has already changed. MA_SECONDARY: clicked with the right button.
- * MA_CHANGE: the text of a field or the selected row of a list changed.
- * MA_WHEEL: the wheel turned by menu->wheel over a HUD item. */
-typedef enum { MA_ACTIVATE, MA_SECONDARY, MA_CHANGE, MA_WHEEL } menuaction_t;
+/* On a screen larger than menu->size a rect keeps its top-left place, or
+ * follows the right or bottom edge, or grows by the extra height. */
+enum { MANCHOR_RIGHT = 1, MANCHOR_BOTTOM = 2, MANCHOR_GROW = 4 };
+
+/* MA_ACTIVATE: clicked, its hotkey pressed, or Enter while focused or
+ * edited; a check box has already changed. MA_SECONDARY: clicked with the
+ * right button. MA_CHANGE: the text of a field or the selected row of a list
+ * changed. MA_WHEEL: the wheel turned by menu->wheel over a HUD item.
+ * MA_TARGET: the left button went down on the world at menu->cursor while
+ * the item waited for a target. MA_CANCEL: its target or edit was abandoned
+ * with the right button or Escape. */
+typedef enum {
+    MA_ACTIVATE, MA_SECONDARY, MA_CHANGE, MA_WHEEL, MA_TARGET, MA_CANCEL
+} menuaction_t;
 
 /* An item can step through frames first..last. A loop wraps; a one-off stops
  * on its last frame. The game draws the frame, or uses it as it likes. */
@@ -2215,18 +2120,23 @@ typedef struct {
 } menuanim_t;
 
 typedef void (*menuroutine_t)(menu_t *menu, menuitem_t *item, menuaction_t action);
-typedef void (*menudraw_t)(const menu_t *menu, const menuitem_t *item);
+/* Draws the item into rect, its place on the screen. */
+typedef void (*menudraw_t)(const menu_t *menu, const menuitem_t *item, irect_t rect);
 
 struct menuitem_s {
     menuitemkind_t kind;
-    irect_t rect;
+    int id;       /* the game's name for it, such as a native control ID */
+    irect_t rect; /* in the menu's coordinates; see anchor */
+    int anchor;
     bool visible, enabled;
     SDL_Keycode hotkey; /* activates the item while it is enabled */
+    bool quiet;   /* activates without the click sound */
     /* The picture is drawn at the rect origin plus the cell's displacement. */
     const spritesheet_t *sheet;
     menulook_t look[MS_STATES];
     bool opaque; /* the sheet has no colour key: write its index 0 */
     bool stretch; /* scale the source picture to the item's rectangle */
+    bool layer;   /* a popup: it draws over every earlier item, text included */
     int light;   /* 1..15 darkens the picture, in sixteenths; 0 is full light */
     const bitmapfont_t *font;
     uint32_t ink; /* 0xAARRGGBB text colour; 0 draws through the palette map */
@@ -2234,7 +2144,7 @@ struct menuitem_s {
     /* Long text wrapped in the rect, in the font's own colours. A list shows
      * it while it has no rows. */
     const char *prose;
-    bool centered;
+    int align;
     ivec2_t inset; /* text origin inside the rect */
     int maxchars;
     int value; /* check: set; list: selected row, or -1 */
@@ -2246,8 +2156,10 @@ struct menuitem_s {
     /* A scroll bar shows and drags the list at index link. A button with a
      * step scrolls the list or prose at index link by that much. */
     int link, step;
-    uint32_t fill;  /* 0xAARRGGBB behind the item; 0 draws none */
-    uint32_t color; /* list selection, scroll bar or plain button focus outline */
+    uint32_t fill;   /* 0xAARRGGBB behind the item; 0 draws none */
+    uint32_t border; /* 0xAARRGGBB outline around the item; 0 draws none */
+    uint32_t color;  /* list selection, scroll bar or plain button focus outline */
+    const char *tooltip; /* shown while the pointer rests on the item */
     menuanim_t anim;
     menuroutine_t routine;
     menudraw_t ownerdraw; /* native content drawn after the standard picture */
@@ -2261,78 +2173,131 @@ struct menu_s {
      * HUD: it takes hotkeys and the mouse events that land on a visible item,
      * and its focus is the live item under the pointer. */
     bool modal;
+    isize2_t size;    /* the screen the rects were laid out for; 0 is any */
+    bool stretch;     /* rects scale with the screen instead of anchoring */
     int itemOn;       /* focused item, or -1 */
     menuitem_t *held; /* pressed by the mouse */
-    ivec2_t cursor;
+    menuitem_t *target;  /* waiting for a click on the world */
+    menuitem_t *editing; /* a HUD text field that has the keyboard */
+    ivec2_t cursor;   /* the pointer, in screen pixels */
     int wheel;        /* for MA_WHEEL */
+    SDL_Keymod keymod; /* modifiers of the key that activated an item */
+    app_t *app;       /* set by the engine before any routine runs */
     const spritesheet_t *background;
     const uint32_t *palette; /* screen palette while the menu draws; NULL keeps the level's */
     void (*escape)(menu_t *menu);
+    /* Brings the items up to date with the game; runs before the menu takes
+     * an event or draws. */
+    void (*refresh)(menu_t *menu);
+    /* Runs once per front-end frame or HUD tic instead of M_MenuTicker. */
+    void (*ticker)(menu_t *menu);
+    /* Draws the tooltip of the item under the pointer; NULL shows none. */
+    void (*drawtip)(const menu_t *menu, const menuitem_t *item);
     /* Ticks an animated item spends on its current frame; NULL means one. */
     int (*frametics)(const menuitem_t *item);
+    bool lifted;      /* the button that went down on a target is still down */
     void *owner;
 };
 
 /* Returns whether the screen took the event. */
-bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event);
+bool M_MenuResponder(menu_t *menu, app_t *app, const SDL_Event *event);
 /* Advance every visible, running animation by one tick. */
 void M_MenuTicker(menu_t *menu);
 /* Restart an item's animation from its first frame. */
 void M_MenuAnimate(menuitem_t *item, menuanimmode_t mode);
 /* Set a list's row count and keep its scroll position inside it. */
 void M_MenuSetRows(menuitem_t *list, int rows);
-void M_MenuDrawer(const menu_t *menu);
-/* Shared fallback lifecycle; games without a native front end supply this table. */
-extern menu_t gamemenu;
+void M_MenuDrawer(menu_t *menu);
+/* The item with this id, or NULL. */
+menuitem_t *M_MenuFind(const menu_t *menu, int id);
+/* Where the item is on the screen. */
+irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item);
+/* The live item under the pointer, or the focus of a modal screen. */
+menuitem_t *M_MenuHover(const menu_t *menu);
+/* The item's next left click on the world comes back as MA_TARGET; NULL
+ * stops waiting. The routine calls it again to take more points. */
+void M_MenuTarget(menu_t *menu, menuitem_t *item);
+/* Give a HUD text field the keyboard until Enter (MA_ACTIVATE) or Escape
+ * (MA_CANCEL); NULL takes it back. */
+void M_MenuEdit(menu_t *menu, menuitem_t *item);
+/* Centre the world view on a level cell. */
+void M_CentreView(app_t *app, fvec2_t cell);
+
+/* The front end. Escape opens the game's control panel; the engine routes
+ * input to the open screen, ticks it and draws it. */
+extern bool menuactive;
+extern bool menuerror;
+extern const char *menumap;
+/* Set by a menu inside a level: release the level and show the main menu. */
+extern bool menuleave;
+/* The open screen came up over a running level. */
+extern bool menuinlevel;
+extern menu_t *currentmenu;
+
+bool M_Init(app_t *app, const char *root);
+void M_StartControlPanel(app_t *app);
+/* Show this screen; the front end opens if it was closed. */
+void M_SetupNextMenu(menu_t *menu);
+/* Close the front end. */
+void M_ClearMenus(void);
+/* Dismissible message over the active control panel; owns a copy of the text. */
+void M_StartMessage(const char *text);
+void M_StopMessage(void);
+bool M_Responder(app_t *app, const SDL_Event *event, bool inlevel);
+/* After releasing the failed level, reset networking and show the main menu. */
+void D_NetGameError(app_t *app);
+/* In a level: Escape first cancels what the HUD waits for, then opens the
+ * control panel; an open screen takes everything. */
+bool D_MenuResponder(app_t *app, const SDL_Event *event, menu_t *hud);
+void M_Drawer(const app_t *app);
+void M_Ticker(void);
+void M_Shutdown(void);
+
+/* The engine fallback front end of games without a native one. */
 void M_MenuBeginLevel(menu_t *menu, menuitem_t *item, menuaction_t action);
 void M_MenuQuitGame(menu_t *menu, menuitem_t *item, menuaction_t action);
+menu_t *M_SimpleControlPanel(menu_t *menu);
 
-
-enum { MAXSAVEDPATHS = 30 };
-
+/* What the HUD shows. The driver sets it before the HUD takes an event,
+ * ticks or draws. */
 typedef struct {
-    const uidefinition_t *definition;
-    spritesheet_t images[RTS_UI_MAX_LAYERS];
-    bool ready;
-    bool first_draw;
-    int pressed_button;
-    uint64_t clock;
-    uint32_t production_selection;
-    int production_page;
-    int production_category;
-    spritesheet_t *product_icons;
-    const spritecache_t *sprites; /* Borrowed from the world renderer for picking. */
-    bool radar_visible;
-    bool options_visible;
-    uiactionkind_t order;
-    int order_product;
-    int page;
-    waypoints_t path;
-    waypoints_t saved_paths[MAXSAVEDPATHS];
-    int saved_path_count;
-    int saved_path_selection;
-    bool path_advanced;
-} sb_state_t;
+    mobj_t *const *units;
+    int unit_count;
+    const spritecache_t *sprites;
+    const hudtext_t *messages;
+} hudview_t;
+extern hudview_t hudview;
 
-/* Doom-style status-bar lifecycle.  The explicit state argument replaces the
-   original globals while keeping call sites directly comparable to sb_bar.c. */
-bool SB_Init(sb_state_t *st, const char *data_root,
-             const uidefinition_t *definition);
-void SB_Start(sb_state_t *st);
-bool SB_Responder(sb_state_t *st, const app_t *app, const SDL_Event *event);
-void SB_Ticker(sb_state_t *st);
-void SB_Drawer(sb_state_t *st, app_t *app, const level_t *map,
-               mobj_t *const *units, int unit_count, const spritecache_t *sprites,
-               bool fullscreen, bool refresh);
-void SB_Shutdown(sb_state_t *st);
-bool SB_ProductionResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
-bool SB_SelectedOrder(ticorder_t order, fvec2_t goal, uint32_t target);
-bool SB_ActivateAction(sb_state_t *st, const uiaction_t *action);
-bool SB_PathResponder(sb_state_t *st, const app_t *app, const SDL_Event *event);
-void SB_ProductionDrawer(sb_state_t *st, const app_t *app);
-irect_t SB_MinimapRect(const level_t *map);
-void SB_DrawText(ivec2_t point, const char *text, int width, uint32_t argb);
-bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out);
+/* The HUD of games without a native one; their tables place these. */
+void HU_DrawCounter(const menu_t *menu, const menuitem_t *item, irect_t rect); /* resource item->value */
+void HU_DrawClock(const menu_t *menu, const menuitem_t *item, irect_t rect);   /* level time */
+/* A list of what the selected building makes: a row click buys it. */
+void HU_ProductList(menu_t *menu, menuitem_t *item, menuaction_t action);
+void HU_DrawProducts(const menu_t *menu, const menuitem_t *item, irect_t rect);
+/* The next page of the product list at item->link. */
+void HU_ProductPage(menu_t *menu, menuitem_t *item, menuaction_t action);
+void HU_DrawProductPage(const menu_t *menu, const menuitem_t *item, irect_t rect);
+/* Keeps the product lists of a menu in step with the selection. */
+void HU_RefreshProducts(menu_t *menu);
+
+/* A route being drawn on the map, and the routes kept for later. */
+enum { MAXSAVEDPATHS = 30 };
+typedef struct {
+    waypoints_t path;
+    waypoints_t saved[MAXSAVEDPATHS];
+    int saved_count;
+    int selection; /* saved route shown, or -1 */
+} pathbook_t;
+void HU_PathReset(pathbook_t *book);
+void HU_PathClear(pathbook_t *book);
+bool HU_PathDelete(pathbook_t *book);
+bool HU_PathSave(pathbook_t *book);
+void HU_PathSelect(pathbook_t *book, int saved); /* -1 deselects */
+/* Add a cell, or make an existing point current. */
+bool HU_PathPoint(pathbook_t *book, cell_t cell);
+/* Send the selected units along the route. */
+bool HU_PathGo(pathbook_t *book);
+bool HU_SelectedOrder(ticorder_t order, fvec2_t goal, uint32_t target);
 
 
 typedef struct app_s app_t;

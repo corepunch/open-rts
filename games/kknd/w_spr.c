@@ -440,8 +440,3 @@ bool load_assets(const char *data_root, const level_t *map,
     }
     return true;
 }
-
-bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
-    (void)root; (void)name; (void)out;
-    return false;
-}

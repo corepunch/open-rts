@@ -14,17 +14,13 @@
  * widgets over SHELL.RLD backgrounds, laid out from shell/SHELLCFG.H and
  * labelled from local/MLSTRING.CFG. State machine 0x579de0; see
  * docs/DR_EXE_FINDINGS.md, Native shell. */
-bool menuactive;
-bool menuerror;
-const char *menumap;
 drscreen_t drscreen;
 
 static char root[1024], mapname[512];
-static bool initialized, inlevel;
+static bool initialized;
 static bitmapfont_t fonts[DR_NUMFONTS];
 static spritesheet_t background, pictures[8];
 static int numpictures;
-static const char *notice;
 
 /* Shell states of 0x579de0 that this port draws. */
 typedef enum { MAIN = 3, SINGLE = 0xa, CREDITS = 0xe, LOAD = 0xf, CUSTOM = 0x10,
@@ -85,43 +81,8 @@ const char *DR_String(const char *name) { return ss(name); }
 
 /* ── screen items ───────────────────────────────────────────────────────── */
 
-static menustate_t text_state(const menu_t *screen, const menuitem_t *item) {
-    const menuitem_t *button = item->kind == MI_BUTTON || item->kind == MI_CHECK ? item : NULL;
-    if (!button || !item->enabled) return MS_NORMAL;
-    if (screen->held == button) return MS_PUSHED;
-    return screen->itemOn == (int)(button - screen->items) ? MS_FOCUS : MS_NORMAL;
-}
-
-/* 0x57bf90: the TEXT widget picks its font by state and aligns inside its
- * rectangle; a zero width centres on the x coordinate. */
-static void draw_text(const menu_t *screen, const menuitem_t *item) {
-    int i = (int)(item - screen->items);
-    const bitmapfont_t *font = drscreen.fonts[i][text_state(screen, item)];
-    if (!font || !item->text[0]) return;
-    int flags = drscreen.flags[i], w = V_TextWidth(font, item->text);
-    ivec2_t at = {item->rect.x, item->rect.y};
-    if (flags & 0x20) at.x += (item->rect.w - w) / 2;
-    else if (flags & 0x10) at.x += item->rect.w - w;
-    if (flags & 0x80) at.y += (item->rect.h - font->glyph_size.h) / 2;
-    else if (flags & 0x40) at.y += item->rect.h - font->glyph_size.h;
-    /* Shell fonts share the screen palette; the multiplayer PCX fonts carry
-     * their own. */
-    const uint8_t *remap = V_RemapPalette(font->sprite.source_palette);
-    if (item->prose) {
-        V_DrawTextWrapped(item->rect, font, item->prose, remap, item->first_row * font->line_h);
-        return;
-    }
-    V_DrawText(at, font, item->text, remap);
-    /* Engine behaviour: the field being edited ends in an underscore. */
-    if (item->kind == MI_TEXTFIELD && item->enabled && screen->itemOn == i)
-        V_DrawText((ivec2_t){at.x + V_TextWidth(font, item->text), at.y}, font, "_", remap);
-}
-
 void DR_ScreenClear(void) {
     memset(drscreen.items, 0, sizeof(drscreen.items));
-    memset(drscreen.fonts, 0, sizeof(drscreen.fonts));
-    memset(drscreen.flags, 0, sizeof(drscreen.flags));
-    for (int i = 0; i < DR_MAXITEMS; ++i) drscreen.ids[i] = -1;
     drscreen.count = 0;
     drscreen.menu.items = drscreen.items;
     drscreen.menu.numitems = 0;
@@ -131,26 +92,25 @@ void DR_ScreenClear(void) {
 
 static menuitem_t *add(menuitemkind_t kind, irect_t rect) {
     if (drscreen.count == DR_MAXITEMS) return NULL;
-    int i = drscreen.count++;
-    menuitem_t *item = &drscreen.items[i];
-    *item = (menuitem_t){.kind = kind, .rect = rect, .visible = true, .enabled = true,
+    menuitem_t *item = &drscreen.items[drscreen.count++];
+    *item = (menuitem_t){.kind = kind, .id = -1, .rect = rect, .visible = true, .enabled = true,
                          .link = -1, .value = -1};
     for (int s = 0; s < MS_STATES; ++s) item->look[s] = (menulook_t){.cell = -1, .palette = -1};
     drscreen.menu.numitems = drscreen.count;
     return item;
 }
 
-menuitem_t *DR_Text(irect_t rect, int flags, const char *text, const bitmapfont_t *normal,
+/* 0x57bf90: the TEXT widget picks its font by state and aligns inside its
+ * rectangle; a zero width centres on the x coordinate. */
+menuitem_t *DR_Text(irect_t rect, int align, const char *text, const bitmapfont_t *normal,
                     const bitmapfont_t *hover, const bitmapfont_t *pressed) {
     menuitem_t *item = add(MI_STATIC, rect);
     if (!item) return NULL;
-    int i = (int)(item - drscreen.items);
-    drscreen.flags[i] = flags;
-    drscreen.fonts[i][MS_NORMAL] = normal;
-    drscreen.fonts[i][MS_FOCUS] = hover ? hover : normal;
-    drscreen.fonts[i][MS_PUSHED] = pressed ? pressed : normal;
+    item->align = align;
+    item->font = normal;
+    item->look[MS_FOCUS].font = hover;
+    item->look[MS_PUSHED].font = pressed;
     snprintf(item->text, sizeof(item->text), "%s", text ? text : "");
-    item->ownerdraw = draw_text;
     return item;
 }
 
@@ -160,23 +120,12 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action);
  * it; the text follows the button's hover and pressed state. */
 menuitem_t *DR_Button(irect_t rect, int id, const char *text, const bitmapfont_t *normal,
                       const bitmapfont_t *hover, const bitmapfont_t *pressed) {
-    menuitem_t *item = DR_Text(rect, 0xa0, text, normal, hover, pressed);
+    menuitem_t *item = DR_Text(rect, MALIGN_CENTER, text, normal, hover, pressed);
     if (!item) return NULL;
     item->kind = MI_BUTTON;
+    item->id = id;
     item->routine = routine;
-    drscreen.ids[item - drscreen.items] = id;
     return item;
-}
-
-int DR_ItemId(const menuitem_t *item) {
-    int i = (int)(item - drscreen.items);
-    return i >= 0 && i < drscreen.count ? drscreen.ids[i] : -1;
-}
-
-menuitem_t *DR_FindId(int id) {
-    for (int i = 0; i < drscreen.count; ++i)
-        if (drscreen.ids[i] == id) return &drscreen.items[i];
-    return NULL;
 }
 
 static menuitem_t *outer_button(int x, int y, int w, int id, const char *label) {
@@ -184,7 +133,7 @@ static menuitem_t *outer_button(int x, int y, int w, int id, const char *label) 
 }
 
 static void title(const char *label, int font) {
-    DR_Text((irect_t){320, 0, 0, 30}, 0x20 | 0x80, ss(label), &fonts[font], NULL, NULL);
+    DR_Text((irect_t){320, 0, 0, 30}, MALIGN_CENTER, ss(label), &fonts[font], NULL, NULL);
 }
 
 static const spritesheet_t *picture(const char *name) {
@@ -328,15 +277,15 @@ static int add_credits(const char *name, int center, int y) {
     return y;
 }
 
-static void draw_credits(const menu_t *screen, const menuitem_t *item) {
-    (void)screen;
+static void draw_credits(const menu_t *screen, const menuitem_t *item, irect_t rect) {
+    (void)screen; (void)item;
     irect_t clip = V_GetClip();
-    V_SetClip(item->rect);
+    V_SetClip(rect);
     for (int i = 0; i < numcredits; ++i) {
         const creditline_t *c = &credits[i];
         const bitmapfont_t *font = &fonts[c->font];
-        int y = item->rect.y + item->rect.h + c->y - credits_scroll;
-        if (y < item->rect.y - 20 || y > item->rect.y + item->rect.h) continue;
+        int y = rect.y + rect.h + c->y - credits_scroll;
+        if (y < rect.y - 20 || y > rect.y + rect.h) continue;
         V_DrawText((ivec2_t){c->center - V_TextWidth(font, c->text) / 2, y}, font, c->text, NULL);
     }
     V_SetClip(clip);
@@ -369,7 +318,6 @@ static bool load_screen(shellpage_t next) {
     free_screen();
     previous = page;
     page = next;
-    notice = NULL;
     const char *name = next == BRIEFING ? (side == 0xdb ? "brief_i" : "brief_f") : NULL;
     for (size_t i = 0; i < sizeof(backgrounds) / sizeof(*backgrounds); ++i)
         if (backgrounds[i].page == next) name = backgrounds[i].background;
@@ -409,11 +357,11 @@ static bool load_screen(shellpage_t next) {
         if (missions) { missions->row = file_row; M_MenuSetRows(missions, numfiles); }
         list((irect_t){60, 253, 346, 132}, "");
         /* Centred on their x, over the value boxes. */
-        DR_Text((irect_t){cfg("BTN_CUSTOM_SIDE_X"), cfg("BTN_CUSTOM_SIDE_Y"), 0, 0}, 0x20,
+        DR_Text((irect_t){cfg("BTN_CUSTOM_SIDE_X"), cfg("BTN_CUSTOM_SIDE_Y"), 0, 0}, MALIGN_HCENTER,
                 ss("SS_SIDE"), &fonts[13], NULL, NULL);
-        DR_Text((irect_t){cfg("BTN_CUSTOM_SIZE_X"), cfg("BTN_CUSTOM_SIZE_Y"), 0, 0}, 0x20,
+        DR_Text((irect_t){cfg("BTN_CUSTOM_SIZE_X"), cfg("BTN_CUSTOM_SIZE_Y"), 0, 0}, MALIGN_HCENTER,
                 ss("SS_MAP_SIZE"), &fonts[13], NULL, NULL);
-        DR_Text((irect_t){cfg("BTN_CUSTOM_ENEMIES_X"), cfg("BTN_CUSTOM_ENEMIES_Y"), 0, 0}, 0x20,
+        DR_Text((irect_t){cfg("BTN_CUSTOM_ENEMIES_X"), cfg("BTN_CUSTOM_ENEMIES_Y"), 0, 0}, MALIGN_HCENTER,
                 ss("SS_NUMBER_OF_ENEMIES"), &fonts[13], NULL, NULL);
         outer_button(cfg("BTN_CUSTOM_PREVIOUS_X"), cfg("BTN_CUSTOM_PREVIOUS_Y"), w, SINGLE, "SS_PREVIOUS_MENU");
         outer_button(cfg("BTN_CUSTOM_LOAD_X"), cfg("BTN_CUSTOM_LOAD_Y"), w, 5, "SS_LOAD_MISSION");
@@ -466,7 +414,7 @@ static bool load_screen(shellpage_t next) {
         image_button((irect_t){235, 105, 45, 40}, 0xda, NULL, "m_flogo2", (ivec2_t){235, 105});
         image_button((irect_t){365, 105, 45, 40}, 0xdb, NULL, "m_ilogo2", (ivec2_t){365, 105});
         image_button((irect_t){0, 200, 80, 80}, 0x66, NULL, "cube_lft", (ivec2_t){0, 200});
-        DR_Text((irect_t){320, 68, 0, 30}, 0x20, "", &fonts[6], NULL, NULL);
+        DR_Text((irect_t){320, 68, 0, 30}, MALIGN_HCENTER, "", &fonts[6], NULL, NULL);
         break;
     }
     case BRIEFING: {
@@ -487,8 +435,8 @@ static bool load_screen(shellpage_t next) {
     case OPTIONS: {
         /* 0x574f90. This port has no Dark Reign saved games: Load, Save and
          * Delete stay disabled. */
-        DR_Text((irect_t){320, 20, 0, 30}, 0x20, ss("SS_OPTIONS"), &fonts[5], NULL, NULL);
-        DR_Text((irect_t){320, 68, 0, 30}, 0x20, inlevel ? M_FileName(level.map_path) : "", &fonts[6], NULL, NULL);
+        DR_Text((irect_t){320, 20, 0, 30}, MALIGN_HCENTER, ss("SS_OPTIONS"), &fonts[5], NULL, NULL);
+        DR_Text((irect_t){320, 68, 0, 30}, MALIGN_HCENTER, menuinlevel ? M_FileName(level.map_path) : "", &fonts[6], NULL, NULL);
         DR_Text((irect_t){78, 116, 0, 0}, 0, ss("SS_AVAILABLE_GAMES"), &fonts[6], NULL, NULL);
         list((irect_t){75, 142, 294, 200}, "");
         DR_Text((irect_t){cfg("TEXT_OPTIONS_STATS_X"), 116, 0, 0}, 0, ss("SS_SAVE_LOCATION"), &fonts[6], NULL, NULL);
@@ -513,8 +461,7 @@ static bool load_screen(shellpage_t next) {
 static void start_level(const char *path) {
     snprintf(mapname, sizeof(mapname), "%s", path);
     menumap = mapname;
-    menuactive = false;
-    SDL_StopTextInput();
+    M_ClearMenus();
 }
 
 static void fail(app_t *app) {
@@ -575,10 +522,10 @@ static void activate(app_t *app, int id) {
         if (id == 0xe5) app->running = false;
         else if (id == 0xe4) {
             /* 0x1c: back to the main menu; a running level is released first. */
-            if (inlevel) { menuleave = true; menuactive = false; }
+            if (menuinlevel) { menuleave = true; M_ClearMenus(); }
             else go(app, MAIN);
         } else if (id == 0x67) {
-            if (inlevel) menuactive = false;
+            if (menuinlevel) M_ClearMenus();
             else go(app, previous == OPTIONS ? MISSIONS : previous);
         }
         break;
@@ -587,14 +534,14 @@ static void activate(app_t *app, int id) {
 
 static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
     if (action != MA_ACTIVATE) return;
-    activate(screen->owner, DR_ItemId(item));
+    activate(screen->app, item->id);
 }
 
 /* 0x570060: Escape returns to the main menu from the outer shell; in a
  * level it closes the options screen. */
 static void escape(menu_t *screen) {
-    app_t *app = screen->owner;
-    if (inlevel) menuactive = false;
+    app_t *app = screen->app;
+    if (menuinlevel) M_ClearMenus();
     else if (page != MAIN) go(app, MAIN);
 }
 
@@ -604,8 +551,7 @@ static void free_fonts(void) {
     for (int i = 0; i < DR_NUMFONTS; ++i) HU_FreeFont(&fonts[i]);
 }
 
-void M_Shutdown(void) {
-    M_StopMessage();
+void G_ShutdownMenus(void) {
     DR_MultiClose();
     free_screen();
     free_fonts();
@@ -614,15 +560,21 @@ void M_Shutdown(void) {
     free(strings);
     config = strings = NULL;
     numconfig = numstrings = 0;
-    initialized = menuactive = false;
-    menumap = NULL;
-    SDL_StopTextInput();
+    initialized = false;
 }
 
-bool M_Init(app_t *app, const char *data_root) {
-    (void)app;
-    menuerror = false;
-    M_StopMessage();
+/* The credits scroll; the multiplayer screens poll the network. */
+static void ticker(menu_t *screen) {
+    if (DR_MultiActive()) { DR_MultiTicker(); return; }
+    if (page == CREDITS) {
+        credits_scroll += credits_speed;
+        if (credits_scroll > credits_height + 320) credits_scroll = 0;
+    }
+    M_MenuTicker(screen);
+}
+
+bool G_InitMenus(app_t *app, const char *data_root) {
+    drscreen.menu.app = app;
     if (strlen(data_root) >= sizeof(root)) return false;
     strcpy(root, data_root);
     bool ok = read_defines("shell/SHELLCFG.H", &config, &numconfig) &&
@@ -634,53 +586,18 @@ bool M_Init(app_t *app, const char *data_root) {
     }
     drscreen.menu.modal = true;
     drscreen.menu.escape = escape;
+    drscreen.menu.ticker = ticker;
     page = MAIN;
     initialized = ok && load_screen(MAIN);
-    if (!initialized) M_Shutdown();
+    if (!initialized) G_ShutdownMenus();
     return initialized;
 }
 
-void M_StartControlPanel(app_t *app) {
-    if (!initialized || menuactive) return;
-    inlevel = level.width > 0;
-    drscreen.menu.owner = app;
-    if (!load_screen(inlevel ? OPTIONS : MAIN)) { fail(app); return; }
-    menuactive = true;
-    app->dragging_select = false;
-    app->selection_rect = (irect_t){0};
-}
-
-bool M_Responder(app_t *app, const SDL_Event *event, bool in_level) {
-    if (!initialized) return false;
-    if (event->type == SDL_QUIT) { app->running = false; return true; }
-    if (event->type == SDL_WINDOWEVENT) return false;
-    if (!menuactive) {
-        if (event->type != SDL_KEYDOWN || event->key.keysym.sym != SDLK_ESCAPE) return false;
-        if (!event->key.repeat) M_StartControlPanel(app);
-        return true;
-    }
-    inlevel = in_level;
-    drscreen.menu.owner = app;
-    if (DR_MultiActive()) return DR_MultiResponder(app, event);
-    return M_MenuResponder(&drscreen.menu, app, event);
-}
-
-void M_Ticker(void) {
-    if (!menuactive) return;
-    if (DR_MultiActive()) { DR_MultiTicker(); return; }
-    if (page == CREDITS) {
-        credits_scroll += credits_speed;
-        if (credits_scroll > credits_height + 320) credits_scroll = 0;
-    }
-    M_MenuTicker(&drscreen.menu);
-}
-
-void M_Drawer(const app_t *app) {
-    (void)app;
-    if (!menuactive) return;
-    if (DR_MultiActive()) { DR_MultiDrawer(); return; }
-    M_MenuDrawer(&drscreen.menu);
-    if (notice) V_DrawText((ivec2_t){20, 450}, &fonts[6], notice, NULL);
+menu_t *G_ControlPanel(app_t *app, bool inlevel) {
+    if (!initialized) return NULL;
+    drscreen.menu.app = app;
+    if (!load_screen(inlevel ? OPTIONS : MAIN)) { fail(app); return NULL; }
+    return &drscreen.menu;
 }
 
 /* The HUD's MENU page opens the same options screen as Escape. */

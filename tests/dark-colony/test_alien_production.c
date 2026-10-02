@@ -12,10 +12,10 @@ static mobj_t *find(int type) {
     return NULL;
 }
 
-static void tick(void *ui) {
+static void tick(menu_t *ui) {
     P_Ticker();
     mobjlist_t objects = P_ListMobjs();
-    G_UpdateProduction(ui, &level, objects.items, &objects.count, FIXED_DT);
+    G_UpdateProduction(&level, objects.items, &objects.count, FIXED_DT);
     P_FreeMobjList(&objects);
 }
 
@@ -79,14 +79,14 @@ static void check_dependency(const StaticProductDefinition *product) {
     assert(found);
 }
 
-static void click(void *ui, app_t *app, const StaticProductDefinition *product) {
+static void click(menu_t *ui, app_t *app, const StaticProductDefinition *product) {
     irect_t rect = native_button(product);
     SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
                                   .x = rect.x + rect.w / 2, .y = rect.y + rect.h / 2}};
     mobjlist_t objects = P_ListMobjs();
-    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    assert(t_hud_event(ui, app, objects.items, objects.count, &event));
     event.button.x = 540; event.button.y = 435;
-    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    assert(t_hud_event(ui, app, objects.items, objects.count, &event));
     P_FreeMobjList(&objects);
 }
 
@@ -132,7 +132,7 @@ static void check_player(int player) {
     V_AllocScreen(surface->w, surface->h);
     assert(screens[0].pixels);
     app_t app = {.win = {640,480}, .cell = {32,32}, .mouse = {-1,-1}};
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY");
     assert(ui);
     tileset_t tiles = {0}; spritesheet_t sprite = {0};
     assert(W_LoadAssets("data/DCOLONY", &level, "SPRITES/GRAY.SPR", &tiles, &sprite));
@@ -160,7 +160,7 @@ static void check_player(int player) {
     assert(DC_ProductActorMatches(MT_ALIEN_MINDHIVE3, MT_ALIEN_MINDHIVE2));
     hudtext_t hud = {0};
     mobjlist_t objects = P_ListMobjs();
-    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, &hud);
+    t_hud_draw(ui, &app, objects.items, objects.count, cache, &hud);
     V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, player ? "/private/tmp/dc-alien-production.bmp" :
                                        "/private/tmp/dc-human-production.bmp"));
@@ -195,8 +195,8 @@ static void check_player(int player) {
     objects = P_ListMobjs();
     SDL_Event tab = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
                                .x = 570, .y = 100}};
-    assert(G_CustomUIResponder(ui, &app, &level, objects.items, objects.count, &tab));
-    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, &hud);
+    assert(t_hud_event(ui, &app, objects.items, objects.count, &tab));
+    t_hud_draw(ui, &app, objects.items, objects.count, cache, &hud);
     V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, player ? "/private/tmp/dc-alien-research.bmp" :
                                        "/private/tmp/dc-human-research.bmp"));
@@ -225,7 +225,7 @@ static void check_player(int player) {
         assert(!level.upgrades[type][1-player].weapon && !level.upgrades[type][1-player].armor);
         assert(!science->production || !science->production->queue_count);
     }
-    G_ShutdownCustomUI(ui); R_FreeSpriteCache(cache); free(cache);
+    G_ShutdownHUD(); R_FreeSpriteCache(cache); free(cache);
     R_FreeSprite(&sprite); R_FreeTileset(&tiles);
     V_FreeScreen();
     SDL_FreeSurface(surface); SDL_Quit();

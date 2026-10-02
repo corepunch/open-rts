@@ -294,7 +294,7 @@ The interactive and model loaders follow the same conceptual sequence:
 5. The game loader attaches optional mission/script state to `level_t`.
 6. Load tiles and the fallback sprite through `W_LoadAssets`.
 7. Resolve per-object and decoration sprite resources with `R_InitSprites`.
-8. Initialize game UI/font resources when `gameui` is present.
+8. Build the game's HUD table with `G_InitHUD`.
 
 The model path deliberately omits SDL asset textures but keeps the same map,
 actor, state, mission, production, movement, and event behavior. This is what
@@ -484,44 +484,46 @@ plugin internals.
 
 ### HUD and sidebar architecture
 
-The HUD follows Doom's status-bar lifecycle. Shared engine services own image
-loading, widget drawing and input dispatch. Games supply item tables, native
-assets, layout and gameplay callbacks; native content extends the shared
-drawer where necessary.
+The front end and the HUD are both data. A game describes each screen as a
+table of `menuitem_t` (location, anchor, kind, pictures, fonts, text and
+routine) and hands it to the engine; the engine hit-tests, keeps focus, edits
+text, waits for map targets, scrolls lists, centres the view from a minimap
+and draws. Games keep only what is native: asset decoding, script parsing,
+gameplay routines and the odd `ownerdraw` for pictures the table cannot
+express.
 
 ```text
 driver/w_image.c              W_LoadImage — engine BMP/PCX decoding
-hud/sb_bar.c                  shared SB_Init/Start/Ticker/Drawer/Shutdown
-hud/sb_prod.c                 text-list production fallback
-hud/m_menu.c                  shared menu/HUD items, drawing and input
-include/engine.h              common layout/asset/item types
+hud/m_menu.c                  items: input, focus, text, targets, drawing
+hud/m_main.c                  front end: M_* lifecycle, fallback screen
+hud/hu_bar.c                  shared HUD pieces: counters, clock, product
+                              list, route book
+include/engine.h              menu_t, menuitem_t and the game hooks
 
-games/dark-reign/hud/
-  sb_bar.c                    gameui, native fonts, chrome, counter and radar
-  sb_palette.c                item table, native text and gameplay callbacks
-include/dark-reign.h          Dark Reign HUD interface
+games/dark-colony/sb_bar.c    MAINE script → HUD table
+games/dark-reign/hud/sb_bar.c native chrome, fonts and MFD pages as a table
+games/kknd, games/7legion     static HUD tables in g_game.c
 ```
 
-Dark Reign owns one active status bar through `G_CustomUI*`. It reuses the
-shared bitmap/icon lifetime functions and item drawer, with native content in
-`games/dark-reign/hud/`. `W_LoadImage` handles BMP and single-plane 8-bit RLE
-PCX decoding for any game; interpreting the PCX font delimiter row is Dark
-Reign HUD behavior. No PNG dependency or generated replacement chrome is used.
-Product stats and queue rules remain in `games/dark-reign/p_prod.c`; scenario
-technology limits and definition order belong to the active level's mission.
+The game exposes five hooks: `G_InitMenus`, `G_ControlPanel` and
+`G_ShutdownMenus` for the front end, `G_InitHUD` and `G_ShutdownHUD` for the
+level. `G_ControlPanel` returns the screen Escape opens; `M_SetupNextMenu`
+switches screens and `M_ClearMenus` closes them. `G_InitHUD` returns the
+level's table, which the driver feeds every event, tic and frame after it sets
+`hudview` (the units, sprites and messages the HUD shows). There is no
+per-game responder or drawer.
 
-Dark Colony currently implements its custom hooks in
-`games/dark-colony/sb_bar.c`. KKnD and 7th Legion still use `gameui` data and the
-shared fallback. New per-game drawing belongs in `games/<game>/hud/`; shared
-capabilities belong in engine code when multiple callers actually need them.
+A menu's `refresh` brings its items up to date before it takes an event or
+draws: which controls the selection shows, the money text, a product slot's
+icon. Its `ticker` replaces the plain animation step when the screen polls
+the network or scrolls credits, and `drawtip` draws the tooltip of the item
+under the pointer.
 
-On load, the driver calls `G_InitCustomUI`. A non-NULL result owns the HUD and
-prevents a second generic `SB_Init`; otherwise it initializes the fallback.
-Events go to the chosen production responder, the custom responder and the
-shared responder. Custom cancellation also runs before world right-click
-handling. Tickers advance with simulation ticks. Custom drawing runs after
-world/fog rendering; the uninitialized generic bar is inert when a game owns
-the HUD. Shutdown releases each initialized owner once.
+`W_LoadImage` handles BMP and single-plane 8-bit RLE PCX decoding for any
+game; interpreting the PCX font delimiter row is Dark Reign HUD behavior. No
+PNG dependency or generated replacement chrome is used. Product stats and
+queue rules remain in `games/dark-reign/p_prod.c`; scenario technology limits
+and definition order belong to the active level's mission.
 
 The Dark Reign HUD's supported interactions are production, scrolling, camera
 panning through the radar and the engine resume/quit popup. The native page
@@ -540,9 +542,10 @@ special abilities, attachment types and native HUD pages.
 ## Menu lifecycle versus HUD
 
 `include/engine.h` exposes the Doom-style `M_Init`, `M_StartControlPanel`,
-`M_Responder`, `M_Ticker`, `M_Drawer`, and `M_Shutdown` lifecycle. Dark Colony
-implements it in `games/dark-colony/menu/`; the other games supply static
-Start/Resume/Quit item tables to the shared `hud/m_simple.c` lifecycle.
+`M_Responder`, `M_Ticker`, `M_Drawer`, and `M_Shutdown` lifecycle, implemented
+once in `hud/m_main.c` over `currentmenu`. Dark Colony and Dark Reign build
+their native screens in `games/<game>/menu/`; the other games hand a static
+Start/Resume/Quit table to `M_SimpleControlPanel`.
 These are engine fallback screens, with the existing small glyph font, not
 reproductions of those games' retail front ends. Escape opens them during a
 level; their existing automatic level startup is preserved. Native screen
@@ -550,8 +553,9 @@ parsing, assets, animation selection and campaign dispatch belong to the game,
 outside its level HUD.
 
 The same header declares the engine's menu and HUD framework. A screen is a `menu_t`
-holding a C array of `menuitem_t`: kind, rectangle, sheet cell and palette map
-per state (normal, focused, pushed), font and text, list rows, and a routine.
+holding a C array of `menuitem_t`: kind, id, rectangle and anchor, sheet cell,
+palette map and font per state (normal, focused, pushed), text and alignment,
+tooltip, list rows, and a routine.
 The game fills the table once when a screen loads and changes item fields
 afterwards. `M_MenuResponder` hit-tests, keeps focus, edits text fields and
 calls the routines. It owns widget state: a check box toggles, or is one of a
@@ -559,32 +563,42 @@ calls the routines. It owns widget state: a check box toggles, or is one of a
 position, moved by clicks, Up/Down, the wheel, its scroll bar and any button
 whose `link` and `step` name it; and SDL text input is on only while a text
 field has focus. A routine sees `MA_ACTIVATE`, `MA_CHANGE`, right-click
-`MA_SECONDARY`, and HUD wheel `MA_WHEEL` actions. Modal screens consume input;
-HUD screens consume hotkeys and mouse clicks on visible chrome, leaving world
-input to the caller. Hover and pressed looks come from the shared responder.
+`MA_SECONDARY`, HUD wheel `MA_WHEEL`, `MA_TARGET` and `MA_CANCEL` actions.
+Modal screens consume input; HUD screens consume hotkeys and mouse clicks on
+visible chrome, leaving world input to the caller. `M_MenuTarget` makes an
+item wait for a click on the world (a move order, a waypoint): the engine
+hands it the click as `MA_TARGET`, and the right button or Escape as
+`MA_CANCEL`. `M_MenuEdit` gives a HUD text field the keyboard until Enter or
+Escape, as Dark Colony's chat line does. An `MI_MINIMAP` item centres the
+world view on the clicked or dragged cell. On a screen larger than the table's
+`size`, items follow their `anchor` to the right or bottom edge, or the whole
+table `stretch`es. Hover and pressed looks come from the shared responder.
 `M_MenuDrawer` draws the background, pictures, button
 labels, loose text, lists, scroll bars and the text caret. Pictures and buttons
-draw first in table order and loose text, lists and scroll bars draw over them.
+draw first in table order and loose text, lists and scroll bars draw over them;
+a `layer` item, such as a popup's backdrop, starts that order again over
+everything before it.
 An item's `ownerdraw` supplies native content after its standard picture,
-such as Dark Colony's FIN gadgets or Dark Reign's variable-width PCX labels.
-The engine still owns list clipping, selection and scroll state when a list
-uses native text drawing. Dark Colony's table is indexed by the native control
+such as Dark Colony's FIN gadgets and digit pictures. Fonts with
+`own_palette` (Dark Reign's PCX strips, Dark Colony's HUD font) are matched
+into the screen palette, so native text needs no ownerdraw. Dark Colony's table is indexed by the native control
 ID from its `INTRFACE/*E` scripts.
 
 Dark Colony's MAINE HUD also loads a single item table. The engine draws its
 chrome, buttons and purchase counters and dispatches tabs, orders, purchase
-and refund callbacks. Native minimap, day dial and status content use
-`ownerdraw`; gameplay callbacks still decide which products and abilities
-are visible and what a world-targeted command means. Screen images remain
+and refund callbacks, and draws the label, message and day fields as text
+items. The minimap picture, money digits and day dial use `ownerdraw`;
+gameplay callbacks still decide which products and abilities are visible and
+what a world-targeted command means. Screen images remain
 separate from gameplay sprite IDs.
 
-Dark Reign's palette also builds one item table at initialization. Native
-action/category/path tables populate its controls; product slots refresh
-their borrowed icon and product references as selection or page changes.
-`stretch` maps native sheet crops to scaled control rectangles. The engine
-dispatches controls and owns their hover/pressed looks, page-wheel events,
-saved-path list scrolling and chrome click consumption. The game retains
-world orders, native font composition, tooltips and minimap content.
+Dark Reign's HUD is one item table too: chrome bitmaps, the money text, the
+PATHS page pictures and captions, the action and path controls, the product
+grid and hidden hotkeys. Product slots refresh their borrowed icon and product
+references as selection or page changes. The engine dispatches controls and
+owns their hover/pressed looks, page-wheel events, saved-path list scrolling,
+map targets and chrome click consumption. The game retains what world orders
+mean, the tooltip box and the minimap content.
 
 Animation is split along the same line. Every item carries a `menuanim_t`: a
 frame range, the current frame, a loop / one-off / stopped mode and the ticks

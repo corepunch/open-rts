@@ -124,4 +124,21 @@ static inline int rts_find_decoration_with_sprite(const RtsRenderSnapshot *snaps
 }
 
 
+/* Drive the HUD as the driver does: say what it shows, then hand it the
+ * event or the frame. */
+static inline bool t_hud_event(menu_t *hud, app_t *app, mobj_t *const *units, int unit_count,
+                               const SDL_Event *event) {
+    hudview.units = units;
+    hudview.unit_count = unit_count;
+    return hud && M_MenuResponder(hud, app, event);
+}
+
+static inline void t_hud_draw(menu_t *hud, app_t *app, mobj_t *const *units, int unit_count,
+                              const spritecache_t *sprites, const hudtext_t *messages) {
+    hudview = (hudview_t){units, unit_count, sprites, messages};
+    if (!hud) return;
+    hud->app = app;
+    M_MenuDrawer(hud);
+}
+
 #endif

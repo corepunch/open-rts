@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-bool menuleave;
 static char message[256];
 
 void M_StartMessage(const char *text) {
@@ -14,6 +13,28 @@ void M_StopMessage(void) {
     message[0] = '\0';
 }
 
+/* ── geometry ───────────────────────────────────────────────────────────── */
+
+static isize2_t screen_size(const menu_t *menu) {
+    if (menu->app && menu->app->win.w > 0) return menu->app->win;
+    if (screens[0].w > 0) return (isize2_t){screens[0].w, screens[0].h};
+    return menu->size;
+}
+
+irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item) {
+    irect_t r = item->rect;
+    if ((!item->anchor && !menu->stretch) || menu->size.w <= 0 || menu->size.h <= 0) return r;
+    isize2_t screen = screen_size(menu);
+    if (menu->stretch)
+        return (irect_t){r.x * screen.w / menu->size.w, r.y * screen.h / menu->size.h,
+                         r.w * screen.w / menu->size.w, r.h * screen.h / menu->size.h};
+    int dx = screen.w - menu->size.w, dy = screen.h - menu->size.h;
+    if (item->anchor & MANCHOR_RIGHT) r.x += dx;
+    if (item->anchor & MANCHOR_BOTTOM) r.y += dy;
+    if (item->anchor & MANCHOR_GROW) r.h += dy;
+    return r;
+}
+
 static bool item_live(const menuitem_t *item) {
     return item && item->kind != MI_STATIC && item->visible && item->enabled;
 }
@@ -22,17 +43,78 @@ static menuitem_t *focused(const menu_t *menu) {
     return menu->itemOn >= 0 && menu->itemOn < menu->numitems ? &menu->items[menu->itemOn] : NULL;
 }
 
+menuitem_t *M_MenuHover(const menu_t *menu) {
+    menuitem_t *item = focused(menu);
+    return item_live(item) ? item : NULL;
+}
+
+menuitem_t *M_MenuFind(const menu_t *menu, int id) {
+    for (int i = 0; i < menu->numitems; ++i)
+        if (menu->items[i].id == id) return &menu->items[i];
+    return NULL;
+}
+
 static menuitem_t *item_at(const menu_t *menu, ivec2_t point) {
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
-        if (item_live(item) && irect_contains(item->rect, point)) return item;
+        if (item_live(item) && irect_contains(M_MenuItemRect(menu, item), point)) return item;
     }
     return NULL;
+}
+
+static bool visible_at(const menu_t *menu, ivec2_t point) {
+    for (int i = 0; i < menu->numitems; ++i)
+        if (menu->items[i].visible && irect_contains(M_MenuItemRect(menu, &menu->items[i]), point))
+            return true;
+    return false;
 }
 
 static void call_routine(menu_t *menu, menuitem_t *item, menuaction_t action) {
     if (item && item->routine) item->routine(menu, item, action);
 }
+
+/* ── targets, edits and the view ────────────────────────────────────────── */
+
+void M_MenuTarget(menu_t *menu, menuitem_t *item) {
+    menu->target = item;
+}
+
+void M_MenuEdit(menu_t *menu, menuitem_t *item) {
+    if (item) {
+        menu->editing = item;
+        menu->itemOn = (int)(item - menu->items);
+        SDL_StartTextInput();
+    } else if (menu->editing) {
+        menu->editing = NULL;
+        SDL_StopTextInput();
+    }
+}
+
+static void cancel(menu_t *menu) {
+    menuitem_t *item = menu->target ? menu->target : menu->editing;
+    menu->target = NULL;
+    M_MenuEdit(menu, NULL);
+    call_routine(menu, item, MA_CANCEL);
+}
+
+void M_CentreView(app_t *app, fvec2_t cell) {
+    float sx = 0.0f, sy = 0.0f;
+    R_GridToScreen(app, cell.x, cell.y, &sx, &sy);
+    irect_t view = G_WorldViewport(app);
+    app->cam = fvec2_add(app->cam, (fvec2_t){view.x + view.w / 2.0f - sx,
+                                             view.y + view.h / 2.0f - sy});
+}
+
+/* The pointer's pixel, sampled at its centre, as a level cell. */
+static void minimap_centre(menu_t *menu, const menuitem_t *item) {
+    irect_t r = M_MenuItemRect(menu, item);
+    if (!menu->app || r.w <= 0 || r.h <= 0 || level.width <= 0 || level.height <= 0) return;
+    M_CentreView(menu->app, (fvec2_t){
+        (float)level.width * (2 * (menu->cursor.x - r.x) + 1) / (2.0f * r.w),
+        (float)level.height * (2 * (menu->cursor.y - r.y) + 1) / (2.0f * r.h)});
+}
+
+/* ── editing and lists ──────────────────────────────────────────────────── */
 
 static void focus_step(menu_t *menu, int delta) {
     if (menu->numitems <= 0) return;
@@ -94,9 +176,9 @@ static menuitem_t *linked(const menu_t *menu, const menuitem_t *item) {
  * (DC.EXE 0x42805f..0x4280d6). */
 static void drag_scrollbar(menu_t *menu, const menuitem_t *bar) {
     menuitem_t *list = linked(menu, bar);
-    if (!list || bar->rect.h <= 0) return;
-    scroll_to(list, (menu->cursor.y - bar->rect.y) * list->rows / bar->rect.h -
-                    page_rows(list) / 2);
+    irect_t r = M_MenuItemRect(menu, bar);
+    if (!list || r.h <= 0) return;
+    scroll_to(list, (menu->cursor.y - r.y) * list->rows / r.h - page_rows(list) / 2);
 }
 
 static void activate(menu_t *menu, menuitem_t *item) {
@@ -108,9 +190,11 @@ static void activate(menu_t *menu, menuitem_t *item) {
         }
     menuitem_t *target = item->kind == MI_BUTTON && item->step ? linked(menu, item) : NULL;
     if (target) scroll_to(target, target->first_row + item->step);
-    S_StartUISound(UI_SOUND_CLICK);
+    if (!item->quiet) S_StartUISound(UI_SOUND_CLICK);
     call_routine(menu, item, MA_ACTIVATE);
 }
+
+/* ── input ──────────────────────────────────────────────────────────────── */
 
 /* A hotkey works on an enabled item even while it is not shown. */
 static bool hotkey(menu_t *menu, const SDL_Event *event) {
@@ -128,8 +212,13 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
     SDL_Keycode key = event->key.keysym.sym;
     menuitem_t *focus = focused(menu);
     bool typing = menu->modal && item_live(focus) && focus->kind == MI_TEXTFIELD;
+    menu->keymod = event->key.keysym.mod;
     if (!typing && hotkey(menu, event)) return true;
-    if (!menu->modal) return false;
+    if (!menu->modal) {
+        if (key != SDLK_ESCAPE || event->key.repeat || !menu->target) return false;
+        cancel(menu);
+        return true;
+    }
     if (key == SDLK_ESCAPE) {
         if (!event->key.repeat && menu->escape) menu->escape(menu);
     } else if ((key == SDLK_UP || key == SDLK_DOWN) && item_live(focus) && focus->kind == MI_LIST) {
@@ -144,10 +233,17 @@ static bool key_down(menu_t *menu, const SDL_Event *event) {
     return true;
 }
 
-static bool visible_at(const menu_t *menu, ivec2_t point) {
-    for (int i = 0; i < menu->numitems; ++i)
-        if (menu->items[i].visible && irect_contains(menu->items[i].rect, point)) return true;
-    return false;
+/* The field being edited has the keyboard: Enter sends it, Escape drops it. */
+static void edit_key(menu_t *menu, const SDL_Event *event) {
+    SDL_Keycode key = event->key.keysym.sym;
+    menu->keymod = event->key.keysym.mod;
+    if (key == SDLK_ESCAPE) {
+        if (!event->key.repeat) cancel(menu);
+    } else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+        if (!event->key.repeat && item_live(menu->editing)) activate(menu, menu->editing);
+    } else if (key == SDLK_BACKSPACE) {
+        type_text(menu, menu->editing, NULL, true);
+    }
 }
 
 static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
@@ -159,11 +255,34 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
         drag_scrollbar(menu, menu->held);
         return true;
     }
+    if (motion && menu->held && menu->held->kind == MI_MINIMAP) {
+        minimap_centre(menu, menu->held);
+        return true;
+    }
     /* A modal screen keeps its focus while the pointer is off every item. */
     menuitem_t *hit = item_at(menu, menu->cursor);
     if (hit || !menu->modal) menu->itemOn = hit ? (int)(hit - menu->items) : -1;
     if (motion) return menu->modal;
     bool left = event->button.button == SDL_BUTTON_LEFT;
+    if (!menu->modal && menu->target && down && event->button.button == SDL_BUTTON_RIGHT) {
+        menu->held = NULL;
+        cancel(menu);
+        return true;
+    }
+    /* The world under a waiting item takes its click, and the release. */
+    if (!menu->modal && left && !visible_at(menu, menu->cursor)) {
+        if (!down && menu->lifted) {
+            menu->lifted = false;
+            return true;
+        }
+        if (down && menu->target) {
+            menuitem_t *item = menu->target;
+            menu->target = NULL;
+            menu->lifted = true;
+            call_routine(menu, item, MA_TARGET);
+            return true;
+        }
+    }
     bool taken = menu->modal || visible_at(menu, menu->cursor) || (left && !down && menu->held);
     if (left) menu->held = NULL;
     if (!down || !hit) return taken;
@@ -173,10 +292,14 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
     }
     menu->held = hit;
     if (hit->kind == MI_LIST)
-        select_row(menu, hit, hit->first_row +
-                   (menu->cursor.y - hit->rect.y) / (hit->row_height > 0 ? hit->row_height : 1));
+        select_row(menu, hit, hit->first_row + (menu->cursor.y - M_MenuItemRect(menu, hit).y) /
+                   (hit->row_height > 0 ? hit->row_height : 1));
     else if (hit->kind == MI_SCROLLBAR) drag_scrollbar(menu, hit);
-    else activate(menu, hit);
+    else if (hit->kind == MI_MINIMAP) {
+        S_StartUISound(UI_SOUND_CLICK);
+        minimap_centre(menu, hit);
+        call_routine(menu, hit, MA_ACTIVATE);
+    } else activate(menu, hit);
     return true;
 }
 
@@ -185,7 +308,8 @@ static bool mouse(menu_t *menu, const app_t *app, const SDL_Event *event) {
 static bool wheel(menu_t *menu, int delta) {
     for (int i = 0; i < menu->numitems; ++i) {
         menuitem_t *item = &menu->items[i];
-        if (!item->visible || (!menu->modal && !irect_contains(item->rect, menu->cursor))) continue;
+        if (!item->visible ||
+            (!menu->modal && !irect_contains(M_MenuItemRect(menu, item), menu->cursor))) continue;
         if (item->kind == MI_LIST || (item->kind == MI_STATIC && item->prose)) {
             scroll_to(item, item->first_row - delta);
             return true;
@@ -199,7 +323,9 @@ static bool wheel(menu_t *menu, int delta) {
     return menu->modal || visible_at(menu, menu->cursor);
 }
 
-bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
+bool M_MenuResponder(menu_t *menu, app_t *app, const SDL_Event *event) {
+    menu->app = app;
+    if (menu->refresh) menu->refresh(menu);
     if (menu->modal && message[0]) {
         menu->held = NULL;
         if ((event->type == SDL_KEYDOWN && !event->key.repeat &&
@@ -207,6 +333,14 @@ bool M_MenuResponder(menu_t *menu, const app_t *app, const SDL_Event *event) {
               event->key.keysym.sym == SDLK_ESCAPE || event->key.keysym.sym == SDLK_SPACE)) ||
             (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT))
             M_StopMessage();
+        return true;
+    }
+    if (menu->editing) {
+        if (event->type == SDL_KEYDOWN) edit_key(menu, event);
+        else if (event->type == SDL_TEXTINPUT) type_text(menu, menu->editing, event->text.text, false);
+        else if (event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEBUTTONDOWN ||
+                 event->type == SDL_MOUSEBUTTONUP) mouse(menu, app, event);
+        else if (event->type == SDL_MOUSEWHEEL) wheel(menu, event->wheel.y);
         return true;
     }
     bool taken = menu->modal;
@@ -253,6 +387,8 @@ void M_MenuTicker(menu_t *menu) {
     }
 }
 
+/* ── drawing ────────────────────────────────────────────────────────────── */
+
 static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     if (item->kind == MI_CHECK && item->value) return MS_PUSHED;
     if (!item_live(item)) return MS_NORMAL;
@@ -260,86 +396,102 @@ static menustate_t item_state(const menu_t *menu, const menuitem_t *item) {
     return item == focused(menu) ? MS_FOCUS : MS_NORMAL;
 }
 
-static void draw_picture(const menuitem_t *item, menustate_t state) {
+static void draw_picture(const menuitem_t *item, menustate_t state, irect_t rect) {
     const menulook_t *look = &item->look[state];
     if (!item->sheet || look->cell < 0 || look->cell >= item->sheet->numlumps) return;
     const spritecell_t *cell = &item->sheet->cells[look->cell];
     irect_t src = look->part.w > 0 ? look->part : cell->rect;
-    irect_t dst = {item->rect.x + cell->displacement.x, item->rect.y + cell->displacement.y,
-                   src.w, src.h};
-    if (item->stretch) dst = item->rect;
+    irect_t dst = {rect.x + cell->displacement.x, rect.y + cell->displacement.y, src.w, src.h};
+    if (item->stretch) dst = rect;
     R_DrawSprite(item->sheet, look->cell, look->palette, &src, &dst,
                  item->opaque ? V_OPAQUE : 0, item->light ? item->light : 16);
 }
 
-/* Text takes its colour from the ink, or from the state's palette map. */
-static const uint8_t *text_remap(const menuitem_t *item, menustate_t state, uint8_t tint[256]) {
-    if (!item->ink) return R_PaletteMap(&item->font->sprite, item->look[state].palette);
-    V_ModulateRemap(tint, item->font->sprite.source_palette, item->ink);
+static const bitmapfont_t *state_font(const menuitem_t *item, menustate_t state) {
+    return item->look[state].font ? item->look[state].font : item->font;
+}
+
+/* Text takes its colour from the ink, or from the state's palette map; a
+ * font with its own palette is matched into the screen's. */
+static const uint8_t *text_remap(const menuitem_t *item, const bitmapfont_t *font,
+                                 menustate_t state, uint8_t tint[256]) {
+    const uint32_t *colours = font->sprite.source_palette;
+    if (item->ink) {
+        V_ModulateRemap(tint, colours, item->ink);
+        return tint;
+    }
+    const uint8_t *row = R_PaletteMap(&font->sprite, item->look[state].palette);
+    if (!font->own_palette) return row;
+    if (!row) return V_RemapPalette(colours);
+    for (int i = 0; i < 256; ++i) tint[i] = V_NearestIndex(colours[row[i]] | 0xff000000u);
     return tint;
 }
 
-static void draw_text(const menuitem_t *item, menustate_t state, bool caret) {
-    const bitmapfont_t *font = item->font;
+static ivec2_t text_origin(const menuitem_t *item, irect_t rect, isize2_t text) {
+    ivec2_t at = ivec2_add((ivec2_t){rect.x, rect.y}, item->inset);
+    if (item->align & MALIGN_HCENTER) at.x += (rect.w - text.w) / 2;
+    else if (item->align & MALIGN_RIGHT) at.x += rect.w - text.w;
+    if (item->align & MALIGN_VCENTER) at.y += (rect.h - text.h) / 2;
+    else if (item->align & MALIGN_BOTTOM) at.y += rect.h - text.h;
+    return at;
+}
+
+static void draw_text(const menuitem_t *item, menustate_t state, irect_t rect, bool caret) {
+    const bitmapfont_t *font = state_font(item, state);
     if (!font) {
         if (!item->text[0]) return;
-        ivec2_t at = ivec2_add((ivec2_t){item->rect.x, item->rect.y}, item->inset);
-        if (item->centered) at = ivec2_add(at,
-            (ivec2_t){(item->rect.w - (int)strlen(item->text) * 6) / 2, (item->rect.h - 7) / 2});
-        V_DrawSmallText((irect_t){at.x, at.y, item->rect.w - item->inset.x, 7}, item->text,
+        ivec2_t at = text_origin(item, rect, (isize2_t){(int)strlen(item->text) * 6, 7});
+        V_DrawSmallText((irect_t){at.x, at.y, rect.w - item->inset.x, 7}, item->text,
                         item->ink ? item->ink : 0xffdce6dcu,
                         (isize2_t){screens[0].w, screens[0].h});
         return;
     }
     if (item->prose) {
-        V_DrawTextWrapped(item->rect, font, item->prose, NULL, item->first_row * font->line_h);
+        V_DrawTextWrapped(rect, font, item->prose,
+                          font->own_palette ? V_RemapPalette(font->sprite.source_palette) : NULL,
+                          item->first_row * font->line_h);
         return;
     }
     uint8_t tint[256];
-    const uint8_t *remap = text_remap(item, state, tint);
-    ivec2_t at = ivec2_add((ivec2_t){item->rect.x, item->rect.y}, item->inset);
-    if (item->centered)
-        at = ivec2_add(at, (ivec2_t){(item->rect.w - V_TextWidth(font, item->text)) / 2,
-                                     (item->rect.h - font->glyph_size.h) / 2});
+    const uint8_t *remap = text_remap(item, font, state, tint);
+    ivec2_t at = text_origin(item, rect, (isize2_t){V_TextWidth(font, item->text), font->glyph_size.h});
     V_DrawText(at, font, item->text, remap);
     /* Engine behaviour: the field being edited ends in an underscore. */
     if (caret && font->glyph_index['_'] >= 0)
         V_DrawText((ivec2_t){at.x + V_TextWidth(font, item->text), at.y}, font, "_", remap);
 }
 
-static void draw_list(const menu_t *menu, const menuitem_t *item) {
-    const bitmapfont_t *font = item->font;
+static void draw_list(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     uint8_t tint[256];
-    if ((!font && !item->ownerdraw) || item->row_height <= 0) return;
-    if (!item->rows) {
-        if (item->prose) V_DrawTextWrapped(item->rect, font, item->prose, NULL, 0);
-        return;
-    }
     irect_t clip = V_GetClip();
-    V_SetClip(item->rect);
-    int visible = item->rect.h / item->row_height;
-    for (int i = 0; i < visible && item->first_row + i < item->rows; ++i) {
-        int row = item->first_row + i;
-        bool selected = row == item->value;
-        irect_t line = {item->rect.x, item->rect.y + i * item->row_height,
-                        item->rect.w, item->row_height};
-        if (selected && item->color) V_FillRect(line, V_NearestIndex(item->color));
-        if (font && item->row)
-            V_DrawText((ivec2_t){line.x, line.y}, font, item->row(item, row),
-                       text_remap(item, selected ? MS_PUSHED : MS_NORMAL, tint));
+    V_SetClip(rect);
+    if (!item->rows && item->prose && item->font) {
+        V_DrawTextWrapped(rect, item->font, item->prose, NULL, 0);
+    } else if (item->row_height > 0) {
+        int visible = rect.h / item->row_height;
+        for (int i = 0; i < visible && item->first_row + i < item->rows; ++i) {
+            int row = item->first_row + i;
+            bool selected = row == item->value;
+            menustate_t state = selected ? MS_PUSHED : MS_NORMAL;
+            const bitmapfont_t *font = state_font(item, state);
+            irect_t line = {rect.x, rect.y + i * item->row_height, rect.w, item->row_height};
+            if (selected && item->color) V_FillRect(line, V_NearestIndex(item->color));
+            if (font && item->row)
+                V_DrawText(ivec2_add((ivec2_t){line.x, line.y}, item->inset), font,
+                           item->row(item, row), text_remap(item, font, state, tint));
+        }
     }
-    if (item->ownerdraw) item->ownerdraw(menu, item);
+    if (item->ownerdraw) item->ownerdraw(menu, item, rect);
     V_SetClip(clip);
 }
 
 /* The thumb spans the visible rows of the linked list. */
-static void draw_scrollbar(const menu_t *menu, const menuitem_t *item) {
+static void draw_scrollbar(const menu_t *menu, const menuitem_t *item, irect_t bar) {
     if (item->link < 0 || item->link >= menu->numitems) return;
     const menuitem_t *list = &menu->items[item->link];
     if (list->rows <= 0 || list->row_height <= 0) return;
     int end = list->first_row + list->rect.h / list->row_height;
     if (end > list->rows) end = list->rows;
-    irect_t bar = item->rect;
     int top = bar.h * list->first_row / list->rows;
     uint8_t color = V_NearestIndex(item->color);
     V_DrawRectOutline(bar, color);
@@ -352,26 +504,31 @@ static bool is_button(const menuitem_t *item) {
 
 static void draw_chrome(const menu_t *menu, const menuitem_t *item) {
     if (!item->visible || item->kind == MI_LIST || item->kind == MI_SCROLLBAR) return;
-    if (item->fill) V_FillRect(item->rect, V_NearestIndex(item->fill));
+    irect_t rect = M_MenuItemRect(menu, item);
+    if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
     menustate_t state = item_state(menu, item);
-    draw_picture(item, state);
+    draw_picture(item, state, rect);
+    if (item->border) V_DrawRectOutline(rect, V_NearestIndex(item->border));
     if (is_button(item) && item->color && state != MS_NORMAL)
-        V_DrawRectOutline(item->rect, V_NearestIndex(item->color));
-    if (item->ownerdraw) item->ownerdraw(menu, item);
-    else if (is_button(item)) draw_text(item, state, false);
+        V_DrawRectOutline(rect, V_NearestIndex(item->color));
+    if (item->ownerdraw) item->ownerdraw(menu, item, rect);
+    else if (is_button(item)) draw_text(item, state, rect, false);
 }
 
 static void draw_content(const menu_t *menu, const menuitem_t *item) {
     if (!item->visible || is_button(item)) return;
+    irect_t rect = M_MenuItemRect(menu, item);
     if (item->kind == MI_LIST || item->kind == MI_SCROLLBAR) {
-        if (item->fill) V_FillRect(item->rect, V_NearestIndex(item->fill));
-        if (item->kind == MI_LIST) draw_list(menu, item);
-        else draw_scrollbar(menu, item);
+        if (item->fill) V_FillRect(rect, V_NearestIndex(item->fill));
+        if (item->kind == MI_LIST) draw_list(menu, item, rect);
+        else draw_scrollbar(menu, item, rect);
+        if (item->border) V_DrawRectOutline(rect, V_NearestIndex(item->border));
         return;
     }
     if (item->ownerdraw) return;
-    draw_text(item, item_state(menu, item), item->kind == MI_TEXTFIELD && item->enabled &&
-                                             item == focused(menu));
+    bool caret = item->kind == MI_TEXTFIELD && item->enabled &&
+                 (item == menu->editing || (menu->modal && item == focused(menu)));
+    draw_text(item, item_state(menu, item), rect, caret);
 }
 
 static void draw_message(void) {
@@ -403,14 +560,21 @@ static void draw_message(void) {
 }
 
 /* Pictures and buttons draw first, in table order; loose text, lists and
- * scroll bars draw over them. */
-void M_MenuDrawer(const menu_t *menu) {
+ * scroll bars draw over them, and the tooltip over everything. A layer item
+ * starts the same again over all that came before it. */
+void M_MenuDrawer(menu_t *menu) {
+    if (menu->refresh) menu->refresh(menu);
     if (menu->palette) I_SetPalette(menu->palette);
     if (menu->background && menu->background->numlumps) {
         irect_t dst = menu->background->cells[0].rect;
         R_DrawSprite(menu->background, 0, -1, NULL, &dst, V_OPAQUE, 16);
     }
-    for (int i = 0; i < menu->numitems; ++i) draw_chrome(menu, &menu->items[i]);
-    for (int i = 0; i < menu->numitems; ++i) draw_content(menu, &menu->items[i]);
+    for (int start = 0, end; start < menu->numitems; start = end) {
+        for (end = start + 1; end < menu->numitems && !menu->items[end].layer; ++end) {}
+        for (int i = start; i < end; ++i) draw_chrome(menu, &menu->items[i]);
+        for (int i = start; i < end; ++i) draw_content(menu, &menu->items[i]);
+    }
+    const menuitem_t *hover = M_MenuHover(menu);
+    if (hover && hover->tooltip && menu->drawtip) menu->drawtip(menu, hover);
     if (menu->modal && message[0]) draw_message();
 }

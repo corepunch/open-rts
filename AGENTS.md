@@ -242,27 +242,26 @@ Key patterns to follow from that lineage:
 - **Gametic / ticrate** — decouple simulation tics from render frames
 - **Lock-step networking** — exchange input commands per tic, never game state
 
-### HUD and sidebar (`sb_bar.c` pattern)
+### Menus and HUD (data-driven tables)
 
-The sidebar/HUD follows Doom's `st_bar.c` ancestry.  Full design is in
-`ARCHITECTURE.md` § "HUD and sidebar architecture"; the quick rules are:
+Full design is in `ARCHITECTURE.md` § "HUD and sidebar architecture"; the
+quick rules are:
 
-- **`hud/`** owns the generic lifecycle (`SB_Init/Responder/Ticker/Drawer/Shutdown`)
-  and the text-list fallback (`sb_prod.c`). BMP/PCX decoding belongs in engine
-  code (`driver/w_image.c`), never in per-game HUD code.
-  `hud/ui_definition.h` defines `uidefinition_t`.
-- **`games/<game>/g_game.c`** fills `const uidefinition_t *const gameui` with the
-  game's layout rects, BMP asset list, and `uiproduct_t`/`uicategory_t`/`uiaction_t`
-  tables.  This is the data-only path; no custom drawing code is needed.
-- **`games/<game>/sb_bar.c`** (optional) implements the `G_CustomUI*` hooks for a
-  fully custom sidebar. Dark Colony uses this; KKnD/7th Legion do not. Dark Reign owns its
-  native drawing, fonts, layout and icon palette in `games/dark-reign/hud/`.
-  New per-game HUD drawing belongs in `games/<game>/hud/`.
-- New product rows with icons: `games/<game>/p_prod.c` (gameplay) plus a matching
-  `uiproduct_t` entry in the game's HUD definition (icon sprite path).
-- New engine-wide sidebar capability: add a field to `uidefinition_t` and handle it
-  in `hud/sb_bar.c` or another shared engine HUD file. Never put generic widget
-  logic in a per-game file.
+- **`hud/`** owns all widget behaviour: `m_menu.c` (input, focus, text
+  editing, map targets, lists, minimap, drawing), `m_main.c` (the `M_*`
+  front-end lifecycle) and `hu_bar.c` (shared counters, clock, product list,
+  route book). BMP/PCX decoding belongs in engine code (`driver/w_image.c`).
+- **Games describe screens as `menuitem_t` tables** with routines, and expose
+  `G_InitMenus`/`G_ControlPanel`/`G_ShutdownMenus` and
+  `G_InitHUD`/`G_ShutdownHUD`. They never implement their own responder,
+  ticker or drawer loop; `menu->refresh`, `menu->ticker` and `menu->drawtip`
+  cover per-screen updates.
+- Native looks go through item fields first (`look[].font`, `align`,
+  `anchor`, `own_palette` fonts, `tooltip`); use `ownerdraw` only for native
+  pictures the table cannot express.
+- New engine-wide widget behaviour: add it to `hud/m_menu.c` and a field or
+  item kind to `menuitem_t`, with a case in `tests/shared/test_menu_items.c`.
+  Never put generic widget logic in a per-game file.
 
 ### Standing refactoring rule: move closer to Doom at every opportunity
 

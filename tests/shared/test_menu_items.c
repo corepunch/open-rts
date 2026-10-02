@@ -12,10 +12,12 @@ static menuitem_t items[NUMITEMS];
 static menu_t menu = {.items = items, .numitems = NUMITEMS, .modal = true};
 static app_t app = {.win = {W, W}};
 static int activated[NUMITEMS], changed[NUMITEMS], escaped;
-static int secondary, wheeled;
+static int secondary, wheeled, targeted, cancelled, refreshed, tips;
 
 static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
     if (action == MA_SECONDARY) { ++secondary; return; }
+    if (action == MA_TARGET) { ++targeted; return; }
+    if (action == MA_CANCEL) { ++cancelled; return; }
     if (action == MA_WHEEL) { wheeled += screen->wheel; return; }
     ++(action == MA_ACTIVATE ? activated : changed)[item - screen->items];
 }
@@ -276,7 +278,7 @@ static int drawing(void) {
     CHECK(pixel(4, 13) == 9 && pixel(7, 13) == MARKER);
     /* Centred text is centred both ways. */
     items[FIELD].inset = (ivec2_t){0};
-    items[FIELD].centered = true;
+    items[FIELD].align = MALIGN_CENTER;
     draw();
     CHECK(pixel(6, 13) == MARKER && pixel(7, 13) == 9 && pixel(11, 13) == 9);
     CHECK(pixel(7, 12) == MARKER && pixel(7, 14) == 9 && pixel(7, 15) == MARKER);
@@ -390,12 +392,151 @@ static int animation(void) {
     return 0;
 }
 
+static void count_refresh(menu_t *screen) {
+    (void)screen;
+    ++refreshed;
+}
+
+static void count_tip(const menu_t *screen, const menuitem_t *item) {
+    (void)screen;
+    if (!strcmp(item->tooltip, "tip")) ++tips;
+}
+
+/* A HUD item can wait for a click on the world, own the keyboard while a
+ * line is typed, and be found by its id. */
+static int hud_targets(void) {
+    build();
+    menu.modal = false;
+    menu.refresh = count_refresh;
+    items[BUTTON].id = 42;
+    CHECK(M_MenuFind(&menu, 42) == &items[BUTTON] && !M_MenuFind(&menu, 43));
+    refreshed = targeted = cancelled = 0;
+    /* The world takes clicks until an item waits; then the click and its
+     * release are the item's, and it waits no longer. */
+    SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
+                                  .x = 40, .y = 40}};
+    CHECK(!M_MenuResponder(&menu, &app, &event) && refreshed == 1);
+    M_MenuTarget(&menu, &items[BUTTON]);
+    CHECK(M_MenuResponder(&menu, &app, &event) && targeted == 1 && !menu.target);
+    CHECK(menu.cursor.x == 40 && menu.cursor.y == 40);
+    event.button.type = SDL_MOUSEBUTTONUP;
+    CHECK(M_MenuResponder(&menu, &app, &event));
+    CHECK(!M_MenuResponder(&menu, &app, &event));
+    /* A click on the HUD itself still goes to the HUD. */
+    M_MenuTarget(&menu, &items[BUTTON]);
+    click(1, 1);
+    CHECK(targeted == 1 && activated[BUTTON] == 1 && menu.target == &items[BUTTON]);
+    /* The right button and Escape abandon the wait. */
+    event.button.type = SDL_MOUSEBUTTONDOWN;
+    event.button.button = SDL_BUTTON_RIGHT;
+    CHECK(M_MenuResponder(&menu, &app, &event) && cancelled == 1 && !menu.target);
+    CHECK(!M_MenuResponder(&menu, &app, &event) && cancelled == 1);
+    M_MenuTarget(&menu, &items[BUTTON]);
+    SDL_Event escape_key = {.key = {.type = SDL_KEYDOWN, .keysym.sym = SDLK_ESCAPE}};
+    CHECK(M_MenuResponder(&menu, &app, &escape_key) && cancelled == 2 && !menu.target);
+    CHECK(!M_MenuResponder(&menu, &app, &escape_key));
+    /* An edited field takes every key and text; Enter activates it and
+     * Escape gives the keyboard back. */
+    items[FIELD].text[0] = '\0';
+    M_MenuEdit(&menu, &items[FIELD]);
+    CHECK(menu.editing == &items[FIELD] && SDL_IsTextInputActive());
+    type("hi");
+    SDL_Event b_key = {.key = {.type = SDL_KEYDOWN, .keysym.sym = SDLK_b}};
+    items[BUTTON].hotkey = SDLK_b;
+    CHECK(M_MenuResponder(&menu, &app, &b_key) && activated[BUTTON] == 1);
+    CHECK(!strcmp(items[FIELD].text, "hi") && changed[FIELD] == 1);
+    key(SDLK_RETURN);
+    CHECK(activated[FIELD] == 1 && menu.editing == &items[FIELD]);
+    CHECK(M_MenuResponder(&menu, &app, &event)); /* the world gets no clicks */
+    CHECK(M_MenuResponder(&menu, &app, &escape_key) && cancelled == 3);
+    CHECK(!menu.editing && !SDL_IsTextInputActive());
+    CHECK(!M_MenuResponder(&menu, &app, &b_key) || activated[BUTTON] == 2);
+    menu.refresh = NULL;
+    menu.modal = true;
+    return 0;
+}
+
+/* Rects anchor to the edges of a larger screen, or the whole table
+ * stretches; text aligns in its rect in the font of the item's state; the
+ * hovered item's tooltip is drawn last. */
+static int layout(void) {
+    build();
+    app_t wide = {.win = {W * 2, W * 2}};
+    menu.size = (isize2_t){W, W};
+    menu.app = &wide;
+    items[BUTTON].anchor = MANCHOR_RIGHT;
+    items[CHECK_BOX].anchor = MANCHOR_BOTTOM | MANCHOR_GROW;
+    irect_t r = M_MenuItemRect(&menu, &items[BUTTON]);
+    CHECK(r.x == W && r.y == 0 && r.w == 10 && r.h == 4);
+    r = M_MenuItemRect(&menu, &items[CHECK_BOX]);
+    CHECK(r.x == 0 && r.y == 6 + W && r.h == 4 + W);
+    CHECK(M_MenuItemRect(&menu, &items[FIELD]).x == 0);
+    menu.stretch = true;
+    r = M_MenuItemRect(&menu, &items[FIELD]);
+    CHECK(r.x == 0 && r.y == 24 && r.w == 40 && r.h == 8);
+    menu.stretch = false;
+    /* The pointer finds an anchored item where it is drawn. */
+    SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
+                                  .x = W + 1, .y = 1}};
+    CHECK(M_MenuResponder(&menu, &wide, &event) && activated[BUTTON] == 1);
+    event.button.type = SDL_MOUSEBUTTONUP;
+    CHECK(M_MenuResponder(&menu, &wide, &event) && !menu.held);
+    menu.size = (isize2_t){0};
+    menu.app = &app;
+
+    V_AllocScreen(W, W);
+    uint32_t colors[256];
+    for (int i = 0; i < 256; ++i) colors[i] = 0xff000000u | (uint32_t)i * 0x010101u;
+    I_SetPalette(colors);
+    static uint8_t bold_pixels[GLYPH * GLYPH] = {11, 11, 11, 11};
+    static spritelump_t bold_lump = {bold_pixels};
+    static spritecell_t bold_cell = {.rect = {0, 0, GLYPH, GLYPH}};
+    bitmapfont_t bold = font;
+    bold.sprite.cells = &bold_cell;
+    bold.sprite.lumps = &bold_lump;
+    for (int i = 0; i < 128; ++i) font.glyph_index[i] = bold.glyph_index[i] = 0;
+    for (int i = 0; i < NUMITEMS; ++i) if (i != BUTTON) items[i].visible = false;
+    items[BUTTON].sheet = NULL;
+    items[BUTTON].font = &font;
+    items[BUTTON].look[MS_FOCUS].font = &bold;
+    strcpy(items[BUTTON].text, "ab");
+    items[BUTTON].align = MALIGN_RIGHT;
+    menu.itemOn = -1;
+    draw();
+    CHECK(pixel(5, 0) == MARKER && pixel(6, 0) == 9 && pixel(9, 0) == 9);
+    items[BUTTON].tooltip = "tip";
+    menu.drawtip = count_tip;
+    tips = 0;
+    menu.modal = false;
+    mouse(SDL_MOUSEMOTION, 1, 1);
+    draw();
+    CHECK(pixel(6, 0) == 11 && tips == 1);
+    menu.drawtip = NULL;
+    menu.modal = true;
+    /* Loose text draws over later pictures, but not over a later layer. */
+    items[FIELD].visible = true;
+    items[FIELD].rect = (irect_t){0, 12, 20, 4};
+    items[FIELD].align = 0;
+    strcpy(items[FIELD].text, "a");
+    items[DOWN] = (menuitem_t){.kind = MI_STATIC, .visible = true, .rect = {0, 12, 10, 4},
+                               .fill = 0xff0c0c0cu, .link = -1};
+    draw();
+    CHECK(pixel(0, 12) == 9 && pixel(5, 12) == 12);
+    items[DOWN].layer = true;
+    draw();
+    CHECK(pixel(0, 12) == 12);
+    V_FreeScreen();
+    return 0;
+}
+
 int main(void) {
     RTS_RUN(input());
+    RTS_RUN(hud_targets());
+    RTS_RUN(layout());
     RTS_RUN(lists());
     RTS_RUN(animation());
     RTS_RUN(hud_input());
     RTS_RUN(drawing());
-    puts("PASS: menu items focus, activate, check, type, scroll, animate and draw");
+    puts("PASS: menu items focus, activate, check, type, scroll, animate, target, edit, anchor, align, layer and draw");
     return 0;
 }
