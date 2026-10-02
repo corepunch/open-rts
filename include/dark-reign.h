@@ -50,6 +50,25 @@ typedef struct {
 } dr_mission_t;
 
 bool DR_ProductInTech(int type);
+/* A game-setup ("Chat") screen choice for one map team, as its native
+ * ChatPlayerType and ChatPlayerSide rows. */
+typedef enum { DR_SLOT_AVAILABLE, DR_SLOT_HUMAN, DR_SLOT_EASY, DR_SLOT_MEDIUM, DR_SLOT_HARD,
+               DR_SLOT_CLOSED } dr_slottype_t;
+typedef enum { DR_SIDE_DEFAULT, DR_SIDE_FG, DR_SIDE_IMPERIUM } dr_side_t;
+typedef struct {
+    uint8_t type, side, team; /* team 0 is "No Team", 1..8 Team A..H */
+    char name[24];
+} dr_slot_t;
+typedef struct {
+    dr_slot_t slots[8];
+    int count;   /* the map's player count */
+    int credits; /* ChatCreditsEd; 0 keeps each team's SetCredit */
+} dr_skirmish_t;
+/* The menu names the next map's setup; its loader takes it once. */
+void DR_RequestSkirmish(const char *map, const dr_skirmish_t *setup);
+bool DR_TakeSkirmish(const char *map, dr_skirmish_t *setup);
+const dr_skirmish_t *DR_LevelSkirmish(void);
+
 /* The shell's options screen over a running level. */
 void DR_OpenOptions(app_t *app);
 const char *DR_String(const char *name);

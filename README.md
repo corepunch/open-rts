@@ -105,6 +105,16 @@ not DC.EXE's retail save format, and require the matching map/state table.
 Saves and `settings.cfg` live in SDL's per-user `open-rts/dark-colony`
 preference directory. `OPEN_RTS_USER_DIR` overrides that directory for tests.
 
+Dark Reign also opens its native shell: the outer menus use the retail
+`SHELL.RLD` art and `SHELLCFG.H` layout. **Single Player → Start New Game**
+shows the mission map; pick the Freedom Guard or Imperium logo (or a training
+button) and **Launch** from the briefing. **Instant Action** opens the game
+setup: **Select Map**, then click a row's player type, side, team or handicap
+to step through its choices (right click steps back). **Multi Player → Local
+Area Network** lists LAN games; **Create Game** leaves rows Available for LAN
+players, and **Manual IP** joins a typed address. In a level, Escape or the
+HUD's MENU button opens the options screen with Quit to Main Menu.
+
 Supply a map to start directly, bypassing the menu:
 
 ```sh
@@ -113,8 +123,8 @@ build/bin/dark-colony -map=SCENARIO/HUMAN/HUMAN01.MAP
 
 `--map <path>`, `--map=<path>`, and the existing positional map argument also
 start directly. Network startup, `--check`, and `--net-check` still use a level.
-A Dark Colony `--screenshot` without a map captures the main menu; supply a map
-to capture gameplay.
+A Dark Colony or Dark Reign `--screenshot` without a map captures the main menu;
+supply a map to capture gameplay.
 
 ## Network play
 

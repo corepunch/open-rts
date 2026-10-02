@@ -78,12 +78,15 @@ See [DR_INFO_GEN.md](DR_INFO_GEN.md) for the existing tool workflow.
 | Source | Responsibility |
 |---|---|
 | [hud/sb_bar.c](../games/dark-reign/hud/sb_bar.c) | `gameui`, native chrome/font/radar layout, custom HUD lifecycle and rendering |
-| [hud/sb_palette.c](../games/dark-reign/hud/sb_palette.c) | Production list, slot drawing, input, tooltips, queue dispatch and engine MENU popup |
+| [hud/sb_palette.c](../games/dark-reign/hud/sb_palette.c) | Production list, slot drawing, input, tooltips and queue dispatch; MENU opens the shell's options screen |
 | [hud/dr_hud.h](../games/dark-reign/hud/dr_hud.h) | Private cross-file HUD declarations |
 | [hud/sb_bar.c](../hud/sb_bar.c) | Shared bitmap/icon ownership and generic HUD services |
 | [hud/sb_path.c](../hud/sb_path.c) | Shared route editing, saved lists, actions and atomic command dispatch |
 | [driver/w_image.c](../driver/w_image.c) | Engine BMP/PCX decoding |
-| [m_menu.c](../games/dark-reign/m_menu.c) | Game menu interface outside level HUD ownership |
+| [menu/w_shell.c](../games/dark-reign/menu/w_shell.c) | SHELL.RLI/RLD archive, LZSS, TLF images and strip fonts |
+| [menu/m_menu.c](../games/dark-reign/menu/m_menu.c) | Outer shell, campaign mission map and briefing, credits, options screen; `M_*` lifecycle |
+| [menu/m_multi.c](../games/dark-reign/menu/m_multi.c) | Multiplayer connection, LAN browser, manual IP and the game-setup (Chat/Instant Action) panel |
+| [menu/m_skirmish.c](../games/dark-reign/menu/m_skirmish.c) | Game-setup handoff from the menu to the next level's loader |
 
 One active `sb_state_t` is owned through `G_InitCustomUI` and the
 `G_CustomUIResponder/Ticker/Drawer/Shutdown` lifecycle. The generic sidebar is

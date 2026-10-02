@@ -1007,3 +1007,86 @@ rather than new decisions about the look:
 The terrain multiplier for entries 160–254 (six on BARREN and JUNGLE, four on
 SNOW) is unchanged and is still an engine choice, not a recovered value. The
 purple-to-orange team band swap (32–39 from 48–55) is unchanged.
+
+## Native shell (2026-10-02)
+
+Sources: `reverse/dr-hud/dkreign.c` (decompile), an `objdump -d` of
+`data/REIGN/dkreign.exe` for register arguments and jump tables the decompile
+drops, the decoded `shell/SHELL.RLI`/`SHELL.RLD`, `shell/SHELLCFG.H` and
+`local/MLSTRING.CFG`. **[V]** verified in code or data, **[I]** inferred.
+
+### Archive and images [V]
+- `0x57e0f0` maps `shell\shell.rli` and, with the last letter changed to `d`,
+  `shell.rld`. RLI: `"ILR."`, u32 file size (unused), u32 count, then 32-byte
+  entries: name[12], tag `"TLF."`, u32 0, RLD offset, packed size, unpacked
+  size (unused by the loader).
+- `0x57e430` is LZSS **without a ring buffer**: one flag byte per eight items,
+  least significant bit first; 1 is a literal; 0 is two bytes `b0 b1` giving a
+  back-reference into the output of distance `4096 - (b0 | (b1 & 15) << 8)` and
+  length `(b1 >> 4) + 3`. Overlapping copies repeat bytes. It stops when the
+  packed input ends. All 57 entries unpack to exactly their stored size and no
+  match reaches before the output start.
+- `0x57e580` walks `{u32 tag, u32 size including header}` chunks after the
+  8-byte `"TLF."` header; tags are byte-reversed constants. Every entry holds
+  `"3BGR"` (256 8-bit RGB triples) and `"LXIP"` (u32 0, u16 width, u16 height,
+  indexed rows). All share one palette except the unreferenced `p_quit`.
+- Fonts (`0x57ad10`) are one strip: the first pixel's colour separates the
+  glyphs of codes 0..255 along row 0 from x 1; a glyph's width is its advance.
+  The font14 family's space really is 14 pixels wide. `FONT_n_NAME` in
+  SHELLCFG.H names the slots: 10/11/12 outer-shell button text normal, hover,
+  pressed; 13 outer titles; 2/3/4 inner-shell buttons; 5 inner titles; 6 red
+  info text; 8 tables and lists.
+
+### Screens [V]
+- State machine `0x579de0`: 3 main, 4 quit, 0xa single player, 0xb
+  multiplayer, 0xc instant action, 0xe credits, 0xf load, 0x10 custom, 0x13
+  campaign mission map, 0x14 campaign options, 0x1a briefing; a screen returns
+  the next state, 9 is "back". Escape returns to the main menu.
+- An outer-shell button (`0x570620`) is a 160x30 BTTN with a click-through TEXT
+  child centred both ways in fonts 10/11/12; it fires on release over the
+  button. There are no button sounds. Titles are TEXT centred on x 320.
+  Custom and Load use `BTN_DEFAULT_WIDTH`.
+- Inner-shell image buttons (`0x570680`) draw their RLD picture only while
+  hovered or pressed, at their own position; the background shows the normal
+  state.
+- Briefing (`0x5776e0`): Freedom Guard LAUNCH (250,405,160,60) with `bf_lnch`
+  at (250,410), BACK (15,405,135,60), text box (25,20,275,340); Imperium
+  LAUNCH (145,348,105,75) with `bi_lnch` at (138,350), BACK (10,400,80,65),
+  text box (350,150,255,295). The text is section `\1` of the mission `.BRF`.
+- Options (`0x574f90`) is the campaign options screen (save list, Load/Save/
+  Delete, Quit to Main Menu, Quit to Win95, back arrow), reached from the
+  mission map's sidebar. The HUD's own in-game menu was not traced.
+
+### Multiplayer toolkit [V]
+- `0x511cd0` builds every multiplayer panel up front with nine PCX fonts
+  (F16BLUE, F14BLUE/O/G, F12GOLD, F12TEAM, F12BLUEN/O/G; a marker row above
+  each strip) and MULTMENU bitmaps. Captions come from MLSTRING.CFG by widget
+  name (`<name>StaticTitle`, `<name>ButtonTitle`); the exe text is a fallback.
+- Instant action sets `0x6ccac8` and opens the game-setup ("Chat", `0x516710`)
+  panel directly over `MM_IA.BMP`; multiplayer uses `MM_SETU.BMP`. Player rows
+  are at y `68 + 13*row`: type 19/181, side 219/90, team 309/60, handicap
+  369/81. Bottom bars are 110x32 `BUTTON.BMP` buttons (normal, hover, pressed
+  110 pixels apart) at x 27/140/393/506, y 414; LAUNCH (`LAUNCH.BMP`) at
+  (266,410). Popups centre on (320,220).
+- Connection menu `MM_MAIN.BMP`: player name, then INTERNET, LAN [IPX],
+  MODEM, SERIAL and MANUAL IP buttons, 188x30 at x 226, y 134..342 in steps
+  of 52, text-only (F14BLUE/O/G).
+
+### Port behaviour (not native fidelity)
+- The construction kit, intro movie (the shipped SMKs are empty here and
+  there is no Smacker decoder), saves, the mission-map nodes, archive, story
+  and debriefing screens are not reproduced; their buttons are disabled or
+  absent.
+- In a level, Escape and the HUD MENU button open the shell's options screen;
+  Quit to Main Menu releases the level through `menuleave`.
+- Dropdowns are shown closed and step through their items on click (right
+  click steps back). Togran, handicaps, fog style, placement, colours and the
+  give/view options are shown and kept but do not change the game yet.
+- INTERNET, MODEM and SERIAL are disabled. LAN uses the engine's UDP session:
+  the host leaves rows Available for LAN players and LAUNCH reserves them;
+  the game starts once all have joined. Humans take players 0..n-1, as
+  `D_PlayerIsHuman` requires. Manual IP joins the typed address.
+- The game setup reaches the loader through `DR_RequestSkirmish`: Available
+  and Closed teams start empty, a chosen side swaps the authored units
+  (construction crew, infantry, transporters, medium tank), team members ally,
+  and the credits field replaces each team's `SetCredit`.

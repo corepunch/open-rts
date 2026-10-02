@@ -41,7 +41,8 @@ for KKnD/networking; prior baseline failures are recorded in the findings.
 | Combat | Full projectile, blast, suicide, armor and target-class rules | [Unit report](DR_UNIT_BEHAVIORS.md) |
 | Support fidelity | Native projectile, H1/R1 defense factors, search/orders, cadence and boost cancellation | [Support limits](DR_UNIT_BEHAVIORS.md#support-path-and-its-limits) |
 | Economy/pathing | Extractor stock/regeneration, receiver storage, launching and local traffic arbitration | [Transport report](DR_TRANSPORTER_ANIMATION.md#superseded-rules-and-remaining-unknowns) |
-| HUD | COMMS/ORDERS/SPECIAL, native MENU, upgrade/decoy, radar terrain and resource gauge inputs; PATHS target nodes, names/persistence, unbounded native routes and exact text states | [HUD report](DR_HUD_DISASSEMBLY.md) |
+| HUD | COMMS/ORDERS/SPECIAL, the HUD's own in-game menu (MENU opens the shell's options screen), upgrade/decoy, radar terrain and resource gauge inputs; PATHS target nodes, names/persistence, unbounded native routes and exact text states | [HUD report](DR_HUD_DISASSEMBLY.md) |
+| Shell | Construction kit, movies, saves, mission-map nodes, archive/story/debrief, ActiveNet/modem/serial; setup options other than slots, sides, teams and credits | [Native shell](DR_EXE_FINDINGS.md#native-shell-2026-10-02) |
 | Campaign/AI | Full mission FSM execution and native AIP scheduling/scoring | [Architecture](DR_ARCHITECTURE.md), findings |
 | Training/expansions | T-prefix definition swapping and additional rosters | Findings' catalog sections |
 

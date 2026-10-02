@@ -602,7 +602,7 @@ static void load_dark_reign_team_credits(char *text, level_t *map) {
         } else if (current_team >= 0 && current_team < 8 &&
                    sscanf(line, "SetCredit(%d", &credit) == 1) {
             map->player_resources[current_team][0] = credit;
-        } else if (current_team == 0) {
+        } else if (current_team == consoleplayer) {
             int world_x = 0, world_y = 0;
             if (sscanf(line, "SetStartLocation(%d %d", &world_x, &world_y) == 2) {
                 /* Dark Reign stores scenario starts in world pixels. */
@@ -1004,7 +1004,44 @@ bool load_dark_map(const char *map_path, level_t *out) {
         free(text);
     }
     W_FreeFile(&blob);
+    /* Game-setup teams ally their members (ChatPlayerTeamA..H). */
+    dr_skirmish_t setup;
+    if (DR_TakeSkirmish(map_path, &setup)) {
+        out->player_teams = true;
+        if (setup.credits > 0)
+            for (int team = 0; team < 8; ++team) out->player_resources[team][0] = setup.credits;
+        for (int a = 0; a < setup.count && a < 8; ++a) {
+            out->sight.allies[a] |= UINT32_C(0x40000000) >> a;
+            for (int b = 0; b < setup.count && b < 8; ++b)
+                if (setup.slots[a].team && setup.slots[a].team == setup.slots[b].team)
+                    out->sight.allies[a] |= UINT32_C(0x40000000) >> b;
+        }
+    }
     return true;
+}
+
+/* A side chosen in the game setup replaces the authored units with the
+ * other faction's counterparts. */
+static const char *side_unit(const char *type, int team) {
+    static const char *const pairs[][2] = {
+        {"FGConstructionCrew", "IMPConstructionCrew"}, {"FGFreedomFighter", "IMPStrikeMarine"},
+        {"FGGroundTransporter", "ImpGroundTransporter"}, {"FGHoverTransporter", "ImpHoverTransporter"},
+        {"FGMediumTank", "IMPPlasmaTank"},
+    };
+    const dr_skirmish_t *setup = DR_LevelSkirmish();
+    if (!setup || team < 0 || team >= setup->count || setup->slots[team].side == DR_SIDE_DEFAULT) return type;
+    int want = setup->slots[team].side == DR_SIDE_IMPERIUM;
+    for (size_t i = 0; i < sizeof(pairs) / sizeof(*pairs); ++i)
+        if (!strcasecmp(type, pairs[i][!want])) return pairs[i][want];
+    return type;
+}
+
+/* Available and closed slots of a game setup start with nothing. */
+static bool team_plays(int team) {
+    const dr_skirmish_t *setup = DR_LevelSkirmish();
+    if (!setup || team < 0 || team >= 8) return true;
+    return team < setup->count && setup->slots[team].type != DR_SLOT_AVAILABLE &&
+           setup->slots[team].type != DR_SLOT_CLOSED;
 }
 
 /* ── unit SCN parser ────────────────────────────────────────────────────── */
@@ -1050,7 +1087,8 @@ int load_dark_reign_initial_units(const char *map_path) {
             }
             uint16_t type = building ? building_actor(&defs, unit_type) : 0;
             if (building && !type) { cursor = hit + strlen("AddBuildingAt("); continue; }
-            if (gx >= 0 && gy >= 0) {
+            if (!building) snprintf(unit_type, sizeof(unit_type), "%s", side_unit(unit_type, current_team));
+            if (gx >= 0 && gy >= 0 && team_plays(current_team)) {
                 mobj_t *unit = P_SpawnMobj(fixed3_zero(), type);
                 if (!unit) break;
                 unit->core.position = fixed3_from_fvec2(

@@ -98,6 +98,48 @@ int main(void) {
     screenshot(&app, surface, "/private/tmp/dr-menu-options.bmp");
     click(&app, 180, 415); /* QUIT TO MAIN MENU */
     CHECK(menuactive && app.running);
+    /* Instant action opens the game setup over MM_IA.BMP. */
+    click(&app, 320, 200);
+    screenshot(&app, surface, "/private/tmp/dr-menu-instant.bmp");
+    click(&app, 330, 425); /* LAUNCH without a map: error popup */
+    CHECK(menuactive && !menumap);
+    screenshot(&app, surface, "/private/tmp/dr-menu-instant-nomap.bmp");
+    click(&app, 314, 275); /* Ok */
+    click(&app, 535, 250); /* Select Map */
+    click(&app, 200, 139); /* first map: a two-player map */
+    screenshot(&app, surface, "/private/tmp/dr-menu-selectmap.bmp");
+    click(&app, 275, 313); /* SELECT MAP */
+    click(&app, 100, 87);  /* row 1: Computer (Medium) -> Computer (Hard) */
+    click(&app, 260, 74);  /* row 0 side: Default -> Freedom Guard */
+    click(&app, 260, 87);  /* row 1 side: Default -> Freedom Guard */
+    click(&app, 260, 87);  /* -> Imperium */
+    screenshot(&app, surface, "/private/tmp/dr-menu-instant-setup.bmp");
+    click(&app, 321, 426); /* LAUNCH */
+    CHECK(!menuactive && menumap && !strncmp(menumap, "scenario/MULTI/", 15));
+    dr_skirmish_t setup;
+    CHECK(DR_TakeSkirmish(menumap, &setup));
+    CHECK(setup.count == 2 && setup.slots[0].type == DR_SLOT_HUMAN && setup.slots[1].type == DR_SLOT_HARD);
+    CHECK(setup.slots[0].side == DR_SIDE_FG && setup.slots[1].side == DR_SIDE_IMPERIUM);
+    menumap = NULL;
+    /* Multiplayer: connection menu, LAN browser and the host's setup. */
+    M_StartControlPanel(&app);
+    click(&app, 320, 150);
+    screenshot(&app, surface, "/private/tmp/dr-menu-multi.bmp");
+    click(&app, 320, 200); /* Local Area Network */
+    screenshot(&app, surface, "/private/tmp/dr-menu-lan.bmp");
+    click(&app, 448, 430); /* Create Game */
+    click(&app, 535, 250);
+    click(&app, 200, 139);
+    click(&app, 275, 313);
+    screenshot(&app, surface, "/private/tmp/dr-menu-lan-setup.bmp");
+    click(&app, 321, 426); /* LAUNCH: host and wait for the LAN player */
+    CHECK(menuactive && !menumap);
+    screenshot(&app, surface, "/private/tmp/dr-menu-lan-waiting.bmp");
+    /* Another process may hold UDP 5029; Escape dismisses that error. */
+    if (!I_NetMenuSession()) key(&app, SDLK_ESCAPE);
+    click(&app, 195, 430); /* Main Menu leaves the session for the outer shell */
+    CHECK(!I_NetMenuSession());
+    CHECK(menuactive);
     click(&app, 320, 425); /* QUIT */
     CHECK(!app.running);
     M_Shutdown();

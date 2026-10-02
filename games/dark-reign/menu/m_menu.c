@@ -86,7 +86,7 @@ const char *DR_String(const char *name) { return ss(name); }
 /* ── screen items ───────────────────────────────────────────────────────── */
 
 static menustate_t text_state(const menu_t *screen, const menuitem_t *item) {
-    const menuitem_t *button = item->kind == MI_BUTTON ? item : NULL;
+    const menuitem_t *button = item->kind == MI_BUTTON || item->kind == MI_CHECK ? item : NULL;
     if (!button || !item->enabled) return MS_NORMAL;
     if (screen->held == button) return MS_PUSHED;
     return screen->itemOn == (int)(button - screen->items) ? MS_FOCUS : MS_NORMAL;
@@ -104,11 +104,17 @@ static void draw_text(const menu_t *screen, const menuitem_t *item) {
     else if (flags & 0x10) at.x += item->rect.w - w;
     if (flags & 0x80) at.y += (item->rect.h - font->glyph_size.h) / 2;
     else if (flags & 0x40) at.y += item->rect.h - font->glyph_size.h;
+    /* Shell fonts share the screen palette; the multiplayer PCX fonts carry
+     * their own. */
+    const uint8_t *remap = V_RemapPalette(font->sprite.source_palette);
     if (item->prose) {
-        V_DrawTextWrapped(item->rect, font, item->prose, NULL, item->first_row * font->line_h);
+        V_DrawTextWrapped(item->rect, font, item->prose, remap, item->first_row * font->line_h);
         return;
     }
-    V_DrawText(at, font, item->text, NULL);
+    V_DrawText(at, font, item->text, remap);
+    /* Engine behaviour: the field being edited ends in an underscore. */
+    if (item->kind == MI_TEXTFIELD && item->enabled && screen->itemOn == i)
+        V_DrawText((ivec2_t){at.x + V_TextWidth(font, item->text), at.y}, font, "_", remap);
 }
 
 void DR_ScreenClear(void) {
