@@ -254,13 +254,14 @@ static void center_camera(menu_t *menu, menuitem_t *item, menuaction_t action) {
     dc_hud_t *hud = menu->owner;
     if (action != MA_ACTIVATE) return;
     app_t *app = hud->app;
-    /* 0x4097f8: native minimap uses (519,90), 96x84, bottom-up Y. */
-    fvec2_t position = {
+    /* 0x4097f8: native minimap is (519,90), 96x84, with a bottom-up Y; its
+     * rows are the rows drawn, so work in screen grid rows. */
+    fvec2_t grid = {
         (float)hud->map->width * (2 * (menu->cursor.x - (app->win.w - 121)) + 1) / 192.0f,
-        (float)hud->map->height * (2 * (90 - menu->cursor.y) + 1) / 168.0f
+        (float)hud->map->height * (2 * (menu->cursor.y - 7) + 1) / 168.0f
     };
     fvec2_t screen;
-    R_MapToScreen(app, hud->map, position.x, position.y, &screen.x, &screen.y);
+    R_GridToScreen(app, grid.x, grid.y, &screen.x, &screen.y);
     app->cam = fvec2_add(app->cam, fvec2_sub(
         (fvec2_t){DC_SB_WorldViewportWidth(app) / 2.0f, (app->win.h - 25) / 2.0f}, screen));
 }

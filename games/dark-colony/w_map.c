@@ -776,10 +776,10 @@ static void spawn_object(InitialUnits *units, int type, int team, int race,
                       (u->traits & MF_MOBILE) && !units->player_selected);
     if (P_MobjIsSelected(u)) units->player_selected = true;
     if (city_origin) {
-        /* The native draw queue subtracts the slot in world coordinates;
-         * screen Y runs in the opposite direction. FIN keeps the shared origin. */
+        /* The native draw queue subtracts the slot in world coordinates.
+         * FIN keeps the shared origin. */
         ivec2_t slot = DC_CitySlotOffset(city_slot);
-        u->core.render_offset = (ivec2_t){ -slot.x, slot.y };
+        u->core.render_offset = (ivec2_t){ -slot.x, -slot.y };
     }
     units->count++;
 }

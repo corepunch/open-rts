@@ -390,11 +390,11 @@ bool G_ModelSpecialReleaseSpawnPoint(const RtsGameModel *model, const mobj_t *pr
         new_unit->type_id != MT_TROOPER) return false;
     /* HUBU.FIN/TRSCBUILD0 frame 47 minus TRSC.FIN/TRSCSTAND8.
      * The latter is the ANG90 spawn facing. Tests check these native commands. */
-    ivec2_t offset = ivec2_add(producer->core.render_offset,
-                              ivec2_sub((ivec2_t){-143, 79}, (ivec2_t){-159, 0}));
+    ivec2_t fin = ivec2_sub((ivec2_t){-143, 79}, (ivec2_t){-159, 0});
+    ivec2_t offset = ivec2_add(producer->core.render_offset, (ivec2_t){fin.x, L_ScreenDY(fin.y)});
     fvec2_t position = fvec2_add(fixed3_xy_to_fvec2(producer->core.position),
                                 (fvec2_t){(float)offset.x / g_cell_w,
-                                           -(float)offset.y / g_cell_h});
+                                           (float)offset.y / g_cell_h});
     *out_gx = position.x;
     *out_gy = position.y;
     return true;
@@ -500,7 +500,7 @@ static bool dc_build_city_module(mobj_t *producer, const StaticProductDefinition
     building->team = producer->team;
     building->allegiance = producer->allegiance;
     building->native_type_id = product->product_type;
-    building->core.render_offset = (ivec2_t){-offset.x, offset.y};
+    building->core.render_offset = (ivec2_t){-offset.x, -offset.y};
     int state = G_ModelBuildingStateForProduct(gameinfo, product);
     if (state > 0) P_SetMobjState(building, state);
     if (previous) P_RemoveMobj(previous);

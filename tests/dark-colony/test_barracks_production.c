@@ -85,10 +85,10 @@ int main(void) {
     spritedirection_t final = {0}, idle = {0};
     assert(DC_FINFrame(&hubu, SDL_SwapLE16(release->end), &final));
     assert(DC_FINFrame(&trsc, SDL_SwapLE16(stand->start), &idle));
-    ivec2_t delta = ivec2_add(barracks->core.render_offset,
-                              ivec2_sub(final.layers[0].offset, idle.layers[0].offset));
+    ivec2_t fin = ivec2_sub(final.layers[0].offset, idle.layers[0].offset);
+    ivec2_t delta = ivec2_add(barracks->core.render_offset, (ivec2_t){fin.x, L_ScreenDY(fin.y)});
     fvec2_t exit = fvec2_add(fixed3_xy_to_fvec2(barracks->core.position),
-                            (fvec2_t){delta.x / 32.0f, -delta.y / 32.0f});
+                            (fvec2_t){delta.x / 32.0f, delta.y / 32.0f});
     free(final.layers);
     free(idle.layers);
     DC_FreeFIN(&hubu);
@@ -209,7 +209,7 @@ int main(void) {
     assert(science && exco && level.player_resources[0][0] == 8000);
     assert(science->core.state_id == S_SCNCPOD_BUILD1);
     /* Native slot 3 is (64,10): cancel it without adding a terrain row. */
-    assert(ivec2_equal(science->core.render_offset, (ivec2_t){-64, 10}));
+    assert(ivec2_equal(science->core.render_offset, (ivec2_t){-64, -10}));
     assert(fvec2_near(fixed3_xy_to_fvec2(science->core.position),
                       fvec2_add(fixed3_xy_to_fvec2(exco->core.position),
                                 (fvec2_t){4.0f, -5.0f / 32.0f}), 0.0001f));

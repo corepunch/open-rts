@@ -73,7 +73,8 @@ void DC_DrawUnitOverlays(const unitoverlaycontext_t *ctx) {
     int sprite = 0;
     while (sprite < NUMSPRITES && strcmp(type->sprite, sprnames[sprite])) ++sprite;
     if (sprite == NUMSPRITES) return;
-    ivec2_t origin = ivec2_add(selection_origins[sprite], unit->core.render_offset);
+    ivec2_t origin = ivec2_add(selection_origins[sprite],
+                              (ivec2_t){unit->core.render_offset.x, L_ScreenDY(unit->core.render_offset.y)});
     origin = ivec2_add(origin, (ivec2_t){(int)lroundf(ctx->anchor.x), (int)lroundf(ctx->anchor.y)});
     irect_t first = client->cells[0].rect;
     origin = ivec2_sub(origin, (ivec2_t){first.w / 2, first.h});
