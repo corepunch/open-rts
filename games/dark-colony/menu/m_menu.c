@@ -18,19 +18,20 @@ static char root[1024], leader[128], mapname[1024];
 static int race;
 static int bright_pushed, bright_highlight;
 /* The native screen object has 300 controls (0x34 bytes each at +0x88); an
- * item's index is its native control ID. The story text is one more item. */
-enum { NUMCONTROLS = 300, PROSE = NUMCONTROLS, NUMITEMS };
+ * item's index is its native control ID. Prose and the PIC globe are extra
+ * items outside the native screen controls. */
+enum { NUMCONTROLS = 300, PROSE = NUMCONTROLS, GLOBE, NUMITEMS };
 static menuitem_t items[NUMITEMS];
 static bool initialized, training, inlevel;
 static void menu_escape(menu_t *screen);
 static int gadget_tics(const menuitem_t *item);
 static menu_t menu = {.items = items, .numitems = NUMITEMS, .modal = true, .escape = menu_escape,
                       .frametics = gadget_tics};
-static uint64_t menutime;
+static uint64_t menutime, globetime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
 static char *prose;
-static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, SESSION_NAME, BROWSE, CONNECT,
+static enum { MAIN, SETUP, STORY, BRIEFING, SKIRMISH, QUIT, NETWORK, BROWSE, CONNECT,
               OPTIONS, OBJECTIVES, SAVE, LOAD } page;
 static gamesettings_t editing;
 static int editing_speed;
@@ -47,7 +48,7 @@ static int client_race = -1;
  * starts once every human is ready; that start rule is engine-defined. */
 static bool lobby_ready[8], client_ready;
 static char lobby_log[NETCHAT_LENGTH * 33 + 256];
-static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
+static char server_address[128] = "127.0.0.1";
 static char network_notice[128], selected_server[64];
 static bitmapfont_t fonts[3];
 static spritesheet_t background;
@@ -130,6 +131,19 @@ void M_Shutdown(void) {
     SDL_StopTextInput();
 }
 
+static const spritesheet_t *load_image(const char *name) {
+    const spritesheet_t *cached = R_CacheLookup(&images, name);
+    if (cached) return cached;
+    if (images.count == MAX_DECORATION_SPRITES) return NULL;
+    cachedsprite_t *image = &images.entries[images.count];
+    char path[1024];
+    M_PathJoin(path, sizeof(path), root, name);
+    if (!DC_LoadSpriteImage(path, &image->sprite)) return NULL;
+    snprintf(image->name, sizeof(image->name), "%s", name);
+    ++images.count;
+    return &image->sprite;
+}
+
 static bool load_animations(const char *name) {
     char path[1024], entry[128];
     M_PathJoin(path, sizeof(path), root, name);
@@ -145,13 +159,7 @@ static bool load_animations(const char *name) {
             char key[32];
             snprintf(key, sizeof(key), "SPRITES/%.8s.SPR", fin->dependencies[i].name);
             M_Upper(key);
-            if (R_CacheLookup(&images, key)) continue;
-            if (images.count == MAX_DECORATION_SPRITES) { ok = false; break; }
-            cachedsprite_t *image = &images.entries[images.count];
-            M_PathJoin(path, sizeof(path), root, key);
-            if (!DC_LoadSpriteImage(path, &image->sprite)) { ok = false; break; }
-            snprintf(image->name, sizeof(image->name), "%s", key);
-            ++images.count;
+            if (!load_image(key)) { ok = false; break; }
         }
         if (!ok) break;
     }
@@ -466,6 +474,12 @@ static void activate_skirmish(int id) {
  * 0x403340..0x403386 (SHUMANE). */
 static void start_page_animations(void) {
     if (page == MAIN) animate(14, MANIM_ONCE);
+    if (page == NETWORK) {
+        /* NETOPTE constructor 0x405809..0x405828: loop gadgets 14..18. */
+        for (int i = 14; i <= 18; ++i) animate(i, MANIM_LOOP);
+        items[GLOBE].visible = true;
+        globetime = SDL_GetTicks64();
+    }
     if (page == SETUP) {
         animate(race ? 26 : 23, MANIM_LOOP);
         for (int i = 13; i <= 16; ++i) animate(i, MANIM_LOOP);
@@ -508,6 +522,14 @@ static void draw_gadget(const menu_t *screen, const menuitem_t *item) {
                         item->rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
         R_DrawSprite(sprite, part->cell, -1, &cell->rect, &dst, 0, 16);
     }
+}
+
+static void draw_globe(const menu_t *screen, const menuitem_t *item) {
+    (void)screen;
+    const spritecell_t *cell = &item->sheet->cells[item->anim.frame];
+    irect_t dst = {item->rect.x + cell->displacement.x,
+                  item->rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
+    R_DrawSprite(item->sheet, item->anim.frame, -1, &cell->rect, &dst, 0, 16);
 }
 
 static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action);
@@ -563,14 +585,22 @@ static void option_values(void) {
 }
 
 static bool load_screen(int next) {
-    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "IPXNAMEE", "DPLAYSE", "GETSVRE", "LOPTE", "LOBJE", "LSGE", "LOADGE"};
-    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "SERVER.DAT", "LOADG.DAT", "SERVER.DAT", NULL, NULL, NULL, "LOADG.DAT"};
+    static const char *const scripts[] = {"INTROE", "NEWGAMEE", "STORYE", "SHUMANE", "MULTIE", "LQCE", "NETOPTE", "DPLAYSE", "GETSVRE", "LOPTE", "LOBJE", "LSGE", "LOADGE"};
+    static const char *const lists[] = {"INTRO.DAT", "CHOO.DAT", "LOADG.DAT", "SHUMAN.DAT", "TCPWAIT.DAT", NULL, "NET.DAT", "LOADG.DAT", "SERVER.DAT", NULL, NULL, NULL, "LOADG.DAT"};
     free_screen();
     page = next;
     menu.itemOn = page == STORY ? 5 : page == BRIEFING ? 2 : 0;
     notice = NULL;
     char path[1024], line[512], name[128], palette_path[1024] = "";
     if (lists[page] && !load_animations(M_va("INTRFACE/%s", lists[page]))) return false;
+    if (page == NETWORK) {
+        const spritesheet_t *globe = load_image("INTRFACE/BLEW.SPR");
+        if (!globe || globe->numlumps < 2) return false;
+        /* PIC window 0x40578b..0x4057a6, outside NETOPTE's controls. */
+        items[GLOBE] = (menuitem_t){.sheet = globe, .rect = {336, 24, 0, 0},
+            .anim = {.frame = 1}, .ownerdraw = draw_globe};
+        for (int i = 0; i < MS_STATES; ++i) items[GLOBE].look[i].cell = -1;
+    }
     if (popup()) {
         spritesheet_t palette = {0};
         M_PathJoin(path, sizeof(path), root, "PALETTE.GIF");
@@ -797,11 +827,11 @@ static bool load_screen(int next) {
             items[7 + i].visible = false;
         }
     }
-    if (page == SESSION_NAME || page == CONNECT) {
-        menu.itemOn = page == SESSION_NAME ? 1 : 3;
+    if (page == CONNECT) {
+        menu.itemOn = 3;
         items[menu.itemOn].kind = MI_TEXTFIELD;
         snprintf(items[menu.itemOn].text, sizeof(items[menu.itemOn].text), "%s",
-                 page == SESSION_NAME ? session_name : server_address);
+                 server_address);
     }
     if (page == BROWSE) {
         items[0].row = session_row;
@@ -1056,25 +1086,19 @@ static void activate(app_t *app, int id) {
         else if (id == 5) ok = load_screen(BRIEFING);
     } else if (page == NETWORK) {
         if (id == 6) ok = load_screen(MAIN);
-        else if (id == 4) ok = load_screen(SESSION_NAME);
-        else if (id == 5) {
+        else if (id == 4) {
+            skirmish = (dc_skirmish_t){.erupting = 1, .quantity = 4, .flow = 4};
+            for (int i = 0; i < 8; ++i)
+                skirmish.players[i] = (dc_skirmish_player_t){.race = i & 1, .color = i, .team = i,
+                    .type = i < 2 ? DC_PLAYER_HUMAN : DC_PLAYER_NONE};
+            strcpy(skirmish.players[0].name, "Host");
+            network_notice[0] = '\0';
+            ok = load_screen(SKIRMISH);
+        } else if (id == 5) {
             network_notice[0] = '\0';
             ok = load_screen(BROWSE);
             if (ok && !I_OpenNetBrowser("dark-colony")) network_failure();
         }
-    } else if (page == SESSION_NAME) {
-        if (id == 0) {
-            if (!session_name[0]) notice = "Enter a session name";
-            else {
-                skirmish = (dc_skirmish_t){.erupting = 1, .quantity = 4, .flow = 4};
-                for (int i = 0; i < 8; ++i)
-                    skirmish.players[i] = (dc_skirmish_player_t){.race = i & 1, .color = i, .team = i,
-                        .type = i < 2 ? DC_PLAYER_HUMAN : DC_PLAYER_NONE};
-                strcpy(skirmish.players[0].name, "Host");
-                network_notice[0] = '\0';
-                ok = load_screen(SKIRMISH);
-            }
-        } else if (id == 1) menu.itemOn = 1;
     } else if (page == BROWSE) {
         if (id == 4) { I_CancelNetGame(); ok = load_screen(NETWORK); }
         else if (id == 17) {
@@ -1125,7 +1149,7 @@ static void activate(app_t *app, int id) {
                 uint8_t setup[LAN_SETUP_SIZE];
                 skirmish.seed = (uint8_t)SDL_GetTicks();
                 memset(lobby_ready, 0, sizeof(lobby_ready));
-                if (I_HostNetGame("dark-colony", session_name, maps[selectedmap].path, active_players()) &&
+                if (I_HostNetGame("dark-colony", maps[selectedmap].title, maps[selectedmap].path, active_players()) &&
                     I_SetNetSetup(setup, pack_setup(setup))) waiting = true;
                 else network_failure();
             }
@@ -1151,7 +1175,6 @@ static bool selectable(int id) {
         (item->kind == MI_LIST || item->kind == MI_SCROLLBAR)) return item->visible;
     if (page == CONNECT && waiting) return id == 1;
     if (page == CONNECT && id == 3) return !waiting;
-    if (page == SESSION_NAME && id == 1) return true;
     if (page == BROWSE) {
         if (id == 5) return selected_server[0] != '\0';
         if (id == 0 || id == 1) return true;
@@ -1229,9 +1252,7 @@ static void menu_escape(menu_t *screen) {
         menuactive = false;
     }
     else if (page == LOAD) { if (!load_screen(MAIN)) { menuerror = true; app->running = false; } }
-    else if (page == SESSION_NAME) {
-        if (!load_screen(NETWORK)) { menuerror = true; app->running = false; }
-    } else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
+    else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
         page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0);
     else if (inlevel) menuactive = false;
 }
@@ -1244,8 +1265,7 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) 
         return;
     }
     if (action == MA_CHANGE && item->kind == MI_TEXTFIELD) {
-        if (page == SESSION_NAME && id == 1) snprintf(session_name, sizeof(session_name), "%s", item->text);
-        else if (page == CONNECT && id == 3 && !waiting)
+        if (page == CONNECT && id == 3 && !waiting)
             snprintf(server_address, sizeof(server_address), "%s", item->text);
         else if (page == SKIRMISH && id == 0 && !lan) {
             snprintf(skirmish.players[0].name, sizeof(skirmish.players[0].name), "%s", item->text);
@@ -1272,7 +1292,6 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) 
     if (page == SKIRMISH && id == 25 && screen->held == item) return; /* A click only focuses. */
     if (screen->held != item) {
         if (page == SETUP && id == 5) id = training ? 2 : 3;
-        else if (page == SESSION_NAME && id == 1) id = 0;
         else if (page == CONNECT && id == 3) id = 0;
         else if ((page == BROWSE || page == LOAD) && id == 0) id = 5;
         else if (page == SAVE && (id == 54 || id == 50)) id = 56;
@@ -1309,9 +1328,9 @@ static void step_entrances(void) {
         }
         if (e->finished < e->count) {
             menuitem_t *g = &items[e->gadgets[e->finished]];
-            /* 0x4252a5..0x4252be: a stopped gadget is hidden and the push
-             * button beneath it is redrawn. */
-            if (g->anim.mode == MANIM_STOPPED) {
+            /* 0x4252a5..0x4252be: hide completed gadgets. An omitted
+             * transport's hidden gadget cannot tick or block the entrance. */
+            if (!g->visible || g->anim.mode == MANIM_STOPPED) {
                 g->visible = false;
                 ++e->finished;
             }
@@ -1401,6 +1420,14 @@ void M_Ticker(void) {
         if (neterror[0]) network_failure();
     }
     uint64_t now = SDL_GetTicks64();
+    if (page == NETWORK && items[GLOBE].visible && now - globetime > 50) {
+        /* PIC mode 1, 0x426497..0x426608: skip elapsed 50 ms frames,
+         * wrap to cell 1 at the SPR count; cell 0 is not in this loop. */
+        menuitem_t *globe = &items[GLOBE];
+        uint64_t frame = globe->anim.frame + (now - globetime) / 50;
+        globe->anim.frame = frame < (uint64_t)globe->sheet->numlumps ? (int)frame : 1;
+        globetime = now;
+    }
     if (now - menutime <= 16) return; /* DC.EXE 0x421ebd: menu cadence. */
     menutime = now;
     /* Gadget ticker 0x422828 holds the last one-off pose, as the engine's

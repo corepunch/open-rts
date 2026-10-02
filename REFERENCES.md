@@ -1626,3 +1626,19 @@ were used. Doom's local `reference/DOOM/p_saveg.c` (P_ArchiveThinkers and
 P_UnArchiveThinkers) supplies the thinker archive/restore ownership model;
 RTS object references are restored by stable IDs rather than discarded.
 [Native menu actions and engine saves](docs/DC_EXE_FINDINGS.md#native-sidebar-dialogs-and-diplomacy-2026-10-01).
+
+### Dark Colony multiplayer globe and TCP entry
+
+The user's retail reference is `/Users/igor/Desktop/Screenshot 2026-10-02 at
+11.45.32.jpg`; the open-rts session-name prompt is shown in the companion
+`Screenshot 2026-10-02 at 11.46.36.jpg`. Native inputs are
+`INTRFACE/{NETOPTE,NET.GIF,BLEW.SPR}`, `ANIMATE/{NET,NETD}.FIN`, and the
+fingerprinted retail DC.EXE. Existing r2/r2ghidra discovery output in
+`reverse/dc-exe-r2ghidra/{skirmish-entry.txt,all-instructions.txt,dc_exe.c}`
+locates the separate BLEW PIC window at `0x40578b–0x4057a6`, decorative
+startup at `0x4057eb–0x405828`, millisecond PIC playback at
+`0x426497–0x426608`, and direct TCP host/lobby entry at `0x405921–0x40592b`
+and `0x405600–0x405626`. The reference checkout used for this investigation
+is `/Users/igor/Developer/open-rts`; its DC.EXE remains there rather than in
+this worktree's runtime data. See [the complete findings, input hashes and
+regression commands](docs/DC_EXE_FINDINGS.md#multiplayer-globe-decorative-animation-and-tcp-host-entry-2026-10-02).
