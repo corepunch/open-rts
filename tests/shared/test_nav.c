@@ -50,6 +50,19 @@ static int planner(void) {
     steps = P_FindPath(&level, (cell_t){6, 5}, (cell_t){5, 6}, cells, 512);
     CHECK(steps > 3);
 
+    /* Moving the endpoint within its cell must not invalidate the incoming
+     * diagonal. Keep the cell centre when the exact goal clips the next wall. */
+    reset(16, 16);
+    block(6, 4);
+    from = (fvec2_t){4.5f, 4.5f}; goal = (fvec2_t){5.975f, 5.5f};
+    CHECK(P_NavPlan(&level, 0, 0.5f, from, goal, NULL, &path) && path.complete);
+    at = from;
+    for (int i = 0; i < path.count; ++i) {
+        CHECK(P_NavLineClear(&level, 0, at, path.points[i], 0.5f));
+        at = path.points[i];
+    }
+    CHECK(fvec2_near(at, goal, 1e-4f));
+
     /* Goal inside a sealed pocket is relocated into the start's region. */
     reset(32, 32);
     for (int i = 10; i <= 14; ++i) { block(i, 10); block(i, 14); block(10, i); block(14, i); }
@@ -98,6 +111,20 @@ static mobj_t *spawn(int type, float x, float y) {
     unit->radius = 0.4f;
     unit->owner = unit->team = 0;
     return unit;
+}
+
+static int terrain_avoidance(int type) {
+    reset(16, 4);
+    P_FreeThinkers();
+    mobj_t *unit = spawn(type, 2.5f, 1.5f), *other = spawn(type, 3.5f, 2.25f);
+    CHECK(unit && other);
+    unit->radius = other->radius = 0.5f;
+    fvec2_t direction = {1, 0};
+    CHECK(P_SteerAvoid(unit, direction, 0.1f).y < 0); /* Pass below the neighbour on open ground. */
+    for (int x = 0; x < level.width; ++x) block(x, 0);
+    fvec2_t steered = P_SteerAvoid(unit, direction, 0.1f);
+    CHECK(fvec2_near(steered, direction, 1e-6f)); /* The same bend would enter the wall. */
+    return 0;
 }
 
 static int crowd(int type) {
@@ -341,6 +368,7 @@ int main(void) {
     RTS_RUN(planner());
     int type = find_ground_type();
     CHECK(type >= 0);
+    RTS_RUN(terrain_avoidance(type));
     RTS_RUN(crowd(type));
     RTS_RUN(head_on(type));
     RTS_RUN(unreachable_order(type));

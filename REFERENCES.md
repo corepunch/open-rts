@@ -1642,3 +1642,13 @@ and `0x405600–0x405626`. The reference checkout used for this investigation
 is `/Users/igor/Developer/open-rts`; its DC.EXE remains there rather than in
 this worktree's runtime data. See [the complete findings, input hashes and
 regression commands](docs/DC_EXE_FINDINGS.md#multiplayer-globe-decorative-animation-and-tcp-host-entry-2026-10-02).
+
+### Shared navigation corner repair (2026-10-02)
+
+The user-provided local `Screen Recording 2026-10-02 at 11.51.02.mov` and native
+`data/DCOLONY/SCENARIO/HUMAN/HUMAN01.MAP` informed the reproduction. The exact
+mission in the recording remains unknown. Doom's existing local
+`reference/DOOM/p_enemy.c:P_Move` and `reference/DOOM/p_map.c:P_TryMove` were
+consulted for collision validation before committing an object's position.
+No new external source or executable decompilation was used.
+[Evidence and regression vectors](docs/DC_EXE_FINDINGS.md#corner-jitter-in-shared-navigation-2026-10-02).

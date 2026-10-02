@@ -7327,3 +7327,96 @@ The menu regression writes `/private/tmp/dc-menu-network.bmp`,
 | INTRFACE/NETOPTE | `54a8c9078f025cf22d7fd71be34602b17773af19ed0ea59046d38c2c578e82c1` |
 | ANIMATE/NET.FIN | `84befd6bb2bb7be0e5aee2d7d6c5752abbe2c3a11bd658ffd9c8e08557bfd2e6` |
 | ANIMATE/NETD.FIN | `9195c68067c95f226ce072a8ee0f60ba69bc6f938329ae631886d1a39ba7180e` |
+
+## Corner jitter in shared navigation (2026-10-02)
+
+**Observed engine behavior:** the user's 16.352-second `Screen Recording
+2026-10-02 at 11.51.02.mov` shows two selected Troopers repeatedly stopping
+beside a rock spire. Their positions barely change over several seconds while
+standing/travel poses alternate. The exact mission and order coordinates in
+that recording are **unknown**; HUMAN01 below reproduces the same class of
+failure independently. This investigation repairs open-rts's shared A* and
+steering code, not a newly reverse-engineered DC.EXE movement cadence. The
+older native-path port described above has since been replaced by that shared
+planner; its confirmed retail search findings still stand.
+
+**Native-data provenance:** `SCENARIO/HUMAN/HUMAN01.MAP` is 96x84, SHA-256
+`09d712271c8deca56521a82988e75e44caa6c04dcff83e7e581bae61511f09f9`.
+The loaded blocked plane around x=25..33, y=4..10 is:
+
+```
+y=4   ...######
+y=5   ....#####
+y=6   .....####
+y=7   ......###
+y=8   .......##
+y=9   ........#
+y=10  .........
+```
+
+The initial player beacon is at `(22.5,3.5)`; delivered infantry include
+`(22.5,2.5)` and `(21.5,2.5)`. Runtime Troopers have radius 0.5 from the
+existing mobjinfo definition. Reproduction spawns two Troopers at those latter
+coordinates, retaining their configured speed/radius and disabling combat
+traits to isolate navigation. Orders to `(30.5,7.5)` or `(24.5,11.5)` expose
+stalls without requiring enemies or animation assets to be altered.
+
+**Confirmed engine defects, diagnosed with temporary
+`OPEN_RTS_DEBUG_PATH` logs at waypoint selection, replanning and movement:**
+
+- The follower skipped a waypoint whenever it was within 0.3 cells, even when
+  the segment to the next waypoint was blocked. A one-cell L-shaped corridor
+  repeatedly switched between the blocked next leg and a replanned corner.
+  Near-corner advancement now requires the same radius-aware line test as
+  distant shortcuts. Distance affects check frequency, not collision safety.
+- Crowd avoidance bent a valid heading into terrain. Axis sliding then made
+  tiny displacements while the desired heading changed and movement sometimes
+  exhausted its retries. Avoidance now checks the actual quantized 16.16 step
+  against the existing terrain collision rule, including authored-spawn escape,
+  and retains the route heading when that bend is blocked. It still bends
+  around neighbours on open ground.
+- The planner replaced the destination cell centre with the exact off-centre
+  goal before smoothing. This could invalidate the last raw diagonal; smoothing
+  then emitted the invalid leg without an intermediate safe centre. In HUMAN01,
+  the group assigned `(29.975,7.5)` as one endpoint. Replanning could strand the
+  actor at `(28.5,6.5)` with that same blocked segment indefinitely. Retaining the
+  cell centre before appending the exact goal lets string pulling discard it
+  only after validating the shortcut. A synthetic vector from `(4.5,4.5)` to
+  `(5.975,5.5)`, radius 0.5, with blocked cell `(6,4)` reproduces this defect.
+
+**Disproven for these reproductions:** changing turn speed or increasing
+retry limits is not required. Replanned and order goals matched in the
+instrumented HUMAN01 trace; a stale goal was not the cause. No new movement
+threshold, avoidance strength, sprite offset or native timing was authored.
+Doom's `p_enemy.c:P_Move` validates its proposed step with `P_TryMove`, and
+`p_map.c:P_TryMove` commits position only after collision checks. The avoidance
+change follows that existing engine ownership and preflight convention.
+
+**Before/after verification:** against parent `1c3a14d`, the isolated HUMAN01
+pair reached only one destination after 1,200 tics; the remaining actor spent
+951 tics stopped. A broader diagnostic sweep also observed 90 separate stop
+intervals in that order, depending on unit IDs/check timing. With the repair,
+both arrive within 226 tics across all four check phases, with the first actor
+stopped for only 1 or 4 tics. The `(24.5,11.5)` pair arrives within 307..313 tics
+and its previously recurring stop intervals fall to five. The narrow-corridor
+regression requires arrival without any replan. The shared planner regression
+checks every segment of the off-centre route; a separate avoidance vector
+checks a bend on open ground and rejection of that bend beside a wall.
+Temporary diagnostics were removed.
+
+```sh
+make
+make build/bin/tests/dark-colony/test_corner_movement
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_corner_movement
+env SDL_VIDEODRIVER=dummy make test-dark-colony test-dark-reign test-7legion test-kknd test-layout
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --map SCENARIO/HUMAN/HUMAN01.MAP --screenshot /private/tmp/open-rts-corner-fix-map.bmp
+```
+
+All four games build and pass headless smoke checks. Across their model/shared
+suites, 118 of 119 tests pass, including navigation, Bottlenecks, turning,
+harvesting, patrols and sprite layout. The sole failure is the Dark Colony LAN
+menu assertion at `test_menu.c:242`; an independently built export of parent
+`1c3a14d` fails the identical assertion. The HUMAN01 map screenshot was visually
+inspected. The two corner regressions also fail against that parent, verifying
+that they detect the repaired behavior rather than merely exercising the path.

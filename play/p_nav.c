@@ -385,15 +385,17 @@ bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from, f
     int goal_index;
     if (!search(map, cls, nav, layer, soft, radius, start, end, &goal_index)) return false;
 
-    /* Walk parents backwards into a cell-centre list, swap the last for the exact goal. */
+    /* Keep the destination cell centre: an off-centre goal can invalidate the
+     * incoming diagonal even though both endpoints fit. String pulling removes
+     * this last bend only when the entire shortcut is clear. */
     int length = 0, w = nav->width;
     for (int c = goal_index; c != -1; c = nav->parent[c]) ++length;
-    fvec2_t *chain = malloc((size_t)length * sizeof(*chain));
+    fvec2_t *chain = malloc((size_t)(length + 1) * sizeof(*chain));
     if (!chain) return false;
     int i = length;
     for (int c = goal_index; c != -1; c = nav->parent[c])
         chain[--i] = fvec2_cell_center((ivec2_t){c % w, c / w});
-    chain[length - 1] = goal;
+    chain[length++] = goal;
     out->goal = goal;
 
     /* Greedy string pull: extend the segment while the disc still fits and the

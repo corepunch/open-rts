@@ -2161,7 +2161,7 @@ void P_NavRunPlans(const level_t *map);
 
 /* p_steer.c: shared path following, avoidance and overlap resolution. */
 bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *final);
-fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction);
+fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction, float step);
 bool P_SteerProgress(const level_t *map, mobj_t *unit, bool moved);
 bool P_ReplanUnit(const level_t *map, mobj_t *unit);
 void P_SeparateUnits(const level_t *map);

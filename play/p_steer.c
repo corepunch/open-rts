@@ -54,12 +54,12 @@ bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *fina
     while (path->current + 1 < path->count) {
         fvec2_t here = path->points[path->current], next = path->points[path->current + 1];
         bool near = fvec2_distance_squared(position, here) < 0.3f * 0.3f;
-        /* As soon as the next waypoint is in sight, stop aiming at this corner; otherwise a
-         * whole group funnels into the same point and jams on it. Throttled: sight tests
-         * along a long leg are the costliest thing a unit does. */
-        bool cut = !near && ((uint32_t)leveltime + unit->id) % 2 == 0 &&
+        /* Skip a corner only when the next leg clears terrain, even when near
+         * the waypoint. Throttle the long-leg checks, but check every tic near
+         * a bend so the group can turn as soon as its discs fit. */
+        bool cut = (near || ((uint32_t)leveltime + unit->id) % 2 == 0) &&
                    P_NavLineClear(map, P_MobjMoveClass(unit), position, next, radius);
-        if (!near && !cut) break;
+        if (!cut) break;
         ++path->current;
     }
     *final = path->current + 1 >= path->count && path->complete;
@@ -76,7 +76,7 @@ bool P_SteerTarget(const level_t *map, mobj_t *unit, fvec2_t *target, bool *fina
     return true;
 }
 
-fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction) {
+fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction, float step) {
     fvec2_t position = fixed3_xy_to_fvec2(unit->core.position), bend = {0, 0};
     float radius = P_MobjRadius(unit);
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
@@ -105,7 +105,13 @@ fvec2_t P_SteerAvoid(const mobj_t *unit, fvec2_t direction) {
         length = sqrtf(fvec2_length_squared(steered));
         steered = fvec2_scale(steered, 1.0f / length);
     }
-    return steered;
+    /* Avoidance must not steer a clear route into terrain. Check the actual
+     * fixed-point step before the mover can fall back to sliding along a wall. */
+    fixed3_t candidate = fixed3_add_planar(unit->core.position,
+                                         fixed3_planar_delta(fvec2_scale(steered, step)));
+    fvec2_t to = fixed3_xy_to_fvec2(candidate);
+    return P_MapCircleWalkable(&level, P_MobjMoveClass(unit), to.x, to.y, radius, &position) ?
+           steered : direction;
 }
 
 /* Returns true if the order is still alive. Called after each movement attempt. */

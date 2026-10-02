@@ -1256,7 +1256,7 @@ static void tick_actor(mobj_t *u) {
                 }
             } else {
                 fvec2_t direction = fvec2_scale(delta, 1.0f / dist);
-                if (!flying) direction = P_SteerAvoid(u, direction);
+                if (!flying) direction = P_SteerAvoid(u, direction, step);
                 fixed3_t before = u->core.position;
                 bool moved = move_unit_if_walkable(u, fvec2_scale(direction, step));
                 if (moved && !flying) {
