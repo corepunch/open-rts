@@ -1082,10 +1082,17 @@ drops, the decoded `shell/SHELL.RLI`/`SHELL.RLD`, `shell/SHELLCFG.H` and
 - Dropdowns are shown closed and step through their items on click (right
   click steps back). Togran, handicaps, fog style, placement, colours and the
   give/view options are shown and kept but do not change the game yet.
-- INTERNET, MODEM and SERIAL are disabled. LAN uses the engine's UDP session:
-  the host leaves rows Available for LAN players and LAUNCH reserves them;
-  the game starts once all have joined. Humans take players 0..n-1, as
-  `D_PlayerIsHuman` requires. Manual IP joins the typed address.
+- INTERNET, MODEM and SERIAL are disabled. LAN uses the engine's UDP session
+  and lobby: the host leaves rows Available for LAN players and its first
+  LAUNCH opens the lobby, fixing the map, seats and options. Joiners enter the
+  same setup panel, change only their own row's side and team
+  (`I_SetNetChoice`), and LAUNCH toggles their ready check, shown with the
+  row's `LIGHTS.BMP` ready light (ChatRowLaunch). The host's LAUNCH is its own
+  ready check; the game starts once every seat has joined and every player is
+  ready (`I_LaunchNetGame`). The native start trigger was not traced. The
+  Messages box and ChatMessageEntry carry the lobby chat as
+  `<name>: <text>`. Humans take players 0..n-1, as `D_PlayerIsHuman`
+  requires. Manual IP joins the typed address.
 - The game setup reaches the loader through `DR_RequestSkirmish`: Available
   and Closed teams start empty, a chosen side swaps the authored units
   (construction crew, infantry, transporters, medium tank), team members ally,

@@ -22,14 +22,14 @@ typedef enum { POP_NONE, POP_ERROR, POP_MAP } mppopup_t;
 /* Font slots of 0x5120db. */
 enum { F16BLUE, F14BLUE, F14BLUEO, F14BLUEG, F12GOLD, F12TEAM, F12BLUEN, F12BLUEO, F12BLUEG, NUMFONTS };
 /* Control bitmaps. */
-enum { ART_BUTTON, ART_LAUNCH, ART_DROP, ART_DROP2, ART_COLOUR, ART_POPERROR, ART_POPMAP, NUMART };
+enum { ART_BUTTON, ART_LAUNCH, ART_DROP, ART_DROP2, ART_COLOUR, ART_POPERROR, ART_POPMAP, ART_LIGHTS, NUMART };
 
 enum {
     ID_INTERNET = 1, ID_IPX, ID_MODEM, ID_SERIAL, ID_MANUAL, ID_MAINMENU, ID_NAME,
     ID_GAMES, ID_CREATE, ID_JOIN, ID_BACK, ID_ADDRESS,
     ID_SELECTMAP, ID_FOG, ID_UNITS, ID_PLACEMENT, ID_DISPLAY, ID_GIVE, ID_VIEW, ID_TOGRAN,
     ID_HANDICAPS, ID_ALLIANCES, ID_CREDITS, ID_GAMENAME, ID_LAUNCH, ID_KICK, ID_LOCK,
-    ID_POPOK, ID_MAPLIST, ID_MAPOK, ID_MAPCANCEL,
+    ID_POPOK, ID_MAPLIST, ID_MAPOK, ID_MAPCANCEL, ID_MESSAGE,
     ID_COLOUR = 40,           /* nine: the default and colours 0..7 */
     ID_ROWTYPE = 50, ID_ROWSIDE = 60, ID_ROWTEAM = 70, ID_ROWHANDICAP = 80,
 };
@@ -53,6 +53,9 @@ static dr_skirmish_t setup;
 /* Values of the option dropdowns, as their native variables 0x671be0.. */
 static int fog, units, placement, display, give, view, handicaps, alliances, colour;
 static int handicap[8];
+/* Lobby: each player's ready check, and the joiner's own pending choice. */
+static bool ready[8];
+static char message[NETCHAT_LENGTH - 24];
 static void (*shell_escape)(menu_t *);
 
 static const char *caption(const char *key, const char *fallback) {
@@ -171,8 +174,9 @@ static int order_humans(void) {
     return humans;
 }
 
-/* The joiners' copy: count, three bytes a slot, credits and two options. */
-enum { SETUP_SIZE = 1 + 24 + 4 + 2 };
+/* The joiners' copy: count, three bytes a slot, credits, two options and
+ * the ready checks. */
+enum { SETUP_SIZE = 1 + 24 + 4 + 2 + 1 };
 static size_t pack_setup(uint8_t out[SETUP_SIZE]) {
     out[0] = (uint8_t)setup.count;
     for (int i = 0; i < 8; ++i) {
@@ -183,6 +187,8 @@ static size_t pack_setup(uint8_t out[SETUP_SIZE]) {
     for (int i = 0; i < 4; ++i) out[25 + i] = (uint8_t)((uint32_t)setup.credits >> (8 * i));
     out[29] = (uint8_t)fog;
     out[30] = (uint8_t)units;
+    out[31] = 0;
+    for (int i = 0; i < 8; ++i) out[31] |= (uint8_t)(ready[i] << i);
     return SETUP_SIZE;
 }
 
@@ -201,6 +207,7 @@ static bool unpack_setup(const uint8_t *in, size_t size) {
     setup = shared;
     fog = in[29];
     units = in[30];
+    for (int i = 0; i < 8; ++i) ready[i] = in[31] >> i & 1;
     return true;
 }
 
@@ -319,8 +326,23 @@ static int human_rows(void) {
     return n;
 }
 
+/* Who may edit a row: the host owns the seats and computer players; in a
+ * lobby each joiner owns its own side and team (0x5322f0, 0x532420). */
+static bool row_editable(int i, bool type) {
+    if (joined) return !type && i == doomcom->consoleplayer && !ready[i];
+    if (!hosting) return !type || i > 0;
+    return !type && (i == 0 ? !ready[0] : setup.slots[i].type != DR_SLOT_HUMAN);
+}
+
+static void draw_light(const menu_t *screen, const menuitem_t *item) {
+    (void)screen;
+    int i = (item->rect.y - 68) / 13;
+    /* LIGHTS.BMP: 0 off, 19 ready. */
+    irect_t src = {ready[i] ? 19 : 0, 0, 19, 13}, dst = {item->rect.x, item->rect.y, 19, 13};
+    R_DrawSprite(&art[ART_LIGHTS], 0, -1, &src, &dst, 0, 16);
+}
+
 static void build_rows(void) {
-    bool locked = joined || waiting;
     /* 0x525c10: eight rows from y 68, 13 apart. */
     for (int i = 0; i < 8; ++i) {
         int y = 68 + 13 * i;
@@ -329,22 +351,43 @@ static void build_rows(void) {
         bool open = slot->type != DR_SLOT_AVAILABLE && slot->type != DR_SLOT_CLOSED;
         const char *type = slot->type == DR_SLOT_HUMAN && slot->name[0] ? slot->name :
             caption(type_keys[slot->type], type_names[slot->type]);
-        cell((irect_t){19, y, 181, 13}, ID_ROWTYPE + i, type, i > 0 && !locked);
+        int me = joined ? doomcom->consoleplayer : 0;
+        if (i == me) type = playername;
+        else if ((joined || hosting) && slot->type == DR_SLOT_HUMAN)
+            type = i < I_NetPlayerCount() ? M_va("Player %d", i + 1) : caption(type_keys[0], type_names[0]);
+        if (hosting || joined) {
+            /* ChatRowLaunch: a lobby player's ready light. */
+            menuitem_t *light = DR_Text((irect_t){0, y, 19, 13}, 0, "", NULL, NULL, NULL);
+            if (light && slot->type == DR_SLOT_HUMAN) light->ownerdraw = draw_light;
+        }
+        cell((irect_t){19, y, 181, 13}, ID_ROWTYPE + i, type, row_editable(i, true));
         if (!open) continue;
         cell((irect_t){219, y, 90, 13}, ID_ROWSIDE + i,
-             caption(side_keys[slot->side], side_names[slot->side]), !locked);
+             caption(side_keys[slot->side], side_names[slot->side]), row_editable(i, false));
         char team[32];
         snprintf(team, sizeof(team), "%s", slot->team ?
                  caption(M_va("ChatPlayerTeam%c", 'A' + slot->team - 1), M_va("Team %c", 'A' + slot->team - 1)) :
                  caption("ChatPlayerTeamNone", "No Team"));
-        cell((irect_t){309, y, 60, 13}, ID_ROWTEAM + i, team, !locked);
+        cell((irect_t){309, y, 60, 13}, ID_ROWTEAM + i, team, row_editable(i, false));
         cell((irect_t){369, y, 81, 13}, ID_ROWHANDICAP + i,
-             M_va("%d.%02d", 1 + handicap[i] / 4, handicap[i] % 4 * 25), !locked);
+             M_va("%d.%02d", 1 + handicap[i] / 4, handicap[i] % 4 * 25), !joined && row_editable(i, false));
     }
 }
 
+static const char *chat_log(void) {
+    static char log[NETCHAT_LENGTH * 7];
+    size_t used = 0;
+    log[0] = '\0';
+    for (int id = I_NetChatCount() - 5; id <= I_NetChatCount(); ++id) {
+        const char *line = I_NetChatLine(id);
+        if (line && used < sizeof(log)) used += (size_t)snprintf(log + used, sizeof(log) - used, "%s\n", line);
+    }
+    return log;
+}
+
 static void build_chat(void) {
-    bool mp = !instant, locked = joined || waiting;
+    /* Once a lobby is open the seats, map and options belong to it. */
+    bool mp = !instant, locked = joined || hosting;
     label((irect_t){220, 0, 200, 23}, mp ? "ChatStaticTitle" : "ChatStaticTitleIA",
           mp ? "Multi-Player Setup" : "Instant Action Setup", F16BLUE, true);
     label((irect_t){19, 47, 100, 23}, "ChatStaticPlayerStaticTitle", "Player", F14BLUE, false);
@@ -415,13 +458,27 @@ static void build_chat(void) {
         bar_button(460, 447, ID_LOCK, "ChatLockButtonTitle", "Deny Access")->enabled = false;
     }
     bar_button(mp ? 140 : 27, 414, ID_MAINMENU, "ChatMainButtonTitle", "Main Menu");
-    button((irect_t){266, 410, 110, 32}, ID_LAUNCH, caption("ChatLauchButtonTitle", "LAUNCH"),
-           ART_LAUNCH, 110)->enabled = !locked;
+    /* LAUNCH opens the lobby, then starts it; a joiner's LAUNCH is its
+     * ready check. */
+    const char *launch = joined || (hosting && I_NetPlayerCount() < human_rows()) ?
+        (ready[joined ? doomcom->consoleplayer : 0] ? "UNREADY" : "READY") : caption("ChatLauchButtonTitle", "LAUNCH");
+    button((irect_t){266, 410, 110, 32}, ID_LAUNCH, launch, ART_LAUNCH, 110)->enabled = joined || hosting ||
+        selectedmap >= 0 || !mp;
     /* The rules list shows the session state. */
-    const char *status = joined ? "Joined: waiting for the host to launch" :
-        waiting ? M_va("Waiting for LAN players: %d/%d", I_NetPlayerCount(), human_rows()) :
-        mp ? "Leave slots Available for LAN players." : "";
-    DR_Text((irect_t){23, 192, 270, 13}, 0, status, &fonts[F12GOLD], NULL, NULL);
+    const char *status = joined ? (ready[doomcom->consoleplayer] ? "Ready: waiting for the host to launch" :
+                                   "Choose your side and team, then READY.") :
+        hosting ? (I_NetPlayerCount() < human_rows() ?
+                   M_va("Waiting for LAN players: %d/%d", I_NetPlayerCount(), human_rows()) :
+                   "Everyone has joined. LAUNCH starts when all are ready.") :
+        mp ? "Leave slots Available for LAN players, then LAUNCH to open the lobby." : "";
+    menuitem_t *rules = DR_Text((irect_t){23, 192, 270, mp ? 55 : 170}, 0, " ", &fonts[F12GOLD], NULL, NULL);
+    if (rules) rules->prose = status;
+    if (mp && (hosting || joined)) {
+        /* ChatMsgList and ChatMessageEntry: the lobby chat. */
+        menuitem_t *log = DR_Text((irect_t){21, 273, 274, 81}, 0, " ", &fonts[F12GOLD], NULL, NULL);
+        if (log) log->prose = chat_log();
+        field((irect_t){108, 359, 206, 19}, ID_MESSAGE, message, (int)sizeof(message) - 1);
+    }
 }
 
 static void build_popup(void) {
@@ -562,6 +619,13 @@ static void launch(void) {
         start_level(maps[selectedmap].path);
         return;
     }
+    if (hosting) {
+        /* The host's own ready check; host_choices launches. */
+        uint8_t packed[SETUP_SIZE];
+        ready[0] = !ready[0];
+        if (!I_SetNetSetup(packed, pack_setup(packed))) network_error();
+        return;
+    }
     dr_skirmish_t edited = setup;
     int humans = order_humans();
     if (humans < 2) {
@@ -569,10 +633,64 @@ static void launch(void) {
         show_error(caption("NetRefusalUnknownStaticTitle", "Warning"), "Leave at least one slot Available for a LAN player.");
         return;
     }
+    memset(ready, 0, sizeof(ready));
     uint8_t packed[SETUP_SIZE];
     if (!I_HostNetGame("dark-reign", gamename[0] ? gamename : playername, maps[selectedmap].path, humans) ||
         !I_SetNetSetup(packed, pack_setup(packed))) { network_error(); return; }
     hosting = waiting = true;
+}
+
+/* A joiner's choice for its own row: side, team and ready check. */
+static void send_choice(void) {
+    const dr_slot_t *slot = &setup.slots[doomcom->consoleplayer];
+    uint8_t choice[3] = {slot->side, slot->team, ready[doomcom->consoleplayer]};
+    if (!I_SetNetChoice(choice, sizeof(choice))) network_error();
+}
+
+static void send_chat(void) {
+    char line[NETCHAT_LENGTH];
+    if (!message[0]) return;
+    snprintf(line, sizeof(line), "%s: %s", playername, message);
+    if (I_SendNetChat(line)) message[0] = '\0';
+}
+
+/* Host: joiners own their row's side and team; the game starts when every
+ * seat has joined and every player is ready. */
+static void host_choices(void) {
+    bool changed = false, all = I_NetPlayerCount() == human_rows() && ready[0];
+    for (int i = 1; i < setup.count; ++i) {
+        if (setup.slots[i].type != DR_SLOT_HUMAN) continue;
+        uint8_t choice[3];
+        bool now = false;
+        if (i < I_NetPlayerCount() && I_NetChoice(i, choice, 3) == 3 && choice[0] <= DR_SIDE_IMPERIUM && choice[1] <= 8) {
+            changed |= setup.slots[i].side != choice[0] || setup.slots[i].team != choice[1];
+            setup.slots[i].side = choice[0];
+            setup.slots[i].team = choice[1];
+            now = choice[2] != 0;
+        }
+        changed |= ready[i] != now;
+        ready[i] = now;
+        all &= now;
+    }
+    uint8_t packed[SETUP_SIZE];
+    if (changed && !I_SetNetSetup(packed, pack_setup(packed))) { network_error(); return; }
+    if (all) I_LaunchNetGame();
+}
+
+/* Joiner: the host's lobby, keeping its own pending side and team. */
+static bool joiner_setup(void) {
+    uint8_t packed[64];
+    int me = doomcom->consoleplayer;
+    dr_slot_t mine = setup.slots[me];
+    bool mine_ready = ready[me], had = setup.count > 0;
+    if (!unpack_setup(packed, I_NetSetup(packed, sizeof(packed)))) return false;
+    if (had && me < setup.count) { setup.slots[me].side = mine.side; setup.slots[me].team = mine.team; ready[me] = mine_ready; }
+    if (setup.credits) snprintf(credits, sizeof(credits), "%d", setup.credits);
+    else credits[0] = '\0';
+    selectedmap = -1;
+    for (int i = 0; i < nummaps; ++i)
+        if (!strcasecmp(maps[i].path, I_NetMap())) selectedmap = i;
+    return true;
 }
 
 static void open_chat(void) {
@@ -674,7 +792,17 @@ static void activate(app_t *app, int id, bool back) {
             leave_session();
             page = origin;
             if (page == MPLAN && !I_OpenNetBrowser("dark-reign")) network_error();
+        } else if (id == ID_LAUNCH && joined) {
+            ready[doomcom->consoleplayer] = !ready[doomcom->consoleplayer];
+            send_choice();
         } else if (id == ID_LAUNCH) launch();
+        else if (joined && (id == ID_ROWSIDE + doomcom->consoleplayer || id == ID_ROWTEAM + doomcom->consoleplayer)) {
+            dr_slot_t *slot = &setup.slots[doomcom->consoleplayer];
+            int value = id < ID_ROWTEAM ? slot->side : slot->team;
+            cycle(&value, id < ID_ROWTEAM ? 3 : 9, back);
+            if (id < ID_ROWTEAM) slot->side = (uint8_t)value; else slot->team = (uint8_t)value;
+            send_choice();
+        } else if (joined) return;
         else if (id == ID_SELECTMAP) { popup = POP_MAP; popupmap = selectedmap; }
         else if (id == ID_ROWSIDE || id == ID_ROWTEAM || id == ID_ROWHANDICAP) own_row_action(id, back);
         else if (id >= ID_ROWTYPE && id < ID_ROWHANDICAP + 10) row_action(id, back);
@@ -706,6 +834,7 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
         if (id == ID_NAME) snprintf(playername, sizeof(playername), "%s", item->text);
         else if (id == ID_ADDRESS) snprintf(address, sizeof(address), "%s", item->text);
         else if (id == ID_GAMENAME) snprintf(gamename, sizeof(gamename), "%s", item->text);
+        else if (id == ID_MESSAGE) snprintf(message, sizeof(message), "%s", item->text);
         else if (id == ID_CREDITS) {
             /* The credits edit is numeric (flags 2). */
             char *q = item->text;
@@ -717,10 +846,19 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
         if (id == ID_GAMES || id == ID_MAPLIST) rebuild(app);
         return;
     }
+    /* Enter in the message line sends it ("<name>: <text>"). */
+    if (id == ID_MESSAGE && action == MA_ACTIVATE && screen->held != item) {
+        send_chat();
+        rebuild(app);
+        return;
+    }
     bool cycles = (id >= ID_FOG && id <= ID_ALLIANCES) || (id >= ID_ROWTYPE && id < ID_ROWHANDICAP + 10);
     if ((action != MA_ACTIVATE && !(action == MA_SECONDARY && cycles)) ||
         item->kind == MI_TEXTFIELD || item->kind == MI_LIST) return;
     activate(app, id, action == MA_SECONDARY);
+    /* The host's edits reach the joiners at once. */
+    uint8_t packed[SETUP_SIZE];
+    if (active && hosting && page == MPCHAT && !I_SetNetSetup(packed, pack_setup(packed))) network_error();
     if (active) {
         drscreen.menu.held = NULL;
         rebuild(app);
@@ -745,7 +883,7 @@ bool DR_MultiOpen(app_t *app, const char *data_root, bool ia) {
     static const char *const names[] = {"F16BLUE.PCX", "F14BLUE.PCX", "F14BLUEO.PCX", "F14BLUEG.PCX", "F12GOLD.PCX",
                                         "F12TEAM.PCX", "F12BLUEN.PCX", "F12BLUEO.PCX", "F12BLUEG.PCX"};
     static const char *const bitmaps[] = {"BUTTON.BMP", "LAUNCH.BMP", "DROP.BMP", "DROP2.BMP", "COLOUR.BMP",
-                                          "POP_1PIC.BMP", "POP_MAP.BMP"};
+                                          "POP_1PIC.BMP", "POP_MAP.BMP", "LIGHTS.BMP"};
     snprintf(root, sizeof(root), "%s", data_root);
     free_assets();
     bool ok = scan_maps();
@@ -796,7 +934,22 @@ void DR_MultiTicker(void) {
     int status = I_PollNetGame(map, sizeof(map));
     if (status < 0) { network_error(); rebuild(app); return; }
     if (status == 0) {
-        if (I_NetPlayerCount() != shownplayers) { shownplayers = I_NetPlayerCount(); rebuild(app); }
+        static int shownchat = -1;
+        if (hosting) host_choices();
+        else if (joined && I_NetLobby() && I_NetSetup(&(uint8_t){0}, 1) && !joiner_setup()) {
+            snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
+            network_error();
+        }
+        /* Redraw the lobby as it changes; typing keeps its focus. */
+        uint8_t packed[SETUP_SIZE];
+        static uint8_t shown[SETUP_SIZE];
+        pack_setup(packed);
+        if (I_NetPlayerCount() != shownplayers || I_NetChatCount() != shownchat || memcmp(packed, shown, sizeof(shown))) {
+            shownplayers = I_NetPlayerCount();
+            shownchat = I_NetChatCount();
+            memcpy(shown, packed, sizeof(shown));
+            rebuild(app);
+        }
         return;
     }
     waiting = false;

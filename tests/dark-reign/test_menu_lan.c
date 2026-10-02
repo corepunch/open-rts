@@ -7,6 +7,7 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 /* Two processes drive the native multiplayer screens: the host creates a
@@ -50,13 +51,14 @@ static bool run_until_launched(void) {
 
 int main(void) {
     CHECK(SDL_setenv("SDL_VIDEODRIVER", "dummy", 1) == 0);
-    int ready[2];
-    CHECK(pipe(ready) == 0);
+    int ready[2], done[2];
+    CHECK(pipe(ready) == 0 && pipe(done) == 0);
     fflush(NULL);
     pid_t joiner = fork();
     CHECK(joiner >= 0);
     if (!joiner) {
         close(ready[1]);
+        close(done[0]);
         app_t app = {.win = {640, 480}, .running = true};
         char byte;
         CHECK(read(ready[0], &byte, 1) == 1);
@@ -64,15 +66,46 @@ int main(void) {
         click(&app, 320, 356); /* MANUAL IP; the address defaults to 127.0.0.1 */
         click(&app, 561, 430); /* Join Game */
         CHECK(menuactive && !menumap);
+        /* The joiner enters the host's lobby as player 2. */
+        uint64_t deadline = SDL_GetTicks64() + 10000;
+        while (!I_NetLobby() && SDL_GetTicks64() < deadline) { M_Ticker(); SDL_Delay(1); }
+        for (int i = 0; i < 50; ++i) { M_Ticker(); SDL_Delay(1); }
+        CHECK(I_NetLobby() && doomcom->consoleplayer == 1);
+        click(&app, 260, 87);  /* own side: Freedom Guard */
+        click(&app, 260, 87);  /* -> Imperium */
+        click(&app, 150, 367); /* ChatMessageEntry */
+        SDL_Event text = {.type = SDL_TEXTINPUT};
+        strcpy(text.text.text, "gg");
+        M_Responder(&app, &text, false);
+        SDL_Event enter = {.type = SDL_KEYDOWN};
+        enter.key.keysym.sym = SDLK_RETURN;
+        M_Responder(&app, &enter, false);
+        deadline = SDL_GetTicks64() + 3000;
+        while (I_NetChatCount() < 1 && SDL_GetTicks64() < deadline) { M_Ticker(); SDL_Delay(1); }
+        CHECK(I_NetChatCount() == 1 && !strcmp(I_NetChatLine(1), "Player: gg"));
+        for (int i = 0; i < 20; ++i) { M_Ticker(); SDL_Delay(1); }
+        SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, 640, 480, 32, SDL_PIXELFORMAT_ARGB8888);
+        V_BeginFrame(0xff000000u);
+        M_Drawer(&app);
+        V_ReadPixels(surface->pixels, surface->pitch);
+        CHECK(SDL_SaveBMP(surface, "/private/tmp/dr-menu-lan-lobby.bmp") == 0);
+        click(&app, 321, 426); /* READY */
         CHECK(run_until_launched());
         dr_skirmish_t setup;
         CHECK(!strcmp(menumap, "scenario/MULTI/2ALASKA/2ALASKA.SCN") && DR_TakeSkirmish(menumap, &setup));
         CHECK(setup.count == 2 && setup.slots[0].type == DR_SLOT_HUMAN && setup.slots[1].type == DR_SLOT_HUMAN);
-        CHECK(setup.slots[0].side == DR_SIDE_IMPERIUM && setup.credits == 9000);
+        CHECK(setup.slots[0].side == DR_SIDE_IMPERIUM && setup.slots[1].side == DR_SIDE_IMPERIUM && setup.credits == 9000);
+        /* As the driver does next: finish the session handshake. */
+        char map[512];
+        snprintf(map, sizeof(map), "%s", menumap);
+        CHECK(I_StartNetGame("dark-reign", map, sizeof(map)) && doomcom->consoleplayer == 1);
+        CHECK(write(done[1], "Q", 1) == 1);
         I_ShutdownNetwork();
         _exit(0);
     }
     close(ready[0]);
+    close(done[1]);
+    CHECK(fcntl(done[0], F_SETFL, O_NONBLOCK) == 0);
     app_t app = {.win = {640, 480}, .running = true};
     open_menu(&app);
     click(&app, 320, 200); /* Local Area Network */
@@ -88,7 +121,7 @@ int main(void) {
         text.text.text[0] = *p;
         M_Responder(&app, &text, false);
     }
-    click(&app, 321, 426); /* LAUNCH: row 1 stays Available for the joiner */
+    click(&app, 321, 426); /* LAUNCH opens the lobby; row 1 stays Available */
     if (!I_NetMenuSession()) {
         /* Another process holds UDP 5029. */
         kill(joiner, SIGKILL);
@@ -97,11 +130,24 @@ int main(void) {
         return 0;
     }
     CHECK(write(ready[1], "J", 1) == 1);
+    click(&app, 321, 426); /* READY: starts once the joiner is ready too */
+    CHECK(menuactive);
     CHECK(run_until_launched());
     dr_skirmish_t setup;
     CHECK(!strcmp(menumap, "scenario/MULTI/2ALASKA/2ALASKA.SCN") && DR_TakeSkirmish(menumap, &setup));
-    fprintf(stderr, "host setup: %d slots, side %d, credits %d\n", setup.count, setup.slots[0].side, setup.credits);
-    CHECK(setup.count == 2 && setup.slots[0].side == DR_SIDE_IMPERIUM && setup.credits == 9000);
+    CHECK(setup.count == 2 && setup.slots[0].side == DR_SIDE_IMPERIUM && setup.slots[1].side == DR_SIDE_IMPERIUM);
+    CHECK(setup.credits == 9000);
+    /* The host keeps answering the joiner until it has started. */
+    char map[512], byte;
+    bool finished = false;
+    uint64_t deadline = SDL_GetTicks64() + 10000;
+    while (!finished && SDL_GetTicks64() < deadline) {
+        CHECK(I_PollNetGame(map, sizeof(map)) >= 0);
+        finished = read(done[0], &byte, 1) == 1;
+        SDL_Delay(1);
+    }
+    CHECK(finished && doomcom->numplayers == 2);
+    CHECK(I_NetChatCount() >= 1 && !strcmp(I_NetChatLine(1), "Player: gg"));
     int status;
     CHECK(waitpid(joiner, &status, 0) == joiner && WIFEXITED(status) && WEXITSTATUS(status) == 0);
     I_ShutdownNetwork();
