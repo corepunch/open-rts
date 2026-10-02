@@ -216,7 +216,7 @@ static bool unpack_setup(const uint8_t *in, size_t size) {
 static void routine(menu_t *screen, menuitem_t *item, menuaction_t action);
 
 static menuitem_t *label(irect_t rect, const char *key, const char *fallback, int font, bool centre) {
-    return DR_Text(rect, centre ? 0x20 : 0, caption(key, fallback), &fonts[font], NULL, NULL);
+    return DR_Text(rect, centre ? MALIGN_HCENTER : 0, caption(key, fallback), &fonts[font], NULL, NULL);
 }
 
 static menuitem_t *backdrop(irect_t rect, int sheet) {
@@ -224,6 +224,7 @@ static menuitem_t *backdrop(irect_t rect, int sheet) {
     if (!item) return NULL;
     item->sheet = &art[sheet];
     item->opaque = true;
+    item->layer = true;
     for (int s = 0; s < MS_STATES; ++s) item->look[s].cell = 0;
     return item;
 }
@@ -236,7 +237,8 @@ static menuitem_t *button(irect_t rect, int id, const char *text, int sheet, int
     item->routine = routine;
     item->sheet = &art[sheet];
     for (int s = 0; s < MS_STATES; ++s)
-        item->look[s] = (menulook_t){.cell = 0, .palette = -1, .part = {step * s, 0, rect.w, rect.h}};
+        item->look[s] = (menulook_t){.cell = 0, .palette = -1, .part = {step * s, 0, rect.w, rect.h},
+                                     .font = item->look[s].font};
     return item;
 }
 
@@ -264,7 +266,7 @@ static menuitem_t *cell(irect_t rect, int id, const char *text, bool enabled) {
     if (!item) return NULL;
     item->routine = routine;
     item->enabled = enabled;
-    drscreen.flags[item - drscreen.items] = 0x80;
+    item->align = MALIGN_VCENTER;
     item->rect.x += 2;
     return item;
 }
@@ -277,7 +279,7 @@ static menuitem_t *field(irect_t rect, int id, const char *text, int maxchars) {
     item->rect.x += 5;
     item->rect.y += 3;
     item->routine = routine;
-    drscreen.ids[item - drscreen.items] = id;
+    item->id = id;
     return item;
 }
 
@@ -293,28 +295,22 @@ static const char *game_row(int row) {
     return M_va("%.32s", games[row].name[0] ? games[row].name : M_FileName(games[row].map));
 }
 
-static void draw_rows(const menu_t *screen, const menuitem_t *item) {
-    (void)screen;
-    int id = DR_ItemId(item);
-    for (int i = 0; i < item->rect.h / item->row_height && item->first_row + i < item->rows; ++i) {
-        int row = item->first_row + i;
-        const bitmapfont_t *font = &fonts[row == item->value ? F12BLUEG : F12GOLD];
-        V_DrawText((ivec2_t){item->rect.x + 2, item->rect.y + i * item->row_height}, font,
-                   id == ID_MAPLIST ? map_row(row) : game_row(row),
-                   V_RemapPalette(font->sprite.source_palette));
-    }
+static const char *list_row(const menuitem_t *item, int row) {
+    return item->id == ID_MAPLIST ? map_row(row) : game_row(row);
 }
 
 static menuitem_t *list(irect_t rect, int id, int rows, int value, int row_height) {
-    menuitem_t *item = DR_Text(rect, 0, "", NULL, NULL, NULL);
+    /* Rows in f12gold; the selected one glows. */
+    menuitem_t *item = DR_Text(rect, 0, "", &fonts[F12GOLD], NULL, &fonts[F12BLUEG]);
     if (!item) return NULL;
     item->kind = MI_LIST;
-    item->ownerdraw = draw_rows;
+    item->row = list_row;
+    item->inset = (ivec2_t){2, 0};
     item->row_height = row_height;
     item->rows = rows;
     item->value = value;
     item->routine = routine;
-    drscreen.ids[item - drscreen.items] = id;
+    item->id = id;
     return item;
 }
 
@@ -334,11 +330,11 @@ static bool row_editable(int i, bool type) {
     return !type && (i == 0 ? !ready[0] : setup.slots[i].type != DR_SLOT_HUMAN);
 }
 
-static void draw_light(const menu_t *screen, const menuitem_t *item) {
+static void draw_light(const menu_t *screen, const menuitem_t *item, irect_t rect) {
     (void)screen;
     int i = (item->rect.y - 68) / 13;
     /* LIGHTS.BMP: 0 off, 19 ready. */
-    irect_t src = {ready[i] ? 19 : 0, 0, 19, 13}, dst = {item->rect.x, item->rect.y, 19, 13};
+    irect_t src = {ready[i] ? 19 : 0, 0, 19, 13}, dst = {rect.x, rect.y, 19, 13};
     R_DrawSprite(&art[ART_LIGHTS], 0, -1, &src, &dst, 0, 16);
 }
 
@@ -403,7 +399,7 @@ static void build_chat(void) {
     if (mp) label((irect_t){23, 249, 100, 16}, "ChatMessagesStaticTitle", "Messages", F14BLUE, false);
     label((irect_t){463, 217, 100, 16}, "ChatMapsStaticTitle", "MAPS", F14BLUE, false);
     const mpmap_t *m = selectedmap >= 0 ? &maps[selectedmap] : NULL;
-    DR_Text((irect_t){463, 262, 155, 16}, 0x20, m ? M_va("%s %dx%d %dplr", m->name, m->w, m->h, m->players) :
+    DR_Text((irect_t){463, 262, 155, 16}, MALIGN_HCENTER, m ? M_va("%s %dx%d %dplr", m->name, m->w, m->h, m->players) :
             mp ? "Unknown MAP" : "None Selected", &fonts[F12GOLD], NULL, NULL);
     label((irect_t){463, 308, 100, 16}, "ChatStartingUnitsStaticTitle", "STARTING UNITS", F14BLUE, false);
     label((irect_t){463, 353, 50, 16}, "ChatCreditsStaticTitle", "Credits", F14BLUE, false);
@@ -487,7 +483,7 @@ static void build_popup(void) {
     if (popup == POP_ERROR) {
         irect_t box = {125, 119, 390, 202};
         backdrop(box, ART_POPERROR);
-        DR_Text((irect_t){box.x + 37, box.y + 4, 316, 16}, 0x20, popup_title, &fonts[F12GOLD], NULL, NULL);
+        DR_Text((irect_t){box.x + 37, box.y + 4, 316, 16}, MALIGN_HCENTER, popup_title, &fonts[F12GOLD], NULL, NULL);
         menuitem_t *desc = DR_Text((irect_t){box.x + 37, box.y + 39, 316, 70}, 0, " ", &fonts[F12GOLD], NULL, NULL);
         if (desc) desc->prose = popup_text;
         text_button((irect_t){box.x + 120, box.y + 132, 138, 44}, ID_POPOK, caption("PopOkButtonTitle", "Ok"), F12BLUEN);
@@ -495,16 +491,16 @@ static void build_popup(void) {
         irect_t box = {120, 91, 400, 259};
         const mpmap_t *m = popupmap >= 0 ? &maps[popupmap] : NULL;
         backdrop(box, ART_POPMAP);
-        DR_Text((irect_t){box.x + 100, box.y + 2, 200, 24}, 0x20, "SELECT MAP", &fonts[F16BLUE], NULL, NULL);
+        DR_Text((irect_t){box.x + 100, box.y + 2, 200, 24}, MALIGN_HCENTER, "SELECT MAP", &fonts[F16BLUE], NULL, NULL);
         label((irect_t){box.x + 35, box.y + 19, 114, 24}, "ChatSelectMapAvailmapsStaticTitle", "Available Maps", F14BLUE, false);
         label((irect_t){box.x + 266, box.y + 39, 114, 24}, "ChatSelectMapMapSizeStaticTitle", "Map Size", F14BLUE, true);
         label((irect_t){box.x + 266, box.y + 91, 114, 24}, "ChatSelectMapNumPlayersStaticTitle", "Number of Players", F14BLUE, true);
         label((irect_t){box.x + 266, box.y + 143, 114, 24}, "ChatSelectMapMapTypeStaticTitle", "Map Type", F14BLUE, true);
-        DR_Text((irect_t){box.x + 266, box.y + 64, 114, 24}, 0x20, m ? M_va("%dx%d", m->w, m->h) : "-",
+        DR_Text((irect_t){box.x + 266, box.y + 64, 114, 24}, MALIGN_HCENTER, m ? M_va("%dx%d", m->w, m->h) : "-",
                 &fonts[F12GOLD], NULL, NULL);
-        DR_Text((irect_t){box.x + 266, box.y + 118, 114, 24}, 0x20, m ? M_va("%d", m->players) : "-",
+        DR_Text((irect_t){box.x + 266, box.y + 118, 114, 24}, MALIGN_HCENTER, m ? M_va("%d", m->players) : "-",
                 &fonts[F12GOLD], NULL, NULL);
-        DR_Text((irect_t){box.x + 266, box.y + 169, 114, 24}, 0x20, m ? m->terrain : "-", &fonts[F12GOLD], NULL, NULL);
+        DR_Text((irect_t){box.x + 266, box.y + 169, 114, 24}, MALIGN_HCENTER, m ? m->terrain : "-", &fonts[F12GOLD], NULL, NULL);
         menuitem_t *maplist = list((irect_t){box.x + 28, box.y + 45, 220, 162}, ID_MAPLIST, nummaps, popupmap, 13);
         if (maplist && popupmap >= 162 / 13) maplist->first_row = popupmap - 162 / 13 + 1;
         text_button((irect_t){box.x + 110, box.y + 210, 90, 25}, ID_MAPOK,
@@ -517,7 +513,7 @@ static void build_popup(void) {
 static bool build(void) {
     static const char *const backgrounds[] = {"MM_MAIN.BMP", "MM_LAN.BMP", "MM_MANU.BMP", "MM_SETU.BMP"};
     int first_row = 0;
-    menuitem_t *games = DR_FindId(ID_GAMES);
+    menuitem_t *games = M_MenuFind(&drscreen.menu, ID_GAMES);
     if (games && page == MPLAN) first_row = games->first_row;
     int focus = drscreen.menu.itemOn;
     DR_ScreenClear();
@@ -603,8 +599,7 @@ static void start_level(const char *map) {
     snprintf(mapname, sizeof(mapname), "%s", map);
     DR_RequestSkirmish(mapname, &setup);
     menumap = mapname;
-    menuactive = false;
-    SDL_StopTextInput();
+    M_ClearMenus();
     DR_MultiClose();
 }
 
@@ -828,8 +823,8 @@ static void rebuild(app_t *app) {
 }
 
 static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
-    app_t *app = screen->owner;
-    int id = DR_ItemId(item);
+    app_t *app = screen->app;
+    int id = item->id;
     if (action == MA_CHANGE) {
         if (id == ID_NAME) snprintf(playername, sizeof(playername), "%s", item->text);
         else if (id == ID_ADDRESS) snprintf(address, sizeof(address), "%s", item->text);
@@ -866,7 +861,7 @@ static void routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
 }
 
 static void escape(menu_t *screen) {
-    app_t *app = screen->owner;
+    app_t *app = screen->app;
     if (popup) popup = POP_NONE;
     else if (page == MPMAIN || instant) {
         leave_session();
@@ -879,7 +874,7 @@ static void escape(menu_t *screen) {
 /* ── lifecycle ──────────────────────────────────────────────────────────── */
 
 bool DR_MultiOpen(app_t *app, const char *data_root, bool ia) {
-    drscreen.menu.owner = app;
+    drscreen.menu.app = app;
     static const char *const names[] = {"F16BLUE.PCX", "F14BLUE.PCX", "F14BLUEO.PCX", "F14BLUEG.PCX", "F12GOLD.PCX",
                                         "F12TEAM.PCX", "F12BLUEN.PCX", "F12BLUEO.PCX", "F12BLUEG.PCX"};
     static const char *const bitmaps[] = {"BUTTON.BMP", "LAUNCH.BMP", "DROP.BMP", "DROP2.BMP", "COLOUR.BMP",
@@ -914,17 +909,13 @@ void DR_MultiClose(void) {
 
 bool DR_MultiActive(void) { return active; }
 
-bool DR_MultiResponder(app_t *app, const SDL_Event *event) {
-    return M_MenuResponder(&drscreen.menu, app, event);
-}
-
 void DR_MultiTicker(void) {
-    app_t *app = drscreen.menu.owner;
+    app_t *app = drscreen.menu.app;
     if (!active) return;
     if (page == MPLAN && !popup) {
         int count;
         I_NetGames(&count);
-        const menuitem_t *games = DR_FindId(ID_GAMES);
+        const menuitem_t *games = M_MenuFind(&drscreen.menu, ID_GAMES);
         if (selectedgame >= count) selectedgame = -1;
         if (neterror[0]) network_error();
         if (popup || (games && games->rows != count)) rebuild(app);
@@ -964,8 +955,4 @@ void DR_MultiTicker(void) {
         }
     }
     start_level(map);
-}
-
-void DR_MultiDrawer(void) {
-    M_MenuDrawer(&drscreen.menu);
 }

@@ -204,15 +204,14 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
     if (selected_idx < 0) return;
 
     uint16_t producer_type = snapshot->units[selected_idx].type_id;
-    int button_index = 0;
     for (int i = 0; i < product_count(); ++i) {
         const StaticProductDefinition *product = &KKND_PRODUCTS[i];
         bool is_maker = false;
         for (int m = 0; m < product->maker_count; ++m)
             if (product->makers[m] == (int)producer_type) { is_maker = true; break; }
         if (!is_maker) continue;
-        int by = gameui->command_grid.y + button_index * gameui->icon_size.h;
-        button_index++;
+        /* Every button at the top of the product grid. */
+        int by = 32;
         bool available = G_ModelProductAvailable(model, consoleplayer, product) &&
                          snapshot->player_resources[consoleplayer][0] >= product->cost;
         append_ui_script(dst, dst_size, "x 864 y %d btn %d enabled %d pic %d\n",

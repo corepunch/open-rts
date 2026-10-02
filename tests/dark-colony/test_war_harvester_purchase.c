@@ -26,14 +26,13 @@ static int count_harvesters(int owner) {
 
 /* The executable's tic body (driver/d_main.c): its custom UI production
  * update, not the model's G_ProductionTicker. */
-static void driver_tic(void *ui, AiContext *ai) {
+static void driver_tic(menu_t *ui, AiContext *ai) {
     P_Ticker();
     mobjlist_t objects = P_ListMobjs();
     int count = objects.count;
     P_AiTick(ai, &level, objects.items, count, gameinfo, (int)(FIXED_DT * 1000));
-    G_UpdateProduction(ui, &level, objects.items, &count, FIXED_DT);
+    G_UpdateProduction(&level, objects.items, &count, FIXED_DT);
     P_FreeMobjList(&objects);
-    G_CustomUITicker(ui);
 }
 
 static int compare(const void *a, const void *b) { return strcmp(a, b); }
@@ -95,7 +94,7 @@ int main(void) {
     int failures = 0, runs = 0, baseless = 0;
     RtsGameModel *model = rts_game_model_create();
     app_t app = {.win = {640, 480}, .cell = {32, 32}, .running = true};
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY");
     if (!ui) return rts_fail("war_harvester", "HUD loads");
     for (int m = 0; m < count; ++m)
         for (int race = 0; race < 2; ++race)

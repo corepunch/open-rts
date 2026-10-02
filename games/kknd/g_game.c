@@ -348,27 +348,27 @@ static const mobjtype_t ACTOR_TYPES[] = {
 };
 
 
-static const uidefinition_t UI = {
-    .logical_width = 640,
-    .logical_height = 480,
-    .world_viewport = { 0, 0, 480, 480 },
-    .command_grid = { 480, 32, 160, 448 },
-    .resources = {
-        [0] = { .text = { 400, 3 }, .color = 0xffffffffu },
-    },
-    .resource_count = 1,
-    .status_panel = {
-        .rect = { 230, 0, 180, 28 },
-        .fill = 0xff000000u,
-        .border = 0xffffffffu,
-    },
-    .status_elapsed_time = true,
-    .sidebar_panel = {
-        .rect = { 480, 0, 160, 480 },
-        .fill = 0xff000000u,
-        .border = 0xff686860u,
-    },
+/* The sidebar: time and money over the world, and the list of what the
+ * selected building makes. */
+enum { HUD_SIDEBAR, HUD_STATUS, HUD_MONEY, HUD_TECH, HUD_PRODUCTS, HUD_PAGE, NUMHUD };
+static void hud_refresh(menu_t *menu);
+static menuitem_t hud_items[NUMHUD] = {
+    [HUD_SIDEBAR] = {.visible = true, .rect = {480, 0, 160, 480},
+                     .fill = 0xff000000u, .border = 0xff686860u},
+    [HUD_STATUS] = {.visible = true, .rect = {230, 0, 180, 28}, .fill = 0xff000000u,
+                    .border = 0xffffffffu, .ownerdraw = HU_DrawClock},
+    [HUD_MONEY] = {.visible = true, .rect = {400, 3, 0, 22}, .ink = 0xffffffffu,
+                   .align = MALIGN_HCENTER, .ownerdraw = HU_DrawCounter},
+    /* A line over the world: no height, so it takes no clicks. */
+    [HUD_TECH] = {.visible = true, .rect = {230, 36, 400, 0}, .ink = 0xffffffffu},
+    [HUD_PRODUCTS] = {.kind = MI_LIST, .visible = true, .enabled = true, .rect = {480, 32, 160, 416},
+                      .row_height = 32, .value = -1, .fill = 0xff0c1216u,
+                      .routine = HU_ProductList, .ownerdraw = HU_DrawProducts},
+    [HUD_PAGE] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {480, 448, 160, 32},
+                  .fill = 0xff0c1216u, .link = HUD_PRODUCTS, .routine = HU_ProductPage,
+                  .ownerdraw = HU_DrawProductPage},
 };
+static menu_t hud = {.items = hud_items, .numitems = NUMHUD, .itemOn = -1, .refresh = hud_refresh};
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
@@ -384,7 +384,6 @@ const gameinfo_t *gameinfo = &game_info;
 const mobjtype_t *const actor_types = ACTOR_TYPES;
 const int num_actor_types =
     (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = &UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
@@ -460,59 +459,43 @@ void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
     (void)hud; (void)dt;
 }
 
-void *G_InitCustomUI(app_t *app, const char *data_root) {
-    (void)app; (void)data_root;
-    return NULL;
-}
-
-bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,
-                         mobj_t *const *units, int unit_count, const SDL_Event *event) {
-    (void)ui; (void)app; (void)map; (void)units; (void)unit_count; (void)event;
-    return false;
-}
-
-void G_CustomUITicker(void *ui) {
-    (void)ui;
-}
-
-void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                      mobj_t *const *units, int unit_count,
-                      const spritecache_t *sprites, const hudtext_t *hud) {
-    (void)ui; (void)app; (void)map; (void)units; (void)unit_count;
-    (void)sprites; (void)hud;
-    for (int i = 0; i < unit_count; ++i) {
-        const mobj_t *u = units[i];
+/* The selected building's research: its level, and the lab working on it. */
+static void hud_refresh(menu_t *menu) {
+    HU_RefreshProducts(menu);
+    char *text = hud_items[HUD_TECH].text;
+    text[0] = '\0';
+    for (int i = 0; i < hudview.unit_count; ++i) {
+        const mobj_t *u = hudview.units[i];
         if (u->owner != consoleplayer || !P_MobjIsSelected(u) || u->remove || u->hp <= 0) continue;
         if (!KK_NextTechLevel(u) && !u->research.level) continue;
-        char text[128];
-        snprintf(text,sizeof(text),"TECH LEVEL %d",u->research.level);
-        for (int j = 0; j < unit_count; ++j) {
-            const mobj_t *lab = units[j];
+        snprintf(text, sizeof(hud_items[HUD_TECH].text), "TECH LEVEL %d", u->research.level);
+        for (int j = 0; j < hudview.unit_count; ++j) {
+            const mobj_t *lab = hudview.units[j];
             if (lab->remove || lab->hp <= 0 || lab->research.target != u->id) continue;
-            snprintf(text,sizeof(text),"TECH %d - RESEARCH %d%% - %d OIL LEFT",u->research.level,
+            snprintf(text, sizeof(hud_items[HUD_TECH].text), "TECH %d - RESEARCH %d%% - %d OIL LEFT",
+                u->research.level,
                 100*(lab->research.total_time-lab->research.remaining_time)/lab->research.total_time,
                 lab->research.remaining_cost);
             break;
         }
-        SB_DrawText((ivec2_t){gameui->status_panel.rect.x,gameui->status_panel.rect.h+8},text,400,0xffffffffu);
         break;
     }
 }
 
-bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
-                        float dt) {
-    (void)ui; (void)map; (void)units; (void)unit_count;
-    (void)dt;
-    return false;
+menu_t *G_InitHUD(app_t *app, const char *data_root) {
+    (void)data_root;
+    hud.app = app;
+    return &hud;
 }
 
-void G_ShutdownCustomUI(void *ui) {
-    (void)ui;
+void G_ShutdownHUD(void) {
 }
 
-int G_WorldViewportWidth(const app_t *app) {
-    if (!app) return 0;
-    if (gameui && gameui->world_viewport.w > 0 && gameui->logical_width > 0)
-        return gameui->world_viewport.w * app->win.w / gameui->logical_width;
-    return app->win.w > 0 ? app->win.w : 1;
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
+    (void)map; (void)units; (void)unit_count;
+    return G_ProductionTicker(dt);
+}
+
+irect_t G_WorldViewport(const app_t *app) {
+    return (irect_t){0, 0, 480 * app->win.w / 640, app->win.h};
 }

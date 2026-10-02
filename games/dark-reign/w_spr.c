@@ -319,7 +319,7 @@ done:
     return ok;
 }
 
-bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
+bool DR_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
     char path[1024];
     uint32_t palette[256];
     M_PathJoin(path, sizeof(path), root, "graphics/BARREN.PAL");

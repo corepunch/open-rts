@@ -22,11 +22,11 @@ static void screenshot(app_t *app, SDL_Surface *surface, tileset_t *tiles,
     P_FreeMobjList(&objects);
 }
 
-static bool build_click(void *ui, app_t *app, mobjlist_t objects, const SDL_Event *click) {
-    if (!G_CustomUIResponder(ui, app, &level, objects.items, objects.count, click)) return false;
+static bool build_click(menu_t *ui, app_t *app, mobjlist_t objects, const SDL_Event *click) {
+    if (!t_hud_event(ui, app, objects.items, objects.count, click)) return false;
     SDL_Event submit = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT,
                                   .x = 540, .y = 435}};
-    return G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &submit);
+    return t_hud_event(ui, app, objects.items, objects.count, &submit);
 }
 
 int main(void) {
@@ -153,7 +153,7 @@ int main(void) {
     assert(level.player_resources[0][0] >= product->cost);
     mobjlist_t objects = P_ListMobjs();
     for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY");
     assert(ui);
     SDL_Event click = {.button = {.type = SDL_MOUSEBUTTONDOWN,
                                   .button = SDL_BUTTON_LEFT, .x = 530, .y = 165}};
@@ -175,7 +175,7 @@ int main(void) {
         }
         P_Ticker();
         objects = P_ListMobjs();
-        finished = G_UpdateProduction(ui, &level, objects.items, &objects.count, FIXED_DT);
+        finished = G_UpdateProduction(&level, objects.items, &objects.count, FIXED_DT);
         P_FreeMobjList(&objects);
         if (blocked && blocked_ticks < 3 && barracks->production && barracks->production->release_ready) {
             assert(!finished); /* A blocked native exit must never fall back to a random cell. */
@@ -190,7 +190,7 @@ int main(void) {
     objects = P_ListMobjs();
     for (int i = 0; i < objects.count; ++i) P_MobjSetSelected(objects.items[i], false);
     level.player_resources[0][0] = 10000;
-    G_CustomUIDrawer(ui, &app, &level, objects.items, objects.count, cache, NULL);
+    t_hud_draw(ui, &app, objects.items, objects.count, cache, NULL);
     V_ReadPixels(surface->pixels, surface->pitch);
     assert(!SDL_SaveBMP(surface, "/private/tmp/dc-build-menu.bmp"));
     mobj_t *center = find(MT_EXCOPOD);
@@ -248,7 +248,7 @@ int main(void) {
         }
         assert(states[module->core.state_id].group == 1);
     }
-    G_ShutdownCustomUI(ui);
+    G_ShutdownHUD();
     R_FreeSpriteCache(cache);
     free(cache);
     R_FreeTileset(&tiles);

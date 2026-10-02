@@ -1,19 +1,20 @@
+#include "t_local.h"
 #include "dark-colony.h"
 #include "info.h"
 #include <assert.h>
 
-static void click(void *ui, app_t *app, int x, int y) {
+static void click(menu_t *ui, app_t *app, int x, int y) {
     SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = SDL_BUTTON_LEFT, .x=x,.y=y}};
     mobjlist_t objects = P_ListMobjs();
-    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    assert(t_hud_event(ui, app, objects.items, objects.count, &event));
     event.type = SDL_MOUSEBUTTONUP;
-    G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event);
+    t_hud_event(ui, app, objects.items, objects.count, &event);
     P_FreeMobjList(&objects);
 }
 
-static void input(void *ui, app_t *app, SDL_Event event) {
+static void input(menu_t *ui, app_t *app, SDL_Event event) {
     mobjlist_t objects = P_ListMobjs();
-    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    assert(t_hud_event(ui, app, objects.items, objects.count, &event));
     P_FreeMobjList(&objects);
 }
 
@@ -30,7 +31,7 @@ int main(void) {
     DC_RequestSkirmish(map, &setup);
     assert(G_DoLoadLevel(map, &level) && P_InitSight()); P_LoadThings(map);
     app_t app = {.win={640,480},.cell={32,32},.running=true};
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY"); assert(ui);
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY"); assert(ui);
     mobj_t *players[2] = {0};
     for (thinker_t *th = thinkercap.next; th != &thinkercap; th = th->next) {
         mobj_t *actor = (mobj_t *)th;
@@ -73,7 +74,7 @@ int main(void) {
     G_RunTiccmd(1,&(ticcmd_t){.order=TC_SPEED,.product=10}); assert(game_speed == speed);
     G_RunTiccmd(0,&(ticcmd_t){.order=TC_SPEED,.product=130}); assert(game_speed == 130);
     consoleplayer = 0; netgame = false;
-    G_ShutdownCustomUI(ui); S_Shutdown(); P_FreeLevel(&level); SDL_Quit();
+    G_ShutdownHUD(); S_Shutdown(); P_FreeLevel(&level); SDL_Quit();
     puts("PASS: native allies clicks, reciprocal peace, independent sight, credit transfer boundary, chat recipients and host-only speed");
     return 0;
 }

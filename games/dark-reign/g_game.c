@@ -1017,16 +1017,12 @@ void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
     (void)hud; (void)dt;
 }
 
-bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
-                        float dt) {
-    (void)ui; (void)map; (void)units; (void)unit_count;
-    (void)dt;
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
+    (void)map; (void)units; (void)unit_count; (void)dt;
     return false;
 }
 
-int G_WorldViewportWidth(const app_t *app) {
-    if (!app) return 0;
-    if (gameui && gameui->world_viewport.w > 0 && gameui->logical_width > 0)
-        return gameui->world_viewport.w * app->win.w / gameui->logical_width;
-    return app->win.w > 0 ? app->win.w : 1;
+/* Under the top bar, left of the MFD column. */
+irect_t G_WorldViewport(const app_t *app) {
+    return (irect_t){0, 32 * app->win.h / 480, 448 * app->win.w / 640, 448 * app->win.h / 480};
 }

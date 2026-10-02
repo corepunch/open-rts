@@ -83,13 +83,7 @@ static void focus_camera_on_grid(app_t *app, const level_t *map,
     if (!app || !map) return;
     float sx = 0.0f, sy = 0.0f;
     R_MapToScreen(app, map, gx, gy, &sx, &sy);
-    irect_t viewport = { 0, 0, app->win.w, app->win.h };
-    if (gameui) {
-        viewport.x = gameui->world_viewport.x * app->win.w / gameui->logical_width;
-        viewport.y = gameui->world_viewport.y * app->win.h / gameui->logical_height;
-        viewport.w = gameui->world_viewport.w * app->win.w / gameui->logical_width;
-        viewport.h = gameui->world_viewport.h * app->win.h / gameui->logical_height;
-    }
+    irect_t viewport = G_WorldViewport(app);
     app->cam.x += (float)(viewport.x + viewport.w / 2) - sx;
     app->cam.y += (float)(viewport.y + viewport.h / 2) - sy;
 }
@@ -192,14 +186,7 @@ int main(int argc, char **argv) {
     strcpy(map_name, map_arg);
 
     renderer_t renderer;
-    app_t app = { 0 };
-    if (gameui) {
-        app.win.w = gameui->logical_width;
-        app.win.h = gameui->logical_height;
-    } else {
-        app.win.w = 640;
-        app.win.h = 480;
-    }
+    app_t app = { .win = { 640, 480 } };
     isize2_t window_size = window.w > 0 ? window : app.win;
     app.show_grid = false;
     app.running = true;
@@ -348,13 +335,10 @@ load_level:
            map_path, level.width, level.height, level.tileset_name, unit_count,
            level.decoration_count, level.resource_vent_count);
 
-    void *custom_ui = G_InitCustomUI(&app, data_root);
+    menu_t *hud = G_InitHUD(&app, data_root);
     AiContext ai;
     P_AiInit(&ai);
     P_AiAttachGame(&ai, G_AiInterface());
-    sb_state_t st = { 0 };
-    if (!custom_ui && gameui && !SB_Init(&st, data_root, gameui))
-        fprintf(stderr, "warning: SB_Init failed for %s\n", g_game_name);
     hudtext_t hud_text = { 0 };
 #ifdef RTS_GAME_DARK_COLONY
     if (dc_loadfile[0]) {
@@ -391,18 +375,15 @@ load_level:
 
             R_DrawGridOverlay(&app, &level);
             R_DrawFog(&app, &level);
-            G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
-            SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
-                      false, true);
-            if (!custom_ui) SB_ProductionDrawer(&st, &app);
+            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+            if (hud) M_MenuDrawer(hud);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
             }
         }
         printf("Smoke check OK: %d terrain tiles, %d unit frames from %s, %d resource vents.\n",
                tileset.count, unit_sprite.numlumps, sprite_name, level.resource_vent_count);
-        SB_Shutdown(&st);
-        G_ShutdownCustomUI(custom_ui);
+        G_ShutdownHUD();
         R_FreeSpriteCache(&decoration_sprites);
         R_FreeSprite(&unit_sprite);
         R_FreeTileset(&tileset);
@@ -446,7 +427,8 @@ load_level:
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (D_MenuResponder(&app, &e, custom_ui, units, unit_count)) {
+            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+            if (D_MenuResponder(&app, &e, hud)) {
                 if (menumap || menuleave || !app.running) break;
                 continue;
             }
@@ -477,14 +459,12 @@ load_level:
              * consume mouse buttons. Future games can retain right orders. */
             if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_RIGHT &&
                 !(gameinfo && gameinfo->right_click_orders)) {
-                if (G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e)) continue;
+                if (hud && M_MenuResponder(hud, &app, &e)) continue;
                 G_Responder(&app, &level, units, unit_count, &unit_sprite,
                              &decoration_sprites, gameinfo, &e);
                 continue;
             }
-            if ((!custom_ui && SB_ProductionResponder(&st, &app, &e)) ||
-                G_CustomUIResponder(custom_ui, &app, &level, units, unit_count, &e) ||
-                SB_Responder(&st, &app, &e)) {
+            if (hud && M_MenuResponder(hud, &app, &e)) {
                 if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
                     app.dragging_select = false;
                     app.selection_rect = (irect_t){0};
@@ -544,12 +524,7 @@ load_level:
             bool production_spawned;
             /* Every game's computer players buy through the universal AI. */
             P_AiTick(&ai, &level, units, unit_count, gameinfo, (int)(FIXED_DT * 1000));
-            if (custom_ui) {
-                production_spawned = G_UpdateProduction(custom_ui, &level, units, &unit_count,
-                                                        FIXED_DT);
-            } else {
-                production_spawned = G_ProductionTicker(FIXED_DT);
-            }
+            production_spawned = G_UpdateProduction(&level, units, &unit_count, FIXED_DT);
             P_FreeMobjList(&objects);
             objects = P_ListMobjs();
             units = objects.items;
@@ -564,8 +539,11 @@ load_level:
 
             HU_Ticker(&hud_text, FIXED_DT);
             HU_Ticker(&chat_text, FIXED_DT);
-            SB_Ticker(&st);
-            G_CustomUITicker(custom_ui);
+            if (hud) {
+                hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+                if (hud->ticker) hud->ticker(hud);
+                else M_MenuTicker(hud);
+            }
             ++gametic;
             NetUpdate();
         }
@@ -599,10 +577,8 @@ load_level:
         R_DrawFog(&app, &level);
         if (app.dragging_select)
             V_DrawRectOutline(app.selection_rect, V_NearestIndex(0xff62e0a1u));
-        G_CustomUIDrawer(custom_ui, &app, &level, units, unit_count, &decoration_sprites, &hud_text);
-        SB_Drawer(&st, &app, &level, units, unit_count, &decoration_sprites,
-                  false, false);
-        if (!custom_ui) SB_ProductionDrawer(&st, &app);
+        hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+        if (hud) M_MenuDrawer(hud);
         M_Drawer(&app);
         renderer_end_frame(&renderer);
     }
@@ -624,8 +600,7 @@ load_level:
         if (!menumap && I_NetMenuSession()) I_CancelNetGame();
         if (!(menumap && I_NetMenuSession())) D_QuitNetGame();
     }
-    SB_Shutdown(&st);
-    G_ShutdownCustomUI(custom_ui);
+    G_ShutdownHUD();
     R_FreeSpriteCache(&decoration_sprites);
     R_FreeSprite(&unit_sprite);
     R_FreeTileset(&tileset);

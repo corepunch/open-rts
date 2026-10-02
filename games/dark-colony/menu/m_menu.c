@@ -9,11 +9,8 @@
 #include <strings.h>
 #include <dirent.h>
 
-/* DC.EXE's screen scripts own layout; the M_* lifecycle is separate from SB_*.
+/* DC.EXE's screen scripts own layout; the engine runs the screens and the HUD.
  * Native control IDs and dispatch: docs/DC_EXE_FINDINGS.md, Main-menu screens. */
-bool menuactive;
-bool menuerror;
-const char *menumap;
 static char root[1024], leader[128], mapname[1024];
 static int race;
 static int bright_pushed, bright_highlight;
@@ -22,11 +19,13 @@ static int bright_pushed, bright_highlight;
  * items outside the native screen controls. */
 enum { NUMCONTROLS = 300, PROSE = NUMCONTROLS, GLOBE, NUMITEMS };
 static menuitem_t items[NUMITEMS];
-static bool initialized, training, inlevel;
+static bool initialized, training;
 static void menu_escape(menu_t *screen);
 static int gadget_tics(const menuitem_t *item);
+static void refresh(menu_t *screen);
+static void menu_ticker(menu_t *screen);
 static menu_t menu = {.items = items, .numitems = NUMITEMS, .modal = true, .escape = menu_escape,
-                      .frametics = gadget_tics};
+                      .refresh = refresh, .ticker = menu_ticker, .frametics = gadget_tics};
 static uint64_t menutime, globetime;
 static const char *notice;
 static char mission_title[128], mission_region[128];
@@ -121,14 +120,11 @@ static void free_screen(void) {
     menu.held = NULL;
 }
 
-void M_Shutdown(void) {
-    M_StopMessage();
+void G_ShutdownMenus(void) {
     if (waiting || page == BROWSE) I_CancelNetGame();
     waiting = false;
     free_screen();
-    initialized = menuactive = false;
-    menumap = NULL;
-    SDL_StopTextInput();
+    initialized = false;
 }
 
 static const spritesheet_t *load_image(const char *name) {
@@ -463,7 +459,7 @@ static void activate_skirmish(int id) {
         snprintf(mapname, sizeof(mapname), "%s", maps[selectedmap].path);
         DC_RequestSkirmish(mapname, &skirmish);
         menumap = mapname;
-        menuactive = false;
+        M_ClearMenus();
         SDL_StopTextInput();
     }
     refresh_skirmish();
@@ -504,7 +500,7 @@ void DC_ControlLooks(menuitem_t *item, int normal, int pushed, int remap,
     }
 }
 
-static void draw_gadget(const menu_t *screen, const menuitem_t *item) {
+static void draw_gadget(const menu_t *screen, const menuitem_t *item, irect_t rect) {
     (void)screen;
     const dc_fin_t *fin = item->userdata;
     const dc_fin_frame_t *frame = &fin->frames[item->anim.frame];
@@ -518,17 +514,17 @@ static void draw_gadget(const menu_t *screen, const menuitem_t *item) {
         const spritecell_t *cell = &sprite->cells[part->cell];
         /* 0x4224d7..0x4224ef passes only the dependency and cell to the UI
          * blitter. World FIN offsets/flags do not position menu gadgets. */
-        irect_t dst = {item->rect.x + cell->displacement.x,
-                        item->rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
+        irect_t dst = {rect.x + cell->displacement.x,
+                        rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
         R_DrawSprite(sprite, part->cell, -1, &cell->rect, &dst, 0, 16);
     }
 }
 
-static void draw_globe(const menu_t *screen, const menuitem_t *item) {
+static void draw_globe(const menu_t *screen, const menuitem_t *item, irect_t rect) {
     (void)screen;
     const spritecell_t *cell = &item->sheet->cells[item->anim.frame];
-    irect_t dst = {item->rect.x + cell->displacement.x,
-                  item->rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
+    irect_t dst = {rect.x + cell->displacement.x,
+                  rect.y + cell->displacement.y, cell->rect.w, cell->rect.h};
     R_DrawSprite(item->sheet, item->anim.frame, -1, &cell->rect, &dst, 0, 16);
 }
 
@@ -570,9 +566,9 @@ static bool load_saves(void) {
     return ok;
 }
 
-static void draw_objectives(const menu_t *screen, const menuitem_t *item) {
+static void draw_objectives(const menu_t *screen, const menuitem_t *item, irect_t rect) {
     (void)screen;
-    V_DrawTextWrapped(item->rect, item->font, prose,
+    V_DrawTextWrapped(rect, item->font, prose,
                      R_PaletteMap(&item->font->sprite, item->look[MS_NORMAL].palette),
                      item->first_row * item->row_height);
 }
@@ -668,11 +664,11 @@ static bool load_screen(int next) {
                 script == LIST ? MI_LIST : script == SCROLL ? MI_SCROLLBAR : MI_STATIC;
             if (script == PUSH || script == CHECK || script == PICTURE)
                 sscanf(line, "%*s %*d %*d %*d %*d %*d %*d %d %d", &controls[id].normal, &controls[id].pushed);
-            item->centered = strstr(line, "align centre") || strstr(line, "align  centre");
+            if (strstr(line, "align centre") || strstr(line, "align  centre")) item->align = MALIGN_CENTER;
             char *label = strstr(line, "label centre ");
             if (label) {
                 sscanf(label, "label centre %d %d", &controls[id].message, &controls[id].font);
-                item->centered = true;
+                item->align = MALIGN_CENTER;
             } else if ((label = strstr(line, " label "))) sscanf(label, " label %d", &controls[id].message);
             if ((label = strstr(line, "remap "))) sscanf(label, "remap %d", &controls[id].remap);
             if ((label = strstr(line, " font "))) sscanf(label, " font %d", &controls[id].font);
@@ -754,7 +750,7 @@ static bool load_screen(int next) {
         }
         /* Centred text sits half a glyph right, except in text fields; a
          * left-aligned label is inset one glyph and centred vertically. */
-        if (item->centered) item->inset.x = script == TEXT ? 0 : (font->glyph_size.w + 1) / 2;
+        if (item->align) item->inset.x = script == TEXT ? 0 : (font->glyph_size.w + 1) / 2;
         else if (script == LABEL)
             item->inset = (ivec2_t){font->glyph_size.w, (item->rect.h - font->glyph_size.h) / 2};
         /* Only buttons and pictures have frames; other text is at full light. */
@@ -890,30 +886,27 @@ static bool load_screen(int next) {
         (popup() || background.numlumps) && fonts[0].sprite.numlumps;
 }
 
-bool M_Init(app_t *app, const char *data_root) {
-    (void)app;
-    menuerror = false;
-    M_StopMessage();
+bool G_InitMenus(app_t *app, const char *data_root) {
+    menu.app = app;
     if (strlen(data_root) >= sizeof(root)) return false;
     strcpy(root, data_root);
     initialized = load_screen(MAIN);
-    if (!initialized) M_Shutdown();
+    if (!initialized) G_ShutdownMenus();
     return initialized;
 }
 
-void M_StartControlPanel(app_t *app) {
-    if (!initialized || menuactive) return;
+menu_t *G_ControlPanel(app_t *app, bool in_level) {
+    (void)in_level;
+    if (!initialized) return NULL;
     if (page != MAIN && !load_screen(MAIN)) {
         fprintf(stderr, "Could not load Dark Colony main menu\n");
         menuerror = true;
         app->running = false;
-        return;
+        return NULL;
     }
-    menuactive = true;
     menu.itemOn = 0;
     notice = NULL;
-    app->dragging_select = false;
-    app->selection_rect = (irect_t){0};
+    return &menu;
 }
 
 void DC_OpenQuitDialog(app_t *app) {
@@ -924,7 +917,8 @@ void DC_OpenQuitDialog(app_t *app) {
         return;
     }
     menu.itemOn = 57;
-    menuactive = true;
+    menu.app = app;
+    M_SetupNextMenu(&menu);
     app->dragging_select = false;
     app->selection_rect = (irect_t){0};
 }
@@ -932,8 +926,9 @@ void DC_OpenQuitDialog(app_t *app) {
 static void open_popup(app_t *app, int next, int focus) {
     if (!initialized || menuactive) return;
     if (!load_screen(next)) { menuerror = true; app->running = false; return; }
-    menuactive = inlevel = true;
-    menu.owner = app;
+    menuinlevel = true;
+    menu.app = app;
+    M_SetupNextMenu(&menu);
     menu.itemOn = focus;
     app->dragging_select = false;
     app->selection_rect = (irect_t){0};
@@ -990,7 +985,7 @@ static void activate(app_t *app, int id) {
     notice = NULL;
     if (page == QUIT) {
         if (id == 56) app->running = false;
-        if (id == 56 || id == 57) menuactive = false;
+        if (id == 56 || id == 57) M_ClearMenus();
     } else if (page == OPTIONS) {
         int *value = NULL, step = 1, maximum = 10, minimum = 0;
         if (id == 40 || id == 41) { value = &editing_speed; step = 10; minimum = 10; maximum = 200; }
@@ -1006,7 +1001,7 @@ static void activate(app_t *app, int id) {
             option_values();
         } else if (id == 55) {
             S_SetVolume(gamesettings.sound * 10);
-            menuactive = false;
+            M_ClearMenus();
         } else if (id == 56) {
             if ((!netgame || consoleplayer == 0) &&
                 !G_QueueTiccmd(&(ticcmd_t){.order = TC_SPEED, .product = editing_speed})) {
@@ -1016,12 +1011,12 @@ static void activate(app_t *app, int id) {
             gamesettings = editing;
             S_SetVolume(editing.sound * 10);
             if (!D_SaveSettings(editing_speed)) { notice = "Cannot save settings"; M_StartMessage(notice); return; }
-            menuactive = false;
+            M_ClearMenus();
         }
     } else if (page == OBJECTIVES) {
-        if (id == 56) menuactive = false;
+        if (id == 56) M_ClearMenus();
     } else if (page == SAVE) {
-        if (id == 55) menuactive = false;
+        if (id == 55) M_ClearMenus();
         else if (id == 56) {
             const char *name = items[54].text;
             if (!*name) { notice = "Enter a save name"; M_StartMessage(notice); return; }
@@ -1033,7 +1028,7 @@ static void activate(app_t *app, int id) {
                 }
             snprintf(dc_savename, sizeof(dc_savename), "%.32s", name);
             M_PathJoin(dc_savefile, sizeof(dc_savefile), D_UserDirectory(), M_va("%s.sav", dc_savename));
-            menuactive = false;
+            M_ClearMenus();
         }
     } else if (page == LOAD) {
         if (id == 4) ok = load_screen(MAIN);
@@ -1047,7 +1042,7 @@ static void activate(app_t *app, int id) {
             snprintf(mapname, sizeof(mapname), "%s", checked.map);
             if (checked.skirmish) DC_RequestSkirmish(mapname, &checked.setup);
             menumap = mapname;
-            menuactive = false;
+            M_ClearMenus();
         }
     } else if (page == MAIN) {
         if (id == 12) app->running = false;
@@ -1069,7 +1064,7 @@ static void activate(app_t *app, int id) {
                     .color = i == 1 ? 1 : 0, .team = i};
             strcpy(skirmish.players[0].name, "Player0"); /* 0x410091: Player%d. */
             ok = load_screen(SKIRMISH);
-        } else notice = inlevel ? "Escape resumes the current game" : "This menu is not implemented yet";
+        } else notice = menuinlevel ? "Escape resumes the current game" : "This menu is not implemented yet";
     } else if (page == SETUP) {
         if (id == 0 || id == 1) {
             race = id;
@@ -1157,7 +1152,7 @@ static void activate(app_t *app, int id) {
         } else if (!lan) activate_skirmish(id);
     } else if (page == BRIEFING) {
         if (id == 0) ok = load_screen(training ? SETUP : STORY);
-        else if (id == 2) { menumap = mapname; menuactive = false; }
+        else if (id == 2) { menumap = mapname; M_ClearMenus(); }
         else if (id == 1) notice = "Encyclopedia is not implemented yet";
     }
     if (!ok) {
@@ -1220,7 +1215,8 @@ static const char *session_row(const menuitem_t *item, int row) {
 }
 
 /* Bring the items in line with the setup, the network and the catalog. */
-static void refresh(void) {
+static void refresh(menu_t *screen) {
+    (void)screen;
     for (int i = 0; i < NUMCONTROLS; ++i) items[i].enabled = selectable(i);
     if (page == SKIRMISH) {
         menuitem_t *list = &items[27];
@@ -1246,19 +1242,19 @@ static void refresh(void) {
 }
 
 static void menu_escape(menu_t *screen) {
-    app_t *app = screen->owner;
+    app_t *app = screen->app;
     if (popup()) {
         if (page == OPTIONS) S_SetVolume(gamesettings.sound * 10);
-        menuactive = false;
+        M_ClearMenus();
     }
     else if (page == LOAD) { if (!load_screen(MAIN)) { menuerror = true; app->running = false; } }
     else if (page != MAIN) activate(app, page == SKIRMISH ? 132 : page == NETWORK ? 6 :
         page == CONNECT ? 1 : page == BROWSE || page == SETUP || page == STORY ? 4 : 0);
-    else if (inlevel) menuactive = false;
+    else if (menuinlevel) M_ClearMenus();
 }
 
 static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) {
-    app_t *app = screen->owner;
+    app_t *app = screen->app;
     int id = (int)(item - items);
     if (action == MA_CHANGE && page == SAVE && id == 50) {
         snprintf(items[54].text, sizeof(items[54].text), "%s", save_row(item, item->value));
@@ -1299,21 +1295,6 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) 
     activate(app, id);
 }
 
-bool M_Responder(app_t *app, const SDL_Event *event, bool in_level) {
-    if (!initialized) return false;
-    if (event->type == SDL_QUIT) { app->running = false; return true; }
-    if (event->type == SDL_WINDOWEVENT) return false;
-    if (!menuactive) {
-        if (event->type != SDL_KEYDOWN || event->key.keysym.sym != SDLK_ESCAPE) return false;
-        if (!event->key.repeat) M_StartControlPanel(app);
-        return true;
-    }
-    inlevel = in_level;
-    menu.owner = app;
-    refresh();
-    return M_MenuResponder(&menu, app, event);
-}
-
 static void step_entrances(void) {
     while (entrance < numentrances) {
         menuentrance_t *e = &entrances[entrance];
@@ -1340,12 +1321,10 @@ static void step_entrances(void) {
     }
 }
 
-void M_Ticker(void) {
-    if (!menuactive) {
-        S_StopUISound(UI_SOUND_SCREEN);
-        return;
-    }
+static void menu_ticker(menu_t *screen) {
     S_StartUISound(UI_SOUND_SCREEN);
+    if (screen->app && screen->app->window)
+        SDL_SetWindowTitle(screen->app->window, notice ? notice : "Dark Colony");
     if (waiting) {
         int status = I_PollNetGame(mapname, sizeof(mapname));
         if (status < 0) {
@@ -1374,7 +1353,7 @@ void M_Ticker(void) {
                 if (host || size) DC_RequestSkirmish(mapname, &shared);
             }
             menumap = mapname;
-            menuactive = false;
+            M_ClearMenus();
             SDL_StopTextInput();
             return;
         } else if (client) {
@@ -1434,12 +1413,4 @@ void M_Ticker(void) {
      * MANIM_ONCE does; the world animation ticker 0x423dd0 resets to zero. */
     M_MenuTicker(&menu);
     step_entrances();
-}
-
-void M_Drawer(const app_t *app) {
-    if (!menuactive) return;
-    refresh();
-    M_MenuDrawer(&menu);
-    if (app && app->window)
-        SDL_SetWindowTitle(app->window, notice ? notice : "Dark Colony");
 }

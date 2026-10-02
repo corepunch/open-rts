@@ -246,15 +246,32 @@ bool DR_HarvestDropoffMatches(const mobj_t *unit,
 
 
 enum { DR_PAGE_BUILD, DR_PAGE_ORDERS, DR_PAGE_PATHS };
+/* HUD items named for the shell and the tests. */
+enum { DR_HUD_MOVE = 1, DR_HUD_ATTACK, DR_HUD_WAYPOINT };
 
-bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event);
-bool DR_PaletteInit(sb_state_t *st);
-void DR_PaletteShutdown(void);
-void DR_PaletteDrawer(sb_state_t *st, const app_t *app);
+/* The production icons of the native menu sprites, by product UI id. */
+typedef struct {
+    int id;
+    const char *image;
+} dr_menuproduct_t;
+extern const dr_menuproduct_t dr_menu_products[];
+extern const int dr_menu_product_count;
+
+/* What the HUD's pages show. */
+typedef struct {
+    spritesheet_t images[15];
+    spritesheet_t *icons; /* one per dr_menu_products entry */
+    bitmapfont_t fonts[4];
+    int page;
+    int production_page;
+    uint32_t production_selection;
+    pathbook_t paths;
+    bool path_advanced;
+} dr_hud_t;
+extern dr_hud_t drhud;
+
 irect_t DR_MinimapRect(const level_t *map);
-void DR_DrawText(const app_t *app, ivec2_t point, const char *text, int width);
-void DR_DrawHeader(const app_t *app, ivec2_t point, const char *text, int width);
-void DR_DrawCaption(const app_t *app, ivec2_t anchor, const char *text, bool centered);
+bool DR_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out);
 
 
 #endif

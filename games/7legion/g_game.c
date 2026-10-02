@@ -83,22 +83,23 @@ static const mobjtype_t ACTOR_TYPES[] = {
 };
 
 
-static const uidefinition_t UI = {
-    .logical_width = 640,
-    .logical_height = 480,
-    .world_viewport = { 0, 28, 480, 452 },
-    .command_grid = { 480, 28, 160, 452 },
-    .resources = {
-        [0] = { .text = { 630, 3 }, .color = 0xffe6d750u,
-                .right_aligned = true },
-    },
-    .resource_count = 1,
-    .status_panel = {
-        .rect = { 480, 0, 160, 28 },
-        .fill = 0xff080b0fu,
-        .border = 0xff7e847eu,
-    },
+/* The sidebar: money in the status strip, and the list of what the
+ * selected building makes. */
+enum { HUD_STATUS, HUD_MONEY, HUD_PRODUCTS, HUD_PAGE, NUMHUD };
+static menuitem_t hud_items[NUMHUD] = {
+    [HUD_STATUS] = {.visible = true, .rect = {480, 0, 160, 28},
+                    .fill = 0xff080b0fu, .border = 0xff7e847eu},
+    [HUD_MONEY] = {.visible = true, .rect = {630, 3, 0, 22}, .ink = 0xffe6d750u,
+                   .align = MALIGN_RIGHT, .ownerdraw = HU_DrawCounter},
+    [HUD_PRODUCTS] = {.kind = MI_LIST, .visible = true, .enabled = true, .rect = {480, 28, 160, 416},
+                      .row_height = 32, .value = -1, .fill = 0xff0c1216u,
+                      .routine = HU_ProductList, .ownerdraw = HU_DrawProducts},
+    [HUD_PAGE] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {480, 444, 160, 36},
+                  .fill = 0xff0c1216u, .link = HUD_PRODUCTS, .routine = HU_ProductPage,
+                  .ownerdraw = HU_DrawProductPage},
 };
+static menu_t hud = {.items = hud_items, .numitems = NUMHUD, .itemOn = -1,
+                     .refresh = HU_RefreshProducts};
 
 /* ── game identity (Doom-style externs) ─────────────────────────────────── */
 
@@ -115,7 +116,6 @@ const mobjtype_t *const actor_types =
     (const mobjtype_t *)ACTOR_TYPES;
 const int num_actor_types =
     (int)(sizeof(ACTOR_TYPES) / sizeof(ACTOR_TYPES[0]));
-const uidefinition_t *const gameui = &UI;
 
 /* ── G_* / R_* interface ────────────────────────────────────────────────── */
 
@@ -151,47 +151,20 @@ void  G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
     (void)hud; (void)dt;
 }
 
-void *G_InitCustomUI(app_t *app, const char *data_root) {
-    (void)app; (void)data_root;
-    return NULL;
+menu_t *G_InitHUD(app_t *app, const char *data_root) {
+    (void)data_root;
+    hud.app = app;
+    return &hud;
 }
 
-bool G_CustomUIResponder(void *ui, app_t *app, level_t *map,
-                         mobj_t *const *units, int unit_count, const SDL_Event *event) {
-    (void)ui; (void)app; (void)map; (void)units; (void)unit_count; (void)event;
-    return false;
+void G_ShutdownHUD(void) {
 }
 
-void G_CustomUITicker(void *ui) {
-    (void)ui;
+bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
+    (void)map; (void)units; (void)unit_count;
+    return G_ProductionTicker(dt);
 }
 
-void G_CustomUIDrawer(void *ui, app_t *app, const level_t *map,
-                      mobj_t *const *units, int unit_count,
-                      const spritecache_t *sprites, const hudtext_t *hud) {
-    (void)ui; (void)app; (void)map; (void)units; (void)unit_count;
-    (void)sprites; (void)hud;
-}
-
-bool G_UpdateProduction(void *ui, level_t *map, mobj_t *const *units, int *unit_count,
-                        float dt) {
-    (void)ui; (void)map; (void)units; (void)unit_count;
-    (void)dt;
-    return false;
-}
-
-void G_ShutdownCustomUI(void *ui) {
-    (void)ui;
-}
-
-int G_WorldViewportWidth(const app_t *app) {
-    if (!app) return 0;
-    if (gameui && gameui->world_viewport.w > 0 && gameui->logical_width > 0)
-        return gameui->world_viewport.w * app->win.w / gameui->logical_width;
-    return app->win.w > 0 ? app->win.w : 1;
-}
-
-bool G_LoadMenuSprite(const char *root, const char *name, spritesheet_t *out) {
-    (void)root; (void)name; (void)out;
-    return false;
+irect_t G_WorldViewport(const app_t *app) {
+    return (irect_t){0, 28 * app->win.h / 480, 480 * app->win.w / 640, 452 * app->win.h / 480};
 }

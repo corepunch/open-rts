@@ -935,7 +935,7 @@ MFDBAC1 is shared PATHS/COMMS chrome, not a BUILD-grid background.
 **Implementation consequence:** common `waypoints_t` lives in `mobj_t`,
 advanced by `P_TickWaypoints` in the ordinary thinker. DC's private fields and
 AI route loop were removed; DC mission patrols explicitly retain loop mode.
-Common HUD editing/save/load lives in `hud/sb_path.c`; DR owns native drawing.
+Common HUD editing/save/load lives in `hud/hu_bar.c`; DR owns native drawing.
 TC_PATH snapshots selected stable IDs and all cells in one delayed command;
 protocol 3 encodes the complete route and checks spans, shape and bounds.
 An eight-point capacity is retained from DC as an explicit **engine adaptation**,

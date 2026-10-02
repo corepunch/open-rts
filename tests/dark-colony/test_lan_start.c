@@ -70,17 +70,16 @@ static bool tick_seconds(RtsGameModel *model, int seconds) {
 
 /* The executable's tic body (driver/d_main.c), including the custom UI's
  * production update, which differs from the model's G_ProductionTicker. */
-static void driver_tic(void *ui, AiContext *ai) {
+static void driver_tic(menu_t *ui, AiContext *ai) {
     P_Ticker();
     mobjlist_t objects = P_ListMobjs();
     int count = objects.count;
     P_AiTick(ai, &level, objects.items, count, gameinfo, (int)(FIXED_DT * 1000));
-    G_UpdateProduction(ui, &level, objects.items, &count, FIXED_DT);
+    G_UpdateProduction(&level, objects.items, &count, FIXED_DT);
     P_FreeMobjList(&objects);
-    G_CustomUITicker(ui);
 }
 
-static void driver_seconds(void *ui, AiContext *ai, int seconds) {
+static void driver_seconds(menu_t *ui, AiContext *ai, int seconds) {
     for (int t = 0; t < seconds * TICKS_PER_SECOND; ++t) driver_tic(ui, ai);
 }
 
@@ -90,7 +89,7 @@ static void pump(int player) {
     for (G_BuildTiccmd(&cmd); cmd.order != TC_NONE; G_BuildTiccmd(&cmd)) G_RunTiccmd(player, &cmd);
 }
 
-static void click(void *ui, app_t *app, int id, int button) {
+static void click(menu_t *ui, app_t *app, int id, int button) {
     FILE *file = fopen("data/DCOLONY/INTRFACE/MAINE", "r");
     char line[512], kind[16];
     irect_t rect = {0};
@@ -106,7 +105,7 @@ static void click(void *ui, app_t *app, int id, int button) {
     SDL_Event event = {.button = {.type = SDL_MOUSEBUTTONDOWN, .button = button,
                                   .x = rect.x + rect.w / 2, .y = rect.y + rect.h / 2}};
     mobjlist_t objects = P_ListMobjs();
-    assert(G_CustomUIResponder(ui, app, &level, objects.items, objects.count, &event));
+    assert(t_hud_event(ui, app, objects.items, objects.count, &event));
     P_FreeMobjList(&objects);
 }
 
@@ -167,7 +166,7 @@ static int test_purchase_hud(const char *map, const int races[2], int player) {
     REQUIRE(model, "LAN skirmish loads");
     app_t app = {.win = {640, 480}, .cell = {32, 32}, .running = true};
     netactive = true; consoleplayer = player;
-    void *ui = G_InitCustomUI(&app, "data/DCOLONY");
+    menu_t *ui = G_InitHUD(&app, "data/DCOLONY");
     REQUIRE(ui, "HUD loads");
     int id = races[player] ? UI_BROZAAR : UI_EXPLOITER;
     const StaticProductDefinition *product = G_ModelProductByUIId(NULL, id);

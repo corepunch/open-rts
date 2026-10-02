@@ -301,8 +301,9 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
 
         int col = button_index % 3;
         int row = button_index / 3;
-        int button_x = gameui->command_grid.x + col * gameui->icon_size.w;
-        int button_y = gameui->command_grid.y + row * gameui->icon_size.h;
+        /* The HUD's grid of 64x50 slots at (448,64). */
+        int button_x = 448 + col * 64;
+        int button_y = 64 + row * 50;
         button_index++;
         bool available = G_ModelProductAvailable(model, consoleplayer, product) &&
                          snapshot->player_resources[consoleplayer][0] >= product->cost;
