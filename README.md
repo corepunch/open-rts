@@ -112,7 +112,10 @@ button) and **Launch** from the briefing. **Instant Action** opens the game
 setup: **Select Map**, then click a row's player type, side, team or handicap
 to step through its choices (right click steps back). **Multi Player → Local
 Area Network** lists LAN games; **Create Game** leaves rows Available for LAN
-players, and **Manual IP** joins a typed address. In a level, Escape or the
+players and **LAUNCH** opens the lobby, and **Manual IP** joins a typed
+address. In the lobby each joiner sets its own side and team and presses
+**READY**; the Messages line chats. The game starts when every seat has
+joined and everyone, host included, is ready. In a level, Escape or the
 HUD's MENU button opens the options screen with Quit to Main Menu.
 
 Supply a map to start directly, bypassing the menu:
