@@ -7,18 +7,37 @@ full lock-step simulation. This is a listen server, not a dedicated server.
 Dark Colony also exposes this flow under **MULTI PLAYER WAR** in its native
 main menu. Select **ACT AS SERVER**, enter a session name, choose a map, and
 click the third/fourth player-type controls to reserve two to four LAN slots.
-**CREATE** advertises the session and waits without blocking the menu. The
-match starts automatically when all reserved slots connect.
+**CREATE** advertises the session and waits without blocking the menu; the
+button then becomes **READY**. The match starts once every reserved slot has
+connected and every player, host included, is ready.
 
 Other players select **CONNECT TO SERVER** to browse LAN games. Select a row
 and **JOIN**, or use **ADDRESS** to enter a host IP or `host:port` directly.
 **REFRESH** restarts discovery; Escape cancels waiting or returns to the
-previous screen. Host cancellation releases waiting clients, and cancelled
+previous screen. As in DC.EXE, a joiner then enters the host's lobby rather
+than the game: the join path `0x405670` calls `0x401210` with a lobby argument,
+exactly like the host path `0x405600`, so both reach the shared MULTI lobby
+`0x40fb20`. There each player toggles only their own race gadget (DC.EXE sends
+proto.c message `'f'`, `0x41e650`); slot types, map and options stay
+host-only (`0x410a53` asserts `ss->player_number==0`). The lobby shows the
+host's map and the current setup, and marks the joiner's own slot "You".
+
+Each player's **READY** button (control 133) toggles their own ready check;
+checks 16–23 show every slot's state. DC.EXE sends these as message `'h'`
+(`0x41e3bc`) and refuses changes to a ready slot (`0x410a32`), so a ready
+player's race is locked here too. The race and ready flag travel together, so
+the race the host launches with is the one its player confirmed. The rule that
+the match starts when everyone is ready is engine-defined: DC.EXE's own start
+trigger was not traced.
+
+The chat window (control 24) shows the lobby log above the status text; type
+in the input line (control 25) and press Enter. As in DC.EXE (message `'e'`,
+`0x410d35`), the sender formats the line as `<name>: <text>`. The host keeps
+the last 32 lines and relays them to every joiner in order. Host cancellation releases waiting clients, and cancelled
 joins release their reserved slot. Browsing sends UDP broadcasts to port 5029;
 unanswered offers expire after three seconds. Direct connection works when
-broadcasts are unavailable. Native scenario data supplies factions, colors,
-teams and game settings; the menu currently configures the session name,
-player count and map.
+broadcasts are unavailable. The host configures the session name, player count,
+map, colors, teams and options; each player picks their own race.
 
 For Dark Colony, start a two-player game with a human host and an alien joiner:
 
@@ -56,8 +75,19 @@ The same options work in `build/bin/dark-reign`, `build/bin/7legion` and
 `build/bin/kknd`; choose a map appropriate to that game. The executable selects
 the game. A client running a different game is rejected.
 
-The setup protocol version is 3; the session protocol version is 5 and carries
-the host's lobby settings and game speed. Tic commands encode all three fixed-point position
+The setup protocol version is 3; the session protocol version is 7. JOIN
+retries carry up to 8 opaque bytes of the joiner's own lobby choice
+(`I_SetNetChoice`; the host reads it with `I_NetChoice`), the id of the last
+chat line received and at most one outgoing chat line with a sequence number.
+Until a menu host calls `I_LaunchNetGame`, it answers each JOIN with LOBBY
+(slot, roster size, setup, map, the acknowledged chat sequence and the next
+log line) instead of WELCOME. A joiner re-sends immediately while lines
+remain, so chat arrives in order without a separate retransmit timer. Dark
+Colony's 48-byte setup is four bytes per slot (race, type, color, team), eight
+option bytes, then each slot's ready flag. Command-line hosts still launch as soon as the
+roster is full. WELCOME carries the host's lobby settings as launched and its
+game speed. A menu host's lobby does not time out; a joiner's 60-second
+timeout counts host silence. Tic commands encode all three fixed-point position
 components; setup uses the third for game speed. Dark
 Colony purchase reservations, refunds, Build submission, movement modes,
 waypoints and pause use the same delayed command path as unit orders. Shared
@@ -118,8 +148,8 @@ slots instead of starting an unplayable match or inventing armies. Dark Colony
 uses the map's existing money, units, alliances and scripts. Building, module
 upgrades and unit training work for both factions; specialist unit abilities,
 research, foundation placement and campaign-specific victory flows remain
-incomplete. The native network screens are available, but configurable race,
-team, resource settings, lobby chat and DC.EXE's DirectPlay protocol remain
+incomplete. The native network screens, per-player race choice, ready checks
+and lobby chat are available; DC.EXE's DirectPlay protocol remains
 unimplemented. Existing synthesized
 multiplayer starter units remain as documented in `DC_EXE_FINDINGS.md`.
 

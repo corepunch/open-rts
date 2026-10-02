@@ -221,6 +221,12 @@ static void lan_tests(void) {
         while (SDL_GetTicks64() < deadline) {
             int status = I_PollNetGame(map, sizeof(map));
             assert(status >= 0);
+            /* A menu host launches only after the joiner's lobby choice arrives. */
+            uint8_t choice;
+            if (!status && I_NetChatCount() == 1 && !strcmp(I_NetChatLine(1), "Player 2: hello"))
+                assert(I_SendNetChat("Host: welcome"));
+            if (!status && doomcom->numplayers == 2 && I_NetPlayerCount() == 2 && I_NetChatCount() == 2 &&
+                I_NetChoice(1, &choice, 1) == 1 && choice == 0x5a) assert(I_LaunchNetGame());
             if (read(control[0], &command, 1) == 1) {
                 if (command == 'C') {
                     assert(I_NetPlayerCount() == 2);
@@ -279,15 +285,30 @@ static void lan_tests(void) {
     I_CancelNetGame();
     assert(I_JoinNetGame("dark-colony", "127.0.0.1"));
     deadline = SDL_GetTicks64() + 3000;
+    do { status = I_PollNetGame(map, sizeof(map)); SDL_Delay(1); }
+    while (!status && !I_NetLobby() && SDL_GetTicks64() < deadline);
+    /* The joiner waits in the host's lobby with its slot and the host's map. */
+    assert(!status && I_NetLobby() && doomcom->consoleplayer == 1 && I_NetPlayerCount() == 2);
+    assert(!strcmp(I_NetMap(), "SCENARIO/MPLAYER/D2PLAY01.MAP"));
+    for (int i = 0; i < 100; ++i) { assert(I_PollNetGame(map, sizeof(map)) == 0); SDL_Delay(1); }
+    /* Lobby chat: the joiner's line reaches the host, whose reply comes back. */
+    assert(I_SendNetChat("Player 2: hello"));
+    deadline = SDL_GetTicks64() + 3000;
+    do { assert(I_PollNetGame(map, sizeof(map)) == 0); SDL_Delay(1); }
+    while (I_NetChatCount() < 2 && SDL_GetTicks64() < deadline);
+    assert(I_NetChatCount() == 2 && !strcmp(I_NetChatLine(1), "Player 2: hello"));
+    assert(!strcmp(I_NetChatLine(2), "Host: welcome"));
+    assert(I_SetNetChoice(&(uint8_t){0x5a}, 1));
+    deadline = SDL_GetTicks64() + 3000;
     do { status = I_PollNetGame(map, sizeof(map)); SDL_Delay(1); } while (!status && SDL_GetTicks64() < deadline);
-    assert(status == 1 && doomcom->consoleplayer == 1 && doomcom->numplayers == 2);
+    assert(status == 1 && doomcom->consoleplayer == 1 && doomcom->numplayers == 2 && !I_NetLobby());
     assert(!strcmp(map, "SCENARIO/MPLAYER/D2PLAY01.MAP"));
     assert(write(control[1], "Q", 1) == 1);
     int result;
     assert(waitpid(host, &result, 0) == host && WIFEXITED(result) && !WEXITSTATUS(result));
     close(control[1]); close(ready[0]);
     D_QuitNetGame();
-    puts("PASS: LAN discovery, game filtering, offer deduplication, join/host cancellation, rehost, asynchronous map/slot agreement");
+    puts("PASS: LAN discovery, game filtering, offer deduplication, join/host cancellation, rehost, lobby choice and chat, explicit launch, asynchronous map/slot agreement");
 }
 
 static void peer(int player, int players, const struct sockaddr_in *addresses,
@@ -328,8 +349,11 @@ static void peer(int player, int players, const struct sockaddr_in *addresses,
                 I_HostNetGame("dark-colony", "Menu match", map, players));
             int status;
             uint64_t deadline = SDL_GetTicks64() + 3000;
-            do { status = I_PollNetGame(map, sizeof(map)); SDL_Delay(1); }
-            while (!status && SDL_GetTicks64() < deadline);
+            do {
+                status = I_PollNetGame(map, sizeof(map));
+                if (!player && !status && I_NetPlayerCount() == players) assert(I_LaunchNetGame());
+                SDL_Delay(1);
+            } while (!status && SDL_GetTicks64() < deadline);
             assert(status == 1 && I_NetMenuSession());
         } else assert(I_InitNetwork(&session_argc, player ? joinargs : hostargs));
         assert(I_StartNetGame("dark-colony", map, sizeof(map)));
