@@ -134,7 +134,7 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
         for (int x = 0; x < map->width; ++x) {
             if (!map->blocked[L_Index(map, x, y)]) continue;
             float sx, sy;
-            R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
+            R_GridToScreen(app, (float)x, L_CellScreenYF(map, y), &sx, &sy);
             if (sx < -cell_w || sy < -cell_h ||
                 sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
                 continue;
@@ -193,7 +193,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
     for (int y = 0; y < map->height; ++y) {
         for (int x = 0; x < map->width; ++x) {
             float sx, sy;
-            R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
+            R_GridToScreen(app, (float)x, L_CellScreenYF(map, y), &sx, &sy);
             if ((map->render_capabilities & MAP_RENDER_CAP_CELL_COLORS) && map->cell_colors) {
                 if (sx < -cell_w || sy < -cell_h ||
                     sx > app->win.w + cell_w || sy > app->win.h + cell_h) {
@@ -235,7 +235,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
+                R_GridToScreen(app, (float)x, L_CellScreenYF(map, y), &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
@@ -265,7 +265,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
         for (int y = 0; y < map->height; ++y) {
             for (int x = 0; x < map->width; ++x) {
                 float sx, sy;
-                R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
+                R_GridToScreen(app, (float)x, L_CellScreenYF(map, y), &sx, &sy);
                 if (sx < -tile_w || sy < -tile_h ||
                     sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
                     continue;
@@ -880,7 +880,7 @@ static bool unit_screen_rect_for_view(const app_t *app, const level_t *map, cons
         };
     }
     dst.x += unit->core.render_offset.x;
-    dst.y += unit->core.render_offset.y;
+    dst.y += L_ScreenDY(unit->core.render_offset.y);
     irect_t visible = {
         dst.x + bounds.x,
         dst.y + bounds.y,
@@ -1037,7 +1037,7 @@ static void render_unit_sprite(app_t *app, const level_t *map,
                 part_dst = (irect_t){
                     (int)lroundf(sx) + u->core.render_offset.x + part->offset.x +
                         ((part_flags & RTS_FRAME_FLIP_X) ? 0 : displacement.x),
-                    (int)lroundf(sy) + u->core.render_offset.y + part->offset.y - source_rect.h,
+                    (int)lroundf(sy) + L_ScreenDY(u->core.render_offset.y) + part->offset.y - source_rect.h,
                     source_rect.w,
                     source_rect.h,
                 };
@@ -1144,7 +1144,7 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
     int tile_h = app_tile_h(app, tileset);
     int draw_y_offset = tileset->draw_y_offset;
     float sx, sy;
-    R_GridToScreen(app, (float)x, (float)L_ScreenY(map, y), &sx, &sy);
+    R_GridToScreen(app, (float)x, L_CellScreenYF(map, y), &sx, &sy);
     if (sx < -tile_w || sy < -tile_h ||
         sx > app->win.w + tile_w || sy > app->win.h + tile_h) {
         return;
@@ -1201,7 +1201,7 @@ void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset
                     commands[count++] = (drawcommand_t){
                         .kind = DRAW_COMMAND_TILE_OVERLAY,
                         .layer = RENDER_LAYER_TERRAIN_OVERLAY,
-                        .sort_y = L_ScreenY(map, y) + 1.0f + (float)layer * 0.001f,
+                        .sort_y = L_CellScreenYF(map, y) + 1.0f + (float)layer * 0.001f,
                         .stable_index = L_Index(map, x, y),
                         .ref.tile_overlay = { .x = x, .y = y, .layer = layer },
                     };

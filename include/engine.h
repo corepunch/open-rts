@@ -447,15 +447,9 @@ typedef struct level_s {
     uint8_t random_index;
 } level_t;
 
-static inline int L_ScreenY(const level_t *map, int y) {
-#if RTS_WORLD_Y_UP
-    return map->height - 1 - y;
-#else
-    (void)map;
-    return y;
-#endif
-}
-
+/* The one place that knows a bottom-up world (Dark Colony) meets a top-down
+ * screen. Everything else keeps native coordinates and converts through these.
+ * The flip is its own inverse, so L_WorldYF also maps screen rows to world. */
 static inline float L_ScreenYF(const level_t *map, float y) {
 #if RTS_WORLD_Y_UP
     return (float)map->height - y;
@@ -467,6 +461,21 @@ static inline float L_ScreenYF(const level_t *map, float y) {
 
 static inline float L_WorldYF(const level_t *map, float y) {
     return L_ScreenYF(map, y);
+}
+
+/* A native offset or displacement (pixels) as a screen delta. */
+static inline int L_ScreenDY(int dy) {
+    return RTS_WORLD_Y_UP ? -dy : dy;
+}
+
+/* Screen row of a cell's top edge: the cell spans world [y, y + 1], so its
+ * top edge is y + 1 when the world runs upward. */
+static inline float L_CellScreenYF(const level_t *map, int y) {
+    return L_ScreenYF(map, (float)(y + RTS_WORLD_Y_UP));
+}
+
+static inline int L_ScreenY(const level_t *map, int y) {
+    return (int)L_CellScreenYF(map, y);
 }
 
 extern level_t level;

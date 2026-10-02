@@ -45,7 +45,7 @@ static void check_city(const char *path, fvec2_t anchor, unsigned expected_teams
             assert(fvec2_near(fixed3_xy_to_fvec2(actor->core.position), expected, 0.0001f));
             fvec2_t screen;
             R_MapPositionToScreen(&app, &level, actor->core.position, &screen.x, &screen.y);
-            screen = fvec2_add(screen, (fvec2_t){actor->core.render_offset.x, actor->core.render_offset.y});
+            screen = fvec2_add(screen, (fvec2_t){actor->core.render_offset.x, L_ScreenDY(actor->core.render_offset.y)});
             /* Slot cancellation must return to the city origin, without a
              * terrain-row correction in the object's FIN transform. */
             assert(fvec2_near(screen, (fvec2_t){320, 370}, 0.0001f));
