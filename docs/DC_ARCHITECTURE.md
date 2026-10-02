@@ -7,21 +7,22 @@ The active `level_t` owns the `Mission` aggregate through `mission` and
 
 - `p_spec.c`: mission allocation, destruction, and ticker orchestration. Each
   active tick runs AI, then script commands, then dropships, preserving the
-  previous order. Mission completion freezes subsequent mission ticks.
+  previous order. Mission completion freezes subsequent mission ticks. Also
+  owns level-wide per-tic specials: exo income and healer support.
+- `p_enemy.c`: Doom-style state actions for units and structures (Reaper
+  death direction, resource vents, damaged-building idle animation).
 - `p_script.c` / `p_script.h`: private script state, MSG/TRO parsing, city-slot
   conditions, command evaluation, and mission outcome. Script commands submit
   copied payload requests through `DC_StartDropship`; they cannot access ship
   internals.
 - `p_ai.c` / `p_ai.h`: attack policy, target selection, and harvester assignments.
   Timers and the retained wave target belong to an `AiState` per mission.
-- `p_drop.c` / `p_drop.h`: private bounded storage for eight dropship mobjs,
-  payload queues, phase transitions, movement, and effect-part lifetimes. The
-  level-owned mission owns this subsystem. State actions resolve it through the
-  active level; no mission pointer is stored on a mobj. Approach, reposition,
-  and departure share one flight-entry helper.
-- `p_reinforce.c` / `p_reinforce.h`: native script type mapping and reinforcement
-  spawning, shared by direct script commands and dropship unloading.
-- `p_prod.c`, `p_inter.c`, and `sb_bar.c`: production, interaction, and custom UI.
+- `p_mobj.c`: cell occupancy queries, native script type mapping and
+  reinforcement spawning (shared by script commands and dropship unloading),
+  and dropship mobjs with their `A_DC_Drop` / `A_DC_Arrive` actions.
+- `g_game.c`: also holds the menu-to-loader skirmish handoff, as Doom's
+  `G_DeferedInitNew` keeps the pending new game there.
+- `p_prod.c` and `sb_bar.c`: production and custom UI.
 
 This refactor retains existing state/action signatures, timings, animation
 conversion formulas, AI policy, and script interpretation. It does not claim

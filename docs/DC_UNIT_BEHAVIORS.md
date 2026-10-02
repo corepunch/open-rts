@@ -150,7 +150,7 @@ and trajectory 4.
 | Healing | Retail explicitly dispatches native types 49/50 to `0x412f74`, scans nearby air/ground occupancy, and uses MBULLET row 7. Engine has no equivalent specialist action. Recharge, exact activation cadence and complete selection rules need further tracing. |
 
 Dropships already use ordinary thinker-owned mobjs and native FIN states in
-[p_drop.c](../games/dark-colony/p_drop.c). Their cargo/release comparison is
+[p_mobj.c](../games/dark-colony/p_mobj.c). Their cargo/release comparison is
 documented in [DC_DROPSHIP_ANIMATION.md](DC_DROPSHIP_ANIMATION.md) and the
 earlier dropship sections of [DC_EXE_FINDINGS.md](DC_EXE_FINDINGS.md).
 This audit does not certify transport, abduction, environmental flying creatures,
