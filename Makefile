@@ -79,7 +79,7 @@ ALL_DEPS_$(1) := $$(ALL_OBJS_$(1):.o=.d)
 $(BIN_DIR)/$(1): $$(ALL_OBJS_$(1)) | $(BIN_DIR)
 	$(CC) $$^ -o $$@ $(SDL_LIBS) -lm
 
-$(BUILD_DIR)/$(1)/%.o: %.c
+$(BUILD_DIR)/$(1)/%.o: %.c Makefile
 	@mkdir -p $$(dir $$@)
 	$(CC) $(CPPFLAGS) $(4) -I./games/$(3) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
 
@@ -104,7 +104,7 @@ $(1)_TEST_OBJS += $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(SHARED_MODE
 $(1)_TEST_ENGINE_OBJS := $$(patsubst %.c,$(BUILD_DIR)/model-test-$(1)/%.o,$(MODEL_ENGINE_SOURCES) $(2))
 $(1)_TEST_BINS := $$(patsubst tests/$(1)/%.c,$(BIN_DIR)/tests/$(1)/%,$$($(1)_TEST_SOURCES))
 $(1)_TEST_BINS += $$(patsubst tests/shared/%.c,$(BIN_DIR)/tests/$(1)/%,$(SHARED_MODEL_TEST_SOURCES))
-$(BUILD_DIR)/model-test-$(1)/%.o: %.c
+$(BUILD_DIR)/model-test-$(1)/%.o: %.c Makefile
 	@mkdir -p $$(dir $$@)
 	$(CC) $(CPPFLAGS) $(3) -I./games/$(1) $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $$< -o $$@
 $(BIN_DIR)/tests/$(1)/%: $(BUILD_DIR)/model-test-$(1)/tests/$(1)/%.o $$($(1)_TEST_ENGINE_OBJS) | $(BIN_DIR)
@@ -127,7 +127,7 @@ $(eval $(call MODEL_TESTS_FOR_GAME,kknd,$(KKND_GAME_SOURCES),-DRTS_WORLD_Y_UP=0 
 DC_LAYOUT_TEST_OBJ := $(BUILD_DIR)/dc-test/$(DC_LAYOUT_TEST_SOURCE:.c=.o)
 DC_LAYOUT_DC_INFO_OBJ := $(BUILD_DIR)/dc-test/games/dark-colony/info.o
 
-$(BUILD_DIR)/dc-test/%.o: %.c
+$(BUILD_DIR)/dc-test/%.o: %.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
@@ -156,7 +156,7 @@ $(KKND_INFO_GEN_TARGET): $(BUILD_DIR)/tools/kknd_info_gen.o
 $(DC_GAMESTAT_GEN_TARGET): $(BUILD_DIR)/tools/dc_gamestat_gen.o
 	$(CC) $^ -o $@
 
-$(BUILD_DIR)/tools/%.o: tools/%.c
+$(BUILD_DIR)/tools/%.o: tools/%.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
@@ -296,14 +296,14 @@ test-network: $(BIN_DIR)/test_network
 $(BIN_DIR)/test_model_commands_dark-colony: $(BUILD_DIR)/cmd-dc/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dc/%.o,$(MODEL_ENGINE_SOURCES) $(DC_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 
-$(BUILD_DIR)/cmd-dc/%.o: %.c
+$(BUILD_DIR)/cmd-dc/%.o: %.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY -I./games/dark-colony $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
 $(BIN_DIR)/test_model_commands_dark-reign: $(BUILD_DIR)/cmd-dr/$(MODEL_COMMAND_TEST_SOURCE:.c=.o) $(patsubst %.c,$(BUILD_DIR)/cmd-dr/%.o,$(MODEL_ENGINE_SOURCES) $(DR_GAME_SOURCES)) | $(BIN_DIR)
 	$(CC) $^ -o $@ $(SDL_LIBS) -lm
 
-$(BUILD_DIR)/cmd-dr/%.o: %.c
+$(BUILD_DIR)/cmd-dr/%.o: %.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) -DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN -I./games/dark-reign $(CFLAGS) $(DEPFLAGS) $(SDL_CFLAGS) -c $< -o $@
 
