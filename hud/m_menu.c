@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+bool menuleave;
 static char message[256];
 
 void M_StartMessage(const char *text) {

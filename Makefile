@@ -87,7 +87,7 @@ $(BUILD_DIR)/$(1)/%.o: %.c
 endef
 
 $(eval $(call GAME_TARGET,dark-colony,$(DC_GAME_SOURCES),dark-colony,-DRTS_WORLD_Y_UP=1 -DRTS_GAME_DARK_COLONY))
-$(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign,-DRTS_WORLD_Y_UP=0))
+$(eval $(call GAME_TARGET,dark-reign,$(DR_GAME_SOURCES),dark-reign,-DRTS_WORLD_Y_UP=0 -DRTS_GAME_DARK_REIGN))
 $(eval $(call GAME_TARGET,7legion,$(SL_GAME_SOURCES),7legion,-DRTS_WORLD_Y_UP=0))
 $(eval $(call GAME_TARGET,kknd,$(KKND_GAME_SOURCES),kknd,-DRTS_WORLD_Y_UP=0))
 

@@ -222,7 +222,8 @@ int main(int argc, char **argv) {
             renderer_destroy(&renderer);
             return 1;
         }
-        if (!strcmp(g_game_id, "dark-colony") && !paths[1] && !netgame) M_StartControlPanel(&app);
+        if ((!strcmp(g_game_id, "dark-colony") || !strcmp(g_game_id, "dark-reign")) &&
+            !paths[1] && !netgame) M_StartControlPanel(&app);
     }
     /* No level, thinkers, mission or sidebar exists while choosing New Game. */
 main_menu:
@@ -446,7 +447,7 @@ load_level:
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (D_MenuResponder(&app, &e, custom_ui, units, unit_count)) {
-                if (menumap || !app.running) break;
+                if (menumap || menuleave || !app.running) break;
                 continue;
             }
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
@@ -493,7 +494,7 @@ load_level:
             G_Responder(&app, &level, units, unit_count, &unit_sprite,
                          &decoration_sprites, gameinfo, &e);
         }
-        if (menumap || !app.running) break;
+        if (menumap || menuleave || !app.running) break;
 #ifdef RTS_GAME_DARK_COLONY
         if (dc_savefile[0]) {
             bool saved = DC_SaveGame(dc_savefile, dc_savename, &app, &ai, &hud_text);
@@ -632,6 +633,11 @@ load_level:
     P_FreeLevel(&level);
     if (neterror[0]) goto network_failure;
     if (app.running && menumap && !exit_code) goto load_level;
+    if (app.running && menuleave && !exit_code) {
+        menuleave = false;
+        M_StartControlPanel(&app);
+        goto main_menu;
+    }
     M_Shutdown();
     S_Shutdown();
     renderer_destroy(&renderer);

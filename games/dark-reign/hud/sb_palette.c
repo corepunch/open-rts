@@ -92,10 +92,6 @@ static void tooltip(const app_t *app, ivec2_t mouse, const char *title,
     if (p) DR_DrawText(app, (ivec2_t){box.x + 6, box.y + 24}, text, box.w - 12);
 }
 
-static irect_t menu_rect(void) {
-    return (irect_t){gameui->logical_width/2-120, gameui->logical_height/2-50, 240, 100};
-}
-
 static bool path_action_visible(const sb_state_t *st, const uiaction_t *action) {
     return st->path_advanced || (action->action != UI_PATH_SAVE &&
         action->action != UI_PATH_DESELECT && action->action != UI_PATH_MODE);
@@ -107,7 +103,7 @@ static menu_t palette;
 static app_t *palette_app;
 static struct {
     int categories, paths, list, grid, icons, slots, previous, next;
-    int upgrade, decoy, radar, chrome, keys, options, resume, quit;
+    int upgrade, decoy, radar, chrome, keys, count;
 } indices;
 
 static menuitem_t *item(int index) { return &palette.items[index]; }
@@ -197,18 +193,6 @@ static void camera(menu_t *menu, menuitem_t *widget, menuaction_t event) {
     R_ClampCamera(app, &level, G_WorldViewportWidth(app), app->win.h);
 }
 
-static void resume(menu_t *menu, menuitem_t *widget, menuaction_t event) {
-    (void)widget;
-    if (event == MA_ACTIVATE) ((sb_state_t *)menu->owner)->options_visible = false;
-}
-
-static void quit(menu_t *menu, menuitem_t *widget, menuaction_t event) {
-    (void)menu; (void)widget;
-    if (event != MA_ACTIVATE) return;
-    SDL_Event e = {.type = SDL_QUIT};
-    SDL_PushEvent(&e);
-}
-
 static void draw_label(const menu_t *menu, const menuitem_t *widget) {
     (void)menu;
     ivec2_t at = {widget->rect.x * gameui->logical_width / palette_app->win.w,
@@ -257,10 +241,8 @@ bool DR_PaletteInit(sb_state_t *st) {
     indices.radar = indices.decoy + 1;
     indices.chrome = indices.radar + 1;
     indices.keys = indices.chrome + gameui->image_count;
-    indices.options = indices.keys + 4;
-    indices.resume = indices.options + 1;
-    indices.quit = indices.resume + 1;
-    palette = (menu_t){.numitems = indices.quit + 1, .itemOn = -1, .owner = st};
+    indices.count = indices.keys + 4;
+    palette = (menu_t){.numitems = indices.count, .itemOn = -1, .owner = st};
     palette.items = calloc(palette.numitems, sizeof(*palette.items));
     if (!palette.items) return false;
     for (int i = 0; i < palette.numitems; ++i)
@@ -298,10 +280,6 @@ bool DR_PaletteInit(sb_state_t *st) {
     for (int i = 0; i < 4; ++i)
         *item(indices.keys + i) = (menuitem_t){.kind = MI_BUTTON, .enabled = true,
             .hotkey = hotkeys[i], .routine = action, .userdata = &keys[i]};
-    *item(indices.resume) = (menuitem_t){.kind = MI_BUTTON, .routine = resume,
-        .ownerdraw = draw_label, .inset = {20, 25}, .text = "RESUME GAME"};
-    *item(indices.quit) = (menuitem_t){.kind = MI_BUTTON, .routine = quit,
-        .ownerdraw = draw_label, .inset = {20, 10}, .text = "QUIT GAME"};
     return true;
 }
 
@@ -394,30 +372,24 @@ static void refresh(sb_state_t *st, const app_t *app) {
         item(indices.chrome + i)->rect = scaled(app, gameui->images[i].destination);
         item(indices.chrome + i)->visible = true;
     }
-    for (int i = indices.keys; i < indices.options; ++i) item(i)->enabled = !st->options_visible;
-    irect_t options = menu_rect();
-    item(indices.options)->rect = scaled(app, options);
-    item(indices.options)->fill = 0xff0c1216u;
-    item(indices.options)->visible = st->options_visible;
-    item(indices.resume)->rect = scaled(app, (irect_t){options.x,options.y,options.w,60});
-    item(indices.quit)->rect = scaled(app, (irect_t){options.x,options.y+60,options.w,40});
-    item(indices.resume)->visible = item(indices.resume)->enabled = st->options_visible;
-    item(indices.quit)->visible = item(indices.quit)->enabled = st->options_visible;
-    if (st->options_visible)
-        for (int i = 0; i < indices.options; ++i) item(i)->enabled = false;
 }
 
 bool DR_PaletteResponder(sb_state_t *st, app_t *app, const SDL_Event *event) {
     palette_app = app;
     refresh(st, app);
     if ((event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT && st->order) ||
-        (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE && (st->options_visible || st->order))) {
-        st->options_visible = false;
+        (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE && st->order)) {
         st->order = UI_UNAVAILABLE;
         return true;
     }
     bool taken = M_MenuResponder(&palette, app, event);
-    if (st->options_visible || taken) return true;
+    /* MENU opens the native options screen instead of a HUD popup. */
+    if (st->options_visible) {
+        st->options_visible = false;
+        DR_OpenOptions(app);
+        return true;
+    }
+    if (taken) return true;
     if (SB_PathResponder(st, app, event)) return true;
     if (!st->order || event->type != SDL_MOUSEBUTTONDOWN) return false;
     if (event->button.button == SDL_BUTTON_LEFT) {
@@ -473,6 +445,4 @@ void DR_PaletteDrawer(sb_state_t *st, const app_t *app) {
         else if (hover->routine == action && palette.itemOn < indices.categories)
             tooltip(app,mouse,((const uiaction_t *)hover->userdata)->label,NULL,NULL);
     }
-    if (st->options_visible)
-        V_DrawRectOutline(scaled(app,menu_rect()),V_NearestIndex(0xffe6e6e6u));
 }

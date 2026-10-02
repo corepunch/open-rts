@@ -3,8 +3,8 @@
 #define CHECK(c) RTS_CHECK(c, "fallback menu", #c)
 
 int main(void) {
-#ifdef RTS_GAME_DARK_COLONY
-    puts("SKIP: Dark Colony uses native menu screens");
+#if defined(RTS_GAME_DARK_COLONY) || defined(RTS_GAME_DARK_REIGN)
+    puts("SKIP: this game uses native menu screens");
 #else
     CHECK(SDL_Init(SDL_INIT_VIDEO) == 0);
     app_t app = {.win = {640,480}, .running = true};

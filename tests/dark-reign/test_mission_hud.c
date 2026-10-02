@@ -105,9 +105,9 @@ int main(void) {
     CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &click));
     CHECK(level.player_resources[0][0] == 3700);
     click.button.x = 590; click.button.y = 10;
+    /* MENU hands over to the native options screen (none before M_Init). */
     CHECK(G_CustomUIResponder(bar, &app, &level, objects.items, objects.count, &click));
-    CHECK(bar->options_visible);
-    bar->options_visible = false;
+    CHECK(!bar->options_visible && !menuactive);
     /* The selected Imperium rig must expose structures, just like the FG rig. */
     dr_mission_t *mission = level.mission;
     mission->product_count = 1;
@@ -174,17 +174,9 @@ int main(void) {
     click.button.x = 563; click.button.y = 261;
     CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
     CHECK(bar->saved_path_selection == 2);
-    /* Controls use scaled rectangles; modal options block build hotkeys. */
+    /* Controls use scaled rectangles. */
     app.win = (isize2_t){1280,960};
-    click.button.x = 1180; click.button.y = 20;
-    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
-    CHECK(bar->options_visible);
     key.key.keysym.sym = SDLK_b;
-    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
-    CHECK(bar->page == DR_PAGE_PATHS);
-    click.button.x = 430; click.button.y = 400;
-    CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
-    CHECK(!bar->options_visible);
     CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&key));
     CHECK(bar->page == DR_PAGE_BUILD);
     key.key.keysym.sym = SDLK_x;
@@ -200,10 +192,10 @@ int main(void) {
     CHECK(bar->order == UI_UNAVAILABLE && !menuactive);
     click.button.x = 1180; click.button.y = 20;
     CHECK(G_CustomUIResponder(bar,&app,&level,objects.items,objects.count,&click));
-    CHECK(bar->options_visible);
+    CHECK(!bar->options_visible && menuactive); /* the shell's options screen */
     CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
-    CHECK(!bar->options_visible && !menuactive);
-    /* With no HUD cancellation, Escape opens the fallback menu. While that
+    CHECK(!menuactive);
+    /* With no HUD cancellation, Escape opens the options screen. While that
      * menu is open it takes Escape, leaving a pending HUD order alone. */
     CHECK(D_MenuResponder(&app,&key,bar,objects.items,objects.count));
     CHECK(menuactive);
