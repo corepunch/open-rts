@@ -56,12 +56,31 @@ static void join_lan_menu(app_t *app, SDL_Surface *surface) {
         close(ready[0]); close(done[1]);
         CHECK(fcntl(done[0], F_SETFL, O_NONBLOCK) == 0);
         CHECK(I_HostNetGame("dark-colony", "Menu LAN test", "SCENARIO/MPLAYER/D2PLAY01.MAP", 2));
+        /* Lobby setup as the native host packs it: human host, alien joiner. */
+        uint8_t setup[48] = {0};
+        for (int i = 0; i < 8; ++i) {
+            setup[i * 4] = i == 1;
+            setup[i * 4 + 1] = i < 2 ? DC_PLAYER_HUMAN : DC_PLAYER_NONE;
+            setup[i * 4 + 2] = setup[i * 4 + 3] = (uint8_t)i;
+        }
+        setup[34] = 1; setup[36] = setup[37] = 4;
+        CHECK(I_SetNetSetup(setup, sizeof(setup)));
         CHECK(write(ready[1], "R", 1) == 1);
         char map[512], byte;
         uint64_t deadline = SDL_GetTicks64() + 10000;
         bool finished = false;
         while (SDL_GetTicks64() < deadline) {
-            CHECK(I_PollNetGame(map, sizeof(map)) >= 0);
+            int status = I_PollNetGame(map, sizeof(map));
+            CHECK(status >= 0);
+            /* The joiner chats, picks the human race and readies; the host starts. */
+            uint8_t choice[2];
+            if (!status && I_NetPlayerCount() == 2 && I_NetChoice(1, choice, 2) == 2 &&
+                choice[0] == 0 && choice[1] == 1) {
+                CHECK(I_NetChatCount() == 1 && !strcmp(I_NetChatLine(1), "Player 2: gg"));
+                setup[4] = choice[0];
+                setup[41] = setup[40] = 1;
+                CHECK(I_SetNetSetup(setup, sizeof(setup)) && I_LaunchNetGame());
+            }
             if (read(done[0], &byte, 1) == 1) { finished = true; break; }
             SDL_Delay(1);
         }
@@ -83,10 +102,33 @@ static void join_lan_menu(app_t *app, SDL_Surface *surface) {
     screenshot(app, surface, "/private/tmp/dc-menu-lan-found.bmp");
     click(app, 440, 460);
     CHECK(menuactive && I_NetJoining());
+    /* As in DC.EXE, the joiner enters the host's lobby rather than the game. */
+    deadline = SDL_GetTicks64() + 3000;
+    do { M_Ticker(); SDL_Delay(1); } while (!I_NetLobby() && SDL_GetTicks64() < deadline);
+    for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
+    CHECK(menuactive && !menumap && I_NetLobby() && doomcom->consoleplayer == 1);
+    screenshot(app, surface, "/private/tmp/dc-menu-lan-lobby.bmp");
+    click(app, 215, 30); /* The host's race gadget is not the joiner's. */
+    for (int i = 0; i < 30; ++i) { SDL_Delay(5); M_Ticker(); }
+    CHECK(menuactive && !menumap);
+    click(app, 215, 50); /* Own race gadget: alien -> human. */
+    click(app, 100, 458); /* Chat input line. */
+    SDL_Event text = {.type = SDL_TEXTINPUT};
+    strcpy(text.text.text, "gg");
+    CHECK(M_Responder(app, &text, false));
+    key(app, SDLK_RETURN, false);
+    deadline = SDL_GetTicks64() + 3000;
+    do { M_Ticker(); SDL_Delay(1); } while (I_NetChatCount() < 1 && SDL_GetTicks64() < deadline);
+    CHECK(I_NetChatCount() == 1 && !strcmp(I_NetChatLine(1), "Player 2: gg"));
+    screenshot(app, surface, "/private/tmp/dc-menu-lan-chat.bmp");
+    CHECK(menuactive && !menumap); /* Not ready yet: the host waits. */
+    click(app, 575, 465); /* READY. */
     deadline = SDL_GetTicks64() + 3000;
     do { M_Ticker(); SDL_Delay(1); } while (menuactive && SDL_GetTicks64() < deadline);
     CHECK(!menuactive && menumap && !strcmp(menumap, "SCENARIO/MPLAYER/D2PLAY01.MAP"));
     CHECK(doomcom->consoleplayer == 1 && doomcom->numplayers == 2 && I_NetMenuSession());
+    dc_skirmish_t shared;
+    CHECK(DC_TakeSkirmish(menumap, &shared) && shared.players[0].race == 0 && shared.players[1].race == 0);
     char map[512] = "";
     CHECK(I_StartNetGame("dark-colony", map, sizeof(map)) && !I_NetMenuSession());
     CHECK(write(done[1], "Q", 1) == 1);

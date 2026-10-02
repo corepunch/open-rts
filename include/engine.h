@@ -917,6 +917,21 @@ bool I_HostNetGame(const char *game, const char *name, const char *map, int play
 /* Host-only: up to 64 opaque bytes delivered to every joiner (I_NetSetup). */
 bool I_SetNetSetup(const void *data, size_t size);
 size_t I_NetSetup(void *data, size_t capacity);
+/* Host-only: start a menu session once every reserved slot has joined. */
+bool I_LaunchNetGame(void);
+/* Joiner-only: up to 8 opaque bytes for its own slot (e.g. race), sent to
+ * the host until it launches. The host reads them with I_NetChoice. */
+bool I_SetNetChoice(const void *data, size_t size);
+size_t I_NetChoice(int player, void *data, size_t capacity);
+/* Joiner has a slot (doomcom->consoleplayer) in a lobby not yet launched. */
+bool I_NetLobby(void);
+const char *I_NetMap(void); /* Host's map; a joiner learns it in the lobby. */
+/* Lobby chat before launch. The host keeps the log (ids 1..count, the last
+ * 32 retained) and relays it to every joiner; lines arrive in order. */
+enum { NETCHAT_LENGTH = 96 };
+bool I_SendNetChat(const char *line);
+int I_NetChatCount(void);
+const char *I_NetChatLine(int id);
 bool I_JoinNetGame(const char *game, const char *address);
 bool I_OpenNetBrowser(const char *game);
 void I_QueryNetGames(const char *address);

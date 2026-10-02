@@ -110,10 +110,17 @@ static bool decode(const uint8_t *wire, size_t size) {
 
 /* Session discovery is separate from Doom's tic protocol. The host relays
  * addressed tic packets so joiners only need one reachable UDP endpoint. */
-enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 6,
-       JOIN = 1, WELCOME, REJECT, DATA, DISCOVER, OFFER, LEAVE,
+enum { SESSION_MAGIC = 0x4f525453, SESSION_VERSION = 7,
+       JOIN = 1, WELCOME, REJECT, DATA, DISCOVER, OFFER, LEAVE, LOBBY,
        GAME_LENGTH = 32, MAP_LENGTH = 512,
-       SETUP_LENGTH = 64,
+       SETUP_LENGTH = 64, CHOICE_LENGTH = 8, CHAT_LENGTH = NETCHAT_LENGTH, CHAT_LINES = 32,
+       CHAT_QUEUE = 4,
+       /* JOIN: game, choice size and bytes, last chat line seen, outgoing
+        * chat sequence number and text (empty when none is pending). */
+       JOIN_SIZE = 8 + GAME_LENGTH + 1 + CHOICE_LENGTH + 8 + CHAT_LENGTH,
+       /* LOBBY: roster, setup, map, acknowledged chat sequence, then one
+        * log line (id 0: none) after the one the joiner has seen. */
+       LOBBY_SIZE = 10 + SETUP_LENGTH + MAP_LENGTH + 8 + CHAT_LENGTH,
        WELCOME_SIZE = 10 + GAME_LENGTH + MAP_LENGTH + 1 + SETUP_LENGTH + 1 };
 static bool hosting, joining, session_received;
 static int joined;
@@ -122,7 +129,20 @@ static char session_name[32];
 /* Opaque game-defined lobby settings, relayed from host to joiners. */
 static uint8_t session_setup[SETUP_LENGTH];
 static size_t session_setup_size;
+/* Each joiner's own lobby choice (e.g. race), resent with every JOIN until
+ * the host launches. Index 0 is the joiner's local choice. */
+static uint8_t session_choice[MAXNETNODES][CHOICE_LENGTH];
+static size_t session_choice_size[MAXNETNODES];
 static bool browsing, session_started, session_ready, menu_session;
+/* A menu host launches explicitly; joiners wait in its lobby until then. */
+static bool session_launched, session_lobby;
+static int lobby_players;
+/* Lobby chat: the host owns the log and relays it to joiners in LOBBY
+ * replies. A joiner's lines go up with its JOIN retries until acknowledged. */
+static char chat_log[CHAT_LINES][CHAT_LENGTH];
+static uint32_t chat_total, chat_ack[MAXNETNODES], chat_sent;
+static char chat_queue[CHAT_QUEUE][CHAT_LENGTH];
+static int chat_queued;
 static uint64_t session_time, session_retry, discovery_retry;
 static uint64_t session_id;
 static uint64_t joined_time[MAXNETNODES];
@@ -154,11 +174,25 @@ static void reject_join(const struct sockaddr_in *to, const char *reason) {
     send_wire(wire, sizeof(wire), to);
 }
 
+/* Later joiners move down one slot; their choices move with them. */
+static void remove_joiner(int node) {
+    sendaddress[node] = sendaddress[joined];
+    joined_time[node] = joined_time[joined];
+    memcpy(session_choice[node], session_choice[joined], CHOICE_LENGTH);
+    session_choice_size[node] = session_choice_size[joined];
+    chat_ack[node] = chat_ack[joined];
+    --joined;
+}
+
+static void append_chat(const char *line) {
+    snprintf(chat_log[chat_total++ % CHAT_LINES], CHAT_LENGTH, "%s", line);
+}
+
 /* Returns a logical Doom node for DATA, or -1 for handled session traffic. */
 static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *from) {
     if (size < 8 || get32(wire) != SESSION_MAGIC) return -1;
     if (wire[4] == SESSION_VERSION && wire[5] == DISCOVER && hosting &&
-        session_started && !session_ready && size == 8 + GAME_LENGTH &&
+        session_started && !session_launched && size == 8 + GAME_LENGTH &&
         memchr(wire + 8, 0, GAME_LENGTH) && !strcmp((char *)wire + 8, session_game)) {
         uint8_t reply[16 + GAME_LENGTH + sizeof(session_name) + MAP_LENGTH] = {0};
         session_header(reply, OFFER, joined + 1, doomcom->numplayers);
@@ -197,24 +231,57 @@ static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *
     if (hosting) {
         while (node <= joined && !same_address(from, &sendaddress[node])) ++node;
         if (wire[5] == JOIN) {
-            if (size != 8 + GAME_LENGTH || wire[4] != SESSION_VERSION ||
+            if (size != JOIN_SIZE || wire[4] != SESSION_VERSION ||
                 !memchr(wire + 8, 0, GAME_LENGTH) ||
-                strcmp((char *)wire + 8, session_game)) {
+                strcmp((char *)wire + 8, session_game) || wire[8 + GAME_LENGTH] > CHOICE_LENGTH) {
                 reject_join(from, "Network game or session version mismatch"); return -1;
             }
             if (node > joined) {
-                if (joined == doomcom->numplayers - 1) {
+                if (joined == doomcom->numplayers - 1 || session_launched) {
                     reject_join(from, "Server is full; late joining is not supported"); return -1;
                 }
                 sendaddress[node] = *from;
+                session_choice_size[node] = 0;
+                chat_ack[node] = 0;
                 ++joined;
                 printf("Player %d joined (%d/%d).\n", node + 1, joined + 1, doomcom->numplayers);
                 fflush(stdout);
             }
             joined_time[node] = SDL_GetTicks64();
-            /* Nobody loads until the roster is full. Earlier joiners retry
-             * and receive the same assignment even after the host has loaded. */
-            if (joined != doomcom->numplayers - 1) return -1;
+            /* Command-line hosts start as soon as the roster is full. */
+            if (!menu_session && joined == doomcom->numplayers - 1) session_launched = true;
+            if (!session_launched) {
+                session_choice_size[node] = wire[8 + GAME_LENGTH];
+                memcpy(session_choice[node], wire + 9 + GAME_LENGTH, CHOICE_LENGTH);
+                const uint8_t *chat = wire + 9 + GAME_LENGTH + CHOICE_LENGTH;
+                uint32_t seen = get32(chat), sequence = get32(chat + 4);
+                char *text = (char *)chat + 8;
+                if (sequence == chat_ack[node] + 1 && memchr(text, 0, CHAT_LENGTH) && text[0]) {
+                    append_chat(text);
+                    chat_ack[node] = sequence;
+                }
+                /* Nobody loads until the host launches the full roster. Until
+                 * then a joiner sees its slot and the current lobby setup. */
+                uint8_t reply[LOBBY_SIZE] = {0};
+                session_header(reply, LOBBY, node, doomcom->numplayers);
+                reply[8] = (uint8_t)(joined + 1);
+                reply[9] = (uint8_t)session_setup_size;
+                memcpy(reply + 10, session_setup, SETUP_LENGTH);
+                memcpy(reply + 10 + SETUP_LENGTH, session_map, MAP_LENGTH);
+                uint8_t *line = reply + 10 + SETUP_LENGTH + MAP_LENGTH;
+                put32(line, chat_ack[node]);
+                /* Lines older than the log are gone; resume at the oldest. */
+                uint32_t next = seen + 1, oldest = chat_total > CHAT_LINES ? chat_total - CHAT_LINES + 1 : 1;
+                if (next < oldest) next = oldest;
+                if (seen < chat_total) {
+                    put32(line + 4, next);
+                    memcpy(line + 8, chat_log[(next - 1) % CHAT_LINES], CHAT_LENGTH);
+                }
+                send_wire(reply, sizeof(reply), from);
+                return -1;
+            }
+            /* Earlier joiners retry and receive the same assignment even
+             * after the host has loaded. */
             uint8_t reply[WELCOME_SIZE] = {0};
             session_header(reply, WELCOME, node, doomcom->numplayers);
             reply[8] = (uint8_t)doomcom->ticdup; reply[9] = (uint8_t)doomcom->extratics;
@@ -227,9 +294,8 @@ static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *
             return -1;
         }
         if (node > joined) return -1;
-        if (!session_ready && wire[4] == SESSION_VERSION && wire[5] == LEAVE && size == 8) {
-            sendaddress[node] = sendaddress[joined];
-            joined_time[node] = joined_time[joined--];
+        if (!session_launched && wire[4] == SESSION_VERSION && wire[5] == LEAVE && size == 8) {
+            remove_joiner(node);
             return -1;
         }
     } else if (!same_address(from, &sendaddress[1])) return -1;
@@ -237,6 +303,32 @@ static int session_packet(uint8_t *wire, size_t size, const struct sockaddr_in *
     if (joining && !session_received && wire[5] == REJECT && size > 8 &&
         memchr(wire + 8, 0, size - 8)) {
         snprintf(neterror, sizeof(neterror), "%s", (char *)wire + 8);
+        return -1;
+    }
+    if (joining && !session_received && wire[5] == LOBBY) {
+        if (size != LOBBY_SIZE || wire[7] < 2 || wire[7] > MAXPLAYERS ||
+            wire[6] < 1 || wire[6] >= wire[7] || wire[8] <= wire[6] || wire[8] > wire[7] ||
+            wire[9] > SETUP_LENGTH || !memchr(wire + 10 + SETUP_LENGTH, 0, MAP_LENGTH)) return -1;
+        doomcom->consoleplayer = wire[6];
+        memcpy(session_map, wire + 10 + SETUP_LENGTH, MAP_LENGTH);
+        const uint8_t *line = wire + 10 + SETUP_LENGTH + MAP_LENGTH;
+        uint32_t acked = get32(line), id = get32(line + 4);
+        /* The host acknowledged the queued line: drop it, send the next. */
+        if (chat_queued && acked == chat_sent) {
+            memmove(chat_queue[0], chat_queue[1], (size_t)--chat_queued * CHAT_LENGTH);
+            if (chat_queued) ++chat_sent;
+            session_retry = 0;
+        }
+        if (id > chat_total && memchr(line + 8, 0, CHAT_LENGTH)) {
+            chat_total = id - 1;
+            append_chat((const char *)line + 8);
+            session_retry = 0; /* More lines may follow. */
+        }
+        lobby_players = wire[8];
+        session_setup_size = wire[9];
+        memcpy(session_setup, wire + 10, SETUP_LENGTH);
+        session_lobby = true;
+        session_time = SDL_GetTicks64(); /* The startup timeout counts host silence. */
         return -1;
     }
     if (joining && !session_received && wire[5] == WELCOME) {
@@ -293,30 +385,40 @@ static bool begin_session(const char *game, const char *map) {
     return true;
 }
 
-int I_NetPlayerCount(void) { return hosting ? joined + 1 : session_received ? doomcom->numplayers : 1; }
+int I_NetPlayerCount(void) {
+    return hosting ? joined + 1 : session_received ? doomcom->numplayers : session_lobby ? lobby_players : 1;
+}
+bool I_NetLobby(void) { return joining && session_lobby && !session_received; }
+const char *I_NetMap(void) { return session_map; }
 bool I_NetMenuSession(void) { return menu_session; }
 
 int I_PollNetGame(char *map, size_t capacity) {
     if (neterror[0]) return -1;
     uint64_t now = SDL_GetTicks64();
     if (joining && !session_received && now >= session_retry) {
-        uint8_t wire[8 + GAME_LENGTH] = {0};
+        uint8_t wire[JOIN_SIZE] = {0};
         session_header(wire, JOIN, 0, 0);
         memcpy(wire + 8, session_game, GAME_LENGTH);
+        wire[8 + GAME_LENGTH] = (uint8_t)session_choice_size[0];
+        memcpy(wire + 9 + GAME_LENGTH, session_choice[0], CHOICE_LENGTH);
+        uint8_t *chat = wire + 9 + GAME_LENGTH + CHOICE_LENGTH;
+        put32(chat, chat_total);
+        if (chat_queued) {
+            put32(chat + 4, chat_sent);
+            memcpy(chat + 8, chat_queue[0], CHAT_LENGTH);
+        }
         send_wire(wire, sizeof(wire), &sendaddress[1]);
         session_retry = now + 250;
     }
-    if (hosting && !session_ready)
+    if (hosting && !session_launched)
         for (int i = 1; i <= joined; ) {
-            if (now - joined_time[i] > 5000) {
-                sendaddress[i] = sendaddress[joined];
-                joined_time[i] = joined_time[joined--];
-            } else ++i;
+            if (now - joined_time[i] > 5000) remove_joiner(i);
+            else ++i;
         }
     doomcom->command = CMD_GET;
     I_NetCmd();
     if (neterror[0]) return -1;
-    if ((hosting && joined == doomcom->numplayers - 1) || (joining && session_received)) {
+    if ((hosting && session_launched) || (joining && session_received)) {
         if (!session_map[0] || session_map[0] == '/' || strstr(session_map, "..") ||
             strchr(session_map, '\\') || strlen(session_map) >= capacity) {
             snprintf(neterror, sizeof(neterror), "Network maps must be relative to the data root, without '..'");
@@ -326,7 +428,8 @@ int I_PollNetGame(char *map, size_t capacity) {
         session_ready = true;
         return 1;
     }
-    if (session_started && now - session_time >= 60000) {
+    now = SDL_GetTicks64(); /* A LOBBY just received may have advanced session_time. */
+    if (session_started && !(hosting && menu_session) && now - session_time >= 60000) {
         snprintf(neterror, sizeof(neterror), "Network startup timed out waiting for %s", hosting ? "players" : "host");
         return -1;
     }
@@ -385,6 +488,12 @@ bool I_InitNetwork(int *argc, char **argv) {
     neterror[0] = '\0';
     netgame = false;
     hosting = joining = session_received = false;
+    session_launched = session_lobby = false;
+    lobby_players = 0;
+    chat_total = chat_sent = 0;
+    chat_queued = 0;
+    memset(chat_ack, 0, sizeof(chat_ack));
+    memset(session_choice_size, 0, sizeof(session_choice_size));
     browsing = session_started = session_ready = menu_session = false;
     numgames = 0;
     discovery_retry = 0;
@@ -484,6 +593,44 @@ bool I_SetNetSetup(const void *data, size_t size) {
     memcpy(session_setup, data, size);
     session_setup_size = size;
     return true;
+}
+
+bool I_LaunchNetGame(void) {
+    if (!hosting || !menu_session || joined != doomcom->numplayers - 1) return false;
+    session_launched = true;
+    return true;
+}
+
+bool I_SetNetChoice(const void *data, size_t size) {
+    if (!joining || size > CHOICE_LENGTH) return false;
+    memcpy(session_choice[0], data, size);
+    session_choice_size[0] = size;
+    session_retry = 0; /* Send it with the next poll. */
+    return true;
+}
+
+bool I_SendNetChat(const char *line) {
+    if (!line[0] || session_launched || session_received) return false;
+    if (hosting && menu_session) { append_chat(line); return true; }
+    if (!joining || !session_lobby || chat_queued == CHAT_QUEUE) return false;
+    snprintf(chat_queue[chat_queued], CHAT_LENGTH, "%s", line);
+    if (!chat_queued++) ++chat_sent;
+    session_retry = 0;
+    return true;
+}
+
+int I_NetChatCount(void) { return (int)chat_total; }
+
+const char *I_NetChatLine(int id) {
+    if (id < 1 || (uint32_t)id > chat_total || chat_total - (uint32_t)id >= CHAT_LINES) return NULL;
+    return chat_log[(id - 1) % CHAT_LINES];
+}
+
+size_t I_NetChoice(int player, void *data, size_t capacity) {
+    if (!hosting || player < 1 || player > joined) return 0;
+    size_t size = session_choice_size[player] < capacity ? session_choice_size[player] : capacity;
+    memcpy(data, session_choice[player], size);
+    return size;
 }
 
 size_t I_NetSetup(void *data, size_t capacity) {

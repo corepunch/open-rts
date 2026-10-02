@@ -37,7 +37,16 @@ static int editing_speed;
 typedef struct { char path[1200]; dc_saveinfo_t info; } saveentry_t;
 static saveentry_t *saves;
 static int numsaves;
-static bool lan, waiting;
+/* client: a joiner in the host's lobby. DC.EXE's join path 0x405670 enters
+ * the same MULTI lobby 0x40fb20 as the host (both call 0x401210 with a
+ * lobby argument); host-only controls assert player_number == 0 (0x410a53). */
+static bool lan, waiting, client;
+static int client_race = -1;
+/* Ready checks 16..23 (DC.EXE message 'h', 0x41e3bc): control 133 toggles
+ * the local player's own. A ready slot is locked (0x410a32). The match
+ * starts once every human is ready; that start rule is engine-defined. */
+static bool lobby_ready[8], client_ready;
+static char lobby_log[NETCHAT_LENGTH * 33 + 256];
 static char session_name[32] = "Dark Colony", server_address[128] = "127.0.0.1";
 static char network_notice[128], selected_server[64];
 static bitmapfont_t fonts[3];
@@ -70,6 +79,7 @@ static int nummaps, selectedmap = -1;
 
 static void refresh_skirmish(void);
 static bool load_skirmish_maps(void);
+static void network_failure(void);
 
 static bool screen_palette(spritesheet_t *sprite, const blob_t *rmp) {
     if (!sprite->numlumps) return true;
@@ -255,8 +265,9 @@ static void gadget_pose(int id, int pose) {
     }
 }
 
-/* LAN lobby settings travel to joiners as 40 explicit bytes. */
-enum { LAN_SETUP_SIZE = 40 };
+/* LAN lobby settings travel to joiners as 48 explicit bytes: four per slot,
+ * eight options, then each slot's ready flag. */
+enum { LAN_SETUP_SIZE = 48 };
 static size_t pack_setup(uint8_t out[LAN_SETUP_SIZE]) {
     for (int i = 0; i < 8; ++i) {
         const dc_skirmish_player_t *p = &skirmish.players[i];
@@ -268,11 +279,16 @@ static size_t pack_setup(uint8_t out[LAN_SETUP_SIZE]) {
     v[2] = (uint8_t)skirmish.erupting; v[3] = (uint8_t)skirmish.renewable;
     v[4] = (uint8_t)skirmish.flow; v[5] = (uint8_t)skirmish.quantity;
     v[6] = (uint8_t)skirmish.rank; v[7] = skirmish.seed;
+    for (int i = 0; i < 8; ++i) out[40 + i] = lobby_ready[i];
     return LAN_SETUP_SIZE;
 }
 
-static bool unpack_setup(const uint8_t *in, size_t size, dc_skirmish_t *out) {
+static bool unpack_setup(const uint8_t *in, size_t size, dc_skirmish_t *out, bool ready[8]) {
     if (size != LAN_SETUP_SIZE) return false;
+    for (int i = 0; i < 8; ++i) {
+        if (in[40 + i] > 1) return false;
+        if (ready) ready[i] = in[40 + i];
+    }
     *out = (dc_skirmish_t){0};
     for (int i = 0; i < 8; ++i) {
         if (in[i * 4] > 1 || in[i * 4 + 1] > DC_PLAYER_NONE || in[i * 4 + 2] > 7 || in[i * 4 + 3] > 7) return false;
@@ -285,6 +301,8 @@ static bool unpack_setup(const uint8_t *in, size_t size, dc_skirmish_t *out) {
     out->flow = v[4]; out->quantity = v[5]; out->rank = v[6]; out->seed = v[7];
     return out->flow >= 1 && out->flow <= 20 && out->quantity >= 1 && out->quantity <= 20 && out->rank <= 3;
 }
+
+static int consoleplayer_slot(void) { return client ? doomcom->consoleplayer : 0; }
 
 static void refresh_skirmish(void) {
     for (int i = 0; i < 8; ++i) {
@@ -299,14 +317,17 @@ static void refresh_skirmish(void) {
     }
     snprintf(items[121].text, sizeof(items[121].text), "%d%%", skirmish.quantity * 25);
     snprintf(items[125].text, sizeof(items[125].text), "%d%%", skirmish.flow * 25);
-    strcpy(items[129].text, messages[(skirmish.players[0].race ? 40 : 30) + skirmish.rank]);
+    strcpy(items[129].text, messages[(skirmish.players[consoleplayer_slot()].race ? 40 : 30) + skirmish.rank]);
     if (selectedmap >= 0 && maps[selectedmap].players < active_players()) selectedmap = -1;
     snprintf(items[26].text, sizeof(items[26].text), "%s", selectedmap < 0 ? "" : maps[selectedmap].title);
     if (lan) {
+        int me = consoleplayer_slot();
         for (int i = 0; i < 8; ++i) {
             if (i) snprintf(items[i].text, sizeof(items[i].text), "%s",
-                            i < active_players() ? "LAN Player" : "");
-            items[16 + i].visible = false;
+                            i >= active_players() ? "" : client && i == consoleplayer_slot() ? "You" :
+                            waiting && i >= I_NetPlayerCount() ? "Open" : "LAN Player");
+            items[16 + i].visible = waiting && i < active_players();
+            items[16 + i].value = lobby_ready[i];
             items[180 + i].visible = false;
             items[8 + i].visible = items[80 + i].visible = i < active_players();
             items[96 + i].visible = items[142 + i].visible = i < active_players();
@@ -314,11 +335,78 @@ static void refresh_skirmish(void) {
             items[150 + i].visible = items[158 + i].visible = i < active_players();
         }
         items[137].visible = items[139].visible = items[140].visible = items[141].visible = false;
-        snprintf(items[133].text, sizeof(items[133].text), "%s", waiting ? "WAITING" : "CREATE");
-        snprintf(items[24].text, sizeof(items[24].text), "%s", network_notice[0] ? network_notice :
-                 "Select map and 2-4 LAN player slots.\nMap supplies factions and game settings.\nStarts when all players connect.");
-        items[25].visible = false;
+        snprintf(items[133].text, sizeof(items[133].text), "%s",
+                 !waiting ? "CREATE" : lobby_ready[me] ? "UNREADY" : "READY");
+        /* Chat window 24 shows the log above the lobby status; 25 is the
+         * input line (DC.EXE sends "<name>: <text>" as message 'e'). */
+        const char *status = network_notice[0] ? network_notice : client ?
+            "Choose your race, then READY.\nThe game starts when everyone is ready." :
+            "Select map and 2-4 LAN player slots.\nPlayers choose their own race.\nThe game starts when everyone is ready.";
+        size_t used = 0;
+        lobby_log[0] = '\0';
+        for (int id = I_NetChatCount() - 31; waiting && id <= I_NetChatCount(); ++id) {
+            const char *line = I_NetChatLine(id);
+            if (line) used += (size_t)snprintf(lobby_log + used, sizeof(lobby_log) - used, "%s\n", line);
+        }
+        snprintf(lobby_log + used, sizeof(lobby_log) - used, "%s", status);
+        menuitem_t *log = &items[24];
+        log->text[0] = '\0';
+        log->prose = lobby_log;
+        int lines = V_TextWrappedHeight(log->rect.w, log->font, lobby_log) / log->font->line_h;
+        int shown = log->rect.h / log->font->line_h;
+        log->first_row = lines > shown ? lines - shown : 0; /* Newest at the bottom. */
+        items[25].visible = waiting;
     }
+}
+
+/* The host's lobby as a joiner sees it, with its own pending race choice. */
+static bool client_setup(void) {
+    uint8_t setup[LAN_SETUP_SIZE + 24];
+    dc_skirmish_t shared;
+    size_t size = I_NetSetup(setup, sizeof(setup));
+    if (!unpack_setup(setup, size, &shared, lobby_ready)) return false;
+    skirmish = shared;
+    if (client_race >= 0) skirmish.players[doomcom->consoleplayer].race = client_race;
+    lobby_ready[doomcom->consoleplayer] = client_ready;
+    selectedmap = -1;
+    for (int i = 0; i < nummaps; ++i)
+        if (!strcmp(maps[i].path, I_NetMap())) selectedmap = i;
+    return true;
+}
+
+/* Host: joiners own their slot's race (DC.EXE race message 'f', 0x41e650)
+ * and ready check. Both arrive together, so a ready race is the one used. */
+static void host_choices(void) {
+    bool changed = false, all = I_NetPlayerCount() == doomcom->numplayers;
+    for (int i = 1; i < 8; ++i) {
+        uint8_t choice[2];
+        bool ready = false;
+        if (i < I_NetPlayerCount() && I_NetChoice(i, choice, 2) == 2 && choice[0] <= 1 && choice[1] <= 1) {
+            changed |= skirmish.players[i].race != choice[0];
+            skirmish.players[i].race = choice[0];
+            ready = choice[1];
+        }
+        changed |= lobby_ready[i] != ready;
+        lobby_ready[i] = ready;
+        if (i < doomcom->numplayers && !ready) all = false;
+    }
+    uint8_t setup[LAN_SETUP_SIZE];
+    if (changed && !I_SetNetSetup(setup, pack_setup(setup))) { network_failure(); return; }
+    if (all && lobby_ready[0]) I_LaunchNetGame();
+}
+
+static bool send_choice(void) {
+    uint8_t choice[2] = {(uint8_t)skirmish.players[doomcom->consoleplayer].race, client_ready};
+    return I_SetNetChoice(choice, sizeof(choice));
+}
+
+static void send_chat(void) {
+    char line[NETCHAT_LENGTH];
+    if (!items[25].text[0]) return;
+    snprintf(line, sizeof(line), "%s: %s", client ? M_va("Player %d", doomcom->consoleplayer + 1) : "Host",
+             items[25].text);
+    if (I_SendNetChat(line)) items[25].text[0] = '\0';
+    else notice = "Chat is busy; try again";
 }
 
 static void activate_skirmish(int id) {
@@ -695,6 +783,8 @@ static bool load_screen(int next) {
         items[105 + skirmish.storage].value = items[110 + skirmish.artifacts].value = 1;
         items[115 + skirmish.erupting].value = items[118 + skirmish.renewable].value = 1;
         items[133].kind = MI_BUTTON;
+        items[25].kind = MI_TEXTFIELD;
+        items[25].text[0] = '\0';
         for (int i = 166; i <= 173; ++i) items[i].visible = i == 166;
         for (int i = 180; i <= 187; ++i) items[i].visible = i == 180;
         for (int i = 17; i <= 23; ++i) items[i].visible = false;
@@ -857,6 +947,9 @@ static bool join_session(const char *address) {
     char copy[128];
     snprintf(copy, sizeof(copy), "%s", address);
     network_notice[0] = '\0';
+    client_race = -1;
+    client_ready = false;
+    memset(lobby_ready, 0, sizeof(lobby_ready));
     if (!I_JoinNetGame("dark-colony", copy)) { network_failure(); return true; }
     waiting = true;
     return load_screen(CONNECT);
@@ -997,8 +1090,26 @@ static void activate(app_t *app, int id) {
     } else if (page == SKIRMISH) {
         if (id == 132) {
             if (lan) I_CancelNetGame();
-            waiting = false;
+            waiting = client = false;
             ok = load_screen(lan ? NETWORK : MAIN);
+        } else if (lan && waiting && id == 25) {
+            send_chat();
+            refresh_skirmish();
+        } else if (client) {
+            int slot = doomcom->consoleplayer;
+            if (id == 8 + slot && !client_ready) {
+                skirmish.players[slot].race ^= 1;
+                client_race = skirmish.players[slot].race;
+            } else if (id == 133) client_ready = !client_ready;
+            lobby_ready[slot] = client_ready;
+            send_choice();
+            refresh_skirmish();
+        } else if (lan && waiting) {
+            uint8_t setup[LAN_SETUP_SIZE];
+            if (id == 8 && !lobby_ready[0]) skirmish.players[0].race ^= 1;
+            else if (id == 133) lobby_ready[0] = !lobby_ready[0];
+            if (!I_SetNetSetup(setup, pack_setup(setup))) network_failure();
+            refresh_skirmish();
         } else if (lan && !waiting) {
             if (id == 90 || id == 91) {
                 int count = active_players();
@@ -1013,6 +1124,7 @@ static void activate(app_t *app, int id) {
             } else if (id == 133 && selectedmap >= 0) {
                 uint8_t setup[LAN_SETUP_SIZE];
                 skirmish.seed = (uint8_t)SDL_GetTicks();
+                memset(lobby_ready, 0, sizeof(lobby_ready));
                 if (I_HostNetGame("dark-colony", session_name, maps[selectedmap].path, active_players()) &&
                     I_SetNetSetup(setup, pack_setup(setup))) waiting = true;
                 else network_failure();
@@ -1045,8 +1157,11 @@ static bool selectable(int id) {
         if (id == 0 || id == 1) return true;
     }
     if (page == SKIRMISH) {
+        if (lan && waiting) {
+            int me = consoleplayer_slot();
+            return id == 132 || id == 133 || id == 25 || (id == 8 + me && !lobby_ready[me]);
+        }
         if (lan) {
-            if (waiting) return id == 132;
             if (id == 90 || id == 91) return true;
             if (id >= 8 && id < 16) return skirmish.players[id - 8].type != DC_PLAYER_NONE;
             if (id >= 32 && id < 48) return skirmish.players[id & 7].type != DC_PLAYER_NONE;
@@ -1154,6 +1269,7 @@ static void menu_routine(menu_t *screen, menuitem_t *item, menuaction_t action) 
     if (action != MA_ACTIVATE) return;
     /* Enter on a field or the session list confirms the screen. A mouse click
      * acts on the control it hit. */
+    if (page == SKIRMISH && id == 25 && screen->held == item) return; /* A click only focuses. */
     if (screen->held != item) {
         if (page == SETUP && id == 5) id = training ? 2 : 3;
         else if (page == SESSION_NAME && id == 1) id = 0;
@@ -1215,32 +1331,65 @@ void M_Ticker(void) {
         int status = I_PollNetGame(mapname, sizeof(mapname));
         if (status < 0) {
             network_failure();
-            if (page == SKIRMISH) refresh_skirmish();
+            if (client) {
+                /* The joiner returns to the address screen with the reason. */
+                client = false;
+                if (!load_screen(CONNECT)) { menuerror = true; return; }
+                notice = network_notice;
+                snprintf(items[3].text, sizeof(items[3].text), "%s", network_notice);
+            } else if (page == SKIRMISH) refresh_skirmish();
             else snprintf(items[3].text, sizeof(items[3].text), "%s", network_notice);
         } else if (status > 0) {
-            waiting = false;
+            bool host = page == SKIRMISH && !client;
+            waiting = client = false;
             {
                 uint8_t setup[LAN_SETUP_SIZE + 24];
                 dc_skirmish_t shared;
-                size_t size = page == SKIRMISH ? 0 : I_NetSetup(setup, sizeof(setup));
-                if (page == SKIRMISH) shared = skirmish; /* Host: lobby as created. */
-                else if (size && !unpack_setup(setup, size, &shared)) {
+                size_t size = host ? 0 : I_NetSetup(setup, sizeof(setup));
+                if (host) shared = skirmish; /* Host: the lobby as launched. */
+                else if (size && !unpack_setup(setup, size, &shared, NULL)) {
                     snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
                     network_failure();
                     return;
                 }
-                if (page == SKIRMISH || size) DC_RequestSkirmish(mapname, &shared);
+                if (host || size) DC_RequestSkirmish(mapname, &shared);
             }
             menumap = mapname;
             menuactive = false;
             SDL_StopTextInput();
             return;
+        } else if (client) {
+            if (!client_setup()) {
+                snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
+                network_failure();
+                client = false;
+                if (!load_screen(CONNECT)) menuerror = true;
+                return;
+            }
+            refresh_skirmish();
         } else if (page == SKIRMISH) {
-            snprintf(network_notice, sizeof(network_notice), "Waiting for LAN players: %d/%d\nEscape cancels the session.",
-                     I_NetPlayerCount(), doomcom->numplayers);
+            host_choices();
+            if (I_NetPlayerCount() == doomcom->numplayers)
+                snprintf(network_notice, sizeof(network_notice), "All %d players joined.\nThe game starts when everyone is ready.",
+                         doomcom->numplayers);
+            else
+                snprintf(network_notice, sizeof(network_notice), "Waiting for LAN players: %d/%d\nEscape cancels the session.",
+                         I_NetPlayerCount(), doomcom->numplayers);
+            refresh_skirmish();
+        } else if (I_NetLobby() && I_NetSetup(&(uint8_t){0}, 1)) {
+            /* Joined: enter the host's lobby (0x405670 -> 0x401210 -> 0x40fb20).
+             * A command-line host has no lobby setup; its joiners just wait. */
+            lan = client = true;
+            if (!load_screen(SKIRMISH) || !client_setup()) {
+                snprintf(neterror, sizeof(neterror), "Host sent an invalid game setup");
+                network_failure();
+                client = false;
+                if (!load_screen(CONNECT)) menuerror = true;
+                return;
+            }
             refresh_skirmish();
         } else {
-            strcpy(items[3].text, "Connecting... Escape cancels");
+            strcpy(items[3].text, I_NetLobby() ? "Joined; waiting for the host" : "Connecting... Escape cancels");
         }
     }
     if (page == BROWSE) {
