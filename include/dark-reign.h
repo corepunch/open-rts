@@ -50,6 +50,9 @@ typedef struct {
 } dr_mission_t;
 
 bool DR_ProductInTech(int type);
+/* The shell's options screen over a running level. */
+void DR_OpenOptions(app_t *app);
+const char *DR_String(const char *name);
 
 enum {
     /* Freedom Guard mobile units (UNITS.TXT SetType values). */

@@ -1,8 +1,8 @@
 #include "engine.h"
 
-/* The three games without native screen scripts share only the lifecycle;
- * each supplies its own static item array, like Doom's menu definitions. */
-#ifndef RTS_GAME_DARK_COLONY
+/* The games without a native front end share only the lifecycle; each
+ * supplies its own static item array, like Doom's menu definitions. */
+#if !defined(RTS_GAME_DARK_COLONY) && !defined(RTS_GAME_DARK_REIGN)
 bool menuactive;
 bool menuerror;
 const char *menumap;

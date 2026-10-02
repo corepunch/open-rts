@@ -1312,6 +1312,8 @@ void R_FreeSpriteCache(spritecache_t *cache);
 extern bool menuactive;
 extern bool menuerror;
 extern const char *menumap;
+/* Set by a menu inside a level: release the level and show the main menu. */
+extern bool menuleave;
 
 bool M_Init(app_t *app, const char *root);
 void M_StartControlPanel(app_t *app);
