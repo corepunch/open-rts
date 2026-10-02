@@ -684,6 +684,15 @@ bool W_LoadAssets(const char *root, const level_t *map, const char *sprite,
     char bts_path[1024];
     snprintf(bts_path, sizeof(bts_path), "%s/SCENARIO/%s.BTS", root, map->tileset_name);
     if (!load_dark_colony_tileset(bts_path, tileset)) return false;
+    /* RMP bank 0 rows intensity*8+selector; full intensity is row 16*8. */
+    blob_t rmp;
+    if (W_ReadFile(M_va("%s/%s.RMP", root, map->tileset_name), &rmp)) {
+        if (rmp.size >= (16 * 8 + 8) * 256) {
+            memcpy(tileset->light_rows, rmp.bytes + 16 * 8 * 256, sizeof(tileset->light_rows));
+            tileset->light_row_count = 8;
+        }
+        W_FreeFile(&rmp);
+    }
 
     char sprite_path[1024];
     uint32_t sprite_palette[256] = { 0 };

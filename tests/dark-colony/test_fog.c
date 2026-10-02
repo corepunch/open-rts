@@ -70,6 +70,26 @@ static void check_render(void) {
     R_DrawLevel(&app, &rows, &tiles);
     V_ReadPixels(pixels, 640 * 4);
     assert(pixels[0] == 0xff00ff00 && pixels[32 * 640] == 0xffff0000);
+    /* DC.EXE 0x40a7b3: terrain reads light-selector row night_weight*7>>8. */
+    uint8_t texels[32 * 32];
+    memset(texels, 5, sizeof(texels));
+    uint16_t ids[] = {0};
+    level_t ground = {.width = 1, .height = 1, .tile_ids = ids};
+    tileset_t night = {.indices = texels, .count = 1, .tile_w = 32, .tile_h = 32,
+                       .light_row_count = 8};
+    memcpy(night.palette, palette, sizeof(palette));
+    for (int row = 0; row < 8; ++row) {
+        for (int i = 0; i < 256; ++i) night.light_rows[row][i] = (uint8_t)i;
+        night.light_rows[row][5] = (uint8_t)(10 + row);
+    }
+    const struct { int weight, index; } shades[] = {{0, 10}, {36, 10}, {37, 11}, {128, 13}, {256, 17}};
+    for (unsigned i = 0; i < sizeof(shades) / sizeof(*shades); ++i) {
+        ground.daylight.weight = shades[i].weight;
+        V_BeginFrame(0xff000000u);
+        R_DrawLevel(&app, &ground, &night);
+        assert(screens[0].pixels[0] == shades[i].index);
+        assert(screens[0].pixels[31 * screens[0].w + 31] == shades[i].index);
+    }
     V_FreeScreen();
 }
 

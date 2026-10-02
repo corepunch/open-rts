@@ -148,7 +148,7 @@ static void render_blocked_overlay(app_t *app, const level_t *map) {
 
 static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int tile,
                                    irect_t src_part, irect_t dst_part, uint8_t transforms,
-                                   uint32_t draw_flags) {
+                                   uint32_t draw_flags, const uint8_t *light) {
     tile = tileset_resolve_tile(tileset, tile, app->ticks_ms);
     if (tile < 0 || tile >= tileset->count || !tileset->indices) return;
     uint32_t flags = draw_flags;
@@ -167,11 +167,11 @@ static void render_tile_at_flipped(app_t *app, const tileset_t *tileset, int til
     }
     isize2_t size = {tileset->tile_w, tileset->tile_h};
     const uint8_t *indices = tileset->indices + (size_t)tile * (size_t)size.w * (size_t)size.h;
-    R_DrawIndexed(indices, size, palette, &src_part, &dst_part, flags);
+    R_DrawIndexed(indices, size, palette, light, &src_part, &dst_part, flags);
 }
 
 void R_DrawTile(app_t *app, const tileset_t *tileset, int tile, irect_t src_part, irect_t dst_part) {
-    render_tile_at_flipped(app, tileset, tile, src_part, dst_part, 0, 0);
+    render_tile_at_flipped(app, tileset, tile, src_part, dst_part, 0, 0, NULL);
 }
 
 void R_SetLevelPalette(const tileset_t *tileset) {
@@ -183,8 +183,20 @@ void R_SetLevelPalette(const tileset_t *tileset) {
     }
 }
 
+/* DC.EXE 0x40a7b3 passes night_weight*7>>8 to the terrain light buffer
+ * builder 0x44ee68, which ORs it into the low three bits of every light
+ * sample. The renderer then reads RMP row intensity*8+selector, so night
+ * shifts terrain colors without touching sprite team selectors. */
+static const uint8_t *terrain_light(const level_t *map, const tileset_t *tileset) {
+    if (!tileset->light_row_count) return NULL;
+    int level = map->daylight.weight * 7 >> 8;
+    if (level >= tileset->light_row_count) level = tileset->light_row_count - 1;
+    return tileset->light_rows[level < 0 ? 0 : level];
+}
+
 void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
     R_SetLevelPalette(tileset);
+    const uint8_t *light = terrain_light(map, tileset);
     int cell_w = app_cell_w(app);
     int cell_h = app_cell_h(app);
     int tile_w = app_tile_w(app, tileset);
@@ -223,7 +235,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                 map->tile_transforms[0] ? map->tile_transforms[0][idx] : 0;
             /* Ground tiles are opaque: index 0 is a colour unless the palette
              * marks it transparent. */
-            render_tile_at_flipped(app, tileset, tile, src, dst, base_flip, V_OPAQUE);
+            render_tile_at_flipped(app, tileset, tile, src, dst, base_flip, V_OPAQUE, light);
         }
     }
 
@@ -254,7 +266,7 @@ void R_DrawLevel(app_t *app, const level_t *map, const tileset_t *tileset) {
                     (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
                     map->tile_transforms[layer + 1] ?
                     map->tile_transforms[layer + 1][idx] : 0;
-                render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip, 0);
+                render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip, 0, light);
             }
         }
     }
@@ -1159,7 +1171,8 @@ static void render_overlay_tile_item(app_t *app, const level_t *map, const tiles
     uint8_t overlay_flip =
         (map->render_capabilities & MAP_RENDER_CAP_TILE_TRANSFORMS) &&
         map->tile_transforms[layer + 1] ? map->tile_transforms[layer + 1][idx] : 0;
-    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip, 0);
+    render_tile_at_flipped(app, tileset, overlay, src, dst, overlay_flip, 0,
+                           terrain_light(map, tileset));
 }
 
 void R_RenderPlayerView(app_t *app, const level_t *map, const tileset_t *tileset,

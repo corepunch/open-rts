@@ -513,7 +513,8 @@ static void blit_remapped(const irect_t *dst, const uint8_t *indices, isize2_t s
 }
 
 bool R_DrawIndexed(const uint8_t *indices, isize2_t size, const uint32_t palette[256],
-                   const irect_t *src, const irect_t *dst, uint32_t flags) {
+                   const uint8_t *remap, const irect_t *src, const irect_t *dst,
+                   uint32_t flags) {
     if (!indices || !palette || size.w <= 0 || size.h <= 0 || !dst) return false;
     if (!palette_set) I_SetPalette(palette);
     irect_t rect = src ? *src : (irect_t){0, 0, size.w, size.h};
@@ -521,7 +522,7 @@ bool R_DrawIndexed(const uint8_t *indices, isize2_t size, const uint32_t palette
         rect.x + rect.w > size.w || rect.y + rect.h > size.h) return false;
     const uint8_t *source = indices + (size_t)rect.y * (size_t)size.w + (size_t)rect.x;
     blit_remapped(dst, source, (isize2_t){rect.w, rect.h}, size.w,
-                  remap_for(palette, NULL, 0x00ffffffu), flags);
+                  remap_for(palette, remap, 0x00ffffffu), flags);
     return true;
 }
 

@@ -720,7 +720,9 @@ bool P_Attack(mobj_t *attacker) {
 
     int damage = mobj_attack_damage(attacker);
 #ifdef RTS_GAME_DARK_COLONY
+    /* The immediate fallback stands in for a native direct-impact shot. */
     damage = DC_DefendedDamage(target, damage);
+    if (damage > 0) damage = DC_DaylightDamage(attacker, damage);
 #endif
     S_ActorSound(attacker, SE_ATTACK);
     if (damage < 0 && (attacker->traits & (MF_HEAL | MF_REPAIR))) {
@@ -864,7 +866,8 @@ static void tick_missile(mobj_t *missile) {
                 if (hit) {
                     int damage = missile_damage(missile, hit);
 #ifdef RTS_GAME_DARK_COLONY
-                    damage = DC_DefendedDamage(hit, damage);
+                    damage = DC_DaylightDamage(missile->target,
+                                               DC_DefendedDamage(hit, damage));
 #endif
                     P_DamageMobj(hit, missile->target, damage);
                     P_ExplodeMissile(missile);

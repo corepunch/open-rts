@@ -1084,6 +1084,10 @@ typedef struct tileset_s {
     int tile_w;
     int tile_h;
     int draw_y_offset;
+    /* Optional native terrain light-selector rows at full intensity, indexed
+     * by night level 0..7 (DC.EXE 0x40a7b3/0x44ee68). Zero means none. */
+    int light_row_count;
+    uint8_t light_rows[8][256];
 } tileset_t;
 
 typedef struct cachedsprite_s {
@@ -1189,7 +1193,8 @@ void V_DrawTextWrapped(irect_t box, const bitmapfont_t *font, const char *text,
 int V_TextWrappedHeight(int width, const bitmapfont_t *font, const char *text);
 
 bool R_DrawIndexed(const uint8_t *indices, isize2_t size, const uint32_t palette[256],
-                   const irect_t *src, const irect_t *dst, uint32_t flags);
+                   const uint8_t *remap, const irect_t *src, const irect_t *dst,
+                   uint32_t flags);
 bool R_DrawSprite(const spritesheet_t *sprite, int frame, int palette,
                   const irect_t *src, const irect_t *dst, uint32_t flags, int intensity);
 

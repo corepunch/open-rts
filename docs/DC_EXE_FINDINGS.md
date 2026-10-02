@@ -4160,12 +4160,10 @@ not a parallel HUD timer. `SPRITES/CLOC.SPR` contains 36 28×28 cells with
 GAMESTAT.TXT SHA-256:
 `ed13afe21ffea368a5892b49de40ef063014c0a9376c5d5bb5abf1396cb27629`.
 
-**Unknown / not inferred:** a separate night terrain tint. Examined direct
-phase/weight consumers cover sight, clock UI, saved state and script gates.
-The world queue initializes global light `0x474660` to 16. The call immediately
-following the transition, `0x440ab4`, only increments the pathfinding stamp
-`0x475974` by two; it is not a palette update. No unsupported night color or
-darkening constant has been introduced.
+**Superseded (2026-10-02):** this paragraph previously listed a night terrain
+tint as unknown. The tint exists and is not a palette upload; see
+[Night terrain selector and day/night direct-hit damage](#night-terrain-selector-and-daynight-direct-hit-damage-2026-10-02).
+The pathfinding-stamp reading of `0x440ab4` stands.
 
 ### Remaining fidelity boundaries
 
@@ -5706,7 +5704,7 @@ Native's separate projectile array is deliberately not copied into the engine.
 **Limits of this port:** initial direction still uses the engine's planar
 normalization instead of DC's quantized trig table; duration uses planar
 distance/step instead of the exact dominant-axis computation. Muzzle-channel
-placement, aim scatter, armor upgrades/daylight damage, aircraft bursts,
+placement, aim scatter, aircraft bursts,
 native occupancy/terrain collision and exact RNG consumption remain unported.
 Straight projectiles use the existing swept object collision. Consequently
 these are native-authored weapon rules within the existing simulation, not
@@ -7420,3 +7418,72 @@ menu assertion at `test_menu.c:242`; an independently built export of parent
 `1c3a14d` fails the identical assertion. The HUMAN01 map screenshot was visually
 inspected. The two corner regressions also fail against that parent, verifying
 that they detect the repaired behavior rather than merely exercising the path.
+
+## Night terrain selector and day/night direct-hit damage (2026-10-02)
+
+**Evidence:** the fingerprinted DC.EXE (SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`) via the
+existing r2/r2ghidra `reverse/dc-exe-r2ghidra/all-instructions.txt` of the
+reference checkout, plus the native RMP banks. Every reader of phase `+0x53c`
+and night weight `+0x540` was enumerated; the two below were previously
+unported.
+
+**Confirmed night terrain selector:** `0x40a7b3–0x40a7cc` computes
+`night_weight*7 >> 8` (0 by day, 7 at full night) and pushes it as the
+first stack argument of the world draw `0x432f54`, which forwards it to the
+light-buffer builder `0x44ee68` (read there as `[ebp+0x8a]` after its
+`sub ebp,0x7a`). When it differs from the cached `0x477064`, `0x44eeb4–0x44ef03`
+replicates it into each byte and rewrites the 289×32-byte table at `0x50f62c`
+with `(entry & 0xf8) | selector`. The light value therefore remains in the high
+five bits and the night level occupies the low three: terrain reads RMP bank 0
+row `intensity*8 + selector`, the same layout already used by PALETTE.RMP
+fonts. At intensity 16, DESERT rows 0..7 move the mean of indices 16..239 from
+RGB (123,97,73) to (108,103,93); row 0 is identity for every index used by the
+inspected daytime HUMAN01 frame. The same selector field remaps team slots
+138..143 for sprites, so applying night rows to sprites would recolor teams.
+**Disproven:** night needs a palette upload or a darkening constant.
+
+**Implementation:** `tileset_t.light_rows` holds RMP bank 0 rows 128..135.
+`R_DrawLevel` passes row `weight*7>>8` as the source-index remap for base and
+overlay terrain; sprites are unchanged. The existing RGB fog pass still
+supplies intensity, so composing row(16,selector) with fog approximates, but
+does not copy, native rows of lower intensity.
+
+**Confirmed direct-hit penalty:** in the projectile ticker, the branch for
+weapon mode 1 (`cmp byte [type*0x88+0x4f40e0],1` at `0x43ec73`) reads the
+shooter slot `[proj+0xc]>>16`, its type byte `+0x7d2e`, and type field
+`+0x04`. GAMESTAT loader `0x4387d7` writes column 1 (race: 0 human, 1 alien)
+there. `0x43ecbd–0x43ecdf` sets the flag when race 0 and phase 1, or race 1
+and phase 0; `0x43ed6b` passes it to `0x43de94`, which applies
+`(damage*3)>>2` after weapon class, impact and defense (`0x43df64–0x43df73`).
+Thus human direct hits lose a quarter at night and alien hits by day: aliens
+are relatively stronger at night. The test uses the phase flag, not the
+blended weight, so it flips at the phase change, before the visual
+transition. Area blasts still pass zero (`0x43e678`). `DC_DaylightDamage`
+applies this after `DC_DefendedDamage` to non-timed missile hits and to the
+engine's immediate attack fallback, which stands in for a direct projectile;
+that fallback mapping is an engine choice. Heals are unaffected.
+
+**Verification:** `test_fog` checks that terrain uses selector rows 0, 0, 1,
+3 and 7 at weights 0, 36, 37, 128 and 256 without touching other indices.
+`test_support_combat` checks Trooper 100/75 and Grey 75/100 damage by day/night
+and keeps the research-tier expectations in each race's own phase. Screenshots
+of ALIEN01 (night start) differ from the previous build in 188,004 pixels,
+with the terrain's mean moving from RGB (72.5,36.4,23.7) to (54.8,41.1,38.5);
+HUMAN01 (day start) is pixel-identical.
+
+```sh
+make build/bin/tests/dark-colony/test_fog build/bin/tests/dark-colony/test_support_combat
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_support_combat
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --map SCENARIO/ALIEN/ALIEN01.MAP --screenshot /private/tmp/dc-night.bmp
+# With r2 and the fingerprinted executable:
+r2 -q -e bin.cache=true -A -c 'pd 40 @ 0x40a7a8' -c 'pd 60 @ 0x44ee68' -c 'pd 40 @ 0x43ecb6' -c q data/DCOLONY/DC.EXE
+```
+
+| Native input | SHA-256 |
+| --- | --- |
+| DESERT.RMP | `450b62c07f54925f17b5e69bb26308f97d3237875b865e130451516e45478216` |
+| JUNGLE.RMP | `386a427f1141f198f0d03abc9dae0fd76ae790cbaa478601002fe8069a4a1a56` |
+| ATLANTIS.RMP | `5d7f64c5a62f1d9b171504993bffa9cf3300cb6208603c2cd1c2caf9c0225ce0` |
+| HTRAIN.RMP | `f0bd17a7db3bf917154023b015f62e28c83ab9ff6a5dc284eadc8873e89629df` |

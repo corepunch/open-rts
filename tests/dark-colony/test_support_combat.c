@@ -1,6 +1,7 @@
 #include "t_local.h"
 #include "info.h"
 #include "dark-colony.h"
+#include "gamestat.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -90,12 +91,31 @@ int main(void) {
             attacker->attack.target = victim;
             level.upgrades[attacker->native_type_id][0].weapon = tier;
             level.upgrades[victim->native_type_id][1].armor = tier;
+            /* Each race's own time of day, which carries no 3/4 penalty. */
+            level.daylight.phase =
+                dc_gamestat_units[attacker->native_type_id].values[GAMESTAT_UNIT_RACE];
             CHECK(P_Attack(attacker));
             CHECK(victim->hp == victim->max_hp - damages[i][tier] * victim->info->defense[tier] / 256);
             CHECK(level.upgrades[victim->native_type_id][1].weapon == 0);
             P_FreeThinkers();
             memset(level.upgrades,0,sizeof(level.upgrades));
         }
+    level.daylight.phase = 0;
+    /* DC.EXE 0x43ecbd: humans hit for 3/4 at night, aliens by day. */
+    const struct { int type, phase, damage; } daylight[] = {
+        {MT_TROOPER,0,100},{MT_TROOPER,1,75},{MT_GREY,0,75},{MT_GREY,1,100}};
+    for (unsigned i = 0; i < sizeof(daylight) / sizeof(*daylight); ++i) {
+        mobj_t *attacker = spawn(daylight[i].type,10,10,0);
+        mobj_t *victim = spawn(MT_TROOPER,11,10,1);
+        attacker->traits |= MF_ATTACK;
+        attacker->attack.target = victim;
+        level.daylight.phase = daylight[i].phase;
+        CHECK(DC_DaylightDamage(attacker,100) == daylight[i].damage);
+        CHECK(P_Attack(attacker));
+        CHECK(victim->hp == victim->max_hp - attacker->info->attack.damage * daylight[i].damage / 100);
+        P_FreeThinkers();
+    }
+    level.daylight.phase = 0;
     CHECK(DC_LoadWeapons(&level,"data/DCOLONY"));
     source=spawn(MT_THUNDERBOLT,10,10,0);
     target=spawn(MT_TROOPER,10,8,1);

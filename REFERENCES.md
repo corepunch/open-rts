@@ -1652,3 +1652,12 @@ mission in the recording remains unknown. Doom's existing local
 consulted for collision validation before committing an object's position.
 No new external source or executable decompilation was used.
 [Evidence and regression vectors](docs/DC_EXE_FINDINGS.md#corner-jitter-in-shared-navigation-2026-10-02).
+
+### Dark Colony night terrain selector and day/night damage (2026-10-02)
+
+Local retail `data/DCOLONY/DC.EXE` (fingerprint above), read through the
+existing r2/r2ghidra `reverse/dc-exe-r2ghidra/all-instructions.txt`:
+`0x40a7b3`, `0x432f54`, `0x44ee68` (night light selector) and `0x43ecbd`,
+`0x43de94`, `0x4387d7` (race/phase direct-hit penalty), with the native
+`*.RMP` banks. No external source was used.
+[Findings, hashes and commands](docs/DC_EXE_FINDINGS.md#night-terrain-selector-and-daynight-direct-hit-damage-2026-10-02).

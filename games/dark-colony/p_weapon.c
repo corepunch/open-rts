@@ -1,6 +1,7 @@
 #include "engine.h"
 #include "info.h"
 #include "dark-colony.h"
+#include "gamestat.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -116,6 +117,18 @@ int DC_DefendedDamage(const mobj_t *victim, int damage) {
     int upgrade = level.upgrades[victim->native_type_id][victim->owner].armor;
     int factor = upgrade <= 2 ? victim->info->defense[upgrade] : 0;
     return factor ? damage * factor / 256 : damage;
+}
+
+/* DC.EXE 0x43ecbd-0x43ece1: a direct hit flags the shot when the shooter's
+ * GAMESTAT race (type +0x04) is human at night or alien by day; 0x43df64
+ * then applies (damage*3)>>2 after defense. The test reads phase +0x53c, not
+ * the blended weight. Area blasts pass zero (0x43e678) and stay unchanged. */
+int DC_DaylightDamage(const mobj_t *shooter, int damage) {
+    if (!shooter || shooter->native_type_id >= GAMESTAT_UNIT_COUNT) return damage;
+    int race = dc_gamestat_units[shooter->native_type_id].values[GAMESTAT_UNIT_RACE];
+    bool night = level.daylight.phase == 1;
+    if ((race == 0 && night) || (race == 1 && !night)) return damage * 3 >> 2;
+    return damage;
 }
 
 void DC_AimMissile(mobj_t *missile, fixed3_t destination) {
