@@ -21,6 +21,7 @@ BIN_DIR   := $(BUILD_DIR)/bin
 ANIM_EXTRACT_TARGET    := $(BUILD_DIR)/anim_extract
 DC_INFO_CONV_TARGET    := $(BUILD_DIR)/dc_info_conv
 DR_INFO_GEN_TARGET     := $(BUILD_DIR)/dr_info_gen
+DR_UNITS_EXTRACT_TARGET := $(BUILD_DIR)/dr_units_extract
 SL_INFO_GEN_TARGET     := $(BUILD_DIR)/7legion_info_gen
 KKND_INFO_GEN_TARGET   := $(BUILD_DIR)/kknd_info_gen
 DC_GAMESTAT_GEN_TARGET := $(BUILD_DIR)/dc_gamestat_gen
@@ -61,7 +62,7 @@ DC_LAYOUT_TEST_SOURCE := tests/test_dark_colony_sprite_layout.c
 .PHONY: all run mission-1 mission-2 test test-dark-colony test-dark-reign test-7legion test-kknd \
         test-headless test-model-commands test-ai test-layout test-loaders dark-reign dark-colony \
         dark-colony-human02 dark-colony-human03 dark-colony-info dark-colony-gamestat 7legion kknd \
-		kknd-check anim-extract dc-info-conv dr-info-gen 7legion-info-gen kknd-info-gen test-info-gen \
+		kknd-check anim-extract dc-info-conv dr-info-gen dr-units-extract dark-reign-units 7legion-info-gen kknd-info-gen test-info-gen \
 		dark-reign-info 7legion-info kknd-info dc-spr-extract dc-fin-extract clean help
 
 # ── per-game binary rule template ────────────────────────────────────────────
@@ -147,6 +148,9 @@ $(DC_INFO_CONV_TARGET): $(patsubst %.c,$(BUILD_DIR)/%.o,$(DC_INFO_CONV_SOURCES))
 $(DR_INFO_GEN_TARGET): $(BUILD_DIR)/tools/dr_info_gen.o
 	$(CC) $^ -o $@
 
+$(DR_UNITS_EXTRACT_TARGET): $(BUILD_DIR)/tools/dr_units_extract.o
+	$(CC) $^ -o $@
+
 $(SL_INFO_GEN_TARGET): $(BUILD_DIR)/tools/7legion_info_gen.o
 	$(CC) $^ -o $@
 
@@ -169,6 +173,7 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 -include $(BUILD_DIR)/tools/anim_extract.d
 -include $(patsubst %.c,$(BUILD_DIR)/%.d,$(DC_INFO_CONV_SOURCES))
 -include $(BUILD_DIR)/tools/dr_info_gen.d
+-include $(BUILD_DIR)/tools/dr_units_extract.d
 -include $(BUILD_DIR)/tools/7legion_info_gen.d
 -include $(BUILD_DIR)/tools/kknd_info_gen.d
 -include $(BUILD_DIR)/tools/dc_gamestat_gen.d
@@ -178,6 +183,11 @@ $(DC_FIN_EXTRACT_TARGET): $(BUILD_DIR)/tools/dc_fin_extract.o
 dc-info-conv: $(DC_INFO_CONV_TARGET)
 
 dr-info-gen: $(DR_INFO_GEN_TARGET)
+
+dr-units-extract: $(DR_UNITS_EXTRACT_TARGET)
+
+dark-reign-units: $(DR_UNITS_EXTRACT_TARGET)
+	$(DR_UNITS_EXTRACT_TARGET) $(DARK_REIGN_ROOT)
 
 7legion-info-gen: $(SL_INFO_GEN_TARGET)
 
@@ -333,6 +343,7 @@ help:
 	@echo "  dc-info-conv         Build the FIN/SPR inspector and state exporter"
 	@echo "  dc-fin-extract       Extract a Dark Colony FIN file as JSON"
 	@echo "  dark-reign-info      Regenerate Dark Reign info.c and info.h"
+	@echo "  dark-reign-units     Print retail Dark Reign UNITS.TXT stats"
 	@echo "  7legion-info         Regenerate 7th Legion info.c and info.h"
 	@echo "  kknd-info            Regenerate KKnD info.c and info.h"
 	@echo ""

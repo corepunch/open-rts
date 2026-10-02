@@ -8,6 +8,60 @@ Topic navigation: [disassembly index](DR_DISASSEMBLY.md),
 [state generation](DR_INFO_GEN.md), and
 [development status](DR_DEVELOPMENT_STATUS.md).
 
+## Unit movement speed (2026-10-02)
+
+Reference: retail `data/REIGN/dkreign.exe` (SHA-256 above).
+
+**Confirmed: SetPhysics storage.** The `SetPhysics(mass speed)` branch of the
+unit-definition parser (`0x004464e7`) stores mass at unit type `+0x1ac` and
+maximum speed at `+0x1ad`, both bytes.
+
+**Confirmed: per-step speed.** `0x004c00c0` (Unitmove.c), called from
+`0x004c2419` when a unit starts a tile step, computes
+`maxspeed * terrain_percent * 200`; for move modes other than 0 and 4 it
+multiplies by `(17 - |height delta|) * 0x3d70f0f1` (about 1/17). It divides by
+20000 (`0x004c0186`) and clamps to 1..59. With 100% terrain on level ground
+the result is exactly `maxspeed`. The caller stores it at unit `+0x1d1`.
+
+**Confirmed: per-tic advance.** The move thinker (`0x004c1272`,
+`0x004c131d`) moves current speed `+0x1d0` toward `+0x1d1` by at most 3 per
+tic, then adds it to step progress `+0x1d2`. A step completes when progress
+reaches 100 (`0x004c1267`, `0x004c130a`), keeping the remainder. Tile
+positions are multiplied by 24 pixels. A unit therefore covers `maxspeed/100`
+tile steps per simulation tic.
+
+**Confirmed: tic rate.** `GameSpeed` (`UserPreferences`, read at
+`0x004a3383`, default 20, range 0..60) goes through `0x004048b0` into
+`0x006ccac0`. The tic period is `1000 / GameSpeed` ms (`0x00402669`,
+`0x0040429c`). The retail default is 20 tics per second.
+
+**Implementation.** Following the existing convention of one retail tic per
+engine tic (weapon `firedelay*33ms`, 51-tic transfer animation), Dark Reign
+actor speeds use `DR_SPEED(maxspeed) = maxspeed * RTS_TICRATE / 100` tiles
+per second. At 30 tics/s this corresponds to retail GameSpeed 30, not the
+default 20; relative unit timing is preserved. The Construction Rig is now
+1.8 tiles/s (`SetPhysics(1 6)`), the Raider 2.4 and the Freighter 3.0. The
+old authored speeds (rig 5.5, raider 5.0, freighter 4.5) were invented.
+
+**Corrected defect.** `load_dark_reign_initial_units` set every
+scenario-placed unit to 5.5 tiles/s. Because `P_ApplyActorTypeDefaults()`
+keeps a non-zero speed, every unit placed by `PutUnitAt` moved at the same
+speed regardless of type. That override is removed.
+
+**Unknown.** Diagonal steps: `0x004c00c0` has no diagonal factor, so a
+diagonal step may take as many tics as an orthogonal one. The engine moves
+Euclidean distance. The acceleration limit of 3 per tic, the 1..59 clamp and
+the slope factor are not ported. Scenario units are resolved by sprite name,
+so a placed IMPSuicideZombie (speed 6) shares `ufmtrst0.spr` with the Martyr
+(speed 16) and takes the Martyr's type.
+
+Reproduce:
+
+```sh
+make dark-reign-units
+r2 -q -c 'pd 12 @ 0x4464e7' -c 'pd 60 @ 0x4c00c0' -c 'pd 40 @ 0x4c125d' \
+   -c 'pd 30 @ 0x4a3356' -c q data/REIGN/dkreign.exe
+```
 ## Runtime capability and HUD audit (2026-09-30)
 
 Reference: retail `data/REIGN/dkreign.exe`, SHA-256
@@ -257,8 +311,10 @@ perl -0777 -ne 'while (/DefineUnitType\s*\(([^)]+)\)(.*?)(?=DefineUnitType\s*\(|
 | Sky Bike | 800 / 24 | 100 | 28 | 9 |
 | Shock Wave | 4000 / 120 | 166 | 8 | 9 |
 
-These values explain the existing Dark Reign actor stats and provide the
-source of truth for future speed/cost corrections. `deftxt/BUILD.TXT` likewise
+These values provide the source of truth for speed/cost corrections. **Correction
+(2026-10-02):** the earlier claim that they explained the existing actor stats
+was wrong; actor speeds were invented until the movement-speed audit above.
+`make dark-reign-units` prints every definition. `deftxt/BUILD.TXT` likewise
 contains building costs, build times, prerequisite types, and makers.
 
 ## Implementation consequence

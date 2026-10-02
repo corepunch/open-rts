@@ -1093,7 +1093,6 @@ int load_dark_reign_initial_units(const char *map_path) {
                 if (!unit) break;
                 unit->core.position = fixed3_from_fvec2(
                     building ? (fvec2_t){gx, gy} : fvec2_cell_center((ivec2_t){ gx, gy }), 0);
-                if (!building) unit->speed = 5.5f;
                 unit->owner = current_team >= 0 && current_team < 8 ?
                     (uint8_t)current_team : 1;
                 unit->team = unit->owner;
