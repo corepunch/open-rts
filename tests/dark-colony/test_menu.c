@@ -38,12 +38,78 @@ static uint64_t region_sum(const SDL_Surface *surface, irect_t rect) {
     return sum;
 }
 
-static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {
+static void render(app_t *app, SDL_Surface *surface) {
     V_AllocScreen(640, 480);
     V_BeginFrame(0xff000000u);
     M_Drawer(app);
     V_ReadPixels(surface->pixels, surface->pitch);
+}
+
+static void screenshot(app_t *app, SDL_Surface *surface, const char *name) {
+    render(app, surface);
     CHECK(SDL_SaveBMP(surface, name) == 0);
+}
+
+static void check_globe(const SDL_Surface *surface) {
+    spritesheet_t globe = {0}, background = {0};
+    CHECK(DC_LoadSpriteImage("data/DCOLONY/INTRFACE/BLEW.SPR", &globe));
+    CHECK(W_LoadGIFTexture("data/DCOLONY/INTRFACE/NET.GIF", &background));
+    CHECK(globe.numlumps == 61);
+    bool matched = false;
+    for (int frame = 1; frame < globe.numlumps && !matched; ++frame) {
+        const spritecell_t *cell = &globe.cells[frame];
+        int compared = 0;
+        bool same = true;
+        for (int y = 0; y < cell->rect.h && same; ++y) {
+            const uint32_t *row = (const uint32_t *)((const uint8_t *)surface->pixels +
+                (24 + cell->displacement.y + y) * surface->pitch);
+            for (int x = 0; x < cell->rect.w; ++x) {
+                uint8_t index = globe.lumps[frame].indices[y * cell->rect.w + x];
+                if (!index) continue;
+                if (row[336 + cell->displacement.x + x] != background.source_palette[index]) {
+                    same = false;
+                    break;
+                }
+                ++compared;
+            }
+        }
+        matched = same && compared > 1000;
+    }
+    CHECK(matched); /* Native position, cell loop and screen palette. */
+    R_FreeSprite(&globe);
+    R_FreeSprite(&background);
+}
+
+static void check_session_name(void) {
+    fflush(NULL);
+    pid_t browser = fork();
+    CHECK(browser >= 0);
+    if (!browser) {
+        I_ShutdownNetwork();
+        CHECK(I_OpenNetBrowser("dark-colony"));
+        I_QueryNetGames("127.0.0.1");
+        int count;
+        const netgame_t *games;
+        uint64_t deadline = SDL_GetTicks64() + 3000;
+        do { games = I_NetGames(&count); SDL_Delay(1); } while (!count && SDL_GetTicks64() < deadline);
+        CHECK(count == 1);
+        char path[1024], line[128], title[128];
+        M_PathJoin(path, sizeof(path), "data/DCOLONY", games[0].map);
+        strcpy(strrchr(path, '.'), ".SCN");
+        FILE *file = fopen(path, "r");
+        CHECK(file && fgets(line, sizeof(line), file) && fgets(line, sizeof(line), file) &&
+              fgets(title, sizeof(title), file));
+        fclose(file);
+        title[strcspn(title, "\r\n")] = '\0';
+        title[sizeof(games[0].name) - 1] = '\0';
+        CHECK(!strcmp(games[0].name, title));
+        I_ShutdownNetwork();
+        _exit(0);
+    }
+    int status;
+    pid_t result;
+    do { M_Ticker(); SDL_Delay(1); result = waitpid(browser, &status, WNOHANG); } while (!result);
+    CHECK(result == browser && WIFEXITED(status) && !WEXITSTATUS(status));
 }
 
 static void join_lan_menu(app_t *app, SDL_Surface *surface) {
@@ -230,16 +296,32 @@ int main(void) {
     click(&app, 400, 325); /* Multi Player War. */
     for (int i = 0; i < 70; ++i) { SDL_Delay(17); M_Ticker(); }
     screenshot(&app, surface, "/private/tmp/dc-menu-network.bmp");
+    check_globe(surface);
+    uint64_t globe_before = region_sum(surface, (irect_t){336, 24, 250, 250});
+    const irect_t gadgets[] = {{160,296,152,168}, {344,336,104,136}, {248,48,64,158},
+                             {472,4,108,8}, {360,283,232,40}};
+    uint64_t gadget_before[5];
+    for (int i = 0; i < 5; ++i) gadget_before[i] = region_sum(surface, gadgets[i]);
+    bool changed[5] = {0};
+    for (int tick = 0; tick < 20; ++tick) {
+        SDL_Delay(17); M_Ticker();
+        render(&app, surface);
+        for (int i = 0; i < 5; ++i) changed[i] |= gadget_before[i] != region_sum(surface, gadgets[i]);
+    }
+    screenshot(&app, surface, "/private/tmp/dc-menu-network-animated.bmp");
+    check_globe(surface);
+    CHECK(globe_before != region_sum(surface, (irect_t){336, 24, 250, 250}));
+    for (int i = 0; i < 5; ++i) CHECK(changed[i]);
     CHECK(menuactive && !netgame);
     click(&app, 530, 390); /* Act as Server. */
-    screenshot(&app, surface, "/private/tmp/dc-menu-session-name.bmp");
-    key(&app, SDLK_RETURN, false);
+    /* Opens map/slot selection directly; the next clicks require MULTIE. */
     screenshot(&app, surface, "/private/tmp/dc-menu-lan-setup.bmp");
     click(&app, 110, 65); /* Three LAN slots. */
     click(&app, 110, 84); /* Four LAN slots. */
     click(&app, 150, 205); /* Select a map with enough slots. */
     click(&app, 570, 465); /* Create and advertise. */
     CHECK(menuactive && netgame && doomcom->numplayers == 4 && !menumap);
+    check_session_name();
     M_Ticker();
     screenshot(&app, surface, "/private/tmp/dc-menu-lan-wait.bmp");
     key(&app, SDLK_ESCAPE, false);

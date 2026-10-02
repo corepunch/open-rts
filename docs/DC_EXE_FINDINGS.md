@@ -7225,3 +7225,105 @@ path containing the data root twice; temporary diagnostics printed the input
 and realpath at G_DoLoadLevel, and saves now retain the canonical absolute map
 path. The Load regression requires that path to be absolute and readable.
 Diagnostics were removed before committing.
+
+## Multiplayer globe, decorative animation and TCP host entry (2026-10-02)
+
+**Evidence:** the user's retail screenshot `Screenshot 2026-10-02 at
+11.45.32.jpg` shows a blue wireframe Earth with orbit trails in NETOPTE's
+right-hand window. `Screenshot 2026-10-02 at 11.46.36.jpg` shows open-rts's
+extra session-name prompt. The inspected DC.EXE has SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`;
+this is the previously fingerprinted Watcom executable. The primary evidence
+is the existing r2/r2ghidra `skirmish-entry.txt`, `all-instructions.txt`, and
+`dc_exe.c` in the reference checkout's ignored `reverse/dc-exe-r2ghidra/`,
+cross-checked against the native SPR/FIN records with the C `dc_info_conv`.
+The current environment has no r2 executable. Apple's objdump cannot read
+this PE's import-table RVA, so its failure supplied no additional evidence.
+
+**Confirmed globe source and placement:** `0x40578b` loads the filename
+`intrface/blew` (string at `0x46d56c`) into ECX. The PIC-window constructor
+call at `0x4057a6` passes X=336 in EDX, Y=24 in EBX, and interval=50 ms on
+the stack, with mode=0 and background restore enabled. This happens outside
+the NETOPTE script and before NET.DAT loading, explaining why parsing every
+script gadget still missed the globe. `INTRFACE/BLEW.SPR` declares 61 cells;
+cell 0 is 250x250 with displacement (0,0). It belongs in the UI image cache,
+not gameplay sprite IDs.
+
+**Confirmed playback:** `0x426168` owns PIC initialization. `0x426280–0x426292`
+initializes the current cell to 1 and takes the cell limit from the loaded SPR
+header. Mode 0 enters running mode 1 at `0x426373–0x426384`. In that mode,
+`0x426497–0x4264bb` waits for elapsed time strictly greater than the interval;
+`0x426571–0x4265b4` advances by `elapsed / interval` and resets to cell 1 when
+the resulting cell reaches the SPR count. It then stores the current time
+at `0x4265f5–0x426608`. Thus BLEW loops cells 1..60 at a 50 ms interval,
+without including cell 0 or preserving overshoot at the loop boundary.
+`0x40ab70` calls `timeGetTime`, confirming milliseconds. The rendering vtable
+slot +0x58 is assigned `0x44b6c8` at `0x4298f4`; it draws the cell with
+identity remap 8 and intensity 16 through `0x44b5e4`, which adds the native
+SPR displacement at `0x44b65d/0x44b665`. Use the screen GIF palette as for
+other native menu images.
+
+**Confirmed decorative loops:** after the button entrance call at `0x4057eb`,
+`0x4057f5–0x405828` starts gadgets 14..18 using `0x422c48` with mode 0.
+That routine passes the mode to `0x423c34`. NETOPTE identifies the gadgets as
+NETA, NETB, NETC, NETD, NETE. NET.FIN supplies ranges 0..12, 13..24, 25..34;
+NETD.FIN supplies 0..29 and 30..43. Their authored zero tick values use the
+already verified two-menu-tick default. No GIF playback is needed:
+NET.GIF, INTRO.GIF and TCPWAIT.GIF are GIF87a, each with exactly one image
+descriptor and no extension blocks. A temporary C block walker checked
+those counts. **Disproven:** missing motion here means the GIF decoder needs
+to become an animated-GIF player.
+
+**Confirmed TCP host entry:** selected transport 0, server control 4 dispatches
+from `0x405921–0x40592b` to `0x405600`, which creates the TCP network through
+`0x42b414` and calls the lobby constructor `0x401210` at `0x405626`. There is
+no IPXNAMEE call in that path. The September 30 description of IPXNAMEE is
+correct as asset metadata but does not establish its use for TCP hosting;
+using that prompt for TCP was an open-rts mistake. The selected SCN's title
+now supplies the advertised LAN name, as explicitly requested by the user.
+The existing LAN protocol stores up to 31 name bytes. The retail TCP name
+assignment and retail wire protocol remain **unknown**; the map-title naming
+rule is an explicit engine behavior, not a claim about retail networking.
+
+**Confirmed implementation defect:** temporary environment-gated diagnostics
+reported `entrance=0/1 started=6 finished=1 running=8 frame=0 mode=2 visible=0`.
+The disabled IPX/modem/serial entrance gadgets were hidden before playback,
+so they could not tick, but the entrance completion logic waited for their
+one-shot mode to stop. That blocked the decoration startup indefinitely.
+Skip invisible entrance gadgets when completing the sequence, then start
+all five loops and the cached globe when the entrance finishes. Subsequent
+diagnostics confirmed 61 globe cells, initial frame 1 and origin (336,24).
+The LAN test initially reported `Network socket: Operation not permitted`;
+rerun it with local UDP socket permission. Temporary logging was removed.
+
+**Verification:** `test_menu` compares the visible globe's nonzero native
+indices with NET.GIF's palette at the executable-derived position, checks
+that the globe and each of five decoration regions change, and exercises
+server entry without another Enter key. A forked browser queries the created
+host and compares its advertised name with the selected map's SCN title.
+The existing join, race, ready, chat and cancellation checks remain active.
+Sampling NETC only at a 20-tick separation initially returned identical
+pixels because its ten frames each last two ticks; this disproves that
+single comparison as a test of stopped animation. The regression samples
+intermediate frames instead.
+
+```sh
+make build/dc_info_conv build/bin/tests/dark-colony/test_menu
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/NET.FIN
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/NETD.FIN
+build/dc_info_conv --cell 0 data/DCOLONY/INTRFACE/BLEW.SPR
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/bin/tests/dark-colony/test_menu
+# With r2 installed and the fingerprinted executable available:
+r2 -q -e bin.cache=true -A -c 'pdf @ 0x405770' -c 'pdf @ 0x426168' -c 'pdf @ 0x426310' -c q data/DCOLONY/DC.EXE
+```
+
+The menu regression writes `/private/tmp/dc-menu-network.bmp`,
+`dc-menu-network-animated.bmp`, and `dc-menu-lan-setup.bmp` for visual review.
+
+| Native input | SHA-256 |
+| --- | --- |
+| INTRFACE/BLEW.SPR | `3cf7fc1eb9dbd343d903bc3806291a909eba21ebce3c0c9b8538f523225979e6` |
+| INTRFACE/NET.GIF | `873d4d694205c74687f5832cb1060bf7a93abb68acb25f59838491a70eae1e73` |
+| INTRFACE/NETOPTE | `54a8c9078f025cf22d7fd71be34602b17773af19ed0ea59046d38c2c578e82c1` |
+| ANIMATE/NET.FIN | `84befd6bb2bb7be0e5aee2d7d6c5752abbe2c3a11bd658ffd9c8e08557bfd2e6` |
+| ANIMATE/NETD.FIN | `9195c68067c95f226ce072a8ee0f60ba69bc6f938329ae631886d1a39ba7180e` |
