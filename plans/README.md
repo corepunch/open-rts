@@ -17,6 +17,12 @@ checkboxes as complete when the corresponding code and tests land.
 | [ ] | [007-dark-reign-model-production.md](007-dark-reign-model-production.md) | Mirror model-side products and production into Dark Reign. |
 | [ ] | [010-dc-info-gen-coverage-and-dropship-actions.md](010-dc-info-gen-coverage-and-dropship-actions.md) | Regenerate `info.c` with full sprite coverage; migrate Dropship timing to `A_` state actions. |
 
+## 7th Legion
+
+| Status | Plan | Summary |
+|--------|------|---------|
+| [ ] | [011-7legion-native-unit-data.md](011-7legion-native-unit-data.md) | Trace sprite mapping and stat units in legion.exe; author native actor stats. |
+
 ## Maintenance
 
 - Prefer updating plan checkboxes in the same commit as implementation.
