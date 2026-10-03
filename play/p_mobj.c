@@ -126,6 +126,16 @@ static int mobj_attack_cooldown_ms(const mobj_t *unit) {
     return unit && unit->info ? unit->info->attack.cooldown_ms : 0;
 }
 
+static void start_attack_cooldown(mobj_t *attacker) {
+    if (mobj_attack_cooldown_ms(attacker) > 0)
+        attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
+    if (attacker->info->attack.shots > 0 &&
+        ++attacker->attack.shots >= attacker->info->attack.shots) {
+        attacker->attack.shots = 0;
+        attacker->attack.cooldown_left_ms = attacker->info->attack.reload_ms;
+    }
+}
+
 static int mobj_harvest_state(const mobj_t *unit) {
     return unit && unit->info ? unit->info->harvest.state_id : 0;
 }
@@ -705,13 +715,7 @@ bool P_Attack(mobj_t *attacker) {
             attacker->hp -= attacker->info->attack.health_cost;
             if (attacker->hp < 0) attacker->hp = 1;
         }
-        if (mobj_attack_cooldown_ms(attacker) > 0)
-            attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
-        if (attacker->info->attack.shots > 0 &&
-            ++attacker->attack.shots >= attacker->info->attack.shots) {
-            attacker->attack.shots = 0;
-            attacker->attack.cooldown_left_ms = attacker->info->attack.reload_ms;
-        }
+        start_attack_cooldown(attacker);
         debug_effects_log("missile launch source=%d type=%u target=%d speed=%d",
                           attacker->id, missile->type_id, target->id,
                           gameinfo->mobjinfo[missile->type_id].speed);
@@ -719,6 +723,9 @@ bool P_Attack(mobj_t *attacker) {
     }
 
     int damage = mobj_attack_damage(attacker);
+    unsigned armor = target->info ? target->info->armor_class : 0;
+    if (attacker->info && armor < 3 && attacker->info->attack.versus[armor])
+        damage = attacker->info->attack.versus[armor];
 #ifdef RTS_GAME_DARK_COLONY
     /* The immediate fallback stands in for a native direct-impact shot. */
     damage = DC_DefendedDamage(target, damage);
@@ -730,8 +737,7 @@ bool P_Attack(mobj_t *attacker) {
         if (amount > target->max_hp - target->hp) amount = target->max_hp - target->hp;
         target->hp += amount;
     } else P_DamageMobj(target, attacker, damage);
-    if (mobj_attack_cooldown_ms(attacker) > 0)
-        attacker->attack.cooldown_left_ms = mobj_attack_cooldown_ms(attacker);
+    if (attacker->info) start_attack_cooldown(attacker);
     debug_effects_log("state attack attacker_type=%u target=%d damage=%d hp=%d/%d",
                       attacker->type_id, target->id, mobj_attack_damage(attacker),
                       target->hp, target->max_hp);

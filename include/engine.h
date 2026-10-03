@@ -577,6 +577,7 @@ typedef struct mobjtype_s {
     struct {
         float range;
         int damage;
+        int versus[3]; /* Damage by victim armor_class 0..2; zero uses damage. */
         int upgrade_damage[2];
         int cooldown_ms;
         uint16_t projectile_type;

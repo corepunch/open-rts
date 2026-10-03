@@ -27,7 +27,7 @@ static int opening_encounter(void) {
     int hp = enemy->hp;
     rifleman->attack.target = enemy;
     CHECK(P_MoveUnitTo(&level, rifleman, start));
-    bool hit = false, returned_fire = false, advanced = false, dying = false;
+    bool hit = false, returned_fire = false, dying = false;
     RtsRenderSnapshot snapshot;
     for (int tic = 0; tic < 1800 && !dying; ++tic) {
         CHECK(rts_tick(model, &snapshot));
@@ -38,15 +38,15 @@ static int opening_encounter(void) {
             hit = true;
             if (snapshot.units[ei].hp > 0) CHECK(enemy->attack.target);
         }
-        advanced |= fvec2_distance_squared(snapshot.units[ei].position, start) > 0.25f;
         returned_fire |= snapshot.units[pi].hp < snapshot.units[pi].max_hp;
         dying = snapshot.units[ei].hp == 0;
     }
-    CHECK(hit && advanced && returned_fire && dying);
+    /* UNITS.CFG gives both sides a 96-pixel range, so the Berserker answers in place. */
+    CHECK(hit && returned_fire && dying);
     CHECK(!enemy->remove && enemy->core.sprite_id == SPR_EXTRAS);
     CHECK(!(enemy->traits & (MF_ATTACK | MF_MOBILE | MF_SELECTABLE)));
     rts_game_model_destroy(model);
-    puts("PASS: native first encounter advances, returns fire, and enters a visible death state");
+    puts("PASS: native first encounter returns fire and enters a visible death state");
     return 0;
 }
 
