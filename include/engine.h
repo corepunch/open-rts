@@ -291,7 +291,7 @@ enum {
 
 #define SIGHT_EXPLORED UINT32_C(0x80000000)
 typedef struct {
-    uint32_t *cells; /* Current team bits and persistent local exploration. */
+    uint32_t *cells; /* Team sight in bits 23..30, explored in 31, detector teams in 0..7. */
     uint32_t allies[8];
 } sightmap_t;
 

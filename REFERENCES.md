@@ -1661,3 +1661,21 @@ existing r2/r2ghidra `reverse/dc-exe-r2ghidra/all-instructions.txt`:
 `0x43de94`, `0x4387d7` (race/phase direct-hit penalty), with the native
 `*.RMP` banks. No external source was used.
 [Findings, hashes and commands](docs/DC_EXE_FINDINGS.md#night-terrain-selector-and-daynight-direct-hit-damage-2026-10-02).
+
+### Dark Colony larger sight and fog performance (2026-10-03)
+
+Retail executable fingerprint above; fresh C extraction from `0x483fbc`,
+existing r2/r2ghidra listings at `0x446240..0x44625e` (day/night radius),
+`0x418b54` (sight cadence), and `0x418c55..0x418c8f` (independent base income).
+The executable is available in the primary checkout at
+`/Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE`. The larger radius and
+30 Hz refresh are requested engine behavior.
+[Evidence, corrected doubling defect, native parent rule and benchmarks](docs/DC_EXE_FINDINGS.md#sight-radius-audit-and-fast-fog-refresh-2026-10-03).
+
+The user-provided [Warcraft 2000: Nuclear Epidemic source](https://github.com/agend/warcraft-2000-nuclear-epidemic),
+local `/Users/igor/Developer/warcraft-2000-nuclear-epidemic`, commit
+`018cf4b7c7c502ebe51505ea3dd5588e8ae32e48`: `fog.cpp` (`LoadFog`,
+`ShowSuperFluentFog32_160`, `ShowSuperFog`, `ProcessFog`) and `Nation.cpp`
+(`OneObject::MakePreProcess`). Used as a performance comparison for palette
+lookups, uniform-tile fast paths and direct framebuffer writes. Its scalar
+vision diffusion and spot stamping are not Dark Colony visibility rules.

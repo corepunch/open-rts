@@ -7487,3 +7487,127 @@ r2 -q -e bin.cache=true -A -c 'pd 40 @ 0x40a7a8' -c 'pd 60 @ 0x44ee68' -c 'pd 40
 | JUNGLE.RMP | `386a427f1141f198f0d03abc9dae0fd76ae790cbaa478601002fe8069a4a1a56` |
 | ATLANTIS.RMP | `5d7f64c5a62f1d9b171504993bffa9cf3300cb6208603c2cd1c2caf9c0225ce0` |
 | HTRAIN.RMP | `f0bd17a7db3bf917154023b015f62e28c83ab9ff6a5dc284eadc8873e89629df` |
+
+## Sight radius audit and fast fog refresh (2026-10-03)
+
+Evidence: retail DC.EXE SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`,
+566272 bytes, read from `/Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE`
+because this worktree does not contain the executable. The previously captured
+r2/r2ghidra `all-instructions.txt`, `fog-timing.txt`, and `dc_exe.c` were
+cross-checked with a fresh C extraction of the executable's sight trees. No
+fresh decompiler run was available in this worktree. The installed native data
+at `data/DCOLONY/GAMESTAT/GAMESTAT.TXT` has SHA-256
+`1ab3498ce5f3d7127f1d28acbd1a25e6ace97b248f3a0270e364a24d6944e34b`;
+this differs from the earlier report's GAMESTAT fingerprint, so the two files
+must not be described as byte-identical.
+
+**Confirmed retail:** sight belongs to each unit type. GAMESTAT columns
+OBS_DAY/OBS_NIGHT feed type `+0x14`/`+0x10`. Instructions at
+`0x446240..0x44625e` multiply these by day/night weights, add, and shift right
+by eight. Trooper is 7/4 cells, Grey is 4/7, Exploiter is 6/4, Scout is 8/8,
+and Cyborg is 10/10. Thus a Trooper's full daytime diameter is fourteen cells;
+seven is its radius. Ground terrain pruning can reduce visible coverage even
+inside that circle. There is no confirmed extra retail doubling. The original
+report's DOTT-based radius hypothesis remains disproven.
+
+**Confirmed defect in engine commit `c7f6ad8`:** doubling the authored numbers
+made a daytime Trooper request radius 14 and a Cyborg request 20, but
+`reveal_sight()` rejected any radius above 10. These observers contributed no
+sight, rather than enlarged sight. Restoring the native C literals makes all
+nonzero authored day/night pairs agree with the committed GAMESTAT fixture;
+`test_fog` checks every such actor type. The expanded footprint is now applied
+explicitly after native interpolation: `2 * ((weight*night +
+(256-weight)*day) >> 8)`. This is **requested engine behavior**, including its
+integer rounding, rather than a claim about DC.EXE.
+
+**Confirmed tree relationship:** a fresh extraction from root table `0x483fbc`
+revalidates all ten native trees (5, 13, 29, 49, 81, 113, 149, 197, 253, 317
+cells). All 316 edges of the largest tree match this rule: with
+`depth = max(abs(x),abs(y))`, each parent component is
+`sign(c) * floor((2*abs(c)*(depth-1)+depth)/(2*depth))`. Every smaller tree has
+the same parent edges and depths. The extractor verifies this relationship
+before generating a single traversal out to radius 20 (1257 cells), with
+precomputed squared distances and subtree ends. Radii 1..10 retain the native
+occlusion topology; applying the same rule to 11..20 is an **engine extension**.
+The executable does not supply a radius-20 tree. The earlier 317-entry runtime
+limit is superseded by this explicitly requested extension.
+
+**Confirmed retail cadence:** `0x418b54` tests game `+0x94c` against `0x0f`,
+then calls visibility clear `0x441a20` and reveal `0x446158`. At default
+66 ms native ticks this is about 1.056 seconds between updates. Base income
+independently tests the same mask at `0x418c55`; `0x418c79..0x418c8f` adds
+team `+0x19b4` to credits `+0xbac` when city slot `+0xbd4` exists. Yesterday's
+shared four-tick engine block accelerated both fog and income by four.
+Dark Colony fog now refreshes each 30 Hz simulation tic (33.3 ms), while income
+retains sixteen native ticks. This faster visibility is **requested engine
+behavior**. Other plugins keep their existing refresh cadence.
+
+**Optimization and rendering equivalence:** the sight loop computes its base
+cell index once, avoids bounds checks for fully interior circles (as retail's
+specialized traversals do), and uses generated squared distances. Detector
+teams occupy the visibility cell's otherwise unused low eight bits for one
+pass; mines resolve those bits once after all observers. This removes the
+old detector-cell × object-list search while preserving near-only terrain,
+blocked branches, flying detection, alliances, and loss of detection on death.
+These low bits are engine storage, not retail occupancy metadata.
+
+Fog drawing now writes palette indices directly into the composed framebuffer.
+The native 17×17×32 integer interpolation table replaces per-pixel divisions;
+fully clear tiles are skipped, black tiles use row fills with the palette's
+actual black index, and other uniform tiles use one palette lookup. Partial
+edges retain vertical truncation followed by horizontal truncation. There is
+no viewport light-buffer allocation or full-buffer copy per frame. Regression
+comparisons check every framebuffer pixel for four cell sizes (including
+23×37), four camera offsets, map edges, alternating visible/explored/hidden
+cells, HUD exclusion, and a palette whose black index is not zero. Existing
+RMP tint behavior is unchanged.
+
+**Source comparison:** the user-provided Warcraft 2000 checkout
+`018cf4b7c7c502ebe51505ea3dd5588e8ae32e48` uses `fog.cpp:LoadFog`,
+`ShowSuperFluentFog32_160`, and `ShowSuperFog` for indexed lookup tables,
+flat-tile fast paths and direct screen writes. Those are the applicable speed
+ideas. `ProcessFog` diffuses and quantizes a 256×256 scalar field, and
+`Nation.cpp:OneObject::MakePreProcess` stamps selected vision spots. That is a
+different visibility algorithm; importing it would lose DC terrain pruning
+and discrete current/explored masks. No Warcraft assembly or coefficients
+were copied.
+
+**Measured locally, optimized C build:** the optional `test_fog` benchmark uses
+800 observers on a 128×128 map and 200 warm passes. The original radius-10 pass
+was 0.782 ms; the optimized equivalent footprint was 0.353 ms, and radius 20
+(about four times the area) was 1.173 ms. Making all 800 radius-10 observers
+detectors was also 0.353 ms. The mixed clear/explored/hidden 1920×1080 frame
+(including the excluded sidebar) fell from 2.078 ms to 0.544 ms. These are
+microbenchmark observations, not whole-game frame-rate promises. No timing
+threshold is imposed by tests.
+
+Reproduce the extraction and focused checks:
+
+```sh
+make build/dc_sight_gen build/bin/tests/dark-colony/test_fog
+build/dc_sight_gen /Users/igor/Developer/open-rts/data/DCOLONY/DC.EXE 20 > /private/tmp/dc-sight-20.h
+cmp play/p_sight_data.h /private/tmp/dc-sight-20.h
+env SDL_VIDEODRIVER=dummy OPEN_RTS_BENCH_FOG=1 build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN01.MAP SPRITES/TROOPER1.SPR --screenshot /private/tmp/dc-fog-world.bmp
+```
+
+The explicit map argument is required for a world screenshot; without it the
+current front end screenshots its startup/menu screen. Native object memory,
+status-dependent sight shrinkage, and special observer eligibility retain the
+fidelity boundaries documented above; this work does not establish those as
+retail-equivalent.
+
+**Final verification:** `make` builds all four game binaries without new
+warnings; all four headless `--check` runs succeed, and the explicit HUMAN01
+world screenshot was inspected. The four game test suites ran 119 binaries:
+117 exited successfully (including intentional skips). Two Dark Colony tests
+also fail when relinked with the original HEAD versions of `g_game.c`,
+`p_sight.c`, `p_tick.c`, and `r_fog.c`: `test_drop_fin_states` expects
+SLUGDEPLOY14 to finish at state 288 but receives 289 (remove=0, tics=5), and
+`test_menu` fails to host its LAN lobby (menuactive=1, netgame=0, players=1,
+no map). These are pre-existing failures, not fog regressions. Temporary
+diagnostic logging was confined to scratch test copies and removed from the
+runtime source. The final focused fog test and deterministic regenerated-header
+comparison both pass after all edits.

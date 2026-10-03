@@ -1,6 +1,5 @@
 #include "engine.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 /* DC.EXE 0x44ecd0/0x44ee68: quantize each vertical interpolation first,
@@ -31,10 +30,16 @@ static int corner_brightness(const level_t *map, ivec2_t corner) {
 static uint8_t fogmap[17][256];
 static uint32_t fogmap_palette[256];
 static bool fogmap_ready;
+static uint8_t foglerp[17][17][32];
 
 static void ensure_fogmap(void) {
     if (fogmap_ready && memcmp(fogmap_palette, vpalette, sizeof(vpalette)) == 0) return;
     memcpy(fogmap_palette, vpalette, sizeof(vpalette));
+    if (!fogmap_ready)
+        for (int a = 0; a <= 16; ++a)
+            for (int b = 0; b <= 16; ++b)
+                for (int p = 0; p < 32; ++p)
+                    foglerp[a][b][p] = (uint8_t)(((31 - p) * a + p * b) / 31);
     for (int sample = 0; sample <= 16; ++sample) {
         int light = sample * 255 / 16;
         for (int i = 0; i < 256; ++i) {
@@ -66,13 +71,17 @@ void R_DrawFog(app_t *app, const level_t *map) {
     int y0 = dst.y > 0 ? dst.y : 0;
     int x1 = dst.x + dst.w < width ? dst.x + dst.w : width;
     int y1 = dst.y + dst.h < height ? dst.y + dst.h : height;
-    int src_w = tiles.w * 32;
-    int src_h = tiles.h * 32;
-    if (dst.w <= 0 || dst.h <= 0 || src_w <= 0 || src_h <= 0 || x0 >= x1 || y0 >= y1) return;
-    uint8_t *lights = malloc((size_t)src_w * (size_t)src_h);
-    if (!lights) return;
+    if (dst.w <= 0 || dst.h <= 0 || x0 >= x1 || y0 >= y1) return;
     for (int ty = 0; ty < tiles.h; ++ty) {
+        int tile_y = dst.y + ty * app->cell.h;
+        int top = tile_y > y0 ? tile_y : y0;
+        int bottom = tile_y + app->cell.h < y1 ? tile_y + app->cell.h : y1;
+        if (top >= bottom) continue;
         for (int tx = 0; tx < tiles.w; ++tx) {
+            int tile_x = dst.x + tx * app->cell.w;
+            int left = tile_x > x0 ? tile_x : x0;
+            int right = tile_x + app->cell.w < x1 ? tile_x + app->cell.w : x1;
+            if (left >= right) continue;
             ivec2_t cell = ivec2_add(first, (ivec2_t){tx, ty});
             int corners[4] = {0};
             if (L_Contains(map, cell.x, cell.y)) {
@@ -81,27 +90,30 @@ void R_DrawFog(app_t *app, const level_t *map) {
                 corners[2] = corner_brightness(map, ivec2_add(cell, (ivec2_t){0, 1}));
                 corners[3] = corner_brightness(map, ivec2_add(cell, (ivec2_t){1, 1}));
             }
-            for (int ly = 0; ly < 32; ++ly) {
-                uint8_t *sample = lights + ((size_t)(ty * 32 + ly) * (size_t)src_w + (size_t)tx * 32);
-                for (int lx = 0; lx < 32; ++lx) {
-                    int light = R_FogSample(corners, (ivec2_t){lx, ly});
-                    sample[lx] = (uint8_t)(light < 0 ? 0 : light > 16 ? 16 : light);
+            bool uniform = corners[0] == corners[1] && corners[0] == corners[2] && corners[0] == corners[3];
+            if (uniform && corners[0] == 16) continue;
+            for (int y = top; y < bottom; ++y) {
+                uint8_t *row = screens[0].pixels + (size_t)y * screens[0].w;
+                if (uniform) {
+                    if (!corners[0]) memset(row + left, fogmap[0][0], (size_t)(right - left));
+                    else {
+                        const uint8_t *shade = fogmap[corners[0]];
+                        for (int x = left; x < right; ++x) row[x] = shade[row[x]];
+                    }
+                    continue;
+                }
+                int ly = (y - tile_y) * 32 / app->cell.h;
+                int a = foglerp[corners[0]][corners[2]][ly];
+                int b = foglerp[corners[1]][corners[3]][ly];
+                const uint8_t *samples = foglerp[a][b];
+                if (app->cell.w == 32) {
+                    for (int x = left; x < right; ++x)
+                        row[x] = fogmap[samples[x - tile_x]][row[x]];
+                } else {
+                    for (int x = left; x < right; ++x)
+                        row[x] = fogmap[samples[(x - tile_x) * 32 / app->cell.w]][row[x]];
                 }
             }
         }
     }
-    for (int y = y0; y < y1; ++y) {
-        int sy = (y - dst.y) * src_h / dst.h;
-        if (sy < 0) sy = 0;
-        if (sy >= src_h) sy = src_h - 1;
-        const uint8_t *sample = lights + (size_t)sy * (size_t)src_w;
-        uint8_t *row = screens[0].pixels + (size_t)y * (size_t)screens[0].w;
-        for (int x = x0; x < x1; ++x) {
-            int sx = (x - dst.x) * src_w / dst.w;
-            if (sx < 0) sx = 0;
-            if (sx >= src_w) sx = src_w - 1;
-            row[x] = fogmap[sample[sx]][row[x]];
-        }
-    }
-    free(lights);
 }
