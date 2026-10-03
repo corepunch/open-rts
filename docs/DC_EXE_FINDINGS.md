@@ -7693,3 +7693,62 @@ Human02 opening. Its 120-tic mission check still pays three three-credit
 installments over four simulated seconds and advances the native day clock
 by sixty ticks. Fog and support-combat tests, all-game build, Human02 smoke
 check and a visually inspected world screenshot pass.
+
+### Preserve the corrected Brozaar mining cycle in tests (2026-10-03)
+
+**Confirmed engine regression:** `3e2ca75` changed the alien Brozaar/Slug
+(`MT_SLUG`, faction 1 product row 21, UI ID 46) from an endlessly repeating
+`S_SLUG_DEPLOY1` to `S_SLUG_DEPLOY1 -> S_SLUG_WORK1 -> S_SLUG_WORK1`.
+The old FIN regression still expected deploy to return to itself. Temporary
+logging reproduced state 289 (`S_SLUG_WORK1`), logical frame 251, five tics,
+remove=0, against its obsolete expected state 288 (`S_SLUG_DEPLOY1`). The
+failure reported in the fog verification above was a stale test expectation,
+not a reason to restore the incorrect mining animation. The earlier commit's
+message reverses the human/alien names; the product table identifies Slug as
+the alien Brozaar and `MT_EXPLOITER` as the human Exploiter.
+
+**Confirmed asset mapping:** `ANIMATE/SLUG.FIN` labels `SLUGDEPLOY14` as native
+frames 147–160 and `SLUGRETRACT14` as 161–174. `SPRITES/SLUG.SPR` has 90 cells,
+so these become logical frames 237–250 and 251–264. The corrected engine work
+state deliberately uses the second range with its existing 14-frame, 66-tic
+cycle; the separate retract state uses the same frames and ends at `S_NULL`.
+The corrected regression independently compares all work-state FIN layers,
+pixels and durations, as well as the deploy-to-work and work-to-work exits.
+No runtime states, native assets, timing or harvesting behavior changed.
+**Unknown:** this test does not establish that retail mining dispatch selects
+the label named `SLUGRETRACT14`; it preserves the user's previously corrected
+engine mining presentation.
+
+Fingerprints remain unchanged: `SLUG.FIN` SHA-256
+`f1b813f0607aab425b57011f19f16110d8c5b33179691d08dd4b9558afb87d6b`,
+`SLUG.SPR` SHA-256
+`15f8f25029981f001b9e963f0efeb27e25769a46801a986e544ea63f926c73cc`,
+and retail `DC.EXE` SHA-256
+`008052f5bc7fadfbf3809187256b000dd0115aaef1ab4fd0a9c26dfe93661f5a`.
+No new executable behavior was inferred.
+
+The live vent regression now issues a real harvest order for each race,
+waits for its deploy-to-work transition, then checks two complete work cycles
+frame by frame through `P_Ticker`, including mining phase and vent attachment.
+This protects both the Brozaar correction and the Exploiter's existing
+logical frames 102–103 with two/four-tic timing. Reproduce:
+
+```sh
+make dc-info-conv build/bin/tests/dark-colony/test_drop_fin_states build/bin/tests/dark-colony/test_vent_states
+build/dc_info_conv --labels data/DCOLONY/ANIMATE/SLUG.FIN
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_drop_fin_states
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_vent_states
+```
+
+**Confirmed test-environment issue:** the previously reported multiplayer
+menu failure occurs without permission to create its local UDP sockets.
+Running `test_menu` with local socket access passes LAN creation, browse,
+direct join, cancellation and the four-player lobby check. This requires
+appropriate test-runner permissions, not a game-code workaround or a skip.
+
+**Verification:** `env SDL_VIDEODRIVER=dummy make -j4 test test-network`
+passes with local socket access: 121 game test binaries (including intentional
+skips), all 13 network modes, four loader fixtures, both model-command tests,
+the sprite-layout check, and all three generated-state comparisons. The
+Brozaar deploy/work FIN pixel check and both live harvester work cycles pass.
+Temporary diagnostic logging was removed before the complete run.

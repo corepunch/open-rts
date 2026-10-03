@@ -20,7 +20,7 @@ static void draw(app_t *app, SDL_Surface *surface, const tileset_t *tiles,
     V_ReadPixels(surface->pixels, surface->pitch);
 }
 
-static void check_harvester_attachment(uint16_t type, int harvest_state,
+static void check_harvester_attachment(uint16_t type, int harvest_state, int work_state,
                                        resourcevent_t *resource, mobj_t *vent) {
     mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), type);
     assert(unit && (unit->traits & MF_HARVESTER));
@@ -31,6 +31,23 @@ static void check_harvester_attachment(uint16_t type, int harvest_state,
     assert(unit->core.state_id == harvest_state);
     for (int tic = 0; tic < 30 && vent->core.state_id != S_VENT_ATTACHED; ++tic)
         P_Ticker();
+    assert(vent->core.state_id == S_VENT_ATTACHED && P_MobjIsHidden(vent));
+    int deploy_tics = 0;
+    for (int frame = 0; frame < P_StateFrames(&states[harvest_state]); ++frame)
+        deploy_tics += P_StateTics(&states[harvest_state], frame);
+    for (int tic = 0; tic < deploy_tics && unit->core.state_id != work_state; ++tic)
+        P_Ticker();
+    const state_t *work = &states[work_state];
+    for (int cycle = 0; cycle < 2; ++cycle) {
+        for (int frame = 0; frame < P_StateFrames(work); ++frame) {
+            assert(unit->harvest.phase == HARVEST_PHASE_MINING);
+            assert(unit->core.state_id == work_state && unit->core.state_frame == frame);
+            assert(unit->core.frame == work->frame + frame);
+            assert(unit->core.tics == P_StateTics(work, frame));
+            tick(P_StateTics(work, frame));
+        }
+    }
+    assert(unit->core.state_id == work_state && unit->core.state_frame == 0);
     assert(vent->core.state_id == S_VENT_ATTACHED && P_MobjIsHidden(vent));
     P_RemoveMobj(unit);
     P_Ticker();
@@ -145,8 +162,8 @@ int main(void) {
     tick(1);
     assert(active(vent) && !P_MobjIsHidden(vent));
 
-    check_harvester_attachment(MT_EXPLOITER, S_EXPL_DEPLOY1, resource, vent);
-    check_harvester_attachment(MT_SLUG, S_SLUG_DEPLOY1, resource, vent);
+    check_harvester_attachment(MT_EXPLOITER, S_EXPL_DEPLOY1, S_EXPL_WORK1, resource, vent);
+    check_harvester_attachment(MT_SLUG, S_SLUG_DEPLOY1, S_SLUG_WORK1, resource, vent);
 
     exploiter = P_SpawnMobj(fixed3_from_fvec2(resource->attachment, 0), MT_EXPLOITER);
     assert(exploiter);
@@ -221,6 +238,6 @@ int main(void) {
     SDL_FreeSurface(surface);
     P_FreeLevel(&level);
     assert(thinkercap.next == &thinkercap);
-    puts("PASS: vent/beacon FIN rendering and timing; vent attachment, depletion, reactivation and lifecycle");
+    puts("PASS: vent/beacon FIN rendering and timing; harvester deploy/work cycles, vent attachment, depletion, reactivation and lifecycle");
     return 0;
 }
