@@ -160,19 +160,19 @@ int main(int argc, char **argv) {
     if (pos + DAMAGE_SIZE != stuff.size) goto truncated;
     memcpy(damage, stuff.data + pos, DAMAGE_SIZE);
 
-    printf("%-3s %-14s %-4s %5s %5s %6s %-9s %-13s %-13s %6s %5s %6s %s\n",
+        printf("%-3s %-14s %-4s %5s %5s %6s %-9s %-13s %-13s %6s %5s %6s %-10s %s\n",
            "id", "vehicle", "side", "cost", "build", "health", "armour", "weapon",
-           "weapon2", "speed", "turn", "reload", "source");
+            "weapon2", "speed", "turn", "reload", "source", "routine");
     for (int i = 0; i < VEHICLE_COUNT; ++i) {
         const uint8_t *r = vehicles + i * VEHICLE_SIZE;
         int side = i16(r + 0x24);
         const char *prefix = side >= 0 && side < 2 ? (const char *)at(SIDES + side * 8, 8) : "?";
-        printf("%-3d %-14.20s %-4s %5u %5d %6d %-9s %-13s %-13s %6.3f %5d %6d %s\n", i,
+        printf("%-3d %-14.20s %-4s %5u %5d %6d %-9s %-13s %-13s %6.3f %5d %6d %s 0x%08x\n", i,
                (const char *)at(VT_NAMES + i * NAME_SIZE, NAME_SIZE) + 3, prefix, u32(r + 0x04),
                i16(r + 0x08), i16(r + 0x02), armour_name(i16(r + 0x14)),
                weapon_name(i16(r + 0x0e)), weapon_name(i16(r + 0x10)),
                (int32_t)u32(r + 0x1c) / 65536.0, i16(r + 0x20), i16(r + 0x12),
-               overridden[i] ? "stuff.dat" : "legion.exe");
+               overridden[i] ? "stuff.dat" : "legion.exe", u32(r + 0x38));
     }
 
     printf("\n%-3s %-14s %5s %5s %6s %-9s %-13s %s\n",
