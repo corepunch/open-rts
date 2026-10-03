@@ -1684,3 +1684,29 @@ The later user revision restores retail sight distances and sets fog refresh
 to 10 Hz; the 2x distance and 30 Hz policy in the preceding entries is
 superseded. The C extractor now emits only the verified 317-node native tree.
 [Current policy and checks](docs/DC_EXE_FINDINGS.md#current-fog-policy-retail-distances-and-10-hz-refresh-2026-10-03).
+
+### Warcraft II PUD and MAINDAT (2026-10-03)
+
+Retail `data/WAR2/DATA/MAINDAT.WAR` (10,403,193 bytes, SHA-256
+`791bae4480d564f017122a82c9481dabd952424151f2b5d20245793e654ad3bb`) and the
+eight loose PUDs under `data/WAR2/`. `WAR2.EXE` (878,119 bytes, SHA-256
+`a2b4b2118ec6355371b58134be8c7331d1facc5989e7188a1d1bb68fd1f26671`, 22 May
+1997) was not disassembled.
+
+[Wargus](https://github.com/Wargus/wargus) checkout `reference/wargus`, commit
+`cde1a0718a0058cc651ecd56ff8149fc39f624e9`. GPL-2. Used as a format and stats
+reference (`pud.cpp`, `wartool.cpp`, `scripts/stratagus.lua`
+`DefinePlayerColorIndex(208, 4)`, `scripts/*/units.lua`). Source was not
+copied.
+
+[war2tools](https://github.com/war2/war2tools) `libwar2/sprites.c` (MIT) was
+read for GRP entry numbers. Its single player-RGB table matches winter blue,
+not the forest palette, and is not used for remaps. See
+`docs/WAR2_DATA.md`.
+
+[Warcraft 2000: Nuclear Epidemic](https://github.com/ForNeVeR/warcraft-2000-nuclear-epidemic)
+checkout `reference/warcraft2000`, commit
+`4d12ad3e62ba03c59b2dbec2a989f58d744018ee`. This is a later pin than the fog
+comparison checkout `018cf4b7` recorded above. `Build.cpp` does not load PUD
+or `MAINDAT.WAR`; that map format was not adopted. License unclear; behavioral
+reference only.
