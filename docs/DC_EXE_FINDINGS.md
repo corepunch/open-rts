@@ -7660,3 +7660,36 @@ env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_fog
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR --screenshot /private/tmp/dc-human02-fixed.bmp
 make dark-colony-human02
 ```
+
+### Current fog policy: retail distances and 10 Hz refresh (2026-10-03)
+
+**User-requested revision:** this supersedes the 2x radius and 30 Hz fog
+refresh described above. Actor OBS_DAY/OBS_NIGHT values now reach traversal
+without an additional scale. Trooper therefore sees seven cells by day and
+four at night; Grey sees four/seven. Day/night interpolation, terrain
+occlusion, flying and detector rules retain the established retail behavior.
+The generated traversal is again the native radius-10 tree (317 nodes), with
+precomputed squared distances. The unused radius-20 extension and its optional
+generator argument were removed; regenerate with `build/dc_sight_gen DC.EXE`
+without a radius argument. Earlier commands containing `20` document the
+superseded implementation and do not apply to the current extractor.
+
+Fog refresh now runs every third 30 Hz simulation tic, at completed tics
+3, 6, 9 and so on: 10 Hz at normal game speed. Startup and explicit alliance
+updates still rebuild visibility immediately. This changes neither the
+simulation tic rate, the 66 ms native environment clock, nor base income's
+sixteen-native-tic cadence. Palette/interpolation lookup tables, direct
+framebuffer drawing, uniform-tile fast paths and linear detector resolution
+remain in place.
+
+**Verified engine observation:** Human02 initially reveals 411 cells at the
+retail distances, with its Exo-Ctr and landing beacon visible. This replaces
+the earlier engine observation of 1283 cells under doubled coverage; neither
+number is claimed to be a separately measured retail screenshot count.
+`test_fog` now checks delayed visibility on tics one/two and the refresh on
+tic three, all subsequent refresh boundaries through tic 64, unscaled
+Trooper/Grey sight reversal, all ten native circle counts and the actual
+Human02 opening. Its 120-tic mission check still pays three three-credit
+installments over four simulated seconds and advances the native day clock
+by sixty ticks. Fog and support-combat tests, all-game build, Human02 smoke
+check and a visually inspected world screenshot pass.

@@ -34,14 +34,21 @@ static void check_refresh(void) {
     unit->thinker.function = base->thinker.function = idle;
     level.exo_income[0] = 17;
     level.player_resources[0][0] = 100;
-    P_Ticker();
-    assert(sight(38, 24) & PLAYER);
+    P_UpdateSight();
+    assert(sight(31, 24) & PLAYER);
+    assert(!(sight(32, 24) & PLAYER));
     unit->core.position = fixed3_from_fvec2((fvec2_t){25.5f, 24.5f}, 0);
     P_Ticker();
-    assert(sight(39, 24) & PLAYER);
-    assert(sight(10, 24) == SIGHT_EXPLORED);
+    assert(!(sight(32, 24) & PLAYER));
+    P_Ticker();
+    assert(!(sight(32, 24) & PLAYER));
+    P_Ticker();
+    assert(sight(32, 24) & PLAYER);
+    assert(sight(17, 24) == SIGHT_EXPLORED);
     while (leveltime < 64) {
+        level.sight.cells[L_Index(&level, 47, 47)] = PLAYER | SIGHT_EXPLORED;
         P_Ticker();
+        assert(!!(sight(47, 47) & PLAYER) == (leveltime % 3 != 0));
         int clock = leveltime * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
         assert(level.player_resources[0][0] == 100 + clock / 16 * 17);
     }
@@ -144,7 +151,8 @@ static void check_human02(void) {
     int visible = 0;
     for (int i = 0; i < level.width * level.height; ++i)
         visible += !!(level.sight.cells[i] & level.sight.allies[consoleplayer]);
-    assert(visible == 1283);
+    assert(visible == 411);
+    printf("Human02: %d initially visible cells at retail sight distances\n", visible);
     assert(P_SightBrightness(&level, (ivec2_t){54, 55}) == 16); /* Exo-Ctr. */
     assert(P_SightBrightness(&level, (ivec2_t){64, 52}) == 16); /* Landing beacon. */
     int credits = level.player_resources[0][0], day_tics = level.daylight.tics;
@@ -199,7 +207,7 @@ static void benchmark(void) {
         R_DrawFog(&app, &level);
     }
     double draw_ms = (SDL_GetPerformanceCounter() - start) * 1000.0 / SDL_GetPerformanceFrequency() / 200;
-    printf("fog benchmark: 800 radius-20 observers %.3f ms/pass; radius-10 %.3f ms/pass; radius-10 detectors %.3f ms/pass; 1920x1080 draw %.3f ms/frame\n",
+    printf("fog benchmark: 800 radius-10 observers %.3f ms/pass; radius-5 %.3f ms/pass; radius-5 detectors %.3f ms/pass; 1920x1080 draw %.3f ms/frame\n",
            sight_ms, same_area_ms, detector_ms, draw_ms);
     V_FreeScreen();
     P_FreeLevel(&level);
@@ -295,7 +303,7 @@ int main(void) {
     /* Native root table 0x483fbc: exact full-circle counts, not a square or
      * Manhattan-distance approximation. */
     const int counts[] = {5, 13, 29, 49, 81, 113, 149, 197, 253, 317};
-    for (int radius = 1; radius <= 20; ++radius) {
+    for (int radius = 1; radius <= 10; ++radius) {
         clear_sight();
         P_RevealSight((ivec2_t){24, 24}, radius, PLAYER, false);
         int count = 0;
@@ -306,8 +314,7 @@ int main(void) {
                 count += sight(x, y) != 0;
             }
         }
-        if (radius <= 10) assert(count == counts[radius - 1]);
-        if (radius == 20) assert(count == 1257);
+        assert(count == counts[radius - 1]);
     }
     clear_sight();
     level.tile_flags[L_Index(&level, 17, 16)] = 0;
@@ -341,7 +348,7 @@ int main(void) {
     level.sight.allies[0] = PLAYER;
 
     mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){8.5f, 8.5f}, 0), MT_TROOPER);
-    mobj_t *enemy = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){20.5f, 8.5f}, 0), MT_GREY);
+    mobj_t *enemy = P_SpawnMobj(fixed3_from_fvec2((fvec2_t){14.5f, 8.5f}, 0), MT_GREY);
     assert(unit && enemy);
     enemy->team = enemy->owner = 1;
     enemy->allegiance = ALLEGIANCE_ENEMY;
@@ -352,13 +359,13 @@ int main(void) {
     assert(P_VisibleTo(unit, enemy));
     assert(unit->info->sight.day == 7 && unit->info->sight.night == 4);
     assert(enemy->info->sight.day == 4 && enemy->info->sight.night == 7);
-    assert(!P_VisibleTo(enemy, unit)); /* Engine doubles Grey's four to eight. */
+    assert(!P_VisibleTo(enemy, unit)); /* Grey's daytime radius is four. */
     level.daylight.weight = 256;
     P_UpdateSight();
     assert(!P_VisibleToPlayer(enemy));
     assert(!P_VisibleTo(unit, enemy));
-    assert(P_VisibleTo(enemy, unit)); /* Engine doubles seven to fourteen. */
-    assert(P_SightBrightness(&level, (ivec2_t){20, 8}) == 10);
+    assert(P_VisibleTo(enemy, unit)); /* Its nighttime radius is seven. */
+    assert(P_SightBrightness(&level, (ivec2_t){14, 8}) == 10);
     enemy->hp = 0;
     unit->hp = 0;
     P_UpdateSight();

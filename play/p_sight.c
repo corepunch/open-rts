@@ -66,11 +66,6 @@ void P_UpdateSight(void) {
         /* Engine default for games whose sight stats have not yet been ported. */
         if (!actor->info->sight.day && !actor->info->sight.night &&
             (actor->traits & MF_SELECTABLE) && !(actor->traits & MF_NOBLOCKMAP)) radius = 7;
-#ifdef RTS_GAME_DARK_COLONY
-        /* Requested engine coverage: twice the interpolated retail radius.
-         * Keep OBS_DAY/OBS_NIGHT authored at their native values. */
-        radius *= 2;
-#endif
         ivec2_t origin = {actor->core.position.x >> FIXED_FRAC_BITS, actor->core.position.y >> FIXED_FRAC_BITS};
         reveal_sight(origin, radius, UINT32_C(0x40000000) >> actor->team,
                      actor->info->sight.airborne || (actor->traits & MF_FLY),

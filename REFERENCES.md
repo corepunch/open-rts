@@ -1679,3 +1679,8 @@ local `/Users/igor/Developer/warcraft-2000-nuclear-epidemic`, commit
 (`OneObject::MakePreProcess`). Used as a performance comparison for palette
 lookups, uniform-tile fast paths and direct framebuffer writes. Its scalar
 vision diffusion and spot stamping are not Dark Colony visibility rules.
+
+The later user revision restores retail sight distances and sets fog refresh
+to 10 Hz; the 2x distance and 30 Hz policy in the preceding entries is
+superseded. The C extractor now emits only the verified 317-node native tree.
+[Current policy and checks](docs/DC_EXE_FINDINGS.md#current-fog-policy-retail-distances-and-10-hz-refresh-2026-10-03).
