@@ -1,5 +1,35 @@
 # KKnD loader evidence
 
+## Unit stats from UNITS.CFG (2026-10-02)
+
+**Confirmed from `data/KKND/UNITS.CFG`.** Its header documents the units:
+speed is approximately pixels per second, reloads are sixtieths of a second,
+tspeed is approximately quarter turns per second, range is pixels and i/v/b-dmg
+are damage against infantry, vehicles and buildings. A volley fires `volley`
+shots `reload` apart, then waits `reload2`; turretless units ignore both.
+KKnD map tiles are 32 pixels (`w_map.c` rejects other sizes).
+
+**Implementation.** Every `ACTOR_TYPES` row now uses its native row:
+`max_hp` = hitpts, `speed` = px/32 cells/s, `turn_step` = tspeed quarter turns
+per second, `attack.range` = px/32, `cooldown_ms` = reload*1000/60,
+`shots`/`reload_ms` = volley/reload2 where present, and `attack.versus` =
+i/v/b-dmg selected by victim `armor_class` (infantry 0, vehicle 1, structure
+2). Shared `P_Attack` now applies `versus` and volley reloads to direct hits.
+The former values were invented: HP and damage were one quarter of native,
+speeds 4-14 cells/s instead of about 0.6-3.75, and cooldowns used 11 ms per
+sixtieth.
+
+**Consequence.** Riflemen and Berserkers both have 96-pixel range, so the
+SURV_01 Berserker answers in place instead of advancing; the earlier
+"outside the Berserker's range of 2.5" finding below came from invented data.
+
+**Unknown / not ported.** Accuracy (acc) has no engine equivalent. Bomber and
+Wasp have no native range or reload; their 3-cell range and 3000 ms delay remain
+engine values. Whether tspeed turns the body or the turret is not traced.
+
+Verification: `build/bin/tests/kknd/test_units_cfg` compares all 57 actors
+with `UNITS.CFG`.
+
 ## Integration after PNG removal (2026-09-13)
 
 The rebase onto `d09886c` retains the native indexed sprite representation and
