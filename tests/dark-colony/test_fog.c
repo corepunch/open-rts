@@ -137,6 +137,29 @@ static void check_detection(void) {
     P_FreeThinkers();
 }
 
+static void check_human02(void) {
+    RtsGameModel *model = rts_game_model_create();
+    RtsGameModelConfig config = {.data_root = "data/DCOLONY", .map_path = "SCENARIO/HUMAN/HUMAN02.MAP"};
+    assert(model && rts_game_model_load(model, &config));
+    int visible = 0;
+    for (int i = 0; i < level.width * level.height; ++i)
+        visible += !!(level.sight.cells[i] & level.sight.allies[consoleplayer]);
+    assert(visible == 1283);
+    assert(P_SightBrightness(&level, (ivec2_t){54, 55}) == 16); /* Exo-Ctr. */
+    assert(P_SightBrightness(&level, (ivec2_t){64, 52}) == 16); /* Landing beacon. */
+    int credits = level.player_resources[0][0], day_tics = level.daylight.tics;
+    assert(level.exo_income[0] == 3);
+    for (int tick = 1; tick <= 120; ++tick) {
+        assert(rts_game_model_tick(model, FIXED_DT));
+        int clock = tick * 1000 / (WORLD_CLOCK_MS * RTS_TICRATE);
+        assert(leveltime == tick);
+        assert(level.player_resources[0][0] == credits + (clock / 16) * 3);
+        assert(level.daylight.tics == day_tics + clock);
+        assert(P_SightBrightness(&level, (ivec2_t){54, 55}) == 16);
+    }
+    rts_game_model_destroy(model);
+}
+
 static void benchmark(void) {
     if (!getenv("OPEN_RTS_BENCH_FOG")) return;
     P_InitThinkers();
@@ -385,6 +408,7 @@ int main(void) {
     }
     W_FreeFile(&map);
     P_FreeLevel(&level);
+    check_human02();
     benchmark();
     puts("fog: native circles, pruning, near-only terrain, flying sight, teams, exploration, day/night and interpolation OK");
     return 0;

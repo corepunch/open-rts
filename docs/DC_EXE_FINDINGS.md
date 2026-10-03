@@ -7611,3 +7611,52 @@ no map). These are pre-existing failures, not fog regressions. Temporary
 diagnostic logging was confined to scratch test copies and removed from the
 runtime source. The final focused fog test and deterministic regenerated-header
 comparison both pass after all edits.
+
+### Human02 launch checkout and independent clocks (2026-10-03)
+
+**Confirmed engine reproduction:** the user's black Human02 screenshot came
+from the primary checkout's older build. At investigation time, primary
+`/Users/igor/Developer/open-rts` was at `6c9fd45`, while this chat's worktree
+contained the verified fog fix `b0405e9`. Running the primary binary with
+`data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR --screenshot`
+reproduces the black world. The same command in the fixed worktree shows the
+base, terrain, beacon and approaching dropship. Primary still combined the
+four-native-tick fog and income updates, and its doubled building/beacon
+radii exceeded the old traversal's radius-10 bound. No additional fog-render
+or simulation-clock defect was found in the fixed build.
+
+Temporary logs in the fixed build show 1283 player-visible cells after Human02
+load, rising to 1379 after its first scripted dropship spawn. The base at
+(54,55) and beacon at (64,52) are visible immediately. At speed 100, a real
+SDL-driver `--net-check 100` run logged base-income calls before completion of
+simulation tics 32, 64 and 96, at wall times 1167, 2234 and 3300 ms. Each adds
+three credits; successive calls are about 1066 ms apart. Process startup time
+accounts for the first timestamp. Logging was removed after verification.
+
+**Clock distinction:** `driver/d_net.c:I_GetTime/TryRunTics` schedules 30
+simulation tics per second at speed 100; the simulation does not run once per
+second. `play/p_tick.c` maps cumulative simulation tics to the existing 66 ms
+native environment clock, which advances about 15.15 times per second. Base
+income runs every sixteen of those native tics, about once per second. Fog
+refresh runs each simulation tic independently. Neither RTS_TICRATE,
+WORLD_CLOCK_MS nor the game-speed multiplier was changed to accelerate fog.
+The user's conditional request for a ten-Hz simulation therefore requires no
+clock change: the current simulation already runs at thirty Hz.
+
+`test_fog:check_human02` now loads the actual scenario, checks the initial 1283
+visible cells and both base/beacon cells, then runs 120 simulation tics. It
+checks visibility, exactly one level-time advance per tic, the native
+phase-clock advance, and all intermediate credit totals (three payouts,
+nine credits over four simulated seconds). This catches both an entirely
+black opening and income coupled to the faster fog cadence.
+
+The verified fog commit and this regression were brought into the primary
+checkout while preserving its separate production changes. Reproduce with:
+
+```sh
+cd /Users/igor/Developer/open-rts
+make build/bin/dark-colony build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/tests/dark-colony/test_fog
+env SDL_VIDEODRIVER=dummy build/bin/dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN02.MAP SPRITES/TROOPER1.SPR --screenshot /private/tmp/dc-human02-fixed.bmp
+make dark-colony-human02
+```
