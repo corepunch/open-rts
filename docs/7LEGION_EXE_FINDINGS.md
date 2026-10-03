@@ -44,16 +44,95 @@ through byte table `0x00471354` to a damage class and returns
 `damage[class*20 + armour] >> 16` from `0x004b5ee8`. Weapon names use
 `0x00473a90`.
 
-**Unknown.** The meanings of the speed (e.g. troop1 2.0), turn and reload
-units are not known, nor is the simulation tic rate, so they cannot be
-converted to engine units yet. Weapon range is not in these tables. Which
-`vt_` id each BIM sprite belongs to has not been traced: the renderer
-switches on type at `0x004266f6` (jump table `0x00426e8c`), but those
-handlers were not followed. The seven placeholder actors in
-`games/7legion/g_game.c` (Trooper, Slave, Spider Mech, Tank, Rock Mech,
-Truck, Mobile Base) therefore keep their invented stats. Name similarity
-(e.g. LTROOP/troop1 side 7L, CTROOP/troop2 side CH, MOBBASE/mobilebase)
-is a lead, not proof.
+**Unknown.** Speed (e.g. `troop1` 2.0), turn and reload still need conversion
+to engine units; the retail simulation tic cadence has not been established.
+Weapon range is not in these tables and its target-selection path remains
+untraced. The current runtime actor stats therefore remain placeholders until
+those values are derived.
+
+## Vehicle render routines (2026-10-03)
+
+**Confirmed: vehicle rows contain per-type render routines at `+0x38`.** For
+vehicle `id`, the pointer is at `0x004c0860 + id*76 + 0x38`. The routine
+column from `make 7legion-units` reproduces those pointers. Following each
+routine to the BIM handle read, and the handle back to its hard-coded asset
+load, confirms these mappings:
+
+| Native ID | `vt_` name | Routine | BIM asset | Evidence |
+|---:|---|---:|---|---|
+| 0, 1 | `carrier`, `truck` | `0x00426f30` | `GFX\\truck.bim` | shared routine reads handle `0x006dd2e4`; loaded at `0x0041130a` |
+| 14 | `troop1` | `0x00427e30` -> `0x00427b30` | `GFX\\ltroop.bim` | wrapper calls `0x00427b30`, which reads `0x006dd2d4`; loaded at `0x00412e29` |
+| 37 | `spmech` | `0x00429870` | `GFX\\spider.bim` | routine reads handle `0x006ccad4`; loaded at `0x0041295d` |
+| 42 | `mobilebase` | `0x00428140` | `GFX\\mobbase.bim` | routine reads handle `0x00804308`; loaded at `0x00412acc` |
+
+ID 14's routine is a wrapper, so follow its call before assigning the sprite.
+IDs 0 and 1 share a routine that reads the Truck BIM handle. IDs 38 and 43
+share routine `0x00429980`, which conditionally reads the Rockmech handle;
+ID 19's routine `0x00428c70` conditionally reads the Slaven1 handle. These
+conditional reads do not by themselves prove the base sprite for those IDs.
+ID 19 is named `dino` in the native table, not `slave`.
+
+**Unresolved placeholder:** no `TANKBASE.BIM` path occurs in the executable's
+string table. The executable does load faction tank assets such as
+`GFX\\mttank.bim` (handle `0x00804330`), `GFX\\attank.bim` (handle
+`0x0077b4d0`) and `GFX\\ntank.bim` (handle `0x0083a3f8`), but their vehicle
+IDs have not been linked here. Do not treat the current `Tank`/`TANKBASE.BIM`
+entry as a confirmed native actor.
+
+Reproduce routine addresses with `make 7legion-units`; trace the file loads and
+read sites with `r2 -q -e bin.cache=true -A -c 'axt @ <handle>' -c q
+data/7LEGION/legion.exe` and disassemble the listed routines.
+
+## Vehicle movement units and timer (2026-10-03)
+
+**Confirmed: the vehicle `speed` field is a 16.16 positional movement
+magnitude, not cells per second.** Movement routine `0x0043c0c0` reads
+`0x004c087c + type*4` at `0x0043c1cc`. It adds the per-object adjustment
+`mobj[+0x67febe] << 13` at `0x0043c1bd..0x0043c1d3`, multiplies the result by
+the fixed-point direction components in `0x004b9e48` (for example
+`0x0043c5d5..0x0043c5f6`), then adds the resulting planar delta to the object's
+16.16 position (`0x0043c6b0..0x0043c6b8`). With a zero per-object adjustment,
+the table speed is therefore the positional distance per movement update.
+The separate movement-update cadence, and the role/range of the per-object
+adjustment, remain unknown; a cells-per-second conversion is not yet
+justified.
+
+**Disproven: the 20/33 ms multimedia timer intervals are not evidence of the
+simulation tic rate.** The timer setup calls `timeSetEvent` with either 20 or
+33 ms and callback `0x00450be0`; that callback is only `ret 0x14`. The game
+update loop at `0x00416fe0` consumes a game-speed value from `0x004afbe0` and
+decrements counters, but the timer callback does not drive that loop. Continue
+tracing the caller cadence of movement `0x0043c0c0` before converting native
+speed to the engine's per-second units.
+
+## Mission starting-unit counts (2026-10-03)
+
+**Confirmed: `PVStart` is parsed as one decimal count per character.** In
+`fcn.00403350`, the retail executable calls
+`GetPrivateProfileStringA("PVStart", ...)` at `0x00403da3..0x00403db4`, then
+walks the returned string by character index. At `0x00403df6..0x00403e00` it
+reads the indexed byte and subtracts ASCII `'0'`; the loop at
+`0x00403e27..0x00403eb9` repeats the per-slot creation path that calls
+`0x00424c20`. The same key is read again at `0x00403fd9` for the other mission
+side/path.
+
+Mission 1's 43-character `PVStart` is
+`0000000000000040000000000000000000000000001`: character 14 contains 4 and
+character 42 contains 1. The counts at those positions are confirmed, but a
+character position is not always the `vt_` id. Before calling `0x00424c20`,
+the parser indexes the static dword map at `0x004adb38` (`0x00403e6f`); the
+map's values are `0,1,2,3,3,5,6,7,9,9,9,11,12,15,15,15,16,...,42`.
+Consequently character 14 maps to native type 15 in this branch, whereas the
+other branch (`0x00403e78`) passes raw loop index 14. Character 42 maps to 42
+in either branch. The branch depends on global word `0x005474b4` being 1; its
+mission-side value and the meaning of the map aliases are not yet established.
+The spawn helper receives the selected value, but proof from this mission's
+side/mode to the corresponding rendered actor remains pending.
+
+The current loader's assumption that character 14 is always native `troop1`
+(id 14) is therefore unverified and may be wrong; its player Slave and
+synthetic enemy force are not sourced from the confirmed mission counts. Do
+not replace these with native spawns until the mission-side branch is traced.
 
 Reproduce: `make 7legion-units` prints every vehicle, building and weapon
 damage row as loaded, marking each record's source (`legion.exe` default or
