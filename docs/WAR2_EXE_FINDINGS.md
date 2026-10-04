@@ -214,6 +214,113 @@ image, menu-item, navigation, video and waypoint tests. Tests that require
 Warcraft combat/AI or the engine fallback menu are excluded explicitly.
 LAN tests require permission to bind local sockets in restricted runners.
 
+## Complete base unit catalog audit (2026-10-04)
+
+The WAR2.EXE and MAINDAT fingerprints at the start of this report still
+apply. This audit read reference definitions, not executable instructions;
+WAR2.EXE behavior remains untraced. Wargus is pinned to
+`cde1a0718a0058cc651ecd56ff8149fc39f624e9`; Warcraft 2000 to
+`4d12ad3e62ba03c59b2dbec2a989f58d744018ee`.
+
+**Confirmed in reference:** Wargus `pud.cpp::UnitScriptNames` enumerates
+105 PUD slots, 100 defined and five empty (native 34, 36, 37, 48, 54).
+Every defined entry resolves in `scripts/human/units.lua`,
+`scripts/orc/units.lua` or `scripts/units.lua`. This covers both races'
+regular and upgraded units, all named heroes, summons, naval and flying
+units, buildings, tower variants, neutral resources, special structures,
+start markers and walls. Extra Wargus corpse/dead-vision/super-unit types
+are not PUD slots and were not added to the native roster.
+
+`info.h` now names every slot. `info.c::mobjinfo[]` is the sole authored
+balance catalog, replacing the separate small `w_units.c` table and its
+partially populated runtime copy. Numeric and capability fields include:
+
+- HP, armor, raw speed, basic/piercing and displayed damage range;
+  sight, attack minimum/maximum and person/computer reaction ranges.
+- Footprint/box dimensions; gold, lumber, oil and time costs; repair HP,
+  cost, range and automatic range; food supply/demand; mana maximum,
+  initial value and regeneration; points, priority, AI annoyance and level.
+- Decay, transport capacity, movement domain, targets, storage and resource
+  provision, income improvements and each resource's capacity/step/waits
+  and gathering flags.
+- Organic/undead/hero/volatile, cloak/detection, indestructible, coward,
+  ground/side attacks, selection/fog, shore construction, builder-outside,
+  elevated, attack, neutral, teleporter and harvestable flags; projectile
+  and spell identifiers. The native GRP lookup remains with the definition.
+
+HP and maximum damage remain in Doom's `spawnhealth` and `damage`; they
+are not duplicated in `w2_stats_t`. Existing ActorType projections and
+state/rotation views are derived from this catalog. Zero-HP resource
+markers preserve authored zero although the current engine projects HP 1.
+The engine's speed divisor and sight clamp remain presentation choices.
+The HUD reads base levels, food and prices from the table; training reads
+`Costs.time` as seconds rather than deriving a duration from gold cost.
+Gathering reads capacity and entry waits; depot choice reads storage masks;
+income reads living owned structures' catalog improvements.
+
+**Corrections and explicit differences:**
+
+- Wargus gives Ballista armor 5. Blizzard's Catapult/Ballista guide gives
+  armor 0; the authored table preserves 0. Published damage minima already
+  in the catalog remain the HUD values; they are not guessed from a random
+  damage formula or claimed to have been traced in the executable.
+- `scripts/spells.lua::DefineVariables` defaults Level to 1 and Mana to
+  `{Max=255, Value=84, Increase=1}`. Paladin, Ranger and Berserker set Level
+  2. Ogre Mage uses a variable table with `Value=2`, rather than a scalar;
+  treating that table as a number would incorrectly import 0. All are now
+  parsed and authored correctly.
+- Blizzard's Mage and Death Knight guides give initial mana 85, maximum
+  255. Enabled mana uses 255/85/1 rather than Wargus's 84; applying the
+  initial-value override to other enabled casters is an inference from
+  the shared variable. Spell identifiers are metadata, not spell execution.
+- Wargus Critter has BasicDamage 80, Demand 1, a critter-explosion missile,
+  random movement and click-to-explode behavior. The existing engine choice
+  keeps damage/demand 0 and leaves that special behavior unimplemented.
+  The reference projectile and targeting metadata are preserved.
+- **Disproven assumption:** a land-looking Daemon sprite does not establish
+  movement domain. Wargus explicitly specifies `Type="fly"`, `AirUnit=true`;
+  the old unsupported land classification is replaced with that reference
+  rule. Retail dispatch remains unknown.
+- Walls are buildings even though this engine skips wall object spawning.
+  Numeric `Indestructible=1` is equivalent to `true` in the reference:
+  oil patches, circle of power and both start markers now retain that flag.
+  Domain is separate from `SeaUnit`: naval resource structures can have
+  `Type="naval"` without being ship units.
+- Deathwing has complete reference stats (HP 800) but its native GRP lookup
+  is still unknown, `{0,0,0,0}`. No Dragon graphic is silently substituted.
+
+**Warcraft 2000 comparison:** `MapDiscr.h::GeneralObject` groups capability
+flags, `cost`, `delay`, `capMagic`, `ResourceID[]` and `ResAmount[]`;
+`Visuals` adds life, shield, damage and productivity. This supports storing
+related rules together, but Warcraft 2000's numerical rules and object
+storage are not Warcraft II data and were not imported. Doom remains the
+object/state ownership reference.
+
+**Verification:** the C `test_catalog` independently parses the pinned PUD
+mapping and balanced unit tables, then compares every defined type's base
+numeric fields, dimensions, resources, capabilities, projectile and spell
+list, with the explicit overrides above. No reference is loaded by the
+game. Without the ignored reference checkout only that comparison skips;
+105-slot coverage, five reserved slots, all 96 object spawns, persistent
+authored stats across initialization, hero/mana/transport checks and
+stat-backed production still run. Reproduce with:
+
+```sh
+env SDL_VIDEODRIVER=dummy build/bin/tests/warcraft-2/test_catalog
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
+```
+
+The reference audit covers base definitions, not upgrade effects or a
+completed simulation of combat, spellcasting, repair, transport or oil.
+Original attack/recovery, mana timing and training clock fidelity remain
+unknown until retail runtime or executable evidence establishes them.
+
+**Audit outcome:** `make all`, all eleven headless Warcraft tests and the
+Warcraft game `--check` passed. The independent reference audit checked
+all 100 defined types; the roster test spawned all 96 object definitions.
+ALAMO still loads 64 units and 2,798 resource deposits. Native human/orc
+HUD captures and pixel regressions passed after routing stats to this table.
+
 **Verification outcome (2026-10-04):** `make all`, all ten Warcraft tests,
 the complete Dark Colony suite, native SPR/FIN layout and network suite
 passed. All five game binaries passed `--check` with the dummy SDL driver.

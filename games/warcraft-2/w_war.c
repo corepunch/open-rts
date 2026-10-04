@@ -137,11 +137,11 @@ bool w2_decode_palette(const w2_blob_t *entry, uint32_t palette[256]) {
     return true;
 }
 
-int w2_grp_entry(const w2_unit_t *unit, int era, int archive_count) {
+int w2_grp_entry(const mobjinfo_t *unit, int era, int archive_count) {
     if (!unit || archive_count <= 1) return 0;
     if (era < 0 || era > 3) era = 0;
-    int entry = unit->grp[era];
-    if (entry <= 0 || entry >= archive_count) entry = unit->grp[0];
+    int entry = unit->w2.grp[era];
+    if (entry <= 0 || entry >= archive_count) entry = unit->w2.grp[0];
     if (entry <= 0 || entry >= archive_count) return 0;
     return entry;
 }

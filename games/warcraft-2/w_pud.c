@@ -243,9 +243,9 @@ int w2_spawn_units(void) {
     for (int i = 0; i < pud->unit_count; ++i) {
         const w2_pud_unit_t *rec = &pud->units[i];
         if (rec->type >= W2_TYPE_COUNT) continue;
-        const w2_unit_t *info = &w2_units[rec->type];
-        if (!info->name || (info->flags & W2_SKIP)) continue;
-        isize2_t foot = { info->tw > 0 ? info->tw : 1, info->th > 0 ? info->th : 1 };
+        const mobjinfo_t *info = &mobjinfo[rec->type + 1];
+        if (!info->name || (info->w2.flags & W2_SKIP)) continue;
+        isize2_t foot = info->w2.footprint;
         fvec2_t at = { rec->x + foot.w * 0.5f, rec->y + foot.h * 0.5f };
         mobj_t *unit = P_SpawnMobj(fixed3_from_fvec2(at, 0), (uint16_t)(rec->type + 1));
         if (!unit) break;
@@ -253,7 +253,7 @@ int w2_spawn_units(void) {
         unit->team = rec->player < 8 ? rec->player : 8;
         unit->allegiance = allegiance_for(pud, rec->player);
         unit->core.angle = ANG270;
-        if (info->flags & W2_STRUCTURE) w2_mark_footprint(rec->x, rec->y, foot);
+        if (info->w2.flags & W2_STRUCTURE) w2_mark_footprint(rec->x, rec->y, foot);
         if (rec->type == 92 && L_Contains(&level, rec->x + foot.w - 1, rec->y + foot.h - 1))
             level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
                 .cell = {rec->x, rec->y}, .attachment = at, .footprint = foot,
@@ -278,7 +278,7 @@ static const char *maindat_path(const char *root, char *dst, size_t dst_size) {
 
 static bool load_named_sprite(const w2_archive_t *arc, const uint32_t palette[256],
                               int era, int pud, spritesheet_t *out, int *phases) {
-    const w2_unit_t *unit = &w2_units[pud];
+    const mobjinfo_t *unit = &mobjinfo[pud + 1];
     int entry = w2_grp_entry(unit, era, arc->count);
     if (!entry) {
         fprintf(stderr, "warcraft-2: no GRP entry for %s\n", unit->name ? unit->name : "unit");
@@ -290,7 +290,7 @@ static bool load_named_sprite(const w2_archive_t *arc, const uint32_t palette[25
                 entry, unit->name ? unit->name : "unit");
         return false;
     }
-    bool directional = (unit->flags & W2_MOBILE) != 0;
+    bool directional = (unit->w2.flags & W2_MOBILE) != 0;
     bool ok = w2_decode_grp(&blob, palette, out, directional, phases);
     w2_blob_free(&blob);
     if (!ok) {
@@ -369,8 +369,8 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
 }
 
 bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud) {
-    if (!cache || pud < 0 || pud >= W2_TYPE_COUNT || !w2_units[pud].name) return false;
-    if (R_CacheFind(cache, w2_units[pud].name)) return true;
+    if (!cache || pud < 0 || pud >= W2_TYPE_COUNT || !mobjinfo[pud + 1].name) return false;
+    if (R_CacheFind(cache, mobjinfo[pud + 1].name)) return true;
     if (cache->count >= MAX_DECORATION_SPRITES) return false;
     char path[1024];
     w2_archive_t arc;
@@ -393,7 +393,7 @@ bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud) {
         w2_archive_close(&arc);
         return false;
     }
-    snprintf(slot->name, sizeof(slot->name), "%s", w2_units[pud].name);
+    snprintf(slot->name, sizeof(slot->name), "%s", mobjinfo[pud + 1].name);
     cache->count++;
     w2_archive_close(&arc);
     return R_BindSprites(cache, &game_info);

@@ -39,12 +39,8 @@ int W2_ResourceIncome(int owner, int resource) {
         if (th->function != P_MobjThinker) continue;
         const mobj_t *base = (const mobj_t *)th;
         if (base->remove || base->hp <= 0 || base->owner != owner) continue;
-        int value = 0;
-        if (resource == 0)
-            value = base->type_id == 89 || base->type_id == 90 ? 10 :
-                    base->type_id == 91 || base->type_id == 92 ? 20 : 0;
-        else if (resource == 1 && (base->type_id == 77 || base->type_id == 78)) value = 25;
-        else if (resource == 2 && (base->type_id == 85 || base->type_id == 86)) value = 25;
+        if (resource < 0 || resource >= 3 || base->type_id >= NUMMOBJTYPES) continue;
+        int value = mobjinfo[base->type_id].w2.income[resource];
         if (value > bonus) bonus = value;
     }
     return 100 + bonus;
@@ -118,9 +114,9 @@ bool W2_ReturnGoods(mobj_t *unit) {
         if (base->remove || base->hp <= 0 || base->owner != unit->owner) continue;
         int pud = base->type_id - 1;
         if (pud < 0 || pud >= W2_TYPE_COUNT) continue;
-        const w2_unit_t *type = &w2_units[pud];
-        if (!(type->flags & W2_HALL) && !(unit->harvest.resource_type == 1 && (pud == 76 || pud == 77))) continue;
-        isize2_t size = {type->tw, type->th};
+        const w2_stats_t *type = &mobjinfo[base->type_id].w2;
+        if (!(type->store_mask & (1 << unit->harvest.resource_type))) continue;
+        isize2_t size = type->footprint;
         ivec2_t cell = fvec2_cell(fvec2_sub(fixed3_xy_to_fvec2(base->core.position),
                                          (fvec2_t){size.w * 0.5f, size.h * 0.5f}));
         fvec2_t at;
@@ -270,7 +266,8 @@ bool W2_TickHarvest(mobj_t *unit) {
         P_SetMobjState(unit, W2_WORK_STATE(unit->type_id - 1));
         return true;
     }
-    int take = vent->amount < 100 ? vent->amount : 100;
+    int capacity = mobjinfo[unit->type_id].w2.gather[vent->resource_type].capacity;
+    int take = vent->amount < capacity ? vent->amount : capacity;
     unit->harvest.cargo = take;
     unit->harvest.resource_type = vent->resource_type;
     vent->amount -= take;

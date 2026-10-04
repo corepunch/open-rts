@@ -2,52 +2,17 @@
 #define __W2_LOCAL__
 
 #include "engine.h"
+#include "info.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
-#define W2_TYPE_COUNT 105
-#define W2_SPRITE_COUNT (W2_TYPE_COUNT + 4)
-#define W2_WORK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + ((pud) - 2) * 8)
-#define W2_WAIT_STATE(pud) (W2_WORK_STATE(pud) + 7)
-#define W2_CARRY_STATE(variant) (1 + W2_TYPE_COUNT * 2 + 16 + (variant) * 2)
-#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2 + 16 + 8)
-#define W2_MOBJ_COUNT (W2_TYPE_COUNT + 1)
 #define W2_TILE_LOOKUP 0x9E0
 /* Stratagus Speed is not cells per second. This divisor is an engine
  * presentation choice so a footman (Speed 10) walks at 1.25 cells/s. */
 #define W2_SPEED_DIVISOR 8.0f
 #define W2_WALK_TICS 4
-#define W2_HARVEST_GOLD 100
 #define W2_ENTRY_LIMIT (16u * 1024u * 1024u)
-
-enum {
-    W2_SKIP = 1 << 0,
-    W2_MOBILE = 1 << 1,
-    W2_SEA = 1 << 2,
-    W2_AIR = 1 << 3,
-    W2_STRUCTURE = 1 << 4,
-    W2_HALL = 1 << 5,
-    W2_HARVEST = 1 << 6,
-    W2_COMBAT = 1 << 7,
-    W2_CRITTER = 1 << 8,
-};
-
-/* Index is the PUD type byte. grp[] is forest, winter, wasteland, swamp.
- * A later-era 0 reuses the forest entry. Entries past this MAINDAT fall back. */
-typedef struct {
-    const char *name;
-    uint16_t flags;
-    uint8_t tw, th;
-    uint16_t hp;
-    uint8_t speed;
-    uint8_t damage;
-    uint8_t range;
-    uint8_t sight;
-    uint16_t grp[4];
-    uint8_t armor, damage_min;
-    const char *label;
-} w2_unit_t;
 
 typedef struct {
     uint8_t *data;
@@ -76,10 +41,8 @@ typedef struct {
     int unit_count;
     int view_player;
 } w2_pud_t;
-
-extern const w2_unit_t w2_units[W2_TYPE_COUNT];
-
 void w2_build_info(void);
+void w2_init_products(void);
 void w2_limit_walk(int pud, int phases);
 int w2_pud_named(const char *name);
 
@@ -92,7 +55,7 @@ bool w2_decode_palette(const w2_blob_t *entry, uint32_t palette[256]);
 bool w2_decode_tileset(const w2_archive_t *arc, int era, tileset_t *out);
 bool w2_decode_grp(const w2_blob_t *entry, const uint32_t palette[256],
                    spritesheet_t *out, bool directional, int *phases);
-int w2_grp_entry(const w2_unit_t *unit, int era, int archive_count);
+int w2_grp_entry(const mobjinfo_t *unit, int era, int archive_count);
 int w2_install_team_colors(spritesheet_t *sprite, const uint32_t palette[256]);
 
 bool w2_load_pud(const char *path, level_t *out);

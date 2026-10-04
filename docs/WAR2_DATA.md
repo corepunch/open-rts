@@ -90,8 +90,30 @@ oil extraction is not implemented.
 
 `ALAMO` resources for the first two slots: gold 3000/3000, lumber 1000/1400,
 oil 1000/2000. Single player shows the `OWNR` 5 slot. On `ALAMO` that is
-slot 1: gold 3000, lumber 1400, oil 2000. Food is living mobile units over
-supply: a farm or pig farm adds 4, a hall adds 1. Score stays 0.
+slot 1: gold 3000, lumber 1400, oil 2000. Food sums living owned units'
+catalog demand and supply: a farm or pig farm adds 4, a hall adds 1.
+The unsupported score counter was removed.
+
+**Base unit catalog (reference-confirmed).** `info.h` names all 105 native
+PUD slots; `info.c` owns the 100 defined types as authored `mobjinfo[]`
+literals. Slots 34, 36, 37, 48 and 54 are reserved. Starts and walls retain
+definitions but are skipped when spawning map things, leaving 96 object
+types. The former `w_units.c` balance table was removed. HP and maximum
+damage use Doom's `spawnhealth` and `damage`; `w2_stats_t` groups the
+Warcraft-specific values: armor, basic/piercing/minimum damage, raw speed,
+attack/reaction/sight ranges, dimensions, costs/time, repair, food, mana,
+points/priority/annoyance, level, decay, transport capacity, movement domain,
+target/storage/resource-provider masks, income, gathering, capabilities,
+projectiles and spells. Native GRP numbers remain in this same definition.
+
+Values follow the pinned Wargus unit definitions with the documented
+Blizzard overrides. No Lua is loaded at runtime. Actor projections, HUD,
+production, depot selection, gathering capacity/waits and income read this
+table. Training time uses reference `Costs.time` in seconds, replacing the
+previous gold-dependent duration. The engine's current speed/sight/zero-HP
+projections do not alter the authored values. This imports base definitions,
+not a complete simulation of combat, spells, repair, transport or oil.
+See the full catalog audit in [the findings](WAR2_EXE_FINDINGS.md).
 
 **GRP.** Header is `u16` count, max width, max height, then per frame at
 `6 + i * 8`: `u8` x offset, y offset, width, height, and `u32` offset. The
@@ -191,14 +213,15 @@ in level; REZDAT pixels are matched into it.
 ## Inferred
 
 Hero and upgrade GRP numbers that share a line unit's forest entry (paladin
-with knight, ranger with archer, and the rest of the catalog in `w_units.c`)
+with knight, ranger with archer, and the rest of the catalog in `info.c`)
 follow the war2tools sprite table. They were not each extracted and compared.
 Submarine entries `{43,0,182,526}` and `{44,0,183,527}` use the same table;
 a later-era 0 falls back to the forest entry.
 
-Daemon is catalogued as land. Wargus `units.lua` sets `Type = "fly"` for it.
-The retail selection path is unknown, so the catalog does not give it
-`MF_FLY`.
+Daemon now follows Wargus's explicit `Type = "fly"` and `AirUnit = true`.
+The earlier land classification had no evidence; it is superseded. This
+reference-derived classification enables `MF_FLY`; retail dispatch remains
+untraced.
 
 Critter `BasicDamage` 80 in that lua file is not used. Critters render and
 move, are not selectable, and store damage 0.
@@ -233,7 +256,7 @@ These are engine choices, not traced `WAR2.EXE` behavior.
   (PUD 76 or 77) or a keep, stronghold, castle, or fortress (PUD 88–91).
 - Training spends gold and lumber atomically when its tic command executes.
   Building placement still spends directly from the HUD and is not ready
-  for lock-step multiplayer. Costs follow Wargus `units.lua`. Score stays 0.
+  for lock-step multiplayer. Costs follow the authored `mobjinfo[]` catalog.
 - Harvest uses ordinary mobj thinkers, native axe/carrier graphics, finite
   deposits, owned reachable depots, repeated trips and a Return Goods command.
   Lumber progress is private to each worker and finishes on chop 51, as
@@ -245,7 +268,7 @@ These are engine choices, not traced `WAR2.EXE` behavior.
   engine divides the Wargus speed by 8 (`W2_SPEED_DIVISOR`), so a footman
   (speed 10) walks at 1.25 cells per second. Walk states last 4 tics
   (`W2_WALK_TICS`). Both are presentation choices.
-- Fire-breeze (PUD type 35) has GRP entries `{0,0,0,0}`. No graphic is
+- Deathwing (archive name fire-breeze, PUD type 35) has GRP entries `{0,0,0,0}`. No graphic is
   borrowed.
 - Which GRP frame is construction versus damage. Frame 0 is the intact
   picture used for the standing state.
@@ -267,7 +290,7 @@ These are engine choices, not traced `WAR2.EXE` behavior.
 env SDL_VIDEODRIVER=dummy make test-warcraft-2
 # alamo land=6429 water=0 forest=2787
 # alamo spawned=64 thinkers=64
-# alamo sprites ok=1 cache=15
+# alamo sprites ok=1 cache=19
 # channel land=3968 water=3609 era=wasteland
 
 env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
@@ -279,4 +302,8 @@ env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --screenshot /private/tmp/open-rt
 `make test-warcraft-2` also checks the human slot after single-player net
 setup, that the town hall is still visible to that slot, and the UI entry
 sizes above (title 640×480, panels 256×288, icons 186).
+`test_catalog` checks all 105 slots, spawns all 96 object definitions and
+independently compares all 100 defined types to the pinned Wargus checkout
+when `reference/wargus` is present. Only that optional comparison is skipped
+without the ignored reference tree; roster checks still run.
 The default binary loads `data/WAR2/ALAMO.PUD`.
