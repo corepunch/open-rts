@@ -37,7 +37,11 @@ static int test_alamo(void) {
     int forest = count_terrain(2);
     fprintf(stderr, "alamo land=%d water=%d forest=%d\n", land, water, forest);
     RTS_CHECK(water == 0 && land > 6000 && forest > 2500, "alamo", "terrain");
-    RTS_CHECK(level.player_resources[1][0] > 0, "alamo", "human gold");
+    RTS_CHECK(level.player_resources[1][0] == 3000 &&
+              level.player_resources[1][1] == 1400 &&
+              level.player_resources[1][2] == 2000, "alamo", "human stock");
+    RTS_CHECK(level.player_resources[0][1] == 1000 &&
+              level.player_resources[0][2] == 1000, "alamo", "empty slot stock");
 
     tileset_t tileset = { 0 };
     spritesheet_t footman = { 0 };
@@ -59,16 +63,29 @@ static int test_alamo(void) {
     int spawned = P_LoadThings(NULL);
     fprintf(stderr, "alamo spawned=%d thinkers=%d\n", spawned, count_units());
     RTS_CHECK(spawned == 64 && count_units() == 64, "alamo", "spawn count");
+    /* Match the interactive startup: sight is published, then single-player
+     * net setup runs, then the ticker publishes sight again. */
+    RTS_CHECK(P_InitSight(), "alamo", "sight");
+    P_UpdateSight();
+    int net_argc = 1;
+    char *net_argv[] = { "test", NULL };
+    RTS_CHECK(I_InitNetwork(&net_argc, net_argv), "alamo", "net init");
+    D_CheckNetGame(1);
+    RTS_CHECK(consoleplayer == 1, "alamo", "human slot after net setup");
+    P_UpdateSight();
     bool saw_grunt = false, saw_hall = false;
+    int visible_own = 0;
     for (thinker_t *th = thinkercap.next; th && th != &thinkercap; th = th->next) {
         mobj_t *unit = (mobj_t *)th;
         RTS_CHECK(unit->type_id != 95 && unit->type_id != 96, "alamo", "no start marker");
         RTS_CHECK(unit->type_id != 104 && unit->type_id != 105, "alamo", "no wall unit");
         if (unit->owner == 1) {
             RTS_CHECK(unit->allegiance == ALLEGIANCE_PLAYER, "alamo", "human allegiance");
+            if (P_VisibleToPlayer(unit)) visible_own++;
             if (unit->type_id == 75) {
                 saw_hall = true;
                 RTS_CHECK((unit->traits & MF_SELECTABLE) != 0, "alamo", "hall selectable");
+                RTS_CHECK(P_VisibleToPlayer(unit), "alamo", "town hall visible");
             }
         }
         if (strcmp(unit->core.sprite_name, "grunt") == 0) {
@@ -78,6 +95,8 @@ static int test_alamo(void) {
     }
     RTS_CHECK(saw_grunt, "alamo", "grunt");
     RTS_CHECK(saw_hall, "alamo", "town hall");
+    fprintf(stderr, "alamo visible human units=%d\n", visible_own);
+    RTS_CHECK(visible_own > 1, "alamo", "human units in sight");
 
     mobjlist_t list = P_ListMobjs();
     spritecache_t cache = { 0 };
@@ -98,6 +117,7 @@ static int test_alamo(void) {
     R_FreeSpriteCache(&cache);
     R_FreeSprite(&footman);
     R_FreeTileset(&tileset);
+    D_QuitNetGame();
     P_FreeLevel(&level);
     return 0;
 }
