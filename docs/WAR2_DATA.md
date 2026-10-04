@@ -121,10 +121,14 @@ blocks every class, including air. Structures, including oil platforms, are
 class 0 and use `blocked[]`.
 
 **Who you play.** `G_DoLoadLevel` sets `consoleplayer` to the PUD view player
-(the first `OWNR` 5 slot) when this is not a net game. Allegiance, sight, and
-selection then use that slot. Critters are not selectable. With none of your
-units selected, one click can inspect any other unit, including a gold mine.
-A drag still selects only your units.
+(the first `OWNR` 5 slot) when this is not a net game. Single-player
+`D_CheckNetGame` keeps that slot. Replacing it with the lobby seat (always 0
+in single player) left the window on an empty player: ALAMO then showed
+3000/1000/1000 and 0/0 food, the human start stayed explored, and none of
+its units were drawn. Allegiance, sight, and selection use that slot.
+Critters are not selectable. With none of your units selected, one click can
+inspect any other unit, including a gold mine. A drag still selects only
+your units.
 
 **Archive type.** `REZDAT.WAR` is the same record layout as `MAINDAT.WAR`
 with `u16` type 3000 and 91 entries. The opener accepts type 1000 and type
@@ -259,6 +263,7 @@ env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --check
 env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --screenshot /private/tmp/open-rts-warcraft2.bmp
 ```
 
-`make test-warcraft2` also checks the human slot, the town hall's selectable
-flag, and the UI entry sizes above (title 640×480, panels 256×288, icons 186).
+`make test-warcraft2` also checks the human slot after single-player net
+setup, that the town hall is still visible to that slot, and the UI entry
+sizes above (title 640×480, panels 256×288, icons 186).
 The default binary loads `data/WAR2/ALAMO.PUD`.
