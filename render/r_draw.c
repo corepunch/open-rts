@@ -1409,6 +1409,16 @@ void G_Responder(app_t *app, const level_t *map, mobj_t *const *units, int unit_
                 app->selection_rect = (irect_t){0};
                 int picked = box ? -1 : R_PickUnit(app, map, units, unit_count,
                     fallback_sprite, cache, game_info, bx, by, consoleplayer);
+                if (!box && !additive && picked < 0 && game_info && game_info->select_any) {
+                    bool own = false;
+                    for (int i = 0; i < unit_count; ++i)
+                        if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer &&
+                            units[i]->hp > 0)
+                            own = true;
+                    if (!own)
+                        picked = R_PickUnit(app, map, units, unit_count, fallback_sprite, cache,
+                                            game_info, bx, by, -1);
+                }
                 if (!box && !additive && picked < 0 &&
                     !(game_info && game_info->right_click_orders)) {
                     for (int i = 0; i < unit_count; ++i) {
@@ -1475,12 +1485,15 @@ void R_ClampCamera(app_t *app, const level_t *map, int viewport_w, int viewport_
 
     float map_w = (float)map->width * (float)app_cell_w(app);
     float map_h = (float)map->height * (float)app_cell_h(app);
+    /* A left-hand panel shifts the visible map. Origin 0 keeps the old clamp. */
+    float left = (float)G_WorldViewport(app).x;
     if (map_w <= (float)viewport_w) {
-        app->cam.x = ((float)viewport_w - map_w) * 0.5f;
+        app->cam.x = left + ((float)viewport_w - map_w) * 0.5f;
     } else {
-        float min_x = (float)viewport_w - map_w;
+        float min_x = left + (float)viewport_w - map_w;
+        float max_x = left;
         if (app->cam.x < min_x) app->cam.x = min_x;
-        if (app->cam.x > 0.0f) app->cam.x = 0.0f;
+        if (app->cam.x > max_x) app->cam.x = max_x;
     }
     if (map_h <= (float)viewport_h) {
         app->cam.y = ((float)viewport_h - map_h) * 0.5f;

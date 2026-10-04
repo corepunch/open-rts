@@ -215,7 +215,7 @@ bool w2_load_pud(const char *path, level_t *out) {
     return true;
 }
 
-static void mark_footprint(int x, int y, isize2_t foot) {
+void w2_mark_footprint(int x, int y, isize2_t foot) {
     for (int yy = 0; yy < foot.h; ++yy)
         for (int xx = 0; xx < foot.w; ++xx) {
             int cx = x + xx, cy = y + yy;
@@ -250,13 +250,13 @@ int w2_spawn_units(void) {
         unit->team = rec->player < 8 ? rec->player : 8;
         unit->allegiance = allegiance_for(pud, rec->player);
         unit->core.angle = ANG270;
-        if (info->flags & W2_STRUCTURE) mark_footprint(rec->x, rec->y, foot);
+        if (info->flags & W2_STRUCTURE) w2_mark_footprint(rec->x, rec->y, foot);
         spawned++;
     }
     return spawned;
 }
 
-static int palette_entry(int era) {
+int w2_era_palette(int era) {
     if (era == 1) return 18;
     if (era == 2 || era == 3) return 10;
     return 2;
@@ -312,7 +312,7 @@ bool w2_load_assets(const char *data_root, const level_t *map, const char *sprit
     uint32_t palette[256];
     w2_blob_t pal;
     int phases = 1;
-    bool ok = w2_archive_extract(&arc, palette_entry(era), &pal) &&
+    bool ok = w2_archive_extract(&arc, w2_era_palette(era), &pal) &&
               w2_decode_palette(&pal, palette) &&
               load_named_sprite(&arc, palette, era, named, unit_sprite, &phases);
     w2_blob_free(&pal);
@@ -330,7 +330,7 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
     int era = pud ? pud->era : 0;
     w2_blob_t pal;
     uint32_t palette[256];
-    if (!w2_archive_extract(&arc, palette_entry(era), &pal) || !w2_decode_palette(&pal, palette)) {
+    if (!w2_archive_extract(&arc, w2_era_palette(era), &pal) || !w2_decode_palette(&pal, palette)) {
         w2_blob_free(&pal);
         w2_archive_close(&arc);
         return false;
@@ -356,4 +356,35 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
     w2_archive_close(&arc);
     if (!R_BindSprites(cache, &game_info)) ok = false;
     return ok;
+}
+
+bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud) {
+    if (!cache || pud < 0 || pud >= W2_TYPE_COUNT || !w2_units[pud].name) return false;
+    if (R_CacheFind(cache, w2_units[pud].name)) return true;
+    if (cache->count >= MAX_DECORATION_SPRITES) return false;
+    char path[1024];
+    w2_archive_t arc;
+    if (!w2_archive_open(&arc, maindat_path(root, path, sizeof(path)))) return false;
+    const w2_pud_t *map = level.native_data;
+    int era = map ? map->era : 0;
+    w2_blob_t pal = { 0 };
+    uint32_t palette[256];
+    bool ok = w2_archive_extract(&arc, w2_era_palette(era), &pal) && w2_decode_palette(&pal, palette);
+    w2_blob_free(&pal);
+    if (!ok) {
+        w2_archive_close(&arc);
+        return false;
+    }
+    cachedsprite_t *slot = &cache->entries[cache->count];
+    memset(slot, 0, sizeof(*slot));
+    int phases = 1;
+    if (!load_named_sprite(&arc, palette, era, pud, &slot->sprite, &phases)) {
+        R_FreeSprite(&slot->sprite);
+        w2_archive_close(&arc);
+        return false;
+    }
+    snprintf(slot->name, sizeof(slot->name), "%s", w2_units[pud].name);
+    cache->count++;
+    w2_archive_close(&arc);
+    return R_BindSprites(cache, &game_info);
 }

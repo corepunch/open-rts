@@ -95,5 +95,29 @@ bool w2_load_assets(const char *data_root, const level_t *map, const char *sprit
                     tileset_t *tileset, spritesheet_t *unit_sprite);
 bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
                              mobj_t *const *units, int unit_count, spritecache_t *cache);
+int w2_era_palette(int era);
+void w2_mark_footprint(int x, int y, isize2_t foot);
+bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud);
+
+/* Menu chrome is REZDAT. The in-game panel is MAINDAT. Each screen owns a font. */
+typedef struct {
+    spritesheet_t widgets[2]; /* 0 human, 1 orc */
+    spritesheet_t panel[2];
+    spritesheet_t title;
+    bitmapfont_t font;
+    bool ready;
+} w2_menu_art_t;
+
+typedef struct {
+    spritesheet_t menu_button, minimap, info, buttons, resource, status, filler, icons;
+    bitmapfont_t font;
+    bool orc;
+    bool ready;
+} w2_hud_art_t;
+
+bool w2_load_menu_art(const char *root, w2_menu_art_t *art);
+void w2_free_menu_art(w2_menu_art_t *art);
+bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art);
+void w2_free_hud_art(w2_hud_art_t *art);
 
 #endif

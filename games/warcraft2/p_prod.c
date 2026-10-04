@@ -7,13 +7,20 @@
 #include <string.h>
 #include <stdarg.h>
 
-/* Gold costs are the Wargus numbers. Makers are actor ids (PUD type + 1).
- * Release is left to the engine; this slice does not run build animations. */
+/* Gold costs are the Wargus units.lua numbers. Lumber and oil are spent by
+ * the command button; the engine queue only withdraws gold. Makers are
+ * actor ids (PUD type + 1). product_type is the trained actor id. */
 static const StaticProductDefinition W2_PRODUCTS[] = {
-    { 1, 1, "Footman", 600, 0, RTS_PRODUCT_UNIT, 1, 0, {0}, 0, {61}, 1 },
-    { 2, 2, "Grunt",   600, 0, RTS_PRODUCT_UNIT, 2, 0, {0}, 0, {62}, 1 },
-    { 3, 3, "Peasant", 400, 0, RTS_PRODUCT_UNIT, 3, 0, {0}, 0, {75, 89, 91}, 3 },
-    { 4, 4, "Peon",    400, 0, RTS_PRODUCT_UNIT, 4, 0, {0}, 0, {76, 90, 92}, 3 },
+    { 1, 1, "Footman",    600, 0, RTS_PRODUCT_UNIT, 1,  0, {0}, 0, {61}, 1 },
+    { 2, 2, "Grunt",      600, 0, RTS_PRODUCT_UNIT, 2,  0, {0}, 0, {62}, 1 },
+    { 3, 3, "Peasant",    400, 0, RTS_PRODUCT_UNIT, 3,  0, {0}, 0, {75, 89, 91}, 3 },
+    { 4, 4, "Peon",       400, 0, RTS_PRODUCT_UNIT, 4,  0, {0}, 0, {76, 90, 92}, 3 },
+    { 5, 5, "Archer",     500, 0, RTS_PRODUCT_UNIT, 9,  0, {0}, 0, {61}, 1 },
+    { 6, 6, "Axethrower", 500, 0, RTS_PRODUCT_UNIT, 10, 0, {0}, 0, {62}, 1 },
+    { 7, 7, "Ballista",   900, 0, RTS_PRODUCT_UNIT, 5,  0, {0}, 0, {61}, 1 },
+    { 8, 8, "Catapult",   900, 0, RTS_PRODUCT_UNIT, 6,  0, {0}, 0, {62}, 1 },
+    { 9, 9, "Knight",     800, 0, RTS_PRODUCT_UNIT, 7,  0, {0}, 0, {61}, 1 },
+    { 10, 10, "Ogre",     800, 0, RTS_PRODUCT_UNIT, 8,  0, {0}, 0, {62}, 1 },
 };
 
 static int product_count(void) {

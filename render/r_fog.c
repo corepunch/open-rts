@@ -57,19 +57,38 @@ static void ensure_fogmap(void) {
 void R_DrawFog(app_t *app, const level_t *map) {
     if (!map->sight.cells || !screens[0].pixels || app->cell.w <= 0 || app->cell.h <= 0) return;
     ensure_fogmap();
-    int width = G_WorldViewportWidth(app);
-    if (width > screens[0].w) width = screens[0].w;
+    irect_t view = G_WorldViewport(app);
+    int origin = view.x < 0 ? 0 : view.x;
+    if (origin > screens[0].w) origin = screens[0].w;
+    int width = view.w;
+    if (width > screens[0].w - origin) width = screens[0].w - origin;
+    if (width < 0) width = 0;
     int height = app->win.h < screens[0].h ? app->win.h : screens[0].h;
-    ivec2_t first = {(int)floorf(-app->cam.x / app->cell.w),
-                     (int)floorf(-app->cam.y / app->cell.h)};
-    isize2_t tiles = {(width + app->cell.w - 1) / app->cell.w + 1,
-                     (height + app->cell.h - 1) / app->cell.h + 1};
+    ivec2_t first;
+    isize2_t tiles;
+    int x_limit;
+    if (origin == 0) {
+        first = (ivec2_t){(int)floorf(-app->cam.x / app->cell.w),
+                          (int)floorf(-app->cam.y / app->cell.h)};
+        tiles = (isize2_t){(width + app->cell.w - 1) / app->cell.w + 1,
+                           (height + app->cell.h - 1) / app->cell.h + 1};
+        x_limit = width;
+    } else {
+        int last_x = (int)floorf(((float)origin + (float)width - 1.0f - app->cam.x) /
+                                 (float)app->cell.w);
+        first.x = (int)floorf(((float)origin - app->cam.x) / (float)app->cell.w);
+        first.y = (int)floorf(-app->cam.y / app->cell.h);
+        tiles.w = last_x - first.x + 1;
+        tiles.h = (height + app->cell.h - 1) / app->cell.h + 1;
+        if (tiles.w < 1) tiles.w = 1;
+        x_limit = origin + width;
+    }
     irect_t dst = {(int)(first.x * app->cell.w + app->cam.x),
                    (int)(first.y * app->cell.h + app->cam.y),
                    tiles.w * app->cell.w, tiles.h * app->cell.h};
-    int x0 = dst.x > 0 ? dst.x : 0;
+    int x0 = dst.x > origin ? dst.x : origin;
     int y0 = dst.y > 0 ? dst.y : 0;
-    int x1 = dst.x + dst.w < width ? dst.x + dst.w : width;
+    int x1 = dst.x + dst.w < x_limit ? dst.x + dst.w : x_limit;
     int y1 = dst.y + dst.h < height ? dst.y + dst.h : height;
     if (dst.w <= 0 || dst.h <= 0 || x0 >= x1 || y0 >= y1) return;
     for (int ty = 0; ty < tiles.h; ++ty) {

@@ -5,22 +5,6 @@
 
 static mobjtype_t actor_storage[W2_TYPE_COUNT];
 
-enum { HUD_STATUS, HUD_MONEY, HUD_PRODUCTS, HUD_PAGE, NUMHUD };
-static menuitem_t hud_items[NUMHUD] = {
-    [HUD_STATUS] = {.visible = true, .rect = {480, 0, 160, 28},
-                    .fill = 0xff080b0fu, .border = 0xff7e847eu},
-    [HUD_MONEY] = {.visible = true, .rect = {630, 3, 0, 22}, .ink = 0xffe6d750u,
-                   .align = MALIGN_RIGHT, .ownerdraw = HU_DrawCounter},
-    [HUD_PRODUCTS] = {.kind = MI_LIST, .visible = true, .enabled = true, .rect = {480, 28, 160, 416},
-                      .row_height = 32, .value = -1, .fill = 0xff0c1216u,
-                      .routine = HU_ProductList, .ownerdraw = HU_DrawProducts},
-    [HUD_PAGE] = {.kind = MI_BUTTON, .visible = true, .enabled = true, .rect = {480, 444, 160, 36},
-                  .fill = 0xff0c1216u, .link = HUD_PRODUCTS, .routine = HU_ProductPage,
-                  .ownerdraw = HU_DrawProductPage},
-};
-static menu_t hud = {.items = hud_items, .numitems = NUMHUD, .itemOn = -1,
-                     .refresh = HU_RefreshProducts};
-
 const char *const g_game_id = "warcraft2";
 const char *const g_game_name = "Warcraft II";
 const char *const g_game_default_root = "data/WAR2";
@@ -77,11 +61,10 @@ void G_InitGame(void) {
 bool G_DoLoadLevel(const char *path, level_t *out) {
     if (!w2_load_pud(path, out)) return false;
     const w2_pud_t *pud = out->native_data;
-    /* consoleplayer stays 0. Share the first human slot's sight bit so the
-     * screenshot is not black when that human is not slot 0. */
-    if (pud && pud->view_player >= 0 && pud->view_player < 8 &&
-        consoleplayer >= 0 && consoleplayer < 8)
-        out->sight.allies[consoleplayer] |= UINT32_C(0x40000000) >> pud->view_player;
+    /* Single player watches the OWNR 5 slot. Sight and allegiance both read
+     * consoleplayer after this returns. */
+    if (!netgame && pud && pud->view_player >= 0 && pud->view_player < 8)
+        consoleplayer = pud->view_player;
     return true;
 }
 
@@ -100,30 +83,12 @@ bool R_InitSprites(const char *root, const level_t *map,
     return w2_load_runtime_sprites(root, map, mobjs, count, cache);
 }
 
-bool HU_LoadFont(const char *root, bitmapfont_t *font) {
-    (void)root; (void)font;
-    return false;
-}
-
 void G_MissionTicker(level_t *map, mobj_t *const *mobjs, int *count,
                      hudtext_t *hud_text, float dt) {
     (void)map; (void)mobjs; (void)count; (void)hud_text; (void)dt;
 }
 
-menu_t *G_InitHUD(app_t *app, const char *data_root) {
-    (void)data_root;
-    hud.app = app;
-    return &hud;
-}
-
-void G_ShutdownHUD(void) {
-}
-
 bool G_UpdateProduction(level_t *map, mobj_t *const *units, int *unit_count, float dt) {
     (void)map; (void)units; (void)unit_count;
     return G_ProductionTicker(dt);
-}
-
-irect_t G_WorldViewport(const app_t *app) {
-    return (irect_t){0, 28 * app->win.h / 480, 480 * app->win.w / 640, 452 * app->win.h / 480};
 }
