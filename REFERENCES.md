@@ -1780,3 +1780,30 @@ score zero has no basis in that description and was removed. Exact pixel
 alignment and minimap sampling remain unverified against retail. The report records the native
 evidence, corrected hypotheses, review findings and reproducible tests:
 [WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md).
+
+### Warcraft II complete base unit catalog (2026-10-04)
+
+The same local pins and retail fingerprints above apply; WAR2.EXE was not
+disassembled. Wargus `pud.cpp::UnitScriptNames` and
+`scripts/{human,orc}/units.lua`, `scripts/units.lua` were read for all 105
+native slots (100 defined, five reserved) and base numerical/capability
+definitions. `scripts/spells.lua::DefineVariables` supplies global Level
+and Mana defaults; Ogre Mage's Level is a variable table with Value 2.
+Authored C literals in `games/warcraft-2/info.c` own these values; the C
+regression independently audits the pinned tables. No Lua or reference
+balance configuration is loaded at runtime.
+
+Blizzard's [Mage](https://classic.battle.net/war2/units/mage.shtml) and
+[Death Knight](https://classic.battle.net/war2/units/deathknight.shtml)
+guides give maximum mana 255 and initial mana 85, overriding Wargus's 84.
+The [Catapult/Ballista guide](https://classic.battle.net/war2/units/catapult.shtml)
+gives armor 0, overriding Wargus Ballista armor 5. These primary pages were
+accessed 2026-10-04. The shared initial-mana override for other casters is
+an inference; reference timing is not certified retail executable behavior.
+
+Warcraft 2000's `MapDiscr.h::GeneralObject` and `Visuals` were compared for
+grouped cost/time, mana, resource and damage capabilities. Their numbers
+and storage design were not adopted. The findings preserve the previous
+unsupported Daemon land classification, numeric indestructibility flags,
+Critter exceptions, missing Deathwing graphic, and remaining unknowns:
+[complete catalog audit](docs/WAR2_EXE_FINDINGS.md#complete-base-unit-catalog-audit-2026-10-04).

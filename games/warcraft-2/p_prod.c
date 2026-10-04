@@ -8,24 +8,28 @@
 #include <string.h>
 #include <stdarg.h>
 
-/* Gold costs are the Wargus units.lua numbers. G_PlayerBuildProduct spends
- * lumber when the tic command queues training; the engine withdraws gold. Makers are
- * actor ids (PUD type + 1). product_type is the trained actor id. */
-static const StaticProductDefinition W2_PRODUCTS[] = {
-    { 1, 1, "Footman",    600, 0, RTS_PRODUCT_UNIT, 1,  0, {0}, 0, {61}, 1 },
-    { 2, 2, "Grunt",      600, 0, RTS_PRODUCT_UNIT, 2,  0, {0}, 0, {62}, 1 },
-    { 3, 3, "Peasant",    400, 0, RTS_PRODUCT_UNIT, 3,  0, {0}, 0, {75, 89, 91}, 3 },
-    { 4, 4, "Peon",       400, 0, RTS_PRODUCT_UNIT, 4,  0, {0}, 0, {76, 90, 92}, 3 },
-    { 5, 5, "Archer",     500, 0, RTS_PRODUCT_UNIT, 9,  0, {0}, 0, {61}, 1 },
-    { 6, 6, "Axethrower", 500, 0, RTS_PRODUCT_UNIT, 10, 0, {0}, 0, {62}, 1 },
-    { 7, 7, "Ballista",   900, 0, RTS_PRODUCT_UNIT, 5,  0, {0}, 0, {61}, 1 },
-    { 8, 8, "Catapult",   900, 0, RTS_PRODUCT_UNIT, 6,  0, {0}, 0, {62}, 1 },
-    { 9, 9, "Knight",     800, 0, RTS_PRODUCT_UNIT, 7,  0, {0}, 0, {61}, 1 },
-    { 10, 10, "Ogre",     800, 0, RTS_PRODUCT_UNIT, 8,  0, {0}, 0, {62}, 1 },
+/* Only the production relationships live here. Prices and durations belong
+ * to mobjinfo[]; G_PlayerBuildProduct spends lumber on the training command. */
+static StaticProductDefinition W2_PRODUCTS[] = {
+    { 1, 1, "Footman",    0, 0, RTS_PRODUCT_UNIT, MT_FOOTMAN, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
+    { 2, 2, "Grunt",      0, 0, RTS_PRODUCT_UNIT, MT_GRUNT, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
+    { 3, 3, "Peasant",    0, 0, RTS_PRODUCT_UNIT, MT_PEASANT, 0, {0}, 0, {MT_TOWN_HALL, MT_KEEP, MT_CASTLE}, 3 },
+    { 4, 4, "Peon",       0, 0, RTS_PRODUCT_UNIT, MT_PEON, 0, {0}, 0, {MT_GREAT_HALL, MT_STRONGHOLD, MT_FORTRESS}, 3 },
+    { 5, 5, "Archer",     0, 0, RTS_PRODUCT_UNIT, MT_ARCHER, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
+    { 6, 6, "Axethrower", 0, 0, RTS_PRODUCT_UNIT, MT_AXETHROWER, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
+    { 7, 7, "Ballista",   0, 0, RTS_PRODUCT_UNIT, MT_BALLISTA, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
+    { 8, 8, "Catapult",   0, 0, RTS_PRODUCT_UNIT, MT_CATAPULT, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
+    { 9, 9, "Knight",     0, 0, RTS_PRODUCT_UNIT, MT_KNIGHT, 0, {0}, 0, {MT_HUMAN_BARRACKS}, 1 },
+    { 10, 10, "Ogre",     0, 0, RTS_PRODUCT_UNIT, MT_OGRE, 0, {0}, 0, {MT_ORC_BARRACKS}, 1 },
 };
 
 static int product_count(void) {
     return (int)(sizeof(W2_PRODUCTS) / sizeof(W2_PRODUCTS[0]));
+}
+
+void w2_init_products(void) {
+    for (int i = 0; i < product_count(); ++i)
+        W2_PRODUCTS[i].cost = mobjinfo[W2_PRODUCTS[i].product_type].w2.costs.resources[0];
 }
 
 int G_ModelGetProducts(const RtsGameModel *model, int owner,
@@ -83,7 +87,7 @@ int G_ModelBuildingStateForProduct(const gameinfo_t *info,
 
 int G_ModelProductTrainingTimeMs(const StaticProductDefinition *product) {
     if (!product) return 0;
-    return product->cost * 10;
+    return mobjinfo[product->product_type].w2.costs.time * 1000;
 }
 
 bool G_ModelStartProductionRelease(RtsGameModel *model, mobj_t *producer,
@@ -131,13 +135,7 @@ bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *produ
 }
 
 int W2_ProductLumber(const StaticProductDefinition *product) {
-    if (!product) return 0;
-    switch (product->product_type) {
-    case 9: case 10: return 50;
-    case 5: case 6: return 300;
-    case 7: case 8: return 100;
-    default: return 0;
-    }
+    return product ? mobjinfo[product->product_type].w2.costs.resources[1] : 0;
 }
 
 bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product) {

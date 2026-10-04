@@ -29,7 +29,7 @@ typedef struct {
 } cmd_t;
 
 typedef struct {
-    int pud, icon, gold, wood, oil;
+    int pud, icon;
     SDL_Keycode key;
     const char *tip, *tip_orc;
 } bld_t;
@@ -49,29 +49,29 @@ static const uint8_t unit_icon[W2_TYPE_COUNT] = {
 };
 _Static_assert(sizeof(unit_icon) == W2_TYPE_COUNT, "unit icon table");
 
-/* Costs are the Wargus units.lua numbers. Pos 6 of the basic page is empty.
+/* Pos 6 of the basic page is empty; prices come from mobjinfo[].
  * Orc buildings are the next PUD type and the next icon. */
 static const bld_t basic_page[9] = {
-    { 58, 38, 500, 250, 0, SDLK_f, "Build farm", "Build pig farm" },
-    { 60, 42, 700, 450, 0, SDLK_b, "Build barracks", "Build barracks" },
-    { 74, 40, 1200, 800, 0, SDLK_h, "Build town hall", "Build great hall" },
-    { 76, 44, 600, 450, 0, SDLK_l, "Build lumber mill", "Build lumber mill" },
-    { 82, 46, 800, 450, 100, SDLK_s, "Build blacksmith", "Build blacksmith" },
-    { -1, -1, 0, 0, 0, 0, NULL, NULL },
-    { 64, 60, 550, 200, 0, SDLK_t, "Build tower", "Build tower" },
-    { 103, 92, 0, 0, 0, SDLK_w, "Build wall", "Build wall" },
-    { -1, 91, 0, 0, 0, SDLK_ESCAPE, "Cancel", NULL },
+    { 58, 38, SDLK_f, "Build farm", "Build pig farm" },
+    { 60, 42, SDLK_b, "Build barracks", "Build barracks" },
+    { 74, 40, SDLK_h, "Build town hall", "Build great hall" },
+    { 76, 44, SDLK_l, "Build lumber mill", "Build lumber mill" },
+    { 82, 46, SDLK_s, "Build blacksmith", "Build blacksmith" },
+    { -1, -1, 0, NULL, NULL },
+    { 64, 60, SDLK_t, "Build tower", "Build tower" },
+    { 103, 92, SDLK_w, "Build wall", "Build wall" },
+    { -1, 91, SDLK_ESCAPE, "Cancel", NULL },
 };
 static const bld_t advanced_page[9] = {
-    { 72, 48, 800, 450, 0, SDLK_s, "Build shipyard", "Build shipyard" },
-    { 78, 52, 700, 400, 400, SDLK_f, "Build foundry", "Build foundry" },
-    { 84, 50, 800, 350, 200, SDLK_r, "Build refinery", "Build refinery" },
-    { 68, 58, 1000, 400, 0, SDLK_i, "Build inventor", "Build alchemist" },
-    { 66, 56, 1000, 300, 0, SDLK_a, "Build stables", "Build ogre mound" },
-    { 80, 64, 1000, 200, 0, SDLK_m, "Build mage tower", "Build temple" },
-    { 62, 62, 900, 500, 0, SDLK_c, "Build church", "Build altar of storms" },
-    { 70, 72, 1000, 400, 0, SDLK_g, "Build gryphon aviary", "Build dragon roost" },
-    { -1, 91, 0, 0, 0, SDLK_ESCAPE, "Cancel", NULL },
+    { 72, 48, SDLK_s, "Build shipyard", "Build shipyard" },
+    { 78, 52, SDLK_f, "Build foundry", "Build foundry" },
+    { 84, 50, SDLK_r, "Build refinery", "Build refinery" },
+    { 68, 58, SDLK_i, "Build inventor", "Build alchemist" },
+    { 66, 56, SDLK_a, "Build stables", "Build ogre mound" },
+    { 80, 64, SDLK_m, "Build mage tower", "Build temple" },
+    { 62, 62, SDLK_c, "Build church", "Build altar of storms" },
+    { 70, 72, SDLK_g, "Build gryphon aviary", "Build dragon roost" },
+    { -1, 91, SDLK_ESCAPE, "Cancel", NULL },
 };
 
 static menuitem_t items[IT_COUNT];
@@ -249,7 +249,8 @@ static void fill_page(const bld_t *page_in, bool orc) {
         int pud = bld->pud + (orc ? 1 : 0);
         int icon = bld->icon + (orc ? 1 : 0);
         const char *tip = orc && bld->tip_orc ? bld->tip_orc : bld->tip;
-        put_cmd(i, CK_PLACE, icon, pud, bld->gold, bld->wood, bld->oil, bld->key, tip);
+        const int *cost = mobjinfo[pud + 1].w2.costs.resources;
+        put_cmd(i, CK_PLACE, icon, pud, cost[0], cost[1], cost[2], bld->key, tip);
     }
 }
 
@@ -258,7 +259,8 @@ static void fill_train(const mobj_t *unit) {
     if (type == 75 || type == 89 || type == 91 || type == 76 || type == 90 || type == 92) {
         bool orc = type == 76 || type == 90 || type == 92;
         int pud = orc ? 3 : 2;
-        put_cmd(0, CK_TRAIN, icon_of(pud), orc ? 4 : 3, 400, 0, 0, SDLK_p,
+        const int *cost = mobjinfo[pud + 1].w2.costs.resources;
+        put_cmd(0, CK_TRAIN, icon_of(pud), orc ? 4 : 3, cost[0], cost[1], cost[2], SDLK_p,
                 orc ? "Train peon" : "Train peasant");
         return;
     }
@@ -406,8 +408,8 @@ static void order_at(const menu_t *menu, int kind) {
 
 static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
     int pud = cmd->arg;
-    if (pud < 0 || pud >= W2_TYPE_COUNT || !w2_units[pud].name ||
-        (w2_units[pud].flags & W2_SKIP)) {
+    if (pud < 0 || pud >= W2_TYPE_COUNT || !mobjinfo[pud + 1].name ||
+        (mobjinfo[pud + 1].w2.flags & W2_SKIP)) {
         set_note("Walls are not built.");
         M_MenuTarget(menu, NULL);
         return;
@@ -419,8 +421,7 @@ static void place_building(menu_t *menu, menuitem_t *item, const cmd_t *cmd) {
         return;
     }
     cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
-    isize2_t foot = { w2_units[pud].tw > 0 ? w2_units[pud].tw : 1,
-                      w2_units[pud].th > 0 ? w2_units[pud].th : 1 };
+    isize2_t foot = mobjinfo[pud + 1].w2.footprint;
     if (!foot_clear(cell.x, cell.y, foot)) {
         set_note("Cannot build there.");
         M_MenuTarget(menu, item);
@@ -529,11 +530,8 @@ static void food_counts(int *used, int *have) {
         if (!unit || unit->remove || unit->hp <= 0 || unit->owner != consoleplayer) continue;
         pud = (int)unit->type_id - 1;
         if (pud < 0 || pud >= W2_TYPE_COUNT) continue;
-        if (w2_units[pud].flags & W2_CRITTER) continue;
-        if (pud == 58 || pud == 59) *have += 4;
-        else if (w2_units[pud].flags & W2_HALL) *have += 1;
-        if ((w2_units[pud].flags & W2_MOBILE) && !(w2_units[pud].flags & W2_STRUCTURE))
-            *used += 1;
+        *have += mobjinfo[unit->type_id].w2.food.supply;
+        *used += mobjinfo[unit->type_id].w2.food.demand;
     }
 }
 
@@ -575,9 +573,9 @@ static void draw_minimap(const menu_t *menu, const menuitem_t *item, irect_t rec
         int pud;
         if (!unit || unit->remove || unit->hp <= 0 || !P_VisibleToPlayer(unit)) continue;
         pud = (int)unit->type_id - 1;
-        if (pud >= 0 && pud < W2_TYPE_COUNT && (w2_units[pud].flags & W2_CRITTER)) continue;
+        if (pud >= 0 && pud < W2_TYPE_COUNT && (mobjinfo[pud + 1].w2.flags & W2_CRITTER)) continue;
         if (pud < 0 || pud >= W2_TYPE_COUNT) continue;
-        isize2_t footprint = {w2_units[pud].tw, w2_units[pud].th};
+        isize2_t footprint = mobjinfo[pud + 1].w2.footprint;
         fvec2_t pos = fvec2_sub(fixed3_xy_to_fvec2(unit->core.position),
                               (fvec2_t){footprint.w * 0.5f, footprint.h * 0.5f});
         int x = rect.x + (int)(pos.x * (float)rect.w / (float)level.width);
@@ -607,7 +605,7 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     if (pud < 0 || pud >= W2_TYPE_COUNT) return;
     draw_icon(icon_of(pud), rect.x + 9, rect.y + 9);
     char name[64], hp[32];
-    const w2_unit_t *type = &w2_units[pud];
+    const mobjinfo_t *type = &mobjinfo[portrait->type_id];
     if (type->label) snprintf(name, sizeof(name), "%s", type->label);
     else pretty_name(type->name, name, sizeof(name));
     char *second = NULL;
@@ -638,21 +636,22 @@ static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) 
     if (filled > 0)
         V_FillRect((irect_t){ rect.x + 9, rect.y + 52, filled > 2 ? filled - 2 : 0, 5 },
                    V_NearestIndex(0xff00fc00u));
-    if (type->flags & W2_MOBILE) {
-        draw_ink(rect.x + 154 - V_TextWidth(&art.font, "Level "), rect.y + 41, "Level 1");
-        snprintf(hp, sizeof(hp), "%d", type->armor);
+    if (type->w2.flags & W2_MOBILE) {
+        snprintf(hp, sizeof(hp), "Level %d", type->w2.level);
+        draw_ink(rect.x + 154 - V_TextWidth(&art.font, "Level "), rect.y + 41, hp);
+        snprintf(hp, sizeof(hp), "%d", type->w2.armor);
         draw_stat((ivec2_t){rect.x + 100, rect.y + 71}, "Armor", hp);
         if (type->damage) {
-            snprintf(hp, sizeof(hp), "%d-%d", type->damage_min, type->damage);
+            snprintf(hp, sizeof(hp), "%d-%d", type->w2.damage_min, type->damage);
             draw_stat((ivec2_t){rect.x + 100, rect.y + 86}, "Damage", hp);
         }
-        snprintf(hp, sizeof(hp), "%d", type->range);
+        snprintf(hp, sizeof(hp), "%d", type->w2.attack_range);
         draw_stat((ivec2_t){rect.x + 100, rect.y + 102}, "Range", hp);
-        snprintf(hp, sizeof(hp), "%d", type->sight);
+        snprintf(hp, sizeof(hp), "%d", type->w2.sight);
         draw_stat((ivec2_t){rect.x + 100, rect.y + 118}, "Sight", hp);
-        snprintf(hp, sizeof(hp), "%d", type->speed);
+        snprintf(hp, sizeof(hp), "%d", type->w2.speed);
         draw_stat((ivec2_t){rect.x + 100, rect.y + 133}, "Speed", hp);
-    } else if (type->flags & W2_HALL) {
+    } else if (type->w2.flags & W2_HALL) {
         draw_ink(rect.x + 16, rect.y + 71, "Production");
         int gold = W2_ResourceIncome(portrait->owner, 0) - 100;
         snprintf(hp, sizeof(hp), "100%s", gold ? (gold == 20 ? "+20" : "+10") : "");

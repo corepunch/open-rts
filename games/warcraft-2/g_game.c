@@ -19,45 +19,44 @@ const int num_actor_types = W2_TYPE_COUNT;
 
 static void fill_actors(void) {
     for (int pud = 0; pud < W2_TYPE_COUNT; ++pud) {
-        const w2_unit_t *src = &w2_units[pud];
+        const mobjinfo_t *src = &mobjinfo[pud + 1];
         mobjtype_t *dst = &actor_storage[pud];
         memset(dst, 0, sizeof(*dst));
-        int hp = src->hp > 0 ? src->hp : 1;
-        int sight = src->sight > 0 ? src->sight : 1;
+        int hp = src->spawnhealth > 0 ? src->spawnhealth : 1;
+        int sight = src->w2.sight > 0 ? src->w2.sight : 1;
         if (sight > 10) sight = 10;
         uint32_t traits = MF_RENDERABLE;
-        if (!(src->flags & W2_CRITTER)) traits |= MF_SELECTABLE;
-        if (src->flags & W2_MOBILE) traits |= MF_MOBILE;
-        if (src->flags & W2_AIR) traits |= MF_FLY;
-        if (src->flags & W2_HARVEST) traits |= MF_HARVESTER;
-        if ((src->flags & W2_HALL) || pud == 76 || pud == 77) traits |= MF_RESOURCE_BASE;
+        if (!(src->w2.flags & W2_CRITTER)) traits |= MF_SELECTABLE;
+        if (src->w2.flags & W2_MOBILE) traits |= MF_MOBILE;
+        if (src->w2.flags & W2_AIR) traits |= MF_FLY;
+        if (src->w2.flags & W2_HARVEST) traits |= MF_HARVESTER;
+        if (src->w2.store_mask) traits |= MF_RESOURCE_BASE;
         uint8_t move = 0;
-        if (!(src->flags & W2_STRUCTURE)) {
-            if (src->flags & W2_AIR) move = 3;
-            else if (src->flags & W2_SEA) move = 2;
-            else if (src->flags & W2_MOBILE) move = 1;
+        if (!(src->w2.flags & W2_STRUCTURE)) {
+            if (src->w2.flags & W2_AIR) move = 3;
+            else if (src->w2.flags & W2_SEA) move = 2;
+            else if (src->w2.flags & W2_MOBILE) move = 1;
         }
         *dst = (mobjtype_t){
             .id = (uint16_t)(pud + 1),
             .name = src->name ? src->name : "empty",
             .sprite_name = src->name,
             .traits = traits,
-            .speed = (src->flags & W2_MOBILE) ? src->speed / W2_SPEED_DIVISOR : 0.0f,
+            .speed = (src->w2.flags & W2_MOBILE) ? src->w2.speed / W2_SPEED_DIVISOR : 0.0f,
             .max_hp = hp,
-            .sight = { .day = sight, .night = sight, .airborne = (src->flags & W2_AIR) != 0 },
-            .attack = { .range = src->range, .damage = src->damage },
+            .sight = { .day = sight, .night = sight, .airborne = (src->w2.flags & W2_AIR) != 0 },
+            .attack = { .range = src->w2.attack_range, .damage = src->damage },
             .move_class = move,
         };
-        if (src->flags & W2_HARVEST) {
-            dst->harvest.resources[0].capacity = W2_HARVEST_GOLD;
-            dst->harvest.resources[1].capacity = 100;
-        }
+        for (int resource = 0; resource < 3; ++resource)
+            dst->harvest.resources[resource].capacity = src->w2.gather[resource].capacity;
     }
 }
 
 void G_InitGame(void) {
     w2_build_info();
     fill_actors();
+    w2_init_products();
 }
 
 bool G_DoLoadLevel(const char *path, level_t *out) {
