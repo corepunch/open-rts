@@ -1,5 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#ifdef RTS_GAME_WARCRAFT_2
+#include "warcraft-2.h"
+#endif
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
@@ -38,6 +41,9 @@ bool P_VentOpenTo(const level_t *map, const resourcevent_t *vent, const mobj_t *
     if (!vent || !vent->active || vent->amount <= 0) return false;
     if (!vent->source_id) return true;
     const mobj_t *source = P_MobjById(vent->source_id);
+#ifdef RTS_GAME_WARCRAFT_2
+    if (source && source->type_id == MT_GOLD_MINE) return true;
+#endif
     return source && unit && P_IsAlly(source, unit);
 }
 
@@ -974,6 +980,9 @@ static float unit_harvest_interaction_radius_cells(const mobj_t *unit) {
 
 static bool update_unit_harvest(level_t *map,
                                 mobj_t *unit, int dt_ms, const gameinfo_t *game_info) {
+#ifdef RTS_GAME_WARCRAFT_2
+    return W2_TickHarvest(unit);
+#endif
     if (!map || !unit || (unit->traits & MF_HARVESTER) == 0 ||
         unit->harvest.phase == HARVEST_PHASE_NONE || unit->harvest.target < 0) {
         return false;
@@ -1308,6 +1317,9 @@ static void tick_actor(mobj_t *u) {
     }
     if ((!gameinfo || !gameinfo->states) && u->attack.cooldown_left_ms <= 0)
         P_Attack(u);
+#ifdef RTS_GAME_WARCRAFT_2
+    W2_WorkerPose(u);
+#endif
 }
 
 void P_MobjThinker(mobj_t *mobj) {

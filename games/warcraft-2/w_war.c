@@ -39,11 +39,11 @@ bool w2_archive_open(w2_archive_t *arc, const char *path) {
     memset(arc, 0, sizeof(*arc));
     blob_t file;
     if (!W_ReadFile(path, &file)) {
-        fprintf(stderr, "warcraft2: cannot read %s\n", path);
+        fprintf(stderr, "warcraft-2: cannot read %s\n", path);
         return false;
     }
     if (file.size < 8 || read_u32_le(file.bytes) != 0x19u) {
-        fprintf(stderr, "warcraft2: %s is not a WAR archive\n", path);
+        fprintf(stderr, "warcraft-2: %s is not a WAR archive\n", path);
         W_FreeFile(&file);
         return false;
     }
@@ -52,7 +52,7 @@ bool w2_archive_open(w2_archive_t *arc, const char *path) {
     /* MAINDAT is type 1000. REZDAT is type 3000. The entry records match. */
     if (count <= 0 || (type != 1000 && type != 3000) ||
         file.size < 8u + (size_t)count * 4u) {
-        fprintf(stderr, "warcraft2: %s has %d entries of type %d\n", path, count, type);
+        fprintf(stderr, "warcraft-2: %s has %d entries of type %d\n", path, count, type);
         W_FreeFile(&file);
         return false;
     }
@@ -117,7 +117,7 @@ bool w2_archive_extract(const w2_archive_t *arc, int index, w2_blob_t *out) {
             }
         }
     } else {
-        fprintf(stderr, "warcraft2: entry %d uses flag 0x%02x\n", index, flags);
+        fprintf(stderr, "warcraft-2: entry %d uses flag 0x%02x\n", index, flags);
         free(dest);
         return false;
     }
@@ -181,20 +181,20 @@ bool w2_decode_tileset(const w2_archive_t *arc, int era, tileset_t *out) {
         !w2_archive_extract(arc, entries[1], &mega) ||
         !w2_archive_extract(arc, entries[2], &mini) ||
         !w2_archive_extract(arc, entries[3], &map)) {
-        fprintf(stderr, "warcraft2: tileset entries %d/%d/%d/%d failed\n",
+        fprintf(stderr, "warcraft-2: tileset entries %d/%d/%d/%d failed\n",
                 entries[0], entries[1], entries[2], entries[3]);
         goto done;
     }
     if (!w2_decode_palette(&palette_blob, out->palette)) goto done;
     if (mega.size < 32 || mega.size / 32 > 100000) goto done;
     if (map.size < 0x9eu * 42u) {
-        fprintf(stderr, "warcraft2: map table is %zu bytes\n", map.size);
+        fprintf(stderr, "warcraft-2: map table is %zu bytes\n", map.size);
         goto done;
     }
     int count = (int)(mega.size / 32u);
     size_t pixels = (size_t)count * 32u * 32u;
     uint8_t *indices = calloc(pixels, 1);
-    int *lookup = malloc((size_t)W2_TILE_LOOKUP * sizeof(int));
+    int *lookup = malloc((size_t)(W2_TILE_LOOKUP + 1) * sizeof(int));
     if (!indices || !lookup) {
         free(indices);
         free(lookup);
@@ -225,8 +225,9 @@ bool w2_decode_tileset(const w2_archive_t *arc, int era, tileset_t *out) {
         }
     }
     out->indices = indices;
+    lookup[W2_TILE_LOOKUP] = 126; /* All four native tilesets: removed-tree. */
     out->tile_lookup = lookup;
-    out->tile_lookup_count = W2_TILE_LOOKUP;
+    out->tile_lookup_count = W2_TILE_LOOKUP + 1;
     out->count = count;
     out->tile_w = 32;
     out->tile_h = 32;

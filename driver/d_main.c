@@ -331,9 +331,10 @@ load_level:
     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
     S_Start(&level, data_root);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag/order, right deselect, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: %s, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
            level.decoration_count, level.resource_vent_count,
+           gameinfo && gameinfo->right_click_orders ? "left select/drag, right order" : "left select/drag/order, right deselect",
            (gameinfo && gameinfo->f10_menu) ? "F10 menu" : "F10 +100 resources");
 
     menu_t *hud = G_InitHUD(&app, data_root);
@@ -376,7 +377,7 @@ load_level:
 
             R_DrawGridOverlay(&app, &level);
             R_DrawFog(&app, &level);
-            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (hud) M_MenuDrawer(hud);
             if (renderer_save_screenshot(&renderer, screenshot_path)) {
                 printf("Saved screenshot %s.\n", screenshot_path);
@@ -428,7 +429,7 @@ load_level:
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+            hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
             if (D_MenuResponder(&app, &e, hud)) {
                 if (menumap || menuleave || !app.running) break;
                 continue;
@@ -545,7 +546,7 @@ load_level:
             HU_Ticker(&hud_text, FIXED_DT);
             HU_Ticker(&chat_text, FIXED_DT);
             if (hud) {
-                hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+                hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
                 if (hud->ticker) hud->ticker(hud);
                 else M_MenuTicker(hud);
             }
@@ -582,7 +583,7 @@ load_level:
         R_DrawFog(&app, &level);
         if (app.dragging_select)
             V_DrawRectOutline(app.selection_rect, V_NearestIndex(0xff62e0a1u));
-        hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text};
+        hudview = (hudview_t){units, unit_count, &decoration_sprites, &hud_text, &tileset};
         if (hud) M_MenuDrawer(hud);
         M_Drawer(&app);
         renderer_end_frame(&renderer);

@@ -1,5 +1,8 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#ifdef RTS_GAME_WARCRAFT_2
+#include "warcraft-2.h"
+#endif
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
@@ -510,6 +513,15 @@ static int find_resource_vent_at(const level_t *map, fvec2_t position) {
 
 bool P_HarvestUnitsAt(const level_t *map, mobj_t *const *units, int unit_count,
                      fvec2_t position) {
+#ifdef RTS_GAME_WARCRAFT_2
+    (void)map;
+    {
+        bool issued = false;
+        for (int i = 0; i < unit_count; ++i)
+            issued = W2_HarvestOrder(units[i], position) || issued;
+        return issued;
+    }
+#endif
     int vent_index = find_resource_vent_at(map, position);
     if (vent_index < 0) return false;
 

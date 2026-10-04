@@ -31,5 +31,10 @@ typedef struct mobjinfo_s {
 } mobjinfo_t;
 
 extern gameinfo_t game_info;
+extern state_t states[];
+extern mobjinfo_t mobjinfo[];
+extern const char *sprnames[];
+
+enum { MT_PEASANT = 3, MT_PEON = 4, MT_GOLD_MINE = 93 };
 
 #endif

@@ -19,7 +19,6 @@ bool P_NavPlan(const level_t *map, int move_class, float radius, fvec2_t from,
                fvec2_t goal, const uint8_t *soft, navpath_t *out);
 
 /* Connected-component test on the same grid the planner searches. */
-bool P_NavReachable(const level_t *map, int move_class, ivec2_t from, ivec2_t to);
 
 /* True if a disc of the given radius can travel from a to b unobstructed. */
 bool P_NavLineClear(const level_t *map, int move_class, fvec2_t a, fvec2_t b,

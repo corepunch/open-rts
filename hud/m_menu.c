@@ -32,6 +32,7 @@ irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item) {
     if (item->anchor & MANCHOR_RIGHT) r.x += dx;
     if (item->anchor & MANCHOR_BOTTOM) r.y += dy;
     if (item->anchor & MANCHOR_GROW) r.h += dy;
+    if (item->anchor & MANCHOR_WIDE) r.w += dx;
     return r;
 }
 

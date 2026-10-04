@@ -1,5 +1,12 @@
 # open-rts — Codex / agent instructions
 
+## Icon generation
+
+Never draw icons separately. Generate every icon in a set together as a single
+strip or atlas in one ImageGen call. Derive pressed, hover and disabled states
+by deterministic post-processing of that shared artwork. Native game assets
+remain the source for retail-game UI.
+
 ## Build
 
 All repository tools and generators must be implemented in C. Do not add or
@@ -27,7 +34,7 @@ build/bin/open-rts --game dark-colony data/DCOLONY SCENARIO/HUMAN/HUMAN01.MAP SP
 build/bin/open-rts --game 7legion data/7LEGION
 
 # Warcraft II (per-game binary; defaults to data/WAR2/ALAMO.PUD)
-build/bin/warcraft2
+build/bin/warcraft-2
 ```
 
 Makefile convenience targets fill in the default paths:
@@ -36,7 +43,7 @@ Makefile convenience targets fill in the default paths:
 make dark-reign
 make dark-colony
 make 7legion
-make warcraft2
+make warcraft-2
 ```
 
 ## Smoke tests (no display required)
@@ -59,8 +66,8 @@ env SDL_VIDEODRIVER=dummy build/bin/open-rts --check --game 7legion
 env SDL_VIDEODRIVER=dummy build/bin/open-rts --screenshot /private/tmp/open-rts-7legion.bmp --game 7legion
 
 # Warcraft II
-env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --check
-env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --screenshot /private/tmp/open-rts-warcraft2.bmp
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --screenshot /private/tmp/open-rts-warcraft-2.bmp
 ```
 
 ## Software renderer workaround
@@ -169,7 +176,7 @@ include path is `-Iinclude`, so no other folder is on it.
   header, `include/engine.h`. Add engine declarations there, in dependency
   order.
 - **Games**: each `games/<id>/` has one public header, `include/<id>.h`
-  (`dark-colony.h`, `dark-reign.h`, `7legion.h`, `kknd.h`, `warcraft2.h`), for what the engine
+  (`dark-colony.h`, `dark-reign.h`, `7legion.h`, `kknd.h`, `warcraft-2.h`), for what the engine
   or tests call, and optionally one local header, `games/<id>/<prefix>_local.h`
   (`dc_local.h`), for declarations shared only between that folder's `.c` files.
   Nothing outside the folder includes a local header.

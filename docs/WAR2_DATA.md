@@ -1,10 +1,12 @@
 # Warcraft II data: PUD, MAINDAT, and the first playable slice
 
-This records what `games/warcraft2` loads from retail `data/WAR2`, which
+This records what `games/warcraft-2` loads from retail `data/WAR2`, which
 references were used, and which choices are engine presentation rather than
 retail behavior. Nothing here was traced in `WAR2.EXE`. Wargus (GPL-2) and
-war2tools (MIT) were read for layout only; their source is not copied.
+war2tools (MIT) were read as format/behavior references; their source is not copied.
 Warcraft 2000 was consulted and not adopted.
+See [gathering, HUD evidence and the Dark Colony review](WAR2_EXE_FINDINGS.md)
+for the 2026-10-04 implementation and its remaining fidelity gaps.
 
 ## Retail files
 
@@ -75,14 +77,16 @@ forests do not block sight. Wall MTXM values set `cell_solid`: orc
 `(v & 0xFFF0) == 0x00A0`, `(v & 0xFFF0) == 0x00C0`, or `(v & 0xFF00) == 0x0900`;
 human `(v & 0x00F0) == 0x0090`, `(v & 0xFFF0) == 0x00B0`, or
 `(v & 0xFF00) == 0x0800`. Water and forest also set `blocked[]`. Building
-footprints set both.
+footprints set both. Felling a tree clears its forest collision and selects
+native removed-tree megatile 126; neighboring forest edges are not recomputed.
 
 **Units.** A `UNIT` record is `u16 x, y; u8 type, player; u16 data`. The
 spawned actor id is `type + 1` because `P_InitMobj` rejects type 0. Starts
 (types 94 and 95) and walls (103 and 104) are not spawned. `ALAMO` therefore
 spawns 64 of 71 records. Placement is the footprint center. Structures mark
-that footprint solid. `data * 2500` on gold mines and oil patches is kept on
-the PUD record and not applied.
+that footprint solid. Gold-mine reserves use `data * 2500`, checked against
+the PUD records and Wargus's PUD reader. Oil patches retain their PUD data;
+oil extraction is not implemented.
 
 `ALAMO` resources for the first two slots: gold 3000/3000, lumber 1000/1400,
 oil 1000/2000. Single player shows the `OWNR` 5 slot. On `ALAMO` that is
@@ -148,10 +152,13 @@ height. `count - 32` is the glyph count (239 becomes 207, ASCII 32 onward).
 Each glyph is a `u32` offset from the start of the blob. The glyph is `u8`
 width, height, x offset, y offset, then RLE. A control byte's high 5 bits
 (`ctrl >> 3`) skip, wrapping at the glyph width; the low 3 bits are one
-pixel's index 0..7. Index 0 is transparent. Indices 1..7 are a gray ramp
-`80 + i * 25`. The cell is `width` by max height with the ink at `y = yoff`.
-The x offset is not applied. A space with offset 0 is an empty cell about
-half the max width wide.
+pixel's ink category 0..7; skipped pixels are transparent. Native ink
+categories are retained as engine indices 1..8, separately from transparent
+index zero. White/yellow color ramps follow the reference's native palette
+indices. The cell is `xoff + width` by max height; ink uses both bearings.
+Entry 283 supplies the smaller HP font. A space with offset 0 is an empty
+cell about half the max width wide. Earlier grayscale/no-x-bearing decoding
+was incorrect; `M` advances 11 pixels, not 10.
 
 **In-game panel, 640×480, human entry then orc entry.** The column is on the
 left. The map viewport is `{176, 16, 448, 448}`.
@@ -224,8 +231,13 @@ These are engine choices, not traced `WAR2.EXE` behavior.
   order. Save, load, and options are not stored.
 - The advanced build page is shown only when the player owns a lumber mill
   (PUD 76 or 77) or a keep, stronghold, castle, or fortress (PUD 88–91).
-- Training spends gold through the engine queue and lumber through the
-  button. Building costs are the Wargus `units.lua` numbers. Score stays 0.
+- Training spends gold and lumber atomically when its tic command executes.
+  Building placement still spends directly from the HUD and is not ready
+  for lock-step multiplayer. Costs follow Wargus `units.lua`. Score stays 0.
+- Harvest uses ordinary mobj thinkers, native axe/carrier graphics, finite
+  deposits, owned reachable depots, repeated trips and a Return Goods command.
+  Lumber progress is private to each worker and finishes on chop 51, as
+  documented by Blizzard. Delay values are reference-derived, not EXE-traced.
 
 ## Unknown
 
@@ -240,30 +252,31 @@ These are engine choices, not traced `WAR2.EXE` behavior.
 - Retail attack recovery and sight blocking. This slice sets no `MF_ATTACK`.
   Sight of 0 becomes 1, then sight is clamped to 10, so the oil patch and
   circle of power are visible. On `ALAMO` the camera starts on the human.
-- Gold-mine and oil-patch amounts.
+- Retail oil extraction and exact bonus/depletion accounting.
+- Exact minimap rendering, command visual states and complete HUD pixel fidelity.
 - Retail construction, patrol, stand ground, repair, and wall placement.
 - Whether expansion swamp entries 438–441 differ from wasteland. This file
   does not contain them.
 
 ## Checks
 
-`make test-warcraft2` is not part of `make test`, because CI has no
+`make test-warcraft-2` is not part of `make test`, because CI has no
 `data/WAR2`.
 
 ```
-make test-warcraft2
+env SDL_VIDEODRIVER=dummy make test-warcraft-2
 # alamo land=6429 water=0 forest=2787
 # alamo spawned=64 thinkers=64
 # alamo sprites ok=1 cache=15
 # channel land=3968 water=3609 era=wasteland
 
-env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --check
-# Smoke check OK: 372 terrain tiles, 60 unit frames from footman, 0 resource vents.
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
+# Includes 2,787 ALAMO trees; the PUD regression spawns and checks 11 mines.
 
-env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --screenshot /private/tmp/open-rts-warcraft2.bmp
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --screenshot /private/tmp/open-rts-warcraft-2.bmp
 ```
 
-`make test-warcraft2` also checks the human slot after single-player net
+`make test-warcraft-2` also checks the human slot after single-player net
 setup, that the town hall is still visible to that slot, and the UI entry
 sizes above (title 640×480, panels 256×288, icons 186).
 The default binary loads `data/WAR2/ALAMO.PUD`.

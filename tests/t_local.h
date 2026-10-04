@@ -135,7 +135,8 @@ static inline bool t_hud_event(menu_t *hud, app_t *app, mobj_t *const *units, in
 
 static inline void t_hud_draw(menu_t *hud, app_t *app, mobj_t *const *units, int unit_count,
                               const spritecache_t *sprites, const hudtext_t *messages) {
-    hudview = (hudview_t){units, unit_count, sprites, messages};
+    hudview = (hudview_t){.units = units, .unit_count = unit_count,
+                         .sprites = sprites, .messages = messages};
     if (!hud) return;
     hud->app = app;
     M_MenuDrawer(hud);
