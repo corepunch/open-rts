@@ -70,5 +70,7 @@ void w2_build_info(void) {
         .state_coord_mode = RTS_STATE_COORDS_GROUND_OFFSET,
         .selection_marker = { .style = SELECTION_STYLE_DEFAULT },
         .right_click_orders = false,
+        .select_any = true,
+        .f10_menu = true,
     };
 }

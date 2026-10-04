@@ -331,9 +331,10 @@ load_level:
     R_ClampCamera(&app, &level, G_WorldViewportWidth(&app), app.win.h);
     S_Start(&level, data_root);
 
-    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag/order, right deselect, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, F10 +100 resources.\n",
+    printf("Loaded %s (%dx%d, tileset %s, %d units, %d level decorations, %d resource vents). Controls: left select/drag/order, right deselect, Alt+left spawn enemy, WASD/arrows pan, G grid, B blocked overlay, Ctrl+A select all, %s.\n",
            map_path, level.width, level.height, level.tileset_name, unit_count,
-           level.decoration_count, level.resource_vent_count);
+           level.decoration_count, level.resource_vent_count,
+           (gameinfo && gameinfo->f10_menu) ? "F10 menu" : "F10 +100 resources");
 
     menu_t *hud = G_InitHUD(&app, data_root);
     AiContext ai;
@@ -434,6 +435,10 @@ load_level:
             }
             if (e.type == SDL_KEYDOWN && !e.key.repeat &&
                 e.key.keysym.sym == SDLK_F10) {
+                if (gameinfo && gameinfo->f10_menu) {
+                    M_StartControlPanel(&app);
+                    continue;
+                }
                 if (netgame) continue;
                 level.player_resources[consoleplayer][0] += 100;
                 HU_PushMessage(&hud_text, "CHEAT: +100 RESOURCES", 2000);

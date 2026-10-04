@@ -85,7 +85,9 @@ that footprint solid. `data * 2500` on gold mines and oil patches is kept on
 the PUD record and not applied.
 
 `ALAMO` resources for the first two slots: gold 3000/3000, lumber 1000/1400,
-oil 1000/2000. The sidebar shows slot 0. On this map that is also 3000 gold.
+oil 1000/2000. Single player shows the `OWNR` 5 slot. On `ALAMO` that is
+slot 1: gold 3000, lumber 1400, oil 2000. Food is living mobile units over
+supply: a farm or pig farm adds 4, a hall adds 1. Score stays 0.
 
 **GRP.** Header is `u16` count, max width, max height, then per frame at
 `6 + i * 8`: `u8` x offset, y offset, width, height, and `u32` offset. The
@@ -117,6 +119,63 @@ unit trim.
 and crosses terrain 1. Air is class 3 and crosses 0, 1, and 2. `cell_solid`
 blocks every class, including air. Structures, including oil platforms, are
 class 0 and use `blocked[]`.
+
+**Who you play.** `G_DoLoadLevel` sets `consoleplayer` to the PUD view player
+(the first `OWNR` 5 slot) when this is not a net game. Allegiance, sight, and
+selection then use that slot. Critters are not selectable. With none of your
+units selected, one click can inspect any other unit, including a gold mine.
+A drag still selects only your units.
+
+**Archive type.** `REZDAT.WAR` is the same record layout as `MAINDAT.WAR`
+with `u16` type 3000 and 91 entries. The opener accepts type 1000 and type
+3000.
+
+**IMG.** `u16` width, `u16` height, then raw pixels. Accept
+`size >= 4 + width * height`.
+
+**GFU.** `u16` count, max width, max height, then 8-byte frames: `u8` x
+offset, y offset, width, height, `u32` offset. The high bit of the offset
+clears and the width grows by 256. Pixels are raw `width * height` at
+`blob + offset`. A bad frame is skipped. Widget buttons store the tight
+image and do not use the GFU offset as a displacement.
+
+**FONT.** Entry 282. Skip `"FONT "` (5 bytes). Then count, max width, max
+height. `count - 32` is the glyph count (239 becomes 207, ASCII 32 onward).
+Each glyph is a `u32` offset from the start of the blob. The glyph is `u8`
+width, height, x offset, y offset, then RLE. A control byte's high 5 bits
+(`ctrl >> 3`) skip, wrapping at the glyph width; the low 3 bits are one
+pixel's index 0..7. Index 0 is transparent. Indices 1..7 are a gray ramp
+`80 + i * 25`. The cell is `width` by max height with the ink at `y = yoff`.
+The x offset is not applied. A space with offset 0 is an empty cell about
+half the max width wide.
+
+**In-game panel, 640×480, human entry then orc entry.** The column is on the
+left. The map viewport is `{176, 16, 448, 448}`.
+
+| Piece | Entries | Size |
+| --- | --- | --- |
+| Menu button | 293 / 294 | 176×24 |
+| Minimap frame | 295 / 296 | 176×136 |
+| Button panel | 297 / 298 | 176×144 |
+| Resource bar | 287 / 288 | 448×16 |
+| Status bar | 291 / 292 | 448×16 |
+| Right filler | 289 / 290 | 16×480 |
+| Info plate | 354 / 355, GFU frame 0 | 176×176 |
+
+The info plate is composited into the max box. Untouched pixels stay index 0,
+and that index stays opaque on chrome. Icons are GRP entry 356 (forest,
+palette 2), 357 (winter, palette 18), or 358 (wasteland and swamp, palette
+10): 186 frames, max 46×38. Era 1 uses palette 18, era 2 or 3 uses palette
+10, otherwise palette 2. Command icons above 185 are not in this archive.
+
+**Menus.** REZDAT entry 14 is the widget palette. Entries 0 and 1 are the
+human and orc widget GFUs: 50 frames, max 300×164. Small buttons are frames
+10 and 11 (106×28). Large buttons are frames 16 and 17 (224×28). Panel images
+are entries 3 and 4, 256×288. The title backdrop is entry 13, 640×480. The
+title puts Start and Quit on the left. In a level, F10 or Escape opens the
+game menu on panel 1 at x 0, y 96, with the buttons from Wargus
+`scripts/menus/game.lua` measured against that panel. The world palette stays
+in level; REZDAT pixels are matched into it.
 
 ## Inferred
 
@@ -151,6 +210,19 @@ are. `MTXM` selects the graphic.
 
 Mega index 0 is a real tile (the fog tile), not a missing graphic.
 
+## Presentation
+
+These are engine choices, not traced `WAR2.EXE` behavior.
+
+- A placed building appears at once and marks its footprint. Walls show
+  their icon and are not spawned.
+- Patrol, stand ground, and repair set a status line and do not issue an
+  order. Save, load, and options are not stored.
+- The advanced build page is shown only when the player owns a lumber mill
+  (PUD 76 or 77) or a keep, stronghold, castle, or fortress (PUD 88–91).
+- Training spends gold through the engine queue and lumber through the
+  button. Building costs are the Wargus `units.lua` numbers. Score stays 0.
+
 ## Unknown
 
 - How `WAR2.EXE` converts a unit's speed byte into movement per tick. The
@@ -161,13 +233,11 @@ Mega index 0 is a real tile (the fog tile), not a missing graphic.
   borrowed.
 - Which GRP frame is construction versus damage. Frame 0 is the intact
   picture used for the standing state.
-- Retail attack recovery, fog, and sight blocking. This slice sets no
-  `MF_ATTACK`. Sight of 0 becomes 1, then sight is clamped to 10, so the oil
-  patch and circle of power are visible. `consoleplayer` stays 0. After load,
-  that slot's ally mask ORs in the first `OWNR` 5 player's sight bit so a
-  human who is not slot 0 is still revealed. On `ALAMO` the camera is that
-  human start.
+- Retail attack recovery and sight blocking. This slice sets no `MF_ATTACK`.
+  Sight of 0 becomes 1, then sight is clamped to 10, so the oil patch and
+  circle of power are visible. On `ALAMO` the camera starts on the human.
 - Gold-mine and oil-patch amounts.
+- Retail construction, patrol, stand ground, repair, and wall placement.
 - Whether expansion swamp entries 438–441 differ from wasteland. This file
   does not contain them.
 
@@ -185,6 +255,10 @@ make test-warcraft2
 
 env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --check
 # Smoke check OK: 372 terrain tiles, 60 unit frames from footman, 0 resource vents.
+
+env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --screenshot /private/tmp/open-rts-warcraft2.bmp
 ```
 
+`make test-warcraft2` also checks the human slot, the town hall's selectable
+flag, and the UI entry sizes above (title 640×480, panels 256×288, icons 186).
 The default binary loads `data/WAR2/ALAMO.PUD`.
