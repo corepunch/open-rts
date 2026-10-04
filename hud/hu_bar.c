@@ -123,7 +123,7 @@ void HU_ProductList(menu_t *menu, menuitem_t *item, menuaction_t action) {
 
 static void small_text(ivec2_t at, const char *text, int width, uint32_t argb) {
     V_DrawSmallText((irect_t){at.x, at.y, width, 7}, text, argb,
-                    (isize2_t){screens[0].w, screens[0].h});
+                    V_DrawSize());
 }
 
 void HU_DrawProducts(const menu_t *menu, const menuitem_t *item, irect_t rect) {

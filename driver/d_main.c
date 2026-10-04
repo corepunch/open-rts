@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
     strcpy(map_name, map_arg);
 
     renderer_t renderer;
-    app_t app = { .win = { 640, 480 } };
+    app_t app = { .win = { DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT } };
     isize2_t window_size = window.w > 0 ? window : app.win;
     app.show_grid = false;
     app.running = true;
@@ -652,7 +652,13 @@ help:
            "  --sprite <path>        Default sprite asset\n"
            "  --software            Use the software renderer\n"
            "  --nosound             Disable sound effects\n"
-           "  --window <WxH>         Initial window size, e.g. 1280x960; default 640x480\n"
+           "  --window <WxH>         Initial window size (default "
+#ifdef RTS_NATIVE_WORLD
+           "1280x960"
+#else
+           "640x480"
+#endif
+           ")\n"
            "  --check | --screenshot <file.bmp>   Offline smoke check\n"
            "  --net-check <tics>     Run a bounded headless simulation\n"
            "  --net <1..4> <peers...>  Legacy manual peer setup\n"

@@ -100,7 +100,15 @@ static void screen_to_map_grid_point(const app_t *app, const level_t *map, int s
 }
 
 void R_RefreshViewport(app_t *app) {
+#ifdef RTS_NATIVE_WORLD
+    if (!app || !app->window) return;
+    isize2_t size;
+    SDL_GetWindowSize(app->window, &size.w, &size.h);
+    V_AllocScreen(size.w, size.h);
+    if (screens[0].w == size.w && screens[0].h == size.h) app->win = size;
+#else
     (void)app;
+#endif
 }
 
 void R_WindowToRenderPt(const app_t *app, int wx, int wy, int *rx, int *ry) {

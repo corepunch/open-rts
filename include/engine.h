@@ -201,7 +201,7 @@ static inline bool frect_intersects(frect_t a, frect_t b) {
 typedef struct app_s {
     SDL_Window *window;
     SDL_Renderer *renderer; /* Present only. Drawing goes through screens[0]. */
-    isize2_t win; /* Logical draw size. The OS window may be a different size. */
+    isize2_t win; /* Framebuffer size; native-world builds follow the OS window. */
     isize2_t cell;
     fvec2_t  cam;
     bool show_grid;
@@ -1140,6 +1140,28 @@ extern hudtext_t chat_text;
 #define SCREENWIDTH  640
 #define SCREENHEIGHT 480
 
+#ifdef RTS_NATIVE_WORLD
+#define DEFAULT_WINDOW_WIDTH  (SCREENWIDTH * 2)
+#define DEFAULT_WINDOW_HEIGHT (SCREENHEIGHT * 2)
+#else
+#define DEFAULT_WINDOW_WIDTH  SCREENWIDTH
+#define DEFAULT_WINDOW_HEIGHT SCREENHEIGHT
+#endif
+
+static inline int R_UIScale(const app_t *app) {
+#ifdef RTS_NATIVE_WORLD
+    if (app) {
+        int scale = app->win.w / SCREENWIDTH;
+        int vertical = app->win.h / SCREENHEIGHT;
+        if (scale > vertical) scale = vertical;
+        if (scale > 0) return scale;
+    }
+#else
+    (void)app;
+#endif
+    return 1;
+}
+
 enum {
     V_FLIP_X = 1u << 0,
     V_FLIP_Y = 1u << 1,
@@ -1160,6 +1182,10 @@ extern uint32_t vpalette[256];
 void V_AllocScreen(int w, int h);
 void V_FreeScreen(void);
 void V_BeginFrame(uint32_t clear_argb);
+/* Drawing coordinates are logical UI pixels while a menu is being drawn. */
+void V_SetDrawScale(int scale);
+int V_GetDrawScale(void);
+isize2_t V_DrawSize(void);
 void I_SetPalette(const uint32_t argb[256]);
 bool I_ReadScreen(uint8_t *dst);
 uint8_t V_NearestIndex(uint32_t argb);
@@ -2217,7 +2243,7 @@ void M_MenuSetRows(menuitem_t *list, int rows);
 void M_MenuDrawer(menu_t *menu);
 /* The item with this id, or NULL. */
 menuitem_t *M_MenuFind(const menu_t *menu, int id);
-/* Where the item is on the screen. */
+/* Framebuffer pixels for input; logical drawing pixels inside M_MenuDrawer. */
 irect_t M_MenuItemRect(const menu_t *menu, const menuitem_t *item);
 /* The live item under the pointer, or the focus of a modal screen. */
 menuitem_t *M_MenuHover(const menu_t *menu);

@@ -8,13 +8,33 @@ static SDL_Window *video_window;
 static SDL_Renderer *video_renderer;
 static SDL_Texture *video_texture;
 static bool video_linear;
-static int window_w;
-static int window_h;
 
 void I_SetScaleMode(bool linear) {
     video_linear = linear;
     if (video_texture)
         SDL_SetTextureScaleMode(video_texture, linear ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+}
+
+static bool resize_screen(isize2_t size) {
+    if (size.w <= 0 || size.h <= 0) return false;
+    isize2_t current = {0};
+    if (video_texture && !SDL_QueryTexture(video_texture, NULL, NULL, &current.w, &current.h) &&
+        current.w == size.w && current.h == size.h) return true;
+    SDL_Texture *texture = SDL_CreateTexture(video_renderer, SDL_PIXELFORMAT_ARGB8888,
+                                             SDL_TEXTUREACCESS_STREAMING, size.w, size.h);
+    if (!texture) {
+        fprintf(stderr, "screen texture: %s\n", SDL_GetError());
+        return false;
+    }
+    V_AllocScreen(size.w, size.h);
+    if (!screens[0].pixels || screens[0].w != size.w || screens[0].h != size.h) {
+        SDL_DestroyTexture(texture);
+        return false;
+    }
+    if (video_texture) SDL_DestroyTexture(video_texture);
+    video_texture = texture;
+    I_SetScaleMode(video_linear);
+    return true;
 }
 
 bool I_InitGraphics(app_t *app, int window_width, int window_height, bool hidden, bool software) {
@@ -37,20 +57,16 @@ bool I_InitGraphics(app_t *app, int window_width, int window_height, bool hidden
         return false;
     }
     SDL_SetRenderDrawBlendMode(video_renderer, SDL_BLENDMODE_NONE);
-    window_w = window_width;
-    window_h = window_height;
-    int logical_w = app && app->win.w > 0 ? app->win.w : SCREENWIDTH;
-    int logical_h = app && app->win.h > 0 ? app->win.h : SCREENHEIGHT;
-    V_AllocScreen(logical_w, logical_h);
-    video_texture = SDL_CreateTexture(video_renderer, SDL_PIXELFORMAT_ARGB8888,
-                                      SDL_TEXTUREACCESS_STREAMING, logical_w, logical_h);
-    if (!video_texture) {
-        fprintf(stderr, "screen texture: %s\n", SDL_GetError());
+    isize2_t size = app && app->win.w > 0 ? app->win : (isize2_t){SCREENWIDTH, SCREENHEIGHT};
+#ifdef RTS_NATIVE_WORLD
+    size = (isize2_t){window_width, window_height};
+#endif
+    if (!resize_screen(size)) {
         I_ShutdownGraphics();
         return false;
     }
-    I_SetScaleMode(video_linear);
     if (app) {
+        app->win = size;
         app->window = video_window;
         app->renderer = video_renderer;
     }
@@ -72,6 +88,7 @@ void I_ShutdownGraphics(void) {
 
 void I_FinishUpdate(void) {
     if (!video_renderer || !video_texture || !screens[0].pixels) return;
+    if (!resize_screen((isize2_t){screens[0].w, screens[0].h})) return;
     void *pixels = NULL;
     int pitch = 0;
     if (SDL_LockTexture(video_texture, NULL, &pixels, &pitch) != 0) {
@@ -146,7 +163,6 @@ bool I_SaveScreenshot(const char *path) {
 static bool sdl_renderer_create(renderer_t *renderer, const char *title, int width, int height,
                                 bool hidden, bool software) {
     memset(renderer, 0, sizeof(*renderer));
-    /* The framebuffer stays at the logical 640x480 screen. width/height are the OS window. */
     app_t scratch = {.win = {SCREENWIDTH, SCREENHEIGHT}};
     if (!I_InitGraphics(&scratch, width, height, hidden, software)) return false;
     if (title) SDL_SetWindowTitle(video_window, title);
@@ -154,8 +170,6 @@ static bool sdl_renderer_create(renderer_t *renderer, const char *title, int wid
     renderer->sdl = video_renderer;
     renderer->width = screens[0].w;
     renderer->height = screens[0].h;
-    window_w = width;
-    window_h = height;
     return true;
 }
 

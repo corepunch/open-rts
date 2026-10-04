@@ -11,6 +11,11 @@ PKG_CONFIG ?= pkg-config
 
 CFLAGS ?= -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 CPPFLAGS += -Iinclude -Itests
+# Keep native world pixels while enlarging the HUD and menus.
+NATIVE_WORLD ?= 1
+ifeq ($(NATIVE_WORLD),1)
+CPPFLAGS += -DRTS_NATIVE_WORLD
+endif
 DEPFLAGS = -MMD -MP
 SDL_CFLAGS := $(shell $(PKG_CONFIG) --cflags sdl2)
 SDL_LIBS := $(shell $(PKG_CONFIG) --libs sdl2)

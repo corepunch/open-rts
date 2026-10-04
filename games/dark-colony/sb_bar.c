@@ -65,7 +65,8 @@ static irect_t placed(const menu_t *menu, irect_t rect) {
 }
 
 irect_t G_WorldViewport(const app_t *app) {
-    int w = app ? app->win.w - 124 : 0, h = app ? app->win.h - 25 : 0;
+    int scale = R_UIScale(app);
+    int w = app ? app->win.w - 124 * scale : 0, h = app ? app->win.h - 25 * scale : 0;
     return (irect_t){0, 0, w > 0 ? w : 1, h > 0 ? h : 1};
 }
 
@@ -314,7 +315,7 @@ static void dc_ui_draw_minimap(app_t *app, const level_t *map, mobj_t *const *un
         irect_t dot = { x - 1, y - 1, 2, 2 };
         dc_ui_fill(dot, units[i]->owner == consoleplayer ? 0xffdad687u : 0xffcc4448u);
     }
-    int world_right = app->win.w - 124;
+    int world_right = G_WorldViewportWidth(app);
     cell_t tl = R_ScreenToGrid(app, 0, 0);
     cell_t br = R_ScreenToGrid(app, world_right, app->win.h);
     int vx = clip.x + tl.x * clip.w / map->width;

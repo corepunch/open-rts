@@ -111,9 +111,10 @@ static void draw_status(const menu_t *menu, const menuitem_t *item, irect_t rect
 static void draw_slot(const menu_t *menu, const menuitem_t *item, irect_t rect);
 
 irect_t G_WorldViewport(const app_t *app) {
-    int w = app && app->win.w > 192 ? app->win.w - 192 : 1;
-    int h = app && app->win.h > 32 ? app->win.h - 32 : 1;
-    return (irect_t){ 176, 16, w, h };
+    int scale = R_UIScale(app);
+    int w = app ? app->win.w - 192 * scale : 1;
+    int h = app ? app->win.h - 32 * scale : 1;
+    return (irect_t){176 * scale, 16 * scale, w > 0 ? w : 1, h > 0 ? h : 1};
 }
 
 static int icon_of(int pud) {
@@ -142,7 +143,7 @@ static void draw_ink(int x, int y, const char *text) {
         return;
     }
     V_DrawSmallText((irect_t){ x, y, 180, 8 }, text, 0xffffe84au,
-                    (isize2_t){ screens[0].w, screens[0].h });
+                    V_DrawSize());
 }
 
 /* Wargus panel ~| marks the label's right edge, before the colon. */
@@ -708,7 +709,7 @@ static void draw_resources(const menu_t *menu, const menuitem_t *item, irect_t r
     int *res = stock();
     int used = 0, have = 0;
     char text[32];
-    int width = menu->app ? menu->app->win.w : 640;
+    int width = menu->app ? menu->app->win.w / R_UIScale(menu->app) : 640;
     food_counts(&used, &have);
     snprintf(text, sizeof(text), "%d", res ? res[0] : 0);
     draw_ink(rect.x + 18, rect.y + 1, text);
