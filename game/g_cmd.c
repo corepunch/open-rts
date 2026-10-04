@@ -1,5 +1,8 @@
 #include "engine.h"
 #include <limits.h>
+#ifdef RTS_GAME_WARCRAFT_2
+#include "warcraft-2.h"
+#endif
 #ifdef RTS_GAME_DARK_COLONY
 #include "dark-colony.h"
 #endif
@@ -137,6 +140,12 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
         }
     }
     if (!count) return;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (cmd->order == TC_RETURN_GOODS) {
+        for (int i = 0; i < count; ++i) W2_ReturnGoods(units[i]);
+        return;
+    }
+#endif
     if (cmd->order == TC_ATTACK) {
         bool eligible = false;
         for (int i = 0; i < count; ++i) eligible |= P_CanTarget(units[i], target);
@@ -145,6 +154,11 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     if ((cmd->order == TC_MOVE || cmd->order == TC_ORDER || cmd->order == TC_HARVEST) &&
         !L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS,
                     cmd->position.y >> FIXED_FRAC_BITS)) return;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (cmd->order == TC_STOP || cmd->order == TC_MOVE || cmd->order == TC_ATTACK ||
+        cmd->order == TC_PATH || cmd->order == TC_WAYPOINT)
+        for (int i = 0; i < count; ++i) W2_InterruptHarvest(units[i]);
+#endif
     if (cmd->order == TC_MODE) {
         for (int i = 0; i < count; ++i) {
             units[i]->move_only = cmd->target != 0;
@@ -218,6 +232,10 @@ void G_RunTiccmd(int player, const ticcmd_t *cmd) {
     }
     if (!L_Contains(&level, cmd->position.x >> FIXED_FRAC_BITS,
                    cmd->position.y >> FIXED_FRAC_BITS) && cmd->order != TC_ATTACK) return;
+#ifdef RTS_GAME_WARCRAFT_2
+    if (cmd->order == TC_ORDER)
+        for (int i = 0; i < count; ++i) W2_InterruptHarvest(units[i]);
+#endif
     for (int i = 0; i < count; ++i) {
         units[i]->attack.target = P_CanTarget(units[i], target) ? target : NULL;
         units[i]->harvest.target = -1;

@@ -61,7 +61,7 @@ bool w2_load_pud(const char *path, level_t *out) {
     P_FreeLevel(out);
     blob_t file;
     if (!W_ReadFile(path, &file)) {
-        fprintf(stderr, "warcraft2: cannot read %s\n", path);
+        fprintf(stderr, "warcraft-2: cannot read %s\n", path);
         return false;
     }
     const uint8_t *p = file.bytes;
@@ -70,7 +70,7 @@ bool w2_load_pud(const char *path, level_t *out) {
     uint32_t length = 0;
     if (!take_section(&p, end, &payload, &length) || !tag_is(file.bytes, "TYPE") ||
         length < 8 || memcmp(payload, "WAR2 MAP", 8) != 0) {
-        fprintf(stderr, "warcraft2: %s is not a WAR2 MAP\n", path);
+        fprintf(stderr, "warcraft-2: %s is not a WAR2 MAP\n", path);
         W_FreeFile(&file);
         return false;
     }
@@ -87,9 +87,10 @@ bool w2_load_pud(const char *path, level_t *out) {
         const uint8_t *header = p;
         if (!take_section(&p, end, &payload, &length)) { failed = true; break; }
         if (tag_is(header, "VER ")) {
+            if (length < 1) { failed = true; break; }
             ver = length >= 2 ? read_u16_le(payload) : payload[0];
             if (ver != 0x11 && ver != 0x13) {
-                fprintf(stderr, "warcraft2: %s version %d is not 0x11 or 0x13\n", path, ver);
+                fprintf(stderr, "warcraft-2: %s version %d is not 0x11 or 0x13\n", path, ver);
                 failed = true;
                 break;
             }
@@ -99,9 +100,10 @@ bool w2_load_pud(const char *path, level_t *out) {
             for (int i = 0; i < n; ++i)
                 if (pud->owners[i] == 5 && pud->view_player < 0) pud->view_player = i;
         } else if (tag_is(header, "ERA ") || tag_is(header, "ERAX")) {
+            if (length < 1) { failed = true; break; }
             pud->era = payload[0];
             if (pud->era < 0 || pud->era > 3) {
-                fprintf(stderr, "warcraft2: era %d is outside 0..3\n", pud->era);
+                fprintf(stderr, "warcraft-2: era %d is outside 0..3\n", pud->era);
                 pud->era = 0;
             }
         } else if (tag_is(header, "DIM ")) {
@@ -130,14 +132,14 @@ bool w2_load_pud(const char *path, level_t *out) {
     }
     pud->ver = ver;
     if (failed || width < 1 || height < 1 || width > 256 || height > 256 || !mtxm) {
-        fprintf(stderr, "warcraft2: %s is missing DIM or MTXM\n", path);
+        fprintf(stderr, "warcraft-2: %s is missing DIM or MTXM\n", path);
         destroy_pud(pud);
         W_FreeFile(&file);
         return false;
     }
     size_t cells = (size_t)width * (size_t)height;
     if (mtxm_len < cells * 2u) {
-        fprintf(stderr, "warcraft2: MTXM is %u bytes for a %dx%d map\n", mtxm_len, width, height);
+        fprintf(stderr, "warcraft-2: MTXM is %u bytes for a %dx%d map\n", mtxm_len, width, height);
         destroy_pud(pud);
         W_FreeFile(&file);
         return false;
@@ -168,7 +170,7 @@ bool w2_load_pud(const char *path, level_t *out) {
         }
     }
     if (!sqm || sqm_len < cells * 2u) {
-        fprintf(stderr, "warcraft2: %s has no SQM; treating every cell as land\n", path);
+        fprintf(stderr, "warcraft-2: %s has no SQM; treating every cell as land\n", path);
     } else {
         for (size_t i = 0; i < cells; ++i) {
             uint8_t terrain = terrain_of(read_u16_le(sqm + i * 2u));
@@ -212,6 +214,7 @@ bool w2_load_pud(const char *path, level_t *out) {
     out->native_data = pud;
     out->destroy_native_data = destroy_pud;
     W_FreeFile(&file);
+    if (!w2_init_resources(out)) { P_FreeLevel(out); return false; }
     return true;
 }
 
@@ -251,6 +254,12 @@ int w2_spawn_units(void) {
         unit->allegiance = allegiance_for(pud, rec->player);
         unit->core.angle = ANG270;
         if (info->flags & W2_STRUCTURE) w2_mark_footprint(rec->x, rec->y, foot);
+        if (rec->type == 92 && L_Contains(&level, rec->x + foot.w - 1, rec->y + foot.h - 1))
+            level.resource_vents[level.resource_vent_count++] = (resourcevent_t){
+                .cell = {rec->x, rec->y}, .attachment = at, .footprint = foot,
+                .amount = rec->data * 2500, .rate = 100, .resource_type = 0,
+                .active = rec->data > 0, .source_id = unit->id,
+            };
         spawned++;
     }
     return spawned;
@@ -272,12 +281,12 @@ static bool load_named_sprite(const w2_archive_t *arc, const uint32_t palette[25
     const w2_unit_t *unit = &w2_units[pud];
     int entry = w2_grp_entry(unit, era, arc->count);
     if (!entry) {
-        fprintf(stderr, "warcraft2: no GRP entry for %s\n", unit->name ? unit->name : "unit");
+        fprintf(stderr, "warcraft-2: no GRP entry for %s\n", unit->name ? unit->name : "unit");
         return false;
     }
     w2_blob_t blob;
     if (!w2_archive_extract(arc, entry, &blob)) {
-        fprintf(stderr, "warcraft2: cannot extract entry %d (%s)\n",
+        fprintf(stderr, "warcraft-2: cannot extract entry %d (%s)\n",
                 entry, unit->name ? unit->name : "unit");
         return false;
     }
@@ -285,13 +294,13 @@ static bool load_named_sprite(const w2_archive_t *arc, const uint32_t palette[25
     bool ok = w2_decode_grp(&blob, palette, out, directional, phases);
     w2_blob_free(&blob);
     if (!ok) {
-        fprintf(stderr, "warcraft2: GRP %d (%s) did not decode\n",
+        fprintf(stderr, "warcraft-2: GRP %d (%s) did not decode\n",
                 entry, unit->name ? unit->name : "unit");
         return false;
     }
     int matched = w2_install_team_colors(out, palette);
     if (matched < 4)
-        fprintf(stderr, "warcraft2: palette matched %d/4 red team shades\n", matched);
+        fprintf(stderr, "warcraft-2: palette matched %d/4 red team shades\n", matched);
     w2_limit_walk(pud, phases ? *phases : 1);
     return true;
 }
@@ -353,6 +362,7 @@ bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
         snprintf(slot->name, sizeof(slot->name), "%s", name);
         cache->count++;
     }
+    if (!w2_load_carriers(&arc, palette, cache)) ok = false;
     w2_archive_close(&arc);
     if (!R_BindSprites(cache, &game_info)) ok = false;
     return ok;
@@ -387,4 +397,23 @@ bool w2_cache_unit_sprite(const char *root, spritecache_t *cache, int pud) {
     cache->count++;
     w2_archive_close(&arc);
     return R_BindSprites(cache, &game_info);
+}
+
+bool w2_load_carriers(const w2_archive_t *arc, const uint32_t palette[256], spritecache_t *cache) {
+    static const char *const names[] = { "peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber" };
+    static const int entries[] = { 124, 122, 125, 123 };
+    for (int i = 0; i < 4; ++i) {
+        if (R_CacheFind(cache, names[i])) continue;
+        if (cache->count >= MAX_DECORATION_SPRITES) return false;
+        cachedsprite_t *slot = &cache->entries[cache->count];
+        w2_blob_t blob = {0};
+        bool ok = w2_archive_extract(arc, entries[i], &blob) &&
+                  w2_decode_grp(&blob, palette, &slot->sprite, true, NULL);
+        w2_blob_free(&blob);
+        if (!ok) { R_FreeSprite(&slot->sprite); return false; }
+        w2_install_team_colors(&slot->sprite, palette);
+        snprintf(slot->name, sizeof(slot->name), "%s", names[i]);
+        ++cache->count;
+    }
+    return true;
 }

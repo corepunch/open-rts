@@ -1,11 +1,11 @@
 #include "engine.h"
-#include "warcraft2.h"
+#include "warcraft-2.h"
 #include "info.h"
 #include "w2_local.h"
 
 static mobjtype_t actor_storage[W2_TYPE_COUNT];
 
-const char *const g_game_id = "warcraft2";
+const char *const g_game_id = "warcraft-2";
 const char *const g_game_name = "Warcraft II";
 const char *const g_game_default_root = "data/WAR2";
 const char *const g_game_default_map = "ALAMO.PUD";
@@ -30,7 +30,7 @@ static void fill_actors(void) {
         if (src->flags & W2_MOBILE) traits |= MF_MOBILE;
         if (src->flags & W2_AIR) traits |= MF_FLY;
         if (src->flags & W2_HARVEST) traits |= MF_HARVESTER;
-        if (src->flags & W2_HALL) traits |= MF_RESOURCE_BASE;
+        if ((src->flags & W2_HALL) || pud == 76 || pud == 77) traits |= MF_RESOURCE_BASE;
         uint8_t move = 0;
         if (!(src->flags & W2_STRUCTURE)) {
             if (src->flags & W2_AIR) move = 3;
@@ -48,8 +48,10 @@ static void fill_actors(void) {
             .attack = { .range = src->range, .damage = src->damage },
             .move_class = move,
         };
-        if (src->flags & W2_HARVEST)
+        if (src->flags & W2_HARVEST) {
             dst->harvest.resources[0].capacity = W2_HARVEST_GOLD;
+            dst->harvest.resources[1].capacity = 100;
+        }
     }
 }
 

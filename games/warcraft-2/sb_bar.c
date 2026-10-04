@@ -1,4 +1,5 @@
 #include "engine.h"
+#include "warcraft-2.h"
 #include "info.h"
 #include "w2_local.h"
 
@@ -12,7 +13,7 @@
 
 enum {
     IT_MENU, IT_MAPFRAME, IT_MAP, IT_INFO, IT_PANEL,
-    IT_RESOURCE, IT_STATUS, IT_FILLER,
+    IT_RESOURCE, IT_STATUS, IT_FILLER, IT_GOLD, IT_LUMBER, IT_OIL,
     IT_CMD, IT_SLOT = IT_CMD + 9, IT_COUNT = IT_SLOT + 9
 };
 
@@ -74,10 +75,9 @@ static const bld_t advanced_page[9] = {
 };
 
 static menuitem_t items[IT_COUNT];
-static menu_t hud = { .items = items, .numitems = IT_COUNT, .itemOn = -1 };
+static menu_t hud = { .items = items, .numitems = IT_COUNT, .itemOn = -1, .size = {640, 480} };
 static w2_hud_art_t art;
 static cmd_t shown[9];
-static char tipbuf[9][80];
 static char note[96];
 static char status_line[96];
 static char root_copy[1024];
@@ -95,6 +95,7 @@ static void draw_minimap(const menu_t *menu, const menuitem_t *item, irect_t rec
 static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect);
 static void draw_resources(const menu_t *menu, const menuitem_t *item, irect_t rect);
 static void draw_status(const menu_t *menu, const menuitem_t *item, irect_t rect);
+static void draw_slot(const menu_t *menu, const menuitem_t *item, irect_t rect);
 
 irect_t G_WorldViewport(const app_t *app) {
     int w = app && app->win.w > 192 ? app->win.w - 192 : 1;
@@ -124,13 +125,18 @@ static void set_note(const char *text) {
 static void draw_ink(int x, int y, const char *text) {
     if (!text || !text[0]) return;
     if (art.font.sprite.numlumps > 0) {
-        uint8_t tint[256];
-        V_ModulateRemap(tint, art.font.sprite.source_palette, 0xffffe84au);
-        V_DrawText((ivec2_t){ x, y }, &art.font, text, tint);
+        V_DrawText((ivec2_t){ x, y }, &art.font, text, V_RemapPalette(art.font.sprite.source_palette));
         return;
     }
     V_DrawSmallText((irect_t){ x, y, 180, 8 }, text, 0xffffe84au,
                     (isize2_t){ screens[0].w, screens[0].h });
+}
+
+/* Wargus panel ~| marks the label's right edge, before the colon. */
+static void draw_stat(ivec2_t anchor, const char *label, const char *value) {
+    char text[64];
+    snprintf(text, sizeof(text), "%s: %s", label, value);
+    draw_ink(anchor.x - V_TextWidth(&art.font, label), anchor.y, text);
 }
 
 static void draw_icon(int frame, int x, int y) {
@@ -177,6 +183,20 @@ static void layout(void) {
     snprintf(items[IT_MENU].text, sizeof(items[IT_MENU].text), "Menu (F10)");
     items[IT_MENU].inset = (ivec2_t){ 24, 2 };
     items[IT_MENU].ink = 0xffffe84au;
+    items[IT_PANEL].anchor = MANCHOR_GROW;
+    items[IT_PANEL].stretch = true;
+    items[IT_RESOURCE].anchor = MANCHOR_WIDE;
+    items[IT_RESOURCE].stretch = true;
+    items[IT_STATUS].anchor = MANCHOR_BOTTOM | MANCHOR_WIDE;
+    items[IT_STATUS].stretch = true;
+    items[IT_FILLER].anchor = MANCHOR_RIGHT | MANCHOR_GROW;
+    items[IT_FILLER].stretch = true;
+    for (int i = 0; i < 3; ++i) {
+        menuitem_t *icon = &items[IT_GOLD + i];
+        icon->visible = true;
+        icon->rect = (irect_t){176 + i * 75, 0, 14, 14};
+        for (int s = 0; s < MS_STATES; ++s) icon->look[s].cell = i;
+    }
     items[IT_MAP].kind = MI_MINIMAP;
     items[IT_MAP].enabled = true;
     items[IT_MAP].ownerdraw = draw_minimap;
@@ -195,6 +215,7 @@ static void layout(void) {
         };
         *slot = (menuitem_t){
             .kind = MI_BUTTON, .id = i, .routine = on_slot,
+            .ownerdraw = draw_slot,
             .rect = { col_x[i % 3], slot_y[i / 3], 46, 38 },
         };
         for (int s = 0; s < MS_STATES; ++s) {
@@ -214,18 +235,7 @@ static bool advanced_ok(void) {
 static void put_cmd(int slot, int kind, int icon, int arg, int gold, int wood, int oil,
                     SDL_Keycode key, const char *tip) {
     if (slot < 0 || slot >= 9) return;
-    char *buf = tipbuf[slot];
-    buf[0] = '\0';
-    if (tip) {
-        int n = snprintf(buf, sizeof(tipbuf[slot]), "%s", tip);
-        if (gold && n > 0 && n < (int)sizeof(tipbuf[slot]))
-            n += snprintf(buf + n, sizeof(tipbuf[slot]) - (size_t)n, "  %dg", gold);
-        if (wood && n > 0 && n < (int)sizeof(tipbuf[slot]))
-            n += snprintf(buf + n, sizeof(tipbuf[slot]) - (size_t)n, " %dl", wood);
-        if (oil && n > 0 && n < (int)sizeof(tipbuf[slot]))
-            snprintf(buf + n, sizeof(tipbuf[slot]) - (size_t)n, " %do", oil);
-    }
-    shown[slot] = (cmd_t){ kind, icon, arg, gold, wood, oil, key, buf[0] ? buf : NULL };
+    shown[slot] = (cmd_t){ kind, icon, arg, gold, wood, oil, key, tip };
 }
 
 static void fill_page(const bld_t *page_in, bool orc) {
@@ -256,7 +266,6 @@ static void fill_train(const mobj_t *unit) {
     bool orc = type == 62;
     static const int human_pud[] = { 0, 8, 4, 6 };
     static const int human_ui[] = { 1, 5, 7, 9 };
-    static const int wood[] = { 0, 50, 300, 100 };
     static const SDL_Keycode keys[] = { SDLK_f, SDLK_a, SDLK_b, SDLK_k };
     static const char *human_tip[] = { "Train footman", "Train archer", "Train ballista", "Train knight" };
     static const char *orc_tip[] = { "Train grunt", "Train axethrower", "Train catapult", "Train ogre" };
@@ -264,7 +273,7 @@ static void fill_train(const mobj_t *unit) {
         int pud = human_pud[i] + (orc ? 1 : 0);
         int ui = human_ui[i] + (orc ? 1 : 0);
         const StaticProductDefinition *product = G_ModelProductByUIId(NULL, ui);
-        put_cmd(i, CK_TRAIN, icon_of(pud), ui, product ? product->cost : 0, wood[i], 0,
+        put_cmd(i, CK_TRAIN, icon_of(pud), ui, product ? product->cost : 0, W2_ProductLumber(product), 0,
                 keys[i], orc ? orc_tip[i] : human_tip[i]);
     }
 }
@@ -277,7 +286,8 @@ static void fill_mobile(const mobj_t *unit, bool orc) {
     if (harvest) {
         put_cmd(3, CK_REPAIR, 85, 0, 0, 0, 0, SDLK_r, "Repair");
         put_cmd(4, CK_HARVEST, 86, 0, 0, 0, 0, SDLK_h, "Harvest");
-        put_cmd(5, CK_RETURN, orc ? 90 : 89, 0, 0, 0, 0, SDLK_g, "Return goods");
+        if (unit->harvest.cargo)
+            put_cmd(5, CK_RETURN, orc ? 90 : 89, 0, 0, 0, 0, SDLK_g, "Return goods");
         put_cmd(6, CK_PAGE, 87, 1, 0, 0, 0, SDLK_b, "Build basic structure");
         if (advanced_ok())
             put_cmd(7, CK_PAGE, 88, 2, 0, 0, 0, SDLK_v, "Build advanced structure");
@@ -307,6 +317,7 @@ static void apply_commands(void) {
         item->hotkey = cmd->key;
         item->tooltip = cmd->tip;
         item->opaque = false;
+        item->border = 0xff000000u;
     }
 }
 
@@ -374,22 +385,6 @@ static bool foot_clear(int x, int y, isize2_t foot) {
 static fvec2_t cursor_goal(const menu_t *menu) {
     cell_t cell = R_ScreenToMapGrid(menu->app, &level, menu->cursor.x, menu->cursor.y);
     return (fvec2_t){ cell.x + 0.5f, cell.y + 0.5f };
-}
-
-static mobj_t *nearest_hall(fvec2_t from) {
-    mobj_t *best = NULL;
-    float best_d = 0.0f;
-    for (int i = 0; i < hudview.unit_count; ++i) {
-        mobj_t *unit = hudview.units[i];
-        int pud;
-        if (!unit || unit->remove || unit->hp <= 0 || unit->owner != consoleplayer) continue;
-        pud = (int)unit->type_id - 1;
-        if (pud < 0 || pud >= W2_TYPE_COUNT || !(w2_units[pud].flags & W2_HALL)) continue;
-        fvec2_t at = fixed3_xy_to_fvec2(unit->core.position);
-        float dx = at.x - from.x, dy = at.y - from.y, d = dx * dx + dy * dy;
-        if (!best || d < best_d) { best = unit; best_d = d; }
-    }
-    return best;
 }
 
 static void order_at(const menu_t *menu, int kind) {
@@ -461,12 +456,10 @@ static void train_product(mobj_t *producer, const cmd_t *cmd) {
         set_note("Not enough resources.");
         return;
     }
-    if (!G_QueueProduct(producer, product)) {
+    if (!G_BuildOrder(producer, product->ui_id)) {
         set_note("Cannot train.");
         return;
     }
-    res[1] -= cmd->wood;
-    res[2] -= cmd->oil;
     set_note("");
 }
 
@@ -504,14 +497,7 @@ static void on_command(menu_t *menu, menuitem_t *item, menuaction_t action) {
         G_SelectedTiccmd(TC_STOP, hudview.units, hudview.unit_count, (fvec2_t){ 0 }, 0);
         break;
     case CK_RETURN: {
-        mobj_t *from = NULL;
-        for (int i = 0; i < hudview.unit_count; ++i)
-            if (hudview.units[i] && P_MobjIsSelected(hudview.units[i]) &&
-                hudview.units[i]->owner == consoleplayer) { from = hudview.units[i]; break; }
-        mobj_t *hall = from ? nearest_hall(fixed3_xy_to_fvec2(from->core.position)) : NULL;
-        if (!hall) { set_note("No hall to receive goods."); break; }
-        G_SelectedTiccmd(TC_MOVE, hudview.units, hudview.unit_count,
-                         fixed3_xy_to_fvec2(hall->core.position), 0);
+        G_SelectedTiccmd(TC_RETURN_GOODS, hudview.units, hudview.unit_count, (fvec2_t){0}, 0);
         break;
     }
     case CK_PAGE:
@@ -554,21 +540,32 @@ static void food_counts(int *used, int *have) {
 static void draw_minimap(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     (void)item;
     if (!menu->app || level.width <= 0 || level.height <= 0 || rect.w <= 0 || rect.h <= 0) return;
-    uint8_t land = V_NearestIndex(0xff6a8a28u);
-    uint8_t water = V_NearestIndex(0xff184878u);
-    uint8_t forest = V_NearestIndex(0xff143014u);
+    const tileset_t *tiles = hudview.tileset;
     uint8_t unseen = V_NearestIndex(0xff000000u);
-    uint8_t own = V_NearestIndex(0xffe0d060u);
-    uint8_t enemy = V_NearestIndex(0xffc03030u);
+    uint8_t own = V_NearestIndex(0xff00ff00u);
     uint8_t neutral = V_NearestIndex(0xffc0c0c0u);
+    int scale_x = rect.w * 100 / level.width;
+    int scale_y = rect.h * 100 / level.height;
+    if (scale_x < 1) scale_x = 1;
+    if (scale_y < 1) scale_y = 1;
+    irect_t clip = V_GetClip();
+    V_SetClip(rect);
     for (int py = 0; py < rect.h; ++py) {
         int gy = L_ScreenY(&level, py * level.height / rect.h);
         for (int px = 0; px < rect.w; ++px) {
             int gx = px * level.width / rect.w;
             uint8_t color = unseen;
-            if (L_Contains(&level, gx, gy) && P_SightBrightness(&level, (ivec2_t){ gx, gy }) > 0) {
-                uint8_t terrain = level.cell_terrain ? level.cell_terrain[L_Index(&level, gx, gy)] : 0;
-                color = terrain == 1 ? water : terrain == 2 ? forest : land;
+            if (tiles && tiles->indices && L_Contains(&level, gx, gy) &&
+                P_SightBrightness(&level, (ivec2_t){ gx, gy }) > 0) {
+                int tile = level.tile_ids[L_Index(&level, gx, gy)];
+                if (tiles->tile_lookup)
+                    tile = tile < tiles->tile_lookup_count ? tiles->tile_lookup[tile] : -1;
+                /* Wargus/Stratagus GetTileGraphicPixel: native tile samples,
+                 * not hand-picked colors for grass, water and trees. */
+                int x = 7 + ((px * 100) % scale_x) / 100 * 8;
+                int y = 6 + ((py * 100) % scale_y) / 100 * 8;
+                if (tile >= 0 && tile < tiles->count && x < tiles->tile_w && y < tiles->tile_h)
+                    color = tiles->indices[((size_t)tile * tiles->tile_h + y) * tiles->tile_w + x];
             }
             V_DrawPoint((ivec2_t){ rect.x + px, rect.y + py }, color);
         }
@@ -579,11 +576,16 @@ static void draw_minimap(const menu_t *menu, const menuitem_t *item, irect_t rec
         if (!unit || unit->remove || unit->hp <= 0 || !P_VisibleToPlayer(unit)) continue;
         pud = (int)unit->type_id - 1;
         if (pud >= 0 && pud < W2_TYPE_COUNT && (w2_units[pud].flags & W2_CRITTER)) continue;
-        fvec2_t pos = fixed3_xy_to_fvec2(unit->core.position);
+        if (pud < 0 || pud >= W2_TYPE_COUNT) continue;
+        isize2_t footprint = {w2_units[pud].tw, w2_units[pud].th};
+        fvec2_t pos = fvec2_sub(fixed3_xy_to_fvec2(unit->core.position),
+                              (fvec2_t){footprint.w * 0.5f, footprint.h * 0.5f});
         int x = rect.x + (int)(pos.x * (float)rect.w / (float)level.width);
         int y = rect.y + (int)(L_ScreenYF(&level, pos.y) * (float)rect.h / (float)level.height);
-        uint8_t color = unit->owner == consoleplayer ? own : unit->owner >= 8 ? neutral : enemy;
-        V_FillRect((irect_t){ x, y, 2, 2 }, color);
+        uint8_t color = unit->owner == consoleplayer ? own : unit->owner >= 8 ? neutral : 208 + unit->owner * 4;
+        if (pud == 92) color = V_NearestIndex(0xffffff00u);
+        V_FillRect((irect_t){ x + 1, y + 1, footprint.w * rect.w / level.width + 1,
+                            footprint.h * rect.h / level.height + 1 }, color);
     }
     irect_t world = G_WorldViewport(menu->app);
     cell_t tl = R_ScreenToGrid(menu->app, world.x, world.y);
@@ -594,26 +596,92 @@ static void draw_minimap(const menu_t *menu, const menuitem_t *item, irect_t rec
     int vh = (br.y - tl.y) * rect.h / level.height;
     if (vw < 2) vw = 2;
     if (vh < 2) vh = 2;
-    V_DrawRectOutline((irect_t){ vx, vy, vw, vh }, own);
+    V_DrawRectOutline((irect_t){ vx, vy, vw, vh }, V_NearestIndex(0xffffffffu));
+    V_SetClip(clip);
 }
 
 static void draw_info(const menu_t *menu, const menuitem_t *item, irect_t rect) {
     (void)menu; (void)item;
     if (portrait_count != 1 || !portrait) return;
     int pud = (int)portrait->type_id - 1;
+    if (pud < 0 || pud >= W2_TYPE_COUNT) return;
     draw_icon(icon_of(pud), rect.x + 9, rect.y + 9);
     char name[64], hp[32];
-    pretty_name(pud >= 0 && pud < W2_TYPE_COUNT ? w2_units[pud].name : NULL, name, sizeof(name));
-    draw_ink(rect.x + 58, rect.y + 12, name);
-    snprintf(hp, sizeof(hp), "%d / %d", portrait->hp, portrait->max_hp);
-    draw_ink(rect.x + 58, rect.y + 28, hp);
-    int bar = 158;
+    const w2_unit_t *type = &w2_units[pud];
+    if (type->label) snprintf(name, sizeof(name), "%s", type->label);
+    else pretty_name(type->name, name, sizeof(name));
+    char *second = NULL;
+    if (V_TextWidth(&art.font, name) > 110) {
+        second = strrchr(name, ' ');
+        if (second) *second++ = '\0';
+    }
+    draw_ink(rect.x + 114 - V_TextWidth(&art.font, name) / 2, rect.y + 11, name);
+    if (second)
+        draw_ink(rect.x + 114 - V_TextWidth(&art.font, second) / 2, rect.y + 25, second);
+    if (portrait->owner >= 8) {
+        for (int i = 0; i < level.resource_vent_count; ++i) {
+            if (level.resource_vents[i].source_id != portrait->id) continue;
+            snprintf(hp, sizeof(hp), "Gold: %d", level.resource_vents[i].amount);
+            draw_ink(rect.x + 88 - V_TextWidth(&art.font, hp) / 2, rect.y + 86, hp);
+        }
+        return;
+    }
+    if (portrait->owner != consoleplayer) return;
+    snprintf(hp, sizeof(hp), "%d/%d", portrait->hp, portrait->max_hp);
+    V_DrawText((ivec2_t){rect.x + 35 - V_TextWidth(&art.small_font, hp) / 2, rect.y + 61},
+               &art.small_font, hp, V_RemapPalette(art.small_font.sprite.source_palette));
+    int bar = 50;
     int filled = portrait->max_hp > 0 ? portrait->hp * bar / portrait->max_hp : 0;
     if (filled < 0) filled = 0;
     if (filled > bar) filled = bar;
-    V_FillRect((irect_t){ rect.x + 9, rect.y + 50, bar, 5 }, V_NearestIndex(0xff101010u));
+    V_FillRect((irect_t){ rect.x + 8, rect.y + 51, bar, 7 }, V_NearestIndex(0xff000000u));
     if (filled > 0)
-        V_FillRect((irect_t){ rect.x + 9, rect.y + 50, filled, 5 }, V_NearestIndex(0xff20c020u));
+        V_FillRect((irect_t){ rect.x + 9, rect.y + 52, filled > 2 ? filled - 2 : 0, 5 },
+                   V_NearestIndex(0xff00fc00u));
+    if (type->flags & W2_MOBILE) {
+        draw_ink(rect.x + 154 - V_TextWidth(&art.font, "Level "), rect.y + 41, "Level 1");
+        snprintf(hp, sizeof(hp), "%d", type->armor);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 71}, "Armor", hp);
+        if (type->damage) {
+            snprintf(hp, sizeof(hp), "%d-%d", type->damage_min, type->damage);
+            draw_stat((ivec2_t){rect.x + 100, rect.y + 86}, "Damage", hp);
+        }
+        snprintf(hp, sizeof(hp), "%d", type->range);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 102}, "Range", hp);
+        snprintf(hp, sizeof(hp), "%d", type->sight);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 118}, "Sight", hp);
+        snprintf(hp, sizeof(hp), "%d", type->speed);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 133}, "Speed", hp);
+    } else if (type->flags & W2_HALL) {
+        draw_ink(rect.x + 16, rect.y + 71, "Production");
+        int gold = W2_ResourceIncome(portrait->owner, 0) - 100;
+        snprintf(hp, sizeof(hp), "100%s", gold ? (gold == 20 ? "+20" : "+10") : "");
+        draw_stat((ivec2_t){rect.x + 85, rect.y + 86}, "Gold", hp);
+        draw_stat((ivec2_t){rect.x + 85, rect.y + 102}, "Lumber", W2_ResourceIncome(portrait->owner, 1) > 100 ? "100+25" : "100");
+        draw_stat((ivec2_t){rect.x + 85, rect.y + 118}, "Oil", W2_ResourceIncome(portrait->owner, 2) > 100 ? "100+25" : "100");
+    } else if (pud == 58 || pud == 59) {
+        int used, have;
+        food_counts(&used, &have);
+        draw_ink(rect.x + 100 - V_TextWidth(&art.font, "Usage"), rect.y + 71, "Usage");
+        snprintf(hp, sizeof(hp), "%d", have);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 86}, "Supply", hp);
+        snprintf(hp, sizeof(hp), "%d", used);
+        draw_stat((ivec2_t){rect.x + 100, rect.y + 102}, "Demand", hp);
+    } else if (pud == 76 || pud == 77) {
+        draw_ink(rect.x + 16, rect.y + 86, "Production");
+        draw_stat((ivec2_t){rect.x + 85, rect.y + 102}, "Lumber", "100+25");
+    }
+    if (portrait->production && portrait->production->queue_count) {
+        const production_t *prod = portrait->production;
+        int completed = prod->time_ms > 0 ? (prod->time_ms - prod->time_left_ms) * 100 / prod->time_ms : 0;
+        if (completed < 0) completed = 0;
+        if (completed > 100) completed = 100;
+        draw_icon(icon_of(prod->actor_id - 1), rect.x + 110, rect.y + 81);
+        V_FillRect((irect_t){rect.x + 12, rect.y + 153, 152 * completed / 100, 14},
+                   V_NearestIndex(0xff306404u));
+        snprintf(hp, sizeof(hp), "%d%% Complete", completed);
+        draw_ink(rect.x + 50, rect.y + 154, hp);
+    }
 }
 
 static void draw_resources(const menu_t *menu, const menuitem_t *item, irect_t rect) {
@@ -631,12 +699,35 @@ static void draw_resources(const menu_t *menu, const menuitem_t *item, irect_t r
     draw_ink(rect.x + 168, rect.y + 1, text);
     snprintf(text, sizeof(text), "%d/%d", used, have);
     draw_ink(width - 16 - 154 + 18, rect.y + 1, text);
-    draw_ink(width - 16 - 84 + 18, rect.y + 1, "0");
 }
 
 static void draw_status(const menu_t *menu, const menuitem_t *item, irect_t rect) {
-    (void)menu; (void)item;
+    (void)item;
     draw_ink(rect.x + 2, rect.y + 2, status_line);
+    const menuitem_t *hover = M_MenuHover(menu);
+    if (!hover || hover < &items[IT_CMD] || hover >= &items[IT_CMD + 9]) return;
+    const cmd_t *cmd = &shown[hover - &items[IT_CMD]];
+    const int costs[] = {cmd->gold, cmd->wood, cmd->oil};
+    int x = rect.x + 2 + V_TextWidth(&art.font, status_line);
+    for (int i = 0; i < 3; ++i) {
+        if (!costs[i]) continue;
+        irect_t icon = {x + art.font.glyph_width[' '], rect.y + 1, 14, 14};
+        R_DrawSprite(&art.resource_icons, i, -1, NULL, &icon, 0, 16);
+        char value[16];
+        snprintf(value, sizeof(value), "%d", costs[i]);
+        draw_ink(icon.x + 18, rect.y + 2, value);
+        x = icon.x + 18 + V_TextWidth(&art.font, value);
+    }
+}
+
+static void draw_slot(const menu_t *menu, const menuitem_t *item, irect_t rect) {
+    (void)menu;
+    const mobj_t *unit = slot_unit[item->id];
+    if (!unit || unit->owner != consoleplayer || unit->max_hp <= 0) return;
+    irect_t bar = {rect.x - 1, rect.y + 42, 50, 7};
+    V_FillRect(bar, V_NearestIndex(0xff000000u));
+    int fill = unit->hp * (bar.w - 2) / unit->max_hp;
+    V_FillRect((irect_t){bar.x + 1, bar.y + 1, fill, bar.h - 2}, V_NearestIndex(0xff00fc00u));
 }
 
 menu_t *G_InitHUD(app_t *app, const char *data_root) {
@@ -656,7 +747,9 @@ menu_t *G_InitHUD(app_t *app, const char *data_root) {
     use_sheet(&items[IT_STATUS], &art.status);
     use_sheet(&items[IT_FILLER], &art.filler);
     items[IT_MENU].font = art.font.sprite.numlumps ? &art.font : NULL;
-    items[IT_MENU].ink = 0xffffe84au;
+    items[IT_MENU].ink = 0;
+    for (int s = 0; s < MS_STATES; ++s) items[IT_MENU].look[s].palette = 1;
+    for (int i = IT_GOLD; i <= IT_OIL; ++i) items[i].sheet = &art.resource_icons;
     items[IT_MENU].fill = items[IT_MENU].sheet ? 0 : 0xff18242du;
     hud.app = app;
     return &hud;

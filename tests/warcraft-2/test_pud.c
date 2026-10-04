@@ -63,6 +63,20 @@ static int test_alamo(void) {
     int spawned = P_LoadThings(NULL);
     fprintf(stderr, "alamo spawned=%d thinkers=%d\n", spawned, count_units());
     RTS_CHECK(spawned == 64 && count_units() == 64, "alamo", "spawn count");
+    RTS_CHECK(level.resource_vent_count == 2798, "alamo", "2787 trees and 11 gold mines");
+    const w2_pud_t *pud = level.native_data;
+    for (int i = 0; i < pud->unit_count; ++i) {
+        const w2_pud_unit_t *rec = &pud->units[i];
+        if (rec->type != 92) continue;
+        bool found = false;
+        for (int v = 0; v < level.resource_vent_count; ++v) {
+            const resourcevent_t *vent = &level.resource_vents[v];
+            if (!vent->source_id || !ivec2_equal(vent->cell, (ivec2_t){rec->x, rec->y})) continue;
+            RTS_CHECK(vent->amount == rec->data * 2500, "alamo", "PUD mine reserves");
+            found = true;
+        }
+        RTS_CHECK(found, "alamo", "mine source");
+    }
     /* Match the interactive startup: sight is published, then single-player
      * net setup runs, then the ticker publishes sight again. */
     RTS_CHECK(P_InitSight(), "alamo", "sight");
@@ -112,6 +126,14 @@ static int test_alamo(void) {
     RTS_CHECK(blue->indices[208] == 212 && blue->indices[209] == 213 &&
               blue->indices[210] == 214 && blue->indices[211] == 215,
               "alamo", "blue remap");
+    static const char *const carriers[] = {"peasant-gold", "peasant-lumber", "peon-gold", "peon-lumber"};
+    for (int i = 0; i < 4; ++i) {
+        const cachedsprite_t *carrier = R_CacheFind(&cache, carriers[i]);
+        RTS_CHECK(carrier && carrier->sprite.numlumps == 65 &&
+                  carrier->sprite.spritedef.numframes == 13 &&
+                  carrier->sprite.spritedef.spriteframes[0].rotations == 8, "alamo", "native carrier frames");
+    }
+    RTS_CHECK(tileset.tile_lookup[W2_TILE_LOOKUP] == 126, "alamo", "native removed-tree tile");
 
     P_FreeMobjList(&list);
     R_FreeSpriteCache(&cache);
@@ -152,7 +174,7 @@ static int test_ui_art(void) {
               sheet_wh(&menu.widgets[1], 11, 106, 28) &&
               sheet_wh(&menu.widgets[1], 17, 224, 28), "ui", "widgets");
     RTS_CHECK(menu.font.glyph_index[(unsigned)'M'] >= 0 &&
-              menu.font.glyph_width[(unsigned)'M'] == 10 &&
+              menu.font.glyph_width[(unsigned)'M'] == 11 &&
               menu.font.glyph_width[(unsigned)' '] > 0, "ui", "font");
     int frame = menu.font.glyph_index[(unsigned)'M'];
     const uint8_t *ink_px = menu.font.sprite.lumps[frame].indices;
@@ -185,6 +207,6 @@ int main(void) {
     RTS_RUN(test_alamo());
     RTS_RUN(test_channel());
     RTS_RUN(test_ui_art());
-    printf("warcraft2 pud tests passed\n");
+    printf("warcraft-2 pud tests passed\n");
     return 0;
 }

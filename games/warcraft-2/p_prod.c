@@ -1,5 +1,6 @@
 #define _DEFAULT_SOURCE
 #include "engine.h"
+#include "warcraft-2.h"
 #include "info.h"
 #include "w2_local.h"
 
@@ -7,8 +8,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-/* Gold costs are the Wargus units.lua numbers. Lumber and oil are spent by
- * the command button; the engine queue only withdraws gold. Makers are
+/* Gold costs are the Wargus units.lua numbers. G_PlayerBuildProduct spends
+ * lumber when the tic command queues training; the engine withdraws gold. Makers are
  * actor ids (PUD type + 1). product_type is the trained actor id. */
 static const StaticProductDefinition W2_PRODUCTS[] = {
     { 1, 1, "Footman",    600, 0, RTS_PRODUCT_UNIT, 1,  0, {0}, 0, {61}, 1 },
@@ -115,13 +116,28 @@ void G_ModelBuildUIScript(const RtsGameModel *model,
                           char *dst, size_t dst_size) {
     if (!model || !snapshot || !dst || dst_size == 0) return;
     dst[0] = '\0';
-    append_ui_script(dst, dst_size, "ui warcraft2 1\n");
+    append_ui_script(dst, dst_size, "ui warcraft-2 1\n");
     append_ui_script(dst, dst_size, "x 630 y 3 text \"Gold %d\"\n",
                      snapshot->player_resources[consoleplayer][0]);
 }
 
 bool G_PlayerBuildProduct(mobj_t *producer, const StaticProductDefinition *product) {
-    return G_QueueProduct(producer, product);
+    if (!producer || !product || producer->owner >= 8) return false;
+    int lumber = W2_ProductLumber(product);
+    int *stock = level.player_resources[producer->owner];
+    if (stock[1] < lumber || !G_QueueProduct(producer, product)) return false;
+    stock[1] -= lumber;
+    return true;
+}
+
+int W2_ProductLumber(const StaticProductDefinition *product) {
+    if (!product) return 0;
+    switch (product->product_type) {
+    case 9: case 10: return 50;
+    case 5: case 6: return 300;
+    case 7: case 8: return 100;
+    default: return 0;
+    }
 }
 
 bool G_ModelProducerHasTech(const mobj_t *producer, const StaticProductDefinition *product) {
@@ -145,7 +161,7 @@ static bool w2_ai_plan(const level_t *map, int owner, int level, AiPlan *out) {
 }
 
 static const AiGameInterface w2_ai_interface = {
-    .name = "warcraft2",
+    .name = "warcraft-2",
     .features = 0,
     .player_level = P_AiLevelNonHuman,
     .plan = w2_ai_plan,

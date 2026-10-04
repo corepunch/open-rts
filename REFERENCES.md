@@ -1710,3 +1710,73 @@ checkout `reference/warcraft2000`, commit
 comparison checkout `018cf4b7` recorded above. `Build.cpp` does not load PUD
 or `MAINDAT.WAR`; that map format was not adopted. License unclear; behavioral
 reference only.
+
+### Warcraft II gathering and native HUD (2026-10-04)
+
+The same WAR2.EXE and MAINDAT fingerprints above apply. WAR2.EXE was
+identified as DOS4GW/LE, but was not disassembled or run. Native MAINDAT
+carrier GRPs 122–125 have 65 records each; UI GFU 187, FONT 282/283 and
+existing human/orc chrome were decoded directly. Local
+`reference/DOOM/p_tick.c` was consulted for ordinary thinker ownership.
+
+The pinned Wargus checkout above supplies `pud.cpp` (`UNIT.Data * 2500`),
+`wartool.h` (carrier GRP entry numbers; trailing 25 is a repair-frame
+combination, not the GRP count), `scripts/{human,orc}/units.lua` and
+`anim.lua` (worker waits/poses and production improvements),
+`scripts/tilesets/*.lua` (removed-tree megatile 126), `scripts/fonts.lua`
+(native ink ramps), `scripts/ui.lua` and `scripts/human/ui_pandora.lua`
+(HUD coordinates). Used as references, not copied implementations. Delay
+and full HUD fidelity remain unverified against retail executable behavior.
+
+The pinned Warcraft 2000 checkout above was also compared directly:
+`Nature.cpp` (`TakeResource`, `FindNearestBase`, `TakeResLink`, `ShowRMap`),
+`Build.cpp` (`CreateBuilding`), `Interface.cpp` (`GSSetup800`) and
+`mapa.cpp` (`CreateMiniMap`, `DrawMiniMarker`). Its typed gathering/return
+phases and owned depot checks informed the comparison. Its 160-pixel HUD,
+48×40 icons, resource multipliers/taxation and map format were not adopted.
+Retargeting and placement-payment pitfalls are recorded in the findings.
+
+[Stratagus minimap source](https://raw.githubusercontent.com/Wargus/stratagus/master/src/map/minimap.cpp)
+and [font source](https://raw.githubusercontent.com/Wargus/stratagus/master/src/video/font.cpp)
+were read as primary reference code on 2026-10-04 (unversioned master,
+not the pinned local Wargus tree). `GetTileGraphicPixel` supplies native
+sampling coordinates and precision; `DrawUnitOn` supplies footprint and
+player-color conventions. This does not establish WAR2.EXE behavior.
+[Stratagus panel content source](https://raw.githubusercontent.com/Wargus/stratagus/master/src/ui/contenttype.cpp)
+was also read from master on 2026-10-04: `CContentTypeText::Draw` and
+formatted text use the width before `~|` as an alignment anchor. The HUD
+now uses that rule with Wargus's stat/production/level coordinates.
+
+Blizzard's primary published guides, accessed 2026-10-04:
+
+- [Peasant/Peon](https://classic.battle.net/war2/units/peasant.shtml):
+  worker stats, 51 chops, private competing-worker progress.
+- [Resources](https://classic.battle.net/war2/basic/): 100 gold per trip,
+  hall upgrades increase income.
+- [Town management](https://classic.battle.net/war2/gs/town.shtml) and
+  [offense](https://classic.battle.net/war2/gs/offense.shtml): replacement
+  depots and loss of income improvements when upgraded halls are destroyed.
+- [Footman](https://classic.battle.net/war2/units/footman.shtml),
+  [Catapult/Ballista](https://classic.battle.net/war2/units/catapult.shtml),
+  [Destroyer](https://classic.battle.net/war2/units/destroyer.shtml),
+  [Battleship](https://classic.battle.net/war2/units/battleship.shtml),
+  [Submarine](https://classic.battle.net/war2/units/submarine.shtml),
+  [Mage](https://classic.battle.net/war2/units/mage.shtml): displayed
+  damage ranges/armor; the guide takes precedence over reference mismatches.
+- [Combat mechanics](https://classic.battle.net/war2/basic/combat.shtml):
+  basic/piercing distinction. Combat itself remains unimplemented here.
+
+The Blizzard Battle.net Edition manual mirror
+([PDF](https://downloads.war2.ru/war2/Info%20%26%20Media%20content/Documents/War2BNE_Manual_EN.pdf))
+was read as supplemental context. Attempts to inspect the
+[Blizzard-hosted screenshot](https://bnetcmsus-a.akamaihd.net/cms/page_media/16/16CBPD0W69JA1706136010943.jpg)
+and external DOS screenshot galleries did not yield viewable pixels in
+this session. No retail screenshot dimensions/colors were inferred from
+search-result descriptions. The original Blizzard-authored DOS
+[manual transcript](https://oldgamesdownload.com/manual/warcraft-ii-tides-of-darkness-dos-mac-windows-manual-english/)
+(mirror, pages 6–7) identifies owned minimap units/buildings as green and
+the resource fields as gold, lumber, oil and food. The previously drawn
+score zero has no basis in that description and was removed. Exact pixel
+alignment and minimap sampling remain unverified against retail. The report records the native
+evidence, corrected hypotheses, review findings and reproducible tests:
+[WAR2_EXE_FINDINGS.md](docs/WAR2_EXE_FINDINGS.md).

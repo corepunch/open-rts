@@ -470,6 +470,9 @@ static int layout(void) {
     CHECK(r.x == W && r.y == 0 && r.w == 10 && r.h == 4);
     r = M_MenuItemRect(&menu, &items[CHECK_BOX]);
     CHECK(r.x == 0 && r.y == 6 + W && r.h == 4 + W);
+    items[CHECK_BOX].anchor = MANCHOR_BOTTOM | MANCHOR_WIDE;
+    r = M_MenuItemRect(&menu, &items[CHECK_BOX]);
+    CHECK(r.x == 0 && r.y == 6 + W && r.w == 4 + W && r.h == 4);
     CHECK(M_MenuItemRect(&menu, &items[FIELD]).x == 0);
     menu.stretch = true;
     r = M_MenuItemRect(&menu, &items[FIELD]);

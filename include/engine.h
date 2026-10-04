@@ -847,8 +847,8 @@ void A_Attack(mobj_t *unit);
 typedef enum {
     TC_NONE, TC_ORDER, TC_MOVE, TC_HARVEST, TC_ATTACK, TC_STOP, TC_BUILD, TC_DEPLOY,
     TC_PURCHASE, TC_SUBMIT, TC_MODE, TC_WAYPOINT, TC_PAUSE,
-    TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT,
-    TC_MAX = TC_CHAT
+    TC_PATH, TC_ALLY, TC_SHARE_SIGHT, TC_GIVE, TC_SPEED, TC_CHAT, TC_RETURN_GOODS,
+    TC_MAX = TC_RETURN_GOODS
 } ticorder_t;
 
 typedef struct {
@@ -1255,6 +1255,7 @@ bool L_IsWalkable(const level_t *map, int x, int y);
 int L_MoveSpeed(const level_t *map, int move_class, int x, int y);
 int P_FindPath(const level_t *map, cell_t start, cell_t goal, cell_t *out_path, int max_path);
 void P_NavFree(level_t *map);
+bool P_NavReachable(const level_t *map, int move_class, ivec2_t from, ivec2_t to);
 
 void R_GridToScreen(const app_t *app, float gx, float gy, float *sx, float *sy);
 cell_t R_ScreenToGrid(const app_t *app, int sx, int sy);
@@ -2099,8 +2100,8 @@ enum {
 };
 
 /* On a screen larger than menu->size a rect keeps its top-left place, or
- * follows the right or bottom edge, or grows by the extra height. */
-enum { MANCHOR_RIGHT = 1, MANCHOR_BOTTOM = 2, MANCHOR_GROW = 4 };
+ * follows the right or bottom edge, or grows by the extra height/width. */
+enum { MANCHOR_RIGHT = 1, MANCHOR_BOTTOM = 2, MANCHOR_GROW = 4, MANCHOR_WIDE = 8 };
 
 /* MA_ACTIVATE: clicked, its hotkey pressed, or Enter while focused or
  * edited; a check box has already changed. MA_SECONDARY: clicked with the
@@ -2268,6 +2269,7 @@ typedef struct {
     int unit_count;
     const spritecache_t *sprites;
     const hudtext_t *messages;
+    const tileset_t *tileset; /* Borrowed native terrain for minimap drawing. */
 } hudview_t;
 extern hudview_t hudview;
 

@@ -1322,6 +1322,21 @@ static void order_selected_at(app_t *app, const level_t *map,
                               game_info, mouse.x, mouse.y, -1);
     bool attack = target >= 0 && units[target]->owner != consoleplayer && units[target]->hp > 0;
     ticorder_t order = TC_ORDER;
+    if (attack) {
+        for (int v = 0; v < map->resource_vent_count; ++v) {
+            const resourcevent_t *vent = &map->resource_vents[v];
+            if (vent->source_id != units[target]->id) continue;
+            for (int i = 0; i < unit_count; ++i) {
+                const mobj_t *unit = units[i];
+                if (!P_MobjIsSelected(unit) || unit->owner != consoleplayer ||
+                    !(unit->traits & MF_HARVESTER) || !P_VentOpenTo(map, vent, unit)) continue;
+                goal = vent->attachment;
+                attack = false;
+                break;
+            }
+            if (!attack) break;
+        }
+    }
 #ifdef RTS_GAME_DARK_COLONY
     for (int i = 0; i < unit_count; ++i)
         if (P_MobjIsSelected(units[i]) && units[i]->owner == consoleplayer && units[i]->move_only) {

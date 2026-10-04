@@ -131,7 +131,7 @@ static void bind_widget(menuitem_t *item, const spritesheet_t *sheet, int normal
 bool G_InitMenus(app_t *app, const char *root) {
     (void)app;
     if (!w2_load_menu_art(root, &art))
-        fprintf(stderr, "warcraft2: menu art was not loaded\n");
+        fprintf(stderr, "warcraft-2: menu art was not loaded\n");
     return true;
 }
 

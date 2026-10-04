@@ -7,7 +7,11 @@
 #include <stdint.h>
 
 #define W2_TYPE_COUNT 105
-#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2)
+#define W2_SPRITE_COUNT (W2_TYPE_COUNT + 4)
+#define W2_WORK_STATE(pud) (1 + W2_TYPE_COUNT * 2 + ((pud) - 2) * 8)
+#define W2_WAIT_STATE(pud) (W2_WORK_STATE(pud) + 7)
+#define W2_CARRY_STATE(variant) (1 + W2_TYPE_COUNT * 2 + 16 + (variant) * 2)
+#define W2_STATE_COUNT (1 + W2_TYPE_COUNT * 2 + 16 + 8)
 #define W2_MOBJ_COUNT (W2_TYPE_COUNT + 1)
 #define W2_TILE_LOOKUP 0x9E0
 /* Stratagus Speed is not cells per second. This divisor is an engine
@@ -41,6 +45,8 @@ typedef struct {
     uint8_t range;
     uint8_t sight;
     uint16_t grp[4];
+    uint8_t armor, damage_min;
+    const char *label;
 } w2_unit_t;
 
 typedef struct {
@@ -91,6 +97,8 @@ int w2_install_team_colors(spritesheet_t *sprite, const uint32_t palette[256]);
 
 bool w2_load_pud(const char *path, level_t *out);
 int w2_spawn_units(void);
+bool w2_init_resources(level_t *map);
+bool w2_load_carriers(const w2_archive_t *arc, const uint32_t palette[256], spritecache_t *cache);
 bool w2_load_assets(const char *data_root, const level_t *map, const char *sprite_name,
                     tileset_t *tileset, spritesheet_t *unit_sprite);
 bool w2_load_runtime_sprites(const char *data_root, const level_t *map,
@@ -109,8 +117,8 @@ typedef struct {
 } w2_menu_art_t;
 
 typedef struct {
-    spritesheet_t menu_button, minimap, info, buttons, resource, status, filler, icons;
-    bitmapfont_t font;
+    spritesheet_t menu_button, minimap, info, buttons, resource, status, filler, icons, resource_icons;
+    bitmapfont_t font, small_font;
     bool orc;
     bool ready;
 } w2_hud_art_t;

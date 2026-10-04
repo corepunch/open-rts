@@ -15,7 +15,7 @@ they work in headless/CI environments:
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony --check
 env SDL_VIDEODRIVER=dummy build/bin/dark-colony --screenshot /private/tmp/open-rts-smoke.bmp
 env SDL_VIDEODRIVER=dummy build/bin/kknd --check
-env SDL_VIDEODRIVER=dummy build/bin/warcraft2 --check
+env SDL_VIDEODRIVER=dummy build/bin/warcraft-2 --check
 ```
 
 ## Renderer notes
@@ -42,6 +42,6 @@ Each game has its own binary in `build/bin/`:
 - `build/bin/dark-reign`   — Dark Reign
 - `build/bin/7legion`      — 7th Legion
 - `build/bin/kknd`         — KKnD
-- `build/bin/warcraft2`   — Warcraft II (`data/WAR2/ALAMO.PUD`)
+- `build/bin/warcraft-2`   — Warcraft II (`data/WAR2/ALAMO.PUD`)
 
 No `--game` flag needed. No dynamic plugin loading.

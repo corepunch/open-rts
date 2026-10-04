@@ -21,13 +21,13 @@ static bool open_data(w2_archive_t *arc, const char *root, const char *file) {
     char path[1024];
     snprintf(path, sizeof(path), "%s/DATA/%s", root && root[0] ? root : "data/WAR2", file);
     if (w2_archive_open(arc, path)) return true;
-    fprintf(stderr, "warcraft2: cannot open %s\n", path);
+    fprintf(stderr, "warcraft-2: cannot open %s\n", path);
     return false;
 }
 
 static bool take_entry(const w2_archive_t *arc, int index, w2_blob_t *out) {
     if (w2_archive_extract(arc, index, out)) return true;
-    fprintf(stderr, "warcraft2: entry %d failed\n", index);
+    fprintf(stderr, "warcraft-2: entry %d failed\n", index);
     return false;
 }
 
@@ -121,7 +121,8 @@ static bool decode_gfu_plate(const w2_blob_t *entry, const uint32_t palette[256]
     int count = (int)u16_at(entry->data);
     int max_w = (int)u16_at(entry->data + 2);
     int max_h = (int)u16_at(entry->data + 4);
-    if (count < 1 || max_w < 1 || max_h < 1 || max_w > 2048 || max_h > 2048) return false;
+    if (count < 1 || entry->size < 6u + (size_t)count * 8u ||
+        max_w < 1 || max_h < 1 || max_w > 2048 || max_h > 2048) return false;
     unsigned xoff, yoff, width, height, offset;
     if (!gfu_header(entry, 0, &xoff, &yoff, &width, &height, &offset)) return false;
     uint8_t *pixels = calloc((size_t)max_w * (size_t)max_h, 1);
@@ -150,7 +151,7 @@ static void font_rle(uint8_t *dst, int pitch, int width, int height,
             x -= width;
             if (++y >= height) return;
         }
-        if (x >= 0 && x < width) dst[y * pitch + x] = (uint8_t)(ctrl & 7u);
+        if (x >= 0 && x < width) dst[y * pitch + x] = (uint8_t)((ctrl & 7u) + 1);
         if (++x >= width) {
             x -= width;
             if (++y >= height) return;
@@ -158,7 +159,7 @@ static void font_rle(uint8_t *dst, int pitch, int width, int height,
     }
 }
 
-static bool decode_font(const w2_blob_t *entry, bitmapfont_t *font) {
+static bool decode_font(const w2_blob_t *entry, const uint32_t colours[256], bitmapfont_t *font) {
     memset(font, 0, sizeof(*font));
     for (int i = 0; i < 128; ++i) font->glyph_index[i] = -1;
     if (!entry || entry->size < 8 || memcmp(entry->data, "FONT ", 5) != 0) return false;
@@ -170,9 +171,11 @@ static bool decode_font(const w2_blob_t *entry, bitmapfont_t *font) {
     if (entry->size < 8u + (size_t)count * 4u) return false;
     if (!R_AllocSpriteCells(&font->sprite, 96)) return false;
     uint32_t palette[256] = { 0 };
-    for (int i = 1; i <= 7; ++i) {
-        unsigned v = (unsigned)(80 + i * 25);
-        palette[i] = 0xff000000u | (v << 16) | (v << 8) | v;
+    static const uint8_t white[] = {239, 246, 246, 246, 104, 239, 239, 239};
+    static const uint8_t yellow[] = {246, 200, 199, 197, 192, 239, 104, 239};
+    for (int i = 0; i < 8; ++i) {
+        palette[i + 1] = colours[white[i]];
+        palette[i + 9] = colours[yellow[i]];
     }
     font->sprite.indexed = true;
     font->sprite.frame_size = (isize2_t){max_w, max_h};
@@ -182,6 +185,13 @@ static bool decode_font(const w2_blob_t *entry, bitmapfont_t *font) {
     font->line_h = max_h;
     font->native_origin = true;
     font->own_palette = true;
+    font->sprite.palette_maps = calloc(1, sizeof(*font->sprite.palette_maps));
+    if (!font->sprite.palette_maps) { HU_FreeFont(font); return false; }
+    font->sprite.palette_map_count = 1;
+    spritepalettemap_t *map = font->sprite.palette_maps;
+    map->id = 1;
+    for (int i = 0; i < 256; ++i) map->indices[i] = (uint8_t)i;
+    for (int i = 1; i <= 8; ++i) map->indices[i] = (uint8_t)(i + 8);
     int cell = 0;
     int indexed = count < 96 ? count : 96;
     for (int i = 0; i < indexed && cell < 96; ++i) {
@@ -203,20 +213,22 @@ static bool decode_font(const w2_blob_t *entry, bitmapfont_t *font) {
         const uint8_t *gp = entry->data + offset;
         int width = gp[0];
         int height = gp[1];
+        int xoff = gp[2];
         int yoff = gp[3];
         if (width < 1 || height < 1 || width > 128 || height > 128) continue;
-        uint8_t *image = calloc((size_t)width * (size_t)max_h, 1);
+        int advance = xoff + width;
+        if (advance > max_w || yoff >= max_h) continue;
+        uint8_t *image = calloc((size_t)advance * (size_t)max_h, 1);
         if (!image) break;
-        int top = yoff < 0 ? 0 : yoff;
-        int room = max_h - top;
+        int room = max_h - yoff;
         if (room > 0)
-            font_rle(image + (size_t)top * (size_t)width, width, width,
+            font_rle(image + (size_t)yoff * (size_t)advance + xoff, advance, width,
                      height < room ? height : room, gp + 4, entry->data + entry->size);
         font->sprite.lumps[cell].indices = image;
-        font->sprite.cells[cell].rect = (irect_t){0, 0, width, max_h};
+        font->sprite.cells[cell].rect = (irect_t){0, 0, advance, max_h};
         font->sprite.cells[cell].bounds = font->sprite.cells[cell].rect;
         font->glyph_index[ch] = cell;
-        font->glyph_width[ch] = (uint8_t)width;
+        font->glyph_width[ch] = (uint8_t)advance;
         cell++;
     }
     if (font->glyph_index[' '] < 0 && cell < 96) {
@@ -242,12 +254,16 @@ static int icon_entry(int era) {
     return 356;
 }
 
-static bool load_font_entry(const w2_archive_t *arc, bitmapfont_t *font) {
+static bool load_font(const w2_archive_t *arc, int entry, bitmapfont_t *font) {
     w2_blob_t blob = { 0 };
-    if (!take_entry(arc, 282, &blob)) return false;
-    bool ok = decode_font(&blob, font);
+    w2_blob_t pal = {0};
+    uint32_t palette[256];
+    if (!take_entry(arc, entry, &blob)) return false;
+    bool ok = take_entry(arc, 2, &pal) && w2_decode_palette(&pal, palette) &&
+              decode_font(&blob, palette, font);
+    w2_blob_free(&pal);
     w2_blob_free(&blob);
-    if (!ok) fprintf(stderr, "warcraft2: entry 282 failed\n");
+    if (!ok) fprintf(stderr, "warcraft-2: font entry %d failed\n", entry);
     return ok;
 }
 
@@ -256,7 +272,7 @@ bool HU_LoadFont(const char *root, bitmapfont_t *font) {
     HU_FreeFont(font);
     w2_archive_t arc;
     if (!open_data(&arc, root, "MAINDAT.WAR")) return false;
-    bool ok = load_font_entry(&arc, font);
+    bool ok = load_font(&arc, 282, font);
     w2_archive_close(&arc);
     return ok;
 }
@@ -267,7 +283,7 @@ static bool load_img_entry(const w2_archive_t *arc, int index, const uint32_t pa
     if (!take_entry(arc, index, &blob)) return false;
     bool ok = decode_img(&blob, palette, out);
     w2_blob_free(&blob);
-    if (!ok) fprintf(stderr, "warcraft2: entry %d failed\n", index);
+    if (!ok) fprintf(stderr, "warcraft-2: entry %d failed\n", index);
     return ok;
 }
 
@@ -276,7 +292,7 @@ static bool load_gfu_entry(const w2_archive_t *arc, int index, const uint32_t pa
     w2_blob_t blob = { 0 };
     if (!take_entry(arc, index, &blob)) return false;
     bool ok = plate ? decode_gfu_plate(&blob, palette, out) : decode_gfu(&blob, palette, out);
-    if (!ok) fprintf(stderr, "warcraft2: entry %d failed\n", index);
+    if (!ok) fprintf(stderr, "warcraft-2: entry %d failed\n", index);
     w2_blob_free(&blob);
     return ok;
 }
@@ -302,7 +318,9 @@ void w2_free_hud_art(w2_hud_art_t *art) {
     R_FreeSprite(&art->status);
     R_FreeSprite(&art->filler);
     R_FreeSprite(&art->icons);
+    R_FreeSprite(&art->resource_icons);
     HU_FreeFont(&art->font);
+    HU_FreeFont(&art->small_font);
     memset(art, 0, sizeof(*art));
 }
 
@@ -315,7 +333,7 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     uint32_t palette[256];
     bool colors = take_entry(&rez, 14, &pal) && w2_decode_palette(&pal, palette);
     w2_blob_free(&pal);
-    if (!colors) fprintf(stderr, "warcraft2: entry 14 failed\n");
+    if (!colors) fprintf(stderr, "warcraft-2: entry 14 failed\n");
     bool widgets = colors &&
         load_gfu_entry(&rez, 0, palette, &art->widgets[0], false) &&
         load_gfu_entry(&rez, 1, palette, &art->widgets[1], false);
@@ -327,7 +345,7 @@ bool w2_load_menu_art(const char *root, w2_menu_art_t *art) {
     w2_archive_t maindat;
     bool font = false;
     if (open_data(&maindat, root, "MAINDAT.WAR")) {
-        font = load_font_entry(&maindat, &art->font);
+        font = load_font(&maindat, 282, &art->font);
         w2_archive_close(&maindat);
     }
     art->ready = widgets && panels && title && font;
@@ -345,7 +363,7 @@ bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art) {
     int pal_i = w2_era_palette(era);
     bool colors = take_entry(&arc, pal_i, &pal) && w2_decode_palette(&pal, palette);
     w2_blob_free(&pal);
-    if (!colors) fprintf(stderr, "warcraft2: entry %d failed\n", pal_i);
+    if (!colors) fprintf(stderr, "warcraft-2: entry %d failed\n", pal_i);
     int side = orc ? 1 : 0;
     static const int chrome[] = { 293, 295, 297, 287, 291, 289 };
     spritesheet_t *slots[] = {
@@ -364,9 +382,10 @@ bool w2_load_hud_art(const char *root, int era, bool orc, w2_hud_art_t *art) {
         int icon_i = icon_entry(era);
         if (take_entry(&arc, icon_i, &icons))
             icon_ok = w2_decode_grp(&icons, palette, &art->icons, false, NULL);
-        if (!icon_ok) fprintf(stderr, "warcraft2: entry %d failed\n", icon_i);
+        if (!icon_ok) fprintf(stderr, "warcraft-2: entry %d failed\n", icon_i);
         w2_blob_free(&icons);
-        font = load_font_entry(&arc, &art->font);
+        font = load_font(&arc, 282, &art->font) && load_font(&arc, 283, &art->small_font);
+        plates = load_gfu_entry(&arc, 187, palette, &art->resource_icons, false) && plates;
     }
     w2_archive_close(&arc);
     art->ready = plates && info && icon_ok && font;
